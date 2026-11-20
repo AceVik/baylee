@@ -23,7 +23,10 @@ const COMBAT_ATTACK_KEYWORDS: KeywordSet = KeywordSet::BATTLE_CRY
     .union(KeywordSet::DETHRONE)
     .union(KeywordSet::MELEE)
     .union(KeywordSet::MENTOR)
-    .union(KeywordSet::TRAINING);
+    .union(KeywordSet::TRAINING)
+    .union(KeywordSet::MYRIAD);
+
+static MYRIAD_EFFECTS: &[Effect] = &[Effect::Myriad];
 
 static OTHER_ATTACKING_CREATURES: Filter =
     Filter::And(&[Filter::Another, Filter::ATTACKING_CREATURE]);
@@ -99,6 +102,7 @@ pub(super) fn collect(
                 n,
                 BATTLE_CRY_EFFECTS,
                 None,
+                None,
                 triggers,
             );
         }
@@ -119,6 +123,7 @@ pub(super) fn collect(
                 n,
                 PLUS_ONE_COUNTER_SOURCE,
                 None,
+                None,
                 triggers,
             );
         }
@@ -129,7 +134,16 @@ pub(super) fn collect(
         if kws.contains(KeywordSet::MELEE) {
             let n = crate::layers::keyword_instances(state, source, KeywordSet::MELEE)
                 .saturating_mul(multiplier);
-            push_synthetic(state, source, entry.seq, n, MELEE_EFFECTS, None, triggers);
+            push_synthetic(
+                state,
+                source,
+                entry.seq,
+                n,
+                MELEE_EFFECTS,
+                None,
+                None,
+                triggers,
+            );
         }
 
         // CR 702.134a–b: Mentor — "Whenever this creature attacks, put a +1/+1
@@ -145,6 +159,7 @@ pub(super) fn collect(
                 n,
                 MENTOR_EFFECTS,
                 Some(TargetReq::one(TargetSpec::Object(&MENTOR_TARGET))),
+                None,
                 triggers,
             );
         }
@@ -164,9 +179,49 @@ pub(super) fn collect(
                 n,
                 PLUS_ONE_COUNTER_SOURCE,
                 None,
+                None,
                 triggers,
             );
         }
+
+        if kws.contains(KeywordSet::MYRIAD) {
+            collect_myriad(state, source, *defending, entry.seq, multiplier, triggers);
+        }
+    }
+}
+
+/// CR 702.116a–b: Myriad — "Whenever this creature attacks, for each opponent
+/// other than defending player, you may create a token that's a copy of this
+/// creature that's tapped and attacking that player or a planeswalker they
+/// control. If one or more tokens are created this way, exile the tokens at end
+/// of combat."
+fn collect_myriad(
+    state: &GameState,
+    source: &GameObject,
+    defending: Defender,
+    seq: u64,
+    multiplier: u32,
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    let defending_player = crate::combat::blocking_player(state, defending);
+    let has_other_opponent = state.players.iter().any(|p| {
+        !p.has_lost()
+            && state.is_opponent(p.id, source.controller)
+            && Some(p.id) != defending_player
+    });
+    if has_other_opponent {
+        let n = crate::layers::keyword_instances(state, source, KeywordSet::MYRIAD)
+            .saturating_mul(multiplier);
+        push_synthetic(
+            state,
+            source,
+            seq,
+            n,
+            MYRIAD_EFFECTS,
+            None,
+            defending_player,
+            triggers,
+        );
     }
 }
 
@@ -216,6 +271,7 @@ fn attacked_with_greater_power(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn push_synthetic(
     state: &GameState,
     source: &GameObject,
@@ -223,6 +279,7 @@ fn push_synthetic(
     count: u32,
     effects: &'static [Effect],
     target: Option<TargetReq>,
+    event_player: Option<baylee_core::ids::PlayerId>,
     triggers: &mut Vec<PendingTrigger>,
 ) {
     let identity = state.event_object_identity(source.id, seq);
@@ -240,7 +297,7 @@ fn push_synthetic(
             event_mana_value: None,
             event_departure: None,
             event_amount: None,
-            event_player: None,
+            event_player,
             source: source.id,
             ability_index: AbilityRef::SYNTHETIC,
             controller: source.controller,

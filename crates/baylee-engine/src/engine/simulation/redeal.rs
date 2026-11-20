@@ -607,8 +607,14 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::ExiledWith { host: object, .. }
         | Rider::MergedComponent(object)
         | Rider::MergedTop(object)
-        | Rider::MergedInto(object) => Some(object),
-        Rider::Masked
+        | Rider::MergedInto(object)
+        | Rider::NinjutsuDefender(
+            baylee_core::ids::Defender::Planeswalker(object)
+            | baylee_core::ids::Defender::Battle(object),
+            _,
+        ) => Some(object),
+        Rider::NinjutsuDefender(baylee_core::ids::Defender::Player(_), _)
+        | Rider::Masked
         | Rider::TriggerSourceVersion(_)
         | Rider::AbilitySourceVersion(_)
         | Rider::GrantedActivated

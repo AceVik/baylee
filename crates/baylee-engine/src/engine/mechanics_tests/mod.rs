@@ -25,6 +25,7 @@ mod blocks;
 mod branches;
 mod chosen_count_entry;
 mod color_source;
+mod combat_and_keywords_wave4;
 mod combat_memory;
 mod command_and_combat_wave3;
 mod control;

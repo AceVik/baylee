@@ -2017,6 +2017,56 @@ impl HeuristicAgent {
                 }
                 best
             }
+            Effect::Myriad => {
+                let orig = origin.object?;
+                let extra = i64::try_from(
+                    view.seats
+                        .iter()
+                        .filter(|s| s.loss.is_none() && self.hostile(s.player, me))
+                        .count()
+                        .saturating_sub(1),
+                )
+                .unwrap_or(0);
+                let worth = tokens::single_copy_worth(self, view, orig, extra, &[], true)?;
+                if worth > 0 {
+                    evaluation.created_tokens = evaluation.created_tokens.saturating_add(extra);
+                }
+                worth
+            }
+            Effect::PutNinjutsuOntoBattlefield => {
+                let pre_damage = view.phase == Phase::Combat
+                    && matches!(view.step, Step::DeclareBlockers | Step::CombatDamageFirst);
+                if let Some(o) = origin.object {
+                    let hit = if pre_damage {
+                        i64::from(o.power.unwrap_or(0).max(0)) * 30
+                    } else {
+                        0
+                    };
+                    Self::permanent_worth(view, o) + self.etb_worth(view, o) + hit
+                } else {
+                    let held = baylee_client_core::decision::known_cards(view)
+                        .find(|c| c.id == origin.id)?;
+                    let def = baylee_cards::by_index(held.card.index)?;
+                    let face = def.faces.get(usize::from(held.card.face))?;
+                    let p = i64::from(face.power.unwrap_or(0).max(0));
+                    let t = i64::from(face.toughness.unwrap_or(0).max(0));
+                    let mv = i64::from(face.mana_cost.cmc());
+                    let kw = i64::from(face.keywords.union(def.keywords).bits().count_ones()) * 30;
+                    let hit = if pre_damage { p * 30 } else { 0 };
+                    100 + p * 60 + t * 25 + mv * 20 + kw + hit
+                }
+            }
+            Effect::ExertSource => {
+                let o = origin.object?;
+                if creature(o) {
+                    -(30 + i64::from(o.power.unwrap_or(0).max(0)) * 15
+                        + i64::from(o.toughness.unwrap_or(0).max(0)) * 10)
+                } else if makes_mana(o) {
+                    -Self::mana_price(view)
+                } else {
+                    0
+                }
+            }
             Effect::RollDice {
                 count: dice,
                 sides,
@@ -2519,6 +2569,100 @@ impl HeuristicAgent {
         }
     }
 
+    /// Whether `"you may exert ~"` (`[Effect::ExertSource]`) is worth taking
+    /// given a trailing reflexive payoff or any `Trigger::Exerted` listeners on
+    /// this seat's battlefield (CR 701.43a, CR 603.12).
+    pub(crate) fn exert_may_worth(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        context_effects: &[Effect],
+        x: u32,
+    ) -> bool {
+        use baylee_cards_dsl::{ReflexiveEvent, ReflexiveWhen};
+        let exert_delta = self
+            .effects_worth(view, origin, &[Effect::ExertSource], Aim::Source, x)
+            .unwrap_or(-60);
+        let payoff_at = |effects: &[Effect], req: Option<TargetReq>| -> Option<i64> {
+            match req {
+                None => self.effects_worth(view, origin, effects, Aim::Source, x),
+                Some(r) => {
+                    let candidates = self.aims(view, origin, &r.spec)?;
+                    if candidates.len() < usize::from(r.min) {
+                        return Some(i64::MIN / 4);
+                    }
+                    let mut best = (r.min == 0).then_some(0_i64);
+                    for aim in candidates {
+                        let w = self.effects_worth(view, origin, effects, aim, x)?;
+                        best = Some(best.map_or(w, |b| b.max(w)));
+                    }
+                    Some(best.unwrap_or(i64::MIN / 4))
+                }
+            }
+        };
+        for eff in context_effects {
+            match eff {
+                Effect::Reflexive {
+                    when: ReflexiveEvent::ExertedThis,
+                    effects,
+                    target,
+                } => {
+                    let req = target.map(|spec| match spec {
+                        TargetSpec::ObjectOfEachOpponent(_) => TargetReq::up_to(spec, u8::MAX),
+                        _ => TargetReq::one(spec),
+                    });
+                    return payoff_at(effects, req)
+                        .is_none_or(|w| w.saturating_add(exert_delta) >= 0);
+                }
+                Effect::ReflexiveTrigger {
+                    when: ReflexiveWhen::Event(ReflexiveEvent::ExertedThis),
+                    effects,
+                    targets,
+                    ..
+                } => {
+                    return payoff_at(effects, *targets)
+                        .is_none_or(|w| w.saturating_add(exert_delta) >= 0);
+                }
+                _ => {}
+            }
+        }
+        let mut any_listener = false;
+        let mut total = 0_i64;
+        for o in view.battlefield_of(view.seat) {
+            if o.status.is_phased_out() {
+                continue;
+            }
+            for ability in printed_list(o) {
+                let AbilityDef::Triggered {
+                    trigger: Trigger::Exerted(filter),
+                    effects,
+                    targets,
+                    ..
+                } = ability
+                else {
+                    continue;
+                };
+                let matches_src = if matches!(filter, Filter::This) {
+                    o.id == origin.id
+                } else {
+                    origin.object.is_none_or(|src| {
+                        self.filter_matches(filter, view, src, ZoneRef::Battlefield, Some(o.id))
+                            != Some(false)
+                    })
+                };
+                if !matches_src {
+                    continue;
+                }
+                any_listener = true;
+                let Some(val) = payoff_at(effects, *targets) else {
+                    return true;
+                };
+                total = total.saturating_add(val);
+            }
+        }
+        any_listener && total.saturating_add(exert_delta) >= 0
+    }
+
     /// Tapping status and controller determine the immediate value of untapping.
     fn untap_worth(&self, view: &PlayerView, object: &PublicObject) -> i64 {
         if !object.status.contains(ObjectStatus::TAPPED) {
@@ -2809,6 +2953,36 @@ impl HeuristicAgent {
                     .into_iter()
                     .map(|o| i64::from(o.mana_value) * 60 + 50)
                     .min()?,
+                CostPart::ReturnUnblockedAttacker => {
+                    if view.phase != Phase::Combat
+                        || !matches!(
+                            view.step,
+                            Step::DeclareBlockers
+                                | Step::CombatDamageFirst
+                                | Step::CombatDamage
+                                | Step::CombatEnd
+                        )
+                    {
+                        return None;
+                    }
+                    let pre_damage =
+                        matches!(view.step, Step::DeclareBlockers | Step::CombatDamageFirst);
+                    view.combat
+                        .attackers
+                        .iter()
+                        .filter(|a| !a.blocked)
+                        .filter_map(|a| view.object(a.creature))
+                        .filter(|o| o.controller == me && creature(o))
+                        .map(|o| {
+                            let damage_given_up = if pre_damage {
+                                i64::from(o.power.unwrap_or(0).max(0)) * 30
+                            } else {
+                                0
+                            };
+                            i64::from(o.mana_value) * 60 + 50 + damage_given_up
+                        })
+                        .min()?
+                }
             };
         }
         Some(total)

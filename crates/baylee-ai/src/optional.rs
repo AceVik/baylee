@@ -95,6 +95,16 @@ fn closed(view: &PlayerView, condition: &Condition) -> bool {
         Condition::ControlYourCommander => !view
             .battlefield_of(me)
             .any(|o| !o.status.is_phased_out() && o.commander && o.owner == me),
+        Condition::InCombatAfterBlockers => {
+            view.phase != baylee_view::Phase::Combat
+                || !matches!(
+                    view.step,
+                    Step::DeclareBlockers
+                        | Step::CombatDamageFirst
+                        | Step::CombatDamage
+                        | Step::CombatEnd
+                )
+        }
         _ => false,
     }
 }
@@ -317,6 +327,9 @@ impl HeuristicAgent {
         let Some(id) = context.source else {
             return true;
         };
+        if matches!(then, [Effect::ExertSource]) {
+            return self.exert_may_worth(view, Origin::of(view, id), context.effects, context.x);
+        }
         // The resolving object's own target, when it has one: what "it" is
         // in the yes. For a triggered or activated ability on the stack,
         // `context.source` is the originating permanent (`res.source`), while

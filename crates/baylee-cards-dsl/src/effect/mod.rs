@@ -4912,6 +4912,24 @@ pub enum Effect {
         /// Play or cast permission granted on each linked exiled card incarnation.
         permission: ExilePermission,
     },
+    /// Put this exact source card incarnation from your hand or command zone
+    /// onto the battlefield tapped and attacking the defender recorded when
+    /// [`crate::CostPart::ReturnUnblockedAttacker`] was paid (ninjutsu and
+    /// commander ninjutsu, CR 702.49a, CR 702.49c, CR 702.49d). If that
+    /// defender is no longer a legal combat defender, enters tapped and not
+    /// attacking (CR 508.4a). Appended to preserve replay identities.
+    PutNinjutsuOntoBattlefield,
+    /// Myriad's resolution body (CR 702.116a): for each opponent other than the
+    /// defending player recorded when this creature attacked, you may create a
+    /// token copy of this creature tapped and attacking that opponent or a
+    /// planeswalker they control, exiled at end of combat. Appended to preserve
+    /// replay identities.
+    Myriad,
+    /// Exert this ability's source permanent if it is still on the battlefield
+    /// (CR 701.43a–c): it doesn't untap during its controller's next untap step,
+    /// and [`crate::Trigger::Exerted`] / [`ReflexiveEvent::ExertedThis`] observe
+    /// the exertion. Appended to preserve replay identities.
+    ExertSource,
 }
 
 #[cfg(test)]

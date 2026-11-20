@@ -354,23 +354,7 @@ fn this_way_entry_context(
                 ..
             },
             ThisWay::ReturnedToHand(filter),
-        ) => state.object(*object).and_then(|card| {
-            let chars = state
-                .last_known_characteristics(*object)
-                .unwrap_or_else(|| card.characteristics());
-            crate::eval::matches_projected_with_context(
-                filter,
-                state,
-                card,
-                chars,
-                res.controller,
-                rule_ctx,
-            )
-            .then(|| match entry.departure.as_deref() {
-                Some(dep) => super::delayed_general::context_from_departure(state, *object, dep),
-                None => super::delayed_general::context_from_object(state, *object, None),
-            })
-        }),
+        ) => departed_battlefield_context(state, res, rule_ctx, entry, *object, filter),
         (
             GameEvent::ZoneChanged {
                 object,
@@ -425,8 +409,44 @@ fn this_way_entry_context(
             crate::eval::matches_with_context(filter, state, card, res.controller, rule_ctx)
                 .then(|| super::delayed_general::context_from_object(state, *object, None))
         }),
+        (
+            GameEvent::LifeChanged {
+                player, old, new, ..
+            },
+            ThisWay::LifeLost,
+        ) if new < old => Some(RememberedContext {
+            player: Some(*player),
+            amount: Some(old.abs_diff(*new)),
+            ..RememberedContext::default()
+        }),
         _ => None,
     }
+}
+
+fn departed_battlefield_context(
+    state: &GameState,
+    res: &Resolution,
+    rule_ctx: crate::text_changes::RuleContext,
+    entry: &crate::event::JournalEntry,
+    object: baylee_core::ids::ObjectId,
+    filter: &baylee_cards_dsl::Filter,
+) -> Option<RememberedContext> {
+    let card = state.object(object)?;
+    let chars = state
+        .last_known_characteristics(object)
+        .unwrap_or_else(|| card.characteristics());
+    crate::eval::matches_projected_with_context(
+        filter,
+        state,
+        card,
+        chars,
+        res.controller,
+        rule_ctx,
+    )
+    .then(|| match entry.departure.as_deref() {
+        Some(dep) => super::delayed_general::context_from_departure(state, object, dep),
+        None => super::delayed_general::context_from_object(state, object, None),
+    })
 }
 
 /// How many times `when` happened since this resolution began.
@@ -556,6 +576,14 @@ fn happened(
             GameEvent::ZoneChanged {
                 object,
                 to: Zone::Exile,
+                cause: Cause::Effect,
+                ..
+            } if *object == res.source
+        ),
+        ReflexiveEvent::ExertedThis => matches!(
+            event,
+            GameEvent::PermanentExerted {
+                object,
                 cause: Cause::Effect,
                 ..
             } if *object == res.source

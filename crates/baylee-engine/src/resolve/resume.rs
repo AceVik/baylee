@@ -844,6 +844,13 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::Myriad(plan) => {
+            if let Some(pending) =
+                super::wave4_combat::resume_myriad_walker(state, res, *plan, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::BlockedReturns(returns) => {
             if let Some(pending) = super::blocked_returns::resume(state, res, *returns, chosen) {
                 return next_choice(state, res, since, pending);

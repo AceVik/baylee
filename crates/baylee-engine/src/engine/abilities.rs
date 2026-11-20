@@ -178,7 +178,8 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::PutCounterOnOther { .. }
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExileTopOfLibrary(_)
-        | CostPart::PayAttachedManaCost => false,
+        | CostPart::PayAttachedManaCost
+        | CostPart::ReturnUnblockedAttacker => false,
     }
 }
 
@@ -219,6 +220,7 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
+        | CostPart::ReturnUnblockedAttacker
         | CostPart::ExileFromGraveyard(_)
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExileTopOfLibrary(_)

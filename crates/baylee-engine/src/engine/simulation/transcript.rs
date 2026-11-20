@@ -168,7 +168,8 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::Transformed { object, .. }
         | GameEvent::DoorUnlocked { object, .. }
         | GameEvent::AttackerBlocked { object }
-        | GameEvent::CreatureMutated { object } => f(object),
+        | GameEvent::CreatureMutated { object }
+        | GameEvent::PermanentExerted { object, .. } => f(object),
         GameEvent::GameStarted { .. }
         | GameEvent::CoinFlipped { .. }
         | GameEvent::Shuffled { .. }

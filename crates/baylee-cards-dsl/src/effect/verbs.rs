@@ -1317,7 +1317,10 @@ impl Effect {
             | Effect::BecomeCopy { .. }
             | Effect::CopySpellOrAbility { .. }
             | Effect::RollDice { .. }
-            | Effect::GrantProtectionFromChosenColorUntilEot { .. } => (NONE, NONE),
+            | Effect::GrantProtectionFromChosenColorUntilEot { .. }
+            | Effect::PutNinjutsuOntoBattlefield
+            | Effect::Myriad
+            | Effect::ExertSource => (NONE, NONE),
         }
     }
 

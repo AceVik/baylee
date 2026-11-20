@@ -3807,6 +3807,14 @@ pub(super) fn exec_immediate(
             let seats = controlled_by.map(|rel| players_of(rel, state, you, res));
             crate::combat::goad::resolve_all(state, res, filter, seats.as_deref())
         }
+        Effect::PutNinjutsuOntoBattlefield => {
+            wave4_combat::put_ninjutsu_onto_battlefield(state, res)
+        }
+        Effect::Myriad => wave4_combat::start_myriad(state, res),
+        Effect::ExertSource => {
+            wave4_combat::exert_source(state, res);
+            None
+        }
     }
 }
 

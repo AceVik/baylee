@@ -289,6 +289,17 @@ pub(super) fn reflexive_fault_in(
                 return Some("waits for an exile that is not the op directly before it");
             }
         }
+        ReflexiveEvent::ExertedThis => {
+            if !matches!(
+                action,
+                Effect::ExertSource
+                    | Effect::MayDo {
+                        effects: [Effect::ExertSource]
+                    }
+            ) {
+                return Some("waits for an exert that is not the op directly before it");
+            }
+        }
     }
     if !prefix.iter().all(cannot_move_the_source) {
         return Some("lets an op that could move the source stand before the action");

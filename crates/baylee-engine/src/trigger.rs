@@ -619,6 +619,26 @@ static PROWESS_PUMP: &[baylee_cards_dsl::Effect] =
         duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
     }];
 
+static EXTORT_DRAIN: &[baylee_cards_dsl::Effect] = &[
+    baylee_cards_dsl::Effect::LoseLife {
+        target: baylee_cards_dsl::PlayerRel::EachOpponent,
+        amount: baylee_cards_dsl::Amount::Fixed(1),
+    },
+    baylee_cards_dsl::Effect::GainLife {
+        amount: baylee_cards_dsl::Amount::ThisWay(baylee_cards_dsl::ThisWay::LifeLost),
+    },
+];
+
+/// Extort (CR 702.101a): "Whenever you cast a spell, you may pay {W/B}. If you
+/// do, each opponent loses 1 life and you gain life equal to the total life
+/// lost this way."
+static EXTORT_EFFECTS: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::PlayerMayPayManaThen {
+        player: baylee_cards_dsl::PlayerRel::You,
+        cost: baylee_core::mana!("{W/B}"),
+        effects: EXTORT_DRAIN,
+    }];
+
 /// Ward {2} fallback: counter the targeting spell/ability (the implicit
 /// first target).
 static WARD_COUNTER: baylee_cards_dsl::Effect =
@@ -1007,6 +1027,68 @@ fn collect_for_objects(
                     // Once per spell, not once per window: two noncreature
                     // spells can land in one of these (a spell cast during
                     // another's resolution), and prowess counts both.
+                }
+            }
+        }
+        // Extort (engine-level keyword trigger, CR 702.101a–b).
+        if !phased_out_only && batch_has_spells_cast {
+            for entry in events {
+                let GameEvent::SpellCast { player, .. } = &entry.event else {
+                    continue;
+                };
+                if batch_has_phasing
+                    && was_phased_out_at(events, permanent, currently_phased_out, entry.seq, false)
+                {
+                    continue;
+                }
+                let source = source_at_event_with_moves(state, obj, &moves, entry.seq, false);
+                if *player != source.controller
+                    || !source
+                        .characteristics()
+                        .keywords
+                        .contains(baylee_cards_dsl::KeywordSet::EXTORT)
+                {
+                    continue;
+                }
+                let count = crate::layers::keyword_instances(
+                    state,
+                    source,
+                    baylee_cards_dsl::KeywordSet::EXTORT,
+                )
+                .saturating_mul(times_triggered(
+                    state,
+                    baylee_cards_dsl::TriggerEventKind::Any,
+                    permanent,
+                ));
+                for _ in 0..count {
+                    triggers.push(PendingTrigger {
+                        text: TextChangeMap::IDENTITY,
+                        source_version: Some(source.version),
+                        related_objects: None,
+                        grantor: None,
+                        event_subject: None,
+                        event_ability: None,
+                        event_object_identity: None,
+                        counter_source_version: None,
+                        event_mana: None,
+                        event_mana_value: None,
+                        event_departure: None,
+                        event_amount: None,
+                        event_player: None,
+                        source: permanent,
+                        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                        controller: source.controller,
+                        timestamp: source.timestamp,
+                        event_object: Some(permanent),
+                        implicit_target: None,
+                        abilities: None,
+                        synthetic_effects: Some(EXTORT_EFFECTS),
+                        once_per_turn: false,
+                        synthetic_target: None,
+                        chosen_mode: None,
+                        synthetic_condition: None,
+                        in_chosen_order: false,
+                    });
                 }
             }
         }

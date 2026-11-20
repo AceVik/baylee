@@ -591,6 +591,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExileTopOfLibrary(_)
         | CostPart::PayAttachedManaCost
+        | CostPart::ReturnUnblockedAttacker
         | CostPart::SacrificeGrantor => false,
     })
 }

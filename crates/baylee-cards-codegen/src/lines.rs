@@ -631,6 +631,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Chapter(_) => &[],
         T::CoinFlipped { .. } => &["flip"],
         T::DieRolled { .. } => &["roll"],
+        T::Exerted(_) => &["exert"],
     }
 }
 
@@ -731,7 +732,8 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::DealtCombatDamage(filter)
         | Trigger::SpellCast(filter)
         | Trigger::SpellCastUsingSourceMana(filter)
-        | Trigger::SpellCastOrCopied(filter) => {
+        | Trigger::SpellCastOrCopied(filter)
+        | Trigger::Exerted(filter) => {
             // "This" narrowed by a condition is still this object: Bogardan
             // Phoenix's two dies triggers are `This` and with and without a
             // death counter, and both are "when this creature dies".

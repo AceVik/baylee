@@ -26,6 +26,7 @@ mod battle_defeat;
 mod behold;
 mod bird_entry;
 mod names;
+pub(crate) mod wave4_combat;
 pub use names::resume_name;
 mod chosen;
 mod colors;
@@ -1778,7 +1779,10 @@ fn may_clause_possible(state: &GameState, res: &Resolution, effects: &[Effect]) 
         // exiled with it while the list was matched whole.
         [Effect::SacrificeSelf, ..] => zones::can_sacrifice_self(state, res),
         [Effect::SacrificeGrantor, ..] => zones::can_sacrifice_grantor(state, res),
-        [Effect::RemoveAllCountersSelf { .. }, ..] => subjects::source(state, res)
+        [
+            Effect::RemoveAllCountersSelf { .. } | Effect::ExertSource,
+            ..,
+        ] => subjects::source(state, res)
             .is_some_and(|source| subjects::on_battlefield(state, source)),
         [Effect::RemoveCounterSelf { kind, n }, ..] => state.object(res.source).is_some_and(|o| {
             o.zone == crate::zone::Zone::Battlefield

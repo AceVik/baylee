@@ -405,6 +405,10 @@ pub enum ThisWay {
     /// Total mana value of cards revealed this way: Wand of Ith's
     /// "unless they pay life equal to its mana value".
     RevealedManaValue,
+    /// Total life actually lost by players earlier in this resolution
+    /// (extort's "you gain life equal to the total life lost this way",
+    /// CR 702.101a). Appended to preserve replay identities.
+    LifeLost,
 }
 
 impl Amount {

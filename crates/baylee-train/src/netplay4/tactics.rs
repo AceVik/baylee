@@ -4037,6 +4037,16 @@ fn condition_closed(view: &PlayerView, actor: PlayerId, cond: &Condition) -> boo
         Condition::ControlYourCommander => !view.battlefield_of(actor).any(|o| {
             !o.status.contains(ObjectStatus::PHASED_OUT) && o.commander && o.owner == actor
         }),
+        Condition::InCombatAfterBlockers => {
+            view.phase != baylee_view::Phase::Combat
+                || !matches!(
+                    view.step,
+                    Step::DeclareBlockers
+                        | Step::CombatDamageFirst
+                        | Step::CombatDamage
+                        | Step::CombatEnd
+                )
+        }
         Condition::ControlCount(filter, min) => {
             let count = view
                 .battlefield_of(actor)

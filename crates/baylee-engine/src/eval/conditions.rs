@@ -630,6 +630,16 @@ pub fn condition_holds_with_context(
                     || !o.status.contains(crate::object::Status::PHASED_OUT))
                 && (o.zone != Zone::Exile || !o.status.contains(crate::object::Status::FACE_DOWN))
         }),
+        Condition::InCombatAfterBlockers => {
+            state.turn.phase == crate::turn::Phase::Combat
+                && matches!(
+                    state.turn.step,
+                    crate::turn::Step::DeclareBlockers
+                        | crate::turn::Step::CombatDamageFirst
+                        | crate::turn::Step::CombatDamage
+                        | crate::turn::Step::CombatEnd
+                )
+        }
     }
 }
 

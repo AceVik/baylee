@@ -248,6 +248,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.state
                 .change_life(player, -activation_life, crate::event::Cause::Cost);
         }
+        // CR 702.49a–b, d: activating a ninjutsu ability reveals the source
+        // card from hand or command zone.
+        if cost
+            .parts
+            .contains(&baylee_cards_dsl::CostPart::ReturnUnblockedAttacker)
+            && self.state.object(source).is_some_and(|o| {
+                matches!(o.zone, crate::zone::Zone::Hand | crate::zone::Zone::Command)
+                    && Some(o.version) == activated_source_version
+            })
+        {
+            self.state.journal.record(GameEvent::Revealed {
+                player,
+                cards: vec![source],
+            });
+        }
         // "When you cycle this card" is "when you discard this card to pay
         // an activation cost of a cycling ability" (CR 702.29c), and this is
         // the one place that knows both halves: `pay_cost` sees a cost, not
@@ -457,6 +472,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // the effect that asks (Birthing Pod's "1 plus the sacrificed
             // creature's mana value", station's "the tapped creature's
             // power"), the way a spell carries its own.
+            if let Some((defender, target_ver)) = paid.ninjutsu_defender.take()
+                && let Some(obj) = self.state.object_mut(ability)
+            {
+                obj.riders
+                    .push(crate::object::Rider::NinjutsuDefender(defender, target_ver));
+            }
             if paid != crate::object::PaidRecord::default()
                 && let Some(obj) = self.state.object_mut(ability)
             {

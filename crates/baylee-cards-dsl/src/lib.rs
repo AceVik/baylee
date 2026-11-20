@@ -1104,6 +1104,8 @@ keywords! {
     MELEE = 56, "Melee (CR 702.121).";
     MENTOR = 57, "Mentor (CR 702.134).";
     TRAINING = 58, "Training (CR 702.149).";
+    MYRIAD = 59, "Myriad (CR 702.116).";
+    EXTORT = 60, "Extort (CR 702.101).";
 }
 
 impl KeywordSet {
@@ -1229,6 +1231,8 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::MELEE, "Melee"),
     (KeywordSet::MENTOR, "Mentor"),
     (KeywordSet::TRAINING, "Training"),
+    (KeywordSet::MYRIAD, "Myriad"),
+    (KeywordSet::EXTORT, "Extort"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

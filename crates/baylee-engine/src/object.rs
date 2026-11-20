@@ -1128,6 +1128,10 @@ pub enum Rider {
     /// Bargained as an additional cost when cast (CR 702.166b): tracked on the
     /// spell and on the permanent it becomes until leaving the battlefield.
     Bargained,
+    /// Defender (and optional planeswalker/battle incarnation) the creature
+    /// returned to pay `CostPart::ReturnUnblockedAttacker` was attacking
+    /// (ninjutsu, CR 702.49c). Appended to preserve replay identities.
+    NinjutsuDefender(baylee_core::ids::Defender, Option<u32>),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1253,6 +1257,7 @@ impl Rider {
             | Self::Blitzed
             | Self::Bargained
             | Self::EventPlayer(_)
+            | Self::NinjutsuDefender(_, _)
             | Self::SyntheticCondition(_) => false,
         }
     }
@@ -1320,7 +1325,7 @@ impl SacrificedLki {
 /// spell gives it up as it resolves as well: nothing on the battlefield
 /// reads it yet (adamant would be the first), and a record held there would
 /// be an allocation in every AI ply's clone.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PaidRecord {
     /// Exact pre-discard cards paid for this ability, including replaced discards.
     pub discarded: Vec<baylee_core::ids::DamageSourceRef>,
@@ -1365,6 +1370,52 @@ pub struct PaidRecord {
     /// then (id and version) — "the tapped creature" station counts the
     /// power of (CR 702.184a). `None` when the cost tapped nothing else.
     pub tapped: Option<(ObjectId, u32)>,
+    /// Defender (and optional planeswalker/battle incarnation) captured when
+    /// `CostPart::ReturnUnblockedAttacker` bounced an unblocked attacker
+    /// (ninjutsu, CR 702.49c), moved onto `Rider::NinjutsuDefender` as the
+    /// ability goes on the stack.
+    pub ninjutsu_defender: Option<(baylee_core::ids::Defender, Option<u32>)>,
+}
+
+impl std::hash::Hash for PaidRecord {
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        let Self {
+            discarded,
+            source_after_cost,
+            sacrificed_lki,
+            sacrificed,
+            sacrificed_many,
+            mana_spent,
+            colors_spent,
+            mana_types_spent,
+            mana_types_spent_on_x,
+            mana_paid,
+            spend_riders,
+            fixed_mana_cost,
+            mana_spending,
+            tapped,
+            ninjutsu_defender,
+        } = self;
+        discarded.hash(h);
+        source_after_cost.hash(h);
+        sacrificed_lki.hash(h);
+        sacrificed.hash(h);
+        sacrificed_many.hash(h);
+        mana_spent.hash(h);
+        colors_spent.hash(h);
+        mana_types_spent.hash(h);
+        mana_types_spent_on_x.hash(h);
+        mana_paid.hash(h);
+        spend_riders.hash(h);
+        fixed_mana_cost.hash(h);
+        mana_spending.hash(h);
+        tapped.hash(h);
+        // Folded in only when set (ninjutsu, CR 702.49c), preserving recorded
+        // hashes on spells and activations that never bounced an attacker.
+        if let Some(defender) = ninjutsu_defender {
+            defender.hash(h);
+        }
+    }
 }
 
 /// A game object.

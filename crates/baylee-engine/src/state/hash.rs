@@ -2302,6 +2302,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(96);
                 condition.hash(h);
             }
+            Rider::NinjutsuDefender(defender, version) => {
+                h.u8(109);
+                (defender, version).hash(h);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:

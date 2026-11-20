@@ -643,7 +643,10 @@ express at all yet.
   cost),
   `ExileTopOfLibrary(n)` (Arc-Slogger's "Exile the top ten cards of your
   library": exiles the top `n` cards of the payer's library; requires at least
-  `n` cards in library).
+  `n` cards in library),
+  `ReturnUnblockedAttacker` (ninjutsu's "Return an unblocked attacking creature
+  you control to its owner's hand", CR 702.49a: records what that creature was
+  attacking onto the stack ability for `Effect::PutNinjutsuOntoBattlefield`).
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;
@@ -5609,3 +5612,19 @@ Each triggers once per keyword instance (`layers::keyword_instances`):
   `Filter::PowerLessThanSourcePower` against source LKI on resolution
   (`CR 608.2b`, `CR 608.2h`).
 - `KeywordSet::TRAINING` — training (`CR 702.149a–b`).
+- `KeywordSet::MYRIAD` — myriad (`CR 702.116a–b`), backed by `Effect::Myriad`
+  with per-opponent optional token copies tapped and attacking that opponent or
+  a planeswalker they control, exiled at end of combat.
+- `KeywordSet::EXTORT` — extort (`CR 702.101a–b`), triggering per instance on
+  any spell you cast via `Effect::PlayerMayPayManaThen` (`{W/B}`) and
+  `ThisWay::LifeLost`.
+
+**Ninjutsu, commander ninjutsu, and exert (`CR 702.49`, `CR 701.43`).**
+- Ninjutsu (`CR 702.49a–c`) and commander ninjutsu (`CR 702.49d`) decompose into
+  `ActivationZone::Hand` / `ActivationZone::HandOrCommand`,
+  `Condition::InCombatAfterBlockers`, `CostPart::ReturnUnblockedAttacker`, and
+  `Effect::PutNinjutsuOntoBattlefield`.
+- Exert (`CR 701.43a–d`) pairs `Effect::ExertSource` (which does nothing if the
+  source left the battlefield, `CR 701.43c`) and `CostPart::ExertSelf` with
+  `Trigger::Exerted(&Filter)` (`Trigger::EXERTED_THIS`) and
+  `ReflexiveEvent::ExertedThis` (`CR 603.12`).

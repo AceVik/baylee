@@ -603,6 +603,15 @@ pub enum GameEvent {
         /// Its owner, who controls the madness trigger.
         owner: PlayerId,
     },
+    /// A permanent on the battlefield became exerted (CR 701.43a–d).
+    PermanentExerted {
+        /// The exerted permanent.
+        object: ObjectId,
+        /// The player who exerted it.
+        player: PlayerId,
+        /// Whether exerted to pay a cost or by an effect.
+        cause: Cause,
+    },
 }
 
 /// Where in a library a card was put.

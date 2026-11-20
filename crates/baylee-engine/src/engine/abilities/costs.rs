@@ -440,6 +440,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_)
+                | CostPart::ReturnUnblockedAttacker
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::PutCounterOnOther { .. } => {
                     // **As many candidates as the cost asks questions.** A
@@ -714,29 +715,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     });
                 }
                 CostPart::ExertSelf => {
-                    let version = self.state.object(source).expect("exerted source").version;
-                    let filter = crate::effects::EffectFilter::DslAbout(
-                        &baylee_cards_dsl::Filter::And(&[
-                            baylee_cards_dsl::Filter::Reference,
-                            baylee_cards_dsl::Filter::ControlledByYou,
-                        ]),
+                    crate::resolve::wave4_combat::exert_permanent(
+                        &mut self.state,
                         source,
-                        version,
+                        player,
+                        Cause::Cost,
                     );
-                    let timestamp = self.state.next_timestamp();
-                    self.state
-                        .effects
-                        .register(crate::effects::ContinuousEffect {
-                            id: baylee_core::ids::EffectId::new(0),
-                            source: Some(source),
-                            controller: player,
-                            origin: crate::effects::EffectOrigin::Resolution,
-                            layer: baylee_cards_dsl::Modifier::DoesNotUntap.layer(),
-                            timestamp,
-                            duration: baylee_cards_dsl::Duration::UntilYourNextUntapStep,
-                            filter,
-                            modifier: baylee_cards_dsl::Modifier::DoesNotUntap,
-                        });
                 }
                 CostPart::UntapSelf => {
                     if self.state.set_tapped(source, false) {
@@ -1078,6 +1062,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_)
+                | CostPart::ReturnUnblockedAttacker
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::PutCounterOnOther { .. } => {
                     let Some(&[card]) = answers.next().map(Vec::as_slice) else {
@@ -1085,6 +1070,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             "a cost that has to ask reached the payer unanswered",
                         ));
                     };
+                    if matches!(part, CostPart::ReturnUnblockedAttacker) {
+                        if self.state.combat.is_blocked(card) {
+                            return Err(EngineError::IllegalAction(
+                                "cannot return a blocked creature for ninjutsu",
+                            ));
+                        }
+                        let defender = self.state.combat.defender_of(card).ok_or(
+                            EngineError::IllegalAction("chosen creature is no longer attacking"),
+                        )?;
+                        let target_ver = match defender {
+                            baylee_core::ids::Defender::Player(_) => None,
+                            baylee_core::ids::Defender::Planeswalker(id)
+                            | baylee_core::ids::Defender::Battle(id) => {
+                                self.state.object(id).map(|o| o.version)
+                            }
+                        };
+                        paid.ninjutsu_defender = Some((defender, target_ver));
+                    }
                     // "The sacrificed creature's mana value" (Birthing Pod)
                     // is read off the permanent as it last existed on the
                     // battlefield (CR 608.2h), so before it goes. Only the

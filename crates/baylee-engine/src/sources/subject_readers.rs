@@ -86,6 +86,9 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::MeldWithNamed { .. }
             | Effect::MoveSourceToOwnerGraveyard
             | Effect::PutSourceFromHandOntoBattlefield
+            | Effect::PutNinjutsuOntoBattlefield
+            | Effect::Myriad
+            | Effect::ExertSource
             | Effect::SacrificeSelf
             | Effect::UntapSelf
             | Effect::TapSelf

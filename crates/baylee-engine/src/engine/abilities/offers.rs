@@ -753,7 +753,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         } => {
                             if *zone != from
                                 && !(from == ActivationZone::Command
-                                    && *zone == ActivationZone::BattlefieldOrCommand)
+                                    && matches!(
+                                        *zone,
+                                        ActivationZone::BattlefieldOrCommand
+                                            | ActivationZone::HandOrCommand
+                                    ))
+                                && !(from == ActivationZone::Hand
+                                    && *zone == ActivationZone::HandOrCommand)
                             {
                                 continue;
                             }
@@ -818,7 +824,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             // arm is four lines longer than the note would be.
                             if *zone != from
                                 && !(from == ActivationZone::Command
-                                    && *zone == ActivationZone::BattlefieldOrCommand)
+                                    && matches!(
+                                        *zone,
+                                        ActivationZone::BattlefieldOrCommand
+                                            | ActivationZone::HandOrCommand
+                                    ))
+                                && !(from == ActivationZone::Hand
+                                    && *zone == ActivationZone::HandOrCommand)
                             {
                                 continue;
                             }

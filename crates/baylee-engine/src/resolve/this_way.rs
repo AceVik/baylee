@@ -213,6 +213,12 @@ pub(super) fn count(
                     .filter_map(|&id| state.object(id).map(|c| c.characteristics().mana_value()))
                     .sum()
             }
+            (
+                GameEvent::LifeChanged {
+                    player, old, new, ..
+                },
+                ThisWay::LifeLost,
+            ) if new < old && mine(*player) => old.abs_diff(*new),
             _ => 0,
         };
         total = total.saturating_add(n);

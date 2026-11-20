@@ -382,6 +382,7 @@ fn consumes(cost: &Cost) -> bool {
             // board shrinks the same way — more so than a tap, which leaves
             // the permanent where it was.
             | CostPart::ReturnToHand(_)
+            | CostPart::ReturnUnblockedAttacker
             // A card exiled out of the graveyard is gone for good, so the
             // pile that pays for the next activation is one card shorter.
             | CostPart::ExileFromGraveyard(_)

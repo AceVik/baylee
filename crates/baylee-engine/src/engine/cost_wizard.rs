@@ -69,6 +69,7 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::Crew(_)
             | CostPart::Saddle(_)
             | CostPart::ReturnToHand(_)
+            | CostPart::ReturnUnblockedAttacker
             | CostPart::ExileFromGraveyard(_)
             | CostPart::ExileFromSingleGraveyard { .. }
             | CostPart::PutCounterOnOther { .. }
@@ -142,6 +143,34 @@ pub(crate) fn options(
     options_with_context(state, player, eval::live_context(state, source), part)
 }
 
+/// Unblocked attacking creatures controlled by `player` in combat after blockers
+/// have been declared (CR 702.49a, CR 702.49d, CR 509.1h).
+fn unblocked_attacker_options(state: &GameState, player: PlayerId) -> Vec<ObjectId> {
+    if state.turn.phase != crate::turn::Phase::Combat
+        || !matches!(
+            state.turn.step,
+            crate::turn::Step::DeclareBlockers
+                | crate::turn::Step::CombatDamageFirst
+                | crate::turn::Step::CombatDamage
+                | crate::turn::Step::CombatEnd
+        )
+    {
+        return Vec::new();
+    }
+    state
+        .battlefield_view()
+        .iter()
+        .copied()
+        .filter(|&id| {
+            state.combat.is_attacking(id)
+                && !state.combat.is_blocked(id)
+                && state.object(id).is_some_and(|o| {
+                    o.controller == player && o.characteristics().types.contains(TypeSet::CREATURE)
+                })
+        })
+        .collect()
+}
+
 /// Cost choices under the words captured by a resolving ability.
 pub(crate) fn options_with_context(
     state: &GameState,
@@ -187,6 +216,9 @@ pub(crate) fn options_with_context(
             })
             .copied()
             .collect();
+    }
+    if matches!(part, CostPart::ReturnUnblockedAttacker) {
+        return unblocked_attacker_options(state, player);
     }
     let (zone, controlled, untapped) = match part {
         CostPart::Sacrifice(_)
@@ -287,8 +319,10 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
         ) | (
             CostPart::SacrificeSelf,
             CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
-        ) | (CostPart::ReturnSelfToHand, CostPart::ReturnToHand(_))
-            | (CostPart::DiscardSelf, CostPart::Discard(_))
+        ) | (
+            CostPart::ReturnSelfToHand,
+            CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker
+        ) | (CostPart::DiscardSelf, CostPart::Discard(_))
             | (
                 CostPart::ExileSelf,
                 CostPart::ExileFromGraveyard(_) | CostPart::ExilePermanent(_)
@@ -303,7 +337,7 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_) => ChoicePrompt::CostTap,
         CostPart::Crew(power) => ChoicePrompt::CostCrew { power: *power },
         CostPart::Saddle(power) => ChoicePrompt::CostSaddle { power: *power },
-        CostPart::ReturnToHand(_) => ChoicePrompt::CostReturn,
+        CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker => ChoicePrompt::CostReturn,
         CostPart::ExileFromHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::ExileFromSingleGraveyard { .. }
@@ -381,7 +415,7 @@ pub(crate) fn pay(
     // zone of the player who owns it, and a Forest borrowed off somebody
     // else's battlefield goes home rather than joining the borrower's hand.
     let to = match part {
-        CostPart::ReturnToHand(_) => ZoneLocation::Hand(owner),
+        CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker => ZoneLocation::Hand(owner),
         CostPart::ExileFromHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::ExileFromSingleGraveyard { .. }

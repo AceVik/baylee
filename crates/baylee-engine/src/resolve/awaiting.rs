@@ -1294,6 +1294,8 @@ pub enum AwaitingOp {
         /// Library owner whose bottom cards are ordered.
         player: PlayerId,
     },
+    /// Per-opponent optional copy & planeswalker choice for `Effect::Myriad`.
+    Myriad(Box<super::wave4_combat::MyriadPlan>),
 }
 
 /// Work to resume after an optional life payment.
@@ -1627,6 +1629,7 @@ impl AwaitingOp {
                 if_revealed,
             )),
             Self::PeekBottom { player } => crate::state::structural_fingerprint(&(101_u8, player)),
+            Self::Myriad(plan) => crate::state::structural_fingerprint(&(102_u8, plan)),
             _ => 0,
         }
     }

@@ -217,6 +217,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PayAttachedManaCost
                 | CostPart::ExileTopOfLibrary(_)
                 | CostPart::SacrificeGrantor
+                | CostPart::ReturnUnblockedAttacker
                 | CostPart::PayLifeX => {}
             }
         }
@@ -425,6 +426,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost
+                | CostPart::ReturnUnblockedAttacker
                 | CostPart::SacrificeGrantor => {}
             }
         }

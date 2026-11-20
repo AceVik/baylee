@@ -30,6 +30,10 @@ pub enum ReflexiveEvent {
     /// Tide's −2): this resolution's controller sacrificed a permanent the
     /// filter matched as it left, by effect.
     Sacrificed(&'static crate::Filter),
+    /// "You may exert ~ as it attacks. When you do, …" (CR 701.43d): this
+    /// resolution exerted its own source on the battlefield via
+    /// [`crate::Effect::ExertSource`]. Appended to preserve replay identities.
+    ExertedThis,
 }
 
 /// Where a searched card goes.

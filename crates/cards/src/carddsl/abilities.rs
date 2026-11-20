@@ -304,7 +304,8 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             CostPart::Sacrifice(_)
             | CostPart::SacrificeX(_)
             | CostPart::SacrificeAll(_)
-            | CostPart::ReturnToHand(_) => dst[3] = 1.0,
+            | CostPart::ReturnToHand(_)
+            | CostPart::ReturnUnblockedAttacker => dst[3] = 1.0,
             CostPart::PayLife(n) => dst[4] = unit(f32::from(*n), 10.0).max(0.2),
             CostPart::PayLifeX | CostPart::PayCommanderColors => dst[4] = 0.5,
             CostPart::Discard(_)
@@ -356,7 +357,8 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::AttackWithAtLeast(_)
         | Trigger::AttackWithAtLeastMatching { .. }
         | Trigger::AttacksAndIsntBlocked(_)
-        | Trigger::AttacksAlone(_) => {
+        | Trigger::AttacksAlone(_)
+        | Trigger::Exerted(_) => {
             dst[3] = 1.0;
         }
         Trigger::Blocks(_)

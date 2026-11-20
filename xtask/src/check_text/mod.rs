@@ -585,6 +585,8 @@ pub(crate) const KEYWORD_WORDS: &[(baylee_cards::dsl::KeywordSet, &str)] = {
         (K::MELEE, "melee"),
         (K::MENTOR, "mentor"),
         (K::TRAINING, "training"),
+        (K::MYRIAD, "myriad"),
+        (K::EXTORT, "extort"),
     ]
 };
 
@@ -853,6 +855,7 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("ControlledCreaturePowerAtLeast(")
         || built.contains("YouControl(")
         || built.contains("WhileYouControlSource")
+        || built.contains("ControlYourCommander")
         || built.contains("GainControl")
         // This verb installs a YOUR_CREATURE effect for the trigger controller.
         || built.contains("AttackWithoutTappingWhileSourceUntappedThisCombat")

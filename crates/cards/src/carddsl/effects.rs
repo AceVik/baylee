@@ -247,7 +247,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::MustBlockSourceIfAbleThisCombat
         | Effect::MustBlockIfAble { .. }
         | Effect::Goad { .. }
-        | Effect::GoadAll { .. } => {
+        | Effect::GoadAll { .. }
+        | Effect::ExertSource => {
             ch.tap_untap += 1.0;
         }
         Effect::PumpTarget {
@@ -300,11 +301,13 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::CreateTokenCopyOfFirstToken
         | Effect::CreateTokenCopy { .. }
         | Effect::ChooseAndCreateTokenCopy { .. }
+        | Effect::Myriad
         | Effect::Fabricate { .. }
         | Effect::Populate => {
             ch.tokens_create += 1.5;
         }
-        Effect::GraveyardToBattlefield { .. }
+        Effect::PutNinjutsuOntoBattlefield
+        | Effect::GraveyardToBattlefield { .. }
         | Effect::GraveyardToBattlefieldModified { .. }
         | Effect::GraveyardToBattlefieldLinked { .. }
         | Effect::YourGraveyardToBattlefield { .. }

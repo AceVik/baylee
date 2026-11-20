@@ -480,6 +480,10 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::LookAtTopKeepBottomPlay { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::ReorderTopLibraryOf { .. }
+        | Effect::ExileTopToPlay { .. }
+        | Effect::ExileTopMayCast { .. }
+        | Effect::ExileTopWithPermission { .. }
+        | Effect::RevealTop { .. }
         | Effect::NextDrawLooksAtTop { .. } => facts.deeds.add(Deeds::LOOKS),
         Effect::Surveil { .. } => {
             facts.deeds.add(Deeds::LOOKS);
@@ -569,7 +573,13 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::PutTargetOnBottomOfLibrary
         | Effect::RemoveTargetFromCombat { .. }
         | Effect::DealDamageEach { .. }
-        | Effect::DealDamageDivided { .. } => facts.deeds.add(Deeds::REMOVES),
+        | Effect::DealDamageDivided { .. }
+        | Effect::ExileLinked { .. }
+        | Effect::ExileWithPermission { .. }
+        | Effect::TapTarget
+        | Effect::TapEventObject
+        | Effect::CounterTargetSpell
+        | Effect::CounterTargetAbility => facts.deeds.add(Deeds::REMOVES),
         Effect::SacrificeSelf
         | Effect::ExileSource
         | Effect::ExileSelfReturnAsFace { .. }
@@ -594,6 +604,27 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.reads.add(Stuff::BOARD);
             facts.makes.add(Stuff::POWER);
         }
+        Effect::CreateContinuousEffect { modifier, .. } => {
+            use baylee_cards::dsl::Modifier as M;
+            match modifier {
+                M::ModifyPT(p, t) if p < 0 || t < 0 => {
+                    facts.deeds.add(Deeds::REMOVES);
+                    facts.reads.add(Stuff::BOARD);
+                }
+                M::ModifyPT(p, t) if p > 0 || t > 0 => {
+                    facts.deeds.add(Deeds::PUMPS);
+                    facts.reads.add(Stuff::BOARD);
+                    facts.makes.add(Stuff::POWER);
+                }
+                M::AddKeyword(_) | M::SetPT(..) => {
+                    facts.deeds.add(Deeds::PUMPS);
+                    facts.reads.add(Stuff::BOARD);
+                    facts.makes.add(Stuff::POWER);
+                }
+                _ => {}
+            }
+        }
+        Effect::UntapTarget => facts.deeds.add(Deeds::PUMPS),
         Effect::PumpEventObject { .. }
         | Effect::PumpTargetSlot { .. }
         | Effect::ModifySource { .. }
@@ -630,6 +661,11 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.reads.add(counted(amount));
             facts.makes.add(Stuff::BOARD);
         }
+        Effect::Myriad => {
+            facts.deeds.add(Deeds::ASKS);
+            facts.deeds.add(Deeds::MAY);
+            facts.makes.add(Stuff::BOARD);
+        }
         Effect::CreateToken { .. }
         | Effect::CreateTokenAttacking { .. }
         | Effect::CreateTokenModified { .. }
@@ -645,6 +681,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::Amass { .. }
         | Effect::Fabricate { .. }
         | Effect::PutFromHandOntoBattlefield { .. }
+        | Effect::PutNinjutsuOntoBattlefield
         | Effect::GraveyardToBattlefield { .. }
         | Effect::GraveyardToBattlefieldModified { .. }
         | Effect::YourGraveyardToBattlefield { .. } => facts.makes.add(Stuff::BOARD),

@@ -282,6 +282,11 @@ pub enum CostPart {
     /// Only a granted ability may carry this part; the recipient is not the
     /// permanent being sacrificed. Appended to preserve replay identities.
     SacrificeGrantor,
+    /// Return an unblocked attacking creature you control to its owner's hand
+    /// (ninjutsu and commander ninjutsu, CR 702.49a, CR 702.49d), recording
+    /// what that creature was attacking for [`crate::Effect::PutNinjutsuOntoBattlefield`].
+    /// Appended to preserve replay identities.
+    ReturnUnblockedAttacker,
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

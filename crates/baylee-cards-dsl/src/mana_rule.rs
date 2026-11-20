@@ -113,7 +113,8 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::PayLifeX
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
-        | CostPart::PutCounterSelf { .. } => false,
+        | CostPart::PutCounterSelf { .. }
+        | CostPart::ReturnUnblockedAttacker => false,
         CostPart::ExileTopOfLibrary(_) => true,
     }
 }

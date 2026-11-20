@@ -1254,6 +1254,9 @@ fn matches(
             min_result.is_none_or(|min| *result >= u32::from(min))
                 && eval::players(*who, state, you).is_some_and(|seats| seats.contains(player))
         }
+        (Trigger::Exerted(filter), GameEvent::PermanentExerted { object, .. }) => state
+            .object(*object)
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         _ => false,
     }
 }

@@ -78,6 +78,9 @@ pub enum ActivationZone {
     Graveyard,
     /// On the battlefield under your control, or from your command zone.
     BattlefieldOrCommand,
+    /// From your hand or from your command zone (commander ninjutsu, CR 702.49d).
+    /// Appended to preserve replay identities.
+    HandOrCommand,
 }
 
 /// Where a printed triggered ability functions (CR 113.6).
@@ -565,6 +568,11 @@ pub enum Condition {
     /// prototyped (Prototype, CR 702.160, CR 719.3b–d). Appended to preserve
     /// replay identities.
     Prototyped,
+    /// The game is in the combat phase in or after the declare-blockers step
+    /// (`DeclareBlockers`, `CombatDamageFirst`, `CombatDamage`, or `CombatEnd`),
+    /// so blockers have already been declared (ninjutsu, CR 702.49a). Appended
+    /// to preserve replay identities.
+    InCombatAfterBlockers,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -997,6 +1005,11 @@ pub enum Trigger {
         /// Optional inclusive minimum natural die result.
         min_result: Option<u8>,
     },
+    /// A permanent matching the filter becomes exerted (CR 701.43a–d), whether
+    /// by [`crate::CostPart::ExertSelf`] or [`Effect::ExertSource`]. Sets
+    /// `EventObject` to the exerted permanent and `EventPlayer` to the player
+    /// who exerted it. Appended to preserve replay identities.
+    Exerted(&'static Filter),
 }
 
 impl Trigger {
@@ -1016,6 +1029,9 @@ impl Trigger {
 
     /// "Whenever this permanent phases out…" (CR 702.26b, CR 603.10b).
     pub const PHASES_OUT: Self = Self::PhasesOut(&Filter::This);
+
+    /// "Whenever you exert this permanent…" (CR 701.43a).
+    pub const EXERTED_THIS: Self = Self::Exerted(&Filter::This);
 }
 
 /// An ability definition on a [`crate::CardDef`].
