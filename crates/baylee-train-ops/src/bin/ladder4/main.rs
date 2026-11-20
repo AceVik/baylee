@@ -14,6 +14,7 @@
 //! it needs.
 // Counts of games, well below f64's exact 2^53 range.
 #![allow(clippy::cast_precision_loss)]
+mod sessions;
 use anyhow::{Context, Result, bail, ensure};
 use baylee_train_ops::evaluation::{atomic_json, read_json};
 use clap::Parser;
@@ -73,6 +74,11 @@ struct Args {
     /// Games at once, over all arms.
     #[arg(long, default_value_t = 6)]
     tables: usize,
+    /// Reuse a single table's two disclosed accounts. Read their sessions from stdin.
+    #[arg(long)]
+    sessions_stdin: bool,
+    #[arg(skip)]
+    sessions: Option<sessions::Sessions>,
     #[arg(long, default_value_t = baylee_train_ops::measured::THINKING_STEPS)]
     thinking_steps: u8,
     #[arg(long, default_value_t = 120)]
@@ -312,12 +318,24 @@ fn host(
             command.env(name, value);
         }
     }
+    let stdin = if args.sessions.is_some() {
+        command.arg("--session-stdin");
+        Stdio::piped()
+    } else {
+        Stdio::null()
+    };
     let mut child = command
-        .stdin(Stdio::null())
+        .stdin(stdin)
         .stdout(Stdio::piped())
         .stderr(std::fs::File::create(work.join("seat4.stderr.log"))?)
         .spawn()
         .context("seat4")?;
+    if let Some(sessions) = &args.sessions
+        && let Err(error) = sessions.hand_net_session(&mut child)
+    {
+        reap(&mut child);
+        return Err(error);
+    }
     let mut lines = BufReader::new(child.stdout.take().context("seat4 stdout")?);
     let mut line = String::new();
     loop {
@@ -340,7 +358,13 @@ fn host(
 /// whose credentials then go to it as the first line on stdin. Its
 /// environment is cleared to what it needs and its profile's key variable,
 /// passed by name.
-fn guest(args: &Args, game: &Game, room: &str, host_chair: bool, work: &Path) -> Result<Child> {
+fn guest(
+    args: &Args,
+    game: &Game,
+    room: &str,
+    handed_chair: Option<u8>,
+    work: &Path,
+) -> Result<Child> {
     let mut command = Command::new(&args.seat);
     command
         .arg("join")
@@ -348,9 +372,9 @@ fn guest(args: &Args, game: &Game, room: &str, host_chair: bool, work: &Path) ->
         .arg("--gateway")
         .arg(&args.gateway)
         .arg("--chair")
-        .arg(if host_chair { "0" } else { "1" })
+        .arg(handed_chair.unwrap_or(1).to_string())
         .arg("--tethered");
-    if host_chair {
+    if handed_chair.is_some() {
         command.arg("--host-chair");
     }
     // `house:<level>` seats the house, which needs no key: the same path with
@@ -393,7 +417,7 @@ fn guest(args: &Args, game: &Game, room: &str, host_chair: bool, work: &Path) ->
     }
     // The host's chair is read for the line that says it is ready
     // ([`copy_until_ready`]); a guest's goes straight to its log.
-    let stdout = if host_chair {
+    let stdout = if handed_chair == Some(0) {
         Stdio::piped()
     } else {
         Stdio::from(std::fs::File::create(work.join("seat.stdout.log"))?)
@@ -614,7 +638,7 @@ fn play_house(args: &Args, game: &Game, level: &str, work: &Path) -> Result<Valu
     let started = Instant::now();
     let gateway = Gateway::new(&args.gateway);
     let room = open_house_room(&gateway, args, game, level)?;
-    let mut model = guest(args, game, &room.game_id, true, work)?;
+    let mut model = guest(args, game, &room.game_id, Some(0), work)?;
     let handoff = json!({
         "game_id": room.game_id, "seat": 0,
         "seat_token": room.seat_token, "session_token": room.session_token,
@@ -749,7 +773,20 @@ fn play(args: &Args, game: &Game) -> Result<Value> {
         Host::Net(policy) => policy,
     };
     let (mut net, room, mut lines) = host(args, game, &policy, &work)?;
-    let mut model = guest(args, game, &room, false, &work)?;
+    let model = match &args.sessions {
+        Some(sessions) => sessions.seat_model(args, game, &room, &work),
+        None => guest(args, game, &room, None, &work),
+    };
+    let mut model = match model {
+        Ok(model) => model,
+        Err(error) => {
+            reap(&mut net);
+            if let Some(sessions) = &args.sessions {
+                sessions.leave(&args.gateway, &room);
+            }
+            return Err(error);
+        }
+    };
     let reader = std::thread::spawn(move || -> Option<Value> {
         let mut last = None;
         let mut line = String::new();
@@ -779,6 +816,9 @@ fn play(args: &Args, game: &Game) -> Result<Value> {
             && !status.success()
         {
             reap(&mut net);
+            if let Some(sessions) = &args.sessions {
+                sessions.leave(&args.gateway, &room);
+            }
             bail!("the seat ended first: {status}");
         }
         std::thread::sleep(Duration::from_secs(1));
@@ -890,7 +930,10 @@ fn stop_reason(args: &Args, game: &Game) -> Result<Option<&'static str>> {
 fn play_paced(args: &Args, game: &Game, next_start: &Mutex<Instant>) -> Value {
     let gap = Duration::from_secs(args.start_gap_secs);
     let mut last = None;
-    for _ in 0..4 {
+    // A coordinator feeding an existing account pair accounts for every paid
+    // slot. Only it can verify that a failed attempt had zero provider use.
+    let attempts = if args.sessions.is_some() { 1 } else { 4 };
+    for _ in 0..attempts {
         let start = {
             let mut next = next_start.lock().expect("start clock");
             let start = (*next).max(Instant::now());
@@ -949,13 +992,27 @@ fn summary(results: &[Value]) -> Value {
 }
 
 fn main() -> Result<()> {
-    let args = Arc::new(Args::parse());
+    let mut args = Args::parse();
+    if args.sessions_stdin {
+        ensure!(args.tables == 1, "session handoff requires one table");
+        baylee_train_ops::session_input::require_loopback(&args.gateway)?;
+        args.sessions = Some(sessions::Sessions::read(std::io::stdin().lock())?);
+    }
+    let args = Arc::new(args);
     std::fs::create_dir_all(&args.root)?;
     std::fs::write(
         args.root.join("NOT-FOR-TRAINING"),
         "Ladder games, for numbers only. They may never enter training, a league or a dataset.\n",
     )?;
     let games = schedule(&args)?;
+    if args.sessions.is_some() {
+        ensure!(
+            games
+                .iter()
+                .all(|game| matches!(host_of(&game.mode), Ok(Host::Net(_)))),
+            "session handoff requires a net host"
+        );
+    }
     atomic_json(
         &args.root.join("schedule.json"),
         &json!(
