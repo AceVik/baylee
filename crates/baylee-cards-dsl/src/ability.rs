@@ -895,6 +895,13 @@ pub enum Trigger {
     /// a graveyard before entering from the stack. The provenance belongs to
     /// the entering object; another object's graveyard cast does not count.
     EntersBattlefieldFromGraveyardOrCast(&'static Filter),
+    /// A player cycles a matching card (CR 702.29a, 702.29f).
+    Cycled {
+        /// The player who cycled the card, relative to this ability's controller.
+        by: crate::effect::PlayerRel,
+        /// Filter on the cycled card.
+        filter: &'static Filter,
+    },
 }
 
 impl Trigger {
@@ -1186,31 +1193,36 @@ pub enum AbilityDef {
 
 impl AbilityDef {
     /// Whether this is a cycling ability: "Cycling [cost]" means "[Cost],
-    /// Discard this card: Draw a card" and works only from the hand
-    /// (CR 702.29a). That shape is the whole definition, so it is what is
-    /// read: an ability activated from the hand whose cost discards the card
-    /// itself and whose effect is to draw one card. A card that discards
-    /// itself for anything else — Trumpeting Carnosaur's damage, Boseiju's
-    /// channel — is not cycled. Typecycling (702.29e), which searches
-    /// instead, is not read here; no card in the pool that cares about being
-    /// cycled prints it.
+    /// Discard this card: Draw a card" and "[Type]cycling [cost]" means
+    /// "[Cost], Discard this card: Search your library for a [type] card,
+    /// reveal it, put it into your hand, then shuffle" at instant speed from
+    /// the hand (CR 702.29a, 702.29e-f). A card that discards itself for
+    /// anything else — Trumpeting Carnosaur's damage, Boseiju's channel, or
+    /// sorcery-speed transmute (CR 702.53a) — is not cycled.
     #[must_use]
     pub fn is_cycling(&self) -> bool {
         match self {
             Self::Activated {
                 cost,
                 effects,
+                timing: ActivationTiming::InstantSpeed,
                 zone: ActivationZone::Hand,
                 ..
             }
             | Self::ActivatedConditional {
                 cost,
                 effects,
+                timing: ActivationTiming::InstantSpeed,
                 zone: ActivationZone::Hand,
                 ..
             } => {
                 cost.parts.contains(&crate::cost::CostPart::DiscardSelf)
-                    && *effects == [crate::effect::Effect::draw(1)]
+                    && (*effects == [crate::effect::Effect::draw(1)]
+                        || matches!(
+                            *effects,
+                            [crate::effect::Effect::SearchLibrary { finds, .. }]
+                                if *finds == [crate::effect::Find::HAND]
+                        ))
             }
             _ => false,
         }
@@ -1567,6 +1579,44 @@ mod tests {
         assert!(!ability(DISCARD, DRAW, ActivationZone::Battlefield).is_cycling());
         assert!(!ability(crate::cost::Cost::FREE, DRAW, ActivationZone::Hand).is_cycling());
         assert!(!activated(false).is_cycling());
+    }
+
+    /// Typecycling (CR 702.29e-f) searches the library and puts the card into
+    /// hand at instant speed, which is cycling; sorcery-speed transmute (CR
+    /// 702.53a) is not cycling even though it has the same search effect.
+    #[test]
+    fn typecycling_to_hand_is_cycling_while_sorcery_transmute_is_not() {
+        use crate::cost::{Cost, CostPart};
+        use crate::effect::Find;
+        const DISCARD: Cost = Cost {
+            mana: baylee_core::mana::ManaCost::ZERO,
+            parts: &[CostPart::DiscardSelf],
+        };
+        const SEARCH_HAND: &[Effect] = &[Effect::SearchLibrary {
+            filter: &crate::Filter::BASIC_LAND,
+            finds: &[Find::HAND],
+            optional: false,
+        }];
+        const SEARCH_BATTLEFIELD: &[Effect] = &[Effect::SearchLibrary {
+            filter: &crate::Filter::BASIC_LAND,
+            finds: &[Find::BATTLEFIELD],
+            optional: false,
+        }];
+        let hand_ability = |effects, timing| AbilityDef::Activated {
+            cost: DISCARD,
+            effects,
+            targets: None,
+            second_targets: None,
+            timing,
+            mana_ability: false,
+            zone: ActivationZone::Hand,
+            limit: ActivationLimit::Unlimited,
+            x_value: crate::ActivationX::Any,
+            cost_reduction: None,
+        };
+        assert!(hand_ability(SEARCH_HAND, ActivationTiming::InstantSpeed).is_cycling());
+        assert!(!hand_ability(SEARCH_HAND, ActivationTiming::SorcerySpeed).is_cycling());
+        assert!(!hand_ability(SEARCH_BATTLEFIELD, ActivationTiming::InstantSpeed).is_cycling());
     }
 
     /// CR 605.1 makes a mana ability the exception, and the flag is the

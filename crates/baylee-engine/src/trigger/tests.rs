@@ -977,3 +977,90 @@ fn every_step_trigger_names_a_player_the_matcher_reads() {
         "step triggers no matcher arm reads: {unread:?}"
     );
 }
+
+#[test]
+fn cycling_triggers_filter_by_player_and_cycled_card_filter() {
+    let mut state = state();
+    let creature = permanent(&mut state, me(), "Cycler");
+    {
+        let obj = state.object_mut(creature).expect("permanent");
+        obj.zone = Zone::Graveyard;
+        obj.base_mut().types = baylee_core::types::TypeSet::CREATURE;
+    }
+    state.refresh_characteristics();
+    let noncreature_idx = state.zones.list(ZoneLocation::Library(me()))[0];
+    state
+        .move_object(
+            noncreature_idx,
+            ZoneLocation::Graveyard(me()),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Cost,
+        )
+        .unwrap();
+
+    let cycled_creature = GameEvent::Cycled {
+        object: creature,
+        player: me(),
+    };
+    let cycled_land = GameEvent::Cycled {
+        object: noncreature_idx,
+        player: them(),
+    };
+    let fired =
+        |trigger: &Trigger, event: &GameEvent| hits(trigger, event, &[], &state, creature, me());
+
+    assert_eq!(
+        fired(
+            &Trigger::Cycled {
+                by: PlayerRel::EachPlayer,
+                filter: &Filter::Any,
+            },
+            &cycled_creature,
+        ),
+        1
+    );
+    assert_eq!(
+        fired(
+            &Trigger::Cycled {
+                by: PlayerRel::You,
+                filter: &Filter::Any,
+            },
+            &cycled_land,
+        ),
+        0,
+        "opponent cycling does not satisfy PlayerRel::You"
+    );
+    assert_eq!(
+        fired(
+            &Trigger::Cycled {
+                by: PlayerRel::Opponent,
+                filter: &Filter::Any,
+            },
+            &cycled_land,
+        ),
+        1
+    );
+
+    assert_eq!(
+        fired(
+            &Trigger::Cycled {
+                by: PlayerRel::EachPlayer,
+                filter: &Filter::CREATURE,
+            },
+            &cycled_creature,
+        ),
+        1,
+        "creature card satisfies &Filter::CREATURE"
+    );
+    assert_eq!(
+        fired(
+            &Trigger::Cycled {
+                by: PlayerRel::EachPlayer,
+                filter: &Filter::CREATURE,
+            },
+            &cycled_land,
+        ),
+        0,
+        "land card does not satisfy &Filter::CREATURE"
+    );
+}

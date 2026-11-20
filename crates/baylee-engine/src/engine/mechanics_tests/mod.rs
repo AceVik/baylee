@@ -29,6 +29,7 @@ mod costs;
 mod counter_payment;
 mod counter_removal;
 mod crew_saddle;
+mod cycling;
 mod damaged_object;
 mod delayed_departure;
 mod departed;

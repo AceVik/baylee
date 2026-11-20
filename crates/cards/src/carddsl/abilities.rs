@@ -384,7 +384,8 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::LastCounterRemoved { .. }
         | Trigger::Discarded { .. }
         | Trigger::DiscardedThisByOpponent
-        | Trigger::CycledThis => {
+        | Trigger::CycledThis
+        | Trigger::Cycled { .. } => {
             dst[9] = 1.0;
         }
         _ => {

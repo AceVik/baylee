@@ -515,7 +515,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
     match trigger {
         T::EntersBattlefield(_) | T::EntersBattlefieldFromGraveyardOrCast(_) => &["enter"],
         T::EntersBattlefieldEvoked => &["evoke"],
-        T::CycledThis => &["cycle"],
+        T::CycledThis | T::Cycled { .. } => &["cycle"],
         T::EnteredThisFrom(_) => &["enters"],
         T::Discarded { .. } | T::DiscardedThisByOpponent => &["discard"],
         T::LeavesBattlefield(_) | T::LinkedCreatureLeaves => &["leave"],
@@ -684,6 +684,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::InstantCastAfterFirst { who: rel }
         | Trigger::FirstNoncreatureSpellCast(rel)
         | Trigger::PlayerDealtDamage(rel)
+        | Trigger::Cycled { by: rel, .. }
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),

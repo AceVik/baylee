@@ -2710,9 +2710,14 @@ Triggers, reflexive events and amounts:
   the Aura, not the dead creature.
 
 - **`Trigger::CycledThis`** is "When you cycle this card" (CR 702.29c).
-  What counts as cycling is `AbilityDef::is_cycling`: from the hand, the
-  cost discards the card, and the effect draws one card. Typecycling is not
-  read.
+  What counts as cycling is `AbilityDef::is_cycling`: instant-speed
+  activations from the hand whose cost discards the card itself and whose
+  effect draws one card (CR 702.29a) or searches the library for one card into
+  hand (typecycling, CR 702.29e-f). Sorcery-speed transmute is excluded.
+- **`Trigger::Cycled { by, filter }`** is "Whenever [a player | you | an
+  opponent] cycles a [matching] card" (CR 702.29a, CR 702.29f), evaluated on
+  the battlefield against `by` (`PlayerRel`) and the cycled card's
+  characteristics (`filter`).
 - **`Trigger::DealsCombatDamageToOpponent(filter)`** (Questing Beast)
   carries the player and the amount on the trigger. **`Amount::EventAmount`**
   is "that much".

@@ -212,6 +212,7 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         GameEvent::ZoneChanged { object, .. }
         | GameEvent::SpellCast { object, .. }
         | GameEvent::SpellCopied { object, .. }
+        | GameEvent::Cycled { object, .. }
         | GameEvent::Discarded { object, .. }
         | GameEvent::MadnessExiled { object, .. }
         | GameEvent::CounterChanged { object, .. }

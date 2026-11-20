@@ -819,6 +819,13 @@ fn matches(
                                 eval::matches_with_context(filter, state, card, you, context)
                             })))
         }
+        (Trigger::Cycled { by, filter }, GameEvent::Cycled { object, player }) => {
+            eval::players(*by, state, you).is_some_and(|players| players.contains(player))
+                && (matches!(filter, baylee_cards_dsl::Filter::Any)
+                    || state.object_or_departed(*object).is_some_and(|card| {
+                        eval::matches_with_context(filter, state, card, you, context)
+                    }))
+        }
         (Trigger::BecomesTarget, _) => targeting(event, state, source).is_some(),
         (Trigger::EnchantedBecomesTarget, _) => state
             .object(source)
