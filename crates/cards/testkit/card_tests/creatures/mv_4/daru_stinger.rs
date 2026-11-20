@@ -20,7 +20,10 @@ fn daru_stinger() -> CardIndex {
 #[test]
 fn daru_stinger_amplifies_soldiers_and_hits_attacking_and_blocking_creatures() {
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), plains(), plains(), plains(), savannah_lions()])
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), savannah_lions()],
+        )
         .battlefield(1, &[grizzly_bears()])
         .hand(
             0,
@@ -49,9 +52,15 @@ fn daru_stinger_amplifies_soldiers_and_hits_attacking_and_blocking_creatures() {
     let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
         unreachable!()
     };
-    assert_eq!(options.len(), 2, "only the two Soldiers in hand are eligible");
+    assert_eq!(
+        options.len(),
+        2,
+        "only the two Soldiers in hand are eligible"
+    );
     assert!(!options.contains(&non_soldier));
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: options }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let stinger = on_battlefield(&engine, P0, daru_stinger()).unwrap();
@@ -122,7 +131,10 @@ fn daru_stinger_hits_attacking_creature_during_combat() {
     let mut engine = Duel::new(SEED, plains())
         .battlefield(0, &[plains(), plains(), plains(), plains()])
         .battlefield(1, &[grizzly_bears()])
-        .hand(0, &[daru_stinger(), index::BENALISH_HERO, index::BENALISH_HERO])
+        .hand(
+            0,
+            &[daru_stinger(), index::BENALISH_HERO, index::BENALISH_HERO],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -140,7 +152,9 @@ fn daru_stinger_hits_attacking_creature_during_combat() {
     let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
         unreachable!()
     };
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: options }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     // Advance past Turn 2 & Turn 3 (so Daru Stinger loses summoning sickness at P0's upkeep),
@@ -185,4 +199,79 @@ fn daru_stinger_hits_attacking_creature_during_combat() {
     });
     assert!(in_graveyard(&engine, P1, grizzly_bears()).is_some());
     assert_eq!(engine.state().players[0].life, 20);
+}
+
+#[test]
+fn daru_stinger_zero_reveals_is_one_one_and_deals_zero_damage() {
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .battlefield(1, &[grizzly_bears()])
+        .hand(0, &[daru_stinger(), index::BENALISH_HERO])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+
+    cast_from_hand(&mut engine, P0, daru_stinger());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::Amplify,
+                ..
+            }
+        )
+    });
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let stinger = on_battlefield(&engine, P0, daru_stinger()).unwrap();
+    assert_eq!(counters_on(&engine, stinger, CounterKind::P1P1), 0);
+    assert_eq!(pt(&engine, stinger), (1, 1));
+
+    // Advance to P1's Turn 4 attack after P0 untaps on Turn 3.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P1
+            && matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P1)
+    });
+    engine
+        .apply(P1, PlayerAction::DeclareAttackers { attackers: vec![] })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.number >= 3
+            && matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P0)
+    });
+    engine
+        .apply(P0, PlayerAction::DeclareAttackers { attackers: vec![] })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P1
+            && e.state().turn.number >= 4
+            && matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P1)
+    });
+    let bear = on_battlefield(&engine, P1, grizzly_bears()).unwrap();
+    engine
+        .apply(
+            P1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bear, Defender::Player(P0))],
+            },
+        )
+        .unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P0),
+    );
+    activate(&mut engine, P0, daru_stinger(), 0);
+    aim_at(&mut engine, P0, bear);
+    pass_until(&mut engine, |e| {
+        e.state().turn.phase == baylee_engine::turn::Phase::SecondMain && stack_is_empty(e)
+    });
+    assert!(
+        on_battlefield(&engine, P1, grizzly_bears()).is_some(),
+        "0 damage from unamplified Daru Stinger leaves attacking Bear alive"
+    );
+    assert_eq!(engine.state().players[0].life, 18);
 }

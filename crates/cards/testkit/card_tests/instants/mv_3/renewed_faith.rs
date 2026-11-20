@@ -33,7 +33,9 @@ fn renewed_faith_cast_gains_six_and_cycling_optionally_gains_two() {
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     tap_mana_where(&mut engine, p0, |id| lands[3..5].contains(&id));
     activate(&mut engine, p0, renewed_faith(), 0);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     assert_eq!(life(&engine, p0), 28);
     assert_eq!(
@@ -50,7 +52,9 @@ fn renewed_faith_cast_gains_six_and_cycling_optionally_gains_two() {
     // 3. Cycle for {1}{W} and decline -> life stays 28, still draws 1 card.
     tap_mana_where(&mut engine, p0, |id| lands[5..7].contains(&id));
     activate(&mut engine, p0, renewed_faith(), 0);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(life(&engine, p0), 28);

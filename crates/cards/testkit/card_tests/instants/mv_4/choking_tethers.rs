@@ -55,7 +55,10 @@ fn choking_tethers_cast_taps_up_to_four_creatures() {
     for &id in &elves[..4] {
         assert!(is_tapped(&engine, id));
     }
-    assert!(!is_tapped(&engine, elves[4]), "fifth creature stayed untapped");
+    assert!(
+        !is_tapped(&engine, elves[4]),
+        "fifth creature stayed untapped"
+    );
 }
 
 /// Cycling Choking Tethers for `{1}{U}` optionally taps target creature before
@@ -83,7 +86,9 @@ fn choking_tethers_cycling_taps_one_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     assert!(is_tapped(&engine, elf));
     assert_eq!(
@@ -104,7 +109,9 @@ fn choking_tethers_cycling_taps_one_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[goblin], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert!(!is_tapped(&engine, goblin));

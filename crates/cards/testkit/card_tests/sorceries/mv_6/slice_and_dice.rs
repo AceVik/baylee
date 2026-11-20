@@ -72,7 +72,9 @@ fn slice_and_dice_cycling_deals_one_to_each_creature_or_declines() {
     // 1. Cycle and decline first -> Elf and Bear both take 0 damage, still draws.
     tap_mana_where(&mut engine, p0, |id| reds[..3].contains(&id));
     activate(&mut engine, p0, slice_and_dice(), 0);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     lk::yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(lk::zone_of(&engine, elf1), Zone::Battlefield);
@@ -85,7 +87,9 @@ fn slice_and_dice_cycling_deals_one_to_each_creature_or_declines() {
     // 2. Cycle and accept -> 1 damage to each creature BEFORE draw (kills 1/1, marks 1 on 2/2).
     tap_mana_where(&mut engine, p0, |id| reds[3..6].contains(&id));
     activate(&mut engine, p0, slice_and_dice(), 0);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     lk::yes_no(&mut engine, true);
     assert_eq!(lk::zone_of(&engine, elf1), Zone::Graveyard);
     assert_eq!(lk::damage_on(&engine, bear1), 1);

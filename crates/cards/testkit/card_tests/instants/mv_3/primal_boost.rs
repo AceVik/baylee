@@ -66,7 +66,9 @@ fn primal_boost_cycling_gives_optional_plus_one_until_eot() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     assert_eq!(pt(&engine, elf), (2, 2));
     assert_eq!(
@@ -87,7 +89,9 @@ fn primal_boost_cycling_gives_optional_plus_one_until_eot() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(pt(&engine, elf), (2, 2));

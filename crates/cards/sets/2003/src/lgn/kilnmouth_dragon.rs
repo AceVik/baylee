@@ -14,7 +14,7 @@ card!(
     scryfall_id = "67bbc1c3-8806-49d4-9111-a2334c66e5ec",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kilnmouth Dragon",
         mana_cost = mana!("{5}{R}{R}"),

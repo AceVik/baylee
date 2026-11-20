@@ -51,7 +51,9 @@ fn solar_blast_cycling_deals_one_damage_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     assert_eq!(zone_of(&engine, elf), Zone::Graveyard);
     assert_eq!(
@@ -72,7 +74,9 @@ fn solar_blast_cycling_deals_one_damage_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[], &[p1]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(life(&engine, p1), 19);
@@ -84,7 +88,9 @@ fn solar_blast_cycling_deals_one_damage_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[], &[p1]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(life(&engine, p1), 19);

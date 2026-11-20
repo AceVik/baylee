@@ -66,7 +66,9 @@ fn invigorating_boon_triggers_on_either_players_cycle_not_plain_discard() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(pt(&engine, elf), (2, 2));
@@ -78,7 +80,9 @@ fn invigorating_boon_triggers_on_either_players_cycle_not_plain_discard() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(pt(&engine, elf), (2, 2), "declining MayDo adds no counter");
@@ -91,8 +95,14 @@ fn invigorating_boon_triggers_on_either_players_cycle_not_plain_discard() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     pass_until(&mut engine, |e| at_rest(e, p1));
-    assert_eq!(pt(&engine, elf), (3, 3), "opponent cycle triggers P0's Boon");
+    assert_eq!(
+        pt(&engine, elf),
+        (3, 3),
+        "opponent cycle triggers P0's Boon"
+    );
 }

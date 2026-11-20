@@ -54,7 +54,9 @@ fn gempalm_polluter_counts_all_battlefield_zombies_and_may_be_declined() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[], &[p1]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     pass_until(&mut engine, |e| at_rest(e, p0));
 
@@ -71,7 +73,9 @@ fn gempalm_polluter_counts_all_battlefield_zombies_and_may_be_declined() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[], &[p1]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
 

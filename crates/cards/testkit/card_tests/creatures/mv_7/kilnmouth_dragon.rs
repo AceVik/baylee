@@ -48,9 +48,15 @@ fn kilnmouth_dragon_amplify_3_pings_player_and_creature_for_counter_count() {
     let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
         unreachable!()
     };
-    assert_eq!(options.len(), 2, "only the two Dragons in hand are eligible");
+    assert_eq!(
+        options.len(),
+        2,
+        "only the two Dragons in hand are eligible"
+    );
     assert!(!options.contains(&bear));
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: options }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let dragon = on_battlefield(&engine, P0, kilnmouth_dragon()).unwrap();
@@ -92,6 +98,38 @@ fn kilnmouth_dragon_amplify_3_pings_player_and_creature_for_counter_count() {
 }
 
 #[test]
+fn kilnmouth_dragon_has_flying_in_combat() {
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(); 7])
+        .battlefield(1, &[grizzly_bears()])
+        .hand(0, &[kilnmouth_dragon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+
+    cast_from_hand(&mut engine, P0, kilnmouth_dragon());
+    pass_until(&mut engine, stack_is_empty);
+    let dragon = on_battlefield(&engine, P0, kilnmouth_dragon()).unwrap();
+
+    // Turn 3: ground Grizzly Bears cannot block flying Kilnmouth Dragon.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.number >= 3
+            && e.state().turn.phase == baylee_engine::turn::Phase::FirstMain
+            && stack_is_empty(e)
+    });
+    let bear = on_battlefield(&engine, P1, grizzly_bears()).unwrap();
+    let blockers = attack_and_collect_blocks(&mut engine, dragon, P1);
+    assert!(
+        !baylee_card_testkit::card_tests::legends_kit::may_block(&blockers, bear, dragon),
+        "ground creature cannot block flying Kilnmouth Dragon"
+    );
+    baylee_card_testkit::card_tests::legends_kit::block(&mut engine, &[]);
+    baylee_card_testkit::card_tests::legends_kit::through_combat(&mut engine);
+    assert_eq!(engine.state().players[1].life, 15);
+}
+
+#[test]
 fn kilnmouth_dragon_zero_reveals_is_five_five_and_deals_zero_damage() {
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(0, &[mountain(); 7])
@@ -110,7 +148,9 @@ fn kilnmouth_dragon_zero_reveals_is_five_five_and_deals_zero_damage() {
             }
         )
     });
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: vec![] }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let dragon = on_battlefield(&engine, P0, kilnmouth_dragon()).unwrap();

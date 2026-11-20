@@ -17,10 +17,7 @@ fn dirge_of_dread_cast_gives_all_creatures_fear_until_eot() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
         .battlefield(0, &[swamp(), swamp(), swamp(), llanowar_elves()])
-        .battlefield(
-            1,
-            &[llanowar_elves(), festering_goblin(), ornithopter()],
-        )
+        .battlefield(1, &[llanowar_elves(), festering_goblin(), ornithopter()])
         .hand(0, &[dirge_of_dread()])
         .start();
     keep_mulligans(&mut engine);
@@ -40,9 +37,18 @@ fn dirge_of_dread_cast_gives_all_creatures_fear_until_eot() {
     assert!(keywords(&engine, opp_elf).contains(KeywordSet::FEAR));
 
     let blockers = attack_and_collect_blocks(&mut engine, my_elf, p1);
-    assert!(!may_block(&blockers, opp_elf, my_elf), "green creature cannot block fear");
-    assert!(may_block(&blockers, opp_goblin, my_elf), "black creature may block fear");
-    assert!(may_block(&blockers, opp_thopter, my_elf), "artifact creature may block fear");
+    assert!(
+        !may_block(&blockers, opp_elf, my_elf),
+        "green creature cannot block fear"
+    );
+    assert!(
+        may_block(&blockers, opp_goblin, my_elf),
+        "black creature may block fear"
+    );
+    assert!(
+        may_block(&blockers, opp_thopter, my_elf),
+        "artifact creature may block fear"
+    );
     block(&mut engine, &[]);
     through_combat(&mut engine);
 
@@ -60,7 +66,14 @@ fn dirge_of_dread_cycling_grants_fear_to_one_target_or_declines() {
     let mut engine = Duel::new(SEED, swamp())
         .battlefield(
             0,
-            &[swamp(), swamp(), swamp(), swamp(), llanowar_elves(), serra_angel()],
+            &[
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                llanowar_elves(),
+                serra_angel(),
+            ],
         )
         .hand(0, &[dirge_of_dread(), dirge_of_dread()])
         .start();
@@ -79,7 +92,9 @@ fn dirge_of_dread_cycling_grants_fear_to_one_target_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     assert!(keywords(&engine, elf).contains(KeywordSet::FEAR));
     assert!(!keywords(&engine, angel).contains(KeywordSet::FEAR));
@@ -96,7 +111,9 @@ fn dirge_of_dread_cycling_grants_fear_to_one_target_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[angel], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert!(!keywords(&engine, angel).contains(KeywordSet::FEAR));

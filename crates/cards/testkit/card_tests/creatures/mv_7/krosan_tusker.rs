@@ -17,7 +17,7 @@ fn yawgmoth_s_will() -> CardIndex {
 }
 
 /// Cycling Krosan Tusker searches for a basic land (excluding nonbasic lands)
-/// BEFORE the cycling draw resolves (CR 702.29c), and declining MayDo skips the
+/// BEFORE the cycling draw resolves (CR 702.29c), and declining `MayDo` skips the
 /// search while still drawing 1 card.
 #[test]
 fn krosan_tusker_searches_basic_land_before_draw_and_may_be_declined() {
@@ -42,7 +42,9 @@ fn krosan_tusker_searches_basic_land_before_draw_and_may_be_declined() {
     activate(&mut engine, p0, krosan_tusker(), 0);
     assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 2);
 
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     lk::yes_no(&mut engine, true);
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
@@ -89,7 +91,9 @@ fn krosan_tusker_searches_basic_land_before_draw_and_may_be_declined() {
     let hand_before2 = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     tap_mana_where(&mut engine, p0, |id| lands[3..6].contains(&id));
     activate(&mut engine, p0, krosan_tusker(), 0);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     lk::yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(
@@ -130,7 +134,9 @@ fn krosan_tusker_triggers_when_discard_is_replaced_into_exile() {
         Zone::Exile,
         "Yawgmoth's Will exiled the cycled card instead of graveyard"
     );
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     lk::yes_no(&mut engine, true);
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })

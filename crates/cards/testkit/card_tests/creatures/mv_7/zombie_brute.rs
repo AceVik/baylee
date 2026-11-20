@@ -49,7 +49,9 @@ fn zombie_brute_amplifies_zombies_and_tramples_excess_damage() {
     };
     assert_eq!(options.len(), 2);
     assert!(!options.contains(&bear_in_hand));
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: options }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let brute = on_battlefield(&engine, P0, zombie_brute()).unwrap();
@@ -94,7 +96,9 @@ fn zombie_brute_amplifies_zombies_and_tramples_excess_damage() {
                 reason: NumberPrompt::CombatDamage { .. },
                 ..
             } => {
-                engine.apply(player, PlayerAction::ChooseNumber(min)).unwrap();
+                engine
+                    .apply(player, PlayerAction::ChooseNumber(min))
+                    .unwrap();
             }
             _ => {
                 pass_until(&mut engine, |e| {
@@ -127,7 +131,9 @@ fn zombie_brute_zero_reveals_is_five_four() {
             }
         )
     });
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: vec![] }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let brute = on_battlefield(&engine, P0, zombie_brute()).unwrap();

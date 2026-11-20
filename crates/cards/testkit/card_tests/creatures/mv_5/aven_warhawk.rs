@@ -25,6 +25,7 @@ fn aven_warhawk_amplifies_bird_and_soldier_cards_and_flies() {
             0,
             &[
                 aven_warhawk(),
+                aven_warhawk(),
                 bird_maiden(),
                 index::BENALISH_HERO,
                 scathe_zombies(),
@@ -44,22 +45,30 @@ fn aven_warhawk_amplifies_bird_and_soldier_cards_and_flies() {
             }
         )
     });
+    let other_warhawk = in_hand(&engine, P0, aven_warhawk()).unwrap();
     let bird = in_hand(&engine, P0, bird_maiden()).unwrap();
     let soldier = in_hand(&engine, P0, index::BENALISH_HERO).unwrap();
     let zombie = in_hand(&engine, P0, scathe_zombies()).unwrap();
     let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
         unreachable!()
     };
-    assert_eq!(options.len(), 2);
+    assert_eq!(options.len(), 3);
+    assert!(options.contains(&other_warhawk));
     assert!(options.contains(&bird));
     assert!(options.contains(&soldier));
     assert!(!options.contains(&zombie));
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: options }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let warhawk = on_battlefield(&engine, P0, aven_warhawk()).unwrap();
-    assert_eq!(counters_on(&engine, warhawk, CounterKind::P1P1), 2);
-    assert_eq!(pt(&engine, warhawk), (4, 4));
+    assert_eq!(
+        counters_on(&engine, warhawk, CounterKind::P1P1),
+        3,
+        "Bird Soldier card in hand counts once per card, not twice (CR 702.38a)"
+    );
+    assert_eq!(pt(&engine, warhawk), (5, 5));
 
     // Turn 3: Aven Warhawk attacks with flying -> Grizzly Bears cannot block, Bird Maiden can.
     pass_until(&mut engine, |e| {
@@ -126,7 +135,9 @@ fn aven_warhawk_zero_reveals_enters_as_two_two() {
             }
         )
     });
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: vec![] }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let warhawk = on_battlefield(&engine, P0, aven_warhawk()).unwrap();

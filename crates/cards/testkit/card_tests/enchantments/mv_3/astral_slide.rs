@@ -38,10 +38,7 @@ fn astral_slide_exiles_and_returns_under_owners_control_at_next_end_step() {
                 putrid_imp(),
             ],
         )
-        .battlefield(
-            1,
-            &[island(), island(), island(), island(), plains()],
-        )
+        .battlefield(1, &[island(), island(), island(), island(), plains()])
         .hand(0, &[secluded_steppe(), swamp()])
         .hand(1, &[control_magic(), secluded_steppe()])
         .start();
@@ -72,7 +69,9 @@ fn astral_slide_exiles_and_returns_under_owners_control_at_next_end_step() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(zone_of(&engine, elf), Zone::Battlefield);
@@ -94,7 +93,9 @@ fn astral_slide_exiles_and_returns_under_owners_control_at_next_end_step() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     pass_until(&mut engine, |e| at_rest(e, p1));
 

@@ -11,7 +11,7 @@ card!(
     oracle_id = "e9ed7322-53d4-419a-809f-78824aeaf99e",
     scryfall_id = "974b0881-bd26-4074-93dd-a1e3600347c4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Glowering Rogon",
         mana_cost = mana!("{5}{G}"),

@@ -18,7 +18,10 @@ fn canopy_crawler() -> CardIndex {
 #[test]
 fn canopy_crawler_amplifies_beasts_and_pumps_equal_to_counters_until_eot() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), forest(), forest(), savannah_lions()])
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), savannah_lions()],
+        )
         .hand(
             0,
             &[
@@ -48,7 +51,9 @@ fn canopy_crawler_amplifies_beasts_and_pumps_equal_to_counters_until_eot() {
     };
     assert_eq!(options.len(), 2, "only the two Beasts in hand are eligible");
     assert!(!options.contains(&bear));
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: options }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let crawler = on_battlefield(&engine, P0, canopy_crawler()).unwrap();
@@ -81,7 +86,10 @@ fn canopy_crawler_amplifies_beasts_and_pumps_equal_to_counters_until_eot() {
 #[test]
 fn canopy_crawler_zero_reveals_is_two_two_and_pumps_by_zero() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), forest(), forest(), grizzly_bears()])
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), grizzly_bears()],
+        )
         .hand(0, &[canopy_crawler(), index::GARRUK_S_COMPANION])
         .start();
     keep_mulligans(&mut engine);
@@ -97,7 +105,9 @@ fn canopy_crawler_zero_reveals_is_two_two_and_pumps_by_zero() {
             }
         )
     });
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: vec![] }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let crawler = on_battlefield(&engine, P0, canopy_crawler()).unwrap();

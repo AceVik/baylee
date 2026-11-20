@@ -36,7 +36,7 @@ fn gempalm_avenger_cycling_buffs_soldier_creatures_only_before_draw() {
                 firdoch_core(),
             ],
         )
-        .battlefield(1, &[elite_vanguard()])
+        .battlefield(1, &[elite_vanguard(), grizzly_bears()])
         .hand(0, &[gempalm_avenger()])
         .start();
     keep_mulligans(&mut engine);
@@ -46,6 +46,7 @@ fn gempalm_avenger_cycling_buffs_soldier_creatures_only_before_draw() {
     let elf0 = on_battlefield(&engine, p0, llanowar_elves()).expect("P0 Elf");
     let core = on_battlefield(&engine, p0, firdoch_core()).expect("noncreature Changeling");
     let sol1 = on_battlefield(&engine, p1, elite_vanguard()).expect("P1 Soldier");
+    let bear1 = on_battlefield(&engine, p1, grizzly_bears()).expect("P1 Bear");
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
 
     tap_all_mana(&mut engine, p0);
@@ -71,6 +72,13 @@ fn gempalm_avenger_cycling_buffs_soldier_creatures_only_before_draw() {
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before
     );
+
+    // Combat check: 3/2 First Strike Soldier kills 2/2 blocking Bear before regular combat damage.
+    let _blockers = attack_and_collect_blocks(&mut engine, sol0, p1);
+    block(&mut engine, &[(bear1, sol0)]);
+    through_combat(&mut engine);
+    assert_eq!(zone_of(&engine, bear1), Zone::Graveyard);
+    assert_eq!(zone_of(&engine, sol0), Zone::Battlefield);
 
     reach_their_main_phase(&mut engine, p1);
     assert_eq!(pt(&engine, sol0), (2, 1));

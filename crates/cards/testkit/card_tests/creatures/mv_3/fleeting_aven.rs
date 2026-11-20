@@ -40,7 +40,14 @@ fn fleeting_aven_has_flying_bounces_to_owners_hand_on_any_cycle_not_discard() {
         )
         .battlefield(
             1,
-            &[island(), island(), island(), island(), island()],
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                grizzly_bears(),
+            ],
         )
         .hand(0, &[lonely_sandbar(), swamp()])
         .hand(1, &[control_magic(), lonely_sandbar()])
@@ -49,8 +56,16 @@ fn fleeting_aven_has_flying_bounces_to_owners_hand_on_any_cycle_not_discard() {
     reach_main_phase(&mut engine, p0);
 
     let aven = on_battlefield(&engine, p0, fleeting_aven()).expect("Fleeting Aven seated");
-    assert_eq!(pt(&engine, aven), (2, 2));
-    assert!(keywords(&engine, aven).contains(KeywordSet::FLYING));
+    let bear1 = on_battlefield(&engine, p1, grizzly_bears()).expect("P1 Bear");
+    // Flying in combat: ground Bear cannot block attacking Fleeting Aven.
+    let blockers = attack_and_collect_blocks(&mut engine, aven, p1);
+    assert!(
+        !may_block(&blockers, bear1, aven),
+        "ground creature cannot block flying Fleeting Aven"
+    );
+    block(&mut engine, &[]);
+    through_combat(&mut engine);
+    assert_eq!(life(&engine, p1), 18);
 
     // Plain discard via Putrid Imp does not bounce Fleeting Aven.
     let swamp_card = in_hand(&engine, p0, swamp()).expect("Swamp in hand");

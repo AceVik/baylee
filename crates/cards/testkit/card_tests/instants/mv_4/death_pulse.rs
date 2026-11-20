@@ -35,6 +35,29 @@ fn death_pulse_cast_gives_minus_four_killing_4_4() {
     assert_eq!(zone_of(&engine, angel), Zone::Graveyard);
 }
 
+#[test]
+fn death_pulse_cast_minus_four_expires_at_cleanup() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let shivan_dragon = baylee_core::generated::index::SHIVAN_DRAGON;
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp()])
+        .battlefield(1, &[shivan_dragon])
+        .hand(0, &[death_pulse()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let dragon = on_battlefield(&engine, p1, shivan_dragon).expect("P1 Dragon");
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, death_pulse());
+    aim(&mut engine, &[dragon], &[]);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, dragon), (1, 1));
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(pt(&engine, dragon), (5, 5));
+}
+
 /// Cycling Death Pulse for `{1}{B}{B}` optionally gives target creature -1/-1
 /// until end of turn (killing a 1/1 or shrinking a 2/2 until cleanup before the
 /// cycling draw), and declining leaves the target unharmed.
@@ -61,7 +84,9 @@ fn death_pulse_cycling_shrinks_by_one_until_eot_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[bear], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     assert_eq!(pt(&engine, bear), (1, 1));
     assert_eq!(
@@ -82,7 +107,9 @@ fn death_pulse_cycling_shrinks_by_one_until_eot_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[elf], &[]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(zone_of(&engine, elf), Zone::Battlefield);

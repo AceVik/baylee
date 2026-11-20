@@ -24,15 +24,7 @@ fn putrid_imp() -> CardIndex {
 fn warped_researcher_gains_flying_and_shroud_on_any_cycle_and_expires() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, island())
-        .battlefield(
-            0,
-            &[
-                island(),
-                forest(),
-                warped_researcher(),
-                putrid_imp(),
-            ],
-        )
+        .battlefield(0, &[island(), forest(), warped_researcher(), putrid_imp()])
         .battlefield(1, &[island()])
         .hand(0, &[lonely_sandbar(), giant_growth(), swamp()])
         .hand(1, &[lonely_sandbar()])
@@ -73,7 +65,10 @@ fn warped_researcher_gains_flying_and_shroud_on_any_cycle_and_expires() {
     tap_mana_where(&mut engine, p0, |id| id == g);
     cast_with_floating(&mut engine, p0, giant_growth());
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
-        panic!("expected ChooseTargets for Giant Growth: {:?}", engine.pending());
+        panic!(
+            "expected ChooseTargets for Giant Growth: {:?}",
+            engine.pending()
+        );
     };
     assert!(
         !options.contains(&researcher),

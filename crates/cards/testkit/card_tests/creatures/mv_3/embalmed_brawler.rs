@@ -127,7 +127,11 @@ fn embalmed_brawler_amplifies_zombies_and_drains_controller_on_attack_and_block(
         18,
         "attacking with 2 +1/+1 counters makes controller lose 2 life"
     );
-    assert_eq!(engine.state().players[1].life, 16, "4/4 unblocked deals 4 combat damage");
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "4/4 unblocked deals 4 combat damage"
+    );
 
     // Skip attacking on Turn 4 (P1) and Turn 5 (P0) so Brawler untaps before blocking on Turn 6.
     pass_until(&mut engine, |e| {
@@ -191,6 +195,7 @@ fn embalmed_brawler_amplifies_zombies_and_drains_controller_on_attack_and_block(
 fn embalmed_brawler_with_zero_reveals_has_no_counters_and_loses_zero_life() {
     let mut engine = Duel::new(SEED, index::SWAMP)
         .battlefield(0, &[swamp(), swamp(), swamp()])
+        .battlefield(1, &[savannah_lions()])
         .hand(0, &[embalmed_brawler(), scathe_zombies()])
         .start();
     keep_mulligans(&mut engine);
@@ -220,4 +225,55 @@ fn embalmed_brawler_with_zero_reveals_has_no_counters_and_loses_zero_life() {
     });
     assert_eq!(engine.state().players[0].life, 20);
     assert_eq!(engine.state().players[1].life, 18);
+
+    // Skip P1 turn 4 & P0 turn 5 so Brawler untaps before blocking on P1 turn 6.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P1
+            && matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P1)
+    });
+    engine
+        .apply(P1, PlayerAction::DeclareAttackers { attackers: vec![] })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.number >= 5
+            && matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P0)
+    });
+    engine
+        .apply(P0, PlayerAction::DeclareAttackers { attackers: vec![] })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P1
+            && e.state().turn.number >= 6
+            && matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P1)
+    });
+    let lions = on_battlefield(&engine, P1, savannah_lions()).unwrap();
+    engine
+        .apply(
+            P1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(lions, Defender::Player(P0))],
+            },
+        )
+        .unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseBlockers { player, .. } if *player == P0),
+    );
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(brawler_id, lions)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
+    });
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "blocking with 0 +1/+1 counters also loses 0 life"
+    );
 }

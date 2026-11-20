@@ -71,7 +71,9 @@ fn lightning_rift_pays_or_declines_on_any_players_cycle_not_plain_discard() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[], &[p1]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(life(&engine, p1), 18);
@@ -83,7 +85,9 @@ fn lightning_rift_pays_or_declines_on_any_players_cycle_not_plain_discard() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[], &[p1]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert_eq!(life(&engine, p1), 18, "declining {{1}} deals no damage");
@@ -97,12 +101,15 @@ fn lightning_rift_pays_or_declines_on_any_players_cycle_not_plain_discard() {
     });
     aim(&mut engine, &[bear], &[]);
     // P0 floats {1} from the 5th Mountain (kept untapped) before Rift resolves.
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
     tap_mana_where(&mut engine, p0, |id| id == reds[4]);
     assert_eq!(pool_total(&engine, p0), 1);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     pass_until(&mut engine, |e| at_rest(e, p1));
     assert_eq!(pool_total(&engine, p0), 0, "paid {{1}} into Lightning Rift");

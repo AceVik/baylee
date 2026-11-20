@@ -48,7 +48,9 @@ fn glowering_rogon_amplifies_beasts_and_scales_with_doubling_season() {
     };
     assert_eq!(options.len(), 2);
     assert!(!options.contains(&bear));
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: options }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let rogon = on_battlefield(&engine, P0, glowering_rogon()).unwrap();
@@ -57,7 +59,18 @@ fn glowering_rogon_amplifies_beasts_and_scales_with_doubling_season() {
 
     // With Doubling Season on battlefield, revealing 1 Beast places 2 +1/+1 counters.
     let mut doubled = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), forest(), forest(), forest(), forest(), doubling_season()])
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                doubling_season(),
+            ],
+        )
         .hand(0, &[glowering_rogon(), index::GARRUK_S_COMPANION])
         .start();
     keep_mulligans(&mut doubled);
@@ -77,7 +90,9 @@ fn glowering_rogon_amplifies_beasts_and_scales_with_doubling_season() {
         unreachable!()
     };
     assert_eq!(options.len(), 1);
-    doubled.apply(P0, PlayerAction::ChooseObjects { objects: options }).unwrap();
+    doubled
+        .apply(P0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
     pass_until(&mut doubled, stack_is_empty);
 
     let rogon_d = on_battlefield(&doubled, P0, glowering_rogon()).unwrap();
@@ -104,7 +119,9 @@ fn glowering_rogon_zero_reveals_is_four_four() {
             }
         )
     });
-    engine.apply(P0, PlayerAction::ChooseObjects { objects: vec![] }).unwrap();
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let rogon = on_battlefield(&engine, P0, glowering_rogon()).unwrap();

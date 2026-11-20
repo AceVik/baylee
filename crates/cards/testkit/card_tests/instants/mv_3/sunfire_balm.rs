@@ -43,6 +43,36 @@ fn sunfire_balm_cast_prevents_next_four_damage_this_turn() {
     assert_eq!(life(&engine, p0), 18);
 }
 
+#[test]
+fn sunfire_balm_unused_prevention_expires_at_end_of_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), plains()])
+        .battlefield(1, &[mountain()])
+        .hand(0, &[sunfire_balm()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, sunfire_balm());
+    aim(&mut engine, &[], &[p0]);
+    pass_until(&mut engine, stack_is_empty);
+
+    // Unused 4-damage shield expires at cleanup before P1's next turn.
+    reach_their_main_phase(&mut engine, p1);
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, lightning_bolt());
+    aim(&mut engine, &[], &[p0]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life(&engine, p0),
+        17,
+        "expired shield from previous turn prevents 0 damage"
+    );
+}
+
 /// Cycling Sunfire Balm optionally prevents the next 1 damage to any target
 /// this turn (resolving before draw), and may be declined while still drawing.
 #[test]
@@ -84,7 +114,9 @@ fn sunfire_balm_cycling_prevents_one_damage_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[], &[p0]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, true);
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
@@ -110,7 +142,9 @@ fn sunfire_balm_cycling_prevents_one_damage_or_declines() {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     aim(&mut engine, &[], &[p0]);
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     yes_no(&mut engine, false);
     pass_until(&mut engine, |e| at_rest(e, p0));
 

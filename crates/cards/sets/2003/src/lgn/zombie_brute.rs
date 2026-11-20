@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b37db470-3aef-4fc4-98ce-63b5fb2546f6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zombie Brute",
         mana_cost = mana!("{6}{B}"),

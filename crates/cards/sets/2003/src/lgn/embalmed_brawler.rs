@@ -12,7 +12,7 @@ card!(
     oracle_id = "42e95ad5-c10a-46fe-ab97-c7a734138586",
     scryfall_id = "2e214da0-68c0-4cf6-ba12-e2b2394909c1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Embalmed Brawler",
         mana_cost = mana!("{2}{B}"),
