@@ -13,7 +13,7 @@ card!(
     oracle_id = "9431c81f-7b71-4c5d-a63c-1b5aba03601b",
     scryfall_id = "36a52c3a-2f58-4b4d-b3c6-f9a08e25c7de",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Degavolver",
         mana_cost = mana!("{1}{W}"),

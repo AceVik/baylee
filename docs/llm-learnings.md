@@ -6,6 +6,14 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-20 — Mechanic 1 (Dual Kicker: 11 `Coverage::Implemented` promotions)
+
+- **11/11 `Coverage::Implemented` promotions (`Reviewed: 3dfb0ea89 890e08339`, `Reviewed-by: gemini-4-hydrogen-xhigh, pass`):** Promoted all 5 Invasion/Planeshift Battlemages (`Sunscape Battlemage`, `Stormscape Battlemage`, `Nightscape Battlemage`, `Thunderscape Battlemage`, `Thornscape Battlemage`), `Illuminate`, and all 5 Apocalypse Volvers (`Anavolver`, `Cetavolver`, `Degavolver`, `Necravolver`, `Rakavolver`) after writing 43 independent card tests across all four kicker combinations (`unkicked`, `kicker 0 only`, `kicker 1 only`, `both`), intervening-`if` suppression (CR 603.4), permanent continuous keyword/ability grants (CR 611.2e), counter replacement interaction (CR 614.16), combat+noncombat damage triggers (`Necravolver`/`Rakavolver`), and `Illuminate` controller LKI.
+- **Consumer & testkit notes for multi-kicker cards:**
+  - `Modifier::GrantActivated` assigns `crate::choice::granted_ability(id)` ability indices rather than `0`, so tests should resolve `(source, ability_index)` from `priority_offer(engine).abilities`.
+  - `YesNoPrompt::KickerOption { parts, .. }` uses `BuybackParts::default()` for plain kickers; `Effect::DiscardForPlayers` asks via `Pending::ChooseCards`, and `TargetSpec::AnyPlayer` via `Pending::ChooseTargets { player_options, .. }`.
+  - Preserving Oracle kicker prompt order (`Sunscape Battlemage`: `{1}{G}` index 0 before `{2}{U}` index 1) ensures prompt order matches printed text.
+
 ## 2026-11-20 — Mechanic 1 (Resolution-time creature-type choice: 31 `Coverage::Generated` promotions)
 
 - **31/31 `Coverage::Generated` promotions (`Reviewed: 074f14e58 3d3237522 fae856cd5`, `Card-Author: gemini-4-hydrogen-xhigh`, `Review: pending`):**

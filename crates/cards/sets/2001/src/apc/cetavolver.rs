@@ -13,7 +13,7 @@ card!(
     oracle_id = "3ae86510-f828-48f8-adab-759df4b5544e",
     scryfall_id = "69063cc2-4f6e-4cce-bb09-ccd57b69b993",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cetavolver",
         mana_cost = mana!("{1}{U}"),

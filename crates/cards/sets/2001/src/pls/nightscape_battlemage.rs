@@ -18,7 +18,7 @@ card!(
     oracle_id = "e96e68b4-cb32-4b75-a885-e1781f4b74ab",
     scryfall_id = "d5389643-4cc0-4a17-bc2d-7f9b76d30f9f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nightscape Battlemage",
         mana_cost = mana!("{2}{B}"),

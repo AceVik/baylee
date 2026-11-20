@@ -13,7 +13,7 @@ card!(
     oracle_id = "639d16ed-daa4-4c8d-8550-5c9a29f4d9fe",
     scryfall_id = "232c32d9-9b0c-458d-b1b3-e4219bd34c82",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Necravolver",
         mana_cost = mana!("{2}{B}"),

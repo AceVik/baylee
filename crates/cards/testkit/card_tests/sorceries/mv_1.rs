@@ -27,6 +27,7 @@ mod gitaxian_probe;
 mod goblin_grenade;
 mod green_sun_s_zenith;
 mod hurricane;
+mod illuminate;
 mod imperial_seal;
 mod innocent_blood;
 mod lab_rats;

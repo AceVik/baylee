@@ -13,7 +13,7 @@ card!(
     oracle_id = "03a4cbe2-cf35-4c2c-b035-666f994ffd09",
     scryfall_id = "5e685a8c-fba6-495f-ac0f-1ff5456b22d0",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Anavolver",
         mana_cost = mana!("{3}{G}"),
