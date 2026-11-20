@@ -4,6 +4,14 @@
 use super::{Params, Tx, color_atom, counter_kind};
 
 impl Tx<'_> {
+    /// Whether this permanent chooses a card type as it enters (`EnterModifier::ChooseCardType`).
+    pub(super) fn has_chosen_card_type(&self) -> bool {
+        self.body
+            .enter_modifiers
+            .iter()
+            .any(|m| m == "EnterModifier::ChooseCardType")
+    }
+
     /// Whether this permanent chooses a color as it enters (`EnterModifier::ChooseColor`).
     pub(super) fn has_chosen_color(&self) -> bool {
         self.body
@@ -400,6 +408,7 @@ impl Tx<'_> {
             "Enchantment" => clauses.push("Filter::ENCHANTMENT".to_string()),
             "Land" => clauses.push("Filter::LAND".to_string()),
             "Planeswalker" => clauses.push("Filter::PLANESWALKER".to_string()),
+            "Battle" => clauses.push("Filter::HasType(TypeSet::BATTLE)".to_string()),
             "Instant" => clauses.push("Filter::HasType(TypeSet::INSTANT)".to_string()),
             "Sorcery" => clauses.push("Filter::HasType(TypeSet::SORCERY)".to_string()),
             "Basic" => clauses.push("Filter::HasSupertype(SupertypeSet::BASIC)".to_string()),
@@ -407,6 +416,7 @@ impl Tx<'_> {
                 clauses.push("Filter::HasSupertype(SupertypeSet::LEGENDARY)".to_string());
             }
             "Snow" => clauses.push("Filter::HasSupertype(SupertypeSet::SNOW)".to_string()),
+            "Self" => clauses.push("Filter::This".to_string()),
             "Enchanted" => clauses.push("Filter::AttachedToBySource".to_string()),
             "Kicked" => clauses.push("Filter::Kicked".to_string()),
             _ => {
@@ -429,12 +439,42 @@ impl Tx<'_> {
         let mut alternatives = Vec::new();
         for alt in valid.split(',') {
             let mut clauses = Vec::new();
-            let mut atoms = alt.split('.');
-            let base = atoms.next()?.trim();
-            if !self.push_filter_base(base, card_zone, &mut clauses) {
-                return None;
-            }
-            for atom in atoms.flat_map(|a| a.split('+')) {
+            let raw_atoms: Vec<&str> =
+                if alt.contains("AttachedTo ") || alt.contains("SharesColorWith Valid ") {
+                    let Some((base, tail)) = alt.split_once('.') else {
+                        return self.deny(format!("filter base `{}`", alt.trim()));
+                    };
+                    if !self.push_filter_base(base.trim(), card_zone, &mut clauses) {
+                        return None;
+                    }
+                    let mut parts: Vec<&str> = Vec::new();
+                    let mut saw_embedded = false;
+                    for piece in tail.split('+') {
+                        if saw_embedded {
+                            // A `+` following an embedded sub-filter is ambiguous between the
+                            // inner and outer predicates; refuse rather than mis-scope it.
+                            self.note(format!("filter atom `{tail}`"));
+                            return None;
+                        }
+                        let t = piece.trim();
+                        if t.starts_with("AttachedTo ")
+                            || t.starts_with("SharesColorWith Valid ")
+                            || t.starts_with("!SharesColorWith Valid ")
+                        {
+                            saw_embedded = true;
+                        }
+                        parts.push(t);
+                    }
+                    parts
+                } else {
+                    let mut atoms = alt.split('.');
+                    let base = atoms.next()?.trim();
+                    if !self.push_filter_base(base, card_zone, &mut clauses) {
+                        return None;
+                    }
+                    atoms.flat_map(|a| a.split('+')).collect()
+                };
+            for atom in raw_atoms {
                 clauses.push(match atom.trim() {
                     // "Enchanted creature gets +2/+1", "equipped creature has
                     // flying": one filter for both, because there is one
@@ -458,6 +498,51 @@ impl Tx<'_> {
                     {
                         "Filter::ControlledByActivePlayer".to_string()
                     }
+                    "ControlledBy TriggeredDefendingPlayer"
+                        if matches!(
+                            self.trigger_mode.as_deref(),
+                            Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                        ) =>
+                    {
+                        "Filter::ControlledByDefendingPlayer".to_string()
+                    }
+                    "IsCommander" => "Filter::IsCommander".to_string(),
+                    "!IsCommander" | "nonCommander" => {
+                        "Filter::Not(&Filter::IsCommander)".to_string()
+                    }
+                    "NamedCard" => "Filter::NamedBySource".to_string(),
+                    "wasDealtDamageThisTurn" => "Filter::DealtDamageThisTurn".to_string(),
+                    "!wasDealtDamageThisTurn" => {
+                        "Filter::Not(&Filter::DealtDamageThisTurn)".to_string()
+                    }
+                    "attackedThisTurn" => "Filter::AttackedThisTurn".to_string(),
+                    "!attackedThisTurn" => "Filter::Not(&Filter::AttackedThisTurn)".to_string(),
+                    "blockedThisTurn" => "Filter::BlockedThisTurn".to_string(),
+                    "!blockedThisTurn" => "Filter::Not(&Filter::BlockedThisTurn)".to_string(),
+                    "wasCastFromHand" | "CastFromHand" => "Filter::CastFromHand".to_string(),
+                    "!wasCastFromHand" => "Filter::Not(&Filter::CastFromHand)".to_string(),
+                    "counters_GE1_ALL" => "Filter::HasAnyCounter".to_string(),
+                    "counters_EQ0_ALL" | "counters_LT1_ALL" => {
+                        "Filter::Not(&Filter::HasAnyCounter)".to_string()
+                    }
+                    "Permanent" if !card_zone => continue,
+                    "Permanent" => "Filter::HasType(TypeSet::ARTIFACT.union(TypeSet::BATTLE)\
+                         .union(TypeSet::CREATURE).union(TypeSet::ENCHANTMENT)\
+                         .union(TypeSet::LAND).union(TypeSet::PLANESWALKER))"
+                        .to_string(),
+                    "nonPermanent" => {
+                        "Filter::HasType(TypeSet::INSTANT.union(TypeSet::SORCERY))".to_string()
+                    }
+                    "Enchantment" => "Filter::ENCHANTMENT".to_string(),
+                    "Land" => "Filter::LAND".to_string(),
+                    "Planeswalker" => "Filter::PLANESWALKER".to_string(),
+                    "Battle" => "Filter::HasType(TypeSet::BATTLE)".to_string(),
+                    "Instant" => "Filter::HasType(TypeSet::INSTANT)".to_string(),
+                    "Sorcery" => "Filter::HasType(TypeSet::SORCERY)".to_string(),
+                    "nonPlaneswalker" => "Filter::LacksType(TypeSet::PLANESWALKER)".to_string(),
+                    "nonBattle" => "Filter::LacksType(TypeSet::BATTLE)".to_string(),
+                    "nonInstant" => "Filter::LacksType(TypeSet::INSTANT)".to_string(),
+                    "nonSorcery" => "Filter::LacksType(TypeSet::SORCERY)".to_string(),
                     "YouOwn" => "Filter::OwnedByYou".to_string(),
                     "Other" | "StrictlyOther" => "Filter::Another".to_string(),
                     "Self" => "Filter::This".to_string(),
@@ -523,11 +608,70 @@ impl Tx<'_> {
                     "ChosenType" if self.has_chosen_creature_type() => {
                         "Filter::MatchesChosenTypeOfSource".to_string()
                     }
+                    "ChosenType" if self.has_chosen_card_type() => {
+                        "Filter::OfSourceChosenCardType".to_string()
+                    }
                     "kicked" | "Kicked" => "Filter::Kicked".to_string(),
                     "!kicked" => "Filter::Not(&Filter::Kicked)".to_string(),
                     "faceDown" => "Filter::FaceDown".to_string(),
+                    "faceUp" => "Filter::Not(&Filter::FaceDown)".to_string(),
+                    "hasManaAbility" => "Filter::HasManaAbility".to_string(),
+                    "!hasManaAbility" => "Filter::Not(&Filter::HasManaAbility)".to_string(),
+                    "ThisTurnEntered" if !card_zone => "Filter::EnteredThisTurn".to_string(),
+                    "!ThisTurnEntered" if !card_zone => {
+                        "Filter::Not(&Filter::EnteredThisTurn)".to_string()
+                    }
                     "sharesCreatureTypeWith" => {
                         "Filter::SharesCreatureTypeWith(&Filter::This)".to_string()
+                    }
+                    "SharesColorWith Equipped" | "SharesColorWith Enchanted" => {
+                        "Filter::SharesAColorWith(&Filter::AttachedToBySource)".to_string()
+                    }
+                    "!SharesColorWith Equipped" | "!SharesColorWith Enchanted" => {
+                        "Filter::Not(&Filter::SharesAColorWith(&Filter::AttachedToBySource))"
+                            .to_string()
+                    }
+                    other if other.starts_with("AttachedTo ") => {
+                        let inner_raw = other.trim_start_matches("AttachedTo ").trim();
+                        if inner_raw == "Card.Self" || inner_raw == "Self" {
+                            "Filter::AttachedToSource".to_string()
+                        } else if inner_raw.contains("AttachedTo")
+                            || inner_raw.contains("SharesColorWith")
+                            || inner_raw.contains("IsRemembered")
+                            || inner_raw.contains("Targeted")
+                            || inner_raw.contains("Triggered")
+                            || matches!(inner_raw, "You" | "Player" | "Opponent")
+                            || inner_raw.starts_with("Player.")
+                        {
+                            self.note(format!("filter atom `{other}`"));
+                            return None;
+                        } else {
+                            let inner = self.filter_expr(inner_raw)?;
+                            format!("Filter::AttachedTo(&{inner})")
+                        }
+                    }
+                    other
+                        if other.starts_with("SharesColorWith Valid ")
+                            || other.starts_with("!SharesColorWith Valid ") =>
+                    {
+                        let (negated, inner_raw) =
+                            other.strip_prefix("!SharesColorWith Valid ").map_or_else(
+                                || (false, other.trim_start_matches("SharesColorWith Valid ")),
+                                |r| (true, r),
+                            );
+                        let inner_raw = inner_raw.trim();
+                        if inner_raw.contains("SharesColorWith") || inner_raw.contains("AttachedTo")
+                        {
+                            self.note(format!("filter atom `{other}`"));
+                            return None;
+                        }
+                        let inner = self.filter_expr(inner_raw)?;
+                        let pos = format!("Filter::SharesAColorWith(&{inner})");
+                        if negated {
+                            format!("Filter::Not(&{pos})")
+                        } else {
+                            pos
+                        }
                     }
                     "" => continue,
                     other if other.starts_with("counters_") => {

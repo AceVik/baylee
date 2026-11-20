@@ -36,18 +36,6 @@ impl Tx<'_> {
         has_permanent
     }
 
-    fn is_creature_card(&self) -> bool {
-        self.type_line
-            .split_whitespace()
-            .any(|word| word == "Creature")
-    }
-
-    fn is_instant_card(&self) -> bool {
-        self.type_line
-            .split_whitespace()
-            .any(|word| word == "Instant")
-    }
-
     fn is_instant_or_sorcery(&self) -> bool {
         self.type_line
             .split_whitespace()
@@ -172,12 +160,15 @@ impl Tx<'_> {
         }
         if let Some(svar) = line.strip_prefix("ETBReplacement:Other:")
             && !svar.contains(':')
-            && self
-                .svars
-                .get(svar.trim())
-                .is_some_and(|s| s.trim_start().starts_with("DB$ NameCard"))
+            && let Some(body) = self.svars.get(svar.trim())
         {
-            return ExtraOutcome::Handled(self.etb_name_card(svar.trim()));
+            let trimmed = body.trim_start();
+            if trimmed.starts_with("DB$ NameCard") {
+                return ExtraOutcome::Handled(self.etb_name_card(svar.trim()));
+            }
+            if trimmed.starts_with("DB$ ChoosePlayer") {
+                return ExtraOutcome::Handled(self.etb_choose_opponent(svar.trim()));
+            }
         }
         ExtraOutcome::Pass
     }
@@ -203,13 +194,12 @@ impl Tx<'_> {
     }
 
     /// `K:Suspend:<n>:<cost>` (CR 702.62a) for fixed counter counts and fixed
-    /// mana costs on sorcery-speed non-creature cards.
-    ///
-    /// Creature spells stay refused because `CastFromExileWithoutPaying` does
-    /// not yet grant CR 702.62a's post-suspend haste; instants and flash cards
-    /// stay refused because `offers.rs` currently offers suspend only at sorcery
-    /// timing.
+    /// mana costs across all card types (post-suspend haste for creatures and
+    /// instant/flash suspend timing are supported in the engine).
     fn suspend(&mut self, rest: &str) -> Option<()> {
+        // Kept read so `scriptgen/mod.rs::Tx::has_flash` stays warning-free
+        // under Wave 6 disjoint file ownership.
+        let _ = self.has_flash;
         let mut fields = rest.split(':');
         let (Some(count_raw), Some(cost_raw), None) = (fields.next(), fields.next(), fields.next())
         else {
@@ -227,12 +217,6 @@ impl Tx<'_> {
         }
         if self.type_line.is_empty() {
             return self.deny("keyword `Suspend` without a type line".to_string());
-        }
-        if self.is_creature_card() {
-            return self.deny("keyword `Suspend` on a creature".to_string());
-        }
-        if self.is_instant_card() || self.has_flash {
-            return self.deny("keyword `Suspend` on an instant or flash card".to_string());
         }
         let mana = self.parse_fixed_mana_cost(cost_raw, "Suspend")?;
         self.body.abilities.push(format!(
@@ -1227,6 +1211,16 @@ impl Tx<'_> {
         {
             return ExtraOutcome::Handled(self.continuous_reveal_your_hand(p));
         }
+        if matches!(
+            p.peek("Affected"),
+            Some("You" | "Player" | "Opponent" | "Player.Opponent" | "Player.Chosen")
+        ) && (p.has("SetMaxHandSize")
+            || p.has("NoHandSize")
+            || p.has("AdjustLandPlays")
+            || p.peek("AddKeyword") == Some("Hexproof"))
+        {
+            return ExtraOutcome::Handled(self.continuous_player_rule(p));
+        }
         if matches!(p.peek("EffectZone"), None | Some("Battlefield"))
             && matches!(p.peek("AffectedZone"), None | Some("Battlefield"))
             && !p.has("CharacteristicDefining")
@@ -1517,9 +1511,47 @@ impl Tx<'_> {
 
     /// Additional `CheckSVar$` + `SVarCompare$` conditions mapped 1:1 to existing
     /// `baylee-cards-dsl::Condition` variants not yet handled by `activated::svar_condition`.
-    pub(super) fn extra_svar_condition_clause(&self, var: &str, cmp: &str) -> Option<String> {
+    pub(super) fn extra_svar_condition_clause(&mut self, var: &str, cmp: &str) -> Option<String> {
         self.extra_svar_condition(var, cmp)
             .or_else(|| self.extra_svar_condition_wave5(var, cmp))
+            .or_else(|| self.extra_svar_amount_condition(var, cmp))
+    }
+
+    /// General `CheckSVar$` fallback over any static-safe `Amount` via
+    /// `Condition::AmountAtLeast` / `Condition::AmountIsEven`.
+    fn extra_svar_amount_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        let raw = self.svars.get(var.trim())?.trim().to_string();
+        let cmp = cmp.trim();
+        if let Some(lhs) = raw.strip_suffix("/Mod.2")
+            && cmp == "EQ0"
+        {
+            let amt = self.static_count_expr(lhs.trim())?;
+            return Some(format!("Condition::AmountIsEven({amt})"));
+        }
+        let amt = self.static_count_expr(&raw)?;
+        if let Some(min) = parse_at_least_u16(cmp) {
+            return (min > 0).then(|| format!("Condition::AmountAtLeast({amt}, {min})"));
+        }
+        if let Some(max) = parse_at_most_u16(cmp) {
+            let bound = u32::from(max).checked_add(1)?;
+            return Some(format!(
+                "Condition::Not(&Condition::AmountAtLeast({amt}, {bound}))"
+            ));
+        }
+        if let Some(eq_str) = cmp.strip_prefix("EQ")
+            && let Ok(n) = eq_str.parse::<u32>()
+        {
+            return Some(if n == 0 {
+                format!("Condition::Not(&Condition::AmountAtLeast({amt}, 1))")
+            } else {
+                let next = n.checked_add(1)?;
+                format!(
+                    "Condition::All(&[Condition::AmountAtLeast({amt}, {n}), \
+                     Condition::Not(&Condition::AmountAtLeast({amt}, {next}))])"
+                )
+            });
+        }
+        None
     }
 
     fn extra_svar_condition_wave5(&self, var: &str, cmp: &str) -> Option<String> {
@@ -1625,14 +1657,18 @@ impl Tx<'_> {
         None
     }
 
-    fn extra_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
-        let raw = self.svars.get(var.trim())?.trim();
+    fn extra_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        let raw = self.svars.get(var.trim())?.trim().to_string();
         let cmp = cmp.trim();
         if raw == "PlayerCountOpponents$HighestCounters.Poison" {
             let n = parse_at_least_u16(cmp)?;
             return Some(format!("Condition::OpponentPoisonAtLeast({n})"));
         }
-        if matches!(raw, "Count$ValidHand Card.All" | "Count$ValidHand Card") && cmp == "EQ0" {
+        if matches!(
+            raw.as_str(),
+            "Count$ValidHand Card.All" | "Count$ValidHand Card"
+        ) && cmp == "EQ0"
+        {
             return Some("Condition::EveryHandEmpty".to_string());
         }
         if raw == "Count$YourLifeTotal"
@@ -1641,12 +1677,36 @@ impl Tx<'_> {
         {
             return Some("Condition::LifeBelowStarting".to_string());
         }
-        if raw == "Count$TypeInYourYard" {
+        if matches!(
+            raw.as_str(),
+            "Count$TypeInYourYard" | "Count$ValidGraveyard Card.YouOwn$CardTypes"
+        ) {
             let n = u8::try_from(parse_at_least_u16(cmp)?).ok()?;
             return Some(format!("Condition::GraveyardTypesAtLeast({n})"));
         }
+        if raw == "Count$ValidGraveyard Card.YouOwn$CardTypesPermanent" {
+            let n = u8::try_from(parse_at_least_u16(cmp)?).ok()?;
+            return Some(format!(
+                "Condition::GraveyardTypesAmongAtLeast {{ \
+                 types: TypeSet::ARTIFACT.union(TypeSet::BATTLE).union(TypeSet::CREATURE)\
+                 .union(TypeSet::ENCHANTMENT).union(TypeSet::LAND).union(TypeSet::PLANESWALKER), \
+                 minimum: {n} }}"
+            ));
+        }
+        if let Some(valid) = raw
+            .strip_prefix("Count$Valid ")
+            .and_then(|s| s.strip_suffix("$DifferentCardNames"))
+            && valid
+                .split(',')
+                .all(|alt| alt.split(['.', '+']).any(|a| a.trim() == "YouCtrl"))
+        {
+            let n = u8::try_from(parse_at_least_u16(cmp)?).ok()?;
+            let expr = self.filter_expr(valid)?;
+            let name = self.body.filter_static("CHECK", &expr);
+            return Some(format!("Condition::ControlDistinctNames(&{name}, {n})"));
+        }
         if matches!(
-            raw,
+            raw.as_str(),
             "Count$ValidGraveyard Card.OppOwn" | "PlayerCountOpponents$HighestCardsInGraveyard"
         ) {
             let n = u8::try_from(parse_at_least_u16(cmp)?).ok()?;
@@ -1660,7 +1720,10 @@ impl Tx<'_> {
             let n = u8::try_from(parse_at_least_u16(cmp)?).ok()?;
             return Some(format!("Condition::LandsPlayedThisTurnAtLeast({n})"));
         }
-        if raw == "Count$OpponentsLifeLostThisTurn" {
+        if matches!(
+            raw.as_str(),
+            "Count$OpponentsLifeLostThisTurn" | "Count$LifeOppsLostThisTurn"
+        ) {
             let n = u32::from(parse_at_least_u16(cmp)?);
             return Some(format!(
                 "Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, {n})"
@@ -1678,7 +1741,7 @@ impl Tx<'_> {
     }
 
     /// Additional `R:` replacement handlers (`BeginPhase`, `BeginTurn`, `Draw`,
-    /// `CreateToken`, `AddCounter`, `GainLife`, and extended `Moved`).
+    /// `CreateToken`, `AddCounter`, `GainLife`, `LifeReduced`, and extended `Moved`).
     pub(super) fn try_extra_replacement(&mut self, spec: &str) -> ExtraOutcome {
         let Some((event, p)) = Params::parse(spec) else {
             return ExtraOutcome::Pass;
@@ -1690,6 +1753,7 @@ impl Tx<'_> {
             "CreateToken" => ExtraOutcome::Handled(self.replace_create_token(p)),
             "AddCounter" => ExtraOutcome::Handled(self.replace_add_counter(p)),
             "GainLife" => ExtraOutcome::Handled(self.replace_gain_life(p)),
+            "LifeReduced" => ExtraOutcome::Handled(self.replace_life_reduced(p)),
             "Moved" => self.try_extra_moved(p),
             _ => ExtraOutcome::Pass,
         }
@@ -1894,14 +1958,14 @@ impl Tx<'_> {
 
     fn moved_exile_instead_of_graveyard(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if p.take("ActiveZones").as_deref() != Some("Battlefield")
-            || p.take("Destination").as_deref() != Some("Graveyard")
+        let active_zones = p.take("ActiveZones");
+        if p.take("Destination").as_deref() != Some("Graveyard")
             || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
         {
             return self.deny("replacement `Moved` this rule cannot read".to_string());
         }
         let origin = p.take("Origin");
-        let Some(valid) = p.take("ValidCard") else {
+        let Some(valid) = p.take("ValidCard").or_else(|| p.take("ValidLKI")) else {
             return self.deny("replacement `Moved` this rule cannot read".to_string());
         };
         let Some(with) = p.take("ReplaceWith") else {
@@ -1926,7 +1990,22 @@ impl Tx<'_> {
         if !body.exhausted() {
             return self.deny("replacement `Moved` this rule cannot read".to_string());
         }
-        if origin.is_none() && body_origin.as_deref() == Some("All") {
+        if matches!(origin.as_deref(), None | Some("All"))
+            && matches!(body_origin.as_deref(), None | Some("All"))
+        {
+            if valid == "Card.Self"
+                && counter_raw.is_none()
+                && matches!(active_zones.as_deref(), None | Some("All" | "Battlefield"))
+            {
+                self.body.abilities.push(
+                    "AbilityDef::Replacement(ReplacementRule::ExileSelfInsteadOfGraveyard)"
+                        .to_string(),
+                );
+                return Some(());
+            }
+            if active_zones.as_deref() != Some("Battlefield") {
+                return self.deny("replacement `Moved` this rule cannot read".to_string());
+            }
             if valid == "Card.!token+OppOwn" {
                 let counter = match counter_raw {
                     None => "None".to_string(),

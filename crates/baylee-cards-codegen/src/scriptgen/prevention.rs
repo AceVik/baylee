@@ -16,13 +16,20 @@ impl Tx<'_> {
         if !matches!(p.take("ActiveZones").as_deref(), None | Some("Battlefield")) {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
-        if p.peek("DamageTarget") == Some("Self") && p.peek("ReplaceWith").is_some() {
+        if matches!(
+            p.peek("DamageTarget"),
+            Some("Self" | "Enchanted" | "Equipped")
+        ) && p.peek("ReplaceWith").is_some()
+        {
             return self.redirect_damage_to_you(p);
         }
         if p.peek("ReplaceWith").is_some() {
             if p.peek("AlwaysReplace") == Some("True") && p.peek("ValidTarget") == Some("Card.Self")
             {
                 return self.counters_prevent_damage_rule(p);
+            }
+            if p.has("DamageAmount") && !p.has("PreventionEffect") && !p.has("Prevent") {
+                return self.replace_player_damage_rule(p);
             }
             return self.per_source_damage_prevention(p);
         }
@@ -45,25 +52,39 @@ impl Tx<'_> {
         }
 
         let Some(target_raw) = valid_target else {
-            if combat_only || !cond.is_empty() {
-                return self
-                    .deny("a persistent spell prevention with another zone or result".into());
-            }
             let valid = valid_source?;
-            // A creature source could be a permanent or an ability. This reader
-            // promises spell sources, so every alternative must name one of the
-            // two nonpermanent spell types before its ordinary filter clauses.
-            if !Self::is_stack_spell_source(&valid) {
-                return self.deny(format!(
-                    "a prevention source outside instant/sorcery spells `{valid}`"
+            if Self::is_stack_spell_source(&valid) {
+                if combat_only || !cond.is_empty() {
+                    return self
+                        .deny("a persistent spell prevention with another zone or result".into());
+                }
+                let filter = self.filter_expr(&valid)?;
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::And(&[Filter::InZone(ZoneRef::Stack), {filter}]), \
+                     Modifier::PreventAllDamageFromIt)"
                 ));
+                return Some(());
             }
-            let filter = self.filter_expr(&valid)?;
-            self.body.abilities.push(format!(
-                "static_ability!(Filter::And(&[Filter::InZone(ZoneRef::Stack), {filter}]), \
-                 Modifier::PreventAllDamageFromIt)"
+            if combat_only {
+                let filter = self.filter_expr(&valid)?;
+                self.body.abilities.push(format!(
+                    "static_ability!({filter}, Modifier::PreventDamageFromIt{cond})"
+                ));
+                return Some(());
+            }
+            if valid.contains("Self")
+                || valid.contains("EnchantedBy")
+                || valid.contains("EquippedBy")
+            {
+                let filter = self.filter_expr(&valid)?;
+                self.body.abilities.push(format!(
+                    "static_ability!({filter}, Modifier::PreventAllDamageFromIt{cond})"
+                ));
+                return Some(());
+            }
+            return self.deny(format!(
+                "a prevention source outside instant/sorcery spells `{valid}`"
             ));
-            return Some(());
         };
 
         if valid_source
@@ -223,13 +244,35 @@ impl Tx<'_> {
         self.static_count_expr(&def)
     }
 
-    /// Persistent `R: Event$ DamageDone | ValidTarget$ You | DamageTarget$ Self`
-    /// with `DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card`
+    /// Persistent `R: Event$ DamageDone | ValidTarget$ You | DamageTarget$ Self|Enchanted|Equipped`
+    /// with `DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self|Enchanted|Equipped | VarType$ Card`
     /// -> `Modifier::RedirectDamageToYou(&sources)` (`Empyrial Archangel`,
-    /// `Veteran Bodyguard`, `Martyrs of Korlis`).
+    /// `Veteran Bodyguard`, `Martyrs of Korlis`, `Pariah`, `Pariah's Shield`).
     fn redirect_damage_to_you(&mut self, mut p: Params) -> Option<()> {
+        let Some(dmg_target) = p.take("DamageTarget") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let (affected_filter, expected_var) = match dmg_target.as_str() {
+            "Self" => ("Filter::This", "Self"),
+            "Enchanted" => ("Filter::AttachedToBySource", "Enchanted"),
+            "Equipped" => {
+                // `Filter::AttachedToBySource` matches nothing when unequipped,
+                // so the script's redundant `IsPresent$ Card.equipping | PresentDefined$ Self`
+                // guard is already inherent to the filter.
+                if p.peek("IsPresent") == Some("Card.equipping")
+                    && p.peek("PresentDefined") == Some("Self")
+                {
+                    p.take("IsPresent");
+                    p.take("PresentDefined");
+                }
+                ("Filter::AttachedToBySource", "Equipped")
+            }
+            _ => {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+        };
         if p.take("ValidTarget").as_deref() != Some("You")
-            || p.take("DamageTarget").as_deref() != Some("Self")
             || p.has("IsCombat")
             || p.has("Prevent")
             || p.has("PreventionEffect")
@@ -256,7 +299,7 @@ impl Tx<'_> {
         rep.drop_prose();
         if api != "ReplaceEffect"
             || rep.take("VarName").as_deref() != Some("Affected")
-            || rep.take("VarValue").as_deref() != Some("Self")
+            || rep.take("VarValue").as_deref() != Some(expected_var)
             || rep.take("VarType").as_deref() != Some("Card")
             || !rep.exhausted()
         {
@@ -268,7 +311,88 @@ impl Tx<'_> {
         };
         let src_ref = self.body.filter_static("SOURCE", &source_expr);
         self.body.abilities.push(format!(
-            "static_ability!(Filter::This, Modifier::RedirectDamageToYou(&{src_ref}){cond})"
+            "static_ability!({affected_filter}, Modifier::RedirectDamageToYou(&{src_ref}){cond})"
+        ));
+        Some(())
+    }
+
+    /// Persistent `R: Event$ DamageDone` capping or flooring damage dealt to a
+    /// player (`Modifier::ReplacePlayerDamage` with `DamageAmountReplacement::Cap`
+    /// or `FloorAtEffectSourcePower`, e.g. `Forethought Amulet`, `Ojer Axonil`).
+    fn replace_player_damage_rule(&mut self, mut p: Params) -> Option<()> {
+        let recipients = match p.take("ValidTarget").as_deref() {
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some("Player") => "PlayerRel::EachPlayer",
+            _ => {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+        };
+        let combat = match p.take("IsCombat").as_deref() {
+            None => "None",
+            Some("True") => "Some(true)",
+            Some("False") => "Some(false)",
+            Some(_) => {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+        };
+        let Some(dmg_cmp) = p.take("DamageAmount") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let Some(replace_name) = p.take("ReplaceWith") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let valid_source = p.take("ValidSource");
+        let cond = self.prevention_condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+        }
+        let Some((api, mut rep)) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|b| Params::parse(b))
+        else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        rep.drop_prose();
+        if api != "ReplaceEffect" || rep.take("VarName").as_deref() != Some("DamageAmount") {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some(var_val) = rep.take("VarValue") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        if !rep.exhausted() {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let replacement = if let Some(ge_str) = dmg_cmp.trim().strip_prefix("GE")
+            && let (Ok(threshold), Ok(cap)) = (ge_str.parse::<u32>(), var_val.trim().parse::<u32>())
+            && threshold == cap.saturating_add(1)
+        {
+            format!("DamageAmountReplacement::Cap({cap})")
+        } else if let Some(gt_str) = dmg_cmp.trim().strip_prefix("GT")
+            && let (Ok(threshold), Ok(cap)) = (gt_str.parse::<u32>(), var_val.trim().parse::<u32>())
+            && threshold == cap
+        {
+            format!("DamageAmountReplacement::Cap({cap})")
+        } else if let Some(lt_var) = dmg_cmp.trim().strip_prefix("LT")
+            && lt_var.trim() == var_val.trim()
+            && self.svars.get(lt_var.trim()).map(|s| s.trim()) == Some("Count$CardPower")
+        {
+            "DamageAmountReplacement::FloorAtEffectSourcePower".to_string()
+        } else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let source_expr = match valid_source.as_deref() {
+            None => "Filter::Any".to_string(),
+            Some(vs) => self.prevention_source_filter(vs)?,
+        };
+        let src_ref = self.body.filter_static("SOURCE", &source_expr);
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::ReplacePlayerDamage {{ \
+             sources: &{src_ref}, recipients: {recipients}, combat: {combat}, \
+             replacement: {replacement} }}{cond})"
         ));
         Some(())
     }
@@ -373,7 +497,10 @@ impl Tx<'_> {
                     .deny("a persistent spell prevention with another zone or result".into());
             }
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-            let Some(clause) = self.svar_condition(&var, &cmp) else {
+            let Some(clause) = self
+                .svar_condition(&var, &cmp)
+                .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
+            else {
                 return self.deny("unclaimed parameter `DamageDone.CheckSVar`".to_string());
             };
             return Some(format!(", condition = Some({clause})"));

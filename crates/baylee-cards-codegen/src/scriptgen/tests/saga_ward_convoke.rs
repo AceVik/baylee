@@ -4,7 +4,7 @@
 use super::*;
 
 #[test]
-fn suspend_lowers_sorcery_and_artifact_and_guards_creatures_and_flash() {
+fn suspend_lowers_across_card_types_and_refuses_invalid_counts_or_costs() {
     let sorcery = read(
         "Name:SuspendedDraw\nManaCost:no cost\nTypes:Sorcery\n\
          K:Suspend:4:1 U\n\
@@ -38,17 +38,28 @@ fn suspend_lowers_sorcery_and_artifact_and_guards_creatures_and_flash() {
         [r#"AbilityDef::Suspend { counters: 2, cost: mana!("{W/U}") }"#]
     );
 
-    // Creatures stay refused until post-suspend haste (CR 702.62a) is modeled.
-    assert!(refused(
-        "Name:SuspendedBeast\nManaCost:4 G\nTypes:Creature\nPT:4/4\nK:Suspend:3:1 G"
-    ));
-    // Instants and flash permanents stay refused while suspend is sorcery-speed only.
-    assert!(refused(
-        "Name:SuspendedInstant\nManaCost:1 U\nTypes:Instant\nK:Suspend:2:U\nA:SP$ Draw | NumCards$ 1"
-    ));
-    assert!(refused(
-        "Name:SuspendedFlashRelic\nManaCost:2\nTypes:Artifact\nK:Flash\nK:Suspend:2:1"
-    ));
+    // Creatures, instants, and flash permanents all lower cleanly (CR 702.62a).
+    let beast = read("Name:SuspendedBeast\nManaCost:4 G\nTypes:Creature\nPT:4/4\nK:Suspend:3:1 G");
+    assert_eq!(
+        beast.abilities,
+        [r#"AbilityDef::Suspend { counters: 3, cost: mana!("{1}{G}") }"#]
+    );
+    let instant = read(
+        "Name:SuspendedInstant\nManaCost:1 U\nTypes:Instant\n\
+         K:Suspend:2:U\nA:SP$ Draw | NumCards$ 1",
+    );
+    assert!(
+        instant
+            .abilities
+            .iter()
+            .any(|a| a == r#"AbilityDef::Suspend { counters: 2, cost: mana!("{U}") }"#)
+    );
+    let flash_relic =
+        read("Name:SuspendedFlashRelic\nManaCost:2\nTypes:Artifact\nK:Flash\nK:Suspend:2:1");
+    assert_eq!(
+        flash_relic.abilities,
+        [r#"AbilityDef::Suspend { counters: 2, cost: mana!("{1}") }"#]
+    );
     // Variable X, zero counters, non-mana cost, or missing type line stay refused.
     assert!(refused(
         "Name:SuspendedX\nManaCost:no cost\nTypes:Sorcery\nK:Suspend:X:1 U\nA:SP$ Draw | NumCards$ 1"
@@ -1920,5 +1931,357 @@ fn wave5_discard_and_phoenix_moved_replacements() {
          SVar:ShowIt:Mode$ Continuous | AffectedZone$ Hand | Affected$ Card.IsRemembered | MayLookAt$ Player\n\
          SVar:OtherTrig:Mode$ Phase | Phase$ Upkeep | Execute$ DrawOne\n\
          SVar:DrawOne:DB$ Draw | NumCards$ 1"
+    ));
+}
+
+#[test]
+fn wave6_filter_atoms_and_mana_restrictions() {
+    let filter_card = read(
+        "Name:AtomProbe\nManaCost:2 W\nTypes:Instant\n\
+         A:SP$ Destroy | ValidTgts$ Creature.!IsCommander+wasDealtDamageThisTurn+faceUp+ThisTurnEntered",
+    );
+    assert!(filter_card.statics.contains("Filter::IsCommander"));
+    assert!(filter_card.statics.contains("Filter::DealtDamageThisTurn"));
+    assert!(filter_card.statics.contains("Filter::FaceDown"));
+    assert!(filter_card.statics.contains("Filter::EnteredThisTurn"));
+
+    let attached_and_color = read(
+        "Name:AuraSweep\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ DestroyAll | ValidCards$ Enchantment.AttachedTo Creature.YouCtrl,Creature.hasManaAbility+counters_GE1_ALL+SharesColorWith Valid Creature.YouCtrl",
+    );
+    let sweep = attached_and_color.abilities.join("\n");
+    assert!(
+        sweep.contains("Filter::AttachedTo(&Filter::YOUR_CREATURE)"),
+        "abilities: {sweep}"
+    );
+    assert!(
+        sweep.contains("Filter::SharesAColorWith(&Filter::YOUR_CREATURE)"),
+        "abilities: {sweep}"
+    );
+    assert!(sweep.contains("Filter::HasManaAbility"));
+    assert!(sweep.contains("Filter::HasAnyCounter"));
+    assert!(refused(
+        "Name:AmbiguousAttached\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ DestroyAll | ValidCards$ Enchantment.AttachedTo Creature.YouCtrl+tapped"
+    ));
+
+    let battle_and_hand = read(
+        "Name:CastCheck\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell | ValidTgts$ Battle,Card.wasCastFromHand+nonPermanent",
+    );
+    assert!(battle_and_hand.statics.contains("TypeSet::BATTLE"));
+    assert!(battle_and_hand.statics.contains("Filter::CastFromHand"));
+
+    let powerstone = read(
+        "Name:StoneMana\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ T | Produced$ C | RestrictValid$ CantCastNonArtifactSpells",
+    );
+    assert!(
+        powerstone
+            .abilities
+            .iter()
+            .any(|a| a.contains("ManaUse::NonSpellPaymentsOrMatchingSpells"))
+    );
+
+    let paired = read(
+        "Name:AbilityRock\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ T | Produced$ C | RestrictValid$ Activated\n\
+         A:AB$ Mana | Cost$ T | Produced$ C | RestrictValid$ CumulativeUpkeep\n\
+         A:AB$ Mana | Cost$ T | Produced$ G | RestrictValid$ Spell.Creature,Activated.Creature+inZoneBattlefield",
+    );
+    assert!(
+        paired
+            .abilities
+            .iter()
+            .any(|a| a.contains("ManaUse::Abilities"))
+    );
+    assert!(
+        paired
+            .abilities
+            .iter()
+            .any(|a| a.contains("ManaUse::CumulativeUpkeep"))
+    );
+    assert!(
+        paired
+            .abilities
+            .iter()
+            .any(|a| a.contains("ManaUse::SpellsOrAbilities"))
+    );
+    assert!(refused(
+        "Name:BadPair\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ T | Produced$ G | RestrictValid$ Spell.Creature,Activated.Artifact"
+    ));
+}
+
+#[test]
+fn wave6_counts_costs_and_peer_hooks() {
+    let counts = read(
+        "Name:CountSpell\nManaCost:X R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Player | NumDmg$ Y\n\
+         SVar:Y:Count$xPaid/Twice",
+    );
+    assert!(
+        counts
+            .abilities
+            .iter()
+            .any(|a| a.contains("Amount::DoubleX"))
+    );
+
+    let more_counts = read(
+        "Name:KickedBurn\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Player | NumDmg$ D\n\
+         SVar:D:SVar$K/Div.2\n\
+         SVar:K:Count$TimesKicked",
+    );
+    assert!(
+        more_counts
+            .abilities
+            .iter()
+            .any(|a| a.contains("Amount::divided(&Amount::TimesKicked, 2, false)"))
+    );
+
+    let library_and_zones = read(
+        "Name:MillReader\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Draw | Defined$ You | NumCards$ A\n\
+         SVar:A:Count$ValidGraveyard Card.OppOwn/Plus.B\n\
+         SVar:B:Count$ValidExile Card.ExiledWithSource",
+    );
+    assert!(
+        library_and_zones
+            .abilities
+            .iter()
+            .any(|a| a.contains("ZoneSel::GraveyardOpponents"))
+    );
+    assert!(
+        library_and_zones
+            .abilities
+            .iter()
+            .any(|a| a.contains("ZoneSel::LinkedExile"))
+    );
+
+    let peer_counts = read(
+        "Name:PeerTrigger\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | \
+         ValidCard$ Creature.Other | Execute$ Gain\n\
+         SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ T\n\
+         SVar:T:TriggeredCard$Toughness",
+    );
+    assert!(
+        peer_counts
+            .abilities
+            .iter()
+            .any(|a| a.contains("Amount::EventLastToughness"))
+    );
+
+    let costs = read(
+        "Name:CostEngine\nTypes:Creature\nPT:3/3\n\
+         A:AB$ Draw | Cost$ Exert<1/CARDNAME> Discard<0/Hand> | NumCards$ 1\n\
+         A:AB$ GainLife | Cost$ SubCounter<X/CHARGE> | LifeAmount$ X\n\
+         A:AB$ Draw | Cost$ Sac<All/Artifact> tapXType<2/Creature> | NumCards$ 1\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(costs.abilities.iter().any(|a| a.contains("ExertSelf")));
+    assert!(costs.abilities.iter().any(|a| a.contains("DiscardHand")));
+    assert!(
+        costs
+            .abilities
+            .iter()
+            .any(|a| a.contains("RemoveCounterSelfX { kind: CounterKind::Charge }"))
+    );
+    assert!(costs.abilities.iter().any(|a| a.contains("SacrificeAll(&")));
+    assert!(
+        costs
+            .abilities
+            .iter()
+            .any(|a| a.contains("TapN { filter: &"))
+    );
+
+    // Refusals: Exert on a spell and variable-X loyalty cost.
+    assert!(refused(
+        "Name:SpellExert\nManaCost:R\nTypes:Sorcery\n\
+         A:SP$ Draw | Cost$ R Exert<1/CARDNAME> | NumCards$ 1"
+    ));
+    assert!(refused(
+        "Name:LoyaltyX\nTypes:Planeswalker\n\
+         A:AB$ Draw | Cost$ SubCounter<X/LOYALTY> | NumCards$ X\n\
+         SVar:X:Count$xPaid"
+    ));
+}
+
+#[test]
+fn wave6_player_statics_and_conditions() {
+    let player_rules = read(
+        "Name:SanctumRelic\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited\n\
+         S:Mode$ Continuous | Affected$ You | AdjustLandPlays$ 2\n\
+         S:Mode$ Continuous | Affected$ You | AddKeyword$ Hexproof",
+    );
+    assert_eq!(
+        player_rules.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::NoMaxHandSize)",
+            "static_ability!(Filter::Any, Modifier::ExtraLandDrops(2))",
+            "static_ability!(Filter::Any, Modifier::PlayerHexproof { who: PlayerRel::You })",
+        ]
+    );
+
+    let chosen_rack = read(
+        "Name:ViseRack\nTypes:Artifact\n\
+         K:ETBReplacement:Other:PickOpp\n\
+         SVar:PickOpp:DB$ ChoosePlayer | Defined$ You | Choices$ Player.Opponent\n\
+         S:Mode$ Continuous | Affected$ Player.Chosen | SetMaxHandSize$ 4",
+    );
+    assert_eq!(
+        chosen_rack.enter_modifiers,
+        ["EnterModifier::ChooseOpponent"]
+    );
+    assert_eq!(
+        chosen_rack.abilities,
+        ["static_ability!(Filter::Any, Modifier::ChosenPlayerMaxHandSize(4))"]
+    );
+
+    // Refusals: global NoMaxHandSize/ExtraLandDrops, player Shroud, unchosen rack.
+    assert!(refused(
+        "Name:GlobalHand\nTypes:Artifact\n\
+         S:Mode$ Continuous | Affected$ Player | SetMaxHandSize$ Unlimited"
+    ));
+    assert!(refused(
+        "Name:GlobalLands\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Player | AdjustLandPlays$ 1"
+    ));
+    assert!(refused(
+        "Name:PlayerShroud\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ You | AddKeyword$ Shroud"
+    ));
+    assert!(refused(
+        "Name:UnchosenRack\nTypes:Artifact\n\
+         S:Mode$ Continuous | Affected$ Player.Chosen | SetMaxHandSize$ 4"
+    ));
+
+    let conds = read(
+        "Name:CondTest\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 2 | CheckSVar$ E | SVarCompare$ EQ0\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddToughness$ 2 | CheckSVar$ D | SVarCompare$ GE7\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddKeyword$ Flying | CheckSVar$ G | SVarCompare$ GE4\n\
+         SVar:E:Count$YourLifeTotal/Mod.2\n\
+         SVar:D:Count$Valid Land.YouCtrl$DifferentCardNames\n\
+         SVar:G:Count$ValidGraveyard Card.YouOwn$CardTypes",
+    );
+    assert!(
+        conds
+            .abilities
+            .iter()
+            .any(|a| a.contains("Condition::AmountIsEven(Amount::LifeTotal(PlayerRel::You))"))
+    );
+    assert!(
+        conds
+            .abilities
+            .iter()
+            .any(|a| a.contains("Condition::ControlDistinctNames(&Filter::YOUR_LAND, 7)"))
+    );
+    assert!(
+        conds
+            .abilities
+            .iter()
+            .any(|a| a.contains("Condition::GraveyardTypesAtLeast(4)"))
+    );
+}
+
+#[test]
+fn wave6_damage_preventions_life_floor_and_replacements() {
+    let aura_redirect = read(
+        "Name:ShieldAura\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You | \
+         DamageTarget$ Enchanted | ReplaceWith$ Redirect\n\
+         SVar:Redirect:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Enchanted | VarType$ Card",
+    );
+    assert!(aura_redirect.abilities.iter().any(|a| {
+        a == "static_ability!(Filter::AttachedToBySource, Modifier::RedirectDamageToYou(&Filter::Any))"
+    }));
+
+    let cap_and_floor = read(
+        "Name:DamageBounds\nTypes:Creature\nPT:4/4\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Instant,Sorcery | \
+         ValidTarget$ You | DamageAmount$ GE3 | ReplaceWith$ CapTwo\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.RedSource+YouCtrl | \
+         IsCombat$ False | ValidTarget$ Opponent | DamageAmount$ LTX | ReplaceWith$ FloorPow\n\
+         SVar:CapTwo:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ 2\n\
+         SVar:FloorPow:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X\n\
+         SVar:X:Count$CardPower",
+    );
+    assert!(
+        cap_and_floor
+            .abilities
+            .iter()
+            .any(|a| a.contains("DamageAmountReplacement::Cap(2)"))
+    );
+    assert!(
+        cap_and_floor
+            .abilities
+            .iter()
+            .any(|a| a.contains("DamageAmountReplacement::FloorAtEffectSourcePower"))
+    );
+
+    let life_floor = read(
+        "Name:FaithFloor\nTypes:Enchantment\n\
+         R:Event$ LifeReduced | ActiveZones$ Battlefield | ValidPlayer$ You.lifeGE1 | \
+         Result$ LT1 | IsDamage$ True | IsPresent$ Creature.YouCtrl | ReplaceWith$ Floor\n\
+         SVar:Floor:DB$ ReplaceEffect | VarName$ Amount | VarValue$ X\n\
+         SVar:X:ReplaceCount$Amount/LimitMax.Diff\n\
+         SVar:Diff:Count$YourLifeTotal/Minus.1",
+    );
+    assert_eq!(
+        life_floor.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::DamageLifeLossFloor { players: PlayerRel::You, \
+             minimum: 1 }, condition = Some(Condition::All(&[Condition::AmountAtLeast(\
+             Amount::LifeTotal(PlayerRel::You), 1), Condition::ControlCount(&Filter::YOUR_CREATURE, 1)])))"
+        ]
+    );
+
+    let mut tok_cats = cats();
+    tok_cats.artifact.push("Treasure".to_string());
+    tok_cats.normalize();
+    let tokens = crate::tokengen::TokenLookup::held(&[(
+        "t_treasure",
+        "Name:Treasure Token\nTypes:Artifact Treasure\n\
+         A:AB$ Mana | Cost$ T Sac<1/CARDNAME> | Produced$ Any",
+    )]);
+    let hull_script = parse(
+        "Name:DrawThief\nTypes:Creature\nPT:3/2\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ Opponent | \
+         NotFirstCardInDrawStep$ True | ReplaceWith$ Mk\n\
+         SVar:Mk:DB$ Token | TokenScript$ t_treasure",
+    );
+    let hull = transcode(&hull_script, &tok_cats, Some(&tokens)).expect("draw-to-token");
+    assert_eq!(
+        hull.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::OpponentsExtraDrawsCreateToken(&generated_tokens::TREASURE))"
+        ]
+    );
+
+    let disturb_back = read(
+        "Name:GhostBack\nTypes:Creature\nPT:2/2\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Graveyard | ReplaceWith$ ExileSelf\n\
+         SVar:ExileSelf:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard",
+    );
+    assert_eq!(
+        disturb_back.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::ExileSelfInsteadOfGraveyard)"]
+    );
+
+    // Refusal: non-combat permanent source outside Self/Attached, and mismatched LifeReduced threshold.
+    assert!(refused(
+        "Name:BadPrevent\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Creature | Prevent$ True"
+    ));
+    assert!(refused(
+        "Name:BadFloor\nTypes:Enchantment\n\
+         R:Event$ LifeReduced | ActiveZones$ Battlefield | ValidPlayer$ You.lifeGE7 | \
+         Result$ LT1 | IsDamage$ True | ReplaceWith$ Floor\n\
+         SVar:Floor:DB$ ReplaceEffect | VarName$ Amount | VarValue$ X\n\
+         SVar:X:ReplaceCount$Amount/LimitMax.Diff\n\
+         SVar:Diff:Count$YourLifeTotal/Minus.7"
     ));
 }

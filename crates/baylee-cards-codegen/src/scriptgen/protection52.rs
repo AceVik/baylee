@@ -126,6 +126,106 @@ impl Tx<'_> {
         Some(())
     }
 
+    pub(super) fn has_chosen_opponent(&self) -> bool {
+        self.body
+            .enter_modifiers
+            .iter()
+            .any(|m| m == "EnterModifier::ChooseOpponent")
+    }
+
+    /// `K:ETBReplacement:Other:<svar>` where `<svar>` is `DB$ ChoosePlayer`
+    /// choosing an opponent (`EnterModifier::ChooseOpponent`).
+    pub(super) fn etb_choose_opponent(&mut self, svar: &str) -> Option<()> {
+        let body = self.svars.get(svar)?.clone();
+        let (api, mut p) = Params::parse(&body)?;
+        if api != "ChoosePlayer" {
+            return None;
+        }
+        p.drop_prose();
+        if !matches!(p.take("Defined").as_deref(), None | Some("You"))
+            || !matches!(
+                p.take("Choices").as_deref(),
+                Some("Player.Opponent" | "Opponent")
+            )
+            || !p.exhausted()
+        {
+            return self.deny("as-enters `ChoosePlayer` outside choosing an opponent".into());
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::ChooseOpponent".to_string());
+        Some(())
+    }
+
+    /// Player-targeted `S: Mode$ Continuous` rules: `Modifier::NoMaxHandSize`,
+    /// `Modifier::ChosenPlayerMaxHandSize`, `Modifier::ExtraLandDrops`, and
+    /// `Modifier::PlayerHexproof`.
+    pub(super) fn continuous_player_rule(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || p.has("AffectedZone")
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return self.deny("player-targeted `Continuous` outside battlefield".into());
+        }
+        let Some(affected) = p.take("Affected") else {
+            return self.deny("a continuous static with no `Affected$`".into());
+        };
+        let mut mods = Vec::new();
+        if let Some(max_hand) = p.take("SetMaxHandSize") {
+            if affected == "You" && max_hand == "Unlimited" {
+                mods.push("Modifier::NoMaxHandSize".to_string());
+            } else if affected == "Player.Chosen"
+                && self.has_chosen_opponent()
+                && let Ok(n) = max_hand.trim().parse::<u8>()
+            {
+                mods.push(format!("Modifier::ChosenPlayerMaxHandSize({n})"));
+            } else {
+                return self.deny(format!("`Continuous.SetMaxHandSize` `{max_hand}`"));
+            }
+        }
+        if let Some(no_hand) = p.take("NoHandSize") {
+            if affected == "You" && no_hand == "True" {
+                mods.push("Modifier::NoMaxHandSize".to_string());
+            } else {
+                return self.deny("unclaimed parameter `Continuous.NoHandSize`".into());
+            }
+        }
+        if let Some(lands) = p.take("AdjustLandPlays") {
+            if affected == "You"
+                && let Ok(n) = lands.trim().parse::<u8>()
+                && n > 0
+            {
+                mods.push(format!("Modifier::ExtraLandDrops({n})"));
+            } else {
+                return self.deny(format!("`Continuous.AdjustLandPlays` `{lands}`"));
+            }
+        }
+        if let Some(kw) = p.take("AddKeyword") {
+            let who = match affected.as_str() {
+                "You" => Some("PlayerRel::You"),
+                "Player" => Some("PlayerRel::EachPlayer"),
+                "Opponent" | "Player.Opponent" => Some("PlayerRel::EachOpponent"),
+                _ => None,
+            };
+            if kw == "Hexproof"
+                && let Some(who) = who
+            {
+                mods.push(format!("Modifier::PlayerHexproof {{ who: {who} }}"));
+            } else {
+                return self.deny(format!("player static keyword `{kw}`"));
+            }
+        }
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() || mods.is_empty() {
+            return self.deny("unsupported player-targeted `Continuous` static".into());
+        }
+        for modifier in mods {
+            self.push_static_with_cond("Filter::Any", &modifier, &cond);
+        }
+        Some(())
+    }
+
     pub(super) fn push_static_with_cond(&mut self, filter: &str, modifier: &str, cond: &str) {
         self.body
             .abilities
@@ -784,14 +884,21 @@ impl Tx<'_> {
             return self.deny("static ability `S: Mode$ CantBeActivated`".into());
         }
         // `ChosenNameCantActivate` checks sources in all zones (CR 602.2), so
-        // require `AffectedZone$` to be omitted.
-        if valid_card.trim() == "Card.NamedCard"
-            && valid_sa.as_deref() == Some("Activated.!ManaAbility")
-            && matches!(activator.as_deref(), None | Some("Player"))
-            && affected_zone.is_none()
-        {
-            self.push_static_with_cond("Filter::Any", "Modifier::ChosenNameCantActivate", &cond);
-            return Some(());
+        // require `AffectedZone$` to be omitted and refuse battlefield-only
+        // `Card.NamedCard` activations.
+        if valid_card.trim() == "Card.NamedCard" {
+            if valid_sa.as_deref() == Some("Activated.!ManaAbility")
+                && matches!(activator.as_deref(), None | Some("Player"))
+                && affected_zone.is_none()
+            {
+                self.push_static_with_cond(
+                    "Filter::Any",
+                    "Modifier::ChosenNameCantActivate",
+                    &cond,
+                );
+                return Some(());
+            }
+            return self.deny("static ability `S: Mode$ CantBeActivated`".into());
         }
         // `CantActivateArtifacts` checks `Artifact` + opponent controller
         // (`restrictions.rs`), matching `ValidCard$ Artifact.OppCtrl`.
@@ -1275,6 +1382,11 @@ impl Tx<'_> {
     /// Bare `ValidCard$ Card.Self` without a condition stays refused (pinned in
     /// `tests/reading.rs`).
     pub(super) fn cant_attack_self_conditional(&mut self, mut p: Params) -> ExtraOutcome {
+        if p.peek("ValidCard") == Some("Card.Self+attackedThisTurn") {
+            return ExtraOutcome::Handled(
+                self.deny("`CantAttack` with `Card.Self+attackedThisTurn`".into()),
+            );
+        }
         if !matches!(p.peek("ValidCard"), Some("Card.Self" | "Creature.Self"))
             || p.has("UnlessDefender")
             || p.has("Target")
@@ -1395,8 +1507,9 @@ impl Tx<'_> {
     }
 
     /// `R: Event$ Draw` replacements backed by `baylee-engine/src/state/draw_offer.rs`:
-    /// `DiscardInsteadOfLaterDraws`, `MaySkipDrawStepDraw`,
-    /// `RevealDrawPutMatchingInGraveyard`, `RevealDrawOthersMayPayLife`.
+    /// `DiscardInsteadOfLaterDraws`, `OpponentsExtraDrawsCreateToken`,
+    /// `MaySkipDrawStepDraw`, `RevealDrawPutMatchingInGraveyard`,
+    /// `RevealDrawOthersMayPayLife`.
     pub(super) fn replace_draw_extra(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         if p.take("ActiveZones").as_deref() != Some("Battlefield") {
@@ -1404,15 +1517,30 @@ impl Tx<'_> {
         }
         let valid_player = p.take("ValidPlayer");
         let with = p.take("ReplaceWith")?;
-        if p.take("NotFirstCardInDrawStep").as_deref() == Some("True")
-            && valid_player.as_deref() == Some("Player")
-            && p.exhausted()
-            && self.is_chains_discard_draw_mill(&with)
-        {
-            self.body.abilities.push(
-                "AbilityDef::Replacement(ReplacementRule::DiscardInsteadOfLaterDraws)".to_string(),
-            );
-            return Some(());
+        if p.take("NotFirstCardInDrawStep").as_deref() == Some("True") {
+            if valid_player.as_deref() == Some("Player")
+                && p.exhausted()
+                && self.is_chains_discard_draw_mill(&with)
+            {
+                self.body.abilities.push(
+                    "AbilityDef::Replacement(ReplacementRule::DiscardInsteadOfLaterDraws)"
+                        .to_string(),
+                );
+                return Some(());
+            }
+            if matches!(
+                valid_player.as_deref(),
+                Some("Opponent" | "Player.Opponent")
+            ) && p.exhausted()
+                && let Some(token_const) = self.parse_hullbreacher_token(&with)
+            {
+                self.body.abilities.push(format!(
+                    "AbilityDef::Replacement(ReplacementRule::OpponentsExtraDrawsCreateToken(\
+                     &generated_tokens::{token_const}))"
+                ));
+                return Some(());
+            }
+            return self.deny("replacement `R: Event$ Draw`".into());
         }
         if valid_player.as_deref() == Some("You")
             && p.take("ActivePhases").as_deref() == Some("Draw")
@@ -1499,6 +1627,106 @@ impl Tx<'_> {
             return false;
         }
         self.is_optional_clear_remembered(clean.as_deref())
+    }
+
+    fn parse_hullbreacher_token(&self, start: &str) -> Option<String> {
+        let (api, mut p) = self.svars.get(start).and_then(|s| Params::parse(s))?;
+        p.drop_prose();
+        if api != "Token"
+            || !matches!(p.take("TokenOwner").as_deref(), None | Some("You"))
+            || !matches!(p.take("TokenAmount").as_deref(), None | Some("1"))
+        {
+            return None;
+        }
+        let stem = p.take("TokenScript")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let tokens = self.tokens?;
+        let body = tokens.body(stem.trim(), self.cats)?;
+        Some(body.constant)
+    }
+
+    /// `R: Event$ LifeReduced | ActiveZones$ Battlefield | ValidPlayer$ You.lifeGE<n> |
+    /// Result$ LT<n> | IsDamage$ True` -> `Modifier::DamageLifeLossFloor` (`Worship`,
+    /// `Ali from Cairo`, `Sustaining Spirit`, `Fortune Thief`, `Elderscale Wurm`).
+    pub(super) fn replace_life_reduced(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || p.take("IsDamage").as_deref() != Some("True")
+        {
+            return self.deny("replacement `R: Event$ LifeReduced`".into());
+        }
+        let Some(min_player) = p
+            .take("ValidPlayer")
+            .and_then(|v| {
+                v.strip_prefix("You.lifeGE")
+                    .and_then(|n| n.parse::<i32>().ok())
+            })
+            .filter(|&n| n >= 1)
+        else {
+            return self.deny("replacement `R: Event$ LifeReduced`".into());
+        };
+        let Some(min_result) = p
+            .take("Result")
+            .and_then(|v| v.strip_prefix("LT").and_then(|n| n.parse::<i32>().ok()))
+        else {
+            return self.deny("replacement `R: Event$ LifeReduced`".into());
+        };
+        if min_player != min_result {
+            return self.deny("replacement `R: Event$ LifeReduced`".into());
+        }
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `R: Event$ LifeReduced`".into());
+        };
+        let extra_cond = self.condition_any(&mut p)?;
+        if !p.exhausted() || !self.is_damage_life_floor_replace(&with, min_player) {
+            return self.deny("replacement `R: Event$ LifeReduced`".into());
+        }
+        let floor_cond =
+            format!("Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {min_player})");
+        let combined = if let Some(inner) = extra_cond
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+        {
+            format!(", condition = Some(Condition::All(&[{floor_cond}, {inner}]))")
+        } else {
+            format!(", condition = Some({floor_cond})")
+        };
+        self.push_static_with_cond(
+            "Filter::This",
+            &format!(
+                "Modifier::DamageLifeLossFloor {{ players: PlayerRel::You, minimum: {min_player} }}"
+            ),
+            &combined,
+        );
+        Some(())
+    }
+
+    fn is_damage_life_floor_replace(&self, svar: &str, minimum: i32) -> bool {
+        let Some((api, mut rep)) = self.svars.get(svar.trim()).and_then(|s| Params::parse(s))
+        else {
+            return false;
+        };
+        rep.drop_prose();
+        if api != "ReplaceEffect" || rep.take("VarName").as_deref() != Some("Amount") {
+            return false;
+        }
+        let Some(val_var) = rep.take("VarValue") else {
+            return false;
+        };
+        if !rep.exhausted() {
+            return false;
+        }
+        let Some(diff_var) = self
+            .svars
+            .get(val_var.trim())
+            .and_then(|s| s.trim().strip_prefix("ReplaceCount$Amount/LimitMax."))
+        else {
+            return false;
+        };
+        let expected = format!("Count$YourLifeTotal/Minus.{minimum}");
+        self.svars.get(diff_var.trim()).map(|s| s.trim()) == Some(expected.as_str())
     }
 
     fn is_island_sanctuary_effect(&self, start: &str) -> bool {

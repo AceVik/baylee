@@ -200,6 +200,10 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "MustBlock",
     "RevealHand",
     "CopySpellAbility",
+    "CopyPermanent",
+    "Clone",
+    "FlipCoin",
+    "RollDice",
     "ImmediateTrigger",
 ];
 

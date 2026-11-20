@@ -299,6 +299,21 @@ fn token_shape_ok(raw: &RawToken, types: &TypeLine) -> bool {
 /// worklist with nothing keeping it true.
 #[must_use]
 pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
+    read_with_tokens(text, cats, None)
+}
+
+/// Reads a token script with an optional [`TokenLookup`] for nested token
+/// creation (e.g. a token whose ability creates a Treasure or Food token).
+///
+/// Only nested references to hand-written `crate::tokens::*` constants are
+/// admitted, because `xtask/src/corpus.rs` collects token stems only from card
+/// scripts and `generated_tokens.rs` brings `crate::tokens` into scope.
+#[must_use]
+pub fn read_with_tokens(
+    text: &str,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
+) -> Option<TokenBody> {
     let raw = parse_token_lines(text)?;
     let mut types = type_line(&raw.types, cats)?;
     if !token_shape_ok(&raw, &types) {
@@ -331,6 +346,7 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
         &raw.ability_keywords,
         raw.text_all_colors,
         cats,
+        tokens,
         &mut types.modules,
     )?;
     if star_pt
@@ -434,6 +450,12 @@ const LEGACY_UNSUFFIXED_ABILITY_TOKENS: &[(&str, u32)] = &[
         "BLOOD",
         fnv1a_32_bare(
             "activated!(cost!(\"{1}\", TapSelf, Discard(&Filter::Any), SacrificeSelf), &[Effect::draw(1)])",
+        ),
+    ),
+    (
+        "POWERSTONE",
+        fnv1a_32_bare(
+            "mana_ability!(&[Effect::mana(ManaColor::Colorless, 1).restricted_for(&Filter::ARTIFACT, SpendRider::None, ManaUse::NonSpellPaymentsOrMatchingSpells)])",
         ),
     ),
     // Previously assigned generated ability-bearing tokens in `generated_tokens.rs`.
@@ -647,11 +669,65 @@ fn is_token_ability_keyword(kw: &str) -> bool {
 /// imports them cleanly. Non-ability `CardBody` fields (`EnterModifier`, cast
 /// cost mechanics, extra `KeywordSet` writes) remain refused because `TokenDef`
 /// does not carry them.
+/// Hand-written `crate::tokens::*` artifact constants guaranteed to be in scope
+/// inside `generated_tokens.rs` via `use crate::tokens;`, so a generated token's
+/// ability may safely rewrite `&generated_tokens::<NAME>` -> `&tokens::<NAME>`.
+const HAND_WRITTEN_NESTED_TOKENS: &[&str] = &[
+    "BLOOD",
+    "CLUE",
+    "FOOD",
+    "JUNK",
+    "MAP",
+    "POWERSTONE",
+    "TREASURE",
+    "VIBRANIUM",
+];
+
+/// Generated `pub static` token constants already frozen in the append-only
+/// `crates/cards/src/generated_tokens.rs` ledger, so another generated token's
+/// ability may safely rewrite `&generated_tokens::<NAME>` -> `&<NAME>`.
+const GENERATED_NESTED_TOKENS: &[&str] = &[
+    "DRAGON_2_2_RED_FLYING",
+    "KRAKEN_9_9_BLUE",
+    "RABBIT_1_1_WHITE",
+];
+
+fn rewrite_nested_token_refs(abilities: &mut [String]) -> bool {
+    for ability in abilities.iter_mut() {
+        let mut out = String::with_capacity(ability.len());
+        let mut rest = ability.as_str();
+        while let Some((before, after)) = rest.split_once("&generated_tokens::") {
+            let ident: String = after
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                .collect();
+            if ident.is_empty() {
+                return false;
+            }
+            out.push_str(before);
+            if HAND_WRITTEN_NESTED_TOKENS.contains(&ident.as_str()) {
+                out.push_str("&tokens::");
+                out.push_str(&ident);
+            } else if GENERATED_NESTED_TOKENS.contains(&ident.as_str()) {
+                out.push('&');
+                out.push_str(&ident);
+            } else {
+                return false;
+            }
+            rest = &after[ident.len()..];
+        }
+        out.push_str(rest);
+        *ability = out;
+    }
+    true
+}
+
 fn abilities(
     text: &str,
     ability_keywords: &[String],
     strip_all_colors_text: bool,
     cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
     modules: &mut Vec<String>,
 ) -> Option<Vec<String>> {
     let cleaned;
@@ -680,7 +756,7 @@ fn abilities(
         return None;
     }
     script.keywords = ability_keywords.to_vec();
-    let body = crate::scriptgen::transcode(&script, cats, None)?;
+    let body = crate::scriptgen::transcode(&script, cats, tokens)?;
     if !body.enter_modifiers.is_empty()
         || !body.alternative_costs.is_empty()
         || !body.mandatory_additional_costs.is_empty()
@@ -691,9 +767,15 @@ fn abilities(
         || body.replicate.is_some()
         || body.disguise.is_some()
         || body.flashback.is_some()
+        || !body.flashback_parts.is_empty()
         || body.madness.is_some()
         || body.foretell.is_some()
         || body.morph.is_some()
+        || body.megamorph.is_some()
+        || !body.morph_parts.is_empty()
+        || body.bestow.is_some()
+        || body.jump_start
+        || body.aftermath
         || body.cost_reduction.is_some()
         || body.entwine.is_some()
         || body.buyback.is_some()
@@ -709,6 +791,9 @@ fn abilities(
     if !body.statics.is_empty() {
         inline_statics(&body.statics, &mut abilities)?;
     }
+    if !rewrite_nested_token_refs(&mut abilities) {
+        return None;
+    }
     rewrite_subtypes(&mut abilities, modules)?;
     Some(abilities)
 }
@@ -723,7 +808,8 @@ fn inline_statics(statics: &str, abilities: &mut [String]) -> Option<()> {
         let rest = trimmed.strip_prefix("static ")?;
         let (name, expr) = rest
             .split_once(": Filter = ")
-            .or_else(|| rest.split_once(": Condition = "))?;
+            .or_else(|| rest.split_once(": Condition = "))
+            .or_else(|| rest.split_once(": AbilityDef = "))?;
         let expr = expr.strip_suffix(';')?;
         defs.push((name.trim(), expr.trim()));
     }
@@ -1194,13 +1280,23 @@ impl TokenLookup {
         if !self.stems.contains(stem) {
             return None;
         }
-        match &self.source {
-            Source::Dir(root) => {
-                let text = std::fs::read_to_string(root.join(format!("{stem}.txt"))).ok()?;
-                read(&text, cats)
-            }
-            Source::Held(held) => read(held.get(stem)?, cats),
+        let text = self.text(stem)?;
+        self.read_entry(&text, cats)
+    }
+
+    fn read_entry(&self, text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
+        std::thread_local! {
+            static IN_NESTED_TOKEN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
         }
+        IN_NESTED_TOKEN.with(|nested| {
+            if nested.get() {
+                return read_with_tokens(text, cats, None);
+            }
+            nested.set(true);
+            let res = read_with_tokens(text, cats, Some(self));
+            nested.set(false);
+            res
+        })
     }
 
     /// The script a stem names, whichever half of the lookup holds it.
@@ -1235,7 +1331,7 @@ impl TokenLookup {
                     .is_some_and(|(head, _)| TRANSCODED.contains(&head))
             });
             out.with_ability += usize::from(prints);
-            if let Some(body) = read(&text, cats) {
+            if let Some(body) = self.read_entry(&text, cats) {
                 out.read += 1;
                 out.ability_read += usize::from(prints);
                 names.entry(body.constant).or_default().insert(body.literal);
@@ -1853,5 +1949,73 @@ mod tests {
         .expect("cant-attack token");
         assert_eq!(pacific.constant, "SENTRY_0_4_WHITE_CANT_ATTACK");
         assert!(pacific.literal.contains("KeywordSet::CANT_ATTACK"));
+    }
+
+    #[test]
+    fn wave6_powerstone_and_nested_token_refs() {
+        let mut c = cats();
+        c.artifact.push("Powerstone".to_string());
+        c.creature.push("Rabbit".to_string());
+
+        let powerstone = read(
+            "Name:Powerstone Token\nTypes:Artifact Powerstone\n\
+             A:AB$ Mana | Cost$ T | Produced$ C | RestrictValid$ CantCastNonArtifactSpells",
+            &c,
+        )
+        .expect("powerstone token");
+        assert_eq!(powerstone.constant, "POWERSTONE");
+        assert!(
+            powerstone
+                .literal
+                .contains("ManaUse::NonSpellPaymentsOrMatchingSpells")
+        );
+
+        let lookup = TokenLookup::held(&[
+            (
+                "t_treasure",
+                "Name:Treasure Token\nTypes:Artifact Treasure\n\
+                 A:AB$ Mana | Cost$ T Sac<1/CARDNAME> | Produced$ Any",
+            ),
+            (
+                "t_rabbit",
+                "Name:Rabbit Token\nColors:white\nTypes:Creature Rabbit\nPT:1/1",
+            ),
+            (
+                "t_soldier",
+                "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1",
+            ),
+            (
+                "t_raider",
+                "Name:Raider Token\nColors:red\nTypes:Creature Soldier\nPT:2/2\n\
+                 T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ Mk\n\
+                 SVar:Mk:DB$ Token | TokenScript$ t_treasure",
+            ),
+            (
+                "t_hat",
+                "Name:Hat Token\nTypes:Artifact\n\
+                 A:AB$ Token | Cost$ 1 T Sac<1/CARDNAME> | TokenScript$ t_rabbit",
+            ),
+            (
+                "t_unknown_nested",
+                "Name:Banner Token\nTypes:Artifact\n\
+                 A:AB$ Token | Cost$ 1 T Sac<1/CARDNAME> | TokenScript$ t_soldier",
+            ),
+            (
+                "t_self_loop",
+                "Name:Loop Token\nTypes:Artifact\n\
+                 A:AB$ Token | Cost$ T Sac<1/CARDNAME> | TokenScript$ t_self_loop",
+            ),
+        ]);
+
+        let raider = lookup
+            .body("t_raider", &c)
+            .expect("hand-written nested token");
+        assert!(raider.literal.contains("token: &tokens::TREASURE"));
+        let hat = lookup
+            .body("t_hat", &c)
+            .expect("frozen generated nested token");
+        assert!(hat.literal.contains("token: &RABBIT_1_1_WHITE"));
+        assert!(lookup.body("t_unknown_nested", &c).is_none());
+        assert!(lookup.body("t_self_loop", &c).is_none());
     }
 }
