@@ -1089,3 +1089,263 @@ fn wave3_mana_amounts_costs_and_activation_svar_checks() {
     let joined = dmg_enchanted.abilities.join("\n");
     assert!(joined.contains("Effect::DealDamageToAttached"), "{joined}");
 }
+
+#[test]
+fn wave4_wired_spell_costs_and_prevention_helpers() {
+    // Wired `kicker::parse_spell_cost_parts` unlocks `Sac<X/...>` and `Discard<2/...>` on spells.
+    let sac_x = read(
+        "Name:SacXSpell\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Draw | Cost$ 1 B Sac<X/Creature> | NumCards$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        sac_x
+            .mandatory_additional_costs
+            .iter()
+            .any(|c| c.contains("CostPart::SacrificeX(")),
+        "{:?}",
+        sac_x.mandatory_additional_costs
+    );
+
+    // Wired `prevention::prevention_effect_shield` unlocks standalone `Effect | ReplacementEffects$` shields.
+    let carpet = read(
+        "Name:SkyCarpet\nManaCost:5\nTypes:Artifact\n\
+         A:AB$ Effect | Cost$ 5 T | ReplacementEffects$ RPrevent\n\
+         SVar:RPrevent:Event$ DamageDone | Prevent$ True | ActiveZones$ Command | ValidTarget$ You | ValidSource$ Creature.attacking",
+    );
+    assert!(
+        carpet.abilities[0].contains("Effect::PreventAllDamageFromMatchingThisTurn"),
+        "{}",
+        carpet.abilities[0]
+    );
+
+    // Wired `prevention::prevent_from_chosen_source_chained` unlocks targeted `ChooseSource -> DB$ Effect`.
+    let warder = read(
+        "Name:TargetedShield\nManaCost:1 W\nTypes:Creature\nPT:1/1\n\
+         A:AB$ ChooseSource | Cost$ W T | Choices$ Card,Emblem | SubAbility$ DBShield\n\
+         SVar:DBShield:DB$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | ForgetOnMoved$ Battlefield \
+         | ReplacementEffects$ RPrev | ConditionDefined$ ChosenCard | ConditionPresent$ Card,Emblem | SubAbility$ DBCleanup\n\
+         SVar:RPrev:Event$ DamageDone | ActiveZones$ Command | ValidSource$ Card.ChosenCardStrict,Emblem.ChosenCard | ValidTarget$ Card.IsRemembered | PreventionEffect$ True | ReplaceWith$ DBExile\n\
+         SVar:DBExile:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearChosenCard$ True",
+    );
+    assert!(
+        warder.abilities[0].contains("Effect::PreventFromChosenSource")
+            && warder.abilities[0].contains("target = Some(TargetSpec::Object(&Filter::CREATURE))"),
+        "{}",
+        warder.abilities[0]
+    );
+}
+
+#[test]
+fn wave4_triggers_secondary_controlled_blocked_and_multi_sac_price() {
+    // Hoisted `Secondary$ True` works on `Attacks` / `ChangesZone` triggers.
+    let dual = read(
+        "Name:DualTitan\nManaCost:4 R\nTypes:Creature\nPT:4/4\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Secondary$ True | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(dual.abilities.len(), 2, "{:?}", dual.abilities);
+
+    // `AttackerBlocked` on non-self lowers to `Trigger::ControlledBecomesBlocked`.
+    let team_blk = read(
+        "Name:PhalanxLeader\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | Defined$ TriggeredAttackerLKICopy | NumAtt$ +1 | NumDef$ +1",
+    );
+    assert!(
+        team_blk.abilities[0].contains("Trigger::ControlledBecomesBlocked(")
+            && team_blk.abilities[0].contains("Effect::PumpEventObject"),
+        "{}",
+        team_blk.abilities[0]
+    );
+
+    // Multi-sacrifice trigger price lowers to `Effect::PlayerMaySacrificeNThen`.
+    let altar = read(
+        "Name:TwinAltar\nManaCost:3 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | OptionalDecider$ You | Execute$ TrigSac\n\
+         SVar:TrigSac:AB$ Draw | Cost$ Sac<2/Creature.YouCtrl> | NumCards$ 2",
+    );
+    assert!(
+        altar.abilities[0].contains("Effect::PlayerMaySacrificeNThen")
+            && altar.abilities[0].contains("count: 2"),
+        "{}",
+        altar.abilities[0]
+    );
+
+    // `AttackerBlockedByCreature` paired damage to blocker/attacker + controller + `DamageResolve`.
+    let hound = read(
+        "Name:BlockHound\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ AttackerBlockedByCreature | ValidCard$ Creature | ValidBlocker$ Card.Self | Execute$ TrigAtk\n\
+         T:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature | Secondary$ True | Execute$ TrigBlk\n\
+         SVar:TrigAtk:DB$ DealDamage | Defined$ TriggeredAttackerLKICopy | NumDmg$ 2 | DamageMap$ True | SubAbility$ DBAtkCtrl\n\
+         SVar:TrigBlk:DB$ DealDamage | Defined$ TriggeredBlockerLKICopy | NumDmg$ 2 | DamageMap$ True | SubAbility$ DBBlkCtrl\n\
+         SVar:DBAtkCtrl:DB$ DealDamage | Defined$ TriggeredAttackerController | NumDmg$ 2 | SubAbility$ DBRes\n\
+         SVar:DBBlkCtrl:DB$ DealDamage | Defined$ TriggeredBlockerController | NumDmg$ 2 | SubAbility$ DBRes\n\
+         SVar:DBRes:DB$ DamageResolve",
+    );
+    assert_eq!(hound.abilities.len(), 1, "{:?}", hound.abilities);
+    assert!(
+        hound.abilities[0].contains("Trigger::BlocksOrBecomesBlockedBy(&Filter::CREATURE)")
+            && hound.abilities[0].contains("TargetSpec::EventObject")
+            && hound.abilities[0].contains("PlayerRel::ControllerOfEvent"),
+        "{}",
+        hound.abilities[0]
+    );
+}
+
+#[test]
+fn wave4_copy_reveal_dig_until_and_hand_graveyard_zones() {
+    let copy_spell = read(
+        "Name:TwincastFixture\nManaCost:U U\nTypes:Instant\n\
+         A:SP$ CopySpellAbility | ValidTgts$ Instant,Sorcery | TargetType$ Spell | MayChooseTarget$ True",
+    );
+    assert!(
+        copy_spell.abilities[0].contains("Effect::CopyTargetSpell { mods: &[] }")
+            && copy_spell.abilities[0].contains("TargetSpec::Spell("),
+        "{}",
+        copy_spell.abilities[0]
+    );
+
+    let copy_event = read(
+        "Name:CopyEnch\nManaCost:4 R R\nTypes:Enchantment\n\
+         T:Mode$ SpellCast | ValidCard$ Instant,Sorcery | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigCopy\n\
+         SVar:TrigCopy:DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True",
+    );
+    assert!(
+        copy_event.abilities[0].contains("Effect::CopyEventSpellOrAbility"),
+        "{}",
+        copy_event.abilities[0]
+    );
+
+    let spy = read(
+        "Name:MillSpy\nManaCost:3 B\nTypes:Creature\nPT:2/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ DigUntil | ValidTgts$ Player | IsCurse$ True | Amount$ 1 | Valid$ Land | ValidDescription$ land | RevealedDestination$ Graveyard",
+    );
+    assert!(
+        spy.abilities[0].contains("Effect::RevealUntilMatching { player: PlayerRel::Chosen")
+            && spy.abilities[0]
+                .contains("matched: SearchDest::Graveyard, otherwise: SearchDest::Graveyard"),
+        "{}",
+        spy.abilities[0]
+    );
+
+    let grave_pick = read(
+        "Name:BonesReturn\nManaCost:3 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | Hidden$ True | Mandatory$ True | ChangeType$ Creature.YouOwn",
+    );
+    assert!(
+        grave_pick.abilities[0].contains("Effect::ChooseFromYourGraveyard")
+            && grave_pick.abilities[0]
+                .contains("destination: SearchDest::Battlefield, tapped: false, optional: false"),
+        "{}",
+        grave_pick.abilities[0]
+    );
+
+    let hand_top = read(
+        "Name:TopPut\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Hand | Destination$ Library | LibraryPosition$ 0 | Mandatory$ True | ChangeNum$ 2",
+    );
+    assert!(
+        hand_top.abilities[0].contains("Effect::PutFromHandOnTop { count: 2 }"),
+        "{}",
+        hand_top.abilities[0]
+    );
+
+    let reveal = read(
+        "Name:PeekHand\nManaCost:U\nTypes:Sorcery\n\
+         A:SP$ RevealHand | ValidTgts$ Opponent\n\
+         Oracle:Target opponent reveals their hand.",
+    );
+    assert!(
+        reveal.abilities[0].contains("Effect::RevealHand { who: PlayerRel::Chosen }"),
+        "{}",
+        reveal.abilities[0]
+    );
+}
+
+#[test]
+fn wave4_svar_conditions_damage_pump_and_second_destroy() {
+    // Active-player upkeep hand check (`TriggeredPlayer$CardsInHand` + `EQ0`) and `Count$Raid`.
+    let asylum = read(
+        "Name:EmptyHandWatcher\nManaCost:1 B\nTypes:Creature\nPT:3/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield | CheckSVar$ H | SVarCompare$ EQ0 | Execute$ TrigDraw\n\
+         SVar:H:TriggeredPlayer$CardsInHand\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        asylum.abilities[0].contains("Condition::Not(&CHECK1)")
+            && asylum
+                .statics
+                .contains("Amount::HandSize(PlayerRel::ActivePlayer)"),
+        "{}\n{}",
+        asylum.statics,
+        asylum.abilities[0]
+    );
+
+    let raid = read(
+        "Name:RaidScout\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ R | SVarCompare$ GE1 | Execute$ TrigDraw\n\
+         SVar:R:Count$Raid.1.0\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        raid.abilities[0].contains("Condition::AttackedWithAtLeast(1)"),
+        "{}",
+        raid.abilities[0]
+    );
+
+    // `ParentTargeted$CardPower` with `Defined$ TargetedController`, `Pump` hexproof & `Wither`.
+    let burn_ctrl = read(
+        "Name:SearingHit\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ Destroy | ValidTgts$ Creature | SubAbility$ DBBurn\n\
+         SVar:DBBurn:DB$ DealDamage | Defined$ TargetedController | NumDmg$ X\n\
+         SVar:X:ParentTargeted$CardPower",
+    );
+    assert!(
+        burn_ctrl.abilities[0].contains(
+            "Effect::DealDamage { amount: Amount::TargetPower, target: TargetSpec::Player(PlayerRel::ControllerOfTarget) }"
+        ),
+        "{}",
+        burn_ctrl.abilities[0]
+    );
+
+    let calm = read(
+        "Name:CalmShield\nManaCost:W\nTypes:Instant\n\
+         A:SP$ Pump | Defined$ You | KW$ Hexproof | Duration$ UntilYourNextTurn",
+    );
+    assert!(
+        calm.abilities[0].contains(
+            "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof { who: PlayerRel::You }, Duration::UntilYourNextTurn)"
+        ),
+        "{}",
+        calm.abilities[0]
+    );
+
+    let wither_pump = read(
+        "Name:BlightBlade\nManaCost:1 B\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | KW$ Wither | Duration$ UntilEndOfCombat",
+    );
+    assert!(
+        wither_pump.abilities[0].contains("KeywordSet::WITHER")
+            && wither_pump.abilities[0].contains("Duration::UntilEndOfCombat"),
+        "{}",
+        wither_pump.abilities[0]
+    );
+
+    // Second-target `Destroy` emits `DestroyTargetSlots { targets: &[TargetSlot::Second], .. }`.
+    let twin_kill = read(
+        "Name:DoubleBreak\nManaCost:3 W B\nTypes:Sorcery\n\
+         A:SP$ Destroy | ValidTgts$ Artifact | SubAbility$ DBKill2\n\
+         SVar:DBKill2:DB$ Destroy | ValidTgts$ Enchantment | NoRegen$ True",
+    );
+    assert!(
+        twin_kill.abilities[0].contains(
+            "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: true }"
+        ),
+        "{}",
+        twin_kill.abilities[0]
+    );
+}

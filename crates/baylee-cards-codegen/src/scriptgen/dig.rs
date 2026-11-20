@@ -300,4 +300,86 @@ impl Tx<'_> {
             Some(other) => self.deny(format!("`{key}$ {other}` on a `Dig`")),
         }
     }
+
+    /// Wave-4 extensions for `DigUntil`: supports any `PlayerRel` (including
+    /// targeted players like Balustrade Spy), omitted `FoundDestination$`
+    /// defaulting to `RevealedDestination$` (`Graveyard`/`Exile`), `Amount$ 1`,
+    /// `IsCurse$`, and `RevealUntil` (rest to bottom in random order).
+    pub(super) fn wave4_dig_until_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        let player = self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        if !matches!(p.take("Amount").as_deref(), None | Some("1")) {
+            return None;
+        }
+        p.take("IsCurse");
+        p.claim_label("ValidDescription", "Valid");
+        let valid = p.take("Valid")?;
+        let found_raw = p.take("FoundDestination");
+        let revealed_raw = p.take("RevealedDestination");
+        let pos = p.take("RevealedLibraryPosition");
+        let random_order = match p.take("RevealRandomOrder").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let shuffle = match p.take("Shuffle").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        if !p.exhausted() {
+            return None;
+        }
+        let expr = self.filter_expr_in_zone(&valid, true)?;
+        let name = self.body.filter_static("REVEAL_UNTIL", &expr);
+        // "Reveal cards from the top of your library until you reveal a [valid]
+        // card. Put that card into [found] and the rest on the bottom of your
+        // library in a random order."
+        if player == "PlayerRel::You"
+            && !shuffle
+            && random_order
+            && revealed_raw.as_deref() == Some("Library")
+            && pos.as_deref() == Some("-1")
+        {
+            let found = match found_raw.as_deref() {
+                Some("Hand") => "SearchDest::Hand",
+                Some("Battlefield") => "SearchDest::Battlefield",
+                Some("Exile") => "SearchDest::Exile",
+                Some("Graveyard") => "SearchDest::Graveyard",
+                _ => return None,
+            };
+            return Some(vec![format!(
+                "Effect::RevealUntil {{ filter: &{name}, found: {found} }}"
+            )]);
+        }
+        if pos.is_some() || random_order {
+            return None;
+        }
+        let otherwise = match revealed_raw.as_deref() {
+            Some("Library") => "SearchDest::TopOfLibrary",
+            Some("Graveyard") => "SearchDest::Graveyard",
+            Some("Exile") => "SearchDest::Exile",
+            _ => return None,
+        };
+        let matched = match found_raw.as_deref() {
+            Some("Battlefield") => "SearchDest::Battlefield",
+            Some("Hand") => "SearchDest::Hand",
+            Some("Graveyard") => "SearchDest::Graveyard",
+            Some("Exile") => "SearchDest::Exile",
+            Some("Library") => "SearchDest::TopOfLibrary",
+            None if matches!(otherwise, "SearchDest::Graveyard" | "SearchDest::Exile") => otherwise,
+            _ => return None,
+        };
+        let mut out = vec![format!(
+            "Effect::RevealUntilMatching {{ player: {player}, filter: &{name}, matched: {matched}, otherwise: {otherwise} }}"
+        )];
+        if shuffle {
+            out.push(format!("Effect::ShuffleLibrary {{ who: {player} }}"));
+        }
+        Some(out)
+    }
 }

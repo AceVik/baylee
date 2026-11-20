@@ -11,6 +11,7 @@ pub(super) enum OptionalTriggerPrice {
     Printed(String),
     Life(String),
     CostPart(String),
+    SacrificeN { filter: String, count: u8 },
 }
 
 /// `(mode_expr, first_target_spec, has_second_target, could_add_mana)`.
@@ -474,6 +475,14 @@ impl Tx<'_> {
             return self
                 .deny("multiple spell lines declaring mandatory additional costs".to_string());
         }
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics_len = self.body.statics.len();
+        if let Some(parts) = self.parse_spell_cost_parts(raw) {
+            self.body.mandatory_additional_costs.extend(parts);
+            return Some(());
+        }
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        self.body.statics.truncate(saved_statics_len);
         let prev_alt = self.in_alternative_cost;
         self.in_alternative_cost = true;
         let parsed = self.cost_pieces(&extra.join(" "));
@@ -789,21 +798,17 @@ impl Tx<'_> {
                 _ => None,
             };
         }
-        if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
-            return match bound {
-                Some(Bound::AtLeast(n)) => {
-                    Some(format!("Condition::CreaturesDiedThisTurnAtLeast({n})"))
-                }
-                _ => None,
-            };
+        if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"
+            && let Some(Bound::AtLeast(n)) = bound
+        {
+            return Some(format!("Condition::CreaturesDiedThisTurnAtLeast({n})"));
         }
-        if raw == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" {
-            return match bound {
-                Some(Bound::AtLeast(n)) => Some(format!(
-                    "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {n})"
-                )),
-                _ => None,
-            };
+        if raw == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl"
+            && let Some(Bound::AtLeast(n)) = bound
+        {
+            return Some(format!(
+                "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {n})"
+            ));
         }
         if matches!(
             raw.as_str(),
@@ -832,11 +837,52 @@ impl Tx<'_> {
                 _ => None,
             };
         }
-        if raw == "Count$Morbid.1.0" {
+        if matches!(raw.as_str(), "Count$Morbid.1.0" | "Count$Morbid") {
             return match cmp {
                 "GE1" | "EQ1" => Some("Condition::CreaturesDiedThisTurnAtLeast(1)".to_string()),
                 "EQ0" => {
                     Some("Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast(1))".to_string())
+                }
+                _ => None,
+            };
+        }
+        if matches!(raw.as_str(), "Count$Raid.1.0" | "Count$Raid") {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::AttackedWithAtLeast(1)".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::AttackedWithAtLeast(1))".to_string()),
+                _ => None,
+            };
+        }
+        if matches!(raw.as_str(), "Count$Revolt.1.0" | "Count$Revolt") {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::Revolt".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::Revolt)".to_string()),
+                _ => None,
+            };
+        }
+        if matches!(
+            raw.as_str(),
+            "Count$DescendedThisTurn" | "Count$ThisTurnDescended"
+        ) {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::DescendedThisTurn".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::DescendedThisTurn)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "Count$LastTurnCast_Card" {
+            return match bound {
+                Some(Bound::AtMost(0)) => Some("Condition::NoSpellsCastLastTurn".to_string()),
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    Some(format!("Condition::APlayerCastLastTurnAtLeast({n})"))
+                }
+                _ => None,
+            };
+        }
+        if raw == "Count$ThisTurnLandPlayed" {
+            return match bound {
+                Some(Bound::AtLeast(n)) => {
+                    Some(format!("Condition::LandsPlayedThisTurnAtLeast({n})"))
                 }
                 _ => None,
             };
@@ -847,22 +893,22 @@ impl Tx<'_> {
                 _ => None,
             };
         }
-        if raw == "Count$LifeYouGainedThisTurn" {
-            return match bound {
-                Some(Bound::AtLeast(n)) => Some(format!(
-                    "Condition::AmountAtLeast(Amount::LifeGainedThisTurn(PlayerRel::You), {n})"
-                )),
-                _ => None,
-            };
+        if raw == "Count$LifeYouGainedThisTurn"
+            && let Some(Bound::AtLeast(n)) = bound
+        {
+            return Some(format!(
+                "Condition::AmountAtLeast(Amount::LifeGainedThisTurn(PlayerRel::You), {n})"
+            ));
         }
-        if raw == "Count$YourLifeTotal" {
-            return match bound {
-                Some(Bound::AtLeast(n)) => Some(format!(
-                    "Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n})"
-                )),
-                Some(Bound::AtMost(n)) => Some(format!("Condition::LifeAtMost({n})")),
-                None => None,
-            };
+        if raw == "Count$YourLifeTotal"
+            && let Some(bound) = bound
+        {
+            return Some(match bound {
+                Bound::AtLeast(n) => {
+                    format!("Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n})")
+                }
+                Bound::AtMost(n) => format!("Condition::LifeAtMost({n})"),
+            });
         }
         if matches!(
             raw.as_str(),
@@ -883,9 +929,22 @@ impl Tx<'_> {
                 None => None,
             };
         }
-        if raw == "Count$ValidGraveyard Card.YouOwn" {
+        if raw == "Count$ValidGraveyard Card.YouOwn"
+            && let Some(Bound::AtLeast(n)) = bound
+        {
+            return Some(format!("Condition::GraveyardCountAtLeast({n})"));
+        }
+        if raw == "Count$ValidGraveyard Card.YouOwn$CardTypes" {
             return match bound {
-                Some(Bound::AtLeast(n)) => Some(format!("Condition::GraveyardCountAtLeast({n})")),
+                Some(Bound::AtLeast(n)) => Some(format!("Condition::GraveyardTypesAtLeast({n})")),
+                _ => None,
+            };
+        }
+        if raw == "Count$ValidGraveyard Card.OppOwn" {
+            return match bound {
+                Some(Bound::AtLeast(n)) => {
+                    Some(format!("Condition::OpponentGraveyardCountAtLeast({n})"))
+                }
                 _ => None,
             };
         }
@@ -894,12 +953,15 @@ impl Tx<'_> {
             if let Some(n) = eq_num.and_then(|v| u8::try_from(v).ok()) {
                 return Some(format!("Condition::CountersOnSelfExactly({kind}, {n})"));
             }
-            return match bound {
-                Some(Bound::AtLeast(n)) => Some(format!("Condition::CountersOnSelf({kind}, {n})")),
-                _ => None,
-            };
+            if let Some(Bound::AtLeast(n)) = bound {
+                return Some(format!("Condition::CountersOnSelf({kind}, {n})"));
+            }
         }
-        if raw == "Count$Valid Creature.YouCtrl$CardPower" {
+        if matches!(
+            raw.as_str(),
+            "Count$Valid Creature.YouCtrl$CardPower"
+                | "Count$Valid Creature.YouCtrl$GreatestCardPower"
+        ) {
             return match bound {
                 Some(Bound::AtLeast(n)) => {
                     Some(format!("Condition::ControlledCreaturePowerAtLeast({n})"))
@@ -988,9 +1050,18 @@ impl Tx<'_> {
                 }
             }
         }
-        let bound = bound?;
         let amt = self.static_count_expr(&raw)?;
-        match bound {
+        if let Some(n) = eq_num
+            && n > 0
+        {
+            let above = u32::from(n).checked_add(1)?;
+            let inner = format!("Condition::AmountAtLeast({amt}, {above})");
+            let name = self.body.condition_static("CHECK", &inner);
+            return Some(format!(
+                "Condition::All(&[Condition::AmountAtLeast({amt}, {n}), Condition::Not(&{name})])"
+            ));
+        }
+        match bound? {
             Bound::AtLeast(n) => Some(format!("Condition::AmountAtLeast({amt}, {n})")),
             Bound::AtMost(n) => {
                 let above = u32::from(n).checked_add(1)?;
@@ -1298,6 +1369,22 @@ impl Tx<'_> {
                     Some(OptionalTriggerPrice::Life(format!("Amount::Fixed({n})")))
                 } else if asks_for_an_object(one) {
                     Some(OptionalTriggerPrice::CostPart(one.clone()))
+                } else {
+                    None
+                }
+            }
+            many if many.len() >= 2 => {
+                let first = &many[0];
+                if let Some(filter) = first
+                    .strip_prefix("Sacrifice(")
+                    .and_then(|s| s.strip_suffix(')'))
+                    && many.iter().all(|p| p == first)
+                    && let Ok(count) = u8::try_from(many.len())
+                {
+                    Some(OptionalTriggerPrice::SacrificeN {
+                        filter: filter.to_string(),
+                        count,
+                    })
                 } else {
                     None
                 }

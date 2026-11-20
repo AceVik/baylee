@@ -22,6 +22,30 @@ impl Tx<'_> {
                     .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
                     != (p.peek("Destination") == Some("Library"))));
         let had_second_target = chain.second_target.is_some();
+        if api == "Effect"
+            && chain.target.is_none()
+            && p.has("ValidTgts")
+            && p.peek("ReplacementEffects").is_some()
+            && !p.has("UnlessCost")
+            && !p.has("Condition")
+            && !p.has("ConditionCheckSVar")
+            && !p.has("ConditionPresent")
+            && !p.has("AtEOT")
+            && !p.has("ReplaceDyingDefined")
+        {
+            let mut probe = p.clone();
+            let shield_sub = probe.take("SubAbility");
+            let saved_target = chain.target.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effects) = self.prevention_effect_shield(probe, chain) {
+                Self::push_effects_merging_kicked(&mut chain.effects, effects);
+                return self.chain_sub_ability(shield_sub, chain);
+            }
+            chain.target = saved_target;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+        }
         let mut local_kicked_target: Option<String> = None;
         let (targets_here, mut sub) =
             if let Some(child_sub) = self.try_kicked_target_replacement(&api, &mut p, chain) {
@@ -58,7 +82,34 @@ impl Tx<'_> {
         // sentence on the card: its `SubAbility$` is part of the sentence,
         // not the next one, so this rule reads the rest of the chain itself.
         if api == "ChooseSource" {
-            let effects = self.prevent_from_chosen_source(p, sub.as_deref())?;
+            let saved_p = p.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            let effects = if let Some(effects) = self.prevent_from_chosen_source(p, sub.as_deref())
+            {
+                effects
+            } else {
+                let sub_has_targets = sub
+                    .as_deref()
+                    .and_then(|s| self.svars.get(s))
+                    .is_some_and(|body| body.contains("ValidTgts$"));
+                if !sub_has_targets {
+                    return None;
+                }
+                let first_err = self.unclaimed.borrow().clone();
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                self.body.statics.truncate(saved_statics_len);
+                if let Some(effects) =
+                    self.prevent_from_chosen_source_chained(saved_p, sub.as_deref(), chain)
+                {
+                    effects
+                } else {
+                    if first_err.is_some() {
+                        *self.unclaimed.borrow_mut() = first_err;
+                    }
+                    return None;
+                }
+            };
             chain.effects.extend(effects);
             return Some(());
         }
@@ -255,6 +306,17 @@ impl Tx<'_> {
                     }
                     "Fight" => self.fight_effect(&mut p, true),
                     "DealDamage" => self.bite_effect(&mut p),
+                    "Destroy" => match p.take("NoRegen").as_deref() {
+                        None => Some(vec![
+                            "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: false }"
+                                .to_string(),
+                        ]),
+                        Some("True") => Some(vec![
+                            "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: true }"
+                                .to_string(),
+                        ]),
+                        Some(_) => None,
+                    },
                     _ => None,
                 }
             } else if api == "Fight" {
@@ -564,6 +626,23 @@ impl Tx<'_> {
                 None | Some("Battlefield") => {
                     if api == "Counter" && p.peek("TargetType") == Some("Activated") {
                         self.activated_ability_target(valid)
+                    } else if api == "CopySpellAbility" {
+                        match p.peek("TargetType") {
+                            Some("Spell") => self.target_spec(valid, "Counter"),
+                            Some("Activated") => self.activated_ability_target(valid),
+                            Some("Activated,Triggered" | "Triggered,Activated")
+                                if valid == "Card" =>
+                            {
+                                Some("TargetSpec::AbilityOnStack(&Filter::Any)".to_string())
+                            }
+                            Some(
+                                "Activated.YouCtrl,Triggered.YouCtrl"
+                                | "Triggered.YouCtrl,Activated.YouCtrl",
+                            ) if valid == "Card" => Some(
+                                "TargetSpec::AbilityOnStack(&Filter::ControlledByYou)".to_string(),
+                            ),
+                            _ => None,
+                        }
                     } else if chain.target.is_some()
                         && (chain.target_unique || matches!(api, "Fight" | "DealDamage"))
                         && p.peek("TargetUnique") == Some("True")
@@ -641,6 +720,18 @@ impl Tx<'_> {
                             .iter()
                             .all(|key| p.peek(key).is_none())
                 }
+                "Destroy" => {
+                    !chain.effects.is_empty()
+                        && chain
+                            .effects
+                            .iter()
+                            .all(|e| e.starts_with("Effect::destroy"))
+                        && p.peek("SubAbility").is_none()
+                        && p.peek("Defined").is_none_or(|v| v == "Targeted")
+                        && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
+                            .iter()
+                            .all(|key| p.peek(key).is_none())
+                }
                 _ => false,
             };
             if !allowed {
@@ -681,8 +772,7 @@ impl Tx<'_> {
                 {
                     p.take("TargetMin");
                     p.take("TargetMax");
-                } else if self.on_a_spell
-                    && self.has_x
+                } else if self.has_x
                     && multi_target_ok
                     && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
                     && min == max
@@ -1050,18 +1140,56 @@ impl Tx<'_> {
                 let to = if turn_start_hand.is_some() {
                     "TargetSpec::Player(PlayerRel::You)".to_string()
                 } else {
+                    let block_role = self.block_line.as_ref().map(|(r, _, _)| *r);
                     match p.take("Defined").as_deref() {
                         None => aimed.to_string(),
                         Some("Self") if !self.on_a_spell => "TargetSpec::ThisObject".to_string(),
                         Some("Targeted" | "ParentTarget") if !targets_here && target.is_some() => {
                             aimed.to_string()
                         }
-                        Some(
-                            "TriggeredAttackerLKICopy"
-                            | "TriggeredBlockerLKICopy"
-                            | "TriggeredAttackerLKICopy,TriggeredBlockerLKICopy",
-                        ) if matches!(self.trigger_mode.as_deref(), Some("Attacks" | "Blocks")) => {
+                        Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
+                            if matches!(
+                                self.trigger_mode.as_deref(),
+                                Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
+                            ) || (self.trigger_mode.as_deref()
+                                == Some("AttackerBlockedByCreature")
+                                && block_role == Some(super::BlockRole::Blocks)) =>
+                        {
                             "TargetSpec::EventObject".to_string()
+                        }
+                        Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
+                            if self.trigger_mode.as_deref() == Some("Blocks")
+                                || (self.trigger_mode.as_deref()
+                                    == Some("AttackerBlockedByCreature")
+                                    && block_role == Some(super::BlockRole::Blocked)) =>
+                        {
+                            "TargetSpec::EventObject".to_string()
+                        }
+                        Some("TriggeredAttackerLKICopy,TriggeredBlockerLKICopy")
+                            if matches!(
+                                self.trigger_mode.as_deref(),
+                                Some("Attacks" | "Blocks")
+                            ) =>
+                        {
+                            "TargetSpec::EventObject".to_string()
+                        }
+                        Some("TriggeredAttackerController")
+                            if matches!(
+                                self.trigger_mode.as_deref(),
+                                Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
+                            ) || (self.trigger_mode.as_deref()
+                                == Some("AttackerBlockedByCreature")
+                                && block_role == Some(super::BlockRole::Blocks)) =>
+                        {
+                            "TargetSpec::Player(PlayerRel::ControllerOfEvent)".to_string()
+                        }
+                        Some("TriggeredBlockerController")
+                            if self.trigger_mode.as_deref() == Some("Blocks")
+                                || (self.trigger_mode.as_deref()
+                                    == Some("AttackerBlockedByCreature")
+                                    && block_role == Some(super::BlockRole::Blocked)) =>
+                        {
+                            "TargetSpec::Player(PlayerRel::ControllerOfEvent)".to_string()
                         }
                         Some("TriggeredCardLKICopy" | "TriggeredCard")
                             if self.trigger_mode.as_deref() == Some("ChangesZone")
@@ -1164,7 +1292,19 @@ impl Tx<'_> {
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
             "Dig" => self.dig_effect(p, target, targets_here, targets_a_player)?,
-            "DigUntil" => self.dig_until_effect(p, target, targets_a_player)?,
+            "DigUntil" => {
+                let snapshot = p.clone();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                if let Some(effects) = self.dig_until_effect(p, target, targets_a_player) {
+                    effects
+                } else {
+                    *p = snapshot;
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                    self.wave4_dig_until_effect(p, target, targets_a_player)?
+                }
+            }
             "Draw"
                 if matches!(
                     p.peek("Defined"),
@@ -1400,11 +1540,33 @@ impl Tx<'_> {
                              kind: {kind}, amount: {n} }}"
                         )]);
                     }
+                    Some(def)
+                        if self.trigger_mode.as_deref() == Some("ChangesZone")
+                            && target.is_none()
+                            && (def.starts_with("TriggeredCardLKICopy.")
+                                || def.starts_with("TriggeredCard.")) =>
+                    {
+                        let qual = def
+                            .strip_prefix("TriggeredCardLKICopy.")
+                            .or_else(|| def.strip_prefix("TriggeredCard."))?;
+                        let q = self.filter_expr(&format!("Card.{qual}"))?;
+                        let expr = format!("Filter::And(&[Filter::Reference, {q}])");
+                        let name = self.body.filter_static("COUNTER", &expr);
+                        return Some(vec![format!(
+                            "Effect::AddCounterFilter {{ filter: &{name}, kind: {kind}, amount: {n} }}"
+                        )]);
+                    }
                     Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
-                        if matches!(
+                        if (matches!(
                             self.trigger_mode.as_deref(),
-                            Some("Attacks" | "AttackerUnblocked")
-                        ) && target.is_none() =>
+                            Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
+                        ) || (self.trigger_mode.as_deref()
+                            == Some("AttackerBlockedByCreature")
+                            && self
+                                .block_line
+                                .as_ref()
+                                .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks)))
+                            && target.is_none() =>
                     {
                         return Some(vec![format!(
                             "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
@@ -1412,7 +1574,14 @@ impl Tx<'_> {
                         )]);
                     }
                     Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
-                        if self.trigger_mode.as_deref() == Some("Blocks") && target.is_none() =>
+                        if (self.trigger_mode.as_deref() == Some("Blocks")
+                            || (self.trigger_mode.as_deref()
+                                == Some("AttackerBlockedByCreature")
+                                && self
+                                    .block_line
+                                    .as_ref()
+                                    .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocked)))
+                            && target.is_none() =>
                     {
                         return Some(vec![format!(
                             "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
@@ -1616,7 +1785,16 @@ impl Tx<'_> {
                         ))
                     || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
                         && target.is_none()
-                        && p.peek("Defined") == Some("TriggeredBlockerLKICopy"));
+                        && ((p.peek("Defined") == Some("TriggeredBlockerLKICopy")
+                            && self
+                                .block_line
+                                .as_ref()
+                                .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocked))
+                            || (p.peek("Defined") == Some("TriggeredAttackerLKICopy")
+                                && self
+                                    .block_line
+                                    .as_ref()
+                                    .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks))));
                 if remembered {
                     p.take("Defined");
                     vec![format!("Effect::{verb}(TargetSpec::EventObject)")]
@@ -1720,7 +1898,7 @@ impl Tx<'_> {
                 {
                     "Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)".to_string()
                 } else {
-                    self.amount_num(&raw_amount)?
+                    self.amount_or_count(&raw_amount)?
                 };
                 let to = match (p.take("Defined").as_deref(), target) {
                     (Some("Self"), None) if !self.on_a_spell => {
@@ -1736,6 +1914,24 @@ impl Tx<'_> {
                     "Effect::PreventNextDamage {{ target: {to}, amount: {n} }}"
                 )]
             }
+            "RevealHand" => {
+                if p.has("RememberRevealed") {
+                    return None;
+                }
+                let lower = self.oracle.to_ascii_lowercase();
+                if !(lower.contains("reveals their hand")
+                    || lower.contains("reveal your hand")
+                    || lower.contains("reveals his or her hand")
+                    || lower.contains("reveal their hands"))
+                    || lower.contains("look at")
+                {
+                    return None;
+                }
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                vec![format!("Effect::RevealHand {{ who: {who} }}")]
+            }
+            "CopySpellAbility" => self.copy_spell_ability_effect(p, target, targets_here)?,
             // "Prevent all combat damage that would be dealt this turn."
             // The bare line only: the reference narrows it with keys this
             // rule does not claim, and those refuse.
@@ -1856,12 +2052,26 @@ impl Tx<'_> {
             "Effect" => {
                 let snapshot = p.clone();
                 let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
                 if let Some(effects) = self.static_effect(p, target) {
                     effects
                 } else {
-                    *p = snapshot;
-                    *self.unclaimed.borrow_mut() = saved_unclaimed;
-                    self.wave3_effect_api(p, target)?
+                    p.clone_from(&snapshot);
+                    self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
+                    self.body.statics.truncate(saved_statics_len);
+                    if let Some(effects) = self.wave3_effect_api(p, target) {
+                        effects
+                    } else if target.is_none() && snapshot.peek("ReplacementEffects").is_some() {
+                        *p = Params {
+                            entries: Vec::new(),
+                        };
+                        *self.unclaimed.borrow_mut() = saved_unclaimed;
+                        self.body.statics.truncate(saved_statics_len);
+                        let mut dummy_chain = Chain::default();
+                        self.prevention_effect_shield(snapshot, &mut dummy_chain)?
+                    } else {
+                        return None;
+                    }
                 }
             }
             "MustBlock" => {
@@ -2151,6 +2361,69 @@ impl Tx<'_> {
             "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::Second }"
                 .to_string();
         Some(if may {
+            vec![format!("Effect::MayDo {{ effects: &[{effect}] }}")]
+        } else {
+            vec![effect]
+        })
+    }
+
+    fn copy_spell_ability_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        if p.take("MayChooseTarget").as_deref() != Some("True") {
+            return None;
+        }
+        let optional = match p.take("Optional").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        if !matches!(p.take("Controller").as_deref(), None | Some("You")) {
+            return None;
+        }
+        let target_type = p.take("TargetType");
+        let defined = p.take("Defined");
+        let effect = match (target_type.as_deref(), defined.as_deref()) {
+            (Some("Spell"), None)
+                if targets_here
+                    && target.is_some_and(|t| t.starts_with("TargetSpec::Spell("))
+                    && matches!(p.take("Amount").as_deref(), None | Some("1")) =>
+            {
+                "Effect::CopyTargetSpell { mods: &[] }".to_string()
+            }
+            (
+                Some(
+                    "Activated"
+                    | "Activated,Triggered"
+                    | "Triggered,Activated"
+                    | "Activated.YouCtrl,Triggered.YouCtrl"
+                    | "Triggered.YouCtrl,Activated.YouCtrl",
+                ),
+                None,
+            ) if targets_here
+                && target.is_some_and(|t| t.starts_with("TargetSpec::AbilityOnStack("))
+                && matches!(p.take("Amount").as_deref(), None | Some("1")) =>
+            {
+                "Effect::CopyTargetAbility".to_string()
+            }
+            (None, Some("TriggeredSpellAbility"))
+                if self.trigger_mode.as_deref() == Some("SpellCast")
+                    && !targets_here
+                    && target.is_none()
+                    && matches!(p.take("Amount").as_deref(), None | Some("1")) =>
+            {
+                "Effect::CopyEventSpellOrAbility".to_string()
+            }
+            (None, Some("Parent")) if self.on_a_spell && !targets_here => {
+                let amount = self.amount_or_count(p.take("Amount").as_deref().unwrap_or("1"))?;
+                format!("Effect::CopyThisSpell {{ amount: {amount} }}")
+            }
+            _ => return None,
+        };
+        Some(if optional {
             vec![format!("Effect::MayDo {{ effects: &[{effect}] }}")]
         } else {
             vec![effect]

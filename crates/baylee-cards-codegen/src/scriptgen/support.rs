@@ -198,6 +198,8 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Poison",
     "Attach",
     "MustBlock",
+    "RevealHand",
+    "CopySpellAbility",
 ];
 
 /// A cost token that names an object, split into its kind and its body.

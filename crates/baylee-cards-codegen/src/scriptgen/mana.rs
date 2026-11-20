@@ -397,18 +397,25 @@ impl Tx<'_> {
             {
                 return Some("Amount::EventLastToughness".to_string());
             }
-            if def == "TriggeredCard$CardManaCost"
-                && self.trigger_mode.as_deref() == Some("SpellCast")
+            if matches!(
+                def,
+                "TriggeredCard$CardManaCost"
+                    | "TriggeredSpellAbility$CardManaCostLKI"
+                    | "TriggeredSpellAbility$CardManaCost"
+            ) && self.trigger_mode.as_deref() == Some("SpellCast")
             {
                 return Some("Amount::EventManaValue".to_string());
             }
-            if def == "Targeted$CardToughness" {
+            if matches!(
+                def,
+                "Targeted$CardToughness" | "ParentTargeted$CardToughness"
+            ) {
                 return Some("Amount::TargetToughness".to_string());
             }
-            if def == "Targeted$CardPower" {
+            if matches!(def, "Targeted$CardPower" | "ParentTargeted$CardPower") {
                 return Some("Amount::TargetPower".to_string());
             }
-            if def == "Targeted$CardManaCost" {
+            if matches!(def, "Targeted$CardManaCost" | "ParentTargeted$CardManaCost") {
                 return Some("Amount::TargetCmc".to_string());
             }
             if def == "Sacrificed$CardPower" && self.cost_sacrifices_self && !self.on_a_spell {
@@ -429,16 +436,15 @@ impl Tx<'_> {
             if def == "TargetedPlayer$CardsInHand" {
                 return Some("Amount::HandSize(PlayerRel::Chosen)".to_string());
             }
-            if def == "TriggeredPlayer$CardsInHand" && self.trigger_mode.as_deref() == Some("Phase")
-            {
-                return Some("Amount::HandSize(PlayerRel::ActivePlayer)".to_string());
-            }
             if def == "TargetedPlayer$LifeTotal" {
                 return Some("Amount::LifeTotal(PlayerRel::Chosen)".to_string());
             }
-            if def == "TriggeredPlayer$LifeTotal" && self.trigger_mode.as_deref() == Some("Phase") {
-                return Some("Amount::LifeTotal(PlayerRel::ActivePlayer)".to_string());
-            }
+        }
+        if def == "TriggeredPlayer$CardsInHand" && self.trigger_mode.as_deref() == Some("Phase") {
+            return Some("Amount::HandSize(PlayerRel::ActivePlayer)".to_string());
+        }
+        if def == "TriggeredPlayer$LifeTotal" && self.trigger_mode.as_deref() == Some("Phase") {
+            return Some("Amount::LifeTotal(PlayerRel::ActivePlayer)".to_string());
         }
         if matches!(def, "Count$CardsInYourHand" | "Count$ValidHand Card.YouOwn") {
             return Some("Amount::HandSize(PlayerRel::You)".to_string());
@@ -449,7 +455,7 @@ impl Tx<'_> {
         ) {
             return Some("Amount::LibrarySize(PlayerRel::You)".to_string());
         }
-        if def == "Count$StartingLifeTotal" {
+        if matches!(def, "Count$StartingLifeTotal" | "Count$YourStartingLife") {
             return Some("Amount::StartingLifeTotal(PlayerRel::You)".to_string());
         }
         if def == "Count$LifeYouGainedThisTurn" {
@@ -643,7 +649,12 @@ impl Tx<'_> {
         if let Some(n) = self.amount_num(raw) {
             return Some(n);
         }
-        let def = self.svars.get(raw.trim())?.clone();
+        let trimmed = raw.trim();
+        let def = match self.svars.get(trimmed) {
+            Some(def) => def.clone(),
+            None if trimmed.contains('$') => trimmed.to_string(),
+            None => return None,
+        };
         if matches!(def.trim(), "Remembered$Amount" | "Count$RememberedSize") {
             let mut removals = self.svars.values().filter_map(|body| {
                 let (api, mut p) = Params::parse(body)?;

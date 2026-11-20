@@ -657,8 +657,16 @@ impl Tx<'_> {
     }
 
     fn attacker_blocked_trigger(&mut self, p: &mut Params) -> Option<String> {
-        if p.take("ValidCard").as_deref() != Some("Card.Self") {
-            return self.deny("an `AttackerBlocked` trigger not on `Card.Self`".to_string());
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("an `AttackerBlocked` trigger with no `ValidCard$`".to_string());
+        };
+        if valid != "Card.Self" {
+            if p.peek("ValidBlocker").is_some() {
+                return self.deny("an `AttackerBlocked` trigger not on `Card.Self`".to_string());
+            }
+            let expr = self.filter_expr(&valid)?;
+            let filter = self.body.filter_static("TRIGGER", &expr);
+            return Some(format!("Trigger::ControlledBecomesBlocked(&{filter})"));
         }
         match p.take("ValidBlocker") {
             None => Some("Trigger::BecomesBlocked".to_string()),
@@ -1293,6 +1301,12 @@ impl Tx<'_> {
         if self.is_imprison_clause(&mode, &p) {
             return self.imprison_clause(&mode, p);
         }
+        if mode != "AttackerBlockedByCreature" {
+            match p.take("Secondary").as_deref() {
+                None | Some("True") => {}
+                Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+            }
+        }
         let zone = Self::take_trigger_zone(&mode, &mut p);
         self.trigger_self_etb_kicked = false;
         self.trigger_self_etb_kicked_with = None;
@@ -1579,6 +1593,10 @@ impl Tx<'_> {
             Some(OptionalTriggerPrice::CostPart(part)) => format!(
                 "Effect::PlayerMayPayCostThen {{ player: PlayerRel::You, \
                  cost: &CostPart::{part}, effect: &{one_effect} }}"
+            ),
+            Some(OptionalTriggerPrice::SacrificeN { filter, count }) => format!(
+                "Effect::PlayerMaySacrificeNThen {{ player: PlayerRel::You, \
+                 filter: {filter}, count: {count}, effect: &{one_effect} }}"
             ),
             None if may && !asks_already => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
             None => effects,

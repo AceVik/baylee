@@ -511,6 +511,10 @@ impl Tx<'_> {
                 "HIDDEN CARDNAME can't block." => "KeywordSet::CANT_BLOCK",
                 "HIDDEN CARDNAME can't attack." => "KeywordSet::CANT_ATTACK",
                 "HIDDEN CARDNAME can't be blocked." => "KeywordSet::UNBLOCKABLE",
+                "Wither" => "KeywordSet::WITHER",
+                "Horsemanship" => "KeywordSet::HORSEMANSHIP",
+                "Skulk" => "KeywordSet::SKULK",
+                "Provoke" => "KeywordSet::PROVOKE",
                 other => keyword_const(other)?,
             };
             bits.push(bit);
@@ -635,6 +639,26 @@ impl Tx<'_> {
                 _ => None,
             };
         }
+        if !second
+            && target == "TargetSpec::AnyPlayer"
+            && p.peek("Defined") == Some("You")
+            && p.peek("KW").map(str::trim) == Some("Hexproof")
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+        {
+            let duration = match p.take("Duration").as_deref() {
+                None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+                Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+                Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+                Some(_) => return None,
+            };
+            p.take("Defined");
+            p.take("KW");
+            p.take("IsCurse");
+            return Some(vec![format!(
+                "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::You }}, {duration})"
+            )]);
+        }
         let power = self.pump_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
         let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
@@ -646,6 +670,7 @@ impl Tx<'_> {
         // name.
         let duration = match p.take("Duration").as_deref() {
             None => "Duration::UntilEndOfTurn",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some("UntilUntaps") if !self.on_a_spell => {
                 "Duration::WhileSourceTapped { control: false, power_limited: false }"
             }
@@ -679,8 +704,25 @@ impl Tx<'_> {
             ) && self.trigger_mode.as_deref() == Some("ChangesZone"))
                 || (matches!(
                     defined.as_deref(),
+                    Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
+                ) && (matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("AttackerUnblocked" | "AttackerBlocked")
+                ) || (self.trigger_mode.as_deref()
+                    == Some("AttackerBlockedByCreature")
+                    && self
+                        .block_line
+                        .as_ref()
+                        .is_some_and(|(role, _, _)| *role == super::BlockRole::Blocks))))
+                || (matches!(
+                    defined.as_deref(),
                     Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
-                ) && self.trigger_mode.as_deref() == Some("Blocks")))
+                ) && (self.trigger_mode.as_deref() == Some("Blocks")
+                    || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                        && self
+                            .block_line
+                            .as_ref()
+                            .is_some_and(|(role, _, _)| *role == super::BlockRole::Blocked)))))
         {
             return Some(vec![format!(
                 "Effect::PumpEventObject {{ power: {power}, toughness: {toughness}, \
@@ -961,6 +1003,49 @@ impl Tx<'_> {
                 }
                 _ => None,
             };
+        }
+        if p.peek("Origin") == Some("Hand")
+            && p.peek("Destination") == Some("Library")
+            && p.peek("LibraryPosition") == Some("0")
+            && !p.has("Shuffle")
+        {
+            p.take("Origin");
+            p.take("Destination");
+            p.take("LibraryPosition");
+            let defined = p.take("Defined");
+            let change_type = p.take("ChangeType");
+            let player = match change_type.as_deref() {
+                Some("Card.YouOwn") if defined.is_none() && target.is_none() => "PlayerRel::You",
+                Some("Card") | None if defined.is_some() || targets_a_player => {
+                    self.player_of_line(defined.as_deref(), target, targets_a_player)?
+                }
+                _ => return None,
+            };
+            return Some(vec![format!("Effect::PutHandOnTop {{ player: {player} }}")]);
+        }
+        if p.peek("Origin") == Some("Graveyard")
+            && p.peek("Destination") == Some("Library")
+            && p.peek("LibraryPosition") == Some("-1")
+            && p.peek("RandomOrder") == Some("True")
+            && !p.has("Shuffle")
+        {
+            p.take("Origin");
+            p.take("Destination");
+            p.take("LibraryPosition");
+            p.take("RandomOrder");
+            let defined = p.take("Defined");
+            let change_type = p.take("ChangeType");
+            let player = match change_type.as_deref() {
+                Some("Card.YouOwn") if defined.is_none() && target.is_none() => "PlayerRel::You",
+                Some("Card") | None if defined.is_some() || targets_a_player => {
+                    self.player_of_line(defined.as_deref(), target, targets_a_player)?
+                }
+                Some("Card") if target.is_none() => "PlayerRel::EachPlayer",
+                _ => return None,
+            };
+            return Some(vec![format!(
+                "Effect::GraveyardToLibraryBottom {{ player: {player} }}"
+            )]);
         }
         if p.take("Destination").as_deref() != Some("Library")
             || p.take("Shuffle").as_deref() != Some("True")
@@ -1418,13 +1503,7 @@ impl Tx<'_> {
             }
         }
         if let Some(raw_kw) = st.take("AddKeyword") {
-            let bits: Option<Vec<&str>> =
-                raw_kw.split('&').map(|k| keyword_const(k.trim())).collect();
-            let bits = bits?;
-            if bits.is_empty() {
-                return None;
-            }
-            let kw = bits.join(".union(") + &")".repeat(bits.len().saturating_sub(1));
+            let kw = Self::pump_keyword_bits(&raw_kw)?;
             mods.push(format!("Modifier::AddKeyword({kw})"));
         }
         if let Some(hidden) = st.take("AddHiddenKeyword") {
@@ -2131,6 +2210,31 @@ impl Tx<'_> {
                 "Effect::ExileChosenFromHandWithSource(&{filter})"
             )]);
         }
+        if !itself
+            && origin == "Hand"
+            && destination == "Library"
+            && matches!(
+                target,
+                "TargetSpec::AnyPlayer" | "TargetSpec::Player(PlayerRel::Chosen)"
+            )
+            && matches!(p.peek("LibraryPosition"), Some("0" | "-1"))
+            && (p.peek("Mandatory") == Some("True") || p.peek("Optional") == Some("True"))
+        {
+            return self.hand_to_library_change_zone(p, target, targets_here);
+        }
+        if !itself
+            && target == "TargetSpec::AnyPlayer"
+            && origin == "Graveyard"
+            && matches!(
+                destination.as_str(),
+                "Battlefield" | "Hand" | "Exile" | "Library"
+            )
+            && p.peek("Hidden") == Some("True")
+            && p.has("ChangeType")
+            && (p.peek("Mandatory") == Some("True") || p.peek("Optional") == Some("True"))
+        {
+            return self.choose_from_your_graveyard(p, &destination);
+        }
         // Without a target this would move nothing at all.
         if !itself && target == "TargetSpec::AnyPlayer" {
             return self.deny("`ChangeZone` with neither a target nor `Defined$`".to_string());
@@ -2338,6 +2442,110 @@ impl Tx<'_> {
                         || (origin == "Graveyard"
                             && matches!(destination, "Battlefield" | "Hand")))
                     && !p.has("ChangeType")))
+    }
+
+    fn hand_to_library_change_zone(
+        &mut self,
+        p: &mut Params,
+        target: &str,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        if let Some(hidden) = p.take("Hidden")
+            && hidden != "True"
+        {
+            return self.deny(format!("`ChangeZone` with `Hidden$ {hidden}`"));
+        }
+        let pos = p.take("LibraryPosition")?;
+        let targets_a_player = targets_here && target == "TargetSpec::Player(PlayerRel::Chosen)";
+        let defined_player = p.take("DefinedPlayer");
+        let player = if let Some(who) = defined_player.as_deref() {
+            self.player_of_line(Some(who), Some(target), targets_a_player)?
+        } else if targets_a_player {
+            "PlayerRel::Chosen"
+        } else {
+            "PlayerRel::You"
+        };
+        if pos == "0" {
+            if p.take("Mandatory").as_deref() != Some("True") {
+                return None;
+            }
+            if let Some(ct) = p.take("ChangeType")
+                && ct != "Card"
+            {
+                return None;
+            }
+            let count: u8 = self
+                .plain_num(p.take("ChangeNum").as_deref().unwrap_or("1"))?
+                .try_into()
+                .ok()?;
+            if count == 0 || count > 3 {
+                return None;
+            }
+            return Some(vec![if player == "PlayerRel::You" {
+                format!("Effect::PutFromHandOnTop {{ count: {count} }}")
+            } else {
+                format!("Effect::PutFromHandOnTopFor {{ player: {player}, count: {count} }}")
+            }]);
+        }
+        if pos == "-1" && p.take("Optional").as_deref() == Some("True") {
+            if !matches!(p.take("ChangeNum").as_deref(), None | Some("1")) {
+                return None;
+            }
+            let filter = match p.take("ChangeType").as_deref() {
+                None | Some("Card") => "Filter::Any".to_string(),
+                Some(valid) => {
+                    let expr = self.filter_expr_in_zone(valid, true)?;
+                    self.body.filter_static("BOTTOM", &expr)
+                }
+            };
+            return Some(vec![format!(
+                "Effect::BottomCardFromHand {{ player: {player}, filter: &{filter}, then: &[] }}"
+            )]);
+        }
+        None
+    }
+
+    fn choose_from_your_graveyard(
+        &mut self,
+        p: &mut Params,
+        destination: &str,
+    ) -> Option<Vec<String>> {
+        if p.take("Hidden").as_deref() != Some("True") {
+            return None;
+        }
+        let optional = match (
+            p.take("Mandatory").as_deref(),
+            p.take("Optional").as_deref(),
+        ) {
+            (Some("True"), None) => false,
+            (None, Some("True")) => true,
+            _ => return None,
+        };
+        if !matches!(p.take("ChangeNum").as_deref(), None | Some("1")) {
+            return None;
+        }
+        let tapped = match p.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") if destination == "Battlefield" => true,
+            Some(_) => return None,
+        };
+        let dest = match destination {
+            "Battlefield" => "SearchDest::Battlefield",
+            "Hand" => "SearchDest::Hand",
+            "Exile" => "SearchDest::Exile",
+            "Library" if p.take("LibraryPosition").as_deref() == Some("0") => {
+                "SearchDest::TopOfLibrary"
+            }
+            _ => return None,
+        };
+        let valid = p.take("ChangeType")?;
+        let stripped = Self::strip_your_graveyard_owner(&valid)?;
+        let expr = self.filter_expr_in_zone(&stripped, true)?;
+        let filter = self.body.filter_static("GRAVE_CHOICE", &expr);
+        Some(vec![format!(
+            "Effect::ChooseFromYourGraveyard {{ filter: &{filter}, destination: {dest}, \
+             tapped: {tapped}, optional: {optional} }}"
+        )])
     }
 
     /// `Origin$ Battlefield` with a chooser rather than a target: the bounce
