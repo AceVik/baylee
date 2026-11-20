@@ -25,7 +25,7 @@ pub(super) struct ParsedActivated {
     pub extras: String,
     pub ability_expr: String,
     pub alternate_ability_expr: Option<String>,
-    pub graveyard_zone: bool,
+    pub non_battlefield_zone: bool,
     pub simple_target: Option<String>,
 }
 
@@ -33,7 +33,8 @@ struct ExtractedAbilitySpec {
     cost: Option<String>,
     alternate_cost: Option<String>,
     limit: Option<String>,
-    graveyard_zone: bool,
+    non_battlefield_zone: bool,
+    zone_suffix: &'static str,
     any_player: bool,
     sorcery_speed: bool,
     condition: String,
@@ -124,8 +125,22 @@ impl Tx<'_> {
                     subtypes.join(", ")
                 ));
                 claimed.push("CheckSVar$");
-            } else if let Some(clause) = self.svar_condition(&name, cmp.as_deref().unwrap_or("GE1"))
+            } else if let Some(first) =
+                self.svar_condition_clause(&name, cmp.as_deref().unwrap_or("GE1"))
             {
+                let clause = if let Some(name2) = probe.take("CheckSecondSVar") {
+                    let cmp2 = probe
+                        .take("SecondSVarCompare")
+                        .unwrap_or_else(|| "GE1".to_string());
+                    let Some(second) = self.svar_condition_clause(&name2, &cmp2) else {
+                        return self.deny(format!("activation check `{name2}`"));
+                    };
+                    claimed.push("CheckSecondSVar$");
+                    claimed.push("SecondSVarCompare$");
+                    format!("Condition::All(&[{first}, {second}])")
+                } else {
+                    first
+                };
                 clauses.push(clause);
                 claimed.push("CheckSVar$");
                 if probe.take("SVarCompare").is_some() {
@@ -272,8 +287,16 @@ impl Tx<'_> {
         let limit = probe.take("ActivationLimit");
         let activator = probe.take("Activator");
         let activation_zone = probe.take("ActivationZone");
-        let graveyard_zone = is_activated && activation_zone.as_deref() == Some("Graveyard");
-        let battlefield_zone = is_activated && activation_zone.as_deref() == Some("Battlefield");
+        if !is_activated && let Some(zone) = activation_zone.as_deref() {
+            return self.deny(format!("a spell in `ActivationZone$ {zone}`"));
+        }
+        let any_player = is_activated && activator.as_deref() == Some("Player");
+        let (non_battlefield_zone, zone_suffix) = if is_activated {
+            self.activation_zone_expr(activation_zone.as_deref(), any_player, false)?
+        } else {
+            (false, "")
+        };
+        let zone_handled = is_activated && activation_zone.is_some();
         let sorcery_speed = is_activated && probe.take("SorcerySpeed").as_deref() == Some("True");
         let mut condition = self.condition(&mut probe)?;
         let present_read = !condition.is_empty();
@@ -290,15 +313,12 @@ impl Tx<'_> {
         } else {
             &[]
         };
-        let any_player = is_activated && activator.as_deref() == Some("Player");
         let stripped: Vec<&str> = spec
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
             .filter(|part| alternate_cost.is_none() || !part.starts_with("AlternateCost$"))
             .filter(|part| !(any_player && part.starts_with("Activator$")))
-            .filter(|part| {
-                !((graveyard_zone || battlefield_zone) && part.starts_with("ActivationZone$"))
-            })
+            .filter(|part| !(zone_handled && part.starts_with("ActivationZone$")))
             .filter(|part| !(sorcery_speed && part.starts_with("SorcerySpeed$")))
             .filter(|part| !restrictions.iter().any(|key| part.starts_with(key)))
             .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
@@ -323,12 +343,41 @@ impl Tx<'_> {
             cost,
             alternate_cost,
             limit,
-            graveyard_zone,
+            non_battlefield_zone,
+            zone_suffix,
             any_player,
             sorcery_speed,
             condition,
             chain,
         })
+    }
+
+    fn activation_zone_expr(
+        &self,
+        activation_zone: Option<&str>,
+        any_player: bool,
+        modal: bool,
+    ) -> Option<(bool, &'static str)> {
+        match (activation_zone, any_player) {
+            (None | Some("Battlefield"), false) => Some((false, "")),
+            (None | Some("Battlefield"), true) => {
+                Some((false, ", zone = ActivationZone::BattlefieldAnyPlayer"))
+            }
+            (Some("Graveyard"), false) => Some((true, ", zone = ActivationZone::Graveyard")),
+            (Some("Command"), false) => Some((true, ", zone = ActivationZone::Command")),
+            (Some("Battlefield,Command" | "Command,Battlefield"), false) => {
+                Some((true, ", zone = ActivationZone::BattlefieldOrCommand"))
+            }
+            (Some(zone), true) => {
+                self.deny(format!("`Activator$ Player` in `ActivationZone$ {zone}`"))
+            }
+            (Some(zone), false) => {
+                let prefix = if modal { "a modal " } else { "an " };
+                self.deny(format!(
+                    "{prefix}activated ability in `ActivationZone$ {zone}`"
+                ))
+            }
+        }
     }
 
     fn build_activated_parts(&mut self, spec: &ExtractedAbilitySpec) -> Option<ParsedActivated> {
@@ -339,13 +388,7 @@ impl Tx<'_> {
         let effects = format!("&[{}]", spec.chain.effects.join(", "));
         let second_targets = Self::second_target_req_expr(&spec.chain)
             .map_or_default(|req| format!(", second_targets = Some({req})"));
-        let zone = if spec.any_player {
-            ", zone = ActivationZone::BattlefieldAnyPlayer"
-        } else if spec.graveyard_zone {
-            ", zone = ActivationZone::Graveyard"
-        } else {
-            ""
-        };
+        let zone = spec.zone_suffix;
         let mana_ability =
             spec.chain.could_add_mana && !spec.chain.moves_library && spec.chain.target.is_none();
         if !zone.is_empty() && mana_ability {
@@ -392,7 +435,7 @@ impl Tx<'_> {
             None => None,
         };
         let simple_target = if !mana_ability
-            && !spec.graveyard_zone
+            && !spec.non_battlefield_zone
             && !spec.any_player
             && !spec.sorcery_speed
             && limit_str.is_empty()
@@ -412,7 +455,7 @@ impl Tx<'_> {
             extras,
             ability_expr,
             alternate_ability_expr,
-            graveyard_zone: spec.graveyard_zone,
+            non_battlefield_zone: spec.non_battlefield_zone,
             simple_target,
         })
     }
@@ -755,14 +798,6 @@ impl Tx<'_> {
         let limit = p.take("ActivationLimit");
         let activator = p.take("Activator");
         let activation_zone = p.take("ActivationZone");
-        let graveyard_zone = activation_zone.as_deref() == Some("Graveyard");
-        let battlefield_zone = activation_zone.as_deref() == Some("Battlefield");
-        if activation_zone.is_some() && !graveyard_zone && !battlefield_zone {
-            return self.deny(format!(
-                "a modal activated ability in `ActivationZone$ {}`",
-                activation_zone.unwrap_or_default()
-            ));
-        }
         let sorcery_speed = match p.take("SorcerySpeed").as_deref() {
             None => false,
             Some("True") => true,
@@ -773,6 +808,8 @@ impl Tx<'_> {
             Some("Player") => true,
             Some(other) => return self.deny(format!("`Activator$ {other}`")),
         };
+        let (_non_battlefield, zone) =
+            self.activation_zone_expr(activation_zone.as_deref(), any_player, true)?;
         let mut condition = self.condition(&mut p)?;
         let _restrictions = self.activation_restriction(&mut p, true, &mut condition)?;
         if let Some(key) = p.first_key() {
@@ -795,13 +832,6 @@ impl Tx<'_> {
         }
         let timing = if sorcery_speed {
             ", timing = ActivationTiming::SorcerySpeed"
-        } else {
-            ""
-        };
-        let zone = if any_player {
-            ", zone = ActivationZone::BattlefieldAnyPlayer"
-        } else if graveyard_zone {
-            ", zone = ActivationZone::Graveyard"
         } else {
             ""
         };
@@ -831,6 +861,42 @@ impl Tx<'_> {
             "Revolt" => "Condition::Revolt",
             _ => return None,
         })
+    }
+
+    /// Unified `CheckSVar$` + `SVarCompare$` entry point across activated,
+    /// static, and cost-reduction readers.
+    pub(super) fn svar_condition_clause(&mut self, var: &str, cmp: &str) -> Option<String> {
+        self.svar_condition(var, cmp)
+            .or_else(|| self.inline_valid_count_condition(var.trim(), cmp))
+            .or_else(|| self.extra_svar_condition_clause(var, cmp))
+            .or_else(|| self.inline_svar_condition(var, cmp))
+    }
+
+    fn inline_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        let def = var.trim();
+        let cmp = cmp.trim();
+        if def == "PlayerCountPropertyYou$HasPropertyMaxSpeed" {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::MaxSpeed".to_string()),
+                "EQ0" | "NE1" | "LT1" => Some("Condition::Not(&Condition::MaxSpeed)".to_string()),
+                _ => None,
+            };
+        }
+        if def.starts_with("Count$")
+            && let Some(amt) = self.static_count_expr(def)
+        {
+            return match count_bound(cmp)? {
+                Bound::AtLeast(n) if n > 0 => Some(format!("Condition::AmountAtLeast({amt}, {n})")),
+                Bound::AtMost(max) => {
+                    let bound = u32::from(max).checked_add(1)?;
+                    Some(format!(
+                        "Condition::Not(&Condition::AmountAtLeast({amt}, {bound}))"
+                    ))
+                }
+                Bound::AtLeast(_) => None,
+            };
+        }
+        None
     }
 
     /// Reads a `CheckSVar$` + `SVarCompare$` (or `ConditionCheckSVar$` +
@@ -1286,6 +1352,11 @@ impl Tx<'_> {
         let compare = p
             .take("PresentCompare")
             .unwrap_or_else(|| "GE1".to_string());
+        if let Some(clause) =
+            Self::commander_present_clause(valid, &compare, p.peek("PresentDefined").is_some())
+        {
+            return Some(clause);
+        }
         if compare == "GE1"
             && matches!(p.peek("PresentDefined"), None | Some("Self"))
             && let Some(raw) = valid.strip_prefix("Card.Self+counters_GE")
@@ -1375,6 +1446,25 @@ impl Tx<'_> {
             }
         };
         Some(clause)
+    }
+
+    fn commander_present_clause(valid: &str, compare: &str, has_defined: bool) -> Option<String> {
+        if has_defined
+            || !matches!(
+                valid,
+                "Card.IsCommander+YouOwn+YouCtrl"
+                    | "Card.IsCommander+YouCtrl+YouOwn"
+                    | "Permanent.IsCommander+YouOwn+YouCtrl"
+                    | "Permanent.IsCommander+YouCtrl+YouOwn"
+            )
+        {
+            return None;
+        }
+        match compare {
+            "GE1" => Some("Condition::ControlYourCommander".to_string()),
+            "EQ0" => Some("Condition::Not(&Condition::ControlYourCommander)".to_string()),
+            _ => None,
+        }
     }
 
     fn graveyard_present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {

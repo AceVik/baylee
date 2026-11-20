@@ -1764,7 +1764,7 @@ fn reduce_cost_lowers_colored_dynamic_cycling_facedown_shared_and_self_stack() {
 
     // 6. Refusals: chosen card-type mismatch (`Type$ Card`), dynamic colored reduction,
     // `EffectZone$ All` on other spells, `ValidTarget$`, `OnlyFirstSpell$`,
-    // `ValidSpell$ Activated.!ManaAbility`, `EffectZone$ Command`, `Amount$ 0`, and `SVarCompare$ EQ1`.
+    // `ValidSpell$ Activated.!ManaAbility`, `EffectZone$ Graveyard`, `Amount$ 0`, and `SVarCompare$ EQ1`.
     for bad in [
         "Name:Bad\nTypes:Artifact\n\
          K:ETBReplacement:Other:ChooseCT\nSVar:ChooseCT:DB$ ChooseType | Defined$ You | Type$ Card\n\
@@ -1782,7 +1782,7 @@ fn reduce_cost_lowers_colored_dynamic_cycling_facedown_shared_and_self_stack() {
          S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Cycling | Activator$ You | Amount$ X\n\
          SVar:X:Count$Valid Artifact.YouCtrl",
         "Name:Bad\nTypes:Artifact\n\
-         S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | EffectZone$ Command | Activator$ You | Amount$ 1",
+         S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | EffectZone$ Graveyard | Activator$ You | Amount$ 1",
         "Name:Bad\nTypes:Creature\nPT:2/2\n\
          S:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | ValidSpell$ Activated.!ManaAbility | Amount$ 2 | MinMana$ 1",
         "Name:Bad\nTypes:Creature\nPT:2/2\n\
@@ -2926,6 +2926,101 @@ fn wave7_etb_counter_extensions() {
     for bad in [
         "Name:Cond\nManaCost:2 G\nTypes:Creature\nPT:1/1\nK:etbCounter:P1P1:1:CheckSVar$ L\nSVar:L:Count$Valid Land",
         "Name:DualLoyalty\nManaCost:3 G\nTypes:Planeswalker\nLoyalty:2\nK:Kicker:W:U\nK:etbCounter:LOYALTY:1:CheckSVar$ K\nSVar:K:Count$Kicked.1.0",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave8a_combat_keywords_and_command_zone_activations_and_reductions() {
+    let kws = read(
+        "Name:WarCaptain\nManaCost:3 W\nTypes:Creature\nPT:2/2\n\
+         K:Battle cry\nK:Dethrone\nK:Melee\nK:Mentor\nK:Training",
+    );
+    assert_eq!(
+        kws.keywords,
+        [
+            "KeywordSet::BATTLE_CRY",
+            "KeywordSet::DETHRONE",
+            "KeywordSet::MELEE",
+            "KeywordSet::MENTOR",
+            "KeywordSet::TRAINING",
+        ]
+    );
+
+    let granted_kws = read(
+        "Name:RallyBanner\nManaCost:2 R\nTypes:Artifact\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Battle Cry & Mentor",
+    );
+    assert_eq!(
+        granted_kws.abilities,
+        [
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::AddKeyword(KeywordSet::BATTLE_CRY.union(KeywordSet::MENTOR)))"
+        ]
+    );
+
+    let cmd_act = read(
+        "Name:CommandMage\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 3 | NumCards$ 1 | ActivationZone$ Command\n\
+         A:AB$ GainLife | Cost$ 1 | LifeAmount$ 2 | ActivationZone$ Battlefield,Command",
+    );
+    assert_eq!(
+        cmd_act.abilities,
+        [
+            "activated!(cost!(\"{3}\"), &[Effect::draw(1)], zone = ActivationZone::Command)",
+            "activated!(cost!(\"{1}\"), &[Effect::gain_life(2)], zone = ActivationZone::BattlefieldOrCommand)",
+        ]
+    );
+
+    let cmd_modal = read(
+        "Name:CommandCharm\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Charm | Cost$ 2 | ActivationZone$ Command | Choices$ M1,M2\n\
+         SVar:M1:DB$ Draw | NumCards$ 1\nSVar:M2:DB$ GainLife | LifeAmount$ 2",
+    );
+    assert!(
+        cmd_modal.abilities[0].contains("zone = ActivationZone::Command"),
+        "{:?}",
+        cmd_modal.abilities
+    );
+
+    let eminence = read(
+        "Name:ElderWyrm\nManaCost:4 R G\nTypes:Creature Goblin\nPT:6/6\n\
+         S:Mode$ ReduceCost | EffectZone$ Battlefield,Command | ValidCard$ Goblin.Other | Type$ Spell | Activator$ You | Amount$ 1\n\
+         S:Mode$ ReduceCost | EffectZone$ Command | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1",
+    );
+    assert!(
+        eminence.abilities[0].contains("zone = ZoneRef::BattlefieldOrCommand")
+            && eminence.abilities[1].contains("zone = ZoneRef::Command"),
+        "{:?}",
+        eminence.abilities
+    );
+
+    let cant_cast = read(
+        "Name:VoidSeal\nTypes:Enchantment\n\
+         S:Mode$ CantBeCast | EffectZone$ Command | ValidCard$ Instant,Sorcery | Caster$ You",
+    );
+    assert!(
+        cant_cast.abilities[0].contains("zone = ZoneRef::Command")
+            && cant_cast.abilities[0].contains("Modifier::PlayersCantCast"),
+        "{:?}",
+        cant_cast.abilities
+    );
+
+    let double_kicked = read(
+        "Name:ScaleMind\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         K:Multikicker:1 U\nK:etbCounter:P1P1:X:CheckSVar$ X\nSVar:X:Count$TimesKicked/Twice",
+    );
+    assert_eq!(
+        double_kicked.enter_modifiers,
+        [
+            "EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::Times { base: &Amount::TimesKicked, factor: 2 } }"
+        ]
+    );
+
+    for bad in [
+        "Name:BadCmdMana\nTypes:Creature\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ G | ActivationZone$ Command",
+        "Name:BadAnyPlayerCmd\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | Activator$ Player | ActivationZone$ Command",
+        "Name:BadGrantCmd\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ Creature.YouCtrl | AddAbility$ G\nSVar:G:AB$ Draw | Cost$ 1 | NumCards$ 1 | ActivationZone$ Command",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }

@@ -3183,3 +3183,72 @@ fn wave7_non_source_and_implicit_animate() {
         "Name:BadPlayerAnim\nManaCost:U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Player | Types$ Creature"
     ));
 }
+
+#[test]
+fn wave8a_goad_static_command_and_continuous_check_svar() {
+    let goad = read(
+        "Name:FuryGoad\nManaCost:2 R\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | AddPower$ 2 | Goad$ True",
+    );
+    assert!(
+        goad.abilities.contains(&"static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]), Modifier::ModifyPT(2, 0))".to_string())
+            && goad.abilities.contains(&"static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]), Modifier::Goaded)".to_string()),
+        "{:?}",
+        goad.abilities
+    );
+
+    let cmd_static = read(
+        "Name:EmblemLord\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | EffectZone$ Command | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1\n\
+         S:Mode$ Continuous | EffectZone$ Battlefield,Command | Affected$ Creature.YouCtrl | IsPresent$ Card.IsCommander+YouOwn+YouCtrl | AddKeyword$ Vigilance",
+    );
+    assert_eq!(
+        cmd_static.abilities,
+        [
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::ModifyPT(1, 1), zone = ZoneRef::Command)",
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::AddKeyword(KeywordSet::VIGILANCE), zone = ZoneRef::BattlefieldOrCommand, condition = Some(Condition::ControlYourCommander))",
+        ]
+    );
+
+    let corrupted = read(
+        "Name:PlagueBanner\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 2 | AddAbility$ Drain | CheckSVar$ P | SVarCompare$ GE3\n\
+         SVar:P:PlayerCountOpponents$HighestCounters.Poison\n\
+         SVar:Drain:AB$ GainLife | Cost$ 1 | LifeAmount$ 1",
+    );
+    assert!(
+        corrupted.abilities[0].contains("condition = Some(Condition::OpponentPoisonAtLeast(3))")
+            && corrupted.abilities[1]
+                .contains("condition = Some(Condition::OpponentPoisonAtLeast(3))"),
+        "{:?}",
+        corrupted.abilities
+    );
+
+    let combined = read(
+        "Name:TideWatch\nManaCost:2 U\nTypes:Creature\nPT:2/3\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | Condition$ PlayerTurn | CheckSVar$ Count$Domain | SVarCompare$ GE4 | CheckSecondSVar$ P | AddKeyword$ Flying\n\
+         SVar:P:PlayerCountOpponents$HighestCounters.Poison",
+    );
+    assert!(
+        combined.abilities[0].contains("Condition::All(&[Condition::YourTurn, Condition::AmountAtLeast(Amount::BasicLandTypesAmong(&Filter::YOUR_LAND), 4), Condition::OpponentPoisonAtLeast(1)])"),
+        "{:?}",
+        combined.abilities
+    );
+
+    let cant_attack = read(
+        "Name:ShyBehemoth\nManaCost:3 G\nTypes:Creature\nPT:5/5\n\
+         S:Mode$ CantAttack | ValidCard$ Card.Self | IsPresent$ Creature.YouCtrl | PresentCompare$ EQ0\n\
+         S:Mode$ CantAttack,CantBlock | ValidCard$ Card.Self | CheckSVar$ PlayerCountPropertyYou$HasPropertyMaxSpeed | SVarCompare$ NE1",
+    );
+    assert_eq!(
+        cant_attack.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_ATTACK), condition = Some(Condition::ControlCountAtMost(&Filter::YOUR_CREATURE, 0)))",
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)), condition = Some(Condition::Not(&Condition::MaxSpeed)))",
+        ]
+    );
+
+    assert!(refused(
+        "Name:BareSelfCant\nManaCost:1 R\nTypes:Creature\nPT:3/3\nS:Mode$ CantAttack | ValidCard$ Card.Self"
+    ));
+}

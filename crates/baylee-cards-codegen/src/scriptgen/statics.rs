@@ -14,6 +14,30 @@ pub(super) enum GrantedActivated {
     },
 }
 
+#[derive(Clone, Copy)]
+enum StaticEffectZone {
+    Battlefield,
+    Explicit(&'static str),
+}
+
+impl StaticEffectZone {
+    const fn as_arg(self) -> Option<&'static str> {
+        match self {
+            Self::Battlefield => None,
+            Self::Explicit(zone) => Some(zone),
+        }
+    }
+
+    const fn is_battlefield(self) -> bool {
+        matches!(self, Self::Battlefield)
+    }
+}
+
+enum CantBeCastHandling {
+    Handled(Option<()>),
+    Pass,
+}
+
 impl Tx<'_> {
     pub(super) fn is_ai_only_static(&self, spec: &str) -> bool {
         let Some((mode, mut p)) = Params::parse(spec) else {
@@ -196,23 +220,14 @@ impl Tx<'_> {
             }
             "CantBeCast" => {
                 p.drop_prose();
-                if p.peek("ValidCard") == Some("Creature")
-                    && p.peek("Caster") == Some("You")
-                    && p.entries.len() == 2
-                {
-                    p.take("ValidCard");
-                    p.take("Caster");
-                    self.body.abilities.push(Self::static_expr(
-                        "Filter::Any",
-                        "Modifier::PlayersCantCast { who: PlayerRel::You, filter: &Filter::CREATURE }",
-                    ));
-                    return Some(());
+                match self.try_cant_be_cast_zone(&mut p) {
+                    CantBeCastHandling::Handled(res) => return res,
+                    CantBeCastHandling::Pass => return self.one_spell_each_turn(p),
                 }
-                return self.one_spell_each_turn(p);
             }
             "CantBlockBy" => return self.cant_block_by(p),
             "MustAttack" => return self.must_attack(p),
-            "CantAttack,CantBlock,CantBeActivated" => {
+            "CantAttack,CantBlock,CantBeActivated" | "CantAttack,CantBlock" => {
                 return self.cant_attack_block_activate(&mode, p);
             }
             "CantBeActivated" if p.peek("ValidSA") == Some("Activated") => {
@@ -251,27 +266,24 @@ impl Tx<'_> {
         // `EffectZone$ Battlefield` is the default written out; any other
         // zone means the source works from somewhere else, which is a
         // different rule than the one below.
-        let mut graveyard_zone = false;
-        if let Some(zone) = p.take("EffectZone")
-            && zone != "Battlefield"
-        {
-            if zone == "Graveyard"
-                && p.peek("Affected") == Some("Creature.YouCtrl")
-                && p.has("AddKeyword")
-            {
-                graveyard_zone = true;
-            } else {
-                self.note(format!("static ability from `EffectZone$ {zone}`"));
-                return None;
+        let graveyard_ok = p.peek("Affected") == Some("Creature.YouCtrl") && p.has("AddKeyword");
+        let effect_zone = match p.take("EffectZone").as_deref() {
+            raw @ Some(zone) => {
+                let Some(resolved) = Self::static_effect_zone(raw, graveyard_ok) else {
+                    self.note(format!("static ability from `EffectZone$ {zone}`"));
+                    return None;
+                };
+                resolved.as_arg()
             }
-        }
+            None => None,
+        };
         if p.peek("AffectedZone") == Some("Hand")
             && p.peek("MayLookAt") == Some("Player")
             && p.peek("Affected").is_none()
         {
             return self.reveal_all_hands(p);
         }
-        if !graveyard_zone
+        if effect_zone != Some("ZoneRef::Graveyard")
             && p.peek("AffectedZone") == Some("Graveyard")
             && p.peek("MayPlay") == Some("True")
         {
@@ -307,21 +319,27 @@ impl Tx<'_> {
         // clause the `A:` line reads as a restriction is, on a static, the
         // condition under which the ability exists at all, and the engine
         // registers and removes it as the condition changes.
-        let mut condition = self.condition(&mut p)?;
-        if condition.is_empty() && p.peek("CheckSVar").is_some() {
-            condition = self.static_svar_condition(&mut p)?;
-        }
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
         let mut out = Vec::new();
         let mut self_granted = false;
         self.pt_modifiers(&mut p, &filter, &mut out)?;
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
         self.type_modifiers(&mut p, &filter, &mut out)?;
         self.color_modifiers(&mut p, &filter, &mut out)?;
-        if graveyard_zone && (p.has("AddAbility") || p.has("AddTrigger")) {
+        if effect_zone == Some("ZoneRef::Graveyard") && (p.has("AddAbility") || p.has("AddTrigger"))
+        {
             self.note("static ability from `EffectZone$ Graveyard`".to_string());
             return None;
         }
-        self.grant_modifiers(&mut p, &filter, &condition, &mut out, &mut self_granted)?;
+        self.grant_modifiers(
+            &mut p,
+            &filter,
+            effect_zone.is_none(),
+            &condition,
+            &mut out,
+            &mut self_granted,
+        )?;
         self.block_modifiers(&mut p, &filter, &mut out)?;
         // "You control enchanted creature" (Control Magic): layer 2
         // (CR 613.1b), and the static's controller is who gains control —
@@ -334,12 +352,16 @@ impl Tx<'_> {
                 return None;
             }
         }
-        if graveyard_zone || !condition.is_empty() {
-            let zone_arg = if graveyard_zone {
-                ", zone = ZoneRef::Graveyard"
-            } else {
-                ""
-            };
+        match p.take("Goad").as_deref() {
+            None => {}
+            Some("True") => out.push(Self::static_expr(&filter, "Modifier::Goaded")),
+            Some(other) => {
+                self.note(format!("continuous static with `Goad$ {other}`"));
+                return None;
+            }
+        }
+        if effect_zone.is_some() || !condition.is_empty() {
+            let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
             for ability in &mut out {
                 if let Some(open) = ability.strip_suffix(')') {
                     *ability = format!("{open}{zone_arg}{condition})");
@@ -360,13 +382,125 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn static_svar_condition(&mut self, p: &mut Params) -> Option<String> {
-        let var = p.take("CheckSVar")?;
-        let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-        let Some(clause) = self.svar_condition(&var, &cmp) else {
-            return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
+    fn static_effect_zone(zone: Option<&str>, allow_graveyard: bool) -> Option<StaticEffectZone> {
+        match zone {
+            None | Some("Battlefield") => Some(StaticEffectZone::Battlefield),
+            Some("Command") => Some(StaticEffectZone::Explicit("ZoneRef::Command")),
+            Some("Battlefield,Command" | "Command,Battlefield") => {
+                Some(StaticEffectZone::Explicit("ZoneRef::BattlefieldOrCommand"))
+            }
+            Some("Graveyard") if allow_graveyard => {
+                Some(StaticEffectZone::Explicit("ZoneRef::Graveyard"))
+            }
+            Some(_) => None,
+        }
+    }
+
+    fn take_static_effect_zone(&self, p: &mut Params, mode: &str) -> Option<StaticEffectZone> {
+        match p.take("EffectZone").as_deref() {
+            raw @ Some(zone) => match Self::static_effect_zone(raw, false) {
+                Some(resolved) => Some(resolved),
+                None => self.deny(format!("static ability `{mode}` from `EffectZone$ {zone}`")),
+            },
+            None => Some(StaticEffectZone::Battlefield),
+        }
+    }
+
+    fn format_static_expr(
+        filter: &str,
+        modifier: &str,
+        zone: StaticEffectZone,
+        cond: &str,
+    ) -> String {
+        let zone_arg = zone
+            .as_arg()
+            .map_or_else(String::new, |z| format!(", zone = {z}"));
+        format!("static_ability!({filter}, {modifier}{zone_arg}{cond})")
+    }
+
+    fn try_cant_be_cast_zone(&mut self, p: &mut Params) -> CantBeCastHandling {
+        if p.has("NumLimitEachTurn")
+            || !p
+                .entries
+                .iter()
+                .all(|(k, _)| matches!(k.as_str(), "ValidCard" | "Caster" | "EffectZone"))
+        {
+            return CantBeCastHandling::Pass;
+        }
+        let Some(valid) = p.peek("ValidCard") else {
+            return CantBeCastHandling::Pass;
         };
-        Some(format!(", condition = Some({clause})"))
+        if valid == "Card.Self" {
+            return CantBeCastHandling::Pass;
+        }
+        let Some(caster) = p.peek("Caster") else {
+            return CantBeCastHandling::Pass;
+        };
+        let has_cmd_zone = matches!(
+            p.peek("EffectZone"),
+            Some("Command" | "Battlefield,Command" | "Command,Battlefield")
+        );
+        let allow = caster == "You" || (caster == "Opponent" && has_cmd_zone);
+        if !allow {
+            return CantBeCastHandling::Pass;
+        }
+        let Some(zone) = Self::static_effect_zone(p.take("EffectZone").as_deref(), false) else {
+            return CantBeCastHandling::Pass;
+        };
+        let Some(valid) = p.take("ValidCard") else {
+            return CantBeCastHandling::Pass;
+        };
+        let Some(caster) = p.take("Caster") else {
+            return CantBeCastHandling::Pass;
+        };
+        let filter_ref = if caster == "You" && valid == "Creature" && zone.is_battlefield() {
+            "&Filter::CREATURE".to_string()
+        } else {
+            let Some(expr) = self.filter_expr(&valid) else {
+                return CantBeCastHandling::Handled(None);
+            };
+            format!("&{}", self.body.filter_static("CANT_CAST", &expr))
+        };
+        let modifier = if caster == "You" {
+            format!("Modifier::PlayersCantCast {{ who: PlayerRel::You, filter: {filter_ref} }}")
+        } else {
+            format!("Modifier::OpponentsCantCast({filter_ref})")
+        };
+        self.body
+            .abilities
+            .push(Self::format_static_expr("Filter::Any", &modifier, zone, ""));
+        CantBeCastHandling::Handled(Some(()))
+    }
+
+    fn static_conditions(&mut self, p: &mut Params, check_svar_denial: &str) -> Option<String> {
+        let mut clauses: Vec<String> = self
+            .condition(p)?
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+            .map(str::to_string)
+            .into_iter()
+            .collect();
+        if let Some(var) = p.take("CheckSVar") {
+            let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
+            let Some(first) = self.svar_condition_clause(&var, &cmp) else {
+                return self.deny(check_svar_denial.to_string());
+            };
+            clauses.push(first);
+            if let Some(var2) = p.take("CheckSecondSVar") {
+                let cmp2 = p
+                    .take("SecondSVarCompare")
+                    .unwrap_or_else(|| "GE1".to_string());
+                let Some(second) = self.svar_condition_clause(&var2, &cmp2) else {
+                    return self.deny(check_svar_denial.to_string());
+                };
+                clauses.push(second);
+            }
+        }
+        Some(match clauses.as_slice() {
+            [] => String::new(),
+            [one] => format!(", condition = Some({one})"),
+            many => format!(", condition = Some(Condition::All(&[{}]))", many.join(", ")),
+        })
     }
 
     fn reveal_all_hands(&mut self, mut p: Params) -> Option<()> {
@@ -384,59 +518,60 @@ impl Tx<'_> {
 
     fn cant_attack_block_activate(&mut self, mode: &str, mut p: Params) -> Option<()> {
         p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, mode)?;
         let Some(valid) = p.take("ValidCard") else {
-            return self
-                .deny("a `CantAttack,CantBlock,CantBeActivated` with no `ValidCard$`".to_string());
+            return self.deny(format!("a `{mode}` with no `ValidCard$`"));
         };
         let filter = self.filter_expr(&valid)?;
-        let condition = self.condition(&mut p)?;
+        let condition =
+            self.static_conditions(&mut p, &format!("unclaimed parameter `{mode}.CheckSVar`"))?;
         if !p.exhausted() {
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `{mode}.{key}`"));
             }
             return None;
         }
-        for modifier in [
-            "Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK))",
-            "Modifier::CantActivate",
-        ] {
-            let mut expr = Self::static_expr(&filter, modifier);
-            if !condition.is_empty()
-                && let Some(open) = expr.strip_suffix(')')
-            {
-                expr = format!("{open}{condition})");
-            }
-            self.body.abilities.push(expr);
+        let mut modifiers =
+            vec!["Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK))"];
+        if mode == "CantAttack,CantBlock,CantBeActivated" {
+            modifiers.push("Modifier::CantActivate");
+        }
+        for modifier in modifiers {
+            self.body.abilities.push(Self::format_static_expr(
+                &filter, modifier, zone, &condition,
+            ));
         }
         Some(())
     }
 
     fn cant_be_activated(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, "CantBeActivated")?;
         p.take("ValidSA");
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("a `CantBeActivated` with no `ValidCard$`".to_string());
         };
         let filter = self.filter_expr(&valid)?;
-        let condition = self.condition(&mut p)?;
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `CantBeActivated.CheckSVar`")?;
         if !p.exhausted() {
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `CantBeActivated.{key}`"));
             }
             return None;
         }
-        let mut expr = Self::static_expr(&filter, "Modifier::CantActivate");
-        if !condition.is_empty()
-            && let Some(open) = expr.strip_suffix(')')
-        {
-            expr = format!("{open}{condition})");
-        }
-        self.body.abilities.push(expr);
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            "Modifier::CantActivate",
+            zone,
+            &condition,
+        ));
         Some(())
     }
 
     fn cant_block(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, "CantBlock")?;
         match p.take("Secondary").as_deref() {
             None | Some("True") => {}
             Some(other) => return self.deny(format!("`CantBlock.Secondary$ {other}`")),
@@ -449,7 +584,10 @@ impl Tx<'_> {
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("a `CantBlock` static with no `ValidCard$`".to_string());
         };
-        if valid == "Card.Self" && (p.has("CheckSVar") || p.has("SVarCompare")) {
+        if valid == "Card.Self"
+            && zone.is_battlefield()
+            && (p.has("CheckSVar") || p.has("SVarCompare"))
+        {
             let condition = p.take("Condition");
             let checked = p.take("CheckSVar");
             let comparison = p.take("SVarCompare");
@@ -476,20 +614,20 @@ impl Tx<'_> {
             return Some(());
         }
         let filter = self.filter_expr(&valid)?;
-        let condition = self.condition(&mut p)?;
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `CantBlock.CheckSVar`")?;
         if !p.exhausted() {
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `CantBlock.{key}`"));
             }
             return None;
         }
-        let mut expr = Self::static_expr(&filter, "Modifier::AddKeyword(KeywordSet::CANT_BLOCK)");
-        if !condition.is_empty()
-            && let Some(open) = expr.strip_suffix(')')
-        {
-            expr = format!("{open}{condition})");
-        }
-        self.body.abilities.push(expr);
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            "Modifier::AddKeyword(KeywordSet::CANT_BLOCK)",
+            zone,
+            &condition,
+        ));
         Some(())
     }
 
@@ -876,6 +1014,7 @@ impl Tx<'_> {
     /// the other filter names.
     pub(super) fn cant_block_by(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, "CantBlockBy")?;
         match p.take("Secondary").as_deref() {
             None | Some("True") => {}
             Some(other) => return self.deny(format!("`CantBlockBy.Secondary$ {other}`")),
@@ -888,6 +1027,7 @@ impl Tx<'_> {
         // `condition` to read or refuse, and is never dropped as if absent.
         if attacker == "Card.Self"
             && blocker.is_none()
+            && zone.is_battlefield()
             && p.peek("IsPresent") == Some("Artifact.DefenderCtrl")
         {
             p.take("IsPresent");
@@ -897,7 +1037,8 @@ impl Tx<'_> {
             );
             return Some(());
         }
-        let condition = self.condition(&mut p)?;
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `CantBlockBy.CheckSVar`")?;
         if let Some(key) = p.first_key() {
             self.note(format!("unclaimed parameter `CantBlockBy.{key}`"));
             return None;
@@ -918,8 +1059,8 @@ impl Tx<'_> {
                 "Modifier::AddKeyword(KeywordSet::UNBLOCKABLE)".to_string(),
             )
         };
-        self.body.abilities.push(format!(
-            "static_ability!({attackers}, {modifier}{condition})"
+        self.body.abilities.push(Self::format_static_expr(
+            &attackers, &modifier, zone, &condition,
         ));
         Some(())
     }
@@ -930,17 +1071,22 @@ impl Tx<'_> {
     /// not know, and stays unclaimed.
     pub(super) fn must_attack(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, "MustAttack")?;
         let Some(valid) = p.take("ValidCreature") else {
             return self.deny("`MustAttack` naming no creature".to_string());
         };
-        let condition = self.condition(&mut p)?;
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `MustAttack.CheckSVar`")?;
         if let Some(key) = p.first_key() {
             self.note(format!("unclaimed parameter `MustAttack.{key}`"));
             return None;
         }
         let filter = self.filter_expr(&valid)?;
-        self.body.abilities.push(format!(
-            "static_ability!({filter}, Modifier::AttacksEachCombat{condition})"
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            "Modifier::AttacksEachCombat",
+            zone,
+            &condition,
         ));
         Some(())
     }
@@ -970,6 +1116,7 @@ impl Tx<'_> {
     /// is a different sentence.
     pub(super) fn cant_attack_unless(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, "CantAttack")?;
         match p.take("Secondary").as_deref() {
             None | Some("True") => {}
             Some(other) => return self.deny(format!("`CantAttack.Secondary$ {other}`")),
@@ -977,7 +1124,9 @@ impl Tx<'_> {
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("`CantAttack` naming no creature".to_string());
         };
-        if p.peek("UnlessDefender") == Some("hasFewerCreaturesInPlayThanYou") {
+        if p.peek("UnlessDefender") == Some("hasFewerCreaturesInPlayThanYou")
+            && zone.is_battlefield()
+        {
             p.take("UnlessDefender");
             if valid != "Card.Self" {
                 return self.deny(format!("a creature-count attack restriction on `{valid}`"));
@@ -993,26 +1142,37 @@ impl Tx<'_> {
         }
         if p.peek("Target") == Some("You") && !p.has("UnlessDefender") {
             p.take("Target");
-            let condition = self.condition(&mut p)?;
+            let condition =
+                self.static_conditions(&mut p, "unclaimed parameter `CantAttack.CheckSVar`")?;
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `CantAttack.{key}`"));
                 return None;
             }
             let attackers = self.filter_expr(&valid)?;
-            self.body.abilities.push(format!(
-                "static_ability!({attackers}, Modifier::CantAttackYou{condition})"
+            self.body.abilities.push(Self::format_static_expr(
+                &attackers,
+                "Modifier::CantAttackYou",
+                zone,
+                &condition,
             ));
             return Some(());
         }
-        if !p.has("UnlessDefender") && valid != "Card.Self" {
-            let condition = self.condition(&mut p)?;
+        if !p.has("UnlessDefender") {
+            let condition =
+                self.static_conditions(&mut p, "unclaimed parameter `CantAttack.CheckSVar`")?;
+            if valid == "Card.Self" && condition.is_empty() {
+                return self.deny("`CantAttack` with no `UnlessDefender$`".to_string());
+            }
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `CantAttack.{key}`"));
                 return None;
             }
             let attackers = self.filter_expr(&valid)?;
-            self.body.abilities.push(format!(
-                "static_ability!({attackers}, Modifier::AddKeyword(KeywordSet::CANT_ATTACK){condition})"
+            self.body.abilities.push(Self::format_static_expr(
+                &attackers,
+                "Modifier::AddKeyword(KeywordSet::CANT_ATTACK)",
+                zone,
+                &condition,
             ));
             return Some(());
         }
@@ -1028,7 +1188,8 @@ impl Tx<'_> {
         } else {
             return self.deny(format!("`UnlessDefender$ {unless}`"));
         };
-        let condition = self.condition(&mut p)?;
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `CantAttack.CheckSVar`")?;
         if let Some(key) = p.first_key() {
             self.note(format!("unclaimed parameter `CantAttack.{key}`"));
             return None;
@@ -1036,8 +1197,11 @@ impl Tx<'_> {
         let attackers = self.filter_expr(&valid)?;
         let wanted = self.filter_expr(wanted)?;
         let name = self.body.filter_static("DEFENDER_CONTROLS", &wanted);
-        self.body.abilities.push(format!(
-            "static_ability!({attackers}, Modifier::{modifier}(&{name}){condition})"
+        self.body.abilities.push(Self::format_static_expr(
+            &attackers,
+            &format!("Modifier::{modifier}(&{name})"),
+            zone,
+            &condition,
         ));
         Some(())
     }
@@ -1535,6 +1699,7 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         filter: &str,
+        allow_self_shortcut: bool,
         condition: &str,
         out: &mut Vec<String>,
         self_granted: &mut bool,
@@ -1556,7 +1721,14 @@ impl Tx<'_> {
             }
         }
         if let Some(raw) = abilities {
-            self.grant_activated_list(&raw, filter, condition, out, self_granted)?;
+            self.grant_activated_list(
+                &raw,
+                filter,
+                allow_self_shortcut,
+                condition,
+                out,
+                self_granted,
+            )?;
         }
         if let Some(raw) = triggers {
             self.grant_triggered_list(&raw, filter, out)?;
@@ -1568,6 +1740,7 @@ impl Tx<'_> {
         &mut self,
         raw: &str,
         filter: &str,
+        allow_self_shortcut: bool,
         condition: &str,
         out: &mut Vec<String>,
         self_granted: &mut bool,
@@ -1576,7 +1749,7 @@ impl Tx<'_> {
             match self.build_grant_activated_modifier(
                 name,
                 "AddAbility$",
-                filter == "Filter::This",
+                allow_self_shortcut && filter == "Filter::This",
             )? {
                 GrantedActivated::Modifier(modifier) => {
                     out.push(Self::static_expr(filter, &modifier));
@@ -1609,8 +1782,8 @@ impl Tx<'_> {
             return self.deny("a granted ability that is not an activated one".to_string());
         }
         let parsed = self.parse_activated_spec(&line, false, false)?;
-        if parsed.graveyard_zone {
-            return self.deny("a granted ability activated from `Graveyard`".to_string());
+        if parsed.non_battlefield_zone {
+            return self.deny("a granted ability activated outside the battlefield".to_string());
         }
         if parsed.extras.is_empty() {
             return Some(GrantedActivated::Modifier(format!(
@@ -1690,30 +1863,25 @@ impl Tx<'_> {
 
     fn cant_phase_out(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield")) {
-            return self.deny("static ability `S: Mode$ CantPhaseOut`".to_string());
-        }
+        let zone = self.take_static_effect_zone(&mut p, "CantPhaseOut")?;
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("a `CantPhaseOut` with no `ValidCard$`".to_string());
         };
         let filter = self.filter_expr(&valid)?;
-        let mut condition = self.condition(&mut p)?;
-        if condition.is_empty() && p.peek("CheckSVar").is_some() {
-            condition = self.static_svar_condition(&mut p)?;
-        }
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `CantPhaseOut.CheckSVar`")?;
         if !p.exhausted() {
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `CantPhaseOut.{key}`"));
             }
             return None;
         }
-        let mut expr = Self::static_expr(&filter, "Modifier::CantPhaseOut");
-        if !condition.is_empty()
-            && let Some(open) = expr.strip_suffix(')')
-        {
-            expr = format!("{open}{condition})");
-        }
-        self.body.abilities.push(expr);
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            "Modifier::CantPhaseOut",
+            zone,
+            &condition,
+        ));
         Some(())
     }
 
@@ -1853,10 +2021,12 @@ impl Tx<'_> {
             (Some("Spell") | None, Some("Spell.isCastFaceDown")) => true,
             _ => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
         };
-        let is_self_zone = match p.take("EffectZone").as_deref() {
-            None | Some("Battlefield") => false,
-            Some("All" | "Stack") => true,
-            Some(_) => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+        let (is_self_zone, zone) = match p.take("EffectZone").as_deref() {
+            Some("All" | "Stack") => (true, StaticEffectZone::Explicit("ZoneRef::Stack")),
+            raw => match Self::static_effect_zone(raw, false) {
+                Some(z) => (false, z),
+                None => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+            },
         };
         let mut valid_card = match p.take("ValidCard") {
             Some(vc) => vc,
@@ -1899,15 +2069,9 @@ impl Tx<'_> {
             return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
         }
         let filter = self.filter_expr(&valid_card)?;
-        if is_self_zone {
-            self.body.abilities.push(format!(
-                "static_ability!({filter}, {modifier}, zone = ZoneRef::Stack{cond})"
-            ));
-        } else {
-            self.body
-                .abilities
-                .push(format!("static_ability!({filter}, {modifier}{cond})"));
-        }
+        self.body
+            .abilities
+            .push(Self::format_static_expr(&filter, &modifier, zone, &cond));
         Some(())
     }
 
@@ -1951,26 +2115,38 @@ impl Tx<'_> {
 
     fn reduce_cost_cycling(&mut self, mut p: Params) -> Option<()> {
         p.take("ValidSpell");
-        let (filter, amount, _, cond) = self.parse_ability_reduction(p, false, false, false)?;
-        self.body.abilities.push(format!(
-            "static_ability!({filter}, Modifier::CyclingCostsLess({amount}){cond})"
+        let (filter, amount, _, zone, cond) =
+            self.parse_ability_reduction(p, false, false, false)?;
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            &format!("Modifier::CyclingCostsLess({amount})"),
+            zone,
+            &cond,
         ));
         Some(())
     }
 
     fn reduce_cost_equip(&mut self, mut p: Params) -> Option<()> {
         p.take("ValidSpell");
-        let (filter, amount, _, cond) = self.parse_ability_reduction(p, true, false, false)?;
-        self.body.abilities.push(format!(
-            "static_ability!({filter}, Modifier::EquipCostsLess({amount}){cond})"
+        let (filter, amount, _, zone, cond) =
+            self.parse_ability_reduction(p, true, false, false)?;
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            &format!("Modifier::EquipCostsLess({amount})"),
+            zone,
+            &cond,
         ));
         Some(())
     }
 
     fn reduce_cost_ability(&mut self, p: Params) -> Option<()> {
-        let (filter, amount, minimum, cond) = self.parse_ability_reduction(p, true, true, true)?;
-        self.body.abilities.push(format!(
-            "static_ability!({filter}, Modifier::AbilitiesCostLess {{ amount: {amount}, minimum: {minimum} }}{cond})"
+        let (filter, amount, minimum, zone, cond) =
+            self.parse_ability_reduction(p, true, true, true)?;
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            &format!("Modifier::AbilitiesCostLess {{ amount: {amount}, minimum: {minimum} }}"),
+            zone,
+            &cond,
         ));
         Some(())
     }
@@ -1981,8 +2157,11 @@ impl Tx<'_> {
         allow_affected_zone: bool,
         allow_nonzero_min_mana: bool,
         forbid_unscoped_card: bool,
-    ) -> Option<(String, u32, u32, String)> {
-        let mut zones_ok = matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"));
+    ) -> Option<(String, u32, u32, StaticEffectZone, String)> {
+        let Some(zone) = Self::static_effect_zone(p.take("EffectZone").as_deref(), false) else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        let mut zones_ok = true;
         let explicit_battlefield = if allow_affected_zone {
             let affected_zone = p.take("AffectedZone");
             zones_ok &= matches!(affected_zone.as_deref(), None | Some("Battlefield"));
@@ -2031,7 +2210,7 @@ impl Tx<'_> {
             return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
         }
         let filter = self.filter_expr(&valid_card)?;
-        Some((filter, amount, minimum, cond))
+        Some((filter, amount, minimum, zone, cond))
     }
 
     fn append_reduce_atom(valid: &str, atom: &str) -> String {
@@ -2111,7 +2290,7 @@ impl Tx<'_> {
     }
 
     fn reduce_cost_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
-        if let Some(c) = self.svar_condition(var, cmp) {
+        if let Some(c) = self.svar_condition_clause(var, cmp) {
             return Some(c);
         }
         let trimmed = var.trim();
@@ -2239,7 +2418,7 @@ impl Tx<'_> {
         })
     }
 
-    fn inline_valid_count_condition(&mut self, def: &str, cmp: &str) -> Option<String> {
+    pub(super) fn inline_valid_count_condition(&mut self, def: &str, cmp: &str) -> Option<String> {
         let valid = def.strip_prefix("Count$Valid ")?;
         if valid.is_empty() || valid.contains('/') || valid.contains('$') {
             return None;

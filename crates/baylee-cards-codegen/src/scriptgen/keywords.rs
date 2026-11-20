@@ -994,16 +994,28 @@ impl Tx<'_> {
     ///   `EnterModifier::WithCounters` scaled by `Amount::TimesKicked`.
     /// - Dual-kicker (`P1P1`, positive `u8`, `Count$Kicked.1.0`): lowers to
     ///   `EnterModifier::IfKicked { index: None, counters: n, modifiers: &[] }`.
-    pub(super) fn kicked_etb_counter(&self, line: &str) -> Option<String> {
+    pub(super) fn kicked_etb_counter(&mut self, line: &str) -> Option<String> {
         let mut fields = line.strip_prefix("etbCounter:")?.split(':');
         let kind = super::counter_kind(fields.next()?.trim())?;
-        let n: u32 = fields.next()?.trim().parse().ok()?;
-        if n == 0 {
-            return None;
-        }
+        let amount_raw = fields.next()?.trim();
         let cond = fields.next()?.trim();
         let var = cond.strip_prefix("CheckSVar$")?.trim();
         let def = self.svars.get(var).map(|s| s.trim());
+        if (self.has_single_kicker
+            || self.dual_kicker_remap.is_some()
+            || self.body.multikicker.is_some())
+            && var == amount_raw
+            && def.is_some_and(|d| d.starts_with("Count$TimesKicked"))
+        {
+            let amount = self.etb_wave6_amount(amount_raw)?;
+            return Some(format!(
+                "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
+            ));
+        }
+        let n: u32 = amount_raw.parse().ok()?;
+        if n == 0 {
+            return None;
+        }
         if self.has_single_kicker {
             if !matches!(def, Some("Count$Kicked.1.0" | "Count$TimesKicked")) {
                 return None;
@@ -1565,6 +1577,61 @@ impl Tx<'_> {
         Some(())
     }
 
+    fn should_bypass_extra_static(spec: &str) -> bool {
+        let Some((mode, mut p)) = Params::parse(spec) else {
+            return false;
+        };
+        p.drop_prose();
+        let cmd_zone = matches!(
+            p.peek("EffectZone"),
+            Some("Command" | "Battlefield,Command" | "Command,Battlefield")
+        );
+        match mode.as_str() {
+            "CantBeCast" => {
+                !p.has("NumLimitEachTurn")
+                    && p.peek("ValidCard").is_some_and(|v| v != "Card.Self")
+                    && matches!(
+                        p.peek("EffectZone"),
+                        None | Some(
+                            "Battlefield"
+                                | "Command"
+                                | "Battlefield,Command"
+                                | "Command,Battlefield"
+                        )
+                    )
+                    && (p.peek("Caster") == Some("You")
+                        || (p.peek("Caster") == Some("Opponent") && cmd_zone))
+                    && p.entries
+                        .iter()
+                        .all(|(k, _)| matches!(k.as_str(), "ValidCard" | "Caster" | "EffectZone"))
+            }
+            "Continuous" => {
+                (p.has("CheckSVar")
+                    && (p.has("AddAbility") || p.has("AddTrigger") || p.has("Goad")))
+                    || (cmd_zone
+                        && !p.has("AffectedZone")
+                        && !matches!(
+                            p.peek("Affected"),
+                            Some(
+                                "You" | "Player" | "Opponent" | "Player.Opponent" | "Player.Chosen"
+                            )
+                        ))
+            }
+            "CantAttack"
+            | "CantAttack,CantBlock"
+            | "CantAttack,CantBlock,CantBeActivated"
+            | "CantBeActivated"
+            | "CantBlock"
+            | "CantBlockBy"
+            | "MustAttack" => {
+                cmd_zone
+                    || p.peek("CheckSVar")
+                        .is_some_and(|v| v.starts_with("Count$") || v.starts_with("PlayerCount"))
+            }
+            _ => false,
+        }
+    }
+
     pub(super) fn rule(&mut self, kind: char, spec: &str) -> Option<()> {
         self.has_x = kind == 'A';
         self.on_a_spell = kind == 'A' && spec.trim_start().starts_with("SP$");
@@ -1574,6 +1641,7 @@ impl Tx<'_> {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
             'S' if self.is_ai_only_static(spec) => Some(()),
+            'S' if Self::should_bypass_extra_static(spec) => self.static_ability(spec),
             'S' => match self.try_extra_static(spec) {
                 super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
                 super::saga_ward_convoke::ExtraOutcome::Pass => self.static_ability(spec),
