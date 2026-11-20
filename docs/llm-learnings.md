@@ -8284,3 +8284,32 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   `resolve/immediate.rs:2714` also unconditionally taps `res.second_targets` for
   `Arena`, which mis-taps targets of `Spirit Flare`/`Deadshot`. All queued for
   engine `resolve/` cleanup.
+
+## 2026-11-20 — Wave 3 & Wave 4 Scriptgen, Tokens, Triggers, Sagas & B9/Morph/Bestow (Gemini Swarm)
+
+- **Content-addressed token names (`crates/baylee-cards-codegen/src/tokengen.rs`)**:
+  adding ability-bearing token rules caused 14 constant-name collisions
+  (`SPIRIT_1_1`, `GOBLIN_1_1_RED`, etc.) against existing pool cards, which
+  stopped `xtask codegen` (`two_tokens_at_one_name`). Keeping the 18 legacy
+  ability-bearing constants unsuffixed via exact `(constant, fnv1a_32_bare)`
+  matching and appending deterministic `_A<8HEX>` suffixes to new rules-line
+  tokens resolved all 14 collisions (`0 claimed by two definitions` across
+  727 tokens).
+- **Single-clause trigger optionality (`scriptgen/triggers.rs` & `OFFERS_A_CHOICE`)**:
+  cards whose trigger omits both `OptionalDecider$` and `Optional$` (e.g.
+  `Mighty Emergence`) carry `", you may ..."` directly in `TriggerDescription$`.
+  Handling explicit `Optional$ Yes|True|No|False` plus single-clause prose
+  `", you may ..."` wrapping (refusing ambiguous multi-clause/conditional prose)
+  fixed `xtask validate`, and hoisting `OFFERS_A_CHOICE` to module scope kept
+  `xtask/src/check_text/mod.rs` under Clippy's line-count cap while covering
+  all `PlayerMay*` and copy-target variants.
+- **Disjoint `Rider` hash tags across parallel engine branches (`state/hash.rs`)**:
+  merging parallel engine features (`SyntheticCondition` tag `96` and
+  `Bestowed` / `MustAttackPlayerThisTurn` tags `101`/`102`) without collision
+  requires reserving disjoint snapshot-hash tags explicitly in branch briefs.
+- **Layer/resolution catches queued from card audits (`#84`, `#109`)**:
+  `Amount::EventLastToughness` in `resolve/mod.rs:803-813` only read
+  `Rider::EventDeparture` (returning `0` on ETB triggers like `Angelic Chorus`),
+  and `count_controlled` in `layers/counts.rs:8-33` only rebound
+  `context.source = obj.id` for `Filter::AttachedToSource`, missing
+  `Filter::SharesCreatureTypeWith(Filter::This)` (`Coat of Arms`, `Alpha Status`).
