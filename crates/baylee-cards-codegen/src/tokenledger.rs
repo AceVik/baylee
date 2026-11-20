@@ -339,10 +339,8 @@ fn same_definition(a: &str, b: &str) -> bool {
             if c == '"' {
                 in_str = true;
                 out.push(c);
-            } else if c == ',' && matches!(chars.peek(), Some(']' | ')' | '}')) {
+            } else if !(c == ',' && matches!(chars.peek(), Some(']' | ')' | '}'))) {
                 // rustfmt inserts trailing commas when wrapping multi-line arrays/structs.
-                continue;
-            } else {
                 out.push(c);
             }
         }
