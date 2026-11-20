@@ -3771,6 +3771,12 @@ CastDash = Dash
 # Mutate (CR 702.140a), the keyword as the German printing names it
 CastMutate = Mutate
 
+# Bestow (CR 702.103), the keyword as the German printing names it
+CastBestow = Bestow
+
+# Jump-start (CR 702.133a), the keyword as the German printing names it
+CastJumpStart = Jump-start
+
 # Escape (CR 702.138a), the keyword as the German printing names it
 CastEscape = Escape
 

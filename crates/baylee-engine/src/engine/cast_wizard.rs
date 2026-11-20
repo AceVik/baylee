@@ -1493,6 +1493,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if wizard.option == Some(CastModeKind::Mutate) {
             return Some(casting::MUTATE_TARGET_REQ);
         }
+        if wizard.option == Some(CastModeKind::Bestow) {
+            return Some(casting::BESTOW_TARGET_REQ);
+        }
         if wizard.kicked
             && let Some(req) = def.faces[face_index].kicked_targets
         {
@@ -1939,6 +1942,7 @@ pub(super) fn spend_for(
         let form = match wizard.option {
             Some(CastModeKind::Prototype) => face.prototype.map(casting::SpellForm::Prototype),
             Some(CastModeKind::Disguise) => Some(casting::SpellForm::Disguise),
+            Some(CastModeKind::Bestow) => face.bestow.map(casting::SpellForm::Bestow),
             _ if wizard.masked => Some(casting::SpellForm::Disguise),
             _ => None,
         };
@@ -1956,6 +1960,10 @@ pub(super) fn spend_for(
         Some(CastModeKind::Disguise) => {
             casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Disguise)
         }
+        Some(CastModeKind::Bestow) => casting::SpendFor::SpellAs(
+            wizard.card,
+            casting::SpellForm::Bestow(face.bestow.expect("bestow option")),
+        ),
         Some(CastModeKind::Foretell) => casting::SpendFor::SpellAs(
             wizard.card,
             casting::SpellForm::Foretell(face.foretell.expect("foretell option")),

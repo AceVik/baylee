@@ -308,6 +308,12 @@ fn no_card_costs_a_colour_its_identity_leaves_out() {
             if let Some(miracle) = face.miracle {
                 add(&miracle);
             }
+            if let Some(megamorph) = face.megamorph {
+                add(&megamorph);
+            }
+            if let Some(bestow) = face.bestow {
+                add(&bestow.mana);
+            }
         }
         for ability in def
             .faces
@@ -317,7 +323,9 @@ fn no_card_costs_a_colour_its_identity_leaves_out() {
         {
             match ability {
                 AbilityDef::Activated { cost, .. }
-                | AbilityDef::ActivatedConditional { cost, .. } => add(&cost.mana),
+                | AbilityDef::ActivatedConditional { cost, .. }
+                | AbilityDef::Unearth { cost }
+                | AbilityDef::Encore { cost } => add(&cost.mana),
                 AbilityDef::Echo { cost } => add(cost),
                 // `ModalTriggered` carries `SpellMode`s too and is not
                 // read here, which is a statement rather than the

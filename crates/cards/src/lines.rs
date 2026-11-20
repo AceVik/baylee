@@ -385,6 +385,8 @@ pub fn grants_in(
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
+        | AbilityDef::Unearth { .. }
+        | AbilityDef::Encore { .. }
         | AbilityDef::Replacement(_)
         | AbilityDef::Suspend { .. } => Vec::new(),
     };

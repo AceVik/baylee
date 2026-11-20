@@ -1603,6 +1603,9 @@ fn activated(state: &GameState, obj: &GameObject) -> Option<bool> {
     match abilities.get(usize::try_from(loc.index).ok()?)? {
         AbilityDef::Activated { .. }
         | AbilityDef::ActivatedConditional { .. }
+        | AbilityDef::ModalActivated { .. }
+        | AbilityDef::Unearth { .. }
+        | AbilityDef::Encore { .. }
         | AbilityDef::Loyalty { .. } => Some(true),
         AbilityDef::Triggered { .. }
         | AbilityDef::ModalTriggered { .. }

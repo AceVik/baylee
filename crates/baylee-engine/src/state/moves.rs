@@ -752,6 +752,7 @@ impl GameState {
                             | crate::object::Rider::MergedComponent(_)
                             | crate::object::Rider::MergedTop(_)
                             | crate::object::Rider::MergedToken(_)
+                            | crate::object::Rider::MustAttackPlayerThisTurn(_)
                     )
                 });
                 // A name chosen as it entered belongs to that permanent
@@ -790,6 +791,7 @@ impl GameState {
                             | crate::object::Rider::EntryFinality
                             | crate::object::Rider::Dashed
                             | crate::object::Rider::Mutating
+                            | crate::object::Rider::Bestowed
                             | crate::object::Rider::Escaped
                             | crate::object::Rider::Masked
                             | crate::object::Rider::KickedMask(_)

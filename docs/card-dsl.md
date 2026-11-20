@@ -514,6 +514,28 @@ express at all yet.
   casting and the special action as separate choices when both are available.
   `scriptgen` reads `K:Foretell:<cost>` only for a complete mana-only cost;
   every other spelling stays an honest stub.
+- `FaceDef.jump_start: bool` — "Jump-start" (CR 702.133a). Offers
+  `CastModeKind::JumpStart` from the owner's graveyard for the face's mana cost
+  plus an additional `CostPart::Discard`, and exiles the spell whenever it
+  leaves the stack.
+- `FaceDef.aftermath: bool` — "Aftermath" (CR 702.127a) on the second half of a
+  split spell card (`castable_from_hand: false`, included in
+  `CardDef::is_split_spell_card`). Castable only from the owner's graveyard as
+  `CastModeKind::Face(1)`, and exiled whenever it leaves the stack.
+- `FaceDef.morph: Option<ManaCost>`, `FaceDef.megamorph: Option<ManaCost>`,
+  `FaceDef.disguise: Option<ManaCost>`, and
+  `FaceDef.morph_parts: &[CostPart]` — face-down `{3}` casting (CR 702.37,
+  CR 702.168; ward {2} on disguise) and the `TURN_FACE_UP` special action
+  paying the face-up mana and non-mana `morph_parts` without using the stack
+  (placing a +1/+1 counter on megamorph per CR 702.37b).
+- `FaceDef.bestow: Option<Cost>` — "Bestow [cost]" (CR 702.103). Cast as
+  `CastModeKind::Bestow` (`SpellForm::Bestow`), projecting an Enchantment — Aura
+  with enchant creature; if its target is illegal on resolution (CR 702.103e) or
+  it becomes unattached on the battlefield (CR 702.103f–g), it ceases to be
+  bestowed and resolves or remains on the battlefield as a creature.
+- `AbilityDef::Unearth { cost }` (`unearth!`), `AbilityDef::Encore { cost }`
+  (`encore!`), `embalm!`, and `eternalize!` — sorcery-speed graveyard activated
+  abilities (CR 702.84a, CR 702.141a, CR 702.128a, CR 702.129a).
 - `Amount::TargetsPutIntoGraveyard` — "the number of Mountains put into a
   graveyard this way" (Volcanic Eruption): the resolving ability's targets
   that a graveyard holds as new objects since the resolution began, so a

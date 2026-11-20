@@ -643,6 +643,8 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::BattleProtector(_)
         | Rider::Escaped
         | Rider::KickedMask(_)
+        | Rider::Bestowed
+        | Rider::MustAttackPlayerThisTurn(_)
         | Rider::ExhaustedAbility(_)
         | Rider::EntrySacrifices(_)
         | Rider::SecondChosenSubtype(_)

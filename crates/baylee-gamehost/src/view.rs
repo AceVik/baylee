@@ -277,20 +277,33 @@ fn graveyard_price(
         .card
         .and_then(|c| baylee_cards::by_index(c.index))
         .map(|def| &def.faces[0]);
-    face.and_then(|face| face.flashback)
-        .or_else(|| {
-            (baylee_engine::casting::flashback_granted(state, id)
-                || baylee_engine::casting::graveyard_cast_permission(state, seat, obj).is_some())
-            .then_some(mana_cost)
+    face.and_then(|f| {
+        f.flashback
+            .filter(|_| baylee_engine::casting::flashback_parts_payable(state, seat, id, f))
+    })
+    .or_else(|| {
+        face.filter(|f| {
+            f.jump_start
+                && !state
+                    .zones
+                    .list(baylee_engine::zone::ZoneLocation::Hand(seat))
+                    .is_empty()
         })
-        .or_else(|| {
-            face.and_then(|face| face.escape)
-                .filter(|escape| {
-                    baylee_engine::casting::escape_exile_options(state, seat, id).len()
-                        >= usize::from(escape.exile)
-                })
-                .map(|escape| escape.cost)
-        })
+        .map(|_| mana_cost)
+    })
+    .or_else(|| {
+        (baylee_engine::casting::flashback_granted(state, id)
+            || baylee_engine::casting::graveyard_cast_permission(state, seat, obj).is_some())
+        .then_some(mana_cost)
+    })
+    .or_else(|| {
+        face.and_then(|face| face.escape)
+            .filter(|escape| {
+                baylee_engine::casting::escape_exile_options(state, seat, id).len()
+                    >= usize::from(escape.exile)
+            })
+            .map(|escape| escape.cost)
+    })
 }
 
 /// Projects one object into its public form for `seat`.

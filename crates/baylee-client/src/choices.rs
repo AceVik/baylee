@@ -1286,6 +1286,8 @@ fn cast_label(
         K::BeamMeUp => Phrase::CastBeamMeUp.text(lang).to_string(),
         K::Dash => Phrase::CastDash.text(lang).to_string(),
         K::Mutate => Phrase::CastMutate.text(lang).to_string(),
+        K::Bestow => Phrase::CastBestow.text(lang).to_string(),
+        K::JumpStart => Phrase::CastJumpStart.text(lang).to_string(),
         K::Escape => Phrase::CastEscape.text(lang).to_string(),
         K::EscapeGranted {
             face,
@@ -1378,7 +1380,9 @@ fn is_morph_card(names: FaceNames<'_>, object: ObjectId) -> bool {
     cast_card(names, object)
         .and_then(baylee_cards::by_index)
         .and_then(|def| def.faces.first())
-        .is_some_and(|face| face.morph.is_some() && face.disguise.is_none())
+        .is_some_and(|face| {
+            (face.morph.is_some() || face.megamorph.is_some()) && face.disguise.is_none()
+        })
 }
 
 fn append_cast_detail(label: &mut String, detail: &str) {

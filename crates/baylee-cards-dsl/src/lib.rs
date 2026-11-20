@@ -34,6 +34,21 @@ pub const ALL_MANA_COLORS: &[baylee_core::mana::ManaColor] = &[
 /// City of Brass, Great Divide Guide).
 pub static ANY_COLOR_MANA: &[crate::effect::Effect] = &[crate::effect::Effect::mana_of_any_color()];
 
+/// Shared copy modifications for Embalm (CR 702.128a): white Zombie with no mana cost.
+pub static EMBALM_MODS: &[CopyMod] = &[
+    CopyMod::SetColor(ColorSet::from_slice(&[Color::White])),
+    CopyMod::AddSubtype(baylee_core::generated::subtypes::creature::ZOMBIE),
+    CopyMod::NoManaCost,
+];
+
+/// Shared copy modifications for Eternalize (CR 702.129a): 4/4 black Zombie with no mana cost.
+pub static ETERNALIZE_MODS: &[CopyMod] = &[
+    CopyMod::SetPT(4, 4),
+    CopyMod::SetColor(ColorSet::from_slice(&[Color::Black])),
+    CopyMod::AddSubtype(baylee_core::generated::subtypes::creature::ZOMBIE),
+    CopyMod::NoManaCost,
+];
+
 pub use ability::{
     AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, Condition, CopyMod,
     ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
@@ -225,12 +240,13 @@ impl CardDef {
         let [left, right] = self.faces else {
             return false;
         };
-        [left, right].iter().all(|half| {
-            half.castable_from_hand
-                && !half.adventure
-                && !half.types.is_empty()
-                && half.types.difference(spells).is_empty()
-        })
+        left.castable_from_hand
+            && [left, right].iter().all(|half| {
+                (half.castable_from_hand || half.aftermath)
+                    && !half.adventure
+                    && !half.types.is_empty()
+                    && half.types.difference(spells).is_empty()
+            })
     }
 
     /// Whether this is a split card with one shared type line (CR 709.5), a
@@ -569,6 +585,18 @@ pub struct FaceDef {
     pub behold_or_pay: Option<BeholdOrPay>,
     /// Morph cost to turn this permanent face up (CR 702.37).
     pub morph: Option<ManaCost>,
+    /// Megamorph cost to turn this permanent face up and put a +1/+1 counter on it (CR 702.37b).
+    pub megamorph: Option<ManaCost>,
+    /// Non-mana parts of this face's morph/megamorph/disguise cost, paid when turning face up.
+    pub morph_parts: &'static [crate::cost::CostPart],
+    /// Bestow cost to cast this card as an Aura enchantment with enchant creature (CR 702.103).
+    pub bestow: Option<crate::cost::Cost>,
+    /// Jump-start (CR 702.133a): cast from owner's graveyard by discarding a card in addition to
+    /// its other costs, and exile it instead of putting it anywhere else when leaving the stack.
+    pub jump_start: bool,
+    /// Aftermath (CR 702.127a): this split-card half can only be cast from its owner's graveyard,
+    /// and is exiled instead of put anywhere else when leaving the stack.
+    pub aftermath: bool,
     /// Mutate cost to cast this creature spell merging with a non-Human creature you own (CR 702.140).
     pub mutate: Option<ManaCost>,
     /// Entwine cost to choose all modes of this modal spell (CR 702.42).
@@ -579,6 +607,28 @@ pub struct FaceDef {
 }
 
 impl FaceDef {
+    /// Whether this face prints morph, megamorph, or disguise to be cast face down for `{3}`.
+    #[must_use]
+    pub const fn has_face_down_cast(&self) -> bool {
+        self.disguise.is_some() || self.morph.is_some() || self.megamorph.is_some()
+    }
+
+    /// The `(mana, parts, is_megamorph)` paid to turn a face-down permanent with this face up.
+    #[must_use]
+    pub const fn turn_face_up_cost(
+        &self,
+    ) -> Option<(ManaCost, &'static [crate::cost::CostPart], bool)> {
+        if let Some(cost) = self.disguise {
+            Some((cost, self.morph_parts, false))
+        } else if let Some(cost) = self.megamorph {
+            Some((cost, self.morph_parts, true))
+        } else if let Some(cost) = self.morph {
+            Some((cost, self.morph_parts, false))
+        } else {
+            None
+        }
+    }
+
     /// The neutral face: nameless, costless, typeless, castable from hand.
     ///
     /// Every card file builds its faces as `FaceDef { …, ..FaceDef::DEFAULT }`
@@ -632,6 +682,11 @@ impl FaceDef {
         freerunning: None,
         behold_or_pay: None,
         morph: None,
+        megamorph: None,
+        morph_parts: &[],
+        bestow: None,
+        jump_start: false,
+        aftermath: false,
         mutate: None,
         entwine: None,
         madness: None,

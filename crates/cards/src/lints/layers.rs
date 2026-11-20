@@ -163,6 +163,8 @@ pub(super) fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], b
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
+        | AbilityDef::Unearth { .. }
+        | AbilityDef::Encore { .. }
         | AbilityDef::Replacement(_)
         | AbilityDef::Suspend { .. } => {}
     }

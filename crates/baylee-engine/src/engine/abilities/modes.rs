@@ -90,6 +90,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         index: u32,
         definition: &AbilityDef,
     ) -> Option<AbilityDef> {
+        if let AbilityDef::Unearth { cost } | AbilityDef::Encore { cost } = definition {
+            return Some(AbilityDef::Activated {
+                cost: *cost,
+                effects: &[],
+                targets: None,
+                second_targets: None,
+                timing: baylee_cards_dsl::ActivationTiming::SorcerySpeed,
+                mana_ability: false,
+                zone: baylee_cards_dsl::ActivationZone::Graveyard,
+                limit: baylee_cards_dsl::ActivationLimit::Unlimited,
+                x_value: baylee_cards_dsl::ActivationX::Any,
+                cost_reduction: None,
+            });
+        }
         let AbilityDef::ModalActivated { modes, .. } = definition else {
             return Some(*definition);
         };

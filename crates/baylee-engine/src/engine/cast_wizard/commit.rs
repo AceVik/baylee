@@ -552,10 +552,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // The chosen permission determines the replacement, independent
             // of other permissions that happen to be available.
             if obj.zone == crate::zone::Zone::Graveyard {
+                let aftermath_face = obj
+                    .card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .and_then(|d| d.faces.get(wizard.face_index()))
+                    .is_some_and(|f| f.aftermath);
                 if matches!(
                     wizard.option,
-                    Some(CastModeKind::Flashback | CastModeKind::BeamMeUp)
-                ) || wizard.permission == Some(casting::GraveyardPermission::Flashback)
+                    Some(
+                        CastModeKind::Flashback | CastModeKind::JumpStart | CastModeKind::BeamMeUp
+                    )
+                ) || aftermath_face
+                    || wizard.permission == Some(casting::GraveyardPermission::Flashback)
                 {
                     obj.riders.push(crate::object::Rider::Flashback);
                 }
@@ -575,6 +583,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             obj.riders.retain(|r| *r != crate::object::Rider::Mutating);
             if wizard.option == Some(CastModeKind::Mutate) {
                 obj.riders.push(crate::object::Rider::Mutating);
+            }
+            obj.riders.retain(|r| *r != crate::object::Rider::Bestowed);
+            if wizard.option == Some(CastModeKind::Bestow) {
+                obj.riders.push(crate::object::Rider::Bestowed);
             }
             if wizard.buyback.is_some() {
                 obj.riders.push(crate::object::Rider::Buyback);
@@ -681,6 +693,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 object.riders.push(crate::object::Rider::Masked);
             }
         }
+        if matches!(wizard.option, Some(CastModeKind::Bestow)) {
+            self.state.invalidate_projections();
+        }
         self.apply_spend_riders(player, wizard.card, &spent_riders);
         if self.state.object(card).is_some_and(|object| {
             object.characteristics().types.intersects(
@@ -692,7 +707,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // Per-turn tracking for conditional triggers (Esper Sentinel).
         if !wizard.masked
             && !matches!(wizard.option, Some(CastModeKind::Disguise))
-            && !face.types.contains(baylee_core::types::TypeSet::CREATURE)
+            && (matches!(wizard.option, Some(CastModeKind::Bestow))
+                || !face.types.contains(baylee_core::types::TypeSet::CREATURE))
             && let Some(v) = self
                 .state
                 .per_turn

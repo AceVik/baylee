@@ -439,7 +439,10 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // reader of 93 cannot decode (protocol 50 on binary frames).
     // 95: `ChoicePrompt::Amplify` is an imported engine prompt variant a
     // reader of 94 cannot decode (protocol 51 on binary frames).
-    const RECORDED: (u32, u64) = (95, 5_197_534_328_483_882_664);
+    // 96: `CastModeKind::Bestow` and `CastModeKind::JumpStart` are imported
+    // engine cast-mode variants a reader of 95 cannot decode (protocol 52 on
+    // binary frames).
+    const RECORDED: (u32, u64) = (96, 5_197_534_328_483_882_664);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

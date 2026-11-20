@@ -415,10 +415,62 @@ impl HeuristicAgent {
                 }
                 Some(net)
             }
+            AbilityDef::Unearth { cost } if pick == Pick::Best => {
+                let obj = origin.object?;
+                let gain = i64::from(obj.power.unwrap_or(0).max(0)) * 120 + 80;
+                Some(gain - self.cost_worth(view, origin, cost)?)
+            }
+            AbilityDef::Encore { cost } if pick == Pick::Best => {
+                let obj = origin.object?;
+                let opponents = view
+                    .seats
+                    .iter()
+                    .filter(|s| self.hostile(s.player, view.seat) && !s.has_lost())
+                    .count() as i64;
+                if opponents == 0 {
+                    return None;
+                }
+                let gain = opponents * (i64::from(obj.power.unwrap_or(0).max(0)) * 120 + 80);
+                Some(gain - self.cost_worth(view, origin, cost)?)
+            }
             // This includes modal activations: their chosen mode is not bound
             // yet, so valuing all modes as if they resolve together is wrong.
             _ => None,
         }
+    }
+
+    /// Net worth of turning a face-down permanent (`source`) face up now.
+    pub(crate) fn turn_face_up_worth(&self, view: &PlayerView, source: ObjectId) -> Option<i64> {
+        let obj = view.object(source).filter(|o| o.status.is_face_down())?;
+        let card = obj.card?;
+        let def = baylee_cards::by_index(card.index)?;
+        let f = def.faces.get(usize::from(card.face))?;
+        let (mana, parts, is_mega) = f.turn_face_up_cost()?;
+        let cost = baylee_cards_dsl::Cost { mana, parts };
+        let mega = i64::from(u8::from(is_mega));
+        let dp = i64::from(f.power.unwrap_or(2)) + mega - 2;
+        let dt = i64::from(f.toughness.unwrap_or(2)) + mega - 2;
+        let origin = Origin::of(view, source);
+        let trigger_bonus: i64 = def
+            .abilities_for_face(usize::from(card.face))
+            .iter()
+            .filter_map(|a| match a {
+                AbilityDef::Triggered {
+                    trigger: Trigger::TurnedFaceUp,
+                    effects,
+                    targets,
+                    ..
+                } => self
+                    .aimed(view, origin, effects, targets.as_ref(), 0, Pick::Best)
+                    .map(|(g, _)| g),
+                _ => None,
+            })
+            .sum();
+        let stat_gain = (dp.max(0) * 100)
+            + (dt.max(0) * 50)
+            + i64::from(f.keywords.bits().count_ones()) * 60
+            + trigger_bonus;
+        Some(stat_gain - self.cost_worth(view, origin, &cost)?)
     }
 
     /// The damage that can reach `walker` in its controller's opponents'

@@ -132,15 +132,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         };
         let mut options =
             casting::granted_escape_options(&self.state, &self.lookup, player, card, paying);
-        // Disturb casts come from the graveyard: no normal-cost option.
-        let disturb_cast = self
-            .state
-            .object(card)
-            .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
-            && def.faces.iter().any(|f| f.disturb);
+        // Disturb and Aftermath casts come from the owner's graveyard.
+        let disturb_cast = self.state.object(card).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Graveyard && o.zone_owner == Some(player)
+        }) && def.faces.iter().any(|f| f.disturb || f.aftermath);
         if disturb_cast {
             for (i, back) in def.faces.iter().enumerate().skip(1) {
-                if back.disturb
+                if (back.disturb || back.aftermath)
                     && !forbidden(i)
                     && casting::face_timing_allows(&self.state, player, card, def, i)
                     && (defer_mana
@@ -162,10 +160,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     });
                 }
             }
-            // A graveyard permission for the front (Muldrotha, Wrenn's
-            // emblem) is a second way, offered below beside the backs.
+            // A graveyard permission or grant for the front (Muldrotha, Past in
+            // Flames, printed flashback/jump-start/escape) is offered below too.
             let front_too = self.state.object(card).is_some_and(|o| {
                 casting::graveyard_cast_permission(&self.state, player, o).is_some()
+                    || casting::flashback_granted(&self.state, card)
+                    || !casting::graveyard_face_permissions(&self.state, player, card, 0).is_empty()
+                    || face.flashback.is_some()
+                    || face.jump_start
+                    || face.escape.is_some()
             });
             if !front_too {
                 return Ok(options);
@@ -221,6 +224,28 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     index: 0,
                     kind: CastModeKind::BeamMeUp,
                     cost: price(beam),
+                });
+            }
+            if face.jump_start
+                && face.types.intersects(
+                    baylee_core::types::TypeSet::INSTANT
+                        .union(baylee_core::types::TypeSet::SORCERY),
+                )
+                && afford(&face.mana_cost.with_x(0))
+                && casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::JumpStart),
+                    &[],
+                )
+                .is_some()
+            {
+                options.push(CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::JumpStart,
+                    cost: price(face.mana_cost),
                 });
             }
         }
@@ -392,7 +417,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .price(prototype.cost, printed_reduction),
             });
         }
-        if face.disguise.is_some() || face.morph.is_some() {
+        if face.has_face_down_cast() {
             let cost = const { ManaCost::parse("{3}") };
             if casting::can_cast_form_paying(
                 &self.state,
@@ -418,6 +443,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .price(cost, 0),
                 });
             }
+        }
+        if let Some(bestow) = face.bestow
+            && casting::can_cast_form_paying(
+                &self.state,
+                &self.lookup,
+                player,
+                card,
+                Some(casting::SpellForm::Bestow(bestow)),
+                paying,
+            )
+            .is_ok()
+        {
+            options.push(CastModeDesc {
+                index: options.len() as u32,
+                kind: CastModeKind::Bestow,
+                cost: casting::face_adjustment(
+                    &self.state,
+                    player,
+                    card,
+                    def,
+                    0,
+                    Some(casting::SpellForm::Bestow(bestow)),
+                )
+                .price(bestow.mana, printed_reduction),
+            });
         }
         // Alternative costs (pitch, evoke, conditional free).
         for (i, alt) in face.alternative_costs.iter().enumerate() {
@@ -661,8 +711,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let front_now =
             front_timing && !casting::cast_is_forbidden(&self.state, player, front_spell);
         options.retain(|o| match o.kind {
-            CastModeKind::PlayLandFace(_) => true,
-            // The lock was asked of these as what they are, a prototype or a
+            // Land plays and Bestow Auras (`can_cast_form_paying`) have already
+            // passed their own timing, permission, and lock checks.
+            CastModeKind::PlayLandFace(_) | CastModeKind::Bestow => true,
+            // The lock was asked of these as what they are, a prototype or
             // face-down spell (`casting::can_cast_form_paying`).
             CastModeKind::Prototype | CastModeKind::Disguise => front_timing,
             CastModeKind::Foretell => {
@@ -690,9 +742,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     option.kind,
                     CastModeKind::Escape
                         | CastModeKind::Flashback
+                        | CastModeKind::JumpStart
                         | CastModeKind::BeamMeUp
                         | CastModeKind::EscapeGranted { .. }
-                ) || (matches!(option.kind, CastModeKind::Face(_)) && def.faces[face_index].disturb)
+                ) || (matches!(option.kind, CastModeKind::Face(_))
+                    && (def.faces[face_index].disturb || def.faces[face_index].aftermath))
                     || !casting::graveyard_face_permissions(&self.state, player, card, face_index)
                         .is_empty()
                     || (face_index == 0

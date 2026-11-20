@@ -44,6 +44,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         cost: &Cost,
         reduction: Option<baylee_cards_dsl::CostReduction>,
     ) -> ActivationPrice {
+        if ability_index == crate::choice::TURN_FACE_UP {
+            let spend = self.state.source_identity(source).map_or(
+                casting::SpendFor::Ability(source),
+                casting::SpendFor::OtherFrom,
+            );
+            return ActivationPrice {
+                mana: cost.mana,
+                parts: cost.parts.iter().copied().collect(),
+                imposed: 0,
+                allowance: casting::base_allowance(&self.state, spend),
+                grantor: None,
+            };
+        }
         let (eligible, ordinary) = casting::activation_increases(&self.state, source);
         let increase = eligible.saturating_add(ordinary);
         let mut base_mana = cost.mana;
@@ -90,6 +103,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             None
         };
         let mut parts: SmallVec<[CostPart; 4]> = cost.parts.iter().copied().collect();
+        if matches!(
+            self.activation_definition(source, ability_index),
+            Some(AbilityDef::Encore { .. })
+        ) && !parts.contains(&CostPart::ExileSelf)
+        {
+            parts.push(CostPart::ExileSelf);
+        }
         // Apply reductions with a local floor first, so they do not limit
         // an independent unrestricted reduction applied afterwards. External
         // non-mana costs also apply when the printed activation has no generic mana.

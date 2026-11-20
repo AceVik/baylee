@@ -234,6 +234,22 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             out[6] = 1.0;
             out[21] = unit(cost.cmc() as f32, 8.0);
         }
+        AbilityDef::Unearth { cost } => {
+            out[0] = 1.0;
+            out[8] = 1.0;
+            out[10] = 1.0;
+            encode_cost_into(cost, &mut out[11..22]);
+            ch.reanimate += 1.0;
+        }
+        AbilityDef::Encore { cost } => {
+            out[0] = 1.0;
+            out[8] = 1.0;
+            out[10] = 1.0;
+            out[17] = 1.0;
+            encode_cost_into(cost, &mut out[11..22]);
+            ch.tokens_create += 1.0;
+            ch.blink_copy_control += 1.0;
+        }
         AbilityDef::Ward { mana } => {
             out[6] = 1.0;
             out[21] = unit(f32::from(*mana), 6.0);

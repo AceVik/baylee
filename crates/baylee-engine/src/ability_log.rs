@@ -94,6 +94,8 @@ impl Kind {
             AbilityDef::Activated { .. }
             | AbilityDef::ActivatedConditional { .. }
             | AbilityDef::ModalActivated { .. }
+            | AbilityDef::Unearth { .. }
+            | AbilityDef::Encore { .. }
             | AbilityDef::Loyalty { .. } => Self::Activated,
             AbilityDef::Triggered { .. }
             | AbilityDef::ModalTriggered { .. }

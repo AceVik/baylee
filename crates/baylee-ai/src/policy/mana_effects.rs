@@ -285,6 +285,8 @@ pub(crate) fn spell_mana_increase(
             obj.mana_value = prototype.cost.cmc();
             obj.power = Some(prototype.power);
             obj.toughness = Some(prototype.toughness);
+        } else if mode == baylee_engine::choice::CastModeKind::Bestow {
+            apply_bestow_projection(&mut obj);
         }
         let agent = HeuristicAgent::new(crate::AIProfile::default());
         for perm in &view.battlefield {
@@ -346,6 +348,8 @@ fn spell_mana_reduction(
             obj.mana_value = prototype.cost.cmc();
             obj.power = Some(prototype.power);
             obj.toughness = Some(prototype.toughness);
+        } else if mode == baylee_engine::choice::CastModeKind::Bestow {
+            apply_bestow_projection(&mut obj);
         }
         let agent = HeuristicAgent::new(crate::AIProfile::default());
         for perm in &view.battlefield {
@@ -447,4 +451,19 @@ pub(crate) fn spell_price(
         || increased.with_less_generic(legal.spell_reduction(id, mode)),
         |card| spell_mana_reduction(view, id, card, legal, mode, increased),
     )
+}
+
+fn apply_bestow_projection(obj: &mut baylee_view::PublicObject) {
+    use baylee_core::generated::subtypes;
+    use baylee_core::types::{SubtypeSet, TypeSet};
+    obj.types = obj
+        .types
+        .difference(TypeSet::CREATURE)
+        .union(TypeSet::ENCHANTMENT);
+    if !obj.types.contains(TypeSet::KINDRED) {
+        obj.subtypes = obj.subtypes.difference(SubtypeSet::ALL_CREATURE);
+    }
+    obj.subtypes.insert(subtypes::enchantment::AURA);
+    obj.power = None;
+    obj.toughness = None;
 }

@@ -1068,6 +1068,64 @@ macro_rules! saddle {
     };
 }
 
+/// Unearth [cost] (CR 702.84a), from the owner's graveyard at sorcery speed.
+#[macro_export]
+macro_rules! unearth {
+    ($mana:literal) => {
+        $crate::AbilityDef::Unearth {
+            cost: $crate::cost!($mana),
+        }
+    };
+    ($cost:expr) => {
+        $crate::AbilityDef::Unearth { cost: $cost }
+    };
+}
+
+/// Encore [cost] (CR 702.141a), exiling self from the owner's graveyard at sorcery speed.
+#[macro_export]
+macro_rules! encore {
+    ($mana:literal) => {
+        $crate::AbilityDef::Encore {
+            cost: $crate::cost!($mana),
+        }
+    };
+    ($cost:expr) => {
+        $crate::AbilityDef::Encore { cost: $cost }
+    };
+}
+
+/// Embalm [cost] (CR 702.128a): sorcery-speed graveyard activation exiling self
+/// to create a white Zombie token copy with no mana cost.
+#[macro_export]
+macro_rules! embalm {
+    ($mana:literal) => {
+        $crate::activated!(
+            $crate::cost!($mana, ExileSelf),
+            &[$crate::Effect::CreateTokenCopyOfSource {
+                mods: $crate::EMBALM_MODS,
+            }],
+            zone = $crate::ActivationZone::Graveyard,
+            timing = $crate::ActivationTiming::SorcerySpeed
+        )
+    };
+}
+
+/// Eternalize [cost] (CR 702.129a): sorcery-speed graveyard activation exiling
+/// self to create a 4/4 black Zombie token copy with no mana cost.
+#[macro_export]
+macro_rules! eternalize {
+    ($mana:literal) => {
+        $crate::activated!(
+            $crate::cost!($mana, ExileSelf),
+            &[$crate::Effect::CreateTokenCopyOfSource {
+                mods: $crate::ETERNALIZE_MODS,
+            }],
+            zone = $crate::ActivationZone::Graveyard,
+            timing = $crate::ActivationTiming::SorcerySpeed
+        )
+    };
+}
+
 /// Everything a card file needs, in one import.
 ///
 /// A card file used to open with eight `use` lines and
@@ -1108,12 +1166,13 @@ pub mod prelude {
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,
-        EnterModifier, Escape, FaceDef, KeywordSet, PartnerKind,
+        EMBALM_MODS, ETERNALIZE_MODS, EnterModifier, Escape, FaceDef, KeywordSet, PartnerKind,
     };
     pub use crate::{SpecialActionCost, SpecialActionEffect, SpecialActionTiming, TextWordKind};
     pub use crate::{
-        activated, card, chapter, chapters, cost, crew, equip, f, face, loyalty, mana_ability,
-        modal_activated, modal_triggered, mode, saddle, spell, static_ability, triggered,
+        activated, card, chapter, chapters, cost, crew, embalm, encore, equip, eternalize, f, face,
+        loyalty, mana_ability, modal_activated, modal_triggered, mode, saddle, spell,
+        static_ability, triggered, unearth,
     };
     pub use baylee_core::color::{Color, ColorSet};
     /// Every card's `CardIndex` under the name the ledger froze for it.

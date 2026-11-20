@@ -89,6 +89,31 @@ pub(super) fn recompute_observing<'a>(
                 }
             }
         }
+        if layer == Layer::Type
+            && obj.riders.contains(&crate::object::Rider::Bestowed)
+            && matches!(
+                obj.zone,
+                crate::zone::Zone::Stack | crate::zone::Zone::Battlefield
+            )
+        {
+            let c_mut = c.to_mut();
+            let old_subtypes = c_mut.subtypes;
+            c_mut.types = c_mut
+                .types
+                .difference(TypeSet::CREATURE)
+                .union(TypeSet::ENCHANTMENT);
+            if !c_mut.types.contains(TypeSet::KINDRED) {
+                c_mut.subtypes = c_mut.subtypes.difference(SubtypeSet::ALL_CREATURE);
+            }
+            c_mut
+                .subtypes
+                .insert(baylee_core::generated::subtypes::enchantment::AURA);
+            if c_mut.subtypes != old_subtypes {
+                update_intrinsic_mana_summary(state, obj, c_mut, old_subtypes);
+            }
+            c_mut.power = None;
+            c_mut.toughness = None;
+        }
         if !plan.layer(layer).is_empty() {
             let dynamic_types = layer == Layer::Type && plan.conditional_animation;
             let mut remaining: SmallVec<[u32; 16]> = if dynamic_types {

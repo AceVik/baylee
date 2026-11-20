@@ -273,6 +273,8 @@ pub(crate) fn graveyard_face_open(
             .and_then(|def| def.faces.get(face))
             .is_some_and(|face| {
                 face.disturb
+                    || face.aftermath
+                    || face.jump_start
                     || face.flashback.is_some()
                     || face.escape.is_some()
                     || face.beam_me_up.is_some()

@@ -1519,6 +1519,11 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         }
         crate::object::Rider::GrantedActivated => h.u8(62),
         crate::object::Rider::AbilityCopy => h.u8(80),
+        crate::object::Rider::Bestowed => h.u8(101),
+        crate::object::Rider::MustAttackPlayerThisTurn(player) => {
+            h.u8(102);
+            player.hash(h);
+        }
         crate::object::Rider::BattleProtector(player) => {
             h.u8(79);
             player.hash(h);
@@ -2191,6 +2196,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::KickedMask(mask) => {
                 h.u8(95);
                 h.u8(*mask);
+            }
+            Rider::Bestowed => h.u8(101),
+            Rider::MustAttackPlayerThisTurn(p) => {
+                h.u8(102);
+                h.u8(p.get());
             }
             Rider::ExiledWith { host, version } => {
                 h.u8(13);

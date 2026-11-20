@@ -1245,6 +1245,8 @@ CastBeamMeUp = Beam mich hoch
 DifferentManaValues = Wähle Ziele mit unterschiedlichen Manabeträgen
 CastDash = Sturmangriff
 CastMutate = Mutation
+CastBestow = Göttergabe
+CastJumpStart = Starthilfe
 CastEscape = Befreiung
 # Cast the visible library top, paying its mana value in life instead of mana.
 # Arguments: life

@@ -1283,7 +1283,10 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         // Foretell and madness are alternative costs (CR 702.143a, 702.35b):
         // their slot, so the candidate width the trained nets read stays the
         // same.
-        CastModeKind::Alternative(_) | CastModeKind::Foretell | CastModeKind::Madness => 28,
+        CastModeKind::Alternative(_)
+        | CastModeKind::Foretell
+        | CastModeKind::Madness
+        | CastModeKind::Bestow => 28,
         CastModeKind::Mode(_) => 29,
         CastModeKind::Modes(_) => 30,
         CastModeKind::Face(_) => 31,
@@ -1291,7 +1294,7 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         CastModeKind::Prototype => 33,
         CastModeKind::Disguise => 34,
         CastModeKind::Miracle => 35,
-        CastModeKind::Flashback => 36,
+        CastModeKind::Flashback | CastModeKind::JumpStart => 36,
         CastModeKind::BeamMeUp => 37,
         CastModeKind::Dash => 38,
         CastModeKind::Mutate => 39,

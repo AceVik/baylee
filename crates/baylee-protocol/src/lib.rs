@@ -62,7 +62,8 @@ pub mod tape;
 /// Version 49 adds the private, bounded Tower execution/recovery/whole-batch ACK plane.
 /// Version 50 carries `YesNoPrompt::KickerOption` for multi-kicker spells (CR 702.33b/f).
 /// Version 51 carries `ChoicePrompt::Amplify` for Amplify hand reveals (CR 702.38a/b).
-pub const PROTOCOL_VERSION: u32 = 51;
+/// Version 52 carries `CastModeKind::Bestow` and `CastModeKind::JumpStart` (CR 702.103, CR 702.133a).
+pub const PROTOCOL_VERSION: u32 = 52;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -377,7 +378,8 @@ mod tests {
         // 48: compiled execution identity; 49: private Tower durable transport.
         // 50: `YesNoPrompt::KickerOption` for multi-kicker spells on positional binary frames.
         // 51: `ChoicePrompt::Amplify` for Amplify hand reveals on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 51);
+        // 52: `CastModeKind::Bestow` and `CastModeKind::JumpStart` on positional binary frames.
+        assert_eq!(PROTOCOL_VERSION, 52);
     }
 
     #[test]

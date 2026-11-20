@@ -138,18 +138,28 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .state
             .battlefield_seen()
             .filter(|id| {
-                rules.must_attack(*id)
-                    && rules.sacrifice_tax(*id).is_empty()
-                    && combat::can_attack(&self.state, player, *id)
-                    && legal.iter().any(|d| {
-                        rules.allows(*id, *d)
-                            && rules.mana_tax_for(*id, *d) == 0
-                            && rules.life_tax(*id, *d) == 0
-                    })
+                combat::can_attack(&self.state, player, *id)
+                    && (self.forced_attack_player(*id, &legal, &rules).is_some()
+                        || (rules.must_attack(*id)
+                            && rules.sacrifice_tax(*id).is_empty()
+                            && legal.iter().any(|d| {
+                                rules.allows(*id, *d)
+                                    && rules.mana_tax_for(*id, *d) == 0
+                                    && rules.life_tax(*id, *d) == 0
+                            })))
             })
             .collect();
         let required_target = rules.required_maximum(&required_able);
-        let required_declared = seen.iter().filter(|id| rules.must_attack(**id)).count();
+        let required_declared = attackers
+            .iter()
+            .filter(|&&(id, defending)| {
+                if let Some(d) = self.forced_attack_player(id, &legal, &rules) {
+                    defending == d
+                } else {
+                    rules.must_attack(id)
+                }
+            })
+            .count();
         if required_declared < required_target {
             return Err(crate::choice::AnswerFault::MustAttack.into());
         }
@@ -179,6 +189,28 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             sacrifices,
             mana,
             life: total_life_tax,
+        })
+    }
+
+    fn forced_attack_player(
+        &self,
+        id: ObjectId,
+        legal: &[baylee_core::ids::Defender],
+        rules: &combat::AttackRules,
+    ) -> Option<baylee_core::ids::Defender> {
+        self.state.object(id).and_then(|o| {
+            o.riders.iter().find_map(|r| match r {
+                crate::object::Rider::MustAttackPlayerThisTurn(opp) => {
+                    let d = baylee_core::ids::Defender::Player(*opp);
+                    (legal.contains(&d)
+                        && rules.allows(id, d)
+                        && rules.sacrifice_tax(id).is_empty()
+                        && rules.mana_tax_for(id, d) == 0
+                        && rules.life_tax(id, d) == 0)
+                        .then_some(d)
+                }
+                _ => None,
+            })
         })
     }
 

@@ -72,6 +72,26 @@ pub use pricing::{
     reduction_amount, tap_colors, tap_to_pay_sources, waterbend_sources,
 };
 
+/// Whether `player` can pay all non-mana flashback parts and mandatory
+/// additional costs on `face` to cast `card_id` from the graveyard.
+#[must_use]
+pub fn flashback_parts_payable(
+    state: &GameState,
+    player: PlayerId,
+    card_id: ObjectId,
+    face: &'static baylee_cards_dsl::FaceDef,
+) -> bool {
+    additional_payment_capacity_for(
+        state,
+        player,
+        card_id,
+        face,
+        Some(crate::choice::CastModeKind::Flashback),
+        &[],
+    )
+    .is_some()
+}
+
 /// Why a card cannot be cast right now (validated before the action).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum CastError {
@@ -147,19 +167,19 @@ pub fn castable_back_faces(
     castable_back_faces_in_zone(def, on_adventure, false)
 }
 
-/// Native disturb is available only when its graveyard permission is active.
-/// Ordinary callers still exclude it from hand, exile and free-cast menus.
+/// Native disturb and aftermath are available only when their graveyard permission is active.
+/// Ordinary callers still exclude them from hand, exile and free-cast menus.
 fn castable_back_faces_in_zone(
     def: &baylee_cards_dsl::CardDef,
     on_adventure: bool,
-    disturb: bool,
+    in_own_graveyard: bool,
 ) -> impl Iterator<Item = (usize, &baylee_cards_dsl::FaceDef)> {
     def.faces
         .iter()
         .enumerate()
         .skip(1)
         .filter(move |(_, face)| {
-            (face.castable_from_hand || disturb && face.disturb)
+            (face.castable_from_hand || (in_own_graveyard && (face.disturb || face.aftermath)))
                 && !face.types.contains(TypeSet::LAND)
                 && !(on_adventure && face.adventure)
         })
@@ -367,6 +387,8 @@ pub fn has_priced_ways(def: &baylee_cards_dsl::CardDef) -> bool {
         || face.kicked_targets.is_some()
         || face.dash.is_some()
         || face.mutate.is_some()
+        || face.bestow.is_some()
+        || face.has_face_down_cast()
         || face.prototype.is_some()
         || face
             .alternative_costs
@@ -554,6 +576,11 @@ fn requirements_are_reachable(
     requirement_is_reachable_for(first, state, player, card, None, wall_only)
         && second_is_reachable(first, second, state, player, card, None, wall_only)
 }
+
+/// Target requirement for casting a spell bestowed (CR 702.103b): "enchant creature".
+pub const BESTOW_TARGET_REQ: baylee_cards_dsl::TargetReq = baylee_cards_dsl::TargetReq::one(
+    baylee_cards_dsl::TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+);
 
 /// Target requirement for casting a creature spell for its mutate cost (CR 702.140a):
 /// "target non-Human creature with the same owner as this spell".
@@ -964,7 +991,8 @@ fn can_cast_paying(
     {
         for form in [
             face.prototype.map(SpellForm::Prototype),
-            (face.disguise.is_some() || face.morph.is_some()).then_some(SpellForm::Disguise),
+            face.has_face_down_cast().then_some(SpellForm::Disguise),
+            face.bestow.map(SpellForm::Bestow),
         ]
         .into_iter()
         .flatten()
@@ -1071,14 +1099,20 @@ pub(crate) fn can_cast_form_paying(
     let beam_ok = in_own_graveyard
         && beam_cost.is_some()
         && !beam_return_options(state, player, card).is_empty();
-    // Disturb (CR 702.146): a face with disturb is castable from the
-    // owner's graveyard.
+    // Disturb (CR 702.146) and Aftermath (CR 702.127a): a back face with
+    // disturb or aftermath is castable from the owner's graveyard.
     let disturb_ok = !in_hand
         && in_own_graveyard
         && obj
             .card
             .and_then(|c| lookup.card(c.index))
-            .is_some_and(|def| def.faces.iter().any(|f| f.disturb));
+            .is_some_and(|def| def.faces.iter().any(|f| f.disturb || f.aftermath));
+    let jump_start_ok = !in_hand
+        && in_own_graveyard
+        && obj
+            .card
+            .and_then(|c| lookup.card(c.index))
+            .is_some_and(|def| def.faces[0].jump_start);
     // Foretell (CR 702.143a): this exact exiled incarnation may be cast by
     // its owner after the turn on which it was foretold, for its printed
     // alternative cost. Its hidden face is restored by SpellForm::Foretell.
@@ -1134,7 +1168,7 @@ pub(crate) fn can_cast_form_paying(
     // A granted flashback cost cannot be combined with a second alternative cost.
     let flashback_only =
         in_own_graveyard && flashback_granted(state, card) && !graveyard_ok && permission.is_none();
-    if flashback_only && matches!(form, Some(SpellForm::Disguise)) {
+    if flashback_only && matches!(form, Some(SpellForm::Disguise | SpellForm::Bestow(_))) {
         return Err(CastError::NoWayToCast);
     }
     let graveyard_back = in_own_graveyard
@@ -1149,6 +1183,7 @@ pub(crate) fn can_cast_form_paying(
         && !graveyard_ok
         && !graveyard_back
         && !flashback_ok
+        && !jump_start_ok
         && !escape_ok
         && !beam_ok
         && !granted_escape
@@ -1221,7 +1256,25 @@ pub(crate) fn can_cast_form_paying(
     // the question cannot disagree — Force of Will's pitch is the precedent.
     if !matches!(form, Some(SpellForm::Disguise))
         && let Some(def) = obj.card.and_then(|card| lookup.card(card.index))
-        && additional_payment_capacity(state, player, card, &def.faces[0], &[]).is_none()
+        && additional_payment_capacity_for(
+            state,
+            player,
+            card,
+            &def.faces[0],
+            match form {
+                Some(SpellForm::Bestow(_)) => Some(crate::choice::CastModeKind::Bestow),
+                _ => None,
+            },
+            &[],
+        )
+        .is_none()
+    {
+        return Err(CastError::NoWayToCast);
+    }
+    if matches!(form, Some(SpellForm::Bestow(_)))
+        && printed.is_none_or(|def| {
+            !kicked_targets_reachable(state, def, player, card, BESTOW_TARGET_REQ)
+        })
     {
         return Err(CastError::NoWayToCast);
     }
@@ -1457,8 +1510,37 @@ pub(crate) fn can_cast_form_paying(
         if parts_payable && probe(&cost.with_x(0)) {
             return Ok(());
         }
-        if !flashback_granted(state, card) && !graveyard_ok {
-            return Err(CastError::NotEnoughMana);
+        if !flashback_granted(state, card) && !graveyard_ok && !jump_start_ok {
+            return Err(if parts_payable {
+                CastError::NotEnoughMana
+            } else {
+                CastError::NoWayToCast
+            });
+        }
+    }
+    if jump_start_ok {
+        let is_instant_or_sorcery = c.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY));
+        let parts_payable = is_instant_or_sorcery
+            && printed.is_some_and(|def| {
+                additional_payment_capacity_for(
+                    state,
+                    player,
+                    card,
+                    &def.faces[0],
+                    Some(crate::choice::CastModeKind::JumpStart),
+                    &[],
+                )
+                .is_some()
+            });
+        if parts_payable && probe_normal(&c.mana_cost.with_x(0)) {
+            return Ok(());
+        }
+        if !flashback_granted(state, card) && !graveyard_ok && !escape_ok {
+            return Err(if parts_payable {
+                CastError::NotEnoughMana
+            } else {
+                CastError::NoWayToCast
+            });
         }
     }
     // Escape's price is its mana and the other cards it exiles; beside a

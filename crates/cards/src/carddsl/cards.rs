@@ -53,12 +53,17 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
         CommanderRule::NotEligible
     )));
     s[69] = f32::from(u8::from(!matches!(def.partner, PartnerKind::None)));
-    s[70] = f32::from(u8::from(face.flashback.is_some() || face.disturb));
+    s[70] = f32::from(u8::from(
+        face.flashback.is_some() || face.disturb || face.jump_start || face.aftermath,
+    ));
     s[71] = f32::from(u8::from(face.escape.is_some()));
     s[72] = f32::from(u8::from(face.adventure || face.prototype.is_some()));
-    s[73] = f32::from(u8::from(face.morph.is_some() || face.disguise.is_some()));
+    s[73] = f32::from(u8::from(face.has_face_down_cast()));
     s[74] = f32::from(u8::from(
-        face.miracle.is_some() || face.dash.is_some() || face.mutate.is_some(),
+        face.miracle.is_some()
+            || face.dash.is_some()
+            || face.mutate.is_some()
+            || face.bestow.is_some(),
     ));
     s[75] = f32::from(u8::from(
         face.delve || face.convoke || face.improvise || face.waterbend,

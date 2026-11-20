@@ -975,11 +975,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // A creature every restriction on the pair shuts out
             // attacks nothing, and a requirement asks nothing of
             // it (CR 508.1d counts only what can be obeyed).
-            let allowed = rules.defenders_for(id, &defenders);
+            let mut allowed = rules.defenders_for(id, &defenders);
             if allowed.is_empty() {
                 continue;
             }
-            if rules.must_attack(id)
+            let forced_player = self.state.object(id).and_then(|o| {
+                o.riders.iter().find_map(|r| match r {
+                    crate::object::Rider::MustAttackPlayerThisTurn(opp) => {
+                        let d = baylee_core::ids::Defender::Player(*opp);
+                        (allowed.contains(&d)
+                            && rules.sacrifice_tax(id).is_empty()
+                            && rules.mana_tax_for(id, d) == 0
+                            && rules.life_tax(id, d) == 0)
+                            .then_some(d)
+                    }
+                    _ => None,
+                })
+            });
+            if let Some(d) = forced_player {
+                allowed = vec![d];
+                required.push(id);
+            } else if rules.must_attack(id)
                 && rules.sacrifice_tax(id).is_empty()
                 && allowed
                     .iter()

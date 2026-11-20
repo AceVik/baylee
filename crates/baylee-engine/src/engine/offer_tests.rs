@@ -952,6 +952,7 @@ fn unpaid_cost_parts(face: &baylee_cards_dsl::FaceDef) -> Vec<String> {
         .flat_map(|alt| alt.cost.parts)
         .chain(face.flashback_parts)
         .chain(face.madness.iter().flat_map(|cost| cost.parts))
+        .chain(face.bestow.iter().flat_map(|cost| cost.parts))
     {
         if !crate::engine::cast_wizard::paid_as_an_alternative_cost(part) {
             offenders.push(format!(
@@ -1436,6 +1437,8 @@ fn payment_ability_effects(
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
+        | AbilityDef::Unearth { .. }
+        | AbilityDef::Encore { .. }
         | AbilityDef::Static(_)
         | AbilityDef::Replacement(_)
         | AbilityDef::Suspend { .. }

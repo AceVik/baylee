@@ -301,6 +301,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .push(crate::object::Rider::ExhaustedAbility(ability_index));
             }
         }
+        if ability_index == crate::choice::TURN_FACE_UP {
+            self.release_activation_capture();
+            self.activation_target_choice =
+                super::super::targeting::ActivationTargetChoice::default();
+            self.finish_turn_face_up(player, source, x);
+            return;
+        }
         if mana_ability {
             // The activation ends here, with no push to take what it
             // captured: the ability resolves below without the stack

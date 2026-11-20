@@ -222,6 +222,7 @@ pub(crate) fn record_mana_payment(
 pub enum SpellForm {
     Prototype(baylee_cards_dsl::Prototype),
     Disguise,
+    Bestow(baylee_cards_dsl::Cost),
     /// A foretold card is announced face up with its printed characteristics.
     Foretell(ManaCost),
 }
@@ -296,6 +297,21 @@ impl SpellForm {
                 base.produced_chosen = false;
                 object.status.insert(crate::object::Status::FACE_DOWN);
             }
+            Self::Bestow(_) => {
+                base.types = base
+                    .types
+                    .difference(TypeSet::CREATURE)
+                    .union(TypeSet::ENCHANTMENT);
+                if !base.types.contains(TypeSet::KINDRED) {
+                    base.subtypes = base
+                        .subtypes
+                        .difference(baylee_core::types::SubtypeSet::ALL_CREATURE);
+                }
+                base.subtypes
+                    .insert(baylee_core::generated::subtypes::enchantment::AURA);
+                base.power = None;
+                base.toughness = None;
+            }
             Self::Foretell(_) => unreachable!("handled before the characteristic projection"),
         }
         object
@@ -305,6 +321,7 @@ impl SpellForm {
         match self {
             Self::Prototype(p) => p.cost,
             Self::Disguise => const { ManaCost::parse("{3}") },
+            Self::Bestow(cost) => cost.mana,
             Self::Foretell(cost) => cost,
         }
     }

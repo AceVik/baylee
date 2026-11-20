@@ -850,6 +850,7 @@ impl Spend {
             CastModeKind::Face(_)
             | CastModeKind::Prototype
             | CastModeKind::Disguise
+            | CastModeKind::Bestow
             | CastModeKind::Foretell
             | CastModeKind::LibraryTopLife { .. } => Self::Cast(card, kind),
             _ => Self::Cast(card, CastModeKind::Normal),

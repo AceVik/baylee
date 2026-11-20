@@ -65,6 +65,7 @@ pub(crate) fn float_for(
         if object.status.contains(ObjectStatus::PHASED_OUT) {
             continue;
         }
+        consider_turn_face_up(view, legal, agent, object, room, &mut best);
         for (index, def) in printed_list(object).iter().enumerate() {
             let AbilityDef::Activated {
                 cost,
@@ -116,6 +117,9 @@ pub(crate) fn float_for(
             }
         }
     }
+    if main {
+        float_graveyard_activations(view, legal, agent, room, &mut best);
+    }
     let (_, source, mana, taps_self) = best?;
     // From generation 10 through the shared planner, which keeps a second
     // Port untapped for its own ability and reads every restricted tap the
@@ -166,4 +170,88 @@ fn funding_cost(
         .unpaid_abilities
         .iter()
         .find_map(|&(id, ability, mana)| (id == source && ability == index).then_some(mana))
+}
+
+fn consider_turn_face_up(
+    view: &PlayerView,
+    legal: &LegalActions,
+    agent: &HeuristicAgent,
+    object: &baylee_view::PublicObject,
+    room: u64,
+    best: &mut Option<(i64, ObjectId, ManaCost, bool)>,
+) {
+    if !object.status.is_face_down()
+        || legal
+            .abilities
+            .contains(&(object.id, baylee_engine::choice::TURN_FACE_UP))
+    {
+        return;
+    }
+    let Some(price) = legal.unpaid_abilities.iter().find_map(|&(id, ab, mana)| {
+        (id == object.id && ab == baylee_engine::choice::TURN_FACE_UP).then_some(mana)
+    }) else {
+        return;
+    };
+    if u64::from(price.cmc()) > room {
+        return;
+    }
+    let Some(worth) = agent.turn_face_up_worth(view, object.id) else {
+        return;
+    };
+    if worth > THRESHOLD
+        && best.is_none_or(|(w, id, _, _)| {
+            (worth, std::cmp::Reverse(object.id)) > (w, std::cmp::Reverse(id))
+        })
+    {
+        *best = Some((worth, object.id, price, false));
+    }
+}
+
+fn float_graveyard_activations(
+    view: &PlayerView,
+    legal: &LegalActions,
+    agent: &HeuristicAgent,
+    room: u64,
+    best: &mut Option<(i64, ObjectId, ManaCost, bool)>,
+) {
+    let Some(grave) = view.graveyards.get(usize::from(view.seat.get())) else {
+        return;
+    };
+    for object in grave {
+        for (index, def) in printed_list(object).iter().enumerate() {
+            let (AbilityDef::Unearth { cost } | AbilityDef::Encore { cost }) = def else {
+                continue;
+            };
+            if cost.mana.cmc() == 0 || cost.mana.has_variable() {
+                continue;
+            }
+            let Ok(index) = u32::try_from(index) else {
+                continue;
+            };
+            if legal.abilities.contains(&(object.id, index)) || on_the_stack(view, object.id, index)
+            {
+                continue;
+            }
+            let Some(price) = legal
+                .unpaid_abilities
+                .iter()
+                .find_map(|&(id, ab, mana)| (id == object.id && ab == index).then_some(mana))
+            else {
+                continue;
+            };
+            if u64::from(price.cmc()) > room {
+                continue;
+            }
+            let Some(worth) = agent.activation_worth(view, Origin::of(view, object.id), def) else {
+                continue;
+            };
+            if worth > THRESHOLD
+                && best.is_none_or(|(w, id, _, _)| {
+                    (worth, std::cmp::Reverse(object.id)) > (w, std::cmp::Reverse(id))
+                })
+            {
+                *best = Some((worth, object.id, price, false));
+            }
+        }
+    }
 }

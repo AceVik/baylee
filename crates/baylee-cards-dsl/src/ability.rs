@@ -1198,6 +1198,22 @@ pub enum AbilityDef {
         /// the omission would be found again, one card at a time.
         condition: Option<Condition>,
     },
+    /// Unearth (CR 702.84a): `[cost]: Return this card from your graveyard to
+    /// the battlefield. It gains haste. Exile it at the beginning of the next
+    /// end step. If it would leave the battlefield, exile it instead of putting
+    /// it anywhere else. Activate only as a sorcery.`
+    Unearth {
+        /// The unearth activation cost.
+        cost: Cost,
+    },
+    /// Encore (CR 702.141a): `[cost], Exile this card from your graveyard: For
+    /// each opponent, create a token that's a copy of this card that attacks
+    /// that opponent this turn if able. The tokens gain haste. Sacrifice them
+    /// at the beginning of the next end step. Activate only as a sorcery.`
+    Encore {
+        /// The encore cost before the implicit `CostPart::ExileSelf`.
+        cost: Cost,
+    },
 }
 
 impl AbilityDef {
@@ -1785,6 +1801,12 @@ mod tests {
                 zone: TriggerZone::Battlefield,
                 once_per_turn: false,
                 condition: None,
+            },
+            AbilityDef::Unearth {
+                cost: crate::cost::Cost::FREE,
+            },
+            AbilityDef::Encore {
+                cost: crate::cost::Cost::FREE,
             },
         ];
         for ability in others {

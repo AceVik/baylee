@@ -1633,7 +1633,8 @@ pub fn ability_taps_its_source(view: &PlayerView, source: ObjectId, index: u32) 
         Some(
             AbilityDef::Activated { cost, .. }
             | AbilityDef::ActivatedConditional { cost, .. }
-            | AbilityDef::ModalActivated { cost, .. },
+            | AbilityDef::ModalActivated { cost, .. }
+            | AbilityDef::Unearth { cost },
         ) => cost.parts.iter().any(|part| {
             matches!(
                 part,
@@ -1645,6 +1646,7 @@ pub fn ability_taps_its_source(view: &PlayerView, source: ObjectId, index: u32) 
                     | baylee_cards_dsl::CostPart::ReturnSelfToHand
             )
         }),
+        Some(AbilityDef::Encore { .. }) => true,
         _ => false,
     }
 }

@@ -537,6 +537,26 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         obj.targets.clear();
                         obj.target_req = None;
                     }
+                } else if resolution_object
+                    .riders
+                    .contains(&crate::object::Rider::Bestowed)
+                {
+                    // CR 702.103e: if an Aura spell with bestow is countered or
+                    // otherwise ceases to be bestowed because its target is
+                    // illegal as it begins to resolve, it ceases to be bestowed
+                    // and continues to resolve as a creature spell.
+                    resolution_object
+                        .riders
+                        .retain(|r| *r != crate::object::Rider::Bestowed);
+                    resolution_object.targets.clear();
+                    resolution_object.target_req = None;
+                    if let Some(obj) = self.state.object_mut(top) {
+                        obj.riders.retain(|r| *r != crate::object::Rider::Bestowed);
+                        obj.targets.clear();
+                        obj.target_req = None;
+                        obj.cache.clear();
+                    }
+                    self.state.invalidate_projections();
                 } else {
                     self.state
                         .journal
@@ -652,6 +672,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     Some(AbilityDef::Echo { cost }) => {
                         vec![self.demand_echo(obj.controller, loc.source, *cost)]
                     }
+                    Some(AbilityDef::Unearth { .. } | AbilityDef::Encore { .. }) => Vec::new(),
                     Some(
                         AbilityDef::ModalTriggered { modes, .. }
                         | AbilityDef::ModalActivated { modes, .. },
@@ -777,6 +798,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             };
             #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::resolving(&self.state, &self.lookup, top);
+            match abilities.get(loc.index as usize) {
+                Some(AbilityDef::Unearth { .. }) => {
+                    let expected_version = obj.riders.iter().find_map(|r| match r {
+                        crate::object::Rider::AbilitySourceVersion(v) => Some(*v),
+                        _ => None,
+                    });
+                    self.resolve_unearth(obj.controller, loc.source, expected_version);
+                    self.finish_resolution(&res);
+                    return;
+                }
+                Some(AbilityDef::Encore { .. }) => {
+                    self.resolve_encore(obj.controller, loc.source);
+                    self.finish_resolution(&res);
+                    return;
+                }
+                _ => {}
+            }
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
                 resolve::Flow::Enter => {
@@ -818,6 +856,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .riders
                     .contains(&crate::object::Rider::Mutating)
                     .then(|| (vec![Effect::MergeMutatingSpell], true, None))
+            })
+            .or_else(|| {
+                resolution_object
+                    .riders
+                    .contains(&crate::object::Rider::Bestowed)
+                    .then(|| {
+                        (
+                            vec![Effect::AttachSelf {
+                                target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+                            }],
+                            true,
+                            None,
+                        )
+                    })
             });
         if let Some((program, targeted, retarget_left)) = spell_fx {
             let obj = &resolution_object;

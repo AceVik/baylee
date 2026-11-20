@@ -119,6 +119,13 @@ pub enum CastModeKind {
         /// Whether the replacement-target kicker option was announced.
         kicked: bool,
     },
+    /// Cast bestowed for the face's bestow cost (CR 702.103a): becomes an Aura
+    /// enchantment spell with enchant creature, resolving as a creature if its
+    /// target becomes illegal (CR 702.103e).
+    Bestow,
+    /// Cast from the owner's graveyard using jump-start (CR 702.133a): pays the
+    /// face's mana cost plus discarding a card, and exiles when leaving the stack.
+    JumpStart,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the

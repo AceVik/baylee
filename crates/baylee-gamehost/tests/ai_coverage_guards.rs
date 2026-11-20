@@ -117,6 +117,8 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
+        | AbilityDef::Unearth { .. }
+        | AbilityDef::Encore { .. }
         | AbilityDef::Static(_)
         | AbilityDef::Replacement(_)
         | AbilityDef::Suspend { .. }

@@ -157,6 +157,9 @@ impl GameState {
                     obj.riders
                         .retain(|r| *r != crate::object::Rider::AttachmentHostLeft);
                 }
+                if obj.attached_to.is_none() {
+                    obj.riders.retain(|r| *r != crate::object::Rider::Bestowed);
+                }
             }
             self.journal.record(GameEvent::PhaseChanged {
                 object: host,

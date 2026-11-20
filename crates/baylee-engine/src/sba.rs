@@ -554,6 +554,9 @@ fn enchant_restriction(
     lookup: &impl crate::state::CardLookup,
 ) -> Option<&'static baylee_cards_dsl::Filter> {
     use baylee_cards_dsl::{AbilityDef, Effect, TargetSpec};
+    if obj.riders.contains(&crate::object::Rider::Bestowed) {
+        return Some(&baylee_cards_dsl::Filter::CREATURE);
+    }
     obj.abilities(lookup).iter().find_map(|ability| {
         let AbilityDef::Spell { effects, .. } = ability else {
             return None;
@@ -711,7 +714,13 @@ fn attachment_sbas(
         // and ceased to be bestowed (CR 702.103f); the engine has no bestow,
         // and CR 303.4d and 704.5m would put any other Aura creature into
         // its owner's graveyard.
-        if is_aura && !types.contains(T::CREATURE) {
+        // CR 702.103f: a bestowed Aura that becomes unattached or is attached
+        // to an illegal object or player becomes unattached, ceases to be
+        // bestowed, and stays on the battlefield as a creature (an exception
+        // to CR 704.5m).
+        if obj.riders.contains(&crate::object::Rider::Bestowed) {
+            unattaching.push(id);
+        } else if is_aura && !types.contains(T::CREATURE) {
             falling_off.push(id);
         } else if obj.attached_to.is_some() {
             unattaching.push(id);
@@ -741,6 +750,7 @@ fn apply_attachment_sbas(
     for id in unattaching {
         if let Some(obj) = state.object_mut(id) {
             obj.attached_to = None;
+            obj.riders.retain(|r| *r != crate::object::Rider::Bestowed);
         }
         // The same projection input as the attaching side: an Equipment
         // grants through `Filter::AttachedToBySource`, so a host that is

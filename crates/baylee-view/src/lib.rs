@@ -295,7 +295,10 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 95 adds `ChoicePrompt::Amplify` for Amplify hand reveals
 /// (CR 702.38a, CR 702.38b), an engine prompt variant a reader of 94 cannot
 /// decode.
-pub const VIEW_VERSION: u32 = 95;
+/// Version 96 adds `CastModeKind::Bestow` (CR 702.103) and
+/// `CastModeKind::JumpStart` (CR 702.133a), engine cast-mode variants a reader
+/// of 95 cannot decode.
+pub const VIEW_VERSION: u32 = 96;
 
 // ------------------------------------------------------------------- targets
 

@@ -186,8 +186,14 @@ pub fn reachable_modes(
     if let Some(prototype) = face.prototype {
         offer(CastModeKind::Prototype, prototype.cost);
     }
-    if face.disguise.is_some() || face.morph.is_some() {
+    if face.has_face_down_cast() {
         offer(CastModeKind::Disguise, const { ManaCost::parse("{3}") });
+    }
+    if let Some(bestow) = face.bestow
+        && crate::targeting::requirement_possible(view, baylee_engine::casting::BESTOW_TARGET_REQ)
+        && parts_payable(view, card, bestow.parts)
+    {
+        offer(CastModeKind::Bestow, bestow.mana);
     }
     if let Some(dash) = face.dash {
         offer(CastModeKind::Dash, dash);

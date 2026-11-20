@@ -120,7 +120,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.activation_target_choice.controller = Some(player);
         }
         if ability_index == crate::choice::TURN_FACE_UP {
-            return self.turn_face_up(player, source);
+            let (mana, parts, _) = self
+                .turn_face_up_spec(source)
+                .ok_or(EngineError::IllegalAction("no disguise cost"))?;
+            if parts.is_empty() && !mana.has_variable() {
+                return self.turn_face_up(player, source);
+            }
         }
         if let Some(half) = crate::choice::door_to_unlock(ability_index) {
             return self.unlock_door(player, source, half);
@@ -137,7 +142,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // return before reaching — so a locked artifact's *granted* ability
         // passed under it. Structural rather than observed: the offer guard
         // above refuses first, and no test gets this far.
-        if self.artifact_activations_are_locked(source) {
+        if ability_index != crate::choice::TURN_FACE_UP
+            && self.artifact_activations_are_locked(source)
+        {
             return Err(EngineError::IllegalAction(
                 "activated abilities of artifacts can't be activated (Karn)",
             ));
@@ -163,7 +170,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return Ok(());
         }
         let (cost, effects, (first, second), mana_ability, zone, limit, cost_reduction) = {
-            let obj = self
+            let _obj = self
                 .state
                 .object(source)
                 .ok_or(EngineError::IllegalAction("no such permanent"))?;
@@ -183,24 +190,32 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // at index 1 and refused it with "no such ability", because
             // Glasspool Mimic's printed list is one entry long.
             let ability = granted_definition
-                .as_ref()
-                .or_else(|| obj.abilities(&self.lookup).get(ability_index as usize))
+                .or_else(|| self.activation_definition(source, ability_index))
                 .ok_or(EngineError::IllegalAction("no such ability"))?;
             if ability.is_intrinsic_mana_ability()
                 && casting::intrinsic_mana_colors(&self.state, source).is_empty()
             {
                 return Err(EngineError::IllegalAction("no basic land mana ability"));
             }
-            let selected = match ability {
+            let selected = match &ability {
                 AbilityDef::ModalActivated { modes, .. } => {
                     let mode = self
                         .activation_mode_index(source, ability_index)
                         .ok_or(EngineError::IllegalAction("activation mode not chosen"))?;
-                    super::modes::selected_definition(ability, &modes[usize::from(mode)])
+                    super::modes::selected_definition(&ability, &modes[usize::from(mode)])
                 }
-                _ => *ability,
+                _ => ability,
             };
             match &selected {
+                AbilityDef::Unearth { cost } | AbilityDef::Encore { cost } => (
+                    *cost,
+                    &[][..],
+                    (None, None),
+                    false,
+                    ActivationZone::Graveyard,
+                    ActivationLimit::Unlimited,
+                    None,
+                ),
                 AbilityDef::Activated {
                     cost,
                     effects,
@@ -271,7 +286,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         } else {
             mana_ability
         };
-        if !mana_ability && self.non_mana_activations_are_locked(source) {
+        if !mana_ability
+            && ability_index != crate::choice::TURN_FACE_UP
+            && self.non_mana_activations_are_locked(source)
+        {
             return Err(EngineError::IllegalAction(
                 "non-mana activated abilities of this permanent can't be activated",
             ));

@@ -1737,6 +1737,7 @@ fn spell_ending_label(ending: baylee_engine::choice::SpellEnding) -> &'static st
     }
 }
 
+#[allow(clippy::too_many_lines)] // Exhaustive one-arm-per-variant CastModeKind label table.
 fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDesc) -> String {
     let face = card.map_or(0, |c| usize::from(c.face));
     let sentence = |line: Option<baylee_cards::lines::AbilityLine>| {
@@ -1812,6 +1813,10 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         }
         CastModeKind::SpellEnding(ending) => spell_ending_label(ending).to_string(),
         CastModeKind::Mutate => format!("Cast it with mutate for {cost}"),
+        CastModeKind::Bestow => format!("Cast it bestowed as an Aura for {cost}"),
+        CastModeKind::JumpStart => {
+            format!("Cast it with jump-start for {cost}, discarding a card")
+        }
         CastModeKind::Escape => format!("Cast it with escape for {cost}"),
         CastModeKind::EscapeGranted {
             face,

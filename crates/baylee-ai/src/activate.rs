@@ -96,6 +96,10 @@ fn best(
         .iter()
         .copied()
         .filter_map(|(source, index)| {
+            if index == baylee_engine::choice::TURN_FACE_UP {
+                let worth = agent.turn_face_up_worth(view, source)?;
+                return (worth > THRESHOLD.max(minimum)).then_some((worth, (source, index)));
+            }
             if on_the_stack(view, source, index) {
                 return None;
             }
@@ -106,6 +110,7 @@ fn best(
             let floor = match def {
                 AbilityDef::Loyalty { .. } if agent.profile.lookahead == 0 => return None,
                 AbilityDef::Loyalty { .. } => 0,
+                AbilityDef::Unearth { .. } | AbilityDef::Encore { .. } => THRESHOLD,
                 _ => {
                     let (cost, effects) = activated(def)?;
                     if !consumes(cost) && !settles(effects) {

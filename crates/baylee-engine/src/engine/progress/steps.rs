@@ -348,11 +348,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     || obj.deathtouched
                     || obj.regeneration_shields != 0
                     || obj.own_abilities_until_eot
-                    || obj.riders.contains(&crate::object::Rider::Saddled)
+                    || obj.riders.iter().any(|r| {
+                        matches!(
+                            r,
+                            crate::object::Rider::Saddled
+                                | crate::object::Rider::MustAttackPlayerThisTurn(_)
+                        )
+                    })
             },
             |obj| {
-                obj.riders
-                    .retain(|rider| *rider != crate::object::Rider::Saddled);
+                obj.riders.retain(|rider| {
+                    !matches!(
+                        rider,
+                        crate::object::Rider::Saddled
+                            | crate::object::Rider::MustAttackPlayerThisTurn(_)
+                    )
+                });
                 obj.damage = 0;
                 obj.deathtouched = false;
                 // "The next time it would be destroyed **this turn**"

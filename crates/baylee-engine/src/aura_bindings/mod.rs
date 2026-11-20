@@ -40,6 +40,12 @@ pub(crate) fn printed_restriction(
     state: &GameState,
     aura: &GameObject,
 ) -> Option<EnchantRestriction> {
+    if aura.riders.contains(&crate::object::Rider::Bestowed) {
+        return Some(EnchantRestriction::Permanent(
+            &Filter::CREATURE,
+            crate::eval::live_context(state, aura.id),
+        ));
+    }
     aura.ability_list(state.bases.as_ref())
         .abilities
         .iter()

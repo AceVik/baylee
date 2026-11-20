@@ -623,9 +623,9 @@ impl Characteristics {
             // A back face nobody may cast out of hand is a nonmodal one
             // (`xtask validate` holds the flag against Scryfall's layout):
             // its mana value is the front face's (CR 202.3b). A modal back,
-            // an adventure and a split half are cast for their own cost and
-            // keep it.
-            front_mana_value: (face > 0 && !f.castable_from_hand)
+            // an adventure and a split half (including aftermath, CR 709.3b)
+            // are cast for their own cost and keep it.
+            front_mana_value: (face > 0 && !f.castable_from_hand && !f.aftermath)
                 .then(|| u8::try_from(def.faces[0].mana_cost.cmc()).unwrap_or(u8::MAX)),
             x_on_stack: 0,
         }
@@ -1112,6 +1112,13 @@ pub enum Rider {
     /// Intervening-`if` condition carried on a synthetic triggered ability on
     /// the stack (reflexive or delayed triggers, CR 603.4, CR 603.7, CR 603.12).
     SyntheticCondition(&'static baylee_cards_dsl::Condition),
+    /// Cast bestowed (CR 702.103b): makes this spell on the stack and the
+    /// permanent it becomes an Aura enchantment with enchant creature (not a
+    /// creature) in layer 4 until its target is illegal on resolution
+    /// (CR 702.103e) or it becomes unattached on the battlefield (CR 702.103f–g).
+    Bestowed,
+    /// Encore token requirement (CR 702.141a): attacks this opponent this turn if able.
+    MustAttackPlayerThisTurn(PlayerId),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1231,6 +1238,8 @@ impl Rider {
             // never in exile.
             | Self::EventDeparture(..)
             | Self::EventAmount(_)
+            | Self::Bestowed
+            | Self::MustAttackPlayerThisTurn(_)
             | Self::EventPlayer(_)
             | Self::SyntheticCondition(_) => false,
         }
@@ -2110,7 +2119,9 @@ impl GameObject {
                 .card
                 .and_then(|c| lookup.card(c.index))
                 .and_then(|d| d.faces.get(usize::from(self.face_index)))
-                .is_some_and(|f| f.morph.is_some() && f.disguise.is_none());
+                .is_some_and(|f| {
+                    (f.morph.is_some() || f.megamorph.is_some()) && f.disguise.is_none()
+                });
             return if self.zone == Zone::Exile || self.riders.contains(&Rider::Masked) || is_morph {
                 AbilityDefs::EMPTY
             } else {

@@ -17,18 +17,27 @@ pub(crate) fn wizard_mandatory_parts(
         (Some(CastModeKind::Modes(_)), Some(entwine)) if !disguised => entwine.parts,
         _ => &[],
     };
-    mandatory.iter().chain(entwine_parts.iter()).chain(
-        face.additional_costs
-            .iter()
-            .enumerate()
-            .filter(move |(idx, _)| {
-                !disguised
-                    && choice.kicked
-                    && (choice.kicked_mask == 0
-                        || (*idx < 8 && (choice.kicked_mask & (1_u8 << *idx)) != 0))
-            })
-            .flat_map(|(_, cost)| cost.parts),
-    )
+    let jump_start_parts: &[CostPart] = if choice.option == Some(CastModeKind::JumpStart) {
+        &[CostPart::Discard(&baylee_cards_dsl::Filter::Any)]
+    } else {
+        &[]
+    };
+    mandatory
+        .iter()
+        .chain(jump_start_parts.iter())
+        .chain(entwine_parts.iter())
+        .chain(
+            face.additional_costs
+                .iter()
+                .enumerate()
+                .filter(move |(idx, _)| {
+                    !disguised
+                        && choice.kicked
+                        && (choice.kicked_mask == 0
+                            || (*idx < 8 && (choice.kicked_mask & (1_u8 << *idx)) != 0))
+                })
+                .flat_map(|(_, cost)| cost.parts),
+        )
 }
 
 /// The non-mana parts of the alternative cost chosen for this cast.
@@ -41,6 +50,7 @@ pub(crate) fn wizard_alternative_parts(
         Some(CastModeKind::Alternative(index)) => face.alternative_costs[index].cost.parts,
         Some(CastModeKind::Flashback) => face.flashback_parts,
         Some(CastModeKind::Madness) => face.madness.expect("madness").parts,
+        Some(CastModeKind::Bestow) => face.bestow.expect("bestow").parts,
         _ => &[],
     }
 }

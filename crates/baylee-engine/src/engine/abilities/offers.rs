@@ -171,10 +171,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     adjust(0, Some(casting::SpellForm::Prototype(prototype))),
                 );
             }
-            if def.faces[0].disguise.is_some() || def.faces[0].morph.is_some() {
+            if def.faces[0].has_face_down_cast() {
                 publish(
                     CastModeKind::Disguise,
                     adjust(0, Some(casting::SpellForm::Disguise)),
+                );
+            }
+            if let Some(bestow) = def.faces[0].bestow {
+                publish(
+                    CastModeKind::Bestow,
+                    adjust(0, Some(casting::SpellForm::Bestow(bestow))),
                 );
             }
         }
@@ -213,6 +219,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let raw_cost = form.map_or(def.faces[face].mana_cost, |f| match f {
             casting::SpellForm::Prototype(p) => p.cost,
             casting::SpellForm::Disguise => const { baylee_core::mana::ManaCost::parse("{3}") },
+            casting::SpellForm::Bestow(c) => c.mana,
             casting::SpellForm::Foretell(c) => c,
         });
         let with_inc = raw_cost
@@ -492,7 +499,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         object: id,
                         version: obj.version,
                     }),
-                    &cost,
+                    &cost.with_x(0),
                 ) {
                     legal.abilities.push((id, crate::choice::TURN_FACE_UP));
                 } else {

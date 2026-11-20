@@ -1217,6 +1217,8 @@ pub fn face_down_keyword(card: baylee_view::CardIdentity) -> Option<&'static str
         .get(usize::from(card.face))?;
     if face.disguise.is_some() {
         Some("disguise")
+    } else if face.megamorph.is_some() {
+        Some("megamorph")
     } else if face.morph.is_some() {
         Some("morph")
     } else {

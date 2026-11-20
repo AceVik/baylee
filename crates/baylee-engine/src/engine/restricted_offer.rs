@@ -219,6 +219,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             Spend::Cast(_, CastModeKind::Disguise) => {
                 Some(SpendFor::SpellAs(card, SpellForm::Disguise))
             }
+            Spend::Cast(_, CastModeKind::Bestow) => {
+                Some(SpendFor::SpellAs(card, SpellForm::Bestow(face()?.bestow?)))
+            }
             Spend::Cast(_, CastModeKind::Foretell) => Some(SpendFor::SpellAs(
                 card,
                 SpellForm::Foretell(face()?.foretell?),

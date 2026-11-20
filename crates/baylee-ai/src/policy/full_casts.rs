@@ -111,6 +111,16 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
                 card: front,
                 price: None,
             });
+            for (_, way) in legal.cast_ways.iter().filter(|(card, w)| {
+                *card == id && matches!(w.kind, CastModeKind::Disguise | CastModeKind::Bestow)
+            }) {
+                out.push(Way {
+                    id,
+                    kind: way.kind,
+                    card: front,
+                    price: Some(way.cost),
+                });
+            }
             continue;
         }
         for (kind, cost) in named {
@@ -256,7 +266,12 @@ impl HeuristicAgent {
             if view.sorcery_lock.is_some() && !main {
                 continue;
             }
-            let Some(score) = score(view, id, card, available).filter(|score| *score > 0) else {
+            let raw_score = if kind == CastModeKind::Disguise {
+                Some(200)
+            } else {
+                score(view, id, card, available)
+            };
+            let Some(score) = raw_score.filter(|score| *score > 0) else {
                 continue;
             };
             let budget = if main && !instant {
