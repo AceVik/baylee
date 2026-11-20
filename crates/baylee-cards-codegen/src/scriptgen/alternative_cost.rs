@@ -10,6 +10,9 @@ impl Tx<'_> {
     /// actually collects and conditions with a one-to-one `AltCondition`
     /// reading are accepted; everything else refuses with a specific reason.
     pub(super) fn alternative_cost(&mut self, mut p: Params) -> Option<()> {
+        if self.has_evoke {
+            return self.deny("an `AlternativeCost` beside `Evoke`".to_string());
+        }
         let prints_zero = p
             .peek("Description")
             .unwrap_or(self.oracle)

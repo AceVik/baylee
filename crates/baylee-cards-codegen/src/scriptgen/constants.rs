@@ -270,6 +270,17 @@ pub(super) fn keyword_const(line: &str) -> Option<&'static str> {
         "Banding" => "KeywordSet::BANDING",
         "Devoid" => "KeywordSet::DEVOID",
         "Storm" => "KeywordSet::STORM",
+        "Infect" => "KeywordSet::INFECT",
+        "Flanking" => "KeywordSet::FLANKING",
+        "Undying" => "KeywordSet::UNDYING",
+        "Persist" => "KeywordSet::PERSIST",
+        "Intimidate" => "KeywordSet::INTIMIDATE",
+        "Split second" | "Split Second" => "KeywordSet::SPLIT_SECOND",
+        "Phasing" => "KeywordSet::PHASING",
+        "Rebound" => "KeywordSet::REBOUND",
+        "Ascend" => "KeywordSet::ASCEND",
+        "Daybound" => "KeywordSet::DAYBOUND",
+        "Nightbound" => "KeywordSet::NIGHTBOUND",
         _ => return None,
     })
 }

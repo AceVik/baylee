@@ -3,7 +3,7 @@
 use super::{
     CardBody, CodegenError, HELD_MARKER, IndexLedger, LedgerEntry, OWNED_MARKER, STUB_MARKER,
     ScryfallCard, StubInfo, SubtypeCatalogs, doc_lines, faces_of, render_card_literal, render_face,
-    set_line, slug, transcode_card, vanilla,
+    set_line, slug, transcode_faces, vanilla,
 };
 
 /// Renders one stub file, and says where under `crates/cards/sets` it belongs.
@@ -35,7 +35,7 @@ pub fn render_stub(
     let land = crate::landgen::recognize(card, cats)
         .or_else(|| {
             let script = scripts?.script(&card.name)?;
-            transcode_card(&script, &faces[0].type_line, cats, tokens)
+            transcode_faces(card, &faces, &script, cats, tokens)
         })
         .or_else(|| vanilla(&faces, &scripts?.script(&card.name)?));
 
@@ -149,79 +149,22 @@ fn render_card(
     // dead imports in hand-finished files for as long as it existed.
     out.push_str("use baylee_cards_dsl::prelude::*;\n");
 
+    let multi_face = land.is_some_and(|b| b.back.is_some());
     let mut face_defs = String::new();
     for (i, f) in faces.iter().enumerate() {
-        // Enter modifiers are printed on the front face, which is where both
-        // readers mean them: a recognised land is single-faced by
-        // construction, and a script's `K:etbCounter` is said about the card
-        // rather than about one of its sides — a two-faced one is refused
-        // earlier anyway, over the `AlternateMode:` line its reference script
-        // opens with.
-        let enters = match (&land, i) {
-            (Some(body), 0) => body.enter_modifiers.as_slice(),
-            _ => &[],
-        };
-        let alternatives = match (&land, i) {
-            (Some(body), 0) => body.alternative_costs.as_slice(),
-            _ => &[],
-        };
-        let (flashback, flashback_parts): (Option<&str>, &[String]) = match (&land, i) {
-            (Some(body), 0) => (body.flashback.as_deref(), body.flashback_parts.as_slice()),
-            _ => (None, &[]),
-        };
-        let madness = match (&land, i) {
-            (Some(body), 0) => body.madness.as_deref(),
+        let face_body = match (land, i) {
+            (Some(body), 0) => Some(body),
+            (Some(body), 1) => body.back.as_deref(),
             _ => None,
         };
-        let foretell = match (&land, i) {
-            (Some(body), 0) => body.foretell.as_deref(),
-            _ => None,
-        };
-        let morph = match (&land, i) {
-            (Some(body), 0) => body.morph.as_deref(),
-            _ => None,
-        };
-        let cost_reduction = match (&land, i) {
-            (Some(body), 0) => body.cost_reduction.as_deref(),
-            _ => None,
-        };
-        let entwine = match (&land, i) {
-            (Some(body), 0) => body.entwine.as_deref(),
-            _ => None,
-        };
-        let buyback = match (&land, i) {
-            (Some(body), 0) => body.buyback.as_deref(),
-            _ => None,
-        };
-        let multikicker = match (&land, i) {
-            (Some(body), 0) => body.multikicker.as_deref(),
-            _ => None,
-        };
-        let additional_costs = match (&land, i) {
-            (Some(body), 0) => body.additional_costs.as_slice(),
-            _ => &[],
-        };
-        let kicked_targets = match (&land, i) {
-            (Some(body), 0) => body.kicked_targets.as_deref(),
-            _ => None,
-        };
+        let adventure = i == 1 && land.is_some_and(|b| b.back_is_adventure);
         face_defs.push_str(&render_face(
             &card.name,
             f,
             cats,
-            enters,
-            alternatives,
-            flashback,
-            flashback_parts,
-            madness,
-            foretell,
-            morph,
-            cost_reduction,
-            entwine,
-            buyback,
-            multikicker,
-            additional_costs,
-            kicked_targets,
+            face_body,
+            multi_face,
+            adventure,
             i > 0,
             card.layout.as_deref(),
         )?);

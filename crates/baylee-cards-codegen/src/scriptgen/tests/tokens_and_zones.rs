@@ -77,20 +77,28 @@ fn putting_a_creature_in_a_graveyard_is_not_destroying_it() {
 /// Spite as three mana for five life off a target — both
 /// `Coverage::Implemented`, both offered to a deckbuilder as playable.
 #[test]
-fn an_additional_cost_on_a_spell_is_refused_and_not_dropped() {
-    // Crop Rotation.
-    assert!(refused(
+fn an_additional_cost_on_a_spell_is_read_or_refused_and_never_dropped() {
+    // Crop Rotation: a single paid sacrifice lands on `mandatory_additional_costs`.
+    let crop = read(
         "Name:X\nTypes:Instant\n\
          A:SP$ ChangeZone | Cost$ G Sac<1/Land> | Origin$ Library | \
-         Destination$ Battlefield | ChangeType$ Land | ChangeNum$ 1"
-    ));
-    // Kaervek's Spite: two additional costs, and the first of them is
-    // one `cost_pieces` can read, so the refusal has to come from the
-    // spell branch rather than from a part nobody could map.
+         Destination$ Battlefield | ChangeType$ Land | ChangeNum$ 1",
+    );
+    assert_eq!(
+        crop.mandatory_additional_costs,
+        ["CostPart::Sacrifice(&Filter::YOUR_LAND)"]
+    );
+    // Kaervek's Spite: `Sac<All/Permanent>` is not a paid mandatory cost part,
+    // so it stays refused rather than being dropped.
     assert!(refused(
         "Name:X\nTypes:Instant\n\
          A:SP$ LoseLife | Cost$ B B B Sac<All/Permanent> Discard<0/Hand> | \
          ValidTgts$ Player | LifeAmount$ 5"
+    ));
+    // Random discard is a buyback-only part, never a mandatory additional cost.
+    assert!(refused(
+        "Name:X\nTypes:Instant\n\
+         A:SP$ Draw | Cost$ R Discard<1/Random> | NumCards$ 2"
     ));
     // The mana half alone is not an additional cost: it is the card's
     // own mana cost, which the face already carries.
@@ -310,12 +318,140 @@ fn an_absent_owner_is_you_only_where_no_player_is_targeted() {
     let body = read_with_tokens("Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin");
     assert!(body.abilities[0].contains("Effect::CreateToken"));
 
-    let rootcast =
-        parse("Name:X\nTypes:Instant\nA:SP$ Token | ValidTgts$ Player | TokenScript$ r_1_1_goblin");
-    assert_eq!(
-        refusal_reason(&rootcast, &cats(), Some(&tokens())).as_deref(),
-        Some("a token created under another player's control")
+    let rootcast = read_with_tokens(
+        "Name:X\nTypes:Instant\nA:SP$ Token | ValidTgts$ Player | TokenScript$ r_1_1_goblin",
     );
+    assert!(rootcast.abilities[0].contains("Effect::CreateTokensFor { player: PlayerRel::Chosen"));
+}
+
+#[test]
+fn token_modifiers_and_owners_lower_cleanly() {
+    let tapped = read_with_tokens(
+        "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenTapped$ True | TokenAmount$ 2",
+    );
+    assert!(
+        tapped.abilities[0].contains(
+            "Effect::CreateTokenModified { token: &generated_tokens::GOBLIN_1_1_RED, amount: Amount::Fixed(2), tapped: true, haste: false }"
+        ),
+        "{}",
+        tapped.abilities[0]
+    );
+
+    let haste_eot = read_with_tokens(
+        "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | PumpKeywords$ Haste | PumpDuration$ EOT",
+    );
+    assert!(
+        haste_eot.abilities[0].contains(
+            "Effect::CreateTokenModified { token: &generated_tokens::GOBLIN_1_1_RED, amount: Amount::Fixed(1), tapped: false, haste: true }"
+        ),
+        "{}",
+        haste_eot.abilities[0]
+    );
+
+    // Permanent haste (no `PumpDuration$`) stays refused.
+    let perm_haste = parse(
+        "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | PumpKeywords$ Haste",
+    );
+    assert_eq!(
+        refusal_reason(&perm_haste, &cats(), Some(&tokens())).as_deref(),
+        Some("unclaimed parameter `Token.PumpKeywords`")
+    );
+
+    let attacking = read_with_tokens(
+        "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenTapped$ True | TokenAttacking$ True | AtEOT$ Sacrifice",
+    );
+    assert!(
+        attacking.abilities[0].contains(
+            "Effect::CreateTokenAttacking { token: &generated_tokens::GOBLIN_1_1_RED, amount: Amount::Fixed(1), sacrifice_at_next_end_step: true }"
+        ),
+        "{}",
+        attacking.abilities[0]
+    );
+
+    let each_player = read_with_tokens(
+        "Name:X\nTypes:Sorcery\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ Player | TokenAmount$ 2",
+    );
+    assert!(
+        each_player.abilities[0].contains(
+            "Effect::CreateTokensFor { player: PlayerRel::EachPlayer, token: &generated_tokens::GOBLIN_1_1_RED, amount: Amount::Fixed(2) }"
+        ),
+        "{}",
+        each_player.abilities[0]
+    );
+}
+
+#[test]
+fn alternate_mode_and_flavor_variant_rules() {
+    // Split card with token on back face and hoisted filter statics on both faces.
+    let split = parse(
+        "Name:Front\nManaCost:R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature.nonBlack | NumDmg$ 2\n\
+         AlternateMode:Split\n\
+         ALTERNATE\n\
+         Name:Back\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You\n\
+         A:SP$ Destroy | ValidTgts$ Creature.nonBlack",
+    );
+    assert_eq!(token_stems(&split), vec!["r_1_1_goblin"]);
+    let body = transcode(&split, &cats(), Some(&tokens())).expect("split transcodes");
+    assert!(!body.back_is_adventure);
+    let back = body.back.as_ref().expect("back face");
+    assert_eq!(body.abilities.len(), 1);
+    assert_eq!(back.abilities.len(), 2);
+    // Shared filter static deduplicated across faces.
+    assert_eq!(body.statics.matches("static ").count(), 1);
+    assert!(back.statics.is_empty());
+
+    // Adventure with vanilla creature front face and spell back face.
+    let adv = parse(
+        "Name:Hero\nManaCost:2 G\nTypes:Creature Elf\nPT:3/3\n\
+         AlternateMode:Adventure\n\
+         ALTERNATE\n\
+         Name:Quest\nManaCost:G\nTypes:Instant Adventure\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    let adv_body = transcode(&adv, &cats(), Some(&tokens())).expect("adventure transcodes");
+    assert!(adv_body.back_is_adventure);
+    assert!(!adv_body.has_own_rules());
+    assert_eq!(adv_body.back.as_ref().unwrap().abilities.len(), 1);
+
+    // Room split cards stay refused.
+    let room = parse(
+        "Name:Left\nManaCost:1 W\nTypes:Enchantment Room\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigGain\n\
+         SVar:TrigGain:DB$ GainLife | LifeAmount$ 2\n\
+         AlternateMode:Split\n\
+         ALTERNATE\n\
+         Name:Right\nManaCost:2 W\nTypes:Enchantment Room\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        refusal_reason(&room, &cats(), Some(&tokens())).as_deref(),
+        Some("Room split card")
+    );
+
+    // Unsupported alternate modes stay refused.
+    let flip = parse(
+        "Name:Top\nManaCost:1 W\nTypes:Creature Human\nK:Flying\n\
+         AlternateMode:Flip\n\
+         ALTERNATE\n\
+         Name:Bottom\nTypes:Legendary Creature Human\nK:Vigilance",
+    );
+    assert_eq!(
+        refusal_reason(&flip, &cats(), Some(&tokens())).as_deref(),
+        Some("unsupported alternate mode `Flip`")
+    );
+
+    // UniversesWithin flavor-name variant is pure alias metadata; Attraction Variant stays refused.
+    let uw = read(
+        "Name:Original\nManaCost:R\nTypes:Instant\n\
+         Variant:UniversesWithin:FlavorName:Alias Name\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3",
+    );
+    assert_eq!(uw.abilities.len(), 1);
+    let attr = parse("Name:Ride\nTypes:Artifact Attraction\nVariant:A:Lights:2 6\nK:Flying");
+    assert!(transcode(&attr, &cats(), Some(&tokens())).is_none());
 }
 
 /// A named owner this cannot say is refused by name, and so is every
@@ -329,8 +465,8 @@ fn a_token_parameter_with_no_rule_refuses_the_card() {
             "token owner `Targeted`",
         ),
         (
-            "A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenTapped$ True",
-            "unclaimed parameter `Token.TokenTapped`",
+            "A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenAttacking$ True",
+            "an attacking token with unsupported entry modifiers",
         ),
         (
             "A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenAmount$ X",

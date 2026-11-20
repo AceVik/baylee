@@ -89,15 +89,27 @@ fn a_counted_mana_amount_reads_the_definition_and_not_the_letter() {
         )]
     );
 
-    let elsewhere = parse(
+    let your_gy = read(
         "Name:X\nTypes:Land\n\
          A:AB$ Mana | Cost$ T | Produced$ B | Amount$ X | SpellDescription$ Add.\n\
          SVar:X:Count$ValidGraveyard Creature.Black+YouCtrl\n",
     );
+    assert!(
+        your_gy
+            .abilities
+            .join("")
+            .contains("zone: ZoneSel::GraveyardOf(PlayerRel::You)")
+    );
+
+    let elsewhere = parse(
+        "Name:X\nTypes:Land\n\
+         A:AB$ Mana | Cost$ T | Produced$ B | Amount$ X | SpellDescription$ Add.\n\
+         SVar:X:Count$ValidExile Card.Black\n",
+    );
     assert!(transcode(&elsewhere, &cats(), None).is_none());
     assert_eq!(
         refusal_reason(&elsewhere, &cats(), None).as_deref(),
-        Some("count `Count$ValidGraveyard Creature.Black+YouCtrl`"),
+        Some("count `Count$ValidExile Card.Black`"),
         "the definition is the worklist entry; the letter is not"
     );
 }
@@ -478,10 +490,21 @@ fn a_pump_carries_only_keywords_the_engine_has_a_bit_for() {
         "{text}"
     );
 
+    let cant_block = read(
+        "Name:X\nManaCost:G\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +0 | NumDef$ +0 | \
+         KW$ HIDDEN CARDNAME can't block.",
+    );
+    assert!(
+        cant_block
+            .abilities
+            .join("")
+            .contains("KeywordSet::CANT_BLOCK")
+    );
     assert!(refused(
         "Name:X\nManaCost:G\nTypes:Instant\n\
          A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +0 | NumDef$ +0 | \
-         KW$ HIDDEN CARDNAME can't block."
+         KW$ HIDDEN CARDNAME doesn't untap."
     ));
     // Any duration but the default is a different lifetime.
     assert!(refused(
@@ -885,10 +908,10 @@ fn a_refused_script_always_says_why() {
         ),
         (
             "Name:X\nTypes:Creature\n\
-             T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Exile | \
+             T:Mode$ ChangesZone | Origin$ Library | Destination$ Exile | \
              ValidCard$ Card.Self | Execute$ TrigDraw\n\
              SVar:TrigDraw:DB$ Draw | NumCards$ 1",
-            "trigger on a move from Battlefield to Exile",
+            "trigger on a move from Library to Exile",
         ),
         (
             "Name:X\nTypes:Creature\n\
@@ -1292,13 +1315,24 @@ fn turn_face_up_trigger_reads_self_and_refuses_other_subjects_and_zones() {
         ),
         Some("`Secondary$ False`".to_string())
     );
+    let your_turn = read(
+        "Name:X\nTypes:Creature\nPT:2/2\nK:Morph:1 R\n\
+         T:Mode$ TurnFaceUp | ValidCard$ Card.Self | TriggerZones$ Battlefield | PlayerTurn$ True | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        your_turn
+            .abilities
+            .join("")
+            .contains("condition = Some(Condition::YourTurn)")
+    );
     assert_eq!(
         reason(
             "Name:X\nTypes:Creature\nPT:2/2\nK:Morph:1 R\n\
-             T:Mode$ TurnFaceUp | ValidCard$ Card.Self | TriggerZones$ Battlefield | PlayerTurn$ True | Execute$ TrigDraw\n\
+             T:Mode$ TurnFaceUp | ValidCard$ Card.Self | TriggerZones$ Battlefield | FirstTime$ True | Execute$ TrigDraw\n\
              SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
         ),
-        Some("unclaimed parameter `TurnFaceUp.PlayerTurn`".to_string())
+        Some("unclaimed parameter `TurnFaceUp.FirstTime`".to_string())
     );
     assert_eq!(
         reason(

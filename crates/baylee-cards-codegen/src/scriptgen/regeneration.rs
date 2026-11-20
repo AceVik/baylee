@@ -129,7 +129,9 @@ impl Tx<'_> {
         let body = self.svars.get(&statics)?.clone();
         let (mode, _) = Params::parse(&body)?;
         match mode.as_str() {
-            "Continuous" => self.extra_land_drops_effect(p),
+            "Continuous" => self
+                .extra_land_drops_effect(p)
+                .or_else(|| self.continuous_turn_effect(p, target)),
             "MustAttack" => self.must_attack_effect(p, target),
             "CantChangeLife" => self.life_total_lock(p),
             "CantBlockBy" => self.unblockable_effect(p, target),
@@ -167,8 +169,8 @@ impl Tx<'_> {
     /// "You may play up to N additional lands this turn": a player-scoped
     /// continuous effect, with the set of lands deliberately left open.
     fn extra_land_drops_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
-        let statics = p.take("StaticAbilities")?;
-        let body = self.svars.get(statics.trim())?.clone();
+        let statics = p.peek("StaticAbilities")?.trim().to_string();
+        let body = self.svars.get(&statics)?.clone();
         let (mode, mut st) = Params::parse(&body)?;
         st.drop_prose();
         if mode != "Continuous" || st.take("Affected").as_deref() != Some("You") {
@@ -176,13 +178,80 @@ impl Tx<'_> {
         }
         let amount = st.take("AdjustLandPlays")?.parse::<u8>().ok()?;
         if !st.exhausted()
-            || !matches!(p.take("AILogic").as_deref(), None | Some("Always"))
-            || p.take("Duration").is_some()
+            || !matches!(p.peek("AILogic"), None | Some("Always"))
+            || p.peek("Duration").is_some()
         {
             return None;
         }
+        p.take("StaticAbilities");
+        p.take("AILogic");
         Some(vec![format!(
             "Effect::continuous(&Filter::Any, Modifier::ExtraLandDrops({amount}), Duration::UntilEndOfTurn)"
+        )])
+    }
+
+    /// A turn-long `Effect` whose single `Continuous` static grants a keyword
+    /// or combat restriction (`AddHiddenKeyword$ CARDNAME can't block.`,
+    /// `AddKeyword$ ...`) to every battlefield permanent matching `Affected$`
+    /// (e.g. `Order // Chaos` — "Creatures can't block this turn").
+    fn continuous_turn_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if target.is_some() || p.has("RememberObjects") {
+            return None;
+        }
+        if !matches!(p.peek("Duration"), None | Some("UntilEndOfTurn")) {
+            return None;
+        }
+        let statics = p.take("StaticAbilities")?;
+        p.take("Duration");
+        p.take("IsCurse");
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "Continuous" {
+            return None;
+        }
+        if !matches!(
+            st.take("AffectedZone").as_deref(),
+            None | Some("Battlefield")
+        ) {
+            return None;
+        }
+        let affected = st.take("Affected")?;
+        if affected.contains("Remembered") || affected.contains("EffectSource") {
+            return None;
+        }
+        let kw = if let Some(hidden) = st.take("AddHiddenKeyword") {
+            match hidden.trim() {
+                "CARDNAME can't block." => "KeywordSet::CANT_BLOCK".to_string(),
+                "CARDNAME can't attack." => "KeywordSet::CANT_ATTACK".to_string(),
+                "CARDNAME can't attack or block." => {
+                    "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)".to_string()
+                }
+                _ => return None,
+            }
+        } else {
+            let raw = st.take("AddKeyword")?;
+            let each: Option<Vec<&str>> = raw
+                .split('&')
+                .map(|k| super::keyword_const(k.trim()))
+                .collect();
+            let bits = each?;
+            if bits.is_empty() {
+                return None;
+            }
+            bits.join(".union(") + &")".repeat(bits.len().saturating_sub(1))
+        };
+        if !st.exhausted() {
+            return None;
+        }
+        let expr = self.filter_expr(&affected)?;
+        let filter = self.body.filter_static("EFFECT", &expr);
+        Some(vec![format!(
+            "Effect::continuous(&{filter}, Modifier::AddKeyword({kw}), Duration::UntilEndOfTurn)"
         )])
     }
 

@@ -285,7 +285,10 @@ fn abilities(text: &str, cats: &SubtypeCatalogs) -> Option<Vec<String>> {
     // and a head neither of them knows has already refused the token above
     // — except a malformed `SVar:` with no second colon, which only the
     // parser sees.
-    if !script.unknown_lines.is_empty() {
+    if !script.unknown_lines.is_empty()
+        || script.alternate_mode.is_some()
+        || script.alternate.is_some()
+    {
         return None;
     }
     script.keywords.clear();

@@ -77,6 +77,7 @@ impl Tx<'_> {
     /// Everything the token *is* — its colours, its size, its keywords — is
     /// read by [`crate::tokengen`] from the token script and never from this
     /// line, which carries none of it.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn token_effect(
         &mut self,
         p: &mut Params,
@@ -91,41 +92,126 @@ impl Tx<'_> {
         // That is the trap [`Self::player_rel_of`] was written for, so the
         // absent key is read the same way it reads one there: as the target
         // where this line targets a player, and as you where it does not.
-        let owner = match p.take("TokenOwner").as_deref() {
+        let raw_owner = p.take("TokenOwner");
+        let is_plain_target_ctrl = raw_owner.as_deref() == Some("TargetedController")
+            && target.is_some_and(|t| {
+                t.starts_with("TargetSpec::Object(")
+                    || t.starts_with("TargetSpec::CardInGraveyard(")
+            })
+            && matches!(p.peek("TokenAmount"), None | Some("1"))
+            && !p.has("TokenTapped")
+            && !p.has("TokenAttacking")
+            && !p.has("PumpKeywords")
+            && !p.has("PumpDuration");
+        if is_plain_target_ctrl {
+            p.take("TokenAmount");
+            let Some(stem) = p.take("TokenScript") else {
+                return self.deny("a `Token` effect naming no `TokenScript$`".to_string());
+            };
+            let Some(tokens) = self.tokens else {
+                return self.deny("`Token` with no token scripts to read it against".to_string());
+            };
+            let Some(body) = tokens.body(&stem, self.cats) else {
+                return self.deny(format!("token script `{stem}`"));
+            };
+            return Some(vec![format!(
+                "Effect::CreateTokenForTargetController {{ token: &generated_tokens::{} }}",
+                body.constant
+            )]);
+        }
+        let owner = match raw_owner.as_deref() {
             Some("You") => "PlayerRel::You",
             Some("TriggeredCardController") if self.trigger_is_self => "PlayerRel::You",
-            Some("TargetedController")
-                if target.is_some_and(|t| {
-                    t.starts_with("TargetSpec::Object(")
-                        || t.starts_with("TargetSpec::CardInGraveyard(")
-                }) && matches!(p.peek("TokenAmount"), None | Some("1")) =>
-            {
-                p.take("TokenAmount");
-                let Some(stem) = p.take("TokenScript") else {
-                    return self.deny("a `Token` effect naming no `TokenScript$`".to_string());
-                };
-                let Some(tokens) = self.tokens else {
-                    return self
-                        .deny("`Token` with no token scripts to read it against".to_string());
-                };
-                let Some(body) = tokens.body(&stem, self.cats) else {
-                    return self.deny(format!("token script `{stem}`"));
-                };
-                return Some(vec![format!(
-                    "Effect::CreateTokenForTargetController {{ token: &generated_tokens::{} }}",
-                    body.constant
-                )]);
-            }
-            None => self.player_rel_of(None, targets_a_player)?,
-            Some(who) => return self.deny(format!("token owner `{who}`")),
+            other => match self.player_of_line(other, target, targets_a_player) {
+                Some(rel) => rel,
+                None => {
+                    return match other {
+                        Some(who) => self.deny(format!("token owner `{who}`")),
+                        None => {
+                            self.deny("a token created under another player's control".to_string())
+                        }
+                    };
+                }
+            },
         };
-        if owner != "PlayerRel::You" {
-            return self.deny("a token created under another player's control".to_string());
+        let tapped = match p.take("TokenTapped").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("token `TokenTapped$ {other}`")),
+        };
+        let attacking = match p.take("TokenAttacking").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("token `TokenAttacking$ {other}`")),
+        };
+        let haste = if p.peek("PumpKeywords") == Some("Haste")
+            && matches!(p.peek("PumpDuration"), Some("EOT" | "EndOfTurn"))
+        {
+            p.take("PumpKeywords");
+            p.take("PumpDuration");
+            true
+        } else {
+            false
+        };
+        let sacrifice_at_eot = if attacking
+            && tapped
+            && !haste
+            && owner == "PlayerRel::You"
+            && p.peek("AtEOT") == Some("Sacrifice")
+        {
+            p.take("AtEOT");
+            true
+        } else {
+            false
+        };
+        if attacking && (!tapped || haste) {
+            return self.deny("an attacking token with unsupported entry modifiers".to_string());
+        }
+        if owner != "PlayerRel::You" && (tapped || attacking || haste) {
+            return self
+                .deny("a modified token created under another player's control".to_string());
         }
         let Some(stem) = p.take("TokenScript") else {
             return self.deny("a `Token` effect naming no `TokenScript$`".to_string());
         };
-        self.create_tokens(&stem, p.take("TokenAmount").as_deref())
+        let raw_amount = p.take("TokenAmount");
+        if owner == "PlayerRel::You" && !tapped && !attacking && !haste {
+            return self.create_tokens(&stem, raw_amount.as_deref());
+        }
+        let Some(tokens) = self.tokens else {
+            return self.deny("`Token` with no token scripts to read it against".to_string());
+        };
+        let Some(body) = tokens.body(&stem, self.cats) else {
+            return self.deny(format!("token script `{stem}`"));
+        };
+        let token = format!("&generated_tokens::{}", body.constant);
+        let amount = match raw_amount.as_deref() {
+            None => "Amount::Fixed(1)".to_string(),
+            Some(raw) => match self.amount_or_count(raw) {
+                None => {
+                    return match self.svars.get(raw) {
+                        Some(how) => self.deny(format!("token amount `{raw}` = `{how}`")),
+                        None => self.deny(format!("token amount `{raw}`")),
+                    };
+                }
+                Some(a) => a,
+            },
+        };
+        if owner != "PlayerRel::You" {
+            return Some(vec![format!(
+                "Effect::CreateTokensFor {{ player: {owner}, token: {token}, amount: {amount} }}"
+            )]);
+        }
+        if attacking {
+            return Some(vec![format!(
+                "Effect::CreateTokenAttacking {{ token: {token}, amount: {amount}, \
+                 sacrifice_at_next_end_step: {sacrifice_at_eot} }}"
+            )]);
+        }
+        Some(vec![format!(
+            "Effect::CreateTokenModified {{ token: {token}, amount: {amount}, tapped: {tapped}, \
+             haste: {haste} }}"
+        )])
     }
 
     /// The half of a token effect that is about the token rather than about
@@ -407,6 +493,30 @@ impl Tx<'_> {
         }
     }
 
+    fn pump_keyword_bits(kw: &str) -> Option<String> {
+        let mut bits = Vec::new();
+        for part in kw.split('&').map(str::trim) {
+            let bit = match part {
+                "HIDDEN CARDNAME can't attack or block." => {
+                    "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)"
+                }
+                "HIDDEN CARDNAME can't block." => "KeywordSet::CANT_BLOCK",
+                "HIDDEN CARDNAME can't attack." => "KeywordSet::CANT_ATTACK",
+                "HIDDEN CARDNAME can't be blocked." => "KeywordSet::UNBLOCKABLE",
+                other => keyword_const(other)?,
+            };
+            bits.push(bit);
+        }
+        if bits.is_empty() {
+            return None;
+        }
+        let mut out = bits[0].to_string();
+        for b in &bits[1..] {
+            out = format!("{out}.union({b})");
+        }
+        Some(out)
+    }
+
     /// `Pump`: `NumAtt$ +2 | NumDef$ +2 | KW$ Trample`, the commonest
     /// effect in the whole script corpus.
     ///
@@ -420,27 +530,39 @@ impl Tx<'_> {
         target: &str,
         second: bool,
     ) -> Option<Vec<String>> {
+        if p.peek("KW").map(str::trim) == Some("HIDDEN CARDNAME's power and toughness are switched")
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+            && !second
+        {
+            p.take("KW");
+            p.take("IsCurse");
+            let duration = match p.take("Duration").as_deref() {
+                None => "Duration::UntilEndOfTurn",
+                Some(_) => return None,
+            };
+            return match p.take("Defined").as_deref() {
+                Some("Self") => Some(vec![format!(
+                    "Effect::continuous(&Filter::This, Modifier::SwitchPT, {duration})"
+                )]),
+                None if target == "TargetSpec::AnyPlayer" && !self.on_a_spell => {
+                    Some(vec![format!(
+                        "Effect::continuous(&Filter::This, Modifier::SwitchPT, {duration})"
+                    )])
+                }
+                None | Some("Targeted") if target != "TargetSpec::AnyPlayer" => {
+                    Some(vec![format!(
+                        "Effect::ModifyTargets {{ modifier: Modifier::SwitchPT, duration: {duration} }}"
+                    )])
+                }
+                _ => None,
+            };
+        }
         let power = self.pump_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
         let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
             None => "KeywordSet::EMPTY".to_string(),
-            Some(kw) if kw.trim() == "HIDDEN CARDNAME can't attack or block." => {
-                "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)".to_string()
-            }
-            Some(kw)
-                if kw.trim() == "HIDDEN CARDNAME can't block."
-                    && p.peek("Defined") == Some("Enchanted") =>
-            {
-                "KeywordSet::CANT_BLOCK".to_string()
-            }
-            Some(kw) => {
-                let each: Option<Vec<&str>> =
-                    kw.split('&').map(|k| keyword_const(k.trim())).collect();
-                // A keyword the engine has no bit for is a whole sentence of
-                // rules text ("can't block", "doesn't untap"), not a flag —
-                // refuse rather than drop it.
-                each?.join(".union(") + &")".repeat(kw.split('&').count().saturating_sub(1))
-            }
+            Some(kw) => Self::pump_keyword_bits(&kw)?,
         };
         // Every duration but the default is a lifetime the DSL spells
         // differently; none of them is "until end of turn" with a longer
@@ -472,6 +594,21 @@ impl Tx<'_> {
             }
             other => other,
         };
+        if !second
+            && ((matches!(
+                defined.as_deref(),
+                Some("TriggeredCardLKICopy" | "TriggeredCard")
+            ) && self.trigger_mode.as_deref() == Some("ChangesZone"))
+                || (matches!(
+                    defined.as_deref(),
+                    Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
+                ) && self.trigger_mode.as_deref() == Some("Blocks")))
+        {
+            return Some(vec![format!(
+                "Effect::PumpEventObject {{ power: {power}, toughness: {toughness}, \
+                 keywords: {keywords}, duration: {duration} }}"
+            )]);
+        }
         // "Enchanted creature gets +1/+0 until end of turn" on an Aura's own
         // activated ability (Firebreathing): the object the source is
         // attached to, which `Filter::AttachedToBySource` binds to the
@@ -533,29 +670,29 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         target: Option<&str>,
+        targets_here: bool,
+        targets_a_player: bool,
     ) -> Option<Vec<String>> {
-        if target.is_some() {
+        let defined = p.take("Defined");
+        let controlled_by = if target == Some("TargetSpec::Player(PlayerRel::Chosen)")
+            && ((targets_a_player && matches!(defined.as_deref(), None | Some("Targeted")))
+                || (!targets_here && defined.as_deref() == Some("Targeted")))
+        {
+            "Some(PlayerRel::Chosen)"
+        } else if target.is_none() && defined.is_none() {
+            "None"
+        } else {
+            return None;
+        };
+        let valid = p.take("ValidCards")?;
+        if controlled_by != "None" && (valid.contains("Ctrl") || valid.contains("Own")) {
             return None;
         }
-        let valid = p.take("ValidCards")?;
         let power = self.pump_all_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
         let toughness = self.pump_all_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
             None => "KeywordSet::EMPTY".to_string(),
-            Some(kw) if kw.trim() == "HIDDEN CARDNAME can't attack or block." => {
-                "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)".to_string()
-            }
-            Some(kw)
-                if kw.trim() == "HIDDEN CARDNAME can't block."
-                    && p.peek("Defined") == Some("Enchanted") =>
-            {
-                "KeywordSet::CANT_BLOCK".to_string()
-            }
-            Some(kw) => {
-                let each: Option<Vec<&str>> =
-                    kw.split('&').map(|k| keyword_const(k.trim())).collect();
-                each?.join(".union(") + &")".repeat(kw.split('&').count().saturating_sub(1))
-            }
+            Some(kw) => Self::pump_keyword_bits(&kw)?,
         };
         if p.take("Duration").is_some() {
             return None;
@@ -579,7 +716,7 @@ impl Tx<'_> {
         }
         let filter = self.body.filter_static("PUMP_ALL", &expr);
         Some(vec![format!(
-            "Effect::PumpFilter {{ filter: &{filter}, controlled_by: None, \
+            "Effect::PumpFilter {{ filter: &{filter}, controlled_by: {controlled_by}, \
              power: {power}, toughness: {toughness}, keywords: {keywords}, \
              duration: Duration::UntilEndOfTurn }}"
         )])
@@ -595,6 +732,7 @@ impl Tx<'_> {
     /// `Defined$` or a player target names them. Every other change —
     /// battlefield, exile, a library position, a random pick, a type other
     /// than any card — is refused.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn shuffle_into_library(
         &mut self,
         p: &mut Params,
@@ -613,6 +751,39 @@ impl Tx<'_> {
             ]);
         }
         if p.peek("Destination") != Some("Library") {
+            if p.peek("Origin") == Some("Graveyard") && p.peek("Destination") == Some("Exile") {
+                p.take("Origin");
+                p.take("Destination");
+                p.take("IsCurse");
+                let defined = p.take("Defined");
+                let change_type = p.take("ChangeType");
+                let player = match change_type.as_deref() {
+                    Some("Card.YouOwn") if defined.is_none() && target.is_none() => {
+                        "PlayerRel::You"
+                    }
+                    Some("Card.OppOwn" | "Card.OppCtrl")
+                        if defined.is_none() && target.is_none() =>
+                    {
+                        "PlayerRel::EachOpponent"
+                    }
+                    Some("Card") | None if defined.is_some() || targets_a_player => {
+                        let def = match defined.as_deref() {
+                            Some("ParentTarget")
+                                if target == Some("TargetSpec::Player(PlayerRel::Chosen)") =>
+                            {
+                                Some("Targeted")
+                            }
+                            other => other,
+                        };
+                        self.player_of_line(def, target, targets_a_player)?
+                    }
+                    Some("Card") if target.is_none() => "PlayerRel::EachPlayer",
+                    _ => return None,
+                };
+                return Some(vec![format!(
+                    "Effect::ExileGraveyard {{ player: {player} }}"
+                )]);
+            }
             if target.is_some() || targets_a_player || p.take("Defined").is_some() {
                 return None;
             }
@@ -644,12 +815,14 @@ impl Tx<'_> {
                         "Effect::ExileAll {{ filter: &{name}, linked: {linked} }}"
                     )])
                 }
-                (Some("Graveyard"), Some("Exile"))
-                    if p.take("ChangeType").as_deref() == Some("Card") =>
-                {
-                    Some(vec![
-                        "Effect::ExileGraveyard { player: PlayerRel::EachPlayer }".to_string(),
-                    ])
+                (Some("Graveyard"), Some("Hand")) => {
+                    let valid = p.take("ChangeType")?;
+                    let stripped = Self::strip_your_graveyard_owner(&valid)?;
+                    let expr = self.filter_expr_in_zone(&stripped, true)?;
+                    let name = self.body.filter_static("GRAVE_TO_HAND", &expr);
+                    Some(vec![format!(
+                        "Effect::GraveyardAllToHand {{ filter: &{name} }}"
+                    )])
                 }
                 (Some("Graveyard"), Some("Battlefield")) => {
                     let valid = p.take("ChangeType")?;
@@ -1059,9 +1232,47 @@ impl Tx<'_> {
         }
         let who = self.player_rel(p.take("DefinedPlayer").as_deref())?;
         let count = self.plain_num(p.take("ChangeNum").as_deref().unwrap_or("1"))?;
-        let count = u8::try_from(count).ok().filter(|n| (1..=4).contains(n))?;
+        let count = u8::try_from(count).ok().filter(|&n| n >= 1)?;
+        self.exile_top_play_follow_up(who, count, sub)
+    }
+
+    /// `Dig | DigNum$ N | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True`
+    /// chained into `DB$ Effect` granting `MayPlay$ True` from `Exile`
+    /// (impulse draw: `Effect::ExileTopToPlay` / `Effect::ExileTopMayCast`).
+    pub(super) fn dig_exile_top_to_play_effect(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_here: bool,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        if targets_here && !targets_a_player {
+            return self.deny("a `Dig` exile on a line that targets an object".into());
+        }
+        if p.take("ChangeNum").as_deref() != Some("All")
+            || p.take("DestinationZone").as_deref() != Some("Exile")
+            || p.take("RememberChanged").as_deref() != Some("True")
+        {
+            return None;
+        }
+        if !matches!(p.take("ChangeValid").as_deref(), None | Some("Card")) {
+            return None;
+        }
+        let who = self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        let count = self.plain_num(&p.take("DigNum")?)?;
+        let count = u8::try_from(count).ok().filter(|&n| n >= 1)?;
+        self.exile_top_play_follow_up(who, count, sub)
+    }
+
+    fn exile_top_play_follow_up(
+        &mut self,
+        who: &str,
+        count: u8,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
         let Some(eff_name) = sub.take() else {
-            return self.deny("`ChangeZone` top-of-library exile without `SubAbility$`".into());
+            return self.deny("top-of-library exile without `SubAbility$`".into());
         };
         let Some(eff_body) = self.svars.get(&eff_name).cloned() else {
             return self.deny(format!("`SubAbility$ {eff_name}` names no SVar"));
@@ -1084,13 +1295,13 @@ impl Tx<'_> {
             )
         {
             return self.deny(
-                "a `ChangeZone` top-of-library follow-up other than an exiled-card play permission"
-                    .into(),
+                "a top-of-library exile follow-up other than an exiled-card play permission".into(),
             );
         }
         let window = match ep.take("Duration").as_deref() {
-            None | Some("EndOfTurn") => "PlayWindow::ThisTurn",
+            None | Some("EndOfTurn" | "UntilEndOfTurn") => "PlayWindow::ThisTurn",
             Some("UntilYourNextTurn") => "PlayWindow::UntilYourNextTurn",
+            Some("UntilYourNextUpkeep") => "PlayWindow::UntilYourNextUpkeep",
             Some("UntilTheEndOfYourNextTurn") => "PlayWindow::ThroughYourNextTurn",
             Some(other) => {
                 return self.deny(format!(
@@ -1105,17 +1316,28 @@ impl Tx<'_> {
         if let Some(key) = ep.first_key() {
             return self.deny(format!("unclaimed parameter `Effect.{key}`"));
         }
-        let free = self.exile_play_permission_free(&static_name)?;
+        let (free, mana_any_type, nonland_cast_only, spell_types) =
+            self.exile_play_permission(&static_name)?;
         if let Some(cname) = next_sub {
             self.consume_optional_remember_cleanup(cname, sub)?;
         }
+        if nonland_cast_only {
+            if count == 1 && window == "PlayWindow::ThisTurn" && !free && !mana_any_type {
+                return Some(vec![format!(
+                    "Effect::ExileTopMayCast {{ who: {who}, nonland_only: true }}"
+                )]);
+            }
+            return self
+                .deny("nonland-only exile cast permission outside `ExileTopMayCast`".into());
+        }
         Some(vec![format!(
             "Effect::ExileTopToPlay {{ who: {who}, play: ExilePlay {{ count: {count}, \
-             window: {window}, free: {free}, mana_any_type: false, spell_types: None }} }}"
+             window: {window}, free: {free}, mana_any_type: {mana_any_type}, \
+             spell_types: {spell_types} }} }}"
         )])
     }
 
-    fn exile_play_permission_free(&mut self, static_name: &str) -> Option<bool> {
+    fn exile_play_permission(&mut self, static_name: &str) -> Option<(bool, bool, bool, String)> {
         let Some(static_body) = self.svars.get(static_name).cloned() else {
             return self.deny(format!("`StaticAbilities$ {static_name}` names no SVar"));
         };
@@ -1125,13 +1347,44 @@ impl Tx<'_> {
         sp.drop_prose();
         if mode != "Continuous"
             || sp.take("MayPlay").as_deref() != Some("True")
-            || sp.take("Affected").as_deref() != Some("Card.IsRemembered")
             || sp.take("AffectedZone").as_deref() != Some("Exile")
         {
             return self.deny(
                 "top-of-library exile static ability other than playing the exiled card".into(),
             );
         }
+        let affected = sp.take("Affected")?;
+        let (nonland_cast_only, spell_types) = match affected.as_str() {
+            "Card.IsRemembered" => (false, "None".to_string()),
+            "Card.IsRemembered+nonLand" | "Card.nonLand+IsRemembered" => (true, "None".to_string()),
+            other => {
+                let mut type_bits = Vec::new();
+                for alt in other.split(',') {
+                    let mut parts = alt.split(['.', '+']).map(str::trim);
+                    let base = parts.next()?;
+                    let rest: Vec<&str> = parts.collect();
+                    if rest != ["IsRemembered"] {
+                        return self.deny(
+                            "top-of-library exile static ability other than playing the exiled card"
+                                .into(),
+                        );
+                    }
+                    let tc = super::card_type_const(base)?;
+                    if tc == "TypeSet::LAND" {
+                        return self.deny("top-of-library land-only exile permission".into());
+                    }
+                    type_bits.push(tc);
+                }
+                if type_bits.is_empty() {
+                    return None;
+                }
+                let mut expr = type_bits[0].to_string();
+                for bit in &type_bits[1..] {
+                    expr = format!("{expr}.union({bit})");
+                }
+                (false, format!("Some({expr})"))
+            }
+        };
         let free = match sp.take("MayPlayWithoutManaCost").as_deref() {
             None | Some("False") => false,
             Some("True") => true,
@@ -1141,10 +1394,17 @@ impl Tx<'_> {
                 ));
             }
         };
+        let mana_any_type = match sp.take("MayPlayIgnoreType").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!("top-of-library exile `MayPlayIgnoreType$ {other}`"));
+            }
+        };
         if let Some(key) = sp.first_key() {
             return self.deny(format!("unclaimed parameter `StaticAbility.{key}`"));
         }
-        Some(free)
+        Some((free, mana_any_type, nonland_cast_only, spell_types))
     }
 
     fn consume_optional_remember_cleanup(

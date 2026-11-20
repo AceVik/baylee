@@ -86,10 +86,18 @@ pub use support::{SUPPORTED_APIS, apis_used, is_supported_api, is_vanilla, refus
 pub struct CardScript {
     /// Whether the type line explicitly names Land, for land-only permissions.
     pub is_land: bool,
+    /// Whether the type line explicitly names Room (CR 709.5 split rooms use
+    /// card-level concatenated door abilities and `UnlockDoor`).
+    pub is_room: bool,
     /// Whether the `ManaCost:` line contains a variable `X`.
     pub has_x_mana_cost: bool,
     /// `Oracle:` line, when present, for cross-checking target player vs. opponent.
     pub oracle: String,
+    /// `AlternateMode:<mode>` header on multi-face scripts (`Split`,
+    /// `Adventure`, `Modal`, `DoubleFaced`, …).
+    pub alternate_mode: Option<String>,
+    /// Second face parsed after an `ALTERNATE` separator line.
+    pub alternate: Option<Box<Self>>,
     /// `K:` lines, verbatim.
     pub keywords: Vec<String>,
     /// Rules lines as `(kind, body)` — kind is `A`, `T`, `S` or `R`.
@@ -119,9 +127,30 @@ const IGNORED_PREFIXES: &[&str] = &[
 /// Splits a card script into its rules-bearing lines.
 #[must_use]
 pub fn parse(text: &str) -> CardScript {
-    let mut out = CardScript::default();
+    let mut front_lines = Vec::new();
+    let mut back_lines: Option<Vec<&str>> = None;
     for line in text.lines() {
         let line = line.trim_end();
+        if line == "ALTERNATE" && back_lines.is_none() {
+            back_lines = Some(Vec::new());
+            continue;
+        }
+        if let Some(back) = &mut back_lines {
+            back.push(line);
+        } else {
+            front_lines.push(line);
+        }
+    }
+    let mut out = parse_face(&front_lines);
+    if let Some(back) = back_lines {
+        out.alternate = Some(Box::new(parse_face(&back)));
+    }
+    out
+}
+
+fn parse_face(lines: &[&str]) -> CardScript {
+    let mut out = CardScript::default();
+    for &line in lines {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
@@ -130,9 +159,20 @@ pub fn parse(text: &str) -> CardScript {
             continue;
         };
         match prefix {
-            "Types" => out.is_land = rest.split_whitespace().any(|word| word == "Land"),
+            "Types" => {
+                out.is_land = rest.split_whitespace().any(|word| word == "Land");
+                out.is_room = rest.split_whitespace().any(|word| word == "Room");
+            }
             "ManaCost" => out.has_x_mana_cost = rest.split_whitespace().any(|word| word == "X"),
             "Oracle" => out.oracle = rest.to_string(),
+            "AlternateMode" => {
+                if out.alternate_mode.is_none() {
+                    out.alternate_mode = Some(rest.trim().to_string());
+                } else {
+                    out.unknown_lines.push(line.to_string());
+                }
+            }
+            "Variant" if rest.starts_with("UniversesWithin:FlavorName:") => {}
             "K" => out.keywords.push(rest.to_string()),
             "A" | "T" | "S" | "R" => out
                 .rules
@@ -274,6 +314,7 @@ struct Chain {
     target_exact: Option<u8>,
     target_unique: bool,
     second_target: Option<String>,
+    second_target_up_to: Option<u8>,
     could_add_mana: bool,
     moves_library: bool,
 }
@@ -385,6 +426,10 @@ struct Tx<'a> {
     /// where `cast_wizard` pays `ExileFromHand`, `TapN` and multi-return
     /// parts that an activated ability does not.
     in_alternative_cost: bool,
+    /// Whether the script declares `K:Evoke:`, which claims `o.alt_cast` for
+    /// `Trigger::EntersBattlefieldEvoked` and must not coexist with another
+    /// `AlternativeCost`.
+    has_evoke: bool,
     /// Whether the triggered ability being read is `Trigger::ETB` (exact
     /// `ValidCard$ Card.Self`), the only trigger whose stack object carries
     /// `times_kicked` for `Effect::IfKicked`.
@@ -468,6 +513,7 @@ impl<'a> Tx<'a> {
             dual_kicker_remap: None,
             trigger_is_self: false,
             in_alternative_cost: false,
+            has_evoke: false,
             is_etb_self_trigger: false,
             trigger_self_etb_kicked: false,
             trigger_self_etb_kicked_with: None,
@@ -660,16 +706,20 @@ impl Tx<'_> {
     ];
 }
 
-/// Reads a whole card script, or refuses it.
-///
-/// # Errors
-/// Never errors; an unreadable script is `None`, which is what keeps a
-/// generated card honest.
-#[must_use]
-pub fn transcode(
+pub(super) fn is_vanilla_face(script: &CardScript) -> bool {
+    script.keywords.is_empty()
+        && script.rules.is_empty()
+        && script.unknown_lines.is_empty()
+        && !script.is_land
+        && script.oracle.trim().is_empty()
+}
+
+fn transcode_face(
     script: &CardScript,
     cats: &SubtypeCatalogs,
     tokens: Option<&TokenLookup>,
+    statics: String,
+    allow_vanilla: bool,
 ) -> Option<CardBody> {
     if !script.unknown_lines.is_empty() {
         return None;
@@ -679,11 +729,9 @@ pub fn transcode(
         return None;
     }
     let mut tx = Tx::new(script, cats, tokens);
+    tx.body.statics = statics;
     if song52::song_candidate(script) {
         tx.song_whole_card(script)?;
-        tx.body
-            .notes
-            .push("transcoded from the card's rules".into());
         return Some(tx.body);
     }
     // Read `K:Kicker:` lines before other keywords so `dual_kicker_remap` is
@@ -707,13 +755,51 @@ pub fn transcode(
     }
     tx.block_halves_paired()?;
     tx.align_dual_kicker_order();
-    if tx.body.is_empty() {
+    if !(tx.body.has_own_rules() || allow_vanilla && is_vanilla_face(script)) {
         return None;
     }
-    tx.body
-        .notes
-        .push("transcoded from the card's rules".into());
     Some(tx.body)
+}
+
+/// Reads a whole card script, or refuses it.
+///
+/// # Errors
+/// Never errors; an unreadable script is `None`, which is what keeps a
+/// generated card honest.
+#[must_use]
+pub fn transcode(
+    script: &CardScript,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
+) -> Option<CardBody> {
+    if script.alternate_mode.is_none() && script.alternate.is_none() {
+        let mut body = transcode_face(script, cats, tokens, String::new(), false)?;
+        body.notes.push("transcoded from the card's rules".into());
+        return Some(body);
+    }
+    let mode = script.alternate_mode.as_deref()?;
+    if !matches!(mode, "Split" | "Adventure" | "Modal" | "DoubleFaced") {
+        return None;
+    }
+    let back_script = script.alternate.as_deref()?;
+    if script.is_room
+        || back_script.is_room
+        || back_script.alternate_mode.is_some()
+        || back_script.alternate.is_some()
+    {
+        return None;
+    }
+    let mut front = transcode_face(script, cats, tokens, String::new(), true)?;
+    let statics = std::mem::take(&mut front.statics);
+    let mut back = transcode_face(back_script, cats, tokens, statics, true)?;
+    front.statics = std::mem::take(&mut back.statics);
+    if !front.has_own_rules() && !back.has_own_rules() {
+        return None;
+    }
+    front.back_is_adventure = mode == "Adventure";
+    front.back = Some(Box::new(back));
+    front.notes.push("transcoded from the card's rules".into());
+    Some(front)
 }
 
 #[cfg(test)]

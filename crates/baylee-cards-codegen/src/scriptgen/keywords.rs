@@ -10,6 +10,72 @@ impl Tx<'_> {
             self.body.keywords.push("KeywordSet::MAYHEM".to_string());
             return Some(());
         }
+        if line == "Partner" {
+            // Bare Partner (CR 702.124a) is emitted via `CardDef::partner` from
+            // Scryfall oracle text, which `stubgen::transcode_faces` verifies.
+            self.body.has_partner = true;
+            return Some(());
+        }
+        if line == "Start your engines!" {
+            self.body
+                .abilities
+                .push("AbilityDef::StartYourEngines".to_string());
+            return Some(());
+        }
+        if line == "Convoke" {
+            self.body.convoke = true;
+            return Some(());
+        }
+        if line == "Delve" {
+            self.body.delve = true;
+            return Some(());
+        }
+        if line == "Improvise" {
+            self.body.improvise = true;
+            return Some(());
+        }
+        if line == "Exalted" {
+            self.body.abilities.push(
+                "triggered!(Trigger::AttacksAlone(&Filter::YOUR_CREATURE), \
+                 &[Effect::PumpEventObject { power: Amount::Fixed(1), toughness: Amount::Fixed(1), \
+                 keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])"
+                    .to_string(),
+            );
+            return Some(());
+        }
+        if line == "Cascade" {
+            self.body.abilities.push(
+                "triggered!(Trigger::SpellCast(&Filter::This), &[Effect::Cascade])".to_string(),
+            );
+            return Some(());
+        }
+        if let Some(rest) = line.strip_prefix("Replicate:") {
+            return self.replicate(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Disguise:") {
+            return self.disguise(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Rampage:") {
+            return self.rampage(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Evoke:") {
+            return self.evoke(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Chapter:") {
+            return self.chapter(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Ward:") {
+            return self.ward(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Crew:") {
+            return self.crew(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Saddle:") {
+            return self.saddle(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Toxic:") {
+            return self.toxic(rest);
+        }
         if let Some(modifier) = keyword_static(line) {
             self.body
                 .abilities
@@ -340,6 +406,200 @@ impl Tx<'_> {
         self.body
             .enter_modifiers
             .push(format!("EnterModifier::Amplify({n})"));
+        Some(())
+    }
+
+    /// `K:Ward:<n>` (CR 702.21a) for plain generic mana ward `1..=10`
+    /// (`baylee-engine` supports up to `WARD_CEILING = 10`). Non-generic ward
+    /// costs stay refused.
+    pub(super) fn ward(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("ward `{rest}`"));
+        }
+        let Ok(mana) = rest.trim().parse::<u16>() else {
+            return self.deny(format!("ward `{rest}`"));
+        };
+        if !(1..=10).contains(&mana) {
+            return self.deny(format!("ward `{mana}`"));
+        }
+        self.body
+            .abilities
+            .push(format!("AbilityDef::Ward {{ mana: {mana} }}"));
+        Some(())
+    }
+
+    /// `K:Crew:<n>` (CR 702.122a).
+    pub(super) fn crew(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("crew `{rest}`"));
+        }
+        let Ok(n) = rest.trim().parse::<u8>() else {
+            return self.deny(format!("crew `{rest}`"));
+        };
+        self.body.abilities.push(format!("crew!({n})"));
+        Some(())
+    }
+
+    /// `K:Saddle:<n>` (CR 702.171a).
+    pub(super) fn saddle(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("saddle `{rest}`"));
+        }
+        let Ok(n) = rest.trim().parse::<u8>() else {
+            return self.deny(format!("saddle `{rest}`"));
+        };
+        self.body.abilities.push(format!("saddle!({n})"));
+        Some(())
+    }
+
+    /// `K:Toxic:<n>` (CR 702.164a).
+    pub(super) fn toxic(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("toxic `{rest}`"));
+        }
+        let Ok(poison) = rest.trim().parse::<u8>() else {
+            return self.deny(format!("toxic `{rest}`"));
+        };
+        if poison == 0 {
+            return self.deny("toxic `0`".to_string());
+        }
+        self.body
+            .abilities
+            .push(format!("AbilityDef::Toxic {{ poison: {poison} }}"));
+        Some(())
+    }
+
+    /// `K:Replicate:<mana>` (CR 702.56a).
+    pub(super) fn replicate(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("replicate `{rest}`"));
+        }
+        let Some(mana) = super::printed_mana(rest) else {
+            return self.deny(format!("non-mana replicate `{rest}`"));
+        };
+        self.body.replicate = Some(format!("Some(mana!(\"{mana}\"))"));
+        Some(())
+    }
+
+    /// `K:Disguise:<mana>` (CR 702.168a).
+    pub(super) fn disguise(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("disguise `{rest}`"));
+        }
+        let Some(mana) = super::printed_mana(rest) else {
+            return self.deny(format!("non-mana disguise `{rest}`"));
+        };
+        self.body.disguise = Some(format!("Some(mana!(\"{mana}\"))"));
+        Some(())
+    }
+
+    /// `K:Rampage:<n>` (CR 702.23a).
+    pub(super) fn rampage(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("rampage `{rest}`"));
+        }
+        let Ok(n) = rest.trim().parse::<u32>() else {
+            return self.deny(format!("rampage `{rest}`"));
+        };
+        if n == 0 {
+            return self.deny("rampage `0`".to_string());
+        }
+        let amount = if n == 1 {
+            "Amount::BlockersBeyondFirst".to_string()
+        } else {
+            format!("Amount::Times {{ base: &Amount::BlockersBeyondFirst, factor: {n} }}")
+        };
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::Rampage, &[Effect::PumpFilter {{ filter: &Filter::This, \
+             controlled_by: None, power: {amount}, toughness: {amount}, \
+             keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }}])"
+        ));
+        Some(())
+    }
+
+    /// `K:Evoke:<cost>` (CR 702.74a): alternative cast cost plus an ETB
+    /// sacrifice trigger gated on `Trigger::EntersBattlefieldEvoked`.
+    pub(super) fn evoke(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') || self.has_evoke || !self.body.alternative_costs.is_empty() {
+            return self.deny(format!("evoke `{rest}`"));
+        }
+        let prev_alt = self.in_alternative_cost;
+        self.in_alternative_cost = true;
+        let parsed = self.cost_pieces(rest.trim());
+        self.in_alternative_cost = prev_alt;
+        let (mana, parts) = parsed?;
+        let all_supported = parts.iter().all(|part| {
+            part.starts_with("PayLife(")
+                || part.starts_with("ExileFromHand(")
+                || part.starts_with("Sacrifice(")
+                || part.starts_with("ReturnToHand(")
+                || part.starts_with("TapN {")
+        });
+        if !all_supported || (mana.is_empty() && parts.is_empty()) {
+            return self.deny(format!("evoke `{rest}`"));
+        }
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.has_evoke = true;
+        self.body.alternative_costs.push(format!(
+            "AlternativeCost {{ cost: {cost}, condition: AltCondition::Always }}"
+        ));
+        self.body.abilities.push(
+            "triggered!(Trigger::EntersBattlefieldEvoked, &[Effect::SacrificeSelf])".to_string(),
+        );
+        Some(())
+    }
+
+    /// `K:Chapter:<max>:<svar1>,<svar2>,...` (CR 715): Saga chapter triggers.
+    pub(super) fn chapter(&mut self, rest: &str) -> Option<()> {
+        let Some((max_raw, list)) = rest.split_once(':') else {
+            return self.deny(format!("chapter `{rest}`"));
+        };
+        if list.contains(':') {
+            return self.deny(format!("chapter `{rest}`"));
+        }
+        let Ok(max) = max_raw.trim().parse::<u8>() else {
+            return self.deny(format!("chapter count `{max_raw}`"));
+        };
+        let names: Vec<&str> = list
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if max == 0 || names.len() != usize::from(max) {
+            return self.deny(format!("chapter count mismatch `{rest}`"));
+        }
+        let prev_has_x = self.has_x;
+        let prev_spell = self.on_a_spell;
+        let prev_self = self.trigger_is_self;
+        self.has_x = false;
+        self.on_a_spell = false;
+        self.trigger_is_self = true;
+        let mut emitted = Vec::with_capacity(names.len());
+        let ok = (|| {
+            for (idx, name) in names.iter().enumerate() {
+                let Some(body) = self.svars.get(*name).cloned() else {
+                    return self.deny(format!("chapter SVar `{name}` missing"));
+                };
+                let mut chain = super::Chain::default();
+                self.chain(&body, &mut chain)?;
+                if chain.effects.is_empty() || chain.second_target.is_some() || chain.target_is_x {
+                    return self.deny(format!("unsupported chapter `{name}`"));
+                }
+                let targets = Self::target_req_expr(&chain)
+                    .map_or_default(|req| format!(", targets = Some({req})"));
+                let chapter = idx + 1;
+                emitted.push(format!(
+                    "chapter!({chapter}, &[{}]{targets})",
+                    chain.effects.join(", ")
+                ));
+            }
+            Some(())
+        })();
+        self.has_x = prev_has_x;
+        self.on_a_spell = prev_spell;
+        self.trigger_is_self = prev_self;
+        ok?;
+        self.body.abilities.extend(emitted);
         Some(())
     }
 

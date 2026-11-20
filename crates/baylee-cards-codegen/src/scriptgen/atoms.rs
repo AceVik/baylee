@@ -214,6 +214,13 @@ pub(super) fn keyword_atom(atom: &str) -> Option<String> {
         "Trample",
         "Vigilance",
         "Defender",
+        "Flash",
+        "Shroud",
+        "Shadow",
+        "Fear",
+        "Intimidate",
+        "Infect",
+        "Flanking",
     ]
     .into_iter()
     .find(|p| p.replace(' ', "") == name)?;
@@ -343,6 +350,11 @@ pub(super) enum Bound {
 #[must_use]
 pub fn token_stems(script: &CardScript) -> Vec<String> {
     let mut out = Vec::new();
+    collect_token_stems(script, &mut out);
+    out
+}
+
+fn collect_token_stems(script: &CardScript, out: &mut Vec<String>) {
     let bodies = script
         .rules
         .iter()
@@ -378,21 +390,15 @@ pub fn token_stems(script: &CardScript) -> Vec<String> {
             out.push(CLUE_TOKEN_SCRIPT.to_string());
         }
     }
-    out
+    if let Some(back) = script.alternate.as_deref() {
+        collect_token_stems(back, out);
+    }
 }
 
-/// Every distinct mechanic a script touches, as flat strings.
-///
-/// This is the unit a coverage plan is built out of: `api:Token`,
-/// `param:Pump.Duration`, `kw:Equip`, `line:S`. It is deliberately *not*
-/// a list of what the transcoder refused — it names what the script
-/// *uses*, so that atoms already appearing in scripts the transcoder reads
-/// in full can be subtracted as known. That subtraction is what keeps the
-/// plan honest without restating each rule's parameter list here, where
-/// the copy would rot the first time a rule learned a new key.
-#[must_use]
-pub fn atoms(script: &CardScript) -> Vec<String> {
-    let mut out = Vec::new();
+fn collect_atoms(script: &CardScript, out: &mut Vec<String>) {
+    if let Some(mode) = &script.alternate_mode {
+        out.push(format!("alt:{mode}"));
+    }
     for line in &script.keywords {
         let head = line.split(':').next().unwrap_or(line);
         let head = head.split(' ').next().unwrap_or(head);
@@ -433,6 +439,24 @@ pub fn atoms(script: &CardScript) -> Vec<String> {
             }
         }
     }
+    if let Some(back) = script.alternate.as_deref() {
+        collect_atoms(back, out);
+    }
+}
+
+/// Every distinct mechanic a script touches, as flat strings.
+///
+/// This is the unit a coverage plan is built out of: `api:Token`,
+/// `param:Pump.Duration`, `kw:Equip`, `line:S`. It is deliberately *not*
+/// a list of what the transcoder refused — it names what the script
+/// *uses*, so that atoms already appearing in scripts the transcoder reads
+/// in full can be subtracted as known. That subtraction is what keeps the
+/// plan honest without restating each rule's parameter list here, where
+/// the copy would rot the first time a rule learned a new key.
+#[must_use]
+pub fn atoms(script: &CardScript) -> Vec<String> {
+    let mut out = Vec::new();
+    collect_atoms(script, &mut out);
     out.sort();
     out.dedup();
     out

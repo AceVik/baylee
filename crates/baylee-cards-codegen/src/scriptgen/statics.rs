@@ -342,63 +342,10 @@ impl Tx<'_> {
     fn static_svar_condition(&mut self, p: &mut Params) -> Option<String> {
         let var = p.take("CheckSVar")?;
         let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-        if cmp != "EQ0" {
-            return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
-        }
-        let Some(raw) = self
-            .svars
-            .get(var.trim())
-            .and_then(|s| s.trim().strip_prefix("Count$Valid "))
-        else {
+        let Some(clause) = self.svar_condition(&var, &cmp) else {
             return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
         };
-        let valid = match raw.split_once("/Plus.") {
-            None => raw.to_string(),
-            Some((first, second_var)) => {
-                let Some(second) = self
-                    .svars
-                    .get(second_var.trim())
-                    .and_then(|s| s.trim().strip_prefix("Count$Valid "))
-                else {
-                    return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
-                };
-                format!("{first},{second}")
-            }
-        };
-        if valid.contains('/') {
-            return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
-        }
-        let relative = valid.split(',').any(|alt| {
-            alt.split(['.', '+']).any(|a| {
-                matches!(
-                    a.trim(),
-                    "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy"
-                )
-            })
-        });
-        let yours = valid
-            .split(',')
-            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
-        let opps = valid
-            .split(',')
-            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"));
-        let nobodys = !valid
-            .split(',')
-            .flat_map(|alt| alt.split(['.', '+']))
-            .any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
-        if relative || (!yours && !opps && !nobodys) {
-            return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
-        }
-        let expr = self.filter_expr(&valid)?;
-        let name = self.body.filter_static("CHECK", &expr);
-        let variant = if yours {
-            "ControlCountAtMost"
-        } else {
-            "BattlefieldCountAtMost"
-        };
-        Some(format!(
-            ", condition = Some(Condition::{variant}(&{name}, 0))"
-        ))
+        Some(format!(", condition = Some({clause})"))
     }
 
     fn reveal_all_hands(&mut self, mut p: Params) -> Option<()> {

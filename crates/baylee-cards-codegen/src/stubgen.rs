@@ -641,19 +641,9 @@ fn render_face(
     card_name: &str,
     f: &FaceData,
     cats: &SubtypeCatalogs,
-    enter_modifiers: &[String],
-    alternative_costs: &[String],
-    flashback: Option<&str>,
-    flashback_parts: &[String],
-    madness: Option<&str>,
-    foretell: Option<&str>,
-    morph: Option<&str>,
-    cost_reduction: Option<&str>,
-    entwine: Option<&str>,
-    buyback: Option<&str>,
-    multikicker: Option<&str>,
-    additional_costs: &[String],
-    kicked_targets: Option<&str>,
+    body: Option<&CardBody>,
+    emit_face_rules: bool,
+    adventure: bool,
     is_back: bool,
     layout: Option<&str>,
 ) -> Result<String, CodegenError> {
@@ -694,58 +684,96 @@ fn render_face(
         &color_indicator_expr(card_name, f)?,
         "ColorSet::EMPTY",
     );
-    if !enter_modifiers.is_empty() {
-        fields.push(format!(
-            "enter_modifiers = &[{}]",
-            enter_modifiers.join(", ")
-        ));
+    if let Some(body) = body {
+        if !body.enter_modifiers.is_empty() {
+            fields.push(format!(
+                "enter_modifiers = &[{}]",
+                body.enter_modifiers.join(", ")
+            ));
+        }
+        if !body.alternative_costs.is_empty() {
+            fields.push(format!(
+                "alternative_costs = &[{}]",
+                body.alternative_costs.join(", ")
+            ));
+        }
+        if !body.mandatory_additional_costs.is_empty() {
+            fields.push(format!(
+                "mandatory_additional_costs = &[{}]",
+                body.mandatory_additional_costs.join(", ")
+            ));
+        }
+        if body.convoke {
+            fields.push("convoke = true".to_string());
+        }
+        if body.delve {
+            fields.push("delve = true".to_string());
+        }
+        if body.improvise {
+            fields.push("improvise = true".to_string());
+        }
+        if let Some(rep) = body.replicate.as_deref() {
+            fields.push(format!("replicate = {rep}"));
+        }
+        if let Some(dis) = body.disguise.as_deref() {
+            fields.push(format!("disguise = {dis}"));
+        }
+        if let Some(fb) = body.flashback.as_deref() {
+            fields.push(format!("flashback = {fb}"));
+        }
+        if !body.flashback_parts.is_empty() {
+            let parts = body
+                .flashback_parts
+                .iter()
+                .map(|part| format!("CostPart::{part}"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            fields.push(format!("flashback_parts = &[{parts}]"));
+        }
+        if let Some(madness) = body.madness.as_deref() {
+            fields.push(format!("madness = {madness}"));
+        }
+        if let Some(ft) = body.foretell.as_deref() {
+            fields.push(format!("foretell = {ft}"));
+        }
+        if let Some(morph) = body.morph.as_deref() {
+            fields.push(format!("morph = {morph}"));
+        }
+        if let Some(cr) = body.cost_reduction.as_deref() {
+            fields.push(format!("cost_reduction = {cr}"));
+        }
+        if let Some(e) = body.entwine.as_deref() {
+            fields.push(format!("entwine = {e}"));
+        }
+        if let Some(b) = body.buyback.as_deref() {
+            fields.push(format!("buyback = {b}"));
+        }
+        if let Some(m) = body.multikicker.as_deref() {
+            fields.push(format!("multikicker = {m}"));
+        }
+        if !body.additional_costs.is_empty() {
+            fields.push(format!(
+                "additional_costs = &[{}]",
+                body.additional_costs.join(", ")
+            ));
+        }
+        if let Some(kt) = body.kicked_targets.as_deref() {
+            fields.push(format!("kicked_targets = {kt}"));
+        }
+        if emit_face_rules && !body.keywords.is_empty() {
+            fields.push(format!("keywords = {}", join_union_owned(&body.keywords)));
+        }
+        if emit_face_rules && !body.abilities.is_empty() {
+            let mut list = String::from("abilities = &[\n");
+            for ability in &body.abilities {
+                list.push_str(&format!("            {ability},\n"));
+            }
+            list.push_str("        ]");
+            fields.push(list);
+        }
     }
-    if !alternative_costs.is_empty() {
-        fields.push(format!(
-            "alternative_costs = &[{}]",
-            alternative_costs.join(", ")
-        ));
-    }
-    if let Some(fb) = flashback {
-        fields.push(format!("flashback = {fb}"));
-    }
-    if !flashback_parts.is_empty() {
-        let parts = flashback_parts
-            .iter()
-            .map(|part| format!("CostPart::{part}"))
-            .collect::<Vec<_>>()
-            .join(", ");
-        fields.push(format!("flashback_parts = &[{parts}]"));
-    }
-    if let Some(madness) = madness {
-        fields.push(format!("madness = {madness}"));
-    }
-    if let Some(ft) = foretell {
-        fields.push(format!("foretell = {ft}"));
-    }
-    if let Some(morph) = morph {
-        fields.push(format!("morph = {morph}"));
-    }
-    if let Some(cr) = cost_reduction {
-        fields.push(format!("cost_reduction = {cr}"));
-    }
-    if let Some(e) = entwine {
-        fields.push(format!("entwine = {e}"));
-    }
-    if let Some(b) = buyback {
-        fields.push(format!("buyback = {b}"));
-    }
-    if let Some(m) = multikicker {
-        fields.push(format!("multikicker = {m}"));
-    }
-    if !additional_costs.is_empty() {
-        fields.push(format!(
-            "additional_costs = &[{}]",
-            additional_costs.join(", ")
-        ));
-    }
-    if let Some(kt) = kicked_targets {
-        fields.push(format!("kicked_targets = {kt}"));
+    if adventure {
+        fields.push("adventure = true".to_string());
     }
     // CR 712.2 vs. 712.4a: an MDFC's back is castable or playable from hand,
     // a nonmodal (transforming) one's back is not — in hand the card has
@@ -843,7 +871,7 @@ fn render_card_literal(
     );
 
     if let Some(land) = land {
-        if !land.keywords.is_empty() {
+        if land.back.is_none() && !land.keywords.is_empty() {
             fields.push(format!("keywords = {}", join_union_owned(&land.keywords)));
         }
         fields.push(read_coverage(tested).to_string());
@@ -855,6 +883,7 @@ fn render_card_literal(
     }
     out.push_str(&format!("    faces = &[\n{face_defs}    ],\n"));
     if let Some(land) = land
+        && land.back.is_none()
         && !land.abilities.is_empty()
     {
         out.push_str("    abilities = &[\n");
@@ -933,6 +962,7 @@ fn vanilla(faces: &[FaceData], script: &crate::scriptgen::CardScript) -> Option<
     })
 }
 
+#[cfg(test)]
 fn transcode_card(
     script: &crate::scriptgen::CardScript,
     type_line: &str,
@@ -943,6 +973,68 @@ fn transcode_card(
     if let Some(ability) = crate::landgen::intrinsic_mana_ability(type_line) {
         body.abilities.insert(0, ability);
         body.notes.insert(0, "intrinsic type mana".to_string());
+    }
+    Some(body)
+}
+
+fn transcode_faces(
+    card: &ScryfallCard,
+    faces: &[FaceData],
+    script: &crate::scriptgen::CardScript,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&crate::tokengen::TokenLookup>,
+) -> Option<CardBody> {
+    let mut body = crate::scriptgen::transcode(script, cats, tokens)?;
+    if body.has_partner {
+        let has_printed_partner = faces.iter().any(|f| {
+            f.oracle_text
+                .lines()
+                .any(|l| l == "Partner" || l.starts_with("Partner ("))
+        });
+        if !has_printed_partner {
+            return None;
+        }
+    }
+    if body.back.is_some() {
+        if faces.len() != 2 {
+            return None;
+        }
+        let layout_ok = matches!(
+            (script.alternate_mode.as_deref(), card.layout.as_deref()),
+            (Some("Split"), Some("split"))
+                | (Some("Adventure"), Some("adventure"))
+                | (Some("Modal"), Some("modal_dfc"))
+                | (Some("DoubleFaced"), Some("transform"))
+        );
+        if !layout_ok {
+            return None;
+        }
+        if let Some(ability) = crate::landgen::intrinsic_mana_ability(&faces[0].type_line) {
+            body.abilities.insert(0, ability);
+            body.notes.insert(0, "intrinsic type mana".to_string());
+        }
+        if let Some(back) = body.back.as_deref_mut()
+            && let Some(ability) = crate::landgen::intrinsic_mana_ability(&faces[1].type_line)
+        {
+            back.abilities.insert(0, ability);
+            body.notes.insert(0, "intrinsic type mana".to_string());
+        }
+        if !body.has_own_rules() && !faces[0].oracle_text.trim().is_empty() {
+            return None;
+        }
+        if body.back.as_deref().is_some_and(|b| !b.has_own_rules())
+            && !faces[1].oracle_text.trim().is_empty()
+        {
+            return None;
+        }
+    } else {
+        if faces.len() != 1 {
+            return None;
+        }
+        if let Some(ability) = crate::landgen::intrinsic_mana_ability(&faces[0].type_line) {
+            body.abilities.insert(0, ability);
+            body.notes.insert(0, "intrinsic type mana".to_string());
+        }
     }
     Some(body)
 }
@@ -1870,6 +1962,155 @@ mod tests {
         assert!(
             rendered.contains("coverage = Coverage::Generated"),
             "{rendered}"
+        );
+    }
+
+    #[test]
+    fn split_card_renders_face_local_abilities() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("split.txt"),
+            "Name:Alpha\nManaCost:R\nTypes:Sorcery\n\
+             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2\n\
+             AlternateMode:Split\n\
+             ALTERNATE\n\
+             Name:Beta\nManaCost:1 U\nTypes:Instant\n\
+             A:SP$ Draw | NumCards$ 1\n",
+        )
+        .expect("split script");
+        let mut index = BTreeMap::new();
+        index.insert("Alpha // Beta".to_string(), "split.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let split_card = ScryfallCard {
+            name: "Alpha // Beta".to_string(),
+            layout: Some("split".to_string()),
+            card_faces: Some(vec![
+                ScryfallFace {
+                    watermark: None,
+                    name: "Alpha".to_string(),
+                    mana_cost: Some("{R}".to_string()),
+                    type_line: Some("Sorcery".to_string()),
+                    oracle_text: Some("Alpha deals 2 damage to any target.".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+                ScryfallFace {
+                    watermark: None,
+                    name: "Beta".to_string(),
+                    mana_cost: Some("{1}{U}".to_string()),
+                    type_line: Some("Instant".to_string()),
+                    oracle_text: Some("Draw a card.".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+            ]),
+            ..bare_card("Alpha // Beta", "Sorcery // Instant")
+        };
+        let (_, rendered_split) = render_stub(
+            &split_card,
+            &row(10, "ALPHA"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .unwrap();
+        assert!(
+            rendered_split.contains("coverage = Coverage::Generated"),
+            "{rendered_split}"
+        );
+        assert_eq!(
+            rendered_split.matches("        abilities = &[\n").count(),
+            2,
+            "{rendered_split}"
+        );
+        assert!(
+            !rendered_split.contains("\n    abilities = &[\n"),
+            "{rendered_split}"
+        );
+    }
+
+    #[test]
+    fn adventure_card_renders_face_local_abilities() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("adv.txt"),
+            "Name:Knight\nManaCost:2 W\nTypes:Creature\nPT:2/2\nK:Flying\n\
+             AlternateMode:Adventure\n\
+             ALTERNATE\n\
+             Name:Quest\nManaCost:W\nTypes:Instant Adventure\n\
+             A:SP$ GainLife | LifeAmount$ 3\n",
+        )
+        .expect("adv script");
+        let mut index = BTreeMap::new();
+        index.insert("Knight // Quest".to_string(), "adv.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let adv_card = ScryfallCard {
+            name: "Knight // Quest".to_string(),
+            layout: Some("adventure".to_string()),
+            card_faces: Some(vec![
+                ScryfallFace {
+                    watermark: None,
+                    name: "Knight".to_string(),
+                    mana_cost: Some("{2}{W}".to_string()),
+                    type_line: Some("Creature".to_string()),
+                    oracle_text: Some("Flying".to_string()),
+                    power: Some("2".to_string()),
+                    toughness: Some("2".to_string()),
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+                ScryfallFace {
+                    watermark: None,
+                    name: "Quest".to_string(),
+                    mana_cost: Some("{W}".to_string()),
+                    type_line: Some("Instant".to_string()),
+                    oracle_text: Some("You gain 3 life.".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+            ]),
+            ..bare_card("Knight // Quest", "Creature // Instant")
+        };
+        let (_, rendered_adv) = render_stub(
+            &adv_card,
+            &row(11, "KNIGHT"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .unwrap();
+        assert!(
+            rendered_adv.contains("coverage = Coverage::Generated"),
+            "{rendered_adv}"
+        );
+        assert!(
+            rendered_adv.contains("keywords = KeywordSet::FLYING"),
+            "{rendered_adv}"
+        );
+        assert!(rendered_adv.contains("adventure = true"), "{rendered_adv}");
+        assert!(
+            !rendered_adv.contains("\n    abilities = &[\n"),
+            "{rendered_adv}"
         );
     }
 }

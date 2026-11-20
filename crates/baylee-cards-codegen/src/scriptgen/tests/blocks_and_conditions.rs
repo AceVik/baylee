@@ -200,10 +200,28 @@ fn damage_triggers_read_whose_damage_and_to_whom() {
         "{:?}",
         fungusaur.abilities
     );
+    let player_dealt = read(
+        "Name:X\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ DamageDoneOnce | ValidTarget$ You | Execute$ C\n\
+         SVar:C:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        player_dealt
+            .abilities
+            .join("")
+            .contains("Trigger::PlayerDealtDamage(PlayerRel::You)")
+    );
+    let noncombat_player = read(
+        "Name:X\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ C\n\
+         SVar:C:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(noncombat_player.abilities.join("").contains(
+        "Trigger::DealsDamageToPlayer { source: &Filter::This, player: PlayerRel::EachPlayer }"
+    ));
     for refused_line in [
-        "T:Mode$ DamageDoneOnce | ValidTarget$ You | Execute$ C",
+        "T:Mode$ DamageDoneOnce | ValidTarget$ You | CombatDamage$ True | Execute$ C",
         "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Creature | Execute$ C",
-        "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ C",
     ] {
         assert!(
             refused(&format!(

@@ -33,6 +33,7 @@ pub fn cost_literal(mana: &str, parts: &[String]) -> String {
 
 /// The generated body of one recognised card.
 #[derive(Debug, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct CardBody {
     /// Extra `static` items (filters) to emit above the card literal.
     pub statics: String,
@@ -40,6 +41,18 @@ pub struct CardBody {
     pub enter_modifiers: Vec<String>,
     /// `AlternativeCost` expressions for the front face.
     pub alternative_costs: Vec<String>,
+    /// Mandatory additional `CostPart` expressions (`CostPart::…`) for a spell face.
+    pub mandatory_additional_costs: Vec<String>,
+    /// `convoke = true` on the face, when present.
+    pub convoke: bool,
+    /// `delve = true` on the face, when present.
+    pub delve: bool,
+    /// `improvise = true` on the face, when present.
+    pub improvise: bool,
+    /// `replicate` expression for the face, when present.
+    pub replicate: Option<String>,
+    /// `disguise` expression for the face, when present.
+    pub disguise: Option<String>,
     /// `flashback` expression for the front face, when present.
     pub flashback: Option<String>,
     /// Bare `CostPart` expressions accompanying `flashback`, before the
@@ -65,19 +78,32 @@ pub struct CardBody {
     pub kicked_targets: Option<String>,
     /// `KeywordSet` constants to union.
     pub keywords: Vec<String>,
-    /// Ability expressions for the card literal.
+    /// Ability expressions for the card literal (or face 0 on a two-faced card).
     pub abilities: Vec<String>,
+    /// Second face body when a card has two transcoded faces (`Split`,
+    /// `Adventure`, `Modal`, `DoubleFaced`). `None` for single-faced cards.
+    pub back: Option<Box<Self>>,
+    /// Whether `back` is an Adventure face (CR 716, `FaceDef::adventure`).
+    pub back_is_adventure: bool,
+    /// Whether the script declares bare `K:Partner` (emitted on `CardDef::partner`).
+    pub has_partner: bool,
     /// Short human notes for the `// IMPLEMENTED — …` line.
     pub notes: Vec<String>,
 }
 
 impl CardBody {
-    /// Whether anything at all was read.
+    /// Whether this face itself carries any rules (ignoring `back`).
     #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.abilities.is_empty()
+    pub fn has_own_rules(&self) -> bool {
+        !(self.abilities.is_empty()
             && self.enter_modifiers.is_empty()
             && self.alternative_costs.is_empty()
+            && self.mandatory_additional_costs.is_empty()
+            && !self.convoke
+            && !self.delve
+            && !self.improvise
+            && self.replicate.is_none()
+            && self.disguise.is_none()
             && self.flashback.is_none()
             && self.madness.is_none()
             && self.foretell.is_none()
@@ -89,6 +115,13 @@ impl CardBody {
             && self.additional_costs.is_empty()
             && self.kicked_targets.is_none()
             && self.keywords.is_empty()
+            && !self.has_partner)
+    }
+
+    /// Whether anything at all was read.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        !self.has_own_rules() && self.back.is_none()
     }
 
     /// Declares a `static <NAME>: Filter = <expr>;` and returns its name.

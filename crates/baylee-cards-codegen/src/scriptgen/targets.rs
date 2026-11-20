@@ -367,6 +367,11 @@ impl Tx<'_> {
                     "YouDontCtrl" => "Filter::Not(&Filter::ControlledByYou)".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
                     "ActivePlayerCtrl" => "Filter::ControlledByActivePlayer".to_string(),
+                    "ControlledBy TriggeredPlayer"
+                        if self.trigger_mode.as_deref() == Some("Phase") =>
+                    {
+                        "Filter::ControlledByActivePlayer".to_string()
+                    }
                     "YouOwn" => "Filter::OwnedByYou".to_string(),
                     "Other" | "StrictlyOther" => "Filter::Another".to_string(),
                     "Self" => "Filter::This".to_string(),
@@ -700,12 +705,33 @@ impl Tx<'_> {
             // The player a damage trigger's damage was dealt to: the
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.
-            "TriggeredTarget" if trigger == Some("DamageDone") => "PlayerRel::DamagedPlayer",
+            "TriggeredTarget" if matches!(trigger, Some("DamageDone" | "DamageDoneOnce")) => {
+                "PlayerRel::DamagedPlayer"
+            }
             "TriggeredTargetController" if trigger == Some("DamageDone") => {
                 "PlayerRel::ControllerOfEvent"
             }
+            "TriggeredBlockerController" if trigger == Some("Blocks") => {
+                "PlayerRel::ControllerOfEvent"
+            }
+            "TriggeredPlayer"
+                if matches!(
+                    trigger,
+                    Some(
+                        "LifeGained" | "LifeLost" | "Discarded" | "LandPlayed" | "SearchedLibrary"
+                    )
+                ) =>
+            {
+                "PlayerRel::EventPlayer"
+            }
+            "TriggeredCardOwner" | "TriggeredCardController" if trigger == Some("Discarded") => {
+                "PlayerRel::EventPlayer"
+            }
             "TriggeredDefendingPlayer"
-                if matches!(trigger, Some("Attacks" | "AttackerBlocked")) =>
+                if matches!(
+                    trigger,
+                    Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                ) =>
             {
                 "PlayerRel::DefendingPlayer"
             }

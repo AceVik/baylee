@@ -264,6 +264,23 @@ impl Tx<'_> {
         {
             return Some("Amount::EventAmount".to_string());
         }
+        if def.trim() == "TriggerCount$LifeAmount"
+            && matches!(
+                self.trigger_mode.as_deref(),
+                Some("LifeGained" | "LifeLost")
+            )
+        {
+            return Some("Amount::EventAmount".to_string());
+        }
+        if def.trim() == "Count$CardsInYourHand" {
+            return Some("Amount::HandSize(PlayerRel::You)".to_string());
+        }
+        if def.trim() == "Count$LifeYouGainedThisTurn" {
+            return Some("Amount::LifeGainedThisTurn(PlayerRel::You)".to_string());
+        }
+        if def.trim() == "Count$YourLifeTotal" {
+            return Some("Amount::LifeTotal(PlayerRel::You)".to_string());
+        }
         if def.trim() == "Targeted$CardToughness" {
             return Some("Amount::TargetToughness".to_string());
         }
@@ -292,15 +309,22 @@ impl Tx<'_> {
                     .to_string(),
             );
         }
-        if let Some(valid) = def.trim().strip_prefix("Count$ValidGraveyard ")
-            && !valid.contains("Ctrl")
-            && !valid.contains("Own")
-        {
-            let expr = self.filter_expr(valid)?;
-            let name = self.body.filter_static("COUNT", &expr);
-            return Some(format!(
-                "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardAll }}"
-            ));
+        if let Some(valid) = def.trim().strip_prefix("Count$ValidGraveyard ") {
+            if !valid.contains("Ctrl") && !valid.contains("Own") {
+                let expr = self.filter_expr_in_zone(valid, true)?;
+                let name = self.body.filter_static("COUNT", &expr);
+                return Some(format!(
+                    "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardAll }}"
+                ));
+            }
+            if let Some(stripped) = Self::strip_your_graveyard_owner(valid) {
+                let expr = self.filter_expr_in_zone(&stripped, true)?;
+                let name = self.body.filter_static("COUNT", &expr);
+                return Some(format!(
+                    "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}"
+                ));
+            }
+            return None;
         }
         let valid = def.trim().strip_prefix("Count$Valid ")?;
         let (valid, factor) = match valid.split_once("/Times.") {
@@ -386,6 +410,39 @@ impl Tx<'_> {
     /// [`amount`], or else a count of permanents ([`Self::count_expr`]):
     /// Karma's "damage equal to the number of Swamps they control". A count
     /// is read as the ability resolves, like every other `Amount`.
+    /// Strips `.YouOwn` / `+YouOwn` / `.YouCtrl` / `+YouCtrl` from every
+    /// comma-separated alternative in a graveyard filter; returns `None` if
+    /// any alternative does not scope to you or carries another player atom.
+    pub(super) fn strip_your_graveyard_owner(valid: &str) -> Option<String> {
+        let mut cleaned_alts = Vec::new();
+        for alt in valid.split(',') {
+            let mut parts = alt
+                .split('.')
+                .flat_map(|s| s.split('+'))
+                .map(str::trim)
+                .filter(|a| !a.is_empty());
+            let base = parts.next()?;
+            let mut has_you = false;
+            let mut kept = Vec::new();
+            for atom in parts {
+                match atom {
+                    "YouOwn" | "YouCtrl" => has_you = true,
+                    other if other.contains("Ctrl") || other.contains("Own") => return None,
+                    other => kept.push(other),
+                }
+            }
+            if !has_you {
+                return None;
+            }
+            if kept.is_empty() {
+                cleaned_alts.push(base.to_string());
+            } else {
+                cleaned_alts.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        (!cleaned_alts.is_empty()).then(|| cleaned_alts.join(","))
+    }
+
     pub(super) fn amount_or_count(&mut self, raw: &str) -> Option<String> {
         if let Some(n) = self.amount_num(raw) {
             return Some(n);
