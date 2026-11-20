@@ -544,7 +544,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Goblin, Pilgrim of Justice, Pilgrim of Virtue, Rampant Elephant, Sand
     // Squid, Story Circle, Swooping Talon, Walking Desecration, Whirling
     // Catapult): 3 read and 9 remaining contextual.
-    assert_eq!((read, of), (3222, 4099), "activated/loyalty reader census");
+    // Completing 18 newly readable pool stubs adds 3 activated abilities across
+    // Battlefield Medic, Circle of Solace, and Knight of the Reliquary: 1 read
+    // and 2 remaining contextual.
+    assert_eq!((read, of), (3223, 4102), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

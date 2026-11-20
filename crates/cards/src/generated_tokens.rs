@@ -3090,6 +3090,201 @@ pub static SPIRIT_1_1_WHITE_BLACK_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 black Wizard.
+pub static WIZARD_0_1_BLACK_AC10C40F2: TokenDef = TokenDef {
+    name: "Wizard",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WIZARD],
+    power: Some(0),
+    toughness: Some(1),
+    abilities: &[triggered!(
+        Trigger::SpellCast(&Filter::And(&[
+            Filter::NONCREATURE,
+            Filter::ControlledByYou
+        ])),
+        &[Effect::DealDamage {
+            amount: Amount::Fixed(1),
+            target: TargetSpec::Player(PlayerRel::Opponent)
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 0/0 colorless artifact Construct.
+pub static CONSTRUCT_ARTIFACT_0_0_A47644F8C: TokenDef = TokenDef {
+    name: "Construct",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::CONSTRUCT],
+    power: Some(0),
+    toughness: Some(0),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::ModifyPTByCount(PtCount::YouControl(&Filter::YOUR_ARTIFACT))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless artifact Phyrexian Mite with toxic 1.
+pub static PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47: TokenDef = TokenDef {
+    name: "Phyrexian Mite",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::PHYREXIAN, creature::MITE],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[
+        AbilityDef::Toxic { poison: 1 },
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::This]),
+            Modifier::AddKeyword(KeywordSet::CANT_BLOCK)
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless artifact Tetravite with flying.
+pub static TETRAVITE_ARTIFACT_1_1_FLYING_A3DB0257E: TokenDef = TokenDef {
+    name: "Tetravite",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::TETRAVITE],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    abilities: &[static_ability!(Filter::This, Modifier::CantBeEnchanted)],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless Pilot.
+pub static PILOT_1_1_A462BBD00: TokenDef = TokenDef {
+    name: "Pilot",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PILOT],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::CrewSaddlePowerBonus(2)
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless Spirit.
+pub static SPIRIT_1_1_A22A1974D: TokenDef = TokenDef {
+    name: "Spirit",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIRIT],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[
+        static_ability!(
+            Filter::And(&[
+                Filter::CREATURE,
+                Filter::Not(&Filter::HasSubtype(creature::SPIRIT))
+            ]),
+            Modifier::CantBeBlockedBy(&Filter::And(&[Filter::CREATURE, Filter::This]))
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::This]),
+            Modifier::CantBeBlockedBy(&Filter::And(&[
+                Filter::CREATURE,
+                Filter::Not(&Filter::HasSubtype(creature::SPIRIT))
+            ]))
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Junk.
+pub static JUNK_ADF9DDBB8: TokenDef = TokenDef {
+    name: "Junk",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[artifact::JUNK],
+    abilities: &[activated!(
+        cost!(TapSelf, SacrificeSelf),
+        &[Effect::ExileTopToPlay {
+            who: PlayerRel::You,
+            play: ExilePlay {
+                count: 1,
+                window: PlayWindow::ThisTurn,
+                free: false,
+                mana_any_type: false,
+                spell_types: None
+            }
+        }],
+        timing = ActivationTiming::SorcerySpeed
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Splinter with cumulative upkeep g and flying.
+pub static SPLINTER_1_1_GREEN_CUMULATIVE_UPKEEP_G_FLYING: TokenDef = TokenDef {
+    name: "Splinter",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPLINTER],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    abilities: &[triggered!(
+        Trigger::StepBegin {
+            step: StepKind::Upkeep,
+            whose: PlayerRel::You
+        },
+        &[
+            Effect::AddCounter {
+                kind: counters::AGE,
+                amount: Amount::Fixed(1)
+            },
+            Effect::PlayerMayPayManaEachThenElse {
+                player: PlayerRel::You,
+                each: mana!("{G}"),
+                times: Amount::CountersOnSource(counters::AGE),
+                paid: &[],
+                unpaid: &[Effect::SacrificeSelf]
+            }
+        ],
+        condition = Some(Condition::SourceMatches(&Filter::InZone(
+            ZoneRef::Battlefield
+        )))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// */* white green Elemental.
+pub static ELEMENTAL_X_X_WHITE_GREEN_A89F4D877: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::White, Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::CharacteristicPT {
+            count: PtCount::YouControl(&Filter::YOUR_CREATURE),
+            toughness_plus: 0
+        }
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// */* white artifact Gnome Soldier.
+pub static GNOME_SOLDIER_ARTIFACT_X_X_WHITE_A45F32D9B: TokenDef = TokenDef {
+    name: "Gnome Soldier",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::GNOME, creature::SOLDIER],
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::CharacteristicPT {
+            count: PtCount::YouControl(&Filter::Or(&[
+                Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou]),
+                Filter::And(&[Filter::CREATURE, Filter::ControlledByYou])
+            ])),
+            toughness_plus: 0
+        }
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -4118,6 +4313,16 @@ pub static ALL: &[&TokenDef] = &[
     &KNIGHT_2_2_WHITE_FIRST_STRIKE,
     &ELEMENTAL_5_5_BLACK_RED,
     &SPIRIT_1_1_WHITE_BLACK_FLYING,
+    &WIZARD_0_1_BLACK_AC10C40F2,
+    &CONSTRUCT_ARTIFACT_0_0_A47644F8C,
+    &PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47,
+    &TETRAVITE_ARTIFACT_1_1_FLYING_A3DB0257E,
+    &PILOT_1_1_A462BBD00,
+    &SPIRIT_1_1_A22A1974D,
+    &JUNK_ADF9DDBB8,
+    &SPLINTER_1_1_GREEN_CUMULATIVE_UPKEEP_G_FLYING,
+    &ELEMENTAL_X_X_WHITE_GREEN_A89F4D877,
+    &GNOME_SOLDIER_ARTIFACT_X_X_WHITE_A45F32D9B,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -4360,4 +4565,14 @@ pub static GENERATED: &[&TokenDef] = &[
     &KNIGHT_2_2_WHITE_FIRST_STRIKE,
     &ELEMENTAL_5_5_BLACK_RED,
     &SPIRIT_1_1_WHITE_BLACK_FLYING,
+    &WIZARD_0_1_BLACK_AC10C40F2,
+    &CONSTRUCT_ARTIFACT_0_0_A47644F8C,
+    &PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47,
+    &TETRAVITE_ARTIFACT_1_1_FLYING_A3DB0257E,
+    &PILOT_1_1_A462BBD00,
+    &SPIRIT_1_1_A22A1974D,
+    &JUNK_ADF9DDBB8,
+    &SPLINTER_1_1_GREEN_CUMULATIVE_UPKEEP_G_FLYING,
+    &ELEMENTAL_X_X_WHITE_GREEN_A89F4D877,
+    &GNOME_SOLDIER_ARTIFACT_X_X_WHITE_A45F32D9B,
 ];
