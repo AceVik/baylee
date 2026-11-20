@@ -565,7 +565,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // 182 read by the table and 81 remaining contextual.
     // Batch wave 7 (225 pre-WAR generated cards) adds 60 non-mana activations:
     // 49 read by the table and 11 remaining contextual.
-    assert_eq!((read, of), (3715, 4778), "activated/loyalty reader census");
+    // Revert Fang Skulkin to a canonical stub pending WITHER enforcement
+    // (-1 read, -1 of).
+    assert_eq!((read, of), (3714, 4777), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

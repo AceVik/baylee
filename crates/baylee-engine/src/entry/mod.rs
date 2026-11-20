@@ -64,7 +64,7 @@ struct AfterEntry {
     remaining: u32,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 struct Attempt {
     object: ObjectId,
     version: u32,
@@ -93,6 +93,65 @@ struct Attempt {
     next_counter: usize,
     copy: CopyStatus,
     preview_effects: Vec<baylee_core::ids::EffectId>,
+}
+
+impl Hash for Attempt {
+    fn hash<H: Hasher>(&self, h: &mut H) {
+        let Self {
+            object,
+            version,
+            controller,
+            putter,
+            applied,
+            tapped,
+            sacrifices_after,
+            own_first,
+            position,
+            cause,
+            modifiers,
+            next,
+            refusal,
+            sacrifices,
+            chosen_number,
+            battle_protector,
+            saga_chapter,
+            counters,
+            counter_plans,
+            counters_prepared,
+            counter_caps,
+            next_counter,
+            copy,
+            preview_effects,
+        } = self;
+        object.hash(h);
+        version.hash(h);
+        controller.hash(h);
+        putter.hash(h);
+        applied.hash(h);
+        tapped.hash(h);
+        sacrifices_after.hash(h);
+        own_first.hash(h);
+        position.hash(h);
+        cause.hash(h);
+        modifiers.hash(h);
+        next.hash(h);
+        refusal.hash(h);
+        sacrifices.hash(h);
+        chosen_number.hash(h);
+        battle_protector.hash(h);
+        // Folded in only when set (Read-Ahead Sagas, CR 702.155b), preserving
+        // recorded hashes on entries that never choose a starting chapter.
+        if let Some(chapter) = saga_chapter {
+            chapter.hash(h);
+        }
+        counters.hash(h);
+        counter_plans.hash(h);
+        counters_prepared.hash(h);
+        counter_caps.hash(h);
+        next_counter.hash(h);
+        copy.hash(h);
+        preview_effects.hash(h);
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

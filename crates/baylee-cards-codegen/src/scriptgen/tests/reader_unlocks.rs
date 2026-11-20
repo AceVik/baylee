@@ -1354,16 +1354,22 @@ fn wave4_svar_conditions_damage_pump_and_second_destroy() {
         calm.abilities[0]
     );
 
-    let wither_pump = read(
+    let deathtouch_pump = read(
         "Name:BlightBlade\nManaCost:1 B\nTypes:Instant\n\
-         A:SP$ Pump | ValidTgts$ Creature | KW$ Wither | Duration$ UntilEndOfCombat",
+         A:SP$ Pump | ValidTgts$ Creature | KW$ Deathtouch | Duration$ UntilEndOfCombat",
     );
     assert!(
-        wither_pump.abilities[0].contains("KeywordSet::WITHER")
-            && wither_pump.abilities[0].contains("Duration::UntilEndOfCombat"),
+        deathtouch_pump.abilities[0].contains("KeywordSet::DEATHTOUCH")
+            && deathtouch_pump.abilities[0].contains("Duration::UntilEndOfCombat"),
         "{}",
-        wither_pump.abilities[0]
+        deathtouch_pump.abilities[0]
     );
+    for unenforced in ["Wither", "Horsemanship", "Skulk"] {
+        assert!(refused(&format!(
+            "Name:GateTest\nManaCost:1 B\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | KW$ {unenforced} | Duration$ UntilEndOfCombat"
+        )));
+    }
 
     // Second-target `Destroy` emits `DestroyTargetSlots { targets: &[TargetSlot::Second], .. }`.
     let twin_kill = read(

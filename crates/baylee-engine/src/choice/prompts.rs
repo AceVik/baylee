@@ -705,8 +705,6 @@ pub enum YesNoPrompt {
     },
     /// Kicker/additional cost yes-or-no at cast time.
     Kicker,
-    /// Bargain optional additional cost yes-or-no at cast time (CR 702.166a).
-    Bargain,
     /// "Pay {N}?" for a tax trigger (Rhystic Study & co.).
     PayTax {
         /// Generic mana to pay.
@@ -879,6 +877,9 @@ pub enum YesNoPrompt {
         /// Non-mana parts of this kicker cost, if any.
         parts: BuybackParts,
     },
+    /// Bargain optional additional cost yes-or-no at cast time (CR 702.166a).
+    /// Appended to preserve replay identities.
+    Bargain,
 }
 
 impl YesNoPrompt {

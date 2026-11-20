@@ -551,9 +551,6 @@ impl Tx<'_> {
                 "HIDDEN CARDNAME can't block." => "KeywordSet::CANT_BLOCK",
                 "HIDDEN CARDNAME can't attack." => "KeywordSet::CANT_ATTACK",
                 "HIDDEN CARDNAME can't be blocked." => "KeywordSet::UNBLOCKABLE",
-                "Wither" => "KeywordSet::WITHER",
-                "Horsemanship" => "KeywordSet::HORSEMANSHIP",
-                "Skulk" => "KeywordSet::SKULK",
                 "Provoke" => "KeywordSet::PROVOKE",
                 other => keyword_const(other)?,
             };

@@ -23815,14 +23815,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Riding Red Hare
-    &[FaceLines {
-        sentences: 1,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Rockslide Ambush
     &[FaceLines {
@@ -55573,14 +55566,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Fang Skulkin
-    &[FaceLines {
-        sentences: 1,
-        stackable: 1,
-        lines: &[Some(0)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Favor of the Overbeing
     &[FaceLines {
         sentences: 3,
