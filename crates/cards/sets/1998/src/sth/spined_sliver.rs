@@ -8,7 +8,7 @@ use baylee_core::generated::subtypes;
 
 static TRIGGER1: Filter = Filter::HasSubtype(subtypes::creature::SLIVER);
 
-static COUNT2: Filter = Filter::And(&[Filter::CREATURE, Filter::BlockingSource]);
+static COUNT2: Filter = Filter::And(&[Filter::CREATURE, Filter::BlockingReference]);
 
 card!(
     index = index::SPINED_SLIVER,
