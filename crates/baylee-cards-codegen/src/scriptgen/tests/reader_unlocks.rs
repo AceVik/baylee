@@ -1524,3 +1524,267 @@ fn wave5_reduce_cost_and_spell_prevention() {
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You,Opponent | Prevent$ True"
     ));
 }
+
+#[test]
+fn wave6_copy_permanent_become_copy_and_copy_spell_ability() {
+    let token_copy = read(
+        "Name:MirrorSpark\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ CopyPermanent | ValidTgts$ Creature.YouCtrl | NumCopies$ 2 | NonLegendary$ True | SetPower$ 3 | SetToughness$ 3 | SetColor$ Red | SetCreatureTypes$ Goblin | AddKeywords$ Haste | TokenTapped$ True | TokenAttacking$ True | PumpKeywords$ Haste | AtEOT$ Exile",
+    );
+    let a = &token_copy.abilities[0];
+    assert!(a.contains("Effect::CreateTokenCopy"), "{a}");
+    assert!(a.contains("amount: Amount::Fixed(2)"), "{a}");
+    assert!(
+        a.contains("CopyMod::RemoveSupertype(SupertypeSet::LEGENDARY)"),
+        "{a}"
+    );
+    assert!(a.contains("CopyMod::SetPT(3, 3)"), "{a}");
+    assert!(
+        a.contains("CopyMod::SetColor(ColorSet::from_slice(&[Color::Red]))"),
+        "{a}"
+    );
+    assert!(
+        a.contains("CopyMod::SetCreatureTypes(&[subtypes::creature::GOBLIN])"),
+        "{a}"
+    );
+    assert!(
+        a.contains("tapped: true, attacking: true, haste_until_eot: true"),
+        "{a}"
+    );
+    assert!(
+        a.contains("cleanup: CopyCleanup::ExileAtNextEndStep"),
+        "{a}"
+    );
+
+    let pop =
+        read("Name:SeedSong\nManaCost:W\nTypes:Sorcery\nA:SP$ CopyPermanent | Populate$ True");
+    assert!(pop.abilities[0].contains("Effect::ChooseAndCreateTokenCopy"));
+
+    let kicked_copy = read(
+        "Name:ReplicateWave\nManaCost:2 U U\nTypes:Sorcery\nK:Kicker:5\n\
+         A:SP$ CopyPermanent | ValidTgts$ Creature | NumCopies$ X\nSVar:X:Count$Kicked.5.1",
+    );
+    assert!(
+        kicked_copy.abilities[0].contains("Effect::IfKicked")
+            && kicked_copy.abilities[0].contains("Amount::Fixed(5)"),
+        "{}",
+        kicked_copy.abilities[0]
+    );
+
+    let clone_gy = read(
+        "Name:ShiftLooter\nManaCost:U B\nTypes:Legendary Creature Shapeshifter\nPT:1/3\n\
+         A:AB$ Clone | Cost$ 2 | ValidTgts$ Creature.YouOwn | TgtZone$ Graveyard | NewName$ ShiftLooter | AddTypes$ Legendary | GainThisAbility$ True | Duration$ UntilEndOfTurn",
+    );
+    let a = &clone_gy.abilities[0];
+    assert!(a.contains("Effect::BecomeCopy"), "{a}");
+    assert!(a.contains("CopyMod::SetName(\"ShiftLooter\")"), "{a}");
+    assert!(a.contains("CopyMod::KeepResolvingAbility"), "{a}");
+    assert!(a.contains("until_eot: true"), "{a}");
+
+    let dual_clone = read(
+        "Name:TwinMask\nManaCost:1 G U\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 0 | SubAbility$ Make\n\
+         SVar:Make:DB$ Clone | CloneTarget$ ParentTarget | ValidTgts$ Creature | TargetUnique$ True | Duration$ UntilEndOfTurn",
+    );
+    assert!(dual_clone.abilities[0].contains("original_is_second_target: true"));
+
+    let mirror_all = read(
+        "Name:WeaveAll\nManaCost:2 U U\nTypes:Instant\n\
+         A:SP$ Clone | ValidTgts$ Creature.nonLegendary | CloneTarget$ Valid Creature | Duration$ UntilEndOfTurn",
+    );
+    assert!(mirror_all.abilities[0].contains("subject_filter: Some(&Filter::CREATURE)"));
+
+    let copy_spell = read(
+        "Name:DualFork\nManaCost:U U\nTypes:Instant\n\
+         A:SP$ CopySpellAbility | ValidTgts$ Card | TargetType$ Spell,Activated,Triggered | NumCopies$ 2 | NonLegendary$ True",
+    );
+    let a = &copy_spell.abilities[0];
+    assert!(a.contains("Effect::CopySpellOrAbility"), "{a}");
+    assert!(a.contains("may_choose_new_targets: false"), "{a}");
+    assert!(
+        a.contains("CopyMod::RemoveSupertype(SupertypeSet::LEGENDARY)"),
+        "{a}"
+    );
+
+    assert!(refused(
+        "Name:BadPow\nTypes:Sorcery\nA:SP$ CopyPermanent | ValidTgts$ Creature | SetPower$ 2"
+    ));
+}
+
+#[test]
+fn wave6_flip_coin_roll_dice_and_triggers() {
+    let flip = read(
+        "Name:CoinBreaker\nManaCost:1 R\nTypes:Creature Goblin\nPT:1/1\n\
+         A:AB$ FlipCoin | Cost$ R T | ValidTgts$ Artifact | WinSubAbility$ Win | LoseSubAbility$ Lose\n\
+         SVar:Win:DB$ Destroy | Defined$ Targeted\n\
+         SVar:Lose:DB$ Sacrifice | Defined$ Self",
+    );
+    let a = &flip.abilities[0];
+    assert!(
+        a.contains("Effect::FlipCoin { won: &[Effect::destroy("),
+        "{a}"
+    );
+    assert!(a.contains("lost: &[Effect::SacrificeSelf]"), "{a}");
+
+    let until_lose = read(
+        "Name:ChaosEye\nManaCost:4 R\nTypes:Creature Goblin\nPT:3/3\n\
+         T:Mode$ FlippedCoin | ValidPlayer$ You | ValidResult$ Win | TriggerZones$ Battlefield | Execute$ Draw\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         A:AB$ FlipCoin | Cost$ T | FlipUntilYouLose$ True | RememberNumber$ Wins | SubAbility$ Gain\n\
+         SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ Wins",
+    );
+    assert!(
+        until_lose.abilities[0]
+            .contains("Trigger::CoinFlipped { who: PlayerRel::You, outcome: Some(true) }"),
+        "{}",
+        until_lose.abilities[0]
+    );
+    assert!(
+        until_lose.abilities[1].contains("Effect::FlipUntilLose")
+            && until_lose.abilities[1].contains("Amount::CoinsWonThisResolution"),
+        "{}",
+        until_lose.abilities[1]
+    );
+
+    let d20 = read(
+        "Name:DungeonRogue\nManaCost:2 B\nTypes:Creature Goblin\nPT:2/2\n\
+         A:AB$ RollDice | Cost$ 2 | Sides$ 20 | ResultSubAbilities$ 1-9:Low,10-19:Mid,20:Crit\n\
+         SVar:Low:DB$ GainLife | Defined$ You | LifeAmount$ 1\n\
+         SVar:Mid:DB$ GainLife | Defined$ You | LifeAmount$ 2\n\
+         SVar:Crit:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    let a = &d20.abilities[0];
+    assert!(
+        a.contains("Effect::RollDice { count: Amount::Fixed(1), sides: 20, modifier: 0 }"),
+        "{a}"
+    );
+    assert!(
+        a.contains("Effect::IfDieRollInRange { min: 1, max: 9"),
+        "{a}"
+    );
+    assert!(a.contains("min: 20, max: 20"), "{a}");
+
+    let roll_val = read(
+        "Name:DiceSquirrel\nManaCost:1 G\nTypes:Creature Goblin\nPT:1/1\n\
+         A:AB$ RollDice | Cost$ T | ResultSVar$ Result | SubAbility$ Pump\n\
+         SVar:Pump:DB$ Pump | Defined$ Self | NumAtt$ +X\n\
+         SVar:X:SVar$Result/Minus.1\n\
+         T:Mode$ RolledDie | ValidPlayer$ You | ValidResult$ GE4 | TriggerZones$ Battlefield | Execute$ Gain\n\
+         SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ R\n\
+         SVar:R:TriggerCount$Result",
+    );
+    assert!(
+        roll_val.abilities[0]
+            .contains("Amount::SaturatingSub { base: &Amount::LastDieRoll, subtract: 1 }"),
+        "{}",
+        roll_val.abilities[0]
+    );
+    assert!(
+        roll_val.abilities[1]
+            .contains("Trigger::DieRolled { who: PlayerRel::You, min_result: Some(4) }")
+            && roll_val.abilities[1].contains("Amount::EventAmount"),
+        "{}",
+        roll_val.abilities[1]
+    );
+
+    assert!(refused(
+        "Name:NoCallFlip\nTypes:Instant\nA:SP$ FlipCoin | NoCall$ True | HeadsSubAbility$ D\nSVar:D:DB$ Draw | NumCards$ 1"
+    ));
+    assert!(refused(
+        "Name:ExactRoll\nTypes:Creature\nPT:1/1\nT:Mode$ RolledDie | ValidPlayer$ You | ValidResult$ EQ6 | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1"
+    ));
+}
+
+#[test]
+fn wave6_phasing_dual_target_tap_slots_and_event_toughness() {
+    let familiar = read(
+        "Name:PhaseImp\nManaCost:1 U\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ PhaseOut | ValidCard$ Card.phasedOutSelf | Execute$ Mill\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | TriggerZones$ Battlefield | Secondary$ True | Execute$ Mill\n\
+         SVar:Mill:DB$ Mill | NumCards$ 3\n\
+         T:Mode$ PhaseIn | ValidCard$ Card.Self | Execute$ Draw\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         A:AB$ Effect | Cost$ U | RememberObjects$ Self | ForgetOnMoved$ Battlefield | StaticAbilities$ Lock | Duration$ UntilYourNextUpkeep\n\
+         SVar:Lock:Mode$ CantPhaseOut | ValidCard$ Card.IsRemembered",
+    );
+    assert!(
+        familiar.abilities[0].contains("Trigger::PhasesOutOrLeavesBattlefield(&Filter::This)"),
+        "{:?}",
+        familiar.abilities
+    );
+    assert!(familiar.abilities[1].contains("Trigger::PHASES_IN"));
+    assert!(
+        familiar.abilities[2].contains("Modifier::CantPhaseOut")
+            && familiar.abilities[2].contains("Duration::UntilYourNextUpkeep"),
+        "{}",
+        familiar.abilities[2]
+    );
+
+    let oubliette = read(
+        "Name:PhasePrison\nManaCost:1 B B\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Out\n\
+         SVar:Out:DB$ Phases | ValidTgts$ Creature | WontPhaseInNormal$ True | ConditionPresent$ Card.Self | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | Triggers$ Back | RememberObjects$ Targeted | ImprintCards$ Self | ConditionPresent$ Card.Self | Duration$ Permanent | ForgetOnPhasedIn$ True\n\
+         SVar:Back:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.IsImprinted | Execute$ In | TriggerZones$ Command | TriggerController$ TriggeredCardController | Static$ True\n\
+         SVar:In:DB$ Phases | Defined$ Remembered | Tapped$ True | PhaseInOrOut$ True | SubAbility$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Origin$ Command | Destination$ Exile | Defined$ Self",
+    );
+    assert!(
+        oubliette.abilities[0]
+            .contains("Effect::PhaseOutUntilSourceLeaves { tap_on_phase_in: true }"),
+        "{}",
+        oubliette.abilities[0]
+    );
+
+    let conceal = read(
+        "Name:HideAll\nManaCost:2 W W\nTypes:Instant\n\
+         A:SP$ Phases | ValidTgts$ Permanent.nonLand+YouCtrl | TargetMin$ 0 | TargetMax$ MaxTgts\n\
+         SVar:MaxTgts:Count$Valid Permanent.nonLand+YouCtrl",
+    );
+    assert!(
+        conceal.abilities[0].contains("Effect::PhaseOut { target: Some(")
+            && conceal.abilities[0].contains("TargetReq::up_to(")
+            && conceal.abilities[0].contains(", 255)"),
+        "{}",
+        conceal.abilities[0]
+    );
+
+    let dual_tap = read(
+        "Name:DualTap\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Tap | ValidTgts$ Creature | SubAbility$ UntapSecond\n\
+         SVar:UntapSecond:DB$ Untap | ValidTgts$ Creature | TargetUnique$ True",
+    );
+    let a = &dual_tap.abilities[0];
+    assert!(
+        a.contains("Effect::TapTargetSlot(TargetSlot::First)"),
+        "{a}"
+    );
+    assert!(
+        a.contains("Effect::UntapTargetSlot(TargetSlot::Second)"),
+        "{a}"
+    );
+
+    let deadshot_like = read(
+        "Name:TapBite\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ Tap | ValidTgts$ Creature | SubAbility$ Hit\n\
+         SVar:Hit:DB$ DealDamage | ValidTgts$ Creature | DamageSource$ ParentTarget | NumDmg$ X | TargetUnique$ True\n\
+         SVar:X:ParentTargeted$CardPower",
+    );
+    assert!(
+        deadshot_like.abilities[0].contains("Effect::TapTargetSlot(TargetSlot::First)"),
+        "{}",
+        deadshot_like.abilities[0]
+    );
+
+    let chorus = read(
+        "Name:ToughChorus\nManaCost:3 W W\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Gain\n\
+         SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+         SVar:X:TriggeredCardLKICopy$Toughness",
+    );
+    assert!(
+        chorus.abilities[0].contains("Amount::EventLastToughness"),
+        "{}",
+        chorus.abilities[0]
+    );
+}

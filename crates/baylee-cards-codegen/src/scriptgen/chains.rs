@@ -206,9 +206,10 @@ impl Tx<'_> {
             Some(defined) => Some(self.exile_if_dies(&defined, target.as_deref())?),
             None => None,
         };
-        let at_end = if api == "Token"
-            && p.peek("TokenAttacking") == Some("True")
-            && p.peek("AtEOT") == Some("Sacrifice")
+        let at_end = if api == "CopyPermanent"
+            || (api == "Token"
+                && p.peek("TokenAttacking") == Some("True")
+                && p.peek("AtEOT") == Some("Sacrifice"))
         {
             None
         } else {
@@ -338,6 +339,17 @@ impl Tx<'_> {
                         .to_string(),
                 ]
             }
+        } else if api == "Phases"
+            && targets_here
+            && !self.on_a_spell
+            && p.peek("WontPhaseInNormal") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "Effect")
+        {
+            self.phase_out_until_source_leaves_effect(&mut p, &mut sub)?
+        } else if api == "FlipCoin" {
+            self.flip_coin_effect(&mut p, &mut sub, chain)?
+        } else if api == "RollDice" {
+            self.roll_dice_effect(&mut p, &mut sub, chain)?
         } else if api == "DelayedTrigger" {
             vec![self.delayed_trigger(&mut p, target.as_deref(), targets_here, chain)?]
         } else if api == "ImmediateTrigger" {
@@ -351,6 +363,19 @@ impl Tx<'_> {
                     }
                     "Fight" => self.fight_effect(&mut p, true),
                     "DealDamage" => self.bite_effect(&mut p),
+                    "Tap" => match p.take("Defined").as_deref() {
+                        None | Some("Targeted") => {
+                            Some(vec!["Effect::TapTargetSlot(TargetSlot::Second)".to_string()])
+                        }
+                        _ => None,
+                    },
+                    "Untap" => match p.take("Defined").as_deref() {
+                        None | Some("Targeted") => Some(vec![
+                            "Effect::UntapTargetSlot(TargetSlot::Second)".to_string(),
+                        ]),
+                        _ => None,
+                    },
+                    "Clone" => self.become_copy_effect(&mut p, target.as_deref(), true, true),
                     "Destroy" => match p.take("NoRegen").as_deref() {
                         None => Some(vec![
                             "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: false }"
@@ -422,7 +447,17 @@ impl Tx<'_> {
             effects
         };
         Self::push_effects_merging_kicked(&mut chain.effects, effects);
-        self.chain_sub_ability(sub, chain)
+        self.chain_sub_ability(sub, chain)?;
+        if chain.second_target.is_some() {
+            for effect in &mut chain.effects {
+                if effect == "Effect::TapTarget" {
+                    *effect = "Effect::TapTargetSlot(TargetSlot::First)".to_string();
+                } else if effect == "Effect::UntapTarget" {
+                    *effect = "Effect::UntapTargetSlot(TargetSlot::First)".to_string();
+                }
+            }
+        }
+        Some(())
     }
 
     /// Whether a line further down the `SubAbility$` chain declares a target.
@@ -655,7 +690,9 @@ impl Tx<'_> {
         // permanent (CR 115.1 names both, and they are chosen from
         // different zones), so the zone the line moves *from* decides
         // the spec before the valid-string is read.
-        let spec = if api == "ChangeZone" && p.peek("Origin") == Some("Graveyard") {
+        let spec = if (api == "ChangeZone" && p.peek("Origin") == Some("Graveyard"))
+            || (matches!(api, "Clone" | "CopyPermanent") && p.peek("TgtZone") == Some("Graveyard"))
+        {
             match p.take("TgtZone").as_deref() {
                 None | Some("Graveyard") => {}
                 Some(zone) => return self.deny(format!("a target in `TgtZone$ {zone}`")),
@@ -686,10 +723,18 @@ impl Tx<'_> {
                             ) if valid == "Card" => Some(
                                 "TargetSpec::AbilityOnStack(&Filter::ControlledByYou)".to_string(),
                             ),
+                            Some(
+                                "Spell,Activated,Triggered"
+                                | "Activated,Triggered,Spell"
+                                | "Spell,Triggered,Activated",
+                            ) if valid == "Card" => {
+                                Some("TargetSpec::SpellOrAbility(&Filter::Any)".to_string())
+                            }
                             _ => None,
                         }
                     } else if chain.target.is_some()
-                        && (chain.target_unique || matches!(api, "Fight" | "DealDamage"))
+                        && (chain.target_unique
+                            || matches!(api, "Fight" | "DealDamage" | "Clone" | "Tap" | "Untap"))
                         && p.peek("TargetUnique") == Some("True")
                         && api != "Counter"
                     {
@@ -765,6 +810,20 @@ impl Tx<'_> {
                             .iter()
                             .all(|key| p.peek(key).is_none())
                 }
+                "Tap" | "Untap" => {
+                    p.peek("SubAbility").is_none()
+                        && p.peek("Defined").is_none_or(|v| v == "Targeted")
+                        && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
+                            .iter()
+                            .all(|key| p.peek(key).is_none())
+                }
+                "Clone" => {
+                    single_object_first
+                        && p.peek("CloneTarget") == Some("ParentTarget")
+                        && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
+                            .iter()
+                            .all(|key| p.peek(key).is_none())
+                }
                 "Destroy" => {
                     !chain.effects.is_empty()
                         && chain
@@ -804,14 +863,21 @@ impl Tx<'_> {
                 chain.target_unique = true;
             }
             if !self.try_kicked_target_count(api, p, valid, &spec)? {
-                let multi_target_ok =
-                    matches!(api, "Destroy" | "Tap" | "Untap" | "Pump" | "PutCounter")
-                        || (api == "ChangeZone"
-                            && matches!(
-                                (p.peek("Origin"), p.peek("Destination")),
-                                (Some("Battlefield" | "Graveyard"), Some("Hand" | "Exile"))
-                                    | (Some("Graveyard"), Some("Battlefield"))
-                            ));
+                let multi_target_ok = matches!(
+                    api,
+                    "Destroy"
+                        | "Tap"
+                        | "Untap"
+                        | "Pump"
+                        | "PutCounter"
+                        | "CopyPermanent"
+                        | "Phases"
+                ) || (api == "ChangeZone"
+                    && matches!(
+                        (p.peek("Origin"), p.peek("Destination")),
+                        (Some("Battlefield" | "Graveyard"), Some("Hand" | "Exile"))
+                            | (Some("Graveyard"), Some("Battlefield"))
+                    ));
                 if p.peek("TargetMin") == Some("1")
                     && matches!(p.peek("TargetMax"), None | Some("1"))
                 {
@@ -849,6 +915,17 @@ impl Tx<'_> {
                     p.take("TargetMin");
                     p.take("TargetMax");
                     chain.target_up_to = Some(max);
+                } else if multi_target_ok
+                    && p.peek("TargetMin") == Some("0")
+                    && let Some(max_var) = p.peek("TargetMax")
+                    && self
+                        .svars
+                        .get(max_var.trim())
+                        .is_some_and(|def| def.trim() == format!("Count$Valid {valid}"))
+                {
+                    p.take("TargetMin");
+                    p.take("TargetMax");
+                    chain.target_up_to = Some(u8::MAX);
                 } else if (multi_target_ok
                     || (self.on_a_spell && api == "DealDamage" && p.peek("DamageSource").is_none()))
                     && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
@@ -978,7 +1055,7 @@ impl Tx<'_> {
         // "Unless its controller pays {X}" (Power Sink): the X announced
         // for the source, and only where the card says that is what X is.
         if matches!(raw, "X" | "Y" | "Z") {
-            let Some(x) = self.amount_or_count(raw) else {
+            let Some(x) = self.amount_or_count_ext(raw) else {
                 return self.deny(format!("an unless-cost of `{raw}`"));
             };
             return Some(Price::Generic(x));
@@ -1174,7 +1251,7 @@ impl Tx<'_> {
                     && matches!(p.peek("Defined"), Some("Enchanted" | "Equipped"))
                 {
                     p.take("Defined");
-                    let n = self.amount_or_count(&num_dmg)?;
+                    let n = self.amount_or_count_ext(&num_dmg)?;
                     let dmg = format!("Effect::DealDamageToAttached {{ amount: {n} }}");
                     return Some(if may {
                         vec![format!("Effect::MayDo {{ effects: &[{dmg}] }}")]
@@ -1282,11 +1359,11 @@ impl Tx<'_> {
                     if self.is_power_of(&num_dmg, power_names) {
                         format!("Effect::EventObjectDealsDamageEqualToPower {{ target: {to} }}")
                     } else {
-                        let n = self.amount_or_count(&num_dmg)?;
+                        let n = self.amount_or_count_ext(&num_dmg)?;
                         format!("Effect::EventObjectDealsDamage {{ amount: {n}, target: {to} }}")
                     }
                 } else {
-                    let n = self.amount_or_count(&num_dmg)?;
+                    let n = self.amount_or_count_ext(&num_dmg)?;
                     format!("Effect::DealDamage {{ amount: {n}, target: {to} }}")
                 };
                 let dmg = if turn_start_hand == Some(true) {
@@ -1324,7 +1401,7 @@ impl Tx<'_> {
             // questions of an `X`, so a count spelled with the same letter
             // is still refused.
             "GainLife" => {
-                let n = self.amount_or_count(&p.take("LifeAmount")?)?;
+                let n = self.amount_or_count_ext(&p.take("LifeAmount")?)?;
                 match (
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
                     n.strip_prefix("Amount::Fixed(")
@@ -1336,7 +1413,7 @@ impl Tx<'_> {
                 }
             }
             "LoseLife" => {
-                let n = self.amount_or_count(&p.take("LifeAmount")?)?;
+                let n = self.amount_or_count_ext(&p.take("LifeAmount")?)?;
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
@@ -1363,7 +1440,7 @@ impl Tx<'_> {
             {
                 let had_cards =
                     p.take("Defined").as_deref() == Some("You.CardsInHandAtBeginningOfTurn");
-                let n = self.amount_or_count(p.take("NumCards").as_deref().unwrap_or("1"))?;
+                let n = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))?;
                 let draw = if let Some(fixed) = n
                     .strip_prefix("Amount::Fixed(")
                     .and_then(|rest| rest.strip_suffix(')'))
@@ -1384,7 +1461,7 @@ impl Tx<'_> {
             // The same two readings as `GainLife`: Braingeyser's "target
             // player draws X cards".
             "Draw" => {
-                let n = self.amount_or_count(p.take("NumCards").as_deref().unwrap_or("1"))?;
+                let n = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))?;
                 let may = match p.take("OptionalDecider").as_deref() {
                     None => false,
                     Some("You") => true,
@@ -1467,7 +1544,7 @@ impl Tx<'_> {
                         "Effect::DiscardForPlayers {{ who: {who}, count: {n} }}"
                     )]
                 } else {
-                    let amount = self.amount_or_count(&raw_n)?;
+                    let amount = self.amount_or_count_ext(&raw_n)?;
                     vec![format!(
                         "Effect::DiscardAmountForPlayers {{ who: {who}, amount: {amount} }}"
                     )]
@@ -1505,7 +1582,7 @@ impl Tx<'_> {
                 if p.take("Mode").as_deref() != Some("Random") {
                     return None;
                 }
-                let n = self.amount_or_count(p.take("NumCards").as_deref().unwrap_or("1"))?;
+                let n = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))?;
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!(
@@ -1513,7 +1590,7 @@ impl Tx<'_> {
                 )]
             }
             "Mill" => {
-                let n = self.amount_or_count(&p.take("NumCards")?)?;
+                let n = self.amount_or_count_ext(&p.take("NumCards")?)?;
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
@@ -1535,7 +1612,7 @@ impl Tx<'_> {
                 let Some(kind) = counter_kind(&code) else {
                     return self.deny(format!("counter `{code}`"));
                 };
-                let n = self.amount_or_count(p.take("CounterNum").as_deref().unwrap_or("1"))?;
+                let n = self.amount_or_count_ext(p.take("CounterNum").as_deref().unwrap_or("1"))?;
                 if matches!(code.as_str(), "ENERGY" | "POISON" | "RAD")
                     && (targets_a_player
                         || p.peek("Defined").is_some_and(|d| {
@@ -1671,7 +1748,7 @@ impl Tx<'_> {
                 let Some(kind) = counter_kind(&code) else {
                     return self.deny(format!("counter `{code}`"));
                 };
-                let n = self.amount_or_count(p.take("CounterNum").as_deref().unwrap_or("1"))?;
+                let n = self.amount_or_count_ext(p.take("CounterNum").as_deref().unwrap_or("1"))?;
                 p.take("IsCurse");
                 let expr = self.filter_expr(&valid)?;
                 let filter = self.body.filter_static("COUNTERS", &expr);
@@ -1765,7 +1842,7 @@ impl Tx<'_> {
                 if let Some(n) = self.plain_num(&raw) {
                     vec![format!("Effect::surveil({n})")]
                 } else {
-                    let n = self.amount_or_count(&raw)?;
+                    let n = self.amount_or_count_ext(&raw)?;
                     vec![format!("Effect::Surveil {{ amount: {n} }}")]
                 }
             }
@@ -1955,7 +2032,7 @@ impl Tx<'_> {
                 {
                     "Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)".to_string()
                 } else {
-                    self.amount_or_count(&raw_amount)?
+                    self.amount_or_count_ext(&raw_amount)?
                 };
                 let to = match (p.take("Defined").as_deref(), target) {
                     (Some("Self"), None) if !self.on_a_spell => {
@@ -2006,7 +2083,7 @@ impl Tx<'_> {
                     .and_then(|s| s.parse::<u32>().ok());
                 let n = match threshold_dmg {
                     Some(v) => format!("Amount::Fixed({v})"),
-                    None => self.amount_or_count(&raw_dmg)?,
+                    None => self.amount_or_count_ext(&raw_dmg)?,
                 };
                 // The printed words for the two keys below ("each creature
                 // and each player"), which say nothing those keys do not.
@@ -2103,7 +2180,11 @@ impl Tx<'_> {
             "Pump" if p.peek("KW") == Some("Protection from everything") => {
                 self.everything_protection(p)?
             }
-            "Phases" => self.phase_your_permanents(p)?,
+            "Phases" => self.phase_effect(p, target, targets_here)?,
+            "CopyPermanent" => {
+                self.copy_permanent_effect(p, target, targets_here, targets_a_player)?
+            }
+            "Clone" => self.become_copy_effect(p, target, targets_here, false)?,
             "Pump" => self.pump_effect(p, aimed, false)?,
             "PumpAll" => self.pump_all_effect(p, target, targets_here, targets_a_player)?,
             "Effect" => {
@@ -2356,7 +2437,7 @@ impl Tx<'_> {
                 }
             }
             "Poison" => {
-                let n = self.amount_or_count(&p.take("Num")?)?;
+                let n = self.amount_or_count_ext(&p.take("Num")?)?;
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::Poison {{ who: {who}, amount: {n} }}")]
@@ -2440,35 +2521,112 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_here: bool,
     ) -> Option<Vec<String>> {
-        if p.take("MayChooseTarget").as_deref() != Some("True") {
-            return None;
-        }
+        let may_choose = match p.take("MayChooseTarget").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
         let optional = match p.take("Optional").as_deref() {
             None => false,
             Some("True") => true,
             Some(_) => return None,
         };
-        if !matches!(p.take("Controller").as_deref(), None | Some("You")) {
-            return None;
-        }
+        let controller = self.player_of_line(p.take("Controller").as_deref(), target, false)?;
+        let mods = self.copy_mods(p, false)?;
         let target_type = p.take("TargetType");
         let defined = p.take("Defined");
-        let take_small_copies = |this: &Self, p: &mut Params| -> Option<usize> {
-            match p.take("Amount") {
-                None => Some(1),
-                Some(raw) => usize::try_from(this.plain_num(&raw)?)
-                    .ok()
-                    .filter(|&n| (1..=4).contains(&n)),
-            }
+        let raw_num = p.take("NumCopies").or_else(|| p.take("Amount"));
+        let plain_small = raw_num
+            .as_deref()
+            .and_then(|r| usize::try_from(self.plain_num(r)?).ok())
+            .filter(|&n| (1..=4).contains(&n));
+        let is_legacy = may_choose
+            && controller == "PlayerRel::You"
+            && mods.is_empty()
+            && (raw_num.is_none() || plain_small.is_some());
+        if is_legacy
+            && let Some((effect, n)) = self.legacy_copy_spell_ability(
+                target_type.as_deref(),
+                defined.as_deref(),
+                raw_num.as_deref(),
+                plain_small.unwrap_or(1),
+                target,
+                targets_here,
+            )
+        {
+            let copies = vec![effect; n];
+            return Some(if optional {
+                vec![format!(
+                    "Effect::MayDo {{ effects: &[{}] }}",
+                    copies.join(", ")
+                )]
+            } else {
+                copies
+            });
+        }
+        let amount = match raw_num.as_deref() {
+            None => "Amount::Fixed(1)".to_string(),
+            Some(raw) => self.amount_or_count_ext(raw)?,
         };
-        let (effect, count) = match (target_type.as_deref(), defined.as_deref()) {
+        let stack_target = target.filter(|t| {
+            t.starts_with("TargetSpec::Spell(")
+                || t.starts_with("TargetSpec::AbilityOnStack(")
+                || t.starts_with("TargetSpec::SpellOrAbility(")
+        });
+        let copy_target = match (target_type.as_deref(), defined.as_deref()) {
+            (
+                Some(
+                    "Spell"
+                    | "Activated"
+                    | "Activated,Triggered"
+                    | "Triggered,Activated"
+                    | "Activated.YouCtrl,Triggered.YouCtrl"
+                    | "Triggered.YouCtrl,Activated.YouCtrl"
+                    | "Spell,Activated,Triggered"
+                    | "Activated,Triggered,Spell"
+                    | "Spell,Triggered,Activated",
+                ),
+                None,
+            ) if targets_here => stack_target?.to_string(),
+            (None, Some("Targeted" | "ParentTarget")) => stack_target?.to_string(),
+            (None, Some("TriggeredSpellAbility"))
+                if self.trigger_mode.as_deref() == Some("SpellCast")
+                    && !targets_here
+                    && target.is_none() =>
+            {
+                "TargetSpec::EventObject".to_string()
+            }
+            (None, Some("Parent")) if self.on_a_spell && !targets_here => {
+                "TargetSpec::ThisObject".to_string()
+            }
+            _ => return None,
+        };
+        let effect = format!(
+            "Effect::CopySpellOrAbility {{ target: {copy_target}, controller: {controller}, \
+             amount: {amount}, mods: &[{}], may_choose_new_targets: {may_choose} }}",
+            mods.join(", ")
+        );
+        Some(vec![if optional {
+            format!("Effect::MayDo {{ effects: &[{effect}] }}")
+        } else {
+            effect
+        }])
+    }
+
+    fn legacy_copy_spell_ability(
+        &mut self,
+        target_type: Option<&str>,
+        defined: Option<&str>,
+        raw_num: Option<&str>,
+        count: usize,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> Option<(String, usize)> {
+        match (target_type, defined) {
             (Some("Spell"), None)
                 if targets_here && target.is_some_and(|t| t.starts_with("TargetSpec::Spell(")) =>
             {
-                (
-                    "Effect::CopyTargetSpell { mods: &[] }".to_string(),
-                    take_small_copies(self, p)?,
-                )
+                Some(("Effect::CopyTargetSpell { mods: &[] }".to_string(), count))
             }
             (
                 Some(
@@ -2482,36 +2640,24 @@ impl Tx<'_> {
             ) if targets_here
                 && target.is_some_and(|t| t.starts_with("TargetSpec::AbilityOnStack(")) =>
             {
-                (
-                    "Effect::CopyTargetAbility".to_string(),
-                    take_small_copies(self, p)?,
-                )
+                Some(("Effect::CopyTargetAbility".to_string(), count))
             }
             (None, Some("TriggeredSpellAbility"))
                 if self.trigger_mode.as_deref() == Some("SpellCast")
                     && !targets_here
                     && target.is_none() =>
             {
-                (
-                    "Effect::CopyEventSpellOrAbility".to_string(),
-                    take_small_copies(self, p)?,
-                )
+                Some(("Effect::CopyEventSpellOrAbility".to_string(), count))
             }
             (None, Some("Parent")) if self.on_a_spell && !targets_here => {
-                let amount = self.amount_or_count(p.take("Amount").as_deref().unwrap_or("1"))?;
-                (format!("Effect::CopyThisSpell {{ amount: {amount} }}"), 1)
+                let amount = match raw_num {
+                    None => "Amount::Fixed(1)".to_string(),
+                    Some(r) => self.amount_or_count_ext(r)?,
+                };
+                Some((format!("Effect::CopyThisSpell {{ amount: {amount} }}"), 1))
             }
-            _ => return None,
-        };
-        let copies = vec![effect; count];
-        Some(if optional {
-            vec![format!(
-                "Effect::MayDo {{ effects: &[{}] }}",
-                copies.join(", ")
-            )]
-        } else {
-            copies
-        })
+            _ => None,
+        }
     }
 
     fn sub_is_api(&self, sub: Option<&str>, expected: &str) -> bool {

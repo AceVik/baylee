@@ -426,8 +426,76 @@ impl Tx<'_> {
             "LifeLost" => self.life_change_trigger(p, true),
             "SearchedLibrary" => self.searched_library_trigger(p),
             "CounterAddedOnce" => self.counter_added_once_trigger(p),
+            "PhaseIn" => self.phase_trigger(p, false),
+            "PhaseOut" => self.phase_trigger(p, true),
+            "FlippedCoin" => self.flipped_coin_trigger(p),
+            "RolledDie" => self.rolled_die_trigger(p),
             other => self.deny(format!("trigger mode `{other}`")),
         }
+    }
+
+    fn phase_trigger(&mut self, p: &mut Params, out: bool) -> Option<String> {
+        let Some(raw) = p.take("ValidCard") else {
+            return self.deny(format!(
+                "a `{}` trigger with no `ValidCard$`",
+                if out { "PhaseOut" } else { "PhaseIn" }
+            ));
+        };
+        if raw == "Card.Self" || (out && raw == "Card.phasedOutSelf") {
+            return Some(if out {
+                "Trigger::PHASES_OUT".to_string()
+            } else {
+                "Trigger::PHASES_IN".to_string()
+            });
+        }
+        let normalized = if out && raw.contains("phasedOutSelf") {
+            raw.replace("phasedOutSelf", "Self")
+        } else {
+            raw
+        };
+        let expr = self.filter_expr(&normalized)?;
+        let filter = self.body.filter_static("TRIGGER", &expr);
+        let variant = if out { "PhasesOut" } else { "PhasesIn" };
+        Some(format!("Trigger::{variant}(&{filter})"))
+    }
+
+    fn flipped_coin_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let who = match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => return self.deny(format!("`FlippedCoin` player `{other}`")),
+        };
+        let outcome = match p.take("ValidResult").as_deref() {
+            None => "None",
+            Some("Win") => "Some(true)",
+            Some("Lose") => "Some(false)",
+            Some(other) => return self.deny(format!("`FlippedCoin` result `{other}`")),
+        };
+        Some(format!(
+            "Trigger::CoinFlipped {{ who: {who}, outcome: {outcome} }}"
+        ))
+    }
+
+    fn rolled_die_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let who = match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => return self.deny(format!("`RolledDie` player `{other}`")),
+        };
+        let min_result = match p.take("ValidResult").as_deref() {
+            None => "None".to_string(),
+            Some(raw) => {
+                let Some(n) = raw.strip_prefix("GE").and_then(|s| s.parse::<u8>().ok()) else {
+                    return self.deny(format!("`RolledDie` result `{raw}`"));
+                };
+                format!("Some({n})")
+            }
+        };
+        Some(format!(
+            "Trigger::DieRolled {{ who: {who}, min_result: {min_result} }}"
+        ))
     }
 
     fn counter_added_once_trigger(&mut self, p: &mut Params) -> Option<String> {
@@ -1423,6 +1491,8 @@ impl Tx<'_> {
             || trigger == "Trigger::CycledThis"
             || trigger == "Trigger::DiscardedThisByOpponent"
             || trigger == "Trigger::BecomesBlocked"
+            || trigger == "Trigger::PHASES_IN"
+            || trigger == "Trigger::PHASES_OUT"
             || trigger.contains("&Filter::This")
             || trigger_self_etb_kicked;
         let optional_flag = match p.take("Optional").as_deref() {
@@ -1553,6 +1623,7 @@ impl Tx<'_> {
                     "PutFromHandOnTop",
                     "ReorderTopLibrary",
                     "MayPlayLinkedExile",
+                    "ChooseAndCreateTokenCopy",
                 ]
                 .iter()
                 .any(|needle| e.contains(needle))
@@ -1639,11 +1710,27 @@ impl Tx<'_> {
             None if may && !asks_already => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
             None => effects,
         };
-        let ability = format!(
-            "triggered!({trigger}, &[{effects}]{zone}{once_per_turn}{targets}{second}{condition})"
-        );
+        let tail = format!("&[{effects}]{zone}{once_per_turn}{targets}{second}{condition})");
+        let ability = format!("triggered!({trigger}, {tail}");
         if let Some((role, other, secondary)) = self.block_line.take() {
             return self.pair_block_half(role, other, secondary, ability);
+        }
+        if let Some(filter_ref) = trigger
+            .strip_prefix("Trigger::LeavesBattlefield(")
+            .and_then(|s| s.strip_suffix(')'))
+            && let Some(prev) = self.body.abilities.last_mut()
+        {
+            let expected_prev = if filter_ref == "&Filter::This" {
+                format!("triggered!(Trigger::PHASES_OUT, {tail}")
+            } else {
+                format!("triggered!(Trigger::PhasesOut({filter_ref}), {tail}")
+            };
+            if *prev == expected_prev {
+                *prev = format!(
+                    "triggered!(Trigger::PhasesOutOrLeavesBattlefield({filter_ref}), {tail}"
+                );
+                return Some(());
+            }
         }
         self.body.abilities.push(ability);
         Some(())
@@ -1989,6 +2076,10 @@ impl Tx<'_> {
                     | "CounterAddedOnce"
                     | "AttackerBlocked"
                     | "AttackerUnblocked"
+                    | "PhaseIn"
+                    | "PhaseOut"
+                    | "FlippedCoin"
+                    | "RolledDie"
             )
         {
             return self.deny(format!("a delayed trigger at `{mode} `"));
@@ -2433,7 +2524,8 @@ impl Tx<'_> {
         let allowed = match mode {
             "Phase" | "SpellCast" | "DamageDone" | "DamageDoneOnce" | "DamageDealtOnce"
             | "Drawn" | "LandPlayed" | "Attacks" | "AttackersDeclared" | "LifeGained"
-            | "LifeLost" | "Discarded" | "Cycled" | "CounterAddedOnce" => true,
+            | "LifeLost" | "Discarded" | "Cycled" | "CounterAddedOnce" | "FlippedCoin"
+            | "RolledDie" => true,
             "ChangesZone" => p
                 .peek("ValidCard")
                 .is_some_and(|v| !v.split([',', '.', '+']).any(|a| a.trim() == "Self")),

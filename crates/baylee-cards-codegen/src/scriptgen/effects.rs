@@ -1,7 +1,10 @@
 //! Reading the effects that are more than one line: tokens, animation,
 //! pumps, zone changes and library searches.
 
-use super::{CLUE_TOKEN_SCRIPT, Params, Tx, keyword_const, pump_amount};
+use super::{
+    CLUE_TOKEN_SCRIPT, Chain, Params, Tx, card_type_const, color_word, keyword_const, pump_amount,
+};
+use baylee_core::types::SubtypeKind;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum EffectSubject {
@@ -71,7 +74,7 @@ impl Tx<'_> {
                 "Effect::SacrificeFilter {{ who: {who}, filter: {filter} }}"
             )]),
             Some(raw) => {
-                let amount = self.amount_or_count(raw)?;
+                let amount = self.amount_or_count_ext(raw)?;
                 Some(vec![format!(
                     "Effect::SacrificeAmountForPlayers {{ who: {who}, filter: {filter}, amount: \
                      {amount} }}"
@@ -203,7 +206,7 @@ impl Tx<'_> {
         let token = format!("&generated_tokens::{}", body.constant);
         let amount = match raw_amount.as_deref() {
             None => "Amount::Fixed(1)".to_string(),
-            Some(raw) => match self.amount_or_count(raw) {
+            Some(raw) => match self.amount_or_count_ext(raw) {
                 None => {
                     return match self.svars.get(raw) {
                         Some(how) => self.deny(format!("token amount `{raw}` = `{how}`")),
@@ -258,7 +261,7 @@ impl Tx<'_> {
         let token = format!("&generated_tokens::{}", body.constant);
         let amount = match raw_amount {
             None => None,
-            Some(raw) => match self.amount_or_count(raw) {
+            Some(raw) => match self.amount_or_count_ext(raw) {
                 // A refusal names the `SVar` the amount resolves *through*
                 // and not merely the letter, because `X` is what 356 scripts
                 // write and each of them means it by a different count —
@@ -672,8 +675,8 @@ impl Tx<'_> {
                 "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::You }}, {duration})"
             )]);
         }
-        let power = self.pump_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
-        let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
+        let power = self.pump_side_ext(p.take("NumAtt").as_deref().unwrap_or("0"))?;
+        let toughness = self.pump_side_ext(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
             None => "KeywordSet::EMPTY".to_string(),
             Some(kw) => Self::pump_keyword_bits(&kw)?,
@@ -1241,6 +1244,7 @@ impl Tx<'_> {
             None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("UntilYourNextUpkeep") => "Duration::UntilYourNextUpkeep",
             Some("Permanent") => "Duration::Indefinitely",
             Some("AsLongAsControl") if !self.on_a_spell => "Duration::WhileYouControlSource",
             Some("UntilUntaps") if !self.on_a_spell => {
@@ -1284,11 +1288,16 @@ impl Tx<'_> {
                     duration,
                 )
             }
-            "CantBlock" | "CantAttack" | "AssignNoCombatDamage" | "CantRegenerate" => {
+            "CantBlock"
+            | "CantAttack"
+            | "AssignNoCombatDamage"
+            | "CantRegenerate"
+            | "CantPhaseOut" => {
                 let modifier = match mode {
                     "CantBlock" => "Modifier::AddKeyword(KeywordSet::CANT_BLOCK)",
                     "CantAttack" => "Modifier::CantAttack",
                     "AssignNoCombatDamage" => "Modifier::AssignsNoCombatDamage",
+                    "CantPhaseOut" => "Modifier::CantPhaseOut",
                     _ => "Modifier::CantBeRegenerated",
                 };
                 let valid = st.take("ValidCard")?;
@@ -1328,33 +1337,7 @@ impl Tx<'_> {
                 )])
             }
             "CastWithFlash" if subject == EffectSubject::Unbound => {
-                if !matches!(st.take("ValidSA").as_deref(), None | Some("Spell"))
-                    || st.take("Caster").as_deref() != Some("You")
-                {
-                    return None;
-                }
-                let valid = st.take("ValidCard")?;
-                let modifier = match valid.as_str() {
-                    "Sorcery" => "Modifier::SorceriesHaveFlash".to_string(),
-                    "Card" | "Card.nonLand" => "Modifier::SpellsHaveFlash(None)".to_string(),
-                    other => {
-                        let mut types = Vec::new();
-                        for part in other.split(',').map(str::trim) {
-                            if part == "Land" {
-                                return None;
-                            }
-                            types.push(super::card_type_const(part)?.to_string());
-                        }
-                        let mask = types
-                            .into_iter()
-                            .reduce(|acc, t| format!("{acc}.union({t})"))?;
-                        format!("Modifier::SpellsHaveFlash(Some({mask}))")
-                    }
-                };
-                st.exhausted().then_some(())?;
-                Some(vec![format!(
-                    "Effect::continuous(&Filter::Any, {modifier}, {duration})"
-                )])
+                Self::wave3_cast_with_flash(st, duration)
             }
             "CantBeActivated" => {
                 if st.take("ValidSA").as_deref() != Some("Activated.!ManaAbility") {
@@ -1372,6 +1355,36 @@ impl Tx<'_> {
             "Continuous" => self.effect_continuous_static(st, subject, duration),
             _ => None,
         }
+    }
+
+    fn wave3_cast_with_flash(st: &mut Params, duration: &str) -> Option<Vec<String>> {
+        if !matches!(st.take("ValidSA").as_deref(), None | Some("Spell"))
+            || st.take("Caster").as_deref() != Some("You")
+        {
+            return None;
+        }
+        let valid = st.take("ValidCard")?;
+        let modifier = match valid.as_str() {
+            "Sorcery" => "Modifier::SorceriesHaveFlash".to_string(),
+            "Card" | "Card.nonLand" => "Modifier::SpellsHaveFlash(None)".to_string(),
+            other => {
+                let mut types = Vec::new();
+                for part in other.split(',').map(str::trim) {
+                    if part == "Land" {
+                        return None;
+                    }
+                    types.push(card_type_const(part)?.to_string());
+                }
+                let mask = types
+                    .into_iter()
+                    .reduce(|acc, t| format!("{acc}.union({t})"))?;
+                format!("Modifier::SpellsHaveFlash(Some({mask}))")
+            }
+        };
+        st.exhausted().then_some(())?;
+        Some(vec![format!(
+            "Effect::continuous(&Filter::Any, {modifier}, {duration})"
+        )])
     }
 
     /// `DB$ Effect | ReplacementEffects$ DontUntap` lowering to
@@ -3136,7 +3149,8 @@ impl Tx<'_> {
             let Some(kind) = super::counter_kind(&code) else {
                 return self.deny(format!("counter `{code}`"));
             };
-            let amount = self.amount_or_count(np.take("CounterNum").as_deref().unwrap_or("1"))?;
+            let amount =
+                self.amount_or_count_ext(np.take("CounterNum").as_deref().unwrap_or("1"))?;
             format!(
                 "Effect::CreateTokenThenCounters {{ token: {token}, kind: {kind}, amount: {amount} }}"
             )
@@ -3263,5 +3277,943 @@ impl Tx<'_> {
             }
             _ => None,
         }
+    }
+
+    pub(super) fn amount_or_count_ext(&mut self, raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        let resolved = self
+            .svars
+            .get(trimmed)
+            .map_or(trimmed, String::as_str)
+            .trim();
+        if let Some(expr) = self.wave6_count_expr(resolved) {
+            return Some(expr);
+        }
+        self.amount_or_count(raw)
+    }
+
+    pub(super) fn pump_side_ext(&mut self, raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        let positive = trimmed.strip_prefix('+').unwrap_or(trimmed).trim();
+        let resolved = self
+            .svars
+            .get(positive)
+            .map_or(positive, String::as_str)
+            .trim();
+        if let Some(expr) = self.wave6_count_expr(resolved) {
+            return Some(expr);
+        }
+        self.pump_side(raw)
+    }
+
+    fn wave6_count_expr(&self, def: &str) -> Option<String> {
+        if def == "TriggerCount$Result" && self.trigger_mode.as_deref() == Some("RolledDie") {
+            return Some("Amount::EventAmount".to_string());
+        }
+        if matches!(
+            def,
+            "TriggeredCard$Toughness" | "TriggeredCardLKICopy$Toughness"
+        ) && self.trigger_mode.as_deref() == Some("ChangesZone")
+        {
+            return Some("Amount::EventLastToughness".to_string());
+        }
+        let (base_raw, op_raw) = def
+            .split_once('/')
+            .map_or((def, None), |(l, r)| (l.trim(), Some(r.trim())));
+        let base = match base_raw {
+            "Count$LastDieRoll" => "Amount::LastDieRoll",
+            "Count$CoinsWonThisResolution" => "Amount::CoinsWonThisResolution",
+            _ => return None,
+        };
+        let Some(op) = op_raw else {
+            return Some(base.to_string());
+        };
+        if let Some(n) = op
+            .strip_prefix("Minus.")
+            .and_then(|s| s.parse::<u32>().ok())
+        {
+            return Some(format!(
+                "Amount::SaturatingSub {{ base: &{base}, subtract: {n} }}"
+            ));
+        }
+        if let Some(n) = op.strip_prefix("Plus.").and_then(|s| s.parse::<u32>().ok()) {
+            return Some(format!("Amount::Plus {{ base: &{base}, offset: {n} }}"));
+        }
+        if let Some(n) = op
+            .strip_prefix("Times.")
+            .and_then(|s| s.parse::<u32>().ok())
+            .filter(|&v| v >= 1)
+        {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: {n} }}"));
+        }
+        None
+    }
+
+    pub(super) fn copy_mods(
+        &mut self,
+        p: &mut Params,
+        allow_keep_self_name: bool,
+    ) -> Option<Vec<String>> {
+        let mut mods = Vec::new();
+        let remove_card_types = match p.take("RemoveCardTypes").as_deref() {
+            None | Some("False") => false,
+            Some("True") if !p.has("RemoveSubTypes") => true,
+            Some(_) => return None,
+        };
+        if let Some(types) = p.take("AddTypes") {
+            let mut card_types = Vec::new();
+            for word in types
+                .split([',', '&'])
+                .map(str::trim)
+                .filter(|w| !w.is_empty())
+            {
+                if let Some(ct) = card_type_const(word) {
+                    card_types.push(ct);
+                } else if let Some(st) = Self::copy_supertype_const(word) {
+                    mods.push(format!("CopyMod::AddSupertype({st})"));
+                } else {
+                    let path = self.cats.const_path(word)?;
+                    mods.push(format!("CopyMod::AddSubtype({path})"));
+                }
+            }
+            if remove_card_types {
+                let mask = card_types
+                    .into_iter()
+                    .map(str::to_string)
+                    .reduce(|acc, t| format!("{acc}.union({t})"))?;
+                mods.push(format!("CopyMod::SetTypes({mask})"));
+            } else {
+                for ct in card_types {
+                    mods.push(format!("CopyMod::AddType({ct})"));
+                }
+            }
+        } else if remove_card_types {
+            return None;
+        }
+        if let Some(types) = p.take("RemoveTypes") {
+            for word in types
+                .split([',', '&'])
+                .map(str::trim)
+                .filter(|w| !w.is_empty())
+            {
+                let ct = card_type_const(word)?;
+                mods.push(format!("CopyMod::RemoveType({ct})"));
+            }
+        }
+        if let Some(flag) = p.take("NonLegendary") {
+            if flag != "True" {
+                return None;
+            }
+            mods.push("CopyMod::RemoveSupertype(SupertypeSet::LEGENDARY)".to_string());
+        }
+        if let Some(raw) = p
+            .take("RemoveSuperTypes")
+            .or_else(|| p.take("RemoveSupertypes"))
+        {
+            for word in raw
+                .split([',', '&'])
+                .map(str::trim)
+                .filter(|w| !w.is_empty())
+            {
+                let st = Self::copy_supertype_const(word)?;
+                mods.push(format!("CopyMod::RemoveSupertype({st})"));
+            }
+        }
+        if let Some(raw) = p.take("SetCreatureTypes") {
+            let mut paths = Vec::new();
+            for word in raw
+                .split([',', '&'])
+                .map(str::trim)
+                .filter(|w| !w.is_empty())
+            {
+                paths.push(self.cats.const_path_of(SubtypeKind::Creature, word)?);
+            }
+            if paths.is_empty() {
+                return None;
+            }
+            mods.push(format!(
+                "CopyMod::SetCreatureTypes(&[{}])",
+                paths.join(", ")
+            ));
+        }
+        Self::copy_mods_extra(p, allow_keep_self_name, &mut mods)?;
+        Some(mods)
+    }
+
+    fn copy_mods_extra(
+        p: &mut Params,
+        allow_keep_self_name: bool,
+        mods: &mut Vec<String>,
+    ) -> Option<()> {
+        if let Some(raw) = p.take("AddKeywords") {
+            for word in raw.split('&').map(str::trim).filter(|w| !w.is_empty()) {
+                let kw = keyword_const(word)?;
+                mods.push(format!("CopyMod::AddKeyword({kw})"));
+            }
+        }
+        match (p.take("SetPower"), p.take("SetToughness")) {
+            (None, None) => {}
+            (Some(pow), Some(tou)) => {
+                let pow = pow.trim().parse::<i16>().ok()?;
+                let tou = tou.trim().parse::<i16>().ok()?;
+                mods.push(format!("CopyMod::SetPT({pow}, {tou})"));
+            }
+            _ => return None,
+        }
+        if let Some(raw) = p
+            .take("SetColor")
+            .or_else(|| p.take("SetColors"))
+            .or_else(|| p.take("Colors"))
+        {
+            mods.push(format!(
+                "CopyMod::SetColor({})",
+                Self::parse_copy_colors(&raw)?
+            ));
+        }
+        if let Some(raw) = p.take("AddColors") {
+            mods.push(format!(
+                "CopyMod::AddColor({})",
+                Self::parse_copy_colors(&raw)?
+            ));
+        }
+        if let Some(name) = p.take("NewName") {
+            let name = name.trim();
+            if name == "CARDNAME" && allow_keep_self_name {
+                mods.push("CopyMod::KeepName".to_string());
+            } else if !name.is_empty() && !name.contains("CARDNAME") && !name.contains("NICKNAME") {
+                mods.push(format!("CopyMod::SetName({name:?})"));
+            } else {
+                return None;
+            }
+        }
+        if let Some(flag) = p.take("KeepName") {
+            if flag != "True" {
+                return None;
+            }
+            mods.push("CopyMod::KeepName".to_string());
+        }
+        if let Some(flag) = p.take("NoManaCost").or_else(|| p.take("RemoveManaCost")) {
+            if flag != "True" {
+                return None;
+            }
+            mods.push("CopyMod::NoManaCost".to_string());
+        }
+        if let Some(flag) = p.take("KeepManaCost") {
+            if flag != "True" {
+                return None;
+            }
+            mods.push("CopyMod::KeepManaCost".to_string());
+        }
+        if let Some(raw) = p.take("SetManaCost") {
+            let mana = Self::format_mana_cost_braced(&raw)?;
+            mods.push(format!("CopyMod::SetManaCost(mana!(\"{mana}\"))"));
+        }
+        if let Some(flag) = p.take("GainThisAbility") {
+            if flag != "True" {
+                return None;
+            }
+            mods.push("CopyMod::KeepResolvingAbility".to_string());
+        }
+        Some(())
+    }
+
+    fn copy_supertype_const(word: &str) -> Option<&'static str> {
+        Some(match word {
+            "Legendary" => "SupertypeSet::LEGENDARY",
+            "Basic" => "SupertypeSet::BASIC",
+            "Snow" => "SupertypeSet::SNOW",
+            _ => return None,
+        })
+    }
+
+    fn parse_copy_colors(raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        if trimmed.eq_ignore_ascii_case("Colorless") {
+            return Some("ColorSet::EMPTY".to_string());
+        }
+        let mut colors = Vec::new();
+        for part in trimmed
+            .split([',', '&'])
+            .map(str::trim)
+            .filter(|w| !w.is_empty())
+        {
+            let name = color_word(part)?.strip_prefix("ManaColor::")?;
+            colors.push(format!("Color::{name}"));
+        }
+        (!colors.is_empty()).then(|| format!("ColorSet::from_slice(&[{}])", colors.join(", ")))
+    }
+
+    fn format_mana_cost_braced(raw: &str) -> Option<String> {
+        let mut mana = String::new();
+        for tok in raw.split_whitespace() {
+            if tok.starts_with('{') && tok.ends_with('}') {
+                mana.push_str(tok);
+            } else {
+                mana.push('{');
+                mana.push_str(tok);
+                mana.push('}');
+            }
+        }
+        if mana.is_empty() || baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+            return None;
+        }
+        Some(mana)
+    }
+
+    fn take_copy_permanent_riders(p: &mut Params) -> Option<(bool, bool, bool, &'static str)> {
+        let tapped = match p
+            .take("TokenTapped")
+            .or_else(|| p.take("Tapped"))
+            .as_deref()
+        {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let attacking = match p.take("TokenAttacking").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let haste_until_eot = match (
+            p.take("PumpKeywords").as_deref(),
+            p.take("PumpDuration").as_deref(),
+        ) {
+            (None, None) => false,
+            (Some("Haste"), None | Some("EOT" | "UntilEndOfTurn")) => true,
+            _ => return None,
+        };
+        let cleanup = match p.take("AtEOT").or_else(|| p.take("AtEOTTrig")).as_deref() {
+            None => "CopyCleanup::None",
+            Some("Sacrifice") => "CopyCleanup::SacrificeAtNextEndStep",
+            Some("Exile") => "CopyCleanup::ExileAtNextEndStep",
+            Some("SacrificeCombat") => "CopyCleanup::SacrificeAtEndOfCombat",
+            Some("ExileCombat") => "CopyCleanup::ExileAtEndOfCombat",
+            Some(_) => return None,
+        };
+        Some((tapped, attacking, haste_until_eot, cleanup))
+    }
+
+    pub(super) fn copy_permanent_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        p.take("AITgts");
+        let kicked_copies = p.peek("NumCopies").and_then(|raw| {
+            if !self.has_single_kicker {
+                return None;
+            }
+            let def = self.svars.get(raw.trim())?.trim();
+            let (k_str, u_str) = def.strip_prefix("Count$Kicked.")?.split_once('.')?;
+            let k = k_str.trim().parse::<u32>().ok()?;
+            let u = u_str.trim().parse::<u32>().ok()?;
+            Some((format!("Amount::Fixed({k})"), format!("Amount::Fixed({u})")))
+        });
+        let amount = if kicked_copies.is_some() {
+            p.take("NumCopies");
+            String::new()
+        } else {
+            match p.take("NumCopies") {
+                None => "Amount::Fixed(1)".to_string(),
+                Some(raw) => self.amount_or_count_ext(&raw)?,
+            }
+        };
+        let (tapped, attacking, haste_until_eot, cleanup) = Self::take_copy_permanent_riders(p)?;
+        let mods = self.copy_mods(p, false)?;
+        let mods_list = mods.join(", ");
+        let populate = match p.take("Populate").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let wrap = |mk: &dyn Fn(&str) -> String| -> Vec<String> {
+            match &kicked_copies {
+                Some((k, u)) => vec![format!(
+                    "Effect::IfKicked {{ then: &[{}], otherwise: &[{}] }}",
+                    mk(k),
+                    mk(u)
+                )],
+                None => vec![mk(&amount)],
+            }
+        };
+        let choose_filter = if populate {
+            if target.is_some()
+                || targets_here
+                || p.has("Defined")
+                || p.has("Choices")
+                || !matches!(p.take("Controller").as_deref(), None | Some("You"))
+            {
+                return None;
+            }
+            Some(self.body.filter_static(
+                "POPULATE",
+                "Filter::And(&[Filter::CREATURE, Filter::TOKEN, Filter::ControlledByYou])",
+            ))
+        } else if let Some(choices) = p.take("Choices") {
+            if target.is_some()
+                || targets_here
+                || p.has("Defined")
+                || p.has("RandomCopied")
+                || !matches!(p.take("Chooser").as_deref(), None | Some("You"))
+                || !matches!(p.take("Controller").as_deref(), None | Some("You"))
+            {
+                return None;
+            }
+            let expr = self.filter_expr(&choices)?;
+            Some(self.body.filter_static("COPY_CHOICE", &expr))
+        } else {
+            None
+        };
+        if let Some(filter) = choose_filter {
+            return Some(wrap(&|amt| {
+                format!(
+                    "Effect::ChooseAndCreateTokenCopy {{ filter: &{filter}, amount: {amt}, \
+                     mods: &[{mods_list}], tapped: {tapped}, attacking: {attacking}, \
+                     haste_until_eot: {haste_until_eot}, cleanup: {cleanup} }}"
+                )
+            }));
+        }
+        let controller =
+            self.player_of_line(p.take("Controller").as_deref(), target, targets_a_player)?;
+        let obj_target = target.filter(|t| {
+            t.starts_with("TargetSpec::Object(") || t.starts_with("TargetSpec::CardInGraveyard(")
+        });
+        let copy_target = match p.take("Defined").as_deref() {
+            None if targets_here => obj_target?.to_string(),
+            Some("Targeted" | "ParentTarget") => obj_target?.to_string(),
+            Some("Self") if !self.on_a_spell && target.is_none() => {
+                "TargetSpec::ThisObject".to_string()
+            }
+            Some(def) if target.is_none() && self.is_event_object_defined(def) => {
+                "TargetSpec::EventObject".to_string()
+            }
+            _ => return None,
+        };
+        Some(wrap(&|amt| {
+            format!(
+                "Effect::CreateTokenCopy {{ target: {copy_target}, controller: {controller}, \
+                 amount: {amt}, mods: &[{mods_list}], tapped: {tapped}, attacking: {attacking}, \
+                 haste_until_eot: {haste_until_eot}, cleanup: {cleanup} }}"
+            )
+        }))
+    }
+
+    pub(super) fn become_copy_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        second_target_here: bool,
+    ) -> Option<Vec<String>> {
+        if !matches!(p.take("CloneZone").as_deref(), None | Some("Battlefield")) {
+            return None;
+        }
+        let until_eot = match p.take("Duration").as_deref() {
+            None | Some("Permanent") => false,
+            Some("UntilEndOfTurn") => true,
+            Some(_) => return None,
+        };
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let mods = self.copy_mods(p, true)?;
+        if let Some(extra_svars) = p.peek("AddSVars")
+            && mods.iter().any(|m| m == "CopyMod::KeepResolvingAbility")
+            && self
+                .svars
+                .get(extra_svars.trim())
+                .and_then(|body| Params::parse(body))
+                .is_some_and(|(api, _)| api == "Clone")
+        {
+            p.take("AddSVars");
+        }
+        let obj_target = target.filter(|t| {
+            t.starts_with("TargetSpec::Object(") || t.starts_with("TargetSpec::CardInGraveyard(")
+        });
+        let clone_target = p.take("CloneTarget");
+        let defined = p.take("Defined");
+        let (subject, subject_filter, original, original_is_second) = if second_target_here {
+            if clone_target.as_deref() != Some("ParentTarget") || defined.is_some() {
+                return None;
+            }
+            (
+                "TargetSlot::First",
+                "None".to_string(),
+                "TargetSpec::ThisObject".to_string(),
+                true,
+            )
+        } else if let Some(valid) = clone_target
+            .as_deref()
+            .and_then(|s| s.strip_prefix("Valid "))
+        {
+            let orig = match defined.as_deref() {
+                None if targets_here => obj_target?.to_string(),
+                Some("Targeted" | "ParentTarget") => obj_target?.to_string(),
+                Some("Self") if !self.on_a_spell && target.is_none() => {
+                    "TargetSpec::ThisObject".to_string()
+                }
+                _ => return None,
+            };
+            let expr = self.filter_expr(valid.trim())?;
+            let filter = self.body.filter_static("COPY_SUBJ", &expr);
+            ("TargetSlot::This", format!("Some(&{filter})"), orig, false)
+        } else if clone_target.as_deref() == Some("Targeted")
+            && defined.as_deref() == Some("Self")
+            && !self.on_a_spell
+            && obj_target.is_some()
+        {
+            (
+                "TargetSlot::First",
+                "None".to_string(),
+                "TargetSpec::ThisObject".to_string(),
+                false,
+            )
+        } else if matches!(clone_target.as_deref(), None | Some("Self")) && !self.on_a_spell {
+            let orig = match defined.as_deref() {
+                None if targets_here => obj_target?.to_string(),
+                Some("Targeted" | "ParentTarget") => obj_target?.to_string(),
+                Some(def) if target.is_none() && self.is_event_object_defined(def) => {
+                    "TargetSpec::EventObject".to_string()
+                }
+                _ => return None,
+            };
+            ("TargetSlot::This", "None".to_string(), orig, false)
+        } else {
+            return None;
+        };
+        let effect = format!(
+            "Effect::BecomeCopy {{ subject: {subject}, subject_filter: {subject_filter}, \
+             original: {original}, original_is_second_target: {original_is_second}, \
+             until_eot: {until_eot}, mods: &[{}] }}",
+            mods.join(", ")
+        );
+        Some(vec![if optional {
+            format!("Effect::MayDo {{ effects: &[{effect}] }}")
+        } else {
+            effect
+        }])
+    }
+
+    pub(super) fn flip_coin_effect(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        chain: &Chain,
+    ) -> Option<Vec<String>> {
+        if p.has("NoCall")
+            || p.has("HeadsSubAbility")
+            || p.has("TailsSubAbility")
+            || !matches!(p.take("Flipper").as_deref(), None | Some("You"))
+        {
+            return None;
+        }
+        let until_lose = match p.take("FlipUntilYouLose").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let win = match p.take("WinSubAbility") {
+            None => Vec::new(),
+            Some(name) => self.parse_branch_svar(&name, chain.target.as_deref(), None)?,
+        };
+        let lose = match p.take("LoseSubAbility") {
+            None => Vec::new(),
+            Some(name) => self.parse_branch_svar(&name, chain.target.as_deref(), None)?,
+        };
+        if let Some(sub_name) = sub.as_deref()
+            && self.is_dummy_zero_mana_svar(sub_name)
+        {
+            *sub = None;
+        }
+        let rem_wins = match p.take("RememberNumber").as_deref() {
+            None => false,
+            Some("Wins") => true,
+            Some(_) => return None,
+        };
+        let wins_follow = if rem_wins {
+            let sub_name = sub.take()?;
+            self.parse_branch_svar(
+                &sub_name,
+                chain.target.as_deref(),
+                Some(("Wins", "Count$CoinsWonThisResolution")),
+            )?
+        } else {
+            Vec::new()
+        };
+        if until_lose {
+            if p.has("Amount") {
+                return None;
+            }
+            let mut after = lose;
+            after.extend(wins_follow);
+            return Some(vec![format!(
+                "Effect::FlipUntilLose {{ max_flips: None, per_win: &[{}], after: &[{}] }}",
+                win.join(", "),
+                after.join(", ")
+            )]);
+        }
+        let raw_amount = p.take("Amount");
+        if let Some(raw_amt) = raw_amount
+            && raw_amt.trim() != "1"
+        {
+            if !lose.is_empty() {
+                return None;
+            }
+            let count = self.amount_or_count_ext(&raw_amt)?;
+            let mut out = vec![format!(
+                "Effect::FlipCoins {{ count: {count}, stop_on_loss: false, \
+                 per_win: &[{}], if_won_all: &[] }}",
+                win.join(", ")
+            )];
+            out.extend(wins_follow);
+            return Some(out);
+        }
+        if rem_wins {
+            return None;
+        }
+        if win.is_empty() && lose.is_empty() {
+            return Some(vec![
+                "Effect::FlipCoins { count: Amount::Fixed(1), stop_on_loss: false, \
+                 per_win: &[], if_won_all: &[] }"
+                    .to_string(),
+            ]);
+        }
+        Some(vec![format!(
+            "Effect::FlipCoin {{ won: &[{}], lost: &[{}] }}",
+            win.join(", "),
+            lose.join(", ")
+        )])
+    }
+
+    pub(super) fn roll_dice_effect(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        if !matches!(p.take("Defined").as_deref(), None | Some("You")) {
+            return None;
+        }
+        let sides = match p.take("Sides") {
+            None => 6u8,
+            Some(raw) => raw.trim().parse::<u8>().ok().filter(|&n| n >= 2)?,
+        };
+        let count = match p.take("Amount") {
+            None => "Amount::Fixed(1)".to_string(),
+            Some(raw) => self.amount_or_count_ext(&raw)?,
+        };
+        let modifier = match p.take("Modifier") {
+            None => 0i8,
+            Some(raw) => raw.trim().parse::<i8>().ok()?,
+        };
+        let result_svar = p.take("ResultSVar");
+        let table = match p.take("ResultSubAbilities") {
+            None => None,
+            Some(raw) => Some(self.parse_die_result_table(&raw, chain.target.as_deref())?),
+        };
+        if let Some(sub_name) = sub.as_deref()
+            && self.is_dummy_zero_mana_svar(sub_name)
+        {
+            *sub = None;
+        }
+        let mut out = vec![format!(
+            "Effect::RollDice {{ count: {count}, sides: {sides}, modifier: {modifier} }}"
+        )];
+        if let Some(branch_effect) = table {
+            out.push(branch_effect);
+        }
+        if let Some(var) = result_svar {
+            let sub_name = sub.take()?;
+            let body = self.svars.get(&sub_name)?.clone();
+            let rewritten = self.rewrite_svar_placeholder(&body, var.trim(), "Count$LastDieRoll");
+            let mut sub_chain = Chain {
+                target: chain.target.clone(),
+                ..Chain::default()
+            };
+            self.chain(&rewritten, &mut sub_chain)?;
+            if sub_chain.target != chain.target {
+                if chain.target.is_some() || sub_chain.second_target.is_some() {
+                    return None;
+                }
+                chain.target = sub_chain.target;
+                chain.target_up_to = sub_chain.target_up_to;
+                chain.target_exact = sub_chain.target_exact;
+                chain.target_is_x = sub_chain.target_is_x;
+            }
+            if sub_chain.effects.is_empty() {
+                return None;
+            }
+            out.extend(sub_chain.effects);
+        }
+        Some(out)
+    }
+
+    fn parse_branch_svar(
+        &mut self,
+        name: &str,
+        parent_target: Option<&str>,
+        replace_var: Option<(&str, &str)>,
+    ) -> Option<Vec<String>> {
+        let body = self.svars.get(name.trim())?.clone();
+        let body = match replace_var {
+            Some((from, to)) => self.rewrite_svar_placeholder(&body, from, to),
+            None => body,
+        };
+        let mut branch = Chain {
+            target: parent_target.map(str::to_string),
+            ..Chain::default()
+        };
+        self.chain(&body, &mut branch)?;
+        if branch.target.as_deref() != parent_target
+            || branch.second_target.is_some()
+            || branch.effects.is_empty()
+        {
+            return None;
+        }
+        Some(branch.effects)
+    }
+
+    fn parse_die_result_table(&mut self, raw: &str, parent_target: Option<&str>) -> Option<String> {
+        let mut ranges: Vec<(u8, u8, Vec<String>)> = Vec::new();
+        let mut else_branch: Option<Vec<String>> = None;
+        let parts: Vec<&str> = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if parts.is_empty() {
+            return None;
+        }
+        for (idx, part) in parts.iter().enumerate() {
+            let (range_str, svar_name) = part.split_once(':')?;
+            let range_str = range_str.trim();
+            let effects = self.parse_branch_svar(svar_name, parent_target, None)?;
+            if range_str == "Else" {
+                if idx + 1 != parts.len() {
+                    return None;
+                }
+                else_branch = Some(effects);
+            } else if let Some(lo_str) = range_str.strip_suffix('+') {
+                let lo = lo_str.trim().parse::<u8>().ok()?;
+                ranges.push((lo, u8::MAX, effects));
+            } else if let Some((lo_s, hi_s)) = range_str.split_once('-') {
+                let lo = lo_s.trim().parse::<u8>().ok()?;
+                let hi = hi_s.trim().parse::<u8>().ok()?;
+                if lo > hi {
+                    return None;
+                }
+                ranges.push((lo, hi, effects));
+            } else {
+                let n = range_str.parse::<u8>().ok()?;
+                ranges.push((n, n, effects));
+            }
+        }
+        let mut acc = else_branch.unwrap_or_default();
+        for (min, max, then) in ranges.into_iter().rev() {
+            let expr = format!(
+                "Effect::IfDieRollInRange {{ min: {min}, max: {max}, \
+                 then: &[{}], otherwise: &[{}] }}",
+                then.join(", "),
+                acc.join(", ")
+            );
+            acc = vec![expr];
+        }
+        (acc.len() == 1).then(|| acc.remove(0))
+    }
+
+    fn rewrite_svar_placeholder(&self, body: &str, var: &str, replacement: &str) -> String {
+        let mut out_parts = Vec::new();
+        for (idx, part) in body.split(" | ").enumerate() {
+            if idx == 0 {
+                out_parts.push(part.to_string());
+                continue;
+            }
+            if let Some((k, v)) = part.split_once('$') {
+                let val = v.trim();
+                let new_val = if val == var {
+                    Some(replacement.to_string())
+                } else if val == format!("+{var}") {
+                    Some(format!("+{replacement}"))
+                } else {
+                    let bare = val.strip_prefix('+').unwrap_or(val);
+                    let plus = val.starts_with('+');
+                    self.svars
+                        .get(bare)
+                        .and_then(|def| {
+                            def.trim()
+                                .strip_prefix(&format!("SVar${var}/"))
+                                .map(|rest| format!("{replacement}/{rest}"))
+                        })
+                        .map(|expr| if plus { format!("+{expr}") } else { expr })
+                };
+                if let Some(nv) = new_val {
+                    out_parts.push(format!("{}$ {nv}", k.trim()));
+                    continue;
+                }
+            }
+            out_parts.push(part.to_string());
+        }
+        out_parts.join(" | ")
+    }
+
+    fn is_dummy_zero_mana_svar(&self, name: &str) -> bool {
+        let Some(body) = self.svars.get(name.trim()) else {
+            return false;
+        };
+        let Some((api, mut p)) = Params::parse(body) else {
+            return false;
+        };
+        p.drop_prose();
+        api == "Mana"
+            && p.take("Produced").is_some()
+            && p.take("Amount").as_deref() == Some("0")
+            && p.exhausted()
+    }
+
+    pub(super) fn phase_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        p.take("IsCurse");
+        if p.has("AnyNumber")
+            || p.has("WontPhaseInNormal")
+            || p.has("PhaseInOrOut")
+            || p.has("RememberAffected")
+        {
+            return None;
+        }
+        if let Some(valid) = p.take("AllValid") {
+            if target.is_some() || p.has("Defined") {
+                return None;
+            }
+            let expr = self.filter_expr(&valid)?;
+            let filter = self.body.filter_static("PHASE", &expr);
+            return Some(vec![format!("Effect::PhaseOutFilter(&{filter})")]);
+        }
+        let obj_target = target.filter(|t| t.starts_with("TargetSpec::Object("));
+        if target.is_none() && p.peek("Defined") == Some("Valid Permanent.YouCtrl") {
+            return self.phase_your_permanents(p);
+        }
+        match p.take("Defined").as_deref() {
+            Some("Self") if !self.on_a_spell && target.is_none() => {
+                Some(vec!["Effect::PhaseOut { target: None }".to_string()])
+            }
+            Some("Enchanted" | "Equipped") if !self.on_a_spell && target.is_none() => Some(vec![
+                "Effect::PhaseOutFilter(&Filter::AttachedToBySource)".to_string(),
+            ]),
+            Some(def) if target.is_none() && self.is_event_object_defined(def) => Some(vec![
+                "Effect::PhaseOut { target: Some(TargetSpec::EventObject) }".to_string(),
+            ]),
+            Some("Self & Targeted") if !self.on_a_spell => Some(vec![
+                "Effect::PhaseOut { target: None }".to_string(),
+                format!("Effect::PhaseOut {{ target: Some({}) }}", obj_target?),
+            ]),
+            None if targets_here => Some(vec![format!(
+                "Effect::PhaseOut {{ target: Some({}) }}",
+                obj_target?
+            )]),
+            Some("Targeted" | "ParentTarget") => Some(vec![format!(
+                "Effect::PhaseOut {{ target: Some({}) }}",
+                obj_target?
+            )]),
+            _ => None,
+        }
+    }
+
+    pub(super) fn phase_out_until_source_leaves_effect(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if p.take("WontPhaseInNormal").as_deref() != Some("True")
+            || !matches!(
+                p.take("ConditionPresent").as_deref(),
+                None | Some("Card.Self")
+            )
+        {
+            return None;
+        }
+        let eff_name = sub.take()?;
+        let eff_body = self.svars.get(&eff_name)?.clone();
+        let (eff_api, mut ep) = Params::parse(&eff_body)?;
+        ep.drop_prose();
+        if eff_api != "Effect"
+            || ep.take("RememberObjects").as_deref() != Some("Targeted")
+            || ep.take("ImprintCards").as_deref() != Some("Self")
+            || ep.take("Duration").as_deref() != Some("Permanent")
+            || ep.take("ForgetOnPhasedIn").as_deref() != Some("True")
+            || !matches!(
+                ep.take("ConditionPresent").as_deref(),
+                None | Some("Card.Self")
+            )
+        {
+            return None;
+        }
+        let trig_name = ep.take("Triggers")?;
+        let next_sub = ep.take("SubAbility");
+        if !ep.exhausted() {
+            return None;
+        }
+        let trig_body = self.svars.get(trig_name.trim())?.clone();
+        let (trig_mode, mut tp) = Params::parse(&trig_body)?;
+        tp.drop_prose();
+        if trig_mode != "ChangesZone"
+            || tp.take("Origin").as_deref() != Some("Battlefield")
+            || tp.take("Destination").as_deref() != Some("Any")
+            || tp.take("ValidCard").as_deref() != Some("Card.IsImprinted")
+            || !matches!(tp.take("TriggerZones").as_deref(), None | Some("Command"))
+            || !matches!(
+                tp.take("TriggerController").as_deref(),
+                None | Some("TriggeredCardController")
+            )
+            || !matches!(tp.take("Static").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        let exec_name = tp.take("Execute")?;
+        if !tp.exhausted() {
+            return None;
+        }
+        let exec_body = self.svars.get(exec_name.trim())?.clone();
+        let (exec_api, mut xp) = Params::parse(&exec_body)?;
+        xp.drop_prose();
+        if exec_api != "Phases"
+            || xp.take("Defined").as_deref() != Some("Remembered")
+            || xp.take("PhaseInOrOut").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let tap_on_phase_in = match xp.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        if let Some(exile_name) = xp.take("SubAbility") {
+            let eb = self.svars.get(exile_name.trim())?.clone();
+            let (eapi, mut xep) = Params::parse(&eb)?;
+            xep.drop_prose();
+            if eapi != "ChangeZone"
+                || xep.take("Origin").as_deref() != Some("Command")
+                || xep.take("Destination").as_deref() != Some("Exile")
+                || xep.take("Defined").as_deref() != Some("Self")
+                || !xep.exhausted()
+            {
+                return None;
+            }
+        }
+        if !xp.exhausted() {
+            return None;
+        }
+        *sub = next_sub;
+        Some(vec![format!(
+            "Effect::PhaseOutUntilSourceLeaves {{ tap_on_phase_in: {tap_on_phase_in} }}"
+        )])
     }
 }
