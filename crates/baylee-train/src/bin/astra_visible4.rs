@@ -1,6 +1,7 @@
 //! CPU-only rendering of two measured spell plans from the deciding seat's
 //! pre-action replay. The record index deserializes no scores or endings.
 use anyhow::{Context, Result, bail, ensure};
+use baylee_cards_pool as _;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::PlayerAction;
 use baylee_gamehost::{
