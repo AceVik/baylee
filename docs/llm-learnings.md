@@ -6,13 +6,16 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
-## 2026-11-21 — Beat 6 (Part 1): Codegen Wave 11a (`2d057b189`) & Wave 11c (`dec339acf`)
+## 2026-11-21 — Beat 6 (Part 1): Codegen Wave 11a (`2d057b189`), Wave 11b (`f45a482c1`), & Wave 11c (`dec339acf`)
 
 - **Codegen Wave 11a (`Reviewed: f4ad85a93`, merged as `2d057b189`, `Reviewed-by: gemini-4-argon-high (#340), pass`):**
   - Added `CardBody::{disturb, escape, squad, offspring, fuse}` (`crates/baylee-cards-codegen/src/body.rs`), lowered `K:Squad:<cost>`, `K:Offspring:<cost>`, `K:Fuse`, `K:Disturb:<mana>`, `K:Escape:<mana> ExileFromGrave<N/Card.Other>`, `K:Enchant:{Player,Opponent,Player.Opponent,Player.OppCtrl,Player.You,You}`, and extended `activated.rs` combat windows (`Upkeep->Declare Attackers`/`Blockers`), graveyard `.YouOwn`/`Above`/`AtMost`, and `PresentCompare$ EQ1`.
+- **Codegen Wave 11b (`Reviewed: 080f6bbbb`, merged as `f45a482c1`, `Reviewed-by: gemini-4-argon-high (#346), pass`):**
+  - Lowered `ChangesZoneAll`, `Sacrificed`, and `PlayerAttacked` triggers + `EventPlayer` / `ControllerOfEvent` / `EventObject` / `EventAmount` / `EventPower` / `EventLastToughness` bindings (`triggers.rs`, `effects.rs`, `chains.rs`); lowered `Manifest`, `ManifestDread`, `SetState` `TurnFaceUp`/`Transform` `Optional$ True`, resolution-bound `Effect` spell/attack/life locks, `Condition::{ObjectMatches, AmountCompare}`, `DamageEqualToPower` `First -> This`, and generalized untargeted graveyard `ChooseCard`.
+  - Fixed `#326` *Invasion of Vryn* (`CopySpellAbility` absent `MayChooseTarget$` Oracle fallback), Pass E5 *Dune Mover* optional ETB search, and `ChangesZone`-scoped `wasCastFromYourHandByYou`.
 - **Codegen Wave 11c (`Reviewed: ef4ea3f54`, merged as `dec339acf`, `Reviewed-by: gemini-4-argon-high (#337), pass`):**
   - Fixed Pass E4b/E5 Oracle scope mismatches on `!card_zone && !has_controller` (`Baloth Packhunter`, `Charmed Stray`, `Norn's Choirmaster`); lowered `EnchantedPlayer` / `EnchantedPlayerCtrl` Curse filters, relations, statics, cost taxes, and replacements; wired `Filter::{Historic, AnyCountersAtLeast(n)}`, `Condition::AmountCompare` `NotEqual`, `Modifier::MatchingSpellCastLimitPerTurn`, `Modifier::AbilitiesCostMore(n)`, `StrictlySelf`, `Count$YourTurns`, and `Wave 11b` `ChangesZoneAll`/`Sacrificed` `PlayerRel` & `Amount` hooks.
-  - Combined verification: `fmt --check` PASS, `baylee-cards-codegen` **`654/654`**, `xtask` **`149/149`**, `clippy --all-targets -- -D warnings` `0` warnings; `xtask transcode-report`: **`18,559 / 34,482` (`53%`, `+127`)** full corpus scripts, **`753 / 864`** tokens (`0` collisions), **`23 / 969`** pool stubs.
+  - Combined Wave 11a+11b+11c verification: `fmt --check` PASS, `baylee-cards-codegen` **`659/659`**, `xtask` **`149/149`**, `clippy --all-targets -- -D warnings` `0` warnings; `xtask transcode-report`: **`18,904 / 34,482` (`54%`, `+472`)** full corpus scripts, **`753 / 864`** tokens (`0` collisions), **`29 / 969`** pool stubs.
 
 ## 2026-11-20 — Beat 5: Engine Wave 5b (`cece6d440`), Pass E5 (`50b1377c6`–`5dcba1293`), & Non-Deck Vanguard Exclusion (`0d1e3d5b2`)
 
