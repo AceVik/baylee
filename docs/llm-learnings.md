@@ -8313,3 +8313,25 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   and `count_controlled` in `layers/counts.rs:8-33` only rebound
   `context.source = obj.id` for `Filter::AttachedToSource`, missing
   `Filter::SharesCreatureTypeWith(Filter::This)` (`Coat of Arms`, `Alpha Status`).
+
+## 2026-11-20 — P5 Granted Triggers, P10/P11/P12, Card Lints & Wave 5 Scriptgen (Gemini Swarm)
+
+- **Always gate card batches with `cargo test -p baylee-cards --lib`**:
+  `xtask validate` does not execute `baylee-cards` library lint tests
+  (`every_equip_ability_is_sorcery_speed_untapped_and_targets_your_own`,
+  custom-counter & self-return ceiling tests, etc.). Running
+  `cargo test -p baylee-cards --lib` caught `Nether Traitor` dies-line matching
+  (`"put into your graveyard"` pre-M10 wording in `lines.rs`), Fifth Dawn
+  non-Equip `: Attach` wording, and pool ceiling bumps before pushing; keep
+  `baylee-cards --lib` in every batch gate.
+- **Wave 2 resolution/layer fixes & Wave 5 reader unlocks (`b98b93212`, `d3945a51e`)**:
+  resolved multi-target `ExileLinked`/`Blink`, isolated `TapTarget` from
+  `second_targets` (`TapTargetSlot`/`UntapTargetSlot`), added live/LKI
+  `Amount::EventLastToughness` fallback, rebound `context.source` inside
+  `count_controlled` for `SharesCreatureTypeWith(&Filter::This)`, generalized
+  `LastCounterRemoved { kind, by }` + SBA counter-annihilation journalling,
+  updated `Modifier` census (`209 = 57 locking + 152 rules-only`), preserved
+  trailing Oracle text in `triggers.rs::prose_you_may` (`Riptide Crab`), switched
+  blocked-attacker triggers to `Filter::BlockingReference`, and added
+  `"ChooseOne"` to `OFFERS_A_CHOICE`, bringing `transcode-report` to
+  `16,171 / 34,482` (`46%`) scripts and `733 / 864` (`0` collisions) tokens.
