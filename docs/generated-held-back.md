@@ -29,6 +29,8 @@ never a reason to edit a card by hand.
 - Obscuring Haze: `validate`: `"you control"` from `AltCondition::CommanderControlled` is not yet recognized by `check_text::filters_you` without `Filter::ControlledByYou`.
 - Witch of the Moors: valid trigger whose opponent sacrifice (`Filter::CREATURE`) shares `HasType(CREATURE)` with its `GraveyardToHand` target, tripping `lints::tests::targets::no_targeted_ability_sweeps_the_board_instead`.
 - Eladamri, Lord of Leaves Avatar: Vanguard card prints `{G}{G}` in its mana trigger while Scryfall carries an empty `color_identity`, tripping `lints::tests::faces::no_card_hides_a_color_it_prints`.
+- Dune Mover: `validate`: optional `"you may"` is dropped (`SearchLibrary { ..., optional: false }`).
+- Norn's Choirmaster: `validate`: `"Whenever a commander you control ..."` lowers as `Filter::OwnedByYou` without `Filter::ControlledByYou`.
 
 ## Engine gaps
 
@@ -38,7 +40,7 @@ never a reason to edit a card by hand.
 - Kolaghan's Command, Silumgar's Command: target in more than two modes.
 - Behold the Beyond: a quantity-only search (CR 701.23d) that may not settle for fewer.
 - Keldon Warcaller, Mind Unbound: lore counters; the AI guard wants a regression first (#166).
-- Cruel Sadist: `RemoveCounterSelfX` paired with a target asks for X before showing legal targets (CR 601.2b/c; flagged by `lints::tests::costs::no_cost_announces_a_number_on_an_ability_that_also_targets`).
+- Cruel Sadist, Geistflame Reservoir: `RemoveCounterSelfX` paired with a target asks for X before showing legal targets (CR 601.2b/c; flagged by `lints::tests::costs::no_cost_announces_a_number_on_an_ability_that_also_targets`).
 - Ayula, Queen Among Bears: mode 1 of `ModalTriggered` uses `second_targets` (`Target Bear you control fights target creature you don't control`), which triggered stack selection does not yet read (`tests::no_modal_trigger_mode_prints_a_second_target`).
 
 ## Fixture gaps (the card may be right; the pool-wide test cannot place it)

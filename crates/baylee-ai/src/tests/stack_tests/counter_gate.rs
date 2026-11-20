@@ -25,6 +25,7 @@ use super::*;
 /// one of those accepted cantrip/selection effects.
 /// Batch wave 8 (994 generated cards) adds Mentor's Guidance (`Scry(1)`,
 /// `Draw(1)`) and Scour All Possibilities (`Scry(2)`, `Draw(1)`).
+/// Batch wave 9 (997 generated cards) adds Otherworldly Gaze (`Surveil(3)`).
 #[test]
 fn the_counter_gate_lets_only_a_cantrip_resolve() {
     let mut held: Vec<&str> = baylee_cards::all()
@@ -76,6 +77,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Obsessive Search",
             "Open Communications",
             "Opt",
+            "Otherworldly Gaze",
             "Preordain",
             "Radical Idea",
             "Reach Through Mists",
