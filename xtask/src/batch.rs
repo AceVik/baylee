@@ -2,9 +2,10 @@
 //! clean tree.
 
 use crate::{
-    BTreeMap, BTreeSet, Path, PathBuf, card_files, catalog, fs, pool_additions, scriptgen,
+    BTreeMap, BTreeSet, Path, PathBuf, card_files, catalog, fs, pool_additions, scriptgen, scripts,
     scripts_root, scryfall, stubgen, tokengen, unplayable_ids,
 };
+use anyhow::Context as _;
 
 /// Refuses to start a batch on a tree that already has changes in it.
 ///
@@ -303,11 +304,110 @@ pub(crate) fn batch(
     Ok(())
 }
 
+/// Cards explicitly held back from automated batch selection (`data/held-back.tsv`).
+#[derive(Debug, Default)]
+pub(crate) struct HeldBack {
+    ids: BTreeSet<String>,
+    names: BTreeSet<String>,
+}
+
+impl HeldBack {
+    /// Returns `true` when either the row's Oracle id or printed card name is held back.
+    pub(crate) fn contains(&self, oracle_id: &str, name: &str) -> bool {
+        self.ids.contains(oracle_id) || self.names.contains(name)
+    }
+}
+
+fn is_oracle_id(s: &str) -> bool {
+    let mut groups = s.split('-');
+    [8usize, 4, 4, 4, 12].into_iter().all(|len| {
+        groups.next().is_some_and(|g| {
+            g.len() == len
+                && g.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        })
+    }) && groups.next().is_none()
+}
+
+/// Parses `data/held-back.tsv`, accepting both `<oracle_id>\t<name>\t<reason>`
+/// and `<name>\t<reason>`, skipping blanks and `#` comments.
+pub(crate) fn parse_held_back(text: &str) -> anyhow::Result<HeldBack> {
+    let mut out = HeldBack::default();
+    for (n, line) in text.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let cols: Vec<&str> = line.split('\t').collect();
+        match cols.as_slice() {
+            [name, reason] => {
+                let (name, reason) = (name.trim(), reason.trim());
+                anyhow::ensure!(
+                    !name.is_empty() && !reason.is_empty(),
+                    "data/held-back.tsv:{}: empty name or reason",
+                    n + 1
+                );
+                out.names.insert(name.to_owned());
+            }
+            [id, name, reason] => {
+                let (id, name, reason) = (id.trim(), name.trim(), reason.trim());
+                anyhow::ensure!(
+                    is_oracle_id(id) && !name.is_empty() && !reason.is_empty(),
+                    "data/held-back.tsv:{}: expected <oracle_id>\\t<name>\\t<reason>",
+                    n + 1
+                );
+                out.ids.insert(id.to_owned());
+                out.names.insert(name.to_owned());
+            }
+            _ => anyhow::bail!(
+                "data/held-back.tsv:{}: expected <oracle_id>\\t<name>\\t<reason> or <name>\\t<reason>",
+                n + 1
+            ),
+        }
+    }
+    Ok(out)
+}
+
+/// Reads `data/held-back.tsv` under `root`.
+pub(crate) fn held_back_set(root: &Path) -> anyhow::Result<HeldBack> {
+    let path = root.join("data/held-back.tsv");
+    let text = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+    parse_held_back(&text)
+}
+
+/// Resolves scripts from the live `dir` when present so stale `upcoming/*.txt`
+/// entries in `data/script-index.json` never break `batch` or `reach-list`,
+/// falling back to `data/script-index.json` when only a snapshot exists.
+pub(crate) fn resolve_script_index(
+    root: &Path,
+    dir: &Path,
+) -> anyhow::Result<BTreeMap<String, String>> {
+    if dir.is_dir() {
+        let index = scripts::build_index(dir)?;
+        anyhow::ensure!(
+            !index.is_empty(),
+            "no card scripts found under {}",
+            dir.display()
+        );
+        return Ok(index);
+    }
+    let script_index: BTreeMap<String, String> = serde_json::from_str(
+        &fs::read_to_string(root.join("data/script-index.json")).unwrap_or_default(),
+    )
+    .unwrap_or_default();
+    anyhow::ensure!(
+        !script_index.is_empty(),
+        "data/script-index.json is missing or empty; run `cargo xtask script-index`"
+    );
+    Ok(script_index)
+}
+
 /// What a reach measurement found: the names the reader can write today, and
 /// the counts that say whether the walk itself did its job.
 pub(crate) struct Reach {
     names: Vec<&'static str>,
     mine: usize,
+    held_back: usize,
     scripted: usize,
     refused: usize,
     front: usize,
@@ -325,18 +425,13 @@ pub(crate) fn reach_measure(
     let tokens = tokengen::TokenLookup::beside(&dir)?;
     let agent = ureq::Agent::new_with_defaults();
     let cats = scryfall::fetch_subtype_catalogs(&agent, &root.join(cache))?;
-    let script_index: BTreeMap<String, String> = serde_json::from_str(
-        &fs::read_to_string(root.join("data/script-index.json")).unwrap_or_default(),
-    )
-    .unwrap_or_default();
-    anyhow::ensure!(
-        !script_index.is_empty(),
-        "data/script-index.json is missing or empty; run `cargo xtask codegen`"
-    );
+    let script_index = resolve_script_index(root, &dir)?;
     let have: BTreeSet<&str> = baylee_cards::all().map(|def| def.oracle_id).collect();
-    // Never built, so never proposed (data/unplayable.tsv).
+    // Never built, so never proposed (data/unplayable.tsv, data/held-back.tsv).
     let unplayable = unplayable_ids(root)?;
-    let (mut mine, mut scripted, mut refused, mut front) = (0usize, 0usize, 0usize, 0usize);
+    let held_back_list = held_back_set(root)?;
+    let (mut mine, mut held_back, mut scripted, mut refused, mut front) =
+        (0usize, 0usize, 0usize, 0usize, 0usize);
     let mut names: Vec<&'static str> = Vec::new();
     // By reference: `ROWS` is a 33 694-element array and not a slice, so
     // `for row in ROWS` copies every one of them onto the stack — measured,
@@ -348,6 +443,10 @@ pub(crate) fn reach_measure(
             continue;
         }
         if unplayable.contains_key(row.oracle_id) {
+            continue;
+        }
+        if held_back_list.contains(row.oracle_id, row.name) {
+            held_back += 1;
             continue;
         }
         let Some(rel) = script_for(&script_index, row.name) else {
@@ -370,6 +469,7 @@ pub(crate) fn reach_measure(
     Ok(Reach {
         names,
         mine,
+        held_back,
         scripted,
         refused,
         front,
@@ -386,6 +486,7 @@ pub(crate) fn reach_list(
     let Reach {
         mut names,
         mine,
+        held_back,
         scripted,
         refused,
         front,
@@ -396,6 +497,9 @@ pub(crate) fn reach_list(
         baylee_cards_index::ROWS.len(),
         names.len()
     );
+    if held_back > 0 {
+        println!("reach: {held_back} held-back row(s) skipped (data/held-back.tsv)");
+    }
     // Reported rather than assumed: a second tier that matched nothing would
     // be a lookup quietly answering for one spelling only, and this is the
     // number that says it is doing its job.
@@ -665,4 +769,123 @@ pub(crate) fn refusal_cause(
         }
     }
     "refused with no reason recorded".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{HeldBack, parse_held_back, resolve_script_index};
+    use std::collections::BTreeMap;
+    use std::fs;
+    use std::path::Path;
+
+    #[test]
+    fn held_back_parses_both_layouts_and_rejects_malformed_rows() {
+        let ok = "\
+# comment line
+
+79591c18-0065-49bb-a77a-734d4af87a3c\tBloodhall Ooze\treader-gap
+Fake By Name\tfixture-gap
+";
+        let held: HeldBack = parse_held_back(ok).expect("valid held-back entries");
+        assert!(held.contains("79591c18-0065-49bb-a77a-734d4af87a3c", "Other Name"));
+        assert!(held.contains("00000000-0000-0000-0000-000000000000", "Bloodhall Ooze"));
+        assert!(held.contains("00000000-0000-0000-0000-000000000000", "Fake By Name"));
+        assert!(!held.contains("00000000-0000-0000-0000-000000000000", "Lightning Bolt"));
+
+        for bad in [
+            "just-one-column\n",
+            "Name Only\t\n",
+            "\treason\n",
+            "not-a-uuid\tBloodhall Ooze\treader-gap\n",
+            "79591c18-0065-49bb-a77a-734d4af87a3c\tBloodhall Ooze\textra\tcol\n",
+        ] {
+            assert!(parse_held_back(bad).is_err(), "should reject: {bad:?}");
+        }
+    }
+
+    #[test]
+    fn repository_held_back_file_matches_ledger_and_excludes_implemented() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../data/held-back.tsv");
+        let text = fs::read_to_string(&path).expect("read data/held-back.tsv");
+        let held = parse_held_back(&text).expect("parse data/held-back.tsv");
+
+        let by_id: BTreeMap<&str, &str> = baylee_cards_index::ROWS
+            .iter()
+            .map(|row| (row.oracle_id, row.name))
+            .collect();
+        for (n, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            let cols: Vec<&str> = line.split('\t').collect();
+            if cols.len() == 3 {
+                let (id, name) = (cols[0].trim(), cols[1].trim());
+                assert_eq!(
+                    by_id.get(id).copied(),
+                    Some(name),
+                    "data/held-back.tsv:{} mismatches CardIndex ledger",
+                    n + 1
+                );
+            }
+        }
+
+        for expected_held in [
+            ("79591c18-0065-49bb-a77a-734d4af87a3c", "Bloodhall Ooze"),
+            (
+                "ac136d46-32b7-4222-a840-b8be011c1872",
+                "Zethi, Arcane Blademaster",
+            ),
+            ("947a2665-2f4d-4193-8768-118f85334549", "Abundant Growth"),
+            ("2970d09b-4bef-468e-8de5-f994c820ccc0", "Pestbrood Sloth"),
+            ("5f5d6f2d-2793-4355-b3f6-6eba42603756", "A-The One Ring"),
+        ] {
+            assert!(
+                held.contains(expected_held.0, expected_held.1),
+                "missing expected held-back card {expected_held:?}"
+            );
+        }
+
+        for already_implemented in [
+            ("8dac693b-c5c5-4d80-9739-a3b95949a213", "Graceful Antelope"),
+            ("1af26f29-627c-48e5-a19d-deb43a11a846", "Hazy Homunculus"),
+            ("4fcfe370-ba33-438f-bd96-2ae560f59df9", "Wall of Vipers"),
+            ("59489b46-9d02-4f3c-bcd0-884e7605e9a5", "Opalescence"),
+            ("245e26ec-39eb-4af8-99af-8cc22edbc261", "Mercenary Informer"),
+        ] {
+            assert!(
+                !held.contains(already_implemented.0, already_implemented.1),
+                "already-implemented card should not be in data/held-back.tsv: {already_implemented:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_script_index_prefers_live_scripts_dir_over_stale_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("data")).unwrap();
+        fs::write(
+            root.join("data/script-index.json"),
+            serde_json::json!({ "Stale Card": "upcoming/stale.txt" }).to_string(),
+        )
+        .unwrap();
+
+        let missing_dir = root.join("missing");
+        let fallback = resolve_script_index(root, &missing_dir).expect("snapshot fallback");
+        assert_eq!(
+            fallback.get("Stale Card").map(String::as_str),
+            Some("upcoming/stale.txt")
+        );
+
+        let live_dir = root.join("cardsfolder");
+        fs::create_dir_all(live_dir.join("a")).unwrap();
+        fs::write(live_dir.join("a/live_card.txt"), "Name:Live Card\n").unwrap();
+        let live = resolve_script_index(root, &live_dir).expect("live scripts dir");
+        assert!(!live.contains_key("Stale Card"));
+        assert_eq!(
+            live.get("Live Card").map(String::as_str),
+            Some("a/live_card.txt")
+        );
+    }
 }
