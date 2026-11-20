@@ -3650,7 +3650,7 @@ impl Tx<'_> {
             }
             Some(self.body.filter_static(
                 "POPULATE",
-                "Filter::And(&[Filter::CREATURE, Filter::TOKEN, Filter::ControlledByYou])",
+                "Filter::And(&[Filter::CREATURE, Filter::IsToken, Filter::ControlledByYou])",
             ))
         } else if let Some(choices) = p.take("Choices") {
             if target.is_some()

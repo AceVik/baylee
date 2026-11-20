@@ -419,6 +419,10 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "MayRemoveCountersSelfCreateTokens",
     "MayExileTokensCreatedWithThisForCounters",
     "OpeningHandBattlefieldWithLuckCounterExilingHandCard",
+    "LookAtLibraryTop",
+    "ManaIsAnyColor",
+    "PeekAndReveal",
+    "RevealFromHand",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
@@ -444,6 +448,17 @@ pub(crate) fn check_optional_clauses_are_offered(
             || !f.additional_costs.is_empty()
             || f.miracle.is_some()
             || !f.enter_modifiers.is_empty()
+            || f.dash.is_some()
+            || f.blitz.is_some()
+            || f.buyback.is_some()
+            || f.replicate.is_some()
+            || f.multikicker.is_some()
+            || f.entwine.is_some()
+            || f.bestow.is_some()
+            || f.madness.is_some()
+            || f.flashback.is_some()
+            || f.escape.is_some()
+            || f.has_face_down_cast()
     }) {
         return;
     }

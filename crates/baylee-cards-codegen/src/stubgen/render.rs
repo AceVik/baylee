@@ -193,7 +193,10 @@ fn render_card(
     // The token ledger, on the same terms and for the same reason: a card
     // that creates one names the constant it was filed under, and the module
     // is the one door to both halves of the table.
-    if statics.contains("generated_tokens::") || literal.contains("generated_tokens::") {
+    if face_defs.contains("generated_tokens::")
+        || statics.contains("generated_tokens::")
+        || literal.contains("generated_tokens::")
+    {
         out.push_str("use crate::generated_tokens;\n");
     }
     out.push('\n');
