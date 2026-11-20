@@ -392,6 +392,8 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     }
     if let Some(host) = object.attached_to {
         out.push(format!("attached to {}", table.named(host)));
+    } else if let Some(player) = object.attached_player() {
+        out.push(format!("attached to {}", table.player(player)));
     }
     let combat = &table.view.combat;
     if let Some(attack) = combat.attackers.iter().find(|a| a.creature == object.id) {

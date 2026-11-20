@@ -212,7 +212,9 @@ pub(super) fn target_objects(
 
 fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
     if obj.zone != Zone::Stack {
-        return Vec::new();
+        return obj
+            .attached_player()
+            .map_or_else(Vec::new, |player| vec![TargetRef::Player(player)]);
     }
     let id = obj.id;
     let players = baylee_engine::eval::first_target_players(obj);

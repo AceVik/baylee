@@ -640,6 +640,18 @@ pub fn condition_holds_with_context(
                         | crate::turn::Step::CombatEnd
                 )
         }
+        Condition::ObjectMatches { what, filter } => match *what {
+            baylee_cards_dsl::TargetSpec::ThisObject => state.object(source).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    && matches_with_context(filter, state, o, you, context)
+            }),
+            _ => false,
+        },
+        Condition::AmountCompare { left, op, right } => op.holds(
+            amount_with_context(left, state, you, context, None),
+            amount_with_context(right, state, you, context, None),
+        ),
     }
 }
 
@@ -816,7 +828,11 @@ pub(crate) fn condition_reads_event(condition: Condition) -> bool {
     match condition {
         Condition::ControlCountExceptEvent(_, _)
         | Condition::EventBlockedByOthers { .. }
-        | Condition::SourceWasBlockedThisTurn => true,
+        | Condition::SourceWasBlockedThisTurn
+        | Condition::ObjectMatches {
+            what: &baylee_cards_dsl::TargetSpec::EventObject,
+            ..
+        } => true,
         Condition::All(conditions) | Condition::Any(conditions) => {
             conditions.iter().copied().any(condition_reads_event)
         }
@@ -882,6 +898,29 @@ pub(crate) fn condition_with_event(
             }) && !blockers
                 .iter()
                 .any(|b| matches_with_context(none, state, b, you, context))
+        }
+        Condition::ObjectMatches {
+            what: &baylee_cards_dsl::TargetSpec::EventObject,
+            filter,
+        } => {
+            let Some(event) = event else { return false };
+            let Some(obj) = state
+                .source_object(event)
+                .or_else(|| state.object_or_departed(event.object))
+            else {
+                return false;
+            };
+            if let Some(was) = state.last_known_characteristics(event.object) {
+                let mut as_it_was = obj.clone();
+                as_it_was.counters = state
+                    .ltb_counters
+                    .iter()
+                    .find(|(id, _)| *id == event.object)
+                    .map_or_default(|(_, counters)| counters.clone());
+                super::matches_projected_with_context(filter, state, &as_it_was, was, you, context)
+            } else {
+                matches_with_context(filter, state, obj, you, context)
+            }
         }
         Condition::All(conditions) => conditions.iter().all(|&condition| {
             condition_with_event(state, you, context, condition, source_version, event)

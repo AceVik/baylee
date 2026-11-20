@@ -514,3 +514,15 @@ fn an_older_object_without_prepare_metadata_still_decodes() {
         object
     );
 }
+
+#[test]
+fn player_attached_aura_reports_attached_player_off_stack_and_splits_summary_key() {
+    let plain = obj(1, 0);
+    assert_eq!(plain.attached_player(), None);
+    let mut curse = plain.clone();
+    curse.targets = vec![baylee_core::ids::TargetRef::Player(PlayerId::new(1))];
+    assert_eq!(curse.attached_player(), Some(PlayerId::new(1)));
+    assert_ne!(plain.summary_key(), curse.summary_key());
+    curse.stack_item = Some(StackItem::Spell);
+    assert_eq!(curse.attached_player(), None);
+}

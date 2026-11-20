@@ -862,8 +862,23 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::ControlledByOpponent
         | Filter::ControlledByActivePlayer
         | Filter::ControlledByDefendingPlayer
+        | Filter::ControlledByEnchantedPlayer
         | Filter::NotControlledByReferenceController
         | Filter::ControlledSinceTurnBegan => matches!(modifier, Modifier::GainControl),
+        Filter::Historic => {
+            matches!(
+                modifier,
+                Modifier::AddType(_)
+                    | Modifier::RemoveType(_)
+                    | Modifier::AddSupertype(_)
+                    | Modifier::RemoveSupertype(_)
+                    | Modifier::AddSubtype(_)
+                    | Modifier::BecomeType { .. }
+                    | Modifier::AddTypeIfCountersAtLeast { .. }
+                    | Modifier::CopyLastExiledCreaturePTAndSubtypes
+                    | Modifier::BecomeCopyOf(_)
+            ) || (layer == Layer::Type && crate::artifact_animation::carries_its_set(*modifier))
+        }
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| could_change_match(modifier, f, layer))
         }
@@ -909,7 +924,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::PutIntoGraveyardThisTurn
         | Filter::AttackedThisTurn
         | Filter::CountersAtLeast(_, _)
+        | Filter::AnyCountersAtLeast(_)
         | Filter::HasAnyCounter
+        | Filter::HasCounters(_)
         | Filter::Enchanted
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
@@ -1363,6 +1380,7 @@ fn apply(
         | Modifier::AttackTaxLife { .. }
         | Modifier::AttackTaxMana { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
+        | Modifier::MatchingSpellCastLimitPerTurn { .. }
         | Modifier::PlayerHexproof { .. }
         | Modifier::GrantActivated { .. }
         | Modifier::GrantActivatedDefinition(_)

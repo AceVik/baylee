@@ -805,9 +805,11 @@ pub(crate) fn cast_is_forbidden(
     state.effects.may_change_cast_timing_or_lock()
         && state.effects.iter().any(|fx| match fx.modifier {
             baylee_cards_dsl::Modifier::SpellCastLimitPerTurn { who, limit } => {
-                crate::eval::players(who, state, fx.controller)
-                    .is_some_and(|players| players.contains(&player))
+                player_locks::affects_player(state, fx, who, player)
                     && state.per_turn.spells_cast_by(player) >= limit
+            }
+            baylee_cards_dsl::Modifier::MatchingSpellCastLimitPerTurn { who, filter, limit } => {
+                player_locks::matching_limit_reached(state, fx, who, filter, limit, player, obj)
             }
             baylee_cards_dsl::Modifier::PlayersCantCast { who, filter } => {
                 player_locks::prevents(state, fx, who, filter, player, obj)

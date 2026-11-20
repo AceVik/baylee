@@ -946,6 +946,7 @@ fn every_step_trigger_names_a_player_the_matcher_reads() {
         "Opponent",
         "EachOpponent",
         "ControllerOfAttached",
+        "EnchantedPlayer",
         "EachPlayer",
         "ActivePlayer",
     ];

@@ -1,6 +1,6 @@
 //! Amounts: what a DSL `Amount` counts on the current state.
 
-use super::{damage_this_turn, live_context, matches_with_context, players};
+use super::{damage_this_turn, live_context, matches_with_context};
 use crate::state::GameState;
 use crate::text_changes::RuleContext;
 use crate::zone::ZoneLocation;
@@ -92,39 +92,48 @@ pub fn amount_with_context(
             constant.saturating_sub(self::amount_with_context(subtract, state, you, context, x))
         }
         Amount::GreatestCommanderManaValue => greatest_commander_mana_value(state, you),
-        Amount::HandSize(who) => players(*who, state, you)
+        Amount::HandSize(who) => super::players_for_source(*who, state, you, Some(context.source))
             .and_then(|p| p.first().copied())
             .map_or(0, |p| {
                 u32::try_from(state.zones.list(ZoneLocation::Hand(p)).len()).unwrap_or(u32::MAX)
             }),
-        Amount::LifeTotal(who) => players(*who, state, you)
+        Amount::LifeTotal(who) => super::players_for_source(*who, state, you, Some(context.source))
             .and_then(|p| p.first().copied())
             .map_or(0, |p| u32::try_from(state.players[usize::from(p.get())].life).unwrap_or(0)),
-        Amount::StartingLifeTotal(who) => players(*who, state, you)
-            .and_then(|p| p.first().copied())
-            .map_or(0, |p| {
-                u32::try_from(state.players[usize::from(p.get())].starting_life).unwrap_or(0)
-            }),
-        Amount::LifeGainedThisTurn(who) => players(*who, state, you)
-            .and_then(|p| p.first().copied())
-            .map_or(0, |p| {
-                state
-                    .per_turn
-                    .life_gained_amount
-                    .get(usize::from(p.get()))
-                    .copied()
-                    .unwrap_or(0)
-            }),
-        Amount::ControlledCount { who, filter } => players(*who, state, you)
-            .and_then(|p| p.first().copied())
-            .map_or(0, |controller| {
-                count_controlled_by(state, controller, you, filter, context)
-            }),
-        Amount::LibrarySize(who) => players(*who, state, you)
-            .and_then(|p| p.first().copied())
-            .map_or(0, |p| {
-                u32::try_from(state.zones.list(ZoneLocation::Library(p)).len()).unwrap_or(u32::MAX)
-            }),
+        Amount::StartingLifeTotal(who) => {
+            super::players_for_source(*who, state, you, Some(context.source))
+                .and_then(|p| p.first().copied())
+                .map_or(0, |p| {
+                    u32::try_from(state.players[usize::from(p.get())].starting_life).unwrap_or(0)
+                })
+        }
+        Amount::LifeGainedThisTurn(who) => {
+            super::players_for_source(*who, state, you, Some(context.source))
+                .and_then(|p| p.first().copied())
+                .map_or(0, |p| {
+                    state
+                        .per_turn
+                        .life_gained_amount
+                        .get(usize::from(p.get()))
+                        .copied()
+                        .unwrap_or(0)
+                })
+        }
+        Amount::ControlledCount { who, filter } => {
+            super::players_for_source(*who, state, you, Some(context.source))
+                .and_then(|p| p.first().copied())
+                .map_or(0, |controller| {
+                    count_controlled_by(state, controller, you, filter, context)
+                })
+        }
+        Amount::LibrarySize(who) => {
+            super::players_for_source(*who, state, you, Some(context.source))
+                .and_then(|p| p.first().copied())
+                .map_or(0, |p| {
+                    u32::try_from(state.zones.list(ZoneLocation::Library(p)).len())
+                        .unwrap_or(u32::MAX)
+                })
+        }
         Amount::Half { base, round_up } => {
             let n = self::amount_with_context(base, state, you, context, x);
             if *round_up { n.div_ceil(2) } else { n / 2 }
@@ -142,7 +151,7 @@ pub fn amount_with_context(
             self::amount_with_context(left, state, you, context, x)
                 .saturating_sub(self::amount_with_context(right, state, you, context, x))
         }
-        Amount::Players(who) => players(*who, state, you)
+        Amount::Players(who) => super::players_for_source(*who, state, you, Some(context.source))
             .map_or(0, |seats| u32::try_from(seats.len()).unwrap_or(u32::MAX)),
         Amount::DoubleX => x.unwrap_or(0).saturating_mul(2),
         Amount::XPlusCommanderCasts => {
@@ -420,7 +429,9 @@ fn visit_zone(
             return;
         }
         ZoneSel::GraveyardOf(who) => {
-            for player in super::players(who, state, you).unwrap_or_default() {
+            for player in
+                super::players_for_source(who, state, you, Some(context.source)).unwrap_or_default()
+            {
                 for &id in state.zones.list(ZoneLocation::Graveyard(player)) {
                     visit(id);
                 }

@@ -2013,6 +2013,10 @@ pub(super) fn exec_immediate(
             {
                 return None;
             }
+            let bound_seats = resolution_bound_seats(state, res, you, &modifier);
+            if matches!(bound_seats.as_deref(), Some([])) {
+                return None;
+            }
             let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
                 // Nothing to become anything: the ability said "target" and
                 // was activated with none, or its object is gone, so this
@@ -2020,7 +2024,14 @@ pub(super) fn exec_immediate(
                 let this = this_to_affect(state, res)?;
                 smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
             } else {
-                bound_now_with_context(state, filter, &modifier, you, res.rule_context(), None)
+                bound_now_with_context(
+                    state,
+                    filter,
+                    &modifier,
+                    you,
+                    res.rule_context(),
+                    bound_seats.as_deref(),
+                )
             };
             let timestamp = state.next_timestamp();
             for filter in filters {
@@ -4033,6 +4044,13 @@ fn resolution_condition(
         Condition::AmountAtLeast(amount, minimum) => {
             amount2(&amount, state, res.controller, res) >= minimum
         }
+        Condition::AmountCompare { left, op, right } => op.holds(
+            amount2(left, state, res.controller, res),
+            amount2(right, state, res.controller, res),
+        ),
+        Condition::ObjectMatches { what, filter } => {
+            resolution_object_matches(state, res, *what, filter)
+        }
         Condition::All(parts) => parts.iter().all(|c| resolution_condition(state, res, *c)),
         Condition::Any(parts) => parts.iter().any(|c| resolution_condition(state, res, *c)),
         Condition::Not(inner) => !resolution_condition(state, res, *inner),
@@ -4157,4 +4175,48 @@ fn takklemaggot_death(state: &mut GameState, res: &mut Resolution) -> Option<Pen
         Cause::Effect,
     );
     None
+}
+
+fn resolution_object_matches(
+    state: &GameState,
+    res: &Resolution,
+    what: TargetSpec,
+    filter: &'static baylee_cards_dsl::Filter,
+) -> bool {
+    let reference = match what {
+        TargetSpec::ThisObject => subjects::source(state, res),
+        TargetSpec::EventObject => subjects::event(state, res),
+        _ => res
+            .targets
+            .first()
+            .and_then(|&id| subjects::target(state, res, id)),
+    };
+    reference
+        .and_then(|r| state.source_object(r))
+        .is_some_and(|object| {
+            eval::matches_with_context(filter, state, object, res.controller, res.rule_context())
+        })
+}
+
+fn resolution_bound_seats(
+    state: &GameState,
+    res: &Resolution,
+    you: PlayerId,
+    modifier: &baylee_cards_dsl::Modifier,
+) -> Option<Vec<PlayerId>> {
+    use baylee_cards_dsl::Modifier;
+    let (Modifier::PlayersCantCast { who, .. }
+    | Modifier::SpellCastLimitPerTurn { who, .. }
+    | Modifier::MatchingSpellCastLimitPerTurn { who, .. }
+    | Modifier::PlayerHexproof { who }
+    | Modifier::PlayerProtectionFrom { who, .. }
+    | Modifier::PlayerProtectionFromEverything { who }
+    | Modifier::PlayerProtectionFromOpponents { who }) = *modifier
+    else {
+        return None;
+    };
+    if crate::eval::players_for_source(who, state, you, Some(res.source)).is_some() {
+        return None;
+    }
+    Some(players_of(who, state, you, res))
 }

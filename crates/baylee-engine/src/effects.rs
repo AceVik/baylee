@@ -288,6 +288,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PlayerProtectionFrom { .. }
         | Modifier::PlayerProtectionFromOpponents { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
+        | Modifier::MatchingSpellCastLimitPerTurn { .. }
         | Modifier::PlayerHexproof { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash
@@ -706,6 +707,7 @@ impl EffectTable {
                     | Modifier::SorceriesHaveFlash
                     | Modifier::SpellsHaveFlash(_)
                     | Modifier::SpellCastLimitPerTurn { .. }
+                    | Modifier::MatchingSpellCastLimitPerTurn { .. }
                     | Modifier::OpponentsCantCast(_)
                     | Modifier::PlayersCantCast { .. }
                     | Modifier::PlayersCantPlay(_)
@@ -1925,6 +1927,11 @@ mod tests {
                 who: PlayerRel::EachPlayer,
                 limit: 1,
             },
+            Modifier::MatchingSpellCastLimitPerTurn {
+                who: PlayerRel::EachPlayer,
+                filter: &Filter::NONCREATURE,
+                limit: 1,
+            },
             Modifier::PlayerHexproof {
                 who: PlayerRel::You,
             },
@@ -2020,7 +2027,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            210,
+            211,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2130,8 +2137,9 @@ mod tests {
         // GrantTriggeredDefinition locks its recipient set (+1 -> 57);
         // CantPhaseOut modifies a rule (+1 -> 151);
         // RollAdditionalDieIgnoreLowest is a die-rolling replacement (+1 rules-only -> 152);
-        // Goaded modifies combat rules (+1 rules-only -> 153).
-        assert_eq!((locking, all.len() - locking), (57, 153));
+        // Goaded modifies combat rules (+1 rules-only -> 153);
+        // MatchingSpellCastLimitPerTurn restricts casting by filter (+1 rules-only -> 154).
+        assert_eq!((locking, all.len() - locking), (57, 154));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

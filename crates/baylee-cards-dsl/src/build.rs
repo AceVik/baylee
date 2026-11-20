@@ -1136,8 +1136,8 @@ macro_rules! eternalize {
 /// documents the static it defines.
 pub mod prelude {
     pub use crate::ability::{
-        AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, Condition,
-        CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
+        AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, AmountCmp,
+        Condition, CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
     };
     pub use crate::build::{
         ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,
@@ -1160,7 +1160,7 @@ pub mod prelude {
         ReflexiveEvent, ReflexiveWhen, RepeatDomain, SearchDest, SpendRider, TargetChooser,
         TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, ZoneSel,
     };
-    pub use crate::filter::{Filter, OriginalExpansion, ZoneRef};
+    pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{
         DamageAmountReplacement, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
         StaticAbility,

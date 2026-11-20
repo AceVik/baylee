@@ -197,9 +197,7 @@ impl DamageWork {
                     let DamageTarget::Player(player) = part.view.recipient else {
                         continue;
                     };
-                    if !crate::eval::players(who, state, fx.controller)
-                        .is_some_and(|players| players.contains(&player))
-                    {
+                    if !effect_affects_player(fx, who, state, player) {
                         continue;
                     }
                     Kind::Protection
@@ -208,9 +206,7 @@ impl DamageWork {
                     let DamageTarget::Player(player) = part.view.recipient else {
                         continue;
                     };
-                    if !crate::eval::players(who, state, fx.controller)
-                        .is_some_and(|players| players.contains(&player))
-                    {
+                    if !effect_affects_player(fx, who, state, player) {
                         continue;
                     }
                     let Some(source) = state.damage_source(part.view.source, part.source_version)
@@ -238,9 +234,7 @@ impl DamageWork {
                     let DamageTarget::Player(player) = part.view.recipient else {
                         continue;
                     };
-                    if !crate::eval::players(who, state, fx.controller)
-                        .is_some_and(|players| players.contains(&player))
-                    {
+                    if !effect_affects_player(fx, who, state, player) {
                         continue;
                     }
                     let Some(source) = state.damage_source(part.view.source, part.source_version)
@@ -726,4 +720,17 @@ fn masked_candidates(state: &GameState, part: &Part, out: &mut Vec<Candidate>) {
                 .controller,
         );
     }
+}
+
+fn effect_affects_player(
+    fx: &crate::effects::ContinuousEffect,
+    who: baylee_cards_dsl::PlayerRel,
+    state: &GameState,
+    player: baylee_core::ids::PlayerId,
+) -> bool {
+    if let crate::effects::EffectFilter::DslControlledBy(_, seats) = fx.filter {
+        return !state.has_left(player) && seats.contains(player);
+    }
+    crate::eval::players_for_source(who, state, fx.controller, fx.source)
+        .is_some_and(|players| players.contains(&player))
 }

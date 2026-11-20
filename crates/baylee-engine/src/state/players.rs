@@ -124,7 +124,7 @@ impl GameState {
                 else {
                     return false;
                 };
-                crate::eval::players(who, self, effect.controller)
+                crate::eval::players_for_source(who, self, effect.controller, effect.source)
                     .is_some_and(|players| players.contains(&player))
             })
     }
@@ -143,7 +143,8 @@ impl GameState {
                 let baylee_cards_dsl::Modifier::CantLoseLife { who } = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
             })
     }
 
@@ -158,7 +159,8 @@ impl GameState {
                 let baylee_cards_dsl::Modifier::NoLossForZeroLife { who } = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
             })
     }
 
@@ -172,7 +174,8 @@ impl GameState {
                 let baylee_cards_dsl::Modifier::LifeGainDrawsInstead { who } = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
             })
     }
 
@@ -184,7 +187,8 @@ impl GameState {
                 let baylee_cards_dsl::Modifier::SkipDrawStep { who } = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
             })
     }
 
@@ -198,7 +202,8 @@ impl GameState {
                 let baylee_cards_dsl::Modifier::SkipUntapStep { who } = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
             })
     }
 
@@ -373,7 +378,7 @@ impl GameState {
                 else {
                     return None;
                 };
-                crate::eval::players(who, self, fx.controller)?
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)?
                     .contains(&player)
                     .then_some(u32::from(limit))
             })

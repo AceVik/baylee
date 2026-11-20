@@ -52,8 +52,45 @@ pub(super) fn event_damage_of(
         GameEvent::DamageDealt { amount, .. } => Some(*amount),
         GameEvent::LifeChanged { old, new, .. } => Some(new.abs_diff(*old)),
         GameEvent::DiceRolled { result, .. } => Some(*result),
+        GameEvent::BecameAttacker {
+            defending: baylee_core::ids::Defender::Player(attacked),
+            ..
+        } if matches!(trigger, Trigger::PlayerAttacked(_)) => Some(
+            super::event_groups::player_attacked_count(event, batch, *attacked),
+        ),
         _ => None,
     }
+}
+
+pub(super) fn event_amount_for(
+    trigger: &Trigger,
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+    state: &GameState,
+    you: PlayerId,
+    context: crate::text_changes::RuleContext,
+) -> Option<u32> {
+    if let Trigger::ChangesZoneAll {
+        origin,
+        destination,
+        filter,
+        exclude_self,
+    } = trigger
+    {
+        let count = super::event_groups::zone_batch_count(
+            event,
+            batch,
+            state,
+            you,
+            context,
+            *origin,
+            *destination,
+            filter,
+            *exclude_self,
+        );
+        return (count > 0).then_some(count);
+    }
+    event_damage_of(trigger, event, batch)
 }
 
 /// The player a triggering event is about: "that player" or "they" of the
@@ -98,6 +135,45 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
         } => Some(*player),
         _ => None,
     }
+}
+
+pub(super) fn event_player_for(
+    trigger: &Trigger,
+    entry: &crate::event::JournalEntry,
+    state: &GameState,
+) -> Option<PlayerId> {
+    if matches!(trigger, Trigger::Sacrificed { .. }) {
+        return entry
+            .departure
+            .as_ref()
+            .filter(|d| d.sacrificed)
+            .map(|d| d.controller);
+    }
+    if let (Trigger::PlayerAttacked(_), GameEvent::BecameAttacker { object, .. }) =
+        (trigger, &entry.event)
+    {
+        return state
+            .object_or_departed(*object)
+            .map(|o| o.controller)
+            .or(Some(state.turn.active));
+    }
+    event_player_of(&entry.event)
+}
+
+pub(super) fn event_identity_for(
+    trigger: &Trigger,
+    entry: &crate::event::JournalEntry,
+    id: ObjectId,
+    state: &GameState,
+) -> Option<(u32, i16)> {
+    let base = state.event_object_identity(id, entry.seq);
+    if matches!(trigger, Trigger::Sacrificed { .. })
+        && let Some(departure) = &entry.departure
+    {
+        let version = base.map_or_else(|| departure.version.wrapping_add(1), |(v, _)| v);
+        return Some((version, departure.power));
+    }
+    base
 }
 
 /// The object a trigger's event is about, as the triggered ability reads it

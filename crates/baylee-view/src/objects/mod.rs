@@ -419,7 +419,8 @@ pub struct PublicObject {
     /// What this is attached to (auras, equipment, fortifications).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub attached_to: Option<ObjectId>,
-    /// Targets, for objects on the stack.
+    /// Targets, for objects on the stack (and `[TargetRef::Player(p)]` for
+    /// player-attached Auras on the battlefield; see [`Self::attached_player`]).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub targets: Vec<TargetRef>,
     /// What this is, for objects on the stack; `None` everywhere else.
@@ -674,6 +675,19 @@ impl PublicObject {
             .map_or(0, |c| c.count)
     }
 
+    /// Which player this permanent is attached to on the battlefield (Curses
+    /// and `Enchant player` Auras, CR 303.4b).
+    #[must_use]
+    pub fn attached_player(&self) -> Option<PlayerId> {
+        if self.stack_item.is_some() {
+            return None;
+        }
+        match self.targets.as_slice() {
+            [TargetRef::Player(player)] => Some(*player),
+            _ => None,
+        }
+    }
+
     /// A stable grouping key for identical objects.
     ///
     /// Token-heavy boards are unreadable one card at a time; a client collapses
@@ -721,7 +735,7 @@ impl PublicObject {
             damage: self.damage,
             loyalty: self.loyalty,
             counters,
-            attached: self.attached_to.is_some(),
+            attached: self.attached_to.is_some() || self.attached_player().is_some(),
             summoning_sick: self.summoning_sick,
             granted_mana: self.granted_mana.clone(),
             board_mana: self.board_mana.clone(),

@@ -379,6 +379,18 @@ fn wanted_labels(duel: &Duel, lang: Lang, detail: bool) -> Vec<(ObjectId, String
                 );
                 parts.push(Phrase::BattleProtectedBy.fill(lang, &[&called]));
             }
+            if let Some(player) = object.attached_player() {
+                parts.insert(
+                    0,
+                    super::seatbar::called(
+                        lang,
+                        duel.reader(),
+                        duel.statics.as_ref(),
+                        player,
+                        super::seatbar::role_of(duel, player),
+                    ),
+                );
+            }
             if let Some(opponent) = object.chosen_opponent {
                 parts.insert(
                     0,

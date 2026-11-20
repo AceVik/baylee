@@ -35,12 +35,17 @@ use baylee_cards_dsl::{AbilityDef, Condition, PlayerRel, Trigger, TriggerZone};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 use emblems::collect_emblems;
+#[cfg(test)]
+use events::event_damage_of;
 use events::{
-    event_damage_of, event_object_for, event_player_of, event_subject_for, object_moves,
-    source_at_event, source_at_event_with_moves, targeting,
+    event_amount_for, event_identity_for, event_object_for, event_player_for, event_subject_for,
+    object_moves, source_at_event, source_at_event_with_moves, targeting,
 };
 pub(crate) use matching::times_triggered;
-use matching::{departure_hit, hits_with_context, times_triggered_with_source, trigger_count};
+use matching::{
+    departure_hit, hits_with_context, times_triggered_with_source, trigger_count,
+    trigger_looks_back,
+};
 pub(crate) use watches::on_event_watch_consumed;
 pub use watches::state_triggers;
 use watches::{
@@ -484,7 +489,7 @@ fn graveyard_triggers(
                             source,
                             state,
                         )
-                        .and_then(|id| state.event_object_identity(id, entry.seq)),
+                        .and_then(|id| event_identity_for(firing.trigger, entry, id, state)),
                         counter_source_version: None,
                         ability_index: index as u32,
                         abilities: Some(list.clone()),
@@ -497,8 +502,15 @@ fn graveyard_triggers(
                             .as_ref()
                             .map(|d| (d.controller, d.toughness)),
                         event_mana: produced_mana(&entry.event, events),
-                        event_amount: event_damage_of(firing.trigger, &entry.event, events),
-                        event_player: event_player_of(&entry.event),
+                        event_amount: event_amount_for(
+                            firing.trigger,
+                            &entry.event,
+                            events,
+                            state,
+                            owner,
+                            context,
+                        ),
+                        event_player: event_player_for(firing.trigger, entry, state),
                         implicit_target: None,
                         synthetic_effects: None,
                         synthetic_target: None,
@@ -1181,14 +1193,7 @@ fn collect_for_objects(
                 trigger,
                 Trigger::PhasesOut(_) | Trigger::PhasesOutOrLeavesBattlefield(_)
             );
-            let look_back = is_phase_out_trigger
-                || matches!(
-                    trigger,
-                    Trigger::Dies(_)
-                        | Trigger::DiesNotSacrificed(_)
-                        | Trigger::LeavesBattlefield(_)
-                        | Trigger::LinkedCreatureLeaves
-                );
+            let look_back = is_phase_out_trigger || trigger_looks_back(trigger);
             if (!all_kinds && !look_back) || (phased_out_only && !is_phase_out_trigger) {
                 continue;
             }
@@ -1261,13 +1266,21 @@ fn collect_for_objects(
                     let event_subject = event_subject_for(trigger, &entry.event, permanent, state);
                     let event_ability = activated_stack_ability(&entry.event);
                     let event_object_identity =
-                        event_object.and_then(|id| state.event_object_identity(id, entry.seq));
+                        event_object.and_then(|id| event_identity_for(trigger, entry, id, state));
                     let event_mana_value = cast_mana_value(state, &entry.event);
                     let event_departure = entry
                         .departure
                         .as_ref()
                         .map(|d| (d.controller, d.toughness));
-                    let event_player = event_player_of(&entry.event);
+                    let event_player = event_player_for(trigger, entry, state);
+                    let event_amount = event_amount_for(
+                        trigger,
+                        &entry.event,
+                        events,
+                        state,
+                        source.controller,
+                        context,
+                    );
                     let grantor = fx.source.and_then(|id| state.source_identity(id));
                     for _ in 0..times {
                         let (ability_index, abilities, synthetic_effects, synthetic_target) =
@@ -1306,7 +1319,7 @@ fn collect_for_objects(
                             event_mana: None,
                             event_mana_value,
                             event_departure,
-                            event_amount: event_damage_of(trigger, &entry.event, events),
+                            event_amount,
                             event_player,
                             source: permanent,
                             ability_index,
@@ -1531,28 +1544,12 @@ fn collect_for_objects(
             // Off the battlefield (or newly phased out), the triggers that
             // look back (CR 603.10a-b) and "when you cycle this card", which
             // triggers from wherever the card winds up (CR 702.29c).
-            if (!all_kinds
-                && !is_phase_out_trigger
-                && !matches!(
-                    trigger,
-                    Trigger::LeavesBattlefield(_)
-                        | Trigger::LinkedCreatureLeaves
-                        | Trigger::Dies(_)
-                        | Trigger::DiesNotSacrificed(_)
-                        | Trigger::CycledThis
-                ))
+            let look_back = is_phase_out_trigger || trigger_looks_back(trigger);
+            if (!all_kinds && !look_back && !matches!(trigger, Trigger::CycledThis))
                 || (phased_out_only && !is_phase_out_trigger)
             {
                 continue;
             }
-            let look_back = is_phase_out_trigger
-                || matches!(
-                    trigger,
-                    Trigger::Dies(_)
-                        | Trigger::DiesNotSacrificed(_)
-                        | Trigger::LeavesBattlefield(_)
-                        | Trigger::LinkedCreatureLeaves
-                );
             let source_is_constant =
                 moves.is_empty() && (!look_back || obj.zone == Zone::Battlefield);
             let obj_context = RuleContext {
@@ -1647,11 +1644,18 @@ fn collect_for_objects(
                 if hit > 0 {
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     let event_object = event_object_for(trigger, &entry.event, permanent, state);
-                    let event_damage = event_damage_of(trigger, &entry.event, events);
+                    let event_damage = event_amount_for(
+                        trigger,
+                        &entry.event,
+                        events,
+                        state,
+                        source.controller,
+                        context,
+                    );
                     let event_subject = event_subject_for(trigger, &entry.event, permanent, state);
                     let event_ability = activated_stack_ability(&entry.event);
                     let event_object_identity =
-                        event_object.and_then(|id| state.event_object_identity(id, entry.seq));
+                        event_object.and_then(|id| event_identity_for(trigger, entry, id, state));
                     let counter_source_version = uses_counter_links.then(|| {
                         // A source may return during the resolution that killed it,
                         // before this event batch is collected.
@@ -1674,7 +1678,7 @@ fn collect_for_objects(
                         .departure
                         .as_ref()
                         .map(|d| (d.controller, d.toughness));
-                    let event_player = event_player_of(&entry.event);
+                    let event_player = event_player_for(trigger, entry, state);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             text: TextChangeMap::IDENTITY,

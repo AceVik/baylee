@@ -1132,6 +1132,12 @@ pub enum Rider {
     /// returned to pay `CostPart::ReturnUnblockedAttacker` was attacking
     /// (ninjutsu, CR 702.49c). Appended to preserve replay identities.
     NinjutsuDefender(baylee_core::ids::Defender, Option<u32>),
+    /// Player this Aura is attached to ("enchant player" / Curses, CR 303.4b).
+    /// Stored sparsely in `riders` so `GameObject` stays within 296B.
+    AttachedToPlayer(PlayerId),
+    /// Enchanted player captured on waiting stack abilities when a player-attached
+    /// Aura leaves the battlefield or phases out (CR 113.7a, CR 608.2h).
+    SourceAttachmentPlayerLki(PlayerId),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1256,6 +1262,8 @@ impl Rider {
             | Self::SuspendHaste(_)
             | Self::Blitzed
             | Self::Bargained
+            | Self::AttachedToPlayer(_)
+            | Self::SourceAttachmentPlayerLki(_)
             | Self::EventPlayer(_)
             | Self::NinjutsuDefender(_, _)
             | Self::SyntheticCondition(_) => false,
@@ -1848,6 +1856,32 @@ impl GameObject {
         if let Some(player) = opponent {
             self.riders.push(Rider::ChosenOpponent(player));
         }
+    }
+
+    /// Player this Aura is attached to ("enchant player" / Curses, CR 303.4b).
+    #[must_use]
+    pub fn attached_player(&self) -> Option<PlayerId> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::AttachedToPlayer(player) => Some(*player),
+            _ => None,
+        })
+    }
+
+    /// Sets or clears player attachment, enforcing CR 303.4d (an Aura cannot be
+    /// attached to both an object and a player).
+    pub fn set_attached_player(&mut self, player: Option<PlayerId>) {
+        self.riders
+            .retain(|rider| !matches!(rider, Rider::AttachedToPlayer(_)));
+        if let Some(p) = player {
+            self.attached_to = None;
+            self.riders.push(Rider::AttachedToPlayer(p));
+        }
+    }
+
+    /// Whether this object is attached to an object or a player (CR 303.4b, CR 301.5b).
+    #[must_use]
+    pub fn is_attached(&self) -> bool {
+        self.attached_to.is_some() || self.attached_player().is_some()
     }
 
     /// Whether this spell or ability targets `id` through **either**

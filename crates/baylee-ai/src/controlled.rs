@@ -353,8 +353,20 @@ impl HeuristicAgent {
         abilities: &[AbilityDef],
         aim: Aim,
     ) -> Option<i64> {
-        let Aim::Object(id) = aim else {
-            return Some(0);
+        let id = match aim {
+            Aim::Object(id) => id,
+            Aim::Player(player) => {
+                let value = match baylee_engine::target_side::aura_side(abilities)? {
+                    baylee_core::types::TargetSide::Helpful => 250_i64,
+                    baylee_core::types::TargetSide::Harmful => -250_i64,
+                };
+                return Some(if self.hostile(player, theirs.seat) {
+                    -value
+                } else {
+                    value
+                });
+            }
+            Aim::Source | Aim::Nothing => return Some(0),
         };
         let creature = theirs
             .object(id)

@@ -380,7 +380,31 @@ impl HeuristicAgent {
                     .any(|attacker| attacker.creature == object.id && !attacker.blocked),
             ),
             // The view names what every public object is attached to.
-            Filter::IsAttached => Some(object.attached_to.is_some()),
+            Filter::IsAttached => {
+                Some(object.attached_to.is_some() || object.attached_player().is_some())
+            }
+            // CR 700.6: historic means artifact, legendary, or Saga.
+            Filter::Historic => Some(
+                object.types.contains(baylee_core::types::TypeSet::ARTIFACT)
+                    || object
+                        .supertypes
+                        .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+                    || object
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::enchantment::SAGA),
+            ),
+            Filter::AnyCountersAtLeast(min) => {
+                let total: u32 = object
+                    .counters
+                    .iter()
+                    .map(|entry| u32::from(entry.count))
+                    .sum();
+                Some(total >= u32::from(*min))
+            }
+            Filter::ControlledByEnchantedPlayer => {
+                let source = view.object(this?)?;
+                Some(source.attached_player() == Some(object.controller))
+            }
             // `KeywordSet::contains` is an intersection test, so this is
             // has-*any* rather than has-all whatever a filter names.
             Filter::HasKeyword(k) => Some(object.keywords & k.bits() != 0),
@@ -400,7 +424,9 @@ impl HeuristicAgent {
             }),
             // The view lists every instance's targets and every player on a
             // stack object, which is the count CR 115.9a asks for.
-            Filter::WithSingleTarget => Some(object.targets.len() == 1),
+            Filter::WithSingleTarget => {
+                Some(zone == ZoneRef::Stack && object.targets.len() == 1)
+            }
             // The ones the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
@@ -429,6 +455,7 @@ impl HeuristicAgent {
             // Not one of those: a gap, and the header says why.
             | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
+        | Filter::HasCounters(_)
         | Filter::NotTargetedByAnotherNamed(_)
         | Filter::HasAdventure
         | Filter::ActivatedAbilityFrom(_)
@@ -862,7 +889,8 @@ impl HeuristicAgent {
             | PlayerRel::DamagedPlayer
             | PlayerRel::EventPlayer
             | PlayerRel::OwnerOfSource
-            | PlayerRel::ControllerOfAttached => {
+            | PlayerRel::ControllerOfAttached
+            | PlayerRel::EnchantedPlayer => {
                 return None;
             }
         })

@@ -152,6 +152,10 @@ impl GameState {
         let mut next = 0;
         while let Some(&host) = coming.get(next) {
             next += 1;
+            let attached_player_left = self
+                .object(host)
+                .and_then(crate::object::GameObject::attached_player)
+                .is_some_and(|p| self.has_left(p));
             if let Some(obj) = self.object_mut(host) {
                 obj.status.remove(Status::PHASED_OUT);
                 obj.status.remove(Status::PHASED_OUT_INDIRECTLY);
@@ -166,7 +170,10 @@ impl GameState {
                     obj.riders
                         .retain(|r| *r != crate::object::Rider::AttachmentHostLeft);
                 }
-                if obj.attached_to.is_none() {
+                if attached_player_left {
+                    obj.set_attached_player(None);
+                }
+                if !obj.is_attached() {
                     obj.riders.retain(|r| *r != crate::object::Rider::Bestowed);
                 }
             }

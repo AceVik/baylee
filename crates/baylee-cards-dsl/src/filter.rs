@@ -415,6 +415,23 @@ pub enum Filter {
     /// (`EnterModifier::ChooseColor`). A colorless object or an unset choice matches
     /// nothing (CR 105.2c). Appended to preserve replay identities.
     ChosenColor,
+    /// Is historic: has the legendary supertype, the artifact card type, or the
+    /// Saga subtype (CR 700.6). Evaluates projected characteristics in any zone.
+    /// Appended to preserve replay identities.
+    Historic,
+    /// Has at least one counter of `Some(kind)`, or at least one counter of any
+    /// kind when `None` (with LTB counter look-back on battlefield departures,
+    /// CR 603.10a). Appended to preserve replay identities.
+    HasCounters(Option<crate::CounterKind>),
+    /// Total number of counters across all counter kinds on the object is at
+    /// least `n` (with LTB counter look-back on battlefield departures,
+    /// CR 603.10a). Appended to preserve replay identities.
+    AnyCountersAtLeast(u16),
+    /// Controlled by the player the source permanent enchants ("creatures
+    /// enchanted player controls", CR 303.4b, CR 303.4m). Matches nothing when
+    /// the source is not attached to a player still in the game. Appended to
+    /// preserve replay identities.
+    ControlledByEnchantedPlayer,
 }
 
 /// Zone references for filters (engine zones, DSL view).

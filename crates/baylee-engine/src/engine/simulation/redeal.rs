@@ -654,6 +654,8 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::SuspendHaste(_)
         | Rider::Blitzed
         | Rider::Bargained
+        | Rider::AttachedToPlayer(_)
+        | Rider::SourceAttachmentPlayerLki(_)
         | Rider::ExhaustedAbility(_)
         | Rider::EntrySacrifices(_)
         | Rider::SecondChosenSubtype(_)

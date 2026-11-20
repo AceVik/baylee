@@ -138,7 +138,37 @@ impl GameState {
         }
         let timestamp = on_battlefield.then(|| self.next_timestamp());
         if let Some(object) = self.object_mut(source) {
+            object.set_attached_player(None);
             object.attached_to = Some(host);
+            if let Some(timestamp) = timestamp {
+                object.timestamp = timestamp;
+            }
+        }
+        if let Some(timestamp) = timestamp {
+            self.effects.retimestamp_statics(source, timestamp);
+        }
+        self.invalidate_projections();
+    }
+
+    /// Attach an Aura to a player ("enchant player" / Curses, CR 303.4b). A new
+    /// attachment on the battlefield gives the Aura and its static effects a new
+    /// timestamp (CR 613.7a, CR 613.7e); reattaching to the same player does
+    /// nothing (CR 701.3b).
+    #[doc(hidden)]
+    pub fn attach_to_player(&mut self, source: ObjectId, player: baylee_core::ids::PlayerId) {
+        let Some(object) = self.object(source) else {
+            return;
+        };
+        if object.attached_player() == Some(player) {
+            return;
+        }
+        if self.has_left(player) {
+            return;
+        }
+        let on_battlefield = object.zone == Zone::Battlefield;
+        let timestamp = on_battlefield.then(|| self.next_timestamp());
+        if let Some(object) = self.object_mut(source) {
+            object.set_attached_player(Some(player));
             if let Some(timestamp) = timestamp {
                 object.timestamp = timestamp;
             }

@@ -632,6 +632,9 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::CoinFlipped { .. } => &["flip"],
         T::DieRolled { .. } => &["roll"],
         T::Exerted(_) => &["exert"],
+        T::ChangesZoneAll { .. } => &["one or more", "enter", "leave", "die", "put into"],
+        T::Sacrificed { .. } => &["sacrifice"],
+        T::PlayerAttacked(_) => &["is attacked", "attack"],
     }
 }
 

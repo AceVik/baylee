@@ -135,6 +135,9 @@ impl GameState {
             return;
         };
         let source_version = source.version;
+        let player_attachment = source
+            .attached_player()
+            .map(crate::object::Rider::SourceAttachmentPlayerLki);
         let attachment = source.attached_to.and_then(|host| {
             self.object(host).map(|object| {
                 let version = if object.zone == Zone::Battlefield {
@@ -166,9 +169,13 @@ impl GameState {
                         rider,
                         crate::object::Rider::SourceAttachmentLki(_)
                             | crate::object::Rider::SourceAttachmentVersion(_)
+                            | crate::object::Rider::SourceAttachmentPlayerLki(_)
                     )
                 });
                 ability.riders.extend(attachment.into_iter().flatten());
+                if let Some(player_rider) = player_attachment {
+                    ability.riders.push(player_rider);
+                }
             }
         }
     }
@@ -530,14 +537,18 @@ impl GameState {
                 o.characteristics()
                     .subtypes
                     .contains(baylee_core::generated::subtypes::enchantment::AURA)
-                    && o.attached_to.is_some_and(|host| {
+                    && (o.attached_to.is_some_and(|host| {
                         !crate::eval::permits_enchantment(self, host, id)
                             || !crate::permanent_guards::permits_new_enchantment(self, host, id)
-                    })
+                    }) || o.attached_player().is_some_and(|player| {
+                        self.has_left(player)
+                            || crate::eval::player_protected_from(self, player, id)
+                    }))
             });
         let to = if blocked_entry || blocked_aura {
             if let Some(o) = self.object_mut(id) {
                 o.attached_to = None;
+                o.set_attached_player(None);
                 o.kind = ObjectKind::Card;
             }
             if from_zone != Zone::Stack {
@@ -753,6 +764,7 @@ impl GameState {
                             | crate::object::Rider::MergedTop(_)
                             | crate::object::Rider::MergedToken(_)
                             | crate::object::Rider::MustAttackPlayerThisTurn(_)
+                            | crate::object::Rider::AttachedToPlayer(_)
                     )
                 });
                 // A name chosen as it entered belongs to that permanent

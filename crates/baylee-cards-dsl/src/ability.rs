@@ -142,6 +142,38 @@ pub enum StepKind {
     FirstMain,
 }
 
+/// Relational comparison operator between two [`crate::Amount`] expressions.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AmountCmp {
+    /// `left >= right`.
+    AtLeast,
+    /// `left > right`.
+    GreaterThan,
+    /// `left <= right`.
+    AtMost,
+    /// `left < right`.
+    LessThan,
+    /// `left == right`.
+    Equal,
+    /// `left != right`.
+    NotEqual,
+}
+
+impl AmountCmp {
+    /// Evaluates `left <op> right`.
+    #[must_use]
+    pub const fn holds(self, left: u32, right: u32) -> bool {
+        match self {
+            Self::AtLeast => left >= right,
+            Self::GreaterThan => left > right,
+            Self::AtMost => left <= right,
+            Self::LessThan => left < right,
+            Self::Equal => left == right,
+            Self::NotEqual => left != right,
+        }
+    }
+}
+
 /// A sentence a card states about the game, for an ability that only does
 /// something while it is true.
 ///
@@ -573,6 +605,27 @@ pub enum Condition {
     /// so blockers have already been declared (ninjutsu, CR 702.49a). Appended
     /// to preserve replay identities.
     InCombatAfterBlockers,
+    /// Whether the object named by `what` (`&TargetSpec::Object(&Filter::Any)`
+    /// for first target, `&TargetSpec::EventObject` for the event object, or
+    /// `&TargetSpec::ThisObject` for source) matches `filter`, reading
+    /// last-known characteristics if it departed earlier in resolution
+    /// (CR 608.2h, CR 603.4). Appended to preserve replay identities.
+    ObjectMatches {
+        /// Which object to test.
+        what: &'static TargetSpec,
+        /// Predicate tested against that object.
+        filter: &'static Filter,
+    },
+    /// Compares two evaluated [`crate::Amount`] expressions (`left <op> right`).
+    /// Appended to preserve replay identities.
+    AmountCompare {
+        /// Left-hand evaluated amount.
+        left: &'static crate::Amount,
+        /// Relational operator.
+        op: AmountCmp,
+        /// Right-hand evaluated amount.
+        right: &'static crate::Amount,
+    },
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1010,6 +1063,43 @@ pub enum Trigger {
     /// `EventObject` to the exerted permanent and `EventPlayer` to the player
     /// who exerted it. Appended to preserve replay identities.
     Exerted(&'static Filter),
+    /// One or more objects matching `filter` change zones simultaneously or in
+    /// one action batch (`"Whenever one or more [filter] [enter / leave your
+    /// graveyard / die / are put into a library]..."`, CR 603.2c, CR 603.10a):
+    /// fires once per batch in which at least one matching object moves from
+    /// `origin` (any zone when `None`) to `destination` (any zone when `None`),
+    /// excluding this ability's source when `exclude_self` is `true`. Binds
+    /// `Amount::EventAmount` to the matched batch count and `EventObject` to the
+    /// first matching object. Appended to preserve replay identities.
+    ChangesZoneAll {
+        /// Optional required origin zone.
+        origin: Option<crate::ZoneRef>,
+        /// Optional required destination zone.
+        destination: Option<crate::ZoneRef>,
+        /// Filter each counted moving object must match.
+        filter: &'static Filter,
+        /// Whether this ability's own source is excluded ("one or more other").
+        exclude_self: bool,
+    },
+    /// A player matching `who` sacrifices a permanent matching `filter` via a
+    /// cost, effect, or Saga completion SBA (CR 701.21a, CR 715.4, CR 603.10a;
+    /// distinct from destruction, lethal damage, zero toughness, and the legend
+    /// rule). Looks back to pre-sacrifice battlefield characteristics and binds
+    /// `EventPlayer` to the sacrificing player and `EventObject` to the
+    /// sacrificed object. Appended to preserve replay identities.
+    Sacrificed {
+        /// Which player(s)' sacrifices trigger this ability.
+        who: crate::effect::PlayerRel,
+        /// Pre-sacrifice permanent filter.
+        filter: &'static Filter,
+    },
+    /// One or more creatures are declared as attackers attacking a player
+    /// matching `PlayerRel` (`"Whenever [you / enchanted player / a player] is
+    /// attacked"`, CR 508.3b): fires once per attacked matching player per
+    /// declare-attackers step, binding `EventPlayer` to the attacking player and
+    /// `EventAmount` to the number of creatures declared attacking that player.
+    /// Appended to preserve replay identities.
+    PlayerAttacked(crate::effect::PlayerRel),
 }
 
 impl Trigger {

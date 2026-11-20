@@ -59,7 +59,7 @@ impl GameState {
                     }
                     _ => return None,
                 };
-                crate::eval::players(who, self, fx.controller)
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
                     .is_some_and(|players| players.contains(&player))
                     .then_some(LifeGainReplacement {
                         source: fx.source,

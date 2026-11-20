@@ -133,8 +133,13 @@ impl DamageWork {
                 continue;
             };
             if combat.is_some_and(|combat| combat != part.view.is_combat)
-                || !crate::eval::players(recipients, state, effect.controller)
-                    .is_some_and(|players| players.contains(&player))
+                || !crate::eval::players_for_source(
+                    recipients,
+                    state,
+                    effect.controller,
+                    effect.source,
+                )
+                .is_some_and(|players| players.contains(&player))
                 || !crate::eval::matches_damage_source_with_context(
                     sources,
                     state,

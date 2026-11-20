@@ -196,3 +196,49 @@ pub fn permits_enchantment(state: &GameState, host: ObjectId, aura: ObjectId) ->
         }) && crate::effects::applies_to(state, fx, object)
     })
 }
+
+/// Whether `player` has protection from a quality or player that `source` (such
+/// as an Aura enchanting or attempting to enchant `player`) satisfies
+/// (CR 702.16c, CR 702.16j, CR 702.16k).
+#[must_use]
+pub fn player_protected_from(state: &GameState, player: PlayerId, source: ObjectId) -> bool {
+    let Some(src) = state.object(source) else {
+        return false;
+    };
+    let affected = |fx: &crate::effects::ContinuousEffect, who: baylee_cards_dsl::PlayerRel| {
+        if let crate::effects::EffectFilter::DslControlledBy(_, seats) = fx.filter {
+            seats.contains(player)
+        } else {
+            super::players_for_source(who, state, fx.controller, fx.source)
+                .is_some_and(|seats| seats.contains(&player))
+        }
+    };
+    state.effects.iter().any(|fx| {
+        if !crate::effects::source_is_present(state, fx) {
+            return false;
+        }
+        match fx.modifier {
+            baylee_cards_dsl::Modifier::PlayerProtectionFromEverything { who } => affected(fx, who),
+            baylee_cards_dsl::Modifier::PlayerProtectionFromOpponents { who } => {
+                affected(fx, who) && state.is_opponent(player, src.controller)
+            }
+            baylee_cards_dsl::Modifier::PlayerProtectionFrom { who, from } => {
+                affected(fx, who)
+                    && matches_with_context(
+                        from,
+                        state,
+                        src,
+                        fx.controller,
+                        RuleContext {
+                            source: fx.source.unwrap_or(source),
+                            text: state.effect_text(fx),
+                            resolved_name: None,
+                            resolved_subtype: None,
+                            reference: None,
+                        },
+                    )
+            }
+            _ => false,
+        }
+    })
+}

@@ -319,36 +319,138 @@ pub fn enchants(filter: &Filter) -> bool {
     }
 }
 
-/// The side an Aura printing `abilities` wants its creature on, by what its
-/// statics do to that creature. `None` for a static with no row here (a
-/// control Aura, a mana Aura's trigger) and for one that nets out at nothing.
+/// Whether a static ability's filter names permanents controlled by the
+/// Aura's enchanted player (`Filter::ControlledByEnchantedPlayer`).
+#[must_use]
+pub fn enchants_players_permanents(filter: &Filter) -> bool {
+    match filter {
+        Filter::ControlledByEnchantedPlayer => true,
+        Filter::And(parts) => parts.iter().any(enchants_players_permanents),
+        _ => false,
+    }
+}
+
+fn effect_sign_for_enchanted_player(effects: &[Effect]) -> i32 {
+    let mut sign = 0_i32;
+    for effect in effects {
+        sign += match effect {
+            Effect::LoseLife {
+                target: PlayerRel::EnchantedPlayer,
+                ..
+            }
+            | Effect::DealDamage {
+                target: baylee_cards_dsl::TargetSpec::Player(PlayerRel::EnchantedPlayer),
+                ..
+            }
+            | Effect::DiscardForPlayers {
+                who: PlayerRel::EnchantedPlayer,
+                ..
+            }
+            | Effect::Mill {
+                target: PlayerRel::EnchantedPlayer,
+                ..
+            }
+            | Effect::SacrificeFilter {
+                who: PlayerRel::EnchantedPlayer,
+                ..
+            } => -1,
+            Effect::GainLifeFor {
+                who: PlayerRel::EnchantedPlayer,
+                ..
+            }
+            | Effect::DrawCardsFor {
+                who: PlayerRel::EnchantedPlayer,
+                ..
+            } => 1,
+            _ => 0,
+        };
+        let (then, otherwise) = effect.branches();
+        sign +=
+            effect_sign_for_enchanted_player(then) + effect_sign_for_enchanted_player(otherwise);
+    }
+    sign
+}
+
+/// The side an Aura printing `abilities` wants its creature or player on, by
+/// what its statics and triggers do to that host. `None` for a static with no
+/// row here (a control Aura, a mana Aura's trigger) and for one that nets out
+/// at nothing.
 #[must_use]
 pub fn aura_side(abilities: &[AbilityDef]) -> Option<TargetSide> {
     let mut sign = 0_i32;
     for ability in abilities {
-        let AbilityDef::Static(s) = ability else {
-            continue;
-        };
-        if !enchants(&s.filter) {
-            continue;
+        match ability {
+            AbilityDef::Static(s) if enchants(&s.filter) => {
+                sign += match &s.modifier {
+                    Modifier::ModifyPT(power, toughness) => {
+                        (i32::from(*power) + i32::from(*toughness)).signum()
+                    }
+                    Modifier::AddKeyword(keywords) if keywords.contains(KeywordSet::DEFENDER) => -1,
+                    Modifier::AddKeyword(_)
+                    | Modifier::GrantActivated { .. }
+                    | Modifier::GrantActivatedDefinition(_) => 1,
+                    Modifier::GrantTriggered { effects, .. }
+                    | Modifier::GrantTriggeredUpToOne { effects, .. }
+                    | Modifier::GrantTriggeredDefinition(AbilityDef::Triggered {
+                        effects, ..
+                    }) => granted_trigger_sign(effects)?,
+                    Modifier::CantAttack | Modifier::CantBlock(_) => -1,
+                    Modifier::Goaded => -2,
+                    _ => return None,
+                };
+            }
+            AbilityDef::Static(s) if enchants_players_permanents(&s.filter) => {
+                sign += match &s.modifier {
+                    Modifier::ModifyPT(power, toughness) => {
+                        (i32::from(*power) + i32::from(*toughness)).signum()
+                    }
+                    Modifier::CantAttack | Modifier::CantBlock(_) => -1,
+                    _ => 0,
+                };
+            }
+            AbilityDef::Static(s) => match &s.modifier {
+                Modifier::PlayersCantCast {
+                    who: PlayerRel::EnchantedPlayer,
+                    ..
+                }
+                | Modifier::SpellCastLimitPerTurn {
+                    who: PlayerRel::EnchantedPlayer,
+                    ..
+                }
+                | Modifier::MatchingSpellCastLimitPerTurn {
+                    who: PlayerRel::EnchantedPlayer,
+                    ..
+                }
+                | Modifier::LifeGainNoLifeInstead {
+                    who: PlayerRel::EnchantedPlayer,
+                }
+                | Modifier::PlayersCantWin(PlayerRel::EnchantedPlayer) => sign -= 1,
+                Modifier::PlayerHexproof {
+                    who: PlayerRel::EnchantedPlayer,
+                }
+                | Modifier::PlayerProtectionFrom {
+                    who: PlayerRel::EnchantedPlayer,
+                    ..
+                }
+                | Modifier::PlayerProtectionFromEverything {
+                    who: PlayerRel::EnchantedPlayer,
+                }
+                | Modifier::NamedPlayersCantLose(PlayerRel::EnchantedPlayer) => sign += 1,
+                _ => {}
+            },
+            AbilityDef::Triggered {
+                trigger, effects, ..
+            } => {
+                if matches!(
+                    trigger,
+                    baylee_cards_dsl::Trigger::PlayerAttacked(PlayerRel::EnchantedPlayer)
+                ) {
+                    sign -= 1;
+                }
+                sign += effect_sign_for_enchanted_player(effects);
+            }
+            _ => {}
         }
-        sign += match &s.modifier {
-            Modifier::ModifyPT(power, toughness) => {
-                (i32::from(*power) + i32::from(*toughness)).signum()
-            }
-            Modifier::AddKeyword(keywords) if keywords.contains(KeywordSet::DEFENDER) => -1,
-            Modifier::AddKeyword(_)
-            | Modifier::GrantActivated { .. }
-            | Modifier::GrantActivatedDefinition(_) => 1,
-            Modifier::GrantTriggered { effects, .. }
-            | Modifier::GrantTriggeredUpToOne { effects, .. }
-            | Modifier::GrantTriggeredDefinition(AbilityDef::Triggered { effects, .. }) => {
-                granted_trigger_sign(effects)?
-            }
-            Modifier::CantAttack | Modifier::CantBlock(_) => -1,
-            Modifier::Goaded => -2,
-            _ => return None,
-        };
     }
     match sign.signum() {
         1 => Some(TargetSide::Helpful),

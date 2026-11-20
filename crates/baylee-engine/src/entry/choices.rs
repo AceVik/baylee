@@ -335,6 +335,16 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
         (Question::AuraHost, PlayerAction::ChooseObjects { objects }) => {
             state.attach(entry.object, objects[0]);
         }
+        (Question::AuraHost, PlayerAction::ChoosePlayer(player)) => {
+            state.attach_to_player(entry.object, *player);
+        }
+        (Question::AuraHost, PlayerAction::ChooseTargets { objects, players }) => {
+            if let Some(&host) = objects.first() {
+                state.attach(entry.object, host);
+            } else if let Some(&player) = players.first() {
+                state.attach_to_player(entry.object, player);
+            }
+        }
         (Question::Number, PlayerAction::ChooseNumber(number)) => {
             entry.chosen_number = Some(u8::try_from(*number).expect("bounded choice"));
         }

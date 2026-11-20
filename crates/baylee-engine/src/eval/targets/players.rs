@@ -1,10 +1,21 @@
 //! Player target choices and the players recorded on a stack object.
 
-use crate::eval::players;
+use crate::eval::players_for_source;
 use crate::object::GameObject;
 use crate::state::GameState;
 use baylee_cards_dsl::{PlayerRel, TargetSpec};
 use baylee_core::ids::PlayerId;
+
+fn effect_players(
+    effect: &crate::effects::ContinuousEffect,
+    who: PlayerRel,
+    state: &GameState,
+) -> Vec<PlayerId> {
+    if let crate::effects::EffectFilter::DslControlledBy(_, seats) = effect.filter {
+        return seats.iter().filter(|&p| !state.has_left(p)).collect();
+    }
+    players_for_source(who, state, effect.controller, effect.source).unwrap_or_default()
+}
 
 /// All player-targeting protection, collected in one pass over the effects.
 struct PlayerProtection<'a> {
@@ -23,31 +34,28 @@ impl<'a> PlayerProtection<'a> {
             ignores_hexproof: false,
         };
         for effect in state.effects.iter() {
+            if !crate::effects::source_is_present(state, effect) {
+                continue;
+            }
             match effect.modifier {
                 baylee_cards_dsl::Modifier::PlayerProtectionFrom { .. } => {
                     protection.specific.push(effect);
                 }
                 baylee_cards_dsl::Modifier::PlayerProtectionFromEverything { who } => {
-                    if let Some(players) = players(who, state, effect.controller) {
-                        for player in players {
+                    for player in effect_players(effect, who, state) {
+                        protection.everything.insert(player);
+                    }
+                }
+                baylee_cards_dsl::Modifier::PlayerProtectionFromOpponents { who } => {
+                    for player in effect_players(effect, who, state) {
+                        if state.is_opponent(player, you) {
                             protection.everything.insert(player);
                         }
                     }
                 }
-                baylee_cards_dsl::Modifier::PlayerProtectionFromOpponents { who } => {
-                    if let Some(players) = players(who, state, effect.controller) {
-                        for player in players {
-                            if state.is_opponent(player, you) {
-                                protection.everything.insert(player);
-                            }
-                        }
-                    }
-                }
                 baylee_cards_dsl::Modifier::PlayerHexproof { who } => {
-                    if let Some(players) = players(who, state, effect.controller) {
-                        for player in players {
-                            protection.hexproof.insert(player);
-                        }
+                    for player in effect_players(effect, who, state) {
+                        protection.hexproof.insert(player);
                     }
                 }
                 baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof if effect.controller == you => {
@@ -157,8 +165,7 @@ pub fn target_player_options_from(
                 else {
                     unreachable!("collected by modifier above");
                 };
-                players(who, state, effect.controller)
-                    .is_some_and(|players| players.contains(&p.id))
+                effect_players(effect, who, state).contains(&p.id)
                     && state.object(context.source).is_some_and(|source| {
                         crate::eval::matches_with_context(
                             from,

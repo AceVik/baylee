@@ -282,6 +282,7 @@ fn legal_targets_from(
                 | PlayerRel::SecondTargetPlayerOrController
                 | PlayerRel::ControllerOfEvent
                 | PlayerRel::ControllerOfAttached
+                | PlayerRel::EnchantedPlayer
                 | PlayerRel::DamagedPlayer
                 | PlayerRel::EventPlayer
                 | PlayerRel::Recipient
@@ -432,7 +433,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         // field the view carries for exactly this question — and the
         // face-down bail above is what keeps the two apart.
         Filter::IsToken => object.status.contains(baylee_view::ObjectStatus::TOKEN) || (object.token.is_some() && !object.status.contains(baylee_view::ObjectStatus::MELDED_CARD)),
-        Filter::WithSingleTarget => object.targets.len() == 1,
+        Filter::WithSingleTarget => object.stack_item.is_some() && object.targets.len() == 1,
         Filter::TargetsPermanentYouControl => {
             return targets_permanent_you_control(view, object);
         }
@@ -480,7 +481,25 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         Filter::Blocked => is_blocked(view, object.id),
         Filter::Unblocked => is_unblocked(view, object.id),
         // The view names what every public object is attached to.
-        Filter::IsAttached => object.attached_to.is_some(),
+        Filter::IsAttached => object.attached_to.is_some() || object.attached_player().is_some(),
+        // CR 700.6: historic means artifact, legendary, or Saga.
+        Filter::Historic => {
+            object.types.contains(baylee_core::types::TypeSet::ARTIFACT)
+                || object
+                    .supertypes
+                    .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+                || object
+                    .subtypes
+                    .contains(baylee_core::generated::subtypes::enchantment::SAGA)
+        }
+        Filter::AnyCountersAtLeast(min) => {
+            let total: u32 = object
+                .counters
+                .iter()
+                .map(|entry| u32::from(entry.count))
+                .sum();
+            total >= u32::from(*min)
+        }
         Filter::AttachedTo(inner) => {
             let Some(host) = object.attached_to else {
                 return Some(false);
@@ -541,6 +560,8 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         // translation is gamehost's; `baylee-ai` refuses it for that reason.
         | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
+        | Filter::HasCounters(_)
+        | Filter::ControlledByEnchantedPlayer
         | Filter::HasAdventure
         // StackItem has neither an exact source incarnation nor an
         // authoritative activated/triggered kind. Printed ability identity

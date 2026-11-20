@@ -1543,6 +1543,14 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         }
         crate::object::Rider::Blitzed => h.u8(104),
         crate::object::Rider::Bargained => h.u8(105),
+        crate::object::Rider::AttachedToPlayer(player) => {
+            h.u8(121);
+            player.hash(h);
+        }
+        crate::object::Rider::SourceAttachmentPlayerLki(player) => {
+            h.u8(122);
+            player.hash(h);
+        }
         crate::object::Rider::BattleProtector(player) => {
             h.u8(79);
             player.hash(h);
@@ -2227,6 +2235,14 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             }
             Rider::Blitzed => h.u8(104),
             Rider::Bargained => h.u8(105),
+            Rider::AttachedToPlayer(p) => {
+                h.u8(121);
+                h.u8(p.get());
+            }
+            Rider::SourceAttachmentPlayerLki(p) => {
+                h.u8(122);
+                h.u8(p.get());
+            }
             Rider::ExiledWith { host, version } => {
                 h.u8(13);
                 host.hash(h);
@@ -2567,6 +2583,22 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             filter_hash(h, inner);
         }
         F::ChosenColor => h.u8(154),
+        F::Historic => h.u8(165),
+        F::HasCounters(kind) => {
+            h.u8(166);
+            match kind {
+                None => h.u8(0),
+                Some(k) => {
+                    h.u8(1);
+                    hash_counter(h, *k);
+                }
+            }
+        }
+        F::AnyCountersAtLeast(n) => {
+            h.u8(167);
+            h.u16(*n);
+        }
+        F::ControlledByEnchantedPlayer => h.u8(168),
     }
 }
 

@@ -22,16 +22,17 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
         let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
         for ability in def.abilities.iter().chain(faces) {
             let printed = match ability {
-                AbilityDef::Static(sa) => vec![sa.modifier],
+                AbilityDef::Static(sa) => vec![(true, sa.modifier)],
                 _ => Vec::new(),
             };
             let granted = branches(ability)
                 .into_iter()
                 .flat_map(|b| b.effects.iter().flat_map(declared_layers))
-                .map(|(_, modifier)| modifier);
-            for modifier in printed.into_iter().chain(granted) {
+                .map(|(_, modifier)| (false, modifier));
+            for (is_printed, modifier) in printed.into_iter().chain(granted) {
                 let (Modifier::DrawLimitPerTurn { who, .. }
                 | Modifier::SpellCastLimitPerTurn { who, .. }
+                | Modifier::MatchingSpellCastLimitPerTurn { who, .. }
                 | Modifier::LifeTotalCantChange { who }
                 | Modifier::PlayerProtectionFromEverything { who }
                 | Modifier::CantLoseLife { who }
@@ -59,18 +60,28 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::MostLifeOrTied
                     | PlayerRel::LeastLifeOrTied
                     | PlayerRel::MostLife => true,
+                    PlayerRel::OwnerOfSource
+                    | PlayerRel::ControllerOfAttached
+                    | PlayerRel::EnchantedPlayer => {
+                        !matches!(modifier, Modifier::CantBeAttackedExceptBy { .. })
+                    }
                     PlayerRel::Chosen
-                    | PlayerRel::Recipient
                     | PlayerRel::DefendingPlayer
-                    | PlayerRel::OwnerOfEvent
                     | PlayerRel::ControllerOfTarget
                     | PlayerRel::TargetPlayerOrController
                     | PlayerRel::SecondTargetPlayerOrController
                     | PlayerRel::ControllerOfEvent
                     | PlayerRel::DamagedPlayer
-                    | PlayerRel::EventPlayer
-                    | PlayerRel::OwnerOfSource
-                    | PlayerRel::ControllerOfAttached => false,
+                    | PlayerRel::EventPlayer => {
+                        !is_printed
+                            && matches!(
+                                modifier,
+                                Modifier::SpellCastLimitPerTurn { .. }
+                                    | Modifier::MatchingSpellCastLimitPerTurn { .. }
+                                    | Modifier::PlayerProtectionFromEverything { .. }
+                            )
+                    }
+                    PlayerRel::Recipient | PlayerRel::OwnerOfEvent => false,
                 };
                 if !answerable {
                     wrong.push(format!("{}: {modifier:?}", def.name()));

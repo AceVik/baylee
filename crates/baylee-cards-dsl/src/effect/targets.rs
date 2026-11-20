@@ -145,6 +145,12 @@ pub enum PlayerRel {
     /// is not attacking names the one opponent of a two-player game during
     /// combat (CR 506.2) and nobody at a larger table.
     DefendingPlayer,
+    /// The player the source permanent enchants ("enchanted player" on Curses
+    /// and player-attached Auras, CR 303.4b, CR 303.4m). Read off the source
+    /// permanent's player attachment (falling back to its last known enchanted
+    /// player if the Aura left the battlefield while its ability waited on the
+    /// stack, CR 608.2h). Appended to preserve replay identities.
+    EnchantedPlayer,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).

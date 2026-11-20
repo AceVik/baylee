@@ -402,7 +402,12 @@ pub(crate) fn run_with_context(
             .object(id)
             .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
         {
-            put_into_graveyard_with_departure(state, id, departure(id));
+            // CR 715.4: a finished Saga's controller sacrifices it as a state-based action.
+            let _ = state.sacrifice_object_with_departure(
+                id,
+                crate::event::Cause::StateBased,
+                departure(id),
+            );
             outcome.changed = true;
         }
     }
@@ -596,6 +601,26 @@ fn enchant_restriction(
 /// attaches it to a creature — so the two are asked differently and answered
 /// differently, which is why the counter-test matters more than the test:
 /// both sit on the same illegal host, and only one of them is destroyed.
+/// CR 301.5b, CR 303.4c, CR 704.5m, CR 704.5n, CR 702.16c: only an Aura whose
+/// enchant ability allows that player may enchant a player, and protection
+/// from the Aura's quality unattaches it.
+fn player_attachment_legal(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    obj: &crate::object::GameObject,
+    id: baylee_core::ids::ObjectId,
+    player: baylee_core::ids::PlayerId,
+    is_aura: bool,
+) -> bool {
+    is_aura
+        && match crate::aura_bindings::restriction_with(state, obj, lookup) {
+            Some(bound) => crate::aura_bindings::can_enchant_player(state, id, player, bound),
+            None => {
+                !state.has_left(player) && !crate::eval::player_protected_from(state, player, id)
+            }
+        }
+}
+
 fn attachment_sbas(
     state: &GameState,
     lookup: &impl crate::state::CardLookup,
@@ -617,7 +642,7 @@ fn attachment_sbas(
             .characteristics()
             .subtypes
             .contains(baylee_core::generated::subtypes::enchantment::AURA);
-        if obj.attached_to.is_none() && !is_aura {
+        if !obj.is_attached() && !is_aura {
             continue;
         }
         let types = obj.characteristics().types;
@@ -625,7 +650,7 @@ fn attachment_sbas(
         // object or player becomes unattached and remains on the
         // battlefield. Asked of every permanent, an Aura's and an
         // Equipment's type included, because the sentence excepts none.
-        if obj.attached_to.is_some() && types.intersects(T::CREATURE.union(T::BATTLE)) {
+        if obj.is_attached() && types.intersects(T::CREATURE.union(T::BATTLE)) {
             unattaching.push(id);
             continue;
         }
@@ -645,19 +670,34 @@ fn attachment_sbas(
                 .characteristics()
                 .subtypes
                 .contains(baylee_core::generated::subtypes::artifact::FORTIFICATION);
-            if obj.attached_to.is_some() && !fortification {
+            if obj.is_attached() && !fortification {
+                unattaching.push(id);
+            }
+            continue;
+        }
+        if let Some(player) = obj.attached_player() {
+            if player_attachment_legal(state, lookup, obj, id, player, is_aura) {
+                continue;
+            }
+            if obj.riders.contains(&crate::object::Rider::Bestowed) {
+                unattaching.push(id);
+            } else if is_aura && !types.contains(T::CREATURE) {
+                falling_off.push(id);
+            } else {
                 unattaching.push(id);
             }
             continue;
         }
         // Animate Dead's two enchant abilities name a card in a graveyard and
-        // then the one creature it returned; both are tied to this Aura
-        // incarnation, so the shared attachment rule answers them (CR 303.4c).
+        // then the one creature it returned; player-only Auras cannot stay on
+        // a permanent either (CR 303.4c).
         if is_aura
             && let Some(
                 bound @ (crate::aura_bindings::EnchantRestriction::GraveyardCard(..)
-                | crate::aura_bindings::EnchantRestriction::ReturnedBy(_)),
-            ) = crate::aura_bindings::restriction(state, obj)
+                | crate::aura_bindings::EnchantRestriction::ReturnedBy(_)
+                | crate::aura_bindings::EnchantRestriction::Player(_)
+                | crate::aura_bindings::EnchantRestriction::PlayerOrPermanent { .. }),
+            ) = crate::aura_bindings::restriction_with(state, obj, lookup)
         {
             let legal = obj
                 .attached_to
@@ -719,7 +759,7 @@ fn attachment_sbas(
             unattaching.push(id);
         } else if is_aura && !types.contains(T::CREATURE) {
             falling_off.push(id);
-        } else if obj.attached_to.is_some() {
+        } else if obj.is_attached() {
             unattaching.push(id);
         }
     }
@@ -747,6 +787,7 @@ fn apply_attachment_sbas(
     for id in unattaching {
         if let Some(obj) = state.object_mut(id) {
             obj.attached_to = None;
+            obj.set_attached_player(None);
             obj.riders.retain(|r| *r != crate::object::Rider::Bestowed);
         }
         // The same projection input as the attaching side: an Equipment
@@ -1072,7 +1113,7 @@ pub fn player_cant_lose(state: &GameState, player: PlayerId) -> bool {
                 let baylee_cards_dsl::Modifier::NamedPlayersCantLose(who) = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, state, fx.controller)
+                crate::eval::players_for_source(who, state, fx.controller, fx.source)
                     .is_some_and(|players| players.contains(&player))
             }))
 }
@@ -1085,7 +1126,7 @@ pub fn player_cant_win(state: &GameState, player: PlayerId) -> bool {
             let baylee_cards_dsl::Modifier::PlayersCantWin(who) = fx.modifier else {
                 return false;
             };
-            crate::eval::players(who, state, fx.controller)
+            crate::eval::players_for_source(who, state, fx.controller, fx.source)
                 .is_some_and(|players| players.contains(&player))
         })
 }

@@ -62,7 +62,14 @@ pub(super) fn collect_emblems(
                     if hit > 0 {
                         let times = trigger_count(state, trigger, emblem, obj.controller) * hit;
                         let event_object = event_object_for(trigger, &entry.event, emblem, state);
-                        let event_damage = event_damage_of(trigger, &entry.event, events);
+                        let event_damage = event_amount_for(
+                            trigger,
+                            &entry.event,
+                            events,
+                            state,
+                            obj.controller,
+                            context,
+                        );
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
                                 text: TextChangeMap::IDENTITY,
@@ -72,7 +79,7 @@ pub(super) fn collect_emblems(
                                 event_subject: None,
                                 event_ability: activated_stack_ability(&entry.event),
                                 event_object_identity: event_object
-                                    .and_then(|id| state.event_object_identity(id, entry.seq)),
+                                    .and_then(|id| event_identity_for(trigger, entry, id, state)),
                                 counter_source_version: None,
                                 event_mana: produced_mana(&entry.event, events),
                                 event_mana_value: None,
@@ -81,7 +88,7 @@ pub(super) fn collect_emblems(
                                     .as_ref()
                                     .map(|d| (d.controller, d.toughness)),
                                 event_amount: event_damage,
-                                event_player: event_player_of(&entry.event),
+                                event_player: event_player_for(trigger, entry, state),
                                 source: emblem,
                                 ability_index: index as u32,
                                 abilities: Some(list.clone()),

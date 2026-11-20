@@ -278,6 +278,19 @@ fn reads_event(effect: &Effect) -> bool {
                 || reads_amount(*power)
                 || reads_amount(*toughness)
         }
+        Effect::IfCondition { condition, .. } => reads_condition(condition),
+        _ => false,
+    }
+}
+
+fn reads_condition(condition: &baylee_cards_dsl::Condition) -> bool {
+    use baylee_cards_dsl::Condition as C;
+    match condition {
+        C::ObjectMatches { what, .. } => reads_target(**what),
+        C::AmountAtLeast(amount, _) | C::AmountIsEven(amount) => reads_amount(*amount),
+        C::AmountCompare { left, right, .. } => reads_amount(**left) || reads_amount(**right),
+        C::All(parts) | C::Any(parts) => parts.iter().any(reads_condition),
+        C::Not(inner) => reads_condition(inner),
         _ => false,
     }
 }

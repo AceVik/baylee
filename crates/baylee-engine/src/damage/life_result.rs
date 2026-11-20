@@ -63,7 +63,7 @@ fn floor(state: &GameState, player: PlayerId) -> Option<i32> {
             let Modifier::DamageLifeLossFloor { players, minimum } = effect.modifier else {
                 return None;
             };
-            crate::eval::players(players, state, effect.controller)
+            crate::eval::players_for_source(players, state, effect.controller, effect.source)
                 .is_some_and(|players| players.contains(&player))
                 .then_some(minimum)
         })

@@ -16,6 +16,50 @@ pub fn controller_of_attached(state: &GameState, source: ObjectId) -> Option<Pla
     (!state.has_left(seat)).then_some(seat)
 }
 
+/// Who `source` enchants when attached to a player ("enchanted player" on
+/// Curses and player-attached Auras, CR 303.4b, CR 303.4m). `None` when the
+/// source is gone, not attached to a player, or that player has left the game.
+#[must_use]
+pub fn enchanted_player(state: &GameState, source: ObjectId) -> Option<PlayerId> {
+    let seat = state.object(source)?.attached_player()?;
+    (!state.has_left(seat)).then_some(seat)
+}
+
+/// Resolves a relative player reference with optional `source` context,
+/// answering `EnchantedPlayer`, `ControllerOfAttached`, and `OwnerOfSource`
+/// alongside all state-only relations.
+#[must_use]
+pub fn players_for_source(
+    rel: PlayerRel,
+    state: &GameState,
+    you: PlayerId,
+    source: Option<ObjectId>,
+) -> Option<Vec<PlayerId>> {
+    match rel {
+        PlayerRel::EnchantedPlayer => Some(
+            source
+                .and_then(|s| enchanted_player(state, s))
+                .into_iter()
+                .collect(),
+        ),
+        PlayerRel::ControllerOfAttached => Some(
+            source
+                .and_then(|s| controller_of_attached(state, s))
+                .into_iter()
+                .collect(),
+        ),
+        PlayerRel::OwnerOfSource => Some(
+            source
+                .and_then(|s| state.object_or_departed(s))
+                .map(|o| o.owner)
+                .filter(|p| !state.has_left(*p))
+                .into_iter()
+                .collect(),
+        ),
+        other => players(other, state, you),
+    }
+}
+
 /// Resolves a relative player reference to concrete players — or `None` for
 /// relations the game state alone cannot answer.
 ///
@@ -95,7 +139,8 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
         | PlayerRel::DamagedPlayer
         | PlayerRel::EventPlayer
         | PlayerRel::OwnerOfSource
-        | PlayerRel::ControllerOfAttached => {
+        | PlayerRel::ControllerOfAttached
+        | PlayerRel::EnchantedPlayer => {
             return None;
         }
     })

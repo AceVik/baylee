@@ -44,7 +44,7 @@ pub(super) fn collect(
         }
         let event_object = events::event_object_for(&trigger, &entry.event, base.source, state);
         let event_object_identity =
-            event_object.and_then(|id| state.event_object_identity(id, entry.seq));
+            event_object.and_then(|id| events::event_identity_for(&trigger, entry, id, state));
         for _ in 0..count {
             out.push(PendingTrigger {
                 event_object,
@@ -55,8 +55,15 @@ pub(super) fn collect(
                     base.source,
                     state,
                 ),
-                event_amount: events::event_damage_of(&trigger, &entry.event, events),
-                event_player: events::event_player_of(&entry.event),
+                event_amount: events::event_amount_for(
+                    &trigger,
+                    &entry.event,
+                    events,
+                    state,
+                    watch.controller,
+                    context,
+                ),
+                event_player: events::event_player_for(&trigger, entry, state),
                 event_ability: crate::trigger::activated_stack_ability(&entry.event),
                 event_mana: super::produced_mana(&entry.event, events),
                 event_mana_value: crate::trigger::cast_mana_value(state, &entry.event),
@@ -213,8 +220,15 @@ pub(crate) fn collect_general(
                 ev_obj,
                 ev_id,
                 events::event_subject_for(trigger, &entry.event, match_source, state),
-                events::event_damage_of(trigger, &entry.event, events),
-                events::event_player_of(&entry.event),
+                events::event_amount_for(
+                    trigger,
+                    &entry.event,
+                    events,
+                    state,
+                    delayed.controller,
+                    context,
+                ),
+                events::event_player_for(trigger, entry, state),
                 crate::trigger::activated_stack_ability(&entry.event),
                 super::produced_mana(&entry.event, events),
                 crate::trigger::cast_mana_value(state, &entry.event),

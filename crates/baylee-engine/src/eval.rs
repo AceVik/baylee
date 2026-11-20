@@ -36,9 +36,13 @@ pub use conditions::{
 };
 pub(crate) use protection::protection_from_exiled_types;
 pub use protection::{
-    permits_enchantment, protected_from, untargetable_by, untargetable_by_source,
+    permits_enchantment, player_protected_from, protected_from, untargetable_by,
+    untargetable_by_source,
 };
-pub use relations::{controller_of_attached, defending_player_of, most_life, players};
+pub use relations::{
+    controller_of_attached, defending_player_of, enchanted_player, most_life, players,
+    players_for_source,
+};
 pub use targets::{
     choice_options, choice_options_with_context, first_target_players, stack_target_options,
     stack_target_options_relative, target_options, target_options_with_context,
@@ -737,7 +741,28 @@ pub(crate) fn matches_projected_with_choices(
         // CR 303.4b: what the source enchants, equips or fortifies is what
         // the object is attached to, read from the attachment's side.
         Filter::AttachedToSource => obj.attached_to == Some(this),
-        Filter::IsAttached => obj.attached_to.is_some(),
+        Filter::IsAttached => obj.is_attached(),
+        Filter::Historic => {
+            chars.types.contains(baylee_core::types::TypeSet::ARTIFACT)
+                || chars
+                    .supertypes
+                    .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+                || chars
+                    .subtypes
+                    .contains(baylee_core::generated::subtypes::enchantment::SAGA)
+        }
+        Filter::HasCounters(kind) => match kind {
+            Some(k) => obj.counters.get(*k) > 0,
+            None => obj.counters.iter().any(|(_, n)| n > 0),
+        },
+        Filter::AnyCountersAtLeast(n) => {
+            obj.counters.iter().fold(0_u32, |acc, (_, count)| {
+                acc.saturating_add(u32::from(count))
+            }) >= u32::from(*n)
+        }
+        Filter::ControlledByEnchantedPlayer => {
+            enchanted_player(state, this) == Some(obj.controller)
+        }
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.
             // The marker list rather than the command zone, for the reason

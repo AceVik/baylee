@@ -1316,9 +1316,38 @@ pub(super) fn players_of(
         PlayerRel::ControllerOfAttached => eval::controller_of_attached(state, res.source)
             .into_iter()
             .collect(),
+        PlayerRel::EnchantedPlayer => enchanted_player_of_resolution(state, res)
+            .into_iter()
+            .collect(),
         other => eval::players(other, state, you)
             .expect("the context relations are matched above this arm"),
     }
+}
+
+/// "Enchanted player" (CR 303.4b, CR 303.4m): the player `res.source` enchants
+/// now, or the last known player it enchanted if the Aura left the battlefield
+/// while its ability waited on the stack (CR 608.2h).
+fn enchanted_player_of_resolution(state: &GameState, res: &Resolution) -> Option<PlayerId> {
+    eval::enchanted_player(state, res.source)
+        .or_else(|| {
+            state.object(res.on_stack).and_then(|o| {
+                o.riders.iter().find_map(|r| match r {
+                    crate::object::Rider::SourceAttachmentPlayerLki(seat) => Some(*seat),
+                    _ => None,
+                })
+            })
+        })
+        .or_else(|| {
+            source_version(state, res)
+                .and_then(|version| {
+                    state.source_object(baylee_core::ids::DamageSourceRef {
+                        object: res.source,
+                        version,
+                    })
+                })
+                .and_then(super::object::GameObject::attached_player)
+        })
+        .filter(|seat| !state.has_left(*seat))
 }
 
 /// Flattens nested `Sequence`s into one flat op list.

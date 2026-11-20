@@ -418,6 +418,9 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::Chapter(_)
         | Trigger::Discarded { .. }
         | Trigger::DiscardedThisByOpponent
+        | Trigger::Sacrificed { .. }
+        | Trigger::ChangesZoneAll { .. }
+        | Trigger::PlayerAttacked(_)
         | Trigger::CycledThis
         | Trigger::Cycled { .. } => {
             dst[9] = 1.0;
@@ -492,6 +495,8 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
         | Modifier::OpponentsCantCast(_)
         | Modifier::PlayersCantCast { .. }
+        | Modifier::SpellCastLimitPerTurn { .. }
+        | Modifier::MatchingSpellCastLimitPerTurn { .. }
         | Modifier::PlayersCantPlay(_)
         | Modifier::CantActivate
         | Modifier::ChosenNameCantActivate

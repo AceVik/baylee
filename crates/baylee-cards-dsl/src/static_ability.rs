@@ -1173,6 +1173,19 @@ pub enum Modifier {
     /// — Shiny Impetus, Bloodthirsty Blade). Appended to preserve replay
     /// identities.
     Goaded,
+    /// Maximum actual spells matching `filter` cast by each affected player
+    /// during the current turn (Deafening Silence, Ethersworn Canonist,
+    /// Phyrexian Censor, Curse of Exhaustion; CR 601.3). Includes matching
+    /// spells cast earlier in the turn before this rule began. Appended to
+    /// preserve replay identities.
+    MatchingSpellCastLimitPerTurn {
+        /// Affected players relative to this rule's source and controller.
+        who: crate::PlayerRel,
+        /// Spell predicate counted and prohibited once `limit` is reached.
+        filter: &'static crate::Filter,
+        /// Maximum number of matching spells allowed per turn.
+        limit: u32,
+    },
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1404,6 +1417,7 @@ impl Modifier {
             | Self::CantActivateNonMana
             | Self::ChosenNameCantActivate
             | Self::SpellCastLimitPerTurn { .. }
+            | Self::MatchingSpellCastLimitPerTurn { .. }
             | Self::OpponentsCantCast(_)
             | Self::PlayersCantCast { .. }
             | Self::PlayersCantPlay(_)
@@ -2036,6 +2050,11 @@ mod tests {
             Modifier::ChosenNameCantActivate,
             Modifier::SpellCastLimitPerTurn {
                 who: crate::PlayerRel::EachPlayer,
+                limit: 1,
+            },
+            Modifier::MatchingSpellCastLimitPerTurn {
+                who: crate::PlayerRel::EachPlayer,
+                filter: &Filter::NONCREATURE,
                 limit: 1,
             },
             Modifier::PlayersCantPlay(&Filter::Any),

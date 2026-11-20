@@ -50,8 +50,8 @@ pub static ETERNALIZE_MODS: &[CopyMod] = &[
 ];
 
 pub use ability::{
-    AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, Condition, CopyMod,
-    ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, AmountCmp,
+    Condition, CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
 };
 pub use build::prelude;
 pub use build::{
@@ -68,7 +68,7 @@ pub use effect::{
     RepeatDomain, SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec,
     ThisWay, TokenDef, TriggerRemember, ZoneSel,
 };
-pub use filter::{Filter, OriginalExpansion, ZoneRef};
+pub use filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
 pub use manaread::{
     BranchedMana, Conversion, SimpleMana, mana_branched, mana_bundle, mana_conversion, mana_made,
     mana_of_each_color, mana_offer, mana_shape, mana_with_riders, mana_written, simple_mana,
