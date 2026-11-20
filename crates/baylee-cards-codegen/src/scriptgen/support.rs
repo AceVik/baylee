@@ -90,7 +90,10 @@ pub fn refusal_reason(
     let Some(mode) = script.alternate_mode.as_deref() else {
         return Some("ALTERNATE face without AlternateMode".to_string());
     };
-    if !matches!(mode, "Split" | "Adventure" | "Modal" | "DoubleFaced") {
+    if !matches!(
+        mode,
+        "Split" | "Adventure" | "Modal" | "DoubleFaced" | "Prepare"
+    ) {
         return Some(format!("unsupported alternate mode `{mode}`"));
     }
     let Some(back) = script.alternate.as_deref() else {
@@ -205,6 +208,10 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "FlipCoin",
     "RollDice",
     "ImmediateTrigger",
+    "Amass",
+    "AlterAttribute",
+    "BecomeMonarch",
+    "GainControl",
 ];
 
 /// A cost token that names an object, split into its kind and its body.

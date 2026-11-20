@@ -777,6 +777,7 @@ impl Tx<'_> {
             "CantAttack,CantBlock,CantBeActivated" => self.cant_attack_block_activate_extra(p),
             "CantAttackUnless" | "CantBlockUnless" => self.combat_unless_extra(&mode, p),
             "CantAttack" => self.cant_attack_self_conditional(p),
+            "CantTarget" => self.cant_target_extra(p),
             "Continuous" => self.try_extra_continuous(spec, p),
             _ => ExtraOutcome::Pass,
         }
@@ -1211,13 +1212,21 @@ impl Tx<'_> {
         {
             return ExtraOutcome::Handled(self.continuous_reveal_your_hand(p));
         }
-        if matches!(
-            p.peek("Affected"),
-            Some("You" | "Player" | "Opponent" | "Player.Opponent" | "Player.Chosen")
-        ) && (p.has("SetMaxHandSize")
-            || p.has("NoHandSize")
-            || p.has("AdjustLandPlays")
-            || p.peek("AddKeyword") == Some("Hexproof"))
+        if self.has_owner_graveyard_cda(&p) {
+            return ExtraOutcome::Handled(self.characteristic_pt_graveyard_owner(p));
+        }
+        if p.peek("Affected")
+            .is_some_and(is_player_continuous_affected)
+            && (p.has("SetMaxHandSize")
+                || p.has("NoHandSize")
+                || p.has("AdjustLandPlays")
+                || p.has("ControlOpponentsSearchingLibrary")
+                || p.peek("AddKeyword").is_some_and(|k| {
+                    k == "Hexproof"
+                        || k == "CantSearchLibrary"
+                        || k.starts_with("Protection:")
+                        || k.starts_with("Protection from ")
+                }))
         {
             return ExtraOutcome::Handled(self.continuous_player_rule(p));
         }
@@ -1235,12 +1244,7 @@ impl Tx<'_> {
         {
             return ExtraOutcome::Handled(self.continuous_wave5_characteristic(p));
         }
-        if p.has("CheckSVar")
-            && !p.has("IsPresent")
-            && !p.has("Condition")
-            && !p.has("PlayerTurn")
-            && let Some(var) = p.peek("CheckSVar")
-        {
+        if let Some(var) = p.peek("CheckSVar") {
             let cmp = p.peek("SVarCompare").unwrap_or("GE1");
             if let Some(first) = self
                 .svar_condition(var, cmp)
@@ -1551,6 +1555,29 @@ impl Tx<'_> {
                 )
             });
         }
+        if let Some((op, rhs_var)) = cmp.split_at_checked(2)
+            && !rhs_var.is_empty()
+            && !rhs_var.chars().all(|c| c.is_ascii_digit())
+            && let Some(rhs_def) = self.svars.get(rhs_var.trim()).cloned()
+        {
+            let rhs = self.static_count_expr(&rhs_def)?;
+            let gt = format!(
+                "Condition::AmountAtLeast(Amount::Difference {{ left: &{amt}, right: &{rhs} }}, 1)"
+            );
+            let lt = format!(
+                "Condition::AmountAtLeast(Amount::Difference {{ left: &{rhs}, right: &{amt} }}, 1)"
+            );
+            return match op {
+                "GT" => Some(gt),
+                "GE" => Some(format!("Condition::Not(&{lt})")),
+                "LT" => Some(lt),
+                "LE" => Some(format!("Condition::Not(&{gt})")),
+                "EQ" => Some(format!(
+                    "Condition::All(&[Condition::Not(&{lt}), Condition::Not(&{gt})])"
+                )),
+                _ => None,
+            };
+        }
         None
     }
 
@@ -1618,10 +1645,46 @@ impl Tx<'_> {
                 return Some(format!("Condition::LifeAtMost({n})"));
             }
         }
-        if raw == "Count$TotalPower Creature.YouCtrl"
-            && let Some(n) = parse_at_least_u16(cmp)
+        Self::extra_svar_condition_wave7(raw, cmp)
+    }
+
+    fn extra_svar_condition_wave7(raw: &str, cmp: &str) -> Option<String> {
+        if matches!(
+            raw,
+            "Count$TotalPower Creature.YouCtrl" | "Count$Valid Creature.YouCtrl$CardPower"
+        ) && let Some(n) = parse_at_least_u16(cmp)
         {
             return Some(format!("Condition::ControlledCreaturePowerAtLeast({n})"));
+        }
+        if raw == "Count$AttackersDeclared" {
+            if let Some(n) = parse_at_least_u16(cmp) {
+                return Some(format!("Condition::AttackedWithAtLeast({n})"));
+            }
+            if matches!(cmp, "EQ0" | "LT1") {
+                return Some("Condition::Not(&Condition::AttackedWithAtLeast(1))".to_string());
+            }
+        }
+        if raw == "Count$Kicked.1.0" {
+            return match cmp {
+                "GE1" | "GT0" | "EQ1" => {
+                    Some("Condition::AmountAtLeast(Amount::TimesKicked, 1)".to_string())
+                }
+                "EQ0" | "LT1" => Some(
+                    "Condition::Not(&Condition::AmountAtLeast(Amount::TimesKicked, 1))".to_string(),
+                ),
+                _ => None,
+            };
+        }
+        if raw == "Count$CardCounters.ALL" {
+            return match cmp {
+                "GE1" | "GT0" => {
+                    Some("Condition::SourceMatches(&Filter::HasAnyCounter)".to_string())
+                }
+                "EQ0" | "LT1" => Some(
+                    "Condition::Not(&Condition::SourceMatches(&Filter::HasAnyCounter))".to_string(),
+                ),
+                _ => None,
+            };
         }
         if raw == "Count$ValidHand Card.YouOwn" {
             if let Some(n_str) = cmp.strip_prefix("EQ")
@@ -1754,6 +1817,7 @@ impl Tx<'_> {
             "AddCounter" => ExtraOutcome::Handled(self.replace_add_counter(p)),
             "GainLife" => ExtraOutcome::Handled(self.replace_gain_life(p)),
             "LifeReduced" => ExtraOutcome::Handled(self.replace_life_reduced(p)),
+            "RollDice" => ExtraOutcome::Handled(self.replace_roll_dice(p)),
             "Moved" => self.try_extra_moved(p),
             _ => ExtraOutcome::Pass,
         }
@@ -1875,6 +1939,9 @@ impl Tx<'_> {
                 }
                 if api == "LoseLife" {
                     return ExtraOutcome::Handled(self.moved_lose_life_equal_to_life(p));
+                }
+                if matches!(api.as_str(), "Discard" | "Sacrifice") {
+                    return ExtraOutcome::Handled(self.moved_pay_before_etb(p));
                 }
             }
             return ExtraOutcome::Pass;
@@ -2558,6 +2625,14 @@ fn parse_at_most_u16(cmp: &str) -> Option<u16> {
         return Some(0);
     }
     None
+}
+
+fn is_player_continuous_affected(raw: &str) -> bool {
+    let trimmed = raw.trim();
+    matches!(
+        trimmed,
+        "You" | "Player" | "Opponent" | "Player.Opponent" | "Player.Chosen"
+    ) || (trimmed.contains(',') && trimmed.split(',').any(|p| p.trim() == "You"))
 }
 
 fn strip_matching_level_present(spec: &str, expected_present: &str) -> String {

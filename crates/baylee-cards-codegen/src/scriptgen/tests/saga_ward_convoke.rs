@@ -2285,3 +2285,224 @@ fn wave6_damage_preventions_life_floor_and_replacements() {
          SVar:Diff:Count$YourLifeTotal/Minus.7"
     ));
 }
+
+#[test]
+fn wave7_support_hooks_mana_counts_and_filter_atoms() {
+    for api in ["Amass", "AlterAttribute", "BecomeMonarch", "GainControl"] {
+        assert!(crate::scriptgen::is_supported_api(api), "{api}");
+    }
+    let prep = parse(
+        "Name:Front\nTypes:Creature\nPT:2/2\nAlternateMode:Prepare\nALTERNATE\nName:Back\nTypes:Sorcery",
+    );
+    let why = refusal_reason(&prep, &cats(), None);
+    assert!(
+        why.as_deref() != Some("unsupported alternate mode `Prepare`"),
+        "{why:?}"
+    );
+
+    let grant_sac = read(
+        "Name:TorchGear\nTypes:Artifact Equipment\nK:Equip:1\n\
+         S:Mode$ Continuous | Affected$ Creature.EquippedBy | AddAbility$ Throw\n\
+         SVar:Throw:AB$ DealDamage | Cost$ 1 T Sac<1/OriginalHost/this equipment> | ValidTgts$ Any | NumDmg$ 2",
+    );
+    assert!(grant_sac.statics.contains("SacrificeGrantor"));
+    assert!(
+        grant_sac
+            .abilities
+            .iter()
+            .any(|a| a.contains("GrantActivatedDefinition"))
+    );
+
+    let etb_x = read(
+        "Name:FlareCharm\nManaCost:X R\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Zap\n\
+         SVar:Zap:DB$ DealDamage | ValidTgts$ Any | NumDmg$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(etb_x.abilities[0].contains("amount: Amount::X"));
+    assert!(refused(
+        "Name:NoXCost\nManaCost:1 R\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Zap\n\
+         SVar:Zap:DB$ DealDamage | ValidTgts$ Any | NumDmg$ X\n\
+         SVar:X:Count$xPaid"
+    ));
+
+    let counters_and_atoms = read(
+        "Name:PulseCheck\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ GainLife | LifeAmount$ E | SubAbility$ Zap\n\
+         SVar:Zap:DB$ Destroy | ValidTgts$ Creature.HasCounters\n\
+         SVar:E:Count$YourCountersEnergy",
+    );
+    assert!(counters_and_atoms.abilities[0].contains("Amount::CountersOnYou(CounterKind::Energy)"));
+    assert!(counters_and_atoms.statics.contains("Filter::HasAnyCounter"));
+
+    let band_and_share = read(
+        "Name:BannerUnit\nTypes:Artifact Equipment\nK:Equip:1\n\
+         S:Mode$ Continuous | Affected$ Creature.sharesCreatureTypeWith Equipped | AddPower$ 1 | AddToughness$ 1\n\
+         A:AB$ PumpAll | Cost$ 2 | ValidCards$ Creature.attackersBandedWith | KW$ Trample",
+    );
+    assert!(
+        band_and_share
+            .abilities
+            .iter()
+            .any(|a| a.contains("SharesCreatureTypeWith(&Filter::AttachedToBySource)"))
+    );
+    assert!(
+        band_and_share.statics.contains("Filter::BandedWithSource")
+            || band_and_share
+                .abilities
+                .iter()
+                .any(|a| a.contains("Filter::BandedWithSource"))
+    );
+
+    // Argon PR 394 regression guard (#215): single-target graveyard Oracle must refuse OppOwn.
+    assert!(refused(
+        "Name:SingleYardCount\nManaCost:2 B\nTypes:Instant\n\
+         A:SP$ GainLife | ValidTgts$ Opponent | Defined$ You | LifeAmount$ X\n\
+         SVar:X:Count$ValidGraveyard Creature.OppOwn\n\
+         Oracle:Gain 1 life for each creature card in target opponent's graveyard."
+    ));
+}
+
+#[test]
+fn wave7_continuous_conditions_svar_pairs_and_graveyard_cda() {
+    let svar_pairs = read(
+        "Name:LifeScale\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 2 | AddToughness$ 2 | \
+         CheckSVar$ Life | SVarCompare$ GEGoal\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Indestructible | \
+         CheckSVar$ Life | SVarCompare$ LEHalf\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 1 | AddToughness$ 1 | \
+         Condition$ PlayerTurn | CheckSVar$ Atk | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Trample | \
+         CheckSVar$ Pow | SVarCompare$ GE8\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | \
+         CheckSVar$ Cnt | SVarCompare$ GE1\n\
+         SVar:Life:Count$YourLifeTotal\n\
+         SVar:Goal:Count$StartingLife/Plus.7\n\
+         SVar:Half:Count$YourStartingLife/HalfDown\n\
+         SVar:Atk:Count$AttackersDeclared\n\
+         SVar:Pow:Count$Valid Creature.YouCtrl$CardPower\n\
+         SVar:Cnt:Count$CardCounters.ALL",
+    );
+    assert!(svar_pairs.abilities[0].contains("Amount::Difference"));
+    assert!(svar_pairs.abilities[0].contains("Amount::StartingLifeTotal(PlayerRel::You)"));
+    assert!(svar_pairs.abilities[1].contains("Amount::Half"));
+    assert!(
+        svar_pairs.abilities[2]
+            .contains("Condition::All(&[Condition::YourTurn, Condition::AttackedWithAtLeast(1)])")
+    );
+    assert!(svar_pairs.abilities[3].contains("Condition::ControlledCreaturePowerAtLeast(8)"));
+    assert!(svar_pairs.abilities[4].contains("Condition::SourceMatches(&Filter::HasAnyCounter)"));
+
+    let cda_you = read(
+        "Name:YardWurm\nTypes:Creature\nPT:*/*\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+         SVar:X:Count$ValidGraveyard Creature.YouOwn",
+    );
+    assert!(cda_you.abilities[0].contains("Modifier::CharacteristicPT"));
+    assert!(cda_you.abilities[0].contains("PtCount::InAllGraveyards"));
+    assert!(cda_you.statics.contains("Filter::OwnedByYou"));
+
+    let cda_half = read(
+        "Name:SpellDrake\nTypes:Creature\nPT:*/4\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X\n\
+         SVar:X:Count$ValidGraveyard Instant.YouOwn,Sorcery.YouOwn",
+    );
+    assert!(cda_half.abilities[0].contains("Modifier::CharacteristicPTSeparate"));
+    assert!(cda_half.abilities[0].contains("PtCount::Fixed(4)"));
+}
+
+#[test]
+fn wave7_player_protection_cant_target_dice_pay_etb_and_attack_sac() {
+    let mixed = read(
+        "Name:WardAngel\nTypes:Creature\nPT:3/4\n\
+         S:Mode$ Continuous | Affected$ You,Creature.YouCtrl+Other | AddKeyword$ Hexproof",
+    );
+    assert!(
+        mixed
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::PlayerHexproof { who: PlayerRel::You }"))
+    );
+    assert!(
+        mixed
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::AddKeyword(KeywordSet::HEXPROOF)"))
+    );
+
+    let halo = read(
+        "Name:NameWard\nTypes:Enchantment\n\
+         K:ETBReplacement:Other:Pick\n\
+         SVar:Pick:DB$ NameCard | Defined$ You\n\
+         S:Mode$ Continuous | Affected$ You | AddKeyword$ Protection:ChosenName",
+    );
+    assert!(halo.abilities[0].contains(
+        "Modifier::PlayerProtectionFrom { who: PlayerRel::You, from: &Filter::NamedBySource }"
+    ));
+    assert!(refused(
+        "Name:BadHalo\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ You | AddKeyword$ Protection:ChosenName"
+    ));
+
+    let cant_tgt = read(
+        "Name:VeilCharm\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ CantTarget | ValidTarget$ Creature.EnchantedBy | ValidSA$ Spell | Secondary$ True\n\
+         S:Mode$ CantTarget | ValidTarget$ Card.EnchantedBy | ValidSource$ Artifact\n\
+         Oracle:Enchanted creature can't be the target of abilities from artifact sources.",
+    );
+    assert!(cant_tgt.statics.contains("Filter::InZone(ZoneRef::Stack)"));
+    assert!(
+        cant_tgt
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::CantBeTargetedBy(&SOURCE"))
+    );
+    assert!(
+        cant_tgt
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::CantBeTargetedByAbilitiesFrom(&Filter::ARTIFACT)"))
+    );
+
+    let dice = read(
+        "Name:LuckyGuide\nTypes:Creature\nPT:1/3\n\
+         R:Event$ RollDice | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ PlusRoll\n\
+         SVar:PlusRoll:DB$ ReplaceEffect | VarName$ Number | VarValue$ ReplaceCount$Number/Plus.1 | SubAbility$ Ign\n\
+         SVar:Ign:DB$ ReplaceEffect | VarName$ Ignore | VarValue$ ReplaceCount$Ignore/Plus.1",
+    );
+    assert!(dice.abilities[0].contains("Modifier::RollAdditionalDieIgnoreLowest"));
+
+    let atk_sac = read(
+        "Name:MarshTax\nTypes:Enchantment\n\
+         S:Mode$ CantAttackUnless | ValidCard$ Creature.Green | Cost$ Sac<1/Land>",
+    );
+    assert!(atk_sac.abilities[0].contains("Modifier::CantAttackUnlessYouSacrifice"));
+
+    let pay_sac = read(
+        "Name:ValeLand\nTypes:Land\n\
+         R:Event$ Moved | Destination$ Battlefield | ValidCard$ Card.Self | ReplaceWith$ Pay\n\
+         SVar:Pay:DB$ Sacrifice | SacValid$ Land.untapped | Defined$ You | RememberSacrificed$ True | Amount$ 2 | StrictAmount$ True | SubAbility$ Gy\n\
+         SVar:Gy:DB$ ChangeZone | Origin$ All | Destination$ Graveyard | Defined$ ReplacedCard | ConditionCheckSVar$ X | ConditionSVarCompare$ LT2 | SubAbility$ Bf\n\
+         SVar:Bf:DB$ ChangeZone | Origin$ All | Destination$ Battlefield | Defined$ ReplacedCard | ConditionCheckSVar$ X | ConditionSVarCompare$ GE2 | SubAbility$ Cln\n\
+         SVar:Cln:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(pay_sac.enter_modifiers[0].contains("EnterModifier::SacrificeOrGraveyard"));
+    assert!(pay_sac.enter_modifiers[0].contains("count: 2"));
+
+    let pay_disc = read(
+        "Name:GemMox\nTypes:Artifact\n\
+         R:Event$ Moved | Destination$ Battlefield | ValidCard$ Card.Self | ReplaceWith$ Pay\n\
+         SVar:Pay:DB$ Discard | DiscardValid$ Land | Mode$ TgtChoose | RememberDiscarded$ True | Optional$ True | SubAbility$ Gy\n\
+         SVar:Gy:DB$ ChangeZone | Origin$ All | Destination$ Graveyard | Defined$ ReplacedCard | ConditionCheckSVar$ X | ConditionSVarCompare$ EQ0 | SubAbility$ Bf\n\
+         SVar:Bf:DB$ ChangeZone | Origin$ All | Destination$ Battlefield | Defined$ ReplacedCard | ConditionCheckSVar$ X | ConditionSVarCompare$ EQ1 | SubAbility$ Cln\n\
+         SVar:Cln:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert_eq!(
+        pay_disc.enter_modifiers,
+        ["EnterModifier::DiscardOrGraveyard(&Filter::LAND)"]
+    );
+}

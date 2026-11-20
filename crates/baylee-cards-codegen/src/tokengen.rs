@@ -2018,4 +2018,36 @@ mod tests {
         assert!(lookup.body("t_unknown_nested", &c).is_none());
         assert!(lookup.body("t_self_loop", &c).is_none());
     }
+
+    #[test]
+    fn wave7_equipment_grantor_sacrifice_and_owner_graveyard_cda_tokens() {
+        let mut c = cats();
+        c.creature.push("Elephant".to_string());
+        c.normalize();
+
+        let pebble = read(
+            "Name:Pebble\nTypes:Artifact Equipment\n\
+             S:Mode$ Continuous | Affected$ Creature.EquippedBy | AddAbility$ Toss\n\
+             SVar:Toss:AB$ DealDamage | Cost$ 1 T Sac<1/OriginalHost/Pebble> | ValidTgts$ Any | NumDmg$ 2\n\
+             K:Equip:1",
+            &c,
+        )
+        .expect("equipment token granting SacrificeGrantor");
+        assert!(pebble.literal.contains("SacrificeGrantor"));
+        assert!(pebble.literal.contains("GrantActivatedDefinition"));
+        assert!(pebble.constant.starts_with("PEBBLE_EQUIP_1_A"));
+
+        let elephant = read(
+            "Name:Elephant Token\nColors:green\nTypes:Creature Elephant\nPT:*/*\n\
+             S:Mode$ Continuous | SetPower$ G | SetToughness$ G | EffectZone$ Battlefield | \
+             CharacteristicDefining$ True\n\
+             SVar:G:Count$ValidGraveyard Creature.YouOwn",
+            &c,
+        )
+        .expect("owner-graveyard CDA star creature token");
+        assert!(elephant.literal.contains("Modifier::CharacteristicPT"));
+        assert!(elephant.literal.contains("PtCount::InAllGraveyards"));
+        assert!(elephant.literal.contains("Filter::OwnedByYou"));
+        assert!(elephant.constant.starts_with("ELEPHANT_X_X_GREEN_A"));
+    }
 }

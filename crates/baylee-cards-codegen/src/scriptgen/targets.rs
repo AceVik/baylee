@@ -521,8 +521,8 @@ impl Tx<'_> {
                     "!blockedThisTurn" => "Filter::Not(&Filter::BlockedThisTurn)".to_string(),
                     "wasCastFromHand" | "CastFromHand" => "Filter::CastFromHand".to_string(),
                     "!wasCastFromHand" => "Filter::Not(&Filter::CastFromHand)".to_string(),
-                    "counters_GE1_ALL" => "Filter::HasAnyCounter".to_string(),
-                    "counters_EQ0_ALL" | "counters_LT1_ALL" => {
+                    "counters_GE1_ALL" | "HasCounters" => "Filter::HasAnyCounter".to_string(),
+                    "counters_EQ0_ALL" | "counters_LT1_ALL" | "!HasCounters" => {
                         "Filter::Not(&Filter::HasAnyCounter)".to_string()
                     }
                     "Permanent" if !card_zone => continue,
@@ -548,6 +548,7 @@ impl Tx<'_> {
                     "Self" => "Filter::This".to_string(),
                     "attacking" => "Filter::Attacking".to_string(),
                     "attackingYou" => "Filter::AttackingYou".to_string(),
+                    "attackersBandedWith" => "Filter::BandedWithSource".to_string(),
                     "blocking" => "Filter::Blocking".to_string(),
                     "blockingSource" => "Filter::BlockingSource".to_string(),
                     "blockedBySource" => "Filter::BlockedBySource".to_string(),
@@ -623,6 +624,9 @@ impl Tx<'_> {
                     }
                     "sharesCreatureTypeWith" => {
                         "Filter::SharesCreatureTypeWith(&Filter::This)".to_string()
+                    }
+                    "sharesCreatureTypeWith Equipped" | "sharesCreatureTypeWith Enchanted" => {
+                        "Filter::SharesCreatureTypeWith(&Filter::AttachedToBySource)".to_string()
                     }
                     "SharesColorWith Equipped" | "SharesColorWith Enchanted" => {
                         "Filter::SharesAColorWith(&Filter::AttachedToBySource)".to_string()
@@ -946,7 +950,9 @@ impl Tx<'_> {
             "TriggeredTarget" if matches!(trigger, Some("DamageDone" | "DamageDoneOnce")) => {
                 "PlayerRel::DamagedPlayer"
             }
-            "TriggeredTargetController" if trigger == Some("DamageDone") => {
+            "TriggeredTargetController"
+                if matches!(trigger, Some("DamageDone" | "DamageDoneOnce")) =>
+            {
                 "PlayerRel::ControllerOfEvent"
             }
             "TriggeredBlockerController" if trigger == Some("Blocks") => {

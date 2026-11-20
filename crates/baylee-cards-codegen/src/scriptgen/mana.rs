@@ -282,7 +282,12 @@ impl Tx<'_> {
         {
             return self.count_expr_depth(&inner, depth + 1, static_only);
         }
-        if !static_only && matches!(def, "Count$xPaid/Times.2" | "Count$xPaid/Twice") && self.has_x
+        let can_read_x =
+            self.has_x || (self.is_etb_self_trigger && self.has_x_mana_cost && !self.in_delayed);
+        if !static_only && def == "Count$xPaid" && can_read_x {
+            return Some("Amount::X".to_string());
+        }
+        if !static_only && matches!(def, "Count$xPaid/Times.2" | "Count$xPaid/Twice") && can_read_x
         {
             return Some("Amount::DoubleX".to_string());
         }
@@ -294,7 +299,7 @@ impl Tx<'_> {
                 let base = if let Some(var) = lhs.strip_prefix("SVar$") {
                     let inner = self.svars.get(var.trim())?.clone();
                     self.count_expr_depth(&inner, depth + 1, static_only)?
-                } else if !static_only && lhs == "Count$xPaid" && self.has_x {
+                } else if !static_only && lhs == "Count$xPaid" && can_read_x {
                     return Some("Amount::DoubleX".to_string());
                 } else {
                     self.count_expr_depth(lhs, depth + 1, static_only)?
@@ -323,7 +328,7 @@ impl Tx<'_> {
                 let left = if let Some(var) = lhs.strip_prefix("SVar$") {
                     let inner = self.svars.get(var.trim())?.clone();
                     self.count_expr_depth(&inner, depth + 1, static_only)?
-                } else if !static_only && lhs == "Count$xPaid" && self.has_x {
+                } else if !static_only && lhs == "Count$xPaid" && can_read_x {
                     "Amount::X".to_string()
                 } else {
                     self.count_expr_depth(lhs, depth + 1, static_only)?
@@ -338,7 +343,7 @@ impl Tx<'_> {
                 let left = if let Some(var) = lhs.strip_prefix("SVar$") {
                     let inner = self.svars.get(var.trim())?.clone();
                     self.count_expr_depth(&inner, depth + 1, static_only)?
-                } else if !static_only && lhs == "Count$xPaid" && self.has_x {
+                } else if !static_only && lhs == "Count$xPaid" && can_read_x {
                     "Amount::X".to_string()
                 } else {
                     self.count_expr_depth(lhs, depth + 1, static_only)?
@@ -375,7 +380,7 @@ impl Tx<'_> {
                 let base = if let Some(var) = lhs.strip_prefix("SVar$") {
                     let inner = self.svars.get(var.trim())?.clone();
                     self.count_expr_depth(&inner, depth + 1, static_only)?
-                } else if !static_only && lhs == "Count$xPaid" && self.has_x {
+                } else if !static_only && lhs == "Count$xPaid" && can_read_x {
                     "Amount::X".to_string()
                 } else {
                     self.count_expr_depth(lhs, depth + 1, static_only)?
@@ -577,7 +582,10 @@ impl Tx<'_> {
         ) {
             return Some("Amount::LibrarySize(PlayerRel::You)".to_string());
         }
-        if matches!(def, "Count$StartingLifeTotal" | "Count$YourStartingLife") {
+        if matches!(
+            def,
+            "Count$StartingLife" | "Count$StartingLifeTotal" | "Count$YourStartingLife"
+        ) {
             return Some("Amount::StartingLifeTotal(PlayerRel::You)".to_string());
         }
         if def == "Count$LifeYouGainedThisTurn" {
@@ -586,13 +594,13 @@ impl Tx<'_> {
         if def == "Count$LifeOppsLostThisTurn" {
             return Some("Amount::OpponentsLifeLostThisTurn".to_string());
         }
-        if def == "Count$YourPoisonCounters" {
+        if matches!(def, "Count$YourPoisonCounters" | "Count$YourCountersPoison") {
             return Some("Amount::CountersOnYou(CounterKind::Poison)".to_string());
         }
-        if def == "Count$YourEnergyCounters" {
+        if matches!(def, "Count$YourEnergyCounters" | "Count$YourCountersEnergy") {
             return Some("Amount::CountersOnYou(CounterKind::Energy)".to_string());
         }
-        if def == "Count$YourRadCounters" {
+        if matches!(def, "Count$YourRadCounters" | "Count$YourCountersRAD") {
             return Some("Amount::CountersOnYou(CounterKind::Rad)".to_string());
         }
         if def == "Count$DamageYouTookThisTurn" {
@@ -645,6 +653,12 @@ impl Tx<'_> {
                 ));
             }
             if let Some(stripped) = Self::strip_opp_graveyard_owner(valid) {
+                let lower = self.oracle.to_ascii_lowercase();
+                if lower.contains("target opponent's graveyard")
+                    || lower.contains("target player's graveyard")
+                {
+                    return None;
+                }
                 let expr = self.filter_expr_in_zone(&stripped, true)?;
                 let name = self.body.filter_static("COUNT", &expr);
                 return Some(format!(
@@ -993,6 +1007,11 @@ impl Tx<'_> {
                 parts.push("UntapSelf".to_string());
             } else if token.starts_with("Sac<1/CARDNAME") {
                 parts.push("SacrificeSelf".to_string());
+            } else if (token == "Sac<1/OriginalHost>" || token.starts_with("Sac<1/OriginalHost/"))
+                && !self.on_a_spell
+                && !self.in_alternative_cost
+            {
+                parts.push("SacrificeGrantor".to_string());
             } else if token == "Exile<1/CARDNAME>" || token.starts_with("Exile<1/CARDNAME/") {
                 parts.push("ExileSelf".to_string());
             } else if (token == "Exert<1/CARDNAME>" || token.starts_with("Exert<1/CARDNAME/"))

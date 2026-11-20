@@ -133,6 +133,13 @@ impl Tx<'_> {
             .any(|m| m == "EnterModifier::ChooseOpponent")
     }
 
+    fn has_chosen_card_name(&self) -> bool {
+        self.body.enter_modifiers.iter().any(|m| {
+            m == "EnterModifier::ChooseCardName"
+                || m.starts_with("EnterModifier::ChooseCardNameExcept(")
+        })
+    }
+
     /// `K:ETBReplacement:Other:<svar>` where `<svar>` is `DB$ ChoosePlayer`
     /// choosing an opponent (`EnterModifier::ChooseOpponent`).
     pub(super) fn etb_choose_opponent(&mut self, svar: &str) -> Option<()> {
@@ -157,9 +164,10 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// Player-targeted `S: Mode$ Continuous` rules: `Modifier::NoMaxHandSize`,
-    /// `Modifier::ChosenPlayerMaxHandSize`, `Modifier::ExtraLandDrops`, and
-    /// `Modifier::PlayerHexproof`.
+    /// Player-targeted (and mixed `You,<permanent>`) `S: Mode$ Continuous` rules:
+    /// `NoMaxHandSize`, `ChosenPlayerMaxHandSize`, `ExtraLandDrops`,
+    /// `PlayerHexproof`, `PlayerProtectionFrom`, `PlayerProtectionFromOpponents`,
+    /// `OpponentsCantSearch`, and `SearchTakeover`.
     pub(super) fn continuous_player_rule(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
@@ -171,22 +179,33 @@ impl Tx<'_> {
         let Some(affected) = p.take("Affected") else {
             return self.deny("a continuous static with no `Affected$`".into());
         };
-        let mut mods = Vec::new();
+        let parts: Vec<&str> = affected
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if parts.len() > 1 {
+            return self.continuous_mixed_you_and_permanents(&parts, p);
+        }
+        let mut mods: Vec<(&str, String)> = Vec::new();
         if let Some(max_hand) = p.take("SetMaxHandSize") {
             if affected == "You" && max_hand == "Unlimited" {
-                mods.push("Modifier::NoMaxHandSize".to_string());
+                mods.push(("Filter::Any", "Modifier::NoMaxHandSize".to_string()));
             } else if affected == "Player.Chosen"
                 && self.has_chosen_opponent()
                 && let Ok(n) = max_hand.trim().parse::<u8>()
             {
-                mods.push(format!("Modifier::ChosenPlayerMaxHandSize({n})"));
+                mods.push((
+                    "Filter::Any",
+                    format!("Modifier::ChosenPlayerMaxHandSize({n})"),
+                ));
             } else {
                 return self.deny(format!("`Continuous.SetMaxHandSize` `{max_hand}`"));
             }
         }
         if let Some(no_hand) = p.take("NoHandSize") {
             if affected == "You" && no_hand == "True" {
-                mods.push("Modifier::NoMaxHandSize".to_string());
+                mods.push(("Filter::Any", "Modifier::NoMaxHandSize".to_string()));
             } else {
                 return self.deny("unclaimed parameter `Continuous.NoHandSize`".into());
             }
@@ -196,34 +215,170 @@ impl Tx<'_> {
                 && let Ok(n) = lands.trim().parse::<u8>()
                 && n > 0
             {
-                mods.push(format!("Modifier::ExtraLandDrops({n})"));
+                mods.push(("Filter::Any", format!("Modifier::ExtraLandDrops({n})")));
             } else {
                 return self.deny(format!("`Continuous.AdjustLandPlays` `{lands}`"));
             }
         }
-        if let Some(kw) = p.take("AddKeyword") {
-            let who = match affected.as_str() {
-                "You" => Some("PlayerRel::You"),
-                "Player" => Some("PlayerRel::EachPlayer"),
-                "Opponent" | "Player.Opponent" => Some("PlayerRel::EachOpponent"),
-                _ => None,
-            };
-            if kw == "Hexproof"
-                && let Some(who) = who
-            {
-                mods.push(format!("Modifier::PlayerHexproof {{ who: {who} }}"));
+        if let Some(ctrl_search) = p.take("ControlOpponentsSearchingLibrary") {
+            if matches!(affected.as_str(), "Opponent" | "Player.Opponent") && ctrl_search == "You" {
+                mods.push(("Filter::Any", "Modifier::SearchTakeover".to_string()));
             } else {
-                return self.deny(format!("player static keyword `{kw}`"));
+                return self.deny(
+                    "unclaimed parameter `Continuous.ControlOpponentsSearchingLibrary`".into(),
+                );
             }
+        }
+        if let Some(kw) = p.take("AddKeyword") {
+            self.push_player_keyword_modifier(&affected, &kw, &mut mods)?;
         }
         let cond = self.condition_any(&mut p)?;
         if !p.exhausted() || mods.is_empty() {
             return self.deny("unsupported player-targeted `Continuous` static".into());
         }
-        for modifier in mods {
-            self.push_static_with_cond("Filter::Any", &modifier, &cond);
+        for (filter, modifier) in mods {
+            self.push_static_with_cond(filter, &modifier, &cond);
         }
         Some(())
+    }
+
+    fn push_player_keyword_modifier(
+        &mut self,
+        affected: &str,
+        kw: &str,
+        mods: &mut Vec<(&'static str, String)>,
+    ) -> Option<()> {
+        let who = match affected {
+            "You" => Some("PlayerRel::You"),
+            "Player" => Some("PlayerRel::EachPlayer"),
+            "Opponent" | "Player.Opponent" => Some("PlayerRel::EachOpponent"),
+            _ => None,
+        };
+        if kw == "Hexproof"
+            && let Some(who) = who
+        {
+            mods.push((
+                "Filter::Any",
+                format!("Modifier::PlayerHexproof {{ who: {who} }}"),
+            ));
+            return Some(());
+        }
+        if kw == "CantSearchLibrary" && matches!(affected, "Opponent" | "Player.Opponent") {
+            mods.push(("Filter::Any", "Modifier::OpponentsCantSearch".to_string()));
+            return Some(());
+        }
+        if affected == "You" && kw.starts_with("Protection:Player.Opponent") {
+            let tail = kw.trim_start_matches("Protection:Player.Opponent");
+            if tail.is_empty() || (tail.starts_with(':') && !tail[1..].contains(':')) {
+                mods.push((
+                    "Filter::This",
+                    "Modifier::PlayerProtectionFromOpponents { who: PlayerRel::You }".to_string(),
+                ));
+                return Some(());
+            }
+        }
+        if affected == "You"
+            && let Some(from_ref) = self.resolve_player_protection_filter(kw)
+        {
+            mods.push((
+                "Filter::This",
+                format!(
+                    "Modifier::PlayerProtectionFrom {{ who: PlayerRel::You, from: &{from_ref} }}"
+                ),
+            ));
+            return Some(());
+        }
+        self.deny(format!("player static keyword `{kw}`"))
+    }
+
+    fn continuous_mixed_you_and_permanents(&mut self, parts: &[&str], mut p: Params) -> Option<()> {
+        let mut saw_you = false;
+        let mut perm_parts = Vec::new();
+        for &part in parts {
+            if part == "You" {
+                saw_you = true;
+            } else if matches!(
+                part,
+                "Player" | "Opponent" | "Player.Opponent" | "Player.Chosen"
+            ) {
+                return self.deny("unsupported mixed player-targeted `Continuous` static".into());
+            } else {
+                perm_parts.push(part);
+            }
+        }
+        if !saw_you || perm_parts.is_empty() {
+            return self.deny("unsupported mixed player-targeted `Continuous` static".into());
+        }
+        let Some(kw) = p.take("AddKeyword") else {
+            return self.deny("unsupported mixed player-targeted `Continuous` static".into());
+        };
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("unsupported mixed player-targeted `Continuous` static".into());
+        }
+        let perm_filter = self.filter_expr(&perm_parts.join(","))?;
+        if kw == "Hexproof" {
+            self.push_static_with_cond(
+                "Filter::Any",
+                "Modifier::PlayerHexproof { who: PlayerRel::You }",
+                &cond,
+            );
+            self.push_static_with_cond(
+                &perm_filter,
+                "Modifier::AddKeyword(KeywordSet::HEXPROOF)",
+                &cond,
+            );
+            return Some(());
+        }
+        if let Some(from_ref) = self.resolve_player_protection_filter(&kw) {
+            self.push_static_with_cond(
+                "Filter::This",
+                &format!(
+                    "Modifier::PlayerProtectionFrom {{ who: PlayerRel::You, from: &{from_ref} }}"
+                ),
+                &cond,
+            );
+            self.push_static_with_cond(
+                &perm_filter,
+                &format!("Modifier::ProtectionFrom(&{from_ref})"),
+                &cond,
+            );
+            return Some(());
+        }
+        self.deny(format!("player static keyword `{kw}`"))
+    }
+
+    fn resolve_player_protection_filter(&mut self, kw: &str) -> Option<String> {
+        let trimmed = kw.trim();
+        if let Some(rest) = trimmed.strip_prefix("Protection:") {
+            let mut fields = rest.split(':');
+            let quality = fields.next()?.trim();
+            let _prose = fields.next();
+            if fields.next().is_some() {
+                return None;
+            }
+            if quality == "ChosenName" {
+                return self
+                    .has_chosen_card_name()
+                    .then(|| "Filter::NamedBySource".to_string());
+            }
+            if quality == "ChosenType" {
+                if self.has_chosen_card_type() {
+                    return Some("Filter::OfSourceChosenCardType".to_string());
+                }
+                if self.has_chosen_creature_type() {
+                    return Some("Filter::MatchesChosenTypeOfSource".to_string());
+                }
+                return None;
+            }
+            let expr = self.filter_expr(quality)?;
+            return Some(self.body.filter_static("PROT", &expr));
+        }
+        if trimmed.starts_with("Protection from ") {
+            let expr = self.protection_filter(trimmed)?;
+            return Some(self.body.filter_static("PROT", &expr));
+        }
+        None
     }
 
     pub(super) fn push_static_with_cond(&mut self, filter: &str, modifier: &str, cond: &str) {
@@ -236,29 +391,34 @@ impl Tx<'_> {
     /// `CheckSVar$` (+ optional `CheckSecondSVar$`) using both `svar_condition`
     /// and `extra_svar_condition`.
     pub(super) fn condition_any(&mut self, p: &mut Params) -> Option<String> {
-        let cond = self.condition(p)?;
-        if !cond.is_empty() {
-            return Some(cond);
-        }
+        let base = self.condition(p)?;
         let Some(var) = p.take("CheckSVar") else {
-            return Some(String::new());
+            return Some(base);
         };
         let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
         let first = self
             .svar_condition(&var, &cmp)
             .or_else(|| self.extra_svar_condition_clause(&var, &cmp))?;
-        if let Some(var2) = p.take("CheckSecondSVar") {
+        let svar_cond = if let Some(var2) = p.take("CheckSecondSVar") {
             let cmp2 = p
                 .take("SecondSVarCompare")
                 .unwrap_or_else(|| "GE1".to_string());
             let second = self
                 .svar_condition(&var2, &cmp2)
                 .or_else(|| self.extra_svar_condition_clause(&var2, &cmp2))?;
+            format!("Condition::All(&[{first}, {second}])")
+        } else {
+            first
+        };
+        if let Some(existing) = base
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+        {
             return Some(format!(
-                ", condition = Some(Condition::All(&[{first}, {second}]))"
+                ", condition = Some(Condition::All(&[{existing}, {svar_cond}]))"
             ));
         }
-        Some(format!(", condition = Some({first})"))
+        Some(format!(", condition = Some({svar_cond})"))
     }
 
     /// Battlefield-source `AffectedZone$ Library` continuous statics:
@@ -1248,7 +1408,6 @@ impl Tx<'_> {
         let filter = self.filter_expr(&valid_card)?;
         match mode {
             "CantAttackUnless" => self.cant_attack_unless_wave5(
-                &valid_card,
                 &filter,
                 cost.trim(),
                 target.as_deref(),
@@ -1268,7 +1427,6 @@ impl Tx<'_> {
 
     fn cant_attack_unless_wave5(
         &mut self,
-        valid_card: &str,
         filter: &str,
         cost: &str,
         target: Option<&str>,
@@ -1312,8 +1470,7 @@ impl Tx<'_> {
             );
             return Some(());
         }
-        if matches!(valid_card.trim(), "Card.Self" | "Creature.Self")
-            && let Some(sac) = cost.strip_prefix("Sac<").and_then(|s| s.strip_suffix('>'))
+        if let Some(sac) = cost.strip_prefix("Sac<").and_then(|s| s.strip_suffix('>'))
             && let Some((count, sac_filter)) = self.parse_attack_sac(sac)
         {
             self.push_static_with_cond(
@@ -1996,6 +2153,467 @@ impl Tx<'_> {
             && xp.take("Defined").as_deref() == Some("Self")
             && xp.exhausted()
     }
+
+    /// Extended `S: Mode$ CantTarget`: battlefield targeting prohibitions beyond
+    /// `wall52.rs`'s bare `Card.Self` + `SourceCanOnlyTarget$/ValidSource$` forms
+    /// (`Modifier::CantBeTargetedBy` and `Modifier::CantBeTargetedByAbilitiesFrom`).
+    pub(super) fn cant_target_extra(&mut self, p: Params) -> ExtraOutcome {
+        if p.peek("ValidTarget") == Some("Card.Self")
+            && !p.has("ValidSA")
+            && !p.has("Activator")
+            && !p.has("Secondary")
+            && !p.has("Condition")
+            && !p.has("IsPresent")
+            && !p.has("CheckSVar")
+            && !p.has("EffectZone")
+            && !p.has("AffectedZone")
+            && (p.has("SourceCanOnlyTarget") || p.has("ValidSource"))
+        {
+            return ExtraOutcome::Pass;
+        }
+        ExtraOutcome::Handled(self.cant_target_wave7(p))
+    }
+
+    fn cant_target_wave7(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || !matches!(
+                p.take("AffectedZone").as_deref(),
+                None | Some("Battlefield")
+            )
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+            || p.has("SourceCanOnlyTarget")
+        {
+            return self.deny("static ability `S: Mode$ CantTarget`".into());
+        }
+        let Some(valid_target) = p.take("ValidTarget") else {
+            return self.deny("static ability `S: Mode$ CantTarget`".into());
+        };
+        let valid_source = p.take("ValidSource");
+        let valid_sa = p.take("ValidSA");
+        let activator = p.take("Activator");
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ CantTarget`".into());
+        }
+        let (stack_only, abilities_only) = match valid_sa.as_deref() {
+            None => {
+                let lower = self.oracle.to_ascii_lowercase();
+                let abilities_from_oracle = lower.contains("target of abilities")
+                    && !lower.contains("spells or abilities")
+                    && !lower.contains("spells and abilities");
+                (false, abilities_from_oracle)
+            }
+            Some("Spell,Activated,Triggered") => (false, false),
+            Some("Spell") => (true, false),
+            Some("Activated,Triggered" | "Triggered,Activated") => (false, true),
+            Some(_) => return self.deny("static ability `S: Mode$ CantTarget`".into()),
+        };
+        let target_filter = self.filter_expr(&valid_target)?;
+        let mut src_parts = Vec::new();
+        if stack_only {
+            src_parts.push("Filter::InZone(ZoneRef::Stack)".to_string());
+        }
+        if let Some(src) = valid_source {
+            let expr = self.filter_expr(&src)?;
+            if expr != "Filter::Any" {
+                src_parts.push(expr);
+            }
+        }
+        match activator.as_deref() {
+            None | Some("Player") => {}
+            Some("Opponent" | "Player.Opponent") => {
+                src_parts.push("Filter::ControlledByOpponent".to_string());
+            }
+            Some("You") => src_parts.push("Filter::ControlledByYou".to_string()),
+            Some(_) => return self.deny("static ability `S: Mode$ CantTarget`".into()),
+        }
+        let raw_src = match src_parts.len() {
+            0 => "Filter::Any".to_string(),
+            1 => src_parts.remove(0),
+            _ => format!("Filter::And(&[{}])", src_parts.join(", ")),
+        };
+        let normalized = Self::named_constant(&raw_src);
+        let src_ref = self.body.filter_static("SOURCE", &normalized);
+        let modifier = if abilities_only {
+            format!("Modifier::CantBeTargetedByAbilitiesFrom(&{src_ref})")
+        } else {
+            format!("Modifier::CantBeTargetedBy(&{src_ref})")
+        };
+        self.push_static_with_cond(&target_filter, &modifier, &cond);
+        Some(())
+    }
+
+    /// `R: Event$ RollDice | ActiveZones$ Battlefield | ValidPlayer$ You`
+    /// rolling one extra die and ignoring the lowest (`Modifier::RollAdditionalDieIgnoreLowest`).
+    pub(super) fn replace_roll_dice(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || p.take("ValidPlayer").as_deref() != Some("You")
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return self.deny("replacement `R: Event$ RollDice`".into());
+        }
+        let Some(plus_name) = p.take("ReplaceWith") else {
+            return self.deny("replacement `R: Event$ RollDice`".into());
+        };
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("replacement `R: Event$ RollDice`".into());
+        }
+        let Some((api1, mut rep1)) = self
+            .svars
+            .get(plus_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `R: Event$ RollDice`".into());
+        };
+        rep1.drop_prose();
+        let Some(ign_name) = rep1.take("SubAbility") else {
+            return self.deny("replacement `R: Event$ RollDice`".into());
+        };
+        if api1 != "ReplaceEffect"
+            || rep1.take("VarName").as_deref() != Some("Number")
+            || rep1.take("VarValue").as_deref() != Some("ReplaceCount$Number/Plus.1")
+            || !rep1.exhausted()
+        {
+            return self.deny("replacement `R: Event$ RollDice`".into());
+        }
+        let Some((api2, mut rep2)) = self
+            .svars
+            .get(ign_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `R: Event$ RollDice`".into());
+        };
+        rep2.drop_prose();
+        if api2 != "ReplaceEffect"
+            || rep2.take("VarName").as_deref() != Some("Ignore")
+            || rep2.take("VarValue").as_deref() != Some("ReplaceCount$Ignore/Plus.1")
+            || !rep2.exhausted()
+        {
+            return self.deny("replacement `R: Event$ RollDice`".into());
+        }
+        self.push_static_with_cond(
+            "Filter::Any",
+            "Modifier::RollAdditionalDieIgnoreLowest",
+            &cond,
+        );
+        Some(())
+    }
+
+    /// `R: Event$ Moved | Destination$ Battlefield | ValidCard$ Card.Self`
+    /// pay-before-entry chain (`EnterModifier::DiscardOrGraveyard` and
+    /// `EnterModifier::SacrificeOrGraveyard`).
+    pub(super) fn moved_pay_before_etb(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ValidCard").as_deref() != Some("Card.Self")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || !matches!(
+                p.take("ActiveZones").as_deref(),
+                None | Some("Battlefield" | "All")
+            )
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some((api, mut step1)) = self.svars.get(with.trim()).and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        step1.drop_prose();
+        step1.take("AILogic");
+        if api == "Discard" {
+            let valid = step1.take("DiscardValid")?;
+            let to_gy = step1.take("SubAbility")?;
+            if step1.take("Mode").as_deref() != Some("TgtChoose")
+                || step1.take("RememberDiscarded").as_deref() != Some("True")
+                || step1.take("Optional").as_deref() != Some("True")
+                || !matches!(step1.take("Defined").as_deref(), None | Some("You"))
+                || !matches!(step1.take("NumCards").as_deref(), None | Some("1"))
+                || !step1.exhausted()
+                || !self.verify_pay_before_etb_tail(&to_gy, 1)
+            {
+                return self.deny("replacement `Moved` this rule cannot read".into());
+            }
+            let expr = self.filter_expr_in_zone(&valid, true)?;
+            let filter = self.body.filter_static("ENTRY_PAY", &expr);
+            self.body
+                .enter_modifiers
+                .push(format!("EnterModifier::DiscardOrGraveyard(&{filter})"));
+            return Some(());
+        }
+        if api == "Sacrifice" {
+            let valid = step1.take("SacValid")?;
+            let to_gy = step1.take("SubAbility")?;
+            let amount_raw = step1.take("Amount");
+            let strict = step1.take("StrictAmount");
+            let count: u8 = match amount_raw {
+                None => 1,
+                Some(raw) => raw.trim().parse::<u8>().ok().filter(|&n| n >= 1)?,
+            };
+            if (count > 1 && strict.as_deref() != Some("True"))
+                || (count == 1 && !matches!(strict.as_deref(), None | Some("True")))
+                || step1.take("Defined").as_deref() != Some("You")
+                || step1.take("RememberSacrificed").as_deref() != Some("True")
+                || !step1.exhausted()
+                || !self.verify_pay_before_etb_tail(&to_gy, count)
+            {
+                return self.deny("replacement `Moved` this rule cannot read".into());
+            }
+            let scoped = scope_controlled_by_you(&valid);
+            let expr = self.filter_expr(&scoped)?;
+            let filter = self.body.filter_static("ENTRY_PAY", &expr);
+            self.body.enter_modifiers.push(format!(
+                "EnterModifier::SacrificeOrGraveyard {{ filter: &{filter}, count: {count} }}"
+            ));
+            return Some(());
+        }
+        self.deny("replacement `Moved` this rule cannot read".into())
+    }
+
+    fn verify_pay_before_etb_tail(&self, to_gy_name: &str, count: u8) -> bool {
+        let Some((api_gy, mut gy)) = self
+            .svars
+            .get(to_gy_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return false;
+        };
+        gy.drop_prose();
+        let Some(var) = gy.take("ConditionCheckSVar") else {
+            return false;
+        };
+        let Some(cmp_fail) = gy.take("ConditionSVarCompare") else {
+            return false;
+        };
+        let Some(to_bf_name) = gy.take("SubAbility") else {
+            return false;
+        };
+        let fail_ok = (count == 1 && cmp_fail == "EQ0") || cmp_fail == format!("LT{count}");
+        if api_gy != "ChangeZone"
+            || gy.take("Origin").as_deref() != Some("All")
+            || gy.take("Destination").as_deref() != Some("Graveyard")
+            || gy.take("Defined").as_deref() != Some("ReplacedCard")
+            || !fail_ok
+            || !gy.exhausted()
+            || self.svars.get(var.trim()).map(|s| s.trim()) != Some("Remembered$Amount")
+        {
+            return false;
+        }
+        let Some((api_bf, mut bf)) = self
+            .svars
+            .get(to_bf_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return false;
+        };
+        bf.drop_prose();
+        let Some(cmp_ok) = bf.take("ConditionSVarCompare") else {
+            return false;
+        };
+        let cleanup = bf.take("SubAbility");
+        let ok_cmp = (count == 1 && matches!(cmp_ok.as_str(), "EQ1" | "GE1"))
+            || cmp_ok == format!("GE{count}")
+            || cmp_ok == format!("EQ{count}");
+        api_bf == "ChangeZone"
+            && bf.take("Origin").as_deref() == Some("All")
+            && bf.take("Destination").as_deref() == Some("Battlefield")
+            && bf.take("Defined").as_deref() == Some("ReplacedCard")
+            && bf.take("ConditionCheckSVar").as_deref() == Some(var.as_str())
+            && ok_cmp
+            && bf.exhausted()
+            && self.is_optional_clear_remembered(cleanup.as_deref())
+    }
+
+    /// Characteristic-defining P/T counting cards in your or opponents'
+    /// graveyards (`PtCount::InAllGraveyards` with `Filter::OwnedByYou` or
+    /// `Filter::Not(&Filter::OwnedByYou)`).
+    pub(super) fn has_owner_graveyard_cda(&self, p: &Params) -> bool {
+        if p.peek("Affected").is_some() || p.peek("CharacteristicDefining") != Some("True") {
+            return false;
+        }
+        [p.peek("SetPower"), p.peek("SetToughness")]
+            .into_iter()
+            .flatten()
+            .any(|var| self.svar_is_owner_graveyard_count(var))
+    }
+
+    fn svar_is_owner_graveyard_count(&self, var: &str) -> bool {
+        let Some(raw) = self.svars.get(var.trim()).map(|s| s.trim()) else {
+            return false;
+        };
+        let base = raw.rsplit_once("/Plus.").map_or(raw, |(l, _)| l.trim());
+        let resolved = base
+            .strip_prefix("SVar$")
+            .and_then(|inner| self.svars.get(inner.trim()).map(|s| s.trim()))
+            .unwrap_or(base);
+        let Some(valid) = resolved.strip_prefix("Count$ValidGraveyard ") else {
+            return false;
+        };
+        !valid.contains('/')
+            && !valid.contains('$')
+            && (valid.contains("YouOwn") || valid.contains("OppOwn"))
+    }
+
+    pub(super) fn characteristic_pt_graveyard_owner(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("CharacteristicDefining").as_deref() != Some("True")
+            || !matches!(
+                p.take("AffectedZone").as_deref(),
+                None | Some("Battlefield")
+            )
+            || !matches!(
+                p.take("EffectZone").as_deref(),
+                None | Some("Battlefield" | "All")
+            )
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return self.deny("a characteristic-defining ability with unsupported scope".into());
+        }
+        let power_var = p.take("SetPower");
+        let tough_var = p.take("SetToughness");
+        if power_var.is_none() && tough_var.is_none() {
+            return self.deny("a characteristic-defining ability with no P/T".into());
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Continuous.{key}`"));
+        }
+        match (power_var, tough_var) {
+            (Some(power), Some(toughness)) if power == toughness => {
+                let count = self.pt_count_graveyard_svar(&power)?;
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
+                     count: {count}, toughness_plus: 0 }})"
+                ));
+                Some(())
+            }
+            (Some(power), Some(toughness)) => {
+                if let Some(t_def) = self.svars.get(&toughness).cloned()
+                    && let Some(rest) = t_def.trim().strip_prefix(&format!("SVar${power}/Plus."))
+                    && let Ok(plus) = rest.trim().parse::<i8>()
+                {
+                    let count = self.pt_count_graveyard_svar(&power)?;
+                    self.body.abilities.push(format!(
+                        "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
+                         count: {count}, toughness_plus: {plus} }})"
+                    ));
+                    return Some(());
+                }
+                let p_count = self.pt_count_graveyard_svar(&power)?;
+                let t_count = self.pt_count_graveyard_svar(&toughness)?;
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::CharacteristicPTSeparate {{ \
+                     power: {p_count}, toughness: {t_count} }})"
+                ));
+                Some(())
+            }
+            (Some(power), None) => {
+                let (_, fixed_t) = self.pt.and_then(|pt| pt.split_once('/'))?;
+                let Ok(t_num) = fixed_t.trim().parse::<u16>() else {
+                    return self.deny("a characteristic-defining ability with no P/T".into());
+                };
+                let p_count = self.pt_count_graveyard_svar(&power)?;
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::CharacteristicPTSeparate {{ \
+                     power: {p_count}, toughness: PtCount::Fixed({t_num}) }})"
+                ));
+                Some(())
+            }
+            (None, Some(toughness)) => {
+                let (fixed_p, _) = self.pt.and_then(|pt| pt.split_once('/'))?;
+                let Ok(p_num) = fixed_p.trim().parse::<u16>() else {
+                    return self.deny("a characteristic-defining ability with no P/T".into());
+                };
+                let t_count = self.pt_count_graveyard_svar(&toughness)?;
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::CharacteristicPTSeparate {{ \
+                     power: PtCount::Fixed({p_num}), toughness: {t_count} }})"
+                ));
+                Some(())
+            }
+            (None, None) => unreachable!(),
+        }
+    }
+
+    fn pt_count_graveyard_svar(&mut self, var: &str) -> Option<String> {
+        let Some(raw) = self.svars.get(var.trim()).cloned() else {
+            return self.deny(format!("`{var}` names no SVar"));
+        };
+        let raw = raw.trim();
+        if let Some((lhs, rhs)) = raw.rsplit_once("/Plus.")
+            && let Ok(offset) = rhs.trim().parse::<u16>()
+        {
+            let base = if let Some(inner_var) = lhs.trim().strip_prefix("SVar$") {
+                let inner = self.svars.get(inner_var.trim())?.clone();
+                self.pt_count_graveyard_base(inner.trim())?
+            } else {
+                self.pt_count_graveyard_base(lhs.trim())?
+            };
+            return Some(format!(
+                "PtCount::Plus {{ base: &{base}, offset: {offset} }}"
+            ));
+        }
+        self.pt_count_graveyard_base(raw)
+    }
+
+    fn pt_count_graveyard_base(&mut self, count: &str) -> Option<String> {
+        let Some(valid) = count.strip_prefix("Count$ValidGraveyard ") else {
+            return self.deny(format!("count `{count}`"));
+        };
+        if valid.contains('/') || valid.contains('$') {
+            return self.deny(format!("count `{count}`"));
+        }
+        let filter_expr = if let Some(stripped) = Self::strip_your_graveyard_owner(valid) {
+            let base = self.filter_expr_in_zone(&stripped, true)?;
+            conjoin_filter_expr(&base, "Filter::OwnedByYou")
+        } else if let Some(stripped) = Self::strip_opp_graveyard_owner(valid) {
+            let base = self.filter_expr_in_zone(&stripped, true)?;
+            conjoin_filter_expr(&base, "Filter::Not(&Filter::OwnedByYou)")
+        } else if !valid.contains("Ctrl") && !valid.contains("Own") {
+            self.filter_expr_in_zone(valid, true)?
+        } else {
+            return self.deny(format!("count `{count}`"));
+        };
+        let name = self.body.filter_static("COUNTED", &filter_expr);
+        Some(format!("PtCount::InAllGraveyards(&{name})"))
+    }
+}
+
+fn scope_controlled_by_you(valid: &str) -> String {
+    valid
+        .split([',', ';'])
+        .map(|alt| {
+            let alt = alt.trim();
+            if alt.contains("YouCtrl") {
+                alt.to_string()
+            } else if alt.contains('.') {
+                format!("{alt}+YouCtrl")
+            } else {
+                format!("{alt}.YouCtrl")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn conjoin_filter_expr(expr: &str, extra: &str) -> String {
+    if expr == "Filter::Any" {
+        return extra.to_string();
+    }
+    if let Some(inner) = expr
+        .strip_prefix("Filter::And(&[")
+        .and_then(|s| s.strip_suffix("])"))
+    {
+        return format!("Filter::And(&[{inner}, {extra}])");
+    }
+    format!("Filter::And(&[{expr}, {extra}])")
 }
 
 fn is_top_library_yours(affected: &str, base: &str) -> bool {

@@ -13,7 +13,10 @@ impl Tx<'_> {
     ///   Cover of Winter, Daunting Defender, Guardian Seraph, Reidane, etc.).
     pub(super) fn spell_damage_prevention(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if !matches!(p.take("ActiveZones").as_deref(), None | Some("Battlefield")) {
+        let secondary = p.take("Secondary");
+        if !matches!(p.take("ActiveZones").as_deref(), None | Some("Battlefield"))
+            || !matches!(secondary.as_deref(), None | Some("True"))
+        {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
         if matches!(
@@ -54,7 +57,7 @@ impl Tx<'_> {
         let Some(target_raw) = valid_target else {
             let valid = valid_source?;
             if Self::is_stack_spell_source(&valid) {
-                if combat_only || !cond.is_empty() {
+                if combat_only || !cond.is_empty() || secondary.is_some() {
                     return self
                         .deny("a persistent spell prevention with another zone or result".into());
                 }
