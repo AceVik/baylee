@@ -8383,3 +8383,26 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   pool cards; `Smokebraider` precon golden blessed in `a9bbf86ea`) and **Wave 7c (`4b645d21b`)**
   raising `transcode-report` to **`17,515 / 34,482` (`50%`)** scripts and
   **`750 / 864` (`0` collisions)** tokens (`+2` tokens, `22` additional stubs immediately readable).
+
+## 2026-11-20 — Engine Wave 4 (`@engine-costs`), Codegen Wave 8a/8b/8c (`17,780`), & Passes E1c–E2 (`13,405` Playable Cards)
+
+- **Impulsive Draw (`MayPlay` `CR 609.4`), `Bargain`, `Emerge`, & `Prototype` (`41688c134`, `PASS` `#247`)**:
+  landed `PlayWindow::{WhileExiled, WhileSourceOnBattlefield}`, `ExileMana::{Exact, AnyColor, AnyType}`,
+  `ExilePermission`, `Effect::{ExileTopWithPermission, ExileWithPermission, GrantLinkedExilePermission}`,
+  `FaceDef::bargain` (`Rider::Bargained` hash tag `105`, `Condition::Bargained`),
+  `Emerge::{creature, from}` (`CastModeKind::Emerge`, `WizardStage::EmergeSacrifice` w/ distinct fodder isolation),
+  `Prototype::new` (`Condition::Prototyped`, copy/clone inheritance), `O(1)`-stack `WizardStep` loop,
+  and all-seat/locale support (`VIEW_VERSION = 98`, `PROTOCOL_VERSION = 54`).
+- **Codegen Wave 8a/8b/8c (`a70080544`, `f4707ec88`, `223e4b4d7`, `72929dc2d`, `PASS` `#244/#250/#256/#259`)**:
+  lowered Wave 3 Combat Keywords (`Battle cry`, `Dethrone`, `Melee`, `Mentor`, `Training`) across `constants.rs` and
+  `tokengen.rs`, Command-Zone/Eminence statics/activations/triggers (`TriggerZone`/`ZoneRef`/`ActivationZone::{Command, BattlefieldOrCommand}`,
+  `Condition::{ControlYourCommander, SourceInZone}`), `Modifier::Goaded`, `Effect::{Goad, GoadAll}`,
+  resolution `ChooseColor`/`ProtectionAll`, `Effect::RepeatEach`, `Effect::ChooseCard`, `Effect::{PeekAndReveal, RevealTop, RevealFromHand}`,
+  `LibraryPosition$ 0` (`Find::TOP_OF_LIBRARY`), `Moved` replacements (`ChooseShape`, `SacrificeOthers`, `TappedUnlessCondition`),
+  and aligned `blocks_and_conditions.rs:1494` (`CantBlock | ValidCard$ Creature.YouCtrl`) with `Amount::Difference`.
+  Combined `transcode-report`: **`17,780 / 34,482` (`51.6%`)** scripts and **`752 / 864` (`0` collisions)** tokens,
+  clearing `RepeatEach`, `ChooseCard`, `PeekAndReveal`, `Reveal`, `Goad`, and `ChooseColor` non-`Animate` from `--stubs` Top 15.
+- **Pass E1c (`d217b8c39`, `PASS` `#241`) & Pass E2 (`691630d82`, `cbdb61794`, `7f18684b9`, `39ba036e7`, `PASS` `#254/#261`)**:
+  completed `16` Wave-7 pool stubs (holding back `Cruel Sadist` / `Bident of Thassa` / `Bow of Nylea` / `Worst Fears`)
+  and landed **+1,000** generated cards across `zen`–`m15` + DFC back faces (`13,405` playable = `11,015` `Implemented` + `2,390` `Generated`,
+  `263` `Partial`, `986` stubs across `14,654` conform pool cards), blessing `baylee-seat` Reap the Tides goldens (`5_060` reference ceiling).
