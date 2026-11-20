@@ -1320,7 +1320,10 @@ impl Effect {
             | Effect::GrantProtectionFromChosenColorUntilEot { .. }
             | Effect::PutNinjutsuOntoBattlefield
             | Effect::Myriad
-            | Effect::ExertSource => (NONE, NONE),
+            | Effect::ExertSource
+            | Effect::ManifestTop { .. }
+            | Effect::ManifestDread
+            | Effect::TurnFaceUp { .. } => (NONE, NONE),
         }
     }
 

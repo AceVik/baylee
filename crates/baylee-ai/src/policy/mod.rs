@@ -866,6 +866,7 @@ impl HeuristicAgent {
             | ChoicePrompt::PutIntoHand
             | ChoicePrompt::PlayFromExile
             | ChoicePrompt::PutOntoBattlefield
+            | ChoicePrompt::ManifestDread
             | ChoicePrompt::PutIntoGraveyard => {
                 if self.profile.plays(crate::AIProfile::LAND_COLOURS)
                     && prompt != ChoicePrompt::PutIntoGraveyard
@@ -3871,6 +3872,64 @@ pub(crate) fn multikicks(
                     .is_some()
         })
         .unwrap_or(min)
+}
+
+/// Answer `NumberPrompt::Squad` (`CR 702.157a`): pay as many times as the
+/// floating mana pool and safe life buffer cover when there are no destructive
+/// sacrifice/discard parts; otherwise pay once if the parts are expendable.
+pub(crate) fn squads(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    each: baylee_core::mana::ManaCost,
+    parts: baylee_engine::choice::BuybackParts,
+    min: u32,
+    max: u32,
+) -> u32 {
+    let Some(seat) = view.seat(resource_player(view)) else {
+        return min;
+    };
+    if parts.sacrifices > 0 || parts.discards > 0 || parts.random_discards > 0 {
+        return min;
+    }
+    let spell = context
+        .cost
+        .unwrap_or(baylee_core::mana::ManaCost::ZERO)
+        .with_x(context.x);
+    (min..=max.min(20))
+        .rev()
+        .find(|&n| {
+            let life_owed = i64::from(parts.life) * i64::from(n);
+            (life_owed == 0 || i64::from(seat.life) > life_owed + 5)
+                && (each == baylee_core::mana::ManaCost::ZERO
+                    || manaplan::plan_frozen(&spell.combine_n(&each, n), &seat.mana_pool, &[])
+                        .is_some())
+        })
+        .unwrap_or(min)
+}
+
+/// Answer `YesNoPrompt::Offspring` (`CR 702.175a`): accept when the floating
+/// mana pool and life buffer cover the additional cost without sacrificing or
+/// discarding cards.
+pub(crate) fn offsprings(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    cost: baylee_core::mana::ManaCost,
+    parts: baylee_engine::choice::BuybackParts,
+) -> bool {
+    let Some(seat) = view.seat(resource_player(view)) else {
+        return false;
+    };
+    if parts.sacrifices > 0 || parts.discards > 0 || parts.random_discards > 0 {
+        return false;
+    }
+    if parts.life > 0 && i64::from(seat.life) <= i64::from(parts.life) + 5 {
+        return false;
+    }
+    let spell = context
+        .cost
+        .unwrap_or(baylee_core::mana::ManaCost::ZERO)
+        .with_x(context.x);
+    manaplan::plan_frozen(&spell.combine(&cost), &seat.mana_pool, &[]).is_some()
 }
 
 /// Whether casting `face` at the X `cost` pays for puts a creature onto

@@ -593,6 +593,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             WizardStage::Bargain => {
                 let Some(question) = self.ask_bargain(&wizard) else {
                     let mut wizard = wizard;
+                    wizard.stage = WizardStage::Offspring;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Offspring => {
+                let Some(question) = self.ask_offspring(&wizard) else {
+                    let mut wizard = wizard;
                     wizard.stage = WizardStage::Multikicker;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
@@ -603,6 +614,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             WizardStage::Multikicker => {
                 let Some(question) = self.ask_multikicker(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Squad;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Squad => {
+                let Some(question) = self.ask_squad(&wizard) else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Replicate;
                     self.cast_wizard = Some(wizard);

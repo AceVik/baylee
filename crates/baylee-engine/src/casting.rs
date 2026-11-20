@@ -374,6 +374,20 @@ pub fn kicked_mana_cost(face: &baylee_cards_dsl::FaceDef) -> ManaCost {
         .fold(face.mana_cost, |cost, extra| cost.combine(&extra.mana))
 }
 
+/// Combined printed mana cost of both halves of a split card cast fused
+/// (`CR 702.102c`).
+#[must_use]
+pub fn fused_mana_cost(def: &baylee_cards_dsl::CardDef) -> ManaCost {
+    def.faces
+        .first()
+        .map_or(ManaCost::ZERO, |left| left.mana_cost)
+        .combine(
+            &def.faces
+                .get(1)
+                .map_or(ManaCost::ZERO, |right| right.mana_cost),
+        )
+}
+
 /// Whether a card prints a way of being cast at a price of its own, which
 /// `LegalActions::cast_ways` lists: entwine, a mode with its own cost
 /// (overload, spree), a kicker that changes the targets, an alternative cost
@@ -1222,12 +1236,20 @@ pub(crate) fn can_cast_form_paying(
     }
     // The front as it is cast: a form's projection, or a split card's left
     // half where the card is both (`split_front`).
+    let raw_obj = obj;
     let projected = form
         .map(|f| f.project(obj))
         .or_else(|| split_front(state, obj));
     let obj = projected.as_ref().unwrap_or(obj);
     let c = obj.characteristics();
     let printed = obj.card.and_then(|c| lookup.card(c.index));
+    let fused_allowed = form.is_none()
+        && in_hand
+        && printed.is_some_and(|def| {
+            def.fuse
+                && crate::object::reads_both_halves(def)
+                && !cast_is_forbidden(state, player, raw_obj)
+        });
     // A cast an effect forbids outright (CR 601.3a), asked before timing
     // because the two answers are different and only one of them is true:
     // Silence does not move a spell to sorcery speed, it removes the
@@ -1244,7 +1266,9 @@ pub(crate) fn can_cast_form_paying(
                     .any(|(i, _)| !face_is_forbidden(state, player, obj, def, i))
             })
     };
-    if !may_begin_casting(state, player) || (front_forbidden && !a_back_face_allowed()) {
+    if !may_begin_casting(state, player)
+        || (front_forbidden && !a_back_face_allowed() && !fused_allowed)
+    {
         return Err(CastError::Forbidden);
     }
     if granted_escape && form.is_none() {
@@ -1270,7 +1294,19 @@ pub(crate) fn can_cast_form_paying(
     let a_back_face_now = printed.is_some_and(|def| {
         castable_back_faces_in_zone(def, on_adventure, disturb_ok).any(|(i, _)| face_open(def, i))
     });
-    if !front_now && (form.is_some() || !a_back_face_now) {
+    let fused_now = fused_allowed
+        && permitted_spell_types(state, player, card, raw_obj.characteristics().types, 0)
+        && timing_allows(
+            state,
+            player,
+            raw_obj.characteristics().types,
+            raw_obj.characteristics().keywords,
+        )
+        && printed.is_some_and(|def| {
+            spell_condition_allows(state, player, card, def, 0)
+                && spell_condition_allows(state, player, card, def, 1)
+        });
+    if !front_now && (form.is_some() || (!a_back_face_now && !fused_now)) {
         return Err(CastError::BadTiming);
     }
     // "As an additional cost to cast this spell, sacrifice a creature": a
@@ -1501,10 +1537,36 @@ pub(crate) fn can_cast_form_paying(
             })
         })
     };
+    let a_fused_castable = || {
+        fused_now
+            && printed.is_some_and(|def| {
+                face_has_a_legal_target(state, lookup, player, card, 0)
+                    && face_has_a_legal_target(state, lookup, player, card, 1)
+                    && {
+                        let adj = spell_adjustment_with_def(state, player, raw_obj, Some(def));
+                        let printed_red = printed_reduction(state, &def.faces[0], player, card)
+                            .saturating_add(printed_reduction(state, &def.faces[1], player, card));
+                        let kw_red = keyword_reduction(state, &def.faces[0], player, card);
+                        let allow = adj.allowance(
+                            state,
+                            SpendFor::Spell(card),
+                            printed_red.saturating_add(kw_red),
+                        );
+                        let cost = keyword_priced(
+                            state,
+                            &def.faces[0],
+                            player,
+                            &adj.price(fused_mana_cost(def).with_x(0), printed_red),
+                            kw_red,
+                        );
+                        affordable(state, player, pool, &cost, SpendFor::Spell(card), allow)
+                    }
+            })
+    };
     // The front may not be cast now, so no front-face price is an answer:
-    // only a back face can make the card castable.
+    // only a back face or fused cast can make the card castable.
     if !front_now {
-        return if a_back_face_castable() {
+        return if a_back_face_castable() || a_fused_castable() {
             Ok(())
         } else {
             Err(CastError::NotEnoughMana)
@@ -1813,7 +1875,7 @@ pub(crate) fn can_cast_form_paying(
         // it means folding the face-0 question into the probes below and
         // giving `CastError` a variant that does not call a target problem
         // "not enough mana".
-        let any_face = a_back_face_castable();
+        let any_face = a_back_face_castable() || a_fused_castable();
         // Dash (CR 702.109a), the offer's `CastModeKind::Dash`.
         let any_dash = !flashback_only && face.dash.is_some_and(|dash| probe(&dash));
         // Blitz (CR 702.152a), the offer's `CastModeKind::Blitz`.

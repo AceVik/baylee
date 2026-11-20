@@ -149,6 +149,7 @@ fn reads_event(effect: &Effect) -> bool {
             original: target, ..
         }
         | Effect::ExileWithPermission { target, .. }
+        | Effect::TurnFaceUp { target }
         | Effect::SacrificeObject { target, .. } => reads_target(*target),
         Effect::LookAtTopPick { count, .. }
         | Effect::SearchLibraryUpTo { count, .. }
@@ -209,7 +210,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::LoseUnspentMana { who, .. }
         | Effect::ExileTopToPlay { who, .. }
         | Effect::ExileTopMayCast { who, .. } => reads_player(*who),
-        Effect::ExileTopWithPermission { who, count, .. } => {
+        Effect::ExileTopWithPermission { who, count, .. } | Effect::ManifestTop { who, count } => {
             reads_player(*who) || reads_amount(*count)
         }
         Effect::DiscardRandom { who, count, .. } => reads_player(*who) || reads_amount(*count),

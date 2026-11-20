@@ -83,6 +83,8 @@ fn face(name: &'static str, cost: &'static str, types: TypeSet, pt: Option<(i16,
         behold_or_pay: None,
         bargain: false,
         emerge: None,
+        squad: None,
+        offspring: None,
     }
 }
 
@@ -96,6 +98,7 @@ fn def(index: u32, face: FaceDef, abilities: &'static [AbilityDef]) -> CardDef {
         keywords: KeywordSet::EMPTY,
         commander: CommanderRule::NotEligible,
         partner: PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities,
     }

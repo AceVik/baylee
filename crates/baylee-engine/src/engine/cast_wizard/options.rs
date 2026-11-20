@@ -673,6 +673,66 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 });
             }
         }
+        // Fuse (CR 702.102a–c): from hand only, cast both halves of a split
+        // card with combined characteristics and combined mana cost.
+        if !commanded
+            && self
+                .state
+                .object(card)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Hand)
+            && def.fuse
+            && crate::object::reads_both_halves(def)
+            && def.faces.len() >= 2
+        {
+            let raw_obj = self.state.object(card).expect("card in hand");
+            let fused_adj =
+                casting::spell_adjustment_with_def(&self.state, player, raw_obj, Some(def));
+            let fused_printed =
+                casting::printed_reduction(&self.state, &def.faces[0], player, card)
+                    .saturating_add(casting::printed_reduction(
+                        &self.state,
+                        &def.faces[1],
+                        player,
+                        card,
+                    ));
+            let raw_fused = casting::fused_mana_cost(def);
+            let fused_cost = fused_adj.price(raw_fused, fused_printed);
+            let fused_allow = fused_adj.allowance(
+                &self.state,
+                casting::SpendFor::Spell(card),
+                fused_printed.saturating_add(reduction),
+            );
+            if !casting::cast_is_forbidden(&self.state, player, raw_obj)
+                && (defer_mana
+                    || casting::source_affordable(
+                        &self.state,
+                        player,
+                        casting::SpendFor::Spell(card),
+                        pool,
+                        &less(fused_cost.with_x(0)),
+                        &[],
+                        Some(fused_allow),
+                    )
+                    || casting::north_star_face_allowed(&self.state, player, card, 0)
+                        && casting::normal_spell_affordable(
+                            &self.state,
+                            player,
+                            casting::SpendFor::Spell(card),
+                            pool,
+                            &less(fused_cost.with_x(0)),
+                            &raw_fused,
+                            fused_allow,
+                        ))
+                && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
+                && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 1)
+            {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u32,
+                    kind: CastModeKind::Fused,
+                    cost: fused_cost,
+                });
+            }
+        }
         // Modal spells (overload & friends): one option per mode — or, for a
         // spell that chooses more than one, one per set of modes it may be
         // cast with, each priced with its modes' own costs (CR 700.2h).
@@ -791,6 +851,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             CastModeKind::Face(i) | CastModeKind::EscapeGranted { face: i, .. } => {
                 (commanded || casting::face_timing_allows(&self.state, player, card, def, i))
                     && casting::spell_condition_allows(&self.state, player, card, def, i)
+            }
+            CastModeKind::Fused => {
+                let raw_c = obj.characteristics();
+                casting::permitted_spell_types(&self.state, player, card, raw_c.types, 0)
+                    && (commanded
+                        || casting::timing_allows(&self.state, player, raw_c.types, raw_c.keywords))
+                    && casting::spell_condition_allows(&self.state, player, card, def, 0)
+                    && casting::spell_condition_allows(&self.state, player, card, def, 1)
+                    && !casting::cast_is_forbidden(&self.state, player, &obj)
             }
             _ => front_now,
         });

@@ -3314,6 +3314,14 @@ NounCardsToAmplify =
        *[other] cards to reveal for amplify
     }
 
+# Card to manifest for manifest dread (CR 701.62a).
+# Arguments: count
+NounCardsToManifest =
+    { $count ->
+        [one] card to manifest
+       *[other] cards to manifest
+    }
+
 # attacker to join the band (banding, CR 702.22c)
 # Arguments: count
 NounAttackersToBand =
@@ -3538,6 +3546,10 @@ ReplicateHowOften = Replicate { $cost }: pay it how many times? ({ $min }–{ $m
 # Arguments: cost, min, max
 MultikickerHowOften = Multikicker { $cost }: pay it how many times? ({ $min }–{ $max })
 
+# Squad $price: pay it how many times? ($min–$max)
+# Arguments: price, min, max
+SquadHowOften = Squad { $price }: pay it how many times? ({ $min }–{ $max })
+
 # The buyback question. $price is the whole cost, one or more of the
 # price phrases below joined by commas.
 EchoesRunWorkshop = The Wayfarer's Workshop
@@ -3681,6 +3693,10 @@ KickerOptionAsk = Pay kicker cost { $price }?
 
 BargainAsk = Bargain: sacrifice an artifact, enchantment, or token?
 
+# Offspring question (CR 702.175a).
+# Arguments: price
+OffspringAsk = Offspring: { $price }? Create a 1/1 token copy when it enters.
+
 # Part of a buyback price: life.
 # Arguments: amount
 BuybackPriceLife = pay { $amount } life
@@ -3775,6 +3791,9 @@ CastBlitz = Blitz
 
 # Emerge (CR 702.119a), the keyword as the German printing names it
 CastEmerge = Emerge
+
+# Fuse (CR 702.102a), cast both halves of a split card from hand
+CastFused = Fuse
 
 # Mutate (CR 702.140a), the keyword as the German printing names it
 CastMutate = Mutate

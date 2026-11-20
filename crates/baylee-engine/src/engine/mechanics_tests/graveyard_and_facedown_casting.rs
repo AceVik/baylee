@@ -44,6 +44,7 @@ fn split_card(index: u32, left: FaceDef, right: FaceDef) -> &'static CardDef {
         keywords: KeywordSet::EMPTY,
         commander: CommanderRule::NotEligible,
         partner: PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities: &[],
     }))

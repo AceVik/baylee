@@ -111,6 +111,9 @@ pub struct CardDef {
     pub coverage: Coverage,
     /// Ability definitions; empty until the card is implemented.
     pub abilities: &'static [AbilityDef],
+    /// Fuse (CR 702.102a–d): whether both halves of this split spell card may
+    /// be cast together from a player's hand as a fused split spell.
+    pub fuse: bool,
 }
 
 impl CardDef {
@@ -360,6 +363,7 @@ impl CardDef {
         partner: PartnerKind::None,
         coverage: Coverage::Unimplemented,
         abilities: &[],
+        fuse: false,
     };
 }
 
@@ -658,6 +662,12 @@ pub struct FaceDef {
     /// Emerge (CR 702.119a–b): alternative cost sacrificing a matching
     /// permanent and reducing generic mana by its mana value.
     pub emerge: Option<Emerge>,
+    /// Squad (CR 702.157a–b): optional repeatable additional cost; when this
+    /// creature enters, create a token copy of it for each time paid.
+    pub squad: Option<crate::cost::Cost>,
+    /// Offspring (CR 702.175a–b): optional additional cost; when this permanent
+    /// enters, create a 1/1 token copy of it if paid.
+    pub offspring: Option<crate::cost::Cost>,
 }
 
 impl FaceDef {
@@ -747,6 +757,8 @@ impl FaceDef {
         madness: None,
         bargain: false,
         emerge: None,
+        squad: None,
+        offspring: None,
     };
 }
 

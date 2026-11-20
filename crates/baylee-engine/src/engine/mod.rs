@@ -1204,7 +1204,8 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             ) => rest,
             Some(
                 resolve::AwaitingOp::Hideaway { looked }
-                | resolve::AwaitingOp::LookedCardToExile { looked, .. },
+                | resolve::AwaitingOp::LookedCardToExile { looked, .. }
+                | resolve::AwaitingOp::ManifestDread { looked },
             ) => looked,
             Some(
                 resolve::AwaitingOp::TakeTop { looked, .. }

@@ -674,6 +674,7 @@ fn return_chosen_to_hand_lets_departing_watcher_see_later_apnap_returns() {
         keywords: KeywordSet::EMPTY,
         commander: CommanderRule::NotEligible,
         partner: PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities: Box::leak(Box::new([triggered!(
             Trigger::LeavesBattlefield(&THIS_OR_ANOTHER_CREATURE),

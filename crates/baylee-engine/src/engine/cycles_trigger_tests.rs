@@ -84,6 +84,7 @@ fn defined(index: u32, face: FaceDef, abilities: &'static [AbilityDef]) -> &'sta
         keywords: KeywordSet::EMPTY,
         commander: CommanderRule::NotEligible,
         partner: baylee_cards_dsl::PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities,
     }))

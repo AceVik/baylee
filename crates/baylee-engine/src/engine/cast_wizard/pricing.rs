@@ -44,10 +44,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             casting::SpendFor::KickedSpell(_, _, form) => form,
             _ => None,
         };
-        let adjustment =
-            casting::face_adjustment(&self.state, wizard.player, wizard.card, def, index, form);
+        let is_fused = wizard.option == Some(CastModeKind::Fused);
+        let adjustment = if is_fused {
+            let object = self.state.object(wizard.card).expect("wizard card exists");
+            casting::spell_adjustment_with_def(&self.state, wizard.player, object, Some(def))
+        } else {
+            casting::face_adjustment(&self.state, wizard.player, wizard.card, def, index, form)
+        };
         let printed = if wizard.masked || wizard.option == Some(CastModeKind::Disguise) {
             0
+        } else if is_fused {
+            casting::printed_reduction(&self.state, &def.faces[0], wizard.player, wizard.card)
+                .saturating_add(casting::printed_reduction(
+                    &self.state,
+                    &def.faces[1],
+                    wizard.player,
+                    wizard.card,
+                ))
         } else {
             casting::printed_reduction(&self.state, face, wizard.player, wizard.card)
         };
@@ -134,16 +147,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             casting::SpendFor::KickedSpell(_, _, form) => form,
             _ => None,
         };
-        let without =
-            casting::face_adjustment(&self.state, wizard.player, wizard.card, def, face_idx, form);
+        let is_fused = wizard.option == Some(CastModeKind::Fused);
+        let without = if is_fused {
+            casting::spell_adjustment_with_def(&self.state, wizard.player, object, Some(def))
+        } else {
+            casting::face_adjustment(&self.state, wizard.player, wizard.card, def, face_idx, form)
+        };
         let mut targeted = object.clone();
-        targeted.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
-            def,
-            face_idx,
-            object.base.name,
-        ));
-        targeted.cache.clear();
-        targeted.face_index = u8::try_from(face_idx).unwrap_or(0);
+        if !is_fused {
+            targeted.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+                def,
+                face_idx,
+                object.base.name,
+            ));
+            targeted.cache.clear();
+            targeted.face_index = u8::try_from(face_idx).unwrap_or(0);
+        }
         if let Some(form) = form {
             targeted = form.project(&targeted);
         }
@@ -203,6 +222,7 @@ fn raw_option_cost(
         Some(CastModeKind::Dash) => face.dash.expect("dash"),
         Some(CastModeKind::Blitz) => face.blitz.expect("blitz").mana,
         Some(CastModeKind::Emerge) => face.emerge.expect("emerge").cost,
+        Some(CastModeKind::Fused) => def.faces[0].mana_cost.combine(&def.faces[1].mana_cost),
         Some(CastModeKind::Mutate) => face.mutate.expect("mutate"),
         Some(CastModeKind::Bestow) => face.bestow.expect("bestow").mana,
         Some(CastModeKind::JumpStart) => face.mana_cost,

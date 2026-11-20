@@ -37,11 +37,21 @@ pub(crate) fn wizard_mandatory_parts(
     } else {
         &[]
     };
+    let offspring_parts: &[CostPart] = match face.offspring {
+        Some(cost) if !disguised && choice.offspring => cost.parts,
+        _ => &[],
+    };
+    let squad_parts: &[CostPart] = match face.squad {
+        Some(cost) if !disguised && choice.squad > 0 => cost.parts,
+        _ => &[],
+    };
     mandatory
         .iter()
         .chain(jump_start_parts.iter())
         .chain(entwine_parts.iter())
         .chain(bargain_parts.iter())
+        .chain(offspring_parts.iter())
+        .chain(std::iter::repeat_n(squad_parts, usize::from(choice.squad)).flatten())
         .chain(
             face.additional_costs
                 .iter()
@@ -86,6 +96,7 @@ pub(crate) fn wizard_buyback_parts(
 /// Which of a face's non-mana costs a cast pays: the way it is cast, its
 /// alternative cost when that is separate from its modes, and buyback.
 #[derive(Clone, Copy, Debug, Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub(crate) struct CostChoice {
     /// The chosen way of casting.
     pub option: Option<CastModeKind>,
@@ -95,6 +106,10 @@ pub(crate) struct CostChoice {
     pub buyback: bool,
     /// Whether the bargain additional cost is paid (`CR 702.166a`).
     pub bargained: bool,
+    /// Whether the offspring additional cost is paid (`CR 702.175a`).
+    pub offspring: bool,
+    /// How many times the squad additional cost is paid (`CR 702.157a`).
+    pub squad: u8,
     /// Kicker can accompany a face or mode without replacing that choice.
     pub kicked: bool,
     /// Bitmask of accepted multi-kicker entries; zero means all when `kicked`.
@@ -111,6 +126,8 @@ impl From<Option<CastModeKind>> for CostChoice {
             alternative_cost: None,
             buyback: false,
             bargained: false,
+            offspring: false,
+            squad: 0,
             kicked: matches!(
                 option,
                 Some(

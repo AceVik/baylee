@@ -147,6 +147,91 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         })
     }
 
+    /// The offspring question (`CR 702.175a`), or `None` when the face prints
+    /// none or the combined cost cannot be paid.
+    pub(super) fn ask_offspring(&mut self, wizard: &CastWizard) -> Option<Pending> {
+        let printed = self.wizard_face(wizard).offspring?;
+        if wizard.option == Some(CastModeKind::Disguise) || wizard.masked {
+            return None;
+        }
+        let mut paying = wizard.clone();
+        paying.offspring = true;
+        if !self.announced_cost_payable(&paying) {
+            return None;
+        }
+        let source = self.state.object(wizard.card).and_then(|object| {
+            object.card.map(|card| {
+                baylee_core::ids::AbilityRef::new(
+                    card.index,
+                    baylee_core::ids::AbilityRef::ADDITIONAL_COST,
+                )
+            })
+        });
+        Some(Pending::YesNo {
+            player: wizard.player,
+            prompt: YesNoPrompt::Offspring {
+                cost: printed.mana,
+                parts: crate::choice::BuybackParts::of(printed.parts),
+            },
+            source,
+        })
+    }
+
+    /// The squad question (`CR 702.157a`), or `None` when the face prints none
+    /// or not even one squad payment can be made.
+    pub(super) fn ask_squad(&mut self, wizard: &CastWizard) -> Option<Pending> {
+        let printed = self.wizard_face(wizard).squad?;
+        if wizard.option == Some(CastModeKind::Disguise) || wizard.masked {
+            return None;
+        }
+        let max = self.squad_bound(wizard, &printed);
+        (max > 0).then_some(Pending::ChooseNumber {
+            player: wizard.player,
+            min: 0,
+            max,
+            reason: NumberPrompt::Squad {
+                cost: printed.mana,
+                parts: crate::choice::BuybackParts::of(printed.parts),
+            },
+        })
+    }
+
+    fn squad_bound(&self, wizard: &CastWizard, cost: &baylee_cards_dsl::Cost) -> u32 {
+        let face = self.wizard_face(wizard);
+        let parts_bound = if cost.parts.is_empty() {
+            REPLICATE_CEILING
+        } else {
+            let mut probe = wizard.clone();
+            casting::greatest_affordable(REPLICATE_CEILING, |n| {
+                probe.squad = u8::try_from(n).unwrap_or(u8::MAX);
+                self.state
+                    .can_pay_life(probe.player, probe.total_life_cost(face))
+                    && casting::additional_payment_capacity_for(
+                        &self.state,
+                        probe.player,
+                        probe.card,
+                        face,
+                        probe.cost_choice(),
+                        &[],
+                    )
+                    .is_some()
+            })
+        };
+        if parts_bound == 0 {
+            return 0;
+        }
+        let mana_bound = if cost.mana == ManaCost::ZERO
+            || wizard.makes_mana_after_choices()
+            || self.can_make_mana_for_cast(wizard.player)
+        {
+            REPLICATE_CEILING
+        } else {
+            let mana_each = cost.mana.with_x(wizard.x);
+            self.replicate_bound(wizard, face, &mana_each)
+        };
+        parts_bound.min(mana_bound)
+    }
+
     /// The multikicker question, or `None` when there is nothing to ask.
     pub(super) fn ask_multikicker(&mut self, wizard: &CastWizard) -> Option<Pending> {
         let cost = self.wizard_face(wizard).multikicker?;
@@ -198,6 +283,8 @@ impl CastWizard {
             alternative_cost: self.alternative_cost,
             buyback: self.buyback.is_some(),
             bargained: self.bargained,
+            offspring: self.offspring,
+            squad: self.squad,
             kicked: self.kicked,
             kicked_mask: self.kicked_mask,
             emerge_sacrifice: self.emerge_sacrifice,

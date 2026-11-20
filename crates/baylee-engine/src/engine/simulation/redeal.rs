@@ -656,6 +656,10 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::Bargained
         | Rider::AttachedToPlayer(_)
         | Rider::SourceAttachmentPlayerLki(_)
+        | Rider::SquadPaid(_)
+        | Rider::OffspringPaid
+        | Rider::Fused
+        | Rider::Manifested
         | Rider::ExhaustedAbility(_)
         | Rider::EntrySacrifices(_)
         | Rider::SecondChosenSubtype(_)

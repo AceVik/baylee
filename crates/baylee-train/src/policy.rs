@@ -114,7 +114,7 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         CastModeKind::Prototype => 6,
         CastModeKind::Disguise => 7,
         CastModeKind::Miracle => 8,
-        CastModeKind::Modes(_) => 9,
+        CastModeKind::Modes(_) | CastModeKind::Fused => 9,
         CastModeKind::Flashback | CastModeKind::JumpStart => 10,
         CastModeKind::Dash | CastModeKind::Blitz => 11,
         CastModeKind::Escape => 12,

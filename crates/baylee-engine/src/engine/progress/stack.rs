@@ -829,26 +829,29 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             return;
         }
-        // A spell resolves (plain spells and modal spells alike — the
-        // chosen mode is stored on the spell object).
+        // A spell resolves (plain spells, fused split spells, and modal spells
+        // alike — the chosen mode or fused rider is stored on the spell object).
         let spell_fx = self
-            .state
-            .object(top)
-            .and_then(|o| {
-                let face = o.face_index as usize;
-                o.card
-                    .and_then(|c| self.lookup.card(c.index))
-                    .map(|def| def.abilities_for_face(face))
-            })
-            .and_then(|abilities| {
-                abilities.iter().find_map(|a| match a {
-                    AbilityDef::Spell {
-                        effects, targets, ..
-                    } if !effects.is_empty() => {
-                        Some((resolve::flatten(effects), targets.is_some(), None))
-                    }
-                    _ => None,
-                })
+            .fused_program(&resolution_object)
+            .or_else(|| {
+                self.state
+                    .object(top)
+                    .and_then(|o| {
+                        let face = o.face_index as usize;
+                        o.card
+                            .and_then(|c| self.lookup.card(c.index))
+                            .map(|def| def.abilities_for_face(face))
+                    })
+                    .and_then(|abilities| {
+                        abilities.iter().find_map(|a| match a {
+                            AbilityDef::Spell {
+                                effects, targets, ..
+                            } if !effects.is_empty() => {
+                                Some((resolve::flatten(effects), targets.is_some(), None))
+                            }
+                            _ => None,
+                        })
+                    })
             })
             .or_else(|| self.modal_program(top))
             .or_else(|| {
@@ -960,6 +963,43 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let mode = modes.get(usize::from(obj.mode_index?))?;
         Some((resolve::flatten(mode.effects), mode.targets.is_some(), None))
+    }
+
+    /// What a fused split spell on the stack does (CR 702.102d): follow the
+    /// instructions of the left half, then follow the instructions of the
+    /// right half.
+    fn fused_program(&self, obj: &GameObject) -> Option<(Vec<Effect>, bool, Option<usize>)> {
+        if !obj.riders.contains(&crate::object::Rider::Fused) {
+            return None;
+        }
+        let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
+        if def.faces.len() < 2 {
+            return None;
+        }
+        let spell_of = |face: usize| {
+            def.abilities_for_face(face).iter().find_map(|a| match a {
+                AbilityDef::Spell {
+                    effects,
+                    targets,
+                    second_targets,
+                    ..
+                } => Some((*effects, *targets, *second_targets)),
+                _ => None,
+            })
+        };
+        let (left_fx, left_t1, left_t2) = spell_of(0).unwrap_or((&[], None, None));
+        let (right_fx, right_t1, right_t2) = spell_of(1).unwrap_or((&[], None, None));
+        let mut program = resolve::flatten(left_fx);
+        let split_at =
+            (left_t1.is_some() && left_t2.is_none() && right_t1.is_some()).then_some(program.len());
+        program.extend(resolve::flatten(right_fx));
+        if program.is_empty() {
+            return None;
+        }
+        let targeted =
+            left_t1.is_some() || left_t2.is_some() || right_t1.is_some() || right_t2.is_some();
+        let retarget_left = split_at.map(|at| program.len() - at);
+        Some((program, targeted, retarget_left))
     }
 
     /// Applies a face switch queued by a resolution effect (transforms).

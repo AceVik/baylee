@@ -58,6 +58,7 @@ fn commander_card(
         keywords,
         commander: CommanderRule::Legendary,
         partner: PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities,
     }))

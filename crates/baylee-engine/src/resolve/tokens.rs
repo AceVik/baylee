@@ -403,7 +403,20 @@ pub(super) fn create_modified_token_copies_for(
     mods: &[baylee_cards_dsl::CopyMod],
     count: u32,
 ) -> Vec<ObjectId> {
-    let Some(base) = crate::layers::copiable_values(state, original) else {
+    let source_lki = (original == res.source)
+        .then(|| super::subjects::source(state, res))
+        .flatten()
+        .filter(|src_ref| {
+            state.object(original).is_none_or(|o| {
+                o.zone != crate::zone::Zone::Battlefield || o.version != src_ref.version
+            })
+        })
+        .and_then(|src_ref| state.source_object(src_ref).cloned());
+    let Some(base) = source_lki
+        .as_ref()
+        .map(|lki| lki.base.clone())
+        .or_else(|| crate::layers::copiable_values(state, original))
+    else {
         return Vec::new();
     };
     let mut modified = (*base).clone();
@@ -411,16 +424,21 @@ pub(super) fn create_modified_token_copies_for(
         apply_copy_mod_with_names(&mut modified, modifier, res.text, Some(&mut state.names));
     }
     let types = modified.types;
-    let made = create_token_copies(
+    let made = create_token_copies_with_lki(
         state,
         controller,
         original,
+        source_lki.as_ref(),
         &std::sync::Arc::new(modified),
         count,
     );
     // Copy exceptions also suppress the abilities defining the replaced values
     // (CR 707.9d), before the next projection or entry trigger scan.
-    if let Some(copied) = state.printed_ability_list(original) {
+    let copied_list = source_lki
+        .as_ref()
+        .map(|lki| lki.printed_ability_list(state.bases.as_ref()))
+        .or_else(|| state.printed_ability_list(original));
+    if let Some(copied) = copied_list {
         let own = state
             .printed_ability_list(res.source)
             .unwrap_or_else(|| copied.clone());
@@ -593,17 +611,33 @@ pub(super) fn create_token_copies(
     base: &std::sync::Arc<Characteristics>,
     count: u32,
 ) -> Vec<ObjectId> {
+    create_token_copies_with_lki(state, controller, original, None, base, count)
+}
+
+fn create_token_copies_with_lki(
+    state: &mut GameState,
+    controller: PlayerId,
+    original: ObjectId,
+    source_lki: Option<&GameObject>,
+    base: &std::sync::Arc<Characteristics>,
+    count: u32,
+) -> Vec<ObjectId> {
     // As `create_tokens` (CR 800.4b, 800.4d).
     if state.has_left(controller) {
         return Vec::new();
     }
-    let own = state.printed_ability_list(original);
-    let (token, face) = state.object(original).map_or((None, None), |object| {
-        (
-            object.token,
-            object.card.map(|card| (card.index, object.face_index)),
-        )
-    });
+    let own = source_lki
+        .map(|lki| lki.printed_ability_list(state.bases.as_ref()))
+        .or_else(|| state.printed_ability_list(original));
+    let (token, face) =
+        source_lki
+            .or_else(|| state.object(original))
+            .map_or((None, None), |object| {
+                (
+                    object.token,
+                    object.card.map(|card| (card.index, object.face_index)),
+                )
+            });
     let Some(count) = crate::replacement::token_multiplier(state, controller, base.types)
         .and_then(|factor| count.checked_mul(factor))
     else {

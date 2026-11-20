@@ -1642,6 +1642,7 @@ impl Builder<'_, '_> {
             prompt,
             YesNoPrompt::Kicker
                 | YesNoPrompt::Bargain
+                | YesNoPrompt::Offspring { .. }
                 | YesNoPrompt::KickerOption { .. }
                 | YesNoPrompt::Buyback { .. }
         );
@@ -1851,6 +1852,17 @@ impl Builder<'_, '_> {
                 "How many times do you pay its multikicker? Each time costs {cost} more, and \
                  zero is not kicked at all. Fewer than the mana you floated is a legal answer"
             ),
+            NumberPrompt::Squad { cost, parts } => {
+                let price = baylee_client_core::interaction::buyback_price(
+                    baylee_client_core::Lang::En,
+                    *cost,
+                    *parts,
+                );
+                format!(
+                    "How many times do you pay its squad cost ({price} each)? It creates a token \
+                     copy when it enters for each time paid"
+                )
+            }
             NumberPrompt::ReadAhead { saga } => format!(
                 "Choose the starting chapter for {} (read ahead)",
                 table.named(*saga)
@@ -1877,6 +1889,9 @@ impl Builder<'_, '_> {
         // leaves its range open; the number is the one the mana pays.
         let max = match reason {
             NumberPrompt::Multikicker { cost } => self
+                .kicks_floating(cost)
+                .map_or(max, |pays| pays.clamp(min, max)),
+            NumberPrompt::Squad { cost, .. } if *cost != baylee_core::mana::ManaCost::ZERO => self
                 .kicks_floating(cost)
                 .map_or(max, |pays| pays.clamp(min, max)),
             NumberPrompt::X => self.payable_x().map_or(max, |pays| pays.clamp(min, max)),

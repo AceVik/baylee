@@ -176,6 +176,13 @@ pub(super) fn copy_spell(
     let times_kicked = from.times_kicked;
     let kicked_mask = from.kicked_mask();
     let bought_back = from.riders.contains(&crate::object::Rider::Buyback);
+    let bargained = from.riders.contains(&crate::object::Rider::Bargained);
+    let squad_paid = from.riders.iter().find_map(|r| match r {
+        crate::object::Rider::SquadPaid(n) => Some(*n),
+        _ => None,
+    });
+    let offspring_paid = from.riders.contains(&crate::object::Rider::OffspringPaid);
+    let fused = from.riders.contains(&crate::object::Rider::Fused);
     let replicated = from.replicated;
     let mode_index = from.mode_index;
     let modes = from.modes;
@@ -226,6 +233,18 @@ pub(super) fn copy_spell(
         }
         if bought_back {
             obj.riders.push(crate::object::Rider::Buyback);
+        }
+        if bargained {
+            obj.riders.push(crate::object::Rider::Bargained);
+        }
+        if let Some(n) = squad_paid {
+            obj.riders.push(crate::object::Rider::SquadPaid(n));
+        }
+        if offspring_paid {
+            obj.riders.push(crate::object::Rider::OffspringPaid);
+        }
+        if fused {
+            obj.riders.push(crate::object::Rider::Fused);
         }
         obj.replicated = replicated;
         obj.mode_index = mode_index;

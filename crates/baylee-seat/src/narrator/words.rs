@@ -349,6 +349,11 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
              counters (choose none to reveal nothing)"
                 .into()
         }
+        ChoicePrompt::ManifestDread => {
+            "Manifest dread: choose one card to manifest face down onto the battlefield (the \
+             remaining looked-at card goes to your graveyard)"
+                .into()
+        }
         ChoicePrompt::PutIntoHand => "Choose the cards to put into your hand".into(),
         ChoicePrompt::PlayFromExile => "Choose a card to play from exile".into(),
         ChoicePrompt::PutOntoBattlefield => "Choose the cards to put onto the battlefield".into(),

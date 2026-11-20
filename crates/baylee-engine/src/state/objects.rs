@@ -415,6 +415,130 @@ impl GameState {
         true
     }
 
+    /// Manifests `id` under `controller`'s control as a face-down 2/2 colorless
+    /// nameless creature permanent with no text or mana cost (CR 701.40a).
+    ///
+    /// If a rule or replacement prohibits the face-down permanent from entering
+    /// the battlefield, nothing happens and `id` stays in its current zone
+    /// unchanged (CR 701.40f).
+    pub(crate) fn manifest_card(
+        &mut self,
+        controller: baylee_core::ids::PlayerId,
+        id: ObjectId,
+    ) -> bool {
+        let Some(o) = self.object(id) else {
+            return false;
+        };
+        if !o.is_card() {
+            return false;
+        }
+        let prev_base = Arc::clone(&o.base);
+        let prev_original_base = o.original_base.clone();
+        let prev_status = o.status;
+        let prev_controller = o.controller;
+        let prev_kind = o.kind;
+        let prev_face_index = o.face_index;
+        let had_manifested = o.riders.contains(&crate::object::Rider::Manifested);
+        let nameless = self.names.intern("");
+        if let Some(obj) = self.object_mut(id) {
+            obj.original_base = prev_original_base
+                .clone()
+                .or_else(|| Some(Arc::clone(&prev_base)));
+            obj.status.insert(crate::object::Status::FACE_DOWN);
+            if !had_manifested {
+                obj.riders.push(crate::object::Rider::Manifested);
+            }
+            obj.kind = ObjectKind::Permanent;
+            obj.set_controller(controller);
+            obj.face_index = 0;
+            let c = obj.base_mut();
+            c.name = nameless;
+            c.mana_cost = baylee_core::mana::ManaCost::ZERO;
+            c.colors = baylee_core::color::ColorSet::EMPTY;
+            c.types = baylee_core::types::TypeSet::CREATURE;
+            c.supertypes = baylee_core::types::SupertypeSet::EMPTY;
+            c.subtypes = baylee_core::types::SubtypeSet::EMPTY;
+            c.keywords = baylee_cards_dsl::KeywordSet::EMPTY;
+            c.power = Some(2);
+            c.toughness = Some(2);
+            c.loyalty = None;
+            c.produced_colors = baylee_core::color::ColorSet::EMPTY;
+            c.produced_colorless = false;
+            c.produced_chosen = false;
+            obj.cache.clear();
+        }
+        self.set_tapped(id, false);
+        let moved = self.move_object(
+            id,
+            ZoneLocation::Battlefield,
+            ZonePosition::Top,
+            crate::event::Cause::Effect,
+        );
+        let entered = moved.is_ok()
+            && (self.object(id).is_some_and(|o| o.zone == Zone::Battlefield)
+                || self.entries.contains(id));
+        if !entered {
+            if let Some(obj) = self.object_mut(id) {
+                obj.base = prev_base;
+                obj.original_base = prev_original_base;
+                obj.status = prev_status;
+                obj.set_controller(prev_controller);
+                obj.kind = prev_kind;
+                obj.face_index = prev_face_index;
+                if !had_manifested {
+                    obj.riders
+                        .retain(|r| *r != crate::object::Rider::Manifested);
+                }
+                obj.cache.clear();
+            }
+            self.invalidate_projections();
+            return false;
+        }
+        self.invalidate_projections();
+        true
+    }
+
+    /// Turns a face-down permanent on the battlefield face up by effect
+    /// (CR 708.8). If it is represented by an instant or sorcery card, its
+    /// controller reveals it and leaves it face down without firing
+    /// `TurnedFaceUp` triggers (CR 701.40g).
+    pub(crate) fn turn_permanent_face_up(&mut self, id: ObjectId) -> bool {
+        let Some(o) = self.object(id) else {
+            return false;
+        };
+        if o.zone != Zone::Battlefield || !o.status.contains(crate::object::Status::FACE_DOWN) {
+            return false;
+        }
+        let non_permanent_spell = o.original_base.as_ref().is_some_and(|b| {
+            b.types.intersects(
+                baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY),
+            )
+        });
+        if non_permanent_spell {
+            let controller = o.controller;
+            self.journal.record(GameEvent::Revealed {
+                player: controller,
+                cards: vec![id],
+            });
+            return false;
+        }
+        let object = self.object_mut(id).expect("checked permanent");
+        object.status.remove(crate::object::Status::FACE_DOWN);
+        object.riders.retain(|r| {
+            !matches!(
+                r,
+                crate::object::Rider::Manifested | crate::object::Rider::Masked
+            )
+        });
+        if let Some(original) = object.original_base.take() {
+            object.base = original;
+        }
+        object.cache.clear();
+        self.invalidate_projections();
+        self.journal.record(GameEvent::TurnedFaceUp { object: id });
+        true
+    }
+
     /// Tells the projection that the board moved under it — something tapped,
     /// something began or stopped attacking.
     ///

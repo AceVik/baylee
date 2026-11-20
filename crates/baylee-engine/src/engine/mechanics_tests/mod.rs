@@ -71,6 +71,7 @@ mod wave3_rules;
 mod wave3b_rules;
 mod wave4_exile_and_costs;
 mod wave4_triggers_auras_locks;
+mod wave5_costs_and_manifest;
 mod zones;
 
 use super::synthetic::{SyntheticLookup, forest, land_face, walk_past};
@@ -152,6 +153,7 @@ pub(super) fn card(
         keywords,
         commander: CommanderRule::NotEligible,
         partner: PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities,
     }))

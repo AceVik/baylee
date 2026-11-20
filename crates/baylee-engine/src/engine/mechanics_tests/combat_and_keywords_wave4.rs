@@ -351,6 +351,7 @@ fn commander_ninjutsu_bench(seed: u64) -> Bench {
         commander: CommanderRule::Legendary,
         partner: PartnerKind::None,
         coverage: Coverage::Implemented,
+        fuse: false,
         abilities: COMMANDER_NINJA_ABILITIES,
     }));
     let cards = vec![

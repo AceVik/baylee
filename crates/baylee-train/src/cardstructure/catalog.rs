@@ -45,7 +45,7 @@ impl Forest {
         }
         let all_faces = self.node("AllFaces", &[], faces);
         for (face, value) in def.faces.iter().enumerate() {
-            let children = vec![
+            let mut children = vec![
                 value.tree(self),
                 def.color_identity.tree(self),
                 def.commander.tree(self),
@@ -54,6 +54,9 @@ impl Forest {
                 face_abilities(def, face).tree(self),
                 all_faces,
             ];
+            if def.fuse {
+                children.push(self.field("CardDef.fuse", &def.fuse));
+            }
             let root = self.node("CardFace", &[], children);
             self.roots
                 .insert(format!("c/{}/{face}", def.index.get()), root);

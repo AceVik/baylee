@@ -475,53 +475,60 @@ fn graveyard_triggers(
                 // permanents (CR 109.2). A graveyard, exile, or command-zone
                 // card is not one, even though its last controller is still stored.
                 for _ in 0..hit {
-                    triggers.push(PendingTrigger {
-                        source,
-                        text: TextChangeMap::IDENTITY,
-                        source_version: Some(object.version),
-                        related_objects: None,
-                        grantor: None,
-                        event_subject: None,
-                        event_ability: activated_stack_ability(&entry.event),
-                        event_object_identity: event_object_for(
-                            firing.trigger,
-                            &entry.event,
-                            source,
-                            state,
-                        )
-                        .and_then(|id| event_identity_for(firing.trigger, entry, id, state)),
-                        counter_source_version: None,
-                        ability_index: index as u32,
-                        abilities: Some(list.clone()),
-                        controller: owner,
-                        timestamp: object.timestamp,
-                        event_object: event_object_for(firing.trigger, &entry.event, source, state),
-                        event_mana_value: None,
-                        event_departure: entry
-                            .departure
-                            .as_ref()
-                            .map(|d| (d.controller, d.toughness)),
-                        event_mana: produced_mana(&entry.event, events),
-                        event_amount: event_amount_for(
-                            firing.trigger,
-                            &entry.event,
-                            events,
-                            state,
-                            owner,
-                            context,
-                        ),
-                        event_player: event_player_for(firing.trigger, entry, state),
-                        implicit_target: None,
-                        synthetic_effects: None,
-                        synthetic_target: None,
-                        once_per_turn: firing.once_per_turn,
-                        chosen_mode: None,
-                        synthetic_condition: None,
-                        in_chosen_order: false,
-                    });
+                    triggers.push(build_off_battlefield_trigger(
+                        state, object, &list, index, &firing, events, entry, context,
+                    ));
                 }
             }
         }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_off_battlefield_trigger(
+    state: &GameState,
+    object: &crate::object::GameObject,
+    list: &crate::object::AbilityList,
+    index: usize,
+    firing: &Firing<'static>,
+    events: &[crate::event::JournalEntry],
+    entry: &crate::event::JournalEntry,
+    context: RuleContext,
+) -> PendingTrigger {
+    let source = object.id;
+    let owner = object.owner;
+    let event_object = event_object_for(firing.trigger, &entry.event, source, state);
+    PendingTrigger {
+        source,
+        text: TextChangeMap::IDENTITY,
+        source_version: Some(object.version),
+        related_objects: None,
+        grantor: None,
+        event_subject: None,
+        event_ability: activated_stack_ability(&entry.event),
+        event_object_identity: event_object
+            .and_then(|id| event_identity_for(firing.trigger, entry, id, state)),
+        counter_source_version: None,
+        ability_index: index as u32,
+        abilities: Some(list.clone()),
+        controller: owner,
+        timestamp: object.timestamp,
+        event_object,
+        event_mana_value: None,
+        event_departure: entry
+            .departure
+            .as_ref()
+            .map(|d| (d.controller, d.toughness)),
+        event_mana: produced_mana(&entry.event, events),
+        event_amount: event_amount_for(firing.trigger, &entry.event, events, state, owner, context),
+        event_player: event_player_for(firing.trigger, entry, state),
+        implicit_target: None,
+        synthetic_effects: None,
+        synthetic_target: None,
+        once_per_turn: firing.once_per_turn,
+        chosen_mode: None,
+        synthetic_condition: None,
+        in_chosen_order: false,
     }
 }
 

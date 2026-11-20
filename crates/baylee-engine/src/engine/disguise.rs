@@ -65,7 +65,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .card(o.card?.index)?
             .faces
             .get(usize::from(o.face_index))?;
-        face.turn_face_up_cost()
+        let kw = face.turn_face_up_cost();
+        // CR 701.40b–d: a manifested permanent represented by a creature card
+        // with a printed mana cost may be turned face up by paying its mana
+        // cost (with X = 0), or via its printed morph/disguise cost if it has one.
+        let manifest = (o.riders.contains(&Rider::Manifested)
+            && face.types.contains(TypeSet::CREATURE)
+            && super::casting::has_a_printed_cost(&face.mana_cost))
+        .then(|| (face.mana_cost.with_x(0), &[][..], false));
+        match (kw, manifest) {
+            (None, m) => m,
+            (k, None) => k,
+            (Some(k), Some(m)) => {
+                let can_pay = |&(mana, parts, _): &(ManaCost, &'static [CostPart], bool)| {
+                    self.turn_face_up_parts_payable(o.controller, id, parts)
+                        && self.can_pay_mana(
+                            o.controller,
+                            super::casting::SpendFor::OtherFrom(
+                                baylee_core::ids::DamageSourceRef {
+                                    object: id,
+                                    version: o.version,
+                                },
+                            ),
+                            &mana.with_x(0),
+                        )
+                };
+                match (can_pay(&k), can_pay(&m)) {
+                    (true, false) => Some(k),
+                    (false, true) => Some(m),
+                    _ if k.0.cmc() <= m.0.cmc() => Some(k),
+                    _ => Some(m),
+                }
+            }
+        }
     }
 
     pub(super) fn turn_face_up_parts_payable(
@@ -158,10 +190,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
     pub(super) fn finish_turn_face_up(&mut self, player: PlayerId, id: ObjectId, x: u32) {
         let is_megamorph = self.turn_face_up_spec(id).is_some_and(|(_, _, mega)| mega);
+        let non_permanent_spell = self.state.object(id).is_some_and(|o| {
+            o.original_base
+                .as_ref()
+                .is_some_and(|b| b.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY)))
+        });
+        if non_permanent_spell {
+            // CR 701.40g: an instant or sorcery card cannot turn face up;
+            // reveal it and leave it face down.
+            self.state.journal.record(GameEvent::Revealed {
+                player,
+                cards: vec![id],
+            });
+            self.after_action(player);
+            return;
+        }
         let Some(o) = self.state.object_mut(id) else {
             return;
         };
         o.status.remove(Status::FACE_DOWN);
+        o.riders
+            .retain(|r| !matches!(r, Rider::Manifested | Rider::Masked));
         o.x_value = x;
         if let Some(base) = o.original_base.take() {
             o.base = base;

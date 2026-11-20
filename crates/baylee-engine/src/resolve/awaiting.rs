@@ -116,6 +116,12 @@ pub enum AwaitingOp {
         /// Top cards, in their inspection order.
         looked: Vec<ObjectId>,
     },
+    /// Manifest dread (CR 701.62a): look at the top two cards of your library,
+    /// manifest one of them, and put the rest into your graveyard.
+    ManifestDread {
+        /// Top cards of the library inspected privately.
+        looked: Vec<ObjectId>,
+    },
     /// A matching hand card chosen for exile with the resolving source.
     ExileFromHandWithSource {
         /// Also let its controller cast that exact exile incarnation indefinitely.
@@ -1630,6 +1636,9 @@ impl AwaitingOp {
             )),
             Self::PeekBottom { player } => crate::state::structural_fingerprint(&(101_u8, player)),
             Self::Myriad(plan) => crate::state::structural_fingerprint(&(102_u8, plan)),
+            Self::ManifestDread { looked } => {
+                crate::state::structural_fingerprint(&(114_u8, looked))
+            }
             _ => 0,
         }
     }

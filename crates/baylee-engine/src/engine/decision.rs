@@ -393,8 +393,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         else {
             return DecisionContext::default();
         };
-        let face = wizard.face_index();
         let second_stage = wizard.stage == super::cast_wizard::WizardStage::SecondTargets;
+        let face = wizard_context_face(def, wizard, second_stage);
         let several = matches!(wizard.option, Some(CastModeKind::Modes(_)));
         let mode = match wizard.option {
             Some(CastModeKind::Mode(i)) => Some(i),
@@ -447,6 +447,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             }
                         }
                     }
+                    if wizard.offspring
+                        && let Some(offspring) = def.faces.get(face).and_then(|f| f.offspring)
+                    {
+                        cost = cost.combine(&offspring.mana);
+                    }
+                    if wizard.squad > 0
+                        && let Some(squad) = def.faces.get(face).and_then(|f| f.squad)
+                    {
+                        cost = cost.combine_n(&squad.mana, u32::from(wizard.squad));
+                    }
                     cost
                 }),
             life_x: def
@@ -477,6 +487,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             copying: None,
             optional_mana_offer: None,
         }
+    }
+}
+
+fn wizard_context_face(
+    def: &baylee_cards_dsl::CardDef,
+    wizard: &super::cast_wizard::CastWizard,
+    second_stage: bool,
+) -> usize {
+    if wizard.option == Some(CastModeKind::Fused)
+        && second_stage
+        && def.abilities_for_face(0).iter().any(|a| {
+            matches!(
+                a,
+                AbilityDef::Spell {
+                    targets: Some(_),
+                    second_targets: None,
+                    ..
+                }
+            )
+        })
+        && def.faces.len() > 1
+    {
+        1
+    } else {
+        wizard.face_index()
     }
 }
 

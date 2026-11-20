@@ -627,6 +627,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // 702.33d); zero times it has not.
                     wizard.multikicked = u8::try_from(n).unwrap_or(u8::MAX);
                     wizard.kicked = n > 0;
+                    wizard.stage = cast_wizard::WizardStage::Squad;
+                } else if wizard.stage == cast_wizard::WizardStage::Squad {
+                    wizard.squad = u8::try_from(n).unwrap_or(u8::MAX);
                     wizard.stage = cast_wizard::WizardStage::Replicate;
                 } else if wizard.stage == cast_wizard::WizardStage::Replicate {
                     wizard.replicated = u8::try_from(n).unwrap_or(u8::MAX);
@@ -1980,6 +1983,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.bargained = answer;
+                    wizard.stage = cast_wizard::WizardStage::Offspring;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: offspring yes/no (`CR 702.175a`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Offspring)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.offspring = answer;
                     wizard.stage = cast_wizard::WizardStage::Multikicker;
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();

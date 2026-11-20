@@ -86,6 +86,13 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
         (yes_no(YesNoPrompt::Kicker), no.clone()),
         (yes_no(YesNoPrompt::Bargain), no.clone()),
         (
+            yes_no(YesNoPrompt::Offspring {
+                cost: baylee_core::mana::ManaCost::parse("{2}"),
+                parts: crate::choice::BuybackParts::default(),
+            }),
+            no.clone(),
+        ),
+        (
             yes_no(YesNoPrompt::KickerOption {
                 index: 0,
                 cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
@@ -426,7 +433,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 57;
+const KINDS: usize = 58;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -492,6 +499,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::RevealHandForGuess { .. } => 37,
                 YesNoPrompt::KickerOption { .. } => 38,
                 YesNoPrompt::Bargain => 39,
+                YesNoPrompt::Offspring { .. } => 40,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -710,6 +718,7 @@ fn expected_automatable(prompt: YesNoPrompt) -> bool {
         | YesNoPrompt::PayLifeOrEnterTapped { .. }
         | YesNoPrompt::Kicker
         | YesNoPrompt::Bargain
+        | YesNoPrompt::Offspring { .. }
         | YesNoPrompt::KickerOption { .. }
         | YesNoPrompt::Buyback { .. }
         | YesNoPrompt::ManaAnyType
@@ -776,6 +785,10 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         },
         YesNoPrompt::Kicker,
         YesNoPrompt::Bargain,
+        YesNoPrompt::Offspring {
+            cost: baylee_core::mana::ManaCost::parse("{2}"),
+            parts: crate::choice::BuybackParts::default(),
+        },
         YesNoPrompt::KickerOption {
             index: 1,
             cost: baylee_core::mana::ManaCost::parse("{2}{U}"),

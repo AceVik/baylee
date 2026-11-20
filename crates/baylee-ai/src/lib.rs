@@ -864,6 +864,9 @@ impl HeuristicAgent {
                 baylee_engine::choice::NumberPrompt::Multikicker { cost } => {
                     policy::multikicks(view, context, cost, min, max)
                 }
+                baylee_engine::choice::NumberPrompt::Squad { cost, parts } => {
+                    policy::squads(view, context, cost, parts, min, max)
+                }
                 // A share of a division: what the target needs to die, if it
                 // is an opponent's, within what the question allows; the
                 // least for anything else.
@@ -1003,6 +1006,9 @@ impl HeuristicAgent {
                 // alone and a short one loses the whole cast.
                 YesNoPrompt::Kicker => PlayerAction::YesNo(policy::kicks(view, context)),
                 YesNoPrompt::Bargain => PlayerAction::YesNo(policy::bargains(view)),
+                YesNoPrompt::Offspring { cost, parts } => {
+                    PlayerAction::YesNo(policy::offsprings(view, context, cost, parts))
+                }
                 YesNoPrompt::KickerOption { index, cost, parts } => {
                     PlayerAction::YesNo(policy::kicks_option(view, context, index, cost, parts))
                 }

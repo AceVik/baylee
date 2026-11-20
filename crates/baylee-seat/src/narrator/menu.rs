@@ -1164,6 +1164,25 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "bargain (sacrifice one)".into(),
             "cast it without bargaining".into(),
         ),
+        YesNoPrompt::Offspring { cost, parts } => {
+            let price = baylee_client_core::interaction::buyback_price(
+                baylee_client_core::Lang::En,
+                *cost,
+                *parts,
+            );
+            let label = if price.is_empty() {
+                "offspring".into()
+            } else {
+                price
+            };
+            (
+                format!(
+                    "Offspring — pay {label} as an additional cost to create a 1/1 token copy when it enters?"
+                ),
+                format!("pay offspring ({label})"),
+                "cast it without offspring".into(),
+            )
+        }
         YesNoPrompt::KickerOption { index, cost, parts } => {
             kicker_option_words(*index, cost, *parts)
         }
@@ -1813,6 +1832,9 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::Blitz => format!("Cast it with blitz for {cost}"),
         CastModeKind::Emerge => {
             format!("Cast it with emerge for {cost}, sacrificing a matching permanent")
+        }
+        CastModeKind::Fused => {
+            format!("Cast both halves fused together from your hand for {cost}")
         }
         CastModeKind::Dungeon(dungeon) => format!("Enter {}", dungeon.name()),
         CastModeKind::DungeonRoom { dungeon, room } => {

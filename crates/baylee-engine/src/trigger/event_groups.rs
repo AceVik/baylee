@@ -103,6 +103,7 @@ pub(super) const fn zone_ref_matches(
         R::Exile => matches!(zone, Z::Exile),
         R::Command => matches!(zone, Z::Command),
         R::NotBattlefield => !matches!(zone, Z::Battlefield),
+        R::BattlefieldOrCommand => matches!(zone, Z::Battlefield | Z::Command),
     }
 }
 

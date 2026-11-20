@@ -1124,6 +1124,11 @@ NounCardsToAmplify =
         [one] Karte zum Vorzeigen für Verstärken
        *[other] Karten zum Vorzeigen für Verstärken
     }
+NounCardsToManifest =
+    { $count ->
+        [one] Karte zum Manifestieren
+       *[other] Karten zum Manifestieren
+    }
 NounAttackersToBand =
     { $count ->
         [one] Angreifer, der sich dem Bündnis anschließt
@@ -1205,9 +1210,11 @@ CombatDamageShareNamed = Kampfschaden von { $source } an { $recipient } ({ $posi
 CombatDamageTrample = – { $lethal } ist hier tödlich. Sobald jeder Blocker tödlichen Schaden hat, geht der Rest als Trampelschaden an das Angriffsziel.
 ReplicateHowOften = Reproduktion { $cost }: wie oft zahlen? ({ $min }–{ $max })
 MultikickerHowOften = Mehrfachbonus { $cost }: wie oft zahlen? ({ $min }–{ $max })
+SquadHowOften = Trupp { $price }: wie oft zahlen? ({ $min }–{ $max })
 BuybackAsk = Rückkauf: { $price }? Der Zauberspruch kehrt beim Verrechnen auf deine Hand zurück.
 KickerOptionAsk = Bonuskosten { $price } zahlen?
 BargainAsk = Feilschen: ein Artefakt, eine Verzauberung oder einen Spielstein opfern?
+OffspringAsk = Nachwuchs: { $price }? Erzeuge beim Ins-Spiel-Kommen eine 1/1-Spielsteinkopie.
 BuybackPriceLife = { $amount } Lebenspunkte zahlen
 BuybackPriceSacrifice =
     { $count ->
@@ -1247,6 +1254,7 @@ DifferentManaValues = Wähle Ziele mit unterschiedlichen Manabeträgen
 CastDash = Sturmangriff
 CastBlitz = Blitzangriff
 CastEmerge = Auftauchen
+CastFused = Fusion
 CastMutate = Mutation
 CastBestow = Göttergabe
 CastJumpStart = Starthilfe

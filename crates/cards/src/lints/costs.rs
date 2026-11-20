@@ -275,7 +275,13 @@ pub(super) fn face_cost_lists(def: &CardDef) -> Vec<&'static [CostPart]> {
 pub(super) fn face_costs(def: &CardDef) -> Vec<Cost> {
     def.faces
         .iter()
-        .flat_map(|face| face.alternative_costs.iter().map(|alt| alt.cost))
+        .flat_map(|face| {
+            face.alternative_costs
+                .iter()
+                .map(|alt| alt.cost)
+                .chain(face.squad)
+                .chain(face.offspring)
+        })
         .collect()
 }
 

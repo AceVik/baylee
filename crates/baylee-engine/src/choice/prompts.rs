@@ -133,6 +133,10 @@ pub enum CastModeKind {
     /// Cast for the face's emerge cost (CR 702.119a–b): sacrifices a matching
     /// permanent and reduces the spell's generic mana cost by its mana value.
     Emerge,
+    /// Cast both halves of a split card with fuse from hand (CR 702.102a–d):
+    /// pays the combined mana cost of both halves, carries combined
+    /// characteristics on the stack, and resolves left then right.
+    Fused,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -431,6 +435,10 @@ pub enum ChoicePrompt {
     /// hand that share a creature type with the entering permanent to put +1/+1
     /// counters on it. Naming none declines to reveal any cards.
     Amplify,
+    /// Manifest dread (CR 701.62a): look at the top two cards of your library,
+    /// choose one to manifest onto the battlefield face down, and put the other
+    /// into your graveyard.
+    ManifestDread,
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).
@@ -541,6 +549,14 @@ pub enum NumberPrompt {
     ReadAhead {
         /// The entering Saga object.
         saga: ObjectId,
+    },
+    /// How many times to pay a spell's squad cost (CR 702.157a): when the
+    /// creature enters, it creates a token copy of itself for each payment.
+    Squad {
+        /// Mana part paid per instance.
+        cost: baylee_core::mana::ManaCost,
+        /// Non-mana parts paid per instance, if any.
+        parts: BuybackParts,
     },
 }
 
@@ -880,6 +896,14 @@ pub enum YesNoPrompt {
     /// Bargain optional additional cost yes-or-no at cast time (CR 702.166a).
     /// Appended to preserve replay identities.
     Bargain,
+    /// Pay this spell's offspring cost (CR 702.175a)? When the permanent
+    /// enters, if paid, create a 1/1 token copy of it.
+    Offspring {
+        /// Mana part of the offspring cost.
+        cost: baylee_core::mana::ManaCost,
+        /// Non-mana parts of the offspring cost, if any.
+        parts: BuybackParts,
+    },
 }
 
 impl YesNoPrompt {
@@ -933,6 +957,7 @@ impl YesNoPrompt {
             | Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
             | Self::Bargain
+            | Self::Offspring { .. }
             | Self::KickerOption { .. }
             | Self::Buyback { .. }
             | Self::ManaAnyType

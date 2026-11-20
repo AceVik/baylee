@@ -559,6 +559,23 @@ express at all yet.
   toughness while on the stack or battlefield (`Condition::Prototyped` holds on
   the spell, permanent, and copies per CR 719.3c–d; other zones revert per
   CR 719.4).
+- `FaceDef.squad: Option<Cost>` — "Squad [cost]" (CR 702.157a–b). Offers a
+  repeatable optional additional cost (`NumberPrompt::Squad`) when casting the
+  spell (`Rider::SquadPaid(u8)`); when the permanent enters the battlefield, a
+  synthetic ETB triggered ability creates that many token copies of it (using
+  last known information if the source leaves before resolution, CR 608.2h).
+- `FaceDef.offspring: Option<Cost>` — "Offspring [cost]" (CR 702.175a–b). Offers
+  an optional additional cost (`YesNoPrompt::Offspring`) when casting the spell
+  (`Rider::OffspringPaid`); when the permanent enters the battlefield, a
+  synthetic ETB triggered ability creates a `1/1` token copy of it
+  (`CopyMod::SetPT(1, 1)`).
+- `CardDef.fuse: bool` — "Fuse" (CR 702.102a–d) on two-face split instant/sorcery
+  cards (`CardDef::is_split_spell_card`). When cast from a player's hand, offers
+  `CastModeKind::Fused` paying the combined mana cost of both halves
+  (CR 702.102c), carrying the combined characteristics of both halves on the
+  stack (CR 702.102b, CR 709.4d), choosing targets for the left half then the
+  right half, and resolving the left half's instructions followed by the right
+  half's instructions (CR 702.102d).
 - `AbilityDef::Unearth { cost }` (`unearth!`), `AbilityDef::Encore { cost }`
   (`encore!`), `embalm!`, and `eternalize!` — sorcery-speed graveyard activated
   abilities (CR 702.84a, CR 702.141a, CR 702.128a, CR 702.129a).
@@ -4762,6 +4779,21 @@ the resolving source permanent's incarnation remains on the battlefield.
 `Effect::GrantLinkedExilePermission { permission }`. The permission otherwise
 retains its ordinary casting, payment and land-play restrictions; it grants no
 instant-speed timing.
+
+#### Manifest and Manifest Dread
+
+`Effect::ManifestTop { who, count }` manifests up to `count` cards from the top
+of each `who` player's library one at a time (CR 701.40a–g): each card enters
+the battlefield face down under `who`'s control as a `2/2` colorless nameless
+creature without Ward (`Rider::Manifested`), and may be turned face up via the
+`TURN_FACE_UP` special action for its printed mana cost if its front face is a
+creature card with a mana cost (CR 701.40b) or for any printed morph/disguise
+cost (CR 701.40c–d). `Effect::ManifestDread` looks privately at the top two
+cards of the resolving controller's library, manifests one (`ChoicePrompt::ManifestDread`),
+and puts the remaining looked-at card into their graveyard (CR 701.62a–b).
+`Effect::TurnFaceUp { target }` turns face-down permanent(s) face up while
+revealing and leaving face down any manifested instant or sorcery card without
+firing `Trigger::TurnedFaceUp` (CR 701.40g).
 
 #### Draw identity and draw replacements
 

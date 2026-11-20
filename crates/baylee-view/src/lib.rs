@@ -302,7 +302,10 @@ pub use turn::{DayNight, Phase, Step};
 /// variant a reader of 96 cannot decode.
 /// Version 98 adds `CastModeKind::Emerge` (CR 702.119), `YesNoPrompt::Bargain`
 /// (CR 702.166), and `LegalActions::spell_spending` (CR 609.4b).
-pub const VIEW_VERSION: u32 = 98;
+/// Version 99 adds `CastModeKind::Fused` (CR 702.102), `NumberPrompt::Squad`
+/// (CR 702.157), `YesNoPrompt::Offspring` (CR 702.175), and
+/// `ChoicePrompt::ManifestDread` (CR 701.62).
+pub const VIEW_VERSION: u32 = 99;
 
 // ------------------------------------------------------------------- targets
 

@@ -70,6 +70,31 @@ pub(super) fn resume_inner(
             return run(state, res);
         }
         AwaitingOp::Hideaway { looked } => hidden_exile::choose(state, res, looked, chosen),
+        AwaitingOp::ManifestDread { looked } => {
+            let library = ZoneLocation::Library(res.controller);
+            let picked = chosen
+                .first()
+                .copied()
+                .filter(|id| looked.contains(id) && state.zones.contains(*id, library))
+                .or_else(|| {
+                    looked
+                        .iter()
+                        .copied()
+                        .find(|id| state.zones.contains(*id, library))
+                });
+            let manifested = picked.is_some_and(|card| state.manifest_card(res.controller, card));
+            for card in looked {
+                if !(manifested && Some(card) == picked) && state.zones.contains(card, library) {
+                    let owner = state.object(card).map_or(res.controller, |o| o.owner);
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Graveyard(owner),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            }
+        }
         AwaitingOp::LookedCardToExile { looked, cast_types } => {
             if let Some(pending) =
                 hidden_exile::finish_look_at_top(state, res, looked, cast_types, chosen)

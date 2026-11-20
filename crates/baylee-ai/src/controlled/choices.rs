@@ -261,6 +261,7 @@ impl HeuristicAgent {
             | ChoicePrompt::PutIntoHand
             | ChoicePrompt::PlayFromExile
             | ChoicePrompt::PutOntoBattlefield
+            | ChoicePrompt::ManifestDread
             | ChoicePrompt::FromGraveyard
             | ChoicePrompt::OneOfType { .. }
             | ChoicePrompt::PutIntoGraveyard
@@ -425,8 +426,8 @@ impl HeuristicAgent {
                 }
                 Some(Self::largest_x(view, min, max, context, |_| true))
             }
-            // Every kick makes their spell better, so they get none.
-            NumberPrompt::Multikicker { .. } => Some(min),
+            // Every kick or squad copy makes their spell better, so they get none.
+            NumberPrompt::Multikicker { .. } | NumberPrompt::Squad { .. } => Some(min),
             // Skipping earlier chapters denies them every chapter before the final one.
             NumberPrompt::ReadAhead { .. } => Some(max),
             _ => None,
@@ -461,6 +462,7 @@ impl HeuristicAgent {
             | YesNoPrompt::PayEnergy { .. }
             | YesNoPrompt::KickerOption { .. }
             | YesNoPrompt::Bargain
+            | YesNoPrompt::Offspring { .. }
             | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }

@@ -85,6 +85,8 @@ pub fn land_face(name: &'static str) -> FaceDef {
         madness: None,
         bargain: false,
         emerge: None,
+        squad: None,
+        offspring: None,
     }
 }
 
@@ -105,6 +107,7 @@ pub fn land(index: u32, name: &'static str, abilities: &'static [AbilityDef]) ->
         keywords: KeywordSet::EMPTY,
         commander: CommanderRule::NotEligible,
         partner: baylee_cards_dsl::PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities,
     }))
@@ -156,6 +159,7 @@ pub fn creature(
         keywords: KeywordSet::EMPTY,
         commander: CommanderRule::NotEligible,
         partner: baylee_cards_dsl::PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities: &[],
     }))

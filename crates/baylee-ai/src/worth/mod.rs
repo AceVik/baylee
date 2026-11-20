@@ -2118,6 +2118,26 @@ impl HeuristicAgent {
                     i64::try_from(o.linked_exile.len()).unwrap_or(1) * per_card
                 })
             }
+            Effect::ManifestTop { who, count: cards } => {
+                let n = count(*cards)?.max(0);
+                if self
+                    .players(view, *who, aim)?
+                    .iter()
+                    .any(|p| !self.hostile(*p, me))
+                {
+                    n.saturating_mul(220)
+                } else {
+                    -n.saturating_mul(220)
+                }
+            }
+            Effect::ManifestDread => 260,
+            Effect::TurnFaceUp { .. } => subject.map_or(80, |o| {
+                if self.hostile(o.controller, me) {
+                    -80
+                } else {
+                    120
+                }
+            }),
             Effect::TakeExtraTurn => 10_000,
             Effect::ExileLibraryAndShuffleHand { player } => {
                 if self

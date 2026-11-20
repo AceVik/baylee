@@ -666,6 +666,20 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.deeds.add(Deeds::MAY);
             facts.makes.add(Stuff::BOARD);
         }
+        Effect::ManifestTop { .. } => {
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::ManifestDread => {
+            facts.deeds.add(Deeds::LOOKS);
+            facts.deeds.add(Deeds::ASKS);
+            facts.makes.add(Stuff::BOARD);
+            facts.makes.add(Stuff::GRAVEYARD);
+        }
+        Effect::TurnFaceUp { .. } => {
+            facts.reads.add(Stuff::BOARD);
+            facts.makes.add(Stuff::BOARD);
+            facts.makes.add(Stuff::POWER);
+        }
         Effect::CreateToken { .. }
         | Effect::CreateTokenAttacking { .. }
         | Effect::CreateTokenModified { .. }

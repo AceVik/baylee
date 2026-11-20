@@ -4930,6 +4930,29 @@ pub enum Effect {
     /// and [`crate::Trigger::Exerted`] / [`ReflexiveEvent::ExertedThis`] observe
     /// the exertion. Appended to preserve replay identities.
     ExertSource,
+    /// Manifest the top `count` card(s) of each `who` player's library one at
+    /// a time (CR 701.40a–g): put each onto the battlefield face down under
+    /// that player's control as a 2/2 colorless nameless creature with no Ward.
+    /// Appended to preserve replay identities.
+    ManifestTop {
+        /// Which player(s) manifest from the top of their library.
+        who: PlayerRel,
+        /// Number of cards to manifest sequentially (CR 701.40e).
+        count: Amount,
+    },
+    /// Manifest dread for the resolving controller (CR 701.62a–b): look at the
+    /// top two cards of your library, manifest one of them, then put the
+    /// remaining looked-at card(s) into your graveyard. Appended to preserve
+    /// replay identities.
+    ManifestDread,
+    /// Turn the face-down permanent(s) named by `target` face up (CR 708.8),
+    /// honoring CR 701.40g (a manifested permanent represented by an instant
+    /// or sorcery card is revealed and remains face down without triggering
+    /// `Trigger::TurnedFaceUp`). Appended to preserve replay identities.
+    TurnFaceUp {
+        /// Which face-down permanent(s) to turn face up.
+        target: TargetSpec,
+    },
 }
 
 #[cfg(test)]

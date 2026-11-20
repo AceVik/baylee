@@ -804,6 +804,9 @@ impl GameState {
                             | crate::object::Rider::Dashed
                             | crate::object::Rider::Blitzed
                             | crate::object::Rider::Bargained
+                            | crate::object::Rider::SquadPaid(_)
+                            | crate::object::Rider::OffspringPaid
+                            | crate::object::Rider::Fused
                             | crate::object::Rider::SuspendHaste(_)
                             | crate::object::Rider::Mutating
                             | crate::object::Rider::Bestowed
@@ -815,6 +818,7 @@ impl GameState {
             }
             obj.riders.retain(|rider| match rider {
                 crate::object::Rider::Uncounterable => to.zone() == Zone::Stack,
+                crate::object::Rider::Manifested => to.zone() == Zone::Battlefield,
                 // Foretell lasts for as long as the card remains exiled
                 // (CR 702.143a); a move from exile to exile does not end
                 // that. Every other move makes a new object (CR 400.7): the
@@ -859,7 +863,8 @@ impl GameState {
             // captured its list) have no card to fall back to.
             if obj.card.is_some()
                 && !(to.zone() == Zone::Battlefield
-                    && obj.riders.contains(&crate::object::Rider::EntryCopyApplied))
+                    && (obj.riders.contains(&crate::object::Rider::EntryCopyApplied)
+                        || obj.riders.contains(&crate::object::Rider::Manifested)))
                 && !((obj.prototyped || obj.status.contains(crate::object::Status::FACE_DOWN))
                     && from_zone == Zone::Stack
                     && to.zone() == Zone::Battlefield)

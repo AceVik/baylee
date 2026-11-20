@@ -1767,7 +1767,7 @@ impl Interaction {
         let Pending::ChooseNumber {
             min,
             max,
-            reason: NumberPrompt::X | NumberPrompt::Multikicker { .. },
+            reason: NumberPrompt::X | NumberPrompt::Multikicker { .. } | NumberPrompt::Squad { .. },
             ..
         } = &mut self.pending
         else {

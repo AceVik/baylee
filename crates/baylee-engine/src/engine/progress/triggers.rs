@@ -516,7 +516,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ));
             }
         }
-        let found = trigger::collect(&self.state, &self.lookup, scan_from);
+        let mut found = trigger::collect(&self.state, &self.lookup, scan_from);
+        self.collect_squad_and_offspring_triggers(scan_from, &mut found);
         crate::trigger::bird_entry::consume(&mut self.state, scan_from);
         self.trigger_scan_seq = self.state.journal.last_seq();
         crate::resolve::linked_reanimation::prune(&mut self.state);
@@ -604,6 +605,90 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 timestamp,
             )
         });
+    }
+
+    /// Queues synthetic ETB triggered abilities for permanents entering the
+    /// battlefield with `Rider::SquadPaid` (`CR 702.157a`) or
+    /// `Rider::OffspringPaid` (`CR 702.175a`).
+    fn collect_squad_and_offspring_triggers(
+        &self,
+        scan_from: u64,
+        out: &mut Vec<crate::trigger::PendingTrigger>,
+    ) {
+        let all_events = self.state.journal.entries();
+        let start = all_events.partition_point(|e| e.seq <= scan_from);
+        let events = &all_events[start..];
+        for (idx, entry) in events.iter().enumerate() {
+            let GameEvent::ZoneChanged {
+                object,
+                to: crate::zone::Zone::Battlefield,
+                ..
+            } = entry.event
+            else {
+                continue;
+            };
+            let later_moves = events[idx + 1..]
+                .iter()
+                .filter(|later| {
+                    matches!(later.event, GameEvent::ZoneChanged { object: id, .. } if id == object)
+                })
+                .count();
+            let entrant = if later_moves == 0 {
+                self.state.object(object)
+            } else {
+                self.state.object(object).and_then(|current| {
+                    self.state.source_object(baylee_core::ids::DamageSourceRef {
+                        object,
+                        version: current
+                            .version
+                            .wrapping_sub(u32::try_from(later_moves).unwrap_or(0)),
+                    })
+                })
+            }
+            .or_else(|| self.state.ceased.iter().find(|o| o.id == object));
+            let Some(entrant) = entrant else {
+                continue;
+            };
+            if entrant.status.contains(crate::object::Status::FACE_DOWN)
+                || entrant.characteristics().abilities_lost.is_some()
+                || entrant.characteristics().rules_text_lost
+            {
+                continue;
+            }
+            let squad_paid = entrant.riders.iter().find_map(|r| match r {
+                crate::object::Rider::SquadPaid(n) if *n > 0 => Some(*n),
+                _ => None,
+            });
+            let offspring_paid = entrant
+                .riders
+                .contains(&crate::object::Rider::OffspringPaid);
+            if squad_paid.is_none() && !offspring_paid {
+                continue;
+            }
+            let times = crate::trigger::times_triggered(
+                &self.state,
+                baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
+                object,
+            );
+            for _ in 0..times {
+                if let Some(n) = squad_paid {
+                    out.push(synthetic_copy_etb_trigger(
+                        object,
+                        entrant,
+                        SQUAD_ETB_COPIES,
+                        Some(u32::from(n)),
+                    ));
+                }
+                if offspring_paid {
+                    out.push(synthetic_copy_etb_trigger(
+                        object,
+                        entrant,
+                        OFFSPRING_ETB_COPY,
+                        None,
+                    ));
+                }
+            }
+        }
     }
 
     #[allow(clippy::too_many_lines)] // the trigger queue processor is a flat state machine
@@ -1181,5 +1266,67 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn collect_triggers_for_tests(&mut self) {
         self.collect_triggers();
+    }
+}
+
+static SQUAD_ETB_COPIES: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::CreateTokenCopy {
+        target: baylee_cards_dsl::TargetSpec::ThisObject,
+        controller: baylee_cards_dsl::PlayerRel::You,
+        amount: baylee_cards_dsl::Amount::EventAmount,
+        mods: &[],
+        tapped: false,
+        attacking: false,
+        haste_until_eot: false,
+        cleanup: baylee_cards_dsl::CopyCleanup::None,
+    }];
+
+static OFFSPRING_ETB_MODS: &[baylee_cards_dsl::CopyMod] = &[baylee_cards_dsl::CopyMod::SetPT(1, 1)];
+
+static OFFSPRING_ETB_COPY: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::CreateTokenCopy {
+        target: baylee_cards_dsl::TargetSpec::ThisObject,
+        controller: baylee_cards_dsl::PlayerRel::You,
+        amount: baylee_cards_dsl::Amount::Fixed(1),
+        mods: OFFSPRING_ETB_MODS,
+        tapped: false,
+        attacking: false,
+        haste_until_eot: false,
+        cleanup: baylee_cards_dsl::CopyCleanup::None,
+    }];
+
+fn synthetic_copy_etb_trigger(
+    object: ObjectId,
+    entrant: &crate::object::GameObject,
+    effects: &'static [baylee_cards_dsl::Effect],
+    amount: Option<u32>,
+) -> crate::trigger::PendingTrigger {
+    crate::trigger::PendingTrigger {
+        text: crate::text_changes::TextChangeMap::IDENTITY,
+        source_version: Some(entrant.version),
+        related_objects: None,
+        grantor: None,
+        event_subject: None,
+        event_ability: None,
+        event_object_identity: None,
+        counter_source_version: None,
+        event_mana: None,
+        event_mana_value: None,
+        event_departure: None,
+        event_amount: amount,
+        event_player: None,
+        source: object,
+        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+        controller: entrant.controller,
+        timestamp: entrant.timestamp,
+        event_object: Some(object),
+        implicit_target: None,
+        abilities: None,
+        synthetic_effects: Some(effects),
+        once_per_turn: false,
+        synthetic_target: None,
+        chosen_mode: None,
+        synthetic_condition: None,
+        in_chosen_order: false,
     }
 }

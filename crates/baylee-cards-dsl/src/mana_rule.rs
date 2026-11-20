@@ -144,6 +144,9 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::ExileTopWithPermission { .. }
         | Effect::ExileWithPermission { .. }
         | Effect::GrantLinkedExilePermission { .. }
+        | Effect::ManifestTop { .. }
+        | Effect::ManifestDread
+        | Effect::TurnFaceUp { .. }
         | Effect::LookAtTopExileFaceDown { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopIf { .. }

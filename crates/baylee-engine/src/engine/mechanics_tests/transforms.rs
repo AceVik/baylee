@@ -86,6 +86,7 @@ fn double_faced(index: u32, front: FaceDef, back: FaceDef) -> &'static CardDef {
         keywords: KeywordSet::EMPTY,
         commander: CommanderRule::NotEligible,
         partner: PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities: &[],
     }))

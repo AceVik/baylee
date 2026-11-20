@@ -302,6 +302,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::CreateTokenCopy { .. }
         | Effect::ChooseAndCreateTokenCopy { .. }
         | Effect::Myriad
+        | Effect::ManifestTop { .. }
+        | Effect::ManifestDread
         | Effect::Fabricate { .. }
         | Effect::Populate => {
             ch.tokens_create += 1.5;

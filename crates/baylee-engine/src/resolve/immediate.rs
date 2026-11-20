@@ -3050,6 +3050,77 @@ pub(super) fn exec_immediate(
         Effect::GrantLinkedExilePermission { permission } => {
             permissions::grant_linked_exile_permission(state, res, permission)
         }
+        Effect::ManifestTop { who, count } => {
+            // CR 701.40a, CR 701.40e: manifest the top N cards of each affected
+            // player's library one at a time.
+            let counts: Vec<(PlayerId, usize)> = players_of(who, state, you, res)
+                .into_iter()
+                .map(|player| {
+                    let n = super::amount_for_player(&count, state, you, res, player);
+                    (player, n as usize)
+                })
+                .collect();
+            for (player, n) in counts {
+                let library = ZoneLocation::Library(player);
+                for _ in 0..n {
+                    let Some(&top) = state.zones.list(library).last() else {
+                        break;
+                    };
+                    if !state.manifest_card(player, top) {
+                        break;
+                    }
+                }
+            }
+            None
+        }
+        Effect::ManifestDread => {
+            // CR 701.62a: look at the top two cards of your library, manifest
+            // one of them, then put the cards you looked at that were not
+            // manifested this way into your graveyard.
+            let library = ZoneLocation::Library(you);
+            let looked: Vec<ObjectId> = state
+                .zones
+                .list(library)
+                .iter()
+                .rev()
+                .take(2)
+                .copied()
+                .collect();
+            match looked.as_slice() {
+                [] => None,
+                [only] => {
+                    if !state.manifest_card(you, *only) && state.zones.contains(*only, library) {
+                        let owner = state.object(*only).map_or(you, |o| o.owner);
+                        let _ = state.move_object(
+                            *only,
+                            ZoneLocation::Graveyard(owner),
+                            ZonePosition::Top,
+                            Cause::Effect,
+                        );
+                    }
+                    None
+                }
+                _ => {
+                    res.awaiting = Some(AwaitingOp::ManifestDread {
+                        looked: looked.clone(),
+                    });
+                    Some(Pending::ChooseCards {
+                        player: you,
+                        options: looked,
+                        min: 1,
+                        max: 1,
+                        prompt: ChoicePrompt::ManifestDread,
+                        total: None,
+                    })
+                }
+            }
+        }
+        Effect::TurnFaceUp { target } => {
+            for target_id in zones::moving_objects(state, res, target) {
+                state.turn_permanent_face_up(target_id);
+            }
+            None
+        }
         Effect::TapAll { filter } => {
             let you = res.controller;
             let all: Vec<ObjectId> = state

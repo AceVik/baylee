@@ -613,6 +613,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 obj.riders.push(crate::object::Rider::Bargained);
             }
             obj.riders
+                .retain(|r| !matches!(r, crate::object::Rider::SquadPaid(_)));
+            if wizard.squad > 0 {
+                obj.riders
+                    .push(crate::object::Rider::SquadPaid(wizard.squad));
+            }
+            obj.riders
+                .retain(|r| *r != crate::object::Rider::OffspringPaid);
+            if wizard.offspring {
+                obj.riders.push(crate::object::Rider::OffspringPaid);
+            }
+            obj.riders.retain(|r| *r != crate::object::Rider::Fused);
+            if wizard.option == Some(CastModeKind::Fused) {
+                obj.riders.push(crate::object::Rider::Fused);
+            }
+            obj.riders
                 .retain(|r| !matches!(r, crate::object::Rider::SuspendHaste(_)));
             obj.riders.retain(|r| *r != crate::object::Rider::Mutating);
             if wizard.option == Some(CastModeKind::Mutate) {
@@ -666,14 +681,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         // MDFC back-face cast: the object becomes its chosen face (CR 712.8b).
         // A split card is both halves in hand and only the half cast on the
-        // stack (CR 709.3b), its left half too.
+        // stack (CR 709.3b), its left half too — unless cast fused (CR 702.102b,
+        // CR 709.4d), where it keeps both halves' combined characteristics.
         let i = wizard.face_index();
         let def = self
             .state
             .object(card)
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index));
-        if i != 0 || def.is_some_and(crate::object::reads_both_halves) {
+        if wizard.option != Some(CastModeKind::Fused)
+            && (i != 0 || def.is_some_and(crate::object::reads_both_halves))
+        {
             let def = def.expect("wizard card known");
             self.state.switch_face(card, def, i);
         }

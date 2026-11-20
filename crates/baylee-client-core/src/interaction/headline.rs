@@ -405,6 +405,7 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         ChoicePrompt::RevealDiscard => Phrase::NounDiscardsToReveal,
         ChoicePrompt::RevealOrEnterTapped => Phrase::NounCardsToReveal,
         ChoicePrompt::Amplify => Phrase::NounCardsToAmplify,
+        ChoicePrompt::ManifestDread => Phrase::NounCardsToManifest,
         ChoicePrompt::PutIntoHand => Phrase::NounCardsToHand,
         ChoicePrompt::PutOnBottom => Phrase::NounCardsToBottom,
         ChoicePrompt::PlayFromExile => Phrase::NounCardsToPlay,
@@ -618,6 +619,9 @@ fn number_line(
         }
         NumberPrompt::Multikicker { cost } => {
             Phrase::MultikickerHowOften.fill(lang, &[&cost.to_string(), &min, &max])
+        }
+        NumberPrompt::Squad { cost, parts } => {
+            Phrase::SquadHowOften.fill(lang, &[&buyback_price(lang, cost, parts), &min, &max])
         }
         NumberPrompt::ReadAhead { saga } => name(saga).map_or_else(
             || Phrase::ChooseReadAheadChapter.fill(lang, &[&min, &max]),
@@ -845,6 +849,9 @@ fn yes_no_line(
         YesNoPrompt::ManaAnyType => Phrase::UseManaAnyType.text(lang).to_string(),
         YesNoPrompt::Kicker => Phrase::PayAdditionalCost.text(lang).to_string(),
         YesNoPrompt::Bargain => Phrase::BargainAsk.text(lang).to_string(),
+        YesNoPrompt::Offspring { cost, parts } => {
+            Phrase::OffspringAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
+        }
         YesNoPrompt::KickerOption { cost, parts, .. } => {
             Phrase::KickerOptionAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
         }

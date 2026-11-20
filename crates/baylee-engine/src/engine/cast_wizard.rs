@@ -83,9 +83,15 @@ pub(crate) enum WizardStage {
     /// Bargain yes/no (`CR 702.166a`). Skipped when the face does not print
     /// `bargain` or no artifact, enchantment, or token can pay it.
     Bargain,
+    /// Offspring yes/no (`CR 702.175a`). Skipped when the face prints none or
+    /// nothing could pay it.
+    Offspring,
     /// How many times to pay the multikicker cost (CR 702.33c). Skipped when
     /// the face prints none or nothing could pay it once.
     Multikicker,
+    /// How many times to pay the squad cost (`CR 702.157a`). Skipped when the
+    /// face prints none or nothing could pay it once.
+    Squad,
     /// How many times to pay the replicate cost (CR 702.56a), announced
     /// with the other additional costs (CR 601.2b) and so before targets.
     /// Skipped when the face has none or the pool pays for none.
@@ -173,6 +179,10 @@ pub struct CastWizard {
     pub buyback: Option<u32>,
     /// Whether the spell's bargain additional cost was announced (`CR 702.166a`).
     pub bargained: bool,
+    /// Whether the spell's offspring additional cost was announced (`CR 702.175a`).
+    pub offspring: bool,
+    /// How many times the spell's squad additional cost was announced (`CR 702.157a`).
+    pub squad: u8,
     /// The permanent chosen to sacrifice for `Emerge` (`CR 702.119c`).
     pub emerge_sacrifice: Option<ObjectId>,
     /// How many times the replicate cost is paid.
@@ -272,6 +282,8 @@ impl CastWizard {
             multikicked: 0,
             buyback: None,
             bargained: false,
+            offspring: false,
+            squad: 0,
             emerge_sacrifice: None,
             replicated: 0,
             pitch: SmallVec::new(),
@@ -375,12 +387,14 @@ impl CastWizard {
                 .wrapping_mul(31)
                 .wrapping_add(u64::from(self.kicked_mask));
         }
-        if self.bargained || self.emerge_sacrifice.is_some() {
+        if self.bargained || self.emerge_sacrifice.is_some() || self.offspring || self.squad > 0 {
             hash = hash
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&(
                     self.bargained,
                     self.emerge_sacrifice,
+                    self.offspring,
+                    self.squad,
                 )));
         }
         // A separate alternative cost changes the meaning of modal answers.
@@ -1561,6 +1575,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let abilities = def.abilities_for_face(face_index);
         match wizard.option {
+            Some(CastModeKind::Fused) => fused_target_req(def, 0),
             Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
                 AbilityDef::ModalSpell { modes, .. } => {
                     modes.get(i).and_then(|m: &SpellMode| m.targets)
@@ -1596,6 +1611,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let face_index = wizard.face_index().min(def.faces.len() - 1);
         let abilities = def.abilities_for_face(face_index);
         let mut req = match wizard.option {
+            Some(CastModeKind::Fused) => fused_target_req(def, 1),
             Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
                 AbilityDef::ModalSpell { modes, .. } => {
                     modes.get(i).and_then(|m: &SpellMode| m.second_targets)
@@ -1954,6 +1970,16 @@ fn wizard_total_before_reduction(
     if let Some(replicate) = face.replicate {
         total = total.combine_n(&replicate, u32::from(wizard.replicated));
     }
+    if wizard.offspring
+        && let Some(offspring) = face.offspring
+    {
+        total = total.combine(&offspring.mana.with_x(wizard.x));
+    }
+    if wizard.squad > 0
+        && let Some(squad) = face.squad
+    {
+        total = total.combine_n(&squad.mana.with_x(wizard.x), u32::from(wizard.squad));
+    }
     if wizard.behold_paid_mana
         && let Some(behold) = face.behold_or_pay
     {
@@ -1985,6 +2011,8 @@ const fn pays_mana(wizard: &CastWizard) -> bool {
         || wizard.kicked
         || wizard.buyback.is_some()
         || wizard.replicated > 0
+        || wizard.offspring
+        || wizard.squad > 0
         || wizard.behold_paid_mana
 }
 
@@ -2045,6 +2073,25 @@ fn chosen_option_cost(wizard: &CastWizard) -> ManaCost {
         .iter()
         .find(|o| Some(o.kind) == wizard.announced.or(wizard.option))
         .map_or(ManaCost::ZERO, |o| o.cost)
+}
+
+/// Target requirements across both halves of a fused split spell (CR 702.102a,
+/// CR 702.102d): left half's target groups followed by right half's.
+fn fused_target_req(def: &baylee_cards_dsl::CardDef, slot: usize) -> Option<TargetReq> {
+    (0..def.faces.len().min(2))
+        .flat_map(|face_index| {
+            def.abilities_for_face(face_index)
+                .iter()
+                .flat_map(|ability| match ability {
+                    AbilityDef::Spell {
+                        targets,
+                        second_targets,
+                        ..
+                    } => [*targets, *second_targets].into_iter().flatten(),
+                    _ => [None, None].into_iter().flatten(),
+                })
+        })
+        .nth(slot)
 }
 
 #[cfg(test)]

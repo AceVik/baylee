@@ -1138,6 +1138,18 @@ pub enum Rider {
     /// Enchanted player captured on waiting stack abilities when a player-attached
     /// Aura leaves the battlefield or phases out (CR 113.7a, CR 608.2h).
     SourceAttachmentPlayerLki(PlayerId),
+    /// Squad payments made when casting this spell (CR 702.157a): creates this
+    /// many token copies when the permanent enters the battlefield.
+    SquadPaid(u8),
+    /// Offspring paid when casting this spell (CR 702.175a): creates a 1/1
+    /// token copy when the permanent enters the battlefield.
+    OffspringPaid,
+    /// Split spell cast fused from hand (CR 702.102a–d): carries combined
+    /// characteristics on the stack and resolves left half then right half.
+    Fused,
+    /// Face-down permanent manifested onto the battlefield (CR 701.40a–g):
+    /// has no Ward and may be turned face up for its front creature mana cost.
+    Manifested,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1264,6 +1276,10 @@ impl Rider {
             | Self::Bargained
             | Self::AttachedToPlayer(_)
             | Self::SourceAttachmentPlayerLki(_)
+            | Self::SquadPaid(_)
+            | Self::OffspringPaid
+            | Self::Fused
+            | Self::Manifested
             | Self::EventPlayer(_)
             | Self::NinjutsuDefender(_, _)
             | Self::SyntheticCondition(_) => false,
@@ -2219,7 +2235,11 @@ impl GameObject {
                 .is_some_and(|f| {
                     (f.morph.is_some() || f.megamorph.is_some()) && f.disguise.is_none()
                 });
-            return if self.zone == Zone::Exile || self.riders.contains(&Rider::Masked) || is_morph {
+            return if self.zone == Zone::Exile
+                || self.riders.contains(&Rider::Masked)
+                || self.riders.contains(&Rider::Manifested)
+                || is_morph
+            {
                 AbilityDefs::EMPTY
             } else {
                 AbilityDefs::Static(crate::engine::disguise::WARD)

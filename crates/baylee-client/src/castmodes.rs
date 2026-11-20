@@ -414,7 +414,7 @@ fn face_modes(
         .iter()
         .filter(|(id, way)| {
             *id == card
-                && matches!(way.kind, CastModeKind::Face(_))
+                && matches!(way.kind, CastModeKind::Face(_) | CastModeKind::Fused)
                 && way.cost.symbols().next().is_some()
         })
         .filter_map(|(_, way)| {
