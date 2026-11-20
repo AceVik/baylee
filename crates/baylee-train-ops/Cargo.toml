@@ -72,7 +72,7 @@ path = "src/bin/league4.rs"
 
 [[bin]]
 name = "ladder4"
-path = "src/bin/ladder4.rs"
+path = "src/bin/ladder4/main.rs"
 
 [[bin]]
 name = "paired_eval4"
