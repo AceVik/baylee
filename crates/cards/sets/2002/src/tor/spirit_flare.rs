@@ -37,7 +37,7 @@ card!(
     ),],
     abilities = &[spell!(
         &[
-            Effect::TapTarget,
+            Effect::TapTargetSlot(TargetSlot::First),
             Effect::DamageEqualToPower {
                 dealer: TargetSlot::First,
                 to: TargetSlot::Second

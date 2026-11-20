@@ -3285,6 +3285,57 @@ pub static GNOME_SOLDIER_ARTIFACT_X_X_WHITE_A45F32D9B: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// colorless Vibranium with indestructible.
+pub static VIBRANIUM_INDESTRUCTIBLE_AD775736C: TokenDef = TokenDef {
+    name: "Vibranium",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[artifact::VIBRANIUM],
+    keywords: KeywordSet::INDESTRUCTIBLE,
+    abilities: &[mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)
+        .restricted_for(
+            &Filter::ARTIFACT,
+            SpendRider::None,
+            ManaUse::NonSpellPaymentsOrMatchingSpells
+        )])],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 red Goblin Shaman.
+pub static GOBLIN_SHAMAN_2_2_RED_AD6888B34: TokenDef = TokenDef {
+    name: "Goblin Shaman",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GOBLIN, creature::SHAMAN],
+    power: Some(2),
+    toughness: Some(2),
+    abilities: &[triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[Effect::CreateToken {
+            token: &tokens::TREASURE
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Wolves of the Hunt with bands with other creature namedwolves of the hunt.
+pub static WOLVES_OF_THE_HUNT_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_NAMEDWOLVES_OF_THE_HUNT:
+    TokenDef = TokenDef {
+    name: "Wolves of the Hunt",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WOLF],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::BandsWithOther(&Filter::And(&[
+            Filter::CREATURE,
+            Filter::Named("Wolves of the Hunt")
+        ]))
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -4323,6 +4374,9 @@ pub static ALL: &[&TokenDef] = &[
     &SPLINTER_1_1_GREEN_CUMULATIVE_UPKEEP_G_FLYING,
     &ELEMENTAL_X_X_WHITE_GREEN_A89F4D877,
     &GNOME_SOLDIER_ARTIFACT_X_X_WHITE_A45F32D9B,
+    &VIBRANIUM_INDESTRUCTIBLE_AD775736C,
+    &GOBLIN_SHAMAN_2_2_RED_AD6888B34,
+    &WOLVES_OF_THE_HUNT_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_NAMEDWOLVES_OF_THE_HUNT,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -4575,4 +4629,7 @@ pub static GENERATED: &[&TokenDef] = &[
     &SPLINTER_1_1_GREEN_CUMULATIVE_UPKEEP_G_FLYING,
     &ELEMENTAL_X_X_WHITE_GREEN_A89F4D877,
     &GNOME_SOLDIER_ARTIFACT_X_X_WHITE_A45F32D9B,
+    &VIBRANIUM_INDESTRUCTIBLE_AD775736C,
+    &GOBLIN_SHAMAN_2_2_RED_AD6888B34,
+    &WOLVES_OF_THE_HUNT_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_NAMEDWOLVES_OF_THE_HUNT,
 ];

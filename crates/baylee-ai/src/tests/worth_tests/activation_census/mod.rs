@@ -549,7 +549,13 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // and 2 remaining contextual.
     // Completing 18 Wave 5 pool stubs adds 4 activated abilities on Pemmin's
     // Aura: 3 read by the table and 1 remaining contextual.
-    assert_eq!((read, of), (3226, 4106), "activated/loyalty reader census");
+    // Completing 33 Wave 6/6b/P10-12 pool stubs adds 16 non-mana activated
+    // abilities across 15 cards (Crookclaw Elder (2), Ancestor's Prophet,
+    // Aphetto Grifter, Catapult Master, Catapult Squad, Diversionary Tactics,
+    // Ertai's Familiar, Gangrenous Goliath, Gravespawn Sovereign, Keeper of the
+    // Nine Gales, Slate of Ancestry, Spatial Binding, Spurred Wolverine,
+    // Symbiotic Deployment, and Voice of the Woods): 14 read and 2 contextual.
+    assert_eq!((read, of), (3240, 4122), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
