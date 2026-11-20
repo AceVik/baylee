@@ -30,6 +30,7 @@ pub mod research_cache;
 pub mod research_contract;
 pub mod research_tensor;
 pub mod self_imitation;
+pub mod session_input;
 #[cfg(target_os = "linux")]
 pub mod supervisor;
 pub mod tactician_labels;

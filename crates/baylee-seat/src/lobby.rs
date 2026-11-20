@@ -277,6 +277,17 @@ impl Lobby {
         Ok(Session { token })
     }
 
+    /// The session holder's public display name.
+    ///
+    /// # Errors
+    /// When the gateway cannot verify this session.
+    pub async fn session_name(&self, session: &Session) -> anyhow::Result<String> {
+        self.call("GET", "/me", Some(&session.token), None)
+            .await?
+            .expect_ok("verify the session holder")?
+            .string("display_name")
+    }
+
     /// Stores `deck` under the session (`POST /decks`): its id.
     ///
     /// # Errors
