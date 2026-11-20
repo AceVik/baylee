@@ -859,6 +859,14 @@ checkpoint identities and learner/opponent roles. Each neural actor has its own
 memory and RNG. House, opponent, forced and fallback answers remain distinct;
 only genuine learner stochastic actions have behavior-probability targets.
 
+The `injective_categorical_menu_v1` contract certifies complete categorical
+menus in the collector and their reconstruction during conversion. Duplicate
+or aliased actions, payment rewrites, and unsupported question kinds leave
+the complete decision and memory history intact with zero actor weight.
+Subset, pair, and scalar heads contribute no PPO ratio, advantage normalization
+or sampled behavior KL. An on-policy run without this source contract requires
+fresh collection before admission.
+
 Example CLI shape, inside a bounded CPU or GPU pipeline stage with frozen
 runtime, model/decks and predeclared seeds:
 

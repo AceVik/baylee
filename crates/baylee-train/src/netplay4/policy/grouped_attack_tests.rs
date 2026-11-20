@@ -265,8 +265,8 @@ fn recorded_grouped_attack_preserves_exact_neural_mask_and_lp_but_house_labels_s
     assert_eq!(step.target.multi_mask, mask);
     assert_eq!(step.target.free_mask, free);
     assert_eq!(step.target.pick_sequence, sequence);
-    assert_eq!(step.provenance.behavior_logprob, lp);
-    assert!(step.provenance.has_logprob);
+    assert_eq!(step.provenance.behavior_logprob, 0.0);
+    assert!(!step.provenance.has_logprob);
     let canonical = crate::features4::encode_teacher_action4(&menu, &pending, &action).unwrap();
     assert_ne!(canonical.multi_mask, mask);
     let entry = sidecar

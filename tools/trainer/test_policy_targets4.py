@@ -11,17 +11,19 @@ import torch
 from torch import nn
 import model4 as M
 from test_value_calibration4 import TinyDataset
-from policy_training4.targets import actor_mask, prepare_policy_targets, _learner_histories
+from policy_training4.targets import (ACTION_PROBABILITY_CONTRACT, actor_mask,
+                                      prepare_policy_targets, _learner_histories)
 
 
 class Dataset(TinyDataset):
     def __init__(self, mismatch=False, forced=False):
         super().__init__(16)
-        self.meta={'sampling_version':M.SAMPLING_VERSION, 'policy_provenance_version':2}
+        self.meta={'sampling_version':M.SAMPLING_VERSION, 'policy_provenance_version':2,
+                   'action_probability_contract':ACTION_PROBABILITY_CONTRACT}
         index=np.zeros(6,dtype=[('game','u4'),('seat','u4'),('cursor','u8'),('flags','u4')])
         index['game']=[10]*3+[11]*3;index['cursor']=[0,1,2]*2;index['flags']=[0,0,3,0,0,2]
         self.store=SimpleNamespace(index=index,read=lambda row:{'is_decision':row==2,'head':0,
-            'cand_feat':[[],[]] if not forced else [[]], 'provenance':{'source':'Net','has_logprob':True,'temperature':.6,'behavior_logprob':-math.log(3)},'target':{}})
+            'cand_feat':[[],[]] if not forced else [[]], 'provenance':{'source':'Net','has_logprob':True,'temperature':.6,'behavior_logprob':-math.log(3)},'target':{'single_idx':0}})
         self.mismatch=mismatch
     def __getitem__(self,idx):
         out=super().__getitem__(idx)
@@ -145,26 +147,16 @@ class Targets(unittest.TestCase):
             d.store=SimpleNamespace(index=index,data_path=path)
             self.assertEqual(_learner_histories(d),[[0,1]])
 
-    def test_malformed_subset_after_eligible_choice_is_rejected(self):
+    def test_legacy_subset_or_pair_cannot_select_a_history(self):
         d=Dataset();original=d.store.read
-        # An eligible categorical row earlier in the same trajectory must not
-        # hide a subsequent subset row whose free mask Dataset4 would repair.
-        d.store.index[1]['flags']=1
-        def read(row):
-            st=original(row)
-            if row==1:
-                st.update(is_decision=True)
-            if row==2:
-                st.update(head=1,target={'multi_mask':[0,1]})
-            return st
-        d.store.read=read
-        net=Frozen()
-        with self.assertRaisesRegex(ValueError,'free_mask'):
-            prepare_policy_targets(net,d,'cpu',board_chunk=0)
-        self.assertFalse(net.calls)
-        self.assertFalse(hasattr(d,'ppo_cache'))
+        for head in (1, 2):
+            def read(row):
+                return {**original(row), 'head': head,
+                        'target': {'multi_mask': [1, 1], 'free_mask': [1, 1]}}
+            d.store.read=read
+            self.assertEqual(_learner_histories(d), [])
 
-    def test_nonfinite_provenance_and_nonbinary_raw_masks_are_rejected(self):
+    def test_nonfinite_provenance_and_invalid_categorical_index_are_rejected(self):
         from policy_training4.targets import _raw_choice
         base=Dataset().store.read(2)
         for bad in (float('nan'),float('inf'),0.):
@@ -172,11 +164,10 @@ class Targets(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'provenance'):_raw_choice(st)
         st={**base,'provenance':{**base['provenance'],'behavior_logprob':float('nan')}}
         with self.assertRaisesRegex(ValueError,'provenance'):_raw_choice(st)
-        for mask in ([0], [0,2], [0,float('nan')]):
-            st={**base,'head':1,'target':{'multi_mask':[0,1],'free_mask':mask}}
-            with self.assertRaisesRegex(ValueError,'free_mask'):_raw_choice(st)
+        st={**base,'target':{'single_idx':2}}
+        with self.assertRaisesRegex(ValueError,'outside menu'):_raw_choice(st)
 
-    def test_low_temperature_heuristic_rows_are_not_learner_histories(self):
+    def test_legacy_multichoice_flags_do_not_admit_either_draw_kind(self):
         from policy_training4.targets import _raw_choice
         base = Dataset().store.read(2)
         for head in (1, 2):
@@ -184,18 +175,26 @@ class Targets(unittest.TestCase):
                 step = {**base, 'head': head, 'pairs': [[], []],
                         'target': {'multi_mask': [1, 0], 'free_mask': [1, 1]},
                         'provenance': {**base['provenance'], 'temperature': temperature}}
-                self.assertEqual(_raw_choice(step), temperature > .35)
+                self.assertFalse(_raw_choice(step))
             step['provenance']['source'] = 'House'
             self.assertFalse(_raw_choice(step))
 
-    def test_actor_masks_respect_structural_choices_and_free_masks(self):
+    def test_actor_mask_admits_only_certified_categorical_choices(self):
         b={k:torch.ones(1,5,dtype=torch.bool) for k in ['step_valid','is_decision','has_logprob']}
         b.update(source_kind=torch.zeros(1,5,dtype=torch.long),temperature=torch.ones(1,5),
                  head=torch.tensor([[0,0,1,2,3]]),cand_mask=torch.tensor([[[1,0],[1,1],[1,0],[1,1],[1,1]]],dtype=torch.bool),
                  pair_mask=torch.tensor([[[1,1]]*5],dtype=torch.bool),
                  cand_free_mask=torch.tensor([[[0,0],[0,0],[0,1],[0,0],[0,0]]]),
                  pair_free_mask=torch.tensor([[[0,0],[0,0],[0,0],[1,0],[0,0]]]))
-        self.assertEqual(actor_mask(b).tolist(),[[False,True,False,True,False]])
+        self.assertEqual(actor_mask(b).tolist(),[[False,True,False,False,False]])
+
+    def test_legacy_dataset_without_menu_contract_fails_before_forward(self):
+        d=Dataset()
+        del d.meta['action_probability_contract']
+        net=Frozen()
+        with self.assertRaisesRegex(ValueError,'reconversion'):
+            prepare_policy_targets(net,d,'cpu',board_chunk=0)
+        self.assertFalse(net.calls)
 
 
 

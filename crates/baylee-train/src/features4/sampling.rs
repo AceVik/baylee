@@ -173,13 +173,9 @@ pub fn sample_subset_constrained(
 /// Samples a valid blocker assignment mask for `PairPick` (`ChooseBlockers`)
 /// while enforcing at-most-one-attacker-per-blocker and the counts each
 /// attacker states (`ChooseBlockers::bounds`, [`meet_attacker_bounds`]), and
-/// tracking the conditional `free_mask` and `logprob` of the per-pair draw
-/// (`P0-3`).
-///
-/// The log-probability is `None` where the counts changed the draw: the
-/// returned mask is then not the draw `free_mask` describes, and its exact
-/// probability would be a sum over every draw the counts turn into it, which
-/// is not computed. Such an answer carries no behaviour probability.
+/// tracking `free_mask` and `logprob` for the draw before the counts are
+/// repaired. The executed action can receive mass from several draws, even
+/// when the sampled mask already met the counts; returns `None` if repaired.
 ///
 /// # Panics
 /// If the internal blocker-count map loses an entry inserted in the same call.

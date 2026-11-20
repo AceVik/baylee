@@ -1,11 +1,13 @@
 """Apply Rust-certified learner histories to a PyTorch trajectory dataset."""
 import json
 from pathlib import Path
+from .targets import ACTION_PROBABILITY_CONTRACT
 
 
 def select_learner_histories(dataset, receipt_path, source_hash):
     admission = json.loads(Path(receipt_path).expanduser().read_text())
-    expected = dict(mode='raw', actor_role='learner', precision='float32', thinking_steps=2, temperature=.7)
+    expected = dict(mode='raw', actor_role='learner', precision='float32', thinking_steps=2, temperature=.7,
+                    action_probability_contract=ACTION_PROBABILITY_CONTRACT)
     if (admission.get('version') != 1 or admission.get('admitted') is not True
             or admission.get('source_checkpoint_sha256') != source_hash
             or admission.get('dataset_fingerprint') != dataset.fingerprint

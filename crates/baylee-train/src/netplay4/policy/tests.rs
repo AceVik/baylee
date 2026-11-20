@@ -80,7 +80,7 @@ fn tactical_demonstrations_are_house_never_ppo_and_raw_greedy_scalar_are_not_sto
         assert_eq!(greedy.source, SourceKind4::Net);
         assert!(!greedy.has_logprob);
         let stochastic = PolicyMode4::Raw.provenance(0.8, 4, head, Some(-2.0));
-        assert_eq!(stochastic.has_logprob, head != HeadKind4::ScalarValue);
+        assert_eq!(stochastic.has_logprob, head == HeadKind4::SingleChoice);
         if stochastic.has_logprob {
             assert_eq!(stochastic.behavior_logprob, -2.0);
         }
@@ -95,6 +95,27 @@ fn tactical_demonstrations_are_house_never_ppo_and_raw_greedy_scalar_are_not_sto
     }
     assert!(valid_raw_temperature(0.0));
     assert!(valid_raw_temperature(0.35001));
+}
+
+#[test]
+fn entire_categorical_menu_loses_probability_if_a_candidate_is_aliased() {
+    use crate::features4::supports_behavior_probability4;
+    let view = view();
+    let pending = Pending::Mulligan {
+        player: view.seat,
+        taken: 0,
+        next_is_free: false,
+        can_take: true,
+    };
+    let mut cands = menu(&view, &pending);
+    assert!(supports_behavior_probability4(&cands, &view, &pending));
+    cands.candidates.push(cands.candidates[0].clone());
+    assert!(!supports_behavior_probability4(&cands, &view, &pending));
+    cands.candidates.pop();
+    cands.head = HeadKind4::SubsetPick;
+    assert!(!supports_behavior_probability4(&cands, &view, &pending));
+    cands.head = HeadKind4::PairPick;
+    assert!(!supports_behavior_probability4(&cands, &view, &pending));
 }
 
 #[test]

@@ -272,13 +272,7 @@ pub(super) fn pack(row: &Value, catalog: &Catalog) -> Result<BTreeMap<String, Te
     );
     let has_lp = boolean(&provenance["has_logprob"])?;
     let candidate = boolean(&row["actor_eligible"])?;
-    let genuine = candidate
-        && match head {
-            0 => c > 1,
-            1 | 2 => original_free.iter().any(|v| v == 1),
-            3 => false,
-            _ => anyhow::bail!("unsupported head"),
-        };
+    let genuine = candidate && head == 0 && c > 1;
     for (name, value) in [
         ("head", head),
         ("single_idx", integer(&target["single_idx"])?),

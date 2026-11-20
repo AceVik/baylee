@@ -601,6 +601,62 @@ pub fn decode_action4(
     }
 }
 
+/// Whether the complete sampling menu has a one-to-one action mapping suitable
+/// for a categorical behavior probability. The test depends only on the state
+/// and the offered menu.
+#[must_use]
+pub fn supports_behavior_probability4(
+    cands: &EncodedCandidates4,
+    view: &PlayerView,
+    pending: &Pending,
+) -> bool {
+    // The subset decoder can fill, trim or replace a sampled mask; the pair
+    // sampler merges the mass of multiple draws when it repairs blocker counts.
+    // Payment can rewrite a grouped mana activation's source after decoding.
+    if cands.head != HeadKind4::SingleChoice
+        || cands.candidates.len() < 2
+        || view.owed.is_some()
+        || view.casting.is_some()
+        || !matches!(
+            pending,
+            Pending::Priority { .. }
+                | Pending::Mulligan { .. }
+                | Pending::YesNo { .. }
+                | Pending::ChooseColor { .. }
+                | Pending::ChooseSubtype { .. }
+                | Pending::ChooseCardType { .. }
+                | Pending::ChooseCardName { .. }
+                | Pending::ChoosePlayer { .. }
+                | Pending::ChoosePile { .. }
+        )
+    {
+        return false;
+    }
+    cands.candidates.iter().enumerate().all(|(index, candidate)| {
+        let Some(action) = candidate.action.as_ref() else {
+            return false;
+        };
+        // Granted paths can alias an ordinary cast. The mana shortcut can
+        // dispatch the same activation as a specifically indexed mana ability.
+        if matches!(action, PlayerAction::TakeGrantedAction { .. })
+            || pending.answer_fault(action).is_some()
+            || encode_executed_action4(cands, pending, action)
+                .is_none_or(|target| usize::from(target.single_idx) != index)
+        {
+            return false;
+        }
+        if let PlayerAction::ActivateManaAbility { source } = action {
+            return !cands.candidates.iter().any(|other| {
+                matches!(&other.action, Some(PlayerAction::ActivateAbility { source: indexed, .. })
+                    if indexed == source
+                        || candidate.group_object_ids.contains(indexed)
+                        || other.group_object_ids.contains(source))
+            });
+        }
+        true
+    })
+}
+
 fn choose_best_attack_target(view: &PlayerView, targets: &[Defender]) -> Option<Defender> {
     // Prefer an opponent player who can be killed or has the lowest positive life
     let mut best: Option<(i32, Defender)> = None;

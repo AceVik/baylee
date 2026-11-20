@@ -10,79 +10,52 @@ import torch
 from torch.utils.data import DataLoader
 import dataset4 as D
 import model4 as M
-from trajectory_store4 import BST4_HDR, BST4_MAGIC, bst4_payload_end
+from trajectory_store4 import BST4_HDR, BST4_MAGIC
 from train_rl4 import action_logprob_and_kl
 from training4.execution import encode_boards
 
+ACTION_PROBABILITY_CONTRACT = 'injective_categorical_menu_v1'
 
 def actor_mask(batch):
-    """Only recorded stochastic neural choices with at least one free choice."""
-    base = (batch['step_valid'] & batch['is_decision'] & (batch['source_kind'] == 0)
-            & batch['has_logprob'] & (batch['temperature'] > 1e-4))
-    choices = ((batch['head'] == 0) & (batch['cand_mask'].sum(-1) > 1))
-    choices |= ((batch['head'] == 1) & (batch['temperature'] > 0.35)
-                & ((batch['cand_free_mask'] > 0) & batch['cand_mask']).any(-1))
-    choices |= ((batch['head'] == 2) & (batch['temperature'] > 0.35)
-                & ((batch['pair_free_mask'] > 0) & batch['pair_mask']).any(-1))
-    return base & choices
+    """Recorded stochastic choices from converter-certified categorical menus."""
+    return (batch['step_valid'] & batch['is_decision'] & (batch['source_kind'] == 0)
+            & batch['has_logprob'] & (batch['temperature'] > 0.35)
+            & (batch['head'] == 0) & (batch['cand_mask'].sum(-1) > 1))
 
 
 def _raw_choice(step):
     p = step.get('provenance', {})
-    if not (step.get('is_decision') and p.get('source') in ('Net', 0) and p.get('has_logprob')):
+    if not (step.get('is_decision') and p.get('source') in ('Net', 0)
+            and p.get('has_logprob') and step['head'] == 0):
         return False
     temperature = float(p.get('temperature', float('nan')))
     logprob = float(p.get('behavior_logprob', float('nan')))
-    if not np.isfinite(temperature) or temperature <= 1e-4 or not np.isfinite(logprob):
+    if not np.isfinite(temperature) or temperature <= 0.35 or not np.isfinite(logprob) or logprob > 1e-6:
         raise ValueError('Malformed stochastic neural provenance: temperature/logprob')
-    head = int(step['head'])
-    if head == 0:
-        return len(step['cand_feat']) > 1
-    if head in (1, 2):
-        size = len(step['cand_feat'] if head == 1 else step['pairs'])
-        target = step.get('target', {})
-        for name in ('multi_mask', 'free_mask'):
-            mask = target.get(name)
-            if not isinstance(mask, list) or len(mask) != size or any(
-                    not isinstance(x, (int, float)) or not np.isfinite(x) or x not in (0, 1) for x in mask):
-                raise ValueError('Malformed stochastic neural ' + name)
-        return temperature > 0.35 and any(target['free_mask'])
-    if head == 3:
-        raise ValueError('Scalar action falsely claims stochastic behavior probability')
-    raise ValueError('Unknown stochastic neural action head')
+    size = len(step['cand_feat'])
+    if not 0 <= step['target']['single_idx'] < size:
+        raise ValueError('Categorical target outside menu')
+    return size > 1
 
 
 def _bst4_choice(blob: bytes) -> bool:
     header = BST4_HDR.unpack_from(blob, 0)
     (
         _magic, _ver, _game_id, _seat, _step_cursor, _turn, flags, head, _pending_kind,
-        src_kind, _pad0, _k, _single_idx, _loss_weight, _scalar_norm, _outcome,
+        src_kind, _pad0, _k, single_idx, _loss_weight, _scalar_norm, _outcome,
         _aux0, _aux1, _aux2, _aux3, logprob, temperature,
         _n_ent, _ent_width, _ent_rule_cols, _seat_width, _global_width, _n_edg,
-        n_cand, _cand_width, _cand_rule_cols, n_pair, n_mm, n_fm,
+        n_cand, _cand_width, _cand_rule_cols, _n_pair, _n_mm, _n_fm,
     ) = header
     is_decision = bool(flags & 1)
     has_logprob = bool(flags & 4)
-    if not (is_decision and src_kind == 0 and has_logprob):
+    if not (is_decision and src_kind == 0 and has_logprob and head == 0):
         return False
-    if not np.isfinite(temperature) or temperature <= 1e-4 or not np.isfinite(logprob):
+    if not np.isfinite(temperature) or temperature <= 0.35 or not np.isfinite(logprob) or logprob > 1e-6:
         raise ValueError('Malformed stochastic neural provenance: temperature/logprob')
-    if head == 0:
-        return n_cand > 1
-    if head in (1, 2):
-        size = n_cand if head == 1 else n_pair
-        if n_mm != size or n_fm != size:
-            raise ValueError('Malformed stochastic neural mask length')
-        # The masks end the payload; a distillation block may follow.
-        end = bst4_payload_end(header)
-        mm = blob[end - n_mm - n_fm : end - n_fm]
-        fm = blob[end - n_fm : end]
-        if any(b not in (0, 1) for b in mm) or any(b not in (0, 1) for b in fm):
-            raise ValueError('Malformed stochastic neural mask values')
-        return temperature > 0.35 and any(fm)
-    if head == 3:
-        raise ValueError('Scalar action falsely claims stochastic behavior probability')
-    raise ValueError('Unknown stochastic neural action head')
+    if not 0 <= single_idx < n_cand:
+        raise ValueError('Categorical target outside menu')
+    return n_cand > 1
 
 
 def _learner_histories(dataset):
@@ -191,6 +164,8 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
         raise ValueError('PPO requires certified raw-policy provenance version 2; archived data remains BC-only')
     if dataset.meta.get('sampling_version') != M.SAMPLING_VERSION:
         raise ValueError('Incompatible recorded sampling contract')
+    if dataset.meta.get('action_probability_contract') != ACTION_PROBABILITY_CONTRACT:
+        raise ValueError('PPO requires reconversion to certify categorical action probabilities')
     if any(p.dtype != torch.float32 for p in net.parameters()):
         raise ValueError('Frozen target preparation requires FP32 parameters')
     original = dataset.trajectories

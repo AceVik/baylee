@@ -47,23 +47,28 @@ pub(super) fn validate(
         "research source forcedness differs from reconstructed menu"
     );
     ensure!(
-        valid_behavior(menu.head, provenance),
+        valid_behavior(&menu, view, pending, provenance),
         "invalid research behavior provenance: {provenance:?}"
     );
     Ok(())
 }
 
-/// The research behaviour contract for an answer at a question of `head`.
-fn valid_behavior(head: HeadKind4, provenance: &StepProvenance4) -> bool {
+/// The research behaviour contract for an answer at `menu`.
+fn valid_behavior(
+    menu: &CandidateMenu4,
+    view: &PlayerView,
+    pending: &Pending,
+    provenance: &StepProvenance4,
+) -> bool {
     match provenance.source {
         SourceKind4::Forced => !provenance.has_logprob && provenance.behavior_logprob == 0.0,
         SourceKind4::Net => {
-            let scalar = head == HeadKind4::ScalarValue;
-            // A blocker draw the attackers' counts changed carries no
-            // probability (`sample_pairs_constrained`); every other choice
-            // carries its own.
-            let undrawn = head == HeadKind4::PairPick && !provenance.has_logprob;
-            (provenance.has_logprob != scalar || undrawn)
+            let scalar = menu.head == HeadKind4::ScalarValue;
+            let supported = crate::features4::supports_behavior_probability4(menu, view, pending);
+            // Historical original sidecars may claim an LP for an unsafe menu.
+            // Feature replay discards it before publishing any actor target.
+            (!supported || provenance.has_logprob)
+                && (!scalar || !provenance.has_logprob)
                 && (provenance.has_logprob || provenance.behavior_logprob == 0.0)
                 && provenance.behavior_logprob.is_finite()
                 && provenance.behavior_logprob <= 0.0
@@ -77,11 +82,49 @@ fn valid_behavior(head: HeadKind4, provenance: &StepProvenance4) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::features4::encode_candidates7_grouped;
+    use baylee_core::card::CardIndex;
+    use baylee_core::ids::PlayerId;
+    use baylee_engine::actions::Pending;
+    use baylee_engine::rules::state::{PlayerView, SeatState, ZoneSummary};
 
-    /// Only a blocker draw the attackers' counts changed may come without a
-    /// behaviour probability, and then with a zero logprob.
+    fn test_menu(head: HeadKind4) -> (PlayerView, Pending, CandidateMenu4) {
+        let seat = PlayerId::new(0);
+        let view = PlayerView {
+            seat,
+            active_player: seat,
+            priority_holder: Some(seat),
+            seats: vec![SeatState::default(); 2],
+            zones: ZoneSummary::default(),
+            ..PlayerView::default()
+        };
+        let pending = Pending::Mulligan {
+            player: seat,
+            taken: 0,
+            next_is_free: false,
+            can_take: true,
+        };
+        let state = crate::features7::encode_state7(&view, Some(&pending), None, &[]);
+        let mut menu = encode_candidates7_grouped(&state, &view, &pending);
+        menu.head = head;
+        if head == HeadKind4::SingleChoice {
+            assert!(menu.candidates.len() > 1);
+            assert!(
+                menu.candidates
+                    .iter()
+                    .all(|cand| matches!(cand.action, baylee_core::actions::PlayerAction::MulliganKeep | baylee_core::actions::PlayerAction::MulliganTake))
+            );
+        } else {
+            let _ = CardIndex::new(0);
+        }
+        (view, pending, menu)
+    }
+
+    /// Under `injective_categorical_menu_v1`, only supported categorical
+    /// menus require a behavior probability; other heads/unsafe menus may
+    /// carry none (with zero logprob), while scalar values never claim one.
     #[test]
-    fn only_a_pair_answer_may_lack_its_behavior_probability() {
+    fn only_supported_categorical_menus_require_behavior_probability() {
         let net = |has_logprob, behavior_logprob| StepProvenance4 {
             source: SourceKind4::Net,
             temperature: 0.7,
@@ -89,20 +132,18 @@ mod tests {
             behavior_logprob,
             has_logprob,
         };
-        for head in [
-            HeadKind4::SingleChoice,
-            HeadKind4::SubsetPick,
-            HeadKind4::PairPick,
-        ] {
-            assert!(valid_behavior(head, &net(true, -0.7)), "{head:?}");
-            assert_eq!(
-                valid_behavior(head, &net(false, 0.0)),
-                head == HeadKind4::PairPick,
-                "{head:?}"
-            );
-            assert!(!valid_behavior(head, &net(false, -0.7)), "{head:?}");
+        let (view, pending, single) = test_menu(HeadKind4::SingleChoice);
+        assert!(valid_behavior(&single, &view, &pending, &net(true, -0.7)));
+        assert!(!valid_behavior(&single, &view, &pending, &net(false, 0.0)));
+        assert!(!valid_behavior(&single, &view, &pending, &net(false, -0.7)));
+        for head in [HeadKind4::SubsetPick, HeadKind4::PairPick] {
+            let (view, pending, menu) = test_menu(head);
+            assert!(valid_behavior(&menu, &view, &pending, &net(true, -0.7)), "{head:?}");
+            assert!(valid_behavior(&menu, &view, &pending, &net(false, 0.0)), "{head:?}");
+            assert!(!valid_behavior(&menu, &view, &pending, &net(false, -0.7)), "{head:?}");
         }
-        assert!(valid_behavior(HeadKind4::ScalarValue, &net(false, 0.0)));
-        assert!(!valid_behavior(HeadKind4::ScalarValue, &net(true, -0.7)));
+        let (view, pending, scalar) = test_menu(HeadKind4::ScalarValue);
+        assert!(valid_behavior(&scalar, &view, &pending, &net(false, 0.0)));
+        assert!(!valid_behavior(&scalar, &view, &pending, &net(true, -0.7)));
     }
 }

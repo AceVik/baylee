@@ -51,6 +51,11 @@ fn ordinary_contract(contract: &Value) -> anyhow::Result<()> {
 fn on_policy_contract(run: &Value) -> anyhow::Result<()> {
     let contract = &run["collection_contract"];
     ensure!(
+        run["action_probability_contract"]
+            == baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT,
+        "on-policy source predates categorical action certification; recollect with the matching evaluator"
+    );
+    ensure!(
         contract["version"] == 1
             && contract["precision"] == "float32"
             && contract["seat_rng_rule"] == "independent_policy_seed_xor_physical_seat_v1"
@@ -66,6 +71,12 @@ fn on_policy_contract(run: &Value) -> anyhow::Result<()> {
             && run["seats"] == 2
             && run["held_out_cards"] == false
             && run["holdout_tier"] == ""
+            && run["choice_guard"] == "off"
+            && run["tactics_rules"] == ""
+            && run["dev_arms"]["free_temperature"] == false
+            && run["dev_arms"]["menu_payable"] == false
+            && run["tactician"].is_null()
+            && run["search"].is_null()
             && (run["decks_manifest"].is_null() || run["deck_split"] == "train")
             && run["shadow_teacher"].is_null(),
         "invalid on-policy source contract"
@@ -274,7 +285,12 @@ pub(super) fn publish(
     meta: &Value,
     games: &[(u32, &GameBinding)],
 ) -> anyhow::Result<()> {
-    ensure!(!games.is_empty(), "empty on-policy conversion");
+    ensure!(
+        !games.is_empty()
+            && meta["action_probability_contract"]
+                == baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT,
+        "empty or uncertified on-policy conversion"
+    );
     let source = &games[0].1.run.source_checkpoint_sha256;
     let mut source_games = BTreeSet::new();
     let mut source_runs = BTreeSet::new();
@@ -301,7 +317,9 @@ pub(super) fn publish(
         &root.join("collection.json"),
         &json!({"version":1,"purpose":"on_policy_training",
         "source_checkpoint_sha256":source,"precision":"float32","mode":"raw",
-        "policy_provenance_version":2,"sampling_version":2,"dataset_files":dataset_files,
+        "policy_provenance_version":2,"sampling_version":2,
+        "action_probability_contract":baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT,
+        "dataset_files":dataset_files,
         "games":games.iter().map(|(id,game)|game.manifest(*id)).collect::<Vec<_>>() }),
     )?;
     Ok(())
@@ -354,6 +372,8 @@ mod tests {
                 "depth_graph_sha256":{"0":"d".repeat(64),"2":"e".repeat(64)}});
             let run = json!({"policy_mode":"raw","policy_contract":"raw_neural_sampler2_v1",
                 "policy_provenance_version":2,"sampling_version":2,"thinking_steps":2,"temperature":0.7,
+                "action_probability_contract":baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT,
+                "choice_guard":"off","tactics_rules":"","dev_arms":{"free_temperature":false,"menu_payable":false},
                 "training_data":true,"seats":2,"held_out_cards":false,"holdout_tier":"",
                 "model_identity":model,"planned_deals":1,"deal_offset":0,
                 "collection_contract":{"version":1,"purpose":"on_policy_training","precision":"float32",
@@ -433,6 +453,24 @@ mod tests {
         );
         fs::remove_file(fixture.root.join("run.complete.json")).unwrap();
         assert!(RunBinding::load(&fixture.root, &fixture.run).is_err());
+    }
+
+    #[test]
+    fn a_precontract_rollout_or_an_action_modifier_cannot_certify() {
+        let fixture = Fixture::new();
+        let mut archived = fixture.run.clone();
+        archived
+            .as_object_mut()
+            .unwrap()
+            .remove("action_probability_contract");
+        assert!(on_policy_contract(&archived).is_err());
+        let mut modified = fixture.run.clone();
+        modified["dev_arms"]["menu_payable"] = json!(true);
+        assert!(on_policy_contract(&modified).is_err());
+        let mut modified = fixture.run.clone();
+        modified["choice_guard"] = json!("react");
+        assert!(on_policy_contract(&modified).is_err());
+        assert!(on_policy_contract(&fixture.run).is_ok());
     }
 
     #[test]

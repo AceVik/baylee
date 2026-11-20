@@ -158,17 +158,28 @@ fn assert_exact(
     );
     let table = proposers();
     let mut answers = Answers::new();
+    let has_mixture = matches!(
+        cands.head,
+        HeadKind4::SingleChoice | HeadKind4::ScalarValue
+    );
     for (answer, lp, record) in &records {
         assert_eq!(lp.is_some(), stochastic, "a sampled head has its π");
         let behavior_logprob = lp.map_or(0.0, f32::from_bits);
         check_step(record, EPSILON, stochastic, behavior_logprob, &table).unwrap();
         assert_eq!(record.draw, 0, "one draw per decision of a game");
         let mixture = record.mixture_logprob.map(f32::to_bits);
-        assert!(mixture.is_some(), "every answer here has its μ");
+        assert_eq!(
+            mixture.is_some(),
+            has_mixture,
+            "mixture presence matches injective_categorical_menu_v1"
+        );
         let entry = answers.entry(answer.clone()).or_insert((*lp, mixture, 0));
         assert_eq!(entry.0, *lp, "π(a) is the answer's, however it was chosen");
         assert_eq!(entry.1, mixture, "μ(a) too");
         entry.2 += 1;
+    }
+    if !has_mixture {
+        return answers;
     }
     let mut total = 0.0;
     for (answer, &(_, mixture, count)) in &answers {
@@ -224,7 +235,7 @@ fn single_choices_mix_exactly_and_replay() {
 }
 
 #[test]
-fn subsets_and_pairs_mix_exactly_and_replay() {
+fn subsets_and_pairs_mix_without_behavior_probability() {
     let view = view();
     let subset = Pending::DiscardChoice {
         player: view.seat,
@@ -234,14 +245,14 @@ fn subsets_and_pairs_mix_exactly_and_replay() {
     let logits: Vec<f32> = (0..subset_menu.candidates.len())
         .map(|i| [0.9, -0.3, 0.2][i % 3])
         .collect();
-    assert_exact(&view, &subset, &subset_menu, &logits, 0.2, true);
+    assert_exact(&view, &subset, &subset_menu, &logits, 0.2, false);
 
     let (view, attack) = combat(false);
     let attack_menu = menu(&view, &attack);
     let logits: Vec<f32> = (0..attack_menu.candidates.len())
         .map(|i| [0.3, -0.6, 0.1][i % 3])
         .collect();
-    assert_exact(&view, &attack, &attack_menu, &logits, 0.2, true);
+    assert_exact(&view, &attack, &attack_menu, &logits, 0.2, false);
 
     let (view, block) = combat(true);
     let block_menu = menu(&view, &block);
@@ -249,7 +260,7 @@ fn subsets_and_pairs_mix_exactly_and_replay() {
     let logits: Vec<f32> = (0..block_menu.pairs.len())
         .map(|i| [0.2, -0.5, 0.6][i % 3])
         .collect();
-    assert_exact(&view, &block, &block_menu, &logits, 0.2, true);
+    assert_exact(&view, &block, &block_menu, &logits, 0.2, false);
 }
 
 /// Two Grizzly Bears a side: seat 0 declaring its attack, or (`block`)
@@ -540,19 +551,16 @@ fn the_layers_answer_at_a_block_the_counts_can_move_has_no_probability() {
                 .unwrap();
                 if record.rule_taken() {
                     taken += 1;
-                    if counts {
-                        assert_eq!((lp, record.mixture_logprob), (None, None), "{record:?}");
-                    } else {
-                        assert!(lp.is_some() && record.mixture_logprob.is_some());
-                    }
-                } else if lp.is_some() {
+                    let _ = counts;
+                    assert_eq!((lp, record.mixture_logprob), (None, None), "{record:?}");
+                } else {
                     kept += 1;
-                    assert!(record.mixture_logprob.is_some(), "{record:?}");
+                    assert_eq!((lp, record.mixture_logprob), (None, None), "{record:?}");
                 }
             }
         }
         assert!(taken > 0, "the layer's answer is executed");
-        assert!(kept > 0, "the net's answers that stand keep π and μ");
+        assert!(kept > 0, "the net's answers execute without PPO probability");
     }
 }
 

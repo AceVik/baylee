@@ -13,7 +13,7 @@ fn setup(edit: impl FnOnce(&mut Vec<Value>, &mut Value)) -> (tempfile::TempDir, 
     fs::create_dir(root.join("train")).unwrap();
     fs::write(root.join("net.pt"), b"test checkpoint identity only").unwrap();
     let sha = files::sha256(&root.join("net.pt")).unwrap();
-    let mut meta = json!({"trajectory_version":2,"encoder_version":8,"policy_provenance_version":2,"sampling_version":2,"train_shards":["steps-0.jsonl.gz"],"val_shards":[]});
+    let mut meta = json!({"trajectory_version":2,"encoder_version":8,"policy_provenance_version":2,"sampling_version":2,"action_probability_contract":ACTION_PROBABILITY_CONTRACT,"train_shards":["steps-0.jsonl.gz"],"val_shards":[]});
     let mut rows = vec![
         row(0, 0, false),
         row(1, 0, false),
@@ -41,6 +41,7 @@ fn setup(edit: impl FnOnce(&mut Vec<Value>, &mut Value)) -> (tempfile::TempDir, 
     gz.finish().unwrap();
     let collection = json!({"version":1,"purpose":"on_policy_training","source_checkpoint_sha256":sha,"mode":"raw","precision":"float32","policy_provenance_version":2,"sampling_version":2,"dataset_files":seal_dataset_files(root,&meta).unwrap(),"games":[{"game_id":1,"source_game":"fixture-game-1","source_run_sha256":"b".repeat(64),"record_sha256":"c".repeat(64),"complete":true,"capped":false,"fallback_answers":0,"refused_answers":0,"unencoded_decisions":0,"seats":[{"seat":0,"role":"learner","checkpoint_sha256":sha,"thinking_steps":2,"temperature":0.7},{"seat":1,"role":"historical","checkpoint_sha256":"a".repeat(64),"thinking_steps":2,"temperature":0.7}]}]});
     let mut collection = collection;
+    collection["action_probability_contract"] = json!(ACTION_PROBABILITY_CONTRACT);
     collection["games"][0]["source_run_sha256"] = json!("c".repeat(64));
     collection["games"][0]["record_sha256"] = json!("d".repeat(64));
     collection["games"][0]["source_game"] = json!("fixture-game");
@@ -64,6 +65,42 @@ fn admits_only_learner_and_binds_all_content() {
     assert_eq!(verify(temp.path(), &checkpoint, &receipt).unwrap(), report);
     fs::write(temp.path().join("token_dsl.bin"), b"changed").unwrap();
     assert!(verify(temp.path(), &checkpoint, &receipt).is_err());
+}
+
+#[test]
+fn pair_and_subset_frames_stay_in_history_without_action_probability() {
+    for head in [1, 2] {
+        for claims_probability in [false, true] {
+            let (temp, checkpoint, manifest) = setup(|rows, _| {
+                let row = &mut rows[0];
+                row["head"] = json!(head);
+                row["pairs"] = json!([[0, 1], [1, 2]]);
+                row["target"] = json!({"multi_mask":[1,1],"free_mask":[1,1]});
+                if !claims_probability {
+                    row["provenance"]["has_logprob"] = json!(false);
+                    row["provenance"]["behavior_logprob"] = json!(0.0);
+                }
+            });
+            let result = admit(temp.path(), &checkpoint, &manifest);
+            if claims_probability {
+                assert!(result.is_err());
+            } else {
+                let receipt = result.unwrap();
+                assert_eq!(receipt["decisions"], 1);
+                assert_eq!(receipt["learner_histories"], 1);
+            }
+        }
+    }
+}
+
+#[test]
+fn archived_attempt_without_action_contract_is_refused() {
+    let (temp, checkpoint, manifest) = setup(|_, meta| {
+        meta.as_object_mut()
+            .unwrap()
+            .remove("action_probability_contract");
+    });
+    assert!(admit(temp.path(), &checkpoint, &manifest).is_err());
 }
 
 #[test]
@@ -105,23 +142,25 @@ fn rejects_broken_history_and_off_policy_actions() {
     }
 }
 
-/// A blocker draw the attackers' counts changed carries no probability
-/// (`sample_pairs_constrained`): it is admitted but counts as no actor
-/// decision. Only the pair head may lack one, and only with a zero logprob.
+/// A blocker draw without probability (`sample_pairs_constrained` /
+/// `injective_categorical_menu_v1`): it is admitted but counts as no actor
+/// decision, and excluded neural actions must carry a zero logprob.
 #[test]
 fn a_blocker_draw_without_probability_is_admitted_but_not_counted() {
     let undrawn = |rows: &mut Vec<Value>, head: u8, logprob: f64| {
         rows[0]["head"] = json!(head);
         rows[0]["cand_feat"] = json!([[], []]);
         rows[0]["pairs"] = json!([[], []]);
-        rows[0]["target"] = json!({"multi_mask":[1,0],"free_mask":[1,0]});
+        if head != 0 {
+            rows[0]["target"] = json!({"multi_mask":[1,0],"free_mask":[1,0]});
+        }
         rows[0]["provenance"]["has_logprob"] = json!(false);
         rows[0]["provenance"]["behavior_logprob"] = json!(logprob);
     };
     let (temp, checkpoint, manifest) = setup(|rows, _| undrawn(rows, 2, 0.0));
     let report = admit(temp.path(), &checkpoint, &manifest).unwrap();
     assert_eq!(report["decisions"], 1);
-    for (head, logprob) in [(1, 0.0), (2, -0.7)] {
+    for (head, logprob) in [(0, 0.0), (2, -0.7)] {
         let (temp, checkpoint, manifest) = setup(|rows, _| undrawn(rows, head, logprob));
         assert!(
             admit(temp.path(), &checkpoint, &manifest).is_err(),

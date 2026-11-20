@@ -17,6 +17,9 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+/// The converter certifies all options of each admitted categorical menu.
+pub const ACTION_PROBABILITY_CONTRACT: &str = "injective_categorical_menu_v1";
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 #[allow(
@@ -75,6 +78,7 @@ struct Collection {
     mode: String,
     policy_provenance_version: u32,
     sampling_version: u32,
+    action_probability_contract: String,
     /// Relative dataset file names with content seals, published by conversion.
     dataset_files: BTreeMap<String, String>,
     games: Vec<Game>,
@@ -171,7 +175,8 @@ fn collection_roles(
             && collection.mode == "raw"
             && collection.precision == "float32"
             && collection.policy_provenance_version == 2
-            && collection.sampling_version == 2,
+            && collection.sampling_version == 2
+            && collection.action_probability_contract == ACTION_PROBABILITY_CONTRACT,
         "incompatible or non-training collection contract"
     );
     ensure!(
@@ -301,6 +306,7 @@ pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<V
         meta["trajectory_version"] == 2
             && meta["sampling_version"] == 2
             && meta["policy_provenance_version"] == 2
+            && meta["action_probability_contract"] == ACTION_PROBABILITY_CONTRACT
             && matches!(meta["encoder_version"].as_u64(), Some(7..=10)),
         "dataset trajectory/encoder/provenance contract mismatch"
     );
@@ -373,7 +379,7 @@ pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<V
             && dataset_fingerprint(root)? == fingerprint,
         "inputs changed during admission"
     );
-    let mut receipt = json!({"version":1,"admitted":true,"source_checkpoint_sha256":source_sha,"dataset_fingerprint":fingerprint,"collection_contract":{"mode":"raw","actor_role":"learner","precision":"float32","thinking_steps":2,"temperature":0.7},"admitted_learner_histories":admitted,"completed_games":collection.games.len(),"learner_histories":admitted.len(),"decisions":decisions,"excluded_invalid_games":0,"dataset_files":inputs,"collection_manifest":collection_path.canonicalize()?,"collection_manifest_sha256":collection_sha,"probability_replay_required":true});
+    let mut receipt = json!({"version":1,"admitted":true,"source_checkpoint_sha256":source_sha,"dataset_fingerprint":fingerprint,"collection_contract":{"mode":"raw","actor_role":"learner","precision":"float32","thinking_steps":2,"temperature":0.7,"action_probability_contract":ACTION_PROBABILITY_CONTRACT},"admitted_learner_histories":admitted,"completed_games":collection.games.len(),"learner_histories":admitted.len(),"decisions":decisions,"excluded_invalid_games":0,"dataset_files":inputs,"collection_manifest":collection_path.canonicalize()?,"collection_manifest_sha256":collection_sha,"probability_replay_required":true});
     if !mixtures.games.is_empty() {
         // Only exploring collections name it, so other receipts stay as they were.
         receipt["behavior_mixture"] = json!({"contract":crate::exploration::CONTRACT,

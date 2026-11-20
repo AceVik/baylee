@@ -506,6 +506,13 @@ fn replay_feature_frames(
                             shadow_label = Some(identity);
                         }
                     }
+                    if prov.has_logprob
+                        && !crate::features4::supports_behavior_probability4(
+                            &cands, &view, &pending,
+                        )
+                    {
+                        prov.clear_behavior_probability();
+                    }
                     coverage.record(p_kind, prov.source);
                     let s_idx = seat_u8 as usize;
                     let sc = seat_cursors[s_idx];

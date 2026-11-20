@@ -169,13 +169,17 @@ impl RuleExplorer4 {
             logprob = play(step, answer, target)?;
             self.played += 1;
         }
-        // The layer's answer executed at a block whose stated counts can move
-        // a draw: other draws may be moved into it, so neither π(R) nor
-        // μ(R) is its draw's alone, and the sum over them is not computed.
-        if step.cands.head == HeadKind4::PairPick
-            && exploration::rule_taken(rule, played)
-            && attacker_counts_may_move(step.cands, step.pending)
-        {
+        // Under `injective_categorical_menu_v1`, only supported SingleChoice
+        // categorical menus carry a behavior probability π(a) and mixture
+        // log-probability μ(a). SubsetPick, PairPick, and unsafe SingleChoice
+        // menus have none.
+        let supports_prob = step.cands.head == HeadKind4::SingleChoice
+            && crate::features4::supports_behavior_probability4(
+                step.cands,
+                step.view,
+                step.pending,
+            );
+        if step.cands.head != HeadKind4::ScalarValue && !supports_prob {
             logprob = None;
         }
         let behavior = match logprob {
