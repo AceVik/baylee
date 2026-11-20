@@ -519,6 +519,14 @@ struct Args {
     /// default) keeps the settled stop.
     #[arg(long, default_value_t = 0, requires = "search")]
     search_turns: usize,
+    /// Continue beyond ordinary turn and settled-priority stops. A search
+    /// guard or refusal still censors a fork. Only terminal leaves are game
+    /// outcomes. For paired offline measurements of the distillation rival.
+    #[arg(long, requires = "search", conflicts_with = "search_turns")]
+    search_until_game_over: bool,
+    /// Earliest public turn number on which a measurement can sample a root.
+    #[arg(long, default_value_t = 0, requires = "search")]
+    search_min_turn: u32,
     /// Macro candidates at priority: the policy's answer, a pass, each spell
     /// the planner can pay for (its taps and the cast as one candidate),
     /// each ability and each land, read off the engine's offer, K in all.
@@ -657,6 +665,10 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
     if let Some(refusal) = rival_refusal(args) {
         anyhow::bail!(refusal);
     }
+    anyhow::ensure!(
+        !(args.search_until_game_over || args.search_min_turn > 0) || distill_probe(args),
+        "terminal or turn-filtered measurements require a fair, measuring distillation rival"
+    );
     let rival = match args.search_rival {
         SearchRival::Ranking => baylee_train::netplay4::search::Rival4::Ranking,
         SearchRival::Distill => baylee_train::netplay4::search::Rival4::Distill,
@@ -671,6 +683,7 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         .with_neural_opponent(args.search_neural_opponent)
         .with_fair(args.search_fair)
         .with_turns(args.search_turns)?
+        .with_game_end(args.search_until_game_over)
         .with_macros(args.search_macros)
         .with_house_free(args.search_house_free)
         .with_stall_guard(args.search_stall_guard)
@@ -912,6 +925,9 @@ fn search_metadata(
 ) -> Option<Value> {
     let mut metadata = config?.metadata();
     metadata["max_decisions_per_game"] = json!(args.search_max_decisions_per_game);
+    if args.search_min_turn > 0 {
+        metadata["min_turn"] = json!(args.search_min_turn);
+    }
     // A row's outputs in a batch differ from its outputs alone, and which
     // rows share a batch depends on timing: a batched search is not
     // reproducible bit for bit (`docs/trained-ai.md` §"Lookahead search").

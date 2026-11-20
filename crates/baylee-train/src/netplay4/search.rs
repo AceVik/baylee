@@ -130,6 +130,7 @@ pub struct SearchConfig4 {
     combat_only: bool,
     decks: Decks4,
     turns: usize,
+    until_game_over: bool,
     macros: bool,
     house: HouseInWorlds4,
     taken_back: TakenBackAtRoots4,
@@ -245,6 +246,7 @@ impl SearchConfig4 {
             combat_only: false,
             decks: Decks4::Known,
             turns: 0,
+            until_game_over: false,
             macros: false,
             house: HouseInWorlds4::Answers,
             taken_back: TakenBackAtRoots4::Compared,
@@ -309,6 +311,16 @@ impl SearchConfig4 {
     #[must_use]
     pub const fn turns(&self) -> usize {
         self.turns
+    }
+
+    /// Keeps rolling past turn boundaries and settled priorities until the
+    /// game ends, subject to the usual decision, action and refusal guards.
+    #[must_use]
+    pub const fn with_game_end(self, enabled: bool) -> Self {
+        Self {
+            until_game_over: enabled,
+            ..self
+        }
     }
 
     /// The same search with macro candidates at priority (`search/macros.rs`):
@@ -463,7 +475,7 @@ impl SearchConfig4 {
     /// The contract this search keeps.
     #[must_use]
     pub const fn contract(&self) -> &'static str {
-        if self.fair() || self.turns > 0 || self.macros {
+        if self.fair() || self.turns > 0 || self.until_game_over || self.macros {
             SEARCH_CONTRACT_FORESIGHT
         } else if self.combat > 0 {
             SEARCH_CONTRACT_COMBAT
@@ -620,6 +632,11 @@ impl SearchConfig4 {
         if self.turns > 0 {
             metadata["turns"] = json!(self.turns);
             metadata["stop"] = json!("game_over_or_the_turn_boundary_after_turns_turns_or_horizon");
+        }
+        if self.until_game_over {
+            metadata["until_game_over"] = json!(true);
+            metadata["stop"] = json!("game_over_or_decision_action_or_refusal_guard");
+            metadata["max_rollout_actions"] = json!(rollout::MAX_ROLLOUT_ACTIONS);
         }
         metadata["house_in_worlds"] = json!(self.house);
         if self.macros {

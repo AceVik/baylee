@@ -202,6 +202,8 @@ fn event(table: &Session, view: &PlayerView, answer: &Answer4, report: &SearchRe
 /// One game's search: its budgets, its seed, its counts and what each
 /// searched decision compared.
 pub(super) struct GameSearch {
+    /// Earliest public turn on which to measure a root; zero includes all.
+    pub min_turn: u32,
     config: SearchConfig4,
     pub deadline: Option<super::deadline::Probe>,
     /// Searched decisions a game may have (`0`: no limit).
@@ -234,6 +236,7 @@ impl GameSearch {
             config,
             deadline: None,
             max_searched,
+            min_turn: 0,
             seed: 0,
             follow: None,
             script: None,
@@ -379,6 +382,11 @@ impl GameSearch {
         self.answered_follow = followed.is_some();
         if followed.is_some() {
             return Ok(followed);
+        }
+        if view.turn < self.min_turn {
+            self.tally.decisions += 1;
+            bump(&mut self.tally.skipped, "before_min_turn".into());
+            return Ok(None);
         }
         let used = self
             .deadline

@@ -47,6 +47,8 @@ pub(super) struct Reach {
     /// Turn boundaries past the root; `0` for v2's stops (the seat's first
     /// settled pass, the end of its next own turn).
     pub(super) turns: usize,
+    /// Continue past both normal turn stops and settled priorities.
+    pub(super) until_game_over: bool,
     /// Whether a rollout stops where a house answer would be played in it
     /// ([`SearchConfig4::with_house_free`]).
     pub(super) house_free: bool,
@@ -185,9 +187,10 @@ fn rollout<P: SearchPlayer4>(
     let start_turn = fork.state().turn.number;
     let last_turn = u32::try_from(reach.turns)
         .ok()
-        .filter(|turns| *turns > 0)
+        .filter(|turns| *turns > 0 && !reach.until_game_over)
         .map(|turns| start_turn.saturating_add(turns));
-    let guard = if reach.turns > 0 {
+    let stop_at_settled_priority = last_turn.is_none() && !reach.until_game_over;
+    let guard = if last_turn.is_some() {
         MAX_ROLLOUT_ACTIONS.min(MAX_ACTIONS_A_TURN.saturating_mul(reach.turns as u64))
     } else {
         MAX_ROLLOUT_ACTIONS
@@ -311,7 +314,7 @@ fn rollout<P: SearchPlayer4>(
         if last_turn.is_some_and(|last| turn.number >= last) {
             return value(player, steps, decisions, LeafKind::Boundary);
         }
-        if last_turn.is_none() && next_own_turn.is_some_and(|own| turn.number > own) {
+        if stop_at_settled_priority && next_own_turn.is_some_and(|own| turn.number > own) {
             return value(player, steps, decisions, LeafKind::TurnEnd);
         }
         if decisions >= horizon as u64 {
@@ -338,7 +341,7 @@ fn rollout<P: SearchPlayer4>(
             }
             // Past the root's phase, the seat has done what it does in this main
             // phase: score the position it would pass on, before the pass.
-            if last_turn.is_none()
+            if stop_at_settled_priority
                 && moment(&view) > moment(root)
                 && settled(&view, &pending)
                 && answer.action == PlayerAction::PassPriority
@@ -798,6 +801,7 @@ impl<S> Rounds<'_, S> {
             reach: Reach {
                 decisions: config.horizon(),
                 turns: config.turns(),
+                until_game_over: config.until_game_over,
                 house_free: config.house_free(),
             },
             neural_opponent: config.neural_opponent(),
