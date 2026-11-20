@@ -245,12 +245,16 @@ impl Lobby {
         // No redirect is followed ([`Lobby::raw`] fails a 3xx): what the
         // gateway is asked is asked of the gateway named, and of no address
         // a `Location` names.
-        let agent = ureq::Agent::config_builder()
+        let builder = ureq::Agent::config_builder()
             .http_status_as_error(false)
             .max_redirects(0)
-            .timeout_global(Some(Duration::from_secs(30)))
-            .build()
-            .new_agent();
+            .timeout_global(Some(Duration::from_secs(30)));
+        let builder = if baylee_client_core::llmseat::is_loopback(base) {
+            builder.proxy(None)
+        } else {
+            builder
+        };
+        let agent = builder.build().new_agent();
         Self {
             base: base.trim_end_matches('/').to_string(),
             agent,

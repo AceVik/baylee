@@ -466,12 +466,16 @@ struct Gateway {
 impl Gateway {
     fn new(base: &str) -> Self {
         // No redirect is followed: what the gateway is asked is asked of it.
-        let agent = ureq::Agent::config_builder()
+        let builder = ureq::Agent::config_builder()
             .http_status_as_error(false)
             .max_redirects(0)
-            .timeout_global(Some(Duration::from_secs(30)))
-            .build()
-            .new_agent();
+            .timeout_global(Some(Duration::from_secs(30)));
+        let builder = if baylee_train_ops::session_input::require_loopback(base).is_ok() {
+            builder.proxy(None)
+        } else {
+            builder
+        };
+        let agent = builder.build().new_agent();
         Self {
             agent,
             base: base.trim_end_matches('/').to_owned(),
