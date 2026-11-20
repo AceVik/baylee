@@ -573,6 +573,10 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     let mut meta = json!({
+        "action_probability_contract": if !policy_sources.is_empty() && policy_sources.iter().all(|r|
+            r["collection_contract"]["purpose"] == "on_policy_training"
+                && r["action_probability_contract"] == baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT
+        ) { json!(baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT) } else { Value::Null },
         "idle_pass_weighting_revision": baylee_train::convert4::IDLE_PASS_WEIGHTING_REVISION,
         "encoder_version": args.encoder_version,
         "ppo_eligible": policy_sources.iter().all(|r| r["collection_contract"]["purpose"] == "on_policy_training"),

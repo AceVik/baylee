@@ -237,7 +237,6 @@ pub(super) fn validate(
     } else {
         candidates
     };
-    let mut free = false;
     if decision && matches!(head, 1 | 2) {
         for name in ["multi_mask", "free_mask"] {
             let values = array(t, name)?;
@@ -245,7 +244,6 @@ pub(super) fn validate(
                 values.len() == size && values.iter().all(|v| matches!(v.as_u64(), Some(0 | 1))),
                 "invalid original research action mask"
             );
-            free |= name == "free_mask" && values.iter().any(|v| *v == 1);
         }
     }
     for pick in array(t, "pick_sequence")? {
@@ -264,7 +262,7 @@ pub(super) fn validate(
             }
             candidates > 1
         }
-        1 | 2 => free && temperature > 0.35,
+        1 | 2 => false,
         3 => {
             ensure!(
                 !has_lp && lp == 0.0,
@@ -274,15 +272,7 @@ pub(super) fn validate(
         }
         _ => anyhow::bail!("unknown research policy head"),
     };
-    if net {
-        // A blocker draw the attackers' counts changed carries no LP
-        // (`sample_pairs_constrained`); every other neural choice keeps its own.
-        let undrawn = head == 2 && !has_lp && lp == 0.0;
-        ensure!(
-            has_lp != (head == 3) || undrawn,
-            "categorical/scalar LP presence changed"
-        );
-    }
+    ensure!(has_lp || lp == 0.0, "nonzero research LP without a claim");
     let candidate = decision && net && has_lp;
     ensure!(
         row["actor_eligible"] == candidate,

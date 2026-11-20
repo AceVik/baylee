@@ -463,6 +463,52 @@ mod tests {
         );
     }
 
+    #[test]
+    fn repaired_and_unrepaired_pair_draws_share_final_probability_mass() {
+        let attacker = ObjectId::new(30, 0);
+        let cands = EncodedCandidates4 {
+            head: HeadKind4::PairPick,
+            pending_kind: PendingKind4::DeclareBlockers,
+            min_choices: 0,
+            max_choices: 2,
+            candidates: Vec::new(),
+            pairs: vec![[0, 2], [1, 2]],
+            pair_objects: vec![
+                (ObjectId::new(20, 0), attacker),
+                (ObjectId::new(21, 0), attacker),
+            ],
+        };
+        let question = Pending::ChooseBlockers {
+            player: PlayerId::new(0),
+            attacker: PlayerId::new(1),
+            blockers: Vec::new(),
+            capacity: Vec::new(),
+            obeying: Vec::new(),
+            demands: Vec::new(),
+            bounds: vec![baylee_engine::choice::AttackerBound {
+                attacker,
+                min_blockers: 2,
+                max_blockers: 2,
+            }],
+        };
+        let mut blocked_mass = 0.0;
+        let mut unchanged_mass = 0.0;
+        // Distinct blockers with zero logits are independent fair coins.
+        for raw in [[0, 0], [0, 1], [1, 0], [1, 1]] {
+            let mut final_action = raw;
+            meet_attacker_bounds(&mut final_action, &[0.0, 0.0], &cands, &question);
+            let expected = if raw == [0, 0] { [0, 0] } else { [1, 1] };
+            assert_eq!(final_action, expected);
+            if final_action == [1, 1] {
+                blocked_mass += 0.25;
+                if raw == final_action {
+                    unchanged_mass += 0.25;
+                }
+            }
+        }
+        assert_eq!((blocked_mass, unchanged_mass), (0.75, 0.25));
+    }
+
     /// An attacker that states it is blocked by two or more (menace) is never
     /// left with one blocker: a free creature that may block it joins, and
     /// where none is free it is left unblocked. The engine refused the lone

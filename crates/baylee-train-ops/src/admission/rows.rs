@@ -129,17 +129,23 @@ impl History {
             p.temperature.is_finite() && p.behavior_logprob.is_finite(),
             "nonfinite policy provenance"
         );
-        let eligible = row.eligible()?;
-        if role.role == "learner" && eligible {
-            // A blocker draw the attackers' counts changed carries no
-            // probability (`sample_pairs_constrained`): it stays in the
-            // history but is no actor decision.
-            let undrawn = row.head == 2 && !p.has_logprob && p.behavior_logprob == 0.0;
+        row.validate_target()?;
+        if p.has_logprob {
             ensure!(
-                (p.has_logprob && p.behavior_logprob <= 1e-6) || undrawn,
-                "missing or invalid sampled learner probability"
+                row.head == 0
+                    && row.cand_feat.len() > 1
+                    && p.temperature > 0.35
+                    && p.behavior_logprob <= 1e-6,
+                "invalid sampled categorical action probability"
             );
-            self.decisions += u64::from(p.has_logprob);
+        } else {
+            ensure!(
+                p.behavior_logprob == 0.0,
+                "excluded neural action has a nonzero probability field"
+            );
+        }
+        if role.role == "learner" && p.has_logprob {
+            self.decisions += 1;
         }
         Ok(())
     }
@@ -189,13 +195,13 @@ impl History {
             "proposer {} disagrees with who played",
             mixture.proposer
         );
-        // π as the row records it: its own log-probability, a number's point
-        // mass, or none on a blocker answer the attackers' counts moved,
-        // whose μ is none too. No other explored row lacks π.
+        // π as the row records it: its own log-probability for certified
+        // categorical choices, a number's point mass, or none on excluded
+        // categorical/subset/pair frames whose μ is none too.
         let behavior = match (p.has_logprob, row.head) {
             (true, _) => NetBehavior::Sampled(p.behavior_logprob as f32),
             (false, 3) => NetBehavior::PointMass,
-            (false, 2) if p.behavior_logprob == 0.0 => NetBehavior::Unknown,
+            (false, 0 | 1 | 2) if p.behavior_logprob == 0.0 => NetBehavior::Unknown,
             (false, _) => bail!("an explored decision without its behaviour probability"),
         };
         let expected = exploration::mixture_logprob(
@@ -219,10 +225,9 @@ impl History {
 }
 
 impl Row {
-    fn eligible(&self) -> Result<bool> {
+    fn validate_target(&self) -> Result<()> {
         let row = self;
-        let p = &row.provenance;
-        Ok(match row.head {
+        match row.head {
             0 => {
                 let size = row.cand_feat.len();
                 let index = row.target["single_idx"]
@@ -232,7 +237,6 @@ impl Row {
                     usize::try_from(index)? < size,
                     "categorical target outside menu"
                 );
-                size > 1
             }
             1 | 2 => {
                 let size = if row.head == 1 {
@@ -240,7 +244,6 @@ impl Row {
                 } else {
                     row.pairs.len()
                 };
-                let mut free = false;
                 for name in ["multi_mask", "free_mask"] {
                     let mask = row.target[name]
                         .as_array()
@@ -254,19 +257,12 @@ impl Row {
                             matches!(v.as_u64(), Some(0 | 1)),
                             "non-binary conditional action mask"
                         );
-                        free |= name == "free_mask" && v == 1;
                     }
                 }
-                free && p.temperature > 0.35
             }
-            3 => {
-                ensure!(
-                    !p.has_logprob,
-                    "scalar action falsely claims a stochastic probability"
-                );
-                false
-            }
+            3 => {}
             _ => anyhow::bail!("unknown neural policy head"),
-        })
+        }
+        Ok(())
     }
 }

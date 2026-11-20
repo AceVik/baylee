@@ -460,11 +460,12 @@ fn main() -> anyhow::Result<()> {
     } else {
         7_777_u64
     };
-    let use_expanded_training_variance = (collection.purpose
-        == collector::Purpose::OnPolicyTraining
-        && !args.held_out_cards
-        && args.holdout_tier.is_empty())
-        || args.shape == "all";
+    let manifest_only = args.decks_manifest.is_some() && args.generated == 0;
+    let use_expanded_training_variance = !manifest_only
+        && ((collection.purpose == collector::Purpose::OnPolicyTraining
+            && !args.held_out_cards
+            && args.holdout_tier.is_empty())
+            || args.shape == "all");
     let deck_weights = args
         .deck_weights
         .as_ref()
@@ -509,10 +510,16 @@ fn main() -> anyhow::Result<()> {
                 });
                 manifest_skipped_decks = skipped;
             }
+            if manifest_only && collection.purpose == collector::Purpose::OnPolicyTraining {
+                anyhow::ensure!(
+                    manifest_skipped_decks.is_empty(),
+                    "on-policy manifest-only collection has unusable decks: {manifest_skipped_decks:?}"
+                );
+            }
             let manifest_accepted_deck_count = decks.len();
             let mut attempt = 0_u64;
-            let target_decks = if args.decks_manifest.is_some() && args.generated == 0 {
-                decks.len().max(args.seats)
+            let target_decks = if manifest_only {
+                decks.len()
             } else {
                 decks.len() + args.generated.max(args.seats * 2)
             };
@@ -629,6 +636,10 @@ fn main() -> anyhow::Result<()> {
         // each team's hands (`Session::apply_team_hand_sharing`). The record
         // cannot say so; convert4 shows them in a replay only on this word.
         run[baylee_train::convert4::TeamHands::RUN_KEY] = json!(true);
+        if collection.purpose == collector::Purpose::OnPolicyTraining {
+            run["action_probability_contract"] =
+                json!(baylee_train_ops::admission::ACTION_PROBABILITY_CONTRACT);
+        }
         if args.inference_batch > 0 {
             // Only batched runs name it, so unbatched records stay as they were.
             run["inference_batch_rows"] = json!(args.inference_batch);

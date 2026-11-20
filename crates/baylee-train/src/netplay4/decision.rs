@@ -275,28 +275,26 @@ impl NetPlayer4 {
                     }
                     None => (action, target, false),
                 };
-                let provenance = self.policy_mode.provenance(
+                let mut provenance = self.policy_mode.provenance(
                     self.temperature,
                     self.last_depth,
                     cands.head,
                     logprob,
                 );
-                // An answer the grouping or the student decided is not a draw
-                // from the plain policy: it never carries a behaviour
-                // probability.
-                let provenance = if by_student
-                    || self
-                        .last_grouping
-                        .is_some_and(|grouping| grouping.decides(self.temperature))
+                // These optional modes can modify categorical logits or the
+                // executed answer. Exclude the menu regardless of this draw.
+                if provenance.has_logprob
+                    && (by_student
+                        || self.search_student.is_some()
+                        || self.grouped_decode
+                        || self.payable_menu.is_some()
+                        || self.adaptive.is_some()
+                        || self.tactician.is_some()
+                        || self.choice_guard.can_change_categorical_answer()
+                        || !crate::features4::supports_behavior_probability4(&cands, view, pending))
                 {
-                    StepProvenance4 {
-                        behavior_logprob: 0.0,
-                        has_logprob: false,
-                        ..provenance
-                    }
-                } else {
-                    provenance
-                };
+                    provenance.clear_behavior_probability();
+                }
                 self.coverage.record(p_kind, provenance.source);
                 let ranking = (rank && cands.head == HeadKind4::SingleChoice)
                     .then(|| rank_single_choice(&cands, &logits, view, pending));

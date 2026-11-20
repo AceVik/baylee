@@ -137,6 +137,15 @@ pub struct StepProvenance4 {
     pub has_logprob: bool,
 }
 
+impl StepProvenance4 {
+    /// Preserve the neural answer and its observation semantics without
+    /// publishing a probability for this action.
+    pub(crate) fn clear_behavior_probability(&mut self) {
+        self.behavior_logprob = 0.0;
+        self.has_logprob = false;
+    }
+}
+
 impl Default for StepProvenance4 {
     fn default() -> Self {
         Self {

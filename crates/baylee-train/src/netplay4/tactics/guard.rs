@@ -74,6 +74,13 @@ pub struct ChoiceGuard4 {
 }
 
 impl ChoiceGuard4 {
+    pub(in crate::netplay4) fn can_change_categorical_answer(&self) -> bool {
+        self.free_temperature
+            || self.tactical.priority
+            || self.tactical.single
+            || self.arms.iter().any(|&enabled| enabled)
+    }
+
     /// Turns an arm on.
     pub const fn enable(&mut self, arm: GuardArm) {
         self.arms[arm as usize] = true;

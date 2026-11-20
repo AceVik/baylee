@@ -38,7 +38,7 @@ impl PolicyMode4 {
             neural
                 && temperature > 0.35
                 && valid_raw_temperature(temperature)
-                && head != HeadKind4::ScalarValue
+                && head == HeadKind4::SingleChoice
         });
         StepProvenance4 {
             source: if neural {
@@ -368,11 +368,11 @@ impl PolicySampler4<'_> {
                         self.temperature,
                         self.rng,
                     );
-                    let lp = bernoulli_logprob(raw_logits, &mask, &free_mask, self.temperature);
                     target.multi_mask = mask;
                     target.free_mask = free_mask;
                     target.pick_sequence = seq;
-                    Some(lp)
+                    // SubsetPick is excluded under `injective_categorical_menu_v1`.
+                    None
                 }
                 HeadKind4::PairPick => {
                     let n = cands.pairs.len();
@@ -382,20 +382,18 @@ impl PolicySampler4<'_> {
                     } else {
                         tactical_pair_logits(self.rules, cands, raw_logits, view, pending)
                     };
-                    let (mask, free_mask, seq, drawn) = sample_pairs_constrained(
+                    let (mask, free_mask, seq, _) = sample_pairs_constrained(
                         &adj_logits,
                         cands,
                         pending,
                         self.temperature,
                         self.rng,
                     );
-                    let lp = bernoulli_logprob(raw_logits, &mask, &free_mask, self.temperature);
                     target.multi_mask = mask;
                     target.free_mask = free_mask;
                     target.pick_sequence = seq;
-                    // Where the attackers' counts changed the draw, `free_mask`
-                    // describes the draw, not this answer: no probability.
-                    drawn.map(|_| lp)
+                    // PairPick is excluded under `injective_categorical_menu_v1`.
+                    None
                 }
                 HeadKind4::ScalarValue => {
                     let chosen_int = if raw && !parts.scalar {

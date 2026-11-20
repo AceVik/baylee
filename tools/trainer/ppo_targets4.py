@@ -14,6 +14,9 @@ def prepare_targets(net, dataset, device, batch_size, gamma, gae_lambda,
                     logprob_fn, gae_fn, tolerance=2e-3):
     from trajectory_store4 import reject_shadow_policy_gradient
     reject_shadow_policy_gradient(dataset.meta)
+    from policy_training4.targets import ACTION_PROBABILITY_CONTRACT, actor_mask
+    if dataset.meta.get('action_probability_contract') != ACTION_PROBABILITY_CONTRACT:
+        raise ValueError('PPO requires reconversion to certify categorical action probabilities')
     if dataset.meta.get("sampling_version") != M.SAMPLING_VERSION:
         raise ValueError("Rollout uses an incompatible constrained sampler")
     net.eval()
@@ -34,6 +37,7 @@ def prepare_targets(net, dataset, device, batch_size, gamma, gae_lambda,
     for batch in loader:
         ids = batch["segment_index"].tolist()
         batch = {key: value.to(device) for key, value in batch.items()}
+        admitted = actor_mask(batch)
         b = batch["step_valid"].shape[0]
         if h is None:
             h = torch.zeros(b, M.RECURRENT_SLOTS, d, device=device)
@@ -46,9 +50,7 @@ def prepare_targets(net, dataset, device, batch_size, gamma, gae_lambda,
             inputs = tuple(batch[name][:, t] for name in M.INPUT_NAMES[:-2]) + (h, k)
             hn, cl, pl, sp, value = net(*inputs)
             lp, _ = logprob_fn(cl, pl, sp, cl, pl, sp, batch, t)
-            mask = (batch["step_valid"][:, t] & batch["is_decision"][:, t]
-                    & (batch["source_kind"][:, t] == 0) & batch["has_logprob"][:, t]
-                    & (batch["head"][:, t] != 3) & (batch["temperature"][:, t] > 1e-4))
+            mask = admitted[:, t]
             if mask.any():
                 errors = (lp[mask] - batch["behavior_logprob"][:, t][mask]).abs()
                 max_error = max(max_error, float(errors.max()))

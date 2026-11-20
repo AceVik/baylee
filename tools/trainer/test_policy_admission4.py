@@ -5,6 +5,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from policy_training4.admission import select_learner_histories, check_audit
+from policy_training4.targets import ACTION_PROBABILITY_CONTRACT
 
 
 class AdmissionSelectionTest(unittest.TestCase):
@@ -15,7 +16,8 @@ class AdmissionSelectionTest(unittest.TestCase):
                                       {'game': 5, 'seat': 0}]))
         receipt = dict(version=1, admitted=True, source_checkpoint_sha256='source',
                        dataset_fingerprint='bound', collection_contract=dict(mode='raw', actor_role='learner',
-                           precision='float32', thinking_steps=2, temperature=.7),
+                           precision='float32', thinking_steps=2, temperature=.7,
+                           action_probability_contract=ACTION_PROBABILITY_CONTRACT),
                        admitted_learner_histories=[dict(game_id=4, seat=0)],
                        learner_histories=1, completed_games=1, decisions=3)
         path = Path(root) / 'receipt.json'
