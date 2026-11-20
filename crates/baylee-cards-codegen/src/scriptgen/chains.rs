@@ -13,6 +13,10 @@ impl Tx<'_> {
         let Some((api, mut p)) = Params::parse(spec) else {
             return self.deny("an ability spec with no `$` in it".to_string());
         };
+        let starts_whenever = api == "ImmediateTrigger"
+            && p.peek("TriggerDescription")
+                .or_else(|| p.peek("SpellDescription"))
+                .is_some_and(|d| d.trim_start().starts_with("Whenever "));
         p.drop_prose();
         chain.could_add_mana |= api == "Mana";
         chain.moves_library |= matches!(api.as_str(), "Draw" | "Mill" | "Surveil" | "DigUntil")
@@ -127,10 +131,20 @@ impl Tx<'_> {
             return Some(());
         }
         if api == "GenericChoice" {
-            let effects =
-                self.guess_named_card_effect(p, sub.as_deref(), chain.target.as_deref())?;
+            let saved_p = p.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effects) =
+                self.guess_named_card_effect(p, sub.as_deref(), chain.target.as_deref())
+            {
+                chain.effects.extend(effects);
+                return Some(());
+            }
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+            let effects = self.choose_one_effect(saved_p, chain.target.as_deref())?;
             chain.effects.extend(effects);
-            return Some(());
+            return self.chain_sub_ability(sub, chain);
         }
         if api == "RepeatEach" {
             let effects = self.repeat_each_effect(p, sub.as_deref(), chain)?;
@@ -221,6 +235,7 @@ impl Tx<'_> {
             && p.peek("Origin") == Some("Battlefield")
             && p.peek("Destination") == Some("Exile")
             && p.has("RememberChanged")
+            && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
         {
             let single_target = chain.target_exact.is_none()
                 && !chain.target_is_x
@@ -256,6 +271,31 @@ impl Tx<'_> {
                 "Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }"
                     .to_string(),
             ]
+        } else if api == "ChangeZone"
+            && !targets_here
+            && !self.on_a_spell
+            && matches!(p.peek("Defined"), None | Some("Self"))
+            && p.peek("Origin") == Some("Battlefield")
+            && p.peek("Destination") == Some("Exile")
+            && p.peek("RememberChanged") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "ChangeZone")
+        {
+            self.exile_self_return_as_face_effect(&mut p, &mut sub)?
+        } else if api == "ChangeZone"
+            && !targets_here
+            && matches!(p.peek("Defined"), None | Some("Self"))
+            && p.peek("Origin") == Some("Stack")
+            && p.peek("Destination") == Some("Exile")
+            && p.peek("RememberChanged") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "PutCounter")
+        {
+            self.exile_source_with_counters_effect(&mut p, &mut sub)?
+        } else if api == "Token"
+            && p.peek("RememberTokens") == Some("True")
+            && (self.sub_is_api(sub.as_deref(), "Attach")
+                || self.sub_is_api(sub.as_deref(), "PutCounter"))
+        {
+            self.remembered_token_follow_up(&mut p, &mut sub, target.as_deref(), targets_a_player)?
         } else if api == "ChangeZone"
             && !targets_here
             && p.peek("Defined") == Some("TopOfLibrary")
@@ -298,7 +338,12 @@ impl Tx<'_> {
                         .to_string(),
                 ]
             }
+        } else if api == "DelayedTrigger" {
+            vec![self.delayed_trigger(&mut p, target.as_deref(), targets_here, chain)?]
+        } else if api == "ImmediateTrigger" {
+            vec![self.immediate_trigger(&mut p, target.as_deref(), chain, starts_whenever)?]
         } else {
+            self.claim_followed_remember_flag(&api, &mut p, sub.as_deref());
             let Some(effects) = (if second_target_here {
                 match api.as_str() {
                     "Pump" => {
@@ -1203,6 +1248,11 @@ impl Tx<'_> {
                         {
                             "TargetSpec::EventObject".to_string()
                         }
+                        Some("DelayTriggerRemembered" | "DelayTriggerRememberedLKI")
+                            if self.in_delayed && target.is_none() =>
+                        {
+                            "TargetSpec::EventObject".to_string()
+                        }
                         // "Deals 1 damage to that player" and every other
                         // player the line names without targeting one.
                         Some(who) => format!(
@@ -1597,6 +1647,14 @@ impl Tx<'_> {
                              kind: {kind}, amount: {n} }}"
                         )]);
                     }
+                    Some("DelayTriggerRemembered" | "DelayTriggerRememberedLKI")
+                        if self.in_delayed && target.is_none() =>
+                    {
+                        return Some(vec![format!(
+                            "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
+                             kind: {kind}, amount: {n} }}"
+                        )]);
+                    }
                     None | Some("Self") => {}
                     Some(_) => return None,
                 }
@@ -1741,7 +1799,6 @@ impl Tx<'_> {
                     else_chain.effects.join(", ")
                 )]
             }
-            "DelayedTrigger" => vec![self.delayed_trigger(p, target, targets_here)?],
             "Destroy" => {
                 // `NoRegen$ True` is **read** and no longer merely consumed.
                 // It was vacuous while this engine had no regeneration at
@@ -2170,6 +2227,9 @@ impl Tx<'_> {
                 Some("Enchanted" | "Equipped") if target.is_none() => {
                     vec!["Effect::TapAll { filter: &Filter::AttachedToBySource }".to_string()]
                 }
+                Some(def) if target.is_none() && self.is_event_object_defined(def) => {
+                    vec!["Effect::TapEventObject".to_string()]
+                }
                 Some(_) => return None,
             },
             // `AB$ Untap` with no `ValidTgts$` is the source, not a target
@@ -2279,14 +2339,21 @@ impl Tx<'_> {
                 }
             }
             "Attach" => {
-                let tgt = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
-                if !targets_here
-                    || p.take("Defined").is_some()
-                    || !matches!(p.take("Object").as_deref(), None | Some("Self"))
-                {
+                if !matches!(p.take("Object").as_deref(), None | Some("Self")) {
                     return None;
                 }
-                vec![format!("Effect::AttachSelf {{ target: {tgt} }}")]
+                if let Some(def) = p.take("Defined") {
+                    if target.is_some() || !self.is_event_object_defined(&def) {
+                        return None;
+                    }
+                    vec!["Effect::AttachSelf { target: TargetSpec::EventObject }".to_string()]
+                } else {
+                    let tgt = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
+                    if !targets_here {
+                        return None;
+                    }
+                    vec![format!("Effect::AttachSelf {{ target: {tgt} }}")]
+                }
             }
             "Poison" => {
                 let n = self.amount_or_count(&p.take("Num")?)?;
@@ -2386,13 +2453,22 @@ impl Tx<'_> {
         }
         let target_type = p.take("TargetType");
         let defined = p.take("Defined");
-        let effect = match (target_type.as_deref(), defined.as_deref()) {
+        let take_small_copies = |this: &Self, p: &mut Params| -> Option<usize> {
+            match p.take("Amount") {
+                None => Some(1),
+                Some(raw) => usize::try_from(this.plain_num(&raw)?)
+                    .ok()
+                    .filter(|&n| (1..=4).contains(&n)),
+            }
+        };
+        let (effect, count) = match (target_type.as_deref(), defined.as_deref()) {
             (Some("Spell"), None)
-                if targets_here
-                    && target.is_some_and(|t| t.starts_with("TargetSpec::Spell("))
-                    && matches!(p.take("Amount").as_deref(), None | Some("1")) =>
+                if targets_here && target.is_some_and(|t| t.starts_with("TargetSpec::Spell(")) =>
             {
-                "Effect::CopyTargetSpell { mods: &[] }".to_string()
+                (
+                    "Effect::CopyTargetSpell { mods: &[] }".to_string(),
+                    take_small_copies(self, p)?,
+                )
             }
             (
                 Some(
@@ -2404,29 +2480,84 @@ impl Tx<'_> {
                 ),
                 None,
             ) if targets_here
-                && target.is_some_and(|t| t.starts_with("TargetSpec::AbilityOnStack("))
-                && matches!(p.take("Amount").as_deref(), None | Some("1")) =>
+                && target.is_some_and(|t| t.starts_with("TargetSpec::AbilityOnStack(")) =>
             {
-                "Effect::CopyTargetAbility".to_string()
+                (
+                    "Effect::CopyTargetAbility".to_string(),
+                    take_small_copies(self, p)?,
+                )
             }
             (None, Some("TriggeredSpellAbility"))
                 if self.trigger_mode.as_deref() == Some("SpellCast")
                     && !targets_here
-                    && target.is_none()
-                    && matches!(p.take("Amount").as_deref(), None | Some("1")) =>
+                    && target.is_none() =>
             {
-                "Effect::CopyEventSpellOrAbility".to_string()
+                (
+                    "Effect::CopyEventSpellOrAbility".to_string(),
+                    take_small_copies(self, p)?,
+                )
             }
             (None, Some("Parent")) if self.on_a_spell && !targets_here => {
                 let amount = self.amount_or_count(p.take("Amount").as_deref().unwrap_or("1"))?;
-                format!("Effect::CopyThisSpell {{ amount: {amount} }}")
+                (format!("Effect::CopyThisSpell {{ amount: {amount} }}"), 1)
             }
             _ => return None,
         };
+        let copies = vec![effect; count];
         Some(if optional {
-            vec![format!("Effect::MayDo {{ effects: &[{effect}] }}")]
+            vec![format!(
+                "Effect::MayDo {{ effects: &[{}] }}",
+                copies.join(", ")
+            )]
         } else {
-            vec![effect]
+            copies
         })
+    }
+
+    fn sub_is_api(&self, sub: Option<&str>, expected: &str) -> bool {
+        sub.and_then(|name| self.svars.get(name.trim()))
+            .and_then(|body| Params::parse(body))
+            .is_some_and(|(api, _)| api == expected)
+    }
+
+    fn claim_followed_remember_flag(&self, api: &str, p: &mut Params, sub: Option<&str>) {
+        if self.sub_is_api(sub, "ImmediateTrigger") {
+            match api {
+                "Mill" if p.peek("RememberMilled") == Some("True") => {
+                    p.take("RememberMilled");
+                }
+                "Discard" if p.peek("RememberDiscarded") == Some("True") => {
+                    p.take("RememberDiscarded");
+                }
+                "Sacrifice" if p.peek("RememberSacrificed") == Some("True") => {
+                    p.take("RememberSacrificed");
+                }
+                "DigUntil" if p.peek("RememberFound") == Some("True") => {
+                    p.take("RememberFound");
+                }
+                "ChangeZone"
+                    if p.peek("Origin") == Some("Battlefield")
+                        && matches!(p.peek("Destination"), Some("Exile" | "Hand"))
+                        && p.peek("RememberChanged") == Some("True") =>
+                {
+                    p.take("RememberChanged");
+                }
+                _ => {}
+            }
+        } else if self.sub_is_api(sub, "DelayedTrigger") {
+            match api {
+                "Token" if p.peek("RememberTokens") == Some("True") => {
+                    p.take("RememberTokens");
+                }
+                "ChangeZone"
+                    if p.peek("Origin") == Some("Battlefield")
+                        && p.peek("Destination") == Some("Exile")
+                        && p.peek("RememberChanged") == Some("True") =>
+                {
+                    p.take("RememberChanged");
+                }
+                _ => {}
+            }
+        }
     }
 }

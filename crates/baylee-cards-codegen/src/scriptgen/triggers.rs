@@ -6,6 +6,12 @@ use super::{
     color_word, counter_kind,
 };
 
+enum LegacyPhase {
+    Handled(String),
+    Fallthrough,
+    Refused,
+}
+
 impl Tx<'_> {
     /// `T:Mode$ SpellCast` — "whenever a player casts a spell".
     ///
@@ -353,9 +359,10 @@ impl Tx<'_> {
                 let valid = p.take("ValidPlayer");
                 let whose = match valid.as_deref() {
                     None => Some("PlayerRel::EachPlayer"),
-                    Some("You") if step == "StepKind::End" => {
+                    Some("You" | "You.descended") if step == "StepKind::End" => {
                         let lower = self.oracle.to_ascii_lowercase();
-                        if lower.contains("at the beginning of the end step")
+                        if valid.as_deref() == Some("You")
+                            && lower.contains("at the beginning of the end step")
                             && !lower.contains("your end step")
                         {
                             Some("PlayerRel::EachPlayer")
@@ -363,6 +370,7 @@ impl Tx<'_> {
                             Some("PlayerRel::You")
                         }
                     }
+                    Some("You.descended") => Some("PlayerRel::You"),
                     Some(who) => self.player_rel(Some(who)),
                 };
                 let Some(whose) = whose else {
@@ -1260,7 +1268,15 @@ impl Tx<'_> {
             return self.deny("a `T:` line with no `$` in it".to_string());
         };
         if self.is_transform48_trigger(&p) {
-            return self.transform48_trigger(&mode, p);
+            let saved_abilities_len = self.body.abilities.len();
+            let saved_statics_len = self.body.statics.len();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            if self.transform48_trigger(&mode, p.clone()).is_some() {
+                return Some(());
+            }
+            self.body.abilities.truncate(saved_abilities_len);
+            self.body.statics.truncate(saved_statics_len);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
         }
         if p.peek("Execute")
             .and_then(|name| self.svars.get(name))
@@ -1287,12 +1303,17 @@ impl Tx<'_> {
                 .split_once(", ")
                 .map(|(_, effect)| effect.to_string())
         });
-        let prose_you_may = prose_effect
-            .as_deref()
-            .is_some_and(|effect| effect.starts_with("you may "));
-        let prose_may = prose_effect
-            .as_deref()
-            .is_some_and(|effect| effect.starts_with("you may have "));
+        let oracle_has_you_may =
+            self.oracle.is_empty() || self.oracle.to_ascii_lowercase().contains("you may");
+        let prose_you_may = oracle_has_you_may
+            && prose_effect
+                .as_deref()
+                .is_some_and(|effect| effect.starts_with("you may "));
+        let prose_may = oracle_has_you_may
+            && prose_effect
+                .as_deref()
+                .is_some_and(|effect| effect.starts_with("you may have "));
+        let phase_descended = mode == "Phase" && p.peek("ValidPlayer") == Some("You.descended");
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
         if self.is_link_cleanup_trigger(&mode, &p) {
@@ -1316,6 +1337,20 @@ impl Tx<'_> {
             let trigger = self.trigger_expr_in_zone(&mut p, &mode, !zone.is_empty())?;
             (trigger, self.condition(&mut p)?)
         };
+        if phase_descended {
+            condition = if condition.is_empty() {
+                ", condition = Some(Condition::DescendedThisTurn)".to_string()
+            } else if let Some(inner) = condition
+                .strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+            {
+                format!(
+                    ", condition = Some(Condition::All(&[{inner}, Condition::DescendedThisTurn]))"
+                )
+            } else {
+                return self.deny("`You.descended` beside another clause".to_string());
+            };
+        }
         if p.peek("CheckSVar").is_some() {
             let var = p.peek("CheckSVar").map(str::to_string).unwrap();
             let cmp = p
@@ -1387,6 +1422,7 @@ impl Tx<'_> {
             || trigger == "Trigger::TransformsIntoThis"
             || trigger == "Trigger::CycledThis"
             || trigger == "Trigger::DiscardedThisByOpponent"
+            || trigger == "Trigger::BecomesBlocked"
             || trigger.contains("&Filter::This")
             || trigger_self_etb_kicked;
         let optional_flag = match p.take("Optional").as_deref() {
@@ -1511,6 +1547,8 @@ impl Tx<'_> {
                     "MayChooseNotToUntap",
                     "CopyTarget",
                     "CopySpell",
+                    "CopyEventSpellOrAbility",
+                    "CopyThisSpell",
                     "BottomCardFromHand",
                     "PutFromHandOnTop",
                     "ReorderTopLibrary",
@@ -1747,72 +1785,622 @@ impl Tx<'_> {
         p: &mut Params,
         target: Option<&str>,
         targets_here: bool,
+        chain: &Chain,
     ) -> Option<String> {
         let mode = p.take("Mode").unwrap_or_default();
-        let phase = p.take("Phase").unwrap_or_default();
-        if mode == "Phase" && phase == "Upkeep" {
-            if p.take("NextTurn").as_deref() != Some("True") {
+        if mode == "Phase" {
+            let phase = p.take("Phase").unwrap_or_default();
+            return match self.legacy_delayed_phase(p, &phase, target, targets_here) {
+                LegacyPhase::Handled(expr) => Some(expr),
+                LegacyPhase::Refused => None,
+                LegacyPhase::Fallthrough => self.delayed_phase_trigger(p, &phase, target, chain),
+            };
+        }
+        if mode == "ChangesController" {
+            return self.delayed_observation_trigger(p, target, chain);
+        }
+        self.delayed_event_trigger(p, &mode, target, chain)
+    }
+
+    fn legacy_delayed_phase(
+        &mut self,
+        p: &mut Params,
+        phase: &str,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> LegacyPhase {
+        let has_extra = p.has("IsPresent")
+            || p.has("CheckSVar")
+            || p.has("ConditionDefined")
+            || p.has("ConditionPresent")
+            || p.has("OptionalDecider")
+            || p.has("ThisTurn");
+        if has_extra {
+            return LegacyPhase::Fallthrough;
+        }
+        if phase == "Upkeep"
+            && p.peek("NextTurn") == Some("True")
+            && matches!(p.peek("ValidPlayer"), None | Some("Player"))
+            && !p.has("RememberObjects")
+            && !targets_here
+        {
+            p.take("NextTurn");
+            p.take("ValidPlayer");
+            return match self.delayed_execute_effects(p) {
+                Some(effects) => LegacyPhase::Handled(format!(
+                    "Effect::AtNextTurnsUpkeep {{ effects: &[{effects}] }}"
+                )),
+                None => LegacyPhase::Refused,
+            };
+        }
+        if phase == "EndCombat"
+            && !p.has("NextTurn")
+            && matches!(p.peek("ValidPlayer"), None | Some("Player"))
+            && target.is_none()
+        {
+            let remembered = p.peek("RememberObjects").unwrap_or_default();
+            let self_combat = remembered.is_empty()
+                && self.block_line.is_none()
+                && matches!(self.trigger_mode.as_deref(), Some("Attacks" | "Blocks"));
+            let damage_done_target = self.block_line.is_none()
+                && self.trigger_mode.as_deref() == Some("DamageDone")
+                && matches!(remembered, "TriggeredTargetLKICopy" | "TriggeredTarget");
+            let block_pair = self.block_line.as_ref().is_some_and(|(role, ..)| {
+                let expected = match role {
+                    BlockRole::Blocks => "TriggeredAttacker",
+                    BlockRole::Blocked => "TriggeredBlocker",
+                };
+                remembered.strip_suffix("LKICopy").unwrap_or(remembered) == expected
+            });
+            if self_combat || damage_done_target || block_pair {
+                p.take("ValidPlayer");
+                p.take("RememberObjects");
+                return match self.delayed_execute_effects(p) {
+                    Some(effects) => LegacyPhase::Handled(format!(
+                        "Effect::AtEndOfCombat {{ about: TargetSpec::EventObject, effects: &[{effects}] }}"
+                    )),
+                    None => LegacyPhase::Refused,
+                };
+            }
+        }
+        LegacyPhase::Fallthrough
+    }
+
+    fn delayed_phase_trigger(
+        &mut self,
+        p: &mut Params,
+        phase: &str,
+        target: Option<&str>,
+        chain: &Chain,
+    ) -> Option<String> {
+        if p.has("NextTurn") {
+            return self.deny(format!(
+                "a delayed trigger at `Phase {phase}` with `NextTurn$`"
+            ));
+        }
+        let step = match phase {
+            "Upkeep" => "DelayedStep::Upkeep",
+            "Draw" => "DelayedStep::Draw",
+            "Main1,Main2" | "Main2,Main1" => "DelayedStep::MainPhase",
+            "BeginCombat" => "DelayedStep::CombatBegin",
+            "EndCombat" => "DelayedStep::CombatEnd",
+            "End of Turn" | "End Of Turn" => "DelayedStep::EndStep",
+            "Cleanup" => "DelayedStep::Cleanup",
+            _ => return self.deny(format!("a delayed trigger at `Phase {phase}`")),
+        };
+        let whose = match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") if phase == "Upkeep" => {
                 return self.deny(
                     "a delayed trigger at `Phase Upkeep` without `NextTurn$ True`".to_string(),
                 );
             }
-            match p.take("ValidPlayer").as_deref() {
-                None | Some("Player") => {}
-                Some(other) => {
-                    return self.deny(format!("a delayed trigger in `{other}`'s turn"));
-                }
+            None | Some("Player") => "None",
+            Some("You") => "Some(PlayerRel::You)",
+            Some("Opponent" | "Player.Opponent") => "Some(PlayerRel::EachOpponent)",
+            Some(other) => return self.deny(format!("a delayed trigger in `{other}`'s turn")),
+        };
+        let this_turn_only = match p.take("ThisTurn").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("a delayed trigger with `ThisTurn$ {other}`")),
+        };
+        let optional = match p.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(other) => {
+                return self.deny(format!("a delayed trigger `OptionalDecider$ {other}`"));
             }
-            if let Some(remembered) = p.take("RememberObjects") {
-                return self.deny(format!("a delayed trigger remembering `{remembered}`"));
-            }
-            if targets_here {
-                return self.deny("a delayed trigger on a line that targets".to_string());
-            }
-            let effects = self.delayed_execute_effects(p)?;
-            return Some(format!(
-                "Effect::AtNextTurnsUpkeep {{ effects: &[{effects}] }}"
+        };
+        let execute = p.peek("Execute")?.to_string();
+        let body_uses_rem = self
+            .svars
+            .get(&execute)
+            .is_some_and(|b| b.contains("DelayTriggerRemembered"));
+        let raw_rem = p.take("RememberObjects");
+        let Some(remember) =
+            self.delayed_remember(raw_rem.as_deref(), target, chain, body_uses_rem)
+        else {
+            return self.deny(format!(
+                "a delayed trigger remembering `{}`",
+                raw_rem.unwrap_or_default()
+            ));
+        };
+        if p.peek("ConditionDefined") == Some("Targeted")
+            && p.peek("ConditionPresent") == Some("Card")
+            && !p.has("ConditionCompare")
+            && matches!(
+                remember,
+                "TriggerRemember::FirstTarget" | "TriggerRemember::EachTarget"
+            )
+        {
+            p.take("ConditionDefined");
+            p.take("ConditionPresent");
+        } else if p.peek("ConditionDefined") == Some("Remembered")
+            && p.peek("ConditionPresent") == Some("Card")
+            && matches!(p.peek("ConditionCompare"), None | Some("GE1"))
+            && matches!(
+                remember,
+                "TriggerRemember::EachCreatedToken" | "TriggerRemember::EachExiledThisWay"
+            )
+        {
+            p.take("ConditionDefined");
+            p.take("ConditionPresent");
+            p.take("ConditionCompare");
+        }
+        let cond = self.delayed_optional_condition(p)?;
+        let (effects, targets) = self.parse_delayed_body(p, None, optional)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `DelayedTrigger.{key}`"));
+        }
+        let targets_expr = targets.map_or_else(|| "None".to_string(), |req| format!("Some({req})"));
+        Some(format!(
+            "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::AtStep {{ step: {step}, \
+             whose: {whose}, this_turn_only: {this_turn_only}, recurring: false }}, \
+             condition: {cond}, targets: {targets_expr}, remember: {remember}, \
+             effects: &[{effects}] }}"
+        ))
+    }
+
+    fn delayed_event_trigger(
+        &mut self,
+        p: &mut Params,
+        mode: &str,
+        target: Option<&str>,
+        chain: &Chain,
+    ) -> Option<String> {
+        if mode.is_empty()
+            || !matches!(
+                mode,
+                "ChangesZone"
+                    | "SpellCast"
+                    | "Attacks"
+                    | "Blocks"
+                    | "DamageDone"
+                    | "DamageDoneOnce"
+                    | "DamageDealtOnce"
+                    | "Taps"
+                    | "Untaps"
+                    | "LifeGained"
+                    | "LifeLost"
+                    | "Drawn"
+                    | "LandPlayed"
+                    | "Discarded"
+                    | "Cycled"
+                    | "CounterAddedOnce"
+                    | "AttackerBlocked"
+                    | "AttackerUnblocked"
+            )
+        {
+            return self.deny(format!("a delayed trigger at `{mode} `"));
+        }
+        if p.has("NextTurn") || p.has("Static") || p.has("OnlyOnce") || p.has("TriggerOnce") {
+            return self.deny(format!(
+                "a delayed trigger at `{mode} ` with unsupported lifetime"
             ));
         }
-        if mode != "Phase" || phase != "EndCombat" {
-            return self.deny(format!("a delayed trigger at `{mode} {phase}`"));
-        }
-        match p.take("ValidPlayer").as_deref() {
-            None | Some("Player") => {}
+        let duration = match p.take("ThisTurn").as_deref() {
+            Some("True") => "DelayedDuration::OneShotThisTurn",
+            None | Some("False") => "DelayedDuration::OneShot",
+            Some(other) => return self.deny(format!("a delayed trigger with `ThisTurn$ {other}`")),
+        };
+        let optional = match p.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
             Some(other) => {
-                return self.deny(format!("a delayed trigger in `{other}`'s turn"));
+                return self.deny(format!("a delayed trigger `OptionalDecider$ {other}`"));
             }
+        };
+        let raw_rem = p.take("RememberObjects");
+        let (watch, remember, watched_remembered) =
+            self.delayed_event_watch(p, raw_rem.as_deref(), target, chain)?;
+        let trigger_expr = self.trigger_expr_in_zone(p, mode, true)?;
+        let cond = self.delayed_optional_condition(p)?;
+        let (effects, targets) = self.parse_delayed_body(p, Some(mode.to_string()), optional)?;
+        let remember = if watched_remembered
+            && mode != "ChangesZone"
+            && (effects.contains("TargetSpec::EventObject")
+                || effects.contains("Effect::SacrificeEvent")
+                || effects.contains("Effect::TapEventObject")
+                || effects.contains("Amount::Event"))
+        {
+            watch
+        } else {
+            remember
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `DelayedTrigger.{key}`"));
         }
-        let remembered = p.take("RememberObjects").unwrap_or_default();
-        let self_combat = remembered.is_empty()
-            && self.block_line.is_none()
-            && matches!(self.trigger_mode.as_deref(), Some("Attacks" | "Blocks"));
-        let damage_done_target = self.block_line.is_none()
-            && self.trigger_mode.as_deref() == Some("DamageDone")
-            && matches!(
-                remembered.as_str(),
-                "TriggeredTargetLKICopy" | "TriggeredTarget"
-            );
-        if !self_combat && !damage_done_target {
-            let other_side = match self.block_line.as_ref().map(|(role, ..)| *role) {
-                Some(BlockRole::Blocks) => "TriggeredAttacker",
-                Some(BlockRole::Blocked) => "TriggeredBlocker",
-                None => {
-                    return self.deny(format!(
-                        "a delayed trigger remembering `{remembered}` outside a block trigger"
-                    ));
-                }
-            };
-            if remembered.strip_suffix("LKICopy").unwrap_or(&remembered) != other_side {
-                return self.deny(format!("a delayed trigger remembering `{remembered}`"));
-            }
-        }
-        if target.is_some() {
-            return self.deny("a delayed trigger on a line that targets".to_string());
-        }
-        let effects = self.delayed_execute_effects(p)?;
+        let targets_expr = targets.map_or_else(|| "None".to_string(), |req| format!("Some({req})"));
         Some(format!(
-            "Effect::AtEndOfCombat {{ about: TargetSpec::EventObject, effects: &[{effects}] }}"
+            "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::OnTrigger {{ \
+             trigger: &{trigger_expr}, watch: {watch}, duration: {duration} }}, \
+             condition: {cond}, targets: {targets_expr}, remember: {remember}, \
+             effects: &[{effects}] }}"
         ))
+    }
+
+    fn delayed_event_watch(
+        &mut self,
+        p: &mut Params,
+        raw_rem: Option<&str>,
+        target: Option<&str>,
+        chain: &Chain,
+    ) -> Option<(&'static str, &'static str, bool)> {
+        let mut watched_remembered = false;
+        let mut watched_self = false;
+        for (k, v) in &mut p.entries {
+            if matches!(k.as_str(), "ValidCard" | "ValidSource" | "ValidTarget") {
+                if v == "Card.IsTriggerRemembered" {
+                    *v = "Card.Self".to_string();
+                    watched_remembered = true;
+                } else if v == "Card.StrictlySelf" {
+                    *v = "Card.Self".to_string();
+                    watched_self = true;
+                } else if v == "Card.Self" {
+                    watched_self = true;
+                }
+            }
+        }
+        let Some(rem) = self.delayed_remember(raw_rem, target, chain, true) else {
+            return self.deny(format!(
+                "a delayed trigger remembering `{}`",
+                raw_rem.unwrap_or_default()
+            ));
+        };
+        if watched_remembered {
+            if rem == "TriggerRemember::None" {
+                return self
+                    .deny("a watched delayed trigger with no `RememberObjects$`".to_string());
+            }
+            Some((rem, "TriggerRemember::None", true))
+        } else if watched_self {
+            if self.on_a_spell {
+                return self.deny("a self-watching delayed trigger on a spell".to_string());
+            }
+            Some(("TriggerRemember::Source", rem, false))
+        } else {
+            Some(("TriggerRemember::None", rem, false))
+        }
+    }
+
+    fn delayed_observation_trigger(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        chain: &Chain,
+    ) -> Option<String> {
+        let this_turn_only = match p.take("ThisTurn").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("a delayed trigger with `ThisTurn$ {other}`")),
+        };
+        let optional = match p.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(other) => {
+                return self.deny(format!("a delayed trigger `OptionalDecider$ {other}`"));
+            }
+        };
+        let valid = p.take("ValidCard")?;
+        let raw_rem = p.take("RememberObjects");
+        let (watch, remember) = match valid.as_str() {
+            "Card.StrictlySelf" | "Card.Self" if !self.on_a_spell => {
+                let rem = self.delayed_remember(raw_rem.as_deref(), target, chain, true)?;
+                ("TriggerRemember::Source", rem)
+            }
+            "Card.IsTriggerRemembered" => {
+                let w = self.delayed_remember(raw_rem.as_deref(), target, chain, true)?;
+                if w == "TriggerRemember::None" {
+                    return None;
+                }
+                (w, "TriggerRemember::None")
+            }
+            _ => {
+                return self.deny(format!(
+                    "a `ChangesController` delayed trigger on `{valid}`"
+                ));
+            }
+        };
+        let cond = self.delayed_optional_condition(p)?;
+        let (effects, targets) = self.parse_delayed_body(p, None, optional)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `DelayedTrigger.{key}`"));
+        }
+        let targets_expr = targets.map_or_else(|| "None".to_string(), |req| format!("Some({req})"));
+        Some(format!(
+            "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::OnObservation {{ \
+             watch: {watch}, observation: DelayedObservation::YouLoseControl, \
+             this_turn_only: {this_turn_only} }}, condition: {cond}, \
+             targets: {targets_expr}, remember: {remember}, effects: &[{effects}] }}"
+        ))
+    }
+
+    pub(super) fn immediate_trigger(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        chain: &Chain,
+        starts_whenever: bool,
+    ) -> Option<String> {
+        if p.has("Announce")
+            || p.has("AnnounceMax")
+            || p.has("RememberSVarAmount")
+            || p.has("TriggerAmount")
+        {
+            return self
+                .deny("an `ImmediateTrigger` with announced or remembered amount".to_string());
+        }
+        let optional = match p.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(other) => {
+                return self.deny(format!("an `ImmediateTrigger` `OptionalDecider$ {other}`"));
+            }
+        };
+        let (when, once, extra_cond) = if p.peek("ConditionDefined") == Some("Remembered") {
+            let when = self.immediate_remembered_when(p, chain)?;
+            (when, !starts_whenever, None)
+        } else if p.has("ConditionDefined") {
+            return self.deny("an `ImmediateTrigger` with `ConditionDefined$`".to_string());
+        } else {
+            let cond_present = p.take("ConditionPresent");
+            let cond_clause = if let Some(valid) = cond_present {
+                if p.peek("IsPresent") == Some(valid.as_str()) {
+                    p.take("IsPresent");
+                }
+                let mut tmp = Params {
+                    entries: Vec::new(),
+                };
+                if let Some(cmp) = p.take("ConditionCompare") {
+                    tmp.entries.push(("PresentCompare".to_string(), cmp));
+                }
+                Some(self.present_clause(&mut tmp, &valid)?)
+            } else {
+                None
+            };
+            ("ReflexiveWhen::Always".to_string(), true, cond_clause)
+        };
+        let base_cond = self.delayed_optional_condition(p)?;
+        let cond = match (extra_cond, base_cond.as_str()) {
+            (None, other) => other.to_string(),
+            (Some(c), "None") => format!("Some(&{c})"),
+            (Some(c), rest) => {
+                let inner = rest.strip_prefix("Some(&")?.strip_suffix(')')?;
+                format!("Some(&Condition::All(&[{c}, {inner}]))")
+            }
+        };
+        let raw_rem = p.take("RememberObjects");
+        let (effects, targets) = self.parse_delayed_body(p, None, optional)?;
+        let reads_event = effects.contains("TargetSpec::EventObject")
+            || effects.contains("Effect::SacrificeEvent")
+            || effects.contains("Effect::TapEventObject")
+            || effects.contains("Amount::Event");
+        let remember = match raw_rem.as_deref() {
+            None if (self.cost_sacrifices_other || self.cost_sacrifices_self) && reads_event => {
+                "TriggerRemember::SacrificedObject"
+            }
+            Some("Remembered" | "RememberedLKI" | "RememberedCard")
+                if when != "ReflexiveWhen::Always" =>
+            {
+                "TriggerRemember::None"
+            }
+            other => self.delayed_remember(other, target, chain, reads_event)?,
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ImmediateTrigger.{key}`"));
+        }
+        let targets_expr = targets.map_or_else(|| "None".to_string(), |req| format!("Some({req})"));
+        Some(format!(
+            "Effect::ReflexiveTrigger {{ when: {when}, once: {once}, condition: {cond}, \
+             targets: {targets_expr}, remember: {remember}, effects: &[{effects}] }}"
+        ))
+    }
+
+    fn immediate_remembered_when(&mut self, p: &mut Params, chain: &Chain) -> Option<String> {
+        p.take("ConditionDefined");
+        if !matches!(p.take("ConditionCompare").as_deref(), None | Some("GE1")) {
+            return self
+                .deny("an `ImmediateTrigger` with unsupported `ConditionCompare$`".to_string());
+        }
+        let cond_valid = p.take("ConditionPresent")?;
+        let last = chain.effects.last()?;
+        let zone_filter = |this: &mut Self, in_zone: bool| -> Option<String> {
+            if cond_valid == "Card" {
+                return Some("&Filter::Any".to_string());
+            }
+            let expr = if in_zone {
+                this.filter_expr_in_zone(&cond_valid, true)?
+            } else {
+                this.filter_expr(&cond_valid)?
+            };
+            Some(format!("&{}", this.body.filter_static("REFLEX", &expr)))
+        };
+        if last.starts_with("Effect::Mill {") {
+            let f = zone_filter(self, true)?;
+            return Some(format!("ReflexiveWhen::ThisWay(ThisWay::Milled({f}))"));
+        }
+        if last.starts_with("Effect::Discard") || last.starts_with("Effect::RevealHandDiscard") {
+            if cond_valid == "Card" {
+                return Some("ReflexiveWhen::ThisWay(ThisWay::Discarded)".to_string());
+            }
+            let f = zone_filter(self, true)?;
+            return Some(format!(
+                "ReflexiveWhen::ThisWay(ThisWay::DiscardedMatching({f}))"
+            ));
+        }
+        if last.starts_with("Effect::RevealUntil") || last.starts_with("Effect::RevealHand {") {
+            let f = zone_filter(self, true)?;
+            return Some(format!("ReflexiveWhen::ThisWay(ThisWay::Revealed({f}))"));
+        }
+        if last.starts_with("Effect::SacrificeFilter")
+            || last.starts_with("Effect::SacrificeAll")
+            || last == "Effect::SacrificeSelf"
+        {
+            let f = zone_filter(self, false)?;
+            return Some(format!(
+                "ReflexiveWhen::Event(ReflexiveEvent::Sacrificed({f}))"
+            ));
+        }
+        if last.starts_with("Effect::exile(") || last.starts_with("Effect::ExileAll {") {
+            let f = zone_filter(self, false)?;
+            return Some(format!(
+                "ReflexiveWhen::ThisWay(ThisWay::ExiledFromBattlefield({f}))"
+            ));
+        }
+        if last.starts_with("Effect::ExileTop {") {
+            let f = zone_filter(self, true)?;
+            return Some(format!(
+                "ReflexiveWhen::ThisWay(ThisWay::ExiledFromLibrary({f}))"
+            ));
+        }
+        if last.starts_with("Effect::bounce(")
+            || last.starts_with("Effect::ReturnAllToHand")
+            || last.starts_with("Effect::ReturnChosenToHand")
+        {
+            let f = zone_filter(self, false)?;
+            return Some(format!(
+                "ReflexiveWhen::ThisWay(ThisWay::ReturnedToHand({f}))"
+            ));
+        }
+        if last.starts_with("Effect::destroy") || last.starts_with("Effect::DestroyAll") {
+            let f = zone_filter(self, false)?;
+            return Some(format!("ReflexiveWhen::ThisWay(ThisWay::Destroyed({f}))"));
+        }
+        if last.starts_with("Effect::Tap") {
+            let f = zone_filter(self, false)?;
+            return Some(format!("ReflexiveWhen::Tapped({f})"));
+        }
+        None
+    }
+
+    fn delayed_remember(
+        &self,
+        raw: Option<&str>,
+        target: Option<&str>,
+        chain: &Chain,
+        body_uses_remembered: bool,
+    ) -> Option<&'static str> {
+        let multi_target = chain.target_exact.is_some_and(|n| n > 1)
+            || chain.target_up_to.is_some_and(|n| n > 1)
+            || chain.target_is_x;
+        let obj_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+        match raw {
+            None => Some("TriggerRemember::None"),
+            Some("Self") if !self.on_a_spell => Some("TriggerRemember::Source"),
+            Some("Targeted" | "ParentTarget" | "TargetedCard") if obj_target => {
+                Some(if multi_target {
+                    "TriggerRemember::EachTarget"
+                } else {
+                    "TriggerRemember::FirstTarget"
+                })
+            }
+            Some("Targeted") if target.is_none() && !body_uses_remembered => {
+                Some("TriggerRemember::None")
+            }
+            Some("Remembered" | "RememberedLKI" | "RememberedCard") => {
+                if chain
+                    .effects
+                    .iter()
+                    .any(|e| e.contains("Effect::CreateToken"))
+                {
+                    Some("TriggerRemember::EachCreatedToken")
+                } else if chain.effects.iter().any(|e| {
+                    e.contains("Effect::exile(")
+                        || e.contains("Effect::ExileAll")
+                        || e.contains("Effect::ExileTop")
+                }) {
+                    Some("TriggerRemember::EachExiledThisWay")
+                } else {
+                    None
+                }
+            }
+            Some(def) if self.is_event_object_defined(def) => Some("TriggerRemember::EventObject"),
+            Some(_) => None,
+        }
+    }
+
+    fn delayed_optional_condition(&mut self, p: &mut Params) -> Option<String> {
+        let mut clauses = Vec::new();
+        let cond_str = self.condition(p)?;
+        if let Some(inner) = cond_str
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+        {
+            clauses.push(inner.to_string());
+        }
+        if let Some(var) = p.peek("CheckSVar").map(str::to_string) {
+            let cmp = p
+                .peek("SVarCompare")
+                .map_or_else(|| "GE1".to_string(), str::to_string);
+            let clause = self.svar_condition(&var, &cmp)?;
+            p.take("CheckSVar");
+            p.take("SVarCompare");
+            clauses.push(clause);
+        }
+        Some(match clauses.as_slice() {
+            [] => "None".to_string(),
+            [only] => format!("Some(&{only})"),
+            many => format!("Some(&Condition::All(&[{}]))", many.join(", ")),
+        })
+    }
+
+    fn parse_delayed_body(
+        &mut self,
+        p: &mut Params,
+        inner_trigger_mode: Option<String>,
+        optional: bool,
+    ) -> Option<(String, Option<String>)> {
+        let Some(execute) = p.take("Execute") else {
+            return self.deny("a delayed trigger with no `Execute$`".to_string());
+        };
+        let Some(body) = self.svars.get(&execute).cloned() else {
+            return self.deny(format!("`Execute$ {execute}` names no SVar"));
+        };
+        let mut inner = Chain::default();
+        let saved_delayed = std::mem::replace(&mut self.in_delayed, true);
+        let saved_mode = std::mem::replace(&mut self.trigger_mode, inner_trigger_mode);
+        let saved_self = std::mem::replace(&mut self.trigger_is_self, false);
+        let saved_block = self.block_line.take();
+        let read = self.chain(&body, &mut inner);
+        self.in_delayed = saved_delayed;
+        self.trigger_mode = saved_mode;
+        self.trigger_is_self = saved_self;
+        self.block_line = saved_block;
+        read?;
+        if inner.second_target.is_some() {
+            return self.deny("a delayed trigger with a second target".to_string());
+        }
+        if inner.effects.is_empty() {
+            return self.deny("a delayed trigger that reads as no effect".to_string());
+        }
+        let joined = inner.effects.join(", ");
+        let effects = if optional {
+            format!("Effect::MayDo {{ effects: &[{joined}] }}")
+        } else {
+            joined
+        };
+        let targets = Self::target_req_expr(&inner);
+        Some((effects, targets))
     }
 
     fn delayed_execute_effects(&mut self, p: &mut Params) -> Option<String> {

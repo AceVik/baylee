@@ -356,6 +356,26 @@ impl Tx<'_> {
             }
         }
         if !static_only {
+            if self.in_delayed {
+                match def {
+                    "Spawner>Sacrificed$CardPower"
+                    | "DelayTriggerRemembered$CardPower"
+                    | "DelayTriggerRememberedLKI$CardPower" => {
+                        return Some("Amount::EventPower".to_string());
+                    }
+                    "Spawner>Sacrificed$CardToughness"
+                    | "DelayTriggerRemembered$CardToughness"
+                    | "DelayTriggerRememberedLKI$CardToughness" => {
+                        return Some("Amount::EventLastToughness".to_string());
+                    }
+                    "Spawner>Sacrificed$CardManaCost"
+                    | "DelayTriggerRemembered$CardManaCost"
+                    | "DelayTriggerRememberedLKI$CardManaCost" => {
+                        return Some("Amount::EventManaValue".to_string());
+                    }
+                    _ => {}
+                }
+            }
             if def == "TriggerCount$DamageAmount"
                 && matches!(
                     self.trigger_mode.as_deref(),

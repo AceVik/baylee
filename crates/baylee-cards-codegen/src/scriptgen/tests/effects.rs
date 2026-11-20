@@ -2832,3 +2832,276 @@ fn a_you_may_have_after_a_mandatory_clause_does_not_make_the_chain_optional() {
         "a may after a mandatory clause is not the whole chain's choice"
     );
 }
+
+#[test]
+fn oracle_gates_stale_trigger_description_you_may() {
+    let mandatory = "Name:Mandatory crab\nTypes:Creature Goblin\nPT:1/1\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ Draw | TriggerDescription$ When CARDNAME dies, you may draw a card.\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         Oracle:When this creature dies, draw a card.\n";
+    let body = read(mandatory);
+    assert!(
+        !body.abilities[0].contains("Effect::MayDo"),
+        "mandatory oracle must suppress stale TriggerDescription$ you may: {}",
+        body.abilities[0]
+    );
+
+    let optional = mandatory.replace(
+        "Oracle:When this creature dies, draw a card.",
+        "Oracle:When this creature dies, you may draw a card.",
+    );
+    assert!(
+        read(&optional).abilities[0].contains("Effect::MayDo"),
+        "oracle containing you may preserves Effect::MayDo"
+    );
+
+    let no_oracle = mandatory.replace("Oracle:When this creature dies, draw a card.\n", "");
+    assert!(
+        read(&no_oracle).abilities[0].contains("Effect::MayDo"),
+        "minimal synthetic scripts without Oracle keep TriggerDescription$ behavior"
+    );
+}
+
+#[test]
+fn becomes_blocked_self_trigger_sets_trigger_is_self() {
+    let self_blocked = "Name:Spiny runner\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Card.Self | OptionalDecider$ TriggeredCardController | Execute$ Ping\n\
+         SVar:Ping:DB$ GainLife | Defined$ You | LifeAmount$ 1\n\
+         Oracle:Whenever this creature becomes blocked, you may gain 1 life.\n";
+    let body = read(self_blocked);
+    assert!(
+        body.abilities[0].contains("Trigger::BecomesBlocked")
+            && body.abilities[0].contains("Effect::MayDo"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let team_blocked = "Name:Banner guard\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Ping\n\
+         SVar:Ping:DB$ GainLife | Defined$ You | LifeAmount$ 1\n";
+    assert!(
+        read(team_blocked).abilities[0].contains("Trigger::ControlledBecomesBlocked"),
+        "{}",
+        read(team_blocked).abilities[0]
+    );
+    // Non-self ControlledBecomesBlocked must NOT treat TriggeredCardController as You.
+    assert!(refused(&self_blocked.replace(
+        "ValidCard$ Card.Self",
+        "ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield"
+    )));
+}
+
+#[test]
+fn immediate_trigger_reflexive_cost_and_remembered_when_rules() {
+    let sac_power = "Name:Fling beetle\nTypes:Creature Goblin\nPT:2/2\n\
+         A:AB$ ImmediateTrigger | Cost$ Sac<1/Creature.Other> | Execute$ Hit\n\
+         SVar:Hit:DB$ DealDamage | ValidTgts$ Any | NumDmg$ X\n\
+         SVar:X:Spawner>Sacrificed$CardPower\n";
+    let a = &read(sac_power).abilities[0];
+    assert!(a.contains("Effect::ReflexiveTrigger"), "{a}");
+    assert!(a.contains("when: ReflexiveWhen::Always"), "{a}");
+    assert!(
+        a.contains("remember: TriggerRemember::SacrificedObject"),
+        "{a}"
+    );
+    assert!(a.contains("TargetReq::one(TargetSpec::AnyTarget)"), "{a}");
+    assert!(a.contains("Amount::EventPower"), "{a}");
+
+    let mill_once = "Name:Dredge bell\nTypes:Sorcery\nManaCost:1 B\n\
+         A:SP$ Mill | Defined$ You | NumCards$ 3 | RememberMilled$ True | SubAbility$ Ref\n\
+         SVar:Ref:DB$ ImmediateTrigger | ConditionDefined$ Remembered | ConditionPresent$ Creature | Execute$ Gain | TriggerDescription$ When a creature card is milled this way, gain 2 life.\n\
+         SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 2\n";
+    let a = &read(mill_once).abilities[0];
+    assert!(a.contains("ReflexiveWhen::ThisWay(ThisWay::Milled("), "{a}");
+    assert!(a.contains("once: true"), "{a}");
+
+    let mill_each = mill_once.replace("When a creature card", "Whenever a creature card");
+    assert!(read(&mill_each).abilities[0].contains("once: false"));
+
+    let attach_ref = "Name:Battle clasp\nTypes:Artifact Equipment\n\
+         T:Mode$ Attacks | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Ref\n\
+         SVar:Ref:DB$ ImmediateTrigger | RememberObjects$ TriggeredAttackerLKICopy | Execute$ Snap | OptionalDecider$ You\n\
+         SVar:Snap:DB$ Attach | Object$ Self | Defined$ DelayTriggerRemembered\n";
+    let a = &read(attach_ref).abilities[0];
+    assert!(a.contains("remember: TriggerRemember::EventObject"), "{a}");
+    assert!(
+        a.contains("Effect::AttachSelf { target: TargetSpec::EventObject }"),
+        "{a}"
+    );
+
+    assert!(refused(&format!("{sac_power} | Announce$ True")));
+    assert!(refused(&mill_once.replace(
+        "ConditionPresent$ Creature",
+        "ConditionPresent$ Creature | ConditionCompare$ EQ4"
+    )));
+}
+
+#[test]
+fn generalized_delayed_trigger_phase_event_and_observation() {
+    let phase_sac = "Name:Borrowed fury\nTypes:Sorcery\nManaCost:2 R\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 3 | SubAbility$ Del\n\
+         SVar:Del:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | RememberObjects$ Targeted | Execute$ Sac\n\
+         SVar:Sac:DB$ Sacrifice | Defined$ DelayTriggerRemembered\n";
+    let a = &read(phase_sac).abilities[0];
+    assert!(a.contains("Effect::RegisterDelayedTrigger"), "{a}");
+    assert!(a.contains("DelayedStep::EndStep"), "{a}");
+    assert!(a.contains("remember: TriggerRemember::FirstTarget"), "{a}");
+    assert!(a.contains("Effect::SacrificeEvent"), "{a}");
+
+    let dies_return = "Name:Graceful spark\nTypes:Instant\nManaCost:1 W\n\
+         A:SP$ DelayedTrigger | ValidTgts$ Creature | Mode$ ChangesZone | RememberObjects$ Targeted | ValidCard$ Card.IsTriggerRemembered | Origin$ Battlefield | Destination$ Graveyard | ThisTurn$ True | Execute$ Ret\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ TriggeredNewCardLKICopy | Origin$ Graveyard | Destination$ Battlefield\n";
+    let a = &read(dies_return).abilities[0];
+    assert!(a.contains("DelayedTriggerWhen::OnTrigger"), "{a}");
+    assert!(a.contains("watch: TriggerRemember::FirstTarget"), "{a}");
+    assert!(
+        a.contains("duration: DelayedDuration::OneShotThisTurn"),
+        "{a}"
+    );
+    assert!(
+        a.contains("Effect::GraveyardToBattlefield { target: TargetSpec::EventObject, owner_control: true, counters: None }"),
+        "{a}"
+    );
+
+    let copy_next = "Name:Twin echo\nTypes:Instant\nManaCost:2 R\n\
+         A:SP$ DelayedTrigger | Mode$ SpellCast | ValidCard$ Instant,Sorcery | ValidActivatingPlayer$ You | ThisTurn$ True | Execute$ Copy\n\
+         SVar:Copy:DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True | Amount$ 2\n";
+    let a = &read(copy_next).abilities[0];
+    assert_eq!(
+        a.matches("Effect::CopyEventSpellOrAbility").count(),
+        2,
+        "{a}"
+    );
+
+    let lose_ctrl = "Name:Loyal leash\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Watch\n\
+         SVar:Watch:DB$ DelayedTrigger | Mode$ ChangesController | ValidCard$ Card.Self | Execute$ Draw\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1\n";
+    let a = &read(lose_ctrl).abilities[0];
+    assert!(a.contains("DelayedTriggerWhen::OnObservation"), "{a}");
+    assert!(a.contains("DelayedObservation::YouLoseControl"), "{a}");
+
+    assert!(refused(
+        "Name:Bad upkeep\nTypes:Instant\n\
+         A:SP$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep | Execute$ Draw\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1\n"
+    ));
+    assert!(refused(
+        &copy_next.replace("ThisTurn$ True", "Static$ True")
+    ));
+}
+
+#[test]
+fn wave5_effect_choose_one_phase_conditions_and_event_zones() {
+    let choose = "Name:Bimodal choice\nTypes:Sorcery\nManaCost:4 W W\n\
+         A:SP$ GenericChoice | Choices$ WipeLand,WipeCreat\n\
+         SVar:WipeLand:DB$ DestroyAll | ValidCards$ Land\n\
+         SVar:WipeCreat:DB$ DestroyAll | ValidCards$ Creature\n";
+    let a = &read(choose).abilities[0];
+    assert!(a.contains("Effect::ChooseOne { choices: &["), "{a}");
+
+    let multi_static = "Name:Silence flash\nTypes:Instant\nManaCost:1 W\n\
+         A:SP$ Effect | StaticAbilities$ Lock,Flash | Duration$ UntilEndOfTurn\n\
+         SVar:Lock:Mode$ CantBeCast | Caster$ Opponent | ValidCard$ Card\n\
+         SVar:Flash:Mode$ CastWithFlash | Caster$ You | ValidCard$ Artifact,Creature\n";
+    let a = &read(multi_static).abilities[0];
+    assert!(
+        a.contains("Modifier::OpponentsCantCast(&Filter::Any)"),
+        "{a}"
+    );
+    assert!(
+        a.contains("Modifier::SpellsHaveFlash(Some(TypeSet::ARTIFACT.union(TypeSet::CREATURE)))"),
+        "{a}"
+    );
+    // CantGainLife is a CR 101.2 prohibition, never conflated with LifeGainNoLifeInstead.
+    assert!(refused(
+        "Name:No life\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ NoGain | Duration$ UntilEndOfTurn\n\
+         SVar:NoGain:Mode$ CantGainLife | ValidPlayer$ Player\n"
+    ));
+
+    let phase_cond = "Name:Descend scout\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You.descended | TriggerZones$ Battlefield | Execute$ Draw | CheckSVar$ X | SVarCompare$ GE1\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:Count$ThisTurnEntered_Battlefield_Goblin.YouCtrl\n";
+    let a = &read(phase_cond).abilities[0];
+    assert!(a.contains("Condition::DescendedThisTurn"), "{a}");
+    assert!(
+        a.contains(
+            "Condition::EnteredSubtypeUnderYourControlThisTurn(&[subtypes::creature::GOBLIN])"
+        ),
+        "{a}"
+    );
+
+    let self_die_exile = "Name:Self exile\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Defined$ TriggeredNewCardLKICopy | Origin$ Graveyard | Destination$ Exile\n";
+    assert!(read(self_die_exile).abilities[0].contains("Effect::ExileSource"));
+    assert!(refused(
+        &self_die_exile.replace("ValidCard$ Card.Self", "ValidCard$ Creature.Other")
+    ));
+}
+
+#[test]
+fn wave5_self_blink_exile_counters_token_followups_and_search() {
+    let blink_flip = "Name:Flip walker\nTypes:Creature Goblin\nPT:1/1\n\
+         A:AB$ ChangeZone | Cost$ T | Defined$ Self | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ Ret\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | Transformed$ True | SubAbility$ Cln\n\
+         SVar:Cln:DB$ Cleanup | ClearRemembered$ True\n";
+    assert!(
+        read(blink_flip).abilities[0]
+            .contains("Effect::ExileSelfReturnAsFace { face: 1, owner_control: true }")
+    );
+
+    let suspend_like = "Name:Hourglass spell\nTypes:Sorcery\nManaCost:2 B B\n\
+         A:SP$ ChangeZone | Defined$ Self | Origin$ Stack | Destination$ Exile | RememberChanged$ True | SubAbility$ Put\n\
+         SVar:Put:DB$ PutCounter | Defined$ Remembered | CounterType$ TIME | CounterNum$ 2 | SubAbility$ Cln\n\
+         SVar:Cln:DB$ Cleanup | ClearRemembered$ True\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Exile | Execute$ Fin\n\
+         SVar:Fin:DB$ ChangeZone | Defined$ Self | Origin$ Exile | Destination$ Graveyard\n";
+    let body = read(suspend_like);
+    assert!(
+        body.abilities[0]
+            .contains("Effect::ExileSourceWithCounters { kind: CounterKind::Time, n: 2 }"),
+        "{}",
+        body.abilities[0]
+    );
+    assert!(
+        body.abilities[1].contains("Effect::MoveSourceToOwnerGraveyard"),
+        "{}",
+        body.abilities[1]
+    );
+
+    let tok_map = tokens();
+    let living = "Name:Living blade\nTypes:Artifact Equipment\n\
+         T:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Make\n\
+         SVar:Make:DB$ Token | TokenScript$ r_1_1_goblin | RememberTokens$ True | SubAbility$ Att\n\
+         SVar:Att:DB$ Attach | Object$ Self | Defined$ Remembered | SubAbility$ Cln\n\
+         SVar:Cln:DB$ Cleanup | ClearRemembered$ True\n";
+    let living_body = transcode(&parse(living), &cats(), Some(&tok_map)).expect("living blade");
+    assert!(
+        living_body.abilities[0].contains("Effect::CreateTokenThenAttachSelf"),
+        "{}",
+        living_body.abilities[0]
+    );
+
+    let fractal = "Name:Growing token\nTypes:Sorcery\nManaCost:2 G\n\
+         A:SP$ Token | TokenScript$ r_1_1_goblin | RememberTokens$ True | SubAbility$ Pump\n\
+         SVar:Pump:DB$ PutCounter | Defined$ Remembered | CounterType$ P1P1 | CounterNum$ 4 | SubAbility$ Cln\n\
+         SVar:Cln:DB$ Cleanup | ClearRemembered$ True\n";
+    let fractal_body = transcode(&parse(fractal), &cats(), Some(&tok_map)).expect("fractal");
+    assert!(
+        fractal_body.abilities[0].contains("Effect::CreateTokenThenCounters"),
+        "{}",
+        fractal_body.abilities[0]
+    );
+
+    let entomb = "Name:Grave tutor\nTypes:Instant\nManaCost:B\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Graveyard | ChangeType$ Card | ChangeNum$ 1\n";
+    assert!(read(entomb).abilities[0].contains("Find::GRAVEYARD"));
+
+    let squad = "Name:Pack search\nTypes:Sorcery\nManaCost:1 W\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Goblin | ChangeNum$ X\n\
+         SVar:X:Count$ValidLibrary Goblin.YouOwn\n";
+    assert!(read(squad).abilities[0].contains("Find::HAND.any_number()"));
+}

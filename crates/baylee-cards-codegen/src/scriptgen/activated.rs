@@ -798,10 +798,16 @@ impl Tx<'_> {
                 _ => None,
             };
         }
-        if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"
-            && let Some(Bound::AtLeast(n)) = bound
-        {
-            return Some(format!("Condition::CreaturesDiedThisTurnAtLeast({n})"));
+        if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
+            return match bound {
+                Some(Bound::AtLeast(n)) => {
+                    Some(format!("Condition::CreaturesDiedThisTurnAtLeast({n})"))
+                }
+                Some(Bound::AtMost(0)) => {
+                    Some("Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast(1))".to_string())
+                }
+                _ => None,
+            };
         }
         if raw == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl"
             && let Some(Bound::AtLeast(n)) = bound
@@ -814,6 +820,8 @@ impl Tx<'_> {
             raw.as_str(),
             "Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl"
                 | "Count$ThisTurnCast_Sorcery.YouCtrl,Instant.YouCtrl"
+                | "Count$ThisTurnCast_Card.Instant,Sorcery+YouCtrl"
+                | "Count$ThisTurnCast_Card.Instant+YouCtrl,Card.Sorcery+YouCtrl"
         ) {
             return match cmp {
                 "GE1" => Some("Condition::CastInstantOrSorceryThisTurn".to_string()),
@@ -823,7 +831,10 @@ impl Tx<'_> {
                 _ => None,
             };
         }
-        if raw == "Count$ThisTurnCast_Creature.YouCtrl" {
+        if matches!(
+            raw.as_str(),
+            "Count$ThisTurnCast_Creature.YouCtrl" | "Count$ThisTurnCast_Card.Creature+YouCtrl"
+        ) {
             return match cmp {
                 "GE1" => Some("Condition::CastCreatureThisTurn".to_string()),
                 "EQ0" => Some("Condition::Not(&Condition::CastCreatureThisTurn)".to_string()),
@@ -878,6 +889,45 @@ impl Tx<'_> {
                 }
                 _ => None,
             };
+        }
+        if let Some(entered_valid) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
+            && matches!(cmp, "GE1" | "EQ0")
+        {
+            let mut paths = Vec::new();
+            let mut ok = true;
+            for alt in entered_valid.split(',').map(str::trim) {
+                let Some(base) = alt
+                    .strip_suffix(".YouCtrl")
+                    .or_else(|| {
+                        alt.strip_prefix("Permanent.")
+                            .and_then(|s| s.strip_suffix("+YouCtrl"))
+                    })
+                    .or_else(|| {
+                        alt.strip_prefix("Card.")
+                            .and_then(|s| s.strip_suffix("+YouCtrl"))
+                    })
+                else {
+                    ok = false;
+                    break;
+                };
+                if let Some(path) = self.cats.const_path(base) {
+                    paths.push(path);
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+            if ok && !paths.is_empty() {
+                let inner = format!(
+                    "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
+                    paths.join(", ")
+                );
+                return Some(if cmp == "EQ0" {
+                    format!("Condition::Not(&{inner})")
+                } else {
+                    inner
+                });
+            }
         }
         if raw == "Count$ThisTurnLandPlayed" {
             return match bound {
