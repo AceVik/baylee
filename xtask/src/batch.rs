@@ -422,6 +422,23 @@ pub(crate) fn resolve_script_index(
     Ok(script_index)
 }
 
+/// Nontraditional / non-deck card types excluded by `docs/mechanics-roadmap.md` §C4/§E1
+/// (`Vanguard`, `Plane`, `Scheme`, `Conspiracy`, `Phenomenon`, `Dungeon`, `Attraction`, `Stickers`).
+pub(crate) fn is_non_deck_card_type(type_line: &str) -> bool {
+    let mut has_planeswalker = false;
+    let mut has_dungeon = false;
+    for word in type_line.split_whitespace() {
+        match word {
+            "Vanguard" | "Plane" | "Scheme" | "Conspiracy" | "Phenomenon" | "Attraction"
+            | "Stickers" => return true,
+            "Planeswalker" => has_planeswalker = true,
+            "Dungeon" => has_dungeon = true,
+            _ => {}
+        }
+    }
+    has_dungeon && !has_planeswalker
+}
+
 /// Digital-only Alchemy rebalances (`A-*` in the append-only ledger) were dropped
 /// from Scryfall feeds and `/cards/named?exact=`, causing `fetch_named` to fall
 /// back to `?fuzzy=` and collide with the paper card's file path.
@@ -436,6 +453,7 @@ pub(crate) struct Reach {
     mine: usize,
     alchemy: usize,
     held_back: usize,
+    non_deck: usize,
     scripted: usize,
     refused: usize,
     front: usize,
@@ -458,8 +476,8 @@ pub(crate) fn reach_measure(
     // Never built, so never proposed (data/unplayable.tsv, A-* Alchemy, data/held-back.tsv).
     let unplayable = unplayable_ids(root)?;
     let held_back_list = held_back_set(root)?;
-    let (mut mine, mut alchemy, mut held_back, mut scripted, mut refused, mut front) =
-        (0usize, 0usize, 0usize, 0usize, 0usize, 0usize);
+    let (mut mine, mut alchemy, mut held_back, mut non_deck, mut scripted, mut refused, mut front) =
+        (0usize, 0usize, 0usize, 0usize, 0usize, 0usize, 0usize);
     let mut names: Vec<&'static str> = Vec::new();
     // By reference: `ROWS` is a 33 694-element array and not a slice, so
     // `for row in ROWS` copies every one of them onto the stack — measured,
@@ -484,12 +502,16 @@ pub(crate) fn reach_measure(
         let Some(rel) = script_for(&script_index, row.name) else {
             continue;
         };
+        let text = fs::read_to_string(dir.join(rel))?;
+        let script = scriptgen::parse(&text);
+        if is_non_deck_card_type(&script.type_line) {
+            non_deck += 1;
+            continue;
+        }
         scripted += 1;
         if !script_index.contains_key(row.name) {
             front += 1;
         }
-        let text = fs::read_to_string(dir.join(rel))?;
-        let script = scriptgen::parse(&text);
         if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some()
             || scriptgen::is_vanilla(&script)
         {
@@ -503,6 +525,7 @@ pub(crate) fn reach_measure(
         mine,
         alchemy,
         held_back,
+        non_deck,
         scripted,
         refused,
         front,
@@ -521,6 +544,7 @@ pub(crate) fn reach_list(
         mine,
         alchemy,
         held_back,
+        non_deck,
         scripted,
         refused,
         front,
@@ -536,6 +560,11 @@ pub(crate) fn reach_list(
     }
     if held_back > 0 {
         println!("reach: {held_back} held-back row(s) skipped (data/held-back.tsv)");
+    }
+    if non_deck > 0 {
+        println!(
+            "reach: {non_deck} non-deck row(s) skipped (Vanguard/Plane/Scheme/Conspiracy/Dungeon/Attraction/Stickers)"
+        );
     }
     // Reported rather than assumed: a second tier that matched nothing would
     // be a lookup quietly answering for one spelling only, and this is the
@@ -965,5 +994,43 @@ Fake By Name\tfixture-gap
         ];
         let added = filter_batch_additions(pool, decks, &proposed).expect("filter additions");
         assert_eq!(added, vec!["Wear // Tear", "Lightning Bolt"]);
+    }
+
+    #[test]
+    fn non_deck_card_type_predicate_skips_vanguard_plane_scheme_conspiracy_dungeon_but_keeps_normal_cards()
+     {
+        use super::is_non_deck_card_type;
+
+        for excluded in [
+            "Vanguard",
+            "Plane Mirrodin",
+            "Ongoing Scheme",
+            "Scheme",
+            "Conspiracy",
+            "Phenomenon",
+            "Dungeon",
+            "Artifact Attraction",
+            "Stickers",
+        ] {
+            assert!(
+                is_non_deck_card_type(excluded),
+                "expected non-deck type line to be skipped: {excluded}"
+            );
+        }
+
+        for normal in [
+            "Legendary Planeswalker Dungeon Master",
+            "Creature Human Soldier",
+            "Legendary Creature Human Wizard",
+            "Sorcery",
+            "Artifact",
+            "Instant",
+            "Battle Siege",
+        ] {
+            assert!(
+                !is_non_deck_card_type(normal),
+                "expected normal deck card type line to be kept: {normal}"
+            );
+        }
     }
 }

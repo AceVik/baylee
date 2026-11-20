@@ -15788,54 +15788,9 @@ Skewer the Critics
 Skitter Eel
 Smelt-Ward Ignus
 Vampirism
-Barrin
 Cruel Tutor
-Ertai
-Gerrard
-Gix
-Greven il-Vec
-Hanna
-Karn
-Lyna
-Maraxus
-Multani
-Orim
 Personal Tutor
-Rofellos
-Selenia
-Serra
-Sidar Kondo
-Sliver Queen, Brood Mother
 Sylvan Tutor
-Tahngarth
-Takara
-Urza
-Volrath
-Xantcha
-Arcbound Overseer Avatar
-Ashling the Pilgrim Avatar
-Birds of Paradise Avatar
-Bosh, Iron Golem Avatar
-Erhnam Djinn Avatar
-Fallen Angel Avatar
-Goblin Warchief Avatar
-Grinning Demon Avatar
-Hell's Caretaker Avatar
-Loxodon Hierarch Avatar
-Maro Avatar
-Mirri the Cursed Avatar
-Morinfen Avatar
-Murderous Redcap Avatar
-Nekrataal Avatar
-Raksha Golden Cub Avatar
-Rith, the Awakener Avatar
-Royal Assassin Avatar
-Rumbling Slum Avatar
-Serra Angel Avatar
-Squee, Goblin Nabob Avatar
-Stalking Tiger Avatar
-Teysa, Orzhov Scion Avatar
-Two-Headed Giant of Foriys Avatar
 Bringer of the Black Dawn
 Cruel Deceiver
 Harsh Deceiver

@@ -43,12 +43,8 @@ pub mod aphetto_exterminator;
 pub mod aphetto_runecaster;
 #[path = "mrd/arc_slogger.rs"]
 pub mod arc_slogger;
-#[path = "pmoa/arcbound_overseer_avatar.rs"]
-pub mod arcbound_overseer_avatar;
 #[path = "scg/ark_of_blight.rs"]
 pub mod ark_of_blight;
-#[path = "pmoa/ashling_the_pilgrim_avatar.rs"]
-pub mod ashling_the_pilgrim_avatar;
 #[path = "mrd/assert_authority.rs"]
 pub mod assert_authority;
 #[path = "scg/astral_steel.rs"]
@@ -85,8 +81,6 @@ pub mod beacon_of_destiny;
 pub mod berserk_murlodont;
 #[path = "mrd/betrayal_of_flesh.rs"]
 pub mod betrayal_of_flesh;
-#[path = "pmoa/birds_of_paradise_avatar.rs"]
-pub mod birds_of_paradise_avatar;
 #[path = "lgn/blade_sliver.rs"]
 pub mod blade_sliver;
 #[path = "scg/bladewing_s_thrall.rs"]
@@ -111,8 +105,6 @@ pub mod bonesplitter;
 pub mod bonethorn_valesk;
 #[path = "mrd/bosh_iron_golem.rs"]
 pub mod bosh_iron_golem;
-#[path = "pmoa/bosh_iron_golem_avatar.rs"]
-pub mod bosh_iron_golem_avatar;
 #[path = "scg/brain_freeze.rs"]
 pub mod brain_freeze;
 #[path = "lgn/branchsnap_lorian.rs"]
@@ -319,8 +311,6 @@ pub mod empyrial_plate;
 pub mod enormous_baloth;
 #[path = "scg/enrage.rs"]
 pub mod enrage;
-#[path = "pmoa/erhnam_djinn_avatar.rs"]
-pub mod erhnam_djinn_avatar;
 #[path = "lgn/essence_sliver.rs"]
 pub mod essence_sliver;
 #[path = "scg/eternal_dragon.rs"]
@@ -335,8 +325,6 @@ pub mod extraplanar_lens;
 pub mod fabricate;
 #[path = "scg/faces_of_the_past.rs"]
 pub mod faces_of_the_past;
-#[path = "pmoa/fallen_angel_avatar.rs"]
-pub mod fallen_angel_avatar;
 #[path = "mrd/fangren_hunter.rs"]
 pub mod fangren_hunter;
 #[path = "mrd/farsight_mask.rs"]
@@ -443,8 +431,6 @@ pub mod goblin_turncoat;
 pub mod goblin_war_wagon;
 #[path = "scg/goblin_warchief.rs"]
 pub mod goblin_warchief;
-#[path = "pmoa/goblin_warchief_avatar.rs"]
-pub mod goblin_warchief_avatar;
 #[path = "mrd/gold_myr.rs"]
 pub mod gold_myr;
 #[path = "mrd/golem_skin_gauntlets.rs"]
@@ -461,8 +447,6 @@ pub mod great_furnace;
 pub mod grid_monitor;
 #[path = "mrd/grim_reminder.rs"]
 pub mod grim_reminder;
-#[path = "pmoa/grinning_demon_avatar.rs"]
-pub mod grinning_demon_avatar;
 #[path = "scg/grip_of_chaos.rs"]
 pub mod grip_of_chaos;
 #[path = "mrd/groffskithur.rs"]
@@ -473,8 +457,6 @@ pub mod guilty_conscience;
 pub mod havoc_demon;
 #[path = "mrd/heartwood_shard.rs"]
 pub mod heartwood_shard;
-#[path = "pmoa/hell_s_caretaker_avatar.rs"]
-pub mod hell_s_caretaker_avatar;
 #[path = "mrd/hematite_golem.rs"]
 pub mod hematite_golem;
 #[path = "scg/hindering_touch.rs"]
@@ -577,8 +559,6 @@ pub mod long_term_plans;
 pub mod looming_hoverguard;
 #[path = "lgn/lowland_tracker.rs"]
 pub mod lowland_tracker;
-#[path = "pmoa/loxodon_hierarch_avatar.rs"]
-pub mod loxodon_hierarch_avatar;
 #[path = "mrd/loxodon_mender.rs"]
 pub mod loxodon_mender;
 #[path = "mrd/loxodon_peacekeeper.rs"]
@@ -603,8 +583,6 @@ pub mod magma_sliver;
 pub mod malachite_golem;
 #[path = "mrd/march_of_the_machines.rs"]
 pub mod march_of_the_machines;
-#[path = "pmoa/maro_avatar.rs"]
-pub mod maro_avatar;
 #[path = "mrd/mask_of_memory.rs"]
 pub mod mask_of_memory;
 #[path = "mrd/mass_hysteria.rs"]
@@ -629,8 +607,6 @@ pub mod mind_s_eye;
 pub mod mindslaver;
 #[path = "mrd/mindstorm_crown.rs"]
 pub mod mindstorm_crown;
-#[path = "pmoa/mirri_the_cursed_avatar.rs"]
-pub mod mirri_the_cursed_avatar;
 #[path = "mrd/mirror_golem.rs"]
 pub mod mirror_golem;
 #[path = "scg/mischievous_quanar.rs"]
@@ -651,14 +627,10 @@ pub mod mistform_warchief;
 pub mod molder_slug;
 #[path = "mrd/molten_rain.rs"]
 pub mod molten_rain;
-#[path = "pmoa/morinfen_avatar.rs"]
-pub mod morinfen_avatar;
 #[path = "mrd/moriok_scavenger.rs"]
 pub mod moriok_scavenger;
 #[path = "mrd/mourner_s_shield.rs"]
 pub mod mourner_s_shield;
-#[path = "pmoa/murderous_redcap_avatar.rs"]
-pub mod murderous_redcap_avatar;
 #[path = "mrd/myr_adapter.rs"]
 pub mod myr_adapter;
 #[path = "mrd/myr_enforcer.rs"]
@@ -683,8 +655,6 @@ pub mod needlebug;
 pub mod needleshot_gourna;
 #[path = "scg/nefashu.rs"]
 pub mod nefashu;
-#[path = "pmoa/nekrataal_avatar.rs"]
-pub mod nekrataal_avatar;
 #[path = "mrd/neurok_familiar.rs"]
 pub mod neurok_familiar;
 #[path = "mrd/neurok_hoversail.rs"]
@@ -767,8 +737,6 @@ pub mod quick_sliver;
 pub mod rain_of_blades;
 #[path = "mrd/raise_the_alarm.rs"]
 pub mod raise_the_alarm;
-#[path = "pmoa/raksha_golden_cub_avatar.rs"]
-pub mod raksha_golden_cub_avatar;
 #[path = "scg/raven_guild_initiate.rs"]
 pub mod raven_guild_initiate;
 #[path = "scg/raven_guild_master.rs"]
@@ -791,8 +759,6 @@ pub mod riptide_director;
 pub mod riptide_mangler;
 #[path = "scg/riptide_survivor.rs"]
 pub mod riptide_survivor;
-#[path = "pmoa/rith_the_awakener_avatar.rs"]
-pub mod rith_the_awakener_avatar;
 #[path = "mrd/roar_of_the_kha.rs"]
 pub mod roar_of_the_kha;
 #[path = "scg/rock_jockey.rs"]
@@ -803,12 +769,8 @@ pub mod rockshard_elemental;
 pub mod root_elemental;
 #[path = "lgn/root_sliver.rs"]
 pub mod root_sliver;
-#[path = "pmoa/royal_assassin_avatar.rs"]
-pub mod royal_assassin_avatar;
 #[path = "mrd/rule_of_law.rs"]
 pub mod rule_of_law;
-#[path = "pmoa/rumbling_slum_avatar.rs"]
-pub mod rumbling_slum_avatar;
 #[path = "scg/rush_of_knowledge.rs"]
 pub mod rush_of_knowledge;
 #[path = "mrd/rust_elemental.rs"]
@@ -833,8 +795,6 @@ pub mod seat_of_the_synod;
 pub mod seedborn_muse;
 #[path = "mrd/seething_song.rs"]
 pub mod seething_song;
-#[path = "pmoa/serra_angel_avatar.rs"]
-pub mod serra_angel_avatar;
 #[path = "mrd/serum_tank.rs"]
 pub mod serum_tank;
 #[path = "lgn/shaleskin_plower.rs"]
@@ -909,12 +869,8 @@ pub mod sphere_of_purity;
 pub mod spikeshot_goblin;
 #[path = "scg/sprouting_vines.rs"]
 pub mod sprouting_vines;
-#[path = "pmoa/squee_goblin_nabob_avatar.rs"]
-pub mod squee_goblin_nabob_avatar;
 #[path = "scg/stabilizer.rs"]
 pub mod stabilizer;
-#[path = "pmoa/stalking_tiger_avatar.rs"]
-pub mod stalking_tiger_avatar;
 #[path = "lgn/starlight_invoker.rs"]
 pub mod starlight_invoker;
 #[path = "mrd/steel_wall.rs"]
@@ -969,8 +925,6 @@ pub mod temporal_cascade;
 pub mod temporal_fissure;
 #[path = "scg/tendrils_of_agony.rs"]
 pub mod tendrils_of_agony;
-#[path = "pmoa/teysa_orzhov_scion_avatar.rs"]
-pub mod teysa_orzhov_scion_avatar;
 #[path = "mrd/thoughtcast.rs"]
 pub mod thoughtcast;
 #[path = "scg/thundercloud_elemental.rs"]
@@ -1015,8 +969,6 @@ pub mod trolls_of_tel_jilad;
 pub mod turn_to_dust;
 #[path = "scg/twisted_abomination.rs"]
 pub mod twisted_abomination;
-#[path = "pmoa/two_headed_giant_of_foriys_avatar.rs"]
-pub mod two_headed_giant_of_foriys_avatar;
 #[path = "scg/unburden.rs"]
 pub mod unburden;
 #[path = "scg/uncontrolled_infestation.rs"]

@@ -78,6 +78,7 @@ Main deck:
   1× Fellwar Stone
   1× Fertile Ground
   1× Flamekin Village
+  1× Foundation Breaker
   1× Frontier Bivouac
   1× Fury
   1× Garruk's Uprising
@@ -92,4 +93,3 @@ Main deck:
   1× Opulent Palace
   1× Path of Ancestry
   1× Path to Exile
-  1× Plains

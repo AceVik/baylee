@@ -507,6 +507,20 @@ fn symbol(color: baylee_core::mana::ManaColor) -> &'static str {
 /// as a sentence at all, so a trigger that accepted an "enters" line took
 /// Mulldrifter's *other* ETB — the draw — and the card was reported as
 /// aligned while its table pointed two abilities at one sentence and left
+fn step_begin_words(step: StepKind) -> &'static [&'static str] {
+    match step {
+        StepKind::Upkeep => &["upkeep"],
+        StepKind::Draw => &["draw step"],
+        StepKind::CombatBegin => &["beginning of combat"],
+        StepKind::DeclareAttackers => &["declare attackers step"],
+        StepKind::DeclareBlockers => &["declare blockers step"],
+        StepKind::CombatDamage => &["combat damage step"],
+        StepKind::CombatEnd => &["end of combat"],
+        StepKind::End => &["end step"],
+        StepKind::FirstMain => &["first main phase"],
+    }
+}
+
 /// the real one unclaimed. Reveillark is what showed it: its two triggers
 /// are "leaves" and evoke, nothing says "enters", and it was the only one
 /// of the three evoke cards the old reading could not quietly mismatch.
@@ -609,17 +623,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // of it that cannot be phrased otherwise: "At the beginning of your
         // upkeep", "… of your draw step", "… of your end step", "At the
         // beginning of combat on your turn".
-        T::StepBegin { step, .. } | T::StepBeginChosenOpponent { step } => match step {
-            StepKind::Upkeep => &["upkeep"],
-            StepKind::Draw => &["draw step"],
-            StepKind::CombatBegin => &["beginning of combat"],
-            StepKind::DeclareAttackers => &["declare attackers step"],
-            StepKind::DeclareBlockers => &["declare blockers step"],
-            StepKind::CombatDamage => &["combat damage step"],
-            StepKind::CombatEnd => &["end of combat"],
-            StepKind::End => &["end step"],
-            StepKind::FirstMain => &["first main phase"],
-        },
+        T::StepBegin { step, .. } | T::StepBeginChosenOpponent { step } => step_begin_words(*step),
         // A state trigger (CR 603.8) prints the state it waits for: Sea
         // Serpent's "When you control no Islands".
         T::State(_) => &[

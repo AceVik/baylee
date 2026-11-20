@@ -573,7 +573,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // 225 read by the table and 48 remaining contextual.
     // Batch wave 9 (996 generated cards) adds 283 non-mana activations:
     // 222 read by the table and 61 remaining contextual.
-    assert_eq!((read, of), (4164, 5339), "activated/loyalty reader census");
+    // Removing 45 non-deck Vanguard (pvan/pmoa) cards removes 13 command-zone
+    // non-mana activations: 10 read by the table and 3 remaining contextual.
+    assert_eq!((read, of), (4154, 5326), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

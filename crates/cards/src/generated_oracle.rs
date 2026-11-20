@@ -6680,8 +6680,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Barrin
-    &["Sacrifice a permanent: Return target creature to its owner's hand."],
+    &[],
     // Bee Sting
     &["Bee Sting deals 2 damage to any target."],
     // Blaze
@@ -6756,10 +6755,7 @@ pub static ORACLE: &[&[&str]] = &[
     &["Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)"],
     // Endless Cockroaches
     &["When this creature dies, return it to its owner's hand."],
-    // Ertai
-    &[
-        "Creatures you control have hexproof. (They can't be the targets of spells or abilities your opponents control.)",
-    ],
+    &[],
     &[],
     &[],
     // Final Strike
@@ -6784,13 +6780,11 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Fruition
     &["You gain 1 life for each Forest on the battlefield."],
-    // Gerrard
-    &["At the beginning of your draw step, draw an additional card."],
+    &[],
     // Giant Octopus
     &[""],
     &[],
-    // Gix
-    &["{3}: Return target creature card from your graveyard to your hand."],
+    &[],
     // Goblin Bully
     &[""],
     // Gorilla Warrior
@@ -6799,14 +6793,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, you may return target creature card from your graveyard to your hand.",
     ],
-    // Greven il-Vec
-    &[
-        "Whenever a creature you control deals damage to a creature, destroy the other creature. It can't be regenerated.",
-    ],
+    &[],
     // Hand of Death
     &["Destroy target nonblack creature."],
-    // Hanna
-    &["Spells you cast cost {1} less to cast."],
+    &[],
     &[],
     // Highland Giant
     &[""],
@@ -6819,10 +6809,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Jungle Lion
     &["This creature can't block."],
-    // Karn
-    &[
-        "Each noncreature artifact you control is an artifact creature with power and toughness each equal to its mana value.",
-    ],
+    &[],
     // Keen-Eyed Archers
     &["Reach (This creature can block creatures with flying.)"],
     &[],
@@ -6835,12 +6822,8 @@ pub static ORACLE: &[&[&str]] = &[
     &["Destroy target creature or land."],
     // Lizard Warrior
     &[""],
-    // Lyna
-    &[
-        "Creatures you control have shadow. (They can block and be blocked only by creatures with shadow.)",
-    ],
-    // Maraxus
-    &["Creatures you control get +1/+0."],
+    &[],
+    &[],
     // Mercenary Knight
     &["When this creature enters, sacrifice it unless you discard a creature card."],
     // Mind Knives
@@ -6859,8 +6842,7 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying"],
     // Muck Rats
     &[""],
-    // Multani
-    &["Creatures you control get +X/+0, where X is the number of cards in your hand."],
+    &[],
     // Mystic Denial
     &["Counter target creature or sorcery spell."],
     // Natural Spring
@@ -6880,8 +6862,7 @@ pub static ORACLE: &[&[&str]] = &[
         "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.",
     ],
     &[],
-    // Orim
-    &["Creatures you control have reach."],
+    &[],
     // Owl Familiar
     &["Flying\nWhen this creature enters, draw a card, then discard a card."],
     &[],
@@ -6908,8 +6889,7 @@ pub static ORACLE: &[&[&str]] = &[
     // Regal Unicorn
     &[""],
     &[],
-    // Rofellos
-    &["Whenever a creature you control dies, draw a card."],
+    &[],
     // Rowan Treefolk
     &[""],
     // Sacred Knight
@@ -6921,23 +6901,19 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Seasoned Marshal
     &["Whenever this creature attacks, you may tap target creature."],
-    // Selenia
-    &["Creatures you control have vigilance."],
+    &[],
     // Serpent Assassin
     &["When this creature enters, you may destroy target nonblack creature."],
     // Serpent Warrior
     &["When this creature enters, you lose 3 life."],
-    // Serra
-    &["Creatures you control get +0/+2."],
-    // Sidar Kondo
-    &["{3}: Target creature gets +3/+3 until end of turn."],
+    &[],
+    &[],
     &[],
     // Skeletal Crocodile
     &[""],
     // Skeletal Snake
     &[""],
-    // Sliver Queen, Brood Mother
-    &["{3}: Create a 1/1 colorless Sliver creature token."],
+    &[],
     // Snapping Drake
     &["Flying (This creature can't be blocked except by creatures with flying or reach.)"],
     &[],
@@ -6961,10 +6937,8 @@ pub static ORACLE: &[&[&str]] = &[
     &["Search your library for a creature card, reveal it, then shuffle and put that card on top."],
     // Symbol of Unsummoning
     &["Return target creature to its owner's hand.\nDraw a card."],
-    // Tahngarth
-    &["Creatures you control have haste."],
-    // Takara
-    &["Sacrifice a creature: Takara deals 1 damage to any target."],
+    &[],
+    &[],
     &[],
     &[],
     &[],
@@ -6987,8 +6961,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Undying Beast
     &["When this creature dies, put it on top of its owner's library."],
-    // Urza
-    &["{3}: Urza deals 1 damage to any target."],
+    &[],
     // Valorous Charge
     &["White creatures get +2/+0 until end of turn."],
     // Vampiric Feast
@@ -7003,10 +6976,7 @@ pub static ORACLE: &[&[&str]] = &[
     &["Destroy all white creatures."],
     // Volcanic Hammer
     &["Volcanic Hammer deals 3 damage to any target."],
-    // Volrath
-    &[
-        "Whenever a creature you control is put into your graveyard from the battlefield, you may put it on top of your library.",
-    ],
+    &[],
     // Wall of Granite
     &["Defender (This creature can't attack.)"],
     // Warrior's Charge
@@ -7026,8 +6996,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, search your library for a Forest card, put that card onto the battlefield, then shuffle.",
     ],
-    // Xantcha
-    &["Sacrifice a permanent: Regenerate target creature."],
+    &[],
     // Abduction
     &[
         "Enchant creature\nWhen this Aura enters, untap enchanted creature.\nYou control enchanted creature.\nWhen enchanted creature dies, return that card to the battlefield under its owner's control.",
@@ -18649,21 +18618,13 @@ pub static ORACLE: &[&[&str]] = &[
     &["Whenever another creature enters, you lose 1 life."],
     &[],
     &[],
-    // Arcbound Overseer Avatar
-    &[
-        "At the beginning of your upkeep, you may put a +1/+1 counter on target creature you control.\nAt the beginning of your upkeep, you may put a charge counter on target permanent you control.",
-    ],
-    // Ashling the Pilgrim Avatar
-    &["{2}: Ashling the Pilgrim Avatar deals 1 damage to each creature and each player."],
     &[],
-    // Birds of Paradise Avatar
-    &["Lands you control have \"{T}: Add one mana of any color.\""],
+    &[],
+    &[],
+    &[],
     // Bonesplitter
     &["Equipped creature gets +2/+0.\nEquip {1}"],
-    // Bosh, Iron Golem Avatar
-    &[
-        "{X}, Sacrifice an artifact with mana value X: Bosh, Iron Golem Avatar deals X damage to any target.",
-    ],
+    &[],
     &[],
     &[],
     &[],
@@ -18677,24 +18638,6 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    // Erhnam Djinn Avatar
-    &["Whenever you cast a creature spell, create a 1/1 green Saproling creature token."],
-    &[],
-    // Fallen Angel Avatar
-    &["Whenever a creature you control dies, target opponent loses 1 life and you gain 1 life."],
-    &[],
-    &[],
-    &[],
-    // Goblin Warchief Avatar
-    &["Attacking creatures you control get +1/+0."],
-    // Grinning Demon Avatar
-    &["Whenever a nontoken creature you control dies, target opponent discards a card."],
-    &[],
-    &[],
-    // Hell's Caretaker Avatar
-    &[
-        "{3}, Sacrifice a creature: Return target creature card from your graveyard to the battlefield.",
-    ],
     &[],
     &[],
     &[],
@@ -18702,57 +18645,45 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Loxodon Hierarch Avatar
-    &["Sacrifice a permanent: Regenerate target creature you control."],
-    &[],
-    &[],
-    &[],
-    &[],
-    // Maro Avatar
-    &[
-        "Tap an untapped creature you control, Discard a card: Target creature you control gets +X/+X until end of turn, where X is the number of cards in your hand.",
-    ],
-    &[],
-    &[],
-    // Mirri the Cursed Avatar
-    &[
-        "Creatures you control have \"{T}: Another target creature gets -1/-1 until end of turn. Put a +1/+1 counter on this creature.\"",
-    ],
-    &[],
-    &[],
-    // Morinfen Avatar
-    &["At the beginning of your upkeep, you lose 1 life for each permanent you control."],
-    // Murderous Redcap Avatar
-    &[
-        "Whenever a creature you control enters with a counter on it, you may have it deal damage equal to its power to any target.",
-    ],
-    &[],
-    // Nekrataal Avatar
-    &[
-        "Creature spells you cast cost {B} less to cast. This effect reduces only the amount of colored mana you pay.",
-    ],
     &[],
     &[],
     &[],
     &[],
     &[],
     &[],
-    // Raksha Golden Cub Avatar
-    &[
-        "Creatures you control get +0/+1.\nEquipped creatures you control get +1/+0 and have first strike.",
-    ],
     &[],
-    // Rith, the Awakener Avatar
-    &[
-        "Whenever a creature you control deals combat damage to a player, you may pay {5}. If you do, create a 5/5 red Dragon creature token with flying.",
-    ],
-    // Royal Assassin Avatar
-    &["At the beginning of your upkeep, you draw a card and you lose 1 life."],
-    // Rumbling Slum Avatar
-    &["At the beginning of your upkeep, Rumbling Slum Avatar deals 1 damage to each opponent."],
     &[],
-    // Serra Angel Avatar
-    &["Whenever you cast a spell, you gain 2 life."],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
     &[],
     &[],
     // Skirk Marauder
@@ -18760,21 +18691,13 @@ pub static ORACLE: &[&[&str]] = &[
         "Morph {2}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, it deals 2 damage to any target.",
     ],
     &[],
-    // Squee, Goblin Nabob Avatar
-    &[
-        "{1}: Prevent the next 1 damage that would be dealt to target creature you control this turn.",
-    ],
-    // Stalking Tiger Avatar
-    &["Whenever you cast a creature spell, you may pay {1}. If you do, draw a card."],
     &[],
     &[],
-    // Teysa, Orzhov Scion Avatar
-    &["Whenever a nontoken creature dies, create a 1/1 white Spirit creature token with flying."],
     &[],
-    // Two-Headed Giant of Foriys Avatar
-    &[
-        "Creatures you control have menace. (They can't be blocked except by two or more creatures.)\nEach creature you control can block an additional creature each combat.",
-    ],
+    &[],
+    &[],
+    &[],
+    &[],
     &[],
     &[],
     // Withered Wretch
