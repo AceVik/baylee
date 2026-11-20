@@ -624,6 +624,9 @@ impl Tx<'_> {
             if !matches!(
                 effect.take("ForgetOnMoved").as_deref(),
                 None | Some("Battlefield")
+            ) || !matches!(
+                effect.take("ExileOnMoved").as_deref(),
+                None | Some("Battlefield")
             ) {
                 return self.deny(format!("{context} with another `ForgetOnMoved$`"));
             }
@@ -634,9 +637,30 @@ impl Tx<'_> {
                     .is_some_and(|b| b == "Creature")
             }) {
                 &["Card.IsRemembered", "Creature.IsRemembered"][..]
+            } else if valid.split(',').all(|alt| {
+                alt.trim()
+                    .split(['.', '+'])
+                    .next()
+                    .is_some_and(|b| b == "Land")
+            }) {
+                &["Card.IsRemembered", "Land.IsRemembered"][..]
             } else {
                 &["Card.IsRemembered"][..]
             }
+        } else if spec == "TargetSpec::AnyTarget" {
+            if !matches!(
+                effect.take("ForgetOnMoved").as_deref(),
+                None | Some("Battlefield")
+            ) || !matches!(
+                effect.take("ExileOnMoved").as_deref(),
+                None | Some("Battlefield")
+            ) {
+                return self.deny(format!("{context} with another `ForgetOnMoved$`"));
+            }
+            &[
+                "Player.IsRemembered,Card.IsRemembered",
+                "Card.IsRemembered,Player.IsRemembered",
+            ][..]
         } else if spec == "TargetSpec::PlayerOrObject(&Filter::PLANESWALKER)" {
             &[
                 "Player.IsRemembered,Planeswalker.IsRemembered",
@@ -669,12 +693,34 @@ impl Tx<'_> {
         let replacement = p.take("ReplacementEffects")?;
         let (bound_spec, expected_target) =
             self.bind_effect_prevention_target(&mut p, chain, "`Effect` prevention")?;
+        let remember_self = bound_spec.is_none() && p.peek("RememberObjects") == Some("Self");
+        if remember_self {
+            p.take("RememberObjects");
+            if !matches!(
+                p.take("ForgetOnMoved").as_deref(),
+                None | Some("Battlefield")
+            ) || !matches!(
+                p.take("ExileOnMoved").as_deref(),
+                None | Some("Battlefield")
+            ) {
+                return self.deny("`Effect` prevention with another `ForgetOnMoved$`".into());
+            }
+        }
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `Effect.{key}`"));
         }
         let body = self.svars.get(&replacement)?.clone();
         let (event, mut shield) = Params::parse(&body)?;
         shield.drop_prose();
+        if event == "Destroy"
+            && let Some(effects) = self.next_destruction_clears_damage(
+                bound_spec.as_deref(),
+                expected_target,
+                shield.clone(),
+            )
+        {
+            return Some(effects);
+        }
         if event != "DamageDone"
             || !matches!(
                 shield.take("ActiveZones").as_deref(),
@@ -684,6 +730,7 @@ impl Tx<'_> {
             return self.deny("an effect prevention with another event or zone".into());
         }
         if bound_spec.is_none()
+            && !remember_self
             && shield.peek("Optional") == Some("True")
             && shield.peek("DamageTarget") == Some("You")
             && let Some(effects) = self.may_redirect_creature_damage_to_you(shield.clone())
@@ -711,30 +758,12 @@ impl Tx<'_> {
         if let Some(key) = shield.first_key() {
             return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
         }
-        let target_expr = match (bound_spec, expected_target, valid_target.as_deref()) {
-            (Some(spec), Some(expected), Some(actual)) if expected.contains(&actual) => {
-                format!("Some({spec})")
-            }
-            (None, None, None) => "None".to_string(),
-            (None, None, Some("You")) => "Some(TargetSpec::Player(PlayerRel::You))".to_string(),
-            (None, None, Some("Player")) => {
-                "Some(TargetSpec::Player(PlayerRel::EachPlayer))".to_string()
-            }
-            (None, None, Some("Card.Self" | "Creature.Self")) => {
-                "Some(TargetSpec::Source)".to_string()
-            }
-            (
-                None,
-                None,
-                Some(
-                    "Card.EnchantedBy"
-                    | "Creature.EnchantedBy"
-                    | "Card.EquippedBy"
-                    | "Creature.EquippedBy",
-                ),
-            ) => "Some(TargetSpec::Attached)".to_string(),
-            _ => return self.deny("an effect prevention with another recipient".into()),
-        };
+        let target_expr = self.prevention_shield_target_expr(
+            bound_spec,
+            expected_target,
+            remember_self,
+            valid_target.as_deref(),
+        )?;
         let source_expr = match valid_source.as_deref() {
             None => "Filter::Any".to_string(),
             Some(vs) => self.prevention_source_filter(vs)?,
@@ -749,6 +778,87 @@ impl Tx<'_> {
             "{variant} {{ target: {target_expr}, sources: &{src_ref}, \
              combat_only: {combat_only} }}"
         )])
+    }
+
+    fn prevention_shield_target_expr(
+        &mut self,
+        bound_spec: Option<String>,
+        expected_target: Option<&[&str]>,
+        remember_self: bool,
+        valid_target: Option<&str>,
+    ) -> Option<String> {
+        let expr = match (bound_spec, expected_target, remember_self, valid_target) {
+            (Some(spec), Some(expected), false, Some(actual)) if expected.contains(&actual) => {
+                format!("Some({spec})")
+            }
+            (None, None, true, Some("Card.IsRemembered" | "Creature.IsRemembered"))
+            | (None, None, false, Some("Card.Self" | "Creature.Self")) => {
+                "Some(TargetSpec::Source)".to_string()
+            }
+            (None, None, false, None) => "None".to_string(),
+            (None, None, false, Some("You")) => {
+                "Some(TargetSpec::Player(PlayerRel::You))".to_string()
+            }
+            (None, None, false, Some("Player")) => {
+                "Some(TargetSpec::Player(PlayerRel::EachPlayer))".to_string()
+            }
+            (
+                None,
+                None,
+                false,
+                Some(
+                    "Card.EnchantedBy"
+                    | "Creature.EnchantedBy"
+                    | "Card.EquippedBy"
+                    | "Creature.EquippedBy",
+                ),
+            ) => "Some(TargetSpec::Attached)".to_string(),
+            _ => return self.deny("an effect prevention with another recipient".into()),
+        };
+        Some(expr)
+    }
+
+    fn next_destruction_clears_damage(
+        &self,
+        bound_spec: Option<&str>,
+        expected_target: Option<&[&str]>,
+        mut shield: Params,
+    ) -> Option<Vec<String>> {
+        if !bound_spec.is_some_and(|s| s.starts_with("TargetSpec::Object(")) {
+            return None;
+        }
+        let expected = expected_target?;
+        if !matches!(
+            shield.take("ActiveZones").as_deref(),
+            None | Some("Command")
+        ) {
+            return None;
+        }
+        let valid_card = shield.take("ValidCard")?;
+        if !expected.contains(&valid_card.as_str()) {
+            return None;
+        }
+        let replace_name = shield.take("ReplaceWith")?;
+        if !shield.exhausted() {
+            return None;
+        }
+        let (api, mut heal) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|s| Params::parse(s))?;
+        heal.drop_prose();
+        if api != "HealDamage" || heal.take("Defined").as_deref() != Some("ReplacedCard") {
+            return None;
+        }
+        let exile = heal.take("SubAbility")?;
+        if !heal.exhausted() || !self.exiles_itself(&exile) {
+            return None;
+        }
+        Some(vec![
+            "Effect::ModifyTargets { modifier: Modifier::NextDestructionClearsDamage, \
+             duration: Duration::UntilEndOfTurn }"
+                .to_string(),
+        ])
     }
 
     fn may_redirect_creature_damage_to_you(&self, mut shield: Params) -> Option<Vec<String>> {

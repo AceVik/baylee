@@ -2686,3 +2686,182 @@ fn wave8_prevention_redirect_and_moved_enter_modifiers() {
         ["EnterModifier::TappedUnlessCondition(Condition::DuringYourFirstTurns(3))"]
     );
 }
+
+#[test]
+fn wave9_filter_atoms_and_graveyard_targets() {
+    let filters = read(
+        "Name:RelicLens\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Permanent.Historic+YouCtrl | AddKeyword$ Vigilance\n\
+         S:Mode$ Continuous | Affected$ Creature.Outlaw+YouCtrl | AddPower$ 1\n\
+         S:Mode$ Continuous | Affected$ Land.hasABasicLandType+YouCtrl | AddKeyword$ Indestructible\n\
+         S:Mode$ Continuous | Affected$ Creature.!attacking+YouCtrl | AddToughness$ 1\n\
+         S:Mode$ Continuous | Affected$ Creature.!EnchantedBy+nonColorless | AddPower$ 1\n\
+         S:Mode$ Continuous | Affected$ Creature.counters_EQ0_P1P1+YouCtrl | AddToughness$ 1\n\
+         S:Mode$ Continuous | Affected$ Creature.counters_EQ2_CHARGE+YouCtrl | AddPower$ 1\n\
+         A:AB$ Destroy | Cost$ T | ValidTgts$ Creature.DefenderCtrl+YouDontOwn\n\
+         A:AB$ Counter | Cost$ 1 U | TargetType$ Spell | ValidTgts$ Card.IsSingleTarget+AdventureCard+inZoneStack\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ Snatch\n\
+         SVar:Snatch:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card.DefenderCtrl",
+    );
+    assert!(
+        filters.abilities[0].contains("subtypes::enchantment::SAGA")
+            && filters.abilities[0].contains("Filter::ARTIFACT")
+            && filters.abilities[0].contains("SupertypeSet::LEGENDARY")
+    );
+    assert!(
+        filters.abilities[1].contains("subtypes::creature::ASSASSIN")
+            && filters.abilities[1].contains("subtypes::creature::WARLOCK")
+    );
+    assert!(
+        filters.abilities[2].contains("subtypes::land::PLAINS")
+            && filters.abilities[2].contains("subtypes::land::FOREST")
+    );
+    assert!(filters.abilities[3].contains("Filter::Not(&Filter::Attacking)"));
+    assert!(
+        filters.abilities[4].contains("Filter::Not(&Filter::AttachedToBySource)")
+            && filters.abilities[4].contains("Filter::Not(&Filter::IsColorless)")
+    );
+    assert!(
+        filters.abilities[5]
+            .contains("Filter::Not(&Filter::CountersAtLeast(CounterKind::P1P1, 1))")
+    );
+    assert!(
+        filters.abilities[6].contains("Filter::CountersAtLeast(CounterKind::Charge, 2)")
+            && filters.abilities[6]
+                .contains("Filter::Not(&Filter::CountersAtLeast(CounterKind::Charge, 3))")
+    );
+    assert!(
+        filters
+            .statics
+            .contains("Filter::ControlledByDefendingPlayer")
+            && filters.statics.contains("Filter::Not(&Filter::OwnedByYou)")
+    );
+    assert!(
+        filters.statics.contains("Filter::WithSingleTarget")
+            && filters.statics.contains("Filter::HasAdventure")
+            && filters.statics.contains("Filter::InZone(ZoneRef::Stack)")
+    );
+    assert!(
+        filters.abilities[9]
+            .contains("TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::DefendingPlayer)")
+    );
+}
+
+#[test]
+fn wave9_mana_cmc_and_event_amounts() {
+    let rainbow = read(
+        "Name:ChromaWell\nTypes:Land\n\
+         A:AB$ Mana | Cost$ T | Produced$ Special EachColorAmong_Valid Permanent.YouCtrl",
+    );
+    assert!(rainbow.abilities[0].contains("Effect::ManaForColorsAmong(&Filter::ControlledByYou)"));
+
+    let converge = read(
+        "Name:PrismSweep\nManaCost:X W\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Permanent.nonLand+cmcLEX\n\
+         SVar:X:Count$Converge",
+    );
+    assert!(converge.statics.contains("Filter::CmcAtMostColorsSpent"));
+
+    let pool_and_chalice = read(
+        "Name:VaultGauge\nTypes:Artifact\n\
+         A:AB$ Destroy | Cost$ T | ValidTgts$ Artifact.cmcEQY\n\
+         T:Mode$ SpellCast | ValidCard$ Card.cmcEQX | TriggerZones$ Battlefield | Execute$ No\n\
+         SVar:No:DB$ GainLife | Defined$ You | LifeAmount$ 1\n\
+         SVar:X:Count$CardCounters.CHARGE\n\
+         SVar:Y:Count$ManaPool:All",
+    );
+    assert!(
+        pool_and_chalice
+            .statics
+            .contains("Filter::CmcEqualsYourUnspentMana")
+    );
+    assert!(
+        pool_and_chalice
+            .statics
+            .contains("Filter::CmcEqualsCountersOnSource(CounterKind::Charge)")
+    );
+
+    let event_amts = read(
+        "Name:EchoBell\nTypes:Enchantment\n\
+         T:Mode$ Discarded | ValidCard$ Card | TriggerZones$ Battlefield | Execute$ Burn\n\
+         T:Mode$ Taps | ValidCard$ Creature | TriggerZones$ Battlefield | Execute$ Heal\n\
+         A:AB$ GainLife | Cost$ T | Defined$ You | LifeAmount$ LandTypes\n\
+         SVar:Burn:DB$ LoseLife | Defined$ You | LifeAmount$ Mv\n\
+         SVar:Mv:TriggeredCard$CardManaCost\n\
+         SVar:Heal:DB$ GainLife | Defined$ You | LifeAmount$ Pw\n\
+         SVar:Pw:TriggeredCard$CardPower\n\
+         SVar:LandTypes:Count$Valid Land.YouCtrl$BasicLandTypes",
+    );
+    assert!(event_amts.abilities[0].contains("Amount::EventManaValue"));
+    assert!(event_amts.abilities[1].contains("Amount::EventPower"));
+    assert!(event_amts.abilities[2].contains("Amount::BasicLandTypesAmong(&"));
+}
+
+#[test]
+fn wave9_svar_flags_prevention_and_replacements() {
+    let flags = read(
+        "Name:OmenStone\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | CheckSVar$ B | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddToughness$ 1 | CheckSVar$ P | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying | CheckSVar$ NK | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Vigilance | CheckSVar$ FH | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Menace | CheckSVar$ Del | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Reach | CheckSVar$ Odd | SVarCompare$ EQ1\n\
+         SVar:B:Count$StartingPlayer.0.1\n\
+         SVar:P:Count$Metalcraft.1.0\n\
+         SVar:NK:Count$Kicked.0.1\n\
+         SVar:FH:Count$wasCastFromYourHandByYou.1.0\n\
+         SVar:Del:Count$Delirium.1.0\n\
+         SVar:Odd:Count$YourLifeTotal/Mod.2",
+    );
+    assert!(flags.abilities[0].contains("Condition::NotStartingPlayer"));
+    assert!(flags.abilities[1].contains("Condition::ControlCount(&Filter::ARTIFACT, 3)"));
+    assert!(
+        flags.abilities[2]
+            .contains("Condition::Not(&Condition::AmountAtLeast(Amount::TimesKicked, 1))")
+    );
+    assert!(flags.abilities[3].contains("Condition::SourceWasCastByYou"));
+    assert!(flags.abilities[3].contains("Filter::CastFromHand"));
+    assert!(flags.abilities[4].contains("Condition::GraveyardTypesAtLeast(4)"));
+    assert!(
+        flags.abilities[5].contains(
+            "Condition::Not(&Condition::AmountIsEven(Amount::LifeTotal(PlayerRel::You)))"
+        )
+    );
+
+    let prev = read(
+        "Name:AegisPrism\nTypes:Artifact\n\
+         A:AB$ Effect | Cost$ 1 | ValidTgts$ Any | RememberObjects$ Targeted | ExileOnMoved$ Battlefield | ReplacementEffects$ Shield\n\
+         A:AB$ Effect | Cost$ 2 | RememberObjects$ Self | ReplacementEffects$ SelfShield\n\
+         A:AB$ Effect | Cost$ 3 | ValidTgts$ Land | RememberObjects$ Targeted | ForgetOnMoved$ Battlefield | ReplacementEffects$ LandSave\n\
+         SVar:Shield:Event$ DamageDone | ActiveZones$ Command | ValidSource$ Artifact | ValidTarget$ Player.IsRemembered,Card.IsRemembered | Prevent$ True\n\
+         SVar:SelfShield:Event$ DamageDone | ActiveZones$ Command | ValidSource$ Artifact | ValidTarget$ Card.IsRemembered | Prevent$ True\n\
+         SVar:LandSave:Event$ Destroy | ValidCard$ Land.IsRemembered | ReplaceWith$ ClearDmg\n\
+         SVar:ClearDmg:DB$ HealDamage | Defined$ ReplacedCard | SubAbility$ ExSelf\n\
+         SVar:ExSelf:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+    );
+    assert!(prev.abilities[0].contains("target: Some(TargetSpec::AnyTarget)"));
+    assert!(prev.abilities[1].contains("target: Some(TargetSpec::Source)"));
+    assert!(prev.abilities[2].contains("Modifier::NextDestructionClearsDamage"));
+
+    let repl = read(
+        "Name:VaultRules\nTypes:Enchantment\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | ValidCard$ Card.YouCtrl | ValidCause$ SpellAbility.OppCtrl | ReplaceWith$ Rev | Optional$ True | EffectOnly$ True | Discard$ True\n\
+         SVar:Rev:DB$ Reveal | Defined$ You | RevealDefined$ ReplacedCard | SubAbility$ Top\n\
+         SVar:Top:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Library | NoShuffle$ True | Defined$ ReplacedCard\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | Destination$ Battlefield | ValidCard$ Land.OppCtrl+ControllerControlsAtLeastAsManyLand | ReplaceWith$ EqMove\n\
+         SVar:EqMove:DB$ ChangeZone | Origin$ All | Destination$ Battlefield | Defined$ ReplacedCard | SubAbility$ EqSac\n\
+         SVar:EqSac:DB$ Sacrifice | SacValid$ Land | Defined$ ReplacedCardController\n\
+         R:Event$ Explore | ActiveZones$ Battlefield | ValidExplorer$ Creature.YouCtrl | ReplaceWith$ ScryFirst\n\
+         SVar:ScryFirst:DB$ Scry | SubAbility$ ThenExp\n\
+         SVar:ThenExp:DB$ Explore | Defined$ ReplacedCard",
+    );
+    assert_eq!(
+        repl.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::MayRevealOpponentDiscardToLibraryTop)",
+            "AbilityDef::Replacement(ReplacementRule::LandEquilibrium)",
+            "AbilityDef::Replacement(ReplacementRule::ExploreScry1First)",
+        ]
+    );
+}

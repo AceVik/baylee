@@ -2005,7 +2005,9 @@ impl Tx<'_> {
     }
 
     /// `R: Event$ Moved | Discard$ True | EffectOnly$ True | Optional$ True`
-    /// (`ReplacementRule::MayDiscardToLibraryTop`, Library of Leng).
+    /// (`ReplacementRule::MayDiscardToLibraryTop`, Library of Leng; and with
+    /// `ValidCause$ SpellAbility.OppCtrl` + reveal,
+    /// `ReplacementRule::MayRevealOpponentDiscardToLibraryTop`, Nephalia Academy).
     pub(super) fn moved_discard_to_library(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         if p.take("ActiveZones").as_deref() != Some("Battlefield")
@@ -2019,6 +2021,11 @@ impl Tx<'_> {
         {
             return self.deny("replacement `Moved` this rule cannot read".into());
         }
+        let opp_cause = match p.take("ValidCause").as_deref() {
+            None => false,
+            Some("SpellAbility.OppCtrl") => true,
+            Some(_) => return self.deny("replacement `Moved` this rule cannot read".into()),
+        };
         let Some(with) = p.take("ReplaceWith") else {
             return self.deny("replacement `Moved` this rule cannot read".into());
         };
@@ -2029,6 +2036,41 @@ impl Tx<'_> {
             return self.deny("replacement `Moved` this rule cannot read".into());
         };
         body.drop_prose();
+        if opp_cause {
+            let Some(sub_name) = body.take("SubAbility") else {
+                return self.deny("replacement `Moved` this rule cannot read".into());
+            };
+            if api != "Reveal"
+                || !matches!(body.take("Defined").as_deref(), None | Some("You"))
+                || body.take("RevealDefined").as_deref() != Some("ReplacedCard")
+                || !body.exhausted()
+            {
+                return self.deny("replacement `Moved` this rule cannot read".into());
+            }
+            let Some((sub_api, mut sub)) = self
+                .svars
+                .get(sub_name.trim())
+                .and_then(|s| Params::parse(s))
+            else {
+                return self.deny("replacement `Moved` this rule cannot read".into());
+            };
+            sub.drop_prose();
+            if sub_api != "ChangeZone"
+                || sub.take("Defined").as_deref() != Some("ReplacedCard")
+                || sub.take("Origin").as_deref() != Some("All")
+                || sub.take("Destination").as_deref() != Some("Library")
+                || sub.take("NoShuffle").as_deref() != Some("True")
+                || !matches!(sub.take("Hidden").as_deref(), None | Some("True"))
+                || !sub.exhausted()
+            {
+                return self.deny("replacement `Moved` this rule cannot read".into());
+            }
+            self.body.abilities.push(
+                "AbilityDef::Replacement(ReplacementRule::MayRevealOpponentDiscardToLibraryTop)"
+                    .to_string(),
+            );
+            return Some(());
+        }
         if api != "ChangeZone"
             || body.take("Defined").as_deref() != Some("ReplacedCard")
             || body.take("Origin").as_deref() != Some("All")
@@ -2042,6 +2084,110 @@ impl Tx<'_> {
         self.body
             .abilities
             .push("AbilityDef::Replacement(ReplacementRule::MayDiscardToLibraryTop)".to_string());
+        Some(())
+    }
+
+    /// `R: Event$ Moved | ActiveZones$ Battlefield | Destination$ Battlefield |
+    /// ValidCard$ Land.OppCtrl+ControllerControlsAtLeastAsManyLand`
+    /// (`ReplacementRule::LandEquilibrium`).
+    pub(super) fn moved_land_equilibrium(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("ValidCard").as_deref()
+                != Some("Land.OppCtrl+ControllerControlsAtLeastAsManyLand")
+        {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some((api, mut mv)) = self.svars.get(with.trim()).and_then(|s| Params::parse(s)) else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        mv.drop_prose();
+        let Some(sac_name) = mv.take("SubAbility") else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        if api != "ChangeZone"
+            || mv.take("Origin").as_deref() != Some("All")
+            || mv.take("Destination").as_deref() != Some("Battlefield")
+            || mv.take("Defined").as_deref() != Some("ReplacedCard")
+            || !mv.exhausted()
+        {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some((sac_api, mut sac)) = self
+            .svars
+            .get(sac_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        sac.drop_prose();
+        if sac_api != "Sacrifice"
+            || sac.take("SacValid").as_deref() != Some("Land")
+            || sac.take("Defined").as_deref() != Some("ReplacedCardController")
+            || !sac.exhausted()
+        {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        self.body
+            .abilities
+            .push("AbilityDef::Replacement(ReplacementRule::LandEquilibrium)".to_string());
+        Some(())
+    }
+
+    /// `R: Event$ Explore | ActiveZones$ Battlefield | ValidExplorer$ Creature.YouCtrl`
+    /// (`ReplacementRule::ExploreScry1First`, Twists and Turns).
+    pub(super) fn replace_explore(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || p.take("ValidExplorer").as_deref() != Some("Creature.YouCtrl")
+        {
+            return self.deny("replacement `R: Event$ Explore`".into());
+        }
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `R: Event$ Explore`".into());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `R: Event$ Explore`".into());
+        }
+        let Some((api, mut scry)) = self.svars.get(with.trim()).and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `R: Event$ Explore`".into());
+        };
+        scry.drop_prose();
+        let Some(sub_name) = scry.take("SubAbility") else {
+            return self.deny("replacement `R: Event$ Explore`".into());
+        };
+        if api != "Scry"
+            || !matches!(scry.take("Defined").as_deref(), None | Some("You"))
+            || !matches!(scry.take("ScryNum").as_deref(), None | Some("1"))
+            || !scry.exhausted()
+        {
+            return self.deny("replacement `R: Event$ Explore`".into());
+        }
+        let Some((sub_api, mut exp)) = self
+            .svars
+            .get(sub_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `R: Event$ Explore`".into());
+        };
+        exp.drop_prose();
+        if sub_api != "Explore"
+            || exp.take("Defined").as_deref() != Some("ReplacedCard")
+            || !exp.exhausted()
+        {
+            return self.deny("replacement `R: Event$ Explore`".into());
+        }
+        self.body
+            .abilities
+            .push("AbilityDef::Replacement(ReplacementRule::ExploreScry1First)".to_string());
         Some(())
     }
 
@@ -2585,29 +2731,18 @@ impl Tx<'_> {
         Some(format!("PtCount::InAllGraveyards(&{name})"))
     }
 
-    /// Wave 8 `SVar` condition clauses: `StartingPlayer`, `ControlYourCommander`,
-    /// `AnyLibraryAtMost`, negated `OpponentGraveyardCountAtLeast`, and
+    /// Wave 8/9 `SVar` condition clauses: `StartingPlayer`, `ControlYourCommander`,
+    /// `AnyLibraryAtMost`, boolean `Count$<Keyword>.1.0` / `.0.1` (`Kicked`,
+    /// `wasCastFromYourHandByYou`, `Delirium`, `Threshold`, `Metalcraft`,
+    /// `Hellbent`, `FatefulHour`, `Blessing`, `Revolt`, `Raid`), and
     /// opponent-control count/comparison clauses (`OpponentControlCount`,
     /// `OpponentControlCountAtMost`, `OpponentControlsMore`,
     /// `OpponentControlsMoreBy`).
     pub(super) fn extra_svar_condition_wave8(&mut self, var: &str, cmp: &str) -> Option<String> {
         let raw = self.svars.get(var.trim())?.trim().to_string();
         let cmp = cmp.trim();
-        if raw == "Count$StartingPlayer.0.1" {
-            return match cmp {
-                "GE1" | "GT0" | "EQ1" => Some("Condition::NotStartingPlayer".to_string()),
-                "EQ0" | "LT1" => Some("Condition::Not(&Condition::NotStartingPlayer)".to_string()),
-                _ => None,
-            };
-        }
-        if raw == "Count$StartingPlayer.1.0" {
-            return match cmp {
-                "EQ0" | "LT1" => Some("Condition::NotStartingPlayer".to_string()),
-                "GE1" | "GT0" | "EQ1" => {
-                    Some("Condition::Not(&Condition::NotStartingPlayer)".to_string())
-                }
-                _ => None,
-            };
+        if let Some(cond) = binary_flag_svar_condition(&raw, cmp) {
+            return Some(cond);
         }
         if matches!(
             raw.as_str(),
@@ -2966,6 +3101,47 @@ impl Tx<'_> {
         }
         None
     }
+}
+
+fn binary_flag_svar_condition(raw: &str, cmp: &str) -> Option<String> {
+    let want_one = match cmp {
+        "GE1" | "GT0" | "EQ1" => true,
+        "EQ0" | "LT1" | "LE0" => false,
+        _ => return None,
+    };
+    let (expr, one_is_positive) = match raw {
+        "Count$StartingPlayer.0.1" => ("Condition::NotStartingPlayer", true),
+        "Count$StartingPlayer.1.0" => ("Condition::NotStartingPlayer", false),
+        "Count$Kicked.0.1" => ("Condition::AmountAtLeast(Amount::TimesKicked, 1)", false),
+        "Count$wasCastFromYourHandByYou.1.0" => (
+            "Condition::All(&[Condition::SourceWasCastByYou, Condition::SourceMatches(&Filter::CastFromHand)])",
+            true,
+        ),
+        "Count$wasCastFromYourHandByYou.0.1" => (
+            "Condition::All(&[Condition::SourceWasCastByYou, Condition::SourceMatches(&Filter::CastFromHand)])",
+            false,
+        ),
+        "Count$Delirium.1.0" => ("Condition::GraveyardTypesAtLeast(4)", true),
+        "Count$Delirium.0.1" => ("Condition::GraveyardTypesAtLeast(4)", false),
+        "Count$Threshold.1.0" => ("Condition::GraveyardCountAtLeast(7)", true),
+        "Count$Threshold.0.1" => ("Condition::GraveyardCountAtLeast(7)", false),
+        "Count$Metalcraft.1.0" => ("Condition::ControlCount(&Filter::ARTIFACT, 3)", true),
+        "Count$Metalcraft.0.1" => ("Condition::ControlCount(&Filter::ARTIFACT, 3)", false),
+        "Count$Hellbent.1.0" => ("Condition::HandSizeAtMost(0)", true),
+        "Count$Hellbent.0.1" => ("Condition::HandSizeAtMost(0)", false),
+        "Count$FatefulHour.1.0" => ("Condition::LifeAtMost(5)", true),
+        "Count$FatefulHour.0.1" => ("Condition::LifeAtMost(5)", false),
+        "Count$Blessing.1.0" => ("Condition::CitysBlessing", true),
+        "Count$Blessing.0.1" => ("Condition::CitysBlessing", false),
+        "Count$Revolt.0.1" => ("Condition::Revolt", false),
+        "Count$Raid.0.1" => ("Condition::AttackedWithAtLeast(1)", false),
+        _ => return None,
+    };
+    Some(if want_one == one_is_positive {
+        expr.to_string()
+    } else {
+        negate_condition_expr(expr)
+    })
 }
 
 fn strip_you_ctrl_only(valid: &str) -> Option<String> {

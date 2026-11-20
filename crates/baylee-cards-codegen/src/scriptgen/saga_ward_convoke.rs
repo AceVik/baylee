@@ -1526,11 +1526,15 @@ impl Tx<'_> {
     fn extra_svar_amount_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
         let raw = self.svars.get(var.trim())?.trim().to_string();
         let cmp = cmp.trim();
-        if let Some(lhs) = raw.strip_suffix("/Mod.2")
-            && cmp == "EQ0"
-        {
+        if let Some(lhs) = raw.strip_suffix("/Mod.2") {
             let amt = self.static_count_expr(lhs.trim())?;
-            return Some(format!("Condition::AmountIsEven({amt})"));
+            return match cmp {
+                "EQ0" => Some(format!("Condition::AmountIsEven({amt})")),
+                "EQ1" | "GE1" | "GT0" | "NE0" => {
+                    Some(format!("Condition::Not(&Condition::AmountIsEven({amt}))"))
+                }
+                _ => None,
+            };
         }
         let amt = self.static_count_expr(&raw)?;
         if let Some(min) = parse_at_least_u16(cmp) {
@@ -1830,6 +1834,7 @@ impl Tx<'_> {
             "GainLife" => ExtraOutcome::Handled(self.replace_gain_life(p)),
             "LifeReduced" => ExtraOutcome::Handled(self.replace_life_reduced(p)),
             "RollDice" => ExtraOutcome::Handled(self.replace_roll_dice(p)),
+            "Explore" => ExtraOutcome::Handled(self.replace_explore(p)),
             "Moved" => self.try_extra_moved(p),
             _ => ExtraOutcome::Pass,
         }
@@ -1905,9 +1910,15 @@ impl Tx<'_> {
         ) {
             return ExtraOutcome::Pass;
         }
-        // Discard-to-library replacement (`ReplacementRule::MayDiscardToLibraryTop`).
+        // Discard-to-library replacement (`ReplacementRule::MayDiscardToLibraryTop` /
+        // `ReplacementRule::MayRevealOpponentDiscardToLibraryTop`).
         if p.peek("Discard") == Some("True") {
             return ExtraOutcome::Handled(self.moved_discard_to_library(p));
+        }
+        if valid_card == Some("Land.OppCtrl+ControllerControlsAtLeastAsManyLand")
+            && dest == Some("Battlefield")
+        {
+            return ExtraOutcome::Handled(self.moved_land_equilibrium(p));
         }
         // Prevent entering the battlefield (`Modifier::CantEnterBattlefield`).
         if p.peek("Prevent") == Some("True") && dest == Some("Battlefield") {

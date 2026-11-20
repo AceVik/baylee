@@ -3,6 +3,27 @@
 
 use super::{Params, Tx, color_atom, counter_kind};
 
+/// CR 700.6: Artifacts, legendaries, and Sagas are historic.
+const HISTORIC_FILTER: &str = "Filter::Or(&[Filter::ARTIFACT, \
+    Filter::HasSupertype(SupertypeSet::LEGENDARY), \
+    Filter::HasSubtype(subtypes::enchantment::SAGA)])";
+
+/// CR 700.12: Assassins, Mercenaries, Pirates, Rogues, and Warlocks are outlaws.
+const OUTLAW_FILTER: &str = "Filter::Or(&[\
+    Filter::HasSubtype(subtypes::creature::ASSASSIN), \
+    Filter::HasSubtype(subtypes::creature::MERCENARY), \
+    Filter::HasSubtype(subtypes::creature::PIRATE), \
+    Filter::HasSubtype(subtypes::creature::ROGUE), \
+    Filter::HasSubtype(subtypes::creature::WARLOCK)])";
+
+/// CR 305.6: The five basic land types.
+const BASIC_LAND_TYPE_FILTER: &str = "Filter::Or(&[\
+    Filter::HasSubtype(subtypes::land::PLAINS), \
+    Filter::HasSubtype(subtypes::land::ISLAND), \
+    Filter::HasSubtype(subtypes::land::SWAMP), \
+    Filter::HasSubtype(subtypes::land::MOUNTAIN), \
+    Filter::HasSubtype(subtypes::land::FOREST)])";
+
 impl Tx<'_> {
     /// Whether this permanent chooses a card type as it enters (`EnterModifier::ChooseCardType`).
     pub(super) fn has_chosen_card_type(&self) -> bool {
@@ -419,6 +440,8 @@ impl Tx<'_> {
             "Self" => clauses.push("Filter::This".to_string()),
             "Enchanted" | "Equipped" => clauses.push("Filter::AttachedToBySource".to_string()),
             "Kicked" => clauses.push("Filter::Kicked".to_string()),
+            "Historic" => clauses.push(HISTORIC_FILTER.to_string()),
+            "Outlaw" => clauses.push(OUTLAW_FILTER.to_string()),
             _ => {
                 let Some(path) = self.cats.const_path(base) else {
                     self.note(format!("filter base `{base}`"));
@@ -487,12 +510,19 @@ impl Tx<'_> {
                     "EnchantedBy" | "EquippedBy" | "AttachedBy" => {
                         "Filter::AttachedToBySource".to_string()
                     }
+                    "!EnchantedBy" | "!EquippedBy" | "!AttachedBy" => {
+                        "Filter::Not(&Filter::AttachedToBySource)".to_string()
+                    }
                     "Attached" => "Filter::AttachedToSource".to_string(),
                     "equipped" => "Filter::Equipped".to_string(),
+                    "!equipped" => "Filter::Not(&Filter::Equipped)".to_string(),
                     "YouCtrl" => "Filter::ControlledByYou".to_string(),
                     "YouDontCtrl" => "Filter::Not(&Filter::ControlledByYou)".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
                     "ActivePlayerCtrl" => "Filter::ControlledByActivePlayer".to_string(),
+                    "DefenderCtrl" if !card_zone => {
+                        "Filter::ControlledByDefendingPlayer".to_string()
+                    }
                     "ControlledBy TriggeredPlayer"
                         if self.trigger_mode.as_deref() == Some("Phase") =>
                     {
@@ -521,9 +551,30 @@ impl Tx<'_> {
                     "!blockedThisTurn" => "Filter::Not(&Filter::BlockedThisTurn)".to_string(),
                     "wasCastFromHand" | "CastFromHand" => "Filter::CastFromHand".to_string(),
                     "!wasCastFromHand" => "Filter::Not(&Filter::CastFromHand)".to_string(),
-                    "counters_GE1_ALL" | "HasCounters" => "Filter::HasAnyCounter".to_string(),
-                    "counters_EQ0_ALL" | "counters_LT1_ALL" | "!HasCounters" => {
-                        "Filter::Not(&Filter::HasAnyCounter)".to_string()
+                    "counters_GE1_ALL" | "counters_GT0_ALL" | "HasCounters" => {
+                        "Filter::HasAnyCounter".to_string()
+                    }
+                    "counters_EQ0_ALL" | "counters_LE0_ALL" | "counters_LT1_ALL"
+                    | "!HasCounters" => "Filter::Not(&Filter::HasAnyCounter)".to_string(),
+                    "inZoneBattlefield" => "Filter::InZone(ZoneRef::Battlefield)".to_string(),
+                    "inZoneStack" => "Filter::InZone(ZoneRef::Stack)".to_string(),
+                    "Historic" => HISTORIC_FILTER.to_string(),
+                    "nonHistoric" | "!Historic" => format!("Filter::Not(&{HISTORIC_FILTER})"),
+                    "Outlaw" => OUTLAW_FILTER.to_string(),
+                    "nonOutlaw" | "!Outlaw" => format!("Filter::Not(&{OUTLAW_FILTER})"),
+                    "hasABasicLandType" => BASIC_LAND_TYPE_FILTER.to_string(),
+                    "!hasABasicLandType" | "nonBasicLandType" => {
+                        format!("Filter::Not(&{BASIC_LAND_TYPE_FILTER})")
+                    }
+                    "AdventureCard" => "Filter::HasAdventure".to_string(),
+                    "!AdventureCard" | "nonAdventureCard" => {
+                        "Filter::Not(&Filter::HasAdventure)".to_string()
+                    }
+                    "IsSingleTarget" => "Filter::WithSingleTarget".to_string(),
+                    "!IsSingleTarget" => "Filter::Not(&Filter::WithSingleTarget)".to_string(),
+                    "withCumulative upkeep" => "Filter::HasCumulativeUpkeep".to_string(),
+                    "withoutCumulative upkeep" | "!withCumulative upkeep" => {
+                        "Filter::Not(&Filter::HasCumulativeUpkeep)".to_string()
                     }
                     "Permanent" if !card_zone => continue,
                     "Permanent" => "Filter::HasType(TypeSet::ARTIFACT.union(TypeSet::BATTLE)\
@@ -544,12 +595,15 @@ impl Tx<'_> {
                     "nonInstant" => "Filter::LacksType(TypeSet::INSTANT)".to_string(),
                     "nonSorcery" => "Filter::LacksType(TypeSet::SORCERY)".to_string(),
                     "YouOwn" => "Filter::OwnedByYou".to_string(),
+                    "YouDontOwn" => "Filter::Not(&Filter::OwnedByYou)".to_string(),
                     "Other" | "StrictlyOther" => "Filter::Another".to_string(),
                     "Self" => "Filter::This".to_string(),
                     "attacking" => "Filter::Attacking".to_string(),
+                    "!attacking" => "Filter::Not(&Filter::Attacking)".to_string(),
                     "attackingYou" => "Filter::AttackingYou".to_string(),
                     "attackersBandedWith" => "Filter::BandedWithSource".to_string(),
                     "blocking" => "Filter::Blocking".to_string(),
+                    "!blocking" => "Filter::Not(&Filter::Blocking)".to_string(),
                     "blockingSource" => "Filter::BlockingSource".to_string(),
                     "blockedBySource" => "Filter::BlockedBySource".to_string(),
                     "blockingTriggeredAttacker"
@@ -562,9 +616,11 @@ impl Tx<'_> {
                         }
                     }
                     "blocked" => "Filter::Blocked".to_string(),
+                    "!blocked" => "Filter::Not(&Filter::Blocked)".to_string(),
                     "unblocked" => "Filter::Unblocked".to_string(),
-                    "tapped" => "Filter::Tapped".to_string(),
-                    "untapped" => "Filter::Untapped".to_string(),
+                    "!unblocked" => "Filter::Not(&Filter::Unblocked)".to_string(),
+                    "tapped" | "!untapped" => "Filter::Tapped".to_string(),
+                    "untapped" | "!tapped" => "Filter::Untapped".to_string(),
                     "enchanted" => "Filter::Enchanted".to_string(),
                     "!enchanted" | "unEnchanted" => "Filter::Not(&Filter::Enchanted)".to_string(),
                     "token" => "Filter::IsToken".to_string(),
@@ -598,6 +654,9 @@ impl Tx<'_> {
                     "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),
                     "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
                     "Colorless" => "Filter::IsColorless".to_string(),
+                    "nonColorless" | "!Colorless" | "Colored" => {
+                        "Filter::Not(&Filter::IsColorless)".to_string()
+                    }
                     "MonoColor" => "Filter::Monocolored".to_string(),
                     "MultiColor" => "Filter::And(&[Filter::Not(&Filter::IsColorless), \
                          Filter::Not(&Filter::Monocolored)])"
@@ -692,7 +751,10 @@ impl Tx<'_> {
                         let Some((comparison, raw)) = other
                             .strip_prefix("counters_GE")
                             .map(|raw| ("GE", raw))
+                            .or_else(|| other.strip_prefix("counters_GT").map(|raw| ("GT", raw)))
+                            .or_else(|| other.strip_prefix("counters_LE").map(|raw| ("LE", raw)))
                             .or_else(|| other.strip_prefix("counters_LT").map(|raw| ("LT", raw)))
+                            .or_else(|| other.strip_prefix("counters_EQ").map(|raw| ("EQ", raw)))
                         else {
                             return self.deny(format!("filter atom `{other}`"));
                         };
@@ -701,11 +763,31 @@ impl Tx<'_> {
                         };
                         let n = n.parse::<u16>().ok()?;
                         let kind = counter_kind(code)?;
-                        let at_least = format!("Filter::CountersAtLeast({kind}, {n})");
-                        if comparison == "GE" {
-                            at_least
-                        } else {
-                            format!("Filter::Not(&{at_least})")
+                        match comparison {
+                            "GE" if n == 0 => continue,
+                            "GE" => format!("Filter::CountersAtLeast({kind}, {n})"),
+                            "GT" => {
+                                let min = n.checked_add(1)?;
+                                format!("Filter::CountersAtLeast({kind}, {min})")
+                            }
+                            "LT" if n > 0 => {
+                                format!("Filter::Not(&Filter::CountersAtLeast({kind}, {n}))")
+                            }
+                            "LE" => {
+                                let above = n.checked_add(1)?;
+                                format!("Filter::Not(&Filter::CountersAtLeast({kind}, {above}))")
+                            }
+                            "EQ" if n == 0 => {
+                                format!("Filter::Not(&Filter::CountersAtLeast({kind}, 1))")
+                            }
+                            "EQ" => {
+                                let above = n.checked_add(1)?;
+                                format!(
+                                    "Filter::And(&[Filter::CountersAtLeast({kind}, {n}), \
+                                     Filter::Not(&Filter::CountersAtLeast({kind}, {above}))])"
+                                )
+                            }
+                            _ => return self.deny(format!("filter atom `{other}`")),
                         }
                     }
                     // A colour word (CR 105.2): "black creatures", "target
@@ -866,6 +948,14 @@ impl Tx<'_> {
                 match atom {
                     "YouCtrl" | "YouOwn" => whose = "PlayerRel::You",
                     "OppCtrl" | "OppOwn" => whose = "PlayerRel::Opponent",
+                    "DefenderCtrl" | "DefenderOwn"
+                        if matches!(
+                            self.trigger_mode.as_deref(),
+                            Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                        ) =>
+                    {
+                        whose = "PlayerRel::DefendingPlayer";
+                    }
                     other => kept.push(other),
                 }
             }
@@ -900,6 +990,17 @@ impl Tx<'_> {
             None => {}
             Some("You") => whose = "PlayerRel::You",
             Some("TriggeredCardController") if whose == "PlayerRel::You" => {}
+            Some("TriggeredPlayer") if self.trigger_mode.as_deref() == Some("Phase") => {
+                whose = "PlayerRel::ActivePlayer";
+            }
+            Some("TriggeredDefendingPlayer")
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                ) =>
+            {
+                whose = "PlayerRel::DefendingPlayer";
+            }
             Some("TriggeredTarget")
                 if matches!(
                     self.trigger_mode.as_deref(),

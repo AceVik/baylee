@@ -57,6 +57,13 @@ impl Tx<'_> {
             // is the other half, and a card printing this line without it
             // would make nothing.
             (fixed == Some(1)).then(|| vec!["Effect::mana_chosen()".to_string()])?
+        } else if let Some(valid) = produced.strip_prefix("Special EachColorAmong_Valid ") {
+            if fixed != Some(1) || restrict.is_some() {
+                return self.deny("mana source `Special`".to_string());
+            }
+            let expr = self.filter_expr(valid.trim())?;
+            let name = self.body.filter_static("MANA", &expr);
+            return Some(vec![format!("Effect::ManaForColorsAmong(&{name})")]);
         } else if let Some(list) = produced.strip_prefix("Combo ") {
             self.combo_mana(list, &raw, fixed)?
         } else {
@@ -450,18 +457,24 @@ impl Tx<'_> {
             if (matches!(
                 def,
                 "TriggeredCard$CardPower" | "TriggeredCardLKICopy$CardPower"
-            ) && self.trigger_mode.as_deref() == Some("ChangesZone"))
-                || (matches!(
-                    def,
-                    "TriggeredAttacker$CardPower" | "TriggeredAttackerLKICopy$CardPower"
-                ) && matches!(
-                    self.trigger_mode.as_deref(),
-                    Some("Attacks" | "AttackerUnblocked")
-                ))
-                || (matches!(
-                    def,
-                    "TriggeredBlocker$CardPower" | "TriggeredBlockerLKICopy$CardPower"
-                ) && self.trigger_mode.as_deref() == Some("Blocks"))
+            ) && matches!(
+                self.trigger_mode.as_deref(),
+                Some("ChangesZone" | "Taps" | "Untaps" | "TapsForMana" | "TurnFaceUp")
+            )) || (matches!(
+                def,
+                "TriggeredAttacker$CardPower" | "TriggeredAttackerLKICopy$CardPower"
+            ) && matches!(
+                self.trigger_mode.as_deref(),
+                Some("Attacks" | "AttackerUnblocked")
+            )) || (matches!(
+                def,
+                "TriggeredBlocker$CardPower" | "TriggeredBlockerLKICopy$CardPower"
+            ) && (self.trigger_mode.as_deref() == Some("Blocks")
+                || (self.trigger_is_self
+                    && matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("AttackerBlocked" | "AttackerBlockedByCreature")
+                    ))))
             {
                 return Some("Amount::EventPower".to_string());
             }
@@ -471,31 +484,51 @@ impl Tx<'_> {
                     | "TriggeredCardLKICopy$CardToughness"
                     | "TriggeredCard$Toughness"
                     | "TriggeredCardLKICopy$Toughness"
-            ) && self.trigger_mode.as_deref() == Some("ChangesZone"))
-                || (matches!(
-                    def,
-                    "TriggeredAttacker$CardToughness" | "TriggeredAttackerLKICopy$CardToughness"
-                ) && matches!(
-                    self.trigger_mode.as_deref(),
-                    Some("Attacks" | "AttackerUnblocked")
-                ))
-                || (matches!(
-                    def,
-                    "TriggeredBlocker$CardToughness" | "TriggeredBlockerLKICopy$CardToughness"
-                ) && self.trigger_mode.as_deref() == Some("Blocks"))
+            ) && matches!(
+                self.trigger_mode.as_deref(),
+                Some("ChangesZone" | "Taps" | "Untaps" | "TapsForMana" | "TurnFaceUp")
+            )) || (matches!(
+                def,
+                "TriggeredAttacker$CardToughness" | "TriggeredAttackerLKICopy$CardToughness"
+            ) && matches!(
+                self.trigger_mode.as_deref(),
+                Some("Attacks" | "AttackerUnblocked")
+            )) || (matches!(
+                def,
+                "TriggeredBlocker$CardToughness" | "TriggeredBlockerLKICopy$CardToughness"
+            ) && (self.trigger_mode.as_deref() == Some("Blocks")
+                || (self.trigger_is_self
+                    && matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("AttackerBlocked" | "AttackerBlockedByCreature")
+                    ))))
             {
                 return Some("Amount::EventLastToughness".to_string());
             }
             if (matches!(
                 def,
                 "TriggeredCard$CardManaCost"
+                    | "TriggeredCard$CardManaCostLKI"
                     | "TriggeredSpellAbility$CardManaCostLKI"
                     | "TriggeredSpellAbility$CardManaCost"
             ) && self.trigger_mode.as_deref() == Some("SpellCast"))
                 || (matches!(
                     def,
-                    "TriggeredCard$CardManaCost" | "TriggeredCardLKICopy$CardManaCost"
-                ) && self.trigger_mode.as_deref() == Some("ChangesZone"))
+                    "TriggeredCard$CardManaCost"
+                        | "TriggeredCard$CardManaCostLKI"
+                        | "TriggeredCardLKICopy$CardManaCost"
+                ) && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some(
+                        "ChangesZone"
+                            | "Discarded"
+                            | "Cycled"
+                            | "Taps"
+                            | "Untaps"
+                            | "TapsForMana"
+                            | "TurnFaceUp"
+                    )
+                ))
                 || (matches!(
                     def,
                     "TriggeredAttacker$CardManaCost" | "TriggeredAttackerLKICopy$CardManaCost"
@@ -506,7 +539,12 @@ impl Tx<'_> {
                 || (matches!(
                     def,
                     "TriggeredBlocker$CardManaCost" | "TriggeredBlockerLKICopy$CardManaCost"
-                ) && self.trigger_mode.as_deref() == Some("Blocks"))
+                ) && (self.trigger_mode.as_deref() == Some("Blocks")
+                    || (self.trigger_is_self
+                        && matches!(
+                            self.trigger_mode.as_deref(),
+                            Some("AttackerBlocked" | "AttackerBlockedByCreature")
+                        ))))
             {
                 return Some("Amount::EventManaValue".to_string());
             }
@@ -765,6 +803,14 @@ impl Tx<'_> {
             let name = self.body.filter_static("COUNT", &expr);
             return Some(format!("Amount::DistinctColorsAmong(&{name})"));
         }
+        if let Some(basic_valid) = valid.strip_suffix("$BasicLandTypes")
+            && !basic_valid.contains('/')
+            && !basic_valid.contains('$')
+        {
+            let expr = self.filter_expr(basic_valid)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!("Amount::BasicLandTypesAmong(&{name})"));
+        }
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);
         Some(format!(
@@ -1000,17 +1046,31 @@ impl Tx<'_> {
     /// filter reads it off the source and a trigger announced none.
     pub(super) fn cmc_atom(&self, atom: &str) -> Option<String> {
         let (cmp, number) = atom.strip_prefix("cmc")?.split_at_checked(2)?;
-        if number == "X" {
-            let announced = self.has_x
-                && matches!(
-                    self.svars.get("X").map(String::as_str),
-                    Some("Count$xPaid" | "Targeted$CardManaCost")
-                );
-            return match cmp {
-                "LE" if announced => Some("Filter::CmcAtMostX".to_string()),
-                "EQ" if announced => Some("Filter::CmcExactlyX".to_string()),
-                _ => None,
-            };
+        if !number.is_empty() && number.chars().all(|c| c.is_ascii_alphabetic()) {
+            let def = self.svars.get(number).map(|s| s.trim());
+            if number == "X" {
+                let announced =
+                    self.has_x && matches!(def, Some("Count$xPaid" | "Targeted$CardManaCost"));
+                match cmp {
+                    "LE" if announced => return Some("Filter::CmcAtMostX".to_string()),
+                    "EQ" if announced => return Some("Filter::CmcExactlyX".to_string()),
+                    _ => {}
+                }
+            }
+            if cmp == "LE" && self.on_a_spell && def == Some("Count$Converge") {
+                return Some("Filter::CmcAtMostColorsSpent".to_string());
+            }
+            if cmp == "EQ" && def == Some("Count$ManaPool:All") {
+                return Some("Filter::CmcEqualsYourUnspentMana".to_string());
+            }
+            if cmp == "EQ"
+                && (self.trigger_mode.is_some() || !self.cost_sacrifices_self)
+                && let Some(kind_code) = def.and_then(|d| d.strip_prefix("Count$CardCounters."))
+            {
+                let kind = counter_kind(kind_code)?;
+                return Some(format!("Filter::CmcEqualsCountersOnSource({kind})"));
+            }
+            return None;
         }
         let n: u32 = number.parse().ok()?;
         Some(match cmp {
