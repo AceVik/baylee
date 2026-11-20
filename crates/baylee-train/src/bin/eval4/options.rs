@@ -691,7 +691,7 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         !(args.search_until_game_over || args.search_min_turn > 0)
             || distill_probe(args)
             || args.search_payable_pair,
-        "terminal or turn-filtered measurements require a fair, measuring distillation rival"
+        "terminal or turn-filtered measurements require a fair distillation rival or a payable spell pair"
     );
     let rival = match args.search_rival {
         SearchRival::Ranking => baylee_train::netplay4::search::Rival4::Ranking,
