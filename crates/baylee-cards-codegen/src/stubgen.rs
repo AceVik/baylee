@@ -157,6 +157,7 @@ const TRANSLITERATE: &[(char, &str)] = &[
     ('ñ', "n"),
     ('ó', "o"),
     ('ô', "o"),
+    ('õ', "o"),
     ('ö', "o"),
     ('ø', "o"),
     ('ō', "o"),
@@ -1249,8 +1250,13 @@ mod tests {
         assert_eq!(slug("Ifh-Bíff Efreet"), "ifh_biff_efreet");
         assert_eq!(slug("Séance"), "seance");
         assert_eq!(slug("Márton Stromgald"), "marton_stromgald");
+        assert_eq!(
+            slug("Võx, Child of the Collective"),
+            "vox_child_of_the_collective"
+        );
         // Uppercase folds to the same letter, and punctuation still goes.
         assert_eq!(slug("Éowyn, Lady of Rohan"), "eowyn_lady_of_rohan");
+        assert_eq!(slug("Õ"), "o");
         assert_eq!(slug("Ach! Hans, Run!"), "ach_hans_run");
         // A digit cannot open a Rust identifier.
         assert!(slug("1996 World Champion").starts_with("c_"));
@@ -1262,6 +1268,8 @@ mod tests {
     #[test]
     fn a_letter_with_no_ascii_answer_is_refused_rather_than_dropped() {
         assert_eq!(untransliterable("Barad-dûr"), None);
+        assert_eq!(untransliterable("Võx, Child of the Collective"), None);
+        assert_eq!(untransliterable("Õ"), None);
         assert_eq!(untransliterable("Lightning Bolt"), None);
         // Punctuation is meant to be dropped and is not a refusal.
         assert_eq!(untransliterable("Ach! Hans, Run! — again"), None);
