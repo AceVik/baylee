@@ -256,6 +256,9 @@ pub(crate) enum Cmd {
         /// and what it leaves out is counted rather than dropped in silence.
         #[arg(long, default_value_t = 30)]
         causes: usize,
+        /// Print every script name read in full (sorted).
+        #[arg(long)]
+        list_read: bool,
     },
     /// Name the cards the reader would write in full and this pool does not
     /// have — the worklist §E8 step 1 is made of.

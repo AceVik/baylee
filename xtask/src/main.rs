@@ -178,6 +178,7 @@ fn main() -> anyhow::Result<()> {
             names,
             reason,
             causes,
+            list_read,
         } => transcode_report(
             &root,
             &scripts,
@@ -188,6 +189,7 @@ fn main() -> anyhow::Result<()> {
             },
             reason.as_deref(),
             causes,
+            list_read,
         ),
         Cmd::Batch {
             count,

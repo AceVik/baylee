@@ -65,6 +65,7 @@ pub(crate) fn transcode_report(
     narrow: &Narrow<'_>,
     reason: Option<&str>,
     top: usize,
+    list_read: bool,
 ) -> anyhow::Result<()> {
     let dir = scripts_root(root, scripts_dir);
     // The token corpus, found the same way the run that writes the ledger
@@ -80,6 +81,7 @@ pub(crate) fn transcode_report(
     files.sort();
     let wanted = narrow.wanted(root)?;
     let (mut read, mut refused) = (0usize, 0usize);
+    let mut read_names: Vec<String> = Vec::new();
     let mut causes: BTreeMap<String, usize> = BTreeMap::new();
     let mut shown = 0usize;
     // Which stubs a script was actually found for. Reported rather than
@@ -90,22 +92,25 @@ pub(crate) fn transcode_report(
     let mut hit: BTreeSet<String> = BTreeSet::new();
     for path in &files {
         let text = fs::read_to_string(path)?;
+        let script_name = text
+            .lines()
+            .find_map(|l| l.strip_prefix("Name:"))
+            .unwrap_or_default()
+            .trim();
         if let Some((wanted, _)) = &wanted {
-            let name = text
-                .lines()
-                .find_map(|l| l.strip_prefix("Name:"))
-                .unwrap_or_default()
-                .trim();
-            if !wanted.contains(name) {
+            if !wanted.contains(script_name) {
                 continue;
             }
-            hit.insert(name.to_string());
+            hit.insert(script_name.to_string());
         }
         let script = scriptgen::parse(&text);
         if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some()
             || scriptgen::is_vanilla(&script)
         {
             read += 1;
+            if list_read && !script_name.is_empty() {
+                read_names.push(script_name.to_string());
+            }
         } else {
             refused += 1;
             let cause = refusal_cause(&script, &cats, tokens.as_ref());
@@ -169,6 +174,13 @@ pub(crate) fn transcode_report(
             "  {} more causes not shown, over {scripts} scripts (--causes 0 for all)",
             rest.len()
         );
+    }
+    if list_read && !read_names.is_empty() {
+        read_names.sort();
+        println!("read in full ({}):", read_names.len());
+        for name in &read_names {
+            println!("  {name}");
+        }
     }
     Ok(())
 }

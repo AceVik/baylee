@@ -527,7 +527,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Canopy Crawler, Daru Stinger, and Kilnmouth Dragon; all three scale by
     // `Amount::CountersOnSource(CounterKind::P1P1)` and stay contextual unread
     // on an empty board.
-    assert_eq!((read, of), (3050, 3860), "activated/loyalty reader census");
+    // Completing 44 newly readable stubs adds 12 activated abilities across
+    // 10 cards (Aquamoeba, Breya, Etherium Shaper, Dragon Arch, Essence Fracture,
+    // Hermit Druid, Krosan Restorer (2), Nomad Decoy (2), Petradon, Pyre Zombie,
+    // Twigwalker): 8 read by the table and 4 remaining contextual.
+    assert_eq!((read, of), (3058, 3872), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
