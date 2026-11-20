@@ -85,6 +85,13 @@ impl Tx<'_> {
                      toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, \
                      duration: Duration::UntilEndOfTurn }}])"
                 ));
+            } else if bit == "KeywordSet::STORM" && self.body.keywords.iter().any(|k| k == bit) {
+                // CR 702.40b: duplicate Storm instances on a card keep separate instances on the stack.
+                self.body.abilities.push(
+                    "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::STORM), \
+                     zone = ZoneRef::Stack)"
+                        .to_string(),
+                );
             } else {
                 self.body.keywords.push(bit.to_string());
             }

@@ -1041,6 +1041,138 @@ impl Tx<'_> {
     /// paired with a `DelayedTrigger` at the end step that returns `DelayTriggerRememberedLKI`
     /// under its owner's control (`Effect::ExileAndReturnAtEndStep` /
     /// `Effect::ExileAndReturnTappedAtEndStep`, Astral Slide, CR 603.7).
+    /// `Defined$ TopOfLibrary | Origin$ Library | Destination$ Exile | RememberChanged$ True`
+    /// chained into `DB$ Effect` granting `MayPlay$ True` from `Exile`
+    /// (with optional `MayPlayWithoutManaCost$ True`) and optional `Cleanup`:
+    /// lowers to `Effect::ExileTopToPlay`.
+    pub(super) fn exile_top_to_play_effect(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if p.take("Defined").as_deref() != Some("TopOfLibrary")
+            || p.take("Origin").as_deref() != Some("Library")
+            || p.take("Destination").as_deref() != Some("Exile")
+            || p.take("RememberChanged").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let who = self.player_rel(p.take("DefinedPlayer").as_deref())?;
+        let count = self.plain_num(p.take("ChangeNum").as_deref().unwrap_or("1"))?;
+        let count = u8::try_from(count).ok().filter(|n| (1..=4).contains(n))?;
+        let Some(eff_name) = sub.take() else {
+            return self.deny("`ChangeZone` top-of-library exile without `SubAbility$`".into());
+        };
+        let Some(eff_body) = self.svars.get(&eff_name).cloned() else {
+            return self.deny(format!("`SubAbility$ {eff_name}` names no SVar"));
+        };
+        let Some((eff_api, mut ep)) = Params::parse(&eff_body) else {
+            return self.deny("top-of-library exile follow-up with no `$`".into());
+        };
+        ep.drop_prose();
+        if eff_api != "Effect"
+            || !matches!(
+                ep.take("RememberObjects").as_deref(),
+                Some("Remembered" | "RememberedCard")
+            )
+            || !matches!(ep.take("EffectOwner").as_deref(), None | Some("You"))
+            || !matches!(
+                ep.take("ExileOnMoved")
+                    .or_else(|| ep.take("ForgetOnMoved"))
+                    .as_deref(),
+                None | Some("Exile")
+            )
+        {
+            return self.deny(
+                "a `ChangeZone` top-of-library follow-up other than an exiled-card play permission"
+                    .into(),
+            );
+        }
+        let window = match ep.take("Duration").as_deref() {
+            None | Some("EndOfTurn") => "PlayWindow::ThisTurn",
+            Some("UntilYourNextTurn") => "PlayWindow::UntilYourNextTurn",
+            Some("UntilTheEndOfYourNextTurn") => "PlayWindow::ThroughYourNextTurn",
+            Some(other) => {
+                return self.deny(format!(
+                    "top-of-library exile permission `Duration$ {other}`"
+                ));
+            }
+        };
+        let Some(static_name) = ep.take("StaticAbilities") else {
+            return self.deny("top-of-library exile `Effect` without `StaticAbilities$`".into());
+        };
+        let next_sub = ep.take("SubAbility");
+        if let Some(key) = ep.first_key() {
+            return self.deny(format!("unclaimed parameter `Effect.{key}`"));
+        }
+        let free = self.exile_play_permission_free(&static_name)?;
+        if let Some(cname) = next_sub {
+            self.consume_optional_remember_cleanup(cname, sub)?;
+        }
+        Some(vec![format!(
+            "Effect::ExileTopToPlay {{ who: {who}, play: ExilePlay {{ count: {count}, \
+             window: {window}, free: {free}, mana_any_type: false, spell_types: None }} }}"
+        )])
+    }
+
+    fn exile_play_permission_free(&mut self, static_name: &str) -> Option<bool> {
+        let Some(static_body) = self.svars.get(static_name).cloned() else {
+            return self.deny(format!("`StaticAbilities$ {static_name}` names no SVar"));
+        };
+        let Some((mode, mut sp)) = Params::parse(&static_body) else {
+            return self.deny("top-of-library exile static ability without `Mode$`".into());
+        };
+        sp.drop_prose();
+        if mode != "Continuous"
+            || sp.take("MayPlay").as_deref() != Some("True")
+            || sp.take("Affected").as_deref() != Some("Card.IsRemembered")
+            || sp.take("AffectedZone").as_deref() != Some("Exile")
+        {
+            return self.deny(
+                "top-of-library exile static ability other than playing the exiled card".into(),
+            );
+        }
+        let free = match sp.take("MayPlayWithoutManaCost").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!(
+                    "top-of-library exile `MayPlayWithoutManaCost$ {other}`"
+                ));
+            }
+        };
+        if let Some(key) = sp.first_key() {
+            return self.deny(format!("unclaimed parameter `StaticAbility.{key}`"));
+        }
+        Some(free)
+    }
+
+    fn consume_optional_remember_cleanup(
+        &mut self,
+        cname: String,
+        sub: &mut Option<String>,
+    ) -> Option<()> {
+        let Some(c_body) = self.svars.get(&cname).cloned() else {
+            return self.deny(format!("`SubAbility$ {cname}` names no SVar"));
+        };
+        let Some((c_api, mut cp)) = Params::parse(&c_body) else {
+            return self.deny("top-of-library exile cleanup with no `$`".into());
+        };
+        cp.drop_prose();
+        if c_api == "Cleanup" {
+            if cp.take("ClearRemembered").as_deref() != Some("True") {
+                return self.deny("cleanup other than `ClearRemembered$ True`".into());
+            }
+            *sub = cp.take("SubAbility");
+            if let Some(key) = cp.first_key() {
+                return self.deny(format!("unclaimed parameter `Cleanup.{key}`"));
+            }
+        } else {
+            *sub = Some(cname);
+        }
+        Some(())
+    }
+
     pub(super) fn exile_until_end_effect(
         &mut self,
         p: &mut Params,

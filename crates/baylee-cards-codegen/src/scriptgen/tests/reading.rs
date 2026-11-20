@@ -1328,6 +1328,67 @@ fn multiple_prowess_keywords_emit_separate_triggers() {
 }
 
 #[test]
+fn storm_keyword_and_duplicate_storm_lower_cleanly() {
+    let single = read(
+        "Name:Tendrils of Agony\nManaCost:2 B B\nTypes:Sorcery\nK:Storm\n\
+         A:SP$ LoseLife | ValidTgts$ Player | LifeAmount$ 2 | SubAbility$ DBGainLife\n\
+         SVar:DBGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+    );
+    assert_eq!(single.keywords, ["KeywordSet::STORM"]);
+    assert_eq!(
+        single.abilities,
+        [
+            "spell!(&[Effect::LoseLife { amount: Amount::Fixed(2), target: PlayerRel::Chosen }, \
+             Effect::gain_life(2)], targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
+        ]
+    );
+
+    let duplicate = read(
+        "Name:Double Storm\nManaCost:1 R\nTypes:Sorcery\nK:Storm\nK:Storm\n\
+         A:SP$ DealDamage | ValidTgts$ Player | NumDmg$ 1",
+    );
+    assert_eq!(duplicate.keywords, ["KeywordSet::STORM"]);
+    assert_eq!(duplicate.abilities.len(), 2);
+    assert_eq!(
+        duplicate.abilities[0],
+        "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::STORM), \
+         zone = ZoneRef::Stack)"
+    );
+}
+
+#[test]
+fn exile_top_to_play_reads_minds_desire_pattern_and_refuses_variants() {
+    let desire = "Name:Mind's Desire\nManaCost:4 U U\nTypes:Sorcery\nK:Storm\n\
+                  A:SP$ Shuffle | SubAbility$ DBExile | AILogic$ Always\n\
+                  SVar:DBExile:DB$ ChangeZone | Defined$ TopOfLibrary | Origin$ Library | Destination$ Exile | RememberChanged$ True | SubAbility$ DBEffect\n\
+                  SVar:DBEffect:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ Play | SubAbility$ DBCleanup | ExileOnMoved$ Exile\n\
+                  SVar:Play:Mode$ Continuous | MayPlay$ True | MayPlayWithoutManaCost$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile\n\
+                  SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True";
+    let body = read(desire);
+    assert_eq!(body.keywords, ["KeywordSet::STORM"]);
+    assert_eq!(
+        body.abilities,
+        [
+            "spell!(&[Effect::ShuffleLibrary { who: PlayerRel::You }, Effect::ExileTopToPlay { \
+             who: PlayerRel::You, play: ExilePlay { count: 1, window: PlayWindow::ThisTurn, \
+             free: true, mana_any_type: false, spell_types: None } }])"
+        ]
+    );
+
+    assert!(refused(&desire.replace(
+        "Destination$ Exile",
+        "Destination$ Exile | ExileFaceDown$ True"
+    )));
+    assert!(refused(
+        &desire.replace("AffectedZone$ Exile", "AffectedZone$ Hand")
+    ));
+    assert!(refused(&desire.replace(
+        "MayPlayWithoutManaCost$ True",
+        "MayPlayWithoutManaCost$ Bogus"
+    )));
+}
+
+#[test]
 fn next_turns_upkeep_delayed_trigger_reads_slowtrips() {
     let clairvoyance = "A:SP$ RevealHand | ValidTgts$ Player | SubAbility$ DelTrig\n\
                         SVar:DelTrig:DB$ DelayedTrigger | NextTurn$ True | Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | Execute$ DrawSlowtrip\n\
