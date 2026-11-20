@@ -416,11 +416,16 @@ fn an_unless_cost_wraps_the_line_whatever_it_says() {
         "{:?}",
         bought.abilities
     );
-    // Refused by name: a payer this cannot ask, subs on one answer, and
-    // an absent payer on a line with no target to take one from.
+    // Refused by name: a switched/non-mana `Player` cost, an absent payer on a
+    // line with no target to take one from, subs on one answer, and an
+    // unsupported cost part.
     for (line, reason) in [
         (
-            "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ 2",
+            "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ 2 | UnlessSwitched$ True",
+            "an unless-cost paid by `Player`",
+        ),
+        (
+            "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ PayLife<2>",
             "an unless-cost paid by `Player`",
         ),
         (
@@ -432,8 +437,8 @@ fn an_unless_cost_wraps_the_line_whatever_it_says() {
             "`UnlessResolveSubs$ WhenNotPaid`",
         ),
         (
-            "DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ PayLife<2>",
-            "an unless-cost of `PayLife<2>`",
+            "DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ DamageYou<2>",
+            "cost `DamageYou`",
         ),
     ] {
         let script = parse(&format!(
@@ -447,6 +452,36 @@ fn an_unless_cost_wraps_the_line_whatever_it_says() {
             "{line}"
         );
     }
+}
+
+#[test]
+fn wave7_any_player_and_pay_life_unless_costs() {
+    let any_player = read(
+        "Name:X\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+         | Execute$ S | TriggerDescription$ x.\n\
+         SVar:S:DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ 2",
+    );
+    assert!(
+        any_player.abilities[0].contains(
+            "Effect::AnyPlayerMayPayManaOr { cost: mana!(\"{2}\"), effects: &[Effect::SacrificeSelf] }"
+        ),
+        "{:?}",
+        any_player.abilities
+    );
+    let pay_life = read(
+        "Name:X\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+         | Execute$ S | TriggerDescription$ x.\n\
+         SVar:S:DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ PayLife<2>",
+    );
+    assert!(
+        pay_life.abilities[0].contains(
+            "Effect::PlayerMayPayLifeOr { player: PlayerRel::You, life: Amount::Fixed(2), effect: &Effect::SacrificeSelf }"
+        ),
+        "{:?}",
+        pay_life.abilities
+    );
 }
 
 #[test]

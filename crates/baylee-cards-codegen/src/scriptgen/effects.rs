@@ -33,11 +33,14 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
-        for key in ["Optional", "RememberSacrificed"] {
-            if p.take(key).is_some() {
-                return self.deny(format!("a sacrifice naming `{key}`"));
-            }
+        if p.take("RememberSacrificed").is_some() {
+            return self.deny("a sacrifice naming `RememberSacrificed`".to_string());
         }
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return self.deny("a sacrifice naming `Optional`".to_string()),
+        };
         let raw_amount = p.take("Amount");
         if let Some(num) = p.take("ChangeNum")
             && num.trim() != "1"
@@ -49,18 +52,21 @@ impl Tx<'_> {
             if raw_amount.is_some() {
                 return self.deny("a sacrifice naming `Amount`".to_string());
             }
-            match p.take("Defined").as_deref() {
-                None => return Some(vec!["Effect::SacrificeSelf".to_string()]),
-                Some("Self") if !self.on_a_spell => {
-                    return Some(vec!["Effect::SacrificeSelf".to_string()]);
-                }
+            let base = match p.take("Defined").as_deref() {
+                None => "Effect::SacrificeSelf",
+                Some("Self") if !self.on_a_spell => "Effect::SacrificeSelf",
                 Some("DelayTriggerRemembered" | "DelayTriggerRememberedLKI")
                     if self.in_delayed && target.is_none() =>
                 {
-                    return Some(vec!["Effect::SacrificeEvent".to_string()]);
+                    "Effect::SacrificeEvent"
                 }
                 Some(_) => return self.deny("a sacrifice naming `Defined`".to_string()),
-            }
+            };
+            return Some(vec![if optional {
+                format!("Effect::MayDo {{ effects: &[{base}] }}")
+            } else {
+                base.to_string()
+            }]);
         };
         let who = self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
         let filter = if sac_valid == "Permanent" {
@@ -69,18 +75,41 @@ impl Tx<'_> {
             let expr = self.filter_expr(&sac_valid)?;
             format!("&{}", self.body.filter_static("SAC", &expr))
         };
-        match raw_amount.as_deref().map(str::trim) {
-            None | Some("1") => Some(vec![format!(
-                "Effect::SacrificeFilter {{ who: {who}, filter: {filter} }}"
-            )]),
+        let effect = match raw_amount.as_deref().map(str::trim) {
+            None | Some("1") => {
+                format!("Effect::SacrificeFilter {{ who: {who}, filter: {filter} }}")
+            }
             Some(raw) => {
                 let amount = self.amount_or_count_ext(raw)?;
-                Some(vec![format!(
+                format!(
                     "Effect::SacrificeAmountForPlayers {{ who: {who}, filter: {filter}, amount: \
                      {amount} }}"
-                )])
+                )
             }
+        };
+        if !optional {
+            return Some(vec![effect]);
         }
+        if who == "PlayerRel::You" {
+            return Some(vec![format!("Effect::MayDo {{ effects: &[{effect}] }}")]);
+        }
+        if matches!(
+            who,
+            "PlayerRel::Chosen"
+                | "PlayerRel::ControllerOfTarget"
+                | "PlayerRel::ControllerOfEvent"
+                | "PlayerRel::TargetPlayerOrController"
+                | "PlayerRel::EventPlayer"
+                | "PlayerRel::DefendingPlayer"
+                | "PlayerRel::ActivePlayer"
+                | "PlayerRel::OwnerOfTarget"
+                | "PlayerRel::ControllerOfAttached"
+        ) {
+            return Some(vec![format!(
+                "Effect::MayDoFor {{ player: {who}, effects: &[{effect}] }}"
+            )]);
+        }
+        self.deny("a sacrifice naming `Optional`".to_string())
     }
 
     /// `Token`: "create a 1/1 white Soldier creature token".
@@ -970,7 +999,20 @@ impl Tx<'_> {
                 {
                     Some(vec!["Effect::ReturnLinkedToBattlefield".to_string()])
                 }
+                (Some("Exile"), Some(dest @ ("Hand" | "Graveyard")))
+                    if p.take("ChangeType").as_deref() == Some("Card.ExiledWithSource") =>
+                {
+                    if let Some(hidden) = p.take("Hidden")
+                        && hidden != "True"
+                    {
+                        return None;
+                    }
+                    Some(vec![format!(
+                        "Effect::ReturnLinkedExile {{ to: ZoneRef::{dest} }}"
+                    )])
+                }
                 (Some("Battlefield"), Some("Hand")) => {
+                    p.take("IsCurse");
                     let valid = p.take("ChangeType")?;
                     let expr = self.filter_expr(&valid)?;
                     let name = self.body.filter_static("BOUNCE_ALL", &expr);
@@ -979,6 +1021,7 @@ impl Tx<'_> {
                     )])
                 }
                 (Some("Battlefield"), Some("Exile")) => {
+                    p.take("IsCurse");
                     let valid = p.take("ChangeType")?;
                     let expr = self.filter_expr(&valid)?;
                     let name = self.body.filter_static("EXILE_ALL", &expr);
@@ -990,6 +1033,7 @@ impl Tx<'_> {
                     )])
                 }
                 (Some("Graveyard"), Some("Hand")) => {
+                    p.take("IsCurse");
                     let valid = p.take("ChangeType")?;
                     let stripped = Self::strip_your_graveyard_owner(&valid)?;
                     let expr = self.filter_expr_in_zone(&stripped, true)?;
@@ -999,6 +1043,7 @@ impl Tx<'_> {
                     )])
                 }
                 (Some("Graveyard"), Some("Battlefield")) => {
+                    p.take("IsCurse");
                     let valid = p.take("ChangeType")?;
                     let tapped = match p.take("Tapped").as_deref() {
                         None | Some("False") => false,
@@ -1094,6 +1139,7 @@ impl Tx<'_> {
         if hand && graveyard {
             p.take("UseAllOriginZones");
         }
+        p.take("IsCurse");
         let defined = p.take("Defined");
         let change_type = p.take("ChangeType");
         if let Some(effects) = self.shuffle_matching_graveyard(
@@ -1103,7 +1149,7 @@ impl Tx<'_> {
             return Some(effects);
         }
         let who = match change_type.as_deref() {
-            Some("Card.YouOwn") if defined.is_none() && target.is_none() => {
+            Some("Card.YouOwn" | "Card.YouCtrl") if defined.is_none() && target.is_none() => {
                 "PlayerRel::You".to_string()
             }
             Some("Card") | None if defined.is_some() || targets_a_player => self
@@ -1126,11 +1172,11 @@ impl Tx<'_> {
             return None;
         }
         let raw = change_type?;
-        if raw == "Card.YouOwn" {
+        if matches!(raw, "Card.YouOwn" | "Card.YouCtrl") {
             return None;
         }
-        let stripped = raw.strip_suffix("+YouOwn")?;
-        let expr = self.filter_expr_in_zone(stripped, true)?;
+        let stripped = Self::strip_your_graveyard_owner(raw)?;
+        let expr = self.filter_expr_in_zone(&stripped, true)?;
         let name = self.body.filter_static("SHUFFLE_GRAVEYARD", &expr);
         Some(vec![format!(
             "Effect::ShuffleGraveyardMatchingIntoLibrary {{ who: PlayerRel::You, filter: &{name} }}"
@@ -1258,6 +1304,15 @@ impl Tx<'_> {
         }
         p.take("IsCurse");
         let subject = self.effect_remember_subject(p, target)?;
+        match (p.peek("Defined"), subject) {
+            (Some("Targeted"), EffectSubject::Targets) | (Some("Self"), EffectSubject::Source) => {
+                p.take("Defined");
+            }
+            (Some("Self"), EffectSubject::Unbound) if !self.on_a_spell => {
+                p.take("Defined");
+            }
+            _ => {}
+        }
         let statics = p.take("StaticAbilities")?;
         let mut out = Vec::new();
         for svar_name in statics.split(',').map(str::trim).filter(|s| !s.is_empty()) {
@@ -1468,6 +1523,14 @@ impl Tx<'_> {
             }
             Some("TriggeredBlocker" | "TriggeredBlockerLKICopy")
                 if self.trigger_mode.as_deref() == Some("Blocks") =>
+            {
+                EffectSubject::Event
+            }
+            Some("TriggeredTarget" | "TriggeredTargetLKICopy")
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("DamageDone" | "DamageDoneOnce")
+                ) =>
             {
                 EffectSubject::Event
             }
@@ -1804,36 +1867,8 @@ impl Tx<'_> {
                 "Effect::ChangeController { new_controller: PlayerRel::Chosen }".to_string(),
             ]);
         }
-        // "At the beginning of each player's upkeep, that player untaps
-        // CARDNAME and gains control of it" (Karona, False God).
-        if target.is_none()
-            && !targets_a_player
-            && self.trigger_mode.as_deref() == Some("Phase")
-            && p.peek("Defined") == Some("Self")
-            && p.peek("NewController") == Some("TriggeredPlayer")
-        {
-            p.take("Defined");
-            p.take("NewController");
-            let untap = match p.take("Untap").as_deref() {
-                None => false,
-                Some("True") => true,
-                Some(_) => return None,
-            };
-            let mut out = Vec::new();
-            if untap {
-                out.push("Effect::UntapSelf".to_string());
-            }
-            out.push(
-                "Effect::ChangeController { new_controller: PlayerRel::ActivePlayer }".to_string(),
-            );
-            return Some(out);
-        }
-        if target.is_none()
-            && !targets_a_player
-            && p.peek("AllValid").is_some()
-            && p.peek("ConditionCheckSVar").is_some()
-        {
-            return self.gain_control_if_more_than_each_other(p);
+        if target.is_none() && !targets_a_player {
+            return self.gain_control_untargeted(p);
         }
         if target.is_none() || targets_a_player {
             return None;
@@ -1852,7 +1887,16 @@ impl Tx<'_> {
         }
         let duration = match p.take("LoseControl").as_deref() {
             Some("EOT") => "Duration::UntilEndOfTurn",
-            Some("LeavesPlay") if !self.on_a_spell => "Duration::WhileYouControlSource",
+            Some("LeavesPlay") if !self.on_a_spell => "Duration::WhileSourceOnBattlefield",
+            Some("LeavesPlay,LoseControl" | "LoseControl,LeavesPlay") if !self.on_a_spell => {
+                "Duration::WhileYouControlSource"
+            }
+            Some("Untap,LeavesPlay" | "LeavesPlay,Untap") if !self.on_a_spell => {
+                "Duration::WhileSourceTapped { control: false, power_limited: false }"
+            }
+            Some(raw) if !self.on_a_spell && Self::is_untap_leaves_lose_control(raw) => {
+                "Duration::WhileSourceTapped { control: true, power_limited: false }"
+            }
             None => "Duration::Indefinitely",
             Some(_) => return None,
         };
@@ -1882,6 +1926,58 @@ impl Tx<'_> {
             ));
         }
         Some(out)
+    }
+
+    fn gain_control_untargeted(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if p.peek("Defined") == Some("Self")
+            && p.peek("NewController").is_some()
+            && !p.has("LoseControl")
+            && !p.has("AddKWs")
+            && !p.has("AllValid")
+        {
+            let who_raw = p.take("NewController")?;
+            let who = self.player_of_line(Some(&who_raw), None, false)?;
+            if !Self::is_single_player_rel(who) {
+                return None;
+            }
+            p.take("Defined");
+            let untap = match p.take("Untap").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(_) => return None,
+            };
+            let mut out = Vec::new();
+            if untap {
+                out.push("Effect::UntapSelf".to_string());
+            }
+            out.push(format!(
+                "Effect::ChangeController {{ new_controller: {who} }}"
+            ));
+            return Some(out);
+        }
+        if p.peek("AllValid").is_some() && p.peek("ConditionCheckSVar").is_some() {
+            return self.gain_control_if_more_than_each_other(p);
+        }
+        if p.peek("AllValid").is_some()
+            && !p.has("LoseControl")
+            && !p.has("Untap")
+            && !p.has("AddKWs")
+        {
+            let valid = p.take("AllValid")?;
+            let who = match p.take("NewController").as_deref() {
+                None | Some("You") => "PlayerRel::You",
+                Some(raw) => self.player_of_line(Some(raw), None, false)?,
+            };
+            if !Self::is_single_player_rel(who) {
+                return None;
+            }
+            let expr = self.filter_expr(&valid)?;
+            let name = self.body.filter_static("GAIN_CONTROL", &expr);
+            return Some(vec![format!(
+                "Effect::GainControlAll {{ filter: &{name}, to: {who} }}"
+            )]);
+        }
+        None
     }
 
     /// "If you control more [valid] than each other player, you gain control
@@ -2143,11 +2239,20 @@ impl Tx<'_> {
         if !target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) {
             return self.deny("an end-step blink that does not target a battlefield object".into());
         }
+        let remembered = p.take("RememberChanged").as_deref() == Some("True")
+            || p.take("RememberTargets").as_deref() == Some("True");
         if p.take("Origin").as_deref() != Some("Battlefield")
             || p.take("Destination").as_deref() != Some("Exile")
-            || p.take("RememberChanged").as_deref() != Some("True")
+            || !remembered
         {
             return self.deny("an end-step blink missing `RememberChanged$ True`".into());
+        }
+        for key in ["ForgetOtherTargets", "ForgetOtherRemembered"] {
+            if let Some(val) = p.take(key)
+                && val != "True"
+            {
+                return self.deny(format!("a blink with `{key}$ {val}`"));
+            }
         }
         p.take("IsCurse");
         let Some(del_name) = sub.take() else {
@@ -2161,15 +2266,22 @@ impl Tx<'_> {
         };
         dp.drop_prose();
         if del_api == "ChangeZone" {
-            if !single_target {
-                return self.deny("multi-target immediate blink".into());
-            }
-            if dp.take("Defined").as_deref() != Some("Remembered")
-                || dp.take("Origin").as_deref() != Some("Exile")
+            let _ = single_target;
+            if !matches!(
+                dp.take("Defined").as_deref(),
+                Some("Remembered" | "RememberedLKI")
+            ) || !matches!(dp.take("Origin").as_deref(), Some("Exile" | "All"))
                 || dp.take("Destination").as_deref() != Some("Battlefield")
             {
                 return self
                     .deny("a `ChangeZone` exile follow-up other than an immediate blink".into());
+            }
+            if let Some(forget) = dp.take("ForgetOtherRemembered")
+                && forget != "True"
+            {
+                return self.deny(format!(
+                    "a blink return with `ForgetOtherRemembered$ {forget}`"
+                ));
             }
             let owner_control = match dp.take("GainControl").as_deref() {
                 None | Some("False") => true,
@@ -2225,8 +2337,11 @@ impl Tx<'_> {
         };
         rp.drop_prose();
         if ret_api != "ChangeZone"
-            || rp.take("Defined").as_deref() != Some("DelayTriggerRememberedLKI")
-            || rp.take("Origin").as_deref() != Some("Exile")
+            || !matches!(
+                rp.take("Defined").as_deref(),
+                Some("DelayTriggerRememberedLKI" | "DelayTriggerRemembered")
+            )
+            || !matches!(rp.take("Origin").as_deref(), Some("Exile" | "All"))
             || rp.take("Destination").as_deref() != Some("Battlefield")
         {
             return self.deny(
@@ -2342,6 +2457,7 @@ impl Tx<'_> {
             && destination == "Battlefield"
             && p.has("ChangeType")
             && (p.has("Optional")
+                || p.peek("Mandatory") == Some("True")
                 || (!p.has("Mandatory")
                     && self.oracle.to_ascii_lowercase().contains("you may put")))
         {
@@ -2378,13 +2494,30 @@ impl Tx<'_> {
         if !itself
             && target == "TargetSpec::AnyPlayer"
             && origin == "Graveyard"
+            && destination == "Hand"
+            && p.peek("Hidden") == Some("True")
+            && p.peek("AtRandom") == Some("True")
+            && p.has("ChangeType")
+        {
+            return self.random_graveyard_to_hand(p);
+        }
+        if !itself
+            && target == "TargetSpec::AnyPlayer"
+            && origin == "Graveyard"
             && matches!(
                 destination.as_str(),
                 "Battlefield" | "Hand" | "Exile" | "Library"
             )
             && p.peek("Hidden") == Some("True")
             && p.has("ChangeType")
-            && (p.peek("Mandatory") == Some("True") || p.peek("Optional") == Some("True"))
+            && (p.peek("Mandatory") == Some("True")
+                || p.peek("Optional") == Some("True")
+                || (!p.has("Mandatory")
+                    && !p.has("Optional")
+                    && (p
+                        .peek("SelectPrompt")
+                        .is_some_and(|s| s.to_ascii_lowercase().starts_with("you may"))
+                        || self.oracle.to_ascii_lowercase().contains("you may "))))
         {
             return self.choose_from_your_graveyard(p, &destination);
         }
@@ -2669,12 +2802,18 @@ impl Tx<'_> {
         if p.take("Hidden").as_deref() != Some("True") {
             return None;
         }
+        let prompt_may = p
+            .take("SelectPrompt")
+            .is_some_and(|s| s.to_ascii_lowercase().starts_with("you may"));
         let optional = match (
             p.take("Mandatory").as_deref(),
             p.take("Optional").as_deref(),
         ) {
             (Some("True"), None) => false,
             (None, Some("True")) => true,
+            (None, None) if prompt_may || self.oracle.to_ascii_lowercase().contains("you may ") => {
+                true
+            }
             _ => return None,
         };
         if !matches!(p.take("ChangeNum").as_deref(), None | Some("1")) {
@@ -2784,6 +2923,7 @@ impl Tx<'_> {
         {
             return self.deny(format!("`ChangeZone` found `Hidden$ {hidden}`"));
         }
+        p.take("SelectPrompt");
         let tapped = match p.take("Tapped").as_deref() {
             None | Some("False") => false,
             Some("True") => true,
@@ -2792,18 +2932,23 @@ impl Tx<'_> {
                 return None;
             }
         };
+        let mandatory = match p.take("Mandatory").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                self.note(format!("`ChangeZone` found `Mandatory$ {other}`"));
+                return None;
+            }
+        };
         let optional = match p.take("Optional").as_deref() {
-            Some("You" | "True") => true,
+            Some("You" | "True") if !mandatory => true,
             Some("False") => false,
             Some(other) => {
                 self.note(format!("`ChangeZone` found `Optional$ {other}`"));
                 return None;
             }
-            None if !p.has("Mandatory")
-                && self.oracle.to_ascii_lowercase().contains("you may put") =>
-            {
-                true
-            }
+            None if mandatory => false,
+            None if self.oracle.to_ascii_lowercase().contains("you may put") => true,
             None => {
                 self.note("`ChangeZone` from hand without `Optional$`".to_string());
                 return None;
@@ -2814,7 +2959,9 @@ impl Tx<'_> {
             self.note(format!("`ChangeZone` putting {count} cards from hand"));
             return None;
         }
-        let filter = self.filter_expr_in_zone(&p.take("ChangeType")?, true)?;
+        let raw_valid = p.take("ChangeType")?;
+        let cleaned = Self::strip_your_graveyard_owner(&raw_valid).unwrap_or(raw_valid);
+        let filter = self.filter_expr_in_zone(&cleaned, true)?;
         let name = self.body.filter_static("PUT_FROM_HAND", &filter);
         Some(vec![format!(
             "Effect::PutFromHandOntoBattlefield {{ tapped: {tapped}, filter: &{name}, \
@@ -3029,8 +3176,13 @@ impl Tx<'_> {
                 np.take("Defined").as_deref(),
                 Some("Remembered" | "RememberedLKI")
             )
-            || np.take("Origin").as_deref() != Some("Exile")
+            || !matches!(np.take("Origin").as_deref(), Some("Exile" | "All"))
             || np.take("Destination").as_deref() != Some("Battlefield")
+        {
+            return None;
+        }
+        if let Some(forget) = np.take("ForgetOtherRemembered")
+            && forget != "True"
         {
             return None;
         }
@@ -4215,5 +4367,526 @@ impl Tx<'_> {
         Some(vec![format!(
             "Effect::PhaseOutUntilSourceLeaves {{ tap_on_phase_in: {tap_on_phase_in} }}"
         )])
+    }
+
+    /// `DB$/AB$/SP$ Amass` (CR 701.47a): amass `[subtype] N`.
+    pub(super) fn amass_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        let who = self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        if who != "PlayerRel::You" {
+            return self.deny("`Amass` for somebody other than you".to_string());
+        }
+        let raw_type = p.take("Type")?;
+        let subtype = self
+            .cats
+            .const_path_of(SubtypeKind::Creature, raw_type.trim())?;
+        let stem = format!("b_0_0_{}_army", raw_type.trim().to_ascii_lowercase());
+        let Some(tokens) = self.tokens else {
+            return self.deny("`Amass` with no token scripts to read it against".to_string());
+        };
+        let Some(body) = tokens.body(&stem, self.cats) else {
+            return self.deny(format!("token script `{stem}`"));
+        };
+        let raw_num = p.take("Num")?;
+        let amount = self.amount_or_count_ext(&raw_num)?;
+        Some(vec![format!(
+            "Effect::Amass {{ token: &generated_tokens::{}, subtype: {subtype}, amount: {amount} }}",
+            body.constant
+        )])
+    }
+
+    /// `DB$/AB$/SP$ BecomeMonarch` (CR 724.1): one player becomes the monarch.
+    pub(super) fn become_monarch_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        let who = self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        if !Self::is_single_player_rel(who) {
+            return None;
+        }
+        Some(vec![format!("Effect::BecomeMonarch({who})")])
+    }
+
+    fn is_single_player_rel(who: &str) -> bool {
+        matches!(
+            who,
+            "PlayerRel::You"
+                | "PlayerRel::Chosen"
+                | "PlayerRel::ControllerOfTarget"
+                | "PlayerRel::ControllerOfEvent"
+                | "PlayerRel::TargetPlayerOrController"
+                | "PlayerRel::EventPlayer"
+                | "PlayerRel::DefendingPlayer"
+                | "PlayerRel::DamagedPlayer"
+                | "PlayerRel::ActivePlayer"
+                | "PlayerRel::OwnerOfTarget"
+                | "PlayerRel::ControllerOfAttached"
+                | "PlayerRel::OwnerOfSource"
+        )
+    }
+
+    fn is_untap_leaves_lose_control(raw: &str) -> bool {
+        let mut parts: Vec<&str> = raw.split(',').map(str::trim).collect();
+        parts.sort_unstable();
+        parts == ["LeavesPlay", "LoseControl", "Untap"]
+    }
+
+    /// `DB$/AB$/SP$ AlterAttribute | Attributes$ Prepared|Saddled` (CR 723.3 / 702.171).
+    pub(super) fn alter_attribute_effect(
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        single_target: bool,
+    ) -> Option<Vec<String>> {
+        let attr = p.take("Attributes")?;
+        if let Some(activate) = p.take("Activate")
+            && activate != "True"
+        {
+            return None;
+        }
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let defined = p.take("Defined");
+        let object_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+        let effect = match (attr.as_str(), targets_here, defined.as_deref()) {
+            ("Prepared", true, None | Some("Targeted")) | ("Prepared", false, Some("Targeted"))
+                if single_target && object_target =>
+            {
+                "Effect::BecomeTargetPrepared"
+            }
+            ("Prepared", false, None | Some("Self")) => "Effect::BecomePrepared",
+            ("Saddled", false, None | Some("Self")) => "Effect::BecomeSaddled",
+            _ => return None,
+        };
+        Some(vec![if optional {
+            format!("Effect::MayDo {{ effects: &[{effect}] }}")
+        } else {
+            effect.to_string()
+        }])
+    }
+
+    /// `ChangeZone` from your graveyard to your hand at random.
+    fn random_graveyard_to_hand(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if p.take("Hidden").as_deref() != Some("True")
+            || p.take("AtRandom").as_deref() != Some("True")
+        {
+            return None;
+        }
+        if let Some(mand) = p.take("Mandatory")
+            && mand != "True"
+        {
+            return None;
+        }
+        if !matches!(p.take("ChangeNum").as_deref(), None | Some("1")) {
+            return None;
+        }
+        p.take("SelectPrompt");
+        let valid = p.take("ChangeType")?;
+        let stripped = Self::strip_your_graveyard_owner(&valid)?;
+        let expr = self.filter_expr_in_zone(&stripped, true)?;
+        let filter = self.body.filter_static("RANDOM_GRAVE", &expr);
+        Some(vec![format!(
+            "Effect::RandomGraveyardToHand {{ filter: &{filter} }}"
+        )])
+    }
+
+    /// Strips required `IsRemembered` (and optional `YouOwn`/`YouCtrl`) from
+    /// every comma-separated alternative in a post-mill `ChangeType$`.
+    fn strip_remembered_filter(valid: &str) -> Option<String> {
+        let mut out = Vec::new();
+        for alt in valid.split(',') {
+            let mut parts = alt
+                .split('.')
+                .flat_map(|s| s.split('+'))
+                .map(str::trim)
+                .filter(|a| !a.is_empty());
+            let base = parts.next()?;
+            let mut has_remembered = false;
+            let mut kept = Vec::new();
+            for atom in parts {
+                match atom {
+                    "IsRemembered" => has_remembered = true,
+                    "YouOwn" | "YouCtrl" => {}
+                    other if other.contains("Ctrl") || other.contains("Own") => return None,
+                    other => kept.push(other),
+                }
+            }
+            if !has_remembered {
+                return None;
+            }
+            if kept.is_empty() {
+                out.push(base.to_string());
+            } else {
+                out.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        (!out.is_empty()).then(|| out.join(","))
+    }
+
+    /// `Mill | RememberMilled$ True` followed by `ChangeZone` taking up to one
+    /// matching milled card into your hand (`Effect::MillMayTakeOne`, CR 701.17c).
+    pub(super) fn mill_may_take_one_effect(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if !matches!(p.take("Defined").as_deref(), None | Some("You"))
+            || p.take("RememberMilled").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let amount = self.amount_or_count_ext(&p.take("NumCards")?)?;
+        let next_name = sub.take()?;
+        let next_body = self.svars.get(&next_name)?.clone();
+        let (next_api, mut dp) = Params::parse(&next_body)?;
+        dp.drop_prose();
+        if next_api != "ChangeZone"
+            || !matches!(
+                dp.take("Origin").as_deref(),
+                Some("Graveyard,Exile" | "Exile,Graveyard" | "Graveyard")
+            )
+            || dp.take("Destination").as_deref() != Some("Hand")
+            || !matches!(dp.take("Hidden").as_deref(), None | Some("True"))
+            || !matches!(dp.take("ChangeNum").as_deref(), None | Some("1"))
+        {
+            return None;
+        }
+        if dp.has("Mandatory") {
+            return None;
+        }
+        dp.claim_label("ChangeTypeDesc", "ChangeType");
+        let prompt_may = dp
+            .take("SelectPrompt")
+            .is_some_and(|s| s.to_ascii_lowercase().starts_with("you may"));
+        let optional = match dp.take("Optional").as_deref() {
+            Some("True") => true,
+            None => prompt_may || self.oracle.to_ascii_lowercase().contains("you may put "),
+            Some(_) => return None,
+        };
+        if !optional {
+            return None;
+        }
+        let valid = dp.take("ChangeType")?;
+        let stripped = Self::strip_remembered_filter(&valid)?;
+        let expr = self.filter_expr_in_zone(&stripped, true)?;
+        let filter = self.body.filter_static("MILL_TAKE", &expr);
+        let follow_up = dp.take("SubAbility");
+        if !dp.exhausted() {
+            return None;
+        }
+        if let Some(fname) = follow_up {
+            if self.sub_is_api(Some(&fname), "Cleanup") {
+                self.consume_optional_remember_cleanup(fname, sub)?;
+            } else {
+                *sub = Some(fname);
+            }
+        }
+        Some(vec![format!(
+            "Effect::MillMayTakeOne {{ amount: {amount}, filter: &{filter} }}"
+        )])
+    }
+
+    /// Classifies a follow-up step's condition on `Remembered` after a
+    /// `Sacrifice | RememberSacrificed$ True` line: `Some((true, check))` for
+    /// "if you did / if a [check] was sacrificed", `Some((false, None))` for
+    /// "if you didn't".
+    fn take_remembered_sac_cond(&self, sp: &mut Params) -> Option<(bool, Option<String>)> {
+        if sp.peek("ConditionDefined") == Some("Remembered") {
+            let present = sp.take("ConditionPresent")?;
+            let cmp = sp.take("ConditionCompare");
+            sp.take("ConditionDefined");
+            sp.take("ConditionDescription");
+            return match cmp.as_deref() {
+                None | Some("GE1" | "EQ1") => {
+                    let check = (present != "Card" && present != "Permanent").then_some(present);
+                    Some((true, check))
+                }
+                Some("EQ0" | "LT1") => Some((false, None)),
+                Some(_) => None,
+            };
+        }
+        if let Some(var) = sp.peek("ConditionCheckSVar")
+            && self.svars.get(var.trim()).map(|s| s.trim()) == Some("Remembered$Amount")
+        {
+            let cmp = sp.take("ConditionSVarCompare");
+            sp.take("ConditionCheckSVar");
+            sp.take("ConditionDescription");
+            return match cmp.as_deref() {
+                None | Some("GE1" | "EQ1") => Some((true, None)),
+                Some("EQ0" | "LT1") => Some((false, None)),
+                Some(_) => None,
+            };
+        }
+        None
+    }
+
+    /// Reads a chain of follow-up `DB$` lines all sharing the same
+    /// `Remembered` sacrifice polarity (`on_sac`: true = paid, false = unpaid),
+    /// stopping at an optional `Cleanup | ClearRemembered$ True`.
+    fn collect_remembered_sac_body(
+        &mut self,
+        first_sub: String,
+        target: Option<&str>,
+        sub_out: &mut Option<String>,
+    ) -> Option<(bool, Option<String>, Vec<String>)> {
+        let mut cursor = Some(first_sub);
+        let mut polarity: Option<bool> = None;
+        let mut check_valid: Option<String> = None;
+        let mut body_effects = Vec::new();
+        let mut steps = 0usize;
+        while let Some(name) = cursor.take() {
+            steps += 1;
+            if steps > 8 {
+                return None;
+            }
+            let body = self.svars.get(name.trim())?.clone();
+            let (api, mut sp) = Params::parse(&body)?;
+            sp.drop_prose();
+            if api == "Cleanup" && sp.take("ClearRemembered").as_deref() == Some("True") {
+                let tail = sp.take("SubAbility");
+                if !sp.exhausted() {
+                    return None;
+                }
+                *sub_out = tail;
+                break;
+            }
+            let (on_sac, check) = self.take_remembered_sac_cond(&mut sp)?;
+            if let Some(prev) = polarity {
+                if prev != on_sac || check_valid != check {
+                    return None;
+                }
+            } else {
+                polarity = Some(on_sac);
+                check_valid = check;
+            }
+            if sp.has("ValidTgts") || sp.has("UnlessCost") || sp.has("AtEOT") {
+                return None;
+            }
+            let next = sp.take("SubAbility");
+            let effs = self.effect_of(&api, &mut sp, target, false, false)?;
+            if !sp.exhausted() || effs.is_empty() {
+                return None;
+            }
+            body_effects.extend(effs);
+            cursor = next;
+        }
+        let on_sac = polarity?;
+        (!body_effects.is_empty()).then_some((on_sac, check_valid, body_effects))
+    }
+
+    /// `Sacrifice | RememberSacrificed$ True` followed by `ConditionDefined$
+    /// Remembered` (`PlayerMayPayCostThen`, `PlayerMayPayCostOr`,
+    /// `SacrificeAndIf`, or `SacrificeSelfThen`).
+    pub(super) fn sacrifice_remembered_effect(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        if p.take("RememberSacrificed").as_deref() != Some("True")
+            || !matches!(p.take("Amount").as_deref(), None | Some("1"))
+            || !matches!(p.take("ChangeNum").as_deref(), None | Some("1"))
+        {
+            return None;
+        }
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        p.claim_label("SacMessage", "SacValid");
+        let sac_valid = p.take("SacValid");
+        let who = self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let first_sub = sub.take()?;
+        let (on_sac, check_valid, body_effects) =
+            self.collect_remembered_sac_body(first_sub, target, sub)?;
+        let body_one = match body_effects.as_slice() {
+            [one] => one.clone(),
+            many => format!("Effect::Sequence(&[{}])", many.join(", ")),
+        };
+        if sac_valid.as_deref().is_none_or(|v| v == "Self") {
+            if !optional
+                && on_sac
+                && check_valid.is_none()
+                && who == "PlayerRel::You"
+                && !self.on_a_spell
+            {
+                return Some(vec![format!(
+                    "Effect::SacrificeSelfThen {{ then: &[{}] }}",
+                    body_effects.join(", ")
+                )]);
+            }
+            return None;
+        }
+        let valid = sac_valid?;
+        let sac_filter = if valid == "Permanent" {
+            "&Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr(&valid)?;
+            format!("&{}", self.body.filter_static("SAC", &expr))
+        };
+        if optional {
+            if check_valid.as_deref().is_some_and(|c| c != valid) {
+                return None;
+            }
+            if !matches!(
+                who,
+                "PlayerRel::You"
+                    | "PlayerRel::Chosen"
+                    | "PlayerRel::ControllerOfTarget"
+                    | "PlayerRel::ControllerOfEvent"
+                    | "PlayerRel::TargetPlayerOrController"
+                    | "PlayerRel::EventPlayer"
+                    | "PlayerRel::DefendingPlayer"
+                    | "PlayerRel::ActivePlayer"
+                    | "PlayerRel::OwnerOfTarget"
+                    | "PlayerRel::ControllerOfAttached"
+            ) {
+                return None;
+            }
+            let variant = if on_sac {
+                "PlayerMayPayCostThen"
+            } else {
+                "PlayerMayPayCostOr"
+            };
+            return Some(vec![format!(
+                "Effect::{variant} {{ player: {who}, cost: &CostPart::Sacrifice({sac_filter}), \
+                 effect: &{body_one} }}"
+            )]);
+        }
+        if who == "PlayerRel::You" {
+            if on_sac {
+                let check_filter = match check_valid {
+                    None => "&Filter::Any".to_string(),
+                    Some(ref cv) => {
+                        let expr = self.filter_expr(cv)?;
+                        format!("&{}", self.body.filter_static("SAC_CHECK", &expr))
+                    }
+                };
+                return Some(vec![format!(
+                    "Effect::SacrificeAndIf {{ filter: {sac_filter}, check: {check_filter}, \
+                     effect: &{body_one} }}"
+                )]);
+            }
+            if check_valid.is_none() {
+                return Some(vec![format!(
+                    "Effect::IfCondition {{ condition: Condition::CanSacrifice({sac_filter}), \
+                     then: &[Effect::SacrificeFilter {{ who: PlayerRel::You, filter: {sac_filter} }}], \
+                     otherwise: &[{}] }}",
+                    body_effects.join(", ")
+                )]);
+            }
+        }
+        None
+    }
+
+    /// Wave-7 fallback for `DigUntil`: handles `NoPutDesc$` prose and
+    /// `RevealedDestination$ Library | RevealedLibraryPosition$ -1 | Shuffle$ True`
+    /// (putting the rest into the library and immediately shuffling).
+    pub(super) fn wave7_dig_until_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        let player = self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        if !matches!(p.take("Amount").as_deref(), None | Some("1")) {
+            return None;
+        }
+        p.take("IsCurse");
+        p.take("NoPutDesc");
+        p.claim_label("ValidDescription", "Valid");
+        let valid = p.take("Valid")?;
+        let found_raw = p.take("FoundDestination");
+        let revealed_raw = p.take("RevealedDestination");
+        let pos = p.take("RevealedLibraryPosition");
+        let shuffle = match p.take("Shuffle").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let random_order = match p.take("RevealRandomOrder").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        if !p.entries.iter().all(|(k, _)| k.starts_with("Condition")) {
+            return None;
+        }
+        let expr = self.filter_expr_in_zone(&valid, true)?;
+        let name = self.body.filter_static("REVEAL_UNTIL", &expr);
+        // Bottom + shuffle is identical to top + shuffle because the library is
+        // shuffled immediately afterwards.
+        if shuffle && revealed_raw.as_deref() == Some("Library") && pos.as_deref() == Some("-1") {
+            let matched = match found_raw.as_deref() {
+                Some("Battlefield") => "SearchDest::Battlefield",
+                Some("Hand") => "SearchDest::Hand",
+                Some("Graveyard") => "SearchDest::Graveyard",
+                Some("Exile") => "SearchDest::Exile",
+                Some("Library") => "SearchDest::TopOfLibrary",
+                _ => return None,
+            };
+            return Some(vec![
+                format!(
+                    "Effect::RevealUntilMatching {{ player: {player}, filter: &{name}, \
+                     matched: {matched}, otherwise: SearchDest::TopOfLibrary }}"
+                ),
+                format!("Effect::ShuffleLibrary {{ who: {player} }}"),
+            ]);
+        }
+        if player == "PlayerRel::You"
+            && !shuffle
+            && random_order
+            && revealed_raw.as_deref() == Some("Library")
+            && pos.as_deref() == Some("-1")
+        {
+            let found = match found_raw.as_deref() {
+                Some("Hand") => "SearchDest::Hand",
+                Some("Battlefield") => "SearchDest::Battlefield",
+                Some("Exile") => "SearchDest::Exile",
+                Some("Graveyard") => "SearchDest::Graveyard",
+                _ => return None,
+            };
+            return Some(vec![format!(
+                "Effect::RevealUntil {{ filter: &{name}, found: {found} }}"
+            )]);
+        }
+        if !shuffle && !random_order && pos.is_none() {
+            let otherwise = match revealed_raw.as_deref() {
+                Some("Library") => "SearchDest::TopOfLibrary",
+                Some("Graveyard") => "SearchDest::Graveyard",
+                Some("Exile") => "SearchDest::Exile",
+                _ => return None,
+            };
+            let matched = match found_raw.as_deref() {
+                Some("Battlefield") => "SearchDest::Battlefield",
+                Some("Hand") => "SearchDest::Hand",
+                Some("Graveyard") => "SearchDest::Graveyard",
+                Some("Exile") => "SearchDest::Exile",
+                Some("Library") => "SearchDest::TopOfLibrary",
+                None if matches!(otherwise, "SearchDest::Graveyard" | "SearchDest::Exile") => {
+                    otherwise
+                }
+                _ => return None,
+            };
+            return Some(vec![format!(
+                "Effect::RevealUntilMatching {{ player: {player}, filter: &{name}, \
+                 matched: {matched}, otherwise: {otherwise} }}"
+            )]);
+        }
+        None
     }
 }

@@ -680,7 +680,8 @@ fn wave5_effects_blink_support_adapt_attach_and_reanimate() {
     );
     assert!(attach.abilities[0].contains("Effect::AttachSelf"));
 
-    // 3) Immediate single-target Blink (multi-target blink refused!).
+    // 3) Immediate single-target and multi-target Blink (`Effect::Blink` loops
+    // over all surviving targets, CR 400.7 / CR 608.2c).
     let blink = read(
         "Name:Flicker\nManaCost:W\nTypes:Instant\n\
          A:SP$ ChangeZone | ValidTgts$ Creature.YouCtrl | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBReturn\n\
@@ -693,11 +694,19 @@ fn wave5_effects_blink_support_adapt_attach_and_reanimate() {
         "{}",
         blink.abilities[0]
     );
-    assert!(refused(
+    let multi_blink = read(
         "Name:MultiFlicker\nManaCost:2 W\nTypes:Instant\n\
          A:SP$ ChangeZone | ValidTgts$ Creature.YouCtrl | TargetMin$ 0 | TargetMax$ 2 | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBReturn\n\
-         SVar:DBReturn:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield"
-    ));
+         SVar:DBReturn:DB$ ChangeZone | Defined$ Remembered | Origin$ All | Destination$ Battlefield",
+    );
+    assert!(
+        multi_blink.abilities[0].contains("Effect::Blink")
+            && multi_blink.abilities[0].contains("owner_control: true")
+            && multi_blink.abilities[0].contains("TargetReq::up_to(")
+            && multi_blink.abilities[0].contains(", 2)"),
+        "{}",
+        multi_blink.abilities[0]
+    );
 
     // 4) Graveyard -> Battlefield tapped / counters / mass reanimate.
     let reanimate = read(
@@ -1819,5 +1828,388 @@ fn wave6_phasing_dual_target_tap_slots_and_event_toughness() {
         chorus.abilities[0].contains("Amount::EventLastToughness"),
         "{}",
         chorus.abilities[0]
+    );
+}
+
+#[test]
+fn wave7_amass_and_prepare_rules() {
+    let mut tok_cats = cats();
+    for sub in ["Orc", "Zombie", "Army"] {
+        tok_cats.creature.push(sub.to_string());
+    }
+    tok_cats.normalize();
+    let army_tokens = TokenLookup::held(&[
+        (
+            "b_0_0_orc_army",
+            "Name:Orc Army Token\nColors:black\nTypes:Creature Orc Army\nPT:0/0",
+        ),
+        (
+            "b_0_0_zombie_army",
+            "Name:Zombie Army Token\nColors:black\nTypes:Creature Zombie Army\nPT:0/0",
+        ),
+    ]);
+    let amass_orc = transcode(
+        &parse("Name:OrcRally\nManaCost:1 B\nTypes:Sorcery\nA:SP$ Amass | Type$ Orc | Num$ 2"),
+        &tok_cats,
+        Some(&army_tokens),
+    )
+    .expect("amass Orcs 2");
+    assert!(
+        amass_orc.abilities[0].contains(
+            "Effect::Amass { token: &generated_tokens::ORC_ARMY_0_0_BLACK, \
+             subtype: subtypes::creature::ORC, amount: Amount::Fixed(2) }"
+        ),
+        "{}",
+        amass_orc.abilities[0]
+    );
+    assert!(
+        transcode(
+            &parse(
+                "Name:RememberAmass\nManaCost:2 B\nTypes:Sorcery\n\
+                 A:SP$ Amass | Type$ Zombie | Num$ 2 | RememberAmass$ True"
+            ),
+            &tok_cats,
+            Some(&army_tokens),
+        )
+        .is_none()
+    );
+    assert!(
+        transcode(
+            &parse(
+                "Name:OppAmass\nManaCost:1 B\nTypes:Sorcery\n\
+                 A:SP$ Amass | Defined$ Opponent | Type$ Zombie | Num$ 1"
+            ),
+            &tok_cats,
+            Some(&army_tokens),
+        )
+        .is_none()
+    );
+
+    let prep_self = read(
+        "Name:ReadyMage\nTypes:Creature\nPT:2/2\n\
+         A:AB$ AlterAttribute | Cost$ 1 T | Attributes$ Prepared",
+    );
+    assert!(prep_self.abilities[0].contains("Effect::BecomePrepared"));
+    let prep_tgt = read(
+        "Name:ReadyTutor\nTypes:Creature\nPT:2/2\n\
+         A:AB$ AlterAttribute | Cost$ 2 T | ValidTgts$ Creature | Attributes$ Prepared",
+    );
+    assert!(prep_tgt.abilities[0].contains("Effect::BecomeTargetPrepared"));
+    let saddle_self = read(
+        "Name:Steed\nTypes:Creature\nPT:3/3\n\
+         A:AB$ AlterAttribute | Cost$ 2 | Defined$ Self | Attributes$ Saddled",
+    );
+    assert!(saddle_self.abilities[0].contains("Effect::BecomeSaddled"));
+    assert!(refused(
+        "Name:Unprepare\nTypes:Creature\nPT:2/2\n\
+         A:AB$ AlterAttribute | Cost$ 1 | Attributes$ Prepared | Activate$ False"
+    ));
+    assert!(refused(
+        "Name:Suspector\nTypes:Creature\nPT:2/2\n\
+         A:AB$ AlterAttribute | Cost$ 1 | ValidTgts$ Creature | Attributes$ Suspected"
+    ));
+}
+
+#[test]
+fn wave7_monarch_and_unless_rules() {
+    let crown_you = read(
+        "Name:CrownBearer\nManaCost:3 W\nTypes:Sorcery\n\
+         A:SP$ BecomeMonarch | Defined$ You",
+    );
+    assert!(crown_you.abilities[0].contains("Effect::BecomeMonarch(PlayerRel::You)"));
+    let crown_tgt = read(
+        "Name:CrownGift\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ BecomeMonarch | ValidTgts$ Player",
+    );
+    assert!(crown_tgt.abilities[0].contains("Effect::BecomeMonarch(PlayerRel::Chosen)"));
+    assert!(refused(
+        "Name:BadCrown\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ BecomeMonarch | Defined$ Player"
+    ));
+
+    let any_colored = read(
+        "Name:TaxSpell\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Draw | Defined$ You | NumCards$ 2 | UnlessCost$ 1 U | UnlessPayer$ Player",
+    );
+    assert!(
+        any_colored.abilities[0].contains(
+            "Effect::AnyPlayerMayPayManaOr { cost: mana!(\"{1}{U}\"), effects: &[Effect::draw(2)] }"
+        ),
+        "{}",
+        any_colored.abilities[0]
+    );
+    let draw_loot = read(
+        "Name:DrawUnless\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 1 | UnlessCost$ Draw<1/You> | UnlessPayer$ You | UnlessSwitched$ True",
+    );
+    assert!(
+        draw_loot.abilities[0].contains(
+            "Effect::MayDo { effects: &[Effect::draw(1), Effect::DiscardForPlayers { who: PlayerRel::You, count: 1 }] }"
+        ),
+        "{}",
+        draw_loot.abilities[0]
+    );
+}
+
+#[test]
+fn wave7_alt_cost_conditions_and_self_spell_cast_triggers() {
+    for (cond_word, expected) in [
+        ("Surge", "Condition::Surge"),
+        ("Prowl", "Condition::Prowl"),
+        ("Blitz", "Condition::BlitzCostPaid"),
+        ("AltCost", "Condition::AltCostPaid"),
+    ] {
+        let body = read(&format!(
+            "Name:AltCheck\nManaCost:2 U\nTypes:Sorcery\n\
+             A:SP$ Draw | Defined$ You | NumCards$ 1 | Condition$ {cond_word}"
+        ));
+        assert!(
+            body.abilities[0].contains(expected),
+            "{cond_word} -> {}",
+            body.abilities[0]
+        );
+    }
+
+    let branch = read(
+        "Name:AltBranch\nManaCost:3 B\nTypes:Sorcery\n\
+         A:SP$ Branch | BranchConditionSVar$ Alt | BranchConditionSVarCompare$ GE1 | TrueSubAbility$ Two | FalseSubAbility$ One\n\
+         SVar:Alt:Count$AltCost.1.0\n\
+         SVar:Two:DB$ Draw | Defined$ You | NumCards$ 2\n\
+         SVar:One:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        branch.abilities[0].contains("Condition::AltCostPaid"),
+        "{}",
+        branch.abilities[0]
+    );
+
+    let opp_lost = read(
+        "Name:SpectacleWatcher\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ Lost | SVarCompare$ GE1 | Execute$ Draw\n\
+         SVar:Lost:PlayerCountOpponents$HasPropertyLostLifeThisTurn\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        opp_lost.abilities[0].contains("Condition::OpponentLostLifeThisTurn"),
+        "{}",
+        opp_lost.abilities[0]
+    );
+
+    let cast_self = read(
+        "Name:TitanCast\nManaCost:8\nTypes:Creature\nPT:8/8\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self | Execute$ Draw2\n\
+         SVar:Draw2:DB$ Draw | Defined$ You | NumCards$ 2",
+    );
+    assert!(
+        cast_self.abilities[0].contains("Trigger::SpellCast(&Filter::This)"),
+        "{}",
+        cast_self.abilities[0]
+    );
+    assert!(refused(
+        "Name:HeroicRefused\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ SpellCast | ValidActivatingPlayer$ You | TargetsValid$ Card.Self | TriggerZones$ Battlefield | Execute$ Draw\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1"
+    ));
+}
+
+#[test]
+fn wave7_mill_take_one_and_remembered_sacrifice_rules() {
+    let mill_take = read(
+        "Name:MilledFind\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Mill | Defined$ You | NumCards$ 4 | RememberMilled$ True | SubAbility$ Take\n\
+         SVar:Take:DB$ ChangeZone | Origin$ Graveyard,Exile | Destination$ Hand | Hidden$ True | Optional$ True | ChangeType$ Permanent.IsRemembered | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        mill_take.abilities[0].contains("Effect::MillMayTakeOne { amount: Amount::Fixed(4)"),
+        "{}",
+        mill_take.abilities[0]
+    );
+    assert_eq!(
+        refusal_reason(
+            &parse(
+                "Name:MandatoryMillTake\nManaCost:1 G\nTypes:Sorcery\n\
+                 A:SP$ Mill | Defined$ You | NumCards$ 4 | RememberMilled$ True | SubAbility$ Take\n\
+                 SVar:Take:DB$ ChangeZone | Origin$ Graveyard,Exile | Destination$ Hand | Hidden$ True | Mandatory$ True | ChangeType$ Creature.IsRemembered"
+            ),
+            &cats(),
+            None,
+        )
+        .as_deref(),
+        Some("unclaimed parameter `Mill.RememberMilled`")
+    );
+
+    let sac_then = read(
+        "Name:SacForCards\nTypes:Artifact\n\
+         A:AB$ Sacrifice | Cost$ T | Defined$ You | SacValid$ Creature | Optional$ True | RememberSacrificed$ True | SubAbility$ Draw\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GE1 | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        sac_then.abilities[0].contains(
+            "Effect::PlayerMayPayCostThen { player: PlayerRel::You, cost: &CostPart::Sacrifice("
+        ),
+        "{}",
+        sac_then.abilities[0]
+    );
+
+    let sac_or = read(
+        "Name:SacOrHurt\nTypes:Creature\nPT:6/6\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Sac\n\
+         SVar:Sac:DB$ Sacrifice | Defined$ You | SacValid$ Creature.Other | Optional$ True | RememberSacrificed$ True | SubAbility$ Hurt\n\
+         SVar:Hurt:DB$ DealDamage | Defined$ You | NumDmg$ 5 | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ EQ0 | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        sac_or.abilities[0].contains(
+            "Effect::PlayerMayPayCostOr { player: PlayerRel::You, cost: &CostPart::Sacrifice("
+        ),
+        "{}",
+        sac_or.abilities[0]
+    );
+
+    let can_sac = read(
+        "Name:PitCheck\nTypes:Creature\nPT:7/7\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Sac\n\
+         SVar:Sac:DB$ Sacrifice | Defined$ You | SacValid$ Creature.Other | RememberSacrificed$ True | SubAbility$ Hurt\n\
+         SVar:Hurt:DB$ DealDamage | Defined$ You | NumDmg$ 7 | ConditionCheckSVar$ SacCnt | ConditionSVarCompare$ LT1 | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:SacCnt:Remembered$Amount",
+    );
+    assert!(
+        can_sac.abilities[0].contains("Condition::CanSacrifice("),
+        "{}",
+        can_sac.abilities[0]
+    );
+
+    let sac_and_if = read(
+        "Name:SacAndCheck\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Sacrifice | Defined$ You | SacValid$ Creature | RememberSacrificed$ True | SubAbility$ Bonus\n\
+         SVar:Bonus:DB$ GainLife | Defined$ You | LifeAmount$ 3 | ConditionDefined$ Remembered | ConditionPresent$ Artifact | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        sac_and_if.abilities[0].contains("Effect::SacrificeAndIf {"),
+        "{}",
+        sac_and_if.abilities[0]
+    );
+
+    let sac_opt_only = read(
+        "Name:MaySacSelf\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Sac\n\
+         SVar:Sac:DB$ Sacrifice | Optional$ True",
+    );
+    assert!(
+        sac_opt_only.abilities[0].contains("Effect::MayDo { effects: &[Effect::SacrificeSelf] }"),
+        "{}",
+        sac_opt_only.abilities[0]
+    );
+}
+
+#[test]
+fn wave7_change_zone_dig_tap_untap_and_gain_control_rules() {
+    let hand_mand = read(
+        "Name:MustDrop\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Creature.YouOwn | Mandatory$ True",
+    );
+    assert!(
+        hand_mand.abilities[0].contains(
+            "Effect::PutFromHandOntoBattlefield { tapped: false, filter: &Filter::CREATURE, mana_value: None, optional: false }"
+        ),
+        "{}",
+        hand_mand.abilities[0]
+    );
+
+    let rand_gy = read(
+        "Name:RandomRegrow\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Hand | Hidden$ True | AtRandom$ True | ChangeType$ Creature.YouOwn",
+    );
+    assert!(
+        rand_gy.abilities[0].contains("Effect::RandomGraveyardToHand {"),
+        "{}",
+        rand_gy.abilities[0]
+    );
+
+    let blink_targets = read(
+        "Name:TargetFlicker\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.YouCtrl | Origin$ Battlefield | Destination$ Exile | RememberTargets$ True | SubAbility$ Ret\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ Remembered | Origin$ All | Destination$ Battlefield | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        blink_targets.abilities[0].contains("Effect::Blink { target:"),
+        "{}",
+        blink_targets.abilities[0]
+    );
+
+    let linked_hand = read(
+        "Name:ReturnExiled\nTypes:Artifact\n\
+         A:AB$ ChangeZoneAll | Cost$ 2 Sac<1/CARDNAME> | Origin$ Exile | Destination$ Hand | ChangeType$ Card.ExiledWithSource | Hidden$ True",
+    );
+    assert!(
+        linked_hand.abilities[0].contains("Effect::ReturnLinkedExile { to: ZoneRef::Hand }"),
+        "{}",
+        linked_hand.abilities[0]
+    );
+
+    let dig_shuffle = read(
+        "Name:DigShuffle\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Creature | FoundDestination$ Battlefield | RevealedDestination$ Library | RevealedLibraryPosition$ -1 | Shuffle$ True",
+    );
+    assert!(
+        dig_shuffle.abilities[0].contains("Effect::RevealUntilMatching {")
+            && dig_shuffle.abilities[0].contains("Effect::ShuffleLibrary { who: PlayerRel::You }"),
+        "{}",
+        dig_shuffle.abilities[0]
+    );
+
+    let tap_self_and_untap_tgt = read(
+        "Name:TapUntapSub\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 1 | SubAbility$ Unt\n\
+         SVar:Unt:DB$ Untap | Defined$ Targeted",
+    );
+    assert!(
+        tap_self_and_untap_tgt.abilities[0].contains("Effect::UntapTarget"),
+        "{}",
+        tap_self_and_untap_tgt.abilities[0]
+    );
+    let loot_one = read(
+        "Name:LootOne\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ Loot\n\
+         SVar:Loot:AB$ Discard | Defined$ You | Mode$ TgtChoose | Cost$ Draw<1/You>",
+    );
+    assert!(
+        loot_one.abilities[0].contains(
+            "Effect::MayDo { effects: &[Effect::draw(1), Effect::DiscardForPlayers { who: PlayerRel::You, count: 1 }] }"
+        ),
+        "{}",
+        loot_one.abilities[0]
+    );
+
+    let gain_all = read(
+        "Name:StealAll\nManaCost:5 U U\nTypes:Sorcery\n\
+         A:SP$ GainControl | AllValid$ Artifact | NewController$ You",
+    );
+    assert!(
+        gain_all.abilities[0].contains("Effect::GainControlAll {"),
+        "{}",
+        gain_all.abilities[0]
+    );
+    let gain_tapped = read(
+        "Name:SirenSteal\nTypes:Creature\nPT:1/1\n\
+         A:AB$ GainControl | Cost$ T | ValidTgts$ Creature | LoseControl$ Untap,LeavesPlay,LoseControl",
+    );
+    assert!(
+        gain_tapped.abilities[0]
+            .contains("Duration::WhileSourceTapped { control: true, power_limited: false }"),
+        "{}",
+        gain_tapped.abilities[0]
+    );
+    let populate =
+        read("Name:PopSpell\nManaCost:2 G\nTypes:Instant\nA:SP$ CopyPermanent | Populate$ True");
+    assert!(
+        populate.statics.contains("Filter::IsToken") && !populate.statics.contains("Filter::TOKEN"),
+        "{}",
+        populate.statics
     );
 }

@@ -25,16 +25,23 @@ impl Tx<'_> {
     /// script would have spelled it rather than built here, so the two
     /// spellings cannot drift.
     pub(super) fn spell_cast_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
-        // **An absent `TriggerZones$` is not the battlefield here.** 114 of
-        // the corpus's 1444 `SpellCast` lines write no zone at all, and 98
-        // of them are `ValidCard$ Card.Self` — "when you cast this spell",
-        // which fires while the card is on the *stack*. This engine collects
-        // triggers off the battlefield, so reading one of those as an
-        // ordinary trigger is a card whose ability can never fire under a
-        // `Coverage::Implemented` that says otherwise. The zone is therefore
-        // demanded rather than defaulted, which is the opposite of what the
-        // other modes may do.
+        // **An absent `TriggerZones$` is not the battlefield here.** Most
+        // zoneless `SpellCast` lines write `ValidCard$ Card.Self` — "when you
+        // cast this spell", which fires on the stack via
+        // `cast_this_spell_triggers` for `Trigger::SpellCast(&Filter::This)`
+        // (CR 113.6k). Any other zoneless `SpellCast` stays refused.
         if !zoned {
+            if p.peek("ValidCard") == Some("Card.Self")
+                && matches!(p.peek("ValidActivatingPlayer"), None | Some("You"))
+                && !p.has("ActivatorThisTurnCast")
+                && !p.has("TargetsValid")
+                && !p.has("ValidSA")
+                && !p.has("Static")
+            {
+                p.take("ValidCard");
+                p.take("ValidActivatingPlayer");
+                return Some("Trigger::SpellCast(&Filter::This)".to_string());
+            }
             return self.deny("a `SpellCast` trigger with no `TriggerZones$`".to_string());
         }
         let valid = match p.take("ValidCard") {
@@ -1424,7 +1431,11 @@ impl Tx<'_> {
             let cmp = p
                 .peek("SVarCompare")
                 .map_or_else(|| "GE1".to_string(), str::to_string);
-            if let Some(clause) = self.svar_condition(&var, &cmp) {
+            if let Some(clause) = self
+                .svar_condition(&var, &cmp)
+                .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
+                .or_else(|| self.wave7_svar_condition(&var, &cmp))
+            {
                 p.take("CheckSVar");
                 p.take("SVarCompare");
                 condition = if condition.is_empty() {
@@ -1438,6 +1449,22 @@ impl Tx<'_> {
                     return self.deny("`CheckSVar$` beside another clause".to_string());
                 };
             }
+        }
+        if let Some(cond_raw) = p.peek("Condition")
+            && let Some(clause) =
+                Self::named_condition(cond_raw).or_else(|| Self::wave7_named_condition(cond_raw))
+        {
+            p.take("Condition");
+            condition = if condition.is_empty() {
+                format!(", condition = Some({clause})")
+            } else if let Some(inner) = condition
+                .strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+            {
+                format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
+            } else {
+                return self.deny("`Condition$` beside another clause".to_string());
+            };
         }
         if p.peek("PlayerTurn") == Some("True") {
             p.take("PlayerTurn");
@@ -2443,7 +2470,10 @@ impl Tx<'_> {
             let cmp = p
                 .peek("SVarCompare")
                 .map_or_else(|| "GE1".to_string(), str::to_string);
-            let clause = self.svar_condition(&var, &cmp)?;
+            let clause = self
+                .svar_condition(&var, &cmp)
+                .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
+                .or_else(|| self.wave7_svar_condition(&var, &cmp))?;
             p.take("CheckSVar");
             p.take("SVarCompare");
             clauses.push(clause);
