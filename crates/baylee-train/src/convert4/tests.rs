@@ -327,6 +327,36 @@ fn encoder9_sidecars_require_matching_explicit_producer_width() {
 }
 
 #[test]
+fn encoder10_sidecars_require_verified_producer_identity() {
+    let model = serde_json::json!({"model_identity":{"encoder_version":10,"model_version":5,
+        "architecture":"baylee_ai_v5_relational_v2"}});
+    let producer = ProducerEncoder::from_run(&model).unwrap();
+    let unbound = stream_game4_with_encoder(b"", 1, true, Some(&[]), None, None, false, 10, |_| {
+        panic!("no emission")
+    })
+    .unwrap_err();
+    assert!(unbound.contains("verified producer encoder 10"));
+    let mismatch = stream_game4_with_encoder_and_producer(
+        b"",
+        1,
+        true,
+        Some(&[]),
+        None,
+        None,
+        false,
+        7,
+        Some(&producer),
+        TeamHands::Unknown,
+        |_| panic!("no emission"),
+    )
+    .unwrap_err();
+    assert!(mismatch.contains("Producer/converter encoder mismatch"));
+    let mut other = model;
+    other["model_identity"]["architecture"] = serde_json::json!("baylee_ai_v5_relational_v1");
+    assert!(ProducerEncoder::from_run(&other).is_err());
+}
+
+#[test]
 fn encoder8_sidecars_require_matching_verified_producer_before_replay() {
     let mut emitted = 0;
     let unbound = stream_game4_with_encoder(b"", 1, true, Some(&[]), None, None, false, 8, |_| {

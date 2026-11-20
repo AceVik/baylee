@@ -8,6 +8,7 @@ from test_training_execution4 import batch_fixture
 from test_policy_training4 import assert_state_equal
 from recurrent_ppo4.forward import advance, episode_prefixes, segment_outputs, reconstruct_hidden
 from recurrent_ppo4.optimization import ppo_loss, transactional_update, collection_divergence
+from policy_training4.targets import ACTION_PROBABILITY_CONTRACT
 
 
 class EpisodeDataset:
@@ -214,6 +215,7 @@ class RecurrentPPO5(unittest.TestCase):
                     for row in rows:stream.write(json.dumps(row)+'\n')
             write_rows()
             meta=json.loads((data/'meta.json').read_text());meta['policy_provenance_version']=2
+            meta['action_probability_contract']=ACTION_PROBABILITY_CONTRACT
             (data/'meta.json').write_text(json.dumps(meta))
             dataset=D.TrajectoryDataset4(data,unroll_len=3)
             bykey={(row['game_id'],row['seat'],row['step_cursor']):row for row in rows}
@@ -229,7 +231,9 @@ class RecurrentPPO5(unittest.TestCase):
                             out=outputs[t]
                             lp,_=action_logprob_and_kl(*out[1:4],*out[1:4],host,t)
                             key=dataset.store.index[int(record)]
-                            bykey[(int(key['game']),int(key['seat']),int(key['cursor']))]['provenance']['behavior_logprob']=float(lp[0])
+                            row=bykey[(int(key['game']),int(key['seat']),int(key['cursor']))]
+                            if row['is_decision']:
+                                row['provenance']['behavior_logprob']=float(lp[0])
             self.net.clear_structure();dataset.store.close();write_rows()
             dataset=D.TrajectoryDataset4(data,unroll_len=3)
             self.addCleanup(dataset.store.close)
@@ -244,7 +248,8 @@ class RecurrentPPO5(unittest.TestCase):
             # tested separately; this fixture is never a real collection claim.
             admission.write_text(json.dumps(dict(version=1,admitted=True,
                 source_checkpoint_sha256=file_digest(source),dataset_fingerprint=dataset.fingerprint,
-                collection_contract=dict(mode='raw',actor_role='learner',precision='float32',thinking_steps=2,temperature=.7),
+                collection_contract=dict(mode='raw',actor_role='learner',precision='float32',thinking_steps=2,temperature=.7,
+                                         action_probability_contract=ACTION_PROBABILITY_CONTRACT),
                 admitted_learner_histories=[dict(game_id=0,seat=0)],completed_games=1,learner_histories=1,decisions=3)))
             import os
             native_test=os.environ.get('BAYLEE_NATIVE_ADMISSION_TEST')=='1'
@@ -256,6 +261,7 @@ class RecurrentPPO5(unittest.TestCase):
                 source_sha=file_digest(source)
                 collection.write_text(json.dumps(dict(version=1,purpose='on_policy_training',source_checkpoint_sha256=source_sha,
                     precision='float32',mode='raw',policy_provenance_version=2,sampling_version=M.SAMPLING_VERSION,
+                    action_probability_contract=ACTION_PROBABILITY_CONTRACT,
                     dataset_files={name:file_digest(data/name) for name in names},
                     games=[dict(game_id=0,source_run_sha256='2'*64,record_sha256='1'*64,source_game='fixture-table',complete=True,capped=False,fallback_answers=0,refused_answers=0,unencoded_decisions=0,
                                 seats=[dict(seat=0,role='learner',checkpoint_sha256=source_sha,thinking_steps=2,temperature=.7),

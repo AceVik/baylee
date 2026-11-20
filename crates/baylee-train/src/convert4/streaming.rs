@@ -572,7 +572,7 @@ pub fn stream_game4_with_encoder(
 /// say [`super::TeamHands::Unknown`] and so refuse team games).
 ///
 /// # Errors
-/// Encoder 8 sidecars require a matching producer; all ordinary replay checks apply.
+/// Encoder 8 through 10 sidecars require a matching producer.
 #[allow(clippy::too_many_arguments)]
 pub fn stream_game4_with_encoder_and_producer(
     record: &[u8],
@@ -603,7 +603,7 @@ pub fn stream_game4_with_encoder_and_producer(
     {
         return Err("Producer/converter encoder mismatch".into());
     }
-    if matches!(encoder_version, 8 | 9)
+    if matches!(encoder_version, 8..=10)
         && sidecar.is_some()
         && shadow.is_none()
         && producer.is_none_or(|producer| producer.encoder_version != encoder_version)

@@ -433,7 +433,7 @@ fn main() -> anyhow::Result<()> {
                 seat_weights,
                 explored: game_epsilon.is_some(),
                 on_policy: policy_game,
-                producer_encoder: if matches!(args.encoder_version, 8 | 9) && sidecar.is_some() {
+                producer_encoder: if matches!(args.encoder_version, 8..=10) && sidecar.is_some() {
                     Some(ProducerEncoder::from_run(&run_json).map_err(anyhow::Error::msg)?)
                 } else {
                     None
