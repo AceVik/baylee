@@ -22,14 +22,7 @@ card!(
         toughness = Some(2),
     ),],
     abilities = &[static_ability!(
-        Filter::And(&[
-            Filter::Or(&[
-                Filter::ARTIFACT,
-                Filter::HasSupertype(SupertypeSet::LEGENDARY),
-                Filter::HasSubtype(subtypes::enchantment::SAGA)
-            ]),
-            Filter::ControlledByYou
-        ]),
+        Filter::And(&[Filter::Historic, Filter::ControlledByYou]),
         Modifier::SpellsCostLess(1)
     ),],
 );

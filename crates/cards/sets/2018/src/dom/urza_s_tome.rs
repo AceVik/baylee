@@ -6,12 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static COST1: Filter = Filter::Or(&[
-    Filter::ARTIFACT,
-    Filter::HasSupertype(SupertypeSet::LEGENDARY),
-    Filter::HasSubtype(subtypes::enchantment::SAGA),
-]);
-
 card!(
     index = index::URZA_S_TOME,
     oracle_id = "4734b73e-104c-4b25-ab52-0145f361c9d1",
@@ -29,7 +23,7 @@ card!(
             Effect::draw(1),
             Effect::PlayerMayPayCostOr {
                 player: PlayerRel::You,
-                cost: &CostPart::ExileFromGraveyard(&COST1),
+                cost: &CostPart::ExileFromGraveyard(&Filter::Historic),
                 effect: &Effect::DiscardForPlayers {
                     who: PlayerRel::You,
                     count: 1

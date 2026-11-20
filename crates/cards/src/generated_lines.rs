@@ -35850,22 +35850,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Wormfang Newt
-    &[FaceLines {
-        sentences: 2,
-        stackable: 2,
-        lines: &[Some(0), Some(1)],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // Wormfang Turtle
-    &[FaceLines {
-        sentences: 2,
-        stackable: 2,
-        lines: &[Some(0), Some(1)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
+    &[],
     // Silent Specter
     &[FaceLines {
         sentences: 3,
@@ -50078,14 +50064,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Pit Keeper
-    &[FaceLines {
-        sentences: 1,
-        stackable: 1,
-        lines: &[Some(0)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Plague Sliver
     &[FaceLines {
         sentences: 1,

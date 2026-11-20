@@ -6,14 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TRIGGER1: Filter = Filter::And(&[
-    Filter::Or(&[
-        Filter::ARTIFACT,
-        Filter::HasSupertype(SupertypeSet::LEGENDARY),
-        Filter::HasSubtype(subtypes::enchantment::SAGA),
-    ]),
-    Filter::ControlledByYou,
-]);
+static TRIGGER1: Filter = Filter::And(&[Filter::Historic, Filter::ControlledByYou]);
 
 card!(
     index = index::MISHRA_S_SELF_REPLICATOR,

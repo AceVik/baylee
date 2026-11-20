@@ -8,14 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TRIGGER1: Filter = Filter::And(&[
-    Filter::AttachedToBySource,
-    Filter::Or(&[
-        Filter::ARTIFACT,
-        Filter::HasSupertype(SupertypeSet::LEGENDARY),
-        Filter::HasSubtype(subtypes::enchantment::SAGA),
-    ]),
-]);
+static TRIGGER1: Filter = Filter::And(&[Filter::AttachedToBySource, Filter::Historic]);
 
 card!(
     index = index::CURATOR_S_WARD,

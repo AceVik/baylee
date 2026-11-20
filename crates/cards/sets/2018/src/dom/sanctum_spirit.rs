@@ -7,12 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static COST1: Filter = Filter::Or(&[
-    Filter::ARTIFACT,
-    Filter::HasSupertype(SupertypeSet::LEGENDARY),
-    Filter::HasSubtype(subtypes::enchantment::SAGA),
-]);
-
 card!(
     index = index::SANCTUM_SPIRIT,
     oracle_id = "1e640846-8f50-4a94-b7aa-f228124290d3",
@@ -29,7 +23,7 @@ card!(
         toughness = Some(2),
     ),],
     abilities = &[activated!(
-        cost!(Discard(&COST1)),
+        cost!(Discard(&Filter::Historic)),
         &[Effect::PumpFilter {
             filter: &Filter::This,
             controlled_by: None,

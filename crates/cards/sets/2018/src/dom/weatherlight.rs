@@ -8,12 +8,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static DIG1: Filter = Filter::Or(&[
-    Filter::ARTIFACT,
-    Filter::HasSupertype(SupertypeSet::LEGENDARY),
-    Filter::HasSubtype(subtypes::enchantment::SAGA),
-]);
-
 card!(
     index = index::WEATHERLIGHT,
     oracle_id = "73b3682f-396a-4ebe-aaac-6ce3ee36283a",
@@ -37,7 +31,7 @@ card!(
             &[Effect::LookAtTopFind {
                 found: Find::HAND,
                 count: 5,
-                filter: &DIG1,
+                filter: &Filter::Historic,
                 random: true
             }]
         ),

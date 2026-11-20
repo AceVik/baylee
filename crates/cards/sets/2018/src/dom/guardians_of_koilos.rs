@@ -6,15 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::And(&[
-    Filter::Or(&[
-        Filter::ARTIFACT,
-        Filter::HasSupertype(SupertypeSet::LEGENDARY),
-        Filter::HasSubtype(subtypes::enchantment::SAGA),
-    ]),
-    Filter::ControlledByYou,
-    Filter::Another,
-]);
+static TARGET1: Filter = Filter::And(&[Filter::Historic, Filter::ControlledByYou, Filter::Another]);
 
 card!(
     index = index::GUARDIANS_OF_KOILOS,
