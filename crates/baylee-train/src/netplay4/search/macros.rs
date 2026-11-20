@@ -240,8 +240,8 @@ pub(super) fn payable_pair<T: ForkSource4>(
         let Some(identity) = lookup_card_identity(view, *card) else {
             continue;
         };
-        if !identities.contains(&identity) {
-            identities.push(identity);
+        if !identities.contains(&identity.index) {
+            identities.push(identity.index);
             chosen.push(candidate);
         }
         if chosen.len() == 3 {

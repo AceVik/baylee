@@ -1293,6 +1293,23 @@ pub fn world_seed(search_seed: u64, decision_seq: u64, particle: usize) -> u64 {
     derive(search_seed, WORLD, decision_seq, particle as u64)
 }
 
+/// Reconstructs the public mana plan for the spell on this seat's priority
+/// offer, for an independently replayed, score-blind teaching packet.
+pub fn visible_spell_plan(
+    view: &PlayerView,
+    pending: &Pending,
+    card: baylee_core::ids::ObjectId,
+) -> Option<Vec<PlayerAction>> {
+    let Pending::Priority { legal, .. } = pending else {
+        return None;
+    };
+    let (_, plan) = super::menu::reachable(view, legal)
+        .into_iter()
+        .find(|(id, _)| *id == card)?;
+    let (first, script) = Script4::begin(view, &plan, PlayerAction::CastSpell { card })?;
+    Some(script.planned_actions(&first))
+}
+
 /// Why `pending` is not a root this version searches.
 fn root_skip(
     view: &PlayerView,
