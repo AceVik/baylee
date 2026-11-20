@@ -531,7 +531,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // 10 cards (Aquamoeba, Breya, Etherium Shaper, Dragon Arch, Essence Fracture,
     // Hermit Druid, Krosan Restorer (2), Nomad Decoy (2), Petradon, Pyre Zombie,
     // Twigwalker): 8 read by the table and 4 remaining contextual.
-    assert_eq!((read, of), (3058, 3872), "activated/loyalty reader census");
+    // Batch wave 1 (120 generated cards) adds 19 non-mana activations: 14 read
+    // by the table and 5 remaining contextual.
+    assert_eq!((read, of), (3072, 3891), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

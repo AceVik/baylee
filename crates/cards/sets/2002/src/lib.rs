@@ -945,6 +945,8 @@ pub mod shieldmage_elder;
 pub mod sickening_dreams;
 #[path = "ons/sigil_of_the_new_dawn.rs"]
 pub mod sigil_of_the_new_dawn;
+#[path = "pons/silent_specter.rs"]
+pub mod silent_specter;
 #[path = "ons/silklash_spider.rs"]
 pub mod silklash_spider;
 #[path = "jud/silver_seraph.rs"]

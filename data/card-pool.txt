@@ -12501,3 +12501,123 @@ Flame of Anor
 Galvanic Discharge
 Stubborn Denial
 Dress Down
+Necrosavant
+Urborg Mindsucker
+Viashino Sandstalker
+Wicked Reward
+Jamuraan Lion
+Blessed Reversal
+Burning Cloak
+Craven Giant
+Craven Knight
+Hulking Goblin
+Jungle Lion
+Mobilize
+Nature's Cloak
+Rain of Salt
+Steadfastness
+Thundermare
+Tidal Surge
+Valorous Charge
+Vampiric Touch
+Warrior's Charge
+Wicked Pact
+Dirtcowl Wurm
+Abyssal Nightstalker
+Chorus of Woe
+Cruel Edict
+Denizen of the Deep
+Festival of Trokin
+Foul Spirit
+Goblin General
+Goblin Glider
+Goblin War Strike
+Jagged Lightning
+Kiss of Death
+Norwood Warrior
+Predatory Nightstalker
+Razorclaw Bear
+Righteous Charge
+Salvage
+Sea Drake
+Sylvan Basilisk
+Talas Warrior
+Town Sentry
+Wildfire
+Lightning Dragon
+Burning Fields
+Desperate Charge
+False Mourning
+Forced Retreat
+Hunting Cheetah
+Peach Garden Oath
+Shu Defender
+Slashing Tiger
+Stolen Grain
+Trained Cheetah
+Virtuous Charge
+Yellow Scarves Troops
+Young Wei Recruits
+False Prophet
+Royal Trooper
+Shrieking Specter
+Silent Specter
+Elvish Aberration
+Skirk Marauder
+Psychic Membrane
+Roar of the Kha
+Rustmouth Ogre
+Scale of Chiss-Goria
+Shrapnel Blast
+Skeleton Shard
+Skyhunter Cub
+Slith Strider
+Solar Tide
+Somber Hoverguard
+Spikeshot Goblin
+Tel-Jilad Stylus
+Temporal Cascade
+Thoughtcast
+Tooth of Chiss-Goria
+Trash for Treasure
+Viridian Joiner
+Ageless Entity
+Auriok Glaivemaster
+Barbed Lightning
+Death Cloud
+Dross Golem
+Fangren Firstborn
+Genesis Chamber
+Geth's Grimoire
+Greater Harvester
+Karstoderm
+Last Word
+Leonin Battlemage
+Machinate
+Magnetic Flux
+Memnarch
+Mephitic Ooze
+Neurok Prodigy
+Oxidda Golem
+Psychic Overload
+Purge
+Quicksilver Behemoth
+Razor Golem
+Reap and Sow
+Retract
+Scavenging Scarab
+Second Sight
+Spincrusher
+Spire Golem
+Tangle Golem
+Tel-Jilad Wolf
+Voltaic Construct
+Whispersilk Cloak
+Abuna's Chant
+Battered Golem
+Blasting Station
+Blinkmoth Infusion
+Bringer of the Blue Dawn
+Bringer of the Green Dawn
+Bringer of the Red Dawn
+Bringer of the White Dawn

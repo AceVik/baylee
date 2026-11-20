@@ -531,6 +531,8 @@ pub mod nature_s_blessing;
 pub mod nature_s_chosen;
 #[path = "all/nature_s_wrath.rs"]
 pub mod nature_s_wrath;
+#[path = "mgb/necrosavant.rs"]
+pub mod necrosavant;
 #[path = "mir/nettletooth_djinn.rs"]
 pub mod nettletooth_djinn;
 #[path = "mir/noble_elephant.rs"]
@@ -847,6 +849,8 @@ pub mod unseen_walker;
 pub mod unyaro_bee_sting;
 #[path = "mir/unyaro_griffin.rs"]
 pub mod unyaro_griffin;
+#[path = "mgb/urborg_mindsucker.rs"]
+pub mod urborg_mindsucker;
 #[path = "mir/urborg_panther.rs"]
 pub mod urborg_panther;
 #[path = "all/urza_s_engine.rs"]
@@ -861,6 +865,8 @@ pub mod varchild_s_war_riders;
 pub mod ventifact_bottle;
 #[path = "all/veteran_s_voice.rs"]
 pub mod veteran_s_voice;
+#[path = "mgb/viashino_sandstalker.rs"]
+pub mod viashino_sandstalker;
 #[path = "mir/viashino_warrior.rs"]
 pub mod viashino_warrior;
 #[path = "mir/vigilant_martyr.rs"]
@@ -899,6 +905,8 @@ pub mod wellspring;
 pub mod whip_vine;
 #[path = "all/whirling_catapult.rs"]
 pub mod whirling_catapult;
+#[path = "mgb/wicked_reward.rs"]
+pub mod wicked_reward;
 #[path = "all/wild_aesthir.rs"]
 pub mod wild_aesthir;
 #[path = "mir/wild_elephant.rs"]

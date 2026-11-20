@@ -447,6 +447,8 @@ pub mod infuse;
 pub mod irini_sengir;
 #[path = "hml/ironclaw_curse.rs"]
 pub mod ironclaw_curse;
+#[path = "pmei/jamuraan_lion.rs"]
+pub mod jamuraan_lion;
 #[path = "ice/jester_s_cap.rs"]
 pub mod jester_s_cap;
 #[path = "ice/jester_s_mask.rs"]

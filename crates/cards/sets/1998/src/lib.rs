@@ -21,6 +21,8 @@ pub mod absolute_law;
 pub mod abundance;
 #[path = "usg/abyssal_horror.rs"]
 pub mod abyssal_horror;
+#[path = "p02/abyssal_nightstalker.rs"]
+pub mod abyssal_nightstalker;
 #[path = "usg/academy_researchers.rs"]
 pub mod academy_researchers;
 #[path = "sth/acidic_sliver.rs"]
@@ -171,6 +173,8 @@ pub mod change_of_heart;
 pub mod child_of_gaea;
 #[path = "usg/chimeric_staff.rs"]
 pub mod chimeric_staff;
+#[path = "p02/chorus_of_woe.rs"]
+pub mod chorus_of_woe;
 #[path = "exo/cinder_crawler.rs"]
 pub mod cinder_crawler;
 #[path = "usg/citanul_centaurs.rs"]
@@ -229,6 +233,8 @@ pub mod crossbow_ambush;
 pub mod crosswinds;
 #[path = "sth/crovax_the_cursed.rs"]
 pub mod crovax_the_cursed;
+#[path = "p02/cruel_edict.rs"]
+pub mod cruel_edict;
 #[path = "usg/crystal_chimes.rs"]
 pub mod crystal_chimes;
 #[path = "sth/crystalline_sliver.rs"]
@@ -269,6 +275,8 @@ pub mod death_s_duet;
 pub mod death_stroke;
 #[path = "usg/defensive_formation.rs"]
 pub mod defensive_formation;
+#[path = "p02/denizen_of_the_deep.rs"]
+pub mod denizen_of_the_deep;
 #[path = "usg/despondency.rs"]
 pub mod despondency;
 #[path = "usg/destructive_urge.rs"]
@@ -373,6 +381,8 @@ pub mod fault_line;
 pub mod fecundity;
 #[path = "usg/fertile_ground.rs"]
 pub mod fertile_ground;
+#[path = "p02/festival_of_trokin.rs"]
+pub mod festival_of_trokin;
 #[path = "usg/fiery_mantle.rs"]
 pub mod fiery_mantle;
 #[path = "exo/fighting_chance.rs"]
@@ -405,6 +415,8 @@ pub mod forbid;
 pub mod fortitude;
 #[path = "sth/foul_imp.rs"]
 pub mod foul_imp;
+#[path = "p02/foul_spirit.rs"]
+pub mod foul_spirit;
 #[path = "exo/fugue.rs"]
 pub mod fugue;
 #[path = "exo/furnace_brood.rs"]
@@ -429,6 +441,10 @@ pub mod glorious_anthem;
 pub mod goblin_cadets;
 #[path = "p02/goblin_cavaliers.rs"]
 pub mod goblin_cavaliers;
+#[path = "p02/goblin_general.rs"]
+pub mod goblin_general;
+#[path = "p02/goblin_glider.rs"]
+pub mod goblin_glider;
 #[path = "usg/goblin_lackey.rs"]
 pub mod goblin_lackey;
 #[path = "p02/goblin_lore.rs"]
@@ -449,6 +465,8 @@ pub mod goblin_raider;
 pub mod goblin_spelunkers;
 #[path = "usg/goblin_war_buggy.rs"]
 pub mod goblin_war_buggy;
+#[path = "p02/goblin_war_strike.rs"]
+pub mod goblin_war_strike;
 #[path = "p02/golden_bear.rs"]
 pub mod golden_bear;
 #[path = "usg/grafted_skullcap.rs"]
@@ -535,6 +553,8 @@ pub mod intruder_alarm;
 pub mod invasion_plans;
 #[path = "exo/jackalope_herd.rs"]
 pub mod jackalope_herd;
+#[path = "p02/jagged_lightning.rs"]
+pub mod jagged_lightning;
 #[path = "sth/jinxed_ring.rs"]
 pub mod jinxed_ring;
 #[path = "usg/karn_silver_golem.rs"]
@@ -551,6 +571,8 @@ pub mod keeper_of_the_light;
 pub mod keeper_of_the_mind;
 #[path = "exo/killer_whale.rs"]
 pub mod killer_whale;
+#[path = "p02/kiss_of_death.rs"]
+pub mod kiss_of_death;
 #[path = "exo/kor_chant.rs"]
 pub mod kor_chant;
 #[path = "sth/lab_rats.rs"]
@@ -565,6 +587,8 @@ pub mod lay_waste;
 pub mod leap;
 #[path = "usg/lifeline.rs"]
 pub mod lifeline;
+#[path = "pusg/lightning_dragon.rs"]
+pub mod lightning_dragon;
 #[path = "usg/lilting_refrain.rs"]
 pub mod lilting_refrain;
 #[path = "exo/limited_resources.rs"]
@@ -677,6 +701,8 @@ pub mod nomads_en_kor;
 pub mod norwood_archers;
 #[path = "p02/norwood_ranger.rs"]
 pub mod norwood_ranger;
+#[path = "p02/norwood_warrior.rs"]
+pub mod norwood_warrior;
 #[path = "exo/null_brooch.rs"]
 pub mod null_brooch;
 #[path = "exo/oath_of_druids.rs"]
@@ -779,6 +805,8 @@ pub mod pouncing_jaguar;
 pub mod power_taint;
 #[path = "exo/predatory_hunger.rs"]
 pub mod predatory_hunger;
+#[path = "p02/predatory_nightstalker.rs"]
+pub mod predatory_nightstalker;
 #[path = "exo/price_of_progress.rs"]
 pub mod price_of_progress;
 #[path = "usg/priest_of_gix.rs"]
@@ -815,6 +843,8 @@ pub mod ravenous_rats;
 pub mod ravenous_skirge;
 #[path = "usg/raze.rs"]
 pub mod raze;
+#[path = "p02/razorclaw_bear.rs"]
+pub mod razorclaw_bear;
 #[path = "exo/reaping_the_rewards.rs"]
 pub mod reaping_the_rewards;
 #[path = "sth/rebound.rs"]
@@ -855,6 +885,8 @@ pub mod retaliation;
 pub mod retromancer;
 #[path = "usg/rewind.rs"]
 pub mod rewind;
+#[path = "p02/righteous_charge.rs"]
+pub mod righteous_charge;
 #[path = "p02/river_bear.rs"]
 pub mod river_bear;
 #[path = "exo/robe_of_mirrors.rs"]
@@ -887,6 +919,8 @@ pub mod rune_of_protection_white;
 pub mod sabertooth_wyvern;
 #[path = "sth/sacred_ground.rs"]
 pub mod sacred_ground;
+#[path = "p02/salvage.rs"]
+pub mod salvage;
 #[path = "sth/samite_blessing.rs"]
 pub mod samite_blessing;
 #[path = "usg/sanctum_custodian.rs"]
@@ -917,6 +951,8 @@ pub mod scrap;
 pub mod screeching_drake;
 #[path = "exo/scrivener.rs"]
 pub mod scrivener;
+#[path = "p02/sea_drake.rs"]
+pub mod sea_drake;
 #[path = "sth/seething_anger.rs"]
 pub mod seething_anger;
 #[path = "exo/seismic_assault.rs"]
@@ -1083,6 +1119,8 @@ pub mod sunder;
 pub mod survival_of_the_fittest;
 #[path = "sth/sword_of_the_chosen.rs"]
 pub mod sword_of_the_chosen;
+#[path = "p02/sylvan_basilisk.rs"]
+pub mod sylvan_basilisk;
 #[path = "usg/symbiosis.rs"]
 pub mod symbiosis;
 #[path = "usg/tainted_aether.rs"]
@@ -1093,6 +1131,8 @@ pub mod talas_air_ship;
 pub mod talas_merchant;
 #[path = "p02/talas_scout.rs"]
 pub mod talas_scout;
+#[path = "p02/talas_warrior.rs"]
+pub mod talas_warrior;
 #[path = "usg/telepathy.rs"]
 pub mod telepathy;
 #[path = "sth/temper.rs"]
@@ -1139,6 +1179,8 @@ pub mod torch_song;
 pub mod torment;
 #[path = "sth/tortured_existence.rs"]
 pub mod tortured_existence;
+#[path = "p02/town_sentry.rs"]
+pub mod town_sentry;
 #[path = "exo/transmogrifying_licid.rs"]
 pub mod transmogrifying_licid;
 #[path = "exo/treasure_hunter.rs"]
@@ -1263,6 +1305,8 @@ pub mod wild_dogs;
 pub mod wild_griffin;
 #[path = "p02/wild_ox.rs"]
 pub mod wild_ox;
+#[path = "p02/wildfire.rs"]
+pub mod wildfire;
 #[path = "usg/windfall.rs"]
 pub mod windfall;
 #[path = "usg/winding_wurm.rs"]

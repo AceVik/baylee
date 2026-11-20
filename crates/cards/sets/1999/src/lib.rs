@@ -133,6 +133,8 @@ pub mod bubbling_beebles;
 pub mod bubbling_muck;
 #[path = "mmq/buoyancy.rs"]
 pub mod buoyancy;
+#[path = "ptk/burning_fields.rs"]
+pub mod burning_fields;
 #[path = "ulg/burst_of_energy.rs"]
 pub mod burst_of_energy;
 #[path = "mmq/cackling_witch.rs"]
@@ -309,6 +311,8 @@ pub mod delusions_of_mediocrity;
 pub mod deranged_hermit;
 #[path = "ptk/desert_sandstorm.rs"]
 pub mod desert_sandstorm;
+#[path = "ptk/desperate_charge.rs"]
+pub mod desperate_charge;
 #[path = "ulg/devout_harpist.rs"]
 pub mod devout_harpist;
 #[path = "s99/devout_monk.rs"]
@@ -371,6 +375,10 @@ pub mod eye_of_ramos;
 pub mod faerie_conclave;
 #[path = "ptk/false_defeat.rs"]
 pub mod false_defeat;
+#[path = "ptk/false_mourning.rs"]
+pub mod false_mourning;
+#[path = "puds/false_prophet.rs"]
+pub mod false_prophet;
 #[path = "ptk/famine.rs"]
 pub mod famine;
 #[path = "uds/fatigue.rs"]
@@ -413,6 +421,8 @@ pub mod food_chain;
 pub mod forbidding_watchtower;
 #[path = "mmq/forced_march.rs"]
 pub mod forced_march;
+#[path = "ptk/forced_retreat.rs"]
+pub mod forced_retreat;
 #[path = "ptk/forest_bear.rs"]
 pub mod forest_bear;
 #[path = "mmq/foster.rs"]
@@ -531,6 +541,8 @@ pub mod howling_wolf;
 pub mod hulking_ogre;
 #[path = "mmq/hunted_wumpus.rs"]
 pub mod hunted_wumpus;
+#[path = "ptk/hunting_cheetah.rs"]
+pub mod hunting_cheetah;
 #[path = "uds/hunting_moa.rs"]
 pub mod hunting_moa;
 #[path = "mmq/ignoble_soldier.rs"]
@@ -773,6 +785,8 @@ pub mod parch;
 pub mod pattern_of_rebirth;
 #[path = "ulg/peace_and_quiet.rs"]
 pub mod peace_and_quiet;
+#[path = "ptk/peach_garden_oath.rs"]
+pub mod peach_garden_oath;
 #[path = "mmq/peat_bog.rs"]
 pub mod peat_bog;
 #[path = "ulg/phyrexian_broodlings.rs"]
@@ -939,6 +953,8 @@ pub mod rofellos_s_gift;
 pub mod rouse;
 #[path = "s99/royal_falcon.rs"]
 pub mod royal_falcon;
+#[path = "s99/royal_trooper.rs"]
+pub mod royal_trooper;
 #[path = "mmq/rushwood_dryad.rs"]
 pub mod rushwood_dryad;
 #[path = "mmq/rushwood_elemental.rs"]
@@ -1015,6 +1031,10 @@ pub mod shivan_phoenix;
 pub mod shock_troops;
 #[path = "mmq/shoving_match.rs"]
 pub mod shoving_match;
+#[path = "s99/shrieking_specter.rs"]
+pub mod shrieking_specter;
+#[path = "ptk/shu_defender.rs"]
+pub mod shu_defender;
 #[path = "ptk/shu_elite_infantry.rs"]
 pub mod shu_elite_infantry;
 #[path = "ptk/shu_foot_soldiers.rs"]
@@ -1047,6 +1067,8 @@ pub mod skittering_horror;
 pub mod skulking_fugitive;
 #[path = "mmq/skull_of_ramos.rs"]
 pub mod skull_of_ramos;
+#[path = "ptk/slashing_tiger.rs"]
+pub mod slashing_tiger;
 #[path = "ulg/sleeper_s_guile.rs"]
 pub mod sleeper_s_guile;
 #[path = "uds/slinking_skirge.rs"]
@@ -1111,6 +1133,8 @@ pub mod statecraft;
 pub mod steadfast_guard;
 #[path = "mmq/stinging_barrier.rs"]
 pub mod stinging_barrier;
+#[path = "ptk/stolen_grain.rs"]
+pub mod stolen_grain;
 #[path = "uds/storage_matrix.rs"]
 pub mod storage_matrix;
 #[path = "mmq/story_circle.rs"]
@@ -1207,6 +1231,8 @@ pub mod toymaker;
 pub mod trade_routes;
 #[path = "ulg/tragic_poet.rs"]
 pub mod tragic_poet;
+#[path = "ptk/trained_cheetah.rs"]
+pub mod trained_cheetah;
 #[path = "ptk/trained_jackal.rs"]
 pub mod trained_jackal;
 #[path = "s99/trained_orgg.rs"]
@@ -1263,6 +1289,8 @@ pub mod vigilant_drake;
 pub mod vine_dryad;
 #[path = "mmq/vine_trellis.rs"]
 pub mod vine_trellis;
+#[path = "ptk/virtuous_charge.rs"]
+pub mod virtuous_charge;
 #[path = "s99/vizzerdrix.rs"]
 pub mod vizzerdrix;
 #[path = "uds/voice_of_duty.rs"]
@@ -1333,6 +1361,10 @@ pub mod yavimaya_scion;
 pub mod yavimaya_wurm;
 #[path = "uds/yawgmoth_s_bargain.rs"]
 pub mod yawgmoth_s_bargain;
+#[path = "ptk/yellow_scarves_troops.rs"]
+pub mod yellow_scarves_troops;
+#[path = "ptk/young_wei_recruits.rs"]
+pub mod young_wei_recruits;
 #[path = "ptk/zhang_liao_hero_of_hefei.rs"]
 pub mod zhang_liao_hero_of_hefei;
 #[path = "ptk/zhou_yu_chief_commander.rs"]
