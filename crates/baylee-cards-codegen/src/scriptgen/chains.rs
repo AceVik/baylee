@@ -115,6 +115,17 @@ impl Tx<'_> {
             Some(cost) => Some(self.unless(&cost, &mut p, target.as_deref(), sub.is_some())?),
             None => None,
         };
+        let optional_counter = if api == "Counter" {
+            match p.take("Optional").as_deref() {
+                None => false,
+                Some("True") => true,
+                Some(other) => {
+                    return self.deny(format!("`Counter` with `Optional$ {other}`"));
+                }
+            }
+        } else {
+            false
+        };
         // "If that creature would die this turn, exile it instead": a rider
         // on whatever the line does to its target, read for every API.
         let dying = match p.take("ReplaceDyingDefined") {
@@ -138,6 +149,13 @@ impl Tx<'_> {
             .ok()?
         {
             split
+        } else if api == "ChangeZone"
+            && targets_here
+            && p.peek("Origin") == Some("Battlefield")
+            && p.peek("Destination") == Some("Exile")
+            && p.has("RememberChanged")
+        {
+            self.exile_until_end_effect(&mut p, &mut sub, target.as_deref())?
         } else {
             let Some(effects) = (if chain.second_target.is_some() {
                 self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
@@ -172,6 +190,14 @@ impl Tx<'_> {
         let effects = match unless {
             Some(unless) => vec![self.unless_wrap(unless, effects, &mut sub, chain)?],
             None => effects,
+        };
+        let effects = if optional_counter {
+            vec![format!(
+                "Effect::MayDo {{ effects: &[{}] }}",
+                effects.join(", ")
+            )]
+        } else {
+            effects
         };
         Self::push_effects_merging_kicked(&mut chain.effects, effects);
         self.chain_sub_ability(sub, chain)

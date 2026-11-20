@@ -1309,3 +1309,230 @@ fn turn_face_up_trigger_reads_self_and_refuses_other_subjects_and_zones() {
         Some("replacement `R: Event$ TurnFaceUp`".to_string())
     );
 }
+
+#[test]
+fn cycled_trigger_reads_self_and_battlefield_subjects() {
+    let self_tap = read(
+        "Name:X\nTypes:Instant\nK:Cycling:1 U\n\
+         T:Mode$ Cycled | ValidCard$ Card.Self | Execute$ TrigTap | OptionalDecider$ You | \
+         TriggerDescription$ When you cycle CARDNAME, you may tap target creature.\n\
+         SVar:TrigTap:DB$ Tap | ValidTgts$ Creature",
+    );
+    assert_eq!(
+        self_tap.abilities,
+        [
+            "activated!(cost!(\"{1}{U}\", DiscardSelf), &[Effect::draw(1)], zone = ActivationZone::Hand)",
+            "triggered!(Trigger::CycledThis, &[Effect::MayDo { effects: &[Effect::TapTarget] }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    let self_decider_ctrl = read(
+        "Name:X\nTypes:Instant\nK:Cycling:1 W\n\
+         Oracle:Cycling {1}{W} When you cycle X, you may gain 2 life.\n\
+         T:Mode$ Cycled | ValidCard$ Card.Self | Execute$ TrigGain | OptionalDecider$ TriggeredCardController\n\
+         SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+    );
+    assert_eq!(
+        self_decider_ctrl.abilities,
+        [
+            "activated!(cost!(\"{1}{W}\", DiscardSelf), &[Effect::draw(1)], zone = ActivationZone::Hand)",
+            "triggered!(Trigger::CycledThis, &[Effect::MayDo { effects: &[Effect::gain_life(2)] }])"
+        ]
+    );
+
+    let rift = read(
+        "Name:X\nTypes:Enchantment\n\
+         T:Mode$ Cycled | ValidCard$ Card | TriggerZones$ Battlefield | Execute$ TrigDmg\n\
+         SVar:TrigDmg:AB$ DealDamage | Cost$ 1 | ValidTgts$ Any | NumDmg$ 2",
+    );
+    assert_eq!(
+        rift.abilities,
+        [
+            "triggered!(Trigger::Cycled { by: PlayerRel::EachPlayer, filter: &Filter::Any }, &[Effect::PlayerMayPayThen { player: PlayerRel::You, mana: Amount::Fixed(1), effects: &[Effect::DealDamage { amount: Amount::Fixed(2), target: TargetSpec::AnyTarget }] }], targets = Some(TargetReq::one(TargetSpec::AnyTarget)))"
+        ]
+    );
+
+    let yours = read(
+        "Name:X\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Cycled | ValidCard$ Card.YouOwn | TriggerZones$ Battlefield | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | Defined$ Self | NumAtt$ +2 | NumDef$ +0",
+    );
+    assert_eq!(
+        yours.abilities,
+        [
+            "triggered!(Trigger::Cycled { by: PlayerRel::You, filter: &Filter::Any }, &[Effect::PumpFilter { filter: &Filter::This, controlled_by: None, power: Amount::Fixed(2), toughness: Amount::Fixed(0), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let opp_creature = read(
+        "Name:X\nTypes:Enchantment\n\
+         T:Mode$ Cycled | ValidCard$ Creature.OppOwn | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert_eq!(
+        opp_creature.abilities,
+        [
+            "triggered!(Trigger::Cycled { by: PlayerRel::EachOpponent, filter: &Filter::CREATURE }, &[Effect::draw(1)])"
+        ]
+    );
+
+    let plague_hex = read(
+        "Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         T:Mode$ Cycled | ValidCard$ Card | TriggerZones$ Battlefield | Execute$ TrigCounter\n\
+         SVar:TrigCounter:DB$ PutCounter | Defined$ Self | CounterType$ PLAGUE | CounterNum$ 1",
+    );
+    assert_eq!(
+        plague_hex.abilities,
+        [
+            "spell!(&[Effect::AttachSelf { target: TargetSpec::Object(&Filter::CREATURE) }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))",
+            "triggered!(Trigger::Cycled { by: PlayerRel::EachPlayer, filter: &Filter::Any }, &[Effect::AddCounter { kind: counters::PLAGUE, amount: Amount::Fixed(1) }])"
+        ]
+    );
+}
+
+#[test]
+fn cycled_trigger_refuses_mismatches() {
+    let reason = |script: &str| {
+        let parsed = parse(script);
+        assert!(transcode(&parsed, &cats(), None).is_none(), "{script}");
+        refusal_reason(&parsed, &cats(), None)
+    };
+
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ Cycled | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        Some("a `Cycled` trigger with no `ValidCard$`".to_string())
+    );
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Instant\n\
+             T:Mode$ Cycled | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        Some("a self-`Cycled` trigger with `TriggerZones$ Battlefield`".to_string())
+    );
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ Cycled | ValidCard$ Card | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        Some("a `Cycled` trigger with no `TriggerZones$`".to_string())
+    );
+    assert!(refused(
+        "Name:X\nTypes:Enchantment\n\
+         T:Mode$ Cycled | ValidCard$ Card.YouOwn | ValidPlayer$ Opponent | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+    ));
+    assert!(refused(
+        "Name:X\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Cycled | ValidCard$ Card.Other | ValidPlayer$ You | TriggerZones$ Battlefield | FirstTime$ True | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+    ));
+    // Decree of Savagery shape: Oracle/description says "you may", but Forge forgot
+    // `OptionalDecider$ You` / `Optional$ True`; must stay refused rather than mandatory.
+    assert!(refused(
+        "Name:Decree Fixture\nTypes:Instant\nK:Cycling:4 G G\n\
+         T:Mode$ Cycled | ValidCard$ Card.Self | Execute$ TrigPutCounter | \
+         TriggerDescription$ When you cycle CARDNAME, you may put four +1/+1 counters on target creature.\n\
+         SVar:TrigPutCounter:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 4"
+    ));
+}
+
+#[test]
+fn optional_unless_counter_and_end_step_blink_and_wizard_pump() {
+    let complicate = read(
+        "Name:X\nManaCost:2 U\nTypes:Instant\nK:Cycling:2 U\n\
+         T:Mode$ Cycled | ValidCard$ Card.Self | Execute$ TrigExile | \
+         TriggerDescription$ When you cycle CARDNAME, you may counter target spell unless its controller pays {1}.\n\
+         SVar:TrigExile:DB$ Counter | TargetType$ Spell | TgtPrompt$ Select target spell | ValidTgts$ Card | Optional$ True | UnlessCost$ 1",
+    );
+    assert_eq!(
+        complicate.abilities,
+        [
+            "activated!(cost!(\"{2}{U}\", DiscardSelf), &[Effect::draw(1)], zone = ActivationZone::Hand)",
+            "triggered!(Trigger::CycledThis, &[Effect::MayDo { effects: &[Effect::PlayerMayPayOr { player: PlayerRel::ControllerOfTarget, mana: Amount::Fixed(1), effect: &Effect::CounterTargetSpell }] }], targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))))"
+        ]
+    );
+    assert!(refused(
+        "Name:X\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | Optional$ Maybe | UnlessCost$ 1"
+    ));
+
+    let slide = read(
+        "Name:X\nManaCost:2 W\nTypes:Enchantment\n\
+         T:Mode$ Cycled | ValidCard$ Card | Execute$ TrigExile | TriggerZones$ Battlefield | OptionalDecider$ You | \
+         TriggerDescription$ Whenever a player cycles a card, you may exile target creature. If you do, return that card to the battlefield under its owner's control at the beginning of the next end step.\n\
+         SVar:TrigExile:DB$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DelTrigEffect\n\
+         SVar:DelTrigEffect:DB$ DelayedTrigger | Mode$ Phase | Phase$ End Of Turn | Execute$ TrigReturn | RememberObjects$ RememberedLKI | TriggerDescription$ Return the exiled card. | SubAbility$ DBCleanup | AILogic$ Always\n\
+         SVar:TrigReturn:DB$ ChangeZone | Defined$ DelayTriggerRememberedLKI | Origin$ Exile | Destination$ Battlefield\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert_eq!(
+        slide.abilities,
+        [
+            "triggered!(Trigger::Cycled { by: PlayerRel::EachPlayer, filter: &Filter::Any }, &[Effect::MayDo { effects: &[Effect::ExileAndReturnAtEndStep] }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    let tapped_blink = read(
+        "Name:X\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ Del\n\
+         SVar:Del:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | Execute$ Ret | RememberObjects$ RememberedLKI | SubAbility$ Clean\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ DelayTriggerRememberedLKI | Origin$ Exile | Destination$ Battlefield | Tapped$ True\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert_eq!(
+        tapped_blink.abilities,
+        [
+            "spell!(&[Effect::ExileAndReturnTappedAtEndStep], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    let blink_base = "Name:X\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ Del\n\
+         SVar:Del:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | Execute$ Ret | RememberObjects$ RememberedLKI | SubAbility$ Clean\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ DelayTriggerRememberedLKI | Origin$ Exile | Destination$ Battlefield\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True";
+    for (from, to) in [
+        (" | SubAbility$ Del", ""),
+        ("Phase$ End of Turn", "Phase$ Upkeep"),
+        (
+            "RememberObjects$ RememberedLKI",
+            "RememberObjects$ Remembered",
+        ),
+        (
+            "Destination$ Battlefield",
+            "Destination$ Battlefield | GainControl$ True",
+        ),
+        (
+            "DB$ Cleanup | ClearRemembered$ True",
+            "DB$ Draw | Defined$ You | NumCards$ 1",
+        ),
+        (
+            "Phase$ End of Turn",
+            "Phase$ End of Turn | ValidPlayer$ You",
+        ),
+        ("RememberChanged$ True", "RememberChanged$ False"),
+    ] {
+        assert!(refused(&blink_base.replace(from, to)), "{from} -> {to}");
+    }
+
+    let sorcerer = read(
+        "Name:Gempalm Fixture\nManaCost:2 U\nTypes:Creature Human Wizard\nPT:2/2\n\
+         Oracle:Cycling {2}{U}\\nWhen you cycle Gempalm Fixture, Wizard creatures gain flying until end of turn.\n\
+         K:Cycling:2 U\n\
+         T:Mode$ Cycled | ValidCard$ Card.Self | Execute$ TrigPumpAll\n\
+         SVar:TrigPumpAll:DB$ PumpAll | ValidCards$ Wizard | KW$ Flying",
+    );
+    assert!(
+        sorcerer
+            .statics
+            .contains("static PUMP_ALL1: Filter = Filter::And(&[Filter::CREATURE, Filter::HasSubtype(subtypes::creature::WIZARD)]);"),
+        "{}",
+        sorcerer.statics
+    );
+}

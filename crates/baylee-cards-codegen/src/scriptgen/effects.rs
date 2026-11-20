@@ -567,7 +567,16 @@ impl Tx<'_> {
         {
             return None;
         }
-        let expr = self.filter_expr(&valid)?;
+        let mut expr = self.filter_expr(&valid)?;
+        if !valid.contains(['.', ',', '+'])
+            && expr.starts_with("Filter::HasSubtype(subtypes::creature::")
+            && self
+                .oracle
+                .to_ascii_lowercase()
+                .contains(&format!("{} creatures", valid.trim().to_ascii_lowercase()))
+        {
+            expr = format!("Filter::And(&[Filter::CREATURE, {expr}])");
+        }
         let filter = self.body.filter_static("PUMP_ALL", &expr);
         Some(vec![format!(
             "Effect::PumpFilter {{ filter: &{filter}, controlled_by: None, \
@@ -1026,6 +1035,104 @@ impl Tx<'_> {
         Some(vec![format!(
             "Effect::IfCondition {{ condition: Condition::ControlMoreThanEachOtherPlayer(&{name}), then: &[Effect::continuous(&{name}, Modifier::GainControl, Duration::Indefinitely)], otherwise: &[] }}"
         )])
+    }
+
+    /// `DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True`
+    /// paired with a `DelayedTrigger` at the end step that returns `DelayTriggerRememberedLKI`
+    /// under its owner's control (`Effect::ExileAndReturnAtEndStep` /
+    /// `Effect::ExileAndReturnTappedAtEndStep`, Astral Slide, CR 603.7).
+    pub(super) fn exile_until_end_effect(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if !target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) {
+            return self.deny("an end-step blink that does not target a battlefield object".into());
+        }
+        if p.take("Origin").as_deref() != Some("Battlefield")
+            || p.take("Destination").as_deref() != Some("Exile")
+            || p.take("RememberChanged").as_deref() != Some("True")
+        {
+            return self.deny("an end-step blink missing `RememberChanged$ True`".into());
+        }
+        p.take("IsCurse");
+        let Some(del_name) = sub.take() else {
+            return self.deny("an end-step blink with no delayed trigger".into());
+        };
+        let Some(del_body) = self.svars.get(&del_name).cloned() else {
+            return self.deny(format!("`SubAbility$ {del_name}` names no SVar"));
+        };
+        let Some((del_api, mut dp)) = Params::parse(&del_body) else {
+            return self.deny("a blink delayed trigger with no `$` in it".into());
+        };
+        dp.drop_prose();
+        if del_api != "DelayedTrigger"
+            || dp.take("Mode").as_deref() != Some("Phase")
+            || !dp
+                .take("Phase")
+                .is_some_and(|ph| ph.eq_ignore_ascii_case("End of Turn"))
+            || !matches!(dp.take("ValidPlayer").as_deref(), None | Some("Player"))
+            || dp.take("RememberObjects").as_deref() != Some("RememberedLKI")
+        {
+            return self
+                .deny("a `ChangeZone` delayed trigger that is not an end-step LKI return".into());
+        }
+        let Some(ret_name) = dp.take("Execute") else {
+            return self.deny("a blink delayed trigger with no `Execute$`".into());
+        };
+        let cleanup_name = dp.take("SubAbility");
+        if let Some(key) = dp.first_key() {
+            return self.deny(format!("unclaimed parameter `DelayedTrigger.{key}`"));
+        }
+        let Some(ret_body) = self.svars.get(&ret_name).cloned() else {
+            return self.deny(format!("`Execute$ {ret_name}` names no SVar"));
+        };
+        let Some((ret_api, mut rp)) = Params::parse(&ret_body) else {
+            return self.deny("a blink return ability with no `$` in it".into());
+        };
+        rp.drop_prose();
+        if ret_api != "ChangeZone"
+            || rp.take("Defined").as_deref() != Some("DelayTriggerRememberedLKI")
+            || rp.take("Origin").as_deref() != Some("Exile")
+            || rp.take("Destination").as_deref() != Some("Battlefield")
+        {
+            return self.deny(
+                "a blink delayed return that does not return `DelayTriggerRememberedLKI` to the battlefield"
+                    .into(),
+            );
+        }
+        let tapped = match rp.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!("a blink delayed return with `Tapped$ {other}`"));
+            }
+        };
+        if let Some(key) = rp.first_key() {
+            return self.deny(format!("unclaimed parameter `DelayedReturn.{key}`"));
+        }
+        if let Some(cname) = cleanup_name {
+            let Some(c_body) = self.svars.get(&cname).cloned() else {
+                return self.deny(format!("`SubAbility$ {cname}` names no SVar"));
+            };
+            let Some((c_api, mut cp)) = Params::parse(&c_body) else {
+                return self.deny("a blink cleanup ability with no `$` in it".into());
+            };
+            cp.drop_prose();
+            if c_api != "Cleanup" || cp.take("ClearRemembered").as_deref() != Some("True") {
+                return self.deny("a blink sub-ability other than `ClearRemembered$ True`".into());
+            }
+            *sub = cp.take("SubAbility");
+            if let Some(key) = cp.first_key() {
+                return self.deny(format!("unclaimed parameter `Cleanup.{key}`"));
+            }
+        }
+        Some(vec![if tapped {
+            "Effect::ExileAndReturnTappedAtEndStep".to_string()
+        } else {
+            "Effect::ExileAndReturnAtEndStep".to_string()
+        }])
     }
 
     /// `ChangeZone` for the zone pairs the engine has an effect for.

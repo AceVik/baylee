@@ -324,6 +324,7 @@ impl Tx<'_> {
             "LandPlayed" => self.land_played_trigger(p),
             "Drawn" => self.drawn_trigger(p, zones.is_some()),
             "TurnFaceUp" => self.turn_face_up_trigger(p),
+            "Cycled" => self.cycled_trigger(p, zones.is_some()),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -488,6 +489,101 @@ impl Tx<'_> {
             Some(other) => return self.deny(format!("`Secondary$ {other}`")),
         }
         Some("Trigger::TurnedFaceUp".to_string())
+    }
+
+    /// `T:Mode$ Cycled` — "when you cycle this card" (`Trigger::CycledThis`,
+    /// CR 702.29c) or "whenever a player cycles a card" from the battlefield
+    /// (`Trigger::Cycled { by, filter }`).
+    fn cycled_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `Cycled` trigger with no `ValidCard$`".to_string());
+        };
+        let explicit_player = p.take("ValidPlayer");
+        if valid == "Card.Self" {
+            if zoned {
+                return self
+                    .deny("a self-`Cycled` trigger with `TriggerZones$ Battlefield`".to_string());
+            }
+            return match explicit_player.as_deref() {
+                None | Some("You") => Some("Trigger::CycledThis".to_string()),
+                Some(other) => self.deny(format!("a self-`Cycled` trigger by `{other}`")),
+            };
+        }
+        if !zoned {
+            return self.deny("a `Cycled` trigger with no `TriggerZones$`".to_string());
+        }
+        if valid.split(['.', '+', ',']).any(|atom| atom == "Self") {
+            return self.deny(format!("a `Cycled` trigger on `{valid}`"));
+        }
+        let explicit_by = match explicit_player.as_deref() {
+            None => None,
+            Some("Player") => Some("PlayerRel::EachPlayer"),
+            Some("You") => Some("PlayerRel::You"),
+            Some("Opponent" | "Player.Opponent") => Some("PlayerRel::EachOpponent"),
+            Some(other) => return self.deny(format!("a `Cycled` trigger by `{other}`")),
+        };
+        let (derived_by, card_valid) = self.split_cycled_valid(&valid)?;
+        let by = match (explicit_by, derived_by) {
+            (Some(a), Some(b)) if a != b => {
+                return self.deny(format!(
+                    "conflicting cycling players in `{valid}` and `ValidPlayer$`"
+                ));
+            }
+            (Some(a), _) | (_, Some(a)) => a,
+            (None, None) => "PlayerRel::EachPlayer",
+        };
+        let filter = if card_valid == "Card" {
+            "&Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr_in_zone(&card_valid, true)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        Some(format!("Trigger::Cycled {{ by: {by}, filter: {filter} }}"))
+    }
+
+    fn split_cycled_valid(&self, valid: &str) -> Option<(Option<&'static str>, String)> {
+        if valid.contains(',') {
+            let has_player_atom = valid
+                .split(['.', '+', ','])
+                .any(|a| matches!(a.trim(), "YouCtrl" | "YouOwn" | "OppCtrl" | "OppOwn"));
+            if has_player_atom {
+                return self.deny(format!(
+                    "a multi-clause `Cycled` filter carrying player atoms `{valid}`"
+                ));
+            }
+            return Some((None, valid.to_string()));
+        }
+        let mut derived: Option<&'static str> = None;
+        let mut rest = Vec::new();
+        for dot_part in valid.split('.') {
+            let mut kept = Vec::new();
+            for atom in dot_part.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                let rel = match atom {
+                    "YouCtrl" | "YouOwn" => Some("PlayerRel::You"),
+                    "OppCtrl" | "OppOwn" => Some("PlayerRel::EachOpponent"),
+                    _ => None,
+                };
+                if let Some(rel) = rel {
+                    if let Some(prev) = derived
+                        && prev != rel
+                    {
+                        return self.deny(format!("conflicting player atoms in `{valid}`"));
+                    }
+                    derived = Some(rel);
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !kept.is_empty() {
+                rest.push(kept.join("+"));
+            }
+        }
+        let cleaned = if rest.is_empty() {
+            "Card".to_string()
+        } else {
+            rest.join(".")
+        };
+        Some((derived, cleaned))
     }
 
     /// One `K:` line, as whichever of the four things it is.
@@ -738,6 +834,11 @@ impl Tx<'_> {
         // card, then you may have …") it would make the mandatory half
         // optional too, so it is not read there; `validate` holds such a card
         // to its printed may.
+        let prose_you_may = p.peek("TriggerDescription").is_some_and(|d| {
+            d.to_ascii_lowercase()
+                .split_once(", ")
+                .is_some_and(|(_, effect)| effect.starts_with("you may "))
+        });
         let prose_may = p.peek("TriggerDescription").is_some_and(|d| {
             d.to_ascii_lowercase()
                 .split_once(", ")
@@ -777,6 +878,7 @@ impl Tx<'_> {
         // than quietly asked of the wrong player.
         let trigger_is_self = trigger == "Trigger::ETB"
             || trigger == "Trigger::TurnedFaceUp"
+            || trigger == "Trigger::CycledThis"
             || trigger.contains("&Filter::This")
             || trigger_self_etb_kicked;
         let decider = p.take("OptionalDecider");
@@ -822,6 +924,19 @@ impl Tx<'_> {
         chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("a trigger that reads as no effect at all".to_string());
+        }
+        if mode == "Cycled"
+            && prose_you_may
+            && !may
+            && price.is_none()
+            && !chain.effects.iter().any(|e| {
+                e.contains("MayDo") || e.contains("PlayerMayPay") || e.contains("optional: true")
+            })
+        {
+            return self.deny(
+                "a `Cycled` trigger saying \"you may\" without `OptionalDecider$` or an optional effect"
+                    .to_string(),
+            );
         }
         let targets = chain.target.map_or_default(|t| {
             if let Some(max) = chain.target_up_to {
