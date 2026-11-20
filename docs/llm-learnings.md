@@ -6,6 +6,15 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-20 — Beat 3: Engine Wave 4c (`d4ded4751`) & Engine Wave 5 (`0ec03dc3d`)
+
+- **Engine Wave 4c — Triggers, Player Auras, Filters & Locks (`Reviewed: ac5b48d2f`, merged as `d4ded4751`, `Reviewed-by: gemini-4-argon-high (#296), pass`):**
+  - Landed `Trigger::ChangesZoneAll { origin, destination, filter, exclude_self }` (`ZoneKind` alias, `CR 603.2c`, `CR 603.10a` batched zone-change look-back and `Amount::EventAmount`), `Trigger::Sacrificed { who, filter }` (`CR 701.21a`, `CR 715.4` Saga completion SBA), **Enchant Player / Curses** (`Rider::AttachedToPlayer` tag `121`, `Rider::SourceAttachmentPlayerLki` tag `122`, `PlayerRel::EnchantedPlayer`, `Filter::ControlledByEnchantedPlayer`, `Trigger::PlayerAttacked`, untargeted `CR 303.4f–g` entry, `PublicObject::attached_player()`), `Filter::{Historic, HasCounters, AnyCountersAtLeast}`, `Condition::{ObjectMatches, AmountCompare}`, and `Modifier::MatchingSpellCastLimitPerTurn`.
+- **Engine Wave 5 — Squad, Offspring, Fuse, Manifest & Manifest Dread (`Reviewed: 01df75326`, merged as `0ec03dc3d`, `Reviewed-by: gemini-4-argon-high (#299), pass`):**
+  - Landed `Squad` (`CR 702.157`, `FaceDef::squad`, `NumberPrompt::Squad`, `Rider::SquadPaid`), `Offspring` (`CR 702.175`, `FaceDef::offspring`, `YesNoPrompt::Offspring`, `Rider::OffspringPaid`), `Fuse` (`CR 702.102`, `CardDef::fuse`, `CastModeKind::Fused`, `Rider::Fused`, `VIEW_VERSION = 99`, `PROTOCOL_VERSION = 55`), and `Manifest` / `Manifest Dread` / `Effect::TurnFaceUp` (`CR 701.40`, `CR 701.62`, `ChoicePrompt::ManifestDread`, `AwaitingOp::ManifestDread` tag `114`, `Rider::Manifested` tag `134`), plus `baylee-train/build.rs` `a_plain_face_keeps_its_41_children` guard and `baylee-client-core::triggerorder::facts` coverage.
+  - Cross-wave integration fixes: added `fuse: false` to `commander_ninjutsu_bench`, `R::BattlefieldOrCommand` to `trigger::event_groups::zone_ref_matches`, extracted `trigger::build_off_battlefield_trigger` (`clippy::too_many_lines`), and raised `xtask::mechanics::the_engine_is_read_to_a_plausible_number_of_sites` ceiling `3000 -> 3600` (`3050` sites).
+  - Verified full Beat 3 gate: `baylee-cards-dsl` `97/97`, `baylee-view` `111/111` + `hostile_frames` `9/9`, `baylee-protocol` `52+17`, `baylee-engine` `709/709` + `trigger::` `33/33` + `footprint` `2/2` + `hostile_actions` `15/15`, `baylee-gamehost` `193/193` + `ai_decisions::` `38/38`, `baylee-cards` `170/170`, `baylee-ai` `429/429`, `baylee-client-core` `292/292`, `baylee-seat` `138/138`, `baylee-train` `90/90`, `baylee-cards-codegen` `631/631`, `xtask` `148/148`, `clippy --all-targets -- -D warnings` `0` warnings.
+
 ## 2026-11-20 — Engine Wave 4b (`93a5c0c66`, `ef2044086`), Codegen Wave 9a–9c (`0ba5ed7ac`, `42d334b9e`, `1a1751dc5`), & Wave 8 Stubs (`a7f177044`)
 
 - **Replay Contract & Keyword Guard (`Reviewed: ef2044086 93a5c0c66`, `Reviewed-by: gemini-4-argon-high (#277, #303), pass`):**
