@@ -539,7 +539,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // read by the table and 39 remaining contextual.
     // Batch wave 3 (122 generated cards) adds 34 non-mana activations: 26
     // read by the table and 8 remaining contextual.
-    assert_eq!((read, of), (3219, 4087), "activated/loyalty reader census");
+    // Completing 40 newly readable pool stubs adds 12 activated abilities (1 each
+    // across 12 cards: Gerrard Capashen, Mirror Wall, Mistform Warchief, Nosy
+    // Goblin, Pilgrim of Justice, Pilgrim of Virtue, Rampant Elephant, Sand
+    // Squid, Story Circle, Swooping Talon, Walking Desecration, Whirling
+    // Catapult): 3 read and 9 remaining contextual.
+    assert_eq!((read, of), (3222, 4099), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
