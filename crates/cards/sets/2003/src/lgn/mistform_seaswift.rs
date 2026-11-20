@@ -14,7 +14,7 @@ card!(
     scryfall_id = "b2f6c73c-8162-499f-8d16-92f17c0c2bee",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistform Seaswift",
         mana_cost = mana!("{3}{U}"),

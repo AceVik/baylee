@@ -12,6 +12,7 @@ fn set_counters(engine: &mut Engine<RegistryLookup>, id: ObjectId, kind: Counter
 }
 mod al_abara_s_carpet;
 mod amulet_of_unmaking;
+mod belbe_s_portal;
 mod blinkmoth_urn;
 mod chocobo_racetrack;
 mod citanul_flute;

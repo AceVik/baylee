@@ -12,7 +12,7 @@ card!(
     oracle_id = "02c4abd0-9a68-4a85-954b-3f64666c1f8d",
     scryfall_id = "ebaa7a26-8516-4d71-a524-77b2d3f030d5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistform Wall",
         mana_cost = mana!("{2}{U}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "1082eea2-5e83-48d4-b02b-a22e7cbe2054",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistform Shrieker",
         mana_cost = mana!("{3}{U}{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "6b4ee935-4474-4757-9fab-978a2e1e72a0",
     scryfall_id = "f1379753-0a37-4e33-ac46-8ef33cb98b06",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tribal Unity",
         mana_cost = mana!("{X}{2}{G}"),

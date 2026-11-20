@@ -95,6 +95,7 @@ mod icatian_moneychanger;
 mod icatian_priest;
 mod icatian_scout;
 mod ignoble_hierarch;
+mod imagecrafter;
 mod imperial_lancer;
 mod infantry_veteran;
 mod initiates_of_the_ebon_hand;

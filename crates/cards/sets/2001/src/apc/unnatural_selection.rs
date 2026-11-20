@@ -11,7 +11,7 @@ card!(
     oracle_id = "0be10525-09dc-4970-b495-2db7d4d3c3e7",
     scryfall_id = "c575e2cb-3990-4c73-b81c-e16311ec6bbb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unnatural Selection",
         mana_cost = mana!("{1}{U}"),

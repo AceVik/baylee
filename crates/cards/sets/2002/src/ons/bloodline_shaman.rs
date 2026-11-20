@@ -13,7 +13,7 @@ card!(
     oracle_id = "a9c2bf1b-2d5e-42c5-bc76-8429aaae161c",
     scryfall_id = "5fdfc473-8477-4c04-a4e7-ecac1b0a5716",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodline Shaman",
         mana_cost = mana!("{1}{G}"),

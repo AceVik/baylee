@@ -14,7 +14,7 @@ card!(
     oracle_id = "10b0b60f-9976-41f9-855b-1786b6f86f55",
     scryfall_id = "9e2c8de5-bc80-4fad-af09-6d0a639f6e18",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elvish Soultiller",
         mana_cost = mana!("{3}{G}{G}"),

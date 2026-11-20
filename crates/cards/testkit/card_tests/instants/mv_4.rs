@@ -12,6 +12,7 @@ mod chastise;
 mod clever_concealment;
 mod congregate;
 mod cryptic_command;
+mod defensive_maneuvers;
 mod deflection;
 mod discombobulate;
 mod dismiss;

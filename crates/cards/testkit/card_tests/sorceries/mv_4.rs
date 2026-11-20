@@ -52,6 +52,7 @@ mod multani_s_decree;
 mod mutilate;
 mod natural_order;
 mod past_in_flames;
+mod peer_pressure;
 mod phyrexian_purge;
 mod ransack;
 mod rejuvenate;

@@ -14,7 +14,7 @@ card!(
     oracle_id = "245934d9-c7b7-4a97-9c56-7760d934ef27",
     scryfall_id = "104735d7-6cea-4d4a-8cc8-e1934883da97",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tribal Forcemage",
         mana_cost = mana!("{1}{G}"),

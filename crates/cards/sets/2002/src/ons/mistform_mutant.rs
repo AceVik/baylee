@@ -11,7 +11,7 @@ card!(
     oracle_id = "0f4350e2-48c7-4d2b-9384-4864232756ad",
     scryfall_id = "a25b2697-5d7f-490a-8474-c775096e681e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistform Mutant",
         mana_cost = mana!("{4}{U}{U}"),

@@ -16,7 +16,7 @@ card!(
     index = index::DOOM_CANNON,
     oracle_id = "c761af28-d7d8-46d3-9bc7-1e44fdf6d0a0",
     scryfall_id = "4abde0d7-266b-41bd-ade1-c4d93507eb16",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Doom Cannon",
         mana_cost = mana!("{6}"),

@@ -64,6 +64,7 @@ mod lingering_death;
 mod mageta_s_boon;
 mod manacles_of_decay;
 mod maniacal_rage;
+mod mistform_mask;
 mod mourning;
 mod muzzle;
 mod mystic_veil;

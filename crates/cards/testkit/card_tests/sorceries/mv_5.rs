@@ -16,6 +16,7 @@ mod dosan_s_oldest_chant;
 mod dregs_of_sorrow;
 mod epicenter;
 mod essence_drain;
+mod extinction;
 mod extortion;
 mod frenzied_tilling;
 mod fumarole;

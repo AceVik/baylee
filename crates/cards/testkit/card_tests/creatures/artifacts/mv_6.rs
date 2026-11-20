@@ -5,6 +5,7 @@ use super::*;
 
 mod arachnoid;
 mod beast_of_burden;
+mod brass_herald;
 mod chardalyn_dragon;
 mod composite_golem;
 mod darksteel_sentinel;

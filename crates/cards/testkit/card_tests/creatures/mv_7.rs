@@ -447,6 +447,7 @@ mod maul_splicer;
 mod minion_of_leshrac;
 mod minion_of_tevesh_szat;
 mod minotaur_aggressor;
+mod mistform_skyreaver;
 mod molimo_maro_sorcerer;
 mod mossbeard_ancient;
 mod nebula_dragon;

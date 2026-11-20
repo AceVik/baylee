@@ -23,7 +23,7 @@ card!(
     ]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Karona, False God",
         mana_cost = mana!("{1}{W}{U}{B}{R}{G}"),

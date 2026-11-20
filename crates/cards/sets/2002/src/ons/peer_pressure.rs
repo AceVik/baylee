@@ -12,7 +12,7 @@ card!(
     oracle_id = "bd6b02f9-277e-4f6a-b0a4-d893a939cf73",
     scryfall_id = "be0110ba-49e4-4729-8a84-4d408b20df53",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Peer Pressure",
         mana_cost = mana!("{3}{U}"),

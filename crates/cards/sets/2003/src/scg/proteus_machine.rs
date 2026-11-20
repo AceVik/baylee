@@ -11,7 +11,7 @@ card!(
     index = index::PROTEUS_MACHINE,
     oracle_id = "c3acf94e-3adc-4397-a736-3f6072a5967d",
     scryfall_id = "d1c8cff1-b289-41a4-9fa3-cc5e7ba70802",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Proteus Machine",
         mana_cost = mana!("{3}"),

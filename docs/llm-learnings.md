@@ -6,6 +6,14 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-20 — Mechanic 1 (Resolution-time creature-type choice: 31 `Coverage::Generated` promotions)
+
+- **31/31 `Coverage::Generated` promotions (`Reviewed: 074f14e58 3d3237522 fae856cd5`, `Card-Author: gemini-4-hydrogen-xhigh`, `Review: pending`):**
+  - Audited engine (`074f14e58`), `scriptgen` (`3d3237522`), and all 31 generated card definitions (`fae856cd5`) against Scryfall Oracle text and Comprehensive Rules, wrote independent Oracle behavioral tests for all 31 cards, promoted via `xtask codegen --promote-generated` (`10965 implemented, 10965 of them tested`), converged `codegen --tables` in two passes, and verified all 12 affected card-test shards (`9,598` tests passed, `0` failed) plus `baylee-engine`, `baylee-cards-codegen`, `xtask`, `baylee-card-tests-verification`, `xtask validate`, `require-card-tests`, `xtask cr-check`, and workspace `clippy --all-targets`.
+- **Key card-test and resolution patterns verified:**
+  - `Effect::BecomeChosenCreatureType { filter: &Filter::This, .. }` on a targeted spell or ability (`Imagecrafter`, `Mistform Mutant`, `Unnatural Selection`, `Trickery Charm` mode 1) affects the target permanent because `subjects::this(state, res)` resolves to `res.targets.objects[0]` when `res.targeted` is set, while `Filter::AttachedToBySource` handles Auras (`Mistform Mask`) and `bound_now_with_context` freezes the affected set at resolution per CR 611.2c (`Standardize`, `Tribal Unity`, `Defensive Maneuvers`, `Mistform Wakecaster`, `Karona, False God`).
+  - `TargetSpec::Player` (`Tsabo's Decree`) suspends on `Pending::ChoosePlayer` (answered with `PlayerAction::ChoosePlayer`), not `Pending::ChooseTargets`; `PlayerAction::Arrange` puts `pile[0]` shallowest/topmost on a library pile; `legal.abilities` indexes abilities across all `CardDef::abilities` entries (so permanents with a leading `static_ability!` like `Mistform Wall` or `spell!` like `Mistform Mask` put their first `activated!` ability at index `1`).
+
 ## 2026-11-14 — Swiss benchmark bug sweep, observed-faults #53/#67/#68/#71/#76/#77/#80/#81, and 50 Generated promotions
 
 - **50/51 `Coverage::Generated` promotions (`Card-Author: gemini-4-hydrogen-xhigh`, cross-model reviewed on `gemini-4-carbon-high`):**

@@ -10,3 +10,4 @@ mod opportunity;
 mod pull_under;
 mod pyrokinesis;
 mod spinning_darkness;
+mod tsabo_s_decree;

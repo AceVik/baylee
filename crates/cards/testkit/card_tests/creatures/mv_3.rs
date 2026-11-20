@@ -277,6 +277,8 @@ mod mindbender_spores;
 mod mindstab_thrull;
 mod mindwhip_sliver;
 mod mine_bearer;
+mod mistform_dreamer;
+mod mistform_wall;
 mod moaning_spirit;
 mod mogg_assassin;
 mod mole_worms;

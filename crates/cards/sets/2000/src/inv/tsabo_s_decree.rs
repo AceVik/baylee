@@ -14,7 +14,7 @@ card!(
     oracle_id = "4e0de4d9-7a30-4a2b-94ba-8239baad2a0a",
     scryfall_id = "0c1a0ebd-1add-49e6-b5e6-5b26abb1de88",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tsabo's Decree",
         mana_cost = mana!("{5}{B}"),

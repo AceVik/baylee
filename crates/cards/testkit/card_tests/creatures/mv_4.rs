@@ -241,6 +241,7 @@ mod mind_maggots;
 mod mindwarper;
 mod mirozel;
 mod mirrorhall_mimic;
+mod mistform_seaswift;
 mod mistmoon_griffin;
 mod mogg_bombers;
 mod moggcatcher;

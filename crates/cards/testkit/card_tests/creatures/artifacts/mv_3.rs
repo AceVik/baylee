@@ -322,6 +322,7 @@ mod patchwork_gnomes;
 mod phyrexian_war_beast;
 mod porcelain_legionnaire;
 mod prakhata_pillar_bug;
+mod proteus_machine;
 mod redrock_sentinel;
 mod reinforced_bulwark;
 mod rune_sealed_wall;

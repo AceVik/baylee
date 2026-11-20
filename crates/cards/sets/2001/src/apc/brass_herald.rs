@@ -14,7 +14,7 @@ card!(
     index = index::BRASS_HERALD,
     oracle_id = "ea9b2e3d-2de4-4cde-b233-6d0ba5797c20",
     scryfall_id = "7c0380a4-225f-4a80-8c8b-d0f7e54f1626",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Brass Herald",
         mana_cost = mana!("{6}"),

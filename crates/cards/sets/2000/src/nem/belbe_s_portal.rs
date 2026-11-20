@@ -12,7 +12,7 @@ card!(
     index = index::BELBE_S_PORTAL,
     oracle_id = "46e50ee9-91f8-416e-82fa-f1a76e61fb73",
     scryfall_id = "fb4eeea1-693e-475c-a209-8a0464df8081",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Belbe's Portal",
         mana_cost = mana!("{5}"),

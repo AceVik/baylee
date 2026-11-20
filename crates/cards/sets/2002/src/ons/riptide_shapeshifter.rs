@@ -13,7 +13,7 @@ card!(
     oracle_id = "49f292ab-0533-436b-a309-8bc795b66e5c",
     scryfall_id = "85be34ac-7bc2-4da2-8d9c-2412b9946073",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riptide Shapeshifter",
         mana_cost = mana!("{3}{U}{U}"),

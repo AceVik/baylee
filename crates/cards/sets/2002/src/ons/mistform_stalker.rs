@@ -12,7 +12,7 @@ card!(
     oracle_id = "0f9c4b56-7ad7-4262-8079-3eee5f0cdd3b",
     scryfall_id = "9e80d109-b73f-4b5d-b9e4-534e8d69633f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistform Stalker",
         mana_cost = mana!("{1}{U}"),
