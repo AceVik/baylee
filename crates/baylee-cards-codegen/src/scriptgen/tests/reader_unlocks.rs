@@ -1612,6 +1612,39 @@ fn wave6_copy_permanent_become_copy_and_copy_spell_ability() {
 }
 
 #[test]
+fn wave6_optional_copy_spell_uses_may_do_for_non_controller() {
+    let chain_obj = read(
+        "Name:ChainShatter\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ Destroy | ValidTgts$ Artifact | SubAbility$ Copy\n\
+         SVar:Copy:DB$ CopySpellAbility | Defined$ Parent | Controller$ TargetedController | Optional$ True | MayChooseTarget$ True",
+    );
+    assert!(
+        chain_obj.abilities[0].contains(
+            "Effect::MayDoFor { player: PlayerRel::ControllerOfTarget, effects: &[Effect::CopySpellOrAbility"
+        ),
+        "{}",
+        chain_obj.abilities[0]
+    );
+    let chain_player = read(
+        "Name:ChainDiscard\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Discard | ValidTgts$ Player | NumCards$ 2 | Mode$ TgtChoose | SubAbility$ Copy\n\
+         SVar:Copy:DB$ CopySpellAbility | Defined$ Parent | Controller$ TargetedPlayer | Optional$ True | MayChooseTarget$ True",
+    );
+    assert!(
+        chain_player.abilities[0].contains(
+            "Effect::MayDoFor { player: PlayerRel::Chosen, effects: &[Effect::CopySpellOrAbility"
+        ),
+        "{}",
+        chain_player.abilities[0]
+    );
+    assert!(refused(
+        "Name:ChainMulti\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ 1 | SubAbility$ Copy\n\
+         SVar:Copy:DB$ CopySpellAbility | Defined$ Parent | Controller$ Opponent | Optional$ True | MayChooseTarget$ True"
+    ));
+}
+
+#[test]
 fn wave6_flip_coin_roll_dice_and_triggers() {
     let flip = read(
         "Name:CoinBreaker\nManaCost:1 R\nTypes:Creature Goblin\nPT:1/1\n\

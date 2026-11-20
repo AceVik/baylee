@@ -2606,11 +2606,30 @@ impl Tx<'_> {
              amount: {amount}, mods: &[{}], may_choose_new_targets: {may_choose} }}",
             mods.join(", ")
         );
-        Some(vec![if optional {
-            format!("Effect::MayDo {{ effects: &[{effect}] }}")
-        } else {
-            effect
-        }])
+        Some(vec![Self::wrap_optional_copy_for(
+            optional, controller, effect,
+        )?])
+    }
+
+    fn wrap_optional_copy_for(optional: bool, controller: &str, effect: String) -> Option<String> {
+        if !optional {
+            return Some(effect);
+        }
+        if controller == "PlayerRel::You" {
+            return Some(format!("Effect::MayDo {{ effects: &[{effect}] }}"));
+        }
+        matches!(
+            controller,
+            "PlayerRel::Chosen"
+                | "PlayerRel::ControllerOfTarget"
+                | "PlayerRel::ControllerOfEvent"
+                | "PlayerRel::TargetPlayerOrController"
+                | "PlayerRel::EventPlayer"
+                | "PlayerRel::DefendingPlayer"
+                | "PlayerRel::ActivePlayer"
+                | "PlayerRel::OwnerOfTarget"
+        )
+        .then(|| format!("Effect::MayDoFor {{ player: {controller}, effects: &[{effect}] }}"))
     }
 
     fn legacy_copy_spell_ability(
