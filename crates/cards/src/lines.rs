@@ -835,6 +835,12 @@ mod tests {
     /// Batch wave 5 (1,000 cards) completes Bloodline Keeper, Cloistered Youth,
     /// Screeching Bat, Ravenous Demon, and Chalice of Life, adding their
     /// back-face stackable abilities.
+    /// Batch wave 6 (1,000 cards) completes eleven Shadows over Innistrad /
+    /// Eldritch Moon transforming cards whose back faces reach the stack
+    /// (Avacynian Missionaries, Elusive Tormentor, Hanweir Militia Captain,
+    /// Pious Evangel, Town Gossipmonger, Conduit of Storms, Docent of
+    /// Perfection, Grizzled Angler, Shrill Howler, Vildin-Pack Outcast,
+    /// and Voldaren Pariah).
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -857,6 +863,17 @@ mod tests {
                 "Chalice of Life",
                 "Huntmaster of the Fells",
                 "Archangel Avacyn",
+                "Avacynian Missionaries",
+                "Elusive Tormentor",
+                "Hanweir Militia Captain",
+                "Pious Evangel",
+                "Town Gossipmonger",
+                "Conduit of Storms",
+                "Docent of Perfection",
+                "Grizzled Angler",
+                "Shrill Howler",
+                "Vildin-Pack Outcast",
+                "Voldaren Pariah",
                 "Arguel's Blood Fast",
                 "Conqueror's Galleon",
                 "Legion's Landing",

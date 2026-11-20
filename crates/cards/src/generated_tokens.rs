@@ -3736,6 +3736,303 @@ pub static CLERIC_1_1_WHITE_BLACK_ABC71E4FA: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 black Cleric.
+pub static CLERIC_0_1_BLACK: TokenDef = TokenDef {
+    name: "Cleric",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CLERIC],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 black Rat with deathtouch.
+pub static RAT_1_1_BLACK_DEATHTOUCH: TokenDef = TokenDef {
+    name: "Rat",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::RAT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::DEATHTOUCH,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/1 black Warrior.
+pub static WARRIOR_2_1_BLACK: TokenDef = TokenDef {
+    name: "Warrior",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WARRIOR],
+    power: Some(2),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 black Zombie Knight with menace.
+pub static ZOMBIE_KNIGHT_2_2_BLACK_MENACE: TokenDef = TokenDef {
+    name: "Zombie Knight",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE, creature::KNIGHT],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::MENACE,
+    ..TokenDef::DEFAULT
+};
+
+/// 6/6 black Demon with flying and trample.
+pub static DEMON_6_6_BLACK_FLYING_TRAMPLE_A2AEDFBDE: TokenDef = TokenDef {
+    name: "Demon",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DEMON],
+    power: Some(6),
+    toughness: Some(6),
+    keywords: KeywordSet::FLYING.union(KeywordSet::TRAMPLE),
+    abilities: &[triggered!(
+        Trigger::StepBegin {
+            step: StepKind::Upkeep,
+            whose: PlayerRel::You
+        },
+        &[Effect::IfCondition {
+            condition: Condition::CanSacrifice(&Filter::ANOTHER_CREATURE),
+            then: &[Effect::SacrificeFilter {
+                who: PlayerRel::You,
+                filter: &Filter::ANOTHER_CREATURE
+            }],
+            otherwise: &[Effect::DealDamage {
+                amount: Amount::Fixed(6),
+                target: TargetSpec::Player(PlayerRel::You)
+            }]
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 10/10 colorless Eldrazi.
+pub static ELDRAZI_10_10: TokenDef = TokenDef {
+    name: "Eldrazi",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELDRAZI],
+    power: Some(10),
+    toughness: Some(10),
+    ..TokenDef::DEFAULT
+};
+
+/// 6/6 colorless artifact Beast.
+pub static BEAST_ARTIFACT_6_6: TokenDef = TokenDef {
+    name: "Beast",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::BEAST],
+    power: Some(6),
+    toughness: Some(6),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Plant.
+pub static PLANT_1_1_GREEN: TokenDef = TokenDef {
+    name: "Plant",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PLANT],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green Hippo.
+pub static HIPPO_3_3_GREEN: TokenDef = TokenDef {
+    name: "Hippo",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HIPPO],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/2 green Beast.
+pub static BEAST_4_2_GREEN: TokenDef = TokenDef {
+    name: "Beast",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BEAST],
+    power: Some(4),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 5/4 green Snake.
+pub static SNAKE_5_4_GREEN: TokenDef = TokenDef {
+    name: "Snake",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SNAKE],
+    power: Some(5),
+    toughness: Some(4),
+    ..TokenDef::DEFAULT
+};
+
+/// 0/1 red Elemental.
+pub static ELEMENTAL_0_1_RED_A8D932090: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(0),
+    toughness: Some(1),
+    abilities: &[triggered!(
+        Trigger::StepBegin {
+            step: StepKind::Upkeep,
+            whose: PlayerRel::You
+        },
+        &[
+            Effect::SacrificeFilter {
+                who: PlayerRel::You,
+                filter: &Filter::This
+            },
+            Effect::GraveyardToBattlefield {
+                target: TargetSpec::CardInGraveyard(
+                    &Filter::Named("Rekindling Phoenix"),
+                    PlayerRel::You
+                ),
+                owner_control: false,
+                counters: None
+            },
+            Effect::continuous(
+                &Filter::This,
+                Modifier::AddKeyword(KeywordSet::HASTE),
+                Duration::UntilEndOfTurn
+            )
+        ],
+        targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
+            &Filter::Named("Rekindling Phoenix"),
+            PlayerRel::You
+        )))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Goblin.
+pub static GOBLIN_1_1_RED_AB8C78CBC: TokenDef = TokenDef {
+    name: "Goblin",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GOBLIN],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[static_ability!(
+        Filter::YOUR_CREATURE,
+        Modifier::AttacksEachCombat
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/1 red Elemental with haste and trample.
+pub static ELEMENTAL_3_1_RED_HASTE_TRAMPLE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(3),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE.union(KeywordSet::TRAMPLE),
+    ..TokenDef::DEFAULT
+};
+
+/// 8/8 red Lizard.
+pub static LIZARD_8_8_RED: TokenDef = TokenDef {
+    name: "Lizard",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::LIZARD],
+    power: Some(8),
+    toughness: Some(8),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue Human Wizard.
+pub static HUMAN_WIZARD_1_1_BLUE: TokenDef = TokenDef {
+    name: "Human Wizard",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HUMAN, creature::WIZARD],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 blue Djinn Monk with flying.
+pub static DJINN_MONK_2_2_BLUE_FLYING: TokenDef = TokenDef {
+    name: "Djinn Monk",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DJINN, creature::MONK],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 8/8 blue Octopus.
+pub static OCTOPUS_8_8_BLUE: TokenDef = TokenDef {
+    name: "Octopus",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::OCTOPUS],
+    power: Some(8),
+    toughness: Some(8),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue red Insect with flying and haste.
+pub static INSECT_1_1_BLUE_RED_FLYING_HASTE: TokenDef = TokenDef {
+    name: "Insect",
+    colors: ColorSet::from_slice(&[Color::Blue, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::INSECT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING.union(KeywordSet::HASTE),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Kor Ally.
+pub static KOR_ALLY_1_1_WHITE: TokenDef = TokenDef {
+    name: "Kor Ally",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KOR, creature::ALLY],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/4 white Bird with flying.
+pub static BIRD_3_4_WHITE_FLYING: TokenDef = TokenDef {
+    name: "Bird",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BIRD],
+    power: Some(3),
+    toughness: Some(4),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 5/5 white Horse.
+pub static HORSE_5_5_WHITE: TokenDef = TokenDef {
+    name: "Horse",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HORSE],
+    power: Some(5),
+    toughness: Some(5),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -4807,6 +5104,28 @@ pub static ALL: &[&TokenDef] = &[
     &CAT_2_2_WHITE,
     &BIRD_3_3_WHITE_FLYING,
     &CLERIC_1_1_WHITE_BLACK_ABC71E4FA,
+    &CLERIC_0_1_BLACK,
+    &RAT_1_1_BLACK_DEATHTOUCH,
+    &WARRIOR_2_1_BLACK,
+    &ZOMBIE_KNIGHT_2_2_BLACK_MENACE,
+    &DEMON_6_6_BLACK_FLYING_TRAMPLE_A2AEDFBDE,
+    &ELDRAZI_10_10,
+    &BEAST_ARTIFACT_6_6,
+    &PLANT_1_1_GREEN,
+    &HIPPO_3_3_GREEN,
+    &BEAST_4_2_GREEN,
+    &SNAKE_5_4_GREEN,
+    &ELEMENTAL_0_1_RED_A8D932090,
+    &GOBLIN_1_1_RED_AB8C78CBC,
+    &ELEMENTAL_3_1_RED_HASTE_TRAMPLE,
+    &LIZARD_8_8_RED,
+    &HUMAN_WIZARD_1_1_BLUE,
+    &DJINN_MONK_2_2_BLUE_FLYING,
+    &OCTOPUS_8_8_BLUE,
+    &INSECT_1_1_BLUE_RED_FLYING_HASTE,
+    &KOR_ALLY_1_1_WHITE,
+    &BIRD_3_4_WHITE_FLYING,
+    &HORSE_5_5_WHITE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -5092,4 +5411,26 @@ pub static GENERATED: &[&TokenDef] = &[
     &CAT_2_2_WHITE,
     &BIRD_3_3_WHITE_FLYING,
     &CLERIC_1_1_WHITE_BLACK_ABC71E4FA,
+    &CLERIC_0_1_BLACK,
+    &RAT_1_1_BLACK_DEATHTOUCH,
+    &WARRIOR_2_1_BLACK,
+    &ZOMBIE_KNIGHT_2_2_BLACK_MENACE,
+    &DEMON_6_6_BLACK_FLYING_TRAMPLE_A2AEDFBDE,
+    &ELDRAZI_10_10,
+    &BEAST_ARTIFACT_6_6,
+    &PLANT_1_1_GREEN,
+    &HIPPO_3_3_GREEN,
+    &BEAST_4_2_GREEN,
+    &SNAKE_5_4_GREEN,
+    &ELEMENTAL_0_1_RED_A8D932090,
+    &GOBLIN_1_1_RED_AB8C78CBC,
+    &ELEMENTAL_3_1_RED_HASTE_TRAMPLE,
+    &LIZARD_8_8_RED,
+    &HUMAN_WIZARD_1_1_BLUE,
+    &DJINN_MONK_2_2_BLUE_FLYING,
+    &OCTOPUS_8_8_BLUE,
+    &INSECT_1_1_BLUE_RED_FLYING_HASTE,
+    &KOR_ALLY_1_1_WHITE,
+    &BIRD_3_4_WHITE_FLYING,
+    &HORSE_5_5_WHITE,
 ];
