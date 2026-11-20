@@ -8254,3 +8254,33 @@ When this batch was merged on 20 November, main already handled cycling
 triggers with `Trigger::Cycled { by, filter }` and had finished 18 of these
 26 cards. The combined reader uses that trigger for both filtered and
 unfiltered cards. The eight additional cards come from typecycling and dredge.
+
+## 2026-11-20 — Wave 1 & Wave 2 Mechanics + Scriptgen Unlocks (Gemini Swarm)
+
+- **`CostPart::ExileTopOfLibrary` library indexing (`cast_wizard/commit.rs`)**:
+  in `baylee-engine`, `ZonePosition::Top` is `.last()` of
+  `state.zones.list(ZoneLocation::Library(player))` while `.first()` is the
+  bottom. Cross-model review (`#52`) caught `commit.rs` reading `.first()`
+  instead of matching `abilities/costs.rs` (upfront `.len() < count` check,
+  `.last()` pop, `ZoneLocation::Exile(owner)`). Always add a distinct-top-vs-bottom
+  fixture whenever touching library-exile costs.
+- **Digital `A-*` Alchemy rebalances & twin deduplication (`xtask/src/batch.rs`)**:
+  216 `A-*` Alchemy rows in the expanded 34,240-card ledger collide on paper
+  card paths via Scryfall fuzzy-name fallback (`"A-Mentor's Guidance"` ->
+  `"Mentor's Guidance"`), and twin front-face slugs across `acceptance-decks.txt`
+  or within one batch can trip `refuse_twin_names`. `reach_measure` now skips
+  `is_alchemy_rebalance` and deduplicates against `acceptance::all_names` +
+  `front_face_slug` while keeping `xtask validate` strict.
+- **LKI freeze on chosen-source prevention shields (`CR 609.7b`, `CR 400.7`)**:
+  `ChosenSource` freezes `chosen_color` and `chosen_subtype` when the filter
+  reads them, and `Resolution` reads the originating stack/permanent LKI so
+  destruction or blink-and-rechoose in response never mutates or erases an
+  active prevention shield (`Story Circle`, `Prismatic Circle`).
+- **`Trigger::LastCounterRemoved` & `Effect::Blink`/`ExileLinked`/`TapTarget` gaps**:
+  `scriptgen` Wave 2 kept `K:Vanishing` refused (engine `LastCounterRemoved`
+  currently checks `*remover == you` rather than any removal per CR 702.63a) and
+  guarded `Effect::Blink` to single targets (`resolve/zones.rs:242` uses
+  `first()`, matching `ExileLinked` at `:787`). `Effect::TapTarget` in
+  `resolve/immediate.rs:2714` also unconditionally taps `res.second_targets` for
+  `Arena`, which mis-taps targets of `Spirit Flare`/`Deadshot`. All queued for
+  engine `resolve/` cleanup.
