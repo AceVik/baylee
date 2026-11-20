@@ -680,3 +680,405 @@ fn extra_replacements_add_counter() {
          SVar:X:ReplaceCount$CounterNum/Twice"
     ));
 }
+
+#[test]
+fn provoke_single_and_duplicate_instances() {
+    let single = read("Name:SingleProvoke\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Provoke");
+    assert_eq!(single.keywords, ["KeywordSet::PROVOKE"]);
+    assert!(single.abilities.is_empty());
+
+    let double = read(
+        "Name:DoubleProvoke\nManaCost:3 R\nTypes:Creature\nPT:3/2\n\
+         K:Provoke\nK:Provoke",
+    );
+    assert_eq!(double.keywords, ["KeywordSet::PROVOKE"]);
+    assert_eq!(
+        double.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::PROVOKE))"]
+    );
+}
+
+#[test]
+fn etb_counter_dynamic_suffixes_and_dual_kicker() {
+    let multikick = read(
+        "Name:KickedCounter\nManaCost:2 G\nTypes:Creature\nPT:0/0\n\
+         K:Multikicker:1 G\n\
+         K:etbCounter:P1P1:X:no Condition:desc\n\
+         SVar:X:Count$TimesKicked/Times.2",
+    );
+    assert_eq!(
+        multikick.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: CounterKind::P1P1, \
+             amount: Amount::Times { base: &Amount::TimesKicked, factor: 2 } }"]
+    );
+
+    let died = read(
+        "Name:MorbidEntry\nManaCost:3 B\nTypes:Creature\nPT:1/1\n\
+         K:etbCounter:P1P1:X\n\
+         SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature/Plus.1",
+    );
+    assert_eq!(
+        died.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: CounterKind::P1P1, \
+             amount: Amount::Plus { base: &Amount::CreaturesDiedThisTurn, offset: 1 } }"]
+    );
+
+    let x_half = read(
+        "Name:HalfXEntry\nManaCost:X G\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:X\n\
+         SVar:X:Count$xPaid/HalfDown",
+    );
+    assert_eq!(
+        x_half.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: CounterKind::P1P1, \
+             amount: Amount::Half { base: &Amount::X, round_up: false } }"]
+    );
+
+    let x_sub = read(
+        "Name:SubXEntry\nManaCost:X U\nTypes:Artifact\n\
+         K:etbCounter:CHARGE:Y\n\
+         SVar:X:Count$xPaid\nSVar:Y:SVar$X/Minus.1",
+    );
+    assert_eq!(
+        x_sub.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: CounterKind::Charge, \
+             amount: Amount::SaturatingSub { base: &Amount::X, subtract: 1 } }"]
+    );
+
+    let dual = read(
+        "Name:DualKickEntry\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         K:Kicker:1 B:1 R\n\
+         K:etbCounter:P1P1:2:CheckSVar$ K1:desc\n\
+         K:etbCounter:P1P1:1:CheckSVar$ K2:desc\n\
+         SVar:K1:Count$Kicked1.1.0\n\
+         SVar:K2:Count$Kicked2.1.0\n\
+         Oracle:Kicker {1}{R} and/or {1}{B}",
+    );
+    assert!(
+        dual.enter_modifiers.contains(
+            &"EnterModifier::IfKicked { index: Some(1), counters: 2, modifiers: &[] }".to_string()
+        ),
+        "mods: {:?}",
+        dual.enter_modifiers
+    );
+    assert!(
+        dual.enter_modifiers.contains(
+            &"EnterModifier::IfKicked { index: Some(0), counters: 1, modifiers: &[] }".to_string()
+        ),
+        "mods: {:?}",
+        dual.enter_modifiers
+    );
+}
+
+#[test]
+fn game_loss_win_players_zero_life_and_conditions() {
+    let everyone = read(
+        "Name:NoOneLoses\nTypes:Artifact\n\
+         R:Event$ GameLoss | ActiveZones$ Battlefield | ValidPlayer$ Player | Layer$ CantHappen\n\
+         R:Event$ GameWin | ActiveZones$ Battlefield | ValidPlayer$ Player | Layer$ CantHappen",
+    );
+    assert_eq!(
+        everyone.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::PlayersCantLose)",
+            "static_ability!(Filter::Any, Modifier::PlayersCantWin(PlayerRel::EachPlayer))",
+        ]
+    );
+
+    let zero_life = read(
+        "Name:ZeroLifeGuard\nTypes:Enchantment\n\
+         R:Event$ GameLoss | ActiveZones$ Battlefield | ValidPlayer$ You | \
+         ValidLoseReason$ LifeReachedZero | Layer$ CantHappen | IsPresent$ Artifact.YouCtrl",
+    );
+    assert_eq!(
+        zero_life.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::NoLossForZeroLife { who: PlayerRel::You }, \
+             condition = Some(Condition::ControlCount(&Filter::YOUR_ARTIFACT, 1)))"
+        ]
+    );
+
+    assert!(refused(
+        "Name:NoMillLoss\nTypes:Enchantment\n\
+         R:Event$ GameLoss | ActiveZones$ Battlefield | ValidPlayer$ You | \
+         ValidLoseReason$ Milled | Layer$ CantHappen"
+    ));
+}
+
+#[test]
+fn moved_self_etb_tapped_chains_reveal_and_life_loss() {
+    let chained = read(
+        "Name:TappedChargeLand\nTypes:Land\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | \
+         ReplacementResult$ Updated | ReplaceWith$ ETBTapped\n\
+         SVar:ETBTapped:DB$ Tap | Defined$ Self | ETB$ True | SubAbility$ DBCharge\n\
+         SVar:DBCharge:DB$ PutCounter | Defined$ Self | ETB$ True | \
+         CounterType$ CHARGE | CounterNum$ 2",
+    );
+    assert_eq!(
+        chained.enter_modifiers,
+        [
+            "EnterModifier::Tapped",
+            "EnterModifier::WithCounters { kind: CounterKind::Charge, amount: Amount::Fixed(2) }",
+        ]
+    );
+
+    let reveal = read(
+        "Name:RevealLand\nTypes:Land\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | \
+         ReplacementResult$ Updated | ReplaceWith$ ETBTapped\n\
+         SVar:ETBTapped:DB$ Tap | Defined$ Self | ETB$ True | \
+         UnlessCost$ Reveal<1/Forest;Island/a Forest or Island> | UnlessPayer$ You",
+    );
+    assert_eq!(
+        reveal.enter_modifiers,
+        ["EnterModifier::TappedUnlessReveal(&REVEAL1)"]
+    );
+    assert!(
+        reveal.statics.contains("subtypes::land::FOREST")
+            && reveal.statics.contains("subtypes::land::ISLAND"),
+        "statics: {}",
+        reveal.statics
+    );
+
+    let reveal_or_ctrl = read(
+        "Name:RevealOrControlLand\nTypes:Land\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | \
+         ReplacementResult$ Updated | ReplaceWith$ DBReveal\n\
+         SVar:DBReveal:DB$ Reveal | Optional$ True | RevealValid$ Goblin | \
+         RememberRevealed$ True | SubAbility$ DBTap\n\
+         SVar:DBTap:DB$ Tap | Defined$ Self | ETB$ True | \
+         ConditionCheckSVar$ Total | ConditionSVarCompare$ EQ0 | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:Total:Count$RememberedSize/Plus.Ctrl\n\
+         SVar:Ctrl:Count$Valid Goblin.inZoneBattlefield+YouCtrl",
+    );
+    assert_eq!(
+        reveal_or_ctrl.enter_modifiers,
+        ["EnterModifier::TappedUnlessRevealOrControl(&REVEAL1)"]
+    );
+    assert!(
+        reveal_or_ctrl
+            .statics
+            .contains("subtypes::creature::GOBLIN")
+    );
+
+    let life_loss = read(
+        "Name:HalfLifeArtifact\nTypes:Artifact\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | \
+         ReplacementResult$ Updated | ReplaceWith$ DBLose\n\
+         SVar:DBLose:DB$ LoseLife | Defined$ You | LifeAmount$ X\n\
+         SVar:X:Count$YourLifeTotal",
+    );
+    assert_eq!(
+        life_loss.enter_modifiers,
+        ["EnterModifier::LoseLifeEqualToLife"]
+    );
+}
+
+#[test]
+fn moved_external_enter_cant_enter_and_exile_replacements() {
+    let tap_opp = read(
+        "Name:OppCreaturesTapped\nTypes:Enchantment\n\
+         R:Event$ Moved | ValidCard$ Creature.OppCtrl | Destination$ Battlefield | \
+         ActiveZones$ Battlefield | ReplacementResult$ Updated | ReplaceWith$ ETBTapped\n\
+         SVar:ETBTapped:DB$ Tap | Defined$ ReplacedCard | ETB$ True",
+    );
+    assert_eq!(
+        tap_opp.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::EnterTapped(&Filter::OPPONENT_CREATURE))"]
+    );
+
+    let untap_yours = read(
+        "Name:YourLandsUntapped\nTypes:Enchantment\n\
+         R:Event$ Moved | ValidCard$ Land.YouCtrl | Destination$ Battlefield | \
+         ActiveZones$ Battlefield | ReplacementResult$ Updated | ReplaceWith$ ETBUntapped\n\
+         SVar:ETBUntapped:DB$ Untap | Defined$ ReplacedCard | ETB$ True",
+    );
+    assert_eq!(
+        untap_yours.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::EnterUntapped(&Filter::YOUR_LAND))"]
+    );
+
+    let cant_enter = read(
+        "Name:NoLandEntry\nTypes:Enchantment\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | Destination$ Battlefield | \
+         ValidCard$ Land | Prevent$ True | Layer$ CantHappen",
+    );
+    assert_eq!(
+        cant_enter.abilities,
+        ["static_ability!(Filter::This, Modifier::CantEnterBattlefield(&Filter::LAND))"]
+    );
+
+    let exile_leave = read(
+        "Name:ExileOnLeave\nTypes:Creature\nPT:2/2\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | ValidCard$ Card.Self | \
+         Origin$ Battlefield | ExcludeDestination$ Exile | ReplaceWith$ ExileSelf\n\
+         SVar:ExileSelf:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ Battlefield | Destination$ Exile",
+    );
+    assert_eq!(
+        exile_leave.abilities,
+        ["static_ability!(Filter::This, Modifier::ExileInsteadOfLeavingBattlefield)"]
+    );
+
+    let exile_opp_gy = read(
+        "Name:VoidExiler\nTypes:Enchantment\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | ValidCard$ Card.!token+OppOwn | \
+         Destination$ Graveyard | ReplaceWith$ ExileOpp\n\
+         SVar:ExileOpp:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | \
+         Destination$ Exile | WithCountersType$ VOID",
+    );
+    assert_eq!(
+        exile_opp_gy.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ExileOpponentsGraveyard { \
+             counter: Some(counters::VOID) })"
+        ]
+    );
+
+    let exile_your_gy = read(
+        "Name:SelfExiler\nTypes:Enchantment\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | ValidCard$ Card.!token+YouOwn | \
+         Destination$ Graveyard | ReplaceWith$ ExileYou\n\
+         SVar:ExileYou:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | Destination$ Exile",
+    );
+    assert_eq!(
+        exile_your_gy.abilities,
+        ["static_ability!(Filter::Any, Modifier::ExileInsteadOfYourGraveyard)"]
+    );
+
+    // Refusals: Origin-scoped CantEnterBattlefield, opp-scoped EnterUntapped, non-!token GY exile.
+    assert!(refused(
+        "Name:CageOnly\nTypes:Artifact\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | Origin$ Graveyard | \
+         Destination$ Battlefield | ValidCard$ Creature | Prevent$ True | Layer$ CantHappen"
+    ));
+    assert!(refused(
+        "Name:OppUntap\nTypes:Enchantment\n\
+         R:Event$ Moved | ValidCard$ Creature.OppCtrl | Destination$ Battlefield | \
+         ActiveZones$ Battlefield | ReplacementResult$ Updated | ReplaceWith$ ETBUntapped\n\
+         SVar:ETBUntapped:DB$ Untap | Defined$ ReplacedCard | ETB$ True"
+    ));
+    assert!(refused(
+        "Name:TokenGyExile\nTypes:Enchantment\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | ValidCard$ Card.YouOwn | \
+         Destination$ Graveyard | ReplaceWith$ ExileYou\n\
+         SVar:ExileYou:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | Destination$ Exile"
+    ));
+}
+
+#[test]
+fn extra_statics_life_lock_search_lock_and_life_gain_draw() {
+    let body = read(
+        "Name:LockAura\nTypes:Enchantment\n\
+         S:Mode$ CantPreventDamage | IsCombat$ True\n\
+         S:Mode$ CantLoseLife | ValidPlayer$ You\n\
+         S:Mode$ CantChangeLife | ValidPlayer$ Player\n\
+         S:Mode$ CantSearchLibrary | ValidPlayer$ Opponent\n\
+         R:Event$ GainLife | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ DrawInstead\n\
+         SVar:DrawInstead:DB$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:ReplaceCount$LifeGained",
+    );
+    assert_eq!(
+        body.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::CombatDamageCantBePrevented)",
+            "static_ability!(Filter::Any, Modifier::CantLoseLife { who: PlayerRel::You })",
+            "static_ability!(Filter::Any, Modifier::LifeTotalCantChange { who: PlayerRel::EachPlayer })",
+            "static_ability!(Filter::Any, Modifier::OpponentsCantSearch)",
+            "static_ability!(Filter::Any, Modifier::LifeGainDrawsInstead { who: PlayerRel::You })",
+        ]
+    );
+
+    assert!(refused(
+        "Name:AllDmgNoPrevent\nTypes:Enchantment\nS:Mode$ CantPreventDamage"
+    ));
+    assert!(refused(
+        "Name:AllCantSearch\nTypes:Enchantment\nS:Mode$ CantSearchLibrary | ValidPlayer$ Player"
+    ));
+}
+
+#[test]
+fn regeneration_turn_effects_defender_flash_life_damage_combat_and_counters() {
+    let defender_self = read(
+        "Name:WallAttacker\nTypes:Creature\nPT:0/5\n\
+         A:AB$ Effect | Cost$ 1 W | StaticAbilities$ CanAtk\n\
+         SVar:CanAtk:Mode$ CanAttackDefender | ValidCard$ Card.EffectSource",
+    );
+    assert_eq!(
+        defender_self.abilities,
+        [
+            r#"activated!(cost!("{1}{W}"), &[Effect::ModifySource { modifier: Modifier::AttacksDespiteDefender, duration: Duration::UntilEndOfTurn }])"#
+        ]
+    );
+
+    let defender_tgt = read(
+        "Name:GrantWallAttack\nManaCost:W\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | StaticAbilities$ CanAtk\n\
+         SVar:CanAtk:Mode$ CanAttackDefender | ValidCard$ Card.IsRemembered",
+    );
+    assert_eq!(
+        defender_tgt.abilities,
+        [
+            "spell!(&[Effect::ModifyTargets { modifier: Modifier::AttacksDespiteDefender, \
+             duration: Duration::UntilEndOfTurn }], \
+             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    let flash_turn = read(
+        "Name:TurnFlash\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Effect | Duration$ UntilYourNextTurn | StaticAbilities$ FlashAll\n\
+         SVar:FlashAll:Mode$ CastWithFlash | ValidCard$ Sorcery | ValidSA$ Spell | Caster$ You",
+    );
+    assert_eq!(
+        flash_turn.abilities,
+        [
+            "spell!(&[Effect::continuous(&Filter::Any, Modifier::SorceriesHaveFlash, \
+             Duration::UntilYourNextTurn)])"
+        ]
+    );
+
+    let no_loss_no_prev = read(
+        "Name:TurnLocks\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ NoLoss | SubAbility$ DBNoPrev\n\
+         SVar:NoLoss:Mode$ CantLoseLife | ValidPlayer$ You\n\
+         SVar:DBNoPrev:DB$ Effect | StaticAbilities$ NoPrev\n\
+         SVar:NoPrev:Mode$ CantPreventDamage | IsCombat$ True",
+    );
+    assert_eq!(
+        no_loss_no_prev.abilities,
+        [
+            "spell!(&[Effect::continuous(&Filter::Any, Modifier::CantLoseLife { who: PlayerRel::You }, Duration::UntilEndOfTurn), \
+             Effect::continuous(&Filter::Any, Modifier::CombatDamageCantBePrevented, Duration::UntilEndOfTurn)])"
+        ]
+    );
+
+    let cant_block_all = read(
+        "Name:FalterSpell\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ NoBlk\n\
+         SVar:NoBlk:Mode$ CantBlock | ValidCard$ Creature.withoutFlying",
+    );
+    assert!(cant_block_all.abilities[0].contains("Modifier::AddKeyword(KeywordSet::CANT_BLOCK)"));
+
+    let plus_counter = read(
+        "Name:CounterBoost\nManaCost:G\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ RPlus\n\
+         SVar:RPlus:Event$ AddCounter | ActiveZones$ Battlefield | \
+         ValidCard$ Creature.YouCtrl+inZoneBattlefield | ReplaceWith$ DBPlus\n\
+         SVar:DBPlus:DB$ ReplaceCounter | Amount$ X\n\
+         SVar:X:ReplaceCount$CounterNum/Plus.1",
+    );
+    assert!(
+        plus_counter.abilities[0].contains("Modifier::AdditionalCounterPlacement { n: 1 }"),
+        "abilities: {:?}",
+        plus_counter.abilities
+    );
+
+    // Refusal: ForgetOnCast$ one-shot flash effect stays refused.
+    assert!(refused(
+        "Name:NextSpellFlash\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ FlashOne | ForgetOnCast$ True\n\
+         SVar:FlashOne:Mode$ CastWithFlash | ValidCard$ Sorcery | ValidSA$ Spell | Caster$ You"
+    ));
+}

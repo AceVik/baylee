@@ -116,6 +116,23 @@ impl Tx<'_> {
                     self.deny("keyword `Ascend` on a non-permanent spell".to_string()),
                 );
             }
+            // CR 702.39a–b: Provoke; multiple printed instances trigger separately.
+            "Provoke" => {
+                if self
+                    .body
+                    .keywords
+                    .iter()
+                    .any(|k| k == "KeywordSet::PROVOKE")
+                {
+                    self.body.abilities.push(Self::static_expr(
+                        "Filter::This",
+                        "Modifier::AddKeyword(KeywordSet::PROVOKE)",
+                    ));
+                } else {
+                    self.body.keywords.push("KeywordSet::PROVOKE".to_string());
+                }
+                return ExtraOutcome::Handled(Some(()));
+            }
             // CR 702.25b: multiple printed instances of flanking trigger separately.
             "Flanking"
                 if self
@@ -407,19 +424,27 @@ impl Tx<'_> {
     }
 
     /// Extended `K:etbCounter:` forms whose amounts map cleanly onto
-    /// `EnterModifier::WithCounters` (`eval::amount` on entry).
+    /// `EnterModifier::WithCounters` (`eval::amount` on entry) or dual-kicker
+    /// `EnterModifier::IfKicked`.
     fn etb_counter_extra(&mut self, rest: &str) -> Option<()> {
         let mut fields = rest.split(':');
         let (Some(kind_raw), Some(amount_raw)) = (fields.next(), fields.next()) else {
             return self.deny("keyword `etbCounter`".to_string());
         };
-        if let Some(cond) = fields.next()
-            && !cond.trim().eq_ignore_ascii_case("no condition")
-        {
-            return self.deny("keyword `etbCounter`".to_string());
-        }
+        let cond_raw = fields.next();
         let _desc = fields.next();
         if fields.next().is_some() {
+            return self.deny("keyword `etbCounter`".to_string());
+        }
+        if let Some(cond) = cond_raw
+            && !cond.trim().eq_ignore_ascii_case("no condition")
+        {
+            if let Some(entry) =
+                self.dual_kicker_etb_counter(kind_raw.trim(), amount_raw.trim(), cond.trim())
+            {
+                self.body.enter_modifiers.push(entry);
+                return Some(());
+            }
             return self.deny("keyword `etbCounter`".to_string());
         }
         let kind_trimmed = kind_raw.trim();
@@ -456,66 +481,170 @@ impl Tx<'_> {
         Some(())
     }
 
+    fn dual_kicker_etb_counter(&self, kind: &str, amount: &str, cond: &str) -> Option<String> {
+        let remap = self.dual_kicker_remap?;
+        if kind != "P1P1" {
+            return None;
+        }
+        let n: u8 = amount.parse().ok()?;
+        if n == 0 {
+            return None;
+        }
+        let var = cond.strip_prefix("CheckSVar$")?.trim();
+        let slot = match self.svars.get(var).map(|s| s.trim()) {
+            Some("Count$Kicked1.1.0") => 0,
+            Some("Count$Kicked2.1.0") => 1,
+            _ => return None,
+        };
+        let index = remap[slot];
+        Some(format!(
+            "EnterModifier::IfKicked {{ index: Some({index}), counters: {n}, modifiers: &[] }}"
+        ))
+    }
+
+    /// Walks a chain of `DB$ PutCounter | Defined$ Self | ETB$ True` sub-abilities
+    /// attached to an unconditional self-enter-tapped replacement (e.g. Vivid lands,
+    /// Sphere of the Suns).
+    pub(super) fn self_etb_counter_chain(&mut self, start: &str) -> Option<Vec<String>> {
+        let mut out = Vec::new();
+        let mut current = Some(start.trim().to_string());
+        for _ in 0..8 {
+            let Some(name) = current else {
+                return (!out.is_empty()).then_some(out);
+            };
+            let Some((api, mut p)) = self.svars.get(&name).and_then(|s| Params::parse(s)) else {
+                return self.deny(format!("`SubAbility$ {name}` names no readable SVar"));
+            };
+            p.drop_prose();
+            if api != "PutCounter"
+                || p.take("Defined").as_deref() != Some("Self")
+                || p.take("ETB").as_deref() != Some("True")
+            {
+                return self.deny(format!("replacement `Moved` chaining `{api}`"));
+            }
+            let kind_raw = p.take("CounterType")?;
+            let Some(kind) = counter_kind(kind_raw.trim()) else {
+                return self.deny(format!("unknown counter `{kind_raw}`"));
+            };
+            let num_raw = p.take("CounterNum").unwrap_or_else(|| "1".to_string());
+            let amount = self.etb_put_counter_amount(num_raw.trim())?;
+            current = p.take("SubAbility").map(|s| s.trim().to_string());
+            if !p.exhausted() {
+                return self.deny(format!(
+                    "replacement `Moved` counter with `{}`",
+                    p.first_key().unwrap_or_default()
+                ));
+            }
+            out.push(format!(
+                "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
+            ));
+        }
+        self.deny("cyclic `Moved` counter sub-ability chain".to_string())
+    }
+
+    fn etb_put_counter_amount(&mut self, raw: &str) -> Option<String> {
+        if let Ok(n) = raw.parse::<u32>()
+            && n > 0
+        {
+            return Some(format!("Amount::Fixed({n})"));
+        }
+        if self.has_x_mana_cost && self.svars.get(raw).map(|s| s.trim()) == Some("Count$xPaid") {
+            return Some("Amount::X".to_string());
+        }
+        self.etb_counter_amount(raw)
+    }
+
+    /// Reads `Reveal<1/<valid>[/<desc>]>` inside `UnlessCost$` on a self-ETB tap
+    /// replacement (`EnterModifier::TappedUnlessReveal`). Restores `unclaimed`
+    /// on failure so callers keep their existing refusal message on unknown subtypes.
+    pub(super) fn enters_tapped_unless_reveal(&mut self, body: &str) -> Option<String> {
+        let mut parts = body.split('/');
+        let (Some(count_str), Some(valid_str)) = (parts.next(), parts.next()) else {
+            return None;
+        };
+        let _desc = parts.next();
+        if parts.next().is_some() || count_str.trim() != "1" {
+            return None;
+        }
+        let valid = valid_str.trim();
+        if valid.is_empty()
+            || valid.contains("Ctrl")
+            || valid.contains("Own")
+            || valid.contains("Self")
+            || valid.contains("Other")
+            || valid.contains(',')
+        {
+            return None;
+        }
+        let normalized = valid.replace(';', ",");
+        let prev_unclaimed = self.unclaimed.borrow().clone();
+        let Some(expr) = self.filter_expr_in_zone(&normalized, true) else {
+            *self.unclaimed.borrow_mut() = prev_unclaimed;
+            return None;
+        };
+        let name = self.body.filter_static("REVEAL", &expr);
+        Some(format!("EnterModifier::TappedUnlessReveal(&{name})"))
+    }
+
     fn etb_counter_amount(&mut self, raw: &str) -> Option<String> {
         let def = self.svars.get(raw)?.trim().to_string();
-        match def.as_str() {
-            "Count$CastTotalManaSpent" => return Some("Amount::ManaSpentToCast".to_string()),
-            "Count$YourLifeTotal" => return Some("Amount::LifeTotal(PlayerRel::You)".to_string()),
-            "Count$ValidHand Card.YouOwn" | "Count$ValidHand Card.YouCtrl" => {
-                return Some("Amount::HandSize(PlayerRel::You)".to_string());
-            }
-            "Count$xPaid/Twice" if self.has_x_mana_cost => {
-                return Some("Amount::DoubleX".to_string());
-            }
-            _ => {}
+        if let Some(rest) = def.strip_prefix("SVar$") {
+            let (var, suffix) = rest.split_once('/')?;
+            let inner = self.etb_counter_base_amount(var.trim())?;
+            return apply_etb_amount_suffix(inner, suffix);
         }
-        if let Some(var) = def
-            .strip_prefix("SVar$")
-            .and_then(|s| s.strip_suffix("/Twice"))
-            && self.has_x_mana_cost
-            && self.svars.get(var.trim()).map(|s| s.trim()) == Some("Count$xPaid")
-        {
-            return Some("Amount::DoubleX".to_string());
+        let (head, suffix) = match def.split_once('/') {
+            None => (def.as_str(), None),
+            Some((h, s)) => (h, Some(s)),
+        };
+        if let Some(base) = self.etb_counter_scalar_head(head) {
+            return match suffix {
+                None => Some(base),
+                Some(s) => apply_etb_amount_suffix(base, s),
+            };
         }
-        if let Some(spec) = def.strip_prefix("Count$ValidGraveyard ") {
+        if let Some(spec) = head.strip_prefix("Count$ValidGraveyard ") {
+            if suffix.is_some() {
+                return None;
+            }
             return self.etb_graveyard_count(spec);
         }
-        let spec = def
+        let spec = head
             .strip_prefix("Count$Valid ")
-            .or_else(|| def.strip_prefix("Count$LastStateBattlefield "))?;
+            .or_else(|| head.strip_prefix("Count$LastStateBattlefield "))?;
         if spec.contains('$') {
             return None;
         }
-        let (valid, suffix) = match spec.split_once('/') {
-            None => (spec, None),
-            Some((v, s)) => (v, Some(s)),
-        };
-        let expr = self.filter_expr(valid.trim())?;
+        let expr = self.filter_expr(spec.trim())?;
         let name = self.body.filter_static("COUNT", &expr);
         let base = format!("Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}");
         match suffix {
             None => Some(base),
-            Some(s) => {
-                if let Some(n_str) = s.strip_prefix("Plus.")
-                    && let Ok(offset) = n_str.trim().parse::<u32>()
-                    && offset > 0
-                {
-                    return Some(format!(
-                        "Amount::Plus {{ base: &{base}, offset: {offset} }}"
-                    ));
-                }
-                if let Some(n_str) = s.strip_prefix("Times.")
-                    && let Ok(factor) = n_str.trim().parse::<u32>()
-                    && factor > 0
-                {
-                    return Some(if factor == 1 {
-                        base
-                    } else {
-                        format!("Amount::Times {{ base: &{base}, factor: {factor} }}")
-                    });
-                }
-                None
+            Some(s) => apply_etb_amount_suffix(base, s),
+        }
+    }
+
+    fn etb_counter_base_amount(&self, var: &str) -> Option<String> {
+        let def = self.svars.get(var)?.trim();
+        if def == "Count$xPaid" && self.has_x_mana_cost {
+            return Some("Amount::X".to_string());
+        }
+        self.etb_counter_scalar_head(def)
+    }
+
+    fn etb_counter_scalar_head(&self, head: &str) -> Option<String> {
+        match head {
+            "Count$CastTotalManaSpent" => Some("Amount::ManaSpentToCast".to_string()),
+            "Count$YourLifeTotal" => Some("Amount::LifeTotal(PlayerRel::You)".to_string()),
+            "Count$ValidHand Card.YouOwn" | "Count$ValidHand Card.YouCtrl" => {
+                Some("Amount::HandSize(PlayerRel::You)".to_string())
             }
+            "Count$TimesKicked" => Some("Amount::TimesKicked".to_string()),
+            "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" => {
+                Some("Amount::CreaturesDiedThisTurn".to_string())
+            }
+            "Count$xPaid" if self.has_x_mana_cost => Some("Amount::X".to_string()),
+            _ => None,
         }
     }
 
@@ -574,8 +703,9 @@ impl Tx<'_> {
     }
 
     /// Additional `S:` static ability handlers (`CantAttack,CantBlock`,
-    /// `CastWithFlash`, `Panharmonicon`, `DisableTriggers`) not modeled by
-    /// `statics.rs`.
+    /// `CastWithFlash`, `Panharmonicon`, `DisableTriggers`,
+    /// `CantPreventDamage`, `CantLoseLife`, `CantChangeLife`,
+    /// `CantSearchLibrary`) not modeled by `statics.rs`.
     pub(super) fn try_extra_static(&mut self, spec: &str) -> ExtraOutcome {
         let Some((mode, p)) = Params::parse(spec) else {
             return ExtraOutcome::Pass;
@@ -585,6 +715,16 @@ impl Tx<'_> {
             "CastWithFlash" => ExtraOutcome::Handled(self.cast_with_flash(p)),
             "Panharmonicon" => ExtraOutcome::Handled(self.panharmonicon_static(p)),
             "DisableTriggers" => ExtraOutcome::Handled(self.disable_triggers_static(p)),
+            "CantPreventDamage" => ExtraOutcome::Handled(self.cant_prevent_combat_damage(p)),
+            "CantLoseLife" => {
+                ExtraOutcome::Handled(self.player_life_rule(p, "CantLoseLife", "CantLoseLife"))
+            }
+            "CantChangeLife" => ExtraOutcome::Handled(self.player_life_rule(
+                p,
+                "CantChangeLife",
+                "LifeTotalCantChange",
+            )),
+            "CantSearchLibrary" => ExtraOutcome::Handled(self.cant_search_library(p)),
             _ => ExtraOutcome::Pass,
         }
     }
@@ -756,7 +896,109 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// Additional `R:` replacement handlers (`CreateToken`, `AddCounter`).
+    fn cant_prevent_combat_damage(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("IsCombat").as_deref() != Some("True") {
+            return self.deny("static ability `S: Mode$ CantPreventDamage`".to_string());
+        }
+        if let Some(sec) = p.take("Secondary")
+            && sec != "True"
+        {
+            return self.deny("static ability `S: Mode$ CantPreventDamage`".to_string());
+        }
+        if let Some(zone) = p.take("EffectZone")
+            && zone != "Battlefield"
+        {
+            return self.deny("static ability `S: Mode$ CantPreventDamage`".to_string());
+        }
+        let valid_source = p.take("ValidSource");
+        let condition = self.condition(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ CantPreventDamage`".to_string());
+        }
+        let filter = match valid_source {
+            None => "Filter::Any".to_string(),
+            Some(valid) => self.filter_expr(&valid)?,
+        };
+        let mut expr = Self::static_expr(&filter, "Modifier::CombatDamageCantBePrevented");
+        if !condition.is_empty()
+            && let Some(open) = expr.strip_suffix(')')
+        {
+            expr = format!("{open}{condition})");
+        }
+        self.body.abilities.push(expr);
+        Some(())
+    }
+
+    fn player_life_rule(&mut self, mut p: Params, mode: &str, variant: &str) -> Option<()> {
+        p.drop_prose();
+        if let Some(sec) = p.take("Secondary")
+            && sec != "True"
+        {
+            return self.deny(format!("static ability `S: Mode$ {mode}`"));
+        }
+        if let Some(zone) = p.take("EffectZone")
+            && zone != "Battlefield"
+        {
+            return self.deny(format!("static ability `S: Mode$ {mode}`"));
+        }
+        let who = match p.take("ValidPlayer").as_deref() {
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some("Player") => "PlayerRel::EachPlayer",
+            _ => return self.deny(format!("static ability `S: Mode$ {mode}`")),
+        };
+        let condition = self.condition(&mut p)?;
+        if !p.exhausted() {
+            return self.deny(format!("static ability `S: Mode$ {mode}`"));
+        }
+        let mut expr = Self::static_expr(
+            "Filter::Any",
+            &format!("Modifier::{variant} {{ who: {who} }}"),
+        );
+        if !condition.is_empty()
+            && let Some(open) = expr.strip_suffix(')')
+        {
+            expr = format!("{open}{condition})");
+        }
+        self.body.abilities.push(expr);
+        Some(())
+    }
+
+    fn cant_search_library(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if let Some(sec) = p.take("Secondary")
+            && sec != "True"
+        {
+            return self.deny("static ability `S: Mode$ CantSearchLibrary`".to_string());
+        }
+        if let Some(zone) = p.take("EffectZone")
+            && zone != "Battlefield"
+        {
+            return self.deny("static ability `S: Mode$ CantSearchLibrary`".to_string());
+        }
+        if !matches!(
+            p.take("ValidPlayer").as_deref(),
+            Some("Opponent" | "Player.Opponent")
+        ) {
+            return self.deny("static ability `S: Mode$ CantSearchLibrary`".to_string());
+        }
+        let condition = self.condition(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ CantSearchLibrary`".to_string());
+        }
+        let mut expr = Self::static_expr("Filter::Any", "Modifier::OpponentsCantSearch");
+        if !condition.is_empty()
+            && let Some(open) = expr.strip_suffix(')')
+        {
+            expr = format!("{open}{condition})");
+        }
+        self.body.abilities.push(expr);
+        Some(())
+    }
+
+    /// Additional `R:` replacement handlers (`CreateToken`, `AddCounter`,
+    /// `GainLife`, and extended `Moved` replacements).
     pub(super) fn try_extra_replacement(&mut self, spec: &str) -> ExtraOutcome {
         let Some((event, p)) = Params::parse(spec) else {
             return ExtraOutcome::Pass;
@@ -764,8 +1006,382 @@ impl Tx<'_> {
         match event.as_str() {
             "CreateToken" => ExtraOutcome::Handled(self.replace_create_token(p)),
             "AddCounter" => ExtraOutcome::Handled(self.replace_add_counter(p)),
+            "GainLife" => ExtraOutcome::Handled(self.replace_gain_life(p)),
+            "Moved" => self.try_extra_moved(p),
             _ => ExtraOutcome::Pass,
         }
+    }
+
+    fn replace_gain_life(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || p.take("ValidPlayer").as_deref() != Some("You")
+        {
+            return self.deny("replacement `R: Event$ GainLife`".to_string());
+        }
+        let Some(replace_with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `R: Event$ GainLife`".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `R: Event$ GainLife`".to_string());
+        }
+        let Some((api, mut body)) = self.svars.get(&replace_with).and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `R: Event$ GainLife`".to_string());
+        };
+        body.drop_prose();
+        if api != "Draw" || body.take("Defined").as_deref() != Some("You") {
+            return self.deny("replacement `R: Event$ GainLife`".to_string());
+        }
+        let num_var = body.take("NumCards")?;
+        if !body.exhausted()
+            || self.svars.get(num_var.trim()).map(|s| s.trim()) != Some("ReplaceCount$LifeGained")
+        {
+            return self.deny("replacement `R: Event$ GainLife`".to_string());
+        }
+        self.body.abilities.push(Self::static_expr(
+            "Filter::Any",
+            "Modifier::LifeGainDrawsInstead { who: PlayerRel::You }",
+        ));
+        Some(())
+    }
+
+    /// Extended `R: Event$ Moved` handlers that leave `keywords.rs::replacement`,
+    /// `gond_entry`, and `external_enter_tapped` untouched for their existing shapes.
+    fn try_extra_moved(&mut self, p: Params) -> ExtraOutcome {
+        let valid_card = p.peek("ValidCard");
+        let dest = p.peek("Destination");
+        // Leave `gond_entry` and `external_enter_tapped` on their exact existing paths.
+        if matches!(
+            valid_card,
+            Some(
+                "Gate.YouCtrl"
+                    | "Land.OppCtrl+nonBasic"
+                    | "Artifact.OppCtrl,Creature.OppCtrl,Land.OppCtrl"
+            )
+        ) {
+            return ExtraOutcome::Pass;
+        }
+        // Prevent entering the battlefield (`Modifier::CantEnterBattlefield`).
+        if p.peek("Prevent") == Some("True") && dest == Some("Battlefield") {
+            return ExtraOutcome::Handled(self.moved_cant_enter(p));
+        }
+        // Departure exile replacement (`Modifier::ExileInsteadOfLeavingBattlefield`).
+        if p.peek("ExcludeDestination") == Some("Exile") {
+            return ExtraOutcome::Handled(self.moved_exile_on_leave(p));
+        }
+        // Graveyard-to-exile replacements (`ExileOpponentsGraveyard`,
+        // `ExileInsteadOfYourGraveyard`).
+        if dest == Some("Graveyard") {
+            return ExtraOutcome::Handled(self.moved_exile_instead_of_graveyard(p));
+        }
+        // Self-ETB replacements whose `ReplaceWith$` is NOT `DB$ Tap`.
+        if valid_card == Some("Card.Self") && dest == Some("Battlefield") {
+            if let Some(with) = p.peek("ReplaceWith")
+                && let Some((api, _)) = self.svars.get(with).and_then(|s| Params::parse(s))
+            {
+                if api == "Reveal" {
+                    return ExtraOutcome::Handled(self.moved_reveal_or_control_tap(p));
+                }
+                if api == "LoseLife" {
+                    return ExtraOutcome::Handled(self.moved_lose_life_equal_to_life(p));
+                }
+            }
+            return ExtraOutcome::Pass;
+        }
+        // External battlefield enter-tapped / enter-untapped replacements.
+        if dest == Some("Battlefield")
+            && p.peek("ActiveZones") == Some("Battlefield")
+            && p.peek("ReplacementResult") == Some("Updated")
+            && valid_card.is_some_and(|v| !v.starts_with("Card.Self"))
+        {
+            return ExtraOutcome::Handled(self.moved_external_enter_orientation(p));
+        }
+        ExtraOutcome::Pass
+    }
+
+    fn moved_cant_enter(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("Prevent").as_deref() != Some("True")
+            || p.take("Layer").as_deref() != Some("CantHappen")
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("CANT_ENTER", &expr);
+        self.body.abilities.push(Self::static_expr(
+            "Filter::This",
+            &format!("Modifier::CantEnterBattlefield(&{filter})"),
+        ));
+        Some(())
+    }
+
+    fn moved_exile_on_leave(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || p.take("Origin").as_deref() != Some("Battlefield")
+            || p.take("ExcludeDestination").as_deref() != Some("Exile")
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some((api, mut body)) = self.svars.get(&with).and_then(|s| Params::parse(s)) else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        body.drop_prose();
+        if api != "ChangeZone"
+            || body.take("Defined").as_deref() != Some("ReplacedCard")
+            || !matches!(body.take("Origin").as_deref(), Some("Battlefield" | "All"))
+            || body.take("Destination").as_deref() != Some("Exile")
+            || !matches!(body.take("Hidden").as_deref(), None | Some("True"))
+            || !body.exhausted()
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let filter = if valid == "Card.Self" {
+            "Filter::This".to_string()
+        } else {
+            self.filter_expr(&valid)?
+        };
+        self.body.abilities.push(Self::static_expr(
+            &filter,
+            "Modifier::ExileInsteadOfLeavingBattlefield",
+        ));
+        Some(())
+    }
+
+    fn moved_exile_instead_of_graveyard(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || p.take("Destination").as_deref() != Some("Graveyard")
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let origin = p.take("Origin");
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some((api, mut body)) = self.svars.get(&with).and_then(|s| Params::parse(s)) else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        body.drop_prose();
+        if api != "ChangeZone"
+            || body.take("Defined").as_deref() != Some("ReplacedCard")
+            || body.take("Destination").as_deref() != Some("Exile")
+            || !matches!(body.take("Hidden").as_deref(), None | Some("True"))
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let body_origin = body.take("Origin");
+        let counter_raw = body.take("WithCountersType");
+        if !body.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        if origin.is_none() && body_origin.as_deref() == Some("All") {
+            if valid == "Card.!token+OppOwn" {
+                let counter = match counter_raw {
+                    None => "None".to_string(),
+                    Some(code) => format!("Some({})", counter_kind(code.trim())?),
+                };
+                self.body.abilities.push(format!(
+                    "AbilityDef::Replacement(ReplacementRule::ExileOpponentsGraveyard {{ \
+                     counter: {counter} }})"
+                ));
+                return Some(());
+            }
+            if valid == "Card.!token+YouOwn" && counter_raw.is_none() {
+                self.body.abilities.push(Self::static_expr(
+                    "Filter::Any",
+                    "Modifier::ExileInsteadOfYourGraveyard",
+                ));
+                return Some(());
+            }
+        }
+        self.deny("replacement `Moved` this rule cannot read".to_string())
+    }
+
+    fn moved_reveal_or_control_tap(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ValidCard").as_deref() != Some("Card.Self")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("ReplacementResult").as_deref() != Some("Updated")
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some((api, mut rev)) = self.svars.get(&with).and_then(|s| Params::parse(s)) else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        rev.drop_prose();
+        let valid = rev.take("RevealValid")?;
+        let tap_var = rev.take("SubAbility")?;
+        if api != "Reveal"
+            || rev.take("Optional").as_deref() != Some("True")
+            || rev.take("RememberRevealed").as_deref() != Some("True")
+            || !rev.exhausted()
+            || valid.contains("Ctrl")
+            || valid.contains("Own")
+            || valid.contains("Self")
+            || valid.contains("Other")
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some((tap_api, mut tap)) = self.svars.get(&tap_var).and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        tap.drop_prose();
+        let check_var = tap.take("ConditionCheckSVar")?;
+        let cleanup_var = tap.take("SubAbility");
+        if tap_api != "Tap"
+            || tap.take("ETB").as_deref() != Some("True")
+            || tap.take("Defined").as_deref() != Some("Self")
+            || tap.take("ConditionSVarCompare").as_deref() != Some("EQ0")
+            || !tap.exhausted()
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        if let Some(clean) = cleanup_var {
+            let Some((c_api, mut cp)) = self.svars.get(&clean).and_then(|s| Params::parse(s))
+            else {
+                return self.deny("replacement `Moved` this rule cannot read".to_string());
+            };
+            cp.drop_prose();
+            if c_api != "Cleanup"
+                || cp.take("ClearRemembered").as_deref() != Some("True")
+                || !cp.exhausted()
+            {
+                return self.deny("replacement `Moved` this rule cannot read".to_string());
+            }
+        }
+        let ctrl_var = self
+            .svars
+            .get(check_var.trim())?
+            .trim()
+            .strip_prefix("Count$RememberedSize/Plus.")?;
+        let ctrl_def = self.svars.get(ctrl_var.trim())?.trim();
+        let expected_a = format!("Count$Valid {valid}.inZoneBattlefield+YouCtrl");
+        let expected_b = format!("Count$Valid {valid}.YouCtrl+inZoneBattlefield");
+        if ctrl_def != expected_a && ctrl_def != expected_b {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let expr = self.filter_expr_in_zone(&valid, true)?;
+        let filter = self.body.filter_static("REVEAL", &expr);
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::TappedUnlessRevealOrControl(&{filter})"
+        ));
+        Some(())
+    }
+
+    fn moved_lose_life_equal_to_life(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ValidCard").as_deref() != Some("Card.Self")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("ReplacementResult").as_deref() != Some("Updated")
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some((api, mut body)) = self.svars.get(&with).and_then(|s| Params::parse(s)) else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        body.drop_prose();
+        let life_var = body.take("LifeAmount")?;
+        if api != "LoseLife"
+            || !matches!(body.take("Defined").as_deref(), None | Some("You"))
+            || !body.exhausted()
+            || self.svars.get(life_var.trim()).map(|s| s.trim()) != Some("Count$YourLifeTotal")
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::LoseLifeEqualToLife".to_string());
+        Some(())
+    }
+
+    fn moved_external_enter_orientation(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let valid = p.take("ValidCard")?;
+        if p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || p.take("ReplacementResult").as_deref() != Some("Updated")
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        if !p.exhausted()
+            || valid.contains("Self")
+            || valid.contains("Other")
+            || valid.contains("EnchantedPlayer")
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some((api, mut body)) = self.svars.get(&with).and_then(|s| Params::parse(s)) else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        body.drop_prose();
+        if body.take("ETB").as_deref() != Some("True")
+            || body.take("Defined").as_deref() != Some("ReplacedCard")
+            || !body.exhausted()
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let rule = match api.as_str() {
+            "Tap" => "EnterTapped",
+            // Keep `EnterUntapped` scoped to your own permanents (preserving
+            // `gond_entry`'s `Gate.OppCtrl` refusal boundary).
+            "Untap"
+                if valid
+                    .split(',')
+                    .all(|alt| alt.split(['.', '+']).any(|a| a.trim() == "YouCtrl")) =>
+            {
+                "EnterUntapped"
+            }
+            _ => return self.deny("replacement `Moved` this rule cannot read".to_string()),
+        };
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("ENTER", &expr);
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::{rule}(&{filter}))"
+        ));
+        Some(())
     }
 
     fn replace_create_token(&mut self, mut p: Params) -> Option<()> {
@@ -959,4 +1575,49 @@ fn strip_battlefield_zone(valid: &str) -> Option<String> {
         out.push(cleaned);
     }
     (!out.is_empty()).then(|| out.join(","))
+}
+
+fn apply_etb_amount_suffix(base: String, suffix: &str) -> Option<String> {
+    match suffix.trim() {
+        "Twice" => {
+            if base == "Amount::X" {
+                Some("Amount::DoubleX".to_string())
+            } else {
+                Some(format!("Amount::Times {{ base: &{base}, factor: 2 }}"))
+            }
+        }
+        "HalfDown" => Some(format!("Amount::Half {{ base: &{base}, round_up: false }}")),
+        "HalfUp" => Some(format!("Amount::Half {{ base: &{base}, round_up: true }}")),
+        other => {
+            if let Some(n_str) = other.strip_prefix("Plus.")
+                && let Ok(offset) = n_str.trim().parse::<u32>()
+                && offset > 0
+            {
+                return Some(format!(
+                    "Amount::Plus {{ base: &{base}, offset: {offset} }}"
+                ));
+            }
+            if let Some(n_str) = other.strip_prefix("Minus.")
+                && let Ok(subtract) = n_str.trim().parse::<u32>()
+                && subtract > 0
+            {
+                return Some(format!(
+                    "Amount::SaturatingSub {{ base: &{base}, subtract: {subtract} }}"
+                ));
+            }
+            if let Some(n_str) = other.strip_prefix("Times.")
+                && let Ok(factor) = n_str.trim().parse::<u32>()
+                && factor > 0
+            {
+                return Some(if factor == 1 {
+                    base
+                } else if factor == 2 && base == "Amount::X" {
+                    "Amount::DoubleX".to_string()
+                } else {
+                    format!("Amount::Times {{ base: &{base}, factor: {factor} }}")
+                });
+            }
+            None
+        }
+    }
 }

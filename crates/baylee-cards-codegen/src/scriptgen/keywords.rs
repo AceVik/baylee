@@ -1110,23 +1110,40 @@ impl Tx<'_> {
         if matches!(event.as_str(), "GameLoss" | "GameWin") {
             p.drop_prose();
             let loss = event == "GameLoss";
-            let expected_player = if loss { "You" } else { "Opponent" };
             if p.take("ActiveZones").as_deref() != Some("Battlefield")
-                || p.take("ValidPlayer").as_deref() != Some(expected_player)
                 || p.take("Layer").as_deref() != Some("CantHappen")
                 || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
-                || !p.exhausted()
             {
                 return self.deny(format!("replacement `R: Event$ {event}`"));
             }
-            let modifier = if loss {
-                "Modifier::NamedPlayersCantLose(PlayerRel::You)"
-            } else {
-                "Modifier::PlayersCantWin(PlayerRel::EachOpponent)"
+            let who = match p.take("ValidPlayer").as_deref() {
+                Some("You") => "PlayerRel::You",
+                Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+                Some("Player") => "PlayerRel::EachPlayer",
+                _ => return self.deny(format!("replacement `R: Event$ {event}`")),
             };
-            self.body
-                .abilities
-                .push(Self::static_expr("Filter::Any", modifier));
+            let zero_life = match (loss, p.take("ValidLoseReason").as_deref()) {
+                (_, None) => false,
+                (true, Some("LifeReachedZero")) => true,
+                _ => return self.deny(format!("replacement `R: Event$ {event}`")),
+            };
+            let condition = self.condition(&mut p)?;
+            if !p.exhausted() {
+                return self.deny(format!("replacement `R: Event$ {event}`"));
+            }
+            let modifier = match (loss, zero_life, who) {
+                (true, true, _) => format!("Modifier::NoLossForZeroLife {{ who: {who} }}"),
+                (true, false, "PlayerRel::EachPlayer") => "Modifier::PlayersCantLose".to_string(),
+                (true, false, _) => format!("Modifier::NamedPlayersCantLose({who})"),
+                (false, _, _) => format!("Modifier::PlayersCantWin({who})"),
+            };
+            let mut expr = Self::static_expr("Filter::Any", &modifier);
+            if !condition.is_empty()
+                && let Some(open) = expr.strip_suffix(')')
+            {
+                expr = format!("{open}{condition})");
+            }
+            self.body.abilities.push(expr);
             return Some(());
         }
         if event == "DamageDone" && p.peek("ValidCause") == Some("Spell.IsTargeting Self") {
@@ -1229,9 +1246,27 @@ impl Tx<'_> {
             // A fourth sentence, and it arrives through a different key
             // because it counts something no `IsPresent$` filter reaches: a
             // number of *players*. Without one of those the line is the
-            // plain "enters tapped".
+            // plain "enters tapped" (optionally chaining ETB counters onto
+            // itself, as on the Vivid lands or Sphere of the Suns).
             (None, None) => match body.take("ConditionCheckSVar") {
-                None => "EnterModifier::Tapped".to_string(),
+                None => {
+                    if let Some(sub) = body.take("SubAbility") {
+                        if !body.exhausted() {
+                            self.note(format!(
+                                "replacement `Moved` tapping with `{}`",
+                                body.first_key().unwrap_or_default()
+                            ));
+                            return None;
+                        }
+                        let extras = self.self_etb_counter_chain(&sub)?;
+                        self.body
+                            .enter_modifiers
+                            .push("EnterModifier::Tapped".to_string());
+                        self.body.enter_modifiers.extend(extras);
+                        return Some(());
+                    }
+                    "EnterModifier::Tapped".to_string()
+                }
                 Some(svar) => self.enters_tapped_unless_players(&mut body, &svar)?,
             },
         };
@@ -1246,31 +1281,15 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// "You may pay N life. If you don’t, this enters tapped" — the
-    /// shocklands, 26 of the corpus’s `Moved` replacements, and
-    /// [`EnterModifier::TappedOrPayLife`] says it exactly. Steam Vents is
-    /// hand-written in this pool as `TappedOrPayLife(2)` against the
-    /// script’s `PayLife<2>`, which is the reading checked against a
-    /// printed card rather than argued from the key’s name.
-    ///
-    /// `PayLife<N>` and nothing else: the other five `UnlessCost$` values on
-    /// these lines reveal a card instead (Rustic Clachan’s Kithkin),
-    /// which this modifier has nowhere to carry. And the payer has to be the
-    /// land’s own controller, because that is the only player
-    /// `TappedOrPayLife` can ask.
+    /// "You may pay N life. If you don’t, this enters tapped" (shocklands,
+    /// `EnterModifier::TappedOrPayLife`) and "As this enters, you may reveal a
+    /// [filter] card from your hand. If you don't, this enters tapped" (Lorwyn
+    /// reveal lands and Shadows/M21 snarls, `EnterModifier::TappedUnlessReveal`).
     pub(super) fn enters_tapped_or_pays(
         &mut self,
         body: &mut Params,
         cost: &str,
     ) -> Option<String> {
-        let life = cost
-            .strip_prefix("PayLife<")
-            .and_then(|rest| rest.strip_suffix('>'))
-            .and_then(|n| n.parse::<u16>().ok());
-        let Some(life) = life else {
-            self.note(format!("replacement `Moved` charging `{cost}`"));
-            return None;
-        };
         match body.take("UnlessPayer").as_deref() {
             Some("You") => {}
             other => {
@@ -1281,7 +1300,22 @@ impl Tx<'_> {
                 return None;
             }
         }
-        Some(format!("EnterModifier::TappedOrPayLife({life})"))
+        if let Some(life) = cost
+            .strip_prefix("PayLife<")
+            .and_then(|rest| rest.strip_suffix('>'))
+            .and_then(|n| n.parse::<u16>().ok())
+        {
+            return Some(format!("EnterModifier::TappedOrPayLife({life})"));
+        }
+        if let Some(reveal) = cost
+            .strip_prefix("Reveal<")
+            .and_then(|rest| rest.strip_suffix('>'))
+            && let Some(modifier) = self.enters_tapped_unless_reveal(reveal)
+        {
+            return Some(modifier);
+        }
+        self.note(format!("replacement `Moved` charging `{cost}`"));
+        None
     }
 
     /// "This enters tapped unless you control N or more …".
