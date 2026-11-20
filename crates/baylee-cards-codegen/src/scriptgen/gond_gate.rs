@@ -33,17 +33,32 @@ impl Tx<'_> {
     pub(super) fn gond_mana_reflected(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         if p.take("Cost").as_deref() != Some("T")
-            || p.take("ColorOrType").as_deref() != Some("Color")
             || p.take("ReflectProperty").as_deref() != Some("Produce")
         {
             return self.deny("reflected mana outside the exact your-Gate colours grammar".into());
         }
-        let effect = match p.take("Valid").as_deref() {
-            Some("Gate.YouCtrl") => {
-                "Effect::mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, false)"
+        let any_type = match p.take("ColorOrType").as_deref() {
+            Some("Color") => false,
+            Some("Type") => true,
+            _ => {
+                return self
+                    .deny("reflected mana outside the exact your-Gate colours grammar".into());
             }
-            Some("Basic.YouCtrl") => "Effect::mana_from_lands(&Filter::BASIC_LAND, true, false)",
-            Some("Land.OppCtrl") => "Effect::mana_land_color(false)",
+        };
+        let effect = match (p.take("Valid").as_deref(), any_type) {
+            (Some("Gate.YouCtrl"), false) => {
+                "Effect::mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, false)"
+                    .to_string()
+            }
+            (Some("Basic.YouCtrl"), false) => {
+                "Effect::mana_from_lands(&Filter::BASIC_LAND, true, false)".to_string()
+            }
+            (Some("Land.OppCtrl"), any_type) => {
+                format!("Effect::mana_from_lands(&Filter::ControlledByOpponent, false, {any_type})")
+            }
+            (Some("Land.YouCtrl"), any_type) => {
+                format!("Effect::mana_from_lands(&Filter::ControlledByYou, true, {any_type})")
+            }
             _ => {
                 return self
                     .deny("reflected mana outside the exact your-Gate colours grammar".into());

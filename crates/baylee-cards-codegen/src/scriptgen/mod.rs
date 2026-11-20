@@ -97,6 +97,8 @@ pub struct CardScript {
     pub has_x_mana_cost: bool,
     /// `Oracle:` line, when present, for cross-checking target player vs. opponent.
     pub oracle: String,
+    /// `PT:` line (e.g. `*/4`, `2/1+*`), used by single-sided P/T CDAs.
+    pub pt: Option<String>,
     /// `AlternateMode:<mode>` header on multi-face scripts (`Split`,
     /// `Adventure`, `Modal`, `DoubleFaced`, …).
     pub alternate_mode: Option<String>,
@@ -116,7 +118,6 @@ pub struct CardScript {
 /// that are the corpus's own deckbuilding/AI hints and carry no rules.
 const IGNORED_PREFIXES: &[&str] = &[
     "Name",
-    "PT",
     "Loyalty",
     "Defense",
     "Colors",
@@ -169,6 +170,7 @@ fn parse_face(lines: &[&str]) -> CardScript {
                 out.type_line = rest.to_string();
             }
             "ManaCost" => out.has_x_mana_cost = rest.split_whitespace().any(|word| word == "X"),
+            "PT" => out.pt = Some(rest.trim().to_string()),
             "Oracle" => out.oracle = rest.to_string(),
             "AlternateMode" => {
                 if out.alternate_mode.is_none() {
@@ -464,6 +466,8 @@ struct Tx<'a> {
     /// Whether the chain being read follows `ChooseType | Type$ Creature`,
     /// enabling `ChosenType` filter atoms for resolution-chosen creature types.
     in_chosen_creature_type: bool,
+    /// `PT:` line on this face, for single-sided characteristic-defining P/T.
+    pt: Option<&'a str>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -531,6 +535,7 @@ impl<'a> Tx<'a> {
             kicked_branch_used: std::cell::Cell::new(false),
             counter_on_source: false,
             in_chosen_creature_type: false,
+            pt: script.pt.as_deref(),
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }

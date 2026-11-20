@@ -256,60 +256,169 @@ impl Tx<'_> {
     /// The definition is passed in rather than the `SVar` name so that the
     /// caller decides what an *undefined* name is called as well.
     pub(super) fn count_expr(&mut self, def: &str) -> Option<String> {
-        if def.trim() == "TriggerCount$DamageAmount"
-            && matches!(
-                self.trigger_mode.as_deref(),
-                Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
-            )
-        {
-            return Some("Amount::EventAmount".to_string());
+        self.count_expr_depth(def, 0, false)
+    }
+
+    /// Static-safe subset of [`Self::count_expr`]: only amounts that evaluate
+    /// without a stack resolution (safe inside static abilities and
+    /// `Condition::AmountAtLeast`).
+    pub(super) fn static_count_expr(&mut self, def: &str) -> Option<String> {
+        self.count_expr_depth(def, 0, true)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn count_expr_depth(&mut self, def: &str, depth: u8, static_only: bool) -> Option<String> {
+        let def = def.trim();
+        if !static_only && def == "Count$xPaid/Times.2" && self.has_x {
+            return Some("Amount::DoubleX".to_string());
         }
-        if def.trim() == "TriggerCount$LifeAmount"
-            && matches!(
-                self.trigger_mode.as_deref(),
-                Some("LifeGained" | "LifeLost")
-            )
+        if depth < 2
+            && let Some((lhs, rhs)) = def.rsplit_once('/')
         {
-            return Some("Amount::EventAmount".to_string());
+            let op = if let Some(n) = rhs.strip_prefix("Times.") {
+                n.trim()
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|&v| v >= 1)
+                    .map(|v| (0u8, v))
+            } else if let Some(n) = rhs.strip_prefix("Plus.") {
+                n.trim().parse::<u32>().ok().map(|v| (1u8, v))
+            } else if let Some(n) = rhs.strip_prefix("Minus.") {
+                n.trim().parse::<u32>().ok().map(|v| (2u8, v))
+            } else if rhs == "HalfDown" {
+                Some((3u8, 0))
+            } else if rhs == "HalfUp" {
+                Some((4u8, 0))
+            } else {
+                None
+            };
+            if let Some((kind, arg)) = op {
+                let lhs = lhs.trim();
+                let base = if let Some(var) = lhs.strip_prefix("SVar$") {
+                    let inner = self.svars.get(var.trim())?.clone();
+                    self.count_expr_depth(&inner, depth + 1, static_only)?
+                } else if !static_only && lhs == "Count$xPaid" && self.has_x {
+                    "Amount::X".to_string()
+                } else {
+                    self.count_expr_depth(lhs, depth + 1, static_only)?
+                };
+                return Some(match kind {
+                    0 => format!("Amount::Times {{ base: &{base}, factor: {arg} }}"),
+                    1 => format!("Amount::Plus {{ base: &{base}, offset: {arg} }}"),
+                    2 => format!("Amount::SaturatingSub {{ base: &{base}, subtract: {arg} }}"),
+                    3 => format!("Amount::Half {{ base: &{base}, round_up: false }}"),
+                    4 => format!("Amount::Half {{ base: &{base}, round_up: true }}"),
+                    _ => unreachable!(),
+                });
+            }
         }
-        if def.trim() == "Count$CardsInYourHand" {
+        if !static_only {
+            if def == "TriggerCount$DamageAmount"
+                && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
+                )
+            {
+                return Some("Amount::EventAmount".to_string());
+            }
+            if def == "TriggerCount$LifeAmount"
+                && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("LifeGained" | "LifeLost")
+                )
+            {
+                return Some("Amount::EventAmount".to_string());
+            }
+            if (matches!(
+                def,
+                "TriggeredCard$CardPower" | "TriggeredCardLKICopy$CardPower"
+            ) && self.trigger_mode.as_deref() == Some("ChangesZone"))
+                || (matches!(
+                    def,
+                    "TriggeredAttacker$CardPower" | "TriggeredAttackerLKICopy$CardPower"
+                ) && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacks" | "AttackerUnblocked")
+                ))
+                || (matches!(
+                    def,
+                    "TriggeredBlocker$CardPower" | "TriggeredBlockerLKICopy$CardPower"
+                ) && self.trigger_mode.as_deref() == Some("Blocks"))
+            {
+                return Some("Amount::EventPower".to_string());
+            }
+            if matches!(
+                def,
+                "TriggeredCard$CardToughness" | "TriggeredCardLKICopy$CardToughness"
+            ) && self.trigger_mode.as_deref() == Some("ChangesZone")
+            {
+                return Some("Amount::EventLastToughness".to_string());
+            }
+            if def == "TriggeredCard$CardManaCost"
+                && self.trigger_mode.as_deref() == Some("SpellCast")
+            {
+                return Some("Amount::EventManaValue".to_string());
+            }
+            if def == "Targeted$CardToughness" {
+                return Some("Amount::TargetToughness".to_string());
+            }
+            if def == "Targeted$CardPower" {
+                return Some("Amount::TargetPower".to_string());
+            }
+            if def == "Targeted$CardManaCost" {
+                return Some("Amount::TargetCmc".to_string());
+            }
+            if def == "Sacrificed$CardPower" && self.cost_sacrifices_self && !self.on_a_spell {
+                return Some("Amount::SourcePower".to_string());
+            }
+            if def == "Sacrificed$CardPower" && self.cost_sacrifices_other {
+                return Some("Amount::SacrificedPower".to_string());
+            }
+            if def == "Sacrificed$CardToughness" && self.cost_sacrifices_other {
+                return Some("Amount::SacrificedToughness".to_string());
+            }
+            if def == "Sacrificed$CardManaCost" && self.cost_sacrifices_other {
+                return Some("Amount::SacrificedManaValue".to_string());
+            }
+        }
+        if matches!(def, "Count$CardsInYourHand" | "Count$ValidHand Card.YouOwn") {
             return Some("Amount::HandSize(PlayerRel::You)".to_string());
         }
-        if def.trim() == "Count$LifeYouGainedThisTurn" {
+        if def == "Count$LifeYouGainedThisTurn" {
             return Some("Amount::LifeGainedThisTurn(PlayerRel::You)".to_string());
         }
-        if def.trim() == "Count$YourLifeTotal" {
+        if def == "Count$YourLifeTotal" {
             return Some("Amount::LifeTotal(PlayerRel::You)".to_string());
         }
-        if def.trim() == "Targeted$CardToughness" {
-            return Some("Amount::TargetToughness".to_string());
+        if def == "Count$Domain" {
+            return Some("Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)".to_string());
         }
-        if def.trim() == "Targeted$CardPower" {
-            return Some("Amount::TargetPower".to_string());
+        if def == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
+            return Some("Amount::CreaturesDiedThisTurn".to_string());
         }
-        if (def.trim() == "Count$CardPower"
-            || (def.trim() == "Sacrificed$CardPower" && self.cost_sacrifices_self))
-            && !self.on_a_spell
-        {
+        if def == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" {
+            return Some("Amount::CreaturesEnteredUnderYourControlThisTurn".to_string());
+        }
+        if def == "PlayerCountOpponents$Amount" {
+            return Some("Amount::Players(PlayerRel::Opponent)".to_string());
+        }
+        if def == "PlayerCountPlayers$Amount" {
+            return Some("Amount::Players(PlayerRel::EachPlayer)".to_string());
+        }
+        if def == "Count$CardPower" && !self.on_a_spell {
             return Some("Amount::SourcePower".to_string());
         }
-        if def.trim() == "Sacrificed$CardPower" && self.cost_sacrifices_other && !self.on_a_spell {
-            return Some("Amount::SacrificedPower".to_string());
-        }
-        if def.trim() == "Sacrificed$CardManaCost" && self.cost_sacrifices_other {
-            return Some("Amount::SacrificedManaValue".to_string());
-        }
-        if let Some(kind) = def.trim().strip_prefix("Count$CardCounters.") {
+        if let Some(kind) = def.strip_prefix("Count$CardCounters.") {
             return super::counter_kind(kind)
                 .map(|kind| format!("Amount::CountersOnSource({kind})"));
         }
-        if def.trim() == "Count$ValidGraveyard Card.YouOwn" {
+        if def == "Count$ValidGraveyard Card.YouOwn" {
             return Some(
                 "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::You) }"
                     .to_string(),
             );
         }
-        if let Some(valid) = def.trim().strip_prefix("Count$ValidGraveyard ") {
+        if let Some(valid) = def.strip_prefix("Count$ValidGraveyard ") {
             if !valid.contains("Ctrl") && !valid.contains("Own") {
                 let expr = self.filter_expr_in_zone(valid, true)?;
                 let name = self.body.filter_static("COUNT", &expr);
@@ -326,18 +435,20 @@ impl Tx<'_> {
             }
             return None;
         }
-        let valid = def.trim().strip_prefix("Count$Valid ")?;
-        let (valid, factor) = match valid.split_once("/Times.") {
-            None => (valid, None),
-            Some((v, f)) => (v, Some(f.trim().parse::<u32>().ok()?)),
-        };
+        if let Some(valid) = def.strip_prefix("Count$ValidLibrary ") {
+            let stripped = Self::strip_your_graveyard_owner(valid)?;
+            let expr = self.filter_expr_in_zone(&stripped, true)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::LibraryYou }}"
+            ));
+        }
+        let valid = def.strip_prefix("Count$Valid ")?;
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);
-        let base = format!("Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}");
-        Some(match factor {
-            None => base,
-            Some(factor) => format!("Amount::Times {{ base: &{base}, factor: {factor} }}"),
-        })
+        Some(format!(
+            "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}"
+        ))
     }
 
     /// The atoms that are one word of printed text each, and the filter each

@@ -99,11 +99,23 @@ impl Tx<'_> {
             return None;
         }
         let mut p_rest = p.clone();
-        for key in ["ValidTgts", "TargetMin", "TargetMax", "SubAbility"] {
+        for key in [
+            "ValidTgts",
+            "ValidTgtsDesc",
+            "TargetMin",
+            "TargetMax",
+            "SubAbility",
+        ] {
             p_rest.take(key);
         }
         let mut cp_rest = cp.clone();
-        for key in ["ValidTgts", "TargetMin", "TargetMax", "SubAbility"] {
+        for key in [
+            "ValidTgts",
+            "ValidTgtsDesc",
+            "TargetMin",
+            "TargetMax",
+            "SubAbility",
+        ] {
             cp_rest.take(key);
         }
         if cp_rest.peek("Condition") == Some("Kicked") {
@@ -124,6 +136,7 @@ impl Tx<'_> {
         if !Self::same_target_domain(&spec1, &spec2) {
             return None;
         }
+        p.claim_label("ValidTgtsDesc", "ValidTgts");
         p.take("ValidTgts");
         p.take("TargetMin");
         p.take("TargetMax");
@@ -182,6 +195,7 @@ impl Tx<'_> {
             (Some(min), Some(max)) if min == max && self.kicked_pair(min) == Some((1, 0)) => {}
             _ => return None,
         }
+        p.claim_label("ValidTgtsDesc", "ValidTgts");
         p.take("ValidTgts");
         p.take("TargetMin");
         p.take("TargetMax");

@@ -1210,9 +1210,16 @@ fn gond_reflection_is_color_only_own_gate_and_keeps_unknown_guards() {
         body.abilities[0]
             .contains("mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, false)")
     );
+    let pool = gond_read(
+        &text
+            .replace("ColorOrType$ Color", "ColorOrType$ Type")
+            .replace("Gate.YouCtrl", "Land.YouCtrl"),
+    )
+    .unwrap();
+    assert!(pool.abilities[0].contains("mana_from_lands(&Filter::ControlledByYou, true, true)"));
     for (from, to) in [
-        ("ColorOrType$ Color", "ColorOrType$ Type"),
-        ("Gate.YouCtrl", "Land.YouCtrl"),
+        ("ColorOrType$ Color", "ColorOrType$ Any"),
+        ("Gate.YouCtrl", "Creature.YouCtrl"),
         ("Gate.YouCtrl", "Gate.OppCtrl"),
         ("ReflectProperty$ Produce", "ReflectProperty$ Color"),
         ("Cost$ T", "Cost$ 1 T"),
@@ -2273,7 +2280,7 @@ fn planeshift_batch_three_and_four_reader_patterns() {
         A:AB$ ManaReflected | Cost$ T | ColorOrType$ Color | Valid$ Land.OppCtrl | ReflectProperty$ Produce";
     assert_eq!(
         read(explorer).abilities,
-        ["mana_ability!(&[Effect::mana_land_color(false)])"]
+        ["mana_ability!(&[Effect::mana_from_lands(&Filter::ControlledByOpponent, false, false)])"]
     );
 
     let compass = "Name:Star Compass\nManaCost:2\nTypes:Artifact\n\

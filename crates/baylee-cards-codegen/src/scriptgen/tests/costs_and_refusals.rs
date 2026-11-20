@@ -733,11 +733,17 @@ fn a_static_ability_refuses_what_it_cannot_say() {
         "Name:X\nTypes:Creature\n\
          S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Equip:2\n"
     ));
-    // Setting only one half of P/T is a real card ("base power 4") that
-    // `SetPT` cannot express.
+    // Setting only one half of P/T is `Modifier::SetPower` / `Modifier::SetToughness`;
+    // a dynamic `SetPower$ X` with an unknown SVar still refuses.
+    let half_pt = read(
+        "Name:X\nTypes:Creature\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | SetPower$ 4\n",
+    );
+    assert!(half_pt.abilities[0].contains("Modifier::SetPower(4)"));
     assert!(refused(
         "Name:X\nTypes:Creature\n\
-         S:Mode$ Continuous | Affected$ Creature.YouCtrl | SetPower$ 4\n"
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | SetPower$ X\n\
+         SVar:X:Count$ValidExile Card.YouOwn\n"
     ));
     // A condition is a rule of its own; one it cannot read refuses.
     assert!(refused(
@@ -782,23 +788,34 @@ fn a_pump_of_x_reads_the_spells_x_and_keeps_its_sign() {
 /// become a catch-all would fail on them.
 #[test]
 fn a_pump_of_a_counted_x_is_refused_and_not_read_as_the_announced_one() {
-    // Gaea's Might: domain, which the DSL cannot count. 207 scripts in
-    // the reference pump by `X` and every one of them defines `SVar:X`;
-    // only 44 define it as the number the player announced.
+    // Domain and your hand size now lower to their exact `Amount` variants —
+    // never to `Amount::X`.
+    let domain = read(
+        "Name:X\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n\
+         SVar:X:Count$Domain\n",
+    );
+    assert!(
+        domain
+            .abilities
+            .join("")
+            .contains("Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)")
+    );
+    let hand = read(
+        "Name:X\nTypes:Sorcery\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X\n\
+         SVar:X:Count$ValidHand Card.YouOwn\n",
+    );
+    assert!(
+        hand.abilities
+            .join("")
+            .contains("Amount::Negated(&Amount::HandSize(PlayerRel::You))")
+    );
+    // Counts with no DSL representation still refuse rather than reading `X`.
     assert!(refused(
         "Name:X\nTypes:Instant\n\
          A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n\
-         SVar:X:Count$Domain\n"
-    ));
-    // Oboro Envoy: a count of a **zone**, and negative, so the sign is
-    // not what makes the difference. `Count$ValidHand` is one letter away
-    // from the `Count$Valid ` the reader answers and is a different
-    // question; a `strip_prefix` without its trailing space would take
-    // this one and count the battlefield.
-    assert!(refused(
-        "Name:X\nTypes:Sorcery\n\
-         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X\n\
-         SVar:X:Count$ValidHand Card.YouOwn\n"
+         SVar:X:Count$ValidExile Card.YouOwn\n"
     ));
     // And a **triggered** ability announces no number at all, so even
     // `Count$xPaid` is `x.unwrap_or(0)` there.
@@ -814,11 +831,11 @@ fn a_pump_of_a_counted_x_is_refused_and_not_read_as_the_announced_one() {
     let script = parse(
         "Name:X\nTypes:Instant\n\
          A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n\
-         SVar:X:Count$Domain\n",
+         SVar:X:Count$ValidExile Card.YouOwn\n",
     );
     assert_eq!(
         refusal_reason(&script, &cats(), None).as_deref(),
-        Some("pump amount `+X` = `Count$Domain`")
+        Some("pump amount `+X` = `Count$ValidExile Card.YouOwn`")
     );
 }
 
@@ -1536,7 +1553,7 @@ fn optional_unless_counter_and_end_step_blink_and_wizard_pump() {
         ("Phase$ End of Turn", "Phase$ Upkeep"),
         (
             "RememberObjects$ RememberedLKI",
-            "RememberObjects$ Remembered",
+            "RememberObjects$ TriggeredCard",
         ),
         (
             "Destination$ Battlefield",

@@ -524,6 +524,7 @@ impl Tx<'_> {
     /// here, not one with a flag: `PumpFilter` binds `Filter::This` to the
     /// source, `PumpTarget` to what the spell targeted, and an ability can
     /// have both a target and a pump on itself.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn pump_effect(
         &mut self,
         p: &mut Params,
@@ -558,6 +559,74 @@ impl Tx<'_> {
                 _ => None,
             };
         }
+        if p.peek("KW").map(str::trim)
+            == Some("HIDDEN This card doesn't untap during your next untap step.")
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+            && !second
+        {
+            if p.take("Duration").as_deref() != Some("Permanent") {
+                return None;
+            }
+            p.take("KW");
+            p.take("IsCurse");
+            let to = match p.take("Defined").as_deref() {
+                Some("Self") => "TargetSpec::ThisObject",
+                None if target == "TargetSpec::AnyPlayer" && !self.on_a_spell => {
+                    "TargetSpec::ThisObject"
+                }
+                None | Some("Targeted" | "ParentTarget") if target != "TargetSpec::AnyPlayer" => {
+                    target
+                }
+                Some("TriggeredCardLKICopy" | "TriggeredCard")
+                    if self.trigger_mode.as_deref() == Some("ChangesZone") =>
+                {
+                    "TargetSpec::EventObject"
+                }
+                Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
+                    if self.trigger_mode.as_deref() == Some("Attacks") =>
+                {
+                    "TargetSpec::EventObject"
+                }
+                Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
+                    if self.trigger_mode.as_deref() == Some("Blocks") =>
+                {
+                    "TargetSpec::EventObject"
+                }
+                _ => return None,
+            };
+            return Some(vec![format!(
+                "Effect::SuppressUntap {{ target: {to}, steps: 1 }}"
+            )]);
+        }
+        if p.peek("KW").map(str::trim) == Some("HIDDEN All creatures able to block CARDNAME do so.")
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+            && !second
+        {
+            if p.take("Duration").is_some() {
+                return None;
+            }
+            p.take("KW");
+            p.take("IsCurse");
+            return match p.take("Defined").as_deref() {
+                Some("Self") => Some(vec![
+                    "Effect::continuous(&Filter::This, Modifier::MustBeBlockedByAllAble, Duration::UntilEndOfTurn)"
+                        .to_string(),
+                ]),
+                None if target == "TargetSpec::AnyPlayer" && !self.on_a_spell => Some(vec![
+                    "Effect::continuous(&Filter::This, Modifier::MustBeBlockedByAllAble, Duration::UntilEndOfTurn)"
+                        .to_string(),
+                ]),
+                None | Some("Targeted" | "ParentTarget") if target != "TargetSpec::AnyPlayer" => {
+                    Some(vec![
+                        "Effect::ModifyTargets { modifier: Modifier::MustBeBlockedByAllAble, duration: Duration::UntilEndOfTurn }"
+                            .to_string(),
+                    ])
+                }
+                _ => None,
+            };
+        }
         let power = self.pump_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
         let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
@@ -572,6 +641,7 @@ impl Tx<'_> {
             Some("UntilUntaps") if !self.on_a_spell => {
                 "Duration::WhileSourceTapped { control: false, power_limited: false }"
             }
+            Some("AsLongAsControl") if !self.on_a_spell => "Duration::WhileYouControlSource",
             Some(_) => return None,
         };
         // Purely an AI targeting hint (don't curse your own team); it moves
@@ -646,6 +716,12 @@ impl Tx<'_> {
                      keywords: {keywords}, duration: {duration} }}"
                 )]
             }
+            Some("ParentTarget") if !second && target != "TargetSpec::AnyPlayer" => {
+                vec![format!(
+                    "Effect::PumpTarget {{ power: {power}, toughness: {toughness}, \
+                     keywords: {keywords}, duration: {duration} }}"
+                )]
+            }
             Some(_) => return None,
         })
     }
@@ -673,6 +749,24 @@ impl Tx<'_> {
         targets_here: bool,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
+        if p.peek("KW").map(str::trim)
+            == Some("HIDDEN This card doesn't untap during your next untap step.")
+            && p.peek("Duration") == Some("Permanent")
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+            && target.is_none()
+            && p.peek("Defined").is_none()
+        {
+            p.take("KW");
+            p.take("Duration");
+            p.take("IsCurse");
+            let valid = p.take("ValidCards")?;
+            let expr = self.filter_expr(&valid)?;
+            let name = self.body.filter_static("FREEZE_ALL", &expr);
+            return Some(vec![format!(
+                "Effect::SuppressUntap {{ target: TargetSpec::Object(&{name}), steps: 1 }}"
+            )]);
+        }
         let defined = p.take("Defined");
         let controlled_by = if target == Some("TargetSpec::Player(PlayerRel::Chosen)")
             && ((targets_a_player && matches!(defined.as_deref(), None | Some("Targeted")))
@@ -826,7 +920,29 @@ impl Tx<'_> {
                 }
                 (Some("Graveyard"), Some("Battlefield")) => {
                     let valid = p.take("ChangeType")?;
-                    if valid.contains("Ctrl") || valid.contains("Own") {
+                    let tapped = match p.take("Tapped").as_deref() {
+                        None | Some("False") => false,
+                        Some("True") => true,
+                        Some(_) => return None,
+                    };
+                    let gain = match p.take("GainControl").as_deref() {
+                        None | Some("False") => false,
+                        Some("True") => true,
+                        Some(_) => return None,
+                    };
+                    if !gain && let Some(stripped) = Self::strip_your_graveyard_owner(&valid) {
+                        let expr = self.filter_expr_in_zone(&stripped, true)?;
+                        let name = self.body.filter_static("REANIMATE_ALL", &expr);
+                        return Some(vec![format!(
+                            "Effect::YourGraveyardToBattlefield {{ filter: &{name}, tapped: {tapped} }}"
+                        )]);
+                    }
+                    if valid == "Creature" && gain && !tapped {
+                        return Some(vec![
+                            "Effect::AllGraveyardCreaturesToBattlefield".to_string(),
+                        ]);
+                    }
+                    if valid.contains("Ctrl") || valid.contains("Own") || tapped || gain {
                         return None;
                     }
                     let expr = self.filter_expr_in_zone(&valid, true)?;
@@ -1433,11 +1549,13 @@ impl Tx<'_> {
         Some(())
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn exile_until_end_effect(
         &mut self,
         p: &mut Params,
         sub: &mut Option<String>,
         target: Option<&str>,
+        single_target: bool,
     ) -> Option<Vec<String>> {
         if !target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) {
             return self.deny("an end-step blink that does not target a battlefield object".into());
@@ -1459,16 +1577,55 @@ impl Tx<'_> {
             return self.deny("a blink delayed trigger with no `$` in it".into());
         };
         dp.drop_prose();
+        if del_api == "ChangeZone" {
+            if !single_target {
+                return self.deny("multi-target immediate blink".into());
+            }
+            if dp.take("Defined").as_deref() != Some("Remembered")
+                || dp.take("Origin").as_deref() != Some("Exile")
+                || dp.take("Destination").as_deref() != Some("Battlefield")
+            {
+                return self
+                    .deny("a `ChangeZone` exile follow-up other than an immediate blink".into());
+            }
+            let owner_control = match dp.take("GainControl").as_deref() {
+                None | Some("False") => true,
+                Some("True") => false,
+                Some(other) => {
+                    return self.deny(format!("a blink return with `GainControl$ {other}`"));
+                }
+            };
+            let cleanup_name = dp.take("SubAbility");
+            if let Some(key) = dp.first_key() {
+                return self.deny(format!("unclaimed parameter `BlinkReturn.{key}`"));
+            }
+            if let Some(cname) = cleanup_name {
+                self.consume_optional_remember_cleanup(cname, sub)?;
+            }
+            let tgt = target.expect("validated battlefield object target");
+            return Some(vec![format!(
+                "Effect::Blink {{ target: {tgt}, owner_control: {owner_control} }}"
+            )]);
+        }
         if del_api != "DelayedTrigger"
             || dp.take("Mode").as_deref() != Some("Phase")
             || !dp
                 .take("Phase")
                 .is_some_and(|ph| ph.eq_ignore_ascii_case("End of Turn"))
             || !matches!(dp.take("ValidPlayer").as_deref(), None | Some("Player"))
-            || dp.take("RememberObjects").as_deref() != Some("RememberedLKI")
+            || !matches!(
+                dp.take("RememberObjects").as_deref(),
+                Some("RememberedLKI" | "Remembered")
+            )
         {
             return self
                 .deny("a `ChangeZone` delayed trigger that is not an end-step LKI return".into());
+        }
+        if dp.peek("ConditionDefined") == Some("Remembered")
+            && dp.peek("ConditionPresent") == Some("Card")
+        {
+            dp.take("ConditionDefined");
+            dp.take("ConditionPresent");
         }
         let Some(ret_name) = dp.take("Execute") else {
             return self.deny("a blink delayed trigger with no `Execute$`".into());
@@ -1627,11 +1784,22 @@ impl Tx<'_> {
             ("Battlefield" | "Graveyard", "Hand", true) => {
                 vec!["Effect::bounce(TargetSpec::ThisObject)".to_string()]
             }
-            ("Graveyard", "Battlefield", true) => vec![
-                "Effect::ReturnSourceFromGraveyard { face: None, tapped: false, \
-                 owner_control: false, counters: None }"
-                    .to_string(),
-            ],
+            ("Graveyard", "Battlefield", true) => {
+                let tapped = match p.take("Tapped").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
+                let face = match p.take("Transformed").as_deref() {
+                    None | Some("False") => "None",
+                    Some("True") => "Some(1)",
+                    Some(_) => return None,
+                };
+                vec![format!(
+                    "Effect::ReturnSourceFromGraveyard {{ face: {face}, tapped: {tapped}, \
+                     owner_control: false, counters: None }}"
+                )]
+            }
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
             ("Battlefield", "Library", true)
                 if p.take("LibraryPosition").as_deref() == Some("0") =>
@@ -1734,10 +1902,40 @@ impl Tx<'_> {
                 {
                     return self.deny(format!("`ChangeZone` with `ChangeNum$ {num}`"));
                 }
-                vec![format!(
-                    "Effect::GraveyardToBattlefield {{ target: {target}, owner_control: false, \
-                     counters: None }}"
-                )]
+                let tapped = match p.take("Tapped").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(other) => {
+                        return self.deny(format!("`ChangeZone` with `Tapped$ {other}`"));
+                    }
+                };
+                let counters = if let Some(code) = p.take("WithCountersType") {
+                    let Some(kind) = super::counter_kind(&code) else {
+                        return self.deny(format!("counter `{code}`"));
+                    };
+                    let n: u16 = self
+                        .plain_num(p.take("WithCountersAmount").as_deref().unwrap_or("1"))?
+                        .try_into()
+                        .ok()?;
+                    if n == 0 {
+                        return None;
+                    }
+                    format!("Some(({kind}, {n}))")
+                } else {
+                    "None".to_string()
+                };
+                if tapped {
+                    vec![format!(
+                        "Effect::GraveyardToBattlefieldModified {{ target: {target}, \
+                         owner_control: false, tapped: true, counters: {counters}, \
+                         modifiers: &[] }}"
+                    )]
+                } else {
+                    vec![format!(
+                        "Effect::GraveyardToBattlefield {{ target: {target}, \
+                         owner_control: false, counters: {counters} }}"
+                    )]
+                }
             }
             _ => return self.deny(format!("`ChangeZone` {origin} to {destination}")),
         })

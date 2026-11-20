@@ -1067,7 +1067,7 @@ fn instant_history_requires_the_exact_cast_type_count_and_player() {
             ("GT1", "GT2"),
             ("GT1", "GE1"),
             ("GT1", "X"),
-            ("TriggerZones$ Battlefield", "TriggerZones$ Graveyard"),
+            ("TriggerZones$ Battlefield", "TriggerZones$ Command"),
         ] {
             assert!(refused(&script.replace(from, to)), "{from} -> {to}");
         }

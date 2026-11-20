@@ -553,57 +553,132 @@ impl Tx<'_> {
     /// or a clause beside it (Gaea's Liege's "as long as it isn't
     /// attacking") is another sentence, and refused.
     pub(super) fn characteristic_pt(&mut self, mut p: Params) -> Option<()> {
-        let (Some(power), Some(toughness)) = (p.take("SetPower"), p.take("SetToughness")) else {
+        let power_var = p.take("SetPower");
+        let tough_var = p.take("SetToughness");
+        if power_var.is_none() && tough_var.is_none() {
             return self.deny("a characteristic-defining ability with no P/T".to_string());
-        };
-        if power != toughness {
-            return self.deny(format!(
-                "a defined toughness `{toughness}` apart from power"
-            ));
         }
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `Continuous.{key}`"));
         }
-        let Some(count) = self.svars.get(&power).cloned() else {
-            return self.deny(format!("`{power}` names no SVar"));
+        match (power_var, tough_var) {
+            (Some(power), Some(toughness)) if power == toughness => {
+                let count = self.pt_count_for_svar(&power)?;
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
+                     count: {count}, toughness_plus: 0 }})"
+                ));
+                Some(())
+            }
+            (Some(power), Some(toughness)) => {
+                let t_def = self.svars.get(&toughness).cloned();
+                if let Some(t_def) = t_def.as_deref()
+                    && let Some(rest) = t_def.trim().strip_prefix(&format!("SVar${power}/Plus."))
+                    && let Ok(plus) = rest.trim().parse::<i8>()
+                {
+                    let count = self.pt_count_for_svar(&power)?;
+                    self.body.abilities.push(format!(
+                        "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
+                         count: {count}, toughness_plus: {plus} }})"
+                    ));
+                    return Some(());
+                }
+                let p_count = self.pt_count_for_svar(&power)?;
+                let t_count = self.pt_count_for_svar(&toughness)?;
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::CharacteristicPTSeparate {{ \
+                     power: {p_count}, toughness: {t_count} }})"
+                ));
+                Some(())
+            }
+            (Some(power), None) => {
+                let (_, fixed_t) = self.pt.and_then(|pt| pt.split_once('/'))?;
+                let Ok(t_num) = fixed_t.trim().parse::<u16>() else {
+                    return self.deny("a characteristic-defining ability with no P/T".to_string());
+                };
+                let p_count = self.pt_count_for_svar(&power)?;
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::CharacteristicPTSeparate {{ \
+                     power: {p_count}, toughness: PtCount::Fixed({t_num}) }})"
+                ));
+                Some(())
+            }
+            (None, Some(toughness)) => {
+                let (fixed_p, _) = self.pt.and_then(|pt| pt.split_once('/'))?;
+                let Ok(p_num) = fixed_p.trim().parse::<u16>() else {
+                    return self.deny("a characteristic-defining ability with no P/T".to_string());
+                };
+                let t_count = self.pt_count_for_svar(&toughness)?;
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::CharacteristicPTSeparate {{ \
+                     power: PtCount::Fixed({p_num}), toughness: {t_count} }})"
+                ));
+                Some(())
+            }
+            (None, None) => unreachable!(),
+        }
+    }
+
+    fn pt_count_for_svar(&mut self, var: &str) -> Option<String> {
+        let Some(raw) = self.svars.get(var.trim()).cloned() else {
+            return self.deny(format!("`{var}` names no SVar"));
         };
-        if let Some(counter) = count.trim().strip_prefix("Count$CardCounters.") {
+        let raw = raw.trim();
+        if let Some((lhs, rhs)) = raw.rsplit_once("/Plus.")
+            && let Ok(offset) = rhs.trim().parse::<u16>()
+        {
+            let base = if let Some(inner_var) = lhs.trim().strip_prefix("SVar$") {
+                let inner = self.svars.get(inner_var.trim())?.clone();
+                self.pt_count_base(inner.trim())?
+            } else {
+                self.pt_count_base(lhs.trim())?
+            };
+            return Some(format!(
+                "PtCount::Plus {{ base: &{base}, offset: {offset} }}"
+            ));
+        }
+        self.pt_count_base(raw)
+    }
+
+    fn pt_count_base(&mut self, count: &str) -> Option<String> {
+        if let Some(counter) = count.strip_prefix("Count$CardCounters.") {
             let Some(kind) = super::counter_kind(counter) else {
                 return self.deny(format!("counter `{counter}`"));
             };
-            self.body.abilities.push(format!(
-                "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
-                 count: PtCount::CountersOnThis({kind}), toughness_plus: 0 }})"
-            ));
-            return Some(());
+            return Some(format!("PtCount::CountersOnThis({kind})"));
+        }
+        if count == "Count$ValidGraveyard Card$CardTypes" {
+            return Some("PtCount::CardTypesInAllGraveyards".to_string());
+        }
+        if count == "Count$ValidGraveyard Card.OppOwn$CardTypes" {
+            return Some("PtCount::CardTypesInOpponentsGraveyards".to_string());
         }
         if let Some(valid) = count.strip_prefix("Count$ValidGraveyard ") {
-            if valid.contains("Ctrl") || valid.contains("Own") || valid.contains('/') {
+            if valid.contains("Ctrl")
+                || valid.contains("Own")
+                || valid.contains('/')
+                || valid.contains('$')
+            {
                 return self.deny(format!("count `{count}`"));
             }
-            let filter = self.filter_expr(valid)?;
+            let filter = self.filter_expr_in_zone(valid, true)?;
             let name = self.body.filter_static("COUNTED", &filter);
-            self.body.abilities.push(format!(
-                "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
-                 count: PtCount::InAllGraveyards(&{name}), toughness_plus: 0 }})"
-            ));
-            return Some(());
+            return Some(format!("PtCount::InAllGraveyards(&{name})"));
         }
         let Some(valid) = count.strip_prefix("Count$Valid ") else {
             return self.deny(format!("count `{count}`"));
         };
+        if valid.contains('/') || valid.contains('$') {
+            return self.deny(format!("count `{count}`"));
+        }
         let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
         if !yours && (valid.contains("Ctrl") || valid.contains("Own")) {
             return self.deny(format!("count `{count}`"));
         }
         let filter = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNTED", &filter);
-        let count = if yours { "YouControl" } else { "OnBattlefield" };
-        self.body.abilities.push(format!(
-            "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
-             count: PtCount::{count}(&{name}), toughness_plus: 0 }})"
-        ));
-        Some(())
+        let kind = if yours { "YouControl" } else { "OnBattlefield" };
+        Some(format!("PtCount::{kind}(&{name})"))
     }
 
     /// "Enchanted Wall can attack as though it didn't have defender"
@@ -1070,41 +1145,86 @@ impl Tx<'_> {
                     filter,
                     &format!("Modifier::ModifyPTPerCount {{ filter: &{name}, p: {p}, t: {t} }}"),
                 ));
-            } else {
+            } else if let (Some(power), Some(tough)) = (
+                add_p
+                    .as_deref()
+                    .map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
+                add_t
+                    .as_deref()
+                    .map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
+            ) {
                 // An anthem that names only one half still moves the other by
                 // zero, which is what the printed "+1/+0" says.
-                let (Some(power), Some(tough)) = (
-                    add_p.map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
-                    add_t.map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
-                ) else {
-                    self.note("static ability with a computed P/T".to_string());
-                    return None;
-                };
                 out.push(Self::static_expr(
                     filter,
                     &format!("Modifier::ModifyPT({power}, {tough})"),
                 ));
+            } else if let (Some(power), Some(toughness)) = (
+                self.static_pt_amount(add_p.as_deref()),
+                self.static_pt_amount(add_t.as_deref()),
+            ) {
+                out.push(Self::static_expr(
+                    filter,
+                    &format!(
+                        "Modifier::ModifyPTByAmount {{ power: {power}, toughness: {toughness} }}"
+                    ),
+                ));
+            } else {
+                self.note("static ability with a computed P/T".to_string());
+                return None;
             }
         }
         let set_p = p.take("SetPower");
         let set_t = p.take("SetToughness");
         if set_p.is_some() || set_t.is_some() {
-            // Setting one half and leaving the other alone is a real card
-            // ("base power 4"), and `SetPT` cannot say it — refuse rather
-            // than invent a value for the half that was not named.
-            let (Some(power), Some(tough)) = (
-                set_p.and_then(|v| v.trim().parse::<i16>().ok()),
-                set_t.and_then(|v| v.trim().parse::<i16>().ok()),
-            ) else {
-                self.note("static ability setting one half of P/T".to_string());
-                return None;
-            };
-            out.push(Self::static_expr(
-                filter,
-                &format!("Modifier::SetPT({power}, {tough})"),
-            ));
+            match (
+                set_p.as_deref().map(|v| v.trim().parse::<i16>().ok()),
+                set_t.as_deref().map(|v| v.trim().parse::<i16>().ok()),
+            ) {
+                (Some(Some(power)), Some(Some(tough))) => out.push(Self::static_expr(
+                    filter,
+                    &format!("Modifier::SetPT({power}, {tough})"),
+                )),
+                (Some(Some(power)), None) => {
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!("Modifier::SetPower({power})"),
+                    ));
+                }
+                (None, Some(Some(tough))) => out.push(Self::static_expr(
+                    filter,
+                    &format!("Modifier::SetToughness({tough})"),
+                )),
+                _ => {
+                    self.note("static ability setting one half of P/T".to_string());
+                    return None;
+                }
+            }
         }
         Some(())
+    }
+
+    fn static_pt_amount(&mut self, raw: Option<&str>) -> Option<String> {
+        let Some(raw) = raw else {
+            return Some("Amount::Fixed(0)".to_string());
+        };
+        let trimmed = raw.trim();
+        if let Ok(n) = trimmed.parse::<i16>() {
+            return Some(if n >= 0 {
+                format!("Amount::Fixed({n})")
+            } else {
+                format!("Amount::NegXFixed({})", n.unsigned_abs())
+            });
+        }
+        let neg = trimmed.starts_with('-');
+        let var = trimmed.trim_start_matches(['+', '-']);
+        let body = self.svars.get(var)?.clone();
+        let inner = self.static_count_expr(&body)?;
+        Some(if neg {
+            format!("Amount::Negated(&{inner})")
+        } else {
+            inner
+        })
     }
 
     /// `AddKeyword`/`RemoveKeyword` (layer 6) as static abilities.

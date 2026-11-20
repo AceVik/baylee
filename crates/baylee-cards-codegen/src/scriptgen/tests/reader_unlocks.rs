@@ -517,3 +517,299 @@ fn wave4_fight_bite_and_poison() {
         unblock_poison.abilities[0]
     );
 }
+
+#[test]
+fn wave5_amounts_statics_and_counters() {
+    // 1) Arithmetic suffixes and new base counts.
+    let double_x = read(
+        "Name:Twice\nManaCost:X R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ Y\n\
+         SVar:Y:Count$xPaid/Times.2",
+    );
+    assert!(double_x.abilities[0].contains("Amount::DoubleX"));
+
+    let arith = read(
+        "Name:HalfPlus\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ GainLife | LifeAmount$ Z\n\
+         SVar:X:Count$Valid Creature.YouCtrl/HalfDown\n\
+         SVar:Z:SVar$X/Plus.1",
+    );
+    assert!(
+        arith.abilities[0].contains("Amount::Plus { base: &Amount::Half {"),
+        "{}",
+        arith.abilities[0]
+    );
+
+    let players = read(
+        "Name:EachOpp\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ GainLife | LifeAmount$ X\n\
+         SVar:X:PlayerCountOpponents$Amount",
+    );
+    assert!(
+        players.abilities[0].contains("Amount::Players(PlayerRel::Opponent)"),
+        "{}",
+        players.abilities[0]
+    );
+
+    // 2) Single-sided CDA (`*/4` and `2/1+*`) and `CardTypesInAllGraveyards`.
+    let half_cda = read(
+        "Name:StarFour\nManaCost:2 G\nTypes:Creature\nPT:*/4\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X\n\
+         SVar:X:Count$Valid Creature.YouCtrl",
+    );
+    assert!(
+        half_cda.abilities[0].contains("Modifier::CharacteristicPTSeparate")
+            && half_cda.abilities[0].contains("toughness: PtCount::Fixed(4)"),
+        "{}",
+        half_cda.abilities[0]
+    );
+
+    let goyf = read(
+        "Name:GraveStar\nManaCost:1 G\nTypes:Creature\nPT:*/1+*\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ Y\n\
+         SVar:X:Count$ValidGraveyard Card$CardTypes\n\
+         SVar:Y:SVar$X/Plus.1",
+    );
+    assert!(
+        goyf.abilities[0].contains("PtCount::CardTypesInAllGraveyards")
+            && goyf.abilities[0].contains("toughness_plus: 1"),
+        "{}",
+        goyf.abilities[0]
+    );
+
+    // 3) Dynamic static P/T bonus (positive & negative) + single-sided SetToughness.
+    let dyn_anthem = read(
+        "Name:DynamicLord\nManaCost:2 G\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ X | AddToughness$ -X\n\
+         SVar:X:Count$Domain",
+    );
+    assert!(
+        dyn_anthem.abilities[0].contains("Modifier::ModifyPTByAmount")
+            && dyn_anthem.abilities[0].contains("Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)")
+            && dyn_anthem.abilities[0].contains("Amount::Negated("),
+        "{}",
+        dyn_anthem.abilities[0]
+    );
+
+    // 4) Stun / Shield / Finality / Defense counters + ValidTgtsDesc label guard.
+    let stun = read(
+        "Name:FreezeTap\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ PutCounter | ValidTgts$ Creature | ValidTgtsDesc$ target creature | CounterType$ STUN | CounterNum$ 1",
+    );
+    assert!(stun.abilities[0].contains("CounterKind::Stun"));
+    assert!(refused(
+        "Name:OrphanDesc\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ 1 | ValidTgtsDesc$ target creature"
+    ));
+}
+
+#[test]
+fn wave5_effects_blink_support_adapt_attach_and_reanimate() {
+    // 1) SuppressUntap (Pump + PumpAll) and MustBeBlockedByAllAble + AsLongAsControl.
+    let freeze = read(
+        "Name:Chiller\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | Duration$ Permanent | KW$ HIDDEN This card doesn't untap during your next untap step.",
+    );
+    assert!(
+        freeze.abilities[0].contains("Effect::SuppressUntap")
+            && freeze.abilities[0].contains("steps: 1"),
+        "{}",
+        freeze.abilities[0]
+    );
+
+    let freeze_all = read(
+        "Name:Blizzard\nManaCost:3 U\nTypes:Sorcery\n\
+         A:SP$ PumpAll | ValidCards$ Creature.OppCtrl | Duration$ Permanent | KW$ HIDDEN This card doesn't untap during your next untap step.",
+    );
+    assert!(freeze_all.abilities[0].contains("Effect::SuppressUntap"));
+
+    let lure_pump = read(
+        "Name:Taunt\nManaCost:G\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | KW$ HIDDEN All creatures able to block CARDNAME do so.",
+    );
+    assert!(lure_pump.abilities[0].contains("Modifier::MustBeBlockedByAllAble"));
+
+    // 2) Support, Adapt, Attach.
+    let support = read(
+        "Name:BolsterAllies\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ PutCounter | Support$ 2",
+    );
+    assert!(
+        support.abilities[0].contains("TargetReq::up_to(TargetSpec::Object(&Filter::CREATURE), 2)")
+            && support.abilities[0].contains("CounterKind::P1P1"),
+        "{}",
+        support.abilities[0]
+    );
+
+    let adapt = read(
+        "Name:Evolver\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
+         A:AB$ PutCounter | Cost$ 2 G | Adapt$ 2",
+    );
+    assert!(
+        adapt.abilities[0]
+            .contains("Condition::Not(&Condition::CountersOnSelf(CounterKind::P1P1, 1))")
+            && adapt.abilities[0].contains("Amount::Fixed(2)"),
+        "{}",
+        adapt.abilities[0]
+    );
+
+    let attach = read(
+        "Name:SnapOn\nManaCost:W\nTypes:Artifact Equipment\n\
+         A:AB$ Attach | Cost$ 1 | ValidTgts$ Creature.YouCtrl",
+    );
+    assert!(attach.abilities[0].contains("Effect::AttachSelf"));
+
+    // 3) Immediate single-target Blink (multi-target blink refused!).
+    let blink = read(
+        "Name:Flicker\nManaCost:W\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.YouCtrl | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBReturn\n\
+         SVar:DBReturn:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | GainControl$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        blink.abilities[0].contains("Effect::Blink")
+            && blink.abilities[0].contains("owner_control: false"),
+        "{}",
+        blink.abilities[0]
+    );
+    assert!(refused(
+        "Name:MultiFlicker\nManaCost:2 W\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.YouCtrl | TargetMin$ 0 | TargetMax$ 2 | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBReturn\n\
+         SVar:DBReturn:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield"
+    ));
+
+    // 4) Graveyard -> Battlefield tapped / counters / mass reanimate.
+    let reanimate = read(
+        "Name:RiseTapped\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature | TgtZone$ Graveyard | Tapped$ True | WithCountersType$ FINALITY | WithCountersAmount$ 1",
+    );
+    assert!(
+        reanimate.abilities[0].contains("Effect::GraveyardToBattlefieldModified")
+            && reanimate.abilities[0].contains("CounterKind::Finality"),
+        "{}",
+        reanimate.abilities[0]
+    );
+
+    let mass = read(
+        "Name:MassRise\nManaCost:5 B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | Origin$ Graveyard | Destination$ Battlefield | ChangeType$ Creature.YouOwn | Tapped$ True",
+    );
+    assert!(
+        mass.abilities[0].contains("Effect::YourGraveyardToBattlefield")
+            && mass.abilities[0].contains("tapped: true"),
+        "{}",
+        mass.abilities[0]
+    );
+}
+
+#[test]
+fn wave5_triggers_zones_and_svar_conditions() {
+    // 1) TriggerZones$ Graveyard & Exile + self graveyard IsPresent without PresentPlayer.
+    let gy_trig = read(
+        "Name:CryptCrawler\nManaCost:1 B\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.YouCtrl | TriggerZones$ Graveyard | IsPresent$ Card.StrictlySelf | PresentZone$ Graveyard | Execute$ TrigRet\n\
+         SVar:TrigRet:DB$ ChangeZone | Defined$ Self | Origin$ Graveyard | Destination$ Hand",
+    );
+    assert!(
+        gy_trig.abilities[0].contains("zone = TriggerZone::Graveyard")
+            && gy_trig.abilities[0].contains("ZoneRef::Graveyard"),
+        "{}",
+        gy_trig.abilities[0]
+    );
+
+    // 2) Drawn with Number$ 2 + SpellCast NthSpellCast & FirstNoncreatureSpellCast.
+    let draw2 = read(
+        "Name:SecondDraw\nManaCost:1 U\nTypes:Creature\nPT:1/3\n\
+         T:Mode$ Drawn | ValidCard$ Card.YouCtrl | Number$ 2 | TriggerZones$ Battlefield | Execute$ TrigCounter\n\
+         SVar:TrigCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        draw2.abilities[0].contains("Trigger::NthCardDrawnInTurn { who: PlayerRel::You, n: 2 }"),
+        "{}",
+        draw2.abilities[0]
+    );
+
+    let flurry = read(
+        "Name:Flurry\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ SpellCast | ValidCard$ Card.YouCtrl | ValidActivatingPlayer$ You | ActivatorThisTurnCast$ EQ2 | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        flurry.abilities[0]
+            .contains("Trigger::NthSpellCast { n: 2, filter: &Filter::ControlledByYou }"),
+        "{}",
+        flurry.abilities[0]
+    );
+    // Restricted ValidCard$ with ActivatorThisTurnCast$ EQ2 must refuse!
+    assert!(refused(
+        "Name:BadFlurry\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ SpellCast | ValidCard$ Creature | ValidActivatingPlayer$ You | ActivatorThisTurnCast$ EQ2 | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1"
+    ));
+
+    // 3) OneOrMoreDealCombatDamageToPlayer, DealsCombatDamageToPlayerOrPlaneswalker,
+    //    TargetedByOpponent with You + permanents, CounterAddedOnce.
+    let saboteur = read(
+        "Name:TeamHit\nManaCost:2 U\nTypes:Enchantment\n\
+         T:Mode$ DamageDoneOnce | CombatDamage$ True | ValidSource$ Creature.YouCtrl | ValidTarget$ Player | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        saboteur.abilities[0].contains("Trigger::OneOrMoreDealCombatDamageToPlayer("),
+        "{}",
+        saboteur.abilities[0]
+    );
+
+    let leo = read(
+        "Name:Guard\nManaCost:2 U\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ BecomesTarget | ValidTarget$ You,Permanent.YouCtrl+inZoneBattlefield | ValidSource$ SpellAbility.OppCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        leo.abilities[0].contains("Trigger::TargetedByOpponent")
+            && leo.abilities[0].contains("you: true"),
+        "{}",
+        leo.abilities[0]
+    );
+
+    let counter_trig = read(
+        "Name:GrowthWatch\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ CounterAddedOnce | ValidCard$ Card.Self | CounterType$ P1P1 | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        counter_trig.abilities[0].contains("Trigger::CountersPlaced")
+            && counter_trig.abilities[0].contains("CounterKind::P1P1"),
+        "{}",
+        counter_trig.abilities[0]
+    );
+
+    // 4) Generic static_count_expr Condition::AmountAtLeast & CastInstantOrSorceryThisTurn.
+    let cond = read(
+        "Name:DomainTrigger\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ X | SVarCompare$ GE5 | Execute$ TrigDraw\n\
+         SVar:X:Count$Domain\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        cond.abilities[0].contains(
+            "Condition::AmountAtLeast(Amount::BasicLandTypesAmong(&Filter::YOUR_LAND), 5)"
+        ),
+        "{}",
+        cond.abilities[0]
+    );
+
+    // 5) Branch with svar_condition + Gond Gate Land.OppCtrl (`Filter::ControlledByOpponent`).
+    let branch = read(
+        "Name:CastCheck\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Branch | BranchConditionSVar$ X | BranchConditionSVarCompare$ GE1 | TrueSubAbility$ D1 | FalseSubAbility$ D2\n\
+         SVar:X:Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl\n\
+         SVar:D1:DB$ Draw | NumCards$ 2\n\
+         SVar:D2:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        branch.abilities[0].contains("Condition::CastInstantOrSorceryThisTurn"),
+        "{}",
+        branch.abilities[0]
+    );
+}

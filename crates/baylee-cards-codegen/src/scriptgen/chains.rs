@@ -30,6 +30,7 @@ impl Tx<'_> {
                 local_kicked_target = Some(kicked_target);
                 (true, p.take("SubAbility"))
             } else {
+                p.claim_label("ValidTgtsDesc", "ValidTgts");
                 let valid = p.take("ValidTgts");
                 let targets_here = valid.is_some();
                 if let Some(valid) = valid {
@@ -170,7 +171,40 @@ impl Tx<'_> {
             && p.peek("Destination") == Some("Exile")
             && p.has("RememberChanged")
         {
-            self.exile_until_end_effect(&mut p, &mut sub, target.as_deref())?
+            let single_target = chain.target_exact.is_none()
+                && !chain.target_is_x
+                && chain.target_up_to.is_none_or(|n| n == 1);
+            self.exile_until_end_effect(&mut p, &mut sub, target.as_deref(), single_target)?
+        } else if api == "PutCounter" && p.peek("Support").is_some() {
+            if chain.target.is_some()
+                || targets_here
+                || had_second_target
+                || p.peek("Defined").is_some()
+            {
+                return self.deny("`Support$` beside an existing target or `Defined$`".to_string());
+            }
+            let Some(n) = p
+                .take("Support")
+                .and_then(|s| s.trim().parse::<u8>().ok())
+                .filter(|&n| n > 0)
+            else {
+                return self.deny("unreadable value in `PutCounter`".to_string());
+            };
+            let spec = if self.on_a_spell {
+                "TargetSpec::Object(&Filter::CREATURE)".to_string()
+            } else {
+                let name = self.body.filter_static(
+                    "TARGET",
+                    "Filter::And(&[Filter::CREATURE, Filter::Another])",
+                );
+                format!("TargetSpec::Object(&{name})")
+            };
+            chain.target = Some(spec);
+            chain.target_up_to = Some(n);
+            vec![
+                "Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }"
+                    .to_string(),
+            ]
         } else if api == "ChangeZone"
             && !targets_here
             && p.peek("Defined") == Some("TopOfLibrary")
@@ -511,6 +545,10 @@ impl Tx<'_> {
         // different zones), so the zone the line moves *from* decides
         // the spec before the valid-string is read.
         let spec = if api == "ChangeZone" && p.peek("Origin") == Some("Graveyard") {
+            match p.take("TgtZone").as_deref() {
+                None | Some("Graveyard") => {}
+                Some(zone) => return self.deny(format!("a target in `TgtZone$ {zone}`")),
+            }
             let defined_ctrl = p.take("TargetsWithDefinedController");
             self.graveyard_target(valid, defined_ctrl.as_deref())
         } else {
@@ -644,7 +682,7 @@ impl Tx<'_> {
                     p.take("TargetMin");
                     p.take("TargetMax");
                     chain.target_is_x = true;
-                } else if api == "Fight"
+                } else if matches!(api, "Fight" | "Attach")
                     && p.peek("TargetMin") == Some("0")
                     && p.peek("TargetMax") == Some("1")
                 {
@@ -1185,7 +1223,7 @@ impl Tx<'_> {
                 if p.take("Mode").as_deref() != Some("Random") {
                     return None;
                 }
-                let n = self.amount_num(p.take("NumCards").as_deref().unwrap_or("1"))?;
+                let n = self.amount_or_count(p.take("NumCards").as_deref().unwrap_or("1"))?;
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!(
@@ -1193,12 +1231,24 @@ impl Tx<'_> {
                 )]
             }
             "Mill" => {
-                let n = self.amount_num(&p.take("NumCards")?)?;
+                let n = self.amount_or_count(&p.take("NumCards")?)?;
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
             }
             "PutCounter" => {
+                if let Some(adapt) = p.take("Adapt") {
+                    if self.on_a_spell
+                        || target.is_some()
+                        || !matches!(p.take("Defined").as_deref(), None | Some("Self"))
+                    {
+                        return None;
+                    }
+                    let n: u32 = adapt.trim().parse().ok().filter(|&v| v > 0)?;
+                    return Some(vec![format!(
+                        "Effect::IfCondition {{ condition: Condition::Not(&Condition::CountersOnSelf(CounterKind::P1P1, 1)), then: &[Effect::AddCounterFilter {{ filter: &Filter::This, kind: CounterKind::P1P1, amount: Amount::Fixed({n}) }}], otherwise: &[] }}"
+                    )]);
+                }
                 let code = p.take("CounterType")?;
                 let Some(kind) = counter_kind(&code) else {
                     return self.deny(format!("counter `{code}`"));
@@ -1376,7 +1426,7 @@ impl Tx<'_> {
                 if let Some(n) = self.plain_num(&raw) {
                     vec![format!("Effect::surveil({n})")]
                 } else {
-                    let n = self.amount_num(&raw)?;
+                    let n = self.amount_or_count(&raw)?;
                     vec![format!("Effect::Surveil {{ amount: {n} }}")]
                 }
             }
@@ -1386,12 +1436,7 @@ impl Tx<'_> {
                 let cmp = p
                     .take("BranchConditionSVarCompare")
                     .unwrap_or_else(|| "GE1".to_string());
-                let cond = match (self.svars.get(var.trim()).map(|s| s.trim()), cmp.trim()) {
-                    (Some("Count$ValidGraveyard Card.YouOwn"), "GE7") => {
-                        "Condition::GraveyardCountAtLeast(7)"
-                    }
-                    _ => return None,
-                };
+                let cond = self.svar_condition(&var, &cmp)?;
                 let true_sub = p.take("TrueSubAbility")?;
                 let false_sub = p.take("FalseSubAbility")?;
                 let true_body = self.svars.get(true_sub.trim())?.clone();
@@ -1873,6 +1918,16 @@ impl Tx<'_> {
                     }
                     _ => return None,
                 }
+            }
+            "Attach" => {
+                let tgt = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
+                if !targets_here
+                    || p.take("Defined").is_some()
+                    || !matches!(p.take("Object").as_deref(), None | Some("Self"))
+                {
+                    return None;
+                }
+                vec![format!("Effect::AttachSelf {{ target: {tgt} }}")]
             }
             "Poison" => {
                 let n = self.amount_or_count(&p.take("Num")?)?;

@@ -103,6 +103,7 @@ pub(super) fn counter_kind(code: &str) -> Option<String> {
     Some(
         match code {
             "LOYALTY" => "CounterKind::Loyalty",
+            "DEFENSE" => "CounterKind::Defense",
             "LORE" => "CounterKind::Lore",
             "TIME" => "CounterKind::Time",
             "CHARGE" => "CounterKind::Charge",
@@ -116,7 +117,9 @@ pub(super) fn counter_kind(code: &str) -> Option<String> {
             "Shadow" => "CounterKind::Shadow",
             "Indestructible" => "CounterKind::Indestructible",
             "HONE" => "CounterKind::Hone",
-            "STUN" => "CounterKind::Stun",
+            "STUN" | "Stun" => "CounterKind::Stun",
+            "SHIELD" | "Shield" => "CounterKind::Shield",
+            "FINALITY" | "Finality" => "CounterKind::Finality",
             "BORE" => "CounterKind::Bore",
             _ => return assigned_counter(code),
         }

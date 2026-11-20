@@ -763,6 +763,41 @@ impl Tx<'_> {
                 _ => None,
             };
         }
+        if raw == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" {
+            return match bound {
+                Some(Bound::AtLeast(n)) => Some(format!(
+                    "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {n})"
+                )),
+                _ => None,
+            };
+        }
+        if matches!(
+            raw.as_str(),
+            "Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl"
+                | "Count$ThisTurnCast_Sorcery.YouCtrl,Instant.YouCtrl"
+        ) {
+            return match cmp {
+                "GE1" => Some("Condition::CastInstantOrSorceryThisTurn".to_string()),
+                "EQ0" => {
+                    Some("Condition::Not(&Condition::CastInstantOrSorceryThisTurn)".to_string())
+                }
+                _ => None,
+            };
+        }
+        if raw == "Count$ThisTurnCast_Creature.YouCtrl" {
+            return match cmp {
+                "GE1" => Some("Condition::CastCreatureThisTurn".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::CastCreatureThisTurn)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "Count$ThisTurnCast_Card.YouCtrl" {
+            return match cmp {
+                "EQ0" => Some("Condition::YouCastNoSpellThisTurn".to_string()),
+                "GE1" => Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string()),
+                _ => None,
+            };
+        }
         if raw == "Count$Morbid.1.0" {
             return match cmp {
                 "GE1" | "EQ1" => Some("Condition::CreaturesDiedThisTurnAtLeast(1)".to_string()),
@@ -838,75 +873,98 @@ impl Tx<'_> {
                 _ => None,
             };
         }
-        let valid_raw = raw.strip_prefix("Count$Valid ")?;
-        if let Some(distinct_valid) = valid_raw.strip_suffix("$DifferentCardNames") {
-            let Some(Bound::AtLeast(n)) = bound else {
-                return None;
+        if let Some(valid_raw) = raw.strip_prefix("Count$Valid ") {
+            if let Some(distinct_valid) = valid_raw.strip_suffix("$DifferentCardNames") {
+                let Some(Bound::AtLeast(n)) = bound else {
+                    return None;
+                };
+                let relative = distinct_valid.split(',').any(|alt| {
+                    alt.split(['.', '+']).any(|a| {
+                        matches!(
+                            a.trim(),
+                            "Self"
+                                | "Other"
+                                | "EnchantedBy"
+                                | "EquippedBy"
+                                | "AttachedBy"
+                                | "Attached"
+                        )
+                    })
+                });
+                let yours = distinct_valid
+                    .split(',')
+                    .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+                if relative || !yours {
+                    return None;
+                }
+                let expr = self.filter_expr(distinct_valid)?;
+                let name = self.body.filter_static("CHECK", &expr);
+                return Some(format!("Condition::ControlDistinctNames(&{name}, {n})"));
+            }
+            let valid = match valid_raw.split_once("/Plus.") {
+                None => valid_raw.to_string(),
+                Some((first, second_var)) => {
+                    if let Some(second) = self
+                        .svars
+                        .get(second_var.trim())
+                        .and_then(|s| s.trim().strip_prefix("Count$Valid "))
+                    {
+                        format!("{first},{second}")
+                    } else {
+                        String::new()
+                    }
+                }
             };
-            let relative = distinct_valid.split(',').any(|alt| {
-                alt.split(['.', '+']).any(|a| {
-                    matches!(
-                        a.trim(),
-                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy" | "Attached"
-                    )
-                })
-            });
-            let yours = distinct_valid
-                .split(',')
-                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
-            if relative || !yours {
-                return None;
+            if !valid.is_empty() && !valid.contains('/') && !valid.contains('$') {
+                let bound = bound?;
+                let relative = valid.split(',').any(|alt| {
+                    alt.split(['.', '+']).any(|a| {
+                        matches!(
+                            a.trim(),
+                            "Self"
+                                | "Other"
+                                | "EnchantedBy"
+                                | "EquippedBy"
+                                | "AttachedBy"
+                                | "Attached"
+                        )
+                    })
+                });
+                let yours = valid
+                    .split(',')
+                    .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+                let opps = valid
+                    .split(',')
+                    .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
+                    && matches!(bound, Bound::AtMost(0));
+                let nobodys = !valid
+                    .split(',')
+                    .flat_map(|alt| alt.split(['.', '+']))
+                    .any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
+                if !relative && (yours || opps || nobodys) {
+                    let expr = self.filter_expr(&valid)?;
+                    let name = self.body.filter_static("CHECK", &expr);
+                    let (variant, n) = match (yours, bound) {
+                        (true, Bound::AtLeast(n)) => ("ControlCount", n),
+                        (true, Bound::AtMost(n)) => ("ControlCountAtMost", n),
+                        (false, Bound::AtLeast(n)) => ("BattlefieldCount", n),
+                        (false, Bound::AtMost(n)) => ("BattlefieldCountAtMost", n),
+                    };
+                    return Some(format!("Condition::{variant}(&{name}, {n})"));
+                }
             }
-            let expr = self.filter_expr(distinct_valid)?;
-            let name = self.body.filter_static("CHECK", &expr);
-            return Some(format!("Condition::ControlDistinctNames(&{name}, {n})"));
-        }
-        let valid = match valid_raw.split_once("/Plus.") {
-            None => valid_raw.to_string(),
-            Some((first, second_var)) => {
-                let second = self
-                    .svars
-                    .get(second_var.trim())?
-                    .trim()
-                    .strip_prefix("Count$Valid ")?;
-                format!("{first},{second}")
-            }
-        };
-        if valid.contains('/') || valid.contains('$') {
-            return None;
         }
         let bound = bound?;
-        let relative = valid.split(',').any(|alt| {
-            alt.split(['.', '+']).any(|a| {
-                matches!(
-                    a.trim(),
-                    "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy" | "Attached"
-                )
-            })
-        });
-        let yours = valid
-            .split(',')
-            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
-        let opps = valid
-            .split(',')
-            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
-            && matches!(bound, Bound::AtMost(0));
-        let nobodys = !valid
-            .split(',')
-            .flat_map(|alt| alt.split(['.', '+']))
-            .any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
-        if relative || (!yours && !opps && !nobodys) {
-            return None;
+        let amt = self.static_count_expr(&raw)?;
+        match bound {
+            Bound::AtLeast(n) => Some(format!("Condition::AmountAtLeast({amt}, {n})")),
+            Bound::AtMost(n) => {
+                let above = u32::from(n).checked_add(1)?;
+                let inner = format!("Condition::AmountAtLeast({amt}, {above})");
+                let name = self.body.condition_static("CHECK", &inner);
+                Some(format!("Condition::Not(&{name})"))
+            }
         }
-        let expr = self.filter_expr(&valid)?;
-        let name = self.body.filter_static("CHECK", &expr);
-        let (variant, n) = match (yours, bound) {
-            (true, Bound::AtLeast(n)) => ("ControlCount", n),
-            (true, Bound::AtMost(n)) => ("ControlCountAtMost", n),
-            (false, Bound::AtLeast(n)) => ("BattlefieldCount", n),
-            (false, Bound::AtMost(n)) => ("BattlefieldCountAtMost", n),
-        };
-        Some(format!("Condition::{variant}(&{name}, {n})"))
     }
 
     /// The reference's `IsPresent$` family as an intervening-`if` clause
@@ -989,7 +1047,11 @@ impl Tx<'_> {
         if p.take("IsPresent2").is_some() {
             return self.deny("a second `IsPresent2$` clause".to_string());
         }
-        if p.peek("PresentZone") == Some("Graveyard") && p.peek("PresentPlayer") == Some("You") {
+        if p.peek("PresentZone") == Some("Graveyard")
+            && (p.peek("PresentPlayer") == Some("You")
+                || (p.peek("PresentPlayer").is_none()
+                    && matches!(valid, "Card.StrictlySelf" | "Card.Self")))
+        {
             return self.graveyard_present_clause(p, valid);
         }
         if let Some(who) = p.take("PresentPlayer") {

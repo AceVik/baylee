@@ -196,6 +196,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "TargetOnly",
     "Fight",
     "Poison",
+    "Attach",
 ];
 
 /// A cost token that names an object, split into its kind and its body.

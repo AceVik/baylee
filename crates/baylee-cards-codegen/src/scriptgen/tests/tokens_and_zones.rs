@@ -285,14 +285,26 @@ fn an_x_is_a_token_amount_only_where_a_player_announced_one() {
         body.abilities[0]
     );
 
-    // The same `X`, counted a way nothing here can say.
+    // `Count$Domain` lowers to `Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)`.
     let domain = parse(
         "Name:X\nTypes:Sorcery\nA:SP$ Token | Cost$ G | TokenScript$ r_1_1_goblin \
          | TokenOwner$ You | TokenAmount$ X\nSVar:X:Count$Domain",
     );
+    let domain_body = transcode(&domain, &cats(), Some(&tokens())).expect("domain token count");
+    assert!(
+        domain_body.abilities[0].contains("Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)"),
+        "{}",
+        domain_body.abilities[0]
+    );
+
+    // The same `X`, counted a way nothing here can say.
+    let unknown_count = parse(
+        "Name:X\nTypes:Sorcery\nA:SP$ Token | Cost$ G | TokenScript$ r_1_1_goblin \
+         | TokenOwner$ You | TokenAmount$ X\nSVar:X:Count$ValidExile Card.YouOwn",
+    );
     assert_eq!(
-        refusal_reason(&domain, &cats(), Some(&tokens())).as_deref(),
-        Some("token amount `X` = `Count$Domain`")
+        refusal_reason(&unknown_count, &cats(), Some(&tokens())).as_deref(),
+        Some("token amount `X` = `Count$ValidExile Card.YouOwn`")
     );
 
     // The right definition on a line that announces nothing.
