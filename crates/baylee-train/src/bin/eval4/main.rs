@@ -914,6 +914,7 @@ fn main() -> anyhow::Result<()> {
         let run_metadata_sha = run_metadata_sha.clone();
         let attempts = attempts.clone();
         let search_max = args.search_max_decisions_per_game;
+        let search_min_turn = args.search_min_turn;
         let value_log = value_log.clone();
         let decision_trace = decision_trace.clone();
         let menu_payable = args.menu_payable.then_some(args.menu_payable_bias);
@@ -1075,11 +1076,20 @@ fn main() -> anyhow::Result<()> {
                     .as_ref()
                     .map(|spec| house_teacher::GameTeacher::new(spec, &deal_game_id, &teams_arc));
                 let unencodable_before = net.distill_unencodable();
-                let mut game_search =
-                    search_config.map(|config| lookahead::GameSearch::new(config, search_max));
-                if cpu_deadline_seat.is_some() && let Some(search) = game_search.as_mut() {
+                let mut game_search = search_config.map(|config| {
+                    let mut search = lookahead::GameSearch::new(config, search_max);
+                    search.min_turn = search_min_turn;
+                    search
+                });
+                if cpu_deadline_seat.is_some()
+                    && let Some(search) = game_search.as_mut()
+                {
                     search.deadline = Some(deadline::Probe::new(
-                        shared_nets.learner.as_ref().context("deadline rollout backend")?.clone()
+                        shared_nets
+                            .learner
+                            .as_ref()
+                            .context("deadline rollout backend")?
+                            .clone(),
                     ));
                 }
                 let (

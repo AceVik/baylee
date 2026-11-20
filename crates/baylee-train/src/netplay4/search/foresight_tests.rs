@@ -334,6 +334,22 @@ fn a_fair_search_names_its_contract() {
     assert!(plain.with_turns(SearchConfig4::MAX_TURNS + 1).is_err());
 }
 
+#[test]
+fn game_end_measurement_never_scores_a_settled_priority_or_turn_boundary() {
+    let search = config(2, 1, 10_000).with_fair(true).with_game_end(true);
+    assert_eq!(search.metadata()["until_game_over"], true);
+    let game = play(
+        &deal(12, &opponent("Grizzly Bears")),
+        Mock::new(steady, creatures),
+        search,
+    );
+    assert!(game.reports.iter().any(|report| report.leaves.terminal > 0));
+    for report in game.reports {
+        let leaves = report.leaves;
+        assert_eq!(leaves.terminal + leaves.stopped, report.rollouts);
+    }
+}
+
 /// A player whose later rollout answers are the house's, as a net's
 /// fallbacks are: by default they are played and counted, and a house-free
 /// search stops each rollout before the first of them, so no house answer is
