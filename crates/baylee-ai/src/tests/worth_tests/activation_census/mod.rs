@@ -575,7 +575,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // 222 read by the table and 61 remaining contextual.
     // Removing 45 non-deck Vanguard (pvan/pmoa) cards removes 13 command-zone
     // non-mana activations: 10 read by the table and 3 remaining contextual.
-    assert_eq!((read, of), (4154, 5326), "activated/loyalty reader census");
+    // Completing 14 Wave 10+11c pool stubs adds 4 non-mana activations
+    // across Elvish Reclaimer, Infinite Hourglass, Trained Pronghorn, and
+    // Urborg Phantom: 3 read by the table and 1 remaining contextual.
+    assert_eq!((read, of), (4157, 5330), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

@@ -25,12 +25,10 @@ never a reason to edit a card by hand.
 - Sarkhan's Dragonfire (corpus gap, found in the review of the Dig reader, 19.11.2026): its card prints "the rest on the bottom of your library in a random order", and the reference script's dig line carries no random order, so the reader writes `LookAtTopFind { …, random: false }`, an order the player chooses. Leave it out until the script says so.
 - Diviner's Wand: its dual-grant sentence (`Equipped creature has "..." and "{4}: Draw a card."`) leaves both `GrantActivated` and `GrantTriggeredDefinition` without printed lines in `generated_lines.rs` (`lines::tests::every_grant_is_found_on_its_own_face`).
 - Undercity Uprising: valid spell whose team deathtouch sweep shares `Filter::YOUR_CREATURE` with its `Fight` target, tripping `lints::tests::targets::no_targeted_ability_sweeps_the_board_instead`.
-- Baloth Packhunter, Charmed Stray: `validate`: `"you control"` is dropped from `ValidCard$ Creature.Other+YouCtrl+named...`, omitting `Filter::ControlledByYou`.
 - Obscuring Haze: `validate`: `"you control"` from `AltCondition::CommanderControlled` is not yet recognized by `check_text::filters_you` without `Filter::ControlledByYou`.
 - Witch of the Moors: valid trigger whose opponent sacrifice (`Filter::CREATURE`) shares `HasType(CREATURE)` with its `GraveyardToHand` target, tripping `lints::tests::targets::no_targeted_ability_sweeps_the_board_instead`.
 - Eladamri, Lord of Leaves Avatar: Vanguard card prints `{G}{G}` in its mana trigger while Scryfall carries an empty `color_identity`, tripping `lints::tests::faces::no_card_hides_a_color_it_prints`.
 - Dune Mover: `validate`: optional `"you may"` is dropped (`SearchLibrary { ..., optional: false }`).
-- Norn's Choirmaster: `validate`: `"Whenever a commander you control ..."` lowers as `Filter::OwnedByYou` without `Filter::ControlledByYou`.
 - Invasion of Vryn // Overloaded Mage-Ring: reference `CopySpellAbility` script omits `MayChooseTarget$ True`, so codegen writes `may_choose_new_targets: false` for `"You may choose new targets for the copy."` (`#326`).
 
 ## Engine gaps
