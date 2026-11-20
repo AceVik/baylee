@@ -3358,3 +3358,37 @@ fn emerge_and_prototype_keywords() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn myriad_and_extort_keywords_and_duplicates() {
+    let single_myriad = read("Name:LegionScout\nManaCost:2 R\nTypes:Creature\nPT:3/1\nK:Myriad");
+    assert_eq!(single_myriad.keywords, ["KeywordSet::MYRIAD"]);
+    assert!(single_myriad.abilities.is_empty());
+
+    let double_myriad =
+        read("Name:DoubleLegion\nManaCost:2 G\nTypes:Creature\nPT:2/2\nK:Myriad\nK:Myriad");
+    assert_eq!(double_myriad.keywords, ["KeywordSet::MYRIAD"]);
+    assert_eq!(
+        double_myriad.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::MYRIAD))"]
+    );
+
+    let single_extort = read("Name:TitheCleric\nManaCost:1 W\nTypes:Creature\nPT:1/3\nK:Extort");
+    assert_eq!(single_extort.keywords, ["KeywordSet::EXTORT"]);
+    assert!(single_extort.abilities.is_empty());
+
+    let double_extort =
+        read("Name:DoubleCleric\nManaCost:1 B\nTypes:Creature\nPT:1/4\nK:Extort\nK:Extort");
+    assert_eq!(double_extort.keywords, ["KeywordSet::EXTORT"]);
+    assert_eq!(
+        double_extort.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::EXTORT))"]
+    );
+
+    for bad in [
+        "Name:BadMyriad\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Myriad:1",
+        "Name:BadExtort\nManaCost:1 W\nTypes:Creature\nPT:1/2\nK:Extort:1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

@@ -117,6 +117,12 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Equip:") {
             return self.equip(rest);
         }
+        if let Some(rest) = line.strip_prefix("Ninjutsu:") {
+            return self.ninjutsu(rest, false);
+        }
+        if let Some(rest) = line.strip_prefix("CommanderNinjutsu:") {
+            return self.ninjutsu(rest, true);
+        }
         if let Some(rest) = line.strip_prefix("Cycling:") {
             return self.cycling(rest);
         }
@@ -251,6 +257,15 @@ impl Tx<'_> {
                      zone = ZoneRef::Stack)"
                         .to_string(),
                 );
+            } else if matches!(bit, "KeywordSet::MYRIAD" | "KeywordSet::EXTORT")
+                && self.body.keywords.iter().any(|k| k == bit)
+            {
+                // CR 702.116b / CR 702.101b: duplicate Myriad/Extort instances
+                // register separately for `layers::keyword_instances`.
+                self.body.abilities.push(Self::static_expr(
+                    "Filter::This",
+                    &format!("Modifier::AddKeyword({bit})"),
+                ));
             } else {
                 self.body.keywords.push(bit.to_string());
             }
@@ -765,11 +780,103 @@ impl Tx<'_> {
     /// because the rules fill that room. Writing the card without the
     /// restriction would let it move onto anything.
     pub(super) fn equip(&mut self, rest: &str) -> Option<()> {
-        if rest.contains(':') {
-            return self.deny("an `Equip` that narrows what it may attach to".to_string());
+        let fields: Vec<&str> = rest.split(':').collect();
+        match fields.as_slice() {
+            [cost_raw] => {
+                let cost = self.cost_expr(cost_raw.trim())?;
+                self.body.abilities.push(format!("equip!({cost})"));
+                Some(())
+            }
+            [cost_raw, flavor] if flavor.trim().starts_with("Flavor ") => {
+                let cost = self.cost_expr(cost_raw.trim())?;
+                self.body.abilities.push(format!("equip!({cost})"));
+                Some(())
+            }
+            [cost_raw, target, desc, mod_raw, tail @ ..]
+                if target.trim().is_empty()
+                    && desc.trim().is_empty()
+                    && let Some(limit_str) = mod_raw.trim().strip_prefix("ActivationLimit$ ")
+                    && let Ok(limit) = limit_str.trim().parse::<u8>()
+                    && tail.iter().all(|f| {
+                        let t = f.trim();
+                        !t.contains('$')
+                            && (t.is_empty()
+                                || t.starts_with("Activate only")
+                                || t.starts_with("Flavor "))
+                    }) =>
+            {
+                let cost = self.cost_expr(cost_raw.trim())?;
+                self.body.abilities.push(format!(
+                    "activated!({cost}, &[Effect::AttachSelf {{ target: TargetSpec::Object(&Filter::YOUR_CREATURE) }}], \
+                     timing = ActivationTiming::SorcerySpeed, \
+                     target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE)), \
+                     limit = ActivationLimit::PerTurn({limit}))"
+                ));
+                Some(())
+            }
+            _ => self.deny("an `Equip` that narrows what it may attach to".to_string()),
         }
-        let cost = self.cost_expr(rest)?;
-        self.body.abilities.push(format!("equip!({cost})"));
+    }
+
+    /// `K:Ninjutsu:<cost>[:Commander]` and `K:CommanderNinjutsu:<cost>`
+    /// (CR 702.49a–d): hand- or hand/command-zone activated ability that
+    /// returns an unblocked attacker you control and puts this card onto the
+    /// battlefield tapped and attacking that defender.
+    pub(super) fn ninjutsu(&mut self, rest: &str, force_commander: bool) -> Option<()> {
+        let is_permanent = self.type_line.split_whitespace().any(|w| {
+            matches!(
+                w,
+                "Creature" | "Artifact" | "Enchantment" | "Planeswalker" | "Land" | "Battle"
+            )
+        });
+        if !is_permanent {
+            return self.deny("`Ninjutsu` on a non-permanent card".to_string());
+        }
+        let mut fields = rest.split(':');
+        let cost_raw = fields.next()?.trim();
+        let commander = match (force_commander, fields.next().map(str::trim)) {
+            (false, None) => false,
+            (true, None) | (false, Some("Commander")) => true,
+            (_, Some(_)) => {
+                return self.deny(format!("`Ninjutsu` with unexpected fields `{rest}`"));
+            }
+        };
+        if fields.next().is_some() {
+            return self.deny(format!("`Ninjutsu` with unexpected fields `{rest}`"));
+        }
+        if cost_raw.is_empty() {
+            return self.deny("an empty `Ninjutsu` cost".to_string());
+        }
+        let (mana, mut parts) = self.cost_pieces(cost_raw)?;
+        if (mana.is_empty() && parts.is_empty())
+            || parts.iter().any(|p| {
+                matches!(
+                    p.as_str(),
+                    "TapSelf" | "UntapSelf" | "ExertSelf" | "SacrificeSelf" | "SacrificeGrantor"
+                )
+            })
+        {
+            return self.deny(format!("unsupported `Ninjutsu` cost `{cost_raw}`"));
+        }
+        parts.push("ReturnUnblockedAttacker".to_string());
+        let cost = crate::body::cost_literal(&mana, &parts);
+        let zone = if commander {
+            "ActivationZone::HandOrCommand"
+        } else {
+            "ActivationZone::Hand"
+        };
+        self.body.abilities.push(format!(
+            "activated!({cost}, &[Effect::PutNinjutsuOntoBattlefield], \
+             zone = {zone}, condition = Some(Condition::InCombatAfterBlockers))"
+        ));
+        self.body.notes.push(
+            if commander {
+                "commander ninjutsu"
+            } else {
+                "ninjutsu"
+            }
+            .to_string(),
+        );
         Some(())
     }
 

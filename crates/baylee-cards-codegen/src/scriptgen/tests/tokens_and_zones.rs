@@ -141,12 +141,11 @@ fn anything_unread_refuses_the_whole_card() {
         "Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | UnlessCost$ 2"
     ));
     // A keyword that is data rather than a bit, and that no rule reads.
-    // This was `K:Cycling:2` until one rule read it, then
-    // `K:TypeCycling:Basic:2` until the typecycling rule read that: the
-    // example has to be a keyword nothing here understands *today*, and
-    // ninjutsu (CR 702.49) is one.
+    // This was `K:Cycling:2`, then `K:TypeCycling:Basic:2`, then
+    // `K:Ninjutsu:1 U` until each rule read them; the example stays a
+    // parameterized keyword that is still unmodeled here.
     assert!(refused(
-        "Name:X\nTypes:Creature Goblin\nPT:1/1\nK:Ninjutsu:1 U"
+        "Name:X\nTypes:Creature Goblin\nPT:1/1\nK:Bushido:1"
     ));
     // A line kind with rules in it that this module does not model.
     assert!(refused(
@@ -669,9 +668,9 @@ fn a_creature_type_that_replaces_until_end_of_combat_only_during_combat() {
         assert!(a.contains(part), "{part} in {a}");
     }
     for refused_line in [
-        // "Activate only during your upkeep" is another sentence.
+        // An unsupported phase window stays refused.
         "A:AB$ Animate | Cost$ 2 | Defined$ Self | Power$ 3 | Toughness$ 6 | \
-         Types$ Creature | ActivationPhases$ Upkeep",
+         Types$ Creature | ActivationPhases$ Main1",
         // Replacing creature types with none named is losing them all.
         "A:AB$ Animate | Cost$ 2 | Defined$ Self | Power$ 3 | Toughness$ 6 | \
          Types$ Creature | RemoveCreatureTypes$ True",

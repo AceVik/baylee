@@ -231,6 +231,8 @@ fn single_instance_trigger_keyword(kw: &str) -> Option<&'static str> {
         "Melee" => Some("KeywordSet::MELEE"),
         "Mentor" => Some("KeywordSet::MENTOR"),
         "Training" => Some("KeywordSet::TRAINING"),
+        "Myriad" => Some("KeywordSet::MYRIAD"),
+        "Extort" => Some("KeywordSet::EXTORT"),
         _ => None,
     }
 }
@@ -2093,5 +2095,39 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn wave10_myriad_and_extort_tokens() {
+        let mut c = cats();
+        c.creature.push("Spirit".to_string());
+        c.normalize();
+
+        let myriad = read(
+            "Name:Spirit Token\nColors:white\nTypes:Creature Spirit\nPT:1/1\nK:Myriad",
+            &c,
+        )
+        .expect("Myriad token");
+        assert!(myriad.literal.contains("KeywordSet::MYRIAD"));
+
+        let extort = read(
+            "Name:Spirit Token\nColors:black\nTypes:Creature Spirit\nPT:1/1\nK:Extort",
+            &c,
+        )
+        .expect("Extort token");
+        assert!(extort.literal.contains("KeywordSet::EXTORT"));
+
+        for dup in ["Myriad", "Extort"] {
+            assert!(
+                read(
+                    &format!(
+                        "Name:Spirit Token\nColors:white\nTypes:Creature Spirit\nPT:1/1\nK:{dup}\nK:{dup}"
+                    ),
+                    &c,
+                )
+                .is_none(),
+                "duplicate {dup} token must stay refused"
+            );
+        }
     }
 }

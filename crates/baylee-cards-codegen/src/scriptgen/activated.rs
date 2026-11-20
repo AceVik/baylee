@@ -44,16 +44,52 @@ struct ExtractedAbilitySpec {
 }
 
 impl Tx<'_> {
+    fn activation_phase_condition(
+        &self,
+        probe: &mut Params,
+        phases: &str,
+        claimed: &mut Vec<&'static str>,
+    ) -> Option<&'static str> {
+        let clause = match phases {
+            "BeginCombat->EndCombat" => "Condition::DuringCombat",
+            "Upkeep" => "Condition::DuringStep(StepKind::Upkeep)",
+            "Draw" => "Condition::DuringStep(StepKind::Draw)",
+            "BeginCombat" => "Condition::DuringStep(StepKind::CombatBegin)",
+            "Declare Attackers" => "Condition::DuringStep(StepKind::DeclareAttackers)",
+            "Declare Blockers" => "Condition::DuringStep(StepKind::DeclareBlockers)",
+            "EndCombat" => "Condition::DuringStep(StepKind::CombatEnd)",
+            "End of Turn" => "Condition::DuringStep(StepKind::End)",
+            "Declare Blockers->EndCombat"
+                if matches!(probe.peek("ActivationAfterBlockers"), None | Some("True")) =>
+            {
+                if probe.take("ActivationAfterBlockers").is_some() {
+                    claimed.push("ActivationAfterBlockers$");
+                }
+                "Condition::InCombatAfterBlockers"
+            }
+            "Upkeep->BeginCombat" if probe.peek("ActivationFirstCombat") == Some("True") => {
+                probe.take("ActivationFirstCombat");
+                claimed.push("ActivationFirstCombat$");
+                "Condition::BeforeStep(StepKind::DeclareAttackers)"
+            }
+            "Upkeep->Main1" if probe.peek("ActivationFirstCombat") == Some("True") => {
+                probe.take("ActivationFirstCombat");
+                claimed.push("ActivationFirstCombat$");
+                "Condition::BeforeStep(StepKind::CombatBegin)"
+            }
+            _ => return self.deny(format!("`ActivationPhases$ {phases}`")),
+        };
+        Some(clause)
+    }
+
     /// When an ability may be activated, beyond its `IsPresent$` clause: a
     /// restriction on activating (CR 602.5) that the `condition` field says,
     /// and so only where no other clause already fills it. Hands back the
     /// keys it claimed.
     ///
-    /// - `PlayerTurn$ True`: "activate only during your turn" (Disrupting
-    ///   Scepter).
-    /// - `ActivationPhases$ BeginCombat->EndCombat`: "activate only during
-    ///   combat" (Jade Statue). The other spellings — an upkeep, a single
-    ///   combat step, "before blockers are declared" — are other sentences.
+    /// - `PlayerTurn$ True` / `OpponentTurn$ True`: turn-owner gating.
+    /// - `ActivationPhases$`: combat phase, individual turn steps, or bounded
+    ///   pre-combat/pre-attacker/post-blocker windows.
     pub(super) fn activation_restriction(
         &mut self,
         probe: &mut Params,
@@ -74,25 +110,37 @@ impl Tx<'_> {
             clauses.push("Condition::YourTurn".to_string());
             claimed.push("PlayerTurn$");
         }
+        if let Some(opp_turn) = probe.take("OpponentTurn") {
+            if opp_turn != "True"
+                || !is_activated
+                || clauses.iter().any(|c| c == "Condition::YourTurn")
+            {
+                return self.deny(format!("`OpponentTurn$ {opp_turn}` beside another clause"));
+            }
+            clauses.push("Condition::OpponentsTurn".to_string());
+            claimed.push("OpponentTurn$");
+        }
         if let Some(phases) = probe.take("ActivationPhases") {
             if !is_activated {
                 return self.deny(format!("`ActivationPhases$ {phases}`"));
             }
-            let clause = match phases.as_str() {
-                "BeginCombat->EndCombat" if clauses.is_empty() => "Condition::DuringCombat",
-                "Upkeep" if clauses.iter().any(|c| c == "Condition::YourTurn") => {
-                    "Condition::DuringStep(StepKind::Upkeep)"
-                }
-                _ => return self.deny(format!("`ActivationPhases$ {phases}`")),
-            };
+            let clause = self.activation_phase_condition(probe, &phases, &mut claimed)?;
             clauses.push(clause.to_string());
             claimed.push("ActivationPhases$");
         }
         if let Some(act) = probe.take("Activation") {
-            if !is_activated || act != "Threshold" {
+            if !is_activated {
                 return self.deny(format!("`Activation$ {act}`"));
             }
-            clauses.push("Condition::GraveyardCountAtLeast(7)".to_string());
+            let cond = match act.as_str() {
+                "Threshold" => "Condition::GraveyardCountAtLeast(7)",
+                "Delirium" => "Condition::GraveyardTypesAtLeast(4)",
+                "Metalcraft" => "Condition::ControlCount(&Filter::ARTIFACT, 3)",
+                "Hellbent" => "Condition::HandSizeAtMost(0)",
+                "Blessing" => "Condition::CitysBlessing",
+                _ => return self.deny(format!("`Activation$ {act}`")),
+            };
+            clauses.push(cond.to_string());
             claimed.push("Activation$");
         }
         if let Some(name) = probe.take("CheckSVar") {
@@ -100,57 +148,7 @@ impl Tx<'_> {
                 return self
                     .deny("an entry-history activation clause beside another clause".to_string());
             }
-            let Some(raw) = self.svars.get(&name).cloned() else {
-                return self.deny(format!("activation check `{name}` without an SVar"));
-            };
-            let cmp = probe.peek("SVarCompare").map(str::to_string);
-            if let Some(alternatives) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
-                && cmp.is_none()
-            {
-                if !clauses.is_empty() {
-                    return self.deny(
-                        "an entry-history activation clause beside another clause".to_string(),
-                    );
-                }
-                let mut subtypes = Vec::new();
-                for alternative in alternatives.split(',') {
-                    let Some(subtype) = alternative.strip_suffix(".YouCtrl") else {
-                        return self.deny(format!("entry-history alternative `{alternative}`"));
-                    };
-                    let Some(path) = self.cats.const_path(subtype) else {
-                        return self.deny(format!("entry-history subtype `{subtype}`"));
-                    };
-                    subtypes.push(path);
-                }
-                clauses.push(format!(
-                    "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
-                    subtypes.join(", ")
-                ));
-                claimed.push("CheckSVar$");
-            } else if let Some(first) =
-                self.svar_condition_clause(&name, cmp.as_deref().unwrap_or("GE1"))
-            {
-                let clause = if let Some(name2) = probe.take("CheckSecondSVar") {
-                    let cmp2 = probe
-                        .take("SecondSVarCompare")
-                        .unwrap_or_else(|| "GE1".to_string());
-                    let Some(second) = self.svar_condition_clause(&name2, &cmp2) else {
-                        return self.deny(format!("activation check `{name2}`"));
-                    };
-                    claimed.push("CheckSecondSVar$");
-                    claimed.push("SecondSVarCompare$");
-                    format!("Condition::All(&[{first}, {second}])")
-                } else {
-                    first
-                };
-                clauses.push(clause);
-                claimed.push("CheckSVar$");
-                if probe.take("SVarCompare").is_some() {
-                    claimed.push("SVarCompare$");
-                }
-            } else {
-                return self.deny(format!("activation check `{name}`"));
-            }
+            self.activation_check_svar(probe, &name, &mut clauses, &mut claimed)?;
         }
         *condition = match clauses.as_slice() {
             [] => String::new(),
@@ -158,6 +156,65 @@ impl Tx<'_> {
             many => format!(", condition = Some(Condition::All(&[{}]))", many.join(", ")),
         };
         Some(claimed)
+    }
+
+    fn activation_check_svar(
+        &mut self,
+        probe: &mut Params,
+        name: &str,
+        clauses: &mut Vec<String>,
+        claimed: &mut Vec<&'static str>,
+    ) -> Option<()> {
+        let Some(raw) = self.svars.get(name).cloned() else {
+            return self.deny(format!("activation check `{name}` without an SVar"));
+        };
+        let cmp = probe.peek("SVarCompare").map(str::to_string);
+        if let Some(alternatives) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
+            && cmp.is_none()
+        {
+            if !clauses.is_empty() {
+                return self
+                    .deny("an entry-history activation clause beside another clause".to_string());
+            }
+            let mut subtypes = Vec::new();
+            for alternative in alternatives.split(',') {
+                let Some(subtype) = alternative.strip_suffix(".YouCtrl") else {
+                    return self.deny(format!("entry-history alternative `{alternative}`"));
+                };
+                let Some(path) = self.cats.const_path(subtype) else {
+                    return self.deny(format!("entry-history subtype `{subtype}`"));
+                };
+                subtypes.push(path);
+            }
+            clauses.push(format!(
+                "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
+                subtypes.join(", ")
+            ));
+            claimed.push("CheckSVar$");
+            return Some(());
+        }
+        let Some(first) = self.svar_condition_clause(name, cmp.as_deref().unwrap_or("GE1")) else {
+            return self.deny(format!("activation check `{name}`"));
+        };
+        let clause = if let Some(name2) = probe.take("CheckSecondSVar") {
+            let cmp2 = probe
+                .take("SecondSVarCompare")
+                .unwrap_or_else(|| "GE1".to_string());
+            let Some(second) = self.svar_condition_clause(&name2, &cmp2) else {
+                return self.deny(format!("activation check `{name2}`"));
+            };
+            claimed.push("CheckSecondSVar$");
+            claimed.push("SecondSVarCompare$");
+            format!("Condition::All(&[{first}, {second}])")
+        } else {
+            first
+        };
+        clauses.push(clause);
+        claimed.push("CheckSVar$");
+        if probe.take("SVarCompare").is_some() {
+            claimed.push("SVarCompare$");
+        }
+        Some(())
     }
 
     /// Read the activation count separately from cost and effect emission.
@@ -893,6 +950,12 @@ impl Tx<'_> {
         }
     }
 
+    fn exert_self_cost_part(token: &str) -> bool {
+        matches!(token, "Exert<1/CARDNAME>" | "Exert<1/NICKNAME>")
+            || token.starts_with("Exert<1/CARDNAME/")
+            || token.starts_with("Exert<1/NICKNAME/")
+    }
+
     fn parse_activated_cost(&mut self, raw: &str, activation_zone: Option<&str>) -> Option<String> {
         let in_graveyard = activation_zone == Some("Graveyard");
         let in_hand = activation_zone == Some("Hand");
@@ -910,14 +973,28 @@ impl Tx<'_> {
         in_graveyard: bool,
         in_hand: bool,
     ) -> Option<String> {
-        if !in_graveyard && !in_hand {
+        let tokens = cost_parts(raw);
+        if (in_graveyard || in_hand) && tokens.iter().any(|t| t.starts_with("Exert<")) {
+            return self.deny("`Exert` outside the battlefield".to_string());
+        }
+        let has_nickname_exert = !in_graveyard
+            && !in_hand
+            && tokens
+                .iter()
+                .any(|t| t == "Exert<1/NICKNAME>" || t.starts_with("Exert<1/NICKNAME/"));
+        if !in_graveyard && !in_hand && !has_nickname_exert {
             return self.cost_expr(raw);
         }
         let mut mana = String::new();
         let mut parts = Vec::new();
         let mut chunk = Vec::new();
-        for token in cost_parts(raw) {
-            if let Some(self_part) = Self::self_zone_cost_part(&token, in_graveyard, in_hand) {
+        for token in tokens {
+            let intercepted =
+                Self::self_zone_cost_part(&token, in_graveyard, in_hand).or_else(|| {
+                    (!in_graveyard && !in_hand && Self::exert_self_cost_part(&token))
+                        .then_some("ExertSelf")
+                });
+            if let Some(self_part) = intercepted {
                 if !chunk.is_empty() {
                     let (m, p) = self.cost_pieces(&chunk.join(" "))?;
                     mana.push_str(&m);

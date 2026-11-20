@@ -3206,3 +3206,148 @@ fn etb_counter_x_kicker_and_inline_count() {
          SVar:X:Count$xPaid\nSVar:WasKicked:Count$Kicked.1.0"
     ));
 }
+
+#[test]
+fn ninjutsu_commander_ninjutsu_and_exert_nickname() {
+    let hand_ninja =
+        read("Name:ShadowCourier\nManaCost:3 U\nTypes:Creature Ninja\nPT:2/2\nK:Ninjutsu:1 U");
+    assert_eq!(
+        hand_ninja.abilities,
+        [
+            "activated!(cost!(\"{1}{U}\", ReturnUnblockedAttacker), &[Effect::PutNinjutsuOntoBattlefield], zone = ActivationZone::Hand, condition = Some(Condition::InCombatAfterBlockers))"
+        ]
+    );
+
+    let hybrid_ninja =
+        read("Name:DuskAgent\nManaCost:U B\nTypes:Creature Ninja\nPT:2/1\nK:Ninjutsu:UB");
+    assert_eq!(
+        hybrid_ninja.abilities,
+        [
+            "activated!(cost!(\"{U/B}\", ReturnUnblockedAttacker), &[Effect::PutNinjutsuOntoBattlefield], zone = ActivationZone::Hand, condition = Some(Condition::InCombatAfterBlockers))"
+        ]
+    );
+
+    let cmd_ninja = read(
+        "Name:ClanLeader\nManaCost:1 U B\nTypes:Legendary Creature Ninja\nPT:1/3\nK:Ninjutsu:U B:Commander",
+    );
+    assert_eq!(
+        cmd_ninja.abilities,
+        [
+            "activated!(cost!(\"{U}{B}\", ReturnUnblockedAttacker), &[Effect::PutNinjutsuOntoBattlefield], zone = ActivationZone::HandOrCommand, condition = Some(Condition::InCombatAfterBlockers))"
+        ]
+    );
+
+    let walker_ninja = read(
+        "Name:MaskWalker\nManaCost:2 U B\nTypes:Legendary Planeswalker Mask\nLoyalty:4\nK:Ninjutsu:1 U B",
+    );
+    assert!(walker_ninja.abilities[0].contains("Effect::PutNinjutsuOntoBattlefield"));
+
+    let exert_nick = read(
+        "Name:BoldChampion\nManaCost:W\nTypes:Creature\nPT:2/1\n\
+         A:AB$ Draw | Cost$ W T Exert<1/NICKNAME> | NumCards$ 1",
+    );
+    assert!(
+        exert_nick.abilities[0].contains("cost!(\"{W}\", TapSelf, ExertSelf)"),
+        "{:?}",
+        exert_nick.abilities
+    );
+
+    let flavor_equip =
+        read("Name:BannerBlade\nManaCost:2\nTypes:Artifact Equipment\nK:Equip:3:Flavor Battle Cry");
+    assert_eq!(flavor_equip.abilities, ["equip!(cost!(\"{3}\"))"]);
+
+    let once_equip = read(
+        "Name:BucklerGear\nManaCost:1\nTypes:Artifact Equipment\n\
+         K:Equip:0:::ActivationLimit$ 1:Activate only once each turn",
+    );
+    assert!(
+        once_equip.abilities[0].contains("limit = ActivationLimit::PerTurn(1)")
+            && once_equip.abilities[0].contains("Effect::AttachSelf"),
+        "{:?}",
+        once_equip.abilities
+    );
+
+    for bad in [
+        "Name:BadSpellNinja\nManaCost:U\nTypes:Instant\nK:Ninjutsu:U\nA:SP$ Draw | NumCards$ 1",
+        "Name:BadEmptyNinja\nManaCost:U\nTypes:Creature\nPT:1/1\nK:Ninjutsu:",
+        "Name:BadExtraNinja\nManaCost:U\nTypes:Creature\nPT:1/1\nK:Ninjutsu:1 U:Other",
+        "Name:BadTapNinja\nManaCost:U\nTypes:Creature\nPT:1/1\nK:Ninjutsu:1 T",
+        "Name:BadHandExert\nManaCost:W\nTypes:Creature\nPT:2/1\nA:AB$ Draw | Cost$ Exert<1/CARDNAME> | NumCards$ 1 | ActivationZone$ Hand",
+        "Name:BadGraveExert\nManaCost:W\nTypes:Creature\nPT:2/1\nA:AB$ Draw | Cost$ Exert<1/NICKNAME> | NumCards$ 1 | ActivationZone$ Graveyard",
+        "Name:BadDoubleExert\nManaCost:W\nTypes:Creature\nPT:2/1\nA:AB$ Draw | Cost$ Exert<2/NICKNAME> | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn activation_phases_turns_and_named_conditions() {
+    let before_atk = read(
+        "Name:ScoutCaptain\nManaCost:1 W\nTypes:Creature\nPT:1/1\n\
+         A:AB$ Tap | Cost$ T | ValidTgts$ Creature | PlayerTurn$ True | ActivationPhases$ Upkeep->BeginCombat | ActivationFirstCombat$ True",
+    );
+    assert!(
+        before_atk.abilities[0]
+            .contains("Condition::All(&[Condition::YourTurn, Condition::BeforeStep(StepKind::DeclareAttackers)])"),
+        "{:?}",
+        before_atk.abilities
+    );
+
+    let after_blk = read(
+        "Name:BlockSneak\nManaCost:2 W\nTypes:Creature\nPT:2/3\n\
+         A:AB$ Untap | Cost$ T | ValidTgts$ Creature | ActivationPhases$ Declare Blockers->EndCombat | ActivationAfterBlockers$ True",
+    );
+    assert!(
+        after_blk.abilities[0].contains("Condition::InCombatAfterBlockers"),
+        "{:?}",
+        after_blk.abilities
+    );
+
+    let any_upkeep = read(
+        "Name:UpkeepSage\nTypes:Land\nA:AB$ Draw | Cost$ T | NumCards$ 1 | ActivationPhases$ Upkeep",
+    );
+    assert!(
+        any_upkeep.abilities[0].contains("Condition::DuringStep(StepKind::Upkeep)"),
+        "{:?}",
+        any_upkeep.abilities
+    );
+
+    let opp_draw = read(
+        "Name:OppWatcher\nManaCost:2 U\nTypes:Creature\nPT:1/2\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | OpponentTurn$ True | ActivationPhases$ Upkeep->Main1 | ActivationFirstCombat$ True",
+    );
+    assert!(
+        opp_draw.abilities[0]
+            .contains("Condition::All(&[Condition::OpponentsTurn, Condition::BeforeStep(StepKind::CombatBegin)])"),
+        "{:?}",
+        opp_draw.abilities
+    );
+
+    for (flag, expected) in [
+        ("Delirium", "Condition::GraveyardTypesAtLeast(4)"),
+        (
+            "Metalcraft",
+            "Condition::ControlCount(&Filter::ARTIFACT, 3)",
+        ),
+        ("Hellbent", "Condition::HandSizeAtMost(0)"),
+        ("Blessing", "Condition::CitysBlessing"),
+    ] {
+        let body = read(&format!(
+            "Name:CondArtifact\nManaCost:1\nTypes:Artifact\n\
+             A:AB$ Draw | Cost$ T | NumCards$ 1 | Activation$ {flag}"
+        ));
+        assert!(
+            body.abilities[0].contains(expected),
+            "{flag}: {:?}",
+            body.abilities
+        );
+    }
+
+    for bad in [
+        "Name:BadNoFirstCombat\nManaCost:1 W\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ T | NumCards$ 1 | ActivationPhases$ Upkeep->BeginCombat",
+        "Name:BadBothTurns\nManaCost:1 W\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ T | NumCards$ 1 | PlayerTurn$ True | OpponentTurn$ True",
+        "Name:BadSolvedAct\nManaCost:1 W\nTypes:Enchantment\nA:AB$ Draw | Cost$ T | NumCards$ 1 | Activation$ Solved",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

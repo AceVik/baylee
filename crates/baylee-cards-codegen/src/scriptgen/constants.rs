@@ -290,6 +290,8 @@ pub(super) fn keyword_const(line: &str) -> Option<&'static str> {
         "Melee" => "KeywordSet::MELEE",
         "Mentor" => "KeywordSet::MENTOR",
         "Training" => "KeywordSet::TRAINING",
+        "Myriad" => "KeywordSet::MYRIAD",
+        "Extort" => "KeywordSet::EXTORT",
         _ => return None,
     })
 }
