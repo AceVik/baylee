@@ -6,6 +6,16 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-20 — Engine Wave 4b (`93a5c0c66`, `ef2044086`), Codegen Wave 9a–9c (`0ba5ed7ac`, `42d334b9e`, `1a1751dc5`), & Wave 8 Stubs (`a7f177044`)
+
+- **Replay Contract & Keyword Guard (`Reviewed: ef2044086 93a5c0c66`, `Reviewed-by: gemini-4-argon-high (#277, #303), pass`):**
+  - `Attempt` (`crates/baylee-engine/src/entry/mod.rs`) and `PaidRecord` (`crates/baylee-engine/src/object.rs`) now implement manual `Hash` so `saga_chapter` and `ninjutsu_defender` fold into snapshots only when `Some`, and `YesNoPrompt::Bargain` (`crates/baylee-engine/src/choice/prompts.rs`) appends at enum tail (`record::seen::tests::` `29/29` PASS on `acceptance-seed3.jsonl`).
+  - Landed **Engine Wave 4b** (`93a5c0c66`): `Ninjutsu` & `Commander Ninjutsu` (`CR 702.49`), `KeywordSet::MYRIAD` (`CR 702.116`, bit `59`), `KeywordSet::EXTORT` (`CR 702.101`, bit `60`), `Exert` (`CR 701.43`, `Trigger::Exerted`, `ReflexiveEvent::ExertedThis`), plus extended `baylee-client-core::triggerorder::facts` (`51/51`, `>= 84%` pool trigger coverage) and `ControlYourCommander` in `xtask/src/check_text/mod.rs`.
+  - Gated unenforced `pump_keyword_bits` (`Wither`, `Horsemanship`, `Skulk`) in `scriptgen/effects.rs` (`keyword_tests` caught pre-existing `Fang Skulkin` / `Riding Red Hare`, both restored to canonical stubs pending Engine Wave 5b).
+- **Codegen Wave 9a–9c & Wave 8 Pool Stubs (`Reviewed: 0ba5ed7ac 1a1751dc5 a7f177044`, `Reviewed-by: gemini-4-argon-high (#283, #289, #291, #293), pass`):**
+  - Landed Wave 9a (`0ba5ed7ac`: `ExileFromGrave<1/CARDNAME>`, `ActivationZone$ Hand`, `AB$`/`Charm` `ReduceCost$`, `Bargain`/`Emerge`/`Prototype` lowering, `{X}`-kicker `etbCounter`), Wave 9b (`42d334b9e`: `ExileTopWithPermission`, `ExileWithPermission`, `GrantLinkedExilePermission`, `Bargained`/`Prototyped` conditions & splitting + `chains.rs` `self.body.bargain` guard, `Scent of Ivy` `PumpTarget`/`PumpFilter` fix, Top-25 sweeps), and Wave 9c (`1a1751dc5`: `Historic`/`Outlaw`/`hasABasicLandType`, `ManaForColorsAmong`/`BasicLandTypesAmong`, `Converge`/`ManaPool:All` CMC filters, destruction prevention shields, replacement flags) -> `xtask transcode-report`: **`18,116 / 34,482` (`52%`)** scripts read in full, **`752 / 864`** tokens (`0` collisions).
+  - Completed `15` Wave 8 stubs + refreshed `8` graveyard/commander cards (`a7f177044`, reconciling `activation_census` to `(3717, 4783)`) -> verified `baylee-cards-codegen` (`631/631`), `xtask` (`148/148`), `xtask validate` (`15,879` conform: `11,015` `Implemented` + `3,628` `Generated` = **`14,643` playable**, `+ 263` `Partial` = `14,906` finished, `973` stubs), `baylee-cards --lib` (`170/170`), `baylee-ai --lib` (`429/429`), `baylee-seat --lib -- narrator::tests::` (`138/138`), `baylee-card-tests-verification` (`58/58`), `keyword_tests::` (`20/20`), and `clippy` (`0` warnings).
+
 ## 2026-11-20 — Amass token-stem fix (`75aa4169d`) & Passes E3–E4a (`31b657790`, `4aeaffb8b`, `f99b00a86`, `a5930da2d`)
 
 - **Amass implicit token stem fix (`Reviewed: 75aa4169d`, `Reviewed-by: gemini-4-argon-high (#270), pass`):**
