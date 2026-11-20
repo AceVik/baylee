@@ -128,6 +128,11 @@ sha2.workspace = true
 name = "probe_refusal"
 required-features = ["play"]
 
+[[bin]]
+name = "astra_visible4"
+path = "src/bin/astra_visible4.rs"
+required-features = ["llm"]
+
 [[example]]
 name = "challenge_probe"
 path = "examples/challenge_probe/main.rs"
