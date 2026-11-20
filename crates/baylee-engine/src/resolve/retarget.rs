@@ -113,6 +113,12 @@ pub(super) fn start_copy(
     begin(state, res, copy, None, true, false)
 }
 
+/// Finalizes a stack copy whose targets are kept unchanged without offering
+/// retargeting (`may_choose_new_targets: false`, CR 707.10).
+pub(super) fn keep_copy_targets(state: &mut GameState, copy: ObjectId) {
+    record_new_targets(state, copy, &[], &[]);
+}
+
 fn begin(
     state: &mut GameState,
     res: &mut Resolution,

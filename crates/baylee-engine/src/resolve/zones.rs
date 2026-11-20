@@ -238,24 +238,38 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::Blink { owner_control, .. } => {
-            if let Some(&target_id) = res.targets.first() {
-                let components = state.merged_components(target_id);
-                let owner = state.object(target_id).map_or(you, |o| o.owner);
-                if let Some(obj) = state.object_mut(target_id) {
-                    obj.kind = ObjectKind::Card;
+        Effect::Blink {
+            target,
+            owner_control,
+        } => {
+            let targets = moving_objects(state, res, target);
+            if !targets.is_empty() {
+                let mut components: SmallVec<[ObjectId; 2]> = SmallVec::new();
+                for target_id in targets {
+                    if state
+                        .object(target_id)
+                        .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield)
+                    {
+                        continue;
+                    }
+                    components.extend(state.merged_components(target_id));
+                    let owner = state.object(target_id).map_or(you, |o| o.owner);
+                    if let Some(obj) = state.object_mut(target_id) {
+                        obj.kind = ObjectKind::Card;
+                    }
+                    let _ = state.move_object(
+                        target_id,
+                        ZoneLocation::Exile(owner),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
                 }
-                let _ = state.move_object(
-                    target_id,
-                    ZoneLocation::Exile(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
                 if !owner_control && state.has_left(you) {
                     return None;
                 }
-                // A merged permanent leaves once, then each physical card returns
-                // separately. Tokens cannot return after changing zones.
+                // Every target leaves the battlefield before any physical card
+                // returns separately (CR 400.7, CR 608.2c). Tokens cannot return
+                // after changing zones (CR 111.8).
                 for card in components {
                     if let Some(obj) = state
                         .object_mut(card)
@@ -747,7 +761,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             state.phase_out(&targets);
             None
         }
-        Effect::ExileLinked { until, .. } => {
+        Effect::ExileLinked { target, until } => {
             let until = until.map(|until| match until {
                 baylee_cards_dsl::ExileUntil::SourceLeavesBattlefield => {
                     crate::object::LinkUntil::HostLeaves
@@ -779,7 +793,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             {
                 return None;
             }
-            if let Some(&target_id) = res.targets.first() {
+            let host_version = super::source_version(state, res)
+                .or_else(|| state.object(res.source).map(|o| o.version));
+            for target_id in moving_objects(state, res, target) {
                 let components = state.merged_components(target_id);
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(target_id) {
@@ -795,9 +811,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
-                if let Some(version) = super::source_version(state, res)
-                    .or_else(|| state.object(res.source).map(|o| o.version))
-                {
+                if let Some(version) = host_version {
                     for component in components {
                         if let Some(object) = state
                             .object_mut(component)
@@ -1030,7 +1044,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             let x = match op {
                 Effect::RollDiePutTargetIntoLibraryBeneathTop { sides } => {
-                    (state.rng.below(u64::from(sides.max(1))) as usize) + 1
+                    usize::try_from(super::dice::roll_dice(state, you, 1, sides.max(1), 0))
+                        .unwrap_or(usize::MAX)
                 }
                 Effect::PutTargetIntoLibraryBeneathTop { count } => {
                     usize::try_from(amount2(&count, state, you, res)).unwrap_or(usize::MAX)

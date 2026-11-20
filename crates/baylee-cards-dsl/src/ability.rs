@@ -697,15 +697,15 @@ pub enum Trigger {
         /// The count that must be reached.
         n: u8,
     },
-    /// "When you remove the last [kind] counter from this permanent"
-    /// (Divine Intervention): its controller takes the count of that kind on
-    /// the source from one or more to none, however they do it — an effect
-    /// they control or a cost they pay. A removal by another player's effect,
-    /// or by the game's rules (a stun counter, damage to a planeswalker), does
-    /// not trigger it.
+    /// "When [you remove / the] last [kind] counter [is removed] from this
+    /// permanent" (Divine Intervention: `by: Some(PlayerRel::You)`; Vanishing,
+    /// CR 702.63a: `by: None`, matching any player, effect, cost, or SBA).
     LastCounterRemoved {
         /// The kind removed.
         kind: crate::effect::CounterKind,
+        /// Optional player relation restricting whose removal counts (`None`
+        /// triggers regardless of who or what removed the last counter).
+        by: Option<crate::effect::PlayerRel>,
     },
     /// The controller casts their Nth spell this turn (Storm of
     /// Saruman's second-spell trigger).
@@ -920,6 +920,25 @@ pub enum Trigger {
     /// A permanent matching the filter phases out or leaves the battlefield
     /// (CR 702.26d, CR 603.10a, CR 603.10b — Ertai's Familiar).
     PhasesOutOrLeavesBattlefield(&'static Filter),
+    /// A player flips a coin (CR 705.2): `outcome: None` triggers on any coin
+    /// flip by `who`, `Some(true)` on a won flip, and `Some(false)` on a lost
+    /// flip. Sets `EventPlayer` to the flipping player.
+    CoinFlipped {
+        /// Which player(s)' coin flips count.
+        who: crate::effect::PlayerRel,
+        /// Optional win (`true`) or loss (`false`) filter.
+        outcome: Option<bool>,
+    },
+    /// A player rolls a die (CR 706.2): `min_result: None` triggers on any
+    /// non-ignored die roll by `who`; `Some(n)` triggers when the result is at
+    /// least `n`. Sets `EventPlayer` to the rolling player and `EventAmount`
+    /// to the die result.
+    DieRolled {
+        /// Which player(s)' die rolls count.
+        who: crate::effect::PlayerRel,
+        /// Optional inclusive minimum natural die result.
+        min_result: Option<u8>,
+    },
 }
 
 impl Trigger {
@@ -1512,6 +1531,18 @@ pub enum CopyMod {
     /// [`Modifier::GrantActivated`]: crate::static_ability::Modifier::GrantActivated
     /// [`Modifier::GrantTriggered`]: crate::static_ability::Modifier::GrantTriggered
     Grant(&'static crate::static_ability::Modifier),
+    /// Sets the copy's copiable name ("except its name is …", CR 707.9b).
+    SetName(&'static str),
+    /// Retains the copier's prior copiable name ("except it keeps its name", CR 707.9b).
+    KeepName,
+    /// Sets the copy's copiable mana cost ("except its mana cost is …", CR 707.9b).
+    SetManaCost(baylee_core::mana::ManaCost),
+    /// Retains the copier's prior copiable mana cost (CR 707.9b).
+    KeepManaCost,
+    /// Replaces the copy's card types outright (CR 707.9b).
+    SetTypes(baylee_core::types::TypeSet),
+    /// Adds color(s) to the copy's copiable colors ("in addition to its other colors", CR 707.9b).
+    AddColor(baylee_core::color::ColorSet),
 }
 
 /// How many modes a modal spell's caster chooses (CR 700.2): the count

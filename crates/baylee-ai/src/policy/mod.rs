@@ -2425,7 +2425,8 @@ fn harmful_targeted(effect: &Effect) -> bool {
         Effect::DealDamage { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::ReturnToHand { .. }
-        | Effect::TapTarget => true,
+        | Effect::TapTarget
+        | Effect::TapTargetSlot(baylee_cards_dsl::TargetSlot::First) => true,
         Effect::PumpTarget {
             power, toughness, ..
         }

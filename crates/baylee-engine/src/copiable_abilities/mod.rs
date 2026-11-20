@@ -565,10 +565,23 @@ pub fn apply_characteristic_exceptions_with_text(
     mods: &[CopyMod],
     text: crate::text_changes::TextChangeMap,
 ) {
+    apply_characteristic_exceptions_with_names(copied, previous, mods, text, None);
+}
+
+/// Apply characteristic exceptions in Layer 1, interning literal names when
+/// `names` is supplied (CR 707.9b).
+pub(crate) fn apply_characteristic_exceptions_with_names(
+    copied: &mut crate::object::Characteristics,
+    previous: &crate::object::Characteristics,
+    mods: &[CopyMod],
+    text: crate::text_changes::TextChangeMap,
+    mut names: Option<&mut crate::state::Names>,
+) {
     for modifier in mods {
         match *modifier {
             CopyMod::AddType(types) => copied.types = copied.types.union(types),
             CopyMod::RemoveType(types) => copied.types = copied.types.difference(types),
+            CopyMod::SetTypes(types) => copied.types = types,
             CopyMod::AddSupertype(types) => copied.supertypes = copied.supertypes.union(types),
             CopyMod::RemoveSupertype(types) => {
                 copied.supertypes = copied.supertypes.difference(types);
@@ -596,7 +609,18 @@ pub fn apply_characteristic_exceptions_with_text(
                     .keywords
                     .difference(baylee_cards_dsl::KeywordSet::DEVOID);
             }
+            CopyMod::AddColor(colors) => {
+                copied.colors = copied.colors.union(text.color_words(colors));
+            }
             CopyMod::KeepColor => copied.colors = previous.colors,
+            CopyMod::SetName(name) => {
+                if let Some(interner) = names.as_deref_mut() {
+                    copied.name = interner.intern(name);
+                }
+            }
+            CopyMod::KeepName => copied.name = previous.name,
+            CopyMod::SetManaCost(cost) => copied.mana_cost = cost,
+            CopyMod::KeepManaCost => copied.mana_cost = previous.mana_cost,
             CopyMod::NoManaCost => copied.mana_cost = baylee_core::mana::ManaCost::ZERO,
             CopyMod::EnterTapped
             | CopyMod::AddCounter(..)
@@ -696,7 +720,13 @@ pub(crate) fn apply_copy_from_reference(
     let controller = object.controller;
     let x = object.x_value;
     let mut base = (*target_base).clone();
-    apply_characteristic_exceptions_with_text(&mut base, &previous, mods, text);
+    apply_characteristic_exceptions_with_names(
+        &mut base,
+        &previous,
+        mods,
+        text,
+        Some(&mut state.names),
+    );
     let became = base.types;
     let mut abilities = compose(copied, &own, copy_index, mods, resolving);
     // Primal Clay's self-shaped characteristics keep their existing rules.

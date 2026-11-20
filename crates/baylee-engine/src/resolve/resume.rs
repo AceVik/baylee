@@ -77,6 +77,13 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::ChooseTokenCopy { count, spec } => {
+            if let Some(pending) =
+                tokens::copy_tokens::finish_chosen(state, res, chosen, count, spec)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::RevealLibrarySearch => {
             if !chosen.is_empty() {
                 state.journal.record(GameEvent::Revealed {

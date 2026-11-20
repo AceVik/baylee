@@ -52,6 +52,8 @@ pub struct SubjectContext {
     /// the sacrifices it ends with (`resolve::for_each`).
     pub(super) counted: Option<Box<super::for_each::Count>>,
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
+    pub(super) last_die_roll: Option<u32>,
+    pub(super) coins_won: u32,
 }
 impl SubjectContext {
     /// Preserve the independent player targets of the second target instance.
@@ -88,6 +90,8 @@ impl SubjectContext {
             payment_batches: Vec::new(),
             counted: None,
             checkpoint: None,
+            last_die_roll: None,
+            coins_won: 0,
         }
     }
 
@@ -237,6 +241,19 @@ impl SubjectContext {
             h = h
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&(93_u8, color)));
+        }
+        if let Some(roll) = self.last_die_roll {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(94_u8, roll)));
+        }
+        if self.coins_won > 0 {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    95_u8,
+                    self.coins_won,
+                )));
         }
         // Checkpoints exist only during synchronous resume calls. Every
         // public resume wrapper flushes before returning a held resolution.

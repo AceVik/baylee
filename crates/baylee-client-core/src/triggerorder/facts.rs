@@ -635,6 +635,8 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::CreateTokenCopiesOfGraveyard { .. }
         | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokenCopyOfTarget { .. }
+        | Effect::CreateTokenCopy { .. }
+        | Effect::ChooseAndCreateTokenCopy { .. }
         | Effect::CreateTokenThenCounters { .. }
         | Effect::Populate
         | Effect::Amass { .. }

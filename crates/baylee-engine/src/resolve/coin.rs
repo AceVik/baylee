@@ -2,8 +2,8 @@
 
 use super::{
     Amount, AwaitingOp, CoinContinuation, Effect, Flow, GameEvent, GameState, Pending, PlayerId,
-    PlayerRel, Resolution, YesNoPrompt, amount2, coin_stakes, life, players_of, resolving_ability,
-    run, run_nested,
+    PlayerRel, Resolution, YesNoPrompt, amount2, coin_stakes, flatten, life, players_of,
+    resolving_ability, run, run_nested, run_nested_ops,
 };
 
 pub(super) enum Flip {
@@ -83,16 +83,38 @@ pub(super) fn resume(state: &mut GameState, res: &mut Resolution, ignore_first: 
         return Flow::Wait(question(state, res, player));
     }
     let won = outcomes[0];
+    if won && player == res.controller {
+        res.subject.coins_won = res.subject.coins_won.saturating_add(1);
+    }
     match continuation {
         CoinContinuation::FlipBranches { won: yes, lost: no } => {
-            // The replaced flip and its chosen branch are complete. Without
-            // advancing, the original instruction flips again after every
-            // completed branch instead of moving to the next one.
-            res.pc += 1;
-            match run_nested(state, res, if won { yes } else { no }) {
-                Some(pending) => Flow::Wait(pending),
-                None => run(state, res),
-            }
+            let pending = run_nested(state, res, if won { yes } else { no });
+            finish_resumed_branch(state, res, pending)
+        }
+        CoinContinuation::MultiFlip {
+            remaining,
+            stop_on_loss,
+            per_win,
+            if_won_all,
+        } => {
+            let pending = finish_multi_flip(
+                state,
+                res,
+                won,
+                remaining,
+                stop_on_loss,
+                per_win,
+                if_won_all,
+            );
+            finish_resumed_branch(state, res, pending)
+        }
+        CoinContinuation::UntilLose {
+            max_flips,
+            per_win,
+            after,
+        } => {
+            let pending = finish_until_lose(state, res, won, max_flips, per_win, after);
+            finish_resumed_branch(state, res, pending)
         }
         CoinContinuation::UntilLossOrStop { wins } => {
             if !won {
@@ -111,40 +133,48 @@ pub(super) fn resume(state: &mut GameState, res: &mut Resolution, ignore_first: 
             damage,
             you_heads,
             opponent_heads,
-        } => {
-            let (you_heads, opponent_heads) = if you_heads.is_none() {
-                (Some(won), opponent_heads)
-            } else {
-                (you_heads, Some(won))
-            };
-            if opponent_heads.is_none() {
-                let continuation = CoinContinuation::DamageContest {
-                    damage,
-                    you_heads,
-                    opponent_heads,
-                };
-                let opponent = *players_of(PlayerRel::Chosen, state, res.controller, res)
-                    .first()
-                    .expect("the contest names an opponent");
-                return match flip(state, res, opponent, continuation) {
-                    Flip::Outcome(won) => {
-                        let finished =
-                            finish_damage_contest(state, res, damage, you_heads.unwrap(), won);
-                        after_contest(state, res, finished)
-                    }
-                    Flip::Wait(pending) => Flow::Wait(*pending),
-                };
-            }
-            let finished = finish_damage_contest(
-                state,
-                res,
-                damage,
-                you_heads.expect("first result"),
-                opponent_heads.expect("second result"),
-            );
-            after_contest(state, res, finished)
-        }
+        } => resume_damage_contest(state, res, won, damage, you_heads, opponent_heads),
     }
+}
+
+fn resume_damage_contest(
+    state: &mut GameState,
+    res: &mut Resolution,
+    won: bool,
+    damage: Amount,
+    you_heads: Option<bool>,
+    opponent_heads: Option<bool>,
+) -> Flow {
+    let (you_heads, opponent_heads) = if you_heads.is_none() {
+        (Some(won), opponent_heads)
+    } else {
+        (you_heads, Some(won))
+    };
+    if opponent_heads.is_none() {
+        let continuation = CoinContinuation::DamageContest {
+            damage,
+            you_heads,
+            opponent_heads,
+        };
+        let opponent = *players_of(PlayerRel::Chosen, state, res.controller, res)
+            .first()
+            .expect("the contest names an opponent");
+        return match flip(state, res, opponent, continuation) {
+            Flip::Outcome(won) => {
+                let finished = finish_damage_contest(state, res, damage, you_heads.unwrap(), won);
+                after_contest(state, res, finished)
+            }
+            Flip::Wait(pending) => Flow::Wait(*pending),
+        };
+    }
+    let finished = finish_damage_contest(
+        state,
+        res,
+        damage,
+        you_heads.expect("first result"),
+        opponent_heads.expect("second result"),
+    );
+    after_contest(state, res, finished)
 }
 
 /// A contest finished from an answer, as `run` goes on after an instruction
@@ -229,4 +259,161 @@ fn finish_damage_contest(
         shares.push((opponent, amount));
     }
     life::deal_to_players(state, res, &shares)
+}
+
+pub(super) fn flip_coins(
+    state: &mut GameState,
+    res: &mut Resolution,
+    count: Amount,
+    stop_on_loss: bool,
+    per_win: &'static [Effect],
+    if_won_all: &'static [Effect],
+) -> Option<Pending> {
+    let you = res.controller;
+    let remaining = amount2(&count, state, you, res);
+    if remaining == 0 {
+        return None;
+    }
+    match flip(
+        state,
+        res,
+        you,
+        CoinContinuation::MultiFlip {
+            remaining,
+            stop_on_loss,
+            per_win,
+            if_won_all,
+        },
+    ) {
+        Flip::Outcome(won) => {
+            if won {
+                res.subject.coins_won = res.subject.coins_won.saturating_add(1);
+            }
+            finish_multi_flip(
+                state,
+                res,
+                won,
+                remaining,
+                stop_on_loss,
+                per_win,
+                if_won_all,
+            )
+        }
+        Flip::Wait(pending) => Some(*pending),
+    }
+}
+
+fn finish_multi_flip(
+    state: &mut GameState,
+    res: &mut Resolution,
+    won: bool,
+    remaining: u32,
+    stop_on_loss: bool,
+    per_win: &'static [Effect],
+    if_won_all: &'static [Effect],
+) -> Option<Pending> {
+    if won {
+        let mut ops = flatten(per_win);
+        if remaining == 1 {
+            ops.extend(flatten(if_won_all));
+        } else {
+            ops.push(Effect::FlipCoins {
+                count: Amount::Fixed(remaining - 1),
+                stop_on_loss,
+                per_win,
+                if_won_all,
+            });
+        }
+        return if ops.is_empty() {
+            None
+        } else {
+            run_nested_ops(state, res, ops)
+        };
+    }
+    if stop_on_loss || remaining <= 1 {
+        return None;
+    }
+    run_nested_ops(
+        state,
+        res,
+        vec![Effect::FlipCoins {
+            count: Amount::Fixed(remaining - 1),
+            stop_on_loss: false,
+            per_win,
+            if_won_all: &[],
+        }],
+    )
+}
+
+pub(super) fn flip_until_lose(
+    state: &mut GameState,
+    res: &mut Resolution,
+    max_flips: Option<u8>,
+    per_win: &'static [Effect],
+    after: &'static [Effect],
+) -> Option<Pending> {
+    if max_flips == Some(0) || res.subject.coins_won >= super::immediate::REPEAT_CAP {
+        return run_nested(state, res, after);
+    }
+    let you = res.controller;
+    match flip(
+        state,
+        res,
+        you,
+        CoinContinuation::UntilLose {
+            max_flips,
+            per_win,
+            after,
+        },
+    ) {
+        Flip::Outcome(won) => {
+            if won {
+                res.subject.coins_won = res.subject.coins_won.saturating_add(1);
+            }
+            finish_until_lose(state, res, won, max_flips, per_win, after)
+        }
+        Flip::Wait(pending) => Some(*pending),
+    }
+}
+
+fn finish_until_lose(
+    state: &mut GameState,
+    res: &mut Resolution,
+    won: bool,
+    max_flips: Option<u8>,
+    per_win: &'static [Effect],
+    after: &'static [Effect],
+) -> Option<Pending> {
+    if !won {
+        return run_nested(state, res, after);
+    }
+    let mut ops = flatten(per_win);
+    let next_max = max_flips.map(|m| m.saturating_sub(1));
+    if next_max == Some(0) || res.subject.coins_won >= super::immediate::REPEAT_CAP {
+        ops.extend(flatten(after));
+    } else {
+        ops.push(Effect::FlipUntilLose {
+            max_flips: next_max,
+            per_win,
+            after,
+        });
+    }
+    if ops.is_empty() {
+        None
+    } else {
+        run_nested_ops(state, res, ops)
+    }
+}
+
+fn finish_resumed_branch(
+    state: &mut GameState,
+    res: &mut Resolution,
+    pending: Option<Pending>,
+) -> Flow {
+    if let Some(pending) = pending {
+        Flow::Wait(pending)
+    } else {
+        res.pc += 1;
+        run(state, res)
+    }
 }

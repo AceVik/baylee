@@ -231,11 +231,13 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             ch.counter_spell += 1.0;
         }
         Effect::TapTarget
+        | Effect::TapTargetSlot(_)
         | Effect::TapEventObject
         | Effect::ToggleTapTarget
         | Effect::TapAll { .. }
         | Effect::TapAllOf { .. }
         | Effect::UntapTarget
+        | Effect::UntapTargetSlot(_)
         | Effect::UntapSelf
         | Effect::UntapFound
         | Effect::UntapAll { .. }
@@ -292,6 +294,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::CreateTokenCopiesOfGraveyard { .. }
         | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokenCopyOfFirstToken
+        | Effect::CreateTokenCopy { .. }
+        | Effect::ChooseAndCreateTokenCopy { .. }
         | Effect::Fabricate { .. }
         | Effect::Populate => {
             ch.tokens_create += 1.5;
@@ -335,10 +339,12 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::CopyEventSpellOrAbility
         | Effect::CopyResolvingSpell { .. }
         | Effect::CopyThisSpell { .. }
+        | Effect::CopySpellOrAbility { .. }
         | Effect::ChangeController { .. }
         | Effect::GainControlAll { .. }
         | Effect::ExchangeControl
-        | Effect::BecomeCopyOfTarget { .. } => {
+        | Effect::BecomeCopyOfTarget { .. }
+        | Effect::BecomeCopy { .. } => {
             ch.blink_copy_control += 1.0;
         }
         Effect::TakeExtraTurn | Effect::WinGame => {

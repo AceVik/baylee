@@ -756,6 +756,23 @@ impl Effect {
                 won: then,
                 lost: otherwise,
             }
+            | Effect::FlipCoins {
+                count: _,
+                stop_on_loss: _,
+                per_win: then,
+                if_won_all: otherwise,
+            }
+            | Effect::FlipUntilLose {
+                max_flips: _,
+                per_win: then,
+                after: otherwise,
+            }
+            | Effect::IfDieRollInRange {
+                min: _,
+                max: _,
+                then,
+                otherwise,
+            }
             | Effect::IfCondition {
                 condition: _,
                 then,
@@ -1240,7 +1257,14 @@ impl Effect {
             | Effect::PumpTarget { .. }
             | Effect::PumpEventObject { .. }
             | Effect::Madness
-            | Effect::PumpTargetSlot { .. } => (NONE, NONE),
+            | Effect::PumpTargetSlot { .. }
+            | Effect::TapTargetSlot(_)
+            | Effect::UntapTargetSlot(_)
+            | Effect::CreateTokenCopy { .. }
+            | Effect::ChooseAndCreateTokenCopy { .. }
+            | Effect::BecomeCopy { .. }
+            | Effect::CopySpellOrAbility { .. }
+            | Effect::RollDice { .. } => (NONE, NONE),
         }
     }
 

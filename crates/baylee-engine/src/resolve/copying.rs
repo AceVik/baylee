@@ -191,7 +191,7 @@ pub(super) fn copy_spell(
         })
     });
     for m in mods {
-        tokens::apply_copy_mod_with_text(&mut base, m, text);
+        tokens::apply_copy_mod_with_names(&mut base, m, text, Some(&mut state.names));
     }
     let ts = state.next_timestamp();
     let prepare_spell = state.source_object(original).and_then(|object| {
@@ -283,4 +283,199 @@ pub(super) fn was_cast_from_graveyard(state: &GameState, res: &Resolution) -> bo
                 && object.cast_history.was_from_graveyard()
                 && !object.riders.contains(&crate::object::Rider::SpellCopy)
         })
+}
+
+/// Parameters for `Effect::BecomeCopy`.
+#[derive(Clone, Copy)]
+pub(super) struct BecomeCopySpec {
+    pub subject: baylee_cards_dsl::TargetSlot,
+    pub subject_filter: Option<&'static baylee_cards_dsl::Filter>,
+    pub original: baylee_cards_dsl::TargetSpec,
+    pub original_is_second_target: bool,
+    pub until_eot: bool,
+    pub mods: &'static [baylee_cards_dsl::CopyMod],
+}
+
+/// Generalized `Effect::BecomeCopy` (CR 707.2, CR 707.9).
+pub(super) fn become_copy(state: &mut GameState, res: &Resolution, spec: BecomeCopySpec) {
+    let Some(original_ref) =
+        resolve_copy_original(state, res, spec.original, spec.original_is_second_target)
+    else {
+        return;
+    };
+    let subjects = resolve_copy_subjects(
+        state,
+        res,
+        spec.subject,
+        spec.subject_filter,
+        original_ref.object,
+    );
+    if subjects.is_empty() {
+        return;
+    }
+    let loc = state.object(res.on_stack).and_then(|object| object.ability);
+    let resolving = loc.and_then(|loc| {
+        state
+            .printed_ability_list(res.on_stack)?
+            .entry(loc.index as usize)
+    });
+    let copy_index = loc.map_or(0, |loc| loc.index);
+    for target_subject in subjects {
+        crate::copiable_abilities::apply_copy_from_reference(
+            state,
+            crate::copiable_abilities::CopyApplication {
+                source: target_subject,
+                target: original_ref.object,
+                mods: spec.mods,
+                copy_index,
+                until_eot: spec.until_eot,
+                resolving,
+                text: res.text,
+            },
+            original_ref,
+        );
+    }
+}
+
+fn resolve_copy_original(
+    state: &GameState,
+    res: &Resolution,
+    original: baylee_cards_dsl::TargetSpec,
+    original_is_second_target: bool,
+) -> Option<baylee_core::ids::DamageSourceRef> {
+    use baylee_cards_dsl::TargetSpec;
+    if original_is_second_target {
+        let &id = res.second_targets.first()?;
+        return super::subjects::target(state, res, id).or_else(|| state.source_identity(id));
+    }
+    match original {
+        TargetSpec::ThisObject => {
+            super::subjects::source(state, res).or_else(|| state.source_identity(res.source))
+        }
+        TargetSpec::EventObject => super::subjects::event(state, res)
+            .or_else(|| res.event_object.and_then(|id| state.source_identity(id))),
+        _ => {
+            let &id = res.targets.first()?;
+            super::subjects::target(state, res, id).or_else(|| state.source_identity(id))
+        }
+    }
+}
+
+fn resolve_copy_subjects(
+    state: &GameState,
+    res: &Resolution,
+    subject: baylee_cards_dsl::TargetSlot,
+    subject_filter: Option<&'static baylee_cards_dsl::Filter>,
+    original_id: ObjectId,
+) -> Vec<ObjectId> {
+    use baylee_cards_dsl::TargetSlot;
+    if let Some(filter) = subject_filter {
+        let context = res.rule_context();
+        return state
+            .battlefield_seen()
+            .filter(|&id| {
+                id != original_id
+                    && state.object(id).is_some_and(|obj| {
+                        crate::eval::matches_with_context(
+                            filter,
+                            state,
+                            obj,
+                            res.controller,
+                            context,
+                        )
+                    })
+            })
+            .collect();
+    }
+    match subject {
+        TargetSlot::This => super::subjects::source(state, res)
+            .filter(|s| super::subjects::on_battlefield(state, *s))
+            .map(|s| s.object)
+            .into_iter()
+            .collect(),
+        TargetSlot::First => res
+            .targets
+            .iter()
+            .copied()
+            .filter(|&id| {
+                super::subjects::target(state, res, id)
+                    .is_some_and(|r| super::subjects::on_battlefield(state, r))
+            })
+            .collect(),
+        TargetSlot::Second => res
+            .second_targets
+            .iter()
+            .copied()
+            .filter(|&id| {
+                super::subjects::target(state, res, id)
+                    .is_some_and(|r| super::subjects::on_battlefield(state, r))
+            })
+            .collect(),
+    }
+}
+
+/// Generalized `Effect::CopySpellOrAbility` (CR 707.10, CR 707.10c, CR 707.12).
+pub(super) fn copy_spell_or_ability(
+    state: &mut GameState,
+    res: &mut Resolution,
+    target: baylee_cards_dsl::TargetSpec,
+    controller: baylee_cards_dsl::PlayerRel,
+    amount: baylee_cards_dsl::Amount,
+    mods: &'static [baylee_cards_dsl::CopyMod],
+    may_choose_new_targets: bool,
+) -> Option<Pending> {
+    use baylee_cards_dsl::{Amount, Effect, TargetSpec};
+    let count = super::amount2(&amount, state, res.controller, res);
+    if count == 0 {
+        return None;
+    }
+    let player = super::players_of(controller, state, res.controller, res)
+        .into_iter()
+        .next()?;
+    if state.has_left(player) {
+        return None;
+    }
+    let original = match target {
+        TargetSpec::ThisObject => {
+            super::subjects::source(state, res).or_else(|| state.source_identity(res.on_stack))?
+        }
+        TargetSpec::EventObject => super::subjects::event(state, res)?,
+        _ => {
+            let &id = res.targets.first()?;
+            state
+                .object(id)
+                .filter(|o| o.zone == crate::zone::Zone::Stack)
+                .and_then(|_| state.source_identity(id))?
+        }
+    };
+    let is_ability = state.source_object(original)?.kind == ObjectKind::AbilityOnStack;
+    if !may_choose_new_targets {
+        for _ in 0..count {
+            let copy = if is_ability {
+                copy_ability(state, original, player)?
+            } else {
+                copy_spell(state, original, player, mods, res.text)?
+            };
+            retarget::keep_copy_targets(state, copy);
+        }
+        return None;
+    }
+    let copy = if is_ability {
+        copy_ability(state, original, player)?
+    } else {
+        copy_spell(state, original, player, mods, res.text)?
+    };
+    if count > 1 {
+        res.effects.insert(
+            res.pc + 1,
+            Effect::CopySpellOrAbility {
+                target,
+                controller,
+                amount: Amount::Fixed(count - 1),
+                mods,
+                may_choose_new_targets: true,
+            },
+        );
+    }
+    retarget::start_copy(state, res, copy)
 }

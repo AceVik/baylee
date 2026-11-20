@@ -212,8 +212,12 @@ pub(super) fn copiable_grants(ability: &AbilityDef) -> Vec<&'static AbilityDef> 
             Effect::CreateTokenCopyOfTarget { mods, .. }
             | Effect::CreateTokenCopyOfSource { mods }
             | Effect::CreateTokenCopyOfEquipped { mods, .. }
+            | Effect::CreateTokenCopy { mods, .. }
+            | Effect::ChooseAndCreateTokenCopy { mods, .. }
             | Effect::CopyTargetSpell { mods }
-            | Effect::BecomeCopyOfTarget { mods, .. } => read(mods),
+            | Effect::CopySpellOrAbility { mods, .. }
+            | Effect::BecomeCopyOfTarget { mods, .. }
+            | Effect::BecomeCopy { mods, .. } => read(mods),
             _ => {}
         });
     }

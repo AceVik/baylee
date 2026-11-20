@@ -113,7 +113,8 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::AddCounterFilter { amount, .. }
         | Effect::AddCounterCreatedTokens { amount, .. }
         | Effect::CreateTokenThenCounters { amount, .. }
-        | Effect::CreateTokenN { amount, .. } => reads_amount(*amount),
+        | Effect::CreateTokenN { amount, .. }
+        | Effect::ChooseAndCreateTokenCopy { amount, .. } => reads_amount(*amount),
         Effect::Poison { amount, who }
         | Effect::DiscardAmountForPlayers { amount, who }
         | Effect::SacrificeAmountForPlayers { amount, who, .. }
@@ -144,10 +145,14 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::Assimilate { target }
         | Effect::AttachSelf { target, .. }
         | Effect::ExileLinked { target, .. }
-        | Effect::SacrificeObject { target, .. } => reads_target(*target),
-        Effect::LookAtTopPick { count, .. } | Effect::SearchLibraryUpTo { count, .. } => {
-            reads_amount(*count)
+        | Effect::BecomeCopy {
+            original: target, ..
         }
+        | Effect::SacrificeObject { target, .. } => reads_target(*target),
+        Effect::LookAtTopPick { count, .. }
+        | Effect::SearchLibraryUpTo { count, .. }
+        | Effect::FlipCoins { count, .. }
+        | Effect::RollDice { count, .. } => reads_amount(*count),
         Effect::ChooseExiledToPlay { owner, .. }
         | Effect::RemoveCountersFromChosenExile { owner, .. }
         | Effect::CreateTokenCopiesOfGraveyard { player: owner, .. } => reads_player(*owner),
@@ -224,6 +229,18 @@ fn reads_event(effect: &Effect) -> bool {
             reads_player(*player) || reads_amount(*life)
         }
         Effect::ChangeController { new_controller, .. } => reads_player(*new_controller),
+        Effect::CreateTokenCopy {
+            target,
+            controller,
+            amount,
+            ..
+        }
+        | Effect::CopySpellOrAbility {
+            target,
+            controller,
+            amount,
+            ..
+        } => reads_target(*target) || reads_player(*controller) || reads_amount(*amount),
         Effect::SearchLibraryOf { library, .. } => reads_player(*library),
         Effect::PumpFilter {
             controlled_by,

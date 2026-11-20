@@ -106,6 +106,7 @@ mod river;
 pub use discard::{DiscardReveal, DiscardThen};
 use discard::{discard_or_ask, resume_discard_destination};
 mod counter_move;
+mod dice;
 mod dig;
 mod directed_search;
 #[cfg(test)]
@@ -801,17 +802,39 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                 .unwrap_or(0);
             u32::try_from(power).unwrap_or(0)
         }
-        Amount::EventLastToughness => state
-            .object(res.on_stack)
-            .and_then(|o| {
+        Amount::EventLastToughness => {
+            if let Some(toughness) = state.object(res.on_stack).and_then(|o| {
                 o.riders.iter().find_map(|r| match r {
-                    crate::object::Rider::EventDeparture(_, toughness) => {
-                        Some((*toughness).max(0) as u32)
-                    }
+                    crate::object::Rider::EventDeparture(_, toughness) => Some(*toughness),
                     _ => None,
                 })
-            })
-            .unwrap_or(0),
+            }) {
+                return u32::try_from(toughness.max(0)).unwrap_or(0);
+            }
+            let Some(source) = res.event_object else {
+                return 0;
+            };
+            let identity = event_object_identity(state, res);
+            let toughness = state
+                .object(source)
+                .filter(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && identity.is_none_or(|(v, _)| o.version == v)
+                })
+                .and_then(|o| o.characteristics().toughness)
+                .or_else(|| {
+                    state
+                        .last_known_characteristics(source)
+                        .and_then(|c| c.toughness)
+                })
+                .or_else(|| {
+                    state
+                        .damage_source(source, identity.map(|(v, _)| v))
+                        .and_then(|o| o.characteristics().toughness)
+                })
+                .unwrap_or(0);
+            u32::try_from(toughness.max(0)).unwrap_or(0)
+        }
         Amount::TargetPower => target_chars(res, state)
             .and_then(|c| c.power)
             .map_or(0, |p| p.max(0) as u32),
@@ -833,6 +856,8 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::EventAmount => state
             .object(res.on_stack)
             .map_or(0, GameObject::event_amount),
+        Amount::LastDieRoll => res.subject.last_die_roll.unwrap_or(0),
+        Amount::CoinsWonThisResolution => res.subject.coins_won,
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
         Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
@@ -1851,6 +1876,16 @@ fn run_nested(
 ) -> Option<Pending> {
     let targets = res.targets.clone();
     run_nested_with(state, res, flatten(branch), targets)
+}
+
+/// Runs a dynamically constructed nested instruction sequence inline.
+pub(super) fn run_nested_ops(
+    state: &mut GameState,
+    res: &mut Resolution,
+    ops: Vec<Effect>,
+) -> Option<Pending> {
+    let targets = res.targets.clone();
+    run_nested_with(state, res, ops, targets)
 }
 
 /// Sacrifices `victims` as one event: every departure is read before any of

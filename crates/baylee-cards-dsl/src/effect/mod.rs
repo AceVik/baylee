@@ -188,6 +188,25 @@ pub enum DelayedTriggerWhen {
     },
 }
 
+/// Delayed cleanup scheduled for tokens created by [`Effect::CreateTokenCopy`]
+/// or [`Effect::ChooseAndCreateTokenCopy`] (CR 603.7).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CopyCleanup {
+    /// No delayed cleanup; the token remains on the battlefield indefinitely.
+    None,
+    /// Sacrifice the created token(s) at the beginning of the next end step
+    /// (Kiki-Jiki, Fable of the Mirror Breaker).
+    SacrificeAtNextEndStep,
+    /// Exile the created token(s) at the beginning of the next end step
+    /// (Twinflame, Heat Shimmer, Feldon).
+    ExileAtNextEndStep,
+    /// Sacrifice the created token(s) at end of combat this turn.
+    SacrificeAtEndOfCombat,
+    /// Exile the created token(s) at end of combat this turn (Electroduplicate,
+    /// Delina,riad-like combat copies).
+    ExileAtEndOfCombat,
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
@@ -4579,6 +4598,164 @@ pub enum Effect {
         remember: TriggerRemember,
         /// Instructions executed when the delayed triggered ability resolves.
         effects: &'static [Effect],
+    },
+    /// Tap every surviving target in the named target slot (`First` or
+    /// `Second`) without touching the other slot (Arena, dual-target tap
+    /// spells; CR 701.26a). Appended to preserve replay identities.
+    TapTargetSlot(TargetSlot),
+    /// Untap every surviving target in the named target slot (`First` or
+    /// `Second`) without touching the other slot (CR 701.26b). Appended to
+    /// preserve replay identities.
+    UntapTargetSlot(TargetSlot),
+    /// Create one or more token copies of a resolved or implicit object
+    /// (`TargetSpec::Object`, `ThisObject`, `EventObject`, `CardInGraveyard`,
+    /// etc.; CR 707.2, CR 707.9, CR 111.10) under `controller`'s control, with
+    /// characteristic exceptions `mods`, optional tapped/attacking/haste riders,
+    /// and optional delayed cleanup. Appended to preserve replay identities.
+    CreateTokenCopy {
+        /// Object to copy (chosen target(s), `ThisObject`, `EventObject`, etc.).
+        target: TargetSpec,
+        /// Player under whose control the token(s) enter the battlefield.
+        controller: PlayerRel,
+        /// Number of token copies to create per copied object.
+        amount: Amount,
+        /// Characteristic exceptions applied in Layer 1 (CR 707.9b).
+        mods: &'static [crate::ability::CopyMod],
+        /// Whether the token(s) enter tapped.
+        tapped: bool,
+        /// Whether the token(s) enter attacking (CR 508.4).
+        attacking: bool,
+        /// Grant haste until end of turn to each created token.
+        haste_until_eot: bool,
+        /// Delayed sacrifice or exile cleanup scheduled for the created token(s).
+        cleanup: CopyCleanup,
+    },
+    /// Choose an untargeted battlefield permanent matching `filter` during
+    /// resolution (prompting when more than one matches, doing nothing when
+    /// none match) and create `amount` token copies of it under your control
+    /// (Rite of Replication / Mythos of Illuna / untargeted `CopyPermanent`
+    /// effects; CR 707.2, CR 707.9). Appended to preserve replay identities.
+    ChooseAndCreateTokenCopy {
+        /// Battlefield filter evaluated from the resolving controller.
+        filter: &'static Filter,
+        /// Number of token copies to create of the chosen permanent.
+        amount: Amount,
+        /// Characteristic exceptions applied in Layer 1 (CR 707.9b).
+        mods: &'static [crate::ability::CopyMod],
+        /// Whether the token(s) enter tapped.
+        tapped: bool,
+        /// Whether the token(s) enter attacking (CR 508.4).
+        attacking: bool,
+        /// Grant haste until end of turn to each created token.
+        haste_until_eot: bool,
+        /// Delayed sacrifice or exile cleanup scheduled for the created token(s).
+        cleanup: CopyCleanup,
+    },
+    /// Make one or more battlefield permanents become copies of another object
+    /// (Cytoshape, Sakashima's Will, Lazav, Mirrorweave, Mirage Mirror; CR 707.2,
+    /// CR 707.9, CR 613.1a). Appended to preserve replay identities.
+    BecomeCopy {
+        /// Which target slot (`First` or `Second`) becomes a copy when
+        /// `subject_filter` is `None` (when `First` has no targets, falls back
+        /// to the resolving source permanent).
+        subject: TargetSlot,
+        /// When `Some(filter)`, every battlefield permanent matching `filter`
+        /// (other than the copied original itself) becomes a copy instead of
+        /// reading `subject` (Mirrorweave).
+        subject_filter: Option<&'static Filter>,
+        /// Which object supplies the copiable values when
+        /// `original_is_second_target` is `false` (`Object` reads primary
+        /// targets; `ThisObject` reads the source; `EventObject` reads the
+        /// triggering/remembered object, including graveyard/exile/stack cards).
+        original: TargetSpec,
+        /// When `true`, reads the copied original from `second_targets`
+        /// instead of `original`.
+        original_is_second_target: bool,
+        /// `true` for `Duration::UntilEndOfTurn`, `false` for
+        /// `Duration::Indefinite`.
+        until_eot: bool,
+        /// Characteristic exceptions applied in Layer 1 (CR 707.9b).
+        mods: &'static [crate::ability::CopyMod],
+    },
+    /// Copy a spell or stack ability `amount` times under `controller`'s
+    /// control (Reverberate, Twincast, Strionic Resonator, Lithoform Engine;
+    /// CR 707.10, CR 707.10c, CR 707.12). Appended to preserve replay
+    /// identities.
+    CopySpellOrAbility {
+        /// Stack spell or ability to copy (`Spell`, `AbilityOnStack`,
+        /// `SpellOrAbility`, `ThisObject`, or `EventObject`).
+        target: TargetSpec,
+        /// Controller of the created stack copies.
+        controller: PlayerRel,
+        /// Number of copies put onto the stack.
+        amount: Amount,
+        /// Characteristic exceptions applied when copying a permanent spell
+        /// (CR 707.10f / CR 707.12).
+        mods: &'static [crate::ability::CopyMod],
+        /// Whether `controller` may choose new targets for each copy
+        /// (CR 707.10c).
+        may_choose_new_targets: bool,
+    },
+    /// Flip `count` coins sequentially (honoring `Modifier::FlipTwoCoinsIgnoreOne`
+    /// per flip and emitting `GameEvent::CoinFlipped`, CR 705.1–2). Executes
+    /// `per_win` after each won flip, stops early on the first lost flip when
+    /// `stop_on_loss` is `true`, and executes `if_won_all` when `count >= 1`
+    /// and every flip was won (Ral Zarek, Stitch in Time, Karplusan Minotaur,
+    /// Two-Headed Giant). Appended to preserve replay identities.
+    FlipCoins {
+        /// Number of coins to flip.
+        count: Amount,
+        /// Stop flipping immediately upon losing a flip.
+        stop_on_loss: bool,
+        /// Instructions executed immediately for each won flip.
+        per_win: &'static [Effect],
+        /// Instructions executed after all `count` flips if `count >= 1` and
+        /// zero flips were lost.
+        if_won_all: &'static [Effect],
+    },
+    /// Flip a coin repeatedly until you lose a flip (or until `max_flips`
+    /// flips have been made), executing `per_win` on each won flip and `after`
+    /// once flipping ends (`Amount::CoinsWonThisResolution` holds the total
+    /// flips won; Mana Screw, Krark's Thumb combos, Frenetic Sliver / Molten
+    /// Birth / Squee's Revenge families; CR 705). Appended to preserve replay
+    /// identities.
+    FlipUntilLose {
+        /// Optional safety or card-printed upper bound on total flips.
+        max_flips: Option<u8>,
+        /// Instructions executed immediately on each won flip.
+        per_win: &'static [Effect],
+        /// Instructions executed once after the losing (or final) flip.
+        after: &'static [Effect],
+    },
+    /// Roll `count` `sides`-sided dice (honoring
+    /// `Modifier::RollAdditionalDieIgnoreLowest` per CR 706.6 and journalling
+    /// each non-ignored natural roll via `GameEvent::DiceRolled`), add signed
+    /// `modifier` (clamped to `0..`), and store the total in the resolution's
+    /// `Amount::LastDieRoll` (CR 706.1–6). Appended to preserve replay
+    /// identities.
+    RollDice {
+        /// Number of dice to roll before CR 706.6 replacement modifiers.
+        count: Amount,
+        /// Number of faces on each die (`4`, `6`, `8`, `10`, `12`, `20`, etc.).
+        sides: u8,
+        /// Signed modifier added to the sum of the kept rolls (CR 706.2).
+        modifier: i8,
+    },
+    /// Branch on the most recent [`Effect::RollDice`] result in this resolution:
+    /// executes `then` when `min <= result <= max` (inclusive) and `otherwise`
+    /// when outside that range, allowing AFR result tables to chain cleanly
+    /// while exposing every nested branch to `Effect::branches` (CR 706.2).
+    /// Appended to preserve replay identities.
+    IfDieRollInRange {
+        /// Inclusive lower bound.
+        min: u8,
+        /// Inclusive upper bound (`u8::MAX` for open-ended `N+` rows).
+        max: u8,
+        /// Instructions executed when the last die result is in `min..=max`.
+        then: &'static [Effect],
+        /// Instructions executed when the last die result is outside `min..=max`
+        /// (chain another `IfDieRollInRange` here for multi-row AFR tables).
+        otherwise: &'static [Effect],
     },
 }
 

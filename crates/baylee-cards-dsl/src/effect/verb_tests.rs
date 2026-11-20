@@ -929,3 +929,42 @@ fn reflexive_and_registered_delayed_trigger_bodies_are_visited() {
     assert_eq!(inner_seen, 2);
     assert_eq!(seen, 4);
 }
+
+#[test]
+fn multi_coin_and_die_roll_branches_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::FlipCoins {
+            count: Amount::Fixed(2),
+            stop_on_loss: false,
+            per_win: &[Effect::draw(1)],
+            if_won_all: &[Effect::TakeExtraTurn],
+        },
+        Effect::FlipUntilLose {
+            max_flips: None,
+            per_win: &[Effect::gain_life(1)],
+            after: &[Effect::SacrificeSelf],
+        },
+        Effect::IfDieRollInRange {
+            min: 1,
+            max: 9,
+            then: &[Effect::scry(1)],
+            otherwise: &[Effect::draw(2)],
+        },
+    ];
+    let mut seen = 0;
+    let mut leaves = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        if matches!(
+            effect,
+            Effect::DrawCards { .. }
+                | Effect::TakeExtraTurn
+                | Effect::GainLife { .. }
+                | Effect::SacrificeSelf
+                | Effect::Scry { .. }
+        ) {
+            leaves += 1;
+        }
+    });
+    assert_eq!(leaves, 6);
+    assert_eq!(seen, 9);
+}

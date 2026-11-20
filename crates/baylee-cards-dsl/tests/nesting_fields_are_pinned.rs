@@ -98,7 +98,8 @@
 // AtNextEndStepForCreatedTokens adds one walker-tested delayed-effect body.
 // PlayerMayPayLifeThen adds one walker-tested successful-payment body.
 // ReflexiveTrigger and RegisterDelayedTrigger add one walker-tested body each.
-const NESTING_FIELDS: usize = 91;
+// FlipCoins, FlipUntilLose, and IfDieRollInRange add two walker-tested bodies each.
+const NESTING_FIELDS: usize = 97;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -163,7 +164,9 @@ const NESTING_FIELDS: usize = 91;
 /// are walked by `life_payment_outcomes_are_visited`.
 /// `ReflexiveTrigger` and `RegisterDelayedTrigger` are the eighty-second and
 /// eighty-third (`reflexive_and_registered_delayed_trigger_bodies_are_visited`).
-const CARRYING_VARIANTS: usize = 83;
+/// `FlipCoins`, `FlipUntilLose`, and `IfDieRollInRange` are the eighty-fourth
+/// through eighty-sixth (`multi_coin_and_die_roll_branches_are_visited`).
+const CARRYING_VARIANTS: usize = 86;
 
 /// The floor under the reader itself.
 ///

@@ -174,6 +174,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AdditionalCounterPlacement { .. }
         | Modifier::AdditionalCounterOnEntryByCount { .. }
         | Modifier::FlipTwoCoinsIgnoreOne
+        | Modifier::RollAdditionalDieIgnoreLowest
         | Modifier::DoubleCountersPlacedByYou
         | Modifier::NextDestructionClearsDamage
         | Modifier::SpellsCostLess(_)
@@ -1978,6 +1979,7 @@ mod tests {
                 &const { baylee_cards_dsl::triggered!(baylee_cards_dsl::Trigger::ETB, &[]) },
             ),
             Modifier::CantPhaseOut,
+            Modifier::RollAdditionalDieIgnoreLowest,
         ]
     }
 
@@ -2016,7 +2018,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            208,
+            209,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2124,8 +2126,9 @@ mod tests {
         // PreventDamagePerSource and PreventDamageToAffectedPerSource are
         // standing prevention rules (+2 rules-only -> 150).
         // GrantTriggeredDefinition locks its recipient set (+1 -> 57);
-        // CantPhaseOut modifies a rule (+1 -> 151).
-        assert_eq!((locking, all.len() - locking), (57, 151));
+        // CantPhaseOut modifies a rule (+1 -> 151);
+        // RollAdditionalDieIgnoreLowest is a die-rolling replacement (+1 rules-only -> 152).
+        assert_eq!((locking, all.len() - locking), (57, 152));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

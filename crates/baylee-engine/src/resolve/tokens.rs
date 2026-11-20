@@ -5,6 +5,8 @@
 use super::*;
 use crate::text_changes::TextChangeMap;
 
+pub(in crate::resolve) mod copy_tokens;
+
 #[derive(Clone, Copy, Default)]
 struct TokenEntry {
     tapped: bool,
@@ -308,6 +310,50 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             create_tokens_with_text(state, res.controller, token, None, 1, res.text);
             None
         }
+        Effect::CreateTokenCopy {
+            target,
+            controller,
+            amount,
+            mods,
+            tapped,
+            attacking,
+            haste_until_eot,
+            cleanup,
+        } => copy_tokens::create_for_target(
+            state,
+            res,
+            target,
+            controller,
+            amount,
+            copy_tokens::TokenCopySpec {
+                mods,
+                tapped,
+                attacking,
+                haste_until_eot,
+                cleanup,
+            },
+        ),
+        Effect::ChooseAndCreateTokenCopy {
+            filter,
+            amount,
+            mods,
+            tapped,
+            attacking,
+            haste_until_eot,
+            cleanup,
+        } => copy_tokens::choose_and_create(
+            state,
+            res,
+            filter,
+            amount,
+            copy_tokens::TokenCopySpec {
+                mods,
+                tapped,
+                attacking,
+                haste_until_eot,
+                cleanup,
+            },
+        ),
         Effect::CreateTokenFromLinked { token } => {
             // The exiled card's owner creates the token; its power and
             // toughness are the exiled card's mana value.
@@ -346,17 +392,28 @@ fn create_modified_token_copies(
     mods: &[baylee_cards_dsl::CopyMod],
     count: u32,
 ) -> Vec<ObjectId> {
+    create_modified_token_copies_for(state, res, res.controller, original, mods, count)
+}
+
+pub(super) fn create_modified_token_copies_for(
+    state: &mut GameState,
+    res: &Resolution,
+    controller: PlayerId,
+    original: ObjectId,
+    mods: &[baylee_cards_dsl::CopyMod],
+    count: u32,
+) -> Vec<ObjectId> {
     let Some(base) = crate::layers::copiable_values(state, original) else {
         return Vec::new();
     };
     let mut modified = (*base).clone();
     for modifier in mods {
-        apply_copy_mod_with_text(&mut modified, modifier, res.text);
+        apply_copy_mod_with_names(&mut modified, modifier, res.text, Some(&mut state.names));
     }
     let types = modified.types;
     let made = create_token_copies(
         state,
-        res.controller,
+        controller,
         original,
         &std::sync::Arc::new(modified),
         count,
@@ -390,24 +447,35 @@ fn create_modified_token_copies(
                 crate::copiable_abilities::copy_entry_counter(modifier, types, res.x.unwrap_or(0))
                 && amount > 0
             {
-                crate::entry::put_counters(state, res.controller, id, kind, amount);
+                crate::entry::put_counters(state, controller, id, kind, amount);
             }
         }
     }
     made
 }
 
+#[cfg(test)]
 pub(super) fn apply_copy_mod_with_text(
     base: &mut Characteristics,
     modifier: &baylee_cards_dsl::CopyMod,
     text: TextChangeMap,
 ) {
+    apply_copy_mod_with_names(base, modifier, text, None);
+}
+
+pub(super) fn apply_copy_mod_with_names(
+    base: &mut Characteristics,
+    modifier: &baylee_cards_dsl::CopyMod,
+    text: TextChangeMap,
+    names: Option<&mut crate::state::Names>,
+) {
     let previous = base.clone();
-    crate::copiable_abilities::apply_characteristic_exceptions_with_text(
+    crate::copiable_abilities::apply_characteristic_exceptions_with_names(
         base,
         &previous,
         std::slice::from_ref(modifier),
         text,
+        names,
     );
 }
 

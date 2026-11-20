@@ -179,6 +179,8 @@ pub fn amount_with_context(
         | Amount::EventPower
         | Amount::EventManaValue
         | Amount::EventAmount
+        | Amount::LastDieRoll
+        | Amount::CoinsWonThisResolution
         | Amount::TargetsPutIntoGraveyard
         | Amount::ThisWay(_)
         | Amount::ThisWayBy { .. }

@@ -1165,6 +1165,10 @@ pub enum Modifier {
     /// keyword in the untap step or from a resolving effect (CR 702.26a–b —
     /// Ertai's Familiar). Appended to preserve replay identities.
     CantPhaseOut,
+    /// "If you would roll one or more dice, instead roll that many dice plus
+    /// one and ignore the lowest roll" (Barbarian Class, Pixie Guide, Wyll;
+    /// CR 706.6). Appended to preserve replay identities.
+    RollAdditionalDieIgnoreLowest,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1502,6 +1506,7 @@ impl Modifier {
             | Self::CantBlockUnlessYouControlMoreCreaturesThanAttacker
             | Self::ExileInsteadOfYourGraveyard
             | Self::ExileInsteadOfLeavingBattlefield
+            | Self::RollAdditionalDieIgnoreLowest
             | Self::CastSpellsFromGraveyard
             | Self::CantPhaseOut => Layer::Text,
         }
@@ -2071,6 +2076,7 @@ mod tests {
             },
             Modifier::AdditionalCounterPlacement { n: 1 },
             Modifier::FlipTwoCoinsIgnoreOne,
+            Modifier::RollAdditionalDieIgnoreLowest,
             Modifier::DoubleCountersPlacedByYou,
             Modifier::NextDestructionClearsDamage,
             Modifier::PreventDamageToIt,

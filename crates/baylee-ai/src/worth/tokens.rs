@@ -79,6 +79,7 @@ fn apply(copy: &mut PublicObject, modifier: &CopyMod) -> Option<()> {
             copy.toughness = Some(toughness);
         }
         CopyMod::SetColor(colors) => copy.colors = colors,
+        CopyMod::AddColor(colors) => copy.colors = copy.colors.union(colors),
         CopyMod::SetCreatureTypes(types) => {
             copy.keywords &= !KeywordSet::CHANGELING.bits();
             copy.subtypes = copy
@@ -89,11 +90,46 @@ fn apply(copy: &mut PublicObject, modifier: &CopyMod) -> Option<()> {
         CopyMod::AddKeyword(keywords) => copy.keywords |= keywords.bits(),
         CopyMod::AddType(types) => copy.types = copy.types.union(types),
         CopyMod::RemoveType(types) => copy.types = copy.types.difference(types),
+        CopyMod::SetTypes(types) => copy.types = types,
         CopyMod::AddSupertype(types) => copy.supertypes = copy.supertypes.union(types),
         CopyMod::RemoveSupertype(types) => copy.supertypes = copy.supertypes.difference(types),
         CopyMod::AddSubtype(subtype) => copy.subtypes.insert(subtype),
         CopyMod::NoManaCost => copy.mana_value = 0,
+        CopyMod::SetManaCost(cost) => copy.mana_value = cost.cmc(),
+        CopyMod::SetName(_) | CopyMod::KeepName | CopyMod::KeepManaCost | CopyMod::KeepColor => {}
         _ => return None,
     }
     Some(())
+}
+
+pub(super) fn single_copy_worth(
+    agent: &HeuristicAgent,
+    view: &PlayerView,
+    original: &PublicObject,
+    count: i64,
+    mods: &[CopyMod],
+    ephemeral: bool,
+) -> Option<i64> {
+    if count <= 0 {
+        return Some(0);
+    }
+    let mut copy = original.clone();
+    copy.controller = view.seat;
+    copy.owner = view.seat;
+    copy.commander = false;
+    copy.counters.clear();
+    copy.status = ObjectStatus::NONE;
+    for modifier in mods {
+        apply(&mut copy, modifier)?;
+    }
+    if creature(&copy) && copy.toughness.is_none_or(|t| t <= 0) {
+        return Some(0);
+    }
+    let body = HeuristicAgent::permanent_worth(view, &copy);
+    let per_copy = if ephemeral {
+        body / 3 + agent.etb_worth(view, &copy)
+    } else {
+        body + agent.etb_worth(view, &copy)
+    };
+    Some(count.saturating_mul(per_copy))
 }

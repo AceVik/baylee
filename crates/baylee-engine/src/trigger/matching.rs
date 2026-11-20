@@ -704,19 +704,31 @@ fn matches(
                 ..
             },
         ) => *object == source && changed == kind && *old < u16::from(*n) && u16::from(*n) <= *new,
-        // "When you remove the last [kind] counter from this": an effect of
-        // the ability's controller took the count from some to none.
+        // "When [you remove / the] last [kind] counter [is removed] from this":
+        // `by: Some(rel)` restricts whose removal counts (Divine Intervention);
+        // `by: None` matches any player, effect, cost, or SBA (Vanishing, CR 702.63a).
         (
-            Trigger::LastCounterRemoved { kind },
+            Trigger::LastCounterRemoved { kind, by },
             GameEvent::CounterChanged {
                 object,
                 kind: changed,
                 old,
                 new,
-                by: Some(remover),
+                by: remover,
                 ..
             },
-        ) => *object == source && changed == kind && *old > 0 && *new == 0 && *remover == you,
+        ) => {
+            *object == source
+                && changed == kind
+                && *old > 0
+                && *new == 0
+                && match by {
+                    None => true,
+                    Some(rel) => remover.is_some_and(|player| {
+                        eval::players(*rel, state, you).is_some_and(|seats| seats.contains(&player))
+                    }),
+                }
+        }
         (
             Trigger::TappedForMana { by, filter },
             GameEvent::ManaProduced {
@@ -1230,6 +1242,14 @@ fn matches(
                 && state.object(*damage_source).is_some_and(|o| {
                     eval::matches_damage_source_with_context(filter, state, o, you, context)
                 })
+        }
+        (Trigger::CoinFlipped { who, outcome }, GameEvent::CoinFlipped { player, won }) => {
+            outcome.is_none_or(|want| want == *won)
+                && eval::players(*who, state, you).is_some_and(|seats| seats.contains(player))
+        }
+        (Trigger::DieRolled { who, min_result }, GameEvent::DiceRolled { player, result, .. }) => {
+            min_result.is_none_or(|min| *result >= u32::from(min))
+                && eval::players(*who, state, you).is_some_and(|seats| seats.contains(player))
         }
         _ => false,
     }

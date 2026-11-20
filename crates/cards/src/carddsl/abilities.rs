@@ -405,7 +405,9 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::LosesLife(_)
         | Trigger::Draws(_)
         | Trigger::DrawsExceptFirst(_)
-        | Trigger::NthCardDrawnInTurn { .. } => {
+        | Trigger::NthCardDrawnInTurn { .. }
+        | Trigger::CoinFlipped { .. }
+        | Trigger::DieRolled { .. } => {
             dst[8] = 1.0;
         }
         Trigger::CountersPlaced { .. }

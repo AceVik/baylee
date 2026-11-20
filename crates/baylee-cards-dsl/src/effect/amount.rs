@@ -320,6 +320,12 @@ pub enum Amount {
     /// way counts none, because arriving from anywhere but the stack clears
     /// the count with the X (`progress::apply_enter_modifiers`).
     TimesKicked,
+    /// Result of the most recent [`Effect::RollDice`](super::Effect::RollDice)
+    /// executed earlier in this resolution (CR 706.2).
+    LastDieRoll,
+    /// Number of coin flips won by the controller so far in this resolution
+    /// (CR 705.2).
+    CoinsWonThisResolution,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

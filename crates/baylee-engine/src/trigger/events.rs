@@ -51,6 +51,7 @@ pub(super) fn event_damage_of(
         }
         GameEvent::DamageDealt { amount, .. } => Some(*amount),
         GameEvent::LifeChanged { old, new, .. } => Some(new.abs_diff(*old)),
+        GameEvent::DiceRolled { result, .. } => Some(*result),
         _ => None,
     }
 }
@@ -88,6 +89,8 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
         | GameEvent::LifeChanged { player, .. }
         | GameEvent::ManaProduced { player, .. }
         | GameEvent::LibrarySearched { player }
+        | GameEvent::CoinFlipped { player, .. }
+        | GameEvent::DiceRolled { player, .. }
         | GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),
             ..

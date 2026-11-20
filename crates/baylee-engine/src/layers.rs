@@ -1298,6 +1298,7 @@ fn apply(
         | Modifier::AdditionalCounterPlacement { .. }
         | Modifier::AdditionalCounterOnEntryByCount { .. }
         | Modifier::FlipTwoCoinsIgnoreOne
+        | Modifier::RollAdditionalDieIgnoreLowest
         | Modifier::NextDestructionClearsDamage
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt

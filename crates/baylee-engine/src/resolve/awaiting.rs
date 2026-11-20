@@ -29,6 +29,26 @@ pub enum CoinContinuation {
         /// The opponent's result once known.
         opponent_heads: Option<bool>,
     },
+    /// Sequential `Effect::FlipCoins` continuation.
+    MultiFlip {
+        /// Flips remaining in this batch (including the flip just resolved).
+        remaining: u32,
+        /// Whether to stop immediately on a loss.
+        stop_on_loss: bool,
+        /// Instructions run for each won flip.
+        per_win: &'static [Effect],
+        /// Instructions run after the final flip if none were lost.
+        if_won_all: &'static [Effect],
+    },
+    /// Sequential `Effect::FlipUntilLose` continuation.
+    UntilLose {
+        /// Optional remaining flip bound (including the flip just resolved).
+        max_flips: Option<u8>,
+        /// Instructions run for each won flip.
+        per_win: &'static [Effect],
+        /// Instructions run once flipping stops.
+        after: &'static [Effect],
+    },
 }
 
 /// An operation suspended on a player choice.
@@ -1219,6 +1239,13 @@ pub enum AwaitingOp {
         /// Prospective spell types the exact exile incarnation may be cast as.
         cast_types: baylee_core::types::TypeSet,
     },
+    /// Untargeted permanent choice for `Effect::ChooseAndCreateTokenCopy`.
+    ChooseTokenCopy {
+        /// Number of token copies to create.
+        count: u32,
+        /// Copy modifiers, entry flags, and cleanup.
+        spec: super::tokens::copy_tokens::TokenCopySpec,
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -1507,6 +1534,9 @@ impl AwaitingOp {
                 crate::state::structural_fingerprint(&(92_u8, exclude))
             }
             Self::ChooseColor => crate::state::structural_fingerprint(&93_u8),
+            Self::ChooseTokenCopy { count, spec } => {
+                crate::state::structural_fingerprint(&(96_u8, count, spec))
+            }
             _ => 0,
         }
     }

@@ -367,11 +367,8 @@ pub(crate) fn run_with_context(
         );
         if plus > 0 && minus > 0 {
             let cancel = plus.min(minus);
-            if let Some(obj) = state.object_mut(id) {
-                obj.counters.set(CounterKind::P1P1, plus - cancel);
-                obj.counters.set(CounterKind::M1M1, minus - cancel);
-            }
-            state.invalidate_projections();
+            crate::replacement::remove_counters(state, id, CounterKind::P1P1, cancel);
+            crate::replacement::remove_counters(state, id, CounterKind::M1M1, cancel);
             outcome.changed = true;
         }
     }

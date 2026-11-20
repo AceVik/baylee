@@ -568,7 +568,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::CountersPlaced { .. } => &["counter"],
         T::CountersReach { .. } => &["becomes level"],
         // Divine Intervention, "When you remove the last intervention counter".
-        T::LastCounterRemoved { .. } => &["remove the last"],
+        T::LastCounterRemoved { .. } => &["remove the last", "is removed"],
         T::Draws(_) | T::DrawsExceptFirst(_) | T::NthCardDrawnInTurn { .. } => &["draw"],
         T::SearchesLibrary(_) => &["search"],
         T::GainsLife(_) => &["gain life", "gains life"],
@@ -629,6 +629,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // Saga chapters match via `ability.saga_chapters()` / `chapter_head`
         // before `Trigger::trigger_words` is consulted.
         T::Chapter(_) => &[],
+        T::CoinFlipped { .. } => &["flip"],
+        T::DieRolled { .. } => &["roll"],
     }
 }
 

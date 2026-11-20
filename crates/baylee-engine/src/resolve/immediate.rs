@@ -266,6 +266,43 @@ pub(super) fn exec_immediate(
             );
             None
         }
+        Effect::BecomeCopy {
+            subject,
+            subject_filter,
+            original,
+            original_is_second_target,
+            until_eot,
+            mods,
+        } => {
+            super::copying::become_copy(
+                state,
+                res,
+                super::copying::BecomeCopySpec {
+                    subject,
+                    subject_filter,
+                    original,
+                    original_is_second_target,
+                    until_eot,
+                    mods,
+                },
+            );
+            None
+        }
+        Effect::CopySpellOrAbility {
+            target,
+            controller,
+            amount,
+            mods,
+            may_choose_new_targets,
+        } => super::copying::copy_spell_or_ability(
+            state,
+            res,
+            target,
+            controller,
+            amount,
+            mods,
+            may_choose_new_targets,
+        ),
         Effect::ControlPlayerPlayCard { player } => {
             let player = players_of(player, state, you, res).first().copied()?;
             let options = state.zones.list(ZoneLocation::Hand(player)).clone();
@@ -569,6 +606,8 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokenThenAttachSelf { .. }
         | Effect::CreateTokenPtPerCount { .. }
         | Effect::CreateToken { .. }
+        | Effect::CreateTokenCopy { .. }
+        | Effect::ChooseAndCreateTokenCopy { .. }
         | Effect::CreateTokenFromLinked { .. } => tokens::exec(state, res, op),
         // --- Control ---------------------------------------------------
         Effect::ExchangeControlOrSacrifice => {
@@ -1792,10 +1831,48 @@ pub(super) fn exec_immediate(
                 super::CoinContinuation::FlipBranches { won, lost },
             ) {
                 super::coin::Flip::Outcome(heads) => {
+                    if heads {
+                        res.subject.coins_won = res.subject.coins_won.saturating_add(1);
+                    }
                     run_nested(state, res, if heads { won } else { lost })
                 }
                 super::coin::Flip::Wait(pending) => Some(*pending),
             }
+        }
+        Effect::FlipCoins {
+            count,
+            stop_on_loss,
+            per_win,
+            if_won_all,
+        } => super::coin::flip_coins(state, res, count, stop_on_loss, per_win, if_won_all),
+        Effect::FlipUntilLose {
+            max_flips,
+            per_win,
+            after,
+        } => super::coin::flip_until_lose(state, res, max_flips, per_win, after),
+        Effect::RollDice {
+            count,
+            sides,
+            modifier,
+        } => {
+            let dice = amount2(&count, state, you, res);
+            let result = super::dice::roll_dice(state, you, dice, sides, modifier);
+            res.subject.last_die_roll = Some(result);
+            None
+        }
+        Effect::IfDieRollInRange {
+            min,
+            max,
+            then,
+            otherwise,
+        } => {
+            let roll = res.subject.last_die_roll.unwrap_or(0);
+            let branch = if roll >= u32::from(min) && roll <= u32::from(max) {
+                then
+            } else {
+                otherwise
+            };
+            run_nested(state, res, branch)
         }
         Effect::IfEventPowerAtLeast { n, then, otherwise } => {
             let power = res
@@ -2750,8 +2827,39 @@ pub(super) fn exec_immediate(
             for &target in &res.targets.clone() {
                 tap(state, target);
             }
-            for &target in &res.second_targets.clone() {
+            None
+        }
+        Effect::TapTargetSlot(slot) => {
+            let targets: SmallVec<[ObjectId; 2]> = match slot {
+                baylee_cards_dsl::TargetSlot::This => subjects::source(state, res)
+                    .filter(|s| subjects::on_battlefield(state, *s))
+                    .map(|s| s.object)
+                    .into_iter()
+                    .collect(),
+                baylee_cards_dsl::TargetSlot::First => res.targets.clone(),
+                baylee_cards_dsl::TargetSlot::Second => {
+                    res.second_targets.iter().copied().collect()
+                }
+            };
+            for target in targets {
                 tap(state, target);
+            }
+            None
+        }
+        Effect::UntapTargetSlot(slot) => {
+            let targets: SmallVec<[ObjectId; 2]> = match slot {
+                baylee_cards_dsl::TargetSlot::This => subjects::source(state, res)
+                    .filter(|s| subjects::on_battlefield(state, *s))
+                    .map(|s| s.object)
+                    .into_iter()
+                    .collect(),
+                baylee_cards_dsl::TargetSlot::First => res.targets.clone(),
+                baylee_cards_dsl::TargetSlot::Second => {
+                    res.second_targets.iter().copied().collect()
+                }
+            };
+            for target in targets {
+                untap(state, target);
             }
             None
         }

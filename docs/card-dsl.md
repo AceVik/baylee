@@ -5444,3 +5444,44 @@ registers one or more delayed triggered abilities during resolution:
 - `Modifier::CantPhaseOut` (Layer 3 rules, `locks_its_set == false`) prevents
   affected permanents from phasing out either during the untap step or via
   resolving effects (CR 702.26a–b — Ertai's Familiar).
+
+### Slot-isolated tapping, Generalized Copy (`CR 707`), Coin Flips (`CR 705`), and Dice Rolls (`CR 706`)
+
+- **Slot-isolated tapping and last-counter trigger (`CR 701.26`, `CR 702.63a`):**
+  `Effect::TapTarget` taps only primary `targets`; use
+  `Effect::TapTargetSlot(TargetSlot)` / `Effect::UntapTargetSlot(TargetSlot)`
+  when a dual-target ability taps or untaps a specific target slot (`Arena`).
+  `Trigger::LastCounterRemoved { kind, by }` takes `by: Option<PlayerRel>`:
+  `Some(PlayerRel::You)` requires the controller to remove the last counter
+  (`Divine Intervention`), whereas `None` triggers regardless of who or what
+  removed the last counter (`Vanishing`, `CR 702.63a`).
+- **Generalized token copies, clone effects, and stack copying (`CR 707`):**
+  - `CopyMod` additionally supports `SetName(&'static str)`, `KeepName`,
+    `SetManaCost(ManaCost)`, `KeepManaCost`, `SetTypes(TypeSet)`, and
+    `AddColor(ColorSet)` (`CR 707.9b`).
+  - `Effect::CreateTokenCopy { target, controller, amount, mods, tapped, attacking, haste_until_eot, cleanup }`
+    and `Effect::ChooseAndCreateTokenCopy { filter, amount, mods, tapped, attacking, haste_until_eot, cleanup }`
+    create `amount` token copies with `CopyCleanup::{None, SacrificeAtNextEndStep, ExileAtNextEndStep, SacrificeAtEndOfCombat, ExileAtEndOfCombat}`.
+  - `Effect::BecomeCopy { subject, subject_filter, original, original_is_second_target, until_eot, mods }`
+    applies Layer 1 copiable values onto `subject` (or every battlefield
+    permanent matching `subject_filter`, excluding `original`), reading
+    `original` from primary targets, `second_targets`, `ThisObject`, or
+    `EventObject` (including non-battlefield cards such as graveyard/stack cards
+    for Lazav).
+  - `Effect::CopySpellOrAbility { target, controller, amount, mods, may_choose_new_targets }`
+    creates `amount` stack copies of a spell (including permanent spells, `CR 707.12`)
+    or stack ability under `controller`, prompting for new targets per copy when
+    `may_choose_new_targets` is `true` (`CR 707.10c`).
+- **Multi-coin flips and dice rolls (`CR 705`, `CR 706`):**
+  - `Effect::FlipCoins { count, stop_on_loss, per_win, if_won_all }` and
+    `Effect::FlipUntilLose { max_flips, per_win, after }` use the seeded game
+    RNG, honor `Modifier::FlipTwoCoinsIgnoreOne` (`Krark's Thumb`), emit
+    `GameEvent::CoinFlipped` (`Trigger::CoinFlipped { who, outcome }`), and
+    accumulate won flips in `Amount::CoinsWonThisResolution`.
+  - `Effect::RollDice { count, sides, modifier }` rolls `count` `sides`-sided
+    dice through the seeded RNG, honors `Modifier::RollAdditionalDieIgnoreLowest`
+    (`CR 706.6`), emits `GameEvent::DiceRolled` for each kept natural roll
+    (`Trigger::DieRolled { who, min_result }`, binding `EventPlayer` and
+    `EventAmount`), and stores the modified total in `Amount::LastDieRoll` for
+    downstream `Amount::LastDieRoll` consumers and chained
+    `Effect::IfDieRollInRange { min, max, then, otherwise }` result tables.

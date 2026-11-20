@@ -1,11 +1,25 @@
 //! References to a source found through its own public-zone cost (CR 400.7j).
 use baylee_cards_dsl::{Effect, Filter, TargetSpec};
+#[allow(clippy::too_many_lines)] // Flat vocabulary table matching each subject-bearing variant.
 pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: bool) -> bool {
     let mut refers = false;
     Effect::walk(effects, &mut 0, &mut |effect| {
         refers |= match effect {
             Effect::DestroyTargetSlots { targets, .. } => {
                 targets.contains(&baylee_cards_dsl::TargetSlot::This)
+            }
+            Effect::TapTargetSlot(slot) | Effect::UntapTargetSlot(slot) => {
+                matches!(slot, baylee_cards_dsl::TargetSlot::This)
+            }
+            Effect::BecomeCopy {
+                subject,
+                subject_filter,
+                original,
+                ..
+            } => {
+                matches!(subject, baylee_cards_dsl::TargetSlot::This)
+                    || matches!(original, TargetSpec::ThisObject)
+                    || subject_filter.is_some_and(|f| implicit_source && matches!(f, Filter::This))
             }
             Effect::RedirectTargetSourceDamageThisTurn { source, to, .. } => {
                 matches!(source, TargetSpec::ThisObject)
@@ -16,6 +30,8 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                     )
             }
             Effect::ChooseLandwalk { target, .. }
+            | Effect::CreateTokenCopy { target, .. }
+            | Effect::CopySpellOrAbility { target, .. }
             | Effect::RedirectNextChosenSourceDamageToTarget { target }
             | Effect::PreventDamageFromTargetingCausesThisTurn { target }
             | Effect::GrantSpecialActionUntilEndOfTurn {

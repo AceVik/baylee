@@ -15,6 +15,7 @@ card!(
         cost!("{3}", TapSelf),
         &[
             Effect::TapTarget,
+            Effect::TapTargetSlot(TargetSlot::Second),
             Effect::Fight {
                 fighter: TargetSlot::First,
                 foe: TargetSlot::Second,

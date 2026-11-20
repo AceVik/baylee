@@ -135,7 +135,8 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::DealDamageWithLimitedLifeGain { .. }
         | Effect::DealDamageDivided { .. }
         | Effect::PhaseOutUntilSourceLeaves { .. }
-        | Effect::TapTarget => Some(-1),
+        | Effect::TapTarget
+        | Effect::TapTargetSlot(baylee_cards_dsl::TargetSlot::First) => Some(-1),
         Effect::PhaseOut { target: Some(spec) } => {
             Some(if spec_only_yours(*spec) { 1 } else { -1 })
         }
@@ -143,6 +144,8 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         Effect::Blink { .. }
         | Effect::ExileAndReturnAtEndStep
         | Effect::UntapTarget
+        | Effect::UntapTargetSlot(baylee_cards_dsl::TargetSlot::First)
+        | Effect::CreateTokenCopy { .. }
         | Effect::GrantFlashback
         | Effect::GraveyardToHand { .. }
         | Effect::GraveyardToTop { .. }

@@ -137,6 +137,7 @@ struct Evaluation<'a> {
     aim: Aim,
     x: u32,
     created_tokens: i64,
+    die_range: Option<(i64, i64)>,
 }
 
 impl<'a> Origin<'a> {
@@ -647,6 +648,7 @@ impl HeuristicAgent {
                 aim,
                 x,
                 created_tokens: 0,
+                die_range: None,
             },
         )
     }
@@ -1734,6 +1736,49 @@ impl HeuristicAgent {
                 Effect::Sequence(_) => then,
                 // This seat's own "may": taken when it helps.
                 Effect::MayDo { .. } | Effect::MayDoOnceEachTurn { .. } => then.max(0),
+                Effect::FlipCoins {
+                    count,
+                    stop_on_loss,
+                    ..
+                } => {
+                    let n = self.count(view, origin, *count, aim, x)?.max(0);
+                    if n == 0 {
+                        0
+                    } else {
+                        let shift = u32::try_from(n.min(16)).unwrap_or(16);
+                        let all_bonus = otherwise >> shift;
+                        let wins_ev = if *stop_on_loss {
+                            then - (then >> shift)
+                        } else {
+                            n.saturating_mul(then) / 2
+                        };
+                        wins_ev.saturating_add(all_bonus)
+                    }
+                }
+                Effect::FlipUntilLose { max_flips, .. } => {
+                    let wins_ev = match max_flips {
+                        Some(0) => 0,
+                        Some(m) => {
+                            let shift = u32::from((*m).min(16));
+                            then - (then >> shift)
+                        }
+                        None => then,
+                    };
+                    wins_ev.saturating_add(otherwise)
+                }
+                Effect::IfDieRollInRange { min, max, .. } => {
+                    if let Some((low, high)) = evaluation.die_range
+                        && high >= low
+                    {
+                        let span = high - low + 1;
+                        let lo = low.max(i64::from(*min));
+                        let hi = high.min(i64::from(*max));
+                        let hits = (hi - lo + 1).max(0);
+                        (hits.saturating_mul(then) + (span - hits).saturating_mul(otherwise)) / span
+                    } else {
+                        i64::midpoint(then, otherwise)
+                    }
+                }
                 // A condition, or somebody else's choice: either may happen.
                 _ => i64::midpoint(then, otherwise),
             });
@@ -1838,6 +1883,70 @@ impl HeuristicAgent {
                     tokens::graveyard_copies(self, view, origin, aim, *player, filter, mods)?;
                 evaluation.created_tokens = evaluation.created_tokens.saturating_add(made);
                 worth
+            }
+            Effect::CreateTokenCopy {
+                target,
+                controller,
+                amount,
+                mods,
+                cleanup,
+                ..
+            } => {
+                let n = count(*amount)?.max(0);
+                let recipients = self.players(view, *controller, aim)?;
+                let orig = match target {
+                    TargetSpec::ThisObject => origin.object?,
+                    _ => subject?,
+                };
+                let ephemeral = !matches!(cleanup, baylee_cards_dsl::CopyCleanup::None);
+                let per_player = tokens::single_copy_worth(self, view, orig, n, mods, ephemeral)?;
+                let mut total = 0_i64;
+                for p in recipients {
+                    if p == me {
+                        evaluation.created_tokens = evaluation.created_tokens.saturating_add(n);
+                    }
+                    total = total.saturating_add(if self.hostile(p, me) {
+                        -per_player
+                    } else {
+                        per_player
+                    });
+                }
+                total
+            }
+            Effect::ChooseAndCreateTokenCopy {
+                filter,
+                amount,
+                mods,
+                cleanup,
+                ..
+            } => {
+                let n = count(*amount)?.max(0);
+                let ephemeral = !matches!(cleanup, baylee_cards_dsl::CopyCleanup::None);
+                let best = on_board(filter)?
+                    .into_iter()
+                    .filter_map(|orig| {
+                        tokens::single_copy_worth(self, view, orig, n, mods, ephemeral)
+                    })
+                    .max()
+                    .unwrap_or(0);
+                if best > 0 {
+                    evaluation.created_tokens = evaluation.created_tokens.saturating_add(n);
+                }
+                best
+            }
+            Effect::RollDice {
+                count: dice,
+                sides,
+                modifier,
+            } => {
+                let d = count(*dice)?.max(0);
+                if d > 0 && *sides > 0 {
+                    let mod_i64 = i64::from(*modifier);
+                    let low = (d + mod_i64).max(0);
+                    let high = (d * i64::from(*sides) + mod_i64).max(low);
+                    evaluation.die_range = Some((low, high));
+                }
+                0
             }
             Effect::Amass { amount, .. } => 150 + count(*amount)? * 110,
             Effect::SearchLibrary { .. }
