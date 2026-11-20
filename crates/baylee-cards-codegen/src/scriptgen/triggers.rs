@@ -1406,6 +1406,26 @@ impl Tx<'_> {
         let zone = Self::take_trigger_zone(&mode, &mut p);
         self.trigger_self_etb_kicked = false;
         self.trigger_self_etb_kicked_with = None;
+        let self_etb_extra_cond = if mode == "ChangesZone"
+            && p.peek("Origin") == Some("Any")
+            && p.peek("Destination") == Some("Battlefield")
+        {
+            match p.peek("ValidCard") {
+                Some("Card.Self+bargained") => Some("Condition::Bargained"),
+                Some("Card.Self+prototyped") => Some("Condition::Prototyped"),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        if self_etb_extra_cond.is_some() {
+            for (k, v) in &mut p.entries {
+                if k == "ValidCard" {
+                    *v = "Card.Self".to_string();
+                    break;
+                }
+            }
+        }
         let (trigger, mut condition) = if mode == "Always" {
             (self.state_trigger(&mut p)?, String::new())
         } else {
@@ -1426,6 +1446,18 @@ impl Tx<'_> {
             }
             (trigger, cond)
         };
+        if let Some(clause) = self_etb_extra_cond {
+            condition = if condition.is_empty() {
+                format!(", condition = Some({clause})")
+            } else if let Some(inner) = condition
+                .strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+            {
+                format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
+            } else {
+                return self.deny("`Card.Self+bargained/prototyped` beside another clause".into());
+            };
+        }
         if phase_descended {
             condition = if condition.is_empty() {
                 ", condition = Some(Condition::DescendedThisTurn)".to_string()
@@ -1650,6 +1682,8 @@ impl Tx<'_> {
                     "RevealTopOnePerType",
                     "ExileTopToPlay",
                     "ExileTopMayCast",
+                    "ExileTopWithPermission",
+                    "GrantLinkedExilePermission",
                     "DiscardUpToThenDraw",
                     "MillMayTakeOne",
                     "ChooseExiledToPlay",

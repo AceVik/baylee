@@ -714,6 +714,13 @@ impl Tx<'_> {
             None => "Duration::UntilEndOfTurn",
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("Permanent")
+                if power == "Amount::Fixed(0)"
+                    && toughness == "Amount::Fixed(0)"
+                    && keywords != "KeywordSet::EMPTY" =>
+            {
+                "Duration::Indefinitely"
+            }
             Some("UntilUntaps") if !self.on_a_spell => {
                 "Duration::WhileSourceTapped { control: false, power_limited: false }"
             }
@@ -895,6 +902,7 @@ impl Tx<'_> {
             None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("Permanent") => "Duration::Indefinitely",
             Some(_) => return None,
         };
         p.take("IsCurse");
@@ -1391,6 +1399,9 @@ impl Tx<'_> {
             "CastWithFlash" if subject == EffectSubject::Unbound => {
                 Self::wave3_cast_with_flash(st, duration)
             }
+            "ReduceCost" | "RaiseCost" if subject == EffectSubject::Unbound => {
+                self.wave9_effect_spell_cost(mode, st, duration)
+            }
             "CantBeActivated" => {
                 if st.take("ValidSA").as_deref() != Some("Activated.!ManaAbility") {
                     return None;
@@ -1436,6 +1447,91 @@ impl Tx<'_> {
         st.exhausted().then_some(())?;
         Some(vec![format!(
             "Effect::continuous(&Filter::Any, {modifier}, {duration})"
+        )])
+    }
+
+    /// `DB$ Effect` carrying `Mode$ ReduceCost` or `Mode$ RaiseCost` for spells
+    /// (`Modifier::SpellsCostLess`, `Modifier::SpellsCostMore`,
+    /// `Modifier::SpellsCostMoreMana`). `ForgetOnCast$` stays unclaimed on the
+    /// enclosing `Effect` line so one-shot "next spell" discounts stay refused.
+    fn wave9_effect_spell_cost(
+        &mut self,
+        mode: &str,
+        st: &mut Params,
+        duration: &str,
+    ) -> Option<Vec<String>> {
+        if st.take("Type").as_deref() != Some("Spell")
+            || !matches!(st.take("EffectZone").as_deref(), None | Some("Battlefield"))
+        {
+            return None;
+        }
+        let raw_valid = st.take("ValidCard")?;
+        if raw_valid.contains("IsRemembered")
+            || raw_valid.contains("EffectSource")
+            || raw_valid.contains("RememberedPlayer")
+            || raw_valid.contains("sharesCreatureTypeWith")
+            || raw_valid.contains("faceDown")
+        {
+            return None;
+        }
+        let append_ctrl = |valid: &str, suffix: &str| {
+            valid
+                .split(',')
+                .map(|alt| {
+                    let alt = alt.trim();
+                    if alt.contains('.') {
+                        format!("{alt}+{suffix}")
+                    } else {
+                        format!("{alt}.{suffix}")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        let valid = match st.take("Activator").as_deref() {
+            None | Some("Player") => raw_valid,
+            Some("You") => append_ctrl(&raw_valid, "YouCtrl"),
+            Some("Opponent") => append_ctrl(&raw_valid, "OppCtrl"),
+            Some(_) => return None,
+        };
+        let modifier = if mode == "ReduceCost" {
+            let amount: u8 = st.take("Amount")?.trim().parse().ok()?;
+            if amount == 0 {
+                return None;
+            }
+            format!("Modifier::SpellsCostLess({amount})")
+        } else {
+            match (st.take("Amount"), st.take("Cost")) {
+                (Some(raw_amt), None) => {
+                    let amount: u8 = raw_amt.trim().parse().ok()?;
+                    if amount == 0 {
+                        return None;
+                    }
+                    format!("Modifier::SpellsCostMore({amount})")
+                }
+                (None, Some(cost)) => {
+                    let mana = super::printed_mana(&cost)?;
+                    if let Some(amount) = super::generic_mana(&mana) {
+                        format!("Modifier::SpellsCostMore({amount})")
+                    } else {
+                        format!("Modifier::SpellsCostMoreMana(mana!(\"{mana}\"))")
+                    }
+                }
+                _ => return None,
+            }
+        };
+        if !st.exhausted() {
+            return None;
+        }
+        let filter_ref = if valid == "Card" {
+            "&Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr(&valid)?;
+            let name = self.body.filter_static("EFFECT", &expr);
+            format!("&{name}")
+        };
+        Some(vec![format!(
+            "Effect::continuous({filter_ref}, {modifier}, {duration})"
         )])
     }
 
@@ -1620,9 +1716,14 @@ impl Tx<'_> {
         }
         let affected = st.take("Affected")?;
         if affected == "You" && subject == EffectSubject::Unbound {
-            let modifier = if st.take("NoHandSize").as_deref() == Some("True") {
+            let modifier = if st.peek("NoHandSize") == Some("True") {
+                st.take("NoHandSize");
                 "Modifier::NoMaxHandSize"
-            } else if st.take("AddKeyword").as_deref() == Some("Hexproof") {
+            } else if st.peek("SetMaxHandSize") == Some("Unlimited") {
+                st.take("SetMaxHandSize");
+                "Modifier::NoMaxHandSize"
+            } else if st.peek("AddKeyword") == Some("Hexproof") {
+                st.take("AddKeyword");
                 "Modifier::PlayerHexproof { who: PlayerRel::You }"
             } else {
                 return None;
@@ -2008,8 +2109,8 @@ impl Tx<'_> {
     /// `Effect::ExileAndReturnTappedAtEndStep`, Astral Slide, CR 603.7).
     /// `Defined$ TopOfLibrary | Origin$ Library | Destination$ Exile | RememberChanged$ True`
     /// chained into `DB$ Effect` granting `MayPlay$ True` from `Exile`
-    /// (with optional `MayPlayWithoutManaCost$ True`) and optional `Cleanup`:
-    /// lowers to `Effect::ExileTopToPlay`.
+    /// and optional `Cleanup`: lowers to `Effect::ExileTopToPlay`,
+    /// `Effect::ExileTopMayCast`, or `Effect::ExileTopWithPermission`.
     pub(super) fn exile_top_to_play_effect(
         &mut self,
         p: &mut Params,
@@ -2022,15 +2123,24 @@ impl Tx<'_> {
         {
             return None;
         }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return self.deny(format!(
+                "top-of-library exile with `ForgetOtherRemembered$ {forget}`"
+            ));
+        }
+        p.take("IsCurse");
         let who = self.player_rel(p.take("DefinedPlayer").as_deref())?;
-        let count = self.plain_num(p.take("ChangeNum").as_deref().unwrap_or("1"))?;
-        let count = u8::try_from(count).ok().filter(|&n| n >= 1)?;
-        self.exile_top_play_follow_up(who, count, sub)
+        let raw_count = p.take("ChangeNum").unwrap_or_else(|| "1".to_string());
+        let (fixed_count, amount_expr) = self.exile_top_count_amount(&raw_count)?;
+        self.exile_top_play_follow_up(who, fixed_count, &amount_expr, sub)
     }
 
     /// `Dig | DigNum$ N | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True`
     /// chained into `DB$ Effect` granting `MayPlay$ True` from `Exile`
-    /// (impulse draw: `Effect::ExileTopToPlay` / `Effect::ExileTopMayCast`).
+    /// (impulse draw: `Effect::ExileTopToPlay` / `Effect::ExileTopMayCast` /
+    /// `Effect::ExileTopWithPermission`).
     pub(super) fn dig_exile_top_to_play_effect(
         &mut self,
         p: &mut Params,
@@ -2051,26 +2161,395 @@ impl Tx<'_> {
         if !matches!(p.take("ChangeValid").as_deref(), None | Some("Card")) {
             return None;
         }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return self.deny(format!(
+                "`Dig` exile with `ForgetOtherRemembered$ {forget}`"
+            ));
+        }
+        if p.peek("Imprint") == Some("True")
+            && self.on_a_spell
+            && !self
+                .svars
+                .values()
+                .any(|v| v.contains("Imprinted") || v.contains("ExiledWith"))
+        {
+            p.take("Imprint");
+        }
+        p.take("IsCurse");
         let who = self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
-        let count = self.plain_num(&p.take("DigNum")?)?;
-        let count = u8::try_from(count).ok().filter(|&n| n >= 1)?;
-        self.exile_top_play_follow_up(who, count, sub)
+        let raw_count = p.take("DigNum")?;
+        let (fixed_count, amount_expr) = self.exile_top_count_amount(&raw_count)?;
+        self.exile_top_play_follow_up(who, fixed_count, &amount_expr, sub)
+    }
+
+    fn exile_top_count_amount(&mut self, raw: &str) -> Option<(Option<u8>, String)> {
+        if let Some(n) = self.plain_num(raw) {
+            let n = u8::try_from(n).ok().filter(|&n| n >= 1)?;
+            return Some((Some(n), format!("Amount::Fixed({n})")));
+        }
+        let amount = self.amount_or_count_ext(raw)?;
+        Some((None, amount))
     }
 
     fn exile_top_play_follow_up(
         &mut self,
         who: &str,
-        count: u8,
+        fixed_count: Option<u8>,
+        amount_expr: &str,
         sub: &mut Option<String>,
     ) -> Option<Vec<String>> {
         let Some(eff_name) = sub.take() else {
             return self.deny("top-of-library exile without `SubAbility$`".into());
         };
-        let Some(eff_body) = self.svars.get(&eff_name).cloned() else {
+        let (spec, next_sub) = self.consume_remembered_exile_play_effect(
+            &eff_name,
+            who == "PlayerRel::You",
+            "top-of-library exile",
+        )?;
+        if let Some(cname) = next_sub {
+            self.consume_optional_remember_cleanup(cname, sub)?;
+        }
+        if spec.cast_only
+            && spec.spell_types.is_none()
+            && fixed_count == Some(1)
+            && spec.window == "PlayWindow::ThisTurn"
+            && !spec.free
+            && spec.mana == "ExileMana::Exact"
+        {
+            return Some(vec![format!(
+                "Effect::ExileTopMayCast {{ who: {who}, nonland_only: true }}"
+            )]);
+        }
+        if !spec.cast_only
+            && let Some(count) = fixed_count
+            && matches!(
+                spec.window,
+                "PlayWindow::ThisTurn"
+                    | "PlayWindow::UntilYourNextTurn"
+                    | "PlayWindow::UntilYourNextUpkeep"
+                    | "PlayWindow::ThroughYourNextTurn"
+            )
+            && spec.mana != "ExileMana::AnyColor"
+        {
+            let mana_any_type = spec.mana == "ExileMana::AnyType";
+            let spell_types = spec
+                .spell_types
+                .as_deref()
+                .map_or_else(|| "None".to_string(), |t| format!("Some({t})"));
+            return Some(vec![format!(
+                "Effect::ExileTopToPlay {{ who: {who}, play: ExilePlay {{ count: {count}, \
+                 window: {}, free: {}, mana_any_type: {mana_any_type}, \
+                 spell_types: {spell_types} }} }}",
+                spec.window, spec.free
+            )]);
+        }
+        let permission = spec.to_expr();
+        Some(vec![format!(
+            "Effect::ExileTopWithPermission {{ who: {who}, count: {amount_expr}, \
+             permission: {permission} }}"
+        )])
+    }
+
+    /// `DB$ ChangeZone | Origin$ Battlefield/Graveyard | Destination$ Exile |
+    /// RememberChanged$ True | SubAbility$ DBEffect` granting `MayPlay$ True`
+    /// from exile: lowers to `Effect::ExileWithPermission`.
+    pub(super) fn exile_with_permission_effect(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        let origin = p.take("Origin")?;
+        if !matches!(origin.as_str(), "Battlefield" | "Graveyard")
+            || p.take("Destination").as_deref() != Some("Exile")
+            || p.take("RememberChanged").as_deref() != Some("True")
+        {
+            return None;
+        }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return self.deny(format!(
+                "exile-with-permission `ForgetOtherRemembered$ {forget}`"
+            ));
+        }
+        p.take("IsCurse");
+        let until = match p.take("Duration").as_deref() {
+            None => "None",
+            Some("UntilHostLeavesPlay") if origin == "Battlefield" && !self.on_a_spell => {
+                "Some(ExileUntil::SourceLeavesBattlefield)"
+            }
+            Some(other) => {
+                return self.deny(format!("exile-with-permission `Duration$ {other}`"));
+            }
+        };
+        let defined = p.take("Defined");
+        let target_spec = match (origin.as_str(), defined.as_deref()) {
+            ("Battlefield", None) if targets_here => target
+                .filter(|t| {
+                    t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::ObjectOfEventPlayer(")
+                })?
+                .to_string(),
+            ("Battlefield", Some("Targeted" | "ParentTarget")) if !targets_here => target
+                .filter(|t| {
+                    t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::ObjectOfEventPlayer(")
+                })?
+                .to_string(),
+            ("Battlefield", Some("Self"))
+                if !targets_here && !self.on_a_spell && target.is_none() =>
+            {
+                "TargetSpec::ThisObject".to_string()
+            }
+            ("Battlefield", Some(def))
+                if !targets_here && target.is_none() && self.is_event_object_defined(def) =>
+            {
+                "TargetSpec::EventObject".to_string()
+            }
+            ("Graveyard", None) if targets_here => target
+                .filter(|t| t.starts_with("TargetSpec::CardInGraveyard("))?
+                .to_string(),
+            ("Graveyard", Some("Targeted" | "ParentTarget")) if !targets_here => target
+                .filter(|t| t.starts_with("TargetSpec::CardInGraveyard("))?
+                .to_string(),
+            ("Graveyard", Some(def))
+                if !targets_here && target.is_none() && self.is_event_object_defined(def) =>
+            {
+                "TargetSpec::EventObject".to_string()
+            }
+            _ => {
+                return self.deny("exile-with-permission target outside supported zones".into());
+            }
+        };
+        let Some(eff_name) = sub.take() else {
+            return self.deny("exile-with-permission without `SubAbility$`".into());
+        };
+        let (spec, next_sub) =
+            self.consume_remembered_exile_play_effect(&eff_name, false, "exile-with-permission")?;
+        if let Some(cname) = next_sub {
+            self.consume_optional_remember_cleanup(cname, sub)?;
+        }
+        let permission = spec.to_expr();
+        Some(vec![format!(
+            "Effect::ExileWithPermission {{ target: {target_spec}, until: {until}, \
+             permission: {permission} }}"
+        )])
+    }
+
+    /// Standalone `DB$ Effect` granting `MayPlay$ True` on cards already exiled
+    /// and linked to the source (`Card.ExiledWithEffectSource` /
+    /// `Card.ExiledWithSource`): lowers to `Effect::GrantLinkedExilePermission`.
+    pub(super) fn grant_linked_exile_permission_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if self.on_a_spell
+            || target.is_some()
+            || p.has("ReplacementEffects")
+            || p.has("Triggers")
+            || p.has("Abilities")
+            || p.has("Boon")
+            || p.has("OneOff")
+            || p.has("Unique")
+        {
+            return None;
+        }
+        if !matches!(p.take("EffectOwner").as_deref(), None | Some("You"))
+            || !matches!(
+                p.take("ExileOnMoved")
+                    .or_else(|| p.take("ForgetOnMoved"))
+                    .as_deref(),
+                None | Some("Exile")
+            )
+        {
+            return None;
+        }
+        let rem_nonland = match p.take("RememberObjects").as_deref() {
+            None | Some("ValidExile Card.ExiledWithSource") => false,
+            Some(
+                "ValidExile Card.ExiledWithSource+nonLand"
+                | "ValidExile Card.nonLand+ExiledWithSource",
+            ) => true,
+            Some(_) => return None,
+        };
+        let raw_duration = p.take("Duration");
+        let static_name = p.take("StaticAbilities")?;
+        if static_name.contains(',') {
+            return None;
+        }
+        // Only claim this `DB$ Effect` as a linked-exile permission if the
+        // referenced static actually grants `MayPlay$ True` from `Exile`;
+        // otherwise return `None` silently without overwriting the true refusal.
+        let is_exile_play = self
+            .svars
+            .get(&static_name)
+            .and_then(|body| Params::parse(body))
+            .is_some_and(|(mode, sp)| {
+                mode == "Continuous"
+                    && sp.peek("MayPlay") == Some("True")
+                    && sp.peek("AffectedZone") == Some("Exile")
+            });
+        if !is_exile_play {
+            return None;
+        }
+        let spec =
+            self.parse_exile_play_static(&static_name, true, false, raw_duration.as_deref())?;
+        if rem_nonland && !spec.cast_only {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::GrantLinkedExilePermission {{ permission: {} }}",
+            spec.to_expr()
+        )])
+    }
+
+    /// `DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand/Exile | RememberChanged$ True`
+    /// followed by one or more `DB$` lines guarded by
+    /// `ConditionDefined$ Remembered | ConditionPresent$ <valid>` ("If you do, …"):
+    /// lowers the move normally and gates the follow-ups with
+    /// `ThisWay::ReturnedToHand` / `ThisWay::ExiledFromBattlefield`.
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn change_zone_then_if_moved(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_here: bool,
+        single_target: bool,
+    ) -> Option<Vec<String>> {
+        let origin = p.peek("Origin")?;
+        let dest = p.peek("Destination")?;
+        if origin != "Battlefield" || !matches!(dest, "Hand" | "Exile") {
+            return None;
+        }
+        let this_way_ctor = if dest == "Hand" {
+            "ThisWay::ReturnedToHand"
+        } else {
+            "ThisWay::ExiledFromBattlefield"
+        };
+        let first_sub_name = sub.as_deref()?.to_string();
+        // Pre-validate that the immediate follow-up actually gates on
+        // `ConditionDefined$ Remembered | ConditionPresent$ ...` without
+        // referencing `Remembered` anywhere else.
+        let first_body = self.svars.get(&first_sub_name)?.clone();
+        let (_, first_sp) = Params::parse(&first_body)?;
+        if first_sp.peek("ConditionDefined") != Some("Remembered")
+            || first_sp.peek("ConditionPresent").is_none()
+        {
+            return None;
+        }
+        if p.take("RememberChanged").as_deref() != Some("True") {
+            return None;
+        }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let mut out = self.change_zone(p, target, targets_here, single_target)?;
+        let mut cursor = sub.take();
+        let mut pending_cond: Option<String> = None;
+        let mut pending_body: Vec<String> = Vec::new();
+        let mut steps = 0usize;
+        while let Some(name) = cursor.take() {
+            steps += 1;
+            if steps > 6 {
+                return None;
+            }
+            let Some(body) = self.svars.get(&name).cloned() else {
+                return self.deny(format!("`SubAbility$ {name}` names no SVar"));
+            };
+            let (s_api, mut sp) = Params::parse(&body)?;
+            sp.drop_prose();
+            if s_api == "Cleanup" && sp.take("ClearRemembered").as_deref() == Some("True") {
+                *sub = sp.take("SubAbility");
+                if !sp.exhausted() {
+                    return None;
+                }
+                break;
+            }
+            if sp.peek("ConditionDefined") != Some("Remembered")
+                || sp.peek("ConditionPresent").is_none()
+                || sp.has("ValidTgts")
+            {
+                *sub = Some(name);
+                break;
+            }
+            if sp.entries.iter().any(|(k, v)| {
+                k != "ConditionDefined" && (v.contains("Remembered") || v.contains("IsRemembered"))
+            }) {
+                return None;
+            }
+            let next_sub = sp.take("SubAbility");
+            sp.take("ConditionDefined");
+            let valid = sp.take("ConditionPresent")?;
+            let cmp = sp.take("ConditionCompare");
+            sp.take("ConditionDescription");
+            let positive = match cmp.as_deref() {
+                None | Some("GE1" | "EQ1" | "GT0") => true,
+                Some("EQ0" | "LT1") => false,
+                Some(_) => return None,
+            };
+            let filter_ref = if valid == "Card" {
+                "&Filter::Any".to_string()
+            } else {
+                let expr = self.filter_expr(&valid)?;
+                let fname = self.body.filter_static("MOVED", &expr);
+                format!("&{fname}")
+            };
+            let cond = if positive {
+                format!(
+                    "Condition::AmountAtLeast(Amount::ThisWay({this_way_ctor}({filter_ref})), 1)"
+                )
+            } else {
+                format!(
+                    "Condition::Not(&Condition::AmountAtLeast(Amount::ThisWay({this_way_ctor}({filter_ref})), 1))"
+                )
+            };
+            let step_effects = self.effect_of(&s_api, &mut sp, target, false, false)?;
+            if !sp.exhausted() || step_effects.is_empty() {
+                return None;
+            }
+            if pending_cond.as_deref() == Some(cond.as_str()) {
+                pending_body.extend(step_effects);
+            } else {
+                if let Some(prev_cond) = pending_cond.take() {
+                    out.push(format!(
+                        "Effect::IfCondition {{ condition: {prev_cond}, then: &[{}], otherwise: &[] }}",
+                        pending_body.join(", ")
+                    ));
+                    pending_body.clear();
+                }
+                pending_cond = Some(cond);
+                pending_body.extend(step_effects);
+            }
+            cursor = next_sub;
+        }
+        if let Some(prev_cond) = pending_cond.take() {
+            out.push(format!(
+                "Effect::IfCondition {{ condition: {prev_cond}, then: &[{}], otherwise: &[] }}",
+                pending_body.join(", ")
+            ));
+        }
+        Some(out)
+    }
+
+    fn consume_remembered_exile_play_effect(
+        &mut self,
+        eff_name: &str,
+        allow_you_own: bool,
+        context: &str,
+    ) -> Option<(ExilePermissionSpec, Option<String>)> {
+        let Some(eff_body) = self.svars.get(eff_name).cloned() else {
             return self.deny(format!("`SubAbility$ {eff_name}` names no SVar"));
         };
         let Some((eff_api, mut ep)) = Params::parse(&eff_body) else {
-            return self.deny("top-of-library exile follow-up with no `$`".into());
+            return self.deny(format!("{context} follow-up with no `$`"));
         };
         ep.drop_prose();
         if eff_api != "Effect"
@@ -2086,117 +2565,218 @@ impl Tx<'_> {
                 None | Some("Exile")
             )
         {
-            return self.deny(
-                "a top-of-library exile follow-up other than an exiled-card play permission".into(),
-            );
+            return self.deny(format!(
+                "a {context} follow-up other than an exiled-card play permission"
+            ));
         }
-        let window = match ep.take("Duration").as_deref() {
-            None | Some("EndOfTurn" | "UntilEndOfTurn") => "PlayWindow::ThisTurn",
-            Some("UntilYourNextTurn") => "PlayWindow::UntilYourNextTurn",
-            Some("UntilYourNextUpkeep") => "PlayWindow::UntilYourNextUpkeep",
-            Some("UntilTheEndOfYourNextTurn") => "PlayWindow::ThroughYourNextTurn",
-            Some(other) => {
-                return self.deny(format!(
-                    "top-of-library exile permission `Duration$ {other}`"
-                ));
-            }
-        };
+        let raw_duration = ep.take("Duration");
         let Some(static_name) = ep.take("StaticAbilities") else {
-            return self.deny("top-of-library exile `Effect` without `StaticAbilities$`".into());
+            return self.deny(format!("{context} `Effect` without `StaticAbilities$`"));
         };
+        if static_name.contains(',') {
+            return self.deny(format!(
+                "{context} `Effect` with multiple `StaticAbilities$`"
+            ));
+        }
         let next_sub = ep.take("SubAbility");
         if let Some(key) = ep.first_key() {
             return self.deny(format!("unclaimed parameter `Effect.{key}`"));
         }
-        let (free, mana_any_type, nonland_cast_only, spell_types) =
-            self.exile_play_permission(&static_name)?;
-        if let Some(cname) = next_sub {
-            self.consume_optional_remember_cleanup(cname, sub)?;
-        }
-        if nonland_cast_only {
-            if count == 1 && window == "PlayWindow::ThisTurn" && !free && !mana_any_type {
-                return Some(vec![format!(
-                    "Effect::ExileTopMayCast {{ who: {who}, nonland_only: true }}"
-                )]);
-            }
-            return self
-                .deny("nonland-only exile cast permission outside `ExileTopMayCast`".into());
-        }
-        Some(vec![format!(
-            "Effect::ExileTopToPlay {{ who: {who}, play: ExilePlay {{ count: {count}, \
-             window: {window}, free: {free}, mana_any_type: {mana_any_type}, \
-             spell_types: {spell_types} }} }}"
-        )])
+        let spec = self.parse_exile_play_static(
+            &static_name,
+            false,
+            allow_you_own,
+            raw_duration.as_deref(),
+        )?;
+        Some((spec, next_sub))
     }
 
-    fn exile_play_permission(&mut self, static_name: &str) -> Option<(bool, bool, bool, String)> {
+    #[allow(clippy::too_many_lines)]
+    fn parse_exile_play_static(
+        &mut self,
+        static_name: &str,
+        linked_source: bool,
+        allow_you_own: bool,
+        raw_duration: Option<&str>,
+    ) -> Option<ExilePermissionSpec> {
         let Some(static_body) = self.svars.get(static_name).cloned() else {
             return self.deny(format!("`StaticAbilities$ {static_name}` names no SVar"));
         };
         let Some((mode, mut sp)) = Params::parse(&static_body) else {
-            return self.deny("top-of-library exile static ability without `Mode$`".into());
+            return self.deny("exile play static ability without `Mode$`".into());
         };
+        let desc_lower = sp
+            .peek("Description")
+            .map_or_default(str::to_ascii_lowercase);
         sp.drop_prose();
         if mode != "Continuous"
             || sp.take("MayPlay").as_deref() != Some("True")
             || sp.take("AffectedZone").as_deref() != Some("Exile")
         {
-            return self.deny(
-                "top-of-library exile static ability other than playing the exiled card".into(),
-            );
+            return self
+                .deny("exile play static ability other than playing the exiled card".into());
         }
-        let affected = sp.take("Affected")?;
-        let (nonland_cast_only, spell_types) = match affected.as_str() {
-            "Card.IsRemembered" => (false, "None".to_string()),
-            "Card.IsRemembered+nonLand" | "Card.nonLand+IsRemembered" => (true, "None".to_string()),
-            other => {
-                let mut type_bits = Vec::new();
-                for alt in other.split(',') {
-                    let mut parts = alt.split(['.', '+']).map(str::trim);
-                    let base = parts.next()?;
-                    let rest: Vec<&str> = parts.collect();
-                    if rest != ["IsRemembered"] {
+        let window = match raw_duration {
+            None | Some("EndOfTurn" | "UntilEndOfTurn") => "PlayWindow::ThisTurn",
+            Some("UntilYourNextTurn") => "PlayWindow::UntilYourNextTurn",
+            Some("UntilYourNextUpkeep") => "PlayWindow::UntilYourNextUpkeep",
+            Some("UntilTheEndOfYourNextTurn") => "PlayWindow::ThroughYourNextTurn",
+            Some("AsLongAsInPlay" | "UntilHostLeavesPlay") if !self.on_a_spell => {
+                "PlayWindow::WhileSourceOnBattlefield"
+            }
+            Some("Permanent") => {
+                if desc_lower.contains("you control") {
+                    return self
+                        .deny("exile permission tied to continuing to control the source".into());
+                }
+                if desc_lower.contains("remains on the battlefield")
+                    || desc_lower.contains("is on the battlefield")
+                {
+                    if self.on_a_spell {
                         return self.deny(
-                            "top-of-library exile static ability other than playing the exiled card"
-                                .into(),
+                            "exile permission tied to source on battlefield on a spell".into(),
                         );
                     }
-                    let tc = super::card_type_const(base)?;
-                    if tc == "TypeSet::LAND" {
-                        return self.deny("top-of-library land-only exile permission".into());
-                    }
-                    type_bits.push(tc);
+                    "PlayWindow::WhileSourceOnBattlefield"
+                } else {
+                    "PlayWindow::WhileExiled"
                 }
-                if type_bits.is_empty() {
-                    return None;
-                }
-                let mut expr = type_bits[0].to_string();
-                for bit in &type_bits[1..] {
-                    expr = format!("{expr}.union({bit})");
-                }
-                (false, format!("Some({expr})"))
             }
+            Some(other) => {
+                return self.deny(format!("exile permission `Duration$ {other}`"));
+            }
+        };
+        let affected = sp.take("Affected")?;
+        let Some((cast_only, spell_types)) =
+            Self::parse_exile_affected(&affected, linked_source, allow_you_own)
+        else {
+            return self.deny(format!(
+                "exile play static ability with unsupported `Affected$ {affected}`"
+            ));
         };
         let free = match sp.take("MayPlayWithoutManaCost").as_deref() {
             None | Some("False") => false,
             Some("True") => true,
             Some(other) => {
-                return self.deny(format!(
-                    "top-of-library exile `MayPlayWithoutManaCost$ {other}`"
-                ));
+                return self.deny(format!("exile play `MayPlayWithoutManaCost$ {other}`"));
             }
         };
-        let mana_any_type = match sp.take("MayPlayIgnoreType").as_deref() {
+        let ignore_type = match sp.take("MayPlayIgnoreType").as_deref() {
             None | Some("False") => false,
             Some("True") => true,
             Some(other) => {
-                return self.deny(format!("top-of-library exile `MayPlayIgnoreType$ {other}`"));
+                return self.deny(format!("exile play `MayPlayIgnoreType$ {other}`"));
+            }
+        };
+        let ignore_color = match sp.take("MayPlayIgnoreColor").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!("exile play `MayPlayIgnoreColor$ {other}`"));
+            }
+        };
+        let mana = match (ignore_type, ignore_color) {
+            (false, false) => "ExileMana::Exact",
+            (false, true) => "ExileMana::AnyColor",
+            (true, false) => "ExileMana::AnyType",
+            (true, true) => {
+                if desc_lower.contains("any color") && !desc_lower.contains("any type") {
+                    "ExileMana::AnyColor"
+                } else if desc_lower.contains("any type") && !desc_lower.contains("any color") {
+                    "ExileMana::AnyType"
+                } else {
+                    return self.deny(
+                        "exile play with both `MayPlayIgnoreType$` and `MayPlayIgnoreColor$`"
+                            .into(),
+                    );
+                }
             }
         };
         if let Some(key) = sp.first_key() {
             return self.deny(format!("unclaimed parameter `StaticAbility.{key}`"));
         }
-        Some((free, mana_any_type, nonland_cast_only, spell_types))
+        Some(ExilePermissionSpec {
+            window,
+            cast_only,
+            spell_types,
+            free,
+            mana,
+        })
+    }
+
+    fn parse_exile_affected(
+        affected: &str,
+        linked_source: bool,
+        allow_you_own: bool,
+    ) -> Option<(bool, Option<String>)> {
+        let is_marker = |atom: &str| {
+            if linked_source {
+                matches!(atom, "ExiledWithEffectSource" | "ExiledWithSource")
+            } else {
+                atom == "IsRemembered"
+            }
+        };
+        let alts: Vec<&str> = affected.split(',').map(str::trim).collect();
+        if alts.is_empty() {
+            return None;
+        }
+        let mut type_bits: Vec<&'static str> = Vec::new();
+        let mut saw_nonland = false;
+        let mut saw_untyped = false;
+        for alt in &alts {
+            let mut parts = alt
+                .split(['.', '+'])
+                .map(str::trim)
+                .filter(|p| !p.is_empty());
+            let base = parts.next()?;
+            let mut saw_marker = false;
+            let mut alt_type: Option<&'static str> = None;
+            if base != "Card" {
+                let tc = super::card_type_const(base)?;
+                if tc == "TypeSet::LAND" {
+                    return None;
+                }
+                alt_type = Some(tc);
+            }
+            for atom in parts {
+                if is_marker(atom) {
+                    saw_marker = true;
+                } else if matches!(atom, "nonLand" | "!Land") {
+                    saw_nonland = true;
+                } else if atom == "YouOwn" && allow_you_own {
+                    // Own library exile is always owned by you.
+                } else if let Some(tc) = super::card_type_const(atom)
+                    && tc != "TypeSet::LAND"
+                    && alt_type.is_none()
+                {
+                    alt_type = Some(tc);
+                } else {
+                    return None;
+                }
+            }
+            if !saw_marker {
+                return None;
+            }
+            if let Some(tc) = alt_type {
+                type_bits.push(tc);
+            } else {
+                saw_untyped = true;
+            }
+        }
+        if saw_untyped {
+            if alts.len() != 1 || !type_bits.is_empty() {
+                return None;
+            }
+            return Some((saw_nonland, None));
+        }
+        if type_bits.is_empty() {
+            return None;
+        }
+        let mut expr = type_bits[0].to_string();
+        for bit in &type_bits[1..] {
+            expr = format!("{expr}.union({bit})");
+        }
+        Some((saw_nonland, Some(expr)))
     }
 
     fn consume_optional_remember_cleanup(
@@ -2231,11 +2811,31 @@ impl Tx<'_> {
         p: &mut Params,
         sub: &mut Option<String>,
         target: Option<&str>,
+        targets_here: bool,
         single_target: bool,
     ) -> Option<Vec<String>> {
-        if !target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) {
-            return self.deny("an end-step blink that does not target a battlefield object".into());
-        }
+        let defined = p.take("Defined");
+        let blink_target = match defined.as_deref() {
+            None if targets_here => target
+                .filter(|t| {
+                    t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::ObjectOfEventPlayer(")
+                })
+                .map(str::to_string),
+            Some("Targeted" | "ParentTarget") if !targets_here => target
+                .filter(|t| {
+                    t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::ObjectOfEventPlayer(")
+                })
+                .map(str::to_string),
+            Some(def) if !targets_here && target.is_none() && self.is_event_object_defined(def) => {
+                Some("TargetSpec::EventObject".to_string())
+            }
+            _ => None,
+        };
+        let Some(blink_target) = blink_target else {
+            return self.deny("a blink that does not refer to a battlefield object".into());
+        };
         let remembered = p.take("RememberChanged").as_deref() == Some("True")
             || p.take("RememberTargets").as_deref() == Some("True");
         if p.take("Origin").as_deref() != Some("Battlefield")
@@ -2294,10 +2894,12 @@ impl Tx<'_> {
             if let Some(cname) = cleanup_name {
                 self.consume_optional_remember_cleanup(cname, sub)?;
             }
-            let tgt = target.expect("validated battlefield object target");
             return Some(vec![format!(
-                "Effect::Blink {{ target: {tgt}, owner_control: {owner_control} }}"
+                "Effect::Blink {{ target: {blink_target}, owner_control: {owner_control} }}"
             )]);
+        }
+        if !targets_here || !blink_target.starts_with("TargetSpec::Object(") {
+            return self.deny("an end-step blink that does not target a battlefield object".into());
         }
         if del_api != "DelayedTrigger"
             || dp.take("Mode").as_deref() != Some("Phase")
@@ -3197,6 +3799,11 @@ impl Tx<'_> {
         if p.take("Origin").as_deref() != Some("Battlefield")
             || p.take("Destination").as_deref() != Some("Exile")
             || p.take("RememberChanged").as_deref() != Some("True")
+        {
+            return None;
+        }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
         {
             return None;
         }
@@ -4861,9 +5468,12 @@ impl Tx<'_> {
         }
         let expr = self.filter_expr_in_zone(&valid, true)?;
         let name = self.body.filter_static("REVEAL_UNTIL", &expr);
-        // Bottom + shuffle is identical to top + shuffle because the library is
-        // shuffled immediately afterwards.
-        if shuffle && revealed_raw.as_deref() == Some("Library") && pos.as_deref() == Some("-1") {
+        // Putting the rest into the library at any position and immediately
+        // shuffling is identical to leaving them in library + shuffling.
+        if shuffle
+            && revealed_raw.as_deref() == Some("Library")
+            && matches!(pos.as_deref(), None | Some("-1" | "0"))
+        {
             let matched = match found_raw.as_deref() {
                 Some("Battlefield") => "SearchDest::Battlefield",
                 Some("Hand") => "SearchDest::Hand",
@@ -4902,6 +5512,7 @@ impl Tx<'_> {
                 Some("Library") => "SearchDest::TopOfLibrary",
                 Some("Graveyard") => "SearchDest::Graveyard",
                 Some("Exile") => "SearchDest::Exile",
+                Some("Hand") => "SearchDest::Hand",
                 _ => return None,
             };
             let matched = match found_raw.as_deref() {
@@ -4910,7 +5521,11 @@ impl Tx<'_> {
                 Some("Graveyard") => "SearchDest::Graveyard",
                 Some("Exile") => "SearchDest::Exile",
                 Some("Library") => "SearchDest::TopOfLibrary",
-                None if matches!(otherwise, "SearchDest::Graveyard" | "SearchDest::Exile") => {
+                None if matches!(
+                    otherwise,
+                    "SearchDest::Graveyard" | "SearchDest::Exile" | "SearchDest::Hand"
+                ) =>
+                {
                     otherwise
                 }
                 _ => return None,
@@ -7131,6 +7746,7 @@ impl Tx<'_> {
             "Pump" => {
                 let att_raw = sp.take("NumAtt");
                 let def_raw = sp.take("NumDef");
+                sp.take("IsCurse");
                 let duration = match sp.take("Duration").as_deref() {
                     None => "Duration::UntilEndOfTurn",
                     Some("Permanent") => "Duration::Indefinitely",
@@ -7140,14 +7756,18 @@ impl Tx<'_> {
                     }
                 };
                 let defined = sp.take("Defined");
-                let subject_ok = match (defined.as_deref(), target.as_deref()) {
+                let is_targeted = match (defined.as_deref(), target.as_deref()) {
                     (None | Some("Targeted"), Some(t)) if t.starts_with("TargetSpec::Object(") => {
-                        true
+                        Some(true)
                     }
-                    (None | Some("Self"), None) if !self.on_a_spell => true,
-                    _ => false,
+                    (None | Some("Self"), None) if !self.on_a_spell => Some(false),
+                    _ => None,
                 };
-                if !subject_ok || !sp.exhausted() {
+                let Some(is_targeted) = is_targeted else {
+                    chain.target = saved_target;
+                    return None;
+                };
+                if !sp.exhausted() {
                     chain.target = saved_target;
                     return None;
                 }
@@ -7167,15 +7787,27 @@ impl Tx<'_> {
                         }
                     }
                 };
-                let att = side(att_raw.as_deref())?;
-                let def = side(def_raw.as_deref())?;
+                let (Some(att), Some(def)) = (side(att_raw.as_deref()), side(def_raw.as_deref()))
+                else {
+                    chain.target = saved_target;
+                    return None;
+                };
                 if att == "Amount::Fixed(0)" && def == "Amount::Fixed(0)" {
                     chain.target = saved_target;
                     return None;
                 }
-                format!(
-                    "Effect::PumpAmount {{ filter: &Filter::This, power: {att}, toughness: {def}, duration: {duration} }}"
-                )
+                if is_targeted {
+                    format!(
+                        "Effect::PumpTarget {{ power: {att}, toughness: {def}, \
+                         keywords: KeywordSet::EMPTY, duration: {duration} }}"
+                    )
+                } else {
+                    format!(
+                        "Effect::PumpFilter {{ filter: &Filter::This, controlled_by: None, \
+                         power: {att}, toughness: {def}, keywords: KeywordSet::EMPTY, \
+                         duration: {duration} }}"
+                    )
+                }
             }
             _ => {
                 chain.target = saved_target;
@@ -7193,4 +7825,34 @@ enum Wave8Scope {
     ChosenObject,
     RevealedObject,
     Times,
+}
+
+struct ExilePermissionSpec {
+    window: &'static str,
+    cast_only: bool,
+    spell_types: Option<String>,
+    free: bool,
+    mana: &'static str,
+}
+
+impl ExilePermissionSpec {
+    fn to_expr(&self) -> String {
+        let mut expr = if self.cast_only || self.spell_types.is_some() {
+            format!("ExilePermission::cast({})", self.window)
+        } else {
+            format!("ExilePermission::play({})", self.window)
+        };
+        if let Some(types) = &self.spell_types {
+            expr = format!("{expr}.with_spell_types({types})");
+        }
+        if self.free {
+            expr.push_str(".without_paying_mana_cost()");
+        }
+        match self.mana {
+            "ExileMana::AnyColor" => expr.push_str(".spend_mana_as_any_color()"),
+            "ExileMana::AnyType" => expr.push_str(".spend_mana_as_any_type()"),
+            _ => {}
+        }
+        expr
+    }
 }

@@ -264,8 +264,26 @@ impl Tx<'_> {
             .ok()?
         {
             split
+        } else if let Some(split) = self
+            .try_split_bargained_or_prototyped_amount(
+                &api,
+                &mut p,
+                target.as_deref(),
+                targets_here,
+                targets_a_player,
+                chain,
+            )
+            .ok()?
+        {
+            split
         } else if api == "ChangeZone"
-            && targets_here
+            && matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
+            && p.peek("Destination") == Some("Exile")
+            && p.peek("RememberChanged") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "Effect")
+        {
+            self.exile_with_permission_effect(&mut p, &mut sub, target.as_deref(), targets_here)?
+        } else if api == "ChangeZone"
             && p.peek("Origin") == Some("Battlefield")
             && p.peek("Destination") == Some("Exile")
             && (p.has("RememberChanged")
@@ -273,11 +291,23 @@ impl Tx<'_> {
                     && (self.sub_is_api(sub.as_deref(), "ChangeZone")
                         || self.sub_is_api(sub.as_deref(), "DelayedTrigger"))))
             && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+            && (targets_here
+                || (self.sub_is_api(sub.as_deref(), "ChangeZone")
+                    && (matches!(p.peek("Defined"), Some("Targeted" | "ParentTarget"))
+                        || (target.is_none()
+                            && p.peek("Defined")
+                                .is_some_and(|d| self.is_event_object_defined(d))))))
         {
             let single_target = chain.target_exact.is_none()
                 && !chain.target_is_x
                 && chain.target_up_to.is_none_or(|n| n == 1);
-            self.exile_until_end_effect(&mut p, &mut sub, target.as_deref(), single_target)?
+            self.exile_until_end_effect(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                targets_here,
+                single_target,
+            )?
         } else if api == "PutCounter" && p.peek("Support").is_some() {
             if chain.target.is_some()
                 || targets_here
@@ -318,6 +348,34 @@ impl Tx<'_> {
             && self.sub_is_api(sub.as_deref(), "ChangeZone")
         {
             self.exile_self_return_as_face_effect(&mut p, &mut sub)?
+        } else if api == "ChangeZone"
+            && p.peek("Origin") == Some("Battlefield")
+            && matches!(p.peek("Destination"), Some("Hand" | "Exile"))
+            && p.peek("RememberChanged") == Some("True")
+            && !self.sub_is_api(sub.as_deref(), "Effect")
+            && !self.sub_is_api(sub.as_deref(), "ChangeZone")
+            && !self.sub_is_api(sub.as_deref(), "DelayedTrigger")
+            && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+            && sub
+                .as_deref()
+                .and_then(|s| self.svars.get(s))
+                .is_some_and(|b| {
+                    Params::parse(b).is_some_and(|(_, sp)| {
+                        sp.peek("ConditionDefined") == Some("Remembered")
+                            && sp.peek("ConditionPresent").is_some()
+                    })
+                })
+        {
+            let single_target = chain.target_exact.is_none()
+                && !chain.target_is_x
+                && chain.target_up_to.is_none_or(|n| n == 1);
+            self.change_zone_then_if_moved(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                targets_here,
+                single_target,
+            )?
         } else if api == "ChangeZone"
             && !targets_here
             && matches!(p.peek("Defined"), None | Some("Self"))
@@ -737,7 +795,34 @@ impl Tx<'_> {
             p.entries.push(("PresentCompare".to_string(), cmp));
         }
         let valid = p.take("ConditionPresent").expect("checked above");
-        let cond = if !p.has("ConditionDefined")
+        let cond = if p.peek("ConditionDefined") == Some("Self")
+            && !p.has("PresentPlayer")
+            && !p.has("PresentZone")
+            && matches!(
+                valid.as_str(),
+                "Card.bargained" | "Card.!bargained" | "Card.prototyped" | "Card.!prototyped"
+            ) {
+            p.take("ConditionDefined");
+            let cmp = p.take("PresentCompare");
+            let (base, positive_present) = match valid.as_str() {
+                "Card.bargained" => ("Condition::Bargained", true),
+                "Card.!bargained" => ("Condition::Bargained", false),
+                "Card.prototyped" => ("Condition::Prototyped", true),
+                _ => ("Condition::Prototyped", false),
+            };
+            let positive = match cmp.as_deref() {
+                None | Some("GE1" | "EQ1" | "GT0") => positive_present,
+                Some("EQ0" | "LT1") => !positive_present,
+                Some(other) => {
+                    return self.deny(format!("bargained/prototyped condition compared `{other}`"));
+                }
+            };
+            if positive {
+                base.to_string()
+            } else {
+                format!("Condition::Not(&{base})")
+            }
+        } else if !p.has("ConditionDefined")
             && !p.has("PresentPlayer")
             && matches!(p.peek("PresentZone"), None | Some("Battlefield"))
             && Self::is_your_commander_present(&valid)
@@ -1664,6 +1749,35 @@ impl Tx<'_> {
                         vec![you_draw, other_draw]
                     });
                 }
+                if target.is_none()
+                    && let Some(def) = p.peek("Defined")
+                    && let Some((lhs, rhs)) = def.split_once('&')
+                    && let Some(other_raw) = match (lhs.trim(), rhs.trim()) {
+                        ("You", other) | (other, "You") => Some(other),
+                        _ => None,
+                    }
+                    && let Some(other_rel) = self.player_rel(Some(other_raw))
+                    && other_rel != "PlayerRel::You"
+                {
+                    p.take("Defined");
+                    let you_draw = if let Some(fixed) = n
+                        .strip_prefix("Amount::Fixed(")
+                        .and_then(|r| r.strip_suffix(')'))
+                    {
+                        format!("Effect::draw({fixed})")
+                    } else {
+                        format!("Effect::DrawCards {{ amount: {n} }}")
+                    };
+                    let other_draw =
+                        format!("Effect::DrawCardsFor {{ amount: {n}, who: {other_rel} }}");
+                    return Some(if may {
+                        vec![format!(
+                            "Effect::MayDo {{ effects: &[{you_draw}, {other_draw}] }}"
+                        )]
+                    } else {
+                        vec![you_draw, other_draw]
+                    });
+                }
                 let draw = match (
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
                     n.strip_prefix("Amount::Fixed(")
@@ -2395,16 +2509,25 @@ impl Tx<'_> {
                     self.body.statics.truncate(saved_statics_len);
                     if let Some(effects) = self.wave3_effect_api(p, target) {
                         effects
-                    } else if target.is_none() && snapshot.peek("ReplacementEffects").is_some() {
-                        *p = Params {
-                            entries: Vec::new(),
-                        };
-                        *self.unclaimed.borrow_mut() = saved_unclaimed;
-                        self.body.statics.truncate(saved_statics_len);
-                        let mut dummy_chain = Chain::default();
-                        self.prevention_effect_shield(snapshot, &mut dummy_chain)?
                     } else {
-                        return None;
+                        p.clone_from(&snapshot);
+                        self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
+                        self.body.statics.truncate(saved_statics_len);
+                        if let Some(effects) = self.grant_linked_exile_permission_effect(p, target)
+                        {
+                            effects
+                        } else if target.is_none() && snapshot.peek("ReplacementEffects").is_some()
+                        {
+                            *p = Params {
+                                entries: Vec::new(),
+                            };
+                            *self.unclaimed.borrow_mut() = saved_unclaimed;
+                            self.body.statics.truncate(saved_statics_len);
+                            let mut dummy_chain = Chain::default();
+                            self.prevention_effect_shield(snapshot, &mut dummy_chain)?
+                        } else {
+                            return None;
+                        }
                     }
                 }
             }
@@ -2937,15 +3060,149 @@ impl Tx<'_> {
             .is_some_and(|(api, _)| api == expected)
     }
 
-    /// Wave-7 named alt-cost conditions (`Condition$ Surge/Prowl/Blitz/AltCost`).
+    /// Wave-7/9b named alt-cost conditions (`Condition$ Surge/Prowl/Blitz/AltCost/Bargain/Prototype`).
     pub(super) fn wave7_named_condition(cond: &str) -> Option<&'static str> {
         Some(match cond.trim() {
             "Surge" => "Condition::Surge",
             "Prowl" => "Condition::Prowl",
             "Blitz" => "Condition::BlitzCostPaid",
             "AltCost" => "Condition::AltCostPaid",
+            "Bargain" | "Bargained" => "Condition::Bargained",
+            "Prototype" | "Prototyped" => "Condition::Prototyped",
             _ => return None,
         })
+    }
+
+    fn bargained_or_prototyped_pair(&self, raw: &str) -> Option<(&'static str, String, String)> {
+        let def = self.svars.get(raw.trim())?.trim();
+        let (cond, rest) = if let Some(rest) = def
+            .strip_prefix("Count$Bargained.")
+            .or_else(|| def.strip_prefix("Count$Bargain."))
+        {
+            ("Condition::Bargained", rest)
+        } else {
+            let rest = def
+                .strip_prefix("Count$Prototyped.")
+                .or_else(|| def.strip_prefix("Count$Prototype."))?;
+            ("Condition::Prototyped", rest)
+        };
+        let (a, b) = rest.split_once('.')?;
+        if a.is_empty() || b.is_empty() || b.contains('.') {
+            return None;
+        }
+        Some((cond, a.to_string(), b.to_string()))
+    }
+
+    /// Splits a line carrying `Count$Bargained.<A>.<B>` or
+    /// `Count$Prototyped.<A>.<B>` into `Effect::IfCondition`.
+    #[allow(clippy::too_many_lines)]
+    fn try_split_bargained_or_prototyped_amount(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        targets_a_player: bool,
+        chain: &Chain,
+    ) -> Result<Option<Vec<String>>, ()> {
+        if chain.second_target.is_some()
+            || p.has("Condition")
+            || p.has("ConditionCheckSVar")
+            || p.has("ConditionPresent")
+            || p.has("ConditionDefined")
+        {
+            return Ok(None);
+        }
+        let mut chosen_cond: Option<&'static str> = None;
+        let mut p_then = p.clone();
+        let mut p_else = p.clone();
+        for idx in 0..p.entries.len() {
+            let value = p.entries[idx].1.trim();
+            let (sign, core) = if let Some(rest) = value.strip_prefix('-') {
+                ("-", rest)
+            } else if let Some(rest) = value.strip_prefix('+') {
+                ("+", rest)
+            } else {
+                ("", value)
+            };
+            if let Some((cond, a, b)) = self.bargained_or_prototyped_pair(core) {
+                if let Some(prev) = chosen_cond
+                    && prev != cond
+                {
+                    return Ok(None);
+                }
+                chosen_cond = Some(cond);
+                p_then.entries[idx].1 = if a == "0" {
+                    "0".to_string()
+                } else {
+                    format!("{sign}{a}")
+                };
+                p_else.entries[idx].1 = if b == "0" {
+                    "0".to_string()
+                } else {
+                    format!("{sign}{b}")
+                };
+            }
+        }
+        let Some(cond) = chosen_cond else {
+            return Ok(None);
+        };
+        let single_target = chain.target_exact.is_none()
+            && !chain.target_is_x
+            && chain.target_up_to.is_none_or(|n| n == 1);
+        let then_raw = self.effect_of_inner(
+            api,
+            &mut p_then,
+            target,
+            targets_here,
+            targets_a_player,
+            single_target,
+        );
+        let else_raw = self.effect_of_inner(
+            api,
+            &mut p_else,
+            target,
+            targets_here,
+            targets_a_player,
+            single_target,
+        );
+        let (Some(mut then_effects), Some(mut else_effects)) = (then_raw, else_raw) else {
+            if self.unclaimed.borrow().is_none() {
+                if super::is_supported_api(api) {
+                    self.note(format!("unreadable value in `{api}`"));
+                } else {
+                    self.note(format!("effect `{api}`"));
+                }
+            }
+            return Err(());
+        };
+        if let Some(key) = p_then.first_key().or_else(|| p_else.first_key()) {
+            self.note(format!("unclaimed parameter `{api}.{key}`"));
+            return Err(());
+        }
+        let is_noop_pump = |list: &[String]| {
+            matches!(
+                list,
+                [one] if one.starts_with(
+                    "Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::EMPTY,"
+                )
+            )
+        };
+        if is_noop_pump(&else_effects) && !then_effects.is_empty() {
+            else_effects.clear();
+        } else if is_noop_pump(&then_effects) && !else_effects.is_empty() {
+            then_effects.clear();
+        }
+        if then_effects.is_empty() && else_effects.is_empty() {
+            self.note(format!("unreadable value in `{api}`"));
+            return Err(());
+        }
+        p.entries.clear();
+        Ok(Some(vec![format!(
+            "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[{}] }}",
+            then_effects.join(", "),
+            else_effects.join(", ")
+        )]))
     }
 
     /// Wave-7 `CheckSVar$` / `ConditionCheckSVar$` conditions for Wave 6b
@@ -2985,6 +3242,56 @@ impl Tx<'_> {
             "Count$Prowl.1.0" | "Count$Prowl" => match cmp {
                 "GE1" | "EQ1" => Some("Condition::Prowl".to_string()),
                 "EQ0" | "LT1" => Some("Condition::Not(&Condition::Prowl)".to_string()),
+                _ => None,
+            },
+            "Count$Bargained.1.0" | "Count$Bargained" | "Count$Bargain.1.0" | "Count$Bargain"
+                if self.body.bargain =>
+            {
+                match cmp {
+                    "GE1" | "EQ1" | "GT0" => Some("Condition::Bargained".to_string()),
+                    "EQ0" | "LT1" => Some("Condition::Not(&Condition::Bargained)".to_string()),
+                    _ => None,
+                }
+            }
+            "Count$Prototyped.1.0"
+            | "Count$Prototyped"
+            | "Count$Prototype.1.0"
+            | "Count$Prototype" => match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::Prototyped".to_string()),
+                "EQ0" | "LT1" => Some("Condition::Not(&Condition::Prototyped)".to_string()),
+                _ => None,
+            },
+            "Count$LifeOppsLostThisTurn" => {
+                if matches!(cmp, "EQ0" | "LT1") {
+                    Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string())
+                } else if matches!(cmp, "GE1" | "GT0") {
+                    Some("Condition::OpponentLostLifeThisTurn".to_string())
+                } else if let Some(n) = cmp
+                    .strip_prefix("GE")
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .filter(|&n| n >= 2)
+                {
+                    Some(format!(
+                        "Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, {n})"
+                    ))
+                } else if let Some(n) = cmp
+                    .strip_prefix("GT")
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .filter(|&n| n >= 1)
+                {
+                    let min = n.checked_add(1)?;
+                    Some(format!(
+                        "Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, {min})"
+                    ))
+                } else {
+                    None
+                }
+            }
+            "Count$LifeOppsLostThisTurn/LimitMax.1" => match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::OpponentLostLifeThisTurn".to_string()),
+                "EQ0" | "LT1" => {
+                    Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string())
+                }
                 _ => None,
             },
             "Count$Spectacle.1.0"

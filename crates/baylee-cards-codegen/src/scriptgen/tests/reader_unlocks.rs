@@ -2643,6 +2643,43 @@ fn wave8b_peek_reveal_and_change_zone_sweeps() {
 }
 
 #[test]
+fn wave9b_reveal_from_hand_counted_pump_target_and_self() {
+    let reveal_pump_target = read(
+        "Name:GreenScent\nManaCost:G\nTypes:Instant\n\
+         A:SP$ Reveal | Defined$ You | RevealValid$ Card.Green | AnyNumber$ True | RememberRevealed$ True | SubAbility$ Pump\n\
+         SVar:Pump:DB$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        reveal_pump_target.abilities[0].contains(
+            "Effect::PumpTarget { power: Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), \
+             toughness: Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), \
+             keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{}",
+        reveal_pump_target.abilities[0]
+    );
+    let reveal_pump_self = read(
+        "Name:GreenScentBeast\nManaCost:2 G\nTypes:Creature Beast\nPT:2/2\n\
+         A:AB$ Reveal | Cost$ G | Defined$ You | RevealValid$ Card.Green | AnyNumber$ True | RememberRevealed$ True | SubAbility$ Pump\n\
+         SVar:Pump:DB$ Pump | Defined$ Self | NumAtt$ +X | NumDef$ +X | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        reveal_pump_self.abilities[0].contains(
+            "Effect::PumpFilter { filter: &Filter::This, controlled_by: None, \
+             power: Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), \
+             toughness: Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), \
+             keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{}",
+        reveal_pump_self.abilities[0]
+    );
+}
+
+#[test]
 fn wave8b_change_zone_and_phase_check_svar_sweeps() {
     let top_tutor = read(
         "Name:TopTutor\nManaCost:G\nTypes:Instant\n\
@@ -2686,5 +2723,323 @@ fn wave8b_change_zone_and_phase_check_svar_sweeps() {
     assert!(refused(
         "Name:BotTutor\nManaCost:G\nTypes:Instant\n\
          A:SP$ ChangeZone | Origin$ Library | Destination$ Library | LibraryPosition$ -1 | ChangeType$ Creature"
+    ));
+}
+
+#[test]
+fn wave9b_exile_top_with_permission_windows_mana_and_variable_count() {
+    let var_x = read(
+        "Name:XImpulse\nManaCost:X R\nTypes:Sorcery\n\
+         A:SP$ Dig | Defined$ You | DigNum$ X | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | Imprint$ True | SubAbility$ Play\n\
+         SVar:Play:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST | Duration$ UntilTheEndOfYourNextTurn | SubAbility$ Clean\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | MayPlayIgnoreColor$ True | Affected$ Card.IsRemembered+nonLand | AffectedZone$ Exile\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        var_x.abilities[0].contains(
+            "Effect::ExileTopWithPermission { who: PlayerRel::You, count: Amount::X, \
+             permission: ExilePermission::cast(PlayWindow::ThroughYourNextTurn).spend_mana_as_any_color() }"
+        ),
+        "{}",
+        var_x.abilities[0]
+    );
+
+    let while_exiled = read(
+        "Name:VaultScout\nManaCost:2 R\nTypes:Creature Rogue\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Defined$ TopOfLibrary | DefinedPlayer$ Opponent | Origin$ Library | Destination$ Exile | RememberChanged$ True | ForgetOtherRemembered$ True | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST | Duration$ Permanent | ForgetOnMoved$ Exile | SubAbility$ Clean\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | MayPlayIgnoreType$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile | Description$ You may play that card for as long as it remains exiled.\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        while_exiled.abilities[0].contains(
+            "Effect::ExileTopWithPermission { who: PlayerRel::Opponent, count: Amount::Fixed(1), \
+             permission: ExilePermission::play(PlayWindow::WhileExiled).spend_mana_as_any_type() }"
+        ),
+        "{}",
+        while_exiled.abilities[0]
+    );
+
+    let while_source = read(
+        "Name:RelicKeeper\nManaCost:3 U\nTypes:Artifact\n\
+         A:AB$ Dig | Cost$ T | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST | Duration$ Permanent | SubAbility$ Clean\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered+Creature | AffectedZone$ Exile | Description$ You may cast that card for as long as CARDNAME remains on the battlefield.\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        while_source.abilities[0].contains(
+            "ExilePermission::cast(PlayWindow::WhileSourceOnBattlefield).with_spell_types(TypeSet::CREATURE)"
+        ),
+        "{}",
+        while_source.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:ControlTied\nManaCost:2 R\nTypes:Artifact\n\
+         A:AB$ Dig | Cost$ T | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST | Duration$ Permanent\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile | Description$ You may play that card for as long as you control CARDNAME."
+    ));
+    assert!(refused(
+        "Name:NextEndStep\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Dig | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST | Duration$ UntilYourNextEndStep\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile"
+    ));
+    assert!(refused(
+        "Name:FaceDownExile\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Dig | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | ExileFaceDown$ True | RememberChanged$ True | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile"
+    ));
+    assert!(refused(
+        "Name:LimitedPlay\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Dig | Defined$ You | DigNum$ 2 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | MayPlayLimit$ 1 | Affected$ Card.IsRemembered | AffectedZone$ Exile"
+    ));
+}
+
+#[test]
+fn wave9b_exile_with_permission_and_grant_linked_exile_permission() {
+    let kidnap = read(
+        "Name:CorsairRaider\nManaCost:2 U B\nTypes:Creature Pirate\nPT:2/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature.Other | Duration$ UntilHostLeavesPlay | RememberChanged$ True | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | StaticAbilities$ ST | RememberObjects$ Remembered | Duration$ Permanent | ForgetOnMoved$ Exile | SubAbility$ Clean\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | MayPlayIgnoreType$ True | Affected$ Card.IsRemembered+nonLand | AffectedZone$ Exile | Description$ You may cast that card.\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        kidnap.abilities[0].contains("Effect::ExileWithPermission { target: TargetSpec::Object(&")
+            && kidnap.abilities[0].contains(
+                "until: Some(ExileUntil::SourceLeavesBattlefield), \
+             permission: ExilePermission::cast(PlayWindow::WhileExiled).spend_mana_as_any_type() }"
+            ),
+        "{}",
+        kidnap.abilities[0]
+    );
+
+    let gy_exile = read(
+        "Name:GraveRaider\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Instant.OppOwn | RememberChanged$ True | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST | ExileOnMoved$ Exile | SubAbility$ Clean\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | MayPlayWithoutManaCost$ True | Affected$ Card.nonLand+IsRemembered | AffectedZone$ Exile\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        gy_exile.abilities[0].contains(
+            "Effect::ExileWithPermission { target: TargetSpec::CardInGraveyard(&"
+        ) && gy_exile.abilities[0].contains(
+            "until: None, permission: ExilePermission::cast(PlayWindow::ThisTurn).without_paying_mana_cost() }"
+        ),
+        "{}",
+        gy_exile.abilities[0]
+    );
+
+    let linked_grant = read(
+        "Name:VaultBeacon\nManaCost:3 B\nTypes:Artifact\n\
+         A:AB$ Effect | Cost$ 2 T | StaticAbilities$ ST | RememberObjects$ ValidExile Card.ExiledWithSource+nonLand | ForgetOnMoved$ Exile\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | MayPlayIgnoreColor$ True | Affected$ Card.ExiledWithEffectSource+nonLand | AffectedZone$ Exile",
+    );
+    assert!(
+        linked_grant.abilities[0].contains(
+            "Effect::GrantLinkedExilePermission { permission: ExilePermission::cast(PlayWindow::ThisTurn).spend_mana_as_any_color() }"
+        ),
+        "{}",
+        linked_grant.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:BadHostLeaveSpell\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature | Duration$ UntilHostLeavesPlay | RememberChanged$ True | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ ST\n\
+         SVar:ST:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile"
+    ));
+}
+
+#[test]
+fn wave9b_bargain_prototype_conditions_and_amount_splitting() {
+    let etb_bargain = read(
+        "Name:FaeEnvoy\nManaCost:3 B\nTypes:Creature Faerie\nPT:3/3\nK:Bargain\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self+bargained | Execute$ Drain\n\
+         SVar:Drain:DB$ LoseLife | Defined$ Opponent | LifeAmount$ 3",
+    );
+    assert!(
+        etb_bargain.abilities[0]
+            .contains("triggered!(Trigger::ETB, &[Effect::LoseLife { amount: Amount::Fixed(3), target: PlayerRel::Opponent }], condition = Some(Condition::Bargained))"),
+        "{}",
+        etb_bargain.abilities[0]
+    );
+
+    let etb_proto = read(
+        "Name:ClockworkScout\nManaCost:6\nTypes:Artifact Creature Construct\nPT:5/5\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self+prototyped | Execute$ Draw\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        etb_proto.abilities[0].contains("condition = Some(Condition::Prototyped)"),
+        "{}",
+        etb_proto.abilities[0]
+    );
+
+    let split_pump = read(
+        "Name:SweetBind\nManaCost:1 B\nTypes:Instant\nK:Bargain\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X | IsCurse$ True\n\
+         SVar:X:Count$Bargained.5.3",
+    );
+    assert!(
+        split_pump.abilities[0].contains("Effect::IfCondition { condition: Condition::Bargained, then: &[Effect::PumpTarget { power: Amount::NegXFixed(5), toughness: Amount::NegXFixed(5)")
+            && split_pump.abilities[0].contains("otherwise: &[Effect::PumpTarget { power: Amount::NegXFixed(3), toughness: Amount::NegXFixed(3)"),
+        "{}",
+        split_pump.abilities[0]
+    );
+
+    let svar_and_self_cond = read(
+        "Name:LightStrike\nManaCost:W\nTypes:Instant\nK:Bargain\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | ConditionCheckSVar$ B | ConditionSVarCompare$ EQ0 | SubAbility$ Des\n\
+         SVar:Des:DB$ Destroy | Defined$ Targeted | ConditionDefined$ Self | ConditionPresent$ Card.bargained\n\
+         SVar:B:Count$Bargained.1.0",
+    );
+    let a = &svar_and_self_cond.abilities[0];
+    assert!(
+        a.contains("condition: Condition::Not(&Condition::Bargained)")
+            && a.contains("condition: Condition::Bargained"),
+        "{a}"
+    );
+}
+
+#[test]
+fn wave9b_blink_dig_until_and_opponents_life_lost_sweeps() {
+    let event_blink = read(
+        "Name:PhaseWarden\nManaCost:2 W\nTypes:Creature Spirit\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Defined$ TriggeredAttackerLKICopy | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ Ret\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        event_blink.abilities[0]
+            .contains("Effect::Blink { target: TargetSpec::EventObject, owner_control: true }"),
+        "{}",
+        event_blink.abilities[0]
+    );
+
+    let dig_shuffle = read(
+        "Name:RelicReveal\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Defined$ You | Valid$ Artifact | FoundDestination$ Hand | RevealedDestination$ Library | Shuffle$ True",
+    );
+    assert!(
+        dig_shuffle.abilities[0].contains("Effect::RevealUntilMatching")
+            && dig_shuffle.abilities[0].contains("Effect::ShuffleLibrary { who: PlayerRel::You }"),
+        "{}",
+        dig_shuffle.abilities[0]
+    );
+
+    let dig_hand_all = read(
+        "Name:VaultHunt\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Defined$ You | Valid$ Card.nonLand | RevealedDestination$ Hand",
+    );
+    assert!(
+        dig_hand_all.abilities[0]
+            .contains("matched: SearchDest::Hand, otherwise: SearchDest::Hand"),
+        "{}",
+        dig_hand_all.abilities[0]
+    );
+
+    let life_lost = read(
+        "Name:BloodWatch\nManaCost:2 B\nTypes:Creature Vampire\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | CheckSVar$ L | SVarCompare$ GE4 | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:L:Count$LifeOppsLostThisTurn",
+    );
+    assert!(
+        life_lost.abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, 4)"),
+        "{}",
+        life_lost.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:SelfDelayedBlink\nManaCost:2 W\nTypes:Creature Spirit\nPT:2/2\n\
+         A:AB$ ChangeZone | Cost$ 1 W | Defined$ Self | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ Del\n\
+         SVar:Del:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | RememberObjects$ RememberedLKI | Execute$ Ret\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ DelayTriggerRememberedLKI | Origin$ Exile | Destination$ Battlefield"
+    ));
+}
+
+#[test]
+fn wave9b_effect_cost_handsize_permanent_pump_and_if_moved() {
+    let hand_size = read(
+        "Name:EndlessArchive\nManaCost:3 U\nTypes:Sorcery\n\
+         A:SP$ Effect | StaticAbilities$ Hand | Duration$ Permanent\n\
+         SVar:Hand:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited",
+    );
+    assert!(
+        hand_size.abilities[0].contains(
+            "Effect::continuous(&Filter::Any, Modifier::NoMaxHandSize, Duration::Indefinitely)"
+        ),
+        "{}",
+        hand_size.abilities[0]
+    );
+
+    let spell_tax = read(
+        "Name:SpellDelay\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ Effect | Duration$ UntilYourNextTurn | StaticAbilities$ Tax\n\
+         SVar:Tax:Mode$ RaiseCost | ValidCard$ Card.nonCreature | Activator$ Opponent | Type$ Spell | Amount$ 2",
+    );
+    assert!(
+        spell_tax.abilities[0].contains("Modifier::SpellsCostMore(2), Duration::UntilYourNextTurn"),
+        "{}",
+        spell_tax.abilities[0]
+    );
+
+    let spell_discount = read(
+        "Name:ForgeDiscount\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Effect | StaticAbilities$ Disc\n\
+         SVar:Disc:Mode$ ReduceCost | ValidCard$ Artifact | Activator$ You | Type$ Spell | Amount$ 1",
+    );
+    assert!(
+        spell_discount.abilities[0]
+            .contains("Modifier::SpellsCostLess(1), Duration::UntilEndOfTurn"),
+        "{}",
+        spell_discount.abilities[0]
+    );
+
+    let perm_pump = read(
+        "Name:IronChimera\nManaCost:4\nTypes:Artifact Creature Construct\nPT:2/2\n\
+         A:AB$ Pump | Cost$ Sac<1/CARDNAME> | ValidTgts$ Creature | KW$ First Strike | Duration$ Permanent",
+    );
+    assert!(
+        perm_pump.abilities[0].contains("duration: Duration::Indefinitely"),
+        "{}",
+        perm_pump.abilities[0]
+    );
+
+    let if_bounced = read(
+        "Name:RetreatAgent\nManaCost:1 B\nTypes:Creature Rogue\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ Bounce\n\
+         SVar:Bounce:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand | RememberChanged$ True | SubAbility$ Drain\n\
+         SVar:Drain:DB$ LoseLife | Defined$ Opponent | LifeAmount$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Card | SubAbility$ Gain\n\
+         SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Card | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    let a = &if_bounced.abilities[0];
+    assert!(
+        a.contains("Effect::bounce(TargetSpec::ThisObject)")
+            && a.contains("Condition::AmountAtLeast(Amount::ThisWay(ThisWay::ReturnedToHand(&Filter::Any)), 1)")
+            && a.contains("Effect::LoseLife")
+            && a.contains("Effect::gain_life(2)"),
+        "{a}"
+    );
+
+    // One-shot "next spell" discount (`ForgetOnCast$`) must stay refused.
+    assert!(refused(
+        "Name:OneShotDiscount\nManaCost:R\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ Disc | ForgetOnCast$ Card.YouCtrl\n\
+         SVar:Disc:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | Type$ Spell | Amount$ 1"
     ));
 }
