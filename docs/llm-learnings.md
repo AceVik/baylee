@@ -6,6 +6,14 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-20 — Amass token-stem fix (`75aa4169d`) & Passes E3–E4a (`31b657790`, `4aeaffb8b`, `f99b00a86`, `a5930da2d`)
+
+- **Amass implicit token stem fix (`Reviewed: 75aa4169d`, `Reviewed-by: gemini-4-argon-high (#270), pass`):**
+  - `amass_effect` emits `&generated_tokens::<TYPE>_ARMY_0_0_BLACK` without a `TokenScript$` line, so `scriptgen::atoms::collect_token_stems` omitted `b_0_0_<type>_army` from `tokens_the_pool_reaches_for` (`generated_tokens::ARMY_0_0_BLACK` in `crates/cards/src/tokens.rs` is `Orc Army`, not `Zombie Army`). Collecting `Amass` `Type$` stems alongside `Investigate` unblocks War of the Spark (`war`) Amass cards cleanly.
+- **Pool Passes E3 + E4a (`+1,225` generated cards; `Reviewed: 31b657790 4aeaffb8b f99b00a86`, `Reviewed-by: gemini-4-argon-high (#263, #274), pass`; `a5930da2d` posted to `@reviewer-2`):**
+  - Landed Pass E3 (`31b657790`, `1,000` cards), held back `Undercity Uprising` (`4aeaffb8b`, `target_reuse` lint false positive), and landed Pass E4a (`f99b00a86`, `225` pre-WAR cards, plus `16` DFC back faces) -> `15,879` conforming pool cards (`11,015` `Implemented` + `3,615` `Generated` = `14,630` playable, plus `263` `Partial` = `14,893` finished, `986` stubs remaining).
+  - Blessed `baylee-seat` Reap the Tides precon goldens (`Growth Spiral`, `Sharktocrab`, `Slinn Voda, the Rising Deep`, `Verdant Sun's Avatar`; ceiling bumped `5,100 -> 5,140`) in `a5930da2d` and verified `baylee-cards-codegen` (`617/617`), `baylee-seat` (`138/138`), `xtask validate` (`15,879` conform), `baylee-cards --lib` (`170/170`), `baylee-ai --lib` (`429/429`), `baylee-card-tests-verification` (`58/58`), and `clippy` (`0` warnings).
+
 ## 2026-11-20 — Mechanic 2 (Storm: 11 `Coverage::Implemented` promotions & audit of `5d0a32b51`)
 
 - **11/11 `Coverage::Implemented` promotions (`Reviewed: 5d0a32b51 da10e6147 a78570408`, `Reviewed-by: gemini-4-neon-xhigh, pass`):**
