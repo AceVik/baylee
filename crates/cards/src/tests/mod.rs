@@ -492,7 +492,7 @@ fn every_equip_ability_is_sorcery_speed_untapped_and_targets_your_own() {
             continue;
         }
         for (i, _) in def.faces.iter().enumerate() {
-            for ability in def.abilities_for_face(i) {
+            for (ability_idx, ability) in def.abilities_for_face(i).iter().enumerate() {
                 // Both arms, so a conditional equip ability cannot walk
                 // past the lint. No card prints one today — the two
                 // sibling lints above already read both, and this one
@@ -518,6 +518,15 @@ fn every_equip_ability_is_sorcery_speed_untapped_and_targets_your_own() {
                     .iter()
                     .any(|e| matches!(e, Effect::AttachSelf { .. }))
                 {
+                    continue;
+                }
+                // Fifth Dawn's instant-speed "{C}{C}: Attach this Equipment to
+                // target creature you control." abilities are not Equip (CR 702.6).
+                let sentence = u32::try_from(ability_idx)
+                    .ok()
+                    .and_then(|idx| crate::lines::ability_line(def.index, i, idx))
+                    .and_then(|at| crate::oracle::sentence(def.index, i, at.line));
+                if sentence.is_some_and(|s| !s.starts_with("Equip") && s.contains(": Attach")) {
                     continue;
                 }
                 let name = def.name();
