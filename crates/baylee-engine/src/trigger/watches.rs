@@ -153,16 +153,14 @@ pub(super) fn cast_copy_triggers(
                 .wrapping_sub(moves.get(&object).copied().unwrap_or(0)),
         };
         let spell = state.source_object(reference).unwrap_or(current);
-        let storm = spell
-            .characteristics()
-            .keywords
-            .contains(baylee_cards_dsl::KeywordSet::STORM);
-        for copies in [
-            storm.then_some(before),
-            (spell.replicated > 0).then_some(u32::from(spell.replicated)),
-        ]
-        .into_iter()
-        .flatten()
+        // CR 702.40b: each instance of storm on a spell triggers separately.
+        let storm_instances =
+            crate::layers::keyword_instances(state, spell, baylee_cards_dsl::KeywordSet::STORM);
+        for copies in std::iter::repeat_n(
+            before,
+            usize::try_from(storm_instances).unwrap_or(usize::MAX),
+        )
+        .chain((spell.replicated > 0).then_some(u32::from(spell.replicated)))
         {
             collected.push(PendingTrigger {
                 text: TextChangeMap::IDENTITY,
