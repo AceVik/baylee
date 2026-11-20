@@ -569,7 +569,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // (-1 read, -1 of), and complete 15 Wave 8 pool stubs (+6 non-mana
     // activations across Akroma's Blessing, Aven Windreader, Ghostly Wings,
     // Glory, Mishra's Bauble, and Root Greevil: 3 read and 3 contextual).
-    assert_eq!((read, of), (3717, 4783), "activated/loyalty reader census");
+    // Batch wave 8 (994 generated cards) adds 273 non-mana activations:
+    // 225 read by the table and 48 remaining contextual.
+    assert_eq!((read, of), (3942, 5056), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

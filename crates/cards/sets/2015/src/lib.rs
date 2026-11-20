@@ -27,6 +27,8 @@ pub mod adverse_conditions;
 pub mod aerie_bowmasters;
 #[path = "dtk/ainok_artillerist.rs"]
 pub mod ainok_artillerist;
+#[path = "frf/ainok_guide.rs"]
+pub mod ainok_guide;
 #[path = "dtk/ainok_survivalist.rs"]
 pub mod ainok_survivalist;
 #[path = "bfz/akoum_firebird.rs"]
@@ -201,6 +203,8 @@ pub mod collateral_damage;
 pub mod colossodon_yearling;
 #[path = "c15/command_beacon.rs"]
 pub mod command_beacon;
+#[path = "dtk/commune_with_lava.rs"]
+pub mod commune_with_lava;
 #[path = "bfz/complete_disregard.rs"]
 pub mod complete_disregard;
 #[path = "ori/conclave_naturalists.rs"]
@@ -283,6 +287,8 @@ pub mod dragonrage;
 pub mod drana_liberator_of_malakir;
 #[path = "bfz/drana_s_emissary.rs"]
 pub mod drana_s_emissary;
+#[path = "c15/dream_pillager.rs"]
+pub mod dream_pillager;
 #[path = "dtk/dromoka_dunecaster.rs"]
 pub mod dromoka_dunecaster;
 #[path = "dtk/dromoka_monument.rs"]
@@ -387,6 +393,8 @@ pub mod goblin_heelcutter;
 pub mod gore_swine;
 #[path = "dtk/graceblade_artisan.rs"]
 pub mod graceblade_artisan;
+#[path = "ori/grasp_of_the_hieromancer.rs"]
+pub mod grasp_of_the_hieromancer;
 #[path = "frf/grave_strength.rs"]
 pub mod grave_strength;
 #[path = "ori/graveblade_marauder.rs"]
@@ -503,6 +511,8 @@ pub mod kor_bladewhirl;
 pub mod kor_castigator;
 #[path = "bfz/kor_entanglers.rs"]
 pub mod kor_entanglers;
+#[path = "ori/kothophed_soul_hoarder.rs"]
+pub mod kothophed_soul_hoarder;
 #[path = "bfz/kozilek_s_channeler.rs"]
 pub mod kozilek_s_channeler;
 #[path = "bfz/kozilek_s_sentinel.rs"]
@@ -539,6 +549,8 @@ pub mod lurking_arynx;
 pub mod mage_ring_bully;
 #[path = "ori/mage_ring_network.rs"]
 pub mod mage_ring_network;
+#[path = "ori/mage_ring_responder.rs"]
+pub mod mage_ring_responder;
 #[path = "dtk/magmatic_chasm.rs"]
 pub mod magmatic_chasm;
 #[path = "ori/magmatic_insight.rs"]
@@ -671,6 +683,8 @@ pub mod rabid_bloodsucker;
 pub mod radiant_purge;
 #[path = "frf/rakshasa_s_disdain.rs"]
 pub mod rakshasa_s_disdain;
+#[path = "frf/reach_of_shadows.rs"]
+pub mod reach_of_shadows;
 #[path = "ori/reave_soul.rs"]
 pub mod reave_soul;
 #[path = "dtk/reckless_imp.rs"]
@@ -711,6 +725,8 @@ pub mod roast;
 pub mod roil_s_retribution;
 #[path = "bfz/rot_shambler.rs"]
 pub mod rot_shambler;
+#[path = "frf/ruthless_instincts.rs"]
+pub mod ruthless_instincts;
 #[path = "dtk/sabertooth_outrider.rs"]
 pub mod sabertooth_outrider;
 #[path = "frf/sage_s_reverie.rs"]
@@ -913,6 +929,8 @@ pub mod tread_upon;
 pub mod tunneling_geopede;
 #[path = "bfz/turn_against.rs"]
 pub mod turn_against;
+#[path = "ugin/ugin_s_construct.rs"]
+pub mod ugin_s_construct;
 #[path = "dtk/ukud_cobra.rs"]
 pub mod ukud_cobra;
 #[path = "bfz/ulamog_the_ceaseless_hunger.rs"]

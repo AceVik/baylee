@@ -107,6 +107,8 @@ pub mod cavalry_master;
 pub mod celestial_ancient;
 #[path = "tsp/celestial_crusader.rs"]
 pub mod celestial_crusader;
+#[path = "tsp/chameleon_blur.rs"]
+pub mod chameleon_blur;
 #[path = "csp/chill_to_the_bone.rs"]
 pub mod chill_to_the_bone;
 #[path = "tsp/chromatic_star.rs"]
@@ -461,6 +463,8 @@ pub mod nantuko_shaman;
 pub mod nether_traitor;
 #[path = "dis/nightcreep.rs"]
 pub mod nightcreep;
+#[path = "tsp/nightshade_assassin.rs"]
+pub mod nightshade_assassin;
 #[path = "gpt/niv_mizzet_the_firemind.rs"]
 pub mod niv_mizzet_the_firemind;
 #[path = "gpt/nivix_aerie_of_the_firemind.rs"]

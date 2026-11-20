@@ -75,6 +75,8 @@ pub mod asphyxiate;
 pub mod astral_cornucopia;
 #[path = "m15/avacyn_guardian_angel.rs"]
 pub mod avacyn_guardian_angel;
+#[path = "ktk/avalanche_tusker.rs"]
+pub mod avalanche_tusker;
 #[path = "m15/avarice_amulet.rs"]
 pub mod avarice_amulet;
 #[path = "ktk/awaken_the_bear.rs"]
@@ -257,6 +259,8 @@ pub mod empty_the_pits;
 pub mod end_hostilities;
 #[path = "m15/endless_obedience.rs"]
 pub mod endless_obedience;
+#[path = "cns/enraged_revolutionary.rs"]
+pub mod enraged_revolutionary;
 #[path = "m15/ensoul_artifact.rs"]
 pub mod ensoul_artifact;
 #[path = "bng/ephara_s_enlightenment.rs"]
@@ -367,6 +371,8 @@ pub mod gorgon_s_head;
 pub mod graverobber_spider;
 #[path = "bng/great_hart.rs"]
 pub mod great_hart;
+#[path = "cns/grenzo_s_cutthroat.rs"]
+pub mod grenzo_s_cutthroat;
 #[path = "bng/griffin_dreamfinder.rs"]
 pub mod griffin_dreamfinder;
 #[path = "jou/grim_guardian.rs"]
@@ -383,6 +389,8 @@ pub mod hall_of_triumph;
 pub mod hallowed_spiritkeeper;
 #[path = "m15/hammerhand.rs"]
 pub mod hammerhand;
+#[path = "jou/harvestguard_alseids.rs"]
+pub mod harvestguard_alseids;
 #[path = "ktk/heir_of_the_wilds.rs"]
 pub mod heir_of_the_wilds;
 #[path = "m15/heliod_s_pilgrim.rs"]
@@ -489,6 +497,14 @@ pub mod malicious_affliction;
 pub mod mana_confluence;
 #[path = "ktk/mantis_rider.rs"]
 pub mod mantis_rider;
+#[path = "cns/marchesa_s_emissary.rs"]
+pub mod marchesa_s_emissary;
+#[path = "cns/marchesa_s_infiltrator.rs"]
+pub mod marchesa_s_infiltrator;
+#[path = "cns/marchesa_s_smuggler.rs"]
+pub mod marchesa_s_smuggler;
+#[path = "cns/marchesa_the_black_rose.rs"]
+pub mod marchesa_the_black_rose;
 #[path = "ktk/mardu_ascendancy.rs"]
 pub mod mardu_ascendancy;
 #[path = "ktk/mardu_banner.rs"]
@@ -783,6 +799,16 @@ pub mod sliver_hive;
 pub mod sliver_hivelord;
 #[path = "ktk/snowhorn_rider.rs"]
 pub mod snowhorn_rider;
+#[path = "m15/soul_of_innistrad.rs"]
+pub mod soul_of_innistrad;
+#[path = "pm15/soul_of_new_phyrexia.rs"]
+pub mod soul_of_new_phyrexia;
+#[path = "pdp15/soul_of_ravnica.rs"]
+pub mod soul_of_ravnica;
+#[path = "m15/soul_of_theros.rs"]
+pub mod soul_of_theros;
+#[path = "pdp15/soul_of_zendikar.rs"]
+pub mod soul_of_zendikar;
 #[path = "pjou/spawn_of_thraxes.rs"]
 pub mod spawn_of_thraxes;
 #[path = "bng/sphinx_s_disciple.rs"]
@@ -887,6 +913,8 @@ pub mod tormented_thoughts;
 pub mod tormenting_voice;
 #[path = "ktk/tranquil_cove.rs"]
 pub mod tranquil_cove;
+#[path = "cns/treasonous_ogre.rs"]
+pub mod treasonous_ogre;
 #[path = "ktk/treasure_cruise.rs"]
 pub mod treasure_cruise;
 #[path = "m15/triplicate_spirits.rs"]
@@ -969,5 +997,7 @@ pub mod witness_of_the_ages;
 pub mod woolly_loxodon;
 #[path = "m15/xathrid_slyblade.rs"]
 pub mod xathrid_slyblade;
+#[path = "m15/yisan_the_wanderer_bard.rs"]
+pub mod yisan_the_wanderer_bard;
 #[path = "ddn/zurgo_helmsmasher.rs"]
 pub mod zurgo_helmsmasher;

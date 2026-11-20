@@ -77,6 +77,8 @@ pub mod blood_rites;
 pub mod blood_speaker;
 #[path = "chk/boseiju_who_shelters_all.rs"]
 pub mod boseiju_who_shelters_all;
+#[path = "5dn/bringer_of_the_black_dawn.rs"]
+pub mod bringer_of_the_black_dawn;
 #[path = "5dn/bringer_of_the_blue_dawn.rs"]
 pub mod bringer_of_the_blue_dawn;
 #[path = "5dn/bringer_of_the_green_dawn.rs"]
@@ -119,6 +121,8 @@ pub mod cranial_plating;
 pub mod crazed_goblin;
 #[path = "5dn/crucible_of_worlds.rs"]
 pub mod crucible_of_worlds;
+#[path = "chk/cruel_deceiver.rs"]
+pub mod cruel_deceiver;
 #[path = "chk/crushing_pain.rs"]
 pub mod crushing_pain;
 #[path = "chk/dance_of_shadows.rs"]
@@ -231,6 +235,8 @@ pub mod hair_strung_koto;
 pub mod hall_of_the_bandit_lord;
 #[path = "chk/hana_kami.rs"]
 pub mod hana_kami;
+#[path = "chk/harsh_deceiver.rs"]
+pub mod harsh_deceiver;
 #[path = "5dn/healer_s_headdress.rs"]
 pub mod healer_s_headdress;
 #[path = "chk/hearth_kami.rs"]

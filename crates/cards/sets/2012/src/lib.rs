@@ -565,6 +565,8 @@ pub mod moonveil_dragon;
 pub mod moorland_inquisitor;
 #[path = "m13/murder.rs"]
 pub mod murder;
+#[path = "pm13/mwonvuli_beast_tracker.rs"]
+pub mod mwonvuli_beast_tracker;
 #[path = "dka/mystic_retrieval.rs"]
 pub mod mystic_retrieval;
 #[path = "avr/narstad_scrapper.rs"]

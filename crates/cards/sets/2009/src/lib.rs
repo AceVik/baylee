@@ -97,6 +97,8 @@ pub mod bountiful_harvest;
 pub mod brainbite;
 #[path = "m10/bramble_creeper.rs"]
 pub mod bramble_creeper;
+#[path = "zen/brave_the_elements.rs"]
+pub mod brave_the_elements;
 #[path = "arb/breath_of_malfegor.rs"]
 pub mod breath_of_malfegor;
 #[path = "m10/burning_inquiry.rs"]
@@ -411,6 +413,8 @@ pub mod jund_sojourners;
 pub mod jwar_isle_refuge;
 #[path = "zen/kabira_crossroads.rs"]
 pub mod kabira_crossroads;
+#[path = "zen/kabira_evangel.rs"]
+pub mod kabira_evangel;
 #[path = "con_/kaleidostone.rs"]
 pub mod kaleidostone;
 #[path = "m10/kalonian_behemoth.rs"]

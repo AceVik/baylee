@@ -97,6 +97,8 @@ pub mod avizoa;
 pub mod barbed_sliver;
 #[path = "wth/barishi.rs"]
 pub mod barishi;
+#[path = "pvan/barrin.rs"]
+pub mod barrin;
 #[path = "wth/barrow_ghoul.rs"]
 pub mod barrow_ghoul;
 #[path = "tmp/bayou_dragonfly.rs"]
@@ -271,6 +273,8 @@ pub mod creeping_mold;
 pub mod crown_of_flames;
 #[path = "por/cruel_bargain.rs"]
 pub mod cruel_bargain;
+#[path = "por/cruel_tutor.rs"]
+pub mod cruel_tutor;
 #[path = "vis/crypt_rats.rs"]
 pub mod crypt_rats;
 #[path = "tmp/cursed_scroll.rs"]
@@ -407,6 +411,8 @@ pub mod energizer;
 pub mod enraging_licid;
 #[path = "vis/equipoise.rs"]
 pub mod equipoise;
+#[path = "pvan/ertai.rs"]
+pub mod ertai;
 #[path = "wth/ertai_s_familiar.rs"]
 pub mod ertai_s_familiar;
 #[path = "tmp/ertai_s_meddling.rs"]
@@ -525,6 +531,8 @@ pub mod gallantry;
 pub mod gallowbraid;
 #[path = "wth/gemstone_mine.rs"]
 pub mod gemstone_mine;
+#[path = "pvan/gerrard.rs"]
+pub mod gerrard;
 #[path = "tmp/gerrard_s_battle_cry.rs"]
 pub mod gerrard_s_battle_cry;
 #[path = "wth/gerrard_s_wisdom.rs"]
@@ -537,6 +545,8 @@ pub mod giant_caterpillar;
 pub mod giant_crab;
 #[path = "por/giant_octopus.rs"]
 pub mod giant_octopus;
+#[path = "pvan/gix.rs"]
+pub mod gix;
 #[path = "wth/goblin_bomb.rs"]
 pub mod goblin_bomb;
 #[path = "tmp/goblin_bombardment.rs"]
@@ -557,6 +567,8 @@ pub mod gorilla_warrior;
 pub mod gossamer_chains;
 #[path = "por/gravedigger.rs"]
 pub mod gravedigger;
+#[path = "pvan/greven_il_vec.rs"]
+pub mod greven_il_vec;
 #[path = "vis/griffin_canyon.rs"]
 pub mod griffin_canyon;
 #[path = "tmp/grindstone.rs"]
@@ -569,6 +581,8 @@ pub mod guiding_spirit;
 pub mod hand_of_death;
 #[path = "tmp/hand_to_hand.rs"]
 pub mod hand_to_hand;
+#[path = "pvan/hanna.rs"]
+pub mod hanna;
 #[path = "tmp/hanna_s_custody.rs"]
 pub mod hanna_s_custody;
 #[path = "tmp/harrow.rs"]
@@ -667,6 +681,8 @@ pub mod jungle_basin;
 pub mod jungle_lion;
 #[path = "vis/kaervek_s_spite.rs"]
 pub mod kaervek_s_spite;
+#[path = "pvan/karn.rs"]
+pub mod karn;
 #[path = "vis/karoo.rs"]
 pub mod karoo;
 #[path = "vis/katabatic_winds.rs"]
@@ -745,6 +761,8 @@ pub mod lotus_petal;
 pub mod lotus_vale;
 #[path = "tmp/lowland_giant.rs"]
 pub mod lowland_giant;
+#[path = "pvan/lyna.rs"]
+pub mod lyna;
 #[path = "tmp/maddening_imp.rs"]
 pub mod maddening_imp;
 #[path = "vis/magma_mine.rs"]
@@ -767,6 +785,8 @@ pub mod manakin;
 pub mod manta_ray;
 #[path = "tmp/manta_riders.rs"]
 pub mod manta_riders;
+#[path = "pvan/maraxus.rs"]
+pub mod maraxus;
 #[path = "wth/maraxus_of_keld.rs"]
 pub mod maraxus_of_keld;
 #[path = "tmp/marble_titan.rs"]
@@ -843,6 +863,8 @@ pub mod mortal_wound;
 pub mod mounted_archers;
 #[path = "por/muck_rats.rs"]
 pub mod muck_rats;
+#[path = "pvan/multani.rs"]
+pub mod multani;
 #[path = "vis/mundungu.rs"]
 pub mod mundungu;
 #[path = "tmp/muscle_sliver.rs"]
@@ -899,6 +921,8 @@ pub mod opportunist;
 pub mod oracle_en_vec;
 #[path = "wth/orcish_settlers.rs"]
 pub mod orcish_settlers;
+#[path = "pvan/orim.rs"]
+pub mod orim;
 #[path = "tmp/orim_s_prayer.rs"]
 pub mod orim_s_prayer;
 #[path = "tmp/orim_samite_healer.rs"]
@@ -927,6 +951,8 @@ pub mod pegasus_refuge;
 pub mod pendrell_mists;
 #[path = "tmp/perish.rs"]
 pub mod perish;
+#[path = "por/personal_tutor.rs"]
+pub mod personal_tutor;
 #[path = "por/phantom_warrior.rs"]
 pub mod phantom_warrior;
 #[path = "wth/phantom_wings.rs"]
@@ -1043,6 +1069,8 @@ pub mod river_boa;
 pub mod roc_hatchling;
 #[path = "vis/rock_slide.rs"]
 pub mod rock_slide;
+#[path = "pvan/rofellos.rs"]
+pub mod rofellos;
 #[path = "wth/rogue_elephant.rs"]
 pub mod rogue_elephant;
 #[path = "tmp/rolling_thunder.rs"]
@@ -1121,6 +1149,8 @@ pub mod seasoned_marshal;
 pub mod seeker_of_skybreak;
 #[path = "tmp/segmented_wurm.rs"]
 pub mod segmented_wurm;
+#[path = "pvan/selenia.rs"]
+pub mod selenia;
 #[path = "tmp/selenia_dark_angel.rs"]
 pub mod selenia_dark_angel;
 #[path = "tmp/serene_offering.rs"]
@@ -1131,6 +1161,8 @@ pub mod serenity;
 pub mod serpent_assassin;
 #[path = "por/serpent_warrior.rs"]
 pub mod serpent_warrior;
+#[path = "pvan/serra.rs"]
+pub mod serra;
 #[path = "wth/serra_s_blessing.rs"]
 pub mod serra_s_blessing;
 #[path = "wth/serrated_biskelion.rs"]
@@ -1151,6 +1183,8 @@ pub mod shimmering_efreet;
 pub mod shimmering_wings;
 #[path = "tmp/shocker.rs"]
 pub mod shocker;
+#[path = "pvan/sidar_kondo.rs"]
+pub mod sidar_kondo;
 #[path = "vis/simoon.rs"]
 pub mod simoon;
 #[path = "vis/sisay_s_ring.rs"]
@@ -1173,6 +1207,8 @@ pub mod skyshroud_ranger;
 pub mod skyshroud_troll;
 #[path = "tmp/skyshroud_vampire.rs"]
 pub mod skyshroud_vampire;
+#[path = "pvan/sliver_queen_brood_mother.rs"]
+pub mod sliver_queen_brood_mother;
 #[path = "vis/snake_basket.rs"]
 pub mod snake_basket;
 #[path = "por/snapping_drake.rs"]
@@ -1273,10 +1309,16 @@ pub mod suq_ata_assassin;
 pub mod suq_ata_lancer;
 #[path = "wth/sylvan_hierophant.rs"]
 pub mod sylvan_hierophant;
+#[path = "por/sylvan_tutor.rs"]
+pub mod sylvan_tutor;
 #[path = "por/symbol_of_unsummoning.rs"]
 pub mod symbol_of_unsummoning;
+#[path = "pvan/tahngarth.rs"]
+pub mod tahngarth;
 #[path = "tmp/tahngarth_s_rage.rs"]
 pub mod tahngarth_s_rage;
+#[path = "pvan/takara.rs"]
+pub mod takara;
 #[path = "tmp/talon_sliver.rs"]
 pub mod talon_sliver;
 #[path = "vis/talruum_piper.rs"]
@@ -1383,6 +1425,8 @@ pub mod unstable_shapeshifter;
 pub mod urborg_justice;
 #[path = "wth/urborg_stalker.rs"]
 pub mod urborg_stalker;
+#[path = "pvan/urza.rs"]
+pub mod urza;
 #[path = "por/valorous_charge.rs"]
 pub mod valorous_charge;
 #[path = "por/vampiric_feast.rs"]
@@ -1419,6 +1463,8 @@ pub mod vitalize;
 pub mod vodalian_illusionist;
 #[path = "por/volcanic_hammer.rs"]
 pub mod volcanic_hammer;
+#[path = "pvan/volrath.rs"]
+pub mod volrath;
 #[path = "tmp/volrath_s_curse.rs"]
 pub mod volrath_s_curse;
 #[path = "wth/volunteer_reserves.rs"]
@@ -1481,6 +1527,8 @@ pub mod wood_elves;
 pub mod wood_sage;
 #[path = "tmp/worthy_cause.rs"]
 pub mod worthy_cause;
+#[path = "pvan/xantcha.rs"]
+pub mod xantcha;
 #[path = "wth/xanthic_statue.rs"]
 pub mod xanthic_statue;
 #[path = "vis/zhalfirin_crusader.rs"]

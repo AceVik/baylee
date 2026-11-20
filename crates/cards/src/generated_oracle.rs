@@ -6104,7 +6104,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{B}, Sacrifice this creature: Target opponent discards a card at random. Activate only as a sorcery.",
     ],
-    &[],
+    // Vampirism
+    &[
+        "Enchant creature\nWhen this Aura enters, draw a card at the beginning of the next turn's upkeep.\nEnchanted creature gets +1/+1 for each other creature you control.\nOther creatures you control get -1/-1.",
+    ],
     // Viashino Sandstalker
     &[
         "Haste (This creature can attack and {T} as soon as it comes under your control.)\nAt the beginning of the end step, return this creature to its owner's hand. (Return it only if it's on the battlefield.)",
@@ -6677,7 +6680,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Barrin
+    &["Sacrifice a permanent: Return target creature to its owner's hand."],
     // Bee Sting
     &["Bee Sting deals 2 damage to any target."],
     // Blaze
@@ -6725,7 +6729,8 @@ pub static ORACLE: &[&[&str]] = &[
     // Cruel Bargain
     &["Draw four cards. You lose half your life, rounded up."],
     &[],
-    &[],
+    // Cruel Tutor
+    &["Search your library for a card, then shuffle and put that card on top. You lose 2 life."],
     &[],
     // Deep-Sea Serpent
     &["This creature can't attack unless defending player controls an Island."],
@@ -6751,7 +6756,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)"],
     // Endless Cockroaches
     &["When this creature dies, return it to its owner's hand."],
-    &[],
+    // Ertai
+    &[
+        "Creatures you control have hexproof. (They can't be the targets of spells or abilities your opponents control.)",
+    ],
     &[],
     &[],
     // Final Strike
@@ -6776,11 +6784,13 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Fruition
     &["You gain 1 life for each Forest on the battlefield."],
-    &[],
+    // Gerrard
+    &["At the beginning of your draw step, draw an additional card."],
     // Giant Octopus
     &[""],
     &[],
-    &[],
+    // Gix
+    &["{3}: Return target creature card from your graveyard to your hand."],
     // Goblin Bully
     &[""],
     // Gorilla Warrior
@@ -6789,10 +6799,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, you may return target creature card from your graveyard to your hand.",
     ],
-    &[],
+    // Greven il-Vec
+    &[
+        "Whenever a creature you control deals damage to a creature, destroy the other creature. It can't be regenerated.",
+    ],
     // Hand of Death
     &["Destroy target nonblack creature."],
-    &[],
+    // Hanna
+    &["Spells you cast cost {1} less to cast."],
     &[],
     // Highland Giant
     &[""],
@@ -6805,7 +6819,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Jungle Lion
     &["This creature can't block."],
-    &[],
+    // Karn
+    &[
+        "Each noncreature artifact you control is an artifact creature with power and toughness each equal to its mana value.",
+    ],
     // Keen-Eyed Archers
     &["Reach (This creature can block creatures with flying.)"],
     &[],
@@ -6818,8 +6835,12 @@ pub static ORACLE: &[&[&str]] = &[
     &["Destroy target creature or land."],
     // Lizard Warrior
     &[""],
-    &[],
-    &[],
+    // Lyna
+    &[
+        "Creatures you control have shadow. (They can block and be blocked only by creatures with shadow.)",
+    ],
+    // Maraxus
+    &["Creatures you control get +1/+0."],
     // Mercenary Knight
     &["When this creature enters, sacrifice it unless you discard a creature card."],
     // Mind Knives
@@ -6838,7 +6859,8 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying"],
     // Muck Rats
     &[""],
-    &[],
+    // Multani
+    &["Creatures you control get +X/+0, where X is the number of cards in your hand."],
     // Mystic Denial
     &["Counter target creature or sorcery spell."],
     // Natural Spring
@@ -6858,11 +6880,13 @@ pub static ORACLE: &[&[&str]] = &[
         "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.",
     ],
     &[],
-    &[],
+    // Orim
+    &["Creatures you control have reach."],
     // Owl Familiar
     &["Flying\nWhen this creature enters, draw a card, then discard a card."],
     &[],
-    &[],
+    // Personal Tutor
+    &["Search your library for a sorcery card, reveal it, then shuffle and put that card on top."],
     // Phantom Warrior
     &["This creature can't be blocked."],
     &[],
@@ -6884,7 +6908,8 @@ pub static ORACLE: &[&[&str]] = &[
     // Regal Unicorn
     &[""],
     &[],
-    &[],
+    // Rofellos
+    &["Whenever a creature you control dies, draw a card."],
     // Rowan Treefolk
     &[""],
     // Sacred Knight
@@ -6896,19 +6921,23 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Seasoned Marshal
     &["Whenever this creature attacks, you may tap target creature."],
-    &[],
+    // Selenia
+    &["Creatures you control have vigilance."],
     // Serpent Assassin
     &["When this creature enters, you may destroy target nonblack creature."],
     // Serpent Warrior
     &["When this creature enters, you lose 3 life."],
-    &[],
-    &[],
+    // Serra
+    &["Creatures you control get +0/+2."],
+    // Sidar Kondo
+    &["{3}: Target creature gets +3/+3 until end of turn."],
     &[],
     // Skeletal Crocodile
     &[""],
     // Skeletal Snake
     &[""],
-    &[],
+    // Sliver Queen, Brood Mother
+    &["{3}: Create a 1/1 colorless Sliver creature token."],
     // Snapping Drake
     &["Flying (This creature can't be blocked except by creatures with flying or reach.)"],
     &[],
@@ -6928,11 +6957,14 @@ pub static ORACLE: &[&[&str]] = &[
     // Steadfastness
     &["Creatures you control get +0/+3 until end of turn."],
     &[],
-    &[],
+    // Sylvan Tutor
+    &["Search your library for a creature card, reveal it, then shuffle and put that card on top."],
     // Symbol of Unsummoning
     &["Return target creature to its owner's hand.\nDraw a card."],
-    &[],
-    &[],
+    // Tahngarth
+    &["Creatures you control have haste."],
+    // Takara
+    &["Sacrifice a creature: Takara deals 1 damage to any target."],
     &[],
     &[],
     &[],
@@ -6955,7 +6987,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Undying Beast
     &["When this creature dies, put it on top of its owner's library."],
-    &[],
+    // Urza
+    &["{3}: Urza deals 1 damage to any target."],
     // Valorous Charge
     &["White creatures get +2/+0 until end of turn."],
     // Vampiric Feast
@@ -6970,7 +7003,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Destroy all white creatures."],
     // Volcanic Hammer
     &["Volcanic Hammer deals 3 damage to any target."],
-    &[],
+    // Volrath
+    &[
+        "Whenever a creature you control is put into your graveyard from the battlefield, you may put it on top of your library.",
+    ],
     // Wall of Granite
     &["Defender (This creature can't attack.)"],
     // Warrior's Charge
@@ -6990,7 +7026,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, search your library for a Forest card, put that card onto the battlefield, then shuffle.",
     ],
-    &[],
+    // Xantcha
+    &["Sacrifice a permanent: Regenerate target creature."],
     // Abduction
     &[
         "Enchant creature\nWhen this Aura enters, untap enchanted creature.\nYou control enchanted creature.\nWhen enchanted creature dies, return that card to the battlefield under its owner's control.",
@@ -18612,13 +18649,21 @@ pub static ORACLE: &[&[&str]] = &[
     &["Whenever another creature enters, you lose 1 life."],
     &[],
     &[],
+    // Arcbound Overseer Avatar
+    &[
+        "At the beginning of your upkeep, you may put a +1/+1 counter on target creature you control.\nAt the beginning of your upkeep, you may put a charge counter on target permanent you control.",
+    ],
+    // Ashling the Pilgrim Avatar
+    &["{2}: Ashling the Pilgrim Avatar deals 1 damage to each creature and each player."],
     &[],
-    &[],
-    &[],
-    &[],
+    // Birds of Paradise Avatar
+    &["Lands you control have \"{T}: Add one mana of any color.\""],
     // Bonesplitter
     &["Equipped creature gets +2/+0.\nEquip {1}"],
-    &[],
+    // Bosh, Iron Golem Avatar
+    &[
+        "{X}, Sacrifice an artifact with mana value X: Bosh, Iron Golem Avatar deals X damage to any target.",
+    ],
     &[],
     &[],
     &[],
@@ -18632,57 +18677,23 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
+    // Erhnam Djinn Avatar
+    &["Whenever you cast a creature spell, create a 1/1 green Saproling creature token."],
+    &[],
+    // Fallen Angel Avatar
+    &["Whenever a creature you control dies, target opponent loses 1 life and you gain 1 life."],
     &[],
     &[],
     &[],
+    // Goblin Warchief Avatar
+    &["Attacking creatures you control get +1/+0."],
+    // Grinning Demon Avatar
+    &["Whenever a nontoken creature you control dies, target opponent discards a card."],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    // Skirk Marauder
+    // Hell's Caretaker Avatar
     &[
-        "Morph {2}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, it deals 2 damage to any target.",
+        "{3}, Sacrifice a creature: Return target creature card from your graveyard to the battlefield.",
     ],
     &[],
     &[],
@@ -18691,7 +18702,79 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Loxodon Hierarch Avatar
+    &["Sacrifice a permanent: Regenerate target creature you control."],
     &[],
+    &[],
+    &[],
+    &[],
+    // Maro Avatar
+    &[
+        "Tap an untapped creature you control, Discard a card: Target creature you control gets +X/+X until end of turn, where X is the number of cards in your hand.",
+    ],
+    &[],
+    &[],
+    // Mirri the Cursed Avatar
+    &[
+        "Creatures you control have \"{T}: Another target creature gets -1/-1 until end of turn. Put a +1/+1 counter on this creature.\"",
+    ],
+    &[],
+    &[],
+    // Morinfen Avatar
+    &["At the beginning of your upkeep, you lose 1 life for each permanent you control."],
+    // Murderous Redcap Avatar
+    &[
+        "Whenever a creature you control enters with a counter on it, you may have it deal damage equal to its power to any target.",
+    ],
+    &[],
+    // Nekrataal Avatar
+    &[
+        "Creature spells you cast cost {B} less to cast. This effect reduces only the amount of colored mana you pay.",
+    ],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    // Raksha Golden Cub Avatar
+    &[
+        "Creatures you control get +0/+1.\nEquipped creatures you control get +1/+0 and have first strike.",
+    ],
+    &[],
+    // Rith, the Awakener Avatar
+    &[
+        "Whenever a creature you control deals combat damage to a player, you may pay {5}. If you do, create a 5/5 red Dragon creature token with flying.",
+    ],
+    // Royal Assassin Avatar
+    &["At the beginning of your upkeep, you draw a card and you lose 1 life."],
+    // Rumbling Slum Avatar
+    &["At the beginning of your upkeep, Rumbling Slum Avatar deals 1 damage to each opponent."],
+    &[],
+    // Serra Angel Avatar
+    &["Whenever you cast a spell, you gain 2 life."],
+    &[],
+    &[],
+    // Skirk Marauder
+    &[
+        "Morph {2}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, it deals 2 damage to any target.",
+    ],
+    &[],
+    // Squee, Goblin Nabob Avatar
+    &[
+        "{1}: Prevent the next 1 damage that would be dealt to target creature you control this turn.",
+    ],
+    // Stalking Tiger Avatar
+    &["Whenever you cast a creature spell, you may pay {1}. If you do, draw a card."],
+    &[],
+    &[],
+    // Teysa, Orzhov Scion Avatar
+    &["Whenever a nontoken creature dies, create a 1/1 white Spirit creature token with flying."],
+    &[],
+    // Two-Headed Giant of Foriys Avatar
+    &[
+        "Creatures you control have menace. (They can't be blocked except by two or more creatures.)\nEach creature you control can block an additional creature each combat.",
+    ],
     &[],
     &[],
     // Withered Wretch
@@ -20819,7 +20902,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nUntap all artifacts.",
     ],
-    &[],
+    // Bringer of the Black Dawn
+    &[
+        "You may pay {W}{U}{B}{R}{G} rather than pay this spell's mana cost.\nTrample\nAt the beginning of your upkeep, you may pay 2 life. If you do, search your library for a card, then shuffle and put that card on top.",
+    ],
     // Bringer of the Blue Dawn
     &[
         "You may pay {W}{U}{B}{R}{G} rather than pay this spell's mana cost.\nTrample\nAt the beginning of your upkeep, you may draw two cards.",
@@ -21216,7 +21302,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Counsel of the Soratami
     &["Draw two cards."],
     &[],
-    &[],
+    // Cruel Deceiver
+    &[
+        "{1}: Look at the top card of your library.\n{2}: Reveal the top card of your library. If it's a land card, this creature gains \"Whenever this creature deals damage to a creature, destroy that creature\" until end of turn. Activate only once each turn.",
+    ],
     // Crushing Pain
     &["Crushing Pain deals 6 damage to target creature that was dealt damage this turn."],
     &[],
@@ -21299,7 +21388,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Harsh Deceiver
+    &[
+        "{1}: Look at the top card of your library.\n{2}: Reveal the top card of your library. If it's a land card, untap this creature and it gets +1/+1 until end of turn. Activate only once each turn.",
+    ],
     &[],
     &[],
     // Hearth Kami
@@ -21786,7 +21878,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Heartless Hidetsugu
+    &[
+        "{T}: Heartless Hidetsugu deals damage to each player equal to half that player's life total, rounded down.",
+    ],
     &[],
     // Hero's Demise
     &["Destroy target legendary creature."],
@@ -21979,7 +22074,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Arashi, the Sky Asunder
+    &[
+        "{X}{G}, {T}: Arashi deals X damage to target creature with flying.\nChannel — {X}{G}{G}, Discard this card: It deals X damage to each creature with flying.",
+    ],
     &[],
     // Ayumi, the Last Visitor
     &[
@@ -22051,11 +22149,24 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Gaze of Adamaro deals damage to target player equal to the number of cards in that player's hand.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ghost-Lit Nourisher
+    &[
+        "{2}{G}, {T}: Target creature gets +2/+2 until end of turn.\nChannel — {3}{G}, Discard this card: Target creature gets +4/+4 until end of turn.",
+    ],
+    // Ghost-Lit Raider
+    &[
+        "{2}{R}, {T}: This creature deals 2 damage to target creature.\nChannel — {3}{R}, Discard this card: It deals 4 damage to target creature.",
+    ],
+    // Ghost-Lit Redeemer
+    &["{W}, {T}: You gain 2 life.\nChannel — {1}{W}, Discard this card: You gain 4 life."],
+    // Ghost-Lit Stalker
+    &[
+        "{4}{B}, {T}: Target player discards two cards. Activate only as a sorcery.\nChannel — {5}{B}{B}, Discard this card: Target player discards four cards. Activate only as a sorcery.",
+    ],
+    // Ghost-Lit Warder
+    &[
+        "{3}{U}, {T}: Counter target spell unless its controller pays {2}.\nChannel — {3}{U}, Discard this card: Counter target spell unless its controller pays {4}.",
+    ],
     // Glitterfang
     &["Haste\nAt the beginning of the end step, return this creature to its owner's hand."],
     &[],
@@ -22082,7 +22193,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Jiwari, the Earth Aflame
+    &[
+        "{X}{R}, {T}: Jiwari deals X damage to target creature without flying.\nChannel — {X}{R}{R}{R}, Discard this card: It deals X damage to each creature without flying.",
+    ],
     // Kagemaro's Clutch
     &[
         "Enchant creature\nEnchanted creature gets -X/-X, where X is the number of cards in your hand.",
@@ -22212,11 +22326,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Shinen of Fear's Chill
+    &[
+        "This creature can't block.\nChannel — {1}{B}, Discard this card: Target creature can't block this turn.",
+    ],
+    // Shinen of Flight's Wings
+    &["Flying\nChannel — {U}, Discard this card: Target creature gains flying until end of turn."],
+    // Shinen of Fury's Fire
+    &["Haste\nChannel — {R}, Discard this card: Target creature gains haste until end of turn."],
+    // Shinen of Life's Roar
+    &[
+        "All creatures able to block this creature do so.\nChannel — {2}{G}{G}, Discard this card: All creatures able to block target creature this turn do so.",
+    ],
+    // Shinen of Stars' Light
+    &[
+        "First strike\nChannel — {1}{W}, Discard this card: Target creature gains first strike until end of turn.",
+    ],
     &[],
     // Skull Collector
     &[
@@ -22536,7 +22661,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nWhen this creature enters, you gain 1 life for each creature you control.",
     ],
-    &[],
+    // Conclave's Blessing
+    &[
+        "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nEnchant creature\nEnchanted creature gets +0/+2 for each other creature you control.",
+    ],
     &[],
     // Consult the Necrosages
     &["Choose one —\n• Target player draws two cards.\n• Target player discards two cards."],
@@ -22805,7 +22933,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Peregrine Mask
     &["Equipped creature has defender, flying, and first strike.\nEquip {2}"],
-    &[],
+    // Perilous Forays
+    &[
+        "{1}, Sacrifice a creature: Search your library for a land card with a basic land type, put it onto the battlefield tapped, then shuffle.",
+    ],
     &[],
     &[],
     &[],
@@ -24064,7 +24195,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flash\nSplit second (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nFlying\nOther white creatures get +1/+1.",
     ],
-    &[],
+    // Chameleon Blur
+    &["Prevent all damage that creatures would deal to players this turn."],
     &[],
     // Chromatic Star
     &[
@@ -24393,7 +24525,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Haste\nShadow (This creature can block or be blocked by only creatures with shadow.)\nWhenever another creature is put into your graveyard from the battlefield, you may pay {B}. If you do, return this card from your graveyard to the battlefield.",
     ],
-    &[],
+    // Nightshade Assassin
+    &[
+        "First strike\nWhen this creature enters, you may reveal X black cards in your hand. If you do, target creature gets -X/-X until end of turn.\nMadness {1}{B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
     &[],
     &[],
     &[],
@@ -24758,7 +24893,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Shroud (This creature can't be the target of spells or abilities.)\nVanishing 4 (This creature enters with four time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)",
     ],
     &[],
-    &[],
+    // Chronozoa
+    &[
+        "Flying\nVanishing 3 (This creature enters with three time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)\nWhen this creature dies, if it had no time counters on it, create two tokens that are copies of it.",
+    ],
     // Circle of Affliction
     &[
         "As this enchantment enters, choose a color.\nWhenever a source of the chosen color deals damage to you, you may pay {1}. If you do, target player loses 1 life and you gain 1 life.",
@@ -24784,7 +24922,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Dead deals 2 damage to target creature.",
         "Return target creature you don't control to its owner's hand.",
     ],
-    &[],
+    // Deadly Grub
+    &[
+        "Vanishing 3 (This creature enters with three time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)\nWhen this creature dies, if it had no time counters on it, create a 6/1 green Insect creature token with shroud. (It can't be the target of spells or abilities.)",
+    ],
     // Deadwood Treefolk
     &[
         "Vanishing 3 (This creature enters with three time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)\nWhen this creature enters or leaves the battlefield, return another target creature card from your graveyard to your hand.",
@@ -24951,7 +25092,10 @@ pub static ORACLE: &[&[&str]] = &[
         "All Slivers have \"{2}, {T}: Regenerate target Sliver.\" (The next time that Sliver would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
     ],
     &[],
-    &[],
+    // Primal Plasma
+    &[
+        "As this creature enters, it becomes your choice of a 3/3 creature, a 2/2 creature with flying, or a 1/6 creature with defender.",
+    ],
     // Prodigal Pyromancer
     &["{T}: This creature deals 1 damage to any target."],
     // Psychotrope Thallid
@@ -25541,7 +25685,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Return target Goblin card from your graveyard to your hand."],
     // Boggart Forager
     &["{R}, Sacrifice this creature: Target player shuffles their library."],
-    &[],
+    // Boggart Harbinger
+    &[
+        "When this creature enters, you may search your library for a Goblin card, reveal it, then shuffle and put that card on top.",
+    ],
     // Boggart Loggers
     &[
         "Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)\n{2}{B}, Sacrifice this creature: Destroy target Treefolk or Forest.",
@@ -25630,7 +25777,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Sacrifice this creature: You gain 1 life for each Elf card in your graveyard."],
     // Elvish Handservant
     &["Whenever a player casts a Giant spell, you may put a +1/+1 counter on this creature."],
-    &[],
+    // Elvish Harbinger
+    &[
+        "When this creature enters, you may search your library for an Elf card, reveal it, then shuffle and put that card on top.\n{T}: Add one mana of any color.",
+    ],
     // Elvish Promenade
     &["Create a 1/1 green Elf Warrior creature token for each Elf you control."],
     &[],
@@ -25648,7 +25798,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Facevaulter
     &["{B}, Sacrifice a Goblin: This creature gets +2/+2 until end of turn."],
-    &[],
+    // Faerie Harbinger
+    &[
+        "Flash\nFlying\nWhen this creature enters, you may search your library for a Faerie card, reveal it, then shuffle and put that card on top.",
+    ],
     &[],
     // Faerie Trickery
     &[
@@ -25698,7 +25851,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Changeling (This card is every creature type.)\n{1}{B}: This creature gets +1/+1 until end of turn.",
     ],
-    &[],
+    // Giant Harbinger
+    &[
+        "When this creature enters, you may search your library for a Giant card, reveal it, then shuffle and put that card on top.",
+    ],
     // Giant's Ire
     &[
         "Giant's Ire deals 4 damage to target player or planeswalker. If you control a Giant, draw a card.",
@@ -25815,7 +25971,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["{G}, {T}: Target attacking creature gets +2/+2 until end of turn."],
     // Kithkin Greatheart
     &["As long as you control a Giant, this creature gets +1/+1 and has first strike."],
-    &[],
+    // Kithkin Harbinger
+    &[
+        "When this creature enters, you may search your library for a Kithkin card, reveal it, then shuffle and put that card on top.",
+    ],
     // Kithkin Healer
     &["{T}: Prevent the next 1 damage that would be dealt to any target this turn."],
     // Kithkin Mourncaller
@@ -25864,7 +26023,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Merrow Commerce
     &["At the beginning of your end step, untap all Merfolk you control."],
-    &[],
+    // Merrow Harbinger
+    &[
+        "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\nWhen this creature enters, you may search your library for a Merfolk card, reveal it, then shuffle and put that card on top.",
+    ],
     // Merrow Reejerey
     &[
         "Other Merfolk creatures you control get +1/+1.\nWhenever you cast a Merfolk spell, you may tap or untap target permanent.",
@@ -26070,7 +26232,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Other Treefolk creatures you control get +1/+1.\nOther Treefolk and Forests you control have indestructible.",
     ],
-    &[],
+    // Treefolk Harbinger
+    &[
+        "When this creature enters, you may search your library for a Treefolk or Forest card, reveal it, then shuffle and put that card on top.",
+    ],
     // Triclopean Sight
     &[
         "Flash\nEnchant creature\nWhen this Aura enters, untap enchanted creature.\nEnchanted creature gets +1/+1 and has vigilance.",
@@ -26116,7 +26281,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Warren-Scourge Elf
     &["Protection from Goblins"],
     &[],
-    &[],
+    // Wellgabber Apothecary
+    &[
+        "{1}{W}: Prevent all damage that would be dealt to target tapped Merfolk or Kithkin creature this turn.",
+    ],
     &[],
     &[],
     // Windbrisk Heights
@@ -26254,7 +26422,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Indomitable Ancients
     &[""],
-    &[],
+    // Ink Dissolver
+    &[
+        "Kinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, each opponent mills three cards.",
+    ],
     // Inspired Sprite
     &[
         "Flash\nFlying\nWhenever you cast a Wizard spell, you may untap this creature.\n{T}: Draw a card, then discard a card.",
@@ -26266,7 +26437,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Kinsbaile Cavalier
     &["Knight creatures you control have double strike."],
-    &[],
+    // Kithkin Zephyrnaut
+    &[
+        "Kinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, this creature gets +2/+2 and gains flying and vigilance until end of turn.",
+    ],
     &[],
     &[],
     &[],
@@ -26297,7 +26471,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Changeling (This card is every creature type.)\nTap an untapped creature you control: This creature gains flying until end of turn.",
     ],
-    &[],
+    // Mudbutton Clanger
+    &[
+        "Kinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, this creature gets +1/+1 until end of turn.",
+    ],
     // Murmuring Bosk
     &[
         "({T}: Add {G}.)\nAs this land enters, you may reveal a Treefolk card from your hand. If you don't, this land enters tapped.\n{T}: Add {W} or {B}. This land deals 1 damage to you.",
@@ -26312,7 +26489,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\nWhen this creature leaves the battlefield, put target nonland permanent on top of its owner's library.\nEvoke {3}{U} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
     ],
-    &[],
+    // Nightshade Schemers
+    &[
+        "Flying\nKinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, each opponent loses 2 life.",
+    ],
     &[],
     &[],
     // Obsidian Battle-Axe
@@ -26344,7 +26524,10 @@ pub static ORACLE: &[&[&str]] = &[
         "As this land enters, you may reveal an Elemental card from your hand. If you don't, this land enters tapped.\n{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast an Elemental spell or activate an ability of an Elemental.",
     ],
     &[],
-    &[],
+    // Pyroclast Consul
+    &[
+        "Kinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, this creature deals 2 damage to each creature.",
+    ],
     // Rage Forger
     &[
         "When this creature enters, put a +1/+1 counter on each other Shaman creature you control.\nWhenever a creature you control with a +1/+1 counter on it attacks, you may have that creature deal 1 damage to target player or planeswalker.",
@@ -26384,7 +26567,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["{T}, Exile an Assassin card from your graveyard: Destroy target creature."],
     // Seething Pathblazer
     &["Sacrifice an Elemental: This creature gets +2/+0 and gains first strike until end of turn."],
-    &[],
+    // Sensation Gorger
+    &[
+        "Kinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, each player discards their hand, then draws four cards.",
+    ],
     // Shard Volley
     &[
         "As an additional cost to cast this spell, sacrifice a land.\nShard Volley deals 3 damage to any target.",
@@ -26400,7 +26586,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature leaves the battlefield, it deals 6 damage to target creature.\nEvoke {1}{R}{R} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
     ],
-    &[],
+    // Squeaking Pie Grubfellows
+    &[
+        "Kinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, each opponent discards a card.",
+    ],
     // Stenchskipper
     &[
         "Flying\nAt the beginning of the end step, if you control no Goblins, sacrifice this creature.",
@@ -26462,22 +26651,37 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature leaves the battlefield, create a 4/4 green Elemental creature token.\nEvoke {4}{G} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
     ],
-    &[],
+    // Wandering Graybeard
+    &[
+        "Kinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, you gain 4 life.",
+    ],
     // War-Spike Changeling
     &[
         "Changeling (This card is every creature type.)\n{R}: This creature gains first strike until end of turn.",
     ],
     &[],
-    &[],
+    // Waterspout Weavers
+    &[
+        "Kinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, each creature you control gains flying until end of turn.",
+    ],
     // Weed-Pruner Poplar
     &[
         "At the beginning of your upkeep, target creature other than this creature gets -1/-1 until end of turn.",
     ],
-    &[],
+    // Weight of Conscience
+    &[
+        "Enchant creature\nEnchanted creature can't attack.\nTap two untapped creatures you control that share a creature type: Exile enchanted creature.",
+    ],
     // Weirding Shaman
     &["{3}{B}, Sacrifice a Goblin: Create two 1/1 black Goblin Rogue creature tokens."],
-    &[],
-    &[],
+    // Winnower Patrol
+    &[
+        "Kinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, put a +1/+1 counter on this creature.",
+    ],
+    // Wolf-Skull Shaman
+    &[
+        "Kinship — At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, create a 2/2 green Wolf creature token.",
+    ],
     &[],
     &[],
     &[],
@@ -26616,7 +26820,8 @@ pub static ORACLE: &[&[&str]] = &[
     // Enchanted Evening
     &["All permanents are enchantments in addition to their other types."],
     &[],
-    &[],
+    // Faerie Macabre
+    &["Flying\nDiscard this card: Exile up to two target cards from graveyards."],
     // Faerie Swarm
     &[
         "Flying\nFaerie Swarm's power and toughness are each equal to the number of blue permanents you control.",
@@ -26716,7 +26921,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Whenever a player casts a red spell, you may pay {1}. If you do, target creature can't block this turn.",
     ],
-    &[],
+    // Isleback Spawn
+    &[
+        "Shroud (This creature can't be the target of spells or abilities.)\nThis creature gets +4/+8 as long as a library has twenty or fewer cards in it.",
+    ],
     &[],
     &[],
     // Kinscaer Harpoonist
@@ -27688,7 +27896,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Trample"],
     // Godsire
     &["Vigilance\n{T}: Create an 8/8 Beast creature token that's red, green, and white."],
-    &[],
+    // Godtoucher
+    &[
+        "{1}{W}, {T}: Prevent all damage that would be dealt to target creature with power 5 or greater this turn.",
+    ],
     // Grixis Battlemage
     &[
         "{U}, {T}: Draw a card, then discard a card.\n{R}, {T}: Target creature can't block this turn.",
@@ -27857,7 +28068,10 @@ pub static ORACLE: &[&[&str]] = &[
         "{U}, {T}: Create a 0/1 blue Homunculus artifact creature token.\nAt the beginning of your upkeep, sacrifice a Homunculus.",
     ],
     &[],
-    &[],
+    // Quietus Spike
+    &[
+        "Equipped creature has deathtouch.\nWhenever equipped creature deals combat damage to a player, that player loses half their life, rounded up.\nEquip {3}",
+    ],
     // Rafiq of the Many
     &[
         "Exalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)\nWhenever a creature you control attacks alone, it gains double strike until end of turn.",
@@ -29169,7 +29383,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Kicker {3}{W} (You may pay an additional {3}{W} as you cast this spell.)\nCreatures you control get +1/+1 until end of turn. If this spell was kicked, instead creatures you control get +2/+2 and gain first strike until end of turn.",
     ],
-    &[],
+    // Brave the Elements
+    &[
+        "Choose a color. White creatures you control gain protection from the chosen color until end of turn.",
+    ],
     // Burst Lightning
     &[
         "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nBurst Lightning deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead.",
@@ -29338,7 +29555,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {U} or {B}."],
     // Kabira Crossroads
     &["This land enters tapped.\nWhen this land enters, you gain 2 life.\n{T}: Add {W}."],
-    &[],
+    // Kabira Evangel
+    &[
+        "Whenever this creature or another Ally you control enters, you may choose a color. If you do, Allies you control gain protection from the chosen color until end of turn.",
+    ],
     &[],
     // Kazandu Blademaster
     &[
@@ -30078,7 +30298,10 @@ pub static ORACLE: &[&[&str]] = &[
         "{U}, {T}: You may tap or untap another target creature.\nLandfall — Whenever a land you control enters, you may untap this creature.",
     ],
     &[],
-    &[],
+    // Treasure Hunt
+    &[
+        "Reveal cards from the top of your library until you reveal a nonland card, then put all cards revealed this way into your hand.",
+    ],
     // Tuktuk Scrapper
     &[
         "Whenever this creature or another Ally you control enters, you may destroy target artifact. If that artifact is put into a graveyard this way, this creature deals damage to that artifact's controller equal to the number of Allies you control.",
@@ -30110,7 +30333,8 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Akoum Boulderfoot
     &["When this creature enters, it deals 1 damage to any target."],
-    &[],
+    // All Is Dust
+    &["Each player sacrifices all permanents they control that are one or more colors."],
     // Ancient Stirrings
     &[
         "Look at the top five cards of your library. You may reveal a colorless card from among them and put it into your hand. Then put the rest on the bottom of your library in any order.",
@@ -30327,7 +30551,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Keening Stone
+    &[
+        "{5}, {T}: Target player mills X cards, where X is the number of cards in that player's graveyard.",
+    ],
     &[],
     // Kiln Fiend
     &["Whenever you cast an instant or sorcery spell, this creature gets +3/+0 until end of turn."],
@@ -30672,7 +30899,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Ancient Hellkite
+    &[
+        "Flying\n{R}: This creature deals 1 damage to target creature defending player controls. Activate only if this creature is attacking.",
+    ],
     // Sun Titan
     &[
         "Vigilance\nWhenever this creature enters or attacks, you may return target permanent card with mana value 3 or less from your graveyard to the battlefield.",
@@ -31489,11 +31719,17 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "First strike, deathtouch\nWhenever a creature an opponent controls dies, you may return target artifact card from your graveyard to your hand.",
     ],
-    &[],
+    // Hero of Bladehold
+    &[
+        "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nWhenever this creature attacks, create two 1/1 white Soldier creature tokens that are tapped and attacking.",
+    ],
     // Mirran Crusader
     &["Double strike, protection from black and from green"],
     &[],
-    &[],
+    // Accorder Paladin
+    &[
+        "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)",
+    ],
     // Ardent Recruit
     &["Metalcraft — This creature gets +2/+2 as long as you control three or more artifacts."],
     // Banishment Decree
@@ -31570,7 +31806,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Gnathosaur
     &["Sacrifice an artifact: This creature gains trample until end of turn."],
-    &[],
+    // Goblin Wardriver
+    &[
+        "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)",
+    ],
     &[],
     // Green Sun's Zenith
     &[
@@ -31583,7 +31822,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying, haste\n{1}{R}: This creature gets +X/+0 until end of turn, where X is the number of artifacts you control.",
     ],
-    &[],
+    // Hero of Oxid Ridge
+    &[
+        "Haste\nBattle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nWhenever this creature attacks, creatures with power 1 or less can't block this turn.",
+    ],
     // Hexplate Golem
     &[""],
     // Horrifying Revelation
@@ -31601,13 +31843,19 @@ pub static ORACLE: &[&[&str]] = &[
     // Koth's Courier
     &["Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)"],
     &[],
-    &[],
+    // Kuldotha Ringleader
+    &[
+        "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nThis creature attacks each combat if able.",
+    ],
     &[],
     // Leonin Relic-Warder
     &[
         "When this creature enters, you may exile target artifact or enchantment.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
     ],
-    &[],
+    // Loxodon Partisan
+    &[
+        "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)",
+    ],
     // Lumengrid Gargoyle
     &["Flying"],
     // Magnetic Mine
@@ -31693,7 +31941,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}, Sacrifice a creature: Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
     ],
-    &[],
+    // Praetor's Counsel
+    &[
+        "Return all cards from your graveyard to your hand. Exile Praetor's Counsel. You have no maximum hand size for the rest of the game.",
+    ],
     // Priests of Norn
     &[
         "Vigilance\nInfect (This creature deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.)",
@@ -31728,7 +31979,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This artifact enters with three charge counters on it.\n{T}, Remove a charge counter from this artifact: Target player mills two cards.",
     ],
-    &[],
+    // Signal Pest
+    &[
+        "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nThis creature can't be blocked except by creatures with flying or reach.",
+    ],
     // Silverskin Armor
     &["Equipped creature gets +1/+1 and is an artifact in addition to its other types.\nEquip {2}"],
     &[],
@@ -31774,7 +32028,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{3}, {T}: Put a charge counter on this artifact.\n{T}, Remove three charge counters from this artifact: Create a 9/9 colorless Golem artifact creature token.",
     ],
-    &[],
+    // Training Drone
+    &["This creature can't attack or block unless it's equipped."],
     // Treasure Mage
     &[
         "When this creature enters, you may search your library for an artifact card with mana value 6 or greater, reveal it, put it into your hand, then shuffle.",
@@ -31856,7 +32111,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Brutalizer Exarch
+    &[
+        "When this creature enters, choose one —\n• Search your library for a creature card, reveal it, then shuffle and put that card on top.\n• Put target noncreature permanent on the bottom of its owner's library.",
+    ],
     &[],
     // Caress of Phyrexia
     &["Target player draws three cards, loses 3 life, and gets three poison counters."],
@@ -33996,7 +34254,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Magmaquake
     &["Magmaquake deals X damage to each creature without flying and each planeswalker."],
-    &[],
+    // Mwonvuli Beast Tracker
+    &[
+        "When this creature enters, search your library for a creature card with deathtouch, hexproof, reach, or trample and reveal it. Shuffle and put that card on top.",
+    ],
     // Staff of Nin
     &[
         "At the beginning of your upkeep, draw a card.\n{T}: This artifact deals 1 damage to any target.",
@@ -34755,7 +35016,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Ghor-Clan Rampager
+    &[
+        "Trample\nBloodrush — {R}{G}, Discard this card: Target attacking creature gets +4/+4 and gains trample until end of turn.",
+    ],
     // Ogre Battledriver
     &[
         "Whenever another creature you control enters, that creature gets +2/+0 and gains haste until end of turn. (It can attack and {T} this turn.)",
@@ -34772,8 +35036,14 @@ pub static ORACLE: &[&[&str]] = &[
         "When this creature enters, it deals damage to any target equal to the number of creatures you control.\n{R}: This creature gets +1/+0 until end of turn.\n{W}: This creature gets +0/+1 until end of turn.",
     ],
     &[],
-    &[],
-    &[],
+    // Rubblehulk
+    &[
+        "Rubblehulk's power and toughness are each equal to the number of lands you control.\nBloodrush — {1}{R}{G}, Discard this card: Target attacking creature gets +X/+X until end of turn, where X is the number of lands you control.",
+    ],
+    // Skarrg Goliath
+    &[
+        "Trample\nBloodrush — {5}{G}{G}, Discard this card: Target attacking creature gets +9/+9 and gains trample until end of turn.",
+    ],
     &[],
     &[],
     &[],
@@ -34855,7 +35125,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Trample\nEach creature you control with a +1/+1 counter on it has trample."],
     &[],
     &[],
-    &[],
+    // Death's Approach
+    &[
+        "Enchant creature\nEnchanted creature gets -X/-X, where X is the number of creature cards in its controller's graveyard.",
+    ],
     // Deathcult Rogue
     &["This creature can't be blocked except by Rogues."],
     // Deathpact Angel
@@ -34955,7 +35228,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // High Priest of Penance
     &["Whenever this creature is dealt damage, you may destroy target nonland permanent."],
-    &[],
+    // Hindervines
+    &[
+        "Prevent all combat damage that would be dealt this turn by creatures with no +1/+1 counters on them.",
+    ],
     // Hold the Gates
     &["Creatures you control get +0/+1 for each Gate you control and have vigilance."],
     // Holy Mantle
@@ -35097,10 +35373,16 @@ pub static ORACLE: &[&[&str]] = &[
     &["Whenever another blue creature you control enters, target player mills two cards."],
     // Sapphire Drake
     &["Flying\nEach creature you control with a +1/+1 counter on it has flying."],
-    &[],
+    // Scab-Clan Charger
+    &[
+        "Bloodrush — {1}{G}, Discard this card: Target attacking creature gets +2/+4 until end of turn.",
+    ],
     // Scatter Arc
     &["Counter target noncreature spell.\nDraw a card."],
-    &[],
+    // Scorchwalker
+    &[
+        "Bloodrush — {1}{R}{R}, Discard this card: Target attacking creature gets +5/+1 until end of turn.",
+    ],
     &[],
     &[],
     // Shadow Alley Denizen
@@ -35111,7 +35393,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Shattering Blow
     &["Exile target artifact."],
-    &[],
+    // Shielded Passage
+    &["Prevent all damage that would be dealt to target creature this turn."],
     &[],
     // Simic Charm
     &[
@@ -35129,7 +35412,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{R}{G}: Creatures you control gain trample until end of turn.\n{1}{R}{G}: Target land you control becomes a 4/4 Elemental creature until end of turn. It's still a land.",
     ],
-    &[],
+    // Skinbrand Goblin
+    &[
+        "Bloodrush — {R}, Discard this card: Target attacking creature gets +2/+1 until end of turn.",
+    ],
     &[],
     // Skyblinder Staff
     &[
@@ -35141,7 +35427,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Slate Street Ruffian
     &["Whenever this creature becomes blocked, defending player discards a card."],
-    &[],
+    // Slaughterhorn
+    &[
+        "Bloodrush — {G}, Discard this card: Target attacking creature gets +3/+2 until end of turn.",
+    ],
     // Smog Elemental
     &["Flying\nCreatures with flying your opponents control get -1/-1."],
     &[],
@@ -35186,12 +35475,18 @@ pub static ORACLE: &[&[&str]] = &[
     // Urbis Protector
     &["When this creature enters, create a 4/4 white Angel creature token with flying."],
     &[],
+    // Viashino Shanktail
+    &[
+        "First strike\nBloodrush — {2}{R}, Discard this card: Target attacking creature gets +3/+1 and gains first strike until end of turn.",
+    ],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Wasteland Viper
+    &[
+        "Deathtouch\nBloodrush — {G}, Discard this card: Target attacking creature gets +1/+2 and gains deathtouch until end of turn.",
+    ],
     // Way of the Thief
     &[
         "Enchant creature\nEnchanted creature gets +2/+2.\nEnchanted creature can't be blocked as long as you control a Gate.",
@@ -35202,10 +35497,16 @@ pub static ORACLE: &[&[&str]] = &[
     // Wildwood Rebirth
     &["Return target creature card from your graveyard to your hand."],
     &[],
-    &[],
+    // Wrecking Ogre
+    &[
+        "Double strike\nBloodrush — {3}{R}{R}, Discard this card: Target attacking creature gets +3/+3 and gains double strike until end of turn.",
+    ],
     // Zarichi Tiger
     &["{1}{W}, {T}: You gain 2 life."],
-    &[],
+    // Zhur-Taa Swine
+    &[
+        "Bloodrush — {1}{R}{G}, Discard this card: Target attacking creature gets +5/+4 until end of turn.",
+    ],
     &[],
     // Maze's End
     &[
@@ -35377,7 +35678,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Pyrewild Shaman
+    &[
+        "Bloodrush — {1}{R}, Discard this card: Target attacking creature gets +3/+1 until end of turn.\nWhenever one or more creatures you control deal combat damage to a player, if this card is in your graveyard, you may pay {3}. If you do, return this card to your hand.",
+    ],
     // Rakdos Cluestone
     &["{T}: Add {B} or {R}.\n{B}{R}, {T}, Sacrifice this artifact: Draw a card."],
     &[],
@@ -35395,7 +35699,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Riot Piker
     &["First strike\nThis creature attacks each combat if able."],
     &[],
-    &[],
+    // Rubblebelt Maaka
+    &[
+        "Bloodrush — {R}, Discard this card: Target attacking creature gets +3/+3 until end of turn.",
+    ],
     // Runner's Bane
     &[
         "Enchant creature with power 3 or less\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step.",
@@ -35478,7 +35785,10 @@ pub static ORACLE: &[&[&str]] = &[
         "{T}: Add {G}.\nWhenever you tap this creature for mana, it deals 1 damage to each opponent.",
     ],
     &[],
-    &[],
+    // Colossal Whale
+    &[
+        "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\nWhenever this creature attacks, you may exile target creature defending player controls until this creature leaves the battlefield. (That creature returns under its owner's control.)",
+    ],
     &[],
     // Goblin Diplomats
     &["{T}: Each creature attacks this turn if able."],
@@ -35892,7 +36202,8 @@ pub static ORACLE: &[&[&str]] = &[
     // Deathbellow Raider
     &["This creature attacks each combat if able.\n{2}{B}: Regenerate this creature."],
     &[],
-    &[],
+    // Defend the Hearth
+    &["Prevent all combat damage that would be dealt to players this turn."],
     &[],
     // Dissolve
     &[
@@ -36274,7 +36585,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\nWhen Derevi enters and whenever a creature you control deals combat damage to a player, you may tap or untap target permanent.\n{1}{G}{W}{U}: Put Derevi onto the battlefield from the command zone.",
     ],
-    &[],
+    // Diviner Spirit
+    &[
+        "Whenever this creature deals combat damage to a player, you and that player each draw that many cards.",
+    ],
     &[],
     &[],
     &[],
@@ -36878,7 +37192,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Constellation — Whenever this creature or another enchantment you control enters, each opponent loses 1 life.",
     ],
     &[],
-    &[],
+    // Harvestguard Alseids
+    &[
+        "Constellation — Whenever this creature or another enchantment you control enters, prevent all damage that would be dealt to target creature this turn.",
+    ],
     &[],
     &[],
     // Humbler of Mortals
@@ -37115,13 +37432,19 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This creature enters with X +1/+1 counters on it, where X is the number of creature cards in all graveyards.\n{2}{B}, Remove a +1/+1 counter from this creature: Target creature gets -1/-1 until end of turn.",
     ],
-    &[],
+    // Enraged Revolutionary
+    &[
+        "Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)",
+    ],
     &[],
     // Flamewright
     &[
         "{1}, {T}: Create a 1/1 colorless Construct artifact creature token with defender.\n{T}, Sacrifice a creature with defender: This creature deals 1 damage to any target.",
     ],
-    &[],
+    // Grenzo's Cutthroat
+    &[
+        "First strike\nDethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)",
+    ],
     &[],
     &[],
     &[],
@@ -37137,10 +37460,22 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Marchesa's Emissary
+    &[
+        "Hexproof (This creature can't be the target of spells or abilities your opponents control.)\nDethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)",
+    ],
+    // Marchesa's Infiltrator
+    &[
+        "Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\nWhenever this creature deals combat damage to a player, draw a card.",
+    ],
+    // Marchesa's Smuggler
+    &[
+        "Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\n{1}{U}{R}: Target creature you control gains haste until end of turn and can't be blocked this turn.",
+    ],
+    // Marchesa, the Black Rose
+    &[
+        "Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\nOther creatures you control have dethrone.\nWhenever a creature you control with a +1/+1 counter on it dies, return that card to the battlefield under your control at the beginning of the next end step.",
+    ],
     &[],
     &[],
     // Paliano, the High City
@@ -37161,7 +37496,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Treasonous Ogre
+    &[
+        "Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\nPay 3 life: Add {R}.",
+    ],
     &[],
     &[],
     // Whispergear Sneak
@@ -37174,8 +37512,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Soul of Ravnica
+    &[
+        "Flying\n{5}{U}{U}: Draw a card for each color among permanents you control.\n{5}{U}{U}, Exile this card from your graveyard: Draw a card for each color among permanents you control.",
+    ],
+    // Soul of Zendikar
+    &[
+        "Reach\n{3}{G}{G}: Create a 3/3 green Beast creature token.\n{3}{G}{G}, Exile this card from your graveyard: Create a 3/3 green Beast creature token.",
+    ],
     &[],
     &[],
     // Goblin Rabblemaster
@@ -37194,7 +37538,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Flying\nWhen this creature enters, if your life total is less than your starting life total, it becomes equal to your starting life total.",
     ],
     &[],
-    &[],
+    // Soul of New Phyrexia
+    &[
+        "Trample\n{5}: Permanents you control gain indestructible until end of turn.\n{5}, Exile this card from your graveyard: Permanents you control gain indestructible until end of turn.",
+    ],
     // Act on Impulse
     &[
         "Exile the top three cards of your library. Until end of turn, you may play those cards. (If you cast a spell this way, you still pay its costs. You can play a land this way only if you have an available land play remaining.)",
@@ -37478,9 +37825,15 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Sliver creatures you control have indestructible. (Damage and effects that say \"destroy\" don't destroy them.)",
     ],
+    // Soul of Innistrad
+    &[
+        "Deathtouch\n{3}{B}{B}: Return up to three target creature cards from your graveyard to your hand.\n{3}{B}{B}, Exile this card from your graveyard: Return up to three target creature cards from your graveyard to your hand.",
+    ],
     &[],
-    &[],
-    &[],
+    // Soul of Theros
+    &[
+        "Vigilance\n{4}{W}{W}: Creatures you control get +2/+2 and gain first strike and lifelink until end of turn.\n{4}{W}{W}, Exile this card from your graveyard: Creatures you control get +2/+2 and gain first strike and lifelink until end of turn.",
+    ],
     &[],
     // Spirit Bonds
     &[
@@ -37541,7 +37894,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Hexproof (This creature can't be the target of spells or abilities your opponents control.)\n{3}{B}: Until end of turn, this creature loses hexproof and gains first strike and deathtouch. (It deals combat damage before creatures without first strike. Any amount of damage it deals to a creature is enough to destroy it.)",
     ],
-    &[],
+    // Yisan, the Wanderer Bard
+    &[
+        "{2}{G}, {T}, Put a verse counter on Yisan: Search your library for a creature card with mana value equal to the number of verse counters on Yisan, put it onto the battlefield, then shuffle.",
+    ],
     // Jeskai Elder
     &[
         "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nWhenever this creature deals combat damage to a player, you may draw a card. If you do, discard a card.",
@@ -37600,7 +37956,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Avalanche Tusker
+    &[
+        "Whenever this creature attacks, target creature defending player controls blocks it this combat if able.",
+    ],
     // Awaken the Bear
     &["Target creature gets +3/+3 and gains trample until end of turn."],
     // Barrage of Boulders
@@ -38276,7 +38635,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Ugin's Construct
+    &["When this creature enters, sacrifice a permanent that's one or more colors."],
     &[],
     &[],
     &[],
@@ -38288,7 +38648,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Enchant creature\nEnchanted creature gets +2/+2.\nEnchanted creature has vigilance as long as you control a black or green permanent.",
     ],
     &[],
-    &[],
+    // Ainok Guide
+    &[
+        "When this creature enters, choose one —\n• Put a +1/+1 counter on this creature.\n• Search your library for a basic land card, reveal it, then shuffle and put that card on top.",
+    ],
     // Alesha's Vanguard
     &[
         "Dash {2}{B} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
@@ -38516,7 +38879,8 @@ pub static ORACLE: &[&[&str]] = &[
     // Rakshasa's Disdain
     &["Counter target spell unless its controller pays {1} for each card in your graveyard."],
     &[],
-    &[],
+    // Reach of Shadows
+    &["Destroy target creature that's one or more colors."],
     // Refocus
     &["Untap target creature.\nDraw a card."],
     // Renowned Weaponsmith
@@ -38526,7 +38890,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Return to the Earth
     &["Destroy target artifact, enchantment, or creature with flying."],
     &[],
-    &[],
+    // Ruthless Instincts
+    &[
+        "Choose one —\n• Target nonattacking creature gains reach and deathtouch until end of turn. Untap it.\n• Target attacking creature gets +2/+2 and gains trample until end of turn.",
+    ],
     // Sage's Reverie
     &[
         "Enchant creature\nWhen this Aura enters, draw a card for each Aura you control that's attached to a creature.\nEnchanted creature gets +1/+1 for each Aura you control that's attached to a creature.",
@@ -38731,7 +39098,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Colossodon Yearling
     &[""],
-    &[],
+    // Commune with Lava
+    &[
+        "Exile the top X cards of your library. Until the end of your next turn, you may play those cards.",
+    ],
     // Conifer Strider
     &[
         "Hexproof (This creature can't be the target of spells or abilities your opponents control.)",
@@ -39366,7 +39736,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Grasp of the Hieromancer
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+1 and has \"Whenever this creature attacks, tap target creature defending player controls.\"",
+    ],
     // Graveblade Marauder
     &[
         "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nWhenever this creature deals combat damage to a player, that player loses life equal to the number of creature cards in your graveyard.",
@@ -39409,7 +39782,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Kothophed, Soul Hoarder
+    &[
+        "Flying\nWhenever a permanent owned by another player is put into a graveyard from the battlefield, you draw a card and you lose 1 life.",
+    ],
     &[],
     &[],
     // Languish
@@ -39426,7 +39802,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Add {C}.\n{1}, {T}: Put a storage counter on this land.\n{T}, Remove any number of storage counters from this land: Add {C} for each storage counter removed this way.",
     ],
-    &[],
+    // Mage-Ring Responder
+    &[
+        "This creature doesn't untap during your untap step.\n{7}: Untap this creature.\nWhenever this creature attacks, it deals 7 damage to target creature defending player controls.",
+    ],
     // Magmatic Insight
     &["As an additional cost to cast this spell, discard a land card.\nDraw two cards."],
     // Malakir Cullblade
@@ -40190,7 +40569,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Dream Pillager
+    &[
+        "Flying\nWhenever this creature deals combat damage to a player, exile that many cards from the top of your library. Until end of turn, you may cast spells from among those exiled cards.",
+    ],
     &[],
     &[],
     &[],
@@ -40268,7 +40650,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Create two 2/2 white Knight Ally creature tokens."],
     // Ancient Crab
     &[""],
-    &[],
+    // Ayli, Eternal Pilgrim
+    &[
+        "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\n{1}, Sacrifice another creature: You gain life equal to the sacrificed creature's toughness.\n{1}{W}{B}, Sacrifice another creature: Exile target nonland permanent. Activate only if you have at least 10 life more than your starting life total.",
+    ],
     // Baloth Null
     &[
         "When this creature enters, return up to two target creature cards from your graveyard to your hand.",
@@ -40475,7 +40860,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Lead by Example
     &["Support 2. (Put a +1/+1 counter on each of up to two target creatures.)"],
     &[],
-    &[],
+    // Loam Larva
+    &[
+        "When this creature enters, you may search your library for a basic land card, reveal it, then shuffle and put that card on top.",
+    ],
     // Make a Stand
     &[
         "Creatures you control get +1/+0 and gain indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy them.)",
@@ -40823,7 +41211,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Create two 1/1 red Devil creature tokens. They have \"When this token dies, it deals 1 damage to any target.\"",
     ],
     &[],
-    &[],
+    // Dauntless Cathar
+    &[
+        "{1}{W}, Exile this card from your graveyard: Create a 1/1 white Spirit creature token with flying. Activate only as a sorcery.",
+    ],
     // Deathcap Cultivator
     &[
         "{T}: Add {B} or {G}.\nDelirium — This creature has deathtouch as long as there are four or more card types among cards in your graveyard.",
@@ -40921,12 +41312,18 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Geistblast
+    &[
+        "Geistblast deals 2 damage to any target.\n{2}{U}, Exile this card from your graveyard: Copy target instant or sorcery spell you control. You may choose new targets for the copy.",
+    ],
     // Geralf's Masterpiece
     &[
         "Flying\nThis creature gets -1/-1 for each card in your hand.\n{3}{U}, Discard three cards: Return this card from your graveyard to the battlefield tapped.",
     ],
-    &[],
+    // Ghoulcaller's Accomplice
+    &[
+        "{3}{B}, Exile this card from your graveyard: Create a 2/2 black Zombie creature token. Activate only as a sorcery.",
+    ],
     // Ghoulsteed
     &["{2}{B}, Discard two cards: Return this card from your graveyard to the battlefield tapped."],
     &[],
@@ -41066,9 +41463,15 @@ pub static ORACLE: &[&[&str]] = &[
         "At the beginning of combat on your turn, target creature you control gains indestructible until end of turn.\n{1}{R}: This enchantment deals 1 damage to target blocking creature.",
     ],
     &[],
+    // Nearheath Chaplain
+    &[
+        "Lifelink\n{2}{W}, Exile this card from your graveyard: Create two 1/1 white Spirit creature tokens with flying. Activate only as a sorcery.",
+    ],
     &[],
-    &[],
-    &[],
+    // Nephalia Moondrakes
+    &[
+        "Flying\nWhen this creature enters, target creature gains flying until end of turn.\n{4}{U}{U}, Exile this card from your graveyard: Creatures you control gain flying until end of turn.",
+    ],
     // Niblis of Dusk
     &[
         "Flying\nProwess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)",
@@ -41247,7 +41650,11 @@ pub static ORACLE: &[&[&str]] = &[
         "When this creature enters, put a +1/+1 counter on each other Human you control.\nWhenever another Human you control enters, put a +1/+1 counter on this creature.",
     ],
     &[],
-    &[],
+    // Thing in the Ice
+    &[
+        "Defender\nThis creature enters with four ice counters on it.\nWhenever you cast an instant or sorcery spell, remove an ice counter from this creature. Then if it has no ice counters on it, transform it.",
+        "When this creature transforms into Awoken Horror, return all non-Horror creatures to their owners' hands.",
+    ],
     // Thornhide Wolves
     &[""],
     // Thraben Gargoyle
@@ -41267,7 +41674,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Whenever you cast an instant or sorcery spell, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
     ],
-    &[],
+    // Traverse the Ulvenwald
+    &[
+        "Search your library for a basic land card, reveal it, put it into your hand, then shuffle.\nDelirium — If there are four or more card types among cards in your graveyard, instead search your library for a creature or land card, reveal it, put it into your hand, then shuffle.",
+    ],
     &[],
     // True-Faith Censer
     &[
@@ -41334,7 +41744,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Up to two target creatures each get +1/+0 and gain first strike until end of turn. (They deal combat damage before creatures without first strike.)\nMadness {1}{R} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
     ],
-    &[],
+    // Abundant Maw
+    &[
+        "Emerge {6}{B} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, target opponent loses 3 life and you gain 3 life.",
+    ],
     // Advanced Stitchwing
     &[
         "Flying\n{2}{U}, Discard two cards: Return this card from your graveyard to the battlefield tapped.",
@@ -41430,7 +41843,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Dawn Gryff
     &["Flying"],
-    &[],
+    // Decimator of the Provinces
+    &[
+        "Emerge {6}{G}{G}{G} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, creatures you control get +2/+2 and gain trample until end of turn.\nTrample, haste",
+    ],
     &[],
     // Deranged Whelp
     &["Menace (This creature can't be blocked except by two or more creatures.)"],
@@ -41456,12 +41872,18 @@ pub static ORACLE: &[&[&str]] = &[
     &["Return target creature to its owner's hand.\nDraw a card."],
     // Drogskol Shieldmate
     &["Flash\nWhen this creature enters, other creatures you control get +0/+1 until end of turn."],
-    &[],
+    // Drownyard Behemoth
+    &[
+        "Flash (You may cast this spell any time you could cast an instant.)\nEmerge {7}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nThis creature has hexproof as long as it entered this turn.",
+    ],
     // Dusk Feaster
     &[
         "Delirium — This spell costs {2} less to cast if there are four or more card types among cards in your graveyard.\nFlying",
     ],
-    &[],
+    // Elder Deep-Fiend
+    &[
+        "Flash\nEmerge {5}{U}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, tap up to four target permanents.",
+    ],
     // Eldritch Evolution
     &[
         "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a creature card with mana value X or less, where X is 2 plus the sacrificed creature's mana value. Put that card onto the battlefield, then shuffle. Exile Eldritch Evolution.",
@@ -41562,7 +41984,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Flash\nLifelink\nWhen this creature enters, other Humans you control get +1/+1 and gain lifelink until end of turn.",
     ],
     &[],
-    &[],
+    // Impetuous Devils
+    &[
+        "Trample, haste\nWhen this creature attacks, up to one target creature defending player controls blocks it this combat if able.\nAt the beginning of the end step, sacrifice this creature.",
+    ],
     &[],
     &[],
     // Ingenious Skaab
@@ -41580,11 +42005,17 @@ pub static ORACLE: &[&[&str]] = &[
     // Ironwright's Cleansing
     &["Exile target artifact or enchantment."],
     &[],
-    &[],
+    // It of the Horrid Swarm
+    &[
+        "Emerge {6}{G} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, create two 1/1 green Insect creature tokens.",
+    ],
     &[],
     // Laboratory Brute
     &["When this creature enters, mill four cards."],
-    &[],
+    // Lashweed Lurker
+    &[
+        "Emerge {5}{G}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, you may put target nonland permanent on top of its owner's library.",
+    ],
     // Liliana's Elite
     &["This creature gets +1/+1 for each creature card in your graveyard."],
     &[],
@@ -41616,7 +42047,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Mockery of Nature
+    &[
+        "Emerge {7}{G} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, you may destroy target artifact or enchantment.",
+    ],
     &[],
     &[],
     // Nebelgast Herald
@@ -41771,7 +42205,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Whenever a creature you control with toughness 4 or greater dies, draw a card."],
     &[],
     &[],
-    &[],
+    // Vexing Scuttler
+    &[
+        "Emerge {6}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, you may return target instant or sorcery card from your graveyard to your hand.",
+    ],
     // Vildin-Pack Outcast
     &[
         "Trample\n{R}: This creature gets +1/-1 until end of turn.\n{5}{R}{R}: Transform this creature.",
@@ -41807,14 +42244,59 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Woodland Patrol
     &["Vigilance"],
+    // Wretched Gryff
+    &[
+        "Emerge {5}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, draw a card.\nFlying",
+    ],
     &[],
-    &[],
-    &[],
+    // Adriana, Captain of the Guard
+    &[
+        "Melee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)\nOther creatures you control have melee. (If a creature has multiple instances of melee, each triggers separately.)",
+    ],
     &[],
     &[],
     // Archdemon of Paliano
     &[
         "Draft this card face up.\nAs long as this card is face up during the draft, you can't look at booster packs and must draft cards at random. After you draft three cards this way, turn this card face down. (You may look at cards as you draft them.)\nFlying",
+    ],
+    &[],
+    &[],
+    // Besmirch
+    &[
+        "Until end of turn, gain control of target creature and it gains haste. Untap and goad that creature. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)",
+    ],
+    &[],
+    &[],
+    &[],
+    &[],
+    // Coveted Peacock
+    &[
+        "Flying\nWhenever this creature attacks, you may goad target creature defending player controls. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)",
+    ],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    // Deputized Protester
+    &[
+        "Menace (This creature can't be blocked except by two or more creatures.)\nMelee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)",
+    ],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    // Fang of the Pack
+    &[
+        "Melee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)\nAt the beginning of combat on your turn, another target creature you control gains melee until end of turn. (If a creature has multiple instances of melee, each triggers separately.)",
+    ],
+    &[],
+    &[],
+    // Goblin Racketeer
+    &[
+        "Whenever this creature attacks, you may goad target creature defending player controls. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)",
     ],
     &[],
     &[],
@@ -41824,31 +42306,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Jeering Homunculus
+    &[
+        "When this creature enters, you may goad target creature. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)",
+    ],
     &[],
     &[],
     &[],
@@ -41862,7 +42323,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Menagerie Liberator
+    &[
+        "Trample\nMelee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)",
+    ],
     &[],
     &[],
     &[],
@@ -41912,7 +42376,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["{T}: Add {C}.\n{4}, {T}, Sacrifice this land: You become the monarch."],
     &[],
     &[],
-    &[],
+    // Wings of the Guard
+    &[
+        "Flying\nMelee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)",
+    ],
     &[],
     // Acrobatic Maneuver
     &[
@@ -42018,7 +42485,8 @@ pub static ORACLE: &[&[&str]] = &[
         "When this artifact enters, create a 1/1 colorless Servo artifact creature token.\n{1}{W}, Sacrifice this artifact: Create a 1/1 colorless Servo artifact creature token.",
     ],
     &[],
-    &[],
+    // Commencement of Festivities
+    &["Prevent all combat damage that would be dealt to players this turn."],
     // Concealed Courtyard
     &["This land enters tapped unless you control two or fewer other lands.\n{T}: Add {W} or {B}."],
     &[],
@@ -42612,7 +43080,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Flying\nOther creatures you control get +1/+1.\nAt the beginning of your upkeep, you may return target creature card from your graveyard to your hand.\nPartner (You can have two commanders if both have partner.)",
     ],
     &[],
-    &[],
+    // Runehorn Hellkite
+    &[
+        "Flying\n{5}{R}, Exile this card from your graveyard: Each player discards their hand, then draws seven cards.",
+    ],
     &[],
     &[],
     &[],
@@ -42635,7 +43106,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Trample\nWhenever Tana deals combat damage to a player, create that many 1/1 green Saproling creature tokens.\nPartner (You can have two commanders if both have partner.)",
     ],
     &[],
-    &[],
+    // Treacherous Terrain
+    &[
+        "Treacherous Terrain deals damage to each opponent equal to the number of lands that player controls.\nBasic landcycling {2} ({2}, Discard this card: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.)",
+    ],
     &[],
     &[],
     &[],
@@ -42718,7 +43192,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Improvise (Your artifacts can help cast this spell. Each artifact you tap after you're done activating mana abilities pays for {1}.)\nTarget creature gets -X/-X until end of turn. You gain X life.",
     ],
     &[],
-    &[],
+    // Caught in the Brights
+    &[
+        "Enchant creature\nEnchanted creature can't attack or block.\nWhen a Vehicle you control attacks, exile enchanted creature.",
+    ],
     &[],
     // Cogwork Assembler
     &[
@@ -43928,7 +44405,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Granitic Titan
     &["Menace\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
+    // Graven Abomination
+    &["Whenever this creature attacks, exile target card from defending player's graveyard."],
     &[],
     // Grisly Survivor
     &["Whenever you cycle or discard a card, this creature gets +2/+0 until end of turn."],
@@ -44181,7 +44659,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Zealot of the God-Pharaoh
     &["{4}{R}: This creature deals 2 damage to target opponent or planeswalker."],
     &[],
-    &[],
+    // Arahbo, Roar of the World
+    &[
+        "Eminence — At the beginning of combat on your turn, if Arahbo is in the command zone or on the battlefield, another target Cat you control gets +3/+3 until end of turn.\nWhenever another Cat you control attacks, you may pay {1}{G}{W}. If you do, it gains trample and gets +X/+X until end of turn, where X is its power.",
+    ],
     &[],
     // Bloodforged Battle-Axe
     &[
@@ -44203,8 +44684,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Disrupt Decorum
+    &[
+        "Goad all creatures you don't control. (Until your next turn, those creatures attack each combat if able and attack a player other than you if able.)",
+    ],
+    // Edgar Markov
+    &[
+        "Eminence — Whenever you cast another Vampire spell, if Edgar is in the command zone or on the battlefield, create a 1/1 black Vampire creature token.\nFirst strike, haste\nWhenever Edgar attacks, put a +1/+1 counter on each Vampire you control.",
+    ],
     &[],
     &[],
     // Galecaster Colossus
@@ -44213,12 +44700,18 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Herald's Horn
+    &[
+        "As this artifact enters, choose a creature type.\nCreature spells you cast of the chosen type cost {1} less to cast.\nAt the beginning of your upkeep, look at the top card of your library. If it's a creature card of the chosen type, you may reveal it and put it into your hand.",
+    ],
     // Hungry Lynx
     &[
         "Cats you control have protection from Rats. (They can't be blocked, targeted, or dealt damage by Rats.)\nAt the beginning of your end step, target opponent creates a 1/1 black Rat creature token with deathtouch.\nWhenever a Rat dies, put a +1/+1 counter on each Cat you control.",
     ],
-    &[],
+    // Inalla, Archmage Ritualist
+    &[
+        "Eminence — Whenever another nontoken Wizard you control enters, if Inalla is in the command zone or on the battlefield, you may pay {1}. If you do, create a token that's a copy of that Wizard. The token gains haste. Exile it at the beginning of the next end step.\nTap five untapped Wizards you control: Target player loses 7 life.",
+    ],
     &[],
     // Kess, Dissident Mage
     &[
@@ -44519,7 +45012,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this artifact enters, target opponent loses 1 life and you gain 1 life.\n{T}: Add {C}.",
     ],
-    &[],
+    // Hostage Taker
+    &[
+        "When this creature enters, exile another target creature or artifact until this creature leaves the battlefield. You may cast that card for as long as it remains exiled, and mana of any type can be spent to cast that spell.",
+    ],
     // Huatli's Snubhorn
     &["Vigilance (Attacking doesn't cause this creature to tap.)"],
     &[],
@@ -44978,7 +45474,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.",
     ],
-    &[],
+    // Dead Man's Chest
+    &[
+        "Enchant creature an opponent controls\nWhen enchanted creature dies, exile cards equal to its power from the top of its owner's library. You may cast spells from among those cards for as long as they remain exiled, and mana of any type can be spent to cast them.",
+    ],
     &[],
     // Deadeye Rig-Hauler
     &[
@@ -45027,10 +45526,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Return target instant or sorcery card from your graveyard to your hand. Exile Flood of Recollection.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Forerunner of the Coalition
+    &[
+        "When this creature enters, you may search your library for a Pirate card, reveal it, then shuffle and put that card on top.\nWhenever another Pirate you control enters, each opponent loses 1 life.",
+    ],
+    // Forerunner of the Empire
+    &[
+        "When this creature enters, you may search your library for a Dinosaur card, reveal it, then shuffle and put that card on top.\nWhenever a Dinosaur you control enters, you may have this creature deal 1 damage to each creature.",
+    ],
+    // Forerunner of the Heralds
+    &[
+        "When this creature enters, you may search your library for a Merfolk card, reveal it, then shuffle and put that card on top.\nWhenever another Merfolk you control enters, put a +1/+1 counter on this creature.",
+    ],
+    // Forerunner of the Legion
+    &[
+        "When this creature enters, you may search your library for a Vampire card, reveal it, then shuffle and put that card on top.\nWhenever another Vampire you control enters, target creature gets +1/+1 until end of turn.",
+    ],
     &[],
     // Frilled Deathspitter
     &[
@@ -45092,7 +45603,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["This creature has flying as long as it's attacking."],
     // Knight of the Stampede
     &["Dinosaur spells you cast cost {2} less to cast."],
-    &[],
+    // Kumena's Awakening
+    &[
+        "Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nAt the beginning of your upkeep, each player draws a card. If you have the city's blessing, instead only you draw a card.",
+    ],
     // Kumena, Tyrant of Orazca
     &[
         "Tap another untapped Merfolk you control: Kumena can't be blocked this turn.\nTap three untapped Merfolk you control: Draw a card.\nTap five untapped Merfolk you control: Put a +1/+1 counter on each Merfolk you control.",
@@ -45342,7 +45856,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Arcane Flight
     &["Enchant creature\nEnchanted creature gets +1/+1 and has flying."],
-    &[],
+    // Artificer's Assistant
+    &[
+        "Flying\nWhenever you cast a historic spell, scry 1. (Artifacts, legendaries, and Sagas are historic. To scry 1, look at the top card of your library, then you may put that card on the bottom.)",
+    ],
     // Arvad the Cursed
     &["Deathtouch, lifelink\nOther legendary creatures you control get +2/+2."],
     &[],
@@ -45376,11 +45893,17 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Bloodtallow Candle
     &["{6}, {T}, Sacrifice this artifact: Target creature gets -5/-5 until end of turn."],
-    &[],
+    // Board the Weatherlight
+    &[
+        "Look at the top five cards of your library. You may reveal a historic card from among them and put it into your hand. Put the rest on the bottom of your library in a random order. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     &[],
     // Cabal Evangel
     &[""],
-    &[],
+    // Cabal Paladin
+    &[
+        "Whenever you cast a historic spell, this creature deals 2 damage to each opponent. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     // Cabal Stronghold
     &["{T}: Add {C}.\n{3}, {T}: Add {B} for each basic Swamp you control."],
     // Caligo Skin-Witch
@@ -45407,15 +45930,24 @@ pub static ORACLE: &[&[&str]] = &[
         "Hexproof (This creature can't be the target of spells or abilities your opponents control.)",
     ],
     &[],
-    &[],
-    &[],
+    // Curator's Ward
+    &[
+        "Enchant permanent\nEnchanted permanent has hexproof.\nWhen enchanted permanent leaves the battlefield, if it was historic, draw two cards. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
+    // D'Avenant Trapper
+    &[
+        "Whenever you cast a historic spell, tap target creature an opponent controls. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     &[],
     // Danitha Capashen, Paragon
     &[
         "First strike, vigilance, lifelink\nAura and Equipment spells you cast cost {1} less to cast.",
     ],
     &[],
-    &[],
+    // Daring Archaeologist
+    &[
+        "When this creature enters, you may return target artifact card from your graveyard to your hand.\nWhenever you cast a historic spell, put a +1/+1 counter on this creature. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     &[],
     &[],
     // Deathbloom Thallid
@@ -45426,7 +45958,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Enchant creature\nEnchanted creature gets +1/+1.\nWhen enchanted creature dies, return that card to its owner's hand.",
     ],
     &[],
-    &[],
+    // Diligent Excavator
+    &[
+        "Whenever you cast a historic spell, target player mills two cards. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     &[],
     // Dread Shade
     &["{B}: This creature gets +1/+1 until end of turn."],
@@ -45500,7 +46035,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Guardians of Koilos
+    &[
+        "When this creature enters, you may return another target historic permanent you control to its owner's hand. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     // Hallar, the Firefletcher
     &[
         "Trample\nWhenever you cast a spell, if that spell was kicked, put a +1/+1 counter on Hallar, then Hallar deals damage equal to the number of +1/+1 counters on it to each opponent.",
@@ -45525,8 +46063,14 @@ pub static ORACLE: &[&[&str]] = &[
     &["Destroy target artifact or enchantment. You gain 4 life."],
     &[],
     &[],
-    &[],
-    &[],
+    // Jhoira's Familiar
+    &[
+        "Flying\nHistoric spells you cast cost {1} less to cast. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
+    // Jhoira, Weatherlight Captain
+    &[
+        "Whenever you cast a historic spell, draw a card. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     &[],
     // Josu Vess, Lich Knight
     &[
@@ -45564,7 +46108,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Lingering Phantom
+    &[
+        "Whenever you cast a historic spell, you may pay {B}. If you do, return this card from your graveyard to your hand. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     // Llanowar Envoy
     &["{1}{G}: Add one mana of any color."],
     // Llanowar Scout
@@ -45600,7 +46147,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Mesa Unicorn
     &["Lifelink (Damage dealt by this creature also causes you to gain that much life.)"],
-    &[],
+    // Mishra's Self-Replicator
+    &[
+        "Whenever you cast a historic spell, you may pay {1}. If you do, create a token that's a copy of this creature. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     &[],
     // Muldrotha, the Gravetide
     &[
@@ -45657,7 +46207,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Run Amok
     &["Target attacking creature gets +3/+3 and gains trample until end of turn."],
-    &[],
+    // Sanctum Spirit
+    &[
+        "Lifelink\nDiscard a historic card: This creature gains indestructible until end of turn. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     // Saproling Migration
     &[
         "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nCreate two 1/1 green Saproling creature tokens. If this spell was kicked, create four of those tokens instead.",
@@ -45667,12 +46220,18 @@ pub static ORACLE: &[&[&str]] = &[
         "Flash\nWhen this enchantment enters, exile target tapped creature an opponent controls until this enchantment leaves the battlefield.",
     ],
     &[],
-    &[],
+    // Sentinel of the Pearl Trident
+    &[
+        "Flash\nWhen this creature enters, you may exile target historic permanent you control. If you do, return that card to the battlefield under its owner's control at the beginning of the next end step. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     // Sergeant-at-Arms
     &[
         "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nWhen this creature enters, if it was kicked, create two 1/1 white Soldier creature tokens.",
     ],
-    &[],
+    // Serra Disciple
+    &[
+        "Flying, first strike\nWhenever you cast a historic spell, this creature gets +1/+1 until end of turn. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     &[],
     // Shalai, Voice of Plenty
     &[
@@ -45733,7 +46292,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Temporal Machinations
     &["Return target creature to its owner's hand. If you control an artifact, draw a card."],
     &[],
-    &[],
+    // Teshar, Ancestor's Apostle
+    &[
+        "Flying\nWhenever you cast a historic spell, return target creature card with mana value 3 or less from your graveyard to the battlefield. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     // Tetsuko Umezawa, Fugitive
     &["Creatures you control with power or toughness 1 or less can't be blocked."],
     &[],
@@ -45757,7 +46319,10 @@ pub static ORACLE: &[&[&str]] = &[
         "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — Mill two cards, then you may return a creature card from your graveyard to your hand.\nIII — Return all land cards from your graveyard to the battlefield, then shuffle your graveyard into your library.",
     ],
     &[],
-    &[],
+    // Thran Temporal Gateway
+    &[
+        "{4}, {T}: You may put a historic permanent card from your hand onto the battlefield. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     // Tiana, Ship's Caretaker
     &[
         "Flying, first strike\nWhenever an Aura or Equipment you control is put into a graveyard from the battlefield, you may return that card to its owner's hand at the beginning of the next end step.",
@@ -45769,7 +46334,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Tolarian Scholar
     &[""],
     &[],
-    &[],
+    // Traxos, Scourge of Kroog
+    &[
+        "Trample\nTraxos enters tapped and doesn't untap during your untap step.\nWhenever you cast a historic spell, untap Traxos. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     &[],
     &[],
     // Untamed Kavu
@@ -45779,7 +46347,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Urza's Tome
+    &[
+        "{3}, {T}: Draw a card. Then discard a card unless you exile a historic card from your graveyard. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
     // Valduk, Keeper of the Flame
     &[
         "At the beginning of combat on your turn, for each Aura and Equipment attached to Valduk, create a 3/1 red Elemental creature token with trample and haste. Exile those tokens at the beginning of the next end step.",
@@ -45799,7 +46370,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Warlord's Fury
     &["Creatures you control gain first strike until end of turn.\nDraw a card."],
-    &[],
+    // Weatherlight
+    &[
+        "Flying\nWhenever Weatherlight deals combat damage to a player, look at the top five cards of your library. You may reveal a historic card from among them and put it into your hand. Put the rest on the bottom of your library in a random order. (Artifacts, legendaries, and Sagas are historic.)\nCrew 3",
+    ],
     // Weight of Memory
     &["Draw three cards. Target player mills three cards."],
     // Whisper, Blood Liturgist
@@ -45960,7 +46534,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Virtus the Veiled
+    &[
+        "Partner with Gorm the Great (When this creature enters, target player may put Gorm into their hand from their library, then shuffle.)\nDeathtouch\nWhenever Virtus deals combat damage to a player, that player loses half their life, rounded up.",
+    ],
     &[],
     &[],
     &[],
@@ -46157,7 +46734,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Dryad Greenseeker
+    &[
+        "{T}: Look at the top card of your library. If it's a land card, you may reveal it and put it into your hand.",
+    ],
     // Dwarven Priest
     &["When this creature enters, you gain 1 life for each creature you control."],
     &[],
@@ -46629,7 +47209,10 @@ pub static ORACLE: &[&[&str]] = &[
         "When this creature dies, if you control a Vraska planeswalker, you gain life equal to this creature's power.",
     ],
     &[],
-    &[],
+    // Barging Sergeant
+    &[
+        "Haste\nMentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)",
+    ],
     // Barrier of Bones
     &[
         "Defender\nWhen this creature enters, surveil 1. (Look at the top card of your library. You may put that card into your graveyard.)",
@@ -46640,10 +47223,16 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Beast Whisperer
     &["Whenever you cast a creature spell, draw a card."],
+    // Blade Instructor
+    &[
+        "Mentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)",
+    ],
     &[],
     &[],
-    &[],
-    &[],
+    // Boros Challenger
+    &[
+        "Mentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)\n{2}{R}{W}: This creature gets +1/+1 until end of turn.",
+    ],
     // Boros Locket
     &["{T}: Add {R} or {W}.\n{R/W}{R/W}{R/W}{R/W}, {T}, Sacrifice this artifact: Draw two cards."],
     // Bounty Agent
@@ -46825,7 +47414,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Equipped creature gets +1/+0 for each Gate you control and has vigilance and menace. (A creature with menace can't be blocked except by two or more creatures.)\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
     ],
     &[],
-    &[],
+    // Goblin Banneret
+    &[
+        "Mentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)\n{1}{R}: This creature gets +2/+0 until end of turn.",
+    ],
     // Goblin Cratermaker
     &[
         "{1}, Sacrifice this creature: Choose one —\n• This creature deals 2 damage to target creature.\n• Destroy target colorless nonland permanent.",
@@ -46852,7 +47444,10 @@ pub static ORACLE: &[&[&str]] = &[
         "{T}: Add {C}.\n{1}, {T}: Add one mana of any color. If that mana is spent on a multicolored creature spell, that creature enters with an additional +1/+1 counter on it.",
     ],
     &[],
-    &[],
+    // Hammer Dropper
+    &[
+        "Mentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)",
+    ],
     &[],
     // Healer's Hawk
     &["Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)"],
@@ -46943,7 +47538,10 @@ pub static ORACLE: &[&[&str]] = &[
         "{5}{R}, {T}: This creature deals 3 damage to each opponent.\n{2}{W}, {T}: Tap another target creature.",
     ],
     &[],
-    &[],
+    // Light of the Legion
+    &[
+        "Flying\nMentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)\nWhen this creature dies, put a +1/+1 counter on each white creature you control.",
+    ],
     // Lotleth Giant
     &[
         "Undergrowth — When this creature enters, it deals 1 damage to target opponent for each creature card in your graveyard.",
@@ -47022,7 +47620,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nTarget creature gets +3/+3 until end of turn.",
     ],
-    &[],
+    // Parhelion Patrol
+    &[
+        "Flying\nVigilance (Attacking doesn't cause this creature to tap.)\nMentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)",
+    ],
     // Passwall Adept
     &["{2}{U}: Target creature can't be blocked this turn."],
     // Pause for Reflection
@@ -47081,7 +47682,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Rubblebelt Boar
     &["When this creature enters, target creature gets +2/+0 until end of turn."],
-    &[],
+    // Runaway Steam-Kin
+    &[
+        "Whenever you cast a red spell, if this creature has fewer than three +1/+1 counters on it, put a +1/+1 counter on this creature.\nRemove three +1/+1 counters from this creature: Add {R}{R}{R}.",
+    ],
     &[],
     // Selesnya Locket
     &["{T}: Add {G} or {W}.\n{G/W}{G/W}{G/W}{G/W}, {T}, Sacrifice this artifact: Draw two cards."],
@@ -47124,7 +47728,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, look at the top four cards of your library. You may reveal a creature or enchantment card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
     ],
-    &[],
+    // Sunhome Stalwart
+    &[
+        "First strike (This creature deals combat damage before creatures without first strike.)\nMentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)",
+    ],
     // Swarm Guildmage
     &[
         "{4}{B}, {T}: Creatures you control get +1/+0 and gain menace until end of turn. (They can't be blocked except by two or more creatures.)\n{1}{G}, {T}: You gain 2 life.",
@@ -47156,7 +47763,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Torch Courier
     &["Haste\nSacrifice this creature: Another target creature gains haste until end of turn."],
     &[],
-    &[],
+    // Truefire Captain
+    &[
+        "Mentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)\nWhenever this creature is dealt damage, it deals that much damage to target player.",
+    ],
     // Undercity Necrolisk
     &[
         "{1}, Sacrifice another creature: Put a +1/+1 counter on this creature. It gains menace until end of turn. Activate only as a sorcery. (It can't be blocked except by two or more creatures.)",
@@ -47531,7 +48141,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[""],
     // Prying Eyes
     &["Draw four cards, then discard two cards."],
-    &[],
+    // Pteramander
+    &[
+        "Flying\n{7}{U}: Adapt 4. This ability costs {1} less to activate for each instant and sorcery card in your graveyard. (If this creature has no +1/+1 counters on it, put four +1/+1 counters on it.)",
+    ],
     // Quench
     &["Counter target spell unless its controller pays {2}."],
     &[],
@@ -47645,14 +48258,20 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
     ],
-    &[],
+    // Spawn of Mayhem
+    &[
+        "Spectacle {1}{B}{B} (You may cast this spell for its spectacle cost rather than its mana cost if an opponent lost life this turn.)\nFlying, trample\nAt the beginning of your upkeep, this creature deals 1 damage to each player. Then if you have 10 or less life, put a +1/+1 counter on this creature.",
+    ],
     // Spear Spewer
     &["Defender\n{T}: This creature deals 1 damage to each player."],
     &[],
     &[],
     &[],
     &[],
-    &[],
+    // Spikewheel Acrobat
+    &[
+        "Spectacle {2}{R} (You may cast this spell for its spectacle cost rather than its mana cost if an opponent lost life this turn.)",
+    ],
     // Spire Mangler
     &[
         "Flash\nFlying\nWhen this creature enters, target creature you control with flying gets +2/+0 until end of turn.",
@@ -47661,15 +48280,22 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying\nOther creatures you control with flying get +0/+1."],
     // Steeple Creeper
     &["{3}{U}: This creature gains flying until end of turn."],
-    &[],
+    // Stony Strength
+    &["Put a +1/+1 counter on target creature you control. Untap that creature."],
     // Storm Strike
     &["Target creature gets +1/+0 and gains first strike until end of turn. Scry 1."],
     &[],
     &[],
-    &[],
+    // Swirling Torrent
+    &[
+        "Choose one or both —\n• Put target creature on top of its owner's library.\n• Return target creature to its owner's hand.",
+    ],
     // Sylvan Brushstrider
     &["When this creature enters, you gain 2 life."],
-    &[],
+    // Syndicate Guildmage
+    &[
+        "{1}{W}, {T}: Tap target creature with power 4 or greater.\n{4}{B}, {T}: This creature deals 2 damage to target opponent or planeswalker.",
+    ],
     &[],
     // Tenth District Veteran
     &["Vigilance\nWhenever this creature attacks, untap another target creature you control."],
@@ -47682,18 +48308,33 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Thirsting Shade
     &["Lifelink\n{2}{B}: This creature gets +1/+1 until end of turn."],
+    // Thought Collapse
+    &["Counter target spell. Its controller mills three cards."],
+    // Thrash
+    &[
+        "Target creature you control deals damage equal to its power to target creature or planeswalker you don't control.",
+        "Create a 4/4 red and green Beast creature token with trample.",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Tome of the Guildpact
+    &["Whenever you cast a multicolored spell, draw a card.\n{T}: Add one mana of any color."],
+    // Trollbred Guardian
+    &[
+        "{2}{G}: Adapt 2. (If this creature has no +1/+1 counters on it, put two +1/+1 counters on it.)\nEach creature you control with a +1/+1 counter on it has trample.",
+    ],
     // Twilight Panther
     &["{B}: This creature gains deathtouch until end of turn."],
     &[],
-    &[],
-    &[],
+    // Undercity Scavenger
+    &[
+        "When this creature enters, you may sacrifice another creature. If you do, put two +1/+1 counters on this creature, then scry 2.",
+    ],
+    // Undercity's Embrace
+    &[
+        "Target opponent sacrifices a creature of their choice. If you control a creature with power 4 or greater, you gain 4 life.",
+    ],
     &[],
     // Vindictive Vampire
     &[
@@ -47705,24 +48346,44 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Defender (This creature can't attack.)\nWhen this creature enters, target player mills four cards. (They put the top four cards of their library into their graveyard.)",
     ],
-    &[],
+    // Warrant
+    &[
+        "Put target attacking or blocking creature on top of its owner's library.",
+        "Create a 4/4 white and blue Sphinx creature token with flying and vigilance.",
+    ],
     // Watchful Giant
     &["When this creature enters, create a 1/1 white Human creature token."],
-    &[],
+    // Wilderness Reclamation
+    &["At the beginning of your end step, untap all lands you control."],
     // Windstorm Drake
     &["Flying\nOther creatures you control with flying get +1/+0."],
     &[],
     &[],
     &[],
-    &[],
+    // Liliana's Triumph
+    &[
+        "Each opponent sacrifices a creature of their choice. If you control a Liliana planeswalker, each opponent also discards a card.",
+    ],
     // Time Wipe
     &["Return a creature you control to its owner's hand, then destroy all creatures."],
+    // Ahn-Crop Invader
+    &[
+        "During your turn, this creature has first strike.\n{1}, Sacrifice another creature: This creature gets +2/+0 until end of turn.",
+    ],
+    // Aid the Fallen
+    &[
+        "Choose one or both —\n• Return target creature card from your graveyard to your hand.\n• Return target planeswalker card from your graveyard to your hand.",
+    ],
     &[],
+    // Angrath's Rampage
+    &[
+        "Choose one —\n• Target player sacrifices an artifact of their choice.\n• Target player sacrifices a creature of their choice.\n• Target player sacrifices a planeswalker of their choice.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Arboreal Grazer
+    &[
+        "Reach\nWhen this creature enters, you may put a land card from your hand onto the battlefield tapped.",
+    ],
     // Arlinn's Wolf
     &["This creature can't be blocked by creatures with power 2 or less."],
     &[],
@@ -47732,7 +48393,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Spells and abilities your opponents control can't cause their controller to search their library.\n−1: Target player mills four cards. Then exile each opponent's graveyard.",
     ],
-    &[],
+    // Aven Eternal
+    &[
+        "Flying\nWhen this creature enters, amass Zombies 1. (Put a +1/+1 counter on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
     &[],
     &[],
     // Banehound
@@ -47746,27 +48410,46 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters with a charge counter on it.\n{T}: Add {C}.\n{X}{X}, {T}: Put X charge counters on this land.\n{3}, {T}, Sacrifice this land: Destroy each nonland permanent with mana value equal to the number of charge counters on this land.",
     ],
+    // Bleeding Edge
+    &[
+        "Up to one target creature gets -2/-2 until end of turn. Amass Zombies 2. (Put two +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
+    // Blindblast
+    &[
+        "Blindblast deals 1 damage to target creature. That creature can't block this turn.\nDraw a card.",
+    ],
+    // Bloom Hulk
+    &[
+        "When this creature enters, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    ],
+    &[],
+    &[],
+    // Bond of Discipline
+    &[
+        "Tap all creatures your opponents control. Creatures you control gain lifelink until end of turn.",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Bond of Revival
+    &[
+        "Return target creature card from your graveyard to the battlefield. It gains haste until your next turn.",
+    ],
     // Bulwark Giant
     &["When this creature enters, you gain 5 life."],
     // Burning Prophet
     &[
         "Whenever you cast a noncreature spell, this creature gets +1/+0 until end of turn, then scry 1.",
     ],
-    &[],
+    // Callous Dismissal
+    &[
+        "Return target nonland permanent to its owner's hand.\nAmass Zombies 1. (Put a +1/+1 counter on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
     &[],
     // Centaur Nurturer
     &["When this creature enters, you gain 3 life.\n{T}: Add one mana of any color."],
-    &[],
+    // Chainwhip Cyclops
+    &["{3}{R}: Target creature can't block this turn."],
     &[],
     &[],
     &[],
@@ -47774,19 +48457,34 @@ pub static ORACLE: &[&[&str]] = &[
     &["Lifelink"],
     &[],
     &[],
-    &[],
-    &[],
+    // Commence the Endgame
+    &[
+        "This spell can't be countered.\nDraw two cards, then amass Zombies X, where X is the number of cards in your hand. (Put X +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
+    // Contentious Plan
+    &[
+        "Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)\nDraw a card.",
+    ],
     &[],
     // Cruel Celebrant
     &[
         "Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life.",
     ],
-    &[],
-    &[],
+    // Crush Dissent
+    &[
+        "Counter target spell unless its controller pays {2}.\nAmass Zombies 2. (Put two +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
+    // Cyclops Electromancer
+    &[
+        "When this creature enters, it deals X damage to target creature an opponent controls, where X is the number of instant and sorcery cards in your graveyard.",
+    ],
     // Davriel's Shadowfugue
     &["Target player discards two cards and loses 2 life."],
     &[],
-    &[],
+    // Deathsprout
+    &[
+        "Destroy target creature. Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+    ],
     &[],
     // Despark
     &["Exile target permanent with mana value 4 or greater."],
@@ -47795,15 +48493,31 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Divine Arrow
     &["Divine Arrow deals 4 damage to target attacking or blocking creature."],
+    // Domri's Ambush
+    &[
+        "Put a +1/+1 counter on target creature you control. Then that creature deals damage equal to its power to target creature or planeswalker you don't control.",
+    ],
+    &[],
+    // Dovin's Veto
+    &["This spell can't be countered.\nCounter target noncreature spell."],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dreadhorde Butcher
+    &[
+        "Haste\nWhenever this creature deals combat damage to a player or planeswalker, put a +1/+1 counter on this creature.\nWhen this creature dies, it deals damage equal to its power to any target.",
+    ],
+    // Dreadhorde Invasion
+    &[
+        "At the beginning of your upkeep, you lose 1 life and amass Zombies 1. (Put a +1/+1 counter on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)\nWhenever a Zombie token you control with power 6 or greater attacks, it gains lifelink until end of turn.",
+    ],
+    // Dreadhorde Twins
+    &[
+        "When this creature enters, amass Zombies 2. (Put two +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)\nZombie tokens you control have trample.",
+    ],
+    // Dreadmalkin
+    &[
+        "Menace (This creature can't be blocked except by two or more creatures.)\n{2}{B}, Sacrifice another creature or planeswalker: Put two +1/+1 counters on this creature.",
+    ],
     // Duskmantle Operative
     &["This creature can't be blocked by creatures with power 4 or greater."],
     // Elite Guardmage
@@ -47817,9 +48531,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Erratic Visionary
     &["{1}{U}, {T}: Draw a card, then discard a card."],
-    &[],
-    &[],
-    &[],
+    // Eternal Skylord
+    &[
+        "When this creature enters, amass Zombies 2. (Put two +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)\nZombie tokens you control have flying.",
+    ],
+    // Eternal Taskmaster
+    &[
+        "This creature enters tapped.\nWhenever this creature attacks, you may pay {2}{B}. If you do, return target creature card from your graveyard to your hand.",
+    ],
+    // Evolution Sage
+    &[
+        "Landfall — Whenever a land you control enters, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    ],
     &[],
     &[],
     // Finale of Devastation
@@ -47827,19 +48550,32 @@ pub static ORACLE: &[&[&str]] = &[
         "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get +X/+X and gain haste until end of turn.",
     ],
     &[],
+    // Finale of Glory
+    &[
+        "Create X 2/2 white Soldier creature tokens with vigilance. If X is 10 or more, also create X 4/4 white Angel creature tokens with flying and vigilance.",
+    ],
     &[],
     &[],
     &[],
+    // Flux Channeler
+    &[
+        "Whenever you cast a noncreature spell, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    ],
+    // Forced Landing
+    &["Put target creature with flying on the bottom of its owner's library."],
+    &[],
+    &[],
+    // Gideon's Company
+    &[
+        "Whenever you gain life, put two +1/+1 counters on this creature.\n{3}{W}: Put a loyalty counter on target Gideon planeswalker.",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Gleaming Overseer
+    &[
+        "When this creature enters, amass Zombies 1. (Put a +1/+1 counter on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)\nZombie tokens you control have hexproof and menace.",
+    ],
     // Goblin Assailant
     &[""],
     // Goblin Assault Team
@@ -47849,31 +48585,64 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Grateful Apparition
+    &[
+        "Flying\nWhenever this creature deals combat damage to a player or planeswalker, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    ],
+    // Grim Initiate
+    &[
+        "First strike\nWhen this creature dies, amass Zombies 1. (Put a +1/+1 counter on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
     &[],
+    // Guildpact Informant
+    &[
+        "Flying\nWhenever this creature deals combat damage to a player or planeswalker, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    ],
+    // Heartfire
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature or planeswalker.\nHeartfire deals 4 damage to any target.",
+    ],
     &[],
+    // Herald of the Dreadhorde
+    &[
+        "When this creature dies, amass Zombies 2. (Put two +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
+    // Honor the God-Pharaoh
+    &[
+        "As an additional cost to cast this spell, discard a card.\nDraw two cards. Amass Zombies 1. (Put a +1/+1 counter on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
+    // Huatli's Raptor
+    &[
+        "Vigilance\nWhen this creature enters, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ignite the Beacon
+    &[
+        "Search your library for up to two planeswalker cards, reveal them, put them into your hand, then shuffle.",
+    ],
     &[],
     // Interplanar Beacon
     &[
         "Whenever you cast a planeswalker spell, you gain 1 life.\n{T}: Add {C}.\n{1}, {T}: Add two mana of different colors. Spend this mana only to cast planeswalker spells.",
     ],
-    &[],
-    &[],
+    // Invade the City
+    &[
+        "Amass Zombies X, where X is the number of instant and sorcery cards in your graveyard. (Put X +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
+    // Invading Manticore
+    &[
+        "When this creature enters, amass Zombies 2. (Put two +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
     // Iron Bully
     &[
         "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature enters, put a +1/+1 counter on target creature.",
     ],
     // Ironclad Krovod
     &[""],
-    &[],
+    // Jace's Projection
+    &[
+        "Whenever you draw a card, put a +1/+1 counter on this creature.\n{3}{U}: Put a loyalty counter on target Jace planeswalker.",
+    ],
     &[],
     &[],
     &[],
@@ -47890,15 +48659,24 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Activated abilities of artifacts your opponents control can't be activated.\n+1: Until your next turn, up to one target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value.\n−2: You may reveal an artifact card you own from outside the game or choose a face-up artifact card you own in exile. Put that card into your hand.",
     ],
+    // Kasmina's Transmutation
+    &[
+        "Enchant creature\nEnchanted creature loses all abilities and has base power and toughness 1/1.",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Kiora's Dambreaker
+    &[
+        "When this creature enters, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    ],
     &[],
     // Kraul Stinger
     &["Deathtouch"],
-    &[],
+    // Krenko, Tin Street Kingpin
+    &[
+        "Whenever Krenko attacks, put a +1/+1 counter on it, then create a number of 1/1 red Goblin creature tokens equal to Krenko's power.",
+    ],
     // Kronch Wrangler
     &[
         "Trample\nWhenever a creature you control with power 4 or greater enters, put a +1/+1 counter on this creature.",
@@ -47908,20 +48686,35 @@ pub static ORACLE: &[&[&str]] = &[
     // Lazotep Behemoth
     &[""],
     &[],
-    &[],
+    // Lazotep Reaver
+    &[
+        "When this creature enters, amass Zombies 1. (Put a +1/+1 counter on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
     // Leyline Prowler
     &["Deathtouch, lifelink\n{T}: Add one mana of any color."],
     &[],
     &[],
-    &[],
+    // Loxodon Sergeant
+    &[
+        "Vigilance\nWhen this creature enters, other creatures you control gain vigilance until end of turn.",
+    ],
     &[],
     // Mana Geode
     &["When this artifact enters, scry 1.\n{T}: Add one mana of any color."],
+    // Martyr for the Cause
+    &[
+        "When this creature dies, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Merfolk Skydiver
+    &[
+        "Flying\nWhen this creature enters, put a +1/+1 counter on target creature you control.\n{3}{G}{U}: Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    ],
+    // Mizzium Tank
+    &[
+        "Trample\nWhenever you cast a noncreature spell, this Vehicle becomes an artifact creature and gets +1/+1 until end of turn.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+    ],
     // Mobilized District
     &[
         "{T}: Add {C}.\n{4}: This land becomes a 3/3 Citizen creature with vigilance until end of turn. It's still a land. This ability costs {1} less to activate for each legendary creature and planeswalker you control.",
@@ -47929,7 +48722,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Naga Eternal
     &[""],
-    &[],
+    // Nahiri's Stoneblades
+    &["Up to two target creatures each get +2/+0 until end of turn."],
     &[],
     &[],
     &[],
@@ -47939,10 +48733,16 @@ pub static ORACLE: &[&[&str]] = &[
         "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a creature card with mana value equal to 1 plus the sacrificed creature's mana value, put that card onto the battlefield with an additional +1/+1 counter on it, then shuffle.",
     ],
     &[],
+    // Nissa's Triumph
+    &[
+        "Search your library for up to two basic Forest cards. If you control a Nissa planeswalker, instead search your library for up to three land cards. Reveal those cards, put them into your hand, then shuffle.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
+    // No Escape
+    &[
+        "Counter target creature or planeswalker spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.\nScry 1.",
+    ],
     &[],
     // Ob Nixilis's Cruelty
     &[
@@ -47955,26 +48755,49 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Pledge of Unity
+    &[
+        "Put a +1/+1 counter on each creature you control. You gain 1 life for each creature you control.",
+    ],
+    // Pollenbright Druid
+    &[
+        "When this creature enters, choose one —\n• Put a +1/+1 counter on target creature.\n• Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+    ],
+    // Pouncing Lynx
+    &["During your turn, this creature has first strike."],
     &[],
     // Prismite
     &["{2}: Add one mana of any color."],
+    // Prison Realm
+    &[
+        "When this enchantment enters, exile target creature or planeswalker an opponent controls until this enchantment leaves the battlefield.\nWhen this enchantment enters, scry 1.",
+    ],
     &[],
     &[],
     &[],
+    // Rally of Wings
+    &[
+        "Untap all creatures you control. Creatures you control with flying get +2/+2 until end of turn.",
+    ],
+    // Ravnica at War
+    &["Exile all multicolored permanents."],
+    // Relentless Advance
+    &[
+        "Amass Zombies 3. (Put three +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Return to Nature
+    &[
+        "Choose one —\n• Destroy target artifact.\n• Destroy target enchantment.\n• Exile target card from a graveyard.",
+    ],
     // Rising Populace
     &[
         "Whenever another creature or planeswalker you control dies, put a +1/+1 counter on this creature.",
     ],
-    &[],
+    // Roalesk, Apex Hybrid
+    &[
+        "Flying, trample\nWhen Roalesk enters, put two +1/+1 counters on another target creature you control.\nWhen Roalesk dies, proliferate, then proliferate again. (Choose any number of permanents and/or players, then give each another counter of each kind already there. Then do it again.)",
+    ],
     &[],
     &[],
     // Saheeli's Silverwing
@@ -47984,10 +48807,14 @@ pub static ORACLE: &[&[&str]] = &[
     &["Target creature gets +2/+1 and gains haste until end of turn. Scry 1."],
     &[],
     &[],
-    &[],
+    // Sarkhan's Catharsis
+    &["Sarkhan's Catharsis deals 5 damage to target player or planeswalker."],
     // Shriekdiver
     &["Flying\n{1}: This creature gains haste until end of turn."],
-    &[],
+    // Silent Submersible
+    &[
+        "Whenever this Vehicle deals combat damage to a player or planeswalker, draw a card.\nCrew 2 (Tap any number of creatures you control with total power 2 or more: This Vehicle becomes an artifact creature until end of turn.)",
+    ],
     &[],
     // Sky Theater Strix
     &["Flying\nWhenever you cast a noncreature spell, this creature gets +1/+0 until end of turn."],
@@ -48000,7 +48827,8 @@ pub static ORACLE: &[&[&str]] = &[
         "You may have this creature enter as a copy of a creature or planeswalker you control, except it enters with an additional +1/+1 counter on it if it's a creature, it enters with an additional loyalty counter on it if it's a planeswalker, and it isn't legendary.",
     ],
     &[],
-    &[],
+    // Spark Reaper
+    &["{3}, Sacrifice a creature or planeswalker: You gain 1 life and draw a card."],
     // Spellgorger Weird
     &["Whenever you cast a noncreature spell, put a +1/+1 counter on this creature."],
     // Spellkeeper Weird
@@ -48032,8 +48860,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Thunder Drake
+    &[
+        "Flying\nWhenever you cast your second spell each turn, put a +1/+1 counter on this creature.",
+    ],
+    // Thundering Ceratok
+    &[
+        "Trample\nWhen this creature enters, other creatures you control gain trample until end of turn.",
+    ],
     // Tibalt's Rager
     &[
         "When this creature dies, it deals 1 damage to any target.\n{1}{R}: This creature gets +2/+0 until end of turn.",
@@ -48041,7 +48875,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Tithebearer Giant
     &["When this creature enters, you draw a card and you lose 1 life."],
-    &[],
+    // Toll of the Invasion
+    &[
+        "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.\nAmass Zombies 1. (Put a +1/+1 counter on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)",
+    ],
     &[],
     &[],
     &[],
@@ -48063,28 +48900,47 @@ pub static ORACLE: &[&[&str]] = &[
     // Vampire Opportunist
     &["{6}{B}: Each opponent loses 2 life and you gain 2 life."],
     &[],
-    &[],
+    // Vivien's Grizzly
+    &[
+        "{3}{G}: Look at the top card of your library. If it's a creature or planeswalker card, you may reveal it and put it into your hand. If you don't put the card into your hand, put it on the bottom of your library.",
+    ],
     // Vivien, Champion of the Wilds
     &[
         "You may cast creature spells as though they had flash.\n+1: Until your next turn, up to one target creature gains reach and vigilance.\n−2: Look at the top three cards of your library. Exile one face down and put the rest on the bottom of your library in any order. For as long as it remains exiled, you may cast it if it's a creature spell.",
     ],
-    &[],
-    &[],
+    // Vizier of the Scorpion
+    &[
+        "When this creature enters, amass Zombies 1. (Put a +1/+1 counter on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)\nZombie tokens you control have deathtouch.",
+    ],
+    // Vraska's Finisher
+    &[
+        "When this creature enters, destroy target creature or planeswalker an opponent controls that was dealt damage this turn.",
+    ],
     &[],
     // Wall of Runes
     &[
         "Defender (This creature can't attack.)\nWhen this creature enters, scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
     ],
     &[],
-    &[],
+    // War Screecher
+    &["Flying\n{5}{W}, {T}: Other creatures you control get +1/+1 until end of turn."],
     // Wardscale Crocodile
     &[
         "Hexproof (This creature can't be the target of spells or abilities your opponents control.)",
     ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Abominable Treefolk
+    &[
+        "Trample\nAbominable Treefolk's power and toughness are each equal to the number of snow permanents you control.\nWhen this creature enters, tap target creature an opponent controls. That creature doesn't untap during its controller's next untap step.",
+    ],
+    // Alpine Guide
+    &[
+        "When this creature enters, you may search your library for a Mountain card, put that card onto the battlefield tapped, then shuffle.\nThis creature attacks each combat if able.\nWhen this creature leaves the battlefield, sacrifice a Mountain.",
+    ],
+    // Amorphous Axe
+    &[
+        "Equipped creature gets +3/+0 and is every creature type.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     &[],
     // Archmage's Charm
     &[
@@ -48094,8 +48950,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "({S} can be paid with one mana from a snow source.)\nWhen this artifact enters, draw a card.\n{1}, {T}: Add one mana of any color.",
     ],
-    &[],
-    &[],
+    // Aria of Flame
+    &[
+        "When this enchantment enters, each opponent gains 10 life.\nWhenever you cast an instant or sorcery spell, put a verse counter on this enchantment, then it deals damage equal to the number of verse counters on it to target player or planeswalker.",
+    ],
+    // Astral Drift
+    &[
+        "Whenever you cycle this card or cycle another card while this enchantment is on the battlefield, you may exile target creature. If you do, return that card to the battlefield under its owner's control at the beginning of the next end step.\nCycling {2}{W} ({2}{W}, Discard this card: Draw a card.)",
+    ],
     // Ayula's Influence
     &["Discard a land card: Create a 2/2 green Bear creature token."],
     &[],
@@ -48107,15 +48969,24 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{4}, {T}: Create a 2/2 colorless Shapeshifter creature token with changeling. (It is every creature type.)",
     ],
+    // Bladeback Sliver
+    &[
+        "Hellbent — As long as you have no cards in hand, Sliver creatures you control have \"{T}: This creature deals 1 damage to target player or planeswalker.\"",
+    ],
     &[],
-    &[],
-    &[],
+    // Bogardan Dragonheart
+    &[
+        "Sacrifice another creature: Until end of turn, this creature becomes a Dragon with base power and toughness 4/4, flying, and haste.",
+    ],
     &[],
     // Cave of Temptation
     &[
         "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{4}, {T}, Sacrifice this land: Put two +1/+1 counters on target creature. Activate only as a sorcery.",
     ],
-    &[],
+    // Changeling Outcast
+    &[
+        "Changeling (This card is every creature type.)\nThis creature can't block and can't be blocked.",
+    ],
     &[],
     // Cleaving Sliver
     &["Sliver creatures you control get +2/+0."],
@@ -48128,24 +48999,49 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Trample\n{3}{G}: This creature gets +X/+X until end of turn, where X is the number of snow permanents you control.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cordial Vampire
+    &[
+        "Whenever this creature or another creature dies, put a +1/+1 counter on each Vampire you control.",
+    ],
+    // Crashing Footfalls
+    &[
+        "Suspend 4—{G} (Rather than cast this card from your hand, pay {G} and exile it with four time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\nCreate two 4/4 green Rhino creature tokens with trample.",
+    ],
+    // Cunning Evasion
+    &["Whenever a creature you control becomes blocked, you may return it to its owner's hand."],
+    // Dead of Winter
+    &[
+        "All nonsnow creatures get -X/-X until end of turn, where X is the number of snow permanents you control.",
+    ],
+    // Deep Forest Hermit
+    &[
+        "Vanishing 3 (This creature enters with three time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)\nWhen this creature enters, create four 1/1 green Squirrel creature tokens.\nSquirrels you control get +1/+1.",
+    ],
     // Defile
     &["Target creature gets -1/-1 until end of turn for each Swamp you control."],
     &[],
-    &[],
-    &[],
+    // Echo of Eons
+    &[
+        "Each player shuffles their hand and graveyard into their library, then draws seven cards.\nFlashback {2}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Endling
+    &[
+        "{B}: This creature gains menace until end of turn.\n{B}: This creature gains deathtouch until end of turn.\n{B}: This creature gains undying until end of turn. (When this creature dies, if it had no +1/+1 counters on it, return it to the battlefield under its owner's control with a +1/+1 counter on it.)\n{1}: This creature gets +1/-1 or -1/+1 until end of turn.",
+    ],
     &[],
     // Ephemerate
     &[
         "Exile target creature you control, then return it to the battlefield under its owner's control.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
     ],
+    // Etchings of the Chosen
+    &[
+        "As this enchantment enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\n{1}, Sacrifice a creature of the chosen type: Target creature you control gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+    ],
     &[],
-    &[],
-    &[],
+    // Excavating Anurid
+    &[
+        "When this creature enters, you may sacrifice a land. If you do, draw a card.\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has vigilance.",
+    ],
     &[],
     &[],
     // Faerie Seer
@@ -48161,9 +49057,15 @@ pub static ORACLE: &[&[&str]] = &[
     // Fiery Islet
     &["{T}, Pay 1 life: Add {U} or {R}.\n{1}, {T}, Sacrifice this land: Draw a card."],
     &[],
+    // First-Sphere Gargantua
+    &[
+        "When this creature enters, you draw a card and you lose 1 life.\nUnearth {2}{B} ({2}{B}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+    ],
     &[],
-    &[],
-    &[],
+    // Force of Despair
+    &[
+        "If it's not your turn, you may exile a black card from your hand rather than pay this spell's mana cost.\nDestroy all creatures that entered this turn.",
+    ],
     // Force of Negation
     &[
         "If it's not your turn, you may exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target noncreature spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
@@ -48173,7 +49075,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "If it's not your turn, you may exile a green card from your hand rather than pay this spell's mana cost.\nDestroy up to two target artifacts and/or enchantments.",
     ],
-    &[],
+    // Force of Virtue
+    &[
+        "If it's not your turn, you may exile a white card from your hand rather than pay this spell's mana cost.\nFlash\nCreatures you control get +1/+1.",
+    ],
     // Fountain of Ichor
     &[
         "{T}: Add one mana of any color.\n{3}: This artifact becomes a 3/3 Dinosaur artifact creature until end of turn.",
@@ -48183,21 +49088,29 @@ pub static ORACLE: &[&[&str]] = &[
         "{T}: Add {C}.\n{1}{S}: Until end of turn, this land becomes a 2/3 Construct artifact creature. It's still a land. ({S} can be paid with one mana from a snow source.)\nWhenever this land deals combat damage to a creature, tap that creature and it doesn't untap during its controller's next untap step.",
     ],
     &[],
+    // Generous Gift
+    &["Destroy target permanent. Its controller creates a 3/3 green Elephant creature token."],
     &[],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Goblin Champion
+    &[
+        "Haste\nExalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)",
+    ],
     // Goblin Engineer
     &[
         "When this creature enters, you may search your library for an artifact card, put it into your graveyard, then shuffle.\n{R}, {T}, Sacrifice an artifact: Return target artifact card with mana value 3 or less from your graveyard to the battlefield.",
     ],
     // Goblin Oriflamme
     &["Attacking creatures you control get +1/+0."],
-    &[],
-    &[],
+    // Goblin War Party
+    &[
+        "Choose one —\n• Create three 1/1 red Goblin creature tokens.\n• Creatures you control get +1/+1 and gain haste until end of turn.\nEntwine {2}{R} (Choose both if you pay the entwine cost.)",
+    ],
+    // Good-Fortune Unicorn
+    &["Whenever another creature you control enters, put a +1/+1 counter on that creature."],
     // Graveshifter
     &[
         "Changeling (This card is every creature type.)\nWhen this creature enters, you may return target creature card from your graveyard to your hand.",
@@ -48221,7 +49134,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Icehide Golem
     &["({S} can be paid with one mana from a snow source.)"],
-    &[],
+    // Igneous Elemental
+    &[
+        "This spell costs {2} less to cast if there is a land card in your graveyard.\nWhen this creature enters, you may have it deal 2 damage to target creature.",
+    ],
     // Impostor of the Sixth Pride
     &["Changeling (This card is every creature type.)"],
     &[],
@@ -48229,28 +49145,58 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Changeling (This card is every creature type.)\nWhen this creature enters, create a 2/2 colorless Shapeshifter creature token with changeling.",
     ],
-    &[],
+    // Kaya's Guile
+    &[
+        "Choose two —\n• Each opponent sacrifices a creature of their choice.\n• Exile all opponents' graveyards.\n• Create a 1/1 white and black Spirit creature token with flying.\n• You gain 4 life.\nEntwine {3} (Choose all if you pay the entwine cost.)",
+    ],
     // King of the Pride
     &["Other Cats you control get +2/+1."],
-    &[],
+    // Knight of Old Benalia
+    &[
+        "Suspend 5—{W} (Rather than cast this card from your hand, you may pay {W} and exile it with five time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. It has haste.)\nWhen this creature enters, other creatures you control get +1/+1 until end of turn.",
+    ],
     // Lancer Sliver
     &["Sliver creatures you control have first strike."],
+    // Lavabelly Sliver
+    &[
+        "Sliver creatures you control have \"When this creature enters, it deals 1 damage to target player or planeswalker and you gain 1 life.\"",
+    ],
     &[],
-    &[],
-    &[],
+    // Lightning Skelemental
+    &[
+        "Trample, haste\nWhenever this creature deals combat damage to a player, that player discards two cards.\nAt the beginning of the end step, sacrifice this creature.",
+    ],
     // Llanowar Tribe
     &["{T}: Add {G}{G}{G}."],
+    // Magmatic Sinkhole
+    &[
+        "Delve (Each card you exile from your graveyard while casting this spell pays for {1}.)\nMagmatic Sinkhole deals 5 damage to target creature or planeswalker.",
+    ],
+    &[],
+    // Martyr's Soul
+    &[
+        "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nWhen this creature enters, if you control no tapped lands, put two +1/+1 counters on it.",
+    ],
     &[],
     &[],
     &[],
+    // Mob
+    &[
+        "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nDestroy target creature.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Morophon, the Boundless
+    &[
+        "Changeling (This card is every creature type.)\nAs Morophon enters, choose a creature type.\nSpells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast. This effect reduces only the amount of colored mana you pay.\nOther creatures you control of the chosen type get +1/+1.",
+    ],
+    // Mother Bear
+    &[
+        "{3}{G}{G}, Exile this card from your graveyard: Create two 2/2 green Bear creature tokens. Activate only as a sorcery.",
+    ],
+    // Mox Tantalite
+    &[
+        "Suspend 3—{0} (Rather than cast this card from your hand, pay {0} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\n{T}: Add one mana of any color.",
+    ],
     // Munitions Expert
     &[
         "Flash\nWhen this creature enters, you may have it deal damage to target creature or planeswalker equal to the number of Goblins you control.",
@@ -48261,17 +49207,29 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Nurturing Peatland
     &["{T}, Pay 1 life: Add {B} or {G}.\n{1}, {T}, Sacrifice this land: Draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // On Thin Ice
+    &[
+        "Enchant snow land you control\nWhen this Aura enters, exile target creature an opponent controls until this Aura leaves the battlefield.",
+    ],
+    // Oneirophage
+    &["Flying\nWhenever you draw a card, put a +1/+1 counter on this creature."],
+    // Orcish Hellraiser
+    &[
+        "Echo {R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature dies, it deals 2 damage to target player or planeswalker.",
+    ],
+    // Ore-Scale Guardian
+    &["This spell costs {1} less to cast for each land card in your graveyard.\nFlying, haste"],
     // Pashalik Mons
     &[
         "Whenever Pashalik Mons or another Goblin you control dies, Pashalik Mons deals 1 damage to any target.\n{3}{R}, Sacrifice a Goblin: Create two 1/1 red Goblin creature tokens.",
     ],
     &[],
-    &[],
-    &[],
+    // Phantom Ninja
+    &["This creature can't be blocked."],
+    // Plague Engineer
+    &[
+        "Deathtouch\nAs this creature enters, choose a creature type.\nCreatures of the chosen type your opponents control get -1/-1.",
+    ],
     &[],
     // Pondering Mage
     &[
@@ -48281,36 +49239,64 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
+    // Putrid Goblin
+    &[
+        "Persist (When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)",
+    ],
+    // Pyrophobia
+    &["Pyrophobia deals 3 damage to target creature. Cowards can't block this turn."],
+    // Quakefoot Cyclops
+    &[
+        "When this creature enters, up to two target creatures can't block this turn.\nCycling {1}{R} ({1}{R}, Discard this card: Draw a card.)\nWhen you cycle this card, target creature can't block this turn.",
+    ],
     // Rain of Revelation
     &["Draw three cards, then discard a card."],
     // Ranger-Captain of Eos
     &[
         "When this creature enters, you may search your library for a creature card with mana value 1 or less, reveal it, put it into your hand, then shuffle.\nSacrifice this creature: Your opponents can't cast noncreature spells this turn.",
     ],
-    &[],
+    // Rank Officer
+    &[
+        "When this creature enters, you may discard a card. If you do, create a 2/2 black Zombie creature token.\n{1}{B}, {T}, Exile a creature card from your graveyard: Each opponent loses 2 life.",
+    ],
     &[],
     // Ravenous Giant
     &["At the beginning of your upkeep, this creature deals 1 damage to you."],
     &[],
+    // Recruit the Worthy
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nCreate a 1/1 white Soldier creature token.",
+    ],
+    // Reprobation
+    &[
+        "Enchant creature\nEnchanted creature loses all abilities and is a Coward creature with base power and toughness 0/1. (It keeps all supertypes but loses all other types and creature types.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Rhox Veteran
+    &[
+        "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nWhenever this creature attacks, tap target creature an opponent controls.",
+    ],
     // Rime Tender
     &["{T}: Untap another target snow permanent."],
     // Rotwidow Pack
     &[
         "Reach\n{3}{B}{G}, Exile a creature card from your graveyard: Create a 1/2 green Spider creature token with reach, then each opponent loses 1 life for each Spider you control.",
     ],
+    // Ruination Rioter
+    &[
+        "When this creature dies, you may have it deal damage to any target equal to the number of land cards in your graveyard.",
+    ],
+    &[],
+    // Sadistic Obsession
+    &[
+        "Enchant creature\nEnchanted creature has \"{B}, {T}: Put a -1/-1 counter on target creature.\"",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Scour All Possibilities
+    &[
+        "Scry 2, then draw a card.\nFlashback {4}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     &[],
     // Scuttling Sliver
     &["Sliver creatures you control have \"{2}: Untap this creature.\""],
@@ -48321,9 +49307,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "+2: Creatures you control with flying get +1/+1 until end of turn.\n−3: Create a 4/4 white Angel creature token with flying and vigilance.\n−6: You get an emblem with \"If you control a creature, damage that would reduce your life total to less than 1 reduces it to 1 instead.\"",
     ],
-    &[],
-    &[],
-    &[],
+    // Settle Beyond Reality
+    &[
+        "Choose one or both —\n• Exile target creature you don't control.\n• Exile target creature you control, then return it to the battlefield under its owner's control.",
+    ],
+    // Shatter Assumptions
+    &[
+        "Choose one —\n• Target opponent reveals their hand and discards all colorless nonland cards.\n• Target opponent reveals their hand and discards all multicolored cards.",
+    ],
+    // Shenanigans
+    &[
+        "Destroy target artifact.\nDredge 1 (If you would draw a card, you may mill a card instead. If you do, return this card from your graveyard to your hand.)",
+    ],
     // Silent Clearing
     &["{T}, Pay 1 life: Add {W} or {B}.\n{1}, {T}, Sacrifice this land: Draw a card."],
     &[],
@@ -48332,18 +49327,28 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, create two 1/1 red Goblin creature tokens.\nSacrifice a Goblin: Target player loses 1 life and you gain 1 life.",
     ],
-    &[],
+    // Smiting Helix
+    &[
+        "Smiting Helix deals 3 damage to any target and you gain 3 life.\nFlashback {R}{W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     &[],
     &[],
     // Soulherder
     &[
         "Whenever a creature is exiled from the battlefield, put a +1/+1 counter on this creature.\nAt the beginning of your end step, you may exile another target creature you control, then return that card to the battlefield under its owner's control.",
     ],
+    // Spell Snuff
+    &["Counter target spell.\nFateful hour — If you have 5 or less life, draw a card."],
     &[],
+    // Spiteful Sliver
+    &[
+        "Sliver creatures you control have \"Whenever this creature is dealt damage, it deals that much damage to target player or planeswalker.\"",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Springbloom Druid
+    &[
+        "When this creature enters, you may sacrifice a land. If you do, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+    ],
     &[],
     &[],
     &[],
@@ -48362,7 +49367,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Talisman of Resilience
     &["{T}: Add {C}.\n{T}: Add {B} or {G}. This artifact deals 1 damage to you."],
     &[],
-    &[],
+    // Tempered Sliver
+    &[
+        "Sliver creatures you control have \"Whenever this creature deals combat damage to a player, put a +1/+1 counter on it.\"",
+    ],
     &[],
     // Thornado
     &[
@@ -48373,14 +49381,32 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Treetop Ambusher
+    &[
+        "Dash {1}{G} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)\nWhenever this creature attacks, target creature you control gets +1/+1 until end of turn.",
+    ],
+    // Tribute Mage
+    &[
+        "When this creature enters, you may search your library for an artifact card with mana value 2, reveal that card, put it into your hand, then shuffle.",
+    ],
+    // Trumpeting Herd
+    &[
+        "Create a 3/3 green Elephant creature token.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+    ],
+    // Trustworthy Scout
+    &[
+        "{1}{W}, Exile this card from your graveyard: Search your library for a card named Trustworthy Scout, reveal it, put it into your hand, then shuffle.",
+    ],
     // Twin-Silk Spider
     &["Reach\nWhen this creature enters, create a 1/2 green Spider creature token with reach."],
-    &[],
-    &[],
+    // Twisted Reflection
+    &[
+        "Choose one —\n• Target creature gets -6/-0 until end of turn.\n• Switch target creature's power and toughness until end of turn.\nEntwine {B} (Choose both if you pay the entwine cost.)",
+    ],
+    // Umezawa's Charm
+    &[
+        "Choose one —\n• Target creature gets +2/+2 until end of turn.\n• Target creature gets -1/-1 until end of turn.\n• You gain 2 life.",
+    ],
     &[],
     // Undead Augur
     &[
@@ -48394,21 +49420,39 @@ pub static ORACLE: &[&[&str]] = &[
         "When Urza enters, create a 0/0 colorless Construct artifact creature token with \"This token gets +1/+1 for each artifact you control.\"\nTap an untapped artifact you control: Add {U}.\n{5}: Shuffle your library, then exile the top card. Until end of turn, you may play that card without paying its mana cost.",
     ],
     &[],
-    &[],
+    // Vengeful Devil
+    &[
+        "Haste\nMorbid — {T}: This creature deals 1 damage to any target. Activate only if a creature died this turn.",
+    ],
     // Venomous Changeling
     &["Changeling (This card is every creature type.)\nDeathtouch"],
+    // Vesperlark
+    &[
+        "Flying\nWhen this creature leaves the battlefield, return target creature card with power 1 or less from your graveyard to the battlefield.\nEvoke {1}{W} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
+    ],
+    // Viashino Sandsprinter
+    &[
+        "Trample, haste\nAt the beginning of the end step, return this creature to its owner's hand. (Return it only if it's on the battlefield.)\nCycling {R} ({R}, Discard this card: Draw a card.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Wall of One Thousand Cuts
+    &[
+        "Defender, flying\n{W}: This creature can attack this turn as though it didn't have defender.",
+    ],
     // Warteye Witch
     &["Whenever this creature or another creature you control dies, scry 1."],
     &[],
     // Waterlogged Grove
     &["{T}, Pay 1 life: Add {G} or {U}.\n{1}, {T}, Sacrifice this land: Draw a card."],
+    // Weather the Storm
+    &[
+        "You gain 3 life.\nStorm (When you cast this spell, copy it for each spell cast before it this turn.)",
+    ],
     &[],
-    &[],
-    &[],
+    // Windcaller Aven
+    &[
+        "Flying\nCycling {U} ({U}, Discard this card: Draw a card.)\nWhen you cycle this card, target creature gains flying until end of turn.",
+    ],
     &[],
     &[],
     &[],
@@ -48421,14 +49465,23 @@ pub static ORACLE: &[&[&str]] = &[
     // Aerial Assault
     &["Destroy target tapped creature. You gain 1 life for each creature you control with flying."],
     &[],
-    &[],
+    // Agent of Treachery
+    &[
+        "When this creature enters, gain control of target permanent.\nAt the beginning of your end step, if you control three or more permanents you don't own, draw three cards.",
+    ],
     // Agonizing Syphon
     &["Agonizing Syphon deals 3 damage to any target and you gain 3 life."],
     &[],
     &[],
+    // Ancestral Blade
+    &[
+        "When this Equipment enters, create a 1/1 white Soldier creature token, then attach this Equipment to it.\nEquipped creature gets +1/+1.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     &[],
-    &[],
-    &[],
+    // Apostle of Purifying Light
+    &[
+        "Protection from black (This creature can't be blocked, targeted, dealt damage, enchanted, or equipped by anything black.)\n{2}: Exile target card from a graveyard.",
+    ],
     &[],
     // Audacious Thief
     &["Whenever this creature attacks, you draw a card and you lose 1 life."],
@@ -48437,26 +49490,46 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This creature enters with a +1/+1 counter on it.\n{1}, Remove a +1/+1 counter from this creature: This creature gains hexproof until end of turn. (It can't be the target of spells or abilities your opponents control.)",
     ],
-    &[],
+    // Battalion Foot Soldier
+    &[
+        "When this creature enters, you may search your library for any number of cards named Battalion Foot Soldier, reveal them, put them into your hand, then shuffle.",
+    ],
     // Bishop of Wings
     &[
         "Whenever an Angel you control enters, you gain 4 life.\nWhenever an Angel you control dies, create a 1/1 white Spirit creature token with flying.",
     ],
     &[],
+    // Blood Burglar
+    &[
+        "During your turn, this creature has lifelink.(Damage dealt by this creature also causes you to gain that much life.)",
+    ],
+    &[],
+    // Bloodsoaked Altar
+    &[
+        "{T}, Pay 2 life, Discard a card, Sacrifice a creature: Create a 5/5 black Demon creature token with flying. Activate only as a sorcery.",
+    ],
+    // Bloodthirsty Aerialist
+    &["Flying\nWhenever you gain life, put a +1/+1 counter on this creature."],
     &[],
     &[],
+    // Brightwood Tracker
+    &[
+        "{5}{G}, {T}: Look at the top four cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    ],
     &[],
     &[],
+    // Captivating Gyre
+    &["Return up to three target creatures to their owners' hands."],
+    // Cavalier of Dawn
+    &[
+        "Vigilance\nWhen this creature enters, destroy up to one target nonland permanent. Its controller creates a 3/3 colorless Golem artifact creature token.\nWhen this creature dies, return target artifact or enchantment card from your graveyard to your hand.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cavalier of Night
+    &[
+        "Lifelink\nWhen this creature enters, you may sacrifice another creature. When you do, destroy target creature an opponent controls.\nWhen this creature dies, return target creature card with mana value 3 or less from your graveyard to the battlefield.",
+    ],
     &[],
     // Celestial Messenger
     &[
@@ -48486,21 +49559,32 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Draw a card. Activate only if you control five or more lands.",
     ],
-    &[],
+    // Daggersail Aeronaut
+    &["During your turn, this creature has flying."],
     // Dark Remedy
     &["Target creature gets +1/+3 until end of turn."],
     // Dawning Angel
     &["Flying\nWhen this creature enters, you gain 4 life."],
-    &[],
+    // Destructive Digger
+    &["{3}, {T}, Sacrifice an artifact or land: Draw a card."],
     // Devout Decree
     &[
         "Exile target creature or planeswalker that's black or red. Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
     ],
+    // Diamond Knight
+    &[
+        "Vigilance (Attacking doesn't cause this creature to tap.)\nAs this creature enters, choose a color.\nWhenever you cast a spell of the chosen color, put a +1/+1 counter on this creature.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Drawn from Dreams
+    &[
+        "Look at the top seven cards of your library. Put two of them into your hand and the rest on the bottom of your library in a random order.",
+    ],
+    // Dread Presence
+    &[
+        "Whenever a Swamp you control enters, choose one —\n• You draw a card and you lose 1 life.\n• This creature deals 2 damage to any target and you gain 2 life.",
+    ],
     // Elvish Reclaimer
     &[
         "This creature gets +2/+2 as long as there are three or more land cards in your graveyard.\n{2}, {T}, Sacrifice a land: Search your library for a land card, put it onto the battlefield tapped, then shuffle.",
@@ -48510,7 +49594,8 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying\nOther creatures you control with flying get +1/+1."],
     // Engulfing Eruption
     &["Engulfing Eruption deals 5 damage to target creature."],
-    &[],
+    // Eternal Isolation
+    &["Put target creature with power 4 or greater on the bottom of its owner's library."],
     &[],
     // Ferocious Pup
     &["When this creature enters, create a 2/2 green Wolf creature token."],
@@ -48518,12 +49603,19 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\n{T}: Add {C}.\nWhenever this land or another land you control enters, if you control seven or more lands with different names, create a 2/2 black Zombie creature token.",
     ],
+    // Flame Sweep
+    &["Flame Sweep deals 2 damage to each creature except for creatures you control with flying."],
+    &[],
+    // Fry
+    &[
+        "This spell can't be countered.\nFry deals 5 damage to target creature or planeswalker that's white or blue.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Glint-Horn Buccaneer
+    &[
+        "Haste\nWhenever you discard a card, this creature deals 1 damage to each opponent.\n{1}{R}, Discard a card: Draw a card. Activate only if this creature is attacking.",
+    ],
     &[],
     // Goblin Bird-Grabber
     &[
@@ -48534,12 +49626,27 @@ pub static ORACLE: &[&[&str]] = &[
         "Haste (This creature can attack and {T} as soon as it comes under your control.)\n{T}: Another target creature with power 2 or less can't be blocked this turn.",
     ],
     &[],
+    // Golos, Tireless Pilgrim
+    &[
+        "When Golos enters, you may search your library for a land card, put that card onto the battlefield tapped, then shuffle.\n{2}{W}{U}{B}{R}{G}: Exile the top three cards of your library. You may play them this turn without paying their mana costs.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Growth Cycle
+    &[
+        "Target creature gets +3/+3 until end of turn. It gets an additional +2/+2 until end of turn for each card named Growth Cycle in your graveyard.",
+    ],
+    // Gruesome Scourger
+    &[
+        "When this creature enters, it deals damage to target opponent or planeswalker equal to the number of creatures you control.",
+    ],
+    // Hanged Executioner
+    &[
+        "Flying\nWhen this creature enters, create a 1/1 white Spirit creature token with flying.\n{3}{W}, Exile this creature: Exile target creature.",
+    ],
+    // Hard Cover
+    &[
+        "Enchant creature\nEnchanted creature gets +0/+2 and has \"{T}: Draw a card, then discard a card.\"",
+    ],
     // Healer of the Glade
     &["When this creature enters, you gain 3 life."],
     // Herald of the Sun
@@ -48548,12 +49655,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Reach (This creature can block creatures with flying.)\nWhen this creature enters, create two 2/2 green Wolf creature tokens.",
     ],
-    &[],
+    // Icon of Ancestry
+    &[
+        "As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\n{3}, {T}: Look at the top three cards of your library. You may reveal a creature card of the chosen type from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    ],
     // Imperial Outrider
     &[""],
     // Infuriate
     &["Target creature gets +3/+2 until end of turn."],
-    &[],
+    // Ironroot Warlord
+    &[
+        "Ironroot Warlord's power is equal to the number of creatures you control.\n{3}{G}{W}: Create a 1/1 white Soldier creature token.",
+    ],
     &[],
     &[],
     &[],
@@ -48581,7 +49694,10 @@ pub static ORACLE: &[&[&str]] = &[
         "{1}, {T}: Untap another target artifact.\n{3}, {T}: Target creature can't be blocked this turn.",
     ],
     &[],
-    &[],
+    // Mask of Immolation
+    &[
+        "When this Equipment enters, create a 1/1 red Elemental creature token, then attach this Equipment to it.\nEquipped creature has \"Sacrifice this creature: It deals 1 damage to any target.\"\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     &[],
     // Moat Piranhas
     &["Defender (This creature can't attack.)"],
@@ -48593,7 +49709,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "You may look at the top card of your library any time.\nYou may cast artifact spells and colorless spells from the top of your library.\n{T}, Pay 1 life: Exile the top card of your library.",
     ],
-    &[],
+    // Nightpack Ambusher
+    &[
+        "Flash\nOther Wolves and Werewolves you control get +1/+1.\nAt the beginning of your end step, if you didn't cast a spell this turn, create a 2/2 green Wolf creature token.",
+    ],
     // Nimble Birdsticker
     &["Reach (This creature can block creatures with flying.)"],
     // Noxious Grasp
@@ -48602,10 +49721,15 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, scry 2. (Look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
     ],
+    // Ogre Siegebreaker
+    &["{2}{B}{R}: Destroy target creature that was dealt damage this turn."],
+    // Omnath, Locus of the Roil
+    &[
+        "When Omnath enters, it deals damage to any target equal to the number of Elementals you control.\nLandfall — Whenever a land you control enters, put a +1/+1 counter on target Elemental you control. If you control eight or more lands, draw a card.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Pack Mastiff
+    &["{1}{R}: Each creature you control named Pack Mastiff gets +1/+0 until end of turn."],
     &[],
     &[],
     // Pyroclastic Elemental
@@ -48623,7 +49747,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{3}, {T}: This artifact deals 1 damage to any target.\nWhen this artifact is put into a graveyard from the battlefield, it deals 5 damage to any target.",
     ],
-    &[],
+    // Rienne, Angel of Rebirth
+    &[
+        "Flying\nOther multicolored creatures you control get +1/+0.\nWhenever another multicolored creature you control dies, return it to its owner's hand at the beginning of the next end step.",
+    ],
     // Risen Reef
     &[
         "Whenever this creature or another Elemental you control enters, look at the top card of your library. If it's a land card, you may put it onto the battlefield tapped. If you don't put the card onto the battlefield, put it into your hand.",
@@ -48631,12 +49758,21 @@ pub static ORACLE: &[&[&str]] = &[
     // Rotting Regisaur
     &["At the beginning of your upkeep, discard a card."],
     &[],
-    &[],
+    // Savage Gorger
+    &[
+        "Flying\nAt the beginning of your end step, if an opponent lost life this turn, put a +1/+1 counter on this creature. (Damage causes loss of life.)",
+    ],
     // Savannah Sage
     &["When this creature enters, you gain 2 life."],
+    // Scampering Scorcher
+    &[
+        "When this creature enters, create two 1/1 red Elemental creature tokens. Elementals you control gain haste until end of turn. (They can attack and {T} this turn.)",
+    ],
     &[],
-    &[],
-    &[],
+    // Scholar of the Ages
+    &[
+        "When this creature enters, return up to two target instant and/or sorcery cards from your graveyard to your hand.",
+    ],
     &[],
     &[],
     // Sephara, Sky's Blade
@@ -48647,8 +49783,12 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Silverback Shaman
     &["Trample\nWhen this creature dies, draw a card."],
-    &[],
-    &[],
+    // Skyknight Vanguard
+    &[
+        "Flying\nWhenever this creature attacks, create a 1/1 white Soldier creature token that's tapped and attacking.",
+    ],
+    // Sorcerer of the Fang
+    &["{5}{B}, {T}: This creature deals 2 damage to target opponent or planeswalker."],
     &[],
     &[],
     &[],
@@ -48656,8 +49796,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flash (You may cast this spell any time you could cast an instant.)\nFlying\n{3}{U}: Draw a card.",
     ],
-    &[],
-    &[],
+    // Squad Captain
+    &[
+        "Vigilance (Attacking doesn't cause this creature to tap.)\nThis creature enters with a +1/+1 counter on it for each other creature you control.",
+    ],
+    // Starfield Mystic
+    &[
+        "Enchantment spells you cast cost {1} less to cast.\nWhenever an enchantment you control is put into a graveyard from the battlefield, put a +1/+1 counter on this creature.",
+    ],
     // Steadfast Sentry
     &[
         "Vigilance (Attacking doesn't cause this creature to tap.)\nWhen this creature dies, put a +1/+1 counter on target creature you control.",
@@ -48671,13 +49817,22 @@ pub static ORACLE: &[&[&str]] = &[
     &["Other Vampires you control get +1/+1."],
     &[],
     &[],
-    &[],
-    &[],
+    // Tomebound Lich
+    &[
+        "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nWhenever this creature enters or deals combat damage to a player, draw a card, then discard a card.",
+    ],
+    // Twinblade Paladin
+    &[
+        "Whenever you gain life, put a +1/+1 counter on this creature.\nAs long as you have 25 or more life, this creature has double strike. (It deals both first-strike and regular combat damage.)",
+    ],
     // Unchained Berserker
     &[
         "Protection from white (This creature can't be blocked, targeted, dealt damage, enchanted, or equipped by anything white.)\nThis creature gets +2/+0 as long as it's attacking.",
     ],
-    &[],
+    // Unholy Indenture
+    &[
+        "Enchant creature\nWhen enchanted creature dies, return that card to the battlefield under your control with a +1/+1 counter on it.",
+    ],
     // Vampire of the Dire Moon
     &[
         "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
@@ -48687,19 +49842,26 @@ pub static ORACLE: &[&[&str]] = &[
         "Draw a card if an opponent has cast a blue or black spell this turn. Spells you control can't be countered this turn. You and permanents you control gain hexproof from blue and from black until end of turn. (You and they can't be the targets of blue or black spells or abilities your opponents control.)",
     ],
     &[],
-    &[],
+    // Vilis, Broker of Blood
+    &[
+        "Flying\n{B}, Pay 2 life: Target creature gets -1/-1 until end of turn.\nWhenever you lose life, draw that many cards. (Damage causes loss of life.)",
+    ],
     // Vivien's Crocodile
     &["This creature gets +1/+1 as long as you control a Vivien planeswalker."],
     &[],
     &[],
     &[],
-    &[],
+    // Wakeroot Elemental
+    &[
+        "{G}{G}{G}{G}{G}: Untap target land you control. It becomes a 5/5 Elemental creature with haste. It's still a land. (This effect lasts as long as that land remains on the battlefield.)",
+    ],
     // Waterkin Shaman
     &[
         "Whenever a creature you control with flying enters, this creature gets +1/+1 until end of turn.",
     ],
     &[],
-    &[],
+    // Winged Words
+    &["This spell costs {1} less to cast if you control a creature with flying.\nDraw two cards."],
     &[],
     &[],
     // Woodland Mystic
@@ -48708,22 +49870,37 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Yarok's Wavecrasher
     &["When this creature enters, return another creature you control to its owner's hand."],
+    // Yarok, the Desecrated
+    &[
+        "Deathtouch, lifelink\nIf a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+    ],
+    &[],
+    &[],
+    // Anje's Ravager
+    &[
+        "This creature attacks each combat if able.\nWhenever this creature attacks, discard your hand, then draw three cards.\nMadness {1}{R} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // Bone Miser
+    &[
+        "Whenever you discard a creature card, create a 2/2 black Zombie creature token.\nWhenever you discard a land card, add {B}{B}.\nWhenever you discard a noncreature, nonland card, draw a card.",
+    ],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dockside Extortionist
+    &[
+        "When this creature enters, create X Treasure tokens, where X is the number of artifacts and enchantments your opponents control. (Treasure tokens are artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    ],
+    // Doomed Artisan
+    &[
+        "Sculptures you control can't attack or block.\nAt the beginning of your end step, create a colorless Sculpture artifact creature token with \"This token's power and toughness are each equal to the number of Sculptures you control.\"",
+    ],
     &[],
     // Empowered Autogenerator
     &[
@@ -48732,6 +49909,20 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Ghired, Conclave Exile
+    &[
+        "When Ghired enters, create a 4/4 green Rhino creature token with trample.\nWhenever Ghired attacks, populate. The token enters tapped and attacking. (To populate, create a token that's a copy of a creature token you control.)",
+    ],
+    &[],
+    &[],
+    // Grismold, the Dreadsower
+    &[
+        "Trample\nAt the beginning of your end step, each player creates a 1/1 green Plant creature token.\nWhenever a creature token dies, put a +1/+1 counter on Grismold.",
+    ],
+    // Hate Mirage
+    &[
+        "Choose up to two target creatures you don't control. For each of those creatures, create a token that's a copy of that creature. Those tokens gain haste. Exile them at the beginning of the next end step.",
+    ],
     &[],
     &[],
     &[],
@@ -48739,14 +49930,13 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Marisi, Breaker of the Coil
+    &[
+        "Your opponents can't cast spells during combat.\nWhenever a creature you control deals combat damage to a player, goad each creature that player controls. (Until your next turn, those creatures attack each combat if able and attack a player other than you if able.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mire in Misery
+    &["Each opponent sacrifices a creature or enchantment of their choice."],
     &[],
     // Ohran Frostfang
     &[
@@ -48760,7 +49950,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Add {C}.\n{2}, {T}: Return target commander you own from the battlefield to your hand. Activate only during your turn.",
     ],
-    &[],
+    // Scaretiller
+    &[
+        "Whenever this creature becomes tapped, choose one —\n• You may put a land card from your hand onto the battlefield tapped.\n• Return target land card from your graveyard to the battlefield tapped.",
+    ],
     &[],
     &[],
     // Sevinne's Reclamation
@@ -48768,8 +49961,14 @@ pub static ORACLE: &[&[&str]] = &[
         "Return target permanent card with mana value 3 or less from your graveyard to the battlefield. If this spell was cast from a graveyard, you may copy this spell and may choose a new target for the copy.\nFlashback {4}{W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
     ],
     &[],
-    &[],
-    &[],
+    // Skyfire Phoenix
+    &[
+        "Flying, haste\nWhen you cast your commander, return this card from your graveyard to the battlefield.",
+    ],
+    // Song of the Worldsoul
+    &[
+        "Whenever you cast a spell, populate. (Create a token that's a copy of a creature token you control.)",
+    ],
     &[],
     &[],
     &[],
@@ -48785,14 +49984,31 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying, deathtouch, lifelink\nOther creatures you control with flying get +1/+0.\nWhenever you cast an artifact or enchantment spell, create a 1/1 blue Faerie creature token with flying.",
     ],
-    &[],
-    &[],
+    // All That Glitters
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+1 for each artifact and/or enchantment you control.",
+    ],
+    // Animating Faerie
+    &[
+        "Flying",
+        "Target noncreature artifact you control becomes a 0/0 artifact creature. Put four +1/+1 counters on it.",
+    ],
     // Arcane Signet
     &["{T}: Add one mana of any color in your commander's color identity."],
+    // Arcanist's Owl
+    &[
+        "Flying\nWhen this creature enters, look at the top four cards of your library. You may reveal an artifact or enchantment card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    ],
+    // Archon of Absolution
+    &[
+        "Flying\nProtection from white (This creature can't be blocked, targeted, dealt damage, enchanted, or equipped by anything white.)\nCreatures can't attack you or planeswalkers you control unless their controller pays {1} for each of those creatures.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Ardenvale Tactician
+    &[
+        "Flying",
+        "Tap up to two target creatures. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     // Ayara, First of Locthwain
     &[
         "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life.\n{T}, Sacrifice another black creature: Draw a card.",
@@ -48806,15 +50022,25 @@ pub static ORACLE: &[&[&str]] = &[
     // Barrow Witches
     &["When this creature enters, return target Knight card from your graveyard to your hand."],
     &[],
-    &[],
-    &[],
+    // Beanstalk Giant
+    &[
+        "Beanstalk Giant's power and toughness are each equal to the number of lands you control.",
+        "Search your library for a basic land card, put it onto the battlefield, then shuffle. (Then exile this card. You may cast the creature later from exile.)",
+    ],
+    // Belle of the Brawl
+    &[
+        "Menace (This creature can't be blocked except by two or more creatures.)\nWhenever this creature attacks, other Knights you control get +1/+0 until end of turn.",
+    ],
     // Beloved Princess
     &["Lifelink\nThis creature can't be blocked by creatures with power 3 or greater."],
     // Blacklance Paragon
     &[
         "Flash\nWhen this creature enters, target Knight gains deathtouch and lifelink until end of turn.",
     ],
-    &[],
+    // Bloodhaze Wolverine
+    &[
+        "Whenever you draw your second card each turn, this creature gets +1/+1 and gains first strike until end of turn.",
+    ],
     &[],
     // Bog Naughty
     &["Flying\n{2}{B}, Sacrifice a Food: Target creature gets -3/-3 until end of turn."],
@@ -48828,7 +50054,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Flash\nFlying\nThis creature can block only creatures with flying.",
         "Return target nonland permanent an opponent controls to its owner's hand.",
     ],
-    &[],
+    // Brimstone Trebuchet
+    &[
+        "Defender, reach\n{T}: This creature deals 1 damage to each opponent.\nWhenever a Knight you control enters, untap this creature.",
+    ],
     // Burning-Yard Trainer
     &[
         "Trample, haste\nWhen this creature enters, another target Knight you control gets +2/+2 and gains trample and haste until end of turn.",
@@ -48853,7 +50082,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped unless you control an Island.\n{T}: Add {U}.\n{2}{U}{U}, {T}: Scry 2.",
     ],
-    &[],
+    // Cauldron Familiar
+    &[
+        "When this creature enters, each opponent loses 1 life and you gain 1 life.\nSacrifice a Food: Return this card from your graveyard to the battlefield.",
+    ],
     &[],
     // Charmed Sleep
     &[
@@ -48863,24 +50095,39 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, choose one —\n• Scry 2.\n• You gain 3 life.\n• Exile another target creature you own. Return it to the battlefield under your control at the beginning of the next end step.",
     ],
+    // Chittering Witch
+    &[
+        "When this creature enters, create a number of 1/1 black Rat creature tokens equal to the number of opponents you have.\n{1}{B}, Sacrifice a creature: Target creature gets -2/-2 until end of turn.",
+    ],
+    // Chulane, Teller of Tales
+    &[
+        "Vigilance\nWhenever you cast a creature spell, draw a card, then you may put a land card from your hand onto the battlefield.\n{3}, {T}: Return target creature you control to its owner's hand.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Claim the Firstborn
+    &[
+        "Gain control of target creature with mana value 3 or less until end of turn. Untap that creature. It gains haste until end of turn.",
+    ],
     &[],
     // Corridor Monitor
     &["When this creature enters, untap target artifact or creature you control."],
     &[],
-    &[],
+    // Crashing Drawbridge
+    &["Defender\n{T}: Creatures you control gain haste until end of turn."],
     // Crystal Slipper
     &[
         "Equipped creature gets +1/+0 and has haste.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
     ],
+    // Curious Pair
+    &[
+        "",
+        "Create a Food token. (Then exile this card. You may cast the creature later from exile. A Food token is an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Didn't Say Please
+    &["Counter target spell. Its controller mills three cards."],
     &[],
     // Drown in the Loch
     &[
@@ -48890,17 +50137,36 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "({T}: Add {R}.)\nThis land enters tapped unless you control three or more other Mountains.\nWhen this land enters untapped, create a 1/1 red Dwarf creature token.",
     ],
+    // Edgewall Innkeeper
+    &[
+        "Whenever you cast a creature spell that has an Adventure, draw a card. (It doesn't need to have gone on the adventure first.)",
+    ],
+    // Elite Headhunter
+    &[
+        "Menace (This creature can't be blocked except by two or more creatures.)\n{B/R}{B/R}{B/R}, Sacrifice another creature or an artifact: This creature deals 2 damage to target creature or planeswalker.",
+    ],
+    // Embercleave
+    &[
+        "Flash\nThis spell costs {1} less to cast for each attacking creature you control.\nWhen Embercleave enters, attach it to target creature you control.\nEquipped creature gets +1/+1 and has double strike and trample.\nEquip {3}",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Embereth Shieldbreaker
+    &[
+        "",
+        "Destroy target artifact. (Then exile this card. You may cast the creature later from exile.)",
+    ],
+    // Embereth Skyblazer
+    &[
+        "During your turn, this creature has flying.\nWhenever this creature attacks, you may pay {2}{R}. If you do, creatures you control get +X/+0 until end of turn, where X is the number of opponents you have.",
+    ],
     // Emry, Lurker of the Loch
     &[
         "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nWhen Emry enters, mill four cards.\n{T}: Choose target artifact card in your graveyard. You may cast that card this turn. (You still pay its costs. Timing rules still apply.)",
     ],
-    &[],
+    // Enchanted Carriage
+    &[
+        "When this Vehicle enters, create two 1/1 white Mouse creature tokens.\nCrew 2 (Tap any number of creatures you control with total power 2 or more: This Vehicle becomes an artifact creature until end of turn.)",
+    ],
     // Epic Downfall
     &["Exile target creature with mana value 3 or greater."],
     &[],
@@ -48919,8 +50185,15 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Faerie Formation
     &["Flying\n{3}{U}: Create a 1/1 blue Faerie creature token with flying. Draw a card."],
-    &[],
-    &[],
+    // Faerie Guidemother
+    &[
+        "Flying",
+        "Target creature gets +2/+1 and gains flying until end of turn. (Then exile this card. You may cast the creature later from exile.)",
+    ],
+    // Faerie Vandal
+    &[
+        "Flash (You may cast this spell any time you could cast an instant.)\nFlying\nWhenever you draw your second card each turn, put a +1/+1 counter on this creature.",
+    ],
     &[],
     // Fell the Pheasant
     &[
@@ -48929,7 +50202,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Ferocity of the Wilds
     &["Attacking non-Human creatures you control get +1/+0 and have trample."],
     &[],
-    &[],
+    // Festive Funeral
+    &[
+        "Target creature gets -X/-X until end of turn, where X is the number of cards in your graveyard.",
+    ],
     // Fierce Witchstalker
     &[
         "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nWhen this creature enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
@@ -48937,7 +50213,11 @@ pub static ORACLE: &[&[&str]] = &[
     // Fireborn Knight
     &["Double strike\n{R/W}{R/W}{R/W}{R/W}: This creature gets +1/+1 until end of turn."],
     &[],
-    &[],
+    // Flaxen Intruder
+    &[
+        "Whenever this creature deals combat damage to a player, you may sacrifice it. When you do, destroy target artifact or enchantment.",
+        "Create three 2/2 green Bear creature tokens. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     // Flutterfox
     &["As long as you control an artifact or enchantment, this creature has flying."],
     &[],
@@ -48947,20 +50227,44 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Creatures you control get +0/+1.\nWhen this enchantment enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
     ],
+    // Foulmire Knight
+    &[
+        "Deathtouch",
+        "You draw a card and you lose 1 life. (Then exile this card. You may cast the creature later from exile.)",
+    ],
+    // Frogify
+    &[
+        "Enchant creature\nEnchanted creature loses all abilities and is a blue Frog creature with base power and toughness 1/1. (It loses all other card types and creature types.)",
+    ],
+    // Gadwick, the Wizened
+    &[
+        "When Gadwick enters, draw X cards.\nWhenever you cast a blue spell, tap target nonland permanent an opponent controls.",
+    ],
+    // Garenbrig Carver
+    &[
+        "",
+        "Target creature gets +2/+2 until end of turn. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Garenbrig Squire
+    &[
+        "Whenever you cast a creature spell that has an Adventure, this creature gets +1/+1 until end of turn. (It doesn't need to have gone on the adventure first.)",
+    ],
     // Garrison Griffin
     &[
         "Flying\nWhenever this creature attacks, target Knight you control gains flying until end of turn.",
     ],
     &[],
+    // Giant Killer
+    &[
+        "{1}{W}, {T}: Tap target creature.",
+        "Destroy target creature with power 4 or greater. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     &[],
-    &[],
-    &[],
+    // Giant's Skewer
+    &[
+        "Equipped creature gets +2/+1.\nWhenever equipped creature deals combat damage to a creature, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     // Gilded Goose
     &[
         "Flying\nWhen this creature enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n{1}{G}, {T}: Create a Food token.\n{T}, Sacrifice a Food: Add one mana of any color.",
@@ -48970,8 +50274,14 @@ pub static ORACLE: &[&[&str]] = &[
         "({T}: Add {G}.)\nThis land enters tapped unless you control three or more other Forests.\nWhen this land enters untapped, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
     ],
     &[],
-    &[],
-    &[],
+    // Glass Casket
+    &[
+        "When this artifact enters, exile target creature an opponent controls with mana value 3 or less until this artifact leaves the battlefield.",
+    ],
+    // Gluttonous Troll
+    &[
+        "Trample\nWhen this creature enters, create a number of Food tokens equal to the number of opponents you have. (Food tokens are artifacts with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n{1}{G}, Sacrifice another nonland permanent: This creature gets +2/+2 until end of turn.",
+    ],
     // Golden Egg
     &[
         "When this artifact enters, draw a card.\n{1}, {T}, Sacrifice this artifact: Add one mana of any color.\n{2}, {T}, Sacrifice this artifact: You gain 3 life.",
@@ -48983,33 +50293,59 @@ pub static ORACLE: &[&[&str]] = &[
         "Flying\nNon-Archon creatures have base power and toughness 3/3.\nWhen this creature enters, create two 1/1 white Human creature tokens.",
     ],
     &[],
+    // Heraldic Banner
+    &[
+        "As this artifact enters, choose a color.\nCreatures you control of the chosen color get +1/+0.\n{T}: Add one mana of the chosen color.",
+    ],
     &[],
-    &[],
-    &[],
+    // Hypnotic Sprite
+    &[
+        "Flying",
+        "Counter target spell with mana value 3 or less. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     // Idyllic Grange
     &[
         "({T}: Add {W}.)\nThis land enters tapped unless you control three or more other Plains.\nWhen this land enters untapped, put a +1/+1 counter on target creature you control.",
     ],
-    &[],
-    &[],
+    // Improbable Alliance
+    &[
+        "Whenever you draw your second card each turn, create a 1/1 blue Faerie creature token with flying.\n{4}{U}{R}: Draw a card, then discard a card.",
+    ],
+    // Inquisitive Puppet
+    &[
+        "When this creature enters, scry 1.\nExile this creature: Create a 1/1 white Human creature token.",
+    ],
     &[],
     // Inspiring Veteran
     &["Other Knights you control get +1/+1."],
+    // Into the Story
+    &[
+        "This spell costs {3} less to cast if an opponent has seven or more cards in their graveyard.\nDraw four cards.",
+    ],
     &[],
-    &[],
-    &[],
+    // Irencrag Pyromancer
+    &["Whenever you draw your second card each turn, this creature deals 3 damage to any target."],
     &[],
     // Jousting Dummy
     &["{3}: This creature gets +1/+0 until end of turn."],
-    &[],
-    &[],
+    // Keeper of Fables
+    &[
+        "Whenever one or more non-Human creatures you control deal combat damage to a player, draw a card.",
+    ],
+    // Kenrith's Transformation
+    &[
+        "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3. (It loses all other card types and creature types.)",
+    ],
     // Kenrith, the Returned King
     &[
         "{R}: All creatures gain trample and haste until end of turn.\n{1}{G}: Put a +1/+1 counter on target creature.\n{2}{W}: Target player gains 5 life.\n{3}{U}: Target player draws a card.\n{4}{B}: Put target creature card from a graveyard onto the battlefield under its owner's control.",
     ],
     // Knight of the Keep
     &[""],
-    &[],
+    // Knights' Charge
+    &[
+        "Whenever a Knight you control attacks, each opponent loses 1 life and you gain 1 life.\n{6}{W}{B}, Sacrifice this enchantment: Return all Knight creature cards from your graveyard to the battlefield.",
+    ],
     &[],
     // Lash of Thorns
     &["Target creature gets +2/+1 and gains deathtouch until end of turn."],
@@ -49017,28 +50353,62 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Vigilance (Attacking doesn't cause this creature to tap.)\nWhenever a white creature you control attacks, you gain 1 life.",
     ],
-    &[],
-    &[],
+    // Loch Dragon
+    &[
+        "Flying\nWhenever this creature enters or attacks, you may discard a card. If you do, draw a card.",
+    ],
+    // Lochmere Serpent
+    &[
+        "Flash\n{U}, Sacrifice an Island: This creature can't be blocked this turn.\n{B}, Sacrifice a Swamp: You gain 1 life and draw a card.\n{U}{B}: Exile five target cards from an opponent's graveyard. Return this card from your graveyard to your hand. Activate only as a sorcery.",
+    ],
     // Locthwain Gargoyle
     &["{4}: This creature gets +2/+0 and gains flying until end of turn."],
     &[],
-    &[],
+    // Lonesome Unicorn
+    &[
+        "Vigilance",
+        "Create a 2/2 white Knight creature token with vigilance. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     // Lost Legion
     &[
         "When this creature enters, scry 2. (Look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Lovestruck Beast
+    &[
+        "This creature can't attack unless you control a 1/1 creature.",
+        "Create a 1/1 white Human creature token. (Then exile this card. You may cast the creature later from exile.)",
+    ],
+    // Lucky Clover
+    &[
+        "Whenever you cast an Adventure instant or sorcery spell, copy it. You may choose new targets for the copy.",
+    ],
+    // Mace of the Valiant
+    &[
+        "Equipped creature gets +1/+1 for each charge counter on this Equipment and has vigilance. (Attacking doesn't cause it to tap.)\nWhenever a creature you control enters, put a charge counter on this Equipment.\nEquip {3}",
+    ],
+    // Mad Ratter
+    &["Whenever you draw your second card each turn, create two 1/1 black Rat creature tokens."],
+    // Malevolent Noble
+    &["{2}, Sacrifice an artifact or another creature: Put a +1/+1 counter on this creature."],
+    // Mantle of Tides
+    &[
+        "Equipped creature gets +1/+2.\nWhenever you draw your second card each turn, attach this Equipment to target creature you control.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     // Maraleaf Pixie
     &["Flying\n{T}: Add {G} or {U}."],
+    // Maraleaf Rider
+    &["Sacrifice a Food: Target creature blocks this creature this turn if able."],
     &[],
-    &[],
-    &[],
-    &[],
+    // Merchant of the Vale
+    &[
+        "{2}{R}, Discard a card: Draw a card.",
+        "You may discard a card. If you do, draw a card. (Then exile this card. You may cast the creature later from exile.)",
+    ],
+    // Merfolk Secretkeeper
+    &[
+        "",
+        "Target player mills four cards. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     &[],
     // Mirrormade
     &[
@@ -49064,7 +50434,11 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Oakhame Ranger
+    &[
+        "{T}: Creatures you control get +1/+1 until end of turn.",
+        "Create two 1/1 white Human creature tokens. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     &[],
     // Ogre Errant
     &[
@@ -49081,7 +50455,11 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Order of Midnight
+    &[
+        "Flying\nThis creature can't block.",
+        "Return target creature card from your graveyard to your hand. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     // Outflank
     &[
         "Outflank deals damage to target attacking or blocking creature equal to the number of creatures you control.",
@@ -49092,7 +50470,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, each opponent mills two cards. Then you scry 2. (Look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
     ],
-    &[],
+    // Piper of the Swarm
+    &[
+        "Rats you control have menace.\n{1}{B}, {T}: Create a 1/1 black Rat creature token.\n{2}{B}{B}, {T}, Sacrifice three Rats: Gain control of target creature.",
+    ],
     // Prized Griffin
     &["Flying"],
     // Prophet of the Peak
@@ -49110,28 +50491,55 @@ pub static ORACLE: &[&[&str]] = &[
     // Rampart Smasher
     &["This creature can't be blocked by Knights or Walls."],
     &[],
+    // Realm-Cloaked Giant
+    &[
+        "Vigilance",
+        "Destroy all non-Giant creatures. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     &[],
     &[],
-    &[],
-    &[],
+    // Redcap Raiders
+    &[
+        "Whenever this creature attacks, you may tap an untapped non-Human creature you control. If you do, this creature gets +1/+1 and gains trample until end of turn.",
+    ],
     // Resolute Rider
     &[
         "{W/B}{W/B}: This creature gains lifelink until end of turn.\n{W/B}{W/B}{W/B}: This creature gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
     ],
     &[],
     &[],
+    // Rimrock Knight
+    &[
+        "This creature can't block.",
+        "Target creature gets +2/+0 until end of turn. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rosethorn Acolyte
+    &[
+        "{T}: Add one mana of any color.",
+        "Add one mana of any color. (Then exile this card. You may cast the creature later from exile.)",
+    ],
+    // Rosethorn Halberd
+    &[
+        "When this Equipment enters, attach it to target non-Human creature you control.\nEquipped creature gets +2/+1.\nEquip {5} ({5}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
+    // Roving Keep
+    &[
+        "Defender\n{7}: This creature gets +2/+0 and gains trample until end of turn. It can attack this turn as though it didn't have defender.",
+    ],
     // Rowan's Battleguard
     &["First strike\nAs long as you control a Rowan planeswalker, this creature gets +3/+0."],
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Sage of the Falls
+    &[
+        "Whenever this creature or another non-Human creature you control enters, you may draw a card. If you do, discard a card.",
+    ],
+    // Savvy Hunter
+    &[
+        "Whenever this creature attacks or blocks, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nSacrifice two Foods: Draw a card.",
+    ],
     // Scalding Cauldron
     &["{3}, {T}, Sacrifice this artifact: It deals 3 damage to target creature."],
     // Scorching Dragonfire
@@ -49140,22 +50548,46 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Shambling Suit
+    &[
+        "Shambling Suit's power is equal to the number of artifacts and/or enchantments you control.",
+    ],
+    // Shepherd of the Flock
+    &[
+        "",
+        "Return target permanent you control to its owner's hand. (Then exile this card. You may cast the creature later from exile.)",
+    ],
+    // Shimmer Dragon
+    &[
+        "Flying\nAs long as you control four or more artifacts, this creature has hexproof. (It can't be the target of spells or abilities your opponents control.)\nTap two untapped artifacts you control: Draw a card.",
+    ],
     // Shinechaser
     &[
         "Flying, vigilance\nThis creature gets +1/+1 as long as you control an artifact.\nThis creature gets +1/+1 as long as you control an enchantment.",
     ],
-    &[],
+    // Shining Armor
+    &[
+        "Flash\nWhen this Equipment enters, attach it to target Knight you control.\nEquipped creature gets +0/+2 and has vigilance.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     // Signpost Scarecrow
     &["Vigilance\n{2}: Add one mana of any color."],
     &[],
+    // Silverflame Squire
+    &[
+        "",
+        "Target creature gets +2/+2 until end of turn. Untap it. (Then exile this card. You may cast the creature later from exile.)",
+    ],
+    // Silverwing Squadron
+    &[
+        "Flying, vigilance\nSilverwing Squadron's power and toughness are each equal to the number of creatures you control.\nWhenever this creature attacks, create a number of 2/2 white Knight creature tokens with vigilance equal to the number of opponents you have.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Smitten Swordmaster
+    &[
+        "Lifelink",
+        "You gain X life and each opponent loses X life, where X is the number of Knights you control.",
+    ],
     &[],
     &[],
     &[],
@@ -49166,103 +50598,173 @@ pub static ORACLE: &[&[&str]] = &[
         "This creature enters with X +1/+1 counters on it.\n{2}{G}, Remove a +1/+1 counter from this creature: Destroy target artifact or enchantment.",
     ],
     &[],
+    // Steelgaze Griffin
+    &[
+        "Flying\nWhenever you draw your second card each turn, this creature gets +2/+0 until end of turn.",
+    ],
     &[],
-    &[],
-    &[],
+    // Stonecoil Serpent
+    &[
+        "Reach, trample, protection from multicolored\nThis creature enters with X +1/+1 counters on it.",
+    ],
     // Stormfist Crusader
     &["Menace\nAt the beginning of your upkeep, each player draws a card and loses 1 life."],
     &[],
+    // Syr Alin, the Lion's Claw
+    &[
+        "First strike (This creature deals combat damage before creatures without first strike.)\nWhenever Syr Alin attacks, other creatures you control get +1/+1 until end of turn.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
+    // Syr Faren, the Hengehammer
+    &[
+        "Whenever Syr Faren attacks, another target attacking creature gets +X/+X until end of turn, where X is Syr Faren's power.",
+    ],
     &[],
     &[],
     // Tall as a Beanstalk
     &[
         "Enchant creature\nEnchanted creature gets +3/+3, has reach, and is a Giant in addition to its other types.",
     ],
-    &[],
+    // Taste of Death
+    &[
+        "Each player sacrifices three creatures of their choice. You create three Food tokens. (They're artifacts with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+    ],
     // Tempting Witch
     &[
         "When this creature enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n{2}, {T}, Sacrifice a Food: Target player loses 3 life.",
     ],
+    // The Cauldron of Eternity
+    &[
+        "This spell costs {2} less to cast for each creature card in your graveyard.\nWhenever a creature you control dies, put it on the bottom of its owner's library.\n{2}{B}, {T}, Pay 2 life: Return target creature card from your graveyard to the battlefield. Activate only as a sorcery.",
+    ],
+    // The Circle of Loyalty
+    &[
+        "Affinity for Knights (This spell costs {1} less to cast for each Knight you control.)\nCreatures you control get +1/+1.\nWhenever you cast a legendary spell, create a 2/2 white Knight creature token with vigilance.\n{3}{W}, {T}: Create a 2/2 white Knight creature token with vigilance.",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thorn Mammoth
+    &[
+        "Trample\nWhenever this creature or another creature you control enters, this creature fights up to one target creature you don't control.",
+    ],
+    // Thrill of Possibility
+    &["As an additional cost to cast this spell, discard a card.\nDraw two cards."],
     // Thunderous Snapper
     &["Whenever you cast a spell with mana value 5 or greater, draw a card."],
     // Tome Raider
     &["Flying\nWhen this creature enters, draw a card."],
-    &[],
+    // Tome of Legends
+    &[
+        "This artifact enters with a page counter on it.\nWhenever your commander enters or attacks, put a page counter on this artifact.\n{1}, {T}, Remove a page counter from this artifact: Draw a card.",
+    ],
     &[],
     // Tournament Grounds
     &[
         "{T}: Add {C}.\n{T}: Add {R}, {W}, or {B}. Spend this mana only to cast a Knight or Equipment spell.",
     ],
     &[],
-    &[],
+    // Trapped in the Tower
+    &[
+        "Enchant creature without flying\nEnchanted creature can't attack or block, and its activated abilities can't be activated.",
+    ],
     // True Love's Kiss
     &["Exile target artifact or enchantment.\nDraw a card."],
-    &[],
+    // Tuinvale Treefolk
+    &[
+        "",
+        "Put two +1/+1 counters on target creature. (Then exile this card. You may cast the creature later from exile.)",
+    ],
     &[],
     &[],
     &[],
     &[],
     // Venerable Knight
     &["When this creature dies, put a +1/+1 counter on target Knight you control."],
-    &[],
+    // Wandermare
+    &[
+        "Whenever you cast a creature spell that has an Adventure, put a +1/+1 counter on this creature. (It doesn't need to have gone on the adventure first.)",
+    ],
     &[],
     // Weaselback Redcap
     &["{1}{R}: This creature gets +2/+0 until end of turn."],
+    // Wicked Guardian
+    &[
+        "When this creature enters, you may have it deal 2 damage to another creature you control. If you do, draw a card.",
+    ],
+    // Wicked Wolf
+    &[
+        "When this creature enters, it fights up to one target creature you don't control.\nSacrifice a Food: Put a +1/+1 counter on this creature. It gains indestructible until end of turn. Tap it.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Wintermoor Commander
+    &[
+        "Deathtouch\nWintermoor Commander's toughness is equal to the number of Knights you control.\nWhenever this creature attacks, another target Knight you control gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+    ],
     // Wishclaw Talisman
     &[
         "This artifact enters with three wish counters on it.\n{1}, {T}, Remove a wish counter from this artifact: Search your library for a card, put it into your hand, then shuffle. An opponent gains control of this artifact. Activate only during your turn.",
     ],
-    &[],
+    // Wishful Merfolk
+    &["Defender\n{1}{U}: This creature loses defender and becomes a Human until end of turn."],
     // Witch's Cottage
     &[
         "({T}: Add {B}.)\nThis land enters tapped unless you control three or more other Swamps.\nWhen this land enters untapped, you may put target creature card from your graveyard on top of your library.",
     ],
     &[],
-    &[],
+    // Witch's Vengeance
+    &["Creatures of the creature type of your choice get -3/-3 until end of turn."],
     // Witching Well
     &[
         "When this artifact enters, scry 2. (Look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)\n{3}{U}, Sacrifice this artifact: Draw two cards.",
     ],
-    &[],
-    &[],
+    // Wolf's Quarry
+    &[
+        "Create three 1/1 green Boar creature tokens with \"When this token dies, create a Food token.\" (A Food token is an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+    ],
+    // Workshop Elders
+    &[
+        "Artifact creatures you control have flying.\nAt the beginning of combat on your turn, you may have target noncreature artifact you control become a 0/0 artifact creature. If you do, put four +1/+1 counters on it.",
+    ],
     // Worthy Knight
     &["Whenever you cast a Knight spell, create a 1/1 white Human creature token."],
     &[],
     &[],
-    &[],
+    // Earthshaker Giant
+    &[
+        "Trample\nWhen this creature enters, other creatures you control get +3/+3 and gain trample until end of turn.",
+    ],
     &[],
     &[],
     // Sphinx of Enlightenment
     &["Flying\nWhen this creature enters, target opponent draws a card and you draw three cards."],
+    // Acolyte of Affliction
+    &[
+        "When this creature enters, mill two cards, then you may return a permanent card from your graveyard to your hand.",
+    ],
     &[],
     &[],
     &[],
+    // Alseid of Life's Bounty
+    &[
+        "Lifelink\n{1}, Sacrifice this creature: Target creature or enchantment you control gains protection from the color of your choice until end of turn.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Aphemia, the Cacophony
+    &[
+        "Flying\nAt the beginning of your end step, you may exile an enchantment card from your graveyard. If you do, create a 2/2 black Zombie creature token.",
+    ],
     // Arasta of the Endless Web
     &[
         "Reach\nWhenever an opponent casts an instant or sorcery spell, create a 1/2 green Spider creature token with reach.",
     ],
-    &[],
+    // Archon of Falling Stars
+    &[
+        "Flying\nWhen this creature dies, you may return target enchantment card from your graveyard to the battlefield.",
+    ],
     // Archon of Sun's Grace
     &[
         "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nPegasus creatures you control have lifelink.\nConstellation — Whenever an enchantment you control enters, create a 2/2 white Pegasus creature token with flying.",
@@ -49284,7 +50786,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Brine Giant
+    &[
+        "Affinity for enchantments (This spell costs {1} less to cast for each enchantment you control.)",
+    ],
     // Bronze Sword
     &[
         "Equipped creature gets +2/+0.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
@@ -49304,21 +50809,39 @@ pub static ORACLE: &[&[&str]] = &[
     &["Target creature gets -4/-0 until end of turn. Scry 2."],
     &[],
     &[],
+    // Commanding Presence
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2 and has first strike and \"Whenever this creature deals combat damage to a player, create a 1/1 white Human Soldier creature token.\"",
+    ],
+    // Dalakos, Crafter of Wonders
+    &[
+        "{T}: Add {C}{C}. Spend this mana only to cast artifact spells or activate abilities of artifacts.\nEquipped creatures you control have flying and haste.",
+    ],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Demon of Loathing
+    &[
+        "Flying, trample\nWhenever this creature deals combat damage to a player, that player sacrifices a creature of their choice.",
+    ],
+    // Deny the Divine
+    &[
+        "Counter target creature or enchantment spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
+    ],
     &[],
     &[],
     // Discordant Piper
     &["When this creature dies, create a 0/1 white Goat creature token."],
     &[],
-    &[],
-    &[],
+    // Dreadful Apathy
+    &[
+        "Enchant creature\nEnchanted creature can't attack or block.\n{2}{W}: Exile enchanted creature.",
+    ],
+    // Dream Trawler
+    &[
+        "Flying, lifelink\nWhenever you draw a card, this creature gets +1/+0 until end of turn.\nWhenever this creature attacks, draw a card.\nDiscard a card: This creature gains hexproof until end of turn. Tap it.",
+    ],
     &[],
     &[],
     // Dryad of the Ilysian Grove
@@ -49361,8 +50884,14 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Final Death
     &["Exile target creature."],
-    &[],
-    &[],
+    // Final Flare
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature or enchantment.\nFinal Flare deals 5 damage to target creature.",
+    ],
+    // Flicker of Fate
+    &[
+        "Exile target creature or enchantment, then return it to the battlefield under its owner's control.",
+    ],
     &[],
     &[],
     // Funeral Rites
@@ -49370,7 +50899,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Glory Bearers
+    &["Whenever another creature you control attacks, it gets +0/+1 until end of turn."],
     &[],
     &[],
     // Grim Physician
@@ -49393,18 +50923,30 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Hyrax Tower Scout
     &["When this creature enters, untap target creature."],
+    // Ichthyomorphosis
+    &[
+        "Enchant creature\nEnchanted creature loses all abilities and is a blue Fish with base power and toughness 0/1.",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Inevitable End
+    &[
+        "Enchant creature\nEnchanted creature has \"At the beginning of your upkeep, sacrifice a creature.\"",
+    ],
+    // Inspire Awe
+    &[
+        "Prevent all combat damage that would be dealt this turn except combat damage that would be dealt by enchanted creatures and enchantment creatures. Scry 2.",
+    ],
     // Iroas's Blessing
     &[
         "Enchant creature you control\nWhen this Aura enters, it deals 4 damage to target creature or planeswalker an opponent controls.\nEnchanted creature gets +1/+1.",
     ],
     &[],
-    &[],
+    // Irreverent Revelers
+    &[
+        "When this creature enters, choose one —\n• Destroy target artifact.\n• This creature gains haste until end of turn.",
+    ],
     &[],
     &[],
     &[],
@@ -49416,7 +50958,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Lampad of Death's Vigil
     &["{1}, Sacrifice a creature: Each opponent loses 1 life and you gain 1 life."],
-    &[],
+    // Leonin of the Lost Pride
+    &["When this creature dies, exile target card from an opponent's graveyard."],
     &[],
     // Mantle of the Wolf
     &[
@@ -49427,7 +50970,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Counter target spell. Scry 2."],
     // Mindwrack Harpy
     &["Flying\nAt the beginning of combat on your turn, each player mills three cards."],
-    &[],
+    // Minion's Return
+    &[
+        "Flash\nEnchant creature\nWhen enchanted creature dies, return that card to the battlefield under your control.",
+    ],
     // Mire Triton
     &[
         "Deathtouch\nWhen this creature enters, mill two cards and you gain 2 life. (To mill two cards, put the top two cards of your library into your graveyard.)",
@@ -49439,12 +50985,20 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Moss Viper
     &["Deathtouch"],
+    // Mystic Repeal
+    &["Put target enchantment on the bottom of its owner's library."],
+    // Nadir Kraken
+    &[
+        "Whenever you draw a card, you may pay {1}. If you do, put a +1/+1 counter on this creature and create a 1/1 blue Tentacle creature token.",
+    ],
+    // Naiad of Hidden Coves
+    &["During turns other than yours, spells you cast cost {1} less to cast."],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Nessian Wanderer
+    &[
+        "Constellation — Whenever an enchantment you control enters, look at the top three cards of your library. You may reveal a land card from among them and put that card into your hand. Put the rest on the bottom of your library in a random order.",
+    ],
     // Nexus Wardens
     &["Reach\nConstellation — Whenever an enchantment you control enters, you gain 2 life."],
     &[],
@@ -49456,7 +51010,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Choose one —\n• Search your library for up to X land cards, reveal them, put them into your hand, then shuffle.\n• Nylea's Intervention deals twice X damage to each creature with flying.",
     ],
     &[],
-    &[],
+    // Nyx Herald
+    &[
+        "At the beginning of combat on your turn, target enchanted creature or enchantment creature you control gets +1/+1 and gains trample until end of turn.",
+    ],
     &[],
     &[],
     // Nyxborn Brute
@@ -49477,7 +51034,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flash\nWhen this enchantment enters, it deals 2 damage to any target.\n{2}{R}, Sacrifice this enchantment: Scry 2.",
     ],
-    &[],
+    // Omen of the Hunt
+    &[
+        "Flash\nWhen this enchantment enters, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\n{2}{G}, Sacrifice this enchantment: Scry 2.",
+    ],
     // Omen of the Sea
     &[
         "Flash (You may cast this spell any time you could cast an instant.)\nWhen this enchantment enters, scry 2, then draw a card.\n{2}{U}, Sacrifice this enchantment: Scry 2. (Look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
@@ -49491,16 +51051,25 @@ pub static ORACLE: &[&[&str]] = &[
     &["{2}{R}, Discard a card: Draw a card."],
     &[],
     &[],
+    // Pharika's Libation
+    &[
+        "Choose one —\n• Target opponent sacrifices a creature of their choice.\n• Target opponent sacrifices an enchantment of their choice.",
+    ],
     &[],
-    &[],
-    &[],
+    // Pheres-Band Brawler
+    &[
+        "When this creature enters, it fights up to one target creature you don't control. (Each deals damage equal to its power to the other.)",
+    ],
     &[],
     // Pious Wayfarer
     &[
         "Constellation — Whenever an enchantment you control enters, target creature gets +1/+1 until end of turn.",
     ],
     &[],
-    &[],
+    // Protean Thaumaturge
+    &[
+        "Constellation — Whenever an enchantment you control enters, you may have this creature become a copy of another target creature, except it has this ability.",
+    ],
     &[],
     &[],
     &[],
@@ -49509,14 +51078,19 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Riptide Turtle
     &["Flash\nDefender"],
-    &[],
+    // Rise to Glory
+    &[
+        "Choose one or both —\n• Return target creature card from your graveyard to the battlefield.\n• Return target Aura card from your graveyard to the battlefield.",
+    ],
     // Rumbling Sentry
     &["When this creature enters, scry 1."],
     // Sage of Mysteries
     &["Constellation — Whenever an enchantment you control enters, target player mills two cards."],
     &[],
-    &[],
-    &[],
+    // Scavenging Harpy
+    &["Flying\nWhen this creature enters, exile target card from an opponent's graveyard."],
+    // Sea God's Scorn
+    &["Return up to three target creatures and/or enchantments to their owners' hands."],
     &[],
     // Serpent of Yawning Depths
     &[
@@ -49540,12 +51114,21 @@ pub static ORACLE: &[&[&str]] = &[
         "Equipped creature gets +1/+1 and has trample and lifelink.\n{1}: Permanents your opponents control lose hexproof and indestructible until end of turn.\nEquip {2}",
     ],
     &[],
+    // Shimmerwing Chimera
+    &[
+        "Flying\nAt the beginning of your upkeep, return up to one other target enchantment you control to its owner's hand.",
+    ],
+    // Shoal Kraken
+    &[
+        "Constellation — Whenever an enchantment you control enters, you may draw a card. If you do, discard a card.",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Skophos Warleader
+    &[
+        "{R}, Sacrifice another creature or an enchantment: This creature gets +1/+0 and gains menace until end of turn. (It can't be blocked except by two or more creatures.)",
+    ],
     &[],
     &[],
     // Soul-Guide Lantern
@@ -49556,7 +51139,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["{2}{B}, Sacrifice a creature: Draw a card."],
     // Sphinx Mindbreaker
     &["Flying\nWhen this creature enters, each opponent mills ten cards."],
-    &[],
+    // Staggering Insight
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+1 and has lifelink and \"Whenever this creature deals combat damage to a player, draw a card.\"",
+    ],
     // Stampede Rider
     &[
         "Trample\nAt the beginning of each combat, if you control a creature with power 4 or greater, this creature gets +1/+1 until end of turn.",
@@ -49571,17 +51157,27 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Storm's Wrath
     &["Storm's Wrath deals 4 damage to each creature and each planeswalker."],
-    &[],
+    // Sunlit Hoplite
+    &[
+        "During your turn, this creature has first strike.\nThis creature gets +1/+0 as long as you control an Elspeth planeswalker.",
+    ],
     // Sunmane Pegasus
     &[
         "Flying\n{1}{W}: This creature gains vigilance and lifelink until end of turn. (Attacking doesn't cause it to tap. Damage dealt by it also causes you to gain that much life.)",
     ],
     &[],
     &[],
+    // Taranika, Akroan Veteran
+    &[
+        "Vigilance\nWhenever Taranika attacks, untap another target creature you control. Until end of turn, that creature has base power and toughness 4/4 and gains indestructible.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Temple Thief
+    &["This creature can't be blocked by enchanted creatures or enchantment creatures."],
+    // Terror of Mount Velus
+    &[
+        "Flying\nDouble strike (This creature deals both first-strike and regular combat damage.)\nWhen this creature enters, creatures you control gain double strike until end of turn.",
+    ],
     &[],
     // Thassa's Oracle
     &[
@@ -49596,16 +51192,33 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Search your library for a basic Plains card, reveal it, put it into your hand, then shuffle.\nII — Create a 0/4 colorless Wall artifact creature token with defender.\nIII — You gain 2 life.",
     ],
+    // The First Iroan Games
+    &[
+        "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI — Create a 1/1 white Human Soldier creature token.\nII — Put three +1/+1 counters on target creature you control.\nIII — If you control a creature with power 4 or greater, draw two cards.\nIV — Create a Gold token. (It's an artifact with \"Sacrifice this token: Add one mana of any color.\")",
+    ],
+    // The Triumph of Anax
+    &[
+        "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI, II, III — Until end of turn, target creature gains trample and gets +X/+0, where X is the number of lore counters on this Saga.\nIV — Target creature you control fights up to one target creature you don't control. (Each deals damage equal to its power to the other.)",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thundering Chariot
+    &[
+        "First strike, trample, haste\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+    ],
+    // Towering-Wave Mystic
+    &["Whenever this creature deals damage, target player mills that many cards."],
+    // Transcendent Envoy
+    &["Flying\nAura spells you cast cost {1} less to cast."],
+    // Treacherous Blessing
+    &[
+        "When this enchantment enters, draw three cards.\nWhenever you cast a spell, you lose 1 life.\nWhen this enchantment becomes the target of a spell or ability, sacrifice it.",
+    ],
+    // Treeshaker Chimera
+    &[
+        "All creatures able to block this creature do so.\nWhen this creature dies, draw three cards.",
+    ],
     // Triton Waverider
     &[
         "Constellation — Whenever an enchantment you control enters, this creature gains flying until end of turn.",
@@ -49632,7 +51245,8 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Vexing Gull
     &["Flash\nFlying"],
-    &[],
+    // Victory's Envoy
+    &["At the beginning of your upkeep, put a +1/+1 counter on each other creature you control."],
     &[],
     &[],
     &[],
@@ -49653,15 +51267,24 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Brallin, Skyshark Rider
+    &[
+        "Partner with Shabraz, the Skyshark (When this creature enters, target player may put Shabraz into their hand from their library, then shuffle.)\nWhenever you discard a card, put a +1/+1 counter on Brallin and it deals 1 damage to each opponent.\n{R}: Target Shark gains trample until end of turn.",
+    ],
     &[],
     &[],
     &[],
     &[],
+    // Cryptic Trilobite
+    &[
+        "This creature enters with X +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: Add {C}{C}. Spend this mana only to activate abilities.\n{1}, {T}: Put a +1/+1 counter on this creature.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Daring Fiendbonder
+    &[
+        "Haste\nThis creature attacks each combat if able.\n{1}{B}, Exile this card from your graveyard: Put an indestructible counter on target creature. Activate only as a sorcery.",
+    ],
     // Deadly Rollick
     &[
         "If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature.",
@@ -49697,42 +51320,78 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Molten Echoes
+    &[
+        "As this enchantment enters, choose a creature type.\nWhenever a nontoken creature you control of the chosen type enters, create a token that's a copy of that creature. That token gains haste. Exile it at the beginning of the next end step.",
+    ],
     &[],
     // Nesting Grounds
     &[
         "{T}: Add {C}.\n{1}, {T}: Move a counter from target permanent you control onto a second target permanent. Activate only as a sorcery.",
     ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    // Tayam, Luminous Enigma
+    // Nikara, Lair Scavenger
     &[
-        "Each other creature you control enters with an additional vigilance counter on it.\n{3}, Remove three counters from among creatures you control: Mill three cards, then return a permanent card with mana value 3 or less from your graveyard to the battlefield.",
+        "Partner with Yannik, Scavenging Sentinel (When this creature enters, target player may put Yannik into their hand from their library, then shuffle.)\nMenace\nWhenever another creature you control leaves the battlefield, if it had one or more counters on it, you draw a card and you lose 1 life.",
     ],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // Psychic Impetus
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2 and is goaded. (It attacks each combat if able and attacks a player other than you if able.)\nWhenever enchanted creature attacks, you scry 2.",
+    ],
     &[],
+    &[],
+    &[],
+    &[],
+    // Shabraz, the Skyshark
+    &[
+        "Partner with Brallin, Skyshark Rider\nFlying\nWhenever you draw a card, put a +1/+1 counter on Shabraz and you gain 1 life.\n{W/U}: Target Human gains flying until end of turn.",
+    ],
+    // Shiny Impetus
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2 and is goaded. (It attacks each combat if able and attacks a player other than you if able.)\nWhenever enchanted creature attacks, you create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    ],
+    // Silvar, Devourer of the Free
+    &[
+        "Partner with Trynn, Champion of Freedom (When this creature enters, target player may put Trynn into their hand from their library, then shuffle.)\nMenace\nSacrifice a Human: Put a +1/+1 counter on Silvar. It gains indestructible until end of turn.",
+    ],
+    &[],
+    &[],
+    // Species Specialist
+    &[
+        "As this creature enters, choose a creature type.\nWhenever a creature of the chosen type dies, you may draw a card.",
+    ],
+    &[],
+    // Surly Badgersaur
+    &[
+        "Whenever you discard a creature card, put a +1/+1 counter on this creature.\nWhenever you discard a land card, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nWhenever you discard a noncreature, nonland card, this creature fights up to one target creature you don't control.",
+    ],
+    // Tayam, Luminous Enigma
+    &[
+        "Each other creature you control enters with an additional vigilance counter on it.\n{3}, Remove three counters from among creatures you control: Mill three cards, then return a permanent card with mana value 3 or less from your graveyard to the battlefield.",
+    ],
+    &[],
+    // Titan Hunter
+    &[
+        "At the beginning of each player's end step, if no creatures died this turn, this creature deals 4 damage to that player.\n{1}{B}, Sacrifice a creature: You gain 4 life.",
+    ],
+    // Trynn, Champion of Freedom
+    &[
+        "Partner with Silvar, Devourer of the Free (When this creature enters, target player may put Silvar into their hand from their library, then shuffle.)\nAt the beginning of your end step, if you attacked this turn, create a 1/1 white Human Soldier creature token.",
+    ],
+    &[],
+    // Ukkima, Stalking Shadow
+    &[
+        "Partner with Cazur, Ruthless Stalker (When this creature enters, target player may put Cazur into their hand from their library, then shuffle.)\nUkkima can't be blocked.\nWhen Ukkima leaves the battlefield, it deals X damage to target player and you gain X life, where X is its power.",
+    ],
+    // Verge Rangers
+    &[
+        "First strike\nYou may look at the top card of your library any time.\nAs long as an opponent controls more lands than you, you may play lands from the top of your library. (You can play a land this way only if you have an available land play remaining.)",
+    ],
     &[],
     &[],
     &[],
@@ -49749,18 +51408,28 @@ pub static ORACLE: &[&[&str]] = &[
     &["Trample\n{3}{G}: This creature gets +3/+3 until end of turn."],
     &[],
     &[],
+    // Avian Oddity
+    &[
+        "Flying\nCycling {2}{U} ({2}{U}, Discard this card: Draw a card.)\nWhen you cycle this card, put a flying counter on target creature you control.",
+    ],
     &[],
-    &[],
-    &[],
+    // Barrier Breach
+    &["Exile up to three target enchantments.\nCycling {2} ({2}, Discard this card: Draw a card.)"],
     // Bastion of Remembrance
     &[
         "When this enchantment enters, create a 1/1 white Human Soldier creature token.\nWhenever a creature you control dies, each opponent loses 1 life and you gain 1 life.",
     ],
     // Blade Banish
     &["Exile target creature with power 4 or greater."],
+    // Blisterspit Gremlin
+    &[
+        "{1}, {T}: This creature deals 1 damage to each opponent.\nWhenever you cast a noncreature spell, untap this creature.",
+    ],
     &[],
-    &[],
-    &[],
+    // Blitz of the Thunder-Raptor
+    &[
+        "Blitz of the Thunder-Raptor deals damage to target creature or planeswalker equal to the number of instant and sorcery cards in your graveyard. If that creature or planeswalker would die this turn, exile it instead.",
+    ],
     &[],
     // Bonders' Enclave
     &[
@@ -49771,7 +51440,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Draw four cards.\nCycling {1} ({1}, Discard this card: Draw a card.)"],
     &[],
     &[],
-    &[],
+    // Bushmeat Poacher
+    &[
+        "{1}, {T}, Sacrifice another creature: You gain life equal to the sacrificed creature's toughness. Draw a card.",
+    ],
     &[],
     &[],
     &[],
@@ -49789,7 +51461,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature gets +20/+20.",
     ],
-    &[],
+    // Coordinated Charge
+    &[
+        "Creatures you control get +2/+1 until end of turn.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
     // Crystacean
     &["Flash (You may cast this spell any time you could cast an instant.)"],
     &[],
@@ -49798,22 +51473,38 @@ pub static ORACLE: &[&[&str]] = &[
     // Daysquad Marshal
     &["When this creature enters, create a 1/1 white Human Soldier creature token."],
     &[],
+    // Dire Tactics
+    &[
+        "Exile target creature. If you don't control a Human, you lose life equal to that creature's toughness.",
+    ],
     &[],
-    &[],
-    &[],
+    // Drannith Healer
+    &[
+        "Whenever you cycle another card, you gain 1 life.\nCycling {1} ({1}, Discard this card: Draw a card.)",
+    ],
     // Drannith Magistrate
     &["Your opponents can't cast spells from anywhere other than their hands."],
+    // Drannith Stinger
+    &[
+        "Whenever you cycle another card, this creature deals 1 damage to each opponent.\nCycling {1} ({1}, Discard this card: Draw a card.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Durable Coilbug
+    &["{4}{B}: Return this card from your graveyard to your hand."],
+    // Duskfang Mentor
+    &[
+        "When this creature enters, put a lifelink counter on target non-Human creature you control.\n{1}{B}, {T}: Put a +1/+1 counter on each creature you control with lifelink.",
+    ],
     // Easy Prey
     &[
         "Destroy target creature with mana value 2 or less.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
     &[],
     &[],
-    &[],
+    // Escape Protocol
+    &[
+        "Whenever you cycle a card, you may pay {1}. When you do, exile target artifact or creature you control, then return it to the battlefield under its owner's control.",
+    ],
     &[],
     &[],
     // Excavation Mole
@@ -49822,29 +51513,49 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Facet Reader
     &["{1}, {T}: Draw a card, then discard a card."],
-    &[],
+    // Farfinder
+    &[
+        "Vigilance\nWhen this creature enters, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.",
+    ],
     &[],
     // Fiend Artisan
     &[
         "This creature gets +1/+1 for each creature card in your graveyard.\n{X}{B/G}, {T}, Sacrifice another creature: Search your library for a creature card with mana value X or less, put it onto the battlefield, then shuffle. Activate only as a sorcery.",
     ],
+    // Fight as One
+    &[
+        "Choose one or both —\n• Target Human creature you control gets +1/+1 and gains indestructible until end of turn.\n• Target non-Human creature you control gets +1/+1 and gains indestructible until end of turn.",
+    ],
     &[],
     &[],
+    // Flourishing Fox
+    &[
+        "Whenever you cycle another card, put a +1/+1 counter on this creature.\nCycling {1} ({1}, Discard this card: Draw a card.)",
+    ],
+    &[],
+    // Footfall Crater
+    &[
+        "Enchant land\nEnchanted land has \"{T}: Target creature gains trample and haste until end of turn.\"\nCycling {1} ({1}, Discard this card: Draw a card.)",
+    ],
     &[],
     &[],
+    // Frondland Felidar
+    &["Vigilance\nCreatures you control with vigilance have \"{1}, {T}: Tap target creature.\""],
+    // Frostveil Ambush
+    &[
+        "Tap up to two target creatures. Those creatures don't untap during their controller's next untap step.\nCycling {1} ({1}, Discard this card: Draw a card.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Garrison Cat
+    &["When this creature dies, create a 1/1 white Human Soldier creature token."],
     // Gemrazer
     &[
         "Mutate {1}{G}{G} (If you cast this spell for its mutate cost, put it over or under target non-Human creature you own. They mutate into the creature on top plus all abilities from under it.)\nReach, trample\nWhenever this creature mutates, destroy target artifact or enchantment an opponent controls.",
     ],
-    &[],
+    // General Kudro of Drannith
+    &[
+        "Other Humans you control get +1/+1.\nWhenever General Kudro or another Human you control enters, exile target card from an opponent's graveyard.\n{2}, Sacrifice two Humans: Destroy target creature with power 4 or greater.",
+    ],
     &[],
     &[],
     // Glimmerbell
@@ -49852,11 +51563,20 @@ pub static ORACLE: &[&[&str]] = &[
     // Gloom Pangolin
     &[""],
     &[],
+    // Go for Blood
+    &[
+        "Target creature you control fights target creature you don't control. (Each deals damage equal to its power to the other.)\nCycling {1} ({1}, Discard this card: Draw a card.)",
+    ],
     &[],
+    // Gust of Wind
+    &[
+        "This spell costs {2} less to cast if you control a creature with flying.\nReturn target nonland permanent you don't control to its owner's hand.\nDraw a card.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Hampering Snare
+    &[
+        "Creatures your opponents control get -2/-0 until end of turn.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
     &[],
     &[],
     &[],
@@ -49891,26 +51611,39 @@ pub static ORACLE: &[&[&str]] = &[
         "({T}: Add {G}, {U}, or {R}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)",
     ],
     &[],
-    &[],
-    &[],
+    // Kogla, the Titan Ape
+    &[
+        "When Kogla enters, it fights up to one target creature you don't control.\nWhenever Kogla attacks, destroy target artifact or enchantment defending player controls.\n{1}{G}: Return target Human you control to its owner's hand. Kogla gains indestructible until end of turn.",
+    ],
+    // Labyrinth Raptor
+    &[
+        "Menace\nWhenever a creature you control with menace becomes blocked, defending player sacrifices a creature of their choice that's blocking it.\n{B}{R}: Creatures you control with menace get +1/+0 until end of turn.",
+    ],
     // Lava Serpent
     &["Haste\nCycling {2} ({2}, Discard this card: Draw a card.)"],
     &[],
-    &[],
+    // Light of Hope
+    &[
+        "Choose one —\n• You gain 4 life.\n• Destroy target enchantment.\n• Put a +1/+1 counter on target creature.",
+    ],
     &[],
     &[],
     // Luminous Broodmoth
     &[
         "Flying\nWhenever a creature you control without flying dies, return it to the battlefield under its owner's control with a flying counter on it.",
     ],
-    &[],
+    // Lurking Deadeye
+    &["Flash\nWhen this creature enters, destroy target creature that was dealt damage this turn."],
     &[],
     &[],
     &[],
     // Maned Serval
     &["Vigilance"],
     &[],
-    &[],
+    // Migration Path
+    &[
+        "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
     &[],
     &[],
     &[],
@@ -49918,7 +51651,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Vigilance"],
     &[],
     &[],
-    &[],
+    // Mystic Subdual
+    &[
+        "Flash\nEnchant creature\nEnchanted creature gets -2/-0 and loses all abilities. (Mutating onto the creature won't give it new abilities. It can gain abilities in other ways.)",
+    ],
     &[],
     &[],
     &[],
@@ -49929,15 +51665,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Neutralize
     &["Counter target spell.\nCycling {2} ({2}, Discard this card: Draw a card.)"],
+    // Nightsquad Commando
+    &[
+        "When this creature enters, if you attacked this turn, create a 1/1 white Human Soldier creature token.",
+    ],
     &[],
-    &[],
-    &[],
+    // Of One Mind
+    &[
+        "This spell costs {2} less to cast if you control a Human creature and a non-Human creature.\nDraw two cards.",
+    ],
     &[],
     &[],
     &[],
     // Patagia Tiger
     &["Flying\nWhen this creature enters, target Human you control gets +2/+2 until end of turn."],
-    &[],
+    // Perimeter Sergeant
+    &["Whenever this creature attacks, other Humans you control get +1/+0 until end of turn."],
     // Phase Dolphin
     &[
         "Whenever this creature attacks, another target attacking creature can't be blocked this turn.",
@@ -49945,7 +51688,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Prickly Marmoset
+    &["First strike\nWhenever you cycle a card, this creature gets +2/+0 until end of turn."],
     &[],
     &[],
     // Pyroceratops
@@ -49967,7 +51711,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Whenever a creature you control deals combat damage to a player, you may draw a card.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
     &[],
-    &[],
+    // Reptilian Reflection
+    &[
+        "Whenever you cycle a card, you may have this enchantment become a 5/4 Dinosaur creature with trample and haste in addition to its other types until end of turn.",
+    ],
     &[],
     &[],
     // Ruinous Ultimatum
@@ -49976,13 +51723,19 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Rumbling Rockslide deals damage to target creature equal to the number of lands you control.",
     ],
-    &[],
+    // Sanctuary Lockdown
+    &[
+        "Humans you control get +1/+1.\n{2}, Tap two untapped Humans you control: Tap target creature an opponent controls.",
+    ],
     &[],
     // Savai Crystal
     &["{T}: Add {R}, {W}, or {B}.\nCycling {2} ({2}, Discard this card: Draw a card.)"],
     // Savai Sabertooth
     &[""],
-    &[],
+    // Savai Thundermane
+    &[
+        "Whenever you cycle a card, you may pay {2}. When you do, this creature deals 2 damage to target creature and you gain 2 life.",
+    ],
     // Savai Triome
     &[
         "({T}: Add {R}, {W}, or {B}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)",
@@ -49999,17 +51752,34 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Add {B} or {G}.\n{T}: Mill two cards. (Put the top two cards of your library into your graveyard.)",
     ],
+    // Skycat Sovereign
+    &[
+        "Flying\nThis creature gets +1/+1 for each other creature you control with flying.\n{2}{W}{U}: Create a 1/1 white Cat Bird creature token with flying.",
+    ],
+    // Sleeper Dart
+    &[
+        "When this artifact enters, draw a card.\n{T}, Sacrifice this artifact: Target creature doesn't untap during its controller's next untap step.",
+    ],
     &[],
     &[],
+    // Snare Tactician
+    &["Whenever you cycle a card, tap target creature an opponent controls."],
     &[],
+    // Song of Creation
+    &[
+        "You may play an additional land on each of your turns.\nWhenever you cast a spell, draw two cards.\nAt the beginning of your end step, discard your hand.",
+    ],
+    // Sonorous Howlbonder
+    &[
+        "Menace\nEach creature you control with menace can't be blocked except by three or more creatures.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Splendor Mare
+    &[
+        "Lifelink\nCycling {1}{W} ({1}{W}, Discard this card: Draw a card.)\nWhen you cycle this card, put a lifelink counter on target creature you control.",
+    ],
+    // Spontaneous Flight
+    &["Target creature gets +2/+2 until end of turn. Put a flying counter on it."],
     // Springjaw Trap
     &["Flash\n{4}, {T}, Sacrifice this artifact: It deals 3 damage to any target."],
     // Sprite Dragon
@@ -50022,25 +51792,41 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
+    // Suffocating Fumes
+    &[
+        "Creatures your opponents control get -1/-1 until end of turn.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Survivors' Bond
+    &[
+        "Choose one or both —\n• Return target Human creature card from your graveyard to your hand.\n• Return target non-Human creature card from your graveyard to your hand.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Tentative Connection
+    &[
+        "This spell costs {3} less to cast if you control a creature with menace.\nGain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.",
+    ],
     &[],
     // Thieving Otter
     &["Whenever this creature deals damage to an opponent, draw a card."],
+    // Thwart the Enemy
+    &["Prevent all damage that would be dealt this turn by creatures your opponents control."],
+    &[],
+    &[],
+    &[],
+    &[],
+    // Unbreakable Bond
+    &[
+        "Return target creature card from your graveyard to the battlefield with a lifelink counter on it.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Void Beckoner
+    &[
+        "Deathtouch\nCycling {2}{B} ({2}{B}, Discard this card: Draw a card.)\nWhen you cycle this card, put a deathtouch counter on target creature you control.",
+    ],
     // Voracious Greatshark
     &[
         "Flash (You may cast this spell any time you could cast an instant.)\nWhen this creature enters, counter target artifact or creature spell.",
@@ -50060,7 +51846,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Destroy target artifact or enchantment.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
     &[],
-    &[],
+    // Wingspan Mentor
+    &[
+        "When this creature enters, put a flying counter on target non-Human creature you control.\n{2}{U}, {T}: Put a +1/+1 counter on each creature you control with flying.",
+    ],
     &[],
     &[],
     &[],
@@ -50082,7 +51871,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Alpine Watchdog
     &["Vigilance (Attacking doesn't cause this creature to tap.)"],
-    &[],
+    // Angelic Ascension
+    &[
+        "Exile target creature or planeswalker. Its controller creates a 4/4 white Angel creature token with flying.",
+    ],
     // Animal Sanctuary
     &["{T}: Add {C}.\n{2}, {T}: Put a +1/+1 counter on target Bird, Cat, Dog, Goat, Ox, or Snake."],
     // Anointed Chorister
@@ -50090,32 +51882,52 @@ pub static ORACLE: &[&[&str]] = &[
         "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\n{4}{W}: This creature gets +3/+3 until end of turn.",
     ],
     &[],
-    &[],
+    // Aven Gagglemaster
+    &[
+        "Flying\nWhen this creature enters, you gain 2 life for each creature you control with flying.",
+    ],
     // Bad Deal
     &["You draw two cards and each opponent discards two cards. Each player loses 2 life."],
     &[],
     &[],
+    // Basri's Acolyte
+    &[
+        "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nWhen this creature enters, put a +1/+1 counter on each of up to two other target creatures you control.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Basri's Lieutenant
+    &[
+        "Vigilance, protection from multicolored\nWhen this creature enters, put a +1/+1 counter on target creature you control.\nWhenever this creature or another creature you control dies, if it had a +1/+1 counter on it, create a 2/2 white Knight creature token with vigilance.",
+    ],
+    // Basri's Solidarity
+    &["Put a +1/+1 counter on each creature you control."],
     &[],
     // Blood Glutton
     &["Lifelink (Damage dealt by this creature also causes you to gain that much life.)"],
-    &[],
+    // Bolt Hound
+    &[
+        "Haste (This creature can attack and {T} as soon as it comes under your control.)\nWhenever this creature attacks, other creatures you control get +1/+0 until end of turn.",
+    ],
     // Bone Pit Brute
     &[
         "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature enters, target creature gets +4/+0 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
+    // Brash Taunter
+    &[
+        "Indestructible\nWhenever this creature is dealt damage, it deals that much damage to target opponent.\n{2}{R}, {T}: This creature fights another target creature.",
+    ],
+    // Burlfist Oak
+    &["Whenever you draw a card, this creature gets +2/+2 until end of turn."],
+    // Caged Zombie
+    &["{1}{B}, {T}: Each opponent loses 2 life. Activate only if a creature died this turn."],
     &[],
     &[],
     // Celestial Enforcer
     &["{1}{W}, {T}: Tap target creature. Activate only if you control a creature with flying."],
     &[],
     &[],
+    // Chandra's Magmutt
+    &["{T}: This creature deals 1 damage to target player or planeswalker."],
     &[],
     &[],
     &[],
@@ -50123,32 +51935,49 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Crypt Lurker
+    &[
+        "When this creature enters, you may sacrifice a creature or discard a creature card. If you do, draw a card.",
+    ],
     // Daybreak Charger
     &["When this creature enters, target creature gets +2/+0 until end of turn."],
     &[],
-    &[],
+    // Dire Fleet Warmonger
+    &[
+        "At the beginning of combat on your turn, you may sacrifice another creature. If you do, this creature gets +2/+2 and gains trample until end of turn. (It can deal excess combat damage to the player or planeswalker it's attacking.)",
+    ],
     &[],
     &[],
     // Drowsing Tyrannodon
     &[
         "Defender (This creature can't attack.)\nAs long as you control a creature with power 4 or greater, this creature can attack as though it didn't have defender.",
     ],
-    &[],
+    // Elder Gargaroth
+    &[
+        "Reach, vigilance, trample\nWhenever this creature attacks or blocks, choose one —\n• Create a 3/3 green Beast creature token.\n• You gain 3 life.\n• Draw a card.",
+    ],
     // Eliminate
     &["Destroy target creature or planeswalker with mana value 3 or less."],
     &[],
     &[],
-    &[],
+    // Falconer Adept
+    &[
+        "Whenever this creature attacks, create a 1/1 white Bird creature token with flying that's tapped and attacking.",
+    ],
     &[],
     &[],
     // Finishing Blow
     &["Destroy target creature or planeswalker."],
     // Forgotten Sentinel
     &["This creature enters tapped."],
-    &[],
-    &[],
+    // Frantic Inventory
+    &[
+        "Draw a card, then draw cards equal to the number of cards named Frantic Inventory in your graveyard.",
+    ],
+    // Fungal Rebirth
+    &[
+        "Return target permanent card from your graveyard to your hand. If a creature died this turn, create two 1/1 green Saproling creature tokens.",
+    ],
     &[],
     // Gale Swooper
     &["Flying\nWhen this creature enters, target creature gains flying until end of turn."],
@@ -50170,9 +51999,15 @@ pub static ORACLE: &[&[&str]] = &[
         "Create two 1/1 red Goblin Wizard creature tokens with prowess. (Whenever you cast a noncreature spell, they get +1/+1 until end of turn.)",
     ],
     &[],
+    // Griffin Aerie
+    &[
+        "At the beginning of your end step, if you gained 3 or more life this turn, create a 2/2 white Griffin creature token with flying.",
+    ],
     &[],
-    &[],
-    &[],
+    // Heartfire Immolator
+    &[
+        "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\n{R}, Sacrifice this creature: It deals damage equal to its power to target creature or planeswalker.",
+    ],
     // Hellkite Punisher
     &["Flying\n{R}: This creature gets +1/+0 until end of turn."],
     // Historian of Zhalfir
@@ -50185,11 +52020,17 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Deathtouch\nWhenever a creature you control with deathtouch attacks, each opponent loses 1 life and you gain 1 life.\nWhenever a creature you control with deathtouch deals damage to a planeswalker, destroy that planeswalker.",
     ],
-    &[],
+    // Hunter's Edge
+    &[
+        "Put a +1/+1 counter on target creature you control. Then that creature deals damage equal to its power to target creature you don't control.",
+    ],
     &[],
     // Igneous Cur
     &["{1}{R}: This creature gets +2/+0 until end of turn."],
-    &[],
+    // Indulging Patrician
+    &[
+        "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nAt the beginning of your end step, if you gained 3 or more life this turn, each opponent loses 3 life.",
+    ],
     &[],
     &[],
     // Kaervek, the Spiteful
@@ -50198,36 +52039,58 @@ pub static ORACLE: &[&[&str]] = &[
     &["{2}{U}: Target creature gains flying until end of turn."],
     &[],
     &[],
-    &[],
+    // Leafkin Avenger
+    &[
+        "{T}: Add {G} for each creature with power 4 or greater you control.\n{7}{R}: This creature deals damage equal to its power to target player or planeswalker.",
+    ],
     // Library Larcenist
     &["Whenever this creature attacks, draw a card."],
+    // Light of Promise
+    &[
+        "Enchant creature\nEnchanted creature has \"Whenever you gain life, put that many +1/+1 counters on this creature.\"",
+    ],
+    // Liliana's Devotee
+    &[
+        "Zombies you control get +1/+0.\nAt the beginning of your end step, if a creature died this turn, you may pay {1}{B}. If you do, create a 2/2 black Zombie creature token.",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Liliana's Steward
+    &["{T}, Sacrifice this creature: Target opponent discards a card. Activate only as a sorcery."],
     &[],
     &[],
     // Llanowar Visionary
     &["When this creature enters, draw a card.\n{T}: Add {G}."],
     &[],
-    &[],
+    // Malefic Scythe
+    &[
+        "This Equipment enters with a soul counter on it.\nEquipped creature gets +1/+1 for each soul counter on this Equipment.\nWhenever equipped creature dies, put a soul counter on this Equipment.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     &[],
     // Masked Blackguard
     &[
         "Flash (You may cast this spell any time you could cast an instant.)\n{2}{B}: This creature gets +1/+1 until end of turn.",
     ],
-    &[],
+    // Mazemind Tome
+    &[
+        "{T}, Put a page counter on this artifact: Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\n{2}, {T}, Put a page counter on this artifact: Draw a card.\nWhen there are four or more page counters on this artifact, exile it. If you do, you gain 4 life.",
+    ],
     // Miscast
     &["Counter target instant or sorcery spell unless its controller pays {3}."],
     // Mistral Singer
     &[
         "Flying\nProwess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)",
     ],
+    // Mystic Skyfish
+    &[
+        "Whenever you draw your second card each turn, this creature gains flying until end of turn.",
+    ],
     &[],
-    &[],
-    &[],
+    // Niambi, Esteemed Speaker
+    &[
+        "Flash\nWhen Niambi enters, you may return another target creature you control to its owner's hand. If you do, you gain life equal to that creature's mana value.\n{1}{W}{U}, {T}, Discard a legendary card: Draw two cards.",
+    ],
     &[],
     // Obsessive Stitcher
     &[
@@ -50237,63 +52100,122 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nWhenever this creature attacks, if you control a creature with power 4 or greater, this creature gets +2/+2 until end of turn.",
     ],
-    &[],
-    &[],
+    // Pack Leader
+    &[
+        "Other Dogs you control get +1/+1.\nWhenever this creature attacks, prevent all combat damage that would be dealt this turn to Dogs you control.",
+    ],
+    // Peer into the Abyss
+    &[
+        "Target player draws cards equal to half the number of cards in their library and loses half their life. Round up each time.",
+    ],
     &[],
     // Predatory Wurm
     &[
         "Vigilance (Attacking doesn't cause this creature to tap.)\nThis creature gets +2/+2 as long as you control a Garruk planeswalker.",
     ],
+    // Pridemalkin
+    &[
+        "When this creature enters, put a +1/+1 counter on target creature you control.\nEach creature you control with a +1/+1 counter on it has trample. (It can deal excess combat damage to the player or planeswalker it's attacking.)",
+    ],
+    // Primal Might
+    &[
+        "Target creature you control gets +X/+X until end of turn. Then it fights up to one target creature you don't control. (Each deals damage equal to its power to the other.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Radha, Heart of Keld
+    &[
+        "During your turn, Radha has first strike.\nYou may look at the top card of your library any time, and you may play lands from the top of your library.\n{4}{R}{G}: Radha gets +X/+X until end of turn, where X is the number of lands you control.",
+    ],
     // Rambunctious Mutt
     &["When this creature enters, destroy target artifact or enchantment an opponent controls."],
-    &[],
+    // Read the Tides
+    &[
+        "Choose one —\n• Draw three cards.\n• Return up to two target creatures to their owners' hands.",
+    ],
     // Rin and Seri, Inseparable
     &[
         "Whenever you cast a Dog spell, create a 1/1 green Cat creature token.\nWhenever you cast a Cat spell, create a 1/1 white Dog creature token.\n{R}{G}{W}, {T}: Rin and Seri deals damage to any target equal to the number of Dogs you control. You gain life equal to the number of Cats you control.",
     ],
     // Rise Again
     &["Return target creature card from your graveyard to the battlefield."],
-    &[],
+    // Roaming Ghostlight
+    &[
+        "Flying\nWhen this creature enters, return up to one target non-Spirit creature to its owner's hand.",
+    ],
     &[],
     // Rousing Read
     &[
         "Enchant creature\nWhen this Aura enters, draw two cards, then discard a card.\nEnchanted creature gets +1/+1 and has flying.",
     ],
+    // Run Afoul
+    &["Target opponent sacrifices a creature of their choice with flying."],
+    // Sabertooth Mauler
+    &[
+        "At the beginning of your end step, if a creature died this turn, put a +1/+1 counter on this creature and untap it.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Sanctum of Calm Waters
+    &[
+        "At the beginning of your first main phase, you may draw X cards, where X is the number of Shrines you control. If you do, discard a card.",
+    ],
+    // Sanctum of Fruitful Harvest
+    &[
+        "At the beginning of your first main phase, add X mana of any one color, where X is the number of Shrines you control.",
+    ],
+    // Sanctum of Shattered Heights
+    &[
+        "{1}, Discard a land card or Shrine card: Sanctum of Shattered Heights deals X damage to target creature or planeswalker, where X is the number of Shrines you control.",
+    ],
+    // Sanctum of Stone Fangs
+    &[
+        "At the beginning of your first main phase, each opponent loses X life and you gain X life, where X is the number of Shrines you control.",
+    ],
+    // Sanctum of Tranquil Light
+    &[
+        "{5}{W}: Tap target creature. This ability costs {1} less to activate for each Shrine you control.",
+    ],
+    // Sanguine Indulgence
+    &[
+        "This spell costs {3} less to cast if you've gained 3 or more life this turn.\nReturn up to two target creature cards from your graveyard to your hand.",
+    ],
+    // Seasoned Hallowblade
+    &[
+        "Discard a card: Tap this creature. It gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+    ],
+    // Secure the Scene
+    &["Exile target nonland permanent. Its controller creates a 1/1 white Soldier creature token."],
     &[],
     // Selfless Savior
     &[
         "Sacrifice this creature: Another target creature you control gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
     ],
-    &[],
+    // Shacklegeist
+    &[
+        "Flying\nThis creature can block only creatures with flying.\nTap two untapped Spirits you control: Tap target creature you don't control.",
+    ],
     // Shipwreck Dowser
     &[
         "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nWhen this creature enters, return target instant or sorcery card from your graveyard to your hand.",
     ],
     &[],
-    &[],
-    &[],
+    // Sigiled Contender
+    &[
+        "This creature has lifelink as long as it has a +1/+1 counter on it. (Damage dealt by this creature also causes you to gain that much life.)",
+    ],
+    // Silversmote Ghoul
+    &[
+        "At the beginning of your end step, if you gained 3 or more life this turn, return this card from your graveyard to the battlefield tapped.\n{1}{B}, Sacrifice this creature: Draw a card.",
+    ],
     // Skyway Sniper
     &[
         "Reach (This creature can block creatures with flying.)\n{2}{G}: This creature deals 1 damage to target creature with flying.",
     ],
     &[],
     &[],
-    &[],
+    // Speaker of the Heavens
+    &[
+        "Vigilance, lifelink (Attacking doesn't cause this creature to tap. Damage dealt by this creature also causes you to gain that much life.)\n{T}: Create a 4/4 white Angel creature token with flying. Activate only if you have at least 7 life more than your starting life total and only as a sorcery.",
+    ],
     // Spined Megalodon
     &[
         "Hexproof (This creature can't be the target of spells or abilities your opponents control.)\nWhenever this creature attacks, scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
@@ -50305,7 +52227,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[""],
     // Storm Caller
     &["When this creature enters, it deals 2 damage to each opponent."],
-    &[],
+    // Stormwing Entity
+    &[
+        "This spell costs {2}{U} less to cast if you've cast an instant or sorcery spell this turn.\nFlying\nProwess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nWhen this creature enters, scry 2.",
+    ],
     &[],
     &[],
     // Swift Response
@@ -50313,39 +52238,75 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Teferi's Protege
     &["{1}{U}, {T}: Draw a card, then discard a card."],
+    // Teferi's Tutelage
+    &[
+        "When this enchantment enters, draw a card, then discard a card.\nWhenever you draw a card, target opponent mills two cards. (They put the top two cards of their library into their graveyard.)",
+    ],
     &[],
     &[],
     &[],
+    // Tempered Veteran
+    &[
+        "{W}, {T}: Put a +1/+1 counter on target creature with a +1/+1 counter on it.\n{4}{W}{W}, {T}: Put a +1/+1 counter on target creature.",
+    ],
+    &[],
+    // Thieves' Guild Enforcer
+    &[
+        "Flash\nWhenever this creature or another Rogue you control enters, each opponent mills two cards.\nAs long as an opponent has eight or more cards in their graveyard, this creature gets +2/+1 and has deathtouch.",
+    ],
+    // Tide Skimmer
+    &["Flying\nWhenever you attack with two or more creatures with flying, draw a card."],
+    // Tolarian Kraken
+    &[
+        "Whenever you draw a card, you may pay {1}. When you do, you may tap or untap target creature.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Traitorous Greed
+    &[
+        "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. Add two mana of any one color. (The creature can attack and {T} this turn.)",
+    ],
+    // Transmogrify
+    &[
+        "Exile target creature. That creature's controller reveals cards from the top of their library until they reveal a creature card. That player puts that card onto the battlefield, then shuffles the rest into their library.",
+    ],
+    // Trufflesnout
+    &[
+        "When this creature enters, choose one —\n• Put a +1/+1 counter on this creature.\n• You gain 4 life.",
+    ],
+    // Twinblade Assassins
+    &["At the beginning of your end step, if a creature died this turn, draw a card."],
     &[],
     // Valorous Steed
     &[
         "Vigilance (Attacking doesn't cause this creature to tap.)\nWhen this creature enters, create a 2/2 white Knight creature token with vigilance.",
     ],
-    &[],
-    &[],
+    // Village Rites
+    &["As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."],
+    // Vito, Thorn of the Dusk Rose
+    &[
+        "Whenever you gain life, target opponent loses that much life.\n{3}{B}{B}: Creatures you control gain lifelink until end of turn.",
+    ],
     &[],
     &[],
     // Warded Battlements
     &["Defender (This creature can't attack.)\nAttacking creatures you control get +1/+0."],
-    &[],
-    &[],
+    // Warden of the Woods
+    &[
+        "Vigilance (Attacking doesn't cause this creature to tap.)\nWhenever this creature becomes the target of a spell or ability an opponent controls, you may draw two cards.",
+    ],
+    // Watcher of the Spheres
+    &[
+        "Flying\nCreature spells with flying you cast cost {1} less to cast.\nWhenever another creature you control with flying enters, this creature gets +1/+1 until end of turn.",
+    ],
     // Wildwood Patrol
     &[
         "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
     ],
-    &[],
+    // Wildwood Scourge
+    &[
+        "This creature enters with X +1/+1 counters on it.\nWhenever one or more +1/+1 counters are put on another non-Hydra creature you control, put a +1/+1 counter on this creature.",
+    ],
     // Witch's Cauldron
     &["{1}{B}, {T}, Sacrifice a creature: You gain 1 life and draw a card."],
     &[],
@@ -50353,7 +52314,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["When this creature enters, return target artifact card from your graveyard to your hand."],
     &[],
     &[],
-    &[],
+    // Brightmare
+    &[
+        "When this creature enters, tap up to one target creature. You gain life equal to that creature's power.",
+    ],
     &[],
     // Chained Brute
     &[
@@ -50367,7 +52331,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{3}: Exile another target creature you control, then return it to the battlefield under its owner's control.\nWhenever another creature you control enters, you may pay {G/W}. If you do, put a +1/+1 counter on it. If it's a Unicorn, put two +1/+1 counters on it instead. ({G/W} can be paid with either {G} or {W}.)",
     ],
-    &[],
+    // Immolating Gyre
+    &[
+        "Immolating Gyre deals X damage to each creature and planeswalker you don't control, where X is the number of instant and sorcery cards in your graveyard.",
+    ],
     &[],
     &[],
     &[],
@@ -50389,14 +52356,24 @@ pub static ORACLE: &[&[&str]] = &[
     // Release the Dogs
     &["Create four 1/1 white Dog creature tokens."],
     &[],
-    &[],
-    &[],
-    &[],
+    // Sethron, Hurloon General
+    &[
+        "Whenever Sethron or another nontoken Minotaur you control enters, create a 2/3 red Minotaur creature token.\n{2}{B/R}: Minotaurs you control get +1/+0 and gain menace and haste until end of turn. ({B/R} can be paid with either {B} or {R}.)",
+    ],
+    // Spiteful Prankster
+    &[
+        "During your turn, this creature has first strike.\nWhenever another creature dies, this creature deals 1 damage to target player or planeswalker.",
+    ],
+    // Steel-Plume Marshal
+    &[
+        "Flying\nWhenever this creature attacks, other attacking creatures you control with flying get +2/+2 until end of turn.",
+    ],
     // Stone Haven Pilgrim
     &[
         "Whenever this creature attacks, if you control an artifact or enchantment, this creature gets +1/+1 and gains lifelink until end of turn.",
     ],
-    &[],
+    // Supply Runners
+    &["When this creature enters, put a +1/+1 counter on each other creature you control."],
     // Thriving Bluff
     &[
         "This land enters tapped. As it enters, choose a color other than red.\n{T}: Add {R} or one mana of the chosen color.",
@@ -50419,21 +52396,29 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
+    // Trusty Retriever
+    &[
+        "When this creature enters, choose one —\n• Put a +1/+1 counter on this creature.\n• Return target artifact or enchantment card from your graveyard to your hand.",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Compound Fracture
+    &[
+        "Target creature gets -1/-1 until end of turn. It gets an additional -1/-1 until end of turn for each card named Compound Fracture in your graveyard.",
+    ],
     // Cruel Cut
     &["Destroy target creature with power 2 or less."],
     // Goblin Gang Leader
     &["When this creature enters, create two 1/1 red Goblin creature tokens."],
-    &[],
+    // Hallowed Priest
+    &["Whenever you gain life, put a +1/+1 counter on this creature."],
     &[],
     // Nimble Pilferer
     &["Flash"],
     &[],
-    &[],
+    // Tin Street Cadet
+    &["Whenever this creature becomes blocked, create a 1/1 red Goblin creature token."],
     &[],
     &[],
     // Agadeem's Awakening
@@ -50485,9 +52470,18 @@ pub static ORACLE: &[&[&str]] = &[
         "Menace (This creature can't be blocked except by two or more creatures.)\nThis creature gets +3/+0 as long as an opponent has eight or more cards in their graveyard.",
         "This land enters tapped.\n{T}: Add {B}.",
     ],
-    &[],
-    &[],
-    &[],
+    // Blood Beckoning
+    &[
+        "Kicker {3} (You may pay an additional {3} as you cast this spell.)\nReturn target creature card from your graveyard to your hand. If this spell was kicked, instead return two target creature cards from your graveyard to your hand.",
+    ],
+    // Blood Price
+    &[
+        "Look at the top four cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order. You lose 2 life.",
+    ],
+    // Bloodchief's Thirst
+    &[
+        "Kicker {2}{B} (You may pay an additional {2}{B} as you cast this spell.)\nDestroy target creature or planeswalker with mana value 2 or less. If this spell was kicked, instead destroy target creature or planeswalker.",
+    ],
     // Branchloft Pathway
     &["{T}: Add {G}.", "{T}: Add {W}."],
     // Brightclimb Pathway
@@ -50498,20 +52492,33 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Haste\nThis creature can't be blocked by creatures with power 2 or less.\nLandfall — Whenever a land you control enters, this creature gets +2/+2 until end of turn.",
     ],
-    &[],
+    // Bubble Snare
+    &[
+        "Kicker {2}{U} (You may pay an additional {2}{U} as you cast this spell.)\nEnchant creature\nWhen this Aura enters, if it was kicked, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step.",
+    ],
     // Canopy Baloth
     &["Landfall — Whenever a land you control enters, this creature gets +2/+2 until end of turn."],
+    // Canyon Jerboa
+    &[
+        "Landfall — Whenever a land you control enters, creatures you control get +1/+1 until end of turn.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Chilling Trap
+    &["Target creature gets -4/-0 until end of turn. If you control a Wizard, draw a card."],
+    // Cinderclasm
+    &[
+        "Kicker {R} (You may pay an additional {R} as you cast this spell.)\nCinderclasm deals 1 damage to each creature. If it was kicked, it deals 2 damage to each creature instead.",
+    ],
     &[],
     // Clearwater Pathway
     &["{T}: Add {U}.", "{T}: Add {B}."],
     &[],
     &[],
-    &[],
+    // Cliffhaven Kitesail
+    &[
+        "When this Equipment enters, attach it to target creature you control.\nEquipped creature has flying.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     // Cliffhaven Sell-Sword
     &[""],
     &[],
@@ -50520,19 +52527,31 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Cragcrown Pathway
     &["{T}: Add {R}.", "{T}: Add {G}."],
-    &[],
+    // Cragplate Baloth
+    &[
+        "Kicker {2}{G}\nThis spell can't be countered.\nHexproof, haste\nIf this creature was kicked, it enters with four +1/+1 counters on it.",
+    ],
     // Crawling Barrens
     &[
         "{T}: Add {C}.\n{4}: Put two +1/+1 counters on this land. Then you may have it become a 0/0 Elemental creature until end of turn. It's still a land.",
     ],
-    &[],
+    // Cunning Geysermage
+    &[
+        "Kicker {2}{U} (You may pay an additional {2}{U} as you cast this spell.)\nWhen this creature enters, if it was kicked, return up to one other target creature to its owner's hand.",
+    ],
     // Dauntless Survivor
     &["When this creature enters, put a +1/+1 counter on target creature."],
-    &[],
+    // Dauntless Unity
+    &[
+        "Kicker {1}{W} (You may pay an additional {1}{W} as you cast this spell.)\nCreatures you control get +1/+1 until end of turn. If this spell was kicked, those creatures get +2/+1 until end of turn instead.",
+    ],
     &[],
     // Deliberate
     &["Scry 2, then draw a card."],
-    &[],
+    // Demon's Disciple
+    &[
+        "When this creature enters, each player sacrifices a creature or planeswalker of their choice.",
+    ],
     &[],
     &[],
     // Dreadwurm
@@ -50550,33 +52569,65 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Farsight Adept
+    &["When this creature enters, you and target opponent each draw a card."],
     // Fearless Fledgling
     &[
         "Landfall — Whenever a land you control enters, put a +1/+1 counter on this creature. It gains flying until end of turn.",
     ],
+    // Feed the Swarm
+    &[
+        "Destroy target creature or enchantment an opponent controls. You lose life equal to that permanent's mana value.",
+    ],
+    // Felidar Retreat
+    &[
+        "Landfall — Whenever a land you control enters, choose one —\n• Create a 2/2 white Cat Beast creature token.\n• Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.",
+    ],
+    // Field Research
+    &[
+        "Kicker {2}{U} (You may pay an additional {2}{U} as you cast this spell.)\nDraw two cards. If this spell was kicked, draw three cards instead.",
+    ],
+    // Fireblade Charger
+    &[
+        "As long as this creature is equipped, it has haste.\nWhen this creature dies, it deals damage equal to its power to any target.",
+    ],
+    // Fissure Wizard
+    &["When this creature enters, you may discard a card. If you do, draw a card."],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Geode Rager
+    &[
+        "First strike\nLandfall — Whenever a land you control enters, goad each creature target player controls. (Until your next turn, those creatures attack each combat if able and attack a player other than you if able.)",
+    ],
+    // Ghastly Gloomhunter
+    &[
+        "Kicker {3}{B} (You may pay an additional {3}{B} as you cast this spell.)\nFlying, lifelink\nIf this creature was kicked, it enters with two +1/+1 counters on it.",
+    ],
+    // Glacial Grasp
+    &[
+        "Tap target creature. Its controller mills two cards. That creature doesn't untap during its controller's next untap step. (They put the top two cards of their library into their graveyard.)\nDraw a card.",
+    ],
     // Glasspool Mimic
     &[
         "You may have this creature enter as a copy of a creature you control, except it's a Shapeshifter Rogue in addition to its other types.",
         "This land enters tapped.\n{T}: Add {U}.",
     ],
+    // Gnarlid Colony
+    &[
+        "Kicker {2}{G} (You may pay an additional {2}{G} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it.\nEach creature you control with a +1/+1 counter on it has trample. (It can deal excess combat damage to the player or planeswalker it's attacking.)",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Grotag Night-Runner
+    &[
+        "Whenever this creature deals combat damage to a player, exile the top card of your library. You may play that card this turn.",
+    ],
     // Guul Draz Mucklord
     &["When this creature dies, put a +1/+1 counter on target creature you control."],
-    &[],
+    // Hagra Constrictor
+    &[
+        "This creature enters with two +1/+1 counters on it.\nEach creature you control with a +1/+1 counter on it has menace. (A creature with menace can't be blocked except by two or more creatures.)",
+    ],
     // Hagra Mauling
     &[
         "This spell costs {1} less to cast if an opponent controls no basic lands.\nDestroy target creature.",
@@ -50627,8 +52678,12 @@ pub static ORACLE: &[&[&str]] = &[
         "Target creature you control fights target creature you don't control. (Each deals damage equal to its power to the other.)",
         "This land enters tapped.\n{T}: Add {G}.",
     ],
-    &[],
-    &[],
+    // Kitesail Cleric
+    &[
+        "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nFlying\nWhen this creature enters, if it was kicked, tap up to two target creatures.",
+    ],
+    // Kor Blademaster
+    &["Double strike\nEquipped Warriors you control have double strike."],
     // Kor Celebrant
     &["Whenever this creature or another creature you control enters, you gain 1 life."],
     &[],
@@ -50639,7 +52694,8 @@ pub static ORACLE: &[&[&str]] = &[
     // Living Tempest
     &["Flash\nFlying"],
     &[],
-    &[],
+    // Lullmage's Familiar
+    &["{T}: Add {G} or {U}.\nWhenever you cast a kicked spell, you gain 2 life."],
     // Luminarch Aspirant
     &[
         "At the beginning of combat on your turn, put a +1/+1 counter on target creature you control.",
@@ -50659,13 +52715,28 @@ pub static ORACLE: &[&[&str]] = &[
         "Choose target creature. You lose 2 life. Until end of turn, that creature gains \"When this creature dies, return it to the battlefield tapped under its owner's control.\"",
         "This land enters tapped.\n{T}: Add {B}.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Marauding Blight-Priest
+    &["Whenever you gain life, each opponent loses 1 life."],
+    // Master of Winds
+    &[
+        "Flying\nWhen this creature enters, draw two cards, then discard a card.\nWhenever you cast an instant, sorcery, or Wizard spell, you may have this creature's base power and toughness become 4/1 or 1/4 until end of turn.",
+    ],
+    // Maul of the Skyclaves
+    &[
+        "When this Equipment enters, attach it to target creature you control.\nEquipped creature gets +2/+2 and has flying and first strike.(It deals combat damage before creatures without first strike.)\nEquip {2}{W}{W}",
+    ],
+    // Merfolk Falconer
+    &["Flying\nWhenever you cast a kicked spell, scry 2."],
+    // Merfolk Windrobber
+    &[
+        "Flying\nWhenever this creature deals combat damage to a player, that player mills a card. (They put the top card of their library into their graveyard.)\nSacrifice this creature: Draw a card. Activate only if an opponent has eight or more cards in their graveyard.",
+    ],
+    // Mesa Lynx
+    &["During turns other than yours, this creature gets +0/+2."],
+    // Might of Murasa
+    &[
+        "Kicker {2}{G} (You may pay an additional {2}{G} as you cast this spell.)\nTarget creature gets +3/+3 until end of turn. If this spell was kicked, that creature gets +5/+5 until end of turn instead.",
+    ],
     &[],
     // Mind Drain
     &[
@@ -50679,10 +52750,16 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Murasa Brute
     &[""],
+    // Murasa Rootgrazer
+    &[
+        "Vigilance\n{T}: You may put a basic land card from your hand onto the battlefield.\n{T}: Return target basic land you control to its owner's hand.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
+    // Nahiri's Binding
+    &[
+        "Enchant creature or planeswalker\nEnchanted permanent can't attack or block, and its activated abilities can't be activated.",
+    ],
     &[],
     &[],
     // Needleverge Pathway
@@ -50691,15 +52768,24 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying, deathtouch, lifelink\nNighthawk Scavenger's power is equal to 1 plus the number of card types among cards in your opponents' graveyards.",
     ],
-    &[],
+    // Nimana Skitter-Sneak
+    &[
+        "As long as an opponent has eight or more cards in their graveyard, this creature gets +1/+0 and has menace. (It can't be blocked except by two or more creatures.)",
+    ],
     // Nimana Skydancer
     &[
         "Flash\nFlying\nWhen this creature enters, target opponent mills two cards. (They put the top two cards of their library into their graveyard.)",
     ],
     &[],
     &[],
-    &[],
-    &[],
+    // Nissa's Zendikon
+    &[
+        "Enchant land\nEnchanted land is a 4/4 Elemental creature with reach and haste. It's still a land.\nWhen enchanted land dies, return that card to its owner's hand.",
+    ],
+    // Nullpriest of Oblivion
+    &[
+        "Kicker {3}{B} (You may pay an additional {3}{B} as you cast this spell.)\nLifelink\nMenace (This creature can't be blocked except by two or more creatures.)\nWhen this creature enters, if it was kicked, return target creature card from your graveyard to the battlefield.",
+    ],
     &[],
     &[],
     // Omnath, Locus of Creation
@@ -50712,14 +52798,20 @@ pub static ORACLE: &[&[&str]] = &[
         "This land enters tapped.\n{T}: Add {W}.",
     ],
     &[],
-    &[],
+    // Oran-Rief Ooze
+    &[
+        "When this creature enters, put a +1/+1 counter on target creature you control.\nWhenever this creature attacks, put a +1/+1 counter on each attacking creature with a +1/+1 counter on it.",
+    ],
     &[],
     // Pelakka Predation
     &[
         "Target opponent reveals their hand. You choose a card from it with mana value 3 or greater. That player discards that card.",
         "This land enters tapped.\n{T}: Add {B}.",
     ],
-    &[],
+    // Phylath, World Sculptor
+    &[
+        "When Phylath enters, create a 0/1 green Plant creature token for each basic land you control.\nLandfall — Whenever a land you control enters, put four +1/+1 counters on target Plant you control.",
+    ],
     &[],
     // Prowling Felidar
     &[
@@ -50730,32 +52822,67 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Relic Golem
+    &[
+        "This creature can't attack or block unless an opponent has eight or more cards in their graveyard.\n{2}, {T}: Target player mills two cards. (They put the top two cards of their library into their graveyard.)",
+    ],
+    // Relic Robber
+    &[
+        "Haste\nWhenever this creature deals combat damage to a player, that player creates a 0/1 colorless Goblin Construct artifact creature token with \"This token can't block\" and \"At the beginning of your upkeep, this token deals 1 damage to you.\"",
+    ],
+    // Relic Vial
+    &[
+        "{2}, {T}, Sacrifice a creature: Draw a card.\nAs long as you control a Cleric, this artifact has \"Whenever a creature you control dies, each opponent loses 1 life and you gain 1 life.\"",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Risen Riptide
+    &[
+        "Whenever you cast a kicked spell, this creature has base power and toughness 5/5 until end of turn.",
+    ],
     // Riverglide Pathway
     &["{T}: Add {U}.", "{T}: Add {R}."],
     // Rockslide Sorcerer
     &[
         "Whenever you cast an instant, sorcery, or Wizard spell, this creature deals 1 damage to any target.",
     ],
+    // Roil Eruption
+    &[
+        "Kicker {5} (You may pay an additional {5} as you cast this spell.)\nRoil Eruption deals 3 damage to any target. If this spell was kicked, it deals 5 damage instead.",
+    ],
+    // Roiling Regrowth
+    &[
+        "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Roost of Drakes
+    &[
+        "Kicker {2}{U} (You may pay an additional {2}{U} as you cast this spell.)\nWhen this enchantment enters, if it was kicked, create a 2/2 blue Drake creature token with flying.\nWhenever you cast a kicked spell, create a 2/2 blue Drake creature token with flying.",
+    ],
     // Ruin Crab
     &[
         "Landfall — Whenever a land you control enters, each opponent mills three cards. (To mill a card, a player puts the top card of their library into their graveyard.)",
     ],
+    // Scale the Heights
+    &[
+        "Put a +1/+1 counter on up to one target creature. You gain 2 life. You may play an additional land this turn.\nDraw a card.",
+    ],
+    // Scavenged Blade
+    &[
+        "When this Equipment enters, attach it to target creature you control.\nEquipped creature gets +2/+0.\nEquip {2}{R} ({2}{R}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
+    // Scion of the Swarm
+    &["Flying\nWhenever you gain life, put a +1/+1 counter on this creature."],
+    // Scorch Rider
+    &[
+        "Kicker {1}{R} (You may pay an additional {1}{R} as you cast this spell.)\nWhen this creature enters, if it was kicked, it gains haste until end of turn.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Scute Swarm
+    &[
+        "Landfall — Whenever a land you control enters, create a 1/1 green Insect creature token. If you control six or more lands, create a token that's a copy of this creature instead.",
+    ],
+    // Sea Gate Banneret
+    &["{4}{W}: Creatures you control get +1/+1 until end of turn."],
     &[],
     // Sea Gate Restoration
     &[
@@ -50774,21 +52901,28 @@ pub static ORACLE: &[&[&str]] = &[
         "Tap another untapped Rogue you control: This creature gains deathtouch until end of turn.\nWhenever this creature deals combat damage to a player, that player mills three cards. (They put the top three cards of their library into their graveyard.)",
     ],
     &[],
-    &[],
+    // Shatterskull Charger
+    &[
+        "Kicker {2}\nTrample, haste\nIf this creature was kicked, it enters with a +1/+1 counter on it.\nAt the beginning of your end step, if this creature doesn't have a +1/+1 counter on it, return it to its owner's hand.",
+    ],
     &[],
     // Shatterskull Smashing
     &[
         "Shatterskull Smashing deals X damage divided as you choose among up to two target creatures and/or planeswalkers. If X is 6 or more, Shatterskull Smashing deals twice X damage divided as you choose among them instead.",
         "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {R}.",
     ],
-    &[],
+    // Shell Shield
+    &[
+        "Kicker {1} (You may pay an additional {1} as you cast this spell.)\nTarget creature you control gets +0/+3 until end of turn. If this spell was kicked, that creature also gains hexproof until end of turn. (It can't be the target of spells or abilities your opponents control.)",
+    ],
     &[],
     // Silundi Vision
     &[
         "Look at the top six cards of your library. You may reveal an instant or sorcery card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
         "This land enters tapped.\n{T}: Add {U}.",
     ],
-    &[],
+    // Sizzling Barrage
+    &["Sizzling Barrage deals 4 damage to target creature that blocked this turn."],
     // Skyclave Apparition
     &[
         "When this creature enters, exile up to one target nonland, nontoken permanent you don't control with mana value 4 or less.\nWhen this creature leaves the battlefield, the exiled card's owner creates an X/X blue Illusion creature token, where X is the mana value of the exiled card.",
@@ -50802,16 +52936,34 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Trample\nLandfall — Whenever a land you control enters, this creature gets +2/+2 until end of turn.",
     ],
+    // Skyclave Pick-Axe
+    &[
+        "When this Equipment enters, attach it to target creature you control.\nLandfall — Whenever a land you control enters, equipped creature gets +2/+2 until end of turn.\nEquip {2}{G} ({2}{G}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     &[],
+    // Skyclave Relic
+    &[
+        "Kicker {3}\nIndestructible\nWhen this artifact enters, if it was kicked, create two tapped tokens that are copies of this artifact.\n{T}: Add one mana of any color.",
+    ],
+    // Skyclave Sentinel
+    &[
+        "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nFlying, defender\nIf this creature was kicked, it enters with two +1/+1 counters on it.\nAs long as this creature has a +1/+1 counter on it, it can attack as though it didn't have defender.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Skyclave Shadowcat
+    &[
+        "{1}{B}, Sacrifice another creature: Put a +1/+1 counter on this creature.\nWhenever a creature you control with a +1/+1 counter on it dies, draw a card.",
+    ],
+    // Skyclave Squid
+    &[
+        "Defender\nLandfall — Whenever a land you control enters, this creature can attack this turn as though it didn't have defender.",
+    ],
     // Sneaking Guide
     &["{2}, {T}: Target creature with power 2 or less can't be blocked this turn."],
-    &[],
+    // Soaring Thought-Thief
+    &[
+        "Flash\nFlying\nAs long as an opponent has eight or more cards in their graveyard, Rogues you control get +1/+0.\nWhenever one or more Rogues you control attack, each opponent mills two cards.",
+    ],
     // Song-Mad Treachery
     &[
         "Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.",
@@ -50850,9 +53002,15 @@ pub static ORACLE: &[&[&str]] = &[
     &["Reach"],
     // Tangled Florahedron
     &["{T}: Add {G}.", "This land enters tapped.\n{T}: Add {G}."],
+    // Taunting Arbormage
+    &[
+        "Kicker {3} (You may pay an additional {3} as you cast this spell.)\nWhen this creature enters, if it was kicked, all creatures able to block target creature this turn do so.",
+    ],
     &[],
-    &[],
-    &[],
+    // Tazeem Roilmage
+    &[
+        "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nWhen this creature enters, if it was kicked, return target instant or sorcery card from your graveyard to your hand.",
+    ],
     &[],
     // Teeterpeak Ambusher
     &["{2}{R}: This creature gets +2/+0 until end of turn."],
@@ -50888,7 +53046,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Whenever you cast an instant, sorcery, or Wizard spell, this creature gains flying until end of turn.",
         "This land enters tapped.\n{T}: Add {U}.",
     ],
-    &[],
+    // Utility Knife
+    &[
+        "When this Equipment enters, attach it to target creature you control.\nEquipped creature gets +1/+1.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     // Valakut Awakening
     &[
         "Put any number of cards from your hand on the bottom of your library, then draw that many cards plus one.",
@@ -50900,13 +53061,19 @@ pub static ORACLE: &[&[&str]] = &[
         "Put a +1/+1 counter on target creature.",
         "This land enters tapped.\n{T}: Add {G}.",
     ],
+    // Vastwood Surge
+    &[
+        "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nSearch your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If this spell was kicked, put two +1/+1 counters on each creature you control.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Windrider Wizard
+    &[
+        "Flying\nWhenever you cast an instant, sorcery, or Wizard spell, you may draw a card. If you do, discard a card.",
+    ],
     &[],
     &[],
     &[],
@@ -50915,7 +53082,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Each opponent loses 4 life and you gain 4 life.",
         "This land enters tapped.\n{T}: Add {B}.",
     ],
-    &[],
+    // Zulaport Duelist
+    &[
+        "Flash\nWhen this creature enters, up to one target creature gets -2/-0 until end of turn. Its controller mills two cards. (They put the top two cards of their library into their graveyard.)",
+    ],
     &[],
     &[],
     &[],
@@ -50933,59 +53103,38 @@ pub static ORACLE: &[&[&str]] = &[
         "Flying, first strike, vigilance, trample\nAt the beginning of each combat, until end of turn, each other creature you control gets +1/+1 if it has flying, +1/+1 if it has first strike, and so on for double strike, deathtouch, haste, hexproof, indestructible, lifelink, menace, protection, reach, trample, vigilance, and partner.\nPartner",
     ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    // Elvish Doomsayer
-    &["When this creature dies, each opponent discards a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    // Eyeblight Cullers
+    // Alharu, Solemn Ritualist
     &[
-        "When this creature dies, create three 1/1 green Elf Warrior creature tokens, then mill three cards. (Put the top three cards of your library into your graveyard.)",
+        "When Alharu enters, put a +1/+1 counter on each of up to two other target creatures.\nWhenever a nontoken creature you control with a +1/+1 counter on it dies, create a 1/1 white Spirit creature token with flying.\nPartner (You can have two commanders if both have partner.)",
+    ],
+    &[],
+    // Amphin Mutineer
+    &[
+        "When this creature enters, exile up to one target non-Salamander creature. That creature's controller creates a 4/3 blue Salamander Warrior creature token.\nEncore {4}{U}{U} ({4}{U}{U}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
+    // Anara, Wolvid Familiar
+    &[
+        "During your turn, commanders you control have indestructible. (Effects that say \"destroy\" don't destroy them. A creature with indestructible can't be destroyed by damage.)\nPartner (You can have two commanders if both have partner.)",
+    ],
+    // Annoyed Altisaur
+    &[
+        "Reach, trample\nCascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+    ],
+    // Anointer of Valor
+    &[
+        "Flying\nWhenever a creature attacks, you may pay {3}. When you do, put a +1/+1 counter on that creature.",
+    ],
+    // Apex Devastator
+    &[
+        "Cascade, cascade, cascade, cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order. Multiple instances of cascade each trigger separately.)",
+    ],
+    &[],
+    &[],
+    &[],
+    &[],
+    // Armix, Filigree Thrasher
+    &[
+        "Whenever Armix attacks, you may discard a card. When you do, target creature defending player controls gets -X/-X until end of turn, where X is the number of artifacts you control plus the number of artifact cards in your graveyard.\nPartner (You can have two commanders if both have partner.)",
     ],
     &[],
     &[],
@@ -50994,6 +53143,86 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Biowaste Blob
+    &[
+        "Oozes you control get +1/+1.\nAt the beginning of your upkeep, if you control a commander, create a token that's a copy of this creature.",
+    ],
+    &[],
+    &[],
+    &[],
+    // Boarding Party
+    &[
+        "Haste\nCascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+    ],
+    &[],
+    &[],
+    // Briarblade Adept
+    &[
+        "Whenever this creature attacks, target creature an opponent controls gets -1/-1 until end of turn.\nEncore {3}{B} ({3}{B}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
+    // Brinelin, the Moon Kraken
+    &[
+        "When Brinelin enters and whenever you cast a spell with mana value 6 or greater, you may return target nonland permanent to its owner's hand.\nPartner (You can have two commanders if both have partner.)",
+    ],
+    &[],
+    // Coastline Marauders
+    &[
+        "Trample\nWhenever this creature attacks, it gets +1/+0 until end of turn for each land defending player controls.\nEncore {4}{R}{R} ({4}{R}{R}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
+    // Coercive Recruiter
+    &[
+        "Whenever this creature or another Pirate you control enters, gain control of target creature until end of turn. Untap that creature. Until end of turn, it gains haste and becomes a Pirate in addition to its other types.",
+    ],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    &[],
+    // Crimson Fleet Commodore
+    &["Trample\nWhen this creature enters, you become the monarch."],
+    &[],
+    &[],
+    // Demonic Lore
+    &[
+        "When this enchantment enters, draw three cards.\nAt the beginning of your end step, you lose 2 life for each card in your hand.",
+    ],
+    &[],
+    // Elvish Doomsayer
+    &["When this creature dies, each opponent discards a card."],
+    // Elvish Dreadlord
+    &[
+        "Deathtouch\nWhen this creature dies, non-Elf creatures get -3/-3 until end of turn.\nEncore {5}{B}{B} ({5}{B}{B}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
+    &[],
+    &[],
+    &[],
+    // Exquisite Huntmaster
+    &[
+        "When this creature dies, create a 1/1 green Elf Warrior creature token.\nEncore {4}{B} ({4}{B}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
+    // Eyeblight Cullers
+    &[
+        "When this creature dies, create three 1/1 green Elf Warrior creature tokens, then mill three cards. (Put the top three cards of your library into your graveyard.)",
+    ],
+    &[],
+    // Falthis, Shadowcat Familiar
+    &[
+        "Commanders you control have menace and deathtouch.\nPartner (You can have two commanders if both have partner.)",
+    ],
+    &[],
+    // Feast of Succession
+    &["All creatures get -4/-4 until end of turn. You become the monarch."],
+    // Fin-Clade Fugitives
+    &[
+        "This creature can't be blocked by creatures with power 2 or less.\nEncore {4}{G} ({4}{G}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
+    &[],
+    // Forceful Denial
+    &[
+        "Cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)\nCounter target spell.",
+    ],
     &[],
     // Ghen, Arcanum Weaver
     &[
@@ -51009,7 +53238,10 @@ pub static ORACLE: &[&[&str]] = &[
         "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {C}{C}.",
     ],
     &[],
-    &[],
+    // Hamza, Guardian of Arashin
+    &[
+        "This spell costs {1} less to cast for each creature you control with a +1/+1 counter on it.\nCreature spells you cast cost {1} less to cast for each creature you control with a +1/+1 counter on it.",
+    ],
     &[],
     &[],
     &[],
@@ -51017,10 +53249,19 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flash\nIf an opponent would draw a card except the first one they draw in each of their draw steps, instead you create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
     ],
+    // Ich-Tekik, Salvage Splicer
+    &[
+        "When Ich-Tekik enters, create a 3/3 colorless Phyrexian Golem artifact creature token.\nWhenever an artifact is put into a graveyard from the battlefield, put a +1/+1 counter on Ich-Tekik and a +1/+1 counter on each Golem you control.\nPartner (You can have two commanders if both have partner.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Impulsive Pilferer
+    &[
+        "When this creature dies, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nEncore {3}{R} ({3}{R}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
+    // Ingenuity Engine
+    &[
+        "Cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)\n{1}, {T}, Sacrifice an artifact: Return target artifact you control to its owner's hand.",
+    ],
     &[],
     // Jeska's Will
     &[
@@ -51030,26 +53271,31 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    // Magus of the Order
+    // Kamahl, Heart of Krosa
     &[
-        "{G}, {T}, Sacrifice this creature and another green creature: Search your library for a green creature card, put it onto the battlefield, then shuffle.",
+        "At the beginning of combat on your turn, creatures you control get +3/+3 and gain trample until end of turn.\n{1}{G}: Until end of turn, target land you control becomes a 1/1 Elemental creature with vigilance, indestructible, and haste. It's still a land.\nPartner (You can have two commanders if both have partner.)",
+    ],
+    // Kangee's Lieutenant
+    &[
+        "Flying\nWhenever this creature attacks, attacking creatures with flying get +1/+1 until end of turn.\nEncore {5}{W} ({5}{W}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
+    // Kangee, Sky Warden
+    &[
+        "Flying, vigilance\nWhenever Kangee attacks, attacking creatures with flying get +2/+0 until end of turn.\nWhenever Kangee blocks, blocking creatures with flying get +0/+2 until end of turn.",
+    ],
+    &[],
+    // Keeper of the Accord
+    &[
+        "At the beginning of each opponent's end step, if that player controls more creatures than you, create a 1/1 white Soldier creature token.\nAt the beginning of each opponent's end step, if that player controls more lands than you, you may search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.",
+    ],
+    // Keleth, Sunmane Familiar
+    &[
+        "Whenever a commander you control attacks, put a +1/+1 counter on it.\nPartner (You can have two commanders if both have partner.)",
+    ],
+    &[],
+    // Kinsbaile Courier
+    &[
+        "When this creature enters, put a +1/+1 counter on target creature.\nEncore {2}{W} ({2}{W}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
     ],
     &[],
     &[],
@@ -51059,7 +53305,41 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Maelstrom Colossus
+    &[
+        "Cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+    ],
+    // Magus of the Order
+    &[
+        "{G}, {T}, Sacrifice this creature and another green creature: Search your library for a green creature card, put it onto the battlefield, then shuffle.",
+    ],
     &[],
+    // Merchant Raiders
+    &[
+        "Whenever this creature or another Pirate you control enters, tap up to one target creature. That creature doesn't untap during its controller's untap step for as long as you control this creature.",
+    ],
+    // Meteoric Mace
+    &[
+        "Equipped creature gets +4/+0 and has trample.\nEquip {4}\nCascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)",
+    ],
+    &[],
+    &[],
+    // Nadier's Nightblade
+    &[
+        "Whenever a token you control leaves the battlefield, each opponent loses 1 life and you gain 1 life.",
+    ],
+    // Nadier, Agent of the Duskenel
+    &[
+        "Whenever a token you control leaves the battlefield, put a +1/+1 counter on Nadier.\nWhen Nadier leaves the battlefield, create a number of 1/1 green Elf Warrior creature tokens equal to its power.\nPartner (You can have two commanders if both have partner.)",
+    ],
+    // Natural Reclamation
+    &[
+        "Cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)\nDestroy target artifact or enchantment.",
+    ],
+    // Necrotic Hex
+    &[
+        "Each player sacrifices six creatures of their choice. You create six tapped 2/2 black Zombie creature tokens.",
+    ],
     &[],
     // Nightshade Harvester
     &[
@@ -51072,54 +53352,90 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flash\nYou control your opponents while they're searching their libraries.\nWhile an opponent is searching their library, they exile each card they find. You may play those cards for as long as they remain exiled, and you may spend mana as though it were mana of any color to cast them.",
     ],
+    // Phyrexian Triniform
+    &[
+        "When this creature dies, create three 3/3 colorless Phyrexian Golem artifact creature tokens.\nEncore {12} ({12}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
     &[],
     &[],
-    &[],
-    &[],
+    // Prava of the Steel Legion
+    &[
+        "During your turn, creature tokens you control get +1/+4.\n{3}{W}: Create a 1/1 white Soldier creature token.\nPartner (You can have two commanders if both have partner.)",
+    ],
     // Pride of the Perfect
     &["Elves you control get +2/+0."],
     &[],
     &[],
-    &[],
-    &[],
+    // Radiant, Serra Archangel
+    &[
+        "Flying\nTap another untapped creature you control with flying: Radiant gains protection from the color of your choice until end of turn.\nPartner (You can have two commanders if both have partner.)",
+    ],
+    // Rakshasa Debaser
+    &[
+        "Whenever this creature attacks, put target creature card from defending player's graveyard onto the battlefield under your control.\nEncore {6}{B}{B} ({6}{B}{B}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
     &[],
     // Rejuvenating Springs
     &["This land enters tapped unless you have two or more opponents.\n{T}: Add {G} or {U}."],
     &[],
-    &[],
-    &[],
+    // Reyav, Master Smith
+    &[
+        "Whenever a creature you control that's enchanted or equipped attacks, that creature gains double strike until end of turn.",
+    ],
+    // Rograkh, Son of Rohgahh
+    &["First strike, menace, trample\nPartner (You can have two commanders if both have partner.)"],
     &[],
     // Sakashima of a Thousand Faces
     &[
         "You may have Sakashima enter as a copy of another creature you control, except it has Sakashima's other abilities.\nThe \"legend rule\" doesn't apply to permanents you control.\nPartner (You can have two commanders if both have partner.)",
+    ],
+    // Sakashima's Protege
+    &[
+        "Flash\nCascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)\nYou may have this creature enter as a copy of any permanent that entered this turn.",
+    ],
+    &[],
+    &[],
+    &[],
+    &[],
+    // Slash the Ranks
+    &["Destroy all creatures and planeswalkers except for commanders."],
+    // Slurrk, All-Ingesting
+    &[
+        "Slurrk enters with five +1/+1 counters on it.\nWhenever Slurrk or another creature you control dies, if it had a +1/+1 counter on it, put a +1/+1 counter on each creature you control that has a +1/+1 counter on it.\nPartner (You can have two commanders if both have partner.)",
+    ],
+    &[],
+    &[],
+    // Spectator Seating
+    &["This land enters tapped unless you have two or more opponents.\n{T}: Add {R} or {W}."],
+    &[],
+    // Staunch Throneguard
+    &["Vigilance\nWhen this creature enters, you become the monarch."],
+    &[],
+    // Sweet-Gum Recluse
+    &[
+        "Flash\nCascade\nReach\nWhen this creature enters, put three +1/+1 counters on each of any number of target creatures that entered this turn.",
     ],
     &[],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    // Spectator Seating
-    &["This land enters tapped unless you have two or more opponents.\n{T}: Add {R} or {W}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Toggo, Goblin Weaponsmith
+    &[
+        "Landfall — Whenever a land you control enters, create a colorless Equipment artifact token named Rock with \"Equipped creature has '{1}, {T}, Sacrifice Rock: This creature deals 2 damage to any target'\" and equip {1}.\nPartner (You can have two commanders if both have partner.)",
+    ],
     &[],
     // Training Center
     &["This land enters tapped unless you have two or more opponents.\n{T}: Add {U} or {R}."],
     &[],
-    &[],
-    &[],
+    // Triumphant Reckoning
+    &[
+        "Return all artifact, enchantment, and planeswalker cards from your graveyard to the battlefield.",
+    ],
+    // Trove Tracker
+    &[
+        "When this creature dies, draw a card.\nEncore {5}{U}{U} ({5}{U}{U}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+    ],
     &[],
     // Undergrowth Stadium
     &["This land enters tapped unless you have two or more opponents.\n{T}: Add {B} or {G}."],
@@ -51133,16 +53449,24 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
+    // Wyleth, Soul of Steel
+    &["Trample\nWhenever Wyleth attacks, draw a card for each Aura and Equipment attached to it."],
     &[],
     &[],
-    &[],
-    &[],
+    // Absorb Identity
+    &[
+        "Return target creature to its owner's hand. You may have Shapeshifters you control become copies of that creature until end of turn.",
+    ],
     &[],
     // Alpine Meadow
     &["({T}: Add {R} or {W}.)\nThis land enters tapped."],
+    // Alrund's Epiphany
+    &[
+        "Create two 1/1 blue Bird creature tokens with flying. Take an extra turn after this one. Exile Alrund's Epiphany.\nForetell {4}{U}{U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
-    &[],
-    &[],
+    // Arachnoform
+    &["Enchant creature\nEnchanted creature gets +2/+2, has reach, and is every creature type."],
     // Arctic Treeline
     &["({T}: Add {G} or {W}.)\nThis land enters tapped."],
     &[],
@@ -51150,7 +53474,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Augury Raven
+    &[
+        "Flying\nForetell {1}{U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     // Avalanche Caller
     &[
         "{2}: Target snow land you control becomes a 4/4 Elemental creature with hexproof and haste until end of turn. It's still a land. (A creature with hexproof can't be the target of spells or abilities your opponents control.)",
@@ -51166,18 +53493,30 @@ pub static ORACLE: &[&[&str]] = &[
     &["{T}: Add {G}.", "{T}: Add {U}."],
     &[],
     &[],
-    &[],
+    // Battle Mammoth
+    &[
+        "Trample\nWhenever a permanent you control becomes the target of a spell or ability an opponent controls, you may draw a card.\nForetell {2}{G}{G} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
     &[],
     // Battlefield Raptor
     &["Flying, first strike"],
-    &[],
-    &[],
+    // Bearded Axe
+    &[
+        "Equipped creature gets +1/+1 for each Dwarf, Equipment, and/or Vehicle you control.\nEquip {2}",
+    ],
+    // Behold the Multiverse
+    &[
+        "Scry 2, then draw two cards.\nForetell {1}{U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
     // Beskir Shieldmate
     &["When this creature dies, create a 1/1 white Human Warrior creature token."],
     &[],
-    &[],
+    // Binding the Old Gods
+    &[
+        "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Destroy target nonland permanent an opponent controls.\nII — Search your library for a Forest card, put it onto the battlefield tapped, then shuffle.\nIII — Creatures you control gain deathtouch until end of turn.",
+    ],
     // Birgi, God of Storytelling
     &[
         "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.\nCreatures you control can boast twice during each of your turns rather than once.",
@@ -51186,10 +53525,19 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Blightstep Pathway
     &["{T}: Add {B}.", "{T}: Add {R}."],
+    // Blizzard Brawl
+    &[
+        "Choose target creature you control and target creature you don't control. If you control three or more snow permanents, the creature you control gets +1/+0 and gains indestructible until end of turn. Then those creatures fight each other. (Each deals damage equal to its power to the other.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Bloodline Pretender
+    &[
+        "Changeling (This card is every creature type.)\nAs this creature enters, choose a creature type.\nWhenever another creature you control of the chosen type enters, put a +1/+1 counter on this creature.",
+    ],
+    // Bloodsky Berserker
+    &[
+        "Whenever you cast your second spell each turn, put two +1/+1 counters on this creature. It gains menace until end of turn. (It can't be blocked except by two or more creatures.)",
+    ],
     &[],
     &[],
     &[],
@@ -51208,17 +53556,29 @@ pub static ORACLE: &[&[&str]] = &[
     // Canopy Tactician
     &["Other Elves you control get +1/+1.\n{T}: Add {G}{G}{G}."],
     &[],
+    // Clarion Spirit
+    &[
+        "Whenever you cast your second spell each turn, create a 1/1 white Spirit creature token with flying.",
+    ],
+    // Cleaving Reaper
+    &[
+        "Flying, trample\nPay 3 life: Return this card from your graveyard to your hand. Activate only if you had an Angel or Berserker enter the battlefield under your control this turn.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // Cosmos Elixir
+    &[
+        "At the beginning of your end step, draw a card if your life total is greater than your starting life total. Otherwise, you gain 2 life.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Crown of Skemfar
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+1 for each Elf you control and has reach.\n{2}{G}: Return this card from your graveyard to your hand.",
+    ],
     &[],
     &[],
     // Darkbore Pathway
@@ -51227,9 +53587,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature dies, if its power was 3 or greater, create a 2/2 black Zombie Berserker creature token.",
     ],
-    &[],
-    &[],
-    &[],
+    // Demon Bolt
+    &[
+        "Demon Bolt deals 4 damage to target creature or planeswalker.\nForetell {R} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
+    // Demonic Gifts
+    &[
+        "Until end of turn, target creature gets +2/+0 and gains \"When this creature dies, return it to the battlefield under its owner's control.\"",
+    ],
+    // Depart the Realm
+    &[
+        "Return target nonland permanent to its owner's hand.\nForetell {U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
     // Dogged Pursuit
     &["At the beginning of your end step, each opponent loses 1 life and you gain 1 life."],
@@ -51237,20 +53606,35 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Destroy all creatures.\nForetell {1}{W}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
     ],
+    // Doomskar Oracle
+    &[
+        "Whenever you cast your second spell each turn, you gain 2 life.\nForetell {W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
+    // Doomskar Titan
+    &[
+        "When this creature enters, creatures you control get +1/+0 and gain haste until end of turn.\nForetell {4}{R} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Draugr's Helm
+    &[
+        "When this Equipment enters, you may pay {2}{B}. If you do, create a 2/2 black Zombie Berserker creature token, then attach this Equipment to it.\nEquipped creature gets +2/+2 and has menace. (It can't be blocked except by two or more creatures.)\nEquip {4}",
+    ],
     // Dread Rider
     &["{1}{B}, {T}, Exile a creature card from your graveyard: Target opponent loses 3 life."],
     &[],
+    // Dual Strike
+    &[
+        "When you next cast an instant or sorcery spell with mana value 4 or less this turn, copy that spell. You may choose new targets for the copy.\nForetell {R} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
     &[],
-    &[],
-    &[],
+    // Dwarven Reinforcements
+    &[
+        "Create two 2/1 red Dwarf Berserker creature tokens.\nForetell {1}{R} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
     // Elderfang Disciple
     &["When this creature enters, each opponent discards a card."],
@@ -51262,12 +53646,20 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Elderleaf Mentor
     &["When this creature enters, create a 1/1 green Elf Warrior creature token."],
+    // Elven Ambush
+    &["Create a 1/1 green Elf Warrior creature token for each Elf you control."],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Esika's Chariot
+    &[
+        "When Esika's Chariot enters, create two 2/2 green Cat creature tokens.\nWhenever Esika's Chariot attacks, create a token that's a copy of target token you control.\nCrew 4",
+    ],
+    // Esika, God of the Tree
+    &[
+        "Vigilance\n{T}: Add one mana of any color.\nOther legendary creatures you control have vigilance and \"{T}: Add one mana of any color.\"",
+        "At the beginning of your upkeep, reveal cards from the top of your library until you reveal a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of your library in a random order.",
+    ],
     &[],
     // Faceless Haven
     &[
@@ -51276,26 +53668,45 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Feed the Serpent
+    &["Exile target creature or planeswalker."],
+    &[],
+    // Firja's Retribution
+    &[
+        "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Create a 4/4 white Angel Warrior creature token with flying and vigilance.\nII — Until end of turn, Angels you control gain \"{T}: Destroy target creature with power less than this creature's power.\"\nIII — Angels you control gain double strike until end of turn.",
+    ],
+    &[],
+    // Forging the Tyrite Sword
+    &[
+        "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — Create a Treasure token.\nIII — Search your library for a card named Halvar, God of Battle or an Equipment card, reveal it, put it into your hand, then shuffle.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Funeral Longboat
+    &[
+        "Vigilance\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+    ],
+    // Fynn, the Fangbearer
+    &[
+        "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nWhenever a creature you control with deathtouch deals combat damage to a player, that player gets two poison counters. (A player with ten or more poison counters loses the game.)",
+    ],
     // Gates of Istfell
     &[
         "This land enters tapped.\n{T}: Add {W}.\n{2}{W}{U}{U}, {T}, Sacrifice this land: You gain 2 life and draw two cards.",
     ],
     &[],
     &[],
-    &[],
-    &[],
+    // Giant's Grasp
+    &[
+        "Enchant Giant you control\nWhen this Aura enters, gain control of target nonland permanent for as long as this Aura remains on the battlefield.",
+    ],
+    // Gilded Assault Cart
+    &[
+        "Trample\nCrew 2 (Tap any number of creatures you control with total power 2 or more: This Vehicle becomes an artifact creature until end of turn.)\nSacrifice two Treasures: Return this card from your graveyard to your hand.",
+    ],
     // Glacial Floodplain
     &["({T}: Add {W} or {U}.)\nThis land enters tapped."],
     // Gladewalker Ritualist
@@ -51311,7 +53722,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\n{T}: Add {R}.\n{3}{R}{G}{G}, {T}, Sacrifice this land: Destroy target land. Create a 4/4 green Troll Warrior creature token with trample.",
     ],
-    &[],
+    // Gods' Hall Guardian
+    &[
+        "Vigilance\nForetell {3}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
     &[],
     // Goldvein Pick
@@ -51334,7 +53748,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Harald, King of Skemfar
+    &[
+        "Menace (This creature can't be blocked except by two or more creatures.)\nWhen Harald enters, look at the top five cards of your library. You may reveal an Elf, Warrior, or Tyvar card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+    ],
     &[],
     // Hengegate Pathway
     &["{T}: Add {W}.", "{T}: Add {U}."],
@@ -51347,38 +53764,69 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Immersturm Predator
+    &[
+        "Flying\nWhenever this creature becomes tapped, exile up to one target card from a graveyard and put a +1/+1 counter on this creature.\nSacrifice another creature: This creature gains indestructible until end of turn. Tap it.",
+    ],
+    // Immersturm Raider
+    &["When this creature enters, you may discard a card. If you do, draw a card."],
     // Immersturm Skullcairn
     &[
         "This land enters tapped.\n{T}: Add {B}.\n{1}{B}{R}{R}, {T}, Sacrifice this land: It deals 3 damage to target player. That player discards a card. Activate only as a sorcery.",
     ],
     &[],
+    // Infernal Pet
+    &[
+        "Whenever you cast your second spell each turn, put a +1/+1 counter on this creature and it gains flying until end of turn.",
+    ],
+    // Inga Rune-Eyes
+    &[
+        "When Inga Rune-Eyes enters, scry 3.\nWhen Inga Rune-Eyes dies, draw three cards if three or more creatures died this turn.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Iron Verdict
+    &[
+        "Iron Verdict deals 5 damage to target tapped creature.\nForetell {W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
+    // Jarl of the Forsaken
+    &[
+        "Flash\nWhen this creature enters, destroy target creature or planeswalker an opponent controls that was dealt damage this turn.\nForetell {1}{B} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     // Jaspera Sentinel
     &["Reach\n{T}, Tap an untapped creature you control: Add one mana of any color."],
     &[],
     &[],
     &[],
     &[],
+    // Karfell Kennel-Master
+    &[
+        "When this creature enters, up to two target creatures each get +1/+0 and gain indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy them.)",
+    ],
+    &[],
+    // Kaya's Onslaught
+    &[
+        "Target creature gets +1/+1 and gains double strike until end of turn.\nForetell {W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Koll, the Forgemaster
+    &[
+        "Whenever another nontoken creature you control dies, if it was enchanted or equipped, return it to its owner's hand.\nCreature tokens you control that are enchanted or equipped get +1/+1.",
+    ],
     &[],
     // Koma's Faithful
     &[
         "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nWhen this creature dies, each player mills three cards. (They each put the top three cards of their library into their graveyard.)",
     ],
     &[],
-    &[],
-    &[],
+    // Lathril, Blade of the Elves
+    &[
+        "Menace (This creature can't be blocked except by two or more creatures.)\nWhenever Lathril deals combat damage to a player, create that many 1/1 green Elf Warrior creature tokens.\n{T}, Tap ten untapped Elves you control: Each opponent loses 10 life and you gain 10 life.",
+    ],
+    // Littjara Glade-Warden
+    &[
+        "Changeling (This card is every creature type.)\n{2}{G}, {T}, Exile a creature card from your graveyard: Put two +1/+1 counters on target creature. Activate only as a sorcery.",
+    ],
     &[],
     // Littjara Mirrorlake
     &[
@@ -51389,13 +53837,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Other creatures you control get +1/+1.\nLandfall — Whenever a land you control enters, create a 1/1 white Human Warrior creature token.",
     ],
-    &[],
-    &[],
+    // Mammoth Growth
+    &[
+        "Target creature gets +4/+4 until end of turn.\nForetell {G} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
+    // Masked Vandal
+    &[
+        "Changeling (This card is every creature type.)\nWhen this creature enters, you may exile a creature card from your graveyard. If you do, exile target artifact or enchantment an opponent controls.",
+    ],
     // Maskwood Nexus
     &[
         "Creatures you control are every creature type. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.\n{3}, {T}: Create a 2/2 blue Shapeshifter creature token with changeling. (It is every creature type.)",
     ],
-    &[],
+    // Master Skald
+    &[
+        "When this creature enters, you may exile a creature card from your graveyard. If you do, return target artifact or enchantment card from your graveyard to your hand.",
+    ],
     // Mists of Littjara
     &["Flash\nEnchant creature or Vehicle\nEnchanted creature gets -3/-0."],
     // Mistwalker
@@ -51418,20 +53875,32 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\n{T}: Add {U}.\n{3}{U}{B}{B}, {T}, Sacrifice this land: Mill four cards, then return a creature card from your graveyard to the battlefield tapped. (To mill a card, put the top card of your library into your graveyard.)",
     ],
+    // Priest of the Haunted Edge
+    &[
+        "{T}, Sacrifice this creature: Target creature gets -X/-X until end of turn, where X is the number of snow lands you control. Activate only as a sorcery.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Rally the Ranks
+    &[
+        "As this enchantment enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.",
+    ],
+    // Rampage of the Valkyries
+    &[
+        "When this enchantment enters, create a 4/4 white Angel creature token with flying and vigilance.\nWhenever an Angel you control dies, each other player sacrifices a creature of their choice.",
+    ],
     &[],
     // Raven Wings
     &[
         "Equipped creature gets +1/+0, has flying, and is a Bird in addition to its other types.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
     ],
-    &[],
+    // Ravenform
+    &[
+        "Exile target artifact or creature. Its controller creates a 1/1 blue Bird creature token with flying.\nForetell {U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     // Ravenous Lindwurm
     &["When this creature enters, you gain 4 life."],
     &[],
@@ -51445,10 +53914,17 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Righteous Valkyrie
+    &[
+        "Flying\nWhenever another Angel or Cleric you control enters, you gain life equal to that creature's toughness.\nAs long as you have at least 7 life more than your starting life total, creatures you control get +2/+2.",
+    ],
     // Rimewood Falls
     &["({T}: Add {G} or {U}.)\nThis land enters tapped."],
     &[],
+    // Rootless Yew
+    &[
+        "When this creature dies, search your library for a creature card with power or toughness 6 or greater, reveal it, put it into your hand, then shuffle.",
+    ],
     &[],
     &[],
     &[],
@@ -51458,26 +53934,49 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Ruthless Winnower
+    &[
+        "At the beginning of each player's upkeep, that player sacrifices a non-Elf creature of their choice.",
+    ],
     &[],
+    // Sarulf's Packmate
+    &[
+        "When this creature enters, draw a card.\nForetell {1}{G} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Saw It Coming
+    &[
+        "Counter target spell.\nForetell {1}{U} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
+    // Scorn Effigy
+    &[
+        "Foretell {0} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     // Sculptor of Winter
     &["{T}: Untap target snow land."],
     &[],
+    // Seize the Spoils
+    &[
+        "As an additional cost to cast this spell, discard a card.\nDraw two cards and create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Shackles of Treachery
+    &[
+        "Gain control of target creature until end of turn. Untap that creature. Until end of turn, it gains haste and \"Whenever this creature deals damage, destroy target Equipment attached to it.\"",
+    ],
+    // Shepherd of the Cosmos
+    &[
+        "Flying\nWhen this creature enters, return target permanent card with mana value 2 or less from your graveyard to the battlefield.\nForetell {3}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     // Shimmerdrift Vale
     &[
         "This land enters tapped.\nAs this land enters, choose a color.\n{T}: Add one mana of the chosen color.",
     ],
     &[],
-    &[],
+    // Sigrid, God-Favored
+    &[
+        "Flash\nFirst strike, protection from God creatures\nWhen Sigrid enters, exile up to one target attacking or blocking creature until Sigrid leaves the battlefield.",
+    ],
     // Skemfar Avenger
     &[
         "Whenever another nontoken Elf or Berserker you control dies, you draw a card and you lose 1 life.",
@@ -51496,13 +53995,23 @@ pub static ORACLE: &[&[&str]] = &[
     // Snowfield Sinkhole
     &["({T}: Add {W} or {B}.)\nThis land enters tapped."],
     &[],
-    &[],
-    &[],
-    &[],
+    // Spectral Steel
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2.\n{1}{W}, Exile this card from your graveyard: Return another target Aura or Equipment card from your graveyard to your hand.",
+    ],
+    // Spirit of the Aldergard
+    &[
+        "When this creature enters, search your library for a snow land card, reveal it, put it into your hand, then shuffle.\nThis creature gets +1/+0 for each other snow permanent you control.",
+    ],
+    // Squash
+    &[
+        "This spell costs {3} less to cast if you control a Giant.\nSquash deals 6 damage to target creature or planeswalker.",
+    ],
     &[],
     // Starnheim Aspirant
     &["Angel spells you cast cost {2} less to cast."],
-    &[],
+    // Starnheim Courser
+    &["Flying\nArtifact and enchantment spells you cast cost {1} less to cast."],
     // Starnheim Unleashed
     &[
         "Create a 4/4 white Angel Warrior creature token with flying and vigilance. If this spell was foretold, create X of those tokens instead.\nForetell {X}{X}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
@@ -51510,7 +54019,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Story Seeker
     &["Lifelink"],
-    &[],
+    // Struggle for Skemfar
+    &[
+        "Put a +1/+1 counter on target creature you control. Then that creature fights up to one target creature you don't control. (Each deals damage equal to its power to the other.)\nForetell {G} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     // Sulfurous Mire
     &["({T}: Add {B} or {R}.)\nThis land enters tapped."],
     &[],
@@ -51521,7 +54033,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Tergrid's Shadow
+    &[
+        "Each player sacrifices two creatures.\nForetell {2}{B}{B} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     &[],
     &[],
     &[],
@@ -51535,8 +54050,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Tormentor's Helm
+    &[
+        "Equipped creature gets +1/+1.\nWhenever equipped creature becomes blocked, it deals 1 damage to defending player.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
+    // Toski, Bearer of Secrets
+    &[
+        "This spell can't be countered.\nIndestructible\nToski attacks each combat if able.\nWhenever a creature you control deals combat damage to a player, draw a card.",
+    ],
     &[],
     &[],
     // Tyrite Sanctum
@@ -51550,38 +54071,68 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
+    // Valkyrie Harbinger
+    &[
+        "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nAt the beginning of each end step, if you gained 4 or more life this turn, create a 4/4 white Angel creature token with flying and vigilance.",
+    ],
     &[],
-    &[],
-    &[],
+    // Valor of the Worthy
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+1.\nWhen enchanted creature leaves the battlefield, create a 1/1 white Spirit creature token with flying.",
+    ],
     &[],
     // Vault Robber
     &[
         "{1}, {T}, Exile a creature card from your graveyard: Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
     ],
     &[],
-    &[],
+    // Vengeful Reaper
+    &[
+        "Flying, deathtouch, haste\nForetell {1}{B} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
     // Volatile Fjord
     &["({T}: Add {U} or {R}.)\nThis land enters tapped."],
     &[],
     &[],
+    // Warchanter Skald
+    &[
+        "Whenever this creature becomes tapped, if it's enchanted or equipped, create a 2/1 red Dwarf Berserker creature token.",
+    ],
+    // Warhorn Blast
+    &[
+        "Creatures you control get +2/+1 until end of turn.\nForetell {2}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+    ],
+    &[],
+    // Weigh Down
+    &[
+        "As an additional cost to cast this spell, exile a creature card from your graveyard.\nTarget creature gets -3/-3 until end of turn.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Wolverine Riders
+    &[
+        "At the beginning of each upkeep, create a 1/1 green Elf Warrior creature token.\nWhenever another Elf you control enters, you gain life equal to its toughness.",
+    ],
     // Woodland Chasm
     &["({T}: Add {B} or {G}.)\nThis land enters tapped."],
     // Youthful Valkyrie
     &["Flying\nWhenever another Angel you control enters, put a +1/+1 counter on this creature."],
-    &[],
+    // Abundant Harvest
+    &[
+        "Choose land or nonland. Reveal cards from the top of your library until you reveal a card of the chosen kind. Put that card into your hand and the rest on the bottom of your library in a random order.",
+    ],
     &[],
     &[],
     // Access Tunnel
     &["{T}: Add {C}.\n{3}, {T}: Target creature with power 3 or less can't be blocked this turn."],
-    &[],
-    &[],
+    // Accomplished Alchemist
+    &[
+        "{T}: Add one mana of any color.\n{T}: Add X mana of any one color, where X is the amount of life you gained this turn.",
+    ],
+    // Adrix and Nev, Twincasters
+    &[
+        "Ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nIf one or more tokens would be created under your control, twice that many of those tokens are created instead.",
+    ],
     &[],
     // Ageless Guardian
     &[""],
@@ -51598,22 +54149,40 @@ pub static ORACLE: &[&[&str]] = &[
         "This land enters tapped.\nWhen this land enters, sacrifice it unless you pay {1}.\n{T}: Add one mana of any color.",
     ],
     &[],
+    // Arrogant Poet
+    &[
+        "Whenever this creature attacks, you may pay 2 life. If you do, it gains flying until end of turn.",
+    ],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Basic Conjuration
+    &[
+        "Look at the top six cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order. You gain 3 life.",
+    ],
     &[],
     &[],
     // Beaming Defiance
     &[
         "Target creature you control gets +2/+2 and gains hexproof until end of turn. (It can't be the target of spells or abilities your opponents control.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Beledros Witherbloom
+    &[
+        "Flying\nAt the beginning of each upkeep, create a 1/1 black and green Pest creature token with \"When this token dies, you gain 1 life.\"\nPay 10 life: Untap all lands you control. Activate only once each turn.",
+    ],
+    // Biblioplex Assistant
+    &[
+        "Flying\nWhen this creature enters, put up to one target instant or sorcery card from your graveyard on top of your library.",
+    ],
+    // Big Play
+    &[
+        "Target creature gets +2/+2 and gains reach until end of turn. Put a +1/+1 counter on it. (A creature with reach can block creatures with flying.)",
+    ],
+    // Biomathematician
+    &[
+        "When this creature enters, create a 0/0 green and blue Fractal creature token. Put a +1/+1 counter on each Fractal you control.",
+    ],
     // Blade Historian
     &["Attacking creatures you control have double strike."],
     &[],
@@ -51621,14 +54190,30 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Attacking Pests you control get +1/+0 and have menace.\nWhenever a nontoken creature you control dies, create a 1/1 black and green Pest creature token with \"When this token dies, you gain 1 life.\"",
     ],
+    // Blood Age General
+    &["{T}: Attacking Spirits get +1/+0 until end of turn."],
+    // Blood Researcher
+    &[
+        "Menace (This creature can't be blocked except by two or more creatures.)\nWhenever you gain life, put a +1/+1 counter on this creature.",
+    ],
+    // Blossoming Bogbeast
+    &[
+        "Whenever this creature attacks, you gain 2 life. Then creatures you control gain trample and get +X/+X until end of turn, where X is the amount of life you gained this turn.",
+    ],
+    // Blot Out the Sky
+    &[
+        "Create X tapped 2/1 white and black Inkling creature tokens with flying. If X is 6 or more, destroy all noncreature, nonland permanents.",
+    ],
+    // Body of Research
+    &[
+        "Create a 0/0 green and blue Fractal creature token. Put X +1/+1 counters on it, where X is the number of cards in your library.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Brackish Trudge
+    &[
+        "This creature enters tapped.\n{1}{B}: Return this card from your graveyard to your hand. Activate only if you gained life this turn.",
+    ],
     &[],
     &[],
     // Burrog Befuddler
@@ -51636,14 +54221,21 @@ pub static ORACLE: &[&[&str]] = &[
         "Flash (You may cast this spell any time you could cast an instant.)\nWhen this creature enters, target creature an opponent controls gets -1/-0 until end of turn.",
     ],
     &[],
-    &[],
-    &[],
+    // Callous Bloodmage
+    &[
+        "When this creature enters, choose one —\n• Create a 1/1 black and green Pest creature token with \"When this token dies, you gain 1 life.\"\n• You draw a card and you lose 1 life.\n• Exile target player's graveyard.",
+    ],
+    // Campus Guide
+    &[
+        "When this creature enters, you may search your library for a basic land card, reveal it, then shuffle and put that card on top.",
+    ],
     // Charge Through
     &["Target creature gains trample until end of turn.\nDraw a card."],
     &[],
     &[],
     &[],
-    &[],
+    // Cogwork Archivist
+    &["Reach\n{2}, {T}: Put target card from a graveyard on the bottom of its owner's library."],
     &[],
     // Combat Professor
     &[
@@ -51658,7 +54250,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Creative Outburst
+    &[
+        "Creative Outburst deals 5 damage to any target. Look at the top five cards of your library. Put one of them into your hand and the rest on the bottom of your library in a random order.\n{U/R}{U/R}, Discard this card: Create a Treasure token.",
+    ],
     &[],
     // Crushing Disappointment
     &["Each player loses 2 life. You draw two cards."],
@@ -51669,23 +54264,39 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)\nDraw a card.",
     ],
-    &[],
+    // Curiosity Crafter
+    &[
+        "Flying\nYou have no maximum hand size.\nWhenever a creature token you control deals combat damage to a player, draw a card.",
+    ],
     // Cursed Mirror
     &[
         "{T}: Add {R}.\nAs this artifact enters, you may have it become a copy of any creature on the battlefield until end of turn, except it has haste.",
     ],
+    // Daemogoth Titan
+    &["Whenever this creature attacks or blocks, sacrifice a creature."],
     &[],
     &[],
     &[],
+    // Decisive Denial
+    &[
+        "Choose one —\n• Target creature you control fights target creature you don't control. (Each deals damage equal to its power to the other.)\n• Counter target noncreature spell unless its controller pays {3}.",
+    ],
+    &[],
+    // Defend the Campus
+    &[
+        "Choose one —\n• Creatures you control get +1/+1 until end of turn.\n• Destroy target creature with power 4 or greater.",
+    ],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Digsite Engineer
+    &[
+        "Whenever you cast an artifact spell, you may pay {2}. If you do, create a 0/0 colorless Construct artifact creature token with \"This token gets +1/+1 for each artifact you control.\"",
+    ],
+    // Dina, Soul Steeper
+    &[
+        "Whenever you gain life, each opponent loses 1 life.\n{1}, Sacrifice another creature: Dina gets +X/+0 until end of turn, where X is the sacrificed creature's power.",
+    ],
     &[],
     // Double Major
     &[
@@ -51701,7 +54312,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Elemental Masterpiece
+    &[
+        "Create two 4/4 blue and red Elemental creature tokens.\n{U/R}{U/R}, Discard this card: Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    ],
     // Elemental Summoning
     &["Create a 4/4 blue and red Elemental creature token."],
     &[],
@@ -51715,8 +54329,12 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Essence Infusion
     &["Put two +1/+1 counters on target creature. It gains lifelink until end of turn."],
-    &[],
-    &[],
+    // Essence Pulse
+    &[
+        "You gain 2 life. Each creature gets -X/-X until end of turn, where X is the amount of life you gained this turn.",
+    ],
+    // Eureka Moment
+    &["Draw two cards. You may put a land card from your hand onto the battlefield."],
     // Excavated Wall
     &["Defender\n{1}, {T}: Mill a card. (Put the top card of your library into your graveyard.)"],
     &[],
@@ -51733,6 +54351,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
+    // Ezzaroot Channeler
+    &[
+        "Reach\nCreature spells you cast cost {X} less to cast, where X is the amount of life you gained this turn.\n{T}: You gain 2 life.",
+    ],
     &[],
     &[],
     &[],
@@ -51741,13 +54363,19 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Fortifying Draught
+    &[
+        "You gain 2 life. Target creature gets +X/+X until end of turn, where X is the amount of life you gained this turn.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Fractal Summoning
+    &["Create a 0/0 green and blue Fractal creature token. Put X +1/+1 counters on it."],
     // Fracture
     &["Destroy target artifact, enchantment, or planeswalker."],
-    &[],
+    // Frost Trickster
+    &[
+        "Flying\nWhen this creature enters, tap target creature an opponent controls. That creature doesn't untap during its controller's next untap step.",
+    ],
     // Frostboil Snarl
     &[
         "As this land enters, you may reveal an Island or Mountain card from your hand. If you don't, this land enters tapped.\n{T}: Add {U} or {R}.",
@@ -51763,16 +54391,25 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
+    // Go Blank
+    &["Target player discards two cards. Then exile that player's graveyard."],
     &[],
     &[],
+    // Guardian Augmenter
+    &["Flash\nCommander creatures you control get +2/+2.\nCommanders you control have hexproof."],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    // Hall Monitor
+    &["Haste\n{1}{R}, {T}: Target creature can't block this turn."],
     // Hall of Oracles
     &[
         "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{T}: Put a +1/+1 counter on target creature. Activate only as a sorcery and only if you've cast an instant or sorcery spell this turn.",
+    ],
+    &[],
+    &[],
+    // Heated Debate
+    &[
+        "This spell can't be countered. (This includes by the ward ability.)\nHeated Debate deals 4 damage to target creature or planeswalker.",
     ],
     &[],
     &[],
@@ -51780,19 +54417,23 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Illustrious Historian
+    &[
+        "{5}, Exile this card from your graveyard: Create a tapped 3/2 red and white Spirit creature token.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Infuse with Vitality
+    &[
+        "Until end of turn, target creature gains deathtouch and \"When this creature dies, return it to the battlefield tapped under its owner's control.\"\nYou gain 2 life.",
+    ],
     &[],
     // Inkling Summoning
     &["Create a 2/1 white and black Inkling creature token with flying."],
     &[],
     &[],
-    &[],
+    // Introduction to Annihilation
+    &["Exile target nonland permanent. Its controller draws a card."],
     // Introduction to Prophecy
     &["Scry 2, then draw a card."],
     &[],
@@ -51808,10 +54449,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Lash of Malice
     &["Target creature gets +2/-2 until end of turn."],
+    // Leech Fanatic
+    &["During your turn, this creature has lifelink."],
     &[],
     &[],
-    &[],
-    &[],
+    // Leyline Invocation
+    &[
+        "Create a 0/0 green and blue Fractal creature token. Put X +1/+1 counters on it, where X is the number of lands you control.",
+    ],
     &[],
     // Lorehold Campus
     &[
@@ -51822,35 +54467,57 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Mage Duel
+    &[
+        "This spell costs {2} less to cast if you've cast another instant or sorcery spell this turn.\nTarget creature you control gets +1/+2 until end of turn. Then it fights target creature you don't control. (Each deals damage equal to its power to the other.)",
+    ],
+    &[],
+    &[],
+    &[],
+    // Make Your Mark
+    &[
+        "Target creature gets +1/+0 until end of turn. When that creature dies this turn, create a 3/2 red and white Spirit creature token.",
+    ],
+    // Manifestation Sage
+    &[
+        "When this creature enters, create a 0/0 green and blue Fractal creature token. Put X +1/+1 counters on it, where X is the number of cards in your hand.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mentor's Guidance
+    &[
+        "When you cast this spell, copy it if you control a planeswalker, Cleric, Druid, Shaman, Warlock, or Wizard.\nScry 1, then draw a card.",
+    ],
     &[],
     &[],
     // Moldering Karok
     &["Trample, lifelink"],
-    &[],
-    &[],
+    // Monologue Tax
+    &["Whenever an opponent casts their second spell each turn, you create a Treasure token."],
+    // Mortality Spear
+    &[
+        "This spell costs {2} less to cast if you gained life this turn.\nDestroy target nonland permanent.",
+    ],
     &[],
     &[],
     // Necroblossom Snarl
     &[
         "As this land enters, you may reveal a Swamp or Forest card from your hand. If you don't, this land enters tapped.\n{T}: Add {B} or {G}.",
     ],
-    &[],
+    // Necrotic Fumes
+    &[
+        "As an additional cost to cast this spell, exile a creature you control.\nExile target creature or planeswalker.",
+    ],
     // Needlethorn Drake
     &["Flying, deathtouch"],
     &[],
-    &[],
+    // Novice Dissector
+    &[
+        "{1}, Sacrifice another creature: Put a +1/+1 counter on target creature. Activate only as a sorcery.",
+    ],
     &[],
     // Oggyar Battle-Seer
     &["Haste\n{T}: Scry 1."],
@@ -51858,9 +54525,15 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Owlin Shieldmage
+    &[
+        "Flying\nWard—Pay 3 life. (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays 3 life.)",
+    ],
     &[],
-    &[],
-    &[],
+    // Perplexing Test
+    &[
+        "Choose one —\n• Return all creature tokens to their owners' hands.\n• Return all nontoken creatures to their owners' hands.",
+    ],
     &[],
     // Pest Summoning
     &[
@@ -51868,12 +54541,18 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Pilgrim of the Ages
+    &[
+        "When this creature enters, you may search your library for a basic Plains card, reveal it, put it into your hand, then shuffle.\n{6}: Return this card from your graveyard to your hand.",
+    ],
     // Pillardrop Rescuer
     &[
         "Flying\nWhen this creature enters, return target creature card with mana value 3 or less from your graveyard to your hand.",
     ],
-    &[],
+    // Pillardrop Warden
+    &[
+        "Reach\n{2}, {T}, Sacrifice this creature: Return target instant or sorcery card from your graveyard to your hand. Activate only as a sorcery.",
+    ],
     &[],
     &[],
     &[],
@@ -51892,13 +54571,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, create a 1/1 black and green Pest creature token with \"When this token dies, you gain 1 life.\"",
     ],
+    // Professor's Warning
+    &[
+        "Choose one —\n• Put a +1/+1 counter on target creature.\n• Target creature gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+    ],
     &[],
-    &[],
-    &[],
+    // Promising Duskmage
+    &["When this creature dies, if it had a +1/+1 counter on it, draw a card."],
     &[],
     // Quandrix Campus
     &[
         "This land enters tapped.\n{T}: Add {G} or {U}.\n{4}, {T}: Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+    ],
+    &[],
+    // Quandrix Cultivator
+    &[
+        "When this creature enters, you may search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.",
     ],
     &[],
     &[],
@@ -51906,16 +54594,23 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Reduce to Memory
+    &[
+        "Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token.",
+    ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Reject
+    &[
+        "Counter target creature or planeswalker spell unless its controller pays {3}. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
+    ],
     // Relic Sloth
     &["Vigilance\nMenace (This creature can't be blocked except by two or more creatures.)"],
     &[],
-    &[],
+    // Resculpt
+    &[
+        "Exile target artifact or creature. Its controller creates a 4/4 blue and red Elemental creature token.",
+    ],
     &[],
     // Returned Pastcaller
     &[
@@ -51937,7 +54632,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Scurrid Colony
     &["Reach\nThis creature gets +2/+2 as long as you control eight or more lands."],
-    &[],
+    // Secret Rendezvous
+    &["You and target opponent each draw three cards."],
     &[],
     &[],
     &[],
@@ -51962,8 +54658,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Sly Instigator
+    &[
+        "{U}, {T}: Until your next turn, target creature an opponent controls can't be blocked. Goad that creature. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)",
+    ],
+    // Snow Day
+    &[
+        "Tap up to two target creatures. Those creatures don't untap during their controller's next untap step.\nDraw two cards, then discard a card.",
+    ],
     // Solve the Equation
     &[
         "Search your library for an instant or sorcery card, reveal it, put it into your hand, then shuffle.",

@@ -23,6 +23,8 @@ use super::*;
 /// Batch wave 2 (500 generated cards) adds Mystic Speculation (`Scry(3)`),
 /// Think Twice (`Draw(1)`), and Train of Thought (`Draw(1)`), each carrying only
 /// one of those accepted cantrip/selection effects.
+/// Batch wave 8 (994 generated cards) adds Mentor's Guidance (`Scry(1)`,
+/// `Draw(1)`) and Scour All Possibilities (`Scry(2)`, `Draw(1)`).
 #[test]
 fn the_counter_gate_lets_only_a_cantrip_resolve() {
     let mut held: Vec<&str> = baylee_cards::all()
@@ -69,6 +71,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Dream Cache",
             "Index",
             "Introduction to Prophecy",
+            "Mentor's Guidance",
             "Mystic Speculation",
             "Obsessive Search",
             "Open Communications",
@@ -76,6 +79,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Preordain",
             "Radical Idea",
             "Reach Through Mists",
+            "Scour All Possibilities",
             "Serum Visions",
             "Taigam's Scheming",
             "Think Twice",

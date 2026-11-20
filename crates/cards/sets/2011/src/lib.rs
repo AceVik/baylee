@@ -17,6 +17,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 pub mod abattoir_ghoul;
 #[path = "isd/abbey_griffin.rs"]
 pub mod abbey_griffin;
+#[path = "mbs/accorder_paladin.rs"]
+pub mod accorder_paladin;
 #[path = "nph/act_of_aggression.rs"]
 pub mod act_of_aggression;
 #[path = "m12/adaptive_automaton.rs"]
@@ -107,6 +109,8 @@ pub mod boneyard_wurm;
 pub mod brain_weevil;
 #[path = "isd/bramblecrush.rs"]
 pub mod bramblecrush;
+#[path = "nph/brutalizer_exarch.rs"]
+pub mod brutalizer_exarch;
 #[path = "isd/bump_in_the_night.rs"]
 pub mod bump_in_the_night;
 #[path = "m12/buried_ruin.rs"]
@@ -303,6 +307,8 @@ pub mod go_for_the_throat;
 pub mod goblin_bangchuckers;
 #[path = "m12/goblin_fireslinger.rs"]
 pub mod goblin_fireslinger;
+#[path = "mbs/goblin_wardriver.rs"]
+pub mod goblin_wardriver;
 #[path = "m12/grand_abolisher.rs"]
 pub mod grand_abolisher;
 #[path = "isd/grasp_of_phantoms.rs"]
@@ -331,6 +337,10 @@ pub mod hamlet_captain;
 pub mod heartless_summoning;
 #[path = "mbs/hellkite_igniter.rs"]
 pub mod hellkite_igniter;
+#[path = "pmbs/hero_of_bladehold.rs"]
+pub mod hero_of_bladehold;
+#[path = "mbs/hero_of_oxid_ridge.rs"]
+pub mod hero_of_oxid_ridge;
 #[path = "mbs/hexplate_golem.rs"]
 pub mod hexplate_golem;
 #[path = "m12/hideous_visage.rs"]
@@ -389,6 +399,8 @@ pub mod kindercatch;
 pub mod kite_shield;
 #[path = "mbs/koth_s_courier.rs"]
 pub mod koth_s_courier;
+#[path = "mbs/kuldotha_ringleader.rs"]
+pub mod kuldotha_ringleader;
 #[path = "isd/lantern_spirit.rs"]
 pub mod lantern_spirit;
 #[path = "nph/leeching_bite.rs"]
@@ -401,6 +413,8 @@ pub mod lord_of_the_unreal;
 pub mod lost_leonin;
 #[path = "nph/loxodon_convert.rs"]
 pub mod loxodon_convert;
+#[path = "mbs/loxodon_partisan.rs"]
+pub mod loxodon_partisan;
 #[path = "isd/lumberknot.rs"]
 pub mod lumberknot;
 #[path = "mbs/lumengrid_gargoyle.rs"]
@@ -549,6 +563,8 @@ pub mod plague_myr;
 pub mod plaguemaw_beast;
 #[path = "nph/porcelain_legionnaire.rs"]
 pub mod porcelain_legionnaire;
+#[path = "mbs/praetor_s_counsel.rs"]
+pub mod praetor_s_counsel;
 #[path = "isd/prey_upon.rs"]
 pub mod prey_upon;
 #[path = "m12/pride_guardian.rs"]
@@ -647,6 +663,8 @@ pub mod shrine_of_burning_rage;
 pub mod shrine_of_loyal_legions;
 #[path = "nph/shrine_of_piercing_vision.rs"]
 pub mod shrine_of_piercing_vision;
+#[path = "mbs/signal_pest.rs"]
+pub mod signal_pest;
 #[path = "isd/silent_departure.rs"]
 pub mod silent_departure;
 #[path = "isd/silver_inlaid_dagger.rs"]
@@ -755,6 +773,8 @@ pub mod titanic_growth;
 pub mod tormentor_exarch;
 #[path = "nph/toxic_nim.rs"]
 pub mod toxic_nim;
+#[path = "mbs/training_drone.rs"]
+pub mod training_drone;
 #[path = "isd/traitorous_blood.rs"]
 pub mod traitorous_blood;
 #[path = "isd/travel_preparations.rs"]

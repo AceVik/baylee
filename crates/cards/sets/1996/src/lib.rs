@@ -855,6 +855,8 @@ pub mod urborg_mindsucker;
 pub mod urborg_panther;
 #[path = "all/urza_s_engine.rs"]
 pub mod urza_s_engine;
+#[path = "mgb/vampirism.rs"]
+pub mod vampirism;
 #[path = "mir/vaporous_djinn.rs"]
 pub mod vaporous_djinn;
 #[path = "all/varchild_s_crusader.rs"]

@@ -309,6 +309,8 @@ pub mod executioner_s_capsule;
 pub mod exuberant_firestoker;
 #[path = "eve/fable_of_wolf_and_owl.rs"]
 pub mod fable_of_wolf_and_owl;
+#[path = "shm/faerie_macabre.rs"]
+pub mod faerie_macabre;
 #[path = "shm/faerie_swarm.rs"]
 pub mod faerie_swarm;
 #[path = "eve/fang_skulkin.rs"]
@@ -377,6 +379,8 @@ pub mod goblin_deathraiders;
 pub mod godhead_of_awe;
 #[path = "ala/godsire.rs"]
 pub mod godsire;
+#[path = "ala/godtoucher.rs"]
+pub mod godtoucher;
 #[path = "shm/goldenglow_moth.rs"]
 pub mod goldenglow_moth;
 #[path = "mor/graceful_reprieve.rs"]
@@ -447,6 +451,8 @@ pub mod incurable_ogre;
 pub mod indigo_faerie;
 #[path = "mor/indomitable_ancients.rs"]
 pub mod indomitable_ancients;
+#[path = "mor/ink_dissolver.rs"]
+pub mod ink_dissolver;
 #[path = "shm/inkfathom_infiltrator.rs"]
 pub mod inkfathom_infiltrator;
 #[path = "shm/inkfathom_witch.rs"]
@@ -459,6 +465,8 @@ pub mod inspired_sprite;
 pub mod intimidator_initiate;
 #[path = "eve/inundate.rs"]
 pub mod inundate;
+#[path = "shm/isleback_spawn.rs"]
+pub mod isleback_spawn;
 #[path = "eve/jawbone_skulkin.rs"]
 pub mod jawbone_skulkin;
 #[path = "ala/jhessian_infiltrator.rs"]
@@ -497,6 +505,8 @@ pub mod kithkin_rabble;
 pub mod kithkin_shielddare;
 #[path = "eve/kithkin_spellduster.rs"]
 pub mod kithkin_spellduster;
+#[path = "mor/kithkin_zephyrnaut.rs"]
+pub mod kithkin_zephyrnaut;
 #[path = "shm/knacksaw_clique.rs"]
 pub mod knacksaw_clique;
 #[path = "ala/knight_captain_of_eos.rs"]
@@ -589,6 +599,8 @@ pub mod mosstodon;
 pub mod mothdust_changeling;
 #[path = "shm/mudbrawler_raiders.rs"]
 pub mod mudbrawler_raiders;
+#[path = "mor/mudbutton_clanger.rs"]
+pub mod mudbutton_clanger;
 #[path = "shm/murderous_redcap.rs"]
 pub mod murderous_redcap;
 #[path = "mor/murmuring_bosk.rs"]
@@ -611,6 +623,8 @@ pub mod negate;
 pub mod nettle_sentinel;
 #[path = "mor/nevermaker.rs"]
 pub mod nevermaker;
+#[path = "mor/nightshade_schemers.rs"]
+pub mod nightshade_schemers;
 #[path = "eve/nightsky_mimic.rs"]
 pub mod nightsky_mimic;
 #[path = "eve/nip_gwyllion.rs"]
@@ -699,6 +713,10 @@ pub mod punish_ignorance;
 pub mod puppet_conjurer;
 #[path = "shm/pyre_charger.rs"]
 pub mod pyre_charger;
+#[path = "mor/pyroclast_consul.rs"]
+pub mod pyroclast_consul;
+#[path = "ala/quietus_spike.rs"]
+pub mod quietus_spike;
 #[path = "ala/rafiq_of_the_many.rs"]
 pub mod rafiq_of_the_many;
 #[path = "mor/rage_forger.rs"]
@@ -823,6 +841,8 @@ pub mod seedcradle_witch;
 pub mod seething_pathblazer;
 #[path = "eve/selkie_hedge_mage.rs"]
 pub mod selkie_hedge_mage;
+#[path = "mor/sensation_gorger.rs"]
+pub mod sensation_gorger;
 #[path = "ala/shadowfeed.rs"]
 pub mod shadowfeed;
 #[path = "mor/shard_volley.rs"]
@@ -899,6 +919,8 @@ pub mod splitting_headache;
 pub mod springjack_pasture;
 #[path = "ala/sprouting_thrinax.rs"]
 pub mod sprouting_thrinax;
+#[path = "mor/squeaking_pie_grubfellows.rs"]
+pub mod squeaking_pie_grubfellows;
 #[path = "eve/stalker_hag.rs"]
 pub mod stalker_hag;
 #[path = "shm/steel_of_the_godhead.rs"]
@@ -1019,16 +1041,22 @@ pub mod wake_thrasher;
 pub mod walker_of_the_grove;
 #[path = "shm/wanderbrine_rootcutters.rs"]
 pub mod wanderbrine_rootcutters;
+#[path = "mor/wandering_graybeard.rs"]
+pub mod wandering_graybeard;
 #[path = "mor/war_spike_changeling.rs"]
 pub mod war_spike_changeling;
 #[path = "shm/wasp_lancer.rs"]
 pub mod wasp_lancer;
 #[path = "shm/watchwing_scarecrow.rs"]
 pub mod watchwing_scarecrow;
+#[path = "mor/waterspout_weavers.rs"]
+pub mod waterspout_weavers;
 #[path = "ala/waveskimmer_aven.rs"]
 pub mod waveskimmer_aven;
 #[path = "mor/weed_pruner_poplar.rs"]
 pub mod weed_pruner_poplar;
+#[path = "mor/weight_of_conscience.rs"]
+pub mod weight_of_conscience;
 #[path = "mor/weirding_shaman.rs"]
 pub mod weirding_shaman;
 #[path = "ala/welkin_guide.rs"]
@@ -1051,8 +1079,12 @@ pub mod wilt_leaf_cavaliers;
 pub mod windbrisk_raptor;
 #[path = "shm/wingrattle_scarecrow.rs"]
 pub mod wingrattle_scarecrow;
+#[path = "mor/winnower_patrol.rs"]
+pub mod winnower_patrol;
 #[path = "eve/wistful_selkie.rs"]
 pub mod wistful_selkie;
+#[path = "mor/wolf_skull_shaman.rs"]
+pub mod wolf_skull_shaman;
 #[path = "shm/wooded_bastion.rs"]
 pub mod wooded_bastion;
 #[path = "shm/woodfall_primus.rs"]

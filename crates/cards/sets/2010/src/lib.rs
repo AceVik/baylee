@@ -35,8 +35,12 @@ pub mod ajani_s_pridemate;
 pub mod akoum_battlesinger;
 #[path = "roe/akoum_boulderfoot.rs"]
 pub mod akoum_boulderfoot;
+#[path = "roe/all_is_dust.rs"]
+pub mod all_is_dust;
 #[path = "som/alpha_tyrranax.rs"]
 pub mod alpha_tyrranax;
+#[path = "pm11/ancient_hellkite.rs"]
+pub mod ancient_hellkite;
 #[path = "roe/ancient_stirrings.rs"]
 pub mod ancient_stirrings;
 #[path = "roe/angelheart_vial.rs"]
@@ -449,6 +453,8 @@ pub mod jwari_scuttler;
 pub mod jwari_shapeshifter;
 #[path = "wwk/kalastria_highborn.rs"]
 pub mod kalastria_highborn;
+#[path = "roe/keening_stone.rs"]
+pub mod keening_stone;
 #[path = "som/kemba_kha_regent.rs"]
 pub mod kemba_kha_regent;
 #[path = "ddf/kemba_s_skyguard.rs"]
@@ -891,6 +897,8 @@ pub mod training_grounds;
 pub mod traitorous_instinct;
 #[path = "roe/transcendent_master.rs"]
 pub mod transcendent_master;
+#[path = "wwk/treasure_hunt.rs"]
+pub mod treasure_hunt;
 #[path = "som/trigon_of_corruption.rs"]
 pub mod trigon_of_corruption;
 #[path = "som/trigon_of_infestation.rs"]

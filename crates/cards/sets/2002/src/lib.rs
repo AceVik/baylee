@@ -659,6 +659,8 @@ pub mod liberated_dwarf;
 pub mod lightning_rift;
 #[path = "jud/lightning_surge.rs"]
 pub mod lightning_surge;
+#[path = "prm/liliana_s_triumph.rs"]
+pub mod liliana_s_triumph;
 #[path = "tor/liquify.rs"]
 pub mod liquify;
 #[path = "jud/living_wish.rs"]

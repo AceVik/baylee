@@ -69,6 +69,8 @@ pub mod bog_strider_ash;
 pub mod boggart_birth_rite;
 #[path = "lrw/boggart_forager.rs"]
 pub mod boggart_forager;
+#[path = "lrw/boggart_harbinger.rs"]
+pub mod boggart_harbinger;
 #[path = "lrw/boggart_loggers.rs"]
 pub mod boggart_loggers;
 #[path = "lrw/boggart_shenanigans.rs"]
@@ -99,6 +101,8 @@ pub mod cenn_s_heir;
 pub mod centaur_omenreader;
 #[path = "fut/char_rumbler.rs"]
 pub mod char_rumbler;
+#[path = "plc/chronozoa.rs"]
+pub mod chronozoa;
 #[path = "plc/circle_of_affliction.rs"]
 pub mod circle_of_affliction;
 #[path = "plc/citanul_woodreaders.rs"]
@@ -137,6 +141,8 @@ pub mod darkheart_sliver;
 pub mod dawnfluke;
 #[path = "plc/dead.rs"]
 pub mod dead;
+#[path = "plc/deadly_grub.rs"]
+pub mod deadly_grub;
 #[path = "plc/deadwood_treefolk.rs"]
 pub mod deadwood_treefolk;
 #[path = "fut/death_rattle.rs"]
@@ -163,6 +169,8 @@ pub mod edge_of_autumn;
 pub mod elvish_eulogist;
 #[path = "lrw/elvish_handservant.rs"]
 pub mod elvish_handservant;
+#[path = "lrw/elvish_harbinger.rs"]
+pub mod elvish_harbinger;
 #[path = "lrw/elvish_promenade.rs"]
 pub mod elvish_promenade;
 #[path = "fut/emberwilde_augur.rs"]
@@ -185,6 +193,8 @@ pub mod eyeblight_s_ending;
 pub mod eyes_of_the_wisent;
 #[path = "lrw/facevaulter.rs"]
 pub mod facevaulter;
+#[path = "lrw/faerie_harbinger.rs"]
+pub mod faerie_harbinger;
 #[path = "lrw/faerie_trickery.rs"]
 pub mod faerie_trickery;
 #[path = "lrw/fallowsage.rs"]
@@ -233,6 +243,8 @@ pub mod ghost_tactician;
 pub mod ghostly_changeling;
 #[path = "plc/giant_dustwasp.rs"]
 pub mod giant_dustwasp;
+#[path = "lrw/giant_harbinger.rs"]
+pub mod giant_harbinger;
 #[path = "lrw/giant_s_ire.rs"]
 pub mod giant_s_ire;
 #[path = "fut/gift_of_granite.rs"]
@@ -337,6 +349,8 @@ pub mod kinsbaile_skirmisher;
 pub mod kithkin_daggerdare;
 #[path = "lrw/kithkin_greatheart.rs"]
 pub mod kithkin_greatheart;
+#[path = "lrw/kithkin_harbinger.rs"]
+pub mod kithkin_harbinger;
 #[path = "lrw/kithkin_healer.rs"]
 pub mod kithkin_healer;
 #[path = "lrw/kithkin_mourncaller.rs"]
@@ -407,6 +421,8 @@ pub mod melancholy;
 pub mod merfolk_thaumaturgist;
 #[path = "lrw/merrow_commerce.rs"]
 pub mod merrow_commerce;
+#[path = "lrw/merrow_harbinger.rs"]
+pub mod merrow_harbinger;
 #[path = "lrw/merrow_reejerey.rs"]
 pub mod merrow_reejerey;
 #[path = "plc/mesa_enchantress.rs"]
@@ -491,6 +507,8 @@ pub mod ponder;
 pub mod pongify;
 #[path = "plc/poultice_sliver.rs"]
 pub mod poultice_sliver;
+#[path = "plc/primal_plasma.rs"]
+pub mod primal_plasma;
 #[path = "plc/prodigal_pyromancer.rs"]
 pub mod prodigal_pyromancer;
 #[path = "lrw/protective_bubble.rs"]
@@ -665,6 +683,8 @@ pub mod timbermare;
 pub mod tolaria_west;
 #[path = "fut/tombstalker.rs"]
 pub mod tombstalker;
+#[path = "lrw/treefolk_harbinger.rs"]
+pub mod treefolk_harbinger;
 #[path = "lrw/triclopean_sight.rs"]
 pub mod triclopean_sight;
 #[path = "lrw/turtleshell_changeling.rs"]
@@ -707,6 +727,8 @@ pub mod wanderwine_hub;
 pub mod waning_wurm;
 #[path = "lrw/warren_scourge_elf.rs"]
 pub mod warren_scourge_elf;
+#[path = "lrw/wellgabber_apothecary.rs"]
+pub mod wellgabber_apothecary;
 #[path = "fut/whetwheel.rs"]
 pub mod whetwheel;
 #[path = "fut/whip_spine_drake.rs"]

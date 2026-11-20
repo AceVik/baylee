@@ -30,6 +30,11 @@ e0cb503e-9814-4280-9c29-4eff3379bc24	Letter of Acceptance	reader-gap: mana sheet
 2a08d878-7816-4d0a-9532-4f2d3c8eee90	Sarkhan's Dragonfire	reader-gap: reference dig script lacks random bottom order
 c08ce0ec-e3fc-4fc3-a7b0-ce8e8fd079c0	Diviner's Wand	reader-gap: dual-grant sentence leaves GrantActivated/GrantTriggeredDefinition without printed lines
 53e540b5-8338-4b21-a61a-c5b7fe652a6e	Undercity Uprising	lint-gap: deathtouch sweep and Fight target share Filter::YOUR_CREATURE in target_reuse
+ee4c29c3-f790-4e5e-a0d1-d47af7b62753	Baloth Packhunter	reader-gap: validate: "you control" dropped from Filter::Named (omits Filter::ControlledByYou)
+6781166b-f6ab-4076-8e97-0cd9342f1b41	Charmed Stray	reader-gap: validate: "you control" dropped from Filter::Named (omits Filter::ControlledByYou)
+d0a31db0-69db-405c-99a3-945617900c54	Obscuring Haze	reader-gap: validate: "you control" with AltCondition::CommanderControlled omits Filter::ControlledByYou
+7ad97dd9-1342-4ed4-bea9-1bb21d748e04	Witch of the Moors	lint-gap: SacrificeFilter and GraveyardToHand share Filter::CREATURE in target_reuse
+dcd8b9d4-c76a-4cad-8d43-13e42fb65bd6	Eladamri, Lord of Leaves Avatar	lint-gap: Vanguard card prints {G}{G} with empty Scryfall color_identity (CR 903.4)
 
 # Engine gaps
 9843d8a6-bcbf-40c2-8c41-316e97db9c62	Shallow Grave	engine-gap: held-back stub awaiting completion and test
@@ -42,6 +47,7 @@ b2402ac0-8ab8-413c-bac4-9f4ba2163c58	Behold the Beyond	engine-gap: quantity-only
 b44d3fe8-b1e2-4abb-ab82-7a516a1db1e5	Keldon Warcaller	engine-gap: lore counters require AI guard regression first (#166)
 0f12aec9-5898-4261-bebd-1b545e0aea68	Mind Unbound	engine-gap: lore counters require AI guard regression first (#166)
 9fceca3c-fc10-4e46-a727-122aafcef349	Cruel Sadist	engine-gap: RemoveCounterSelfX + target announces X before target (CR 601.2b/c)
+a79d2fc8-467f-464d-9e73-2dae4b059628	Ayula, Queen Among Bears	engine-gap: modal trigger mode uses second_targets (engine reads primary target only)
 
 # Fixture gaps
 29ae5540-5fdf-48be-86ba-b4db0fe19f6c	Vapor Snare	fixture-gap: Aura upkeep bounce; fixture plays creatures only

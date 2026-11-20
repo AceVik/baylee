@@ -841,6 +841,9 @@ mod tests {
     /// Pious Evangel, Town Gossipmonger, Conduit of Storms, Docent of
     /// Perfection, Grizzled Angler, Shrill Howler, Vildin-Pack Outcast,
     /// and Voldaren Pariah).
+    /// Batch wave 8 (994 generated cards) adds Thing in the Ice (Awoken
+    /// Horror's transform trigger) and Esika, God of the Tree (The Prismatic
+    /// Bridge's upkeep trigger).
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -867,6 +870,7 @@ mod tests {
                 "Elusive Tormentor",
                 "Hanweir Militia Captain",
                 "Pious Evangel",
+                "Thing in the Ice",
                 "Town Gossipmonger",
                 "Conduit of Storms",
                 "Docent of Perfection",
@@ -887,6 +891,7 @@ mod tests {
                 "Path of Mettle",
                 "Profane Procession",
                 "Birgi, God of Storytelling",
+                "Esika, God of the Tree",
                 "Hostile Hostel",
                 "Havengul Laboratory",
                 "Mirrorhall Mimic",

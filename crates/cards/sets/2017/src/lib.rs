@@ -63,6 +63,8 @@ pub mod anointed_procession;
 pub mod anointer_priest;
 #[path = "hou/apocalypse_demon.rs"]
 pub mod apocalypse_demon;
+#[path = "c17/arahbo_roar_of_the_world.rs"]
+pub mod arahbo_roar_of_the_world;
 #[path = "akh/archfiend_of_ifnir.rs"]
 pub mod archfiend_of_ifnir;
 #[path = "pxln/arguel_s_blood_fast.rs"]
@@ -175,6 +177,8 @@ pub mod cascading_cataracts;
 pub mod cast_out;
 #[path = "xln/castaway_s_despair.rs"]
 pub mod castaway_s_despair;
+#[path = "aer/caught_in_the_brights.rs"]
+pub mod caught_in_the_brights;
 #[path = "akh/censor.rs"]
 pub mod censor;
 #[path = "hou/champion_of_wits.rs"]
@@ -315,6 +319,8 @@ pub mod dire_fleet_hoarder;
 pub mod dispersal_technician;
 #[path = "hou/disposal_mummy.rs"]
 pub mod disposal_mummy;
+#[path = "c17/disrupt_decorum.rs"]
+pub mod disrupt_decorum;
 #[path = "akh/dissenter_s_deliverance.rs"]
 pub mod dissenter_s_deliverance;
 #[path = "xln/dive_down.rs"]
@@ -355,6 +361,8 @@ pub mod duskborne_skymarcher;
 pub mod dutiful_servants;
 #[path = "hou/earthshaker_khenra.rs"]
 pub mod earthshaker_khenra;
+#[path = "c17/edgar_markov.rs"]
+pub mod edgar_markov;
 #[path = "aer/efficient_construction.rs"]
 pub mod efficient_construction;
 #[path = "xln/elaborate_firecannon.rs"]
@@ -461,6 +469,8 @@ pub mod graceful_cat;
 pub mod granitic_titan;
 #[path = "akh/grasping_dunes.rs"]
 pub mod grasping_dunes;
+#[path = "hou/graven_abomination.rs"]
+pub mod graven_abomination;
 #[path = "xln/grazing_whiptail.rs"]
 pub mod grazing_whiptail;
 #[path = "akh/greater_sandwurm.rs"]
@@ -501,6 +511,8 @@ pub mod hekma_sentinels;
 pub mod herald_of_anguish;
 #[path = "pxln/herald_of_secret_streams.rs"]
 pub mod herald_of_secret_streams;
+#[path = "c17/herald_s_horn.rs"]
+pub mod herald_s_horn;
 #[path = "aer/heroic_intervention.rs"]
 pub mod heroic_intervention;
 #[path = "akh/hieroglyphic_illumination.rs"]
@@ -521,6 +533,8 @@ pub mod honored_hydra;
 pub mod hope_tender;
 #[path = "akh/horror_of_the_broken_lands.rs"]
 pub mod horror_of_the_broken_lands;
+#[path = "pxln/hostage_taker.rs"]
+pub mod hostage_taker;
 #[path = "hou/hostile_desert.rs"]
 pub mod hostile_desert;
 #[path = "hou/hour_of_devastation.rs"]
@@ -559,6 +573,8 @@ pub mod implement_of_improvement;
 pub mod implement_of_malice;
 #[path = "akh/in_oketra_s_name.rs"]
 pub mod in_oketra_s_name;
+#[path = "c17/inalla_archmage_ritualist.rs"]
+pub mod inalla_archmage_ritualist;
 #[path = "hou/inferno_jet.rs"]
 pub mod inferno_jet;
 #[path = "akh/initiate_s_companion.rs"]
