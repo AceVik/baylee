@@ -8,12 +8,6 @@ use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Filter = Filter::And(&[
-    Filter::IsCommander,
-    Filter::OwnedByYou,
-    Filter::ControlledByYou,
-]);
-
 card!(
     index = index::LOYAL_APPRENTICE,
     oracle_id = "7f268b15-ac92-4e98-821b-78d15d9285d9",
@@ -40,6 +34,6 @@ card!(
             tapped: false,
             haste: true
         }],
-        condition = Some(Condition::ControlCount(&CHECK1, 1))
+        condition = Some(Condition::ControlYourCommander)
     ),],
 );

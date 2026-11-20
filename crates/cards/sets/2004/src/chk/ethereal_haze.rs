@@ -6,7 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static SOURCE1: Filter = Filter::And(&[Filter::InZone(ZoneRef::Battlefield), Filter::CREATURE]);
+static EFFECT1: Filter = Filter::And(&[Filter::CREATURE, Filter::InZone(ZoneRef::Battlefield)]);
 
 card!(
     index = index::ETHEREAL_HAZE,
@@ -20,9 +20,9 @@ card!(
         types = TypeSet::INSTANT,
         subtypes = &[subtypes::spell::ARCANE],
     ),],
-    abilities = &[spell!(&[Effect::PreventAllDamageFromMatchingThisTurn {
-        target: None,
-        sources: &SOURCE1,
-        combat_only: false
-    }]),],
+    abilities = &[spell!(&[Effect::continuous(
+        &EFFECT1,
+        Modifier::PreventAllDamageFromIt,
+        Duration::UntilEndOfTurn
+    )]),],
 );

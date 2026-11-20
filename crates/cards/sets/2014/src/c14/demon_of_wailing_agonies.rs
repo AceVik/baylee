@@ -7,13 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Filter = Filter::And(&[
-    Filter::IsCommander,
-    Filter::OwnedByYou,
-    Filter::ControlledByYou,
-]);
-
-static GRANTED_TRIGGER_2: AbilityDef = triggered!(
+static GRANTED_TRIGGER_1: AbilityDef = triggered!(
     Trigger::DealsCombatDamageToPlayer(&Filter::This),
     &[Effect::SacrificeFilter {
         who: PlayerRel::DamagedPlayer,
@@ -40,12 +34,12 @@ card!(
         static_ability!(
             Filter::This,
             Modifier::ModifyPT(2, 2),
-            condition = Some(Condition::ControlCount(&CHECK1, 1))
+            condition = Some(Condition::ControlYourCommander)
         ),
         static_ability!(
             Filter::This,
-            Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_2),
-            condition = Some(Condition::ControlCount(&CHECK1, 1))
+            Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_1),
+            condition = Some(Condition::ControlYourCommander)
         ),
     ],
 );

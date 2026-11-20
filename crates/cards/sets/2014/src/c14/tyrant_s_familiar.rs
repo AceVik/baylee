@@ -7,21 +7,15 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Filter = Filter::And(&[
-    Filter::IsCommander,
-    Filter::OwnedByYou,
-    Filter::ControlledByYou,
-]);
+static TARGET1: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByDefendingPlayer]);
 
-static TARGET2: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByDefendingPlayer]);
-
-static GRANTED_TRIGGER_3: AbilityDef = triggered!(
+static GRANTED_TRIGGER_2: AbilityDef = triggered!(
     Trigger::Attacks(&Filter::This),
     &[Effect::DealDamage {
         amount: Amount::Fixed(7),
-        target: TargetSpec::Object(&TARGET2)
+        target: TargetSpec::Object(&TARGET1)
     }],
-    targets = Some(TargetReq::one(TargetSpec::Object(&TARGET2)))
+    targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
 );
 
 card!(
@@ -43,12 +37,12 @@ card!(
         static_ability!(
             Filter::This,
             Modifier::ModifyPT(2, 2),
-            condition = Some(Condition::ControlCount(&CHECK1, 1))
+            condition = Some(Condition::ControlYourCommander)
         ),
         static_ability!(
             Filter::This,
-            Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_3),
-            condition = Some(Condition::ControlCount(&CHECK1, 1))
+            Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_2),
+            condition = Some(Condition::ControlYourCommander)
         ),
     ],
 );

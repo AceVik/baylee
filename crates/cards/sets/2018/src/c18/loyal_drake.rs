@@ -7,12 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Filter = Filter::And(&[
-    Filter::IsCommander,
-    Filter::OwnedByYou,
-    Filter::ControlledByYou,
-]);
-
 card!(
     index = index::LOYAL_DRAKE,
     oracle_id = "daebf011-ec85-4cbd-9445-02ac59675c58",
@@ -34,6 +28,6 @@ card!(
             whose: PlayerRel::You
         },
         &[Effect::draw(1)],
-        condition = Some(Condition::ControlCount(&CHECK1, 1))
+        condition = Some(Condition::ControlYourCommander)
     ),],
 );

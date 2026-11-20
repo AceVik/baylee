@@ -39,10 +39,10 @@ card!(
                 step: StepKind::End,
                 whose: PlayerRel::You
             },
-            &[Effect::DestroyAllWithManaValue {
-                filter: &Filter::CREATURE,
-                value: Amount::CountersOnSource(CounterKind::P1P1)
-            }]
+            &[Effect::destroy_all(&Filter::And(&[
+                Filter::CREATURE,
+                Filter::CmcEqualsCountersOnSource(CounterKind::P1P1)
+            ]))]
         ),
     ],
 );
