@@ -1,8 +1,8 @@
 //! Reading static abilities and the modifiers they apply.
 
 use super::{
-    Bound, Chain, Params, Tx, animation::supertype_const, card_type_const, count_bound,
-    counter_kind, keyword_const,
+    Bound, Params, Tx, animation::supertype_const, card_type_const, count_bound, counter_kind,
+    keyword_const,
 };
 
 impl Tx<'_> {
@@ -220,6 +220,7 @@ impl Tx<'_> {
             "CanAttackDefender" => return self.attack_as_though("AttacksDespiteDefender", p),
             "CanAttackIfHaste" => return self.attack_as_though("AttacksAsThoughHaste", p),
             "CantPlayLand" => return self.cant_play_land(p),
+            "CantPhaseOut" => return self.cant_phase_out(p),
             _ => {}
         }
         if p.peek("EffectZone") == Some("Graveyard") && p.peek("Affected") == Some("Land.YouCtrl") {
@@ -307,6 +308,10 @@ impl Tx<'_> {
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
         self.type_modifiers(&mut p, &filter, &mut out)?;
         self.color_modifiers(&mut p, &filter, &mut out)?;
+        if graveyard_zone && (p.has("AddAbility") || p.has("AddTrigger")) {
+            self.note("static ability from `EffectZone$ Graveyard`".to_string());
+            return None;
+        }
         self.grant_modifiers(&mut p, &filter, &condition, &mut out, &mut self_granted)?;
         self.block_modifiers(&mut p, &filter, &mut out)?;
         // "You control enchanted creature" (Control Magic): layer 2
@@ -1503,16 +1508,20 @@ impl Tx<'_> {
     }
 
     /// `AddColor`/`SetColor` (layer 5) as static abilities.
-    /// `AddAbility$ <SVar>[ & <SVar>]`: "Other Zombies have '{B}:
-    /// Regenerate this permanent.'" (Zombie Master). Each named `SVar` is an
-    /// `AB$` line, read as an activated ability of the object that gains it:
-    /// `Modifier::GrantActivated` activates from that object, so "this
-    /// permanent" in it is the one that has it.
+    /// `S: Mode$ Continuous | AddAbility$` and `AddTrigger$`:
     ///
-    /// Without a target, because the modifier carries none — a granted
-    /// ability that targets would lose its target here and act on nothing
-    /// — and without anything else an activated line may say beside its
-    /// cost and effect: the chain refuses a key it does not claim.
+    /// - Plain activated abilities (no target, second target, timing,
+    ///   inner condition, or turn limit) emit `Modifier::GrantActivated`.
+    /// - Complete activated abilities carrying targets, `second_targets`,
+    ///   `SorcerySpeed$`, inner conditions, or `ActivationLimit$` hoist a
+    ///   `static GRANTED_ACTIVATED_<N>: AbilityDef` via `body.ability_static`
+    ///   and emit `Modifier::GrantActivatedDefinition(&GRANTED_ACTIVATED_<N>)`
+    ///   (preserving the direct `activated!(...)` self-grant shortcut when
+    ///   `filter == "Filter::This"` with a single plain target).
+    /// - Granted triggered abilities (`AddTrigger$`) hoist a `static
+    ///   GRANTED_TRIGGER_<N>: AbilityDef` via `Tx::triggered` (strictly in
+    ///   `TriggerZone::Battlefield`) and emit
+    ///   `Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_<N>)`.
     pub(super) fn grant_modifiers(
         &mut self,
         p: &mut Params,
@@ -1521,58 +1530,214 @@ impl Tx<'_> {
         out: &mut Vec<String>,
         self_granted: &mut bool,
     ) -> Option<()> {
-        let Some(raw) = p.take("AddAbility") else {
+        let abilities = p.take("AddAbility");
+        let triggers = p.take("AddTrigger");
+        if abilities.is_none() && triggers.is_none() {
             return Some(());
-        };
-        for name in raw.split(" & ").map(str::trim) {
+        }
+        if let Some(svars_raw) = p.take("AddSVar") {
+            for name in svars_raw
+                .split('&')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                if !self.svars.contains_key(name) {
+                    return self.deny(format!("`AddSVar$ {name}` naming no `SVar`"));
+                }
+            }
+        }
+        if let Some(raw) = abilities {
+            self.grant_activated_list(&raw, filter, condition, out, self_granted)?;
+        }
+        if let Some(raw) = triggers {
+            self.grant_triggered_list(&raw, filter, out)?;
+        }
+        Some(())
+    }
+
+    fn grant_activated_list(
+        &mut self,
+        raw: &str,
+        filter: &str,
+        condition: &str,
+        out: &mut Vec<String>,
+        self_granted: &mut bool,
+    ) -> Option<()> {
+        for name in raw.split(" & ").map(str::trim).filter(|s| !s.is_empty()) {
             let Some(line) = self.svars.get(name).cloned() else {
                 return self.deny(format!("`AddAbility$ {name}` naming no `SVar`"));
             };
             if !line.trim_start().starts_with("AB$") {
                 return self.deny("a granted ability that is not an activated one".to_string());
             }
-            let Some((_, mut probe)) = Params::parse(&line) else {
-                return self.deny("a granted ability with no `$` in it".to_string());
-            };
-            let Some(cost) = probe.take("Cost") else {
-                return self.deny("a granted ability with no `Cost$`".to_string());
-            };
-            let cost = self.cost_expr(&cost)?;
-            let stripped: Vec<&str> = line
-                .split(" | ")
-                .filter(|part| !part.starts_with("Cost$"))
-                .collect();
-            let mut chain = Chain::default();
-            self.chain(&stripped.join(" | "), &mut chain)?;
-            if let Some(target) = &chain.target {
-                if filter == "Filter::This"
-                    && chain.second_target.is_none()
-                    && !chain.target_is_x
-                    && chain.target_up_to.is_none()
-                    && !chain.effects.is_empty()
-                    && !chain.could_add_mana
-                {
-                    self.body.abilities.push(format!(
-                        "activated!({cost}, &[{}], target = Some({target}){condition})",
-                        chain.effects.join(", ")
-                    ));
-                    *self_granted = true;
-                    continue;
-                }
-                return self.deny("a granted ability with a target".to_string());
+            let parsed = self.parse_activated_spec(&line, false, false)?;
+            if parsed.graveyard_zone {
+                return self.deny("a granted ability activated from `Graveyard`".to_string());
             }
-            if chain.effects.is_empty() {
-                return self.deny("a granted ability that reads as no effect at all".to_string());
+            if parsed.extras.is_empty() {
+                out.push(Self::static_expr(
+                    filter,
+                    &format!(
+                        "Modifier::GrantActivated {{ cost: {}, effects: {}, mana_ability: {} }}",
+                        parsed.cost, parsed.effects, parsed.mana_ability
+                    ),
+                ));
+                continue;
             }
-            let mana = chain.could_add_mana && !chain.moves_library;
+            if filter == "Filter::This"
+                && let Some(target) = &parsed.simple_target
+            {
+                self.body.abilities.push(format!(
+                    "activated!({}, {}, target = Some({target}){condition})",
+                    parsed.cost, parsed.effects
+                ));
+                *self_granted = true;
+                continue;
+            }
+            let def_name = self
+                .body
+                .ability_static("GRANTED_ACTIVATED_", &parsed.ability_expr);
             out.push(Self::static_expr(
                 filter,
-                &format!(
-                    "Modifier::GrantActivated {{ cost: {cost}, effects: &[{}], mana_ability: {mana} }}",
-                    chain.effects.join(", ")
-                ),
+                &format!("Modifier::GrantActivatedDefinition(&{def_name})"),
             ));
         }
+        Some(())
+    }
+
+    fn grant_triggered_list(
+        &mut self,
+        raw: &str,
+        filter: &str,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        for name in raw.split(" & ").map(str::trim).filter(|s| !s.is_empty()) {
+            let Some(line) = self.svars.get(name).cloned() else {
+                return self.deny(format!("`AddTrigger$ {name}` naming no `SVar`"));
+            };
+            if !line.trim_start().starts_with("Mode$") {
+                return self.deny("a granted trigger without `Mode$`".to_string());
+            }
+            let prev_abilities_len = self.body.abilities.len();
+            let prev_statics_len = self.body.statics.len();
+            let prev_trigger_mode = self.trigger_mode.take();
+            let prev_block_line = self.block_line.take();
+            let ok = self.triggered(&line);
+            self.trigger_mode = prev_trigger_mode;
+            if ok.is_none()
+                || self.block_line.is_some()
+                || self.body.abilities.len() != prev_abilities_len + 1
+            {
+                self.body.abilities.truncate(prev_abilities_len);
+                self.body.statics.truncate(prev_statics_len);
+                self.block_line = prev_block_line;
+                if ok.is_some() {
+                    return self.deny("a granted trigger that is not a single ability".to_string());
+                }
+                return None;
+            }
+            self.block_line = prev_block_line;
+            let ability_expr = self.body.abilities.pop()?;
+            if (!ability_expr.starts_with("triggered!(")
+                && !ability_expr.starts_with("modal_triggered!("))
+                || ability_expr.contains("zone = TriggerZone::")
+            {
+                self.body.statics.truncate(prev_statics_len);
+                return self.deny("a granted trigger outside the battlefield".to_string());
+            }
+            let def_name = self.body.ability_static("GRANTED_TRIGGER_", &ability_expr);
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::GrantTriggeredDefinition(&{def_name})"),
+            ));
+        }
+        Some(())
+    }
+
+    fn cant_phase_out(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield")) {
+            return self.deny("static ability `S: Mode$ CantPhaseOut`".to_string());
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `CantPhaseOut` with no `ValidCard$`".to_string());
+        };
+        let filter = self.filter_expr(&valid)?;
+        let mut condition = self.condition(&mut p)?;
+        if condition.is_empty() && p.peek("CheckSVar").is_some() {
+            condition = self.static_svar_condition(&mut p)?;
+        }
+        if !p.exhausted() {
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `CantPhaseOut.{key}`"));
+            }
+            return None;
+        }
+        let mut expr = Self::static_expr(&filter, "Modifier::CantPhaseOut");
+        if !condition.is_empty()
+            && let Some(open) = expr.strip_suffix(')')
+        {
+            expr = format!("{open}{condition})");
+        }
+        self.body.abilities.push(expr);
+        Some(())
+    }
+
+    /// `R: Event$ RollDice | ActiveZones$ Battlefield | ValidPlayer$ You`
+    /// chaining `Plus.1` on `Number` and `Ignore` (`Modifier::RollAdditionalDieIgnoreLowest`, CR 706.6).
+    pub(super) fn roll_dice_replacement(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if !matches!(p.take("ActiveZones").as_deref(), None | Some("Battlefield"))
+            || p.take("ValidPlayer").as_deref() != Some("You")
+        {
+            return self.deny("replacement `R: Event$ RollDice`".to_string());
+        }
+        let Some(replace_with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `R: Event$ RollDice`".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny(format!(
+                "unclaimed parameter `RollDice.{}`",
+                p.first_key().unwrap_or_default()
+            ));
+        }
+        let Some(first_body) = self.svars.get(replace_with.trim()).cloned() else {
+            return self.deny("replacement `R: Event$ RollDice`".to_string());
+        };
+        let Some((api1, mut p1)) = Params::parse(&first_body) else {
+            return self.deny("replacement `R: Event$ RollDice`".to_string());
+        };
+        p1.drop_prose();
+        if api1 != "ReplaceEffect"
+            || p1.take("VarName").as_deref() != Some("Number")
+            || p1.take("VarValue").as_deref() != Some("ReplaceCount$Number/Plus.1")
+        {
+            return self.deny("replacement `R: Event$ RollDice`".to_string());
+        }
+        let Some(sub) = p1.take("SubAbility") else {
+            return self.deny("replacement `R: Event$ RollDice`".to_string());
+        };
+        if !p1.exhausted() {
+            return self.deny("replacement `R: Event$ RollDice`".to_string());
+        }
+        let Some(second_body) = self.svars.get(sub.trim()).cloned() else {
+            return self.deny("replacement `R: Event$ RollDice`".to_string());
+        };
+        let Some((api2, mut p2)) = Params::parse(&second_body) else {
+            return self.deny("replacement `R: Event$ RollDice`".to_string());
+        };
+        p2.drop_prose();
+        if api2 != "ReplaceEffect"
+            || p2.take("VarName").as_deref() != Some("Ignore")
+            || p2.take("VarValue").as_deref() != Some("ReplaceCount$Ignore/Plus.1")
+            || !p2.exhausted()
+        {
+            return self.deny("replacement `R: Event$ RollDice`".to_string());
+        }
+        self.body.abilities.push(Self::static_expr(
+            "Filter::Any",
+            "Modifier::RollAdditionalDieIgnoreLowest",
+        ));
         Some(())
     }
 

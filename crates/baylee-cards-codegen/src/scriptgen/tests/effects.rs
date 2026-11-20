@@ -667,8 +667,10 @@ fn gathered_damage_is_dealt_in_one_resolution() {
     );
 }
 
-/// Zombie Master: a granted activated ability, "this permanent" being
-/// the one that has it; a granted ability that targets is refused.
+/// Zombie Master / Viridian Longbow: a plain granted activated ability uses
+/// `Modifier::GrantActivated`; a granted ability that targets hoists a
+/// `static GRANTED_ACTIVATED_<N>: AbilityDef` via `Modifier::GrantActivatedDefinition`,
+/// while unsupported granted forms (e.g. `ActivationZone$ Graveyard`) stay refused.
 #[test]
 fn a_granted_ability_is_the_holders_own() {
     let body = read(
@@ -683,10 +685,29 @@ fn a_granted_ability_is_the_holders_own() {
     assert!(text.contains("TargetSpec::ThisObject"), "{text}");
     assert!(text.contains("mana_ability: false"), "{text}");
 
-    assert!(refused(
+    let targeted = read(
         "Name:X\nTypes:Creature Goblin\nPT:2/3\n\
          S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ Ping\n\
-         SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n"
+         SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n",
+    );
+    assert!(
+        targeted
+            .statics
+            .contains("static GRANTED_ACTIVATED_1: AbilityDef = activated!(Cost::TAP, &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::AnyTarget }], target = Some(TargetSpec::AnyTarget));"),
+        "{}",
+        targeted.statics
+    );
+    assert_eq!(
+        targeted.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::HasSubtype(subtypes::creature::GOBLIN)]), Modifier::GrantActivatedDefinition(&GRANTED_ACTIVATED_1))"
+        ]
+    );
+
+    assert!(refused(
+        "Name:X\nTypes:Creature Goblin\nPT:2/3\n\
+         S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ GravePing\n\
+         SVar:GravePing:AB$ DealDamage | Cost$ 1 | ActivationZone$ Graveyard | ValidTgts$ Any | NumDmg$ 1\n"
     ));
 }
 

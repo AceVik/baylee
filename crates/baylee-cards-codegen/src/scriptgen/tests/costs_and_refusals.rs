@@ -2534,3 +2534,186 @@ fn wave5_graveyard_keywords_bestow_and_morph_unlocks() {
         assert!(refused(bad_bestow), "must refuse: {bad_bestow}");
     }
 }
+
+#[test]
+fn wave6_grant_activated_and_triggered_definitions() {
+    let equip_ping = read(
+        "Name:RunedBow\nManaCost:2\nTypes:Artifact Equipment\n\
+         K:Equip:3\n\
+         S:Mode$ Continuous | AffectedDefined$ Equipped | AddAbility$ Ping\n\
+         SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1 | SorcerySpeed$ True | ActivationLimit$ 1",
+    );
+    assert!(
+        equip_ping
+            .statics
+            .contains("static GRANTED_ACTIVATED_1: AbilityDef = activated!(")
+            && equip_ping
+                .statics
+                .contains("timing = ActivationTiming::SorcerySpeed")
+            && equip_ping.statics.contains("limit = ActivationLimit::PerTurn(1)")
+            && equip_ping.abilities.iter().any(|a| {
+                a == "static_ability!(Filter::AttachedToBySource, Modifier::GrantActivatedDefinition(&GRANTED_ACTIVATED_1))"
+            }),
+        "{}\n{:?}",
+        equip_ping.statics,
+        equip_ping.abilities
+    );
+
+    let grant_trig = read(
+        "Name:SparkHarness\nManaCost:2\nTypes:Artifact Equipment\n\
+         K:Equip:1\n\
+         S:Mode$ Continuous | AffectedDefined$ Equipped | AddPower$ 1 | AddTrigger$ AtkPing | AddSVar$ PingDmg\n\
+         SVar:AtkPing:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ PingDmg\n\
+         SVar:PingDmg:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 2",
+    );
+    assert!(
+        grant_trig
+            .statics
+            .contains("static GRANTED_TRIGGER_1: AbilityDef = triggered!(")
+            && grant_trig.abilities.iter().any(|a| {
+                a == "static_ability!(Filter::AttachedToBySource, Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_1))"
+            }),
+        "{}\n{:?}",
+        grant_trig.statics,
+        grant_trig.abilities
+    );
+
+    let threshold_trig = read(
+        "Name:GraveHall\nManaCost:G W\nTypes:Enchantment\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddTrigger$ EnemyCast | Condition$ Threshold\n\
+         SVar:EnemyCast:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Opponent | TriggerZones$ Battlefield | Execute$ Draw1 | OptionalDecider$ You\n\
+         SVar:Draw1:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        threshold_trig
+            .statics
+            .contains("static GRANTED_TRIGGER_1: AbilityDef = triggered!(")
+            && threshold_trig.abilities.iter().any(|a| {
+                a == "static_ability!(Filter::This, Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_1), condition = Some(Condition::GraveyardCountAtLeast(7)))"
+            }),
+        "{}\n{:?}",
+        threshold_trig.statics,
+        threshold_trig.abilities
+    );
+
+    for bad in [
+        "Name:BadZoneTrig\nTypes:Artifact Equipment\nK:Equip:1\n\
+         S:Mode$ Continuous | AffectedDefined$ Equipped | AddTrigger$ GyTrig\n\
+         SVar:GyTrig:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Graveyard | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:MissingSVar\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddTrigger$ Ok | AddSVar$ MissingHelper\n\
+         SVar:Ok:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadAltAbil\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddAbility$ AltAb\n\
+         SVar:AltAb:AB$ Draw | Cost$ 1 | AlternateCost$ PayLife<2> | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave6_phasing_lock_roll_dice_vanishing_and_etb_counters() {
+    let phase_lock = read(
+        "Name:PhaseAnchor\nManaCost:1 U\nTypes:Enchantment\n\
+         S:Mode$ CantPhaseOut | ValidCard$ Creature.YouCtrl",
+    );
+    assert_eq!(
+        phase_lock.abilities,
+        ["static_ability!(Filter::YOUR_CREATURE, Modifier::CantPhaseOut)"]
+    );
+    assert!(refused(
+        "Name:BadPhase\nTypes:Enchantment\n\
+         S:Mode$ CantPhaseOut | EffectZone$ Graveyard | ValidCard$ Creature.YouCtrl"
+    ));
+
+    let dice_adv = read(
+        "Name:FortuneSprite\nManaCost:1 U\nTypes:Creature\nPT:1/2\n\
+         R:Event$ RollDice | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ PlusRoll\n\
+         SVar:PlusRoll:DB$ ReplaceEffect | VarName$ Number | VarValue$ ReplaceCount$Number/Plus.1 | SubAbility$ IgnoreLowest\n\
+         SVar:IgnoreLowest:DB$ ReplaceEffect | VarName$ Ignore | VarValue$ ReplaceCount$Ignore/Plus.1",
+    );
+    assert_eq!(
+        dice_adv.abilities,
+        ["static_ability!(Filter::Any, Modifier::RollAdditionalDieIgnoreLowest)"]
+    );
+    assert!(refused(
+        "Name:BadSidesDice\nTypes:Creature\nPT:1/1\n\
+         R:Event$ RollDice | ActiveZones$ Battlefield | ValidPlayer$ You | ValidSides$ 6 | ReplaceWith$ PlusRoll\n\
+         SVar:PlusRoll:DB$ ReplaceEffect | VarName$ Number | VarValue$ ReplaceCount$Number/Plus.1 | SubAbility$ IgnoreLowest\n\
+         SVar:IgnoreLowest:DB$ ReplaceEffect | VarName$ Ignore | VarValue$ ReplaceCount$Ignore/Plus.1"
+    ));
+
+    let vanish_n = read("Name:TimerWurm\nManaCost:3 G\nTypes:Creature\nPT:7/6\nK:Vanishing:2");
+    assert_eq!(
+        vanish_n.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: CounterKind::Time, amount: Amount::Fixed(2) }"]
+    );
+    assert_eq!(
+        vanish_n.abilities,
+        [
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, \
+             &[Effect::RemoveCounterSelf { kind: CounterKind::Time, n: 1 }], \
+             condition = Some(Condition::CountersOnSelf(CounterKind::Time, 1)))",
+            "triggered!(Trigger::LastCounterRemoved { kind: CounterKind::Time, by: None }, \
+             &[Effect::SacrificeSelf])",
+        ]
+    );
+
+    let vanish_bare = read("Name:TimeTide\nManaCost:2 U\nTypes:Creature\nPT:0/3\nK:Vanishing");
+    assert!(vanish_bare.enter_modifiers.is_empty());
+    assert_eq!(vanish_bare.abilities.len(), 2);
+    assert!(refused(
+        "Name:BadVan\nTypes:Creature\nPT:1/1\nK:Vanishing:0"
+    ));
+
+    let life_etb = read(
+        "Name:SunWurm\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
+         K:etbCounter:P1P1:X:no Condition:desc\nSVar:X:Count$LifeYouGainedThisTurn",
+    );
+    assert_eq!(
+        life_etb.enter_modifiers,
+        [
+            "EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::LifeGainedThisTurn(PlayerRel::You) }"
+        ]
+    );
+
+    let domain_etb = read(
+        "Name:RealmWalker\nManaCost:3 G\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:X::Domain desc\nSVar:X:Count$Domain",
+    );
+    assert_eq!(
+        domain_etb.enter_modifiers,
+        [
+            "EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::BasicLandTypesAmong(&Filter::YOUR_LAND) }"
+        ]
+    );
+
+    let colors_etb = read(
+        "Name:PrismBody\nManaCost:4\nTypes:Artifact Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:X\nSVar:X:Count$Valid Permanent.YouCtrl$Colors",
+    );
+    assert_eq!(
+        colors_etb.enter_modifiers,
+        [
+            "EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::DistinctColorsAmong(&Filter::ControlledByYou) }"
+        ]
+    );
+
+    let total_mana_etb = read(
+        "Name:ManaShell\nManaCost:X U\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:X\nSVar:X:Count$TotalManaSpent",
+    );
+    assert_eq!(
+        total_mana_etb.enter_modifiers,
+        [
+            "EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::ManaSpentToCast }"
+        ]
+    );
+
+    assert!(refused(
+        "Name:BadSelfPow\nTypes:Creature\nPT:2/2\n\
+         K:etbCounter:P1P1:X\nSVar:X:Count$CardPower"
+    ));
+}

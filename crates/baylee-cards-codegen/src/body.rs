@@ -186,6 +186,19 @@ impl CardBody {
         name
     }
 
+    /// Declares a `static <NAME>: AbilityDef = <expr>;` and returns its name.
+    ///
+    /// [`Modifier::GrantActivatedDefinition`] and
+    /// [`Modifier::GrantTriggeredDefinition`] hold `&'static AbilityDef`,
+    /// which sits above `card!` so `const` evaluation can borrow filters,
+    /// effects, conditions, and targets nested inside the definition.
+    pub fn ability_static(&mut self, prefix: &str, expr: &str) -> String {
+        let n = self.statics.matches("static ").count() + 1;
+        let name = format!("{prefix}{n}");
+        let _ = write!(self.statics, "static {name}: AbilityDef = {expr};\n\n");
+        name
+    }
+
     /// The name this card already gave `expr`, if it gave it one.
     ///
     /// Matched on the **whole** declaration rather than by searching for the
@@ -228,5 +241,30 @@ mod tests {
             "the same expression under another prefix is another name"
         );
         assert_eq!(body.statics.matches("static ").count(), 3);
+    }
+
+    #[test]
+    fn ability_static_emits_unique_ability_defs_alongside_filters() {
+        let mut body = CardBody::default();
+        assert_eq!(
+            body.filter_static("CHECK", "Filter::And(&[Filter::CREATURE, Filter::TAPPED])"),
+            "CHECK1"
+        );
+        assert_eq!(
+            body.ability_static("GRANTED_ACTIVATED_", "activated!(Cost::TAP, &[])"),
+            "GRANTED_ACTIVATED_2"
+        );
+        assert_eq!(
+            body.ability_static("GRANTED_TRIGGER_", "triggered!(Trigger::ETB, &[])"),
+            "GRANTED_TRIGGER_3"
+        );
+        assert!(
+            body.statics
+                .contains("static GRANTED_ACTIVATED_2: AbilityDef = activated!(Cost::TAP, &[]);")
+        );
+        assert!(
+            body.statics
+                .contains("static GRANTED_TRIGGER_3: AbilityDef = triggered!(Trigger::ETB, &[]);")
+        );
     }
 }

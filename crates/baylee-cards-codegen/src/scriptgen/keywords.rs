@@ -94,7 +94,13 @@ impl Tx<'_> {
             return Some(());
         }
         if let super::saga_ward_convoke::ExtraOutcome::Handled(res) = self.try_extra_keyword(line) {
-            return res;
+            if res.is_some() {
+                return res;
+            }
+            if let Some(rest) = line.strip_prefix("etbCounter:") {
+                return self.etb_counter_wave6(rest);
+            }
+            return None;
         }
         if let Some(rest) = line.strip_prefix("ETBReplacement:") {
             return self.etb_replacement(rest);
@@ -122,6 +128,12 @@ impl Tx<'_> {
         }
         if let Some(rest) = line.strip_prefix("Fading:") {
             return self.fading(rest);
+        }
+        if let Some(rest) = line
+            .strip_prefix("Vanishing:")
+            .or_else(|| (line == "Vanishing").then_some(""))
+        {
+            return self.vanishing(rest);
         }
         if let Some(rest) = line.strip_prefix("Amplify:") {
             return self.amplify(rest);
@@ -414,6 +426,41 @@ impl Tx<'_> {
              &[Effect::IfCondition { condition: Condition::CountersOnSelf(counters::FADE, 1), \
              then: &[Effect::RemoveCounterSelf { kind: counters::FADE, n: 1 }], \
              otherwise: &[Effect::SacrificeSelf] }])"
+                .to_string(),
+        );
+        Some(())
+    }
+
+    /// `K:Vanishing[:<n>]` (CR 702.63a–b): optional `n` time counters on entry,
+    /// upkeep time-counter removal with intervening-if check, and sacrifice on
+    /// `Trigger::LastCounterRemoved`.
+    pub(super) fn vanishing(&mut self, rest: &str) -> Option<()> {
+        if !rest.is_empty() {
+            let mut fields = rest.split(':');
+            let raw = fields.next()?.trim();
+            let _prose = fields.next();
+            if fields.next().is_some() {
+                return self.deny(format!("vanishing `{rest}`"));
+            }
+            let Ok(n) = raw.parse::<u32>() else {
+                return self.deny(format!("vanishing `{raw}`"));
+            };
+            if n == 0 {
+                return self.deny("vanishing `0`".to_string());
+            }
+            self.body.enter_modifiers.push(format!(
+                "EnterModifier::WithCounters {{ kind: CounterKind::Time, amount: Amount::Fixed({n}) }}"
+            ));
+        }
+        self.body.abilities.push(
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, \
+             &[Effect::RemoveCounterSelf { kind: CounterKind::Time, n: 1 }], \
+             condition = Some(Condition::CountersOnSelf(CounterKind::Time, 1)))"
+                .to_string(),
+        );
+        self.body.abilities.push(
+            "triggered!(Trigger::LastCounterRemoved { kind: CounterKind::Time, by: None }, \
+             &[Effect::SacrificeSelf])"
                 .to_string(),
         );
         Some(())
@@ -913,7 +960,8 @@ impl Tx<'_> {
         }
         let cond = fields.next()?.trim();
         let var = cond.strip_prefix("CheckSVar$")?.trim();
-        if self.svars.get(var).map(|s| s.trim()) != Some("Count$Kicked.1.0") {
+        let def = self.svars.get(var).map(|s| s.trim());
+        if !matches!(def, Some("Count$Kicked.1.0" | "Count$TimesKicked")) {
             return None;
         }
         let amount = if n == 1 {
@@ -924,6 +972,67 @@ impl Tx<'_> {
         Some(format!(
             "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
         ))
+    }
+
+    /// Additional Wave-6 `K:etbCounter:` shapes not handled by `saga_ward_convoke`:
+    /// empty 3rd condition field (`::desc`), `Count$TotalManaSpent` /
+    /// `Count$TimesKicked`, and static board/turn/life/domain/distinct-color
+    /// `Amount`s via `static_count_expr`.
+    fn etb_counter_wave6(&mut self, rest: &str) -> Option<()> {
+        let mut fields = rest.split(':');
+        let (Some(kind_raw), Some(amount_raw)) = (fields.next(), fields.next()) else {
+            return self.deny("keyword `etbCounter`".to_string());
+        };
+        let cond_raw = fields.next();
+        let _desc = fields.next();
+        if fields.next().is_some() {
+            return self.deny("keyword `etbCounter`".to_string());
+        }
+        if let Some(cond) = cond_raw {
+            let trimmed = cond.trim();
+            if !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("no condition") {
+                return self.deny("keyword `etbCounter`".to_string());
+            }
+        }
+        let Some(kind) = super::counter_kind(kind_raw.trim()) else {
+            return self.deny("keyword `etbCounter`".to_string());
+        };
+        let Some(amount) = self.etb_wave6_amount(amount_raw.trim()) else {
+            return self.deny("keyword `etbCounter`".to_string());
+        };
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
+        ));
+        Some(())
+    }
+
+    fn etb_wave6_amount(&mut self, raw: &str) -> Option<String> {
+        if let Ok(n) = raw.parse::<u32>() {
+            return (n > 0).then(|| format!("Amount::Fixed({n})"));
+        }
+        let def = self.svars.get(raw)?.trim().to_string();
+        if matches!(
+            def.as_str(),
+            "Count$CastTotalManaSpent" | "Count$TotalManaSpent"
+        ) {
+            return Some("Amount::ManaSpentToCast".to_string());
+        }
+        if def == "Count$TimesKicked" {
+            return Some("Amount::TimesKicked".to_string());
+        }
+        if def == "Count$xPaid" && self.has_x_mana_cost {
+            return Some("Amount::X".to_string());
+        }
+        let normalized = if let Some(spec) = def.strip_prefix("Count$LastStateBattlefield ") {
+            format!("Count$Valid {spec}")
+        } else {
+            def
+        };
+        let expr = self.static_count_expr(&normalized)?;
+        if expr.contains("SourcePower") || expr.contains("CountersOnSource") {
+            return None;
+        }
+        Some(expr)
     }
 
     /// `K:Multikicker:<cost>` (CR 702.33c). Every printed one is mana.
@@ -1342,6 +1451,9 @@ impl Tx<'_> {
         }
         if event == "BeginPhase" {
             return self.skip_untap_steps(&mut p);
+        }
+        if event == "RollDice" {
+            return self.roll_dice_replacement(p);
         }
         if event == "Counter" {
             p.drop_prose();

@@ -17,6 +17,29 @@ pub(super) enum OptionalTriggerPrice {
 /// `(mode_expr, first_target_spec, has_second_target, could_add_mana)`.
 pub(super) type CharmMode = (String, Option<String>, bool, bool);
 
+/// Components of a parsed `AB$` activated ability line or granted `AddAbility$` `SVar`.
+pub(super) struct ParsedActivated {
+    pub cost: String,
+    pub effects: String,
+    pub mana_ability: bool,
+    pub extras: String,
+    pub ability_expr: String,
+    pub alternate_ability_expr: Option<String>,
+    pub graveyard_zone: bool,
+    pub simple_target: Option<String>,
+}
+
+struct ExtractedAbilitySpec {
+    cost: Option<String>,
+    alternate_cost: Option<String>,
+    limit: Option<String>,
+    graveyard_zone: bool,
+    any_player: bool,
+    sorcery_speed: bool,
+    condition: String,
+    chain: Chain,
+}
+
 impl Tx<'_> {
     /// When an ability may be activated, beyond its `IsPresent$` clause: a
     /// restriction on activating (CR 602.5) that the `condition` field says,
@@ -138,7 +161,19 @@ impl Tx<'_> {
         })
     }
 
-    #[allow(clippy::too_many_lines)]
+    pub(super) fn parse_activated_spec(
+        &mut self,
+        spec: &str,
+        allow_oracle_tap: bool,
+        allow_alternate_cost: bool,
+    ) -> Option<ParsedActivated> {
+        let extracted = self.extract_ability_spec(spec, true, allow_oracle_tap)?;
+        if !allow_alternate_cost && extracted.alternate_cost.is_some() {
+            return self.deny("an `AlternateCost` on a granted ability".to_string());
+        }
+        self.build_activated_parts(&extracted)
+    }
+
     pub(super) fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
         if !is_activated
@@ -163,65 +198,87 @@ impl Tx<'_> {
                 self.charm(spec)
             };
         }
-        let Some((_, mut probe)) = Params::parse(spec) else {
-            return self.deny("an `A:` line with no `$` in it".to_string());
-        };
-        probe.drop_prose();
-        let mut cost = probe.take("Cost");
+        let extracted = self.extract_ability_spec(spec, is_activated, true)?;
+        if is_activated {
+            let built = self.build_activated_parts(&extracted)?;
+            self.body.abilities.push(built.ability_expr);
+            if let Some(alt) = built.alternate_ability_expr {
+                self.body.abilities.push(alt);
+            }
+            Some(())
+        } else {
+            let effects = format!("&[{}]", extracted.chain.effects.join(", "));
+            let second_targets = Self::second_target_req_expr(&extracted.chain)
+                .map_or_default(|req| format!(", second_targets = Some({req})"));
+            self.push_spell_ability(
+                extracted.cost.as_deref(),
+                extracted.limit.as_deref(),
+                &extracted.condition,
+                &effects,
+                extracted.chain.target.as_deref(),
+                extracted.chain.target_is_x,
+                extracted.chain.target_up_to,
+                extracted.chain.target_exact,
+                &second_targets,
+            )
+        }
+    }
+
+    fn infer_single_ability_tap(&self, cost: Option<String>) -> Option<String> {
         let printed_cost = self.oracle.split(':').next().unwrap_or_default();
         let tap_before_other_costs = printed_cost
             .split(", ")
             .take_while(|part| *part != "{T}")
             .all(|part| part.starts_with('{') && part.ends_with('}') && part != "{Q}");
-        // A script can omit a printed tap symbol from its only activated
-        // ability. With exactly one Oracle colon there is no other ability it
-        // could belong to, so the printed cost is an unambiguous correction;
-        // never infer a tap across several activated abilities. Preserve the
-        // printed position relative to the non-mana costs as well.
-        if is_activated
-            && self.oracle.matches(':').count() == 1
+        if self.oracle.matches(':').count() == 1
             && printed_cost.split(", ").any(|part| part == "{T}")
             && cost
                 .as_deref()
                 .is_some_and(|parts| !parts.split_whitespace().any(|part| part == "T"))
         {
-            cost = cost.map(|parts| {
+            cost.map(|parts| {
                 if tap_before_other_costs {
                     format!("T {parts}")
                 } else {
                     format!("{parts} T")
                 }
-            });
+            })
+        } else {
+            cost
+        }
+    }
+
+    fn extract_ability_spec(
+        &mut self,
+        spec: &str,
+        is_activated: bool,
+        allow_oracle_tap: bool,
+    ) -> Option<ExtractedAbilitySpec> {
+        let Some((api, mut probe)) = Params::parse(spec) else {
+            return self.deny("an `A:` line with no `$` in it".to_string());
+        };
+        if is_activated && !allow_oracle_tap && (api == "ManaReflected" || api == "Charm") {
+            return self.deny(format!("a granted `{api}` ability"));
+        }
+        probe.drop_prose();
+        let mut cost = probe.take("Cost");
+        if is_activated && allow_oracle_tap {
+            cost = self.infer_single_ability_tap(cost);
         }
         let alternate_cost = probe.take("AlternateCost");
         if !is_activated && alternate_cost.is_some() {
             return self.deny("an `AlternateCost` on a spell".to_string());
         }
-        // "Activate only once each turn" belongs to the ability for the same
-        // reason the cost does: it restricts activating it, not what happens
-        // when it resolves.
         let limit = probe.take("ActivationLimit");
         let activator = probe.take("Activator");
         let activation_zone = probe.take("ActivationZone");
         let graveyard_zone = is_activated && activation_zone.as_deref() == Some("Graveyard");
         let battlefield_zone = is_activated && activation_zone.as_deref() == Some("Battlefield");
         let sorcery_speed = is_activated && probe.take("SorcerySpeed").as_deref() == Some("True");
-        // And so does the clause, which on an `A:` line is a restriction on
-        // activating rather than CR 603.4's intervening `if`: the reference
-        // spells a resolution-time condition `ConditionPresent$`, a
-        // different key on a different line (1521 of them, all on `SVar:`),
-        // and this reader claims neither it nor its family.
         let mut condition = self.condition(&mut probe)?;
-        // The `IsPresent$` family is claimed only where that clause was read,
-        // not where a restriction below filled `condition` instead.
         let present_read = !condition.is_empty();
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
         let mut chain = Chain::default();
-        // The cost belongs to the ability, not to the effect chain, so it is
-        // removed from the spec before the chain reads it. The clause's keys
-        // go with it, but **only** once the clause was read: a line carrying
-        // `PresentZone$` and no `IsPresent$` at all keeps it, and refuses one
-        // level down as the unclaimed parameter it is.
         let claimed: &[&str] = if present_read {
             &[
                 "Condition$",
@@ -262,119 +319,115 @@ impl Tx<'_> {
         if chain.effects.is_empty() {
             return self.deny("an ability that reads as no effect at all".to_string());
         }
-        let effects = format!("&[{}]", chain.effects.join(", "));
-        let second_targets = Self::second_target_req_expr(&chain)
-            .map_or_default(|req| format!(", second_targets = Some({req})"));
-        if is_activated {
-            let zone = if any_player {
-                ", zone = ActivationZone::BattlefieldAnyPlayer"
-            } else if graveyard_zone {
-                ", zone = ActivationZone::Graveyard"
-            } else {
-                ""
-            };
-            self.push_activated_ability(
-                cost.as_deref(),
-                alternate_cost.as_deref(),
-                limit.as_deref(),
-                sorcery_speed,
-                zone,
-                &condition,
-                &effects,
-                &chain,
-                &second_targets,
-            )
-        } else {
-            self.push_spell_ability(
-                cost.as_deref(),
-                limit.as_deref(),
-                &condition,
-                &effects,
-                chain.target.as_deref(),
-                chain.target_is_x,
-                chain.target_up_to,
-                chain.target_exact,
-                &second_targets,
-            )
-        }
+        Some(ExtractedAbilitySpec {
+            cost,
+            alternate_cost,
+            limit,
+            graveyard_zone,
+            any_player,
+            sorcery_speed,
+            condition,
+            chain,
+        })
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn push_activated_ability(
-        &mut self,
-        cost: Option<&str>,
-        alternate_cost: Option<&str>,
-        limit: Option<&str>,
-        sorcery_speed: bool,
-        zone: &str,
-        condition: &str,
-        effects: &str,
-        chain: &Chain,
-        second_targets: &str,
-    ) -> Option<()> {
-        let Some(cost) = cost else {
+    fn build_activated_parts(&mut self, spec: &ExtractedAbilitySpec) -> Option<ParsedActivated> {
+        let Some(cost) = spec.cost.as_deref() else {
             return self.deny("an activated ability with no `Cost$`".to_string());
         };
         let cost = self.cost_expr(cost)?;
-        // CR 605.1a includes the library-movement exclusion. These
-        // properties describe this chain, not separately created delayed
-        // or granted abilities and not any external replacement.
-        let mana_ability = chain.could_add_mana && !chain.moves_library && chain.target.is_none();
+        let effects = format!("&[{}]", spec.chain.effects.join(", "));
+        let second_targets = Self::second_target_req_expr(&spec.chain)
+            .map_or_default(|req| format!(", second_targets = Some({req})"));
+        let zone = if spec.any_player {
+            ", zone = ActivationZone::BattlefieldAnyPlayer"
+        } else if spec.graveyard_zone {
+            ", zone = ActivationZone::Graveyard"
+        } else {
+            ""
+        };
+        let mana_ability =
+            spec.chain.could_add_mana && !spec.chain.moves_library && spec.chain.target.is_none();
         if !zone.is_empty() && mana_ability {
             return self.deny("a non-default activation zone on a mana ability".to_string());
         }
-        if sorcery_speed && mana_ability {
+        if spec.sorcery_speed && mana_ability {
             return self.deny("`SorcerySpeed$ True` on a mana ability".to_string());
         }
-        let timing = if sorcery_speed {
+        let timing = if spec.sorcery_speed {
             ", timing = ActivationTiming::SorcerySpeed"
         } else {
             ""
         };
-        if chain.target_is_x {
+        if spec.chain.target_is_x {
             return self.deny("`TargetMin$/TargetMax$ X` on an activated ability".to_string());
         }
-        let target = chain.target.as_ref().map_or_default(|t| {
-            if let Some(max) = chain.target_up_to {
+        let target = spec.chain.target.as_ref().map_or_default(|t| {
+            if let Some(max) = spec.chain.target_up_to {
                 if max == 1 {
                     format!(", targets = Some(TargetReq::up_to_one({t}))")
                 } else {
                     format!(", targets = Some(TargetReq::up_to({t}, {max}))")
                 }
-            } else if let Some(n) = chain.target_exact {
+            } else if let Some(n) = spec.chain.target_exact {
                 format!(", targets = Some(TargetReq::exactly({t}, {n}))")
             } else {
                 format!(", target = Some({t})")
             }
         });
-        let limit = self.activation_limit(limit)?;
-        // `mana_ability!(effects)` *is* `mana_ability!({T}, effects)`
-        // — the macro supplies the tap, because tapping is what almost
-        // every mana ability costs. Writing the cost out again says
-        // nothing and reads as though this one were the exception.
-        //
-        // The short form takes the cost as its *only* positional
-        // argument, so it is right exactly while there is nothing else
-        // to say: `mana_ability!(&[…], limit = …)` would bind the
-        // effects where the cost goes and `limit = …` — an assignment
-        // expression, and so a legal one — where the effects go.
-        let extras = format!("{timing}{zone}{target}{second_targets}{limit}{condition}");
-        let line = match (mana_ability, cost.as_str()) {
+        let limit_str = self.activation_limit(spec.limit.as_deref())?;
+        let condition = &spec.condition;
+        let extras = format!("{timing}{zone}{target}{second_targets}{limit_str}{condition}");
+        let ability_expr = Self::format_activated_macro(mana_ability, &cost, &effects, &extras);
+        let alternate_ability_expr = match spec.alternate_cost.as_deref() {
+            Some(alt) => {
+                let alt_cost = self.cost_expr(alt)?;
+                Some(Self::format_activated_macro(
+                    mana_ability,
+                    &alt_cost,
+                    &effects,
+                    &extras,
+                ))
+            }
+            None => None,
+        };
+        let simple_target = if !mana_ability
+            && !spec.graveyard_zone
+            && !spec.any_player
+            && !spec.sorcery_speed
+            && limit_str.is_empty()
+            && condition.is_empty()
+            && spec.chain.second_target.is_none()
+            && spec.chain.target_up_to.is_none()
+            && spec.chain.target_exact.is_none()
+        {
+            spec.chain.target.clone()
+        } else {
+            None
+        };
+        Some(ParsedActivated {
+            cost,
+            effects,
+            mana_ability,
+            extras,
+            ability_expr,
+            alternate_ability_expr,
+            graveyard_zone: spec.graveyard_zone,
+            simple_target,
+        })
+    }
+
+    fn format_activated_macro(
+        mana_ability: bool,
+        cost: &str,
+        effects: &str,
+        extras: &str,
+    ) -> String {
+        match (mana_ability, cost) {
             (true, "Cost::TAP") if extras.is_empty() => format!("mana_ability!({effects})"),
             (true, _) => format!("mana_ability!({cost}, {effects}{extras})"),
             (false, _) => format!("activated!({cost}, {effects}{extras})"),
-        };
-        self.body.abilities.push(line);
-        if let Some(alternate_cost) = alternate_cost {
-            let alternate_cost = self.cost_expr(alternate_cost)?;
-            let line = match (mana_ability, alternate_cost.as_str()) {
-                (true, "Cost::TAP") if extras.is_empty() => format!("mana_ability!({effects})"),
-                (true, _) => format!("mana_ability!({alternate_cost}, {effects}{extras})"),
-                (false, _) => format!("activated!({alternate_cost}, {effects}{extras})"),
-            };
-            self.body.abilities.push(line);
         }
-        Some(())
     }
     // And the third of them, which this branch dropped in silence
     // until a batch of four hundred cards walked into it. A spell's
