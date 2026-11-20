@@ -6,6 +6,15 @@ use super::{
     is_supported_api,
 };
 
+#[derive(Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
+struct LineFlags {
+    targets_here: bool,
+    targets_a_player: bool,
+    single_target: bool,
+    prior_target_used: bool,
+}
+
 impl Tx<'_> {
     /// One effect and everything its `SubAbility$` chain adds.
     #[allow(clippy::too_many_lines)]
@@ -546,13 +555,17 @@ impl Tx<'_> {
                 let single_target = chain.target_exact.is_none()
                     && !chain.target_is_x
                     && chain.target_up_to.is_none_or(|n| n == 1);
+                let prior_target_used = !targets_here && !chain.effects.is_empty();
                 self.effect_of_inner(
                     &api,
                     &mut p,
                     target.as_deref(),
-                    targets_here,
-                    targets_a_player,
-                    single_target,
+                    LineFlags {
+                        targets_here,
+                        targets_a_player,
+                        single_target,
+                        prior_target_used,
+                    },
                 )
             }) else {
                 // An API with no rule at all is a different report than a rule
@@ -782,6 +795,7 @@ impl Tx<'_> {
                     .svar_condition(&var, &cmp)
                     .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
                     .or_else(|| self.wave7_svar_condition(&var, &cmp))
+                    .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, true))
                 {
                     p.take("ConditionCheckSVar");
                     p.take("ConditionSVarCompare");
@@ -798,6 +812,21 @@ impl Tx<'_> {
                     )]);
                 }
             }
+            if p.has("ConditionNotPresent")
+                && let Some(cond) = self.wave11_object_matches_condition(p, target, true)
+            {
+                p.take("ConditionDescription");
+                if !p.exhausted() {
+                    if let Some(key) = p.first_key() {
+                        self.note(format!("unclaimed parameter `{api}.{key}`"));
+                    }
+                    return None;
+                }
+                return Some(vec![format!(
+                    "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[] }}",
+                    effects.join(", ")
+                )]);
+            }
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `{api}.{key}`"));
             }
@@ -810,14 +839,14 @@ impl Tx<'_> {
             }
             p.entries.push(("PresentCompare".to_string(), cmp));
         }
-        let valid = p.take("ConditionPresent").expect("checked above");
         let cond = if p.peek("ConditionDefined") == Some("Self")
             && !p.has("PresentPlayer")
             && !p.has("PresentZone")
             && matches!(
-                valid.as_str(),
-                "Card.bargained" | "Card.!bargained" | "Card.prototyped" | "Card.!prototyped"
+                p.peek("ConditionPresent"),
+                Some("Card.bargained" | "Card.!bargained" | "Card.prototyped" | "Card.!prototyped")
             ) {
+            let valid = p.take("ConditionPresent").expect("checked above");
             p.take("ConditionDefined");
             let cmp = p.take("PresentCompare");
             let (base, positive_present) = match valid.as_str() {
@@ -838,22 +867,27 @@ impl Tx<'_> {
             } else {
                 format!("Condition::Not(&{base})")
             }
-        } else if !p.has("ConditionDefined")
-            && !p.has("PresentPlayer")
-            && matches!(p.peek("PresentZone"), None | Some("Battlefield"))
-            && Self::is_your_commander_present(&valid)
-        {
-            let cmp = p.take("PresentCompare");
-            p.take("PresentZone");
-            match cmp.as_deref() {
-                None | Some("GE1") => "Condition::ControlYourCommander".to_string(),
-                Some("EQ0") => "Condition::Not(&Condition::ControlYourCommander)".to_string(),
-                Some(other) => {
-                    return self.deny(format!("commander presence compared `{other}`"));
-                }
-            }
+        } else if let Some(obj_cond) = self.wave11_object_matches_condition(p, target, false) {
+            obj_cond
         } else {
-            self.present_clause(p, &valid)?
+            let valid = p.take("ConditionPresent").expect("checked above");
+            if !p.has("ConditionDefined")
+                && !p.has("PresentPlayer")
+                && matches!(p.peek("PresentZone"), None | Some("Battlefield"))
+                && Self::is_your_commander_present(&valid)
+            {
+                let cmp = p.take("PresentCompare");
+                p.take("PresentZone");
+                match cmp.as_deref() {
+                    None | Some("GE1") => "Condition::ControlYourCommander".to_string(),
+                    Some("EQ0") => "Condition::Not(&Condition::ControlYourCommander)".to_string(),
+                    Some(other) => {
+                        return self.deny(format!("commander presence compared `{other}`"));
+                    }
+                }
+            } else {
+                self.present_clause(p, &valid)?
+            }
         };
         if !p.exhausted() {
             if let Some(key) = p.first_key() {
@@ -1081,6 +1115,7 @@ impl Tx<'_> {
                 ) || (api == "DealDamage"
                     && !p.has("DividedAsYouChoose")
                     && p.peek("DamageSource").is_none())
+                    || (api == "SetState" && p.peek("Mode") == Some("TurnFaceUp"))
                     || (api == "ChangeZone"
                         && (matches!(
                             (p.peek("Origin"), p.peek("Destination")),
@@ -1219,51 +1254,12 @@ impl Tx<'_> {
         });
         let targets_a_player = target
             .is_some_and(|t| t == "TargetSpec::AnyPlayer" || t.starts_with("TargetSpec::Player("));
-        let payer = match payer.as_deref() {
-            Some("You") => "PlayerRel::You",
-            // Paralyze's "that player may pay {4}": the enchanted
-            // creature's controller (CR 303.4e names the Aura's host).
-            Some("EnchantedController") => "PlayerRel::ControllerOfAttached",
-            None | Some("TargetedController") if targets_a_controlled_object => {
-                "PlayerRel::ControllerOfTarget"
-            }
-            Some("Targeted") if targets_a_player => "PlayerRel::Chosen",
-            // Rhystic Study's "unless that player pays {1}": the player the
-            // cast trigger's event is about, as `Defined$` reads the same
-            // words (`Tx::player_rel`). Anywhere but a cast trigger they
-            // name nobody this reader can see, and stay refused below.
-            Some(who @ ("TriggeredActivator" | "TriggeredCardController"))
-                if self.trigger_mode.as_deref() == Some("SpellCast") =>
-            {
-                self.player_rel(Some(who))?
-            }
-            Some("TriggeredCardController") if self.trigger_mode.as_deref() == Some("Drawn") => {
-                self.player_rel(Some("TriggeredCardController"))?
-            }
-            Some("TriggeredTargetController")
-                if self.trigger_mode.as_deref() == Some("DamageDone") =>
-            {
-                self.player_rel(Some("TriggeredTargetController"))?
-            }
-            Some("TriggeredDefendingPlayer")
-                if matches!(
-                    self.trigger_mode.as_deref(),
-                    Some("Attacks" | "AttackerBlocked")
-                ) =>
-            {
-                self.player_rel(Some("TriggeredDefendingPlayer"))?
-            }
-            Some("TriggeredPlayer") if self.trigger_mode.as_deref() == Some("Phase") => {
-                "PlayerRel::ActivePlayer"
-            }
-            Some("Player") if !switched => "ANY_PLAYER",
-            other => {
-                return self.deny(format!(
-                    "an unless-cost paid by `{}`",
-                    other.unwrap_or("TargetedController")
-                ));
-            }
-        };
+        let payer = self.unless_payer(
+            payer.as_deref(),
+            targets_a_controlled_object,
+            targets_a_player,
+            switched,
+        )?;
         let price = if payer == "PlayerRel::You" && switched {
             if let Some(draw_expr) = self.draw_cost_effect(cost.trim()) {
                 Price::Part(format!("__DRAW__:{draw_expr}"))
@@ -1293,6 +1289,49 @@ impl Tx<'_> {
             switched,
             resolve_subs,
         })
+    }
+
+    fn unless_payer(
+        &self,
+        payer: Option<&str>,
+        targets_a_controlled_object: bool,
+        targets_a_player: bool,
+        switched: bool,
+    ) -> Option<&'static str> {
+        let trigger = self.trigger_mode.as_deref();
+        match payer {
+            Some("You") => Some("PlayerRel::You"),
+            Some("EnchantedController") => Some("PlayerRel::ControllerOfAttached"),
+            None | Some("TargetedController") if targets_a_controlled_object => {
+                Some("PlayerRel::ControllerOfTarget")
+            }
+            Some("Targeted") if targets_a_player => Some("PlayerRel::Chosen"),
+            Some(who @ ("TriggeredActivator" | "TriggeredCardController"))
+                if trigger == Some("SpellCast") =>
+            {
+                self.player_rel(Some(who))
+            }
+            Some("TriggeredCardController") if trigger == Some("Drawn") => {
+                self.player_rel(Some("TriggeredCardController"))
+            }
+            Some("TriggeredTargetController") if trigger == Some("DamageDone") => {
+                self.player_rel(Some("TriggeredTargetController"))
+            }
+            Some("TriggeredDefendingPlayer")
+                if matches!(trigger, Some("Attacks" | "AttackerBlocked")) =>
+            {
+                self.player_rel(Some("TriggeredDefendingPlayer"))
+            }
+            Some("TriggeredPlayer") if trigger == Some("Phase") => Some("PlayerRel::ActivePlayer"),
+            Some(who) if self.wave11_trigger_player_rel(who).is_some() => {
+                self.wave11_trigger_player_rel(who)
+            }
+            Some("Player") if !switched => Some("ANY_PLAYER"),
+            other => self.deny(format!(
+                "an unless-cost paid by `{}`",
+                other.unwrap_or("TargetedController")
+            )),
+        }
     }
 
     pub(super) fn unless_price(&mut self, raw: &str) -> Option<Price> {
@@ -1465,7 +1504,17 @@ impl Tx<'_> {
         targets_here: bool,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
-        self.effect_of_inner(api, p, target, targets_here, targets_a_player, false)
+        self.effect_of_inner(
+            api,
+            p,
+            target,
+            LineFlags {
+                targets_here,
+                targets_a_player,
+                single_target: false,
+                prior_target_used: false,
+            },
+        )
     }
 
     #[allow(clippy::too_many_lines)]
@@ -1474,10 +1523,14 @@ impl Tx<'_> {
         api: &str,
         p: &mut Params,
         target: Option<&str>,
-        targets_here: bool,
-        targets_a_player: bool,
-        single_target: bool,
+        flags: LineFlags,
     ) -> Option<Vec<String>> {
+        let LineFlags {
+            targets_here,
+            targets_a_player,
+            single_target,
+            prior_target_used,
+        } = flags;
         // What the effects below aim at when they take a target. `target` is
         // `None` when the chain declared none at all, which is a different
         // question — `Animate` needs to know, because `Filter::This` binds
@@ -1518,14 +1571,19 @@ impl Tx<'_> {
                     return None;
                 }
                 if damage_source.as_deref() == Some("Targeted") {
-                    if !targets_here
-                        || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
-                        || p.take("Defined").is_some()
+                    if !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
                         || !self.is_power_of(&num_dmg, &["Targeted$CardPower"])
                     {
                         return None;
                     }
-                    let dmg = "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::First }".to_string();
+                    let to_slot = match p.take("Defined").as_deref() {
+                        None if targets_here => "TargetSlot::First",
+                        Some("Self") if !self.on_a_spell => "TargetSlot::This",
+                        _ => return None,
+                    };
+                    let dmg = format!(
+                        "Effect::DamageEqualToPower {{ dealer: TargetSlot::First, to: {to_slot} }}"
+                    );
                     return Some(if may {
                         vec![format!("Effect::MayDo {{ effects: &[{dmg}] }}")]
                     } else {
@@ -1634,7 +1692,7 @@ impl Tx<'_> {
                         // player the line names without targeting one.
                         Some(who) => format!(
                             "TargetSpec::Player({})",
-                            self.player_of_line(Some(who), target, false)?
+                            self.wave11_player_of_line(Some(who), target, false)?
                         ),
                     }
                 };
@@ -1642,7 +1700,7 @@ impl Tx<'_> {
                     let power_names: &[&str] = match (src.as_str(), self.trigger_mode.as_deref()) {
                         (
                             "TriggeredCard" | "TriggeredCardLKICopy",
-                            Some("ChangesZone" | "Exerted"),
+                            Some("ChangesZone" | "Exerted" | "Sacrificed"),
                         ) => &["TriggeredCard$CardPower", "TriggeredCardLKICopy$CardPower"],
                         (
                             "TriggeredAttacker" | "TriggeredAttackerLKICopy",
@@ -1674,20 +1732,17 @@ impl Tx<'_> {
                 } else {
                     dmg
                 };
-                p.claim_label("ConditionDescription", "ConditionPresent");
-                let condition = match (
-                    p.take("ConditionDefined").as_deref(),
-                    p.take("ConditionPresent").as_deref(),
-                    p.take("ConditionCompare").as_deref(),
-                ) {
-                    (None, None, None) => None,
-                    (Some("Targeted"), Some("Land.Basic"), Some("EQ0")) => {
-                        Some("Filter::NONBASIC_LAND")
-                    }
-                    _ => return None,
-                };
-                let dmg = if let Some(filter) = condition {
-                    format!("Effect::IfTargetMatches {{ filter: &{filter}, then: &[{dmg}] }}")
+                let dmg = if p.peek("ConditionDefined") == Some("Targeted")
+                    && p.peek("ConditionPresent") == Some("Land.Basic")
+                    && p.peek("ConditionCompare") == Some("EQ0")
+                {
+                    p.claim_label("ConditionDescription", "ConditionPresent");
+                    p.take("ConditionDefined");
+                    p.take("ConditionPresent");
+                    p.take("ConditionCompare");
+                    format!(
+                        "Effect::IfTargetMatches {{ filter: &Filter::NONBASIC_LAND, then: &[{dmg}] }}"
+                    )
                 } else {
                     dmg
                 };
@@ -1704,7 +1759,11 @@ impl Tx<'_> {
             "GainLife" => {
                 let n = self.amount_or_count_ext(&p.take("LifeAmount")?)?;
                 match (
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
+                    self.wave11_player_of_line(
+                        p.take("Defined").as_deref(),
+                        target,
+                        targets_a_player,
+                    )?,
                     n.strip_prefix("Amount::Fixed(")
                         .and_then(|r| r.strip_suffix(')')),
                 ) {
@@ -1715,8 +1774,11 @@ impl Tx<'_> {
             }
             "LoseLife" => {
                 let n = self.amount_or_count_ext(&p.take("LifeAmount")?)?;
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
             "Dig" => self.dig_effect(p, target, targets_here, targets_a_player)?,
@@ -1835,7 +1897,11 @@ impl Tx<'_> {
                     });
                 }
                 let draw = match (
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
+                    self.wave11_player_of_line(
+                        p.take("Defined").as_deref(),
+                        target,
+                        targets_a_player,
+                    )?,
                     n.strip_prefix("Amount::Fixed(")
                         .and_then(|r| r.strip_suffix(')')),
                 ) {
@@ -1858,8 +1924,11 @@ impl Tx<'_> {
             // card, nobody choosing.
             "Discard" if p.peek("Mode") == Some("Hand") => {
                 p.take("Mode");
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 vec![format!("Effect::DiscardHand {{ who: {who} }}")]
             }
             "Discard" if p.peek("Mode") == Some("TgtChoose") => {
@@ -1894,8 +1963,11 @@ impl Tx<'_> {
                     return None;
                 }
                 let raw_n = p.take("NumCards").unwrap_or_else(|| "1".to_string());
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 if let Some(n) = self.plain_num(&raw_n).and_then(|n| u8::try_from(n).ok()) {
                     vec![format!(
                         "Effect::DiscardForPlayers {{ who: {who}, count: {n} }}"
@@ -1909,8 +1981,11 @@ impl Tx<'_> {
             }
             "Discard" if p.peek("Mode") == Some("RevealDiscardAll") => {
                 p.take("Mode");
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 let valid = p.take("DiscardValid")?;
                 let expr = self.filter_expr_in_zone(&valid, true)?;
                 let name = self.body.filter_static("DISCARD", &expr);
@@ -1940,16 +2015,22 @@ impl Tx<'_> {
                     return None;
                 }
                 let n = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))?;
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 vec![format!(
                     "Effect::DiscardRandom {{ who: {who}, count: {n} }}"
                 )]
             }
             "Mill" => {
                 let n = self.amount_or_count_ext(&p.take("NumCards")?)?;
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
             }
             "PutCounter" => {
@@ -1973,11 +2054,11 @@ impl Tx<'_> {
                 if matches!(code.as_str(), "ENERGY" | "POISON" | "RAD")
                     && (targets_a_player
                         || p.peek("Defined").is_some_and(|d| {
-                            self.player_of_line(Some(d), target, targets_a_player)
+                            self.wave11_player_of_line(Some(d), target, targets_a_player)
                                 .is_some()
                         }))
                 {
-                    let who = self.player_of_line(
+                    let who = self.wave11_player_of_line(
                         p.take("Defined").as_deref(),
                         target,
                         targets_a_player,
@@ -2097,7 +2178,7 @@ impl Tx<'_> {
                 )]
             }
             "PutCounterAll" => {
-                if target.is_some() {
+                if targets_here || (target.is_some() && !prior_target_used) {
                     return None;
                 }
                 let valid = p.take("ValidCards")?;
@@ -2114,7 +2195,7 @@ impl Tx<'_> {
                 )]
             }
             "Proliferate" => {
-                if target.is_some() {
+                if targets_here || (target.is_some() && !prior_target_used) {
                     return None;
                 }
                 let times = match p.take("Amount") {
@@ -2126,16 +2207,93 @@ impl Tx<'_> {
                 vec!["Effect::Proliferate".to_string(); times]
             }
             "SetState" => {
-                if self.on_a_spell
-                    || p.take("Mode").as_deref() != Some("Transform")
-                    || p.take("Defined").as_deref() != Some("Self")
+                p.take("IsCurse");
+                let optional = match p.take("Optional").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
+                let eff = match p.take("Mode").as_deref() {
+                    Some("Transform") => {
+                        if self.on_a_spell
+                            || targets_here
+                            || !matches!(p.take("Defined").as_deref(), None | Some("Self"))
+                        {
+                            return None;
+                        }
+                        "Effect::TransformSource".to_string()
+                    }
+                    Some("TurnFaceUp") => {
+                        let to = match (p.take("Defined").as_deref(), target) {
+                            (None | Some("Targeted" | "ParentTarget"), Some(aimed))
+                                if aimed.starts_with("TargetSpec::Object(") =>
+                            {
+                                aimed.to_string()
+                            }
+                            (None | Some("Self"), None) if !self.on_a_spell => {
+                                "TargetSpec::ThisObject".to_string()
+                            }
+                            (Some("Self"), _) if !self.on_a_spell && !targets_here => {
+                                "TargetSpec::ThisObject".to_string()
+                            }
+                            (Some(def), None) if self.is_event_object_defined(def) => {
+                                "TargetSpec::EventObject".to_string()
+                            }
+                            _ => return None,
+                        };
+                        format!("Effect::TurnFaceUp {{ target: {to} }}")
+                    }
+                    _ => return None,
+                };
+                if optional {
+                    vec![format!("Effect::MayDo {{ effects: &[{eff}] }}")]
+                } else {
+                    vec![eff]
+                }
+            }
+            "Manifest" => {
+                if p.has("Defined") {
+                    return None;
+                }
+                p.take("IsCurse");
+                let who = self.wave11_player_of_line(
+                    p.take("DefinedPlayer").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
+                let count = match p.take("Amount") {
+                    None => "Amount::Fixed(1)".to_string(),
+                    Some(raw) => self.amount_or_count_ext(&raw)?,
+                };
+                vec![format!(
+                    "Effect::ManifestTop {{ who: {who}, count: {count} }}"
+                )]
+            }
+            "ManifestDread" => {
+                if targets_here
+                    || (target.is_some() && !prior_target_used)
+                    || !matches!(p.take("DefinedPlayer").as_deref(), None | Some("You"))
                 {
                     return None;
                 }
-                vec!["Effect::TransformSource".to_string()]
+                let times = match p.take("Amount").as_deref() {
+                    None | Some("1") => 1usize,
+                    Some(raw) => {
+                        let n = usize::try_from(self.plain_num(raw)?).ok()?;
+                        if (1..=4).contains(&n) {
+                            n
+                        } else {
+                            return None;
+                        }
+                    }
+                };
+                vec!["Effect::ManifestDread".to_string(); times]
             }
             "RemoveCounterAll" => {
-                if target.is_some() || p.take("AllCounters").as_deref() != Some("True") {
+                if targets_here
+                    || (target.is_some() && !prior_target_used)
+                    || p.take("AllCounters").as_deref() != Some("True")
+                {
                     return None;
                 }
                 let kind = counter_kind(&p.take("CounterType")?)?;
@@ -2218,7 +2376,8 @@ impl Tx<'_> {
                 let cond = self
                     .svar_condition(&var, &cmp)
                     .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
-                    .or_else(|| self.wave7_svar_condition(&var, &cmp))?;
+                    .or_else(|| self.wave7_svar_condition(&var, &cmp))
+                    .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, true))?;
                 let true_sub = p.take("TrueSubAbility")?;
                 let false_sub = p.take("FalseSubAbility")?;
                 let true_body = self.svars.get(true_sub.trim())?.clone();
@@ -2346,7 +2505,7 @@ impl Tx<'_> {
                         "Effect::DestroyAllOf {{ who: PlayerRel::Chosen, filter: &{name}, no_regen: {no_regen} }}"
                     )]);
                 }
-                if target.is_some() {
+                if targets_here || (target.is_some() && !prior_target_used) {
                     return None;
                 }
                 if let Some(filter) = self.filter_expr(&valid) {
@@ -2405,7 +2564,7 @@ impl Tx<'_> {
                         "TargetSpec::ThisObject".to_string()
                     }
                     (Some(who), None) => {
-                        format!("TargetSpec::Player({})", self.player_rel(Some(who))?)
+                        format!("TargetSpec::Player({})", self.wave11_player_rel(Some(who))?)
                     }
                     (None, Some(aimed)) => aimed.to_string(),
                     _ => return None,
@@ -2427,8 +2586,11 @@ impl Tx<'_> {
                 {
                     return None;
                 }
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 vec![format!("Effect::RevealHand {{ who: {who} }}")]
             }
             "CopySpellAbility" => self.copy_spell_ability_effect(p, target, targets_here)?,
@@ -2616,20 +2778,37 @@ impl Tx<'_> {
             }
             "GainControl" => self.gain_control_effect(p, target, targets_here, targets_a_player)?,
             "Shuffle" => {
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 vec![format!("Effect::ShuffleLibrary {{ who: {who} }}")]
             }
-            "ChangeZone" => self.change_zone(p, target, targets_here, single_target)?,
-            "ChangeZoneAll" => self.shuffle_into_library(p, target, targets_a_player)?,
+            "ChangeZone" => self.change_zone_with_prior(
+                p,
+                target,
+                targets_here,
+                single_target,
+                prior_target_used,
+            )?,
+            "ChangeZoneAll" => self.shuffle_into_library_with_prior(
+                p,
+                target,
+                targets_a_player,
+                prior_target_used,
+            )?,
             // "Look at the top three cards of target player's library and
             // put them back in any order. You may have that player shuffle"
             // (Natural Selection). The ability's controller looks and
             // decides; a count the player announced is refused.
             "RearrangeTopOfLibrary" => {
                 let count: u8 = p.take("NumCards")?.parse().ok()?;
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 let mut effects = vec![if who == "PlayerRel::You" {
                     format!("Effect::ReorderTopLibrary {{ count: {count} }}")
                 } else {
@@ -2656,20 +2835,24 @@ impl Tx<'_> {
                 let filter = self.filter_expr(&p.take("ValidCards")?)?;
                 let defined = p.take("Defined");
                 if defined.is_none() && !targets_a_player {
-                    if target.is_some() {
+                    if targets_here || (target.is_some() && !prior_target_used) {
                         return None;
                     }
                     return Some(vec![format!("Effect::TapAll {{ filter: &{filter} }}")]);
                 }
-                let who = self.player_of_line(defined.as_deref(), target, targets_a_player)?;
+                let who =
+                    self.wave11_player_of_line(defined.as_deref(), target, targets_a_player)?;
                 vec![format!(
                     "Effect::TapAllOf {{ who: {who}, filter: &{filter} }}"
                 )]
             }
             // "That player loses all unspent mana" (CR 106.4).
             "DrainMana" => {
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 vec![format!("Effect::LoseUnspentMana {{ who: {who} }}")]
             }
             // "You may tap or untap target artifact, creature, or land"
@@ -2728,7 +2911,7 @@ impl Tx<'_> {
                 _ => return None,
             },
             "UntapAll" => {
-                if target.is_some() {
+                if targets_here || (target.is_some() && !prior_target_used) {
                     return None;
                 }
                 let valid = p.take("ValidCards")?;
@@ -2880,8 +3063,11 @@ impl Tx<'_> {
             }
             "Poison" => {
                 let n = self.amount_or_count_ext(&p.take("Num")?)?;
-                let who =
-                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
                 vec![format!("Effect::Poison {{ who: {who}, amount: {n} }}")]
             }
             "Goad" => self.goad_effect(p, target, targets_a_player)?,
@@ -2965,8 +3151,20 @@ impl Tx<'_> {
         targets_here: bool,
     ) -> Option<Vec<String>> {
         let may_choose = match p.take("MayChooseTarget").as_deref() {
-            None | Some("False") => false,
             Some("True") => true,
+            Some("False") => false,
+            None => {
+                let lower = self.oracle.to_ascii_lowercase();
+                if lower.contains("you may choose new targets")
+                    || lower.contains("may choose new targets for")
+                {
+                    true
+                } else if lower.contains("choose new target") {
+                    return None;
+                } else {
+                    false
+                }
+            }
             Some(_) => return None,
         };
         let optional = match p.take("Optional").as_deref() {
@@ -3218,22 +3416,15 @@ impl Tx<'_> {
         let single_target = chain.target_exact.is_none()
             && !chain.target_is_x
             && chain.target_up_to.is_none_or(|n| n == 1);
-        let then_raw = self.effect_of_inner(
-            api,
-            &mut p_then,
-            target,
+        let prior_target_used = !targets_here && !chain.effects.is_empty();
+        let flags = LineFlags {
             targets_here,
             targets_a_player,
             single_target,
-        );
-        let else_raw = self.effect_of_inner(
-            api,
-            &mut p_else,
-            target,
-            targets_here,
-            targets_a_player,
-            single_target,
-        );
+            prior_target_used,
+        };
+        let then_raw = self.effect_of_inner(api, &mut p_then, target, flags);
+        let else_raw = self.effect_of_inner(api, &mut p_else, target, flags);
         let (Some(mut then_effects), Some(mut else_effects)) = (then_raw, else_raw) else {
             if self.unclaimed.borrow().is_none() {
                 if super::is_supported_api(api) {
@@ -3454,6 +3645,20 @@ impl Tx<'_> {
                         }
                         _ => None,
                     }
+                } else if let Some(sub_raw) = raw
+                    .strip_prefix("Count$ThisTurnEntered_Battlefield_")
+                    .and_then(|s| s.strip_suffix(".YouCtrl"))
+                    && let Some(subtype) = self.single_subtype_const(sub_raw.trim())
+                {
+                    match cmp {
+                        "GE1" | "GT0" => Some(format!(
+                            "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{subtype}])"
+                        )),
+                        "EQ0" | "LT1" => Some(format!(
+                            "Condition::Not(&Condition::EnteredSubtypeUnderYourControlThisTurn(&[{subtype}]))"
+                        )),
+                        _ => None,
+                    }
                 } else {
                     None
                 }
@@ -3659,5 +3864,215 @@ impl Tx<'_> {
                 _ => {}
             }
         }
+    }
+
+    fn single_subtype_const(&self, word: &str) -> Option<String> {
+        if word.is_empty() || word.contains(['.', '+', ',', ' ', '!']) {
+            return None;
+        }
+        let expr = self.filter_expr(word)?;
+        expr.strip_prefix("Filter::HasSubtype(")
+            .and_then(|s| s.strip_suffix(')'))
+            .map(str::to_string)
+    }
+
+    fn wave11_trigger_player_rel(&self, defined: &str) -> Option<&'static str> {
+        let trigger = self.trigger_mode.as_deref();
+        match defined {
+            "TriggeredPlayer" | "TriggeredCardController" if trigger == Some("Sacrificed") => {
+                Some("PlayerRel::ControllerOfEvent")
+            }
+            "TriggeredAttackingPlayer" | "TriggeredPlayer"
+                if matches!(
+                    trigger,
+                    Some("Attacked" | "AttackersDeclared" | "AttackersDeclaredOneTarget")
+                ) =>
+            {
+                Some("PlayerRel::EventPlayer")
+            }
+            "TriggeredPlayer"
+                if matches!(
+                    trigger,
+                    Some(
+                        "Drawn"
+                            | "Discarded"
+                            | "Cycled"
+                            | "LandPlayed"
+                            | "LifeGained"
+                            | "LifeLost"
+                            | "SearchedLibrary"
+                            | "FlippedCoin"
+                            | "RolledDie"
+                            | "Exerted"
+                    )
+                ) =>
+            {
+                Some("PlayerRel::EventPlayer")
+            }
+            "TriggeredSourceController" if trigger == Some("BecomesTarget") => {
+                Some("PlayerRel::EventPlayer")
+            }
+            "EnchantedPlayer" | "Player.EnchantedBy" => Some("PlayerRel::EnchantedPlayer"),
+            _ => None,
+        }
+    }
+
+    pub(super) fn wave11_player_rel(&self, defined: Option<&str>) -> Option<&'static str> {
+        if let Some(who) = defined
+            && let Some(rel) = self.wave11_trigger_player_rel(who)
+        {
+            return Some(rel);
+        }
+        self.player_rel(defined)
+    }
+
+    pub(super) fn wave11_player_of_line(
+        &self,
+        defined: Option<&str>,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<&'static str> {
+        if defined.is_none() && targets_a_player {
+            return Some("PlayerRel::Chosen");
+        }
+        if let Some(who) = defined
+            && let Some(rel) = self.wave11_trigger_player_rel(who)
+        {
+            return Some(rel);
+        }
+        self.player_of_line(defined, target, targets_a_player)
+    }
+
+    fn wave11_object_matches_condition(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        negated_key: bool,
+    ) -> Option<String> {
+        if p.has("PresentPlayer") || !matches!(p.peek("PresentZone"), None | Some("Battlefield")) {
+            return None;
+        }
+        let defined = p.peek("ConditionDefined")?;
+        let what = match defined {
+            "Targeted" | "ParentTarget"
+                if target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) =>
+            {
+                "&TargetSpec::Object(&Filter::Any)"
+            }
+            "Self" if !self.on_a_spell => "&TargetSpec::ThisObject",
+            other if self.is_event_object_defined(other) => "&TargetSpec::EventObject",
+            _ => return None,
+        };
+        let key = if negated_key {
+            "ConditionNotPresent"
+        } else {
+            "ConditionPresent"
+        };
+        let valid = p.peek(key)?.to_string();
+        let cmp = p
+            .peek("PresentCompare")
+            .or_else(|| p.peek("ConditionCompare"))
+            .map(str::to_string);
+        let positive = match (negated_key, cmp.as_deref()) {
+            (false, None | Some("GE1" | "EQ1" | "GT0")) => true,
+            (true, None) | (false, Some("EQ0" | "LT1")) => false,
+            _ => return None,
+        };
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("COND", &expr);
+        p.take("ConditionDefined");
+        p.take(key);
+        p.take("PresentCompare");
+        p.take("ConditionCompare");
+        p.take("PresentZone");
+        let base = format!("Condition::ObjectMatches {{ what: {what}, filter: &{filter} }}");
+        Some(if positive {
+            base
+        } else {
+            format!("Condition::Not(&{base})")
+        })
+    }
+
+    pub(super) fn wave11_amount_compare_condition(
+        &mut self,
+        var: &str,
+        cmp: &str,
+        in_resolution: bool,
+    ) -> Option<String> {
+        let var = var.trim();
+        let cmp = cmp.trim();
+        if !self.svars.contains_key(var) || cmp.len() < 3 {
+            return None;
+        }
+        let (op_code, rhs_raw) = cmp.split_at(2);
+        let op = match op_code {
+            "GE" => "AmountCmp::AtLeast",
+            "GT" => "AmountCmp::GreaterThan",
+            "LE" => "AmountCmp::AtMost",
+            "LT" => "AmountCmp::LessThan",
+            "EQ" => "AmountCmp::Equal",
+            "NE" => "AmountCmp::NotEqual",
+            _ => return None,
+        };
+        let left = self.amount_or_count_ext(var)?;
+        if left.starts_with("Amount::Fixed(") || left.contains("Neg") {
+            return None;
+        }
+        let right = if let Ok(n) = rhs_raw.parse::<u32>() {
+            format!("Amount::Fixed({n})")
+        } else {
+            if !self.svars.contains_key(rhs_raw) {
+                return None;
+            }
+            let r = self.amount_or_count_ext(rhs_raw)?;
+            if r.contains("Neg") {
+                return None;
+            }
+            r
+        };
+        if left == right {
+            return None;
+        }
+        if !in_resolution
+            && (!Self::is_non_resolution_safe_amount(&left)
+                || !Self::is_non_resolution_safe_amount(&right))
+        {
+            return None;
+        }
+        Some(format!(
+            "Condition::AmountCompare {{ left: &{left}, op: {op}, right: &{right} }}"
+        ))
+    }
+
+    fn is_non_resolution_safe_amount(expr: &str) -> bool {
+        const RESOLUTION_ONLY: &[&str] = &[
+            "Amount::X",
+            "Amount::DoubleX",
+            "Amount::XPlus",
+            "Amount::XIf",
+            "Amount::Devotion",
+            "Amount::TargetPower",
+            "Amount::TargetToughness",
+            "Amount::TargetCmc",
+            "Amount::Event",
+            "Amount::LastDieRoll",
+            "Amount::CoinsWon",
+            "Amount::TargetsPutIntoGraveyard",
+            "Amount::ThisWay",
+            "Amount::Sacrificed",
+            "Amount::ManaSpent",
+            "Amount::ManaTypeSpentOnX",
+            "Amount::TappedPower",
+            "PlayerRel::Chosen",
+            "PlayerRel::ControllerOfTarget",
+            "PlayerRel::TargetPlayerOrController",
+            "PlayerRel::SecondTarget",
+            "PlayerRel::Recipient",
+            "PlayerRel::EventPlayer",
+            "PlayerRel::DamagedPlayer",
+            "PlayerRel::ControllerOfEvent",
+            "PlayerRel::OwnerOfEvent",
+        ];
+        !RESOLUTION_ONLY.iter().any(|needle| expr.contains(needle))
     }
 }

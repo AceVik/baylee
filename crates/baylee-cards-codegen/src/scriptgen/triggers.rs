@@ -345,51 +345,7 @@ impl Tx<'_> {
             "AttackerBlockedByCreature" => self.block_trigger(p),
             "AttackerBlocked" => self.attacker_blocked_trigger(p),
             "ChangesZone" => self.changes_zone_trigger(p),
-            "Phase" => {
-                let Some(phase) = p.take("Phase") else {
-                    return self.deny("a `Phase` trigger with no `Phase$`".to_string());
-                };
-                let step = match phase.as_str() {
-                    "Upkeep" => "StepKind::Upkeep",
-                    "Draw" => "StepKind::Draw",
-                    "Main1" => "StepKind::FirstMain",
-                    "BeginCombat" => "StepKind::CombatBegin",
-                    "End of Turn" => "StepKind::End",
-                    other => return self.deny(format!("trigger at step `{other}`")),
-                };
-                // No player named is every player's step: "at the beginning
-                // of each upkeep" (Verdant Force), "at the beginning of the
-                // end step" (Pestilence). The reference writes `ValidPlayer$
-                // You` for "your", and reading its absence as "your" too made
-                // Verdant Force a card that made a Saproling on one upkeep in
-                // two.
-                let valid = p.take("ValidPlayer");
-                let whose = match valid.as_deref() {
-                    None => Some("PlayerRel::EachPlayer"),
-                    Some("You" | "You.descended") if step == "StepKind::End" => {
-                        let lower = self.oracle.to_ascii_lowercase();
-                        if valid.as_deref() == Some("You")
-                            && lower.contains("at the beginning of the end step")
-                            && !lower.contains("your end step")
-                        {
-                            Some("PlayerRel::EachPlayer")
-                        } else {
-                            Some("PlayerRel::You")
-                        }
-                    }
-                    Some("You.descended") => Some("PlayerRel::You"),
-                    Some(who) => self.player_rel(Some(who)),
-                };
-                let Some(whose) = whose else {
-                    return self.deny(format!(
-                        "trigger for player `{}`",
-                        valid.unwrap_or_default()
-                    ));
-                };
-                Some(format!(
-                    "Trigger::StepBegin {{ step: {step}, whose: {whose} }}"
-                ))
-            }
+            "Phase" => self.phase_step_trigger(p),
             "Attacks" => self.attacks_trigger(p),
             "AttackersDeclared" => self.attackers_declared_trigger(p),
             "AttackerUnblocked" => self.attacker_unblocked_trigger(p),
@@ -438,8 +394,278 @@ impl Tx<'_> {
             "FlippedCoin" => self.flipped_coin_trigger(p),
             "RolledDie" => self.rolled_die_trigger(p),
             "Exerted" => self.exerted_trigger(p),
+            "ChangesZoneAll" => self.changes_zone_all_trigger(p),
+            "Sacrificed" => self.sacrificed_trigger(p),
+            "Attacked" => self.player_attacked_trigger(p),
+            "AttackersDeclaredOneTarget" => self.attackers_declared_one_target_trigger(p),
             other => self.deny(format!("trigger mode `{other}`")),
         }
+    }
+
+    fn phase_step_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(phase) = p.take("Phase") else {
+            return self.deny("a `Phase` trigger with no `Phase$`".to_string());
+        };
+        let step = match phase.as_str() {
+            "Upkeep" => "StepKind::Upkeep",
+            "Draw" => "StepKind::Draw",
+            "Main1" => "StepKind::FirstMain",
+            "BeginCombat" => "StepKind::CombatBegin",
+            "End of Turn" => "StepKind::End",
+            other => return self.deny(format!("trigger at step `{other}`")),
+        };
+        // No player named is every player's step: "at the beginning of each
+        // upkeep" (Verdant Force), "at the beginning of the end step"
+        // (Pestilence). The reference writes `ValidPlayer$ You` for "your", and
+        // reading its absence as "your" too made Verdant Force a card that made
+        // a Saproling on one upkeep in two.
+        let valid = p.take("ValidPlayer");
+        let whose = match valid.as_deref() {
+            None => Some("PlayerRel::EachPlayer"),
+            Some("You" | "You.descended") if step == "StepKind::End" => {
+                let lower = self.oracle.to_ascii_lowercase();
+                if valid.as_deref() == Some("You")
+                    && lower.contains("at the beginning of the end step")
+                    && !lower.contains("your end step")
+                {
+                    Some("PlayerRel::EachPlayer")
+                } else {
+                    Some("PlayerRel::You")
+                }
+            }
+            Some("You.descended") => Some("PlayerRel::You"),
+            Some(who) => self.player_rel(Some(who)),
+        };
+        let Some(whose) = whose else {
+            return self.deny(format!(
+                "trigger for player `{}`",
+                valid.unwrap_or_default()
+            ));
+        };
+        Some(format!(
+            "Trigger::StepBegin {{ step: {step}, whose: {whose} }}"
+        ))
+    }
+
+    fn trigger_zone_ref(raw: &str) -> Option<&'static str> {
+        match raw {
+            "Battlefield" => Some("ZoneRef::Battlefield"),
+            "Graveyard" => Some("ZoneRef::Graveyard"),
+            "Exile" => Some("ZoneRef::Exile"),
+            "Hand" => Some("ZoneRef::Hand"),
+            "Library" => Some("ZoneRef::Library"),
+            "Stack" => Some("ZoneRef::Stack"),
+            "Command" => Some("ZoneRef::Command"),
+            _ => None,
+        }
+    }
+
+    fn changes_zone_all_trigger(&mut self, p: &mut Params) -> Option<String> {
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        }
+        let Some(valid) = p.take("ValidCards") else {
+            return self.deny("a `ChangesZoneAll` trigger with no `ValidCards$`".to_string());
+        };
+        let origin_raw = p.take("Origin");
+        let origin = match origin_raw.as_deref() {
+            None | Some("Any") => None,
+            Some(z) => Some(
+                Self::trigger_zone_ref(z)
+                    .ok_or_else(|| format!("`ChangesZoneAll` origin `{z}`"))
+                    .ok()?,
+            ),
+        };
+        let dest_raw = p.take("Destination");
+        let destination = match dest_raw.as_deref() {
+            None | Some("Any") => None,
+            Some(z) => Some(
+                Self::trigger_zone_ref(z)
+                    .ok_or_else(|| format!("`ChangesZoneAll` destination `{z}`"))
+                    .ok()?,
+            ),
+        };
+        if origin.is_none() && destination.is_none() {
+            return self.deny("`ChangesZoneAll` from `Any` to `Any`".to_string());
+        }
+        let mut all_other = true;
+        let mut stripped_alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.').unwrap_or((alt, ""));
+            let mut saw_other = false;
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if atom == "Self" || atom == "StrictlySelf" {
+                    return self.deny(format!("`ChangesZoneAll` on `{valid}`"));
+                }
+                if matches!(atom, "Other" | "StrictlyOther") {
+                    saw_other = true;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !saw_other {
+                all_other = false;
+            }
+            if kept.is_empty() {
+                stripped_alts.push(base.to_string());
+            } else {
+                stripped_alts.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        let (exclude_self, filter_src) = if all_other && !stripped_alts.is_empty() {
+            (true, stripped_alts.join(","))
+        } else {
+            (false, valid)
+        };
+        let battlefield_side =
+            origin == Some("ZoneRef::Battlefield") || destination == Some("ZoneRef::Battlefield");
+        let expr = if battlefield_side {
+            self.filter_expr(&filter_src)?
+        } else {
+            self.filter_expr_in_zone(&filter_src, true)?
+        };
+        let filter = self.body.filter_static("TRIGGER", &expr);
+        let origin_expr = origin.map_or_else(|| "None".to_string(), |z| format!("Some({z})"));
+        let dest_expr = destination.map_or_else(|| "None".to_string(), |z| format!("Some({z})"));
+        Some(format!(
+            "Trigger::ChangesZoneAll {{ origin: {origin_expr}, destination: {dest_expr}, \
+             filter: &{filter}, exclude_self: {exclude_self} }}"
+        ))
+    }
+
+    fn sacrificed_trigger(&mut self, p: &mut Params) -> Option<String> {
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `Sacrificed` trigger with no `ValidCard$`".to_string());
+        };
+        // Forge scripts sometimes retain copy-pasted `Origin$ Any | Destination$ Battlefield`
+        // metadata on `Mode$ Sacrificed` triggers; sacrifices only ever happen from the
+        // battlefield (CR 701.21a), so accept only this exact inert pair.
+        if p.peek("Origin") == Some("Any") && p.peek("Destination") == Some("Battlefield") {
+            p.take("Origin");
+            p.take("Destination");
+        }
+        let explicit_who = match p.take("ValidPlayer").as_deref() {
+            None => None,
+            Some("You") => Some("PlayerRel::You"),
+            Some("Opponent" | "Player.Opponent") => Some("PlayerRel::EachOpponent"),
+            Some("Player") => Some("PlayerRel::EachPlayer"),
+            Some(other) => return self.deny(format!("`Sacrificed` by `{other}`")),
+        };
+        if valid == "Card.Self" {
+            let who = explicit_who.unwrap_or("PlayerRel::EachPlayer");
+            return Some(format!(
+                "Trigger::Sacrificed {{ who: {who}, filter: &Filter::This }}"
+            ));
+        }
+        let who = if let Some(w) = explicit_who {
+            w
+        } else {
+            let alts: Vec<&str> = valid.split(',').map(str::trim).collect();
+            let all_you = !alts.is_empty()
+                && alts
+                    .iter()
+                    .all(|alt| alt.split(['.', '+']).skip(1).any(|a| a.trim() == "YouCtrl"));
+            let all_opp = !alts.is_empty()
+                && alts
+                    .iter()
+                    .all(|alt| alt.split(['.', '+']).skip(1).any(|a| a.trim() == "OppCtrl"));
+            if all_you {
+                "PlayerRel::You"
+            } else if all_opp {
+                "PlayerRel::EachOpponent"
+            } else {
+                "PlayerRel::EachPlayer"
+            }
+        };
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("TRIGGER", &expr);
+        Some(format!(
+            "Trigger::Sacrificed {{ who: {who}, filter: &{filter} }}"
+        ))
+    }
+
+    fn attacked_player_rel(raw: &str) -> Option<&'static str> {
+        match raw.trim() {
+            "You" | "Player.You" => Some("PlayerRel::You"),
+            "Player.EnchantedBy" | "EnchantedPlayer" => Some("PlayerRel::EnchantedPlayer"),
+            "Opponent" | "Player.Opponent" => Some("PlayerRel::EachOpponent"),
+            "Player" => Some("PlayerRel::EachPlayer"),
+            _ => None,
+        }
+    }
+
+    fn player_attacked_trigger(&mut self, p: &mut Params) -> Option<String> {
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        }
+        if let Some(att) = p.take("ValidAttackers")
+            && att != "Creature"
+        {
+            return self.deny(format!("`Attacked` with `ValidAttackers$ {att}`"));
+        }
+        let target_raw = p.take("ValidPlayer").or_else(|| p.take("AttackedTarget"))?;
+        let Some(who) = Self::attacked_player_rel(&target_raw) else {
+            return self.deny(format!("`Attacked` target `{target_raw}`"));
+        };
+        if let Some(attacker) = p.take("AttackingPlayer") {
+            let ok = attacker == "Player"
+                || (who == "PlayerRel::You"
+                    && matches!(attacker.as_str(), "Opponent" | "Player.Opponent"));
+            if !ok {
+                return self.deny(format!("`Attacked` by `{attacker}`"));
+            }
+        }
+        Some(format!("Trigger::PlayerAttacked({who})"))
+    }
+
+    fn attackers_declared_one_target_trigger(&mut self, p: &mut Params) -> Option<String> {
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        }
+        if p.has("ValidAttackersAmount") {
+            return None;
+        }
+        if let Some(att) = p.take("ValidAttackers")
+            && att != "Creature"
+        {
+            return self.deny(format!(
+                "`AttackersDeclaredOneTarget` with `ValidAttackers$ {att}`"
+            ));
+        }
+        let Some(target_raw) = p.take("AttackedTarget") else {
+            return self.deny("`AttackersDeclaredOneTarget` with no `AttackedTarget$`".to_string());
+        };
+        let Some(who) = Self::attacked_player_rel(&target_raw) else {
+            return self.deny(format!(
+                "`AttackersDeclaredOneTarget` target `{target_raw}`"
+            ));
+        };
+        if let Some(attacker) = p.take("AttackingPlayer") {
+            let ok = attacker == "Player"
+                || (who == "PlayerRel::You"
+                    && matches!(attacker.as_str(), "Opponent" | "Player.Opponent"));
+            if !ok {
+                return self.deny(format!(
+                    "`AttackersDeclaredOneTarget` with `AttackingPlayer$ {attacker}`"
+                ));
+            }
+        }
+        Some(format!("Trigger::PlayerAttacked({who})"))
     }
 
     fn phase_trigger(&mut self, p: &mut Params, out: bool) -> Option<String> {
@@ -838,6 +1064,14 @@ impl Tx<'_> {
                     ))
                 }
             };
+        }
+        if let Some(target_raw) = attacked_target.as_deref()
+            && target_raw != "You"
+            && matches!(valid_attackers.as_deref(), None | Some("Creature"))
+            && matches!(attacking_player.as_deref(), None | Some("Player"))
+            && let Some(who) = Self::attacked_player_rel(target_raw)
+        {
+            return Some(format!("Trigger::PlayerAttacked({who})"));
         }
         let ctrl_suffix = match attacking_player.as_deref() {
             None | Some("Player") => "",
@@ -1375,11 +1609,15 @@ impl Tx<'_> {
         {
             return self.johan_combat_trigger(&mode, p);
         }
-        if p.peek("ValidCard")
-            .is_some_and(|valid| valid.contains("wasCastByYou"))
-        {
+        if p.peek("ValidCard").is_some_and(|valid| {
+            valid.contains("wasCastByYou")
+                || (mode == "ChangesZone" && valid.contains("wasCastFromYourHandByYou"))
+        }) {
             return self.cast_self_protection_trigger(&mode, p);
         }
+        let sac_prose_one_or_more = mode == "Sacrificed"
+            && p.peek("TriggerDescription")
+                .is_some_and(|d| d.to_ascii_lowercase().contains("one or more"));
         // The printed "you may have …" is the choice only where it opens the
         // effect, right after the trigger's own clause: the whole chain is
         // then the optional part (CR 603.5). After a mandatory clause ("draw a
@@ -1494,6 +1732,7 @@ impl Tx<'_> {
                 .svar_condition(&var, &cmp)
                 .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
                 .or_else(|| self.wave7_svar_condition(&var, &cmp))
+                .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, false))
             {
                 p.take("CheckSVar");
                 p.take("SVarCompare");
@@ -1543,6 +1782,12 @@ impl Tx<'_> {
             Some("1") => ", once_per_turn = true",
             Some(other) => return self.deny(format!("trigger `ActivationLimit$ {other}`")),
         };
+        if sac_prose_one_or_more && once_per_turn.is_empty() {
+            return self.deny(
+                "a `Sacrificed` trigger saying \"one or more\" without `ActivationLimit$ 1`"
+                    .to_string(),
+            );
+        }
         let trigger_self_etb_kicked = std::mem::take(&mut self.trigger_self_etb_kicked);
         let condition = match (
             self.trigger_self_etb_kicked_with.take(),
@@ -1693,8 +1938,9 @@ impl Tx<'_> {
                     "PlayerMayPay",
                     "optional: true",
                     "Scry",
-                    "SearchLibrary",
                     "OptionalBasicLandSearchFor",
+                    "SearchLibraryOrGraveyard",
+                    "SearchLibraryBeforeShuffle",
                     "LookAtTop",
                     "RevealTopFind",
                     "RevealTopOnePerType",
@@ -1728,6 +1974,21 @@ impl Tx<'_> {
                         .to_string(),
                 );
             }
+            let prose_optional_search = optional_flag.is_none()
+                && chain.effects.len() == 1
+                && chain.effects[0].starts_with("Effect::SearchLibrary {")
+                && chain.effects[0].ends_with("optional: false }")
+                && prose_effect.as_deref().is_some_and(|e| {
+                    e.starts_with("you may search your library")
+                        && !e.contains(". ")
+                        && !e.contains("if you do")
+                        && !e.contains("if you don't")
+                        && !e.contains("when you do")
+                        && !e.contains("otherwise")
+                        && !e.contains("pay ")
+                        && !e.contains("unless ")
+                        && !e.contains("instead")
+                });
             let simple_prose_you_may = optional_flag.is_none()
                 && chain.effects.len() == 1
                 && prose_effect.as_deref().is_some_and(|e| {
@@ -1741,7 +2002,13 @@ impl Tx<'_> {
                         && !e.contains("unless ")
                         && !e.contains("instead")
                 });
-            if simple_prose_you_may {
+            if prose_optional_search {
+                let updated = chain.effects[0]
+                    .trim_end_matches("optional: false }")
+                    .to_string()
+                    + "optional: true }";
+                chain.effects[0] = updated;
+            } else if simple_prose_you_may {
                 may = true;
             } else {
                 return self.deny(format!(
@@ -2675,13 +2942,37 @@ impl Tx<'_> {
         let non_self = p
             .peek("ValidCard")
             .is_some_and(|v| !v.split([',', '.', '+']).any(|a| a.trim() == "Self"));
+        let non_self_cards = p
+            .peek("ValidCards")
+            .is_some_and(|v| !v.split([',', '.', '+']).any(|a| a.trim() == "Self"));
         let allowed = match mode {
-            "Phase" | "SpellCast" | "DamageDone" | "DamageDoneOnce" | "DamageDealtOnce"
-            | "Drawn" | "LandPlayed" | "Attacks" | "AttackersDeclared" | "AttackerBlocked"
-            | "AttackerUnblocked" | "Blocks" | "BecomesTarget" | "LifeGained" | "LifeLost"
-            | "Discarded" | "Cycled" | "CounterAddedOnce" | "FlippedCoin" | "RolledDie"
+            "Phase"
+            | "SpellCast"
+            | "DamageDone"
+            | "DamageDoneOnce"
+            | "DamageDealtOnce"
+            | "Drawn"
+            | "LandPlayed"
+            | "Attacks"
+            | "AttackersDeclared"
+            | "Attacked"
+            | "AttackersDeclaredOneTarget"
+            | "AttackerBlocked"
+            | "AttackerUnblocked"
+            | "Blocks"
+            | "BecomesTarget"
+            | "LifeGained"
+            | "LifeLost"
+            | "Discarded"
+            | "Cycled"
+            | "CounterAddedOnce"
+            | "FlippedCoin"
+            | "RolledDie"
             | "SearchedLibrary" => true,
-            "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" => non_self,
+            "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" | "Sacrificed" => {
+                non_self
+            }
+            "ChangesZoneAll" => non_self_cards,
             _ => false,
         };
         if allowed {

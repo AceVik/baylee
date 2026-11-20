@@ -3399,3 +3399,477 @@ fn wave10b_hidden_graveyard_and_battlefield_choose_card() {
          SVar:Ret:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ChangeType$ Creature | DefinedPlayer$ Player.Other | ChangeNum$ 1 | Hidden$ True | Optional$ True"
     ));
 }
+
+#[test]
+fn wave11b_changes_zone_all_sacrificed_and_player_attacked_triggers() {
+    let token_batch = read(
+        "Name:GroveScout\nManaCost:1 G\nTypes:Creature Elf\nPT:2/2\n\
+         T:Mode$ ChangesZoneAll | ValidCards$ Card.token+YouCtrl | Destination$ Battlefield | TriggerZones$ Battlefield | Execute$ Grow\n\
+         SVar:Grow:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ X\n\
+         SVar:X:TriggerCount$Amount",
+    );
+    assert!(
+        token_batch.abilities[0].contains(
+            "Trigger::ChangesZoneAll { origin: None, destination: Some(ZoneRef::Battlefield),"
+        ) && token_batch.abilities[0].contains("exclude_self: false")
+            && token_batch.abilities[0].contains("amount: Amount::EventAmount"),
+        "{}",
+        token_batch.abilities[0]
+    );
+
+    let die_batch = read(
+        "Name:GraveWatcher\nManaCost:2 B\nTypes:Creature Rogue\nPT:1/3\n\
+         T:Mode$ ChangesZoneAll | ValidCards$ Creature.Other | Origin$ Battlefield | Destination$ Graveyard | TriggerZones$ Battlefield | ActivationLimit$ 1 | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        die_batch.abilities[0].contains(
+            "Trigger::ChangesZoneAll { origin: Some(ZoneRef::Battlefield), destination: Some(ZoneRef::Graveyard), filter: &Filter::CREATURE, exclude_self: true }"
+        ) && die_batch.abilities[0].contains("once_per_turn = true"),
+        "{}",
+        die_batch.abilities[0]
+    );
+
+    let sac_trig = read(
+        "Name:VenomWatcher\nManaCost:2 B\nTypes:Creature Horror\nPT:2/3\n\
+         T:Mode$ Sacrificed | ValidCard$ Creature.OppCtrl | TriggerZones$ Battlefield | Execute$ Sting\n\
+         SVar:Sting:DB$ Poison | Defined$ TriggeredCardController | Num$ X\n\
+         SVar:X:TriggeredCard$CardPower",
+    );
+    assert!(
+        sac_trig.abilities[0].contains("Trigger::Sacrificed { who: PlayerRel::EachOpponent,")
+            && sac_trig.abilities[0].contains(
+                "Effect::Poison { who: PlayerRel::ControllerOfEvent, amount: Amount::EventPower }"
+            ),
+        "{}",
+        sac_trig.abilities[0]
+    );
+
+    let sac_once = read(
+        "Name:AshSmelter\nManaCost:2 R\nTypes:Creature Giant\nPT:3/3\n\
+         T:Mode$ Sacrificed | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield | ActivationLimit$ 1 | Execute$ Ping | TriggerDescription$ Whenever you sacrifice one or more other creatures, CARDNAME deals 1 damage to each opponent. This ability triggers only once each turn.\n\
+         SVar:Ping:DB$ DealDamage | Defined$ Opponent | NumDmg$ 1",
+    );
+    assert!(
+        sac_once.abilities[0].contains("Trigger::Sacrificed { who: PlayerRel::You,")
+            && sac_once.abilities[0].contains("once_per_turn = true"),
+        "{}",
+        sac_once.abilities[0]
+    );
+
+    // "one or more" Sacrificed without ActivationLimit$ 1 must stay refused.
+    assert!(refused(
+        "Name:BadBatchSac\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Sacrificed | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Ping | TriggerDescription$ Whenever you sacrifice one or more creatures, CARDNAME deals 1 damage to each opponent.\n\
+         SVar:Ping:DB$ DealDamage | Defined$ Opponent | NumDmg$ 1"
+    ));
+
+    let curse_attack = read(
+        "Name:BaneMark\nManaCost:2 B\nTypes:Enchantment Aura Curse\n\
+         T:Mode$ AttackersDeclared | AttackedTarget$ Player.EnchantedBy | TriggerZones$ Battlefield | Execute$ Drain\n\
+         SVar:Drain:DB$ LoseLife | Defined$ TriggeredAttackingPlayer | LifeAmount$ X\n\
+         SVar:X:TriggerCount$Amount",
+    );
+    assert!(
+        curse_attack.abilities[0].contains("Trigger::PlayerAttacked(PlayerRel::EnchantedPlayer)")
+            && curse_attack.abilities[0].contains(
+                "Effect::LoseLife { amount: Amount::EventAmount, target: PlayerRel::EventPlayer }"
+            ),
+        "{}",
+        curse_attack.abilities[0]
+    );
+
+    let mode_attacked = read(
+        "Name:DirectMark\nManaCost:1 W\nTypes:Enchantment\n\
+         T:Mode$ Attacked | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Heal\n\
+         SVar:Heal:DB$ GainLife | LifeAmount$ X\n\
+         SVar:X:TriggerCount$Amount",
+    );
+    assert!(
+        mode_attacked.abilities[0].contains("Trigger::PlayerAttacked(PlayerRel::You)")
+            && mode_attacked.abilities[0]
+                .contains("Effect::GainLife { amount: Amount::EventAmount }"),
+        "{}",
+        mode_attacked.abilities[0]
+    );
+}
+
+#[test]
+fn wave11b_manifest_turn_face_up_spell_locks_and_hooks() {
+    let manifest_exile = read(
+        "Name:VoidShift\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature | SubAbility$ Man\n\
+         SVar:Man:DB$ Manifest | DefinedPlayer$ TargetedController",
+    );
+    assert!(
+        manifest_exile.abilities[0].contains(
+            "Effect::ManifestTop { who: PlayerRel::ControllerOfTarget, count: Amount::Fixed(1) }"
+        ),
+        "{}",
+        manifest_exile.abilities[0]
+    );
+
+    let dread = read(
+        "Name:DreadWhisper\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ ManifestDread",
+    );
+    assert!(
+        dread.abilities[0].contains("Effect::ManifestDread"),
+        "{}",
+        dread.abilities[0]
+    );
+
+    let flip_up = read(
+        "Name:UnveilBeacon\nManaCost:2 U\nTypes:Artifact\n\
+         A:AB$ SetState | Cost$ T | ValidTgts$ Creature.faceDown | Mode$ TurnFaceUp",
+    );
+    assert!(
+        flip_up.abilities[0].contains("Effect::TurnFaceUp { target: TargetSpec::Object("),
+        "{}",
+        flip_up.abilities[0]
+    );
+    assert!(refused(
+        "Name:FlipDown\nManaCost:2 U\nTypes:Artifact\n\
+         A:AB$ SetState | Cost$ T | ValidTgts$ Creature | Mode$ TurnFaceDown"
+    ));
+
+    let lock_target = read(
+        "Name:HushChant\nManaCost:W\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Player | RememberObjects$ Targeted | StaticAbilities$ NoCast\n\
+         SVar:NoCast:Mode$ CantBeCast | ValidCard$ Card | Caster$ Player.IsRemembered",
+    );
+    assert!(
+        lock_target.abilities[0].contains(
+            "Effect::continuous(&Filter::Any, Modifier::PlayersCantCast { who: PlayerRel::Chosen, filter: &Filter::Any }, Duration::UntilEndOfTurn)"
+        ),
+        "{}",
+        lock_target.abilities[0]
+    );
+
+    let lock_counter = read(
+        "Name:SilentCounter\nManaCost:W U U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | SubAbility$ Lock\n\
+         SVar:Lock:DB$ Effect | RememberObjects$ TargetedController | StaticAbilities$ NoCast\n\
+         SVar:NoCast:Mode$ CantBeCast | ValidCard$ Card | Caster$ Player.IsRemembered",
+    );
+    assert!(
+        lock_counter.abilities[0].contains(
+            "Modifier::PlayersCantCast { who: PlayerRel::ControllerOfTarget, filter: &Filter::Any }"
+        ),
+        "{}",
+        lock_counter.abilities[0]
+    );
+
+    // #326: CopySpellAbility omitting MayChooseTarget$ infers true when Oracle says "you may choose new targets".
+    let copy_infer = read(
+        "Name:RingEcho\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ CopySpellAbility | Cost$ 1 T Sac<1/CARDNAME> | TargetType$ Spell | ValidTgts$ Card.YouCtrl\n\
+         Oracle:{1}, {T}, Sacrifice RingEcho: Copy target spell you control. You may choose new targets for the copy.",
+    );
+    assert!(
+        copy_infer.abilities[0].contains("Effect::CopyTargetSpell { mods: &[] }"),
+        "{}",
+        copy_infer.abilities[0]
+    );
+    assert!(refused(
+        "Name:MandatoryRetarget\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ CopySpellAbility | Cost$ T | TargetType$ Spell | ValidTgts$ Card\n\
+         Oracle:{T}: Copy target spell. Choose new targets for the copy."
+    ));
+
+    // Dune Mover shape: ETB search saying "you may search your library" without Optional$ True sets optional: true.
+    let dune = read(
+        "Name:SandWalker\nManaCost:2\nTypes:Artifact Creature Golem\nPT:2/1\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Find | TriggerDescription$ When CARDNAME enters, you may search your library for a basic land card, reveal it, then shuffle and put that card on top.\n\
+         SVar:Find:DB$ ChangeZone | Origin$ Library | Destination$ Library | LibraryPosition$ 0 | ChangeType$ Land.Basic\n\
+         Oracle:When SandWalker enters, you may search your library for a basic land card, reveal it, then shuffle and put that card on top.",
+    );
+    assert!(
+        dune.abilities[0].contains("optional: true"),
+        "{}",
+        dune.abilities[0]
+    );
+}
+
+#[test]
+fn wave11b_object_matches_and_amount_compare_conditions() {
+    let snare_shape = read(
+        "Name:FlameSnare\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature.attacking | KW$ Prevent all damage that would be dealt by CARDNAME. | SubAbility$ Des\n\
+         SVar:Des:DB$ Destroy | Defined$ Targeted | ConditionDefined$ Targeted | ConditionPresent$ Creature.Black,Creature.Red",
+    );
+    assert!(
+        snare_shape.abilities[0].contains(
+            "Condition::ObjectMatches { what: &TargetSpec::Object(&Filter::Any), filter: &"
+        ),
+        "{}",
+        snare_shape.abilities[0]
+    );
+
+    let sac_nontoken = read(
+        "Name:SoulCatcher\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Sacrificed | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Grow\n\
+         SVar:Grow:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | ConditionDefined$ TriggeredCardLKICopy | ConditionNotPresent$ Creature.token",
+    );
+    assert!(
+        sac_nontoken.abilities[0].contains(
+            "Condition::Not(&Condition::ObjectMatches { what: &TargetSpec::EventObject, filter: &"
+        ),
+        "{}",
+        sac_nontoken.abilities[0]
+    );
+
+    let cmp_trig = read(
+        "Name:BalanceRelic\nManaCost:2 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ MyCreatures | SVarCompare$ NEMyLands | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:MyCreatures:Count$Valid Creature.YouCtrl\n\
+         SVar:MyLands:Count$Valid Land.YouCtrl",
+    );
+    assert!(
+        cmp_trig.abilities[0].contains(
+            "Condition::AmountCompare { left: &Amount::CountOf { filter: &Filter::YOUR_CREATURE, zone: ZoneSel::Battlefield }, op: AmountCmp::NotEqual, right: &Amount::CountOf { filter: &Filter::YOUR_LAND, zone: ZoneSel::Battlefield } }"
+        ),
+        "{}",
+        cmp_trig.abilities[0]
+    );
+
+    let cmp_res = read(
+        "Name:PowerCheck\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | SubAbility$ Bonus\n\
+         SVar:Bonus:DB$ Draw | NumCards$ 1 | ConditionCheckSVar$ P | ConditionSVarCompare$ NE2\n\
+         SVar:P:Targeted$CardPower",
+    );
+    assert!(
+        cmp_res.abilities[0].contains(
+            "Condition::AmountCompare { left: &Amount::TargetPower, op: AmountCmp::NotEqual, right: &Amount::Fixed(2) }"
+        ),
+        "{}",
+        cmp_res.abilities[0]
+    );
+
+    // Resolution-only TargetPower must stay refused in trigger CheckSVar$.
+    assert!(refused(
+        "Name:BadTriggerCmp\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ P | SVarCompare$ GE4 | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:P:Targeted$CardPower"
+    ));
+}
+
+#[test]
+fn wave11b_pass2_unlocks_and_honesty_guards() {
+    // ChangesZoneAll with omitted Destination$ (leaving battlefield) + Sacrificed with inert Origin$/Destination$.
+    let ltb_batch = read(
+        "Name:ForgeAnvil\nManaCost:B R\nTypes:Artifact\n\
+         T:Mode$ ChangesZoneAll | ValidCards$ Artifact.YouCtrl | Origin$ Battlefield | TriggerZones$ Battlefield | PlayerTurn$ True | ActivationLimit$ 1 | Execute$ D\n\
+         SVar:D:DB$ Scry | ScryNum$ 1",
+    );
+    assert!(
+        ltb_batch.abilities[0].contains(
+            "Trigger::ChangesZoneAll { origin: Some(ZoneRef::Battlefield), destination: None,"
+        ),
+        "{}",
+        ltb_batch.abilities[0]
+    );
+
+    let sac_inert = read(
+        "Name:TokenWatcher\nManaCost:1 U\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Sacrificed | ValidPlayer$ You | ValidCard$ Permanent.token+YouCtrl | Origin$ Any | Destination$ Battlefield | TriggerZones$ Battlefield | Execute$ S\n\
+         SVar:S:DB$ Surveil | Amount$ 1",
+    );
+    assert!(
+        sac_inert.abilities[0].contains("Trigger::Sacrificed { who: PlayerRel::You,"),
+        "{}",
+        sac_inert.abilities[0]
+    );
+
+    // Drawn TriggeredPlayer and BecomesTarget TriggeredSourceController bind EventPlayer.
+    let draw_burn = read(
+        "Name:DrawPunisher\nManaCost:3 B\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Drawn | ValidCard$ Card.OppOwn | TriggerZones$ Battlefield | Execute$ Ping\n\
+         SVar:Ping:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ 1",
+    );
+    assert!(
+        draw_burn.abilities[0].contains("TargetSpec::Player(PlayerRel::EventPlayer)"),
+        "{}",
+        draw_burn.abilities[0]
+    );
+
+    let bolt_back = read(
+        "Name:ScaleGuard\nManaCost:2 R R\nTypes:Creature\nPT:4/4\n\
+         T:Mode$ BecomesTarget | ValidTarget$ Card.Self | TriggerZones$ Battlefield | Execute$ Zap\n\
+         SVar:Zap:DB$ DealDamage | Defined$ TriggeredSourceController | NumDmg$ 3",
+    );
+    assert!(
+        bolt_back.abilities[0].contains("TargetSpec::Player(PlayerRel::EventPlayer)"),
+        "{}",
+        bolt_back.abilities[0]
+    );
+
+    // Implicit-Self and optional Transform / TurnFaceUp.
+    let opt_transform = read(
+        "Name:SunCompass\nManaCost:2\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Flip\n\
+         SVar:Flip:DB$ SetState | Mode$ Transform | Optional$ True",
+    );
+    assert!(
+        opt_transform.abilities[0]
+            .contains("Effect::MayDo { effects: &[Effect::TransformSource] }"),
+        "{}",
+        opt_transform.abilities[0]
+    );
+
+    // Targeted spell followed by non-targeting ManifestDread / Proliferate / ChangeZoneAll(Graveyard->Exile).
+    let bounce_dread = read(
+        "Name:EerieGrasp\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Permanent.nonLand | Origin$ Battlefield | Destination$ Hand | TargetMin$ 0 | TargetMax$ 1 | SubAbility$ Dread\n\
+         SVar:Dread:DB$ ManifestDread",
+    );
+    assert!(
+        bounce_dread.abilities[0].contains("Effect::ManifestDread"),
+        "{}",
+        bounce_dread.abilities[0]
+    );
+
+    let reclaim_exile_all = read(
+        "Name:MemoryVault\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ ChangeZone | Cost$ 2 T | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Card.YouOwn | SubAbility$ Wipe\n\
+         SVar:Wipe:DB$ ChangeZoneAll | Origin$ Graveyard | Destination$ Exile | ChangeType$ Card",
+    );
+    assert!(
+        reclaim_exile_all.abilities[0]
+            .contains("Effect::ExileGraveyard { player: PlayerRel::EachPlayer }"),
+        "{}",
+        reclaim_exile_all.abilities[0]
+    );
+
+    // Target deals damage equal to its power to source.
+    let counter_punch = read(
+        "Name:ArenaBrawler\nManaCost:3 R\nTypes:Creature\nPT:4/4\n\
+         A:AB$ DealDamage | Cost$ T | ValidTgts$ Creature | NumDmg$ 2 | SubAbility$ Retaliate\n\
+         SVar:Retaliate:DB$ DealDamage | DamageSource$ Targeted | Defined$ Self | NumDmg$ TheirP\n\
+         SVar:TheirP:Targeted$CardPower",
+    );
+    assert!(
+        counter_punch.abilities[0].contains(
+            "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
+        ),
+        "{}",
+        counter_punch.abilities[0]
+    );
+
+    // Effect APIs: CantActivate, CantBlock(&Filter::This), CantAttackYou, AttackTaxMana,
+    // UntilHostLeavesPlayOrEOT on EffectSource, and Grace win/loss/life-floor replacements.
+}
+
+#[test]
+fn wave11b_pass2_effect_apis_graveyard_and_turn_history() {
+    let lock_all_act = read(
+        "Name:CoilBind\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Permanent | RememberObjects$ Targeted | StaticAbilities$ Lock\n\
+         SVar:Lock:Mode$ CantBeActivated | ValidCard$ Card.IsRemembered",
+    );
+    assert!(
+        lock_all_act.abilities[0]
+            .contains("Effect::ModifyTargets { modifier: Modifier::CantActivate, duration: Duration::UntilEndOfTurn }"),
+        "{}",
+        lock_all_act.abilities[0]
+    );
+
+    let cant_block_me = read(
+        "Name:TunnelCrawler\nManaCost:1 R\nTypes:Creature\nPT:1/1\n\
+         A:AB$ Effect | Cost$ 1 R | ValidTgts$ Creature | RememberObjects$ Targeted | StaticAbilities$ NoBlk\n\
+         SVar:NoBlk:Mode$ CantBlockBy | ValidAttacker$ Creature.EffectSource | ValidBlocker$ Creature.IsRemembered",
+    );
+    assert!(
+        cant_block_me.abilities[0].contains(
+            "Effect::ModifyTargets { modifier: Modifier::CantBlock(&Filter::This), duration: Duration::UntilEndOfTurn }"
+        ),
+        "{}",
+        cant_block_me.abilities[0]
+    );
+
+    let tax_and_safe = read(
+        "Name:HallowedVow\nManaCost:1 W W\nTypes:Instant\n\
+         A:SP$ Effect | Duration$ UntilYourNextTurn | StaticAbilities$ Tax,NoAttack\n\
+         SVar:Tax:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You,Planeswalker.YouCtrl | Cost$ 2\n\
+         SVar:NoAttack:Mode$ CantAttack | ValidCard$ Creature | Target$ You",
+    );
+    assert!(
+        tax_and_safe.abilities[0].contains("Modifier::AttackTaxMana { mana: 2 }")
+            && tax_and_safe.abilities[0].contains("Modifier::CantAttackYou"),
+        "{}",
+        tax_and_safe.abilities[0]
+    );
+
+    let grace = read(
+        "Name:RadiantGrace\nManaCost:W\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ Keep | ReplacementEffects$ NoLose,NoWin,Floor\n\
+         SVar:Keep:Mode$ CantLoseLife | ValidPlayer$ You\n\
+         SVar:NoLose:Event$ GameLoss | ValidPlayer$ You | Layer$ CantHappen\n\
+         SVar:NoWin:Event$ GameWin | ValidPlayer$ Opponent | Layer$ CantHappen | Secondary$ True\n\
+         SVar:Floor:Event$ LifeReduced | ValidPlayer$ You.lifeGE1 | Result$ LT1 | IsDamage$ True | ReplaceWith$ Rep\n\
+         SVar:Rep:DB$ ReplaceEffect | VarName$ Amount | VarValue$ X\n\
+         SVar:X:Count$YourLifeTotal/Minus.1",
+    );
+    assert!(
+        grace.abilities[0].contains("Modifier::CantLoseLife { who: PlayerRel::You }")
+            && grace.abilities[0].contains("Modifier::NamedPlayersCantLose(PlayerRel::You)")
+            && grace.abilities[0].contains("Modifier::PlayersCantWin(PlayerRel::EachOpponent)")
+            && grace.abilities[0]
+                .contains("Modifier::DamageLifeLossFloor { players: PlayerRel::You, minimum: 1 }"),
+        "{}",
+        grace.abilities[0]
+    );
+
+    let nimble = read(
+        "Name:PastryRunner\nManaCost:1\nTypes:Artifact Creature\nPT:1/1\n\
+         A:AB$ Effect | Cost$ 1 | StaticAbilities$ Evade | Duration$ UntilHostLeavesPlayOrEOT\n\
+         SVar:Evade:Mode$ CantBlockBy | ValidAttacker$ Creature.EffectSource | ValidBlocker$ Creature.withoutHaste",
+    );
+    assert!(
+        nimble.abilities[0].contains("Effect::ModifySource { modifier: Modifier::CantBeBlockedBy("),
+        "{}",
+        nimble.abilities[0]
+    );
+
+    // Non-combat CantPreventDamage must stay refused.
+    assert!(refused(
+        "Name:AllUnpreventable\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ NoPrev\n\
+         SVar:NoPrev:Mode$ CantPreventDamage"
+    ));
+
+    // Untargeted exile from any graveyard via ChooseCard; opponent reanimate without GainControl$ refused.
+    let exile_any_gy = read(
+        "Name:GraveCleanser\nManaCost:1 W\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ChangeType$ Card | ChangeNum$ 1 | Mandatory$ True | Hidden$ True",
+    );
+    assert!(
+        exile_any_gy.abilities[0].contains(
+            "Effect::ChooseCard { chooser: PlayerRel::You, zone: ChooseZone::Graveyard(PlayerRel::EachPlayer),"
+        ),
+        "{}",
+        exile_any_gy.abilities[0]
+    );
+    assert!(refused(
+        "Name:MissingGainCtrl\nManaCost:3 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ChangeType$ Creature.OppOwn | ChangeNum$ 1 | Mandatory$ True | Hidden$ True"
+    ));
+
+    // Turn-history CheckSVar condition: EnteredSubtypeUnderYourControlThisTurn.
+    let goblin_check = read(
+        "Name:WarrenBell\nManaCost:1 R\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ G | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:G:Count$ThisTurnEntered_Battlefield_Goblin.YouCtrl",
+    );
+    assert!(
+        goblin_check.abilities[0].contains(
+            "Condition::EnteredSubtypeUnderYourControlThisTurn(&[subtypes::creature::GOBLIN])"
+        ),
+        "{}",
+        goblin_check.abilities[0]
+    );
+}
