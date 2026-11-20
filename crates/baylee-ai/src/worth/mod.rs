@@ -2143,6 +2143,26 @@ impl HeuristicAgent {
                 }
                 _ => -50,
             },
+            Effect::Goad { target } => {
+                let object = if matches!(target, TargetSpec::ThisObject) {
+                    origin.object
+                } else {
+                    subject
+                };
+                object.map_or(0, |o| self.goad_worth(view, o))
+            }
+            Effect::GoadAll {
+                filter,
+                controlled_by,
+            } => on_board(filter)?
+                .into_iter()
+                .filter(|o| match controlled_by {
+                    Some(baylee_cards_dsl::PlayerRel::You) => o.controller == me,
+                    Some(baylee_cards_dsl::PlayerRel::Opponent) => self.hostile(o.controller, me),
+                    _ => true,
+                })
+                .map(|o| self.goad_worth(view, o))
+                .sum(),
             Effect::UntapSelf => origin.object.map_or(0, |o| self.untap_worth(view, o)),
             // A shield is useful in a lethal combat exchange; it is not a
             // permanent upgrade to buy repeatedly on an idle board.
@@ -2443,6 +2463,36 @@ impl HeuristicAgent {
         }
     }
 
+    fn goad_worth(&self, view: &PlayerView, object: &PublicObject) -> i64 {
+        let me = view.seat;
+        if !creature(object) {
+            return 0;
+        }
+        if !self.hostile(object.controller, me) {
+            return -250;
+        }
+        if has(object, KeywordSet::DEFENDER) || has(object, KeywordSet::CANT_ATTACK) {
+            return 20;
+        }
+        let power = i64::from(object.power.unwrap_or(0).max(0));
+        let has_other_victim = view.seats.iter().any(|s| {
+            s.loss.is_none()
+                && s.player != me
+                && s.player != object.controller
+                && self.hostile(object.controller, s.player)
+        });
+        if has_other_victim {
+            160 + power * 45
+        } else {
+            let my_life = view.seat(me).map_or(20, |s| i64::from(s.life));
+            if power >= my_life {
+                -150
+            } else {
+                80 + power * 20
+            }
+        }
+    }
+
     /// Tapping status and controller determine the immediate value of untapping.
     fn untap_worth(&self, view: &PlayerView, object: &PublicObject) -> i64 {
         if !object.status.contains(ObjectStatus::TAPPED) {
@@ -2510,6 +2560,7 @@ impl HeuristicAgent {
                 self.pump(view, objects, (i32::from(*p), i32::from(*t), 0), duration)
             }
             Modifier::AddKeyword(k) => self.pump(view, objects, (0, 0, k.bits()), duration),
+            Modifier::Goaded => objects.iter().map(|o| self.goad_worth(view, o)).sum(),
             Modifier::PreventDamageToIt => {
                 objects.iter().map(|o| self.prevent(view, o, false)).sum()
             }

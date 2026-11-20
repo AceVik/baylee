@@ -966,7 +966,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             rules
         };
         let mut attackers = Vec::new();
-        let mut required = Vec::new();
+        let mut scored_required = Vec::new();
         let mut limits = Vec::new();
         for id in self.state.battlefield_seen() {
             if !combat::can_attack(&self.state, attacker, id) {
@@ -979,29 +979,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if allowed.is_empty() {
                 continue;
             }
-            let forced_player = self.state.object(id).and_then(|o| {
-                o.riders.iter().find_map(|r| match r {
-                    crate::object::Rider::MustAttackPlayerThisTurn(opp) => {
-                        let d = baylee_core::ids::Defender::Player(*opp);
-                        (allowed.contains(&d)
-                            && rules.sacrifice_tax(id).is_empty()
-                            && rules.mana_tax_for(id, d) == 0
-                            && rules.life_tax(id, d) == 0)
-                            .then_some(d)
-                    }
-                    _ => None,
-                })
-            });
-            if let Some(d) = forced_player {
-                allowed = vec![d];
-                required.push(id);
-            } else if rules.must_attack(id)
-                && rules.sacrifice_tax(id).is_empty()
-                && allowed
-                    .iter()
-                    .any(|&d| rules.mana_tax_for(id, d) == 0 && rules.life_tax(id, d) == 0)
-            {
-                required.push(id);
+            let max_free = rules.max_free_requirement_score(id, &defenders);
+            if max_free > 0 {
+                allowed.retain(|&d| rules.requirement_score(id, d) >= max_free);
+                scored_required.push((id, max_free));
             }
             if allowed.len() < defenders.len() {
                 limits.push(crate::choice::AttackLimit {
@@ -1011,8 +992,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             attackers.push(id);
         }
-        let minimum_required =
-            Some(u32::try_from(rules.required_maximum(&required)).unwrap_or(u32::MAX));
+        let (required, minimum) = rules.required_plan(&scored_required);
+        let minimum_required = Some(minimum);
         let alone = attackers
             .iter()
             .copied()

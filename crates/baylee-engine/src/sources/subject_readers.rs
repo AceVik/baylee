@@ -62,7 +62,8 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::PreventNextDamage { target, .. }
             | Effect::DealDamage { target, .. }
             | Effect::DealDamageWithoutPreventionOrRedirection { target, .. }
-            | Effect::DealDamageEvenly { target, .. } => matches!(target, TargetSpec::ThisObject),
+            | Effect::DealDamageEvenly { target, .. }
+            | Effect::Goad { target } => matches!(target, TargetSpec::ThisObject),
             Effect::CreateContinuousEffect { filter, .. }
             | Effect::BecomeChosenCreatureType { filter, .. }
             | Effect::GrantProtectionFromChosenColorUntilEot { filter }

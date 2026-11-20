@@ -393,6 +393,9 @@ fn matches(
         baylee_cards_dsl::ZoneRef::Exile => from == Zone::Exile,
         baylee_cards_dsl::ZoneRef::Stack => from == Zone::Stack,
         baylee_cards_dsl::ZoneRef::Command => from == Zone::Command,
+        baylee_cards_dsl::ZoneRef::BattlefieldOrCommand => {
+            matches!(from, Zone::Battlefield | Zone::Command)
+        }
         baylee_cards_dsl::ZoneRef::NotBattlefield => from != Zone::Battlefield,
     };
     match (trigger, event) {

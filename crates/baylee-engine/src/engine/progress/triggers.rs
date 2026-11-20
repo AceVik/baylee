@@ -147,7 +147,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             req.spec = trigger.bind_target(req.spec);
             req
         });
-        let graveyard_source = is_graveyard_trigger(trigger);
+        let graveyard_source = is_graveyard_trigger(&self.state, trigger);
         // An instruction about the event's exact incarnation ("destroy it",
         // Kudzu) remembers which object that was as the trigger goes on the
         // stack, so one that has left the battlefield since is a new object
@@ -1146,22 +1146,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 }
 
-fn is_graveyard_trigger(trigger: &crate::trigger::PendingTrigger) -> bool {
+fn is_graveyard_trigger(
+    state: &crate::state::GameState,
+    trigger: &crate::trigger::PendingTrigger,
+) -> bool {
     trigger.abilities.as_ref().is_some_and(|list| {
-        matches!(
-            list.abilities.get(trigger.ability_index as usize),
-            Some(
-                AbilityDef::Triggered {
-                    zone: baylee_cards_dsl::TriggerZone::Graveyard
-                        | baylee_cards_dsl::TriggerZone::Exile,
-                    ..
-                } | AbilityDef::ModalTriggered {
-                    zone: baylee_cards_dsl::TriggerZone::Graveyard
-                        | baylee_cards_dsl::TriggerZone::Exile,
-                    ..
-                }
-            )
-        )
+        let Some(AbilityDef::Triggered { zone, .. } | AbilityDef::ModalTriggered { zone, .. }) =
+            list.abilities.get(trigger.ability_index as usize)
+        else {
+            return false;
+        };
+        match zone {
+            baylee_cards_dsl::TriggerZone::Graveyard
+            | baylee_cards_dsl::TriggerZone::Exile
+            | baylee_cards_dsl::TriggerZone::Command => true,
+            baylee_cards_dsl::TriggerZone::BattlefieldOrCommand => trigger
+                .source_version
+                .and_then(|version| {
+                    state.source_object(baylee_core::ids::DamageSourceRef {
+                        object: trigger.source,
+                        version,
+                    })
+                })
+                .is_some_and(|o| o.zone == crate::zone::Zone::Command),
+            baylee_cards_dsl::TriggerZone::Battlefield => false,
+        }
     })
 }
 

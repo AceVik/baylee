@@ -1169,6 +1169,10 @@ pub enum Modifier {
     /// one and ignore the lowest roll" (Barbarian Class, Pixie Guide, Wyll;
     /// CR 706.6). Appended to preserve replay identities.
     RollAdditionalDieIgnoreLowest,
+    /// The affected creature is goaded by this effect's controller (CR 701.15b
+    /// — Shiny Impetus, Bloodthirsty Blade). Appended to preserve replay
+    /// identities.
+    Goaded,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1508,7 +1512,8 @@ impl Modifier {
             | Self::ExileInsteadOfLeavingBattlefield
             | Self::RollAdditionalDieIgnoreLowest
             | Self::CastSpellsFromGraveyard
-            | Self::CantPhaseOut => Layer::Text,
+            | Self::CantPhaseOut
+            | Self::Goaded => Layer::Text,
         }
     }
 }
@@ -2155,6 +2160,7 @@ mod tests {
             Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender,
             Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker,
             Modifier::CantPhaseOut,
+            Modifier::Goaded,
         ] {
             assert_eq!(
                 modifier.layer(),

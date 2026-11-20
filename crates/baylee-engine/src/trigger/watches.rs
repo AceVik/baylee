@@ -9,7 +9,7 @@ use crate::event::GameEvent;
 use crate::state::{CardLookup, GameState};
 use crate::text_changes::TextChangeMap;
 use crate::zone::Zone;
-use baylee_cards_dsl::{PlayerRel, Trigger, TriggerZone};
+use baylee_cards_dsl::{PlayerRel, Trigger};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 mod observers;
@@ -105,14 +105,88 @@ fn collect_granted_state_triggers(
     }
 }
 
+fn collect_printed_state_triggers(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    obj: &crate::object::GameObject,
+    controller: PlayerId,
+    zone_ok: impl Fn(baylee_cards_dsl::TriggerZone) -> bool,
+    in_flight: &impl Fn(ObjectId, u32) -> bool,
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    let abilities = obj.abilities(lookup);
+    if !abilities.iter().any(|ability| {
+        triggered_parts(ability).is_some_and(|firing| {
+            zone_ok(firing.zone) && matches!(firing.trigger, Trigger::State(_))
+        })
+    }) {
+        return;
+    }
+    let list = obj.ability_list(lookup);
+    for (index, ability) in list.abilities.iter().enumerate() {
+        let Some(firing) = triggered_parts(ability) else {
+            continue;
+        };
+        if !zone_ok(firing.zone) {
+            continue;
+        }
+        let Trigger::State(condition) = firing.trigger else {
+            continue;
+        };
+        let context = ability_context(state, obj, &list, index);
+        let index = index as u32;
+        if in_flight(obj.id, index)
+            || !eval::condition_holds_with_context(state, controller, context, **condition)
+            || !condition_matches(
+                state,
+                firing.condition,
+                controller,
+                context,
+                Some(obj.version),
+                None,
+            )
+        {
+            continue;
+        }
+        triggers.push(PendingTrigger {
+            text: TextChangeMap::IDENTITY,
+            source_version: Some(obj.version),
+            related_objects: None,
+            grantor: None,
+            event_subject: None,
+            event_ability: None,
+            event_object_identity: None,
+            counter_source_version: None,
+            event_mana: None,
+            event_mana_value: None,
+            event_departure: None,
+            event_amount: None,
+            event_player: None,
+            source: obj.id,
+            ability_index: index,
+            abilities: Some(list.clone()),
+            controller,
+            timestamp: obj.timestamp,
+            event_object: None,
+            implicit_target: None,
+            synthetic_effects: None,
+            once_per_turn: firing.once_per_turn,
+            synthetic_target: None,
+            chosen_mode: None,
+            synthetic_condition: None,
+            in_chosen_order: false,
+        });
+    }
+}
+
 /// The state triggers that trigger now (CR 603.8): every
-/// [`Trigger::State`] on the battlefield whose condition holds, asked with
-/// its source as `this` and the source's controller as "you".
+/// [`Trigger::State`] on the battlefield (or command zone) whose condition
+/// holds, asked with its source as `this` and its controller as "you".
 ///
 /// `in_flight` answers whether the ability of `(source, index)` is already
 /// waiting to go on the stack or is on it; one that is does not trigger
 /// again until it has left the stack, and then only if its source is still
-/// on the battlefield and the condition still holds, which asking again is.
+/// in that zone and the condition still holds, which asking again is.
 #[must_use]
 pub fn state_triggers(
     state: &GameState,
@@ -128,7 +202,7 @@ pub fn state_triggers(
                 .filter(|fx| match fx.modifier {
                     baylee_cards_dsl::Modifier::GrantTriggeredDefinition(ability_def) => {
                         triggered_parts(ability_def).is_some_and(|firing| {
-                            firing.zone == TriggerZone::Battlefield
+                            firing.zone.functions_on_battlefield()
                                 && matches!(firing.trigger, Trigger::State(_))
                         })
                     }
@@ -143,69 +217,34 @@ pub fn state_triggers(
             continue;
         };
         collect_granted_state_triggers(state, obj, &granted_state, &in_flight, &mut triggers);
-        let abilities = obj.abilities(lookup);
-        if !abilities.iter().any(|ability| {
-            triggered_parts(ability).is_some_and(|firing| {
-                firing.zone == TriggerZone::Battlefield
-                    && matches!(firing.trigger, Trigger::State(_))
-            })
-        }) {
-            continue;
-        }
-        let list = obj.ability_list(lookup);
-        for (index, ability) in list.abilities.iter().enumerate() {
-            let Some(firing) = triggered_parts(ability) else {
+        collect_printed_state_triggers(
+            state,
+            lookup,
+            obj,
+            obj.controller,
+            baylee_cards_dsl::TriggerZone::functions_on_battlefield,
+            &in_flight,
+            &mut triggers,
+        );
+    }
+    for seat in 0..state.players.len() {
+        let owner = PlayerId::new(seat as u8);
+        for &card in state.zones.list(crate::zone::ZoneLocation::Command(owner)) {
+            let Some(obj) = state
+                .object(card)
+                .filter(|o| o.is_card() && !o.status.contains(crate::object::Status::FACE_DOWN))
+            else {
                 continue;
             };
-            if firing.zone != TriggerZone::Battlefield {
-                continue;
-            }
-            let Trigger::State(condition) = firing.trigger else {
-                continue;
-            };
-            let context = ability_context(state, obj, &list, index);
-            let index = index as u32;
-            if in_flight(permanent, index)
-                || !eval::condition_holds_with_context(state, obj.controller, context, **condition)
-                || !condition_matches(
-                    state,
-                    firing.condition,
-                    obj.controller,
-                    context,
-                    Some(obj.version),
-                    None,
-                )
-            {
-                continue;
-            }
-            triggers.push(PendingTrigger {
-                text: TextChangeMap::IDENTITY,
-                source_version: Some(obj.version),
-                related_objects: None,
-                grantor: None,
-                event_subject: None,
-                event_ability: None,
-                event_object_identity: None,
-                counter_source_version: None,
-                event_mana: None,
-                event_mana_value: None,
-                event_departure: None,
-                event_amount: None,
-                event_player: None,
-                source: permanent,
-                ability_index: index,
-                abilities: Some(list.clone()),
-                controller: obj.controller,
-                timestamp: obj.timestamp,
-                event_object: None,
-                implicit_target: None,
-                synthetic_effects: None,
-                once_per_turn: firing.once_per_turn,
-                synthetic_target: None,
-                chosen_mode: None,
-                synthetic_condition: None,
-                in_chosen_order: false,
-            });
+            collect_printed_state_triggers(
+                state,
+                lookup,
+                obj,
+                owner,
+                baylee_cards_dsl::TriggerZone::functions_in_command,
+                &in_flight,
+                &mut triggers,
+            );
         }
     }
     for trigger in &mut triggers {

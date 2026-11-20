@@ -45,6 +45,7 @@ impl Zone {
             ZoneRef::Exile => matches!(self, Self::Exile),
             ZoneRef::Command => matches!(self, Self::Command),
             ZoneRef::NotBattlefield => !matches!(self, Self::Battlefield | Self::OutsideGame),
+            ZoneRef::BattlefieldOrCommand => matches!(self, Self::Battlefield | Self::Command),
         }
     }
 

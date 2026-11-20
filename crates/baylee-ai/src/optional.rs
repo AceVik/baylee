@@ -92,6 +92,9 @@ fn closed(view: &PlayerView, condition: &Condition) -> bool {
         }
         Condition::All(parts) => parts.iter().any(|c| closed(view, c)),
         Condition::Any(parts) => parts.iter().all(|c| closed(view, c)),
+        Condition::ControlYourCommander => !view
+            .battlefield_of(me)
+            .any(|o| !o.status.is_phased_out() && o.commander && o.owner == me),
         _ => false,
     }
 }

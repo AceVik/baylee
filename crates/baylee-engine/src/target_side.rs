@@ -117,6 +117,7 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         Effect::CreateContinuousEffect { modifier, .. } => Some(match modifier {
             Modifier::ModifyPT(p, t) => (i32::from(*p) + i32::from(*t)).signum(),
             Modifier::AddKeyword(_) => 1,
+            Modifier::Goaded => -2,
             _ => 0,
         }),
         Effect::Destroy { .. }
@@ -140,7 +141,10 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         Effect::PhaseOut { target: Some(spec) } => {
             Some(if spec_only_yours(*spec) { 1 } else { -1 })
         }
-        Effect::MustBlockSourceIfAbleThisCombat | Effect::MustBlockIfAble { .. } => Some(-2),
+        Effect::MustBlockSourceIfAbleThisCombat
+        | Effect::MustBlockIfAble { .. }
+        | Effect::Goad { .. }
+        | Effect::GoadAll { .. } => Some(-2),
         Effect::Blink { .. }
         | Effect::ExileAndReturnAtEndStep
         | Effect::UntapTarget
@@ -342,6 +346,7 @@ pub fn aura_side(abilities: &[AbilityDef]) -> Option<TargetSide> {
                 granted_trigger_sign(effects)?
             }
             Modifier::CantAttack | Modifier::CantBlock(_) => -1,
+            Modifier::Goaded => -2,
             _ => return None,
         };
     }

@@ -496,6 +496,9 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         | Modifier::CantActivateArtifacts => {
             ch.counter_spell += 0.5;
         }
+        Modifier::Goaded => {
+            ch.tap_untap += 1.0;
+        }
         _ => {}
     }
 }

@@ -130,38 +130,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 return Err(EngineError::IllegalAction("duplicate attacker"));
             }
         }
-        // CR 508.1d: every creature that attacks if able, and can, does, up to
-        // any cap on how many creatures may attack (CR 508.1c). A player is
-        // never required to pay a cost to declare an attacker (CR 508.1d), so
-        // only defenders with zero life tax count toward a requirement.
-        let required_able: Vec<ObjectId> = self
-            .state
-            .battlefield_seen()
-            .filter(|id| {
-                combat::can_attack(&self.state, player, *id)
-                    && (self.forced_attack_player(*id, &legal, &rules).is_some()
-                        || (rules.must_attack(*id)
-                            && rules.sacrifice_tax(*id).is_empty()
-                            && legal.iter().any(|d| {
-                                rules.allows(*id, *d)
-                                    && rules.mana_tax_for(*id, *d) == 0
-                                    && rules.life_tax(*id, *d) == 0
-                            })))
-            })
-            .collect();
-        let required_target = rules.required_maximum(&required_able);
-        let required_declared = attackers
-            .iter()
-            .filter(|&&(id, defending)| {
-                if let Some(d) = self.forced_attack_player(id, &legal, &rules) {
-                    defending == d
-                } else {
-                    rules.must_attack(id)
-                }
-            })
-            .count();
-        if required_declared < required_target {
-            return Err(crate::choice::AnswerFault::MustAttack.into());
+        // CR 508.1d: the declaration must obey the maximum simultaneously
+        // satisfiable number of untaxed attack requirements. Paying an attack
+        // cost is never required, and voluntarily paying one on one creature
+        // cannot excuse skipping another creature's free requirement.
+        let required_score = rules.max_total_requirement_score(player, &legal);
+        if required_score > 0 {
+            let declared_score: u32 = attackers
+                .iter()
+                .map(|&(id, defending)| {
+                    rules
+                        .requirement_score(id, defending)
+                        .min(rules.max_free_requirement_score(id, &legal))
+                })
+                .sum();
+            if declared_score < required_score {
+                return Err(crate::choice::AnswerFault::MustAttack.into());
+            }
         }
         let total_life_tax = attackers
             .iter()
@@ -189,28 +174,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             sacrifices,
             mana,
             life: total_life_tax,
-        })
-    }
-
-    fn forced_attack_player(
-        &self,
-        id: ObjectId,
-        legal: &[baylee_core::ids::Defender],
-        rules: &combat::AttackRules,
-    ) -> Option<baylee_core::ids::Defender> {
-        self.state.object(id).and_then(|o| {
-            o.riders.iter().find_map(|r| match r {
-                crate::object::Rider::MustAttackPlayerThisTurn(opp) => {
-                    let d = baylee_core::ids::Defender::Player(*opp);
-                    (legal.contains(&d)
-                        && rules.allows(id, d)
-                        && rules.sacrifice_tax(id).is_empty()
-                        && rules.mana_tax_for(id, d) == 0
-                        && rules.life_tax(id, d) == 0)
-                        .then_some(d)
-                }
-                _ => None,
-            })
         })
     }
 

@@ -217,6 +217,7 @@ pub fn amount_with_context(
             .unwrap_or(0),
         Amount::CountOf { filter, zone } => count_in_zone(filter, *zone, state, you, context),
         Amount::OpponentsLifeLostThisTurn => opponents_life_lost(state, you),
+        Amount::OpponentsYouAttackedThisCombat => state.combat.opponents_attacked_by(state, you),
     }
 }
 

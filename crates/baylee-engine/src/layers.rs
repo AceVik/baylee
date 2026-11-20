@@ -1374,6 +1374,7 @@ fn apply(
         | Modifier::GrantTriggeredUpToOne { .. }
         | Modifier::GrantTriggeredDefinition(_)
         | Modifier::CantPhaseOut
+        | Modifier::Goaded
         | Modifier::ManaIsAnyColor
         | Modifier::SpendManaAs { .. }
         | Modifier::SearchTakeover

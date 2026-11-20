@@ -38,6 +38,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let extra = self.state.extra_turns.pop_front();
             self.state.resume_after = extra.map(|_| after);
             let next = extra.unwrap_or_else(|| self.next_alive_after(after));
+            if extra.is_none() {
+                crate::combat::goad::expire_between(&mut self.state, after, next);
+            }
             self.state.turn.active = next;
             self.state.turn.number += 1;
             // "When that creature dies this turn" watches no other turn.
@@ -130,6 +133,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 
     fn expire_until_next_turn_effects(&mut self, new_active: PlayerId) {
+        crate::combat::goad::expire_for_turn(&mut self.state, new_active);
         // "Until your next turn" effects end as their controller's turn
         // begins (Elspeth's flying, Teferi's sorcery-flash).
         self.state.effects.remove_where(|fx| {

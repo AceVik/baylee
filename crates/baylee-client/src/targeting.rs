@@ -410,6 +410,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         Filter::HasColor(c) => object.colors.intersects(*c),
         Filter::IsColorless => object.colors.is_colorless(),
         Filter::Monocolored => object.colors.len() == 1,
+        Filter::IsCommander => object.commander,
         // CR 201.2 reads the name an object has *now*, which is the one
         // thing this walk gets for free: `PublicObject::name` is projected,
         // so a clone answers with what it copied. A face-down permanent
@@ -540,7 +541,6 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         // translation is gamehost's; `baylee-ai` refuses it for that reason.
         | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
-        | Filter::IsCommander
         | Filter::HasAdventure
         // StackItem has neither an exact source incarnation nor an
         // authoritative activated/triggered kind. Printed ability identity

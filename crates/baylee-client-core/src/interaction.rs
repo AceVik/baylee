@@ -1039,11 +1039,15 @@ impl Interaction {
             Mode::Attackers {
                 candidates,
                 defenders,
-                ..
+                pairs,
+                focus,
             } => {
-                candidates.contains(&id)
-                    || (defenders.contains(&Defender::Planeswalker(id))
-                        || defenders.contains(&Defender::Battle(id)))
+                defenders.contains(&Defender::Planeswalker(id))
+                    || defenders.contains(&Defender::Battle(id))
+                    || pairs.iter().any(|(a, _)| *a == id)
+                    || defenders.get(*focus).is_some_and(|at| {
+                        candidates.contains(&id) && attacker_may_attack(&self.pending, id, *at)
+                    })
             }
             // Blocking is the one case where aiming changes what is offered.
             // `BlockOption` is per blocker, so a flier in the focus leaves the
@@ -1204,12 +1208,16 @@ impl Interaction {
                     // "attack that", and the press took it out of the attack
                     // altogether. Only one aimed where it already goes comes
                     // back out.
-                    if pairs[pos].1 == defender {
+                    if pairs[pos].1 == defender || !attacker_may_attack(&self.pending, id, defender)
+                    {
                         pairs.remove(pos);
                         return SelectionOutcome::Removed;
                     }
                     pairs[pos].1 = defender;
                     return SelectionOutcome::Added;
+                }
+                if !attacker_may_attack(&self.pending, id, defender) {
+                    return SelectionOutcome::Rejected;
                 }
                 pairs.push((id, defender));
                 SelectionOutcome::Added
@@ -1693,6 +1701,7 @@ impl Interaction {
     /// Returns `false` when either side is not a candidate, so the caller can
     /// play a rejection cue instead of sending an action that will bounce.
     pub fn declare_attacker(&mut self, attacker: ObjectId, defender: Defender) -> bool {
+        let allowed = attacker_may_attack(&self.pending, attacker, defender);
         let Mode::Attackers {
             candidates,
             defenders,
@@ -1702,7 +1711,7 @@ impl Interaction {
         else {
             return false;
         };
-        if !candidates.contains(&attacker) || !defenders.contains(&defender) {
+        if !allowed || !candidates.contains(&attacker) || !defenders.contains(&defender) {
             return false;
         }
         pairs.retain(|(a, _)| *a != attacker);
@@ -2334,6 +2343,16 @@ fn cast_choice_headline(options: &[CastModeDesc], lang: Lang) -> String {
         Phrase::ChooseHowToCast
     };
     phrase.text(lang).to_string()
+}
+
+fn attacker_may_attack(pending: &Pending, attacker: ObjectId, defender: Defender) -> bool {
+    match pending {
+        Pending::ChooseAttackers { limits, .. } => limits
+            .iter()
+            .find(|l| l.creature == attacker)
+            .is_none_or(|l| l.defenders.contains(&defender)),
+        _ => true,
+    }
 }
 
 fn blocker_capacity(pending: &Pending, blocker: ObjectId) -> Option<u8> {

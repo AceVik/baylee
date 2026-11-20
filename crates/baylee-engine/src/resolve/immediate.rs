@@ -3786,6 +3786,14 @@ pub(super) fn exec_immediate(
             })
         }
         Effect::RevealUntilLandDealDamage { target } => life::reveal_until_land(state, res, target),
+        Effect::Goad { target } => crate::combat::goad::resolve_target(state, res, target),
+        Effect::GoadAll {
+            filter,
+            controlled_by,
+        } => {
+            let seats = controlled_by.map(|rel| players_of(rel, state, you, res));
+            crate::combat::goad::resolve_all(state, res, filter, seats.as_deref())
+        }
     }
 }
 

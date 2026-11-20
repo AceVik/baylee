@@ -437,6 +437,9 @@ pub enum ZoneRef {
     /// Any zone except the battlefield ("cards you own that aren't on the
     /// battlefield").
     NotBattlefield,
+    /// On the battlefield or in the command zone (CR 113.6b: The Ur-Dragon's
+    /// eminence static ability).
+    BattlefieldOrCommand,
 }
 
 /// An expansion referenced by an expansion-symbol / original-printing rule
@@ -727,6 +730,11 @@ impl Filter {
     pub const YOUR_BASIC_LAND: Self = Self::And(&[Self::BASIC_LAND, Self::ControlledByYou]);
     /// An artifact you control.
     pub const YOUR_ARTIFACT: Self = Self::And(&[Self::ARTIFACT, Self::ControlledByYou]);
+    /// A commander you both own and control (CR 903.3c–d).
+    pub const YOUR_COMMANDER: Self =
+        Self::And(&[Self::IsCommander, Self::ControlledByYou, Self::OwnedByYou]);
+    /// Any commander on the battlefield under your control (CR 903.3d).
+    pub const COMMANDER_YOU_CONTROL: Self = Self::And(&[Self::IsCommander, Self::ControlledByYou]);
     /// A creature you control other than the source — "another creature you
     /// control".
     ///
@@ -803,6 +811,8 @@ mod tests {
         ("YOUR_LAND", Filter::YOUR_LAND),
         ("YOUR_BASIC_LAND", Filter::YOUR_BASIC_LAND),
         ("YOUR_ARTIFACT", Filter::YOUR_ARTIFACT),
+        ("YOUR_COMMANDER", Filter::YOUR_COMMANDER),
+        ("COMMANDER_YOU_CONTROL", Filter::COMMANDER_YOU_CONTROL),
         (
             "ANOTHER_CREATURE_YOU_CONTROL",
             Filter::ANOTHER_CREATURE_YOU_CONTROL,

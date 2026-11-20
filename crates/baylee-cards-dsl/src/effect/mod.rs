@@ -4863,6 +4863,25 @@ pub enum Effect {
         /// Executed when cards were revealed and none matched `filter`.
         otherwise: &'static [Effect],
     },
+    /// Goad the creature(s) `target` names until the resolving controller's
+    /// next turn (CR 701.15a–d). Appended to preserve replay identities.
+    Goad {
+        /// Which creature(s) to goad (`TargetSpec::Object(&Filter::CREATURE)`
+        /// for targeted goad, `TargetSpec::EventObject` for triggered event
+        /// goad, `TargetSpec::Attached` for attached goad).
+        target: TargetSpec,
+    },
+    /// Goad every creature on the battlefield matching `filter` (optionally
+    /// narrowed to `controlled_by`) until the resolving controller's next turn
+    /// (CR 701.15a–d — Disrupt Decorum, Marisi, Geode Rager). Appended to
+    /// preserve replay identities.
+    GoadAll {
+        /// Creature filter evaluated from the resolving controller's side.
+        filter: &'static Filter,
+        /// Optional controller restriction (e.g. `TargetPlayerOrController`
+        /// or `DefendingPlayer`).
+        controlled_by: Option<PlayerRel>,
+    },
 }
 
 #[cfg(test)]

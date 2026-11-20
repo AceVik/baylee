@@ -29,7 +29,7 @@ pub(super) fn collect_emblems(
                 let Some(firing) = triggered_parts(ability) else {
                     continue;
                 };
-                if firing.zone != TriggerZone::Battlefield {
+                if !firing.zone.functions_on_battlefield() && !firing.zone.functions_in_command() {
                     continue;
                 }
                 let trigger = firing.trigger;

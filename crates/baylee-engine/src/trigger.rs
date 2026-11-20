@@ -10,6 +10,7 @@
 mod activations;
 pub(crate) mod battles;
 pub(crate) mod bird_entry;
+mod combat_keywords;
 mod discarded;
 mod emblems;
 mod event_groups;
@@ -413,6 +414,9 @@ fn graveyard_triggers(
     let batch_has_zone_changes = events
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::ZoneChanged { .. }));
+    let first_turn = events
+        .iter()
+        .position(|entry| matches!(entry.event, GameEvent::TurnStarted { number: 1, .. }));
     for object in graveyard_observers(state, lookup, events, batch_has_zone_changes) {
         let source = object.id;
         let owner = object.owner;
@@ -426,6 +430,7 @@ fn graveyard_triggers(
             let expected_zone = match firing.zone {
                 TriggerZone::Graveyard => Zone::Graveyard,
                 TriggerZone::Exile => Zone::Exile,
+                TriggerZone::Command | TriggerZone::BattlefieldOrCommand => Zone::Command,
                 TriggerZone::Battlefield => continue,
             };
             let context = ability_context(state, object, &list, index);
@@ -435,10 +440,16 @@ fn graveyard_triggers(
             {
                 continue;
             }
-            for entry in events {
+            for (at, entry) in events.iter().enumerate() {
+                if expected_zone == Zone::Command
+                    && first_turn.is_some_and(|start| at < start)
+                    && matches!(entry.event, GameEvent::CardsDrawn { .. })
+                {
+                    continue;
+                }
                 let at_event = source_at_event_with_moves(state, current, &moves, entry.seq, false);
                 if at_event.zone != expected_zone
-                    || (expected_zone == Zone::Exile
+                    || (matches!(expected_zone, Zone::Exile | Zone::Command)
                         && at_event.status.contains(crate::object::Status::FACE_DOWN))
                     || at_event.version != object.version
                     || (condition_reads_event
@@ -456,8 +467,8 @@ fn graveyard_triggers(
                 let hit =
                     hits_with_context(firing.trigger, &entry.event, events, state, context, owner);
                 // These replacements describe triggered abilities of
-                // permanents (CR 109.2). A graveyard or exile card is not
-                // one, even though its last controller is still stored.
+                // permanents (CR 109.2). A graveyard, exile, or command-zone
+                // card is not one, even though its last controller is still stored.
                 for _ in 0..hit {
                     triggers.push(PendingTrigger {
                         source,
@@ -504,16 +515,20 @@ fn graveyard_triggers(
 
 fn has_off_battlefield_trigger(
     object: &crate::object::GameObject,
-    zone: TriggerZone,
+    zone: Zone,
     lookup: &impl CardLookup,
 ) -> bool {
-    object
-        .abilities(lookup)
-        .iter()
-        .any(|ability| triggered_parts(ability).is_some_and(|firing| firing.zone == zone))
+    object.abilities(lookup).iter().any(|ability| {
+        triggered_parts(ability).is_some_and(|firing| match zone {
+            Zone::Graveyard => firing.zone == TriggerZone::Graveyard,
+            Zone::Exile => firing.zone == TriggerZone::Exile,
+            Zone::Command => firing.zone.functions_in_command(),
+            _ => false,
+        })
+    })
 }
 
-/// Include graveyard and exile incarnations which left later in this mutation batch.
+/// Include graveyard, exile, and command-zone incarnations which left later in this mutation batch.
 /// A card moved into the zone after an event must not observe that earlier event.
 fn graveyard_observers<'a>(
     state: &'a GameState,
@@ -532,8 +547,7 @@ fn graveyard_observers<'a>(
                 .iter()
                 .filter_map(|id| state.object(*id))
                 .filter(|object| {
-                    object.is_card()
-                        && has_off_battlefield_trigger(object, TriggerZone::Graveyard, lookup)
+                    object.is_card() && has_off_battlefield_trigger(object, Zone::Graveyard, lookup)
                 })
                 .chain(
                     state
@@ -544,7 +558,19 @@ fn graveyard_observers<'a>(
                         .filter(|object| {
                             object.is_card()
                                 && !object.status.contains(crate::object::Status::FACE_DOWN)
-                                && has_off_battlefield_trigger(object, TriggerZone::Exile, lookup)
+                                && has_off_battlefield_trigger(object, Zone::Exile, lookup)
+                        }),
+                )
+                .chain(
+                    state
+                        .zones
+                        .list(ZoneLocation::Command(p))
+                        .iter()
+                        .filter_map(|id| state.object(*id))
+                        .filter(|object| {
+                            object.is_card()
+                                && !object.status.contains(crate::object::Status::FACE_DOWN)
+                                && has_off_battlefield_trigger(object, Zone::Command, lookup)
                         }),
                 )
         })
@@ -553,16 +579,11 @@ fn graveyard_observers<'a>(
         for entry in events {
             let GameEvent::ZoneChanged {
                 object,
-                from: from @ (Zone::Graveyard | Zone::Exile),
+                from: from @ (Zone::Graveyard | Zone::Exile | Zone::Command),
                 ..
             } = entry.event
             else {
                 continue;
-            };
-            let trigger_zone = if from == Zone::Graveyard {
-                TriggerZone::Graveyard
-            } else {
-                TriggerZone::Exile
             };
             let Some(current) = state.object_or_departed(object) else {
                 continue;
@@ -573,9 +594,9 @@ fn graveyard_observers<'a>(
                 version: after.version.wrapping_sub(1),
             }) && before.zone == from
                 && before.is_card()
-                && (from != Zone::Exile
+                && (!matches!(from, Zone::Exile | Zone::Command)
                     || !before.status.contains(crate::object::Status::FACE_DOWN))
-                && has_off_battlefield_trigger(before, trigger_zone, lookup)
+                && has_off_battlefield_trigger(before, from, lookup)
             {
                 objects.push(before);
             }
@@ -698,7 +719,7 @@ fn cast_this_spell_triggers(
                     .is_some_and(|paid| paid.mana_types_spent[color.index()] > 0),
                 _ => false,
             };
-            if firing.zone != TriggerZone::Battlefield || !cast_this {
+            if !firing.zone.functions_on_battlefield() || !cast_this {
                 continue;
             }
             let context = ability_context(state, spell, &list, index);
@@ -992,6 +1013,15 @@ fn collect_for_objects(
         if !phased_out_only {
             flanking::collect(state, obj, events, &moves, batch_has_blocks, triggers);
             provoke::collect(state, obj, events, &moves, batch_has_attacks, triggers);
+            combat_keywords::collect(
+                state,
+                obj,
+                events,
+                &moves,
+                batch_has_attacks,
+                batch_has_zone_changes,
+                triggers,
+            );
         }
         if !all_kinds && !phased_out_only {
             return_keywords::collect(state, obj, events, triggers);
@@ -1049,7 +1079,7 @@ fn collect_for_objects(
                     let Some(firing) = triggered_parts(ability_def) else {
                         continue;
                     };
-                    if firing.zone != TriggerZone::Battlefield {
+                    if !firing.zone.functions_on_battlefield() {
                         continue;
                     }
                     (firing, GrantBody::Definition(ability_def))
@@ -1221,7 +1251,7 @@ fn collect_for_objects(
             && !obj.abilities(lookup).iter().any(|ability| {
                 matches!(ability, AbilityDef::Ward { .. })
                     || triggered_parts(ability)
-                        .is_some_and(|firing| firing.zone == TriggerZone::Battlefield)
+                        .is_some_and(|firing| firing.zone.functions_on_battlefield())
             })
         {
             continue;
@@ -1408,7 +1438,7 @@ fn collect_for_objects(
             let Some(firing) = triggered_parts(ability) else {
                 continue;
             };
-            if firing.zone != TriggerZone::Battlefield {
+            if !firing.zone.functions_on_battlefield() {
                 continue;
             }
             let trigger = firing.trigger;

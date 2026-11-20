@@ -784,11 +784,9 @@ pub(crate) fn matches_projected_with_choices(
         // way and for the same reason.
         Filter::PowerAtLeast(n) => chars.power.is_some_and(|p| p >= *n),
         Filter::PowerAtMost(n) => chars.power.is_some_and(|p| p <= *n),
-        Filter::PowerAtMostSourcePower => chars.power.is_some_and(|power| {
-            state
-                .object(this)
-                .is_some_and(|source| power <= source.characteristics().power.unwrap_or(0))
-        }),
+        Filter::PowerAtMostSourcePower => chars
+            .power
+            .is_some_and(|power| source_power(state, this).is_some_and(|bound| power <= bound)),
         Filter::PowerLessThanSourcePower => below_source_power(chars.power, state, this),
         Filter::ToughnessLessThanSourcePower => below_source_power(chars.toughness, state, this),
         Filter::InZone(z) => obj.zone.matches_ref(*z),
@@ -981,12 +979,31 @@ fn announced_x(state: &GameState, this: ObjectId) -> u32 {
     state.object(this).map_or(0, |o| o.x_value)
 }
 
-/// Whether `stat` is less than the source's projected power. A source with
-/// no power, or none at all, bounds nothing in, and neither does an object
-/// with no such number.
+/// Projected power of `this` on the battlefield, or as it last existed there
+/// if it has left (CR 608.2h; Mentor CR 702.134b).
+fn source_power(state: &GameState, this: ObjectId) -> Option<i16> {
+    if let Some(obj) = state
+        .object(this)
+        .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+    {
+        return obj.characteristics().power;
+    }
+    if let Some(version) = last_battlefield_version(state, this)
+        && let Some(departed) = state.source_object(baylee_core::ids::DamageSourceRef {
+            object: this,
+            version,
+        })
+    {
+        return departed.characteristics().power;
+    }
+    state.object(this).and_then(|o| o.characteristics().power)
+}
+
+/// Whether `stat` is less than the source's projected power (using last-known
+/// battlefield power if the source left, CR 608.2h).
 fn below_source_power(stat: Option<i16>, state: &GameState, this: ObjectId) -> bool {
-    let bound = state.object(this).and_then(|o| o.characteristics().power);
-    stat.zip(bound).is_some_and(|(stat, bound)| stat < bound)
+    stat.zip(source_power(state, this))
+        .is_some_and(|(stat, bound)| stat < bound)
 }
 
 /// Whether `filter` reads the X announced for its source

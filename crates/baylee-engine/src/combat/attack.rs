@@ -240,6 +240,151 @@ impl<'a> AttackRules<'a> {
         self.max_attackers.map_or(maximum, |cap| maximum.min(cap))
     }
 
+    /// Number of attack requirements on `creature` obeyed when it attacks
+    /// `defender` (CR 508.1d, CR 701.15b–d).
+    #[must_use]
+    pub fn requirement_score(&self, creature: ObjectId, defender: Defender) -> u32 {
+        let Some(obj) = self.state.object(creature) else {
+            return 0;
+        };
+        let mut score = 0_u32;
+        for fx in &self.requirements {
+            if crate::effects::applies_to(self.state, fx, obj) {
+                score = score.saturating_add(1);
+            }
+        }
+        for rider in &obj.riders {
+            if let crate::object::Rider::MustAttackPlayerThisTurn(opp) = rider
+                && defender == Defender::Player(*opp)
+            {
+                score = score.saturating_add(1);
+            }
+        }
+        for goader in super::goad::goaders_of(self.state, creature) {
+            score = score.saturating_add(1);
+            if matches!(defender, Defender::Player(p) if p != goader) {
+                score = score.saturating_add(1);
+            }
+        }
+        score
+    }
+
+    /// Whether `creature` can legally attack `defender` without paying any
+    /// mana, life, or sacrifice attack tax (CR 508.1d).
+    #[must_use]
+    pub fn untaxed_allows(&self, creature: ObjectId, defender: Defender) -> bool {
+        self.allows(creature, defender)
+            && self.sacrifice_tax(creature).is_empty()
+            && self.mana_tax_for(creature, defender) == 0
+            && self.life_tax(creature, defender) == 0
+    }
+
+    /// Maximum number of requirements `creature` can obey across `legal`
+    /// defenders without paying any attack cost (CR 508.1d).
+    #[must_use]
+    pub fn max_free_requirement_score(&self, creature: ObjectId, legal: &[Defender]) -> u32 {
+        legal
+            .iter()
+            .copied()
+            .filter(|&d| self.untaxed_allows(creature, d))
+            .map(|d| self.requirement_score(creature, d))
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// Maximum total number of untaxed attack requirements `player` can obey
+    /// simultaneously across a legal declaration (CR 508.1d).
+    #[must_use]
+    pub fn max_total_requirement_score(&self, player: PlayerId, legal: &[Defender]) -> u32 {
+        if self.max_attackers == Some(0) || legal.is_empty() {
+            return 0;
+        }
+        let mut together_scores = Vec::new();
+        let mut best_alone = 0_u32;
+        for id in self.state.battlefield_seen() {
+            if !can_attack(self.state, player, id) {
+                continue;
+            }
+            let score = self.max_free_requirement_score(id, legal);
+            if score == 0 {
+                continue;
+            }
+            if self.attacks_alone(id) {
+                best_alone = best_alone.max(score);
+            } else {
+                together_scores.push(score);
+            }
+        }
+        together_scores.sort_unstable_by(|a, b| b.cmp(a));
+        let take = together_scores
+            .len()
+            .min(self.max_attackers.unwrap_or(usize::MAX));
+        let group_sum: u32 = together_scores[..take].iter().copied().sum();
+        group_sum.max(best_alone)
+    }
+
+    /// Builds `(required, minimum_required)` for `Pending::ChooseAttackers`
+    /// from `(creature, max_free_score)` pairs with `score > 0`.
+    #[must_use]
+    pub fn required_plan(&self, scored: &[(ObjectId, u32)]) -> (Vec<ObjectId>, u32) {
+        if scored.is_empty() || self.max_attackers == Some(0) {
+            return (Vec::new(), 0);
+        }
+        let best_alone = scored
+            .iter()
+            .filter(|&&(id, _)| self.attacks_alone(id))
+            .map(|&(_, s)| s)
+            .max()
+            .unwrap_or(0);
+        let mut together_sorted: Vec<(ObjectId, u32)> = scored
+            .iter()
+            .copied()
+            .filter(|&(id, _)| !self.attacks_alone(id))
+            .collect();
+        together_sorted.sort_by_key(|a| std::cmp::Reverse(a.1));
+        let take = together_sorted
+            .len()
+            .min(self.max_attackers.unwrap_or(usize::MAX));
+        let group_sum: u32 = together_sorted[..take].iter().map(|&(_, s)| s).sum();
+
+        if best_alone > group_sum {
+            let required = scored
+                .iter()
+                .filter(|&&(id, s)| self.attacks_alone(id) && s == best_alone)
+                .map(|&(id, _)| id)
+                .collect();
+            return (required, 1);
+        }
+
+        let minimum = u32::try_from(take).unwrap_or(u32::MAX);
+        if take < together_sorted.len() {
+            let threshold = together_sorted[take - 1].1;
+            if together_sorted[0].1 > threshold {
+                let required = together_sorted[..take].iter().map(|&(id, _)| id).collect();
+                return (required, minimum);
+            }
+            let required = scored
+                .iter()
+                .filter(|&&(id, s)| {
+                    if self.attacks_alone(id) {
+                        take >= 2 || s == group_sum
+                    } else {
+                        s == threshold
+                    }
+                })
+                .map(|&(id, _)| id)
+                .collect();
+            return (required, minimum);
+        }
+
+        let required = scored
+            .iter()
+            .filter(|&&(id, s)| !self.attacks_alone(id) || take >= 2 || s == group_sum)
+            .map(|&(id, _)| id)
+            .collect();
+        (required, minimum)
+    }
+
     /// Whether any creature's attack costs mana now (CR 508.1h: Brainwash),
     /// so that asking what mana its controller could make is worth it.
     #[must_use]

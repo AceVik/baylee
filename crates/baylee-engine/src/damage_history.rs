@@ -1,6 +1,6 @@
 //! Actual damage history and death-time lookback, independent of marked damage.
 
-use baylee_cards_dsl::{AbilityDef, Modifier, Trigger, TriggerZone};
+use baylee_cards_dsl::{AbilityDef, Modifier, Trigger};
 use baylee_core::ids::{DamageSourceRef, ObjectId};
 
 use crate::event::{DamageTarget, GameEvent};
@@ -336,7 +336,7 @@ pub(crate) fn collect(
                     resolved_subtype: None,
                     reference: None,
                 };
-                if *zone != TriggerZone::Battlefield
+                if !zone.functions_on_battlefield()
                     || condition.is_some_and(|condition| {
                         !crate::eval::condition_holds_with_context(
                             state,
@@ -408,7 +408,7 @@ fn collect_granted_death_triggers(
                     ..
                 }),
             ) => {
-                if *zone != TriggerZone::Battlefield
+                if !zone.functions_on_battlefield()
                     || condition.is_some_and(|cond| {
                         !crate::eval::condition_holds_with_context(
                             state,

@@ -571,7 +571,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         ..
                     } => {
                         if !match zone {
-                            ActivationZone::Battlefield => obj.controller == player,
+                            ActivationZone::Battlefield | ActivationZone::BattlefieldOrCommand => {
+                                obj.controller == player
+                            }
                             ActivationZone::BattlefieldOwner => obj.owner == player,
                             ActivationZone::BattlefieldAnyPlayer => true,
                             ActivationZone::BattlefieldOpponent => {
@@ -624,7 +626,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         ..
                     } => {
                         if !match zone {
-                            ActivationZone::Battlefield => obj.controller == player,
+                            ActivationZone::Battlefield | ActivationZone::BattlefieldOrCommand => {
+                                obj.controller == player
+                            }
                             ActivationZone::BattlefieldOwner => obj.owner == player,
                             ActivationZone::BattlefieldAnyPlayer => true,
                             ActivationZone::BattlefieldOpponent => {
@@ -747,13 +751,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             cost_reduction,
                             ..
                         } => {
-                            if *zone != from {
+                            if *zone != from
+                                && !(from == ActivationZone::Command
+                                    && *zone == ActivationZone::BattlefieldOrCommand)
+                            {
                                 continue;
                             }
                             if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                                 continue;
                             }
                             if self.activation_limit_spent(player, card, i as u32, *limit) {
+                                continue;
+                            }
+                            if !self.source_cost_parts_ready(card, cost.parts) {
                                 continue;
                             }
                             // The same probe as the battlefield arms, for the
@@ -806,13 +816,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             // at all. No card in the pool prints one today; the
                             // hole is closed rather than recorded, because the
                             // arm is four lines longer than the note would be.
-                            if *zone != from {
+                            if *zone != from
+                                && !(from == ActivationZone::Command
+                                    && *zone == ActivationZone::BattlefieldOrCommand)
+                            {
                                 continue;
                             }
                             if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                                 continue;
                             }
                             if self.activation_limit_spent(player, card, i as u32, *limit) {
+                                continue;
+                            }
+                            if !self.source_cost_parts_ready(card, cost.parts) {
                                 continue;
                             }
                             if !crate::eval::condition_holds_with_context(

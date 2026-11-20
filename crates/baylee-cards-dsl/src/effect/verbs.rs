@@ -590,6 +590,14 @@ impl Effect {
         }
     }
 
+    /// `Goad target creature.` (CR 701.15a–b).
+    #[must_use]
+    pub const fn goad_target() -> Self {
+        Self::Goad {
+            target: super::TargetSpec::Object(&Filter::CREATURE),
+        }
+    }
+
     /// The effect lists this one runs, as at most two slices.
     ///
     /// **Ten variants carry another effect and this is the only list of
@@ -1000,6 +1008,8 @@ impl Effect {
             | Effect::TargetMayBlockAttackerOfChoice
             | Effect::MustBlockSourceIfAbleThisCombat
             | Effect::MustBlockIfAble { .. }
+            | Effect::Goad { .. }
+            | Effect::GoadAll { .. }
             | Effect::ToggleTapTarget
             | Effect::TapAll { .. }
             | Effect::TapAllOf { .. }

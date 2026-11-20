@@ -26,6 +26,7 @@ mod branches;
 mod chosen_count_entry;
 mod color_source;
 mod combat_memory;
+mod command_and_combat_wave3;
 mod control;
 mod cost_reductions_and_kicker;
 mod costs;

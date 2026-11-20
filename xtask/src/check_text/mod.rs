@@ -561,6 +561,12 @@ pub(crate) const KEYWORD_WORDS: &[(baylee_cards::dsl::KeywordSet, &str)] = {
         (K::UNDYING, "undying"),
         (K::PERSIST, "persist"),
         (K::READ_AHEAD, "read ahead"),
+        (K::PROVOKE, "provoke"),
+        (K::BATTLE_CRY, "battle cry"),
+        (K::DETHRONE, "dethrone"),
+        (K::MELEE, "melee"),
+        (K::MENTOR, "mentor"),
+        (K::TRAINING, "training"),
     ]
 };
 

@@ -1049,6 +1049,11 @@ keywords! {
     FREERUNNING = 50, "Has freerunning; its cost remains on `FaceDef` (CR 702.173a).";
     PROVOKE = 52, "Provoke (CR 702.39).";
     READ_AHEAD = 53, "Read ahead (CR 702.155).";
+    BATTLE_CRY = 54, "Battle cry (CR 702.91).";
+    DETHRONE = 55, "Dethrone (CR 702.105).";
+    MELEE = 56, "Melee (CR 702.121).";
+    MENTOR = 57, "Mentor (CR 702.134).";
+    TRAINING = 58, "Training (CR 702.149).";
 }
 
 impl KeywordSet {
@@ -1169,6 +1174,11 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::STORM, "Storm"),
     (KeywordSet::PROVOKE, "Provoke"),
     (KeywordSet::READ_AHEAD, "Read ahead"),
+    (KeywordSet::BATTLE_CRY, "Battle cry"),
+    (KeywordSet::DETHRONE, "Dethrone"),
+    (KeywordSet::MELEE, "Melee"),
+    (KeywordSet::MENTOR, "Mentor"),
+    (KeywordSet::TRAINING, "Training"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

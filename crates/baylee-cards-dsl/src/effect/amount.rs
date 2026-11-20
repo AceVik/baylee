@@ -326,6 +326,9 @@ pub enum Amount {
     /// Number of coin flips won by the controller so far in this resolution
     /// (CR 705.2).
     CoinsWonThisResolution,
+    /// Number of distinct opponents you declared at least one attacking
+    /// creature against during this combat (CR 702.121a: melee, Adriana).
+    OpponentsYouAttackedThisCombat,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

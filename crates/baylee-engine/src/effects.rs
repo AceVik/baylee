@@ -301,6 +301,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
         | Modifier::CantPhaseOut
+        | Modifier::Goaded
         | Modifier::UntapAtMost { .. }
         // A permission read as the attack is declared: whatever matches the
         // filter then may attack, not a set fixed as the effect began.
@@ -1980,6 +1981,7 @@ mod tests {
             ),
             Modifier::CantPhaseOut,
             Modifier::RollAdditionalDieIgnoreLowest,
+            Modifier::Goaded,
         ]
     }
 
@@ -2018,7 +2020,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            209,
+            210,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2127,8 +2129,9 @@ mod tests {
         // standing prevention rules (+2 rules-only -> 150).
         // GrantTriggeredDefinition locks its recipient set (+1 -> 57);
         // CantPhaseOut modifies a rule (+1 -> 151);
-        // RollAdditionalDieIgnoreLowest is a die-rolling replacement (+1 rules-only -> 152).
-        assert_eq!((locking, all.len() - locking), (57, 152));
+        // RollAdditionalDieIgnoreLowest is a die-rolling replacement (+1 rules-only -> 152);
+        // Goaded modifies combat rules (+1 rules-only -> 153).
+        assert_eq!((locking, all.len() - locking), (57, 153));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

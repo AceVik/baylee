@@ -686,3 +686,38 @@ fn multi_capacity_blocker_adds_up_to_its_limit_before_reporting_full() {
         })
     );
 }
+
+#[test]
+fn attacker_limits_restrict_selectability_toggle_and_bulk_addition() {
+    let mut i = interaction(Pending::ChooseAttackers {
+        player: me(),
+        attackers: vec![obj(1), obj(2)],
+        defenders: vec![seat(1), seat(2)],
+        required: vec![obj(1)],
+        alone: Vec::new(),
+        minimum_required: Some(1),
+        limits: vec![baylee_engine::choice::AttackLimit {
+            creature: obj(1),
+            defenders: vec![seat(2)],
+        }],
+    });
+    assert_eq!(i.combat_focus(), CombatFocus::Defender(seat(1)));
+    assert!(!i.is_selectable(obj(1)), "goaded away from seat(1)");
+    assert!(i.is_selectable(obj(2)));
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Rejected);
+    assert!(!i.declare_attacker(obj(1), seat(1)));
+    assert!(i.edit_attack(AttackOption::AddRemaining));
+    assert_eq!(i.assignment(obj(1)), None);
+    assert_eq!(i.assignment(obj(2)), Some(CombatFocus::Defender(seat(1))));
+
+    i.cycle_focus(1);
+    assert_eq!(i.combat_focus(), CombatFocus::Defender(seat(2)));
+    assert!(i.is_selectable(obj(1)));
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareAttackers {
+            attackers: vec![(obj(2), seat(1)), (obj(1), seat(2))]
+        })
+    );
+}

@@ -155,6 +155,11 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("costless land mayhem", K::MAYHEM),                     // casting::mayhem_land_permission
         ("banding", K::BANDING), // Engine::ask_band, combat::divisions_owed
         ("provoke", K::PROVOKE), // trigger::provoke::collect (CR 702.39a)
+        ("battle cry", K::BATTLE_CRY), // trigger::combat_keywords::collect (CR 702.91a)
+        ("dethrone", K::DETHRONE), // trigger::combat_keywords::collect (CR 702.105a)
+        ("melee", K::MELEE),     // trigger::combat_keywords::collect (CR 702.121a)
+        ("mentor", K::MENTOR),   // trigger::combat_keywords::collect (CR 702.134a)
+        ("training", K::TRAINING), // trigger::combat_keywords::collect (CR 702.149a)
     ]
 };
 

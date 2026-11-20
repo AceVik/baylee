@@ -390,7 +390,14 @@ impl HeuristicAgent {
             Filter::ToughnessAtLeast(n) => Some(object.toughness.is_some_and(|t| t >= *n)),
             Filter::PowerAtLeast(n) => Some(object.power.is_some_and(|p| p >= *n)),
             Filter::PowerAtMost(n) => Some(object.power.is_some_and(|p| p <= *n)),
-            Filter::InZone(want) => Some(zone == *want),
+            Filter::IsCommander => Some(object.commander),
+            Filter::InZone(want) => Some(match *want {
+                ZoneRef::BattlefieldOrCommand => {
+                    matches!(zone, ZoneRef::Battlefield | ZoneRef::Command | ZoneRef::BattlefieldOrCommand)
+                }
+                ZoneRef::NotBattlefield => zone != ZoneRef::Battlefield,
+                exact => zone == exact,
+            }),
             // The view lists every instance's targets and every player on a
             // stack object, which is the count CR 115.9a asks for.
             Filter::WithSingleTarget => Some(object.targets.len() == 1),
@@ -423,7 +430,6 @@ impl HeuristicAgent {
             | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
         | Filter::NotTargetedByAnotherNamed(_)
-        | Filter::IsCommander
         | Filter::HasAdventure
         | Filter::ActivatedAbilityFrom(_)
         | Filter::TargetsPermanentYouControl

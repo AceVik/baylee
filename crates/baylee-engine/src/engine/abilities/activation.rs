@@ -327,6 +327,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .state
                 .object(source)
                 .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == player),
+            ActivationZone::BattlefieldOrCommand => self.state.object(source).is_some_and(|o| {
+                (o.zone == Zone::Battlefield && o.controller == player)
+                    || (o.zone == Zone::Command && o.owner == player && !o.is_merged_component())
+            }),
             ActivationZone::BattlefieldOwner => self
                 .state
                 .object(source)

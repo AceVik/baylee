@@ -76,6 +76,8 @@ pub enum ActivationZone {
     /// From your graveyard (eternalize, embalm): the card is in its owner's
     /// graveyard and the owner activates it.
     Graveyard,
+    /// On the battlefield under your control, or from your command zone.
+    BattlefieldOrCommand,
 }
 
 /// Where a printed triggered ability functions (CR 113.6).
@@ -87,6 +89,25 @@ pub enum TriggerZone {
     Graveyard,
     /// In exile (CR 113.6b, All Hallow's Eve).
     Exile,
+    /// In the card owner's command zone (CR 113.6b: Oloro, Ageless Ascetic).
+    Command,
+    /// On the battlefield or in the card owner's command zone (CR 113.6b:
+    /// eminence — Edgar Markov, Inalla, Arahbo, Sidar Jabari).
+    BattlefieldOrCommand,
+}
+
+impl TriggerZone {
+    /// Whether this trigger zone includes the battlefield.
+    #[must_use]
+    pub const fn functions_on_battlefield(self) -> bool {
+        matches!(self, Self::Battlefield | Self::BattlefieldOrCommand)
+    }
+
+    /// Whether this trigger zone includes the owner's command zone.
+    #[must_use]
+    pub const fn functions_in_command(self) -> bool {
+        matches!(self, Self::Command | Self::BattlefieldOrCommand)
+    }
 }
 
 /// Steps a trigger can listen to, and a step a timing restriction names.
@@ -528,6 +549,14 @@ pub enum Condition {
     /// spell's creature types (Prowl, CR 702.76a). Appended to preserve replay
     /// identities.
     Prowl,
+    /// You control one of your own designated commanders on the battlefield
+    /// (CR 903.3c–d, 702.124d: Bastion Protector, Loyal Apprentice). Appended
+    /// to preserve replay identities.
+    ControlYourCommander,
+    /// This exact source object is currently in the stated zone (CR 113.6b,
+    /// CR 603.4, CR 400.7: Oloro's and eminence's intervening `if`). Appended
+    /// to preserve replay identities.
+    SourceInZone(crate::ZoneRef),
 }
 
 /// Trigger conditions for triggered abilities.

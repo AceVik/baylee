@@ -84,6 +84,7 @@ impl GameState {
             synthetic_copies,
             commanders,
             monarch,
+            goaded,
             game_end,
             day_night,
             previous_turn,
@@ -181,6 +182,9 @@ impl GameState {
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
         monarch.hash(&mut h);
+        if !goaded.is_empty() {
+            goaded.hash(&mut h);
+        }
         game_end.hash(&mut h);
         format.hash(&mut h);
         starting_player.hash(&mut h);
@@ -431,6 +435,13 @@ impl GameState {
         // A land already cleaned by this incarnation is not eligible again,
         // even if the visible board and counter totals are identical.
         self.counter_links.hash(&mut h);
+        if !self.goaded.is_empty() {
+            h.usize(self.goaded.len());
+            for entry in &self.goaded.0 {
+                h.u32(position(entry.creature.object));
+                entry.goader.hash(&mut h);
+            }
+        }
         h.finish()
     }
 

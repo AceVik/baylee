@@ -196,7 +196,7 @@ fn own_caps(state: &GameState, object: &crate::object::GameObject) -> Vec<(Count
             else {
                 return None;
             };
-            (ability.source_zone == baylee_cards_dsl::ZoneRef::Battlefield
+            (crate::zone::Zone::Battlefield.matches_ref(ability.source_zone)
                 && matches!(ability.filter, Filter::This)
                 && ability.condition.is_none_or(|condition| {
                     crate::eval::condition_holds(state, object.controller, object.id, condition)

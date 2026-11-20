@@ -108,6 +108,7 @@ impl GameState {
             synthetic_copies: _,
             commanders,
             monarch: _,
+            goaded: _,
             // Refused before the audit (`ForkRefusal::GameOver`).
             game_end: _,
             day_night: _,

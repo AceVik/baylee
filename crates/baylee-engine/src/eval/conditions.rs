@@ -613,6 +613,17 @@ pub fn condition_holds_with_context(
                 .sum::<u32>()
                 .is_multiple_of(2)
         }),
+        Condition::ControlYourCommander => state.battlefield_seen().any(|id| {
+            state
+                .object(id)
+                .is_some_and(|o| o.controller == you && state.holds_commander_of(you, o))
+        }),
+        Condition::SourceInZone(zone) => state.object(source).is_some_and(|o| {
+            o.zone.matches_ref(zone)
+                && (o.zone != Zone::Battlefield
+                    || !o.status.contains(crate::object::Status::PHASED_OUT))
+                && (o.zone != Zone::Exile || !o.status.contains(crate::object::Status::FACE_DOWN))
+        }),
     }
 }
 
@@ -762,7 +773,7 @@ pub(crate) fn intervening_if_for_incarnation(
             attached_for_ability(state, source, version, attachment)
                 .is_some_and(|o| matches(filter, state, o, you, source))
         }
-        Some(Condition::GraveyardCardsAbove(_, _)) => {
+        Some(Condition::GraveyardCardsAbove(_, _) | Condition::SourceInZone(_)) => {
             version.is_none_or(|version| state.object(source).is_some_and(|o| o.version == version))
                 && intervening_if(state, condition, you, source)
         }

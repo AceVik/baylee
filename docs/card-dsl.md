@@ -1539,7 +1539,8 @@ predicates the pool kept reinventing — `CREATURE`, `ARTIFACT`,
 `CREATURE_OR_PLANESWALKER`, `NONBASIC_LAND`, `NONTOKEN_CREATURE`,
 `ANOTHER_CREATURE`, `LEGENDARY_CREATURE`, `ATTACKING_CREATURE`,
 `YOUR_CREATURE`, `OPPONENT_CREATURE`, `YOUR_LAND`, `YOUR_BASIC_LAND`,
-`YOUR_ARTIFACT`, `ANOTHER_CREATURE_YOU_CONTROL`,
+`YOUR_ARTIFACT`, `YOUR_COMMANDER`, `COMMANDER_YOU_CONTROL`,
+`ANOTHER_CREATURE_YOU_CONTROL`,
 `YOUR_CREATURE_WITH_POWER_4_OR_GREATER`. "A creature" had been
 written out as `HasType(TypeSet::CREATURE)` in a differently-named `static`
 in twenty-six card files, which is twenty-six chances to type `LacksType` by
@@ -5533,3 +5534,48 @@ registers one or more delayed triggered abilities during resolution:
     `min..=max` matching cards in place from `who`'s hand (`CR 701.20a`, `CR 701.20b`),
     and `Effect::RevealTop { player, count, filter, if_matches, otherwise }`
     reveals the top `count` library card(s) in place and branches on `filter`.
+### Command-Zone / Eminence Primitives, Goad, and Combat Keyword Triggers
+
+**Command-zone & eminence abilities (`CR 113.6b`, `CR 903.3`, `CR 603.4`).**
+- `TriggerZone::Command` fires only while the source card is in its owner's
+  command zone (`CR 113.6b` — Oloro, Ageless Ascetic);
+  `TriggerZone::BattlefieldOrCommand` fires while the source is either on the
+  battlefield or in its owner's command zone (`CR 113.6b` — eminence on Edgar
+  Markov, Inalla, Arahbo, Sidar Jabari). Pair eminence triggers that print an
+  intervening `if` with `Condition::SourceInZone(ZoneRef::Command)` or
+  `Condition::SourceInZone(ZoneRef::BattlefieldOrCommand)` so `CR 603.4` +
+  `CR 400.7` re-checks that exact source incarnation on resolution.
+- `ZoneRef::BattlefieldOrCommand` matches objects on the battlefield or in the
+  command zone, including `StaticAbility::source_zone` (`The Ur-Dragon`'s
+  eminence cost reduction).
+- `ActivationZone::BattlefieldOrCommand` offers an activated ability both while
+  controlled on the battlefield and while in its owner's command zone
+  (complementing `ActivationZone::Command` on *Derevi, Empyrial Tactician*).
+- `Condition::ControlYourCommander` holds when you control one of your own
+  designated unphased commanders on the battlefield, merged permanents and
+  partners included (`CR 903.3c–d`, `CR 702.124d` — *Bastion Protector*, *Loyal
+  Apprentice*); `Filter::YOUR_COMMANDER` and `Filter::COMMANDER_YOU_CONTROL`
+  provide the matching permanent filters over `Filter::IsCommander`.
+
+**Goad (`CR 701.15a–d`, `CR 508.1d`).**
+- `Effect::Goad { target }` (`Effect::goad_target()` for `TargetSpec::Object(&Filter::CREATURE)`)
+  and `Effect::GoadAll { filter, controlled_by }` goad matching battlefield
+  creatures until the resolving controller's next turn (`CR 701.15a`, expiring at
+  the turn boundary where a departed goader's next turn would have begun under
+  `CR 800.4m`); `Modifier::Goaded` applies static goad while active (*Shiny
+  Impetus*, *Bloodthirsty Blade*).
+- Each distinct goading player adds two `CR 508.1d` requirements to the goaded
+  creature ("attacks each combat if able" and "attacks a player other than the
+  goading player if able", `CR 701.15b–d`), maximized across legal untaxed
+  declarations.
+
+**Combat attack keyword triggers (`CR 702.91`, `702.105`, `702.121`, `702.134`, `702.149`).**
+Each triggers once per keyword instance (`layers::keyword_instances`):
+- `KeywordSet::BATTLE_CRY` — battle cry (`CR 702.91a–b`).
+- `KeywordSet::DETHRONE` — dethrone (`CR 702.105a–b`).
+- `KeywordSet::MELEE` — melee (`CR 702.121a–b`), backed by reusable
+  `Amount::OpponentsYouAttackedThisCombat`.
+- `KeywordSet::MENTOR` — mentor (`CR 702.134a–b`), re-checking
+  `Filter::PowerLessThanSourcePower` against source LKI on resolution
+  (`CR 608.2b`, `CR 608.2h`).
+- `KeywordSet::TRAINING` — training (`CR 702.149a–b`).

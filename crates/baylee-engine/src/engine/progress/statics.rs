@@ -251,8 +251,11 @@ impl crate::state::GameState {
                         origin: crate::effects::EffectOrigin::Static,
                         layer: sa.layer,
                         timestamp: obj.timestamp,
-                        duration: if sa.source_zone == baylee_cards_dsl::ZoneRef::Battlefield {
+                        duration: if obj.zone == Zone::Battlefield {
                             Duration::WhileSourceOnBattlefield
+                        } else if sa.source_zone == baylee_cards_dsl::ZoneRef::BattlefieldOrCommand
+                        {
+                            Duration::WhileSourceInZone(baylee_cards_dsl::ZoneRef::Command)
                         } else {
                             Duration::WhileSourceInZone(sa.source_zone)
                         },

@@ -29,11 +29,13 @@ mod block;
 mod damage;
 mod defenders;
 mod exchange;
+pub mod goad;
 use crate::object::Status;
 pub(crate) use defenders::{
     active_damage_recipient, historical_defending_player, recheck_defenders, remember_attack,
 };
 pub(crate) use exchange::exchange_blockers;
+pub use goad::GoadEntry;
 
 use crate::state::GameState;
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
@@ -328,6 +330,25 @@ impl CombatState {
             .iter()
             .find(|(c, _, _)| *c == id)
             .map(|(_, v, d)| (*v, *d))
+    }
+
+    /// Number of distinct opponents `player` declared at least one attacking
+    /// creature against during this combat (CR 702.121a: melee).
+    #[must_use]
+    pub fn opponents_attacked_by(&self, state: &GameState, player: PlayerId) -> u32 {
+        let mut mask = 0_u64;
+        for &(id, version, defender) in &self.defended {
+            let Defender::Player(opp) = defender else {
+                continue;
+            };
+            if state.is_opponent(opp, player)
+                && self.participants.contains(&(id, version))
+                && state.per_turn.attacked.contains(&(id, version, player))
+            {
+                mask |= 1_u64 << opp.get();
+            }
+        }
+        mask.count_ones()
     }
 
     /// Keeps the attackers `keep` says to, in their order.
