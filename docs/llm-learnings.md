@@ -8378,5 +8378,8 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   `Filter::IsToken` (`effects.rs:3653`), `Prepare` back-face `generated_tokens::` import
   (`stubgen/render.rs:196`), and `xtask` optional-clause face-cost checks; and landed 32
   newly readable Wave 6/6b pool stubs (`Spoils of Evil` kept as stub pending
-  `ZoneSel::GraveyardOf(PlayerRel::Chosen)` fix in `mana.rs`). Combined `transcode-report`
-  reached **`17,405 / 34,482` (`50%`)** scripts and **`748 / 864` (`0` collisions)** tokens.
+  `ZoneSel::GraveyardOf(PlayerRel::Chosen)` fix in `mana.rs`), plus **Pass E1 (`608bc2bfe`,
+  `55f0da5eb`)** adding **+319** pre-`zen` generated cards (`12,652` finished / `13,654`
+  pool cards; `Smokebraider` precon golden blessed in `a9bbf86ea`) and **Wave 7c (`4b645d21b`)**
+  raising `transcode-report` to **`17,515 / 34,482` (`50%`)** scripts and
+  **`750 / 864` (`0` collisions)** tokens (`+2` tokens, `22` additional stubs immediately readable).
