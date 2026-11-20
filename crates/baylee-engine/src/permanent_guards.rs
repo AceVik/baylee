@@ -84,7 +84,7 @@ fn guards(
             controller,
             crate::text_changes::RuleContext {
                 resolved_name: None,
-        resolved_subtype: None,
+                resolved_subtype: None,
 
                 reference: crate::effects::still_the_object(state, id, version),
                 ..context

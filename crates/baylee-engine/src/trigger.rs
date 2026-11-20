@@ -882,7 +882,7 @@ fn collect_for_objects(
                 source: permanent,
                 text,
                 resolved_name: None,
-        resolved_subtype: None,
+                resolved_subtype: None,
                 reference: None,
             };
             let look_back = matches!(
@@ -1103,7 +1103,7 @@ fn collect_for_objects(
                 source: obj.id,
                 text: list.base_text(index).then(current_text),
                 resolved_name: None,
-        resolved_subtype: None,
+                resolved_subtype: None,
                 reference: None,
             };
             let condition_reads_event = firing.condition.is_some_and(eval::condition_reads_event);

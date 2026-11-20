@@ -156,7 +156,7 @@ impl DamageWork {
                             source: fx.source.unwrap_or(part.view.source),
                             text: state.effect_text(fx),
                             resolved_name: None,
-                        resolved_subtype: None,
+                            resolved_subtype: None,
                             reference: None,
                         },
                     ) {
@@ -205,7 +205,7 @@ impl DamageWork {
                             source: fx.source.unwrap_or(object.id),
                             text: state.effect_text(fx),
                             resolved_name: None,
-                        resolved_subtype: None,
+                            resolved_subtype: None,
                             reference: None,
                         },
                     ) {
@@ -258,7 +258,7 @@ impl DamageWork {
                             source: fx.source.unwrap_or(object.id),
                             text: state.effect_text(fx),
                             resolved_name: None,
-                        resolved_subtype: None,
+                            resolved_subtype: None,
                             reference: None,
                         },
                     ) {
@@ -290,7 +290,7 @@ impl DamageWork {
                             source: fx.source.unwrap_or(source.id),
                             text: state.effect_text(fx),
                             resolved_name: None,
-                        resolved_subtype: None,
+                            resolved_subtype: None,
                             reference: None,
                         },
                     ) {
@@ -375,7 +375,7 @@ impl DamageWork {
                             source: this,
                             text: state.effect_text(fx),
                             resolved_name: None,
-                        resolved_subtype: None,
+                            resolved_subtype: None,
                             reference: None,
                         },
                     );
