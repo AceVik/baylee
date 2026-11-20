@@ -31,7 +31,7 @@ card!(
                 keywords: KeywordSet::INDESTRUCTIBLE,
                 duration: Duration::UntilEndOfTurn
             },
-            Effect::TapTarget
+            Effect::TapSelf
         ]
     ),],
 );

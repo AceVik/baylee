@@ -3475,6 +3475,22 @@ pub static WIREFLY_ARTIFACT_2_2_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// */* green Elephant.
+pub static ELEPHANT_X_X_GREEN_A43AFFAD0: TokenDef = TokenDef {
+    name: "Elephant",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEPHANT],
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::CharacteristicPT {
+            count: PtCount::InAllGraveyards(&Filter::And(&[Filter::CREATURE, Filter::OwnedByYou])),
+            toughness_plus: 0
+        }
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -4526,6 +4542,7 @@ pub static ALL: &[&TokenDef] = &[
     &ZOMBIE_WIZARD_1_1_BLUE_BLACK,
     &BIRD_SOLDIER_1_1_WHITE_FLYING,
     &WIREFLY_ARTIFACT_2_2_FLYING,
+    &ELEPHANT_X_X_GREEN_A43AFFAD0,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -4791,4 +4808,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &ZOMBIE_WIZARD_1_1_BLUE_BLACK,
     &BIRD_SOLDIER_1_1_WHITE_FLYING,
     &WIREFLY_ARTIFACT_2_2_FLYING,
+    &ELEPHANT_X_X_GREEN_A43AFFAD0,
 ];

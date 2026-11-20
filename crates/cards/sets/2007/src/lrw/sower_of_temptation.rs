@@ -27,7 +27,7 @@ card!(
         &[Effect::continuous(
             &Filter::This,
             Modifier::GainControl,
-            Duration::WhileYouControlSource
+            Duration::WhileSourceOnBattlefield
         )],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
     ),],

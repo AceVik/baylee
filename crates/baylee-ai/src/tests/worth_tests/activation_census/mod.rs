@@ -557,7 +557,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Symbiotic Deployment, and Voice of the Woods): 14 read and 2 contextual.
     // Batch wave 4 (319 generated cards, pre-ZEN) adds 108 non-mana
     // activations: 84 read by the table and 24 remaining contextual.
-    assert_eq!((read, of), (3324, 4230), "activated/loyalty reader census");
+    // Completing 16 Wave 7 pool stubs adds 2 non-mana activated abilities
+    // across Kyren Toy and Nakaya Shade: 1 read and 1 contextual.
+    assert_eq!((read, of), (3325, 4232), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
