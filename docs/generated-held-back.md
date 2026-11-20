@@ -11,9 +11,9 @@ never a reason to edit a card by hand.
 - Bloodhall Ooze, Graceful Antelope: optional "may" semantics the reader drops.
 - Disembowel, Molder, Repeal: the target preview for X (its ceiling stays 6; the owner declined an exception list).
 - Cogwork Spy, Deal Broker, Illusionary Informant, Myr Kinsmith: `validate`: the printing says "you may" and the code never asks.
-- Rage-Scarred Berserker: `validate`: "you control" with no `Filter::ControlledByYou`.
+- Rage-Scarred Berserker, Worst Fears: `validate`: "you control" with no `Filter::ControlledByYou`.
 - Tempest Caller: `validate`: "an opponent controls" with no `Filter::ControlledByOpponent`.
-- Hammer of Purphoros: `validate`: type line order "Enchantment Artifact" written as "Artifact Enchantment".
+- Hammer of Purphoros, Bident of Thassa, Bow of Nylea: `validate`: type line order "Enchantment Artifact" written as "Artifact Enchantment".
 - Lotus Ring: its granted mana ability has no printed line, and it is a priced granted mana ability with no board test.
 - Demonmail Hauberk, Murderer's Axe: mana sheet row with neither printed sentence nor cost.
 - Orzhov Locket, Letter of Acceptance: a written row that cannot name its printed sentence.

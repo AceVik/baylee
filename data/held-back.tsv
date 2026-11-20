@@ -17,8 +17,11 @@ adfd33cb-086c-48f4-b443-ba971ff43684	Cogwork Spy	reader-gap: validate fails on o
 5e8c6894-c9ad-4a50-af13-c2d95395c71e	Illusionary Informant	reader-gap: validate fails on omitted "you may"
 97bb382b-16b2-44db-a2bd-de09ca90bfcc	Myr Kinsmith	reader-gap: validate fails on omitted "you may"
 658d54d4-e967-490c-b958-3743b3b1ef45	Rage-Scarred Berserker	reader-gap: validate: "you control" without Filter::ControlledByYou
+face0a43-6604-4508-b511-81ab0bef7b18	Worst Fears	reader-gap: validate: "you control" without Filter::ControlledByYou
 b6ec5a5c-144d-4ac3-bd05-2dc360c670fd	Tempest Caller	reader-gap: validate: "an opponent controls" without Filter::ControlledByOpponent
 212d058b-69c6-4dc2-8c93-bdfe26dc2ffe	Hammer of Purphoros	reader-gap: validate: Enchantment Artifact type order mismatch
+e1afaef7-9fa3-4662-a95f-adfb0da9fd11	Bident of Thassa	reader-gap: validate: Enchantment Artifact type order mismatch
+361b965f-2ce7-49f8-84e7-7325ea0c948d	Bow of Nylea	reader-gap: validate: Enchantment Artifact type order mismatch
 ca4d3d27-ea3a-44ac-96e9-b52b563129f8	Lotus Ring	reader-gap: granted mana ability missing printed line and board test
 dac85722-d741-4584-8b98-8ac220958a38	Demonmail Hauberk	reader-gap: mana sheet row lacks printed sentence and cost
 f0ea953a-10c3-4ec7-8f03-f7aed75dbb94	Murderer's Axe	reader-gap: mana sheet row lacks printed sentence and cost
