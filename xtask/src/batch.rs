@@ -2,8 +2,8 @@
 //! clean tree.
 
 use crate::{
-    BTreeMap, BTreeSet, Path, PathBuf, card_files, catalog, fs, pool_additions, scriptgen, scripts,
-    scripts_root, scryfall, stubgen, tokengen, unplayable_ids,
+    BTreeMap, BTreeSet, Path, PathBuf, acceptance, card_files, catalog, front_face_slug, fs,
+    pool_additions, scriptgen, scripts, scripts_root, scryfall, stubgen, tokengen, unplayable_ids,
 };
 use anyhow::Context as _;
 
@@ -150,6 +150,25 @@ pub(crate) fn drift_from_status(porcelain: &str, asked: &BTreeSet<String>) -> Ve
 /// The reach moves when the *reader* moves, and downwards is the healthy
 /// direction: a refusal learned since the last batch takes cards off the list
 /// that a stale slice would still be proposing.
+/// Filters `proposed` against `pool`, `decks_text`, and existing or
+/// intra-batch `front_face_slug` values so twin spellings never trip
+/// `refuse_twin_names`.
+pub(crate) fn filter_batch_additions(
+    pool: &str,
+    decks_text: &str,
+    proposed: &[&str],
+) -> anyhow::Result<Vec<String>> {
+    let rows = acceptance::parse_decks(decks_text)?;
+    let mut seen_slugs: BTreeSet<String> = acceptance::all_names(&rows, pool)
+        .into_iter()
+        .map(|name| front_face_slug(&name))
+        .collect();
+    Ok(pool_additions(pool, proposed)
+        .into_iter()
+        .filter(|name| seen_slugs.insert(front_face_slug(name)))
+        .collect())
+}
+
 pub(crate) fn batch_names(
     root: &Path,
     scripts_dir: &Path,
@@ -168,8 +187,9 @@ pub(crate) fn batch_names(
         "the reach list is empty: every card this reader can write is already in the pool"
     );
 
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let proposed: Vec<&str> = reach.names.iter().copied().take(count).collect();
-    let additions = pool_additions(pool, &proposed);
+    let additions = filter_batch_additions(pool, &decks_text, &proposed)?;
     println!(
         "batch: taking {} name(s) in ledger order{}",
         additions.len(),
@@ -177,7 +197,7 @@ pub(crate) fn batch_names(
             String::new()
         } else {
             format!(
-                " ({} of the {} proposed are already in the pool under that spelling)",
+                " ({} of the {} proposed are already in the pool or acceptance decks)",
                 proposed.len() - additions.len(),
                 proposed.len()
             )
@@ -402,11 +422,19 @@ pub(crate) fn resolve_script_index(
     Ok(script_index)
 }
 
+/// Digital-only Alchemy rebalances (`A-*` in the append-only ledger) were dropped
+/// from Scryfall feeds and `/cards/named?exact=`, causing `fetch_named` to fall
+/// back to `?fuzzy=` and collide with the paper card's file path.
+pub(crate) fn is_alchemy_rebalance(name: &str) -> bool {
+    name.starts_with("A-")
+}
+
 /// What a reach measurement found: the names the reader can write today, and
 /// the counts that say whether the walk itself did its job.
 pub(crate) struct Reach {
     names: Vec<&'static str>,
     mine: usize,
+    alchemy: usize,
     held_back: usize,
     scripted: usize,
     refused: usize,
@@ -427,11 +455,11 @@ pub(crate) fn reach_measure(
     let cats = scryfall::fetch_subtype_catalogs(&agent, &root.join(cache))?;
     let script_index = resolve_script_index(root, &dir)?;
     let have: BTreeSet<&str> = baylee_cards::all().map(|def| def.oracle_id).collect();
-    // Never built, so never proposed (data/unplayable.tsv, data/held-back.tsv).
+    // Never built, so never proposed (data/unplayable.tsv, A-* Alchemy, data/held-back.tsv).
     let unplayable = unplayable_ids(root)?;
     let held_back_list = held_back_set(root)?;
-    let (mut mine, mut held_back, mut scripted, mut refused, mut front) =
-        (0usize, 0usize, 0usize, 0usize, 0usize);
+    let (mut mine, mut alchemy, mut held_back, mut scripted, mut refused, mut front) =
+        (0usize, 0usize, 0usize, 0usize, 0usize, 0usize);
     let mut names: Vec<&'static str> = Vec::new();
     // By reference: `ROWS` is a 33 694-element array and not a slice, so
     // `for row in ROWS` copies every one of them onto the stack — measured,
@@ -443,6 +471,10 @@ pub(crate) fn reach_measure(
             continue;
         }
         if unplayable.contains_key(row.oracle_id) {
+            continue;
+        }
+        if is_alchemy_rebalance(row.name) {
+            alchemy += 1;
             continue;
         }
         if held_back_list.contains(row.oracle_id, row.name) {
@@ -469,6 +501,7 @@ pub(crate) fn reach_measure(
     Ok(Reach {
         names,
         mine,
+        alchemy,
         held_back,
         scripted,
         refused,
@@ -486,6 +519,7 @@ pub(crate) fn reach_list(
     let Reach {
         mut names,
         mine,
+        alchemy,
         held_back,
         scripted,
         refused,
@@ -497,6 +531,9 @@ pub(crate) fn reach_list(
         baylee_cards_index::ROWS.len(),
         names.len()
     );
+    if alchemy > 0 {
+        println!("reach: {alchemy} digital Alchemy A-* row(s) skipped");
+    }
     if held_back > 0 {
         println!("reach: {held_back} held-back row(s) skipped (data/held-back.tsv)");
     }
@@ -887,5 +924,46 @@ Fake By Name\tfixture-gap
             live.get("Live Card").map(String::as_str),
             Some("a/live_card.txt")
         );
+    }
+
+    #[test]
+    fn alchemy_rebalance_predicate_matches_only_a_dash_rows_in_ledger() {
+        use super::is_alchemy_rebalance;
+
+        assert!(is_alchemy_rebalance("A-Blood Artist"));
+        assert!(is_alchemy_rebalance("A-The One Ring"));
+        assert!(!is_alchemy_rebalance("Abu Ja'far"));
+        assert!(!is_alchemy_rebalance("A Display of My Dark Power"));
+
+        let mut matched = 0usize;
+        for row in &baylee_cards_index::ROWS {
+            if is_alchemy_rebalance(row.name) {
+                assert!(
+                    row.constant.starts_with("A_"),
+                    "non-Alchemy ledger row matched A- filter: {} ({})",
+                    row.name,
+                    row.constant
+                );
+                matched += 1;
+            }
+        }
+        assert_eq!(matched, 216);
+    }
+
+    #[test]
+    fn filter_batch_additions_deduplicates_acceptance_decks_and_front_face_slugs() {
+        use super::filter_batch_additions;
+
+        let decks = "[deck:Sample]\n1 Delver of Secrets\n";
+        let pool = "Fire // Ice\n";
+        let proposed = [
+            "Delver of Secrets // Insectile Aberration",
+            "Fire",
+            "Wear // Tear",
+            "Wear",
+            "Lightning Bolt",
+        ];
+        let added = filter_batch_additions(pool, decks, &proposed).expect("filter additions");
+        assert_eq!(added, vec!["Wear // Tear", "Lightning Bolt"]);
     }
 }
