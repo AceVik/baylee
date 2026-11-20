@@ -523,7 +523,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Strider).
     // The seven additional typecycling cards add seven searches and three
     // other readable activations (Chartooth Cougar, Eternal Dragon and Twisted Abomination).
-    assert_eq!((read, of), (3050, 3857), "activated/loyalty reader census");
+    // The Legions Amplify batch (8 cards) adds 3 non-mana activations across
+    // Canopy Crawler, Daru Stinger, and Kilnmouth Dragon; all three scale by
+    // `Amount::CountersOnSource(CounterKind::P1P1)` and stay contextual unread
+    // on an empty board.
+    assert_eq!((read, of), (3050, 3860), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
