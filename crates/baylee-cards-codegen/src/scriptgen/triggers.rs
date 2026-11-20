@@ -437,6 +437,7 @@ impl Tx<'_> {
             "PhaseOut" => self.phase_trigger(p, true),
             "FlippedCoin" => self.flipped_coin_trigger(p),
             "RolledDie" => self.rolled_die_trigger(p),
+            "Exerted" => self.exerted_trigger(p),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -503,6 +504,18 @@ impl Tx<'_> {
         Some(format!(
             "Trigger::DieRolled {{ who: {who}, min_result: {min_result} }}"
         ))
+    }
+
+    fn exerted_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(raw) = p.take("ValidCard") else {
+            return self.deny("an `Exerted` trigger with no `ValidCard$`".to_string());
+        };
+        if raw == "Card.Self" {
+            return Some("Trigger::EXERTED_THIS".to_string());
+        }
+        let expr = self.filter_expr(&raw)?;
+        let filter = self.body.filter_static("TRIGGER", &expr);
+        Some(format!("Trigger::Exerted(&{filter})"))
     }
 
     fn counter_added_once_trigger(&mut self, p: &mut Params) -> Option<String> {
@@ -1566,6 +1579,7 @@ impl Tx<'_> {
             || trigger == "Trigger::BecomesBlocked"
             || trigger == "Trigger::PHASES_IN"
             || trigger == "Trigger::PHASES_OUT"
+            || trigger == "Trigger::EXERTED_THIS"
             || trigger.contains("&Filter::This")
             || trigger_self_etb_kicked;
         let optional_flag = match p.take("Optional").as_deref() {
@@ -1669,6 +1683,10 @@ impl Tx<'_> {
             return self.deny("a trigger that reads as no effect at all".to_string());
         }
         let chain_asks = chain.target_up_to.is_some()
+            || chain
+                .effects
+                .iter()
+                .any(|e| e.contains("ChooseCard {") && e.contains("min: 0,"))
             || chain.effects.iter().any(|e| {
                 [
                     "MayDo",
@@ -2659,10 +2677,11 @@ impl Tx<'_> {
             .is_some_and(|v| !v.split([',', '.', '+']).any(|a| a.trim() == "Self"));
         let allowed = match mode {
             "Phase" | "SpellCast" | "DamageDone" | "DamageDoneOnce" | "DamageDealtOnce"
-            | "Drawn" | "LandPlayed" | "Attacks" | "AttackersDeclared" | "LifeGained"
-            | "LifeLost" | "Discarded" | "Cycled" | "CounterAddedOnce" | "FlippedCoin"
-            | "RolledDie" | "SearchedLibrary" => true,
-            "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" => non_self,
+            | "Drawn" | "LandPlayed" | "Attacks" | "AttackersDeclared" | "AttackerBlocked"
+            | "AttackerUnblocked" | "Blocks" | "BecomesTarget" | "LifeGained" | "LifeLost"
+            | "Discarded" | "Cycled" | "CounterAddedOnce" | "FlippedCoin" | "RolledDie"
+            | "SearchedLibrary" => true,
+            "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" => non_self,
             _ => false,
         };
         if allowed {

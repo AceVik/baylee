@@ -703,9 +703,26 @@ impl Tx<'_> {
         }
         let power = self.pump_side_ext(p.take("NumAtt").as_deref().unwrap_or("0"))?;
         let toughness = self.pump_side_ext(p.take("NumDef").as_deref().unwrap_or("0"))?;
-        let keywords = match p.take("KW") {
-            None => "KeywordSet::EMPTY".to_string(),
-            Some(kw) => Self::pump_keyword_bits(&kw)?,
+        let (keywords, prevent_mods) = match p.take("KW") {
+            None => ("KeywordSet::EMPTY".to_string(), Vec::new()),
+            Some(kw) => Self::pump_kw_and_prevent(&kw)?,
+        };
+        let kw_choices = match p.take("KWChoice") {
+            None => None,
+            Some(_) if keywords != "KeywordSet::EMPTY" || !prevent_mods.is_empty() => return None,
+            Some(raw) => {
+                let mut opts = Vec::new();
+                for part in raw.split(',').map(str::trim) {
+                    if part.is_empty() {
+                        return None;
+                    }
+                    opts.push(Self::pump_keyword_bits(part)?);
+                }
+                if opts.len() < 2 {
+                    return None;
+                }
+                Some(opts)
+            }
         };
         // Every duration but the default is a lifetime the DSL spells
         // differently; none of them is "until end of turn" with a longer
@@ -717,16 +734,22 @@ impl Tx<'_> {
             Some("Permanent")
                 if power == "Amount::Fixed(0)"
                     && toughness == "Amount::Fixed(0)"
-                    && keywords != "KeywordSet::EMPTY" =>
+                    && prevent_mods.is_empty()
+                    && (keywords != "KeywordSet::EMPTY" || kw_choices.is_some()) =>
             {
                 "Duration::Indefinitely"
             }
-            Some("UntilUntaps") if !self.on_a_spell => {
+            Some("UntilUntaps") if !self.on_a_spell && prevent_mods.is_empty() => {
                 "Duration::WhileSourceTapped { control: false, power_limited: false }"
             }
-            Some("AsLongAsControl") if !self.on_a_spell => "Duration::WhileYouControlSource",
+            Some("AsLongAsControl") if !self.on_a_spell && prevent_mods.is_empty() => {
+                "Duration::WhileYouControlSource"
+            }
             Some(_) => return None,
         };
+        if !prevent_mods.is_empty() && second {
+            return None;
+        }
         // Purely an AI targeting hint (don't curse your own team); it moves
         // no rule, so reading it changes nothing.
         p.take("IsCurse");
@@ -738,9 +761,10 @@ impl Tx<'_> {
         // for (`SP$ Pump | StackDescription$ None`), and pumping the source
         // by nought would claim a card that does nothing. A spell has no
         // self to pump once it resolves, so its bare pump stays refused.
-        let empty = power == "Amount::Fixed(0)"
-            && toughness == "Amount::Fixed(0)"
-            && keywords == "KeywordSet::EMPTY";
+        let has_pump = power != "Amount::Fixed(0)"
+            || toughness != "Amount::Fixed(0)"
+            || keywords != "KeywordSet::EMPTY";
+        let empty = !has_pump && kw_choices.is_none() && prevent_mods.is_empty();
         let defined = match p.take("Defined") {
             None if target == "TargetSpec::AnyPlayer" && !self.on_a_spell && !empty => {
                 Some("Self".to_string())
@@ -761,7 +785,10 @@ impl Tx<'_> {
                             | "TriggeredNewCardLKICopy"
                             | "TriggeredNewCard"
                     )
-                ) && self.trigger_mode.as_deref() == Some("ChangesZone"))
+                ) && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("ChangesZone" | "Exerted")
+                ))
                 || (matches!(
                     defined.as_deref(),
                     Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
@@ -784,31 +811,95 @@ impl Tx<'_> {
                             .as_ref()
                             .is_some_and(|(role, _, _)| *role == super::BlockRole::Blocked)))))
         {
-            return Some(vec![format!(
-                "Effect::PumpEventObject {{ power: {power}, toughness: {toughness}, \
-                 keywords: {keywords}, duration: {duration} }}"
-            )]);
+            if let Some(opts) = kw_choices {
+                let rendered: Vec<String> = opts
+                    .into_iter()
+                    .map(|kw| {
+                        format!(
+                            "Effect::PumpEventObject {{ power: {power}, toughness: {toughness}, \
+                             keywords: {kw}, duration: {duration} }}"
+                        )
+                    })
+                    .collect();
+                return Some(vec![format!(
+                    "Effect::ChooseOne {{ choices: &[{}] }}",
+                    rendered.join(", ")
+                )]);
+            }
+            let mut out = Vec::new();
+            if has_pump || prevent_mods.is_empty() {
+                out.push(format!(
+                    "Effect::PumpEventObject {{ power: {power}, toughness: {toughness}, \
+                     keywords: {keywords}, duration: {duration} }}"
+                ));
+            }
+            for m in prevent_mods {
+                out.push(format!(
+                    "Effect::ModifyEvent {{ modifier: {m}, duration: {duration} }}"
+                ));
+            }
+            return Some(out);
         }
         // "Enchanted creature gets +1/+0 until end of turn" on an Aura's own
         // activated ability (Firebreathing): the object the source is
         // attached to, which `Filter::AttachedToBySource` binds to the
         // resolving ability's source.
-        let whom = match defined.as_deref() {
-            Some("Self") => Some("Filter::This"),
-            Some("Enchanted" | "Equipped") => Some("Filter::AttachedToBySource"),
+        let whom: Option<(String, Option<&'static str>)> = match defined.as_deref() {
+            Some("Self") => Some(("Filter::This".to_string(), Some("ModifySource"))),
+            Some("Enchanted" | "Equipped") => Some((
+                "Filter::AttachedToBySource".to_string(),
+                Some("ModifyAttached"),
+            )),
             Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
                 if self.trigger_mode.as_deref() == Some("Attacks") =>
             {
-                Some("Filter::Reference")
+                Some(("Filter::Reference".to_string(), Some("ModifyEvent")))
+            }
+            Some(raw)
+                if !second
+                    && target == "TargetSpec::AnyPlayer"
+                    && prevent_mods.is_empty()
+                    && raw.starts_with("Valid ") =>
+            {
+                let expr = self.filter_expr(raw["Valid ".len()..].trim())?;
+                Some((self.body.filter_static("PUMP", &expr), None))
             }
             _ => None,
         };
-        if let Some(whom) = whom {
-            return Some(vec![format!(
-                "Effect::PumpFilter {{ filter: &{whom}, controlled_by: None, \
-                 power: {power}, toughness: {toughness}, keywords: {keywords}, \
-                 duration: {duration} }}"
-            )]);
+        if let Some((whom, modify_variant)) = whom {
+            if let Some(opts) = kw_choices {
+                let rendered: Vec<String> = opts
+                    .into_iter()
+                    .map(|kw| {
+                        format!(
+                            "Effect::PumpFilter {{ filter: &{whom}, controlled_by: None, \
+                             power: {power}, toughness: {toughness}, keywords: {kw}, \
+                             duration: {duration} }}"
+                        )
+                    })
+                    .collect();
+                return Some(vec![format!(
+                    "Effect::ChooseOne {{ choices: &[{}] }}",
+                    rendered.join(", ")
+                )]);
+            }
+            let mut out = Vec::new();
+            if has_pump || prevent_mods.is_empty() {
+                out.push(format!(
+                    "Effect::PumpFilter {{ filter: &{whom}, controlled_by: None, \
+                     power: {power}, toughness: {toughness}, keywords: {keywords}, \
+                     duration: {duration} }}"
+                ));
+            }
+            if !prevent_mods.is_empty() {
+                let variant = modify_variant?;
+                for m in prevent_mods {
+                    out.push(format!(
+                        "Effect::{variant} {{ modifier: {m}, duration: {duration} }}"
+                    ));
+                }
+            }
+            return Some(out);
         }
         Some(match defined.as_deref() {
             None | Some("Targeted") => {
@@ -821,19 +912,105 @@ impl Tx<'_> {
                 } else {
                     "PumpTarget {"
                 };
-                vec![format!(
-                    "Effect::{kind} power: {power}, toughness: {toughness}, \
-                     keywords: {keywords}, duration: {duration} }}"
-                )]
+                if let Some(opts) = kw_choices {
+                    let rendered: Vec<String> = opts
+                        .into_iter()
+                        .map(|kw| {
+                            format!(
+                                "Effect::{kind} power: {power}, toughness: {toughness}, \
+                                 keywords: {kw}, duration: {duration} }}"
+                            )
+                        })
+                        .collect();
+                    vec![format!(
+                        "Effect::ChooseOne {{ choices: &[{}] }}",
+                        rendered.join(", ")
+                    )]
+                } else {
+                    let mut out = Vec::new();
+                    if has_pump || prevent_mods.is_empty() {
+                        out.push(format!(
+                            "Effect::{kind} power: {power}, toughness: {toughness}, \
+                             keywords: {keywords}, duration: {duration} }}"
+                        ));
+                    }
+                    for m in prevent_mods {
+                        out.push(format!(
+                            "Effect::ModifyTargets {{ modifier: {m}, duration: {duration} }}"
+                        ));
+                    }
+                    out
+                }
             }
             Some("ParentTarget") if !second && target != "TargetSpec::AnyPlayer" => {
-                vec![format!(
-                    "Effect::PumpTarget {{ power: {power}, toughness: {toughness}, \
-                     keywords: {keywords}, duration: {duration} }}"
-                )]
+                if let Some(opts) = kw_choices {
+                    let rendered: Vec<String> = opts
+                        .into_iter()
+                        .map(|kw| {
+                            format!(
+                                "Effect::PumpTarget {{ power: {power}, toughness: {toughness}, \
+                                 keywords: {kw}, duration: {duration} }}"
+                            )
+                        })
+                        .collect();
+                    vec![format!(
+                        "Effect::ChooseOne {{ choices: &[{}] }}",
+                        rendered.join(", ")
+                    )]
+                } else {
+                    let mut out = Vec::new();
+                    if has_pump || prevent_mods.is_empty() {
+                        out.push(format!(
+                            "Effect::PumpTarget {{ power: {power}, toughness: {toughness}, \
+                             keywords: {keywords}, duration: {duration} }}"
+                        ));
+                    }
+                    for m in prevent_mods {
+                        out.push(format!(
+                            "Effect::ModifyTargets {{ modifier: {m}, duration: {duration} }}"
+                        ));
+                    }
+                    out
+                }
             }
             Some(_) => return None,
         })
+    }
+
+    fn pump_kw_and_prevent(kw: &str) -> Option<(String, Vec<&'static str>)> {
+        let mut normal = Vec::new();
+        let mut prevent = Vec::new();
+        for part in kw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+            match part {
+                "Prevent all combat damage that would be dealt to CARDNAME." => {
+                    prevent.push("Modifier::PreventDamageToIt");
+                }
+                "Prevent all combat damage that would be dealt by CARDNAME." => {
+                    prevent.push("Modifier::PreventDamageFromIt");
+                }
+                "Prevent all combat damage that would be dealt to and dealt by CARDNAME." => {
+                    prevent.push("Modifier::PreventDamageToIt");
+                    prevent.push("Modifier::PreventDamageFromIt");
+                }
+                "Prevent all damage that would be dealt by CARDNAME." => {
+                    prevent.push("Modifier::PreventAllDamageFromIt");
+                }
+                "Prevent all damage that would be dealt to CARDNAME." => {
+                    prevent.push("Modifier::PreventDamageFrom(&Filter::Any)");
+                }
+                "Prevent all damage that would be dealt to and dealt by CARDNAME." => {
+                    prevent.push("Modifier::PreventDamageFrom(&Filter::Any)");
+                    prevent.push("Modifier::PreventAllDamageFromIt");
+                }
+                other => normal.push(other),
+            }
+        }
+        let bits = if normal.is_empty() {
+            "KeywordSet::EMPTY".to_string()
+        } else {
+            Self::pump_keyword_bits(&normal.join(" & "))?
+        };
+        Some((bits, prevent))
     }
 
     pub(super) fn pump_all_side(&mut self, raw: &str) -> Option<String> {
@@ -3144,10 +3321,12 @@ impl Tx<'_> {
                 || p.peek("Optional") == Some("True")
                 || (!p.has("Mandatory")
                     && !p.has("Optional")
-                    && (p
-                        .peek("SelectPrompt")
-                        .is_some_and(|s| s.to_ascii_lowercase().starts_with("you may"))
-                        || self.oracle.to_ascii_lowercase().contains("you may "))))
+                    && (p.peek("SelectPrompt").is_some_and(|s| {
+                        let lower = s.to_ascii_lowercase();
+                        lower.starts_with("you may")
+                            || lower.starts_with("select up to ")
+                            || lower.starts_with("choose up to ")
+                    }) || self.oracle.to_ascii_lowercase().contains("you may "))))
         {
             return self.choose_from_your_graveyard(p, &destination);
         }
@@ -3206,9 +3385,10 @@ impl Tx<'_> {
             ("Battlefield", "Exile", false) => {
                 p.take("IsCurse");
                 if p.peek("Duration") == Some("UntilHostLeavesPlay") {
+                    let each_opp = target.starts_with("TargetSpec::ObjectOfEachOpponent(");
                     if self.on_a_spell
-                        || !single_target
-                        || !target.starts_with("TargetSpec::Object(")
+                        || (!single_target && !each_opp)
+                        || (!target.starts_with("TargetSpec::Object(") && !each_opp)
                         || p.peek("ThisDefinedAndTgts").is_some()
                     {
                         return None;
@@ -3432,44 +3612,94 @@ impl Tx<'_> {
         if p.take("Hidden").as_deref() != Some("True") {
             return None;
         }
-        let prompt_may = p
-            .take("SelectPrompt")
-            .is_some_and(|s| s.to_ascii_lowercase().starts_with("you may"));
+        let defined_player = p.take("DefinedPlayer");
+        if !matches!(defined_player.as_deref(), None | Some("You")) {
+            return None;
+        }
+        if !matches!(p.take("Chooser").as_deref(), None | Some("You")) {
+            return None;
+        }
+        let prompt_opt = p.take("SelectPrompt").is_some_and(|s| {
+            let lower = s.to_ascii_lowercase();
+            lower.starts_with("you may")
+                || lower.starts_with("select up to ")
+                || lower.starts_with("choose up to ")
+        });
         let optional = match (
             p.take("Mandatory").as_deref(),
             p.take("Optional").as_deref(),
         ) {
             (Some("True"), None) => false,
             (None, Some("True")) => true,
-            (None, None) if prompt_may || self.oracle.to_ascii_lowercase().contains("you may ") => {
+            (None, None) if prompt_opt || self.oracle.to_ascii_lowercase().contains("you may ") => {
                 true
             }
             _ => return None,
         };
-        if !matches!(p.take("ChangeNum").as_deref(), None | Some("1")) {
-            return None;
-        }
+        let num_raw = p.take("ChangeNum").unwrap_or_else(|| "1".to_string());
         let tapped = match p.take("Tapped").as_deref() {
             None | Some("False") => false,
             Some("True") if destination == "Battlefield" => true,
             Some(_) => return None,
         };
-        let dest = match destination {
-            "Battlefield" => "SearchDest::Battlefield",
-            "Hand" => "SearchDest::Hand",
-            "Exile" => "SearchDest::Exile",
-            "Library" if p.take("LibraryPosition").as_deref() == Some("0") => {
-                "SearchDest::TopOfLibrary"
-            }
-            _ => return None,
+        let lib_pos = if destination == "Library" {
+            Some(p.take("LibraryPosition")?)
+        } else {
+            None
         };
         let valid = p.take("ChangeType")?;
-        let stripped = Self::strip_your_graveyard_owner(&valid)?;
+        let stripped = if let Some(s) = Self::strip_your_graveyard_owner(&valid) {
+            s
+        } else if defined_player.as_deref() == Some("You")
+            && !valid.contains("Ctrl")
+            && !valid.contains("Own")
+        {
+            valid
+        } else {
+            return None;
+        };
         let expr = self.filter_expr_in_zone(&stripped, true)?;
         let filter = self.body.filter_static("GRAVE_CHOICE", &expr);
+        if num_raw == "1" {
+            let dest = match (destination, lib_pos.as_deref()) {
+                ("Battlefield", None) => Some("SearchDest::Battlefield"),
+                ("Hand", None) => Some("SearchDest::Hand"),
+                ("Exile", None) => Some("SearchDest::Exile"),
+                ("Library", Some("0")) => Some("SearchDest::TopOfLibrary"),
+                _ => None,
+            };
+            if let Some(dest) = dest {
+                return Some(vec![format!(
+                    "Effect::ChooseFromYourGraveyard {{ filter: &{filter}, destination: {dest}, \
+                     tapped: {tapped}, optional: {optional} }}"
+                )]);
+            }
+        }
+        let movement = match (destination, lib_pos.as_deref()) {
+            ("Battlefield", None) => format!("ChooseMove::Battlefield {{ tapped: {tapped} }}"),
+            ("Hand", None) => "ChooseMove::Hand".to_string(),
+            ("Exile", None) => "ChooseMove::Exile".to_string(),
+            ("Library", Some("0")) => "ChooseMove::TopOfLibrary".to_string(),
+            ("Library", Some("-1")) => "ChooseMove::BottomOfLibrary".to_string(),
+            _ => return None,
+        };
+        let (min, max) = if optional {
+            let max = self.amount_or_count_ext(&num_raw)?;
+            if max == "Amount::Fixed(0)" {
+                return None;
+            }
+            (0u8, max)
+        } else {
+            let n: u8 = self.plain_num(&num_raw)?.try_into().ok()?;
+            if n == 0 {
+                return None;
+            }
+            (n, format!("Amount::Fixed({n})"))
+        };
         Some(vec![format!(
-            "Effect::ChooseFromYourGraveyard {{ filter: &{filter}, destination: {dest}, \
-             tapped: {tapped}, optional: {optional} }}"
+            "Effect::ChooseCard {{ chooser: PlayerRel::You, \
+             zone: ChooseZone::Graveyard(PlayerRel::You), filter: &{filter}, \
+             min: {min}, max: {max}, movement: {movement}, then: &[] }}"
         )])
     }
 
@@ -3506,10 +3736,70 @@ impl Tx<'_> {
         destination: &str,
     ) -> Option<Vec<String>> {
         if destination != "Hand" {
-            self.note(format!(
-                "`ChangeZone` chosen off the battlefield into {destination}"
-            ));
-            return None;
+            let movement = match destination {
+                "Exile" => "ChooseMove::Exile",
+                "Library" => match p.take("LibraryPosition").as_deref() {
+                    Some("0") => "ChooseMove::TopOfLibrary",
+                    Some("-1") => "ChooseMove::BottomOfLibrary",
+                    _ => {
+                        self.note(format!(
+                            "`ChangeZone` chosen off the battlefield into {destination}"
+                        ));
+                        return None;
+                    }
+                },
+                _ => {
+                    self.note(format!(
+                        "`ChangeZone` chosen off the battlefield into {destination}"
+                    ));
+                    return None;
+                }
+            };
+            if p.take("Hidden").as_deref() != Some("True")
+                || p.take("Mandatory").as_deref() != Some("True")
+            {
+                self.note(format!(
+                    "`ChangeZone` chosen off the battlefield into {destination}"
+                ));
+                return None;
+            }
+            let n: u8 = self
+                .plain_num(p.take("ChangeNum").as_deref().unwrap_or("1"))?
+                .try_into()
+                .ok()?;
+            if n == 0 {
+                return None;
+            }
+            let defined_player = p.take("DefinedPlayer");
+            let chooser_raw = p.take("Chooser");
+            let change_type = p.take("ChangeType")?;
+            let (chooser, filter_expr) = match (defined_player.as_deref(), chooser_raw.as_deref()) {
+                (None | Some("You"), None | Some("You")) => {
+                    ("PlayerRel::You", self.filter_expr(&change_type)?)
+                }
+                (Some("TriggeredDefendingPlayer"), Some("DefendingPlayer"))
+                    if matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                    ) && !change_type.contains("Ctrl")
+                        && !change_type.contains("Own") =>
+                {
+                    let base = self.filter_expr(&change_type)?;
+                    let scoped = if base == "Filter::Any" {
+                        "Filter::ControlledByDefendingPlayer".to_string()
+                    } else {
+                        format!("Filter::And(&[{base}, Filter::ControlledByDefendingPlayer])")
+                    };
+                    ("PlayerRel::DefendingPlayer", scoped)
+                }
+                _ => return None,
+            };
+            let name = self.body.filter_static("CHOOSE_BF", &filter_expr);
+            return Some(vec![format!(
+                "Effect::ChooseCard {{ chooser: {chooser}, zone: ChooseZone::Battlefield, \
+                 filter: &{name}, min: {n}, max: Amount::Fixed({n}), \
+                 movement: {movement}, then: &[] }}"
+            )]);
         }
         for (key, expected) in [("Hidden", "True"), ("Mandatory", "True")] {
             match p.take(key).as_deref() {
@@ -3969,7 +4259,7 @@ impl Tx<'_> {
             | "TriggeredCard" => {
                 matches!(
                     self.trigger_mode.as_deref(),
-                    Some("ChangesZone" | "Discarded" | "Cycled")
+                    Some("ChangesZone" | "Discarded" | "Cycled" | "Exerted")
                 )
             }
             "TriggeredAttackerLKICopy" | "TriggeredAttacker" => {
@@ -4112,14 +4402,30 @@ impl Tx<'_> {
         let (base_raw, op_raw) = def
             .split_once('/')
             .map_or((def, None), |(l, r)| (l.trim(), Some(r.trim())));
-        let base = match base_raw {
-            "Count$LastDieRoll" => "Amount::LastDieRoll",
-            "Count$CoinsWonThisResolution" => "Amount::CoinsWonThisResolution",
+        let base: String = match base_raw {
+            "Count$LastDieRoll" => "Amount::LastDieRoll".to_string(),
+            "Count$CoinsWonThisResolution" => "Amount::CoinsWonThisResolution".to_string(),
+            _ if self.trigger_is_self => {
+                let kind_code = base_raw
+                    .strip_prefix("TriggeredCard$CardCounters.")
+                    .or_else(|| base_raw.strip_prefix("TriggeredCardLKICopy$CardCounters."))?;
+                let kind = super::counter_kind(kind_code)?;
+                format!("Amount::CountersOnSource({kind})")
+            }
             _ => return None,
         };
         let Some(op) = op_raw else {
-            return Some(base.to_string());
+            return Some(base);
         };
+        if op == "Twice" {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: 2 }}"));
+        }
+        if op == "HalfDown" {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: false }}"));
+        }
+        if op == "HalfUp" {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: true }}"));
+        }
         if let Some(n) = op
             .strip_prefix("Minus.")
             .and_then(|s| s.parse::<u32>().ok())
@@ -5558,6 +5864,7 @@ impl Tx<'_> {
             None | Some("Targeted" | "ParentTarget") => {
                 let tgt = target.filter(|t| {
                     t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::ObjectOfEachOpponent(")
                         || t.starts_with("TargetSpec::ObjectOfEventPlayer(")
                 })?;
                 Some(vec![format!("Effect::Goad {{ target: {tgt} }}")])
@@ -7815,6 +8122,73 @@ impl Tx<'_> {
             }
         };
         Some((vec![eff], trailing))
+    }
+
+    /// `AB$/SP$/DB$ MoveCounter` moving one counter (CR 122.5) ->
+    /// `Effect::MoveCounter { from, to, kind }` or
+    /// `Effect::MoveCounterToEvent { kind }`.
+    pub(super) fn move_counter_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        second_target_here: bool,
+    ) -> Option<Vec<String>> {
+        if !matches!(p.take("CounterNum").as_deref(), None | Some("1")) {
+            return None;
+        }
+        p.take("IsCurse");
+        let raw_kind = p.take("CounterType")?;
+        let kind_opt = if raw_kind.eq_ignore_ascii_case("Any") {
+            None
+        } else {
+            Some(super::counter_kind(&raw_kind)?)
+        };
+        let source = p.take("Source");
+        let defined = p.take("Defined");
+        if second_target_here {
+            if source.as_deref() != Some("ParentTarget")
+                || !matches!(defined.as_deref(), None | Some("Targeted"))
+                || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            {
+                return None;
+            }
+            let kind_expr = kind_opt.map_or_else(|| "None".to_string(), |k| format!("Some({k})"));
+            return Some(vec![format!(
+                "Effect::MoveCounter {{ from: TargetSlot::First, to: TargetSlot::Second, kind: {kind_expr} }}"
+            )]);
+        }
+        if source.as_deref() == Some("Self")
+            && !self.on_a_spell
+            && !targets_here
+            && target.is_none()
+            && defined
+                .as_deref()
+                .is_some_and(|d| self.is_event_object_defined(d))
+        {
+            let kind = kind_opt?;
+            return Some(vec![format!(
+                "Effect::MoveCounterToEvent {{ kind: {kind} }}"
+            )]);
+        }
+        let is_obj_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+        let (from, to) = match (source.as_deref(), defined.as_deref()) {
+            (Some("Self"), None | Some("Targeted"))
+                if !self.on_a_spell && targets_here && is_obj_target =>
+            {
+                ("TargetSlot::This", "TargetSlot::First")
+            }
+            (None | Some("Targeted"), Some("Self"))
+                if !self.on_a_spell && targets_here && is_obj_target =>
+            {
+                ("TargetSlot::First", "TargetSlot::This")
+            }
+            _ => return None,
+        };
+        let kind_expr = kind_opt.map_or_else(|| "None".to_string(), |k| format!("Some({k})"));
+        Some(vec![format!(
+            "Effect::MoveCounter {{ from: {from}, to: {to}, kind: {kind_expr} }}"
+        )])
     }
 }
 

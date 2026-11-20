@@ -412,26 +412,39 @@ impl Tx<'_> {
                 targets_a_player,
             )?
         } else if api == "TargetOnly" {
-            if !targets_here || second_target_here || had_second_target {
-                return self.deny("`TargetOnly` without a single first target".to_string());
-            }
-            p.take("IsCurse");
-            if sub.is_some() {
+            if second_target_here && !had_second_target {
                 if unless.is_some() || dying.is_some() || at_end.is_some() || optional_counter {
                     return self.deny("`TargetOnly` modifier with `SubAbility$`".to_string());
                 }
+                p.take("IsCurse");
                 if !p.exhausted() {
                     if let Some(key) = p.first_key() {
                         self.note(format!("unclaimed parameter `TargetOnly.{key}`"));
                     }
                     return None;
                 }
-                Vec::new()
+                self.two_target_only_followup(&mut sub, chain)?
+            } else if !targets_here || second_target_here || had_second_target {
+                return self.deny("`TargetOnly` without a single first target".to_string());
             } else {
-                vec![
-                    "Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }"
-                        .to_string(),
-                ]
+                p.take("IsCurse");
+                if sub.is_some() {
+                    if unless.is_some() || dying.is_some() || at_end.is_some() || optional_counter {
+                        return self.deny("`TargetOnly` modifier with `SubAbility$`".to_string());
+                    }
+                    if !p.exhausted() {
+                        if let Some(key) = p.first_key() {
+                            self.note(format!("unclaimed parameter `TargetOnly.{key}`"));
+                        }
+                        return None;
+                    }
+                    Vec::new()
+                } else {
+                    vec![
+                        "Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }"
+                            .to_string(),
+                    ]
+                }
             }
         } else if api == "Mill"
             && !targets_here
@@ -487,6 +500,9 @@ impl Tx<'_> {
                     }
                     "Fight" => self.fight_effect(&mut p, true),
                     "DealDamage" => self.bite_effect(&mut p),
+                    "MoveCounter" => {
+                        self.move_counter_effect(&mut p, target.as_deref(), true, true)
+                    }
                     "Tap" => match p.take("Defined").as_deref() {
                         None | Some("Targeted") => {
                             Some(vec!["Effect::TapTargetSlot(TargetSlot::Second)".to_string()])
@@ -941,14 +957,16 @@ impl Tx<'_> {
         valid: &str,
         chain: &mut Chain,
     ) -> Option<()> {
-        let spec = self.resolve_target_spec(api, p, valid, chain)?;
+        let has_target_unique = p.peek("TargetUnique").is_some();
+        let mut spec = self.resolve_target_spec(api, p, valid, chain)?;
         if chain.target.is_some() {
             // A fresh ValidTgts declares another target instance even
             // when its restriction is identical. Never alias it to the
             // earlier list.
-            if chain.second_target.is_some() || !spec.starts_with("TargetSpec::Object(") {
+            if chain.second_target.is_some() {
                 return self.deny("unsupported independent target in one chain".to_string());
             }
+            let is_obj_spec = spec.starts_with("TargetSpec::Object(");
             let single_object_first = chain
                 .target
                 .as_deref()
@@ -956,57 +974,70 @@ impl Tx<'_> {
                 && chain.target_up_to.is_none()
                 && chain.target_exact.is_none()
                 && !chain.target_is_x;
+            let no_riders = |p: &Params| {
+                ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
+                    .iter()
+                    .all(|key| p.peek(key).is_none())
+            };
             let allowed = match api {
                 "Pump" => {
-                    !self.later_line_targets(p.peek("SubAbility"))
+                    is_obj_spec
+                        && !self.later_line_targets(p.peek("SubAbility"))
                         && p.peek("Defined").is_none_or(|v| v == "Targeted")
-                        && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
-                            .iter()
-                            .all(|key| p.peek(key).is_none())
+                        && no_riders(p)
                         && ["NumAtt", "NumDef"]
                             .iter()
                             .all(|key| p.peek(key).is_none_or(|value| value.parse::<i16>().is_ok()))
                 }
                 "Fight" => {
-                    single_object_first
+                    is_obj_spec
+                        && single_object_first
                         && p.peek("Defined") == Some("ParentTarget")
-                        && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
-                            .iter()
-                            .all(|key| p.peek(key).is_none())
+                        && no_riders(p)
                 }
                 "DealDamage" => {
-                    single_object_first
+                    is_obj_spec
+                        && single_object_first
                         && p.peek("Defined").is_none()
                         && p.peek("DamageSource") == Some("ParentTarget")
-                        && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
-                            .iter()
-                            .all(|key| p.peek(key).is_none())
+                        && no_riders(p)
+                }
+                "MoveCounter" => {
+                    is_obj_spec
+                        && single_object_first
+                        && p.peek("Source") == Some("ParentTarget")
+                        && !has_target_unique
+                        && no_riders(p)
+                }
+                "TargetOnly" => {
+                    chain.effects.is_empty()
+                        && !has_target_unique
+                        && no_riders(p)
+                        && self.can_two_target_only(p.peek("SubAbility"), chain, &spec)
                 }
                 "Tap" | "Untap" => {
-                    !self.later_line_targets(p.peek("SubAbility"))
-                        && p.peek("Defined").is_none_or(|v| v == "Targeted")
-                        && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
-                            .iter()
-                            .all(|key| p.peek(key).is_none())
-                }
-                "Clone" => {
-                    single_object_first
-                        && p.peek("CloneTarget") == Some("ParentTarget")
-                        && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
-                            .iter()
-                            .all(|key| p.peek(key).is_none())
-                }
-                "Destroy" => {
-                    !chain.effects.is_empty()
-                        && chain
-                            .effects
-                            .iter()
-                            .all(|e| e.starts_with("Effect::destroy"))
+                    is_obj_spec
                         && !self.later_line_targets(p.peek("SubAbility"))
                         && p.peek("Defined").is_none_or(|v| v == "Targeted")
-                        && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
-                            .iter()
-                            .all(|key| p.peek(key).is_none())
+                        && no_riders(p)
+                }
+                "Clone" => {
+                    is_obj_spec
+                        && single_object_first
+                        && p.peek("CloneTarget") == Some("ParentTarget")
+                        && no_riders(p)
+                }
+                "Destroy" => {
+                    is_obj_spec
+                        && !chain.effects.is_empty()
+                        && chain.effects.iter().all(|e| {
+                            e.starts_with("Effect::destroy")
+                                || e == "Effect::TapTarget"
+                                || e == "Effect::UntapTarget"
+                        })
+                        && !self.later_line_targets(p.peek("SubAbility"))
+                        && p.peek("Defined").is_none_or(|v| v == "Targeted")
+                        && no_riders(p)
                 }
                 _ => false,
             };
@@ -1015,7 +1046,7 @@ impl Tx<'_> {
             }
             if matches!(
                 api,
-                "Fight" | "DealDamage" | "Tap" | "Untap" | "Pump" | "Destroy"
+                "Fight" | "DealDamage" | "Tap" | "Untap" | "Pump" | "Destroy" | "TargetOnly"
             ) && p.peek("TargetMin") == Some("0")
                 && p.peek("TargetMax") == Some("1")
             {
@@ -1047,21 +1078,42 @@ impl Tx<'_> {
                         | "CopyPermanent"
                         | "Phases"
                         | "Goad"
-                ) || (api == "ChangeZone"
-                    && (matches!(
-                        (p.peek("Origin"), p.peek("Destination")),
-                        (Some("Battlefield" | "Graveyard"), Some("Hand" | "Exile"))
-                            | (Some("Graveyard"), Some("Battlefield"))
-                    ) || (matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
-                        && p.peek("Destination") == Some("Library")
-                        && p.peek("Shuffle") == Some("True"))
-                        || (p.peek("Origin") == Some("Battlefield")
+                ) || (api == "DealDamage"
+                    && !p.has("DividedAsYouChoose")
+                    && p.peek("DamageSource").is_none())
+                    || (api == "ChangeZone"
+                        && (matches!(
+                            (p.peek("Origin"), p.peek("Destination")),
+                            (Some("Battlefield" | "Graveyard"), Some("Hand" | "Exile"))
+                                | (Some("Graveyard"), Some("Battlefield"))
+                        ) || (matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
                             && p.peek("Destination") == Some("Library")
-                            && matches!(p.peek("LibraryPosition"), Some("0" | "-1")))
-                        || (p.peek("Origin") == Some("Graveyard")
-                            && p.peek("Destination") == Some("Library")
-                            && p.peek("LibraryPosition") == Some("-1"))));
-                if p.peek("TargetMin") == Some("1")
+                            && p.peek("Shuffle") == Some("True"))
+                            || (p.peek("Origin") == Some("Battlefield")
+                                && p.peek("Destination") == Some("Library")
+                                && matches!(p.peek("LibraryPosition"), Some("0" | "-1")))
+                            || (p.peek("Origin") == Some("Graveyard")
+                                && p.peek("Destination") == Some("Library")
+                                && p.peek("LibraryPosition") == Some("-1"))));
+                if multi_target_ok
+                    && p.peek("TargetsForEachPlayer") == Some("True")
+                    && p.peek("TargetMin") == Some("0")
+                    && spec.starts_with("TargetSpec::Object(")
+                    && p.peek("TargetMax")
+                        .and_then(|v| self.svars.get(v.trim()))
+                        .map(String::as_str)
+                        .map(str::trim)
+                        == Some("PlayerCountOpponents$Amount")
+                    && let Some(stripped) = Self::strip_opp_ctrl_from_valid(valid)
+                {
+                    let expr = self.filter_expr(&stripped)?;
+                    let filter_name = self.body.filter_static("TARGET", &expr);
+                    p.take("TargetsForEachPlayer");
+                    p.take("TargetMin");
+                    p.take("TargetMax");
+                    spec = format!("TargetSpec::ObjectOfEachOpponent(&{filter_name})");
+                    chain.target_up_to = Some(u8::MAX);
+                } else if p.peek("TargetMin") == Some("1")
                     && matches!(p.peek("TargetMax"), None | Some("1"))
                 {
                     p.take("TargetMin");
@@ -1433,6 +1485,7 @@ impl Tx<'_> {
         let aimed = target.unwrap_or("TargetSpec::AnyPlayer");
         Some(match api {
             "Amass" => self.amass_effect(p, target, targets_a_player)?,
+            "MoveCounter" => self.move_counter_effect(p, target, targets_here, false)?,
             "AlterAttribute" => {
                 Self::alter_attribute_effect(p, target, targets_here, single_target)?
             }
@@ -1559,8 +1612,10 @@ impl Tx<'_> {
                             "TargetSpec::Player(PlayerRel::ControllerOfEvent)".to_string()
                         }
                         Some("TriggeredCardLKICopy" | "TriggeredCard")
-                            if self.trigger_mode.as_deref() == Some("ChangesZone")
-                                && target.is_none() =>
+                            if matches!(
+                                self.trigger_mode.as_deref(),
+                                Some("ChangesZone" | "Exerted")
+                            ) && target.is_none() =>
                         {
                             "TargetSpec::EventObject".to_string()
                         }
@@ -1585,9 +1640,10 @@ impl Tx<'_> {
                 };
                 let dmg = if let Some(src) = damage_source {
                     let power_names: &[&str] = match (src.as_str(), self.trigger_mode.as_deref()) {
-                        ("TriggeredCard" | "TriggeredCardLKICopy", Some("ChangesZone")) => {
-                            &["TriggeredCard$CardPower", "TriggeredCardLKICopy$CardPower"]
-                        }
+                        (
+                            "TriggeredCard" | "TriggeredCardLKICopy",
+                            Some("ChangesZone" | "Exerted"),
+                        ) => &["TriggeredCard$CardPower", "TriggeredCardLKICopy$CardPower"],
                         (
                             "TriggeredAttacker" | "TriggeredAttackerLKICopy",
                             Some("Attacks" | "AttackerUnblocked"),
@@ -2623,11 +2679,17 @@ impl Tx<'_> {
                 vec!["Effect::MayDo { effects: &[Effect::ToggleTapTarget] }".to_string()]
             }
             "Tap" => match (p.take("Defined").as_deref(), target) {
-                (None, Some(t)) if t.starts_with("TargetSpec::Object(") => {
+                (None, Some(t))
+                    if t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
+                {
                     vec!["Effect::TapTarget".to_string()]
                 }
                 (None, None) | (Some("Self"), _) => vec!["Effect::TapSelf".to_string()],
-                (Some("Targeted"), Some(t)) if t.starts_with("TargetSpec::Object(") => {
+                (Some("Targeted"), Some(t))
+                    if t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
+                {
                     vec!["Effect::TapTarget".to_string()]
                 }
                 (Some("Enchanted" | "Equipped"), _) => {
@@ -2646,10 +2708,16 @@ impl Tx<'_> {
             // written that way (asserted in `untap_tests`); it was one
             // reference script away from being.
             "Untap" => match (p.take("Defined").as_deref(), target) {
-                (None, Some(t)) if t.starts_with("TargetSpec::Object(") => {
+                (None, Some(t))
+                    if t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
+                {
                     vec!["Effect::UntapTarget".to_string()]
                 }
-                (Some("Targeted"), Some(t)) if t.starts_with("TargetSpec::Object(") => {
+                (Some("Targeted"), Some(t))
+                    if t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
+                {
                     vec!["Effect::UntapTarget".to_string()]
                 }
                 (None, None) | (Some("Self"), _) => vec!["Effect::UntapSelf".to_string()],
@@ -3327,13 +3395,15 @@ impl Tx<'_> {
                     None
                 }
             }
-            "Count$ThisTurnCast_Card.YouCtrl" => match cmp {
-                "EQ0" | "LT1" => Some("Condition::YouCastNoSpellThisTurn".to_string()),
-                "GE1" | "GT0" => {
-                    Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string())
+            "Count$ThisTurnCast_Card.YouCtrl" | "Count$ThisTurnCast_Card.YouCtrl/LimitMax.1" => {
+                match cmp {
+                    "EQ0" | "LT1" => Some("Condition::YouCastNoSpellThisTurn".to_string()),
+                    "GE1" | "GT0" | "EQ1" => {
+                        Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string())
+                    }
+                    _ => None,
                 }
-                _ => None,
-            },
+            }
             "Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl"
             | "Count$ThisTurnCast_Sorcery.YouCtrl,Instant.YouCtrl" => match cmp {
                 "GE1" | "GT0" => Some("Condition::CastInstantOrSorceryThisTurn".to_string()),
@@ -3342,32 +3412,191 @@ impl Tx<'_> {
                 }
                 _ => None,
             },
-            "Count$ThisTurnCast_Creature.YouCtrl" => match cmp {
-                "GE1" | "GT0" => Some("Condition::CastCreatureThisTurn".to_string()),
+            "Count$ThisTurnCast_Creature.YouCtrl"
+            | "Count$ThisTurnCast_Creature.YouCtrl/LimitMax.1" => match cmp {
+                "GE1" | "GT0" | "EQ1" => Some("Condition::CastCreatureThisTurn".to_string()),
                 "EQ0" | "LT1" => {
                     Some("Condition::Not(&Condition::CastCreatureThisTurn)".to_string())
                 }
                 _ => None,
             },
-            "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" => {
-                if matches!(cmp, "EQ0" | "LT1") {
-                    Some(
-                        "Condition::Not(&Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, 1))"
-                            .to_string(),
-                    )
+            "Count$LifeYouGainedThisTurn" => Self::amount_at_least_cmp(
+                "Amount::LifeGainedThisTurn(PlayerRel::You)",
+                cmp,
+            ),
+            "Count$LifeYouGainedThisTurn/LimitMax.1" => match cmp {
+                "GE1" | "EQ1" | "GT0" => Some(
+                    "Condition::AmountAtLeast(Amount::LifeGainedThisTurn(PlayerRel::You), 1)"
+                        .to_string(),
+                ),
+                "EQ0" | "LT1" => Some(
+                    "Condition::Not(&Condition::AmountAtLeast(Amount::LifeGainedThisTurn(PlayerRel::You), 1))"
+                        .to_string(),
+                ),
+                _ => None,
+            },
+            "Count$DamageYouTookThisTurn" => {
+                Self::amount_at_least_cmp("Amount::DamageDealtToYouThisTurn", cmp)
+            }
+            "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" => Self::amount_at_least_cmp(
+                "Amount::CreaturesEnteredUnderYourControlThisTurn",
+                cmp,
+            ),
+            _ => {
+                if let Some(n) = raw
+                    .strip_prefix("PlayerCount$HasPropertyHasCardsInHand_Card_LE")
+                    .and_then(|s| s.parse::<u8>().ok())
+                {
+                    match cmp {
+                        "GE1" | "GT0" => Some(format!("Condition::APlayerHandSizeAtMost({n})")),
+                        "EQ0" | "LT1" => {
+                            Some(format!("Condition::Not(&Condition::APlayerHandSizeAtMost({n}))"))
+                        }
+                        _ => None,
+                    }
                 } else {
-                    cmp.strip_prefix("GE")
-                        .and_then(|s| s.parse::<u32>().ok())
-                        .filter(|&n| n >= 1)
-                        .map(|n| {
-                            format!(
-                                "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {n})"
-                            )
-                        })
+                    None
                 }
             }
-            _ => None,
         }
+    }
+
+    fn amount_at_least_cmp(amount_expr: &str, cmp: &str) -> Option<String> {
+        if matches!(cmp, "EQ0" | "LT1") {
+            Some(format!(
+                "Condition::Not(&Condition::AmountAtLeast({amount_expr}, 1))"
+            ))
+        } else if let Some(n) = cmp
+            .strip_prefix("GE")
+            .and_then(|s| s.parse::<u32>().ok())
+            .filter(|&n| n >= 1)
+        {
+            Some(format!("Condition::AmountAtLeast({amount_expr}, {n})"))
+        } else if let Some(n) = cmp.strip_prefix("GT").and_then(|s| s.parse::<u32>().ok()) {
+            let min = n.checked_add(1)?;
+            Some(format!("Condition::AmountAtLeast({amount_expr}, {min})"))
+        } else {
+            None
+        }
+    }
+
+    fn can_two_target_only(&self, sub: Option<&str>, chain: &Chain, second_spec: &str) -> bool {
+        let Some(sub_name) = sub else {
+            return false;
+        };
+        let Some(body) = self.svars.get(sub_name.trim()) else {
+            return false;
+        };
+        let Some((api, sp)) = Params::parse(body) else {
+            return false;
+        };
+        if sp.has("ValidTgts")
+            || sp.peek("Defined") != Some("Targeted")
+            || self.later_line_targets(sp.peek("SubAbility"))
+        {
+            return false;
+        }
+        let first_spec = chain.target.as_deref().unwrap_or_default();
+        let both_obj = first_spec.starts_with("TargetSpec::Object(")
+            && second_spec.starts_with("TargetSpec::Object(");
+        let is_dmg_spec = |s: &str| {
+            s.starts_with("TargetSpec::Object(")
+                || matches!(
+                    s,
+                    "TargetSpec::AnyTarget"
+                        | "TargetSpec::AnyPlayer"
+                        | "TargetSpec::AnyOpponent"
+                        | "TargetSpec::PlayerOrPlaneswalker"
+                        | "TargetSpec::CreatureOrPlaneswalker"
+                )
+        };
+        match api.as_str() {
+            "Destroy" | "Tap" | "Untap" => both_obj,
+            "DealDamage" => {
+                sp.peek("DamageSource").is_none()
+                    && is_dmg_spec(first_spec)
+                    && is_dmg_spec(second_spec)
+            }
+            _ => false,
+        }
+    }
+
+    fn two_target_only_followup(
+        &mut self,
+        sub: &mut Option<String>,
+        chain: &Chain,
+    ) -> Option<Vec<String>> {
+        let sub_name = sub.take()?;
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (api, mut dp) = Params::parse(&body)?;
+        dp.drop_prose();
+        if dp.has("ValidTgts") || dp.take("Defined").as_deref() != Some("Targeted") {
+            return None;
+        }
+        dp.take("IsCurse");
+        let next = dp.take("SubAbility");
+        let out = match api.as_str() {
+            "Destroy" => {
+                let no_regen = match dp.take("NoRegen").as_deref() {
+                    None => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
+                vec![format!(
+                    "Effect::DestroyTargetSlots {{ targets: &[TargetSlot::First, TargetSlot::Second], no_regen: {no_regen} }}"
+                )]
+            }
+            "Tap" => vec![
+                "Effect::TapTargetSlot(TargetSlot::First)".to_string(),
+                "Effect::TapTargetSlot(TargetSlot::Second)".to_string(),
+            ],
+            "Untap" => vec![
+                "Effect::UntapTargetSlot(TargetSlot::First)".to_string(),
+                "Effect::UntapTargetSlot(TargetSlot::Second)".to_string(),
+            ],
+            "DealDamage" => {
+                if dp.take("DamageSource").is_some()
+                    || dp.take("DamageMap").is_some_and(|v| v != "True")
+                {
+                    return None;
+                }
+                let amt = self.amount_or_count_ext(&dp.take("NumDmg")?)?;
+                vec![format!(
+                    "Effect::DealDamageToBothTargetInstances {{ amount: {amt} }}"
+                )]
+            }
+            _ => return None,
+        };
+        if !dp.exhausted() || chain.second_target.is_none() {
+            return None;
+        }
+        *sub = next;
+        Some(out)
+    }
+
+    fn strip_opp_ctrl_from_valid(valid: &str) -> Option<String> {
+        let mut out = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            let (base, rest) = alt.split_once('.')?;
+            let mut saw_opp = false;
+            let mut kept = Vec::new();
+            for atom in rest.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                if atom == "OppCtrl" {
+                    saw_opp = true;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !saw_opp {
+                return None;
+            }
+            if kept.is_empty() {
+                out.push(base.to_string());
+            } else {
+                out.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        (!out.is_empty()).then(|| out.join(","))
     }
 
     /// Reads `Draw<N/You>` used as a loot cost or switched `UnlessCost$`.

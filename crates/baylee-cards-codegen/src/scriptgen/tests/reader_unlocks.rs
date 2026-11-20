@@ -3043,3 +3043,359 @@ fn wave9b_effect_cost_handsize_permanent_pump_and_if_moved() {
          SVar:Disc:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | Type$ Spell | Amount$ 1"
     ));
 }
+
+#[test]
+fn wave10b_exerted_trigger_and_command_zone() {
+    let watcher = read(
+        "Name:DesertWatcher\nManaCost:3 W\nTypes:Creature Cleric\nPT:3/2\n\
+         T:Mode$ Exerted | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Tap\n\
+         SVar:Tap:DB$ Tap | ValidTgts$ Creature.OppCtrl",
+    );
+    assert!(
+        watcher.abilities[0].contains("Trigger::Exerted(&")
+            && watcher.abilities[0].contains("Effect::TapTarget"),
+        "{}",
+        watcher.abilities[0]
+    );
+
+    let self_exert = read(
+        "Name:SunRunner\nManaCost:2 R\nTypes:Creature Warrior\nPT:2/2\n\
+         T:Mode$ Exerted | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ Pump\n\
+         SVar:Pump:DB$ Pump | Defined$ TriggeredCard | NumAtt$ +2",
+    );
+    assert!(
+        self_exert.abilities[0].contains("Trigger::EXERTED_THIS")
+            && self_exert.abilities[0].contains("Effect::PumpEventObject"),
+        "{}",
+        self_exert.abilities[0]
+    );
+
+    let cmd_blocks = read(
+        "Name:VanguardShield\nTypes:Vanguard\n\
+         T:Mode$ Blocks | ValidCard$ Creature.YouCtrl | TriggerZones$ Command | Execute$ Gain\n\
+         SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+    );
+    assert!(
+        cmd_blocks.abilities[0].contains("zone = TriggerZone::Command"),
+        "{}",
+        cmd_blocks.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:BadExertNoValid\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Exerted | TriggerZones$ Battlefield | Execute$ Gain\n\
+         SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 1"
+    ));
+}
+
+#[test]
+fn wave10b_move_counter_and_move_counter_to_event() {
+    let from_self = read(
+        "Name:CounterRack\nManaCost:4\nTypes:Artifact\n\
+         A:AB$ MoveCounter | Cost$ T | Source$ Self | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 1 | SorcerySpeed$ True",
+    );
+    assert!(
+        from_self.abilities[0].contains(
+            "Effect::MoveCounter { from: TargetSlot::This, to: TargetSlot::First, kind: Some(CounterKind::P1P1) }"
+        ),
+        "{}",
+        from_self.abilities[0]
+    );
+
+    let to_self = read(
+        "Name:CounterLeech\nManaCost:3\nTypes:Artifact Creature Construct\nPT:0/0\n\
+         A:AB$ MoveCounter | Cost$ 2 | Defined$ Self | ValidTgts$ Creature.YouCtrl | CounterType$ Any | CounterNum$ 1",
+    );
+    assert!(
+        to_self.abilities[0].contains(
+            "Effect::MoveCounter { from: TargetSlot::First, to: TargetSlot::This, kind: None }"
+        ),
+        "{}",
+        to_self.abilities[0]
+    );
+
+    let to_event = read(
+        "Name:BeaconRelic\nManaCost:3 W\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Planeswalker.YouCtrl | TriggerZones$ Battlefield | Execute$ Move\n\
+         SVar:Move:DB$ MoveCounter | Source$ Self | Defined$ TriggeredCardLKICopy | CounterType$ LOYALTY",
+    );
+    assert!(
+        to_event.abilities[0].contains("Effect::MoveCounterToEvent { kind: CounterKind::Loyalty }"),
+        "{}",
+        to_event.abilities[0]
+    );
+
+    let two_target_move = read(
+        "Name:ShiftGrounds\nTypes:Land\n\
+         A:AB$ TargetOnly | Cost$ 1 T | ValidTgts$ Permanent.YouCtrl | SubAbility$ Move\n\
+         SVar:Move:DB$ MoveCounter | Source$ ParentTarget | ValidTgts$ Permanent | CounterType$ Any | CounterNum$ 1",
+    );
+    assert!(
+        two_target_move.abilities[0].contains(
+            "Effect::MoveCounter { from: TargetSlot::First, to: TargetSlot::Second, kind: None }"
+        ) && two_target_move.abilities[0].contains("second_targets = Some("),
+        "{}",
+        two_target_move.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:MoveAll\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ MoveCounter | Source$ Self | ValidTgts$ Creature | CounterType$ All | CounterNum$ All"
+    ));
+    assert!(refused(
+        "Name:MoveUnique\nTypes:Land\n\
+         A:AB$ TargetOnly | Cost$ 1 T | ValidTgts$ Permanent.YouCtrl | SubAbility$ Move\n\
+         SVar:Move:DB$ MoveCounter | Source$ ParentTarget | ValidTgts$ Permanent | TargetUnique$ True | CounterType$ Any | CounterNum$ 1"
+    ));
+}
+
+#[test]
+fn wave10b_two_target_burn_target_only_and_destroy_slots() {
+    let two_burn = read(
+        "Name:TwinSpark\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | SubAbility$ PickPlayer\n\
+         SVar:PickPlayer:DB$ TargetOnly | ValidTgts$ Player | SubAbility$ HitBoth\n\
+         SVar:HitBoth:DB$ DealDamage | Defined$ Targeted | NumDmg$ 2",
+    );
+    assert!(
+        two_burn.abilities[0]
+            .contains("Effect::DealDamageToBothTargetInstances { amount: Amount::Fixed(2) }")
+            && two_burn.abilities[0]
+                .contains("second_targets = Some(TargetReq::one(TargetSpec::AnyPlayer))"),
+        "{}",
+        two_burn.abilities[0]
+    );
+
+    let boom_shape = read(
+        "Name:LandCrack\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Land.YouCtrl | SubAbility$ Second\n\
+         SVar:Second:DB$ TargetOnly | ValidTgts$ Land.YouDontCtrl | SubAbility$ Des\n\
+         SVar:Des:DB$ Destroy | Defined$ Targeted",
+    );
+    assert!(
+        boom_shape.abilities[0].contains(
+            "Effect::DestroyTargetSlots { targets: &[TargetSlot::First, TargetSlot::Second], no_regen: false }"
+        ) && boom_shape.abilities[0].contains("second_targets = Some("),
+        "{}",
+        boom_shape.abilities[0]
+    );
+
+    let tap_and_destroy = read(
+        "Name:LockBreak\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ Tap | ValidTgts$ Creature | SubAbility$ Des\n\
+         SVar:Des:DB$ Destroy | ValidTgts$ Artifact",
+    );
+    assert!(
+        tap_and_destroy.abilities[0].contains("Effect::TapTargetSlot(TargetSlot::First)")
+            && tap_and_destroy.abilities[0].contains(
+                "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: false }"
+            ),
+        "{}",
+        tap_and_destroy.abilities[0]
+    );
+
+    // Direct two-target DealDamage -> DealDamage or TargetUnique$ on second TargetOnly stay refused.
+    assert!(refused(
+        "Name:UnequalSpark\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | SubAbility$ HitPlayer\n\
+         SVar:HitPlayer:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 3"
+    ));
+    assert!(refused(
+        "Name:UniqueCrack\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Land | SubAbility$ Second\n\
+         SVar:Second:DB$ TargetOnly | ValidTgts$ Land | TargetUnique$ True | SubAbility$ Des\n\
+         SVar:Des:DB$ Destroy | Defined$ Targeted"
+    ));
+}
+
+#[test]
+fn wave10b_targets_for_each_opponent_and_phase_svar_sweeps() {
+    let grasp = read(
+        "Name:FateGrasp\nManaCost:1 W W\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Permanent.nonLand+OppCtrl | TargetMin$ 0 | TargetMax$ OneEach | TargetsForEachPlayer$ True | Duration$ UntilHostLeavesPlay\n\
+         SVar:OneEach:PlayerCountOpponents$Amount",
+    );
+    assert!(
+        grasp.abilities[0].contains("Effect::exile_until(TargetSpec::ObjectOfEachOpponent(")
+            && grasp.abilities[0].contains("TargetReq::up_to(TargetSpec::ObjectOfEachOpponent("),
+        "{}",
+        grasp.abilities[0]
+    );
+
+    let each_opp_tap = read(
+        "Name:MoradinHammer\nManaCost:2 W\nTypes:Creature Dwarf\nPT:3/3\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ Tap\n\
+         SVar:Tap:DB$ Tap | ValidTgts$ Creature.OppCtrl | TargetMin$ 0 | TargetMax$ OneEach | TargetsForEachPlayer$ True\n\
+         SVar:OneEach:PlayerCountOpponents$Amount",
+    );
+    assert!(
+        each_opp_tap.abilities[0].contains("Effect::TapTarget")
+            && each_opp_tap.abilities[0].contains(
+                "TargetReq::up_to(TargetSpec::ObjectOfEachOpponent(&Filter::CREATURE), 255)"
+            ),
+        "{}",
+        each_opp_tap.abilities[0]
+    );
+
+    let low_hand_and_life = read(
+        "Name:TempleFlip\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | CheckSVar$ H | SVarCompare$ GE1 | Execute$ D\n\
+         T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | CheckSVar$ G | SVarCompare$ EQ0 | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:H:PlayerCount$HasPropertyHasCardsInHand_Card_LE1\n\
+         SVar:G:Count$LifeYouGainedThisTurn",
+    );
+    assert!(
+        low_hand_and_life.abilities[0].contains("Condition::APlayerHandSizeAtMost(1)")
+            && low_hand_and_life.abilities[1].contains("Condition::Not(&")
+            && low_hand_and_life
+                .statics
+                .contains("Amount::LifeGainedThisTurn(PlayerRel::You)"),
+        "{:?} / {:?}",
+        low_hand_and_life.abilities,
+        low_hand_and_life.statics
+    );
+
+    // `PlayerCountPlayers$Amount` includes controller, so must NOT use ObjectOfEachOpponent.
+    assert!(refused(
+        "Name:AllPlayersExile\nManaCost:3 W\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature.Other | TargetMin$ 0 | TargetMax$ OneEach | TargetsForEachPlayer$ True | Duration$ UntilHostLeavesPlay\n\
+         SVar:OneEach:PlayerCountPlayers$Amount"
+    ));
+}
+
+#[test]
+fn wave10b_pump_kwchoice_prevent_valid_and_self_lki_counters() {
+    let kw_choice_self = read(
+        "Name:AdaptiveBlade\nManaCost:2 G\nTypes:Creature Beast\nPT:3/3\n\
+         A:AB$ Pump | Cost$ 1 | KWChoice$ Reach,Trample,Haste",
+    );
+    assert!(
+        kw_choice_self.abilities[0].contains("Effect::ChooseOne { choices: &[")
+            && kw_choice_self.abilities[0].contains("keywords: KeywordSet::REACH")
+            && kw_choice_self.abilities[0].contains("keywords: KeywordSet::TRAMPLE")
+            && kw_choice_self.abilities[0].contains("keywords: KeywordSet::HASTE"),
+        "{}",
+        kw_choice_self.abilities[0]
+    );
+
+    let kw_choice_team = read(
+        "Name:SkyMarshal\nManaCost:4 W\nTypes:Creature Angel\nPT:4/4\n\
+         T:Mode$ Phase | Phase$ BeginCombat | TriggerZones$ Battlefield | Execute$ Pick\n\
+         SVar:Pick:DB$ Pump | Defined$ Valid Creature.YouCtrl | KWChoice$ First Strike,Lifelink",
+    );
+    assert!(
+        kw_choice_team.abilities[0].contains("Effect::ChooseOne { choices: &[")
+            && kw_choice_team.abilities[0].contains("filter: &Filter::YOUR_CREATURE")
+            && kw_choice_team.abilities[0].contains("KeywordSet::FIRST_STRIKE")
+            && kw_choice_team.abilities[0].contains("KeywordSet::LIFELINK"),
+        "{}",
+        kw_choice_team.abilities[0]
+    );
+
+    let prevent_both = read(
+        "Name:AegisWard\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ +1 | KW$ Prevent all damage that would be dealt to CARDNAME.",
+    );
+    assert!(
+        prevent_both.abilities[0].contains("Effect::PumpTarget {")
+            && prevent_both.abilities[0].contains(
+                "Effect::ModifyTargets { modifier: Modifier::PreventDamageFrom(&Filter::Any), duration: Duration::UntilEndOfTurn }"
+            ),
+        "{}",
+        prevent_both.abilities[0]
+    );
+
+    let prevent_self_combat = read(
+        "Name:MistShade\nManaCost:1 U\nTypes:Creature Illusion\nPT:2/2\n\
+         A:AB$ Pump | Cost$ U | Defined$ Self | KW$ Prevent all combat damage that would be dealt to and dealt by CARDNAME.",
+    );
+    assert!(
+        prevent_self_combat.abilities[0]
+            .contains("Effect::ModifySource { modifier: Modifier::PreventDamageToIt")
+            && prevent_self_combat.abilities[0]
+                .contains("Effect::ModifySource { modifier: Modifier::PreventDamageFromIt")
+            && !prevent_self_combat.abilities[0].contains("PumpFilter"),
+        "{}",
+        prevent_self_combat.abilities[0]
+    );
+
+    let self_lki_counters = read(
+        "Name:AshTracker\nManaCost:3 B\nTypes:Creature Vampire\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ DrawN\n\
+         SVar:DrawN:DB$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:TriggeredCard$CardCounters.P1P1/Times.2",
+    );
+    assert!(
+        self_lki_counters.abilities[0].contains(
+            "Amount::Times { base: &Amount::CountersOnSource(CounterKind::P1P1), factor: 2 }"
+        ),
+        "{}",
+        self_lki_counters.abilities[0]
+    );
+
+    // Non-self TriggeredCard$CardCounters.P1P1 or CardCounters.ALL must stay refused.
+    assert!(refused(
+        "Name:OtherTracker\nManaCost:3 B\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ DrawN\n\
+         SVar:DrawN:DB$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:TriggeredCard$CardCounters.P1P1"
+    ));
+    assert!(refused(
+        "Name:AllCounterTracker\nManaCost:3 B\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ DrawN\n\
+         SVar:DrawN:DB$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:TriggeredCard$CardCounters.ALL"
+    ));
+}
+
+#[test]
+fn wave10b_hidden_graveyard_and_battlefield_choose_card() {
+    let gy_two = read(
+        "Name:CryptFeeder\nManaCost:1 B\nTypes:Creature Horror\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ ExTwo\n\
+         SVar:ExTwo:DB$ ChangeZone | Hidden$ True | Mandatory$ True | ChangeType$ Card.YouCtrl | ChangeNum$ 2 | DefinedPlayer$ You | Origin$ Graveyard | Destination$ Exile",
+    );
+    assert!(
+        gy_two.abilities[0].contains(
+            "Effect::ChooseCard { chooser: PlayerRel::You, zone: ChooseZone::Graveyard(PlayerRel::You), filter: &Filter::Any, min: 2, max: Amount::Fixed(2), movement: ChooseMove::Exile, then: &[] }"
+        ),
+        "{}",
+        gy_two.abilities[0]
+    );
+
+    let gy_one_defined_you = read(
+        "Name:RotField\nManaCost:1 B B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ ExOne\n\
+         SVar:ExOne:DB$ ChangeZone | Hidden$ True | Mandatory$ True | ChangeType$ Card | ChangeNum$ 1 | DefinedPlayer$ You | Origin$ Graveyard | Destination$ Exile",
+    );
+    assert!(
+        gy_one_defined_you.abilities[0].contains(
+            "Effect::ChooseFromYourGraveyard { filter: &Filter::Any, destination: SearchDest::Exile, tapped: false, optional: false }"
+        ),
+        "{}",
+        gy_one_defined_you.abilities[0]
+    );
+
+    let def_exile_two = read(
+        "Name:VoidCrusher\nManaCost:7\nTypes:Creature Eldrazi\nPT:7/5\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ ExTwo\n\
+         SVar:ExTwo:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | DefinedPlayer$ TriggeredDefendingPlayer | Mandatory$ True | ChangeType$ Permanent | ChangeNum$ 2 | Chooser$ DefendingPlayer | Hidden$ True",
+    );
+    assert!(
+        def_exile_two.abilities[0].contains(
+            "Effect::ChooseCard { chooser: PlayerRel::DefendingPlayer, zone: ChooseZone::Battlefield, filter: &Filter::ControlledByDefendingPlayer, min: 2, max: Amount::Fixed(2), movement: ChooseMove::Exile, then: &[] }"
+        ),
+        "{}",
+        def_exile_two.abilities[0]
+    );
+
+    // Opponent graveyard or multi-player chooser must stay refused.
+    assert!(refused(
+        "Name:EachReturn\nManaCost:3 B\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Ret\n\
+         SVar:Ret:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ChangeType$ Creature | DefinedPlayer$ Player.Other | ChangeNum$ 1 | Hidden$ True | Optional$ True"
+    ));
+}
