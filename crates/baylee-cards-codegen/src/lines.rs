@@ -1097,11 +1097,17 @@ fn alternative_fits(alt: &AlternativeCost, line: &str) -> bool {
     // exile up to one other target creature" is a line with no braces
     // fitting a cost with no mana, which is nothing compared against
     // nothing.
-    let Some((_, rest)) = keyword_cost(&text) else {
+    let Some((kw, rest)) = keyword_cost(&text) else {
         return false;
     };
     match alt.condition {
         AltCondition::Always => {}
+        AltCondition::If(baylee_cards_dsl::Condition::OpponentLostLifeThisTurn)
+            if kw.eq_ignore_ascii_case("spectacle") => {}
+        AltCondition::If(baylee_cards_dsl::Condition::Surge)
+            if kw.eq_ignore_ascii_case("surge") => {}
+        AltCondition::If(baylee_cards_dsl::Condition::Prowl)
+            if kw.eq_ignore_ascii_case("prowl") => {}
         AltCondition::NotYourTurn | AltCondition::CommanderControlled | AltCondition::If(_) => {
             return false;
         }
