@@ -37,6 +37,7 @@ mod song_mad_treachery;
 mod soul_feast;
 mod spring_of_eternal_peace;
 mod suppression_ray;
+mod temporal_fissure;
 mod tidings;
 mod urborg_uprising;
 mod winds_of_rath;

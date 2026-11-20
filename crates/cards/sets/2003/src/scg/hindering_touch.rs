@@ -12,7 +12,7 @@ card!(
     scryfall_id = "db9735d9-4aac-4175-8ec8-fc9bfd8f2c5c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hindering Touch",
         mana_cost = mana!("{3}{U}"),

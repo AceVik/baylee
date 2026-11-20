@@ -12,7 +12,7 @@ card!(
     scryfall_id = "17ef3058-46b8-4ec4-950f-c721919c4ac1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mind's Desire",
         mana_cost = mana!("{4}{U}{U}"),

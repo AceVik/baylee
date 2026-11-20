@@ -74,6 +74,7 @@ mod sunder_from_within;
 mod swelter;
 mod swirling_sandstorm;
 mod taste_of_paradise;
+mod tendrils_of_agony;
 mod thunder_of_hooves;
 mod titania_s_boon;
 mod touch_of_brilliance;

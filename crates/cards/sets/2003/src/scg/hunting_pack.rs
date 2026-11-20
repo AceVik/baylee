@@ -13,7 +13,7 @@ card!(
     scryfall_id = "8c9eb595-e8fa-4a5e-abca-d30613c0e28f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hunting Pack",
         mana_cost = mana!("{5}{G}{G}"),

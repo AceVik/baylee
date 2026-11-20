@@ -14,7 +14,7 @@ card!(
     scryfall_id = "b16ba7be-47e6-4c64-918d-bec60abccaa3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sprouting Vines",
         mana_cost = mana!("{2}{G}"),

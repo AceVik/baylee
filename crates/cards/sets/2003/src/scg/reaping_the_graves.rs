@@ -12,7 +12,7 @@ card!(
     scryfall_id = "760a66bd-2821-4710-8f02-3c30772dd884",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reaping the Graves",
         mana_cost = mana!("{2}{B}"),

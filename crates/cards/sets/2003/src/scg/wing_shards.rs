@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f8326bd2-83a8-4600-b12a-0bda47168f7b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wing Shards",
         mana_cost = mana!("{1}{W}{W}"),

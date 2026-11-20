@@ -25,7 +25,7 @@ card!(
     scryfall_id = "230cd568-f7ed-4571-a609-36522add91d0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragonstorm",
         mana_cost = mana!("{8}{R}"),

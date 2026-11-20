@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c9f9ece7-ee6e-4379-9d53-209f8805a72d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Temporal Fissure",
         mana_cost = mana!("{4}{U}"),

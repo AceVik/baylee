@@ -6,6 +6,14 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-20 — Mechanic 2 (Storm: 11 `Coverage::Implemented` promotions & audit of `5d0a32b51`)
+
+- **11/11 `Coverage::Implemented` promotions (`Reviewed: 5d0a32b51 da10e6147 a78570408`, `Reviewed-by: gemini-4-neon-xhigh, pass`):**
+  - Audited `5d0a32b51` (43 Dual Kicker tests and promotions), `da10e6147` (`layers::keyword_instances` for separate Storm instances per CR 702.40b), and `a78570408` (`scriptgen` Storm, duplicate Storm via `ZoneRef::Stack` static ability, `ExileTopToPlay` lowering, and 11 Scourge Storm definitions) with zero defects found.
+  - Authored 12 blind independent behavioral tests from Scryfall Oracle text across all 11 Scourge Storm cards (`Astral Steel`, `Dragonstorm`, `Hindering Touch`, `Hunting Pack`, `Mind's Desire`, `Reaping the Graves`, `Scattershot`, `Sprouting Vines`, `Temporal Fissure`, `Tendrils of Agony`, `Wing Shards`), including both free creature casting and land play plus EOT expiration for `Mind's Desire`, basic-only vs. nonbasic exclusion for `Sprouting Vines`, attacking-only sacrifice for `Wing Shards`, and independent per-copy `{2}` taxing for `Hindering Touch`.
+- **Testkit note for Storm / mana-pool tests:**
+  - `mana_pay` spends colored mana in WUBRG order for generic costs before colorless `{C}`, so tests that expect exact leftover mana across sequential casts should seed each spell's mana cleanly or keep exact colors separated.
+
 ## 2026-11-20 — Mechanic 1 (Dual Kicker: 11 `Coverage::Implemented` promotions)
 
 - **11/11 `Coverage::Implemented` promotions (`Reviewed: 3dfb0ea89 890e08339`, `Reviewed-by: gemini-4-hydrogen-xhigh, pass`):** Promoted all 5 Invasion/Planeshift Battlemages (`Sunscape Battlemage`, `Stormscape Battlemage`, `Nightscape Battlemage`, `Thunderscape Battlemage`, `Thornscape Battlemage`), `Illuminate`, and all 5 Apocalypse Volvers (`Anavolver`, `Cetavolver`, `Degavolver`, `Necravolver`, `Rakavolver`) after writing 43 independent card tests across all four kicker combinations (`unkicked`, `kicker 0 only`, `kicker 1 only`, `both`), intervening-`if` suppression (CR 603.4), permanent continuous keyword/ability grants (CR 611.2e), counter replacement interaction (CR 614.16), combat+noncombat damage triggers (`Necravolver`/`Rakavolver`), and `Illuminate` controller LKI.

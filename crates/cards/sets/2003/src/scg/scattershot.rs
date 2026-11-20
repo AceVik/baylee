@@ -12,7 +12,7 @@ card!(
     scryfall_id = "cf22f3e7-1626-4bab-9f62-7d4774704395",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scattershot",
         mana_cost = mana!("{2}{R}"),

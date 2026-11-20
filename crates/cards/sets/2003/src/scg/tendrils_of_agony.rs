@@ -12,7 +12,7 @@ card!(
     scryfall_id = "6f26faca-f338-4ce5-a218-6a61d40fc50a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tendrils of Agony",
         mana_cost = mana!("{2}{B}{B}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "64f836d3-52c8-4628-b18a-8c8fb67969c9",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::STORM,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Astral Steel",
         mana_cost = mana!("{2}{W}"),
