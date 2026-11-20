@@ -469,7 +469,11 @@ impl Tx<'_> {
                     "blockingTriggeredAttacker"
                         if self.trigger_mode.as_deref() == Some("AttackerBlocked") =>
                     {
-                        "Filter::BlockingSource".to_string()
+                        if self.trigger_is_self {
+                            "Filter::BlockingSource".to_string()
+                        } else {
+                            "Filter::BlockingReference".to_string()
+                        }
                     }
                     "blocked" => "Filter::Blocked".to_string(),
                     "unblocked" => "Filter::Unblocked".to_string(),

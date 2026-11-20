@@ -721,15 +721,7 @@ fn render_face(
         if let Some(fb) = body.flashback.as_deref() {
             fields.push(format!("flashback = {fb}"));
         }
-        if !body.flashback_parts.is_empty() {
-            let parts = body
-                .flashback_parts
-                .iter()
-                .map(|part| format!("CostPart::{part}"))
-                .collect::<Vec<_>>()
-                .join(", ");
-            fields.push(format!("flashback_parts = &[{parts}]"));
-        }
+        push_cost_parts_field(&mut fields, "flashback_parts", &body.flashback_parts);
         if let Some(madness) = body.madness.as_deref() {
             fields.push(format!("madness = {madness}"));
         }
@@ -738,6 +730,19 @@ fn render_face(
         }
         if let Some(morph) = body.morph.as_deref() {
             fields.push(format!("morph = {morph}"));
+        }
+        if let Some(megamorph) = body.megamorph.as_deref() {
+            fields.push(format!("megamorph = {megamorph}"));
+        }
+        push_cost_parts_field(&mut fields, "morph_parts", &body.morph_parts);
+        if let Some(bestow) = body.bestow.as_deref() {
+            fields.push(format!("bestow = {bestow}"));
+        }
+        if body.jump_start {
+            fields.push("jump_start = true".to_string());
+        }
+        if body.aftermath {
+            fields.push("aftermath = true".to_string());
         }
         if let Some(cr) = body.cost_reduction.as_deref() {
             fields.push(format!("cost_reduction = {cr}"));
@@ -796,7 +801,12 @@ fn render_face(
     // still catches a meld back or any other layout whose back prints no
     // cost and is no land.
     let transforming = matches!(layout, Some("transform" | "meld"));
-    if is_back && (transforming || (!types.contains("TypeSet::LAND") && f.mana_cost.is_empty())) {
+    let aftermath = body.is_some_and(|b| b.aftermath);
+    if is_back
+        && (transforming
+            || aftermath
+            || (!types.contains("TypeSet::LAND") && f.mana_cost.is_empty()))
+    {
         fields.push("castable_from_hand = false".to_string());
     }
 
@@ -811,6 +821,18 @@ fn render_face(
         ));
     }
     Ok(out)
+}
+
+fn push_cost_parts_field(fields: &mut Vec<String>, name: &str, parts: &[String]) {
+    if parts.is_empty() {
+        return;
+    }
+    let rendered = parts
+        .iter()
+        .map(|part| format!("CostPart::{part}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    fields.push(format!("{name} = &[{rendered}]"));
 }
 
 /// The coverage line of a card a reader read in full.
@@ -995,8 +1017,16 @@ fn transcode_faces(
             return None;
         }
     }
+    if body.aftermath {
+        return None;
+    }
     if body.back.is_some() {
         if faces.len() != 2 {
+            return None;
+        }
+        if body.back.as_deref().is_some_and(|b| b.aftermath)
+            && script.alternate_mode.as_deref() != Some("Split")
+        {
             return None;
         }
         let layout_ok = matches!(
@@ -2111,6 +2141,189 @@ mod tests {
         assert!(
             !rendered_adv.contains("\n    abilities = &[\n"),
             "{rendered_adv}"
+        );
+    }
+
+    #[test]
+    fn wave5_aftermath_renders_back_only_and_refuses_front_or_solo() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("split_after.txt"),
+            "Name:Spark\nManaCost:1 R\nTypes:Sorcery\n\
+             A:SP$ Draw | NumCards$ 1\n\
+             AlternateMode:Split\n\
+             ALTERNATE\n\
+             Name:Ember\nManaCost:2 R\nTypes:Sorcery\n\
+             K:Aftermath\n\
+             A:SP$ GainLife | LifeAmount$ 3\n",
+        )
+        .expect("split_after script");
+        std::fs::write(
+            dir.path().join("bad_after_front.txt"),
+            "Name:Front\nManaCost:R\nTypes:Sorcery\n\
+             K:Aftermath\n\
+             A:SP$ Draw | NumCards$ 1\n\
+             AlternateMode:Split\n\
+             ALTERNATE\n\
+             Name:Back\nManaCost:1 R\nTypes:Sorcery\n\
+             A:SP$ GainLife | LifeAmount$ 2\n",
+        )
+        .expect("bad_after_front script");
+        std::fs::write(
+            dir.path().join("bad_after_single.txt"),
+            "Name:SoloAfter\nManaCost:1 U\nTypes:Instant\n\
+             K:Aftermath\n\
+             A:SP$ Draw | NumCards$ 1\n",
+        )
+        .expect("bad_after_single script");
+
+        let mut index = BTreeMap::new();
+        index.insert("Spark // Ember".to_string(), "split_after.txt".to_string());
+        index.insert(
+            "Front // Back".to_string(),
+            "bad_after_front.txt".to_string(),
+        );
+        index.insert("SoloAfter".to_string(), "bad_after_single.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let make_face = |name: &str, mana: &str, oracle: &str| ScryfallFace {
+            watermark: None,
+            name: name.to_string(),
+            mana_cost: Some(mana.to_string()),
+            type_line: Some("Sorcery".to_string()),
+            oracle_text: Some(oracle.to_string()),
+            power: None,
+            toughness: None,
+            loyalty: None,
+            defense: None,
+            colors: None,
+            image_uris: None,
+        };
+
+        let render_one = |card: &ScryfallCard, id, sym| {
+            render_stub(
+                card,
+                &row(id, sym),
+                &IndexLedger::default(),
+                &SubtypeCatalogs::default(),
+                Some(&scripts),
+                None,
+                &|_| false,
+            )
+            .expect("render")
+            .1
+        };
+
+        let split_card = ScryfallCard {
+            name: "Spark // Ember".to_string(),
+            layout: Some("split".to_string()),
+            card_faces: Some(vec![
+                make_face("Spark", "{1}{R}", "Draw a card."),
+                make_face("Ember", "{2}{R}", "Aftermath"),
+            ]),
+            ..bare_card("Spark // Ember", "Sorcery // Sorcery")
+        };
+        let rendered_after = render_one(&split_card, 20, "SPARK");
+        assert!(
+            rendered_after.contains("aftermath = true")
+                && rendered_after.contains("castable_from_hand = false"),
+            "{rendered_after}"
+        );
+
+        let bad_front = ScryfallCard {
+            name: "Front // Back".to_string(),
+            layout: Some("split".to_string()),
+            card_faces: split_card.card_faces.clone(),
+            ..bare_card("Front // Back", "Sorcery // Sorcery")
+        };
+        let rendered_bad_front = render_one(&bad_front, 21, "FRONT");
+        assert!(
+            rendered_bad_front.contains("// GENERATED STUB")
+                && !rendered_bad_front.contains("aftermath = true"),
+            "{rendered_bad_front}"
+        );
+
+        let rendered_solo_after = render_one(&bare_card("SoloAfter", "Instant"), 22, "SOLO_AFTER");
+        assert!(
+            rendered_solo_after.contains("// GENERATED STUB")
+                && !rendered_solo_after.contains("aftermath = true"),
+            "{rendered_solo_after}"
+        );
+    }
+
+    #[test]
+    fn wave5_megamorph_morph_parts_bestow_and_jump_start_render_on_face() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("mega_parts.txt"),
+            "Name:Shell\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+             K:Megamorph:1 U PayLife<3>\n",
+        )
+        .expect("mega_parts script");
+        std::fs::write(
+            dir.path().join("bestow_jump.txt"),
+            "Name:SparkAura\nManaCost:1 W\nTypes:Enchantment Creature\nPT:1/1\n\
+             K:Bestow:3 W\n",
+        )
+        .expect("bestow script");
+        std::fs::write(
+            dir.path().join("jump.txt"),
+            "Name:SparkJump\nManaCost:1 R\nTypes:Instant\n\
+             K:Jump-start\n\
+             A:SP$ Draw | NumCards$ 1\n",
+        )
+        .expect("jump script");
+
+        let mut index = BTreeMap::new();
+        index.insert("Shell".to_string(), "mega_parts.txt".to_string());
+        index.insert("SparkAura".to_string(), "bestow_jump.txt".to_string());
+        index.insert("SparkJump".to_string(), "jump.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let (_, rendered_mega) = render_stub(
+            &bare_card("Shell", "Creature"),
+            &row(23, "SHELL"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("megamorph should render");
+        assert!(
+            rendered_mega.contains("megamorph = Some(mana!(\"{1}{U}\"))")
+                && rendered_mega.contains("morph_parts = &[CostPart::PayLife(3)]"),
+            "{rendered_mega}"
+        );
+
+        let (_, rendered_bestow) = render_stub(
+            &bare_card("SparkAura", "Enchantment Creature"),
+            &row(24, "SPARK_AURA"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("bestow should render");
+        assert!(
+            rendered_bestow.contains("bestow = Some(cost!(\"{3}{W}\"))"),
+            "{rendered_bestow}"
+        );
+
+        let (_, rendered_jump) = render_stub(
+            &bare_card("SparkJump", "Instant"),
+            &row(25, "SPARK_JUMP"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("jump-start should render");
+        assert!(
+            rendered_jump.contains("jump_start = true"),
+            "{rendered_jump}"
         );
     }
 }

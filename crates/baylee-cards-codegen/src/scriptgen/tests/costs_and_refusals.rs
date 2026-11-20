@@ -1202,8 +1202,9 @@ fn morph_reads_fixed_mana_costs_onto_the_face() {
 }
 
 /// Morph costs that are empty, carry extra fields, contain `X`, charge non-mana
-/// parts, repeat on one card, or sit beside an unread clause stay refused with
-/// an honest reason, as does `Megamorph` (CR 702.37b).
+/// `{X}` and non-mana `Morph` / `Megamorph` costs lower cleanly, while
+/// unrepresentable parts (`Reveal`), extra colon fields, duplicate/conflicting
+/// face-down keywords, and empty costs stay refused with honest reasons.
 #[test]
 fn morph_refuses_non_mana_x_extra_and_megamorph_with_honest_reasons() {
     let reason = |script: &str| {
@@ -1211,6 +1212,27 @@ fn morph_refuses_non_mana_x_extra_and_megamorph_with_honest_reasons() {
         assert!(transcode(&parsed, &cats(), None).is_none(), "{script}");
         refusal_reason(&parsed, &cats(), None)
     };
+
+    let x_morph = read("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:X R\nSVar:X:Count$xPaid");
+    assert_eq!(x_morph.morph.as_deref(), Some("Some(mana!(\"{X}{R}\"))"));
+    assert!(x_morph.morph_parts.is_empty());
+
+    let life_morph = read("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:PayLife<5>");
+    assert_eq!(life_morph.morph.as_deref(), Some("Some(ManaCost::ZERO)"));
+    assert_eq!(life_morph.morph_parts, ["PayLife(5)"]);
+
+    let custom_cats = SubtypeCatalogs {
+        land: vec!["Mountain".into()],
+        ..SubtypeCatalogs::default()
+    };
+    let parsed_sac = parse("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:Sac<1/Mountain>");
+    let sac_morph = transcode(&parsed_sac, &custom_cats, None).expect("sac morph");
+    assert_eq!(sac_morph.morph.as_deref(), Some("Some(ManaCost::ZERO)"));
+    assert_eq!(sac_morph.morph_parts.len(), 1);
+    assert!(sac_morph.morph_parts[0].starts_with("Sacrifice(&"));
+
+    let mega = read("Name:X\nTypes:Creature\nPT:2/2\nK:Megamorph:2 G");
+    assert_eq!(mega.megamorph.as_deref(), Some("Some(mana!(\"{2}{G}\"))"));
 
     assert_eq!(
         reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph"),
@@ -1225,28 +1247,16 @@ fn morph_refuses_non_mana_x_extra_and_megamorph_with_honest_reasons() {
         Some("a `Morph` with extra fields `1 U:Extra`".to_string())
     );
     assert_eq!(
-        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:X R\nSVar:X:Count$xPaid"),
-        Some("a `Morph` cost `X R` with `X`".to_string())
-    );
-    assert_eq!(
-        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:PayLife<5>"),
-        Some("a non-mana `Morph` cost `PayLife<5>`".to_string())
-    );
-    assert_eq!(
         reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:Reveal<1/Card.Blue/blue>"),
-        Some("a non-mana `Morph` cost `Reveal<1/Card.Blue/blue>`".to_string())
-    );
-    assert_eq!(
-        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:Sac<1/Mountain>"),
-        Some("a non-mana `Morph` cost `Sac<1/Mountain>`".to_string())
+        Some("cost `Reveal`".to_string())
     );
     assert_eq!(
         reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:1 U\nK:Morph:2 U"),
         Some("a second `Morph` cost on one card".to_string())
     );
     assert_eq!(
-        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Megamorph:2 G"),
-        Some("keyword `Megamorph`".to_string())
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:1 U\nK:Megamorph:2 U"),
+        Some("a conflicting `Megamorph` cost on one card".to_string())
     );
     assert!(refused(
         "Name:X\nTypes:Creature\nPT:2/2\nK:Morph:2 U\nA:AB$ UnknownEffect | Cost$ T"
@@ -1753,8 +1763,8 @@ fn reduce_cost_lowers_colored_dynamic_cycling_facedown_shared_and_self_stack() {
     );
 
     // 6. Refusals: chosen card-type mismatch (`Type$ Card`), dynamic colored reduction,
-    // `EffectZone$ All` on other spells, `ValidTarget$`, `OnlyFirstSpell$`, `MinMana$`,
-    // `Relative$`, `EffectZone$ Command`, `Amount$ 0`, and `SVarCompare$ EQ1`.
+    // `EffectZone$ All` on other spells, `ValidTarget$`, `OnlyFirstSpell$`,
+    // `ValidSpell$ Activated.!ManaAbility`, `EffectZone$ Command`, `Amount$ 0`, and `SVarCompare$ EQ1`.
     for bad in [
         "Name:Bad\nTypes:Artifact\n\
          K:ETBReplacement:Other:ChooseCT\nSVar:ChooseCT:DB$ ChooseType | Defined$ You | Type$ Card\n\
@@ -1774,7 +1784,7 @@ fn reduce_cost_lowers_colored_dynamic_cycling_facedown_shared_and_self_stack() {
         "Name:Bad\nTypes:Artifact\n\
          S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | EffectZone$ Command | Activator$ You | Amount$ 1",
         "Name:Bad\nTypes:Creature\nPT:2/2\n\
-         S:Mode$ ReduceCost | ValidCard$ Creature.YouCtrl | Type$ Ability | Amount$ 2 | MinMana$ 1",
+         S:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | ValidSpell$ Activated.!ManaAbility | Amount$ 2 | MinMana$ 1",
         "Name:Bad\nTypes:Creature\nPT:2/2\n\
          S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1 | CheckSVar$ X | SVarCompare$ EQ1\n\
          SVar:X:Count$ThisTurnCast_Card.YouCtrl",
@@ -2181,7 +2191,7 @@ fn prevention_per_source_and_chosen_color_or_source_shields() {
     );
 
     // 8. Refusals: opponent-covering finite shield, noncombat `Prevent$ True`, `You` with combat-only
-    // `Prevent$ True`, `You,Permanent.YouCtrl` with `Prevent$ True`, and `ChosenColor` without `ChooseColor`.
+    // `Prevent$ True`, `You,Permanent.YouCtrl` with `IsCombat$ True`, and `ChosenColor` without `ChooseColor`.
     for bad in [
         "Name:Bad\nTypes:Creature\nPT:1/2\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Spell | \
@@ -2195,7 +2205,7 @@ fn prevention_per_source_and_chosen_color_or_source_shields() {
          ValidTarget$ You | IsCombat$ True",
         "Name:Bad\nTypes:Enchantment\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
-         ValidTarget$ You,Permanent.YouCtrl",
+         ValidTarget$ You,Permanent.YouCtrl | IsCombat$ True",
         "Name:Bad\nTypes:Enchantment\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
          ValidSource$ Card.ChosenColor | ValidTarget$ You",
@@ -2437,4 +2447,90 @@ fn wave4_redirect_counters_flashback_tap_reduce_cost_and_computed_pt() {
             "static_ability!(Filter::This, Modifier::ModifyPTPerCount { filter: &COUNTED1, p: 2, t: 0 })"
         ]
     );
+}
+
+#[test]
+fn wave5_graveyard_keywords_bestow_and_morph_unlocks() {
+    let jump =
+        read("Name:SparkJump\nManaCost:1 R\nTypes:Instant\nK:Jump-start\nA:SP$ Draw | NumCards$ 1");
+    assert!(jump.jump_start);
+    assert!(refused(
+        "Name:BadJump\nTypes:Creature\nPT:1/1\nK:Jump-start"
+    ));
+    assert!(refused(
+        "Name:DupJump\nTypes:Sorcery\nK:Jump-start\nK:Jump-start\nA:SP$ Draw | NumCards$ 1"
+    ));
+
+    let after = read(
+        "Name:SparkAfter\nManaCost:2 W\nTypes:Sorcery\nK:Aftermath\nA:SP$ GainLife | LifeAmount$ 2",
+    );
+    assert!(after.aftermath);
+    assert!(refused(
+        "Name:BadAfter\nTypes:Creature\nPT:1/1\nK:Aftermath"
+    ));
+
+    let unearth_mana = read("Name:BoneWalker\nManaCost:1 B\nTypes:Creature\nPT:2/1\nK:Unearth:1 B");
+    assert_eq!(unearth_mana.abilities, ["unearth!(\"{1}{B}\")"]);
+
+    let unearth_energy =
+        read("Name:BoltRunner\nManaCost:2 R\nTypes:Creature\nPT:3/1\nK:Unearth:1 R PayEnergy<2>");
+    assert_eq!(
+        unearth_energy.abilities,
+        ["unearth!(cost!(\"{1}{R}\", PayEnergy(2)))"]
+    );
+
+    let encore = read("Name:EchoSprite\nManaCost:2 U\nTypes:Creature\nPT:1/3\nK:Encore:4 U");
+    assert_eq!(encore.abilities, ["encore!(\"{4}{U}\")"]);
+
+    let embalm = read("Name:SunInitiate\nManaCost:W\nTypes:Creature\nPT:1/1\nK:Embalm:2 W");
+    assert_eq!(embalm.abilities, ["embalm!(\"{2}{W}\")"]);
+
+    let eternalize_mana =
+        read("Name:WiseAven\nManaCost:2 U\nTypes:Creature\nPT:2/1\nK:Eternalize:3 U U");
+    assert_eq!(eternalize_mana.abilities, ["eternalize!(\"{3}{U}{U}\")"]);
+
+    let eternalize_discard = read(
+        "Name:AshScholar\nManaCost:2 B\nTypes:Creature\nPT:2/2\nK:Eternalize:3 B Discard<1/Card>",
+    );
+    assert_eq!(
+        eternalize_discard.abilities,
+        [
+            "activated!(cost!(\"{3}{B}\", Discard(&Filter::Any), ExileSelf), &[Effect::CreateTokenCopyOfSource { mods: ETERNALIZE_MODS }], zone = ActivationZone::Graveyard, timing = ActivationTiming::SorcerySpeed)"
+        ]
+    );
+
+    for bad_gy in [
+        "Name:Bad1\nTypes:Creature\nPT:1/1\nK:Unearth:",
+        "Name:Bad2\nTypes:Creature\nPT:1/1\nK:Encore:T",
+        "Name:Bad3\nTypes:Creature\nPT:1/1\nK:Embalm:X W\nSVar:X:Count$xPaid",
+        "Name:Bad4\nTypes:Creature\nPT:1/1\nK:Eternalize:1 B:Extra",
+    ] {
+        assert!(refused(bad_gy), "must refuse: {bad_gy}");
+    }
+
+    let bestow =
+        read("Name:NimbusEidolon\nManaCost:1 U\nTypes:Enchantment Creature\nPT:1/2\nK:Bestow:4 U");
+    assert_eq!(bestow.bestow.as_deref(), Some("Some(cost!(\"{4}{U}\"))"));
+
+    let bestow_hint = read(
+        "Name:SirenEidolon\nManaCost:U\nTypes:Enchantment Creature\nPT:1/1\nK:Bestow:5 U U:GainControl",
+    );
+    assert_eq!(
+        bestow_hint.bestow.as_deref(),
+        Some("Some(cost!(\"{5}{U}{U}\"))")
+    );
+
+    let bestow_x = read(
+        "Name:VariableEidolon\nManaCost:G\nTypes:Enchantment Creature\nPT:0/0\nK:Bestow:X G\nSVar:X:Count$xPaid",
+    );
+    assert_eq!(bestow_x.bestow.as_deref(), Some("Some(cost!(\"{X}{G}\"))"));
+
+    for bad_bestow in [
+        "Name:BadB1\nTypes:Creature\nPT:2/2\nK:Bestow:3 W",
+        "Name:BadB2\nTypes:Enchantment Creature\nPT:2/2\nK:Bestow:2 U Discard<1/Card>",
+        "Name:BadB3\nTypes:Enchantment Creature\nPT:2/2\nK:Bestow:2 U:UnknownHint",
+        "Name:BadB4\nTypes:Enchantment Creature\nPT:2/2\nK:Bestow:",
+    ] {
+        assert!(refused(bad_bestow), "must refuse: {bad_bestow}");
+    }
 }

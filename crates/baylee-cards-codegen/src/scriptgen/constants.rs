@@ -284,6 +284,7 @@ pub(super) fn keyword_const(line: &str) -> Option<&'static str> {
         "Ascend" => "KeywordSet::ASCEND",
         "Daybound" => "KeywordSet::DAYBOUND",
         "Nightbound" => "KeywordSet::NIGHTBOUND",
+        "Read ahead" => "KeywordSet::READ_AHEAD",
         _ => return None,
     })
 }

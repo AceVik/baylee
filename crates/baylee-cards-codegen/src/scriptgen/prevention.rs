@@ -72,33 +72,64 @@ impl Tx<'_> {
         {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
+        self.emit_target_damage_prevention(valid_source.as_deref(), &target_raw, combat_only, &cond)
+    }
 
-        let source_expr = match valid_source.as_deref() {
+    fn emit_target_damage_prevention(
+        &mut self,
+        valid_source: Option<&str>,
+        target_raw: &str,
+        combat_only: bool,
+        cond: &str,
+    ) -> Option<()> {
+        let source_expr = match valid_source {
             None => "Filter::Any".to_string(),
             Some(vs) => self.prevention_source_filter(vs)?,
         };
-        let src_ref = self.body.filter_static("SOURCE", &source_expr);
 
-        if target_raw == "You" {
-            if combat_only {
+        let target_parts: Vec<&str> = target_raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if target_parts.is_empty() {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let has_you = target_parts.contains(&"You");
+        let perm_alts: Vec<&str> = target_parts
+            .iter()
+            .copied()
+            .filter(|&part| part != "You")
+            .collect();
+        if has_you && combat_only {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let target_filter = if perm_alts.is_empty() {
+            None
+        } else {
+            let Some(filter) = self.prevention_permanent_target(&perm_alts.join(",")) else {
                 return self
                     .deny("a persistent spell prevention with another zone or result".into());
-            }
+            };
+            Some(filter)
+        };
+
+        let src_ref = self.body.filter_static("SOURCE", &source_expr);
+        if has_you {
             self.body.abilities.push(format!(
                 "static_ability!(Filter::This, Modifier::PreventDamageToYouFrom(&{src_ref}){cond})"
             ));
-            return Some(());
         }
-
-        let target_filter = self.prevention_permanent_target(&target_raw)?;
-        let modifier = if combat_only {
-            format!("Modifier::PreventCombatDamageFrom(&{src_ref})")
-        } else {
-            format!("Modifier::PreventDamageFrom(&{src_ref})")
-        };
-        self.body.abilities.push(format!(
-            "static_ability!({target_filter}, {modifier}{cond})"
-        ));
+        if let Some(target_filter) = target_filter {
+            let modifier = if combat_only {
+                format!("Modifier::PreventCombatDamageFrom(&{src_ref})")
+            } else {
+                format!("Modifier::PreventDamageFrom(&{src_ref})")
+            };
+            self.body.abilities.push(format!(
+                "static_ability!({target_filter}, {modifier}{cond})"
+            ));
+        }
         Some(())
     }
 
@@ -383,6 +414,7 @@ impl Tx<'_> {
             let alt = raw_alt.trim();
             let (base, atoms) = alt.split_once('.').unwrap_or((alt, ""));
             let mut battlefield = false;
+            let stack_spell = base == "Spell";
             let mut kept_atoms = Vec::new();
             for atom in atoms.split('+').filter(|a| !a.is_empty()) {
                 if atom == "inZoneBattlefield" {
@@ -404,14 +436,26 @@ impl Tx<'_> {
                     kept_atoms.push(atom.to_string());
                 }
             }
+            if stack_spell && battlefield {
+                return None;
+            }
+            if stack_spell && kept_atoms.is_empty() {
+                alts.push("Filter::InZone(ZoneRef::Stack)".to_string());
+                continue;
+            }
+            let effective_base = if stack_spell { "Card" } else { base };
             let rebuilt = if kept_atoms.is_empty() {
-                base.to_string()
+                effective_base.to_string()
             } else {
-                format!("{base}.{}", kept_atoms.join("+"))
+                format!("{effective_base}.{}", kept_atoms.join("+"))
             };
             let expr = self.filter_expr(&rebuilt)?;
             if battlefield {
                 alts.push(super::constants::on_the_battlefield(&expr));
+            } else if stack_spell {
+                alts.push(format!(
+                    "Filter::And(&[Filter::InZone(ZoneRef::Stack), {expr}])"
+                ));
             } else {
                 alts.push(expr);
             }

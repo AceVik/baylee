@@ -135,11 +135,38 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Foretell:") {
             return self.foretell(rest);
         }
+        if line == "Jump-start" {
+            return self.jump_start();
+        }
+        if line == "Aftermath" {
+            return self.aftermath();
+        }
+        if let Some(rest) = line.strip_prefix("Unearth:") {
+            return self.unearth(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Encore:") {
+            return self.encore(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Embalm:") {
+            return self.embalm(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Eternalize:") {
+            return self.eternalize(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Bestow:") {
+            return self.bestow(rest);
+        }
+        if let Some(rest) = line
+            .strip_prefix("Megamorph:")
+            .or_else(|| (line == "Megamorph").then_some(""))
+        {
+            return self.face_down_keyword(rest, true);
+        }
         if let Some(rest) = line
             .strip_prefix("Morph:")
             .or_else(|| (line == "Morph").then_some(""))
         {
-            return self.morph(rest);
+            return self.face_down_keyword(rest, false);
         }
         if let Some(rest) = line.strip_prefix("Entwine:") {
             return self.entwine(rest);
@@ -556,6 +583,9 @@ impl Tx<'_> {
     }
 
     /// `K:Chapter:<max>:<svar1>,<svar2>,...` (CR 715): Saga chapter triggers.
+    ///
+    /// Consecutive or non-adjacent chapters naming the same `SVar` share one
+    /// multi-chapter `chapters!(&[...], ...)` ability (CR 715.2c).
     pub(super) fn chapter(&mut self, rest: &str) -> Option<()> {
         let Some((max_raw, list)) = rest.split_once(':') else {
             return self.deny(format!("chapter `{rest}`"));
@@ -574,30 +604,59 @@ impl Tx<'_> {
         if max == 0 || names.len() != usize::from(max) {
             return self.deny(format!("chapter count mismatch `{rest}`"));
         }
+        let mut groups: Vec<(&str, Vec<u8>)> = Vec::new();
+        for (idx, name) in names.iter().enumerate() {
+            let Ok(chapter) = u8::try_from(idx + 1) else {
+                return self.deny(format!("chapter `{rest}`"));
+            };
+            if let Some((_, chapters)) = groups.iter_mut().find(|(seen, _)| *seen == *name) {
+                chapters.push(chapter);
+            } else {
+                groups.push((name, vec![chapter]));
+            }
+        }
         let prev_has_x = self.has_x;
         let prev_spell = self.on_a_spell;
         let prev_self = self.trigger_is_self;
         self.has_x = false;
         self.on_a_spell = false;
         self.trigger_is_self = true;
-        let mut emitted = Vec::with_capacity(names.len());
+        let mut emitted = Vec::with_capacity(groups.len());
         let ok = (|| {
-            for (idx, name) in names.iter().enumerate() {
-                let Some(body) = self.svars.get(*name).cloned() else {
+            for (name, chapters) in groups {
+                let Some(body) = self.svars.get(name).cloned() else {
                     return self.deny(format!("chapter SVar `{name}` missing"));
                 };
                 let mut chain = super::Chain::default();
                 self.chain(&body, &mut chain)?;
-                if chain.effects.is_empty() || chain.second_target.is_some() || chain.target_is_x {
+                if chain.effects.is_empty() || chain.target_is_x {
                     return self.deny(format!("unsupported chapter `{name}`"));
                 }
                 let targets = Self::target_req_expr(&chain)
                     .map_or_default(|req| format!(", targets = Some({req})"));
-                let chapter = idx + 1;
-                emitted.push(format!(
-                    "chapter!({chapter}, &[{}]{targets})",
-                    chain.effects.join(", ")
-                ));
+                let second_targets = Self::second_target_req_expr(&chain)
+                    .map_or_default(|req| format!(", second_targets = Some({req})"));
+                let effects = chain.effects.join(", ");
+                match chapters.as_slice() {
+                    [chapter] => {
+                        if !second_targets.is_empty() && *chapter >= 16 {
+                            return self.deny(format!("unsupported chapter `{name}`"));
+                        }
+                        emitted.push(format!(
+                            "chapter!({chapter}, &[{effects}]{targets}{second_targets})"
+                        ));
+                    }
+                    many => {
+                        let nums = many
+                            .iter()
+                            .map(u8::to_string)
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        emitted.push(format!(
+                            "chapters!(&[{nums}], &[{effects}]{targets}{second_targets})"
+                        ));
+                    }
+                }
             }
             Some(())
         })();
@@ -899,44 +958,212 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// `K:Morph:<cost>` (CR 702.37): cast face down as a 2/2 creature for {3}
-    /// and turn face up any time you have priority for a fixed mana morph cost.
-    /// Non-mana and `X` morph costs stay refused because `FaceDef::morph` and
-    /// the face-up special action pay fixed mana only.
-    pub(super) fn morph(&mut self, rest: &str) -> Option<()> {
+    fn is_spell_card_type(&self) -> bool {
+        self.type_line
+            .split_whitespace()
+            .any(|word| matches!(word, "Instant" | "Sorcery"))
+    }
+
+    pub(super) fn jump_start(&mut self) -> Option<()> {
+        if !self.is_spell_card_type() {
+            return self.deny("`Jump-start` on a non-instant/non-sorcery card".to_string());
+        }
+        if self.body.jump_start {
+            return self.deny("a second `Jump-start` on one card".to_string());
+        }
+        self.body.jump_start = true;
+        self.body.notes.push("jump-start".to_string());
+        Some(())
+    }
+
+    pub(super) fn aftermath(&mut self) -> Option<()> {
+        if !self.is_spell_card_type() {
+            return self.deny("`Aftermath` on a non-instant/non-sorcery card".to_string());
+        }
+        if self.body.aftermath {
+            return self.deny("a second `Aftermath` on one card".to_string());
+        }
+        self.body.aftermath = true;
+        self.body.notes.push("aftermath".to_string());
+        Some(())
+    }
+
+    fn graveyard_keyword_cost(
+        &mut self,
+        keyword: &str,
+        rest: &str,
+    ) -> Option<(String, Vec<String>)> {
         if rest.contains(':') {
-            return self.deny(format!("a `Morph` with extra fields `{rest}`"));
+            return self.deny(format!("a `{keyword}` with extra fields `{rest}`"));
         }
-        if self.body.morph.is_some() {
-            return self.deny("a second `Morph` cost on one card".to_string());
+        if super::cost_parts(rest).is_empty() {
+            return self.deny(format!("an empty `{keyword}` cost"));
         }
-        let tokens = super::cost_parts(rest);
-        if tokens.is_empty() {
-            return self.deny("an empty `Morph` cost".to_string());
+        let prev_x = std::mem::replace(&mut self.has_x, false);
+        let prev_alt = std::mem::replace(&mut self.in_alternative_cost, false);
+        let pieces = self.cost_pieces(rest);
+        self.has_x = prev_x;
+        self.in_alternative_cost = prev_alt;
+        let (mana, parts) = pieces?;
+        if (mana.is_empty() && parts.is_empty())
+            || mana.contains('X')
+            || !parts.iter().all(|part| is_graveyard_activation_part(part))
+        {
+            return self.deny(format!("an unsupported `{keyword}` cost `{rest}`"));
         }
-        let mut mana = String::new();
-        for token in &tokens {
-            let token = token.as_str();
-            if token == "X" {
-                return self.deny(format!("a `Morph` cost `{rest}` with `X`"));
-            }
-            if token.chars().all(|c| c.is_ascii_digit())
-                || matches!(token, "W" | "U" | "B" | "R" | "G" | "C")
-            {
-                mana.push('{');
-                mana.push_str(token);
-                mana.push('}');
-            } else if let Some(pair) = super::hybrid_pair(token) {
-                mana.push_str(&pair);
-            } else {
-                return self.deny(format!("a non-mana `Morph` cost `{rest}`"));
-            }
+        Some((mana, parts))
+    }
+
+    pub(super) fn unearth(&mut self, rest: &str) -> Option<()> {
+        let (mana, parts) = self.graveyard_keyword_cost("Unearth", rest)?;
+        let expr = if parts.is_empty() {
+            format!("unearth!(\"{mana}\")")
+        } else {
+            format!("unearth!({})", crate::body::cost_literal(&mana, &parts))
+        };
+        self.body.abilities.push(expr);
+        self.body.notes.push("unearth".to_string());
+        Some(())
+    }
+
+    pub(super) fn encore(&mut self, rest: &str) -> Option<()> {
+        let (mana, parts) = self.graveyard_keyword_cost("Encore", rest)?;
+        let expr = if parts.is_empty() {
+            format!("encore!(\"{mana}\")")
+        } else {
+            format!("encore!({})", crate::body::cost_literal(&mana, &parts))
+        };
+        self.body.abilities.push(expr);
+        self.body.notes.push("encore".to_string());
+        Some(())
+    }
+
+    pub(super) fn embalm(&mut self, rest: &str) -> Option<()> {
+        self.token_copy_graveyard_keyword("Embalm", "embalm", "EMBALM_MODS", rest)
+    }
+
+    pub(super) fn eternalize(&mut self, rest: &str) -> Option<()> {
+        self.token_copy_graveyard_keyword("Eternalize", "eternalize", "ETERNALIZE_MODS", rest)
+    }
+
+    fn token_copy_graveyard_keyword(
+        &mut self,
+        keyword: &str,
+        macro_name: &str,
+        mods_const: &str,
+        rest: &str,
+    ) -> Option<()> {
+        let (mana, mut parts) = self.graveyard_keyword_cost(keyword, rest)?;
+        let expr = if parts.is_empty() {
+            format!("{macro_name}!(\"{mana}\")")
+        } else {
+            parts.push("ExileSelf".to_string());
+            let cost = crate::body::cost_literal(&mana, &parts);
+            format!(
+                "activated!({cost}, &[Effect::CreateTokenCopyOfSource {{ mods: {mods_const} }}], \
+                 zone = ActivationZone::Graveyard, timing = ActivationTiming::SorcerySpeed)"
+            )
+        };
+        self.body.abilities.push(expr);
+        self.body.notes.push(macro_name.to_string());
+        Some(())
+    }
+
+    pub(super) fn bestow(&mut self, rest: &str) -> Option<()> {
+        if self.body.bestow.is_some() {
+            return self.deny("a second `Bestow` cost on one card".to_string());
         }
-        if baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
-            return self.deny(format!("a `Morph` cost `{rest}` that is not valid mana"));
+        let has_enchantment = self
+            .type_line
+            .split_whitespace()
+            .any(|w| w == "Enchantment");
+        let has_creature = self.type_line.split_whitespace().any(|w| w == "Creature");
+        if !has_enchantment || !has_creature {
+            return self.deny("a `Bestow` on a non-enchantment-creature card".to_string());
         }
-        self.body.morph = Some(format!("Some(mana!(\"{mana}\"))"));
-        self.body.notes.push("morph".to_string());
+        let cost_raw = match rest.split_once(':') {
+            None => rest,
+            Some((cost_part, "GainControl")) => cost_part,
+            Some(_) => return self.deny(format!("a `Bestow` with extra fields `{rest}`")),
+        };
+        if super::cost_parts(cost_raw).is_empty() {
+            return self.deny("an empty `Bestow` cost".to_string());
+        }
+        let prev_x = std::mem::replace(&mut self.has_x, true);
+        let prev_alt = std::mem::replace(&mut self.in_alternative_cost, true);
+        let pieces = self.cost_pieces(cost_raw);
+        self.has_x = prev_x;
+        self.in_alternative_cost = prev_alt;
+        let (mana, parts) = pieces?;
+        if (mana.is_empty() && parts.is_empty())
+            || !parts.iter().all(|part| {
+                part.starts_with("PayLife(")
+                    || part.starts_with("ExileFromHand(")
+                    || part.starts_with("Sacrifice(")
+                    || part.starts_with("ReturnToHand(")
+                    || part.starts_with("TapN {")
+            })
+        {
+            return self.deny(format!("a `Bestow` cost `{rest}` the cast cannot pay"));
+        }
+        self.body.bestow = Some(format!(
+            "Some({})",
+            crate::body::cost_literal(&mana, &parts)
+        ));
+        self.body.notes.push("bestow".to_string());
+        Some(())
+    }
+
+    /// `K:Morph:<cost>` and `K:Megamorph:<cost>` (CR 702.37, CR 702.37b):
+    /// cast face down as a 2/2 creature for {3} and turn face up any time you
+    /// have priority for the face-up mana cost (with optional `{X}` and
+    /// non-mana `morph_parts`).
+    pub(super) fn face_down_keyword(&mut self, rest: &str, is_megamorph: bool) -> Option<()> {
+        let kw = if is_megamorph { "Megamorph" } else { "Morph" };
+        if (is_megamorph && self.body.megamorph.is_some())
+            || (!is_megamorph && self.body.morph.is_some())
+        {
+            return self.deny(format!("a second `{kw}` cost on one card"));
+        }
+        if self.body.morph.is_some()
+            || self.body.megamorph.is_some()
+            || self.body.disguise.is_some()
+        {
+            return self.deny(format!("a conflicting `{kw}` cost on one card"));
+        }
+        if rest.contains(':') {
+            return self.deny(format!("a `{kw}` with extra fields `{rest}`"));
+        }
+        if super::cost_parts(rest).is_empty() {
+            return self.deny(format!("an empty `{kw}` cost"));
+        }
+        let prev_x = std::mem::replace(&mut self.has_x, true);
+        let prev_alt = std::mem::replace(&mut self.in_alternative_cost, true);
+        let pieces = self.cost_pieces(rest);
+        self.has_x = prev_x;
+        self.in_alternative_cost = prev_alt;
+        let (mana, parts) = pieces?;
+        if (mana.is_empty() && parts.is_empty())
+            || !parts.iter().all(|part| is_morph_cost_part(part))
+        {
+            return self.deny(format!("a non-mana `{kw}` cost `{rest}`"));
+        }
+        if !mana.is_empty() && baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+            return self.deny(format!("a `{kw}` cost `{rest}` that is not valid mana"));
+        }
+        let mana_expr = if mana.is_empty() {
+            "Some(ManaCost::ZERO)".to_string()
+        } else {
+            format!("Some(mana!(\"{mana}\"))")
+        };
+        if is_megamorph {
+            self.body.megamorph = Some(mana_expr);
+            self.body.notes.push("megamorph".to_string());
+        } else {
+            self.body.morph = Some(mana_expr);
+            self.body.notes.push("morph".to_string());
+        }
+        self.body.morph_parts = parts;
         Some(())
     }
 
@@ -1405,4 +1632,37 @@ impl Tx<'_> {
         ));
         None
     }
+}
+
+fn is_graveyard_activation_part(part: &str) -> bool {
+    part.starts_with("PayLife(")
+        || part.starts_with("PayEnergy(")
+        || part.starts_with("Discard(")
+        || part == "DiscardRandom"
+        || part == "DiscardHand"
+        || part.starts_with("Sacrifice(")
+        || part.starts_with("ReturnToHand(")
+        || part.starts_with("TapOther(")
+        || part.starts_with("ExileFromGraveyard(")
+        || part.starts_with("ExileTopOfLibrary(")
+        || part.starts_with("ExilePermanent(")
+}
+
+fn is_morph_cost_part(part: &str) -> bool {
+    part.starts_with("PayLife(")
+        || part.starts_with("PayEnergy(")
+        || part == "PayEnergyX"
+        || part.starts_with("Discard(")
+        || part == "DiscardRandom"
+        || part == "DiscardHand"
+        || part.starts_with("Sacrifice(")
+        || part.starts_with("SacrificeX(")
+        || part.starts_with("ReturnToHand(")
+        || part.starts_with("ExileFromHand(")
+        || part.starts_with("ExileFromGraveyard(")
+        || part.starts_with("ExileTopOfLibrary(")
+        || part.starts_with("ExilePermanent(")
+        || part.starts_with("TapOther(")
+        || part.starts_with("TapX(")
+        || part.starts_with("TapN {")
 }

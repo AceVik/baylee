@@ -64,6 +64,17 @@ pub struct CardBody {
     pub foretell: Option<String>,
     /// `morph` expression for the front face, when present.
     pub morph: Option<String>,
+    /// `megamorph` expression for the front face, when present.
+    pub megamorph: Option<String>,
+    /// Bare `CostPart` expressions accompanying `morph`/`megamorph`/`disguise`,
+    /// before the renderer adds the `CostPart::` prefix.
+    pub morph_parts: Vec<String>,
+    /// `bestow` expression for the front face, when present.
+    pub bestow: Option<String>,
+    /// `jump_start = true` on the face, when present.
+    pub jump_start: bool,
+    /// `aftermath = true` on the face, when present.
+    pub aftermath: bool,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
@@ -108,6 +119,11 @@ impl CardBody {
             && self.madness.is_none()
             && self.foretell.is_none()
             && self.morph.is_none()
+            && self.megamorph.is_none()
+            && self.morph_parts.is_empty()
+            && self.bestow.is_none()
+            && !self.jump_start
+            && !self.aftermath
             && self.cost_reduction.is_none()
             && self.entwine.is_none()
             && self.buyback.is_none()

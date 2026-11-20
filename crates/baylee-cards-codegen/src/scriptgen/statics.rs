@@ -261,6 +261,12 @@ impl Tx<'_> {
         {
             return self.reveal_all_hands(p);
         }
+        if !graveyard_zone
+            && p.peek("AffectedZone") == Some("Graveyard")
+            && p.peek("MayPlay") == Some("True")
+        {
+            return self.graveyard_may_play(p);
+        }
         // Likewise `AffectedZone`: reaching past the battlefield is said by
         // a `Filter::InZone` in the filter, and a filter that has no zone
         // predicate in it cannot say *which* other zone. Refuse rather than
@@ -543,6 +549,53 @@ impl Tx<'_> {
              count: {count} }}{condition})"
         ));
         Some(())
+    }
+
+    /// Graveyard cast/play permissions (`AffectedZone$ Graveyard | MayPlay$ True`):
+    /// - `Land.YouOwn` (+ optional static condition) -> `Modifier::PlayLandsFromGraveyard`
+    /// - `Instant.YouCtrl,Sorcery.YouCtrl` (or `YouOwn`) with `Condition$ PlayerTurn`,
+    ///   `ReplaceGraveyard$ Exile`, and `MayPlayLimit$ 1` ->
+    ///   `Modifier::GraveyardInstantSorceryOnce`
+    fn graveyard_may_play(&mut self, mut p: Params) -> Option<()> {
+        p.take("AffectedZone");
+        p.take("MayPlay");
+        let deny_zone = |this: &mut Self| -> Option<()> {
+            this.note("static ability reaching `AffectedZone$ Graveyard`".to_string());
+            None
+        };
+        let Some(affected) = p.take("Affected") else {
+            return deny_zone(self);
+        };
+        if affected == "Land.YouOwn" {
+            let condition = self.condition(&mut p)?;
+            if p.first_key().is_some() {
+                return deny_zone(self);
+            }
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::Any, Modifier::PlayLandsFromGraveyard{condition})"
+            ));
+            return Some(());
+        }
+        if matches!(
+            affected.as_str(),
+            "Instant.YouCtrl,Sorcery.YouCtrl"
+                | "Sorcery.YouCtrl,Instant.YouCtrl"
+                | "Instant.YouOwn,Sorcery.YouOwn"
+                | "Sorcery.YouOwn,Instant.YouOwn"
+        ) {
+            if p.take("Condition").as_deref() != Some("PlayerTurn")
+                || p.take("ReplaceGraveyard").as_deref() != Some("Exile")
+                || p.take("MayPlayLimit").as_deref() != Some("1")
+                || p.first_key().is_some()
+            {
+                return deny_zone(self);
+            }
+            self.body.abilities.push(
+                "static_ability!(Filter::Any, Modifier::GraveyardInstantSorceryOnce)".to_string(),
+            );
+            return Some(());
+        }
+        deny_zone(self)
     }
 
     /// A characteristic-defining power and toughness (CR 604.3): both equal
@@ -1587,9 +1640,15 @@ impl Tx<'_> {
         if p.peek("ValidSpell") == Some("Activated.Cycling") {
             return self.reduce_cost_cycling(p);
         }
+        if p.peek("ValidSpell") == Some("Activated.Equip") {
+            return self.reduce_cost_equip(p);
+        }
 
         let spell_type = p.take("Type");
         let valid_spell = p.take("ValidSpell");
+        if spell_type.as_deref() == Some("Ability") && valid_spell.is_none() {
+            return self.reduce_cost_ability(p);
+        }
         let face_down = match (spell_type.as_deref(), valid_spell.as_deref()) {
             (Some("Spell"), None) => false,
             (Some("Spell") | None, Some("Spell.isCastFaceDown")) => true,
@@ -1693,16 +1752,56 @@ impl Tx<'_> {
 
     fn reduce_cost_cycling(&mut self, mut p: Params) -> Option<()> {
         p.take("ValidSpell");
-        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
-            || !matches!(p.take("Type").as_deref(), None | Some("Ability"))
-        {
+        let (filter, amount, _, cond) = self.parse_ability_reduction(p, false, false, false)?;
+        self.body.abilities.push(format!(
+            "static_ability!({filter}, Modifier::CyclingCostsLess({amount}){cond})"
+        ));
+        Some(())
+    }
+
+    fn reduce_cost_equip(&mut self, mut p: Params) -> Option<()> {
+        p.take("ValidSpell");
+        let (filter, amount, _, cond) = self.parse_ability_reduction(p, true, false, false)?;
+        self.body.abilities.push(format!(
+            "static_ability!({filter}, Modifier::EquipCostsLess({amount}){cond})"
+        ));
+        Some(())
+    }
+
+    fn reduce_cost_ability(&mut self, p: Params) -> Option<()> {
+        let (filter, amount, minimum, cond) = self.parse_ability_reduction(p, true, true, true)?;
+        self.body.abilities.push(format!(
+            "static_ability!({filter}, Modifier::AbilitiesCostLess {{ amount: {amount}, minimum: {minimum} }}{cond})"
+        ));
+        Some(())
+    }
+
+    fn parse_ability_reduction(
+        &mut self,
+        mut p: Params,
+        allow_affected_zone: bool,
+        allow_nonzero_min_mana: bool,
+        forbid_unscoped_card: bool,
+    ) -> Option<(String, u32, u32, String)> {
+        let mut zones_ok = matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"));
+        let explicit_battlefield = if allow_affected_zone {
+            let affected_zone = p.take("AffectedZone");
+            zones_ok &= matches!(affected_zone.as_deref(), None | Some("Battlefield"));
+            affected_zone.as_deref() == Some("Battlefield")
+        } else {
+            false
+        };
+        if !zones_ok || !matches!(p.take("Type").as_deref(), None | Some("Ability")) {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         }
-        let Some(valid_card) = p.take("ValidCard") else {
+        let Some(raw_card) = p.take("ValidCard") else {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         };
+        if forbid_unscoped_card && raw_card == "Card" && !explicit_battlefield {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        }
         let Some(valid_card) =
-            Self::apply_reduce_activator(&valid_card, p.take("Activator").as_deref())
+            Self::apply_reduce_activator(&raw_card, p.take("Activator").as_deref())
         else {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         };
@@ -1714,14 +1813,26 @@ impl Tx<'_> {
         else {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         };
+        let minimum = match (
+            allow_nonzero_min_mana,
+            allow_affected_zone,
+            p.take("MinMana"),
+        ) {
+            (_, _, None) => 0,
+            (true, _, Some(min)) => match min.parse::<u32>() {
+                Ok(n) => n,
+                Err(_) => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+            },
+            (false, true, Some(min)) if min == "0" => 0,
+            (false, _, Some(_)) => {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+        };
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
         }
         let filter = self.filter_expr(&valid_card)?;
-        self.body.abilities.push(format!(
-            "static_ability!({filter}, Modifier::CyclingCostsLess({amount}){cond})"
-        ));
-        Some(())
+        Some((filter, amount, minimum, cond))
     }
 
     fn append_reduce_atom(valid: &str, atom: &str) -> String {
@@ -1729,7 +1840,9 @@ impl Tx<'_> {
             .split(',')
             .map(|alt| {
                 let alt = alt.trim();
-                if alt.contains('.') {
+                if alt.split(['.', '+']).any(|part| part == atom) {
+                    alt.to_string()
+                } else if alt.contains('.') {
                     format!("{alt}+{atom}")
                 } else {
                     format!("{alt}.{atom}")
@@ -1786,11 +1899,7 @@ impl Tx<'_> {
         }
         if let Some(var) = p.take("CheckSVar") {
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-            let clause = if let Some(c) = self.svar_condition(&var, &cmp) {
-                c
-            } else if let Some(c) = self.inline_valid_count_condition(var.trim(), &cmp) {
-                c
-            } else {
+            let Some(clause) = self.reduce_cost_svar_condition(&var, &cmp) else {
                 return self.deny("unclaimed parameter `ReduceCost.CheckSVar`".to_string());
             };
             clauses.push(clause);
@@ -1800,6 +1909,58 @@ impl Tx<'_> {
             [one] => format!(", condition = Some({one})"),
             many => format!(", condition = Some(Condition::All(&[{}]))", many.join(", ")),
         })
+    }
+
+    fn reduce_cost_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        if let Some(c) = self.svar_condition(var, cmp) {
+            return Some(c);
+        }
+        let trimmed = var.trim();
+        if let Some(c) = self.inline_valid_count_condition(trimmed, cmp) {
+            return Some(c);
+        }
+        let def = if trimmed.starts_with("Count$") || trimmed.starts_with("PlayerCount") {
+            trimmed.to_string()
+        } else {
+            self.svars.get(trimmed)?.trim().to_string()
+        };
+        let bound = super::count_bound(cmp)?;
+        if def == "PlayerCountOpponents$HighestCardsInGraveyard" {
+            return match bound {
+                super::Bound::AtLeast(n) if n >= 1 => u8::try_from(n)
+                    .ok()
+                    .map(|n| format!("Condition::OpponentGraveyardCountAtLeast({n})")),
+                super::Bound::AtMost(n) => {
+                    n.checked_add(1)
+                        .and_then(|t| u8::try_from(t).ok())
+                        .map(|t| {
+                            format!(
+                                "Condition::Not(&Condition::OpponentGraveyardCountAtLeast({t}))"
+                            )
+                        })
+                }
+                super::Bound::AtLeast(_) => None,
+            };
+        }
+        if def
+            .strip_prefix("Count$ValidGraveyard ")
+            .is_some_and(|rest| !rest.contains('$') && !rest.contains('/'))
+            && let Some(count) = self.static_count_expr(&def)
+        {
+            return match bound {
+                super::Bound::AtLeast(n) if n >= 1 => {
+                    Some(format!("Condition::AmountAtLeast({count}, {n})"))
+                }
+                super::Bound::AtMost(n) => {
+                    let threshold = u32::from(n).saturating_add(1);
+                    Some(format!(
+                        "Condition::Not(&Condition::AmountAtLeast({count}, {threshold}))"
+                    ))
+                }
+                super::Bound::AtLeast(_) => None,
+            };
+        }
+        None
     }
 
     fn reduce_cost_zone_present(&mut self, p: &mut Params, valid: &str) -> Option<String> {

@@ -133,12 +133,33 @@ fn saga_chapters_lower_in_order() {
         saga.abilities[2].starts_with("chapter!(3, &[Effect::destroy(")
             && saga.abilities[2].contains("targets = Some(TargetReq::one(")
     );
-    // Read Ahead sagas stay refused via the unimplemented keyword.
-    assert!(refused(
+    // Read Ahead + grouped multi-chapter sagas + second_targets lower cleanly.
+    let read_ahead = read(
         "Name:Story2\nManaCost:2 W\nTypes:Enchantment Saga\n\
-         K:Read ahead\nK:Chapter:2:Ch1,Ch2\n\
-         SVar:Ch1:DB$ Draw | NumCards$ 1\nSVar:Ch2:DB$ GainLife | LifeAmount$ 2"
-    ));
+         K:Read ahead\nK:Chapter:3:Ch1,Ch1,Ch2\n\
+         SVar:Ch1:DB$ Draw | NumCards$ 1\n\
+         SVar:Ch2:DB$ Destroy | ValidTgts$ Artifact | SubAbility$ DBKill2\n\
+         SVar:DBKill2:DB$ Destroy | ValidTgts$ Enchantment",
+    );
+    assert!(
+        read_ahead
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::READ_AHEAD"),
+        "{:?}",
+        read_ahead.keywords
+    );
+    assert_eq!(
+        read_ahead.abilities[0],
+        "chapters!(&[1, 2], &[Effect::draw(1)])"
+    );
+    assert!(
+        read_ahead.abilities[1].starts_with("chapter!(3, &[Effect::destroy(")
+            && read_ahead.abilities[1].contains("targets = Some(TargetReq::one(")
+            && read_ahead.abilities[1].contains("second_targets = Some(TargetReq::one("),
+        "{}",
+        read_ahead.abilities[1]
+    );
 }
 
 #[test]
@@ -1348,4 +1369,147 @@ fn wave4_svar_conditions_damage_pump_and_second_destroy() {
         "{}",
         twin_kill.abilities[0]
     );
+}
+
+#[test]
+fn wave5_blocked_attacker_and_graveyard_may_play() {
+    let blocked_pack = read(
+        "Name:PackAlpha\nManaCost:1 R\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | Defined$ TriggeredAttacker | NumAtt$ +X | NumDef$ +X\n\
+         SVar:X:Count$Valid Creature.blockingTriggeredAttacker",
+    );
+    assert!(
+        blocked_pack.statics.contains("Filter::BlockingReference")
+            && !blocked_pack.statics.contains("Filter::BlockingSource"),
+        "{}",
+        blocked_pack.statics
+    );
+
+    let crucible = read(
+        "Name:LoamVessel\nManaCost:3\nTypes:Artifact\n\
+         S:Mode$ Continuous | Affected$ Land.YouOwn | AffectedZone$ Graveyard | MayPlay$ True",
+    );
+    assert_eq!(
+        crucible.abilities,
+        ["static_ability!(Filter::Any, Modifier::PlayLandsFromGraveyard)"]
+    );
+    let seasonal_loam = read(
+        "Name:TurnVessel\nManaCost:2 G\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Land.YouOwn | AffectedZone$ Graveyard | Condition$ PlayerTurn | MayPlay$ True",
+    );
+    assert_eq!(
+        seasonal_loam.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::PlayLandsFromGraveyard, condition = Some(Condition::YourTurn))"
+        ]
+    );
+    assert!(refused(
+        "Name:BadLoam\nManaCost:3\nTypes:Artifact\n\
+         S:Mode$ Continuous | Affected$ Land.YouOwn | AffectedZone$ Graveyard | MayPlay$ True | MayPlayLimit$ 1"
+    ));
+    assert!(refused(
+        "Name:YawgWill\nManaCost:2 B\nTypes:Sorcery\n\
+         S:Mode$ Continuous | Affected$ Card.YouCtrl | AffectedZone$ Graveyard | MayPlay$ True"
+    ));
+
+    let kess = read(
+        "Name:ArcaneEcho\nManaCost:1 U B R\nTypes:Creature\nPT:3/4\n\
+         S:Mode$ Continuous | Affected$ Instant.YouCtrl,Sorcery.YouCtrl | Condition$ PlayerTurn | ReplaceGraveyard$ Exile | MayPlay$ True | MayPlayLimit$ 1 | EffectZone$ Battlefield | AffectedZone$ Graveyard",
+    );
+    assert_eq!(
+        kess.abilities,
+        ["static_ability!(Filter::Any, Modifier::GraveyardInstantSorceryOnce)"]
+    );
+    assert!(refused(
+        "Name:BadKess\nManaCost:1 U B R\nTypes:Creature\nPT:3/4\n\
+         S:Mode$ Continuous | Affected$ Instant.YouCtrl,Sorcery.YouCtrl | Condition$ PlayerTurn | MayPlay$ True | MayPlayLimit$ 1 | AffectedZone$ Graveyard"
+    ));
+}
+
+#[test]
+fn wave5_reduce_cost_and_spell_prevention() {
+    let smith = read(
+        "Name:SteelSmith\nManaCost:1 W\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 1",
+    );
+    assert_eq!(
+        smith.abilities,
+        ["static_ability!(Filter::ControlledByYou, Modifier::EquipCostsLess(1))"]
+    );
+    assert!(refused(
+        "Name:BadSmith\nManaCost:1 W\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 1 | MinMana$ 1"
+    ));
+    assert!(refused(
+        "Name:TargetSmith\nManaCost:R\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ ReduceCost | ValidTarget$ Card.Self | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 3"
+    ));
+
+    let grounds = read(
+        "Name:TrainingRing\nManaCost:U\nTypes:Enchantment\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature.YouCtrl | Type$ Ability | Amount$ 2 | MinMana$ 1 | AffectedZone$ Battlefield",
+    );
+    assert_eq!(
+        grounds.abilities,
+        [
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::AbilitiesCostLess { amount: 2, minimum: 1 })"
+        ]
+    );
+    assert!(refused(
+        "Name:ZirdaLike\nManaCost:1 R W\nTypes:Creature\nPT:3/3\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | ValidSpell$ Activated.!ManaAbility | Amount$ 2 | MinMana$ 1"
+    ));
+    assert!(refused(
+        "Name:AnyZoneAbil\nManaCost:2\nTypes:Artifact\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | Type$ Ability | Amount$ 1"
+    ));
+
+    let gy_reduce = read(
+        "Name:GraveDiscount\nManaCost:3 U\nTypes:Instant\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | Amount$ 2 | CheckSVar$ GY | SVarCompare$ GE3\n\
+         SVar:GY:Count$ValidGraveyard Instant,Sorcery\n\
+         A:SP$ Draw | NumCards$ 2",
+    );
+    assert!(
+        gy_reduce.abilities[0].contains("Condition::AmountAtLeast(Amount::CountOf")
+            && gy_reduce.abilities[0].contains("ZoneSel::GraveyardAll")
+            && gy_reduce.abilities[0].contains(", 3)"),
+        "{}",
+        gy_reduce.abilities[0]
+    );
+    let opp_gy_reduce = read(
+        "Name:StoryDiscount\nManaCost:4 U U U\nTypes:Instant\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | Amount$ 3 | CheckSVar$ X | SVarCompare$ GE7\n\
+         SVar:X:PlayerCountOpponents$HighestCardsInGraveyard\n\
+         A:SP$ Draw | NumCards$ 4",
+    );
+    assert_eq!(
+        opp_gy_reduce.abilities[0],
+        "static_ability!(Filter::This, Modifier::SpellsCostLess(3), zone = ZoneRef::Stack, condition = Some(Condition::OpponentGraveyardCountAtLeast(7)))"
+    );
+
+    let spell_ward = read(
+        "Name:SpellVeil\nManaCost:1 R W\nTypes:Creature\nPT:2/3\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Spell | ValidTarget$ You,Permanent.YouCtrl | Prevent$ True",
+    );
+    assert!(
+        spell_ward
+            .statics
+            .contains("Filter::InZone(ZoneRef::Stack)")
+            && spell_ward.abilities.len() == 2
+            && spell_ward.abilities[0].contains("Modifier::PreventDamageToYouFrom(&SOURCE1)")
+            && spell_ward.abilities[1].contains("Modifier::PreventDamageFrom(&SOURCE1)"),
+        "{}\n{:?}",
+        spell_ward.statics,
+        spell_ward.abilities
+    );
+    assert!(refused(
+        "Name:BadComb\nManaCost:1 W\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You,Permanent.YouCtrl | IsCombat$ True | Prevent$ True"
+    ));
+    assert!(refused(
+        "Name:BadOpp\nManaCost:1 W\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You,Opponent | Prevent$ True"
+    ));
 }
