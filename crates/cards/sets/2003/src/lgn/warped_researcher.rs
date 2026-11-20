@@ -11,7 +11,7 @@ card!(
     oracle_id = "069862f9-f051-40cc-84f2-c0208873a34c",
     scryfall_id = "5df94a4e-1371-4b75-a557-eeb83c23cf9d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Warped Researcher",
         mana_cost = mana!("{4}{U}"),

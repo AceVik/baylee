@@ -348,6 +348,7 @@ mod rapturous_moment;
 mod rise_of_eagles;
 mod sangrite_surge;
 mod sip_of_hemlock;
+mod slice_and_dice;
 mod spectral_procession;
 mod thassa_s_bounty;
 mod their_name_is_death;

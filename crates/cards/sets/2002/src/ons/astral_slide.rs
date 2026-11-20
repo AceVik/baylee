@@ -10,7 +10,7 @@ card!(
     oracle_id = "70f14b10-8129-4249-a267-8b4be5d9befa",
     scryfall_id = "ba089228-135a-421b-b932-26b86e555b78",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Astral Slide",
         mana_cost = mana!("{2}{W}"),

@@ -42,6 +42,8 @@ mod frenetic_raptor;
 mod frost_giant;
 mod gaea_s_liege;
 mod gang_of_elk;
+mod gempalm_avenger;
+mod gempalm_polluter;
 mod giant_shark;
 mod giant_warthog;
 mod glowering_rogon;

@@ -437,6 +437,7 @@ mod karplusan_giant;
 mod kazarov_sengir_pureblood;
 mod kilnmouth_dragon;
 mod krosan_groundshaker;
+mod krosan_tusker;
 mod laccolith_titan;
 mod loamdragger_giant;
 mod lord_of_the_pit;

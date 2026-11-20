@@ -248,6 +248,7 @@ mod vexing_beetle;
 mod vigilant_drake;
 mod vintara_elephant;
 mod ward_sliver;
+mod warped_researcher;
 mod water_elemental;
 mod weatherseed_treefolk;
 mod wind_spirit;

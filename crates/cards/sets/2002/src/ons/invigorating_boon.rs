@@ -10,7 +10,7 @@ card!(
     oracle_id = "d00329c2-e65c-4774-83cd-d68e1d1a6e31",
     scryfall_id = "6eb5124d-bcd6-4aa4-8fd2-f49c8dc6765a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Invigorating Boon",
         mana_cost = mana!("{1}{G}"),

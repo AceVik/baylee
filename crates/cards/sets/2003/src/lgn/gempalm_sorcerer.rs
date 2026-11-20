@@ -17,7 +17,7 @@ card!(
     oracle_id = "c3162232-b713-44be-b2af-29d801279ab2",
     scryfall_id = "67bda65b-2e26-4531-9f6a-952df314c8f7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gempalm Sorcerer",
         mana_cost = mana!("{2}{U}"),

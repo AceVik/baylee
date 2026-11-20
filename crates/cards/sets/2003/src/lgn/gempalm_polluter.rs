@@ -14,7 +14,7 @@ card!(
     oracle_id = "bd532f8d-789f-4ee1-a2f3-ae30e8282c76",
     scryfall_id = "8e9943ac-9e3f-4ee0-b5fd-3b0fb17097d8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gempalm Polluter",
         mana_cost = mana!("{5}{B}"),
