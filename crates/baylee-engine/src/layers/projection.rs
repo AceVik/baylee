@@ -70,6 +70,7 @@ pub(super) fn recompute_observing<'a>(
     let mut animations: SmallVec<[u32; 4]> = SmallVec::new();
     let all = state.effects.as_slice();
     let mut prohibited = KeywordSet::EMPTY;
+    let mut max_ability_ts = 0_u64;
     for layer in LAYERS {
         if layer == Layer::Text {
             // Text changes affect the type line and printed/copied keywords
@@ -145,6 +146,9 @@ pub(super) fn recompute_observing<'a>(
                     if carried && layer == Layer::Type {
                         animations.push(idx);
                     }
+                    if layer == Layer::Ability {
+                        max_ability_ts = max_ability_ts.max(fx.timestamp);
+                    }
                     #[cfg(any(test, feature = "test-support"))]
                     crate::ability_log::static_applied(fx);
                     let c_mut = c.to_mut();
@@ -157,6 +161,21 @@ pub(super) fn recompute_observing<'a>(
                         &mut read_board,
                         layer,
                     );
+                    // CR 613.8: when an ability-removing effect waits on a
+                    // later-timestamp dependency (e.g. "creatures with flying
+                    // lose all abilities" after a later "creatures have
+                    // flying"), every layer-6 grant applied before it in the
+                    // dependency order is wiped, not only older timestamps.
+                    if layer == Layer::Ability
+                        && matches!(
+                            fx.modifier,
+                            Modifier::LoseAllAbilities
+                                | Modifier::AnimateNoncreatureArtifact
+                                | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
+                        )
+                    {
+                        c_mut.abilities_lost = Some(Characteristics::lost_at(max_ability_ts));
+                    }
                     // A prohibited grant must not be visible to later filters either.
                     c_mut.keywords = c_mut.keywords.difference(prohibited);
                     applied(layer, fx, c_mut);

@@ -164,7 +164,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         object: t.source,
                         version,
                     },
-                    t.ability_index,
+                    t.fire_key(),
                 ))
             })
     }

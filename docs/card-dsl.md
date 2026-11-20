@@ -5418,3 +5418,29 @@ registers one or more delayed triggered abilities during resolution:
   over `DelayedObservation`.
 - `condition`, `targets`, and `remember` behave identically to
   `ReflexiveTrigger` (`CR 603.4`, `CR 603.7c–d`).
+
+### Granted Triggered & Activated Definitions and Phasing Triggers
+
+- `Modifier::GrantTriggeredDefinition(&'static AbilityDef)` (Layer 6
+  `Layer::Ability`, `locks_its_set == true`, CR 613.1f) grants any complete
+  `AbilityDef::Triggered` or `AbilityDef::ModalTriggered` (built with
+  `triggered!(...)` or `modal_triggered!(...)`) onto matching permanents,
+  preserving arbitrary `TargetReq` bounds, `second_targets`, intervening-`if`
+  `condition` (checked on trigger and resolution per CR 603.4), and
+  `once_per_turn` (tracked per `(recipient incarnation, grant effect)`), while
+  participating in Layer 6 timestamp and dependency ordering against
+  `Modifier::LoseAllAbilities` (CR 613.7, CR 613.8). Complements
+  `Modifier::GrantActivatedDefinition(&'static AbilityDef)`.
+- `Trigger::PhasesIn(&'static Filter)` (`Trigger::PHASES_IN` for `&Filter::This`)
+  fires when a matching permanent phases in (CR 702.26c, CR 502.1 — Shimmering
+  Efreet, Teferi's Imp, Warping Wurm).
+- `Trigger::PhasesOut(&'static Filter)` (`Trigger::PHASES_OUT` for `&Filter::This`)
+  fires when a matching permanent phases out, looking back in time immediately
+  prior to phasing out (CR 702.26b, CR 603.10b — Teferi's Imp) without firing
+  leaves-the-battlefield triggers (CR 702.26d).
+- `Trigger::PhasesOutOrLeavesBattlefield(&'static Filter)` fires when a matching
+  permanent either phases out or leaves the battlefield (CR 702.26d, CR 603.10a,
+  CR 603.10b — Ertai's Familiar).
+- `Modifier::CantPhaseOut` (Layer 3 rules, `locks_its_set == false`) prevents
+  affected permanents from phasing out either during the untap step or via
+  resolving effects (CR 702.26a–b — Ertai's Familiar).

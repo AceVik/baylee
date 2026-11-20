@@ -346,6 +346,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             Effect::Exile { .. }
             | Effect::ReturnToHand { .. }
             | Effect::PutTargetOnBottomOfLibrary
+            | Effect::PhaseOutUntilSourceLeaves { .. }
             | Effect::ChangeController { .. } => {
                 m.removal = true;
             }

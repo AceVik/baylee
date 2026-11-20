@@ -418,11 +418,18 @@ pub fn grants_in(
 /// is never the nearest one.
 #[must_use]
 pub fn grant_home(abilities: &'static [AbilityDef], grant: &Modifier) -> Option<usize> {
-    abilities.iter().position(|ability| {
-        grants_in(ability, &mut 0)
-            .iter()
-            .any(|(_, found)| *found == grant)
-    })
+    abilities
+        .iter()
+        .position(|ability| {
+            grants_in(ability, &mut 0)
+                .iter()
+                .any(|(_, found)| *found == grant)
+        })
+        .or_else(|| {
+            abilities.iter().position(
+                |ability| matches!(ability, AbilityDef::Static(rule) if &rule.modifier == grant),
+            )
+        })
 }
 
 #[cfg(test)]

@@ -473,7 +473,12 @@ pub(crate) fn matches_projected_with_choices(
                         baylee_cards_dsl::Modifier::GrantTriggered {
                             trigger: baylee_cards_dsl::Trigger::Rampage,
                             ..
-                        }
+                        } | baylee_cards_dsl::Modifier::GrantTriggeredDefinition(
+                            baylee_cards_dsl::AbilityDef::Triggered {
+                                trigger: baylee_cards_dsl::Trigger::Rampage,
+                                ..
+                            },
+                        )
                     ) && crate::effects::applies_to(state, fx, obj)
                 })
         }
@@ -505,12 +510,19 @@ pub(crate) fn matches_projected_with_choices(
             printed
                 || state.effects.iter().any(|fx| {
                     matches!(
-                        fx.modifier,
+                        &fx.modifier,
                         baylee_cards_dsl::Modifier::GrantTriggered {
-                            ref trigger,
+                            trigger,
                             effects,
                             ..
-                        } if is_cu(trigger, effects)
+                        }
+                        | baylee_cards_dsl::Modifier::GrantTriggeredDefinition(
+                            baylee_cards_dsl::AbilityDef::Triggered {
+                                trigger,
+                                effects,
+                                ..
+                            },
+                        ) if is_cu(trigger, effects)
                     ) && crate::effects::applies_to(state, fx, obj)
                 })
         }

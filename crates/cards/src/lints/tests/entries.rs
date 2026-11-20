@@ -533,7 +533,7 @@ fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert!(
-        (7..=19).contains(&checked),
-        "read {checked} self-returns out of the pool; expected the range 7–19"
+        (7..=24).contains(&checked),
+        "read {checked} self-returns out of the pool; expected the range 7–24"
     );
 }

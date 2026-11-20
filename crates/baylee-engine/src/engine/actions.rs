@@ -1204,6 +1204,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         let controller =
                             queued.as_ref().map_or(player, |trigger| trigger.controller);
                         if let Some(t) = queued.as_ref() {
+                            self.record_trigger_fired(t);
                             self.hand_over_trigger_abilities(t);
                         }
                         let top =

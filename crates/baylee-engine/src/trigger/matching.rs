@@ -161,6 +161,36 @@ fn departed_matches(
     eval::matches_projected_with_context(filter, state, &as_it_was, was, you, context)
 }
 
+/// CR 603.10b: abilities that trigger when a permanent phases out look back in
+/// time to the game state immediately before it phased out. Its projected
+/// characteristics and controller stay frozen at phase-out (`phasing.rs`), so
+/// clearing the phased-out status bits reconstructs the pre-event permanent.
+fn phased_out_matches(
+    filter: &baylee_cards_dsl::Filter,
+    state: &GameState,
+    object: ObjectId,
+    you: PlayerId,
+    context: RuleContext,
+) -> bool {
+    let Some(o) = state.object_or_departed(object) else {
+        return false;
+    };
+    let mut as_it_was = o.clone();
+    as_it_was.zone = Zone::Battlefield;
+    as_it_was.status.remove(crate::object::Status::PHASED_OUT);
+    as_it_was
+        .status
+        .remove(crate::object::Status::PHASED_OUT_INDIRECTLY);
+    eval::matches_projected_with_context(
+        filter,
+        state,
+        &as_it_was,
+        o.characteristics(),
+        you,
+        context,
+    )
+}
+
 /// [`Trigger::TargetedByOpponent`]'s count: the fitting targets an
 /// opponent's spell or ability acquired in this event.
 ///
@@ -420,6 +450,14 @@ fn matches(
             },
         )
         | (
+            Trigger::PhasesOutOrLeavesBattlefield(filter),
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                ..
+            },
+        )
+        | (
             Trigger::ExiledFromBattlefield(filter),
             GameEvent::ZoneChanged {
                 object,
@@ -437,6 +475,24 @@ fn matches(
                 ..
             },
         ) => departed_matches(filter, state, *object, you, context),
+        (
+            Trigger::PhasesIn(filter),
+            GameEvent::PhaseChanged {
+                object,
+                phased_out: false,
+            },
+        ) => state
+            .object(*object)
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        // CR 603.10b: abilities that trigger when a permanent phases out look
+        // back in time to the game state immediately before it phased out.
+        (
+            Trigger::PhasesOut(filter) | Trigger::PhasesOutOrLeavesBattlefield(filter),
+            GameEvent::PhaseChanged {
+                object,
+                phased_out: true,
+            },
+        ) => phased_out_matches(filter, state, *object, you, context),
         (
             Trigger::DiesNotSacrificed(filter),
             GameEvent::ZoneChanged {

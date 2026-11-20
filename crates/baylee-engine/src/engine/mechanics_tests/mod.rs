@@ -42,6 +42,7 @@ mod draw_replacements;
 mod effects;
 mod exile_counters;
 mod flanking;
+mod granted_abilities_and_phasing;
 mod grantor;
 mod graveyard_and_facedown_casting;
 mod land_transformations;

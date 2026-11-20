@@ -514,6 +514,32 @@ impl AbilityList {
         }));
         self
     }
+
+    /// Wrap one granted ability definition with its grantor's wording and
+    /// acquisition identity so triggered-ability machinery can run it on the
+    /// ordinary indexed path without putting it into copiable text.
+    #[must_use]
+    pub fn from_granted(
+        definition: &'static AbilityDef,
+        provenance: AbilityProvenance,
+        base_text: crate::text_changes::TextChangeMap,
+        acquisition: u64,
+    ) -> Self {
+        Self {
+            acquisition,
+            abilities: AbilityDefs::Shared(Arc::new(AbilityBundle {
+                entries: vec![AbilityEntry {
+                    definition,
+                    provenance,
+                    base_text,
+                    circled_colors: baylee_core::color::ColorSet::EMPTY,
+                }],
+                runtime_statics: Vec::new(),
+            })),
+            printed: provenance.origin.and_then(AbilityOrigin::printed),
+            token: provenance.origin.and_then(AbilityOrigin::token),
+        }
+    }
 }
 
 /// Apply characteristic exceptions as part of layer 1. Counters are entry

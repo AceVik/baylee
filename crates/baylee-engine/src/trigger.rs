@@ -203,7 +203,9 @@ fn condition_matches(
     // the creature a blocker blocked (Wall of Caltrops' "that creature").
     let event = entry.and_then(|entry| {
         let object = match entry.event {
-            GameEvent::ZoneChanged { object, .. } => object,
+            GameEvent::ZoneChanged { object, .. } | GameEvent::PhaseChanged { object, .. } => {
+                object
+            }
             GameEvent::BecameBlocker { attacker, .. } => attacker,
             _ => return None,
         };
@@ -216,15 +218,19 @@ fn condition_matches(
 
 fn freeze_trigger(state: &GameState, trigger: &mut PendingTrigger) {
     if let Some(list) = &mut trigger.abilities {
-        let live = trigger
-            .source_version
-            .map_or(TextChangeMap::IDENTITY, |version| {
-                state.text_changes.get(baylee_core::ids::DamageSourceRef {
-                    object: trigger.source,
-                    version,
-                })
-            });
-        *list = list.clone().with_base_text(live);
+        if list.origin(trigger.ability_index as usize).index
+            != baylee_core::ids::AbilityRef::SYNTHETIC
+        {
+            let live = trigger
+                .source_version
+                .map_or(TextChangeMap::IDENTITY, |version| {
+                    state.text_changes.get(baylee_core::ids::DamageSourceRef {
+                        object: trigger.source,
+                        version,
+                    })
+                });
+            *list = list.clone().with_base_text(live);
+        }
         trigger.text = list.base_text(trigger.ability_index as usize);
     }
 }
@@ -239,9 +245,9 @@ fn freeze_trigger(state: &GameState, trigger: &mut PendingTrigger) {
 /// function so the pair cannot drift again, and a struct rather than a
 /// tuple so that the next thing a trigger carries is one field here and no
 /// churn at the three places that read it.
-struct Firing {
+struct Firing<'a> {
     /// The event it listens for.
-    trigger: &'static Trigger,
+    trigger: &'a Trigger,
     /// Zone in which the printed ability functions.
     zone: TriggerZone,
     /// Whether it fires at most once each turn.
@@ -250,7 +256,7 @@ struct Firing {
     condition: Option<Condition>,
 }
 
-const fn triggered_parts(ability: &'static AbilityDef) -> Option<Firing> {
+const fn triggered_parts(ability: &'static AbilityDef) -> Option<Firing<'static>> {
     match ability {
         AbilityDef::Triggered {
             trigger,
@@ -373,13 +379,18 @@ fn collect_departed(
                 from: Zone::Battlefield,
                 ..
             }
-            | GameEvent::Cycled { object, .. } => Some(object),
+            | GameEvent::Cycled { object, .. }
+            | GameEvent::PhaseChanged {
+                object,
+                phased_out: true,
+            } => Some(object),
             _ => None,
         })
         .filter(|id| {
-            state
-                .object(*id)
-                .is_none_or(|object| object.zone != Zone::Battlefield)
+            state.object(*id).is_none_or(|object| {
+                object.zone != Zone::Battlefield
+                    || object.status.contains(crate::object::Status::PHASED_OUT)
+            })
         })
         .collect();
     if departed.is_empty() {
@@ -726,9 +737,87 @@ fn cast_this_spell_triggers(
     }
 }
 
+/// Start sequence number of the simultaneous `phase_out` run containing
+/// `event_seq`, if `event_seq` is a `PhaseChanged { phased_out: true }` entry.
+/// A single `GameState::phase_out` call emits one contiguous run of
+/// `PhaseChanged { phased_out: true }` rows for all permanents phasing out
+/// together (directly or indirectly, CR 502.1 / CR 702.26g).
+fn phase_out_run_start(events: &[crate::event::JournalEntry], event_seq: u64) -> u64 {
+    let Some(pos) = events.iter().position(|e| e.seq == event_seq) else {
+        return event_seq;
+    };
+    if !matches!(
+        events[pos].event,
+        GameEvent::PhaseChanged {
+            phased_out: true,
+            ..
+        }
+    ) {
+        return event_seq;
+    }
+    let mut start = pos;
+    while start > 0
+        && matches!(
+            events[start - 1].event,
+            GameEvent::PhaseChanged {
+                phased_out: true,
+                ..
+            }
+        )
+    {
+        start -= 1;
+    }
+    events[start].seq
+}
+
+/// Whether `object` was phased out at `seq` (`before == false`) or immediately
+/// before `seq`'s simultaneous phase-out run (`before == true`, CR 603.10b).
+fn was_phased_out_at(
+    events: &[crate::event::JournalEntry],
+    object: ObjectId,
+    currently_phased_out: bool,
+    seq: u64,
+    before: bool,
+) -> bool {
+    let cutoff = if before {
+        phase_out_run_start(events, seq)
+    } else {
+        seq.saturating_add(1)
+    };
+    if let Some(phased_out) = events
+        .iter()
+        .rev()
+        .filter(|e| e.seq < cutoff)
+        .find_map(|e| match e.event {
+            GameEvent::PhaseChanged {
+                object: id,
+                phased_out,
+            } if id == object => Some(phased_out),
+            _ => None,
+        })
+    {
+        return phased_out;
+    }
+    if let Some(phased_out) =
+        events
+            .iter()
+            .filter(|e| e.seq >= cutoff)
+            .find_map(|e| match e.event {
+                GameEvent::PhaseChanged {
+                    object: id,
+                    phased_out,
+                } if id == object => Some(phased_out),
+                _ => None,
+            })
+    {
+        return !phased_out;
+    }
+    currently_phased_out
+}
+
 /// Scans a set of objects for triggered abilities matching the events.
 /// `all_kinds` = every trigger kind (battlefield scan); `false` = only
-/// LTB/Dies (off-battlefield scan, CR 603.10).
+/// LTB/Dies/PhasesOut (look-back scan, CR 603.10).
 #[allow(clippy::too_many_lines)]
 fn collect_for_objects(
     state: &GameState,
@@ -738,23 +827,53 @@ fn collect_for_objects(
     all_kinds: bool,
     triggers: &mut Vec<PendingTrigger>,
 ) {
+    let newly_phased_out: smallvec::SmallVec<[ObjectId; 4]> = events
+        .iter()
+        .filter_map(|entry| match entry.event {
+            GameEvent::PhaseChanged {
+                object,
+                phased_out: true,
+            } => Some(object),
+            _ => None,
+        })
+        .collect();
+    let batch_has_phasing = events
+        .iter()
+        .any(|entry| matches!(entry.event, GameEvent::PhaseChanged { .. }));
     // Most temporary effects only change stats or keywords. Select grants
-    // once per scan, not once for every permanent in a token army.
+    // once per scan, not once for every permanent in a token army. On the
+    // look-back pass, include newly-parked static grants whose grantor phased
+    // out in this batch (CR 603.10b).
+    let is_grant_triggered = |fx: &crate::effects::ContinuousEffect| {
+        matches!(
+            fx.modifier,
+            baylee_cards_dsl::Modifier::GrantTriggered { .. }
+                | baylee_cards_dsl::Modifier::GrantTriggeredUpToOne { .. }
+                | baylee_cards_dsl::Modifier::GrantTriggeredDefinition(_)
+        )
+    };
     let granted: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> =
-        if state.effects.may_grant_triggered() {
+        if !state.effects.may_grant_triggered() {
+            smallvec::SmallVec::new()
+        } else if !all_kinds && !newly_phased_out.is_empty() {
             state
                 .effects
                 .iter()
-                .filter(|fx| {
-                    matches!(
-                        fx.modifier,
-                        baylee_cards_dsl::Modifier::GrantTriggered { .. }
-                            | baylee_cards_dsl::Modifier::GrantTriggeredUpToOne { .. }
-                    )
-                })
+                .chain(
+                    state
+                        .effects
+                        .parked_slice()
+                        .iter()
+                        .filter(|fx| fx.source.is_some_and(|s| newly_phased_out.contains(&s))),
+                )
+                .filter(|fx| is_grant_triggered(fx))
                 .collect()
         } else {
-            smallvec::SmallVec::new()
+            state
+                .effects
+                .iter()
+                .filter(|fx| is_grant_triggered(fx))
+                .collect()
         };
     let batch_has_zone_changes = events
         .iter()
@@ -769,8 +888,8 @@ fn collect_for_objects(
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::BecameAttacker { .. }));
     for permanent in objects {
-        // The look-back applies only to sources that left during this
-        // event batch. A card already in a graveyard has no battlefield
+        // The look-back applies only to sources that left or phased out during
+        // this event batch. A card already in a graveyard has no battlefield
         // ability to observe a later death. Keep the whole batch so a
         // dying source still observes creatures dying alongside it. The one
         // other card that triggers from here is one cycled in this batch:
@@ -783,7 +902,11 @@ fn collect_for_objects(
                     from: Zone::Battlefield,
                     ..
                 }
-                | GameEvent::Cycled { object, .. } => object == permanent,
+                | GameEvent::Cycled { object, .. }
+                | GameEvent::PhaseChanged {
+                    object,
+                    phased_out: true,
+                } => object == permanent,
                 _ => false,
             })
         {
@@ -796,9 +919,12 @@ fn collect_for_objects(
         let Some(obj) = state.object_or_departed(permanent) else {
             continue;
         };
+        let currently_phased_out = obj.status.contains(crate::object::Status::PHASED_OUT);
+        let phased_out_only = !all_kinds && obj.zone == Zone::Battlefield && currently_phased_out;
         let moves = object_moves(events, batch_has_zone_changes, obj.id);
         // Prowess (engine-level keyword trigger, CR 702.108).
-        if batch_has_spells_cast
+        if !phased_out_only
+            && batch_has_spells_cast
             && obj
                 .characteristics()
                 .keywords
@@ -807,6 +933,14 @@ fn collect_for_objects(
             for entry in events {
                 if let GameEvent::SpellCast { object, player, .. } = &entry.event
                     && *player == obj.controller
+                    && (!batch_has_phasing
+                        || !was_phased_out_at(
+                            events,
+                            permanent,
+                            currently_phased_out,
+                            entry.seq,
+                            false,
+                        ))
                     && state.object(*object).is_some_and(|spell| {
                         !spell
                             .characteristics()
@@ -855,40 +989,74 @@ fn collect_for_objects(
                 }
             }
         }
-        flanking::collect(state, obj, events, &moves, batch_has_blocks, triggers);
-        provoke::collect(state, obj, events, &moves, batch_has_attacks, triggers);
-        if !all_kinds {
+        if !phased_out_only {
+            flanking::collect(state, obj, events, &moves, batch_has_blocks, triggers);
+            provoke::collect(state, obj, events, &moves, batch_has_attacks, triggers);
+        }
+        if !all_kinds && !phased_out_only {
             return_keywords::collect(state, obj, events, triggers);
         }
-        // Granted triggered abilities (class levels): continuous effects
-        // carrying GrantTriggered that apply to this permanent.
+        // Granted triggered abilities (class levels, Continuous.AddTrigger,
+        // Animate.Triggers): continuous effects carrying GrantTriggered* that
+        // apply to this permanent.
         for &fx in &granted {
-            let (trigger, effects, target) = match &fx.modifier {
+            enum GrantBody {
+                Synthetic {
+                    effects: &'static [baylee_cards_dsl::Effect],
+                    target: Option<baylee_cards_dsl::TargetReq>,
+                },
+                Definition(&'static AbilityDef),
+            }
+            let (firing, body) = match &fx.modifier {
                 baylee_cards_dsl::Modifier::GrantTriggered {
                     trigger,
                     effects,
                     target,
                 } => (
-                    trigger,
-                    *effects,
-                    target.map(|spec| match spec {
-                        baylee_cards_dsl::TargetSpec::ObjectOfEachOpponent(_) => {
-                            baylee_cards_dsl::TargetReq::up_to(spec, u8::MAX)
-                        }
-                        _ => baylee_cards_dsl::TargetReq::one(spec),
-                    }),
+                    Firing {
+                        trigger,
+                        zone: TriggerZone::Battlefield,
+                        once_per_turn: false,
+                        condition: None,
+                    },
+                    GrantBody::Synthetic {
+                        effects,
+                        target: target.map(|spec| match spec {
+                            baylee_cards_dsl::TargetSpec::ObjectOfEachOpponent(_) => {
+                                baylee_cards_dsl::TargetReq::up_to(spec, u8::MAX)
+                            }
+                            _ => baylee_cards_dsl::TargetReq::one(spec),
+                        }),
+                    },
                 ),
                 baylee_cards_dsl::Modifier::GrantTriggeredUpToOne {
                     trigger,
                     effects,
                     target,
                 } => (
-                    trigger,
-                    *effects,
-                    Some(baylee_cards_dsl::TargetReq::up_to_one(*target)),
+                    Firing {
+                        trigger,
+                        zone: TriggerZone::Battlefield,
+                        once_per_turn: false,
+                        condition: None,
+                    },
+                    GrantBody::Synthetic {
+                        effects,
+                        target: Some(baylee_cards_dsl::TargetReq::up_to_one(*target)),
+                    },
                 ),
+                baylee_cards_dsl::Modifier::GrantTriggeredDefinition(ability_def) => {
+                    let Some(firing) = triggered_parts(ability_def) else {
+                        continue;
+                    };
+                    if firing.zone != TriggerZone::Battlefield {
+                        continue;
+                    }
+                    (firing, GrantBody::Definition(ability_def))
+                }
                 _ => continue,
             };
+            let trigger = firing.trigger;
             let text = state.effect_text(fx);
             let context = RuleContext {
                 source: permanent,
@@ -897,17 +1065,54 @@ fn collect_for_objects(
                 resolved_subtype: None,
                 reference: None,
             };
-            let look_back = matches!(
+            let is_phase_out_trigger = matches!(
                 trigger,
-                Trigger::Dies(_)
-                    | Trigger::DiesNotSacrificed(_)
-                    | Trigger::LeavesBattlefield(_)
-                    | Trigger::LinkedCreatureLeaves
+                Trigger::PhasesOut(_) | Trigger::PhasesOutOrLeavesBattlefield(_)
             );
-            if !all_kinds && !look_back {
+            let look_back = is_phase_out_trigger
+                || matches!(
+                    trigger,
+                    Trigger::Dies(_)
+                        | Trigger::DiesNotSacrificed(_)
+                        | Trigger::LeavesBattlefield(_)
+                        | Trigger::LinkedCreatureLeaves
+                );
+            if (!all_kinds && !look_back) || (phased_out_only && !is_phase_out_trigger) {
                 continue;
             }
             for entry in events {
+                if phased_out_only
+                    && !matches!(
+                        entry.event,
+                        GameEvent::PhaseChanged {
+                            phased_out: true,
+                            ..
+                        }
+                    )
+                {
+                    continue;
+                }
+                if batch_has_phasing
+                    && (was_phased_out_at(
+                        events,
+                        permanent,
+                        currently_phased_out,
+                        entry.seq,
+                        look_back,
+                    ) || fx.source.is_some_and(|grantor| {
+                        state.object(grantor).is_some_and(|g| {
+                            was_phased_out_at(
+                                events,
+                                grantor,
+                                g.status.contains(crate::object::Status::PHASED_OUT),
+                                entry.seq,
+                                look_back,
+                            )
+                        })
+                    }))
+                {
+                    continue;
+                }
                 let source = source_at_event_with_moves(state, obj, &moves, entry.seq, look_back);
                 // A grant belongs to its recipient's battlefield incarnation,
                 // not the new card in the graveyard (CR 603.10a).
@@ -916,7 +1121,16 @@ fn collect_for_objects(
                 } else {
                     crate::effects::applies_to(state, fx, source)
                 };
-                if !applies {
+                if !applies
+                    || !condition_matches(
+                        state,
+                        firing.condition,
+                        source.controller,
+                        context,
+                        Some(source.version),
+                        Some(entry),
+                    )
+                {
                     continue;
                 }
                 let hit = departure_hit(trigger, entry, permanent).unwrap_or_else(|| {
@@ -942,12 +1156,37 @@ fn collect_for_objects(
                         .as_ref()
                         .map(|d| (d.controller, d.toughness));
                     let event_player = event_player_of(&entry.event);
+                    let grantor = fx.source.and_then(|id| state.source_identity(id));
                     for _ in 0..times {
+                        let (ability_index, abilities, synthetic_effects, synthetic_target) =
+                            match body {
+                                GrantBody::Synthetic { effects, target } => (
+                                    baylee_core::ids::AbilityRef::SYNTHETIC,
+                                    None,
+                                    Some(effects),
+                                    target,
+                                ),
+                                GrantBody::Definition(ability_def) => (
+                                    0,
+                                    Some(crate::object::AbilityList::from_granted(
+                                        ability_def,
+                                        crate::copiable_abilities::AbilityProvenance {
+                                            origin: None,
+                                            index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                                            copy_modifier: None,
+                                        },
+                                        text,
+                                        u64::from(fx.id.get()).max(1),
+                                    )),
+                                    None,
+                                    None,
+                                ),
+                            };
                         triggers.push(PendingTrigger {
                             text,
                             source_version: Some(source.version),
                             related_objects: None,
-                            grantor: fx.source.and_then(|id| state.source_identity(id)),
+                            grantor,
                             event_subject,
                             event_ability,
                             event_object_identity,
@@ -958,17 +1197,17 @@ fn collect_for_objects(
                             event_amount: event_damage_of(trigger, &entry.event, events),
                             event_player,
                             source: permanent,
-                            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                            ability_index,
                             controller: source.controller,
                             timestamp: source.timestamp,
                             event_object,
                             implicit_target: matches!(trigger, Trigger::Ward)
                                 .then_some(event_object)
                                 .flatten(),
-                            abilities: None,
-                            synthetic_effects: Some(effects),
-                            synthetic_target: target,
-                            once_per_turn: false,
+                            abilities,
+                            synthetic_effects,
+                            synthetic_target,
+                            once_per_turn: firing.once_per_turn,
                             chosen_mode: None,
                             synthetic_condition: None,
                             in_chosen_order: false,
@@ -1025,6 +1264,9 @@ fn collect_for_objects(
         // Ward {N} (engine-level keyword trigger, CR 702.21): an
         // opponent's spell or ability targets this permanent.
         for ability in &list.abilities {
+            if phased_out_only {
+                break;
+            }
             let AbilityDef::Ward { mana } = ability else {
                 continue;
             };
@@ -1038,6 +1280,11 @@ fn collect_for_objects(
                 continue; // a ward cost past the table's ceiling
             };
             for entry in events {
+                if batch_has_phasing
+                    && was_phased_out_at(events, permanent, currently_phased_out, entry.seq, false)
+                {
+                    continue;
+                }
                 let Some((target_obj, caster)) = targeting(&entry.event, state, permanent) else {
                     continue;
                 };
@@ -1089,10 +1336,15 @@ fn collect_for_objects(
                 continue;
             }
             let trigger = firing.trigger;
-            // Off the battlefield, the triggers that look back (CR 603.10a)
-            // and "when you cycle this card", which triggers from wherever
-            // the card winds up (CR 702.29c).
-            if !all_kinds
+            let is_phase_out_trigger = matches!(
+                trigger,
+                Trigger::PhasesOut(_) | Trigger::PhasesOutOrLeavesBattlefield(_)
+            );
+            // Off the battlefield (or newly phased out), the triggers that
+            // look back (CR 603.10a-b) and "when you cycle this card", which
+            // triggers from wherever the card winds up (CR 702.29c).
+            if (!all_kinds
+                && !is_phase_out_trigger
                 && !matches!(
                     trigger,
                     Trigger::LeavesBattlefield(_)
@@ -1100,17 +1352,19 @@ fn collect_for_objects(
                         | Trigger::Dies(_)
                         | Trigger::DiesNotSacrificed(_)
                         | Trigger::CycledThis
-                )
+                ))
+                || (phased_out_only && !is_phase_out_trigger)
             {
                 continue;
             }
-            let look_back = matches!(
-                trigger,
-                Trigger::Dies(_)
-                    | Trigger::DiesNotSacrificed(_)
-                    | Trigger::LeavesBattlefield(_)
-                    | Trigger::LinkedCreatureLeaves
-            );
+            let look_back = is_phase_out_trigger
+                || matches!(
+                    trigger,
+                    Trigger::Dies(_)
+                        | Trigger::DiesNotSacrificed(_)
+                        | Trigger::LeavesBattlefield(_)
+                        | Trigger::LinkedCreatureLeaves
+                );
             let source_is_constant =
                 moves.is_empty() && (!look_back || obj.zone == Zone::Battlefield);
             let obj_context = RuleContext {
@@ -1139,6 +1393,28 @@ fn collect_for_objects(
             // to double — Panharmonicon doubles a trigger, not a
             // non-trigger.
             for entry in events {
+                if phased_out_only
+                    && !matches!(
+                        entry.event,
+                        GameEvent::PhaseChanged {
+                            phased_out: true,
+                            ..
+                        }
+                    )
+                {
+                    continue;
+                }
+                if batch_has_phasing
+                    && was_phased_out_at(
+                        events,
+                        permanent,
+                        currently_phased_out,
+                        entry.seq,
+                        look_back,
+                    )
+                {
+                    continue;
+                }
                 let source = if source_is_constant {
                     obj
                 } else {
@@ -1268,6 +1544,22 @@ fn collect_for_objects(
 }
 
 impl PendingTrigger {
+    /// Per-turn tally key for `GameState::ability_fires` and state-trigger
+    /// `in_flight` tracking. Granted definition triggers run at `ability_index`
+    /// 0 of a single-entry `AbilityList` whose provenance index is
+    /// [`baylee_core::ids::AbilityRef::SYNTHETIC`], so they key on the grant's
+    /// effect-derived `acquisition` instead of colliding with printed index 0.
+    #[must_use]
+    pub(crate) fn fire_key(&self) -> u32 {
+        if let Some(list) = &self.abilities
+            && list.origin(self.ability_index as usize).index
+                == baylee_core::ids::AbilityRef::SYNTHETIC
+        {
+            return u32::MAX - 16_384 - (list.acquisition as u32);
+        }
+        self.ability_index
+    }
+
     pub(crate) fn bind_target(
         &self,
         spec: baylee_cards_dsl::TargetSpec,

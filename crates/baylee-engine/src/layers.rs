@@ -1371,6 +1371,8 @@ fn apply(
         | Modifier::SorceriesHaveFlash
         | Modifier::GrantTriggered { .. }
         | Modifier::GrantTriggeredUpToOne { .. }
+        | Modifier::GrantTriggeredDefinition(_)
+        | Modifier::CantPhaseOut
         | Modifier::ManaIsAnyColor
         | Modifier::SpendManaAs { .. }
         | Modifier::SearchTakeover

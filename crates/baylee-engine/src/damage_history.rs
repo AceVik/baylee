@@ -26,6 +26,7 @@ pub(crate) struct DamageRecord {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct DamageGrant {
+    pub effect_id: baylee_core::ids::EffectId,
     pub modifier: Modifier,
     pub text: TextChangeMap,
     pub grantor: Option<DamageSourceRef>,
@@ -258,10 +259,19 @@ impl GameState {
                             Modifier::GrantTriggered {
                                 trigger: Trigger::DiesAfterDamageByThis(_),
                                 ..
-                            }
+                            } | Modifier::GrantTriggeredDefinition(
+                                AbilityDef::Triggered {
+                                    trigger: Trigger::DiesAfterDamageByThis(_),
+                                    ..
+                                } | AbilityDef::ModalTriggered {
+                                    trigger: Trigger::DiesAfterDamageByThis(_),
+                                    ..
+                                },
+                            )
                         ) && crate::effects::applies_to(self, fx, object)
                     })
                     .map(|fx| DamageGrant {
+                        effect_id: fx.id,
                         modifier: fx.modifier,
                         text: self.effect_text(fx),
                         grantor: fx.source.and_then(|id| self.source_identity(id)),
@@ -346,22 +356,32 @@ pub(crate) fn collect(
                 pending.once_per_turn = *once_per_turn;
                 out.extend(std::iter::repeat_n(pending, observer.times as usize));
             }
-            for grant in &observer.grants {
-                let Modifier::GrantTriggered {
-                    trigger,
-                    effects,
-                    target,
-                } = grant.modifier
-                else {
-                    continue;
-                };
-                let context = RuleContext {
-                    source: source.id,
-                    text: grant.text,
-                    resolved_name: None,
-                    resolved_subtype: None,
-                    reference: None,
-                };
+            collect_granted_death_triggers(state, death, observer, out);
+        }
+    }
+}
+
+fn collect_granted_death_triggers(
+    state: &GameState,
+    death: &DamageDeath,
+    observer: &DamageObserver,
+    out: &mut Vec<PendingTrigger>,
+) {
+    let source = &observer.object;
+    for grant in &observer.grants {
+        let context = RuleContext {
+            source: source.id,
+            text: grant.text,
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: None,
+        };
+        match grant.modifier {
+            Modifier::GrantTriggered {
+                trigger,
+                effects,
+                target,
+            } => {
                 if matches_death(&trigger, state, death, source, context) {
                     let mut pending = pending(death, source);
                     pending.synthetic_effects = Some(effects);
@@ -372,6 +392,53 @@ pub(crate) fn collect(
                     out.extend(std::iter::repeat_n(pending, observer.times as usize));
                 }
             }
+            Modifier::GrantTriggeredDefinition(
+                ability_def @ (AbilityDef::Triggered {
+                    trigger,
+                    zone,
+                    condition,
+                    once_per_turn,
+                    ..
+                }
+                | AbilityDef::ModalTriggered {
+                    trigger,
+                    zone,
+                    condition,
+                    once_per_turn,
+                    ..
+                }),
+            ) => {
+                if *zone != TriggerZone::Battlefield
+                    || condition.is_some_and(|cond| {
+                        !crate::eval::condition_holds_with_context(
+                            state,
+                            source.controller,
+                            context,
+                            cond,
+                        )
+                    })
+                    || !matches_death(trigger, state, death, source, context)
+                {
+                    continue;
+                }
+                let mut pending = pending(death, source);
+                pending.ability_index = 0;
+                pending.abilities = Some(crate::object::AbilityList::from_granted(
+                    ability_def,
+                    crate::copiable_abilities::AbilityProvenance {
+                        origin: None,
+                        index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                        copy_modifier: None,
+                    },
+                    grant.text,
+                    u64::from(grant.effect_id.get()).max(1),
+                ));
+                pending.text = grant.text;
+                pending.grantor = grant.grantor;
+                pending.once_per_turn = *once_per_turn;
+                out.extend(std::iter::repeat_n(pending, observer.times as usize));
+            }
+            _ => {}
         }
     }
 }

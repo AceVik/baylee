@@ -911,6 +911,15 @@ pub enum Trigger {
     /// chapter number to at or above it (or equals it on the Saga's entry turn
     /// while this Saga has read ahead, CR 702.155a).
     Chapter(&'static [u8]),
+    /// A permanent matching the filter phases in (CR 702.26c, CR 502.1 —
+    /// Shimmering Efreet, Teferi's Imp, Warping Wurm).
+    PhasesIn(&'static Filter),
+    /// A permanent matching the filter phases out (CR 702.26b, CR 603.10b —
+    /// Teferi's Imp; looks back in time immediately prior to phasing out).
+    PhasesOut(&'static Filter),
+    /// A permanent matching the filter phases out or leaves the battlefield
+    /// (CR 702.26d, CR 603.10a, CR 603.10b — Ertai's Familiar).
+    PhasesOutOrLeavesBattlefield(&'static Filter),
 }
 
 impl Trigger {
@@ -924,6 +933,12 @@ impl Trigger {
     /// variant with its filter, which is the whole reason this is a
     /// constant and not a macro — there is nothing to parameterise.
     pub const ETB: Self = Self::EntersBattlefield(&Filter::This);
+
+    /// "Whenever this permanent phases in…" (CR 702.26c).
+    pub const PHASES_IN: Self = Self::PhasesIn(&Filter::This);
+
+    /// "Whenever this permanent phases out…" (CR 702.26b, CR 603.10b).
+    pub const PHASES_OUT: Self = Self::PhasesOut(&Filter::This);
 }
 
 /// An ability definition on a [`crate::CardDef`].

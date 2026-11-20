@@ -146,6 +146,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GrantStatic { .. }
         | Modifier::GrantTriggered { .. }
         | Modifier::GrantTriggeredUpToOne { .. }
+        | Modifier::GrantTriggeredDefinition(_)
         | Modifier::CharacteristicPT { .. }
         | Modifier::CharacteristicPTSeparate { .. }
         | Modifier::ModifyPTPerCount { .. }
@@ -298,6 +299,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RemoveCountersInsteadOfUntapping(_)
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
+        | Modifier::CantPhaseOut
         | Modifier::UntapAtMost { .. }
         // A permission read as the attack is declared: whatever matches the
         // filter then may attack, not a set fixed as the effect began.
@@ -644,7 +646,9 @@ impl EffectTable {
             RuleHints::GRANT_TRIGGERED,
             matches!(
                 fx.modifier,
-                Modifier::GrantTriggered { .. } | Modifier::GrantTriggeredUpToOne { .. }
+                Modifier::GrantTriggered { .. }
+                    | Modifier::GrantTriggeredUpToOne { .. }
+                    | Modifier::GrantTriggeredDefinition(_)
             ),
         );
         self.hints.insert_if(
@@ -872,6 +876,12 @@ impl EffectTable {
     /// All active effects (registration order).
     pub fn iter(&self) -> impl Iterator<Item = &ContinuousEffect> {
         self.effects.iter()
+    }
+
+    /// Parked static effects of phased-out permanents, exposed so CR 603.10b
+    /// phase-out look-back can inspect a grantor that static sync just parked.
+    pub(crate) fn parked_slice(&self) -> &[ContinuousEffect] {
+        &self.parked
     }
 
     /// Every registered effect: the active ones, then those parked while
@@ -1964,6 +1974,10 @@ mod tests {
             },
             Modifier::SpellsCostLessByAmount(baylee_cards_dsl::Amount::Fixed(1)),
             Modifier::CyclingCostsLess(2),
+            Modifier::GrantTriggeredDefinition(
+                &const { baylee_cards_dsl::triggered!(baylee_cards_dsl::Trigger::ETB, &[]) },
+            ),
+            Modifier::CantPhaseOut,
         ]
     }
 
@@ -2002,7 +2016,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            206,
+            208,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2109,7 +2123,9 @@ mod tests {
         // casting/activation costs only (+3 rules -> 148).
         // PreventDamagePerSource and PreventDamageToAffectedPerSource are
         // standing prevention rules (+2 rules-only -> 150).
-        assert_eq!((locking, all.len() - locking), (56, 150));
+        // GrantTriggeredDefinition locks its recipient set (+1 -> 57);
+        // CantPhaseOut modifies a rule (+1 -> 151).
+        assert_eq!((locking, all.len() - locking), (57, 151));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

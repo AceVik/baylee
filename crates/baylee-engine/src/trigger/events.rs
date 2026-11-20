@@ -228,6 +228,7 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         // of Psychic Venom and "that permanent's controller" of Mesmeric Orb.
         | GameEvent::ObjectTapped { object, .. }
         | GameEvent::ObjectUntapped { object, .. }
+        | GameEvent::PhaseChanged { object, .. }
         // The permanent tapped for mana (CR 106.12a): "its controller" and
         // "that player" of Gauntlet of Might and Manabarbs.
         | GameEvent::ManaProduced {

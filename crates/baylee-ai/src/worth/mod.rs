@@ -1899,6 +1899,27 @@ impl HeuristicAgent {
             }),
             Effect::PutTargetOnBottomOfLibrary => subject.map_or(0, |o| self.removal(view, o)),
             Effect::ReturnToHand { .. } => subject.map_or(0, |o| self.bounce(view, o)),
+            Effect::PhaseOut { target } => {
+                let target_obj = match target {
+                    Some(_) => subject?,
+                    None => origin.object?,
+                };
+                self.phase_out_worth(view, target_obj)
+            }
+            Effect::PhaseOutFilter(filter) => {
+                let matched = on_board(filter)?;
+                if matched.is_empty() && origin.object.is_none() {
+                    return None;
+                }
+                matched
+                    .into_iter()
+                    .map(|o| self.phase_out_worth(view, o))
+                    .sum()
+            }
+            Effect::PhaseOutUntilSourceLeaves { .. } => {
+                let target_obj = subject?;
+                self.removal(view, target_obj)
+            }
             Effect::Blink { .. } | Effect::ExileAndReturnAtEndStep => {
                 subject.map_or(0, |o| self.blink(view, o))
             }
@@ -2231,6 +2252,31 @@ impl HeuristicAgent {
         }
     }
 
+    /// `o` phased out until its controller's next untap step (CR 702.26, 502.1).
+    ///
+    /// Unlike [`Self::bounce`], phasing out costs no mana to recast and keeps
+    /// tokens and counters intact (CR 702.26d); it removes an opposing
+    /// permanent for one round or saves a doomed friendly permanent.
+    fn phase_out_worth(&self, view: &PlayerView, o: &PublicObject) -> i64 {
+        let tempo = 40 + i64::from(o.power.unwrap_or(0).max(0)) * 35;
+        if self.hostile(o.controller, view.seat) {
+            if self.answered(view, o) {
+                return 0;
+            }
+            if creature(o) {
+                let pressure =
+                    hurt(view, view.seat, i64::from(o.power.unwrap_or(0).max(0))).min(material(o));
+                tempo.max(pressure)
+            } else {
+                50 + i64::from(o.mana_value) * 15
+            }
+        } else if self.doomed(view, o) {
+            Self::permanent_worth(view, o) - tempo / 2
+        } else {
+            -tempo
+        }
+    }
+
     /// One shield can save its permanent once, even against multiple blockers.
     fn regeneration_worth(&self, view: &PlayerView, object: &PublicObject) -> i64 {
         if has(object, KeywordSet::INDESTRUCTIBLE) {
@@ -2274,7 +2320,22 @@ impl HeuristicAgent {
             // Cumulative upkeep asks later payment questions, which `pays_tax`
             // values when they are offered. Its grant adds no immediate value
             // of its own and must not hide the effect that returned the body.
-            Modifier::GrantTriggered { effects, .. } if Effect::is_cumulative_upkeep(effects) => 0,
+            Modifier::GrantTriggered { effects, .. }
+            | Modifier::GrantTriggeredDefinition(AbilityDef::Triggered { effects, .. })
+                if Effect::is_cumulative_upkeep(effects) =>
+            {
+                0
+            }
+            Modifier::CantPhaseOut => {
+                let first = objects.first().copied()?;
+                if !has(first, KeywordSet::PHASING) {
+                    0
+                } else if self.hostile(first.controller, view.seat) {
+                    -60
+                } else {
+                    60
+                }
+            }
             // A later destination changes no resource now. A type, a colour or
             // a subtype changes what other cards say about the object and
             // nothing by itself.

@@ -369,16 +369,26 @@ impl HeuristicAgent {
             if !enchants(&s.filter) {
                 continue;
             }
-            value += match s.modifier {
+            value += match &s.modifier {
                 // A toughness it cannot keep is the creature (CR 704.5f).
-                Modifier::ModifyPT(_, toughness) if left + i32::from(toughness) <= 0 => -body,
+                Modifier::ModifyPT(_, toughness) if left + i32::from(*toughness) <= 0 => -body,
                 Modifier::ModifyPT(power, toughness) => {
-                    i64::from(power) * 110 + i64::from(toughness) * 30
+                    i64::from(*power) * 110 + i64::from(*toughness) * 30
                 }
                 Modifier::AddKeyword(keywords) if keywords.contains(KeywordSet::DEFENDER) => {
                     -body / 2
                 }
                 Modifier::AddKeyword(keywords) => 60 * i64::from(keywords.bits().count_ones()),
+                Modifier::GrantActivated { .. } | Modifier::GrantActivatedDefinition(_) => 90,
+                Modifier::GrantTriggered { effects, .. }
+                | Modifier::GrantTriggeredUpToOne { effects, .. }
+                | Modifier::GrantTriggeredDefinition(AbilityDef::Triggered { effects, .. }) => {
+                    match baylee_engine::target_side::granted_trigger_sign(effects)? {
+                        1 => 90,
+                        -1 => -body / 2,
+                        _ => 0,
+                    }
+                }
                 Modifier::CantAttack | Modifier::CantBlock(_) => -body / 2,
                 _ => return None,
             };

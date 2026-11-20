@@ -1473,6 +1473,7 @@ mod tests {
                 effects: &[],
                 target: None,
             },
+            Modifier::GrantTriggeredDefinition(&const { triggered!(Trigger::ETB, &[]) }),
         ];
         for modifier in adds_or_removes_an_ability {
             assert_eq!(

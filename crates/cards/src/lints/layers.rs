@@ -79,18 +79,29 @@ pub(super) enum Door {
     Copy = 3,
 }
 
-/// The `(effects, goes on the stack)` of an ability a modifier grants.
-pub(super) fn granted_list(modifier: &Modifier) -> Option<(&'static [Effect], bool)> {
+/// Appends `(effects, goes on the stack, door)` for every ability a modifier grants.
+pub(super) fn push_granted_lists(
+    modifier: &Modifier,
+    door: Door,
+    lists: &mut Vec<(&'static [Effect], bool, Door)>,
+) {
     match modifier {
         Modifier::GrantActivated {
             effects,
             mana_ability,
             ..
-        } => Some((effects, !*mana_ability)),
+        } => lists.push((effects, !*mana_ability, door)),
         Modifier::GrantTriggered { effects, .. }
-        | Modifier::GrantTriggeredUpToOne { effects, .. } => Some((effects, true)),
-        Modifier::GrantStatic { modifier, .. } => granted_list(modifier),
-        _ => None,
+        | Modifier::GrantTriggeredUpToOne { effects, .. } => lists.push((effects, true, door)),
+        Modifier::GrantActivatedDefinition(ab) | Modifier::GrantTriggeredDefinition(ab) => {
+            lists.extend(
+                resolving_lists(ab)
+                    .into_iter()
+                    .map(|(effects, stack, _)| (effects, stack, door)),
+            );
+        }
+        Modifier::GrantStatic { modifier, .. } => push_granted_lists(modifier, door, lists),
+        _ => {}
     }
 }
 
@@ -134,17 +145,13 @@ pub(super) fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], b
             );
         }
         AbilityDef::Static(rule) => {
-            if let Some((effects, stack)) = granted_list(&rule.modifier) {
-                lists.push((effects, stack, Door::Static));
-            }
+            push_granted_lists(&rule.modifier, Door::Static, &mut lists);
         }
         AbilityDef::CopyOnEnter { mods, .. } | AbilityDef::CopyOnEnterUntilEot { mods, .. } => {
             for m in *mods {
                 match m {
                     CopyMod::Grant(modifier) => {
-                        if let Some((effects, stack)) = granted_list(modifier) {
-                            lists.push((effects, stack, Door::Copy));
-                        }
+                        push_granted_lists(modifier, Door::Copy, &mut lists);
                     }
                     CopyMod::GrantAbility(granted) => {
                         lists.extend(
@@ -175,10 +182,8 @@ pub(super) fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], b
         let (effects, ..) = lists[i];
         let mut seen = 0_usize;
         Effect::walk(effects, &mut seen, &mut |effect| {
-            if let Effect::CreateContinuousEffect { modifier, .. } = effect
-                && let Some((granted, stack)) = granted_list(modifier)
-            {
-                lists.push((granted, stack, Door::Effect));
+            if let Effect::CreateContinuousEffect { modifier, .. } = effect {
+                push_granted_lists(modifier, Door::Effect, &mut lists);
             }
         });
         i += 1;

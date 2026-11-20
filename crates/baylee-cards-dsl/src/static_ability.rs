@@ -1156,6 +1156,15 @@ pub enum Modifier {
         /// Finite damage prevented per `(source, affected permanent)` per event.
         amount: crate::Amount,
     },
+    /// Grant a complete triggered or modal-triggered [`crate::AbilityDef`],
+    /// retaining its target counts, second target slot, intervening-`if`
+    /// condition (CR 603.4), and `once_per_turn` limit in layer 6 (CR 613.1f).
+    /// Appended to preserve replay identities.
+    GrantTriggeredDefinition(&'static crate::AbilityDef),
+    /// The affected permanent can't phase out, whether from its own phasing
+    /// keyword in the untap step or from a resolving effect (CR 702.26a–b —
+    /// Ertai's Familiar). Appended to preserve replay identities.
+    CantPhaseOut,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1330,7 +1339,8 @@ impl Modifier {
             | Self::ProtectionFrom(_)
             | Self::ProtectionFromExiledWithSourceTypes
             | Self::GrantTriggered { .. }
-            | Self::GrantTriggeredUpToOne { .. } => Layer::Ability,
+            | Self::GrantTriggeredUpToOne { .. }
+            | Self::GrantTriggeredDefinition(_) => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } | Self::CharacteristicPTSeparate { .. } => Layer::PtCda,
             Self::SetPT(..) | Self::SetPower(_) | Self::SetToughness(_) | Self::SetPTToCount(_) => Layer::PtSet,
@@ -1492,7 +1502,8 @@ impl Modifier {
             | Self::CantBlockUnlessYouControlMoreCreaturesThanAttacker
             | Self::ExileInsteadOfYourGraveyard
             | Self::ExileInsteadOfLeavingBattlefield
-            | Self::CastSpellsFromGraveyard => Layer::Text,
+            | Self::CastSpellsFromGraveyard
+            | Self::CantPhaseOut => Layer::Text,
         }
     }
 }
@@ -1893,6 +1904,12 @@ mod tests {
                 Layer::Ability,
             ),
             (
+                Modifier::GrantTriggeredDefinition(
+                    &const { crate::triggered!(crate::ability::Trigger::ETB, NOTHING) },
+                ),
+                Layer::Ability,
+            ),
+            (
                 Modifier::CharacteristicPT {
                     count: PtCount::CardTypesInAllGraveyards,
                     toughness_plus: 1,
@@ -2131,6 +2148,7 @@ mod tests {
             Modifier::CastSpellsFromGraveyard,
             Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender,
             Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker,
+            Modifier::CantPhaseOut,
         ] {
             assert_eq!(
                 modifier.layer(),

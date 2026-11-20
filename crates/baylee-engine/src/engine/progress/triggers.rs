@@ -86,6 +86,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
     }
 
+    pub(in crate::engine) fn record_trigger_fired(&mut self, t: &crate::trigger::PendingTrigger) {
+        if t.once_per_turn {
+            let version = t
+                .source_version
+                .unwrap_or_else(|| self.state.object(t.source).expect("trigger source").version);
+            self.state.ability_fires.insert(
+                (
+                    baylee_core::ids::DamageSourceRef {
+                        object: t.source,
+                        version,
+                    },
+                    t.fire_key(),
+                ),
+                1,
+            );
+        }
+    }
+
     /// The Aura's graveyard incarnation a departure trigger of its host
     /// finds, if any.
     ///
@@ -521,12 +539,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let in_flight = |source: ObjectId, index: u32| {
             queued
                 .iter()
-                .any(|t| t.source == source && t.ability_index == index)
+                .any(|t| t.source == source && t.fire_key() == index)
                 || stack.iter().any(|id| {
-                    state
-                        .object(*id)
-                        .and_then(|o| o.ability)
-                        .is_some_and(|loc| loc.source == source && loc.index == index)
+                    state.object(*id).is_some_and(|o| {
+                        let Some(loc) = o.ability else {
+                            return false;
+                        };
+                        if loc.source != source {
+                            return false;
+                        }
+                        let stack_key = if let Some(bundle) = &o.own_abilities
+                            && bundle.entries().get(loc.index as usize).is_some_and(|e| {
+                                e.provenance.index == baylee_core::ids::AbilityRef::SYNTHETIC
+                            }) {
+                            u32::MAX - 16_384 - (o.rules_acquisition() as u32)
+                        } else {
+                            loc.index
+                        };
+                        stack_key == index
+                    })
                 })
         };
         let standing = trigger::state_triggers(&self.state, &self.lookup, in_flight);
@@ -654,20 +685,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
                     let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
                     self.trigger_queue.pop_front();
-                    if t.once_per_turn {
-                        self.state.ability_fires.insert(
-                            (
-                                baylee_core::ids::DamageSourceRef {
-                                    object: t.source,
-                                    version: t.source_version.unwrap_or_else(|| {
-                                        self.state.object(t.source).expect("trigger source").version
-                                    }),
-                                },
-                                t.ability_index,
-                            ),
-                            1,
-                        );
-                    }
+                    self.record_trigger_fired(&t);
                     self.hand_over_trigger_abilities(&t);
                     self.push_ability_to_stack(t.controller, t.source, t.ability_index, targets);
                     self.set_top_mode(t.chosen_mode);
@@ -820,20 +838,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
             }
             self.trigger_queue.pop_front();
-            if t.once_per_turn {
-                self.state.ability_fires.insert(
-                    (
-                        baylee_core::ids::DamageSourceRef {
-                            object: t.source,
-                            version: t.source_version.unwrap_or_else(|| {
-                                self.state.object(t.source).expect("trigger source").version
-                            }),
-                        },
-                        t.ability_index,
-                    ),
-                    1,
-                );
-            }
+            self.record_trigger_fired(&t);
             // Synthetic triggers with a target requirement (granted
             // triggered abilities): ask for the target first.
             if t.synthetic_effects.is_some()

@@ -705,13 +705,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // nonland permanents" phases out as many as it named, and a
             // target that became illegal already left the list (CR 608.2b).
             // What is attached to each goes with it (CR 702.26g).
-            match target {
-                Some(_) => {
-                    let targets = res.targets.clone();
-                    state.phase_out(&targets);
-                }
-                None => state.phase_out(&[res.source]),
-            }
+            let objects = spec_objects(state, res, target.unwrap_or(TargetSpec::ThisObject));
+            state.phase_out(&objects);
             None
         }
         Effect::PhaseOutUntilSourceLeaves { tap_on_phase_in } => {

@@ -338,10 +338,15 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::EntersBattlefieldEvoked => {
             dst[0] = 1.0;
         }
+        Trigger::PhasesIn(_) => {
+            dst[0] = 0.5;
+        }
         Trigger::Dies(_) | Trigger::DiesNotSacrificed(_) | Trigger::DiesAfterDamageByThis(_) => {
             dst[1] = 1.0;
         }
         Trigger::LeavesBattlefield(_)
+        | Trigger::PhasesOut(_)
+        | Trigger::PhasesOutOrLeavesBattlefield(_)
         | Trigger::ExiledFromBattlefield(_)
         | Trigger::LinkedCreatureLeaves => {
             dst[2] = 1.0;
@@ -452,6 +457,19 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
                 ch.mana_add += 1.0;
             }
         }
+        Modifier::GrantTriggered { effects, .. }
+        | Modifier::GrantTriggeredUpToOne { effects, .. } => {
+            walk_effects(effects, ch);
+        }
+        Modifier::GrantTriggeredDefinition(ab) => match ab {
+            AbilityDef::Triggered { effects, .. } => walk_effects(effects, ch),
+            AbilityDef::ModalTriggered { modes, .. } => {
+                for m in *modes {
+                    walk_effects(m.effects, ch);
+                }
+            }
+            _ => {}
+        },
         Modifier::SpellsCostLess(amount)
         | Modifier::AbilitiesCostLess { amount, .. }
         | Modifier::CyclingCostsLess(amount) => {

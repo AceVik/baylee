@@ -21,6 +21,90 @@ static CAST_COPIES: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::Co
     amount: baylee_cards_dsl::Amount::EventAmount,
 }];
 
+fn collect_granted_state_triggers(
+    state: &GameState,
+    obj: &crate::object::GameObject,
+    granted_state: &[&crate::effects::ContinuousEffect],
+    in_flight: &impl Fn(ObjectId, u32) -> bool,
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    let permanent = obj.id;
+    for &fx in granted_state {
+        let baylee_cards_dsl::Modifier::GrantTriggeredDefinition(ability_def) = fx.modifier else {
+            continue;
+        };
+        let Some(firing) = triggered_parts(ability_def) else {
+            continue;
+        };
+        let Trigger::State(condition) = firing.trigger else {
+            continue;
+        };
+        if !crate::effects::applies_to(state, fx, obj) {
+            continue;
+        }
+        let acq = u64::from(fx.id.get()).max(1);
+        let key = u32::MAX - 16_384 - (acq as u32);
+        let text = state.effect_text(fx);
+        let context = crate::text_changes::RuleContext {
+            source: permanent,
+            text,
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: None,
+        };
+        if in_flight(permanent, key)
+            || !eval::condition_holds_with_context(state, obj.controller, context, **condition)
+            || !condition_matches(
+                state,
+                firing.condition,
+                obj.controller,
+                context,
+                Some(obj.version),
+                None,
+            )
+        {
+            continue;
+        }
+        triggers.push(PendingTrigger {
+            text,
+            source_version: Some(obj.version),
+            related_objects: None,
+            grantor: fx.source.and_then(|id| state.source_identity(id)),
+            event_subject: None,
+            event_ability: None,
+            event_object_identity: None,
+            counter_source_version: None,
+            event_mana: None,
+            event_mana_value: None,
+            event_departure: None,
+            event_amount: None,
+            event_player: None,
+            source: permanent,
+            ability_index: 0,
+            abilities: Some(crate::object::AbilityList::from_granted(
+                ability_def,
+                crate::copiable_abilities::AbilityProvenance {
+                    origin: None,
+                    index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                    copy_modifier: None,
+                },
+                text,
+                acq,
+            )),
+            controller: obj.controller,
+            timestamp: obj.timestamp,
+            event_object: None,
+            implicit_target: None,
+            synthetic_effects: None,
+            once_per_turn: firing.once_per_turn,
+            synthetic_target: None,
+            chosen_mode: None,
+            synthetic_condition: None,
+            in_chosen_order: false,
+        });
+    }
+}
+
 /// The state triggers that trigger now (CR 603.8): every
 /// [`Trigger::State`] on the battlefield whose condition holds, asked with
 /// its source as `this` and the source's controller as "you".
@@ -36,10 +120,29 @@ pub fn state_triggers(
     in_flight: impl Fn(ObjectId, u32) -> bool,
 ) -> Vec<PendingTrigger> {
     let mut triggers = Vec::new();
+    let granted_state: smallvec::SmallVec<[&crate::effects::ContinuousEffect; 4]> =
+        if state.effects.may_grant_triggered() {
+            state
+                .effects
+                .iter()
+                .filter(|fx| match fx.modifier {
+                    baylee_cards_dsl::Modifier::GrantTriggeredDefinition(ability_def) => {
+                        triggered_parts(ability_def).is_some_and(|firing| {
+                            firing.zone == TriggerZone::Battlefield
+                                && matches!(firing.trigger, Trigger::State(_))
+                        })
+                    }
+                    _ => false,
+                })
+                .collect()
+        } else {
+            smallvec::SmallVec::new()
+        };
     for permanent in state.battlefield_seen() {
         let Some(obj) = state.object(permanent) else {
             continue;
         };
+        collect_granted_state_triggers(state, obj, &granted_state, &in_flight, &mut triggers);
         let abilities = obj.abilities(lookup);
         if !abilities.iter().any(|ability| {
             triggered_parts(ability).is_some_and(|firing| {

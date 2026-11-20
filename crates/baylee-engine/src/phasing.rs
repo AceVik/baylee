@@ -27,6 +27,12 @@ impl GameState {
     /// Aura on an Equipment on a creature).
     #[doc(hidden)]
     pub fn phase_out(&mut self, direct: &[ObjectId]) {
+        let can_phase_out = |state: &Self, o: &crate::object::GameObject| {
+            !state.effects.iter().any(|fx| {
+                fx.modifier == baylee_cards_dsl::Modifier::CantPhaseOut
+                    && crate::effects::applies_to(state, fx, o)
+            })
+        };
         let named: Vec<ObjectId> = direct
             .iter()
             .copied()
@@ -34,6 +40,7 @@ impl GameState {
                 self.object(id).is_some_and(|o| {
                     o.zone == crate::zone::Zone::Battlefield
                         && !o.status.contains(Status::PHASED_OUT)
+                        && can_phase_out(self, o)
                 })
             })
             .collect();
@@ -45,7 +52,9 @@ impl GameState {
         while let Some(&host) = hosts.get(next) {
             next += 1;
             for id in self.battlefield_seen() {
-                if self.object(id).is_some_and(|o| o.attached_to == Some(host))
+                if self
+                    .object(id)
+                    .is_some_and(|o| o.attached_to == Some(host) && can_phase_out(self, o))
                     && !indirect.contains(&id)
                 {
                     indirect.push(id);

@@ -134,7 +134,11 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::DealDamageWithLimitedLifeGain { .. }
         | Effect::DealDamageDivided { .. }
+        | Effect::PhaseOutUntilSourceLeaves { .. }
         | Effect::TapTarget => Some(-1),
+        Effect::PhaseOut { target: Some(spec) } => {
+            Some(if spec_only_yours(*spec) { 1 } else { -1 })
+        }
         Effect::MustBlockSourceIfAbleThisCombat | Effect::MustBlockIfAble { .. } => Some(-2),
         Effect::Blink { .. }
         | Effect::ExileAndReturnAtEndStep
@@ -167,7 +171,8 @@ fn hurts(effect: &Effect, x: u32) -> bool {
         | Effect::CounterTargetSpell
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetAbility
-        | Effect::CounterTargetSpellOrAbility => true,
+        | Effect::CounterTargetSpellOrAbility
+        | Effect::PhaseOutUntilSourceLeaves { .. } => true,
         Effect::DealDamage { amount: n, .. }
         | Effect::DealDamageEvenly { amount: n, .. }
         | Effect::DealDamageWithCappedLifeGain { amount: n }
@@ -264,6 +269,39 @@ pub fn effects_side(effects: &[Effect], x: u32) -> Option<TargetSide> {
     }
 }
 
+/// Whether a target specification is restricted to permanents the caster controls.
+fn spec_only_yours(spec: baylee_cards_dsl::TargetSpec) -> bool {
+    fn filter_only_yours(filter: &Filter) -> bool {
+        match filter {
+            Filter::ControlledByYou => true,
+            Filter::And(parts) => parts.iter().any(filter_only_yours),
+            Filter::Or(parts) => !parts.is_empty() && parts.iter().all(filter_only_yours),
+            _ => false,
+        }
+    }
+    matches!(spec, baylee_cards_dsl::TargetSpec::Object(f) if filter_only_yours(f))
+}
+
+/// Whether granted trigger `effects` clearly help (`Some(1)`) or hurt (`Some(-1)`)
+/// the enchanted creature's controller.
+pub fn granted_trigger_sign(effects: &[Effect]) -> Option<i32> {
+    if Effect::is_cumulative_upkeep(effects) {
+        return Some(-1);
+    }
+    match effects {
+        [
+            Effect::DrawCards { .. }
+            | Effect::MayDo {
+                effects: [Effect::DrawCards { .. }],
+            },
+        ] => Some(1),
+        _ => match effects_side(effects, 0) {
+            Some(TargetSide::Helpful) => Some(1),
+            _ => None,
+        },
+    }
+}
+
 /// Whether a static ability's filter is the creature its Aura is attached to.
 #[must_use]
 pub fn enchants(filter: &Filter) -> bool {
@@ -287,12 +325,19 @@ pub fn aura_side(abilities: &[AbilityDef]) -> Option<TargetSide> {
         if !enchants(&s.filter) {
             continue;
         }
-        sign += match s.modifier {
+        sign += match &s.modifier {
             Modifier::ModifyPT(power, toughness) => {
-                (i32::from(power) + i32::from(toughness)).signum()
+                (i32::from(*power) + i32::from(*toughness)).signum()
             }
             Modifier::AddKeyword(keywords) if keywords.contains(KeywordSet::DEFENDER) => -1,
-            Modifier::AddKeyword(_) => 1,
+            Modifier::AddKeyword(_)
+            | Modifier::GrantActivated { .. }
+            | Modifier::GrantActivatedDefinition(_) => 1,
+            Modifier::GrantTriggered { effects, .. }
+            | Modifier::GrantTriggeredUpToOne { effects, .. }
+            | Modifier::GrantTriggeredDefinition(AbilityDef::Triggered { effects, .. }) => {
+                granted_trigger_sign(effects)?
+            }
             Modifier::CantAttack | Modifier::CantBlock(_) => -1,
             _ => return None,
         };
