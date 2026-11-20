@@ -1057,6 +1057,8 @@ pub mod silverback_ape;
 pub mod silverglade_elemental;
 #[path = "mmq/silverglade_pathfinder.rs"]
 pub mod silverglade_pathfinder;
+#[path = "ptk/sima_yi_wei_field_marshal.rs"]
+pub mod sima_yi_wei_field_marshal;
 #[path = "ulg/simian_grunts.rs"]
 pub mod simian_grunts;
 #[path = "mmq/sizzle.rs"]
@@ -1159,6 +1161,8 @@ pub mod swat;
 pub mod taoist_hermit;
 #[path = "mmq/task_force.rs"]
 pub mod task_force;
+#[path = "ptk/taunting_challenge.rs"]
+pub mod taunting_challenge;
 #[path = "uds/taunting_elf.rs"]
 pub mod taunting_elf;
 #[path = "mmq/tectonic_break.rs"]

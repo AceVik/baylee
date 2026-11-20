@@ -2943,6 +2943,130 @@ pub static SNAKE_ARTIFACT_1_1: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/4 black Spider with reach.
+pub static SPIDER_2_4_BLACK_REACH: TokenDef = TokenDef {
+    name: "Spider",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIDER],
+    power: Some(2),
+    toughness: Some(4),
+    keywords: KeywordSet::REACH,
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 black Horror.
+pub static HORROR_4_4_BLACK: TokenDef = TokenDef {
+    name: "Horror",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HORROR],
+    power: Some(4),
+    toughness: Some(4),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless Sand.
+pub static SAND_1_1: TokenDef = TokenDef {
+    name: "Sand",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SAND],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 colorless Pincher.
+pub static PINCHER_2_2: TokenDef = TokenDef {
+    name: "Pincher",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PINCHER],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 green Cat Warrior with forestwalk.
+pub static CAT_WARRIOR_2_2_GREEN_FORESTWALK: TokenDef = TokenDef {
+    name: "Cat Warrior",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CAT, creature::WARRIOR],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::FORESTWALK,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/5 green Treefolk Shaman.
+pub static TREEFOLK_SHAMAN_2_5_GREEN: TokenDef = TokenDef {
+    name: "Treefolk Shaman",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::TREEFOLK, creature::SHAMAN],
+    power: Some(2),
+    toughness: Some(5),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green Ape.
+pub static APE_3_3_GREEN: TokenDef = TokenDef {
+    name: "Ape",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::APE],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 green Elemental.
+pub static ELEMENTAL_4_4_GREEN: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(4),
+    toughness: Some(4),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/1 red Goblin with haste.
+pub static GOBLIN_2_1_RED_HASTE: TokenDef = TokenDef {
+    name: "Goblin",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GOBLIN],
+    power: Some(2),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 blue Weird with defender and flying.
+pub static WEIRD_3_3_BLUE_DEFENDER_FLYING: TokenDef = TokenDef {
+    name: "Weird",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WEIRD],
+    power: Some(3),
+    toughness: Some(3),
+    keywords: KeywordSet::DEFENDER.union(KeywordSet::FLYING),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 white Knight with first strike.
+pub static KNIGHT_2_2_WHITE_FIRST_STRIKE: TokenDef = TokenDef {
+    name: "Knight",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KNIGHT],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::FIRST_STRIKE,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -3958,6 +4082,17 @@ pub static ALL: &[&TokenDef] = &[
     &tokens::TOWER_RUNIC_STAR_LENS_RARE,
     &tokens::TOWER_RUNIC_STAR_LENS_MYTHIC,
     &SNAKE_ARTIFACT_1_1,
+    &SPIDER_2_4_BLACK_REACH,
+    &HORROR_4_4_BLACK,
+    &SAND_1_1,
+    &PINCHER_2_2,
+    &CAT_WARRIOR_2_2_GREEN_FORESTWALK,
+    &TREEFOLK_SHAMAN_2_5_GREEN,
+    &APE_3_3_GREEN,
+    &ELEMENTAL_4_4_GREEN,
+    &GOBLIN_2_1_RED_HASTE,
+    &WEIRD_3_3_BLUE_DEFENDER_FLYING,
+    &KNIGHT_2_2_WHITE_FIRST_STRIKE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -4187,4 +4322,15 @@ pub static GENERATED: &[&TokenDef] = &[
     &WALL_ARTIFACT_0_4_DEFENDER,
     &ANGEL_4_4_WHITE_FLYING_VIGILANCE,
     &SNAKE_ARTIFACT_1_1,
+    &SPIDER_2_4_BLACK_REACH,
+    &HORROR_4_4_BLACK,
+    &SAND_1_1,
+    &PINCHER_2_2,
+    &CAT_WARRIOR_2_2_GREEN_FORESTWALK,
+    &TREEFOLK_SHAMAN_2_5_GREEN,
+    &APE_3_3_GREEN,
+    &ELEMENTAL_4_4_GREEN,
+    &GOBLIN_2_1_RED_HASTE,
+    &WEIRD_3_3_BLUE_DEFENDER_FLYING,
+    &KNIGHT_2_2_WHITE_FIRST_STRIKE,
 ];

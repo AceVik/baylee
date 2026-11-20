@@ -20,6 +20,9 @@ use super::*;
 /// PR #394's review holds Lim-Dûl's Vault and implements Ransack as `ScryFor`
 /// on its chosen player's library. Neither has the former pure-selection
 /// shape accepted by this deliberately narrow predicate.
+/// Batch wave 2 (500 generated cards) adds Mystic Speculation (`Scry(3)`),
+/// Think Twice (`Draw(1)`), and Train of Thought (`Draw(1)`), each carrying only
+/// one of those accepted cantrip/selection effects.
 #[test]
 fn the_counter_gate_lets_only_a_cantrip_resolve() {
     let mut held: Vec<&str> = baylee_cards::all()
@@ -66,6 +69,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Dream Cache",
             "Index",
             "Introduction to Prophecy",
+            "Mystic Speculation",
             "Obsessive Search",
             "Open Communications",
             "Opt",
@@ -73,6 +77,8 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Reach Through Mists",
             "Serum Visions",
             "Taigam's Scheming",
+            "Think Twice",
+            "Train of Thought",
             "Whispers of the Muse",
         ]
     );

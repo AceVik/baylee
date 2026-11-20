@@ -35,6 +35,8 @@ pub mod aftershock;
 pub mod agonizing_memories;
 #[path = "vis/aku_djinn.rs"]
 pub mod aku_djinn;
+#[path = "por/alluring_scent.rs"]
+pub mod alluring_scent;
 #[path = "wth/alms.rs"]
 pub mod alms;
 #[path = "tmp/altar_of_dementia.rs"]
@@ -267,6 +269,8 @@ pub mod crazed_armodon;
 pub mod creeping_mold;
 #[path = "tmp/crown_of_flames.rs"]
 pub mod crown_of_flames;
+#[path = "por/cruel_bargain.rs"]
+pub mod cruel_bargain;
 #[path = "vis/crypt_rats.rs"]
 pub mod crypt_rats;
 #[path = "tmp/cursed_scroll.rs"]
@@ -439,6 +443,8 @@ pub mod fevered_convulsions;
 pub mod field_of_souls;
 #[path = "tmp/fighting_drake.rs"]
 pub mod fighting_drake;
+#[path = "por/final_strike.rs"]
+pub mod final_strike;
 #[path = "por/fire_dragon.rs"]
 pub mod fire_dragon;
 #[path = "por/fire_imp.rs"]

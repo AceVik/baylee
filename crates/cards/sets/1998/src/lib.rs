@@ -255,6 +255,8 @@ pub mod dakmor_bat;
 pub mod dakmor_plague;
 #[path = "p02/dakmor_scorpion.rs"]
 pub mod dakmor_scorpion;
+#[path = "p02/dakmor_sorceress.rs"]
+pub mod dakmor_sorceress;
 #[path = "usg/dark_hatchling.rs"]
 pub mod dark_hatchling;
 #[path = "p02/dark_offering.rs"]
@@ -883,6 +885,8 @@ pub mod resuscitate;
 pub mod retaliation;
 #[path = "usg/retromancer.rs"]
 pub mod retromancer;
+#[path = "p02/return_of_the_nightstalkers.rs"]
+pub mod return_of_the_nightstalkers;
 #[path = "usg/rewind.rs"]
 pub mod rewind;
 #[path = "p02/righteous_charge.rs"]
@@ -1117,6 +1121,8 @@ pub mod sulfuric_vapors;
 pub mod sunder;
 #[path = "exo/survival_of_the_fittest.rs"]
 pub mod survival_of_the_fittest;
+#[path = "p02/swarm_of_rats.rs"]
+pub mod swarm_of_rats;
 #[path = "sth/sword_of_the_chosen.rs"]
 pub mod sword_of_the_chosen;
 #[path = "p02/sylvan_basilisk.rs"]
