@@ -6,6 +6,18 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-20 — Beat 4: Codegen Wave 10a–10c (`c8b315fd9`, `cc2c50edb`, `5c9deac78`), Wave 9 Stubs (`e29437c24`), & Pass E4b (`6d8713a4b`)
+
+- **Codegen Wave 10a–10c (`Reviewed: ce38954fd 8df62d4de 5d6efb43d`, `Reviewed-by: gemini-4-argon-high (#314, #319, #324), pass`):**
+  - **Wave 10a (`c8b315fd9`)**: `K:Ninjutsu` & `K:CommanderNinjutsu` -> `CostPart::ReturnUnblockedAttacker` + `Effect::PutNinjutsuOntoBattlefield` (`Condition::InCombatAfterBlockers`), `K:Myriad` & `K:Extort` (`tokengen` + duplicate `Modifier::AddKeyword`), `Exert<1/NICKNAME>`, `Equip` `:Flavor` & `ActivationLimit$`, `OpponentTurn$ True`, `Activation$`, and `ActivationPhases$`.
+  - **Wave 10b (`5c9deac78`)**: `T:Mode$ Exerted` -> `Trigger::Exerted` + `EventObject`, `MoveCounter`/`MoveCounterToEvent`, `DestroyTargetSlots`/`TapTargetSlot`/`UntapTargetSlot`/`DealDamageToBothTargetInstances`, `TargetsForEachPlayer$ True` (`TargetSpec::ObjectOfEachOpponent`), `Pump` `KWChoice$`/`KW$` preventions/`Defined$ Valid`, `TriggeredCard$CardCounters.<kind>`, hidden multi-card `ChooseCard`, `TriggerZones$ Command` combat/targeting/Exerted, and `Phase.CheckSVar` sweeps.
+  - **Wave 10c (`cc2c50edb`)**: Exert `S:Mode$ OptionalAttackCost` (`Effect::ExertSource` + `ReflexiveEvent::ExertedThis`), static `AddKeyword$ Ward:<cost>`, pure AI-hint `AddSVar$` stripping, `IgnoreLandWalk`, generalized cast-self ETB (`wasCastByYou`), `SpellCast` hand provenance atoms, `CastWithFlash` extensions, inline `CheckSVar$`, `/DivideEvenly{Down,Up}` & `/Thrice`.
+  - Combined `xtask transcode-report`: **`18,432 / 34,482` (`53%`)** corpus scripts read in full (**`+316`** net), **`752 / 864`** tokens (`0` collisions).
+- **Wave 9 Stubs & Pass E4b (`Reviewed: 87f2178ce b313bd168`, `Reviewed-by: gemini-4-argon-high (#311, #316), pass`; `baylee-seat` goldens blessed in `73cd01e6f`):**
+  - Completed `3` Wave 9 stubs + `8` upgrades (`e29437c24`) and landed **Pass E4b** (`6d8713a4b`, `+994` generated cards through `2019/war..2021-q2`, holding back `6` cards and updating `activation_census` to `(3942, 5056)`), bringing `xtask validate` to **`16,873` conforming cards** (**`15,903` finished**: `11,015` `Implemented` + `4,625` `Generated` = **`15,640` playable**, `+ 263` `Partial`, `970` stubs).
+  - Blessed `baylee-seat` Commander precon goldens for *Elder Deep-Fiend* (`Emerge`) and *Omnath, Locus of the Roil* (`73cd01e6f`, budget `5,140 -> 5,260`, `138/138` PASS).
+  - Verified Beat 4 gate: `baylee-cards-codegen` `644/644`, `xtask` `148/148`, `baylee-cards --lib` `170/170`, `baylee-card-tests-verification` `58/58`, `baylee-ai --lib` `429/429`, `triggerorder::` `51/51`, `baylee-seat` `138/138`, `keyword_tests::` `20/20`, `clippy` `0` warnings.
+
 ## 2026-11-20 — Beat 3: Engine Wave 4c (`d4ded4751`) & Engine Wave 5 (`0ec03dc3d`)
 
 - **Engine Wave 4c — Triggers, Player Auras, Filters & Locks (`Reviewed: ac5b48d2f`, merged as `d4ded4751`, `Reviewed-by: gemini-4-argon-high (#296), pass`):**
