@@ -1408,9 +1408,20 @@ fn wave5_blocked_attacker_and_graveyard_may_play() {
         "Name:BadLoam\nManaCost:3\nTypes:Artifact\n\
          S:Mode$ Continuous | Affected$ Land.YouOwn | AffectedZone$ Graveyard | MayPlay$ True | MayPlayLimit$ 1"
     ));
+    let all_grave = read(
+        "Name:GraveHall\nManaCost:3 B B\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Card.YouCtrl | AffectedZone$ Graveyard | MayPlay$ True",
+    );
+    assert_eq!(
+        all_grave.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::PlayLandsFromGraveyard)",
+            "static_ability!(Filter::Any, Modifier::CastSpellsFromGraveyard)",
+        ]
+    );
     assert!(refused(
-        "Name:YawgWill\nManaCost:2 B\nTypes:Sorcery\n\
-         S:Mode$ Continuous | Affected$ Card.YouCtrl | AffectedZone$ Graveyard | MayPlay$ True"
+        "Name:SubtypeGrave\nManaCost:2 B\nTypes:Creature\nPT:3/3\n\
+         S:Mode$ Continuous | Affected$ Knight.YouCtrl | AffectedZone$ Graveyard | MayPlay$ True"
     ));
 
     let kess = read(
