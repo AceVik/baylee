@@ -563,7 +563,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // 159 read by the table and 64 remaining contextual.
     // Batch wave 6 (1,000 generated cards) adds 263 non-mana activations:
     // 182 read by the table and 81 remaining contextual.
-    assert_eq!((read, of), (3666, 4718), "activated/loyalty reader census");
+    // Batch wave 7 (225 pre-WAR generated cards) adds 60 non-mana activations:
+    // 49 read by the table and 11 remaining contextual.
+    assert_eq!((read, of), (3715, 4778), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

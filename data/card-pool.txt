@@ -15562,3 +15562,228 @@ Slinn Voda, the Rising Deep
 Soul Salvage
 Stronghold Confessor
 Tempest Djinn
+Temporal Machinations
+Tetsuko Umezawa, Fugitive
+The Antiquities War
+The Eldest Reborn
+The First Eruption
+The Mending of Dominaria
+Tiana, Ship's Caretaker
+Time of Ice
+Untamed Kavu
+Valduk, Keeper of the Flame
+Verix Bladewing
+Vicious Offering
+Warlord's Fury
+Whisper, Blood Liturgist
+Wild Onslaught
+Wizard's Lightning
+Wizard's Retort
+Zahid, Djinn of the Lamp
+Blaring Captain
+Blaring Recruiter
+Bramble Sovereign
+Brightling
+Chakram Retriever
+Chakram Slinger
+Inner Demon
+Jubilant Mascot
+Krav, the Unredeemed
+Ley Weaver
+Lore Weaver
+Proud Mentor
+Soulblade Renewer
+Zndrsplt, Eye of Wisdom
+Aggressive Instinct
+Ancestor Dragon
+Earth-Origin Yak
+Screeching Phoenix
+Lathliss, Dragon Queen
+Aether Tunnel
+Aethershield Artificer
+Ajani's Influence
+Ajani's Last Stand
+Angel of the Dawn
+Blood Divination
+Brawl-Bash Ogre
+Dark-Dweller Oracle
+Demanding Dragon
+Diamond Mare
+Doublecast
+Epicure of Blood
+Fell Specter
+Goreclaw, Terror of Qal Sisma
+Gravewaker
+Graveyard Marshal
+Heroic Reinforcements
+Hieromancer's Cage
+Infernal Reckoning
+Leonin Warleader
+Liliana's Contract
+Liliana's Spoils
+Nightmare's Thirst
+Novice Knight
+Plague Mare
+Psychic Corrosion
+Regal Bloodlord
+Remorseful Cleric
+Sai, Master Thopterist
+Shield Mare
+Skalla Wolf
+Skyrider Patrol
+Sparktongue Dragon
+Spit Flame
+Star-Crowned Stag
+Talons of Wildwood
+Tezzeret's Gatebreaker
+Thorn Lieutenant
+Thud
+Transmogrifying Wand
+Uncomfortable Chill
+Valiant Knight
+Viashino Pyromancer
+Vivien's Jaguar
+Tactical Advantage
+Ancient Stone Idol
+Kestia, the Cultivator
+Loyal Apprentice
+Loyal Drake
+Loyal Guardian
+Loyal Subordinate
+Loyal Unicorn
+Nesting Dragon
+Night Incarnate
+Affectionate Indrik
+Arboretum Elemental
+Artful Takedown
+Assure // Assemble
+Attendant of Vraska
+Camaraderie
+Chemister's Insight
+Circuitous Route
+Conclave Guildmage
+Conclave Tribunal
+Connive // Concoct
+Cosmotronic Wave
+Crush Contraband
+Dawn of Hope
+Deafening Clarion
+Demotion
+Direct Current
+District Guide
+Dream Eater
+Erratic Cyclops
+Flight of Equenauts
+Flower // Flourish
+Fresh-Faced Recruit
+Gatekeeper Gargoyle
+Gird for Battle
+Glaive of the Guildpact
+Goblin Cratermaker
+Goblin Locksmith
+Golgari Raiders
+Hellkite Whelp
+House Guildmage
+Hypothesizzle
+Impervious Greatwurm
+Inescapable Blaze
+Inspiring Unicorn
+Integrity // Intervention
+Intrusive Packbeast
+Ionize
+Izoni, Thousand-Eyed
+Join Shields
+Justice Strike
+Knight of Autumn
+Kraul Foragers
+Kraul Swarm
+Lazav, the Multifarious
+League Guildmage
+Leapfrog
+Ledev Guardian
+Lotleth Giant
+Loxodon Restorer
+March of the Multitudes
+Maximize Altitude
+Maximize Velocity
+Mephitic Vapors
+Molderhulk
+Moodmark Painter
+Necrotic Wound
+Niv-Mizzet, Parun
+Ochran Assassin
+Ornery Goblin
+Pack's Favor
+Pause for Reflection
+Pilfering Imp
+Quasiduplicate
+Radical Idea
+Ral's Staticaster
+Rampaging Monument
+Rhizome Lurcher
+Rosemane Centaur
+Severed Strands
+Smelt-Ward Minotaur
+Sonic Assault
+Sprouting Renewal
+Status // Statue
+Street Riot
+Sumala Woodshaper
+Swarm Guildmage
+Swathcutter Giant
+Thought Erasure
+Undercity Necrolisk
+Vivid Revival
+Worldsoul Colossus
+Angelic Guardian
+Immortal Phoenix
+Inspired Sphinx
+Vengeant Vampire
+Aeromunculus
+Angelic Exaltation
+Applied Biomancy
+Archway Angel
+Azorius Knight-Arbiter
+Bankrupt in Blood
+Benthic Biomancer
+Biogenic Ooze
+Blade Juggler
+Bloodmist Infiltrator
+Burn Bright
+Chillbringer
+Cindervines
+Civic Stalwart
+Clan Guildmage
+Collision // Colossus
+Consign to the Pit
+Cult Guildmage
+Dead Revels
+Depose // Deploy
+Drill Bit
+End-Raze Forerunners
+Gatebreaker Ram
+Gates Ablaze
+Glass of the Guildpact
+Goblin Gathering
+Growth Spiral
+Growth-Chamber Guardian
+Gutterbones
+Hackrobat
+Hero of Precinct One
+Incubation // Incongruity
+Lawmage's Binding
+Light Up the Stage
+Plague Wight
+Rally to Battle
+Regenesis
+Sagittars' Volley
+Sauroform Hybrid
+Savage Smash
+Screaming Shield
+Scuttlegator
+Sharktocrab
+Shimmer of Possibility
+Skatewing Spy
+Skewer the Critics
+Skitter Eel
+Smelt-Ward Ignus

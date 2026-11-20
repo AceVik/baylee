@@ -4033,6 +4033,82 @@ pub static HORSE_5_5_WHITE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 6/12 colorless artifact Construct with trample.
+pub static CONSTRUCT_ARTIFACT_6_12_TRAMPLE: TokenDef = TokenDef {
+    name: "Construct",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::CONSTRUCT],
+    power: Some(6),
+    toughness: Some(12),
+    keywords: KeywordSet::TRAMPLE,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 green Ooze.
+pub static OOZE_2_2_GREEN: TokenDef = TokenDef {
+    name: "Ooze",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::OOZE],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 red legendary Karox Bladewing with flying.
+pub static KAROX_BLADEWING_LEGENDARY_4_4_RED_FLYING: TokenDef = TokenDef {
+    name: "Karox Bladewing",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::DRAGON],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 0/2 red Dragon Egg with defender.
+pub static DRAGON_EGG_0_2_RED_DEFENDER_A7327D884: TokenDef = TokenDef {
+    name: "Dragon Egg",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DRAGON, creature::EGG],
+    power: Some(0),
+    toughness: Some(2),
+    keywords: KeywordSet::DEFENDER,
+    abilities: &[triggered!(
+        Trigger::Dies(&Filter::This),
+        &[Effect::CreateToken {
+            token: &DRAGON_2_2_RED_FLYING
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/4 white Ox.
+pub static OX_2_4_WHITE: TokenDef = TokenDef {
+    name: "Ox",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::OX],
+    power: Some(2),
+    toughness: Some(4),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 white Avatar with flying.
+pub static AVATAR_4_4_WHITE_FLYING: TokenDef = TokenDef {
+    name: "Avatar",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::AVATAR],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -5126,6 +5202,12 @@ pub static ALL: &[&TokenDef] = &[
     &KOR_ALLY_1_1_WHITE,
     &BIRD_3_4_WHITE_FLYING,
     &HORSE_5_5_WHITE,
+    &CONSTRUCT_ARTIFACT_6_12_TRAMPLE,
+    &OOZE_2_2_GREEN,
+    &KAROX_BLADEWING_LEGENDARY_4_4_RED_FLYING,
+    &DRAGON_EGG_0_2_RED_DEFENDER_A7327D884,
+    &OX_2_4_WHITE,
+    &AVATAR_4_4_WHITE_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -5433,4 +5515,10 @@ pub static GENERATED: &[&TokenDef] = &[
     &KOR_ALLY_1_1_WHITE,
     &BIRD_3_4_WHITE_FLYING,
     &HORSE_5_5_WHITE,
+    &CONSTRUCT_ARTIFACT_6_12_TRAMPLE,
+    &OOZE_2_2_GREEN,
+    &KAROX_BLADEWING_LEGENDARY_4_4_RED_FLYING,
+    &DRAGON_EGG_0_2_RED_DEFENDER_A7327D884,
+    &OX_2_4_WHITE,
+    &AVATAR_4_4_WHITE_FLYING,
 ];
