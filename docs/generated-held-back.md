@@ -31,6 +31,7 @@ never a reason to edit a card by hand.
 - Eladamri, Lord of Leaves Avatar: Vanguard card prints `{G}{G}` in its mana trigger while Scryfall carries an empty `color_identity`, tripping `lints::tests::faces::no_card_hides_a_color_it_prints`.
 - Dune Mover: `validate`: optional `"you may"` is dropped (`SearchLibrary { ..., optional: false }`).
 - Norn's Choirmaster: `validate`: `"Whenever a commander you control ..."` lowers as `Filter::OwnedByYou` without `Filter::ControlledByYou`.
+- Invasion of Vryn // Overloaded Mage-Ring: reference `CopySpellAbility` script omits `MayChooseTarget$ True`, so codegen writes `may_choose_new_targets: false` for `"You may choose new targets for the copy."` (`#326`).
 
 ## Engine gaps
 

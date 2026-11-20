@@ -17751,7 +17751,6 @@ Invasion of Mercadia // Kyren Flamewright
 Invasion of Moag // Bloomwielder Dryads
 Invasion of Shandalar // Leyline Surge
 Invasion of Tolvada // The Broken Sky
-Invasion of Vryn // Overloaded Mage-Ring
 Invasion of Xerex // Vertex Paladin
 Invasion of Zendikar // Awakened Skyclave
 Knight of the New Coalition

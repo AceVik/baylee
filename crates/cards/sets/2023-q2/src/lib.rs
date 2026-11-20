@@ -155,8 +155,6 @@ pub mod invasion_of_moag;
 pub mod invasion_of_shandalar;
 #[path = "mom/invasion_of_tolvada.rs"]
 pub mod invasion_of_tolvada;
-#[path = "mom/invasion_of_vryn.rs"]
-pub mod invasion_of_vryn;
 #[path = "mom/invasion_of_xerex.rs"]
 pub mod invasion_of_xerex;
 #[path = "mom/invasion_of_zendikar.rs"]

@@ -62966,11 +62966,7 @@ pub static ORACLE: &[&[&str]] = &[
         "Creature tokens you control get +1/+0 and have lifelink.\nAt the beginning of your end step, create a 1/1 white and black Spirit creature token with flying.",
     ],
     &[],
-    // Invasion of Vryn
-    &[
-        "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, draw three cards, then discard a card.",
-        "{1}, {T}, Sacrifice this artifact: Copy target spell you control. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)",
-    ],
+    &[],
     // Invasion of Xerex
     &[
         "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, return up to one target creature to its owner's hand.",

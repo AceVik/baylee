@@ -844,7 +844,7 @@ mod tests {
     /// Batch wave 8 (994 generated cards) adds Thing in the Ice (Awoken
     /// Horror's transform trigger) and Esika, God of the Tree (The Prismatic
     /// Bridge's upkeep trigger).
-    /// Batch wave 9 (997 generated cards) adds 30 Daybound/Nightbound,
+    /// Batch wave 9 (996 generated cards) adds 29 Daybound/Nightbound,
     /// Saga, and Battle transforming cards whose back faces reach the stack
     /// (MID/VOW creatures, NEO Sagas, and MOM Battles).
     #[test]
@@ -934,7 +934,6 @@ mod tests {
         "Invasion of Moag",
         "Invasion of Shandalar",
         "Invasion of Tolvada",
-        "Invasion of Vryn",
         "Sheoldred",
         "Aclazotz, Deepest Betrayal",
         "Brass's Tunnel-Grinder",

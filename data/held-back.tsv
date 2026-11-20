@@ -37,6 +37,7 @@ d0a31db0-69db-405c-99a3-945617900c54	Obscuring Haze	reader-gap: validate: "you c
 dcd8b9d4-c76a-4cad-8d43-13e42fb65bd6	Eladamri, Lord of Leaves Avatar	lint-gap: Vanguard card prints {G}{G} with empty Scryfall color_identity (CR 903.4)
 38d2176c-1a1e-4030-9c63-e28ba4a69b6d	Dune Mover	reader-gap: validate fails on omitted "you may" (optional: false)
 bad6a5a9-7010-418d-b042-182926aa999d	Norn's Choirmaster	reader-gap: validate: "a commander you control" emits Filter::OwnedByYou without Filter::ControlledByYou
+73c7fdb3-4742-4d08-8658-daa4435c49b1	Invasion of Vryn // Overloaded Mage-Ring	reader-gap: reference CopySpellAbility script omits MayChooseTarget$ True for "You may choose new targets for the copy"
 
 # Engine gaps
 9843d8a6-bcbf-40c2-8c41-316e97db9c62	Shallow Grave	engine-gap: held-back stub awaiting completion and test

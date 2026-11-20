@@ -571,9 +571,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Glory, Mishra's Bauble, and Root Greevil: 3 read and 3 contextual).
     // Batch wave 8 (994 generated cards) adds 273 non-mana activations:
     // 225 read by the table and 48 remaining contextual.
-    // Batch wave 9 (997 generated cards) adds 284 non-mana activations:
-    // 222 read by the table and 62 remaining contextual.
-    assert_eq!((read, of), (4164, 5340), "activated/loyalty reader census");
+    // Batch wave 9 (996 generated cards) adds 283 non-mana activations:
+    // 222 read by the table and 61 remaining contextual.
+    assert_eq!((read, of), (4164, 5339), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

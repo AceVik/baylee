@@ -24,7 +24,7 @@
 use baylee_core::ids::CardIndex;
 
 /// Cards whose pinned printing has a second picture.
-pub static BACK_IMAGE: [CardIndex; 190] = [
+pub static BACK_IMAGE: [CardIndex; 189] = [
     CardIndex::new(11968),
     CardIndex::new(11986),
     CardIndex::new(12122),
@@ -171,7 +171,6 @@ pub static BACK_IMAGE: [CardIndex; 190] = [
     CardIndex::new(25588),
     CardIndex::new(25596),
     CardIndex::new(25599),
-    CardIndex::new(25601),
     CardIndex::new(25602),
     CardIndex::new(25603),
     CardIndex::new(25710),
@@ -218,7 +217,7 @@ pub static BACK_IMAGE: [CardIndex; 190] = [
 ];
 
 /// Cards that are double-faced cards under CR 712.1.
-pub static DOUBLE_FACED: [CardIndex; 195] = [
+pub static DOUBLE_FACED: [CardIndex; 194] = [
     CardIndex::new(11968),
     CardIndex::new(11986),
     CardIndex::new(12122),
@@ -370,7 +369,6 @@ pub static DOUBLE_FACED: [CardIndex; 195] = [
     CardIndex::new(25588),
     CardIndex::new(25596),
     CardIndex::new(25599),
-    CardIndex::new(25601),
     CardIndex::new(25602),
     CardIndex::new(25603),
     CardIndex::new(25710),
@@ -417,7 +415,7 @@ pub static DOUBLE_FACED: [CardIndex; 195] = [
 ];
 
 /// Cards whose reference printing is uncommon.
-pub static UNCOMMON: [CardIndex; 5511] = [
+pub static UNCOMMON: [CardIndex; 5510] = [
     CardIndex::new(0),
     CardIndex::new(2),
     CardIndex::new(3),
@@ -5609,7 +5607,6 @@ pub static UNCOMMON: [CardIndex; 5511] = [
     CardIndex::new(25581),
     CardIndex::new(25587),
     CardIndex::new(25588),
-    CardIndex::new(25601),
     CardIndex::new(25602),
     CardIndex::new(25603),
     CardIndex::new(25625),
@@ -10811,7 +10808,6 @@ pub static TURNS: &[(CardIndex, &[u8])] = &[
     (CardIndex::new(25588), &[1, 0]),
     (CardIndex::new(25596), &[1, 0]),
     (CardIndex::new(25599), &[1, 0]),
-    (CardIndex::new(25601), &[1, 0]),
     (CardIndex::new(25602), &[1, 0]),
     (CardIndex::new(25603), &[1, 0]),
     (CardIndex::new(29314), &[1, 1]),
@@ -127266,13 +127262,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(25599),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None, None],
-            is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(25601),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
             is_un: false,

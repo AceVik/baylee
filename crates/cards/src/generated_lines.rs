@@ -128505,23 +128505,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         },
     ],
     &[],
-    // Invasion of Vryn
-    &[
-        FaceLines {
-            sentences: 2,
-            stackable: 1,
-            lines: &[Some(1)],
-            modes: &[],
-            alternatives: &[],
-        },
-        FaceLines {
-            sentences: 1,
-            stackable: 1,
-            lines: &[Some(0)],
-            modes: &[],
-            alternatives: &[],
-        },
-    ],
+    &[],
     // Invasion of Xerex
     &[
         FaceLines {
