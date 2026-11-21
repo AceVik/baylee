@@ -10,7 +10,7 @@ card!(
     oracle_id = "e2ef027d-0ef7-4c8b-a594-3918290b02d9",
     scryfall_id = "0a6ded26-b748-406d-8740-9b8590be2bb1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Serene Sunset",
         mana_cost = mana!("{X}{G}"),

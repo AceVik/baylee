@@ -10,7 +10,7 @@ card!(
     oracle_id = "93d0691f-17b8-458b-a624-e182fc481f49",
     scryfall_id = "544e3575-9fb6-41f7-a4e6-f8460dfae344",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ertai's Trickery",
         mana_cost = mana!("{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "a84c9507-d054-4770-84f3-5a4b5a01d826",
     scryfall_id = "1b713448-853a-41ee-a302-963e9c1c1c65",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ixidor's Will",
         mana_cost = mana!("{2}{U}"),

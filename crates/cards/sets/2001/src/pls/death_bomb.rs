@@ -16,7 +16,7 @@ card!(
     oracle_id = "e323d468-def5-4090-af5b-19481289168f",
     scryfall_id = "f8a84715-c5dc-4a19-af6a-796c6ee912c2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Death Bomb",
         mana_cost = mana!("{3}{B}"),

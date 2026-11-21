@@ -22,7 +22,7 @@ card!(
     oracle_id = "5870175d-83df-43af-b199-fcd1e60b824e",
     scryfall_id = "d5e55695-16cc-4373-8078-959f1ded4c6d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Psychic Trance",
         mana_cost = mana!("{2}{U}{U}"),

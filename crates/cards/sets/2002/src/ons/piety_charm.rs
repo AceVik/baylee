@@ -24,7 +24,7 @@ card!(
     oracle_id = "3d4ec57a-8541-42ed-9790-7933f96c8adf",
     scryfall_id = "1bc2da43-c0e1-4fbf-b309-a75e105c29c1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Piety Charm",
         mana_cost = mana!("{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "d95dd8cc-ce7d-4d43-afbd-efaa2d3c7a35",
     scryfall_id = "3a45ea90-03af-446e-9df3-ef64e9613f2c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "False Memories",
         mana_cost = mana!("{1}{U}"),

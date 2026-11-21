@@ -11,7 +11,7 @@ card!(
     oracle_id = "9db5aa54-3deb-45ee-82a2-e88a4367c6d9",
     scryfall_id = "541e06cb-5616-40b4-9d36-89471a795ac8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coffin Purge",
         mana_cost = mana!("{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "299fc083-0834-4064-8344-f895aff68867",
     scryfall_id = "3caa9c55-5e3b-436b-84a9-b7ccebf63799",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Entomb",
         mana_cost = mana!("{B}"),

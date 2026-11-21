@@ -11,7 +11,7 @@ card!(
     oracle_id = "6e2a695d-305a-4bbe-b302-11fdc5c2a451",
     scryfall_id = "52ddf7bf-de9c-4657-8d5b-79869d36fa63",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rushing River",
         mana_cost = mana!("{2}{U}"),

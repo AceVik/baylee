@@ -12,7 +12,7 @@ card!(
     oracle_id = "dc10544f-dd30-4d4a-b6e6-bbed7d1ed4a7",
     scryfall_id = "7f8eee50-efd2-45fd-b815-051167ef4541",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Life Burst",
         mana_cost = mana!("{1}{W}"),

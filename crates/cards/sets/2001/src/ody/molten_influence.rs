@@ -10,7 +10,7 @@ card!(
     oracle_id = "d955a26a-d474-4dff-9eba-69fcfe92d8ae",
     scryfall_id = "4c2b326b-d177-4a03-a0a3-fe2c2d4af272",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Molten Influence",
         mana_cost = mana!("{1}{R}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "8e414ad6-ba19-44a1-a291-2e420734a6dd",
     scryfall_id = "efd85985-abc1-430a-9210-63109c90a82d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prismatic Strands",
         mana_cost = mana!("{2}{W}"),
