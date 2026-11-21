@@ -6,6 +6,12 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Beat 8: Engine Wave 6c (`079d573b0`) & `check_text` UTF-8 Fix (`07b4050ed`)
+
+- **Engine Wave 6c** (`079d573b0`): Landed `Modifier::MaxBlockers(u8)`, noncombat damage prevention (`PreventNoncombatDamageFrom`, `PreventNoncombatDamageToPlayers`), `DamageRecipients` + `MultiplyDamageFrom` / `AddDamageFrom`, `KeywordSet::RENOWN = 66`, `Rider::Renowned = 171`, `Condition::IsRenowned`, and `Effect::BecomeRenowned(u8)` (`PROTOCOL_VERSION = 57`). Extracted `hash_expansion_acquired_rider` in `crates/baylee-engine/src/state/hash.rs` to stay under `clippy::too_many_lines` (`<= 100` lines).
+- **Pre-existing client test collision**: Fixed `crates/baylee-client/src/choices/tests.rs` where `"pith"` matched Pass E4a `"Pith Driller"` before `"Pithing Needle"` (`"pithi"` now asserts `"Pithing Needle"`).
+- **UTF-8 slicing in `xtask check-text`**: Fixed byte-index slicing before em-dash `'—'` in `xtask/src/check_text/mod.rs::up_to_target_phrase` triggered by *Atraxi Warden* (`07b4050ed`).
+
 ## 2026-11-21 — Beat 7 (Part 1): Engine Wave 6b (`27f4e0494`) & Codegen Wave 12a–12c (`fa5c83ea4`, `efb98e98c`, `de336fb5f`)
 
 - **Engine Wave 6b — `Plot`, `Casualty N`, & `Backup N` (`Reviewed: 7cfe7952d`, merged as `27f4e0494`, `Reviewed-by: gemini-4-argon-high (#357), pass`):**

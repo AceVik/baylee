@@ -493,6 +493,15 @@ fn a_back_face_is_named_and_a_leading_match_comes_first() {
     );
     assert_eq!(
         rows.first().map(|row| row.label.as_str()),
+        Some("Pith Driller")
+    );
+    let rows = card_name_rows(
+        "pithi",
+        baylee_core::types::TypeSet::EMPTY,
+        baylee_core::types::TypeSet::EMPTY,
+    );
+    assert_eq!(
+        rows.first().map(|row| row.label.as_str()),
         Some("Pithing Needle")
     );
     assert!(
