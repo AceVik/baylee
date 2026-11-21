@@ -9,7 +9,7 @@ card!(
     index = index::TEL_JILAD_STYLUS,
     oracle_id = "75a7fdd4-046a-433b-b16f-a0424a05c904",
     scryfall_id = "522570eb-e654-4f8a-828c-3e456a0ad8e6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tel-Jilad Stylus",
         mana_cost = mana!("{1}"),

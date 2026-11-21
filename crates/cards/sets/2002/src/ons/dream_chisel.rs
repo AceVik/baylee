@@ -9,7 +9,7 @@ card!(
     index = index::DREAM_CHISEL,
     oracle_id = "7776c114-c02a-4694-9b9d-00fbfad2d2a2",
     scryfall_id = "e89610e9-f1d3-4332-901a-2598bf01d61d",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dream Chisel",
         mana_cost = mana!("{2}"),

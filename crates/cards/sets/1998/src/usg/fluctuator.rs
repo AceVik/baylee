@@ -9,7 +9,7 @@ card!(
     index = index::FLUCTUATOR,
     oracle_id = "5ed0c7cc-9969-4387-90f8-3084dd18026b",
     scryfall_id = "92078408-e0e4-443e-b0fd-aac0ac651f46",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fluctuator",
         mana_cost = mana!("{2}"),
