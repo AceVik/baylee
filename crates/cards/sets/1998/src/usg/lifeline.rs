@@ -9,7 +9,7 @@ card!(
     index = index::LIFELINE,
     oracle_id = "f475b636-eb7f-4dd7-bc87-a1af07064ffe",
     scryfall_id = "40cee82f-36b2-48a9-930a-8e23cb2742fc",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lifeline",
         mana_cost = mana!("{5}"),

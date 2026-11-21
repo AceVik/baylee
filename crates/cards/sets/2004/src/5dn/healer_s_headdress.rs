@@ -22,7 +22,7 @@ card!(
     oracle_id = "bf689834-dcb7-4370-a986-bf542f88aba5",
     scryfall_id = "9565f076-54a6-43d6-bcf0-dcb932f6c116",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Healer's Headdress",
         mana_cost = mana!("{2}"),

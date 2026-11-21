@@ -13,7 +13,7 @@ card!(
     oracle_id = "127b438d-e5c2-47ba-9554-d9d5af018d09",
     scryfall_id = "749c408a-0a19-44a3-a436-295380573f91",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Horned Helm",
         mana_cost = mana!("{2}"),

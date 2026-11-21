@@ -10,7 +10,7 @@ card!(
     index = index::BLASTING_STATION,
     oracle_id = "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e",
     scryfall_id = "71e2f832-6601-4232-b250-fd1c88538fbd",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blasting Station",
         mana_cost = mana!("{3}"),

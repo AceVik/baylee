@@ -9,7 +9,7 @@ card!(
     index = index::SLATE_OF_ANCESTRY,
     oracle_id = "a07483b4-c04f-42a4-b979-8b77c11fa8f5",
     scryfall_id = "87809c72-055f-4055-85a7-86d41bd655f1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slate of Ancestry",
         mana_cost = mana!("{4}"),

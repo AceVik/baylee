@@ -9,7 +9,7 @@ card!(
     index = index::URZA_S_FILTER,
     oracle_id = "46484242-28ed-43d2-b33a-1e5c1771acca",
     scryfall_id = "680c75b1-e766-40be-84d7-2332047bb3de",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Urza's Filter",
         mana_cost = mana!("{4}"),

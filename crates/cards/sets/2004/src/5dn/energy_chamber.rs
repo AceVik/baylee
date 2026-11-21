@@ -15,7 +15,7 @@ card!(
     index = index::ENERGY_CHAMBER,
     oracle_id = "c0880a44-27d5-4e21-915c-678ee46fa3d9",
     scryfall_id = "f4e2f775-75dd-4c18-a378-b503b29a6388",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Energy Chamber",
         mana_cost = mana!("{2}"),

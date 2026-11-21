@@ -15,7 +15,7 @@ card!(
     index = index::COAT_OF_ARMS,
     oracle_id = "5f7f133e-58ea-41ab-b1be-be4b400fac4c",
     scryfall_id = "513d4c36-6ad4-4ee9-b161-3136eb59504f",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coat of Arms",
         mana_cost = mana!("{5}"),

@@ -10,7 +10,7 @@ card!(
     index = index::KYREN_TOY,
     oracle_id = "f1a0d112-9e1b-4354-bd7f-0051bff8f904",
     scryfall_id = "7a8318bb-bc3c-45e9-bd57-60ae72b6f8b0",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kyren Toy",
         mana_cost = mana!("{3}"),

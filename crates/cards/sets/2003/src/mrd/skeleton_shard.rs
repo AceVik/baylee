@@ -12,7 +12,7 @@ card!(
     oracle_id = "076fa82d-2a62-4590-bff7-69f0d3bee647",
     scryfall_id = "ee0d0da7-70de-4174-8f71-3e8861270dfb",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skeleton Shard",
         mana_cost = mana!("{3}"),

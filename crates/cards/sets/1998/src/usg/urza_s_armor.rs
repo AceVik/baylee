@@ -9,7 +9,7 @@ card!(
     index = index::URZA_S_ARMOR,
     oracle_id = "e5fa232a-c8f2-4532-88bf-60d1223181b0",
     scryfall_id = "df901d78-e8fb-4adf-bafe-99a567a375c1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Urza's Armor",
         mana_cost = mana!("{6}"),

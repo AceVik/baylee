@@ -15,7 +15,7 @@ card!(
     oracle_id = "75564721-e4e9-463a-b49e-f0c7cd6f53a7",
     scryfall_id = "e1375f17-bc25-4a65-98b7-4785bbdbe974",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cranial Plating",
         mana_cost = mana!("{2}"),
