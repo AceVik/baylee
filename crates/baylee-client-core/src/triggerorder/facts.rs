@@ -722,6 +722,14 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::GraveyardToBattlefield { .. }
         | Effect::GraveyardToBattlefieldModified { .. }
         | Effect::YourGraveyardToBattlefield { .. } => facts.makes.add(Stuff::BOARD),
+        Effect::DeliverGift(kind) => match kind {
+            baylee_cards::dsl::GiftKind::Card => facts.makes.add(Stuff::HAND),
+            baylee_cards::dsl::GiftKind::Food
+            | baylee_cards::dsl::GiftKind::TappedFish
+            | baylee_cards::dsl::GiftKind::Treasure
+            | baylee_cards::dsl::GiftKind::Octopus => facts.makes.add(Stuff::BOARD),
+            baylee_cards::dsl::GiftKind::ExtraTurn => {}
+        },
         Effect::AddMana { .. }
         | Effect::AddManaFor { .. }
         | Effect::AddManaAmountFor { .. }

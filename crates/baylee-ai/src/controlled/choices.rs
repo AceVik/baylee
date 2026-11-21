@@ -472,6 +472,7 @@ impl HeuristicAgent {
             | YesNoPrompt::Bargain
             | YesNoPrompt::Offspring { .. }
             | YesNoPrompt::Casualty { .. }
+            | YesNoPrompt::Gift { .. }
             | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }

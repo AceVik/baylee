@@ -154,6 +154,7 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::Plot { .. }
         | Effect::PlotTop { .. }
         | Effect::Backup { .. }
+        | Effect::DeliverGift(_)
         | Effect::LookAtTopExileFaceDown { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopIf { .. }

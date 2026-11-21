@@ -681,6 +681,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             WizardStage::Casualty => {
                 let Some(question) = self.ask_casualty(&wizard) else {
                     let mut wizard = wizard;
+                    wizard.stage = WizardStage::Gift;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Gift => {
+                if wizard.gift_recipient.is_some() {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Multikicker;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                let Some(question) = self.ask_gift(&wizard) else {
+                    let mut wizard = wizard;
                     wizard.stage = WizardStage::Multikicker;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;

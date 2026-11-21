@@ -3709,6 +3709,24 @@ OffspringAsk = Offspring: { $price }? Create a 1/1 token copy when it enters.
 # Arguments: power
 CasualtyAsk = Casualty { $power }: sacrifice a creature with power { $power } or greater to copy this spell?
 
+# Gift a card question (CR 702.174a).
+GiftAskCard = Gift a card: promise an opponent a card?
+
+# Gift a Food question (CR 702.174a).
+GiftAskFood = Gift a Food: promise an opponent a Food token?
+
+# Gift a tapped Fish question (CR 702.174a).
+GiftAskTappedFish = Gift a tapped Fish: promise an opponent a tapped 1/1 blue Fish token?
+
+# Gift a Treasure question (CR 702.174a).
+GiftAskTreasure = Gift a Treasure: promise an opponent a Treasure token?
+
+# Gift an Octopus question (CR 702.174a).
+GiftAskOctopus = Gift an Octopus: promise an opponent an 8/8 blue Octopus token?
+
+# Gift an extra turn question (CR 702.174a).
+GiftAskExtraTurn = Gift an extra turn: promise an opponent an extra turn?
+
 # Part of a buyback price: life.
 # Arguments: amount
 BuybackPriceLife = pay { $amount } life
@@ -3791,6 +3809,9 @@ CastForetell = Foretell
 
 # Plot alternative cast from exile (CR 702.170d)
 CastPlot = Plot
+
+# Impending alternative cast (CR 702.176a)
+CastImpending = Impending
 
 # Beam me up's casting option.
 CastBeamMeUp = Beam me up

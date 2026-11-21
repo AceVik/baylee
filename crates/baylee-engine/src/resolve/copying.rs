@@ -180,6 +180,8 @@ fn copied_spell_riders(riders: &[crate::object::Rider]) -> Vec<crate::object::Ri
                     | R::SquadPaid(_)
                     | R::OffspringPaid
                     | R::CasualtyPaid
+                    | R::ImpendingPaid
+                    | R::GiftPromisedTo(_)
                     | R::Fused
                     | R::PrepareSpellFace(_)
             )

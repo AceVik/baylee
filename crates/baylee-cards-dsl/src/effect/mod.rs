@@ -5003,6 +5003,11 @@ pub enum Effect {
         /// other-creature-ETB trigger.
         with_event_object: bool,
     },
+    /// Deliver the promised [`crate::GiftKind`] to the chosen opponent
+    /// (`PlayerRel::GiftRecipient`, CR 702.174b–j) and emit
+    /// `GameEvent::GiftGiven` for `Trigger::GaveGift` (CR 702.174c). Appended
+    /// to preserve replay identities.
+    DeliverGift(crate::GiftKind),
 }
 
 #[cfg(test)]

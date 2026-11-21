@@ -370,6 +370,11 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::TakeExtraTurn | Effect::WinGame => {
             ch.extra_turn_or_win += 1.0;
         }
+        Effect::DeliverGift(kind) => match kind {
+            baylee_cards_dsl::GiftKind::Card => ch.draw -= 1.0,
+            baylee_cards_dsl::GiftKind::ExtraTurn => ch.extra_turn_or_win -= 1.0,
+            _ => ch.tokens_create -= 0.5,
+        },
         _ => {}
     }
 }

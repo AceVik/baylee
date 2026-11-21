@@ -54,6 +54,18 @@ fn a_face_without_buyback_or_multikicker_keeps_the_tree_it_had() {
     }
     .tree(&mut f);
     assert_eq!(children(&f, casualty), children(&f, plain) + 1);
+    let impending = FaceDef {
+        impending: Some((3, ManaCost::parse("{1}{W}"))),
+        ..FaceDef::DEFAULT
+    }
+    .tree(&mut f);
+    assert_eq!(children(&f, impending), children(&f, plain) + 1);
+    let gifted = FaceDef {
+        gift: Some(baylee_cards_dsl::GiftKind::Card),
+        ..FaceDef::DEFAULT
+    }
+    .tree(&mut f);
+    assert_eq!(children(&f, gifted), children(&f, plain) + 1);
 }
 
 /// A face that prints none of the later optional fields has the 41 children

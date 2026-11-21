@@ -643,6 +643,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::PlayerAttacked(_) => &["is attacked", "attack"],
         T::Enlisted(_) => &["enlist"],
         T::Plotted { .. } => &["plot"],
+        T::GaveGift(_) => &["give", "gift"],
     }
 }
 
@@ -710,6 +711,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::Cycled { by: rel, .. }
         | Trigger::SpellCastTargeting { who: rel, .. }
         | Trigger::Plotted { who: rel, .. }
+        | Trigger::GaveGift(rel)
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),
@@ -851,6 +853,7 @@ fn effect_words(effect: &Effect) -> &'static [&'static str] {
         Effect::ChooseCreatureType { .. } => &["creature type"],
         Effect::BecomeChosenCreatureType { .. } => &["becomes"],
         Effect::ShuffleGraveyardMatchingIntoLibrary { .. } => &["shuffle"],
+        Effect::DeliverGift(_) => &["gift"],
         _ => &[],
     }
 }

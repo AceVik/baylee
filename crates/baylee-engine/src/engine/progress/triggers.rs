@@ -618,6 +618,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let mut found = trigger::collect(&self.state, &self.lookup, scan_from);
         self.collect_squad_and_offspring_triggers(scan_from, &mut found);
+        self.collect_gift_etb_triggers(scan_from, &mut found);
+        self.collect_impending_end_step_triggers(scan_from, &mut found);
         crate::trigger::bird_entry::consume(&mut self.state, scan_from);
         self.trigger_scan_seq = self.state.journal.last_seq();
         crate::resolve::linked_reanimation::prune(&mut self.state);
@@ -786,6 +788,155 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         OFFSPRING_ETB_COPY,
                         None,
                     ));
+                }
+            }
+        }
+    }
+
+    /// Queues synthetic ETB triggered abilities for permanents entering the
+    /// battlefield with `Rider::GiftPromisedTo` (`CR 702.174b`).
+    fn collect_gift_etb_triggers(
+        &self,
+        scan_from: u64,
+        out: &mut Vec<crate::trigger::PendingTrigger>,
+    ) {
+        let all_events = self.state.journal.entries();
+        let start = all_events.partition_point(|e| e.seq <= scan_from);
+        let events = &all_events[start..];
+        for (idx, entry) in events.iter().enumerate() {
+            let GameEvent::ZoneChanged {
+                object,
+                to: crate::zone::Zone::Battlefield,
+                ..
+            } = entry.event
+            else {
+                continue;
+            };
+            let later_moves = events[idx + 1..]
+                .iter()
+                .filter(|later| {
+                    matches!(later.event, GameEvent::ZoneChanged { object: id, .. } if id == object)
+                })
+                .count();
+            let entrant = if later_moves == 0 {
+                self.state.object(object)
+            } else {
+                self.state.object(object).and_then(|current| {
+                    self.state.source_object(baylee_core::ids::DamageSourceRef {
+                        object,
+                        version: current
+                            .version
+                            .wrapping_sub(u32::try_from(later_moves).unwrap_or(0)),
+                    })
+                })
+            }
+            .or_else(|| self.state.ceased.iter().find(|o| o.id == object));
+            let Some(entrant) = entrant else {
+                continue;
+            };
+            if entrant.status.contains(crate::object::Status::FACE_DOWN)
+                || entrant.characteristics().abilities_lost.is_some()
+                || entrant.characteristics().rules_text_lost
+                || !entrant
+                    .riders
+                    .iter()
+                    .any(|r| matches!(r, crate::object::Rider::GiftPromisedTo(_)))
+            {
+                continue;
+            }
+            let Some(kind) = entrant
+                .printed_face()
+                .and_then(|f| {
+                    self.lookup
+                        .card(f.card())
+                        .and_then(|def| def.faces.get(usize::from(f.face())))
+                })
+                .and_then(|face| face.gift)
+            else {
+                continue;
+            };
+            let already_printed = entrant
+                .printed_abilities(&self.lookup)
+                .iter()
+                .any(|ability| match ability {
+                    AbilityDef::Triggered { effects, .. } => {
+                        let mut has = false;
+                        baylee_cards_dsl::Effect::walk(effects, &mut 0, &mut |e| {
+                            has |= matches!(e, baylee_cards_dsl::Effect::DeliverGift(_));
+                        });
+                        has
+                    }
+                    _ => false,
+                });
+            if already_printed {
+                continue;
+            }
+            let times = crate::trigger::times_triggered(
+                &self.state,
+                baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
+                object,
+            );
+            for _ in 0..times {
+                let mut trig = synthetic_copy_etb_trigger(object, entrant, gift_etb_fx(kind), None);
+                trig.synthetic_condition = Some(&GIFT_ETB_CONDITION);
+                out.push(trig);
+            }
+        }
+    }
+
+    /// Queues synthetic end-step counter-removal triggers for permanents whose
+    /// impending cost was paid while they have a time counter (`CR 702.176a`, `CR 603.4`).
+    fn collect_impending_end_step_triggers(
+        &self,
+        scan_from: u64,
+        out: &mut Vec<crate::trigger::PendingTrigger>,
+    ) {
+        let all_events = self.state.journal.entries();
+        let start = all_events.partition_point(|e| e.seq <= scan_from);
+        for entry in &all_events[start..] {
+            let GameEvent::StepChanged {
+                step: crate::turn::Step::End,
+                active,
+                ..
+            } = entry.event
+            else {
+                continue;
+            };
+            for id in self.state.battlefield_seen() {
+                let Some(perm) = self.state.object(id) else {
+                    continue;
+                };
+                if perm.controller != active
+                    || perm.status.contains(crate::object::Status::FACE_DOWN)
+                    || perm.characteristics().abilities_lost.is_some()
+                    || perm.characteristics().rules_text_lost
+                    || !perm.riders.contains(&crate::object::Rider::ImpendingPaid)
+                    || perm.counters.get(baylee_cards_dsl::CounterKind::Time) < 1
+                {
+                    continue;
+                }
+                let has_impending = perm
+                    .printed_face()
+                    .and_then(|f| {
+                        self.lookup
+                            .card(f.card())
+                            .and_then(|def| def.faces.get(usize::from(f.face())))
+                    })
+                    .is_some_and(|face| face.impending.is_some());
+                if !has_impending {
+                    continue;
+                }
+                let times = crate::trigger::times_triggered(
+                    &self.state,
+                    baylee_cards_dsl::TriggerEventKind::Any,
+                    id,
+                );
+                for _ in 0..times {
+                    let mut trig =
+                        synthetic_copy_etb_trigger(id, perm, IMPENDING_END_STEP_FX, None);
+                    trig.event_object = None;
+                    trig.synthetic_condition = Some(&IMPENDING_END_STEP_CONDITION);
+                    out.push(trig);
                 }
             }
         }
@@ -1430,6 +1581,53 @@ static OFFSPRING_ETB_COPY: &[baylee_cards_dsl::Effect] =
         haste_until_eot: false,
         cleanup: baylee_cards_dsl::CopyCleanup::None,
     }];
+
+static IMPENDING_END_STEP_CLAUSES: &[baylee_cards_dsl::Condition] = &[
+    baylee_cards_dsl::Condition::SourceInZone(baylee_cards_dsl::ZoneRef::Battlefield),
+    baylee_cards_dsl::Condition::CountersOnSelf(baylee_cards_dsl::CounterKind::Time, 1),
+];
+
+static IMPENDING_END_STEP_CONDITION: baylee_cards_dsl::Condition =
+    baylee_cards_dsl::Condition::All(IMPENDING_END_STEP_CLAUSES);
+
+static IMPENDING_END_STEP_FX: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::RemoveCounterSelf {
+        kind: baylee_cards_dsl::CounterKind::Time,
+        n: 1,
+    }];
+
+static GIFT_ETB_CONDITION: baylee_cards_dsl::Condition =
+    baylee_cards_dsl::Condition::GiftWasPromised;
+
+static GIFT_CARD_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::Card,
+)];
+static GIFT_FOOD_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::Food,
+)];
+static GIFT_TAPPED_FISH_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::TappedFish,
+)];
+static GIFT_TREASURE_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::Treasure,
+)];
+static GIFT_OCTOPUS_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::Octopus,
+)];
+static GIFT_EXTRA_TURN_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::ExtraTurn,
+)];
+
+const fn gift_etb_fx(kind: baylee_cards_dsl::GiftKind) -> &'static [baylee_cards_dsl::Effect] {
+    match kind {
+        baylee_cards_dsl::GiftKind::Card => GIFT_CARD_FX,
+        baylee_cards_dsl::GiftKind::Food => GIFT_FOOD_FX,
+        baylee_cards_dsl::GiftKind::TappedFish => GIFT_TAPPED_FISH_FX,
+        baylee_cards_dsl::GiftKind::Treasure => GIFT_TREASURE_FX,
+        baylee_cards_dsl::GiftKind::Octopus => GIFT_OCTOPUS_FX,
+        baylee_cards_dsl::GiftKind::ExtraTurn => GIFT_EXTRA_TURN_FX,
+    }
+}
 
 fn synthetic_copy_etb_trigger(
     object: ObjectId,

@@ -663,6 +663,9 @@ pub fn condition_holds_with_context(
                     id != source && state.is_unpaired_creature_controlled_by(id, None, you)
                 })
         }
+        Condition::GiftWasPromised => state
+            .object_or_departed(source)
+            .is_some_and(object_gift_was_promised),
     }
 }
 
@@ -808,6 +811,9 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::Bargained) => state
             .damage_source(source, version)
             .is_some_and(|object| object_was_bargained(state, object)),
+        Some(Condition::GiftWasPromised) => state
+            .damage_source(source, version)
+            .is_some_and(object_gift_was_promised),
         Some(Condition::Prototyped) => state
             .damage_source(source, version)
             .is_some_and(|object| object_is_prototyped(state, object)),
@@ -1012,6 +1018,13 @@ pub(crate) fn graveyard_card_types(
 
 fn object_was_bargained(_state: &GameState, object: &crate::object::GameObject) -> bool {
     object.riders.contains(&crate::object::Rider::Bargained)
+}
+
+fn object_gift_was_promised(object: &crate::object::GameObject) -> bool {
+    object
+        .riders
+        .iter()
+        .any(|r| matches!(r, crate::object::Rider::GiftPromisedTo(_)))
 }
 
 fn object_is_prototyped(_state: &GameState, object: &crate::object::GameObject) -> bool {

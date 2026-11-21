@@ -140,6 +140,10 @@ pub enum CastModeKind {
     /// Cast a plotted card from exile as a sorcery without paying its mana cost
     /// on a turn after the turn in which it became plotted (CR 702.170d).
     Plot,
+    /// Cast a spell for its impending alternative cost (CR 702.176a): enters
+    /// with N time counters, is not a creature while it has a time counter, and
+    /// removes a time counter at the beginning of each of your end steps.
+    Impending,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -914,6 +918,12 @@ pub enum YesNoPrompt {
         /// Minimum projected power of the sacrificed creature.
         min_power: u8,
     },
+    /// Promise this spell's optional [`baylee_cards_dsl::GiftKind`] additional
+    /// cost by choosing an opponent (CR 702.174a)?
+    Gift {
+        /// What the chosen opponent receives when the gift is delivered.
+        kind: baylee_cards_dsl::GiftKind,
+    },
 }
 
 impl YesNoPrompt {
@@ -969,6 +979,7 @@ impl YesNoPrompt {
             | Self::Bargain
             | Self::Offspring { .. }
             | Self::Casualty { .. }
+            | Self::Gift { .. }
             | Self::KickerOption { .. }
             | Self::Buyback { .. }
             | Self::ManaAnyType

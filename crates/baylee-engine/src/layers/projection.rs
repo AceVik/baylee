@@ -115,6 +115,25 @@ pub(super) fn recompute_observing<'a>(
             c_mut.power = None;
             c_mut.toughness = None;
         }
+        if layer == Layer::Type
+            && obj.zone == crate::zone::Zone::Battlefield
+            && obj.riders.contains(&crate::object::Rider::ImpendingPaid)
+        {
+            read_board = true;
+            if obj.counters.get(baylee_cards_dsl::CounterKind::Time) >= 1 {
+                let c_mut = c.to_mut();
+                let old_subtypes = c_mut.subtypes;
+                c_mut.types = c_mut.types.difference(TypeSet::CREATURE);
+                if !c_mut.types.contains(TypeSet::KINDRED) {
+                    c_mut.subtypes = c_mut.subtypes.difference(SubtypeSet::ALL_CREATURE);
+                }
+                if c_mut.subtypes != old_subtypes {
+                    update_intrinsic_mana_summary(state, obj, c_mut, old_subtypes);
+                }
+                c_mut.power = None;
+                c_mut.toughness = None;
+            }
+        }
         if !plan.layer(layer).is_empty() {
             let dynamic_types = layer == Layer::Type && plan.conditional_animation;
             let mut remaining: SmallVec<[u32; 16]> = if dynamic_types {

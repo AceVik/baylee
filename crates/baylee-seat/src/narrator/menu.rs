@@ -1190,6 +1190,34 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("pay casualty {min_power} (sacrifice a creature with power >= {min_power})"),
             "cast it without casualty".into(),
         ),
+        YesNoPrompt::Gift { kind } => {
+            let (gift_name, gift_desc) = match kind {
+                baylee_cards::dsl::GiftKind::Card => ("a card", "chosen opponent draws a card"),
+                baylee_cards::dsl::GiftKind::Food => {
+                    ("a Food", "chosen opponent creates a Food token")
+                }
+                baylee_cards::dsl::GiftKind::TappedFish => (
+                    "a tapped Fish",
+                    "chosen opponent creates a tapped 1/1 blue Fish token",
+                ),
+                baylee_cards::dsl::GiftKind::Treasure => {
+                    ("a Treasure", "chosen opponent creates a Treasure token")
+                }
+                baylee_cards::dsl::GiftKind::Octopus => (
+                    "an Octopus",
+                    "chosen opponent creates an 8/8 blue Octopus token",
+                ),
+                baylee_cards::dsl::GiftKind::ExtraTurn => (
+                    "an extra turn",
+                    "chosen opponent takes an extra turn after this one",
+                ),
+            };
+            (
+                format!("Gift {gift_name} — promise an opponent {gift_name} ({gift_desc})?"),
+                format!("promise gift ({gift_name})"),
+                "cast it without promising a gift".into(),
+            )
+        }
         YesNoPrompt::KickerOption { index, cost, parts } => {
             kicker_option_words(*index, cost, *parts)
         }
@@ -1826,6 +1854,21 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         }
         CastModeKind::Foretell => format!("Cast it with foretell for {cost}"),
         CastModeKind::Plot => format!("Cast this plotted card from exile for {cost}"),
+        CastModeKind::Impending => {
+            let counters = card
+                .and_then(|c| baylee_cards::by_index(c.index))
+                .and_then(|def| def.faces.get(face))
+                .and_then(|f| f.impending)
+                .map(|(n, _)| n);
+            counters.map_or_else(
+                || format!("Cast it with impending for {cost}"),
+                |n| {
+                    format!(
+                        "Cast it with impending {n} for {cost} (enters with {n} time counters, not a creature until the last is removed)"
+                    )
+                },
+            )
+        }
         CastModeKind::Flashback => {
             if option.cost == ManaCost::ZERO {
                 format!("Cast it with {}", board::flashback_note(card, option.cost))

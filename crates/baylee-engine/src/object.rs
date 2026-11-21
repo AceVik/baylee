@@ -1187,6 +1187,13 @@ pub enum Rider {
     /// Stored reciprocally on both paired creatures while both remain creatures
     /// on the battlefield under the same player's control (CR 702.95e).
     PairedWith(ObjectId, u32),
+    /// Impending alternative cost was paid when casting this spell (CR 702.176a):
+    /// enters with N time counters, is not a creature while it has a time
+    /// counter, and removes one time counter at each of your end steps.
+    ImpendingPaid,
+    /// Gift additional cost was promised to this opponent when casting this
+    /// spell (CR 702.174a, CR 702.174k).
+    GiftPromisedTo(PlayerId),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1321,6 +1328,8 @@ impl Rider {
             | Self::CasualtyPaid
             | Self::Renowned
             | Self::PairedWith(..)
+            | Self::ImpendingPaid
+            | Self::GiftPromisedTo(_)
             | Self::EventPlayer(_)
             | Self::NinjutsuDefender(_, _)
             | Self::SyntheticCondition(_) => false,

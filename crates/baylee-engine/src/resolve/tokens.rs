@@ -552,6 +552,112 @@ pub(super) fn create_tokens_with_text(
     )
 }
 
+static GIFT_ANY_COLOR: &[baylee_core::mana::ManaColor] = &[
+    baylee_core::mana::ManaColor::White,
+    baylee_core::mana::ManaColor::Blue,
+    baylee_core::mana::ManaColor::Black,
+    baylee_core::mana::ManaColor::Red,
+    baylee_core::mana::ManaColor::Green,
+];
+
+static GIFT_TREASURE_ABILITIES: &[baylee_cards_dsl::AbilityDef] =
+    &[baylee_cards_dsl::mana_ability!(
+        baylee_cards_dsl::cost!(TapSelf, SacrificeSelf),
+        &[baylee_cards_dsl::Effect::mana_choice(GIFT_ANY_COLOR)]
+    )];
+
+static GIFT_FOOD_ABILITIES: &[baylee_cards_dsl::AbilityDef] = &[baylee_cards_dsl::activated!(
+    baylee_cards_dsl::cost!("{2}", TapSelf, SacrificeSelf),
+    &[baylee_cards_dsl::Effect::gain_life(3)]
+)];
+
+static GIFT_FOOD: baylee_cards_dsl::TokenDef = baylee_cards_dsl::TokenDef {
+    name: "Food",
+    types: baylee_core::types::TypeSet::ARTIFACT,
+    subtypes: &[baylee_core::generated::subtypes::artifact::FOOD],
+    abilities: GIFT_FOOD_ABILITIES,
+    scryfall_id: "bf36408d-ed85-497f-8e68-d3a922c388a0",
+    ..baylee_cards_dsl::TokenDef::DEFAULT
+};
+
+static GIFT_TREASURE: baylee_cards_dsl::TokenDef = baylee_cards_dsl::TokenDef {
+    name: "Treasure",
+    types: baylee_core::types::TypeSet::ARTIFACT,
+    subtypes: &[baylee_core::generated::subtypes::artifact::TREASURE],
+    abilities: GIFT_TREASURE_ABILITIES,
+    scryfall_id: "0559f9f3-eff0-465d-93c1-e875a8afe87f",
+    ..baylee_cards_dsl::TokenDef::DEFAULT
+};
+
+static GIFT_FISH_1_1_BLUE: baylee_cards_dsl::TokenDef = baylee_cards_dsl::TokenDef {
+    name: "Fish",
+    colors: baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Blue]),
+    types: baylee_core::types::TypeSet::CREATURE,
+    subtypes: &[baylee_core::generated::subtypes::creature::FISH],
+    power: Some(1),
+    toughness: Some(1),
+    ..baylee_cards_dsl::TokenDef::DEFAULT
+};
+
+static GIFT_OCTOPUS_8_8_BLUE: baylee_cards_dsl::TokenDef = baylee_cards_dsl::TokenDef {
+    name: "Octopus",
+    colors: baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Blue]),
+    types: baylee_core::types::TypeSet::CREATURE,
+    subtypes: &[baylee_core::generated::subtypes::creature::OCTOPUS],
+    power: Some(8),
+    toughness: Some(8),
+    ..baylee_cards_dsl::TokenDef::DEFAULT
+};
+
+/// Delivers the promised `kind` gift to [`super::gift_recipient_of_resolution`]
+/// and records [`GameEvent::GiftGiven`] (`CR 702.174a–i`).
+pub(super) fn deliver_gift(
+    state: &mut GameState,
+    res: &Resolution,
+    kind: baylee_cards_dsl::GiftKind,
+) {
+    let Some(recipient) =
+        super::gift_recipient_of_resolution(state, res).filter(|seat| !state.has_left(*seat))
+    else {
+        return;
+    };
+    match kind {
+        baylee_cards_dsl::GiftKind::Card => {
+            state.draw_cards(recipient, 1);
+        }
+        baylee_cards_dsl::GiftKind::Food => {
+            create_tokens_with_text(state, recipient, &GIFT_FOOD, None, 1, res.text);
+        }
+        baylee_cards_dsl::GiftKind::TappedFish => {
+            create_tokens_entering(
+                state,
+                recipient,
+                &GIFT_FISH_1_1_BLUE,
+                None,
+                1,
+                res.text,
+                TokenEntry {
+                    tapped: true,
+                    ..TokenEntry::default()
+                },
+            );
+        }
+        baylee_cards_dsl::GiftKind::Treasure => {
+            create_tokens_with_text(state, recipient, &GIFT_TREASURE, None, 1, res.text);
+        }
+        baylee_cards_dsl::GiftKind::Octopus => {
+            create_tokens_with_text(state, recipient, &GIFT_OCTOPUS_8_8_BLUE, None, 1, res.text);
+        }
+        baylee_cards_dsl::GiftKind::ExtraTurn => {
+            state.extra_turns.push_front(recipient);
+        }
+    }
+    state.journal.record(crate::event::GameEvent::GiftGiven {
+        giver: res.controller,
+        recipient,
+    });
+}
+
 fn create_tokens_entering(
     state: &mut GameState,
     controller: PlayerId,

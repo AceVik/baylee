@@ -205,6 +205,43 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         })
     }
 
+    /// The gift promise or multiplayer recipient question (`CR 702.174a`), or
+    /// `None` when the face prints no gift or no living opponent exists.
+    pub(super) fn ask_gift(&mut self, wizard: &CastWizard) -> Option<Pending> {
+        let kind = self.wizard_face(wizard).gift?;
+        if wizard.option == Some(CastModeKind::Disguise) || wizard.masked {
+            return None;
+        }
+        let opponents = eval::players(
+            baylee_cards_dsl::PlayerRel::Opponent,
+            &self.state,
+            wizard.player,
+        )
+        .unwrap_or_default();
+        if opponents.is_empty() {
+            return None;
+        }
+        if wizard.gift_promised {
+            return Some(Pending::ChoosePlayer {
+                player: wizard.player,
+                options: opponents,
+            });
+        }
+        let source = self.state.object(wizard.card).and_then(|object| {
+            object.card.map(|card| {
+                baylee_core::ids::AbilityRef::new(
+                    card.index,
+                    baylee_core::ids::AbilityRef::ADDITIONAL_COST,
+                )
+            })
+        });
+        Some(Pending::YesNo {
+            player: wizard.player,
+            prompt: YesNoPrompt::Gift { kind },
+            source,
+        })
+    }
+
     /// The squad question (`CR 702.157a`), or `None` when the face prints none
     /// or not even one squad payment can be made.
     pub(super) fn ask_squad(&mut self, wizard: &CastWizard) -> Option<Pending> {

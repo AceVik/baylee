@@ -64,6 +64,21 @@ fn collect_modifier_counters(
                         .push((None, *kind, u16::try_from(n).unwrap_or(u16::MAX)));
                 }
             }
+            EnterModifier::WithCountersIf {
+                kind,
+                count,
+                condition,
+            } => {
+                if crate::eval::condition_holds(state, entry.controller, entry.object, *condition) {
+                    let n =
+                        crate::eval::amount(count, state, entry.controller, entry.object, Some(x));
+                    if n > 0 {
+                        entry
+                            .counters
+                            .push((None, *kind, u16::try_from(n).unwrap_or(u16::MAX)));
+                    }
+                }
+            }
             EnterModifier::IfKicked {
                 index, counters, ..
             } if from_stack
@@ -107,6 +122,19 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
                 };
                 entry.counters.push((None, CounterKind::P1P1, amount));
             }
+        }
+        if prospective.riders.contains(&Rider::ImpendingPaid)
+            && let Some((n @ 1.., _)) = prospective
+                .printed_face()
+                .and_then(|face| {
+                    state
+                        .bases
+                        .card(face.card())
+                        .and_then(|card| card.faces.get(usize::from(face.face())))
+                })
+                .and_then(|face| face.impending)
+        {
+            entry.counters.push((None, CounterKind::Time, u16::from(n)));
         }
     }
     prospective.zone = Zone::Battlefield;

@@ -253,6 +253,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 SpellForm::Foretell(face()?.foretell?),
             )),
             Spend::Cast(_, CastModeKind::Plot) => Some(SpendFor::SpellAs(card, SpellForm::Plot)),
+            Spend::Cast(_, CastModeKind::Impending) => Some(SpendFor::SpellAs(
+                card,
+                SpellForm::Impending(face()?.impending?.1),
+            )),
             // Playing a land face is no cast (CR 305.1), and costs nothing.
             _ if matches!(kind, CastModeKind::PlayLandFace(_)) => None,
             _ => Some(SpendFor::Spell(card)),

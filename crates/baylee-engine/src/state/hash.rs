@@ -963,22 +963,7 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
         if let Some(source) = state.source_object(reference)
             && source.kind == ObjectKind::Spell
         {
-            // A surviving copy trigger observes these announcement decisions
-            // even after the original spell has left the stack.
-            h.u32(source.x_value);
-            source.kicked().hash(h);
-            hash_times_kicked(h, source.times_kicked);
-            if let Some(mask) = source.kicked_mask() {
-                h.u8(95);
-                h.u8(mask);
-            }
-            if source.riders.contains(&crate::object::Rider::CasualtyPaid) {
-                h.u8(162);
-            }
-            source.replicated.hash(h);
-            source.mode_index.hash(h);
-            source.modes.hash(h);
-            h.u8(source.face_index);
+            hash_spell_source_decisions(h, source);
         }
         if let Some(shares) = state.source_memory.divisions.get(&reference) {
             h.usize(shares.len());
@@ -1003,6 +988,34 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
             h.usize(0);
         }
     }
+}
+
+fn hash_spell_source_decisions(h: &mut Hasher, source: &crate::object::GameObject) {
+    // A surviving copy trigger observes these announcement decisions
+    // even after the original spell has left the stack.
+    h.u32(source.x_value);
+    source.kicked().hash(h);
+    hash_times_kicked(h, source.times_kicked);
+    if let Some(mask) = source.kicked_mask() {
+        h.u8(95);
+        h.u8(mask);
+    }
+    if source.riders.contains(&crate::object::Rider::CasualtyPaid) {
+        h.u8(162);
+    }
+    if source.riders.contains(&crate::object::Rider::ImpendingPaid) {
+        h.u8(181);
+    }
+    for rider in &source.riders {
+        if let crate::object::Rider::GiftPromisedTo(player) = rider {
+            h.u8(182);
+            h.u8(player.get());
+        }
+    }
+    source.replicated.hash(h);
+    source.mode_index.hash(h);
+    source.modes.hash(h);
+    h.u8(source.face_index);
 }
 
 fn hash_damage_source(h: &mut Hasher, state: &GameState, id: ObjectId, version: u32) {
@@ -1572,6 +1585,20 @@ fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(122);
             player.hash(h);
         }
+        crate::object::Rider::BattleProtector(player) => {
+            h.u8(79);
+            player.hash(h);
+        }
+        crate::object::Rider::SyntheticCondition(condition) => {
+            h.u8(96);
+            condition.hash(h);
+        }
+        _ => hash_cast_keyword_rider(h, rider),
+    }
+}
+
+fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
+    match rider {
         crate::object::Rider::SquadPaid(n) => {
             h.u8(131);
             h.u8(*n);
@@ -1586,6 +1613,11 @@ fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         }
         crate::object::Rider::CasualtyPaid => h.u8(162),
         crate::object::Rider::Renowned => h.u8(171),
+        crate::object::Rider::ImpendingPaid => h.u8(181),
+        crate::object::Rider::GiftPromisedTo(player) => {
+            h.u8(182);
+            player.hash(h);
+        }
         _ => {}
     }
 }
@@ -2231,6 +2263,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 turn.hash(h);
             }
             Rider::CasualtyPaid => h.u8(162),
+            Rider::ImpendingPaid => h.u8(181),
+            Rider::GiftPromisedTo(p) => {
+                h.u8(182);
+                h.u8(p.get());
+            }
             Rider::Suspend => h.u8(6),
             Rider::Flashback => h.u8(7),
             Rider::Uncounterable => h.u8(8),

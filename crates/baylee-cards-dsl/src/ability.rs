@@ -643,6 +643,10 @@ pub enum Condition {
     /// both the source and the entering event creature are still unpaired
     /// creatures under your control. Appended to preserve replay identities.
     SoulbondEventCanPair,
+    /// This spell's (or the permanent it became's) gift cost was promised as it
+    /// was cast (`Rider::GiftPromisedTo`, CR 702.174a, CR 702.174k). Appended to
+    /// preserve replay identities.
+    GiftWasPromised,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1152,6 +1156,12 @@ pub enum Trigger {
         /// Filter matched against the exiled plotted card.
         filter: &'static Filter,
     },
+    /// A player matching the relation gives a gift ("Whenever [you / an
+    /// opponent / a player] give(s) a gift", CR 702.174c), firing when an
+    /// instant or sorcery spell whose gift cost was paid resolves or when a
+    /// permanent's gift triggered ability resolves, binding `EventPlayer` to
+    /// the gift recipient. Appended to preserve replay identities.
+    GaveGift(crate::effect::PlayerRel),
 }
 
 impl Trigger {

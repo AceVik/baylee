@@ -222,6 +222,12 @@ pub enum ChooseMove {
     Graveyard,
     /// Exile each chosen object.
     Exile,
+    /// Exile each chosen object and link it to the resolving ability's source
+    /// (`Rider::Linked { host: source, until: None }`), so
+    /// [`super::Effect::ReturnLinkedToBattlefield`] or
+    /// [`super::Effect::ReturnLinkedToHand`] finds it when the source leaves
+    /// (CR 607.2a). Appended to preserve replay identities.
+    ExileLinked,
 }
 
 /// Destination for cards chosen during [`super::Effect::PeekAndReveal`].

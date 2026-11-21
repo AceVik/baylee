@@ -629,6 +629,13 @@ pub enum GameEvent {
         /// The player who plotted it.
         player: PlayerId,
     },
+    /// A player gave a promised gift to an opponent (CR 702.174c).
+    GiftGiven {
+        /// The controller of the resolving gift spell or permanent gift trigger.
+        giver: PlayerId,
+        /// The chosen opponent who received the gift.
+        recipient: PlayerId,
+    },
 }
 
 /// Where in a library a card was put.

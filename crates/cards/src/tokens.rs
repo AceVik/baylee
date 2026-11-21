@@ -590,6 +590,7 @@ pub use crate::generated_tokens::ALL;
 pub fn token_id(token: &TokenDef) -> u16 {
     ALL.iter()
         .position(|t| std::ptr::eq(*t, token))
+        .or_else(|| ALL.iter().position(|t| **t == *token))
         .map_or(u16::MAX, |i| i as u16)
 }
 

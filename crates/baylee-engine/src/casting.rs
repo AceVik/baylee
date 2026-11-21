@@ -404,6 +404,7 @@ pub fn has_priced_ways(def: &baylee_cards_dsl::CardDef) -> bool {
         || face.emerge.is_some()
         || face.mutate.is_some()
         || face.bestow.is_some()
+        || face.impending.is_some()
         || face.has_face_down_cast()
         || face.prototype.is_some()
         || face.alternative_costs.iter().any(|alt| {
@@ -1040,6 +1041,7 @@ fn can_cast_paying(
             face.prototype.map(SpellForm::Prototype),
             face.has_face_down_cast().then_some(SpellForm::Disguise),
             face.bestow.map(SpellForm::Bestow),
+            face.impending.map(|(_, c)| SpellForm::Impending(c)),
         ]
         .into_iter()
         .flatten()
@@ -1225,7 +1227,12 @@ pub(crate) fn can_cast_form_paying(
     if flashback_only
         && matches!(
             form,
-            Some(SpellForm::Disguise | SpellForm::Bestow(_) | SpellForm::Prototype(_))
+            Some(
+                SpellForm::Disguise
+                    | SpellForm::Bestow(_)
+                    | SpellForm::Prototype(_)
+                    | SpellForm::Impending(_)
+            )
         )
     {
         return Err(CastError::NoWayToCast);
@@ -1236,7 +1243,12 @@ pub(crate) fn can_cast_form_paying(
         && !commander_ok
         && matches!(
             form,
-            Some(SpellForm::Disguise | SpellForm::Bestow(_) | SpellForm::Prototype(_))
+            Some(
+                SpellForm::Disguise
+                    | SpellForm::Bestow(_)
+                    | SpellForm::Prototype(_)
+                    | SpellForm::Impending(_)
+            )
         )
         && !state
             .play_permissions
@@ -1364,6 +1376,7 @@ pub(crate) fn can_cast_form_paying(
             &def.faces[0],
             match form {
                 Some(SpellForm::Bestow(_)) => Some(crate::choice::CastModeKind::Bestow),
+                Some(SpellForm::Impending(_)) => Some(crate::choice::CastModeKind::Impending),
                 _ => None,
             },
             &[],

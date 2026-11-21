@@ -2179,6 +2179,14 @@ impl HeuristicAgent {
                 })
             }
             Effect::TakeExtraTurn => 10_000,
+            Effect::DeliverGift(kind) => match kind {
+                baylee_cards_dsl::GiftKind::Food => -100,
+                baylee_cards_dsl::GiftKind::TappedFish => -110,
+                baylee_cards_dsl::GiftKind::Treasure => -150,
+                baylee_cards_dsl::GiftKind::Card => -220,
+                baylee_cards_dsl::GiftKind::Octopus => -750,
+                baylee_cards_dsl::GiftKind::ExtraTurn => -10_000,
+            },
             Effect::ExileLibraryAndShuffleHand { player } => {
                 if self
                     .players(view, *player, aim)?
@@ -3317,7 +3325,7 @@ impl HeuristicAgent {
                         200
                     }
                 }
-                ChooseMove::Graveyard | ChooseMove::Exile => {
+                ChooseMove::Graveyard | ChooseMove::Exile | ChooseMove::ExileLinked => {
                     if matches!(zone, ChooseZone::Battlefield) {
                         self.removal(view, cand)
                     } else if self.hostile(cand.owner, me) {

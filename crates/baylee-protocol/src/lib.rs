@@ -73,7 +73,9 @@ pub mod tape;
 /// (CR 702.170) alongside `YesNoPrompt::Casualty` (CR 702.153).
 /// Version 57 carries `DamageEffectKind::MultiplyDamage` and
 /// `DamageEffectKind::AddDamage` for CR 616.1 damage replacement ordering.
-pub const PROTOCOL_VERSION: u32 = 57;
+/// Version 58 carries `CastModeKind::Impending` (CR 702.176) and
+/// `YesNoPrompt::Gift` (CR 702.174) on positional binary frames.
+pub const PROTOCOL_VERSION: u32 = 58;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -397,7 +399,8 @@ mod tests {
         // on positional binary frames.
         // 57: `DamageEffectKind::MultiplyDamage` and `DamageEffectKind::AddDamage` on
         // positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 57);
+        // 58: `CastModeKind::Impending` and `YesNoPrompt::Gift` on positional binary frames.
+        assert_eq!(PROTOCOL_VERSION, 58);
     }
 
     #[test]

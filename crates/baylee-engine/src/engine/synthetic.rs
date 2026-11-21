@@ -89,6 +89,8 @@ pub fn land_face(name: &'static str) -> FaceDef {
         offspring: None,
         plot: None,
         casualty: None,
+        impending: None,
+        gift: None,
     }
 }
 

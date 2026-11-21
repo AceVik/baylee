@@ -227,6 +227,8 @@ pub enum SpellForm {
     Foretell(ManaCost),
     /// A plotted card is cast from exile without paying its mana cost (`CR 702.170d`).
     Plot,
+    /// An impending creature spell is cast for its impending cost (`CR 702.176a`).
+    Impending(ManaCost),
 }
 
 /// The spell characteristics a player may use to assess a face-down exiled
@@ -264,7 +266,7 @@ fn face_up_projection(object: &crate::object::GameObject) -> crate::object::Game
 impl SpellForm {
     #[doc(hidden)]
     pub fn project(self, object: &crate::object::GameObject) -> crate::object::GameObject {
-        if matches!(self, Self::Foretell(_) | Self::Plot) {
+        if matches!(self, Self::Foretell(_) | Self::Plot | Self::Impending(_)) {
             return face_up_projection(object);
         }
         let mut object = object.clone();
@@ -314,7 +316,7 @@ impl SpellForm {
                 base.power = None;
                 base.toughness = None;
             }
-            Self::Foretell(_) | Self::Plot => {
+            Self::Foretell(_) | Self::Plot | Self::Impending(_) => {
                 unreachable!("handled before the characteristic projection")
             }
         }
@@ -326,7 +328,7 @@ impl SpellForm {
             Self::Prototype(p) => p.cost,
             Self::Disguise => const { ManaCost::parse("{3}") },
             Self::Bestow(cost) => cost.mana,
-            Self::Foretell(cost) => cost,
+            Self::Foretell(cost) | Self::Impending(cost) => cost,
             Self::Plot => ManaCost::ZERO,
         }
     }

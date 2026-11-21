@@ -867,8 +867,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     return Ok(());
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
-                wizard.chosen_player = Some(chosen);
-                wizard.stage = cast_wizard::WizardStage::SecondTargets;
+                if wizard.stage == cast_wizard::WizardStage::Gift {
+                    wizard.gift_recipient = Some(chosen);
+                    wizard.stage = cast_wizard::WizardStage::Multikicker;
+                } else {
+                    wizard.chosen_player = Some(chosen);
+                    wizard.stage = cast_wizard::WizardStage::SecondTargets;
+                }
                 self.cast_wizard = Some(wizard);
                 self.continue_cast_wizard();
                 Ok(())
@@ -2009,7 +2014,33 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.casualty = answer;
-                    wizard.stage = cast_wizard::WizardStage::Multikicker;
+                    wizard.stage = cast_wizard::WizardStage::Gift;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: gift yes/no (`CR 702.174a`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Gift)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    if answer {
+                        wizard.gift_promised = true;
+                        let opponents = crate::eval::players(
+                            baylee_cards_dsl::PlayerRel::Opponent,
+                            &self.state,
+                            wizard.player,
+                        )
+                        .unwrap_or_default();
+                        if opponents.len() == 1 {
+                            wizard.gift_recipient = Some(opponents[0]);
+                            wizard.stage = cast_wizard::WizardStage::Multikicker;
+                        }
+                    } else {
+                        wizard.stage = cast_wizard::WizardStage::Multikicker;
+                    }
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());

@@ -804,6 +804,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if wizard.option == Some(CastModeKind::Bestow) {
                 obj.riders.push(crate::object::Rider::Bestowed);
             }
+            obj.riders
+                .retain(|r| *r != crate::object::Rider::ImpendingPaid);
+            if wizard.option == Some(CastModeKind::Impending) {
+                obj.riders.push(crate::object::Rider::ImpendingPaid);
+            }
+            obj.riders
+                .retain(|r| !matches!(r, crate::object::Rider::GiftPromisedTo(_)));
+            if let Some(recipient) = wizard.gift_recipient {
+                obj.riders
+                    .push(crate::object::Rider::GiftPromisedTo(recipient));
+            }
             if wizard.buyback.is_some() {
                 obj.riders.push(crate::object::Rider::Buyback);
             }

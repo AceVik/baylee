@@ -1167,7 +1167,7 @@ pub mod prelude {
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,
-        EMBALM_MODS, ETERNALIZE_MODS, Emerge, EnterModifier, Escape, FaceDef, KeywordSet,
+        EMBALM_MODS, ETERNALIZE_MODS, Emerge, EnterModifier, Escape, FaceDef, GiftKind, KeywordSet,
         PartnerKind, Prototype,
     };
     pub use crate::{SpecialActionCost, SpecialActionEffect, SpecialActionTiming, TextWordKind};

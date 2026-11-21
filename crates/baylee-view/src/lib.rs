@@ -307,7 +307,10 @@ pub use turn::{DayNight, Phase, Step};
 /// `ChoicePrompt::ManifestDread` (CR 701.62).
 /// Version 100 adds `CastModeKind::Plot` and [`PublicObject::plotted`]
 /// (CR 702.170) alongside `YesNoPrompt::Casualty` (CR 702.153).
-pub const VIEW_VERSION: u32 = 100;
+/// Version 101 adds `CastModeKind::Impending` (CR 702.176) and
+/// `YesNoPrompt::Gift` (CR 702.174), engine variants a reader of 100 cannot
+/// decode.
+pub const VIEW_VERSION: u32 = 101;
 
 // ------------------------------------------------------------------- targets
 

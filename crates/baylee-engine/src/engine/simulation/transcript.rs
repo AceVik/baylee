@@ -193,6 +193,7 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::BecameMonarch { .. }
         | GameEvent::LoopDetected { .. }
         | GameEvent::GameWon { .. }
+        | GameEvent::GiftGiven { .. }
         | GameEvent::DevCommandApplied { .. } => {}
     }
 }

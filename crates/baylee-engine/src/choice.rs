@@ -863,6 +863,7 @@ impl Spend {
             | CastModeKind::Bestow
             | CastModeKind::Foretell
             | CastModeKind::Plot
+            | CastModeKind::Impending
             | CastModeKind::LibraryTopLife { .. } => Self::Cast(card, kind),
             _ => Self::Cast(card, CastModeKind::Normal),
         }

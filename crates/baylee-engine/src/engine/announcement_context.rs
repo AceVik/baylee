@@ -19,6 +19,7 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
         | WizardStage::Bargain
         | WizardStage::Offspring
         | WizardStage::Casualty
+        | WizardStage::Gift
         | WizardStage::Multikicker
         | WizardStage::Squad
         | WizardStage::Replicate

@@ -631,6 +631,8 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::Plotted
         | Rider::PlottedOnTurn(_)
         | Rider::CasualtyPaid
+        | Rider::ImpendingPaid
+        | Rider::GiftPromisedTo(_)
         | Rider::Suspend
         | Rider::Flashback
         | Rider::ExileInsteadOfGraveyard

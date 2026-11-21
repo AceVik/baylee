@@ -676,6 +676,15 @@ pub struct FaceDef {
     /// creature with power N or greater; when cast with casualty paid, copy
     /// this spell on the stack (`may_choose_new_targets = true`).
     pub casualty: Option<u8>,
+    /// Impending N—[cost] (CR 702.176a): alternative cost `(N, cost)`; when
+    /// paid, enters with `N` time counters, is not a creature while it has a
+    /// time counter on it, and removes a time counter at the beginning of each
+    /// of your end steps.
+    pub impending: Option<(u8, ManaCost)>,
+    /// Gift a [something] (CR 702.174a–i): optional additional cost choosing an
+    /// opponent (`Rider::GiftPromisedTo`); delivers the promised gift on spell
+    /// resolution (instants/sorceries) or permanent entry.
+    pub gift: Option<GiftKind>,
 }
 
 impl FaceDef {
@@ -769,6 +778,8 @@ impl FaceDef {
         offspring: None,
         plot: None,
         casualty: None,
+        impending: None,
+        gift: None,
     };
 }
 
@@ -806,6 +817,27 @@ const CASUALTY_FILTERS: [Filter; 256] = {
 #[must_use]
 pub const fn casualty_creature_filter(min_power: u8) -> &'static Filter {
     &CASUALTY_FILTERS[min_power as usize]
+}
+
+/// Gift promised to a chosen opponent as an optional additional spell cost
+/// (`CR 702.174a–i`).
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub enum GiftKind {
+    /// "Gift a card" — the chosen player draws a card (`CR 702.174e`).
+    Card,
+    /// "Gift a Food" — the chosen player creates a Food token (`CR 702.174d`).
+    Food,
+    /// "Gift a tapped Fish" — the chosen player creates a tapped 1/1 blue Fish
+    /// creature token (`CR 702.174f`).
+    TappedFish,
+    /// "Gift a Treasure" — the chosen player creates a Treasure token (`CR 702.174h`).
+    Treasure,
+    /// "Gift an Octopus" — the chosen player creates an 8/8 blue Octopus
+    /// creature token (`CR 702.174i`).
+    Octopus,
+    /// "Gift an extra turn" — the chosen player takes an extra turn after this
+    /// one (`CR 702.174g`).
+    ExtraTurn,
 }
 
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).
@@ -1059,6 +1091,19 @@ pub enum EnterModifier {
     /// replacements, CR 614.16). Repeat the entry for multiple amplify
     /// instances so each prompts and applies separately (CR 702.38b).
     Amplify(u8),
+    /// "This permanent enters with [count] [kind] counters on it if [condition]"
+    /// (CR 614.1c, CR 614.12): evaluates `condition` as the permanent enters;
+    /// when it holds, places `count` counters of `kind` through counter
+    /// replacements (CR 614.16), using the spell's announced `X` when entering
+    /// from the stack (CR 107.3m). Appended to preserve replay identities.
+    WithCountersIf {
+        /// Kind of counter placed when `condition` holds.
+        kind: crate::effect::CounterKind,
+        /// Number of counters before replacement multipliers.
+        count: Amount,
+        /// Condition tested as the permanent enters.
+        condition: crate::Condition,
+    },
 }
 
 impl EnterModifier {

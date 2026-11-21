@@ -825,7 +825,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         // A spell resolves (plain spells, fused split spells, and modal spells
         // alike — the chosen mode or fused rider is stored on the spell object).
-        let spell_fx = self
+        let mut spell_fx = self
             .fused_program(&resolution_object)
             .or_else(|| {
                 self.state
@@ -868,6 +868,32 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         )
                     })
             });
+        if resolution_object.kind == ObjectKind::Spell
+            && !resolution_object.characteristics().types.is_permanent()
+            && resolution_object
+                .riders
+                .iter()
+                .any(|r| matches!(r, crate::object::Rider::GiftPromisedTo(_)))
+            && let Some(kind) = resolution_object
+                .printed_face()
+                .and_then(|f| {
+                    self.lookup
+                        .card(f.card())
+                        .and_then(|def| def.faces.get(usize::from(f.face())))
+                })
+                .and_then(|face| face.gift)
+        {
+            match &mut spell_fx {
+                Some((program, _, _)) => {
+                    if !program.iter().any(|e| matches!(e, Effect::DeliverGift(_))) {
+                        program.insert(0, Effect::DeliverGift(kind));
+                    }
+                }
+                None => {
+                    spell_fx = Some((vec![Effect::DeliverGift(kind)], false, None));
+                }
+            }
+        }
         if let Some((program, targeted, retarget_left)) = spell_fx {
             let obj = &resolution_object;
             let mut res = Resolution {

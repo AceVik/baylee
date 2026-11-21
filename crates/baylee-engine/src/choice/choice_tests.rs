@@ -94,6 +94,12 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
         ),
         (yes_no(YesNoPrompt::Casualty { min_power: 2 }), no.clone()),
         (
+            yes_no(YesNoPrompt::Gift {
+                kind: baylee_cards_dsl::GiftKind::Card,
+            }),
+            no.clone(),
+        ),
+        (
             yes_no(YesNoPrompt::KickerOption {
                 index: 0,
                 cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
@@ -434,7 +440,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 59;
+const KINDS: usize = 60;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -502,6 +508,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::Bargain => 39,
                 YesNoPrompt::Offspring { .. } => 40,
                 YesNoPrompt::Casualty { .. } => 41,
+                YesNoPrompt::Gift { .. } => 42,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -723,6 +730,7 @@ fn expected_automatable(prompt: YesNoPrompt) -> bool {
         | YesNoPrompt::Bargain
         | YesNoPrompt::Offspring { .. }
         | YesNoPrompt::Casualty { .. }
+        | YesNoPrompt::Gift { .. }
         | YesNoPrompt::KickerOption { .. }
         | YesNoPrompt::Buyback { .. }
         | YesNoPrompt::ManaAnyType
@@ -794,6 +802,9 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             parts: crate::choice::BuybackParts::default(),
         },
         YesNoPrompt::Casualty { min_power: 2 },
+        YesNoPrompt::Gift {
+            kind: baylee_cards_dsl::GiftKind::Card,
+        },
         YesNoPrompt::KickerOption {
             index: 1,
             cost: baylee_core::mana::ManaCost::parse("{2}{U}"),

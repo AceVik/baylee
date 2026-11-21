@@ -820,6 +820,17 @@ pub fn buyback_price(
 /// `name` for a life payment that is for one permanent; `whose` is that
 /// permanent's player where it is not the deciding one
 /// ([`Interaction::prompt_in`]).
+const fn gift_ask_phrase(kind: baylee_cards::dsl::GiftKind) -> Phrase {
+    match kind {
+        baylee_cards::dsl::GiftKind::Card => Phrase::GiftAskCard,
+        baylee_cards::dsl::GiftKind::Food => Phrase::GiftAskFood,
+        baylee_cards::dsl::GiftKind::TappedFish => Phrase::GiftAskTappedFish,
+        baylee_cards::dsl::GiftKind::Treasure => Phrase::GiftAskTreasure,
+        baylee_cards::dsl::GiftKind::Octopus => Phrase::GiftAskOctopus,
+        baylee_cards::dsl::GiftKind::ExtraTurn => Phrase::GiftAskExtraTurn,
+    }
+}
+
 fn yes_no_line(
     lang: Lang,
     question: YesNoPrompt,
@@ -855,6 +866,7 @@ fn yes_no_line(
         YesNoPrompt::Casualty { min_power } => {
             Phrase::CasualtyAsk.fill(lang, &[&min_power.to_string()])
         }
+        YesNoPrompt::Gift { kind } => gift_ask_phrase(kind).text(lang).to_string(),
         YesNoPrompt::KickerOption { cost, parts, .. } => {
             Phrase::KickerOptionAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
         }

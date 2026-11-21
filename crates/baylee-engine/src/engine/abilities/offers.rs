@@ -188,6 +188,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     adjust(0, Some(casting::SpellForm::Bestow(bestow))),
                 );
             }
+            if let Some((_, cost)) = def.faces[0].impending {
+                publish(
+                    CastModeKind::Impending,
+                    adjust(0, Some(casting::SpellForm::Impending(cost))),
+                );
+            }
             if casting::plot_permission(&self.state, player, card) {
                 publish(
                     CastModeKind::Plot,
@@ -231,7 +237,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             casting::SpellForm::Prototype(p) => p.cost,
             casting::SpellForm::Disguise => const { baylee_core::mana::ManaCost::parse("{3}") },
             casting::SpellForm::Bestow(c) => c.mana,
-            casting::SpellForm::Foretell(c) => c,
+            casting::SpellForm::Foretell(c) | casting::SpellForm::Impending(c) => c,
             casting::SpellForm::Plot => baylee_core::mana::ManaCost::ZERO,
         });
         let with_inc = raw_cost

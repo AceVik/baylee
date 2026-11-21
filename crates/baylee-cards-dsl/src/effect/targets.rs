@@ -151,6 +151,12 @@ pub enum PlayerRel {
     /// player if the Aura left the battlefield while its ability waited on the
     /// stack, CR 608.2h). Appended to preserve replay identities.
     EnchantedPlayer,
+    /// The opponent chosen for this spell's or permanent's promised gift cost
+    /// ("the chosen player" / "that player" on Gift spells and permanents,
+    /// CR 702.174a–k), including via LKI if a permanent left the battlefield
+    /// while its ETB ability waited on the stack (CR 608.2h). Appended to
+    /// preserve replay identities.
+    GiftRecipient,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).

@@ -884,6 +884,7 @@ impl HeuristicAgent {
             }
             PlayerRel::Chosen
             | PlayerRel::Recipient
+            | PlayerRel::GiftRecipient
             | PlayerRel::DefendingPlayer
             | PlayerRel::OwnerOfEvent
             | PlayerRel::ControllerOfTarget

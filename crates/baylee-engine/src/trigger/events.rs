@@ -131,6 +131,9 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
         | GameEvent::PermanentExerted { player, .. }
         | GameEvent::CreatureEnlisted { player, .. }
         | GameEvent::CardPlotted { player, .. }
+        | GameEvent::GiftGiven {
+            recipient: player, ..
+        }
         | GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),
             ..

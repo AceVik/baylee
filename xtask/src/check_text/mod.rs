@@ -468,6 +468,8 @@ pub(crate) fn check_optional_clauses_are_offered(
             || f.madness.is_some()
             || f.flashback.is_some()
             || f.escape.is_some()
+            || f.impending.is_some()
+            || f.gift.is_some()
             || f.has_face_down_cast()
     }) {
         return;

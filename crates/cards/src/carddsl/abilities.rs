@@ -338,6 +338,7 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
     }
 }
 
+#[allow(clippy::too_many_lines)] // flat Trigger -> channel-slot table
 fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
     // dst has length 10: [etb, dies, ltb, attacks, blocks, combat_damage, spell_cast, step_upkeep_end, landfall_or_life, counter_or_sac]
     match trigger {
@@ -432,6 +433,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::ChangesZoneAll { .. }
         | Trigger::PlayerAttacked(_)
         | Trigger::Plotted { .. }
+        | Trigger::GaveGift(_)
         | Trigger::CycledThis
         | Trigger::Cycled { .. } => {
             dst[9] = 1.0;

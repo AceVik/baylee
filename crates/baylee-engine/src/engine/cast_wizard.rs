@@ -120,6 +120,8 @@ pub(crate) enum WizardStage {
     /// Escape's other cards to exile (CR 702.138a), between the pitch and
     /// delve: skipped by every cast but `CastModeKind::Escape`.
     Escape,
+    /// Gift yes/no and multiplayer opponent choice (`CR 702.174a`).
+    Gift,
 }
 
 /// A spell being cast step by step.
@@ -186,6 +188,10 @@ pub struct CastWizard {
     pub offspring: bool,
     /// Whether the spell's casualty additional cost was announced (`CR 702.153a`).
     pub casualty: bool,
+    /// Whether the spell's gift additional cost was promised (`CR 702.174a`).
+    pub gift_promised: bool,
+    /// The opponent chosen to receive the promised gift (`CR 702.174a`).
+    pub gift_recipient: Option<PlayerId>,
     /// How many times the spell's squad additional cost was announced (`CR 702.157a`).
     pub squad: u8,
     /// The permanent chosen to sacrifice for `Emerge` (`CR 702.119c`).
@@ -289,6 +295,8 @@ impl CastWizard {
             bargained: false,
             offspring: false,
             casualty: false,
+            gift_promised: false,
+            gift_recipient: None,
             squad: 0,
             emerge_sacrifice: None,
             replicated: 0,
@@ -405,6 +413,15 @@ impl CastWizard {
         }
         if self.casualty {
             hash = hash.wrapping_mul(31).wrapping_add(162);
+        }
+        if self.gift_promised || self.gift_recipient.is_some() {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    182u8,
+                    self.gift_promised,
+                    self.gift_recipient,
+                )));
         }
         // A separate alternative cost changes the meaning of modal answers.
         // Keep the legacy fingerprint byte-for-byte when no such route exists.
@@ -2047,6 +2064,9 @@ pub(super) fn spend_for(
             Some(CastModeKind::Disguise) => Some(casting::SpellForm::Disguise),
             Some(CastModeKind::Bestow) => face.bestow.map(casting::SpellForm::Bestow),
             Some(CastModeKind::Plot) => Some(casting::SpellForm::Plot),
+            Some(CastModeKind::Impending) => face
+                .impending
+                .map(|(_, c)| casting::SpellForm::Impending(c)),
             _ if wizard.masked => Some(casting::SpellForm::Disguise),
             _ => None,
         };
@@ -2075,6 +2095,10 @@ pub(super) fn spend_for(
         Some(CastModeKind::Plot) => {
             casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Plot)
         }
+        Some(CastModeKind::Impending) => casting::SpendFor::SpellAs(
+            wizard.card,
+            casting::SpellForm::Impending(face.impending.expect("impending option").1),
+        ),
         _ if wizard.face_index() != 0 => {
             casting::SpendFor::SpellOnFace(wizard.card, wizard.face_index())
         }

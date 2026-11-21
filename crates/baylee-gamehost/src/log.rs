@@ -709,6 +709,7 @@ impl GameLog {
             | GameEvent::PermanentExerted { .. }
             | GameEvent::CreatureEnlisted { .. }
             | GameEvent::CardPlotted { .. }
+            | GameEvent::GiftGiven { .. }
             | GameEvent::AttackerUnblocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.

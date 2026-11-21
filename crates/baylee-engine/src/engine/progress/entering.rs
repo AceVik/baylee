@@ -238,6 +238,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             else {
                 continue;
             };
+            if !orientation_applied
+                && from_zone == Zone::Stack
+                && self
+                    .state
+                    .object(id)
+                    .is_some_and(|o| o.riders.contains(&crate::object::Rider::ImpendingPaid))
+                && let Some((n @ 1.., _)) = face.impending
+            {
+                crate::replacement::put_counters(
+                    &mut self.state,
+                    id,
+                    baylee_cards_dsl::CounterKind::Time,
+                    u16::from(n),
+                );
+                changed = true;
+            }
             // A modifier that *asks* is applied last, whatever order the
             // card prints it in: it is queued, and asked once every
             // arrival's other modifiers are on the board. Uncharted Haven is
@@ -251,7 +267,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             for modifier in face.enter_modifiers {
                 if orientation_applied
                     && (crate::entry::is_orientation_modifier(modifier)
-                        || matches!(modifier, EnterModifier::WithCounters { .. }))
+                        || matches!(
+                            modifier,
+                            EnterModifier::WithCounters { .. }
+                                | EnterModifier::WithCountersIf { .. }
+                        ))
                 {
                     continue;
                 }
@@ -347,6 +367,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             let n = u16::try_from(n).unwrap_or(u16::MAX);
                             crate::replacement::put_counters(&mut self.state, id, *kind, n);
                             changed = true;
+                        }
+                    }
+                    EnterModifier::WithCountersIf {
+                        kind,
+                        count,
+                        condition,
+                    } => {
+                        if eval::condition_holds(&self.state, controller, id, *condition) {
+                            let x = Some(self.state.object(id).map_or(0, |o| o.x_value));
+                            let n = crate::eval::amount(count, &self.state, controller, id, x);
+                            if n > 0 {
+                                let n = u16::try_from(n).unwrap_or(u16::MAX);
+                                crate::replacement::put_counters(&mut self.state, id, *kind, n);
+                                changed = true;
+                            }
                         }
                     }
                     EnterModifier::LoseLifeEqualToLife => {

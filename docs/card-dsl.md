@@ -588,6 +588,20 @@ express at all yet.
   `count` `+1/+1` counters on the targeted creature and, if that creature is
   not the Backup source itself, grants `keywords` and `grant_abilities` until
   end of turn in layer 6 (`Duration::UntilEndOfTurn`).
+- `FaceDef.impending: Option<(u8, ManaCost)>` — "Impending N—[cost]"
+  (CR 702.176a). Offers `CastModeKind::Impending` (`SpellForm::Impending`,
+  `Rider::ImpendingPaid`): enters with `N` `CounterKind::Time` counters, removes
+  `TypeSet::CREATURE` (and creature subtypes / P/T) in layer 4 on the battlefield
+  while `ImpendingPaid` and `Time >= 1`, and removes one time counter at the
+  beginning of each of your end steps.
+- `FaceDef.gift: Option<GiftKind>` — "Gift a [something]" (CR 702.174a–m), with
+  `GiftKind::{Card, Food, TappedFish, Treasure, Octopus, ExtraTurn}`. Offers an
+  optional additional spell cost (`YesNoPrompt::Gift { kind }`, `WizardStage::Gift`)
+  choosing an opponent (`Rider::GiftPromisedTo`), exposes `Condition::GiftWasPromised`
+  and `PlayerRel::GiftRecipient`, delivers the gift via `Effect::DeliverGift(kind)`
+  on instant/sorcery resolution (before other spell effects, CR 702.174j) or
+  permanent ETB trigger (CR 702.174b), and emits `GameEvent::GiftGiven` for
+  `Trigger::GaveGift(PlayerRel)` (CR 702.174c).
 - `CardDef.fuse: bool` — "Fuse" (CR 702.102a–d) on two-face split instant/sorcery
   cards (`CardDef::is_split_spell_card`). When cast from a player's hand, offers
   `CastModeKind::Fused` paying the combined mana cost of both halves
@@ -1282,6 +1296,7 @@ types; `TypeSet::LAND` expresses "nonland card name"),
 `Prepared` (Emeritus of Woe),
 `TappedUnlessReveal(filter)`,
 `WithCounters { kind, amount }`,
+`WithCountersIf { kind, count, condition }`,
 `IfKicked { index, counters, modifiers }`, and
 `Amplify(n)`.
 
@@ -5614,7 +5629,7 @@ registers one or more delayed triggered abilities during resolution:
 - **Generalized untargeted `ChooseCard`, `PeekAndReveal`, and `Reveal` (`CR 608.2d`, `CR 701.20`):**
   - `Effect::ChooseCard { chooser, zone, filter, min, max, movement, then }`
     selects `min..=max` objects from `ChooseZone::{Battlefield, Graveyard(PlayerRel)}`
-    into `EventObject` (`Remembered`), applies `ChooseMove::{None, Hand, Battlefield { tapped }, TopOfLibrary, BottomOfLibrary, Graveyard, Exile}`,
+    into `EventObject` (`Remembered`), applies `ChooseMove::{None, Hand, Battlefield { tapped }, TopOfLibrary, BottomOfLibrary, Graveyard, Exile, ExileLinked}`,
     and executes `then` per chosen object.
   - `Effect::PeekAndReveal { library, count, reveal_all, reveal_chosen, filter, min_pick, max_pick, picked, rest, if_picked }`
     inspects (or publicly reveals) the top `count` cards of `library`, chooses

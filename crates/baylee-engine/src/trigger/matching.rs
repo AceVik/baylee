@@ -1405,6 +1405,10 @@ fn matches(
                     .object_or_departed(*object)
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
+        (Trigger::GaveGift(who), GameEvent::GiftGiven { giver, .. }) => {
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(giver))
+        }
         _ => false,
     }
 }

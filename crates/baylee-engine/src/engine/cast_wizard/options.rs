@@ -490,6 +490,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .price(bestow.mana, printed_reduction),
             });
         }
+        if let Some((_, cost)) = face.impending
+            && casting::can_cast_form_paying(
+                &self.state,
+                &self.lookup,
+                player,
+                card,
+                Some(casting::SpellForm::Impending(cost)),
+                paying,
+            )
+            .is_ok()
+        {
+            options.push(CastModeDesc {
+                index: options.len() as u32,
+                kind: CastModeKind::Impending,
+                cost: casting::face_adjustment(
+                    &self.state,
+                    player,
+                    card,
+                    def,
+                    0,
+                    Some(casting::SpellForm::Impending(cost)),
+                )
+                .price(cost, printed_reduction),
+            });
+        }
         // Alternative costs (pitch, evoke, conditional free).
         for (i, alt) in face.alternative_costs.iter().enumerate() {
             let condition_ok = match alt.condition {
@@ -857,9 +882,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let front_now =
             front_timing && !casting::cast_is_forbidden(&self.state, player, front_spell);
         options.retain(|o| match o.kind {
-            // Land plays and Bestow Auras (`can_cast_form_paying`) have already
-            // passed their own timing, permission, and lock checks.
-            CastModeKind::PlayLandFace(_) | CastModeKind::Bestow => true,
+            // Land plays, Bestow Auras, and Impending casts (`can_cast_form_paying`)
+            // have already passed their own timing, permission, and lock checks.
+            CastModeKind::PlayLandFace(_) | CastModeKind::Bestow | CastModeKind::Impending => true,
             // The lock was asked of these as what they are, a prototype or
             // face-down spell (`casting::can_cast_form_paying`).
             CastModeKind::Prototype | CastModeKind::Disguise => front_timing,

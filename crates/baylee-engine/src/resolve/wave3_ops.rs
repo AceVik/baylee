@@ -401,7 +401,7 @@ pub(super) fn choose_card_finish(
     let mut final_objects = Vec::with_capacity(valid.len());
     for id in valid {
         let controller = state.object(id).map_or(you, |o| o.controller);
-        apply_choose_move(state, you, id, movement);
+        apply_choose_move(state, res, you, id, movement);
         final_objects.push((id, controller));
     }
     if let Some(&(first_id, _)) = final_objects.first() {
@@ -435,7 +435,7 @@ fn planned_choose_moves(
                         ZoneLocation::Library(owner)
                     }
                     ChooseMove::Graveyard => ZoneLocation::Graveyard(owner),
-                    ChooseMove::Exile => ZoneLocation::Exile(owner),
+                    ChooseMove::Exile | ChooseMove::ExileLinked => ZoneLocation::Exile(owner),
                 };
                 (id, dest)
             })
@@ -443,7 +443,13 @@ fn planned_choose_moves(
     )
 }
 
-fn apply_choose_move(state: &mut GameState, you: PlayerId, id: ObjectId, movement: ChooseMove) {
+fn apply_choose_move(
+    state: &mut GameState,
+    res: &Resolution,
+    you: PlayerId,
+    id: ObjectId,
+    movement: ChooseMove,
+) {
     let owner = state.object(id).map_or(you, |o| o.owner);
     match movement {
         ChooseMove::None => {}
@@ -507,6 +513,51 @@ fn apply_choose_move(state: &mut GameState, you: PlayerId, id: ObjectId, movemen
                 ZonePosition::Top,
                 Cause::Effect,
             );
+        }
+        ChooseMove::ExileLinked => exile_linked_from_choice(state, res, owner, id),
+    }
+}
+
+fn exile_linked_from_choice(
+    state: &mut GameState,
+    res: &Resolution,
+    owner: PlayerId,
+    id: ObjectId,
+) {
+    let host_version =
+        super::source_version(state, res).or_else(|| state.object(res.source).map(|o| o.version));
+    let components = state.merged_components(id);
+    let link = crate::object::Rider::Linked {
+        host: res.source,
+        until: None,
+    };
+    if let Some(obj) = state.object_mut(id) {
+        obj.kind = ObjectKind::Card;
+        obj.riders.push(link);
+    }
+    let _ = state.move_object(
+        id,
+        ZoneLocation::Exile(owner),
+        ZonePosition::Top,
+        Cause::Effect,
+    );
+    if let Some(version) = host_version {
+        for component in components {
+            if let Some(object) = state
+                .object_mut(component)
+                .filter(|o| o.zone == crate::zone::Zone::Exile)
+            {
+                if !object.riders.contains(&link) {
+                    object.riders.push(link);
+                }
+                state.remember_link(
+                    component,
+                    baylee_core::ids::DamageSourceRef {
+                        object: res.source,
+                        version,
+                    },
+                );
+            }
         }
     }
 }

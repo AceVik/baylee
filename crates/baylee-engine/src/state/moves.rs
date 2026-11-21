@@ -815,6 +815,8 @@ impl GameState {
                             | crate::object::Rider::SquadPaid(_)
                             | crate::object::Rider::OffspringPaid
                             | crate::object::Rider::CasualtyPaid
+                            | crate::object::Rider::ImpendingPaid
+                            | crate::object::Rider::GiftPromisedTo(_)
                             | crate::object::Rider::Fused
                             | crate::object::Rider::SuspendHaste(_)
                             | crate::object::Rider::Mutating

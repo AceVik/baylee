@@ -3985,6 +3985,126 @@ pub(crate) fn casualties(view: &PlayerView, min_power: u8) -> bool {
     })
 }
 
+/// Answer `YesNoPrompt::Gift` (`CR 702.174a`): accept when promising the gift
+/// decks an empty-library opponent or when the spell/board gift payoff outweighs
+/// the gift handed to an opponent.
+pub(crate) fn promises_gift(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    kind: baylee_cards_dsl::GiftKind,
+) -> bool {
+    use baylee_cards_dsl::{GiftKind, PlayerRel, Trigger};
+    let player = resource_player(view);
+    let opponents: Vec<_> = view
+        .seats
+        .iter()
+        .filter(|s| !s.has_lost() && s.player != player)
+        .collect();
+    if opponents.is_empty() {
+        return false;
+    }
+    if kind == GiftKind::Card && opponents.iter().any(|s| s.library_count == 0) {
+        return true;
+    }
+    let gift_cost: i64 = match kind {
+        GiftKind::Food => 100,
+        GiftKind::TappedFish => 110,
+        GiftKind::Treasure => 150,
+        GiftKind::Card => 220,
+        GiftKind::Octopus => 750,
+        GiftKind::ExtraTurn => return false,
+    };
+    let triggered_payoffs = view
+        .battlefield_of(player)
+        .filter(|obj| {
+            crate::activate::printed_list(obj).iter().any(|ab| {
+                matches!(
+                    ab,
+                    AbilityDef::Triggered {
+                        trigger: Trigger::GaveGift(
+                            PlayerRel::You | PlayerRel::ActivePlayer | PlayerRel::EachPlayer
+                        ),
+                        ..
+                    }
+                )
+            })
+        })
+        .count();
+    let mut upside = i64::try_from(triggered_payoffs).unwrap_or(0) * 220;
+    upside += gift_effects_upside(context.effects);
+    if let Some(card) = context.source.and_then(|id| identity(view, id)) {
+        upside += gift_card_upside(card, context.effects.is_empty());
+    }
+    upside >= gift_cost
+}
+
+fn gift_effects_upside(fx: &[Effect]) -> i64 {
+    let mut total = 0_i64;
+    for e in fx {
+        match e {
+            Effect::IfCondition {
+                condition: baylee_cards_dsl::Condition::GiftWasPromised,
+                then,
+                otherwise,
+            } => {
+                if !then.is_empty() || !otherwise.is_empty() {
+                    total += 220;
+                }
+            }
+            Effect::IfCondition {
+                then, otherwise, ..
+            } => {
+                total += gift_effects_upside(then) + gift_effects_upside(otherwise);
+            }
+            Effect::MayDo { effects } => {
+                total += gift_effects_upside(effects);
+            }
+            _ => {}
+        }
+    }
+    total
+}
+
+fn gift_card_upside(card: CardIdentity, include_spell_fx: bool) -> i64 {
+    use baylee_cards_dsl::{Condition, EnterModifier};
+    let Some(def) = baylee_cards::by_index(card.index) else {
+        return 0;
+    };
+    let mut upside = 0_i64;
+    if let Some(f) = def.faces.get(usize::from(card.face)) {
+        for m in f.enter_modifiers {
+            if matches!(
+                m,
+                EnterModifier::WithCountersIf {
+                    condition: Condition::GiftWasPromised,
+                    ..
+                }
+            ) {
+                upside += 220;
+            }
+        }
+    }
+    for ab in def.abilities_for_face(usize::from(card.face)) {
+        match ab {
+            AbilityDef::Spell { effects, .. } if include_spell_fx => {
+                upside += gift_effects_upside(effects);
+            }
+            AbilityDef::ModalSpell { modes, .. } => {
+                for mode in *modes {
+                    upside += gift_effects_upside(mode.effects);
+                }
+            }
+            AbilityDef::Triggered {
+                condition: Some(Condition::GiftWasPromised),
+                ..
+            } => upside += 220,
+            AbilityDef::Triggered { effects, .. } => upside += gift_effects_upside(effects),
+            _ => {}
+        }
+    }
+    upside
+}
+
 /// Whether casting `face` at the X `cost` pays for puts a creature onto
 /// the battlefield with no toughness, where it dies at once (CR 704.5f).
 ///

@@ -3249,6 +3249,10 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::DeliverGift(kind) => {
+            tokens::deliver_gift(state, res, kind);
+            None
+        }
         Effect::TapAll { filter } => {
             let you = res.controller;
             let all: Vec<ObjectId> = state
@@ -4271,6 +4275,7 @@ fn resolution_condition(
         Condition::IsRenowned => state
             .damage_source(res.source, source_version(state, res))
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::Renowned)),
+        Condition::GiftWasPromised => super::gift_recipient_of_resolution(state, res).is_some(),
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)
         }

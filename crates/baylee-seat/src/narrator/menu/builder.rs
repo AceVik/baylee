@@ -1649,6 +1649,7 @@ impl Builder<'_, '_> {
                 | YesNoPrompt::Bargain
                 | YesNoPrompt::Offspring { .. }
                 | YesNoPrompt::Casualty { .. }
+                | YesNoPrompt::Gift { .. }
                 | YesNoPrompt::KickerOption { .. }
                 | YesNoPrompt::Buyback { .. }
         );

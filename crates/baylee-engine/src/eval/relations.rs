@@ -56,6 +56,19 @@ pub fn players_for_source(
                 .into_iter()
                 .collect(),
         ),
+        PlayerRel::GiftRecipient => Some(
+            source
+                .and_then(|s| state.object_or_departed(s))
+                .and_then(|o| {
+                    o.riders.iter().find_map(|r| match r {
+                        crate::object::Rider::GiftPromisedTo(p) => Some(*p),
+                        _ => None,
+                    })
+                })
+                .filter(|p| !state.has_left(*p))
+                .into_iter()
+                .collect(),
+        ),
         other => players(other, state, you),
     }
 }
@@ -140,7 +153,8 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
         | PlayerRel::EventPlayer
         | PlayerRel::OwnerOfSource
         | PlayerRel::ControllerOfAttached
-        | PlayerRel::EnchantedPlayer => {
+        | PlayerRel::EnchantedPlayer
+        | PlayerRel::GiftRecipient => {
             return None;
         }
     })

@@ -286,6 +286,7 @@ fn legal_targets_from(
                 | PlayerRel::DamagedPlayer
                 | PlayerRel::EventPlayer
                 | PlayerRel::Recipient
+                | PlayerRel::GiftRecipient
                 | PlayerRel::EachOtherPlayer
                 | PlayerRel::OwnerOfEvent
                 | PlayerRel::MostLifeOrTied

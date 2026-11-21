@@ -1026,6 +1026,9 @@ impl HeuristicAgent {
                 YesNoPrompt::Casualty { min_power } => {
                     PlayerAction::YesNo(policy::casualties(view, min_power))
                 }
+                YesNoPrompt::Gift { kind } => {
+                    PlayerAction::YesNo(policy::promises_gift(view, context, kind))
+                }
                 YesNoPrompt::KickerOption { index, cost, parts } => {
                     PlayerAction::YesNo(policy::kicks_option(view, context, index, cost, parts))
                 }

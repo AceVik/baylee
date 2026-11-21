@@ -1319,9 +1319,38 @@ pub(super) fn players_of(
         PlayerRel::EnchantedPlayer => enchanted_player_of_resolution(state, res)
             .into_iter()
             .collect(),
+        PlayerRel::GiftRecipient => gift_recipient_of_resolution(state, res)
+            .filter(|seat| !state.has_left(*seat))
+            .into_iter()
+            .collect(),
         other => eval::players(other, state, you)
             .expect("the context relations are matched above this arm"),
     }
+}
+
+/// The opponent a resolving Gift spell or permanent ability promised a gift to
+/// (`CR 702.174a–b`), read from the resolving spell or the ability's source
+/// incarnation (`CR 608.2h`).
+pub(crate) fn gift_recipient_of_resolution(
+    state: &GameState,
+    res: &Resolution,
+) -> Option<PlayerId> {
+    let from = |object: &crate::object::GameObject| {
+        object.riders.iter().find_map(|r| match r {
+            crate::object::Rider::GiftPromisedTo(p) => Some(*p),
+            _ => None,
+        })
+    };
+    state
+        .object(res.on_stack)
+        .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+        .and_then(from)
+        .or_else(|| {
+            state
+                .damage_source(res.source, source_version(state, res))
+                .and_then(from)
+        })
+        .or_else(|| state.object(res.on_stack).and_then(from))
 }
 
 /// "Enchanted player" (CR 303.4b, CR 303.4m): the player `res.source` enchants
