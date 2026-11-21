@@ -6,6 +6,13 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Beat 13: Engine Wave 7b (`0d141c6f6`)
+
+- **Engine Wave 7b (`e9ad29e1d`, cherry-picked as `0d141c6f6`, `Reviewed-by: gemini-4-argon-high (#433), pass`)**:
+  - Landed `Incubate N` + double-faced tokens (`TokenDef::back_face`, `INCUBATOR_TOKEN` // `PHYREXIAN_TOKEN`, `Effect::Incubate`, `Rider::AbilitySourceFace(u8)` hash tag `191`, `CR 701.51`), `Exploit` (`KeywordSet::EXPLOIT = 76`, `Effect::Exploit`, `AwaitingOp::Exploit = 151`, `Trigger::Exploited`, `CR 702.110`), `Craft` (`CostPart::CraftMaterials`, `Rider::CraftMaterial(DamageSourceRef)` hash tag `192`, `Effect::ReturnCraftedTransformed`, `CR 702.167a–c`), `Evolve` (`KeywordSet::EVOLVE = 77`, `Condition::EvolveFromEvent`, `CR 702.100`), `Bloodthirst N` (`KeywordSet::BLOODTHIRST = 78`, `Condition::OpponentDealtDamageThisTurn`, `Amount::DamageDealtToOpponentsThisTurn`, `EnterModifier::Bloodthirst`, `CR 702.54`), and stack `RemoveCounterSelfX` (`eval::announced_x`, `Condition::XAtLeast`).
+  - Preserved `a_plain_face_keeps_its_41_children == 41`, resolved `KEYWORDS` array length (`64 -> 67`) in `baylee-seat/src/narrator/words.rs`, and extracted conditional state/object replay hashing.
+  - Verified (`task-5034`): `fmt --check` PASS, `baylee-cards-dsl` `97+1` PASS, `baylee-view` `112/112` + `hostile_frames` `9/9`, `baylee-protocol` `52+17`, `baylee-engine` (`offer_tests::`, `keyword_tests::`, `vocabulary_tests::`, `state::tests::`, `choice::choice_tests::`, `wave7a::`, `wave7b::`) `165/165` + `footprint` `2/2` + `hostile_actions` `15/15`, `baylee-gamehost --lib` `191/191` + `integration` `53/53`, `baylee-cards --lib` `169/169`, `baylee-cards-codegen --lib -- lines::` `65/65`, `baylee-ai --lib` `432/432`, `baylee-seat --lib -- narrator::tests::` `138/138`, `baylee-client-core --lib` `2,680/2,680`, `baylee-client --lib` (`abilities::`, `reach::`, `input::`, `choices::`) `194/194`, `baylee-train --lib` (`cardstructure::`, `features4::`, `features7::`, `encoder_contract::`) `84/84`, `xtask` `150/150`, and 13-crate `clippy --all-targets -- -D warnings` (`0` warnings).
+
 ## 2026-11-21 — Beat 12 (Part 2): Pass E8 + Wave 14 Reconvergence (`20,796` Conforming / `19,620` Playable)
 
 - **Pass E8 (`09addf2e0`, `PASS` `#427`) + Commit 1 (`ac52f60c3`, `PASS` `#417`) Reconverged with Codegen Wave 14a–14c**:
