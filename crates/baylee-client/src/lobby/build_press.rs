@@ -540,7 +540,9 @@ impl BuildPress {
                     state.build.pane = Pane::Pool;
                 }
                 state.lobby.builder_mut().clear_filters();
-                state.lobby.builder_mut().set_text("is:commander");
+                if !partner {
+                    state.lobby.builder_mut().set_text("is:commander");
+                }
                 state.lobby.builder_mut().focus_on(BuildField::Search);
                 scrolled.set(List::Pool, 0.0);
             }

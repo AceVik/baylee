@@ -2139,11 +2139,16 @@ impl DeckBuilder {
         true
     }
 
-    /// Remove only one role, keeping both the other commander and the deck cards.
+    /// Remove a role, keeping the deck cards and any commander that can lead alone.
     pub fn remove_commander(&mut self, slot: usize) {
         let before = self.commanders.len();
         self.commanders.retain(|leader| *leader != slot);
         if before != self.commanders.len() {
+            if let [remaining] = self.commanders.as_slice()
+                && !self.card(*remaining).is_some_and(|card| card.commander)
+            {
+                self.commanders.clear();
+            }
             self.touch();
         }
     }
