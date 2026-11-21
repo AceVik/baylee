@@ -591,6 +591,17 @@ impl Tx<'_> {
             "Enlisted" => self.enlisted_trigger(p),
             "BecomesPlotted" | "Plotted" => self.plotted_trigger(p),
             "SpellCastOrCopy" => self.spell_cast_or_copy_trigger(p, zoned),
+            // "Whenever you give a gift" (CR 702.174c). `EventPlayer` is the
+            // recipient, so `TriggeredPlayer` stays unread here.
+            "GiveGift" | "GaveGift" => {
+                let who = match p.take("ValidPlayer").as_deref() {
+                    None | Some("Player") => "PlayerRel::EachPlayer",
+                    Some("You") => "PlayerRel::You",
+                    Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+                    Some(other) => return self.deny(format!("a gift given by `{other}`")),
+                };
+                Some(format!("Trigger::GaveGift({who})"))
+            }
             "ChangesZoneAll" => self.changes_zone_all_trigger(p),
             "Sacrificed" => self.sacrificed_trigger(p),
             "Attacked" => self.player_attacked_trigger(p),
@@ -1861,6 +1872,7 @@ impl Tx<'_> {
             match p.peek("ValidCard") {
                 Some("Card.Self+bargained") => Some("Condition::Bargained"),
                 Some("Card.Self+prototyped") => Some("Condition::Prototyped"),
+                Some("Card.Self+PromisedGift") => Some("Condition::GiftWasPromised"),
                 _ => None,
             }
         } else {
@@ -1928,8 +1940,19 @@ impl Tx<'_> {
             if let Some(clause) = self
                 .svar_condition(&var, &cmp)
                 .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
+                .or_else(|| self.extra_svar_condition_wave8(&var, &cmp))
                 .or_else(|| self.wave7_svar_condition(&var, &cmp))
                 .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, false))
+                .or_else(|| self.wave15_trigger_svar_condition(&var, &cmp))
+                .or_else(|| self.svar_condition_clause(&var, &cmp))
+                .or_else(|| {
+                    // The SVar's own `Count$…` read as an amount, the reader
+                    // static and activated conditions already share.
+                    let body = self.svars.get(var.trim())?.trim().to_string();
+                    body.starts_with("Count$")
+                        .then(|| self.svar_condition_clause(&body, &cmp))
+                        .flatten()
+                })
             {
                 p.take("CheckSVar");
                 p.take("SVarCompare");
@@ -3004,7 +3027,10 @@ impl Tx<'_> {
             let clause = self
                 .svar_condition(&var, &cmp)
                 .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
-                .or_else(|| self.wave7_svar_condition(&var, &cmp))?;
+                .or_else(|| self.extra_svar_condition_wave8(&var, &cmp))
+                .or_else(|| self.wave7_svar_condition(&var, &cmp))
+                .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, false))
+                .or_else(|| self.wave15_trigger_svar_condition(&var, &cmp))?;
             p.take("CheckSVar");
             p.take("SVarCompare");
             clauses.push(clause);
@@ -3028,12 +3054,21 @@ impl Tx<'_> {
         let Some(body) = self.svars.get(&execute).cloned() else {
             return self.deny(format!("`Execute$ {execute}` names no SVar"));
         };
+        self.parse_delayed_body_str(&body, inner_trigger_mode, optional)
+    }
+
+    fn parse_delayed_body_str(
+        &mut self,
+        body: &str,
+        inner_trigger_mode: Option<String>,
+        optional: bool,
+    ) -> Option<(String, Option<String>)> {
         let mut inner = Chain::default();
         let saved_delayed = std::mem::replace(&mut self.in_delayed, true);
         let saved_mode = std::mem::replace(&mut self.trigger_mode, inner_trigger_mode);
         let saved_self = std::mem::replace(&mut self.trigger_is_self, false);
         let saved_block = self.block_line.take();
-        let read = self.chain(&body, &mut inner);
+        let read = self.chain(body, &mut inner);
         self.in_delayed = saved_delayed;
         self.trigger_mode = saved_mode;
         self.trigger_is_self = saved_self;
@@ -3171,7 +3206,9 @@ impl Tx<'_> {
             | "SearchedLibrary"
             | "BecomesPlotted"
             | "Plotted"
-            | "SpellCastOrCopy" => true,
+            | "SpellCastOrCopy"
+            | "GiveGift"
+            | "GaveGift" => true,
             "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" | "Enlisted"
             | "Sacrificed" => non_self,
             "ChangesZoneAll" => non_self_cards,
@@ -3183,5 +3220,561 @@ impl Tx<'_> {
         } else {
             ""
         }
+    }
+
+    fn wave15_amount_cmp(lhs: &str, cmp: &str) -> Option<String> {
+        let (op_code, rhs_raw) = cmp.split_at_checked(2)?;
+        let n: u32 = rhs_raw.parse().ok()?;
+        let op = match op_code {
+            "GE" => "AmountCmp::AtLeast",
+            "GT" => "AmountCmp::GreaterThan",
+            "LE" => "AmountCmp::AtMost",
+            "LT" => "AmountCmp::LessThan",
+            "EQ" => "AmountCmp::Equal",
+            "NE" => "AmountCmp::NotEqual",
+            _ => return None,
+        };
+        Some(format!(
+            "Condition::AmountCompare {{ left: &{lhs}, op: {op}, right: &Amount::Fixed({n}) }}"
+        ))
+    }
+
+    fn wave15_entered_subtype_const(&self, rest: &str) -> Option<String> {
+        let sub_word = rest
+            .strip_suffix(".YouCtrl")
+            .or_else(|| {
+                rest.strip_prefix("Creature.")
+                    .and_then(|s| s.strip_suffix("+YouCtrl"))
+            })
+            .or_else(|| {
+                rest.strip_prefix("Permanent.")
+                    .and_then(|s| s.strip_suffix("+YouCtrl"))
+            })?
+            .trim();
+        self.single_subtype_const(sub_word).or_else(|| {
+            if sub_word.is_empty() || sub_word.contains(['.', '+', ',', ' ', '!']) {
+                return None;
+            }
+            let expr = self.filter_expr(&format!("Card.{sub_word}"))?;
+            expr.strip_prefix("Filter::HasSubtype(")
+                .and_then(|s| s.strip_suffix(')'))
+                .map(str::to_string)
+        })
+    }
+
+    /// Wave-15c trigger `CheckSVar$` / `SVarCompare$` clauses backed by
+    /// existing `Condition` / `Amount` variants.
+    fn wave15_trigger_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
+        let raw = self.svars.get(var.trim())?.trim();
+        let cmp = cmp.trim();
+        let bool_flag = |cond: &str| match cmp {
+            "GE1" | "GT0" => Some(cond.to_string()),
+            "EQ0" | "LT1" => Some(format!("Condition::Not(&{cond})")),
+            _ => None,
+        };
+        if raw == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" {
+            return Self::wave15_amount_cmp(
+                "Amount::CreaturesEnteredUnderYourControlThisTurn",
+                cmp,
+            );
+        }
+        if let Some(rest) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
+            && let Some(sub_const) = self.wave15_entered_subtype_const(rest)
+        {
+            return bool_flag(&format!(
+                "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{sub_const}])"
+            ));
+        }
+        if matches!(
+            raw,
+            "Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl"
+                | "Count$ThisTurnCast_Sorcery.YouCtrl,Instant.YouCtrl"
+        ) {
+            return bool_flag("Condition::CastInstantOrSorceryThisTurn");
+        }
+        if raw == "Count$ThisTurnCast_Creature.YouCtrl" {
+            return bool_flag("Condition::CastCreatureThisTurn");
+        }
+        if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
+            if let Some(n) = cmp
+                .strip_prefix("GE")
+                .and_then(|s| s.parse::<u32>().ok())
+                .filter(|&n| n >= 1)
+                .or_else(|| {
+                    cmp.strip_prefix("GT")
+                        .and_then(|s| s.parse::<u32>().ok())
+                        .and_then(|n| n.checked_add(1))
+                })
+            {
+                return Some(format!("Condition::CreaturesDiedThisTurnAtLeast({n})"));
+            }
+            return matches!(cmp, "EQ0" | "LT1").then(|| {
+                "Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast(1))".to_string()
+            });
+        }
+        if raw == "Count$CardPower" && !self.on_a_spell {
+            return Self::wave15_amount_cmp("Amount::SourcePower", cmp);
+        }
+        if raw == "PlayerCountPropertyYou$OpponentsAttackedThisCombat" {
+            return Self::wave15_amount_cmp("Amount::OpponentsYouAttackedThisCombat", cmp);
+        }
+        if raw == "Count$LifeYouGainedThisTurn" {
+            return Self::wave15_amount_cmp("Amount::LifeGainedThisTurn(PlayerRel::You)", cmp);
+        }
+        None
+    }
+
+    /// Wave-15c lowering for `SP$/AB$/DB$ Effect` carrying `Triggers$` (or a
+    /// permanent planeswalker emblem): lowers planeswalker emblems to
+    /// `Effect::CreateEmblem` and turn/combat/watched `Triggers$` effects to
+    /// `Effect::RegisterDelayedTrigger` (optionally paired with static or
+    /// replacement lines on the same `Effect`).
+    pub(super) fn effect_triggers_api(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        chain: &Chain,
+    ) -> Option<Vec<String>> {
+        if p.has("Boon") || p.has("EffectOwner") || p.has("Abilities") || p.has("ImprintCards") {
+            return None;
+        }
+        let is_emblem_name = p
+            .peek("Name")
+            .is_some_and(|n| n.trim_start().starts_with("Emblem"));
+        if p.peek("Duration") == Some("Permanent") && is_emblem_name {
+            return self.emblem_effect_api(p, target);
+        }
+        if p.peek("Triggers").is_none() || is_emblem_name {
+            return None;
+        }
+        self.delayed_triggers_effect_api(p, target, chain)
+    }
+
+    fn collect_emblem_abilities(
+        &mut self,
+        svar_list: &str,
+        is_trigger: bool,
+        saved_enter_len: usize,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        for svar_name in svar_list
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            let body = self.svars.get(svar_name)?.clone();
+            if body.contains("Card.Self")
+                || body.contains("EffectSource")
+                || body.contains("IsRemembered")
+                || body.contains("Enchanted")
+                || body.contains("Equipped")
+                || body.contains("RememberedPlayer")
+                || body.contains("ChosenCard")
+                || body.contains("Imprinted")
+            {
+                return None;
+            }
+            let prev_len = self.body.abilities.len();
+            let saved_on_spell = std::mem::replace(&mut self.on_a_spell, false);
+            let saved_mode = is_trigger.then(|| self.trigger_mode.take()).flatten();
+            let ok = if is_trigger {
+                self.triggered(&body)
+            } else {
+                let normalized = body
+                    .split('|')
+                    .map(str::trim)
+                    .filter(|part| {
+                        !part.is_empty()
+                            && *part != "EffectZone$ Command"
+                            && *part != "EffectZone$ Battlefield"
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" | ");
+                match self.try_extra_static(&normalized) {
+                    super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
+                    super::saga_ward_convoke::ExtraOutcome::Pass => {
+                        self.static_ability(&normalized)
+                    }
+                }
+            };
+            self.on_a_spell = saved_on_spell;
+            if is_trigger {
+                self.trigger_mode = saved_mode;
+            }
+            ok?;
+            if self.body.enter_modifiers.len() != saved_enter_len
+                || self.body.abilities.len() <= prev_len
+            {
+                self.body.abilities.truncate(prev_len);
+                self.body.enter_modifiers.truncate(saved_enter_len);
+                return None;
+            }
+            let emitted: Vec<String> = self.body.abilities.drain(prev_len..).collect();
+            if emitted.iter().any(|a| {
+                a.contains("Filter::This")
+                    || a.contains("TargetSpec::ThisObject")
+                    || a.contains("Effect::SacrificeSelf")
+                    || a.contains("Effect::ExileSource")
+                    || a.contains("Effect::ModifySource")
+                    || a.contains("Amount::Source")
+                    || a.contains("Amount::CountersOnSource")
+            }) {
+                return None;
+            }
+            out.extend(emitted);
+        }
+        Some(())
+    }
+
+    fn emblem_effect_api(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+        if target.is_some()
+            || p.has("RememberObjects")
+            || p.has("ReplacementEffects")
+            || p.has("Planeswalker")
+            || p.take("Duration").as_deref() != Some("Permanent")
+        {
+            return None;
+        }
+        let name = p.take("Name")?;
+        if !name.trim_start().starts_with("Emblem") {
+            return None;
+        }
+        p.take("Image");
+        p.take("Ultimate");
+        if let Some(s) = p.take("Stackable")
+            && !matches!(s.as_str(), "True" | "False")
+        {
+            return None;
+        }
+        if let Some(ns) = p.take("NonStackingEffect")
+            && ns != "True"
+        {
+            return None;
+        }
+        let statics = p.take("StaticAbilities");
+        let triggers = p.take("Triggers");
+        let only_cond_left = p
+            .entries
+            .iter()
+            .all(|(k, _)| k.starts_with("Condition") || k.starts_with("Present"));
+        if (statics.is_none() && triggers.is_none()) || !only_cond_left {
+            return None;
+        }
+        let mut emblem_abilities = Vec::new();
+        let saved_enter_len = self.body.enter_modifiers.len();
+        if let Some(statics) = statics {
+            self.collect_emblem_abilities(&statics, false, saved_enter_len, &mut emblem_abilities)?;
+        }
+        if let Some(triggers) = triggers {
+            self.collect_emblem_abilities(&triggers, true, saved_enter_len, &mut emblem_abilities)?;
+        }
+        if emblem_abilities.is_empty() {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::CreateEmblem {{ abilities: &[{}] }}",
+            emblem_abilities.join(", ")
+        )])
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn delayed_triggers_effect_api(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        chain: &Chain,
+    ) -> Option<Vec<String>> {
+        if p.has("Planeswalker") {
+            return None;
+        }
+        let dur_raw = p.take("Duration");
+        let (static_dur, repeat_dur, oneshot_dur) = match dur_raw.as_deref() {
+            None | Some("UntilEndOfTurn") => (
+                "Duration::UntilEndOfTurn",
+                "DelayedDuration::ThisTurn",
+                Some("DelayedDuration::OneShotThisTurn"),
+            ),
+            Some("UntilEndOfCombat") => (
+                "Duration::UntilEndOfCombat",
+                "DelayedDuration::ThisCombat",
+                None,
+            ),
+            Some("UntilYourNextTurn") => (
+                "Duration::UntilYourNextTurn",
+                "DelayedDuration::UntilYourNextTurn",
+                None,
+            ),
+            Some("Permanent") => (
+                "Duration::Indefinitely",
+                "DelayedDuration::Indefinitely",
+                Some("DelayedDuration::OneShot"),
+            ),
+            Some(_) => return None,
+        };
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if !matches!(ends.as_deref(), None | Some("Battlefield" | "Graveyard")) {
+            return None;
+        }
+        p.take("IsCurse");
+        p.take("Name");
+        if let Some(ns) = p.take("NonStackingEffect")
+            && ns != "True"
+        {
+            return None;
+        }
+        let raw_rem = p.peek("RememberObjects").map(str::to_string);
+        let subject = self.effect_remember_subject(p, target)?;
+        let base_watch = match raw_rem.as_deref() {
+            None => "TriggerRemember::None",
+            Some(rem) => self.delayed_remember(Some(rem), target, chain, true)?,
+        };
+        if matches!(ends.as_deref(), Some("Battlefield" | "Graveyard"))
+            && base_watch == "TriggerRemember::None"
+        {
+            return None;
+        }
+        let statics = p.take("StaticAbilities");
+        let replacements = p.take("ReplacementEffects");
+        let triggers = p.take("Triggers")?;
+        let only_cond_left = p
+            .entries
+            .iter()
+            .all(|(k, _)| k.starts_with("Condition") || k.starts_with("Present"));
+        if !only_cond_left {
+            return None;
+        }
+
+        let mut out = Vec::new();
+        if let Some(statics) = statics {
+            for svar_name in statics.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                let body = self.svars.get(svar_name)?.clone();
+                let (mode, mut st) = Params::parse(&body)?;
+                st.drop_prose();
+                out.extend(self.wave3_static_effect_line(&mode, &mut st, subject, static_dur)?);
+            }
+        }
+        if let Some(replacements) = replacements {
+            for svar_name in replacements
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                let body = self.svars.get(svar_name)?.clone();
+                let (event, mut r) = Params::parse(&body)?;
+                r.drop_prose();
+                out.extend(
+                    self.wave11_effect_replacement_line(
+                        &event, &mut r, subject, false, static_dur,
+                    )?,
+                );
+            }
+        }
+
+        let mut trigger_count = 0usize;
+        for svar_name in triggers.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let body = self.svars.get(svar_name)?.clone();
+            let (mode, mut tp) = Params::parse(&body)?;
+            tp.drop_prose();
+            if !matches!(
+                mode.as_str(),
+                "ChangesZone"
+                    | "ChangesZoneAll"
+                    | "SpellCast"
+                    | "SpellCastOrCopy"
+                    | "Attacks"
+                    | "AttackersDeclared"
+                    | "Blocks"
+                    | "DamageDone"
+                    | "DamageDoneOnce"
+                    | "DamageDealtOnce"
+                    | "Taps"
+                    | "Untaps"
+                    | "LifeGained"
+                    | "LifeLost"
+                    | "Drawn"
+                    | "LandPlayed"
+                    | "Discarded"
+                    | "Cycled"
+                    | "Sacrificed"
+                    | "CounterAddedOnce"
+                    | "AttackerBlocked"
+                    | "AttackerUnblocked"
+                    | "PhaseIn"
+                    | "PhaseOut"
+                    | "FlippedCoin"
+                    | "RolledDie"
+            ) {
+                return None;
+            }
+            if !matches!(tp.take("TriggerZones").as_deref(), None | Some("Command")) {
+                return None;
+            }
+            if let Some(sec) = tp.take("Secondary")
+                && sec != "True"
+            {
+                return None;
+            }
+            if ends.as_deref() == Some("Graveyard")
+                && !(mode == "ChangesZone"
+                    && tp.peek("Origin") == Some("Battlefield")
+                    && tp.peek("Destination") == Some("Graveyard"))
+            {
+                return None;
+            }
+            let one_off = match (
+                tp.take("OneOff").as_deref(),
+                tp.take("TriggerOnce").as_deref(),
+            ) {
+                (None | Some("False"), None | Some("False")) => false,
+                (Some("True"), None | Some("False")) | (None | Some("False"), Some("True")) => true,
+                _ => return None,
+            };
+            let delayed_dur = if one_off { oneshot_dur? } else { repeat_dur };
+            let optional = match tp.take("OptionalDecider").as_deref() {
+                None => false,
+                Some("You") => true,
+                Some(_) => return None,
+            };
+
+            // Rewrite `IsRemembered` / `EffectSource` on the watched filter key
+            // to `Self` so `Filter::This` binds to the watched incarnation.
+            let mut trigger_watch = "TriggerRemember::None";
+            let mut uses_watch = false;
+            for (k, v) in &mut tp.entries {
+                if !matches!(k.as_str(), "ValidCard" | "ValidSource" | "ValidTarget") {
+                    continue;
+                }
+                if v.contains("IsRemembered") {
+                    if base_watch == "TriggerRemember::None" {
+                        return None;
+                    }
+                    *v = Self::rewrite_remembered_atom(v, "IsRemembered")?;
+                    trigger_watch = base_watch;
+                    uses_watch = true;
+                } else if v.contains("EffectSource") && !self.on_a_spell {
+                    *v = Self::rewrite_remembered_atom(v, "EffectSource")?;
+                    trigger_watch = "TriggerRemember::Source";
+                    uses_watch = true;
+                }
+            }
+            if dur_raw.as_deref() == Some("Permanent")
+                && !one_off
+                && trigger_watch == "TriggerRemember::None"
+            {
+                return None;
+            }
+            if tp.entries.iter().any(|(_, v)| {
+                v.contains("IsRemembered")
+                    || v.contains("EffectSource")
+                    || v.contains("RememberedPlayer")
+                    || v.contains("ChosenCard")
+            }) {
+                return None;
+            }
+
+            let trigger_expr = self.trigger_expr_in_zone(&mut tp, &mode, true)?;
+            let cond = self.delayed_optional_condition(&mut tp)?;
+            let execute = tp.take("Execute")?;
+            let exec_raw = self.svars.get(execute.trim())?.clone();
+            if !tp.exhausted() {
+                return None;
+            }
+
+            let (effects, targets, remember) = self.parse_effect_trigger_execute(
+                &exec_raw,
+                &mode,
+                optional,
+                uses_watch,
+                trigger_watch,
+            )?;
+            let targets_expr =
+                targets.map_or_else(|| "None".to_string(), |req| format!("Some({req})"));
+            out.push(format!(
+                "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::OnTrigger {{ \
+                 trigger: &{trigger_expr}, watch: {trigger_watch}, duration: {delayed_dur} }}, \
+                 condition: {cond}, targets: {targets_expr}, remember: {remember}, \
+                 effects: &[{effects}] }}"
+            ));
+            trigger_count += 1;
+        }
+        (trigger_count > 0).then_some(out)
+    }
+
+    fn rewrite_remembered_atom(valid: &str, needle: &str) -> Option<String> {
+        let mut alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            let (base, atoms_raw) = alt.split_once('.')?;
+            let mut saw = false;
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if atom == needle {
+                    saw = true;
+                    kept.push("Self");
+                } else if atom.contains(needle) {
+                    return None;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !saw {
+                return None;
+            }
+            alts.push(format!("{base}.{}", kept.join("+")));
+        }
+        (!alts.is_empty()).then(|| alts.join(","))
+    }
+
+    fn parse_effect_trigger_execute(
+        &mut self,
+        exec_raw: &str,
+        mode: &str,
+        optional: bool,
+        uses_watch: bool,
+        trigger_watch: &'static str,
+    ) -> Option<(String, Option<String>, &'static str)> {
+        if !self.on_a_spell
+            && let Some((api, mut ep)) = Params::parse(exec_raw)
+            && matches!(api.as_str(), "Sacrifice" | "SacrificeAll")
+            && ep.take("Defined").as_deref() == Some("EffectSource")
+        {
+            ep.drop_prose();
+            if ep.exhausted() {
+                let eff = if optional {
+                    "Effect::MayDo { effects: &[Effect::SacrificeSelf] }".to_string()
+                } else {
+                    "Effect::SacrificeSelf".to_string()
+                };
+                return Some((eff, None, "TriggerRemember::None"));
+            }
+        }
+        let mentions_triggered =
+            exec_raw.contains("Triggered") || exec_raw.contains("TriggerCount$");
+        let mentions_remembered = exec_raw.contains("Defined$ Remembered");
+        let (body_to_parse, remember) = if mentions_remembered {
+            if !uses_watch || mentions_triggered || exec_raw.contains("RememberedPlayer") {
+                return None;
+            }
+            let normalized = exec_raw
+                .replace(
+                    "Defined$ RememberedLKI",
+                    "Defined$ DelayTriggerRememberedLKI",
+                )
+                .replace("Defined$ Remembered", "Defined$ DelayTriggerRemembered");
+            let rem = if mode == "ChangesZone" {
+                "TriggerRemember::None"
+            } else {
+                trigger_watch
+            };
+            (normalized, rem)
+        } else {
+            (exec_raw.to_string(), "TriggerRemember::None")
+        };
+        let (effects, targets) =
+            self.parse_delayed_body_str(&body_to_parse, Some(mode.to_string()), optional)?;
+        Some((effects, targets, remember))
     }
 }

@@ -4663,3 +4663,370 @@ fn wave14c_counter_types_and_wave6c_effect_modifiers() {
          SVar:Dmg3:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Times.3"
     ));
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave15c_chooser_dont_control_linked_exile_gift_and_trigger_counts() {
+    // #421: no `Chooser$` beside a single `DefinedPlayer$` -> that player chooses.
+    let curse = read(
+        "Name:GraveRot\nManaCost:3 B\nTypes:Enchantment Aura Curse\nK:Enchant:Player\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player.EnchantedBy | TriggerZones$ Battlefield | Execute$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | DefinedPlayer$ EnchantedPlayer | ChangeType$ Card | ChangeNum$ 2 | Hidden$ True | Mandatory$ True",
+    );
+    let ability = curse
+        .abilities
+        .iter()
+        .find(|a| a.contains("Effect::ChooseCard"))
+        .expect("graveyard choice");
+    assert!(
+        ability.contains("chooser: PlayerRel::EnchantedPlayer")
+            && ability.contains("ChooseZone::Graveyard(PlayerRel::EnchantedPlayer)"),
+        "{ability}"
+    );
+
+    // #425: "you don't control" keeps its negation on stack targets.
+    let dont_control = read(
+        "Name:AbilityHusher\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Counter | Cost$ T | TargetType$ Activated.YouDontCtrl,Triggered.YouDontCtrl | ValidTgts$ Card",
+    );
+    assert!(
+        dont_control.abilities[0].contains("Effect::CounterTargetAbility")
+            && dont_control.abilities[0].contains("TargetSpec::AbilityOnStack(&TARGET")
+            && dont_control
+                .statics
+                .contains("Filter::Not(&Filter::ControlledByYou)")
+            && !dont_control.abilities[0].contains("ControlledByOpponent"),
+        "{}\n{}",
+        dont_control.statics,
+        dont_control.abilities[0]
+    );
+    let opp_spell = read(
+        "Name:SpellHusher\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell.OppCtrl | ValidTgts$ Card",
+    );
+    assert!(
+        opp_spell.abilities[0].contains("TargetSpec::Spell(&Filter::ControlledByOpponent)")
+            && opp_spell.abilities[0].contains("Effect::CounterTargetSpell"),
+        "{}",
+        opp_spell.abilities[0]
+    );
+    assert!(refused(
+        "Name:MixedHusher\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell.OppCtrl,Activated | ValidTgts$ Card"
+    ));
+
+    // Wave 7a ChooseMove::ExileLinked: the only reader is the leave-the-battlefield return.
+    let linked = read(
+        "Name:LandBorrower\nManaCost:1 U\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Ex\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ Ret\n\
+         SVar:Ex:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | Hidden$ True | Mandatory$ True | ChangeType$ Land.YouCtrl\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ ExiledWith | Origin$ Exile | Destination$ Battlefield",
+    );
+    assert!(
+        linked.abilities[0].contains("movement: ChooseMove::ExileLinked")
+            && linked.abilities[1].contains("Effect::ReturnLinkedToBattlefield"),
+        "{}\n{}",
+        linked.abilities[0],
+        linked.abilities[1]
+    );
+    assert!(refused(
+        "Name:LandCounter\nManaCost:1 U\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | Hidden$ True | Mandatory$ True | ChangeType$ Land.YouCtrl\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X\n\
+         SVar:X:Count$ValidExile Card.ExiledWithSource"
+    ));
+
+    // Wave 7a gift observer.
+    let gift = read(
+        "Name:GiftWatcher\nManaCost:1 W\nTypes:Creature\nPT:1/2\n\
+         T:Mode$ GiveGift | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        gift.abilities[0].contains("Trigger::GaveGift(PlayerRel::You)"),
+        "{}",
+        gift.abilities[0]
+    );
+
+    // `Phase` trigger `CheckSVar$` over a counted `Count$…` SVar.
+    let counted = read(
+        "Name:EndStepCounter\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ X | SVarCompare$ GE3 | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:X:Count$Valid Creature.YouCtrl",
+    );
+    assert!(
+        counted.abilities[0].contains("condition = Some(Condition::"),
+        "{}",
+        counted.abilities[0]
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave15c_effect_delayed_triggers_emblems_and_gift_clauses() {
+    // Unbound turn-long delayed trigger via `SP$ Effect | Triggers$`.
+    let life_punish = read(
+        "Name:BitterRemedy\nManaCost:B B\nTypes:Instant\n\
+         A:SP$ Effect | Triggers$ GainTrig\n\
+         SVar:GainTrig:Mode$ LifeGained | ValidPlayer$ Player | TriggerZones$ Command | Execute$ LoseIt\n\
+         SVar:LoseIt:DB$ LoseLife | Defined$ TriggeredPlayer | LifeAmount$ X\n\
+         SVar:X:TriggerCount$LifeAmount/Times.2",
+    );
+    assert!(
+        life_punish.abilities[0].contains("Effect::RegisterDelayedTrigger")
+            && life_punish.abilities[0].contains("Trigger::GainsLife(PlayerRel::EachPlayer)")
+            && life_punish.abilities[0].contains("DelayedDuration::ThisTurn")
+            && life_punish.abilities[0].contains("Amount::Times"),
+        "{}",
+        life_punish.abilities[0]
+    );
+
+    // Watched dies trigger via `AB$ Effect | RememberObjects$ Targeted | ForgetOnMoved$ Graveyard`.
+    let guardian = read(
+        "Name:GraveGuardian\nManaCost:G W\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Effect | Cost$ Sac<1/CARDNAME> | ValidTgts$ Creature | Triggers$ DieTrig | ForgetOnMoved$ Graveyard | RememberObjects$ Targeted\n\
+         SVar:DieTrig:Mode$ ChangesZone | ValidCard$ Creature.IsRemembered+YouOwn | Origin$ Battlefield | Destination$ Graveyard | Execute$ Back\n\
+         SVar:Back:DB$ ChangeZone | Defined$ Remembered | Origin$ Graveyard | Destination$ Battlefield",
+    );
+    assert!(
+        guardian.abilities[0].contains("Effect::RegisterDelayedTrigger")
+            && guardian.abilities[0].contains("watch: TriggerRemember::FirstTarget")
+            && guardian.abilities[0].contains("remember: TriggerRemember::None")
+            && guardian.abilities[0].contains("Effect::GraveyardToBattlefield"),
+        "{}",
+        guardian.abilities[0]
+    );
+
+    // Emblem with static + triggered abilities -> `Effect::CreateEmblem`.
+    let emblem = read(
+        "Name:SageSpell\nManaCost:3 U U\nTypes:Sorcery\n\
+         A:SP$ Effect | Name$ Emblem — SageSpell | StaticAbilities$ NoMax | Triggers$ CastDraw | Duration$ Permanent\n\
+         SVar:NoMax:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited | EffectZone$ Command\n\
+         SVar:CastDraw:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ You | TriggerZones$ Command | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        emblem.abilities[0].contains("Effect::CreateEmblem { abilities: &[")
+            && emblem.abilities[0].contains("Modifier::NoMaxHandSize")
+            && emblem.abilities[0].contains("Trigger::SpellCast(&Filter::ControlledByYou)"),
+        "{}",
+        emblem.abilities[0]
+    );
+    // Negative boundaries: loyalty-only `Planeswalker$ True`, opponent emblem, and Alchemy boon stay refused.
+    assert!(refused(
+        "Name:LoyaltyEmblem\nManaCost:3 U\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<7/LOYALTY> | Planeswalker$ True | Ultimate$ True | Name$ Emblem — LoyaltyEmblem | StaticAbilities$ NoMax | Duration$ Permanent\n\
+         SVar:NoMax:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited | EffectZone$ Command"
+    ));
+    assert!(refused(
+        "Name:OppEmblem\nManaCost:3 R\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<6/LOYALTY> | Planeswalker$ True | EffectOwner$ Player.Opponent | Name$ Emblem — OppEmblem | Triggers$ T | Duration$ Permanent\n\
+         SVar:T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | Execute$ L\n\
+         SVar:L:DB$ LoseLife | Defined$ You | LifeAmount$ 1"
+    ));
+    assert!(refused(
+        "Name:BoonSpell\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Effect | Boon$ True | Duration$ Permanent | Triggers$ T\n\
+         SVar:T:Mode$ SpellCast | ValidCard$ Creature | ValidActivatingPlayer$ You | TriggerZones$ Command | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1"
+    ));
+
+    // Wave 7a Gift chain conditions & ETB trigger.
+    let gift_spell = read(
+        "Name:GiftBolt\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ X | SubAbility$ Extra\n\
+         SVar:Extra:DB$ Draw | Defined$ You | NumCards$ 1 | ConditionZone$ Stack | ConditionPresent$ Card.Self+PromisedGift | ConditionCompare$ EQ1\n\
+         SVar:X:Count$PromisedGift.3.2",
+    );
+    assert!(
+        gift_spell.abilities[0].contains("Condition::GiftWasPromised")
+            && gift_spell.abilities[0].contains("Amount::Fixed(3)")
+            && gift_spell.abilities[0].contains("Amount::Fixed(2)"),
+        "{}",
+        gift_spell.abilities[0]
+    );
+    let gift_etb = read(
+        "Name:GiftBear\nManaCost:2 G\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self+PromisedGift | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        gift_etb.abilities[0].contains("Trigger::ETB")
+            && gift_etb.abilities[0].contains("condition = Some(Condition::GiftWasPromised)"),
+        "{}",
+        gift_etb.abilities[0]
+    );
+
+    // #420 honest-stub guard: "sacrifices another" beside `TargetedController` stays refused.
+    assert!(refused(
+        "Name:OtherLandEater\nManaCost:3 G G\nTypes:Sorcery\n\
+         A:SP$ Destroy | ValidTgts$ Land | SubAbility$ Sac\n\
+         SVar:Sac:DB$ Sacrifice | Defined$ TargetedController | SacValid$ Land\n\
+         Oracle:Destroy target land. Its controller sacrifices another land."
+    ));
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave15c_phase_svars_change_zone_pump_hidden_sacrifice_n_and_coin_wins() {
+    // Phase trigger `CheckSVar$` for creatures entered this turn & instant/sorcery cast.
+    let entered_trig = read(
+        "Name:ArrivalWatch\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ E | SVarCompare$ GE2 | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:E:Count$ThisTurnEntered_Battlefield_Creature.YouCtrl",
+    );
+    assert!(
+        entered_trig.abilities[0].contains(
+            "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, 2)"
+        ),
+        "{}",
+        entered_trig.abilities[0]
+    );
+    let cast_trig = read(
+        "Name:SpellWatch\nManaCost:1 U\nTypes:Creature\nPT:1/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ C | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:C:Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl",
+    );
+    assert!(
+        cast_trig.abilities[0].contains("Condition::CastInstantOrSorceryThisTurn"),
+        "{}",
+        cast_trig.abilities[0]
+    );
+    // Count >= 3 cannot lower to boolean `CastInstantOrSorceryThisTurn`.
+    assert!(refused(
+        "Name:ThreeSpellWatch\nManaCost:1 U\nTypes:Creature\nPT:1/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ C | SVarCompare$ GE3 | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:C:Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl"
+    ));
+
+    // Omitted `Defined$` on spell `Origin$ Stack | Destination$ Exile` -> `Effect::ExileSource`.
+    let exile_self = read(
+        "Name:OneShotDraw\nManaCost:U\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ 1 | SubAbility$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Origin$ Stack | Destination$ Exile",
+    );
+    assert!(
+        exile_self.abilities[0].contains("Effect::ExileSource"),
+        "{}",
+        exile_self.abilities[0]
+    );
+
+    // `Origin$ Library,Graveyard` -> `Effect::SearchLibraryOrGraveyard`.
+    let dual_search = read(
+        "Name:DualTutor\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library,Graveyard | Destination$ Hand | ChangeType$ Land.Basic | ChangeNum$ 1",
+    );
+    assert!(
+        dual_search.abilities[0].contains("Effect::SearchLibraryOrGraveyard")
+            && dual_search.abilities[0].contains("find: &Find::HAND"),
+        "{}",
+        dual_search.abilities[0]
+    );
+
+    // Graveyard any-number target (`Count$ValidGraveyard`) -> `up_to(..., 255)`.
+    let any_gy = read(
+        "Name:MassShuffle\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Library | Shuffle$ True | ValidTgts$ Creature.YouOwn | TargetMin$ 0 | TargetMax$ X\n\
+         SVar:X:Count$ValidGraveyard Creature.YouOwn",
+    );
+    assert!(
+        any_gy.abilities[0].contains("TargetReq::up_to(") && any_gy.abilities[0].contains(", 255)"),
+        "{}",
+        any_gy.abilities[0]
+    );
+
+    // Hybrid `Pump` with `NumAtt`/`NumDef` + `HIDDEN` combat modifier.
+    let lure_pump = read(
+        "Name:DominatePump\nManaCost:3 G G\nTypes:Sorcery\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +3 | NumDef$ +3 | KW$ HIDDEN All creatures able to block CARDNAME do so.",
+    );
+    assert!(
+        lure_pump.abilities[0].contains("Effect::PumpTarget")
+            && lure_pump.abilities[0].contains("Modifier::MustBeBlockedByAllAble"),
+        "{}",
+        lure_pump.abilities[0]
+    );
+
+    // `PutCounter` with `Defined$ Self & Targeted` on the targeting line itself.
+    let dual_counter = read(
+        "Name:PairGrower\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         A:AB$ PutCounter | Cost$ 2 T | Defined$ Self & Targeted | ValidTgts$ Creature.YouCtrl | TargetMin$ 0 | TargetMax$ 1 | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        dual_counter.abilities[0].contains("Effect::AddCounter {")
+            && dual_counter.abilities[0]
+                .contains("Effect::AddCounterFilter { filter: &Filter::This"),
+        "{}",
+        dual_counter.abilities[0]
+    );
+
+    // Multi-sacrifice `RememberSacrificed` -> `SacrificeNOrElse` and `PlayerMaySacrificeNOr`.
+    let sac_two = read(
+        "Name:HungryDemon\nManaCost:3 B\nTypes:Creature\nPT:5/5\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ S\n\
+         SVar:S:DB$ Sacrifice | Defined$ You | Amount$ 2 | SacValid$ Creature | RememberSacrificed$ True | SubAbility$ F\n\
+         SVar:F:DB$ LoseLife | Defined$ You | LifeAmount$ 4 | ConditionCheckSVar$ X | ConditionSVarCompare$ LT2 | SubAbility$ C\n\
+         SVar:C:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        sac_two.abilities[0].contains("Effect::SacrificeNOrElse {")
+            && sac_two.abilities[0].contains("count: 2"),
+        "{}",
+        sac_two.abilities[0]
+    );
+
+    // `FlipUntilYouLose` with `WinSubAbility$` reading `Wins` -> `after` + `CoinsWonThisResolution`.
+    let coin_cat = read(
+        "Name:LuckyCat\nManaCost:5 R R\nTypes:Creature\nPT:4/4\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ F\n\
+         SVar:F:DB$ FlipCoin | FlipUntilYouLose$ True | WinSubAbility$ G\n\
+         SVar:G:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ Wins",
+    );
+    assert!(
+        coin_cat.abilities[0]
+            .contains("Effect::FlipUntilLose { max_flips: None, per_win: &[], after: &[")
+            && coin_cat.abilities[0].contains("Amount::CoinsWonThisResolution"),
+        "{}",
+        coin_cat.abilities[0]
+    );
+
+    // Dual-target `TargetOnly -> TargetOnly -> Pump` lowers to `PumpTarget` + `PumpTargetSlot`.
+    let two_pump = read(
+        "Name:TwinBoost\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature.YouCtrl | SubAbility$ T2\n\
+         SVar:T2:DB$ TargetOnly | ValidTgts$ Creature.OppCtrl | SubAbility$ P\n\
+         SVar:P:DB$ Pump | Defined$ Targeted | NumAtt$ +2 | NumDef$ +2",
+    );
+    assert!(
+        two_pump.abilities[0].contains("Effect::PumpTarget {")
+            && two_pump.abilities[0].contains("Effect::PumpTargetSlot { slot: TargetSlot::Second")
+            && two_pump.abilities[0].contains("second_targets = Some("),
+        "{}",
+        two_pump.abilities[0]
+    );
+
+    // #436: Parley self-counter must emit `Effect::AddCounterFilter(&Filter::This)`, not nonexistent `AddCounterAmount`.
+    let parley_counter = read(
+        "Name:EnvoyParley\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Pk\n\
+         SVar:Pk:DB$ PeekAndReveal | Defined$ Player | RememberRevealed$ True | SubAbility$ Dr\n\
+         SVar:Dr:DB$ Draw | Defined$ Player | SubAbility$ Pc\n\
+         SVar:Pc:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ X | SubAbility$ Cl\n\
+         SVar:Cl:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Valid Card.nonLand",
+    );
+    assert!(
+        parley_counter.abilities[0]
+            .contains("Effect::AddCounterFilter { filter: &Filter::This, kind: CounterKind::P1P1")
+            && !parley_counter.abilities[0].contains("AddCounterAmount"),
+        "{}",
+        parley_counter.abilities[0]
+    );
+}

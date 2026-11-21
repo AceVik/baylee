@@ -537,6 +537,42 @@ impl Tx<'_> {
             vec![self.delayed_trigger(&mut p, target.as_deref(), targets_here, chain)?]
         } else if api == "ImmediateTrigger" {
             vec![self.immediate_trigger(&mut p, target.as_deref(), chain, starts_whenever)?]
+        } else if api == "Effect"
+            && !second_target_here
+            && (p.peek("Triggers").is_some()
+                || (p.peek("Duration") == Some("Permanent")
+                    && p.peek("Name")
+                        .is_some_and(|n| n.trim_start().starts_with("Emblem"))))
+        {
+            let snapshot = p.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effects) = self.effect_triggers_api(&mut p, target.as_deref(), chain) {
+                effects
+            } else {
+                p.clone_from(&snapshot);
+                self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
+                self.body.statics.truncate(saved_statics_len);
+                let single_target = chain.target_exact.is_none()
+                    && !chain.target_is_x
+                    && chain.target_up_to.is_none_or(|n| n == 1);
+                let prior_target_used = !targets_here && !chain.effects.is_empty();
+                let Some(effects) = self.effect_of_inner(
+                    &api,
+                    &mut p,
+                    target.as_deref(),
+                    LineFlags {
+                        targets_here,
+                        targets_a_player,
+                        single_target,
+                        prior_target_used,
+                    },
+                ) else {
+                    self.note("unreadable value in `Effect`".to_string());
+                    return None;
+                };
+                effects
+            }
         } else {
             self.claim_followed_remember_flag(&api, &mut p, sub.as_deref());
             let Some(effects) = (if second_target_here {
@@ -883,13 +919,44 @@ impl Tx<'_> {
             }
             p.entries.push(("PresentCompare".to_string(), cmp));
         }
-        let cond = if p.peek("ConditionDefined") == Some("Self")
+        let cond = if matches!(
+            p.peek("ConditionPresent"),
+            Some(
+                "Card.Self+PromisedGift"
+                    | "Card.PromisedGift"
+                    | "Card.!PromisedGift"
+                    | "Card.Self+!PromisedGift"
+            )
+        ) && matches!(p.peek("ConditionDefined"), None | Some("Self"))
+            && matches!(p.peek("ConditionZone"), None | Some("Stack"))
+            && !p.has("PresentPlayer")
+            && !p.has("PresentZone")
+        {
+            let valid = p.take("ConditionPresent").expect("checked above");
+            p.take("ConditionDefined");
+            p.take("ConditionZone");
+            let cmp = p.take("PresentCompare");
+            let positive_present = !valid.contains('!');
+            let positive = match cmp.as_deref() {
+                None | Some("GE1" | "EQ1" | "GT0") => positive_present,
+                Some("EQ0" | "LT1") => !positive_present,
+                Some(other) => {
+                    return self.deny(format!("promised-gift condition compared `{other}`"));
+                }
+            };
+            if positive {
+                "Condition::GiftWasPromised".to_string()
+            } else {
+                "Condition::Not(&Condition::GiftWasPromised)".to_string()
+            }
+        } else if p.peek("ConditionDefined") == Some("Self")
             && !p.has("PresentPlayer")
             && !p.has("PresentZone")
             && matches!(
                 p.peek("ConditionPresent"),
                 Some("Card.bargained" | "Card.!bargained" | "Card.prototyped" | "Card.!prototyped")
-            ) {
+            )
+        {
             let valid = p.take("ConditionPresent").expect("checked above");
             p.take("ConditionDefined");
             let cmp = p.take("PresentCompare");
@@ -1022,41 +1089,62 @@ impl Tx<'_> {
         allow_bare_spell: bool,
     ) -> Option<String> {
         let any_source = matches!(valid, "Card" | "Card,Emblem" | "Emblem,Card");
-        match target_type {
-            None if allow_bare_spell => self.target_spec(valid, "Counter"),
-            Some("Spell") => self.target_spec(valid, "Counter"),
-            Some("Spell.OppCtrl" | "Spell.YouDontCtrl") if any_source => {
-                Some("TargetSpec::Spell(&Filter::ControlledByOpponent)".to_string())
+        let Some(raw) = target_type else {
+            return if allow_bare_spell {
+                self.target_spec(valid, "Counter")
+            } else {
+                None
+            };
+        };
+        // `Spell`, `Activated`, `Triggered`, each optionally qualified by one
+        // shared controller atom (`Spell.YouDontCtrl,Activated.YouDontCtrl`).
+        let (mut spell, mut activated, mut triggered) = (false, false, false);
+        let mut qualifier: Option<Option<&str>> = None;
+        for part in raw.split(',').map(str::trim) {
+            let (kind, qual) = match part.split_once('.') {
+                Some((k, q)) => (k, Some(q)),
+                None => (part, None),
+            };
+            let seen = match kind {
+                "Spell" => &mut spell,
+                "Activated" => &mut activated,
+                "Triggered" => &mut triggered,
+                _ => return None,
+            };
+            if *seen || qualifier.is_some_and(|q| q != qual) {
+                return None;
             }
-            Some("Activated") => self.activated_ability_target(valid),
-            Some("Activated,Triggered" | "Triggered,Activated") if any_source => {
-                Some("TargetSpec::AbilityOnStack(&Filter::Any)".to_string())
+            *seen = true;
+            qualifier = Some(qual);
+        }
+        let qualifier = qualifier.flatten();
+        let ctrl = match qualifier {
+            None => None,
+            Some("YouCtrl") => Some("&Filter::ControlledByYou".to_string()),
+            Some("OppCtrl") => Some("&Filter::ControlledByOpponent".to_string()),
+            // "You don't control" is not "an opponent controls" (CR 102.3):
+            // keep the negation the card prints.
+            Some("YouDontCtrl") => {
+                let expr = self.filter_expr("Card.YouDontCtrl")?;
+                Some(format!("&{}", self.body.filter_static("TARGET", &expr)))
             }
-            Some("Activated.YouCtrl,Triggered.YouCtrl" | "Triggered.YouCtrl,Activated.YouCtrl")
-                if any_source =>
-            {
-                Some("TargetSpec::AbilityOnStack(&Filter::ControlledByYou)".to_string())
-            }
-            Some(
-                "Activated.YouDontCtrl,Triggered.YouDontCtrl"
-                | "Triggered.YouDontCtrl,Activated.YouDontCtrl"
-                | "Activated.OppCtrl,Triggered.OppCtrl"
-                | "Triggered.OppCtrl,Activated.OppCtrl",
-            ) if any_source => {
-                Some("TargetSpec::AbilityOnStack(&Filter::ControlledByOpponent)".to_string())
-            }
-            Some(
-                "Spell,Activated,Triggered"
-                | "Activated,Triggered,Spell"
-                | "Spell,Triggered,Activated",
-            ) if any_source => Some("TargetSpec::SpellOrAbility(&Filter::Any)".to_string()),
-            Some(
-                "Spell.YouDontCtrl,Activated.YouDontCtrl,Triggered.YouDontCtrl"
-                | "Activated.YouDontCtrl,Triggered.YouDontCtrl,Spell.YouDontCtrl"
-                | "Spell.OppCtrl,Activated.OppCtrl,Triggered.OppCtrl",
-            ) if any_source => {
-                Some("TargetSpec::SpellOrAbility(&Filter::ControlledByOpponent)".to_string())
-            }
+            Some(_) => return None,
+        };
+        match (spell, activated, triggered) {
+            (true, false, false) => match ctrl {
+                None => self.target_spec(valid, "Counter"),
+                Some(c) if any_source => Some(format!("TargetSpec::Spell({c})")),
+                Some(_) => None,
+            },
+            (false, true, false) if ctrl.is_none() => self.activated_ability_target(valid),
+            (false, true, true) if any_source => Some(format!(
+                "TargetSpec::AbilityOnStack({})",
+                ctrl.as_deref().unwrap_or("&Filter::Any")
+            )),
+            (true, true, true) if any_source => Some(format!(
+                "TargetSpec::SpellOrAbility({})",
+                ctrl.as_deref().unwrap_or("&Filter::Any")
+            )),
             _ => None,
         }
     }
@@ -1284,10 +1372,13 @@ impl Tx<'_> {
                 } else if multi_target_ok
                     && p.peek("TargetMin") == Some("0")
                     && let Some(max_var) = p.peek("TargetMax")
-                    && self
-                        .svars
-                        .get(max_var.trim())
-                        .is_some_and(|def| def.trim() == format!("Count$Valid {valid}"))
+                    && self.svars.get(max_var.trim()).is_some_and(|def| {
+                        let def = def.trim();
+                        def == format!("Count$Valid {valid}")
+                            || (api == "ChangeZone"
+                                && p.peek("Origin") == Some("Graveyard")
+                                && def == format!("Count$ValidGraveyard {valid}"))
+                    })
                 {
                     p.take("TargetMin");
                     p.take("TargetMax");
@@ -2277,7 +2368,6 @@ impl Tx<'_> {
                     }
                     Some("Self & Targeted" | "Targeted & Self")
                         if !self.on_a_spell
-                            && !targets_here
                             && target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) =>
                     {
                         let mut out = emit_target();
@@ -3242,53 +3332,29 @@ impl Tx<'_> {
                     Some("Exile") => true,
                     Some(_) => return None,
                 };
-                match target_type.as_deref() {
-                    Some("Spell" | "Spell.OppCtrl" | "Spell.YouDontCtrl") => {
+                // The spec `counter_or_stack_target` read from `TargetType$`
+                // (or the parent line's, when inherited) says what is countered.
+                if target_type.is_none() && !(inherited_target || targets_here) {
+                    return None;
+                }
+                match target {
+                    Some(t) if t.starts_with("TargetSpec::Spell(") => {
                         if is_exile {
                             vec!["Effect::CounterTargetSpellToExile".to_string()]
                         } else {
                             vec!["Effect::CounterTargetSpell".to_string()]
                         }
                     }
-                    Some(
-                        "Activated"
-                        | "Activated,Triggered"
-                        | "Triggered,Activated"
-                        | "Activated.YouCtrl,Triggered.YouCtrl"
-                        | "Triggered.YouCtrl,Activated.YouCtrl"
-                        | "Activated.YouDontCtrl,Triggered.YouDontCtrl"
-                        | "Triggered.YouDontCtrl,Activated.YouDontCtrl"
-                        | "Activated.OppCtrl,Triggered.OppCtrl"
-                        | "Triggered.OppCtrl,Activated.OppCtrl",
-                    ) if !is_exile => vec!["Effect::CounterTargetAbility".to_string()],
-                    Some(
-                        "Spell,Activated,Triggered"
-                        | "Activated,Triggered,Spell"
-                        | "Spell,Triggered,Activated"
-                        | "Spell.YouDontCtrl,Activated.YouDontCtrl,Triggered.YouDontCtrl"
-                        | "Activated.YouDontCtrl,Triggered.YouDontCtrl,Spell.YouDontCtrl"
-                        | "Spell.OppCtrl,Activated.OppCtrl,Triggered.OppCtrl",
-                    ) if !is_exile => vec!["Effect::CounterTargetSpellOrAbility".to_string()],
-                    None if inherited_target || targets_here => match target {
-                        Some(t) if t.starts_with("TargetSpec::Spell(") => {
-                            if is_exile {
-                                vec!["Effect::CounterTargetSpellToExile".to_string()]
-                            } else {
-                                vec!["Effect::CounterTargetSpell".to_string()]
-                            }
-                        }
-                        Some(t)
-                            if !is_exile
-                                && (t.starts_with("TargetSpec::AbilityOnStack(")
-                                    || t.starts_with("TargetSpec::ActivatedAbility(")) =>
-                        {
-                            vec!["Effect::CounterTargetAbility".to_string()]
-                        }
-                        Some(t) if !is_exile && t.starts_with("TargetSpec::SpellOrAbility(") => {
-                            vec!["Effect::CounterTargetSpellOrAbility".to_string()]
-                        }
-                        _ => return None,
-                    },
+                    Some(t)
+                        if !is_exile
+                            && (t.starts_with("TargetSpec::AbilityOnStack(")
+                                || t.starts_with("TargetSpec::ActivatedAbility(")) =>
+                    {
+                        vec!["Effect::CounterTargetAbility".to_string()]
+                    }
+                    Some(t) if !is_exile && t.starts_with("TargetSpec::SpellOrAbility(") => {
+                        vec!["Effect::CounterTargetSpellOrAbility".to_string()]
+                    }
                     _ => return None,
                 }
             }
@@ -3793,6 +3859,8 @@ impl Tx<'_> {
             .or_else(|| def.strip_prefix("Count$Bargain."))
         {
             ("Condition::Bargained", rest)
+        } else if let Some(rest) = def.strip_prefix("Count$PromisedGift.") {
+            ("Condition::GiftWasPromised", rest)
         } else {
             let rest = def
                 .strip_prefix("Count$Prototyped.")
@@ -3959,6 +4027,18 @@ impl Tx<'_> {
                     _ => None,
                 }
             }
+            "Count$PromisedGift.1.0" | "Count$PromisedGift" => match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::GiftWasPromised".to_string()),
+                "EQ0" | "LT1" => Some("Condition::Not(&Condition::GiftWasPromised)".to_string()),
+                _ => None,
+            },
+            "Count$PromisedGift.0.1" => match cmp {
+                "EQ0" | "LT1" => Some("Condition::GiftWasPromised".to_string()),
+                "GE1" | "EQ1" | "GT0" => {
+                    Some("Condition::Not(&Condition::GiftWasPromised)".to_string())
+                }
+                _ => None,
+            },
             "Count$Prototyped.1.0"
             | "Count$Prototyped"
             | "Count$Prototype.1.0"
@@ -4164,6 +4244,13 @@ impl Tx<'_> {
         };
         match api.as_str() {
             "Destroy" | "Tap" | "Untap" => both_obj,
+            "Pump" => {
+                both_obj
+                    && ["NumAtt", "NumDef"].iter().all(|key| {
+                        sp.peek(key)
+                            .is_none_or(|value| value.parse::<i16>().is_ok())
+                    })
+            }
             "DealDamage" => {
                 sp.peek("DamageSource").is_none()
                     && is_dmg_spec(first_spec)
@@ -4206,6 +4293,18 @@ impl Tx<'_> {
                 "Effect::UntapTargetSlot(TargetSlot::First)".to_string(),
                 "Effect::UntapTargetSlot(TargetSlot::Second)".to_string(),
             ],
+            "Pump" => {
+                let first_spec = chain.target.as_deref()?;
+                let second_spec = chain.second_target.as_deref()?;
+                let mut dp_second = dp.clone();
+                let mut combined = self.pump_effect(&mut dp, first_spec, false)?;
+                let second_effs = self.pump_effect(&mut dp_second, second_spec, true)?;
+                if !dp_second.exhausted() {
+                    return None;
+                }
+                combined.extend(second_effs);
+                combined
+            }
             "DealDamage" => {
                 if dp.take("DamageSource").is_some()
                     || dp.take("DamageMap").is_some_and(|v| v != "True")
@@ -4288,9 +4387,11 @@ impl Tx<'_> {
                     p.take("RememberFound");
                 }
                 "ChangeZone"
-                    if p.peek("Origin") == Some("Battlefield")
-                        && matches!(p.peek("Destination"), Some("Exile" | "Hand"))
-                        && p.peek("RememberChanged") == Some("True") =>
+                    if matches!(
+                        (p.peek("Origin"), p.peek("Destination")),
+                        (Some("Battlefield"), Some("Exile" | "Hand"))
+                            | (Some("Graveyard"), Some("Exile"))
+                    ) && p.peek("RememberChanged") == Some("True") =>
                 {
                     p.take("RememberChanged");
                 }
@@ -4313,7 +4414,7 @@ impl Tx<'_> {
         }
     }
 
-    fn single_subtype_const(&self, word: &str) -> Option<String> {
+    pub(super) fn single_subtype_const(&self, word: &str) -> Option<String> {
         if word.is_empty() || word.contains(['.', '+', ',', ' ', '!']) {
             return None;
         }
