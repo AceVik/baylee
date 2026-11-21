@@ -22,7 +22,7 @@ card!(
     oracle_id = "010e0d5c-e751-4f67-b305-8a598cc1f0de",
     scryfall_id = "50496069-0f55-4dfe-8b1e-7fc4f649f2f1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chamber of Manipulation",
         mana_cost = mana!("{2}{U}{U}"),

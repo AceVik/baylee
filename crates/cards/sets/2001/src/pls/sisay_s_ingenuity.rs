@@ -23,7 +23,7 @@ card!(
     oracle_id = "3a487f20-6b1d-4be3-b51f-0c8f0a611601",
     scryfall_id = "bbe20cc1-621a-4813-9bbb-ace006e173ff",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sisay's Ingenuity",
         mana_cost = mana!("{U}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "880367e4-50b9-49d0-b596-d462d9b42855",
     scryfall_id = "1e5061e4-a76d-4a7c-b196-96c81f94e0e5",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Diversionary Tactics",
         mana_cost = mana!("{3}{W}"),

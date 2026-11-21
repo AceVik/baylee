@@ -13,7 +13,7 @@ card!(
     oracle_id = "095f8dac-15b8-4c28-ae33-6dc71152bcc7",
     scryfall_id = "e682a705-9341-4d1e-a9c5-d428e50b9a03",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Squee's Embrace",
         mana_cost = mana!("{R}{W}"),

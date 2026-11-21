@@ -11,7 +11,7 @@ card!(
     oracle_id = "a6872d7a-b647-4baf-bd1e-06707ccbb71a",
     scryfall_id = "a6e2b7e9-d52b-478e-b118-e890a81fd471",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Symbiotic Deployment",
         mana_cost = mana!("{2}{G}"),

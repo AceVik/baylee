@@ -13,7 +13,7 @@ card!(
     oracle_id = "96e41850-04a9-47bf-98a7-4238b25b1824",
     scryfall_id = "9ce4be1e-97dd-45ec-89e5-2fb56145c098",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Withering Hex",
         mana_cost = mana!("{B}"),

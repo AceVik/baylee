@@ -13,7 +13,7 @@ card!(
     oracle_id = "682a6d77-e8cd-4bf2-b777-7793101e0fd3",
     scryfall_id = "449baad3-9a4a-4f5f-9e9f-02cc97ab71e6",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shade's Form",
         mana_cost = mana!("{1}{B}{B}"),

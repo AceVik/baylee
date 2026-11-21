@@ -13,7 +13,7 @@ card!(
     oracle_id = "23b518ab-561f-4551-8270-082cde99b993",
     scryfall_id = "309bc2e7-bece-493d-b7ab-0e08a9f40909",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Patriarch's Desire",
         mana_cost = mana!("{3}{B}"),

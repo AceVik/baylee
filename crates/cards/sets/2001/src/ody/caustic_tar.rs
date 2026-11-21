@@ -21,7 +21,7 @@ card!(
     oracle_id = "2b5f70ec-33da-4dff-9cff-fe05eb906685",
     scryfall_id = "9002443d-a296-4f68-8a94-991165e6ea38",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Caustic Tar",
         mana_cost = mana!("{4}{B}{B}"),

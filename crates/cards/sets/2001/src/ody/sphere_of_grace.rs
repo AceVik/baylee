@@ -12,7 +12,7 @@ card!(
     oracle_id = "e45de1f7-ad45-494d-855e-3e11f109909d",
     scryfall_id = "d5b49d82-6d11-4294-a367-0b5b45c05e44",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sphere of Grace",
         mana_cost = mana!("{3}{W}"),

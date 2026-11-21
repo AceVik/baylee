@@ -21,7 +21,7 @@ card!(
     oracle_id = "842bb10a-f056-4db8-a341-2d20796b99ba",
     scryfall_id = "862fc18f-90d2-430d-aff2-47c1483dee9d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Psionic Gift",
         mana_cost = mana!("{1}{U}"),

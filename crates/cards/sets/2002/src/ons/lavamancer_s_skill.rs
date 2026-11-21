@@ -31,7 +31,7 @@ card!(
     oracle_id = "e7819a6d-a518-4400-8e30-2a528878fd8a",
     scryfall_id = "0d4dd156-a2c1-4fab-b9f4-3302a4e8835a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lavamancer's Skill",
         mana_cost = mana!("{1}{R}"),
