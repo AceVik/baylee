@@ -11,7 +11,7 @@ card!(
     oracle_id = "3ebd9c8d-c840-4c2e-ace6-352a68d1c20f",
     scryfall_id = "64e9caf7-b835-42a6-8f84-e35162fe25d7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Craven Giant",
         mana_cost = mana!("{2}{R}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "23c5704f-5856-4422-9d82-14558dbe1434",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::PHASING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shimmering Efreet",
         mana_cost = mana!("{2}{U}"),

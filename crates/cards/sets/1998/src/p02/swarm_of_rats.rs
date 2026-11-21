@@ -16,7 +16,7 @@ card!(
     oracle_id = "7fe21ade-01f1-45ff-9b70-bc6302c3d284",
     scryfall_id = "ba1a92e2-6a8f-45fe-84cc-08fde6210077",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swarm of Rats",
         mana_cost = mana!("{1}{B}"),

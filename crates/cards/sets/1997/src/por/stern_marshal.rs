@@ -11,7 +11,7 @@ card!(
     oracle_id = "00602959-e9a1-4706-a1cb-70156a6fc713",
     scryfall_id = "18fbfbc0-c55b-4e56-a3d2-5d09571c36c8",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stern Marshal",
         mana_cost = mana!("{2}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "b558541f-ae57-41f7-a5bd-e23fa35e68b4",
     scryfall_id = "bfc681f5-9fff-48b6-98d9-e85c85e582a3",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jamuraan Lion",
         mana_cost = mana!("{2}{W}"),

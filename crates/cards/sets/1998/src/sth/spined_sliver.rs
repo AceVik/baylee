@@ -15,7 +15,7 @@ card!(
     oracle_id = "eed9c168-1c78-43c6-a814-9b80054d1373",
     scryfall_id = "5bb97644-be16-4d14-bebd-51894772b77b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spined Sliver",
         mana_cost = mana!("{R}{G}"),

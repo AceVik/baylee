@@ -11,7 +11,7 @@ card!(
     oracle_id = "27d138af-7c5d-4c7e-a310-63d5b03f039d",
     scryfall_id = "d4cbae27-4a1a-4e16-8876-9a2925c45302",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Craven Knight",
         mana_cost = mana!("{1}{B}"),
