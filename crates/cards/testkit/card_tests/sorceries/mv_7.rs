@@ -5,6 +5,7 @@ use super::*;
 
 mod sunscour;
 
+mod ancestral_tribute;
 mod bloodsoaked_insight;
 mod cinder_storm;
 mod emeria_s_call;
@@ -13,6 +14,7 @@ mod return_of_the_nightstalkers;
 mod roar_of_the_wurm;
 mod sea_gate_restoration;
 mod searing_flesh;
+mod temporal_cascade;
 mod temporal_mastery;
 mod turntimber_symbiosis;
 mod vampiric_feast;

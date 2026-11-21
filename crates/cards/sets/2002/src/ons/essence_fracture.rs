@@ -11,7 +11,7 @@ card!(
     oracle_id = "31a49fb9-1081-46c3-a352-0444869afdc9",
     scryfall_id = "df0b6c7a-0891-492d-8e07-6a198bf2ccc4",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Essence Fracture",
         mana_cost = mana!("{3}{U}{U}"),

@@ -352,6 +352,7 @@ mod rise_of_eagles;
 mod sangrite_surge;
 mod sip_of_hemlock;
 mod slice_and_dice;
+mod solar_tide;
 mod spectral_procession;
 mod stolen_grain;
 mod thassa_s_bounty;

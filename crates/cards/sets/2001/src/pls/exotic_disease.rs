@@ -10,7 +10,7 @@ card!(
     oracle_id = "9480e142-289a-439d-b6a5-2666fb0e5be3",
     scryfall_id = "4e9624e5-79a2-41de-997b-12d871d4be66",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Exotic Disease",
         mana_cost = mana!("{4}{B}"),

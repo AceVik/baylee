@@ -12,7 +12,7 @@ card!(
     oracle_id = "efc32c4a-ad84-400d-b79f-5861a3e4fa2f",
     scryfall_id = "c07889a1-1582-4f14-8925-fa21a1a5fd65",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mind Burst",
         mana_cost = mana!("{1}{B}"),

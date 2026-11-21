@@ -10,7 +10,7 @@ card!(
     oracle_id = "ea14c26b-bf2f-48b4-b879-6e63069ded1f",
     scryfall_id = "6bfe64f9-8b03-41f6-a47b-fade397ad9d1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chain of Smog",
         mana_cost = mana!("{1}{B}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "cce9bbff-82dc-4b2f-addd-d6715588de20",
     scryfall_id = "cdc3f611-5aaf-4e12-8751-adb815aa23f8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thoughtcast",
         mana_cost = mana!("{4}{U}"),

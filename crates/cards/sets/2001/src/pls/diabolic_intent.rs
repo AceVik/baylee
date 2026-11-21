@@ -11,7 +11,7 @@ card!(
     oracle_id = "038519b9-bca8-4b27-b5ac-2409595469d0",
     scryfall_id = "d72ab698-de67-4ca8-8e42-b05346bf52fa",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Diabolic Intent",
         mana_cost = mana!("{1}{B}"),

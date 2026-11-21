@@ -11,7 +11,7 @@ card!(
     oracle_id = "17c7878f-891f-40a6-80a7-47fcc7b8e29b",
     scryfall_id = "48a90779-008e-401f-9877-be0a935d2ccd",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skulltap",
         mana_cost = mana!("{1}{B}"),

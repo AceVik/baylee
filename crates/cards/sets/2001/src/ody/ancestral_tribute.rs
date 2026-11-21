@@ -11,7 +11,7 @@ card!(
     oracle_id = "380ea3b6-8eb4-466a-8680-ce5cfed9b8c4",
     scryfall_id = "3f28b2af-7891-49eb-a07f-5552b5fe3d15",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ancestral Tribute",
         mana_cost = mana!("{5}{W}{W}"),

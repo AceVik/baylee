@@ -11,7 +11,7 @@ card!(
     oracle_id = "fabbc474-682c-4565-861c-d41de05abb8f",
     scryfall_id = "299065ad-ee2e-4973-9b41-fd04c36d19a4",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nostalgic Dreams",
         mana_cost = mana!("{G}{G}"),

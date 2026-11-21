@@ -18,7 +18,7 @@ card!(
     oracle_id = "e73131cd-b454-405b-9539-9d777e232b9e",
     scryfall_id = "90301f8c-f7af-4179-8faf-9901931bba8d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battle Screech",
         mana_cost = mana!("{2}{W}{W}"),

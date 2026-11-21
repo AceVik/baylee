@@ -11,7 +11,7 @@ card!(
     oracle_id = "83134570-debe-4bc0-9656-2a16801a3592",
     scryfall_id = "d879226b-8ee3-4a48-b03a-d183594dc586",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Turbulent Dreams",
         mana_cost = mana!("{U}{U}"),

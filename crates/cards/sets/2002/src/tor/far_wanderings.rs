@@ -13,7 +13,7 @@ card!(
     oracle_id = "2ef797ef-c05f-4309-85c7-1bd151dac3fa",
     scryfall_id = "db67c59e-a9fb-4580-a8cc-ac5ef6c07440",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Far Wanderings",
         mana_cost = mana!("{2}{G}"),

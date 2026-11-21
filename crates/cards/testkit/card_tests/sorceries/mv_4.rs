@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod acceptable_losses;
 mod acorn_harvest;
 mod aftershock;
 mod agonizing_memories;
@@ -16,10 +17,12 @@ mod armageddon;
 mod ashen_powder;
 mod avalanche;
 mod barter_in_blood;
+mod battle_screech;
 mod bee_sting;
 mod break_asunder;
 mod calming_verse;
 mod cataclysm;
+mod chain_of_acid;
 mod channel_the_suns;
 mod concentrate;
 mod creeping_mold;
