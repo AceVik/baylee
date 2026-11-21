@@ -41,22 +41,18 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     // (`/Twice`, `/Thrice`, `/Times.<n>`), which the reference writes under
     // the same letter.
     if let Some(def) = svars.get(raw).map(|def| def.trim()) {
-        if def == "Count$TimesKicked" {
-            return Some("Amount::TimesKicked".to_string());
-        }
-        if let Some(rest) = def.strip_prefix("Count$TimesKicked/") {
-            let factor: Option<u32> = match rest {
-                "Twice" => Some(2),
-                "Thrice" => Some(3),
-                _ => rest.strip_prefix("Times.").and_then(|n| n.parse().ok()),
-            };
-            if let Some(factor) = factor.filter(|&f| f > 0) {
-                return Some(if factor == 1 {
-                    "Amount::TimesKicked".to_string()
-                } else {
-                    format!("Amount::Times {{ base: &Amount::TimesKicked, factor: {factor} }}")
-                });
-            }
+        let (head, suffix) = match def.split_once('/') {
+            Some((h, s)) => (h.trim(), Some(s.trim())),
+            None => (def, None),
+        };
+        let base = match head {
+            "Count$TimesKicked" => Some("Amount::TimesKicked"),
+            "Count$CastTotalManaSpent Snow" => Some("Amount::SnowManaSpentToCast"),
+            "Count$Devoured Card" => Some("Amount::EntrySacrifices"),
+            _ => None,
+        };
+        if let Some(base) = base {
+            return scaled_svar_amount(base, suffix);
         }
     }
     if let Some(kind) = svars
@@ -96,6 +92,25 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     let resolved = svars.get(raw)?;
     let n = resolved.trim().parse::<i64>().ok()?;
     Some(format!("Amount::Fixed({n})"))
+}
+
+fn scaled_svar_amount(base: &str, suffix: Option<&str>) -> Option<String> {
+    let Some(rest) = suffix else {
+        return Some(base.to_string());
+    };
+    let factor: u32 = match rest {
+        "Twice" => 2,
+        "Thrice" => 3,
+        _ => rest.strip_prefix("Times.").and_then(|n| n.parse().ok())?,
+    };
+    if factor == 0 {
+        return None;
+    }
+    Some(if factor == 1 {
+        base.to_string()
+    } else {
+        format!("Amount::Times {{ base: &{base}, factor: {factor} }}")
+    })
 }
 
 /// `W` as `ManaColor::White`, for a reader that is not inside a closure.
@@ -438,10 +453,12 @@ fn collect_token_stems(script: &CardScript, out: &mut Vec<String>) {
         }
     }
     for line in &script.keywords {
-        let stem = match line.trim() {
+        let trimmed = line.trim();
+        let stem = match trimmed {
             "Living Weapon" | "Living weapon" => Some("b_0_0_phyrexian_germ"),
             "For Mirrodin" | "For Mirrodin!" => Some("r_2_2_rebel"),
             "Job select" => Some("c_1_1_hero"),
+            _ if trimmed.starts_with("Fabricate:") => Some("c_1_1_a_servo"),
             _ => None,
         };
         if let Some(stem) = stem

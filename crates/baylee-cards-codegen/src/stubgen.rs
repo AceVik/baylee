@@ -807,6 +807,9 @@ fn render_face(
         if let Some(gift) = body.gift.as_deref() {
             fields.push(format!("gift = {gift}"));
         }
+        if let Some(warp) = body.warp.as_deref() {
+            fields.push(format!("warp = {warp}"));
+        }
         if let Some(cr) = body.cost_reduction.as_deref() {
             fields.push(format!("cost_reduction = {cr}"));
         }
@@ -3071,6 +3074,59 @@ mod tests {
         assert!(
             gift_out.contains("gift = Some(GiftKind::Food),"),
             "{gift_out}"
+        );
+    }
+
+    #[test]
+    fn wave16a_warp_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("warp_drifter.txt"),
+            "Name:WarpDrifter\nManaCost:3 U\nTypes:Creature Elemental\nPT:3/2\nK:Warp:1 U\n",
+        )
+        .expect("warp script");
+        std::fs::write(
+            dir.path().join("warp_blood.txt"),
+            "Name:WarpBlood\nManaCost:2 B\nTypes:Creature Horror\nPT:2/2\n\
+             K:Warp:X B PayLife<2>\nSVar:X:Count$xPaid\n",
+        )
+        .expect("warp life script");
+
+        let mut index = BTreeMap::new();
+        index.insert("WarpDrifter".to_string(), "warp_drifter.txt".to_string());
+        index.insert("WarpBlood".to_string(), "warp_blood.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let (_, warp_out) = render_stub(
+            &bare_card("WarpDrifter", "Creature"),
+            &row(44, "WARP_DRIFTER"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("warp renders");
+        assert!(
+            warp_out.contains("warp = Some(cost!(\"{1}{U}\")),"),
+            "{warp_out}"
+        );
+        assert!(warp_out.contains("KeywordSet::WARP"), "{warp_out}");
+
+        let (_, life_out) = render_stub(
+            &bare_card("WarpBlood", "Creature"),
+            &row(45, "WARP_BLOOD"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("warp life renders");
+        assert!(
+            life_out.contains("warp = Some(cost!(\"{X}{B}\", PayLife(2))),"),
+            "{life_out}"
         );
     }
 }

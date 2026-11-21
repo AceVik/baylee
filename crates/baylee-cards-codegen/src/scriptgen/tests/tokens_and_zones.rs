@@ -1135,3 +1135,165 @@ fn a_card_that_only_amasses_still_names_its_army_token() {
         .is_empty()
     );
 }
+
+#[test]
+fn wave16a_bloodthirst_devour_and_snow() {
+    let bt = read(
+        "Name:BloodthirstBrute\nManaCost:2 R\nTypes:Creature Beast\nPT:2/2\n\
+         K:Bloodthirst:2\nK:Bloodthirst:X",
+    );
+    assert_eq!(bt.keywords, ["KeywordSet::BLOODTHIRST"]);
+    assert_eq!(
+        bt.enter_modifiers,
+        [
+            "EnterModifier::Bloodthirst(Amount::Fixed(2))",
+            "EnterModifier::Bloodthirst(Amount::DamageDealtToOpponentsThisTurn)",
+        ]
+    );
+
+    let mut c = cats();
+    c.artifact.push("Food".into());
+    c.normalize();
+    let devour_food = transcode(
+        &parse(
+            "Name:DevourOgre\nManaCost:3 R G\nTypes:Creature Ogre\nPT:3/3\n\
+             K:Devour:3:Food:desc\nK:etbCounter:P1P1:DevAmt\nSVar:DevAmt:Count$Devoured Card/Twice",
+        ),
+        &c,
+        None,
+    )
+    .expect("devour food");
+    assert_eq!(devour_food.keywords, ["KeywordSet::DEVOUR"]);
+    assert!(
+        devour_food.enter_modifiers[0].contains("EnterModifier::Devour")
+            && devour_food.enter_modifiers[0].contains("factor: 3")
+            && devour_food.statics.contains("subtypes::artifact::FOOD"),
+        "{} / {:?}",
+        devour_food.statics,
+        devour_food.enter_modifiers
+    );
+    assert!(
+        devour_food.enter_modifiers[1].contains("Amount::EntrySacrifices")
+            && devour_food.enter_modifiers[1].contains("factor: 2"),
+        "{:?}",
+        devour_food.enter_modifiers
+    );
+
+    let snow = read(
+        "Name:SnowVigil\nManaCost:1 S\nTypes:Creature Bear\nPT:2/2\n\
+         K:Cumulative upkeep:S\nK:Echo:1 S\n\
+         K:etbCounter:P1P1:Count$CastTotalManaSpent Snow\n\
+         A:AB$ Draw | Cost$ T | NumCards$ X | IsPresent$ Permanent.YouCtrl | CheckSVar$ X\n\
+         SVar:X:Count$CastTotalManaSpent Snow",
+    );
+    assert!(snow.abilities[0].contains("mana!(\"{S}\")"));
+    assert!(snow.abilities[1].contains("mana!(\"{1}{S}\")"));
+    assert!(snow.enter_modifiers[0].contains("Amount::SnowManaSpentToCast"));
+    assert!(snow.abilities[2].contains("Condition::SnowManaWasSpent"));
+
+    for bad in [
+        "Name:BadBt\nManaCost:1 R\nTypes:Enchantment\nK:Bloodthirst:2",
+        "Name:ZeroBt\nManaCost:1 R\nTypes:Creature Goblin\nPT:2/2\nK:Bloodthirst:0",
+        "Name:RelDevour\nManaCost:2 G\nTypes:Creature Beast\nPT:2/2\nK:Devour:2:Creature.YouCtrl",
+        "Name:SubDevour\nManaCost:2 G\nTypes:Creature Beast\nPT:2/2\n\
+         K:Devour:2\nK:etbCounter:P1P1:Amt\nSVar:Amt:Count$Devoured Card.Goblin",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave16a_fabricate_hideaway_exploit_and_evolve() {
+    let c = cats();
+    let servo_tokens = TokenLookup::held(&[(
+        "c_1_1_a_servo",
+        "Name:Servo\nTypes:Artifact Creature\nPT:1/1",
+    )]);
+    let fab_script =
+        "Name:ServoMaker\nManaCost:2 W\nTypes:Creature Artificer\nPT:1/3\nK:Fabricate:2";
+    assert_eq!(token_stems(&parse(fab_script)), ["c_1_1_a_servo"]);
+    let fab = transcode(&parse(fab_script), &c, Some(&servo_tokens)).expect("fabricate");
+    assert!(fab.abilities[0].contains("Effect::Fabricate { count: 2,"));
+
+    let hide = read("Name:HideawayNest\nTypes:Land\nK:Hideaway:4\nK:Hideaway:3");
+    assert_eq!(
+        hide.abilities,
+        [
+            "triggered!(Trigger::ETB, &[Effect::Hideaway(4)])",
+            "triggered!(Trigger::ETB, &[Effect::Hideaway(3)])",
+        ]
+    );
+
+    let exploit = read(
+        "Name:ExploitAdept\nManaCost:1 U\nTypes:Creature Wizard\nPT:1/1\nK:Exploit\nK:Exploit",
+    );
+    assert_eq!(exploit.keywords, ["KeywordSet::EXPLOIT"]);
+    assert_eq!(
+        exploit.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::EXPLOIT))"]
+    );
+
+    let evolve =
+        read("Name:EvolveOoze\nManaCost:G\nTypes:Creature Ooze\nPT:0/1\nK:Evolve\nK:Evolve");
+    assert_eq!(evolve.keywords, ["KeywordSet::EVOLVE"]);
+    assert_eq!(
+        evolve.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::EVOLVE))"]
+    );
+
+    for bad in [
+        "Name:SpellFab\nManaCost:2 W\nTypes:Sorcery\nK:Fabricate:2\nA:SP$ Draw | NumCards$ 1",
+        "Name:ZeroHide\nTypes:Artifact\nK:Hideaway:0",
+        "Name:SpellExploit\nManaCost:1 U\nTypes:Instant\nK:Exploit\nA:SP$ Draw | NumCards$ 1",
+        "Name:ArtEvolve\nManaCost:2\nTypes:Artifact\nK:Evolve",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+    assert!(refused(fab_script), "Fabricate requires token lookup");
+}
+
+#[test]
+fn wave16a_etb_counter_escaped_and_compare_x_unlocks() {
+    let escaped = read(
+        "Name:EscapedBeast\nManaCost:2 B G\nTypes:Creature Zombie Hydra\nPT:0/0\n\
+         K:etbCounter:P1P1:Count$Escaped.12.6",
+    );
+    assert_eq!(escaped.enter_modifiers.len(), 2);
+    assert!(escaped.enter_modifiers[0].contains("Amount::Fixed(12)"));
+    assert!(escaped.enter_modifiers[0].contains("Condition::Escaped"));
+    assert!(escaped.enter_modifiers[1].contains("Amount::Fixed(6)"));
+    assert!(escaped.enter_modifiers[1].contains("Condition::Not("));
+
+    let hydra = read(
+        "Name:CompareHydra\nManaCost:X G R\nTypes:Creature Hydra\nPT:0/0\n\
+         K:etbCounter:P1P1:Count$Compare X LT5.X.Z\n\
+         SVar:X:Count$xPaid\nSVar:Z:Count$xPaid/Twice",
+    );
+    assert_eq!(
+        hydra.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::X, condition: Condition::Not(&Condition::XAtLeast(5)) }",
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::DoubleX, condition: Condition::XAtLeast(5) }",
+        ]
+    );
+
+    let direct_x_cmp = read(
+        "Name:ThresholdHydra\nManaCost:X G\nTypes:Creature Hydra\nPT:0/0\n\
+         K:etbCounter:P1P1:2:CheckSVar$ X | SVarCompare$ GE5:desc\nSVar:X:Count$xPaid",
+    );
+    assert_eq!(
+        direct_x_cmp.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::XAtLeast(5) }"
+        ]
+    );
+
+    for bad in [
+        "Name:BadEsc\nManaCost:2 G\nTypes:Creature Beast\nPT:0/0\nK:etbCounter:P1P1:Count$Escaped.12",
+        "Name:ZeroEsc\nManaCost:2 G\nTypes:Creature Beast\nPT:0/0\nK:etbCounter:P1P1:Count$Escaped.0.0",
+        "Name:NoXHydra\nManaCost:4 G\nTypes:Creature Hydra\nPT:0/0\n\
+         K:etbCounter:P1P1:Count$Compare X LT5.X.Z\nSVar:X:Count$xPaid\nSVar:Z:Count$xPaid/Twice",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

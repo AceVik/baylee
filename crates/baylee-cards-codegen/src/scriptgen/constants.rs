@@ -298,6 +298,8 @@ pub(super) fn keyword_const(line: &str) -> Option<&'static str> {
         "Extort" => "KeywordSet::EXTORT",
         "Enlist" => "KeywordSet::ENLIST",
         "Soulbond" => "KeywordSet::SOULBOND",
+        "Exploit" => "KeywordSet::EXPLOIT",
+        "Evolve" => "KeywordSet::EVOLVE",
         _ => return None,
     })
 }

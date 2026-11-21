@@ -350,6 +350,7 @@ impl Tx<'_> {
         if is_activated && !allow_oracle_tap && (api == "ManaReflected" || api == "Charm") {
             return self.deny(format!("a granted `{api}` ability"));
         }
+        let line_prose = Self::params_prose(&probe);
         probe.drop_prose();
         let mut cost = probe.take("Cost");
         if is_activated && allow_oracle_tap {
@@ -386,7 +387,7 @@ impl Tx<'_> {
         };
         let zone_handled = is_activated && activation_zone.is_some();
         let sorcery_speed = is_activated && probe.take("SorcerySpeed").as_deref() == Some("True");
-        let mut condition = self.condition(&mut probe)?;
+        let mut condition = self.condition_with_prose(&mut probe, &line_prose)?;
         let present_read = !condition.is_empty();
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
         let mut chain = Chain::default();
@@ -483,9 +484,10 @@ impl Tx<'_> {
         let second_targets = Self::second_target_req_expr(&spec.chain)
             .map_or_default(|req| format!(", second_targets = Some({req})"));
         let zone = spec.zone_suffix;
+        let has_targets = spec.chain.target.is_some() || spec.chain.second_target.is_some();
         let mana_ability =
             spec.chain.could_add_mana && !spec.chain.moves_library && spec.chain.target.is_none();
-        self.reject_non_mana_counter_x(&cost, mana_ability)?;
+        self.reject_non_mana_counter_x(&cost, mana_ability, has_targets)?;
         if !zone.is_empty() && mana_ability {
             return self.deny("a non-default activation zone on a mana ability".to_string());
         }
@@ -522,7 +524,7 @@ impl Tx<'_> {
         let alternate_ability_expr = match spec.alternate_cost.as_deref() {
             Some(alt) => {
                 let alt_cost = self.parse_activated_cost(alt, spec.activation_zone.as_deref())?;
-                self.reject_non_mana_counter_x(&alt_cost, mana_ability)?;
+                self.reject_non_mana_counter_x(&alt_cost, mana_ability, has_targets)?;
                 Some(Self::format_activated_macro(
                     mana_ability,
                     &alt_cost,
@@ -657,7 +659,10 @@ impl Tx<'_> {
         let mut extra = Vec::new();
         for token in cost_parts(raw) {
             let is_mana = token.chars().all(|c| c.is_ascii_digit())
-                || matches!(token.as_str(), "W" | "U" | "B" | "R" | "G" | "C" | "X")
+                || matches!(
+                    token.as_str(),
+                    "W" | "U" | "B" | "R" | "G" | "C" | "S" | "X"
+                )
                 || hybrid_pair(&token).is_some();
             if !is_mana {
                 extra.push(token);
@@ -775,13 +780,47 @@ impl Tx<'_> {
 
     /// Reads the `Choices$` list of a `Charm` ability into [`CharmMode`] tuples.
     pub(super) fn read_charm_modes(&mut self, choices: &str) -> Option<Vec<CharmMode>> {
+        self.read_charm_modes_with(choices, false)
+    }
+
+    fn read_charm_modes_with(
+        &mut self,
+        choices: &str,
+        allow_mode_cost: bool,
+    ) -> Option<Vec<CharmMode>> {
         let mut modes = Vec::new();
         for name in choices.split(',').map(str::trim) {
             let Some(line) = self.svars.get(name).cloned() else {
                 return self.deny(format!("charm choice `{name}` with no `SVar`"));
             };
+            let mut mode_cost_raw: Option<String> = None;
+            let mut kept_parts = Vec::new();
+            for part in line.split(" | ") {
+                if let Some(val) = part.trim_start().strip_prefix("ModeCost$") {
+                    if mode_cost_raw.is_some() {
+                        return self.deny(format!("multiple `ModeCost$` keys in mode `{name}`"));
+                    }
+                    mode_cost_raw = Some(val.trim().to_string());
+                } else {
+                    kept_parts.push(part);
+                }
+            }
+            let additional_cost = match mode_cost_raw {
+                Some(raw) => {
+                    if !allow_mode_cost {
+                        return self.deny("`ModeCost$` on a non-Spree charm mode".to_string());
+                    }
+                    let mana = self.parse_fixed_spree_mana(&raw)?;
+                    format!(", additional_cost = Some(mana!(\"{mana}\"))")
+                }
+                None if allow_mode_cost => {
+                    return self.deny(format!("a `Spree` mode `{name}` without `ModeCost$`"));
+                }
+                None => String::new(),
+            };
+            let stripped = kept_parts.join(" | ");
             let mut chain = Chain::default();
-            self.chain(&line, &mut chain)?;
+            self.chain(&stripped, &mut chain)?;
             if chain.effects.is_empty() {
                 return self.deny("a charm mode that reads as no effect at all".to_string());
             }
@@ -791,7 +830,10 @@ impl Tx<'_> {
             let second = Self::second_target_req_expr(&chain)
                 .map_or_default(|req| format!(", second_targets = Some({req})"));
             modes.push((
-                format!("mode!(&[{}]{targets}{second})", chain.effects.join(", ")),
+                format!(
+                    "mode!(&[{}]{targets}{second}{additional_cost})",
+                    chain.effects.join(", ")
+                ),
                 chain.target,
                 has_second,
                 chain.could_add_mana,
@@ -800,13 +842,28 @@ impl Tx<'_> {
         Some(modes)
     }
 
-    fn is_objects_only_target(spec: &str) -> bool {
-        spec.starts_with("TargetSpec::Object(")
-            || spec.starts_with("TargetSpec::Spell(")
-            || spec.starts_with("TargetSpec::StackOrBattlefield(")
-            || spec.starts_with("TargetSpec::SpellOrAbility(")
-            || spec.starts_with("TargetSpec::AbilityOnStack(")
-            || spec.starts_with("TargetSpec::CardInGraveyard(")
+    fn parse_fixed_spree_mana(&self, raw: &str) -> Option<String> {
+        let mut mana = String::new();
+        for token in cost_parts(raw) {
+            if token == "X" || token.starts_with("XMin") {
+                return self.deny(format!("variable `X` in `ModeCost$ {raw}`"));
+            }
+            if token.chars().all(|c| c.is_ascii_digit())
+                || matches!(token.as_str(), "W" | "U" | "B" | "R" | "G" | "C" | "S")
+            {
+                mana.push('{');
+                mana.push_str(&token);
+                mana.push('}');
+            } else if let Some(pair) = hybrid_pair(&token) {
+                mana.push_str(&pair);
+            } else {
+                return self.deny(format!("non-mana `ModeCost$ {raw}`"));
+            }
+        }
+        if mana.is_empty() || baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+            return self.deny(format!("invalid `ModeCost$ {raw}`"));
+        }
+        Some(mana)
     }
 
     /// "Choose one —" (CR 700.2): `SP$ Charm | Choices$ A,B` is a modal
@@ -842,7 +899,11 @@ impl Tx<'_> {
         if min == 0 || min > max {
             return self.deny(format!("a charm with min {min} > max {max}"));
         }
-        let parsed = self.read_charm_modes(&choices)?;
+        let has_spree = self.body.keywords.iter().any(|k| k == "KeywordSet::SPREE");
+        if has_spree && max == 1 {
+            return self.deny("a `Spree` charm choosing only one mode".to_string());
+        }
+        let parsed = self.read_charm_modes_with(&choices, has_spree && max > 1)?;
         if parsed.len() < 2 {
             return self.deny("a charm with fewer than two modes".to_string());
         }
@@ -855,25 +916,15 @@ impl Tx<'_> {
             if parsed.len() > 8 {
                 return self.deny("a multi-mode charm with more than eight modes".to_string());
             }
-            if parsed.iter().any(|(_, _, second, _)| *second) {
-                return self
-                    .deny("a multi-mode charm with a mode declaring a second target".to_string());
-            }
-            let targeting: Vec<&str> = parsed
+            let total_target_clauses: usize = parsed
                 .iter()
-                .filter_map(|(_, tgt, _, _)| tgt.as_deref())
-                .collect();
-            if targeting.len() > 2 {
+                .map(|(_, tgt, has_second, _)| {
+                    usize::from(tgt.is_some()) + usize::from(*has_second)
+                })
+                .sum();
+            if total_target_clauses > 16 {
                 return self
-                    .deny("a multi-mode charm targeting in more than two modes".to_string());
-            }
-            if targeting
-                .get(1)
-                .is_some_and(|spec| !Self::is_objects_only_target(spec))
-            {
-                return self.deny(
-                    "a multi-mode charm with a non-object second targeting mode".to_string(),
-                );
+                    .deny("a multi-mode charm with more than sixteen target clauses".to_string());
             }
         }
         let choose = match (min, max) {
@@ -895,6 +946,7 @@ impl Tx<'_> {
         let Some((_, mut p)) = Params::parse(spec) else {
             return self.deny("an `A:` line with no `$` in it".to_string());
         };
+        let line_prose = Self::params_prose(&p);
         p.drop_prose();
         let Some(cost_raw) = p.take("Cost") else {
             return self.deny("a modal activated ability with no `Cost$`".to_string());
@@ -929,13 +981,13 @@ impl Tx<'_> {
         };
         let (_non_battlefield, zone) =
             self.activation_zone_expr(activation_zone.as_deref(), any_player, true)?;
-        let mut condition = self.condition(&mut p)?;
+        let mut condition = self.condition_with_prose(&mut p, &line_prose)?;
         let _restrictions = self.activation_restriction(&mut p, true, &mut condition)?;
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `Charm.{key}`"));
         }
         let cost = self.parse_activated_cost(&cost_raw, activation_zone.as_deref())?;
-        self.reject_non_mana_counter_x(&cost, false)?;
+        self.reject_non_mana_counter_x(&cost, false, true)?;
         self.cost_sacrifices_self = cost_raw.split_whitespace().any(|t| t == "Sac<1/CARDNAME>");
         self.cost_sacrifices_other = cost_raw
             .split_whitespace()
@@ -989,8 +1041,16 @@ impl Tx<'_> {
             || token.starts_with("Exert<1/NICKNAME/")
     }
 
-    fn reject_non_mana_counter_x(&self, cost: &str, mana_ability: bool) -> Option<()> {
-        if !mana_ability && cost.contains("RemoveCounterSelfX {") {
+    fn reject_non_mana_counter_x(
+        &self,
+        cost: &str,
+        mana_ability: bool,
+        has_targets: bool,
+    ) -> Option<()> {
+        if !mana_ability
+            && cost.contains("RemoveCounterSelfX {")
+            && (has_targets || !cost.contains("ExileSelf"))
+        {
             return self.deny("`SubCounter<X/...>` on a non-mana activated ability".to_string());
         }
         Some(())
@@ -1359,6 +1419,15 @@ impl Tx<'_> {
                 "GE1" | "EQ1" => Some("Condition::AltCostPaid".to_string()),
                 "EQ0" => Some("Condition::Not(&Condition::AltCostPaid)".to_string()),
                 _ => None,
+            };
+        }
+        if raw == "Count$CastTotalManaSpent Snow" {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::SnowManaWasSpent".to_string()),
+                "EQ0" | "LE0" | "LT1" => {
+                    Some("Condition::Not(&Condition::SnowManaWasSpent)".to_string())
+                }
+                _ => self.amount_bound_condition("Amount::SnowManaSpentToCast", bound, eq_num),
             };
         }
         if raw == "Count$Bargained.1.0" && self.body.bargain {
@@ -1735,6 +1804,10 @@ impl Tx<'_> {
     /// of CR 603.4's second check — a clause asked once instead of twice,
     /// which this DSL cannot say at all.
     pub(super) fn condition(&mut self, p: &mut Params) -> Option<String> {
+        self.condition_with_prose(p, "")
+    }
+
+    fn condition_with_prose(&mut self, p: &mut Params, line_prose: &str) -> Option<String> {
         if let Some(cond_raw) = p.peek("Condition")
             && !p.has("IsPresent")
             && let Some(cond) = Self::named_condition(cond_raw)
@@ -1758,7 +1831,7 @@ impl Tx<'_> {
         let Some(valid) = p.take("IsPresent") else {
             return Some(String::new());
         };
-        let clause = self.present_clause(p, &valid)?;
+        let clause = self.present_clause_with_prose(p, &valid, line_prose)?;
         Some(format!(", condition = Some({clause})"))
     }
 
@@ -1767,6 +1840,15 @@ impl Tx<'_> {
     /// [`Self::condition`] splices in as an intervening "if", and what a
     /// state trigger (`Mode$ Always`, CR 603.8) triggers on.
     pub(super) fn present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
+        self.present_clause_with_prose(p, valid, "")
+    }
+
+    fn present_clause_with_prose(
+        &mut self,
+        p: &mut Params,
+        valid: &str,
+        line_prose: &str,
+    ) -> Option<String> {
         if p.take("NoResolvingCheck").is_some() {
             return self.deny("`NoResolvingCheck$`, a clause checked once".to_string());
         }
@@ -1779,7 +1861,7 @@ impl Tx<'_> {
                     && (matches!(valid, "Card.StrictlySelf" | "Card.Self")
                         || has_you_own_every_alt(valid))))
         {
-            return self.graveyard_present_clause(p, valid);
+            return self.graveyard_present_clause(p, valid, line_prose);
         }
         if let Some(who) = p.take("PresentPlayer") {
             return self.deny(format!("`PresentPlayer$ {who}`"));
@@ -1917,12 +1999,18 @@ impl Tx<'_> {
         }
     }
 
-    fn graveyard_present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
+    fn graveyard_present_clause(
+        &mut self,
+        p: &mut Params,
+        valid: &str,
+        line_prose: &str,
+    ) -> Option<String> {
         p.take("PresentZone");
         let has_you = p.take("PresentPlayer").as_deref() == Some("You");
-        let compare = p
-            .take("PresentCompare")
-            .unwrap_or_else(|| "GE1".to_string());
+        let compare = match p.take("PresentCompare") {
+            Some(cmp) => cmp,
+            None => self.infer_graveyard_present_compare(p, valid, line_prose)?,
+        };
         if matches!(valid, "Card.StrictlySelf" | "Card.Self") {
             if !matches!(compare.as_str(), "GE1" | "EQ1") {
                 return self.deny(format!("a graveyard self clause compared `{compare}`"));
@@ -1961,6 +2049,57 @@ impl Tx<'_> {
                 ))
             }
             None => self.deny(format!("`PresentCompare$ {compare}`")),
+        }
+    }
+
+    fn params_prose(p: &Params) -> String {
+        [
+            "PrecostDesc",
+            "SpellDescription",
+            "Description",
+            "TriggerDescription",
+        ]
+        .into_iter()
+        .filter_map(|k| p.peek(k))
+        .collect::<Vec<_>>()
+        .join(" ")
+    }
+
+    fn infer_graveyard_present_compare(
+        &self,
+        p: &Params,
+        valid: &str,
+        saved_prose: &str,
+    ) -> Option<String> {
+        if matches!(valid, "Card.StrictlySelf" | "Card.Self") {
+            return Some("GE1".to_string());
+        }
+        let fresh = Self::params_prose(p);
+        let prose = if !fresh.is_empty() {
+            fresh.to_ascii_lowercase()
+        } else if !saved_prose.trim().is_empty() {
+            saved_prose.to_ascii_lowercase()
+        } else {
+            self.oracle.to_ascii_lowercase()
+        };
+        let has_d4 = prose.contains("descend 4")
+            || prose.contains("four or more permanent cards in your graveyard");
+        let has_d8 = prose.contains("descend 8")
+            || prose.contains("eight or more permanent cards in your graveyard");
+        let has_other_threshold = prose.contains("descend ")
+            || prose.contains("threshold")
+            || prose.contains("seven or more cards in your graveyard")
+            || prose.contains("or more permanent cards in your graveyard");
+        match (has_d4, has_d8) {
+            (true, false) => Some("GE4".to_string()),
+            (false, true) => Some("GE8".to_string()),
+            (true, true) => self.deny(
+                "ambiguous graveyard `Descend` threshold without `PresentCompare$`".to_string(),
+            ),
+            (false, false) if has_other_threshold => {
+                self.deny("multi-card graveyard threshold without `PresentCompare$`".to_string())
+            }
+            (false, false) => Some("GE1".to_string()),
         }
     }
 

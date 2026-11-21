@@ -323,6 +323,33 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Overload:") {
             return self.overload_keyword(rest);
         }
+        if let Some(rest) = line.strip_prefix("Warp:") {
+            return self.warp_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Devour:") {
+            return self.devour_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Bloodthirst:") {
+            return self.bloodthirst_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Craft:") {
+            return self.craft_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Fabricate:") {
+            return self.fabricate_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Hideaway:") {
+            return self.hideaway_keyword(rest);
+        }
+        if line.trim() == "Spree" {
+            return self.spree_keyword();
+        }
+        if line.trim() == "Exploit" {
+            self.require_permanent_keyword("Exploit")?;
+        }
+        if line.trim() == "Evolve" {
+            self.require_creature_permanent("Evolve")?;
+        }
         if let Some(bit) = keyword_const(line) {
             if bit == "KeywordSet::PROWESS" && self.body.keywords.iter().any(|k| k == bit) {
                 let expr = self.filter_expr("Card.nonCreature+YouCtrl")?;
@@ -346,6 +373,8 @@ impl Tx<'_> {
                     | "KeywordSet::EXTORT"
                     | "KeywordSet::ENLIST"
                     | "KeywordSet::SOULBOND"
+                    | "KeywordSet::EXPLOIT"
+                    | "KeywordSet::EVOLVE"
             ) && self.body.keywords.iter().any(|k| k == bit)
             {
                 // CR 702.116b / CR 702.101b / CR 702.154c / CR 702.95d: duplicate instances
@@ -501,7 +530,7 @@ impl Tx<'_> {
         if !tokens.is_empty()
             && tokens.iter().all(|t| {
                 t.chars().all(|c| c.is_ascii_digit())
-                    || matches!(t.as_str(), "W" | "U" | "B" | "R" | "G" | "C")
+                    || matches!(t.as_str(), "W" | "U" | "B" | "R" | "G" | "C" | "S")
             })
         {
             let (mana, parts) = self.cost_pieces(raw)?;
@@ -530,7 +559,7 @@ impl Tx<'_> {
         if !tokens.is_empty()
             && tokens.iter().all(|t| {
                 t.chars().all(|c| c.is_ascii_digit())
-                    || matches!(t.as_str(), "W" | "U" | "B" | "R" | "G" | "C")
+                    || matches!(t.as_str(), "W" | "U" | "B" | "R" | "G" | "C" | "S")
             })
         {
             let (mana, parts) = self.cost_pieces(raw)?;
@@ -1290,6 +1319,9 @@ impl Tx<'_> {
         let Some(kind) = super::counter_kind(kind_raw.trim()) else {
             return self.deny("keyword `etbCounter`".to_string());
         };
+        if cond.is_none() && self.push_etb_conditional_amount(&kind, amount_raw.trim()) {
+            return Some(());
+        }
         let Some(amount) = self.etb_wave6_amount(amount_raw.trim()) else {
             return self.deny("keyword `etbCounter`".to_string());
         };
@@ -1300,6 +1332,87 @@ impl Tx<'_> {
             ),
         });
         Some(())
+    }
+
+    fn push_etb_conditional_amount(&mut self, kind: &str, amount_raw: &str) -> bool {
+        let def = if amount_raw.starts_with("Count$") {
+            amount_raw.to_string()
+        } else {
+            let Some(v) = self.svars.get(amount_raw) else {
+                return false;
+            };
+            v.trim().to_string()
+        };
+        let arms = if let Some(rest) = def.strip_prefix("Count$Escaped.") {
+            let Some((escaped_arm, normal_arm)) = rest.split_once('.') else {
+                return false;
+            };
+            Some((
+                "Condition::Escaped".to_string(),
+                escaped_arm.trim(),
+                normal_arm.trim(),
+            ))
+        } else if let Some(rest) = def.strip_prefix("Count$Compare ") {
+            let Some((lhs, else_arm)) = rest.rsplit_once('.') else {
+                return false;
+            };
+            let Some((cond_spec, then_arm)) = lhs.rsplit_once('.') else {
+                return false;
+            };
+            let Some((inner_var, inner_cmp)) = cond_spec.trim().rsplit_once(' ') else {
+                return false;
+            };
+            let Some(cond) = self.etb_check_svar_condition_at(inner_var, Some(inner_cmp), 0) else {
+                return false;
+            };
+            if cond.contains("CountersOnSelf") || cond.contains("CountersOnSource") {
+                return false;
+            }
+            Some((cond, then_arm.trim(), else_arm.trim()))
+        } else {
+            None
+        };
+        let Some((then_cond, then_raw, else_raw)) = arms else {
+            return false;
+        };
+        let Some(then_amount) = self.etb_optional_wave6_amount(then_raw) else {
+            return false;
+        };
+        let Some(else_amount) = self.etb_optional_wave6_amount(else_raw) else {
+            return false;
+        };
+        if then_amount.is_empty() && else_amount.is_empty() {
+            return false;
+        }
+        let else_cond = self.negate_etb_condition(&then_cond);
+        for (condition, count) in [(then_cond, then_amount), (else_cond, else_amount)] {
+            if !count.is_empty() {
+                self.body.enter_modifiers.push(format!(
+                    "EnterModifier::WithCountersIf {{ kind: {kind}, count: {count}, condition: {condition} }}"
+                ));
+            }
+        }
+        true
+    }
+
+    fn etb_optional_wave6_amount(&mut self, raw: &str) -> Option<String> {
+        if raw.trim() == "0" {
+            Some(String::new())
+        } else {
+            self.etb_wave6_amount(raw.trim())
+        }
+    }
+
+    fn negate_etb_condition(&mut self, inner: &str) -> String {
+        if let Some(unwrapped) = inner
+            .strip_prefix("Condition::Not(&")
+            .and_then(|s| s.strip_suffix(')'))
+        {
+            unwrapped.to_string()
+        } else {
+            let name = self.body.condition_static("CHECK", inner);
+            format!("Condition::Not(&{name})")
+        }
     }
 
     fn etb_counter_condition(&mut self, raw: &str) -> Option<String> {
@@ -1377,6 +1490,15 @@ impl Tx<'_> {
         if let Some(cond) = self.etb_compare_condition(&def, cmp, depth) {
             return Some(cond);
         }
+        if def == "Count$xPaid" && self.has_x_mana_cost {
+            return match super::count_bound(cmp) {
+                Some(super::Bound::AtLeast(n)) => Some(format!("Condition::XAtLeast({n})")),
+                Some(super::Bound::AtMost(n)) => n
+                    .checked_add(1)
+                    .map(|k| format!("Condition::Not(&Condition::XAtLeast({k}))")),
+                None => None,
+            };
+        }
         if matches!(
             def.as_str(),
             "Count$CastTotalManaSpent" | "Count$TotalManaSpent"
@@ -1412,14 +1534,8 @@ impl Tx<'_> {
         let inner = self.etb_check_svar_condition_at(inner_var, Some(inner_cmp), depth + 1)?;
         if flag_true == want_true {
             Some(inner)
-        } else if let Some(unwrapped) = inner
-            .strip_prefix("Condition::Not(&")
-            .and_then(|s| s.strip_suffix(')'))
-        {
-            Some(unwrapped.to_string())
         } else {
-            let name = self.body.condition_static("CHECK", &inner);
-            Some(format!("Condition::Not(&{name})"))
+            Some(self.negate_etb_condition(&inner))
         }
     }
 
@@ -1572,6 +1688,12 @@ impl Tx<'_> {
         }
         if matches!(def, "Count$CastTotalManaSpent" | "Count$TotalManaSpent") {
             return Some("Amount::ManaSpentToCast".to_string());
+        }
+        if def == "Count$CastTotalManaSpent Snow" {
+            return Some("Amount::SnowManaSpentToCast".to_string());
+        }
+        if def == "Count$Devoured Card" {
+            return Some("Amount::EntrySacrifices".to_string());
         }
         if def == "Count$TimesKicked" {
             return Some("Amount::TimesKicked".to_string());
@@ -2016,6 +2138,316 @@ impl Tx<'_> {
         self.body.casualty = Some(format!("Some({n})"));
         self.body.notes.push("casualty".to_string());
         Some(())
+    }
+
+    fn require_creature_permanent(&mut self, kw: &str) -> Option<()> {
+        if !self.type_line.split_whitespace().any(|w| w == "Creature")
+            || self.is_land_card_type()
+            || self.is_spell_card_type()
+        {
+            return self.deny(format!("`{kw}` on a non-creature card"));
+        }
+        Some(())
+    }
+
+    /// `K:Warp:<cost>` (`CR 702.185a`): alternative cast cost for non-land permanent
+    /// cards (`mana` + `paid_as_an_alternative_cost` parts + optional `{X}`).
+    fn warp_keyword(&mut self, rest: &str) -> Option<()> {
+        if self.body.warp.is_some() {
+            return self.deny("a second `Warp` cost on one card".to_string());
+        }
+        self.require_permanent_keyword("Warp")?;
+        let (mana, parts) = self.parse_alt_cost_pieces("Warp", rest, true, false)?;
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.body.warp = Some(format!("Some({cost})"));
+        self.body.keywords.push("KeywordSet::WARP".to_string());
+        self.body.notes.push("warp".to_string());
+        Some(())
+    }
+
+    /// `K:Bloodthirst:<N|X>` (`CR 702.54a–c`): creature entry replacement + keyword bit.
+    fn bloodthirst_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_creature_permanent("Bloodthirst")?;
+        let trimmed = rest.trim();
+        if trimmed.contains(':') || trimmed.is_empty() {
+            return self.deny(format!("keyword `Bloodthirst:{rest}`"));
+        }
+        let amount = if trimmed == "X" {
+            "Amount::DamageDealtToOpponentsThisTurn".to_string()
+        } else if let Some(n) = trimmed.parse::<u32>().ok().filter(|&n| n > 0) {
+            format!("Amount::Fixed({n})")
+        } else {
+            return self.deny(format!("keyword `Bloodthirst:{rest}`"));
+        };
+        if !self
+            .body
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::BLOODTHIRST")
+        {
+            self.body
+                .keywords
+                .push("KeywordSet::BLOODTHIRST".to_string());
+        }
+        self.body
+            .enter_modifiers
+            .push(format!("EnterModifier::Bloodthirst({amount})"));
+        Some(())
+    }
+
+    /// `K:Devour:<N|X>[:quality[:prose]]` (`CR 702.82a–c`): sacrifice fodder as it enters.
+    fn devour_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_creature_permanent("Devour")?;
+        let mut fields = rest.split(':');
+        let factor_raw = fields.next()?.trim();
+        let quality = fields.next().map_or("", str::trim);
+        let _prose = fields.next();
+        if fields.next().is_some() {
+            return self.deny(format!("keyword `Devour:{rest}`"));
+        }
+        let factor: u8 = if factor_raw == "X" {
+            0
+        } else {
+            match factor_raw.parse::<u8>() {
+                Ok(n) if n >= 1 => n,
+                _ => return self.deny(format!("keyword `Devour:{rest}`")),
+            }
+        };
+        let entry = if quality.is_empty() {
+            format!("EnterModifier::devour({factor})")
+        } else {
+            if quality.contains("Ctrl")
+                || quality.contains("Own")
+                || quality.contains("Self")
+                || quality.contains("Other")
+            {
+                return self.deny(format!("relative `Devour` quality `{quality}`"));
+            }
+            let normalized = quality.replace(';', ",");
+            let expr = self.filter_expr(&normalized)?;
+            let filter = self.body.filter_static("DEVOUR", &expr);
+            format!("EnterModifier::Devour {{ filter: &{filter}, factor: {factor} }}")
+        };
+        if !self.body.keywords.iter().any(|k| k == "KeywordSet::DEVOUR") {
+            self.body.keywords.push("KeywordSet::DEVOUR".to_string());
+        }
+        self.body.enter_modifiers.push(entry);
+        Some(())
+    }
+
+    /// `K:Spree` (`CR 702.172a`): modal spell keyword on an instant or sorcery.
+    fn spree_keyword(&mut self) -> Option<()> {
+        if !self.is_spell_card_type() || self.type_line.is_empty() {
+            return self.deny("`Spree` on a non-instant/non-sorcery card".to_string());
+        }
+        if self.body.keywords.iter().any(|k| k == "KeywordSet::SPREE") {
+            return self.deny("a second `Spree` keyword on one card".to_string());
+        }
+        self.body.keywords.push("KeywordSet::SPREE".to_string());
+        self.body.notes.push("spree".to_string());
+        Some(())
+    }
+
+    /// `K:Fabricate:<N>` (`CR 702.114a–b`): creature ETB choice of counters or Servos.
+    fn fabricate_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_creature_permanent("Fabricate")?;
+        if rest.contains(':') {
+            return self.deny(format!("keyword `Fabricate:{rest}`"));
+        }
+        let Some(count) = rest.trim().parse::<u16>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("keyword `Fabricate:{rest}`"));
+        };
+        let Some(tokens) = self.tokens else {
+            return self.deny(
+                "`Fabricate` with no token scripts to read `c_1_1_a_servo` against".to_string(),
+            );
+        };
+        let Some(tok) = tokens.body("c_1_1_a_servo", self.cats) else {
+            return self.deny("token script `c_1_1_a_servo` for `Fabricate`".to_string());
+        };
+        let token = format!("&generated_tokens::{}", tok.constant);
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::ETB, &[Effect::Fabricate {{ count: {count}, token: {token} }}])"
+        ));
+        Some(())
+    }
+
+    /// `K:Hideaway:<N>` (`CR 702.75a–b`): permanent ETB hidden exile from top N cards.
+    fn hideaway_keyword(&mut self, rest: &str) -> Option<()> {
+        if self.type_line.is_empty() || self.is_spell_card_type() {
+            return self.deny("`Hideaway` on a non-permanent card".to_string());
+        }
+        if rest.contains(':') {
+            return self.deny(format!("keyword `Hideaway:{rest}`"));
+        }
+        let Some(n) = rest.trim().parse::<u8>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("keyword `Hideaway:{rest}`"));
+        };
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::ETB, &[Effect::Hideaway({n})])"
+        ));
+        Some(())
+    }
+
+    /// `K:Craft:<cost>` (`CR 702.167a–c`): front-face sorcery-speed exile-and-return-transformed.
+    fn craft_keyword(&mut self, rest: &str) -> Option<()> {
+        if !self.is_double_faced_front || self.is_land_card_type() || self.is_spell_card_type() {
+            return self.deny(
+                "`Craft` outside the front permanent face of a `DoubleFaced` card".to_string(),
+            );
+        }
+        if self
+            .body
+            .abilities
+            .iter()
+            .any(|a| a.contains("ReturnCraftedTransformed"))
+        {
+            return self.deny("a second `Craft` ability on one card".to_string());
+        }
+        let Some(main_spec) = Self::split_craft_spec(rest) else {
+            return self.deny(format!("malformed `Craft` specification `{rest}`"));
+        };
+        let tokens = super::cost_parts(main_spec);
+        if tokens.is_empty() {
+            return self.deny("an empty `Craft` cost".to_string());
+        }
+        let (mana, xmin, material_tokens) = self.split_craft_tokens(&tokens, rest)?;
+        let mut parts = vec!["ExileSelf".to_string()];
+        let mut used_xmin = false;
+        for tok in material_tokens {
+            let (part, uses_x) = self.parse_craft_material(tok, xmin)?;
+            if uses_x {
+                if used_xmin {
+                    return self.deny(format!(
+                        "multiple variable-count `Craft` materials `{rest}`"
+                    ));
+                }
+                used_xmin = true;
+            }
+            parts.push(part);
+        }
+        if xmin.is_some() && !used_xmin {
+            return self.deny(format!("unused `XMin` in `Craft:{rest}`"));
+        }
+        if parts.len() < 2 {
+            return self.deny(format!("`Craft` without material costs `{rest}`"));
+        }
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.body.abilities.push(format!(
+            "activated!({cost}, &[Effect::ReturnCraftedTransformed], timing = ActivationTiming::SorcerySpeed)"
+        ));
+        self.body.notes.push("craft".to_string());
+        Some(())
+    }
+
+    fn split_craft_spec(rest: &str) -> Option<&str> {
+        let mut depth = 0usize;
+        let mut splits = Vec::new();
+        for (i, ch) in rest.char_indices() {
+            match ch {
+                '<' => depth += 1,
+                '>' => depth = depth.saturating_sub(1),
+                ':' if depth == 0 => splits.push(i),
+                _ => {}
+            }
+        }
+        if splits.len() > 2 {
+            return None;
+        }
+        Some(match splits.first().copied() {
+            Some(idx) => rest[..idx].trim(),
+            None => rest.trim(),
+        })
+    }
+
+    fn split_craft_tokens<'b>(
+        &self,
+        tokens: &'b [String],
+        full: &str,
+    ) -> Option<(String, Option<u8>, Vec<&'b str>)> {
+        let mut mana = String::new();
+        let mut xmin: Option<u8> = None;
+        let mut materials = Vec::new();
+        for token in tokens {
+            let t = token.as_str();
+            if let Some(n_str) = t.strip_prefix("XMin") {
+                if xmin.is_some() {
+                    return self.deny(format!("duplicate `XMin` in `Craft:{full}`"));
+                }
+                let Some(k) = n_str.parse::<u8>().ok().filter(|&k| k >= 1) else {
+                    return self.deny(format!("invalid `XMin` in `Craft:{full}`"));
+                };
+                xmin = Some(k);
+            } else if t.chars().all(|c| c.is_ascii_digit())
+                || matches!(t, "W" | "U" | "B" | "R" | "G" | "C" | "S")
+            {
+                mana.push('{');
+                mana.push_str(t);
+                mana.push('}');
+            } else if let Some(pair) = super::hybrid_pair(t) {
+                mana.push_str(&pair);
+            } else if t.starts_with("ExileCtrlOrGrave<") || t.starts_with("ExileFromGrave<") {
+                materials.push(t);
+            } else {
+                return self.deny(format!("unsupported `Craft` cost token `{t}`"));
+            }
+        }
+        if !mana.is_empty() && baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+            return self.deny(format!("invalid mana in `Craft:{full}`"));
+        }
+        Some((mana, xmin, materials))
+    }
+
+    fn parse_craft_material(&mut self, token: &str, xmin: Option<u8>) -> Option<(String, bool)> {
+        let (grave_only, body) = if let Some(b) = token
+            .strip_prefix("ExileCtrlOrGrave<")
+            .and_then(|s| s.strip_suffix('>'))
+        {
+            (false, b)
+        } else if let Some(b) = token
+            .strip_prefix("ExileFromGrave<")
+            .and_then(|s| s.strip_suffix('>'))
+        {
+            (true, b)
+        } else {
+            return self.deny(format!("`Craft` material `{token}`"));
+        };
+        let Some((count_str, rest_body)) = body.split_once('/') else {
+            return self.deny(format!("malformed `Craft` material `{token}`"));
+        };
+        let valid_raw = rest_body.split('/').next().unwrap_or("").trim();
+        if valid_raw.is_empty() {
+            return self.deny(format!("empty `Craft` material filter `{token}`"));
+        }
+        let (min, max, uses_x) = if count_str == "X" {
+            let Some(k) = xmin else {
+                return self.deny(format!("variable `Craft` without `XMin` `{token}`"));
+            };
+            (k, u8::MAX, true)
+        } else {
+            let Some(n) = count_str.parse::<u8>().ok().filter(|&n| n >= 1) else {
+                return self.deny(format!("invalid `Craft` material count `{token}`"));
+            };
+            (n, n, false)
+        };
+        let normalized = valid_raw.replace(';', ",");
+        let mut expr = self.filter_expr_in_zone(&normalized, true)?;
+        if grave_only {
+            expr = match expr
+                .strip_prefix("Filter::And(&[")
+                .and_then(|s| s.strip_suffix("])"))
+            {
+                Some(clauses) => {
+                    format!("Filter::And(&[Filter::InZone(ZoneRef::Graveyard), {clauses}])")
+                }
+                None => format!("Filter::And(&[Filter::InZone(ZoneRef::Graveyard), {expr}])"),
+            };
+        }
+        let filter_ref = self.body.filter_static("COST", &expr);
+        Some((
+            format!("CraftMaterials {{ filter: &{filter_ref}, min: {min}, max: {max} }}"),
+            uses_x,
+        ))
     }
 
     pub(super) fn backup(&mut self, rest: &str) -> Option<()> {

@@ -235,6 +235,8 @@ fn single_instance_trigger_keyword(kw: &str) -> Option<&'static str> {
         "Extort" => Some("KeywordSet::EXTORT"),
         "Enlist" => Some("KeywordSet::ENLIST"),
         "Soulbond" => Some("KeywordSet::SOULBOND"),
+        "Exploit" => Some("KeywordSet::EXPLOIT"),
+        "Evolve" => Some("KeywordSet::EVOLVE"),
         _ => None,
     }
 }
@@ -811,6 +813,7 @@ fn abilities(
         || body.casualty.is_some()
         || body.impending.is_some()
         || body.gift.is_some()
+        || body.warp.is_some()
         || body.cost_reduction.is_some()
         || body.entwine.is_some()
         || body.buyback.is_some()
@@ -2311,6 +2314,43 @@ mod tests {
             "Name:ImpToken\nColors:red\nTypes:Creature Giant\nPT:4/4\nK:Impending:3:1 R",
             "Name:GiftToken\nColors:blue\nTypes:Creature Fish\nPT:1/1\nK:Gift\n\
              SVar:GiftAbility:DB$ Draw | Defined$ Promised | GiftDescription$ a card",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
+        }
+    }
+
+    #[test]
+    fn wave16a_keyword_token_rules_and_refusals() {
+        let c = cats();
+        let exploit_tok = read(
+            "Name:ExploitToken\nColors:black\nTypes:Creature Soldier\nPT:1/1\nK:Exploit",
+            &c,
+        )
+        .expect("single Exploit token");
+        assert!(
+            exploit_tok.literal.contains("KeywordSet::EXPLOIT"),
+            "{}",
+            exploit_tok.literal
+        );
+
+        let evolve_tok = read(
+            "Name:EvolveToken\nColors:green\nTypes:Creature Bird\nPT:0/1\nK:Evolve",
+            &c,
+        )
+        .expect("single Evolve token");
+        assert!(
+            evolve_tok.literal.contains("KeywordSet::EVOLVE"),
+            "{}",
+            evolve_tok.literal
+        );
+
+        for unsupported in [
+            "Name:WarpToken\nColors:blue\nTypes:Creature Bird\nPT:2/2\nK:Warp:1 U",
+            "Name:DupExploit\nColors:black\nTypes:Creature Soldier\nPT:1/1\nK:Exploit\nK:Exploit",
+            "Name:DupEvolve\nColors:green\nTypes:Creature Bird\nPT:0/1\nK:Evolve\nK:Evolve",
+            "Name:DevourToken\nColors:red\nTypes:Creature Soldier\nPT:3/3\nK:Devour:2",
+            "Name:SpreeToken\nColors:red\nTypes:Creature Soldier\nPT:1/1\nK:Spree",
+            "Name:CraftToken\nColors:white\nTypes:Artifact\nK:Craft:2 ExileCtrlOrGrave<1/Artifact.Other>",
         ] {
             assert!(read(unsupported, &c).is_none(), "{unsupported}");
         }

@@ -3874,10 +3874,23 @@ fn wave13a_pruned_statics_non_mana_counter_x_and_atoms() {
     );
     assert!(mana_x.abilities[0].contains("RemoveCounterSelfX { kind: CounterKind::Time }"));
 
-    for bad in [
+    let stack_time = read(
         "Name:StackTime\nManaCost:2 W\nTypes:Artifact\n\
          A:AB$ ChangeZoneAll | Cost$ T SubCounter<X/TIME> Exile<1/CARDNAME> | \
          ChangeType$ Artifact.YouOwn | Origin$ Graveyard | Destination$ Battlefield\n\
+         SVar:X:Count$xPaid",
+    );
+    assert_eq!(stack_time.abilities.len(), 1);
+    assert!(
+        stack_time.abilities[0].contains("RemoveCounterSelfX")
+            && stack_time.abilities[0].contains("CounterKind::Time")
+            && stack_time.abilities[0].contains("ExileSelf"),
+        "expected RemoveCounterSelfX(Time) + ExileSelf, got {:?}",
+        stack_time.abilities
+    );
+    for bad in [
+        "Name:StackTimeTargeted\nManaCost:2 W\nTypes:Artifact\n\
+         A:AB$ Destroy | ValidTgts$ Artifact | Cost$ T SubCounter<X/TIME> Exile<1/CARDNAME>\n\
          SVar:X:Count$xPaid",
         "Name:StackGain\nManaCost:2\nTypes:Artifact\n\
          A:AB$ GainLife | Cost$ SubCounter<X/CHARGE> | LifeAmount$ X\nSVar:X:Count$xPaid",
@@ -4465,5 +4478,150 @@ fn wave15a_conditional_etb_counter_clauses_and_nickname_grave_exile() {
             refused(bad_etb),
             "must refuse unsupported etbCounter: {bad_etb}"
         );
+    }
+}
+
+#[test]
+fn wave16a_warp_craft_and_descend_inference() {
+    let warp_x = read(
+        "Name:WarpWalker\nManaCost:2 U\nTypes:Creature Spirit\nPT:2/2\n\
+         K:Warp:X U\nSVar:X:Count$xPaid",
+    );
+    assert_eq!(warp_x.warp.as_deref(), Some("Some(cost!(\"{X}{U}\"))"));
+    assert_eq!(warp_x.keywords, ["KeywordSet::WARP"]);
+
+    let craft_fixed = read(
+        "Name:CraftRelic\nManaCost:2 R\nTypes:Artifact\n\
+         K:Craft:4 ExileCtrlOrGrave<1/Artifact.Other>:other artifacts:them\n\
+         AlternateMode:DoubleFaced\nALTERNATE\n\
+         Name:CraftBack\nColors:red\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1",
+    );
+    assert!(craft_fixed.abilities[0].contains("ReturnCraftedTransformed"));
+    assert!(craft_fixed.abilities[0].contains("ExileSelf"));
+    assert!(craft_fixed.abilities[0].contains("CraftMaterials"));
+    assert!(craft_fixed.abilities[0].contains("min: 1, max: 1"));
+
+    let craft_multi = read(
+        "Name:CraftIdol\nManaCost:2\nTypes:Artifact\n\
+         K:Craft:2 XMin1 ExileCtrlOrGrave<X/Permanent.Other>\n\
+         AlternateMode:DoubleFaced\nALTERNATE\n\
+         Name:CraftIdolBack\nColors:red\nTypes:Artifact\n",
+    );
+    assert!(craft_multi.abilities[0].contains("min: 1, max: 255"));
+    assert!(
+        craft_multi
+            .statics
+            .contains("Filter::HasType(TypeSet::ARTIFACT")
+            && craft_multi.statics.contains("TypeSet::CREATURE"),
+        "`Permanent.Other` must retain permanent card types: {}",
+        craft_multi.statics
+    );
+
+    let craft_grave = read(
+        "Name:CraftTome\nManaCost:1 R\nTypes:Artifact\n\
+         K:Craft:3 XMin4 ExileFromGrave<X/Instant.Red+Other;Sorcery.Red+Other> ExileCtrlOrGrave<1/Creature.Other>\n\
+         AlternateMode:DoubleFaced\nALTERNATE\n\
+         Name:CraftTomeBack\nColors:red\nTypes:Artifact\n",
+    );
+    assert!(
+        craft_grave.statics.contains("ZoneRef::Graveyard")
+            && craft_grave.abilities[0].contains("min: 4, max: 255")
+            && craft_grave.abilities[0].contains("min: 1, max: 1"),
+        "craft grave = {:?}",
+        craft_grave.statics
+    );
+
+    let d4 = read(
+        "Name:DescendSpy4\nManaCost:2 B\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Permanent.YouOwn | \
+         PresentZone$ Graveyard | SpellDescription$ Descend 4 — Draw a card.",
+    );
+    let d8 = read(
+        "Name:DescendSpy8\nManaCost:3 B\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Permanent.YouOwn | \
+         PresentZone$ Graveyard | SpellDescription$ Descend 8 — Draw a card.",
+    );
+    let d_one = read(
+        "Name:OneCardGrave\nManaCost:1 U\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Permanent.YouOwn | \
+         PresentZone$ Graveyard | SpellDescription$ Draw a card if a permanent card is in your graveyard.",
+    );
+    assert!(
+        d4.abilities[0].contains("AmountAtLeast(") && d4.abilities[0].contains(", 4)"),
+        "{:?}",
+        d4.abilities
+    );
+    assert!(
+        d8.abilities[0].contains("AmountAtLeast(") && d8.abilities[0].contains(", 8)"),
+        "{:?}",
+        d8.abilities
+    );
+    assert!(
+        d_one.abilities[0].contains("AmountAtLeast(") && d_one.abilities[0].contains(", 1)"),
+        "{:?}",
+        d_one.abilities
+    );
+
+    for bad in [
+        "Name:DupWarp\nManaCost:2 W\nTypes:Creature Knight\nPT:2/2\nK:Warp:1 W\nK:Warp:2 W",
+        "Name:LandWarp\nTypes:Land\nK:Warp:1",
+        "Name:SpellWarp\nManaCost:1 U\nTypes:Instant\nK:Warp:U\nA:SP$ Draw | NumCards$ 1",
+        "Name:TapWarp\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Warp:T",
+        "Name:SoloCraft\nManaCost:2\nTypes:Artifact\nK:Craft:2 ExileCtrlOrGrave<1/Artifact.Other>",
+        "Name:NoXMinCraft\nManaCost:2\nTypes:Artifact\nK:Craft:2 ExileCtrlOrGrave<X/Artifact.Other>\nAlternateMode:DoubleFaced\nALTERNATE\nName:Back\nColors:blue\nTypes:Artifact",
+        "Name:AmbigDescend\nManaCost:2 B\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Permanent.YouOwn | \
+         PresentZone$ Graveyard | SpellDescription$ Threshold — Draw if three or more.",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave16a_spree_charms_and_refusals() {
+    let spree = read(
+        "Name:SpreeCharm\nManaCost:R\nTypes:Instant\nK:Spree\n\
+         A:SP$ Charm | Choices$ M1,M2,M3,M4 | MinCharmNum$ 1 | CharmNum$ 4\n\
+         SVar:M1:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | ModeCost$ W\n\
+         SVar:M2:DB$ Destroy | ValidTgts$ Artifact | ModeCost$ 1 R\n\
+         SVar:M3:DB$ TargetOnly | ValidTgts$ Creature.YouCtrl | SubAbility$ M3Fight | ModeCost$ 2 R\n\
+         SVar:M3Fight:DB$ Fight | Defined$ ParentTarget | ValidTgts$ Creature.OppCtrl\n\
+         SVar:M4:DB$ Draw | NumCards$ 1 | ModeCost$ 1",
+    );
+    assert_eq!(spree.keywords, ["KeywordSet::SPREE"]);
+    assert!(
+        spree.abilities[0].contains("additional_cost = Some(mana!(\"{W}\"))")
+            && spree.abilities[0].contains("additional_cost = Some(mana!(\"{1}{R}\"))")
+            && spree.abilities[0].contains("additional_cost = Some(mana!(\"{2}{R}\"))")
+            && spree.abilities[0].contains("additional_cost = Some(mana!(\"{1}\"))")
+            && spree.abilities[0].contains("second_targets = Some("),
+        "{:?}",
+        spree.abilities
+    );
+
+    for bad in [
+        "Name:NoKSpree\nManaCost:R\nTypes:Instant\n\
+         A:SP$ Charm | Choices$ M1,M2 | MinCharmNum$ 1 | CharmNum$ 2\n\
+         SVar:M1:DB$ Draw | NumCards$ 1 | ModeCost$ 1\n\
+         SVar:M2:DB$ GainLife | LifeAmount$ 2 | ModeCost$ 1",
+        "Name:SpreeDefaultOne\nManaCost:R\nTypes:Instant\nK:Spree\n\
+         A:SP$ Charm | Choices$ M1,M2\n\
+         SVar:M1:DB$ Draw | NumCards$ 1 | ModeCost$ 1\n\
+         SVar:M2:DB$ GainLife | LifeAmount$ 2 | ModeCost$ 1",
+        "Name:TieredOne\nManaCost:R\nTypes:Instant\nK:Spree\n\
+         A:SP$ Charm | MinCharmNum$ 1 | CharmNum$ 1 | Choices$ M1,M2\n\
+         SVar:M1:DB$ Draw | NumCards$ 1 | ModeCost$ 1\n\
+         SVar:M2:DB$ GainLife | LifeAmount$ 2 | ModeCost$ 1",
+        "Name:MissingModeCost\nManaCost:R\nTypes:Instant\nK:Spree\n\
+         A:SP$ Charm | Choices$ M1,M2 | MinCharmNum$ 1 | CharmNum$ 2\n\
+         SVar:M1:DB$ Draw | NumCards$ 1 | ModeCost$ 1\n\
+         SVar:M2:DB$ GainLife | LifeAmount$ 2",
+        "Name:VarModeCost\nManaCost:R\nTypes:Instant\nK:Spree\n\
+         A:SP$ Charm | Choices$ M1,M2 | MinCharmNum$ 1 | CharmNum$ 2\n\
+         SVar:M1:DB$ Draw | NumCards$ 1 | ModeCost$ X\n\
+         SVar:M2:DB$ GainLife | LifeAmount$ 2 | ModeCost$ 1\nSVar:X:Count$xPaid",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
     }
 }
