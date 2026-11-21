@@ -11,7 +11,7 @@ card!(
     oracle_id = "8574f57a-768d-42a0-ac8c-cc0a1de181e0",
     scryfall_id = "8752a605-38f8-4d75-b122-063a788dff6e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bog Down",
         mana_cost = mana!("{2}{B}"),

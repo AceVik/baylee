@@ -11,7 +11,7 @@ card!(
     oracle_id = "e69279f6-50a1-4db5-83be-30a2ea7fc6a9",
     scryfall_id = "75993427-fb8d-41cc-9016-323e804a5eb7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trash for Treasure",
         mana_cost = mana!("{2}{R}"),

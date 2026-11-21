@@ -13,7 +13,7 @@ card!(
     oracle_id = "2da232d8-580f-4116-b977-2c59cd21b5a4",
     scryfall_id = "3ff49b0b-322b-4b98-8604-d6716f3bec39",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hull Breach",
         mana_cost = mana!("{R}{G}"),

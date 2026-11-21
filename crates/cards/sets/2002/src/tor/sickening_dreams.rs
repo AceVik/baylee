@@ -11,7 +11,7 @@ card!(
     oracle_id = "728d2e30-2f36-4054-81db-29b01e376a82",
     scryfall_id = "9396ac77-9f53-46bd-b126-02441a0f5594",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sickening Dreams",
         mana_cost = mana!("{1}{B}"),

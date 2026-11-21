@@ -13,7 +13,7 @@ card!(
     oracle_id = "c65dc9cb-3aad-4d15-a8c0-c0c142058d45",
     scryfall_id = "daf180c6-7ab6-4922-9f5e-73b4f2c9488a",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Temporal Cascade",
         mana_cost = mana!("{5}{U}{U}"),

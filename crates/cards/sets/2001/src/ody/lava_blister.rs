@@ -10,7 +10,7 @@ card!(
     oracle_id = "3260bede-d78d-41a6-8fe1-95ce14a2ba8c",
     scryfall_id = "cd0e9e53-2710-4c2a-a8e4-48f25375ebc7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lava Blister",
         mana_cost = mana!("{1}{R}"),

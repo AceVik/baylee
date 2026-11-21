@@ -10,7 +10,7 @@ card!(
     oracle_id = "0b1a27bd-bb98-44f8-8357-666fabfeabf0",
     scryfall_id = "1d47ddca-a363-4ab7-b7f2-d0e0043c9916",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chain of Acid",
         mana_cost = mana!("{3}{G}"),

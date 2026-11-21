@@ -11,7 +11,7 @@ card!(
     oracle_id = "65f1dd09-0640-47f8-8bfd-7aceaa5646a6",
     scryfall_id = "63795680-5310-4c99-92c1-70e453391de9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Restless Dreams",
         mana_cost = mana!("{B}"),
