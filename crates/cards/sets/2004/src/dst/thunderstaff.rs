@@ -16,7 +16,7 @@ card!(
     index = index::THUNDERSTAFF,
     oracle_id = "1a88a378-051c-42b4-bd0e-9c40ae8efea6",
     scryfall_id = "3d73681d-189f-4331-ac4b-e7e1541023ee",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thunderstaff",
         mana_cost = mana!("{3}"),

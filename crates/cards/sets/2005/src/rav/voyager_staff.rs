@@ -9,7 +9,7 @@ card!(
     index = index::VOYAGER_STAFF,
     oracle_id = "4573f044-7011-412e-81bd-ae8d0c21283b",
     scryfall_id = "8b9533a8-6ee3-493c-b211-5a1bc2b31ec8",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voyager Staff",
         mana_cost = mana!("{1}"),

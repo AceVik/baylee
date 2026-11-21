@@ -19,7 +19,7 @@ card!(
     index = index::MANRIKI_GUSARI,
     oracle_id = "cc2eb3e4-084c-471b-9fe0-72aa9ff2019a",
     scryfall_id = "9bc6542b-7672-4ea1-816c-33bc0c300f3c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manriki-Gusari",
         mana_cost = mana!("{2}"),

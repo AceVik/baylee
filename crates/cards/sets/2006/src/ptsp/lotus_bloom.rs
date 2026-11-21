@@ -10,7 +10,7 @@ card!(
     index = index::LOTUS_BLOOM,
     oracle_id = "04cf02dc-f053-414e-87d8-1537f25bcbf4",
     scryfall_id = "db89ae4d-1cc2-41d8-a4de-a54b958c4429",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(name = "Lotus Bloom", types = TypeSet::ARTIFACT,),],
     abilities = &[
         AbilityDef::Suspend {

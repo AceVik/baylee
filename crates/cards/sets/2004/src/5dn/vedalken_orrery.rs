@@ -9,7 +9,7 @@ card!(
     index = index::VEDALKEN_ORRERY,
     oracle_id = "60d640a4-032b-4279-ac75-8f200ca776fb",
     scryfall_id = "44067327-6fe3-4222-b591-6d14d0e360d7",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vedalken Orrery",
         mana_cost = mana!("{4}"),

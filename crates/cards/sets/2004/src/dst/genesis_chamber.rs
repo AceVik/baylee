@@ -12,7 +12,7 @@ card!(
     index = index::GENESIS_CHAMBER,
     oracle_id = "150ab025-5cc3-4468-a724-bbba8838445d",
     scryfall_id = "93bd7e73-63dc-45b2-aaa8-984be8b900ab",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Genesis Chamber",
         mana_cost = mana!("{2}"),

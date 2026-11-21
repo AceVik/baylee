@@ -12,7 +12,7 @@ card!(
     index = index::RONIN_WARCLUB,
     oracle_id = "11b969f2-ff68-4c9e-b3f3-839736084303",
     scryfall_id = "46ad31cd-38dc-4fd3-b9e4-8988f4898719",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ronin Warclub",
         mana_cost = mana!("{3}"),

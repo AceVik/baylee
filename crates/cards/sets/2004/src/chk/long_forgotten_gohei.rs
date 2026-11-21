@@ -11,7 +11,7 @@ card!(
     index = index::LONG_FORGOTTEN_GOHEI,
     oracle_id = "897910d5-13a4-4e1d-8f83-235b773b8322",
     scryfall_id = "67ced123-3eb4-405e-b26d-30644f35a5b0",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Long-Forgotten Gohei",
         mana_cost = mana!("{3}"),

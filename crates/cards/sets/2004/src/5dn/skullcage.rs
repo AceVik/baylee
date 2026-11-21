@@ -11,7 +11,7 @@ card!(
     index = index::SKULLCAGE,
     oracle_id = "a96387fb-ff10-4299-8f42-aa61da693d07",
     scryfall_id = "9e658a5a-8d84-4225-b595-5265a0bfd996",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skullcage",
         mana_cost = mana!("{4}"),

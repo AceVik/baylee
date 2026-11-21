@@ -9,7 +9,7 @@ card!(
     index = index::BLOOD_CLOCK,
     oracle_id = "ef987ddb-25f6-4895-8f83-045254745ea4",
     scryfall_id = "28328b4d-99d1-4460-9bbe-a64c6c0b6cb2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blood Clock",
         mana_cost = mana!("{4}"),

@@ -9,7 +9,7 @@ card!(
     index = index::ORNATE_KANZASHI,
     oracle_id = "3c41c666-5cf4-4f35-9cb8-c41f1f78f31e",
     scryfall_id = "baeb4c10-59cb-4bc1-b824-6ec8edd6f45e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ornate Kanzashi",
         mana_cost = mana!("{5}"),

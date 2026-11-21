@@ -11,7 +11,7 @@ card!(
     index = index::PARIAH_S_SHIELD,
     oracle_id = "f2103ab8-a183-4db8-98dd-4146217b5125",
     scryfall_id = "d794e94e-5ba4-4caa-bd3d-737301056da1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pariah's Shield",
         mana_cost = mana!("{5}"),
