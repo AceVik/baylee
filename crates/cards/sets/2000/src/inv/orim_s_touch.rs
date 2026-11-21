@@ -11,7 +11,7 @@ card!(
     oracle_id = "cc22c210-efd0-494c-8560-448b038b3c5f",
     scryfall_id = "559f551e-7891-4c6d-8798-a25c0255fa3b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orim's Touch",
         mana_cost = mana!("{W}"),

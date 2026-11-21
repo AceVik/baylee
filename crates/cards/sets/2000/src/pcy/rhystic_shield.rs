@@ -10,7 +10,7 @@ card!(
     oracle_id = "a905dafa-1818-471a-a485-d84be447263b",
     scryfall_id = "49af7b3f-f56a-4102-b398-5c215dd4fa11",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rhystic Shield",
         mana_cost = mana!("{1}{W}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "70e0b676-61a2-4dcf-8f61-d9281467ed43",
     scryfall_id = "806d854b-a165-4d40-86d7-d6a0aa17ce18",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blessed Reversal",
         mana_cost = mana!("{1}{W}"),

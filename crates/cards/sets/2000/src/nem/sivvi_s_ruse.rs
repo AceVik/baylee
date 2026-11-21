@@ -12,7 +12,7 @@ card!(
     oracle_id = "c5edfaae-3ecd-41ad-970f-8cecb09bf1e4",
     scryfall_id = "132112a0-0fb0-4a80-927d-39d34cf10159",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sivvi's Ruse",
         mana_cost = mana!("{2}{W}{W}"),

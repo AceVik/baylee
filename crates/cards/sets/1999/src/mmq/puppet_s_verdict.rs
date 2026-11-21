@@ -10,7 +10,7 @@ card!(
     oracle_id = "e07a7c75-b7b7-4c2d-bd7d-5f056cde871d",
     scryfall_id = "052b743a-456d-49c3-881e-4f30c7645fa5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Puppet's Verdict",
         mana_cost = mana!("{1}{R}{R}"),
