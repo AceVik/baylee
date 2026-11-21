@@ -10,7 +10,7 @@ card!(
     oracle_id = "9ba89c25-5302-414f-a2ec-436b8981999d",
     scryfall_id = "2d9e3793-7ddc-45c5-b25d-acd5cb96026f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Overwhelming Instinct",
         mana_cost = mana!("{2}{G}"),

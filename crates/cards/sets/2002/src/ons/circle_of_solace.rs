@@ -16,7 +16,7 @@ card!(
     oracle_id = "14ebedd1-7a2d-413b-9b76-8610511292a4",
     scryfall_id = "07f567dc-8a60-40e1-b947-199872d8df08",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Circle of Solace",
         mana_cost = mana!("{3}{W}"),

@@ -24,7 +24,7 @@ card!(
     oracle_id = "5c77bf76-bb0f-4e44-babe-0e7b7b555e1f",
     scryfall_id = "138d2d9d-d5ab-400f-a714-cd38212a0dae",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quicksilver Dagger",
         mana_cost = mana!("{1}{U}{R}"),

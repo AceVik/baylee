@@ -23,7 +23,7 @@ card!(
     oracle_id = "16f3a09f-e29b-4fb5-95ed-d76ad550c2ad",
     scryfall_id = "7c5a6fa8-d422-4e56-9e7b-2ff2fc8aecfe",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Foul Presence",
         mana_cost = mana!("{2}{B}"),

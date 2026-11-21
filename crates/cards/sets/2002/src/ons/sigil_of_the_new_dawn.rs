@@ -12,7 +12,7 @@ card!(
     oracle_id = "cb029c0f-b08a-4952-b236-8166b9f17119",
     scryfall_id = "64393586-42c6-4874-9473-85c63c7ed2ad",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sigil of the New Dawn",
         mana_cost = mana!("{3}{W}"),

@@ -21,7 +21,7 @@ card!(
     oracle_id = "0b633017-bfdf-47cd-a60f-c93816b47e9c",
     scryfall_id = "41764237-fa31-4b27-92ff-712a42d350b9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arcane Teachings",
         mana_cost = mana!("{2}{R}"),

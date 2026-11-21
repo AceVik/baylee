@@ -110,6 +110,7 @@ fn may_block(
             .any(|b| b.blocker == blocker && b.attackers.contains(&attacker))
     })
 }
+mod aether_charge;
 mod angelic_chorus;
 mod asceticism;
 mod berserkers_onslaught;
@@ -131,6 +132,7 @@ mod duplicity;
 mod enchanted_evening;
 mod energy_vortex;
 mod festering_evil;
+mod gratuitous_violence;
 mod gravitational_shift;
 mod intimidation;
 mod larceny;

@@ -13,7 +13,7 @@ card!(
     oracle_id = "7c340a39-4ee0-4ba1-bb66-6674f8020fda",
     scryfall_id = "e89024c5-eef5-468c-92b4-e53dd212909c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gratuitous Violence",
         mana_cost = mana!("{2}{R}{R}{R}"),

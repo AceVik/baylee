@@ -12,7 +12,7 @@ card!(
     oracle_id = "6fa9debf-c60e-432d-86c8-aed16556c532",
     scryfall_id = "e3379317-be18-4252-84ad-b7ebb6e557ff",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Animal Boneyard",
         mana_cost = mana!("{2}{W}"),

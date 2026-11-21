@@ -10,7 +10,7 @@ card!(
     oracle_id = "cf5cf174-d976-4cd8-9721-c30fe784fb70",
     scryfall_id = "d518e2fd-7767-43d7-92e3-62a4a465154c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dark Suspicions",
         mana_cost = mana!("{2}{B}{B}"),

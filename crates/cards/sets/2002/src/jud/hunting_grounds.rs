@@ -22,7 +22,7 @@ card!(
     oracle_id = "2f3fec87-3dd2-4e5d-835c-eae535da4ecb",
     scryfall_id = "6e544772-5ab8-47dd-8a6e-686d385a6ee7",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hunting Grounds",
         mana_cost = mana!("{G}{W}"),

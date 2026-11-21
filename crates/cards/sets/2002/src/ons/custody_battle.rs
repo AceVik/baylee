@@ -27,7 +27,7 @@ card!(
     oracle_id = "9a9664d7-2299-43dc-89b6-d74fe69e0e4a",
     scryfall_id = "b72257f5-0cf9-45ca-8dc7-a1a93bd7dd1e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Custody Battle",
         mana_cost = mana!("{1}{R}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "de85c961-622d-4d70-8cd7-f722c1ac5ed1",
     scryfall_id = "76ef2016-b3c8-4615-a056-3000bcccb68e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sphere of Reason",
         mana_cost = mana!("{3}{W}"),
