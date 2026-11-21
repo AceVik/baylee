@@ -1364,11 +1364,23 @@ fn wave4_svar_conditions_damage_pump_and_second_destroy() {
         "{}",
         deathtouch_pump.abilities[0]
     );
-    for unenforced in ["Wither", "Horsemanship", "Skulk"] {
-        assert!(refused(&format!(
+    for (kw, expected) in [
+        ("Wither", "KeywordSet::WITHER"),
+        ("Horsemanship", "KeywordSet::HORSEMANSHIP"),
+        ("Skulk", "KeywordSet::SKULK"),
+        ("Enlist", "KeywordSet::ENLIST"),
+        ("Read ahead", "KeywordSet::READ_AHEAD"),
+    ] {
+        let pumped = read(&format!(
             "Name:GateTest\nManaCost:1 B\nTypes:Instant\n\
-             A:SP$ Pump | ValidTgts$ Creature | KW$ {unenforced} | Duration$ UntilEndOfCombat"
-        )));
+             A:SP$ Pump | ValidTgts$ Creature | KW$ {kw} | Duration$ UntilEndOfCombat"
+        ));
+        assert!(
+            pumped.abilities[0].contains(expected)
+                && pumped.abilities[0].contains("Duration::UntilEndOfCombat"),
+            "{}",
+            pumped.abilities[0]
+        );
     }
 
     // Second-target `Destroy` emits `DestroyTargetSlots { targets: &[TargetSlot::Second], .. }`.
@@ -2011,9 +2023,19 @@ fn wave7_alt_cost_conditions_and_self_spell_cast_triggers() {
         "{}",
         cast_self.abilities[0]
     );
-    assert!(refused(
-        "Name:HeroicRefused\nTypes:Creature\nPT:1/1\n\
+    let heroic = read(
+        "Name:HeroicAllowed\nTypes:Creature\nPT:1/1\n\
          T:Mode$ SpellCast | ValidActivatingPlayer$ You | TargetsValid$ Card.Self | TriggerZones$ Battlefield | Execute$ Draw\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        heroic.abilities[0].contains("Trigger::HEROIC"),
+        "{}",
+        heroic.abilities[0]
+    );
+    assert!(refused(
+        "Name:HeroicNoZone\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ SpellCast | ValidActivatingPlayer$ You | TargetsValid$ Card.Self | Execute$ Draw\n\
          SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1"
     ));
 }
@@ -3871,5 +3893,258 @@ fn wave11b_pass2_effect_apis_graveyard_and_turn_history() {
         ),
         "{}",
         goblin_check.abilities[0]
+    );
+}
+
+#[test]
+fn wave12c_wave5b_heroic_enlist_and_bolster() {
+    let heroic = read(
+        "Name:HeroicScout\nManaCost:1 W\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ SpellCast | ValidActivatingPlayer$ You | TargetsValid$ Card.Self | TriggerZones$ Battlefield | Execute$ T\n\
+         SVar:T:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        heroic.abilities[0].contains("Trigger::HEROIC"),
+        "{}",
+        heroic.abilities[0]
+    );
+
+    let single_tgt = read(
+        "Name:WardWatcher\nManaCost:2 U\nTypes:Creature\nPT:2/3\n\
+         T:Mode$ SpellCast | ValidCard$ Instant,Sorcery | ValidActivatingPlayer$ Opponent | TargetsValid$ You,Creature.YouCtrl+inZoneBattlefield | IsSingleTarget$ True | TriggerZones$ Battlefield | Execute$ T\n\
+         SVar:T:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        single_tgt.abilities[0].contains("Trigger::SpellCastTargeting {")
+            && single_tgt.abilities[0].contains("who: PlayerRel::EachOpponent")
+            && single_tgt.abilities[0].contains("targets_you: true")
+            && single_tgt.abilities[0].contains("only: true"),
+        "{}",
+        single_tgt.abilities[0]
+    );
+    assert!(refused(
+        "Name:GraveTargetSpell\nManaCost:1 B\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ SpellCast | ValidActivatingPlayer$ You | TargetsValid$ Card.inZoneGraveyard | TriggerZones$ Battlefield | Execute$ T\n\
+         SVar:T:DB$ Draw | NumCards$ 1"
+    ));
+
+    let enlisted = read(
+        "Name:EnlistVanguard\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Enlisted | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ T\n\
+         SVar:T:DB$ Scry | ScryNum$ 2",
+    );
+    assert!(
+        enlisted.abilities[0].contains("Trigger::ENLISTED_THIS"),
+        "{}",
+        enlisted.abilities[0]
+    );
+    assert!(refused(
+        "Name:EnlistFilterRefused\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Enlisted | ValidCard$ Card.Self | ValidEnlisted$ Creature.Goblin | TriggerZones$ Battlefield | Execute$ T\n\
+         SVar:T:DB$ Draw | NumCards$ 1"
+    ));
+
+    let bolster_chain = read(
+        "Name:TacticalBolster\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Tap | ValidTgts$ Creature | SubAbility$ DBBolster\n\
+         SVar:DBBolster:DB$ PutCounter | Bolster$ 2",
+    );
+    assert!(
+        bolster_chain.abilities[0].contains("Effect::Bolster(Amount::Fixed(2))"),
+        "{}",
+        bolster_chain.abilities[0]
+    );
+    assert!(refused(
+        "Name:BolsterRemember\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ PutCounter | Bolster$ 1 | RememberCards$ True"
+    ));
+}
+
+#[test]
+fn wave12c_damage_prevention_effect_and_exchange_control() {
+    let fog_pair = read(
+        "Name:TruceBlade\nManaCost:W\nTypes:Creature\nPT:1/1\n\
+         A:AB$ Effect | Cost$ 1 W | ValidTgts$ Creature | RememberObjects$ Targeted | ExileOnMoved$ Battlefield | ReplacementEffects$ R1,R2\n\
+         SVar:R1:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidSource$ Card.IsRemembered\n\
+         SVar:R2:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidTarget$ Card.IsRemembered",
+    );
+    assert!(
+        fog_pair.abilities[0].contains(
+            "Effect::ModifyTargets { modifier: Modifier::PreventDamageFromIt, duration: Duration::UntilEndOfTurn }"
+        ) && fog_pair.abilities[0].contains(
+            "Effect::ModifyTargets { modifier: Modifier::PreventDamageToIt, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{}",
+        fog_pair.abilities[0]
+    );
+
+    let self_shield = read(
+        "Name:SafeGuard\nManaCost:1 W\nTypes:Creature\nPT:1/2\n\
+         A:AB$ Effect | Cost$ T | Duration$ UntilHostLeavesPlayOrEOT | ReplacementEffects$ R1\n\
+         SVar:R1:Event$ DamageDone | Prevent$ True | ValidTarget$ Card.EffectSource",
+    );
+    assert!(
+        self_shield.abilities[0].contains(
+            "Effect::ModifySource { modifier: Modifier::PreventDamageFrom(&Filter::Any), duration: Duration::UntilEndOfTurn }"
+        ),
+        "{}",
+        self_shield.abilities[0]
+    );
+    assert!(refused(
+        "Name:CombatOnlyYouNextTurn\nManaCost:W\nTypes:Instant\n\
+         A:SP$ Effect | Duration$ UntilYourNextTurn | ReplacementEffects$ R1\n\
+         SVar:R1:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidTarget$ You"
+    ));
+
+    let swap = read(
+        "Name:ControlSwap\nManaCost:4 U\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | SubAbility$ DBEx\n\
+         SVar:DBEx:DB$ ExchangeControl | Defined$ ParentTarget | ValidTgts$ Creature",
+    );
+    assert!(
+        swap.abilities[0].contains("Effect::ExchangeControl")
+            && swap.abilities[0].contains("second_targets"),
+        "{}",
+        swap.abilities[0]
+    );
+}
+
+#[test]
+fn wave12c_remembered_zone_changes_and_exiled_with_guard() {
+    let fetch_untap = read(
+        "Name:PassageLand\nManaCost:no cost\nTypes:Land\n\
+         A:AB$ ChangeZone | Cost$ T Sac<1/CARDNAME> | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.Basic | ChangeTypeDesc$ basic land | Tapped$ True | RememberChanged$ True | SubAbility$ DBUntap\n\
+         SVar:DBUntap:DB$ Untap | Defined$ Remembered | ConditionPresent$ Land.YouCtrl | ConditionCompare$ GE4 | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        fetch_untap.abilities[0].contains("Effect::SearchLibrary")
+            && fetch_untap.abilities[0].contains("Effect::UntapFound"),
+        "{}",
+        fetch_untap.abilities[0]
+    );
+
+    let gy_exile_cond = read(
+        "Name:GraveScavenger\nManaCost:2 G\nTypes:Creature\nPT:3/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ T\n\
+         SVar:T:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card | TargetMin$ 0 | TargetMax$ 1 | RememberChanged$ True | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Creature | ConditionCompare$ EQ1 | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | Defined$ Self | NumAtt$ +1 | NumDef$ +1 | ConditionDefined$ Remembered | ConditionPresent$ Creature | ConditionCompare$ EQ0 | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        gy_exile_cond.abilities[0].contains("Condition::ObjectMatches")
+            && gy_exile_cond
+                .statics
+                .contains("Filter::InZone(ZoneRef::Exile)")
+            && gy_exile_cond.statics.contains("Filter::Not("),
+        "{}\n{}",
+        gy_exile_cond.statics,
+        gy_exile_cond.abilities[0]
+    );
+
+    let reanimate_mod = read(
+        "Name:HastyReturn\nManaCost:3 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature | RememberChanged$ True | SubAbility$ DBPC\n\
+         SVar:DBPC:DB$ PutCounter | Defined$ Remembered | CounterType$ P1P1 | CounterNum$ 1 | SubAbility$ DBAnim\n\
+         SVar:DBAnim:DB$ Animate | Defined$ Remembered | Duration$ Permanent | Keywords$ Haste | LeaveBattlefield$ Exile | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        reanimate_mod.abilities[0].contains("Effect::GraveyardToBattlefieldModified")
+            && reanimate_mod.abilities[0].contains("Some((CounterKind::P1P1, 1))")
+            && reanimate_mod.abilities[0].contains("Modifier::AddKeyword(KeywordSet::HASTE)")
+            && reanimate_mod.abilities[0].contains("Modifier::ExileInsteadOfLeavingBattlefield"),
+        "{}",
+        reanimate_mod.abilities[0]
+    );
+
+    let archive = read(
+        "Name:HiddenArchive\nManaCost:3\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | OptionalDecider$ You | Execute$ TEx\n\
+         SVar:TEx:DB$ ChangeZone | Defined$ TopOfLibrary | Origin$ Library | Destination$ Exile | ExileFaceDown$ True\n\
+         A:AB$ ChangeZoneAll | Cost$ 5 Sac<1/CARDNAME> | ChangeType$ Card.ExiledWithSource | Origin$ Exile | Destination$ Hand",
+    );
+    assert!(
+        archive.abilities[0].contains("Effect::ExileTopFaceDownLinked")
+            && archive.abilities[1].contains("Effect::ReturnLinkedExile { to: ZoneRef::Hand }"),
+        "{}\n{}",
+        archive.abilities[0],
+        archive.abilities[1]
+    );
+
+    let thresh_search = read(
+        "Name:DeepWander\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.Basic | Tapped$ True | ChangeNum$ X\n\
+         SVar:X:Count$Threshold.3.1",
+    );
+    assert!(
+        thresh_search.abilities[0].contains("Condition::GraveyardCountAtLeast(7)")
+            && thresh_search.abilities[0].contains(
+                "Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED"
+            ),
+        "{}",
+        thresh_search.abilities[0]
+    );
+
+    // #349/#350 guard: ChooseMove::Exile must refuse cards reading ExiledWith/ExiledWithSource.
+    assert!(refused(
+        "Name:UnlinkedExileNewt\nManaCost:1 U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigEx\n\
+         SVar:TrigEx:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ChangeType$ Land.YouCtrl | Hidden$ True | Mandatory$ True\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ TrigRet\n\
+         SVar:TrigRet:DB$ ChangeZoneAll | ChangeType$ Card.ExiledWithSource | Origin$ Exile | Destination$ Battlefield"
+    ));
+}
+
+#[test]
+fn wave12c_pass2_effect_statics_defender_land_plays_and_colors() {
+    let wall_march = read(
+        "Name:MarchingWall\nManaCost:1 W\nTypes:Creature Wall\nPT:0/4\nK:Defender\n\
+         A:AB$ Effect | Cost$ 1 W | StaticAbilities$ CanAtk\n\
+         SVar:CanAtk:Mode$ CanAttackDefender | ValidCard$ Card.EffectSource",
+    );
+    assert!(
+        wall_march.abilities[0].contains("Modifier::AttacksDespiteDefender"),
+        "{}",
+        wall_march.abilities[0]
+    );
+
+    let extra_land = read(
+        "Name:ExplorePath\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Effect | StaticAbilities$ LandDrop | SubAbility$ DBDraw\n\
+         SVar:LandDrop:Mode$ Continuous | Affected$ You | AdjustLandPlays$ 1\n\
+         SVar:DBDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        extra_land.abilities[0].contains("Modifier::ExtraLandDrops(1)"),
+        "{}",
+        extra_land.abilities[0]
+    );
+
+    let color_and_type = read(
+        "Name:GoblinTouch\nManaCost:G\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | StaticAbilities$ ST\n\
+         SVar:ST:Mode$ Continuous | Affected$ Card.IsRemembered | AddType$ Goblin | SetColor$ Green",
+    );
+    assert!(
+        color_and_type.abilities[0].contains("Modifier::AddSubtype(subtypes::creature::GOBLIN)")
+            && color_and_type.abilities[0]
+                .contains("Modifier::SetColor(ColorSet::from_slice(&[Color::Green]))"),
+        "{}",
+        color_and_type.abilities[0]
+    );
+
+    let multi_fog = read(
+        "Name:TwinTruce\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | RememberObjects$ Targeted | ReplacementEffects$ R1\n\
+         SVar:R1:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidSource$ Card.IsRemembered",
+    );
+    assert!(
+        multi_fog.abilities[0]
+            .contains("TargetReq::up_to(TargetSpec::Object(&Filter::CREATURE), 2)")
+            && multi_fog.abilities[0].contains("Modifier::PreventDamageFromIt"),
+        "{}",
+        multi_fog.abilities[0]
     );
 }

@@ -24,6 +24,7 @@ impl Tx<'_> {
     /// `Instant.YouCtrl,Sorcery.YouCtrl`. The atom is spelled the way a
     /// script would have spelled it rather than built here, so the two
     /// spellings cannot drift.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn spell_cast_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
         // **An absent `TriggerZones$` is not the battlefield here.** Most
         // zoneless `SpellCast` lines write `ValidCard$ Card.Self` — "when you
@@ -46,7 +47,7 @@ impl Tx<'_> {
         }
         let valid = match p.take("ValidCard") {
             Some(valid) => valid,
-            None if p.has("ValidActivatingPlayer") => "Card".to_string(),
+            None if p.has("ValidActivatingPlayer") || p.has("TargetsValid") => "Card".to_string(),
             None => return self.deny("a `SpellCast` trigger with no `ValidCard$`".to_string()),
         };
         // The same sentence, refused a second way: a cast trigger
@@ -78,6 +79,15 @@ impl Tx<'_> {
                 return self.deny(format!("a spell cast by `{other}`"));
             }
         };
+        if let Some(targets_valid) = p.take("TargetsValid") {
+            if p.has("ActivatorThisTurnCast") {
+                return self.deny(
+                    "a `SpellCast` trigger with both `TargetsValid$` and `ActivatorThisTurnCast$`"
+                        .to_string(),
+                );
+            }
+            return self.spell_cast_targeting_trigger(&valid, whose, &targets_valid, p);
+        }
         if let Some(count) = p.take("ActivatorThisTurnCast") {
             if count == "GT1" && valid == "Instant" {
                 let who = match whose {
@@ -137,6 +147,123 @@ impl Tx<'_> {
         let expr = self.filter_expr(&valid)?;
         let filter = self.body.filter_static("TRIGGER", &expr);
         Some(format!("Trigger::SpellCast(&{filter})"))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn spell_cast_targeting_trigger(
+        &mut self,
+        valid: &str,
+        whose: &str,
+        targets_valid: &str,
+        p: &mut Params,
+    ) -> Option<String> {
+        let only = match p.take("IsSingleTarget").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`SpellCast` with `IsSingleTarget$ {other}`")),
+        };
+        let who = match whose {
+            "" => "PlayerRel::EachPlayer",
+            ".YouCtrl" => "PlayerRel::You",
+            ".OppCtrl" => "PlayerRel::EachOpponent",
+            _ => unreachable!("player relation was checked above"),
+        };
+        let mut targets_you = false;
+        let mut obj_alts = Vec::new();
+        for alt in targets_valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            if alt == "You" {
+                targets_you = true;
+                continue;
+            }
+            if alt
+                .split(['.', '+'])
+                .any(|atom| matches!(atom, "You" | "Player" | "Opponent"))
+            {
+                return self.deny(format!("a `SpellCast` trigger targeting `{alt}`"));
+            }
+            let (noun, rest) = match alt.split_once('.') {
+                Some((n, r)) => (n.trim(), Some(r)),
+                None => (alt, None),
+            };
+            if noun.starts_with("inZone") {
+                return self.deny(format!("a `SpellCast` trigger targeting `{alt}`"));
+            }
+            let cleaned = if let Some(rest) = rest {
+                let mut kept = Vec::new();
+                for atom in rest.split('+').map(str::trim) {
+                    if atom == "inZoneBattlefield" {
+                        continue;
+                    }
+                    if atom.starts_with("inZone") {
+                        return self.deny(format!("a `SpellCast` trigger targeting `{alt}`"));
+                    }
+                    if !atom.is_empty() {
+                        kept.push(atom);
+                    }
+                }
+                if kept.is_empty() {
+                    noun.to_string()
+                } else {
+                    format!("{noun}.{}", kept.join("+"))
+                }
+            } else {
+                noun.to_string()
+            };
+            obj_alts.push(cleaned);
+        }
+        if obj_alts.is_empty() && !targets_you {
+            return None;
+        }
+        let target_opt = if obj_alts.is_empty() {
+            "None".to_string()
+        } else if obj_alts.len() == 1 && obj_alts[0] == "Card.Self" {
+            "Some(&Filter::This)".to_string()
+        } else {
+            let joined = obj_alts.join(",");
+            let expr = self.filter_expr(&joined)?;
+            if expr == "Filter::This" {
+                "Some(&Filter::This)".to_string()
+            } else {
+                let filter = self.body.filter_static("TRIGGER", &expr);
+                format!("Some(&{filter})")
+            }
+        };
+        let spell_ref = match (valid, whose) {
+            ("Card", _) | ("Card.YouCtrl", ".YouCtrl") | ("Card.OppCtrl", ".OppCtrl") => {
+                "&Filter::Any".to_string()
+            }
+            _ => {
+                let expr = self.filter_expr(valid)?;
+                format!("&{}", self.body.filter_static("TRIGGER", &expr))
+            }
+        };
+        if who == "PlayerRel::You"
+            && spell_ref == "&Filter::Any"
+            && target_opt == "Some(&Filter::This)"
+            && !targets_you
+            && !only
+        {
+            return Some("Trigger::HEROIC".to_string());
+        }
+        Some(format!(
+            "Trigger::SpellCastTargeting {{ who: {who}, spell: {spell_ref}, target: {target_opt}, \
+             targets_you: {targets_you}, only: {only} }}"
+        ))
+    }
+
+    fn enlisted_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("an `Enlisted` trigger with no `ValidCard$`".to_string());
+        };
+        if valid == "Card.Self" {
+            return Some("Trigger::ENLISTED_THIS".to_string());
+        }
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("TRIGGER", &expr);
+        Some(format!("Trigger::Enlisted(&{filter})"))
     }
 
     /// `T:Mode$ DamageDone` — "whenever this creature deals [combat] damage
@@ -394,6 +521,7 @@ impl Tx<'_> {
             "FlippedCoin" => self.flipped_coin_trigger(p),
             "RolledDie" => self.rolled_die_trigger(p),
             "Exerted" => self.exerted_trigger(p),
+            "Enlisted" => self.enlisted_trigger(p),
             "ChangesZoneAll" => self.changes_zone_all_trigger(p),
             "Sacrificed" => self.sacrificed_trigger(p),
             "Attacked" => self.player_attacked_trigger(p),
@@ -2946,8 +3074,10 @@ impl Tx<'_> {
             .peek("ValidCards")
             .is_some_and(|v| !v.split([',', '.', '+']).any(|a| a.trim() == "Self"));
         let allowed = match mode {
+            "SpellCast" => !p
+                .peek("TargetsValid")
+                .is_some_and(|v| v.split([',', '.', '+']).any(|a| a.trim() == "Self")),
             "Phase"
-            | "SpellCast"
             | "DamageDone"
             | "DamageDoneOnce"
             | "DamageDealtOnce"
@@ -2969,9 +3099,8 @@ impl Tx<'_> {
             | "FlippedCoin"
             | "RolledDie"
             | "SearchedLibrary" => true,
-            "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" | "Sacrificed" => {
-                non_self
-            }
+            "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" | "Enlisted"
+            | "Sacrificed" => non_self,
             "ChangesZoneAll" => non_self_cards,
             _ => false,
         };

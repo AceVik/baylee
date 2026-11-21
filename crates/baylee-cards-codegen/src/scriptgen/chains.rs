@@ -358,8 +358,10 @@ impl Tx<'_> {
         {
             self.exile_self_return_as_face_effect(&mut p, &mut sub)?
         } else if api == "ChangeZone"
-            && p.peek("Origin") == Some("Battlefield")
-            && matches!(p.peek("Destination"), Some("Hand" | "Exile"))
+            && ((p.peek("Origin") == Some("Battlefield")
+                && matches!(p.peek("Destination"), Some("Hand" | "Exile")))
+                || (p.peek("Origin") == Some("Graveyard")
+                    && p.peek("Destination") == Some("Exile")))
             && p.peek("RememberChanged") == Some("True")
             && !self.sub_is_api(sub.as_deref(), "Effect")
             && !self.sub_is_api(sub.as_deref(), "ChangeZone")
@@ -370,8 +372,13 @@ impl Tx<'_> {
                 .and_then(|s| self.svars.get(s))
                 .is_some_and(|b| {
                     Params::parse(b).is_some_and(|(_, sp)| {
-                        sp.peek("ConditionDefined") == Some("Remembered")
-                            && sp.peek("ConditionPresent").is_some()
+                        (sp.peek("ConditionDefined") == Some("Remembered")
+                            && sp.peek("ConditionPresent").is_some())
+                            || (p.peek("Origin") == Some("Graveyard")
+                                && sp
+                                    .peek("ConditionCheckSVar")
+                                    .and_then(|v| self.svars.get(v.trim()))
+                                    .is_some_and(|expr| expr.trim() == "Remembered$Amount"))
                     })
                 })
         {
@@ -385,6 +392,22 @@ impl Tx<'_> {
                 targets_here,
                 single_target,
             )?
+        } else if api == "ChangeZone"
+            && !targets_here
+            && p.peek("Origin") == Some("Library")
+            && p.peek("Destination") == Some("Battlefield")
+            && p.peek("RememberChanged") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "Untap")
+        {
+            self.search_library_then_untap_found(&mut p, &mut sub, target.as_deref())?
+        } else if api == "ChangeZone"
+            && p.peek("Origin") == Some("Graveyard")
+            && p.peek("Destination") == Some("Battlefield")
+            && p.peek("RememberChanged") == Some("True")
+            && (self.sub_is_api(sub.as_deref(), "PutCounter")
+                || self.sub_is_api(sub.as_deref(), "Animate"))
+        {
+            self.reanimate_remembered_modified(&mut p, &mut sub, target.as_deref(), targets_here)?
         } else if api == "ChangeZone"
             && !targets_here
             && matches!(p.peek("Defined"), None | Some("Self"))
@@ -525,6 +548,13 @@ impl Tx<'_> {
                         _ => None,
                     },
                     "Clone" => self.become_copy_effect(&mut p, target.as_deref(), true, true),
+                    "ExchangeControl" => {
+                        if p.take("Defined").as_deref() == Some("ParentTarget") {
+                            Some(vec!["Effect::ExchangeControl".to_string()])
+                        } else {
+                            None
+                        }
+                    }
                     "Destroy" => match p.take("NoRegen").as_deref() {
                         None => Some(vec![
                             "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: false }"
@@ -1061,6 +1091,14 @@ impl Tx<'_> {
                         && p.peek("CloneTarget") == Some("ParentTarget")
                         && no_riders(p)
                 }
+                "ExchangeControl" => {
+                    is_obj_spec
+                        && single_object_first
+                        && chain.effects.is_empty()
+                        && p.peek("Defined") == Some("ParentTarget")
+                        && !has_target_unique
+                        && no_riders(p)
+                }
                 "Destroy" => {
                     is_obj_spec
                         && !chain.effects.is_empty()
@@ -1116,6 +1154,7 @@ impl Tx<'_> {
                     && !p.has("DividedAsYouChoose")
                     && p.peek("DamageSource").is_none())
                     || (api == "SetState" && p.peek("Mode") == Some("TurnFaceUp"))
+                    || (api == "Effect" && p.peek("RememberObjects") == Some("Targeted"))
                     || (api == "ChangeZone"
                         && (matches!(
                             (p.peek("Origin"), p.peek("Destination")),
@@ -1513,6 +1552,25 @@ impl Tx<'_> {
                 targets_a_player,
                 single_target: false,
                 prior_target_used: false,
+            },
+        )
+    }
+
+    pub(super) fn effect_of_followup(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        self.effect_of_inner(
+            api,
+            p,
+            target,
+            LineFlags {
+                targets_here: false,
+                targets_a_player: false,
+                single_target: false,
+                prior_target_used: true,
             },
         )
     }
@@ -2033,6 +2091,17 @@ impl Tx<'_> {
                 )?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
             }
+            "Bolster" => {
+                if targets_here
+                    || (target.is_some() && !prior_target_used)
+                    || !matches!(p.take("Defined").as_deref(), None | Some("You"))
+                {
+                    return None;
+                }
+                let raw = p.take("Num").or_else(|| p.take("Amount"))?;
+                let n = self.amount_or_count_ext(&raw)?;
+                vec![format!("Effect::Bolster({n})")]
+            }
             "PutCounter" => {
                 if let Some(adapt) = p.take("Adapt") {
                     if self.on_a_spell
@@ -2045,6 +2114,16 @@ impl Tx<'_> {
                     return Some(vec![format!(
                         "Effect::IfCondition {{ condition: Condition::Not(&Condition::CountersOnSelf(CounterKind::P1P1, 1)), then: &[Effect::AddCounterFilter {{ filter: &Filter::This, kind: CounterKind::P1P1, amount: Amount::Fixed({n}) }}], otherwise: &[] }}"
                     )]);
+                }
+                if let Some(bolster) = p.take("Bolster") {
+                    if targets_here
+                        || (target.is_some() && !prior_target_used)
+                        || !matches!(p.take("Defined").as_deref(), None | Some("You"))
+                    {
+                        return None;
+                    }
+                    let n = self.amount_or_count_ext(&bolster)?;
+                    return Some(vec![format!("Effect::Bolster({n})")]);
                 }
                 let code = p.take("CounterType")?;
                 let Some(kind) = counter_kind(&code) else {
@@ -3904,6 +3983,7 @@ impl Tx<'_> {
                             | "FlippedCoin"
                             | "RolledDie"
                             | "Exerted"
+                            | "Enlisted"
                     )
                 ) =>
             {
@@ -4074,5 +4154,68 @@ impl Tx<'_> {
             "PlayerRel::OwnerOfEvent",
         ];
         !RESOLUTION_ONLY.iter().any(|needle| expr.contains(needle))
+    }
+
+    fn search_library_then_untap_found(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.take("RememberChanged").as_deref() != Some("True") {
+            return None;
+        }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        if p.take("Origin").as_deref() != Some("Library")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+        {
+            return None;
+        }
+        p.claim_label("ChangeTypeDesc", "ChangeType");
+        let mut out = self.search_library(p, "Battlefield", false)?;
+        let sub_name = sub.take()?;
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (s_api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if s_api != "Untap"
+            || sp.take("Defined").as_deref() != Some("Remembered")
+            || sp.has("ValidTgts")
+            || sp.has("UnlessCost")
+            || sp.has("ReplaceDyingDefined")
+            || sp.has("AtEOT")
+        {
+            return None;
+        }
+        let mut next_sub = sp.take("SubAbility");
+        let untap_effects = self.wrap_line_condition(
+            "Untap",
+            &mut sp,
+            &mut next_sub,
+            target,
+            vec!["Effect::UntapFound".to_string()],
+        )?;
+        if !sp.exhausted() {
+            return None;
+        }
+        out.extend(untap_effects);
+        if let Some(clean_name) = next_sub.as_deref()
+            && let Some(clean_body) = self.svars.get(clean_name.trim()).cloned()
+            && let Some((c_api, mut cp)) = Params::parse(&clean_body)
+        {
+            cp.drop_prose();
+            if c_api == "Cleanup" && cp.take("ClearRemembered").as_deref() == Some("True") {
+                let after_clean = cp.take("SubAbility");
+                if !cp.exhausted() {
+                    return None;
+                }
+                next_sub = after_clean;
+            }
+        }
+        *sub = next_sub;
+        Some(out)
     }
 }
