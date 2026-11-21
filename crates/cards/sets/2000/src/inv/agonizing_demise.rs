@@ -16,7 +16,7 @@ card!(
     oracle_id = "41681a1f-0777-4b96-8c7e-d6a5d1b1c8fc",
     scryfall_id = "b7621aab-4839-45ef-bfa2-9aa2417bbec0",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Agonizing Demise",
         mana_cost = mana!("{3}{B}"),

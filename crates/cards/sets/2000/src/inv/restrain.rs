@@ -11,7 +11,7 @@ card!(
     oracle_id = "5aa66cb0-86b9-4e85-9a17-df78416d682d",
     scryfall_id = "f6b5c765-619c-4db9-b509-91892fb65e8f",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Restrain",
         mana_cost = mana!("{2}{W}"),

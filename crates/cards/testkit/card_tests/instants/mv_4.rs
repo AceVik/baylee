@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod agonizing_demise;
 mod altar_s_light;
 mod ambush;
 mod barreling_attack;
@@ -43,10 +44,12 @@ mod ray_of_distortion;
 mod refreshing_rain;
 mod repel;
 mod reverberation;
+mod reverent_mantra;
 mod rewind;
 mod scour;
 mod settle_the_wreckage;
 mod sewers_of_estark;
+mod sivvi_s_ruse;
 mod slaughter;
 mod snuff_out;
 mod solar_blast;
