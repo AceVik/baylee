@@ -48,6 +48,11 @@ fn defending_player_follows_triggering_attacker_instead_of_aura_source() {
     let mut state = board();
     let aura = permanent(&mut state);
     let attacker = permanent(&mut state);
+    let defender = permanent(&mut state);
+    let bystander = permanent(&mut state);
+    state.object_mut(defender).unwrap().controller = PlayerId::new(1);
+    state.object_mut(bystander).unwrap().controller = PlayerId::new(2);
+    state.turn.phase = crate::turn::Phase::Combat;
     state
         .combat
         .declare_attackers([crate::combat::AttackerInfo {
@@ -61,7 +66,72 @@ fn defending_player_follows_triggering_attacker_instead_of_aura_source() {
         players_of(PlayerRel::DefendingPlayer, &state, PlayerId::new(0), &res),
         vec![PlayerId::new(1)]
     );
+    for (target, legal) in [(defender, true), (bystander, false)] {
+        assert_eq!(
+            eval::matches_with_context(
+                &baylee_cards_dsl::Filter::ControlledByDefendingPlayer,
+                &state,
+                state.object(target).unwrap(),
+                res.controller,
+                res.rule_context(),
+            ),
+            legal
+        );
+    }
 }
+#[test]
+fn a_reassigned_attacker_changes_its_stack_triggers_defending_player() {
+    use baylee_cards_dsl::{Filter, TargetReq, TargetSpec, Trigger};
+    use baylee_core::ids::Defender;
+    static ABILITIES: &[baylee_cards_dsl::AbilityDef] = &[baylee_cards_dsl::triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[Effect::TapTarget],
+        targets = Some(TargetReq::one(TargetSpec::Object(
+            &Filter::ControlledByDefendingPlayer
+        )))
+    )];
+    let mut state = board();
+    let (first, second) = (PlayerId::new(1), PlayerId::new(2));
+    let attacker = permanent(&mut state);
+    let old_target = permanent(&mut state);
+    let new_target = permanent(&mut state);
+    state.object_mut(old_target).unwrap().controller = first;
+    state.object_mut(new_target).unwrap().controller = second;
+    crate::combat::remember_attack(&mut state, attacker, Defender::Player(first));
+    let version = state.object(attacker).unwrap().version;
+    let name = state.names.intern("Attack trigger");
+    let stack = state.create_bare(
+        PlayerId::new(0),
+        ObjectKind::AbilityOnStack,
+        name,
+        ZoneLocation::Stack,
+    );
+    let spec = TargetSpec::ObjectControlledBy(&Filter::Any, first);
+    let trigger = state.object_mut(stack).unwrap();
+    trigger.take_abilities(crate::object::AbilityList::from_static(
+        ABILITIES, None, None,
+    ));
+    trigger.ability = Some(crate::object::AbilityLoc {
+        source: attacker,
+        index: 0,
+        card: None,
+    });
+    trigger.event_object = Some(attacker);
+    trigger
+        .riders
+        .push(crate::object::Rider::EventObjectIdentity(version, 0));
+    trigger.target_req = Some(TargetReq::one(spec));
+    assert_eq!(
+        eval::stack_target_options(&state, state.object(stack).unwrap(), &spec).0,
+        [old_target]
+    );
+    crate::combat::remember_attack(&mut state, attacker, Defender::Player(second));
+    assert_eq!(
+        eval::stack_target_options(&state, state.object(stack).unwrap(), &spec).0,
+        [new_target]
+    );
+}
+
 #[test]
 fn fixed_source_prevention_binds_original_source_without_a_choice() {
     let mut state = board();

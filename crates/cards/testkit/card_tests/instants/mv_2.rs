@@ -36,6 +36,7 @@ mod constant_mists;
 mod consult_the_star_charts;
 mod counterspell;
 mod daze;
+mod desculpting_blast;
 mod destroy_evil;
 mod diabolic_edict;
 mod disempower;

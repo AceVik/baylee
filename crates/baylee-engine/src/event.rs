@@ -812,6 +812,9 @@ pub struct Departure {
     /// Player whose Ring-bearer this permanent was immediately before departure (`CR 603.10a`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub was_ring_bearer_of: Option<PlayerId>,
+    /// Whether this incarnation was attacking immediately before departure.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub was_attacking: bool,
 }
 
 impl std::hash::Hash for Departure {
@@ -829,10 +832,16 @@ impl std::hash::Hash for Departure {
         if let Some(who) = self.was_ring_bearer_of {
             who.hash(state);
         }
+        if self.was_attacking {
+            Departure::ATTACKING_TAG.hash(state);
+        }
     }
 }
 
 impl Departure {
+    // Above the entire encoded Ring-bearer seat range.
+    const ATTACKING_TAG: u16 = 257;
+
     /// Stable continuation fingerprint while a departure awaits trigger collection.
     pub(crate) fn fingerprint(&self) -> u64 {
         let mut hash =
@@ -860,6 +869,11 @@ impl Departure {
         }
         if let Some(who) = self.was_ring_bearer_of {
             hash = hash.wrapping_mul(31).wrapping_add(u64::from(who.get()) + 1);
+        }
+        if self.was_attacking {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(Self::ATTACKING_TAG));
         }
         hash
     }
@@ -903,6 +917,20 @@ pub struct Journal {
 }
 
 impl Journal {
+    /// Combat membership of this exact permanent immediately before it left.
+    pub(crate) fn was_attacking_on_departure(&self, id: ObjectId, version: u32) -> bool {
+        self.entries()
+            .iter()
+            .rev()
+            .find_map(|entry| {
+                let departure = entry.departure.as_ref()?;
+                (departure.version == version
+                    && matches!(entry.event, GameEvent::ZoneChanged { object, .. } if object == id))
+                .then_some(departure.was_attacking)
+            })
+            .unwrap_or(false)
+    }
+
     /// Appends an event, returning its sequence number.
     pub fn record(&mut self, event: GameEvent) -> u64 {
         self.record_with_tap_observation(event, None)

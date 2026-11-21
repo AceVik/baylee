@@ -144,7 +144,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.state.text_changes.set(reference, trigger.text);
         }
         let bound = self.stack_target_req(top).map(|mut req| {
-            req.spec = trigger.bind_target(req.spec);
+            req.spec = self.bound_trigger_target(trigger, req.spec);
             req
         });
         let graveyard_source = is_graveyard_trigger(&self.state, trigger);
@@ -292,6 +292,68 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
     }
 
+    /// Bind an attack's defending player while the declaration is still
+    /// known. An Equipment's trigger can be retargeted after the wearer
+    /// blinks, when its new incarnation has never attacked (CR 508.5).
+    fn bound_trigger_target(
+        &self,
+        trigger: &crate::trigger::PendingTrigger,
+        spec: baylee_cards_dsl::TargetSpec,
+    ) -> baylee_cards_dsl::TargetSpec {
+        use baylee_cards_dsl::{TargetSpec, Trigger};
+        let Some(remaining) = eval::defenders_target_filter(spec) else {
+            return trigger.bind_target(spec);
+        };
+        let Some(attacker) = trigger.event_object else {
+            return spec;
+        };
+        if matches!(
+            self.trigger_abilities(trigger)
+                .get(trigger.ability_index as usize),
+            Some(
+                AbilityDef::Triggered {
+                    trigger: Trigger::Attacks(_),
+                    ..
+                } | AbilityDef::ModalTriggered {
+                    trigger: Trigger::Attacks(_),
+                    ..
+                }
+            )
+        ) && let Some(defender) =
+            crate::combat::historical_defending_player(&self.state, attacker)
+        {
+            return TargetSpec::ObjectControlledBy(remaining, defender);
+        }
+        spec
+    }
+
+    fn trigger_target_options(
+        &self,
+        trigger: &crate::trigger::PendingTrigger,
+        spec: baylee_cards_dsl::TargetSpec,
+        wall_only: bool,
+    ) -> (Vec<ObjectId>, Vec<PlayerId>) {
+        let spec = self.bound_trigger_target(trigger, spec);
+        let context = crate::text_changes::RuleContext {
+            source: trigger.source,
+            text: trigger.text,
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: trigger.event_object,
+        };
+        (
+            eval::target_options_in_domain(
+                &spec,
+                &self.state,
+                trigger.controller,
+                context,
+                None,
+                wall_only,
+            ),
+            eval::target_player_options_from(&self.state, &spec, trigger.controller, context),
+        )
+    }
+
     /// The modes of a queued trigger, if it is a modal one.
     fn modal_trigger_modes(
         &self,
@@ -325,7 +387,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if second_req.min == 0 {
             return true;
         }
-        let mut spec = t.bind_target(second_req.spec);
+        let mut spec = self.bound_trigger_target(t, second_req.spec);
         let player = first_player.or_else(|| {
             first_obj
                 .and_then(|id| self.state.object_or_departed(id))
@@ -382,7 +444,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
                 return t.event_object.is_some();
             }
-            let spec = t.bind_target(req.spec);
+            let spec = self.bound_trigger_target(t, req.spec);
             let objects = eval::target_options_in_domain(
                 &spec,
                 &self.state,
@@ -413,7 +475,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             None,
                         );
                     }
-                    let first_spec = t.bind_target(first_req.spec);
+                    let first_spec = self.bound_trigger_target(t, first_req.spec);
                     let first_objs = eval::target_options_in_domain(
                         &first_spec,
                         &self.state,
@@ -1106,36 +1168,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     continue;
                 }
                 let wall_only = self.trigger_wall_only(&t);
-                let mut options = eval::target_options_in_domain(
-                    &t.bind_target(req.spec),
-                    &self.state,
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                    None,
-                    wall_only,
-                );
                 // A trigger may point at a player as readily as a spell does
                 // ("it deals 1 damage to target opponent"), and "any target"
                 // offers both lists at once (CR 115.4). The choice is one
                 // choice, so the counts add up.
-                let mut player_options = eval::target_player_options_from(
-                    &self.state,
-                    &t.bind_target(req.spec),
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                );
+                let (mut options, mut player_options) =
+                    self.trigger_target_options(&t, req.spec, wall_only);
                 if let Some(second_req) = crate::object::ability_second_target_req(
                     self.trigger_abilities(&t),
                     t.ability_index,
@@ -1290,7 +1328,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // legally (CR 603.3d removes only a trigger that cannot).
                 if let TargetSpec::ObjectOfEachOpponent(_) = spec {
                     let first = super::super::PerOpponent {
-                        spec: t.bind_target(spec),
+                        spec: self.bound_trigger_target(&t, spec),
                         gathered: SmallVec::new(),
                         remaining: self.opponents_in_turn_order(t.controller),
                     };
@@ -1323,32 +1361,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                let options = eval::target_options_in_domain(
-                    &t.bind_target(spec),
-                    &self.state,
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                    None,
-                    self.trigger_wall_only(&t),
-                );
-                let player_options = eval::target_player_options_from(
-                    &self.state,
-                    &t.bind_target(spec),
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                );
+                let (options, player_options) =
+                    self.trigger_target_options(&t, spec, self.trigger_wall_only(&t));
                 // Objects and players are answers to the same target choice.
                 // Counting only objects loses a mandatory "any target" ability
                 // or caps a multi-target one below its legal maximum.

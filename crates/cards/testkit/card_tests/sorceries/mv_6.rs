@@ -355,4 +355,5 @@ mod their_name_is_death;
 mod time_spiral;
 mod upheaval;
 mod vanquish_the_foul;
+mod wake_the_dragon;
 mod zof_consumption;

@@ -46,6 +46,7 @@ pub use relations::{
     controller_of_attached, defending_player_of, enchanted_player, most_life, players,
     players_for_source,
 };
+pub(crate) use targets::defenders_target_filter;
 pub use targets::{
     choice_options, choice_options_with_context, first_target_players, stack_target_options,
     stack_target_options_relative, target_options, target_options_with_context,
@@ -375,13 +376,15 @@ pub(crate) fn matches_projected_with_choices(
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::ControlledByActivePlayer => obj.controller == state.turn.active,
-        // An attacking source's own defending player (CR 508.5: Floral
-        // Spuzzem's "target artifact defending player controls" at a table of
-        // three is the one it attacks); for anything else, any opponent of
-        // the attacking player during combat, as before.
+        // CR 508.5: an attack trigger can belong to the attacker itself or
+        // to its Equipment. The latter gets the attacker from the event.
         Filter::ControlledByDefendingPlayer => {
-            if last_defender(state, this).is_some() {
-                crate::combat::historical_defending_player(state, this) == Some(obj.controller)
+            if let Some(attacker) = [Some(this), context.reference]
+                .into_iter()
+                .flatten()
+                .find(|&id| last_defender(state, id).is_some())
+            {
+                crate::combat::historical_defending_player(state, attacker) == Some(obj.controller)
             } else {
                 state.turn.phase == crate::turn::Phase::Combat
                     && state.is_opponent(obj.controller, state.turn.active)
@@ -395,7 +398,18 @@ pub(crate) fn matches_projected_with_choices(
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
         // A lookup and not a scan: this arm runs once per object whenever a
         // filter is walked over the battlefield (`CombatState`'s doc).
-        Filter::Attacking => state.combat.is_attacking(obj.id),
+        Filter::Attacking => {
+            if state
+                .object(obj.id)
+                .is_some_and(|live| live.version == obj.version)
+            {
+                state.combat.is_attacking(obj.id)
+            } else {
+                state
+                    .journal
+                    .was_attacking_on_departure(obj.id, obj.version)
+            }
+        }
         Filter::AttackingYou => state.combat.attackers().iter().any(|attacker| {
             attacker.creature == obj.id
                 && attacker.defending == baylee_core::ids::Defender::Player(you)

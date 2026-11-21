@@ -4487,25 +4487,31 @@ fn resolution_object_matches(
         && let Some(&(_, ltb_ver)) = state.ltb_versions.iter().find(|&&(id, ver)| {
             id == r.object && (ver == r.version || ver.wrapping_add(1) == r.version)
         })
-        && !state
+    {
+        // InZone reads the successor's location, while combat history is
+        // keyed by the incarnation that left the battlefield.
+        let mut as_it_was = object.clone();
+        as_it_was.version = ltb_ver;
+        if !state
             .damage_source(r.object, Some(ltb_ver))
             .is_some_and(|pre| pre.status.contains(crate::object::Status::FACE_DOWN))
-        && let Some(was) = state.last_known_characteristics(r.object)
-    {
-        let mut as_it_was = object.clone();
-        as_it_was.counters = state
-            .ltb_counters
-            .iter()
-            .find(|(id, _)| *id == r.object)
-            .map_or_default(|(_, counters)| counters.clone());
-        return eval::matches_projected_with_context(
-            filter,
-            state,
-            &as_it_was,
-            was,
-            res.controller,
-            context,
-        );
+            && let Some(was) = state.last_known_characteristics(r.object)
+        {
+            as_it_was.counters = state
+                .ltb_counters
+                .iter()
+                .find(|(id, _)| *id == r.object)
+                .map_or_default(|(_, counters)| counters.clone());
+            return eval::matches_projected_with_context(
+                filter,
+                state,
+                &as_it_was,
+                was,
+                res.controller,
+                context,
+            );
+        }
+        return eval::matches_with_context(filter, state, &as_it_was, res.controller, context);
     }
     eval::matches_with_context(filter, state, object, res.controller, context)
 }

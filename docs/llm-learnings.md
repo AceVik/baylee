@@ -33,6 +33,17 @@ instructions joined by "then" still cause separate events. If Pariah
 redirects the controller's damage to the same creature, enrage triggers
 once for the combined damage (CR 120.4b, CR 614.9, CR 603.2c).
 
+Play a copy effect with the same card on different faces in successive zones.
+Grist can die to its own ultimate and then be copied as the creature card
+in its graveyard. Soul Exchange needs the creature type of its additional
+cost immediately before exile. Desculpting Blast needs the target's combat
+status immediately before the bounce, including whether Reconnaissance
+already removed it from combat. At a three-player table, Icingdeath's
+Equipment trigger targets a creature of the player its bearer attacked.
+The other opponent's creatures distinguish this from a generic opponent
+filter. Wake the Dragon and Rekindling Phoenix also have played regressions
+for control and temporary haste on the exact object their tokens affect.
+
 ## 2026-11-21 — Beat 17: Engine Waves 9a–10b, Codegen Wave 17a–17c, Unholds, Passes E11–E12 & Full 13-Crate Gate (`21,807` Conforming / `20,639` Playable)
 
 - **Exhaustive Pool & Zero Remaining Unattempted Readable Scripts (`xtask reach-list --count 0 == 0`)**:

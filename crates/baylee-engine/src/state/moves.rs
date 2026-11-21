@@ -441,6 +441,7 @@ impl GameState {
             damage: self.damage_death_snapshot(id),
             event: crate::event::Departure {
                 sacrificed: false,
+                was_attacking: self.combat.is_attacking(id),
                 return_keywords: crate::trigger::return_keyword_counts(self, object),
                 modular_instances: crate::layers::keyword_instances(
                     self,

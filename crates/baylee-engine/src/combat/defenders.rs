@@ -83,17 +83,7 @@ pub(crate) fn historical_defending_player(
         }) {
             return None;
         }
-        if target_is_active(state, context)
-            && let Some(reference) = context.target
-            && state
-                .object(reference.object)
-                .is_some_and(|object| object.characteristics().types.contains(TypeSet::BATTLE))
-        {
-            // A planeswalker can become a battle while already attacked;
-            // the missing-protector SBA waits until it is no longer attacked.
-            return crate::battle::designated_protector(state, reference.object);
-        }
-        return context.defending_player;
+        return context_player(state, context);
     }
     // Legacy synthetic combat fixtures have only declaration data.
     let defender = state.combat.defender_of(attacker).or_else(|| {
@@ -103,6 +93,30 @@ pub(crate) fn historical_defending_player(
             .map(|(_, defender)| defender)
     })?;
     super::blocking_player(state, defender)
+}
+
+/// The declaration an attack trigger is about, even after a blink.
+pub(crate) fn defending_player_for_incarnation(
+    state: &GameState,
+    attacker: DamageSourceRef,
+) -> Option<PlayerId> {
+    let context = state.combat.defender_context(attacker.object)?;
+    (context.attacker == attacker)
+        .then(|| context_player(state, context))
+        .flatten()
+}
+
+fn context_player(state: &GameState, context: &DefenderContext) -> Option<PlayerId> {
+    if target_is_active(state, context)
+        && let Some(reference) = context.target
+        && state
+            .object(reference.object)
+            .is_some_and(|object| object.characteristics().types.contains(TypeSet::BATTLE))
+    {
+        // A planeswalker can become a battle while already attacked.
+        return crate::battle::designated_protector(state, reference.object);
+    }
+    context.defending_player
 }
 
 fn target_is_active(state: &GameState, context: &DefenderContext) -> bool {

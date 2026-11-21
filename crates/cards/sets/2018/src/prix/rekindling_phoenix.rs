@@ -14,7 +14,7 @@ card!(
     scryfall_id = "1a9945ec-0996-434e-b177-97203eabaf24",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rekindling Phoenix",
         mana_cost = mana!("{2}{R}{R}"),

@@ -98,6 +98,7 @@ mod tests {
             tap_observation: None,
             departure: Some(Box::new(Departure {
                 sacrificed: false,
+                was_attacking: false,
                 return_keywords: [0, 0],
                 modular_instances: 0,
                 version,

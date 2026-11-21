@@ -18,6 +18,50 @@ use crate::zone::ZoneLocation;
 use baylee_cards_dsl::{Filter, PlayerRel, TargetSpec};
 use baylee_core::ids::{ObjectId, PlayerId};
 
+/// The independently testable part of "target [permanent] defending player controls".
+pub(crate) fn defenders_target_filter(spec: TargetSpec) -> Option<&'static Filter> {
+    match spec {
+        TargetSpec::Object(Filter::ControlledByDefendingPlayer) => Some(&Filter::Any),
+        TargetSpec::Object(Filter::And(
+            [other, Filter::ControlledByDefendingPlayer]
+            | [Filter::ControlledByDefendingPlayer, other],
+        )) => Some(other),
+        _ => None,
+    }
+}
+
+/// If the same incarnation is assigned a different defender, its trigger
+/// follows the new assignment. Otherwise the seat bound when stacked survives.
+fn updated_attack_target(
+    state: &GameState,
+    obj: &GameObject,
+    spec: TargetSpec,
+) -> Option<TargetSpec> {
+    let TargetSpec::ObjectControlledBy(_, _) = spec else {
+        return None;
+    };
+    if obj.target_req?.spec != spec {
+        return None;
+    }
+    let loc = obj.ability?;
+    let original =
+        crate::object::ability_target_req(obj.own_abilities.as_ref()?, loc.index, obj.mode_index)?;
+    let filter = defenders_target_filter(original.spec)?;
+    let attacker = obj.event_object?;
+    let version = obj.riders.iter().find_map(|rider| match rider {
+        crate::object::Rider::EventObjectIdentity(version, _) => Some(*version),
+        _ => None,
+    })?;
+    let player = crate::combat::defending_player_for_incarnation(
+        state,
+        baylee_core::ids::DamageSourceRef {
+            object: attacker,
+            version,
+        },
+    )?;
+    Some(TargetSpec::ObjectControlledBy(filter, player))
+}
+
 /// The graveyard cards a `CardInGraveyard` spec may point at.
 ///
 /// Legality is enumerated *before* any resolution exists, so the two context
@@ -149,12 +193,15 @@ fn objects_of_a_player(
         TargetSpec::OpponentOrObject(filter) | TargetSpec::PlayerOrObject(filter) => {
             choice_options_with_context(&TargetSpec::Object(filter), state, you, context)
         }
-        TargetSpec::ObjectControlledBy(filter, player) => {
-            let mut all =
-                choice_options_with_context(&TargetSpec::Object(filter), state, you, context);
-            all.retain(|id| state.object(*id).is_some_and(|o| o.controller == player));
-            all
-        }
+        TargetSpec::ObjectControlledBy(filter, player) => state
+            .battlefield_seen()
+            .filter(|&id| {
+                state.object(id).is_some_and(|object| {
+                    object.controller == player
+                        && matches_with_context(filter, state, object, you, context)
+                })
+            })
+            .collect(),
         // Unbound, "that player" is nobody yet: the engine asks these only
         // after binding them to `ObjectControlledBy`.
         _ => Vec::new(),
@@ -388,14 +435,12 @@ pub fn choice_options_with_context(
     let this = context.source;
     match spec {
         TargetSpec::Object(filter) => state
-            .battlefield_view()
-            .iter()
-            .filter(|id| {
+            .battlefield_seen()
+            .filter(|&id| {
                 state
-                    .object(**id)
+                    .object(id)
                     .is_some_and(|o| matches_with_context(filter, state, o, you, context))
             })
-            .copied()
             .collect(),
         TargetSpec::ObjectOfEachOpponent(filter) => opponents_objects(filter, state, you, context),
         TargetSpec::OpponentOrObject(_)
@@ -548,6 +593,8 @@ fn stack_target_options_impl(
     reference: Option<baylee_core::ids::DamageSourceRef>,
     retargeting: bool,
 ) -> (Vec<ObjectId>, Vec<PlayerId>) {
+    let updated = updated_attack_target(state, obj, *spec);
+    let spec = updated.as_ref().unwrap_or(spec);
     let you = obj.controller;
     let this = if obj.kind == crate::object::ObjectKind::AbilityOnStack {
         obj.ability.map_or(obj.id, |loc| loc.source)

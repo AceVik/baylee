@@ -32,7 +32,8 @@ mod exchange;
 pub mod goad;
 use crate::object::Status;
 pub(crate) use defenders::{
-    active_damage_recipient, historical_defending_player, recheck_defenders, remember_attack,
+    active_damage_recipient, defending_player_for_incarnation, historical_defending_player,
+    recheck_defenders, remember_attack,
 };
 pub(crate) use exchange::exchange_blockers;
 pub use goad::GoadEntry;

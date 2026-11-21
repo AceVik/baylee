@@ -465,6 +465,7 @@ const EVENT_OBJECT_READ: &[&str] = &[
     "CreateDelayedObserver { watch: ThisObject, when: YouLoseControl, about: EventObject",
     "EventObjectDealsDamage {",
     "EventObjectDealsDamageEqualToPower",
+    "DamagePermanentAndController { target: EventObject,",
     "DealDamage { amount: Fixed(1), target: EventObject",
     "DealDamage { amount: Fixed(2), target: EventObject",
     "DealDamage { amount: Fixed(3), target: EventObject }",

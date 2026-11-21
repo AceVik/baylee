@@ -11,7 +11,7 @@ card!(
     oracle_id = "2d80ee9c-55d4-4115-8a58-63e8460f9795",
     scryfall_id = "77fdbf32-b5f4-4346-846d-d8e0e53e6e53",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desculpting Blast",
         mana_cost = mana!("{1}{U}"),

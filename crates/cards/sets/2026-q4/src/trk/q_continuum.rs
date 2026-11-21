@@ -16,7 +16,7 @@ card!(
     oracle_id = "457cf958-8129-4bf6-b4d5-211eb8c58763",
     scryfall_id = "cd424080-e8ad-4a56-a820-20d8534fba31",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Q Continuum",
         types = TypeSet::LAND,
