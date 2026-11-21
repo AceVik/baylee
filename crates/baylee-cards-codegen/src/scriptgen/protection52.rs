@@ -479,8 +479,32 @@ impl Tx<'_> {
     /// `CheckSVar$` (+ optional `CheckSecondSVar$`) using both `svar_condition`
     /// and `extra_svar_condition`. Supports `Condition$` combined with
     /// `IsPresent$` and/or `CheckSVar$` on the same static line.
+    pub(super) fn take_ability_word_flags(p: &mut Params, clauses: &mut Vec<String>) -> Option<()> {
+        for (key, cond) in [
+            ("Revolt", "Condition::Revolt"),
+            ("Hellbent", "Condition::HandSizeAtMost(0)"),
+            ("Threshold", "Condition::GraveyardCountAtLeast(7)"),
+            ("Delirium", "Condition::GraveyardTypesAtLeast(4)"),
+            (
+                "Metalcraft",
+                "Condition::ControlCount(&Filter::ARTIFACT, 3)",
+            ),
+            ("FatefulHour", "Condition::LifeAtMost(5)"),
+            ("Blessing", "Condition::CitysBlessing"),
+        ] {
+            if let Some(val) = p.take(key) {
+                if val.trim() != "True" {
+                    return None;
+                }
+                clauses.push(cond.to_string());
+            }
+        }
+        Some(())
+    }
+
     pub(super) fn condition_any(&mut self, p: &mut Params) -> Option<String> {
         let mut clauses: Vec<String> = Vec::new();
+        Self::take_ability_word_flags(p, &mut clauses)?;
         if let Some(cond_raw) = p.peek("Condition")
             && p.has("IsPresent")
             && let Some(named) = Self::named_condition(cond_raw)
@@ -712,8 +736,13 @@ impl Tx<'_> {
         let Some(kw) = p.take("AddKeyword") else {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         };
-        let modifier = if kw.trim() == "Flashback" {
-            "Modifier::GrantsFlashback".to_string()
+        let (modifier, needs_graveyard_zone) = if kw.trim() == "Flashback" {
+            ("Modifier::GrantsFlashback".to_string(), false)
+        } else if kw.trim() == "Retrace" {
+            (
+                "Modifier::AddKeyword(KeywordSet::RETRACE)".to_string(),
+                true,
+            )
         } else if let Some(n_str) = kw
             .trim()
             .strip_prefix("Escape:CardManaCost ExileFromGrave<")
@@ -721,7 +750,7 @@ impl Tx<'_> {
             && let Ok(n) = n_str.parse::<u8>()
             && n > 0
         {
-            format!("Modifier::GrantsEscape({n})")
+            (format!("Modifier::GrantsEscape({n})"), false)
         } else {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         };
@@ -729,7 +758,12 @@ impl Tx<'_> {
         if !p.exhausted() {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         }
-        let filter = self.filter_expr_in_zone(&affected, true)?;
+        let base_filter = self.filter_expr_in_zone(&affected, true)?;
+        let filter = if needs_graveyard_zone {
+            conjoin_filter_expr(&base_filter, "Filter::InZone(ZoneRef::Graveyard)")
+        } else {
+            base_filter
+        };
         let mut expr = Self::static_expr(&filter, &modifier);
         if (!zone_arg.is_empty() || !cond.is_empty())
             && let Some(open) = expr.strip_suffix(')')
@@ -3087,6 +3121,9 @@ impl Tx<'_> {
         if let Some(cond) = self.wave16b_svar_condition(&raw, cmp) {
             return Some(cond);
         }
+        if let Some(cond) = self.wave17b_svar_condition(&raw, cmp) {
+            return Some(cond);
+        }
         if raw == "PlayerCountPlayers$LowestValidLibrary Card.YouOwn"
             && let Some(n) = super::saga_ward_convoke::parse_at_most_u16(cmp)
         {
@@ -3111,6 +3148,106 @@ impl Tx<'_> {
             }
         }
         self.opponent_count_svar_condition(&raw, cmp)
+            .or_else(|| self.wave17b_amount_compare(&raw, cmp))
+    }
+
+    fn wave17b_svar_condition(&self, raw: &str, cmp: &str) -> Option<String> {
+        if raw == "Count$ThisTurnCast_Card.YouCtrl" {
+            return match cmp {
+                "GE1" | "GT0" => Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".into()),
+                "EQ0" | "LT1" | "LE0" => Some("Condition::YouCastNoSpellThisTurn".into()),
+                _ => None,
+            };
+        }
+        if matches!(
+            raw,
+            "PlayerCountRegisteredOpponents$HighestLifeLostThisTurn"
+                | "PlayerCountOpponents$HighestLifeLostThisTurn"
+        ) {
+            return match cmp {
+                "GE1" | "GT0" => Some("Condition::OpponentLostLifeThisTurn".into()),
+                "EQ0" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".into())
+                }
+                _ => None,
+            };
+        }
+        if raw == "Count$ValidHand Card.YouOwn"
+            && let Some(n) = super::saga_ward_convoke::parse_at_least_u16(cmp).filter(|&n| n >= 1)
+        {
+            return Some(format!(
+                "Condition::AmountAtLeast(Amount::HandSize(PlayerRel::You), {n})"
+            ));
+        }
+        if raw == "Count$YourLifeTotal" {
+            if let Some(n) = super::saga_ward_convoke::parse_at_least_u16(cmp).filter(|&n| n >= 1) {
+                return Some(format!(
+                    "Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n})"
+                ));
+            }
+            if let Some(max) = super::saga_ward_convoke::parse_at_most_u16(cmp) {
+                return Some(format!("Condition::LifeAtMost({max})"));
+            }
+        }
+        if raw == "Count$CardPower" && !self.on_a_spell && !self.in_delayed {
+            return self_power_condition(cmp);
+        }
+        if let Some(sub_raw) = raw
+            .strip_prefix("Count$ThisTurnEntered_Battlefield_")
+            .and_then(|s| s.strip_suffix(".YouCtrl"))
+            && super::card_type_const(sub_raw).is_none()
+            && sub_raw != "Permanent"
+            && let Some(sub) = self.cats.const_path(sub_raw)
+        {
+            return match cmp {
+                "GE1" | "GT0" => Some(format!(
+                    "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{sub}])"
+                )),
+                "EQ0" | "LT1" | "LE0" => Some(format!(
+                    "Condition::Not(&Condition::EnteredSubtypeUnderYourControlThisTurn(&[{sub}]))"
+                )),
+                _ => None,
+            };
+        }
+        None
+    }
+
+    fn wave17b_amount_compare(&mut self, raw: &str, cmp: &str) -> Option<String> {
+        if raw == "Count$CardPower" {
+            return None;
+        }
+        let (op_raw, rhs_raw) = cmp.split_at_checked(2)?;
+        if rhs_raw.is_empty() {
+            return None;
+        }
+        // Leave `GE`/`GT`/`LE`/`LT` two-SVar pairs to `extra_svar_condition_clause`'s
+        // existing `Amount::Difference` lowering; handle `EQ`/`NE` comparisons here.
+        let op = match op_raw {
+            "EQ" => "AmountCmp::Equal",
+            "NE" => "AmountCmp::NotEqual",
+            _ => return None,
+        };
+        let (right, rhs_positive) = if let Ok(n) = rhs_raw.parse::<u32>() {
+            (format!("Amount::Fixed({n})"), n >= 1)
+        } else {
+            let rhs_def = self.svars.get(rhs_raw.trim())?.trim().to_string();
+            if rhs_def == "Count$CardPower" {
+                return None;
+            }
+            let pos = rhs_def.contains("StartingLife")
+                || rhs_def
+                    .rsplit_once("/Plus.")
+                    .and_then(|(_, n)| n.trim().parse::<u32>().ok())
+                    .is_some_and(|n| n >= 1);
+            (self.static_count_expr(&rhs_def)?, pos)
+        };
+        if raw == "Count$YourLifeTotal" && !rhs_positive {
+            return None;
+        }
+        let left = self.static_count_expr(raw)?;
+        Some(format!(
+            "Condition::AmountCompare {{ left: &{left}, op: {op}, right: &{right} }}"
+        ))
     }
 
     fn wave16b_svar_condition(&self, raw: &str, cmp: &str) -> Option<String> {
@@ -3514,6 +3651,22 @@ fn binary_flag_svar_condition(raw: &str, cmp: &str) -> Option<String> {
         "Count$Raid.0.1" => ("Condition::AttackedWithAtLeast(1)", false),
         "Count$AltCost.1.0" => ("Condition::AltCostPaid", true),
         "Count$AltCost.0.1" => ("Condition::AltCostPaid", false),
+        "Count$Monstrous"
+        | "Count$Monstrous.1.0"
+        | "Count$ValidSelf Card.IsMonstrous"
+        | "Count$Valid Card.Self+IsMonstrous"
+        | "Count$Valid Creature.Self+IsMonstrous"
+        | "Count$ValidSelf Card.monstrous"
+        | "Count$Valid Card.Self+monstrous" => ("Condition::IsMonstrous", true),
+        "Count$Monstrous.0.1" => ("Condition::IsMonstrous", false),
+        "Count$Suspected"
+        | "Count$Suspected.1.0"
+        | "Count$ValidSelf Card.IsSuspected"
+        | "Count$Valid Card.Self+IsSuspected"
+        | "Count$Valid Creature.Self+IsSuspected"
+        | "Count$ValidSelf Card.suspected"
+        | "Count$Valid Card.Self+suspected" => ("Condition::IsSuspected", true),
+        "Count$Suspected.0.1" => ("Condition::IsSuspected", false),
         _ => return None,
     };
     Some(if want_one == one_is_positive {
@@ -3521,6 +3674,43 @@ fn binary_flag_svar_condition(raw: &str, cmp: &str) -> Option<String> {
     } else {
         negate_condition_expr(expr)
     })
+}
+
+fn self_power_condition(cmp: &str) -> Option<String> {
+    if let Some(n) = cmp.strip_prefix("GE").and_then(|s| s.parse::<i16>().ok()) {
+        return Some(format!(
+            "Condition::SourceMatches(&Filter::PowerAtLeast({n}))"
+        ));
+    }
+    if let Some(n) = cmp
+        .strip_prefix("GT")
+        .and_then(|s| s.parse::<i16>().ok())
+        .and_then(|v| v.checked_add(1))
+    {
+        return Some(format!(
+            "Condition::SourceMatches(&Filter::PowerAtLeast({n}))"
+        ));
+    }
+    if let Some(n) = cmp.strip_prefix("LE").and_then(|s| s.parse::<i16>().ok()) {
+        return Some(format!(
+            "Condition::SourceMatches(&Filter::PowerAtMost({n}))"
+        ));
+    }
+    if let Some(n) = cmp
+        .strip_prefix("LT")
+        .and_then(|s| s.parse::<i16>().ok())
+        .and_then(|v| v.checked_sub(1))
+    {
+        return Some(format!(
+            "Condition::SourceMatches(&Filter::PowerAtMost({n}))"
+        ));
+    }
+    if let Some(n) = cmp.strip_prefix("EQ").and_then(|s| s.parse::<i16>().ok()) {
+        return Some(format!(
+            "Condition::SourceMatches(&Filter::And(&[Filter::PowerAtLeast({n}), Filter::PowerAtMost({n})]))"
+        ));
+    }
+    None
 }
 
 fn x_paid_condition(cmp: &str) -> Option<String> {

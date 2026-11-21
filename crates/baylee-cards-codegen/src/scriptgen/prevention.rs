@@ -26,9 +26,19 @@ impl Tx<'_> {
     pub(super) fn spell_damage_prevention(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         let secondary = p.take("Secondary");
-        if !matches!(p.take("ActiveZones").as_deref(), None | Some("Battlefield"))
-            || !matches!(secondary.as_deref(), None | Some("True"))
-        {
+        let active_zone = p.take("ActiveZones");
+        let zone_arg = match active_zone.as_deref() {
+            None | Some("Battlefield") => "",
+            Some("Command") => ", zone = ZoneRef::Command",
+            Some("Battlefield,Command" | "Command,Battlefield") => {
+                ", zone = ZoneRef::BattlefieldOrCommand"
+            }
+            Some(_) => {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+        };
+        if !matches!(secondary.as_deref(), None | Some("True")) {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
         if matches!(
@@ -36,18 +46,34 @@ impl Tx<'_> {
             Some("Self" | "Enchanted" | "Equipped")
         ) && p.peek("ReplaceWith").is_some()
         {
+            if !zone_arg.is_empty() {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
             return self.redirect_damage_to_you(p);
         }
         if p.peek("ReplaceWith").is_some() {
             if p.peek("AlwaysReplace") == Some("True") && p.peek("ValidTarget") == Some("Card.Self")
             {
+                if !zone_arg.is_empty() {
+                    return self
+                        .deny("a persistent spell prevention with another zone or result".into());
+                }
                 return self.counters_prevent_damage_rule(p);
             }
             if p.has("DamageAmount") && !p.has("PreventionEffect") && !p.has("Prevent") {
+                if !zone_arg.is_empty() {
+                    return self
+                        .deny("a persistent spell prevention with another zone or result".into());
+                }
                 return self.replace_player_damage_rule(p);
             }
             if !p.has("PreventionEffect") && !p.has("Prevent") {
-                return self.damage_multiplier_or_adder_rule(p);
+                return self.damage_multiplier_or_adder_rule(p, zone_arg);
+            }
+            if !zone_arg.is_empty() {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
             }
             return self.per_source_damage_prevention(p);
         }
@@ -71,44 +97,13 @@ impl Tx<'_> {
         }
 
         let Some(target_raw) = valid_target else {
-            if scope == DamageScope::NoncombatOnly {
-                return self
-                    .deny("a persistent spell prevention with another zone or result".into());
-            }
-            let combat_only = scope == DamageScope::CombatOnly;
-            let valid = valid_source?;
-            if Self::is_stack_spell_source(&valid) {
-                if combat_only || !cond.is_empty() || secondary.is_some() {
-                    return self
-                        .deny("a persistent spell prevention with another zone or result".into());
-                }
-                let filter = self.filter_expr(&valid)?;
-                self.body.abilities.push(format!(
-                    "static_ability!(Filter::And(&[Filter::InZone(ZoneRef::Stack), {filter}]), \
-                     Modifier::PreventAllDamageFromIt)"
-                ));
-                return Some(());
-            }
-            if combat_only {
-                let filter = self.filter_expr(&valid)?;
-                self.body.abilities.push(format!(
-                    "static_ability!({filter}, Modifier::PreventDamageFromIt{cond})"
-                ));
-                return Some(());
-            }
-            if valid.contains("Self")
-                || valid.contains("EnchantedBy")
-                || valid.contains("EquippedBy")
-            {
-                let filter = self.filter_expr(&valid)?;
-                self.body.abilities.push(format!(
-                    "static_ability!({filter}, Modifier::PreventAllDamageFromIt{cond})"
-                ));
-                return Some(());
-            }
-            return self.deny(format!(
-                "a prevention source outside instant/sorcery spells `{valid}`"
-            ));
+            return self.emit_source_only_damage_prevention(
+                valid_source,
+                scope,
+                zone_arg,
+                &cond,
+                secondary.is_some(),
+            );
         };
 
         if valid_source
@@ -117,7 +112,57 @@ impl Tx<'_> {
         {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
-        self.emit_target_damage_prevention(valid_source.as_deref(), &target_raw, scope, &cond)
+        self.emit_target_damage_prevention(
+            valid_source.as_deref(),
+            &target_raw,
+            scope,
+            zone_arg,
+            &cond,
+        )
+    }
+
+    fn emit_source_only_damage_prevention(
+        &mut self,
+        valid_source: Option<String>,
+        scope: DamageScope,
+        zone_arg: &str,
+        cond: &str,
+        has_secondary: bool,
+    ) -> Option<()> {
+        if scope == DamageScope::NoncombatOnly || !zone_arg.is_empty() {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let combat_only = scope == DamageScope::CombatOnly;
+        let valid = valid_source?;
+        if Self::is_stack_spell_source(&valid) {
+            if combat_only || !cond.is_empty() || has_secondary {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+            let filter = self.filter_expr(&valid)?;
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::And(&[Filter::InZone(ZoneRef::Stack), {filter}]), \
+                 Modifier::PreventAllDamageFromIt)"
+            ));
+            return Some(());
+        }
+        if combat_only {
+            let filter = self.filter_expr(&valid)?;
+            self.body.abilities.push(format!(
+                "static_ability!({filter}, Modifier::PreventDamageFromIt{cond})"
+            ));
+            return Some(());
+        }
+        if valid.contains("Self") || valid.contains("EnchantedBy") || valid.contains("EquippedBy") {
+            let filter = self.filter_expr(&valid)?;
+            self.body.abilities.push(format!(
+                "static_ability!({filter}, Modifier::PreventAllDamageFromIt{cond})"
+            ));
+            return Some(());
+        }
+        self.deny(format!(
+            "a prevention source outside instant/sorcery spells `{valid}`"
+        ))
     }
 
     fn emit_target_damage_prevention(
@@ -125,6 +170,7 @@ impl Tx<'_> {
         valid_source: Option<&str>,
         target_raw: &str,
         scope: DamageScope,
+        zone_arg: &str,
         cond: &str,
     ) -> Option<()> {
         let source_expr = match valid_source {
@@ -141,7 +187,12 @@ impl Tx<'_> {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
         if scope == DamageScope::NoncombatOnly {
-            return self.emit_noncombat_damage_prevention(&source_expr, &target_parts, cond);
+            return self.emit_noncombat_damage_prevention(
+                &source_expr,
+                &target_parts,
+                zone_arg,
+                cond,
+            );
         }
         let combat_only = scope == DamageScope::CombatOnly;
         let has_you = target_parts.contains(&"You");
@@ -166,7 +217,7 @@ impl Tx<'_> {
         let src_ref = self.body.filter_static("SOURCE", &source_expr);
         if has_you {
             self.body.abilities.push(format!(
-                "static_ability!(Filter::This, Modifier::PreventDamageToYouFrom(&{src_ref}){cond})"
+                "static_ability!(Filter::This, Modifier::PreventDamageToYouFrom(&{src_ref}){zone_arg}{cond})"
             ));
         }
         if let Some(target_filter) = target_filter {
@@ -176,7 +227,7 @@ impl Tx<'_> {
                 format!("Modifier::PreventDamageFrom(&{src_ref})")
             };
             self.body.abilities.push(format!(
-                "static_ability!({target_filter}, {modifier}{cond})"
+                "static_ability!({target_filter}, {modifier}{zone_arg}{cond})"
             ));
         }
         Some(())
@@ -186,6 +237,7 @@ impl Tx<'_> {
         &mut self,
         source_expr: &str,
         target_parts: &[&str],
+        zone_arg: &str,
         cond: &str,
     ) -> Option<()> {
         let mut player_rels: Vec<&'static str> = Vec::new();
@@ -214,12 +266,12 @@ impl Tx<'_> {
         for who in player_rels {
             self.body.abilities.push(format!(
                 "static_ability!(Filter::This, Modifier::PreventNoncombatDamageToPlayers {{ \
-                 who: {who}, from: &{src_ref} }}{cond})"
+                 who: {who}, from: &{src_ref} }}{zone_arg}{cond})"
             ));
         }
         if let Some(target_filter) = target_filter {
             self.body.abilities.push(format!(
-                "static_ability!({target_filter}, Modifier::PreventNoncombatDamageFrom(&{src_ref}){cond})"
+                "static_ability!({target_filter}, Modifier::PreventNoncombatDamageFrom(&{src_ref}){zone_arg}{cond})"
             ));
         }
         Some(())
@@ -228,7 +280,7 @@ impl Tx<'_> {
     /// Persistent `R: Event$ DamageDone | ReplaceWith$ <ReplaceEffect>` damage
     /// multipliers (`Modifier::MultiplyDamageFrom`) and flat adders
     /// (`Modifier::AddDamageFrom`) over `DamageRecipients` (CR 614.1a).
-    fn damage_multiplier_or_adder_rule(&mut self, mut p: Params) -> Option<()> {
+    fn damage_multiplier_or_adder_rule(&mut self, mut p: Params, zone_arg: &str) -> Option<()> {
         if p.has("AlwaysReplace")
             || p.has("DamageAmount")
             || p.has("DamageTarget")
@@ -285,9 +337,9 @@ impl Tx<'_> {
                  recipients: {recipients} }}"
             ),
         };
-        self.body
-            .abilities
-            .push(format!("static_ability!(Filter::Any, {modifier}{cond})"));
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::Any, {modifier}{zone_arg}{cond})"
+        ));
         Some(())
     }
 

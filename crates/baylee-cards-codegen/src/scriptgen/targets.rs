@@ -694,6 +694,14 @@ impl Tx<'_> {
                     "!WarpedInExile" | "!ExiledWithWarp" => {
                         "Filter::Not(&Filter::WarpedInExile)".to_string()
                     }
+                    "IsMonstrous" | "monstrous" => "Filter::Monstrous".to_string(),
+                    "!IsMonstrous" | "!monstrous" | "nonMonstrous" => {
+                        "Filter::Not(&Filter::Monstrous)".to_string()
+                    }
+                    "IsSuspected" | "suspected" => "Filter::Suspected".to_string(),
+                    "!IsSuspected" | "!suspected" | "nonSuspected" => {
+                        "Filter::Not(&Filter::Suspected)".to_string()
+                    }
                     // Card-type negations a noun cannot say "not" to on its
                     // own ("nonartifact, nonblack creature").
                     "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),

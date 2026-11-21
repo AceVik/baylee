@@ -205,7 +205,7 @@ impl Tx<'_> {
         }
         match mode.as_str() {
             "AlternativeCost" => return self.alternative_cost(p),
-            "RaiseCost" => return self.mana_life_tax(p),
+            "RaiseCost" => return self.mode_raise_cost(p),
             "ReduceCost" => return self.mode_reduce_cost(p),
             "FlipCoinDoubler" => {
                 p.drop_prose();
@@ -312,6 +312,16 @@ impl Tx<'_> {
         {
             return self.graveyard_may_play(p, effect_zone);
         }
+        if effect_zone != Some("ZoneRef::Graveyard")
+            && p.peek("AffectedZone") == Some("Graveyard")
+            && !p.has("MayPlay")
+            && (p.peek("AddKeyword").map(str::trim) == Some("Retrace")
+                || (!p.has("AddKeyword")
+                    && (p.has("AddType") || p.has("AddColor") || p.has("SetColor"))))
+        {
+            p.take("AffectedZone");
+            return self.graveyard_layer45_static(p, effect_zone);
+        }
         if let Some(zone) = p.peek("AffectedZone")
             && matches!(zone, "Stack" | "Battlefield,Stack" | "Stack,Battlefield")
         {
@@ -357,8 +367,18 @@ impl Tx<'_> {
             self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
         let condition = Self::merge_static_condition(implicit_cond, &base_cond);
         let mut out = Vec::new();
+        let mut preconditioned_out = Vec::new();
         let mut self_granted = false;
-        self.pt_modifiers(&mut p, &filter, &mut out)?;
+        let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
+        if !self.conditional_pt_modifiers(
+            &mut p,
+            &filter,
+            &zone_arg,
+            &condition,
+            &mut preconditioned_out,
+        ) {
+            self.pt_modifiers(&mut p, &filter, &mut out)?;
+        }
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
         self.type_modifiers(&mut p, &filter, &mut out)?;
         self.color_modifiers(&mut p, &filter, &mut out)?;
@@ -398,13 +418,13 @@ impl Tx<'_> {
         }
         let dropped_ai_svar = self.strip_ai_hint_add_svar(&mut p);
         if effect_zone.is_some() || !condition.is_empty() {
-            let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
             for ability in &mut out {
                 if let Some(open) = ability.strip_suffix(')') {
                     *ability = format!("{open}{zone_arg}{condition})");
                 }
             }
         }
+        out.extend(preconditioned_out);
         if out.is_empty() && !self_granted && dropped_ai_svar && !had_description && p.exhausted() {
             return Some(());
         }
@@ -549,6 +569,26 @@ impl Tx<'_> {
             | "Creature.Self+!Warped" => {
                 Some(("Filter::This", "Condition::Not(&Condition::WarpCostPaid)"))
             }
+            "Card.Self+IsMonstrous"
+            | "Creature.Self+IsMonstrous"
+            | "Card.Self+monstrous"
+            | "Creature.Self+monstrous" => Some(("Filter::This", "Condition::IsMonstrous")),
+            "Card.Self+!IsMonstrous"
+            | "Creature.Self+!IsMonstrous"
+            | "Card.Self+!monstrous"
+            | "Creature.Self+!monstrous" => {
+                Some(("Filter::This", "Condition::Not(&Condition::IsMonstrous)"))
+            }
+            "Card.Self+IsSuspected"
+            | "Creature.Self+IsSuspected"
+            | "Card.Self+suspected"
+            | "Creature.Self+suspected" => Some(("Filter::This", "Condition::IsSuspected")),
+            "Card.Self+!IsSuspected"
+            | "Creature.Self+!IsSuspected"
+            | "Card.Self+!suspected"
+            | "Creature.Self+!suspected" => {
+                Some(("Filter::This", "Condition::Not(&Condition::IsSuspected)"))
+            }
             _ => None,
         }
     }
@@ -557,26 +597,47 @@ impl Tx<'_> {
         let Some(present) = p.peek("IsPresent") else {
             return Ok(None);
         };
-        let cond = match present.trim() {
-            "Card.Self+IsRenowned" | "Creature.Self+IsRenowned" => "Condition::IsRenowned",
-            "Card.Self+Paired" | "Creature.Self+Paired" => "Condition::IsPaired",
+        let (cond, negated_atom) = match present.trim() {
+            "Card.Self+IsRenowned" | "Creature.Self+IsRenowned" => ("Condition::IsRenowned", false),
+            "Card.Self+Paired" | "Creature.Self+Paired" => ("Condition::IsPaired", false),
             "Card.Self+PromisedGift" | "Creature.Self+PromisedGift" | "Card.PromisedGift" => {
-                "Condition::GiftWasPromised"
+                ("Condition::GiftWasPromised", false)
             }
             "Card.Self+CastSa Spell.Warp"
             | "Creature.Self+CastSa Spell.Warp"
             | "Card.Self+Warped"
-            | "Creature.Self+Warped" => "Condition::WarpCostPaid",
+            | "Creature.Self+Warped" => ("Condition::WarpCostPaid", false),
+            "Card.Self+IsMonstrous"
+            | "Creature.Self+IsMonstrous"
+            | "Card.Self+monstrous"
+            | "Creature.Self+monstrous" => ("Condition::IsMonstrous", false),
+            "Card.Self+!IsMonstrous"
+            | "Creature.Self+!IsMonstrous"
+            | "Card.Self+!monstrous"
+            | "Creature.Self+!monstrous" => ("Condition::IsMonstrous", true),
+            "Card.Self+IsSuspected"
+            | "Creature.Self+IsSuspected"
+            | "Card.Self+suspected"
+            | "Creature.Self+suspected" => ("Condition::IsSuspected", false),
+            "Card.Self+!IsSuspected"
+            | "Creature.Self+!IsSuspected"
+            | "Card.Self+!suspected"
+            | "Creature.Self+!suspected" => ("Condition::IsSuspected", true),
             _ => return Ok(None),
         };
         p.take("IsPresent");
-        match p.take("PresentCompare").as_deref() {
-            None | Some("GE1" | "EQ1" | "GT0") => Ok(Some(cond.to_string())),
-            Some("EQ0" | "LT1") => Ok(Some(format!("Condition::Not(&{cond})"))),
+        let want_present = match p.take("PresentCompare").as_deref() {
+            None | Some("GE1" | "EQ1" | "GT0") => true,
+            Some("EQ0" | "LT1") => false,
             Some(other) => {
                 self.note(format!("`PresentCompare$ {other}`"));
-                Err(())
+                return Err(());
             }
+        };
+        if want_present == negated_atom {
+            Ok(Some(format!("Condition::Not(&{cond})")))
+        } else {
+            Ok(Some(cond.to_string()))
         }
     }
 
@@ -619,6 +680,7 @@ impl Tx<'_> {
 
     fn static_conditions(&mut self, p: &mut Params, check_svar_denial: &str) -> Option<String> {
         let mut clauses: Vec<String> = Vec::new();
+        Self::take_ability_word_flags(p, &mut clauses)?;
         if let Some(cond_raw) = p.peek("Condition")
             && p.has("IsPresent")
             && let Some(named) = Self::named_condition(cond_raw)
@@ -1055,6 +1117,159 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// Layer 4/5 type- or color-changing static abilities reaching cards in
+    /// graveyards (`AffectedZone$ Graveyard`, e.g. *Ashes of the Fallen*):
+    /// conjoins `Filter::InZone(ZoneRef::Graveyard)` so the engine's cross-zone
+    /// projection pass updates graveyard characteristics.
+    fn graveyard_layer45_static(
+        &mut self,
+        mut p: Params,
+        effect_zone: Option<&'static str>,
+    ) -> Option<()> {
+        let affected = self.continuous_affected(&mut p)?;
+        let base_filter = self.filter_expr_in_zone(&affected, true)?;
+        let filter = if base_filter == "Filter::Any" {
+            "Filter::InZone(ZoneRef::Graveyard)".to_string()
+        } else {
+            format!("Filter::And(&[{base_filter}, Filter::InZone(ZoneRef::Graveyard)])")
+        };
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+        let mut out = Vec::new();
+        if p.peek("AddKeyword").map(str::trim) == Some("Retrace") {
+            p.take("AddKeyword");
+            out.push(Self::static_expr(
+                &filter,
+                "Modifier::AddKeyword(KeywordSet::RETRACE)",
+            ));
+        }
+        if !p.has("RemoveLandTypes") {
+            self.type_modifiers(&mut p, &filter, &mut out)?;
+        }
+        self.color_modifiers(&mut p, &filter, &mut out)?;
+        self.strip_ai_hint_add_svar(&mut p);
+        if !p.exhausted() || out.is_empty() {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        }
+        let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
+        for ability in &mut out {
+            if (!zone_arg.is_empty() || !condition.is_empty())
+                && let Some(open) = ability.strip_suffix(')')
+            {
+                *ability = format!("{open}{zone_arg}{condition})");
+            }
+        }
+        self.body.abilities.extend(out);
+        Some(())
+    }
+
+    /// Lowers conditional two-branch P/T buffs (`Count$<Flag>.<a>.<b>` and
+    /// `Count$Compare <var> <cmp>.<a>.<b>`) on `AddPower$`/`AddToughness$` into
+    /// an unconditional base `ModifyPT(b_p, b_t)` plus a conditional delta
+    /// `ModifyPT(a_p - b_p, a_t - b_t)`. Returns `false` when the line does not
+    /// use conditional P/T `SVar`s so `pt_modifiers` handles it unchanged.
+    fn conditional_pt_modifiers(
+        &mut self,
+        p: &mut Params,
+        filter: &str,
+        zone_arg: &str,
+        outer_cond: &str,
+        out: &mut Vec<String>,
+    ) -> bool {
+        if !p.has("AddPower") && !p.has("AddToughness") {
+            return false;
+        }
+        let Some((p_cond, p_true, p_false)) = self.parse_conditional_pt_half(p.peek("AddPower"))
+        else {
+            return false;
+        };
+        let Some((t_cond, t_true, t_false)) =
+            self.parse_conditional_pt_half(p.peek("AddToughness"))
+        else {
+            return false;
+        };
+        let cond = match (p_cond, t_cond) {
+            (Some(c), None) | (None, Some(c)) => c,
+            (Some(c1), Some(c2)) if c1 == c2 => c1,
+            _ => return false,
+        };
+        let Some(delta_p) = p_true.checked_sub(p_false) else {
+            return false;
+        };
+        let Some(delta_t) = t_true.checked_sub(t_false) else {
+            return false;
+        };
+        p.take("AddPower");
+        p.take("AddToughness");
+        if p_false != 0 || t_false != 0 {
+            out.push(format!(
+                "static_ability!({filter}, Modifier::ModifyPT({p_false}, {t_false}){zone_arg}{outer_cond})"
+            ));
+        }
+        if delta_p != 0 || delta_t != 0 {
+            let merged = Self::merge_static_condition(Some(&cond), outer_cond);
+            out.push(format!(
+                "static_ability!({filter}, Modifier::ModifyPT({delta_p}, {delta_t}){zone_arg}{merged})"
+            ));
+        }
+        true
+    }
+
+    fn parse_conditional_pt_half(
+        &mut self,
+        raw: Option<&str>,
+    ) -> Option<(Option<String>, i16, i16)> {
+        let Some(raw) = raw else {
+            return Some((None, 0, 0));
+        };
+        let trimmed = raw.trim();
+        if let Ok(n) = trimmed.parse::<i16>() {
+            return Some((None, n, n));
+        }
+        let neg = trimmed.starts_with('-');
+        let var = trimmed.trim_start_matches(['+', '-']);
+        let body = self.svars.get(var)?.trim().to_string();
+        let (cond, raw_true, raw_false) = if let Some(rest) = body.strip_prefix("Count$Compare ") {
+            let (check_part, rest) = rest.split_once('.')?;
+            let (a_str, b_str) = rest.split_once('.')?;
+            let (lhs_var, cmp) = check_part.trim().split_once(' ')?;
+            let cond = self.svar_condition_clause(lhs_var.trim(), cmp.trim())?;
+            (
+                cond,
+                a_str.trim().parse::<i16>().ok()?,
+                b_str.trim().parse::<i16>().ok()?,
+            )
+        } else {
+            let rest = body.strip_prefix("Count$")?;
+            let (flag, tail) = rest.split_once('.')?;
+            let (a_str, b_str) = tail.split_once('.')?;
+            let cond = match flag {
+                "Threshold" => "Condition::GraveyardCountAtLeast(7)",
+                "Delirium" => "Condition::GraveyardTypesAtLeast(4)",
+                "Metalcraft" => "Condition::ControlCount(&Filter::ARTIFACT, 3)",
+                "Hellbent" => "Condition::HandSizeAtMost(0)",
+                "FatefulHour" => "Condition::LifeAtMost(5)",
+                "Blessing" => "Condition::CitysBlessing",
+                "Revolt" => "Condition::Revolt",
+                "Raid" => "Condition::AttackedWithAtLeast(1)",
+                "Monstrous" => "Condition::IsMonstrous",
+                "Suspected" => "Condition::IsSuspected",
+                _ => return None,
+            };
+            (
+                cond.to_string(),
+                a_str.trim().parse::<i16>().ok()?,
+                b_str.trim().parse::<i16>().ok()?,
+            )
+        };
+        let (t_val, f_val) = if neg {
+            (raw_true.checked_neg()?, raw_false.checked_neg()?)
+        } else {
+            (raw_true, raw_false)
+        };
+        Some((Some(cond), t_val, f_val))
+    }
+
     /// A characteristic-defining power and toughness (CR 604.3): both equal
     /// to one count of permanents, the ones you control
     /// (`PtCount::YouControl`) or all of them (`PtCount::OnBattlefield`).
@@ -1213,14 +1428,24 @@ impl Tx<'_> {
     /// attacked (`ValidTarget$`) is another sentence and refuses.
     pub(super) fn attack_as_though(&mut self, modifier: &str, mut p: Params) -> Option<()> {
         p.drop_prose();
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`{modifier}.Secondary$ {other}`")),
+        }
         let Some(valid) = p.take("ValidCard") else {
             return self.deny(format!("`{modifier}` naming no creature"));
         };
-        let condition = self.condition(&mut p)?;
+        let (filter, implicit_cond) =
+            if let Some((f, c)) = Self::soulbond_or_renown_affected(&valid) {
+                (f.to_string(), Some(c))
+            } else {
+                (self.filter_expr(&valid)?, None)
+            };
+        let base_cond = self.condition(&mut p)?;
+        let condition = Self::merge_static_condition(implicit_cond, &base_cond);
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `{modifier}.{key}`"));
         }
-        let filter = self.filter_expr(&valid)?;
         self.body.abilities.push(format!(
             "static_ability!({filter}, Modifier::{modifier}{condition})"
         ));
@@ -1924,14 +2149,12 @@ impl Tx<'_> {
         for (key, modifier) in [("AddType", "AddType"), ("RemoveType", "RemoveType")] {
             let Some(raw) = p.take(key) else { continue };
             if raw == "ChosenType" && modifier == "AddType" {
-                if filter != "Filter::This" {
-                    return None;
-                }
-                let chosen_mod = if self
-                    .body
-                    .enter_modifiers
-                    .iter()
-                    .any(|m| m == "EnterModifier::ChooseBasicLandType")
+                let chosen_mod = if filter == "Filter::This"
+                    && self
+                        .body
+                        .enter_modifiers
+                        .iter()
+                        .any(|m| m == "EnterModifier::ChooseBasicLandType")
                 {
                     "Modifier::AddChosenBasicLandType"
                 } else if self
@@ -2347,17 +2570,189 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// `S: Mode$ ReduceCost`: battlefield and self-stack (`ZoneRef::Stack`)
-    /// spell cost reductions (fixed generic, dynamic `Amount`, fixed mana
-    /// `Color$` / `IgnoreGeneric$`, face-down, shared creature type), plus
-    /// `CyclingCostsLess` (`ValidSpell$ Activated.Cycling`).
-    fn mode_reduce_cost(&mut self, mut p: Params) -> Option<()> {
-        // Keep `final_portals::reduce_cost` handling plain battlefield fixed
-        // generic spell reductions unchanged.
-        if !p.has("Condition")
+    /// `S: Mode$ RaiseCost`: delegates plain existing battlefield/stack shapes to
+    /// `final_portals::mana_life_tax`, and extends spell/ability/mana-life taxes
+    /// with `Secondary$ True`, `EffectZone$ Command`/`Battlefield,Command`,
+    /// omitted `ValidCard$` on `Type$ Spell` (e.g. *God-Pharaoh's Statue*),
+    /// `PlayerTurn$`, ability-word flags, `Activator$` on battlefield ability
+    /// taxes, and general `PayLife<N>` mana-ability taxes.
+    fn mode_raise_cost(&mut self, mut p: Params) -> Option<()> {
+        if !p.has("Secondary")
+            && !p.has("PlayerTurn")
+            && matches!(p.peek("EffectZone"), None | Some("Battlefield" | "Stack"))
+            && (p.peek("Type") != Some("Spell") || p.has("ValidCard") || p.has("ValidTarget"))
+            && (p.peek("Type") != Some("Ability")
+                || matches!(p.peek("Activator"), None | Some("Player")))
+            && (p.peek("ValidSpell") != Some("Activated.ManaAbility")
+                || p.peek("Cost") == Some("PayLife<1>"))
+        {
+            return self
+                .mana_life_tax(p)
+                .or_else(|| self.deny("static ability `S: Mode$ RaiseCost`".into()));
+        }
+        p.drop_prose();
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(_) => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
+        }
+        if p.peek("Type") == Some("Ability")
+            && p.peek("ValidSpell") == Some("Activated.ManaAbility")
+        {
+            return self.raise_cost_mana_life(p);
+        }
+        if p.peek("Type") == Some("Ability") && !p.has("ValidSpell") && !p.has("Cost") {
+            return self.raise_cost_ability(p);
+        }
+        if p.peek("Type") == Some("Spell") {
+            return self.raise_cost_spell(p);
+        }
+        self.deny("static ability `S: Mode$ RaiseCost`".into())
+    }
+
+    fn raise_cost_mana_life(&mut self, mut p: Params) -> Option<()> {
+        p.take("Type");
+        p.take("ValidSpell");
+        let Some(zone) = Self::static_effect_zone(p.take("EffectZone").as_deref(), false) else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        if p.take("ValidCard").as_deref() != Some("Card.Self") {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        let Some(cost) = p.take("Cost") else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let Some(amount) = cost
+            .strip_prefix("PayLife<")
+            .and_then(|s| s.strip_suffix('>'))
+            .and_then(|s| s.trim().parse::<u32>().ok())
+            .filter(|&n| n > 0)
+        else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let cond = self.reduce_cost_condition(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        self.body.abilities.push(Self::format_static_expr(
+            "Filter::This",
+            &format!("Modifier::ManaAbilitiesCostLife({amount})"),
+            zone,
+            &cond,
+        ));
+        Some(())
+    }
+
+    fn raise_cost_ability(&mut self, mut p: Params) -> Option<()> {
+        p.take("Type");
+        if p.take("AffectedZone").as_deref() != Some("Battlefield") {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        let Some(zone) = Self::static_effect_zone(p.take("EffectZone").as_deref(), false) else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let Some(raw_card) = p.take("ValidCard") else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let Some(valid_card) =
+            Self::apply_reduce_activator(&raw_card, p.take("Activator").as_deref())
+        else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let Some(amount) = p
+            .take("Amount")
+            .and_then(|a| a.trim().parse::<u32>().ok())
+            .filter(|&n| n > 0)
+        else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let cond = self.reduce_cost_condition(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        let filter = self.filter_expr(&valid_card)?;
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            &format!("Modifier::AbilitiesCostMore({amount})"),
+            zone,
+            &cond,
+        ));
+        Some(())
+    }
+
+    fn raise_cost_spell(&mut self, mut p: Params) -> Option<()> {
+        p.take("Type");
+        let effect_zone = p.take("EffectZone");
+        let valid_target = p.take("ValidTarget");
+        let stack_self_target = effect_zone.as_deref() == Some("Stack")
+            && valid_target.as_deref() == Some("Spell.Self")
+            && !p.has("ValidCard");
+        let zone = if stack_self_target {
+            StaticEffectZone::Explicit("ZoneRef::Stack")
+        } else if let Some(z) = Self::static_effect_zone(effect_zone.as_deref(), false) {
+            z
+        } else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let target_filter: Option<&'static str> = match valid_target.as_deref() {
+            None => None,
+            Some("Spell.Self") if stack_self_target => Some("Filter::SpellTargetingAffected"),
+            Some("Card.Self" | "Creature.Self" | "Permanent.Self") if !stack_self_target => {
+                Some("Filter::SpellTargetingAffected")
+            }
+            Some(
+                "Permanent.YouCtrl"
+                | "Permanent.YouCtrl+inZoneBattlefield"
+                | "Card.YouCtrl+inZoneBattlefield",
+            ) if !stack_self_target => Some("Filter::TargetsPermanentYouControl"),
+            Some(_) => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
+        };
+        let raw_card = p.take("ValidCard").unwrap_or_else(|| "Card".to_string());
+        let Some(valid_card) =
+            Self::apply_reduce_activator(&raw_card, p.take("Activator").as_deref())
+        else {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        };
+        let modifier = match (p.take("Amount"), p.take("Cost")) {
+            (Some(amount), None) => {
+                let Some(amount) = amount.trim().parse::<u8>().ok().filter(|&n| n > 0) else {
+                    return self.deny("static ability `S: Mode$ RaiseCost`".into());
+                };
+                format!("Modifier::SpellsCostMore({amount})")
+            }
+            (None, Some(cost)) => {
+                let Some(mana) = super::printed_mana(&cost) else {
+                    return self.deny("static ability `S: Mode$ RaiseCost`".into());
+                };
+                if let Some(amount) = super::generic_mana(&mana) {
+                    format!("Modifier::SpellsCostMore({amount})")
+                } else {
+                    format!("Modifier::SpellsCostMoreMana(mana!(\"{mana}\"))")
+                }
+            }
+            _ => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
+        };
+        let cond = self.reduce_cost_condition(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        }
+        let base_filter = self.filter_expr(&valid_card)?;
+        let filter = match target_filter {
+            None => base_filter,
+            Some(tf) if base_filter == "Filter::Any" => tf.to_string(),
+            Some(tf) => format!("Filter::And(&[{base_filter}, {tf}])"),
+        };
+        self.body
+            .abilities
+            .push(Self::format_static_expr(&filter, &modifier, zone, &cond));
+        Some(())
+    }
+
+    fn is_plain_battlefield_reduce_cost(p: &Params) -> bool {
+        !p.has("Condition")
             && !p.has("IsPresent")
             && !p.has("CheckSVar")
             && !p.has("PlayerTurn")
+            && !p.has("Secondary")
             && !p.has("Color")
             && !p.has("IgnoreGeneric")
             && !p.has("ValidSpell")
@@ -2369,11 +2764,24 @@ impl Tx<'_> {
             && p.peek("ValidCard").is_some_and(|vc| {
                 !vc.contains("sharesCreatureTypeWith") && !vc.contains("faceDown")
             })
-        {
+    }
+
+    /// `S: Mode$ ReduceCost`: battlefield and self-stack (`ZoneRef::Stack`)
+    /// spell cost reductions (fixed generic, dynamic `Amount`, fixed mana
+    /// `Color$` / `IgnoreGeneric$`, face-down, shared creature type), plus
+    /// `CyclingCostsLess` (`ValidSpell$ Activated.Cycling`).
+    fn mode_reduce_cost(&mut self, mut p: Params) -> Option<()> {
+        // Keep `final_portals::reduce_cost` handling plain battlefield fixed
+        // generic spell reductions unchanged.
+        if Self::is_plain_battlefield_reduce_cost(&p) {
             return self.reduce_cost(p);
         }
 
         p.drop_prose();
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(_) => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+        }
         if p.peek("ValidSpell") == Some("Activated.Cycling") {
             return self.reduce_cost_cycling(p);
         }
@@ -2605,10 +3013,16 @@ impl Tx<'_> {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         };
         let mut zones_ok = true;
+        let mut graveyard_zone = false;
         let explicit_battlefield = if allow_affected_zone {
             let affected_zone = p.take("AffectedZone");
-            zones_ok &= matches!(affected_zone.as_deref(), None | Some("Battlefield"));
-            affected_zone.as_deref() == Some("Battlefield")
+            if forbid_unscoped_card && affected_zone.as_deref() == Some("Graveyard") {
+                graveyard_zone = true;
+                false
+            } else {
+                zones_ok &= matches!(affected_zone.as_deref(), None | Some("Battlefield"));
+                affected_zone.as_deref() == Some("Battlefield")
+            }
         } else {
             false
         };
@@ -2618,7 +3032,7 @@ impl Tx<'_> {
         let Some(raw_card) = p.take("ValidCard") else {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         };
-        if forbid_unscoped_card && raw_card == "Card" && !explicit_battlefield {
+        if forbid_unscoped_card && raw_card == "Card" && !explicit_battlefield && !graveyard_zone {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         }
         let Some(valid_card) =
@@ -2652,7 +3066,16 @@ impl Tx<'_> {
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
         }
-        let filter = self.filter_expr(&valid_card)?;
+        let filter = if graveyard_zone {
+            let base = self.filter_expr_in_zone(&valid_card, true)?;
+            if base == "Filter::Any" {
+                "Filter::InZone(ZoneRef::Graveyard)".to_string()
+            } else {
+                format!("Filter::And(&[{base}, Filter::InZone(ZoneRef::Graveyard)])")
+            }
+        } else {
+            self.filter_expr(&valid_card)?
+        };
         Some((filter, amount, minimum, zone, cond))
     }
 
@@ -2689,6 +3112,7 @@ impl Tx<'_> {
 
     fn reduce_cost_condition(&mut self, p: &mut Params) -> Option<String> {
         let mut clauses = Vec::new();
+        Self::take_ability_word_flags(p, &mut clauses)?;
         if let Some(pt) = p.take("PlayerTurn") {
             if !matches!(pt.as_str(), "True" | "You") {
                 return self.deny("static ability `S: Mode$ ReduceCost`".into());
@@ -2729,6 +3153,15 @@ impl Tx<'_> {
                 return self.deny("unclaimed parameter `ReduceCost.CheckSVar`".to_string());
             };
             clauses.push(clause);
+            if let Some(var2) = p.take("CheckSecondSVar") {
+                let cmp2 = p
+                    .take("SecondSVarCompare")
+                    .unwrap_or_else(|| "GE1".to_string());
+                let Some(clause2) = self.reduce_cost_svar_condition(&var2, &cmp2) else {
+                    return self.deny("unclaimed parameter `ReduceCost.CheckSVar`".to_string());
+                };
+                clauses.push(clause2);
+            }
         }
         Some(match clauses.as_slice() {
             [] => String::new(),
@@ -3502,5 +3935,141 @@ mod wave16b_tests {
             )
             .is_some()
         );
+    }
+
+    #[test]
+    fn wave17b_monstrous_suspected_retrace_and_svar_conditions() {
+        let state_card = read(
+            "Name:Wave17b Beast\nManaCost:2 G\nTypes:Creature Beast\nPT:3/3\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | Affected$ Card.IsMonstrous | AddKeyword$ Trample | CanBlockAmount$ 2\n\
+             S:Mode$ CanAttackDefender | ValidCard$ Card.Self+IsMonstrous | Secondary$ True\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | Affected$ Card.IsSuspected | AddKeyword$ Flying\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Vigilance | CheckSVar$ M\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Haste | CheckSVar$ S\n\
+             A:SP$ Destroy | ValidTgts$ Creature.IsMonstrous,Creature.!IsSuspected\n\
+             SVar:M:Count$Monstrous.1.0\n\
+             SVar:S:Count$ValidSelf Card.IsSuspected",
+        );
+        assert!(state_card.abilities[0].contains("Modifier::AddKeyword(KeywordSet::TRAMPLE)"));
+        assert!(state_card.abilities[0].contains("condition = Some(Condition::IsMonstrous)"));
+        assert!(state_card.abilities[1].contains("Modifier::CanBlockAdditional(2)"));
+        assert!(state_card.abilities[2].contains("Modifier::AttacksDespiteDefender"));
+        assert!(state_card.abilities[2].contains("condition = Some(Condition::IsMonstrous)"));
+        assert!(state_card.abilities[3].contains("condition = Some(Condition::IsSuspected)"));
+        assert!(state_card.abilities[4].contains("condition = Some(Condition::IsMonstrous)"));
+        assert!(state_card.abilities[5].contains("condition = Some(Condition::IsSuspected)"));
+        assert!(
+            state_card.statics.contains("Filter::Monstrous")
+                && state_card
+                    .statics
+                    .contains("Filter::Not(&Filter::Suspected)")
+        );
+
+        let retrace_grant = read(
+            "Name:Grave Historian\nManaCost:2 G\nTypes:Creature Wizard\nPT:2/3\n\
+             S:Mode$ Continuous | AffectedZone$ Graveyard | Affected$ Goblin.YouOwn,Wizard.YouOwn | AddKeyword$ Retrace",
+        );
+        assert!(retrace_grant.abilities[0].contains("Modifier::AddKeyword(KeywordSet::RETRACE)"));
+        assert!(retrace_grant.abilities[0].contains("Filter::InZone(ZoneRef::Graveyard)"));
+
+        let svars = read(
+            "Name:SVar Probe\nManaCost:2 W\nTypes:Creature Wizard\nPT:2/2\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ C | SVarCompare$ EQ0\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Haste | CheckSVar$ L\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Vigilance | CheckSVar$ P | SVarCompare$ GE4\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Lifelink | CheckSVar$ CR | SVarCompare$ EQAR\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Menace | CheckSVar$ E\n\
+             SVar:C:Count$ThisTurnCast_Card.YouCtrl\n\
+             SVar:L:PlayerCountRegisteredOpponents$HighestLifeLostThisTurn\n\
+             SVar:P:Count$CardPower\n\
+             SVar:CR:Count$Valid Creature.YouCtrl\n\
+             SVar:AR:Count$Valid Artifact.YouCtrl\n\
+             SVar:E:Count$ThisTurnEntered_Battlefield_Goblin.YouCtrl",
+        );
+        assert!(svars.abilities[0].contains("Condition::YouCastNoSpellThisTurn"));
+        assert!(svars.abilities[1].contains("Condition::OpponentLostLifeThisTurn"));
+        assert!(
+            svars.abilities[2].contains("Condition::AmountAtLeast(Amount::SourcePower, 4)")
+                || svars.abilities[2]
+                    .contains("Condition::SourceMatches(&Filter::PowerAtLeast(4))"),
+            "unexpected power condition: {}",
+            svars.abilities[2]
+        );
+        assert!(svars.abilities[3].contains("Condition::AmountCompare"));
+        assert!(svars.abilities[3].contains("AmountCmp::Equal"));
+        assert!(svars.abilities[4].contains("Condition::EnteredSubtypeUnderYourControlThisTurn"));
+
+        assert!(
+            refused(
+                "Name:Multi Opp Loss\nManaCost:1 B\nTypes:Creature\nPT:1/1\n\
+                 S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ L | SVarCompare$ GE2\n\
+                 SVar:L:PlayerCountRegisteredOpponents$HighestLifeLostThisTurn"
+            )
+            .is_some()
+        );
+        assert!(
+            refused(
+                "Name:Entered Permanent\nManaCost:1 B\nTypes:Creature\nPT:1/1\n\
+                 S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ S\n\
+                 SVar:S:Count$ThisTurnEntered_Battlefield_Permanent.YouCtrl"
+            )
+            .is_some()
+        );
+    }
+
+    #[test]
+    fn wave17b_cost_sweeps_conditional_pt_graveyard_and_prevention() {
+        let costs = read(
+            "Name:Tax And Discount\nManaCost:3\nTypes:Artifact\n\
+             S:Mode$ RaiseCost | Activator$ Opponent | Type$ Spell | Amount$ 2\n\
+             S:Mode$ RaiseCost | ValidCard$ Card.nonCreature | Activator$ Opponent | Type$ Spell | Amount$ 1 | Secondary$ True | PlayerTurn$ True\n\
+             S:Mode$ RaiseCost | ValidCard$ Artifact | Activator$ Opponent | Type$ Ability | AffectedZone$ Battlefield | Amount$ 2\n\
+             S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1 | Secondary$ True\n\
+             S:Mode$ ReduceCost | ValidCard$ Card.YouOwn | Type$ Ability | Amount$ 2 | MinMana$ 1 | AffectedZone$ Graveyard | IsPresent$ Card.IsCommander+YouOwn+YouCtrl",
+        );
+        assert!(costs.abilities[0].contains("Modifier::SpellsCostMore(2)"));
+        assert!(costs.abilities[1].contains("condition = Some(Condition::YourTurn)"));
+        assert!(costs.abilities[2].contains("Modifier::AbilitiesCostMore(2)"));
+        assert!(costs.abilities[3].contains("Modifier::SpellsCostLess(1)"));
+        assert!(
+            costs.abilities[4].contains("Modifier::AbilitiesCostLess { amount: 2, minimum: 1 }")
+        );
+        assert!(costs.abilities[4].contains("Filter::InZone(ZoneRef::Graveyard)"));
+
+        let cond_pt = read(
+            "Name:Threshold Blade\nManaCost:2 B\nTypes:Enchantment Aura\n\
+             K:Enchant:Creature\n\
+             S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | AddPower$ X | AddToughness$ -X\n\
+             SVar:X:Count$Threshold.4.2",
+        );
+        assert!(
+            cond_pt
+                .abilities
+                .iter()
+                .any(|a| a.contains("Modifier::ModifyPT(2, -2)") && !a.contains("condition ="))
+        );
+        assert!(cond_pt.abilities.iter().any(|a| {
+            a.contains("Modifier::ModifyPT(2, -2)")
+                && a.contains("Condition::GraveyardCountAtLeast(7)")
+        }));
+
+        let gy_type = read(
+            "Name:Grave Clan\nManaCost:2\nTypes:Artifact\n\
+             K:ETBReplacement:Other:ChooseCT\n\
+             SVar:ChooseCT:DB$ ChooseType | Defined$ You | Type$ Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.YouOwn | AffectedZone$ Graveyard | AddType$ ChosenType",
+        );
+        assert!(gy_type.abilities[0].contains("Modifier::AddChosenSubtype"));
+        assert!(gy_type.abilities[0].contains("Filter::InZone(ZoneRef::Graveyard)"));
+
+        let dmg_flags = read(
+            "Name:Revolt Flame\nManaCost:2 R\nTypes:Enchantment\n\
+             R:Event$ DamageDone | Revolt$ True | ActiveZones$ Battlefield | ValidSource$ Card.YouCtrl | ValidTarget$ Permanent.OppCtrl,Opponent | IsCombat$ False | ReplaceWith$ Plus2\n\
+             R:Event$ DamageDone | ActiveZones$ Command | ValidSource$ Creature.YouCtrl | ReplaceWith$ Twice\n\
+             SVar:Plus2:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Plus.2\n\
+             SVar:Twice:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Twice",
+        );
+        assert!(dmg_flags.abilities[0].contains("Condition::Revolt"));
+        assert!(dmg_flags.abilities[1].contains("zone = ZoneRef::Command"));
     }
 }
