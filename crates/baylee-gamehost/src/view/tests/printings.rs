@@ -126,27 +126,23 @@ fn a_printing_a_seat_has_not_seen_is_a_hole_not_a_gap() {
 /// definition the engine created the object from.
 #[test]
 fn a_token_reaches_the_client_with_the_handle_its_art_is_keyed_on() {
-    use baylee_engine::choice::{Pending, PlayerAction};
+    use baylee_engine::object::ObjectKind;
 
-    let preset = mixed_print_preset();
-    let mut engine = Engine::new(&preset, Registry).expect("game starts");
-    for _ in 0..2 {
-        let Pending::Mulligan { player, .. } = engine.pending().clone() else {
-            panic!("expected a mulligan")
-        };
-        engine.apply(player, PlayerAction::MulliganKeep).unwrap();
-    }
+    // A historical ledger id still creates the same token. Newly projected
+    // objects use its canonical art key.
+    let seat = PlayerId::new(0);
+    let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).expect("game starts");
+    let projected = [(1029_u16, 228_u16), (1038, 229)].map(|(legacy, canonical)| {
+        let token = baylee_cards::tokens::by_token_id(legacy).expect("legacy token");
+        let name = state.names.intern(token.name);
+        let id = state.create_bare(seat, ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+        state.object_mut(id).expect("new token").token = Some(token);
+        (id, canonical)
+    });
 
     // Every object the view can project; a card-backed one carries a
     // printing and no token id, and the two are mutually exclusive.
-    let view = player_view(
-        engine.state(),
-        PlayerId::new(0),
-        1,
-        None,
-        &SeatContext::default(),
-        &[],
-    );
+    let view = player_view(&state, seat, 1, None, &SeatContext::default(), &[]);
     for object in &view.battlefield {
         assert!(
             object.card.is_none() || object.token.is_none(),
@@ -154,13 +150,26 @@ fn a_token_reaches_the_client_with_the_handle_its_art_is_keyed_on() {
             object.name
         );
     }
+    for (id, canonical) in projected {
+        let object = view
+            .battlefield
+            .iter()
+            .find(|object| object.id == id)
+            .expect("projected token");
+        assert_eq!(object.token, Some(canonical));
+        assert!(object.card.is_none());
+    }
 
     // And the id round-trips: whatever the view says, the registry can
     // name it. A token filed under `u16::MAX` — one defined in a card
     // file instead of the registry — would fail here.
     for id in 0..u16::try_from(baylee_cards::tokens::ALL.len()).expect("registry fits") {
         let token = baylee_cards::tokens::by_token_id(id).expect("id names a token");
-        assert_eq!(baylee_cards::tokens::token_id(token), id);
+        let projected = baylee_cards::tokens::token_id(token);
+        assert!(std::ptr::eq(
+            baylee_cards::tokens::by_token_id(projected).expect("projected art key"),
+            token,
+        ));
     }
 }
 
