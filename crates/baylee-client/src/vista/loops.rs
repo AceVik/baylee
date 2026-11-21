@@ -299,7 +299,7 @@ impl Loop {
         keep: Duration,
     ) -> Option<Arc<Self>> {
         Self::start_with_full_ring_wait(tavern, bytes, images, keep, |_| {
-            std::thread::park_timeout(NAP)
+            std::thread::park_timeout(NAP);
         })
     }
 
