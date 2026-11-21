@@ -54,7 +54,11 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
     )));
     s[69] = f32::from(u8::from(!matches!(def.partner, PartnerKind::None)));
     s[70] = f32::from(u8::from(
-        face.flashback.is_some() || face.disturb || face.jump_start || face.aftermath,
+        face.flashback.is_some()
+            || face.disturb
+            || face.jump_start
+            || face.aftermath
+            || kw.contains(KeywordSet::RETRACE),
     ));
     s[71] = f32::from(u8::from(face.escape.is_some()));
     s[72] = f32::from(u8::from(face.adventure || face.prototype.is_some()));
@@ -117,6 +121,9 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             | EnterModifier::ChooseOpponent => s[86] = 1.0,
             _ => s[87] = 1.0,
         }
+    }
+    if kw.contains(KeywordSet::RIOT) || kw.contains(KeywordSet::UNLEASH) {
+        s[83] = 1.0;
     }
 
     // Encode individual abilities + aggregate counts & effect channels

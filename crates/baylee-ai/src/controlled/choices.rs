@@ -474,6 +474,8 @@ impl HeuristicAgent {
             | YesNoPrompt::Offspring { .. }
             | YesNoPrompt::Casualty { .. }
             | YesNoPrompt::Gift { .. }
+            | YesNoPrompt::Riot { .. }
+            | YesNoPrompt::Unleash { .. }
             | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }

@@ -348,6 +348,8 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::PowerAtLeast(_)
         | Filter::PowerAtMost(_)
         | Filter::FaceDown
+        | Filter::Monstrous
+        | Filter::Suspected
         | Filter::InZone(_) => false,
         _ => true,
     }

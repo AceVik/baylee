@@ -243,7 +243,7 @@ fn raw_option_cost(
         Some(CastModeKind::Fused) => def.faces[0].mana_cost.combine(&def.faces[1].mana_cost),
         Some(CastModeKind::Mutate) => face.mutate.expect("mutate"),
         Some(CastModeKind::Bestow) => face.bestow.expect("bestow").mana,
-        Some(CastModeKind::JumpStart) => face.mana_cost,
+        Some(CastModeKind::JumpStart | CastModeKind::Retrace) => face.mana_cost,
         Some(CastModeKind::Escape) => face.escape.expect("escape").cost,
         Some(CastModeKind::Impending) => face.impending.expect("impending").1,
         Some(CastModeKind::Plot | CastModeKind::PlayLandFace(_)) => ManaCost::ZERO,

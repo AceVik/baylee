@@ -371,6 +371,9 @@ pub struct PublicObject {
     /// and may be cast from exile on a later turn (`CR 702.185a–b`).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub warped: bool,
+    /// Whether this permanent on the battlefield is suspected (`CR 701.60`).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub suspected: bool,
     /// Which token this is, for permanents with no card behind them.
     ///
     /// The index into `baylee_cards::tokens::ALL`. A token has no printing
@@ -748,6 +751,7 @@ impl PublicObject {
             suspended: self.suspended,
             plotted: self.plotted,
             warped: self.warped,
+            suspected: self.suspected,
             colors: self.colors,
             keywords: self.keywords,
             power: self.power,
@@ -813,6 +817,7 @@ pub struct ObjectSummaryKey {
     suspended: bool,
     plotted: bool,
     warped: bool,
+    suspected: bool,
     colors: ColorSet,
     keywords: u128,
     power: Option<i16>,
@@ -860,6 +865,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.suspended.hash(state);
         self.plotted.hash(state);
         self.warped.hash(state);
+        self.suspected.hash(state);
         self.power.hash(state);
         self.toughness.hash(state);
         self.damage.hash(state);

@@ -444,6 +444,12 @@ pub enum Filter {
     /// (*Blood on the Snow*, *Draugr Necromancer*, CR 107.4h). Appended to
     /// preserve replay identities.
     CmcAtMostSnowManaSpent,
+    /// Permanent with the monstrous designation on the battlefield
+    /// (CR 701.37a–b). Appended to preserve replay identities.
+    Monstrous,
+    /// Permanent with the suspected designation on the battlefield
+    /// (CR 701.60a–b). Appended to preserve replay identities.
+    Suspected,
 }
 
 /// Zone references for filters (engine zones, DSL view).

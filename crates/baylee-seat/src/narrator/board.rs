@@ -386,6 +386,9 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     if let Some(protector) = object.battle_protector {
         out.push(format!("protected by {}", table.player(protector)));
     }
+    if object.suspected {
+        out.push("suspected".into());
+    }
     for counter in &object.counters {
         if counter.kind == baylee_view::CounterKind::Loyalty {
             continue;

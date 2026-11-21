@@ -299,7 +299,10 @@ pub(super) fn exec_choice(
             if looked.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::Scry { player });
+            res.awaiting = Some(AwaitingOp::Scry {
+                player,
+                scried_count: None,
+            });
             // Two players, two roles. Jace's +2 prints "Look at the top card
             // of **target player's** library. **You** may put that card on
             // the bottom of **that player's** library" — so the library is
@@ -309,7 +312,13 @@ pub(super) fn exec_choice(
             Some(look_question(you, looked, ArrangePlace::LibraryBottom))
         }
         Effect::Scry { amount } => {
-            let n = amount2(&amount, state, you, res) as usize;
+            let raw = amount2(&amount, state, you, res);
+            // CR 701.22b: scry 0 is not a scry event.
+            if raw == 0 {
+                return None;
+            }
+            let count = u8::try_from(raw).unwrap_or(u8::MAX);
+            let n = raw as usize;
             let looked: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))
@@ -319,9 +328,15 @@ pub(super) fn exec_choice(
                 .copied()
                 .collect();
             if looked.is_empty() {
+                // CR 701.22d: scry triggers fire after the process completes,
+                // even if looking/reordering was impossible on an empty library.
+                state.record_player_scried(you, count);
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::Scry { player: you });
+            res.awaiting = Some(AwaitingOp::Scry {
+                player: you,
+                scried_count: Some(count),
+            });
             Some(look_question(you, looked, ArrangePlace::LibraryBottom))
         }
         Effect::Surveil { amount } => {

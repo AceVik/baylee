@@ -267,6 +267,11 @@ pub(crate) fn graveyard_face_open(
     !graveyard_face_permissions(state, player, card, face).is_empty()
         || !escape_grants(state, player, card).is_empty()
         || (face == 0 && flashback_granted(state, card))
+        || (face == 0
+            && object
+                .characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::RETRACE))
         || object
             .card
             .and_then(|card| state.bases.card(card.index))
@@ -275,6 +280,9 @@ pub(crate) fn graveyard_face_open(
                 face.disturb
                     || face.aftermath
                     || face.jump_start
+                    || face
+                        .keywords
+                        .contains(baylee_cards_dsl::KeywordSet::RETRACE)
                     || face.flashback.is_some()
                     || face.escape.is_some()
                     || face.beam_me_up.is_some()

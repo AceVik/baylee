@@ -1275,6 +1275,12 @@ CastFused = Fusion
 CastMutate = Mutation
 CastBestow = Göttergabe
 CastJumpStart = Starthilfe
+CastRetrace = Nachverfolgen
+RiotAsk = Aufruhr: mit einer +1/+1-Marke ins Spiel kommen? (Nein verleiht stattdessen Eile)
+RiotAskNamed = Aufruhr ({ $permanent }): mit einer +1/+1-Marke ins Spiel kommen? (Nein verleiht stattdessen Eile)
+UnleashAsk = Entfesseln: mit einer +1/+1-Marke ins Spiel kommen? (Kann mit einer +1/+1-Marke nicht blocken)
+UnleashAskNamed = Entfesseln ({ $permanent }): mit einer +1/+1-Marke ins Spiel kommen? (Kann mit einer +1/+1-Marke nicht blocken)
+HudSuspected = Verdächtigt
 CastEscape = Befreiung
 # Cast the visible library top, paying its mana value in life instead of mana.
 # Arguments: life

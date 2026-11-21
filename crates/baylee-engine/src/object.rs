@@ -1215,6 +1215,16 @@ pub enum Rider {
     /// cast the spell that became this permanent or triggered this ability
     /// (CR 400.7d, CR 608.2h). Appended to preserve replay identities.
     SnowManaSpent(u32),
+    /// Permanent has the monstrous designation until it leaves the battlefield
+    /// (CR 701.37b; neither an ability nor a copiable value).
+    Monstrous,
+    /// Permanent has the suspected designation until it leaves the battlefield
+    /// or becomes unsuspected (CR 701.60a–b; neither an ability nor a copiable
+    /// value).
+    Suspected,
+    /// Permanent gained haste indefinitely from declining Riot's +1/+1 counter
+    /// as it entered the battlefield (CR 702.136a).
+    RiotHaste,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1352,6 +1362,9 @@ impl Rider {
             | Self::PairedWith(..)
             | Self::ImpendingPaid
             | Self::GiftPromisedTo(_)
+            | Self::Monstrous
+            | Self::Suspected
+            | Self::RiotHaste
             | Self::EventPlayer(_)
             | Self::NinjutsuDefender(_, _)
             | Self::SyntheticCondition(_)

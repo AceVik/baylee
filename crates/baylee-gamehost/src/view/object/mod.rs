@@ -469,6 +469,13 @@ pub(super) fn public_object(
                 .riders
                 .iter()
                 .any(|r| matches!(r, baylee_engine::object::Rider::WarpedInExile(_))),
+        suspected: obj.zone == Zone::Battlefield
+            && !obj
+                .status
+                .contains(baylee_engine::object::Status::PHASED_OUT)
+            && obj
+                .riders
+                .contains(&baylee_engine::object::Rider::Suspected),
         // The engine holds the definition; the client needs the number, and
         // this crate is the one that can see both.
         token: state

@@ -52,6 +52,7 @@ struct PermanentActionOfferKey {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(clippy::struct_excessive_bools)]
 struct PermanentGroupKey7 {
     controller: PlayerId,
     owner: PlayerId,
@@ -76,6 +77,7 @@ struct PermanentGroupKey7 {
     linked_exile: Vec<ObjectId>,
     unlocked_doors: Option<[bool; 2]>,
     prepared_spell: Option<(u32, u8)>,
+    suspected: bool,
     colors_bits: u8,
     keywords_bits: u128,
     power: Option<i16>,
@@ -350,6 +352,7 @@ fn build_group_key(
         linked_exile: obj.linked_exile.clone(),
         unlocked_doors: obj.unlocked_doors,
         prepared_spell: obj.prepared_spell.map(|r| (r.card.get(), r.face)),
+        suspected: obj.suspected,
         colors_bits: obj.colors.bits(),
         keywords_bits: obj.keywords,
         power: obj.power,

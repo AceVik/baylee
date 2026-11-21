@@ -5036,6 +5036,27 @@ pub enum Effect {
     /// later turn for as long as it remains exiled. Appended to preserve replay
     /// identities.
     ExileWarped,
+    /// Monstrosity N (CR 701.37a–c): if this ability's source permanent is on
+    /// the battlefield and isn't already monstrous, put `N` +1/+1 counters on
+    /// it, give it the monstrous designation until it leaves the battlefield,
+    /// and emit `GameEvent::BecameMonstrous` with `count = N`. Appended to
+    /// preserve replay identities.
+    Monstrosity(Amount),
+    /// Suspect the permanent(s) named by `target` (CR 701.60a–d): each matching
+    /// permanent on the battlefield that isn't already suspected becomes
+    /// suspected until it leaves the battlefield or becomes unsuspected.
+    /// Appended to preserve replay identities.
+    Suspect {
+        /// Which permanent(s) become suspected.
+        target: TargetSpec,
+    },
+    /// Cause the permanent(s) named by `target` to no longer be suspected
+    /// (CR 701.60a): removes the suspected designation if present. Appended to
+    /// preserve replay identities.
+    Unsuspect {
+        /// Which permanent(s) stop being suspected.
+        target: TargetSpec,
+    },
 }
 
 #[cfg(test)]

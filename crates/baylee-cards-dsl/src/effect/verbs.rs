@@ -1343,7 +1343,10 @@ impl Effect {
             | Effect::Incubate { .. }
             | Effect::Exploit
             | Effect::ReturnCraftedTransformed
-            | Effect::ExileWarped => (NONE, NONE),
+            | Effect::ExileWarped
+            | Effect::Monstrosity(_)
+            | Effect::Suspect { .. }
+            | Effect::Unsuspect { .. } => (NONE, NONE),
         }
     }
 

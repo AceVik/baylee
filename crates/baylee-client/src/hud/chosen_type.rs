@@ -46,6 +46,9 @@ fn words(object: &baylee_view::PublicObject, lang: Lang, detail: bool) -> Option
     if object.status.has_no_abilities() {
         parts.push(Phrase::NoAbilities.text(lang).to_string());
     }
+    if object.suspected {
+        parts.push(Phrase::HudSuspected.text(lang).to_string());
+    }
     parts.extend(choice_words(object, lang));
     if object.types.contains(baylee_core::types::TypeSet::DUNGEON)
         && let Some((dungeon, room_idx)) =

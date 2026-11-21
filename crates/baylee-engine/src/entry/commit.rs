@@ -41,27 +41,8 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
     } else {
         ZoneLocation::Battlefield
     };
-    if entry.refusal.is_some() {
-        state.restore_tapped(entry.object, false);
-        state
-            .effects
-            .remove_where(|effect| entry.preview_effects.contains(&effect.id));
-        state
-            .copy_snapshots
-            .retain(|(id, _)| !entry.preview_effects.contains(id));
-        if let Some(object) = state.object_mut(entry.object) {
-            object.kind = crate::object::ObjectKind::Card;
-            if let Some(base) = object.original_base.take() {
-                object.base = base;
-            }
-            object.drop_own_abilities();
-            object.own_abilities_until_eot = false;
-            if object.zone == Zone::Graveyard
-                || (entry.refusal == Some(Refusal::StayInZone) && object.zone != Zone::Stack)
-            {
-                return;
-            }
-        }
+    if entry.refusal.is_some() && clean_refused_entry(state, &entry) {
+        return;
     }
     if entry.copy == CopyStatus::Handled && entry.refusal.is_none() {
         state
@@ -80,6 +61,13 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
     }
     if entry.refusal.is_none() {
         state.restore_tapped(entry.object, entry.tapped);
+        if entry.kw_choices.riot_haste {
+            state
+                .object_mut(entry.object)
+                .expect("current entry")
+                .riders
+                .push(crate::object::Rider::RiotHaste);
+        }
     }
     state.entries.committing = Some(entry.object);
     let _ = state.move_object(entry.object, destination, entry.position, entry.cause);
@@ -106,11 +94,60 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
                 .push(crate::object::Rider::EntrySacrifices(count));
             state.invalidate_projections();
         }
+        let designated = apply_entry_designations(state, &entry);
+        let riot_haste = entry.kw_choices.riot_haste;
         state
             .object_mut(entry.object)
             .expect("successful entry")
             .riders
             .retain(|rider| !matches!(rider, crate::object::Rider::EntryP1P1(_)));
         super::counters::commit(state, entry);
+        if designated || riot_haste {
+            state.invalidate_projections();
+            state.refresh_characteristics();
+        }
     }
+}
+
+fn clean_refused_entry(state: &mut GameState, entry: &Attempt) -> bool {
+    state.restore_tapped(entry.object, false);
+    state
+        .effects
+        .remove_where(|effect| entry.preview_effects.contains(&effect.id));
+    state
+        .copy_snapshots
+        .retain(|(id, _)| !entry.preview_effects.contains(id));
+    if let Some(object) = state.object_mut(entry.object) {
+        object.kind = crate::object::ObjectKind::Card;
+        if let Some(base) = object.original_base.take() {
+            object.base = base;
+        }
+        object.drop_own_abilities();
+        object.own_abilities_until_eot = false;
+        if object.zone == Zone::Graveyard
+            || (entry.refusal == Some(Refusal::StayInZone) && object.zone != Zone::Stack)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn apply_entry_designations(state: &mut GameState, entry: &Attempt) -> bool {
+    if entry.modifiers.contains(&EnterModifier::Suspected)
+        && state.object(entry.object).is_some_and(|o| {
+            o.characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+                && !o.riders.contains(&crate::object::Rider::Suspected)
+        })
+    {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .riders
+            .push(crate::object::Rider::Suspected);
+        return true;
+    }
+    false
 }

@@ -78,7 +78,10 @@ pub mod tape;
 /// Version 59 carries `CastModeKind::Warp`, `PublicObject::warped`
 /// (CR 702.185), `ChoicePrompt::Devour` (CR 702.82), and `ManaPoolView::snow`
 /// (CR 107.4h).
-pub const PROTOCOL_VERSION: u32 = 59;
+/// Version 60 carries `CastModeKind::Retrace` (CR 702.81a),
+/// `YesNoPrompt::{Riot, Unleash}` (CR 702.136, CR 702.98), and
+/// `PublicObject::suspected` (CR 701.60) on positional binary frames.
+pub const PROTOCOL_VERSION: u32 = 60;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -405,7 +408,9 @@ mod tests {
         // 58: `CastModeKind::Impending` and `YesNoPrompt::Gift` on positional binary frames.
         // 59: `CastModeKind::Warp`, `PublicObject::warped`, `ChoicePrompt::Devour`, and
         // `ManaPoolView::snow` on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 59);
+        // 60: `CastModeKind::Retrace`, `YesNoPrompt::{Riot, Unleash}`, and
+        // `PublicObject::suspected` on positional binary frames.
+        assert_eq!(PROTOCOL_VERSION, 60);
     }
 
     #[test]

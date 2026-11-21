@@ -171,4 +171,74 @@ impl GameState {
             }
         }
     }
+
+    /// Records [`crate::event::GameEvent::PlayerScried`] when an active
+    /// ability, granted trigger, off-battlefield trigger, or delayed trigger
+    /// watches [`baylee_cards_dsl::Trigger::Scried`].
+    ///
+    /// Skipping unobserved scry events preserves `trigger_scan_seq` (and
+    /// therefore `snapshot_hash` and simulation RNG seeds) on existing games
+    /// that scry with no scry observer in play.
+    pub(crate) fn record_player_scried(&mut self, player: PlayerId, count: u8) {
+        if count == 0 || !self.has_scry_observer() {
+            return;
+        }
+        self.journal
+            .record(crate::event::GameEvent::PlayerScried { player, count });
+    }
+
+    fn has_scry_observer(&self) -> bool {
+        let ability_watches = |ab: &baylee_cards_dsl::AbilityDef| match ab {
+            baylee_cards_dsl::AbilityDef::Triggered { trigger, .. } => {
+                matches!(trigger, baylee_cards_dsl::Trigger::Scried { .. })
+            }
+            baylee_cards_dsl::AbilityDef::Static(sa) => matches!(
+                sa.modifier,
+                baylee_cards_dsl::Modifier::GrantTriggered {
+                    trigger: baylee_cards_dsl::Trigger::Scried { .. },
+                    ..
+                }
+            ),
+            _ => false,
+        };
+        if self.effects.iter().any(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::GrantTriggered {
+                    trigger: baylee_cards_dsl::Trigger::Scried { .. },
+                    ..
+                }
+            )
+        }) || self.delayed.iter().any(|d| {
+            matches!(
+                d.when,
+                crate::state::DelayedWhen::OnEvent {
+                    trigger: baylee_cards_dsl::Trigger::Scried { .. },
+                    ..
+                }
+            )
+        }) {
+            return true;
+        }
+        if self.battlefield_seen().any(|id| {
+            self.object(id)
+                .is_some_and(|o| o.abilities(&*self.bases).iter().any(ability_watches))
+        }) {
+            return true;
+        }
+        (0..self.players.len()).any(|seat| {
+            let p = PlayerId::new(u8::try_from(seat).expect("seat fits"));
+            [
+                ZoneLocation::Command(p),
+                ZoneLocation::Graveyard(p),
+                ZoneLocation::Exile(p),
+            ]
+            .into_iter()
+            .flat_map(|loc| self.zones.list(loc).iter().copied())
+            .any(|id| {
+                self.object(id)
+                    .is_some_and(|o| o.abilities(&*self.bases).iter().any(ability_watches))
+            })
+        })
+    }
 }

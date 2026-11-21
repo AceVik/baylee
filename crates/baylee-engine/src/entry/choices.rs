@@ -300,6 +300,9 @@ fn finish_or_suspend(state: &mut GameState, mut entry: Attempt) -> Option<Pendin
         return Some(ask(state, entry, question, pending));
     }
     state.entries.counter_transaction |= entry.saga_chapter.is_some();
+    if let Some((question, pending)) = keyword_entry_question(state, &mut entry) {
+        return Some(ask(state, entry, question, pending));
+    }
     if let Some(pending) = super::counters::question(state, &mut entry) {
         return Some(ask(state, entry, Question::Counters, pending));
     }
@@ -349,6 +352,22 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
         }
         (Question::ReadAhead, PlayerAction::ChooseNumber(chapter)) => {
             entry.saga_chapter = Some(u8::try_from(*chapter).expect("bounded saga chapter"));
+        }
+        (Question::Riot, PlayerAction::YesNo(counter)) => {
+            if *counter {
+                entry
+                    .counters
+                    .push((Some(entry.controller), CounterKind::P1P1, 1));
+            } else {
+                entry.kw_choices.riot_haste = true;
+            }
+        }
+        (Question::Unleash, PlayerAction::YesNo(counter)) => {
+            if *counter {
+                entry
+                    .counters
+                    .push((Some(entry.controller), CounterKind::P1P1, 1));
+            }
         }
         (Question::Counters, PlayerAction::YesNo(apply)) => {
             entry.counter_plans[entry.next_counter].answer(*apply);
@@ -651,4 +670,67 @@ fn initial_question(state: &mut GameState, entry: &mut Attempt) -> Option<(Quest
         }
         equilibrium::replacement_order(state, entry).map(|pending| (Question::Replacement, pending))
     })
+}
+
+fn keyword_entry_question(
+    state: &mut GameState,
+    entry: &mut Attempt,
+) -> Option<(Question, Pending)> {
+    if entry.refusal.is_some() {
+        return None;
+    }
+    if !entry.kw_choices.initialized {
+        entry.kw_choices.initialized = true;
+        if super::may_have_keyword_entry(state, entry.object)
+            && let Some(object) = state.object(entry.object)
+        {
+            let mut prospective = object.clone();
+            prospective.zone = Zone::Battlefield;
+            prospective.version = prospective.version.wrapping_add(1);
+            let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
+            let riot = crate::layers::keyword_instances_with_plan(
+                state,
+                &prospective,
+                baylee_cards_dsl::KeywordSet::RIOT,
+                &plan,
+            );
+            let unleash = crate::layers::keyword_instances_with_plan(
+                state,
+                &prospective,
+                baylee_cards_dsl::KeywordSet::UNLEASH,
+                &plan,
+            );
+            entry.kw_choices.riot_remaining = u8::try_from(riot).unwrap_or(u8::MAX);
+            entry.kw_choices.unleash_remaining = u8::try_from(unleash).unwrap_or(u8::MAX);
+        }
+    }
+    if entry.kw_choices.riot_remaining > 0 {
+        entry.kw_choices.riot_remaining -= 1;
+        state.entries.counter_transaction = true;
+        return Some((
+            Question::Riot,
+            Pending::YesNo {
+                player: entry.controller,
+                prompt: YesNoPrompt::Riot {
+                    permanent: entry.object,
+                },
+                source: None,
+            },
+        ));
+    }
+    if entry.kw_choices.unleash_remaining > 0 {
+        entry.kw_choices.unleash_remaining -= 1;
+        state.entries.counter_transaction = true;
+        return Some((
+            Question::Unleash,
+            Pending::YesNo {
+                player: entry.controller,
+                prompt: YesNoPrompt::Unleash {
+                    permanent: entry.object,
+                },
+                source: None,
+            },
+        ));
+    }
+    None
 }

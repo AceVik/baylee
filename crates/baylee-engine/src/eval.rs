@@ -791,6 +791,16 @@ pub(crate) fn matches_projected_with_choices(
         Filter::CmcAtMostSnowManaSpent => {
             chars.mana_value() <= amounts::snow_mana_spent_on(state, this)
         }
+        Filter::Monstrous => {
+            obj.zone == Zone::Battlefield
+                && !obj.status.contains(crate::object::Status::PHASED_OUT)
+                && obj.riders.contains(&crate::object::Rider::Monstrous)
+        }
+        Filter::Suspected => {
+            obj.zone == Zone::Battlefield
+                && !obj.status.contains(crate::object::Status::PHASED_OUT)
+                && obj.riders.contains(&crate::object::Rider::Suspected)
+        }
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.
             // The marker list rather than the command zone, for the reason

@@ -3255,6 +3255,18 @@ pub(super) fn exec_immediate(
             tokens::deliver_gift(state, res, kind);
             None
         }
+        Effect::Monstrosity(amount) => {
+            super::wave4_combat::become_monstrous(state, res, amount);
+            None
+        }
+        Effect::Suspect { target } => {
+            super::wave4_combat::resolve_suspect(state, res, target, true);
+            None
+        }
+        Effect::Unsuspect { target } => {
+            super::wave4_combat::resolve_suspect(state, res, target, false);
+            None
+        }
         Effect::TapAll { filter } => {
             let you = res.controller;
             let all: Vec<ObjectId> = state
@@ -4279,6 +4291,12 @@ fn resolution_condition(
         Condition::IsRenowned => state
             .damage_source(res.source, source_version(state, res))
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::Renowned)),
+        Condition::IsMonstrous => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Monstrous)),
+        Condition::IsSuspected => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Suspected)),
         Condition::GiftWasPromised => super::gift_recipient_of_resolution(state, res).is_some(),
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)

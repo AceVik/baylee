@@ -1170,6 +1170,10 @@ pub enum EnterModifier {
         /// +1/+1 counters per devoured permanent (`0` means `count * count`).
         factor: u8,
     },
+    /// "This creature enters suspected" (CR 701.60a, CR 614.1c): gives the
+    /// entering permanent the suspected designation as it enters the
+    /// battlefield. Appended to preserve replay identities.
+    Suspected,
 }
 
 impl EnterModifier {
@@ -1303,6 +1307,9 @@ keywords! {
     WARP = 81, "Warp (CR 702.185).";
     DEVOUR = 82, "Devour (CR 702.82).";
     SPREE = 83, "Spree (CR 702.172).";
+    RETRACE = 86, "Retrace (CR 702.81).";
+    RIOT = 87, "Riot (CR 702.136).";
+    UNLEASH = 88, "Unleash (CR 702.98).";
 }
 
 impl KeywordSet {
@@ -1440,6 +1447,9 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::WARP, "Warp"),
     (KeywordSet::DEVOUR, "Devour"),
     (KeywordSet::SPREE, "Spree"),
+    (KeywordSet::RETRACE, "Retrace"),
+    (KeywordSet::RIOT, "Riot"),
+    (KeywordSet::UNLEASH, "Unleash"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

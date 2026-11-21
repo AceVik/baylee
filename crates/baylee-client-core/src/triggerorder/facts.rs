@@ -643,7 +643,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.makes.add(Stuff::COUNTERS);
             facts.makes.add(Stuff::POWER);
         }
-        Effect::AddCounterSource { amount, .. } => {
+        Effect::AddCounterSource { amount, .. } | Effect::Monstrosity(amount) => {
             facts.reads.add(counted(amount));
             facts.deeds.add(Deeds::PUMPS);
             facts.makes.add(Stuff::OWN_COUNTERS);
@@ -697,7 +697,10 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.deeds.add(Deeds::MAY);
             facts.makes.add(Stuff::BOARD);
         }
-        Effect::ManifestTop { .. } | Effect::ReturnCraftedTransformed => {
+        Effect::ManifestTop { .. }
+        | Effect::ReturnCraftedTransformed
+        | Effect::Suspect { .. }
+        | Effect::Unsuspect { .. } => {
             facts.makes.add(Stuff::BOARD);
         }
         Effect::ManifestDread => {

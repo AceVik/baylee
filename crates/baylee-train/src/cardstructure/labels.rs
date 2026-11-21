@@ -150,7 +150,8 @@ fn zones_and_board(v: &str, add: &mut dyn FnMut(bool, &'static str)) {
             || v == "Proliferate"
             || v == "Bolster"
             || v == "BecomeRenowned"
-            || v == "Incubate",
+            || v == "Incubate"
+            || v == "Monstrosity",
         "counters",
     );
     add(

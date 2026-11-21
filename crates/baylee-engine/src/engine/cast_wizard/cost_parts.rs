@@ -47,6 +47,11 @@ pub(crate) fn wizard_mandatory_parts(
     } else {
         &[]
     };
+    let retrace_parts: &[CostPart] = if choice.option == Some(CastModeKind::Retrace) {
+        &[CostPart::Discard(&baylee_cards_dsl::Filter::LAND)]
+    } else {
+        &[]
+    };
     let bargain_parts: &[CostPart] = if !disguised && choice.bargained && face.bargain {
         &BARGAIN_PARTS
     } else {
@@ -69,6 +74,7 @@ pub(crate) fn wizard_mandatory_parts(
     mandatory
         .iter()
         .chain(jump_start_parts.iter())
+        .chain(retrace_parts.iter())
         .chain(entwine_parts.iter())
         .chain(bargain_parts.iter())
         .chain(offspring_parts.iter())

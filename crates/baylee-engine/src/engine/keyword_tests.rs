@@ -176,6 +176,9 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("warp", K::WARP),               // casting + cast_wizard + progress::stack (CR 702.185a)
         ("devour", K::DEVOUR),           // entry::choices + entry::counters (CR 702.82a)
         ("spree", K::SPREE),             // casting + cast_wizard + progress::stack (CR 702.172a)
+        ("retrace", K::RETRACE),         // casting + cast_wizard CastModeKind::Retrace (CR 702.81a)
+        ("riot", K::RIOT), // entry::choices + layers::projection RiotHaste (CR 702.136a)
+        ("unleash", K::UNLEASH), // entry::choices + layers::projection CANT_BLOCK (CR 702.98a)
     ]
 };
 

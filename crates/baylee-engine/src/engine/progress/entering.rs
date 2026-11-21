@@ -485,6 +485,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     | EnterModifier::TappedUnlessRevealOrControl(_) => {
                         asks.push((id, controller, EntryAsk::Modifier(modifier)));
                     }
+                    EnterModifier::Suspected => {
+                        if !orientation_applied
+                            && self.state.object(id).is_some_and(|o| {
+                                o.characteristics()
+                                    .types
+                                    .contains(baylee_core::types::TypeSet::CREATURE)
+                                    && !o.riders.contains(&crate::object::Rider::Suspected)
+                            })
+                            && let Some(obj) = self.state.object_mut(id)
+                        {
+                            obj.riders.push(crate::object::Rider::Suspected);
+                            self.state.invalidate_projections();
+                            changed = true;
+                        }
+                    }
                 }
             }
         }

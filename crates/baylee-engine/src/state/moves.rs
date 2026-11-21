@@ -757,6 +757,9 @@ impl GameState {
                             | crate::object::Rider::Prepared
                             | crate::object::Rider::Saddled
                             | crate::object::Rider::Renowned
+                            | crate::object::Rider::Monstrous
+                            | crate::object::Rider::Suspected
+                            | crate::object::Rider::RiotHaste
                             | crate::object::Rider::ExhaustedAbility(_)
                             | crate::object::Rider::EntrySacrifices(_)
                             | crate::object::Rider::SecondChosenSubtype(_)

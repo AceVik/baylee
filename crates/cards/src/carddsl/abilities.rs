@@ -421,6 +421,8 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::PlayerAttacked(_)
         | Trigger::Plotted { .. }
         | Trigger::GaveGift(_)
+        | Trigger::Scried { .. }
+        | Trigger::BecomesMonstrous
         | Trigger::CycledThis
         | Trigger::Cycled { .. } => dst[9] = 1.0,
         _ => dst[8] = 0.5,

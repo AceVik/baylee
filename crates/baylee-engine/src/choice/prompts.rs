@@ -148,6 +148,10 @@ pub enum CastModeKind {
     /// permanent it becomes at the beginning of the next end step, and its
     /// owner may cast that card from exile on a later turn.
     Warp,
+    /// Cast from the owner's graveyard using retrace (CR 702.81a): pays the
+    /// face's mana cost plus discarding a land card, and returns to the
+    /// graveyard normally on resolution or counter.
+    Retrace,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -935,6 +939,18 @@ pub enum YesNoPrompt {
         /// What the chosen opponent receives when the gift is delivered.
         kind: baylee_cards_dsl::GiftKind,
     },
+    /// Riot's as-enters choice (CR 702.136a–b): enter with an additional +1/+1
+    /// counter (`true`) or gain haste (`false`)?
+    Riot {
+        /// The entering permanent.
+        permanent: ObjectId,
+    },
+    /// Unleash's optional as-enters choice (CR 702.98a): have this permanent
+    /// enter with an additional +1/+1 counter?
+    Unleash {
+        /// The entering permanent.
+        permanent: ObjectId,
+    },
 }
 
 impl YesNoPrompt {
@@ -991,6 +1007,7 @@ impl YesNoPrompt {
             | Self::Offspring { .. }
             | Self::Casualty { .. }
             | Self::Gift { .. }
+            | Self::Unleash { .. }
             | Self::KickerOption { .. }
             | Self::Buyback { .. }
             | Self::ManaAnyType
@@ -1023,6 +1040,7 @@ impl YesNoPrompt {
             | Self::TopOfLibrary { .. }
             | Self::Discover { .. }
             | Self::Madness { .. }
+            | Self::Riot { .. }
             | Self::GuessNamedCardInHand { .. } => false,
         }
     }

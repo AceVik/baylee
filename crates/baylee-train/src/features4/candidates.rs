@@ -1068,6 +1068,7 @@ pub fn public_object_matches_basic_filter(
         baylee_cards_dsl::Filter::Tapped => obj.status.contains(ObjectStatus::TAPPED),
         baylee_cards_dsl::Filter::Untapped => !obj.status.contains(ObjectStatus::TAPPED),
         baylee_cards_dsl::Filter::FaceDown => obj.status.contains(ObjectStatus::FACE_DOWN),
+        baylee_cards_dsl::Filter::Suspected => obj.suspected,
         baylee_cards_dsl::Filter::HasAnyCounter => !obj.counters.is_empty(),
         _ => true,
     }
@@ -1299,7 +1300,7 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         CastModeKind::Prototype => 33,
         CastModeKind::Disguise => 34,
         CastModeKind::Miracle => 35,
-        CastModeKind::Flashback | CastModeKind::JumpStart => 36,
+        CastModeKind::Flashback | CastModeKind::JumpStart | CastModeKind::Retrace => 36,
         CastModeKind::BeamMeUp => 37,
         CastModeKind::Dash | CastModeKind::Blitz | CastModeKind::Warp => 38,
         CastModeKind::Mutate => 39,

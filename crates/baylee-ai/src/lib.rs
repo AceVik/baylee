@@ -1029,6 +1029,12 @@ impl HeuristicAgent {
                 YesNoPrompt::Gift { kind } => {
                     PlayerAction::YesNo(policy::promises_gift(view, context, kind))
                 }
+                YesNoPrompt::Riot { .. } => PlayerAction::YesNo(
+                    !(view.active == player && matches!(view.phase, baylee_view::Phase::FirstMain)),
+                ),
+                YesNoPrompt::Unleash { .. } => {
+                    PlayerAction::YesNo(view.seat(player).is_some_and(|seat| seat.life > 8))
+                }
                 YesNoPrompt::KickerOption { index, cost, parts } => {
                     PlayerAction::YesNo(policy::kicks_option(view, context, index, cost, parts))
                 }

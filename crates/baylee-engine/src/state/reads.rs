@@ -35,6 +35,8 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::BlockedByReference
         | Filter::Unblocked
         | Filter::FaceDown
+        | Filter::Monstrous
+        | Filter::Suspected
         | Filter::SharesAColorWith(_)
         | Filter::SharesCreatureTypeWith(_)
         | Filter::SharesColorWithExiledWithSource => true,

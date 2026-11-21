@@ -287,6 +287,7 @@ impl HeuristicAgent {
             Filter::IsColorless => Some(object.colors.is_colorless()),
             Filter::Monocolored => Some(object.colors.len() == 1),
             Filter::FaceDown => Some(object.status.contains(baylee_view::ObjectStatus::FACE_DOWN)),
+            Filter::Suspected => Some(object.suspected),
             Filter::SharesCreatureTypeWith(Filter::This) => this.and_then(|id| {
                 let src = view.object(id)?;
                 Some(
@@ -436,7 +437,8 @@ impl HeuristicAgent {
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             // Ability removal and granted mana abilities require engine evaluation.
-            Filter::OwnedBySourceOwner
+            Filter::Monstrous
+            | Filter::OwnedBySourceOwner
             | Filter::HasWatermark
             | Filter::SharesWatermarkWithSource
             | Filter::UnCard

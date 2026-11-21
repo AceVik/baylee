@@ -114,6 +114,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::AddCounterCreatedTokens { amount, .. }
         | Effect::CreateTokenThenCounters { amount, .. }
         | Effect::CreateTokenN { amount, .. }
+        | Effect::Monstrosity(amount)
         | Effect::ChooseAndCreateTokenCopy { amount, .. } => reads_amount(*amount),
         Effect::Poison { amount, who }
         | Effect::DiscardAmountForPlayers { amount, who }
@@ -151,6 +152,8 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::ExileWithPermission { target, .. }
         | Effect::TurnFaceUp { target }
         | Effect::Plot { target }
+        | Effect::Suspect { target }
+        | Effect::Unsuspect { target }
         | Effect::SacrificeObject { target, .. } => reads_target(*target),
         Effect::LookAtTopPick { count, .. }
         | Effect::SearchLibraryUpTo { count, .. }

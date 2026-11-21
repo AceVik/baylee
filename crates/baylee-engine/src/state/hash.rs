@@ -1652,6 +1652,9 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(203);
             count.hash(h);
         }
+        crate::object::Rider::Monstrous => h.u8(211),
+        crate::object::Rider::Suspected => h.u8(212),
+        crate::object::Rider::RiotHaste => h.u8(213),
         _ => {}
     }
 }
@@ -2302,6 +2305,9 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(182);
                 h.u8(p.get());
             }
+            Rider::Monstrous => h.u8(211),
+            Rider::Suspected => h.u8(212),
+            Rider::RiotHaste => h.u8(213),
             Rider::Suspend => h.u8(6),
             Rider::Flashback => h.u8(7),
             Rider::Uncounterable => h.u8(8),
@@ -2735,6 +2741,8 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::PairedWithSource => h.u8(169),
         F::WarpedInExile => h.u8(201),
         F::CmcAtMostSnowManaSpent => h.u8(202),
+        F::Monstrous => h.u8(186),
+        F::Suspected => h.u8(187),
     }
 }
 

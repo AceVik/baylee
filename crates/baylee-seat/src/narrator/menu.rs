@@ -1218,6 +1218,8 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
                 "cast it without promising a gift".into(),
             )
         }
+        YesNoPrompt::Riot { permanent } => riot_words(table, *permanent),
+        YesNoPrompt::Unleash { permanent } => unleash_words(table, *permanent),
         YesNoPrompt::KickerOption { index, cost, parts } => {
             kicker_option_words(*index, cost, *parts)
         }
@@ -1305,6 +1307,28 @@ fn skip_turn_words(table: &Table<'_>, source: ObjectId) -> (String, String, Stri
         format!("Skip this turn to untap {}?", table.named(source)),
         "skip this turn; untap it when the next turn begins".into(),
         "take this turn; leave it tapped".into(),
+    )
+}
+
+fn riot_words(table: &Table<'_>, permanent: ObjectId) -> (String, String, String) {
+    (
+        format!(
+            "Riot — have {} enter with an additional +1/+1 counter? (No gives it haste instead.)",
+            table.named(permanent)
+        ),
+        "enter with a +1/+1 counter".into(),
+        "gain haste instead".into(),
+    )
+}
+
+fn unleash_words(table: &Table<'_>, permanent: ObjectId) -> (String, String, String) {
+    (
+        format!(
+            "Unleash — have {} enter with an additional +1/+1 counter? (It can't block while it has a +1/+1 counter.)",
+            table.named(permanent)
+        ),
+        "enter with a +1/+1 counter (unleashed)".into(),
+        "enter without the +1/+1 counter".into(),
     )
 }
 
@@ -1900,6 +1924,9 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         CastModeKind::Bestow => format!("Cast it bestowed as an Aura for {cost}"),
         CastModeKind::JumpStart => {
             format!("Cast it with jump-start for {cost}, discarding a card")
+        }
+        CastModeKind::Retrace => {
+            format!("Cast it with retrace for {cost}, discarding a land card")
         }
         CastModeKind::Escape => format!("Cast it with escape for {cost}"),
         CastModeKind::EscapeGranted {

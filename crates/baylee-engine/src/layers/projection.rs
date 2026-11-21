@@ -59,6 +59,22 @@ pub(super) fn recompute_observing<'a>(
     {
         c.to_mut().keywords = c.keywords.union(KeywordSet::HASTE);
     }
+    if obj.zone == crate::zone::Zone::Battlefield {
+        // CR 702.136a: choosing haste for Riot grants haste indefinitely while
+        // on the battlefield.
+        if obj.riders.contains(&crate::object::Rider::RiotHaste)
+            && !c.keywords.contains(KeywordSet::HASTE)
+        {
+            c.to_mut().keywords = c.keywords.union(KeywordSet::HASTE);
+        }
+        // CR 701.60c: a suspected permanent has menace and "This creature
+        // can't block" for as long as it's suspected.
+        let suspect_kw = KeywordSet::MENACE.union(KeywordSet::CANT_BLOCK);
+        if obj.riders.contains(&crate::object::Rider::Suspected) && !c.keywords.contains(suspect_kw)
+        {
+            c.to_mut().keywords = c.keywords.union(suspect_kw);
+        }
+    }
     // Layer 2 starts from the *base* controller, not from whatever the
     // last refresh projected: an effect that has since ended must leave
     // no trace.
@@ -199,6 +215,21 @@ pub(super) fn recompute_observing<'a>(
                     c_mut.keywords = c_mut.keywords.difference(prohibited);
                     applied(layer, fx, c_mut);
                 }
+            }
+        }
+        // CR 702.98a: "This permanent can't block as long as it has a +1/+1
+        // counter on it." Evaluated after layer-6 effects so losing Unleash
+        // (e.g. Dress Down) restores the ability to block.
+        if layer == Layer::Ability
+            && obj.zone == crate::zone::Zone::Battlefield
+            && c.keywords.contains(KeywordSet::UNLEASH)
+        {
+            read_board = true;
+            if obj.counters.get(baylee_cards_dsl::CounterKind::P1P1) >= 1
+                && !prohibited.contains(KeywordSet::CANT_BLOCK)
+                && !c.keywords.contains(KeywordSet::CANT_BLOCK)
+            {
+                c.to_mut().keywords = c.keywords.union(KeywordSet::CANT_BLOCK);
             }
         }
         // CR 604.3: a characteristic-defining P/T works in every zone. On

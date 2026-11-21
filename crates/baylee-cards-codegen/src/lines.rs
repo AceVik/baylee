@@ -646,6 +646,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::GaveGift(_) => &["give", "gift"],
         T::Exploited { .. } => &["exploit"],
         T::SpellWarped { .. } => &["warp"],
+        T::Scried { .. } => &["scry", "scries"],
+        T::BecomesMonstrous => &["monstrous"],
     }
 }
 
@@ -715,12 +717,13 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::Plotted { who: rel, .. }
         | Trigger::GaveGift(rel)
         | Trigger::SpellWarped { who: rel, .. }
+        | Trigger::Scried { who: rel }
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),
             _ => true,
         },
-        Trigger::EnteredThisFrom(_) => !about_someone_else(),
+        Trigger::EnteredThisFrom(_) | Trigger::BecomesMonstrous => !about_someone_else(),
         Trigger::EntersBattlefield(filter)
         | Trigger::EntersBattlefieldFromGraveyardOrCast(filter)
         | Trigger::LeavesBattlefield(filter)
@@ -863,6 +866,9 @@ fn effect_words(effect: &Effect) -> &'static [&'static str] {
         Effect::Incubate { .. } => &["incubate"],
         Effect::Exploit => &["exploit", "sacrifice"],
         Effect::ReturnCraftedTransformed => &["craft", "return"],
+        Effect::Monstrosity(_) => &["monstrosity"],
+        Effect::Suspect { .. } => &["suspect"],
+        Effect::Unsuspect { .. } => &["unsuspect", "no longer suspected"],
         _ => &[],
     }
 }

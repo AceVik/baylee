@@ -635,6 +635,9 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::CasualtyPaid
         | Rider::ImpendingPaid
         | Rider::GiftPromisedTo(_)
+        | Rider::Monstrous
+        | Rider::Suspected
+        | Rider::RiotHaste
         | Rider::Suspend
         | Rider::Flashback
         | Rider::ExileInsteadOfGraveyard

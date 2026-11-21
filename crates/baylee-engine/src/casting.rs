@@ -1215,6 +1215,14 @@ pub(crate) fn can_cast_form_paying(
             .card
             .and_then(|c| lookup.card(c.index))
             .is_some_and(|def| def.faces[0].jump_start);
+    // Retrace (CR 702.81a): castable from its owner's graveyard by discarding
+    // a land card in addition to paying its other costs.
+    let retrace_ok = !in_hand
+        && in_own_graveyard
+        && obj
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::RETRACE);
     // Foretell (CR 702.143a): this exact exiled incarnation may be cast by
     // its owner after the turn on which it was foretold, for its printed
     // alternative cost. Its hidden face is restored by SpellForm::Foretell.
@@ -1325,6 +1333,7 @@ pub(crate) fn can_cast_form_paying(
         && !graveyard_back
         && !flashback_ok
         && !jump_start_ok
+        && !retrace_ok
         && !escape_ok
         && !beam_ok
         && !granted_escape
@@ -1759,7 +1768,7 @@ pub(crate) fn can_cast_form_paying(
         if parts_payable && probe(&cost.with_x(0)) {
             return Ok(());
         }
-        if !flashback_granted(state, card) && !graveyard_ok && !jump_start_ok {
+        if !flashback_granted(state, card) && !graveyard_ok && !jump_start_ok && !retrace_ok {
             return Err(if parts_payable {
                 CastError::NotEnoughMana
             } else {
@@ -1777,6 +1786,30 @@ pub(crate) fn can_cast_form_paying(
                     card,
                     &def.faces[0],
                     Some(crate::choice::CastModeKind::JumpStart),
+                    &[],
+                )
+                .is_some()
+            });
+        if parts_payable && probe_normal(&c.mana_cost.with_x(0)) {
+            return Ok(());
+        }
+        if !flashback_granted(state, card) && !graveyard_ok && !escape_ok && !retrace_ok {
+            return Err(if parts_payable {
+                CastError::NotEnoughMana
+            } else {
+                CastError::NoWayToCast
+            });
+        }
+    }
+    if retrace_ok {
+        let parts_payable = !c.types.contains(TypeSet::LAND)
+            && printed.is_some_and(|def| {
+                additional_payment_capacity_for(
+                    state,
+                    player,
+                    card,
+                    &def.faces[0],
+                    Some(crate::choice::CastModeKind::Retrace),
                     &[],
                 )
                 .is_some()

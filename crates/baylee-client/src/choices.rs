@@ -1287,6 +1287,7 @@ fn cast_label(
         K::Mutate => Phrase::CastMutate.text(lang).to_string(),
         K::Bestow => Phrase::CastBestow.text(lang).to_string(),
         K::JumpStart => Phrase::CastJumpStart.text(lang).to_string(),
+        K::Retrace => Phrase::CastRetrace.text(lang).to_string(),
         K::Escape => Phrase::CastEscape.text(lang).to_string(),
         K::EscapeGranted {
             face,

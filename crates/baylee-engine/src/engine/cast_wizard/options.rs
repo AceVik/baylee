@@ -168,6 +168,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     || !casting::graveyard_face_permissions(&self.state, player, card, 0).is_empty()
                     || face.flashback.is_some()
                     || face.jump_start
+                    || o.characteristics()
+                        .keywords
+                        .contains(baylee_cards_dsl::KeywordSet::RETRACE)
                     || face.escape.is_some()
             });
             if !front_too {
@@ -245,6 +248,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 options.push(CastModeDesc {
                     index: 0,
                     kind: CastModeKind::JumpStart,
+                    cost: price(face.mana_cost),
+                });
+            }
+            if self.state.object(card).is_some_and(|o| {
+                o.zone_owner == Some(player)
+                    && o.characteristics()
+                        .keywords
+                        .contains(baylee_cards_dsl::KeywordSet::RETRACE)
+            }) && !face.types.contains(baylee_core::types::TypeSet::LAND)
+                && afford(&face.mana_cost.with_x(0))
+                && casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::Retrace),
+                    &[],
+                )
+                .is_some()
+                && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
+            {
+                options.push(CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::Retrace,
                     cost: price(face.mana_cost),
                 });
             }
@@ -1039,6 +1066,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     CastModeKind::Escape
                         | CastModeKind::Flashback
                         | CastModeKind::JumpStart
+                        | CastModeKind::Retrace
                         | CastModeKind::BeamMeUp
                         | CastModeKind::EscapeGranted { .. }
                 ) || (matches!(option.kind, CastModeKind::Face(_))

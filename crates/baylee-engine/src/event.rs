@@ -653,6 +653,21 @@ pub enum GameEvent {
         /// The player who cast it for its warp cost.
         player: PlayerId,
     },
+    /// A player scried one or more cards (CR 701.22a–d; scrying 0 emits no
+    /// event per CR 701.22b).
+    PlayerScried {
+        /// The player who scried.
+        player: PlayerId,
+        /// Number of cards scried (`>= 1`).
+        count: u8,
+    },
+    /// A permanent became monstrous via monstrosity N (CR 701.37a–c).
+    BecameMonstrous {
+        /// The permanent that became monstrous.
+        object: ObjectId,
+        /// The monstrosity value `N` / `X` (`CR 701.37c`).
+        count: u32,
+    },
 }
 
 /// Where in a library a card was put.

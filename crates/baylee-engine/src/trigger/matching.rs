@@ -442,7 +442,10 @@ fn matches(
         | (Trigger::TransformsIntoThis, GameEvent::Transformed { object, .. })
         | (Trigger::CycledThis, GameEvent::Cycled { object, .. })
         | (Trigger::Rampage, GameEvent::AttackerBlocked { object })
-        | (Trigger::Mutates, GameEvent::CreatureMutated { object }) => *object == source,
+        | (Trigger::Mutates, GameEvent::CreatureMutated { object })
+        | (Trigger::BecomesMonstrous, GameEvent::BecameMonstrous { object, .. }) => {
+            *object == source
+        }
         // CR 709.5h: the designation, however it was given.
         (Trigger::UnlockThisDoor(door), GameEvent::DoorUnlocked { object, half }) => {
             *object == source && door == half
@@ -1440,6 +1443,11 @@ fn matches(
             (exploiter_filter, *exploiter),
             (exploited_filter, *exploited),
         ),
+        (Trigger::Scried { who }, GameEvent::PlayerScried { player, count }) => {
+            *count > 0
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
         _ => false,
     }
 }

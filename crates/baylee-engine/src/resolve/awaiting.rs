@@ -695,6 +695,12 @@ pub enum AwaitingOp {
         /// `res.controller` here moved the card from one player's library
         /// into another's.
         player: PlayerId,
+        /// `Some(n)` for a true `Effect::Scry` (`CR 701.22a–d`) so finishing
+        /// the arrangement emits `GameEvent::PlayerScried { player, count: n }`;
+        /// `None` for `Effect::ScryFor` ("look at the top card of target
+        /// player's library; you may put it on the bottom"), which is not a
+        /// scry keyword action.
+        scried_count: Option<u8>,
     },
     /// Surveil: chosen cards go to the graveyard, the rest stays on top
     /// (CR 701.25a).

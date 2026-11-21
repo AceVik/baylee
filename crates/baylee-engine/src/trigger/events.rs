@@ -52,6 +52,8 @@ pub(super) fn event_damage_of(
         GameEvent::DamageDealt { amount, .. } => Some(*amount),
         GameEvent::LifeChanged { old, new, .. } => Some(new.abs_diff(*old)),
         GameEvent::DiceRolled { result, .. } => Some(*result),
+        GameEvent::PlayerScried { count, .. } => Some(u32::from(*count)),
+        GameEvent::BecameMonstrous { count, .. } => Some(*count),
         GameEvent::BecameAttacker {
             defending: baylee_core::ids::Defender::Player(attacked),
             ..
@@ -131,6 +133,7 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
         | GameEvent::PermanentExerted { player, .. }
         | GameEvent::CreatureEnlisted { player, .. }
         | GameEvent::CardPlotted { player, .. }
+        | GameEvent::PlayerScried { player, .. }
         | GameEvent::GiftGiven {
             recipient: player, ..
         }
@@ -321,6 +324,7 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         }
         | GameEvent::CardPlotted { object, .. }
         | GameEvent::SpellWarped { object, .. }
+        | GameEvent::BecameMonstrous { object, .. }
         | GameEvent::AttackerUnblocked { object }
         // The permanent that changed tap state: "that land's controller"
         // of Psychic Venom and "that permanent's controller" of Mesmeric Orb.

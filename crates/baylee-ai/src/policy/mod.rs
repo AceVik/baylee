@@ -2832,6 +2832,7 @@ fn card_as_object(
         suspended: false,
         plotted: false,
         warped: false,
+        suspected: false,
         token: None,
         colors,
         mana_value: f.mana_cost.cmc(),

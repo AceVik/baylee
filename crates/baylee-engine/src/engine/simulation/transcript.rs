@@ -171,7 +171,8 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::CreatureMutated { object }
         | GameEvent::PermanentExerted { object, .. }
         | GameEvent::CardPlotted { object, .. }
-        | GameEvent::SpellWarped { object, .. } => f(object),
+        | GameEvent::SpellWarped { object, .. }
+        | GameEvent::BecameMonstrous { object, .. } => f(object),
         GameEvent::CreatureEnlisted {
             attacker, enlisted, ..
         } => {
@@ -203,6 +204,7 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::LoopDetected { .. }
         | GameEvent::GameWon { .. }
         | GameEvent::GiftGiven { .. }
+        | GameEvent::PlayerScried { .. }
         | GameEvent::DevCommandApplied { .. } => {}
     }
 }

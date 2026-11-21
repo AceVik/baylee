@@ -843,14 +843,9 @@ fn yes_no_line(
         YesNoPrompt::SacrificeToEnter { count } => {
             Phrase::SacrificeToEnter.fill(lang, &[&count.to_string()])
         }
-        YesNoPrompt::EnterTappedForCounters { kind, amount } => Phrase::EnterTappedForCounters
-            .fill(
-                lang,
-                &[
-                    &amount.to_string(),
-                    &counter_label_counted(kind, lang, usize::from(amount)),
-                ],
-            ),
+        YesNoPrompt::EnterTappedForCounters { kind, amount } => {
+            enter_tapped_for_counters_line(lang, kind, amount)
+        }
         YesNoPrompt::PayLifeOrEnterTapped { amount } => {
             Phrase::PayLifeOrTapped.fill(lang, &[&amount.to_string()])
         }
@@ -868,6 +863,8 @@ fn yes_no_line(
             Phrase::CasualtyAsk.fill(lang, &[&min_power.to_string()])
         }
         YesNoPrompt::Gift { kind } => gift_ask_phrase(kind).text(lang).to_string(),
+        YesNoPrompt::Riot { permanent } => entry_keyword_line(lang, permanent, true, name),
+        YesNoPrompt::Unleash { permanent } => entry_keyword_line(lang, permanent, false, name),
         YesNoPrompt::KickerOption { cost, parts, .. } => {
             Phrase::KickerOptionAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
         }
@@ -918,13 +915,7 @@ fn yes_no_line(
             Phrase::UseDamageClearingReplacement.text(lang).to_string()
         }
         YesNoPrompt::RemoveCountersInsteadOfUntapping { kind, count, .. } => {
-            Phrase::RemoveCountersInsteadOfUntapping.fill(
-                lang,
-                &[
-                    &count.to_string(),
-                    &counter_label_counted(kind, lang, usize::from(count)),
-                ],
-            )
+            remove_counters_instead_of_untapping_line(lang, kind, count)
         }
         YesNoPrompt::ApplyAdditionalCountersNext {
             additional, kind, ..
@@ -949,6 +940,48 @@ fn yes_no_line(
             ..
         } => reveal_hand_for_guess_line(lang, statics, guesser, guessed_in_hand),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
+    }
+}
+
+fn enter_tapped_for_counters_line(
+    lang: Lang,
+    kind: baylee_engine::object::CounterKind,
+    amount: u16,
+) -> String {
+    Phrase::EnterTappedForCounters.fill(
+        lang,
+        &[
+            &amount.to_string(),
+            &counter_label_counted(kind, lang, usize::from(amount)),
+        ],
+    )
+}
+
+fn remove_counters_instead_of_untapping_line(
+    lang: Lang,
+    kind: baylee_engine::object::CounterKind,
+    count: u16,
+) -> String {
+    Phrase::RemoveCountersInsteadOfUntapping.fill(
+        lang,
+        &[
+            &count.to_string(),
+            &counter_label_counted(kind, lang, usize::from(count)),
+        ],
+    )
+}
+
+fn entry_keyword_line(
+    lang: Lang,
+    permanent: ObjectId,
+    riot: bool,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> String {
+    match (riot, name(permanent)) {
+        (true, Some(named)) => Phrase::RiotAskNamed.fill(lang, &[&named]),
+        (true, None) => Phrase::RiotAsk.text(lang).to_string(),
+        (false, Some(named)) => Phrase::UnleashAskNamed.fill(lang, &[&named]),
+        (false, None) => Phrase::UnleashAsk.text(lang).to_string(),
     }
 }
 

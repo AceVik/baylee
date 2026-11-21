@@ -3851,6 +3851,26 @@ CastBestow = Bestow
 # Jump-start (CR 702.133a), the keyword as the German printing names it
 CastJumpStart = Jump-start
 
+# Retrace (CR 702.81a), cast from graveyard by discarding a land card
+CastRetrace = Retrace
+
+# Riot as-enters choice (CR 702.136a), unnamed permanent fallback
+RiotAsk = Riot: enter with a +1/+1 counter? (No gives haste instead)
+
+# Riot as-enters choice (CR 702.136a), naming the entering permanent
+# Arguments: permanent
+RiotAskNamed = Riot ({ $permanent }): enter with a +1/+1 counter? (No gives haste instead)
+
+# Unleash as-enters choice (CR 702.98a), unnamed permanent fallback
+UnleashAsk = Unleash: enter with a +1/+1 counter? (Can't block with a +1/+1 counter)
+
+# Unleash as-enters choice (CR 702.98a), naming the entering permanent
+# Arguments: permanent
+UnleashAskNamed = Unleash ({ $permanent }): enter with a +1/+1 counter? (Can't block with a +1/+1 counter)
+
+# Suspected battlefield designation label (CR 701.60)
+HudSuspected = Suspected
+
 # Escape (CR 702.138a), the keyword as the German printing names it
 CastEscape = Escape
 

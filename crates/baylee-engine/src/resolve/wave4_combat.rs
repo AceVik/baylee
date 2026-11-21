@@ -689,3 +689,130 @@ pub(super) fn resume_exploit(state: &mut GameState, res: &Resolution, chosen: &[
         );
     }
 }
+
+/// Executes `Effect::Monstrosity(amount)` (`CR 701.37a–c`): if this ability's
+/// exact source permanent is still on the battlefield, unphased, and not yet
+/// monstrous, puts `N` `+1/+1` counters on it, attaches `Rider::Monstrous`,
+/// and emits `GameEvent::BecameMonstrous { object, count: N }`.
+pub(super) fn become_monstrous(
+    state: &mut GameState,
+    res: &Resolution,
+    amount: baylee_cards_dsl::Amount,
+) {
+    let n = super::amount2(&amount, state, res.controller, res);
+    let Some(subject) = subjects::source(state, res).filter(|r| subjects::is_current(state, *r))
+    else {
+        return;
+    };
+    let eligible = state.object(subject.object).is_some_and(|o| {
+        o.zone == Zone::Battlefield
+            && o.version == subject.version
+            && !o.status.contains(Status::PHASED_OUT)
+            && !o.riders.contains(&Rider::Monstrous)
+    });
+    if !eligible {
+        return;
+    }
+    if n > 0 {
+        crate::replacement::put_counters_by(
+            state,
+            res.controller,
+            subject.object,
+            baylee_cards_dsl::CounterKind::P1P1,
+            u16::try_from(n).unwrap_or(u16::MAX),
+        );
+    }
+    if let Some(obj) = state.object_mut(subject.object)
+        && obj.zone == Zone::Battlefield
+        && obj.version == subject.version
+        && !obj.status.contains(Status::PHASED_OUT)
+        && !obj.riders.contains(&Rider::Monstrous)
+    {
+        obj.riders.push(Rider::Monstrous);
+        state.invalidate_projections();
+        state
+            .journal
+            .record(crate::event::GameEvent::BecameMonstrous {
+                object: subject.object,
+                count: n,
+            });
+    }
+}
+
+/// Executes `Effect::Suspect` / `Effect::Unsuspect` (`CR 701.60a–d`).
+pub(super) fn resolve_suspect(
+    state: &mut GameState,
+    res: &Resolution,
+    target: baylee_cards_dsl::TargetSpec,
+    suspect: bool,
+) {
+    use baylee_cards_dsl::TargetSpec;
+    let ids: Vec<ObjectId> = match target {
+        TargetSpec::ThisObject => subjects::source(state, res)
+            .filter(|r| subjects::is_current(state, *r))
+            .map(|r| r.object)
+            .into_iter()
+            .collect(),
+        TargetSpec::EventObject => subjects::event(state, res)
+            .filter(|r| subjects::is_current(state, *r))
+            .map(|r| r.object)
+            .into_iter()
+            .collect(),
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) | TargetSpec::CardInFirstTargetsGraveyard(_) => {
+            res.second_targets.to_vec()
+        }
+        TargetSpec::Object(filter) if !res.targeted && res.targets.is_empty() => state
+            .battlefield_seen()
+            .filter(|&id| {
+                state.object(id).is_some_and(|o| {
+                    crate::eval::matches_with_context(
+                        filter,
+                        state,
+                        o,
+                        res.controller,
+                        res.rule_context(),
+                    )
+                })
+            })
+            .collect(),
+        _ => res
+            .targets
+            .iter()
+            .copied()
+            .filter(|&id| {
+                state.object(id).is_some_and(|obj| {
+                    res.target_lki.as_ref().is_none_or(|all| {
+                        all.iter()
+                            .find(|lki| lki.id == id)
+                            .is_none_or(|lki| lki.version == obj.version)
+                    })
+                })
+            })
+            .collect(),
+    };
+    let mut changed = false;
+    for id in ids {
+        let can_apply = state.object(id).is_some_and(|o| {
+            o.zone == Zone::Battlefield
+                && !o.status.contains(Status::PHASED_OUT)
+                && (!suspect || o.characteristics().types.contains(TypeSet::CREATURE))
+        });
+        if !can_apply {
+            continue;
+        }
+        if let Some(obj) = state.object_mut(id) {
+            if suspect {
+                if !obj.riders.contains(&Rider::Suspected) {
+                    obj.riders.push(Rider::Suspected);
+                    changed = true;
+                }
+            } else if obj.riders.contains(&Rider::Suspected) {
+                obj.riders.retain(|r| *r != Rider::Suspected);
+                changed = true;
+            }
+        }
+    }
+    if changed {
+        state.invalidate_projections();
+    }
+}

@@ -63,7 +63,9 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::DealDamage { target, .. }
             | Effect::DealDamageWithoutPreventionOrRedirection { target, .. }
             | Effect::DealDamageEvenly { target, .. }
-            | Effect::Goad { target } => matches!(target, TargetSpec::ThisObject),
+            | Effect::Goad { target }
+            | Effect::Suspect { target }
+            | Effect::Unsuspect { target } => matches!(target, TargetSpec::ThisObject),
             Effect::CreateContinuousEffect { filter, .. }
             | Effect::BecomeChosenCreatureType { filter, .. }
             | Effect::GrantProtectionFromChosenColorUntilEot { filter }
@@ -99,6 +101,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::MoveCounterToEvent { .. }
             | Effect::DetachSource
             | Effect::SoulbondPair { .. }
+            | Effect::Monstrosity(_)
             | Effect::IfNoCountersOnSelf { .. } => true,
             Effect::AddCounter { .. }
             | Effect::AddCountersUpTo { .. }
@@ -129,9 +132,12 @@ fn condition_refers_to_subject(condition: &baylee_cards_dsl::Condition) -> bool 
     use baylee_cards_dsl::Condition as C;
     match condition {
         C::ObjectMatches { what, .. } => matches!(*what, TargetSpec::ThisObject),
-        C::SourceMatches(_) | C::IsPaired | C::SoulbondSelfCanPair | C::SoulbondEventCanPair => {
-            true
-        }
+        C::SourceMatches(_)
+        | C::IsPaired
+        | C::IsMonstrous
+        | C::IsSuspected
+        | C::SoulbondSelfCanPair
+        | C::SoulbondEventCanPair => true,
         C::All(parts) | C::Any(parts) => parts.iter().any(condition_refers_to_subject),
         C::Not(inner) => condition_refers_to_subject(inner),
         _ => false,

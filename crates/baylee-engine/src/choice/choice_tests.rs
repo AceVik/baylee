@@ -100,6 +100,18 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             no.clone(),
         ),
         (
+            yes_no(YesNoPrompt::Riot {
+                permanent: ObjectId::new(9, 0),
+            }),
+            None,
+        ),
+        (
+            yes_no(YesNoPrompt::Unleash {
+                permanent: ObjectId::new(9, 0),
+            }),
+            no.clone(),
+        ),
+        (
             yes_no(YesNoPrompt::KickerOption {
                 index: 0,
                 cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
@@ -440,7 +452,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 60;
+const KINDS: usize = 62;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -509,6 +521,8 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::Offspring { .. } => 40,
                 YesNoPrompt::Casualty { .. } => 41,
                 YesNoPrompt::Gift { .. } => 42,
+                YesNoPrompt::Riot { .. } => 43,
+                YesNoPrompt::Unleash { .. } => 44,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -731,6 +745,8 @@ fn expected_automatable(prompt: YesNoPrompt) -> bool {
         | YesNoPrompt::Offspring { .. }
         | YesNoPrompt::Casualty { .. }
         | YesNoPrompt::Gift { .. }
+        | YesNoPrompt::Riot { .. }
+        | YesNoPrompt::Unleash { .. }
         | YesNoPrompt::KickerOption { .. }
         | YesNoPrompt::Buyback { .. }
         | YesNoPrompt::ManaAnyType
@@ -804,6 +820,12 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         YesNoPrompt::Casualty { min_power: 2 },
         YesNoPrompt::Gift {
             kind: baylee_cards_dsl::GiftKind::Card,
+        },
+        YesNoPrompt::Riot {
+            permanent: object(),
+        },
+        YesNoPrompt::Unleash {
+            permanent: object(),
         },
         YesNoPrompt::KickerOption {
             index: 1,

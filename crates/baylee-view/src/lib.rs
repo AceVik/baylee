@@ -313,7 +313,10 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 102 adds `CastModeKind::Warp` and [`PublicObject::warped`]
 /// (CR 702.185), `ChoicePrompt::Devour` (CR 702.82), and [`ManaPoolView::snow`]
 /// (CR 107.4h).
-pub const VIEW_VERSION: u32 = 102;
+/// Version 103 adds `CastModeKind::Retrace` (CR 702.81a),
+/// `YesNoPrompt::{Riot, Unleash}` (CR 702.136, CR 702.98), and
+/// [`PublicObject::suspected`] (CR 701.60).
+pub const VIEW_VERSION: u32 = 103;
 
 // ------------------------------------------------------------------- targets
 

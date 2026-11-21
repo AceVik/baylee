@@ -2125,6 +2125,21 @@ impl HeuristicAgent {
                 if p1p1 > 0 { p1p1 * 110 + 60 } else { -200 }
             }
             Effect::Exploit => 60,
+            Effect::Monstrosity(amount) => count(*amount)?.max(0) * 110 + 40,
+            Effect::Suspect { .. } => subject.map_or(40, |o| {
+                if self.hostile(o.controller, me) {
+                    80
+                } else {
+                    40
+                }
+            }),
+            Effect::Unsuspect { .. } => subject.map_or(30, |o| {
+                if !self.hostile(o.controller, me) && o.suspected {
+                    60
+                } else {
+                    20
+                }
+            }),
             Effect::ReturnCraftedTransformed
             | Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }

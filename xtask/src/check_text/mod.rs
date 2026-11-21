@@ -612,6 +612,9 @@ pub(crate) const KEYWORD_WORDS: &[(baylee_cards::dsl::KeywordSet, &str)] = {
         (K::WARP, "warp"),
         (K::DEVOUR, "devour"),
         (K::SPREE, "spree"),
+        (K::RETRACE, "retrace"),
+        (K::RIOT, "riot"),
+        (K::UNLEASH, "unleash"),
     ]
 };
 

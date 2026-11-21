@@ -1194,17 +1194,26 @@ pub(super) fn resume_arranged_inner(
                 let _ = state.move_object(card, target_lib, ZonePosition::Bottom, Cause::Effect);
             }
         }
-        // CR 701.22a: any number on the bottom in any order, the rest on top
+        // CR 701.22a–d: any number on the bottom in any order, the rest on top
         // in any order. The library is the one the cards were looked at in,
         // which for Jace's "look at the top card of target player's library"
         // is not the controller's — see the variant's own doc.
-        (AwaitingOp::Scry { player }, [top, bottom]) => {
+        (
+            AwaitingOp::Scry {
+                player,
+                scried_count,
+            },
+            [top, bottom],
+        ) => {
             let library = ZoneLocation::Library(player);
             for &card in bottom {
                 let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
             }
             for &card in top.iter().rev() {
                 let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
+            }
+            if let Some(count) = scried_count {
+                state.record_player_scried(player, count);
             }
         }
         (

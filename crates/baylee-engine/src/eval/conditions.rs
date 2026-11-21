@@ -689,6 +689,12 @@ pub fn condition_holds_with_context(
             }
         },
         Condition::SnowManaWasSpent => super::amounts::snow_mana_spent_on(state, source) > 0,
+        Condition::IsMonstrous => state
+            .object(source)
+            .is_some_and(|object| object_is_monstrous(state, object)),
+        Condition::IsSuspected => state
+            .object(source)
+            .is_some_and(|object| object_is_suspected(state, object)),
     }
 }
 
@@ -849,6 +855,12 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::SnowManaWasSpent) => state
             .damage_source(source, version)
             .is_some_and(|object| super::amounts::object_snow_mana_spent(object) > 0),
+        Some(Condition::IsMonstrous) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Monstrous)),
+        Some(Condition::IsSuspected) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Suspected)),
         Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep) => {
             super::upkeep_history::came_under_your_control(state, you, source, version)
         }
@@ -1138,4 +1150,16 @@ fn object_is_renowned(_state: &GameState, object: &crate::object::GameObject) ->
     object.zone == Zone::Battlefield
         && !object.status.contains(crate::object::Status::PHASED_OUT)
         && object.riders.contains(&crate::object::Rider::Renowned)
+}
+
+fn object_is_monstrous(_state: &GameState, object: &crate::object::GameObject) -> bool {
+    object.zone == Zone::Battlefield
+        && !object.status.contains(crate::object::Status::PHASED_OUT)
+        && object.riders.contains(&crate::object::Rider::Monstrous)
+}
+
+fn object_is_suspected(_state: &GameState, object: &crate::object::GameObject) -> bool {
+    object.zone == Zone::Battlefield
+        && !object.status.contains(crate::object::Status::PHASED_OUT)
+        && object.riders.contains(&crate::object::Rider::Suspected)
 }

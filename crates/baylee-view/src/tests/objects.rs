@@ -379,6 +379,7 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
         ("suspended", |o| o.suspended = true),
         ("plotted", |o| o.plotted = true),
         ("warped", |o| o.warped = true),
+        ("suspected", |o| o.suspected = true),
         ("chosen_subtype", |o| {
             o.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ALLY);
         }),

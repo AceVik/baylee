@@ -123,6 +123,7 @@ fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         suspended: false,
         plotted: false,
         warped: false,
+        suspected: false,
         token: None,
         colors: ColorSet::EMPTY,
         mana_value: 1,

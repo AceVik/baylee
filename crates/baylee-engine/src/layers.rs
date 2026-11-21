@@ -42,7 +42,7 @@ use std::sync::Arc;
 mod index;
 mod keyword_instances;
 mod projection;
-pub(crate) use keyword_instances::keyword_instances;
+pub(crate) use keyword_instances::{keyword_instances, keyword_instances_with_plan};
 pub(crate) use projection::recompute_cow;
 
 /// Number of layers (CR 613.1 sublayers included).
@@ -249,6 +249,8 @@ pub fn needs_projection(state: &GameState, plan: &LayerPlan, obj: &GameObject) -
         || !obj.counters.is_empty()
         || obj.base.keywords.contains(KeywordSet::CHANGELING)
         || obj.riders.contains(&crate::object::Rider::Dashed)
+        || obj.riders.contains(&crate::object::Rider::RiotHaste)
+        || obj.riders.contains(&crate::object::Rider::Suspected)
         || obj.riders.contains(&crate::object::Rider::Bestowed)
         // CR 202.3e: on the stack, X is the number chosen for it, so a
         // spell with X needs its projection even where no effect reaches it.
@@ -904,6 +906,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         Filter::TargetsPermanentYouControl => matches!(layer, Layer::Control),
         Filter::PairedWithSource => matches!(layer, Layer::Control | Layer::Type),
         Filter::Any
+        | Filter::Monstrous
+        | Filter::Suspected
         | Filter::IsCommander
         | Filter::HasAdventure
         | Filter::This

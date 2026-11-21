@@ -669,6 +669,12 @@ pub enum Condition {
     /// spent to cast this spell, activate this ability, or cast the spell that
     /// became this permanent. Appended to preserve replay identities.
     SnowManaWasSpent,
+    /// Source permanent is on the battlefield and is monstrous (CR 701.37a–b).
+    /// Appended to preserve replay identities.
+    IsMonstrous,
+    /// Source permanent is on the battlefield and is suspected (CR 701.60a–b).
+    /// Appended to preserve replay identities.
+    IsSuspected,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1206,6 +1212,18 @@ pub enum Trigger {
         /// Filter matched against the warped spell on the stack.
         filter: &'static Filter,
     },
+    /// A player matching `who` scries one or more cards ("Whenever [you / an
+    /// opponent / a player] scries", CR 701.22a–d; scrying 0 emits no event per
+    /// CR 701.22b), binding `EventPlayer` to that player and `Amount::EventAmount`
+    /// to the scry count. Appended to preserve replay identities.
+    Scried {
+        /// Which player(s) scrying trigger this ability.
+        who: crate::effect::PlayerRel,
+    },
+    /// Source permanent becomes monstrous ("When ~ becomes monstrous",
+    /// CR 701.37a–c), binding `Amount::EventAmount` to the monstrosity `N` / `X`
+    /// count (`CR 701.37c`). Appended to preserve replay identities.
+    BecomesMonstrous,
 }
 
 impl Trigger {

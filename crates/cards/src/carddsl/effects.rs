@@ -273,7 +273,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::AddCounterSource { amount, .. }
         | Effect::AddCounterFilter { amount, .. }
         | Effect::AddCounterCreatedTokens { amount, .. }
-        | Effect::Bolster(amount) => {
+        | Effect::Bolster(amount)
+        | Effect::Monstrosity(amount) => {
             ch.counters_add += amount_scalar(amount).max(1.0);
         }
         Effect::Backup { count, .. } => {
@@ -288,6 +289,9 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::Incubate { count, .. } => {
             ch.tokens_create += 1.5;
             ch.counters_add += amount_scalar(count).max(1.0);
+        }
+        Effect::Suspect { .. } | Effect::Unsuspect { .. } => {
+            ch.pump_pt += 0.5;
         }
         Effect::Proliferate
         | Effect::AddCountersUpTo { .. }

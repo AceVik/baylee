@@ -79,6 +79,7 @@ mod wave6c_combat_damage_renown;
 mod wave7a_impending_gift_linked_counters;
 mod wave7b_incubate_exploit_craft_evolve_bloodthirst;
 mod wave8a_warp_snow_devour_spree;
+mod wave8b_retrace_scry_monstrosity_suspect_riot_unleash;
 mod zones;
 
 use super::synthetic::{SyntheticLookup, forest, land_face, walk_past};

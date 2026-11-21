@@ -740,6 +740,8 @@ impl GameLog {
             | GameEvent::GiftGiven { .. }
             | GameEvent::CreatureExploited { .. }
             | GameEvent::SpellWarped { .. }
+            | GameEvent::PlayerScried { .. }
+            | GameEvent::BecameMonstrous { .. }
             | GameEvent::AttackerUnblocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.
