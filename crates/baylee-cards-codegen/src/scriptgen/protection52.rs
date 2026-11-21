@@ -348,6 +348,10 @@ impl Tx<'_> {
             mods.push(("Filter::Any", "Modifier::OpponentsCantSearch".to_string()));
             return Some(());
         }
+        if kw == "LimitSearchLibrary" && matches!(affected, "Opponent" | "Player.Opponent") {
+            mods.push(("Filter::Any", "Modifier::OpponentsSearchTop(4)".to_string()));
+            return Some(());
+        }
         if affected == "You" && kw.starts_with("Protection:Player.Opponent") {
             let tail = kw.trim_start_matches("Protection:Player.Opponent");
             if tail.is_empty() || (tail.starts_with(':') && !tail[1..].contains(':')) {
@@ -650,6 +654,85 @@ impl Tx<'_> {
             }
             _ => self.deny("static ability reaching `AffectedZone$ Graveyard`".into()),
         }
+    }
+
+    /// Self-cast-from-graveyard static (`EffectZone$ Graveyard | AffectedZone$ Graveyard |
+    /// Affected$ Card.Self | MayPlay$ True`) -> `Modifier::CastSpellsFromGraveyard`
+    /// with `zone = ZoneRef::Graveyard` and `Filter::This`.
+    pub(super) fn continuous_graveyard_self_play(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("AffectedZone").as_deref() != Some("Graveyard")
+            || p.take("EffectZone").as_deref() != Some("Graveyard")
+            || p.take("Affected").as_deref() != Some("Card.Self")
+            || p.take("MayPlay").as_deref() != Some("True")
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+            || self.type_line.split_whitespace().any(|w| w == "Land")
+        {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        }
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        }
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::CastSpellsFromGraveyard, \
+             zone = ZoneRef::Graveyard{cond})"
+        ));
+        Some(())
+    }
+
+    /// Graveyard keyword-grant statics (`AffectedZone$ Graveyard | AddKeyword$ ...`):
+    /// - bare `Flashback` (cost equals mana cost) -> `Modifier::GrantsFlashback`
+    /// - `Escape:CardManaCost ExileFromGrave<N/Card.Other/other>` -> `Modifier::GrantsEscape(N)`
+    pub(super) fn continuous_graveyard_keyword(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("AffectedZone").as_deref() != Some("Graveyard")
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        }
+        let zone_arg = match p.take("EffectZone").as_deref() {
+            None | Some("Battlefield") => "",
+            Some("Command") => ", zone = ZoneRef::Command",
+            Some("Battlefield,Command" | "Command,Battlefield") => {
+                ", zone = ZoneRef::BattlefieldOrCommand"
+            }
+            Some(_) => {
+                return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+            }
+        };
+        let Some(affected) = p.take("Affected") else {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        };
+        let Some(kw) = p.take("AddKeyword") else {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        };
+        let modifier = if kw.trim() == "Flashback" {
+            "Modifier::GrantsFlashback".to_string()
+        } else if let Some(n_str) = kw
+            .trim()
+            .strip_prefix("Escape:CardManaCost ExileFromGrave<")
+            .and_then(|s| s.strip_suffix("/Card.Other/other>"))
+            && let Ok(n) = n_str.parse::<u8>()
+            && n > 0
+        {
+            format!("Modifier::GrantsEscape({n})")
+        } else {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        };
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        }
+        let filter = self.filter_expr_in_zone(&affected, true)?;
+        let mut expr = Self::static_expr(&filter, &modifier);
+        if (!zone_arg.is_empty() || !cond.is_empty())
+            && let Some(open) = expr.strip_suffix(')')
+        {
+            expr = format!("{open}{zone_arg}{cond})");
+        }
+        self.body.abilities.push(expr);
+        Some(())
     }
 
     /// Battlefield-source `AffectedZone$ Hand | Affected$ Card.YouOwn | MayLookAt$ Player`

@@ -540,9 +540,13 @@ impl Tx<'_> {
                 "a prevention source outside instant/sorcery spells `{valid}`"
             ));
         }
+        let raw_alts: Vec<&str> = normalized.split(',').collect();
         let mut alts = Vec::new();
-        for raw_alt in normalized.split(',') {
+        for &raw_alt in &raw_alts {
             let alt = raw_alt.trim();
+            if raw_alts.len() > 1 && super::targets::emblem_subsumed_by_card(alt, &raw_alts) {
+                continue;
+            }
             let (base, atoms) = alt.split_once('.').unwrap_or((alt, ""));
             let mut battlefield = false;
             let stack_spell = base == "Spell";

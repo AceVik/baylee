@@ -330,7 +330,8 @@ impl Tx<'_> {
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
         self.type_modifiers(&mut p, &filter, &mut out)?;
         self.color_modifiers(&mut p, &filter, &mut out)?;
-        if effect_zone == Some("ZoneRef::Graveyard") && (p.has("AddAbility") || p.has("AddTrigger"))
+        if effect_zone == Some("ZoneRef::Graveyard")
+            && (p.has("AddAbility") || p.has("AddTrigger") || p.has("AddStaticAbility"))
         {
             self.note("static ability from `EffectZone$ Graveyard`".to_string());
             return None;
@@ -1743,7 +1744,8 @@ impl Tx<'_> {
     ) -> Option<()> {
         let abilities = p.take("AddAbility");
         let triggers = p.take("AddTrigger");
-        if abilities.is_none() && triggers.is_none() {
+        let statics = p.take("AddStaticAbility");
+        if abilities.is_none() && triggers.is_none() && statics.is_none() {
             return Some(());
         }
         if let Some(svars_raw) = p.take("AddSVar") {
@@ -1769,6 +1771,9 @@ impl Tx<'_> {
         }
         if let Some(raw) = triggers {
             self.grant_triggered_list(&raw, filter, out)?;
+        }
+        if let Some(raw) = statics {
+            self.grant_static_list(&raw, filter, out)?;
         }
         Some(())
     }
@@ -1896,6 +1901,50 @@ impl Tx<'_> {
         }
         let def_name = self.body.ability_static("GRANTED_TRIGGER_", &ability_expr);
         Some(format!("Modifier::GrantTriggeredDefinition(&{def_name})"))
+    }
+
+    fn grant_static_list(&mut self, raw: &str, filter: &str, out: &mut Vec<String>) -> Option<()> {
+        for name in raw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+            let Some(line) = self.svars.get(name).cloned() else {
+                return self.deny(format!("`AddStaticAbility$ {name}` naming no `SVar`"));
+            };
+            if !line.trim_start().starts_with("Mode$") {
+                return self.deny("a granted static without `Mode$`".to_string());
+            }
+            let prev_abilities_len = self.body.abilities.len();
+            let prev_statics_len = self.body.statics.len();
+            let prev_block_line = self.block_line.take();
+            let ok = self.static_ability(&line);
+            let block_seen = self.block_line.is_some();
+            self.block_line = prev_block_line;
+            if ok.is_none() || block_seen || self.body.abilities.len() <= prev_abilities_len {
+                self.body.abilities.truncate(prev_abilities_len);
+                self.body.statics.truncate(prev_statics_len);
+                if ok.is_some() {
+                    return self.deny("a granted static that is not a static ability".to_string());
+                }
+                return None;
+            }
+            let emitted = self.body.abilities.split_off(prev_abilities_len);
+            for expr in emitted {
+                let Some((inner_filter, inner_modifier)) = split_plain_static_ability(&expr) else {
+                    self.body.statics.truncate(prev_statics_len);
+                    return self.deny(
+                        "a granted static with a zone, condition, or replacement rule".to_string(),
+                    );
+                };
+                if inner_modifier.contains("Modifier::GrantStatic") {
+                    self.body.statics.truncate(prev_statics_len);
+                    return self.deny("a nested granted static ability".to_string());
+                }
+                let inner_filter_ref = self.body.filter_static("GRANTED_STATIC", inner_filter);
+                let modifier = format!(
+                    "Modifier::GrantStatic {{ filter: &{inner_filter_ref}, modifier: &{inner_modifier} }}"
+                );
+                out.push(Self::static_expr(filter, &modifier));
+            }
+        }
+        Some(())
     }
 
     fn cant_phase_out(&mut self, mut p: Params) -> Option<()> {
@@ -2029,6 +2078,7 @@ impl Tx<'_> {
             && !p.has("Color")
             && !p.has("IgnoreGeneric")
             && !p.has("ValidSpell")
+            && !p.has("ValidTarget")
             && matches!(p.peek("EffectZone"), None | Some("Battlefield"))
             && p.peek("Type") == Some("Spell")
             && matches!(p.peek("Activator"), None | Some("You" | "Opponent"))
@@ -2046,6 +2096,9 @@ impl Tx<'_> {
         }
         if p.peek("ValidSpell") == Some("Activated.Equip") {
             return self.reduce_cost_equip(p);
+        }
+        if p.peek("ValidSpell") == Some("Spell.Buyback") {
+            return self.reduce_cost_buyback(p);
         }
 
         let spell_type = p.take("Type");
@@ -2065,12 +2118,16 @@ impl Tx<'_> {
                 None => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
             },
         };
+        let target_filter = if p.has("ValidTarget") {
+            Some(self.reduce_cost_target_filter(&mut p, is_self_zone, face_down, zone)?)
+        } else {
+            None
+        };
         let mut valid_card = match p.take("ValidCard") {
             Some(vc) => vc,
             None if spell_type.as_deref() == Some("Spell")
                 && valid_spell.is_none()
-                && !is_self_zone
-                && !p.has("ValidTarget") =>
+                && !is_self_zone =>
             {
                 "Card".to_string()
             }
@@ -2105,11 +2162,42 @@ impl Tx<'_> {
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
         }
-        let filter = self.filter_expr(&valid_card)?;
+        let base_filter = self.filter_expr(&valid_card)?;
+        let filter = match target_filter {
+            None => base_filter,
+            Some(tf) if base_filter == "Filter::Any" => tf.to_string(),
+            Some(tf) => format!("Filter::And(&[{base_filter}, {tf}])"),
+        };
         self.body
             .abilities
             .push(Self::format_static_expr(&filter, &modifier, zone, &cond));
         Some(())
+    }
+
+    fn reduce_cost_target_filter(
+        &mut self,
+        p: &mut Params,
+        is_self_zone: bool,
+        face_down: bool,
+        zone: StaticEffectZone,
+    ) -> Option<&'static str> {
+        let raw_target = p.peek("ValidTarget")?;
+        if is_self_zone
+            || face_down
+            || p.has("Color")
+            || !matches!(zone, StaticEffectZone::Battlefield)
+        {
+            return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into());
+        }
+        let tf = match raw_target {
+            "Card.Self" | "Creature.Self" | "Permanent.Self" => "Filter::SpellTargetingAffected",
+            "Permanent.YouCtrl"
+            | "Permanent.YouCtrl+inZoneBattlefield"
+            | "Card.YouCtrl+inZoneBattlefield" => "Filter::TargetsPermanentYouControl",
+            _ => return self.deny("unclaimed parameter `ReduceCost.ValidTarget`".into()),
+        };
+        p.take("ValidTarget");
+        Some(tf)
     }
 
     fn reduce_cost_modifier(&mut self, p: &mut Params) -> Option<String> {
@@ -2170,6 +2258,41 @@ impl Tx<'_> {
         self.body.abilities.push(Self::format_static_expr(
             &filter,
             &format!("Modifier::EquipCostsLess({amount})"),
+            zone,
+            &cond,
+        ));
+        Some(())
+    }
+
+    fn reduce_cost_buyback(&mut self, mut p: Params) -> Option<()> {
+        p.take("ValidSpell");
+        let Some(zone) = Self::static_effect_zone(p.take("EffectZone").as_deref(), false) else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        if !matches!(p.take("Type").as_deref(), None | Some("Spell")) {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        }
+        let raw_card = p.take("ValidCard").unwrap_or_else(|| "Card".to_string());
+        let Some(valid_card) =
+            Self::apply_reduce_activator(&raw_card, p.take("Activator").as_deref())
+        else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        let cond = self.reduce_cost_condition(&mut p)?;
+        let Some(amount) = p
+            .take("Amount")
+            .and_then(|a| a.parse::<u32>().ok())
+            .filter(|&n| n > 0)
+        else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
+        }
+        let filter = self.filter_expr(&valid_card)?;
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            &format!("Modifier::BuybackCostsLess({amount})"),
             zone,
             &cond,
         ));
@@ -2708,4 +2831,53 @@ fn parse_pt_multiplier(raw: &str) -> Option<(&str, i16)> {
             .map(|n| (v, n));
     }
     Some((raw, 1))
+}
+
+/// Splits a plain battlefield unconditional `static_ability!(<filter>, <modifier>)`
+/// expression into `(<filter>, <modifier>)`. Refuses any expression carrying
+/// extra named arguments (`zone = ...`, `condition = ...`) or non-static items.
+fn split_plain_static_ability(expr: &str) -> Option<(&str, &str)> {
+    let inner = expr.strip_prefix("static_ability!(")?.strip_suffix(')')?;
+    let mut depth = 0usize;
+    let mut in_str = false;
+    let mut escape = false;
+    let mut split_at: Option<usize> = None;
+    for (idx, b) in inner.bytes().enumerate() {
+        if in_str {
+            if escape {
+                escape = false;
+            } else if b == b'\\' {
+                escape = true;
+            } else if b == b'"' {
+                in_str = false;
+            }
+            continue;
+        }
+        match b {
+            b'"' => in_str = true,
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth = depth.checked_sub(1)?,
+            b',' if depth == 0 => {
+                if split_at.is_some() {
+                    return None;
+                }
+                split_at = Some(idx);
+            }
+            _ => {}
+        }
+    }
+    if depth != 0 || in_str {
+        return None;
+    }
+    let comma = split_at?;
+    let filter = inner[..comma].trim();
+    let modifier = inner[comma + 1..].trim();
+    if filter.is_empty()
+        || modifier.is_empty()
+        || modifier.starts_with("zone")
+        || modifier.starts_with("condition")
+    {
+        return None;
+    }
+    Some((filter, modifier))
 }

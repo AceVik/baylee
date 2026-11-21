@@ -774,6 +774,7 @@ impl Tx<'_> {
                 ExtraOutcome::Handled(self.cant_attach_static(p))
             }
             "TapPowerValue" => ExtraOutcome::Handled(self.tap_power_value_static(p)),
+            "Activations" => ExtraOutcome::Handled(self.activations_boast_static(p)),
             "MinMaxBlocker" => ExtraOutcome::Handled(self.min_max_blocker(p)),
             "IgnoreLegendRule" => ExtraOutcome::Handled(self.ignore_legend_rule(p)),
             "AttackRestrict" | "BlockRestrict" => {
@@ -1206,6 +1207,29 @@ impl Tx<'_> {
         Some(())
     }
 
+    fn activations_boast_static(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+            || !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || p.take("ValidSA").as_deref() != Some("Activated.Boast")
+            || p.take("ValidPlayer").as_deref() != Some("You")
+            || p.take("MinLimit").as_deref() != Some("2")
+            || !matches!(p.take("PlayerTurn").as_deref(), None | Some("You"))
+        {
+            return self.deny("static ability `S: Mode$ Activations`".to_string());
+        }
+        let Some(valid_card) = p.take("ValidCard") else {
+            return self.deny("static ability `S: Mode$ Activations`".to_string());
+        };
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ Activations`".to_string());
+        }
+        let filter = self.filter_expr(&valid_card)?;
+        self.push_static_with_cond(&filter, "Modifier::BoastTwice", &cond);
+        Some(())
+    }
+
     /// Extended `S: Mode$ Continuous` handlers for Station thresholds, Leveler
     /// bands, Library/Graveyard/Hand rules, Layer 4/5/6 characteristic rules,
     /// and extra `CheckSVar$` conditions not yet in `activated::svar_condition`.
@@ -1227,6 +1251,27 @@ impl Tx<'_> {
         {
             return ExtraOutcome::Handled(self.continuous_graveyard_play(p));
         }
+        if p.peek("AffectedZone") == Some("Graveyard")
+            && p.peek("EffectZone") == Some("Graveyard")
+            && p.peek("Affected") == Some("Card.Self")
+            && p.peek("MayPlay") == Some("True")
+        {
+            return ExtraOutcome::Handled(self.continuous_graveyard_self_play(p));
+        }
+        if p.peek("AffectedZone") == Some("Graveyard")
+            && matches!(
+                p.peek("EffectZone"),
+                None | Some(
+                    "Battlefield" | "Command" | "Battlefield,Command" | "Command,Battlefield"
+                )
+            )
+            && p.peek("AddKeyword").is_some_and(|k| {
+                k.trim() == "Flashback"
+                    || k.trim().starts_with("Escape:CardManaCost ExileFromGrave<")
+            })
+        {
+            return ExtraOutcome::Handled(self.continuous_graveyard_keyword(p));
+        }
         if p.peek("AffectedZone") == Some("Hand")
             && p.peek("MayLookAt") == Some("Player")
             && matches!(p.peek("Affected"), Some("Card.YouOwn" | "Card.YouCtrl"))
@@ -1245,6 +1290,7 @@ impl Tx<'_> {
                 || p.peek("AddKeyword").is_some_and(|k| {
                     k == "Hexproof"
                         || k == "CantSearchLibrary"
+                        || k == "LimitSearchLibrary"
                         || k.starts_with("Protection:")
                         || k.starts_with("Protection from ")
                 }))
@@ -2459,9 +2505,7 @@ impl Tx<'_> {
         {
             return self.deny("replacement `R: Event$ CreateToken`".to_string());
         }
-        let Some(valid_token) = p.take("ValidToken") else {
-            return self.deny("replacement `R: Event$ CreateToken`".to_string());
-        };
+        let valid_token = p.take("ValidToken");
         let Some(replace_with) = p.take("ReplaceWith") else {
             return self.deny("replacement `R: Event$ CreateToken`".to_string());
         };
@@ -2487,20 +2531,31 @@ impl Tx<'_> {
         if !body.exhausted() {
             return self.deny("replacement `R: Event$ CreateToken`".to_string());
         }
-        if valid_token == "Card.YouCtrl" && factor == 2 {
-            self.body.abilities.push(
-                "AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation { \
-                 controller_filter: &Filter::ControlledByYou })"
-                    .to_string(),
-            );
+        let (base_token, controller_filter) = match valid_token.as_deref() {
+            None | Some("Card") => ("Card", "&Filter::Any"),
+            Some("Card.YouCtrl") => ("Card", "&Filter::ControlledByYou"),
+            Some("Card.OppCtrl") => ("Card", "&Filter::ControlledByOpponent"),
+            Some(raw) => {
+                if let Some(t) = raw.strip_suffix(".YouCtrl") {
+                    (t, "&Filter::ControlledByYou")
+                } else if let Some(t) = raw.strip_suffix(".OppCtrl") {
+                    (t, "&Filter::ControlledByOpponent")
+                } else {
+                    (raw, "&Filter::Any")
+                }
+            }
+        };
+        if base_token == "Card" && factor == 2 {
+            self.body.abilities.push(format!(
+                "AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {{ \
+                 controller_filter: {controller_filter} }})"
+            ));
             return Some(());
         }
-        if let Some(type_word) = valid_token.strip_suffix(".YouCtrl")
-            && let Some(ty) = card_type_const(type_word)
-        {
+        if let Some(ty) = card_type_const(base_token) {
             self.body.abilities.push(format!(
                 "AbilityDef::Replacement(ReplacementRule::MultiplyTypedTokens {{ \
-                 controller_filter: &Filter::ControlledByYou, types: {ty}, factor: {factor} }})"
+                 controller_filter: {controller_filter}, types: {ty}, factor: {factor} }})"
             ));
             return Some(());
         }

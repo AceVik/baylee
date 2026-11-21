@@ -454,8 +454,12 @@ impl Tx<'_> {
     /// `"Permanent"` means a permanent card under CR 110.4a).
     #[allow(clippy::too_many_lines)]
     pub(super) fn filter_expr_in_zone(&self, valid: &str, card_zone: bool) -> Option<String> {
+        let raw_alts: Vec<&str> = valid.split(',').collect();
         let mut alternatives = Vec::new();
-        for alt in valid.split(',') {
+        for &alt in &raw_alts {
+            if !card_zone && raw_alts.len() > 1 && emblem_subsumed_by_card(alt, &raw_alts) {
+                continue;
+            }
             let mut clauses = Vec::new();
             let raw_atoms: Vec<&str> =
                 if alt.contains("AttachedTo ") || alt.contains("SharesColorWith Valid ") {
@@ -1287,4 +1291,74 @@ fn oracle_scopes_named_to_you(oracle_lower: &str, name: &str) -> bool {
         && !oracle_lower.contains(&format!("permanents named {name_lower}"))
         && !oracle_lower.contains(&format!("card named {name_lower}"))
         && !oracle_lower.contains(&format!("cards named {name_lower}"))
+}
+
+/// Returns `true` when an `Emblem[.<ctrl>]` alternative in a battlefield/source
+/// comma-list is already matched by a companion `Card[.<ctrl>][+non<Type>...]`
+/// alternative in the same list. Emblems carry `TypeSet::EMPTY` and a controller
+/// equal to their owner, so `Filter::Any`, controller predicates, and
+/// `Filter::LacksType(...)` already match them.
+pub(super) fn emblem_subsumed_by_card(alt: &str, all_alts: &[&str]) -> bool {
+    fn is_ctrl_atom(atom: &str) -> bool {
+        matches!(
+            atom,
+            "YouCtrl"
+                | "OppCtrl"
+                | "YouDontCtrl"
+                | "ActivePlayerCtrl"
+                | "DefenderCtrl"
+                | "EnchantedPlayerCtrl"
+        )
+    }
+    fn is_non_card_type_atom(atom: &str) -> bool {
+        matches!(
+            atom,
+            "nonCreature"
+                | "nonArtifact"
+                | "nonEnchantment"
+                | "nonLand"
+                | "nonPlaneswalker"
+                | "nonBattle"
+                | "nonInstant"
+                | "nonSorcery"
+                | "nonPermanent"
+        )
+    }
+    let mut parts = alt
+        .split('.')
+        .flat_map(|s| s.split('+'))
+        .map(str::trim)
+        .filter(|a| !a.is_empty());
+    if parts.next() != Some("Emblem") {
+        return false;
+    }
+    let mut emblem_ctrl: Vec<&str> = Vec::new();
+    for atom in parts {
+        if is_ctrl_atom(atom) {
+            emblem_ctrl.push(atom);
+        } else {
+            return false;
+        }
+    }
+    emblem_ctrl.sort_unstable();
+    all_alts.iter().any(|other| {
+        let mut op = other
+            .split('.')
+            .flat_map(|s| s.split('+'))
+            .map(str::trim)
+            .filter(|a| !a.is_empty());
+        if op.next() != Some("Card") {
+            return false;
+        }
+        let mut card_ctrl: Vec<&str> = Vec::new();
+        for atom in op {
+            if is_ctrl_atom(atom) {
+                card_ctrl.push(atom);
+            } else if !is_non_card_type_atom(atom) {
+                return false;
+            }
+        }
+        card_ctrl.sort_unstable();
+        card_ctrl == emblem_ctrl
+    })
 }

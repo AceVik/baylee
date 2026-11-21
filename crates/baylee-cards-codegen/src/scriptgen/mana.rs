@@ -16,6 +16,11 @@ impl Tx<'_> {
             return self.mana_for(p, who);
         }
         let produced = p.take("Produced")?;
+        let persistent = match p.take("PersistentMana").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Mana.PersistentMana$ {other}`")),
+        };
         let restrict = match p.take("RestrictValid") {
             None => None,
             Some(valid) => Some(self.spend_restriction(&valid)?),
@@ -58,7 +63,7 @@ impl Tx<'_> {
             // would make nothing.
             (fixed == Some(1)).then(|| vec!["Effect::mana_chosen()".to_string()])?
         } else if let Some(valid) = produced.strip_prefix("Special EachColorAmong_Valid ") {
-            if fixed != Some(1) || restrict.is_some() {
+            if fixed != Some(1) || restrict.is_some() || persistent {
                 return self.deny("mana source `Special`".to_string());
             }
             let expr = self.filter_expr(valid.trim())?;
@@ -99,22 +104,38 @@ impl Tx<'_> {
                 )]
             }
         };
-        let Some((filter, uses)) = restrict else {
-            return Some(effects);
+        let mut out = if let Some((filter, uses, ability_filter)) = restrict {
+            // "Spend this mana only to cast a creature spell" is a rider on the
+            // mana, so it can only hang on one effect — a line that made two
+            // mana and restricted them would need the restriction twice, and
+            // nothing in the corpus prints that.
+            let [only] = &effects[..] else {
+                self.note("`Mana.RestrictValid` on more than one mana".to_string());
+                return None;
+            };
+            let name = self.body.filter_static("SPEND", &filter);
+            let mut expr = match uses {
+                None => format!("{only}.restricted(&{name}, SpendRider::None)"),
+                Some(uses) => format!("{only}.restricted_for(&{name}, SpendRider::None, {uses})"),
+            };
+            if let Some(ab_filter) = ability_filter {
+                let ab_ref = if ab_filter == "Filter::Any" {
+                    "Filter::Any".to_string()
+                } else {
+                    self.body.filter_static("SPEND_ABILITY", &ab_filter)
+                };
+                expr = format!("{expr}.for_abilities_matching(&{ab_ref})");
+            }
+            vec![expr]
+        } else {
+            effects
         };
-        // "Spend this mana only to cast a creature spell" is a rider on the
-        // mana, so it can only hang on one effect — a line that made two
-        // mana and restricted them would need the restriction twice, and
-        // nothing in the corpus prints that.
-        let [only] = &effects[..] else {
-            self.note("`Mana.RestrictValid` on more than one mana".to_string());
-            return None;
-        };
-        let name = self.body.filter_static("SPEND", &filter);
-        Some(vec![match uses {
-            None => format!("{only}.restricted(&{name}, SpendRider::None)"),
-            Some(uses) => format!("{only}.restricted_for(&{name}, SpendRider::None, {uses})"),
-        }])
+        if persistent {
+            for effect in &mut out {
+                effect.push_str(".mana_until_end_of_turn()");
+            }
+        }
+        Some(out)
     }
 
     /// [`Self::mana_effect`] for a pool other than the controller's:
@@ -744,6 +765,31 @@ impl Tx<'_> {
             return super::counter_kind(kind)
                 .map(|kind| format!("Amount::CountersOnSource({kind})"));
         }
+        if let Some(valid) = def.strip_prefix("Count$ValidBattlefield,Graveyard ")
+            && !valid.contains('$')
+            && !valid.contains('/')
+        {
+            if !valid.contains("Ctrl") && !valid.contains("Own") {
+                let bf_expr = self.filter_expr(valid)?;
+                let gy_expr = self.filter_expr_in_zone(valid, true)?;
+                let bf_name = self.body.filter_static("COUNT", &bf_expr);
+                let gy_name = self.body.filter_static("COUNT", &gy_expr);
+                return Some(format!(
+                    "Amount::Sum {{ left: &Amount::CountOf {{ filter: &{bf_name}, zone: ZoneSel::Battlefield }}, \
+                     right: &Amount::CountOf {{ filter: &{gy_name}, zone: ZoneSel::GraveyardAll }} }}"
+                ));
+            }
+            if let Some(stripped) = Self::strip_your_graveyard_owner(valid) {
+                let bf_expr = self.filter_expr(valid)?;
+                let gy_expr = self.filter_expr_in_zone(&stripped, true)?;
+                let bf_name = self.body.filter_static("COUNT", &bf_expr);
+                let gy_name = self.body.filter_static("COUNT", &gy_expr);
+                return Some(format!(
+                    "Amount::Sum {{ left: &Amount::CountOf {{ filter: &{bf_name}, zone: ZoneSel::Battlefield }}, \
+                     right: &Amount::CountOf {{ filter: &{gy_name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }} }}"
+                ));
+            }
+        }
         if def == "Count$ValidGraveyard Card.YouOwn" {
             return Some(
                 "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::You) }"
@@ -1004,6 +1050,16 @@ impl Tx<'_> {
             ),
             (
                 "OwnedBy EnchantedController",
+                "PlayerRel::ControllerOfAttached",
+                true,
+            ),
+            (
+                "EnchantedControllerOwn",
+                "PlayerRel::ControllerOfAttached",
+                true,
+            ),
+            (
+                "EnchantedControllerCtrl",
                 "PlayerRel::ControllerOfAttached",
                 true,
             ),
@@ -1277,73 +1333,96 @@ impl Tx<'_> {
     ///
     /// Returns `(filter_expr, optional_mana_use)`: `None` uses the concise
     /// `.restricted(&filter, SpendRider::None)` (`ManaUse::Spells`), while
-    /// `Some(uses)` emits `.restricted_for(&filter, SpendRider::None, uses)`.
-    pub(super) fn spend_restriction(&self, valid: &str) -> Option<(String, Option<&'static str>)> {
+    /// `Some(uses)` emits `.restricted_for(&filter, SpendRider::None, uses)`
+    /// (plus `.for_abilities_matching(...)` when a separate ability filter is
+    /// returned in the third slot).
+    pub(super) fn spend_restriction(
+        &self,
+        valid: &str,
+    ) -> Option<(String, Option<&'static str>, Option<String>)> {
         let trimmed = valid.trim();
-        if trimmed == "CantCastNonArtifactSpells" {
-            return Some((
-                "Filter::ARTIFACT".to_string(),
-                Some("ManaUse::NonSpellPaymentsOrMatchingSpells"),
-            ));
-        }
-        if trimmed == "CumulativeUpkeep" {
-            return Some(("Filter::Any".to_string(), Some("ManaUse::CumulativeUpkeep")));
-        }
-        if trimmed == "Activated" {
-            return Some(("Filter::Any".to_string(), Some("ManaUse::Abilities")));
-        }
-        let alts: Vec<&str> = trimmed.split(',').map(str::trim).collect();
-        if let Some(spells) = alts
-            .iter()
-            .map(|alt| alt.strip_prefix("Spell."))
-            .collect::<Option<Vec<_>>>()
-        {
-            return Some((self.filter_expr(&spells.join(","))?, None));
-        }
-        if let Some(abilities) = alts
-            .iter()
-            .map(|alt| {
-                alt.strip_prefix("Activated.")
-                    .map(|s| s.strip_suffix("+inZoneBattlefield").unwrap_or(s))
-            })
-            .collect::<Option<Vec<_>>>()
-        {
-            let saved = self.unclaimed.take();
-            if let Some(expr) = self.filter_expr(&abilities.join(",")) {
-                self.unclaimed.replace(saved);
-                return Some((expr, Some("ManaUse::Abilities")));
+        match trimmed {
+            "CantCastNonArtifactSpells" => {
+                return Some((
+                    "Filter::ARTIFACT".to_string(),
+                    Some("ManaUse::NonSpellPaymentsOrMatchingSpells"),
+                    None,
+                ));
             }
-            self.unclaimed.replace(saved);
-            self.note("`Mana.RestrictValid` beyond a spell".to_string());
-            return None;
+            "CumulativeUpkeep" => {
+                return Some((
+                    "Filter::Any".to_string(),
+                    Some("ManaUse::CumulativeUpkeep"),
+                    None,
+                ));
+            }
+            "Activated" => {
+                return Some(("Filter::Any".to_string(), Some("ManaUse::Abilities"), None));
+            }
+            "Spell" => return Some(("Filter::Any".to_string(), None, None)),
+            "nonSpell" => {
+                return Some((
+                    "Filter::Not(&Filter::Any)".to_string(),
+                    Some("ManaUse::NonSpellPaymentsOrMatchingSpells"),
+                    None,
+                ));
+            }
+            _ => {}
         }
-        // Paired `Spell.<X>,Activated.<X>[+inZoneBattlefield]` (same filter on
-        // both sides) -> `ManaUse::SpellsOrAbilities`.
-        let mut spell_parts = Vec::new();
-        let mut act_parts = Vec::new();
-        let mut all_paired = !alts.is_empty();
-        for alt in &alts {
-            if let Some(s) = alt.strip_prefix("Spell.") {
-                spell_parts.push(s);
-            } else if let Some(a) = alt.strip_prefix("Activated.") {
-                act_parts.push(a.strip_suffix("+inZoneBattlefield").unwrap_or(a));
+        let mut spell_any = false;
+        let mut act_any = false;
+        let mut spell_parts: Vec<String> = Vec::new();
+        let mut act_parts: Vec<String> = Vec::new();
+        for alt in trimmed.split(',').map(str::trim) {
+            if alt == "Spell" {
+                spell_any = true;
+            } else if let Some(rest) = alt.strip_prefix("Spell.") {
+                spell_parts.push(normalize_spend_valid(rest));
+            } else if alt == "Activated" {
+                act_any = true;
+            } else if let Some(rest) = alt.strip_prefix("Activated.") {
+                let cleaned = rest.strip_suffix("+inZoneBattlefield").unwrap_or(rest);
+                act_parts.push(normalize_spend_valid(cleaned));
             } else {
-                all_paired = false;
-                break;
+                self.note("`Mana.RestrictValid` beyond a spell".to_string());
+                return None;
             }
         }
-        if all_paired && !spell_parts.is_empty() && spell_parts == act_parts {
-            let saved = self.unclaimed.take();
-            if let Some(expr) = self.filter_expr(&spell_parts.join(",")) {
-                self.unclaimed.replace(saved);
-                return Some((expr, Some("ManaUse::SpellsOrAbilities")));
+        let has_spell = spell_any || !spell_parts.is_empty();
+        let has_act = act_any || !act_parts.is_empty();
+        if has_spell && !has_act {
+            return Some((self.parse_spend_side(spell_any, &spell_parts)?, None, None));
+        }
+        let saved = self.unclaimed.take();
+        let out = if has_act && !has_spell {
+            self.parse_spend_side(act_any, &act_parts)
+                .map(|expr| (expr, Some("ManaUse::Abilities"), None))
+        } else if has_spell && has_act {
+            let se = self.parse_spend_side(spell_any, &spell_parts);
+            let ae = self.parse_spend_side(act_any, &act_parts);
+            match (se, ae) {
+                (Some(se), Some(ae)) if se == ae => {
+                    Some((se, Some("ManaUse::SpellsOrAbilities"), None))
+                }
+                (Some(se), Some(ae)) => Some((se, Some("ManaUse::SpellsOrAbilities"), Some(ae))),
+                _ => None,
             }
-            self.unclaimed.replace(saved);
+        } else {
+            None
+        };
+        self.unclaimed.replace(saved);
+        if out.is_none() {
             self.note("`Mana.RestrictValid` beyond a spell".to_string());
-            return None;
         }
-        self.note("`Mana.RestrictValid` beyond a spell".to_string());
-        None
+        out
+    }
+
+    fn parse_spend_side(&self, any: bool, parts: &[String]) -> Option<String> {
+        if any {
+            Some("Filter::Any".to_string())
+        } else {
+            self.filter_expr(&parts.join(","))
+        }
     }
 
     /// A `Cost$` value as a `Cost` expression, plus whether it taps.
@@ -1696,5 +1775,18 @@ fn normalize_object_cost_spec(spec: &str, variant: &str, controlled: bool) -> St
             .join(",")
     } else {
         spec.replace(';', ",")
+    }
+}
+
+fn normalize_spend_valid(raw: &str) -> String {
+    let s = raw.trim();
+    if let Some(plus) = s.find('+')
+        && !s[..plus].contains('.')
+    {
+        let mut out = s.to_string();
+        out.replace_range(plus..=plus, ".");
+        out
+    } else {
+        s.to_string()
     }
 }

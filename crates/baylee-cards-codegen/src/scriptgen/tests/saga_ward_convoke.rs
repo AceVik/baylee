@@ -2007,9 +2007,17 @@ fn wave6_filter_atoms_and_mana_restrictions() {
             .iter()
             .any(|a| a.contains("ManaUse::SpellsOrAbilities"))
     );
+    let split_pair = read(
+        "Name:SplitPair\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ T | Produced$ G | RestrictValid$ Spell.Creature,Activated.Artifact",
+    );
+    assert!(
+        split_pair.abilities[0].contains("ManaUse::SpellsOrAbilities")
+            && split_pair.abilities[0].contains(".for_abilities_matching(&Filter::ARTIFACT)")
+    );
     assert!(refused(
         "Name:BadPair\nTypes:Artifact\n\
-         A:AB$ Mana | Cost$ T | Produced$ G | RestrictValid$ Spell.Creature,Activated.Artifact"
+         A:AB$ Mana | Cost$ T | Produced$ G | RestrictValid$ Spell.Creature,Activated.Equip"
     ));
 }
 
@@ -3180,4 +3188,190 @@ fn wave11c_counter_thresholds_spell_limits_and_static_extras() {
         "Name:BadAbilityTaxZone\nTypes:Enchantment\n\
          S:Mode$ RaiseCost | ValidCard$ Enchantment.White | Type$ Ability | Amount$ 3"
     ));
+}
+
+#[test]
+fn wave12b_mana_emblem_and_graveyard_counts() {
+    let mana = read(
+        "Name:PersistentConduit\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ T | Produced$ R G | PersistentMana$ True\n\
+         A:AB$ Mana | Cost$ T | Produced$ C | RestrictValid$ Spell | PersistentMana$ True\n\
+         A:AB$ Mana | Cost$ T | Produced$ C | RestrictValid$ nonSpell\n\
+         A:AB$ Mana | Cost$ T | Produced$ C | Amount$ 2 | RestrictValid$ Spell.Creature+Colorless,Activated.Creature+Colorless\n\
+         A:AB$ Mana | Cost$ T | Produced$ U | RestrictValid$ Spell.Artifact,Activated\n\
+         A:AB$ Draw | Cost$ T | NumCards$ X\n\
+         A:AB$ Draw | Cost$ T | NumCards$ Y\n\
+         SVar:X:Count$ValidBattlefield,Graveyard Creature.YouCtrl\n\
+         SVar:Y:Count$ValidBattlefield,Graveyard Goblin",
+    );
+    assert!(
+        mana.abilities[0].contains("Effect::mana(ManaColor::Red, 1).mana_until_end_of_turn()")
+            && mana.abilities[0]
+                .contains("Effect::mana(ManaColor::Green, 1).mana_until_end_of_turn()")
+    );
+    assert!(
+        mana.abilities[1]
+            .contains(".restricted(&Filter::Any, SpendRider::None).mana_until_end_of_turn()")
+    );
+    assert!(
+        mana.abilities[2].contains("ManaUse::NonSpellPaymentsOrMatchingSpells")
+            && mana.statics.contains("Filter::Not(&Filter::Any)")
+    );
+    assert!(mana.abilities[3].contains("ManaUse::SpellsOrAbilities"));
+    assert!(
+        mana.abilities[4].contains("ManaUse::SpellsOrAbilities")
+            && mana.abilities[4].contains(".for_abilities_matching(&Filter::Any)")
+    );
+    assert!(
+        mana.abilities[5].contains("Amount::Sum")
+            && mana.abilities[5].contains("ZoneSel::Battlefield")
+            && mana.abilities[5].contains("ZoneSel::GraveyardOf(PlayerRel::You)")
+    );
+    assert!(
+        mana.abilities[6].contains("Amount::Sum")
+            && mana.abilities[6].contains("ZoneSel::GraveyardAll")
+    );
+
+    let aura_gy = read(
+        "Name:AuraMillCount\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ Drain | TriggerZones$ Battlefield\n\
+         SVar:Drain:DB$ LoseLife | Defined$ EnchantedController | LifeAmount$ X\n\
+         SVar:X:Count$ValidGraveyard Card.EnchantedControllerOwn",
+    );
+    assert!(
+        aura_gy
+            .abilities
+            .iter()
+            .any(|a| a.contains("ZoneSel::GraveyardOf(PlayerRel::ControllerOfAttached)"))
+    );
+
+    let emblem_pair = read(
+        "Name:EmblemShield\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.OppCtrl,Emblem.OppCtrl | ValidTarget$ You | Prevent$ True\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.nonCreature,Emblem | ValidTarget$ You | Prevent$ True",
+    );
+    let emblem_text = format!(
+        "{}\n{}",
+        emblem_pair.statics,
+        emblem_pair.abilities.join("\n")
+    );
+    assert!(emblem_text.contains("Filter::ControlledByOpponent"));
+    assert!(emblem_text.contains("Filter::NONCREATURE"));
+
+    let tokens = read(
+        "Name:TokenMirror\nTypes:Enchantment\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | ReplaceWith$ Dbl\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Creature | ReplaceWith$ Tri\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.OppCtrl | ReplaceWith$ Dbl\n\
+         SVar:Dbl:DB$ ReplaceToken | Type$ Amount | Amount$ Twice\n\
+         SVar:Tri:DB$ ReplaceToken | Type$ Amount | Amount$ 3",
+    );
+    assert!(
+        tokens.abilities[0].contains("DoubleTokenCreation { controller_filter: &Filter::Any }")
+    );
+    assert!(tokens.abilities[1].contains(
+        "MultiplyTypedTokens { controller_filter: &Filter::Any, types: TypeSet::CREATURE, factor: 3 }"
+    ));
+    assert!(
+        tokens.abilities[2]
+            .contains("DoubleTokenCreation { controller_filter: &Filter::ControlledByOpponent }")
+    );
+}
+
+#[test]
+fn wave12b_cost_targets_grants_and_graveyard() {
+    let tax_and_grant = read(
+        "Name:SkyWarden\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ RaiseCost | ValidTarget$ Card.Self | Activator$ Opponent | Type$ Spell | Amount$ 2\n\
+         S:Mode$ RaiseCost | ValidTarget$ Permanent.YouCtrl+inZoneBattlefield | Activator$ Player.Opponent | Type$ Spell | Amount$ 1\n\
+         S:Mode$ ReduceCost | ValidTarget$ Card.Self | Activator$ Player.Opponent | Type$ Spell | Amount$ 1\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Spell.Buyback | Activator$ Player | Amount$ 2\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddStaticAbility$ GrantedTax\n\
+         S:Mode$ Activations | ValidCard$ Creature.YouCtrl | ValidSA$ Activated.Boast | ValidPlayer$ You | MinLimit$ 2 | PlayerTurn$ You\n\
+         S:Mode$ Continuous | Affected$ Player.Opponent | AddKeyword$ LimitSearchLibrary\n\
+         SVar:GrantedTax:Mode$ RaiseCost | ValidTarget$ Card.Self | Activator$ Player.Opponent | Type$ Spell | Amount$ 2",
+    );
+    assert!(
+        tax_and_grant.abilities[0].contains("Filter::SpellTargetingAffected")
+            && tax_and_grant.abilities[0].contains("Modifier::SpellsCostMore(2)")
+    );
+    assert!(
+        tax_and_grant.abilities[1].contains("Filter::TargetsPermanentYouControl")
+            && tax_and_grant.abilities[1].contains("Modifier::SpellsCostMore(1)")
+    );
+    assert!(
+        tax_and_grant.abilities[2].contains("Filter::SpellTargetingAffected")
+            && tax_and_grant.abilities[2].contains("Modifier::SpellsCostLess(1)")
+    );
+    assert!(tax_and_grant.abilities[3].contains("Modifier::BuybackCostsLess(2)"));
+    assert!(
+        tax_and_grant.abilities[4].contains("Modifier::GrantStatic { filter: &GRANTED_STATIC")
+            && tax_and_grant.abilities[4].contains("modifier: &Modifier::SpellsCostMore(2)")
+    );
+    assert!(tax_and_grant.abilities[5].contains("Modifier::BoastTwice"));
+    assert!(tax_and_grant.abilities[6].contains("Modifier::OpponentsSearchTop(4)"));
+
+    let stack_tax = read(
+        "Name:StackTorch\nManaCost:X R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ X\n\
+         S:Mode$ RaiseCost | ValidTarget$ Spell.Self | Activator$ Player | Type$ Spell | Amount$ 2 | EffectZone$ Stack\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(stack_tax.abilities[1].contains(
+        "static_ability!(Filter::SpellTargetingAffected, Modifier::SpellsCostMore(2), zone = ZoneRef::Stack)"
+    ));
+
+    let graveyard_rules = read(
+        "Name:GraveKeeper\nManaCost:1 B\nTypes:Creature\nPT:2/1\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True | IsPresent$ Goblin.YouCtrl\n\
+         S:Mode$ Continuous | Affected$ Instant.YouOwn,Sorcery.YouOwn | AffectedZone$ Graveyard | AddKeyword$ Flashback | Condition$ PlayerTurn\n\
+         S:Mode$ Continuous | Affected$ Card.YouOwn+nonLand | AffectedZone$ Graveyard | AddKeyword$ Escape:CardManaCost ExileFromGrave<3/Card.Other/other>",
+    );
+    assert!(
+        graveyard_rules.abilities[0].contains(
+            "static_ability!(Filter::This, Modifier::CastSpellsFromGraveyard, zone = ZoneRef::Graveyard, condition = Some("
+        )
+    );
+    assert!(
+        graveyard_rules.abilities[1].contains("Modifier::GrantsFlashback")
+            && graveyard_rules.abilities[1].contains("Condition::YourTurn")
+    );
+    assert!(graveyard_rules.abilities[2].contains("Modifier::GrantsEscape(3)"));
+}
+
+#[test]
+fn wave12b_refusal_boundaries() {
+    for script in [
+        "Name:BadPersistOther\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | Execute$ Give | TriggerZones$ Battlefield\n\
+         SVar:Give:DB$ Mana | Defined$ TriggeredPlayer | Produced$ R | PersistentMana$ True",
+        "Name:BadEmblemAlone\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Emblem | ValidTarget$ You | Prevent$ True",
+        "Name:BadEmblemMismatch\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.YouCtrl,Emblem.OppCtrl | ValidTarget$ You | Prevent$ True",
+        "Name:BadRaiseLifeCost\nTypes:Creature\nPT:5/4\n\
+         S:Mode$ RaiseCost | ValidTarget$ Card.Self | Activator$ Player.Opponent | Type$ Spell | Cost$ PayLife<3>",
+        "Name:BadRaiseNarrowTarget\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ RaiseCost | ValidTarget$ Creature.YouCtrl | Activator$ Opponent | Type$ Spell | Amount$ 2",
+        "Name:BadReduceColorTarget\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ ReduceCost | ValidTarget$ Card.Self | Activator$ You | Type$ Spell | Color$ U | Amount$ 1",
+        "Name:BadReduceAllZoneTarget\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ 1\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | ValidTarget$ Card.Self | Type$ Spell | EffectZone$ All | Amount$ 2",
+        "Name:BadGrantConditional\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddStaticAbility$ CondStatic\n\
+         SVar:CondStatic:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 1 | IsPresent$ Swamp.YouCtrl",
+        "Name:BadGrantNested\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddStaticAbility$ Outer\n\
+         SVar:Outer:Mode$ Continuous | Affected$ Creature.YouCtrl | AddStaticAbility$ Inner\n\
+         SVar:Inner:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 1",
+        "Name:BadFlashbackCost\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Instant.YouOwn | AffectedZone$ Graveyard | AddKeyword$ Flashback:1 R",
+        "Name:BadGraveyardLandSelf\nTypes:Land\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True",
+        "Name:BadPowerUpActivations\nTypes:Creature\nPT:3/3\n\
+         S:Mode$ Activations | ValidCard$ Permanent.YouCtrl | ValidSA$ Activated.PowerUp | ValidPlayer$ You | MinLimit$ 2",
+    ] {
+        assert!(refused(script), "expected refusal for:\n{script}");
+    }
 }
