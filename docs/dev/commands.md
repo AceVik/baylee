@@ -15,7 +15,7 @@ cargo dev gate reach [<path>…]                # which crates the gate would te
 cargo dev gate rules                          # while working: fmt, lint-rules, test-rules, validate (if data/scryfall-cache)
 cargo dev gate touched [<rev>]                # fmt + clippy on changed files only; not a gate
 DATABASE_URL=… cargo dev gate features        # non-default desktop and server features
-cargo dev gate shipped-features               # release graphs: shipped hooks, hooks a --workspace build would unify, reviewed advisory scope
+cargo dev gate shipped-features               # release graphs: verification hooks, workspace feature unification, Central server licence and advisory scope
 cargo dev central gate                        # same full gate with an owned synthetic PostgreSQL 18 fixture
 cargo dev central gate --features             # same feature gate with an owned synthetic PostgreSQL 18 fixture
 cargo dev stack gate [--features] [--workspace] # full/feature gate with an owned native PostgreSQL 18 (no Docker)

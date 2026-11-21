@@ -11,11 +11,57 @@ pub fn run() -> i32 {
     steps.finish()
 }
 
-/// Checks shipped hooks and the exact scope of the reviewed advisory exception.
+/// Checks shipped hooks and the scope of the licence and advisory exceptions.
 pub fn check(steps: &mut Steps) {
     verification_hooks_unshipped(steps);
     verification_hooks_not_unified(steps);
+    central_server_license_unshipped(steps);
     bigint::check(steps);
+}
+
+/// Central's server licence permits interoperability testing. Dev edges cover
+/// the gateway tests; the local provisioning binary needs normal edges.
+/// Excluding it as a root still catches a shipped crate that pulls it in.
+fn central_server_license_unshipped(steps: &mut Steps) {
+    let output = run::captured(&mut cargo_with([
+        "tree",
+        "--locked",
+        "--workspace",
+        "--exclude",
+        "baylee-dev-provision",
+        "--all-features",
+        "--target",
+        "all",
+        "-e",
+        "normal,build",
+        "--prefix",
+        "none",
+        "--format",
+        "{p}\t{l}",
+    ]));
+    let passed = match output {
+        Some(out) if out.status.success() => {
+            let graph = String::from_utf8_lossy(&out.stdout);
+            if let Some(line) = graph
+                .lines()
+                .find(|line| line.contains("LicenseRef-Baylee-Central-Source-Available-"))
+            {
+                println!("STEP central-server-license FAILED: {line}");
+                false
+            } else {
+                println!("STEP central-server-license ok");
+                true
+            }
+        }
+        out => {
+            println!("STEP central-server-license FAILED to read cargo tree");
+            if let Some(out) = out {
+                println!("{}", run::tail(&run::text(&out), 8));
+            }
+            false
+        }
+    };
+    steps.record(passed);
 }
 
 /// Lines of a feature graph that name a verification hook.

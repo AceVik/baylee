@@ -76,6 +76,18 @@ allow = [
     # https://blueoakcouncil.org/license/1.0.0
     "BlueOak-1.0.0",
 ]
+# Baylee Central LICENSE.md §2.3 permits building its unmodified server for
+# interoperability tests. These are the server crates used by the local
+# provisioning helper. The shipped-features gate checks their licence stays
+# out of normal and build dependencies outside that helper.
+exceptions = [
+    { crate = "central-funding@0.1.0", allow = ["LicenseRef-Baylee-Central-Source-Available-1.0"] },
+    { crate = "central-identity@0.1.0", allow = ["LicenseRef-Baylee-Central-Source-Available-1.0"] },
+    { crate = "central-mail@0.1.0", allow = ["LicenseRef-Baylee-Central-Source-Available-1.0"] },
+    { crate = "central-migration@0.1.0", allow = ["LicenseRef-Baylee-Central-Source-Available-1.0"] },
+    { crate = "central-picture@0.1.0", allow = ["LicenseRef-Baylee-Central-Source-Available-1.0"] },
+    { crate = "central-postgres@0.1.0", allow = ["LicenseRef-Baylee-Central-Source-Available-1.0"] },
+]
 
 [bans]
 
