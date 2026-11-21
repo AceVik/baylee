@@ -1281,6 +1281,9 @@ StackKicked =
     }
 ChoosePlayer = Wähle einen Spieler
 ChooseHowToCast = Wähle, wie gewirkt wird
+ChooseCardAction = Wähle eine Aktion für diese Karte
+CastNormally = Wirken
+SuspendCard = Aussetzen
 ChoosePileForHand = Wähle einen Haufen für deine Hand; der andere kommt auf deinen Friedhof
 PileRow = Haufen { $pile }: { $cards }
 EmptyPile = keine Karten

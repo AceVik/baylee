@@ -1878,10 +1878,11 @@ one printed sentence: `abilitysheet::cut` splits it at its cost colon
 quotation, with no length cap), and the head is the column, in the card's
 words and the player's language: `{1}, {T}, opfere dieses Artefakt`. The
 ability's own cost licenses the cut and is never drawn beside a sentence.
-`AbilityOption::cost` holds only its symbols (`{2}, {T}`, or a walker's
-`{L+2}`). A head that prints a symbol the ability does not cost belongs to some
-other sentence, and a head in words alone is licensed only by a cost with no
-symbols, so a colon inside an effect never passes for a cost. A sentence with
+`AbilityOption::cost` holds only its symbols, including energy
+(`{2}, {T}`, `{E}{E}`, or a walker's `{L+2}`). A head that prints a symbol the
+ability does not cost belongs to some other sentence, and a head in words alone
+is licensed only by a cost with no symbols, so a colon inside an effect never
+passes for a cost. A sentence with
 no cost colon, which is every keyword line (`Equip {1}`, `Level up {1}`,
 `Reconfigure {R}`, `Station`), is drawn whole with an empty column. Only a row
 the card prints no sentence for draws the ability's symbols there.
@@ -1914,10 +1915,10 @@ This replaced seventeen `Phrase::Cost*` wordings of `CostPart` (`Sacrifice
 this`, where the card prints `Sacrifice this artifact`) and a cut at the first
 `: ` under 48 bytes, which drew Gemstone Mine's fifty-byte German cost as an
 effect. `every_written_row_draws_its_printed_cost_or_its_whole_sentence`
-sweeps the pool offline against the compiled English Oracle: 1302 rows draw a
-printed head, 19 cards draw whole (named in the test and held equal both
-ways), and none is refused. The armed shelf draws the same head
-(`abilities::printed_words`), and where a sentence has none, which is a
+sweeps the pool offline against the compiled English Oracle. It checks that
+a row preserves the whole sentence when there is no cost colon and keeps
+the printed body and reminder when there is one. The armed shelf draws the same
+head (`abilities::printed_words`), and where a sentence has none, which is a
 keyword line that is its own cost (`Equip {2}`, `Ausrüsten {2}`), the whole
 line. The stack cuts only a walker's badge
 (`abilitysheet::loyalty_cut`), because it has no cost to license any other
@@ -6304,6 +6305,11 @@ is the least undoable thing in the game. The answer is then remembered in
 `Duel::cast_answer` and spent when the engine finally asks, which is several
 round trips later: the taps, the cast, and only then the question.
 
+When a card can be cast or suspended, the same sheet offers explicit Cast
+and Suspend rows with their separate costs. Suspend uses the engine's paid
+or unpaid special-action offer and checks it again on confirmation. A
+suspend-only card arms directly.
+
 Three things about it are load-bearing.
 
 It is remembered as a **`CastModeKind`, never an index**. The engine numbers
@@ -6403,7 +6409,8 @@ or no text at all, reads the compiled English Oracle (`cardtext::sentence`).
 **The normal way is its cost and no words** (#212). It said "Printed cost",
 which is the client describing a button rather than the card saying
 anything; the row now draws the face's mana cost as pips beside an empty
-label, and a spell cast for nothing draws `{0}` rather than an empty row. An
+label, and a spell cast for nothing draws `{0}` rather than an empty row.
+A sheet that also offers Suspend labels the normal row Cast. An
 alternative cost whose card the view cannot name has no words either (it
 said "Alternative cost"). A **mode printed inside a sentence** (Derevi,
 Inspirit, Tireless Provisioner) draws the card's own English words for it,

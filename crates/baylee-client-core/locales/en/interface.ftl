@@ -3829,6 +3829,9 @@ ChoosePlayer = Choose a player
 
 # Choose how to cast
 ChooseHowToCast = Choose how to cast
+ChooseCardAction = Choose what to do with this card
+CastNormally = Cast
+SuspendCard = Suspend
 
 # Choose a pile to put into your hand (Fact or Fiction)
 ChoosePileForHand = Choose a pile for your hand; the other goes to your graveyard

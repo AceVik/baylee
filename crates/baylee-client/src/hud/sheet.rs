@@ -530,9 +530,8 @@ impl SheetZoom {
 /// What the sheet is currently saying, so it is rebuilt only when that
 /// changes.
 ///
-/// The options themselves are fingerprinted by their labels rather than
-/// stored: the list is rebuilt from `LegalActions` on every read anyway, and
-/// what the sheet draws is exactly what those labels say.
+/// The options are fingerprinted by the text they show and any separate
+/// casting costs. The sheet reads the current offers on every rebuild.
 #[derive(Resource, Default)]
 pub struct SheetRevision {
     object: Option<ObjectId>,
@@ -801,7 +800,7 @@ fn cast_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) -> 
         return None;
     };
     let object = *object;
-    let options = crate::choices::options(
+    let mut options = crate::choices::options(
         &prompt,
         lang,
         duel.statics.as_ref(),
@@ -811,6 +810,24 @@ fn cast_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) -> 
             texts: Some(faces),
         },
     )?;
+    if let Some(menu) = duel.cast_menu.as_ref()
+        && let Some(cost) = menu.suspend_cost
+    {
+        for option in &mut options {
+            if menu
+                .mode(option.index)
+                .is_some_and(|mode| mode.kind == baylee_engine::choice::CastModeKind::Normal)
+            {
+                option.label = Phrase::CastNormally.text(lang).to_string();
+            }
+        }
+        let mut suspend = crate::choices::ChoiceOption::text(
+            menu.modes.len(),
+            Phrase::SuspendCard.text(lang).to_string(),
+        );
+        suspend.cost = Some(cost);
+        options.push(suspend);
+    }
     if options.is_empty() {
         return None;
     }
@@ -840,7 +857,10 @@ fn cast_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) -> 
         picked,
         armed: None,
         dismissible,
-        fingerprint: options.iter().map(|o| o.label.clone()).collect(),
+        fingerprint: options
+            .iter()
+            .map(|option| format!("{} {:?}", option.label, option.cost))
+            .collect(),
         rows,
     })
 }

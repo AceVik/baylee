@@ -32,97 +32,83 @@ pub(in crate::hud) fn armed_label(
     lang: Lang,
     armed: &crate::Armed,
 ) -> Option<ArmedWords> {
+    let words = |phrase: Phrase, cost| ArmedWords {
+        text: phrase.text(lang).to_string(),
+        cost,
+    };
     match &armed.deed {
         crate::Deed::Play => duel
             .interaction
             .as_ref()
             .and_then(|i| i.play_card(armed.object))
-            .map(|_| ArmedWords {
-                text: Phrase::ArmedPlay.text(lang).to_string(),
-                // The engine offered this cast, so the mana is already
-                // floating (`casting::can_cast` checks the pool): there is no
-                // price left to quote.
-                cost: None,
-            }),
+            .map(|_| words(Phrase::ArmedPlay, None)),
         // The retained abilities dialog shows the complete printed sentence
         // and costs. Confirmation names the action without repeating that text.
         crate::Deed::Ability(action) => super::ability_options(duel, lang, armed.object)?
             .into_iter()
             .any(|option| option.action == *action)
-            .then(|| ArmedWords {
-                text: Phrase::ArmedActivate.text(lang).to_string(),
-                cost: None,
-            }),
-        // The owner's report: this said "Tap 3, then cast", which is a fact
-        // about the client's plan and not about the spell. What a player
-        // needs to read before spending a turn's lands is the *price* —
-        // `{4}{U}{U}` — so the plan carries the cost it was built for and
-        // the row draws it.
-        crate::Deed::Run { plan, then } => {
-            if matches!(then, crate::RunEnd::Cast)
-                && duel
-                    .cast_answer
-                    .is_some_and(|(card, _)| card == armed.object)
+            .then(|| words(Phrase::ArmedActivate, None)),
+        crate::Deed::Run {
+            plan,
+            then: crate::RunEnd::Cast,
+        } => {
+            let cost = if duel
+                .cast_answer
+                .is_some_and(|(card, _)| card == armed.object)
             {
-                let current = crate::input::chosen_cast_plan(duel, armed.object)?;
-                return Some(ArmedWords {
-                    text: Phrase::ArmedPayAndCast.text(lang).to_string(),
-                    cost: Some(current.cost),
-                });
-            }
-            if let crate::RunEnd::Ability(index) = then {
-                let view = duel.view.as_ref()?;
-                let legal = duel.interaction.as_ref()?.legal_actions()?;
-                let cost = crate::abilities::mana_for(view, legal, armed.object, *index)
-                    .map(|current| current.cost)
-                    .or_else(|| {
-                        legal
-                            .abilities
-                            .contains(&(armed.object, *index))
-                            .then_some(plan.cost)
-                    })?;
-                return Some(ArmedWords {
-                    text: Phrase::ArmedPayAndActivate.text(lang).to_string(),
-                    cost: Some(cost),
-                });
-            }
-            let offered = match then {
-                crate::RunEnd::Cast => Some((&duel.reachable, Phrase::ArmedPayAndCast)),
-                crate::RunEnd::Suspend => Some((&duel.suspend_reach, Phrase::ArmedSuspend)),
-                crate::RunEnd::Foretell => Some((&duel.foretell_reach, Phrase::ArmedForetell)),
-                // A pour is never armed: [`crate::input::arm_ability`] starts
-                // its run on the press that picks the colour, which is the
-                // whole of "the card taps once the mana has been chosen". So
-                // there is no row to draw here, and no price to quote either
-                // — the mana *is* the point, and it costs a tap.
-                crate::RunEnd::Float | crate::RunEnd::Ability(_) => None,
+                crate::input::chosen_cast_plan(duel, armed.object)?.cost
+            } else {
+                duel.reachable
+                    .contains(&armed.object)
+                    .then_some(plan.cost)?
             };
-            offered
-                .filter(|(offered, _)| offered.contains(&armed.object))
-                .map(|(_, phrase)| ArmedWords {
-                    text: phrase.text(lang).to_string(),
-                    cost: Some(plan.cost),
-                })
+            Some(words(Phrase::ArmedPayAndCast, Some(cost)))
         }
-        // The engine is already offering the suspend, so the cost is floating
-        // and there is nothing left to quote — the same reason `Play` quotes
-        // nothing.
-        crate::Deed::Suspend => duel
-            .interaction
-            .as_ref()
-            .and_then(|i| i.suspend(armed.object))
-            .map(|_| ArmedWords {
-                text: Phrase::ArmedSuspendNow.text(lang).to_string(),
-                cost: None,
-            }),
-        crate::Deed::Foretell => duel
-            .interaction
-            .as_ref()
-            .and_then(|i| i.foretell(armed.object))
-            .map(|_| ArmedWords {
-                text: Phrase::ArmedForetellNow.text(lang).to_string(),
-                cost: None,
-            }),
+        crate::Deed::Run {
+            plan,
+            then: crate::RunEnd::Ability(index),
+        } => {
+            let view = duel.view.as_ref()?;
+            let legal = duel.interaction.as_ref()?.legal_actions()?;
+            let cost = crate::abilities::mana_for(view, legal, armed.object, *index)
+                .map(|current| current.cost)
+                .or_else(|| {
+                    legal
+                        .abilities
+                        .contains(&(armed.object, *index))
+                        .then_some(plan.cost)
+                })?;
+            Some(words(Phrase::ArmedPayAndActivate, Some(cost)))
+        }
+        crate::Deed::Suspend
+        | crate::Deed::Run {
+            then: crate::RunEnd::Suspend,
+            ..
+        } => {
+            if duel.interaction.as_ref()?.suspend(armed.object).is_some() {
+                Some(words(Phrase::ArmedSuspendNow, None))
+            } else {
+                let plan = crate::suspend_mana_for(duel, armed.object)?;
+                Some(words(Phrase::ArmedSuspend, Some(plan.cost)))
+            }
+        }
+        crate::Deed::Foretell
+        | crate::Deed::Run {
+            then: crate::RunEnd::Foretell,
+            ..
+        } => {
+            if duel.interaction.as_ref()?.foretell(armed.object).is_some() {
+                Some(words(Phrase::ArmedForetellNow, None))
+            } else {
+                let plan = crate::foretell_mana_for(duel, armed.object)?;
+                Some(words(Phrase::ArmedForetell, Some(plan.cost)))
+            }
+        }
+        // A pour starts when the player picks its colour.
+        crate::Deed::Run {
+            then: crate::RunEnd::Float,
+            ..
+        } => None,
     }
 }
 

@@ -114,6 +114,15 @@ impl Duel {
                 ))
             },
         );
+        if self
+            .cast_menu
+            .as_ref()
+            .is_some_and(|menu| menu.suspend_cost.is_some())
+        {
+            headline = baylee_client_core::i18n::Phrase::ChooseCardAction
+                .text(lang)
+                .to_string();
+        }
         // A vote in progress tells every ballot cast so far, to the voter
         // and to every seat waiting on it alike (CR 608.2d, 701.38a); an
         // in-progress APNAP choice sequence tells earlier held choices the

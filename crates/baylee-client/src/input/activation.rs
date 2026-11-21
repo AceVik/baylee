@@ -40,18 +40,18 @@ pub(super) fn card_on_screen(
 
 /// Arms suspend on a hand card: at once when the engine offers it now, else
 /// behind the taps that pay its suspend cost. Says whether it armed anything.
-fn arm_suspend(duel: &mut Duel, object: ObjectId) -> bool {
+pub(super) fn arm_suspend(duel: &mut Duel, object: ObjectId) -> bool {
     if duel
         .interaction
         .as_ref()
         .is_some_and(|i| i.suspend(object).is_some())
     {
+        duel.cast_answer = None;
         arm(duel, object, Deed::Suspend);
         return true;
     }
-    if duel.suspend_reach.contains(&object)
-        && let Some(plan) = crate::suspend_mana_for(duel, object)
-    {
+    if let Some(plan) = crate::suspend_mana_for(duel, object) {
+        duel.cast_answer = None;
         duel.last_error = None;
         arm(
             duel,
@@ -75,12 +75,12 @@ fn arm_foretell(duel: &mut Duel, object: ObjectId) -> bool {
         .as_ref()
         .is_some_and(|i| i.foretell(object).is_some())
     {
+        duel.cast_answer = None;
         arm(duel, object, Deed::Foretell);
         return true;
     }
-    if duel.foretell_reach.contains(&object)
-        && let Some(plan) = crate::foretell_mana_for(duel, object)
-    {
+    if let Some(plan) = crate::foretell_mana_for(duel, object) {
+        duel.cast_answer = None;
         duel.last_error = None;
         arm(
             duel,
@@ -95,16 +95,11 @@ fn arm_foretell(duel: &mut Duel, object: ObjectId) -> bool {
     false
 }
 
-/// Fires an armed foretell: the special action when it is offered now, else
-/// the mana run of a deed armed behind taps (`plan`), else a withdrawn deed.
-fn fire_foretell(
-    duel: &mut Duel,
-    object: ObjectId,
-    plan: Option<baylee_client_core::manaplan::Plan>,
-) {
+/// Fires an armed foretell against the current offer and mana sources.
+fn fire_foretell(duel: &mut Duel, object: ObjectId) {
     if let Some(action) = duel.interaction.as_ref().and_then(|i| i.foretell(object)) {
         duel.submit(action);
-    } else if let Some(plan) = plan.filter(|_| duel.foretell_reach.contains(&object)) {
+    } else if let Some(plan) = crate::foretell_mana_for(duel, object) {
         duel.last_error = None;
         duel.mana_run = Some(crate::ManaRun::new(plan, object, crate::RunEnd::Foretell));
     } else {
@@ -227,20 +222,8 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
         }
         return Answer::Took;
     }
-    // Suspending is the fourth thing a card in hand can do, and it was the
-    // one nothing could reach: `legal.suspendable` was read by the automation
-    // rules and by nothing else, so a Suspend 4—{U} answered no click at all.
-    // Both halves sit here in the order the two above do — the engine's own
-    // offer first, this client's offer to tap for it second.
-    //
-    // *After* the cast, which is a decision and not an accident: a card that
-    // could be cast and suspended on the same click is two deeds and this
-    // path would silently pick one. No card in the pool is both — every
-    // suspend card there prints no mana cost, so CR 202.1b keeps it out of
-    // `castable` entirely — and `no_suspend_card_in_the_pool_is_also_castable`
-    // is what says so, because the day one is, this line has to become a
-    // chooser rather than an order. Foretell, the other special action from
-    // a hand, follows in the same shape.
+    // The chooser above has already handled combinations of casts, land
+    // plays and special actions. Arm a single hand special action directly.
     if arm_suspend(duel, object) || arm_foretell(duel, object) {
         return Answer::Took;
     }
@@ -407,35 +390,37 @@ fn open_pile(duel: &mut Duel, object: ObjectId) -> bool {
     false
 }
 
-/// The chooser for `object`, when it has more than one way to be cast.
-///
-/// `None` is the ordinary answer and means "carry on as before": one way, no
-/// way, or a card this client would not offer to pay for anyway.
-///
-/// The two membership tests are not a third judgement about timing and the
-/// board — they are the two this client already makes, asked again. A card
-/// the engine offers is castable now; a card in `reachable` has been through
-/// `timing::allows` and has a plan. Without them a sorcery with two printed
-/// ways would open a chooser on an opponent's turn and every row in it would
-/// lead nowhere.
-pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::CastMenu> {
+/// Current rows for a hand-card chooser, even if only one row remains.
+pub(super) fn cast_rows_for(duel: &Duel, object: ObjectId) -> Option<crate::CastMenu> {
     let view = duel.view.as_ref()?;
     let legal = duel.interaction.as_ref()?.legal_actions()?;
     let ordinary = legal.castable.contains(&object)
         || legal.lands.contains(&object)
         || duel.reachable.contains(&object);
-    if !ordinary && !legal.foretellable.contains(&object) && !duel.foretell_reach.contains(&object)
-    {
-        return None;
-    }
-    let mut modes = crate::castmodes::reachable_modes(view, legal, object);
-    if !ordinary {
+    let suspend_cost = crate::castmodes::suspend_cost(duel, view, legal, object);
+    let modes = if ordinary {
+        crate::castmodes::reachable_modes(view, legal, object)
+    } else {
         // Foretell is legal in combat and over a nonempty stack; an ordinary
         // sorcery-speed row computed beside it must not become clickable too.
-        modes.retain(|mode| matches!(mode.kind, baylee_engine::choice::CastModeKind::Foretell));
-    }
-    (modes.len() > 1
-        || modes.first().is_some_and(|m| {
+        crate::castmodes::foretell_mode(view, legal, object)
+            .into_iter()
+            .collect()
+    };
+    Some(crate::CastMenu {
+        card: object,
+        modes,
+        suspend_cost,
+        pick: 0,
+    })
+}
+
+/// Opens a chooser when there are competing plays or the sole route needs
+/// to be named before confirmation.
+pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::CastMenu> {
+    let menu = cast_rows_for(duel, object)?;
+    (menu.row_count() > 1
+        || menu.modes.first().is_some_and(|m| {
             matches!(
                 m.kind,
                 baylee_engine::choice::CastModeKind::Kicked
@@ -462,11 +447,7 @@ pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::Cast
                     | baylee_engine::choice::CastModeKind::LibraryTopLife { .. }
             )
         }))
-    .then_some(crate::CastMenu {
-        card: object,
-        modes,
-        pick: 0,
-    })
+    .then_some(menu)
 }
 
 /// Arms a deed. The prompt bar draws what is armed, and the way out of it.
@@ -844,24 +825,6 @@ pub fn fire_armed(duel: &mut Duel) {
                 duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
             }
         }
-        // The plan itself is not re-planned: `ManaRun` re-checks every one of
-        // its steps against what the engine is offering as it spends them, and
-        // stops honestly if a land it counted on can no longer be tapped. What
-        // *is* re-read is whether a run is still the right answer — between the
-        // two taps this seat holds priority, so the one thing that can have
-        // changed is its own manual land tap, after which the spell may be
-        // castable outright and the run would float mana nobody asked for.
-        Deed::Suspend => {
-            match duel
-                .interaction
-                .as_ref()
-                .and_then(|i| i.suspend(armed.object))
-            {
-                Some(action) => duel.submit(action),
-                None => duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn)),
-            }
-        }
-        Deed::Foretell => fire_foretell(duel, armed.object, None),
         Deed::Run {
             then: crate::RunEnd::Ability(index),
             ..
@@ -870,13 +833,12 @@ pub fn fire_armed(duel: &mut Duel) {
             plan,
             then: crate::RunEnd::Cast,
         } => fire_cast_payment(duel, armed.object, plan),
-        // The same shape for the other end, and the same short-circuit: the
-        // manual tap that happened between the two clicks may already have
-        // floated the cost, in which case the engine is offering the suspend
-        // outright and a run would float mana nobody asked for.
-        Deed::Run {
-            plan,
+        // Manual taps between choosing and confirming can fund all or part
+        // of the suspend. Pay only what remains.
+        Deed::Suspend
+        | Deed::Run {
             then: crate::RunEnd::Suspend,
+            ..
         } => {
             if let Some(action) = duel
                 .interaction
@@ -884,7 +846,7 @@ pub fn fire_armed(duel: &mut Duel) {
                 .and_then(|i| i.suspend(armed.object))
             {
                 duel.submit(action);
-            } else if duel.suspend_reach.contains(&armed.object) {
+            } else if let Some(plan) = crate::suspend_mana_for(duel, armed.object) {
                 duel.last_error = None;
                 duel.mana_run = Some(crate::ManaRun::new(
                     plan,
@@ -895,10 +857,11 @@ pub fn fire_armed(duel: &mut Duel) {
                 duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
             }
         }
-        Deed::Run {
-            plan,
+        Deed::Foretell
+        | Deed::Run {
             then: crate::RunEnd::Foretell,
-        } => fire_foretell(duel, armed.object, Some(plan)),
+            ..
+        } => fire_foretell(duel, armed.object),
         // A pour is never armed — [`arm_ability`] starts its run on the press
         // that picks the colour, which is the whole of "the card taps once
         // the mana has been chosen". Nothing arranges this deed today; it

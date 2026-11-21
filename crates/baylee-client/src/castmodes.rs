@@ -269,7 +269,7 @@ pub fn reachable_modes(
         out.push(emerge_mode);
     }
     out.extend(face_modes(view, legal, card, &pool, life));
-    out.extend(foretell_mode(view, legal, face, &pool));
+    out.extend(foretell_mode(view, legal, card));
     out
 }
 
@@ -497,27 +497,53 @@ fn face_modes(
         .collect()
 }
 
-/// Foretell's special action (CR 702.143a), offered beside the ordinary ways
-/// so a foretell card that can also be cast never has either deed silently
-/// chosen for it. Its {2} is not a spell cost and receives no spell-cost
-/// increase.
-fn foretell_mode(
+/// The cost of an offered suspend action that can be funded now.
+pub(crate) fn suspend_cost(
+    duel: &crate::Duel,
     view: &PlayerView,
     legal: &LegalActions,
-    face: &baylee_cards_dsl::FaceDef,
-    pool: &baylee_view::ManaPoolView,
-) -> Option<ReachableMode> {
-    if view.active != resource_player(view) || face.foretell.is_none() {
-        return None;
+    card: ObjectId,
+) -> Option<ManaCost> {
+    if legal.suspendable.contains(&card) {
+        let hand = baylee_client_core::decision::hand(view)
+            .iter()
+            .find(|c| c.id == card)?;
+        let def = baylee_cards::by_index(hand.card.index)?;
+        return def
+            .abilities_for_face(0)
+            .iter()
+            .find_map(|ability| match ability {
+                baylee_cards_dsl::AbilityDef::Suspend { cost, .. } => Some(*cost),
+                _ => None,
+            });
     }
+    crate::suspend_mana_for(duel, card)?;
+    legal
+        .unpaid_suspend
+        .iter()
+        .find_map(|&(id, cost)| (id == card).then_some(cost))
+}
+
+/// The engine's paid or reachable foretell special action (CR 702.143a).
+pub(crate) fn foretell_mode(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: ObjectId,
+) -> Option<ReachableMode> {
     let cost = const { ManaCost::parse("{2}") };
-    baylee_client_core::manaplan::plan(&cost, pool, &crate::manasources::sources(view, legal)).map(
-        |plan| ReachableMode {
-            kind: CastModeKind::Foretell,
-            cost,
-            plan,
-        },
-    )
+    let plan = if legal.foretellable.contains(&card) {
+        Plan::default()
+    } else if legal.unpaid_foretell.contains(&card) {
+        let pool = view.seat(resource_player(view))?.mana_pool;
+        baylee_client_core::manaplan::plan(&cost, &pool, &crate::manasources::sources(view, legal))?
+    } else {
+        return None;
+    };
+    Some(ReachableMode {
+        kind: CastModeKind::Foretell,
+        cost,
+        plan,
+    })
 }
 
 /// Whether an alternative cost's condition holds, read off the view.
@@ -1217,8 +1243,10 @@ mod tests {
     #[test]
     fn foretell_plans_its_fixed_action_cost_beside_the_normal_cast() {
         let hand = card_in_hand(1, "Doomskar", &[Color::White]);
-        let (view, legal) = table(vec![hand], 5);
-        let modes = reachable_modes(&view, &legal, ObjectId::new(1, 0));
+        let id = hand.id;
+        let (view, mut legal) = table(vec![hand], 5);
+        legal.unpaid_foretell.push(id);
+        let modes = reachable_modes(&view, &legal, id);
         assert_eq!(
             kinds(&modes),
             [CastModeKind::Normal, CastModeKind::Foretell]
@@ -1226,6 +1254,11 @@ mod tests {
         assert_eq!(modes[1].cost, ManaCost::parse("{2}"));
         assert_eq!(modes[1].plan.taps(), 2);
         assert_eq!(modes[0].cost, ManaCost::parse("{3}{W}{W}"));
+        legal.unpaid_foretell.clear();
+        assert_eq!(
+            kinds(&reachable_modes(&view, &legal, id)),
+            [CastModeKind::Normal]
+        );
     }
 
     #[test]

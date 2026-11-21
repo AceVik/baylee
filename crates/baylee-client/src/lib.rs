@@ -368,7 +368,7 @@ pub enum RunEnd {
     Float,
 }
 
-/// The client's own question: which of several ways to cast one card.
+/// The client's own question: what to do with a card offering several plays.
 ///
 /// It is the same chooser the engine's own `Pending::ChooseCastMode` opens —
 /// [`Self::prompt`] builds a real `Prompt::CastMode` and the prompt bar draws
@@ -387,12 +387,15 @@ pub struct CastMenu {
     pub card: ObjectId,
     /// The ways, in the order they are drawn.
     pub modes: Vec<crate::castmodes::ReachableMode>,
+    /// The cost of a suspend action, drawn after the casting rows.
+    pub suspend_cost: Option<baylee_core::mana::ManaCost>,
     /// Which row the cursor is on.
     pub pick: usize,
 }
 
 impl CastMenu {
-    /// The question, in the shape the prompt bar already knows how to draw.
+    /// The cast rows, in the shape the prompt bar already knows how to draw.
+    /// The sheet draws the client's suspend row from [`Self::suspend_cost`].
     ///
     /// Built on demand rather than stored beside [`Self::modes`]: two copies
     /// of one list are two things that can disagree, and this one is cheap —
@@ -427,6 +430,12 @@ impl CastMenu {
     #[must_use]
     pub fn mode(&self, at: usize) -> Option<&crate::castmodes::ReachableMode> {
         self.modes.get(at)
+    }
+
+    /// The number of selectable rows, including the suspend action.
+    #[must_use]
+    pub fn row_count(&self) -> usize {
+        self.modes.len() + usize::from(self.suspend_cost.is_some())
     }
 }
 

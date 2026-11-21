@@ -79,6 +79,7 @@ fn duel_casting() -> Duel {
                 plan: baylee_client_core::manaplan::Plan::default(),
             },
         ],
+        suspend_cost: None,
         pick: 0,
     });
     duel
@@ -124,6 +125,26 @@ fn the_ways_to_cast_a_card_stand_on_its_sheet_and_not_in_the_drawer() {
          that is already resolving and has no card to hang paper beside"
     );
     assert_eq!(drawer_panels(&mut app), 1, "and they stand on one panel");
+}
+
+#[test]
+fn cast_and_suspend_are_both_labelled_on_the_card_sheet() {
+    let mut duel = duel_casting();
+    let menu = duel.cast_menu.as_mut().unwrap();
+    menu.modes.truncate(1);
+    menu.modes[0].cost = baylee_core::mana!("{6}{U}");
+    menu.suspend_cost = Some(baylee_core::mana!("{1}{U}"));
+
+    let mut app = bar_of(duel);
+    assert_eq!(choice_rows(&mut app), [(0, true), (1, true)]);
+    let mut query = app.world_mut().query::<(Entity, &Text)>();
+    for label in ["Cast", "Suspend"] {
+        assert!(
+            query
+                .iter(app.world())
+                .any(|(entity, text)| { text.0 == label && under_a_sheet(&app, entity) })
+        );
+    }
 }
 
 /// The same question drawn in the same place however it arrived.

@@ -1751,7 +1751,7 @@ fn cast_menu_json(duel: &Duel) -> String {
             format!(
                 "{{\"card\":{},\"ways\":{},\"pick\":{}}}",
                 menu.card.slot(),
-                menu.modes.len(),
+                menu.row_count(),
                 menu.pick
             )
         },
