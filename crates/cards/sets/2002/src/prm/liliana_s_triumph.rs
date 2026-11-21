@@ -17,7 +17,7 @@ card!(
     oracle_id = "c2e68ac5-cfff-4b76-8062-25a82fdf9a5c",
     scryfall_id = "84803db8-fdb0-462b-92f6-33d591593d2d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Liliana's Triumph",
         mana_cost = mana!("{1}{B}"),

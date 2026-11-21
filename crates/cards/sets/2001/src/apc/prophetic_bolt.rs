@@ -10,7 +10,7 @@ card!(
     oracle_id = "d5e4bf5e-1a66-4315-8c82-640c27977b88",
     scryfall_id = "94b79c31-597f-484b-a684-f1520cae314a",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Prophetic Bolt",
         mana_cost = mana!("{3}{U}{R}"),

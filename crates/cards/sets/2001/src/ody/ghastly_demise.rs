@@ -15,7 +15,7 @@ card!(
     oracle_id = "e02e7239-304b-4755-b913-bb65bc693e86",
     scryfall_id = "7fcfe11a-fcc9-41e1-91ef-755bb4e22389",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ghastly Demise",
         mana_cost = mana!("{B}"),

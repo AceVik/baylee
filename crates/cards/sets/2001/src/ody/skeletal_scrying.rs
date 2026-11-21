@@ -11,7 +11,7 @@ card!(
     oracle_id = "561c68d8-b727-48d8-a832-2e42d1345fac",
     scryfall_id = "6653ed3b-2a82-4e22-a9ca-18da5da94990",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skeletal Scrying",
         mana_cost = mana!("{X}{B}"),

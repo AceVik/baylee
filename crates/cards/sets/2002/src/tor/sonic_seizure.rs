@@ -11,7 +11,7 @@ card!(
     oracle_id = "f43c68f1-97ac-47a4-82d3-a41277259388",
     scryfall_id = "98eb9371-aa20-4790-baf8-a1ad95de39de",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sonic Seizure",
         mana_cost = mana!("{R}"),

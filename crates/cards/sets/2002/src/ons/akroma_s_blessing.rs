@@ -11,7 +11,7 @@ card!(
     oracle_id = "a3fc6888-0a4b-4e1d-b709-042b8b6b1a04",
     scryfall_id = "be43fdd6-917e-4a49-a9b8-d1673b421dce",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Akroma's Blessing",
         mana_cost = mana!("{2}{W}"),

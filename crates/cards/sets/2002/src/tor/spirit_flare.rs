@@ -27,7 +27,7 @@ card!(
     oracle_id = "d19a2c28-8d09-40bf-aeb1-e699672b009f",
     scryfall_id = "efdbe7c6-99ad-4c73-bffe-7bbdc6965854",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spirit Flare",
         mana_cost = mana!("{3}{W}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "e6681d22-821a-47c8-9c0d-042a7d44f843",
     scryfall_id = "87ce6584-0a21-43d0-a2fe-cbdea564927a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blazing Salvo",
         mana_cost = mana!("{R}"),
