@@ -11,7 +11,7 @@ card!(
     oracle_id = "277757c6-4c4c-4a4c-84f6-4a64fe3b3bfe",
     scryfall_id = "62e55607-4c1f-46ab-aae7-391b65a125c4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hypnotic Cloud",
         mana_cost = mana!("{1}{B}"),

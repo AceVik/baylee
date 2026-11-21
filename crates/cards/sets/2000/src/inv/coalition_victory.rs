@@ -24,7 +24,7 @@ card!(
         Color::Blue,
         Color::White
     ]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Coalition Victory",
         mana_cost = mana!("{3}{W}{U}{B}{R}{G}"),

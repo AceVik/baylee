@@ -10,7 +10,7 @@ card!(
     oracle_id = "26074e44-cf2b-459f-9a5d-7eed231ed2b4",
     scryfall_id = "304cc153-36ac-4527-a6e2-91d994bcc35c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desperate Charge",
         mana_cost = mana!("{2}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "ad66a99b-c7e7-4b2c-8525-299d3609d1df",
     scryfall_id = "66525fe9-8a84-474f-84ec-eb64f2f7bf11",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Peach Garden Oath",
         mana_cost = mana!("{W}"),

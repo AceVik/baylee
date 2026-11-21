@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod coalition_victory;
 mod death_mutation;
 mod obliterate;
 mod ondu_inversion;

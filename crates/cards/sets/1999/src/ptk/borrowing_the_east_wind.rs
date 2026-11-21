@@ -15,7 +15,7 @@ card!(
     oracle_id = "79334732-8db1-4393-9fed-3cde3c572c5c",
     scryfall_id = "96ba9014-d750-4924-aa6f-8b9f421807f9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Borrowing the East Wind",
         mana_cost = mana!("{X}{G}{G}"),

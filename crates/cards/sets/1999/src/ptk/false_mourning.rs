@@ -10,7 +10,7 @@ card!(
     oracle_id = "31a331a0-3065-4ecb-9e6a-ab11e241833b",
     scryfall_id = "61bdfefb-f2e2-409c-b5e1-66d24ab3ee5d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "False Mourning",
         mana_cost = mana!("{G}"),

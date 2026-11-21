@@ -10,7 +10,7 @@ card!(
     oracle_id = "1c6da9a9-6395-460b-8150-ea46d7299dc2",
     scryfall_id = "e02c1609-9cac-460f-8504-a84e28c340c1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rhystic Tutor",
         mana_cost = mana!("{2}{B}"),

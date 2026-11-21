@@ -10,7 +10,7 @@ card!(
     oracle_id = "ccf1336c-2ea5-4582-84a5-0b29b3cca6c2",
     scryfall_id = "0feac25c-23f0-415e-95d2-bae87cc68f4c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forced Retreat",
         mana_cost = mana!("{2}{U}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "1f592b83-7838-4466-8bcb-093ac7346c55",
     scryfall_id = "6da5cb6c-253b-44f0-98f9-d75f42c6e14b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wandering Stream",
         mana_cost = mana!("{2}{G}"),

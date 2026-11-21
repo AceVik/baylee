@@ -15,7 +15,7 @@ card!(
     oracle_id = "5751df7a-aa9a-4a27-b7ab-445ec4bcbdee",
     scryfall_id = "6ba99278-0a8f-4cee-8a50-dfac97996106",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trip Wire",
         mana_cost = mana!("{2}{G}"),
