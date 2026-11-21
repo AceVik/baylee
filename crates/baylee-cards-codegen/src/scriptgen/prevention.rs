@@ -2,6 +2,18 @@
 
 use super::{Chain, Params, Tx};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DamageScope {
+    All,
+    CombatOnly,
+    NoncombatOnly,
+}
+
+enum DamageScale {
+    Multiply(u8),
+    Add(u8),
+}
+
 impl Tx<'_> {
     /// Persistent `R: Event$ DamageDone` prevention rules:
     /// - Spell-source `PreventAllDamageFromIt` (`ValidSource$ Instant,Sorcery`);
@@ -34,14 +46,18 @@ impl Tx<'_> {
             if p.has("DamageAmount") && !p.has("PreventionEffect") && !p.has("Prevent") {
                 return self.replace_player_damage_rule(p);
             }
+            if !p.has("PreventionEffect") && !p.has("Prevent") {
+                return self.damage_multiplier_or_adder_rule(p);
+            }
             return self.per_source_damage_prevention(p);
         }
         if p.take("Prevent").as_deref() != Some("True") {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
-        let combat_only = match p.take("IsCombat").as_deref() {
-            None => false,
-            Some("True") => true,
+        let scope = match p.take("IsCombat").as_deref() {
+            None => DamageScope::All,
+            Some("True") => DamageScope::CombatOnly,
+            Some("False") => DamageScope::NoncombatOnly,
             Some(_) => {
                 return self
                     .deny("a persistent spell prevention with another zone or result".into());
@@ -55,6 +71,11 @@ impl Tx<'_> {
         }
 
         let Some(target_raw) = valid_target else {
+            if scope == DamageScope::NoncombatOnly {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+            let combat_only = scope == DamageScope::CombatOnly;
             let valid = valid_source?;
             if Self::is_stack_spell_source(&valid) {
                 if combat_only || !cond.is_empty() || secondary.is_some() {
@@ -96,14 +117,14 @@ impl Tx<'_> {
         {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
-        self.emit_target_damage_prevention(valid_source.as_deref(), &target_raw, combat_only, &cond)
+        self.emit_target_damage_prevention(valid_source.as_deref(), &target_raw, scope, &cond)
     }
 
     fn emit_target_damage_prevention(
         &mut self,
         valid_source: Option<&str>,
         target_raw: &str,
-        combat_only: bool,
+        scope: DamageScope,
         cond: &str,
     ) -> Option<()> {
         let source_expr = match valid_source {
@@ -119,6 +140,10 @@ impl Tx<'_> {
         if target_parts.is_empty() {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
+        if scope == DamageScope::NoncombatOnly {
+            return self.emit_noncombat_damage_prevention(&source_expr, &target_parts, cond);
+        }
+        let combat_only = scope == DamageScope::CombatOnly;
         let has_you = target_parts.contains(&"You");
         let perm_alts: Vec<&str> = target_parts
             .iter()
@@ -155,6 +180,208 @@ impl Tx<'_> {
             ));
         }
         Some(())
+    }
+
+    fn emit_noncombat_damage_prevention(
+        &mut self,
+        source_expr: &str,
+        target_parts: &[&str],
+        cond: &str,
+    ) -> Option<()> {
+        let mut player_rels: Vec<&'static str> = Vec::new();
+        let mut perm_alts: Vec<&str> = Vec::new();
+        for &part in target_parts {
+            match part {
+                "You" => player_rels.push("PlayerRel::You"),
+                "Player" => player_rels.push("PlayerRel::EachPlayer"),
+                "Opponent" | "Player.Opponent" => player_rels.push("PlayerRel::Opponent"),
+                "EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer" => {
+                    player_rels.push("PlayerRel::EnchantedPlayer");
+                }
+                _ => perm_alts.push(part),
+            }
+        }
+        let target_filter = if perm_alts.is_empty() {
+            None
+        } else {
+            let Some(filter) = self.prevention_permanent_target(&perm_alts.join(",")) else {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            };
+            Some(filter)
+        };
+        let src_ref = self.body.filter_static("SOURCE", source_expr);
+        for who in player_rels {
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::This, Modifier::PreventNoncombatDamageToPlayers {{ \
+                 who: {who}, from: &{src_ref} }}{cond})"
+            ));
+        }
+        if let Some(target_filter) = target_filter {
+            self.body.abilities.push(format!(
+                "static_ability!({target_filter}, Modifier::PreventNoncombatDamageFrom(&{src_ref}){cond})"
+            ));
+        }
+        Some(())
+    }
+
+    /// Persistent `R: Event$ DamageDone | ReplaceWith$ <ReplaceEffect>` damage
+    /// multipliers (`Modifier::MultiplyDamageFrom`) and flat adders
+    /// (`Modifier::AddDamageFrom`) over `DamageRecipients` (CR 614.1a).
+    fn damage_multiplier_or_adder_rule(&mut self, mut p: Params) -> Option<()> {
+        if p.has("AlwaysReplace")
+            || p.has("DamageAmount")
+            || p.has("DamageTarget")
+            || p.has("ExecuteMode")
+            || p.has("Optional")
+            || p.has("OptionalDecider")
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let (combat_only, noncombat_only) = match p.take("IsCombat").as_deref() {
+            None => (false, false),
+            Some("True") => (true, false),
+            Some("False") => (false, true),
+            Some(_) => {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+        };
+        let Some(replace_name) = p.take("ReplaceWith") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let valid_source = p.take("ValidSource");
+        let valid_target = p.take("ValidTarget");
+        let cond = self.prevention_condition(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some(scale) = self.parse_damage_scale(replace_name.trim()) else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let source_expr = match valid_source.as_deref() {
+            None => "Filter::Any".to_string(),
+            Some(vs) => {
+                let Some(expr) = self.prevention_source_filter(vs) else {
+                    return self
+                        .deny("a persistent spell prevention with another zone or result".into());
+                };
+                expr
+            }
+        };
+        let Some(recipients) = self.damage_recipients_expr(valid_target.as_deref()) else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let src_ref = self.body.filter_static("SOURCE", &source_expr);
+        let modifier = match scale {
+            DamageScale::Multiply(factor) => format!(
+                "Modifier::MultiplyDamageFrom {{ sources: &{src_ref}, factor: {factor}, \
+                 combat_only: {combat_only}, noncombat_only: {noncombat_only}, \
+                 recipients: {recipients} }}"
+            ),
+            DamageScale::Add(extra) => format!(
+                "Modifier::AddDamageFrom {{ sources: &{src_ref}, extra: {extra}, \
+                 combat_only: {combat_only}, noncombat_only: {noncombat_only}, \
+                 recipients: {recipients} }}"
+            ),
+        };
+        self.body
+            .abilities
+            .push(format!("static_ability!(Filter::Any, {modifier}{cond})"));
+        Some(())
+    }
+
+    fn parse_damage_scale(&self, replace_name: &str) -> Option<DamageScale> {
+        let (api, mut rep) = self
+            .svars
+            .get(replace_name)
+            .and_then(|b| Params::parse(b))?;
+        rep.drop_prose();
+        if api != "ReplaceEffect" || rep.take("VarName").as_deref() != Some("DamageAmount") {
+            return None;
+        }
+        let val_raw = rep.take("VarValue")?;
+        if !rep.exhausted() {
+            return None;
+        }
+        let val = val_raw.trim();
+        let resolved = if val.starts_with("ReplaceCount$") {
+            val
+        } else {
+            self.svars.get(val)?.trim()
+        };
+        if resolved == "ReplaceCount$DamageAmount/Twice" {
+            return Some(DamageScale::Multiply(2));
+        }
+        if resolved == "ReplaceCount$DamageAmount/Thrice" {
+            return Some(DamageScale::Multiply(3));
+        }
+        if let Some(n_str) = resolved.strip_prefix("ReplaceCount$DamageAmount/Times.") {
+            let factor = n_str.trim().parse::<u8>().ok()?;
+            return (factor >= 2).then_some(DamageScale::Multiply(factor));
+        }
+        if let Some(n_str) = resolved.strip_prefix("ReplaceCount$DamageAmount/Plus.") {
+            let extra = n_str.trim().parse::<u8>().ok()?;
+            return (extra >= 1).then_some(DamageScale::Add(extra));
+        }
+        None
+    }
+
+    fn damage_recipients_expr(&mut self, valid_target: Option<&str>) -> Option<String> {
+        let Some(raw) = valid_target else {
+            return Some("DamageRecipients::Any".to_string());
+        };
+        let parts: Vec<&str> = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if parts.is_empty() {
+            return None;
+        }
+        if parts == ["Any"]
+            || (parts.len() == 2
+                && ((parts.contains(&"Permanent") && parts.contains(&"Player"))
+                    || (parts.contains(&"Card") && parts.contains(&"Player"))))
+            || (parts.len() == 3
+                && parts.contains(&"Permanent")
+                && parts.contains(&"Player")
+                && parts.contains(&"Planeswalker"))
+        {
+            return Some("DamageRecipients::Any".to_string());
+        }
+        if parts.len() == 1 {
+            match parts[0] {
+                "Player" => return Some("DamageRecipients::Players(PlayerRel::EachPlayer)".into()),
+                "You" => return Some("DamageRecipients::Players(PlayerRel::You)".into()),
+                "Opponent" | "Player.Opponent" => {
+                    return Some("DamageRecipients::Players(PlayerRel::Opponent)".into());
+                }
+                "EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer" => {
+                    return Some("DamageRecipients::Players(PlayerRel::EnchantedPlayer)".into());
+                }
+                _ => {}
+            }
+        }
+        if parts.len() == 2 {
+            let has_opp_player = parts.contains(&"Opponent") || parts.contains(&"Player.Opponent");
+            let has_opp_perm =
+                parts.contains(&"Permanent.OppCtrl") || parts.contains(&"Card.OppCtrl");
+            if has_opp_player && has_opp_perm {
+                return Some(
+                    "DamageRecipients::PlayersOrTheirPermanents(PlayerRel::Opponent)".into(),
+                );
+            }
+            let has_you = parts.contains(&"You");
+            let has_you_perm =
+                parts.contains(&"Permanent.YouCtrl") || parts.contains(&"Card.YouCtrl");
+            if has_you && has_you_perm {
+                return Some("DamageRecipients::PlayersOrTheirPermanents(PlayerRel::You)".into());
+            }
+        }
+        let expr = self.prevention_permanent_target(&parts.join(","))?;
+        let recip_ref = self.body.filter_static("RECIPIENT", &expr);
+        Some(format!("DamageRecipients::Permanents(&{recip_ref})"))
     }
 
     fn is_stack_spell_source(valid: &str) -> bool {

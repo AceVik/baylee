@@ -1553,10 +1553,15 @@ impl Tx<'_> {
                 } else {
                     return self.deny(format!("cost `{token}`"));
                 }
-            } else if token.starts_with("PayEnergy<") || token.starts_with("ExileFromTop<") {
+            } else if token == "Forage" {
+                parts.push("Forage".to_string());
+            } else if token.starts_with("PayEnergy<")
+                || token.starts_with("ExileFromTop<")
+                || token.starts_with("DamageYou<")
+            {
                 parts.push(self.energy_or_exile_top_cost(token)?);
             } else if token.chars().all(|c| c.is_ascii_digit())
-                || matches!(token, "W" | "U" | "B" | "R" | "G" | "C")
+                || matches!(token, "W" | "U" | "B" | "R" | "G" | "C" | "S")
                 || (token == "X"
                     && self.has_x
                     && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
@@ -1640,6 +1645,17 @@ impl Tx<'_> {
             }
             return self.deny(format!("cost `{token}`"));
         }
+        if let Some(dmg) = token
+            .strip_prefix("DamageYou<")
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            if let Ok(n) = dmg.parse::<u16>()
+                && n > 0
+            {
+                return Some(format!("DealDamageToYou({n})"));
+            }
+            return self.deny(format!("cost `{token}`"));
+        }
         if let Some(body) = token
             .strip_prefix("ExileFromTop<")
             .and_then(|t| t.strip_suffix('>'))
@@ -1697,22 +1713,21 @@ impl Tx<'_> {
         let (Some(n), Some(spec)) = (fields.next(), fields.next()) else {
             return self.deny(format!("cost `{token}`"));
         };
-        let sac_x = kind == "Sac"
-            && n == "X"
+        let x_paid = n == "X"
             && self.has_x
             && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
             && !self.oracle.to_ascii_lowercase().contains("x is ");
+        let sac_x = kind == "Sac" && x_paid;
         let sac_all = kind == "Sac"
             && n == "All"
             && spec != "CARDNAME"
             && !self.on_a_spell
             && !self.in_alternative_cost;
-        let tap_x = kind == "tapXType"
-            && n == "X"
-            && spec != "CARDNAME"
-            && self.has_x
-            && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
-            && !self.oracle.to_ascii_lowercase().contains("x is ");
+        let tap_x = kind == "tapXType" && x_paid && spec != "CARDNAME";
+        let discard_x =
+            kind == "Discard" && x_paid && !matches!(spec, "CARDNAME" | "Random" | "Hand");
+        let exile_grave_x =
+            kind == "ExileFromGrave" && x_paid && spec != "CARDNAME" && !spec.contains("Ctrl");
         let tap_n = if kind == "tapXType"
             && spec != "CARDNAME"
             && !tap_x
@@ -1733,7 +1748,15 @@ impl Tx<'_> {
             || (self.in_alternative_cost && matches!(kind, "Return" | "ExileFromHand")))
             && matches!(n, "2" | "3")
             && spec != "CARDNAME";
-        if n != "1" && !sac_x && !sac_all && !tap_x && tap_n.is_none() && !multi_parts {
+        if n != "1"
+            && !sac_x
+            && !sac_all
+            && !tap_x
+            && !discard_x
+            && !exile_grave_x
+            && tap_n.is_none()
+            && !multi_parts
+        {
             return self.deny(format!("a cost naming `{n}` objects"));
         }
         let part_count = if multi_parts {
@@ -1763,7 +1786,7 @@ impl Tx<'_> {
             return Some(vec!["DiscardRandom".to_string(); part_count]);
         }
         let spec = normalize_object_cost_spec(spec, variant, controlled);
-        let expr = if variant == "ExileFromHand" {
+        let expr = if variant == "ExileFromHand" || discard_x || exile_grave_x {
             self.filter_expr_in_zone(&spec, true)?
         } else {
             self.filter_expr(&spec)?
@@ -1775,6 +1798,10 @@ impl Tx<'_> {
             vec![format!("SacrificeAll(&{name})")]
         } else if tap_x {
             vec![format!("TapX(&{name})")]
+        } else if discard_x {
+            vec![format!("DiscardX(&{name})")]
+        } else if exile_grave_x {
+            vec![format!("ExileFromGraveyardX(&{name})")]
         } else if let Some(count) = tap_n {
             vec![format!("TapN {{ filter: &{name}, count: {count} }}")]
         } else {

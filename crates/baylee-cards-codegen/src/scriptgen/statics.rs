@@ -317,13 +317,19 @@ impl Tx<'_> {
         {
             return self.untap_limit(&affected, p);
         }
-        let filter = self.filter_expr(&affected)?;
+        let (filter, implicit_cond) =
+            if let Some((f, c)) = Self::soulbond_or_renown_affected(&affected) {
+                (f.to_string(), Some(c))
+            } else {
+                (self.filter_expr(&affected)?, None)
+            };
         // "Gets +1/+1 as long as you control a Swamp" (Sedge Troll): the
         // clause the `A:` line reads as a restriction is, on a static, the
         // condition under which the ability exists at all, and the engine
         // registers and removes it as the condition changes.
-        let condition =
+        let base_cond =
             self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+        let condition = Self::merge_static_condition(implicit_cond, &base_cond);
         let mut out = Vec::new();
         let mut self_granted = false;
         self.pt_modifiers(&mut p, &filter, &mut out)?;
@@ -483,6 +489,41 @@ impl Tx<'_> {
         CantBeCastHandling::Handled(Some(()))
     }
 
+    fn soulbond_or_renown_affected(affected: &str) -> Option<(&'static str, &'static str)> {
+        match affected.trim() {
+            "Creature.PairedWith,Creature.Self+Paired"
+            | "Creature.Self+Paired,Creature.PairedWith"
+            | "Card.PairedWith,Card.Self+Paired"
+            | "Card.Self+Paired,Card.PairedWith" => {
+                Some(("Filter::SOULBOND_PAIR", "Condition::IsPaired"))
+            }
+            "Creature.Self+Paired" | "Card.Self+Paired" => {
+                Some(("Filter::This", "Condition::IsPaired"))
+            }
+            "Card.Self+IsRenowned" | "Creature.Self+IsRenowned" => {
+                Some(("Filter::This", "Condition::IsRenowned"))
+            }
+            "Card.Self+!IsRenowned" | "Creature.Self+!IsRenowned" => {
+                Some(("Filter::This", "Condition::Not(&Condition::IsRenowned)"))
+            }
+            _ => None,
+        }
+    }
+
+    fn merge_static_condition(extra: Option<&str>, base: &str) -> String {
+        let Some(extra) = extra else {
+            return base.to_string();
+        };
+        if let Some(existing) = base
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+        {
+            format!(", condition = Some(Condition::All(&[{extra}, {existing}]))")
+        } else {
+            format!(", condition = Some({extra})")
+        }
+    }
+
     fn static_conditions(&mut self, p: &mut Params, check_svar_denial: &str) -> Option<String> {
         let mut clauses: Vec<String> = Vec::new();
         if let Some(cond_raw) = p.peek("Condition")
@@ -491,6 +532,24 @@ impl Tx<'_> {
         {
             p.take("Condition");
             clauses.push(named.to_string());
+        }
+        if let Some(present) = p.peek("IsPresent")
+            && let Some(cond) = match present.trim() {
+                "Card.Self+IsRenowned" | "Creature.Self+IsRenowned" => {
+                    Some("Condition::IsRenowned")
+                }
+                "Card.Self+Paired" | "Creature.Self+Paired" => Some("Condition::IsPaired"),
+                _ => None,
+            }
+        {
+            p.take("IsPresent");
+            match p.take("PresentCompare").as_deref() {
+                None | Some("GE1" | "EQ1" | "GT0") => clauses.push(cond.to_string()),
+                Some("EQ0" | "LT1") => clauses.push(format!("Condition::Not(&{cond})")),
+                Some(other) => {
+                    return self.deny(format!("`PresentCompare$ {other}`"));
+                }
+            }
         }
         if let Some(base) = self
             .condition(p)?

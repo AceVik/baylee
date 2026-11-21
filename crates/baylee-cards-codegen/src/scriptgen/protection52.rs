@@ -992,26 +992,34 @@ impl Tx<'_> {
         )
     }
 
-    /// `S: Mode$ MinMaxBlocker | ValidCard$ ... | Min$ <n>` (`Modifier::MinimumBlockers`).
-    /// `Max$` stays refused because `MaxBlockersPerCombat` is global, not per-attacker.
+    /// `S: Mode$ MinMaxBlocker | ValidCard$ ... | Min$ <n> | Max$ <m>`:
+    /// per-attacker minimum (`Modifier::MinimumBlockers`, CR 509.1b) and/or
+    /// maximum (`Modifier::MaxBlockers`, CR 509.1b) blocker limits.
     pub(super) fn min_max_blocker(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         if !matches!(p.take("Secondary").as_deref(), None | Some("True"))
             || !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
-            || p.has("Max")
         {
             return self.deny("static ability `S: Mode$ MinMaxBlocker`".into());
         }
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("static ability `S: Mode$ MinMaxBlocker`".into());
         };
-        let Some(min_raw) = p.take("Min") else {
-            return self.deny("static ability `S: Mode$ MinMaxBlocker`".into());
+        let min = match p.take("Min") {
+            None => None,
+            Some(raw) => match raw.trim().parse::<u8>() {
+                Ok(n) if n >= 2 => Some(n),
+                _ => return self.deny("static ability `S: Mode$ MinMaxBlocker`".into()),
+            },
         };
-        let Ok(min) = min_raw.trim().parse::<u8>() else {
-            return self.deny("static ability `S: Mode$ MinMaxBlocker`".into());
+        let max = match p.take("Max") {
+            None => None,
+            Some(raw) => match raw.trim().parse::<u8>() {
+                Ok(n) if n >= 1 => Some(n),
+                _ => return self.deny("static ability `S: Mode$ MinMaxBlocker`".into()),
+            },
         };
-        if min < 2 {
+        if min.is_none() && max.is_none() {
             return self.deny("static ability `S: Mode$ MinMaxBlocker`".into());
         }
         let cond = self.condition_any(&mut p)?;
@@ -1019,7 +1027,12 @@ impl Tx<'_> {
             return self.deny("static ability `S: Mode$ MinMaxBlocker`".into());
         }
         let filter = self.filter_expr(&valid)?;
-        self.push_static_with_cond(&filter, &format!("Modifier::MinimumBlockers({min})"), &cond);
+        if let Some(n) = min {
+            self.push_static_with_cond(&filter, &format!("Modifier::MinimumBlockers({n})"), &cond);
+        }
+        if let Some(n) = max {
+            self.push_static_with_cond(&filter, &format!("Modifier::MaxBlockers({n})"), &cond);
+        }
         Some(())
     }
 

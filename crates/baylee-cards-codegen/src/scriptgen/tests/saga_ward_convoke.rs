@@ -1554,10 +1554,18 @@ fn wave5_combat_draw_hexproof_ward_legend_and_mana_convert_statics() {
         ]
     );
 
-    // Refusals: per-attacker Max$, global IgnoreLegendRule, per-defender AttackRestrict.
-    assert!(refused(
+    // Per-attacker Max$ lowers to Modifier::MaxBlockers; zero stays refused.
+    let solo = read(
         "Name:SoloBlocker\nTypes:Creature\nPT:3/3\n\
-         S:Mode$ MinMaxBlocker | ValidCard$ Card.Self | Max$ 1"
+         S:Mode$ MinMaxBlocker | ValidCard$ Card.Self | Max$ 1",
+    );
+    assert_eq!(
+        solo.abilities,
+        ["static_ability!(Filter::This, Modifier::MaxBlockers(1))"]
+    );
+    assert!(refused(
+        "Name:ZeroBlocker\nTypes:Creature\nPT:3/3\n\
+         S:Mode$ MinMaxBlocker | ValidCard$ Card.Self | Max$ 0"
     ));
     assert!(refused(
         "Name:GlobalMirror\nTypes:Artifact\n\
@@ -2952,10 +2960,14 @@ fn wave10c_ignore_landwalk_min_blockers_flash_and_cast_self() {
         "Name:BlockerOnly\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
          S:Mode$ IgnoreLandWalk | ValidBlocker$ Creature.EnchantedBy"
     ));
-    assert!(refused(
+    let max_one = read(
         "Name:MaxOne\nTypes:Creature\nPT:4/4\n\
-         S:Mode$ MinMaxBlocker | ValidCard$ Card.Self | Max$ 1"
-    ));
+         S:Mode$ MinMaxBlocker | ValidCard$ Card.Self | Max$ 1",
+    );
+    assert_eq!(
+        max_one.abilities,
+        ["static_ability!(Filter::This, Modifier::MaxBlockers(1))"]
+    );
 
     let cast_etb = read(
         "Name:CastTitan\nTypes:Artifact Creature\nPT:7/7\n\
@@ -3636,4 +3648,172 @@ fn wave13b_player_rels_and_svar_depth() {
         "expected EventPlayer on BecomesTarget: {:?}",
         trigger_players.abilities
     );
+}
+
+#[test]
+fn wave14b_noncombat_prevention_and_damage_scaling() {
+    let sanctuary = read(
+        "Name:QuietWard\nManaCost:3 W\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidTarget$ You,Creature.YouCtrl | IsCombat$ False\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidTarget$ Player | IsCombat$ False | PlayerTurn$ True",
+    );
+    assert_eq!(
+        sanctuary.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::PreventNoncombatDamageToPlayers { who: PlayerRel::You, from: &Filter::Any })",
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::PreventNoncombatDamageFrom(&Filter::Any))",
+            "static_ability!(Filter::This, Modifier::PreventNoncombatDamageToPlayers { who: PlayerRel::EachPlayer, from: &Filter::Any }, condition = Some(Condition::YourTurn))",
+        ]
+    );
+
+    let scales = read(
+        "Name:EmberEngine\nManaCost:3 R R\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card,Emblem | ValidTarget$ Permanent,Player | ReplaceWith$ DoubleDmg\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.YouCtrl,Emblem.YouCtrl | ValidTarget$ Permanent.OppCtrl,Opponent | IsCombat$ False | ReplaceWith$ TripleInline\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.RedSource+YouCtrl,Artifact.YouCtrl | ValidTarget$ Player.Opponent,Permanent.OppCtrl | ReplaceWith$ PlusTwo\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Creature.YouCtrl+inZoneBattlefield | ValidTarget$ Creature.OppCtrl | IsCombat$ True | ReplaceWith$ TimesFour\n\
+         SVar:DoubleDmg:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ D2\n\
+         SVar:D2:ReplaceCount$DamageAmount/Twice\n\
+         SVar:TripleInline:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Thrice\n\
+         SVar:PlusTwo:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ P2\n\
+         SVar:P2:ReplaceCount$DamageAmount/Plus.2\n\
+         SVar:TimesFour:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ T4\n\
+         SVar:T4:ReplaceCount$DamageAmount/Times.4",
+    );
+    assert_eq!(
+        scales.abilities[0],
+        "static_ability!(Filter::Any, Modifier::MultiplyDamageFrom { sources: &Filter::Any, factor: 2, combat_only: false, noncombat_only: false, recipients: DamageRecipients::Any })"
+    );
+    assert_eq!(
+        scales.abilities[1],
+        "static_ability!(Filter::Any, Modifier::MultiplyDamageFrom { sources: &Filter::ControlledByYou, factor: 3, combat_only: false, noncombat_only: true, recipients: DamageRecipients::PlayersOrTheirPermanents(PlayerRel::Opponent) })"
+    );
+    assert!(
+        scales.abilities[2].contains("Modifier::AddDamageFrom")
+            && scales.abilities[2].contains("extra: 2")
+            && scales.abilities[2].contains(
+                "recipients: DamageRecipients::PlayersOrTheirPermanents(PlayerRel::Opponent)"
+            ),
+        "{}",
+        scales.abilities[2]
+    );
+    assert!(
+        scales.abilities[3].contains("Modifier::MultiplyDamageFrom")
+            && scales.abilities[3].contains("factor: 4")
+            && scales.abilities[3].contains("combat_only: true")
+            && scales.abilities[3]
+                .contains("recipients: DamageRecipients::Permanents(&Filter::OPPONENT_CREATURE)"),
+        "{}",
+        scales.abilities[3]
+    );
+}
+
+#[test]
+fn wave14b_soulbond_renown_snow_and_costs() {
+    let pair = read(
+        "Name:BondKnight\nManaCost:2 W\nTypes:Creature Human Knight\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Creature.PairedWith,Creature.Self+Paired | AddPower$ 2 | AddToughness$ 2 | AddKeyword$ Double Strike\n\
+         S:Mode$ Continuous | Affected$ Creature.PairedWith,Creature.Self+Paired | AddAbility$ TapSelf\n\
+         SVar:TapSelf:AB$ GainLife | Cost$ T | LifeAmount$ 1",
+    );
+    assert_eq!(
+        pair.abilities[0],
+        "static_ability!(Filter::SOULBOND_PAIR, Modifier::ModifyPT(2, 2), condition = Some(Condition::IsPaired))"
+    );
+    assert_eq!(
+        pair.abilities[1],
+        "static_ability!(Filter::SOULBOND_PAIR, Modifier::AddKeyword(KeywordSet::DOUBLE_STRIKE), condition = Some(Condition::IsPaired))"
+    );
+    assert!(
+        pair.abilities[2].contains("Filter::SOULBOND_PAIR")
+            && pair.abilities[2].contains("Modifier::GrantActivated")
+            && pair.abilities[2].contains("condition = Some(Condition::IsPaired)"),
+        "{}",
+        pair.abilities[2]
+    );
+
+    let renowned = read(
+        "Name:FamedScout\nManaCost:G\nTypes:Creature Human Druid\nPT:1/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | Affected$ Card.IsRenowned | AddKeyword$ Vigilance | AddAbility$ TapMana\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | IsPresent$ Card.Self+IsRenowned\n\
+         SVar:TapMana:AB$ Mana | Cost$ T | Produced$ Any",
+    );
+    assert_eq!(
+        renowned.abilities[0],
+        "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::VIGILANCE), condition = Some(Condition::IsRenowned))"
+    );
+    assert!(
+        renowned.abilities[1].contains("Modifier::GrantActivated")
+            && renowned.abilities[1].contains("condition = Some(Condition::IsRenowned)"),
+        "{}",
+        renowned.abilities[1]
+    );
+    assert_eq!(
+        renowned.abilities[2],
+        "static_ability!(Filter::YOUR_CREATURE, Modifier::ModifyPT(1, 0), condition = Some(Condition::IsRenowned))"
+    );
+
+    let costs = read(
+        "Name:FrostForager\nManaCost:2 G\nTypes:Snow Creature Squirrel\nPT:2/2\n\
+         A:AB$ Pump | Cost$ 1 S | Defined$ Self | NumAtt$ +1 | NumDef$ +1\n\
+         A:AB$ Mana | Cost$ T Forage | Produced$ Combo Any | Amount$ 2\n\
+         A:AB$ Draw | Cost$ DamageYou<2> | NumCards$ 1\n\
+         A:AB$ Pump | Cost$ B Discard<X/Card> | Defined$ Self | NumAtt$ +X | NumDef$ +X\n\
+         A:AB$ Pump | Cost$ T ExileFromGrave<X/Creature> | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        costs.abilities[0].contains("cost!(\"{1}{S}\")"),
+        "{}",
+        costs.abilities[0]
+    );
+    assert!(
+        costs.abilities[1].contains("Forage"),
+        "{}",
+        costs.abilities[1]
+    );
+    assert!(
+        costs.abilities[2].contains("DealDamageToYou(2)"),
+        "{}",
+        costs.abilities[2]
+    );
+    assert!(
+        costs.abilities[3].contains("DiscardX(&"),
+        "{}",
+        costs.abilities[3]
+    );
+    assert!(
+        costs.abilities[4].contains("ExileFromGraveyardX(&"),
+        "{}",
+        costs.abilities[4]
+    );
+}
+
+#[test]
+fn wave14b_refusal_boundaries() {
+    for script in [
+        "Name:BadNoncombatNoTarget\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidSource$ Creature | IsCombat$ False",
+        "Name:BadMinusScale\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Spell | ValidTarget$ Permanent,Player | ReplaceWith$ Minus1\n\
+         SVar:Minus1:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X\n\
+         SVar:X:ReplaceCount$DamageAmount/Minus.1",
+        "Name:BadHalfScale\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You | ReplaceWith$ Half\n\
+         SVar:Half:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ X\n\
+         SVar:X:ReplaceCount$DamageAmount/HalfUp",
+        "Name:BadYouDontCtrlRecip\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Opponent,Permanent.YouDontCtrl | ReplaceWith$ Dbl\n\
+         SVar:Dbl:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Twice",
+        "Name:BadDamageYouZero\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ DamageYou<0> | NumCards$ 1",
+        "Name:BadDiscardXRandom\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ Discard<X/Random> | NumCards$ X\n\
+         SVar:X:Count$xPaid",
+        "Name:BadExileGraveXCtrl\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ ExileFromGrave<X/Card.YouCtrl> | NumCards$ X\n\
+         SVar:X:Count$xPaid",
+    ] {
+        assert!(refused(script), "expected refusal for:\n{script}");
+    }
 }

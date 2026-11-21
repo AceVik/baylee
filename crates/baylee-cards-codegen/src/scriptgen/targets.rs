@@ -518,6 +518,7 @@ impl Tx<'_> {
                         "Filter::Not(&Filter::AttachedToBySource)".to_string()
                     }
                     "Attached" => "Filter::AttachedToSource".to_string(),
+                    "PairedWith" if !card_zone => "Filter::PairedWithSource".to_string(),
                     "equipped" => "Filter::Equipped".to_string(),
                     "!equipped" => "Filter::Not(&Filter::Equipped)".to_string(),
                     "YouCtrl" => {
