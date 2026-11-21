@@ -17,7 +17,7 @@ card!(
     scryfall_id = "6500b690-d601-4c6d-baea-552e366ea242",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sima Yi, Wei Field Marshal",
         mana_cost = mana!("{5}{B}"),

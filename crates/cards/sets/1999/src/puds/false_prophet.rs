@@ -11,7 +11,7 @@ card!(
     oracle_id = "87c44c23-f209-494a-ab66-c9f5cf7bb4ea",
     scryfall_id = "f41a43ba-1867-4ce3-97fe-5ae67d3f36c3",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "False Prophet",
         mana_cost = mana!("{2}{W}{W}"),

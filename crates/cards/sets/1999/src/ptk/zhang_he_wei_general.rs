@@ -17,7 +17,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zhang He, Wei General",
         mana_cost = mana!("{3}{B}{B}"),

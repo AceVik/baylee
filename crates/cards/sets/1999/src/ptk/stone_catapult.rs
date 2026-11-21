@@ -17,7 +17,7 @@ card!(
     oracle_id = "c3ead850-3f22-4edb-ac96-40abbdf27905",
     scryfall_id = "60303bfe-9158-4e25-a905-6522883ab671",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stone Catapult",
         mana_cost = mana!("{4}{B}"),

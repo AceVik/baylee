@@ -13,7 +13,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::HORSEMANSHIP),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zhang Fei, Fierce Warrior",
         mana_cost = mana!("{4}{W}{W}"),

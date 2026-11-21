@@ -13,7 +13,7 @@ card!(
     scryfall_id = "81d3b0fd-a81e-4665-bba6-b6d085693abf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shrieking Specter",
         mana_cost = mana!("{5}{B}"),

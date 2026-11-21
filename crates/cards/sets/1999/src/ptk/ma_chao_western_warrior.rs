@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ma Chao, Western Warrior",
         mana_cost = mana!("{3}{R}{R}"),

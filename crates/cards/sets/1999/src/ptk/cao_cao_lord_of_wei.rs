@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d7e5a530-c954-4696-85ce-6afaf7de1808",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cao Cao, Lord of Wei",
         mana_cost = mana!("{3}{B}{B}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "e5c2cf0f-c1c0-4fd6-9b5f-7d4aa25246a7",
     scryfall_id = "1dfb3f91-5ecd-405d-9d67-655f2734a147",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zodiac Dragon",
         mana_cost = mana!("{7}{R}{R}"),

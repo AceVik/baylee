@@ -12,7 +12,7 @@ card!(
     scryfall_id = "4e4b456f-f4d8-412b-afac-11eaae51b0fd",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shu Elite Companions",
         mana_cost = mana!("{4}{W}"),

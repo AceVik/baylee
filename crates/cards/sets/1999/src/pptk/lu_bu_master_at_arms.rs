@@ -13,7 +13,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::HASTE.union(KeywordSet::HORSEMANSHIP),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lu Bu, Master-at-Arms",
         mana_cost = mana!("{5}{R}"),

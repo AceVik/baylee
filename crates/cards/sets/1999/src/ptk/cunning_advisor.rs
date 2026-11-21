@@ -11,7 +11,7 @@ card!(
     oracle_id = "b80b6dd3-320b-4304-8073-f74c54e9a8fe",
     scryfall_id = "5e31ede4-b0bb-4f63-b8df-1330152611a4",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cunning Advisor",
         mana_cost = mana!("{3}{B}"),

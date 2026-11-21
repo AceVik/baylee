@@ -12,6 +12,7 @@ mod reya_dawnbringer;
 mod spirit_of_the_night;
 mod the_unspeakable;
 mod thing_from_the_deep;
+mod zodiac_dragon;
 
 /// A duel at seat 0's first main phase: `board` already on its battlefield
 /// and `hand` in its hand.
