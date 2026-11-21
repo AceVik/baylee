@@ -31,9 +31,6 @@ card!(
             kind: CounterKind::P1P1,
             amount: Amount::Fixed(1)
         }],
-        condition = Some(Condition::AmountAtLeast(
-            Amount::OpponentsLifeLostThisTurn,
-            1
-        ))
+        condition = Some(Condition::OpponentLostLifeThisTurn)
     ),],
 );

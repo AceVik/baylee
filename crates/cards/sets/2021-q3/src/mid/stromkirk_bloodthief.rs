@@ -35,9 +35,6 @@ card!(
             amount: Amount::Fixed(1)
         }],
         targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1))),
-        condition = Some(Condition::AmountAtLeast(
-            Amount::OpponentsLifeLostThisTurn,
-            1
-        ))
+        condition = Some(Condition::OpponentLostLifeThisTurn)
     ),],
 );

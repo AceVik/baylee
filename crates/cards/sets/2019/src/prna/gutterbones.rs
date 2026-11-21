@@ -28,7 +28,7 @@ card!(
         zone = ActivationZone::Graveyard,
         condition = Some(Condition::All(&[
             Condition::YourTurn,
-            Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, 1)
+            Condition::OpponentLostLifeThisTurn
         ]))
     ),],
 );

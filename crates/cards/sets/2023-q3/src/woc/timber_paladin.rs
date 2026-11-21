@@ -13,6 +13,22 @@ static COUNT1: Filter = Filter::And(&[
     Filter::AttachedToSource,
 ]);
 
+static CHECK2: Condition = Condition::AmountAtLeast(
+    Amount::CountOf {
+        filter: &COUNT1,
+        zone: ZoneSel::Battlefield,
+    },
+    2,
+);
+
+static CHECK3: Condition = Condition::AmountAtLeast(
+    Amount::CountOf {
+        filter: &COUNT1,
+        zone: ZoneSel::Battlefield,
+    },
+    3,
+);
+
 card!(
     index = index::TIMBER_PALADIN,
     oracle_id = "0be44c76-9e3f-45c2-9b2c-6a5f00678780",
@@ -39,13 +55,7 @@ card!(
                     },
                     1
                 ),
-                Condition::Not(&Condition::AmountAtLeast(
-                    Amount::CountOf {
-                        filter: &COUNT1,
-                        zone: ZoneSel::Battlefield
-                    },
-                    2
-                ))
+                Condition::Not(&CHECK2)
             ]))
         ),
         static_ability!(
@@ -59,13 +69,7 @@ card!(
                     },
                     2
                 ),
-                Condition::Not(&Condition::AmountAtLeast(
-                    Amount::CountOf {
-                        filter: &COUNT1,
-                        zone: ZoneSel::Battlefield
-                    },
-                    3
-                ))
+                Condition::Not(&CHECK3)
             ]))
         ),
         static_ability!(
@@ -79,13 +83,7 @@ card!(
                     },
                     2
                 ),
-                Condition::Not(&Condition::AmountAtLeast(
-                    Amount::CountOf {
-                        filter: &COUNT1,
-                        zone: ZoneSel::Battlefield
-                    },
-                    3
-                ))
+                Condition::Not(&CHECK3)
             ]))
         ),
         static_ability!(

@@ -674,6 +674,10 @@ impl Filter {
     pub const LAND: Self = Self::HasType(TypeSet::LAND);
     /// A planeswalker.
     pub const PLANESWALKER: Self = Self::HasType(TypeSet::PLANESWALKER);
+    /// An instant.
+    pub const INSTANT: Self = Self::HasType(TypeSet::INSTANT);
+    /// A sorcery.
+    pub const SORCERY: Self = Self::HasType(TypeSet::SORCERY);
     /// Anything that is not a land — "nonland permanent".
     pub const NONLAND: Self = Self::LacksType(TypeSet::LAND);
     /// Anything that is not a creature.
@@ -814,6 +818,8 @@ mod tests {
         ("ENCHANTMENT", Filter::ENCHANTMENT),
         ("LAND", Filter::LAND),
         ("PLANESWALKER", Filter::PLANESWALKER),
+        ("INSTANT", Filter::INSTANT),
+        ("SORCERY", Filter::SORCERY),
         ("NONLAND", Filter::NONLAND),
         ("NONCREATURE", Filter::NONCREATURE),
         ("BASIC_LAND", Filter::BASIC_LAND),

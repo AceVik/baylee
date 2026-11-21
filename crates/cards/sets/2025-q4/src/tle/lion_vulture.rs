@@ -34,9 +34,6 @@ card!(
             },
             Effect::draw(1)
         ],
-        condition = Some(Condition::AmountAtLeast(
-            Amount::OpponentsLifeLostThisTurn,
-            1
-        ))
+        condition = Some(Condition::OpponentLostLifeThisTurn)
     ),],
 );

@@ -6,6 +6,8 @@
 
 use baylee_cards_dsl::prelude::*;
 
+static DIG1: Filter = Filter::Or(&[Filter::INSTANT, Filter::SORCERY]);
+
 card!(
     index = index::ARCANE_INFUSION,
     oracle_id = "d5251d47-11de-41f7-9965-1f921e12d927",
@@ -21,7 +23,7 @@ card!(
     abilities = &[spell!(&[Effect::LookAtTopFind {
         found: Find::HAND,
         count: 4,
-        filter: &Filter::INSTANT_OR_SORCERY,
+        filter: &DIG1,
         random: true
     }]),],
 );

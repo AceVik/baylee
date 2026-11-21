@@ -37,9 +37,6 @@ card!(
         targets = Some(TargetReq::up_to_one(TargetSpec::Object(
             &Filter::CREATURE_OR_PLANESWALKER
         ))),
-        condition = Some(Condition::AmountAtLeast(
-            Amount::OpponentsLifeLostThisTurn,
-            1
-        ))
+        condition = Some(Condition::OpponentLostLifeThisTurn)
     ),],
 );

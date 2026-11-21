@@ -8,8 +8,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Condition = Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, 1);
-
 card!(
     index = index::RAKDOS_LORD_OF_RIOTS,
     oracle_id = "143a269a-b9ee-48ba-bd7b-4aa46eb36778",
@@ -28,7 +26,7 @@ card!(
         toughness = Some(6),
     ),],
     abilities = &[
-        spell!(&[], condition = Some(CHECK1)),
+        spell!(&[], condition = Some(Condition::OpponentLostLifeThisTurn)),
         static_ability!(
             Filter::YOUR_CREATURE,
             Modifier::SpellsCostLessByAmount(Amount::OpponentsLifeLostThisTurn)

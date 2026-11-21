@@ -28,10 +28,7 @@ card!(
                 Effect::mana(ManaColor::Black, 1),
                 Effect::mana(ManaColor::Red, 1)
             ],
-            condition = Some(Condition::AmountAtLeast(
-                Amount::OpponentsLifeLostThisTurn,
-                1
-            ))
+            condition = Some(Condition::OpponentLostLifeThisTurn)
         ),
         activated!(cost!("{1}{R}", Discard(&Filter::Any)), &[Effect::draw(1)]),
     ],

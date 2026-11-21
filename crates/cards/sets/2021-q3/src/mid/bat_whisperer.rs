@@ -26,9 +26,6 @@ card!(
         &[Effect::CreateToken {
             token: &generated_tokens::BAT_1_1_BLACK_FLYING
         }],
-        condition = Some(Condition::AmountAtLeast(
-            Amount::OpponentsLifeLostThisTurn,
-            1
-        ))
+        condition = Some(Condition::OpponentLostLifeThisTurn)
     ),],
 );

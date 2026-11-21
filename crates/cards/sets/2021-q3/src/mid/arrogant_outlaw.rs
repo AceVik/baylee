@@ -29,9 +29,6 @@ card!(
             },
             Effect::gain_life(2)
         ],
-        condition = Some(Condition::AmountAtLeast(
-            Amount::OpponentsLifeLostThisTurn,
-            1
-        ))
+        condition = Some(Condition::OpponentLostLifeThisTurn)
     ),],
 );

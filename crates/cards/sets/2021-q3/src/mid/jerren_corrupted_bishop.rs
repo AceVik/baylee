@@ -25,9 +25,7 @@ static TARGET2: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
-static CHECK3: Condition = Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), 14);
-
-static COST4: Filter = Filter::And(&[Filter::CREATURE, Filter::Another, Filter::ControlledByYou]);
+static COST3: Filter = Filter::And(&[Filter::CREATURE, Filter::Another, Filter::ControlledByYou]);
 
 card!(
     index = index::JERREN_CORRUPTED_BISHOP,
@@ -92,7 +90,7 @@ card!(
                     }],
                     condition = Some(Condition::All(&[
                         Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), 13),
-                        Condition::Not(&CHECK3)
+                        Condition::LifeAtMost(13)
                     ]))
                 ),
             ],
@@ -108,7 +106,7 @@ card!(
             keywords = KeywordSet::FLYING
                 .union(KeywordSet::TRAMPLE)
                 .union(KeywordSet::LIFELINK),
-            abilities = &[activated!(cost!(Sacrifice(&COST4)), &[Effect::draw(1)]),],
+            abilities = &[activated!(cost!(Sacrifice(&COST3)), &[Effect::draw(1)]),],
             castable_from_hand = false,
         ),
     ],

@@ -15,8 +15,6 @@ static TARGET1: Filter = Filter::Or(&[
     Filter::And(&[Filter::CREATURE, Filter::ToughnessAtMost(1)]),
 ]);
 
-static TARGET2: Filter = Filter::HasType(TypeSet::SORCERY);
-
 card!(
     index = index::WARPING_WAIL,
     oracle_id = "c8b9fa02-0a0c-4a87-9a00-3c1c7e2f4bfd",
@@ -36,7 +34,7 @@ card!(
             ),
             mode!(
                 &[Effect::CounterTargetSpell],
-                targets = Some(TargetReq::one(TargetSpec::Spell(&TARGET2)))
+                targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::SORCERY)))
             ),
             mode!(&[Effect::CreateToken {
                 token: &generated_tokens::ELDRAZI_SCION_1_1

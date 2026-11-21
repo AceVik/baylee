@@ -28,9 +28,6 @@ card!(
             who: PlayerRel::Opponent,
             count: 1
         }],
-        condition = Some(Condition::AmountAtLeast(
-            Amount::OpponentsLifeLostThisTurn,
-            1
-        ))
+        condition = Some(Condition::OpponentLostLifeThisTurn)
     ),],
 );

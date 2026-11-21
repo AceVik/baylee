@@ -25,10 +25,7 @@ card!(
         triggered!(
             Trigger::ETB,
             &[Effect::mana(ManaColor::Red, 3)],
-            condition = Some(Condition::AmountAtLeast(
-                Amount::OpponentsLifeLostThisTurn,
-                1
-            ))
+            condition = Some(Condition::OpponentLostLifeThisTurn)
         ),
         activated!(cost!("{2}{R}", Discard(&Filter::Any)), &[Effect::draw(1)]),
     ],

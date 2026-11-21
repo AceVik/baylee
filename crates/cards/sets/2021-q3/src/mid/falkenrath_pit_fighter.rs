@@ -28,9 +28,6 @@ card!(
     abilities = &[activated!(
         cost!("{1}{R}", Discard(&Filter::Any), Sacrifice(&COST1)),
         &[Effect::draw(2)],
-        condition = Some(Condition::AmountAtLeast(
-            Amount::OpponentsLifeLostThisTurn,
-            1
-        ))
+        condition = Some(Condition::OpponentLostLifeThisTurn)
     ),],
 );

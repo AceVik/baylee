@@ -42,10 +42,7 @@ card!(
                 amount: Amount::Fixed(1)
             }],
             limit = ActivationLimit::PerTurn(1),
-            condition = Some(Condition::AmountAtLeast(
-                Amount::OpponentsLifeLostThisTurn,
-                1
-            ))
+            condition = Some(Condition::OpponentLostLifeThisTurn)
         ),
     ],
 );
