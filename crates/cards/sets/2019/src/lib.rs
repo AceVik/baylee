@@ -107,6 +107,8 @@ pub mod banehound;
 pub mod bankrupt_in_blood;
 #[path = "m20/barkhide_troll.rs"]
 pub mod barkhide_troll;
+#[path = "sld/baron_vladimir_harkonnen.rs"]
+pub mod baron_vladimir_harkonnen;
 #[path = "eld/barrow_witches.rs"]
 pub mod barrow_witches;
 #[path = "rna/basilica_bell_haunt.rs"]
@@ -231,6 +233,8 @@ pub mod chainwhip_cyclops;
 pub mod chandra_s_embercat;
 #[path = "mh1/changeling_outcast.rs"]
 pub mod changeling_outcast;
+#[path = "sld/chani_blade_of_sietch_tabr.rs"]
+pub mod chani_blade_of_sietch_tabr;
 #[path = "rna/charging_war_boar.rs"]
 pub mod charging_war_boar;
 #[path = "war/charity_extractor.rs"]
@@ -947,6 +951,8 @@ pub mod pack_mastiff;
 pub mod paradise_druid;
 #[path = "mh1/pashalik_mons.rs"]
 pub mod pashalik_mons;
+#[path = "sld/paul_atreides_ducal_heir.rs"]
+pub mod paul_atreides_ducal_heir;
 #[path = "mh1/phantom_ninja.rs"]
 pub mod phantom_ninja;
 #[path = "eld/piper_of_the_swarm.rs"]
@@ -967,6 +973,8 @@ pub mod pollenbright_druid;
 pub mod pondering_mage;
 #[path = "war/pouncing_lynx.rs"]
 pub mod pouncing_lynx;
+#[path = "sld/princess_irulan_corrino.rs"]
+pub mod princess_irulan_corrino;
 #[path = "mh1/prismatic_vista.rs"]
 pub mod prismatic_vista;
 #[path = "war/prismite.rs"]
@@ -1045,6 +1053,8 @@ pub mod resolute_watchdog;
 pub mod retributive_wand;
 #[path = "war/return_to_nature.rs"]
 pub mod return_to_nature;
+#[path = "sld/reverend_mother_jessica.rs"]
+pub mod reverend_mother_jessica;
 #[path = "mh1/rhox_veteran.rs"]
 pub mod rhox_veteran;
 #[path = "m20/rienne_angel_of_rebirth.rs"]

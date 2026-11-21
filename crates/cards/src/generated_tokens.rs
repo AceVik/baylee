@@ -5846,6 +5846,38 @@ pub static ZABU_LEGENDARY_2_2_GREEN_A7B54B8C1: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 colorless artifact Borg.
+pub static BORG_ARTIFACT_1_1: TokenDef = TokenDef {
+    name: "Borg",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::BORG],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green land Forest Tentacle.
+pub static FOREST_TENTACLE_LAND_3_3_GREEN: TokenDef = TokenDef {
+    name: "Forest Tentacle",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::LAND.union(TypeSet::CREATURE),
+    subtypes: &[land::FOREST, creature::TENTACLE],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Officer.
+pub static OFFICER_1_1_RED: TokenDef = TokenDef {
+    name: "Officer",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::OFFICER],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -7077,6 +7109,9 @@ pub static ALL: &[&TokenDef] = &[
     &CAT_SOLDIER_1_1_WHITE_VIGILANCE,
     &ZOMBIE_1_1_WHITE,
     &ZABU_LEGENDARY_2_2_GREEN_A7B54B8C1,
+    &BORG_ARTIFACT_1_1,
+    &FOREST_TENTACLE_LAND_3_3_GREEN,
+    &OFFICER_1_1_RED,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -7522,4 +7557,7 @@ pub static GENERATED: &[&TokenDef] = &[
     &CAT_SOLDIER_1_1_WHITE_VIGILANCE,
     &ZOMBIE_1_1_WHITE,
     &ZABU_LEGENDARY_2_2_GREEN_A7B54B8C1,
+    &BORG_ARTIFACT_1_1,
+    &FOREST_TENTACLE_LAND_3_3_GREEN,
+    &OFFICER_1_1_RED,
 ];

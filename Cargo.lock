@@ -1688,6 +1688,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-cards-2027-q1"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
+name = "baylee-cards-2027-q2"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards-base",
+ "baylee-cards-dsl",
+ "baylee-core",
+]
+
+[[package]]
 name = "baylee-cards-base"
 version = "0.2.0-beta.o1"
 dependencies = [
@@ -1784,6 +1802,8 @@ dependencies = [
  "baylee-cards-2026-q2",
  "baylee-cards-2026-q3",
  "baylee-cards-2026-q4",
+ "baylee-cards-2027-q1",
+ "baylee-cards-2027-q2",
  "baylee-cards-base",
  "baylee-cards-dsl",
  "baylee-core",

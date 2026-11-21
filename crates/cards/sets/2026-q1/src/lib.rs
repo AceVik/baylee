@@ -149,6 +149,8 @@ pub mod eclipsed_realms;
 pub mod elder_auntie;
 #[path = "ecc/elemental_spectacle.rs"]
 pub mod elemental_spectacle;
+#[path = "pf26/encounter_the_unknown.rs"]
+pub mod encounter_the_unknown;
 #[path = "ecl/enraged_flamecaster.rs"]
 pub mod enraged_flamecaster;
 #[path = "tmt/epf_point_squad.rs"]

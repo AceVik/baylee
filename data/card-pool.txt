@@ -20704,3 +20704,185 @@ Puppet Crafting
 Rank Rat
 Refute Destiny
 Rescue Girl, First Responder
+Room of Refuge
+Saheeli, Jewel of Avishkar
+Samut, Hazoret's Champion
+Simulacrum Shaper
+Skilled Battlecarver
+Stingerquill Annex
+Sureshot Sower
+Terminal Criticism
+Tether Technician
+Teyo, Diamondblade Mage
+Teyo, Lightshield Expert
+Theoretical Necromancer
+Theorix Annex
+Transformative Commons
+Traxos, Scourge Eternal
+Turbulent Crater
+Turbulent Shore
+Turbulent Wetlands
+Undulating Witness
+Unflinching Hortimancer
+Venser, Fervent Forger
+Verdant Kraken
+Vigorbloom Annex
+Vinelasher Adept
+Yoshimaru, Scrappy Stray
+Your Fate Ends Here
+Avoided Stairwurm
+Potential Horizon
+Amanda Grayson, Logic's Link
+Ambulatory Reactor
+Andoria
+Antagonist Incorporator
+Anthropological Mission
+Armus, Skin of Evil
+Artificial Anomaly
+Assembly Specialist
+Bajor
+Balance of Terror
+Battle of Wolf 359
+Beverly Crusher, Ship's Doctor
+Blood-Sport Champion
+Borg Incursion
+Borg Scout Sphere
+Captain Janeway, Endgame
+Cardassia Prime
+Cetacean Ops
+Chancellor Gorkon
+Chief Kyle, Transporter Tech
+Class-4 Tactical Cube
+Class-F Shuttlecraft
+Co-Option Adjutant
+Collation Trimatrix
+Command Subadjunct
+Commander Raffi Musiker
+Commander William Riker
+Constable Odo
+Culber and Stamets, Star-Crossed
+D'Ghor Bloodletter
+D'Vana Tendi, Optimistic Ensign
+Dahar Master
+Dal R'El, Augment Orphan
+David and Carol Marcus, Creators
+Deliver from Chaos
+Dominion Infiltration
+Dr. Pulaski, Cynical Clinician
+Earth, Sector 001
+Emergency Holographic Crew
+Emergency Regeneration
+Encounter the Unknown
+Enterprise NX-01
+Federation Outpost
+Ferenginar
+Ferocious Colonist
+Fleet Captain Christopher Pike
+Gagh Slinger
+Gaseous Anomaly
+Genesis Effect
+Geordi La Forge, Innovator
+Georgiou, Terran Emperor
+Ghost of Illyria
+Glory to the Empire!
+Gnarling Targ
+Grilka, Widowed Warrior
+I.K.S. Negh'Var, Imperial Flagship
+Imperial Hullbreachers
+Impossible Choice
+Indelicate Healer
+Interstellar Effigy
+Isolinear Processor
+Jefferies Tube
+Jurati, Cordial Queen
+K'Vort-Class Raider
+Khan, Despot by Design
+Kirk, Man of Action
+Kor, Cause of Vengeance
+Locutus of Borg
+Locutus, the One Who Speaks
+M'Ress, Crew Coordinator
+MACO Strike Team
+Maturation Chamber
+McCoy, Not a Bricklayer
+Ni'Var Science Academy
+On the Shoulders of Giants
+One, Borg Evolved
+Orion
+Photosynthetic Physician
+Primary Unimatrix Adjunct
+Q Continuum
+Qo'noS
+Qo'noS Quartermaster
+Quark's Bar
+Ravenous Cosmozoan
+Reclamation Specialist
+Red Alert!
+Reg Barclay, Fidgety Fantasist
+Replicator
+Risa
+Romulan Bird-of-Prey
+Romulus
+Rutherford, Upgraded Ensign
+Sam Kirk, Xenoanthropologist
+Sarcophagus, Ship of the Dead
+Saru, Unthreatened
+Scotty, Chief Engineer
+Seven of Nine, Tertiary Adjunct
+Shore Leave Planet
+Shuttlecraft Galileo
+Sickbay
+Spatial Anomaly
+Spock, Voice of Reason
+Spot, Felis catus
+Stable Wormhole
+Starfleet Security
+Starship Enterprise
+Stratagem Emulator
+Subcommander T'Pol
+Subspace Anomaly
+Sulu, Space Swashbuckler
+Supplementation Node
+Suurok-Class Science Vessel
+Targ Wrangler
+Tasha Yar, Out of Time
+Tea, Earl Grey, Hot
+Temporal Anomaly
+Temporal Tribulation
+Tenacious Drone
+Test of Conviction
+Test of Courage
+Test of Loyalty
+Test of Priorities
+The Doctor, EMH
+The Duras Sisters
+The Needs of the Many
+The Unicomplex
+Tom Paris, Risk-Taker
+Tricorder
+Type-03 Borg Vessel
+Type-2 Phaser
+U.S.S. Cerritos, Following Up
+U.S.S. Defiant, Mirror Migrant
+U.S.S. Defiant, Tough Little Ship
+U.S.S. Enterprise-A, Free Spirit
+U.S.S. Enterprise-E, Sovereign
+U.S.S. Excelsior, Cutting Edge
+U.S.S. Reliant, From Hell's Heart
+Uhura, Xenolinguist
+Unexplored Territory
+Vexing Drone
+Vulcan
+Warp Core
+Worf, Son of Mogh
+Worf, Still Not Merry
+Year of Hell
+Baron Vladimir Harkonnen
+Chani, Blade of Sietch Tabr
+Paul Atreides, Ducal Heir
+Princess Irulan Corrino
+Reverend Mother Jessica
+Calmwater Mentor
+Ring of Unity
+Tecton, Malignant Ruin
+Penance Stare

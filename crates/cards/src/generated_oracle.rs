@@ -82469,22 +82469,119 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
+    // Room of Refuge
+    &[
+        "This land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.\n{5}, {T}, Sacrifice this land: Put two +1/+1 counters on target creature. Activate only as a sorcery.",
+    ],
+    &[],
+    // Saheeli, Jewel of Avishkar
+    &[
+        "Thopters you control have haste.\nWhenever you cast a noncreature spell, create a 1/1 colorless Thopter artifact creature token with flying.",
+    ],
+    // Samut, Hazoret's Champion
+    &["Creatures you control have haste."],
+    &[],
+    &[],
+    &[],
+    // Simulacrum Shaper
+    &[
+        "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, draw a card.",
+    ],
+    // Skilled Battlecarver
+    &[
+        "During your turn, this creature has first strike.\n{1}{R}: This creature gets +1/+0 until end of turn.",
+    ],
+    &[],
+    // Stingerquill Annex
+    &["This land enters tapped unless you control a planeswalker.\n{T}: Add {B} or {R}."],
+    // Sureshot Sower
+    &["Reach\n{3}{G}, Discard this card: Destroy target creature with flying."],
     &[],
     &[],
     &[],
+    // Terminal Criticism
+    &["Destroy target creature or planeswalker that's blue or red. You gain 1 life."],
+    // Tether Technician
+    &[
+        "Reach\nWhen this creature enters, you may discard a card. When you do, this creature deals 2 damage to any target.",
+    ],
+    // Teyo, Diamondblade Mage
+    &[
+        "Flash\nWhen Teyo enters, target permanent you control gains deathtouch until end of turn. Put a +1/+1 counter on it if it's a creature. Put a loyalty counter on it if it's a planeswalker.",
+    ],
+    // Teyo, Lightshield Expert
+    &[
+        "Flash\nWhen Teyo enters, target permanent you control gains hexproof until end of turn. Put a +1/+1 counter on it if it's a creature. Put a loyalty counter on it if it's a planeswalker. (It can't be the target of spells or abilities your opponents control.)",
+    ],
     &[],
+    // Theoretical Necromancer
+    &[
+        "{3}{B}, Exile this card from your graveyard: Return another target creature card from your graveyard to your hand.",
+    ],
+    // Theorix Annex
+    &["This land enters tapped unless you control a planeswalker.\n{T}: Add {U} or {B}."],
     &[],
     &[],
     &[],
+    // Transformative Commons
+    &["This land enters tapped unless you control a planeswalker.\n{T}: Add {G} or {U}."],
     &[],
+    // Traxos, Scourge Eternal
+    &[
+        "Trample\nTraxos doesn't untap during your untap step.\nWhenever you cast an artifact or creature spell, untap Traxos.",
+    ],
+    // Turbulent Crater
+    &[
+        "({T}: Add {B} or {R}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+    ],
+    // Turbulent Shore
+    &[
+        "({T}: Add {W} or {U}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+    ],
+    // Turbulent Wetlands
+    &[
+        "({T}: Add {U} or {B}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+    ],
     &[],
     &[],
+    // Undulating Witness
+    &[
+        "Flying\n{2}: This creature gets +1/-1 until end of turn.\nBasic landcycling {2} ({2}, Discard this card: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.)",
+    ],
+    // Unflinching Hortimancer
+    &[
+        "Ward {1} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {1}.)\nWhenever you gain life, put a +1/+1 counter on this creature.",
+    ],
     &[],
+    // Venser, Fervent Forger
+    &[
+        "Flash\nWhen Venser enters, choose one —\n• Copy target instant or sorcery spell an opponent controls twice. You may choose new targets for the copies.\n• Create two tokens that are copies of target permanent an opponent controls. They gain haste. At the beginning of the next end step, sacrifice them.",
+    ],
+    // Verdant Kraken
+    &[
+        "At the beginning of each player's upkeep, you create a 3/3 green Forest Tentacle land creature token. (It has \"{T}: Add {G}.\" It's affected by summoning sickness until your next turn.)",
+    ],
+    // Vigorbloom Annex
+    &["This land enters tapped unless you control a planeswalker.\n{T}: Add {G} or {W}."],
+    // Vinelasher Adept
+    &[
+        "Reach\nWhen this creature enters, put three +1/+1 counters on target creature.\nBasic landcycling {2} ({2}, Discard this card: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.)",
+    ],
     &[],
     &[],
     &[],
     &[],
+    // Yoshimaru, Scrappy Stray
+    &[
+        "When Yoshimaru enters, another target creature you control fights up to one target creature an opponent controls. (Each deals damage equal to its power to the other.)\n{6}: Put a +1/+1 counter on target nonlegendary creature.",
+    ],
+    // Your Fate Ends Here
+    &[
+        "Destroy target creature or planeswalker with mana value 3 or greater. Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+    ],
     &[],
+    // Avoided Stairwurm
+    &["Menace\nThis creature gets -1/-1 for each creature card in your library."],
     &[],
     &[],
     &[],
@@ -82501,6 +82598,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Potential Horizon
+    &[
+        "If you were the starting player, this land enters tapped.\n{T}, Sacrifice this land: Search your library for a land card with a basic land type, put it onto the battlefield, then shuffle.",
+    ],
     &[],
     &[],
     &[],
@@ -82520,70 +82621,266 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Amanda Grayson, Logic's Link
+    &[
+        "Affinity for Vulcans (This spell costs {1} less to cast for each Vulcan you control.)\nLandfall — Whenever a land you control enters, put two +1/+1 counters on target creature you control.",
+    ],
     &[],
+    // Ambulatory Reactor
+    &[
+        "Artifact creatures you control have \"{T}: Add {C}. Spend this mana only to cast an artifact spell or activate an ability of an artifact source.\"",
+    ],
+    // Andoria
+    &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {U} or {R}."],
     &[],
+    // Antagonist Incorporator
+    &[
+        "Artifact creatures you control have \"Whenever this creature deals combat damage to a player, you may pay {1}. If you do, create a 1/1 colorless Borg artifact creature token.\"",
+    ],
+    // Anthropological Mission
+    &[
+        "Whenever you cast a noncreature spell, put a quest counter on this enchantment. Draw a card. Then discard a card unless this enchantment has three or more quest counters on it.",
+    ],
+    // Armus, Skin of Evil
+    &[
+        "Menace\nAt the beginning of your end step, target opponent discards two cards.\n{2}{B}, Discard this card: Target creature gets -4/-4 until end of turn.",
+    ],
+    // Artificial Anomaly
+    &[
+        "{T}: Add {C}.\n{3}{B}, {T}, Sacrifice this land: Each opponent loses 2 life and you gain 2 life. Create a tapped Planet land token named New Planet with \"{T}: Add one mana of any color.\"",
+    ],
+    // Assembly Specialist
+    &["When this creature enters, create a 1/1 colorless Borg artifact creature token."],
     &[],
     &[],
     &[],
     &[],
+    // Bajor
+    &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {R} or {W}."],
+    // Balance of Terror
+    &[
+        "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Destroy up to one other target artifact or enchantment.\nII, III — Exile up to one other target permanent you control. Return that card to the battlefield under its owner's control at the beginning of the next end step.",
+    ],
+    // Battle of Wolf 359
+    &[
+        "All nonartifact creatures get -X/-X until end of turn, where X is the number of artifact creatures you control.",
+    ],
+    // Beverly Crusher, Ship's Doctor
+    &[
+        "Seek out — Whenever you draw your second card each turn, put a +1/+1 counter on each of up to three target creatures.",
+    ],
     &[],
+    // Blood-Sport Champion
+    &[
+        "Kicker {2} (You may pay an additional {2} as you cast this spell.)\nDeathtouch\nWhen this creature enters, if it was kicked, other creatures you control gain deathtouch until end of turn.",
+    ],
     &[],
     &[],
+    // Borg Incursion
+    &[
+        "Create two 1/1 colorless Borg artifact creature tokens, then artifact creatures you control gain protection from the color of your choice until end of turn. (They can't be blocked, targeted, dealt damage, enchanted, or equipped by anything of that color.)",
+    ],
+    // Borg Scout Sphere
+    &[
+        "When this Spacecraft enters, draw a card.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 6+.)\n6+ | Artifact creatures you control have flying.",
+    ],
     &[],
     &[],
     &[],
+    // Captain Janeway, Endgame
+    &[
+        "Whenever one or more Officers you control deal combat damage to a player, you draw a card and create a 1/1 red Officer creature token.\n{2}, Tap an untapped creature you control: Captain Janeway can't be blocked this turn.",
+    ],
     &[],
     &[],
     &[],
     &[],
+    // Cardassia Prime
+    &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {W} or {B}."],
+    // Cetacean Ops
+    &[
+        "Ward {1} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {1}.)\nWhenever you cast a noncreature spell, put a +1/+1 counter on this creature.",
+    ],
+    // Chancellor Gorkon
+    &["Vigilance\nWhen Chancellor Gorkon dies, exile up to two target creatures."],
     &[],
+    // Chief Kyle, Transporter Tech
+    &[
+        "Landfall — Whenever a land you control enters, exile up to one other target creature you control. Return that card to the battlefield under its owner's control at the beginning of the next end step.",
+    ],
     &[],
     &[],
+    // Class-4 Tactical Cube
+    &[
+        "When this Spacecraft enters, create two 1/1 colorless Borg artifact creature tokens.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 7+.)\n7+ | Flying\nArtifact creatures you control get +1/+1.",
+    ],
+    // Class-F Shuttlecraft
+    &[
+        "{T}: Add one mana of any color.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 6+.)\n6+ | Flying, vigilance",
+    ],
     &[],
     &[],
     &[],
+    // Co-Option Adjutant
+    &[
+        "Artifact creatures you control have \"Whenever this creature deals combat damage to a player, draw a card.\"",
+    ],
+    // Collation Trimatrix
+    &["Tap three untapped artifact creatures you control: You draw a card and lose 1 life."],
     &[],
     &[],
     &[],
     &[],
+    // Command Subadjunct
+    &["Artifact creatures you control have vigilance."],
+    // Commander Raffi Musiker
+    &[
+        "When Commander Musiker enters, choose one —\n• Exile up to one target card from a graveyard. You gain 2 life.\n• Investigate. You lose 2 life. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+    ],
     &[],
+    // Commander William Riker
+    &["Vigilance, haste\n{1}, {T}: You and target opponent each draw two cards."],
     &[],
+    // Constable Odo
+    &[
+        "When Constable Odo enters, choose one —\n• Tap target creature an opponent controls. Put two stun counters on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)\n• Investigate twice. (To investigate, create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+    ],
+    // Culber and Stamets, Star-Crossed
+    &[
+        "When Culber and Stamets enter, choose one —\n• Put a +1/+1 counter on target creature.\n• Add two mana of any one color.",
+    ],
     &[],
+    // D'Ghor Bloodletter
+    &[
+        "When this creature enters, choose one —\n• All other creatures get -1/-1 until end of turn.\n• Each player sacrifices a creature of their choice.",
+    ],
+    // D'Vana Tendi, Optimistic Ensign
+    &[
+        "{T}: Untap another target permanent.\n{3}: Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+    ],
     &[],
+    // Dahar Master
+    &[
+        "When this creature enters, you may sacrifice another nonland permanent. When you do, this creature deals 2 damage to any target.",
+    ],
+    // Dal R'El, Augment Orphan
+    &[
+        "Landfall — Whenever a land you control enters, add {R} or {G}.\n{3}, Sacrifice a land: Draw a card.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // David and Carol Marcus, Creators
+    &[
+        "When David and Carol Marcus enter, create a tapped Planet land token named New Planet with \"{T}: Add one mana of any color.\"",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // Deliver from Chaos
+    &[
+        "Exile target artifact or creature. Create X 1/1 colorless Borg artifact creature tokens, where X is that permanent's mana value.",
+    ],
     &[],
+    // Dominion Infiltration
+    &[
+        "Choose X target creatures your opponents control. For each of them, create a token that's a copy of that creature, except it has changeling. Those tokens gain haste. Exile those tokens at the beginning of the next end step. (They're every creature type.)",
+    ],
     &[],
     &[],
     &[],
+    // Dr. Pulaski, Cynical Clinician
+    &["Seek out — Whenever you draw your second card each turn, you gain 4 life."],
+    // Earth, Sector 001
+    &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {G} or {U}."],
     &[],
+    // Emergency Holographic Crew
+    &[
+        "When this creature enters, choose one —\n• Return target Spacecraft card from your graveyard to your hand.\n• Surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
+    ],
+    // Emergency Regeneration
+    &["Artifacts you control gain hexproof and indestructible until end of turn."],
+    // Encounter the Unknown
+    &[
+        "Choose one —\n• Come in Peace — Exile the top two cards of your library. Until the end of your next turn, you may play those cards.\n• Shoot to Kill — Encounter the Unknown deals 2 damage to each creature and each player.",
+    ],
     &[],
     &[],
     &[],
+    // Enterprise NX-01
+    &[
+        "When Enterprise NX-01 enters, tap target creature an opponent controls and put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 6+.)\n6+ | Flying, vigilance",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // Federation Outpost
+    &[
+        "This land enters tapped unless you control two or more other lands.\nWhen this land enters untapped, choose one —\n• You gain 2 life.\n• Surveil 1.\n{T}: Add {W}.",
+    ],
     &[],
+    // Ferenginar
+    &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {B} or {G}."],
+    // Ferocious Colonist
+    &[
+        "Double strike\nMelee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)",
+    ],
     &[],
+    // Fleet Captain Christopher Pike
+    &[
+        "Yes — {1}, {T}: Untap two other target creatures.\nNo — {2}, {T}: Tap two other target creatures.",
+    ],
     &[],
     &[],
+    // Gagh Slinger
+    &[
+        "Klingon spells and Warrior spells you cast cost {1} less to cast.\nWhenever another Klingon or Warrior you control enters, this creature deals 1 damage to each opponent.",
+    ],
     &[],
+    // Gaseous Anomaly
+    &[
+        "{T}: Add {C}.\n{5}{U}, {T}, Sacrifice this land: Draw two cards. Create a tapped Planet land token named New Planet with \"{T}: Add one mana of any color.\"",
+    ],
     &[],
+    // Genesis Effect
+    &[
+        "Genesis Effect deals 6 damage to target creature. Destroy target land you control. Create a tapped Planet land token named New Planet with \"{T}: Add one mana of any color.\"",
+    ],
+    // Geordi La Forge, Innovator
+    &[
+        "Geordi La Forge can't be blocked if you control a Spacecraft.\nWhenever Geordi La Forge deals combat damage to a player, draw a card.",
+    ],
+    // Georgiou, Terran Emperor
+    &[
+        "You don't lose the game for having 0 or less life.\nAt the beginning of your end step, you lose 3 life and draw a card. Then if your life total is 0 or less, create ten 1/1 red Officer creature tokens.",
+    ],
+    // Ghost of Illyria
+    &[
+        "Flying\nWhen this creature enters, exile up to one other target nonland permanent you control. Return that card to the battlefield under its owner's control at the beginning of the next end step.",
+    ],
     &[],
     &[],
+    // Glory to the Empire!
+    &[
+        "When this enchantment enters, create a number of 2/1 red Klingon Warrior creature tokens with haste equal to the number of opponents you have.\nCreatures you control have melee. (Whenever a creature with melee attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)",
+    ],
+    // Gnarling Targ
+    &[
+        "Trample\nWhenever you attack, Klingons and Warriors you control get +2/+0 and gain trample until end of turn.",
+    ],
     &[],
     &[],
     &[],
+    // Grilka, Widowed Warrior
+    &[
+        "When Grilka enters, gain control of target creature an opponent controls until end of turn. Untap it. Until end of turn, it gains trample, haste, and \"Whenever this creature deals combat damage to a player, create that many tapped Treasure tokens.\"",
+    ],
     &[],
     &[],
     &[],
@@ -82594,24 +82891,72 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // I.K.S. Negh'Var, Imperial Flagship
+    &[
+        "Klingons and Warriors you control have vigilance.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 10+.)\n10+ | Flying, vigilance",
+    ],
+    // Imperial Hullbreachers
+    &[
+        "Squad {2} (As an additional cost to cast this spell, you may pay {2} any number of times. When this creature enters, create that many tokens that are copies of it.)\nFlying\nBattle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)",
+    ],
+    // Impossible Choice
+    &[
+        "Choose one —\n• Surgical Separation — Destroy target creature. Its controller creates two 1/1 red Officer creature tokens.\n• Remain Fused — You draw two cards and each player loses 2 life.",
+    ],
+    // Indelicate Healer
+    &[
+        "Whenever this creature or another Klingon or Warrior you control enters, creatures you control gain lifelink until end of turn.",
+    ],
     &[],
+    // Interstellar Effigy
+    &[
+        "When this creature enters, return target creature an opponent controls to its owner's hand.",
+    ],
+    // Isolinear Processor
+    &[
+        "{T}: Add {C}. Spend this mana only to cast an artifact spell or activate an ability of an artifact source.\n{2}, {T}: Draw a card, then discard a card.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // Jefferies Tube
+    &[
+        "{2}, {T}: Put two charge counters on target artifact.\n{3}, {T}: Target creature you control can't be blocked this turn.\n{4}, {T}: Draw a card. You may put a land card from your hand onto the battlefield tapped.",
+    ],
     &[],
     &[],
     &[],
+    // Jurati, Cordial Queen
+    &[
+        "Whenever one or more artifact creatures you control deal combat damage to a player, create a token that's a copy of target artifact token you control.",
+    ],
+    // K'Vort-Class Raider
+    &[
+        "During your turn, this Spacecraft and creatures you control have hexproof.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 4+.)\n4+ | Flying, menace, haste",
+    ],
     &[],
     &[],
     &[],
     &[],
+    // Khan, Despot by Design
+    &[
+        "Trample\nWhen Khan enters, he deals 1 damage to each opponent and each creature your opponents control.",
+    ],
     &[],
     &[],
     &[],
+    // Kirk, Man of Action
+    &[
+        "Other Officers, Artificers, Doctors, Pilots, Scientists, and Spacecraft creatures you control get +2/+2.",
+    ],
     &[],
     &[],
+    // Kor, Cause of Vengeance
+    &[
+        "Whenever you attack, you may sacrifice another creature. If you do, draw a card, then Klingons and Warriors you control get +2/+2 until end of turn.",
+    ],
     &[],
     &[],
     &[],
@@ -82620,23 +82965,59 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Locutus of Borg
+    &[
+        "Lifelink\nArtifact creatures you control have \"Whenever this creature deals combat damage to a player, create a 1/1 colorless Borg artifact creature token.\"",
+    ],
+    // Locutus, the One Who Speaks
+    &[
+        "Artifact creatures you control get +1/+1.\n{W}{B}, Discard this card: It deals 2 damage to target creature. You gain 2 life.",
+    ],
     &[],
     &[],
     &[],
     &[],
+    // M'Ress, Crew Coordinator
+    &["Landfall — Whenever a land you control enters, create two 1/1 red Officer creature tokens."],
+    // MACO Strike Team
+    &[
+        "Whenever a creature you control becomes the target of a spell or ability an opponent controls, create a tapped 1/1 red Officer creature token.",
+    ],
     &[],
     &[],
+    // Maturation Chamber
+    &[
+        "Whenever you cast an artifact spell, put a charge counter on this artifact.\n{4}, {T}: Create a 1/1 colorless Borg artifact creature token for each charge counter on this artifact. Activate only as a sorcery.",
+    ],
+    // McCoy, Not a Bricklayer
+    &[
+        "Whenever McCoy or another Doctor you control enters, put a +1/+1 counter on each creature you control.\nCreatures you control with counters on them have lifelink.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // Ni'Var Science Academy
+    &[
+        "This land enters tapped unless you control two or more other lands.\nWhen this land enters untapped, choose one —\n• Target creature gains flying until end of turn.\n• Surveil 1.\n{T}: Add {U}.",
+    ],
     &[],
     &[],
     &[],
     &[],
+    // On the Shoulders of Giants
+    &[
+        "Historic creatures you control have flying. (Artifacts, legendaries, and Sagas are historic.)",
+    ],
+    // One, Borg Evolved
+    &[
+        "Artifact creatures you control have flying, double strike, vigilance, menace, lifelink, and ward {2}.",
+    ],
     &[],
+    // Orion
+    &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {R} or {G}."],
     &[],
     &[],
     &[],
@@ -82645,288 +83026,381 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
+    // Photosynthetic Physician
+    &[
+        "Reach\n{G}, Exile this card from your graveyard: Create a 1/1 red Officer creature token. Activate only as a sorcery.",
+    ],
     &[],
     &[],
+    // Primary Unimatrix Adjunct
+    &["Artifact creatures you control have double strike."],
     &[],
+    // Q Continuum
+    &[
+        "This land enters tapped unless you control two or more other lands.\nWhen this land enters untapped, choose one —\n• Target creature gets +1/+1 and gains vigilance until end of turn.\n• Surveil 1.\n{T}: Add {G}.",
+    ],
     &[],
     &[],
+    // Qo'noS
+    &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {B} or {R}."],
+    // Qo'noS Quartermaster
+    &[
+        "Menace\nWhenever this creature attacks, add one mana of any color. Until end of turn, you don't lose this mana as steps and phases end.",
+    ],
+    // Quark's Bar
+    &[
+        "This land enters tapped unless you control two or more other lands.\nWhen this land enters untapped, choose one —\n• This land deals 1 damage to each opponent.\n• Surveil 1.\n{T}: Add {R}.",
+    ],
     &[],
     &[],
+    // Ravenous Cosmozoan
+    &[
+        "This spell costs {1} less to cast for each noncreature, nonland card in your graveyard.\nFlying, haste",
+    ],
+    // Reclamation Specialist
+    &["{1}, Sacrifice an artifact creature: Draw a card."],
     &[],
+    // Red Alert!
+    &[
+        "This spell costs {2} less to cast if a creature is attacking you.\nCreatures you control get +2/+0 until end of turn.",
+    ],
+    // Reg Barclay, Fidgety Fantasist
+    &[
+        "Seek out — Whenever you draw your second card each turn, create a token that's a copy of another target creature you control, except it isn't legendary, it's an Illusion artifact in addition to its other types, and it has haste. Exile that token at the beginning of the next end step.",
+    ],
+    // Replicator
+    &[
+        "When this artifact enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n{2}, {T}: Create a tapped token that's a copy of target token you control.",
+    ],
     &[],
+    // Risa
+    &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {G} or {W}."],
     &[],
     &[],
     &[],
     &[],
+    // Romulan Bird-of-Prey
+    &[
+        "Cloaking Device — As long as this Spacecraft isn't a creature, it has hexproof.\nWhenever you cast a noncreature spell, if this Spacecraft isn't a creature, put two charge counters on it.\nStation\n8+ | Flying",
+    ],
+    // Romulus
+    &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {U} or {B}."],
     &[],
+    // Rutherford, Upgraded Ensign
+    &[
+        "When Rutherford enters, look at the top six cards of your library. You may reveal an artifact card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\nWhenever you cast a Spacecraft spell, put a +1/+1 counter on target creature.",
+    ],
     &[],
+    // Sam Kirk, Xenoanthropologist
+    &[
+        "Whenever an opponent casts a creature spell, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+    ],
+    // Sarcophagus, Ship of the Dead
+    &[
+        "Other creatures you control get +1/+0.\nWhenever a creature dies, if Sarcophagus isn't a creature, put a charge counter on it.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 10+.)\n10+ | Flying",
+    ],
     &[],
+    // Saru, Unthreatened
+    &[
+        "Flash\nWhen Saru enters, another target creature you control gains hexproof until end of turn. (It can't be the target of spells or abilities your opponents control.)",
+    ],
     &[],
+    // Scotty, Chief Engineer
+    &["Tap an untapped artifact you control: Target creature can't be blocked this turn."],
     &[],
     &[],
+    // Seven of Nine, Tertiary Adjunct
+    &[
+        "That Is Irrelevant — {T}: Draw a card, then discard a card. When you discard a nonland card this way, put two charge counters on up to one target artifact.",
+    ],
     &[],
+    // Shore Leave Planet
+    &[
+        "This land enters tapped.\n{T}: Add {U}.\n{4}{U}: This land becomes a copy of target creature you control until end of turn, except it isn't legendary and it's a Robot artifact in addition to its other types.",
+    ],
+    // Shuttlecraft Galileo
+    &[
+        "Landfall — Whenever a land you control enters, create a 1/1 red Officer creature token.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 6+.)\n6+ | Flying\nWhenever Shuttlecraft Galileo attacks, up to seven target attacking creatures gain flying until end of turn.",
+    ],
+    // Sickbay
+    &[
+        "Whenever a creature you control enters, you gain 1 life.\nAt the beginning of combat on your turn, put X +1/+1 counters on target creature you control, where X is one plus the amount of life you gained this turn.",
+    ],
     &[],
+    // Spatial Anomaly
+    &[
+        "{T}: Add {C}.\n{4}{R}, {T}, Sacrifice this land: It deals 2 damage to target creature. Create a tapped Planet land token named New Planet with \"{T}: Add one mana of any color.\"",
+    ],
     &[],
     &[],
+    // Spock, Voice of Reason
+    &["{2}, {T}: Draw a card for each nontoken permanent you control that entered this turn."],
+    // Spot, Felis catus
+    &[
+        "Whenever Spot or another nontoken legendary permanent you control enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n{4}, Sacrifice a Food: Destroy target artifact.",
+    ],
+    // Stable Wormhole
+    &[
+        "Whenever you attack, create a tapped Planet land token named New Planet with \"{T}: Add one mana of any color.\"",
+    ],
     &[],
     &[],
+    // Starfleet Security
+    &[
+        "Haste\nWhen this creature dies during your turn, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+    ],
     &[],
+    // Starship Enterprise
+    &[
+        "Landfall — Whenever a land you control enters, put four charge counters on Starship Enterprise.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 16+.)\n16+ | Flying\nWhenever Starship Enterprise deals combat damage to a player, draw that many cards.",
+    ],
     &[],
+    // Stratagem Emulator
+    &[
+        "When this creature dies, create X 1/1 colorless Borg artifact creature tokens, where X is its power.",
+    ],
     &[],
+    // Subcommander T'Pol
+    &[
+        "Flash\nWhen Subcommander T'Pol enters, choose one —\n• Counter target activated or triggered ability.\n• Tap up to one target artifact or creature. Put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+    ],
+    // Subspace Anomaly
+    &[
+        "{T}: Add {C}.\n{4}{W}, {T}, Sacrifice this land: Create two 1/1 red Officer creature tokens. Create a tapped Planet land token named New Planet with \"{T}: Add one mana of any color.\"",
+    ],
     &[],
+    // Sulu, Space Swashbuckler
+    &[
+        "First strike\nWhenever Sulu becomes tapped, if an Equipment or Spacecraft entered the battlefield under your control this turn, draw a card.",
+    ],
+    // Supplementation Node
+    &[
+        "Artifact creatures you control have \"Whenever this creature deals combat damage to a player, put a +1/+1 counter on it.\"",
+    ],
+    // Suurok-Class Science Vessel
+    &[
+        "When this Spacecraft enters, draw a card.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 5+.)\n5+ | Flying",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // Targ Wrangler
+    &[
+        "Menace (This creature can't be blocked except by two or more creatures.)\nAt the beginning of your end step, if this creature attacked this turn, sacrifice a nonland permanent.",
+    ],
+    // Tasha Yar, Out of Time
+    &[
+        "Haste\nWhen Tasha Yar dies, exile the top card of your library. Until the end of your next turn, you may play that card.\n{2}{R}, Exile this card from your graveyard: Create a token that's a copy of this card. Sacrifice it at the beginning of the next end step. Activate only as a sorcery.",
+    ],
+    // Tea, Earl Grey, Hot
+    &[
+        "When this artifact enters, draw a card.\n{2}, {T}, Sacrifice this artifact: Choose one —\n• This artifact deals 2 damage to target opponent.\n• You gain 3 life.",
+    ],
     &[],
+    // Temporal Anomaly
+    &[
+        "{T}: Add {C}.\n{3}{G}, {T}, Sacrifice this land: Mill four cards. You may put a permanent card from among them into your hand. Create a tapped Planet land token named New Planet with \"{T}: Add one mana of any color.\"",
+    ],
     &[],
+    // Temporal Tribulation
+    &[
+        "Exile two target permanents you control. Return those cards to the battlefield under their owner's control at the beginning of the next end step.\nFlashback {5}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Tenacious Drone
+    &["When this creature dies, create a 1/1 colorless Borg artifact creature token."],
+    // Test of Conviction
+    &[
+        "Choose one —\n• Battle Stations — Put a +1/+1 counter on each creature you control.\n• Begin Negotiations — Target opponent draws a card. You draw two cards.",
+    ],
+    // Test of Courage
+    &[
+        "Choose one —\n• Alter the Past — Exile target card from a graveyard. You gain 2 life.\n• Obliterate the Transwarp Network — Destroy target artifact or enchantment with mana value 3 or less.",
+    ],
     &[],
+    // Test of Loyalty
+    &[
+        "Choose one —\n• Plain, Simple Garak — Exile target card from a graveyard. Draw a card.\n• Of the Obsidian Order — Return target creature card from your graveyard to your hand.",
+    ],
+    // Test of Priorities
+    &[
+        "Choose one —\n• Power to Engines — Surveil 2, then draw a card.\n• Power to Life Support — Exile target creature you control. Return that card to the battlefield under its owner's control at the beginning of the next end step.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // The Doctor, EMH
+    &[
+        "When The Doctor enters, put a +1/+1 counter on target creature. Then put a +1/+1 counter on each creature you control with a counter on it.",
+    ],
+    // The Duras Sisters
+    &["When The Duras Sisters die, create a 2/1 red Klingon Warrior creature token with haste."],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // The Needs of the Many
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nCreatures you control gain hexproof and indestructible until end of turn. You gain hexproof until end of turn. Prevent all damage that would be dealt to you this turn. Exile The Needs of the Many.",
+    ],
     &[],
     &[],
     &[],
+    // The Unicomplex
+    &[
+        "This land enters tapped unless you control two or more other lands.\nWhen this land enters untapped, choose one —\n• Put target creature card from your graveyard on top of your library.\n• Surveil 1.\n{T}: Add {B}.",
+    ],
     &[],
     &[],
     &[],
+    // Tom Paris, Risk-Taker
+    &[
+        "Seek out — Whenever you draw your second card each turn, creatures you control gain flying, double strike, vigilance, and haste until end of turn.",
+    ],
     &[],
     &[],
     &[],
+    // Tricorder
+    &[
+        "Equipped creature gets +1/+1.\nWhenever equipped creature attacks, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     &[],
     &[],
     &[],
+    // Type-03 Borg Vessel
+    &[
+        "Artifact spells you cast cost {1} less to cast.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 7+.)\n7+ | Flying\nWhenever you cast a spell, create a 1/1 colorless Borg artifact creature token.",
+    ],
+    // Type-2 Phaser
+    &[
+        "When this Equipment enters, tap target creature an opponent controls and put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)\nEquipped creature gets +3/+0.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
+    // U.S.S. Cerritos, Following Up
+    &[
+        "When U.S.S. Cerritos enters, create two 1/1 red Officer creature tokens.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 6+.)\n6+ | Flying",
+    ],
+    // U.S.S. Defiant, Mirror Migrant
+    &[
+        "Flash\nWhen U.S.S. Defiant enters, it and up to one target creature you control phase out. (Treat them and anything attached to them as though they don't exist until your next turn.)\nStation\n8+ | Flying",
+    ],
+    // U.S.S. Defiant, Tough Little Ship
+    &[
+        "When U.S.S. Defiant enters, destroy up to one target artifact or enchantment.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 5+.)\n5+ | Flying, hexproof",
+    ],
     &[],
+    // U.S.S. Enterprise-A, Free Spirit
+    &[
+        "Ward {2}\nWhen U.S.S. Enterprise-A enters, create three 1/1 red Officer creature tokens.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 6+.)\n6+ | Flying, lifelink",
+    ],
     &[],
+    // U.S.S. Enterprise-E, Sovereign
+    &[
+        "When U.S.S. Enterprise-E enters, destroy all tapped creatures.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 8+.)\n8+ | Flying, vigilance",
+    ],
+    // U.S.S. Excelsior, Cutting Edge
+    &[
+        "When U.S.S. Excelsior enters, destroy target tapped creature an opponent controls.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 8+.)\n8+ | Flying",
+    ],
     &[],
     &[],
+    // U.S.S. Reliant, From Hell's Heart
+    &[
+        "Whenever U.S.S. Reliant enters or deals combat damage to a player, return target creature card with mana value 4 or less from your graveyard to the battlefield with a finality counter on it.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 10+.)\n10+ | Flying",
+    ],
     &[],
     &[],
+    // Uhura, Xenolinguist
+    &["Whenever a non-Human creature enters, you may pay {1}. If you do, draw a card."],
     &[],
+    // Unexplored Territory
+    &[
+        "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+    ],
     &[],
     &[],
     &[],
+    // Vexing Drone
+    &["When this creature enters, tap target creature an opponent controls."],
     &[],
     &[],
+    // Vulcan
+    &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {W} or {U}."],
     &[],
     &[],
+    // Warp Core
+    &[
+        "When this artifact enters, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.\n{1}, {T}: Put two charge counters on target Spacecraft. Activate only as a sorcery.",
+    ],
     &[],
     &[],
     &[],
     &[],
     &[],
     &[],
+    // Worf, Son of Mogh
+    &[
+        "Menace\nOther Officers you control get +1/+1.\nSeek out — Whenever you draw your second card each turn, create a 1/1 red Officer creature token.",
+    ],
+    // Worf, Still Not Merry
+    &[
+        "Whenever Worf attacks, for each attacking non-Faerie creature, create a tapped and attacking 1/1 blue Faerie creature token with flying.",
+    ],
+    // Year of Hell
+    &[
+        "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II, III — Each player draws a card. This Saga deals 2 damage to each player.",
+    ],
     &[],
     &[],
+    // Baron Vladimir Harkonnen
+    &[
+        "Whenever an opponent sacrifices a nontoken creature, you draw a card.\n{T}, Sacrifice another legendary creature: Target opponent sacrifices a nontoken creature of their choice and loses 3 life.",
+    ],
+    // Chani, Blade of Sietch Tabr
+    &[
+        "Double strike\nYou may play an additional land on each of your turns.\nLandfall — Whenever a land you control enters, put a +1/+1 counter on target creature. If that land is a Desert, that creature gains vigilance, hexproof, and haste until end of turn.",
+    ],
     &[],
     &[],
     &[],
+    // Paul Atreides, Ducal Heir
+    &[
+        "Vigilance\nTraining (Whenever this creature attacks with another creature with greater power, put a +1/+1 counter on this creature.)\n{T}: Put a +1/+1 counter on each other creature you control. Activate only if Paul Atreides's power is 4 or greater.",
+    ],
+    // Princess Irulan Corrino
+    &[
+        "Whenever you draw your second card each turn, you gain 2 life.\nWhenever an opponent draws their second card each turn, they lose 2 life.\n{T}: You and target opponent each draw two cards.",
+    ],
+    // Reverend Mother Jessica
+    &[
+        "Prowess, prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn twice.)\nWhenever Reverend Mother Jessica attacks, for each opponent, tap up to one target creature that player controls with lesser power and goad it. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)",
+    ],
     &[],
     &[],
     &[],
     &[],
+    // Calmwater Mentor
+    &[
+        "When this creature enters, you may search your library for up to two creature cards with power 2 or less, reveal them, put them into your hand, then shuffle.",
+    ],
     &[],
+    // Ring of Unity
+    &["Artifacts you control have \"{T}: Add {C}{C}.\""],
     &[],
     &[],
+    // Tecton, Malignant Ruin
+    &[
+        "Fathomless descent — This spell costs {1} less to cast for each permanent card in your graveyard.\nMenace, deathtouch\nWhenever you sacrifice another permanent, draw a card.",
+    ],
     &[],
     &[],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Penance Stare
+    &["Destroy target attacking creature with mana value 3 or less."],
     &[],
     &[],
     &[],
