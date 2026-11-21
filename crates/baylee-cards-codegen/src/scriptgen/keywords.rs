@@ -210,6 +210,21 @@ impl Tx<'_> {
             self.body.offspring = Some(expr);
             return Some(());
         }
+        if line == "CARDNAME can be your commander."
+            && (self.oracle.is_empty()
+                || self
+                    .oracle
+                    .to_ascii_lowercase()
+                    .contains("can be your commander"))
+        {
+            return Some(());
+        }
+        if let Some(rest) = line.strip_prefix("AlternateAdditionalCost:") {
+            return self.alternate_additional_cost(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Mutate:") {
+            return self.mutate(rest);
+        }
         if let Some(rest) = line.strip_prefix("Unearth:") {
             return self.unearth(rest);
         }
@@ -281,10 +296,12 @@ impl Tx<'_> {
                      zone = ZoneRef::Stack)"
                         .to_string(),
                 );
-            } else if matches!(bit, "KeywordSet::MYRIAD" | "KeywordSet::EXTORT")
-                && self.body.keywords.iter().any(|k| k == bit)
+            } else if matches!(
+                bit,
+                "KeywordSet::MYRIAD" | "KeywordSet::EXTORT" | "KeywordSet::ENLIST"
+            ) && self.body.keywords.iter().any(|k| k == bit)
             {
-                // CR 702.116b / CR 702.101b: duplicate Myriad/Extort instances
+                // CR 702.116b / CR 702.101b / CR 702.154c: duplicate instances
                 // register separately for `layers::keyword_instances`.
                 self.body.abilities.push(Self::static_expr(
                     "Filter::This",
@@ -1602,6 +1619,60 @@ impl Tx<'_> {
             "Some(Escape {{ cost: mana!(\"{mana}\"), exile: {exile} }})"
         ));
         self.body.notes.push("escape".to_string());
+        Some(())
+    }
+
+    pub(super) fn alternate_additional_cost(&mut self, rest: &str) -> Option<()> {
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`AlternateAdditionalCost` on a land or untyped card".to_string());
+        }
+        let Some((lhs, mana_str)) = rest.split_once(':') else {
+            return self.deny("keyword `AlternateAdditionalCost`".to_string());
+        };
+        if mana_str.contains(':') {
+            return self.deny("keyword `AlternateAdditionalCost`".to_string());
+        }
+        let Some(inner) = lhs
+            .trim()
+            .strip_prefix("Behold<")
+            .and_then(|s| s.strip_suffix('>'))
+        else {
+            return self.deny("keyword `AlternateAdditionalCost`".to_string());
+        };
+        if self.body.behold_or_pay.is_some() {
+            return self.deny("a second `BeholdOrPay` cost on one card".to_string());
+        }
+        let mut fields = inner.splitn(3, '/');
+        let (Some(count_str), Some(valid)) = (fields.next(), fields.next()) else {
+            return self.deny(format!("malformed `Behold` cost `{lhs}`"));
+        };
+        if count_str.trim() != "1" {
+            return self.deny(format!("`Behold` count `{count_str}`"));
+        }
+        let expr = self.filter_expr(valid.trim())?;
+        let (mana, _) =
+            self.parse_alt_cost_pieces("AlternateAdditionalCost", mana_str, false, true)?;
+        let filter_name = self.body.filter_static("BEHOLD", &expr);
+        self.body.behold_or_pay = Some(format!(
+            "Some(BeholdOrPay {{ filter: &{filter_name}, cost: mana!(\"{mana}\") }})"
+        ));
+        self.body.notes.push("behold or pay".to_string());
+        Some(())
+    }
+
+    pub(super) fn mutate(&mut self, rest: &str) -> Option<()> {
+        if !self.type_line.split_whitespace().any(|w| w == "Creature")
+            || self.is_land_card_type()
+            || self.is_spell_card_type()
+        {
+            return self.deny("`Mutate` on a non-creature card".to_string());
+        }
+        if self.body.mutate.is_some() {
+            return self.deny("a second `Mutate` cost on one card".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("Mutate", rest, false, true)?;
+        self.body.mutate = Some(format!("Some(mana!(\"{mana}\"))"));
+        self.body.notes.push("mutate".to_string());
         Some(())
     }
 

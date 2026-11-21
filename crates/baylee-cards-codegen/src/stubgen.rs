@@ -778,6 +778,12 @@ fn render_face(
         if let Some(off) = body.offspring.as_deref() {
             fields.push(format!("offspring = {off}"));
         }
+        if let Some(behold) = body.behold_or_pay.as_deref() {
+            fields.push(format!("behold_or_pay = {behold}"));
+        }
+        if let Some(mutate) = body.mutate.as_deref() {
+            fields.push(format!("mutate = {mutate}"));
+        }
         if let Some(cr) = body.cost_reduction.as_deref() {
             fields.push(format!("cost_reduction = {cr}"));
         }
@@ -1059,6 +1065,9 @@ fn transcode_faces(
         if !has_printed_partner {
             return None;
         }
+    }
+    if script.has_commander_text && commander_rule(faces) != "CommanderRule::ExplicitlyAllowed" {
+        return None;
     }
     if body.aftermath {
         return None;
@@ -2732,6 +2741,123 @@ mod tests {
         assert!(
             disturb_out.contains("castable_from_hand = false,"),
             "{disturb_out}"
+        );
+    }
+
+    #[test]
+    fn wave12a_behold_and_mutate_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("behold.txt"),
+            "Name:BeholdScout\nManaCost:2 W\nTypes:Creature Goblin\nPT:2/2\n\
+             K:AlternateAdditionalCost:Behold<1/Goblin>:2\n",
+        )
+        .expect("behold script");
+        std::fs::write(
+            dir.path().join("mutate.txt"),
+            "Name:MutateBeast\nManaCost:3 G\nTypes:Creature\nPT:3/3\nK:Mutate:1 G\n",
+        )
+        .expect("mutate script");
+
+        let mut index = BTreeMap::new();
+        index.insert("BeholdScout".to_string(), "behold.txt".to_string());
+        index.insert("MutateBeast".to_string(), "mutate.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let mut cats = SubtypeCatalogs {
+            creature: vec!["Goblin".to_string()],
+            ..SubtypeCatalogs::default()
+        };
+        cats.normalize();
+
+        let (_, behold_out) = render_stub(
+            &bare_card("BeholdScout", "Creature — Goblin"),
+            &row(34, "BEHOLD_SCOUT"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("behold renders");
+        assert!(
+            behold_out.contains("behold_or_pay = Some(BeholdOrPay {")
+                && behold_out.contains("cost: mana!(\"{2}\")")
+                && behold_out.contains("GOBLIN"),
+            "{behold_out}"
+        );
+
+        let (_, mutate_out) = render_stub(
+            &bare_card("MutateBeast", "Creature"),
+            &row(35, "MUTATE_BEAST"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("mutate renders");
+        assert!(
+            mutate_out.contains("mutate = Some(mana!(\"{1}{G}\")),"),
+            "{mutate_out}"
+        );
+    }
+
+    #[test]
+    fn wave12a_commander_text_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("commander_walker.txt"),
+            "Name:SparkWalker\nManaCost:2 U\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             K:Flying\nText:CARDNAME can be your commander.\n",
+        )
+        .expect("commander walker script");
+
+        let mut index = BTreeMap::new();
+        index.insert(
+            "SparkWalker".to_string(),
+            "commander_walker.txt".to_string(),
+        );
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let walker_ok = ScryfallCard {
+            loyalty: Some("3".to_string()),
+            oracle_text: Some("Flying\nSparkWalker can be your commander.".to_string()),
+            ..bare_card("SparkWalker", "Legendary Planeswalker")
+        };
+        let (_, walker_out) = render_stub(
+            &walker_ok,
+            &row(36, "SPARK_WALKER"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("commander walker renders");
+        assert!(
+            walker_out.contains("KeywordSet::FLYING")
+                && walker_out.contains("CommanderRule::ExplicitlyAllowed"),
+            "{walker_out}"
+        );
+
+        let walker_mismatch = ScryfallCard {
+            oracle_text: Some("Flying".to_string()),
+            ..walker_ok
+        };
+        let (_, mismatch_out) = render_stub(
+            &walker_mismatch,
+            &row(37, "SPARK_WALKER_MISMATCH"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("mismatched commander walker renders stub fallback");
+        assert!(
+            !mismatch_out.contains("KeywordSet::FLYING"),
+            "{mismatch_out}"
         );
     }
 }

@@ -233,6 +233,7 @@ fn single_instance_trigger_keyword(kw: &str) -> Option<&'static str> {
         "Training" => Some("KeywordSet::TRAINING"),
         "Myriad" => Some("KeywordSet::MYRIAD"),
         "Extort" => Some("KeywordSet::EXTORT"),
+        "Enlist" => Some("KeywordSet::ENLIST"),
         _ => None,
     }
 }
@@ -794,6 +795,8 @@ fn abilities(
         || body.squad.is_some()
         || body.offspring.is_some()
         || body.fuse
+        || body.behold_or_pay.is_some()
+        || body.mutate.is_some()
         || body.cost_reduction.is_some()
         || body.entwine.is_some()
         || body.buyback.is_some()
@@ -2167,6 +2170,45 @@ mod tests {
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Squad:1 W",
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Offspring:2",
             "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:2/2\nK:Escape:2 G ExileFromGrave<3/Card.Other>",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
+        }
+    }
+
+    #[test]
+    fn wave12a_wave5b_and_attacks_alone_tokens() {
+        let c = cats();
+        for (kw, expected) in [
+            ("Wither", "KeywordSet::WITHER"),
+            ("Horsemanship", "KeywordSet::HORSEMANSHIP"),
+            ("Skulk", "KeywordSet::SKULK"),
+            ("Enlist", "KeywordSet::ENLIST"),
+        ] {
+            let tok = read(
+                &format!(
+                    "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:{kw}"
+                ),
+                &c,
+            )
+            .unwrap_or_else(|| panic!("{kw} token should transcode"));
+            assert!(tok.literal.contains(expected), "{kw}: {}", tok.literal);
+        }
+
+        let alone = read(
+            "Name:Soldier Token\nColors:red\nTypes:Creature Soldier\nPT:2/1\nK:CARDNAME can only attack alone.",
+            &c,
+        )
+        .expect("attacks alone token");
+        assert!(
+            alone.literal.contains("Modifier::AttacksAloneOnly"),
+            "{}",
+            alone.literal
+        );
+
+        for unsupported in [
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Enlist\nK:Enlist",
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:AlternateAdditionalCost:Behold<1/Soldier>:2",
+            "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:2/2\nK:Mutate:1 G",
         ] {
             assert!(read(unsupported, &c).is_none(), "{unsupported}");
         }

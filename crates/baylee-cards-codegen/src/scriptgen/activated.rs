@@ -1157,12 +1157,12 @@ impl Tx<'_> {
                 _ => None,
             };
         }
-        if raw == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl"
-            && let Some(Bound::AtLeast(n)) = bound
-        {
-            return Some(format!(
-                "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {n})"
-            ));
+        if raw == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" {
+            return self.amount_bound_condition(
+                "Amount::CreaturesEnteredUnderYourControlThisTurn",
+                bound,
+                eq_num,
+            );
         }
         if matches!(
             raw.as_str(),
@@ -1319,22 +1319,58 @@ impl Tx<'_> {
                 _ => None,
             };
         }
-        if raw == "Count$LifeYouGainedThisTurn"
-            && let Some(Bound::AtLeast(n)) = bound
-        {
-            return Some(format!(
-                "Condition::AmountAtLeast(Amount::LifeGainedThisTurn(PlayerRel::You), {n})"
-            ));
-        }
-        if raw == "Count$YourLifeTotal"
-            && let Some(bound) = bound
-        {
-            return Some(match bound {
-                Bound::AtLeast(n) => {
-                    format!("Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n})")
+        if raw == "Count$LifeOppsLostThisTurn/LimitMax.1" {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::OpponentLostLifeThisTurn".to_string()),
+                "EQ0" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string())
                 }
-                Bound::AtMost(n) => format!("Condition::LifeAtMost({n})"),
-            });
+                _ => None,
+            };
+        }
+        if raw == "Count$LifeOppsLostThisTurn" {
+            return match (bound, eq_num) {
+                (Some(Bound::AtMost(0)), _) => {
+                    Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string())
+                }
+                (Some(Bound::AtLeast(1)), _) => {
+                    Some("Condition::OpponentLostLifeThisTurn".to_string())
+                }
+                (_, Some(1)) => {
+                    let inner = "Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, 2)";
+                    let name = self.body.condition_static("CHECK", inner);
+                    Some(format!(
+                        "Condition::All(&[Condition::OpponentLostLifeThisTurn, Condition::Not(&{name})])"
+                    ))
+                }
+                _ => {
+                    self.amount_bound_condition("Amount::OpponentsLifeLostThisTurn", bound, eq_num)
+                }
+            };
+        }
+        if raw == "Count$LifeYouGainedThisTurn" {
+            return self.amount_bound_condition(
+                "Amount::LifeGainedThisTurn(PlayerRel::You)",
+                bound,
+                eq_num,
+            );
+        }
+        if raw == "Count$YourLifeTotal" {
+            if let Some(n) = eq_num
+                && n > 0
+            {
+                return Some(format!(
+                    "Condition::All(&[Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n}), Condition::LifeAtMost({n})])"
+                ));
+            }
+            if let Some(bound) = bound {
+                return Some(match bound {
+                    Bound::AtLeast(n) => {
+                        format!("Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n})")
+                    }
+                    Bound::AtMost(n) => format!("Condition::LifeAtMost({n})"),
+                });
+            }
         }
         if matches!(
             raw.as_str(),
@@ -1438,7 +1474,6 @@ impl Tx<'_> {
                 }
             };
             if !valid.is_empty() && !valid.contains('/') && !valid.contains('$') {
-                let bound = bound?;
                 let relative = valid.split(',').any(|alt| {
                     alt.split(['.', '+']).any(|a| {
                         matches!(
@@ -1458,12 +1493,31 @@ impl Tx<'_> {
                 let opps = valid
                     .split(',')
                     .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
-                    && matches!(bound, Bound::AtMost(0));
+                    && matches!(bound, Some(Bound::AtMost(0)));
                 let nobodys = !valid
                     .split(',')
                     .flat_map(|alt| alt.split(['.', '+']))
                     .any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
-                if !relative && (yours || opps || nobodys) {
+                if !relative
+                    && let Some(n) = eq_num.filter(|&n| n > 0)
+                    && (yours || nobodys)
+                {
+                    let expr = self.filter_expr(&valid)?;
+                    let name = self.body.filter_static("CHECK", &expr);
+                    return Some(if yours {
+                        format!(
+                            "Condition::All(&[Condition::ControlCount(&{name}, {n}), Condition::ControlCountAtMost(&{name}, {n})])"
+                        )
+                    } else {
+                        format!(
+                            "Condition::All(&[Condition::BattlefieldCount(&{name}, {n}), Condition::BattlefieldCountAtMost(&{name}, {n})])"
+                        )
+                    });
+                }
+                if !relative
+                    && (yours || opps || nobodys)
+                    && let Some(bound) = bound
+                {
                     let expr = self.filter_expr(&valid)?;
                     let name = self.body.filter_static("CHECK", &expr);
                     let (variant, n) = match (yours, bound) {
@@ -1477,6 +1531,15 @@ impl Tx<'_> {
             }
         }
         let amt = self.static_count_expr(&raw)?;
+        self.amount_bound_condition(&amt, bound, eq_num)
+    }
+
+    fn amount_bound_condition(
+        &mut self,
+        amt: &str,
+        bound: Option<Bound>,
+        eq_num: Option<u16>,
+    ) -> Option<String> {
         if let Some(n) = eq_num
             && n > 0
         {

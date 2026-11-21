@@ -29,6 +29,15 @@ fn refusal_reason_face(
     if script.keywords.iter().any(|word| word == "Mayhem") && !script.is_land {
         return Some("costless Mayhem without a land type line".to_string());
     }
+    if script.has_commander_text
+        && !script.oracle.trim().is_empty()
+        && !script
+            .oracle
+            .to_ascii_lowercase()
+            .contains("can be your commander")
+    {
+        return Some("commander `Text:` without matching `Oracle:` line".to_string());
+    }
     let mut tx = Tx::new(script, cats, tokens);
     for line in script
         .keywords
@@ -104,6 +113,9 @@ pub fn refusal_reason(
     }
     if back.alternate_mode.is_some() || back.alternate.is_some() {
         return Some("more than two faces".to_string());
+    }
+    if back.copy_face_from.is_some() {
+        return Some("unresolved `CopyFaceFrom` face".to_string());
     }
     if let Some(line) = back.unknown_lines.first() {
         let head = line.split(':').next().unwrap_or(line);

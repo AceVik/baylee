@@ -98,6 +98,10 @@ pub struct CardBody {
     pub offspring: Option<String>,
     /// Whether `CardDef::fuse` should be emitted (`true`) on this split card.
     pub fuse: bool,
+    /// `behold_or_pay` expression for the face, when present.
+    pub behold_or_pay: Option<String>,
+    /// `mutate` expression for the face, when present.
+    pub mutate: Option<String>,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
@@ -164,6 +168,8 @@ impl CardBody {
             && self.squad.is_none()
             && self.offspring.is_none()
             && !self.fuse
+            && self.behold_or_pay.is_none()
+            && self.mutate.is_none()
             && self.additional_costs.is_empty()
             && self.kicked_targets.is_none()
             && self.keywords.is_empty()

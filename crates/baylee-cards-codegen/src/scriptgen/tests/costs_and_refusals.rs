@@ -3538,3 +3538,223 @@ fn wave11a_graveyard_presents_eq1_and_combat_windows() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave12a_keywords_and_attacks_alone() {
+    for (kw, expected) in [
+        ("Wither", "KeywordSet::WITHER"),
+        ("Horsemanship", "KeywordSet::HORSEMANSHIP"),
+        ("Skulk", "KeywordSet::SKULK"),
+        ("Enlist", "KeywordSet::ENLIST"),
+    ] {
+        let body = read(&format!(
+            "Name:TestCreature\nManaCost:2\nTypes:Creature\nPT:2/2\nK:{kw}"
+        ));
+        assert_eq!(body.keywords, vec![expected], "{kw}");
+        assert!(body.abilities.is_empty(), "{kw}: {:?}", body.abilities);
+    }
+
+    let dup_enlist =
+        read("Name:DoubleEnlist\nManaCost:2 W\nTypes:Creature\nPT:2/2\nK:Enlist\nK:Enlist");
+    assert_eq!(dup_enlist.keywords, vec!["KeywordSet::ENLIST"]);
+    assert_eq!(
+        dup_enlist.abilities,
+        vec!["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::ENLIST))"]
+    );
+
+    let solo = read(
+        "Name:LoneCharger\nManaCost:1 R\nTypes:Creature\nPT:3/2\nK:CARDNAME can only attack alone.",
+    );
+    assert_eq!(
+        solo.abilities,
+        vec!["static_ability!(Filter::This, Modifier::AttacksAloneOnly)"]
+    );
+}
+
+#[test]
+fn wave12a_behold_mutate_and_commander_text() {
+    let behold = read(
+        "Name:BeholdScout\nManaCost:2 W\nTypes:Creature Goblin\nPT:2/2\n\
+         K:AlternateAdditionalCost:Behold<1/Goblin>:2",
+    );
+    assert_eq!(
+        behold.behold_or_pay.as_deref(),
+        Some("Some(BeholdOrPay { filter: &BEHOLD1, cost: mana!(\"{2}\") })")
+    );
+    assert!(
+        behold.statics.contains("BEHOLD1") && behold.statics.contains("GOBLIN"),
+        "{}",
+        behold.statics
+    );
+
+    let mutator = read("Name:MutateBeast\nManaCost:3 G\nTypes:Creature\nPT:3/3\nK:Mutate:1 G");
+    assert_eq!(mutator.mutate.as_deref(), Some("Some(mana!(\"{1}{G}\"))"));
+
+    for ok in [
+        "Name:WalkerText\nManaCost:2 U\nTypes:Legendary Planeswalker\nLoyalty:3\nK:Flying\nText:CARDNAME can be your commander.\nOracle:",
+        "Name:WalkerOracle\nManaCost:2 U\nTypes:Legendary Planeswalker\nLoyalty:3\nK:Flying\nText:CARDNAME can be your commander.\nOracle:Flying\\nWalkerOracle can be your commander.",
+        "Name:WalkerKw\nManaCost:2 U\nTypes:Legendary Planeswalker\nLoyalty:3\nK:Flying\nK:CARDNAME can be your commander.\nOracle:Flying\\nWalkerKw can be your commander.",
+    ] {
+        read(ok);
+    }
+
+    for bad in [
+        "Name:BadCount\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Behold<2/Goblin>:2",
+        "Name:BadReveal\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Reveal<1/Goblin>:2",
+        "Name:BadTap\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Behold<1/Goblin>:T",
+        "Name:BadDup\nManaCost:1 W\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Behold<1/Goblin>:2\nK:AlternateAdditionalCost:Behold<1/Goblin>:3",
+        "Name:BadLand\nTypes:Land\nK:AlternateAdditionalCost:Behold<1/Goblin>:2",
+        "Name:MutateSpell\nManaCost:1 G\nTypes:Instant\nK:Mutate:G\nA:SP$ GainLife | LifeAmount$ 2",
+        "Name:MutateLand\nTypes:Land\nK:Mutate:G",
+        "Name:MutateTap\nManaCost:1 G\nTypes:Creature\nPT:2/2\nK:Mutate:T",
+        "Name:MutateDup\nManaCost:1 G\nTypes:Creature\nPT:2/2\nK:Mutate:G\nK:Mutate:1 G",
+        "Name:BadCommander\nManaCost:2 U\nTypes:Legendary Planeswalker\nLoyalty:3\nK:Flying\nText:CARDNAME can be your commander.\nOracle:+1: Draw a card.",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+
+    let prepared = parse(
+        "Name:PrepFront\nManaCost:1 U\nTypes:Creature Wizard\nPT:2/1\n\
+         K:ETBReplacement:Other:DBPrep\nSVar:DBPrep:DB$ AlterAttribute | Attributes$ Prepared\n\
+         AlternateMode:Prepare\nALTERNATE\nName:PrepBack\nCopyFaceFrom:PrepBack",
+    );
+    assert_eq!(
+        refusal_reason(&prepared, &cats(), None).as_deref(),
+        Some("unresolved `CopyFaceFrom` face")
+    );
+}
+
+#[test]
+fn wave12a_opponents_life_lost_svars() {
+    let opps = |cmp: &str| {
+        read(&format!(
+            "Name:BloodSeer\nManaCost:1 B\nTypes:Creature\nPT:2/1\n\
+             A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ X | SVarCompare$ {cmp}\n\
+             SVar:X:Count$LifeOppsLostThisTurn"
+        ))
+    };
+    assert!(
+        opps("EQ0").abilities[0].contains("Condition::Not(&Condition::OpponentLostLifeThisTurn)")
+    );
+    assert!(opps("GE1").abilities[0].contains("Condition::OpponentLostLifeThisTurn"));
+    assert!(
+        opps("GE3").abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, 3)")
+    );
+    let eq1_opps = opps("EQ1");
+    assert!(
+        eq1_opps.abilities[0].contains(
+            "Condition::All(&[Condition::OpponentLostLifeThisTurn, Condition::Not(&CHECK1"
+        ),
+        "{}",
+        eq1_opps.abilities[0]
+    );
+    assert!(
+        eq1_opps
+            .statics
+            .contains("Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, 2)")
+    );
+    let le2_opps = opps("LE2");
+    assert!(
+        le2_opps.abilities[0].contains("Condition::Not(&CHECK1"),
+        "{}",
+        le2_opps.abilities[0]
+    );
+    assert!(
+        le2_opps
+            .statics
+            .contains("Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, 3)")
+    );
+
+    let limit_one = |cmp: &str| {
+        format!(
+            "Name:LimitSeer\nManaCost:1 B\nTypes:Creature\nPT:1/1\n\
+             A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ X | SVarCompare$ {cmp}\n\
+             SVar:X:Count$LifeOppsLostThisTurn/LimitMax.1"
+        )
+    };
+    assert!(read(&limit_one("GE1")).abilities[0].contains("Condition::OpponentLostLifeThisTurn"));
+    assert!(
+        read(&limit_one("EQ0")).abilities[0]
+            .contains("Condition::Not(&Condition::OpponentLostLifeThisTurn)")
+    );
+    assert!(refused(&limit_one("GE2")));
+}
+
+#[test]
+fn wave12a_bounded_amount_and_count_svars() {
+    let entered = |cmp: &str| {
+        read(&format!(
+            "Name:GateWatch\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+             A:AB$ GainLife | Cost$ T | LifeAmount$ 1 | CheckSVar$ E | SVarCompare$ {cmp}\n\
+             SVar:E:Count$ThisTurnEntered_Battlefield_Creature.YouCtrl"
+        ))
+    };
+    assert!(
+        entered("EQ0")
+            .statics
+            .contains("Amount::CreaturesEnteredUnderYourControlThisTurn, 1")
+    );
+    assert!(
+        entered("LE2")
+            .statics
+            .contains("Amount::CreaturesEnteredUnderYourControlThisTurn, 3")
+    );
+    assert!(
+        entered("EQ1").abilities[0].contains(
+            "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, 1)"
+        )
+    );
+
+    let gained = |cmp: &str| {
+        read(&format!(
+            "Name:VitalSeer\nManaCost:1 W\nTypes:Creature\nPT:1/2\n\
+             A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ G | SVarCompare$ {cmp}\n\
+             SVar:G:Count$LifeYouGainedThisTurn"
+        ))
+    };
+    assert!(
+        gained("EQ0")
+            .statics
+            .contains("Amount::LifeGainedThisTurn(PlayerRel::You), 1")
+    );
+    assert!(
+        gained("EQ2").abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::LifeGainedThisTurn(PlayerRel::You), 2)")
+    );
+
+    let exact_life = read(
+        "Name:FiveLife\nManaCost:1 W\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ L | SVarCompare$ EQ5\n\
+         SVar:L:Count$YourLifeTotal",
+    );
+    assert!(exact_life.abilities[0].contains(
+        "Condition::All(&[Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), 5), Condition::LifeAtMost(5)])"
+    ));
+
+    let exact_ctrl = read(
+        "Name:PairCtrl\nManaCost:2 G\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ C | SVarCompare$ EQ2\n\
+         SVar:C:Count$Valid Creature.YouCtrl",
+    );
+    assert!(
+        exact_ctrl.abilities[0].contains("Condition::ControlCount(&Filter::YOUR_CREATURE, 2)")
+            && exact_ctrl.abilities[0]
+                .contains("Condition::ControlCountAtMost(&Filter::YOUR_CREATURE, 2)"),
+        "{}",
+        exact_ctrl.abilities[0]
+    );
+
+    let exact_bf = read(
+        "Name:PairAll\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ B | SVarCompare$ EQ2\n\
+         SVar:B:Count$Valid Creature",
+    );
+    assert!(
+        exact_bf.abilities[0].contains("Condition::BattlefieldCount(&Filter::CREATURE, 2)")
+            && exact_bf.abilities[0]
+                .contains("Condition::BattlefieldCountAtMost(&Filter::CREATURE, 2)"),
+        "{}",
+        exact_bf.abilities[0]
+    );
+}

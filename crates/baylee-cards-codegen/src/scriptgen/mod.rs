@@ -84,6 +84,7 @@ pub use support::{SUPPORTED_APIS, apis_used, is_supported_api, is_vanilla, refus
 
 /// One parsed card script.
 #[derive(Debug, Default)]
+#[allow(clippy::struct_excessive_bools)] // independent script-header rule markers
 pub struct CardScript {
     /// Whether the type line explicitly names Land, for land-only permissions.
     pub is_land: bool,
@@ -106,6 +107,9 @@ pub struct CardScript {
     pub script_name: String,
     /// `CopyFaceFrom:<card>` on a Prepare alternate face referencing a standalone script.
     pub copy_face_from: Option<String>,
+    /// Whether Forge declared `Text:CARDNAME can be your commander.` (checked
+    /// against Scryfall's Oracle in `stubgen`).
+    pub has_commander_text: bool,
     /// Second face parsed after an `ALTERNATE` separator line.
     pub alternate: Option<Box<Self>>,
     /// `K:` lines, verbatim.
@@ -191,6 +195,9 @@ fn parse_face(lines: &[&str]) -> CardScript {
                 }
             }
             "Variant" if rest.starts_with("UniversesWithin:FlavorName:") => {}
+            "Text" if rest.trim() == "CARDNAME can be your commander." => {
+                out.has_commander_text = true;
+            }
             "K" => out.keywords.push(rest.to_string()),
             "A" | "T" | "S" | "R" => out
                 .rules
@@ -752,6 +759,7 @@ pub(super) fn is_vanilla_face(script: &CardScript) -> bool {
         && script.rules.is_empty()
         && script.unknown_lines.is_empty()
         && !script.is_land
+        && !script.has_commander_text
         && script.oracle.trim().is_empty()
 }
 
@@ -767,6 +775,15 @@ fn transcode_face(
     }
     // Costless Mayhem is supported only as a land-play permission.
     if script.keywords.iter().any(|word| word == "Mayhem") && !script.is_land {
+        return None;
+    }
+    if script.has_commander_text
+        && !script.oracle.trim().is_empty()
+        && !script
+            .oracle
+            .to_ascii_lowercase()
+            .contains("can be your commander")
+    {
         return None;
     }
     let mut tx = Tx::new(script, cats, tokens);
