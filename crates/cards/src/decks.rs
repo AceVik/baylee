@@ -1245,7 +1245,7 @@ mod partner_tests {
     #[test]
     fn a_legendary_creature_keeps_its_roles_with_an_enchantment_subtype() {
         use baylee_cards_dsl::FaceDef;
-        let reading = leader_from(&CardDef {
+        const CARD: CardDef = CardDef {
             commander: CommanderRule::Legendary,
             faces: &[FaceDef {
                 types: TypeSet::CREATURE.union(TypeSet::ENCHANTMENT),
@@ -1258,7 +1258,8 @@ mod partner_tests {
                 ..FaceDef::DEFAULT
             }],
             ..CardDef::DEFAULT
-        });
+        };
+        let reading = leader_from(&CARD);
         assert!(reading.eligible_alone && reading.background && reading.doctor);
     }
 
