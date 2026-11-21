@@ -9,7 +9,7 @@ card!(
     index = index::MISHRA_S_BAUBLE,
     oracle_id = "63afc3d1-7653-476e-838f-fc18d4a62a21",
     scryfall_id = "45bbbf9b-8fee-4c32-a513-02dac6ac8a39",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mishra's Bauble",
         mana_cost = mana!("{0}"),

@@ -15,6 +15,7 @@ mod planar_portal;
 mod pyramids;
 mod rakalite;
 mod runesword;
+mod salvaging_station;
 mod sword_of_the_ages;
 
 mod planar_gate;

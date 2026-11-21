@@ -9,7 +9,7 @@ card!(
     index = index::REITO_LANTERN,
     oracle_id = "ea871b01-ebaf-4987-a2bf-949cdd367ad1",
     scryfall_id = "fc5be55e-9a90-4842-894c-2573b70ccc57",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reito Lantern",
         mana_cost = mana!("{2}"),

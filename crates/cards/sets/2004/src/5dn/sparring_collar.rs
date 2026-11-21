@@ -13,7 +13,7 @@ card!(
     oracle_id = "81bfbc5a-c448-4124-ac25-79bd0944136d",
     scryfall_id = "5fc31145-19b4-4dbe-8756-f49791aa147e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sparring Collar",
         mana_cost = mana!("{2}"),

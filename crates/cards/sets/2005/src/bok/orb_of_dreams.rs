@@ -9,7 +9,7 @@ card!(
     index = index::ORB_OF_DREAMS,
     oracle_id = "2c24b7c3-7c90-4109-a4aa-d9cae6febf34",
     scryfall_id = "5fbe52a3-f85e-4b3a-a345-413b64d69c49",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orb of Dreams",
         mana_cost = mana!("{3}"),

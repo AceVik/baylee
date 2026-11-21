@@ -13,7 +13,7 @@ card!(
     index = index::SALVAGING_STATION,
     oracle_id = "3501ed98-473c-4a17-8b5f-1e0c00ee75da",
     scryfall_id = "f0336e07-8eaf-4b90-af54-4764e5ba50f2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Salvaging Station",
         mana_cost = mana!("{6}"),

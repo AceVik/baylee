@@ -10,7 +10,7 @@ card!(
     index = index::ASHES_OF_THE_FALLEN,
     oracle_id = "6437867b-a658-4a71-a8a5-0c5a782d1f84",
     scryfall_id = "d59df09f-d8b9-4398-a705-329b768d5004",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ashes of the Fallen",
         mana_cost = mana!("{2}"),

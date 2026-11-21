@@ -13,7 +13,7 @@ card!(
     oracle_id = "cee06ea6-8bad-4858-b78e-04879a825bbe",
     scryfall_id = "d5e58c74-0ba6-452a-94a6-8256c4f6aba8",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Neurok Stealthsuit",
         mana_cost = mana!("{2}"),

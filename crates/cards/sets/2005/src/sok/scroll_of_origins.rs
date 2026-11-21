@@ -9,7 +9,7 @@ card!(
     index = index::SCROLL_OF_ORIGINS,
     oracle_id = "6974c433-a522-40bb-8791-375fcc242234",
     scryfall_id = "36b39d20-47b5-468b-aaf8-f6b7c7048b33",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scroll of Origins",
         mana_cost = mana!("{2}"),

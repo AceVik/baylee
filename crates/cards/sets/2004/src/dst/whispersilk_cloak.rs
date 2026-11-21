@@ -11,7 +11,7 @@ card!(
     index = index::WHISPERSILK_CLOAK,
     oracle_id = "9ad4f730-a18e-4a7c-a468-a926c718c741",
     scryfall_id = "a3f31ac4-09ca-4712-a311-50d28824bfad",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whispersilk Cloak",
         mana_cost = mana!("{3}"),

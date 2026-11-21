@@ -10,7 +10,7 @@ card!(
     oracle_id = "854e0e2c-06dc-4166-a48a-107e939ca91e",
     scryfall_id = "4ed874e4-87ca-41f0-af0a-a803194d78c9",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Evolution Vat",
         mana_cost = mana!("{3}"),

@@ -10,7 +10,7 @@ card!(
     index = index::LICH_S_TOMB,
     oracle_id = "600b9ab8-36dc-4f02-b48c-091348d132ac",
     scryfall_id = "ca24a105-e32a-4b2c-99bf-cfd85bae6229",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lich's Tomb",
         mana_cost = mana!("{4}"),

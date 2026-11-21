@@ -14,7 +14,7 @@ card!(
     index = index::SWORD_OF_FIRE_AND_ICE,
     oracle_id = "2ccdc60a-49a9-44b9-a7af-0ebf18b26785",
     scryfall_id = "2626d4c9-fcef-4057-a154-7d987a4a4b84",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sword of Fire and Ice",
         mana_cost = mana!("{3}"),

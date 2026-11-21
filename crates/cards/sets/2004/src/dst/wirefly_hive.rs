@@ -10,7 +10,7 @@ card!(
     index = index::WIREFLY_HIVE,
     oracle_id = "846bedc3-a1e0-4f11-a095-85b60ad482da",
     scryfall_id = "7bdb7e06-748c-4fc0-adc5-f8f2ec62029a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wirefly Hive",
         mana_cost = mana!("{3}"),

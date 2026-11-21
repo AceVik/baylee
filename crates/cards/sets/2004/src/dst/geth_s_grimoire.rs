@@ -10,7 +10,7 @@ card!(
     index = index::GETH_S_GRIMOIRE,
     oracle_id = "ef809e99-34a2-4471-8269-f56bf8037686",
     scryfall_id = "0a21d76d-d86c-4348-be45-f65167d2b5a9",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Geth's Grimoire",
         mana_cost = mana!("{4}"),

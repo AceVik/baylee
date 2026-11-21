@@ -11,7 +11,7 @@ card!(
     oracle_id = "a1f73421-cda5-4029-9bcf-f2baee179e5c",
     scryfall_id = "d29c3bf9-d37c-4e0a-ac44-15d47770ed44",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mizzium Transreliquat",
         mana_cost = mana!("{3}"),

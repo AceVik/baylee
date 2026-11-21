@@ -10,7 +10,7 @@ card!(
     index = index::SORATAMI_CLOUD_CHARIOT,
     oracle_id = "1a46373a-b48a-4118-92e0-d856ce409690",
     scryfall_id = "25e6129a-fa5c-4e27-a4d4-cbde7392164b",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soratami Cloud Chariot",
         mana_cost = mana!("{5}"),

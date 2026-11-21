@@ -11,7 +11,7 @@ card!(
     index = index::SUMMONING_STATION,
     oracle_id = "01bba3b8-6372-437e-ab34-ae2c8105cd28",
     scryfall_id = "c8072944-268a-41e0-a1d8-9fe33e964bff",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Summoning Station",
         mana_cost = mana!("{7}"),

@@ -10,7 +10,7 @@ card!(
     index = index::LANTERN_OF_INSIGHT,
     oracle_id = "e4d9c9c9-90e4-4397-9a88-9457fc6854fa",
     scryfall_id = "cb0e4c78-75fe-4692-b177-974b148f0614",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lantern of Insight",
         mana_cost = mana!("{1}"),
