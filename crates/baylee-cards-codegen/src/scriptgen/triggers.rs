@@ -2073,6 +2073,17 @@ impl Tx<'_> {
             self.body.abilities.truncate(saved_abilities_len);
             self.body.statics.truncate(saved_statics_len);
             *self.unclaimed.borrow_mut() = saved_unclaimed;
+            if p.peek("CheckSVar")
+                .and_then(|name| self.svars.get(name))
+                .is_some_and(|s| s.contains("SacrificedThisTurn Clue"))
+                && p.peek("Execute")
+                    .and_then(|name| self.svars.get(name))
+                    .is_some_and(|body| {
+                        body.contains("SetState") && body.contains("Mode$ Transform")
+                    })
+            {
+                return None;
+            }
         }
         if p.peek("Execute")
             .and_then(|name| self.svars.get(name))
@@ -3433,7 +3444,8 @@ impl Tx<'_> {
             return None;
         }
         let valid = p.peek("IsPresent")?;
-        if valid == "Card.StrictlySelf"
+        if (valid == "Card.StrictlySelf"
+            || (valid == "Card.Self" && p.peek("PresentZone") != Some("Battlefield")))
             && matches!(p.peek("PresentCompare"), None | Some("GE1" | "EQ1"))
         {
             let zone_ref = match p.peek("PresentZone")? {
@@ -3618,7 +3630,7 @@ impl Tx<'_> {
 
     /// Wave-15c trigger `CheckSVar$` / `SVarCompare$` clauses backed by
     /// existing `Condition` / `Amount` variants.
-    pub(super) fn wave15_trigger_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
+    pub(super) fn wave15_trigger_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
         let trimmed = var.trim();
         let raw = if let Some(body) = self.svars.get(trimmed) {
             body.trim()
@@ -3699,7 +3711,7 @@ impl Tx<'_> {
         if raw == "Count$LifeYouGainedThisTurn" {
             return Self::wave15_amount_cmp("Amount::LifeGainedThisTurn(PlayerRel::You)", cmp);
         }
-        Self::wave16_svar_condition(raw, cmp)
+        Self::wave16_svar_condition(raw, cmp).or_else(|| self.wave19c_svar_condition(raw, cmp))
     }
 
     /// Wave-16c shared `CheckSVar$` / `ConditionCheckSVar$` clauses for Wave 7b/8a
@@ -3869,6 +3881,387 @@ impl Tx<'_> {
         }
     }
 
+    fn wave19c_amount_op(code: &str) -> Option<&'static str> {
+        Some(match code {
+            "GE" => "AmountCmp::AtLeast",
+            "GT" => "AmountCmp::GreaterThan",
+            "LE" => "AmountCmp::AtMost",
+            "LT" => "AmountCmp::LessThan",
+            "EQ" => "AmountCmp::Equal",
+            "NE" => "AmountCmp::NotEqual",
+            _ => return None,
+        })
+    }
+
+    fn wave19c_at_least_u32(cmp: &str) -> Option<u32> {
+        if let Some(n) = cmp.strip_prefix("GE").and_then(|s| s.parse::<u32>().ok()) {
+            return (n >= 1).then_some(n);
+        }
+        cmp.strip_prefix("GT")
+            .and_then(|s| s.parse::<u32>().ok())
+            .and_then(|n| n.checked_add(1))
+    }
+
+    fn wave19c_at_most_u32(cmp: &str) -> Option<u32> {
+        if cmp == "EQ0" {
+            return Some(0);
+        }
+        if let Some(n) = cmp.strip_prefix("LE").and_then(|s| s.parse::<u32>().ok()) {
+            return Some(n);
+        }
+        cmp.strip_prefix("LT")
+            .and_then(|s| s.parse::<u32>().ok())
+            .and_then(|n| n.checked_sub(1))
+    }
+
+    /// Wave-19c `Phase.CheckSVar` and trigger/ETB `CheckSVar$` lowerings backed
+    /// by existing `Condition` / `Amount` variants.
+    fn wave19c_svar_condition(&mut self, raw: &str, cmp: &str) -> Option<String> {
+        if raw == "ExiledWith$Amount" && !self.on_a_spell {
+            return Self::wave15_amount_cmp(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::LinkedExile }",
+                cmp,
+            );
+        }
+        if raw == "PlayerCountPropertyYou$DamageThisTurn" {
+            return Self::wave15_amount_cmp("Amount::DamageDealtToYouThisTurn", cmp);
+        }
+        if let Some(sub_raw) = raw.strip_prefix("PlayerCountPropertyYou$SacrificedThisTurn ") {
+            return self.wave19c_sacrificed_subtype_condition(sub_raw.trim(), cmp);
+        }
+        if let Some(valid) = raw.strip_prefix("PlayerCountOpponents$HighestValid ") {
+            return self.wave19c_opp_highest_valid(valid.trim(), cmp);
+        }
+        if let Some(valid) = raw
+            .strip_prefix("Count$Valid ")
+            .and_then(|s| s.strip_suffix("$DifferentCardNames"))
+            && valid
+                .split(',')
+                .all(|alt| alt.split(['.', '+']).any(|a| a.trim() == "YouCtrl"))
+            && let Some(max) = Self::wave19c_at_most_u32(cmp)
+            && let Some(min) = max.checked_add(1).and_then(|n| u8::try_from(n).ok())
+        {
+            let expr = self.filter_expr(valid)?;
+            let name = self.body.filter_static("CHECK", &expr);
+            return Some(format!(
+                "Condition::Not(&Condition::ControlDistinctNames(&{name}, {min}))"
+            ));
+        }
+        if matches!(
+            raw,
+            "Count$TypeInYourYard" | "Count$ValidGraveyard Card.YouOwn$CardTypes"
+        ) && let Some(max) = Self::wave19c_at_most_u32(cmp)
+            && let Some(min) = max.checked_add(1).and_then(|n| u8::try_from(n).ok())
+        {
+            return Some(format!(
+                "Condition::Not(&Condition::GraveyardTypesAtLeast({min}))"
+            ));
+        }
+        if raw == "Count$ValidGraveyard Card.YouOwn$CardTypesPermanent"
+            && let Some(max) = Self::wave19c_at_most_u32(cmp)
+            && let Some(min) = max.checked_add(1).and_then(|n| u8::try_from(n).ok())
+        {
+            return Some(format!(
+                "Condition::Not(&Condition::GraveyardTypesAmongAtLeast {{ \
+                 types: TypeSet::ARTIFACT.union(TypeSet::BATTLE).union(TypeSet::CREATURE)\
+                 .union(TypeSet::ENCHANTMENT).union(TypeSet::LAND).union(TypeSet::PLANESWALKER), \
+                 minimum: {min} }})"
+            ));
+        }
+        if raw == "Count$ThisTurnLandPlayed" {
+            if let Some(n) = Self::wave19c_at_least_u32(cmp).and_then(|v| u8::try_from(v).ok()) {
+                return Some(format!("Condition::LandsPlayedThisTurnAtLeast({n})"));
+            }
+            if let Some(max) = Self::wave19c_at_most_u32(cmp)
+                && let Some(min) = max.checked_add(1).and_then(|v| u8::try_from(v).ok())
+            {
+                return Some(format!(
+                    "Condition::Not(&Condition::LandsPlayedThisTurnAtLeast({min}))"
+                ));
+            }
+        }
+        if raw == "PlayerCountOpponents$HighestCounters.Poison"
+            && let Some(max) = Self::wave19c_at_most_u32(cmp)
+            && let Some(min) = max.checked_add(1).and_then(|v| u16::try_from(v).ok())
+        {
+            return Some(format!(
+                "Condition::Not(&Condition::OpponentPoisonAtLeast({min}))"
+            ));
+        }
+        if raw == "Count$YourLifeTotal"
+            && let Some((op_code, rhs_var)) = cmp.split_at_checked(2)
+            && let Some(op) = Self::wave19c_amount_op(op_code)
+            && let Some((rhs_amt, bare_starting)) = self.wave19c_starting_life_rhs(rhs_var, false)
+        {
+            if op_code == "LT" && bare_starting {
+                return Some("Condition::LifeBelowStarting".to_string());
+            }
+            return Some(format!(
+                "Condition::AmountCompare {{ left: &Amount::LifeTotal(PlayerRel::You), \
+                 op: {op}, right: &{rhs_amt} }}"
+            ));
+        }
+        if self.trigger_mode.as_deref() == Some("Phase") {
+            return self.wave19c_phase_triggered_player_condition(raw, cmp);
+        }
+        None
+    }
+
+    fn wave19c_sacrificed_subtype_condition(&self, sub: &str, cmp: &str) -> Option<String> {
+        if sub.is_empty() || sub.contains(['.', '+', ',', ' ', '!']) {
+            return None;
+        }
+        let path = self.cats.const_path(sub)?;
+        if let Some(count) = Self::wave19c_at_least_u32(cmp) {
+            return Some(format!(
+                "Condition::SacrificedSubtypeThisTurn {{ subtype: {path}, count: {count} }}"
+            ));
+        }
+        if let Some(max) = Self::wave19c_at_most_u32(cmp)
+            && let Some(count) = max.checked_add(1)
+        {
+            return Some(format!(
+                "Condition::Not(&Condition::SacrificedSubtypeThisTurn {{ \
+                 subtype: {path}, count: {count} }})"
+            ));
+        }
+        None
+    }
+
+    fn wave19c_starting_life_rhs(
+        &self,
+        rhs_var: &str,
+        active_player: bool,
+    ) -> Option<(String, bool)> {
+        let def = self.svars.get(rhs_var.trim())?.trim();
+        let (base, tail) = if active_player {
+            (
+                "Amount::StartingLifeTotal(PlayerRel::ActivePlayer)",
+                def.strip_prefix("TriggeredPlayer$StartingLife")?,
+            )
+        } else {
+            (
+                "Amount::StartingLifeTotal(PlayerRel::You)",
+                def.strip_prefix("Count$StartingLife")
+                    .or_else(|| def.strip_prefix("Count$YourStartingLife"))?,
+            )
+        };
+        let tail = tail.trim();
+        if tail.is_empty() {
+            return Some((base.to_string(), true));
+        }
+        let expr = if tail == "/HalfDown" {
+            format!("Amount::Half {{ base: &{base}, round_up: false }}")
+        } else if tail == "/HalfUp" {
+            format!("Amount::Half {{ base: &{base}, round_up: true }}")
+        } else if tail == "/Twice" {
+            format!("Amount::Times {{ base: &{base}, factor: 2 }}")
+        } else if let Some(n) = tail
+            .strip_prefix("/Plus.")
+            .and_then(|s| s.trim().parse::<u32>().ok())
+        {
+            format!("Amount::Plus {{ base: &{base}, offset: {n} }}")
+        } else {
+            let n = tail
+                .strip_prefix("/Minus.")
+                .and_then(|s| s.trim().parse::<u32>().ok())?;
+            format!("Amount::SaturatingSub {{ base: &{base}, subtract: {n} }}")
+        };
+        Some((expr, false))
+    }
+
+    fn wave19c_rewrite_you_ctrl(valid: &str, replacement: Option<&str>) -> Option<String> {
+        if valid.contains(['$', '/']) {
+            return None;
+        }
+        let mut out = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.')?;
+            let mut saw_you = false;
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if atom == "YouCtrl" {
+                    saw_you = true;
+                    if let Some(rep) = replacement {
+                        kept.push(rep);
+                    }
+                } else if atom.contains("Ctrl")
+                    || atom.contains("Own")
+                    || atom == "Self"
+                    || atom == "StrictlySelf"
+                    || atom == "Other"
+                    || atom == "StrictlyOther"
+                {
+                    return None;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !saw_you {
+                return None;
+            }
+            if kept.is_empty() {
+                out.push(base.trim().to_string());
+            } else {
+                out.push(format!("{}.{}", base.trim(), kept.join("+")));
+            }
+        }
+        (!out.is_empty()).then(|| out.join(","))
+    }
+
+    fn wave19c_opp_highest_valid(&mut self, valid: &str, cmp: &str) -> Option<String> {
+        let neutral_valid = Self::wave19c_rewrite_you_ctrl(valid, None)?;
+        if let Some((op_code, rhs_var)) = cmp.split_at_checked(2)
+            && matches!(op_code, "GT" | "GE")
+            && !rhs_var.is_empty()
+            && !rhs_var.chars().all(|c| c.is_ascii_digit())
+            && let Some(rhs_def) = self.svars.get(rhs_var.trim()).map(|s| s.trim().to_string())
+        {
+            let rest = rhs_def.strip_prefix("Count$Valid ")?;
+            let (rhs_valid, plus_k) = match rest.split_once("/Plus.") {
+                Some((v, k_raw)) => (v.trim(), Some(k_raw.trim().parse::<u32>().ok()?)),
+                None => (rest.trim(), None),
+            };
+            if rhs_valid != valid {
+                return None;
+            }
+            let expr = self.filter_expr(&neutral_valid)?;
+            let name = self.body.filter_static("CHECK", &expr);
+            return match (op_code, plus_k) {
+                ("GT", None) => Some(format!("Condition::OpponentControlsMore(&{name})")),
+                ("GE", Some(k)) if k >= 1 => {
+                    Some(format!("Condition::OpponentControlsMoreBy(&{name}, {k})"))
+                }
+                ("GT", Some(k)) => {
+                    let min = k.checked_add(1)?;
+                    Some(format!("Condition::OpponentControlsMoreBy(&{name}, {min})"))
+                }
+                _ => None,
+            };
+        }
+        let opp_valid = Self::wave19c_rewrite_you_ctrl(valid, Some("OppCtrl"))?;
+        if let Some(n) = Self::wave19c_at_least_u32(cmp).and_then(|v| u8::try_from(v).ok()) {
+            let expr = self.filter_expr(&opp_valid)?;
+            let name = self.body.filter_static("CHECK", &expr);
+            return Some(format!("Condition::OpponentControlCount(&{name}, {n})"));
+        }
+        if let Some(max) = Self::wave19c_at_most_u32(cmp)
+            && let Some(min) = max.checked_add(1).and_then(|v| u8::try_from(v).ok())
+        {
+            let expr = self.filter_expr(&opp_valid)?;
+            let name = self.body.filter_static("CHECK", &expr);
+            return Some(format!(
+                "Condition::Not(&Condition::OpponentControlCount(&{name}, {min}))"
+            ));
+        }
+        None
+    }
+
+    fn wave19c_strip_controlled_by_triggered(valid: &str) -> Option<String> {
+        if valid.contains(['$', '/']) {
+            return None;
+        }
+        let mut out = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.')?;
+            let mut saw = false;
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if atom == "ControlledBy TriggeredPlayer" {
+                    saw = true;
+                } else if atom.contains("Ctrl")
+                    || atom.contains("Own")
+                    || atom.contains("ControlledBy")
+                    || atom == "Self"
+                    || atom == "StrictlySelf"
+                    || atom == "Other"
+                    || atom == "StrictlyOther"
+                {
+                    return None;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !saw {
+                return None;
+            }
+            if kept.is_empty() {
+                out.push(base.trim().to_string());
+            } else {
+                out.push(format!("{}.{}", base.trim(), kept.join("+")));
+            }
+        }
+        (!out.is_empty()).then(|| out.join(","))
+    }
+
+    fn wave19c_phase_triggered_player_condition(&mut self, raw: &str, cmp: &str) -> Option<String> {
+        if let Some(valid) = raw.strip_prefix("Count$Valid ")
+            && let Some(base_valid) = Self::wave19c_strip_controlled_by_triggered(valid.trim())
+        {
+            let expr = self.filter_expr(&base_valid)?;
+            let filter = self.body.filter_static("CHECK", &expr);
+            let lhs = format!(
+                "Amount::ControlledCount {{ who: PlayerRel::ActivePlayer, filter: &{filter} }}"
+            );
+            if let Some(res) = Self::wave15_amount_cmp(&lhs, cmp) {
+                return Some(res);
+            }
+            if let Some((op_code, rhs_var)) = cmp.split_at_checked(2)
+                && let Some(op) = Self::wave19c_amount_op(op_code)
+                && let Some(rhs_def) = self.svars.get(rhs_var.trim())
+                && let Some(rhs_valid) = rhs_def.trim().strip_prefix("Count$Valid ")
+                && Self::wave19c_rewrite_you_ctrl(rhs_valid.trim(), None).as_deref()
+                    == Some(base_valid.as_str())
+            {
+                let rhs =
+                    format!("Amount::ControlledCount {{ who: PlayerRel::You, filter: &{filter} }}");
+                return Some(format!(
+                    "Condition::AmountCompare {{ left: &{lhs}, op: {op}, right: &{rhs} }}"
+                ));
+            }
+            return None;
+        }
+        let lhs = match raw {
+            "TriggeredPlayer$CardsInHand" => "Amount::HandSize(PlayerRel::ActivePlayer)",
+            "TriggeredPlayer$LifeTotal" => "Amount::LifeTotal(PlayerRel::ActivePlayer)",
+            "TriggeredPlayer$CardsInLibrary" => "Amount::LibrarySize(PlayerRel::ActivePlayer)",
+            "TriggeredPlayer$CardsInGraveyard" => {
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::ActivePlayer) }"
+            }
+            "TriggeredPlayer$LifeGainedThisTurn" => {
+                "Amount::LifeGainedThisTurn(PlayerRel::ActivePlayer)"
+            }
+            _ => return None,
+        };
+        if let Some(res) = Self::wave15_amount_cmp(lhs, cmp) {
+            return Some(res);
+        }
+        if raw == "TriggeredPlayer$LifeTotal"
+            && let Some((op_code, rhs_var)) = cmp.split_at_checked(2)
+            && let Some(op) = Self::wave19c_amount_op(op_code)
+            && let Some((rhs_amt, _)) = self.wave19c_starting_life_rhs(rhs_var, true)
+        {
+            return Some(format!(
+                "Condition::AmountCompare {{ left: &{lhs}, op: {op}, right: &{rhs_amt} }}"
+            ));
+        }
+        None
+    }
+
     /// Wave-15c lowering for `SP$/AB$/DB$ Effect` carrying `Triggers$` (or a
     /// permanent planeswalker emblem): lowers planeswalker emblems to
     /// `Effect::CreateEmblem` and turn/combat/watched `Triggers$` effects to
@@ -3923,7 +4316,12 @@ impl Tx<'_> {
             let saved_on_spell = std::mem::replace(&mut self.on_a_spell, false);
             let saved_mode = is_trigger.then(|| self.trigger_mode.take()).flatten();
             let ok = if is_trigger {
-                self.triggered(&body)
+                if body.contains("TriggerZones$") {
+                    self.triggered(&body)
+                } else {
+                    let zoned_body = format!("{body} | TriggerZones$ Command");
+                    self.triggered(&zoned_body)
+                }
             } else {
                 let normalized = body
                     .split('|')
@@ -4120,6 +4518,17 @@ impl Tx<'_> {
             let body = self.svars.get(svar_name)?.clone();
             let (mode, mut tp) = Params::parse(&body)?;
             tp.drop_prose();
+            if mode == "Phase" {
+                let expr = self.effect_phase_delayed_trigger(
+                    &mut tp,
+                    dur_raw.as_deref(),
+                    ends.as_deref(),
+                    base_watch,
+                )?;
+                out.push(expr);
+                trigger_count += 1;
+                continue;
+            }
             if !matches!(
                 mode.as_str(),
                 "ChangesZone"
@@ -4128,12 +4537,16 @@ impl Tx<'_> {
                     | "SpellCastOrCopy"
                     | "Attacks"
                     | "AttackersDeclared"
+                    | "Attacked"
+                    | "AttackersDeclaredOneTarget"
                     | "Blocks"
+                    | "BecomesTarget"
                     | "DamageDone"
                     | "DamageDoneOnce"
                     | "DamageDealtOnce"
                     | "Taps"
                     | "Untaps"
+                    | "TapsForMana"
                     | "LifeGained"
                     | "LifeLost"
                     | "Drawn"
@@ -4148,6 +4561,22 @@ impl Tx<'_> {
                     | "PhaseOut"
                     | "FlippedCoin"
                     | "RolledDie"
+                    | "SearchedLibrary"
+                    | "Scry"
+                    | "Exerted"
+                    | "Enlisted"
+                    | "Exploited"
+                    | "BecomesPlotted"
+                    | "Plotted"
+                    | "GiveGift"
+                    | "GaveGift"
+                    | "AbilityCast"
+                    | "CommitCrime"
+                    | "ManaExpend"
+                    | "RingTemptsYou"
+                    | "Clashed"
+                    | "Firebend"
+                    | "Firebends"
             ) {
                 return None;
             }
@@ -4243,6 +4672,111 @@ impl Tx<'_> {
             trigger_count += 1;
         }
         (trigger_count > 0).then_some(out)
+    }
+
+    fn effect_phase_delayed_trigger(
+        &mut self,
+        tp: &mut Params,
+        dur_raw: Option<&str>,
+        ends: Option<&str>,
+        base_watch: &'static str,
+    ) -> Option<String> {
+        if ends.is_some() || tp.has("Static") || tp.has("NextTurn") {
+            return None;
+        }
+        if !matches!(tp.take("TriggerZones").as_deref(), None | Some("Command")) {
+            return None;
+        }
+        if let Some(sec) = tp.take("Secondary")
+            && sec != "True"
+        {
+            return None;
+        }
+        let one_off = match (
+            tp.take("OneOff").as_deref(),
+            tp.take("TriggerOnce").as_deref(),
+        ) {
+            (None | Some("False"), None | Some("False")) => false,
+            (Some("True"), None | Some("False")) | (None | Some("False"), Some("True")) => true,
+            _ => return None,
+        };
+        let optional = match tp.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(_) => return None,
+        };
+        let step = match tp.take("Phase")?.as_str() {
+            "Upkeep" => "DelayedStep::Upkeep",
+            "Draw" => "DelayedStep::Draw",
+            "Main1,Main2" | "Main2,Main1" => "DelayedStep::MainPhase",
+            "BeginCombat" => "DelayedStep::CombatBegin",
+            "EndCombat" => "DelayedStep::CombatEnd",
+            "End of Turn" | "End Of Turn" => "DelayedStep::EndStep",
+            "Cleanup" => "DelayedStep::Cleanup",
+            _ => return None,
+        };
+        let whose = match tp.take("ValidPlayer").as_deref() {
+            None | Some("Player") => "None",
+            Some("You") => "Some(PlayerRel::You)",
+            Some("Opponent" | "Player.Opponent") => "Some(PlayerRel::EachOpponent)",
+            Some(_) => return None,
+        };
+        let (this_turn_only, recurring) = match (dur_raw, one_off) {
+            (Some("Permanent"), true) => (false, false),
+            (None | Some("UntilEndOfTurn"), true) => (true, false),
+            (None | Some("UntilEndOfTurn"), false) => match step {
+                "DelayedStep::CombatBegin" if base_watch == "TriggerRemember::None" => (true, true),
+                "DelayedStep::EndStep" | "DelayedStep::Cleanup" => (true, false),
+                _ => return None,
+            },
+            _ => return None,
+        };
+        if tp.entries.iter().any(|(_, v)| {
+            v.contains("IsRemembered")
+                || v.contains("EffectSource")
+                || v.contains("RememberedPlayer")
+                || v.contains("ChosenCard")
+        }) {
+            return None;
+        }
+        let saved_mode = self.trigger_mode.replace("Phase".to_string());
+        let cond = self.delayed_optional_condition(tp);
+        self.trigger_mode = saved_mode;
+        let cond = cond?;
+        let execute = tp.take("Execute")?;
+        let exec_raw = self.svars.get(execute.trim())?.clone();
+        if !tp.exhausted()
+            || exec_raw.contains("RememberedPlayer")
+            || exec_raw.contains("Triggered")
+            || exec_raw.contains("TriggerCount$")
+        {
+            return None;
+        }
+        let (body_to_parse, remember) = if exec_raw.contains("Defined$ Remembered") {
+            if base_watch == "TriggerRemember::None" {
+                return None;
+            }
+            let normalized = exec_raw
+                .replace(
+                    "Defined$ RememberedLKI",
+                    "Defined$ DelayTriggerRememberedLKI",
+                )
+                .replace("Defined$ Remembered", "Defined$ DelayTriggerRemembered");
+            (normalized, base_watch)
+        } else {
+            if base_watch != "TriggerRemember::None" {
+                return None;
+            }
+            (exec_raw, "TriggerRemember::None")
+        };
+        let (effects, targets) = self.parse_delayed_body_str(&body_to_parse, None, optional)?;
+        let targets_expr = targets.map_or_else(|| "None".to_string(), |req| format!("Some({req})"));
+        Some(format!(
+            "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::AtStep {{ step: {step}, \
+             whose: {whose}, this_turn_only: {this_turn_only}, recurring: {recurring} }}, \
+             condition: {cond}, targets: {targets_expr}, remember: {remember}, \
+             effects: &[{effects}] }}"
+        ))
     }
 
     fn rewrite_remembered_atom(valid: &str, needle: &str) -> Option<String> {

@@ -236,6 +236,18 @@ impl Tx<'_> {
         {
             return Some(());
         }
+        if line == "CARDNAME can't attack." {
+            self.body
+                .keywords
+                .push("KeywordSet::CANT_ATTACK".to_string());
+            return Some(());
+        }
+        if line == "CARDNAME can't block." {
+            self.body
+                .keywords
+                .push("KeywordSet::CANT_BLOCK".to_string());
+            return Some(());
+        }
         if let Some(rest) = line.strip_prefix("AlternateAdditionalCost:") {
             return self.alternate_additional_cost(rest);
         }
@@ -1787,56 +1799,18 @@ impl Tx<'_> {
         if def == "Count$xPaid" && self.has_x_mana_cost {
             return Some("Amount::X".to_string());
         }
-        if let Some((lhs, rhs)) = def.split_once('/') {
-            let rhs = rhs.trim();
-            if rhs == "Twice" {
-                let base = self.etb_wave6_expr(lhs, depth + 1)?;
-                return Some(if base == "Amount::X" {
-                    "Amount::DoubleX".to_string()
-                } else {
-                    format!("Amount::Times {{ base: &{base}, factor: 2 }}")
-                });
-            }
-            let op = if let Some(n) = rhs.strip_prefix("Times.") {
-                n.trim()
-                    .parse::<u32>()
-                    .ok()
-                    .filter(|&v| v >= 1)
-                    .map(|v| (0u8, v))
-            } else if let Some(n) = rhs.strip_prefix("Plus.") {
-                n.trim().parse::<u32>().ok().map(|v| (1u8, v))
-            } else if let Some(n) = rhs.strip_prefix("Minus.") {
-                n.trim().parse::<u32>().ok().map(|v| (2u8, v))
-            } else if rhs == "HalfDown" {
-                Some((3u8, 0))
-            } else if rhs == "HalfUp" {
-                Some((4u8, 0))
-            } else if let Some(n) = rhs.strip_prefix("Div.") {
-                n.trim()
-                    .parse::<u32>()
-                    .ok()
-                    .filter(|&v| v >= 2)
-                    .map(|v| (5u8, v))
-            } else {
-                None
-            };
-            if let Some((kind, arg)) = op {
-                let base = self.etb_wave6_expr(lhs, depth + 1)?;
-                return Some(match kind {
-                    0 => format!("Amount::Times {{ base: &{base}, factor: {arg} }}"),
-                    1 => format!("Amount::Plus {{ base: &{base}, offset: {arg} }}"),
-                    2 => format!("Amount::SaturatingSub {{ base: &{base}, subtract: {arg} }}"),
-                    3 => format!("Amount::Half {{ base: &{base}, round_up: false }}"),
-                    4 => format!("Amount::Half {{ base: &{base}, round_up: true }}"),
-                    5 => format!("Amount::divided(&{base}, {arg}, false)"),
-                    _ => unreachable!(),
-                });
-            }
+        if let Some((lhs, rhs)) = def.split_once('/')
+            && let Some(expr) = self.etb_wave6_slash_expr(lhs, rhs.trim(), depth)
+        {
+            return Some(expr);
         }
-        let normalized = if let Some(spec) = def.strip_prefix("Count$LastStateBattlefield ") {
-            format!("Count$Valid {spec}")
+        let normalized = if let Some(spec) = def
+            .strip_prefix("Count$LastStateBattlefield ")
+            .or_else(|| def.strip_prefix("Count$Valid "))
+        {
+            format!("Count$Valid {}", Self::strip_etb_other_valid(spec.trim()))
         } else if let Some(spec) = def.strip_prefix("Count$LastStateGraveyard ") {
-            format!("Count$ValidGraveyard {spec}")
+            format!("Count$ValidGraveyard {}", spec.trim())
         } else {
             def.to_string()
         };
@@ -1845,6 +1819,101 @@ impl Tx<'_> {
             return None;
         }
         Some(expr)
+    }
+
+    fn etb_wave6_slash_expr(&mut self, lhs: &str, rhs: &str, depth: u8) -> Option<String> {
+        if rhs == "Twice" {
+            let base = self.etb_wave6_expr(lhs, depth + 1)?;
+            return Some(if base == "Amount::X" {
+                "Amount::DoubleX".to_string()
+            } else {
+                format!("Amount::Times {{ base: &{base}, factor: 2 }}")
+            });
+        }
+        if let Some(arg) = rhs.strip_prefix("Plus.")
+            && arg.trim().parse::<u32>().is_err()
+        {
+            let base = self.etb_wave6_expr(lhs, depth + 1)?;
+            let other = self.etb_wave6_operand(arg.trim(), depth + 1)?;
+            return Some(format!("Amount::Sum {{ left: &{base}, right: &{other} }}"));
+        }
+        if let Some(arg) = rhs.strip_prefix("Minus.")
+            && arg.trim().parse::<u32>().is_err()
+        {
+            let base = self.etb_wave6_expr(lhs, depth + 1)?;
+            let other = self.etb_wave6_operand(arg.trim(), depth + 1)?;
+            return Some(format!(
+                "Amount::Difference {{ left: &{base}, right: &{other} }}"
+            ));
+        }
+        let (kind, arg) = if let Some(n) = rhs.strip_prefix("Times.") {
+            (0u8, n.trim().parse::<u32>().ok().filter(|&v| v >= 1)?)
+        } else if let Some(n) = rhs.strip_prefix("Plus.") {
+            (1u8, n.trim().parse::<u32>().ok()?)
+        } else if let Some(n) = rhs.strip_prefix("Minus.") {
+            (2u8, n.trim().parse::<u32>().ok()?)
+        } else if rhs == "HalfDown" {
+            (3u8, 0)
+        } else if rhs == "HalfUp" {
+            (4u8, 0)
+        } else {
+            let n = rhs.strip_prefix("Div.")?;
+            (5u8, n.trim().parse::<u32>().ok().filter(|&v| v >= 2)?)
+        };
+        let base = self.etb_wave6_expr(lhs, depth + 1)?;
+        Some(match kind {
+            0 => format!("Amount::Times {{ base: &{base}, factor: {arg} }}"),
+            1 => format!("Amount::Plus {{ base: &{base}, offset: {arg} }}"),
+            2 => format!("Amount::SaturatingSub {{ base: &{base}, subtract: {arg} }}"),
+            3 => format!("Amount::Half {{ base: &{base}, round_up: false }}"),
+            4 => format!("Amount::Half {{ base: &{base}, round_up: true }}"),
+            5 => format!("Amount::divided(&{base}, {arg}, false)"),
+            _ => unreachable!(),
+        })
+    }
+
+    fn etb_wave6_operand(&mut self, raw: &str, depth: u8) -> Option<String> {
+        if depth >= 4 || raw.is_empty() {
+            return None;
+        }
+        if let Ok(n) = raw.parse::<u32>() {
+            return Some(format!("Amount::Fixed({n})"));
+        }
+        let inner = if raw.starts_with("Count$") {
+            raw.to_string()
+        } else {
+            self.svars.get(raw)?.trim().to_string()
+        };
+        self.etb_wave6_expr(&inner, depth + 1)
+    }
+
+    /// CR 614.12 / CR 603.6b: an "as this enters" counter replacement is
+    /// evaluated before the entering permanent is on the battlefield, so
+    /// stripping `Other` / `StrictlyOther` from plain battlefield counts is
+    /// exact.
+    fn strip_etb_other_valid(spec: &str) -> String {
+        if spec.contains('$') || spec.contains("Self") || spec.contains("StrictlySelf") {
+            return spec.to_string();
+        }
+        spec.split(',')
+            .map(|alt| {
+                let alt = alt.trim();
+                let Some((base, atoms)) = alt.split_once('.') else {
+                    return alt.to_string();
+                };
+                let kept: Vec<&str> = atoms
+                    .split('+')
+                    .map(str::trim)
+                    .filter(|a| !a.is_empty() && *a != "Other" && *a != "StrictlyOther")
+                    .collect();
+                if kept.is_empty() {
+                    base.trim().to_string()
+                } else {
+                    format!("{}.{}", base.trim(), kept.join("+"))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",")
     }
 
     /// `K:Multikicker:<cost>` (CR 702.33c). Every printed one is mana.

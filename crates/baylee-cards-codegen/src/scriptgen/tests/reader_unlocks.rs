@@ -6353,3 +6353,364 @@ fn wave18c_triggers_and_conditions() {
         num_svar_cmp.abilities[0]
     );
 }
+
+#[test]
+fn wave19c_phase_check_svar_rules_and_refusals() {
+    // 1. `TriggeredPlayer$` hand/life/library/graveyard/life-gained on `Mode$ Phase`.
+    let active_hand = read(
+        "Name:HandRack\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Opponent | CheckSVar$ H | SVarCompare$ LE2 | TriggerZones$ Battlefield | Execute$ Ping\n\
+         SVar:H:TriggeredPlayer$CardsInHand\n\
+         SVar:Ping:DB$ LoseLife | Defined$ TriggeredPlayer | LifeAmount$ 2",
+    );
+    assert!(
+        active_hand
+            .statics
+            .contains("Condition::AmountAtLeast(Amount::HandSize(PlayerRel::ActivePlayer), 3)")
+            && active_hand.abilities[0].contains("condition = Some(Condition::Not(&CHECK1))"),
+        "{} | {}",
+        active_hand.statics,
+        active_hand.abilities[0]
+    );
+
+    let active_life_half = read(
+        "Name:HalfLifeCheck\nManaCost:3 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ Opponent | CheckSVar$ L | SVarCompare$ LTY | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:L:TriggeredPlayer$LifeTotal\n\
+         SVar:Y:TriggeredPlayer$StartingLife/HalfDown\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        active_life_half.abilities[0].contains(
+            "Condition::AmountCompare { left: &Amount::LifeTotal(PlayerRel::ActivePlayer), \
+             op: AmountCmp::LessThan, right: &Amount::Half { base: &Amount::StartingLifeTotal(PlayerRel::ActivePlayer), round_up: false } }"
+        ),
+        "{}",
+        active_life_half.abilities[0]
+    );
+
+    let active_gy = read(
+        "Name:ActiveYardWatch\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | CheckSVar$ G | SVarCompare$ GE5 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:G:TriggeredPlayer$CardsInGraveyard\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        active_gy.abilities[0].contains(
+            "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::ActivePlayer) }"
+        ),
+        "{}",
+        active_gy.abilities[0]
+    );
+
+    let active_vs_you = read(
+        "Name:LandRivalry\nManaCost:2 R\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | CheckSVar$ A | SVarCompare$ GTY | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:A:Count$Valid Land.ControlledBy TriggeredPlayer\n\
+         SVar:Y:Count$Valid Land.YouCtrl\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        active_vs_you
+            .statics
+            .contains("Filter::ControlledByActivePlayer")
+            && active_vs_you.abilities[0].contains("Filter::YOUR_LAND"),
+        "{} | {}",
+        active_vs_you.statics,
+        active_vs_you.abilities[0]
+    );
+
+    // 2. `PlayerCountPropertyYou$SacrificedThisTurn <Subtype>` (positive & negated).
+    let clue_sac = read(
+        "Name:ClueWatcher\nManaCost:3 G\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ C | SVarCompare$ GE3 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:C:PlayerCountPropertyYou$SacrificedThisTurn Clue\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        clue_sac.abilities[0].contains(
+            "Condition::SacrificedSubtypeThisTurn { subtype: subtypes::artifact::CLUE, count: 3 }"
+        ),
+        "{}",
+        clue_sac.abilities[0]
+    );
+
+    let no_clue_sac = read(
+        "Name:QuietClueWatcher\nManaCost:2 U\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ C | SVarCompare$ EQ0 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:C:PlayerCountPropertyYou$SacrificedThisTurn Clue\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        no_clue_sac.abilities[0].contains(
+            "Condition::Not(&Condition::SacrificedSubtypeThisTurn { subtype: subtypes::artifact::CLUE, count: 1 })"
+        ),
+        "{}",
+        no_clue_sac.abilities[0]
+    );
+}
+
+#[test]
+fn wave19c_phase_check_svar_opp_exile_and_refusals() {
+    // `PlayerCountOpponents$HighestValid`: opponent-more, numeric count.
+    let opp_more_lands = read(
+        "Name:TaxBench\nManaCost:W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | CheckSVar$ Opp | SVarCompare$ GTMine | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:Mine:Count$Valid Land.YouCtrl\n\
+         SVar:Opp:PlayerCountOpponents$HighestValid Land.YouCtrl\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        opp_more_lands.abilities[0].contains("Condition::OpponentControlsMore(&Filter::LAND)"),
+        "{}",
+        opp_more_lands.abilities[0]
+    );
+
+    let opp_three_creatures = read(
+        "Name:HeartGuard\nManaCost:3 G\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | CheckSVar$ C | SVarCompare$ GE3 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:C:PlayerCountOpponents$HighestValid Creature.YouCtrl\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        opp_three_creatures.abilities[0].contains("Condition::OpponentControlCount(&")
+            && opp_three_creatures.abilities[0].contains(", 3)"),
+        "{} | {}",
+        opp_three_creatures.statics,
+        opp_three_creatures.abilities[0]
+    );
+
+    // 4. `ExiledWith$Amount`, `PlayerCountPropertyYou$DamageThisTurn`, `Count$ThisTurnLandPlayed`,
+    //    and negated `DifferentCardNames` / `CardTypes` / `HighestCounters.Poison`.
+    let exiled_urn = read(
+        "Name:VaultUrn\nManaCost:3\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ Player | CheckSVar$ E | SVarCompare$ GE3 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:E:ExiledWith$Amount\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        exiled_urn.abilities[0]
+            .contains("Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::LinkedExile }"),
+        "{}",
+        exiled_urn.abilities[0]
+    );
+
+    let dmg_you = read(
+        "Name:PainWatch\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ X | SVarCompare$ GE4 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:X:PlayerCountPropertyYou$DamageThisTurn\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        dmg_you.abilities[0].contains("Amount::DamageDealtToYouThisTurn"),
+        "{}",
+        dmg_you.abilities[0]
+    );
+
+    let no_land_played = read(
+        "Name:DryTurn\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ L | SVarCompare$ EQ0 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:L:Count$ThisTurnLandPlayed\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        no_land_played.abilities[0]
+            .contains("Condition::Not(&Condition::LandsPlayedThisTurnAtLeast(1))"),
+        "{}",
+        no_land_played.abilities[0]
+    );
+}
+
+#[test]
+fn wave19c_phase_check_svar_negated_and_refusals() {
+    let distinct_neg = read(
+        "Name:FewDistinctLands\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ N | SVarCompare$ LE3 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:N:Count$Valid Land.YouCtrl$DifferentCardNames\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        distinct_neg.abilities[0].contains("Condition::Not(&Condition::ControlDistinctNames(&")
+            && distinct_neg.abilities[0].contains(", 4))"),
+        "{}",
+        distinct_neg.abilities[0]
+    );
+
+    let yard_types_neg = read(
+        "Name:ShallowDelirium\nManaCost:1 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ T | SVarCompare$ LT4 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:T:Count$ValidGraveyard Card.YouOwn$CardTypes\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        yard_types_neg.abilities[0]
+            .contains("Condition::Not(&Condition::GraveyardTypesAtLeast(4))"),
+        "{}",
+        yard_types_neg.abilities[0]
+    );
+
+    // 5. Explicit refusal boundaries: non-subtype `Permanent`, `TriggeredPlayer$` outside `Phase`,
+    //    `LowestCardsInHand` on opponents, and mismatched `HighestValid` RHS.
+    for bad in [
+        "Name:SacPerm\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ X | SVarCompare$ GE1 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:X:PlayerCountPropertyYou$SacrificedThisTurn Permanent\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:NonPhaseActive\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Opponent | CheckSVar$ H | SVarCompare$ LE2 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:H:TriggeredPlayer$CardsInHand\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:OppLowestHand\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | CheckSVar$ H | SVarCompare$ EQ0 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:H:PlayerCountOpponents$LowestCardsInHand\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:MismatchOppValid\nManaCost:2 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | CheckSVar$ Opp | SVarCompare$ GTMine | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:Mine:Count$Valid Creature.YouCtrl\n\
+         SVar:Opp:PlayerCountOpponents$HighestValid Land.YouCtrl\nSVar:D:DB$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave19c_command_emblem_effect_phase_and_etb_counter_rules() {
+    // 1. Command-zone `Card.Self` self-presence (`Condition::SourceInZone(ZoneRef::Command)`).
+    let cmd_self = read(
+        "Name:ThroneSage\nManaCost:3 W U B\nTypes:Legendary Creature\nPT:4/5\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | IsPresent$ Card.Self | PresentZone$ Command | Execute$ Gain\n\
+         SVar:Gain:DB$ GainLife | LifeAmount$ 2",
+    );
+    assert!(
+        cmd_self.abilities[0].contains("zone = TriggerZone::Command")
+            && cmd_self.abilities[0].contains("Condition::SourceInZone(ZoneRef::Command)"),
+        "{}",
+        cmd_self.abilities[0]
+    );
+
+    // 2. Emblem trigger omitting `TriggerZones$` defaults to Command zone.
+    let emblem_no_zone = read(
+        "Name:TelepathEmblem\nManaCost:3 U\nTypes:Legendary Planeswalker\nLoyalty:5\n\
+         A:AB$ Effect | Cost$ SubCounter<9/LOYALTY> | Planeswalker$ True | Ultimate$ True | Name$ Emblem — Telepath | Triggers$ MillCast | Duration$ Permanent\n\
+         SVar:MillCast:Mode$ SpellCast | ValidActivatingPlayer$ You | Execute$ MillOpp\n\
+         SVar:MillOpp:DB$ Mill | ValidTgts$ Opponent | NumCards$ 5",
+    );
+    assert!(
+        emblem_no_zone.abilities[0].contains("Effect::CreateEmblem { abilities: &[")
+            && emblem_no_zone.abilities[0].contains("Trigger::SpellCast(&Filter::ControlledByYou)")
+            && emblem_no_zone.abilities[0].contains("zone = TriggerZone::Command"),
+        "{}",
+        emblem_no_zone.abilities[0]
+    );
+
+    // 3. `DB$/AB$ Effect` with `Mode$ Phase` delayed triggers (one-off, combat-end remembered, recurring BeginCombat).
+    let one_off_upkeep = read(
+        "Name:NextUpkeepDraw\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Effect | Duration$ Permanent | Triggers$ UpkeepDraw\n\
+         SVar:UpkeepDraw:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | OneOff$ True | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 2",
+    );
+    assert!(
+        one_off_upkeep.abilities[0].contains(
+            "DelayedTriggerWhen::AtStep { step: DelayedStep::Upkeep, whose: Some(PlayerRel::You), \
+             this_turn_only: false, recurring: false }"
+        ),
+        "{}",
+        one_off_upkeep.abilities[0]
+    );
+
+    let end_step_destroy = read(
+        "Name:QuietBlade\nManaCost:B B\nTypes:Creature\nPT:2/1\n\
+         A:AB$ Effect | Cost$ 2 B | ValidTgts$ Creature | RememberObjects$ Targeted | Triggers$ KillEnd\n\
+         SVar:KillEnd:Mode$ Phase | Phase$ End of Turn | OneOff$ True | Execute$ DoKill\n\
+         SVar:DoKill:DB$ Destroy | Defined$ Remembered",
+    );
+    assert!(
+        end_step_destroy.abilities[0].contains(
+            "DelayedTriggerWhen::AtStep { step: DelayedStep::EndStep, whose: None, \
+             this_turn_only: true, recurring: false }"
+        ) && end_step_destroy.abilities[0].contains("remember: TriggerRemember::FirstTarget"),
+        "{}",
+        end_step_destroy.abilities[0]
+    );
+
+    let recurring_combat = read(
+        "Name:WarCry\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ Effect | Triggers$ EachCombat\n\
+         SVar:EachCombat:Mode$ Phase | Phase$ BeginCombat | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        recurring_combat.abilities[0].contains(
+            "DelayedTriggerWhen::AtStep { step: DelayedStep::CombatBegin, whose: None, \
+             this_turn_only: true, recurring: true }"
+        ),
+        "{}",
+        recurring_combat.abilities[0]
+    );
+
+    // Expanded event-trigger modes on `SP$ Effect | Triggers$`.
+    let crime_effect = read(
+        "Name:CrimeWatchSpell\nManaCost:1 B\nTypes:Instant\n\
+         A:SP$ Effect | Triggers$ CrimeTrig\n\
+         SVar:CrimeTrig:Mode$ CommitCrime | ValidPlayer$ You | TriggerZones$ Command | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        crime_effect.abilities[0].contains("Trigger::COMMITTED_CRIME"),
+        "{}",
+        crime_effect.abilities[0]
+    );
+}
+
+#[test]
+fn wave19c_etb_counter_card_name_and_refusals() {
+    // `K:etbCounter:` with `Plus.<SVar>` / `Minus.<SVar>` and `Other` stripping on ETB count.
+    let etb_sum_other = read(
+        "Name:HordeKin\nManaCost:3 R\nTypes:Creature Goblin\nPT:0/0\n\
+         K:etbCounter:P1P1:X:no Condition\n\
+         SVar:X:Count$Valid Creature.YouCtrl+Red+Other/Plus.B\n\
+         SVar:B:Count$Valid Creature.YouCtrl+Black+Other",
+    );
+    assert!(
+        etb_sum_other.enter_modifiers[0].contains("Amount::Sum { left: &Amount::CountOf")
+            && !etb_sum_other.statics.contains("Filter::Another"),
+        "{} | {:?}",
+        etb_sum_other.statics,
+        etb_sum_other.enter_modifiers
+    );
+
+    let etb_gy_ctrl = read(
+        "Name:CryptKin\nManaCost:3 B\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:X:no Condition\n\
+         SVar:X:Count$LastStateGraveyard Creature.YouCtrl",
+    );
+    assert!(
+        etb_gy_ctrl.enter_modifiers[0].contains("ZoneSel::GraveyardOf(PlayerRel::You)"),
+        "{:?}",
+        etb_gy_ctrl.enter_modifiers
+    );
+
+    // 5. `K:CARDNAME can't attack.` and `K:CARDNAME can't block.`.
+    let cant_attack =
+        read("Name:FrozenSentry\nManaCost:1 U\nTypes:Creature\nPT:0/4\nK:CARDNAME can't attack.");
+    assert_eq!(cant_attack.keywords, ["KeywordSet::CANT_ATTACK"]);
+    let cant_block =
+        read("Name:RecklessRaider\nManaCost:1 R\nTypes:Creature\nPT:2/1\nK:CARDNAME can't block.");
+    assert_eq!(cant_block.keywords, ["KeywordSet::CANT_BLOCK"]);
+
+    // 6. Refusal boundaries: permanent non-OneOff phase effect, Static cleanup phase effect,
+    //    bare Main1 phase effect, and `CARDNAME must be blocked if able.` stay refused.
+    for bad in [
+        "Name:PermLoop\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Effect | Duration$ Permanent | Triggers$ T\n\
+         SVar:T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:StaticPhase\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Effect | Duration$ Permanent | Triggers$ T\n\
+         SVar:T:Mode$ Phase | Phase$ Untap | ValidPlayer$ You | Static$ True | OneOff$ True | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BareMain1\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Effect | Duration$ Permanent | Triggers$ T\n\
+         SVar:T:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | OneOff$ True | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:LureSolo\nManaCost:2 G\nTypes:Creature\nPT:3/3\nK:CARDNAME must be blocked if able.",
+        "Name:AloneRefusal\nManaCost:2 R\nTypes:Creature\nPT:3/3\nK:CARDNAME can't attack alone.",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

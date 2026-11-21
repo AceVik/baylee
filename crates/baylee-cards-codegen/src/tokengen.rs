@@ -676,6 +676,10 @@ fn ability_keyword_slug(kw: &str) -> Option<String> {
         "Exalted" => Some("EXALTED".to_string()),
         "Prevent all damage that would be dealt to CARDNAME." => Some("PREVENT_DAMAGE".to_string()),
         "CARDNAME can only attack alone." => Some("ATTACKS_ALONE".to_string()),
+        "You may choose not to untap CARDNAME during your untap step." => {
+            Some("MAY_NOT_UNTAP".to_string())
+        }
+        "All creatures able to block CARDNAME do so." => Some("MUST_BE_BLOCKED_BY_ALL".to_string()),
         _ => None,
     }
 }
@@ -715,6 +719,8 @@ fn is_token_ability_keyword(kw: &str) -> bool {
             "Exalted"
                 | "Prevent all damage that would be dealt to CARDNAME."
                 | "CARDNAME can only attack alone."
+                | "You may choose not to untap CARDNAME during your untap step."
+                | "All creatures able to block CARDNAME do so."
         )
 }
 
@@ -739,8 +745,10 @@ const HAND_WRITTEN_NESTED_TOKENS: &[&str] = &[
     "JUNK",
     "MAP",
     "POWERSTONE",
+    "SERVO_1_1",
     "TREASURE",
     "VIBRANIUM",
+    "ZOMBIE_2_2_BLACK",
 ];
 
 /// Generated `pub static` token constants already frozen in the append-only
@@ -748,9 +756,15 @@ const HAND_WRITTEN_NESTED_TOKENS: &[&str] = &[
 /// ability may safely rewrite `&generated_tokens::<NAME>` -> `&<NAME>`.
 const GENERATED_NESTED_TOKENS: &[&str] = &[
     "DRAGON_2_2_RED_FLYING",
+    "INSECT_1_1_GREEN",
     "KRAKEN_9_9_BLUE",
     "RABBIT_1_1_WHITE",
+    "SAPROLING_1_1_GREEN",
+    "SERVO_ARTIFACT_1_1",
+    "SKELETON_1_1_BLACK",
+    "SKELETON_4_1_BLACK_MENACE",
     "SPIRIT_1_1_WHITE_BLACK_FLYING",
+    "WARRIOR_1_1_RED",
 ];
 
 fn rewrite_nested_token_refs(abilities: &mut [String]) -> bool {
@@ -981,10 +995,12 @@ fn replace_ref_ident(text: &str, ident: &str, replacement: &str) -> Option<Strin
 fn rewrite_subtypes(abilities: &mut [String], modules: &mut Vec<String>) -> Option<()> {
     const KNOWN: &[&str] = &[
         "artifact",
+        "battle",
         "creature",
         "enchantment",
         "land",
         "planeswalker",
+        "spell",
     ];
     for ability in abilities.iter_mut() {
         for &module in KNOWN {
@@ -2535,5 +2551,52 @@ mod tests {
         ] {
             assert!(read(unsupported, &c).is_none(), "{unsupported}");
         }
+    }
+
+    #[test]
+    fn wave19c_token_static_keywords_and_nested_refs() {
+        let c = cats();
+        let may_not_untap = read(
+            "Name:Soldier Token\nColors:blue\nTypes:Creature Soldier\nPT:2/2\n\
+             K:You may choose not to untap CARDNAME during your untap step.",
+            &c,
+        )
+        .expect("may choose not to untap token");
+        assert_eq!(may_not_untap.constant, "SOLDIER_2_2_BLUE_MAY_NOT_UNTAP");
+        assert!(
+            may_not_untap
+                .literal
+                .contains("Modifier::MayChooseNotToUntap"),
+            "{}",
+            may_not_untap.literal
+        );
+
+        let all_block = read(
+            "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:3/3\n\
+             K:All creatures able to block CARDNAME do so.",
+            &c,
+        )
+        .expect("must be blocked by all able token");
+        assert_eq!(
+            all_block.constant,
+            "SOLDIER_3_3_GREEN_MUST_BE_BLOCKED_BY_ALL"
+        );
+        assert!(
+            all_block
+                .literal
+                .contains("Modifier::MustBeBlockedByAllAble"),
+            "{}",
+            all_block.literal
+        );
+
+        let mut nested = vec![
+            "triggered!(Trigger::ETB, &[Effect::create_token(&generated_tokens::ZOMBIE_2_2_BLACK, 1)])"
+                .to_string(),
+            "triggered!(Trigger::ETB, &[Effect::create_token(&generated_tokens::SKELETON_1_1_BLACK, 1)])"
+                .to_string(),
+        ];
+        assert!(rewrite_nested_token_refs(&mut nested));
+        assert!(nested[0].contains("&tokens::ZOMBIE_2_2_BLACK"));
+        assert!(nested[1].contains("&SKELETON_1_1_BLACK"));
     }
 }
