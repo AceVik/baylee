@@ -427,6 +427,7 @@ impl Tx<'_> {
             "Battle" => clauses.push("Filter::HasType(TypeSet::BATTLE)".to_string()),
             "Instant" => clauses.push("Filter::HasType(TypeSet::INSTANT)".to_string()),
             "Sorcery" => clauses.push("Filter::HasType(TypeSet::SORCERY)".to_string()),
+            "Spell" => clauses.push("Filter::InZone(ZoneRef::Stack)".to_string()),
             "Basic" => clauses.push("Filter::HasSupertype(SupertypeSet::BASIC)".to_string()),
             "Legendary" => {
                 clauses.push("Filter::HasSupertype(SupertypeSet::LEGENDARY)".to_string());
@@ -877,10 +878,14 @@ impl Tx<'_> {
                 // Some corpus scripts omit `+YouCtrl` on a named-permanent
                 // filter whose Oracle text unambiguously restricts to "you
                 // control named <Name>" (Baloth Packhunter, Charmed Stray).
-                if !named_targets.is_empty()
+                if (!named_targets.is_empty()
                     && named_targets
                         .iter()
-                        .all(|name| oracle_scopes_named_to_you(&lower, name))
+                        .all(|name| oracle_scopes_named_to_you(&lower, name)))
+                    || (clauses.iter().any(|c| c == "Filter::Blocking")
+                        && oracle_scopes_combat_target_to_you(&lower, "target blocking creature"))
+                    || (clauses.iter().any(|c| c == "Filter::Attacking")
+                        && oracle_scopes_combat_target_to_you(&lower, "target attacking creature"))
                 {
                     clauses.push("Filter::ControlledByYou".to_string());
                 }
@@ -968,7 +973,11 @@ impl Tx<'_> {
             let name = self.body.filter_static("TARGET", &expr);
             return Some(format!("TargetSpec::ObjectOfEventPlayer(&{name})"));
         }
-        let expr = self.filter_expr(valid)?;
+        let expr = if api == "Counter" {
+            self.filter_expr_in_zone(valid, true)?
+        } else {
+            self.filter_expr(valid)?
+        };
         let name = self.body.filter_static("TARGET", &expr);
         Some(match api {
             "Counter" => format!("TargetSpec::Spell(&{name})"),
@@ -1020,9 +1029,10 @@ impl Tx<'_> {
     }
 
     /// "Target spell or permanent": `TargetSpec::StackOrBattlefield` over the
-    /// valid-string's filter.
+    /// valid-string's filter (using `card_zone = true` so `Permanent` retains
+    /// its CR 110.4b permanent-card type union on the stack).
     pub(super) fn spell_or_permanent_target(&mut self, valid: &str) -> Option<String> {
-        let expr = self.filter_expr(valid)?;
+        let expr = self.filter_expr_in_zone(valid, true)?;
         let name = self.body.filter_static("TARGET", &expr);
         Some(format!("TargetSpec::StackOrBattlefield(&{name})"))
     }
@@ -1146,6 +1156,8 @@ impl Tx<'_> {
             "Opponent" | "Player.Opponent" => "PlayerRel::Opponent",
             "Player" => "PlayerRel::EachPlayer",
             "Player.Other" => "PlayerRel::EachOtherPlayer",
+            // Gift recipient (CR 702.174a).
+            "Promised" => "PlayerRel::GiftRecipient",
             // "Enchanted land's controller" (CR 303.4e).
             "EnchantedController" | "Player.EnchantedController" => {
                 "PlayerRel::ControllerOfAttached"
@@ -1480,4 +1492,12 @@ pub(super) fn emblem_subsumed_by_card(alt: &str, all_alts: &[&str]) -> bool {
         card_ctrl.sort_unstable();
         card_ctrl == emblem_ctrl
     })
+}
+
+fn oracle_scopes_combat_target_to_you(lower_oracle: &str, phrase: &str) -> bool {
+    let total = lower_oracle.matches(phrase).count();
+    let yours = lower_oracle
+        .matches(&format!("{phrase} you control"))
+        .count();
+    total > 0 && total == yours
 }

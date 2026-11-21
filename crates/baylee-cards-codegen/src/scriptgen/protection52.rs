@@ -488,6 +488,9 @@ impl Tx<'_> {
             p.take("Condition");
             clauses.push(named.to_string());
         }
+        if let Some(state_cond) = self.take_self_state_present(p).ok()? {
+            clauses.push(state_cond);
+        }
         let base = self.condition(p)?;
         if let Some(existing) = base
             .strip_prefix(", condition = Some(")
@@ -499,7 +502,8 @@ impl Tx<'_> {
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
             let first = self
                 .svar_condition(&var, &cmp)
-                .or_else(|| self.extra_svar_condition_clause(&var, &cmp))?;
+                .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
+                .or_else(|| self.promised_gift_svar_condition(&var, &cmp))?;
             clauses.push(first);
             if let Some(var2) = p.take("CheckSecondSVar") {
                 let cmp2 = p
@@ -507,7 +511,8 @@ impl Tx<'_> {
                     .unwrap_or_else(|| "GE1".to_string());
                 let second = self
                     .svar_condition(&var2, &cmp2)
-                    .or_else(|| self.extra_svar_condition_clause(&var2, &cmp2))?;
+                    .or_else(|| self.extra_svar_condition_clause(&var2, &cmp2))
+                    .or_else(|| self.promised_gift_svar_condition(&var2, &cmp2))?;
                 clauses.push(second);
             }
         }

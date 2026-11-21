@@ -266,6 +266,10 @@ impl Tx<'_> {
         }
         let had_description = p.has("Description");
         p.drop_prose();
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Continuous.Secondary$ {other}`")),
+        }
         // `EffectZone$ Battlefield` is the default written out; any other
         // zone means the source works from somewhere else, which is a
         // different rule than the one below.
@@ -506,8 +510,61 @@ impl Tx<'_> {
             "Card.Self+!IsRenowned" | "Creature.Self+!IsRenowned" => {
                 Some(("Filter::This", "Condition::Not(&Condition::IsRenowned)"))
             }
+            "Card.Self+PromisedGift" | "Creature.Self+PromisedGift" => {
+                Some(("Filter::This", "Condition::GiftWasPromised"))
+            }
+            "Card.Self+!PromisedGift" | "Creature.Self+!PromisedGift" => Some((
+                "Filter::This",
+                "Condition::Not(&Condition::GiftWasPromised)",
+            )),
             _ => None,
         }
+    }
+
+    pub(super) fn take_self_state_present(&self, p: &mut Params) -> Result<Option<String>, ()> {
+        let Some(present) = p.peek("IsPresent") else {
+            return Ok(None);
+        };
+        let cond = match present.trim() {
+            "Card.Self+IsRenowned" | "Creature.Self+IsRenowned" => "Condition::IsRenowned",
+            "Card.Self+Paired" | "Creature.Self+Paired" => "Condition::IsPaired",
+            "Card.Self+PromisedGift" | "Creature.Self+PromisedGift" | "Card.PromisedGift" => {
+                "Condition::GiftWasPromised"
+            }
+            _ => return Ok(None),
+        };
+        p.take("IsPresent");
+        match p.take("PresentCompare").as_deref() {
+            None | Some("GE1" | "EQ1" | "GT0") => Ok(Some(cond.to_string())),
+            Some("EQ0" | "LT1") => Ok(Some(format!("Condition::Not(&{cond})"))),
+            Some(other) => {
+                self.note(format!("`PresentCompare$ {other}`"));
+                Err(())
+            }
+        }
+    }
+
+    pub(super) fn promised_gift_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
+        let def = self
+            .svars
+            .get(var.trim())
+            .map_or(var, String::as_str)
+            .trim();
+        let positive = match def {
+            "Count$PromisedGift.1.0" => true,
+            "Count$PromisedGift.0.1" => false,
+            _ => return None,
+        };
+        let holds_when_one = match cmp.trim() {
+            "GE1" | "EQ1" | "GT0" => true,
+            "EQ0" | "LT1" => false,
+            _ => return None,
+        };
+        Some(if positive == holds_when_one {
+            "Condition::GiftWasPromised".to_string()
+        } else {
+            "Condition::Not(&Condition::GiftWasPromised)".to_string()
+        })
     }
 
     fn merge_static_condition(extra: Option<&str>, base: &str) -> String {
@@ -533,23 +590,8 @@ impl Tx<'_> {
             p.take("Condition");
             clauses.push(named.to_string());
         }
-        if let Some(present) = p.peek("IsPresent")
-            && let Some(cond) = match present.trim() {
-                "Card.Self+IsRenowned" | "Creature.Self+IsRenowned" => {
-                    Some("Condition::IsRenowned")
-                }
-                "Card.Self+Paired" | "Creature.Self+Paired" => Some("Condition::IsPaired"),
-                _ => None,
-            }
-        {
-            p.take("IsPresent");
-            match p.take("PresentCompare").as_deref() {
-                None | Some("GE1" | "EQ1" | "GT0") => clauses.push(cond.to_string()),
-                Some("EQ0" | "LT1") => clauses.push(format!("Condition::Not(&{cond})")),
-                Some(other) => {
-                    return self.deny(format!("`PresentCompare$ {other}`"));
-                }
-            }
+        if let Some(state_cond) = self.take_self_state_present(p).ok()? {
+            clauses.push(state_cond);
         }
         if let Some(base) = self
             .condition(p)?
@@ -560,7 +602,10 @@ impl Tx<'_> {
         }
         if let Some(var) = p.take("CheckSVar") {
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-            let Some(first) = self.svar_condition_clause(&var, &cmp) else {
+            let Some(first) = self
+                .svar_condition_clause(&var, &cmp)
+                .or_else(|| self.promised_gift_svar_condition(&var, &cmp))
+            else {
                 return self.deny(check_svar_denial.to_string());
             };
             clauses.push(first);
@@ -568,7 +613,10 @@ impl Tx<'_> {
                 let cmp2 = p
                     .take("SecondSVarCompare")
                     .unwrap_or_else(|| "GE1".to_string());
-                let Some(second) = self.svar_condition_clause(&var2, &cmp2) else {
+                let Some(second) = self
+                    .svar_condition_clause(&var2, &cmp2)
+                    .or_else(|| self.promised_gift_svar_condition(&var2, &cmp2))
+                else {
                     return self.deny(check_svar_denial.to_string());
                 };
                 clauses.push(second);

@@ -3817,3 +3817,92 @@ fn wave14b_refusal_boundaries() {
         assert!(refused(script), "expected refusal for:\n{script}");
     }
 }
+
+#[test]
+fn wave15b_pass_e8_targets_gift_spell_base_and_secondary() {
+    // 1. CR 110.4b: `Permanent.YouCtrl` on a stack spell target preserves the
+    // full permanent type union instead of collapsing to `ControlledByYou`.
+    let copy_perm = read(
+        "Name:MirrorRelic\nManaCost:4\nTypes:Artifact\n\
+         A:AB$ CopySpellAbility | Cost$ 4 T | ValidTgts$ Permanent.YouCtrl | TargetType$ Spell",
+    );
+    assert!(
+        copy_perm
+            .statics
+            .contains("TypeSet::ARTIFACT.union(TypeSet::BATTLE)")
+            && copy_perm.statics.contains("Filter::ControlledByYou")
+            && copy_perm.abilities[0].contains("TargetSpec::Spell(&TARGET"),
+        "expected permanent type union on stack target: {} / {}",
+        copy_perm.statics,
+        copy_perm.abilities[0]
+    );
+
+    // 2. Combat target omitting `+YouCtrl` when every Oracle mention says
+    // "target blocking creature you control" keeps `Filter::ControlledByYou`.
+    let combat_scope = read(
+        "Name:GuardTrick\nManaCost:W\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature.blocking | NumAtt$ +2 | NumDef$ +2\n\
+         Oracle:Target blocking creature you control gets +2/+2 until end of turn.",
+    );
+    assert!(
+        combat_scope.statics.contains("Filter::Blocking")
+            && combat_scope.statics.contains("Filter::ControlledByYou"),
+        "expected ControlledByYou from oracle: {}",
+        combat_scope.statics
+    );
+
+    // Mixed oracle ("target blocking creature" without "you control") must NOT add ControlledByYou.
+    let combat_any = read(
+        "Name:OpenGuard\nManaCost:W\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature.blocking | NumAtt$ +1 | NumDef$ +1\n\
+         Oracle:Target blocking creature gets +1/+1 until end of turn.",
+    );
+    assert!(
+        combat_any.statics.contains("Filter::Blocking")
+            && !combat_any.statics.contains("ControlledByYou"),
+        "must not add ControlledByYou: {}",
+        combat_any.statics
+    );
+
+    // 3. `Spell` filter base lowers to `Filter::InZone(ZoneRef::Stack)`.
+    let spell_dmg = read(
+        "Name:EmberAdept\nManaCost:1 R\nTypes:Creature Human Wizard\nPT:2/2\n\
+         T:Mode$ DamageDealtOnce | ValidSource$ Spell.YouCtrl | TriggerZones$ Battlefield | Execute$ Gain\n\
+         SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+    );
+    assert!(
+        spell_dmg.statics.contains("Filter::InZone(ZoneRef::Stack)")
+            && spell_dmg.statics.contains("Filter::ControlledByYou"),
+        "expected InZone(Stack) + ControlledByYou: {}",
+        spell_dmg.statics
+    );
+
+    // 4. `Continuous.Secondary$ True` + `GiftWasPromised` + `PlayerRel::GiftRecipient`.
+    let gift_and_secondary = read(
+        "Name:SplitBoon\nManaCost:1 B\nTypes:Enchantment Aura\n\
+         K:Enchant:Creature\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature.Goblin | AddPower$ 2 | AddToughness$ 2\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature.nonGoblin | AddPower$ -2 | AddToughness$ -2 | Secondary$ True\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | Affected$ Card.PromisedGift | AddKeyword$ Indestructible\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | CheckSVar$ GiftFlag | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddToughness$ 1 | IsPresent$ Card.Self+PromisedGift | PresentCompare$ EQ0\n\
+         A:AB$ Draw | Cost$ T | Defined$ Promised | NumCards$ 1\n\
+         SVar:GiftFlag:Count$PromisedGift.1.0",
+    );
+    assert!(
+        gift_and_secondary.abilities.len() == 7
+            && gift_and_secondary.abilities[3].contains("Condition::GiftWasPromised")
+            && gift_and_secondary.abilities[4].contains("Condition::GiftWasPromised")
+            && gift_and_secondary.abilities[5]
+                .contains("Condition::Not(&Condition::GiftWasPromised)")
+            && gift_and_secondary.abilities[6].contains("PlayerRel::GiftRecipient"),
+        "{:?}",
+        gift_and_secondary.abilities
+    );
+
+    // Refusal: unexpected `Continuous.Secondary$` value stays refused.
+    assert!(refused(
+        "Name:BadSecondary\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | Secondary$ Maybe"
+    ));
+}
