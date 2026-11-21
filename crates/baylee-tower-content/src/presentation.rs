@@ -32,7 +32,8 @@ pub(super) fn of(index: CardIndex) -> Result<Presentation, Error> {
     // Cosmetic treatments are already supported by the shared builder, including
     // cards not sold physically in foil. Every commander and one third of the
     // remaining identities shine; the frozen catalog owns that choice.
-    let commander = baylee_cards::decks::leader_of(index).is_some_and(|leader| leader.eligible);
+    let commander =
+        baylee_cards::decks::leader_of(index).is_some_and(|leader| leader.eligible_alone);
     Ok(Presentation {
         printing: print.scryfall_id,
         finish: if commander || index.get().is_multiple_of(3) {

@@ -1039,7 +1039,7 @@ fn issue_194_commander_management_is_visible_without_opening_card_details() {
         let mut cards = pool_cards();
         cards[0].commander = true;
         cards[0].partners = vec![cards[1].index];
-        cards[1].commander = true;
+        cards[1].commander = false; // A Background can only be chosen as the partner.
         state.lobby.builder_mut().set_pool(cards, true);
     }
     app.update();

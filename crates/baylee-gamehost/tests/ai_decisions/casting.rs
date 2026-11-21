@@ -688,7 +688,7 @@ fn choose_a_background_deploys_both_commanders_with_independent_cast_counts() {
     let (jaheira, bg) = ("Jaheira, Friend of the Forest", "Far Traveler");
     let jl = baylee_cards::decks::leader_of(entry(jaheira).card).unwrap();
     let bl = baylee_cards::decks::leader_of(entry(bg).card).unwrap();
-    assert!(bl.eligible && bl.background);
+    assert!(bl.background && !bl.eligible_alone);
     assert!(baylee_cards::decks::may_lead_together(&jl, &bl));
 
     let mut preset = position(

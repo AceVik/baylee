@@ -135,7 +135,7 @@ impl CardProfile {
         let creature = face.types.contains(TypeSet::CREATURE);
         let is_vehicle_or_spacecraft = face.subtypes.contains(&subtypes::artifact::VEHICLE)
             || face.subtypes.contains(&subtypes::artifact::SPACECRAFT);
-        let leader = leader_of(def.index).is_some_and(|l| l.eligible && !l.background)
+        let leader = leader_of(def.index).is_some_and(|l| l.eligible_alone)
             && (creature
                 || is_vehicle_or_spacecraft
                 || matches!(def.commander, CommanderRule::ExplicitlyAllowed)

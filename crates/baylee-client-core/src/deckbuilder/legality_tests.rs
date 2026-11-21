@@ -16,7 +16,7 @@ fn real(name: &str) -> PoolCard {
         .get();
     let def = baylee_cards::by_index(baylee_core::ids::CardIndex::new(index)).expect("a card");
     let basic = baylee_cards::formats::is_basic_land(def.index);
-    let eligible = baylee_cards::decks::leader_of(def.index).is_some_and(|l| l.eligible);
+    let eligible = baylee_cards::decks::leader_of(def.index).is_some_and(|l| l.eligible_alone);
     PoolCard {
         index,
         name: name.to_string(),

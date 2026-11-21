@@ -230,7 +230,7 @@ fn a_sideboard_is_fifteen_and_a_commander_deck_has_none() {
 fn white_leader() -> &'static baylee_cards_dsl::CardDef {
     crate::all()
         .find(|def| {
-            crate::decks::leader_of(def.index).is_some_and(|l| l.eligible && !l.background)
+            crate::decks::leader_of(def.index).is_some_and(|l| l.eligible_alone)
                 && def.color_identity == ColorSet::from_slice(&[baylee_core::color::Color::White])
         })
         .expect("a mono-white leader in the pool")
@@ -316,7 +316,7 @@ fn a_back_face_counts_towards_the_identity() {
         .expect("a modal double-faced card whose back has a colour its front lacks");
     let leader = crate::all()
         .find(|def| {
-            crate::decks::leader_of(def.index).is_some_and(|l| l.eligible && !l.background)
+            crate::decks::leader_of(def.index).is_some_and(|l| l.eligible_alone)
                 && !front_colors(double).is_empty()
                 && def.color_identity == front_colors(double)
         })
@@ -431,7 +431,7 @@ fn banned_as_commander_is_only_about_the_leader() {
     let other = crate::all()
         .find(|def| {
             def.index != tazri
-                && crate::decks::leader_of(def.index).is_some_and(|l| l.eligible && !l.background)
+                && crate::decks::leader_of(def.index).is_some_and(|l| l.eligible_alone)
                 && def
                     .color_identity
                     .difference(ColorSet::from_slice(&[baylee_core::color::Color::White]))

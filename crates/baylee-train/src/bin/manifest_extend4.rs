@@ -285,10 +285,13 @@ fn precons(root: &Path, working: &Working) -> Result<Vec<Candidate>> {
         }
         let leaders: Option<Vec<_>> = commanders.iter().map(|c| leader_of(*c)).collect();
         let Some(leaders) = leaders else { continue };
-        if leaders.iter().any(|l| !l.eligible)
-            || (leaders.len() == 2 && !may_lead_together(&leaders[0], &leaders[1]))
-            || main.is_empty()
-        {
+        let valid_leaders = match leaders.as_slice() {
+            [] => true,
+            [one] => one.eligible_alone,
+            [a, b] => may_lead_together(a, b),
+            _ => false,
+        };
+        if !valid_leaders || main.is_empty() {
             continue;
         }
         let format = if !commanders.is_empty() {

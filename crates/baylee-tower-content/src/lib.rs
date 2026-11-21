@@ -115,8 +115,8 @@ fn metadata(index: CardIndex) -> Option<Card> {
         return None;
     }
     let basic_land = baylee_cards::formats::is_basic_land(index);
-    let commander = baylee_cards::decks::leader_of(index)
-        .is_some_and(|leader| leader.eligible && !leader.background);
+    let commander =
+        baylee_cards::decks::leader_of(index).is_some_and(|leader| leader.eligible_alone);
     Some(Card {
         card: index,
         price: if basic_land { 0 } else { 4 },
