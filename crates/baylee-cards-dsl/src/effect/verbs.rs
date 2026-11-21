@@ -790,6 +790,15 @@ impl Effect {
                 domain: _,
                 effects: then,
             }
+            | Effect::RepeatProcess {
+                effects: then,
+                max_times: _,
+                pre_condition: _,
+                post_condition: _,
+                optional: _,
+                optional_before_first: _,
+                per_pass_this_way: _,
+            }
             | Effect::ChooseCard {
                 chooser: _,
                 zone: _,

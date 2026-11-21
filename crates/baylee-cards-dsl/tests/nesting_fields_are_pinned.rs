@@ -102,7 +102,8 @@
 // RepeatEach, ChooseCard, PeekAndReveal, and RevealFromHand add one walker-tested
 // body each; RevealTop adds two walker-tested bodies.
 // Clash adds two walker-tested bodies (`on_win` and `on_loss`).
-const NESTING_FIELDS: usize = 105;
+// RepeatProcess adds one walker-tested body (`effects`).
+const NESTING_FIELDS: usize = 106;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -173,7 +174,8 @@ const NESTING_FIELDS: usize = 105;
 /// `RevealTop` are the eighty-seventh through ninety-first
 /// (`repeat_each_choose_card_peek_and_reveal_branches_are_visited`).
 /// `Clash` is the ninety-second (`clash_branches_and_additional_combat_phase_are_visited`).
-const CARRYING_VARIANTS: usize = 92;
+/// `RepeatProcess` is the ninety-third (`repeat_process_body_is_visited`).
+const CARRYING_VARIANTS: usize = 93;
 
 /// The floor under the reader itself.
 ///

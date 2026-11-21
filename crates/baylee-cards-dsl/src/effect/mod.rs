@@ -5163,6 +5163,28 @@ pub enum Effect {
         /// Damage dealt to the permanent's controller.
         controller_amount: Amount,
     },
+    /// Repeat a sub-sequence of instructions with optional pre-check, optional
+    /// post-condition, optional `"you may repeat this process"` prompt, and
+    /// optional iteration cap (Kindle the Carnage, Dance with Calamity, Helm of
+    /// Obedience; CR 608.2c). Capped by the engine's finite repeat safety bound.
+    /// Appended to preserve replay identities.
+    RepeatProcess {
+        /// Instructions executed on each pass.
+        effects: &'static [Effect],
+        /// Optional maximum number of passes (`None` = bounded only by engine cap).
+        max_times: Option<Amount>,
+        /// Condition checked before each pass (`false` stops before running `effects`).
+        pre_condition: Option<crate::Condition>,
+        /// Condition checked after each pass (`false` stops after running `effects`).
+        post_condition: Option<crate::Condition>,
+        /// Whether the controller is asked `YesNo` before continuing (`"you may repeat"`).
+        optional: bool,
+        /// When `optional` is `true`, whether to also ask before the very first pass.
+        optional_before_first: bool,
+        /// When `true`, `Amount::ThisWay` inside `effects` / `post_condition`
+        /// resets per pass; when `false`, `Amount::ThisWay` accumulates across passes.
+        per_pass_this_way: bool,
+    },
 }
 
 #[cfg(test)]

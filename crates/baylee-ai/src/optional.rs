@@ -205,7 +205,13 @@ pub(crate) fn not_now(
 // decision context. The deciding seat must not become the meaning of "you".
 pub(crate) fn may_branch(effects: &[Effect]) -> Option<Result<&'static [Effect], ()>> {
     effects.iter().find_map(|effect| match effect {
-        Effect::MayDo { effects } | Effect::MayDoOnceEachTurn { effects } => Some(Ok(*effects)),
+        Effect::MayDo { effects }
+        | Effect::MayDoOnceEachTurn { effects }
+        | Effect::RepeatProcess {
+            effects,
+            optional: true,
+            ..
+        } => Some(Ok(*effects)),
         Effect::MayDoFor { .. } => Some(Err(())),
         other => {
             let (then, otherwise) = other.branches();
@@ -225,6 +231,7 @@ pub(crate) fn is_draw_skip(source: Option<AbilityRef>) -> bool {
             def.abilities.get(source.index as usize),
             Some(AbilityDef::Replacement(
                 ReplacementRule::MaySkipDrawStepDraw
+                    | ReplacementRule::SkipDrawInstead { optional: true, .. }
             ))
         )
     })

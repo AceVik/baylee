@@ -1711,6 +1711,8 @@ pub(super) fn resume_inner(
         | AwaitingOp::PeekBottom { .. }
         | AwaitingOp::SoulbondConfirmPair { .. }
         | AwaitingOp::ClashBottom { .. }
+        | AwaitingOp::PutTargetsInLibraryOrder { .. }
+        | AwaitingOp::RepeatProcess { .. }
         | AwaitingOp::PlayerMayPayDamageToYou { .. }
         | AwaitingOp::ConfirmCountedCost { .. }
         | AwaitingOp::Endure { .. }

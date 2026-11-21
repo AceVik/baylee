@@ -84,9 +84,69 @@ impl GameState {
             .unwrap_or(u32::MAX)
     }
 
+    /// Computes the replaced number of `kind` counters placed on `player` by
+    /// `by`, applying [`baylee_cards_dsl::ReplacementRule::ModifyPlayerCounterPlacement`]
+    /// and [`baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou`] (CR 122.6,
+    /// CR 614.1a, CR 614.16).
+    #[must_use]
+    pub fn replaced_player_counters(
+        &self,
+        by: PlayerId,
+        player: PlayerId,
+        kind: CounterKind,
+        amount: u32,
+    ) -> u32 {
+        if amount == 0 {
+            return 0;
+        }
+        let mut current = amount;
+        for entry in &self.replacement_rules {
+            if current == 0 {
+                break;
+            }
+            let baylee_cards_dsl::ReplacementRule::ModifyPlayerCounterPlacement {
+                recipient,
+                kind: rule_kind,
+                placer,
+                op,
+            } = entry.rule
+            else {
+                continue;
+            };
+            if !self.object(entry.source).is_some_and(|o| {
+                o.zone == crate::zone::Zone::Battlefield
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+            }) {
+                continue;
+            }
+            if rule_kind.is_some_and(|k| k != kind) {
+                continue;
+            }
+            let recipient_ok = crate::eval::players(recipient, self, entry.controller)
+                .is_some_and(|ps| ps.contains(&player));
+            let placer_ok = placer.is_none_or(|rel| {
+                crate::eval::players(rel, self, entry.controller).is_some_and(|ps| ps.contains(&by))
+            });
+            if !recipient_ok || !placer_ok {
+                continue;
+            }
+            #[cfg(any(test, feature = "test-support"))]
+            crate::ability_log::replaced(entry);
+            current = match op {
+                baylee_cards_dsl::CounterReplaceOp::Add(n) => current.saturating_add(u32::from(n)),
+                baylee_cards_dsl::CounterReplaceOp::Sub(n) => current.saturating_sub(u32::from(n)),
+                baylee_cards_dsl::CounterReplaceOp::Multiply(f) => {
+                    current.saturating_mul(u32::from(f))
+                }
+                baylee_cards_dsl::CounterReplaceOp::HalveFloor => current / 2,
+            };
+        }
+        current.saturating_mul(self.player_counter_multiplier(by))
+    }
+
     /// Places `amount` counters of `kind` on `player` from `by`, applying
-    /// [`baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou`] replacements
-    /// controlled by `by` (CR 122.6, CR 614.16).
+    /// player counter replacement rules and [`baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou`]
+    /// (CR 122.6, CR 614.16).
     pub fn put_player_counters_by(
         &mut self,
         by: PlayerId,
@@ -97,7 +157,10 @@ impl GameState {
         if amount == 0 {
             return;
         }
-        let scaled = amount.saturating_mul(self.player_counter_multiplier(by));
+        let scaled = self.replaced_player_counters(by, player, kind, amount);
+        if scaled == 0 {
+            return;
+        }
         self.change_player_counters(player, kind, i32::try_from(scaled).unwrap_or(i32::MAX));
     }
 }

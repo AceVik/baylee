@@ -292,7 +292,19 @@ fn reads_event(effect: &Effect) -> bool {
                 || reads_amount(*power)
                 || reads_amount(*toughness)
         }
-        Effect::IfCondition { condition, .. } => reads_condition(condition),
+        Effect::IfCondition { condition, .. } | Effect::RepeatWhile { condition, .. } => {
+            reads_condition(condition)
+        }
+        Effect::RepeatProcess {
+            max_times,
+            pre_condition,
+            post_condition,
+            ..
+        } => {
+            max_times.is_some_and(reads_amount)
+                || pre_condition.as_ref().is_some_and(reads_condition)
+                || post_condition.as_ref().is_some_and(reads_condition)
+        }
         Effect::SoulbondPair { with_event_object } => *with_event_object,
         _ => false,
     }

@@ -298,6 +298,61 @@ pub fn face_has_a_legal_target(
         )
 }
 
+/// Whether `card` has at least one currently open castable face whose target
+/// requirements can be satisfied (CR 601.2c, CR 709.3a, CR 715.3a).
+///
+/// Single-face cards (and cards on an Adventure in exile, where only face 0 may
+/// be cast) check face 0 directly; split, Adventure, MDFC, disturb, and
+/// aftermath cards check each face open in the card's current zone and timing
+/// window so an unpointable front half never hides a legal second half.
+#[must_use]
+pub fn card_has_a_legal_target(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+) -> bool {
+    let Some(raw) = state.object(card) else {
+        return true;
+    };
+    let face_up = playable_exile_projection(state, player, raw);
+    let obj: &crate::object::GameObject = &face_up;
+    let Some(def) = obj.card.and_then(|c| lookup.card(c.index)) else {
+        return true;
+    };
+    let in_hand = obj.zone == Zone::Hand && obj.zone_owner == Some(player);
+    let in_own_graveyard = obj.zone == Zone::Graveyard && obj.zone_owner == Some(player);
+    let on_adventure = adventure_only_permission(state, player, card);
+    let disturb_ok =
+        !in_hand && in_own_graveyard && def.faces.iter().any(|f| f.disturb || f.aftermath);
+    if castable_back_faces_in_zone(def, on_adventure, disturb_ok)
+        .next()
+        .is_none()
+    {
+        return face_has_a_legal_target(state, lookup, player, card, 0);
+    }
+    let projected = split_front(state, obj);
+    let front_obj = projected.as_ref().unwrap_or(obj);
+    let fc = front_obj.characteristics();
+    let front_open = !cast_is_forbidden(state, player, front_obj)
+        && !fc.types.contains(TypeSet::LAND)
+        && graveyard_face_open(state, player, card, 0)
+        && permitted_spell_types(state, player, card, fc.types, 0)
+        && (timing_allows(state, player, fc.types, fc.keywords)
+            || (in_sneak_window(state, player)
+                && sneak_cost_for(state, player, card, Some(def), 0).is_some()))
+        && spell_condition_allows(state, player, card, def, 0);
+    if front_open && face_has_a_legal_target(state, lookup, player, card, 0) {
+        return true;
+    }
+    castable_back_faces_in_zone(def, on_adventure, disturb_ok).any(|(i, _)| {
+        face_timing_allows(state, player, card, def, i)
+            && !face_is_forbidden(state, player, obj, def, i)
+            && graveyard_face_open(state, player, card, i)
+            && face_has_a_legal_target(state, lookup, player, card, i)
+    })
+}
+
 /// Whether a target spec's filter reads the first target (`Filter::Reference`
 /// and its family): a second instance of "target" chosen relative to the
 /// first (Gauntlets of Chaos, Glyph of Delusion).
@@ -1630,6 +1685,14 @@ pub(crate) fn can_cast_form_paying(
                     allowance,
                 )
     };
+    let has_castable_backs = form.is_none()
+        && printed.is_some_and(|def| {
+            castable_back_faces_in_zone(def, on_adventure, disturb_ok)
+                .next()
+                .is_some()
+        });
+    let front_target_ok =
+        !has_castable_backs || face_has_a_legal_target(state, lookup, player, card, 0);
     // A waived mana cost still pays increases (CR 601.2f).
     if permission.is_some_and(|p| p.free) {
         let free_base = printed_face.map_or(ManaCost::ZERO, |f| {
@@ -1655,6 +1718,11 @@ pub(crate) fn can_cast_form_paying(
         } else {
             probe(&free_base)
         };
+        let back_targetable = printed.is_some_and(|def| {
+            castable_back_faces(def, on_adventure).any(|(face, _)| {
+                face_open(def, face) && face_has_a_legal_target(state, lookup, player, card, face)
+            })
+        });
         let back_payable = printed.is_some_and(|def| {
             castable_back_faces(def, on_adventure).any(|(face, _)| {
                 face_open(def, face)
@@ -1662,8 +1730,10 @@ pub(crate) fn can_cast_form_paying(
                     && free_face_affordable(state, player, card, def, face)
             })
         });
-        return if (front_now && payable) || back_payable {
+        return if (front_now && front_target_ok && payable) || back_payable {
             Ok(())
+        } else if has_castable_backs && !(front_now && front_target_ok) && !back_targetable {
+            Err(CastError::NoWayToCast)
         } else {
             Err(CastError::NotEnoughMana)
         };
@@ -1778,11 +1848,38 @@ pub(crate) fn can_cast_form_paying(
                     }
             })
     };
+    let a_back_face_targetable = || {
+        printed.is_some_and(|def| {
+            castable_back_faces_in_zone(def, on_adventure, disturb_ok).any(|(i, _)| {
+                face_open(def, i)
+                    && graveyard_face_open(state, player, card, i)
+                    && face_has_a_legal_target(state, lookup, player, card, i)
+            })
+        })
+    };
+    let a_fused_targetable = || {
+        fused_now
+            && printed.is_some_and(|def| {
+                additional_payment_capacity_for(
+                    state,
+                    player,
+                    card,
+                    &def.faces[1],
+                    Some(crate::choice::CastModeKind::Face(1)),
+                    &[],
+                )
+                .is_some()
+                    && face_has_a_legal_target(state, lookup, player, card, 0)
+                    && face_has_a_legal_target(state, lookup, player, card, 1)
+            })
+    };
     // The front may not be cast normally now, so unless sneak makes it castable
     // only a back face or fused cast can make the card castable.
     if !front_now && !sneak_now {
         return if a_back_face_castable() || a_fused_castable() {
             Ok(())
+        } else if has_castable_backs && !a_back_face_targetable() && !a_fused_targetable() {
+            Err(CastError::NoWayToCast)
         } else {
             Err(CastError::NotEnoughMana)
         };
@@ -1976,9 +2073,18 @@ pub(crate) fn can_cast_form_paying(
     // it in `legal.castable` and the wizard then refused it with "no way to
     // cast this spell".
     if disturb_ok {
+        let targetable_disturb = printed.is_some_and(|def| {
+            def.faces.iter().enumerate().skip(1).any(|(i, f)| {
+                (f.disturb || f.aftermath)
+                    && graveyard_face_open(state, player, card, i)
+                    && face_timing_allows(state, player, card, def, i)
+                    && face_has_a_legal_target(state, lookup, player, card, i)
+            })
+        });
         let affordable_disturb = printed.is_some_and(|def| {
             def.faces.iter().enumerate().skip(1).any(|(i, f)| {
-                f.disturb
+                (f.disturb || f.aftermath)
+                    && graveyard_face_open(state, player, card, i)
                     && face_timing_allows(state, player, card, def, i)
                     && probe_back(def, i)
                     && face_has_a_legal_target(state, lookup, player, card, i)
@@ -1990,7 +2096,11 @@ pub(crate) fn can_cast_form_paying(
         // Muldrotha or Wrenn's emblem cast the *front* from the graveyard
         // too, at its own price — the probes below.
         if !graveyard_ok {
-            return Err(CastError::NotEnoughMana);
+            return Err(if targetable_disturb {
+                CastError::NotEnoughMana
+            } else {
+                CastError::NoWayToCast
+            });
         }
     }
     // Printed cost probed with X = 0, and after a reduction printed on the
@@ -2017,6 +2127,7 @@ pub(crate) fn can_cast_form_paying(
     // questions were asked and both were answered yes, about different modes.
     let modal_only = printed.is_some_and(|def| modes_are_the_only_way(def, 0));
     if !front_now
+        || !front_target_ok
         || modal_only
         || !has_a_printed_cost(&c.mana_cost)
         || !probe_normal(&normal_cost.with_x(0))
@@ -2038,6 +2149,7 @@ pub(crate) fn can_cast_form_paying(
         // stage. Every part is asked about here, the way every condition is
         // asked about below — the two halves of the same offer.
         let any_alt = front_now
+            && front_target_ok
             && !flashback_only
             && face.alternative_costs.iter().enumerate().any(|(i, alt)| {
                 // Every condition, not merely the one that was written first.
@@ -2100,30 +2212,17 @@ pub(crate) fn can_cast_form_paying(
                 }
                 _ => false,
             });
-        // And every other face the wizard would offer, which this probe knew
-        // nothing about. Twining Twins is a `{2}{U}{U}` creature in front of
-        // a `{1}{W}` instant, so the adventure was unreachable on exactly the
-        // boards it is for: the ones where the creature cannot be paid for.
-        //
-        // Each face at its own timing (`face_timing_allows`), here and in
-        // the wizard: a `{1}{W}` instant on the back of a creature is cast
-        // whenever an instant could be, and a sorcery on the back of a
-        // creature with flash is not.
-        //
-        // The target line is asked per face and beside the price, because
-        // both have to hold of the *same* face for it to be a way of casting
-        // the card. What is still coarse is the other direction:
-        // `compute_legal` asks `has_a_legal_target` about face 0 before it
-        // gets here, so a front that cannot be targeted keeps a targetable
-        // back off the offer. No card in the pool is that shape, and closing
-        // it means folding the face-0 question into the probes below and
-        // giving `CastError` a variant that does not call a target problem
-        // "not enough mana".
+        // And every other face the wizard would offer, at its own timing and
+        // with its own target check (`a_back_face_castable` / `a_fused_castable`).
         let any_face = a_back_face_castable() || a_fused_castable();
         // Dash (CR 702.109a), the offer's `CastModeKind::Dash`.
-        let any_dash = front_now && !flashback_only && face.dash.is_some_and(|dash| probe(&dash));
+        let any_dash = front_now
+            && front_target_ok
+            && !flashback_only
+            && face.dash.is_some_and(|dash| probe(&dash));
         // Blitz (CR 702.152a), the offer's `CastModeKind::Blitz`.
         let any_blitz = front_now
+            && front_target_ok
             && !flashback_only
             && face.blitz.is_some_and(|blitz| {
                 probe(&blitz.mana.with_x(0))
@@ -2140,6 +2239,7 @@ pub(crate) fn can_cast_form_paying(
             });
         // Warp (CR 702.185a), the offer's `CastModeKind::Warp` (from hand only).
         let any_warp = front_now
+            && front_target_ok
             && in_hand
             && !flashback_only
             && face.warp.is_some_and(|warp| {
@@ -2156,7 +2256,8 @@ pub(crate) fn can_cast_form_paying(
                     .is_some()
             });
         // Awaken (CR 702.113a), the offer's `CastModeKind::Awaken`.
-        let any_awaken = !flashback_only
+        let any_awaken = front_target_ok
+            && !flashback_only
             && crate::engine::cast_wizard::wave10b::face_awaken(def, 0).is_some_and(
                 |(_, awaken)| {
                     crate::engine::cast_wizard::wave10b::awaken_has_legal_land(state, player, card)
@@ -2179,6 +2280,7 @@ pub(crate) fn can_cast_form_paying(
             );
         // Emerge (CR 702.119a), the offer's `CastModeKind::Emerge`.
         let any_emerge = front_now
+            && front_target_ok
             && !flashback_only
             && face.emerge.is_some_and(|emerge| {
                 emerge_candidates(state, player, card, face, emerge)
@@ -2208,6 +2310,7 @@ pub(crate) fn can_cast_form_paying(
             });
         // Mutate (CR 702.140a), the offer's `CastModeKind::Mutate`.
         let any_mutate = front_now
+            && front_target_ok
             && !flashback_only
             && face.mutate.is_some_and(|mutate| {
                 kicked_targets_reachable(state, def, player, card, MUTATE_TARGET_REQ)
@@ -2215,6 +2318,7 @@ pub(crate) fn can_cast_form_paying(
             });
         // Sneak (CR 702.190a), the offer's `CastModeKind::Sneak`.
         let any_sneak = sneak_now
+            && front_target_ok
             && !flashback_only
             && sneak_cost_for(state, player, card, Some(def), 0).is_some_and(|sneak| {
                 probe(&sneak.mana.with_x(0))
@@ -2256,7 +2360,12 @@ pub(crate) fn can_cast_form_paying(
                     }
                     _ => false,
                 });
-            return Err(if a_mode_was_affordable {
+            let front_castable_with_target = front_target_ok && (front_now || sneak_now);
+            let no_face_targetable = has_castable_backs
+                && !front_castable_with_target
+                && !a_back_face_targetable()
+                && !a_fused_targetable();
+            return Err(if a_mode_was_affordable || no_face_targetable {
                 CastError::NoWayToCast
             } else {
                 CastError::NotEnoughMana

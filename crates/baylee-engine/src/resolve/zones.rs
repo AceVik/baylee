@@ -1051,6 +1051,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let moves: Vec<(ObjectId, ZoneLocation)> = res
                 .targets
                 .iter()
+                .filter(|&&target| state.object(target).is_some())
                 .map(|&target| {
                     let owner = state.object(target).map_or(you, |o| o.owner);
                     (target, ZoneLocation::Library(owner))
@@ -1060,18 +1061,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(pending) = ask_commander_replace(state, res, &moves) {
                 return Some(pending);
             }
-            for (target, to) in moves {
-                if let Some(obj) = state.object_mut(target) {
-                    obj.kind = ObjectKind::Card;
-                }
-                let position = if top {
-                    ZonePosition::Top
-                } else {
-                    ZonePosition::Bottom
-                };
-                let _ = state.move_object(target, to, position, Cause::Effect);
-            }
-            None
+            begin_put_targets_in_library(state, res, top, &moves)
         }
         Effect::RollDiePutTargetIntoLibraryBeneathTop { .. }
         | Effect::PutTargetIntoLibraryBeneathTop { .. } => {
@@ -1977,26 +1967,42 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::ExileTargetsCreateTokens { token } => {
             let targets = res.targets.clone();
+            let mut per_controller: smallvec::SmallVec<[(PlayerId, u32); 2]> =
+                smallvec::SmallVec::new();
             for target_id in targets {
                 let Some(obj) = state.object(target_id) else {
                     continue;
                 };
+                if obj.zone != crate::zone::Zone::Battlefield
+                    || obj.status.contains(crate::object::Status::PHASED_OUT)
+                {
+                    continue;
+                }
                 let owner = obj.owner;
                 let controller = obj.controller;
-                if let Some(obj) = state.object_mut(target_id) {
+                if let Some(obj) = state.object_mut(target_id)
+                    && !obj.riders.contains(&crate::object::Rider::SpellCopy)
+                {
                     obj.kind = ObjectKind::Card;
                 }
-                let _ = state.move_object(
-                    target_id,
-                    ZoneLocation::Exile(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
-                // The token goes to the exiled permanent's controller, so
-                // CR 614.1 is read off them and not off whoever cast this.
-                // The comment here used to say so while the call underneath
-                // it consulted no replacement at all.
-                tokens::create_tokens(state, controller, token, None, 1);
+                if state
+                    .move_object(
+                        target_id,
+                        ZoneLocation::Exile(owner),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    )
+                    .is_ok()
+                {
+                    if let Some(slot) = per_controller.iter_mut().find(|(p, _)| *p == controller) {
+                        slot.1 = slot.1.saturating_add(1);
+                    } else {
+                        per_controller.push((controller, 1));
+                    }
+                }
+            }
+            for (controller, count) in per_controller {
+                tokens::create_tokens(state, controller, token, None, count);
             }
             None
         }
@@ -2105,6 +2111,125 @@ pub(super) fn counter_ability(state: &mut GameState, res: &mut Resolution, targe
     state.remember_damage_source(target);
     state.zones.remove(target, ZoneLocation::Stack);
     let _ = state.arena.remove(target);
+}
+
+fn begin_put_targets_in_library(
+    state: &mut GameState,
+    res: &mut Resolution,
+    top: bool,
+    moves: &[(ObjectId, ZoneLocation)],
+) -> Option<Pending> {
+    let saved_redirects = core::mem::take(&mut state.commander_redirect);
+    let mut redirected: Vec<(ObjectId, ZoneLocation)> = Vec::new();
+    let mut owners: Vec<PlayerId> = Vec::new();
+    for &(target, to) in moves {
+        if saved_redirects.iter().any(|&(o, home)| o == target && home) {
+            redirected.push((target, to));
+            continue;
+        }
+        let owner = state.object(target).map_or(res.controller, |obj| obj.owner);
+        if !owners.contains(&owner) {
+            owners.push(owner);
+        }
+    }
+    chosen::order_apnap(state, &mut owners);
+    let pending_owners: Vec<(PlayerId, Vec<ObjectId>)> = owners
+        .into_iter()
+        .map(|owner| {
+            let cards = moves
+                .iter()
+                .filter_map(|&(target, _)| {
+                    (!saved_redirects.iter().any(|&(o, home)| o == target && home)
+                        && state.object(target).is_some_and(|o| o.owner == owner))
+                    .then_some(target)
+                })
+                .collect();
+            (owner, cards)
+        })
+        .collect();
+    put_targets_in_library_advance(
+        state,
+        res,
+        top,
+        pending_owners,
+        Vec::new(),
+        redirected,
+        saved_redirects,
+    )
+}
+
+pub(super) fn put_targets_in_library_advance(
+    state: &mut GameState,
+    res: &mut Resolution,
+    top: bool,
+    mut pending_owners: Vec<(PlayerId, Vec<ObjectId>)>,
+    mut ordered: Vec<(PlayerId, Vec<ObjectId>)>,
+    redirected: Vec<(ObjectId, ZoneLocation)>,
+    saved_redirects: Vec<(ObjectId, bool)>,
+) -> Option<Pending> {
+    while !pending_owners.is_empty() {
+        let (owner, cards) = pending_owners.remove(0);
+        if cards.len() >= 2 {
+            let count = u32::try_from(cards.len()).unwrap_or(u32::MAX);
+            let place = if top {
+                ArrangePlace::LibraryTop
+            } else {
+                ArrangePlace::LibraryBottom
+            };
+            res.awaiting = Some(AwaitingOp::PutTargetsInLibraryOrder {
+                top,
+                current_owner: owner,
+                pending_owners,
+                ordered,
+                redirected,
+                saved_redirects,
+            });
+            return Some(Pending::Arrange {
+                player: owner,
+                cards,
+                piles: vec![ArrangePile::all_of(place, count)],
+                prompt: ArrangePrompt::Order,
+            });
+        }
+        ordered.push((owner, cards));
+    }
+    state.commander_redirect = saved_redirects;
+    let position = if top {
+        ZonePosition::Top
+    } else {
+        ZonePosition::Bottom
+    };
+    for (target, to) in redirected {
+        if let Some(obj) = state.object_mut(target)
+            && !obj.riders.contains(&crate::object::Rider::SpellCopy)
+        {
+            obj.kind = ObjectKind::Card;
+        }
+        let _ = state.move_object(target, to, position, Cause::Effect);
+    }
+    for (owner, cards) in ordered {
+        let library = ZoneLocation::Library(owner);
+        if top {
+            for card in cards.into_iter().rev() {
+                if let Some(obj) = state.object_mut(card)
+                    && !obj.riders.contains(&crate::object::Rider::SpellCopy)
+                {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
+            }
+        } else {
+            for card in cards {
+                if let Some(obj) = state.object_mut(card)
+                    && !obj.riders.contains(&crate::object::Rider::SpellCopy)
+                {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
+            }
+        }
+    }
+    None
 }
 
 /// Who a card put onto the battlefield by an effect comes back under: the

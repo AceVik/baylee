@@ -347,7 +347,7 @@ fn this_way_entry_context(
                 to: Zone::Exile,
                 ..
             },
-            ThisWay::ExiledFromBattlefield(filter),
+            ThisWay::ExiledFromBattlefield(filter) | ThisWay::Exiled(filter),
         )
         | (
             GameEvent::ZoneChanged {
@@ -408,6 +408,21 @@ fn this_way_entry_context(
                 ..
             },
             ThisWay::ExiledFromGraveyard(filter),
+        )
+        | (
+            GameEvent::ZoneChanged {
+                object,
+                from:
+                    Zone::Library
+                    | Zone::Graveyard
+                    | Zone::Hand
+                    | Zone::Stack
+                    | Zone::Command
+                    | Zone::OutsideGame,
+                to: Zone::Exile,
+                ..
+            },
+            ThisWay::Exiled(filter),
         )
         | (
             GameEvent::ZoneChanged {

@@ -57,6 +57,13 @@ pub enum DrawReplacement {
     /// Which of the cards an Aladdin's Lamp looked at go to the bottom: all
     /// but one.
     Bottom,
+    /// Choose one of the looked-at top cards to put into hand (`ReplaceDrawLookTop`).
+    LookPick {
+        /// `true` to put remaining cards into graveyard; `false` for bottom of library.
+        rest_to_graveyard: bool,
+    },
+    /// Choose the next remaining looked-at card to put on the bottom of library.
+    LookBottomOrder,
 }
 
 /// What the replacements have done so far to the draw at the front of
@@ -75,6 +82,10 @@ pub struct FrontDraw {
     pub replaced: bool,
     /// Revealed exact library incarnation and remaining APNAP payment offers.
     pub denial: Option<(baylee_core::ids::DamageSourceRef, u8, Vec<PlayerId>)>,
+    /// Current player drawing this individual card when redirected (`Notion Thief`).
+    pub active_drawer: Option<PlayerId>,
+    /// Extra draws spawned by `ReplaceDrawWithDraws`, carrying already-applied sources.
+    pub spawned: Vec<(PlayerId, Vec<ObjectId>)>,
 }
 
 /// A replacement that applies to the draw whether its player likes it or
@@ -91,6 +102,38 @@ enum Mandatory {
         source: ObjectId,
         controller: PlayerId,
         token: &'static baylee_cards_dsl::TokenDef,
+    },
+    /// Notion Thief: replaces an opponent's non-first draw-step draw with you drawing.
+    NotionThief {
+        source: ObjectId,
+        controller: PlayerId,
+    },
+    /// Thought Reflection / Teferi's Ageless Insight.
+    ReplaceWithDraws {
+        source: ObjectId,
+        rule: ReplacementRule,
+        count: u8,
+    },
+    /// Mandatory draw skip (Omen Machine, Possessed Portal, empty-library skip).
+    SkipDraw {
+        source: ObjectId,
+        rule: ReplacementRule,
+    },
+    /// Laboratory Maniac: win the game instead of drawing from an empty library.
+    WinGame(ObjectId),
+    /// Underrealm Lich / Tomorrow, Azami's Familiar.
+    LookTop {
+        source: ObjectId,
+        rule: ReplacementRule,
+        count: u8,
+        rest_to_graveyard: bool,
+    },
+    /// Uba Mask: exile the top card of library instead of drawing.
+    ExileTop {
+        source: ObjectId,
+        rule: ReplacementRule,
+        face_down: bool,
+        may_play_this_turn: bool,
     },
     /// An Aladdin's Lamp effect.
     Lamp {
@@ -112,7 +155,13 @@ impl Mandatory {
             Self::Chains(source)
             | Self::RevealMatch(source, _)
             | Self::RevealDeny(source, _)
-            | Self::Hullbreacher { source, .. } => Some(source),
+            | Self::Hullbreacher { source, .. }
+            | Self::NotionThief { source, .. }
+            | Self::ReplaceWithDraws { source, .. }
+            | Self::SkipDraw { source, .. }
+            | Self::WinGame(source)
+            | Self::LookTop { source, .. }
+            | Self::ExileTop { source, .. } => Some(source),
             Self::Lamp { source, .. } | Self::Wish { source, .. } => source,
         }
     }
@@ -194,35 +243,70 @@ impl GameState {
         player: PlayerId,
         declined: &[ObjectId],
     ) -> Option<ObjectId> {
-        if self.turn.active != player
-            || self.turn.step != crate::turn::Step::Draw
-            || self.has_left(player)
-        {
+        if self.has_left(player) {
             return None;
         }
+        let in_own_draw_step =
+            self.turn.active == player && self.turn.step == crate::turn::Step::Draw;
+        let library_empty = self.zones.list(ZoneLocation::Library(player)).is_empty();
         self.replacement_rules
             .iter()
             .filter(|r| {
-                r.controller == player
-                    && (r.rule == ReplacementRule::MaySkipDrawStepDraw
-                        || (matches!(r.rule, ReplacementRule::MaySkipDrawStepGainLife(_))
-                            && self.next_draw_is_first_in_draw_step(player)))
+                !declined.contains(&r.source)
+                    && self.object(r.source).is_some_and(|o| {
+                        o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+                    })
+                    && match r.rule {
+                        ReplacementRule::MaySkipDrawStepDraw => {
+                            in_own_draw_step && r.controller == player
+                        }
+                        ReplacementRule::MaySkipDrawStepGainLife(_) => {
+                            in_own_draw_step
+                                && r.controller == player
+                                && self.next_draw_is_first_in_draw_step(player)
+                        }
+                        ReplacementRule::SkipDrawInstead {
+                            who,
+                            optional: true,
+                            empty_library_only,
+                        } => {
+                            (!empty_library_only || library_empty)
+                                && crate::eval::players(who, self, r.controller)
+                                    .is_some_and(|ps| ps.contains(&player))
+                        }
+                        _ => false,
+                    }
             })
             .map(|r| r.source)
-            .filter(|s| !declined.contains(s))
-            .find(|s| {
-                self.object(*s).is_some_and(|o| {
-                    o.zone == Zone::Battlefield
-                        && o.controller == player
-                        && !o.status.contains(Status::PHASED_OUT)
-                })
-            })
+            .next()
+    }
+
+    fn has_potential_draw_rule(&self, player: PlayerId) -> bool {
+        self.replacement_rules.iter().any(|r| {
+            self.object(r.source).is_some_and(|o| {
+                o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+            }) && match r.rule {
+                ReplacementRule::WinOnEmptyLibraryDraw
+                | ReplacementRule::ReplaceDrawLookTop { .. } => r.controller == player,
+                ReplacementRule::OpponentsExtraDrawsYouDraw => {
+                    self.is_opponent(player, r.controller)
+                }
+                ReplacementRule::SkipDrawInstead { who, .. }
+                | ReplacementRule::ReplaceDrawWithDraws { who, .. }
+                | ReplacementRule::ReplaceDrawExileTop { who, .. } => {
+                    crate::eval::players(who, self, r.controller)
+                        .is_some_and(|ps| ps.contains(&player))
+                }
+                _ => false,
+            }
+        })
     }
 
     /// Whether some replacement could modify a draw `player` made now, so
     /// that the draw has to wait to be asked about.
     pub(crate) fn draw_may_be_replaced(&self, player: PlayerId) -> bool {
         self.draw_skip_source(player, &[]).is_some()
+            || self.has_potential_draw_rule(player)
             || self.effects.iter().any(|effect| {
                 effect.controller == player
                     && matches!(
@@ -314,7 +398,9 @@ impl GameState {
     /// effects of Aladdin's Lamp and Ring of Ma'rûf.
     fn mandatory_draw_replacements(&self, player: PlayerId) -> Vec<Mandatory> {
         let mut out = self.reveal_draw_replacements(player);
-        if !self.next_draw_is_first_in_draw_step(player) {
+        let first_in_draw_step = self.next_draw_is_first_in_draw_step(player);
+        let library_empty = self.zones.list(ZoneLocation::Library(player)).is_empty();
+        if !first_in_draw_step {
             out.extend(
                 self.chains_sources()
                     .into_iter()
@@ -332,6 +418,18 @@ impl GameState {
                     }),
             );
         }
+        for r in &self.replacement_rules {
+            if self.draw_front.applied.contains(&r.source)
+                || !self.object(r.source).is_some_and(|o| {
+                    o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+                })
+            {
+                continue;
+            }
+            if let Some(m) = self.rule_to_mandatory(r, player, first_in_draw_step, library_empty) {
+                out.push(m);
+            }
+        }
         for effect in self.effects.iter().filter(|e| e.controller == player) {
             match effect.modifier {
                 Modifier::NextDrawFromTop { count } => out.push(Mandatory::Lamp {
@@ -347,6 +445,83 @@ impl GameState {
             }
         }
         out
+    }
+
+    fn rule_to_mandatory(
+        &self,
+        r: &crate::state::ReplacementEntry,
+        player: PlayerId,
+        first_in_draw_step: bool,
+        library_empty: bool,
+    ) -> Option<Mandatory> {
+        match r.rule {
+            ReplacementRule::OpponentsExtraDrawsYouDraw
+                if !first_in_draw_step && self.is_opponent(player, r.controller) =>
+            {
+                Some(Mandatory::NotionThief {
+                    source: r.source,
+                    controller: r.controller,
+                })
+            }
+            ReplacementRule::ReplaceDrawWithDraws {
+                who,
+                skip_first_in_draw_step,
+                condition,
+                count,
+            } if (!skip_first_in_draw_step || !first_in_draw_step)
+                && crate::eval::players(who, self, r.controller)
+                    .is_some_and(|ps| ps.contains(&player))
+                && condition.is_none_or(|c| {
+                    crate::eval::condition_holds(self, r.controller, r.source, c)
+                }) =>
+            {
+                Some(Mandatory::ReplaceWithDraws {
+                    source: r.source,
+                    rule: r.rule,
+                    count,
+                })
+            }
+            ReplacementRule::SkipDrawInstead {
+                who,
+                optional: false,
+                empty_library_only,
+            } if (!empty_library_only || library_empty)
+                && crate::eval::players(who, self, r.controller)
+                    .is_some_and(|ps| ps.contains(&player)) =>
+            {
+                Some(Mandatory::SkipDraw {
+                    source: r.source,
+                    rule: r.rule,
+                })
+            }
+            ReplacementRule::WinOnEmptyLibraryDraw if r.controller == player && library_empty => {
+                Some(Mandatory::WinGame(r.source))
+            }
+            ReplacementRule::ReplaceDrawLookTop {
+                count,
+                rest_to_graveyard,
+            } if r.controller == player => Some(Mandatory::LookTop {
+                source: r.source,
+                rule: r.rule,
+                count,
+                rest_to_graveyard,
+            }),
+            ReplacementRule::ReplaceDrawExileTop {
+                who,
+                face_down,
+                may_play_this_turn,
+            } if crate::eval::players(who, self, r.controller)
+                .is_some_and(|ps| ps.contains(&player)) =>
+            {
+                Some(Mandatory::ExileTop {
+                    source: r.source,
+                    rule: r.rule,
+                    face_down,
+                    may_play_this_turn,
+                })
+            }
+            _ => None,
+        }
     }
 
     /// What the player may name when asked which replacement applies next:
@@ -374,21 +549,31 @@ impl GameState {
     /// question: `(player, question)`. `None` once the queue is empty.
     #[doc(hidden)]
     pub fn next_draw_offer(&mut self) -> Option<(PlayerId, DrawReplacement)> {
-        while let Some(&(player, n)) = self.draws_to_offer.front() {
-            if n == 0
-                || self.has_left(player)
-                || self
-                    .draw_limit(player)
-                    .is_some_and(|limit| self.per_turn.draws[usize::from(player.get())] >= limit)
-            {
-                // Nobody draws for a player who has left (CR 800.4a:
-                // what they own has left with them).
+        while let Some(&(front_player, n)) = self.draws_to_offer.front() {
+            if n == 0 {
                 self.draws_to_offer.pop_front();
                 self.draw_front = FrontDraw::default();
                 continue;
             }
+            let player = self.draw_front.active_drawer.unwrap_or(front_player);
+            if self.has_left(player)
+                || self
+                    .draw_limit(player)
+                    .is_some_and(|limit| self.per_turn.draws[usize::from(player.get())] >= limit)
+            {
+                if self.draw_front.active_drawer.is_some() || !self.draw_front.spawned.is_empty() {
+                    self.take_front_draw();
+                } else {
+                    self.draws_to_offer.pop_front();
+                    self.draw_front = FrontDraw::default();
+                }
+                continue;
+            }
             if let Some(question) = self.front_draw_step(player, n) {
                 return Some((player, question));
+            }
+            if self.game_end.is_some() {
+                return None;
             }
         }
         None
@@ -452,6 +637,7 @@ impl GameState {
         if self.draw_front != FrontDraw::default()
             || !self.chains_sources().is_empty()
             || !self.hullbreacher_sources(player).is_empty()
+            || self.has_potential_draw_rule(player)
         {
             let replaced = self.draw_front.replaced;
             let before = self.per_turn.instruction_drawn.len();
@@ -567,7 +753,183 @@ impl GameState {
                 }
                 Some(DrawReplacement::Wish(effect))
             }
+            other => self.apply_extended_draw_replacement(player, other),
         }
+    }
+
+    fn apply_extended_draw_replacement(
+        &mut self,
+        player: PlayerId,
+        replacement: Mandatory,
+    ) -> Option<DrawReplacement> {
+        match replacement {
+            Mandatory::NotionThief { source, controller } => {
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced_by(
+                    source,
+                    ReplacementRule::OpponentsExtraDrawsYouDraw,
+                );
+                self.draw_front.applied.push(source);
+                self.draw_front.active_drawer = Some(controller);
+                self.reopen_front_draw();
+                None
+            }
+            Mandatory::ReplaceWithDraws {
+                source,
+                rule,
+                count,
+            } => {
+                let _ = rule;
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced_by(source, rule);
+                self.draw_front.applied.push(source);
+                match count {
+                    0 => self.take_front_draw(),
+                    1 => self.reopen_front_draw(),
+                    n => {
+                        let carried = self.draw_front.applied.clone();
+                        for _ in 1..n {
+                            self.draw_front.spawned.push((player, carried.clone()));
+                        }
+                        self.reopen_front_draw();
+                    }
+                }
+                None
+            }
+            Mandatory::SkipDraw { source, rule } => {
+                let _ = (source, rule);
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced_by(source, rule);
+                self.take_front_draw();
+                None
+            }
+            Mandatory::WinGame(source) => {
+                self.apply_draw_win(player, source);
+                None
+            }
+            Mandatory::LookTop {
+                source,
+                rule,
+                count,
+                rest_to_graveyard,
+            } => self.apply_draw_look_top(player, source, rule, count, rest_to_graveyard),
+            Mandatory::ExileTop {
+                source,
+                rule,
+                face_down,
+                may_play_this_turn,
+            } => {
+                self.apply_draw_exile_top(player, source, rule, face_down, may_play_this_turn);
+                None
+            }
+            _ => unreachable!("handled in apply_mandatory_draw_replacement"),
+        }
+    }
+
+    fn apply_draw_win(&mut self, player: PlayerId, source: ObjectId) {
+        let _ = source;
+        #[cfg(any(test, feature = "test-support"))]
+        crate::ability_log::replaced_by(source, ReplacementRule::WinOnEmptyLibraryDraw);
+        if !self.has_left(player)
+            && !crate::sba::player_cant_win(self, player)
+            && self.game_end.is_none()
+        {
+            let winner = match self.side_of(player) {
+                crate::state::Side::Team(team) => crate::win::Victor::Team(team),
+                crate::state::Side::Solo(seat) => crate::win::Victor::Player(seat),
+            };
+            self.game_end = Some(crate::win::GameResult {
+                winner: Some(winner),
+                reason: crate::win::EndReason::EffectWin,
+            });
+        }
+        self.take_front_draw();
+    }
+
+    fn apply_draw_look_top(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        rule: ReplacementRule,
+        count: u8,
+        rest_to_graveyard: bool,
+    ) -> Option<DrawReplacement> {
+        let _ = (source, rule);
+        #[cfg(any(test, feature = "test-support"))]
+        crate::ability_log::replaced_by(source, rule);
+        let looked: Vec<ObjectId> = self
+            .zones
+            .list(ZoneLocation::Library(player))
+            .iter()
+            .rev()
+            .take(usize::from(count))
+            .copied()
+            .collect();
+        match looked.as_slice() {
+            [] => {
+                self.take_front_draw();
+                None
+            }
+            [only] => {
+                let _ = self.move_object(
+                    *only,
+                    ZoneLocation::Hand(player),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                self.take_front_draw();
+                None
+            }
+            _ => {
+                self.draw_front.looked = looked;
+                Some(DrawReplacement::LookPick { rest_to_graveyard })
+            }
+        }
+    }
+
+    fn apply_draw_exile_top(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        rule: ReplacementRule,
+        face_down: bool,
+        may_play_this_turn: bool,
+    ) {
+        let _ = (source, rule);
+        #[cfg(any(test, feature = "test-support"))]
+        crate::ability_log::replaced_by(source, rule);
+        if let Some(&top) = self.zones.list(ZoneLocation::Library(player)).last() {
+            let owner = self.object(top).map_or(player, |o| o.owner);
+            if self
+                .move_object(
+                    top,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .is_ok()
+            {
+                if face_down {
+                    if let Some(obj) = self.object_mut(top) {
+                        obj.status.insert(Status::FACE_DOWN);
+                    }
+                } else if may_play_this_turn
+                    && let Some(version) = self.object(top).map(|o| o.version)
+                {
+                    self.play_permissions.push(crate::state::PlayPermission {
+                        player,
+                        card: top,
+                        version,
+                        free: false,
+                        mana_any_type: false,
+                        cast_only: false,
+                        spell_types: None,
+                        window: baylee_cards_dsl::PlayWindow::ThisTurn.into(),
+                    });
+                }
+            }
+        }
+        self.take_front_draw();
     }
 
     fn apply_draw_denial(
@@ -663,39 +1025,61 @@ impl GameState {
         let DrawReplacement::Skip(source) = replacement else {
             return self.next_draw_offer();
         };
-        let &(player, _) = self.draws_to_offer.front()?;
+        let &(front_player, _) = self.draws_to_offer.front()?;
+        let player = self.draw_front.active_drawer.unwrap_or(front_player);
         if self.has_left(player) {
-            // Asked, then gone before answering: nobody draws for them
-            // (CR 800.4a: what they own has left with them), and their
-            // question has no answer to settle.
             self.draw_front = FrontDraw::default();
             return self.next_draw_offer();
         }
         if skip {
-            let gain = self.replacement_rules.iter().find_map(|r| {
-                if r.source == source
-                    && r.controller == player
-                    && let ReplacementRule::MaySkipDrawStepGainLife(n) = r.rule
-                {
-                    return Some(n);
+            let skip_rule = self.replacement_rules.iter().find_map(|r| {
+                if r.source != source {
+                    return None;
                 }
-                None
+                match r.rule {
+                    ReplacementRule::MaySkipDrawStepGainLife(_)
+                    | ReplacementRule::MaySkipDrawStepDraw
+                        if r.controller == player =>
+                    {
+                        Some(r.rule)
+                    }
+                    ReplacementRule::SkipDrawInstead {
+                        who,
+                        optional: true,
+                        ..
+                    } if crate::eval::players(who, self, r.controller)
+                        .is_some_and(|ps| ps.contains(&player)) =>
+                    {
+                        Some(r.rule)
+                    }
+                    _ => None,
+                }
             });
-            if let Some(life) = gain {
-                #[cfg(any(test, feature = "test-support"))]
-                crate::ability_log::replaced_by(
-                    source,
-                    ReplacementRule::MaySkipDrawStepGainLife(life),
-                );
-                self.draws_replaced = self.draws_replaced.wrapping_add(1);
-                self.change_life(player, i32::from(life), crate::event::Cause::Effect);
-                self.take_front_draw();
-            } else {
-                #[cfg(any(test, feature = "test-support"))]
-                crate::ability_log::replaced_by(source, ReplacementRule::MaySkipDrawStepDraw);
-                self.draws_replaced = self.draws_replaced.wrapping_add(1);
-                self.restrict_attacks_after_skipped_draw(player, source);
-                self.take_front_draw();
+            match skip_rule {
+                Some(ReplacementRule::MaySkipDrawStepGainLife(life)) => {
+                    #[cfg(any(test, feature = "test-support"))]
+                    crate::ability_log::replaced_by(
+                        source,
+                        ReplacementRule::MaySkipDrawStepGainLife(life),
+                    );
+                    self.draws_replaced = self.draws_replaced.wrapping_add(1);
+                    self.change_life(player, i32::from(life), crate::event::Cause::Effect);
+                    self.take_front_draw();
+                }
+                Some(rule @ ReplacementRule::SkipDrawInstead { .. }) => {
+                    let _ = rule;
+                    #[cfg(any(test, feature = "test-support"))]
+                    crate::ability_log::replaced_by(source, rule);
+                    self.draws_replaced = self.draws_replaced.wrapping_add(1);
+                    self.take_front_draw();
+                }
+                _ => {
+                    #[cfg(any(test, feature = "test-support"))]
+                    crate::ability_log::replaced_by(source, ReplacementRule::MaySkipDrawStepDraw);
+                    self.draws_replaced = self.draws_replaced.wrapping_add(1);
+                    self.restrict_attacks_after_skipped_draw(player, source);
+                    self.take_front_draw();
+                }
             }
         } else {
             self.draw_front.declined.push(source);
@@ -710,7 +1094,8 @@ impl GameState {
         replacement: DrawReplacement,
         chosen: &[ObjectId],
     ) -> Option<(PlayerId, DrawReplacement)> {
-        let &(player, _) = self.draws_to_offer.front()?;
+        let &(front_player, _) = self.draws_to_offer.front()?;
+        let player = self.draw_front.active_drawer.unwrap_or(front_player);
         if self.has_left(player) {
             self.draw_front = FrontDraw::default();
             return self.next_draw_offer();
@@ -773,6 +1158,16 @@ impl GameState {
                 self.put_on_bottom_in_random_order(player, bottom);
                 self.reopen_front_draw();
             }
+            DrawReplacement::LookPick { rest_to_graveyard } => {
+                if let Some(next) = self.finish_look_pick(player, chosen, rest_to_graveyard) {
+                    return Some((player, next));
+                }
+            }
+            DrawReplacement::LookBottomOrder => {
+                if let Some(next) = self.finish_look_bottom_order(player, chosen) {
+                    return Some((player, next));
+                }
+            }
         }
         self.next_draw_offer()
     }
@@ -780,6 +1175,17 @@ impl GameState {
     /// One card of the front entry is done with, and so is what the
     /// replacements did to it.
     pub(super) fn take_front_draw(&mut self) {
+        if let Some((next_drawer, next_applied)) = self.draw_front.spawned.pop() {
+            let spawned = std::mem::take(&mut self.draw_front.spawned);
+            self.draw_front = FrontDraw {
+                applied: next_applied,
+                replaced: true,
+                active_drawer: Some(next_drawer),
+                spawned,
+                ..FrontDraw::default()
+            };
+            return;
+        }
         if let Some(front) = self.draws_to_offer.front_mut() {
             front.1 = front.1.saturating_sub(1);
             if front.1 == 0 {
@@ -787,6 +1193,96 @@ impl GameState {
             }
         }
         self.draw_front = FrontDraw::default();
+    }
+
+    fn finish_look_pick(
+        &mut self,
+        player: PlayerId,
+        chosen: &[ObjectId],
+        rest_to_graveyard: bool,
+    ) -> Option<DrawReplacement> {
+        let looked = std::mem::take(&mut self.draw_front.looked);
+        let picked = chosen
+            .first()
+            .copied()
+            .filter(|card| looked.contains(card))
+            .or_else(|| looked.first().copied());
+        if let Some(pick) = picked {
+            let _ = self.move_object(
+                pick,
+                ZoneLocation::Hand(player),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+        }
+        let rest: Vec<ObjectId> = looked
+            .into_iter()
+            .filter(|card| Some(*card) != picked)
+            .collect();
+        if rest_to_graveyard {
+            for card in rest {
+                let owner = self.object(card).map_or(player, |o| o.owner);
+                let _ = self.move_object(
+                    card,
+                    ZoneLocation::Graveyard(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            self.take_front_draw();
+            None
+        } else if rest.len() <= 1 {
+            for card in rest {
+                let _ = self.move_object(
+                    card,
+                    ZoneLocation::Library(player),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+            self.take_front_draw();
+            None
+        } else {
+            self.draw_front.looked = rest;
+            Some(DrawReplacement::LookBottomOrder)
+        }
+    }
+
+    fn finish_look_bottom_order(
+        &mut self,
+        player: PlayerId,
+        chosen: &[ObjectId],
+    ) -> Option<DrawReplacement> {
+        let mut looked = std::mem::take(&mut self.draw_front.looked);
+        let pick = chosen
+            .first()
+            .copied()
+            .filter(|card| looked.contains(card))
+            .or_else(|| looked.first().copied());
+        if let Some(card) = pick {
+            looked.retain(|c| *c != card);
+            let _ = self.move_object(
+                card,
+                ZoneLocation::Library(player),
+                ZonePosition::Bottom,
+                Cause::Effect,
+            );
+        }
+        if looked.len() <= 1 {
+            for card in looked {
+                let _ = self.move_object(
+                    card,
+                    ZoneLocation::Library(player),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+            self.take_front_draw();
+            None
+        } else {
+            self.draw_front.looked = looked;
+            Some(DrawReplacement::LookBottomOrder)
+        }
     }
 
     /// The question about one draw.
@@ -835,6 +1331,18 @@ impl GameState {
                 let n = u8::try_from(looked.len().saturating_sub(1)).unwrap_or(u8::MAX);
                 choose(looked, n, n, ChoicePrompt::PutOnBottom)
             }
+            DrawReplacement::LookPick { .. } => choose(
+                self.draw_front.looked.clone(),
+                1,
+                1,
+                ChoicePrompt::PutIntoHand,
+            ),
+            DrawReplacement::LookBottomOrder => choose(
+                self.draw_front.looked.clone(),
+                1,
+                1,
+                ChoicePrompt::PutOnBottom,
+            ),
         }
     }
 
@@ -848,6 +1356,7 @@ impl GameState {
                     AbilityDef::Replacement(
                         ReplacementRule::MaySkipDrawStepDraw
                             | ReplacementRule::MaySkipDrawStepGainLife(_)
+                            | ReplacementRule::SkipDrawInstead { optional: true, .. }
                     )
                 )
             })?;

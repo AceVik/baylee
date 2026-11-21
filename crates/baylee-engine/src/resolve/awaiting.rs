@@ -1423,6 +1423,29 @@ pub enum AwaitingOp {
     /// Optional controlled-permanent exile choice for `Effect::Champion`
     /// (CR 702.72a).
     ChampionExile,
+    /// Owner-by-owner arrangement of 2+ cards put on the top or bottom of a
+    /// library simultaneously (CR 401.4; Plow Under).
+    PutTargetsInLibraryOrder {
+        /// `true` for top of library, `false` for bottom of library.
+        top: bool,
+        /// Owner currently ordering their library-bound cards.
+        current_owner: PlayerId,
+        /// Remaining owners and their cards in APNAP order.
+        pending_owners: Vec<(PlayerId, Vec<ObjectId>)>,
+        /// Already-ordered `(owner, cards)` groups.
+        ordered: Vec<(PlayerId, Vec<ObjectId>)>,
+        /// Commanders whose owners already chose command-zone redirection.
+        redirected: Vec<(ObjectId, crate::zone::ZoneLocation)>,
+        /// Deferred CR 903.9b redirect answers restored right before moving.
+        saved_redirects: Vec<(ObjectId, bool)>,
+    },
+    /// Optional `"you may repeat this process"` prompt for `Effect::RepeatProcess`.
+    RepeatProcess {
+        /// Number of passes already completed.
+        completed: u32,
+        /// Evaluated maximum passes (`None` = bounded only by engine safety cap).
+        max_times: Option<u32>,
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -1827,6 +1850,26 @@ impl AwaitingOp {
             } => crate::state::structural_fingerprint(&(184_u8, entries, index, on_win, on_loss)),
             Self::CipherEncode => crate::state::structural_fingerprint(&207_u8),
             Self::ChampionExile => crate::state::structural_fingerprint(&209_u8),
+            Self::PutTargetsInLibraryOrder {
+                top,
+                current_owner,
+                pending_owners,
+                ordered,
+                redirected,
+                saved_redirects,
+            } => crate::state::structural_fingerprint(&(
+                211_u8,
+                top,
+                current_owner,
+                pending_owners,
+                ordered,
+                redirected,
+                saved_redirects,
+            )),
+            Self::RepeatProcess {
+                completed,
+                max_times,
+            } => crate::state::structural_fingerprint(&(212_u8, completed, max_times)),
             _ => 0,
         }
     }

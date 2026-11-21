@@ -41,6 +41,15 @@ pub struct ModalTargetStep {
     pub second_players: baylee_core::ids::SeatSet,
 }
 
+/// Per-nesting-level state for [`baylee_cards_dsl::Effect::RepeatProcess`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(in crate::resolve) struct RepeatProcessFrame {
+    pub(super) tail_from_end: usize,
+    pub(super) completed: u32,
+    pub(super) limit: u32,
+    pub(super) saved_this_way_from: Option<usize>,
+}
+
 /// Public-zone objects found through earlier instructions of this resolution.
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
@@ -72,6 +81,7 @@ pub struct SubjectContext {
     pub(super) last_die_roll: Option<u32>,
     pub(super) coins_won: u32,
     pub(super) repeat_frames: Vec<super::wave3_ops::RepeatFrame>,
+    pub(super) repeat_processes: Vec<RepeatProcessFrame>,
 }
 impl SubjectContext {
     /// Preserve the independent player targets of the second target instance.
@@ -137,6 +147,7 @@ impl SubjectContext {
             last_die_roll: None,
             coins_won: 0,
             repeat_frames: Vec::new(),
+            repeat_processes: Vec::new(),
         }
     }
 
@@ -299,6 +310,14 @@ impl SubjectContext {
                 .wrapping_add(crate::state::structural_fingerprint(&(
                     97_u8,
                     &self.repeat_frames,
+                )));
+        }
+        if !self.repeat_processes.is_empty() {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    98_u8,
+                    &self.repeat_processes,
                 )));
         }
         // Checkpoints exist only during synchronous resume calls. Every

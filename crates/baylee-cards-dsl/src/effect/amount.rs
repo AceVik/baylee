@@ -436,6 +436,11 @@ pub enum ThisWay {
     /// Cards moved from a graveyard to exile during this resolution that
     /// match the filter in exile.
     ExiledFromGraveyard(&'static Filter),
+    /// Cards or permanents moved from any zone to exile during this resolution
+    /// that match the filter (as they last existed on the battlefield when
+    /// exiled from the battlefield, CR 608.2h, or as they exist in exile when
+    /// exiled from any other zone). Appended to preserve replay identities.
+    Exiled(&'static Filter),
 }
 
 impl Amount {

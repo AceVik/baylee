@@ -1068,3 +1068,24 @@ fn wave10b_effects_are_leaf_instructions() {
     Effect::walk(EFFECTS, &mut seen, &mut |_| {});
     assert_eq!(seen, 5);
 }
+
+#[test]
+fn repeat_process_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::RepeatProcess {
+        effects: &[Effect::draw(1), Effect::gain_life(2)],
+        max_times: Some(Amount::Fixed(3)),
+        pre_condition: None,
+        post_condition: None,
+        optional: true,
+        optional_before_first: false,
+        per_pass_this_way: true,
+    }];
+    let mut seen = 0;
+    let (mut drew, mut gained) = (false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        drew |= matches!(effect, Effect::DrawCards { .. });
+        gained |= matches!(effect, Effect::GainLife { .. });
+    });
+    assert_eq!(seen, 3);
+    assert!(drew && gained);
+}

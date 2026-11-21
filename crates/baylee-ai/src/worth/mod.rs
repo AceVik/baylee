@@ -1723,6 +1723,9 @@ impl HeuristicAgent {
         if let Effect::RepeatEach { domain, effects } = effect {
             return self.repeat_each_worth(view, *domain, effects, evaluation);
         }
+        if let Effect::RepeatProcess { effects, .. } = effect {
+            return self.effects_worth_in(view, effects, evaluation);
+        }
         if let Effect::ChooseCard {
             chooser,
             zone,

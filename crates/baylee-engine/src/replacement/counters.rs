@@ -21,8 +21,20 @@ pub fn counter_multiplier(state: &GameState, target: ObjectId) -> u16 {
     };
     let mut count = 1u16;
     for entry in &state.replacement_rules {
-        if let baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement { object_filter } =
-            entry.rule
+        let factor = match entry.rule {
+            baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement { object_filter } => {
+                Some((object_filter, 2))
+            }
+            baylee_cards_dsl::ReplacementRule::ModifyCounterPlacement {
+                object_filter,
+                kind: None,
+                placer: None,
+                op: baylee_cards_dsl::CounterReplaceOp::Multiply(factor),
+                ..
+            } => Some((object_filter, factor)),
+            _ => None,
+        };
+        if let Some((object_filter, factor)) = factor
             && eval::matches(
                 object_filter,
                 state,
@@ -33,7 +45,7 @@ pub fn counter_multiplier(state: &GameState, target: ObjectId) -> u16 {
         {
             #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::replaced(entry);
-            count = count.saturating_mul(2);
+            count = count.saturating_mul(factor);
         }
     }
     count

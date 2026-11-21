@@ -138,17 +138,20 @@ fn advance(
             )
         })
         .collect();
-    let player_mult =
-        i32::try_from(state.player_counter_multiplier(res.controller)).unwrap_or(i32::MAX);
     let players = selection
         .chosen_players
         .into_iter()
         .flat_map(|player| {
-            state.players[usize::from(player.get())]
-                .counters()
+            let counters = state.players[usize::from(player.get())].counters();
+            let by = res.controller;
+            let state_ref: &GameState = state;
+            counters
                 .into_iter()
                 .filter(|(_, count)| *count > 0)
-                .map(move |(kind, _)| (player, kind, player_mult))
+                .filter_map(move |(kind, _)| {
+                    let n = state_ref.replaced_player_counters(by, player, kind, 1);
+                    (n > 0).then(|| (player, kind, i32::try_from(n).unwrap_or(i32::MAX)))
+                })
         })
         .collect();
     crate::replacement::counter_order::enqueue_batch(state, plans, players);

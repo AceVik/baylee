@@ -16,13 +16,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// a value nobody has picked yet, and player targets are not objects. All
     /// three stay the wizard's problem.
     pub(super) fn has_a_legal_target(&self, player: PlayerId, card: ObjectId) -> bool {
-        // The front face's own line, which is what this gate has always
-        // asked. The other faces a card may be cast as are asked in
-        // `casting::can_cast`, beside the probe that says whether each of
-        // them can be paid for — the two belong together, because a face
-        // that cannot be paid for is not a way of casting the card whatever
-        // it targets.
-        casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
+        casting::card_has_a_legal_target(&self.state, &self.lookup, player, card)
     }
 
     /// Pithing Needle: "Activated abilities of sources with the chosen name

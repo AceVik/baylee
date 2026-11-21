@@ -1887,6 +1887,26 @@ pub(super) fn exec_immediate(
         Effect::RepeatEach { domain, effects } => {
             super::wave3_ops::repeat_each(state, res, domain, effects, op)
         }
+        Effect::RepeatProcess {
+            effects,
+            max_times,
+            pre_condition,
+            post_condition,
+            optional,
+            optional_before_first,
+            per_pass_this_way,
+        } => repeat_process(
+            state,
+            res,
+            op,
+            effects,
+            max_times,
+            pre_condition,
+            post_condition,
+            optional,
+            optional_before_first,
+            per_pass_this_way,
+        ),
         Effect::ChooseCard {
             chooser,
             zone,
@@ -4580,4 +4600,101 @@ fn resolve_additional_combat_phase(state: &mut GameState, followed_by_main_phase
         state.per_turn.extra_phases.0.push(Phase::SecondMain);
     }
     state.per_turn.extra_phases.0.push(Phase::Combat);
+}
+
+#[allow(clippy::too_many_arguments)] // Direct unpack of Effect::RepeatProcess fields.
+fn repeat_process(
+    state: &mut GameState,
+    res: &mut Resolution,
+    op: Effect,
+    effects: &'static [Effect],
+    max_times: Option<Amount>,
+    pre_condition: Option<baylee_cards_dsl::Condition>,
+    post_condition: Option<baylee_cards_dsl::Condition>,
+    optional: bool,
+    optional_before_first: bool,
+    per_pass_this_way: bool,
+) -> Option<Pending> {
+    let after_len = res.effects.len().saturating_sub(res.pc + 1);
+    let resuming = res
+        .subject
+        .repeat_processes
+        .last()
+        .is_some_and(|frame| frame.tail_from_end == after_len);
+    if !resuming {
+        if effects.is_empty() {
+            return None;
+        }
+        let limit = max_times.map_or(REPEAT_CAP, |amt| {
+            amount2(&amt, state, res.controller, res).min(REPEAT_CAP)
+        });
+        if limit == 0 {
+            return None;
+        }
+        res.subject
+            .repeat_processes
+            .push(super::subjects::RepeatProcessFrame {
+                tail_from_end: after_len,
+                completed: 0,
+                limit,
+                saved_this_way_from: res.this_way_from,
+            });
+    }
+    let frame = *res
+        .subject
+        .repeat_processes
+        .last()
+        .expect("repeat process frame pushed");
+    if frame.completed > 0 && post_condition.is_some_and(|c| !resolution_condition(state, res, c)) {
+        finish_repeat_process(res);
+        return None;
+    }
+    if frame.completed >= frame.limit
+        || pre_condition.is_some_and(|c| !resolution_condition(state, res, c))
+    {
+        finish_repeat_process(res);
+        return None;
+    }
+    if optional && (frame.completed > 0 || optional_before_first) {
+        if state.has_left(res.controller) {
+            finish_repeat_process(res);
+            return None;
+        }
+        res.awaiting = Some(AwaitingOp::RepeatProcess {
+            completed: frame.completed,
+            max_times: max_times.map(|_| frame.limit),
+        });
+        return Some(Pending::YesNo {
+            player: res.controller,
+            prompt: YesNoPrompt::MayDo,
+            source: super::resolving_ability(state, res),
+        });
+    }
+    start_repeat_process_pass(state, res, effects, per_pass_this_way, op);
+    None
+}
+
+pub(super) fn finish_repeat_process(res: &mut Resolution) {
+    if let Some(frame) = res.subject.repeat_processes.pop() {
+        res.this_way_from = frame.saved_this_way_from;
+    }
+}
+
+pub(super) fn start_repeat_process_pass(
+    state: &GameState,
+    res: &mut Resolution,
+    effects: &'static [Effect],
+    per_pass_this_way: bool,
+    op: Effect,
+) {
+    if let Some(frame) = res.subject.repeat_processes.last_mut() {
+        frame.completed = frame.completed.saturating_add(1);
+    }
+    if per_pass_this_way {
+        res.this_way_from = Some(state.journal.len());
+    }
+    let mut pass = flatten(effects);
+    pass.push(op);
+    let next = res.pc + 1;
+    res.effects.splice(next..next, pass);
 }

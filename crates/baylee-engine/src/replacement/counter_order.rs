@@ -26,6 +26,24 @@ impl CounterAddition {
     }
 }
 
+/// One general counter-modification rule (`ReplacementRule::ModifyCounterPlacement`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct CounterModStep {
+    pub(crate) kind: Option<CounterKind>,
+    pub(crate) effect_only: bool,
+    pub(crate) op: baylee_cards_dsl::CounterReplaceOp,
+}
+
+impl CounterModStep {
+    fn is_additive(self) -> bool {
+        matches!(self.op, baylee_cards_dsl::CounterReplaceOp::Add(_))
+    }
+
+    fn applies_to(self, kind: CounterKind, amount: u16, by_effect: bool) -> bool {
+        (!self.effect_only || by_effect) && amount > 0 && self.kind.is_none_or(|k| k == kind)
+    }
+}
+
 /// A counter event awaiting replacement ordering; every amount shares its order.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct CounterPlacementPlan {
@@ -33,11 +51,13 @@ pub(crate) struct CounterPlacementPlan {
     pub(crate) by: PlayerId,
     pub(crate) counters: Vec<(CounterKind, u16)>,
     pub(crate) additions: Vec<CounterAddition>,
+    pub(crate) modifiers: Vec<CounterModStep>,
     pub(crate) doubles: u16,
     pub(crate) by_effect: bool,
     pub(crate) maximum: Option<u16>,
     next: usize,
     applied_doubling: bool,
+    applied_mod_rules: bool,
 }
 
 impl CounterPlacementPlan {
@@ -58,11 +78,13 @@ impl CounterPlacementPlan {
                 .into_iter()
                 .map(CounterAddition::all_kinds)
                 .collect(),
+            modifiers: Vec::new(),
             doubles,
             by_effect,
             maximum: None,
             next: 0,
             applied_doubling: false,
+            applied_mod_rules: false,
         }
     }
 
@@ -122,6 +144,9 @@ impl CounterPlacementPlan {
 
     /// Return the proposed additive replacement, or finish every forced step.
     pub(crate) fn question(&mut self) -> Option<CounterAddition> {
+        if !self.modifiers.is_empty() {
+            return self.question_with_modifiers();
+        }
         loop {
             if self.doubles == 0 && self.additions_commute() {
                 while let Some(index) = self.applicable_addition(0) {
@@ -163,8 +188,152 @@ impl CounterPlacementPlan {
     }
 
     pub(crate) fn answer(&mut self, apply: bool) {
+        if !self.modifiers.is_empty() {
+            self.answer_with_modifiers(apply);
+            return;
+        }
         if apply {
             self.add(self.next);
+        } else {
+            self.next += 1;
+        }
+    }
+
+    fn apply_mod_step(&mut self, index: usize) {
+        use baylee_cards_dsl::CounterReplaceOp as Op;
+        let step = self.modifiers.remove(index);
+        self.applied_mod_rules = true;
+        for (kind, amount) in &mut self.counters {
+            if !step.applies_to(*kind, *amount, self.by_effect) {
+                continue;
+            }
+            match step.op {
+                Op::Add(n) => {
+                    *amount = amount.saturating_add(n);
+                    self.by_effect = true;
+                }
+                Op::Sub(n) => *amount = amount.saturating_sub(n),
+                Op::Multiply(factor) => {
+                    *amount = amount.saturating_mul(factor);
+                    if factor > 1 {
+                        self.by_effect = true;
+                    }
+                }
+                Op::HalveFloor => *amount /= 2,
+            }
+        }
+        self.next = 0;
+    }
+
+    fn applicable_mod(&self, start: usize, additive: bool) -> Option<usize> {
+        self.modifiers
+            .iter()
+            .enumerate()
+            .skip(start)
+            .find_map(|(i, step)| {
+                (step.is_additive() == additive
+                    && self
+                        .counters
+                        .iter()
+                        .any(|&(k, amt)| step.applies_to(k, amt, self.by_effect)))
+                .then_some(i)
+            })
+    }
+
+    fn has_applicable_scale(&self) -> bool {
+        self.can_double() || self.applicable_mod(0, false).is_some()
+    }
+
+    fn apply_one_scale(&mut self) {
+        if let Some(idx) = self.modifiers.iter().position(|step| {
+            matches!(step.op, baylee_cards_dsl::CounterReplaceOp::Sub(_))
+                && self
+                    .counters
+                    .iter()
+                    .any(|&(k, amt)| step.applies_to(k, amt, self.by_effect))
+        }) {
+            self.apply_mod_step(idx);
+        } else if self.can_double() {
+            self.double();
+        } else if let Some(idx) = self.modifiers.iter().position(|step| {
+            matches!(step.op, baylee_cards_dsl::CounterReplaceOp::Multiply(_))
+                && self
+                    .counters
+                    .iter()
+                    .any(|&(k, amt)| step.applies_to(k, amt, self.by_effect))
+        }) {
+            self.apply_mod_step(idx);
+        } else if let Some(idx) = self.applicable_mod(0, false) {
+            self.apply_mod_step(idx);
+        }
+    }
+
+    fn next_additive_slot(&self, start: usize) -> Option<usize> {
+        let base_len = self.additions.len();
+        if start < base_len
+            && let Some(idx) = self.applicable_addition(start)
+        {
+            return Some(idx);
+        }
+        let mod_start = start.saturating_sub(base_len);
+        self.applicable_mod(mod_start, true)
+            .map(|idx| base_len + idx)
+    }
+
+    fn apply_additive_slot(&mut self, slot: usize) {
+        let base_len = self.additions.len();
+        if slot < base_len {
+            self.add(slot);
+        } else {
+            self.apply_mod_step(slot - base_len);
+        }
+    }
+
+    fn question_with_modifiers(&mut self) -> Option<CounterAddition> {
+        loop {
+            let has_scale = self.has_applicable_scale();
+            if self.next_additive_slot(0).is_none() {
+                while self.has_applicable_scale() {
+                    self.apply_one_scale();
+                }
+                return None;
+            }
+            if !has_scale && self.additions_commute() {
+                while let Some(slot) = self.next_additive_slot(0) {
+                    self.apply_additive_slot(slot);
+                }
+                if !self.has_applicable_scale() {
+                    return None;
+                }
+                continue;
+            }
+            let Some(slot) = self.next_additive_slot(self.next) else {
+                self.apply_one_scale();
+                continue;
+            };
+            self.next = slot;
+            if !has_scale && self.next_additive_slot(self.next + 1).is_none() {
+                self.apply_additive_slot(self.next);
+                continue;
+            }
+            let base_len = self.additions.len();
+            return Some(if slot < base_len {
+                self.additions[slot]
+            } else {
+                let step = self.modifiers[slot - base_len];
+                let n = match step.op {
+                    baylee_cards_dsl::CounterReplaceOp::Add(n)
+                    | baylee_cards_dsl::CounterReplaceOp::Sub(n) => n,
+                    _ => 1,
+                };
+                CounterAddition { kind: step.kind, n }
+            });
+        }
+    }
+
+    fn answer_with_modifiers(&mut self, apply: bool) {
+        if apply {
+            self.apply_additive_slot(self.next);
         } else {
             self.next += 1;
         }
@@ -186,6 +355,74 @@ pub(crate) fn plan(
         .collect();
     let object = state.object(id)?;
     build_plan(state, by, object, counters, by_effect, maximum, false)
+}
+
+fn collect_replacement_modifiers(
+    state: &GameState,
+    by: PlayerId,
+    object: &crate::object::GameObject,
+    additions: &mut Vec<CounterAddition>,
+) -> (Vec<CounterModStep>, usize) {
+    let mut modifiers = Vec::new();
+    let mut effect_doubles = 0usize;
+    for entry in &state.replacement_rules {
+        match entry.rule {
+            baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement { object_filter } => {
+                if crate::eval::matches(
+                    object_filter,
+                    state,
+                    object,
+                    entry.controller,
+                    entry.source,
+                ) {
+                    effect_doubles += 1;
+                }
+            }
+            baylee_cards_dsl::ReplacementRule::ModifyCounterPlacement {
+                object_filter,
+                kind,
+                placer,
+                effect_only,
+                op,
+            } => {
+                let placer_ok = placer.is_none_or(|rel| {
+                    crate::eval::players(rel, state, entry.controller)
+                        .is_some_and(|ps| ps.contains(&by))
+                });
+                if placer_ok
+                    && crate::eval::matches(
+                        object_filter,
+                        state,
+                        object,
+                        entry.controller,
+                        entry.source,
+                    )
+                {
+                    if kind.is_none()
+                        && effect_only
+                        && op == baylee_cards_dsl::CounterReplaceOp::Multiply(2)
+                    {
+                        effect_doubles += 1;
+                    } else if kind.is_none()
+                        && !effect_only
+                        && let baylee_cards_dsl::CounterReplaceOp::Add(n) = op
+                    {
+                        if n > 0 {
+                            additions.push(CounterAddition::all_kinds(n));
+                        }
+                    } else {
+                        modifiers.push(CounterModStep {
+                            kind,
+                            effect_only,
+                            op,
+                        });
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    (modifiers, effect_doubles)
 }
 
 /// Entry replacements read the prospective permanent before its battlefield move.
@@ -254,18 +491,8 @@ pub(crate) fn build_plan(
     if normalized.is_empty() {
         return None;
     }
-    let effect_doubles = state
-        .replacement_rules
-        .iter()
-        .filter(|entry| {
-            let baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement { object_filter } =
-                entry.rule
-            else {
-                return false;
-            };
-            crate::eval::matches(object_filter, state, object, entry.controller, entry.source)
-        })
-        .count();
+    let (modifiers, effect_doubles) =
+        collect_replacement_modifiers(state, by, object, &mut additions);
     let player_doubles = state
         .effects
         .iter()
@@ -291,6 +518,7 @@ pub(crate) fn build_plan(
     );
     plan.counters = normalized;
     plan.additions = additions;
+    plan.modifiers = modifiers;
     plan.maximum = maximum;
     Some(plan)
 }
@@ -304,26 +532,54 @@ pub(crate) fn commit_plan(state: &mut GameState, plan: CounterPlacementPlan) {
         return;
     }
     #[cfg(any(test, feature = "test-support"))]
-    if plan.applied_doubling {
+    if plan.applied_doubling || plan.applied_mod_rules {
         let object = state
             .object(plan.recipient.object)
             .expect("checked recipient");
         for entry in &state.replacement_rules {
-            if let baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement { object_filter } =
-                entry.rule
-                && crate::eval::matches(
+            match entry.rule {
+                baylee_cards_dsl::ReplacementRule::DoubleCounterPlacement { object_filter }
+                    if plan.applied_doubling =>
+                {
+                    if crate::eval::matches(
+                        object_filter,
+                        state,
+                        object,
+                        entry.controller,
+                        entry.source,
+                    ) {
+                        crate::ability_log::replaced(entry);
+                    }
+                }
+                baylee_cards_dsl::ReplacementRule::ModifyCounterPlacement {
                     object_filter,
-                    state,
-                    object,
-                    entry.controller,
-                    entry.source,
-                )
-            {
-                crate::ability_log::replaced(entry);
+                    placer,
+                    ..
+                } => {
+                    let placer_ok = placer.is_none_or(|rel| {
+                        crate::eval::players(rel, state, entry.controller)
+                            .is_some_and(|ps| ps.contains(&plan.by))
+                    });
+                    if placer_ok
+                        && crate::eval::matches(
+                            object_filter,
+                            state,
+                            object,
+                            entry.controller,
+                            entry.source,
+                        )
+                    {
+                        crate::ability_log::replaced(entry);
+                    }
+                }
+                _ => {}
             }
         }
     }
     for (kind, amount) in plan.counters {
+        if amount == 0 {
+            continue;
+        }
         let amount = plan.maximum.map_or(amount, |maximum| {
             amount.min(
                 maximum.saturating_sub(

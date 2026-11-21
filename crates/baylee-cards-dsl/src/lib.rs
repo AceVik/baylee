@@ -155,8 +155,8 @@ pub use baylee_core::mana;
 pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
-    DamageAmountReplacement, DamageRecipients, Duration, LAYERS, Layer, Modifier, PtCount,
-    ReplacementRule, StaticAbility,
+    CounterReplaceOp, DamageAmountReplacement, DamageRecipients, Duration, LAYERS, Layer, Modifier,
+    PtCount, ReplacementRule, StaticAbility,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.

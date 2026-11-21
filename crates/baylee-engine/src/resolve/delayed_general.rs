@@ -288,7 +288,8 @@ pub(super) fn register(
     remember: TriggerRemember,
     effects: &'static [Effect],
 ) {
-    let source_version = super::subjects::source(state, res)
+    let source_version = super::subjects::moving_source(state, res)
+        .or_else(|| super::subjects::source(state, res))
         .map(|s| s.version)
         .or_else(|| state.object_or_departed(res.source).map(|o| o.version))
         .unwrap_or(0);

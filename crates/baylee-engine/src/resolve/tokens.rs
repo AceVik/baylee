@@ -663,18 +663,21 @@ fn create_tokens_entering(
 ) -> Vec<ObjectId> {
     // The player a token is created under owns it (CR 111.2), and nothing
     // is created for a player who has left the game (CR 800.4b, 800.4d).
-    if state.has_left(controller) {
+    if count == 0 || state.has_left(controller) {
         return Vec::new();
     }
-    let Some(count) = crate::replacement::token_multiplier(state, controller, token.types)
-        .and_then(|factor| count.checked_mul(factor))
-    else {
+    let batch = vec![ProspectiveToken::Def {
+        token,
+        size,
+        text,
+        entry,
+        count,
+    }];
+    let Some(batch) = apply_token_replacements(state, controller, batch) else {
         state.numeric_failure = Some("token creation exceeds u32 objects");
         return Vec::new();
     };
-    (0..count)
-        .map(|_| create_token_entering(state, controller, token, size, text, entry))
-        .collect()
+    materialize_token_batch(state, controller, batch)
 }
 
 /// The same door for a token that is a **copy** of something already in
@@ -725,7 +728,7 @@ fn create_token_copies_from(
     count: u32,
 ) -> Vec<ObjectId> {
     // As `create_tokens` (CR 800.4b, 800.4d).
-    if state.has_left(controller) {
+    if count == 0 || state.has_left(controller) {
         return Vec::new();
     }
     let Some(object) = state.source_object(reference) else {
@@ -737,34 +740,19 @@ fn create_token_copies_from(
     let own = (!dfc_token || object.own_abilities.is_some())
         .then(|| object.printed_ability_list(state.bases.as_ref()));
     let face = object.card.map(|card| (card.index, object.face_index));
-    let Some(count) = crate::replacement::token_multiplier(state, controller, base.types)
-        .and_then(|factor| count.checked_mul(factor))
-    else {
+    let batch = vec![ProspectiveToken::Copy {
+        base: base.clone(),
+        own,
+        token,
+        token_face,
+        face,
+        count,
+    }];
+    let Some(batch) = apply_token_replacements(state, controller, batch) else {
         state.numeric_failure = Some("token creation exceeds u32 objects");
         return Vec::new();
     };
-    (0..count)
-        .map(|_| {
-            let ts = state.next_timestamp();
-            let id = state.arena.insert_with(|oid| {
-                let mut obj =
-                    GameObject::new_bare(oid, controller, ObjectKind::Permanent, base.clone());
-                obj.timestamp = ts;
-                obj.controlled_since = ts;
-                if let Some(own) = &own {
-                    obj.take_abilities(own.clone());
-                }
-                obj.token = token;
-                obj.face_index = token_face;
-                obj
-            });
-            if let Some((card, face)) = face {
-                state.pending_copied_faces.push((id, card, face));
-            }
-            arrive(state, id);
-            id
-        })
-        .collect()
+    materialize_token_batch(state, controller, batch)
 }
 
 /// Puts a freshly created token onto the battlefield, which is a permanent
@@ -908,6 +896,414 @@ fn create_attacking_tokens(
         }
     }
     super::attacking_tokens::start(state, res, made)
+}
+
+#[derive(Clone)]
+enum ProspectiveToken {
+    Def {
+        token: &'static baylee_cards_dsl::TokenDef,
+        size: Option<i16>,
+        text: TextChangeMap,
+        entry: TokenEntry,
+        count: u32,
+    },
+    Copy {
+        base: std::sync::Arc<Characteristics>,
+        own: Option<crate::object::AbilityList>,
+        token: Option<&'static baylee_cards_dsl::TokenDef>,
+        token_face: u8,
+        face: Option<(baylee_core::ids::CardIndex, u8)>,
+        count: u32,
+    },
+}
+
+impl ProspectiveToken {
+    fn count(&self) -> u32 {
+        match self {
+            Self::Def { count, .. } | Self::Copy { count, .. } => *count,
+        }
+    }
+
+    fn count_mut(&mut self) -> &mut u32 {
+        match self {
+            Self::Def { count, .. } | Self::Copy { count, .. } => count,
+        }
+    }
+
+    fn entry_state(&self) -> TokenEntry {
+        match self {
+            Self::Def { entry, .. } => *entry,
+            Self::Copy { .. } => TokenEntry::default(),
+        }
+    }
+
+    fn types(&self) -> baylee_core::types::TypeSet {
+        match self {
+            Self::Def { token, .. } => token.types,
+            Self::Copy { base, .. } => base.types,
+        }
+    }
+
+    fn has_manufactor_subtype(&self, state: &mut GameState) -> bool {
+        use baylee_core::generated::subtypes::artifact::{CLUE, FOOD, TREASURE};
+        let base = self.characteristics_arc(state);
+        base.subtypes.contains(CLUE)
+            || base.subtypes.contains(FOOD)
+            || base.subtypes.contains(TREASURE)
+    }
+
+    fn characteristics_arc(&self, state: &mut GameState) -> std::sync::Arc<Characteristics> {
+        match self {
+            Self::Def {
+                token, size, text, ..
+            } => {
+                let mut base = state.token_base(token, *size);
+                if *text != TextChangeMap::IDENTITY {
+                    let changed = std::sync::Arc::make_mut(&mut base);
+                    changed.colors = text.color_words(changed.colors);
+                    changed.subtypes = text.land_types(changed.subtypes);
+                    changed.keywords = text.keywords(changed.keywords);
+                }
+                base
+            }
+            Self::Copy { base, .. } => base.clone(),
+        }
+    }
+
+    fn matches_filter(
+        &self,
+        state: &mut GameState,
+        controller: PlayerId,
+        filter: &baylee_cards_dsl::Filter,
+        rule_controller: PlayerId,
+        rule_source: ObjectId,
+    ) -> bool {
+        let base = self.characteristics_arc(state);
+        let mut probe =
+            GameObject::new_bare(ObjectId::new(0, 0), controller, ObjectKind::Permanent, base);
+        probe.zone = crate::zone::Zone::Battlefield;
+        if let Self::Def { token, .. } = self {
+            probe.token = Some(token);
+        }
+        eval::matches(filter, state, &probe, rule_controller, rule_source)
+    }
+}
+
+fn token_rule_controller_matches(
+    state: &GameState,
+    recipient: PlayerId,
+    source: ObjectId,
+    rule_controller: PlayerId,
+    controller_filter: &baylee_cards_dsl::Filter,
+    condition: Option<baylee_cards_dsl::Condition>,
+) -> bool {
+    let Some(source_obj) = state.object(source) else {
+        return false;
+    };
+    if source_obj.zone != crate::zone::Zone::Battlefield
+        || source_obj
+            .status
+            .contains(crate::object::Status::PHASED_OUT)
+    {
+        return false;
+    }
+    eval::matches(controller_filter, state, source_obj, recipient, source)
+        && condition.is_none_or(|c| eval::condition_holds(state, rule_controller, source, c))
+}
+
+fn apply_token_replacements(
+    state: &mut GameState,
+    controller: PlayerId,
+    mut batch: Vec<ProspectiveToken>,
+) -> Option<Vec<ProspectiveToken>> {
+    let mut applied: smallvec::SmallVec<[(ObjectId, usize); 4]> = smallvec::SmallVec::new();
+    loop {
+        let rules: Vec<crate::state::ReplacementEntry> = state.replacement_rules.clone();
+        let mut progressed = false;
+        for (rule_idx, entry) in rules.into_iter().enumerate() {
+            let key = (entry.source, rule_idx);
+            if applied.contains(&key) {
+                continue;
+            }
+            if apply_single_token_rule(state, controller, &entry, &mut batch)? {
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced(&entry);
+                applied.push(key);
+                progressed = true;
+            }
+        }
+        if !progressed {
+            break;
+        }
+    }
+    Some(batch)
+}
+
+fn apply_single_token_rule(
+    state: &mut GameState,
+    controller: PlayerId,
+    entry: &crate::state::ReplacementEntry,
+    batch: &mut Vec<ProspectiveToken>,
+) -> Option<bool> {
+    use baylee_cards_dsl::ReplacementRule;
+    match entry.rule {
+        ReplacementRule::DoubleTokenCreation { controller_filter } => {
+            if !token_rule_controller_matches(
+                state,
+                controller,
+                entry.source,
+                entry.controller,
+                controller_filter,
+                None,
+            ) {
+                return Some(false);
+            }
+            for item in batch.iter_mut() {
+                *item.count_mut() = item.count().checked_mul(2)?;
+            }
+            Some(true)
+        }
+        ReplacementRule::MultiplyTypedTokens {
+            controller_filter,
+            types: required,
+            factor,
+        } => {
+            if !token_rule_controller_matches(
+                state,
+                controller,
+                entry.source,
+                entry.controller,
+                controller_filter,
+                None,
+            ) || !batch.iter().any(|item| item.types().intersects(required))
+            {
+                return Some(false);
+            }
+            for item in batch.iter_mut() {
+                if item.types().intersects(required) {
+                    *item.count_mut() = item.count().checked_mul(factor)?;
+                }
+            }
+            Some(true)
+        }
+        _ => apply_extended_token_rule(state, controller, entry, batch),
+    }
+}
+
+fn apply_extended_token_rule(
+    state: &mut GameState,
+    controller: PlayerId,
+    entry: &crate::state::ReplacementEntry,
+    batch: &mut Vec<ProspectiveToken>,
+) -> Option<bool> {
+    use baylee_cards_dsl::ReplacementRule;
+    match entry.rule {
+        ReplacementRule::AdditionalTokenCreation {
+            controller_filter,
+            token_filter,
+            bonus_token,
+            match_count,
+            condition,
+        } => {
+            if !token_rule_controller_matches(
+                state,
+                controller,
+                entry.source,
+                entry.controller,
+                controller_filter,
+                condition,
+            ) {
+                return Some(false);
+            }
+            let mut matched: u32 = 0;
+            for item in batch.iter() {
+                if item.matches_filter(
+                    state,
+                    controller,
+                    token_filter,
+                    entry.controller,
+                    entry.source,
+                ) {
+                    matched = matched.checked_add(item.count())?;
+                }
+            }
+            if matched == 0 {
+                return Some(false);
+            }
+            batch.push(ProspectiveToken::Def {
+                token: bonus_token,
+                size: None,
+                text: TextChangeMap::IDENTITY,
+                entry: TokenEntry::default(),
+                count: if match_count { matched } else { 1 },
+            });
+            Some(true)
+        }
+        ReplacementRule::SubstituteTokenCreation {
+            controller_filter,
+            token_filter,
+            replacement,
+            condition,
+        } => {
+            if !token_rule_controller_matches(
+                state,
+                controller,
+                entry.source,
+                entry.controller,
+                controller_filter,
+                condition,
+            ) {
+                return Some(false);
+            }
+            Some(substitute_matching_tokens(
+                state,
+                controller,
+                entry,
+                batch,
+                token_filter,
+                replacement,
+            ))
+        }
+        ReplacementRule::ManufactorTokenCreation {
+            controller_filter,
+            clue,
+            food,
+            treasure,
+        } => {
+            if !token_rule_controller_matches(
+                state,
+                controller,
+                entry.source,
+                entry.controller,
+                controller_filter,
+                None,
+            ) {
+                return Some(false);
+            }
+            Some(expand_manufactor_tokens(state, batch, clue, food, treasure))
+        }
+        _ => Some(false),
+    }
+}
+
+fn substitute_matching_tokens(
+    state: &mut GameState,
+    controller: PlayerId,
+    entry: &crate::state::ReplacementEntry,
+    batch: &mut [ProspectiveToken],
+    token_filter: &baylee_cards_dsl::Filter,
+    replacement: &'static baylee_cards_dsl::TokenDef,
+) -> bool {
+    let mut any = false;
+    for item in batch.iter_mut() {
+        if item.matches_filter(
+            state,
+            controller,
+            token_filter,
+            entry.controller,
+            entry.source,
+        ) {
+            *item = ProspectiveToken::Def {
+                token: replacement,
+                size: None,
+                text: TextChangeMap::IDENTITY,
+                entry: item.entry_state(),
+                count: item.count(),
+            };
+            any = true;
+        }
+    }
+    any
+}
+
+fn expand_manufactor_tokens(
+    state: &mut GameState,
+    batch: &mut Vec<ProspectiveToken>,
+    clue: &'static baylee_cards_dsl::TokenDef,
+    food: &'static baylee_cards_dsl::TokenDef,
+    treasure: &'static baylee_cards_dsl::TokenDef,
+) -> bool {
+    let mut expanded = Vec::with_capacity(batch.len());
+    let mut any = false;
+    for item in batch.drain(..) {
+        if item.has_manufactor_subtype(state) {
+            any = true;
+            let count = item.count();
+            let entry_state = item.entry_state();
+            for token in [clue, food, treasure] {
+                expanded.push(ProspectiveToken::Def {
+                    token,
+                    size: None,
+                    text: TextChangeMap::IDENTITY,
+                    entry: entry_state,
+                    count,
+                });
+            }
+        } else {
+            expanded.push(item);
+        }
+    }
+    *batch = expanded;
+    any
+}
+
+fn materialize_token_batch(
+    state: &mut GameState,
+    controller: PlayerId,
+    batch: Vec<ProspectiveToken>,
+) -> Vec<ObjectId> {
+    let mut made = Vec::new();
+    for item in batch {
+        match item {
+            ProspectiveToken::Def {
+                token,
+                size,
+                text,
+                entry,
+                count,
+            } => {
+                for _ in 0..count {
+                    made.push(create_token_entering(
+                        state, controller, token, size, text, entry,
+                    ));
+                }
+            }
+            ProspectiveToken::Copy {
+                base,
+                own,
+                token,
+                token_face,
+                face,
+                count,
+            } => {
+                for _ in 0..count {
+                    let ts = state.next_timestamp();
+                    let id = state.arena.insert_with(|oid| {
+                        let mut obj = GameObject::new_bare(
+                            oid,
+                            controller,
+                            ObjectKind::Permanent,
+                            base.clone(),
+                        );
+                        obj.timestamp = ts;
+                        obj.controlled_since = ts;
+                        if let Some(own) = &own {
+                            obj.take_abilities(own.clone());
+                        }
+                        obj.token = token;
+                        obj.face_index = token_face;
+                        obj
+                    });
+                    if let Some((card, face)) = face {
+                        state.pending_copied_faces.push((id, card, face));
+                    }
+                    arrive(state, id);
+                    made.push(id);
+                }
+            }
+        }
+    }
+    made
 }
 
 #[cfg(test)]

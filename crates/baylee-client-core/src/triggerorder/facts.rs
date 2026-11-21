@@ -524,7 +524,10 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         }
 
         // What the player is asked as it resolves.
-        Effect::MayDo { .. } | Effect::MayDoFor { .. } | Effect::MayDoOnceEachTurn { .. } => {
+        Effect::MayDo { .. }
+        | Effect::MayDoFor { .. }
+        | Effect::MayDoOnceEachTurn { .. }
+        | Effect::RepeatProcess { optional: true, .. } => {
             facts.deeds.add(Deeds::ASKS);
             facts.deeds.add(Deeds::MAY);
         }

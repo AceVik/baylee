@@ -215,6 +215,17 @@ pub(crate) fn ability_reads_crime(ability: &baylee_cards_dsl::AbilityDef) -> boo
             sa.condition.as_ref().is_some_and(condition_reads_crime)
                 || modifier_reads_crime(&sa.modifier)
         }
+        AbilityDef::Replacement(
+            baylee_cards_dsl::ReplacementRule::AdditionalTokenCreation {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::SubstituteTokenCreation {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDraws {
+                condition: Some(c), ..
+            },
+        ) => condition_reads_crime(c),
         _ => false,
     }
 }
@@ -260,6 +271,14 @@ fn effects_read_crime(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
         found |= match effect {
             Effect::IfCondition { condition, .. } | Effect::RepeatWhile { condition, .. } => {
                 condition_reads_crime(condition)
+            }
+            Effect::RepeatProcess {
+                pre_condition,
+                post_condition,
+                ..
+            } => {
+                pre_condition.as_ref().is_some_and(condition_reads_crime)
+                    || post_condition.as_ref().is_some_and(condition_reads_crime)
             }
             Effect::ReflexiveTrigger { condition, .. } => {
                 condition.is_some_and(condition_reads_crime)
@@ -333,6 +352,17 @@ pub(crate) fn ability_reads_expend(ability: &baylee_cards_dsl::AbilityDef) -> bo
             sa.condition.as_ref().is_some_and(condition_reads_expend)
                 || modifier_reads_expend(&sa.modifier)
         }
+        AbilityDef::Replacement(
+            baylee_cards_dsl::ReplacementRule::AdditionalTokenCreation {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::SubstituteTokenCreation {
+                condition: Some(c), ..
+            }
+            | baylee_cards_dsl::ReplacementRule::ReplaceDrawWithDraws {
+                condition: Some(c), ..
+            },
+        ) => condition_reads_expend(c),
         _ => false,
     }
 }
@@ -393,6 +423,16 @@ fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
         found |= match effect {
             Effect::IfCondition { condition, .. } | Effect::RepeatWhile { condition, .. } => {
                 condition_reads_expend(condition)
+            }
+            Effect::RepeatProcess {
+                max_times,
+                pre_condition,
+                post_condition,
+                ..
+            } => {
+                max_times.as_ref().is_some_and(amount_reads_expend)
+                    || pre_condition.as_ref().is_some_and(condition_reads_expend)
+                    || post_condition.as_ref().is_some_and(condition_reads_expend)
             }
             Effect::ReflexiveTrigger { condition, .. } => {
                 condition.is_some_and(condition_reads_expend)

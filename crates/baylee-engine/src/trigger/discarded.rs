@@ -111,6 +111,25 @@ fn collect_opponent_discards(
             ) {
                 continue;
             }
+            let arrived_in_graveyard = version.checked_add(1).filter(|&next| {
+                state.per_turn.discarded_to_graveyard.contains(&(
+                    baylee_core::ids::DamageSourceRef {
+                        object,
+                        version: next,
+                    },
+                    player,
+                ))
+            });
+            let (event_object_identity, event_departure) = match arrived_in_graveyard {
+                Some(next) => (
+                    Some((next, card.characteristics().power.unwrap_or(0))),
+                    Some((player, card.characteristics().toughness.unwrap_or(0))),
+                ),
+                None => (
+                    Some((version, card.characteristics().power.unwrap_or(0))),
+                    None,
+                ),
+            };
             triggers.push(PendingTrigger {
                 text: TextChangeMap::IDENTITY,
                 source: object,
@@ -124,12 +143,12 @@ fn collect_opponent_discards(
                 grantor: None,
                 event_subject: None,
                 event_ability: None,
-                event_object_identity: Some((version, card.characteristics().power.unwrap_or(0))),
+                event_object_identity,
                 counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
                 event_tap_snapshot: None,
-                event_departure: None,
+                event_departure,
                 event_amount: None,
                 event_player: Some(by),
                 implicit_target: None,

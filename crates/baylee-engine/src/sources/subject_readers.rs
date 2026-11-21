@@ -97,6 +97,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::Exploit
             | Effect::Endure(_)
             | Effect::ReturnCraftedTransformed
+            | Effect::ReturnSourceFromGraveyard { .. }
             | Effect::SacrificeSelf
             | Effect::UntapSelf
             | Effect::TapSelf
@@ -126,7 +127,21 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::PreventAllDamageFromMatchingThisTurn { target, .. } => {
                 matches!(target, Some(TargetSpec::ThisObject))
             }
-            Effect::IfCondition { condition, .. } => condition_refers_to_subject(condition),
+            Effect::IfCondition { condition, .. } | Effect::RepeatWhile { condition, .. } => {
+                condition_refers_to_subject(condition)
+            }
+            Effect::RepeatProcess {
+                pre_condition,
+                post_condition,
+                ..
+            } => {
+                pre_condition
+                    .as_ref()
+                    .is_some_and(condition_refers_to_subject)
+                    || post_condition
+                        .as_ref()
+                        .is_some_and(condition_refers_to_subject)
+            }
             _ => false,
         };
     });
@@ -160,6 +175,7 @@ pub(super) fn moves_subject(effects: &'static [Effect]) -> bool {
             effect,
             Effect::TakklemaggotDeath
                 | Effect::MeldWithNamed { .. }
+                | Effect::ReturnSourceFromGraveyard { .. }
                 | Effect::ReturnToHand {
                     target: TargetSpec::ThisObject
                 }

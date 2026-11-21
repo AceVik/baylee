@@ -100,7 +100,7 @@ pub(super) fn count(
                     to: Zone::Exile,
                     ..
                 },
-                ThisWay::ExiledFromBattlefield(filter),
+                ThisWay::ExiledFromBattlefield(filter) | ThisWay::Exiled(filter),
             )
             | (
                 GameEvent::ZoneChanged {
@@ -151,6 +151,21 @@ pub(super) fn count(
                     ..
                 },
                 ThisWay::ExiledFromGraveyard(filter),
+            )
+            | (
+                GameEvent::ZoneChanged {
+                    object,
+                    from:
+                        Zone::Library
+                        | Zone::Graveyard
+                        | Zone::Hand
+                        | Zone::Stack
+                        | Zone::Command
+                        | Zone::OutsideGame,
+                    to: Zone::Exile,
+                    ..
+                },
+                ThisWay::Exiled(filter),
             ) => u32::from(state.object(*object).is_some_and(|card| {
                 mine(card.owner)
                     && eval::matches_with_context(

@@ -1778,6 +1778,21 @@ pub enum Duration {
     },
 }
 
+/// Arithmetic modification applied by a counter-placement replacement effect
+/// (CR 614.1a, CR 616.1; Hardened Scales, Winding Constrictor, Vorinclex,
+/// Monstrous Raider, Pir, Imaginative Rascal).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CounterReplaceOp {
+    /// Add `n` additional counters of each placed kind ("that many plus N").
+    Add(u16),
+    /// Subtract `n` counters of each placed kind, floored at zero ("that many minus N").
+    Sub(u16),
+    /// Multiply placed counters by `factor` ("twice / three times that many").
+    Multiply(u16),
+    /// Halve placed counters, rounded down ("half that many, rounded down").
+    HalveFloor,
+}
+
 /// Replacement rules and trigger modification (CR 614; Doubling Season,
 /// Panharmonicon, Elesh Norn, Roaming Throne).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -1916,6 +1931,139 @@ pub enum ReplacementRule {
     /// (at most once per card) and registers a first-upkeep delayed trigger.
     /// Appended to preserve replay identities.
     OpeningHandRevealAtFirstUpkeep(&'static [crate::effect::Effect]),
+    /// Modify the number of counters placed on a permanent matching
+    /// `object_filter` (CR 614.1a, CR 614.16, CR 616.1; Hardened Scales,
+    /// Winding Constrictor, Vorinclex, Monstrous Raider, Lae'zel, Vlaakith's
+    /// Champion, Blightbeetle). Appended to preserve replay identities.
+    ModifyCounterPlacement {
+        /// Which permanents receiving counters are affected.
+        object_filter: &'static Filter,
+        /// Specific counter kind affected, or `None` for any counter kind.
+        kind: Option<crate::CounterKind>,
+        /// Optional restriction on the player placing the counters (`You`, `EachOpponent`).
+        placer: Option<crate::effect::PlayerRel>,
+        /// When `true`, applies only to counters placed by resolving spells/abilities
+        /// or ETB effects ("if an effect would put", CR 614.16), excluding costs.
+        effect_only: bool,
+        /// Arithmetic modification applied to positive counter counts.
+        op: CounterReplaceOp,
+    },
+    /// Modify the number of counters placed on a player matching `recipient`
+    /// (CR 614.1a, CR 616.1; Winding Constrictor, Vorinclex, Monstrous Raider).
+    /// Appended to preserve replay identities.
+    ModifyPlayerCounterPlacement {
+        /// Which players receiving counters are affected, relative to the rule's controller.
+        recipient: crate::effect::PlayerRel,
+        /// Specific counter kind affected (`Energy`, `Poison`, `Experience`, `Rad`, …), or `None` for any.
+        kind: Option<crate::CounterKind>,
+        /// Optional restriction on the player placing the counters (`You`, `EachOpponent`).
+        placer: Option<crate::effect::PlayerRel>,
+        /// Arithmetic modification applied to positive counter counts.
+        op: CounterReplaceOp,
+    },
+    /// "If one or more [matching] tokens would be created under [matching controller's]
+    /// control, those tokens plus [one / that many] `bonus_token` tokens are created
+    /// instead" (Chatterfang, Peregrin Took, Queen Allenal, Xorn, Tobi-Kadachi;
+    /// CR 614.1a, CR 614.5). Appended to preserve replay identities.
+    AdditionalTokenCreation {
+        /// Which token controllers' creations are modified (`&Filter::ControlledByYou`, etc.).
+        controller_filter: &'static Filter,
+        /// Quality required of tokens counted/matched in the batch.
+        token_filter: &'static Filter,
+        /// Additional token definition added alongside the original tokens.
+        bonus_token: &'static crate::effect::TokenDef,
+        /// `true` for "that many" (matching total count of matching tokens in the batch,
+        /// Chatterfang); `false` for a flat single bonus token ("plus a Food token", Peregrin Took).
+        match_count: bool,
+        /// Optional board condition (e.g. "if you control …").
+        condition: Option<crate::ability::Condition>,
+    },
+    /// "If one or more [matching] tokens would be created under [matching controller's]
+    /// control, that many `replacement` tokens are created instead" (Divine Visitation,
+    /// Jinnie Fay; CR 614.1a, CR 614.5). Replaces matching tokens' characteristics
+    /// while preserving count and entry state (e.g. tapped/attacking). Appended to
+    /// preserve replay identities.
+    SubstituteTokenCreation {
+        /// Which token controllers' creations are modified.
+        controller_filter: &'static Filter,
+        /// Which prospective tokens in the batch are substituted.
+        token_filter: &'static Filter,
+        /// Token definition created in place of each matching token.
+        replacement: &'static crate::effect::TokenDef,
+        /// Optional board condition.
+        condition: Option<crate::ability::Condition>,
+    },
+    /// "If you would create a Clue, Food, or Treasure token, instead create one
+    /// of each" (Academy Manufactor; CR 614.1a, CR 614.5). Replaces each Clue,
+    /// Food, or Treasure token created for a matching controller with one Clue,
+    /// one Food, and one Treasure token. Appended to preserve replay identities.
+    ManufactorTokenCreation {
+        /// Which token controllers' creations are expanded (`&Filter::ControlledByYou`).
+        controller_filter: &'static Filter,
+        /// Predefined Clue token definition.
+        clue: &'static crate::effect::TokenDef,
+        /// Predefined Food token definition.
+        food: &'static crate::effect::TokenDef,
+        /// Predefined Treasure token definition.
+        treasure: &'static crate::effect::TokenDef,
+    },
+    /// "If [who] would draw a card [except the first one …], that player draws
+    /// `count` cards instead" (Thought Reflection, Alhammarret's Archive, Teferi's
+    /// Ageless Insight; CR 121.2, CR 614.1a, CR 614.5). Applies once per source per
+    /// draw event. Appended to preserve replay identities.
+    ReplaceDrawWithDraws {
+        /// Whose draws are replaced, relative to the rule's controller.
+        who: crate::effect::PlayerRel,
+        /// When `true`, ignores the player's first draw in each of their own draw steps.
+        skip_first_in_draw_step: bool,
+        /// Optional board condition checked as the draw would occur.
+        condition: Option<crate::ability::Condition>,
+        /// Number of cards drawn instead (`2` for "two cards instead", `0` for "no cards").
+        count: u8,
+    },
+    /// "If an opponent would draw a card except the first one they draw in each of
+    /// their draw steps, instead that player skips that draw and you draw a card"
+    /// (Notion Thief; CR 121.2, CR 614.1a, CR 614.5). Appended to preserve replay
+    /// identities.
+    OpponentsExtraDrawsYouDraw,
+    /// "If [who] would draw a card [while their library has no cards in it], [they may]
+    /// skip that draw instead" (Obstinate Familiar, Omen Machine, Possessed Portal,
+    /// Ormos; CR 614.10, CR 614.11). Appended to preserve replay identities.
+    SkipDrawInstead {
+        /// Whose draws may or must be skipped, relative to the rule's controller.
+        who: crate::effect::PlayerRel,
+        /// `true` when the affected player chooses whether to skip ("you may skip that draw").
+        optional: bool,
+        /// `true` when the replacement applies only if the drawing player's library is empty.
+        empty_library_only: bool,
+    },
+    /// "If you would draw a card while your library has no cards in it, you win the
+    /// game instead" (Laboratory Maniac, Jace, Wielder of Mysteries; CR 614.1a,
+    /// CR 104.2b). Appended to preserve replay identities.
+    WinOnEmptyLibraryDraw,
+    /// "If you would draw a card, instead look at the top `count` cards of your
+    /// library, then put one into your hand and the rest [into your graveyard / on
+    /// the bottom of your library in any order]" (Underrealm Lich, Tomorrow, Azami's
+    /// Familiar; CR 614.1a, CR 614.11b). Applies even when the library is empty.
+    /// Appended to preserve replay identities.
+    ReplaceDrawLookTop {
+        /// Number of top cards looked at (e.g. `3`).
+        count: u8,
+        /// `true` to put unchosen cards into the owner's graveyard (Underrealm Lich);
+        /// `false` to put them on the bottom of the library in any order (Tomorrow).
+        rest_to_graveyard: bool,
+    },
+    /// "If [who] would draw a card, that player exiles the top card of their library
+    /// [face down] instead" (Uba Mask, Necropotence-style draw exiles; CR 614.1a,
+    /// CR 614.11b). Appended to preserve replay identities.
+    ReplaceDrawExileTop {
+        /// Whose draws are replaced, relative to the rule's controller.
+        who: crate::effect::PlayerRel,
+        /// Whether the top card is exiled face down (`true`) or face up (`false`).
+        face_down: bool,
+        /// Whether the drawing player may play the card exiled this way this turn (Uba Mask).
+        may_play_this_turn: bool,
+    },
 }
 
 #[cfg(test)]

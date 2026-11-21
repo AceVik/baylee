@@ -751,6 +751,25 @@ pub(super) fn resume_yes_no_inner(
     if matches!(res.awaiting, Some(AwaitingOp::SacrificePayment { .. })) {
         return super::sacrifices::answer_payment(state, res, answer);
     }
+    if matches!(res.awaiting, Some(AwaitingOp::RepeatProcess { .. })) {
+        res.awaiting = None;
+        if answer
+            && !state.has_left(res.controller)
+            && let Some(
+                op @ Effect::RepeatProcess {
+                    effects,
+                    per_pass_this_way,
+                    ..
+                },
+            ) = res.effects.get(res.pc).copied()
+        {
+            super::immediate::start_repeat_process_pass(state, res, effects, per_pass_this_way, op);
+        } else {
+            super::immediate::finish_repeat_process(res);
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
     if matches!(res.awaiting, Some(AwaitingOp::Cleansing { .. })) {
         let Some(AwaitingOp::Cleansing {
             asked,
@@ -1180,6 +1199,30 @@ pub(super) fn resume_arranged_inner(
         }
         (AwaitingOp::HandToTop { player }, [top]) => {
             if let Some(pending) = hand_transfer::place(state, res, player, top) {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        (
+            AwaitingOp::PutTargetsInLibraryOrder {
+                top,
+                current_owner,
+                pending_owners,
+                mut ordered,
+                redirected,
+                saved_redirects,
+            },
+            [arranged],
+        ) => {
+            ordered.push((current_owner, arranged.clone()));
+            if let Some(pending) = zones::put_targets_in_library_advance(
+                state,
+                res,
+                top,
+                pending_owners,
+                ordered,
+                redirected,
+                saved_redirects,
+            ) {
                 return next_choice(state, res, since, pending);
             }
         }
