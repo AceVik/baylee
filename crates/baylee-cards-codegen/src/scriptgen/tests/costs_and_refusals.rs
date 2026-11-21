@@ -4059,6 +4059,7 @@ fn wave14a_forage_damage_you_and_x_object_costs() {
          T:Mode$ Attacks | ValidCard$ Card.Self | OptionalDecider$ You | Execute$ Ex\n\
          SVar:Ex:DB$ Draw | Cost$ Discard<X/Card> | NumCards$ 1\nSVar:X:Count$xPaid",
         "Name:KickForage\nManaCost:1 G\nTypes:Sorcery\nK:Kicker:Forage\nA:SP$ Draw | NumCards$ 1",
+        "Name:CtrlX\nManaCost:1 B\nTypes:Sorcery\nA:SP$ Draw | Cost$ 1 B ExileFromGrave<X/Card.YouCtrl> | NumCards$ X\nSVar:X:Count$xPaid",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }

@@ -436,10 +436,6 @@ fn an_unless_cost_wraps_the_line_whatever_it_says() {
             "DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ 2 | UnlessResolveSubs$ WhenNotPaid",
             "`UnlessResolveSubs$ WhenNotPaid`",
         ),
-        (
-            "DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ DamageYou<2>",
-            "cost `DamageYou`",
-        ),
     ] {
         let script = parse(&format!(
             "Name:X\nTypes:Creature\nPT:1/1\n\
@@ -452,6 +448,19 @@ fn an_unless_cost_wraps_the_line_whatever_it_says() {
             "{line}"
         );
     }
+
+    let damage_you_unless = read(
+        "Name:X\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+         | Execute$ S | TriggerDescription$ x.\n\
+         SVar:S:DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ DamageYou<2>",
+    );
+    assert!(
+        damage_you_unless.abilities[0].contains("Effect::PlayerMayPayCostOr")
+            && damage_you_unless.abilities[0].contains("CostPart::DealDamageToYou(2)"),
+        "{:?}",
+        damage_you_unless.abilities
+    );
 }
 
 #[test]

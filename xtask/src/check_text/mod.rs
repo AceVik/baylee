@@ -886,6 +886,10 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("FlipCoinsUntilLossOrStopCumulative");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
+        || built.contains("ObjectOfEachOpponent(")
+        || (built.contains("PlayersOrTheirPermanents(") && built.contains("PlayerRel::Opponent"))
+        || (built.contains("TargetSpec::AnyOpponent")
+            && built.contains("controlled_by: Some(PlayerRel::Chosen)"))
         || built.contains("OpponentControlCountAtMost(")
         || built.contains("PayLifeForPtCapWhiteOpponents")
         // These restrict the controller of the effect/spell/ability,

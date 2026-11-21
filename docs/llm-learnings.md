@@ -6,6 +6,13 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Beat 12 (Part 1): Codegen Wave 14a–14c (`19,751 / 34,482` = `57%`) & `check_text` / `pt_fault` Fixes
+
+- **Codegen Wave 14a–14c (`Reviewed: a8bb6673e, 518e04a7d, 746f0f400`, `Reviewed-by: gemini-4-argon-high (#406, #413, #418), pass`)**:
+  - Merged zero-conflict across `mana.rs`/`targets.rs`/`statics.rs`/`prevention.rs`/`protection52.rs` (`e77c4f904`), `chains.rs`/`effects.rs`/`triggers.rs` (`84625fe38`), and `stubgen.rs`/`tokengen.rs`/`keywords.rs`/`activated.rs`/`atoms.rs`/`constants.rs` (`e32a19e5b`).
+  - Added combine-time fixes: `activated.rs` `spec.contains("Ctrl")` guard + `filter_expr_in_zone(..., true)` on `Discard<X/...>` / `ExileFromGrave<X/...>` (harmonizing Wave 14a/14b against `CR 109.4`), `tests/blocks_and_conditions.rs` positive `UnlessCost$ DamageYou<2>` check, `xtask/src/check_text/mod.rs::filters_theirs` (`ObjectOfEachOpponent(`, `PlayersOrTheirPermanents(Opponent)`, `TargetSpec::AnyOpponent` + `controlled_by: Chosen` for *Wail of War* / *Omega* / *Torbran* / *Solphim*), and `crates/cards/src/lints/faces.rs::pt_fault` + `becomes_creature_on_self` allowing non-animating Spacecraft (*The Eternity Elevator*) with `power: None, toughness: None`.
+  - Verified (`task-4808`): `fmt --check` PASS, `baylee-cards-codegen` `699/699` PASS, `baylee-cards --lib -- lints::` `50/50` PASS, `xtask` `150/150` PASS, `clippy --all-targets -- -D warnings` `0` warnings; `transcode-report`: **`19,751 / 34,482` (`57%`, `+445` over Beat 10)** full corpus scripts read in full, **`756 / 864` token scripts (`139 / 188` rules-bearing, `756` names, `0` collisions)**, **`34 / 935` pool stubs** readable.
+
 ## 2026-11-21 — Beat 11: Engine Wave 7a (`a2bb95d64`), `SearchLibrary` `CR 701.23b` Fix & Client `join_rules`
 
 - **Engine Wave 7a (`5c00a087c`, merged as `a2bb95d64`, `Reviewed-by: gemini-4-argon-high (#410), pass`)**:

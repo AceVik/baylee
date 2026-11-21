@@ -1083,13 +1083,14 @@ impl Tx<'_> {
             || self.svars.get("X").map(String::as_str) != Some("Count$xPaid")
             || self.oracle.to_ascii_lowercase().contains("x is ")
             || matches!(spec, "CARDNAME" | "NICKNAME" | "Hand" | "Random")
+            || spec.contains("Ctrl")
             || (kind == "Discard" && spec.contains("Random"))
         {
             self.deny::<()>(format!("cost `{token}`"));
             return Wave14aCost::Denied;
         }
         let normalized = spec.replace(';', ",");
-        let Some(expr) = self.filter_expr(&normalized) else {
+        let Some(expr) = self.filter_expr_in_zone(&normalized, true) else {
             return Wave14aCost::Denied;
         };
         let name = self.body.filter_static("COST", &expr);
