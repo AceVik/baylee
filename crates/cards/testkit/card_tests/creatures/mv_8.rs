@@ -101,6 +101,7 @@ mod cognivore;
 mod copper_host_crusher;
 mod crash_of_rhinos;
 mod deep_spawn;
+mod denizen_of_the_deep;
 mod devouring_strossus;
 mod eldrazi_devastator;
 mod gigantomancer;

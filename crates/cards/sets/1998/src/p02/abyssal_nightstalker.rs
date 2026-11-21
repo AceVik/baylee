@@ -11,7 +11,7 @@ card!(
     oracle_id = "10733767-1c97-4e2e-b02b-54bf346f6583",
     scryfall_id = "0b688039-7441-490b-ad06-8a72086c4023",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Abyssal Nightstalker",
         mana_cost = mana!("{3}{B}"),

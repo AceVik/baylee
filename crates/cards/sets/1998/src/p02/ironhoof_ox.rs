@@ -11,7 +11,7 @@ card!(
     oracle_id = "1871af55-f7cd-4b8e-affb-5d010df811b1",
     scryfall_id = "c8a2c5ce-ec87-46b9-b474-ecf133ccd092",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ironhoof Ox",
         mana_cost = mana!("{3}{G}{G}"),

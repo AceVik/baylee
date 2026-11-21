@@ -14,7 +14,7 @@ card!(
     oracle_id = "fc1bb5b9-5e36-4154-b683-e62f4f66f2b6",
     scryfall_id = "ca7959e9-8ae7-49f7-acf9-a0fc2afa219e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Denizen of the Deep",
         mana_cost = mana!("{6}{U}{U}"),

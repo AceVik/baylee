@@ -16,7 +16,7 @@ card!(
     oracle_id = "be5d9522-40b4-4f45-978b-d78bd00f9491",
     scryfall_id = "e8e355d8-a142-4504-9a27-721b6140dc8a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dakmor Sorceress",
         mana_cost = mana!("{5}{B}"),

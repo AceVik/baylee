@@ -11,7 +11,7 @@ card!(
     oracle_id = "4f348e7a-fe13-4621-bd88-5d2fb5b597f2",
     scryfall_id = "d8ca1865-a7cb-4107-b2dc-0ead1cd7e6e7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sylvan Basilisk",
         mana_cost = mana!("{3}{G}{G}"),
