@@ -151,6 +151,8 @@ pub mod board_the_weatherlight;
 pub mod bogstomper;
 #[path = "rix/bombard.rs"]
 pub mod bombard;
+#[path = "bbd/bonus_round.rs"]
+pub mod bonus_round;
 #[path = "grn/boros_challenger.rs"]
 pub mod boros_challenger;
 #[path = "grn/boros_locket.rs"]
@@ -173,6 +175,8 @@ pub mod brazen_freebooter;
 pub mod breath_of_fire;
 #[path = "bbd/brightling.rs"]
 pub mod brightling;
+#[path = "m19/bristling_boar.rs"]
+pub mod bristling_boar;
 #[path = "rix/buccaneer_s_bravado.rs"]
 pub mod buccaneer_s_bravado;
 #[path = "grn/burglar_rat.rs"]
@@ -215,6 +219,8 @@ pub mod champion_of_dusk;
 pub mod champion_of_the_flame;
 #[path = "dom/charge.rs"]
 pub mod charge;
+#[path = "rix/charging_tuskodon.rs"]
+pub mod charging_tuskodon;
 #[path = "grn/chemister_s_insight.rs"]
 pub mod chemister_s_insight;
 #[path = "grn/circuitous_route.rs"]
@@ -291,6 +297,8 @@ pub mod deadly_visit;
 pub mod deafening_clarion;
 #[path = "dom/deathbloom_thallid.rs"]
 pub mod deathbloom_thallid;
+#[path = "m19/declare_dominance.rs"]
+pub mod declare_dominance;
 #[path = "prix/deeproot_elite.rs"]
 pub mod deeproot_elite;
 #[path = "m19/demanding_dragon.rs"]
@@ -491,6 +499,8 @@ pub mod goblin_banneret;
 pub mod goblin_chainwhirler;
 #[path = "grn/goblin_cratermaker.rs"]
 pub mod goblin_cratermaker;
+#[path = "gnt/goblin_goliath.rs"]
+pub mod goblin_goliath;
 #[path = "m19/goblin_instigator.rs"]
 pub mod goblin_instigator;
 #[path = "grn/goblin_locksmith.rs"]
@@ -569,6 +579,8 @@ pub mod hostile_minotaur;
 pub mod house_guildmage;
 #[path = "dom/howling_golem.rs"]
 pub mod howling_golem;
+#[path = "m19/hungering_hydra.rs"]
+pub mod hungering_hydra;
 #[path = "grn/hunted_witness.rs"]
 pub mod hunted_witness;
 #[path = "grn/hypothesizzle.rs"]
@@ -615,6 +627,8 @@ pub mod izzet_locket;
 pub mod jade_bearer;
 #[path = "rix/jadecraft_artisan.rs"]
 pub mod jadecraft_artisan;
+#[path = "prix/jadelight_ranger.rs"]
+pub mod jadelight_ranger;
 #[path = "dom/jaya_s_immolating_inferno.rs"]
 pub mod jaya_s_immolating_inferno;
 #[path = "dom/jhoira_s_familiar.rs"]
@@ -853,6 +867,8 @@ pub mod pardic_wanderer;
 pub mod parhelion_patrol;
 #[path = "grn/passwall_adept.rs"]
 pub mod passwall_adept;
+#[path = "prix/path_of_discovery.rs"]
+pub mod path_of_discovery;
 #[path = "prix/path_of_mettle.rs"]
 pub mod path_of_mettle;
 #[path = "grn/pause_for_reflection.rs"]
@@ -1141,6 +1157,8 @@ pub mod supreme_phantom;
 pub mod suspicious_bookcase;
 #[path = "rix/swab_goblin.rs"]
 pub mod swab_goblin;
+#[path = "rix/swaggering_corsair.rs"]
+pub mod swaggering_corsair;
 #[path = "grn/swarm_guildmage.rs"]
 pub mod swarm_guildmage;
 #[path = "grn/swathcutter_giant.rs"]
@@ -1155,6 +1173,8 @@ pub mod sworn_companions;
 pub mod sworn_guardian;
 #[path = "oana/tactical_advantage.rs"]
 pub mod tactical_advantage;
+#[path = "grn/tajic_legion_s_edge.rs"]
+pub mod tajic_legion_s_edge;
 #[path = "grn/take_heart.rs"]
 pub mod take_heart;
 #[path = "m19/take_vengeance.rs"]
@@ -1191,6 +1211,8 @@ pub mod the_eldest_reborn;
 pub mod the_first_eruption;
 #[path = "dom/the_mending_of_dominaria.rs"]
 pub mod the_mending_of_dominaria;
+#[path = "dom/the_mirari_conjecture.rs"]
+pub mod the_mirari_conjecture;
 #[path = "m19/thorn_lieutenant.rs"]
 pub mod thorn_lieutenant;
 #[path = "grn/thought_erasure.rs"]
@@ -1209,6 +1231,8 @@ pub mod tilonalli_s_crown;
 pub mod time_of_ice;
 #[path = "dom/tolarian_scholar.rs"]
 pub mod tolarian_scholar;
+#[path = "prix/tomb_robber.rs"]
+pub mod tomb_robber;
 #[path = "bbd/toothy_imaginary_friend.rs"]
 pub mod toothy_imaginary_friend;
 #[path = "grn/torch_courier.rs"]
@@ -1267,6 +1291,8 @@ pub mod viashino_pyromancer;
 pub mod vicious_offering;
 #[path = "m19/vigilant_baloth.rs"]
 pub mod vigilant_baloth;
+#[path = "grn/vigorspore_wurm.rs"]
+pub mod vigorspore_wurm;
 #[path = "m19/vine_mare.rs"]
 pub mod vine_mare;
 #[path = "bbd/virtus_the_veiled.rs"]
@@ -1289,6 +1315,8 @@ pub mod voracious_vampire;
 pub mod vraska_s_conquistador;
 #[path = "m19/wall_of_mist.rs"]
 pub mod wall_of_mist;
+#[path = "grn/wand_of_vertebrae.rs"]
+pub mod wand_of_vertebrae;
 #[path = "dom/warlord_s_fury.rs"]
 pub mod warlord_s_fury;
 #[path = "grn/wary_okapi.rs"]

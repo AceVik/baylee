@@ -89,8 +89,12 @@ pub mod chrome_dome;
 pub mod chronicle_of_victory;
 #[path = "ecl/clachan_festival.rs"]
 pub mod clachan_festival;
+#[path = "ecl/collective_inferno.rs"]
+pub mod collective_inferno;
 #[path = "tmc/containment_protocol.rs"]
 pub mod containment_protocol;
+#[path = "tmt/cool_but_rude.rs"]
+pub mod cool_but_rude;
 #[path = "tmt/cowabunga.rs"]
 pub mod cowabunga;
 #[path = "ecl/creakwood_safewright.rs"]
@@ -119,6 +123,8 @@ pub mod dimension_x;
 pub mod dimensional_exile;
 #[path = "ecl/disruptor_of_currents.rs"]
 pub mod disruptor_of_currents;
+#[path = "tmt/does_machines.rs"]
+pub mod does_machines;
 #[path = "tmc/donatello_rad_scientist.rs"]
 pub mod donatello_rad_scientist;
 #[path = "tmt/donatello_turtle_techie.rs"]
@@ -261,6 +267,8 @@ pub mod kulrath_mystic;
 pub mod kulrath_zealot;
 #[path = "ecc/lamentation.rs"]
 pub mod lamentation;
+#[path = "tmt/leader_s_talent.rs"]
+pub mod leader_s_talent;
 #[path = "tmc/leatherhead_iron_gator.rs"]
 pub mod leatherhead_iron_gator;
 #[path = "tmc/leo_s_guidance.rs"]
@@ -293,6 +301,8 @@ pub mod mechanized_ninja_cavalry;
 pub mod merrow_skyswimmer;
 #[path = "tmt/metalhead.rs"]
 pub mod metalhead;
+#[path = "tmt/michelangelo_mutant_bff.rs"]
+pub mod michelangelo_mutant_bff;
 #[path = "tmc/michelangelo_on_the_scene.rs"]
 pub mod michelangelo_on_the_scene;
 #[path = "ecl/midnight_tilling.rs"]
@@ -353,6 +363,8 @@ pub mod omni_cheese_pizza;
 pub mod ooze_spill;
 #[path = "tmt/pain_101.rs"]
 pub mod pain_101;
+#[path = "tmt/party_dude.rs"]
+pub mod party_dude;
 #[path = "ecl/personify.rs"]
 pub mod personify;
 #[path = "ecl/pestered_wellguard.rs"]
@@ -371,6 +383,8 @@ pub mod puca_s_eye;
 pub mod punk_frogs;
 #[path = "tmt/purple_dragon_punks.rs"]
 pub mod purple_dragon_punks;
+#[path = "tmt/putrid_pals.rs"]
+pub mod putrid_pals;
 #[path = "tmt/quintessential_katana.rs"]
 pub mod quintessential_katana;
 #[path = "tmt/ragamuffin_raptor.rs"]
@@ -403,10 +417,14 @@ pub mod riverguard_s_reflexes;
 pub mod roadkill_rodney;
 #[path = "tmt/rock_soldiers.rs"]
 pub mod rock_soldiers;
+#[path = "tmt/rocksteady_crash_courser.rs"]
+pub mod rocksteady_crash_courser;
 #[path = "tmc/rocksteady_mutant_marauder.rs"]
 pub mod rocksteady_mutant_marauder;
 #[path = "ecl/rooftop_percher.rs"]
 pub mod rooftop_percher;
+#[path = "ecl/safewright_cavalry.rs"]
+pub mod safewright_cavalry;
 #[path = "tmt/sally_pride_lioness_leader.rs"]
 pub mod sally_pride_lioness_leader;
 #[path = "ecl/sapling_nursery.rs"]

@@ -559,6 +559,8 @@ pub mod intrepid_hero;
 pub mod intruder_alarm;
 #[path = "sth/invasion_plans.rs"]
 pub mod invasion_plans;
+#[path = "p02/ironhoof_ox.rs"]
+pub mod ironhoof_ox;
 #[path = "exo/jackalope_herd.rs"]
 pub mod jackalope_herd;
 #[path = "p02/jagged_lightning.rs"]
@@ -713,6 +715,8 @@ pub mod norwood_archers;
 pub mod norwood_priestess;
 #[path = "p02/norwood_ranger.rs"]
 pub mod norwood_ranger;
+#[path = "p02/norwood_riders.rs"]
+pub mod norwood_riders;
 #[path = "p02/norwood_warrior.rs"]
 pub mod norwood_warrior;
 #[path = "exo/null_brooch.rs"]

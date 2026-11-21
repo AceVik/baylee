@@ -71,6 +71,8 @@ pub mod azure_mage;
 pub mod banishment_decree;
 #[path = "cmd/basandra_battle_seraph.rs"]
 pub mod basandra_battle_seraph;
+#[path = "nph/batterskull.rs"]
+pub mod batterskull;
 #[path = "isd/battleground_geist.rs"]
 pub mod battleground_geist;
 #[path = "nph/beast_within.rs"]
@@ -103,6 +105,8 @@ pub mod bloodline_keeper;
 pub mod bonds_of_faith;
 #[path = "m12/bonebreaker_giant.rs"]
 pub mod bonebreaker_giant;
+#[path = "mbs/bonehoard.rs"]
+pub mod bonehoard;
 #[path = "isd/boneyard_wurm.rs"]
 pub mod boneyard_wurm;
 #[path = "isd/brain_weevil.rs"]
@@ -131,6 +135,8 @@ pub mod celestial_force;
 pub mod champion_of_the_parish;
 #[path = "cmd/champion_s_helm.rs"]
 pub mod champion_s_helm;
+#[path = "pm12/chandra_s_phoenix.rs"]
+pub mod chandra_s_phoenix;
 #[path = "isd/chapel_geist.rs"]
 pub mod chapel_geist;
 #[path = "isd/charmbreaker_devils.rs"]
@@ -251,10 +257,14 @@ pub mod fangren_marauder;
 pub mod feeling_of_dread;
 #[path = "isd/feral_ridgewolf.rs"]
 pub mod feral_ridgewolf;
+#[path = "isd/festerhide_boar.rs"]
+pub mod festerhide_boar;
 #[path = "isd/fiend_hunter.rs"]
 pub mod fiend_hunter;
 #[path = "nph/flameborn_viron.rs"]
 pub mod flameborn_viron;
+#[path = "mbs/flayer_husk.rs"]
+pub mod flayer_husk;
 #[path = "mbs/flensermite.rs"]
 pub mod flensermite;
 #[path = "mbs/flesh_eater_imp.rs"]
@@ -349,6 +359,8 @@ pub mod guardians_pledge;
 pub mod gust_skimmer;
 #[path = "isd/hamlet_captain.rs"]
 pub mod hamlet_captain;
+#[path = "isd/harvest_pyre.rs"]
+pub mod harvest_pyre;
 #[path = "isd/heartless_summoning.rs"]
 pub mod heartless_summoning;
 #[path = "mbs/hellkite_igniter.rs"]
@@ -373,6 +385,8 @@ pub mod hornet_queen;
 pub mod horrifying_revelation;
 #[path = "nph/hovermyr.rs"]
 pub mod hovermyr;
+#[path = "m12/hunter_s_insight.rs"]
+pub mod hunter_s_insight;
 #[path = "isd/hysterical_blindness.rs"]
 pub mod hysterical_blindness;
 #[path = "nph/ichor_explosion.rs"]
@@ -387,6 +401,8 @@ pub mod infernal_plunge;
 pub mod inkmoth_nexus;
 #[path = "nph/inquisitor_exarch.rs"]
 pub mod inquisitor_exarch;
+#[path = "isd/inquisitor_s_flail.rs"]
+pub mod inquisitor_s_flail;
 #[path = "isd/intangible_virtue.rs"]
 pub mod intangible_virtue;
 #[path = "mbs/into_the_core.rs"]
@@ -495,6 +511,8 @@ pub mod moorland_haunt;
 pub mod morbid_plunder;
 #[path = "isd/morkrut_banshee.rs"]
 pub mod morkrut_banshee;
+#[path = "mbs/mortarpod.rs"]
+pub mod mortarpod;
 #[path = "nph/mortis_dogs.rs"]
 pub mod mortis_dogs;
 #[path = "isd/murder_of_crows.rs"]
@@ -507,6 +525,8 @@ pub mod mycosynth_wellspring;
 pub mod myr_sire;
 #[path = "mbs/myr_turbine.rs"]
 pub mod myr_turbine;
+#[path = "nph/necropouncer.rs"]
+pub mod necropouncer;
 #[path = "isd/nephalia_drownyard.rs"]
 pub mod nephalia_drownyard;
 #[path = "mbs/neurok_commando.rs"]
@@ -679,6 +699,8 @@ pub mod shrine_of_burning_rage;
 pub mod shrine_of_loyal_legions;
 #[path = "nph/shrine_of_piercing_vision.rs"]
 pub mod shrine_of_piercing_vision;
+#[path = "nph/sickleslicer.rs"]
+pub mod sickleslicer;
 #[path = "mbs/signal_pest.rs"]
 pub mod signal_pest;
 #[path = "isd/silent_departure.rs"]
@@ -693,6 +715,8 @@ pub mod silverskin_armor;
 pub mod skeletal_grimace;
 #[path = "m12/skinshifter.rs"]
 pub mod skinshifter;
+#[path = "mbs/skinwing.rs"]
+pub mod skinwing;
 #[path = "isd/skirsdag_cultist.rs"]
 pub mod skirsdag_cultist;
 #[path = "isd/skirsdag_high_priest.rs"]
@@ -711,10 +735,14 @@ pub mod slayer_of_the_wicked;
 pub mod smite_the_monstrous;
 #[path = "isd/snapcaster_mage.rs"]
 pub mod snapcaster_mage;
+#[path = "isd/somberwald_spider.rs"]
+pub mod somberwald_spider;
 #[path = "m12/sorin_s_thirst.rs"]
 pub mod sorin_s_thirst;
 #[path = "m12/sorin_s_vengeance.rs"]
 pub mod sorin_s_vengeance;
+#[path = "isd/spare_from_evil.rs"]
+pub mod spare_from_evil;
 #[path = "isd/spectral_flight.rs"]
 pub mod spectral_flight;
 #[path = "isd/spectral_rider.rs"]
@@ -751,6 +779,8 @@ pub mod stingerfling_spider;
 pub mod stitcher_s_apprentice;
 #[path = "isd/stony_silence.rs"]
 pub mod stony_silence;
+#[path = "mbs/strandwalker.rs"]
+pub mod strandwalker;
 #[path = "isd/stromkirk_noble.rs"]
 pub mod stromkirk_noble;
 #[path = "isd/stromkirk_patrol.rs"]

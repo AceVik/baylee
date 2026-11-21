@@ -19,6 +19,8 @@ pub mod abyssal_nocturnus;
 pub mod academy_ruins;
 #[path = "csp/adarkar_valkyrie.rs"]
 pub mod adarkar_valkyrie;
+#[path = "csp/adarkar_windform.rs"]
+pub mod adarkar_windform;
 #[path = "gpt/agent_of_masks.rs"]
 pub mod agent_of_masks;
 #[path = "pcsp/allosaurus_rider.rs"]
@@ -85,8 +87,12 @@ pub mod bond_of_agony;
 pub mod bonesplitter_sliver;
 #[path = "gpt/borborygmos.rs"]
 pub mod borborygmos;
+#[path = "csp/boreal_centaur.rs"]
+pub mod boreal_centaur;
 #[path = "csp/boreal_druid.rs"]
 pub mod boreal_druid;
+#[path = "csp/boreal_griffin.rs"]
+pub mod boreal_griffin;
 #[path = "csp/boreal_shelf.rs"]
 pub mod boreal_shelf;
 #[path = "tsp/brass_gnat.rs"]
@@ -115,6 +121,8 @@ pub mod celestial_crusader;
 pub mod chameleon_blur;
 #[path = "csp/chill_to_the_bone.rs"]
 pub mod chill_to_the_bone;
+#[path = "csp/chilling_shade.rs"]
+pub mod chilling_shade;
 #[path = "tsp/chromatic_star.rs"]
 pub mod chromatic_star;
 #[path = "tsp/chronatog_totem.rs"]
@@ -171,6 +179,8 @@ pub mod delirium_skeins;
 pub mod demon_s_jester;
 #[path = "tsp/demonic_collusion.rs"]
 pub mod demonic_collusion;
+#[path = "csp/diamond_faerie.rs"]
+pub mod diamond_faerie;
 #[path = "csp/disciple_of_tevesh_szat.rs"]
 pub mod disciple_of_tevesh_szat;
 #[path = "gpt/douse_in_gloom.rs"]
@@ -273,6 +283,8 @@ pub mod frazzle;
 pub mod freyalise_s_radiance;
 #[path = "csp/frost_marsh.rs"]
 pub mod frost_marsh;
+#[path = "csp/frost_raptor.rs"]
+pub mod frost_raptor;
 #[path = "tsp/fungal_reaches.rs"]
 pub mod fungal_reaches;
 #[path = "tsp/fungus_sliver.rs"]
@@ -287,6 +299,8 @@ pub mod gatherer_of_graces;
 pub mod gaze_of_justice;
 #[path = "gpt/gelectrode.rs"]
 pub mod gelectrode;
+#[path = "csp/gelid_shackles.rs"]
+pub mod gelid_shackles;
 #[path = "tsp/gemhide_sliver.rs"]
 pub mod gemhide_sliver;
 #[path = "tsp/gemstone_caverns.rs"]
@@ -313,6 +327,8 @@ pub mod gnat_alley_creeper;
 pub mod gobhobbler_rats;
 #[path = "csp/goblin_furrier.rs"]
 pub mod goblin_furrier;
+#[path = "csp/goblin_rimerunner.rs"]
+pub mod goblin_rimerunner;
 #[path = "gpt/godless_shrine.rs"]
 pub mod godless_shrine;
 #[path = "tsp/gorgon_recluse.rs"]
@@ -489,6 +505,8 @@ pub mod ocular_halo;
 pub mod ogre_gatecrasher;
 #[path = "csp/ohran_viper.rs"]
 pub mod ohran_viper;
+#[path = "csp/ohran_yeti.rs"]
+pub mod ohran_yeti;
 #[path = "dis/omnibian.rs"]
 pub mod omnibian;
 #[path = "tsp/ophidian_eye.rs"]
@@ -533,6 +551,10 @@ pub mod phobian_phantasm;
 pub mod phthisis;
 #[path = "csp/phyrexian_etchings.rs"]
 pub mod phyrexian_etchings;
+#[path = "csp/phyrexian_ironfoot.rs"]
+pub mod phyrexian_ironfoot;
+#[path = "csp/phyrexian_snowcrusher.rs"]
+pub mod phyrexian_snowcrusher;
 #[path = "tsp/phyrexian_totem.rs"]
 pub mod phyrexian_totem;
 #[path = "dis/pillar_of_the_paruns.rs"]
@@ -587,6 +609,14 @@ pub mod restless_bones;
 pub mod rift_bolt;
 #[path = "tsp/riftwing_cloudskate.rs"]
 pub mod riftwing_cloudskate;
+#[path = "csp/rime_transfusion.rs"]
+pub mod rime_transfusion;
+#[path = "csp/rimebound_dead.rs"]
+pub mod rimebound_dead;
+#[path = "csp/rimefeather_owl.rs"]
+pub mod rimefeather_owl;
+#[path = "csp/rimescale_dragon.rs"]
+pub mod rimescale_dragon;
 #[path = "csp/rimewind_cryomancer.rs"]
 pub mod rimewind_cryomancer;
 #[path = "csp/rimewind_taskmage.rs"]
@@ -707,6 +737,8 @@ pub mod sprouting_phytohydra;
 pub mod squall_drifter;
 #[path = "tsp/squall_line.rs"]
 pub mod squall_line;
+#[path = "csp/stalking_yeti.rs"]
+pub mod stalking_yeti;
 #[path = "gpt/starved_rusalka.rs"]
 pub mod starved_rusalka;
 #[path = "csp/steam_spitter.rs"]
@@ -769,6 +801,8 @@ pub mod tendrils_of_corruption;
 pub mod teysa_orzhov_scion;
 #[path = "csp/thermal_flux.rs"]
 pub mod thermal_flux;
+#[path = "csp/thermopod.rs"]
+pub mod thermopod;
 #[path = "tsp/think_twice.rs"]
 pub mod think_twice;
 #[path = "tsp/thrill_of_the_hunt.rs"]
@@ -893,5 +927,7 @@ pub mod wrecking_ball;
 pub mod wurmweaver_coil;
 #[path = "tsp/zealot_il_vec.rs"]
 pub mod zealot_il_vec;
+#[path = "csp/zombie_musher.rs"]
+pub mod zombie_musher;
 #[path = "csp/zur_the_enchanter.rs"]
 pub mod zur_the_enchanter;

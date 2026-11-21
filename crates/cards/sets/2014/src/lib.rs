@@ -191,6 +191,8 @@ pub mod cranial_archive;
 pub mod creeperhulk;
 #[path = "m15/crowd_s_favor.rs"]
 pub mod crowd_s_favor;
+#[path = "bng/crypsis.rs"]
+pub mod crypsis;
 #[path = "jou/crystalline_nautilus.rs"]
 pub mod crystalline_nautilus;
 #[path = "cns/custodi_soulbinders.rs"]
@@ -209,6 +211,8 @@ pub mod dawnbringer_charioteers;
 pub mod dazzling_ramparts;
 #[path = "ktk/dead_drop.rs"]
 pub mod dead_drop;
+#[path = "ktk/death_frenzy.rs"]
+pub mod death_frenzy;
 #[path = "cns/deathreap_ritual.rs"]
 pub mod deathreap_ritual;
 #[path = "ktk/debilitating_injury.rs"]
@@ -231,6 +235,8 @@ pub mod dictate_of_erebos;
 pub mod dictate_of_heliod;
 #[path = "pjou/dictate_of_kruphix.rs"]
 pub mod dictate_of_kruphix;
+#[path = "pjou/dictate_of_the_twin_gods.rs"]
+pub mod dictate_of_the_twin_gods;
 #[path = "ktk/dig_through_time.rs"]
 pub mod dig_through_time;
 #[path = "ktk/disdainful_stroke.rs"]
@@ -445,6 +451,8 @@ pub mod hornet_nest;
 pub mod hot_soup;
 #[path = "jou/humbler_of_mortals.rs"]
 pub mod humbler_of_mortals;
+#[path = "m15/hunter_s_ambush.rs"]
+pub mod hunter_s_ambush;
 #[path = "bng/hunter_s_prowess.rs"]
 pub mod hunter_s_prowess;
 #[path = "jou/hypnotic_siren.rs"]
@@ -607,6 +615,8 @@ pub mod mystic_monastery;
 pub mod mystic_of_the_hidden_way;
 #[path = "m15/necromancer_s_assistant.rs"]
 pub mod necromancer_s_assistant;
+#[path = "ktk/necropolis_fiend.rs"]
+pub mod necropolis_fiend;
 #[path = "m15/nightfire_giant.rs"]
 pub mod nightfire_giant;
 #[path = "jou/nightmarish_end.rs"]
@@ -1021,6 +1031,8 @@ pub mod void_snare;
 pub mod wall_of_limbs;
 #[path = "ktk/war_behemoth.rs"]
 pub mod war_behemoth;
+#[path = "ktk/war_name_aspirant.rs"]
+pub mod war_name_aspirant;
 #[path = "jou/war_wing_siren.rs"]
 pub mod war_wing_siren;
 #[path = "bng/warchanter_of_mogis.rs"]

@@ -503,6 +503,8 @@ pub mod inspired_sprite;
 pub mod intimidator_initiate;
 #[path = "eve/inundate.rs"]
 pub mod inundate;
+#[path = "ala/invincible_hymn.rs"]
+pub mod invincible_hymn;
 #[path = "shm/isleback_spawn.rs"]
 pub mod isleback_spawn;
 #[path = "eve/jawbone_skulkin.rs"]

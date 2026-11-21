@@ -201,6 +201,8 @@ pub mod chaotic_goo;
 pub mod charging_bandits;
 #[path = "por/charging_paladin.rs"]
 pub mod charging_paladin;
+#[path = "por/charging_rhino.rs"]
+pub mod charging_rhino;
 #[path = "tmp/chill.rs"]
 pub mod chill;
 #[path = "wth/chimeric_sphere.rs"]

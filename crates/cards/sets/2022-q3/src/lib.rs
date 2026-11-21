@@ -349,6 +349,8 @@ pub mod vineshaper_prodigy;
 pub mod vodalian_hexcatcher;
 #[path = "dmu/volshe_tideturner.rs"]
 pub mod volshe_tideturner;
+#[path = "dmu/warhost_s_frenzy.rs"]
+pub mod warhost_s_frenzy;
 #[path = "dmu/wingmantle_chaplain.rs"]
 pub mod wingmantle_chaplain;
 #[path = "dmu/wooded_ridgeline.rs"]

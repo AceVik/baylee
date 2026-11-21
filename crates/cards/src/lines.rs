@@ -941,6 +941,7 @@ mod tests {
         "Restless Bloodseeker",
         "Wolfkin Outcast",
         "Fable of the Mirror-Breaker",
+        "Teachings of the Kirin",
         "The Long Reach of Night",
         "The Restoration of Eiganjo",
         "Tribute to Horobi",

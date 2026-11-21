@@ -49,6 +49,8 @@ pub mod barad_dur;
 pub mod battle_scarred_goblin;
 #[path = "ltc/beregond_of_the_guard.rs"]
 pub mod beregond_of_the_guard;
+#[path = "moc/bitterthorn_nissa_s_animus.rs"]
+pub mod bitterthorn_nissa_s_animus;
 #[path = "mom/bladed_battle_fan.rs"]
 pub mod bladed_battle_fan;
 #[path = "mom/bola_slinger.rs"]
@@ -81,6 +83,8 @@ pub mod chivalric_alliance;
 pub mod chomping_kavu;
 #[path = "ltr/cirith_ungol_patrol.rs"]
 pub mod cirith_ungol_patrol;
+#[path = "mom/city_on_fire.rs"]
+pub mod city_on_fire;
 #[path = "mom/collective_nightmare.rs"]
 pub mod collective_nightmare;
 #[path = "mom/coming_in_hot.rs"]
@@ -293,6 +297,8 @@ pub mod iridescent_blademaster;
 pub mod ithilien_kingfisher;
 #[path = "mom/karsus_depthguard.rs"]
 pub mod karsus_depthguard;
+#[path = "moc/katilda_and_lier.rs"]
+pub mod katilda_and_lier;
 #[path = "mom/kithkin_billyrider.rs"]
 pub mod kithkin_billyrider;
 #[path = "mom/knight_of_the_new_coalition.rs"]
@@ -389,6 +395,8 @@ pub mod oliphaunt;
 pub mod olog_hai_crusher;
 #[path = "mom/onakke_javelineer.rs"]
 pub mod onakke_javelineer;
+#[path = "mom/oracle_of_tragedy.rs"]
+pub mod oracle_of_tragedy;
 #[path = "ltr/orcish_bowmasters.rs"]
 pub mod orcish_bowmasters;
 #[path = "ltr/orcish_medicine.rs"]
@@ -407,6 +415,8 @@ pub mod phyrexian_censor;
 pub mod phyrexian_pegasus;
 #[path = "mom/pile_on.rs"]
 pub mod pile_on;
+#[path = "mom/placid_rottentail.rs"]
+pub mod placid_rottentail;
 #[path = "mom/preening_champion.rs"]
 pub mod preening_champion;
 #[path = "ltr/prince_imrahil_the_fair.rs"]

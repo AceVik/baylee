@@ -107,6 +107,8 @@ pub mod bearer_of_silence;
 pub mod bedlam_reveler;
 #[path = "soi/behind_the_scenes.rs"]
 pub mod behind_the_scenes;
+#[path = "c16/benefactor_s_draught.rs"]
+pub mod benefactor_s_draught;
 #[path = "cn2/besmirch.rs"]
 pub mod besmirch;
 #[path = "ogw/birthing_hulk.rs"]
@@ -507,6 +509,8 @@ pub mod goblin_freerunner;
 pub mod goblin_racketeer;
 #[path = "c16/goblin_spymaster.rs"]
 pub mod goblin_spymaster;
+#[path = "psoi/goldnight_castigator.rs"]
+pub mod goldnight_castigator;
 #[path = "soi/gone_missing.rs"]
 pub mod gone_missing;
 #[path = "emn/graf_harvest.rs"]
@@ -639,6 +643,8 @@ pub mod jwar_isle_avenger;
 pub mod kambal_consul_of_allocation;
 #[path = "soi/kessig_dire_swine.rs"]
 pub mod kessig_dire_swine;
+#[path = "emn/kessig_prowler.rs"]
+pub mod kessig_prowler;
 #[path = "kld/key_to_the_city.rs"]
 pub mod key_to_the_city;
 #[path = "soi/kindly_stranger.rs"]

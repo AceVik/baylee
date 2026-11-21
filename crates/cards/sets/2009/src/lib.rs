@@ -245,6 +245,8 @@ pub mod esper_sojourners;
 pub mod esperzoa;
 #[path = "m10/essence_scatter.rs"]
 pub mod essence_scatter;
+#[path = "zen/eternity_vessel.rs"]
+pub mod eternity_vessel;
 #[path = "arb/ethercaste_knight.rs"]
 pub mod ethercaste_knight;
 #[path = "arb/etherium_abomination.rs"]
@@ -495,8 +497,12 @@ pub mod luminarch_ascension;
 pub mod madrush_cyclops;
 #[path = "arb/maelstrom_pulse.rs"]
 pub mod maelstrom_pulse;
+#[path = "m10/magebane_armor.rs"]
+pub mod magebane_armor;
 #[path = "arb/magefire_wings.rs"]
 pub mod magefire_wings;
+#[path = "con_/magister_sphinx.rs"]
+pub mod magister_sphinx;
 #[path = "m10/magma_phoenix.rs"]
 pub mod magma_phoenix;
 #[path = "zen/magma_rift.rs"]
@@ -511,6 +517,8 @@ pub mod malakir_bloodwitch;
 pub mod manaforce_mace;
 #[path = "arb/marisi_s_twinclaws.rs"]
 pub mod marisi_s_twinclaws;
+#[path = "con_/mark_of_asylum.rs"]
+pub mod mark_of_asylum;
 #[path = "zen/mark_of_mutiny.rs"]
 pub mod mark_of_mutiny;
 #[path = "zen/marsh_casualties.rs"]
@@ -641,6 +649,8 @@ pub mod punishing_fire;
 pub mod putrid_leech;
 #[path = "arb/qasali_pridemage.rs"]
 pub mod qasali_pridemage;
+#[path = "zen/quest_for_pure_flame.rs"]
+pub mod quest_for_pure_flame;
 #[path = "zen/quest_for_the_gemblades.rs"]
 pub mod quest_for_the_gemblades;
 #[path = "zen/quest_for_the_gravelord.rs"]

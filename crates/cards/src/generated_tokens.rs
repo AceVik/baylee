@@ -5906,6 +5906,102 @@ pub static WORM_2_2_RED_GREEN_AA6F088A4: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 black Romulan.
+pub static ROMULAN_2_2_BLACK: TokenDef = TokenDef {
+    name: "Romulan",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ROMULAN],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 red Rebel.
+pub static REBEL_2_2_RED: TokenDef = TokenDef {
+    name: "Rebel",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::REBEL],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/3 red Demon Berserker with menace.
+pub static DEMON_BERSERKER_2_3_RED_MENACE: TokenDef = TokenDef {
+    name: "Demon Berserker",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DEMON, creature::BERSERKER],
+    power: Some(2),
+    toughness: Some(3),
+    keywords: KeywordSet::MENACE,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue red Otter with prowess.
+pub static OTTER_1_1_BLUE_RED_PROWESS: TokenDef = TokenDef {
+    name: "Otter",
+    colors: ColorSet::from_slice(&[Color::Blue, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::OTTER],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::PROWESS,
+    ..TokenDef::DEFAULT
+};
+
+/// 0/4 white Wall with defender.
+pub static WALL_0_4_WHITE_DEFENDER: TokenDef = TokenDef {
+    name: "Wall",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WALL],
+    power: Some(0),
+    toughness: Some(4),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Tribble.
+pub static TRIBBLE_1_1_WHITE_AA6F088A4: TokenDef = TokenDef {
+    name: "Tribble",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::TRIBBLE],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[static_ability!(
+        Filter::And(&[Filter::CREATURE, Filter::This]),
+        Modifier::AddKeyword(KeywordSet::CANT_BLOCK)
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/1 white Insect with flying.
+pub static INSECT_2_1_WHITE_FLYING: TokenDef = TokenDef {
+    name: "Insect",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::INSECT],
+    power: Some(2),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 white Unicorn.
+pub static UNICORN_2_2_WHITE: TokenDef = TokenDef {
+    name: "Unicorn",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::UNICORN],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -7142,6 +7238,14 @@ pub static ALL: &[&TokenDef] = &[
     &OFFICER_1_1_RED,
     &MURF_LEGENDARY_0_1_GREEN_INDESTRUCTIBLE,
     &WORM_2_2_RED_GREEN_AA6F088A4,
+    &ROMULAN_2_2_BLACK,
+    &REBEL_2_2_RED,
+    &DEMON_BERSERKER_2_3_RED_MENACE,
+    &OTTER_1_1_BLUE_RED_PROWESS,
+    &WALL_0_4_WHITE_DEFENDER,
+    &TRIBBLE_1_1_WHITE_AA6F088A4,
+    &INSECT_2_1_WHITE_FLYING,
+    &UNICORN_2_2_WHITE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -7592,4 +7696,12 @@ pub static GENERATED: &[&TokenDef] = &[
     &OFFICER_1_1_RED,
     &MURF_LEGENDARY_0_1_GREEN_INDESTRUCTIBLE,
     &WORM_2_2_RED_GREEN_AA6F088A4,
+    &ROMULAN_2_2_BLACK,
+    &REBEL_2_2_RED,
+    &DEMON_BERSERKER_2_3_RED_MENACE,
+    &OTTER_1_1_BLUE_RED_PROWESS,
+    &WALL_0_4_WHITE_DEFENDER,
+    &TRIBBLE_1_1_WHITE_AA6F088A4,
+    &INSECT_2_1_WHITE_FLYING,
+    &UNICORN_2_2_WHITE,
 ];

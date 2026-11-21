@@ -93,6 +93,8 @@ pub mod devastating_onslaught;
 pub mod diplomatic_relations;
 #[path = "spe/doc_ock_evil_inventor.rs"]
 pub mod doc_ock_evil_inventor;
+#[path = "om1/doc_ock_s_henchmen.rs"]
+pub mod doc_ock_s_henchmen;
 #[path = "om1/doc_ock_s_tentacles.rs"]
 pub mod doc_ock_s_tentacles;
 #[path = "eoe/drill_too_deep.rs"]
@@ -261,6 +263,8 @@ pub mod merciless_enforcers;
 pub mod mj_rising_star;
 #[path = "eoe/mm_menon_uthros_exile.rs"]
 pub mod mm_menon_uthros_exile;
+#[path = "om1/mob_lookout.rs"]
+pub mod mob_lookout;
 #[path = "eoe/molecular_modifier.rs"]
 pub mod molecular_modifier;
 #[path = "om1/molten_man_inferno_incarnate.rs"]
@@ -301,6 +305,10 @@ pub mod ouroboroid;
 pub mod passenger_ferry;
 #[path = "eoe/pinnacle_kill_ship.rs"]
 pub mod pinnacle_kill_ship;
+#[path = "om1/professional_wrestler.rs"]
+pub mod professional_wrestler;
+#[path = "om1/prowler_clawed_thief.rs"]
+pub mod prowler_clawed_thief;
 #[path = "spe/prowler_misguided_mentor.rs"]
 pub mod prowler_misguided_mentor;
 #[path = "eoe/radiant_strike.rs"]
@@ -341,6 +349,8 @@ pub mod savage_mansion;
 pub mod school_daze;
 #[path = "om1/scorpion_s_sting.rs"]
 pub mod scorpion_s_sting;
+#[path = "om1/scorpion_seething_striker.rs"]
+pub mod scorpion_seething_striker;
 #[path = "eoe/scour_for_scrap.rs"]
 pub mod scour_for_scrap;
 #[path = "eoc/scouring_swarm.rs"]
@@ -463,6 +473,12 @@ pub mod szarel_genesis_shepherd;
 pub mod taxi_driver;
 #[path = "eoe/thawbringer.rs"]
 pub mod thawbringer;
+#[path = "om1/the_clone_saga.rs"]
+pub mod the_clone_saga;
+#[path = "eoe/the_endstone.rs"]
+pub mod the_endstone;
+#[path = "eoe/the_seriema.rs"]
+pub mod the_seriema;
 #[path = "om1/the_spot_s_portal.rs"]
 pub mod the_spot_s_portal;
 #[path = "eoe/thrumming_hivepool.rs"]

@@ -149,6 +149,8 @@ pub mod fire_navy_trebuchet;
 pub mod firebending_lesson;
 #[path = "tla/first_time_flyer.rs"]
 pub mod first_time_flyer;
+#[path = "tla/flopsie_bumi_s_buddy.rs"]
+pub mod flopsie_bumi_s_buddy;
 #[path = "tle/flying_dolphin_fish.rs"]
 pub mod flying_dolphin_fish;
 #[path = "tla/foggy_bottom_swamp.rs"]
@@ -233,6 +235,8 @@ pub mod lion_vulture;
 pub mod long_feng_grand_secretariat;
 #[path = "tle/longshot_rebel_bowman.rs"]
 pub mod longshot_rebel_bowman;
+#[path = "tle/lost_in_memories.rs"]
+pub mod lost_in_memories;
 #[path = "tle/lost_in_the_spirit_world.rs"]
 pub mod lost_in_the_spirit_world;
 #[path = "ptla/mai_scornful_striker.rs"]

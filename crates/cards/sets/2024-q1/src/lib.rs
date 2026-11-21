@@ -55,6 +55,8 @@ pub mod break_down;
 pub mod brotherhood_outcast;
 #[path = "pip/brotherhood_vertibird.rs"]
 pub mod brotherhood_vertibird;
+#[path = "mkm/burden_of_proof.rs"]
+pub mod burden_of_proof;
 #[path = "mkm/candlestick.rs"]
 pub mod candlestick;
 #[path = "clu/carnage_interpreter.rs"]
@@ -85,6 +87,8 @@ pub mod conclave_evangelist;
 pub mod conservatory;
 #[path = "mkm/cornered_crook.rs"]
 pub mod cornered_crook;
+#[path = "clu/corporeal_projection.rs"]
+pub mod corporeal_projection;
 #[path = "mkm/crime_novelist.rs"]
 pub mod crime_novelist;
 #[path = "pip/crimson_caravaneer.rs"]
@@ -299,6 +303,8 @@ pub mod red_herring;
 pub mod redemption_arc;
 #[path = "clu/resonance_technician.rs"]
 pub mod resonance_technician;
+#[path = "mkm/rope.rs"]
+pub mod rope;
 #[path = "mkm/rot_farm_mortipede.rs"]
 pub mod rot_farm_mortipede;
 #[path = "mkm/rubblebelt_maverick.rs"]

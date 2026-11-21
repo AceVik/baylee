@@ -39,6 +39,8 @@ pub mod akroan_hoplite;
 pub mod alive;
 #[path = "gtc/alms_beast.rs"]
 pub mod alms_beast;
+#[path = "gtc/alpha_authority.rs"]
+pub mod alpha_authority;
 #[path = "ddl/anax_and_cymede.rs"]
 pub mod anax_and_cymede;
 #[path = "c13/angel_of_finality.rs"]
@@ -103,6 +105,8 @@ pub mod battle_sliver;
 pub mod battlewise_hoplite;
 #[path = "ths/battlewise_valor.rs"]
 pub mod battlewise_valor;
+#[path = "dgm/beck.rs"]
+pub mod beck;
 #[path = "dgm/beetleform_mage.rs"]
 pub mod beetleform_mage;
 #[path = "ths/benthic_giant.rs"]
@@ -633,6 +637,8 @@ pub mod purge_the_profane;
 pub mod purphoros_s_emissary;
 #[path = "dgm/pyrewild_shaman.rs"]
 pub mod pyrewild_shaman;
+#[path = "m14/pyromancer_s_gauntlet.rs"]
+pub mod pyromancer_s_gauntlet;
 #[path = "ths/rage_of_purphoros.rs"]
 pub mod rage_of_purphoros;
 #[path = "ths/rageblood_shaman.rs"]
@@ -937,6 +943,8 @@ pub mod viashino_firstblade;
 pub mod viashino_shanktail;
 #[path = "ths/viper_s_kiss.rs"]
 pub mod viper_s_kiss;
+#[path = "gtc/vizkopa_guildmage.rs"]
+pub mod vizkopa_guildmage;
 #[path = "dgm/voice_of_resurgence.rs"]
 pub mod voice_of_resurgence;
 #[path = "m14/voracious_wurm.rs"]
@@ -961,6 +969,8 @@ pub mod wasteland_viper;
 pub mod wavecrash_triton;
 #[path = "gtc/way_of_the_thief.rs"]
 pub mod way_of_the_thief;
+#[path = "dgm/weapon_surge.rs"]
+pub mod weapon_surge;
 #[path = "dgm/wear.rs"]
 pub mod wear;
 #[path = "gtc/wight_of_precinct_six.rs"]

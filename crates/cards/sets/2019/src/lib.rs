@@ -99,12 +99,16 @@ pub mod azorius_locket;
 pub mod azorius_skyguard;
 #[path = "mh1/azra_smokeshaper.rs"]
 pub mod azra_smokeshaper;
+#[path = "c19/backdraft_hellkite.rs"]
+pub mod backdraft_hellkite;
 #[path = "eld/bake_into_a_pie.rs"]
 pub mod bake_into_a_pie;
 #[path = "war/banehound.rs"]
 pub mod banehound;
 #[path = "rna/bankrupt_in_blood.rs"]
 pub mod bankrupt_in_blood;
+#[path = "eld/barge_in.rs"]
+pub mod barge_in;
 #[path = "m20/barkhide_troll.rs"]
 pub mod barkhide_troll;
 #[path = "sld/baron_vladimir_harkonnen.rs"]
@@ -229,6 +233,8 @@ pub mod celestial_messenger;
 pub mod centaur_nurturer;
 #[path = "war/chainwhip_cyclops.rs"]
 pub mod chainwhip_cyclops;
+#[path = "war/challenger_troll.rs"]
+pub mod challenger_troll;
 #[path = "m20/chandra_s_embercat.rs"]
 pub mod chandra_s_embercat;
 #[path = "mh1/changeling_outcast.rs"]
@@ -477,6 +483,8 @@ pub mod ferocity_of_the_wilds;
 pub mod festive_funeral;
 #[path = "m20/field_of_the_dead.rs"]
 pub mod field_of_the_dead;
+#[path = "gn2/fiendish_duo.rs"]
+pub mod fiendish_duo;
 #[path = "eld/fierce_witchstalker.rs"]
 pub mod fierce_witchstalker;
 #[path = "mh1/fiery_islet.rs"]
@@ -523,6 +531,8 @@ pub mod frilled_mystic;
 pub mod frogify;
 #[path = "mh1/frostwalk_bastion.rs"]
 pub mod frostwalk_bastion;
+#[path = "mh1/frostwalla.rs"]
+pub mod frostwalla;
 #[path = "m20/fry.rs"]
 pub mod fry;
 #[path = "eld/gadwick_the_wizened.rs"]
@@ -847,6 +857,8 @@ pub mod merfolk_secretkeeper;
 pub mod merfolk_skydiver;
 #[path = "c19/mire_in_misery.rs"]
 pub mod mire_in_misery;
+#[path = "prna/mirror_march.rs"]
+pub mod mirror_march;
 #[path = "eld/mirrormade.rs"]
 pub mod mirrormade;
 #[path = "mh1/mist_syndicate_naga.rs"]
@@ -1055,6 +1067,8 @@ pub mod retributive_wand;
 pub mod return_to_nature;
 #[path = "sld/reverend_mother_jessica.rs"]
 pub mod reverend_mother_jessica;
+#[path = "rna/revival.rs"]
+pub mod revival;
 #[path = "mh1/rhox_veteran.rs"]
 pub mod rhox_veteran;
 #[path = "m20/rienne_angel_of_rebirth.rs"]
@@ -1133,6 +1147,8 @@ pub mod scorching_dragonfire;
 pub mod scorchmark;
 #[path = "mh1/scour_all_possibilities.rs"]
 pub mod scour_all_possibilities;
+#[path = "mh1/scrapyard_recombiner.rs"]
+pub mod scrapyard_recombiner;
 #[path = "rna/screaming_shield.rs"]
 pub mod screaming_shield;
 #[path = "rna/scuttlegator.rs"]
@@ -1281,6 +1297,8 @@ pub mod steelbane_hydra;
 pub mod steelgaze_griffin;
 #[path = "rna/steeple_creeper.rs"]
 pub mod steeple_creeper;
+#[path = "mh1/stirring_address.rs"]
+pub mod stirring_address;
 #[path = "eld/stonecoil_serpent.rs"]
 pub mod stonecoil_serpent;
 #[path = "rna/stony_strength.rs"]
@@ -1295,6 +1313,8 @@ pub mod string_of_disappearances;
 pub mod sunbaked_canyon;
 #[path = "war/sunblade_angel.rs"]
 pub mod sunblade_angel;
+#[path = "rna/sunder_shaman.rs"]
+pub mod sunder_shaman;
 #[path = "rna/swirling_torrent.rs"]
 pub mod swirling_torrent;
 #[path = "mh1/sword_of_sinew_and_steel.rs"]
@@ -1305,6 +1325,8 @@ pub mod sylvan_brushstrider;
 pub mod syndicate_guildmage;
 #[path = "eld/syr_alin_the_lion_s_claw.rs"]
 pub mod syr_alin_the_lion_s_claw;
+#[path = "eld/syr_carah_the_bold.rs"]
+pub mod syr_carah_the_bold;
 #[path = "eld/syr_faren_the_hengehammer.rs"]
 pub mod syr_faren_the_hengehammer;
 #[path = "mh1/talisman_of_conviction.rs"]
@@ -1525,6 +1547,8 @@ pub mod witch_s_vengeance;
 pub mod witching_well;
 #[path = "eld/wolf_s_quarry.rs"]
 pub mod wolf_s_quarry;
+#[path = "m20/wolfrider_s_saddle.rs"]
+pub mod wolfrider_s_saddle;
 #[path = "m20/woodland_champion.rs"]
 pub mod woodland_champion;
 #[path = "m20/woodland_mystic.rs"]

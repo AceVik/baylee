@@ -31,6 +31,8 @@ pub mod atmosphere_surgeon;
 pub mod atraxa_grand_unifier;
 #[path = "one/axiom_engraver.rs"]
 pub mod axiom_engraver;
+#[path = "one/barbed_batterfist.rs"]
+pub mod barbed_batterfist;
 #[path = "one/basilica_shepherd.rs"]
 pub mod basilica_shepherd;
 #[path = "one/basilica_skullbomb.rs"]
@@ -39,6 +41,8 @@ pub mod basilica_skullbomb;
 pub mod bilious_skulldweller;
 #[path = "one/bladed_ambassador.rs"]
 pub mod bladed_ambassador;
+#[path = "one/bladehold_war_whip.rs"]
+pub mod bladehold_war_whip;
 #[path = "one/blazing_crescendo.rs"]
 pub mod blazing_crescendo;
 #[path = "one/blightbelly_rat.rs"]
@@ -81,6 +85,8 @@ pub mod crawling_chorus;
 pub mod cutthroat_centurion;
 #[path = "one/distorted_curiosity.rs"]
 pub mod distorted_curiosity;
+#[path = "one/dragonwing_glider.rs"]
+pub mod dragonwing_glider;
 #[path = "one/dross_skullbomb.rs"]
 pub mod dross_skullbomb;
 #[path = "one/drown_in_ichor.rs"]
@@ -121,12 +127,18 @@ pub mod gleeful_demolition;
 pub mod glissa_sunslayer;
 #[path = "onc/glistening_sphere.rs"]
 pub mod glistening_sphere;
+#[path = "one/goldwarden_s_helm.rs"]
+pub mod goldwarden_s_helm;
 #[path = "one/graaz_unstoppable_juggernaut.rs"]
 pub mod graaz_unstoppable_juggernaut;
 #[path = "one/gulping_scraptrap.rs"]
 pub mod gulping_scraptrap;
 #[path = "one/hazardous_blast.rs"]
 pub mod hazardous_blast;
+#[path = "one/hexgold_halberd.rs"]
+pub mod hexgold_halberd;
+#[path = "one/hexgold_hoverwings.rs"]
+pub mod hexgold_hoverwings;
 #[path = "one/ichor_synthesizer.rs"]
 pub mod ichor_synthesizer;
 #[path = "one/ichorplate_golem.rs"]
@@ -149,6 +161,8 @@ pub mod infested_fleshcutter;
 pub mod jawbone_duelist;
 #[path = "one/jor_kadeen_first_goldwarden.rs"]
 pub mod jor_kadeen_first_goldwarden;
+#[path = "onc/kemba_s_banner.rs"]
+pub mod kemba_s_banner;
 #[path = "one/kuldotha_cackler.rs"]
 pub mod kuldotha_cackler;
 #[path = "one/leonin_lightbringer.rs"]
@@ -171,6 +185,8 @@ pub mod mindsplice_apparatus;
 pub mod minor_misstep;
 #[path = "onc/mirage_mockery.rs"]
 pub mod mirage_mockery;
+#[path = "one/mirran_bardiche.rs"]
+pub mod mirran_bardiche;
 #[path = "one/mirrex.rs"]
 pub mod mirrex;
 #[path = "one/molten_rebuke.rs"]
@@ -187,6 +203,8 @@ pub mod nimraiser_paladin;
 pub mod norn_s_choirmaster;
 #[path = "one/norn_s_wellspring.rs"]
 pub mod norn_s_wellspring;
+#[path = "one/noxious_assault.rs"]
+pub mod noxious_assault;
 #[path = "one/offer_immortality.rs"]
 pub mod offer_immortality;
 #[path = "one/oil_gorger_troll.rs"]
@@ -211,6 +229,8 @@ pub mod predation_steward;
 pub mod prologue_to_phyresis;
 #[path = "one/quicksilver_fisher.rs"]
 pub mod quicksilver_fisher;
+#[path = "one/resistance_reunited.rs"]
+pub mod resistance_reunited;
 #[path = "one/resistance_skywarden.rs"]
 pub mod resistance_skywarden;
 #[path = "one/ribskiff.rs"]
@@ -247,12 +267,16 @@ pub mod surgical_metamorph;
 pub mod surgical_skullbomb;
 #[path = "one/swooping_lookout.rs"]
 pub mod swooping_lookout;
+#[path = "one/sylvok_battle_chair.rs"]
+pub mod sylvok_battle_chair;
 #[path = "one/tablet_of_compleation.rs"]
 pub mod tablet_of_compleation;
 #[path = "one/tainted_observer.rs"]
 pub mod tainted_observer;
 #[path = "one/tamiyo_s_logbook.rs"]
 pub mod tamiyo_s_logbook;
+#[path = "onc/tangleweave_armor.rs"]
+pub mod tangleweave_armor;
 #[path = "one/the_autonomous_furnace.rs"]
 pub mod the_autonomous_furnace;
 #[path = "one/the_dross_pits.rs"]
@@ -307,6 +331,8 @@ pub mod vivisurgeon_s_insight;
 pub mod vraan_executioner_thane;
 #[path = "one/vraska_s_fall.rs"]
 pub mod vraska_s_fall;
+#[path = "one/vulshok_splitter.rs"]
+pub mod vulshok_splitter;
 #[path = "one/watchful_blisterzoa.rs"]
 pub mod watchful_blisterzoa;
 #[path = "one/whisper_of_the_dross.rs"]

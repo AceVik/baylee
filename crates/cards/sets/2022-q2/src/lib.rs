@@ -213,10 +213,14 @@ pub mod draconic_muralists;
 pub mod dragonborn_looter;
 #[path = "clb/dread_linnorm.rs"]
 pub mod dread_linnorm;
+#[path = "clb/drillworks_mole.rs"]
+pub mod drillworks_mole;
 #[path = "clb/duke_ulder_ravengard.rs"]
 pub mod duke_ulder_ravengard;
 #[path = "clb/earth_tremor.rs"]
 pub mod earth_tremor;
+#[path = "snc/echo_inspector.rs"]
+pub mod echo_inspector;
 #[path = "clb/eldritch_pact.rs"]
 pub mod eldritch_pact;
 #[path = "snc/elegant_entourage.rs"]
@@ -307,6 +311,8 @@ pub mod haunted_one;
 pub mod heap_gate;
 #[path = "clb/horn_of_valhalla.rs"]
 pub mod horn_of_valhalla;
+#[path = "snc/hypnotic_grifter.rs"]
+pub mod hypnotic_grifter;
 #[path = "clb/icewind_stalwart.rs"]
 pub mod icewind_stalwart;
 #[path = "psnc/incandescent_aria.rs"]
@@ -413,6 +419,8 @@ pub mod nothic;
 pub mod obscura_charm;
 #[path = "snc/obscura_initiate.rs"]
 pub mod obscura_initiate;
+#[path = "psnc/obscura_interceptor.rs"]
+pub mod obscura_interceptor;
 #[path = "snc/obscura_storefront.rs"]
 pub mod obscura_storefront;
 #[path = "clb/oceanus_dragon.rs"]
@@ -449,6 +457,10 @@ pub mod professional_face_breaker;
 pub mod prosperous_partnership;
 #[path = "clb/pseudodragon_familiar.rs"]
 pub mod pseudodragon_familiar;
+#[path = "snc/psionic_snoop.rs"]
+pub mod psionic_snoop;
+#[path = "snc/psychic_pickpocket.rs"]
+pub mod psychic_pickpocket;
 #[path = "snc/pugnacious_pugilist.rs"]
 pub mod pugnacious_pugilist;
 #[path = "snc/queza_augur_of_agonies.rs"]
@@ -457,8 +469,14 @@ pub mod queza_augur_of_agonies;
 pub mod quick_draw_dagger;
 #[path = "snc/racers_ring.rs"]
 pub mod racers_ring;
+#[path = "snc/raffine_s_informant.rs"]
+pub mod raffine_s_informant;
+#[path = "snc/raffine_s_silencer.rs"]
+pub mod raffine_s_silencer;
 #[path = "psnc/raffine_s_tower.rs"]
 pub mod raffine_s_tower;
+#[path = "psnc/raffine_scheming_seer.rs"]
+pub mod raffine_scheming_seer;
 #[path = "clb/raised_by_giants.rs"]
 pub mod raised_by_giants;
 #[path = "snc/ready_to_rumble.rs"]
@@ -473,6 +491,8 @@ pub mod recruitment_officer;
 pub mod refuse_to_yield;
 #[path = "clb/rescuer_chwinga.rs"]
 pub mod rescuer_chwinga;
+#[path = "snc/revel_ruiner.rs"]
+pub mod revel_ruiner;
 #[path = "snc/revelation_of_power.rs"]
 pub mod revelation_of_power;
 #[path = "snc/rhox_pummeler.rs"]
@@ -503,6 +523,8 @@ pub mod scuttling_butler;
 pub mod sea_gate;
 #[path = "clb/sea_hag.rs"]
 pub mod sea_hag;
+#[path = "snc/security_bypass.rs"]
+pub mod security_bypass;
 #[path = "psnc/shadow_of_mortality.rs"]
 pub mod shadow_of_mortality;
 #[path = "clb/shameless_charlatan.rs"]

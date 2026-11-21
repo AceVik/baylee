@@ -59,6 +59,8 @@ pub mod angel_of_sanctions;
 pub mod angel_of_the_god_pharaoh;
 #[path = "akh/angler_drake.rs"]
 pub mod angler_drake;
+#[path = "pxln/angrath_s_marauders.rs"]
+pub mod angrath_s_marauders;
 #[path = "xln/anointed_deacon.rs"]
 pub mod anointed_deacon;
 #[path = "akh/anointed_procession.rs"]
@@ -67,6 +69,8 @@ pub mod anointed_procession;
 pub mod anointer_priest;
 #[path = "hou/apocalypse_demon.rs"]
 pub mod apocalypse_demon;
+#[path = "hou/appeal.rs"]
+pub mod appeal;
 #[path = "c17/arahbo_roar_of_the_world.rs"]
 pub mod arahbo_roar_of_the_world;
 #[path = "akh/archfiend_of_ifnir.rs"]
@@ -155,6 +159,8 @@ pub mod bontu_s_last_reckoning;
 pub mod bontu_s_monument;
 #[path = "hou/brambleweft_behemoth.rs"]
 pub mod brambleweft_behemoth;
+#[path = "xln/brazen_buccaneers.rs"]
+pub mod brazen_buccaneers;
 #[path = "xln/bright_reprisal.rs"]
 pub mod bright_reprisal;
 #[path = "hou/burning_fist_minotaur.rs"]
@@ -283,6 +289,8 @@ pub mod deadeye_plunderers;
 pub mod deadeye_quartermaster;
 #[path = "xln/deadeye_tormentor.rs"]
 pub mod deadeye_tormentor;
+#[path = "pxln/deadeye_tracker.rs"]
+pub mod deadeye_tracker;
 #[path = "pxln/deathgorge_scavenger.rs"]
 pub mod deathgorge_scavenger;
 #[path = "xln/deathless_ancient.rs"]
@@ -335,6 +343,8 @@ pub mod dinosaur_stampede;
 pub mod dire_fleet_captain;
 #[path = "xln/dire_fleet_hoarder.rs"]
 pub mod dire_fleet_hoarder;
+#[path = "xln/dire_fleet_interloper.rs"]
+pub mod dire_fleet_interloper;
 #[path = "aer/disallow.rs"]
 pub mod disallow;
 #[path = "aer/dispersal_technician.rs"]
@@ -397,6 +407,8 @@ pub mod electrify;
 pub mod emberhorn_minotaur;
 #[path = "aer/embraal_gear_smasher.rs"]
 pub mod embraal_gear_smasher;
+#[path = "xln/emissary_of_sunrise.rs"]
+pub mod emissary_of_sunrise;
 #[path = "xln/encampment_keeper.rs"]
 pub mod encampment_keeper;
 #[path = "hou/endless_sands.rs"]
@@ -511,6 +523,8 @@ pub mod graven_abomination;
 pub mod grazing_whiptail;
 #[path = "akh/greater_sandwurm.rs"]
 pub mod greater_sandwurm;
+#[path = "aer/greenwheel_liberator.rs"]
+pub mod greenwheel_liberator;
 #[path = "aer/gremlin_infestation.rs"]
 pub mod gremlin_infestation;
 #[path = "xln/grim_captain_s_call.rs"]
@@ -635,6 +649,8 @@ pub mod irontread_crusher;
 pub mod irrigated_farmland;
 #[path = "xln/ixalan_s_binding.rs"]
 pub mod ixalan_s_binding;
+#[path = "xln/ixalli_s_diviner.rs"]
+pub mod ixalli_s_diviner;
 #[path = "xln/ixalli_s_keeper.rs"]
 pub mod ixalli_s_keeper;
 #[path = "xln/jace_s_sentinel.rs"]
@@ -673,6 +689,8 @@ pub mod legion_s_judgment;
 pub mod legion_s_landing;
 #[path = "c17/licia_sanguine_tribune.rs"]
 pub mod licia_sanguine_tribune;
+#[path = "aer/lifecraft_cavalry.rs"]
+pub mod lifecraft_cavalry;
 #[path = "aer/lifecrafter_s_bestiary.rs"]
 pub mod lifecrafter_s_bestiary;
 #[path = "aer/lifecrafter_s_gift.rs"]
@@ -707,6 +725,8 @@ pub mod maverick_thopterist;
 pub mod mavren_fein_dusk_apostle;
 #[path = "akh/merciless_javelineer.rs"]
 pub mod merciless_javelineer;
+#[path = "xln/merfolk_branchwalker.rs"]
+pub mod merfolk_branchwalker;
 #[path = "aer/metallic_rebuke.rs"]
 pub mod metallic_rebuke;
 #[path = "akh/miasmic_mummy.rs"]
@@ -731,6 +751,8 @@ pub mod mummy_paramount;
 pub mod naga_oracle;
 #[path = "akh/naga_vitalist.rs"]
 pub mod naga_vitalist;
+#[path = "aer/narnam_renegade.rs"]
+pub mod narnam_renegade;
 #[path = "aer/natural_obsolescence.rs"]
 pub mod natural_obsolescence;
 #[path = "xln/navigator_s_ruin.rs"]
@@ -743,6 +765,8 @@ pub mod neheb_the_worthy;
 pub mod nest_robber;
 #[path = "akh/never.rs"]
 pub mod never;
+#[path = "aer/night_market_aeronaut.rs"]
+pub mod night_market_aeronaut;
 #[path = "aer/night_market_guard.rs"]
 pub mod night_market_guard;
 #[path = "akh/nimble_blade_khenra.rs"]
@@ -763,6 +787,8 @@ pub mod obelisk_spider;
 pub mod oketra_s_attendant;
 #[path = "hou/oketra_s_avenger.rs"]
 pub mod oketra_s_avenger;
+#[path = "hou/oketra_s_last_mercy.rs"]
+pub mod oketra_s_last_mercy;
 #[path = "akh/oketra_s_monument.rs"]
 pub mod oketra_s_monument;
 #[path = "hou/ominous_sphinx.rs"]
@@ -849,6 +875,8 @@ pub mod pursue_glory;
 pub mod qasali_slingers;
 #[path = "hou/quarry_beetle.rs"]
 pub mod quarry_beetle;
+#[path = "xln/queen_s_agent.rs"]
+pub mod queen_s_agent;
 #[path = "xln/queen_s_bay_soldier.rs"]
 pub mod queen_s_bay_soldier;
 #[path = "xln/queen_s_commission.rs"]
@@ -925,6 +953,8 @@ pub mod rhonas_s_stalwart;
 pub mod riddleform;
 #[path = "aer/ridgescale_tusker.rs"]
 pub mod ridgescale_tusker;
+#[path = "xln/rigging_runner.rs"]
+pub mod rigging_runner;
 #[path = "xln/rile.rs"]
 pub mod rile;
 #[path = "pxln/ripjaw_raptor.rs"]
@@ -975,6 +1005,8 @@ pub mod scrounger_of_souls;
 pub mod search_for_azcanta;
 #[path = "ust/secret_base.rs"]
 pub mod secret_base;
+#[path = "xln/seekers_squire.rs"]
+pub mod seekers_squire;
 #[path = "hou/seer_of_the_last_tomorrow.rs"]
 pub mod seer_of_the_last_tomorrow;
 #[path = "xln/sentinel_totem.rs"]
@@ -1013,6 +1045,8 @@ pub mod shore_keeper;
 pub mod siege_modification;
 #[path = "hou/sinuous_striker.rs"]
 pub mod sinuous_striker;
+#[path = "xln/siren_lookout.rs"]
+pub mod siren_lookout;
 #[path = "akh/sixth_sense.rs"]
 pub mod sixth_sense;
 #[path = "xln/skittering_heartstopper.rs"]
@@ -1063,6 +1097,8 @@ pub mod steward_of_solidarity;
 pub mod stinging_shot;
 #[path = "akh/stir_the_sands.rs"]
 pub mod stir_the_sands;
+#[path = "xln/storm_fleet_aerialist.rs"]
+pub mod storm_fleet_aerialist;
 #[path = "xln/storm_fleet_arsonist.rs"]
 pub mod storm_fleet_arsonist;
 #[path = "xln/storm_fleet_pyromancer.rs"]
@@ -1077,6 +1113,8 @@ pub mod striped_riverwinder;
 pub mod struggle;
 #[path = "xln/sun_crowned_hunters.rs"]
 pub mod sun_crowned_hunters;
+#[path = "xln/sunrise_seeker.rs"]
+pub mod sunrise_seeker;
 #[path = "akh/sunscorched_desert.rs"]
 pub mod sunscorched_desert;
 #[path = "hou/sunscourge_champion.rs"]
@@ -1135,6 +1173,8 @@ pub mod throne_of_the_god_pharaoh;
 pub mod thundering_spineback;
 #[path = "xln/tilonalli_s_knight.rs"]
 pub mod tilonalli_s_knight;
+#[path = "xln/tishana_s_wayfinder.rs"]
+pub mod tishana_s_wayfinder;
 #[path = "pxln/treasure_map.rs"]
 pub mod treasure_map;
 #[path = "akh/trespasser_s_curse.rs"]

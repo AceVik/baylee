@@ -19,6 +19,8 @@ pub mod aatchik_emerald_radian;
 pub mod accursed_duneyard;
 #[path = "drc/adaptive_omnitool.rs"]
 pub mod adaptive_omnitool;
+#[path = "dft/aether_syphon.rs"]
+pub mod aether_syphon;
 #[path = "dft/aetherjacket.rs"]
 pub mod aetherjacket;
 #[path = "dft/agonasaur_rex.rs"]
@@ -55,6 +57,8 @@ pub mod broadside_barrage;
 pub mod broodheart_engine;
 #[path = "dft/burner_rocket.rs"]
 pub mod burner_rocket;
+#[path = "dft/burnout_bashtronaut.rs"]
+pub mod burnout_bashtronaut;
 #[path = "dft/caelorna_coral_tyrant.rs"]
 pub mod caelorna_coral_tyrant;
 #[path = "dft/carrion_cruiser.rs"]
@@ -91,6 +95,8 @@ pub mod dredger_s_insight;
 pub mod dynamite_diver;
 #[path = "dft/earthrumbler.rs"]
 pub mod earthrumbler;
+#[path = "dft/embalmed_ascendant.rs"]
+pub mod embalmed_ascendant;
 #[path = "dft/engine_rat.rs"]
 pub mod engine_rat;
 #[path = "dft/fang_guardian.rs"]
@@ -103,8 +109,12 @@ pub mod fuel_the_flames;
 pub mod gallant_strike;
 #[path = "dft/gastal_blockbuster.rs"]
 pub mod gastal_blockbuster;
+#[path = "dft/gastal_raider.rs"]
+pub mod gastal_raider;
 #[path = "dft/gastal_thrillroller.rs"]
 pub mod gastal_thrillroller;
+#[path = "dft/gastal_thrillseeker.rs"]
+pub mod gastal_thrillseeker;
 #[path = "pw25/gran_gran.rs"]
 pub mod gran_gran;
 #[path = "dft/grim_bauble.rs"]
@@ -121,6 +131,8 @@ pub mod hashaton_scarab_s_fist;
 pub mod haunt_the_network;
 #[path = "dft/haunted_hellride.rs"]
 pub mod haunted_hellride;
+#[path = "dft/hazoret_godseeker.rs"]
+pub mod hazoret_godseeker;
 #[path = "dft/howler_s_heavy.rs"]
 pub mod howler_s_heavy;
 #[path = "dft/hulldrifter.rs"]
@@ -143,6 +155,8 @@ pub mod marketback_walker;
 pub mod maximum_overdrive;
 #[path = "dft/memory_guardian.rs"]
 pub mod memory_guardian;
+#[path = "dft/mendicant_core_guidelight.rs"]
+pub mod mendicant_core_guidelight;
 #[path = "dft/midnight_mangler.rs"]
 pub mod midnight_mangler;
 #[path = "dft/migrating_ketradon.rs"]
@@ -151,6 +165,8 @@ pub mod migrating_ketradon;
 pub mod mu_yanling_wind_rider;
 #[path = "dft/muraganda_raceway.rs"]
 pub mod muraganda_raceway;
+#[path = "dft/nesting_bot.rs"]
+pub mod nesting_bot;
 #[path = "dft/night_market.rs"]
 pub mod night_market;
 #[path = "dft/nimble_thopterist.rs"]
@@ -169,6 +185,8 @@ pub mod plow_through;
 pub mod possession_engine;
 #[path = "dft/pothole_mole.rs"]
 pub mod pothole_mole;
+#[path = "dft/pride_of_the_road.rs"]
+pub mod pride_of_the_road;
 #[path = "dft/quag_feast.rs"]
 pub mod quag_feast;
 #[path = "dft/reef_roads.rs"]
@@ -177,6 +195,10 @@ pub mod reef_roads;
 pub mod regal_imperiosaur;
 #[path = "dft/ripclaw_wrangler.rs"]
 pub mod ripclaw_wrangler;
+#[path = "dft/risen_necroregent.rs"]
+pub mod risen_necroregent;
+#[path = "ydft/rising_chicane.rs"]
+pub mod rising_chicane;
 #[path = "dft/risky_shortcut.rs"]
 pub mod risky_shortcut;
 #[path = "dft/riverpyre_verge.rs"]
@@ -215,12 +237,16 @@ pub mod spotcycle_scouter;
 pub mod stall_out;
 #[path = "dft/stock_up.rs"]
 pub mod stock_up;
+#[path = "dft/streaking_oilgorger.rs"]
+pub mod streaking_oilgorger;
 #[path = "dft/sunbillow_verge.rs"]
 pub mod sunbillow_verge;
 #[path = "dft/sundial_dawn_tyrant.rs"]
 pub mod sundial_dawn_tyrant;
 #[path = "pspl/super_shredder.rs"]
 pub mod super_shredder;
+#[path = "dft/swiftwing_assailant.rs"]
+pub mod swiftwing_assailant;
 #[path = "dft/syphon_fuel.rs"]
 pub mod syphon_fuel;
 #[path = "drc/temmet_naktamun_s_will.rs"]
@@ -255,6 +281,8 @@ pub mod voyage_home;
 pub mod voyager_glidecar;
 #[path = "dft/voyager_quickwelder.rs"]
 pub mod voyager_quickwelder;
+#[path = "dft/walking_sarcophagus.rs"]
+pub mod walking_sarcophagus;
 #[path = "dft/wastewood_verge.rs"]
 pub mod wastewood_verge;
 #[path = "dft/waxen_shapethief.rs"]

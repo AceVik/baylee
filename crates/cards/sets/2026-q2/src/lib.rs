@@ -17,12 +17,16 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 pub mod a_i_m_bot;
 #[path = "msh/a_i_m_labs.rs"]
 pub mod a_i_m_labs;
+#[path = "msh/a_i_m_scientists.rs"]
+pub mod a_i_m_scientists;
 #[path = "msh/a_i_m_synthoids.rs"]
 pub mod a_i_m_synthoids;
 #[path = "sos/abigale_poet_laureate.rs"]
 pub mod abigale_poet_laureate;
 #[path = "msc/abomination_irradiated_brute.rs"]
 pub mod abomination_irradiated_brute;
+#[path = "msc/absorbing_man_and_titania.rs"]
+pub mod absorbing_man_and_titania;
 #[path = "msc/accelerated_evolution.rs"]
 pub mod accelerated_evolution;
 #[path = "sos/additive_evolution.rs"]
@@ -69,6 +73,8 @@ pub mod ascendant_dustspeaker;
 pub mod asgardian_citadel;
 #[path = "msh/atlantean_cavalry.rs"]
 pub mod atlantean_cavalry;
+#[path = "msc/atlantean_skirmisher.rs"]
+pub mod atlantean_skirmisher;
 #[path = "msc/atlas_sizable_stooge.rs"]
 pub mod atlas_sizable_stooge;
 #[path = "msh/avengers_hangar.rs"]
@@ -287,6 +293,8 @@ pub mod fisk_tower;
 pub mod fix_what_s_broken;
 #[path = "msc/flame_on.rs"]
 pub mod flame_on;
+#[path = "psos/flashback.rs"]
+pub mod flashback;
 #[path = "msc/flatman.rs"]
 pub mod flatman;
 #[path = "msc/flora_colossus.rs"]
@@ -447,6 +455,8 @@ pub mod jessica_jones_private_eye;
 pub mod k_un_lun_warrior;
 #[path = "msh/ka_zar_of_the_savage_land.rs"]
 pub mod ka_zar_of_the_savage_land;
+#[path = "msh/kang_temporal_tyrant.rs"]
+pub mod kang_temporal_tyrant;
 #[path = "msc/killmonger_ruthless_usurper.rs"]
 pub mod killmonger_ruthless_usurper;
 #[path = "msh/killmonger_scourge_of_wakanda.rs"]
@@ -493,6 +503,8 @@ pub mod luke_cage_hero_for_hire;
 pub mod luke_cage_power_man;
 #[path = "sos/lumaret_s_favor.rs"]
 pub mod lumaret_s_favor;
+#[path = "msh/m_o_d_o_k.rs"]
+pub mod m_o_d_o_k;
 #[path = "msc/m_o_d_o_k_evil_intellect.rs"]
 pub mod m_o_d_o_k_evil_intellect;
 #[path = "msc/mach_1_swooping_scoundrel.rs"]
@@ -505,6 +517,8 @@ pub mod machinesmith_automaton;
 pub mod madame_hydra;
 #[path = "msc/madame_hydra_reanimated.rs"]
 pub mod madame_hydra_reanimated;
+#[path = "msh/madame_masque.rs"]
+pub mod madame_masque;
 #[path = "psos/maelstrom_artisan.rs"]
 pub mod maelstrom_artisan;
 #[path = "sos/mage_tower_referee.rs"]
@@ -557,6 +571,8 @@ pub mod multiversal_recruitment;
 pub mod muse_s_encouragement;
 #[path = "msc/nakia_wakandan_operative.rs"]
 pub mod nakia_wakandan_operative;
+#[path = "msc/namor_scourge_of_the_seas.rs"]
+pub mod namor_scourge_of_the_seas;
 #[path = "msh/night_nurse_healer_of_heroes.rs"]
 pub mod night_nurse_healer_of_heroes;
 #[path = "msc/nighthawk_dark_defender.rs"]
@@ -589,6 +605,8 @@ pub mod peggy_carter_secret_agent;
 pub mod pest_mascot;
 #[path = "psos/petrified_hamlet.rs"]
 pub mod petrified_hamlet;
+#[path = "msc/pharaoh_rama_tut.rs"]
+pub mod pharaoh_rama_tut;
 #[path = "msc/photon_lady_of_light.rs"]
 pub mod photon_lady_of_light;
 #[path = "msc/photon_mighty_marvel.rs"]
@@ -647,6 +665,8 @@ pub mod rapturous_moment;
 pub mod rearing_embermare;
 #[path = "msc/red_ghost_intangible_genius.rs"]
 pub mod red_ghost_intangible_genius;
+#[path = "msh/red_room_recruit.rs"]
+pub mod red_room_recruit;
 #[path = "sos/rehearsed_debater.rs"]
 pub mod rehearsed_debater;
 #[path = "msh/reptil_dinomorpher.rs"]
@@ -843,6 +863,8 @@ pub mod thor_god_of_thunder;
 pub mod thor_odinson;
 #[path = "sos/thornfist_striker.rs"]
 pub mod thornfist_striker;
+#[path = "msc/tiger_shark_abyssal_hunter.rs"]
+pub mod tiger_shark_abyssal_hunter;
 #[path = "msh/tigra_feline_fury.rs"]
 pub mod tigra_feline_fury;
 #[path = "sos/titan_s_grave.rs"]
@@ -895,6 +917,8 @@ pub mod undead_hand_ninja;
 pub mod undercover_skrull;
 #[path = "sos/unsubtle_mockery.rs"]
 pub mod unsubtle_mockery;
+#[path = "msc/valentina_allegra_de_fontaine.rs"]
+pub mod valentina_allegra_de_fontaine;
 #[path = "msc/valkyrior_skyrider.rs"]
 pub mod valkyrior_skyrider;
 #[path = "msc/vault_guardsman.rs"]

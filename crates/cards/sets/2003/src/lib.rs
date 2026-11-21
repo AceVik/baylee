@@ -1003,6 +1003,8 @@ pub mod viridian_longbow;
 pub mod viridian_shaman;
 #[path = "lgn/voidmage_apprentice.rs"]
 pub mod voidmage_apprentice;
+#[path = "mrd/vorrac_battlehorns.rs"]
+pub mod vorrac_battlehorns;
 #[path = "mrd/vulshok_battlegear.rs"]
 pub mod vulshok_battlegear;
 #[path = "mrd/vulshok_berserker.rs"]

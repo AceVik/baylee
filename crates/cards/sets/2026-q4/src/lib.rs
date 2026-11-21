@@ -53,6 +53,8 @@ pub mod arni_renowned_champion;
 pub mod artificial_anomaly;
 #[path = "fra/artifist_acumen.rs"]
 pub mod artifist_acumen;
+#[path = "mbc/ashaya_s_enduring_bond.rs"]
+pub mod ashaya_s_enduring_bond;
 #[path = "trk/assault_drone.rs"]
 pub mod assault_drone;
 #[path = "trk/assembly_specialist.rs"]
@@ -109,6 +111,8 @@ pub mod budding_insurgent;
 pub mod cantankerous_captain;
 #[path = "trc/captain_janeway_endgame.rs"]
 pub mod captain_janeway_endgame;
+#[path = "trk/captain_kathryn_janeway.rs"]
+pub mod captain_kathryn_janeway;
 #[path = "trk/captain_s_tutelage.rs"]
 pub mod captain_s_tutelage;
 #[path = "trk/cardassia_prime.rs"]
@@ -189,6 +193,8 @@ pub mod dal_r_el_augment_orphan;
 pub mod dark_matter_manipulator;
 #[path = "fra/darklight_phoenix.rs"]
 pub mod darklight_phoenix;
+#[path = "trc/data_exploring_humanity.rs"]
+pub mod data_exploring_humanity;
 #[path = "trk/data_new_life.rs"]
 pub mod data_new_life;
 #[path = "trc/data_professor_of_humanities.rs"]
@@ -405,6 +411,8 @@ pub mod kirk_man_of_action;
 pub mod klingon_strike_force;
 #[path = "trc/kolinahr_priest.rs"]
 pub mod kolinahr_priest;
+#[path = "trc/koloth_tribble_hunter.rs"]
+pub mod koloth_tribble_hunter;
 #[path = "fra/konstrari_annex.rs"]
 pub mod konstrari_annex;
 #[path = "fra/konstrari_charm.rs"]
@@ -425,10 +433,14 @@ pub mod kwia_vigorbloom;
 pub mod la_forge_perceptive_engineer;
 #[path = "fra/lich_s_relic.rs"]
 pub mod lich_s_relic;
+#[path = "trc/lieutenant_hikaru_sulu.rs"]
+pub mod lieutenant_hikaru_sulu;
 #[path = "fra/liliana_the_faultless.rs"]
 pub mod liliana_the_faultless;
 #[path = "fra/liliana_the_repentant.rs"]
 pub mod liliana_the_repentant;
+#[path = "trk/live_long_and_prosper.rs"]
+pub mod live_long_and_prosper;
 #[path = "trc/locutus_of_borg.rs"]
 pub mod locutus_of_borg;
 #[path = "trk/locutus_the_one_who_speaks.rs"]
@@ -603,6 +615,8 @@ pub mod savvy_profiteer;
 pub mod scotty_chief_engineer;
 #[path = "fra/screeching_soulbreaker.rs"]
 pub mod screeching_soulbreaker;
+#[path = "trk/sela_tal_shiar_paradox.rs"]
+pub mod sela_tal_shiar_paradox;
 #[path = "fra/semester_foreseer.rs"]
 pub mod semester_foreseer;
 #[path = "trk/set_phasers_to.rs"]
@@ -697,6 +711,8 @@ pub mod temporal_anomaly;
 pub mod temporal_tribulation;
 #[path = "trk/tenacious_drone.rs"]
 pub mod tenacious_drone;
+#[path = "trc/tenacious_tosk.rs"]
+pub mod tenacious_tosk;
 #[path = "fra/tenured_tethermage.rs"]
 pub mod tenured_tethermage;
 #[path = "fra/terminal_criticism.rs"]
@@ -727,6 +743,8 @@ pub mod the_doctor_emh;
 pub mod the_duras_sisters;
 #[path = "fra/the_echoverse_fulcrum.rs"]
 pub mod the_echoverse_fulcrum;
+#[path = "trk/the_naked_time.rs"]
+pub mod the_naked_time;
 #[path = "trk/the_needs_of_the_many.rs"]
 pub mod the_needs_of_the_many;
 #[path = "fra/the_theorist_jace_beleren.rs"]
@@ -741,6 +759,8 @@ pub mod theorist_s_proxy;
 pub mod theorix_annex;
 #[path = "fra/theorix_charm.rs"]
 pub mod theorix_charm;
+#[path = "trk/those_old_scientists.rs"]
+pub mod those_old_scientists;
 #[path = "trc/tom_paris_risk_taker.rs"]
 pub mod tom_paris_risk_taker;
 #[path = "fra/transformative_commons.rs"]
@@ -749,6 +769,8 @@ pub mod transformative_commons;
 pub mod traxos_scourge_eternal;
 #[path = "trc/trelane_squire_of_gothos.rs"]
 pub mod trelane_squire_of_gothos;
+#[path = "trc/tribble_cluster.rs"]
+pub mod tribble_cluster;
 #[path = "trk/tricorder.rs"]
 pub mod tricorder;
 #[path = "trc/troi_winging_it.rs"]
@@ -771,6 +793,8 @@ pub mod u_s_s_cerritos_following_up;
 pub mod u_s_s_defiant_mirror_migrant;
 #[path = "trc/u_s_s_defiant_tough_little_ship.rs"]
 pub mod u_s_s_defiant_tough_little_ship;
+#[path = "trk/u_s_s_discovery_at_black_alert.rs"]
+pub mod u_s_s_discovery_at_black_alert;
 #[path = "trk/u_s_s_enterprise_a_free_spirit.rs"]
 pub mod u_s_s_enterprise_a_free_spirit;
 #[path = "trk/u_s_s_enterprise_d_galaxy_class.rs"]

@@ -553,6 +553,8 @@ pub mod horned_troll;
 pub mod howling_wolf;
 #[path = "ptk/hua_tuo_honored_physician.rs"]
 pub mod hua_tuo_honored_physician;
+#[path = "ptk/huang_zhong_shu_general.rs"]
+pub mod huang_zhong_shu_general;
 #[path = "uds/hulking_ogre.rs"]
 pub mod hulking_ogre;
 #[path = "mmq/hunted_wumpus.rs"]
@@ -1449,6 +1451,8 @@ pub mod yellow_scarves_troops;
 pub mod young_wei_recruits;
 #[path = "ptk/yuan_shao_s_infantry.rs"]
 pub mod yuan_shao_s_infantry;
+#[path = "ptk/yuan_shao_the_indecisive.rs"]
+pub mod yuan_shao_the_indecisive;
 #[path = "ptk/zhang_fei_fierce_warrior.rs"]
 pub mod zhang_fei_fierce_warrior;
 #[path = "ptk/zhang_he_wei_general.rs"]

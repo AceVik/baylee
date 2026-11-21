@@ -603,7 +603,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Maneuvers, Grakk the Pacifist, Lithoform Engine, Nimble Obstructionist,
     // and The Master, Mesmerist) adds 9 non-mana activations: 6 read by the
     // table and 3 remaining contextual.
-    assert_eq!((read, of), (4871, 6219), "activated/loyalty reader census");
+    // Pass E10 (481 generated cards after holding back 10 newly exposed
+    // validate/lint-gap cards) adds 181 non-mana activations: 128 read by the
+    // table and 53 remaining contextual.
+    assert_eq!((read, of), (4999, 6400), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

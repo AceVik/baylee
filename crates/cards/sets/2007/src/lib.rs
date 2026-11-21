@@ -527,6 +527,8 @@ pub mod prowess_of_the_fair;
 pub mod psychotrope_thallid;
 #[path = "plc/pyrohemia.rs"]
 pub mod pyrohemia;
+#[path = "fut/pyromancer_s_swath.rs"]
+pub mod pyromancer_s_swath;
 #[path = "lrw/quill_slinger_boggart.rs"]
 pub mod quill_slinger_boggart;
 #[path = "plc/radha_heir_to_keld.rs"]

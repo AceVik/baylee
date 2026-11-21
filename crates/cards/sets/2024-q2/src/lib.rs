@@ -37,6 +37,8 @@ pub mod ankle_biter;
 pub mod annie_flash_the_veteran;
 #[path = "otj/annie_joins_up.rs"]
 pub mod annie_joins_up;
+#[path = "mh3/arcbound_condor.rs"]
+pub mod arcbound_condor;
 #[path = "mh3/archway_of_innovation.rs"]
 pub mod archway_of_innovation;
 #[path = "mh3/arena_of_glory.rs"]
@@ -55,6 +57,8 @@ pub mod basking_broodscale;
 pub mod beastbond_outcaster;
 #[path = "mh3/bespoke_battlewagon.rs"]
 pub mod bespoke_battlewagon;
+#[path = "otj/blacksnag_buzzard.rs"]
+pub mod blacksnag_buzzard;
 #[path = "m3c/bloodbraid_challenger.rs"]
 pub mod bloodbraid_challenger;
 #[path = "mh3/bloodsoaked_insight.rs"]
@@ -89,10 +93,14 @@ pub mod cactarantula;
 pub mod cactus_preserve;
 #[path = "otj/cactusfolk_sureshot.rs"]
 pub mod cactusfolk_sureshot;
+#[path = "otc/charred_graverobber.rs"]
+pub mod charred_graverobber;
 #[path = "m3c/chittering_dispatcher.rs"]
 pub mod chittering_dispatcher;
 #[path = "mh3/chthonian_nightmare.rs"]
 pub mod chthonian_nightmare;
+#[path = "mh3/colossal_dreadmask.rs"]
+pub mod colossal_dreadmask;
 #[path = "otj/conduit_pylons.rs"]
 pub mod conduit_pylons;
 #[path = "otj/consuming_ashes.rs"]
@@ -107,6 +115,8 @@ pub mod conversion_apparatus;
 pub mod copy_land;
 #[path = "mh3/corrupted_shapeshifter.rs"]
 pub mod corrupted_shapeshifter;
+#[path = "mh3/cranial_ram.rs"]
+pub mod cranial_ram;
 #[path = "otj/creosote_heath.rs"]
 pub mod creosote_heath;
 #[path = "otj/cunning_coyote.rs"]
@@ -141,6 +151,8 @@ pub mod dreadmobile;
 pub mod dreamdrinker_vampire;
 #[path = "mh3/dreamtide_whale.rs"]
 pub mod dreamtide_whale;
+#[path = "mh3/drossclaw.rs"]
+pub mod drossclaw;
 #[path = "mh3/drowner_of_truth.rs"]
 pub mod drowner_of_truth;
 #[path = "mh3/drownyard_lurker.rs"]
@@ -197,6 +209,8 @@ pub mod foreboding_landscape;
 pub mod forlorn_flats;
 #[path = "otj/form_a_posse.rs"]
 pub mod form_a_posse;
+#[path = "otj/freestrider_commando.rs"]
+pub mod freestrider_commando;
 #[path = "mh3/frogmyr_enforcer.rs"]
 pub mod frogmyr_enforcer;
 #[path = "otj/frontier_seeker.rs"]
@@ -307,6 +321,8 @@ pub mod lush_oasis;
 pub mod malcolm_the_eyes;
 #[path = "mh3/malevolent_rumble.rs"]
 pub mod malevolent_rumble;
+#[path = "mh3/mandibular_kite.rs"]
+pub mod mandibular_kite;
 #[path = "mh3/marionette_apprentice.rs"]
 pub mod marionette_apprentice;
 #[path = "mh3/metastatic_evangel.rs"]
@@ -323,6 +339,8 @@ pub mod miriam_herd_whisperer;
 pub mod molten_duplication;
 #[path = "mh3/molten_gatekeeper.rs"]
 pub mod molten_gatekeeper;
+#[path = "mh3/monstrous_vortex.rs"]
+pub mod monstrous_vortex;
 #[path = "mh3/monumental_henge.rs"]
 pub mod monumental_henge;
 #[path = "otj/mourner_s_surprise.rs"]
@@ -393,6 +411,8 @@ pub mod rakdos_joins_up;
 pub mod rakish_crew;
 #[path = "otj/raucous_entertainer.rs"]
 pub mod raucous_entertainer;
+#[path = "m3c/razorfield_ripper.rs"]
+pub mod razorfield_ripper;
 #[path = "mh3/razorgrass_ambush.rs"]
 pub mod razorgrass_ambush;
 #[path = "otj/razzle_dazzler.rs"]
@@ -441,6 +461,8 @@ pub mod sarpadian_simulacrum;
 pub mod scalestorm_summoner;
 #[path = "otj/scorching_shot.rs"]
 pub mod scorching_shot;
+#[path = "mh3/scurrilous_sentry.rs"]
+pub mod scurrilous_sentry;
 #[path = "mh3/scurry_of_gremlins.rs"]
 pub mod scurry_of_gremlins;
 #[path = "mh3/seething_landscape.rs"]
@@ -473,6 +495,8 @@ pub mod simulacrum_synthesizer;
 pub mod sink_into_stupor;
 #[path = "mh3/skittering_precursor.rs"]
 pub mod skittering_precursor;
+#[path = "otj/slickshot_lockpicker.rs"]
+pub mod slickshot_lockpicker;
 #[path = "otj/slickshot_show_off.rs"]
 pub mod slickshot_show_off;
 #[path = "mh3/snapping_voidcraw.rs"]

@@ -305,6 +305,8 @@ pub mod ezuri_s_brigade;
 pub mod fauna_shaman;
 #[path = "som/ferrovore.rs"]
 pub mod ferrovore;
+#[path = "m11/fire_servant.rs"]
+pub mod fire_servant;
 #[path = "roe/fissure_vent.rs"]
 pub mod fissure_vent;
 #[path = "roe/flame_slash.rs"]
@@ -461,6 +463,8 @@ pub mod joraga_warcaller;
 pub mod jwari_scuttler;
 #[path = "wwk/jwari_shapeshifter.rs"]
 pub mod jwari_shapeshifter;
+#[path = "roe/kabira_vindicator.rs"]
+pub mod kabira_vindicator;
 #[path = "wwk/kalastria_highborn.rs"]
 pub mod kalastria_highborn;
 #[path = "roe/keening_stone.rs"]

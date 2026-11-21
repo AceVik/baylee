@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "neo/acquisition_octopus.rs"]
+pub mod acquisition_octopus;
 #[path = "nec/aerial_surveyor.rs"]
 pub mod aerial_surveyor;
 #[path = "neo/akki_ronin.rs"]
@@ -21,6 +23,8 @@ pub mod akki_ronin;
 pub mod akki_war_paint;
 #[path = "neo/ancestral_katana.rs"]
 pub mod ancestral_katana;
+#[path = "neo/armguard_familiar.rs"]
+pub mod armguard_familiar;
 #[path = "neo/asari_captain.rs"]
 pub mod asari_captain;
 #[path = "neo/atsushi_the_blazing_sky.rs"]
@@ -39,16 +43,22 @@ pub mod befriending_the_moths;
 pub mod behold_the_unspeakable;
 #[path = "neo/blade_blizzard_kitsune.rs"]
 pub mod blade_blizzard_kitsune;
+#[path = "neo/blade_of_the_oni.rs"]
+pub mod blade_of_the_oni;
 #[path = "neo/boseiju_reaches_skyward.rs"]
 pub mod boseiju_reaches_skyward;
 #[path = "neo/boseiju_who_endures.rs"]
 pub mod boseiju_who_endures;
 #[path = "neo/brilliant_restoration.rs"]
 pub mod brilliant_restoration;
+#[path = "neo/bronzeplate_boar.rs"]
+pub mod bronzeplate_boar;
 #[path = "neo/brute_suit.rs"]
 pub mod brute_suit;
 #[path = "neo/careful_cultivation.rs"]
 pub mod careful_cultivation;
+#[path = "neo/chainflail_centipede.rs"]
+pub mod chainflail_centipede;
 #[path = "neo/clawing_torment.rs"]
 pub mod clawing_torment;
 #[path = "neo/coiling_stalker.rs"]
@@ -133,16 +143,24 @@ pub mod jukai_naturalist;
 pub mod jukai_preserver;
 #[path = "neo/jukai_trainee.rs"]
 pub mod jukai_trainee;
+#[path = "neo/kaito_s_pursuit.rs"]
+pub mod kaito_s_pursuit;
 #[path = "neo/kami_of_restless_shadows.rs"]
 pub mod kami_of_restless_shadows;
 #[path = "nec/kappa_cannoneer.rs"]
 pub mod kappa_cannoneer;
 #[path = "neo/kitsune_ace.rs"]
 pub mod kitsune_ace;
+#[path = "nec/komainu_battle_armor.rs"]
+pub mod komainu_battle_armor;
 #[path = "neo/kyodai_soul_of_kamigawa.rs"]
 pub mod kyodai_soul_of_kamigawa;
+#[path = "neo/leech_gauntlet.rs"]
+pub mod leech_gauntlet;
 #[path = "neo/light_the_way.rs"]
 pub mod light_the_way;
+#[path = "neo/lizard_blades.rs"]
+pub mod lizard_blades;
 #[path = "neo/lucky_offering.rs"]
 pub mod lucky_offering;
 #[path = "neo/master_s_rebuke.rs"]
@@ -163,6 +181,12 @@ pub mod mothrider_patrol;
 pub mod mukotai_ambusher;
 #[path = "neo/mukotai_soulripper.rs"]
 pub mod mukotai_soulripper;
+#[path = "nec/myojin_of_blooming_dawn.rs"]
+pub mod myojin_of_blooming_dawn;
+#[path = "nec/myojin_of_cryptic_dreams.rs"]
+pub mod myojin_of_cryptic_dreams;
+#[path = "nec/myojin_of_roaring_blades.rs"]
+pub mod myojin_of_roaring_blades;
 #[path = "neo/network_disruptor.rs"]
 pub mod network_disruptor;
 #[path = "neo/network_terminal.rs"]
@@ -225,6 +249,8 @@ pub mod seven_tail_mentor;
 pub mod short_circuit;
 #[path = "neo/shrine_steward.rs"]
 pub mod shrine_steward;
+#[path = "neo/simian_sling.rs"]
+pub mod simian_sling;
 #[path = "neo/sky_blessed_samurai.rs"]
 pub mod sky_blessed_samurai;
 #[path = "neo/skyswimmer_koi.rs"]
@@ -249,6 +275,10 @@ pub mod takenuma_abandoned_mire;
 pub mod tales_of_master_seshiro;
 #[path = "neo/tamiyo_s_safekeeping.rs"]
 pub mod tamiyo_s_safekeeping;
+#[path = "nec/tanuki_transplanter.rs"]
+pub mod tanuki_transplanter;
+#[path = "neo/teachings_of_the_kirin.rs"]
+pub mod teachings_of_the_kirin;
 #[path = "neo/tempered_in_solitude.rs"]
 pub mod tempered_in_solitude;
 #[path = "neo/the_long_reach_of_night.rs"]
@@ -283,6 +313,8 @@ pub mod unstoppable_ogre;
 pub mod virus_beetle;
 #[path = "neo/wanderer_s_intervention.rs"]
 pub mod wanderer_s_intervention;
+#[path = "neo/webspinner_cuff.rs"]
+pub mod webspinner_cuff;
 #[path = "nec/yoshimaru_ever_faithful.rs"]
 pub mod yoshimaru_ever_faithful;
 #[path = "neo/you_are_already_dead.rs"]

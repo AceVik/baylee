@@ -65,6 +65,8 @@ pub mod cleon_merry_champion;
 pub mod clinquant_skymage;
 #[path = "fdn/crackling_cyclops.rs"]
 pub mod crackling_cyclops;
+#[path = "fdn/crystal_barricade.rs"]
+pub mod crystal_barricade;
 #[path = "j25/cynette_jelly_drover.rs"]
 pub mod cynette_jelly_drover;
 #[path = "fdn/dauntless_veteran.rs"]
@@ -121,6 +123,8 @@ pub mod generous_pup;
 pub mod gilded_scuttler;
 #[path = "j25/go_forth.rs"]
 pub mod go_forth;
+#[path = "fdn/goblin_boarders.rs"]
+pub mod goblin_boarders;
 #[path = "fdn/goblin_surprise.rs"]
 pub mod goblin_surprise;
 #[path = "fdn/gorehorn_raider.rs"]
@@ -231,6 +235,8 @@ pub mod slumbering_cerberus;
 pub mod soulstone_sanctuary;
 #[path = "fdn/sower_of_chaos.rs"]
 pub mod sower_of_chaos;
+#[path = "fdn/sphinx_of_forgotten_lore.rs"]
+pub mod sphinx_of_forgotten_lore;
 #[path = "j25/spined_tyrranax.rs"]
 pub mod spined_tyrranax;
 #[path = "fdn/spinner_of_souls.rs"]

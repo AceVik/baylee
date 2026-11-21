@@ -57,6 +57,16 @@ c6655e05-9e31-4a74-a97d-1eeb473fe900	Jill, Shiva's Dominant // Shiva, Warden of 
 99d42ae8-8cee-449b-812b-98a81a593077	Startled Awake // Persistent Nightmare	lint-gap: entries::every_self_return_comes_back_under_the_control_its_sentence_prints requires "return" wording, whereas Startled Awake prints "Put this card from your graveyard onto the battlefield transformed" (Pass E8)
 f0b24d59-b3f4-47e6-befd-40a25ad976e2	Strength of the Coalition	lint-gap: target_reuse rejects shared Filter::YOUR_CREATURE on target and IfKicked AddCounterFilter (Pass E8)
 3424cd7f-4fe8-4ab5-8e24-fb2eb2478d1b	Abyssal Lotus	reader-gap: Forge script omits PresentCompare$ GE8 on Descend 8, so Condition::AmountAtLeast threshold defaults to 1 instead of 8 (Pass E9)
+c918baa5-0e7c-4df2-8567-64a7fbef4df8	Forked-Branch Garami	reader-gap: dual Soulshift 4 emits two single-target triggers instead of one "up to two target" trigger (Pass E10)
+c912a43b-8994-434e-84c0-f4cf58abbd42	Mechanized Warfare	lint-gap: xtask validate check_text::filters_theirs does not inspect DamageRecipients::PlayersOrTheirPermanents(PlayerRel::Opponent) (Pass E10)
+21971c8b-ff9b-40f8-8c9a-93d26c2615b7	Rem Karolus, Stalwart Slayer	lint-gap: xtask validate check_text::filters_theirs does not inspect DamageRecipients::PlayersOrTheirPermanents(PlayerRel::Opponent) (Pass E10)
+44c2fefb-5de3-4406-955a-3fabc46357d0	Thor, Asgard's Avenger	lint-gap: xtask validate check_text::filters_theirs does not inspect DamageRecipients::PlayersOrTheirPermanents(PlayerRel::Opponent) (Pass E10)
+16604fee-cd8d-41e4-8269-3c7ff756613d	Tomik, Izzet Sparkmage	lint-gap: xtask validate check_text::filters_theirs does not inspect DamageRecipients::PlayersOrTheirPermanents(PlayerRel::Opponent) (Pass E10)
+8c3495bf-02e7-4ad9-949d-92eb3d2b662a	Torbran, Thane of Red Fell	lint-gap: xtask validate check_text::filters_theirs does not inspect DamageRecipients::PlayersOrTheirPermanents(PlayerRel::Opponent) (Pass E10)
+321b5cc6-8df6-4292-97a0-a6a3a22f3b55	Twinflame Tyrant	lint-gap: xtask validate check_text::filters_theirs does not inspect DamageRecipients::PlayersOrTheirPermanents(PlayerRel::Opponent) (Pass E10)
+ae24b863-974c-4efa-ab41-23cfa1906c54	Blight Grenade	lint-gap: target_reuse rejects shared Filter::CREATURE on destroy target and PumpFilter sweep (Pass E10)
+de6e4aa2-23f1-46e5-a061-05522944e0c6	For the Common Good	lint-gap: target_reuse rejects shared Filter::And(&[IsToken, ControlledByYou]) on CreateTokenCopy target and PumpFilter sweep (Pass E10)
+5cdb69e5-9395-4ef6-be18-71e3dd70df66	Swashbuckler's Whip	reader-gap: dual granted ability sentence leaves GrantActivated without a printed line in generated_lines.rs (Pass E10)
 
 # Engine gaps
 9843d8a6-bcbf-40c2-8c41-316e97db9c62	Shallow Grave	engine-gap: held-back stub awaiting completion and test

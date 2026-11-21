@@ -219,6 +219,8 @@ pub mod goblin_morningstar;
 pub mod grazilaxx_illithid_scholar;
 #[path = "afr/greataxe.rs"]
 pub mod greataxe;
+#[path = "afr/green_dragon.rs"]
+pub mod green_dragon;
 #[path = "afr/gretchen_titchwillow.rs"]
 pub mod gretchen_titchwillow;
 #[path = "afr/grim_bounty.rs"]
@@ -321,6 +323,8 @@ pub mod moonsilver_key;
 pub mod morbid_opportunist;
 #[path = "afr/mordenkainen_s_polymorph.rs"]
 pub mod mordenkainen_s_polymorph;
+#[path = "mid/mounted_dreadknight.rs"]
+pub mod mounted_dreadknight;
 #[path = "mid/mourning_patrol.rs"]
 pub mod mourning_patrol;
 #[path = "mid/mysterious_tome.rs"]
@@ -385,10 +389,14 @@ pub mod reaper_s_talisman;
 pub mod reckless_stormseeker;
 #[path = "afr/red_dragon.rs"]
 pub mod red_dragon;
+#[path = "afc/ride_the_avalanche.rs"]
+pub mod ride_the_avalanche;
 #[path = "afr/rimeshield_frost_giant.rs"]
 pub mod rimeshield_frost_giant;
 #[path = "mid/rise_of_the_ants.rs"]
 pub mod rise_of_the_ants;
+#[path = "mid/rite_of_harmony.rs"]
+pub mod rite_of_harmony;
 #[path = "mid/rite_of_oblivion.rs"]
 pub mod rite_of_oblivion;
 #[path = "afc/robe_of_stars.rs"]
@@ -475,6 +483,8 @@ pub mod treasure_vault;
 pub mod trelasarra_moon_dancer;
 #[path = "afr/true_polymorph.rs"]
 pub mod true_polymorph;
+#[path = "mid/turn_the_earth.rs"]
+pub mod turn_the_earth;
 #[path = "afr/underdark_basilisk.rs"]
 pub mod underdark_basilisk;
 #[path = "afc/underdark_rift.rs"]

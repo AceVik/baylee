@@ -31,6 +31,8 @@ pub mod beorn_reluctant_host;
 pub mod bilbo_baggins_burglar;
 #[path = "hob/bilbo_s_deadly_slice.rs"]
 pub mod bilbo_s_deadly_slice;
+#[path = "hob/bilbo_s_gambit.rs"]
+pub mod bilbo_s_gambit;
 #[path = "hob/bofur_reliable_guardian.rs"]
 pub mod bofur_reliable_guardian;
 #[path = "hoc/bolg_erebor_s_reckoning.rs"]

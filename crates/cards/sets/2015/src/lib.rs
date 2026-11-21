@@ -25,6 +25,8 @@ pub mod abzan_runemark;
 pub mod abzan_skycaptain;
 #[path = "dtk/acid_spewer_dragon.rs"]
 pub mod acid_spewer_dragon;
+#[path = "ori/acolyte_of_the_inferno.rs"]
+pub mod acolyte_of_the_inferno;
 #[path = "bfz/adverse_conditions.rs"]
 pub mod adverse_conditions;
 #[path = "dtk/aerie_bowmasters.rs"]
@@ -41,6 +43,8 @@ pub mod akoum_firebird;
 pub mod akoum_stonewaker;
 #[path = "ori/akroan_jailer.rs"]
 pub mod akroan_jailer;
+#[path = "ori/akroan_sergeant.rs"]
+pub mod akroan_sergeant;
 #[path = "ori/alchemist_s_vial.rs"]
 pub mod alchemist_s_vial;
 #[path = "frf/alesha_s_vanguard.rs"]
@@ -125,6 +129,8 @@ pub mod bastion_protector;
 pub mod bathe_in_dragonfire;
 #[path = "frf/battle_brawler.rs"]
 pub mod battle_brawler;
+#[path = "frf/battlefront_krushok.rs"]
+pub mod battlefront_krushok;
 #[path = "bfz/beastcaller_savant.rs"]
 pub mod beastcaller_savant;
 #[path = "bfz/belligerent_whiptail.rs"]
@@ -209,6 +215,8 @@ pub mod chief_of_the_foundry;
 pub mod cinder_glade;
 #[path = "dtk/circle_of_elders.rs"]
 pub mod circle_of_elders;
+#[path = "ori/citadel_castellan.rs"]
+pub mod citadel_castellan;
 #[path = "ori/clash_of_wills.rs"]
 pub mod clash_of_wills;
 #[path = "ori/cleric_of_the_forward_order.rs"]
@@ -347,6 +355,8 @@ pub mod eldrazi_skyspawner;
 pub mod elemental_bond;
 #[path = "dtk/elusive_spellfist.rs"]
 pub mod elusive_spellfist;
+#[path = "ori/embermaw_hellion.rs"]
+pub mod embermaw_hellion;
 #[path = "dtk/encase_in_ice.rs"]
 pub mod encase_in_ice;
 #[path = "bfz/endless_one.rs"]
@@ -389,6 +399,8 @@ pub mod fertile_thicket;
 pub mod fetid_imp;
 #[path = "ori/fiery_impulse.rs"]
 pub mod fiery_impulse;
+#[path = "ori/firefiend_elemental.rs"]
+pub mod firefiend_elemental;
 #[path = "bfz/firemantle_mage.rs"]
 pub mod firemantle_mage;
 #[path = "frf/flamerush_rider.rs"]
@@ -431,6 +443,8 @@ pub mod glint;
 pub mod gnarlroot_trapper;
 #[path = "frf/goblin_boom_keg.rs"]
 pub mod goblin_boom_keg;
+#[path = "ori/goblin_glory_chaser.rs"]
+pub mod goblin_glory_chaser;
 #[path = "frf/goblin_heelcutter.rs"]
 pub mod goblin_heelcutter;
 #[path = "frf/gore_swine.rs"]
@@ -505,6 +519,8 @@ pub mod hidden_dragonslayer;
 pub mod hitchclaw_recluse;
 #[path = "frf/honor_s_reward.rs"]
 pub mod honor_s_reward;
+#[path = "cp3/honored_hierarch.rs"]
+pub mod honored_hierarch;
 #[path = "frf/hooded_assassin.rs"]
 pub mod hooded_assassin;
 #[path = "bfz/horribly_awry.rs"]
@@ -549,6 +565,8 @@ pub mod kalastria_nightwatch;
 pub mod karlov_of_the_ghost_council;
 #[path = "bfz/kitesail_scout.rs"]
 pub mod kitesail_scout;
+#[path = "ori/knight_of_the_pilgrim_s_road.rs"]
+pub mod knight_of_the_pilgrim_s_road;
 #[path = "dtk/kolaghan_aspirant.rs"]
 pub mod kolaghan_aspirant;
 #[path = "dtk/kolaghan_forerunners.rs"]
@@ -573,6 +591,8 @@ pub mod kothophed_soul_hoarder;
 pub mod kozilek_s_channeler;
 #[path = "bfz/kozilek_s_sentinel.rs"]
 pub mod kozilek_s_sentinel;
+#[path = "ori/kytheon_s_irregulars.rs"]
+pub mod kytheon_s_irregulars;
 #[path = "ori/languish.rs"]
 pub mod languish;
 #[path = "bfz/lantern_scout.rs"]
@@ -711,12 +731,16 @@ pub mod oran_rief_invoker;
 pub mod orbs_of_warding;
 #[path = "frf/orc_sureshot.rs"]
 pub mod orc_sureshot;
+#[path = "ori/outland_colossus.rs"]
+pub mod outland_colossus;
 #[path = "bfz/outnumber.rs"]
 pub mod outnumber;
 #[path = "dtk/palace_familiar.rs"]
 pub mod palace_familiar;
 #[path = "ori/patron_of_the_valiant.rs"]
 pub mod patron_of_the_valiant;
+#[path = "ori/pharika_s_disciple.rs"]
+pub mod pharika_s_disciple;
 #[path = "ori/pia_and_kiran_nalaar.rs"]
 pub mod pia_and_kiran_nalaar;
 #[path = "frf/pilgrim_of_the_fires.rs"]
@@ -789,6 +813,8 @@ pub mod retreat_to_kazandu;
 pub mod retreat_to_valakut;
 #[path = "frf/return_to_the_earth.rs"]
 pub mod return_to_the_earth;
+#[path = "ori/rhox_maulers.rs"]
+pub mod rhox_maulers;
 #[path = "ori/ringwarden_owl.rs"]
 pub mod ringwarden_owl;
 #[path = "f15/roast.rs"]
@@ -841,6 +867,8 @@ pub mod screamreach_brawler;
 pub mod scroll_of_the_masters;
 #[path = "bfz/scythe_leopard.rs"]
 pub mod scythe_leopard;
+#[path = "c15/scytheclaw.rs"]
+pub mod scytheclaw;
 #[path = "dtk/secure_the_wastes.rs"]
 pub mod secure_the_wastes;
 #[path = "bfz/seek_the_wilds.rs"]
@@ -933,6 +961,8 @@ pub mod spawning_bed;
 pub mod spell_shrivel;
 #[path = "dtk/sprinting_warbrute.rs"]
 pub mod sprinting_warbrute;
+#[path = "ori/stalwart_aven.rs"]
+pub mod stalwart_aven;
 #[path = "dtk/stampeding_elk_herd.rs"]
 pub mod stampeding_elk_herd;
 #[path = "ori/starfield_of_nyx.rs"]
@@ -1023,6 +1053,8 @@ pub mod thunderclap_wyvern;
 pub mod tide_drifter;
 #[path = "bfz/tightening_coils.rs"]
 pub mod tightening_coils;
+#[path = "ori/topan_freeblade.rs"]
+pub mod topan_freeblade;
 #[path = "dtk/tread_upon.rs"]
 pub mod tread_upon;
 #[path = "bfz/tunneling_geopede.rs"]
@@ -1037,6 +1069,8 @@ pub mod ukud_cobra;
 pub mod ulamog_the_ceaseless_hunger;
 #[path = "ori/undead_servant.rs"]
 pub mod undead_servant;
+#[path = "ori/undercity_troll.rs"]
+pub mod undercity_troll;
 #[path = "dtk/updraft_elemental.rs"]
 pub mod updraft_elemental;
 #[path = "bfz/valakut_invoker.rs"]
@@ -1085,6 +1119,8 @@ pub mod wandering_tombshell;
 pub mod war_flare;
 #[path = "ori/war_horn.rs"]
 pub mod war_horn;
+#[path = "ori/war_oracle.rs"]
+pub mod war_oracle;
 #[path = "c15/warchief_giant.rs"]
 pub mod warchief_giant;
 #[path = "frf/warden_of_the_first_tree.rs"]

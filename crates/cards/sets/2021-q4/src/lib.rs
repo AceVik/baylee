@@ -21,6 +21,8 @@ pub mod angelic_quartermaster;
 pub mod anje_maid_of_dishonor;
 #[path = "vow/apprentice_sharpshooter.rs"]
 pub mod apprentice_sharpshooter;
+#[path = "pvow/ascendant_packleader.rs"]
+pub mod ascendant_packleader;
 #[path = "pvow/avabruck_caretaker.rs"]
 pub mod avabruck_caretaker;
 #[path = "vow/belligerent_guest.rs"]
@@ -75,6 +77,8 @@ pub mod desperate_farmer;
 pub mod diregraf_scavenger;
 #[path = "vow/distracting_geist.rs"]
 pub mod distracting_geist;
+#[path = "voc/doom_weaver.rs"]
+pub mod doom_weaver;
 #[path = "vow/dormant_grove.rs"]
 pub mod dormant_grove;
 #[path = "pvow/dreadfeast_demon.rs"]
@@ -83,6 +87,8 @@ pub mod dreadfeast_demon;
 pub mod dreamroot_cascade;
 #[path = "vow/drogskol_infantry.rs"]
 pub mod drogskol_infantry;
+#[path = "voc/drogskol_reinforcements.rs"]
+pub mod drogskol_reinforcements;
 #[path = "vow/end_the_festivities.rs"]
 pub mod end_the_festivities;
 #[path = "vow/estwald_shieldbasher.rs"]
@@ -103,6 +109,8 @@ pub mod flame_blessed_bolt;
 pub mod forsaken_crossroads;
 #[path = "vow/frenzied_devils.rs"]
 pub mod frenzied_devils;
+#[path = "vow/gift_of_fangs.rs"]
+pub mod gift_of_fangs;
 #[path = "pvow/glorious_sunrise.rs"]
 pub mod glorious_sunrise;
 #[path = "vow/gluttonous_guest.rs"]
@@ -137,6 +145,8 @@ pub mod hookhand_mariner;
 pub mod howling_moon;
 #[path = "pvow/ill_tempered_loner.rs"]
 pub mod ill_tempered_loner;
+#[path = "voc/imperious_mindbreaker.rs"]
+pub mod imperious_mindbreaker;
 #[path = "vow/infestation_expert.rs"]
 pub mod infestation_expert;
 #[path = "voc/kamber_the_plunderer.rs"]
@@ -243,6 +253,8 @@ pub mod stormcarved_coast;
 pub mod sundown_pass;
 #[path = "vow/syphon_essence.rs"]
 pub mod syphon_essence;
+#[path = "voc/thundering_mightmare.rs"]
+pub mod thundering_mightmare;
 #[path = "voc/timin_youthful_geist.rs"]
 pub mod timin_youthful_geist;
 #[path = "pvow/torens_fist_of_the_angels.rs"]
