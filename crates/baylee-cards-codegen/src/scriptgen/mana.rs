@@ -690,6 +690,27 @@ impl Tx<'_> {
             if matches!(def, "Count$KickedTimes" | "Count$TimesKicked") {
                 return Some("Amount::TimesKicked".to_string());
             }
+            if matches!(
+                def,
+                "Count$CastTotalManaSpent Snow" | "Count$TotalManaSpent Snow"
+            ) && !self.in_delayed
+                && (self.on_a_spell || self.trigger_is_self || self.trigger_mode.is_none())
+            {
+                return Some("Amount::SnowManaSpentToCast".to_string());
+            }
+            if def == "Count$Devoured Card" && !self.on_a_spell && !self.in_delayed {
+                return Some("Amount::EntrySacrifices".to_string());
+            }
+            if let Some(warped) = Self::warped_this_turn_amount(def) {
+                return Some(warped.to_string());
+            }
+            if self.on_a_spell
+                && self.has_x
+                && let Some(other) = def.strip_prefix("Count$Foretold.X.")
+                && let Ok(n) = other.trim().parse::<u32>()
+            {
+                return Some(format!("Amount::XIfSourceWasForetold {{ otherwise: {n} }}"));
+            }
         }
         if def == "PlayerCountPropertyYou$OpponentsAttackedThisCombat" {
             return Some("Amount::OpponentsYouAttackedThisCombat".to_string());
@@ -907,6 +928,28 @@ impl Tx<'_> {
         Some(format!(
             "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}"
         ))
+    }
+
+    fn warped_this_turn_amount(def: &str) -> Option<&'static str> {
+        match def {
+            "Count$ThisTurnWarped_You"
+            | "Count$WarpedThisTurn_You"
+            | "Count$ThisTurnCast_Card.YouCtrl+CastSa Spell.Warp" => {
+                Some("Amount::SpellsWarpedThisTurn(PlayerRel::You)")
+            }
+            "Count$ThisTurnWarped_Opponent"
+            | "Count$WarpedThisTurn_Opponent"
+            | "Count$ThisTurnCast_Card.OppCtrl+CastSa Spell.Warp" => {
+                Some("Amount::SpellsWarpedThisTurn(PlayerRel::Opponent)")
+            }
+            "Count$ThisTurnWarped"
+            | "Count$WarpedThisTurn"
+            | "Count$SpellsWarpedThisTurn"
+            | "Count$ThisTurnCast_Card.CastSa Spell.Warp" => {
+                Some("Amount::SpellsWarpedThisTurn(PlayerRel::EachPlayer)")
+            }
+            _ => None,
+        }
     }
 
     fn player_scoped_amount(&mut self, def: &str) -> Option<String> {
@@ -1234,6 +1277,16 @@ impl Tx<'_> {
             }
             if cmp == "LE" && self.on_a_spell && def == Some("Count$Converge") {
                 return Some("Filter::CmcAtMostColorsSpent".to_string());
+            }
+            if cmp == "LE"
+                && !self.in_delayed
+                && (self.on_a_spell || self.trigger_is_self || self.trigger_mode.is_none())
+                && matches!(
+                    def,
+                    Some("Count$CastTotalManaSpent Snow" | "Count$TotalManaSpent Snow")
+                )
+            {
+                return Some("Filter::CmcAtMostSnowManaSpent".to_string());
             }
             if cmp == "EQ" && def == Some("Count$ManaPool:All") {
                 return Some("Filter::CmcEqualsYourUnspentMana".to_string());

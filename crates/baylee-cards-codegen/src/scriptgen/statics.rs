@@ -273,16 +273,29 @@ impl Tx<'_> {
         // `EffectZone$ Battlefield` is the default written out; any other
         // zone means the source works from somewhere else, which is a
         // different rule than the one below.
-        let graveyard_ok = p.peek("Affected") == Some("Creature.YouCtrl") && p.has("AddKeyword");
-        let effect_zone = match p.take("EffectZone").as_deref() {
-            raw @ Some(zone) => {
-                let Some(resolved) = Self::static_effect_zone(raw, graveyard_ok) else {
-                    self.note(format!("static ability from `EffectZone$ {zone}`"));
-                    return None;
-                };
-                resolved.as_arg()
+        let graveyard_self_grant = p.peek("EffectZone") == Some("Graveyard")
+            && p.peek("AffectedZone") == Some("Graveyard")
+            && p.peek("Affected") == Some("Card.Self")
+            && p.has("AddAbility");
+        let graveyard_ok = (p.peek("Affected") == Some("Creature.YouCtrl") && p.has("AddKeyword"))
+            || graveyard_self_grant;
+        let stack_self_zone = p.peek("EffectZone") == Some("Stack")
+            && p.peek("AffectedZone") == Some("Stack")
+            && p.peek("Affected") == Some("Card.Self");
+        let effect_zone = if stack_self_zone {
+            p.take("EffectZone");
+            Some("ZoneRef::Stack")
+        } else {
+            match p.take("EffectZone").as_deref() {
+                raw @ Some(zone) => {
+                    let Some(resolved) = Self::static_effect_zone(raw, graveyard_ok) else {
+                        self.note(format!("static ability from `EffectZone$ {zone}`"));
+                        return None;
+                    };
+                    resolved.as_arg()
+                }
+                None => None,
             }
-            None => None,
         };
         if p.peek("AffectedZone") == Some("Hand")
             && p.peek("MayLookAt") == Some("Player")
@@ -290,11 +303,20 @@ impl Tx<'_> {
         {
             return self.reveal_all_hands(p);
         }
+        if graveyard_self_grant {
+            return self.graveyard_self_granted_ability(p);
+        }
         if effect_zone != Some("ZoneRef::Graveyard")
             && p.peek("AffectedZone") == Some("Graveyard")
             && p.peek("MayPlay") == Some("True")
         {
-            return self.graveyard_may_play(p);
+            return self.graveyard_may_play(p, effect_zone);
+        }
+        if let Some(zone) = p.peek("AffectedZone")
+            && matches!(zone, "Stack" | "Battlefield,Stack" | "Stack,Battlefield")
+        {
+            let zone = p.take("AffectedZone").unwrap_or_default();
+            return self.stack_continuous_static(p, effect_zone, &zone);
         }
         // Likewise `AffectedZone`: reaching past the battlefield is said by
         // a `Filter::InZone` in the filter, and a filter that has no zone
@@ -517,6 +539,16 @@ impl Tx<'_> {
                 "Filter::This",
                 "Condition::Not(&Condition::GiftWasPromised)",
             )),
+            "Card.Self+CastSa Spell.Warp"
+            | "Creature.Self+CastSa Spell.Warp"
+            | "Card.Self+Warped"
+            | "Creature.Self+Warped" => Some(("Filter::This", "Condition::WarpCostPaid")),
+            "Card.Self+!CastSa Spell.Warp"
+            | "Creature.Self+!CastSa Spell.Warp"
+            | "Card.Self+!Warped"
+            | "Creature.Self+!Warped" => {
+                Some(("Filter::This", "Condition::Not(&Condition::WarpCostPaid)"))
+            }
             _ => None,
         }
     }
@@ -531,6 +563,10 @@ impl Tx<'_> {
             "Card.Self+PromisedGift" | "Creature.Self+PromisedGift" | "Card.PromisedGift" => {
                 "Condition::GiftWasPromised"
             }
+            "Card.Self+CastSa Spell.Warp"
+            | "Creature.Self+CastSa Spell.Warp"
+            | "Card.Self+Warped"
+            | "Creature.Self+Warped" => "Condition::WarpCostPaid",
             _ => return Ok(None),
         };
         p.take("IsPresent");
@@ -834,10 +870,17 @@ impl Tx<'_> {
 
     /// Graveyard cast/play permissions (`AffectedZone$ Graveyard | MayPlay$ True`):
     /// - `Land.YouOwn` (+ optional static condition) -> `Modifier::PlayLandsFromGraveyard`
+    /// - `Permanent.nonLand+YouOwn` -> `Modifier::CastPermanentSpellsFromGraveyard`
+    /// - `Permanent.YouOwn` -> both `PlayLandsFromGraveyard` and `CastPermanentSpellsFromGraveyard`
+    /// - `Card.YouOwn` -> both `PlayLandsFromGraveyard` and `CastSpellsFromGraveyard`
     /// - `Instant.YouCtrl,Sorcery.YouCtrl` (or `YouOwn`) with `Condition$ PlayerTurn`,
     ///   `ReplaceGraveyard$ Exile`, and `MayPlayLimit$ 1` ->
     ///   `Modifier::GraveyardInstantSorceryOnce`
-    fn graveyard_may_play(&mut self, mut p: Params) -> Option<()> {
+    fn graveyard_may_play(
+        &mut self,
+        mut p: Params,
+        effect_zone: Option<&'static str>,
+    ) -> Option<()> {
         p.take("AffectedZone");
         p.take("MayPlay");
         let deny_zone = |this: &mut Self| -> Option<()> {
@@ -847,16 +890,7 @@ impl Tx<'_> {
         let Some(affected) = p.take("Affected") else {
             return deny_zone(self);
         };
-        if affected == "Land.YouOwn" {
-            let condition = self.condition(&mut p)?;
-            if p.first_key().is_some() {
-                return deny_zone(self);
-            }
-            self.body.abilities.push(format!(
-                "static_ability!(Filter::Any, Modifier::PlayLandsFromGraveyard{condition})"
-            ));
-            return Some(());
-        }
+        let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
         if matches!(
             affected.as_str(),
             "Instant.YouCtrl,Sorcery.YouCtrl"
@@ -871,12 +905,154 @@ impl Tx<'_> {
             {
                 return deny_zone(self);
             }
-            self.body.abilities.push(
-                "static_ability!(Filter::Any, Modifier::GraveyardInstantSorceryOnce)".to_string(),
-            );
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::Any, Modifier::GraveyardInstantSorceryOnce{zone_arg})"
+            ));
             return Some(());
         }
-        deny_zone(self)
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+        if p.first_key().is_some() {
+            return deny_zone(self);
+        }
+        let modifiers: &[&str] = match affected.trim() {
+            "Land.YouOwn" | "Land.YouCtrl" => &["Modifier::PlayLandsFromGraveyard"],
+            "Card.YouOwn" | "Card.YouCtrl" => &[
+                "Modifier::PlayLandsFromGraveyard",
+                "Modifier::CastSpellsFromGraveyard",
+            ],
+            "Permanent.nonLand+YouOwn"
+            | "Permanent.YouOwn+nonLand"
+            | "Permanent.nonLand+YouCtrl"
+            | "Permanent.YouCtrl+nonLand" => &["Modifier::CastPermanentSpellsFromGraveyard"],
+            "Permanent.YouOwn" | "Permanent.YouCtrl" => &[
+                "Modifier::PlayLandsFromGraveyard",
+                "Modifier::CastPermanentSpellsFromGraveyard",
+            ],
+            _ => return deny_zone(self),
+        };
+        for modifier in modifiers {
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::Any, {modifier}{zone_arg}{condition})"
+            ));
+        }
+        Some(())
+    }
+
+    /// Self-granted graveyard activated abilities (`EffectZone$ Graveyard |
+    /// AffectedZone$ Graveyard | Affected$ Card.Self | AddAbility$ ...`, e.g.
+    /// Max speed graveyard cycling/draw activations).
+    fn graveyard_self_granted_ability(&mut self, mut p: Params) -> Option<()> {
+        p.take("AffectedZone");
+        if p.take("Affected").as_deref() != Some("Card.Self") {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        }
+        let Some(raw) = p.take("AddAbility") else {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        };
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+        self.strip_ai_hint_add_svar(&mut p);
+        if !p.exhausted() {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        }
+        let names: Vec<&str> = raw
+            .split(" & ")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if names.is_empty() {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+        }
+        for name in names {
+            let Some(line) = self.svars.get(name).cloned() else {
+                return self.deny(format!("`AddAbility$ {name}` naming no `SVar`"));
+            };
+            if !line.trim_start().starts_with("AB$") {
+                return self.deny("a granted ability that is not an activated one".to_string());
+            }
+            let cleaned = strip_secondary_true(&line);
+            let parsed = self.parse_activated_spec(&cleaned, false, false)?;
+            if !parsed.non_battlefield_zone
+                || parsed.alternate_ability_expr.is_some()
+                || !parsed.ability_expr.contains("ActivationZone::Graveyard")
+            {
+                return self.deny("static ability reaching `AffectedZone$ Graveyard`".to_string());
+            }
+            let expr = splice_activated_condition(&parsed.ability_expr, &condition)?;
+            self.body.abilities.push(expr);
+        }
+        Some(())
+    }
+
+    /// Continuous statics targeting objects on the stack (`AffectedZone$ Stack`)
+    /// or across both battlefield and stack (`AffectedZone$ Battlefield,Stack`).
+    /// Strictly restricted to stack-live keywords (`Lifelink`, `Deathtouch`,
+    /// `Wither`, `Infect`, `Split second`, `Rebound`, `Storm`, uncounterable)
+    /// and Layer 4/5 type/color modifiers that `baylee-engine` projects on
+    /// `Zone::Stack`. Cast-time keywords (`Convoke`, `Delve`, `Cascade`,
+    /// `Affinity`, `Flash`) stay honestly refused.
+    fn stack_continuous_static(
+        &mut self,
+        mut p: Params,
+        effect_zone: Option<&'static str>,
+        affected_zone: &str,
+    ) -> Option<()> {
+        let affected = self.continuous_affected(&mut p)?;
+        let base_filter = self.filter_expr_in_zone(&affected, true)?;
+        let zone_clause = if affected_zone == "Stack" {
+            "Filter::InZone(ZoneRef::Stack)"
+        } else {
+            "Filter::Or(&[Filter::InZone(ZoneRef::Battlefield), Filter::InZone(ZoneRef::Stack)])"
+        };
+        let filter = if base_filter == "Filter::Any" {
+            zone_clause.to_string()
+        } else {
+            format!("Filter::And(&[{base_filter}, {zone_clause}])")
+        };
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
+        let mut out = Vec::new();
+        if let Some(raw_kw) = p.take("AddKeyword") {
+            let mut bits = Vec::new();
+            for word in raw_kw.split(" & ").map(str::trim).filter(|s| !s.is_empty()) {
+                let Some(bit) = stack_live_keyword_const(word) else {
+                    return self.deny(format!(
+                        "static ability reaching `AffectedZone$ {affected_zone}`"
+                    ));
+                };
+                bits.push(bit);
+            }
+            if let Some((head, tail)) = bits.split_first() {
+                let set = tail
+                    .iter()
+                    .fold((*head).to_string(), |acc, b| format!("{acc}.union({b})"));
+                out.push(Self::static_expr(
+                    &filter,
+                    &format!("Modifier::AddKeyword({set})"),
+                ));
+            }
+        }
+        if !p.has("RemoveLandTypes") {
+            self.type_modifiers(&mut p, &filter, &mut out)?;
+        }
+        self.color_modifiers(&mut p, &filter, &mut out)?;
+        self.strip_ai_hint_add_svar(&mut p);
+        if !p.exhausted() || out.is_empty() {
+            return self.deny(format!(
+                "static ability reaching `AffectedZone$ {affected_zone}`"
+            ));
+        }
+        let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
+        for ability in &mut out {
+            if (!zone_arg.is_empty() || !condition.is_empty())
+                && let Some(open) = ability.strip_suffix(')')
+            {
+                *ability = format!("{open}{zone_arg}{condition})");
+            }
+        }
+        self.body.abilities.extend(out);
+        Some(())
     }
 
     /// A characteristic-defining power and toughness (CR 604.3): both equal
@@ -2648,12 +2824,6 @@ impl Tx<'_> {
         if bad_atom || (who.is_none() && !explicit_you) {
             return self.deny(format!("`IsPresent$ {valid}` in {zone}"));
         }
-        let compare = p
-            .take("PresentCompare")
-            .unwrap_or_else(|| "GE1".to_string());
-        let Some(bound) = count_bound(&compare) else {
-            return self.deny(format!("`PresentCompare$ {compare}`"));
-        };
         let stripped = valid
             .split(',')
             .map(|alt| {
@@ -2672,6 +2842,13 @@ impl Tx<'_> {
             })
             .collect::<Vec<_>>()
             .join(",");
+        let compare = match p.take("PresentCompare") {
+            Some(c) => c,
+            None => self.default_zone_present_compare(&zone, &stripped)?,
+        };
+        let Some(bound) = count_bound(&compare) else {
+            return self.deny(format!("`PresentCompare$ {compare}`"));
+        };
         let expr = self.filter_expr_in_zone(&stripped, true)?;
         let name = self.body.filter_static("CHECK", &expr);
         let zone_sel = if zone == "Hand" {
@@ -2688,6 +2865,31 @@ impl Tx<'_> {
             }
             Bound::AtLeast(_) => return self.deny(format!("`PresentCompare$ {compare}`")),
         })
+    }
+
+    fn default_zone_present_compare(&self, zone: &str, stripped: &str) -> Option<String> {
+        if zone == "Graveyard" && stripped == "Permanent" {
+            let lower = self.oracle.to_ascii_lowercase();
+            let has_d4 = lower.contains("descend 4");
+            let has_d8 = lower.contains("descend 8");
+            if has_d8 && !has_d4 {
+                return Some("GE8".to_string());
+            }
+            if has_d4 && !has_d8 {
+                return Some("GE4".to_string());
+            }
+            if has_d4
+                || has_d8
+                || lower.contains("descend ")
+                || lower.contains("or more permanent cards in your graveyard")
+            {
+                return self.deny(
+                    "omitted `PresentCompare$` on multi-card Descend graveyard condition"
+                        .to_string(),
+                );
+            }
+        }
+        Some("GE1".to_string())
     }
 
     pub(super) fn inline_valid_count_condition(&mut self, def: &str, cmp: &str) -> Option<String> {
@@ -2878,6 +3080,40 @@ impl Tx<'_> {
     }
 }
 
+fn stack_live_keyword_const(word: &str) -> Option<&'static str> {
+    match word {
+        "Lifelink" => Some("KeywordSet::LIFELINK"),
+        "Deathtouch" => Some("KeywordSet::DEATHTOUCH"),
+        "Wither" => Some("KeywordSet::WITHER"),
+        "Infect" => Some("KeywordSet::INFECT"),
+        "Split second" => Some("KeywordSet::SPLIT_SECOND"),
+        "Rebound" => Some("KeywordSet::REBOUND"),
+        "Storm" => Some("KeywordSet::STORM"),
+        "CARDNAME can't be countered." | "This spell can't be countered." => {
+            Some("KeywordSet::UNCOUNTERABLE")
+        }
+        _ => None,
+    }
+}
+
+fn strip_secondary_true(spec: &str) -> String {
+    spec.split(" | ")
+        .filter(|part| part.trim() != "Secondary$ True")
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+fn splice_activated_condition(ability_expr: &str, condition: &str) -> Option<String> {
+    if condition.is_empty() {
+        return Some(ability_expr.to_string());
+    }
+    if ability_expr.contains("condition = ") {
+        return None;
+    }
+    let open = ability_expr.strip_suffix(')')?;
+    Some(format!("{open}{condition})"))
+}
+
 fn is_exert_self_cost(cost: &str) -> bool {
     let Some(inner) = cost
         .trim()
@@ -2987,4 +3223,284 @@ fn split_plain_static_ability(expr: &str) -> Option<(&str, &str)> {
         return None;
     }
     Some((filter, modifier))
+}
+
+#[cfg(test)]
+mod wave16b_tests {
+    use super::super::{parse, refusal_reason, transcode};
+    use crate::body::CardBody;
+    use crate::catalog::SubtypeCatalogs;
+
+    fn cats() -> SubtypeCatalogs {
+        let mut c = SubtypeCatalogs {
+            creature: vec!["Goblin".into(), "Wizard".into()],
+            land: vec!["Forest".into(), "Island".into(), "Mountain".into()],
+            ..SubtypeCatalogs::default()
+        };
+        c.normalize();
+        c
+    }
+
+    fn read(text: &str) -> CardBody {
+        let parsed = parse(text);
+        let c = cats();
+        transcode(&parsed, &c, None).unwrap_or_else(|| {
+            panic!(
+                "expected clean transcode, refused: {:?}",
+                refusal_reason(&parsed, &c, None)
+            )
+        })
+    }
+
+    fn refused(text: &str) -> Option<String> {
+        let parsed = parse(text);
+        let c = cats();
+        assert!(transcode(&parsed, &c, None).is_none(), "expected refusal");
+        refusal_reason(&parsed, &c, None)
+    }
+
+    #[test]
+    fn wave16b_warp_snow_bloodthirst_devour_x_and_hand_conditions() {
+        let snow_spell = read(
+            "Name:Glacial Tally\nManaCost:2 U\nTypes:Snow Sorcery\n\
+             A:SP$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ DBReturn\n\
+             SVar:DBReturn:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | \
+             ValidTgts$ Creature.YouOwn+cmcLEX | TgtZone$ Graveyard\n\
+             SVar:X:Count$CastTotalManaSpent Snow",
+        );
+        assert!(snow_spell.abilities[0].contains("Amount::SnowManaSpentToCast"));
+        assert!(
+            snow_spell
+                .statics
+                .contains("Filter::CmcAtMostSnowManaSpent")
+        );
+
+        let snow_etb = read(
+            "Name:Frost Watcher\nManaCost:3 U\nTypes:Snow Creature Wizard\nPT:3/3\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | NumCards$ 1 | ConditionCheckSVar$ S\n\
+             SVar:S:Count$CastTotalManaSpent Snow",
+        );
+        assert!(snow_etb.abilities[0].contains("Condition::SnowManaWasSpent"));
+
+        let snow_static = read(
+            "Name:Rime Guard\nManaCost:2 W\nTypes:Snow Creature Wizard\nPT:2/2\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ S | SVarCompare$ GE2\n\
+             S:Mode$ Continuous | Affected$ Creature.!Snow | AddPower$ -1 | AddToughness$ -1\n\
+             R:Event$ DamageDone | ValidSource$ Card.SnowSource | ValidTarget$ You | Prevent$ True\n\
+             A:AB$ Mana | Cost$ S T | Produced$ U | RestrictValid$ Spell.Snow\n\
+             SVar:S:Count$CastTotalManaSpent Snow",
+        );
+        assert!(
+            snow_static.abilities[0]
+                .contains("Condition::AmountAtLeast(Amount::SnowManaSpentToCast, 2)")
+        );
+        assert!(
+            snow_static.abilities[1]
+                .contains("Filter::Not(&Filter::HasSupertype(SupertypeSet::SNOW))")
+        );
+        assert!(
+            snow_static
+                .statics
+                .contains("Filter::HasSupertype(SupertypeSet::SNOW)")
+                || snow_static.abilities[2].contains("Filter::HasSupertype(SupertypeSet::SNOW)")
+        );
+        assert!(snow_static.abilities[3].contains("\"{S}\""));
+        assert!(snow_static.abilities[3].contains(".restricted("));
+
+        let warp_conds = read(
+            "Name:Phase Beacon\nManaCost:2 U\nTypes:Artifact\n\
+             S:Mode$ Continuous | Affected$ Card.Self+CastSa Spell.Warp | AddKeyword$ Haste\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ W1\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Vigilance | CheckSVar$ W2\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Lifelink | CheckSVar$ W3 | SVarCompare$ GE2\n\
+             A:AB$ Draw | Cost$ 1 | NumCards$ W3\n\
+             SVar:W1:Count$ThisTurnWarped\n\
+             SVar:W2:Count$ThisTurnWarped_You\n\
+             SVar:W3:Count$ThisTurnWarped_Opponent",
+        );
+        assert!(warp_conds.abilities[0].contains("Condition::WarpCostPaid"));
+        assert!(warp_conds.abilities[1].contains("Condition::SpellWarpedThisTurn(None)"));
+        assert!(
+            warp_conds.abilities[2]
+                .contains("Condition::SpellWarpedThisTurn(Some(PlayerRel::You))")
+        );
+        assert!(warp_conds.abilities[3].contains(
+            "Condition::AmountAtLeast(Amount::SpellsWarpedThisTurn(PlayerRel::Opponent), 2)"
+        ));
+        assert!(
+            warp_conds.abilities[4].contains("Amount::SpellsWarpedThisTurn(PlayerRel::Opponent)")
+        );
+
+        let warp_filter = read(
+            "Name:Warp Watcher\nManaCost:1 U\nTypes:Enchantment\n\
+             S:Mode$ Continuous | Affected$ Card.WarpedInExile | AddKeyword$ Lifelink",
+        );
+        assert!(warp_filter.abilities[0].contains("Filter::WarpedInExile"));
+        assert!(
+            refused(
+                "Name:Keyword Warp Refusal\nManaCost:1 B\nTypes:Sorcery\n\
+                 A:SP$ ChangeZone | Origin$ Exile | ValidTgts$ Card.withWarp | Destination$ Library"
+            )
+            .is_some()
+        );
+    }
+
+    #[test]
+    fn wave16b_bloodthirst_devour_x_and_hand_conditions() {
+        let opp_dmg = read(
+            "Name:Ember Raider\nManaCost:2 R\nTypes:Creature Goblin\nPT:2/2\n\
+             A:AB$ ChangeZone | Cost$ R | Origin$ Graveyard | Destination$ Hand | ActivationZone$ Graveyard | CheckSVar$ D\n\
+             SVar:D:PlayerCountRegisteredOpponents$HasPropertywasDealtDamageThisTurn",
+        );
+        assert!(opp_dmg.abilities[0].contains("Condition::OpponentDealtDamageThisTurn"));
+        assert!(
+            refused(
+                "Name:Multi Opp Dmg\nManaCost:2 R\nTypes:Enchantment\n\
+                 S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Haste | CheckSVar$ D | SVarCompare$ GE2\n\
+                 SVar:D:PlayerCountOpponents$HasPropertywasDealtDamageThisTurn"
+            )
+            .is_some()
+        );
+
+        let devour = read(
+            "Name:Feast Maw\nManaCost:4 G\nTypes:Creature Goblin\nPT:3/3\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigGain\n\
+             SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+             SVar:X:Count$Devoured Card/Twice",
+        );
+        assert!(
+            devour.abilities[0]
+                .contains("Amount::Times { base: &Amount::EntrySacrifices, factor: 2 }")
+        );
+        assert!(
+            refused(
+                "Name:Filtered Feast\nManaCost:4 R\nTypes:Creature Goblin\nPT:3/3\n\
+                 T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigGain\n\
+                 SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+                 SVar:X:Count$Devoured Card.Goblin/Twice"
+            )
+            .is_some()
+        );
+
+        let act_x = read(
+            "Name:Time Vessel\nManaCost:3\nTypes:Artifact\n\
+             A:AB$ Draw | Cost$ X T | NumCards$ 1 | CheckSVar$ X | SVarCompare$ GE3\n\
+             SVar:X:Count$xPaid",
+        );
+        assert!(act_x.abilities[0].contains("Condition::XAtLeast(3)"));
+
+        let any_hand = read(
+            "Name:Silent Archive\nManaCost:2 B\nTypes:Enchantment\n\
+             S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ H | SVarCompare$ LE1\n\
+             SVar:H:PlayerCountPlayers$LowestCardsInHand",
+        );
+        assert!(any_hand.abilities[0].contains("Condition::APlayerHandSizeAtMost(1)"));
+        assert!(
+            refused(
+                "Name:Opp Hand Only\nManaCost:2 B\nTypes:Enchantment\n\
+                 S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ H | SVarCompare$ EQ0\n\
+                 SVar:H:PlayerCountOpponents$LowestCardsInHand"
+            )
+            .is_some()
+        );
+    }
+
+    #[test]
+    fn wave16b_descend_reduce_cost_stack_and_graveyard_sweeps() {
+        let descend8 = read(
+            "Name:Deep Relic\nManaCost:5\nTypes:Artifact\n\
+             S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 3 | EffectZone$ All | \
+             IsPresent$ Permanent.YouOwn | PresentZone$ Graveyard\n\
+             Oracle:Descend 8 — This spell costs {3} less to cast if there are eight or more permanent cards in your graveyard.",
+        );
+        assert!(descend8.abilities[0].contains("ZoneSel::GraveyardOf(PlayerRel::You) }, 8)"));
+
+        let descend4 = read(
+            "Name:Shallow Relic\nManaCost:4\nTypes:Artifact\n\
+             S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | \
+             IsPresent$ Permanent.YouOwn | PresentZone$ Graveyard\n\
+             Oracle:Descend 4 — This spell costs {2} less to cast if there are four or more permanent cards in your graveyard.",
+        );
+        assert!(descend4.abilities[0].contains("ZoneSel::GraveyardOf(PlayerRel::You) }, 4)"));
+
+        assert!(
+            refused(
+                "Name:Ambiguous Descend\nManaCost:4\nTypes:Artifact\n\
+                 S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | \
+                 IsPresent$ Permanent.YouOwn | PresentZone$ Graveyard\n\
+                 Oracle:Descend 4 — This spell costs {2} less if there are six or more permanent cards in your graveyard. Descend 8 — Draw a card."
+            )
+            .is_some()
+        );
+
+        let stack_statics = read(
+            "Name:Spell Aura\nManaCost:2 U R\nTypes:Enchantment\n\
+             S:Mode$ Continuous | Affected$ Instant.YouCtrl,Sorcery.YouCtrl | AddKeyword$ Lifelink | AffectedZone$ Stack\n\
+             S:Mode$ Continuous | Affected$ Instant.YouCtrl,Sorcery.YouCtrl | AddKeyword$ Deathtouch & Split second | AffectedZone$ Stack\n\
+             S:Mode$ Continuous | Affected$ Instant.YouCtrl,Sorcery.YouCtrl | AddKeyword$ Rebound | AffectedZone$ Stack\n\
+             S:Mode$ Continuous | Affected$ Permanent.nonLand+YouCtrl | AffectedZone$ Battlefield,Stack | AddType$ Enchantment",
+        );
+        assert!(stack_statics.abilities[0].contains("Filter::InZone(ZoneRef::Stack)"));
+        assert!(stack_statics.abilities[0].contains("Modifier::AddKeyword(KeywordSet::LIFELINK)"));
+        assert!(
+            stack_statics.abilities[1]
+                .contains("KeywordSet::DEATHTOUCH.union(KeywordSet::SPLIT_SECOND)")
+        );
+        assert!(stack_statics.abilities[2].contains("Modifier::AddKeyword(KeywordSet::REBOUND)"));
+        assert!(stack_statics.abilities[3].contains(
+            "Filter::Or(&[Filter::InZone(ZoneRef::Battlefield), Filter::InZone(ZoneRef::Stack)])"
+        ));
+        assert!(stack_statics.abilities[3].contains("Modifier::AddType(TypeSet::ENCHANTMENT)"));
+
+        for unsupported_kw in ["Convoke", "Delve", "Cascade", "Affinity:Artifact", "Flash"] {
+            assert!(
+                refused(&format!(
+                    "Name:Unsupported Stack Grant\nManaCost:3 U\nTypes:Enchantment\n\
+                     S:Mode$ Continuous | Affected$ Instant.YouCtrl | AddKeyword$ {unsupported_kw} | AffectedZone$ Stack"
+                ))
+                .is_some(),
+                "must refuse stack grant of {unsupported_kw}"
+            );
+        }
+
+        let gy_statics = read(
+            "Name:Crypt Ward\nManaCost:2 G\nTypes:Enchantment\n\
+             S:Mode$ CantTarget | AffectedZone$ Graveyard\n\
+             S:Mode$ CantTarget | ValidTarget$ Land | AffectedZone$ Battlefield,Graveyard | Activator$ Opponent\n\
+             S:Mode$ Continuous | EffectZone$ Graveyard | AffectedZone$ Graveyard | Affected$ Card.Self | Condition$ MaxSpeed | AddAbility$ ABDraw\n\
+             S:Mode$ Continuous | EffectZone$ Command | AffectedZone$ Graveyard | Affected$ Permanent.nonLand+YouOwn | MayPlay$ True\n\
+             SVar:ABDraw:AB$ Draw | Cost$ 3 ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | Secondary$ True",
+        );
+        assert_eq!(
+            gy_statics.abilities[0],
+            "static_ability!(Filter::InZone(ZoneRef::Graveyard), Modifier::CantBeTargetedBy(&Filter::Any))"
+        );
+        assert!(gy_statics.abilities[1].contains(
+            "Filter::Or(&[Filter::InZone(ZoneRef::Battlefield), Filter::InZone(ZoneRef::Graveyard)])"
+        ));
+        assert!(gy_statics.abilities[2].contains("ActivationZone::Graveyard"));
+        assert!(gy_statics.abilities[2].contains("condition = Some(Condition::MaxSpeed)"));
+        assert!(
+            gy_statics.abilities[3]
+                .contains("Modifier::CastPermanentSpellsFromGraveyard, zone = ZoneRef::Command")
+        );
+
+        let gy_tgt = read(
+            "Name:Grave Shift\nManaCost:1 B\nTypes:Sorcery\n\
+             A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Creature.YouDontOwn | TgtZone$ Graveyard",
+        );
+        assert!(
+            gy_tgt.abilities[0]
+                .contains("TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::Opponent)")
+        );
+
+        assert!(
+            refused(
+                "Name:Mixed Grave Owner\nManaCost:1 B\nTypes:Sorcery\n\
+                 A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Creature.YouOwn,Artifact.OppOwn | TgtZone$ Graveyard"
+            )
+            .is_some()
+        );
+    }
 }

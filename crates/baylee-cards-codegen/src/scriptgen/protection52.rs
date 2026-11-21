@@ -2622,17 +2622,24 @@ impl Tx<'_> {
     fn cant_target_wave7(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
-            || !matches!(
-                p.take("AffectedZone").as_deref(),
-                None | Some("Battlefield")
-            )
             || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
             || p.has("SourceCanOnlyTarget")
         {
             return self.deny("static ability `S: Mode$ CantTarget`".into());
         }
-        let Some(valid_target) = p.take("ValidTarget") else {
-            return self.deny("static ability `S: Mode$ CantTarget`".into());
+        let affected_zone = p.take("AffectedZone");
+        let zone_filter = match affected_zone.as_deref() {
+            None | Some("Battlefield") => None,
+            Some("Graveyard") => Some("Filter::InZone(ZoneRef::Graveyard)"),
+            Some("Battlefield,Graveyard" | "Graveyard,Battlefield") => Some(
+                "Filter::Or(&[Filter::InZone(ZoneRef::Battlefield), Filter::InZone(ZoneRef::Graveyard)])",
+            ),
+            Some(_) => return self.deny("static ability `S: Mode$ CantTarget`".into()),
+        };
+        let valid_target = match (p.take("ValidTarget"), affected_zone.as_deref()) {
+            (Some(vt), _) => vt,
+            (None, Some("Graveyard")) => "Card".to_string(),
+            (None, _) => return self.deny("static ability `S: Mode$ CantTarget`".into()),
         };
         let valid_source = p.take("ValidSource");
         let valid_sa = p.take("ValidSA");
@@ -2654,18 +2661,42 @@ impl Tx<'_> {
             Some("Activated,Triggered" | "Triggered,Activated") => (false, true),
             Some(_) => return self.deny("static ability `S: Mode$ CantTarget`".into()),
         };
-        let target_filter = self.filter_expr(&valid_target)?;
+        let base_target = if zone_filter.is_some() {
+            self.filter_expr_in_zone(&valid_target, true)?
+        } else {
+            self.filter_expr(&valid_target)?
+        };
+        let target_filter = zone_filter.map_or(base_target.clone(), |zf| {
+            conjoin_filter_expr(&base_target, zf)
+        });
+        let src_ref =
+            self.cant_target_source_ref(stack_only, valid_source.as_deref(), activator.as_deref())?;
+        let modifier = if abilities_only {
+            format!("Modifier::CantBeTargetedByAbilitiesFrom(&{src_ref})")
+        } else {
+            format!("Modifier::CantBeTargetedBy(&{src_ref})")
+        };
+        self.push_static_with_cond(&target_filter, &modifier, &cond);
+        Some(())
+    }
+
+    fn cant_target_source_ref(
+        &mut self,
+        stack_only: bool,
+        valid_source: Option<&str>,
+        activator: Option<&str>,
+    ) -> Option<String> {
         let mut src_parts = Vec::new();
         if stack_only {
             src_parts.push("Filter::InZone(ZoneRef::Stack)".to_string());
         }
         if let Some(src) = valid_source {
-            let expr = self.filter_expr(&src)?;
+            let expr = self.filter_expr(src)?;
             if expr != "Filter::Any" {
                 src_parts.push(expr);
             }
         }
-        match activator.as_deref() {
+        match activator {
             None | Some("Player") => {}
             Some("Opponent" | "Player.Opponent") => {
                 src_parts.push("Filter::ControlledByOpponent".to_string());
@@ -2679,14 +2710,7 @@ impl Tx<'_> {
             _ => format!("Filter::And(&[{}])", src_parts.join(", ")),
         };
         let normalized = Self::named_constant(&raw_src);
-        let src_ref = self.body.filter_static("SOURCE", &normalized);
-        let modifier = if abilities_only {
-            format!("Modifier::CantBeTargetedByAbilitiesFrom(&{src_ref})")
-        } else {
-            format!("Modifier::CantBeTargetedBy(&{src_ref})")
-        };
-        self.push_static_with_cond(&target_filter, &modifier, &cond);
-        Some(())
+        Some(self.body.filter_static("SOURCE", &normalized))
     }
 
     /// `R: Event$ RollDice | ActiveZones$ Battlefield | ValidPlayer$ You`
@@ -3060,12 +3084,66 @@ impl Tx<'_> {
                 _ => None,
             };
         }
+        if let Some(cond) = self.wave16b_svar_condition(&raw, cmp) {
+            return Some(cond);
+        }
         if raw == "PlayerCountPlayers$LowestValidLibrary Card.YouOwn"
             && let Some(n) = super::saga_ward_convoke::parse_at_most_u16(cmp)
         {
             return Some(format!("Condition::AnyLibraryAtMost({n})"));
         }
+        if matches!(
+            raw.as_str(),
+            "PlayerCountPlayers$LowestCardsInHand"
+                | "PlayerCountPlayers$LowestValidHand Card.YouOwn"
+        ) {
+            if let Some(n) =
+                super::saga_ward_convoke::parse_at_most_u16(cmp).and_then(|v| u8::try_from(v).ok())
+            {
+                return Some(format!("Condition::APlayerHandSizeAtMost({n})"));
+            }
+            if let Some(min) = super::saga_ward_convoke::parse_at_least_u16(cmp)
+                && let Some(max) = min.checked_sub(1).and_then(|v| u8::try_from(v).ok())
+            {
+                return Some(format!(
+                    "Condition::Not(&Condition::APlayerHandSizeAtMost({max}))"
+                ));
+            }
+        }
         self.opponent_count_svar_condition(&raw, cmp)
+    }
+
+    fn wave16b_svar_condition(&self, raw: &str, cmp: &str) -> Option<String> {
+        if raw == "Count$xPaid" && self.has_x {
+            return x_paid_condition(cmp);
+        }
+        if matches!(
+            raw,
+            "Count$CastTotalManaSpent Snow" | "Count$TotalManaSpent Snow"
+        ) && !self.in_delayed
+            && (self.on_a_spell || self.trigger_is_self || self.trigger_mode.is_none())
+        {
+            return snow_spent_condition(cmp);
+        }
+        if matches!(
+            raw,
+            "PlayerCountRegisteredOpponents$HasPropertywasDealtDamageThisTurn"
+                | "PlayerCountOpponents$HasPropertywasDealtDamageThisTurn"
+        ) {
+            return match cmp {
+                "GE1" | "GT0" => Some("Condition::OpponentDealtDamageThisTurn".to_string()),
+                "EQ0" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::OpponentDealtDamageThisTurn)".to_string())
+                }
+                _ => None,
+            };
+        }
+        if !self.in_delayed
+            && let Some(cond) = warp_cost_paid_svar_condition(raw, cmp)
+        {
+            return Some(cond);
+        }
+        spell_warped_this_turn_condition(raw, cmp)
     }
 
     fn opponent_count_svar_condition(&mut self, raw: &str, cmp: &str) -> Option<String> {
@@ -3434,6 +3512,8 @@ fn binary_flag_svar_condition(raw: &str, cmp: &str) -> Option<String> {
         "Count$Blessing.0.1" => ("Condition::CitysBlessing", false),
         "Count$Revolt.0.1" => ("Condition::Revolt", false),
         "Count$Raid.0.1" => ("Condition::AttackedWithAtLeast(1)", false),
+        "Count$AltCost.1.0" => ("Condition::AltCostPaid", true),
+        "Count$AltCost.0.1" => ("Condition::AltCostPaid", false),
         _ => return None,
     };
     Some(if want_one == one_is_positive {
@@ -3441,6 +3521,118 @@ fn binary_flag_svar_condition(raw: &str, cmp: &str) -> Option<String> {
     } else {
         negate_condition_expr(expr)
     })
+}
+
+fn x_paid_condition(cmp: &str) -> Option<String> {
+    if let Some(n) = super::saga_ward_convoke::parse_at_least_u16(cmp).filter(|&n| n >= 1) {
+        return Some(format!("Condition::XAtLeast({n})"));
+    }
+    if let Some(max) = super::saga_ward_convoke::parse_at_most_u16(cmp) {
+        let above = u32::from(max).checked_add(1)?;
+        return Some(format!("Condition::Not(&Condition::XAtLeast({above}))"));
+    }
+    if let Some(eq) = cmp.strip_prefix("EQ").and_then(|s| s.parse::<u32>().ok()) {
+        return Some(if eq == 0 {
+            "Condition::Not(&Condition::XAtLeast(1))".to_string()
+        } else {
+            let above = eq.checked_add(1)?;
+            format!(
+                "Condition::All(&[Condition::XAtLeast({eq}), \
+                 Condition::Not(&Condition::XAtLeast({above}))])"
+            )
+        });
+    }
+    None
+}
+
+fn snow_spent_condition(cmp: &str) -> Option<String> {
+    match cmp {
+        "GE1" | "GT0" => return Some("Condition::SnowManaWasSpent".to_string()),
+        "EQ0" | "LT1" | "LE0" => {
+            return Some("Condition::Not(&Condition::SnowManaWasSpent)".to_string());
+        }
+        _ => {}
+    }
+    if let Some(n) = super::saga_ward_convoke::parse_at_least_u16(cmp).filter(|&n| n >= 2) {
+        return Some(format!(
+            "Condition::AmountAtLeast(Amount::SnowManaSpentToCast, {n})"
+        ));
+    }
+    if let Some(max) = super::saga_ward_convoke::parse_at_most_u16(cmp).filter(|&n| n >= 1) {
+        let above = u32::from(max).checked_add(1)?;
+        return Some(format!(
+            "Condition::Not(&Condition::AmountAtLeast(Amount::SnowManaSpentToCast, {above}))"
+        ));
+    }
+    if let Some(eq) = cmp.strip_prefix("EQ").and_then(|s| s.parse::<u32>().ok())
+        && eq >= 1
+    {
+        let above = eq.checked_add(1)?;
+        return Some(format!(
+            "Condition::All(&[Condition::AmountAtLeast(Amount::SnowManaSpentToCast, {eq}), \
+             Condition::Not(&Condition::AmountAtLeast(Amount::SnowManaSpentToCast, {above}))])"
+        ));
+    }
+    None
+}
+
+fn warp_cost_paid_svar_condition(raw: &str, cmp: &str) -> Option<String> {
+    let one_is_positive = match raw {
+        "Count$Warped.1.0" | "Count$WarpCostPaid.1.0" | "Count$CastByWarp.1.0" => true,
+        "Count$Warped.0.1" | "Count$WarpCostPaid.0.1" | "Count$CastByWarp.0.1" => false,
+        _ => return None,
+    };
+    let want_one = match cmp {
+        "GE1" | "GT0" | "EQ1" => true,
+        "EQ0" | "LT1" | "LE0" => false,
+        _ => return None,
+    };
+    Some(if want_one == one_is_positive {
+        "Condition::WarpCostPaid".to_string()
+    } else {
+        "Condition::Not(&Condition::WarpCostPaid)".to_string()
+    })
+}
+
+fn spell_warped_this_turn_condition(raw: &str, cmp: &str) -> Option<String> {
+    let (cond_arg, amt_rel) = match raw {
+        "Count$ThisTurnWarped"
+        | "Count$WarpedThisTurn"
+        | "Count$SpellsWarpedThisTurn"
+        | "Count$ThisTurnCast_Card.CastSa Spell.Warp" => ("None", "PlayerRel::EachPlayer"),
+        "Count$ThisTurnWarped_You"
+        | "Count$WarpedThisTurn_You"
+        | "Count$ThisTurnCast_Card.YouCtrl+CastSa Spell.Warp" => {
+            ("Some(PlayerRel::You)", "PlayerRel::You")
+        }
+        "Count$ThisTurnWarped_Opponent"
+        | "Count$WarpedThisTurn_Opponent"
+        | "Count$ThisTurnCast_Card.OppCtrl+CastSa Spell.Warp" => {
+            ("Some(PlayerRel::Opponent)", "PlayerRel::Opponent")
+        }
+        _ => return None,
+    };
+    match cmp {
+        "GE1" | "GT0" => return Some(format!("Condition::SpellWarpedThisTurn({cond_arg})")),
+        "EQ0" | "LT1" | "LE0" => {
+            return Some(format!(
+                "Condition::Not(&Condition::SpellWarpedThisTurn({cond_arg}))"
+            ));
+        }
+        _ => {}
+    }
+    if let Some(n) = super::saga_ward_convoke::parse_at_least_u16(cmp).filter(|&n| n >= 2) {
+        return Some(format!(
+            "Condition::AmountAtLeast(Amount::SpellsWarpedThisTurn({amt_rel}), {n})"
+        ));
+    }
+    if let Some(max) = super::saga_ward_convoke::parse_at_most_u16(cmp).filter(|&n| n >= 1) {
+        let above = u32::from(max).checked_add(1)?;
+        return Some(format!(
+            "Condition::Not(&Condition::AmountAtLeast(Amount::SpellsWarpedThisTurn({amt_rel}), {above}))"
+        ));
+    }
+    None
 }
 
 fn strip_you_ctrl_only(valid: &str) -> Option<String> {

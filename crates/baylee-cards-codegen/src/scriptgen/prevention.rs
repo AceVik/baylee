@@ -788,6 +788,10 @@ impl Tx<'_> {
                         ));
                     }
                     kept_atoms.push("ChosenColor".to_string());
+                } else if atom == "SnowSource" {
+                    kept_atoms.push("Snow".to_string());
+                } else if matches!(atom, "nonSnowSource" | "!SnowSource") {
+                    kept_atoms.push("nonSnow".to_string());
                 } else if let Some(color) = atom.strip_suffix("Source") {
                     if color == "Colorless" || super::color_atom(color).is_some() {
                         kept_atoms.push(color.to_string());

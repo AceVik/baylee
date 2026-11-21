@@ -687,8 +687,12 @@ impl Tx<'_> {
                         "Filter::Not(&Filter::HasSupertype(SupertypeSet::LEGENDARY))".to_string()
                     }
                     "Snow" => "Filter::HasSupertype(SupertypeSet::SNOW)".to_string(),
-                    "nonSnow" => {
+                    "nonSnow" | "!Snow" => {
                         "Filter::Not(&Filter::HasSupertype(SupertypeSet::SNOW))".to_string()
+                    }
+                    "WarpedInExile" | "ExiledWithWarp" => "Filter::WarpedInExile".to_string(),
+                    "!WarpedInExile" | "!ExiledWithWarp" => {
+                        "Filter::Not(&Filter::WarpedInExile)".to_string()
                     }
                     // Card-type negations a noun cannot say "not" to on its
                     // own ("nonartifact, nonblack creature").
@@ -1058,7 +1062,34 @@ impl Tx<'_> {
         valid: &str,
         defined_controller: Option<&str>,
     ) -> Option<String> {
-        let mut whose = "PlayerRel::EachPlayer";
+        let (mut whose, cleaned_alts) = self.split_graveyard_target_alts(valid)?;
+        if defined_controller == Some("ParentTarget") {
+            if whose != "PlayerRel::EachPlayer" {
+                return None;
+            }
+            let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
+            let filter = self.body.filter_static("TARGET", &filter);
+            return Some(format!(
+                "TargetSpec::CardInFirstTargetsGraveyard(&{filter})"
+            ));
+        }
+        if whose == "PlayerRel::EachPlayer" {
+            let lower = self.oracle.to_ascii_lowercase();
+            if (lower.contains("from your graveyard") || lower.contains("in your graveyard"))
+                && !lower.contains("from a graveyard")
+                && !lower.contains("in a graveyard")
+            {
+                whose = "PlayerRel::You";
+            }
+        }
+        whose = self.resolve_graveyard_defined_controller(whose, defined_controller)?;
+        let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
+        let filter = self.body.filter_static("TARGET", &filter);
+        Some(format!("TargetSpec::CardInGraveyard(&{filter}, {whose})"))
+    }
+
+    fn split_graveyard_target_alts(&self, valid: &str) -> Option<(&'static str, Vec<String>)> {
+        let mut whose: Option<&'static str> = None;
         let mut cleaned_alts = Vec::new();
         for alt in valid.split(',') {
             let mut parts = alt
@@ -1067,23 +1098,36 @@ impl Tx<'_> {
                 .map(str::trim)
                 .filter(|a| !a.is_empty());
             let base = parts.next()?;
+            let mut alt_whose: Option<&'static str> = None;
             let mut kept = Vec::new();
             for atom in parts {
                 match atom {
-                    "YouCtrl" | "YouOwn" => whose = "PlayerRel::You",
-                    "OppCtrl" | "OppOwn" => whose = "PlayerRel::Opponent",
+                    "YouCtrl" | "YouOwn" => alt_whose = Some("PlayerRel::You"),
+                    "OppCtrl" | "OppOwn" | "YouDontOwn" | "YouDontCtrl" => {
+                        alt_whose = Some("PlayerRel::Opponent");
+                    }
                     "DefenderCtrl" | "DefenderOwn"
                         if matches!(
                             self.trigger_mode.as_deref(),
                             Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
                         ) =>
                     {
-                        whose = "PlayerRel::DefendingPlayer";
+                        alt_whose = Some("PlayerRel::DefendingPlayer");
+                    }
+                    "ActivePlayerCtrl" | "ActivePlayerOwn" | "OwnedBy TriggeredPlayer"
+                        if self.trigger_mode.as_deref() == Some("Phase") =>
+                    {
+                        alt_whose = Some("PlayerRel::ActivePlayer");
                     }
                     "ThisTurnEntered" => kept.push("PutIntoGraveyardThisTurn"),
                     "!ThisTurnEntered" => kept.push("!PutIntoGraveyardThisTurn"),
                     other => kept.push(other),
                 }
+            }
+            match (whose, alt_whose) {
+                (None, w) => whose = w,
+                (Some(prev), Some(curr)) if prev != curr => return None,
+                _ => {}
             }
             // Stir the Grave spells its "with mana value X or less" bound as
             // `SVar:X:Targeted$CardManaCost` instead of `+cmcLEX` on `ValidTgts$`.
@@ -1103,21 +1147,20 @@ impl Tx<'_> {
                 cleaned_alts.push(format!("{base}.{}", kept.join("+")));
             }
         }
-        if whose == "PlayerRel::EachPlayer" {
-            let lower = self.oracle.to_ascii_lowercase();
-            if (lower.contains("from your graveyard") || lower.contains("in your graveyard"))
-                && !lower.contains("from a graveyard")
-                && !lower.contains("in a graveyard")
-            {
-                whose = "PlayerRel::You";
-            }
-        }
-        match defined_controller {
-            None => {}
-            Some("You") => whose = "PlayerRel::You",
-            Some("TriggeredCardController") if whose == "PlayerRel::You" => {}
+        Some((whose.unwrap_or("PlayerRel::EachPlayer"), cleaned_alts))
+    }
+
+    fn resolve_graveyard_defined_controller(
+        &self,
+        whose: &'static str,
+        defined_controller: Option<&str>,
+    ) -> Option<&'static str> {
+        Some(match defined_controller {
+            None => whose,
+            Some("You") => "PlayerRel::You",
+            Some("TriggeredCardController") if whose == "PlayerRel::You" => whose,
             Some("TriggeredPlayer") if self.trigger_mode.as_deref() == Some("Phase") => {
-                whose = "PlayerRel::ActivePlayer";
+                "PlayerRel::ActivePlayer"
             }
             Some("TriggeredDefendingPlayer")
                 if matches!(
@@ -1125,7 +1168,7 @@ impl Tx<'_> {
                     Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
                 ) =>
             {
-                whose = "PlayerRel::DefendingPlayer";
+                "PlayerRel::DefendingPlayer"
             }
             Some("TriggeredTarget")
                 if matches!(
@@ -1133,13 +1176,10 @@ impl Tx<'_> {
                     Some("DamageDone" | "DamageDoneOnce")
                 ) =>
             {
-                whose = "PlayerRel::DamagedPlayer";
+                "PlayerRel::DamagedPlayer"
             }
             Some(_) => return None,
-        }
-        let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
-        let filter = self.body.filter_static("TARGET", &filter);
-        Some(format!("TargetSpec::CardInGraveyard(&{filter}, {whose})"))
+        })
     }
 
     /// `Defined$ You` and friends as a `PlayerRel`.
