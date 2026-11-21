@@ -13,7 +13,7 @@ card!(
     oracle_id = "ea4052bc-cd37-467c-9fba-3f1ed537b781",
     scryfall_id = "d7791182-fe63-47bc-9fdf-ef346d6ad4b5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Unchecked Growth",
         mana_cost = mana!("{2}{G}"),

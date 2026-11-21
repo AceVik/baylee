@@ -11,7 +11,7 @@ card!(
     oracle_id = "91a69925-1e9b-433a-ad58-88bfd3c4bc46",
     scryfall_id = "44cab92a-54d8-496c-8a97-7f3448f5b1e9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gaze of Adamaro",
         mana_cost = mana!("{2}{R}{R}"),

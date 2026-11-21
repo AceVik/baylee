@@ -15,7 +15,7 @@ card!(
     oracle_id = "bcc53728-3f6e-48cf-a042-393a2d8098fc",
     scryfall_id = "312505d7-362e-43cf-bd23-28c248a8b7e1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chill to the Bone",
         mana_cost = mana!("{3}{B}"),

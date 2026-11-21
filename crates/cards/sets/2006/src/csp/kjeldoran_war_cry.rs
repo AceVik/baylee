@@ -12,7 +12,7 @@ card!(
     oracle_id = "e45a1626-d659-4eda-bc6b-bd8119ce7386",
     scryfall_id = "320b2b02-a3ff-4f68-93e6-8539d7caa005",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kjeldoran War Cry",
         mana_cost = mana!("{1}{W}"),

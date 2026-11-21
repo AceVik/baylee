@@ -11,7 +11,7 @@ card!(
     oracle_id = "1bc7d73b-0f54-4807-b13a-3def0c5e5616",
     scryfall_id = "81848391-ed73-498a-a650-4041fb9a46bc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Balduvian Rage",
         mana_cost = mana!("{X}{R}"),

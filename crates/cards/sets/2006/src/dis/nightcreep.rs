@@ -11,7 +11,7 @@ card!(
     oracle_id = "8b4b677e-3b18-454c-b385-b3ffb65f916e",
     scryfall_id = "55f7f7f7-c7eb-466c-bfe6-0ef586284ee9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nightcreep",
         mana_cost = mana!("{B}{B}"),

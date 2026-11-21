@@ -10,7 +10,7 @@ card!(
     oracle_id = "9243b539-5f9e-4bb3-9973-3d48366aa7cc",
     scryfall_id = "f425b017-8c4d-457f-919a-f2686d71bcac",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Perilous Research",
         mana_cost = mana!("{1}{U}"),

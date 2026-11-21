@@ -13,7 +13,7 @@ card!(
     oracle_id = "be979bfc-998d-43d5-a7a4-44548d9a14c4",
     scryfall_id = "4b14b97d-122b-453a-9e5f-129404f96440",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soul Spike",
         mana_cost = mana!("{5}{B}{B}"),

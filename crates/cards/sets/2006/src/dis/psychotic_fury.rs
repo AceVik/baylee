@@ -19,7 +19,7 @@ card!(
     oracle_id = "1bf982e9-5868-46bf-81e3-f29ada33d169",
     scryfall_id = "4f626c70-1ede-4b00-bd95-d6ee26371131",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Psychotic Fury",
         mana_cost = mana!("{1}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "6d890c2a-2ed7-429d-a2b2-d261397f838d",
     scryfall_id = "0dfc8ebe-58f4-450f-abdc-8d558f6f5551",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Twinstrike",
         mana_cost = mana!("{3}{B}{R}"),

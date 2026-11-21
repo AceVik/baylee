@@ -11,7 +11,7 @@ card!(
     oracle_id = "64446130-46d0-4129-a718-ed6a04218100",
     scryfall_id = "0dcaba91-06d3-4492-9e07-36a1b858ca47",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Darkblast",
         mana_cost = mana!("{B}"),

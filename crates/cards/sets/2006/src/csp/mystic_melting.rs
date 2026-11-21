@@ -11,7 +11,7 @@ card!(
     oracle_id = "850fe8ad-f6b8-4d01-a94b-2b69adc3d8f0",
     scryfall_id = "bf4ff91d-acc1-4be7-a327-58fcb036b452",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mystic Melting",
         mana_cost = mana!("{3}{G}"),

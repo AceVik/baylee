@@ -17,7 +17,7 @@ card!(
     oracle_id = "90fe98df-4f87-49ff-b562-0ed51d1d3a1c",
     scryfall_id = "523ab8a0-906a-43b3-a554-db0d3dcd62d3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thermal Flux",
         mana_cost = mana!("{U}"),
