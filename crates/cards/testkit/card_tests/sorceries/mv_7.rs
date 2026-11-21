@@ -9,6 +9,7 @@ mod bloodsoaked_insight;
 mod cinder_storm;
 mod emeria_s_call;
 mod kamahl_s_sledge;
+mod return_of_the_nightstalkers;
 mod roar_of_the_wurm;
 mod sea_gate_restoration;
 mod searing_flesh;

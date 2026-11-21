@@ -10,7 +10,7 @@ card!(
     oracle_id = "935e0cac-51ee-4cb7-a209-f085e0f099ed",
     scryfall_id = "9dcad208-cbea-458f-af8d-6f5e9ec32df7",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sylvan Tutor",
         mana_cost = mana!("{G}"),

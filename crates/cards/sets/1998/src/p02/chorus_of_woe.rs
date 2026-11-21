@@ -10,7 +10,7 @@ card!(
     oracle_id = "e175a3c1-df6c-4aa7-a4c9-893b466ad9e0",
     scryfall_id = "ee70f692-35c4-4ea8-baad-c950725cfc30",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chorus of Woe",
         mana_cost = mana!("{B}"),

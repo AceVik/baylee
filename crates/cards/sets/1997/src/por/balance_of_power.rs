@@ -10,7 +10,7 @@ card!(
     oracle_id = "c57ee68e-6832-4d4c-b710-fc03a2c10a9c",
     scryfall_id = "83f46988-c3ee-42e9-ade6-0b6302b8b952",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Balance of Power",
         mana_cost = mana!("{3}{U}{U}"),

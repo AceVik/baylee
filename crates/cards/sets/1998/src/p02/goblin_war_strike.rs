@@ -16,7 +16,7 @@ card!(
     oracle_id = "5944d5c7-65ab-425f-a453-ed5871ca3d73",
     scryfall_id = "dce59945-37a2-4f09-8831-9d44b4a59ea7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin War Strike",
         mana_cost = mana!("{R}"),
