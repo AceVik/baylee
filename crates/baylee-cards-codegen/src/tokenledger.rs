@@ -330,18 +330,14 @@ pub fn assign(
 /// breaks over four lines, and the second `codegen` run refused it as two
 /// tokens at one name.
 ///
-/// Whitespace is dropped rather than collapsed, and that is safe **only**
-/// because this answers a yes/no question: `name: "Eldrazi Spawn"` becomes
-/// `name:"EldraziSpawn"` on both sides alike, so two definitions agree
-/// exactly when they agreed before. Nothing here may be shown to anybody.
+/// Ignore formatting around fields and arguments. Characters inside a quoted
+/// name are part of the token's identity, including spaces and punctuation.
 fn same_definition(a: &str, b: &str) -> bool {
     let normalize = |s: &str| -> String {
-        let bare: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-        let mut out = String::with_capacity(bare.len());
+        let mut out = String::with_capacity(s.len());
         let mut in_str = false;
         let mut escaped = false;
-        let mut chars = bare.chars().peekable();
-        while let Some(c) = chars.next() {
+        for c in s.chars() {
             if in_str {
                 out.push(c);
                 if escaped {
@@ -353,17 +349,19 @@ fn same_definition(a: &str, b: &str) -> bool {
                 }
                 continue;
             }
-            if c == '"' {
-                in_str = true;
-                out.push(c);
-            } else if !(c == ',' && matches!(chars.peek(), Some(']' | ')' | '}'))) {
-                // rustfmt inserts trailing commas when wrapping multi-line arrays/structs.
-                out.push(c);
+            if c.is_whitespace() {
+                continue;
             }
+            // rustfmt may insert a trailing comma before a closing delimiter.
+            if matches!(c, ']' | ')' | '}') && out.ends_with(',') {
+                out.pop();
+            }
+            in_str = c == '"';
+            out.push(c);
         }
         out
     };
-    normalize(a) == normalize(b)
+    a == b || normalize(a) == normalize(b)
 }
 
 /// Renders the ledger as `crates/cards/src/generated_tokens.rs`.
@@ -717,6 +715,14 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn token_names_keep_whitespace_and_punctuation_when_checking_for_collisions() {
+        let body = r#"TokenDef { name: "A \"B,]\"", }"#;
+        assert!(same_definition(body, r#"TokenDef{name:"A \"B,]\""}"#));
+        assert!(!same_definition(body, r#"TokenDef{name:"A\"B,]\""}"#));
+        assert!(!same_definition(body, r#"TokenDef{name:"A \"B]\""}"#));
     }
 
     /// A hand-written token that has been deleted takes its id with it, and

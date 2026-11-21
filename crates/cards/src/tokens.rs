@@ -598,13 +598,13 @@ pub const PHYREXIAN_TOKEN_ID: u16 = u16::MAX - 2;
 /// The stable id of a central token (its index in [`ALL`]).
 #[must_use]
 pub fn token_id(token: &TokenDef) -> u16 {
-    if std::ptr::eq(token, &SPIRIT_X_X_WHITE) {
+    if std::ptr::eq(token, &raw const SPIRIT_X_X_WHITE) {
         return SPIRIT_X_X_WHITE_ID;
     }
-    if std::ptr::eq(token, &INCUBATOR_TOKEN) {
+    if std::ptr::eq(token, &raw const INCUBATOR_TOKEN) {
         return INCUBATOR_TOKEN_ID;
     }
-    if std::ptr::eq(token, &PHYREXIAN_TOKEN) {
+    if std::ptr::eq(token, &raw const PHYREXIAN_TOKEN) {
         return PHYREXIAN_TOKEN_ID;
     }
     ALL.iter()

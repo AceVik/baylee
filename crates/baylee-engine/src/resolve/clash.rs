@@ -90,15 +90,9 @@ fn start_with_opponent(
     on_win: &'static [Effect],
     on_loss: &'static [Effect],
 ) -> Option<Pending> {
-    let turn_order = eval::players(PlayerRel::EachPlayer, state, state.turn.active)
-        .unwrap_or_else(|| vec![res.controller]);
-    let mut participants: Vec<PlayerId> = turn_order
-        .into_iter()
-        .filter(|&p| (p == res.controller || Some(p) == opponent) && !state.has_left(p))
-        .collect();
-    if !participants.contains(&res.controller) && !state.has_left(res.controller) {
-        participants.insert(0, res.controller);
-    }
+    let mut participants = vec![res.controller];
+    participants.extend(opponent);
+    super::chosen::order_apnap(state, &mut participants);
 
     let mut entries = Vec::with_capacity(participants.len());
     for player in participants {

@@ -1003,7 +1003,9 @@ fn clash_win_loss_tie_empty_library_apnap_bottoming_and_multiplayer_choice() {
             Seat::default(),
         ],
     );
-    advance_to_main(&mut multi, me());
+    let active = PlayerId::new(2);
+    advance_to_main(&mut multi, active);
+    multi.apply(active, PlayerAction::PassPriority).unwrap();
     let m_gong = the(&multi, ZoneLocation::Battlefield, CLASH_SPELL);
     let m_five = the(&multi, ZoneLocation::Hand(me()), MV_FIVE_CARD);
     multi
@@ -1040,15 +1042,13 @@ fn clash_win_loss_tie_empty_library_apnap_bottoming_and_multiplayer_choice() {
     multi
         .apply(me(), PlayerAction::ChoosePlayer(PlayerId::new(2)))
         .unwrap();
-    multi.apply(me(), PlayerAction::YesNo(false)).unwrap();
     assert!(matches!(
         multi.pending(),
         Pending::YesNo { player, prompt: YesNoPrompt::ClashBottom { .. }, .. }
-            if *player == PlayerId::new(2)
+            if *player == active
     ));
-    multi
-        .apply(PlayerId::new(2), PlayerAction::YesNo(true))
-        .unwrap();
+    multi.apply(active, PlayerAction::YesNo(true)).unwrap();
+    multi.apply(me(), PlayerAction::YesNo(false)).unwrap();
     settle_stack(&mut multi, me());
     assert!(
         multi

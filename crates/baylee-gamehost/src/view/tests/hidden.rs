@@ -202,6 +202,38 @@ fn a_face_down_permanent_is_blank_to_everyone_but_its_controller() {
     assert_eq!(of(&theirs).name, "Face-down");
 }
 
+#[test]
+fn a_face_down_token_only_shows_its_art_key_to_its_controller() {
+    use baylee_engine::object::{ObjectKind, Status};
+
+    let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+    let controller = PlayerId::new(0);
+    let soldier = &baylee_cards::tokens::SOLDIER_1_1_WHITE;
+    let name = state.names.intern("Soldier");
+    let id = state.create_bare(
+        controller,
+        ObjectKind::Permanent,
+        name,
+        ZoneLocation::Battlefield,
+    );
+    let token = state.object_mut(id).unwrap();
+    token.token = Some(soldier);
+    token.status.insert(Status::FACE_DOWN);
+
+    let board = super::super::object::ViewBoard::new(&state);
+    let shown = |seat| {
+        super::super::object::public_object(&board, id, seat)
+            .unwrap()
+            .token
+    };
+    assert_eq!(
+        shown(controller),
+        Some(baylee_cards::tokens::token_id(soldier))
+    );
+    assert_eq!(shown(PlayerId::new(1)), None);
+    assert_eq!(shown(super::super::SPECTATOR), None);
+}
+
 /// A search offered to `player`, over `options`.
 fn search(player: PlayerId, options: Vec<ObjectId>) -> Pending {
     Pending::ChooseCards {

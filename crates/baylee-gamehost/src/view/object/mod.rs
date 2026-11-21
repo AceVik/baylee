@@ -481,6 +481,7 @@ pub(super) fn public_object(
         token: state
             .merged_top(obj)
             .active_token()
+            .filter(|_| known)
             .map(baylee_cards::tokens::token_id),
         colors: chars.colors,
         // The projected keywords, and on the stack "can't be countered" as
