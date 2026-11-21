@@ -35,6 +35,8 @@ pub mod bearer_of_memory;
 pub mod befriending_the_moths;
 #[path = "neo/behold_the_unspeakable.rs"]
 pub mod behold_the_unspeakable;
+#[path = "neo/blade_blizzard_kitsune.rs"]
+pub mod blade_blizzard_kitsune;
 #[path = "neo/boseiju_reaches_skyward.rs"]
 pub mod boseiju_reaches_skyward;
 #[path = "neo/boseiju_who_endures.rs"]
@@ -47,6 +49,8 @@ pub mod brute_suit;
 pub mod careful_cultivation;
 #[path = "neo/clawing_torment.rs"]
 pub mod clawing_torment;
+#[path = "neo/coiling_stalker.rs"]
+pub mod coiling_stalker;
 #[path = "neo/colossal_skyturtle.rs"]
 pub mod colossal_skyturtle;
 #[path = "neo/commune_with_spirits.rs"]
@@ -57,6 +61,8 @@ pub mod containment_construct;
 pub mod cyberdrive_awakener;
 #[path = "neo/dockside_chef.rs"]
 pub mod dockside_chef;
+#[path = "neo/dokuchi_shadow_walker.rs"]
+pub mod dokuchi_shadow_walker;
 #[path = "neo/dragonfly_suit.rs"]
 pub mod dragonfly_suit;
 #[path = "neo/ecologist_s_terrarium.rs"]
@@ -147,8 +153,12 @@ pub mod michiko_s_reign_of_truth;
 pub mod mnemonic_sphere;
 #[path = "neo/moonfolk_puzzlemaker.rs"]
 pub mod moonfolk_puzzlemaker;
+#[path = "neo/moonsnare_specialist.rs"]
+pub mod moonsnare_specialist;
 #[path = "neo/mothrider_patrol.rs"]
 pub mod mothrider_patrol;
+#[path = "neo/mukotai_ambusher.rs"]
+pub mod mukotai_ambusher;
 #[path = "neo/mukotai_soulripper.rs"]
 pub mod mukotai_soulripper;
 #[path = "neo/network_disruptor.rs"]
@@ -157,6 +167,8 @@ pub mod network_disruptor;
 pub mod network_terminal;
 #[path = "neo/nezumi_bladeblesser.rs"]
 pub mod nezumi_bladeblesser;
+#[path = "neo/nezumi_prowler.rs"]
+pub mod nezumi_prowler;
 #[path = "neo/ninja_s_kunai.rs"]
 pub mod ninja_s_kunai;
 #[path = "neo/okiba_reckoner_raid.rs"]
@@ -167,6 +179,8 @@ pub mod organic_extinction;
 pub mod otawara_soaring_city;
 #[path = "neo/patchwork_automaton.rs"]
 pub mod patchwork_automaton;
+#[path = "neo/prosperous_thief.rs"]
+pub mod prosperous_thief;
 #[path = "neo/rabbit_battery.rs"]
 pub mod rabbit_battery;
 #[path = "neo/reckoner_s_bargain.rs"]
@@ -215,6 +229,8 @@ pub mod skyswimmer_koi;
 pub mod sokenzan_crucible_of_defiance;
 #[path = "neo/spirited_companion.rs"]
 pub mod spirited_companion;
+#[path = "neo/spring_leaf_avenger.rs"]
+pub mod spring_leaf_avenger;
 #[path = "neo/suit_up.rs"]
 pub mod suit_up;
 #[path = "neo/sunblade_samurai.rs"]

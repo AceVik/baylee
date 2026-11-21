@@ -321,6 +321,8 @@ pub mod kiki_jiki_mirror_breaker;
 pub mod kiku_night_s_flower;
 #[path = "chk/kitsune_diviner.rs"]
 pub mod kitsune_diviner;
+#[path = "chk/kitsune_healer.rs"]
+pub mod kitsune_healer;
 #[path = "chk/kitsune_riftwalker.rs"]
 pub mod kitsune_riftwalker;
 #[path = "chk/kodama_of_the_north_tree.rs"]
@@ -611,6 +613,8 @@ pub mod strength_of_cedars;
 pub mod summoning_station;
 #[path = "chk/swallowing_plague.rs"]
 pub mod swallowing_plague;
+#[path = "dst/sword_of_fire_and_ice.rs"]
+pub mod sword_of_fire_and_ice;
 #[path = "pmrd/sword_of_kaldra.rs"]
 pub mod sword_of_kaldra;
 #[path = "5dn/sylvok_explorer.rs"]

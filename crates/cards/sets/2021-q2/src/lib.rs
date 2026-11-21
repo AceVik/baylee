@@ -81,6 +81,8 @@ pub mod bottle_golems;
 pub mod brackish_trudge;
 #[path = "pmh2/breya_s_apprentice.rs"]
 pub mod breya_s_apprentice;
+#[path = "c21/bronze_guardian.rs"]
+pub mod bronze_guardian;
 #[path = "stx/burrog_befuddler.rs"]
 pub mod burrog_befuddler;
 #[path = "mh2/cabal_initiate.rs"]
@@ -319,6 +321,8 @@ pub mod mentor_s_guidance;
 pub mod mine_collapse;
 #[path = "mh2/mistvault_bridge.rs"]
 pub mod mistvault_bridge;
+#[path = "pmh2/moderation.rs"]
+pub mod moderation;
 #[path = "stx/moldering_karok.rs"]
 pub mod moldering_karok;
 #[path = "c21/monologue_tax.rs"]
@@ -399,6 +403,8 @@ pub mod quandrix_campus;
 pub mod quandrix_cultivator;
 #[path = "pmh2/ragavan_nimble_pilferer.rs"]
 pub mod ragavan_nimble_pilferer;
+#[path = "mh2/raving_visionary.rs"]
+pub mod raving_visionary;
 #[path = "mh2/razortide_bridge.rs"]
 pub mod razortide_bridge;
 #[path = "stx/reduce_to_memory.rs"]
@@ -501,6 +507,8 @@ pub mod squirrel_sanctuary;
 pub mod squirrel_sovereign;
 #[path = "stx/start_from_scratch.rs"]
 pub mod start_from_scratch;
+#[path = "mh2/steel_dromedary.rs"]
+pub mod steel_dromedary;
 #[path = "mh2/steelfin_whale.rs"]
 pub mod steelfin_whale;
 #[path = "mh2/step_through.rs"]

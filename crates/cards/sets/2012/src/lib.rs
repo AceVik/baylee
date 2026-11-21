@@ -215,6 +215,8 @@ pub mod crusader_of_odric;
 pub mod crushing_vines;
 #[path = "prtr/cryptborn_horror.rs"]
 pub mod cryptborn_horror;
+#[path = "dka/curse_of_exhaustion.rs"]
+pub mod curse_of_exhaustion;
 #[path = "avr/cursebreak.rs"]
 pub mod cursebreak;
 #[path = "rtr/cyclonic_rift.rs"]
@@ -235,6 +237,8 @@ pub mod death_wind;
 pub mod deathrite_shaman;
 #[path = "avr/defang.rs"]
 pub mod defang;
+#[path = "avr/demonic_rising.rs"]
+pub mod demonic_rising;
 #[path = "avr/demonic_taskmaster.rs"]
 pub mod demonic_taskmaster;
 #[path = "avr/demonlord_of_ashmouth.rs"]
@@ -443,6 +447,8 @@ pub mod herald_of_war;
 pub mod highborn_ghoul;
 #[path = "dka/hollowhenge_beast.rs"]
 pub mod hollowhenge_beast;
+#[path = "avr/homicidal_seclusion.rs"]
+pub mod homicidal_seclusion;
 #[path = "rtr/horncaller_s_chant.rs"]
 pub mod horncaller_s_chant;
 #[path = "avr/hound_of_griselbrand.rs"]
@@ -507,6 +513,8 @@ pub mod lair_delve;
 pub mod latch_seeker;
 #[path = "rtr/launch_party.rs"]
 pub mod launch_party;
+#[path = "avr/leap_of_faith.rs"]
+pub mod leap_of_faith;
 #[path = "avr/lightning_prowess.rs"]
 pub mod lightning_prowess;
 #[path = "m13/liliana_s_shade.rs"]

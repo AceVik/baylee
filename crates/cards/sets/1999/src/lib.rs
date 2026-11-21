@@ -143,6 +143,8 @@ pub mod cackling_witch;
 pub mod caller_of_the_hunt;
 #[path = "uds/caltrops.rs"]
 pub mod caltrops;
+#[path = "ptk/cao_cao_lord_of_wei.rs"]
+pub mod cao_cao_lord_of_wei;
 #[path = "uds/capashen_knight.rs"]
 pub mod capashen_knight;
 #[path = "uds/capashen_standard.rs"]
@@ -265,6 +267,8 @@ pub mod crop_rotation;
 pub mod crossbow_infantry;
 #[path = "mmq/crumbling_sanctuary.rs"]
 pub mod crumbling_sanctuary;
+#[path = "ptk/cunning_advisor.rs"]
+pub mod cunning_advisor;
 #[path = "mmq/customs_depot.rs"]
 pub mod customs_depot;
 #[path = "s99/dakmor_ghoul.rs"]
@@ -395,6 +399,8 @@ pub mod festering_wound;
 pub mod field_surgeon;
 #[path = "ptk/fire_ambush.rs"]
 pub mod fire_ambush;
+#[path = "ptk/fire_bowman.rs"]
+pub mod fire_bowman;
 #[path = "mmq/flailing_manticore.rs"]
 pub mod flailing_manticore;
 #[path = "mmq/flailing_ogre.rs"]
@@ -539,6 +545,8 @@ pub mod horn_of_ramos;
 pub mod horned_troll;
 #[path = "mmq/howling_wolf.rs"]
 pub mod howling_wolf;
+#[path = "ptk/hua_tuo_honored_physician.rs"]
+pub mod hua_tuo_honored_physician;
 #[path = "uds/hulking_ogre.rs"]
 pub mod hulking_ogre;
 #[path = "mmq/hunted_wumpus.rs"]
@@ -653,6 +661,10 @@ pub mod liability;
 pub mod lightning_hounds;
 #[path = "mmq/lithophage.rs"]
 pub mod lithophage;
+#[path = "ptk/loyal_retainers.rs"]
+pub mod loyal_retainers;
+#[path = "ptk/lu_su_wu_advisor.rs"]
+pub mod lu_su_wu_advisor;
 #[path = "mmq/lumbering_satyr.rs"]
 pub mod lumbering_satyr;
 #[path = "mmq/lunge.rs"]
@@ -779,6 +791,8 @@ pub mod overtaker;
 pub mod palinchron;
 #[path = "mmq/panacea.rs"]
 pub mod panacea;
+#[path = "ptk/pang_tong_young_phoenix.rs"]
+pub mod pang_tong_young_phoenix;
 #[path = "mmq/pangosaur.rs"]
 pub mod pangosaur;
 #[path = "ulg/parch.rs"]
@@ -1041,6 +1055,8 @@ pub mod shrieking_specter;
 pub mod shu_defender;
 #[path = "ptk/shu_elite_infantry.rs"]
 pub mod shu_elite_infantry;
+#[path = "ptk/shu_farmer.rs"]
+pub mod shu_farmer;
 #[path = "ptk/shu_foot_soldiers.rs"]
 pub mod shu_foot_soldiers;
 #[path = "ptk/shu_grain_caravan.rs"]
@@ -1141,6 +1157,8 @@ pub mod steadfast_guard;
 pub mod stinging_barrier;
 #[path = "ptk/stolen_grain.rs"]
 pub mod stolen_grain;
+#[path = "ptk/stone_catapult.rs"]
+pub mod stone_catapult;
 #[path = "uds/storage_matrix.rs"]
 pub mod storage_matrix;
 #[path = "mmq/story_circle.rs"]
@@ -1353,8 +1371,12 @@ pub mod wishmonger;
 pub mod worry_beads;
 #[path = "ptk/wu_infantry.rs"]
 pub mod wu_infantry;
+#[path = "ptk/wu_longbowman.rs"]
+pub mod wu_longbowman;
 #[path = "ptk/wu_warship.rs"]
 pub mod wu_warship;
+#[path = "ptk/xun_yu_wei_advisor.rs"]
+pub mod xun_yu_wei_advisor;
 #[path = "uds/yavimaya_elder.rs"]
 pub mod yavimaya_elder;
 #[path = "uds/yavimaya_enchantress.rs"]
@@ -1379,6 +1401,8 @@ pub mod yuan_shao_s_infantry;
 pub mod zhang_liao_hero_of_hefei;
 #[path = "ptk/zhou_yu_chief_commander.rs"]
 pub mod zhou_yu_chief_commander;
+#[path = "ptk/zhuge_jin_wu_strategist.rs"]
+pub mod zhuge_jin_wu_strategist;
 #[path = "ptk/zodiac_dog.rs"]
 pub mod zodiac_dog;
 #[path = "ptk/zodiac_dragon.rs"]

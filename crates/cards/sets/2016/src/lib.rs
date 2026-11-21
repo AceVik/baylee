@@ -163,6 +163,8 @@ pub mod call_the_gatewatch;
 pub mod campaign_of_vengeance;
 #[path = "ogw/canopy_gorger.rs"]
 pub mod canopy_gorger;
+#[path = "ogw/captain_s_claws.rs"]
+pub mod captain_s_claws;
 #[path = "soi/cathar_s_companion.rs"]
 pub mod cathar_s_companion;
 #[path = "emn/cathar_s_shield.rs"]
@@ -207,6 +209,8 @@ pub mod conduit_of_storms;
 pub mod confirm_suspicions;
 #[path = "soi/confront_the_unknown.rs"]
 pub mod confront_the_unknown;
+#[path = "c16/conqueror_s_flail.rs"]
+pub mod conqueror_s_flail;
 #[path = "kld/consulate_skygate.rs"]
 pub mod consulate_skygate;
 #[path = "kld/consulate_surveillance.rs"]
@@ -247,6 +251,8 @@ pub mod cultist_s_staff;
 pub mod cultivator_s_caravan;
 #[path = "kld/curio_vendor.rs"]
 pub mod curio_vendor;
+#[path = "emn/curious_homunculus.rs"]
+pub mod curious_homunculus;
 #[path = "soi/dance_with_devils.rs"]
 pub mod dance_with_devils;
 #[path = "soi/dauntless_cathar.rs"]
@@ -311,6 +317,8 @@ pub mod drownyard_explorers;
 pub mod drownyard_temple;
 #[path = "soi/drunau_corpse_trawler.rs"]
 pub mod drunau_corpse_trawler;
+#[path = "soi/dual_shot.rs"]
+pub mod dual_shot;
 #[path = "c16/duelist_s_heritage.rs"]
 pub mod duelist_s_heritage;
 #[path = "kld/dukhara_peafowl.rs"]
@@ -389,6 +397,8 @@ pub mod faith_unbroken;
 pub mod faithbearer_paladin;
 #[path = "emn/falkenrath_reaver.rs"]
 pub mod falkenrath_reaver;
+#[path = "ogw/fall_of_the_titans.rs"]
+pub mod fall_of_the_titans;
 #[path = "cn2/fang_of_the_pack.rs"]
 pub mod fang_of_the_pack;
 #[path = "emn/field_creeper.rs"]
@@ -609,6 +619,8 @@ pub mod kambal_consul_of_allocation;
 pub mod kessig_dire_swine;
 #[path = "kld/key_to_the_city.rs"]
 pub mod key_to_the_city;
+#[path = "soi/kindly_stranger.rs"]
+pub mod kindly_stranger;
 #[path = "ogw/kor_scythemaster.rs"]
 pub mod kor_scythemaster;
 #[path = "ogw/kor_sky_climber.rs"]
@@ -707,6 +719,8 @@ pub mod moorland_drifter;
 pub mod morbid_curiosity;
 #[path = "soi/morkrut_necropod.rs"]
 pub mod morkrut_necropod;
+#[path = "kld/multiform_wonder.rs"]
+pub mod multiform_wonder;
 #[path = "ogw/munda_s_vanguard.rs"]
 pub mod munda_s_vanguard;
 #[path = "soi/murderous_compulsion.rs"]
@@ -827,6 +841,8 @@ pub mod ravenous_bloodseeker;
 pub mod ravos_soultender;
 #[path = "ogw/reality_hemorrhage.rs"]
 pub mod reality_hemorrhage;
+#[path = "soi/reaper_of_flight_moonsilver.rs"]
+pub mod reaper_of_flight_moonsilver;
 #[path = "kld/reckless_fireweaver.rs"]
 pub mod reckless_fireweaver;
 #[path = "cn2/recruiter_of_the_guard.rs"]
@@ -951,12 +967,16 @@ pub mod slayer_s_plate;
 pub mod sleep_paralysis;
 #[path = "ogw/slip_through_space.rs"]
 pub mod slip_through_space;
+#[path = "emn/smoldering_werewolf.rs"]
+pub mod smoldering_werewolf;
 #[path = "kld/smuggler_s_copter.rs"]
 pub mod smuggler_s_copter;
 #[path = "kld/snare_thopter.rs"]
 pub mod snare_thopter;
 #[path = "emn/somberwald_stag.rs"]
 pub mod somberwald_stag;
+#[path = "ogw/sparkmage_s_gambit.rs"]
+pub mod sparkmage_s_gambit;
 #[path = "f16/spatial_contortion.rs"]
 pub mod spatial_contortion;
 #[path = "ogw/spawnbinder_mage.rs"]
@@ -987,6 +1007,8 @@ pub mod spreading_flames;
 pub mod springsage_ritual;
 #[path = "ogw/stalking_drone.rs"]
 pub mod stalking_drone;
+#[path = "soi/stallion_of_ashmouth.rs"]
+pub mod stallion_of_ashmouth;
 #[path = "kld/start_your_engines.rs"]
 pub mod start_your_engines;
 #[path = "emn/steadfast_cathar.rs"]

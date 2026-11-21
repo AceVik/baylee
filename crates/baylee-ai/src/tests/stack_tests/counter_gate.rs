@@ -26,6 +26,7 @@ use super::*;
 /// Batch wave 8 (994 generated cards) adds Mentor's Guidance (`Scry(1)`,
 /// `Draw(1)`) and Scour All Possibilities (`Scry(2)`, `Draw(1)`).
 /// Batch wave 9 (997 generated cards) adds Otherworldly Gaze (`Surveil(3)`).
+/// Pass E6 adds Glimpse of Freedom (`Draw(1)` with escape).
 #[test]
 fn the_counter_gate_lets_only_a_cantrip_resolve() {
     let mut held: Vec<&str> = baylee_cards::all()
@@ -70,6 +71,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Curate",
             "Deliberate",
             "Dream Cache",
+            "Glimpse of Freedom",
             "Index",
             "Introduction to Prophecy",
             "Mentor's Guidance",

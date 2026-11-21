@@ -171,6 +171,12 @@ pub mod crossway_vampire;
 pub mod crush;
 #[path = "mbs/cryptoplasm.rs"]
 pub mod cryptoplasm;
+#[path = "isd/curse_of_death_s_hold.rs"]
+pub mod curse_of_death_s_hold;
+#[path = "isd/curse_of_the_bloody_tome.rs"]
+pub mod curse_of_the_bloody_tome;
+#[path = "isd/curse_of_the_nightly_hunt.rs"]
+pub mod curse_of_the_nightly_hunt;
 #[path = "cmd/damia_sage_of_stone.rs"]
 pub mod damia_sage_of_stone;
 #[path = "m12/dark_favor.rs"]
@@ -745,6 +751,10 @@ pub mod surge_node;
 pub mod suture_priest;
 #[path = "m12/swiftfoot_boots.rs"]
 pub mod swiftfoot_boots;
+#[path = "mbs/sword_of_feast_and_famine.rs"]
+pub mod sword_of_feast_and_famine;
+#[path = "nph/sword_of_war_and_peace.rs"]
+pub mod sword_of_war_and_peace;
 #[path = "mbs/tangle_hulk.rs"]
 pub mod tangle_hulk;
 #[path = "mbs/tangle_mantis.rs"]
@@ -825,6 +835,8 @@ pub mod village_bell_ringer;
 pub mod village_cannibals;
 #[path = "nph/viral_drake.rs"]
 pub mod viral_drake;
+#[path = "nph/viridian_betrayers.rs"]
+pub mod viridian_betrayers;
 #[path = "mbs/viridian_claw.rs"]
 pub mod viridian_claw;
 #[path = "mbs/viridian_corrupter.rs"]

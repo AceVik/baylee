@@ -127,6 +127,8 @@ pub mod brawler_s_plate;
 pub mod burn_away;
 #[path = "m15/burning_anger.rs"]
 pub mod burning_anger;
+#[path = "ktk/butcher_of_the_horde.rs"]
+pub mod butcher_of_the_horde;
 #[path = "cns/canal_dredger.rs"]
 pub mod canal_dredger;
 #[path = "ktk/canyon_lurkers.rs"]
@@ -141,6 +143,8 @@ pub mod cast_into_darkness;
 pub mod charging_badger;
 #[path = "jou/chariot_of_victory.rs"]
 pub mod chariot_of_victory;
+#[path = "pm15/chasm_skulker.rs"]
+pub mod chasm_skulker;
 #[path = "ktk/chief_of_the_edge.rs"]
 pub mod chief_of_the_edge;
 #[path = "ktk/chief_of_the_scale.rs"]
@@ -391,6 +395,8 @@ pub mod hallowed_spiritkeeper;
 pub mod hammerhand;
 #[path = "jou/harvestguard_alseids.rs"]
 pub mod harvestguard_alseids;
+#[path = "ktk/heart_piercer_bow.rs"]
+pub mod heart_piercer_bow;
 #[path = "ktk/heir_of_the_wilds.rs"]
 pub mod heir_of_the_wilds;
 #[path = "m15/heliod_s_pilgrim.rs"]
@@ -413,6 +419,8 @@ pub mod hooting_mandrills;
 pub mod hordeling_outburst;
 #[path = "m15/hornet_nest.rs"]
 pub mod hornet_nest;
+#[path = "m15/hot_soup.rs"]
+pub mod hot_soup;
 #[path = "jou/humbler_of_mortals.rs"]
 pub mod humbler_of_mortals;
 #[path = "bng/hunter_s_prowess.rs"]
@@ -479,6 +487,8 @@ pub mod krenko_s_enforcer;
 pub mod krumar_bond_kin;
 #[path = "ktk/leaping_master.rs"]
 pub mod leaping_master;
+#[path = "m15/leeching_sliver.rs"]
+pub mod leeching_sliver;
 #[path = "m15/life_s_legacy.rs"]
 pub mod life_s_legacy;
 #[path = "c14/lifeblood_hydra.rs"]
@@ -605,6 +615,8 @@ pub mod oakheart_dryads;
 pub mod obelisk_of_urd;
 #[path = "bng/odunos_river_trawler.rs"]
 pub mod odunos_river_trawler;
+#[path = "jou/oppressive_rays.rs"]
+pub mod oppressive_rays;
 #[path = "ktk/opulent_palace.rs"]
 pub mod opulent_palace;
 #[path = "bng/oracle_s_insight.rs"]
@@ -819,6 +831,8 @@ pub mod spirit_bonds;
 pub mod spirit_of_the_labyrinth;
 #[path = "jou/spite_of_mogis.rs"]
 pub mod spite_of_mogis;
+#[path = "jou/spiteful_blow.rs"]
+pub mod spiteful_blow;
 #[path = "pjou/squelching_leeches.rs"]
 pub mod squelching_leeches;
 #[path = "m15/statute_of_denial.rs"]

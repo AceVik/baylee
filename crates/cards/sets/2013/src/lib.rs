@@ -31,6 +31,8 @@ pub mod agent_of_horizons;
 pub mod agoraphobia;
 #[path = "ths/akroan_hoplite.rs"]
 pub mod akroan_hoplite;
+#[path = "dgm/alive.rs"]
+pub mod alive;
 #[path = "gtc/alms_beast.rs"]
 pub mod alms_beast;
 #[path = "c13/angel_of_finality.rs"]
@@ -39,10 +41,16 @@ pub mod angel_of_finality;
 pub mod angelic_accord;
 #[path = "gtc/angelic_edict.rs"]
 pub mod angelic_edict;
+#[path = "gtc/angelic_skirmisher.rs"]
+pub mod angelic_skirmisher;
 #[path = "ths/anvilwrought_raptor.rs"]
 pub mod anvilwrought_raptor;
+#[path = "ths/aqueous_form.rs"]
+pub mod aqueous_form;
 #[path = "m14/archangel_of_thune.rs"]
 pub mod archangel_of_thune;
+#[path = "dgm/armed.rs"]
+pub mod armed;
 #[path = "gtc/armored_transport.rs"]
 pub mod armored_transport;
 #[path = "dgm/armored_wolf_rider.rs"]
@@ -75,6 +83,10 @@ pub mod bane_alley_blackguard;
 pub mod banisher_priest;
 #[path = "m14/barrage_of_expendables.rs"]
 pub mod barrage_of_expendables;
+#[path = "gtc/basilica_guards.rs"]
+pub mod basilica_guards;
+#[path = "gtc/basilica_screecher.rs"]
+pub mod basilica_screecher;
 #[path = "m14/battle_sliver.rs"]
 pub mod battle_sliver;
 #[path = "ths/battlewise_valor.rs"]
@@ -87,6 +99,8 @@ pub mod benthic_giant;
 pub mod biovisionary;
 #[path = "m14/blightcaster.rs"]
 pub mod blightcaster;
+#[path = "gtc/blind_obedience.rs"]
+pub mod blind_obedience;
 #[path = "m14/blood_bairn.rs"]
 pub mod blood_bairn;
 #[path = "ths/blood_toll_harpy.rs"]
@@ -175,6 +189,8 @@ pub mod crackling_perimeter;
 pub mod crackling_triton;
 #[path = "gtc/crowned_ceratok.rs"]
 pub mod crowned_ceratok;
+#[path = "gtc/crypt_ghast.rs"]
+pub mod crypt_ghast;
 #[path = "ths/curse_of_the_swine.rs"]
 pub mod curse_of_the_swine;
 #[path = "ths/cutthroat_maneuver.rs"]
@@ -225,6 +241,8 @@ pub mod dismiss_into_dream;
 pub mod dissolve;
 #[path = "c13/diviner_spirit.rs"]
 pub mod diviner_spirit;
+#[path = "dgm/down.rs"]
+pub mod down;
 #[path = "m14/dragon_egg.rs"]
 pub mod dragon_egg;
 #[path = "ths/dragon_mantle.rs"]
@@ -249,6 +267,8 @@ pub mod ephara_s_warden;
 pub mod erebos_s_emissary;
 #[path = "ths/fade_into_antiquity.rs"]
 pub mod fade_into_antiquity;
+#[path = "dgm/far.rs"]
+pub mod far;
 #[path = "dgm/fatal_fumes.rs"]
 pub mod fatal_fumes;
 #[path = "ths/fate_foretold.rs"]
@@ -389,6 +409,10 @@ pub mod jelenn_sphinx;
 pub mod kalonian_tusker;
 #[path = "gtc/keymaster_rogue.rs"]
 pub mod keymaster_rogue;
+#[path = "gtc/kingpin_s_pet.rs"]
+pub mod kingpin_s_pet;
+#[path = "gtc/knight_of_obligation.rs"]
+pub mod knight_of_obligation;
 #[path = "gtc/knight_watch.rs"]
 pub mod knight_watch;
 #[path = "ths/kragma_warcaller.rs"]
@@ -539,6 +563,8 @@ pub mod phytoburst;
 pub mod pilfered_plans;
 #[path = "gtc/pit_fight.rs"]
 pub mod pit_fight;
+#[path = "dgm/pontiff_of_blight.rs"]
+pub mod pontiff_of_blight;
 #[path = "ths/portent_of_betrayal.rs"]
 pub mod portent_of_betrayal;
 #[path = "m14/predatory_sliver.rs"]
@@ -551,10 +577,14 @@ pub mod priest_of_iroas;
 pub mod primal_visitation;
 #[path = "m14/primeval_bounty.rs"]
 pub mod primeval_bounty;
+#[path = "dgm/profit.rs"]
+pub mod profit;
 #[path = "dgm/progenitor_mimic.rs"]
 pub mod progenitor_mimic;
 #[path = "ths/prognostic_sphinx.rs"]
 pub mod prognostic_sphinx;
+#[path = "dgm/protect.rs"]
+pub mod protect;
 #[path = "ths/prowler_s_helm.rs"]
 pub mod prowler_s_helm;
 #[path = "gtc/psychic_strike.rs"]
@@ -579,6 +609,8 @@ pub mod ray_of_dissolution;
 pub mod razortip_whip;
 #[path = "ths/read_the_bones.rs"]
 pub mod read_the_bones;
+#[path = "dgm/ready.rs"]
+pub mod ready;
 #[path = "ths/reaper_of_the_wilds.rs"]
 pub mod reaper_of_the_wilds;
 #[path = "m14/regathan_firecat.rs"]
@@ -757,6 +789,10 @@ pub mod swan_song;
 pub mod sydri_galvanic_genius;
 #[path = "pths/sylvan_caryatid.rs"]
 pub mod sylvan_caryatid;
+#[path = "gtc/syndic_of_tithes.rs"]
+pub mod syndic_of_tithes;
+#[path = "gtc/syndicate_enforcer.rs"]
+pub mod syndicate_enforcer;
 #[path = "m14/syphon_sliver.rs"]
 pub mod syphon_sliver;
 #[path = "ths/temple_of_abandon.rs"]
@@ -791,6 +827,10 @@ pub mod tin_street_market;
 pub mod titan_of_eternal_fire;
 #[path = "ths/titan_s_strength.rs"]
 pub mod titan_s_strength;
+#[path = "dgm/tithe_drinker.rs"]
+pub mod tithe_drinker;
+#[path = "dgm/toil.rs"]
+pub mod toil;
 #[path = "gtc/totally_lost.rs"]
 pub mod totally_lost;
 #[path = "gtc/tower_defense.rs"]
@@ -803,6 +843,8 @@ pub mod toxic_deluge;
 pub mod trained_condor;
 #[path = "ths/traveling_philosopher.rs"]
 pub mod traveling_philosopher;
+#[path = "pgtc/treasury_thrull.rs"]
+pub mod treasury_thrull;
 #[path = "ths/triad_of_fates.rs"]
 pub mod triad_of_fates;
 #[path = "ths/triton_shorethief.rs"]
@@ -865,6 +907,8 @@ pub mod warped_physique;
 pub mod wasteland_viper;
 #[path = "gtc/way_of_the_thief.rs"]
 pub mod way_of_the_thief;
+#[path = "dgm/wear.rs"]
+pub mod wear;
 #[path = "gtc/wight_of_precinct_six.rs"]
 pub mod wight_of_precinct_six;
 #[path = "ths/wild_celebrants.rs"]

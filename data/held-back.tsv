@@ -35,6 +35,23 @@ d0a31db0-69db-405c-99a3-945617900c54	Obscuring Haze	reader-gap: validate: "you c
 dcd8b9d4-c76a-4cad-8d43-13e42fb65bd6	Eladamri, Lord of Leaves Avatar	lint-gap: Vanguard card prints {G}{G} with empty Scryfall color_identity (CR 903.4)
 38d2176c-1a1e-4030-9c63-e28ba4a69b6d	Dune Mover	reader-gap: validate fails on omitted "you may" (optional: false)
 73c7fdb3-4742-4d08-8658-daa4435c49b1	Invasion of Vryn // Overloaded Mage-Ring	reader-gap: reference CopySpellAbility script omits MayChooseTarget$ True for "You may choose new targets for the copy"
+5f31a2d6-649a-40f4-89ce-95c635340e9e	Atraxi Warden	lint-gap: xtask check_text::up_to_target_phrase slices across multi-byte em-dash in "Suspend 5—"
+25012c1f-c069-43d7-b930-a3a5a7eb1389	Dismantling Wave	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent (-D dead_code)
+d39a1e12-bb6b-4e7a-96a4-5dab98084716	Enigma Thief	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent (-D dead_code)
+1b26a54f-6c27-4940-b77e-2a66175c5eff	Grasp of Fate	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent (-D dead_code)
+de1ca6ed-b275-4f62-ba05-f31b3659b352	Windgrace's Judgment	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent (-D dead_code)
+d22196b5-b111-45ce-ae51-a06ca02533b6	Wildfire Awakener	reader-gap: check_text rejects lowered player target on generated token (Pass E6)
+3346a585-d35a-4f8b-b9ab-7e453ebd15f4	Romana II	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
+992ddd9f-e0db-4383-909c-6dacca41d188	The Fifth Doctor	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
+49cb8d81-d8a0-4ae7-9750-6788a3e9c81b	The Sixth Doctor	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
+2a73db99-5e31-49a8-91e7-b28b3434585d	The Third Doctor	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
+3778e06c-62c7-4b8f-90ff-b2fc2d2e213c	The Thirteenth Doctor	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
+b793141d-581c-4cc7-b09f-1fe8bd5536c5	Neutralize the Guards	reader-gap: check_text rejects PumpFilter.controlled_by lowering (Pass E6)
+3df4eb80-e8dd-4a9e-bd8a-b4b23fb9de6c	Psychic Whorl	reader-gap: Target opponent mis-lowered to TargetSpec::AnyPlayer (Pass E6)
+c8714939-aaf9-4ede-a04f-61f0df5ea4d4	Bolshack Dragon	reader-gap: Armored creature subtype missing from subtypes.rs (Pass E6)
+271264fb-965c-4fe3-baec-2217de20f8b5	Omenpath to Naya	reader-gap: Omenpath subtype missing from subtypes.rs (Pass E6)
+f1ecb3d7-5ea0-45b2-b1b0-d7ae304db2a1	Archmage of Echoes	reader-gap: spell_cast_trigger calls filter_expr(card_zone=false), dropping Permanent on stack spell filters (CR 110.4b, Pass E6)
+292aafef-8945-4827-90b2-1dd9764e517b	Osgood, Operation Double	reader-gap: cast trigger lowers "create a token that's a copy of it" to CopySpellOrAbility instead of creating a battlefield token copy (CR 111.13, Pass E6)
 
 # Engine gaps
 9843d8a6-bcbf-40c2-8c41-316e97db9c62	Shallow Grave	engine-gap: held-back stub awaiting completion and test
@@ -49,6 +66,7 @@ b44d3fe8-b1e2-4abb-ab82-7a516a1db1e5	Keldon Warcaller	engine-gap: lore counters 
 9fceca3c-fc10-4e46-a727-122aafcef349	Cruel Sadist	engine-gap: RemoveCounterSelfX + target announces X before target (CR 601.2b/c)
 143714b8-30ae-42c2-84d9-e58aed7dff5b	Geistflame Reservoir	engine-gap: RemoveCounterSelfX + target announces X before target (CR 601.2b/c)
 a79d2fc8-467f-464d-9e73-2dae4b059628	Ayula, Queen Among Bears	engine-gap: modal trigger mode uses second_targets (engine reads primary target only)
+bf89bd6d-aa6c-4fd8-9278-151529ab0e62	Hourglass of the Lost	engine-gap: RemoveCounterSelfX on non-mana activated ability requires an engine stack x_value test before release (Pass E6)
 
 # Fixture gaps
 29ae5540-5fdf-48be-86ba-b4db0fe19f6c	Vapor Snare	fixture-gap: Aura upkeep bounce; fixture plays creatures only

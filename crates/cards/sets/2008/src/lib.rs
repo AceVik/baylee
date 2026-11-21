@@ -273,6 +273,8 @@ pub mod duergar_assailant;
 pub mod duergar_hedge_mage;
 #[path = "eve/duergar_mine_captain.rs"]
 pub mod duergar_mine_captain;
+#[path = "shm/dusk_urchins.rs"]
+pub mod dusk_urchins;
 #[path = "eve/duskdale_wurm.rs"]
 pub mod duskdale_wurm;
 #[path = "eve/edge_of_the_divinity.rs"]
@@ -299,6 +301,8 @@ pub mod esper_panorama;
 pub mod etherium_astrolabe;
 #[path = "ala/etherium_sculptor.rs"]
 pub mod etherium_sculptor;
+#[path = "ala/ethersworn_canonist.rs"]
+pub mod ethersworn_canonist;
 #[path = "mor/everbark_shaman.rs"]
 pub mod everbark_shaman;
 #[path = "ala/excommunicate.rs"]
@@ -393,6 +397,8 @@ pub mod gravelgill_duo;
 pub mod grazing_kelpie;
 #[path = "shm/greater_auramancy.rs"]
 pub mod greater_auramancy;
+#[path = "shm/grief_tyrant.rs"]
+pub mod grief_tyrant;
 #[path = "shm/grim_poppet.rs"]
 pub mod grim_poppet;
 #[path = "ala/grixis_battlemage.rs"]
@@ -1015,6 +1021,8 @@ pub mod unwilling_recruit;
 pub mod vectis_silencers;
 #[path = "mor/vendilion_clique.rs"]
 pub mod vendilion_clique;
+#[path = "mor/vengeful_firebrand.rs"]
+pub mod vengeful_firebrand;
 #[path = "mor/veteran_s_armaments.rs"]
 pub mod veteran_s_armaments;
 #[path = "ala/viashino_skeleton.rs"]
@@ -1077,6 +1085,8 @@ pub mod wilderness_hypnotist;
 pub mod wilt_leaf_cavaliers;
 #[path = "shm/windbrisk_raptor.rs"]
 pub mod windbrisk_raptor;
+#[path = "ala/windwright_mage.rs"]
+pub mod windwright_mage;
 #[path = "shm/wingrattle_scarecrow.rs"]
 pub mod wingrattle_scarecrow;
 #[path = "mor/winnower_patrol.rs"]

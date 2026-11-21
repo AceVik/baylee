@@ -529,6 +529,8 @@ pub mod might_of_alara;
 pub mod mind_control;
 #[path = "zen/mindless_null.rs"]
 pub mod mindless_null;
+#[path = "zen/mire_blight.rs"]
+pub mod mire_blight;
 #[path = "con_/mirror_sigil_sergeant.rs"]
 pub mod mirror_sigil_sergeant;
 #[path = "m10/mist_leopard.rs"]
@@ -573,6 +575,8 @@ pub mod nimbus_wings;
 pub mod noble_hierarch;
 #[path = "zen/noble_vestige.rs"]
 pub mod noble_vestige;
+#[path = "arb/nulltread_gargantuan.rs"]
+pub mod nulltread_gargantuan;
 #[path = "m10/oakenform.rs"]
 pub mod oakenform;
 #[path = "zen/ob_nixilis_the_fallen.rs"]

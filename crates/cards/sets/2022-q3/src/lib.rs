@@ -57,6 +57,8 @@ pub mod cleaving_skyrider;
 pub mod clockwork_drawbridge;
 #[path = "dmu/colossal_growth.rs"]
 pub mod colossal_growth;
+#[path = "dmu/combat_research.rs"]
+pub mod combat_research;
 #[path = "dmu/contaminated_aquifer.rs"]
 pub mod contaminated_aquifer;
 #[path = "dmu/coral_colony.rs"]
@@ -117,6 +119,8 @@ pub mod hag_of_dark_duress;
 pub mod hag_of_death_s_legion;
 #[path = "hbg/hag_of_inner_weakness.rs"]
 pub mod hag_of_inner_weakness;
+#[path = "hbg/hag_of_mage_s_doom.rs"]
+pub mod hag_of_mage_s_doom;
 #[path = "hbg/hag_of_noxious_nightmares.rs"]
 pub mod hag_of_noxious_nightmares;
 #[path = "hbg/hag_of_scoured_thoughts.rs"]

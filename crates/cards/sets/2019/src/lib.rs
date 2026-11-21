@@ -93,6 +93,8 @@ pub mod azorius_knight_arbiter;
 pub mod azorius_locket;
 #[path = "rna/azorius_skyguard.rs"]
 pub mod azorius_skyguard;
+#[path = "mh1/azra_smokeshaper.rs"]
+pub mod azra_smokeshaper;
 #[path = "eld/bake_into_a_pie.rs"]
 pub mod bake_into_a_pie;
 #[path = "war/banehound.rs"]
@@ -159,6 +161,8 @@ pub mod bog_naughty;
 pub mod bogardan_dragonheart;
 #[path = "war/bond_of_discipline.rs"]
 pub mod bond_of_discipline;
+#[path = "war/bond_of_insight.rs"]
+pub mod bond_of_insight;
 #[path = "war/bond_of_revival.rs"]
 pub mod bond_of_revival;
 #[path = "c19/bone_miser.rs"]
@@ -219,6 +223,8 @@ pub mod charging_war_boar;
 pub mod charity_extractor;
 #[path = "eld/charmed_sleep.rs"]
 pub mod charmed_sleep;
+#[path = "war/charmed_stray.rs"]
+pub mod charmed_stray;
 #[path = "eld/charming_prince.rs"]
 pub mod charming_prince;
 #[path = "rna/chillbringer.rs"]
@@ -301,6 +307,8 @@ pub mod dawning_angel;
 pub mod dead_of_winter;
 #[path = "rna/dead_revels.rs"]
 pub mod dead_revels;
+#[path = "eld/deafening_silence.rs"]
+pub mod deafening_silence;
 #[path = "war/deathsprout.rs"]
 pub mod deathsprout;
 #[path = "mh1/deep_forest_hermit.rs"]
@@ -431,6 +439,8 @@ pub mod faerie_guidemother;
 pub mod faerie_seer;
 #[path = "eld/faerie_vandal.rs"]
 pub mod faerie_vandal;
+#[path = "mh1/fallen_shinobi.rs"]
+pub mod fallen_shinobi;
 #[path = "mh1/farmstead_gleaner.rs"]
 pub mod farmstead_gleaner;
 #[path = "eld/fell_the_pheasant.rs"]
@@ -653,6 +663,8 @@ pub mod improbable_alliance;
 pub mod incubation;
 #[path = "m20/infuriate.rs"]
 pub mod infuriate;
+#[path = "mh1/ingenious_infiltrator.rs"]
+pub mod ingenious_infiltrator;
 #[path = "eld/inquisitive_puppet.rs"]
 pub mod inquisitive_puppet;
 #[path = "eld/inspiring_veteran.rs"]
@@ -797,6 +809,8 @@ pub mod merfolk_skydiver;
 pub mod mire_in_misery;
 #[path = "eld/mirrormade.rs"]
 pub mod mirrormade;
+#[path = "mh1/mist_syndicate_naga.rs"]
+pub mod mist_syndicate_naga;
 #[path = "eld/mistford_river_turtle.rs"]
 pub mod mistford_river_turtle;
 #[path = "pwar/mizzium_tank.rs"]
@@ -809,6 +823,8 @@ pub mod mob;
 pub mod mobilized_district;
 #[path = "m20/moldervine_reclamation.rs"]
 pub mod moldervine_reclamation;
+#[path = "mh1/moonblade_shinobi.rs"]
+pub mod moonblade_shinobi;
 #[path = "eld/moonlit_scavengers.rs"]
 pub mod moonlit_scavengers;
 #[path = "mh1/morophon_the_boundless.rs"]
@@ -819,6 +835,8 @@ pub mod mother_bear;
 pub mod mox_tantalite;
 #[path = "mh1/munitions_expert.rs"]
 pub mod munitions_expert;
+#[path = "mh1/murasa_behemoth.rs"]
+pub mod murasa_behemoth;
 #[path = "eld/murderous_rider.rs"]
 pub mod murderous_rider;
 #[path = "m20/mystic_forge.rs"]
@@ -837,6 +855,8 @@ pub mod neoform;
 pub mod nightpack_ambusher;
 #[path = "m20/nimble_birdsticker.rs"]
 pub mod nimble_birdsticker;
+#[path = "mh1/ninja_of_the_new_moon.rs"]
+pub mod ninja_of_the_new_moon;
 #[path = "war/nissa_s_triumph.rs"]
 pub mod nissa_s_triumph;
 #[path = "war/no_escape.rs"]
@@ -1093,6 +1113,8 @@ pub mod shatter_assumptions;
 pub mod shenanigans;
 #[path = "eld/shepherd_of_the_flock.rs"]
 pub mod shepherd_of_the_flock;
+#[path = "m20/shifting_ceratops.rs"]
+pub mod shifting_ceratops;
 #[path = "eld/shimmer_dragon.rs"]
 pub mod shimmer_dragon;
 #[path = "rna/shimmer_of_possibility.rs"]
@@ -1211,6 +1233,8 @@ pub mod sunbaked_canyon;
 pub mod sunblade_angel;
 #[path = "rna/swirling_torrent.rs"]
 pub mod swirling_torrent;
+#[path = "mh1/sword_of_sinew_and_steel.rs"]
+pub mod sword_of_sinew_and_steel;
 #[path = "rna/sylvan_brushstrider.rs"]
 pub mod sylvan_brushstrider;
 #[path = "rna/syndicate_guildmage.rs"]
@@ -1251,6 +1275,8 @@ pub mod teyo_s_lightshield;
 pub mod the_cauldron_of_eternity;
 #[path = "eld/the_circle_of_loyalty.rs"]
 pub mod the_circle_of_loyalty;
+#[path = "sld/themberchaud.rs"]
+pub mod themberchaud;
 #[path = "m20/thicket_crasher.rs"]
 pub mod thicket_crasher;
 #[path = "m20/thirsting_bloodlord.rs"]
@@ -1393,6 +1419,8 @@ pub mod watchful_giant;
 pub mod waterkin_shaman;
 #[path = "mh1/waterlogged_grove.rs"]
 pub mod waterlogged_grove;
+#[path = "eld/weapon_rack.rs"]
+pub mod weapon_rack;
 #[path = "eld/weaselback_redcap.rs"]
 pub mod weaselback_redcap;
 #[path = "mh1/weather_the_storm.rs"]

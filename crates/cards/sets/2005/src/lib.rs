@@ -199,6 +199,18 @@ pub mod gate_hound;
 pub mod gather_courage;
 #[path = "sok/gaze_of_adamaro.rs"]
 pub mod gaze_of_adamaro;
+#[path = "bok/genju_of_the_cedars.rs"]
+pub mod genju_of_the_cedars;
+#[path = "bok/genju_of_the_falls.rs"]
+pub mod genju_of_the_falls;
+#[path = "bok/genju_of_the_fens.rs"]
+pub mod genju_of_the_fens;
+#[path = "bok/genju_of_the_fields.rs"]
+pub mod genju_of_the_fields;
+#[path = "bok/genju_of_the_realm.rs"]
+pub mod genju_of_the_realm;
+#[path = "pal05/genju_of_the_spires.rs"]
+pub mod genju_of_the_spires;
 #[path = "sok/ghost_lit_nourisher.rs"]
 pub mod ghost_lit_nourisher;
 #[path = "psok/ghost_lit_raider.rs"]
@@ -269,6 +281,8 @@ pub mod herd_gnarr;
 pub mod hero_s_demise;
 #[path = "rav/hex.rs"]
 pub mod hex;
+#[path = "bok/higure_the_still_wind.rs"]
+pub mod higure_the_still_wind;
 #[path = "rav/hour_of_reckoning.rs"]
 pub mod hour_of_reckoning;
 #[path = "rav/hunted_dragon.rs"]
@@ -293,6 +307,8 @@ pub mod indrik_stomphowler;
 pub mod infectious_host;
 #[path = "psal/infiltrator_s_magemark.rs"]
 pub mod infiltrator_s_magemark;
+#[path = "pbok/ink_eyes_servant_of_oni.rs"]
+pub mod ink_eyes_servant_of_oni;
 #[path = "sok/inner_calm_outer_strength.rs"]
 pub mod inner_calm_outer_strength;
 #[path = "sok/inner_fire.rs"]
@@ -371,6 +387,8 @@ pub mod mending_hands;
 pub mod mikokoro_center_of_the_sea;
 #[path = "sok/miren_the_moaning_well.rs"]
 pub mod miren_the_moaning_well;
+#[path = "bok/mistblade_shinobi.rs"]
+pub mod mistblade_shinobi;
 #[path = "rav/mnemonic_nexus.rs"]
 pub mod mnemonic_nexus;
 #[path = "rav/moldervine_cloak.rs"]
@@ -395,6 +413,8 @@ pub mod nightguard_patrol;
 pub mod nightmare_void;
 #[path = "sok/nikko_onna.rs"]
 pub mod nikko_onna;
+#[path = "bok/ninja_of_the_deep_hours.rs"]
+pub mod ninja_of_the_deep_hours;
 #[path = "psal/nullmage_shepherd.rs"]
 pub mod nullmage_shepherd;
 #[path = "rav/oathsworn_giant.rs"]
@@ -405,6 +425,8 @@ pub mod oboro_breezecaller;
 pub mod oboro_envoy;
 #[path = "sok/oboro_palace_in_the_clouds.rs"]
 pub mod oboro_palace_in_the_clouds;
+#[path = "bok/okiba_gang_shinobi.rs"]
+pub mod okiba_gang_shinobi;
 #[path = "sok/one_with_nothing.rs"]
 pub mod one_with_nothing;
 #[path = "sok/oni_of_wild_places.rs"]
@@ -533,6 +555,8 @@ pub mod shinen_of_life_s_roar;
 pub mod shinen_of_stars_light;
 #[path = "bok/shinka_gatekeeper.rs"]
 pub mod shinka_gatekeeper;
+#[path = "bok/shirei_shizo_s_caretaker.rs"]
+pub mod shirei_shizo_s_caretaker;
 #[path = "bok/shuko.rs"]
 pub mod shuko;
 #[path = "rav/siege_wurm.rs"]
@@ -625,6 +649,8 @@ pub mod thoughts_of_ruin;
 pub mod threads_of_disloyalty;
 #[path = "bok/three_tragedies.rs"]
 pub mod three_tragedies;
+#[path = "bok/throat_slitter.rs"]
+pub mod throat_slitter;
 #[path = "rav/thundersong_trumpeter.rs"]
 pub mod thundersong_trumpeter;
 #[path = "rav/tidewater_minion.rs"]

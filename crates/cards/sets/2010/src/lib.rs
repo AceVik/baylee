@@ -55,6 +55,8 @@ pub mod arbor_elf;
 pub mod arc_runner;
 #[path = "wwk/archon_of_redemption.rs"]
 pub mod archon_of_redemption;
+#[path = "som/argentum_armor.rs"]
+pub mod argentum_armor;
 #[path = "m11/armored_cancrix.rs"]
 pub mod armored_cancrix;
 #[path = "roe/arrogant_bloodlord.rs"]
@@ -349,6 +351,8 @@ pub mod goblin_roughrider;
 pub mod goblin_tunneler;
 #[path = "som/golden_urn.rs"]
 pub mod golden_urn;
+#[path = "som/golem_artisan.rs"]
+pub mod golem_artisan;
 #[path = "som/golem_foundry.rs"]
 pub mod golem_foundry;
 #[path = "som/golem_s_heart.rs"]
@@ -481,6 +485,8 @@ pub mod kor_spiritdancer;
 pub mod kozilek_s_predator;
 #[path = "som/kuldotha_forgemaster.rs"]
 pub mod kuldotha_forgemaster;
+#[path = "som/kuldotha_phoenix.rs"]
+pub mod kuldotha_phoenix;
 #[path = "som/kuldotha_rebirth.rs"]
 pub mod kuldotha_rebirth;
 #[path = "roe/lagac_lizard.rs"]
@@ -683,6 +689,8 @@ pub mod quag_vampires;
 pub mod quest_for_the_goblin_lord;
 #[path = "wwk/quest_for_the_nihil_stone.rs"]
 pub mod quest_for_the_nihil_stone;
+#[path = "wwk/quest_for_ula_s_temple.rs"]
+pub mod quest_for_ula_s_temple;
 #[path = "roe/rage_nimbus.rs"]
 pub mod rage_nimbus;
 #[path = "wwk/raging_ravine.rs"]
@@ -851,6 +859,8 @@ pub mod surrakar_banisher;
 pub mod surrakar_spellblade;
 #[path = "roe/surreal_memoir.rs"]
 pub mod surreal_memoir;
+#[path = "v10/sword_of_body_and_mind.rs"]
+pub mod sword_of_body_and_mind;
 #[path = "m11/sword_of_vengeance.rs"]
 pub mod sword_of_vengeance;
 #[path = "m11/sylvan_ranger.rs"]
@@ -931,6 +941,8 @@ pub mod vastwood_zendikon;
 pub mod vault_skyward;
 #[path = "som/vector_asp.rs"]
 pub mod vector_asp;
+#[path = "som/vedalken_certarch.rs"]
+pub mod vedalken_certarch;
 #[path = "som/venser_s_journal.rs"]
 pub mod venser_s_journal;
 #[path = "som/venser_the_sojourner.rs"]
@@ -977,6 +989,8 @@ pub mod wing_puncture;
 pub mod withstand_death;
 #[path = "wwk/wolfbriar_elemental.rs"]
 pub mod wolfbriar_elemental;
+#[path = "roe/wrap_in_flames.rs"]
+pub mod wrap_in_flames;
 #[path = "roe/zof_shade.rs"]
 pub mod zof_shade;
 #[path = "roe/zulaport_enforcer.rs"]

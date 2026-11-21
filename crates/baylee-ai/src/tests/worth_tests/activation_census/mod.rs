@@ -578,7 +578,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Completing 14 Wave 10+11c pool stubs adds 4 non-mana activations
     // across Elvish Reclaimer, Infinite Hourglass, Trained Pronghorn, and
     // Urborg Phantom: 3 read by the table and 1 remaining contextual.
-    assert_eq!((read, of), (4157, 5330), "activated/loyalty reader census");
+    // Pass E6 (982 generated cards after holding back 18 reader/offer-gap
+    // cards) adds 323 non-mana activations: 253 read by the table and 70
+    // remaining contextual.
+    assert_eq!((read, of), (4410, 5653), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

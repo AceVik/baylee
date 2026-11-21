@@ -465,6 +465,8 @@ pub mod nether_traitor;
 pub mod nightcreep;
 #[path = "tsp/nightshade_assassin.rs"]
 pub mod nightshade_assassin;
+#[path = "dis/nihilistic_glee.rs"]
+pub mod nihilistic_glee;
 #[path = "gpt/niv_mizzet_the_firemind.rs"]
 pub mod niv_mizzet_the_firemind;
 #[path = "gpt/nivix_aerie_of_the_firemind.rs"]
@@ -515,6 +517,8 @@ pub mod perilous_research;
 pub mod petrahydrox;
 #[path = "csp/phobian_phantasm.rs"]
 pub mod phobian_phantasm;
+#[path = "csp/phyrexian_etchings.rs"]
+pub mod phyrexian_etchings;
 #[path = "tsp/phyrexian_totem.rs"]
 pub mod phyrexian_totem;
 #[path = "dis/pillar_of_the_paruns.rs"]
@@ -545,6 +549,8 @@ pub mod pure;
 pub mod pyromatics;
 #[path = "tsp/quilled_sliver.rs"]
 pub mod quilled_sliver;
+#[path = "dis/ragamuffyn.rs"]
+pub mod ragamuffyn;
 #[path = "dis/rakdos_carnarium.rs"]
 pub mod rakdos_carnarium;
 #[path = "dis/rakdos_guildmage.rs"]
@@ -693,6 +699,8 @@ pub mod steam_spitter;
 pub mod steam_vents;
 #[path = "gpt/stitch_in_time.rs"]
 pub mod stitch_in_time;
+#[path = "dis/stomp_and_howl.rs"]
+pub mod stomp_and_howl;
 #[path = "gpt/stomping_ground.rs"]
 pub mod stomping_ground;
 #[path = "tsp/stonebrow_krosan_hero.rs"]
@@ -859,5 +867,7 @@ pub mod wreak_havoc;
 pub mod wrecking_ball;
 #[path = "gpt/wurmweaver_coil.rs"]
 pub mod wurmweaver_coil;
+#[path = "tsp/zealot_il_vec.rs"]
+pub mod zealot_il_vec;
 #[path = "csp/zur_the_enchanter.rs"]
 pub mod zur_the_enchanter;

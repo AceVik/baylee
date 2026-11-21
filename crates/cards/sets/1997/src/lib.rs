@@ -187,6 +187,8 @@ pub mod canopy_spider;
 pub mod canyon_drake;
 #[path = "tmp/canyon_wildcat.rs"]
 pub mod canyon_wildcat;
+#[path = "por/capricious_sorcerer.rs"]
+pub mod capricious_sorcerer;
 #[path = "tmp/capsize.rs"]
 pub mod capsize;
 #[path = "tmp/carrionette.rs"]
@@ -681,6 +683,8 @@ pub mod keeper_of_kookus;
 pub mod kezzerdrix;
 #[path = "tmp/kindle.rs"]
 pub mod kindle;
+#[path = "por/king_s_assassin.rs"]
+pub mod king_s_assassin;
 #[path = "wth/kithkin_armor.rs"]
 pub mod kithkin_armor;
 #[path = "por/knight_errant.rs"]
@@ -1251,6 +1255,8 @@ pub mod steadfastness;
 pub mod steal_enchantment;
 #[path = "wth/steel_golem.rs"]
 pub mod steel_golem;
+#[path = "por/stern_marshal.rs"]
+pub mod stern_marshal;
 #[path = "tmp/stinging_licid.rs"]
 pub mod stinging_licid;
 #[path = "tmp/storm_front.rs"]

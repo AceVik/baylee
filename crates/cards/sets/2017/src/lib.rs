@@ -37,6 +37,10 @@ pub mod aethersphere_harvester;
 pub mod aethertide_whale;
 #[path = "aer/aetherwind_basker.rs"]
 pub mod aetherwind_basker;
+#[path = "akh/ahn_crop_champion.rs"]
+pub mod ahn_crop_champion;
+#[path = "akh/ahn_crop_crasher.rs"]
+pub mod ahn_crop_crasher;
 #[path = "aer/ajani_s_comrade.rs"]
 pub mod ajani_s_comrade;
 #[path = "aer/alley_evasion.rs"]
@@ -97,6 +101,8 @@ pub mod bastion_enforcer;
 pub mod bastion_inventor;
 #[path = "aer/battle_at_the_bridge.rs"]
 pub mod battle_at_the_bridge;
+#[path = "akh/battlefield_scavenger.rs"]
+pub mod battlefield_scavenger;
 #[path = "xln/bellowing_aegisaur.rs"]
 pub mod bellowing_aegisaur;
 #[path = "hou/beneath_the_sands.rs"]
@@ -109,6 +115,8 @@ pub mod bishop_of_rebirth;
 pub mod bishop_of_the_bloodstained;
 #[path = "xln/bishop_s_soldier.rs"]
 pub mod bishop_s_soldier;
+#[path = "akh/bitterblade_warrior.rs"]
+pub mod bitterblade_warrior;
 #[path = "hou/bitterbow_sharpshooters.rs"]
 pub mod bitterbow_sharpshooters;
 #[path = "akh/blazing_volley.rs"]
@@ -181,6 +189,8 @@ pub mod castaway_s_despair;
 pub mod caught_in_the_brights;
 #[path = "akh/censor.rs"]
 pub mod censor;
+#[path = "akh/champion_of_rhonas.rs"]
+pub mod champion_of_rhonas;
 #[path = "hou/champion_of_wits.rs"]
 pub mod champion_of_wits;
 #[path = "akh/channeler_initiate.rs"]
@@ -307,6 +317,8 @@ pub mod desperate_castaways;
 pub mod destined;
 #[path = "aer/destructive_tampering.rs"]
 pub mod destructive_tampering;
+#[path = "akh/devoted_crop_mate.rs"]
+pub mod devoted_crop_mate;
 #[path = "hou/devotee_of_strength.rs"]
 pub mod devotee_of_strength;
 #[path = "xln/dinosaur_stampede.rs"]
@@ -369,6 +381,8 @@ pub mod efficient_construction;
 pub mod elaborate_firecannon;
 #[path = "akh/electrify.rs"]
 pub mod electrify;
+#[path = "akh/emberhorn_minotaur.rs"]
+pub mod emberhorn_minotaur;
 #[path = "aer/embraal_gear_smasher.rs"]
 pub mod embraal_gear_smasher;
 #[path = "xln/encampment_keeper.rs"]
@@ -415,6 +429,8 @@ pub mod fiery_cannonade;
 pub mod filigree_crawler;
 #[path = "akh/final_reward.rs"]
 pub mod final_reward;
+#[path = "xln/fire_shrine_keeper.rs"]
+pub mod fire_shrine_keeper;
 #[path = "hou/firebrand_archer.rs"]
 pub mod firebrand_archer;
 #[path = "xln/firecannon_blast.rs"]
@@ -457,6 +473,10 @@ pub mod gifted_aetherborn;
 pub mod gilded_sentinel;
 #[path = "xln/glorifier_of_dusk.rs"]
 pub mod glorifier_of_dusk;
+#[path = "akh/glory_bound_initiate.rs"]
+pub mod glory_bound_initiate;
+#[path = "akh/glorybringer.rs"]
+pub mod glorybringer;
 #[path = "hou/god_pharaoh_s_faithful.rs"]
 pub mod god_pharaoh_s_faithful;
 #[path = "aer/gonti_s_aether_heart.rs"]
@@ -485,6 +505,8 @@ pub mod grim_strider;
 pub mod grisly_survivor;
 #[path = "pxln/growing_rites_of_itlimoc.rs"]
 pub mod growing_rites_of_itlimoc;
+#[path = "akh/gust_walker.rs"]
+pub mod gust_walker;
 #[path = "akh/hapatra_vizier_of_poisons.rs"]
 pub mod hapatra_vizier_of_poisons;
 #[path = "hou/harrier_naga.rs"]
@@ -529,6 +551,8 @@ pub mod honed_khopesh;
 pub mod honored_crop_captain;
 #[path = "akh/honored_hydra.rs"]
 pub mod honored_hydra;
+#[path = "akh/hooded_brawler.rs"]
+pub mod hooded_brawler;
 #[path = "hou/hope_tender.rs"]
 pub mod hope_tender;
 #[path = "akh/horror_of_the_broken_lands.rs"]
@@ -609,6 +633,8 @@ pub mod kefnet_s_monument;
 pub mod kess_dissident_mage;
 #[path = "akh/khenra_charioteer.rs"]
 pub mod khenra_charioteer;
+#[path = "hou/khenra_scrapper.rs"]
+pub mod khenra_scrapper;
 #[path = "c17/kindred_discovery.rs"]
 pub mod kindred_discovery;
 #[path = "xln/kinjalli_s_caller.rs"]
@@ -687,6 +713,8 @@ pub mod naga_vitalist;
 pub mod natural_obsolescence;
 #[path = "xln/navigator_s_ruin.rs"]
 pub mod navigator_s_ruin;
+#[path = "akh/nef_crop_entangler.rs"]
+pub mod nef_crop_entangler;
 #[path = "akh/neheb_the_worthy.rs"]
 pub mod neheb_the_worthy;
 #[path = "xln/nest_robber.rs"]
@@ -707,6 +735,8 @@ pub mod oath_of_ajani;
 pub mod obelisk_spider;
 #[path = "akh/oketra_s_attendant.rs"]
 pub mod oketra_s_attendant;
+#[path = "hou/oketra_s_avenger.rs"]
+pub mod oketra_s_avenger;
 #[path = "akh/oketra_s_monument.rs"]
 pub mod oketra_s_monument;
 #[path = "hou/ominous_sphinx.rs"]
@@ -841,16 +871,22 @@ pub mod repeating_barrage;
 pub mod reservoir_walker;
 #[path = "hou/resilient_khenra.rs"]
 pub mod resilient_khenra;
+#[path = "hou/resolute_survivors.rs"]
+pub mod resolute_survivors;
 #[path = "aer/resourceful_return.rs"]
 pub mod resourceful_return;
 #[path = "pxln/revel_in_riches.rs"]
 pub mod revel_in_riches;
 #[path = "f17/reverse_engineer.rs"]
 pub mod reverse_engineer;
+#[path = "akh/rhet_crop_spearmaster.rs"]
+pub mod rhet_crop_spearmaster;
 #[path = "hou/rhonas_s_last_stand.rs"]
 pub mod rhonas_s_last_stand;
 #[path = "akh/rhonas_s_monument.rs"]
 pub mod rhonas_s_monument;
+#[path = "hou/rhonas_s_stalwart.rs"]
+pub mod rhonas_s_stalwart;
 #[path = "hou/riddleform.rs"]
 pub mod riddleform;
 #[path = "aer/ridgescale_tusker.rs"]
@@ -965,6 +1001,8 @@ pub mod slither_blade;
 pub mod sly_requisitioner;
 #[path = "xln/snapping_sailback.rs"]
 pub mod snapping_sailback;
+#[path = "akh/soulstinger.rs"]
+pub mod soulstinger;
 #[path = "akh/sparring_mummy.rs"]
 pub mod sparring_mummy;
 #[path = "xln/spike_tailed_ceratops.rs"]
@@ -1025,6 +1063,8 @@ pub mod sweatworks_brawler;
 pub mod sweltering_suns;
 #[path = "akh/synchronized_strike.rs"]
 pub mod synchronized_strike;
+#[path = "akh/tah_crop_elite.rs"]
+pub mod tah_crop_elite;
 #[path = "akh/tah_crop_skirmisher.rs"]
 pub mod tah_crop_skirmisher;
 #[path = "aer/take_into_custody.rs"]
@@ -1063,6 +1103,8 @@ pub mod thundering_spineback;
 pub mod tilonalli_s_knight;
 #[path = "pxln/treasure_map.rs"]
 pub mod treasure_map;
+#[path = "akh/trespasser_s_curse.rs"]
+pub mod trespasser_s_curse;
 #[path = "akh/trial_of_ambition.rs"]
 pub mod trial_of_ambition;
 #[path = "akh/trial_of_knowledge.rs"]
@@ -1077,6 +1119,8 @@ pub mod trial_of_zeal;
 pub mod trophy_mage;
 #[path = "akh/trueheart_duelist.rs"]
 pub mod trueheart_duelist;
+#[path = "akh/trueheart_twins.rs"]
+pub mod trueheart_twins;
 #[path = "pxln/unclaimed_territory.rs"]
 pub mod unclaimed_territory;
 #[path = "hou/unconventional_tactics.rs"]
@@ -1109,6 +1153,8 @@ pub mod vineshaper_mystic;
 pub mod violent_impact;
 #[path = "akh/vizier_of_remedies.rs"]
 pub mod vizier_of_remedies;
+#[path = "hou/vizier_of_the_true.rs"]
+pub mod vizier_of_the_true;
 #[path = "akh/vizier_of_tumbling_sands.rs"]
 pub mod vizier_of_tumbling_sands;
 #[path = "pxln/vona_butcher_of_magan.rs"]
@@ -1133,6 +1179,8 @@ pub mod wasp_of_the_bitter_end;
 pub mod wasteland_scorpion;
 #[path = "aer/watchful_automaton.rs"]
 pub mod watchful_automaton;
+#[path = "akh/watchful_naga.rs"]
+pub mod watchful_naga;
 #[path = "ust/watermarket.rs"]
 pub mod watermarket;
 #[path = "xln/watertrap_weaver.rs"]

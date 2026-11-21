@@ -287,6 +287,8 @@ pub mod valkyrie_harbinger;
 pub mod valor_of_the_worthy;
 #[path = "khm/vault_robber.rs"]
 pub mod vault_robber;
+#[path = "khm/vega_the_watcher.rs"]
+pub mod vega_the_watcher;
 #[path = "khm/vengeful_reaper.rs"]
 pub mod vengeful_reaper;
 #[path = "khm/volatile_fjord.rs"]

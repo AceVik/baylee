@@ -105,6 +105,10 @@ pub mod aven_skirmisher;
 pub mod aven_sunstriker;
 #[path = "frf/aven_surveyor.rs"]
 pub mod aven_surveyor;
+#[path = "bfz/bane_of_bala_ged.rs"]
+pub mod bane_of_bala_ged;
+#[path = "c15/banshee_of_the_dread_choir.rs"]
+pub mod banshee_of_the_dread_choir;
 #[path = "bfz/barrage_tyrant.rs"]
 pub mod barrage_tyrant;
 #[path = "c15/bastion_protector.rs"]
@@ -121,6 +125,8 @@ pub mod belligerent_whiptail;
 pub mod belltoll_dragon;
 #[path = "dtk/berserkers_onslaught.rs"]
 pub mod berserkers_onslaught;
+#[path = "c15/blade_of_selves.rs"]
+pub mod blade_of_selves;
 #[path = "ori/blazing_hellhound.rs"]
 pub mod blazing_hellhound;
 #[path = "dtk/blessed_reincarnation.rs"]
@@ -163,10 +169,14 @@ pub mod breaker_of_armies;
 pub mod brood_butcher;
 #[path = "bfz/brood_monitor.rs"]
 pub mod brood_monitor;
+#[path = "c15/broodbirth_viper.rs"]
+pub mod broodbirth_viper;
 #[path = "bfz/broodhunter_wurm.rs"]
 pub mod broodhunter_wurm;
 #[path = "bfz/call_the_scions.rs"]
 pub mod call_the_scions;
+#[path = "c15/caller_of_the_pack.rs"]
+pub mod caller_of_the_pack;
 #[path = "bfz/canopy_vista.rs"]
 pub mod canopy_vista;
 #[path = "bfz/carrier_thrall.rs"]
@@ -235,6 +245,8 @@ pub mod dampening_pulse;
 pub mod daxos_s_torment;
 #[path = "ori/deadbridge_shaman.rs"]
 pub mod deadbridge_shaman;
+#[path = "dtk/deadly_wanderings.rs"]
+pub mod deadly_wanderings;
 #[path = "bfz/deathless_behemoth.rs"]
 pub mod deathless_behemoth;
 #[path = "ori/deep_sea_terror.rs"]
@@ -419,6 +431,8 @@ pub mod gurmag_angler;
 pub mod hagra_sharpshooter;
 #[path = "dtk/hand_of_silumgar.rs"]
 pub mod hand_of_silumgar;
+#[path = "ori/hangarback_walker.rs"]
+pub mod hangarback_walker;
 #[path = "dtk/harbinger_of_the_hunt.rs"]
 pub mod harbinger_of_the_hunt;
 #[path = "frf/harsh_sustenance.rs"]
@@ -437,6 +451,8 @@ pub mod helm_of_the_gods;
 pub mod herald_of_dromoka;
 #[path = "bfz/herald_of_kozilek.rs"]
 pub mod herald_of_kozilek;
+#[path = "c15/herald_of_the_host.rs"]
+pub mod herald_of_the_host;
 #[path = "ori/herald_of_the_pantheon.rs"]
 pub mod herald_of_the_pantheon;
 #[path = "dtk/herdchaser_dragon.rs"]
@@ -583,6 +599,8 @@ pub mod mardu_strike_leader;
 pub mod marsh_hulk;
 #[path = "frf/merciless_executioner.rs"]
 pub mod merciless_executioner;
+#[path = "c15/meteor_blast.rs"]
+pub mod meteor_blast;
 #[path = "frf/mindscour_dragon.rs"]
 pub mod mindscour_dragon;
 #[path = "dtk/mirror_mockery.rs"]
@@ -771,8 +789,12 @@ pub mod sentinel_of_the_eternal_watch;
 pub mod separatist_voidmage;
 #[path = "bfz/serene_steward.rs"]
 pub mod serene_steward;
+#[path = "dtk/servant_of_the_scale.rs"]
+pub mod servant_of_the_scale;
 #[path = "bfz/shadow_glider.rs"]
 pub mod shadow_glider;
+#[path = "ori/shadows_of_the_past.rs"]
+pub mod shadows_of_the_past;
 #[path = "ori/shaman_of_the_pack.rs"]
 pub mod shaman_of_the_pack;
 #[path = "frf/shamanic_revelation.rs"]
@@ -957,6 +979,8 @@ pub mod vaultbreaker;
 pub mod vestige_of_emrakul;
 #[path = "ori/veteran_s_sidearm.rs"]
 pub mod veteran_s_sidearm;
+#[path = "ddp/veteran_warleader.rs"]
+pub mod veteran_warleader;
 #[path = "dtk/vial_of_dragonfire.rs"]
 pub mod vial_of_dragonfire;
 #[path = "ori/vine_snare.rs"]
@@ -983,6 +1007,8 @@ pub mod wandering_tombshell;
 pub mod war_flare;
 #[path = "ori/war_horn.rs"]
 pub mod war_horn;
+#[path = "c15/warchief_giant.rs"]
+pub mod warchief_giant;
 #[path = "frf/warden_of_the_first_tree.rs"]
 pub mod warden_of_the_first_tree;
 #[path = "bfz/wave_wing_elemental.rs"]

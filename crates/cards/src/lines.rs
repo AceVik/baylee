@@ -847,6 +847,11 @@ mod tests {
     /// Batch wave 9 (996 generated cards) adds 29 Daybound/Nightbound,
     /// Saga, and Battle transforming cards whose back faces reach the stack
     /// (MID/VOW creatures, NEO Sagas, and MOM Battles).
+    /// Pass E6 completes Kindly Stranger (Demon-Possessed Witch's transform
+    /// trigger), Smoldering Werewolf (Erupting Dreadwolf's attack trigger),
+    /// Lunarch Veteran (Luminous Phantom's leaves-battlefield trigger),
+    /// Overwhelmed Archivist (Archive Haunt's attack trigger), and
+    /// Ill-Tempered Loner (Howlpack Avenger's damage trigger and pump).
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -878,6 +883,7 @@ mod tests {
         "Avacynian Missionaries",
         "Elusive Tormentor",
         "Hanweir Militia Captain",
+        "Kindly Stranger",
         "Pious Evangel",
         "Thing in the Ice",
         "Town Gossipmonger",
@@ -885,6 +891,7 @@ mod tests {
         "Docent of Perfection",
         "Grizzled Angler",
         "Shrill Howler",
+        "Smoldering Werewolf",
         "Vildin-Pack Outcast",
         "Voldaren Pariah",
         "Arguel's Blood Fast",
@@ -908,14 +915,17 @@ mod tests {
         "Hostile Hostel",
         "Hound Tamer",
         "Jerren, Corrupted Bishop",
+        "Lunarch Veteran",
         "Mysterious Tome",
         "Outland Liberator",
+        "Overwhelmed Archivist",
         "Reckless Stormseeker",
         "Spellrune Painter",
         "Suspicious Stowaway",
         "Tovolar's Huntmaster",
         "Havengul Laboratory",
         "Avabruck Caretaker",
+        "Ill-Tempered Loner",
         "Infestation Expert",
         "Lambholt Raconteur",
         "Mirrorhall Mimic",

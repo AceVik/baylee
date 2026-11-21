@@ -41,6 +41,8 @@ pub mod alaborn_grenadier;
 pub mod alaborn_musketeer;
 #[path = "p02/alaborn_trooper.rs"]
 pub mod alaborn_trooper;
+#[path = "p02/alaborn_veteran.rs"]
+pub mod alaborn_veteran;
 #[path = "usg/albino_troll.rs"]
 pub mod albino_troll;
 #[path = "exo/allay.rs"]
@@ -63,6 +65,8 @@ pub mod angelic_wall;
 pub mod annul;
 #[path = "usg/antagonism.rs"]
 pub mod antagonism;
+#[path = "p02/apprentice_sorcerer.rs"]
+pub mod apprentice_sorcerer;
 #[path = "usg/arc_lightning.rs"]
 pub mod arc_lightning;
 #[path = "usg/arcane_laboratory.rs"]
@@ -443,6 +447,8 @@ pub mod glorious_anthem;
 pub mod goblin_cadets;
 #[path = "p02/goblin_cavaliers.rs"]
 pub mod goblin_cavaliers;
+#[path = "p02/goblin_firestarter.rs"]
+pub mod goblin_firestarter;
 #[path = "p02/goblin_general.rs"]
 pub mod goblin_general;
 #[path = "p02/goblin_glider.rs"]
@@ -703,6 +709,8 @@ pub mod noetic_scales;
 pub mod nomads_en_kor;
 #[path = "p02/norwood_archers.rs"]
 pub mod norwood_archers;
+#[path = "p02/norwood_priestess.rs"]
+pub mod norwood_priestess;
 #[path = "p02/norwood_ranger.rs"]
 pub mod norwood_ranger;
 #[path = "p02/norwood_warrior.rs"]
@@ -1107,6 +1115,8 @@ pub mod spreading_algae;
 pub mod standing_troops;
 #[path = "usg/steam_blast.rs"]
 pub mod steam_blast;
+#[path = "p02/steam_catapult.rs"]
+pub mod steam_catapult;
 #[path = "p02/steam_frigate.rs"]
 pub mod steam_frigate;
 #[path = "usg/stern_proctor.rs"]
@@ -1137,6 +1147,8 @@ pub mod tainted_aether;
 pub mod talas_air_ship;
 #[path = "p02/talas_merchant.rs"]
 pub mod talas_merchant;
+#[path = "p02/talas_researcher.rs"]
+pub mod talas_researcher;
 #[path = "p02/talas_scout.rs"]
 pub mod talas_scout;
 #[path = "p02/talas_warrior.rs"]
@@ -1147,6 +1159,8 @@ pub mod telepathy;
 pub mod temper;
 #[path = "p02/temple_acolyte.rs"]
 pub mod temple_acolyte;
+#[path = "p02/temple_elder.rs"]
+pub mod temple_elder;
 #[path = "usg/temporal_aperture.rs"]
 pub mod temporal_aperture;
 #[path = "p02/temporal_manipulation.rs"]

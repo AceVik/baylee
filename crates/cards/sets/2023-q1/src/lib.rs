@@ -131,6 +131,8 @@ pub mod indoctrination_attendant;
 pub mod infectious_bite;
 #[path = "one/infectious_inquiry.rs"]
 pub mod infectious_inquiry;
+#[path = "one/infested_fleshcutter.rs"]
+pub mod infested_fleshcutter;
 #[path = "one/jawbone_duelist.rs"]
 pub mod jawbone_duelist;
 #[path = "one/kuldotha_cackler.rs"]
@@ -167,6 +169,8 @@ pub mod myr_convert;
 pub mod necrosquito;
 #[path = "one/nimraiser_paladin.rs"]
 pub mod nimraiser_paladin;
+#[path = "onc/norn_s_choirmaster.rs"]
+pub mod norn_s_choirmaster;
 #[path = "one/norn_s_wellspring.rs"]
 pub mod norn_s_wellspring;
 #[path = "one/offer_immortality.rs"]
@@ -281,5 +285,7 @@ pub mod vivisection_evangelist;
 pub mod vivisurgeon_s_insight;
 #[path = "one/vraska_s_fall.rs"]
 pub mod vraska_s_fall;
+#[path = "one/watchful_blisterzoa.rs"]
+pub mod watchful_blisterzoa;
 #[path = "one/zealot_s_conviction.rs"]
 pub mod zealot_s_conviction;

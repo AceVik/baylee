@@ -30,6 +30,15 @@ never a reason to edit a card by hand.
 - Eladamri, Lord of Leaves Avatar: Vanguard card prints `{G}{G}` in its mana trigger while Scryfall carries an empty `color_identity`, tripping `lints::tests::faces::no_card_hides_a_color_it_prints`.
 - Dune Mover: `validate`: optional `"you may"` is dropped (`SearchLibrary { ..., optional: false }`).
 - Invasion of Vryn // Overloaded Mage-Ring: reference `CopySpellAbility` script omits `MayChooseTarget$ True`, so codegen writes `may_choose_new_targets: false` for `"You may choose new targets for the copy."` (`#326`).
+- Atraxi Warden: triggers `xtask::check_text::up_to_target_phrase` byte-slice panic across `'—'` in `"Suspend 5—{1}{W}"` at `xtask/src/check_text/mod.rs:497`.
+- Dismantling Wave, Enigma Thief, Grasp of Fate, Windgrace's Judgment: `scriptgen` emits an unused `static TARGET1: Filter` alongside inline `TargetSpec::ObjectOfEachOpponent`, tripping `-D dead_code` on `baylee-cards`.
+- Romana II, The Fifth Doctor, The Sixth Doctor, The Third Doctor, The Thirteenth Doctor: `Time Lord` two-word subtype missing from `subtypes.rs` in `xtask validate`.
+- Bolshack Dragon: `Armored` subtype missing from `subtypes.rs` in `xtask validate`.
+- Omenpath to Naya: `Omenpath` subtype missing from `subtypes.rs` in `xtask validate`.
+- Psychic Whorl: lowers `"Target opponent"` to `TargetSpec::AnyPlayer` instead of an opponent target, flagged by `xtask validate`.
+- Wildfire Awakener, Neutralize the Guards: `check_text` rejects the generated token's player target and `PumpFilter.controlled_by` lowering respectively.
+- Archmage of Echoes: `triggers.rs::spell_cast_trigger` calls `filter_expr` with `card_zone = false`, dropping `"Permanent"` on stack spell filters so non-permanent Kindred Faerie/Wizard instants/sorceries falsely match (CR 110.4b).
+- Osgood, Operation Double: cast trigger (`"When you cast this spell, create a token that's a copy of it, except it isn't legendary."`) lowers to stack `Effect::CopySpellOrAbility` instead of creating a token copy on the battlefield when resolved (CR 111.10 / CR 111.13).
 
 ## Engine gaps
 
@@ -41,6 +50,7 @@ never a reason to edit a card by hand.
 - Keldon Warcaller, Mind Unbound: lore counters; the AI guard wants a regression first (#166).
 - Cruel Sadist, Geistflame Reservoir: `RemoveCounterSelfX` paired with a target asks for X before showing legal targets (CR 601.2b/c; flagged by `lints::tests::costs::no_cost_announces_a_number_on_an_ability_that_also_targets`).
 - Ayula, Queen Among Bears: mode 1 of `ModalTriggered` uses `second_targets` (`Target Bear you control fights target creature you don't control`), which triggered stack selection does not yet read (`tests::no_modal_trigger_mode_prints_a_second_target`).
+- Hourglass of the Lost: uses `RemoveCounterSelfX` on a stack-using activated ability (needs an engine test verifying announced `x_value` before release; flagged by `offer_tests::every_counter_x_cost_in_the_pool_is_on_a_mana_ability`).
 
 ## Fixture gaps (the card may be right; the pool-wide test cannot place it)
 

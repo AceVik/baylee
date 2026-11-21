@@ -139,6 +139,8 @@ pub mod blood_divination;
 pub mod bloodstone_goblin;
 #[path = "dom/bloodtallow_candle.rs"]
 pub mod bloodtallow_candle;
+#[path = "c18/bloodtracker.rs"]
+pub mod bloodtracker;
 #[path = "dom/board_the_weatherlight.rs"]
 pub mod board_the_weatherlight;
 #[path = "m19/bogstomper.rs"]
@@ -461,6 +463,8 @@ pub mod generous_stray;
 pub mod ghastbark_twins;
 #[path = "dom/ghitu_chronicler.rs"]
 pub mod ghitu_chronicler;
+#[path = "dom/ghitu_lavarunner.rs"]
+pub mod ghitu_lavarunner;
 #[path = "dom/gift_of_growth.rs"]
 pub mod gift_of_growth;
 #[path = "m19/gigantosaurus.rs"]
@@ -603,6 +607,8 @@ pub mod izzet_locket;
 pub mod jade_bearer;
 #[path = "rix/jadecraft_artisan.rs"]
 pub mod jadecraft_artisan;
+#[path = "dom/jaya_s_immolating_inferno.rs"]
+pub mod jaya_s_immolating_inferno;
 #[path = "dom/jhoira_s_familiar.rs"]
 pub mod jhoira_s_familiar;
 #[path = "dom/jhoira_weatherlight_captain.rs"]
@@ -821,6 +827,8 @@ pub mod open_the_graves;
 pub mod orazca_frillback;
 #[path = "rix/orazca_raptor.rs"]
 pub mod orazca_raptor;
+#[path = "rix/orazca_relic.rs"]
+pub mod orazca_relic;
 #[path = "dom/orcish_vandal.rs"]
 pub mod orcish_vandal;
 #[path = "grn/ornery_goblin.rs"]
@@ -1147,6 +1155,8 @@ pub mod teferi_s_sentinel;
 pub mod tempest_djinn;
 #[path = "dom/temporal_machinations.rs"]
 pub mod temporal_machinations;
+#[path = "prix/tendershoot_dryad.rs"]
+pub mod tendershoot_dryad;
 #[path = "grn/tenth_district_guard.rs"]
 pub mod tenth_district_guard;
 #[path = "dom/teshar_ancestor_s_apostle.rs"]
@@ -1185,6 +1195,8 @@ pub mod tilonalli_s_crown;
 pub mod time_of_ice;
 #[path = "dom/tolarian_scholar.rs"]
 pub mod tolarian_scholar;
+#[path = "bbd/toothy_imaginary_friend.rs"]
+pub mod toothy_imaginary_friend;
 #[path = "grn/torch_courier.rs"]
 pub mod torch_courier;
 #[path = "m19/transmogrifying_wand.rs"]
@@ -1299,6 +1311,8 @@ pub mod worldsoul_colossus;
 pub mod yargle_glutton_of_urborg;
 #[path = "dom/yavimaya_sapherd.rs"]
 pub mod yavimaya_sapherd;
+#[path = "prix/zacama_primal_calamity.rs"]
+pub mod zacama_primal_calamity;
 #[path = "dom/zahid_djinn_of_the_lamp.rs"]
 pub mod zahid_djinn_of_the_lamp;
 #[path = "oana/zephyr_gull.rs"]

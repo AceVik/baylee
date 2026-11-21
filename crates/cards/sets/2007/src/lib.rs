@@ -27,6 +27,8 @@ pub mod augur_il_vec;
 pub mod augur_of_skulls;
 #[path = "lrw/auntie_s_hovel.rs"]
 pub mod auntie_s_hovel;
+#[path = "plc/auramancer_s_guise.rs"]
+pub mod auramancer_s_guise;
 #[path = "lrw/austere_command.rs"]
 pub mod austere_command;
 #[path = "fut/aven_augur.rs"]
@@ -81,6 +83,8 @@ pub mod boggart_sprite_chaser;
 pub mod boldwyr_intimidator;
 #[path = "fut/bonded_fetch.rs"]
 pub mod bonded_fetch;
+#[path = "plc/boom.rs"]
+pub mod boom;
 #[path = "fut/bound_in_silence.rs"]
 pub mod bound_in_silence;
 #[path = "lrw/briarhorn.rs"]
