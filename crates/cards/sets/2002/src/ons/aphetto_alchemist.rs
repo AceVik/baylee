@@ -12,7 +12,7 @@ card!(
     oracle_id = "867aa0b7-b814-4d33-a677-f6368c8e93c0",
     scryfall_id = "dfd2628f-63c4-4e19-83ea-26041650faab",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aphetto Alchemist",
         mana_cost = mana!("{1}{U}"),

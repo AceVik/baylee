@@ -11,7 +11,7 @@ card!(
     oracle_id = "22528380-4f47-4bd9-a1d4-79f700cba4f5",
     scryfall_id = "720ec745-226c-4211-974f-e04a4f9e1902",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trained Pronghorn",
         mana_cost = mana!("{1}{W}"),

@@ -17,7 +17,7 @@ card!(
     oracle_id = "667c5676-7a18-4fa9-b965-b26797538e23",
     scryfall_id = "8ce3a3a1-3569-4909-a604-f78d4888781e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Birchlore Rangers",
         mana_cost = mana!("{G}"),

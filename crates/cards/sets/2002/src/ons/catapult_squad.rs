@@ -21,7 +21,7 @@ card!(
     oracle_id = "f1ff7a67-1add-4de1-bc25-62f63626c43a",
     scryfall_id = "75a71d29-29eb-43c4-b0f3-457435e8f629",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Catapult Squad",
         mana_cost = mana!("{1}{W}"),

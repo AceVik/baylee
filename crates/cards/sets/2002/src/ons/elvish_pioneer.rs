@@ -14,7 +14,7 @@ card!(
     oracle_id = "5f4138e9-5471-467f-a15e-89e9e7929f0c",
     scryfall_id = "88244522-1cf3-40a6-9ff7-bb78f2151b60",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elvish Pioneer",
         mana_cost = mana!("{G}"),

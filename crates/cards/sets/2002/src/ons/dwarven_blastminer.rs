@@ -12,7 +12,7 @@ card!(
     oracle_id = "b373e978-c58b-465a-b68a-9d4acec9dce0",
     scryfall_id = "2970831a-738b-476f-9d46-39f10a1f91e7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dwarven Blastminer",
         mana_cost = mana!("{1}{R}"),

@@ -14,7 +14,7 @@ card!(
     oracle_id = "959b672e-d4e4-49a1-874a-5148f040fadd",
     scryfall_id = "6103a3a7-78ce-4a66-bd82-434e0bd9dea4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pilgrim of Justice",
         mana_cost = mana!("{2}{W}"),

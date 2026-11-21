@@ -13,7 +13,7 @@ card!(
     oracle_id = "81de0cb1-6665-41eb-8dfc-bb30192e1359",
     scryfall_id = "72194a6e-481d-4b07-922b-53f919bfa316",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spellbane Centaur",
         mana_cost = mana!("{2}{G}"),

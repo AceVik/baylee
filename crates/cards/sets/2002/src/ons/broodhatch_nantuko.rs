@@ -13,7 +13,7 @@ card!(
     oracle_id = "b0a54050-3493-4ff6-8eca-e43b92c1f3d3",
     scryfall_id = "73788eac-a95f-4492-b1aa-de57125cde8f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Broodhatch Nantuko",
         mana_cost = mana!("{1}{G}"),

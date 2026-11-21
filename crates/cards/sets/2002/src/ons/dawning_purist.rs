@@ -12,7 +12,7 @@ card!(
     oracle_id = "9e55cde0-16e6-4d32-8a37-1ef3dc812971",
     scryfall_id = "b8cb25b0-e4c3-4a4e-b722-ea30e695f917",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dawning Purist",
         mana_cost = mana!("{2}{W}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "c2b4f43a-6609-43ca-ad0d-897b6f8cb22f",
     scryfall_id = "97337e6e-1b3f-43a2-91f2-ca8f6c5dea88",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Harvester Druid",
         mana_cost = mana!("{1}{G}"),

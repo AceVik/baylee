@@ -25,7 +25,7 @@ card!(
     oracle_id = "ad80d9a8-187f-4ecf-94be-e23ac3a57179",
     scryfall_id = "c4fd0ea3-4134-4f7d-a0c8-01c49bacfcfc",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chlorophant",
         mana_cost = mana!("{G}{G}{G}"),

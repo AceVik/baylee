@@ -12,7 +12,7 @@ card!(
     oracle_id = "630b1685-d0c9-4d94-97dc-70058fb52e5d",
     scryfall_id = "0e4f3eff-ac99-41e2-9003-9630cdb3ae23",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daru Healer",
         mana_cost = mana!("{2}{W}"),
