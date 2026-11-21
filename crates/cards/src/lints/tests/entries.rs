@@ -375,7 +375,9 @@ fn no_card_file_spells_a_counter_id_as_a_number() {
 /// free cost, which offered a tapped creature to "tap".
 ///
 /// The count has a floor and a ceiling: three stations written, over
-/// seven station cards in the pool, counted 2026-09-30.
+/// seven station cards in the pool, counted 2026-09-30; Pass E7 adds 23
+/// Edge of Eternities Spacecraft station cards (26 checked after holding back
+/// The Eternity Elevator).
 #[test]
 fn every_station_is_the_ability_its_keyword_spells() {
     use crate::dsl::ability::ActivationTiming;
@@ -446,8 +448,8 @@ fn every_station_is_the_ability_its_keyword_spells() {
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert!(
-        (3..=7).contains(&checked),
-        "read {checked} stations out of the pool, and three were written"
+        (3..=30).contains(&checked),
+        "read {checked} stations out of the pool, and twenty-six were checked"
     );
 }
 

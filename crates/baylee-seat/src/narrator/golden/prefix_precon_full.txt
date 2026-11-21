@@ -173,6 +173,9 @@ Main deck:
     {T}: Add one mana of any color. Spend this mana only to cast a creature spell.
   1× Arcane Signet {2} · Artifact
     {T}: Add one mana of any color in your commander's color identity.
+  1× Belonging {5}{W} · Creature — Elemental Incarnation · 6/6
+    When this creature enters, create three 1/1 colorless Shapeshifter creature tokens with changeling.
+    Encore {6}{W}{W} ({6}{W}{W}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)
   1× Blasphemous Act {8}{R} · Sorcery
     This spell costs {1} less to cast for each creature on the battlefield.
     Blasphemous Act deals 13 damage to each creature.
@@ -184,6 +187,10 @@ Main deck:
     Exile target creature. Its controller creates a 1/1 colorless Shapeshifter creature token with changeling.
   1× Distant Melody {3}{U} · Sorcery
     Choose a creature type. Draw a card for each permanent you control of that type.
+  1× Eclipsed Flamekin {1}{U/R}{U/R} · Creature — Elemental Scout · 1/4
+    When this creature enters, look at the top four cards of your library. You may reveal an Elemental, Island, or Mountain card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.
+  1× Elemental Spectacle {5}{G} · Sorcery
+    Vivid — Create a number of 5/5 red and green Elemental creature tokens equal to the number of colors among permanents you control. Then you gain life equal to the number of creatures you control.
   1× Endurance {1}{G}{G} · Creature — Elemental Incarnation · 3/4
     Flash
     Reach
@@ -200,6 +207,8 @@ Main deck:
   1× Fertile Ground {1}{G} · Enchantment — Aura
     Enchant land
     Whenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.
+  1× Flamebraider {1}{R} · Creature — Elemental Bard · 2/2
+    {T}: Add two mana in any combination of colors. Spend this mana only to cast Elemental spells or activate abilities of Elemental sources.
   1× Flamekin Village · Land
     As this land enters, you may reveal an Elemental card from your hand. If you don't, this land enters tapped.
     {T}: Add {R}.
@@ -221,29 +230,19 @@ Main deck:
   1× Ingot Chewer {4}{R} · Creature — Elemental · 3/3
     When this creature enters, destroy target artifact.
     Evoke {R} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)
+  1× Jubilation {5}{G} · Creature — Elemental Incarnation · 5/5
+    When this creature enters, creatures you control get +2/+2 and gain trample until end of turn.
+    Encore {7}{G}{G} ({7}{G}{G}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)
   1× Jungle Shrine · Land
     This land enters tapped.
     {T}: Add {R}, {G}, or {W}.
+  1× Lamentation {5}{B} · Creature — Elemental Incarnation · 5/4
+    When this creature enters, destroy target creature an opponent controls. You gain 3 life.
+    Encore {6}{B}{B} ({6}{B}{B}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)
   1× Maelstrom Wanderer {5}{U}{R}{G} · Legendary Creature — Elemental · 7/5
     Creatures you control have haste.
     Cascade, cascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order. Then do it again.)
+  1× Mass of Mysteries {W}{U}{B}{R}{G} · Legendary Creature — Elemental · 5/5
+    First strike, vigilance, trample
+    At the beginning of combat on your turn, another target Elemental you control gains myriad until end of turn. (Whenever it attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)
   2× Mountain · Basic Land — Mountain
-  1× Muldrotha, the Gravetide {3}{U}{B}{G} · Legendary Creature — Elemental Avatar · 6/6
-    During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard. (If a card has multiple permanent types, choose one as you play it.)
-  1× Omnath, Locus of Rage {3}{R}{R}{G}{G} · Legendary Creature — Elemental · 5/5
-    Landfall — Whenever a land you control enters, create a 5/5 red and green Elemental creature token.
-    Whenever Omnath or another Elemental you control dies, Omnath deals 3 damage to any target.
-  1× Omnath, Locus of the Roil {1}{U}{R}{G} · Legendary Creature — Elemental · 3/3
-    When Omnath enters, it deals damage to any target equal to the number of Elementals you control.
-    Landfall — Whenever a land you control enters, put a +1/+1 counter on target Elemental you control. If you control eight or more lands, draw a card.
-  1× Opal Palace · Land
-    {T}: Add {C}.
-    {1}, {T}: Add one mana of any color in your commander's color identity. If you spend this mana to cast your commander, it enters with a number of additional +1/+1 counters on it equal to the number of times it's been cast from the command zone this game.
-  1× Opulent Palace · Land
-    This land enters tapped.
-    {T}: Add {B}, {G}, or {U}.
-  1× Path of Ancestry · Land
-    This land enters tapped.
-    {T}: Add one mana of any color in your commander's color identity. When that mana is spent to cast a creature spell that shares a creature type with your commander, scry 1. (Look at the top card of your library. You may put that card on the bottom.)
-  1× Path to Exile {W} · Instant
-    Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.

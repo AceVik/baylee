@@ -18714,3 +18714,997 @@ Insidious Fungus
 Jump Scare
 Lionheart Glimmer
 Living Phone
+Malevolent Chandelier
+Midnight Mayhem
+Most Valuable Slayer
+Norin, Swift Survivalist
+Razorkin Hordecaller
+Redress Fate
+Resurrected Cultist
+Rite of the Moth
+Shardmage's Rescue
+Sheltered by Ghosts
+Shepherding Spirits
+Shroudstomper
+Slavering Branchsnapper
+Spectral Snatcher
+Spineseeker Centipede
+Sporogenic Infection
+Séance Board
+The Jolly Balloon Man
+The Swarmweaver
+The Wandering Rescuer
+Trapped in the Screen
+Valgavoth's Faithful
+Vengeful Possession
+Violent Urge
+Wary Watchdog
+Wildfire Wickerfolk
+Eager Flameguide
+Ambush Wolf
+Anep, Vizier of Hazoret
+Apothecary Stomper
+Arcane Epiphany
+Archmage of Runes
+Armasaur Guide
+Ashroot Animist
+Battlesong Berserker
+Billowing Shriekmass
+Blasphemous Edict
+Braulios of Pheres Band
+Cackling Prowler
+Celestial Armor
+Cephalid Inkmage
+Claws Out
+Clinquant Skymage
+Cynette, Jelly Drover
+Dauntless Veteran
+Dawnwing Marshal
+Dazzling Angel
+Dionus, Elvish Archdruid
+Divine Resilience
+Dreadwing Scavenger
+Dropkick Bomber
+Electroduplicate
+Erudite Wizard
+Exemplar of Light
+Faithful Pikemaster
+Felidar Savior
+Felling Blow
+Fleeting Flight
+General Kreat, the Boltbringer
+Generous Pup
+Gilded Scuttler
+Goblin Surprise
+Gorehorn Raider
+Grappling Kraken
+Herald of Eternal Dawn
+High Fae Trickster
+High-Society Hunter
+Hinterland Sanctifier
+Homunculus Horde
+Incinerating Blast
+Inspiration from Beyond
+Inspiring Paladin
+Ivora, Insatiable Heir
+Kellan, Planar Trailblazer
+Koma, World-Eater
+Kykar, Zephyr Awakener
+Midnight Snack
+Mischievous Mystic
+Needletooth Pack
+Ozox, the Clattering King
+Phantasmal Shieldback
+Pol Jamaar, Illusionist
+Preposterous Proportions
+Quick-Draw Katana
+Raise the Past
+Ravenous Amulet
+Revenge of the Rats
+Sandstorm Crasher
+Saurian Symbiote
+Scholar of Combustion
+Scrawling Crawler
+Searslicer Goblin
+Seeker's Folly
+Shardless Outlander
+Shroofus Sproutsire
+Sire of Seven Deaths
+Skyknight Squire
+Skyship Buccaneer
+Slimy Piper
+Slumbering Cerberus
+Sower of Chaos
+Spined Tyrranax
+Spinner of Souls
+Starnheim Memento
+Sun-Blessed Healer
+Sutina, Speaker of the Tajuru
+Sylvan Scavenging
+Thurid, Mare of Destiny
+Treetop Snarespinner
+Vampire Gourmand
+Vampire Soulcaller
+Wardens of the Cycle
+Cloud, Midgar Mercenary
+Aatchik, Emerald Radian
+Adaptive Omnitool
+Aetherjacket
+Agonasaur Rex
+Air Response Unit
+Apocalypse Runner
+Back on Track
+Basri, Tomorrow's Champion
+Beastrider Vanguard
+Boosted Sloop
+Brightglass Gearhulk
+Broadcast Rambler
+Broodheart Engine
+Burner Rocket
+Carrion Cruiser
+Chitin Gravestalker
+Clamorous Ironclad
+Cloudspire Captain
+Deathless Pilot
+Debris Beetle
+Defend the Rider
+Detention Chariot
+Dynamite Diver
+Earthrumbler
+Gastal Blockbuster
+Gastal Thrillroller
+Grim Javelineer
+Guidelight Synergist
+Hashaton, Scarab's Fist
+Haunted Hellride
+Howler's Heavy
+Hulldrifter
+Lumbering Worldwagon
+Marketback Walker
+Memory Guardian
+Midnight Mangler
+Mu Yanling, Wind Rider
+Ooze Patrol
+Pactdoll Terror
+Plow Through
+Possession Engine
+Pothole Mole
+Ripclaw Wrangler
+Road Rage
+Roadside Assistance
+Rover Blades
+Salvation Engine
+Shefet Archfiend
+Skybox Ferry
+Spectacular Pileup
+Spotcycle Scouter
+Stall Out
+Temmet, Naktamun's Will
+The Last Ride
+Thopter Fabricator
+Thunderhead Gunner
+Thundering Broodwagon
+Ticket Tortoise
+Transit Mage
+Unstoppable Plan
+Veloheart Bike
+Veteran Beastrider
+Voyage Home
+Voyager Glidecar
+Voyager Quickwelder
+Wreck Remover
+Wish Good Luck
+Abzan Devotee
+Adaptive Training Post
+Adorned Crocodile
+Agent of Kotis
+Alchemist's Assistant
+Ambling Stormshell
+Awaken the Honored Dead
+Bearer of Glory
+Become the Avalanche
+Bewildering Blizzard
+Caldera Pyremaw
+Clarion Conqueror
+Constrictor Sage
+Cori Mountain Stalwart
+Corroding Dragonstorm
+Delta Bloodflies
+Devoted Duelist
+Dragonbroods' Relic
+Dragonologist
+Duty Beyond Death
+Elsha, Threefold Master
+Embermouth Sentinel
+Encroaching Dragonstorm
+Equilibrium Adept
+Fangkeeper's Familiar
+Felothar, Dawn of the Abzan
+Flamehold Grappler
+Fleeting Effigy
+Floral Evoker
+Focus the Mind
+Formation Breaker
+Fresh Start
+Furious Forebear
+Goldlust Triad
+Gurmag Rakshasa
+Herd Heirloom
+Heritage Reclamation
+Inevitable Defeat
+Iridescent Tiger
+Ironwill Forger
+Jade-Cast Sentinel
+Jeskai Devotee
+Jeskai Monument
+Kishla Trawlers
+Knockout Maneuver
+Krotiq Nestguard
+Marshal of the Lost
+Monastery Messenger
+Overwhelming Surge
+Poised Practitioner
+Rally the Monastery
+Rampart Architect
+Reputable Merchant
+Rescue Leopard
+Ringing Strike Mastery
+Roiling Dragonstorm
+Salt Road Packbeast
+Seize Opportunity
+Snowmelt Stag
+Spectral Denial
+Static Snare
+Stormbeacon Blade
+Stormplain Detainment
+Stormscale Scion
+Sultai Monument
+Summit Intimidator
+Sunpearl Kirin
+Teeming Dragonstorm
+Tempest Technique
+Temur Battlecrier
+Temur Monument
+Unrooted Ancestor
+Unsparing Boltcaster
+War Effort
+Wayspeaker Bodyguard
+Wingblade Disciple
+Wingspan Stride
+Worthy Cost
+Yathan Tombguard
+Aerith Gainsborough
+Adelbert Steiner
+Adventurer's Airship
+Aerith, Last Ancient
+Ahriman
+Alphinaud Leveilleur
+Ardbert, Warrior of Darkness
+Ashe, Princess of Dalmasca
+Auron's Inspiration
+Balamb T-Rexaur
+Barret Wallace
+Battle Menu
+Cactuar
+Call the Mountain Chocobo
+Cargo Ship
+Cecil, Dark Knight // Cecil, Redeemed Paladin
+Chocobo Knights
+Cid, Freeflier Pilot
+Circle of Power
+Cloud of Darkness
+Cloudbound Moogle
+Coliseum Behemoth
+Commune with Beavers
+Conformer Shuriken
+Coral Sword
+Cornered by Black Mages
+Crystal Fragments // Summon: Alexander
+Demon Wall
+Diamond Weapon
+Dreams of Laguna
+Eject
+Elena, Turk Recruit
+Ether
+Evil Reawakened
+Excalibur II
+Exdeath, Void Warlock // Neo Exdeath, Dimension's End
+Fight On!
+Gaius van Baelsar
+Garland, Knight of Cornelia // Chaos, the Endless
+General Leo Cristophe
+Giott, King of the Dwarves
+Gran Pulse Ochu
+Gysahl Greens
+Hermes, Overseer of Elpis
+Hill Gigas
+Hope Estheim
+Hraesvelgr of the First Brood
+Ice Flan
+Item Shopkeep
+Jecht, Reluctant Guardian // Braska's Final Aeon
+Jenova, Ancient Calamity
+Judgment Bolt
+Laughing Mad
+Lulu, Stern Guardian
+Magic Damper
+Magic Pot
+Magitek Armor
+Malboro
+Minwu, White Mage
+Moogles' Valor
+Mysidian Elder
+Namazu Trader
+Phantom Train
+Phoenix Down
+Poison the Waters
+Protection Magic
+Qiqirn Merchant
+Queen Brahne
+Relentless X-ATM092
+Relm's Sketching
+Ride the Shoopuf
+Rook Turret
+Rydia's Return
+Sephiroth, Planet's Heir
+Setzer, Wandering Gambler
+Seymour Flux
+Shadow, Mysterious Assassin
+Shambling Cie'th
+Sidequest: Card Collection // Magicked Card
+Sidequest: Raise a Chocobo // Black Chocobo
+Siegfried, Famed Swordsman
+Slash of Light
+Snow Villiers
+Squall, SeeD Mercenary
+Stuck in Summoner's Sanctum
+Summon: Anima
+Summon: Choco/Mog
+Summon: Esper Ramuh
+Summon: Fat Chocobo
+Summon: G.F. Cerberus
+Summon: Ixion
+Summon: Primal Garuda
+Summon: Shiva
+Summon: Titan
+Terra, Herald of Hope
+Thancred Waters
+The Crystal's Chosen
+The Falcon, Airship Restored
+The Fire Crystal
+The Wandering Minstrel
+Tonberry
+Travel the Overworld
+Ultima Weapon
+Valkyrie Aerial Unit
+Vayne's Treachery
+Vincent Valentine // Galian Beast
+Vivi Ornitier
+White Auracite
+Xande, Dark Mage
+Yuna, Hope of Spira
+Knuckles the Echidna
+Sonic the Hedgehog
+Atmospheric Greenhouse
+Atomic Microsizer
+Auxiliary Boosters
+Beamsaw Prospector
+Beyond the Quiet
+Biomechan Engineer
+Biosynthic Burst
+Cerebral Download
+Chrome Companion
+Comet Crawler
+Cosmogrand Zenith
+Cryogen Relic
+Dauntless Scrapbot
+Dawnsire, Sunstar Dreadnought
+Dawnstrike Vanguard
+Debris Field Crusher
+Devastating Onslaught
+Diplomatic Relations
+Dual-Sun Adepts
+Dubious Delicacy
+Edge Rover
+Embrace Oblivion
+Emergency Eject
+Exosuit Savior
+Extinguisher Battleship
+Fell Gravship
+Focus Fire
+Galactic Wayfarer
+Galvanizing Sawship
+Gigastorm Titan
+Glacier Godmaw
+Gravpack Monoist
+Haliya, Ascendant Cadet
+Hardlight Containment
+Harmonious Grovestrider
+Hemosymbic Mite
+Illvoi Light Jammer
+Illvoi Operative
+Infinite Guideline Station
+Intrepid Tenderfoot
+Kavaron Turbodrone
+Kilo, Apogee Mind
+Larval Scoutlander
+Lithobraking
+Lumen-Class Frigate
+Luxknight Breacher
+Mechan Assembler
+Melded Moxite
+Meltstrider Eulogist
+Meltstrider's Gear
+Memorial Vault
+Mental Modulation
+Mouth of the Storm
+Nanoform Sentinel
+Oreplate Pangolin
+Ouroboroid
+Pinnacle Kill-Ship
+Ragost, Deft Gastronaut
+Rescue Skiff
+Ruinous Rampage
+Rust Harvester
+Sami's Curiosity
+Sami, Ship's Engineer
+Scour for Scrap
+Scrounge for Eternity
+Seam Rip
+Seedship Agrarian
+Seedship Broodtender
+Selfcraft Mechan
+Slagdrill Scrapper
+Sledge-Class Seedship
+Space-Time Anomaly
+Specimen Freighter
+Squire's Lightblade
+Starport Security
+Station Monitor
+Sunset Saboteur
+Sunstar Expansionist
+Sunstar Lightsmith
+Surge Conductor
+Susurian Dirgecraft
+Swarm Culler
+Syr Vondam, the Lucent
+Thawbringer
+Thrumming Hivepool
+Umbral Collar Zealot
+Uthros Research Craft
+Uthros Scanship
+Virulent Silencer
+Vote Out
+Warmaker Gunship
+Weapons Manufacturing
+Wedgelight Rammer
+Wurmwall Sweeper
+Zookeeper Mechan
+Agent Venom
+Angry Rabble
+Aunt May
+Bagel and Schmear
+Beetle, Legacy Criminal
+City Pigeon
+Cosmic Spider-Man
+Daily Bugle Reporters
+Damage Control Crew
+Doc Ock's Tentacles
+Eerie Gravestone
+Ezekiel Sims, Spider-Totem
+Flying Octobot
+Friendly Neighborhood
+Guy in the Chair
+Hide on the Ceiling
+Hobgoblin, Mantled Marauder
+Hot Dog Cart
+Inner Demons Gangsters
+Kapow!
+Kraven's Cats
+Living Brain, Mechanical Marvel
+Mary Jane Watson
+Masked Meower
+Molten Man, Inferno Incarnate
+Morbius the Living Vampire
+Morlun, Devourer of Spiders
+Mysterio's Phantasm
+News Helicopter
+Origin of Spider-Man
+Oscorp Research Team
+Passenger Ferry
+Radioactive Spider
+Risky Research
+School Daze
+Scout the City
+Selfless Police Captain
+Shocker, Unshakable
+Shriek, Treblemaker
+Spectacular Spider-Man
+Spectacular Tactics
+Spider Manifestation
+Spider-Bot
+Spider-Byte, Web Warden
+Spider-Girl, Legacy Hero
+Spider-Gwen, Free Spirit
+Spider-Ham, Peter Porker
+Spider-Mobile
+Spider-Rex, Daring Dino
+Spider-Slayer, Hatred Honed
+Spider-Suit
+Spider-Woman, Stunning Savior
+Starling, Aerial Ally
+Steel Wrecking Ball
+Stegron the Dinosaur Man
+Strength of Will
+Subway Train
+Sun-Spider, Nimble Webber
+Supportive Parents
+Taxi Driver
+The Spot's Portal
+Tombstone, Career Criminal
+Venom's Hunger
+Venom, Evil Unleashed
+Venomized Cat
+Vulture, Scheming Scavenger
+Wall Crawl
+Web Up
+Web-Shooters
+Web-Warriors
+Whoosh!
+Wild Pack Squad
+With Great Power . . .
+Wraith, Vicious Vigilante
+Alchemax Slayer-Bots
+Ghost-Spider, Gwen Stacy
+Green Goblin, Nemesis
+Lyla, Holographic Assistant
+MJ, Rising Star
+Spider-Man 2099, Miguel O'Hara
+Spider-Man, Miles Morales
+Spider-Man, Peter Parker
+Twisted Spider-Clone
+Venom Blast
+Kratos, God of War
+Gran-Gran
+Aang, A Lot to Learn
+Abandon Attachments
+Air Nomad Student
+Appa, the Vigilant
+Azula Always Lies
+Baboon Spirit
+Beetle-Headed Merchants
+Bosco, Just a Bear
+Bumi Bash
+Canyon Crawler
+Chakra Meditation
+Combustion Technique
+Creeping Crystal Coating
+Crescent Island Temple
+Crystalline Armor
+Curious Farm Animals
+Cycle of Renewal
+Dragonfly Swarm
+Earth Kingdom Jailer
+Earth Kingdom Soldier
+Elephant-Mandrill
+Ember Island Production
+Fire Nation Engineer
+Fire Nation Raider
+Fire Nation Salvagers
+Fire Nation Sentinels
+Fire Nation Warship
+Fire Navy Trebuchet
+Firebending Lesson
+First-Time Flyer
+Foggy Swamp Spirit Keeper
+Freedom Fighter Recruit
+Gather the White Lotus
+Guru Pathik
+Hook Swords
+Invasion Tactics
+Iroh, Firebending Instructor
+Jet's Brainwashing
+Jet, Freedom Fighter
+Joo Dee, One of Many
+Katara, Heroic Healer
+Knowledge Seeker
+Kyoshi Battle Fan
+Kyoshi Warrior Exemplars
+Leaves from the Vine
+Lion Vulture
+Longshot, Rebel Bowman
+Lost in the Spirit World
+Master Pakku
+Master Piandao
+Master's Guidance
+Match the Odds
+Mechanical Glider
+Merchant of Many Hats
+Moku, Meandering Drummer
+Momo, Playful Pet
+Mongoose Lizard
+Octopus Form
+Otter-Penguin
+Path to Redemption
+Pillar Launch
+Platypus-Bear
+Purple Pentapus
+Rabaroo Troop
+Rocky Rebuke
+Roku's Mastery
+Rowdy Snowballers
+Saber-Tooth Moose-Lion
+Sokka's Charge
+Sokka's Haiku
+Southern Air Temple
+Suki, Courageous Rescuer
+Suki, Kyoshi Captain
+Suki, Kyoshi Warrior
+Team Avatar
+Teo, Spirited Glider
+The Art of Tea
+The Cabbage Merchant
+The Fire Nation Drill
+The Lion-Turtle
+The Spirit Oasis
+Tiger-Seal
+True Ancestry
+Tui and La, Moon and Ocean
+Twin Blades
+Ty Lee, Artful Acrobat
+Ty Lee, Chi Blocker
+Unagi's Spray
+United Front
+Vengeful Villagers
+Walltop Sentries
+Wandering Musicians
+Water Tribe Captain
+Waterbending Scroll
+Wolfbat
+Yuyan Archers
+Zuko's Exile
+Brilliant Wings
+Search for Dagger
+Vivi's Persistence
+Warrior's Resolve
+Assert Perfection
+Auntie's Sentence
+Belonging
+Bile-Vial Boggart
+Blight Rot
+Bloodline Bidding
+Boggart Prankster
+Boneclub Berserker
+Changeling Wayfinder
+Chomping Changeling
+Creakwood Safewright
+Darkness Descends
+Dawnhand Eulogist
+Deepway Navigator
+Disruptor of Currents
+Eclipsed Boggart
+Eclipsed Elf
+Eclipsed Flamekin
+Eclipsed Kithkin
+Eclipsed Merrow
+Elemental Spectacle
+Explosive Prodigy
+Feisty Spikeling
+Flamebraider
+Flaring Cinder
+Flock Impostor
+Formidable Speaker
+Gallant Fowlknight
+Giantfall
+Glamermite
+Glister Bairn
+Goldmeadow Nomad
+Gravelgill Scoundrel
+Harmonized Crescendo
+Heirloom Auntie
+Jubilation
+Keep Out
+Kinbinding
+Kithkeeper
+Kulrath Zealot
+Lamentation
+Liminal Hold
+Lofty Dreams
+Luminollusk
+Lys Alana Informant
+Mass of Mysteries
+Meanders Guide
+Merrow Skyswimmer
+Midnight Tilling
+Mirrorform
+Mistmeadow Council
+Morcant's Eyes
+Noggle Robber
+Noggle the Mind
+Personify
+Protective Response
+Puca's Eye
+Rime Chill
+Rimefire Torque
+Rimekin Recluse
+Riverguard's Reflexes
+Rooftop Percher
+Sapling Nursery
+Scarblade's Malice
+Selfless Safewright
+Shimmercreep
+Shinestriker
+Sizzling Changeling
+Springleaf Parade
+Squawkroaster
+Stalactite Dagger
+Stoic Grove-Guide
+Stratosoarer
+Subterfuge
+Sun-Dappled Celebrant
+Surly Farrier
+Tend the Sprigs
+Thoughtweft Charge
+Thoughtweft Imbuer
+Timid Shieldbearer
+Trystan, Callous Cultivator // Trystan, Penitent Culler
+Tweeze
+Twinflame Travelers
+Unexpected Assistance
+Virulent Emissary
+Wickersmith's Tools
+Wildvine Pummeler
+Maximus, Knight Apparent
+Action News Crew
+Agent Bishop, Man in Black
+April O'Neil, Human Element
+April, Reporter of the Weird
+Armaggon, Future Shark
+Baxter Stockman
+Baxter, Fly in the Ointment
+Bebop & Rocksteady
+Bebop, Warthog Warrior
+Bespoke Bō
+Casey Jones, Jury-Rig Justiciar
+Casey Jones, Vigilante
+Chrome Dome
+Cowabunga!
+Crustacean Commando
+Death in the Family
+Definitely Not a Turtle
+Dimensional Exile
+Donatello, Rad Scientist
+Double Jump // Flying Kick
+Exploding Barrel
+Featherbrained Filcher
+Foe-liage
+General Traag, Heart of Stone
+Genghis Frog
+Guac & Marshmallow Pizza
+Hamato Ninpō
+Henchbots
+High-Flying Ace
+Ice Cream Kitty
+Improvised Arsenal
+Jennika, Bad Apple Big Sister
+Krang, Master Mind
+Krang, Utrom Warlord
+Leatherhead, Iron Gator
+Leo's Guidance
+Leonardo, Worldly Warrior
+Lessons from Life
+Metalhead
+Michelangelo, On the Scene
+Mind Transfer Protocol
+Mona Lisa, Ever Adaptable
+Mona Lisa, Science Geek
+Mouser Foundry
+Mutagen Man, Living Ooze
+Mutant Chain Reaction
+Nobody
+Null Group Biological Assets
+Ooze Spill
+Pain 101
+Prehistoric Turtlesaurus
+Primordial Pachyderm
+Punk Frogs
+Quintessential Katana
+Ragamuffin Raptor
+Raph's Bravado
+Rat King, Pale Piper
+Ravenous Robots
+Renet, Temporal Apprentice
+Retro-Mutation
+Roadkill Rodney
+Rock Soldiers
+Rocksteady, Mutant Marauder
+Sally Pride, Lioness Leader
+Saved by the Shell
+Sewer-veillance Cam
+Slithering Cryptid
+South Wind Avatar
+Splinter, Radical Rat
+Stockman, Mad Fly-entist
+Stomped by the Foot
+Super Combo
+Super Shredder
+Technodrome
+Tempestra, Dame of Games
+Tenderize
+Tokka & Rahzar, Unsupervised
+Triceraton Commander
+Triceraton Regenta
+Tunnel Rats
+Turtle Blimp
+Utrom Monitor
+Utrom Scientists
+Venus, Torn Between Worlds
+Weather Maker
+Wingnut, Bat on the Belfry
+Wooden Cane
+Zog, Triceraton Castaway
+Abigale, Poet Laureate // Heroic Stanza
+Additive Evolution
+Adventurous Eater // Have a Bite
+Artistic Process
+Ascendant Dustspeaker
+Blech, Loafing Pest
+Campus Composer // Aqueous Aria
+Cauldron of Essence
+Changing Loyalty
+Chelonian Tackle
+Coercive Impetus
+Comforting Counsel
+Defacing Duskmage // Vandal's Edit
+Defiling Daemogoth
+Diary of Dreams
+Dig Site Inventory
+Duel Tactics
+Eccentric Pestfinder // Turn Stones
+Efflorescence
+Elite Interceptor // Rejoinder
+Embrace the Paradox
+Environmental Scientist
+Eternal Student
+Fix What's Broken
+Foolish Fate
+Fractal Mascot
+Glorious Decay
+Goblin Glasswright // Craft with Pride
+Grapple with Death
+Group Project
+Harsh Annotation
+Heated Argument
+Honorbound Page // Forum's Favor
+Immoral Bargain
+Inspired Skypainter // Maestro's Gift
+Jadzi, Steward of Fate // Oracle's Gift
+Landscape Painter // Vibrant Idea
+Leitmotif Composer
+Lluwen, Exchange Student // Pest Friend
+Lorehold Charm
+Lumaret's Favor
+Maelstrom Artisan // Rocket Volley
+Mage Tower Referee
+Masterful Flourish
+Mica, Reader of Ruins
+Mind into Matter
+Old-Growth Educator
+Oracle's Restoration
+Pest Mascot
+Pigment Wrangler // Striking Palette
+Poisoner's Apprentice
+Postmortem Professor
+Potioner's Trove
+Practiced Scrollsmith
+Procrastinate
+Proctor's Gaze
+Pull from the Grave
+Pursue the Past
+Quandrix Charm
+Quill-Blade Laureate // Twofold Intent
+Root Manipulation
+Rubble Rouser
+Sanar, Unfinished Genius // Wild Idea
+Scathing Shadelock // Venomous Words
+Shattered Acolyte
+Silverquill Charm
+Skycoach Conductor // All Aboard
+Stadium Tidalmage
+Stand Up for Yourself
+Startled Relic Sloth
+Stone Docent
+Stress Dream
+Strife Scholar // Awaken the Ages
+Strixhaven Skycoach
+Summoned Dromedary
+Tam, Observant Sequencer // Deep Sight
+Teacher's Pest
+Tenured Concocter
+Thornfist Striker
+Tome Blast
+Tragedy Feaster
+Ulna Alley Shopkeep
+Vibrant Outburst
+Vicious Rivalry
+Wild Hypothesis
+Wisdom of Ages
+Witherbloom Charm
+Withering Curse
+Zealous Lorecaster
+Algorithmic Ferocity
+Abomination, Irradiated Brute
+Agent 13, Sharon Carter
+Agent Phil Coulson
+Agents of S.H.I.E.L.D.
+Ant-Man's Air Force
+Ant-Man's Army
+Arc Reactor
+Ares, God of War
+Armed Assailant
+Arnim Zola, Bio-Fanatic
+Atlantean Cavalry
+Atlas, Sizable Stooge
+Avengers Quinjet
+Avengers: Under Siege
+Big Wheel
+Bionic Blow
+Black Panther, Claws of Bast
+Black Panther, Vanguard
+Black Widow, Agile Avenger
+Black Widow, Daring Operative
+Black Widow, Double Agent
+Black Widow, Intel Expert
+Blue Marvel, Adam Brashear
+Bob, Reluctant HYDRA Agent
+Borough Backup
+Bucky Barnes, Eager Ally
+Bullseye, Death Dealer
+Bushmaster, Coiled Henchman
+Captain America's Motorcycle
+Captain America's Shield
+Captain America, Liberator
+Captain America, Steve Rogers
+Captain America, Super-Soldier
+Captain America, Unbowed
+Chase Stein, Runaway
+Citizen V, Helmut Zemo
+Collector's Case
+Colossal Collision
+Colossus, Steel Stalwart
+Contract Hero
+Crimson Operative
+Crossbones, Malicious Mercenary
+Daughter of the Deep
+Decoy Ploy
+Dependable Quinjet
+Director Nick Fury
+Dismissive Denial
+Doctor Doom
+Doctor Doom, Unrivaled
+Doctor Jane Foster
+Doctor Spectrum
+Doorman
+Dora Milaje Elite
+Endless Ranks of HYDRA
+Falcon and Redwing
+Falcon's Wing Harness
+Fall to Earth
+Fantastic Elasticity
+Firebird, Blazing Ranger
+Flame On!
+Flatman
+Foggy Nelson, On Retainer
+Gert and Old Lace, Runaways
+Ghost, Spectral Saboteur
+Giant-Man, Gargantuan Genius
+Giant-Sized Flying Ant
+Graviton, Fundamental Force
+Guerrilla Gorilla
+H.E.R.B.I.E. Scout Unit
+HYDRA Disintegrator
+HYDRA Infiltration
+HYDRA Troopers
+Hammerhead, Maggia Boss
+Hawkeye, Avenging Archer
+Hawkeye, Trick Shot

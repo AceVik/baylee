@@ -719,6 +719,10 @@ pub mod knight_of_old_benalia;
 pub mod knight_of_the_keep;
 #[path = "eld/knights_charge.rs"]
 pub mod knights_charge;
+#[path = "sld/knuckles_the_echidna.rs"]
+pub mod knuckles_the_echidna;
+#[path = "sld/kratos_god_of_war.rs"]
+pub mod kratos_god_of_war;
 #[path = "war/kraul_stinger.rs"]
 pub mod kraul_stinger;
 #[path = "pwar/krenko_tin_street_kingpin.rs"]
@@ -799,6 +803,8 @@ pub mod martyr_for_the_cause;
 pub mod martyr_s_soul;
 #[path = "m20/mask_of_immolation.rs"]
 pub mod mask_of_immolation;
+#[path = "sld/maximus_knight_apparent.rs"]
+pub mod maximus_knight_apparent;
 #[path = "eld/merchant_of_the_vale.rs"]
 pub mod merchant_of_the_vale;
 #[path = "eld/merfolk_secretkeeper.rs"]
@@ -1167,6 +1173,8 @@ pub mod smitten_swordmaster;
 pub mod smothering_tithe;
 #[path = "c19/song_of_the_worldsoul.rs"]
 pub mod song_of_the_worldsoul;
+#[path = "sld/sonic_the_hedgehog.rs"]
+pub mod sonic_the_hedgehog;
 #[path = "m20/sorcerer_of_the_fang.rs"]
 pub mod sorcerer_of_the_fang;
 #[path = "mh1/soulherder.rs"]

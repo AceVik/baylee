@@ -852,6 +852,9 @@ mod tests {
     /// Lunarch Veteran (Luminous Phantom's leaves-battlefield trigger),
     /// Overwhelmed Archivist (Archive Haunt's attack trigger), and
     /// Ill-Tempered Loner (Howlpack Avenger's damage trigger and pump).
+    /// Pass E7 adds eight FIN/ECL transforming/saga cards whose back faces
+    /// reach the stack (Cecil, Crystal Fragments, Garland, Jecht, two
+    /// Sidequests, Vincent Valentine, and Trystan, Callous Cultivator).
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -961,7 +964,15 @@ mod tests {
         "Tamiyo, Inquisitive Student",
         "Walk-In Closet",
         "Balamb Garden, SeeD Academy",
+        "Cecil, Dark Knight",
+        "Crystal Fragments",
+        "Garland, Knight of Cornelia",
+        "Jecht, Reluctant Guardian",
+        "Sidequest: Card Collection",
         "Sidequest: Catch a Fish",
+        "Sidequest: Raise a Chocobo",
+        "Vincent Valentine",
+        "Trystan, Callous Cultivator",
         "Tony Stark",
     ];
 

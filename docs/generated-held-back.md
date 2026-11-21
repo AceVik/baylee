@@ -39,6 +39,10 @@ never a reason to edit a card by hand.
 - Wildfire Awakener, Neutralize the Guards: `check_text` rejects the generated token's player target and `PumpFilter.controlled_by` lowering respectively.
 - Archmage of Echoes: `triggers.rs::spell_cast_trigger` calls `filter_expr` with `card_zone = false`, dropping `"Permanent"` on stack spell filters so non-permanent Kindred Faerie/Wizard instants/sorceries falsely match (CR 110.4b).
 - Osgood, Operation Double: cast trigger (`"When you cast this spell, create a token that's a copy of it, except it isn't legendary."`) lowers to stack `Effect::CopySpellOrAbility` instead of creating a token copy on the battlefield when resolved (CR 111.10 / CR 111.13).
+- Age of Ultron, Omega, Heartless Evolution: `scriptgen` emits an unused `static TARGET1: Filter` alongside inline `TargetSpec::ObjectOfEachOpponent`, tripping `-D dead_code` on `baylee-cards` (plus `Filter::ControlledByOpponent` convention check on `Omega`).
+- Wail of War: `check_text` rejects `controlled_by: Some(PlayerRel::Chosen)` paired with `TargetSpec::AnyOpponent` without `Filter::ControlledByOpponent`.
+- Dion, Bahamut's Dominant, Jill, Shiva's Dominant: Chapter III (`"Exile ..., then return it to the battlefield (front face up)."`) lowers `ExileSelfReturnAsFace { owner_control: true }` despite omitting `"under its owner's control"`, tripping `entries::every_self_return_comes_back_under_the_control_its_sentence_prints`.
+- The Eternity Elevator: non-creature Spacecraft (`Station 20+`) with no printed P/T box, tripping `faces::a_creature_is_exactly_a_face_with_a_body` because `pt_fault` unconditionally expects `power`/`toughness` on every `SPACECRAFT` face.
 
 ## Engine gaps
 

@@ -27,6 +27,7 @@ use super::*;
 /// `Draw(1)`) and Scour All Possibilities (`Scry(2)`, `Draw(1)`).
 /// Batch wave 9 (997 generated cards) adds Otherworldly Gaze (`Surveil(3)`).
 /// Pass E6 adds Glimpse of Freedom (`Draw(1)` with escape).
+/// Pass E7 adds Dreams of Laguna (`Surveil(1)`, `Draw(1)` with flashback).
 #[test]
 fn the_counter_gate_lets_only_a_cantrip_resolve() {
     let mut held: Vec<&str> = baylee_cards::all()
@@ -71,6 +72,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Curate",
             "Deliberate",
             "Dream Cache",
+            "Dreams of Laguna",
             "Glimpse of Freedom",
             "Index",
             "Introduction to Prophecy",

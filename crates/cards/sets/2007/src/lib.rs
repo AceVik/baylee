@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "ppro/aerith_gainsborough.rs"]
+pub mod aerith_gainsborough;
 #[path = "lrw/aethersnipe.rs"]
 pub mod aethersnipe;
 #[path = "plc/akroma_angel_of_fury.rs"]

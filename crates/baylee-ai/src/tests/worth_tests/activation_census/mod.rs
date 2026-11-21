@@ -581,7 +581,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Pass E6 (982 generated cards after holding back 18 reader/offer-gap
     // cards) adds 323 non-mana activations: 253 read by the table and 70
     // remaining contextual.
-    assert_eq!((read, of), (4410, 5653), "activated/loyalty reader census");
+    // Pass E7 (994 generated cards after holding back 6 reader/lint-gap
+    // cards) adds 294 non-mana activations: 250 read by the table and 44
+    // remaining contextual.
+    assert_eq!((read, of), (4660, 5947), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

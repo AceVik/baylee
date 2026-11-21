@@ -52,6 +52,12 @@ c8714939-aaf9-4ede-a04f-61f0df5ea4d4	Bolshack Dragon	reader-gap: Armored creatur
 271264fb-965c-4fe3-baec-2217de20f8b5	Omenpath to Naya	reader-gap: Omenpath subtype missing from subtypes.rs (Pass E6)
 f1ecb3d7-5ea0-45b2-b1b0-d7ae304db2a1	Archmage of Echoes	reader-gap: spell_cast_trigger calls filter_expr(card_zone=false), dropping Permanent on stack spell filters (CR 110.4b, Pass E6)
 292aafef-8945-4827-90b2-1dd9764e517b	Osgood, Operation Double	reader-gap: cast trigger lowers "create a token that's a copy of it" to CopySpellOrAbility instead of creating a battlefield token copy (CR 111.13, Pass E6)
+51042581-4add-4487-a1b6-85446539b975	Age of Ultron	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent (-D dead_code, Pass E7)
+3173ca98-d46a-4de3-a95e-3eaad28d4017	Omega, Heartless Evolution	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent(&Filter::NONLAND), missing Filter::ControlledByOpponent (-D dead_code, Pass E7)
+fc0abdf3-3a88-4cb2-ba79-35fcaebbf7d2	Wail of War	reader-gap: check_text rejects controlled_by: Some(PlayerRel::Chosen) on TargetSpec::AnyOpponent without Filter::ControlledByOpponent (Pass E7)
+4a0cc2a2-3711-473a-b2c5-b1e52b34e4fb	Dion, Bahamut's Dominant // Bahamut, Warden of Light	reader-gap: Chapter III "return it to the battlefield (front face up)" emits owner_control: true without "under its owner's control" (Pass E7)
+c6655e05-9e31-4a74-a97d-1eeb473fe900	Jill, Shiva's Dominant // Shiva, Warden of Ice	reader-gap: Chapter III "return it to the battlefield (front face up)" emits owner_control: true without "under its owner's control" (Pass E7)
+11323af4-b8b8-4ca9-932f-377c7fd77dea	The Eternity Elevator	lint-gap: pt_fault requires power/toughness on all SPACECRAFT faces, but non-creature Spacecraft prints no P/T box (Pass E7)
 
 # Engine gaps
 9843d8a6-bcbf-40c2-8c41-316e97db9c62	Shallow Grave	engine-gap: held-back stub awaiting completion and test
