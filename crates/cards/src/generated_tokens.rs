@@ -3142,18 +3142,7 @@ pub static PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
-/// 1/1 colorless artifact Tetravite with flying.
-pub static TETRAVITE_ARTIFACT_1_1_FLYING_A3DB0257E: TokenDef = TokenDef {
-    name: "Tetravite",
-    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
-    subtypes: &[creature::TETRAVITE],
-    power: Some(1),
-    toughness: Some(1),
-    keywords: KeywordSet::FLYING,
-    abilities: &[static_ability!(Filter::This, Modifier::CantBeEnchanted)],
-    ..TokenDef::DEFAULT
-};
-
+pub use self::TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING as TETRAVITE_ARTIFACT_1_1_FLYING_A3DB0257E;
 /// 1/1 colorless Pilot.
 pub static PILOT_1_1_A462BBD00: TokenDef = TokenDef {
     name: "Pilot",
@@ -3317,25 +3306,7 @@ pub static GOBLIN_SHAMAN_2_2_RED_AD6888B34: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
-/// 1/1 green Wolves of the Hunt with bands with other creature namedwolves of the hunt.
-pub static WOLVES_OF_THE_HUNT_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_NAMEDWOLVES_OF_THE_HUNT:
-    TokenDef = TokenDef {
-    name: "Wolves of the Hunt",
-    colors: ColorSet::from_slice(&[Color::Green]),
-    types: TypeSet::CREATURE,
-    subtypes: &[creature::WOLF],
-    power: Some(1),
-    toughness: Some(1),
-    abilities: &[static_ability!(
-        Filter::This,
-        Modifier::BandsWithOther(&Filter::And(&[
-            Filter::CREATURE,
-            Filter::Named("Wolves of the Hunt")
-        ]))
-    )],
-    ..TokenDef::DEFAULT
-};
-
+pub use self::WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF as WOLVES_OF_THE_HUNT_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_NAMEDWOLVES_OF_THE_HUNT;
 /// 1/1 black Thrull.
 pub static THRULL_1_1_BLACK: TokenDef = TokenDef {
     name: "Thrull",
@@ -7529,7 +7500,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &WIZARD_0_1_BLACK_AC10C40F2,
     &CONSTRUCT_ARTIFACT_0_0_A47644F8C,
     &PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47,
-    &TETRAVITE_ARTIFACT_1_1_FLYING_A3DB0257E,
     &PILOT_1_1_A462BBD00,
     &SPIRIT_1_1_A22A1974D,
     &JUNK_ADF9DDBB8,
@@ -7538,7 +7508,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &GNOME_SOLDIER_ARTIFACT_X_X_WHITE_A45F32D9B,
     &VIBRANIUM_INDESTRUCTIBLE_AD775736C,
     &GOBLIN_SHAMAN_2_2_RED_AD6888B34,
-    &WOLVES_OF_THE_HUNT_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_NAMEDWOLVES_OF_THE_HUNT,
     &THRULL_1_1_BLACK,
     &CLOUD_SPRITE_1_1_BLUE_FLYING_A92C7E842,
     &WOLF_1_1_GREEN_ABBBD5EBC,
@@ -7746,3 +7715,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &GIANT_4_4_RED,
     &ELEMENTAL_5_5_BLUE_RED_FLYING,
 ];
+
+/// Legacy duplicate ids and the canonical ids they now resolve to.
+pub static LEGACY_ALIASES: &[(usize, usize)] = &[(1029, 228), (1038, 229)];

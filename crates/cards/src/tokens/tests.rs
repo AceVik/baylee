@@ -1,5 +1,5 @@
 use super::*;
-use crate::generated_tokens::GENERATED;
+use crate::generated_tokens::{GENERATED, LEGACY_ALIASES};
 
 /// How many tokens this file declared when the ledger was seeded. The
 /// list only grows, so a reader of it that finds fewer has stopped
@@ -92,23 +92,28 @@ fn every_token_written_here_has_an_id_in_the_ledger() {
         "these tokens have no id — run `cargo xtask codegen`: {missing:?}"
     );
     assert_eq!(
-        declared.len() + GENERATED.len(),
+        declared.len() + GENERATED.len() + LEGACY_ALIASES.len(),
         ALL.len(),
         "the ledger holds rows this file does not declare"
     );
 }
 
-/// No two rows of the ledger are the same token. Two equal definitions
-/// are two ids for one permanent, and whichever of them a card happens
-/// to name decides which picture it wears — a difference nothing in the
-/// rules can see and nobody would think to look for.
+/// A rules definition has one canonical id. A legacy alias keeps the
+/// old number readable by pointing to the canonical definition itself.
 #[test]
 fn no_two_rows_of_the_ledger_are_the_same_token() {
+    let mut duplicates = Vec::new();
     for (i, a) in ALL.iter().enumerate() {
-        for b in &ALL[i + 1..] {
-            assert!(a != b, "two ids for one token: {}", a.name);
+        for (j, b) in ALL.iter().enumerate().skip(i + 1) {
+            if a == b && !std::ptr::eq(*a, *b) {
+                duplicates.push((a.name, i, j));
+            }
         }
     }
+    assert!(
+        duplicates.is_empty(),
+        "two ids for one token: {duplicates:?}"
+    );
 }
 
 /// The id is the art key, so it has to survive the round trip. A token
@@ -118,8 +123,19 @@ fn no_two_rows_of_the_ledger_are_the_same_token() {
 fn every_token_answers_to_the_id_it_is_filed_under() {
     for (i, token) in ALL.iter().enumerate() {
         let id = token_id(token);
-        assert_eq!(id as usize, i, "{} is misfiled", token.name);
-        assert!(std::ptr::eq(by_token_id(id).expect("round trip"), *token));
+        let canonical = LEGACY_ALIASES
+            .iter()
+            .find(|&&(alias, _)| alias == i)
+            .map_or(i, |&(_, canonical)| canonical);
+        assert_eq!(id as usize, canonical, "{} is misfiled", token.name);
+        assert!(std::ptr::eq(
+            by_token_id(i as u16).expect("round trip"),
+            *token
+        ));
+    }
+    for &(alias, canonical) in LEGACY_ALIASES {
+        assert!(canonical < alias && alias < ALL.len());
+        assert!(std::ptr::eq(ALL[alias], ALL[canonical]));
     }
     assert!(by_token_id(u16::MAX).is_none());
 }
@@ -256,7 +272,8 @@ fn the_artifact_tokens_all_carry_their_printed_ability() {
 /// the last ability unsaid, and one long says a sentence no ability has.
 #[test]
 fn every_sentence_row_says_each_ability_once() {
-    for (token, sentences) in SENTENCES {
+    let mut seen = Vec::new();
+    for (token, sentences) in SENTENCES.iter().chain(generated_sentences::ROWS) {
         assert_eq!(
             sentences.len(),
             token.abilities.len(),
@@ -265,6 +282,12 @@ fn every_sentence_row_says_each_ability_once() {
             token.abilities.len(),
             sentences.len()
         );
+        assert!(
+            !seen.iter().any(|previous| std::ptr::eq(*previous, *token)),
+            "{} has two sentence rows",
+            token.name
+        );
+        seen.push(*token);
     }
 }
 

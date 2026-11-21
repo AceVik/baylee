@@ -31,6 +31,8 @@ use baylee_core::generated::subtypes::{artifact, creature};
 use baylee_core::mana::ManaColor;
 use baylee_core::types::TypeSet;
 
+#[path = "tokens/generated_sentences.rs"]
+mod generated_sentences;
 #[path = "tokens/printings.rs"]
 pub mod printings;
 pub use printings::picture;
@@ -803,8 +805,8 @@ static SENTENCES: &[(&TokenDef, &[&str])] = &[
 ];
 
 /// Ability text for registry objects, indexed by the DSL list. Tower supplies
-/// use explicitly original rules; card tokens the printed sentences in
-/// [`SENTENCES`]. Unknown pairs have no invented sentence.
+/// use explicitly original rules. Card tokens use the printed sentences in
+/// [`SENTENCES`] and [`generated_sentences::ROWS`].
 #[must_use]
 pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
     let token = by_token_id(id)?;
@@ -813,6 +815,7 @@ pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
     }
     let (_, sentences) = SENTENCES
         .iter()
+        .chain(generated_sentences::ROWS)
         .find(|(known, _)| std::ptr::eq(*known, token))?;
     sentences.get(usize::try_from(index).ok()?).copied()
 }

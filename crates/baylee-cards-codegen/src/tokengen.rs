@@ -409,7 +409,7 @@ pub fn read_with_tokens(
         }
     }
     Some(TokenBody {
-        constant,
+        constant: crate::tokenledger::canonical_name(&constant).to_string(),
         doc: doc_line(
             &raw.name,
             &types.qualifiers,
