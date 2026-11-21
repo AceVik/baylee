@@ -36,6 +36,11 @@ ignore = [
     # (15.11.2026), so no upgrade drops it: the move to `pastey` or plain
     # macros is upstream's to make. Revisit at its next release.
     "RUSTSEC-2024-0436",
+    # The unmaintained chrono crate has no patched release. Baylee uses time,
+    # but sea-orm-migration 2.0.4 enables sea-orm's defaults (with-chrono)
+    # even with its own defaults off. Remove this when the migrator drops
+    # that feature. The ban below restricts chrono to its database adapters.
+    "RUSTSEC-2026-0543",
 ]
 
 [licenses]
@@ -90,6 +95,9 @@ exceptions = [
 ]
 
 [bans]
+deny = [
+    { crate = "chrono", wrappers = ["sea-orm", "sea-query", "sqlx-core", "sqlx-postgres"] },
+]
 
 # Crates come from crates.io, and the only git source is Baylee Central,
 # pinned by rev in the root `Cargo.toml` (29.10.2026). A new registry or git
