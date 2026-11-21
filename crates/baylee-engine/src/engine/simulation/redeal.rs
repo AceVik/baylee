@@ -586,6 +586,7 @@ fn references(object: &GameObject) -> SmallVec<[ObjectId; 4]> {
 }
 
 /// The object a rider names, if it names one.
+#[allow(clippy::too_many_lines)] // exhaustive Rider arm list; new riders must answer explicitly
 const fn rider_object(rider: &Rider) -> Option<ObjectId> {
     match *rider {
         Rider::DelayedReturnObject(source)
@@ -596,6 +597,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
             creature: source, ..
         }
         | Rider::GrantedSource(source)
+        | Rider::CraftMaterial(source)
         | Rider::LinkedExile { source, .. } => Some(source.object),
         Rider::ActivationManaNote {
             last_exile: Some(exile),
@@ -607,8 +609,17 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::ExiledWith { host: object, .. }
         | Rider::MergedComponent(object)
         | Rider::MergedTop(object)
-        | Rider::MergedInto(object) => Some(object),
-        Rider::Masked
+        | Rider::MergedInto(object)
+        | Rider::PairedWith(object, _)
+        | Rider::CipherEncodedOn { host: object, .. }
+        | Rider::ChampionedBy { host: object, .. }
+        | Rider::NinjutsuDefender(
+            baylee_core::ids::Defender::Planeswalker(object)
+            | baylee_core::ids::Defender::Battle(object),
+            _,
+        ) => Some(object),
+        Rider::NinjutsuDefender(baylee_core::ids::Defender::Player(_), _)
+        | Rider::Masked
         | Rider::TriggerSourceVersion(_)
         | Rider::AbilitySourceVersion(_)
         | Rider::GrantedActivated
@@ -622,6 +633,15 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::Adventure(_)
         | Rider::Foretold { .. }
         | Rider::Plotted
+        | Rider::PlottedOnTurn(_)
+        | Rider::CasualtyPaid
+        | Rider::ImpendingPaid
+        | Rider::GiftPromisedTo(_)
+        | Rider::Monstrous
+        | Rider::ClassLevel(_)
+        | Rider::Suspected
+        | Rider::RiotHaste
+        | Rider::RevealedFromOpeningHand
         | Rider::Suspend
         | Rider::Flashback
         | Rider::ExileInsteadOfGraveyard
@@ -643,6 +663,18 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::BattleProtector(_)
         | Rider::Escaped
         | Rider::KickedMask(_)
+        | Rider::Bestowed
+        | Rider::MustAttackPlayerThisTurn(_)
+        | Rider::SuspendHaste(_)
+        | Rider::Blitzed
+        | Rider::Bargained
+        | Rider::AttachedToPlayer(_)
+        | Rider::SourceAttachmentPlayerLki(_)
+        | Rider::SquadPaid(_)
+        | Rider::OffspringPaid
+        | Rider::Fused
+        | Rider::Manifested
+        | Rider::Renowned
         | Rider::ExhaustedAbility(_)
         | Rider::EntrySacrifices(_)
         | Rider::SecondChosenSubtype(_)
@@ -658,6 +690,16 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::NotedCounter(..)
         | Rider::ActivationManaNote { .. }
         | Rider::Mutating
-        | Rider::MergedToken(_) => None,
+        | Rider::MergedToken(_)
+        | Rider::AbilitySourceFace(_)
+        | Rider::SyntheticCondition(_)
+        | Rider::WarpedSpell
+        | Rider::WarpedInExile(_)
+        | Rider::SnowManaSpent(_)
+        | Rider::Sneaked
+        | Rider::Spliced { .. }
+        | Rider::Awakened(_)
+        | Rider::ConspirePaid(_)
+        | Rider::TributePaid => None,
     }
 }

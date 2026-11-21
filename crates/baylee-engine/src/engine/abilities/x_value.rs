@@ -46,7 +46,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let mut bound = None;
         for part in &price.parts {
             let (held, fixed, variables) = match part {
-                CostPart::SacrificeX(filter) | CostPart::TapX(filter) => (
+                CostPart::SacrificeX(filter)
+                | CostPart::TapX(filter)
+                | CostPart::DiscardX(filter)
+                | CostPart::ExileFromGraveyardX(filter) => (
                     u32::try_from(
                         cost_wizard::menu(&self.state, player, source, &price.parts, part).len(),
                     )
@@ -56,7 +59,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .iter()
                         .filter(|other| match (part, other) {
                             (CostPart::SacrificeX(_), CostPart::Sacrifice(other))
-                            | (CostPart::TapX(_), CostPart::TapOther(other)) => other == filter,
+                            | (CostPart::TapX(_), CostPart::TapOther(other))
+                            | (CostPart::DiscardX(_), CostPart::Discard(other))
+                            | (
+                                CostPart::ExileFromGraveyardX(_),
+                                CostPart::ExileFromGraveyard(other),
+                            ) => other == filter,
                             _ => false,
                         })
                         .count()

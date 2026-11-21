@@ -188,9 +188,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 Some(AwaitingOp::ShieldFromChosenSource { sources, .. }) => *sources,
                 _ => &baylee_cards_dsl::Filter::Any,
             };
-            let source = self.resolution.as_ref().expect("source resolution").source;
-            let options =
-                crate::prevention::source_options(&mut self.state, filter, player, source);
+            let res_ref = self.resolution.as_ref().expect("source resolution");
+            let context = res_ref.rule_context();
+            let chosen_color = res_ref.source_chosen_color(&self.state);
+            let chosen_subtype = res_ref.source_chosen_subtype(&self.state);
+            let options = crate::prevention::source_options_with_choices(
+                &mut self.state,
+                filter,
+                player,
+                context,
+                chosen_color,
+                chosen_subtype,
+            );
             if options.is_empty() {
                 let mut res = self.resolution.take().expect("source resolution");
                 let flow = resolve::resume_source(&mut self.state, &mut res, None);

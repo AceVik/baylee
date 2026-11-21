@@ -103,16 +103,23 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         CastModeKind::Kicked => 1,
         // Foretell and madness are alternative costs (CR 702.143a, 702.35b);
         // the trained heads have no number of their own for them.
-        CastModeKind::Alternative(_) | CastModeKind::Foretell | CastModeKind::Madness => 2,
+        CastModeKind::Alternative(_)
+        | CastModeKind::Foretell
+        | CastModeKind::Madness
+        | CastModeKind::Bestow
+        | CastModeKind::Emerge
+        | CastModeKind::Plot
+        | CastModeKind::Impending
+        | CastModeKind::Awaken => 2,
         CastModeKind::Mode(_) => 3,
         CastModeKind::Face(_) => 4,
         CastModeKind::PlayLandFace(_) => 5,
         CastModeKind::Prototype => 6,
         CastModeKind::Disguise => 7,
         CastModeKind::Miracle => 8,
-        CastModeKind::Modes(_) => 9,
-        CastModeKind::Flashback => 10,
-        CastModeKind::Dash => 11,
+        CastModeKind::Modes(_) | CastModeKind::Fused => 9,
+        CastModeKind::Flashback | CastModeKind::JumpStart | CastModeKind::Retrace => 10,
+        CastModeKind::Dash | CastModeKind::Blitz | CastModeKind::Warp | CastModeKind::Sneak => 11,
         CastModeKind::Escape => 12,
         CastModeKind::Colors(_) => 13,
         // A spell's ending is, like a counter kind, chosen during resolution

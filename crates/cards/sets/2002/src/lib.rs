@@ -659,6 +659,8 @@ pub mod liberated_dwarf;
 pub mod lightning_rift;
 #[path = "jud/lightning_surge.rs"]
 pub mod lightning_surge;
+#[path = "prm/liliana_s_triumph.rs"]
+pub mod liliana_s_triumph;
 #[path = "tor/liquify.rs"]
 pub mod liquify;
 #[path = "jud/living_wish.rs"]
@@ -945,6 +947,8 @@ pub mod shieldmage_elder;
 pub mod sickening_dreams;
 #[path = "ons/sigil_of_the_new_dawn.rs"]
 pub mod sigil_of_the_new_dawn;
+#[path = "pons/silent_specter.rs"]
+pub mod silent_specter;
 #[path = "ons/silklash_spider.rs"]
 pub mod silklash_spider;
 #[path = "jud/silver_seraph.rs"]

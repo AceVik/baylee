@@ -845,10 +845,18 @@ fn every_counter_x_cost_in_the_pool_is_on_a_mana_ability() {
     let mut offenders = Vec::new();
     let mut check = |who: &str, ability: &AbilityDef| {
         let (AbilityDef::Activated {
-            cost, mana_ability, ..
+            cost,
+            mana_ability,
+            targets,
+            second_targets,
+            ..
         }
         | AbilityDef::ActivatedConditional {
-            cost, mana_ability, ..
+            cost,
+            mana_ability,
+            targets,
+            second_targets,
+            ..
         }) = ability
         else {
             return;
@@ -861,7 +869,10 @@ fn every_counter_x_cost_in_the_pool_is_on_a_mana_ability() {
             return;
         }
         carried.push(who.to_string());
-        if !mana_ability {
+        // Untargeted stack abilities carry `x_value` on `AbilityOnStack` into
+        // resolution (covered by Wave 7b engine tests); targeted ones remain
+        // guarded until CR 601.2b/c X-before-target ordering is exercised.
+        if !mana_ability && (targets.is_some() || second_targets.is_some()) {
             offenders.push(who.to_string());
         }
     };
@@ -952,6 +963,8 @@ fn unpaid_cost_parts(face: &baylee_cards_dsl::FaceDef) -> Vec<String> {
         .flat_map(|alt| alt.cost.parts)
         .chain(face.flashback_parts)
         .chain(face.madness.iter().flat_map(|cost| cost.parts))
+        .chain(face.bestow.iter().flat_map(|cost| cost.parts))
+        .chain(face.blitz.iter().flat_map(|cost| cost.parts))
     {
         if !crate::engine::cast_wizard::paid_as_an_alternative_cost(part) {
             offenders.push(format!(
@@ -1436,10 +1449,16 @@ fn payment_ability_effects(
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
+        | AbilityDef::Unearth { .. }
+        | AbilityDef::Encore { .. }
         | AbilityDef::Static(_)
         | AbilityDef::Replacement(_)
         | AbilityDef::Suspend { .. }
+        | AbilityDef::Splice { .. }
+        | AbilityDef::Awaken { .. }
+        | AbilityDef::Champion { .. }
         | AbilityDef::CopyOnEnterUntilEot { .. }
+        | AbilityDef::PerExtraTargetCost(_)
         | AbilityDef::CopyOnEnter { .. } => Vec::new(),
     }
 }

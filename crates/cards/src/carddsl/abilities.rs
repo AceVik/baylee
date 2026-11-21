@@ -129,8 +129,10 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             let is_mana = ab.is_mana_ability()
                 || crate::dsl::simple_mana(cost, effects).is_some()
                 || crate::dsl::mana_offer(cost, effects).is_some();
-            out[0] = f32::from(u8::from(!is_mana));
+            let is_class_level = matches!(*effects, [Effect::SetClassLevel(_)]);
+            out[0] = f32::from(u8::from(!is_mana && !is_class_level));
             out[1] = f32::from(u8::from(is_mana));
+            out[7] = f32::from(u8::from(is_class_level));
             out[8] = f32::from(u8::from(matches!(timing, ActivationTiming::SorcerySpeed)));
             out[9] = f32::from(u8::from(!matches!(limit, ActivationLimit::Unlimited)));
             out[10] = f32::from(u8::from(!matches!(zone, ActivationZone::Battlefield)));
@@ -183,13 +185,21 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             targets,
             ..
         } => {
-            out[2] = 1.0;
+            if matches!(trigger, Trigger::Chapter(_)) {
+                out[7] = 1.0;
+            } else {
+                out[2] = 1.0;
+            }
             encode_trigger_into(trigger, &mut out[22..32]);
             targ = targets.as_ref();
             walk_effects(effects, &mut ch);
         }
         AbilityDef::ModalTriggered { trigger, modes, .. } => {
-            out[2] = 1.0;
+            if matches!(trigger, Trigger::Chapter(_)) {
+                out[7] = 1.0;
+            } else {
+                out[2] = 1.0;
+            }
             encode_trigger_into(trigger, &mut out[22..32]);
             for mode in *modes {
                 if targ.is_none() {
@@ -226,6 +236,22 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             out[6] = 1.0;
             out[21] = unit(cost.cmc() as f32, 8.0);
         }
+        AbilityDef::Unearth { cost } => {
+            out[0] = 1.0;
+            out[8] = 1.0;
+            out[10] = 1.0;
+            encode_cost_into(cost, &mut out[11..22]);
+            ch.reanimate += 1.0;
+        }
+        AbilityDef::Encore { cost } => {
+            out[0] = 1.0;
+            out[8] = 1.0;
+            out[10] = 1.0;
+            out[17] = 1.0;
+            encode_cost_into(cost, &mut out[11..22]);
+            ch.tokens_create += 1.0;
+            ch.blink_copy_control += 1.0;
+        }
         AbilityDef::Ward { mana } => {
             out[6] = 1.0;
             out[21] = unit(f32::from(*mana), 6.0);
@@ -234,7 +260,9 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             out[6] = 1.0;
             ch.counters_add += f32::from(*poison);
         }
-        AbilityDef::CopyOnEnter { .. } | AbilityDef::CopyOnEnterUntilEot { .. } => {
+        AbilityDef::CopyOnEnter { .. }
+        | AbilityDef::CopyOnEnterUntilEot { .. }
+        | AbilityDef::Champion { .. } => {
             out[6] = 1.0;
             ch.blink_copy_control += 1.0;
         }
@@ -244,6 +272,19 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             out[7] = 1.0;
             targ = targets.as_ref();
             walk_effects(effects, &mut ch);
+        }
+        AbilityDef::PerExtraTargetCost(cost) => {
+            out[6] = 1.0;
+            out[22] = unit(cost.cmc() as f32, 8.0);
+        }
+        AbilityDef::Splice { cost, .. } => {
+            out[6] = 1.0;
+            encode_cost_into(cost, &mut out[11..22]);
+        }
+        AbilityDef::Awaken { count, cost } => {
+            out[6] = 1.0;
+            encode_cost_into(cost, &mut out[11..22]);
+            ch.counters_add += f32::from(*count);
         }
         AbilityDef::Prepared { .. } | AbilityDef::StartYourEngines | AbilityDef::Unimplemented => {
             out[6] = 1.0;
@@ -280,20 +321,30 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             CostPart::Sacrifice(_)
             | CostPart::SacrificeX(_)
             | CostPart::SacrificeAll(_)
-            | CostPart::ReturnToHand(_) => dst[3] = 1.0,
-            CostPart::PayLife(n) => dst[4] = unit(f32::from(*n), 10.0).max(0.2),
+            | CostPart::ReturnToHand(_)
+            | CostPart::ReturnUnblockedAttacker => dst[3] = 1.0,
+            CostPart::PayLife(n) | CostPart::DealDamageToYou(n) => {
+                dst[4] = unit(f32::from(*n), 10.0).max(0.2);
+            }
             CostPart::PayLifeX | CostPart::PayCommanderColors => dst[4] = 0.5,
             CostPart::Discard(_)
+            | CostPart::DiscardX(_)
             | CostPart::DiscardHand
             | CostPart::DiscardSelf
             | CostPart::DiscardRandom
             | CostPart::DiscardLastDrawnThisTurn => dst[5] = 1.0,
             CostPart::ExileSelf
             | CostPart::ExileFromGraveyard(_)
+            | CostPart::ExileFromGraveyardX(_)
             | CostPart::ExileFromHand(_)
             | CostPart::ExilePermanent(_)
             | CostPart::ExileFromSingleGraveyard { .. }
+            | CostPart::CraftMaterials { .. }
             | CostPart::ExileTopOfLibrary(_) => dst[6] = 1.0,
+            CostPart::Forage => {
+                dst[3] = 1.0;
+                dst[6] = 1.0;
+            }
             CostPart::RemoveCounterSelf { .. }
             | CostPart::RemoveCounterSelfX { .. }
             | CostPart::PutCounterSelf { .. }
@@ -301,10 +352,15 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             | CostPart::PayEnergy(_)
             | CostPart::PayEnergyX => dst[7] = 1.0,
             CostPart::PayAttachedManaCost => dst[10] = (dst[10] + 0.5).clamp(0.0, 1.0),
+            CostPart::Either(a, b) => {
+                encode_cost_into(a, dst);
+                encode_cost_into(b, dst);
+            }
         }
     }
 }
 
+#[allow(clippy::too_many_lines)] // flat Trigger -> channel-slot table
 fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
     // dst has length 10: [etb, dies, ltb, attacks, blocks, combat_damage, spell_cast, step_upkeep_end, landfall_or_life, counter_or_sac]
     match trigger {
@@ -314,22 +370,23 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::EntersBattlefieldEvoked => {
             dst[0] = 1.0;
         }
+        Trigger::PhasesIn(_) => dst[0] = 0.5,
         Trigger::Dies(_) | Trigger::DiesNotSacrificed(_) | Trigger::DiesAfterDamageByThis(_) => {
             dst[1] = 1.0;
         }
         Trigger::LeavesBattlefield(_)
+        | Trigger::PhasesOut(_)
+        | Trigger::PhasesOutOrLeavesBattlefield(_)
         | Trigger::ExiledFromBattlefield(_)
-        | Trigger::LinkedCreatureLeaves => {
-            dst[2] = 1.0;
-        }
+        | Trigger::LinkedCreatureLeaves => dst[2] = 1.0,
         Trigger::Attacks(_)
         | Trigger::OneOrMoreAttack(_)
         | Trigger::AttackWithAtLeast(_)
         | Trigger::AttackWithAtLeastMatching { .. }
         | Trigger::AttacksAndIsntBlocked(_)
-        | Trigger::AttacksAlone(_) => {
-            dst[3] = 1.0;
-        }
+        | Trigger::AttacksAlone(_)
+        | Trigger::Exerted(_)
+        | Trigger::Enlisted(_) => dst[3] = 1.0,
         Trigger::Blocks(_)
         | Trigger::BlocksCreature(_)
         | Trigger::BecomesBlocked
@@ -338,59 +395,64 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::BlocksOrBecomesBlockedByOneOrMore(_)
         | Trigger::AttachedBlocksOrBecomesBlockedBy(_)
         | Trigger::AttachedBlocksOrBecomesBlockedByOneOrMore(_)
-        | Trigger::Rampage => {
-            dst[4] = 1.0;
-        }
+        | Trigger::Rampage => dst[4] = 1.0,
         Trigger::DealsCombatDamage(_)
         | Trigger::DealsCombatDamageToPlayer(_)
         | Trigger::DealsCombatDamageToYou(_)
         | Trigger::OneOrMoreDealCombatDamageToPlayer(_)
         | Trigger::DealsCombatDamageToOpponent(_)
         | Trigger::DealsCombatDamageToPlayerOrPlaneswalker(_)
-        | Trigger::DealsCombatDamageToCreature(_) => {
-            dst[5] = 1.0;
-        }
+        | Trigger::DealsCombatDamageToCreature(_) => dst[5] = 1.0,
         Trigger::DealsDamage(_)
         | Trigger::DealsDamageToOpponent(_)
         | Trigger::DealsDamageToPlayer { .. }
         | Trigger::DealtDamage(_)
         | Trigger::DealtCombatDamage(_)
-        | Trigger::PlayerDealtDamage(_) => {
-            dst[5] = 0.7;
-        }
+        | Trigger::PlayerDealtDamage(_) => dst[5] = 0.7,
         Trigger::SpellCast(_)
         | Trigger::SpellCastUsingSourceMana(_)
         | Trigger::SpellCastOrCopied(_)
         | Trigger::CastThisWithMana(_)
         | Trigger::NthSpellCast { .. }
         | Trigger::InstantCastAfterFirst { .. }
-        | Trigger::FirstNoncreatureSpellCast(_) => {
+        | Trigger::FirstNoncreatureSpellCast(_)
+        | Trigger::SpellCastTargeting { .. }
+        | Trigger::SpellWarped { .. }
+        | Trigger::CommittedCrime { .. }
+        | Trigger::Expended { .. } => {
             dst[6] = 1.0;
         }
-        Trigger::StepBegin { .. } | Trigger::StepBeginChosenOpponent { .. } => {
-            dst[7] = 1.0;
-        }
+        Trigger::StepBegin { .. } | Trigger::StepBeginChosenOpponent { .. } => dst[7] = 1.0,
         Trigger::PlaysLand(_)
         | Trigger::PlaysAnotherLand
         | Trigger::GainsLife(_)
         | Trigger::LosesLife(_)
         | Trigger::Draws(_)
         | Trigger::DrawsExceptFirst(_)
-        | Trigger::NthCardDrawnInTurn { .. } => {
-            dst[8] = 1.0;
-        }
+        | Trigger::NthCardDrawnInTurn { .. }
+        | Trigger::CoinFlipped { .. }
+        | Trigger::DieRolled { .. }
+        | Trigger::Clashed { .. } => dst[8] = 1.0,
         Trigger::CountersPlaced { .. }
         | Trigger::CountersReach { .. }
+        | Trigger::ClassLevelGained(_)
         | Trigger::LastCounterRemoved { .. }
+        | Trigger::Chapter(_)
         | Trigger::Discarded { .. }
         | Trigger::DiscardedThisByOpponent
+        | Trigger::Sacrificed { .. }
+        | Trigger::Exploited { .. }
+        | Trigger::ChangesZoneAll { .. }
+        | Trigger::PlayerAttacked(_)
+        | Trigger::Plotted { .. }
+        | Trigger::GaveGift(_)
+        | Trigger::Scried { .. }
+        | Trigger::BecomesMonstrous
+        | Trigger::RingTemptsYou { .. }
+        | Trigger::Firebends(_)
         | Trigger::CycledThis
-        | Trigger::Cycled { .. } => {
-            dst[9] = 1.0;
-        }
-        _ => {
-            dst[8] = 0.5;
-        }
+        | Trigger::Cycled { .. } => dst[9] = 1.0,
+        _ => dst[8] = 0.5,
     }
 }
 
@@ -427,8 +489,29 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
                 ch.mana_add += 1.0;
             }
         }
-        Modifier::SpellsCostLess(amount) | Modifier::AbilitiesCostLess { amount, .. } => {
+        Modifier::GrantTriggered { effects, .. }
+        | Modifier::GrantTriggeredUpToOne { effects, .. } => {
+            walk_effects(effects, ch);
+        }
+        Modifier::GrantTriggeredDefinition(ab) => match ab {
+            AbilityDef::Triggered { effects, .. } => walk_effects(effects, ch),
+            AbilityDef::ModalTriggered { modes, .. } => {
+                for m in *modes {
+                    walk_effects(m.effects, ch);
+                }
+            }
+            _ => {}
+        },
+        Modifier::SpellsCostLess(amount)
+        | Modifier::AbilitiesCostLess { amount, .. }
+        | Modifier::CyclingCostsLess(amount) => {
             ch.mana_add += (*amount as f32).max(1.0) * 0.5;
+        }
+        Modifier::SpellsCostLessMana { cost, .. } => {
+            ch.mana_add += (cost.cmc() as f32).max(1.0) * 0.5;
+        }
+        Modifier::SpellsCostLessByAmount(_) => {
+            ch.mana_add += 0.5;
         }
         Modifier::SpellsCostMore(_)
         | Modifier::SpellsCostMoreMana(_)
@@ -437,11 +520,25 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
         | Modifier::OpponentsCantCast(_)
         | Modifier::PlayersCantCast { .. }
+        | Modifier::SpellCastLimitPerTurn { .. }
+        | Modifier::MatchingSpellCastLimitPerTurn { .. }
         | Modifier::PlayersCantPlay(_)
         | Modifier::CantActivate
         | Modifier::ChosenNameCantActivate
-        | Modifier::CantActivateArtifacts => {
+        | Modifier::CantActivateArtifacts
+        | Modifier::PlayersCantGainLife(_)
+        | Modifier::CantBeSacrificed { .. } => {
             ch.counter_spell += 0.5;
+        }
+        Modifier::Goaded
+        | Modifier::AssignCombatDamageUsingToughness
+        | Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater
+        | Modifier::MayAssignCombatDamageAsThoughUnblocked
+        | Modifier::Sneak(_) => {
+            ch.tap_untap += 1.0;
+        }
+        Modifier::MultiplyDamageFrom { .. } | Modifier::AddDamageFrom { .. } => {
+            ch.damage_any += 1.5;
         }
         _ => {}
     }
@@ -464,6 +561,12 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
         ReplacementRule::ExileSelfInsteadOfGraveyard
         | ReplacementRule::ExileOpponentsGraveyard { .. } => {
             ch.exile_all_or_gy += 1.5;
+        }
+        ReplacementRule::OpeningHandOnBattlefield => {
+            ch.pump_pt += 0.5;
+        }
+        ReplacementRule::OpeningHandRevealAtFirstUpkeep(effects) => {
+            walk_effects(effects, ch);
         }
         _ => {}
     }

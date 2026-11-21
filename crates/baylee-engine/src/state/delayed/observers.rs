@@ -8,7 +8,11 @@ use baylee_core::ids::PlayerId;
 
 impl DelayedWhen {
     pub(crate) fn observation_fired(self, events: &[JournalEntry], controller: PlayerId) -> bool {
-        let Self::Observed { watch, when, after } = self else {
+        let (Self::Observed { watch, when, after }
+        | Self::ObservedGeneral {
+            watch, when, after, ..
+        }) = self
+        else {
             return false;
         };
         for entry in events.iter().filter(|entry| entry.seq > after) {
@@ -76,6 +80,7 @@ mod tests {
                 old: PlayerId::new(old),
                 new: PlayerId::new(new),
             },
+            tap_observation: None,
             departure: None,
         }
     }
@@ -90,14 +95,18 @@ mod tests {
                 cause: crate::event::Cause::Effect,
                 place: None,
             },
+            tap_observation: None,
             departure: Some(Box::new(Departure {
                 sacrificed: false,
+                was_attacking: false,
                 return_keywords: [0, 0],
+                modular_instances: 0,
                 version,
                 power: 0,
                 controller: PlayerId::new(controller),
                 toughness: 0,
                 attachments: Vec::new(),
+                was_ring_bearer_of: None,
             })),
         }
     }
@@ -128,6 +137,7 @@ mod tests {
                 object: ObjectId::NO_SOURCE,
                 cause: crate::event::Cause::Effect,
             },
+            tap_observation: None,
             departure: None,
         };
         assert!(!observation.observation_fired(&[untap.clone()], you));

@@ -144,6 +144,7 @@ pub fn can_activate_mana(state: &GameState, player: PlayerId, source: ObjectId) 
     obj.zone == Zone::Battlefield
         && obj.controller == player
         && !obj.status.contains(crate::object::Status::TAPPED)
+        && !state.activations_locked(source)
         // A land is never summoning sick, so this costs an ordinary land
         // nothing; it is here for the land that is also a creature (Dryad
         // Arbor, an animated manland), whose intrinsic {T} is an activated
@@ -222,10 +223,7 @@ pub fn add_intrinsic_mana(
         .constrained_payment(player)
         .map(|_| state.players[usize::from(player.get())].mana_pool.clone());
     state.set_tapped(source, true);
-    state.journal.record(GameEvent::ObjectTapped {
-        object: source,
-        cause: Cause::Cost,
-    });
+    state.record_tap_event(source, true, Cause::Cost);
     state.journal.record(GameEvent::AbilityActivated {
         ability: None,
         source: state

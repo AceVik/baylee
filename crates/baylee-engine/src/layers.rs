@@ -42,7 +42,7 @@ use std::sync::Arc;
 mod index;
 mod keyword_instances;
 mod projection;
-pub(crate) use keyword_instances::keyword_instances;
+pub(crate) use keyword_instances::{keyword_instances, keyword_instances_with_plan};
 pub(crate) use projection::recompute_cow;
 
 /// Number of layers (CR 613.1 sublayers included).
@@ -249,6 +249,10 @@ pub fn needs_projection(state: &GameState, plan: &LayerPlan, obj: &GameObject) -
         || !obj.counters.is_empty()
         || obj.base.keywords.contains(KeywordSet::CHANGELING)
         || obj.riders.contains(&crate::object::Rider::Dashed)
+        || obj.riders.contains(&crate::object::Rider::RiotHaste)
+        || obj.riders.contains(&crate::object::Rider::Suspected)
+        || obj.riders.contains(&crate::object::Rider::Bestowed)
+        || (obj.zone == crate::zone::Zone::Battlefield && state.is_ring_bearer(obj.id))
         // CR 202.3e: on the stack, X is the number chosen for it, so a
         // spell with X needs its projection even where no effect reaches it.
         || (obj.zone == crate::zone::Zone::Stack && obj.x_value > 0)
@@ -788,8 +792,10 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         Filter::AttachedTo(_)
         | Filter::BlockedThisTurnBy(_)
         | Filter::SharesAColorWith(_)
-        | Filter::SharesColorWithExiledWithSource => true,
-        Filter::OfSourceChosenColor => matches!(
+        | Filter::SharesCreatureTypeWith(_)
+        | Filter::SharesColorWithExiledWithSource
+        | Filter::SharesColorWithSource => true,
+        Filter::OfSourceChosenColor | Filter::ChosenColor => matches!(
             modifier,
             Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
         ),
@@ -860,8 +866,23 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::ControlledByOpponent
         | Filter::ControlledByActivePlayer
         | Filter::ControlledByDefendingPlayer
+        | Filter::ControlledByEnchantedPlayer
         | Filter::NotControlledByReferenceController
         | Filter::ControlledSinceTurnBegan => matches!(modifier, Modifier::GainControl),
+        Filter::Historic => {
+            matches!(
+                modifier,
+                Modifier::AddType(_)
+                    | Modifier::RemoveType(_)
+                    | Modifier::AddSupertype(_)
+                    | Modifier::RemoveSupertype(_)
+                    | Modifier::AddSubtype(_)
+                    | Modifier::BecomeType { .. }
+                    | Modifier::AddTypeIfCountersAtLeast { .. }
+                    | Modifier::CopyLastExiledCreaturePTAndSubtypes
+                    | Modifier::BecomeCopyOf(_)
+            ) || (layer == Layer::Type && crate::artifact_animation::carries_its_set(*modifier))
+        }
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| could_change_match(modifier, f, layer))
         }
@@ -885,7 +906,12 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         }
         Filter::ActivatedAbilityFrom(filter) => could_change_match(modifier, filter, layer),
         Filter::TargetsPermanentYouControl => matches!(layer, Layer::Control),
+        Filter::PairedWithSource | Filter::RingBearer => {
+            matches!(layer, Layer::Control | Layer::Type)
+        }
         Filter::Any
+        | Filter::Monstrous
+        | Filter::Suspected
         | Filter::IsCommander
         | Filter::HasAdventure
         | Filter::This
@@ -907,11 +933,14 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::PutIntoGraveyardThisTurn
         | Filter::AttackedThisTurn
         | Filter::CountersAtLeast(_, _)
+        | Filter::AnyCountersAtLeast(_)
         | Filter::HasAnyCounter
+        | Filter::HasCounters(_)
         | Filter::Enchanted
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::CmcEqualsYourUnspentMana
+        | Filter::FaceDown
         | Filter::BlockingSource
         | Filter::SpellTargetingAffected
         | Filter::BlockedBySource
@@ -929,6 +958,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CmcAtMostX
         | Filter::CmcExactlyX
         | Filter::CmcAtMostColorsSpent
+        | Filter::CmcAtMostSnowManaSpent
+        | Filter::SameManaValueAsSource
+        | Filter::WarpedInExile
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_)
         | Filter::Kicked
@@ -1233,8 +1265,11 @@ fn apply(
         }
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::SpellsCostLess(_)
+        | Modifier::SpellsCostLessMana { .. }
+        | Modifier::SpellsCostLessByAmount(_)
         | Modifier::SpellsCostLessPerCounter(_)
         | Modifier::BuybackCostsLess(_)
+        | Modifier::CyclingCostsLess(_)
         | Modifier::LoseAllBandsWithOther
         | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)
@@ -1292,17 +1327,25 @@ fn apply(
         | Modifier::AdditionalCounterPlacement { .. }
         | Modifier::AdditionalCounterOnEntryByCount { .. }
         | Modifier::FlipTwoCoinsIgnoreOne
+        | Modifier::RollAdditionalDieIgnoreLowest
         | Modifier::NextDestructionClearsDamage
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
             | Modifier::PreventAllDamageFromIt
             | Modifier::PreventDamageToYouFrom(_)
         | Modifier::PreventCombatDamageFrom(_)
+        | Modifier::PreventNoncombatDamageFrom(_)
+        | Modifier::PreventNoncombatDamageToPlayers { .. }
+        | Modifier::MultiplyDamageFrom { .. }
+        | Modifier::AddDamageFrom { .. }
         | Modifier::PreventDamageFrom(_)
+        | Modifier::PreventDamagePerSource { .. }
+        | Modifier::PreventDamageToAffectedPerSource { .. }
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
         | Modifier::MinimumBlockers(_)
+        | Modifier::MaxBlockers(_)
         | Modifier::CantBeBlockedByPlayer(_)
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
@@ -1319,6 +1362,11 @@ fn apply(
         | Modifier::MustBeBlockedByAllAble
         | Modifier::MustBeBlockedByAllAbleMatching(_)
         | Modifier::AssignsNoCombatDamage
+        | Modifier::AssignCombatDamageUsingToughness
+        | Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater
+        | Modifier::MayAssignCombatDamageAsThoughUnblocked
+        | Modifier::PlayersCantGainLife(_)
+        | Modifier::CantBeSacrificed { .. }
         | Modifier::BlocksEachAttackerIfAble
         | Modifier::RedirectDamageToYou(_)
         | Modifier::CountersPreventDamage(_)
@@ -1330,6 +1378,7 @@ fn apply(
         | Modifier::ProtectionFromExiledWithSourceTypes
         | Modifier::GrantsFlashback
         | Modifier::GrantsEscape(_)
+        | Modifier::Sneak(_)
         | Modifier::GraveyardInstantSorceryOnce
         | Modifier::GraveyardVampireOnce
         | Modifier::NextSpellUncounterable
@@ -1354,6 +1403,7 @@ fn apply(
         | Modifier::AttackTaxLife { .. }
         | Modifier::AttackTaxMana { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
+        | Modifier::MatchingSpellCastLimitPerTurn { .. }
         | Modifier::PlayerHexproof { .. }
         | Modifier::GrantActivated { .. }
         | Modifier::GrantActivatedDefinition(_)
@@ -1363,6 +1413,9 @@ fn apply(
         | Modifier::SorceriesHaveFlash
         | Modifier::GrantTriggered { .. }
         | Modifier::GrantTriggeredUpToOne { .. }
+        | Modifier::GrantTriggeredDefinition(_)
+        | Modifier::CantPhaseOut
+        | Modifier::Goaded
         | Modifier::ManaIsAnyColor
         | Modifier::SpendManaAs { .. }
         | Modifier::SearchTakeover

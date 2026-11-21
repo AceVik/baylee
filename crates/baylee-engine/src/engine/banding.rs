@@ -188,6 +188,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.sync_static_effects();
             self.state.refresh_characteristics();
         }
+        if let Some((attacker, chooser)) =
+            crate::combat::unblocked_damage_owed(&self.state, first_strike_step)
+        {
+            self.pending = Pending::YesNo {
+                player: chooser,
+                prompt: crate::choice::YesNoPrompt::AssignDamageAsThoughUnblocked { attacker },
+                source: None,
+            };
+            self.pending_plan = Some(PlanKind::CombatUnblockedDamage { attacker });
+            self.awaiting_answer = true;
+            return true;
+        }
         let Some(owed) = crate::combat::divisions_owed(
             &self.state,
             first_strike_step,
@@ -247,6 +259,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             source: owed.source,
             shares: owed.recipients.iter().copied().zip(shares).collect(),
         });
+        if !self.ask_combat_division() {
+            self.advance_step();
+        }
+    }
+
+    /// Records the answer to `YesNoPrompt::AssignDamageAsThoughUnblocked`
+    /// (`Modifier::MayAssignCombatDamageAsThoughUnblocked`, CR 510.1c) and
+    /// continues combat damage assignment or deals the step's combat damage.
+    pub(super) fn answer_unblocked_damage(&mut self, attacker: ObjectId, as_unblocked: bool) {
+        self.state
+            .combat
+            .record_unblocked_damage_choice(attacker, as_unblocked);
         if !self.ask_combat_division() {
             self.advance_step();
         }

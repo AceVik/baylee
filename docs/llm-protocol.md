@@ -80,6 +80,9 @@ the stack that divides its damage says each target's share
 (`targets Grizzly Bears #64 (1 damage), Hill Giant #65 (2 damage)`, CR
 601.2d).
 
+The designation of a face-up Class or any permanent with a higher level is
+written as `Class level N`. Level counters have their own count.
+
 The state stays prose. On 602 captured boards, re-encoding the same state
 (header, log and question unchanged) costs, per whole wake:
 

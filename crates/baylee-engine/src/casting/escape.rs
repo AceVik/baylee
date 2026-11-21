@@ -111,7 +111,9 @@ pub(crate) fn mana_cost_mode(
     match kind {
         CastModeKind::Normal | CastModeKind::Kicked => true,
         CastModeKind::Prototype => def.faces[face].prototype.is_some(),
-        CastModeKind::Face(index) => index == face && !def.faces[face].disturb,
+        CastModeKind::Face(index) => {
+            index == face && !def.faces[face].disturb && !def.faces[face].aftermath
+        }
         CastModeKind::Mode(index) => def.abilities_for_face(face).iter().any(|ability| {
             matches!(ability, baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. }
                 if modes.get(index).is_some_and(|mode| mode.cost_override.is_none()))

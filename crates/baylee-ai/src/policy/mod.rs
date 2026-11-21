@@ -730,8 +730,12 @@ impl HeuristicAgent {
         max: u8,
         prompt: baylee_engine::choice::ChoicePrompt,
     ) -> Option<Vec<ObjectId>> {
-        // Revealing keeps the card in hand and pays the land's entry price.
-        if prompt == baylee_engine::choice::ChoicePrompt::RevealOrEnterTapped {
+        // Revealing keeps the card in hand and pays the land's entry price or adds Amplify counters.
+        if matches!(
+            prompt,
+            baylee_engine::choice::ChoicePrompt::RevealOrEnterTapped
+                | baylee_engine::choice::ChoicePrompt::Amplify
+        ) {
             let mut ranked = options.to_vec();
             ranked.sort_unstable();
             ranked.truncate(usize::from(max));
@@ -742,6 +746,46 @@ impl HeuristicAgent {
         replacement_answer(view, options, prompt).or(forced_discard)
     }
 
+    fn cost_sacrifice_answer(
+        &self,
+        view: &PlayerView,
+        options: &[ObjectId],
+        min: u8,
+        max: u8,
+    ) -> Vec<ObjectId> {
+        let mut ranked = options.to_vec();
+        if let Some(emerge) = view
+            .casting
+            .and_then(|c| identity(view, c))
+            .and_then(face)
+            .and_then(|f| f.emerge)
+            && let Some(seat) = view.seat(resource_player(view))
+        {
+            let untapped_mana = view
+                .battlefield_of(seat.player)
+                .filter(|o| {
+                    !o.status.contains(baylee_view::ObjectStatus::TAPPED)
+                        && (o.types.contains(TypeSet::LAND) || o.board_mana.is_some())
+                })
+                .count() as u64;
+            let avail = seat.mana_pool.total() + untapped_mana;
+            ranked.sort_by_key(|id| {
+                let Some(o) = view.object(*id) else {
+                    return (true, 0_i64, *id);
+                };
+                let remaining = u64::from(emerge.cost.with_less_generic(o.mana_value).cmc());
+                let short = remaining > avail;
+                let net = self.given_up(view, o) - i64::from(o.mana_value) * 40;
+                (short, net, *id)
+            });
+        } else {
+            ranked.sort_by_key(|id| (view.object(*id).map_or(0, |o| self.given_up(view, o)), *id));
+        }
+        ranked.truncate(usize::from(min.max(1).min(max)));
+        ranked
+    }
+
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn select_cards(
         &self,
         view: &PlayerView,
@@ -793,10 +837,7 @@ impl HeuristicAgent {
                 .iter()
                 .all(|id| view.battlefield.iter().any(|o| o.id == *id))
         {
-            let mut ranked = options.to_vec();
-            ranked.sort_by_key(|id| (view.object(*id).map_or(0, |o| self.given_up(view, o)), *id));
-            ranked.truncate(usize::from(min.max(1).min(max)));
-            return Some(ranked);
+            return Some(self.cost_sacrifice_answer(view, options, min, max));
         }
         if prompt == ChoicePrompt::KeepPermanents
             && min == 1
@@ -814,6 +855,26 @@ impl HeuristicAgent {
         ) {
             return Some(self.keep_permanents(view, options, max));
         }
+        if prompt == ChoicePrompt::Generic
+            && max > 0
+            && context
+                .effects
+                .iter()
+                .any(|e| matches!(e, baylee_cards_dsl::Effect::SoulbondPair { .. }))
+        {
+            let mut ranked = options.to_vec();
+            ranked.sort_by_key(|id| {
+                (
+                    std::cmp::Reverse(
+                        view.object(*id)
+                            .map_or(0, |o| Self::permanent_worth(view, o)),
+                    ),
+                    *id,
+                )
+            });
+            ranked.truncate(usize::from(max));
+            return Some(ranked);
+        }
         if self.profile.card_skill() < 2 {
             return None;
         }
@@ -826,6 +887,7 @@ impl HeuristicAgent {
             | ChoicePrompt::PutIntoHand
             | ChoicePrompt::PlayFromExile
             | ChoicePrompt::PutOntoBattlefield
+            | ChoicePrompt::ManifestDread
             | ChoicePrompt::PutIntoGraveyard => {
                 if self.profile.plays(crate::AIProfile::LAND_COLOURS)
                     && prompt != ChoicePrompt::PutIntoGraveyard
@@ -855,7 +917,7 @@ impl HeuristicAgent {
             // the price was protecting, every time and silently. An
             // activation asks with `min: 1`, where this is the same answer.
             ChoicePrompt::CostSacrifice | ChoicePrompt::CostDiscard | ChoicePrompt::CostExile => {
-                ranked.sort_by_key(|id| (value(id), *id));
+                Self::sort_cost_price(view, prompt, &mut ranked, &value);
                 usize::from(min.max(1).min(max))
             }
             // A rummage: one card, the least valuable, goes for a fresh one.
@@ -878,10 +940,86 @@ impl HeuristicAgent {
                 ranked.sort_by_key(|id| (value(id), *id));
                 usize::from(min)
             }
+            ChoicePrompt::Devour { factor } => {
+                ranked.sort_by_key(|id| {
+                    (
+                        view.object(*id)
+                            .map_or(0, |o| Self::permanent_worth(view, o)),
+                        *id,
+                    )
+                });
+                let cap = usize::from(max).min(ranked.len());
+                let zero_toughness = view
+                    .casting
+                    .and_then(|c| identity(view, c))
+                    .and_then(face)
+                    .is_some_and(|f| f.toughness == Some(0));
+                if factor == 0 {
+                    let mut best_k = usize::from(zero_toughness && cap > 0);
+                    let mut sac_stats = 0_i32;
+                    for (idx, &id) in ranked.iter().take(cap).enumerate() {
+                        let k = idx + 1;
+                        let pt = view.object(id).map_or(0, |o| {
+                            i32::from(o.power.unwrap_or(0).max(0))
+                                + i32::from(o.toughness.unwrap_or(0).max(0))
+                        });
+                        sac_stats += pt;
+                        let gained = 2 * i32::try_from(k * k).unwrap_or(i32::MAX / 2);
+                        if gained > sac_stats {
+                            best_k = k;
+                        }
+                    }
+                    best_k
+                } else {
+                    let gain_per = 2 * i32::from(factor);
+                    ranked.retain(|&id| {
+                        view.object(id).is_some_and(|o| {
+                            i32::from(o.power.unwrap_or(0).max(0))
+                                + i32::from(o.toughness.unwrap_or(0).max(0))
+                                < gain_per
+                        })
+                    });
+                    if ranked.is_empty() && zero_toughness && !options.is_empty() {
+                        let mut fallback = options.to_vec();
+                        fallback.sort_by_key(|id| {
+                            (
+                                view.object(*id)
+                                    .map_or(0, |o| Self::permanent_worth(view, o)),
+                                *id,
+                            )
+                        });
+                        ranked = fallback;
+                        1.min(usize::from(max))
+                    } else {
+                        ranked.len().min(usize::from(max))
+                    }
+                }
+            }
+            ChoicePrompt::ChooseRingBearer => {
+                ranked.sort_by_key(|id| (std::cmp::Reverse(ring_bearer_score(view, *id)), *id));
+                usize::from(min.max(1).min(max))
+            }
+            ChoicePrompt::Splice => Self::splice_picks(view, context, &mut ranked, min, max),
+            ChoicePrompt::CipherEncode => Self::cipher_encode_picks(view, &mut ranked, max),
+            ChoicePrompt::Champion => Self::champion_picks(view, &mut ranked, max),
             _ => return None,
         };
         ranked.truncate(count);
         Some(ranked)
+    }
+
+    fn sort_cost_price(
+        view: &PlayerView,
+        prompt: baylee_engine::choice::ChoicePrompt,
+        ranked: &mut [ObjectId],
+        value: impl Fn(&ObjectId) -> i64,
+    ) {
+        if prompt == baylee_engine::choice::ChoicePrompt::CostExile {
+            let on_board = |id: ObjectId| u8::from(view.battlefield.iter().any(|o| o.id == id));
+            ranked.sort_by_key(|id| (on_board(*id), value(id), *id));
+        } else {
+            ranked.sort_by_key(|id| (value(id), *id));
+        }
     }
 
     fn sacrifice_for_answer(
@@ -903,6 +1041,30 @@ impl HeuristicAgent {
                 *id,
             )
         });
+        if min == 0 && !self.hostile(player, view.seat) {
+            let has_exploit_payoff = view.battlefield_of(view.seat).any(|o| {
+                crate::activate::printed_list(o).iter().any(|ab| {
+                    matches!(
+                        ab,
+                        baylee_cards_dsl::AbilityDef::Triggered {
+                            trigger: baylee_cards_dsl::Trigger::Exploited { .. },
+                            ..
+                        } | baylee_cards_dsl::AbilityDef::ModalTriggered {
+                            trigger: baylee_cards_dsl::Trigger::Exploited { .. },
+                            ..
+                        }
+                    )
+                })
+            });
+            if has_exploit_payoff
+                && let Some(&best) = ranked.first()
+                && view
+                    .object(best)
+                    .is_some_and(|o| self.given_up(view, o) < 300)
+            {
+                return vec![best];
+            }
+        }
         ranked.truncate(usize::from(min));
         ranked
     }
@@ -1079,6 +1241,9 @@ impl HeuristicAgent {
         options: &[ManaColor],
         context: &DecisionContext<'_>,
     ) -> ManaColor {
+        if let Some(color) = self.resolution_color(view, options, context.effects) {
+            return color;
+        }
         let only_for = crate::restricted::only_for(context.effects);
         if only_for.is_none()
             && let Some(color) = owed_color(view, options)
@@ -1115,6 +1280,65 @@ impl HeuristicAgent {
                 )
             })
             .unwrap_or(ManaColor::Colorless)
+    }
+
+    /// Tactical color selection for resolution-scoped `Effect::ChooseColor` /
+    /// `ProtectionFromChosenColor`: prefers the opponent's strongest board color
+    /// for protection, prevention, sweeps, or hand disruption.
+    fn resolution_color(
+        &self,
+        view: &PlayerView,
+        options: &[ManaColor],
+        effects: &[Effect],
+    ) -> Option<ManaColor> {
+        let is_res_color = effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::ChooseColor
+                    | Effect::GrantProtectionFromChosenColorUntilEot { .. }
+                    | Effect::ProtectionFromChosenColor { .. }
+            )
+        });
+        if !is_res_color || options.is_empty() {
+            return None;
+        }
+        let symmetric_sweep = effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::DestroyAll { .. }
+                    | Effect::ReturnAllToHand {
+                        opponents_only: false,
+                        ..
+                    }
+            )
+        });
+        let positive_count = effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::CreateTokenN { .. } | Effect::GainLife { .. } | Effect::GainLifeFor { .. }
+            )
+        });
+        let me = view.seat;
+        options
+            .iter()
+            .copied()
+            .filter(|&c| c != ManaColor::Colorless)
+            .max_by_key(|&mc| {
+                let set = color_set(mc);
+                let mut score = 0_i64;
+                for o in &view.battlefield {
+                    if !o.colors.intersects(set) {
+                        continue;
+                    }
+                    let weight = 100 + i64::from(o.power.unwrap_or(0).max(0)) * 40;
+                    if positive_count || self.hostile(o.controller, me) {
+                        score += weight;
+                    } else if symmetric_sweep {
+                        score -= weight;
+                    }
+                }
+                (score, std::cmp::Reverse(mc.index()))
+            })
     }
 
     /// Reconstruct a useful payment from this view instead of remembering a
@@ -2419,9 +2643,11 @@ fn harmful_targeted(effect: &Effect) -> bool {
     }
     match effect {
         Effect::DealDamage { .. }
+        | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::ReturnToHand { .. }
-        | Effect::TapTarget => true,
+        | Effect::TapTarget
+        | Effect::TapTargetSlot(baylee_cards_dsl::TargetSlot::First) => true,
         Effect::PumpTarget {
             power, toughness, ..
         }
@@ -2612,6 +2838,10 @@ fn card_as_object(
         linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
+        plotted: false,
+        warped: false,
+        suspected: false,
+        class_level: None,
         token: None,
         colors,
         mana_value: f.mana_cost.cmc(),
@@ -3375,71 +3605,93 @@ pub(crate) fn spell_can_be_cast_now(
     }
     let agent = HeuristicAgent::new(crate::AIProfile::default());
     let me = resource_player(view);
-    for part in f.mandatory_additional_costs {
-        match part {
-            baylee_cards_dsl::CostPart::Sacrifice(filter)
-            | baylee_cards_dsl::CostPart::ReturnToHand(filter)
-            | baylee_cards_dsl::CostPart::ExilePermanent(filter) => {
-                if !view.battlefield_of(me).any(|o| {
-                    agent.filter_matches(
-                        filter,
-                        view,
-                        o,
-                        baylee_cards_dsl::ZoneRef::Battlefield,
-                        Some(id),
-                    ) != Some(false)
-                }) {
-                    return false;
-                }
-            }
-            baylee_cards_dsl::CostPart::TapOther(filter) => {
-                if !view.battlefield_of(me).any(|o| {
-                    !o.status.contains(baylee_view::ObjectStatus::TAPPED)
-                        && (!o.summoning_sick
-                            || !o.types.contains(TypeSet::CREATURE)
-                            || o.keywords & KeywordSet::HASTE.bits() != 0)
+    f.mandatory_additional_costs
+        .iter()
+        .all(|part| mandatory_part_readable(view, &agent, me, id, part))
+}
+
+fn mandatory_part_readable(
+    view: &PlayerView,
+    agent: &HeuristicAgent,
+    me: baylee_core::ids::PlayerId,
+    id: ObjectId,
+    part: &baylee_cards_dsl::CostPart,
+) -> bool {
+    match part {
+        baylee_cards_dsl::CostPart::Sacrifice(filter)
+        | baylee_cards_dsl::CostPart::ReturnToHand(filter)
+        | baylee_cards_dsl::CostPart::ExilePermanent(filter) => view.battlefield_of(me).any(|o| {
+            agent.filter_matches(
+                filter,
+                view,
+                o,
+                baylee_cards_dsl::ZoneRef::Battlefield,
+                Some(id),
+            ) != Some(false)
+        }),
+        baylee_cards_dsl::CostPart::TapOther(filter) => view.battlefield_of(me).any(|o| {
+            !o.status.contains(baylee_view::ObjectStatus::TAPPED)
+                && (!o.summoning_sick
+                    || !o.types.contains(TypeSet::CREATURE)
+                    || o.keywords & KeywordSet::HASTE.bits() != 0)
+                && agent.filter_matches(
+                    filter,
+                    view,
+                    o,
+                    baylee_cards_dsl::ZoneRef::Battlefield,
+                    Some(id),
+                ) != Some(false)
+        }),
+        baylee_cards_dsl::CostPart::Discard(_)
+        | baylee_cards_dsl::CostPart::DiscardRandom
+        | baylee_cards_dsl::CostPart::ExileFromHand(_) => hand(view).iter().any(|c| c.id != id),
+        baylee_cards_dsl::CostPart::ExileTopOfLibrary(n) => view
+            .seat(me)
+            .is_some_and(|s| s.library_count >= u32::from(*n)),
+        baylee_cards_dsl::CostPart::PayEnergy(n) => view.seat(me).is_some_and(|s| s.energy >= *n),
+        baylee_cards_dsl::CostPart::ExileFromGraveyard(filter) => {
+            view.graveyards.get(usize::from(me.get())).is_some_and(|g| {
+                g.iter().any(|o| {
+                    o.id != id
                         && agent.filter_matches(
                             filter,
                             view,
                             o,
-                            baylee_cards_dsl::ZoneRef::Battlefield,
+                            baylee_cards_dsl::ZoneRef::Graveyard,
                             Some(id),
                         ) != Some(false)
-                }) {
-                    return false;
-                }
-            }
-            baylee_cards_dsl::CostPart::Discard(_)
-            | baylee_cards_dsl::CostPart::ExileFromHand(_) => {
-                if !hand(view).iter().any(|c| c.id != id) {
-                    return false;
-                }
-            }
-            baylee_cards_dsl::CostPart::ExileFromGraveyard(filter) => {
-                if !view.graveyards.get(usize::from(me.get())).is_some_and(|g| {
-                    g.iter().any(|o| {
-                        o.id != id
-                            && agent.filter_matches(
-                                filter,
-                                view,
-                                o,
-                                baylee_cards_dsl::ZoneRef::Graveyard,
-                                Some(id),
-                            ) != Some(false)
-                    })
-                }) {
-                    return false;
-                }
-            }
-            baylee_cards_dsl::CostPart::PayLife(n)
-                if view.seat(me).is_some_and(|s| s.life < i32::from(*n)) =>
-            {
-                return false;
-            }
-            _ => {}
+                })
+            })
         }
+        baylee_cards_dsl::CostPart::PayLife(n) => {
+            view.seat(me).is_none_or(|s| s.life >= i32::from(*n))
+        }
+        baylee_cards_dsl::CostPart::DealDamageToYou(n) => {
+            view.seat(me).is_none_or(|s| s.life > i32::from(*n))
+        }
+        baylee_cards_dsl::CostPart::Forage => {
+            let has_food = view.battlefield.iter().any(|o| {
+                o.controller == me
+                    && o.id != id
+                    && o.subtypes
+                        .contains(baylee_core::generated::subtypes::artifact::FOOD)
+            });
+            let gy_cards = view
+                .graveyards
+                .get(usize::from(me.get()))
+                .map_or(0, |g| g.iter().filter(|o| o.id != id).count());
+            has_food || gy_cards >= 3
+        }
+        baylee_cards_dsl::CostPart::Either(a, b) => {
+            let branch_ok = |sub: &baylee_cards_dsl::Cost| {
+                sub.parts
+                    .iter()
+                    .all(|p| mandatory_part_readable(view, agent, me, id, p))
+            };
+            branch_ok(a) || branch_ok(b)
+        }
+        _ => true,
     }
-    true
 }
 
 /// Costs visible from the card and public commander/graveyard bookkeeping.
@@ -3452,6 +3704,37 @@ fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::m
         .object(id)
         .and_then(|o| o.flashback)
         .unwrap_or(face.mana_cost);
+    if !face.mandatory_additional_costs.is_empty() {
+        let agent = HeuristicAgent::new(crate::AIProfile::default());
+        let me = resource_player(view);
+        for part in face.mandatory_additional_costs {
+            if let baylee_cards_dsl::CostPart::Either(a, b) = part {
+                let a_ok = a
+                    .parts
+                    .iter()
+                    .all(|p| mandatory_part_readable(view, &agent, me, id, p));
+                let b_ok = b
+                    .parts
+                    .iter()
+                    .all(|p| mandatory_part_readable(view, &agent, me, id, p));
+                match (a_ok, b_ok) {
+                    (true, false) => cost = cost.combine(&a.mana),
+                    (false, true) => cost = cost.combine(&b.mana),
+                    (true, true)
+                        if a.mana != baylee_core::mana::ManaCost::ZERO
+                            && b.mana != baylee_core::mana::ManaCost::ZERO =>
+                    {
+                        cost = cost.combine(if a.mana.cmc() <= b.mana.cmc() {
+                            &a.mana
+                        } else {
+                            &b.mana
+                        });
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
     if view
         .command
         .get(usize::from(view.seat.get()))
@@ -3510,8 +3793,26 @@ fn aim(
     let fits = |net: &baylee_core::mana::ManaCost| {
         net.cmc() <= budget && manaplan::plan_frozen(net, pool, sources).is_some()
     };
-    if let Some(net) = kicked_price(view, face, spell_effects(card), cost, sources).filter(fits) {
-        return (net, true);
+    if let Some(min_kicked) =
+        kicked_price(view, Some(card), face, spell_effects(card), cost, sources).filter(fits)
+    {
+        if face.additional_costs.iter().any(|c| c.mana.has_variable()) {
+            return (
+                variable_kicker_aim(
+                    view,
+                    card,
+                    face,
+                    cost,
+                    pool,
+                    sources,
+                    budget,
+                    seat.library_count,
+                )
+                .unwrap_or(min_kicked),
+                true,
+            );
+        }
+        return (min_kicked, true);
     }
     if face.additional_costs.len() > 1 {
         let effects = spell_effects(card);
@@ -3519,6 +3820,7 @@ fn aim(
             .filter_map(|idx| {
                 kicker_option_price(
                     view,
+                    Some(card),
                     face,
                     effects,
                     cost,
@@ -3561,6 +3863,39 @@ fn aim(
 fn kicks_safely(view: &PlayerView, effects: &[Effect], times: u32, library: u32) -> bool {
     let draws = crate::optional::self_draws(view, effects, times);
     draws == 0 || draws < library
+}
+
+#[allow(clippy::too_many_arguments)]
+fn variable_kicker_aim(
+    view: &PlayerView,
+    card: CardIdentity,
+    face: &FaceDef,
+    cost: baylee_core::mana::ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    sources: &[Source],
+    budget: u32,
+    library_count: u32,
+) -> Option<baylee_core::mana::ManaCost> {
+    let effects = spell_effects(card);
+    let extra_mana = face
+        .additional_costs
+        .iter()
+        .fold(baylee_core::mana::ManaCost::ZERO, |total, c| {
+            total.combine(&c.mana)
+        });
+    let available = pool.total() + sources.iter().map(|s| u64::from(s.amount)).sum::<u64>();
+    (1..=u32::try_from(available).unwrap_or(u32::MAX).min(50))
+        .rev()
+        .find_map(|x| {
+            let draws = crate::optional::self_draws(view, effects, x);
+            if draws > 0 && draws >= library_count {
+                return None;
+            }
+            let candidate = cost.combine(&extra_mana.with_x(x));
+            (candidate.cmc() <= budget
+                && manaplan::plan_frozen(&candidate, pool, sources).is_some())
+            .then_some(candidate)
+        })
 }
 
 /// A seat pays life for a buyback only while this much stays.
@@ -3675,6 +4010,24 @@ pub(crate) fn buys_back(
             .is_some()
 }
 
+/// Answer `YesNoPrompt::Bargain` (`CR 702.166`): yes when the caster controls
+/// an expendable token (`power <= 1`) or cheap non-mana artifact/enchantment
+/// (`mana_value <= 1`).
+pub(crate) fn bargains(view: &PlayerView) -> bool {
+    let player = resource_player(view);
+    view.battlefield_of(player).any(|o| {
+        let is_token = o.status.contains(baylee_view::ObjectStatus::TOKEN) || o.token.is_some();
+        if is_token {
+            return o.power.unwrap_or(0) <= 1;
+        }
+        o.types
+            .intersects(TypeSet::ARTIFACT.union(TypeSet::ENCHANTMENT))
+            && !o.types.intersects(TypeSet::CREATURE.union(TypeSet::LAND))
+            && o.board_mana.is_none()
+            && o.mana_value <= 1
+    })
+}
+
 /// The answer to `NumberPrompt::Multikicker`: as far as the floating pool
 /// reaches, the kick being the better half of the card by design. The engine's
 /// maximum is open while a land is left to tap, so the pool is what is asked.
@@ -3700,6 +4053,329 @@ pub(crate) fn multikicks(
                     .is_some()
         })
         .unwrap_or(min)
+}
+
+/// Answer `NumberPrompt::Squad` (`CR 702.157a`): pay as many times as the
+/// floating mana pool and safe life buffer cover when there are no destructive
+/// sacrifice/discard parts; otherwise pay once if the parts are expendable.
+pub(crate) fn squads(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    each: baylee_core::mana::ManaCost,
+    parts: baylee_engine::choice::BuybackParts,
+    min: u32,
+    max: u32,
+) -> u32 {
+    let Some(seat) = view.seat(resource_player(view)) else {
+        return min;
+    };
+    if parts.sacrifices > 0 || parts.discards > 0 || parts.random_discards > 0 {
+        return min;
+    }
+    let spell = context
+        .cost
+        .unwrap_or(baylee_core::mana::ManaCost::ZERO)
+        .with_x(context.x);
+    (min..=max.min(20))
+        .rev()
+        .find(|&n| {
+            let life_owed = i64::from(parts.life) * i64::from(n);
+            (life_owed == 0 || i64::from(seat.life) > life_owed + 5)
+                && (each == baylee_core::mana::ManaCost::ZERO
+                    || manaplan::plan_frozen(&spell.combine_n(&each, n), &seat.mana_pool, &[])
+                        .is_some())
+        })
+        .unwrap_or(min)
+}
+
+/// Answer `YesNoPrompt::Offspring` (`CR 702.175a`): accept when the floating
+/// mana pool and life buffer cover the additional cost without sacrificing or
+/// discarding cards.
+pub(crate) fn offsprings(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    cost: baylee_core::mana::ManaCost,
+    parts: baylee_engine::choice::BuybackParts,
+) -> bool {
+    let Some(seat) = view.seat(resource_player(view)) else {
+        return false;
+    };
+    if parts.sacrifices > 0 || parts.discards > 0 || parts.random_discards > 0 {
+        return false;
+    }
+    if parts.life > 0 && i64::from(seat.life) <= i64::from(parts.life) + 5 {
+        return false;
+    }
+    let spell = context
+        .cost
+        .unwrap_or(baylee_core::mana::ManaCost::ZERO)
+        .with_x(context.x);
+    manaplan::plan_frozen(&spell.combine(&cost), &seat.mana_pool, &[]).is_some()
+}
+
+/// Answer `YesNoPrompt::Casualty` (`CR 702.153a`): accept when the caster
+/// controls an expendable creature (a token or cheap creature) whose projected
+/// power meets `min_power`.
+pub(crate) fn casualties(view: &PlayerView, min_power: u8) -> bool {
+    let player = resource_player(view);
+    let needed = i16::from(min_power);
+    view.battlefield_of(player).any(|obj| {
+        obj.types.contains(TypeSet::CREATURE)
+            && obj.power.unwrap_or(0) >= needed
+            && (obj.status.contains(baylee_view::ObjectStatus::TOKEN)
+                || obj.token.is_some()
+                || obj.mana_value <= 2)
+    })
+}
+
+/// Answer `YesNoPrompt::Conspire` (`CR 702.78a`): accept when the caster
+/// controls at least two untapped non-mana creatures sharing a color with the
+/// spell being cast.
+pub(crate) fn conspires(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+) -> bool {
+    let Some(spell) = context.source else {
+        return false;
+    };
+    let spell_colors = view
+        .object(spell)
+        .map(|o| o.colors)
+        .or_else(|| {
+            identity(view, spell)
+                .and_then(face)
+                .map(|f| f.mana_cost.colors())
+        })
+        .unwrap_or(baylee_core::color::ColorSet::EMPTY);
+    if spell_colors.is_empty() {
+        return false;
+    }
+    let player = resource_player(view);
+    view.battlefield_of(player)
+        .filter(|obj| {
+            obj.types.contains(TypeSet::CREATURE)
+                && !obj.status.contains(baylee_view::ObjectStatus::TAPPED)
+                && !obj.status.contains(baylee_view::ObjectStatus::PHASED_OUT)
+                && obj.board_mana.is_none()
+                && obj.colors.intersects(spell_colors)
+        })
+        .take(2)
+        .count()
+        >= 2
+}
+
+/// Answer `YesNoPrompt::Tribute` (`CR 702.104a`): pay tribute only when the
+/// entering permanent has a `TributeWasNotPaid` punishment and `counters <= 2`.
+pub(crate) fn pays_tribute(view: &PlayerView, permanent: ObjectId, counters: u16) -> bool {
+    if counters > 2 {
+        return false;
+    }
+    let Some(card) = identity(view, permanent) else {
+        return false;
+    };
+    let Some(def) = baylee_cards::by_index(card.index) else {
+        return false;
+    };
+    def.abilities_for_face(usize::from(card.face))
+        .iter()
+        .any(|ab| {
+            matches!(
+                ab,
+                AbilityDef::Triggered {
+                    condition: Some(baylee_cards_dsl::Condition::TributeWasNotPaid),
+                    ..
+                }
+            )
+        })
+}
+
+impl HeuristicAgent {
+    fn splice_picks(
+        view: &PlayerView,
+        context: &baylee_engine::engine::DecisionContext<'_>,
+        ranked: &mut Vec<ObjectId>,
+        min: u8,
+        max: u8,
+    ) -> usize {
+        let Some(seat) = view.seat(resource_player(view)) else {
+            return usize::from(min);
+        };
+        let base = context
+            .cost
+            .unwrap_or(baylee_core::mana::ManaCost::ZERO)
+            .with_x(context.x);
+        ranked.retain(|&id| {
+            let Some(card) = identity(view, id) else {
+                return false;
+            };
+            let Some(def) = baylee_cards::by_index(card.index) else {
+                return false;
+            };
+            def.abilities_for_face(usize::from(card.face))
+                .iter()
+                .find_map(|ab| match ab {
+                    AbilityDef::Splice { cost, .. } => Some(cost),
+                    _ => None,
+                })
+                .is_some_and(|cost| {
+                    cost.parts.is_empty()
+                        && manaplan::plan_frozen(&base.combine(&cost.mana), &seat.mana_pool, &[])
+                            .is_some()
+                })
+        });
+        usize::from(min).max(ranked.len().min(usize::from(max.min(1))))
+    }
+
+    fn cipher_encode_picks(view: &PlayerView, ranked: &mut [ObjectId], max: u8) -> usize {
+        ranked.sort_by_key(|id| {
+            let score = view.object(*id).map_or(0_i64, |o| {
+                let evasive = i64::from(
+                    o.keywords
+                        & KeywordSet::FLYING
+                            .union(KeywordSet::UNBLOCKABLE)
+                            .union(KeywordSet::MENACE)
+                            .union(KeywordSet::SHADOW)
+                            .union(KeywordSet::HEXPROOF)
+                            .bits()
+                        != 0,
+                ) * 400;
+                evasive + Self::permanent_worth(view, o)
+            });
+            (std::cmp::Reverse(score), *id)
+        });
+        usize::from(max.min(1))
+    }
+
+    fn champion_picks(view: &PlayerView, ranked: &mut [ObjectId], max: u8) -> usize {
+        ranked.sort_by_key(|id| {
+            (
+                view.object(*id)
+                    .map_or(0, |o| Self::permanent_worth(view, o)),
+                *id,
+            )
+        });
+        usize::from(max.min(1))
+    }
+}
+
+/// Answer `YesNoPrompt::Gift` (`CR 702.174a`): accept when promising the gift
+/// decks an empty-library opponent or when the spell/board gift payoff outweighs
+/// the gift handed to an opponent.
+pub(crate) fn promises_gift(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    kind: baylee_cards_dsl::GiftKind,
+) -> bool {
+    use baylee_cards_dsl::{GiftKind, PlayerRel, Trigger};
+    let player = resource_player(view);
+    let opponents: Vec<_> = view
+        .seats
+        .iter()
+        .filter(|s| !s.has_lost() && s.player != player)
+        .collect();
+    if opponents.is_empty() {
+        return false;
+    }
+    if kind == GiftKind::Card && opponents.iter().any(|s| s.library_count == 0) {
+        return true;
+    }
+    let gift_cost: i64 = match kind {
+        GiftKind::Food => 100,
+        GiftKind::TappedFish => 110,
+        GiftKind::Treasure => 150,
+        GiftKind::Card => 220,
+        GiftKind::Octopus => 750,
+        GiftKind::ExtraTurn => return false,
+    };
+    let triggered_payoffs = view
+        .battlefield_of(player)
+        .filter(|obj| {
+            crate::activate::printed_list(obj).iter().any(|ab| {
+                matches!(
+                    ab,
+                    AbilityDef::Triggered {
+                        trigger: Trigger::GaveGift(
+                            PlayerRel::You | PlayerRel::ActivePlayer | PlayerRel::EachPlayer
+                        ),
+                        ..
+                    }
+                )
+            })
+        })
+        .count();
+    let mut upside = i64::try_from(triggered_payoffs).unwrap_or(0) * 220;
+    upside += gift_effects_upside(context.effects);
+    if let Some(card) = context.source.and_then(|id| identity(view, id)) {
+        upside += gift_card_upside(card, context.effects.is_empty());
+    }
+    upside >= gift_cost
+}
+
+fn gift_effects_upside(fx: &[Effect]) -> i64 {
+    let mut total = 0_i64;
+    for e in fx {
+        match e {
+            Effect::IfCondition {
+                condition: baylee_cards_dsl::Condition::GiftWasPromised,
+                then,
+                otherwise,
+            } => {
+                if !then.is_empty() || !otherwise.is_empty() {
+                    total += 220;
+                }
+            }
+            Effect::IfCondition {
+                then, otherwise, ..
+            } => {
+                total += gift_effects_upside(then) + gift_effects_upside(otherwise);
+            }
+            Effect::MayDo { effects } => {
+                total += gift_effects_upside(effects);
+            }
+            _ => {}
+        }
+    }
+    total
+}
+
+fn gift_card_upside(card: CardIdentity, include_spell_fx: bool) -> i64 {
+    use baylee_cards_dsl::{Condition, EnterModifier};
+    let Some(def) = baylee_cards::by_index(card.index) else {
+        return 0;
+    };
+    let mut upside = 0_i64;
+    if let Some(f) = def.faces.get(usize::from(card.face)) {
+        for m in f.enter_modifiers {
+            if matches!(
+                m,
+                EnterModifier::WithCountersIf {
+                    condition: Condition::GiftWasPromised,
+                    ..
+                }
+            ) {
+                upside += 220;
+            }
+        }
+    }
+    for ab in def.abilities_for_face(usize::from(card.face)) {
+        match ab {
+            AbilityDef::Spell { effects, .. } if include_spell_fx => {
+                upside += gift_effects_upside(effects);
+            }
+            AbilityDef::ModalSpell { modes, .. } => {
+                for mode in *modes {
+                    upside += gift_effects_upside(mode.effects);
+                }
+            }
+            AbilityDef::Triggered {
+                condition: Some(Condition::GiftWasPromised),
+                ..
+            } => upside += 220,
+            AbilityDef::Triggered { effects, .. } => upside += gift_effects_upside(effects),
+            _ => {}
+        }
+    }
+    upside
 }
 
 /// Whether casting `face` at the X `cost` pays for puts a creature onto
@@ -3753,15 +4429,115 @@ fn spell_effects(card: CardIdentity) -> &'static [Effect] {
 /// read as `{7}{U}{U}` less eight; the engine takes six, and a yes over
 /// `{U}{U}` floating lost the whole cast. A cost with a non-mana part is never
 /// paid: nothing reads one yet.
+fn kicker_parts_worth(view: &PlayerView, parts: &[CostPart], card: Option<CardIdentity>) -> bool {
+    if parts.is_empty() {
+        return true;
+    }
+    let Some(card) = card else {
+        return false;
+    };
+    let player = resource_player(view);
+    let Some(seat) = view.seat(player) else {
+        return false;
+    };
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let lands = view
+        .battlefield_of(player)
+        .filter(|o| o.types.contains(TypeSet::LAND))
+        .count();
+    let others: Vec<_> = hand(view)
+        .iter()
+        .filter(|held| held.card.index != card.index)
+        .collect();
+    let spare = others
+        .iter()
+        .filter(|held| face(held.card).is_some_and(|f| f.types.contains(TypeSet::LAND)))
+        .count()
+        .saturating_sub(1);
+    let discards = parts
+        .iter()
+        .filter(|part| matches!(part, CostPart::Discard(_)))
+        .count();
+    let returns = parts
+        .iter()
+        .filter(|part| matches!(part, CostPart::ReturnToHand(_)))
+        .count();
+    let sacrifices = parts
+        .iter()
+        .filter(|part| matches!(part, CostPart::Sacrifice(_)))
+        .count();
+    let life: i32 = parts
+        .iter()
+        .map(|part| match part {
+            CostPart::PayLife(n) => i32::from(*n),
+            _ => 0,
+        })
+        .sum();
+    seat.life - life >= BUYBACK_LIFE_FLOOR.min(seat.life)
+        && parts.iter().all(|part| match part {
+            CostPart::PayLife(_) => true,
+            CostPart::Sacrifice(filter) => {
+                let matching = view
+                    .battlefield_of(player)
+                    .filter(|o| {
+                        agent.filter_matches(
+                            filter,
+                            view,
+                            o,
+                            baylee_cards_dsl::ZoneRef::Battlefield,
+                            None,
+                        ) == Some(true)
+                    })
+                    .count();
+                matching >= sacrifices
+                    && lands > BUYBACK_LANDS_KEPT.min(lands.saturating_add(1))
+                    && (lands > BUYBACK_LANDS_KEPT
+                        || view.battlefield_of(player).any(|o| {
+                            !o.types.contains(TypeSet::LAND)
+                                && o.token.is_some()
+                                && agent.filter_matches(
+                                    filter,
+                                    view,
+                                    o,
+                                    baylee_cards_dsl::ZoneRef::Battlefield,
+                                    None,
+                                ) == Some(true)
+                        }))
+            }
+            CostPart::ReturnToHand(filter) => {
+                view.battlefield_of(player)
+                    .filter(|o| {
+                        agent.filter_matches(
+                            filter,
+                            view,
+                            o,
+                            baylee_cards_dsl::ZoneRef::Battlefield,
+                            None,
+                        ) == Some(true)
+                    })
+                    .count()
+                    >= returns
+            }
+            CostPart::Discard(_) => spare >= discards,
+            CostPart::DiscardRandom => !others.is_empty() && 2 * spare >= others.len(),
+            _ => false,
+        })
+}
+
 fn kicked_price(
     view: &PlayerView,
+    card: Option<CardIdentity>,
     face: &FaceDef,
     effects: &[Effect],
     cost: baylee_core::mana::ManaCost,
     sources: &[Source],
 ) -> Option<baylee_core::mana::ManaCost> {
     let extra = face.additional_costs;
-    if extra.is_empty() || extra.iter().any(|c| !c.parts.is_empty()) {
+    if extra.is_empty()
+        || !extra
+            .iter()
+            .all(|c| kicker_parts_worth(view, c.parts, card))
+    {
         return None;
     }
     let library = view.seat(resource_player(view))?.library_count;
@@ -3778,7 +4554,11 @@ fn kicked_price(
     let extra_mana = extra
         .iter()
         .fold(baylee_core::mana::ManaCost::ZERO, |total, c| {
-            total.combine(&c.mana)
+            total.combine(&if c.mana.has_variable() {
+                c.mana.with_x(1)
+            } else {
+                c.mana
+            })
         });
     let total = cost.combine(&extra_mana);
     let help = if face.waterbend {
@@ -3803,16 +4583,17 @@ fn kicked_price(
 }
 
 /// Marginal price for a single kicker option on a multi-kicker spell, or `None`
-/// if it carries non-mana parts or would draw out the library.
+/// if its non-mana parts are not worth paying or it would draw out the library.
 fn kicker_option_price(
     view: &PlayerView,
+    card: Option<CardIdentity>,
     _face: &FaceDef,
     effects: &[Effect],
     cost: baylee_core::mana::ManaCost,
     index: u8,
     extra: baylee_cards_dsl::Cost,
 ) -> Option<baylee_core::mana::ManaCost> {
-    if !extra.parts.is_empty() {
+    if !kicker_parts_worth(view, extra.parts, card) {
         return None;
     }
     let library = view.seat(resource_player(view))?.library_count;
@@ -3831,7 +4612,12 @@ fn kicker_option_price(
     if draws >= library {
         return None;
     }
-    Some(cost.combine(&extra.mana))
+    let extra_mana = if extra.mana.has_variable() {
+        extra.mana.with_x(1)
+    } else {
+        extra.mana
+    };
+    Some(cost.combine(&extra_mana))
 }
 
 /// The answer to `YesNoPrompt::Kicker`: yes when the floating pool covers the
@@ -3847,9 +4633,9 @@ pub(crate) fn kicks(
     ) else {
         return false;
     };
-    identity(view, id)
-        .and_then(face)
-        .and_then(|f| kicked_price(view, f, context.effects, cost.with_x(context.x), &[]))
+    let card = identity(view, id);
+    card.and_then(face)
+        .and_then(|f| kicked_price(view, card, f, context.effects, cost.with_x(context.x), &[]))
         .is_some_and(|net| manaplan::plan_frozen(&net, &seat.mana_pool, &[]).is_some())
 }
 
@@ -3863,17 +4649,11 @@ pub(crate) fn kicks_option(
     mana: baylee_core::mana::ManaCost,
     parts: baylee_engine::choice::BuybackParts,
 ) -> bool {
-    if parts != baylee_engine::choice::BuybackParts::default() {
-        return false;
-    }
     let (Some(cost), Some(seat)) = (context.cost, view.seat(resource_player(view))) else {
         return false;
     };
-    let net = if let Some(face_def) = context
-        .source
-        .and_then(|id| identity(view, id))
-        .and_then(face)
-    {
+    let card = context.source.and_then(|id| identity(view, id));
+    let net = if let Some(face_def) = card.and_then(face) {
         let Some(extra) = face_def.additional_costs.get(usize::from(index)).copied() else {
             return false;
         };
@@ -3881,6 +4661,7 @@ pub(crate) fn kicks_option(
         marginal.mana = mana;
         let Some(net) = kicker_option_price(
             view,
+            card,
             face_def,
             context.effects,
             cost.with_x(context.x),
@@ -3891,7 +4672,15 @@ pub(crate) fn kicks_option(
         };
         net
     } else {
-        cost.with_x(context.x).combine(&mana)
+        if parts != baylee_engine::choice::BuybackParts::default() {
+            return false;
+        }
+        let add_mana = if mana.has_variable() {
+            mana.with_x(1)
+        } else {
+            mana
+        };
+        cost.with_x(context.x).combine(&add_mana)
     };
     manaplan::plan_frozen(&net, &seat.mana_pool, &[]).is_some()
 }
@@ -4283,6 +5072,195 @@ pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCo
         &sources(view, &own_offer(view, ManaEstimate::NextUntap)),
     )
     .is_some()
+}
+
+fn ring_bearer_score(view: &PlayerView, id: ObjectId) -> i64 {
+    let Some(o) = view.object(id) else {
+        return 0;
+    };
+    let cant_attack =
+        o.keywords & (KeywordSet::DEFENDER.bits() | KeywordSet::CANT_ATTACK.bits()) != 0;
+    if cant_attack {
+        return -1_000;
+    }
+    let p = i64::from(o.power.unwrap_or(0));
+    let power_tier = match p {
+        1 | 2 => 400 + p * 40,
+        3 => 320,
+        4.. => 220 + p.min(10) * 10,
+        _ => 100,
+    };
+    let ready = if !o.status.contains(baylee_view::ObjectStatus::TAPPED)
+        && (!o.summoning_sick || o.keywords & KeywordSet::HASTE.bits() != 0)
+    {
+        80
+    } else {
+        0
+    };
+    let non_legendary = if o
+        .supertypes
+        .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+    {
+        0
+    } else {
+        30
+    };
+    power_tier + ready + non_legendary
+}
+
+/// Caps `max` on `Pending::ChooseTargets` when casting a spell with `Strive`
+/// (`AbilityDef::PerExtraTargetCost`, `CR 207.2c`) or `FaceDef::extra_target_cost`
+/// so the seat never selects more targets than its mana pool + untapped mana
+/// sources can pay for (`CR 601.2f`, `CR 734.2`).
+pub(crate) fn strive_target_cap(
+    view: &PlayerView,
+    min: u32,
+    max: u32,
+    context: &DecisionContext<'_>,
+) -> u32 {
+    if max <= 1 || context.second_instance || context.copying.is_some() {
+        return max;
+    }
+    let (Some(spell), Some(printed)) = (context.source, context.printed) else {
+        return max;
+    };
+    let Some(def) = baylee_cards::by_index(printed.card()) else {
+        return max;
+    };
+    let face_idx = usize::from(printed.face());
+    let each = def.per_extra_target_cost(face_idx).or_else(|| {
+        def.faces
+            .get(face_idx)
+            .filter(|f| f.extra_target_cost > 0)
+            .map(|f| ManaCost::from_symbol_generic(f.extra_target_cost))
+    });
+    let Some(each) = each else {
+        return max;
+    };
+    let base = context
+        .cost
+        .unwrap_or_else(|| {
+            def.faces
+                .get(face_idx)
+                .map_or(ManaCost::ZERO, |f| f.mana_cost)
+        })
+        .with_x(context.x);
+    strive_affordable_targets(view, spell, (min, max), &base, &each)
+}
+
+pub(crate) fn strive_affordable_targets(
+    view: &PlayerView,
+    spell: ObjectId,
+    (min, max): (u32, u32),
+    base: &ManaCost,
+    each: &ManaCost,
+) -> u32 {
+    let Some(seat) = view.seat(resource_player(view)) else {
+        return max;
+    };
+    let (sources, _) = crate::mana_sources_in_view_for(view, spell);
+    let mut lo = min.max(1).min(max);
+    let mut hi = max.min(50);
+    while lo < hi {
+        let mid = lo + (hi - lo).div_ceil(2);
+        let needed = base.combine_n(each, mid.saturating_sub(1));
+        if manaplan::plan_frozen(&needed, &seat.mana_pool, &sources).is_some() {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    lo.max(min)
+}
+
+fn either_cost_pair(
+    context: &DecisionContext<'_>,
+    index: u8,
+) -> Option<(
+    &'static baylee_cards_dsl::Cost,
+    &'static baylee_cards_dsl::Cost,
+)> {
+    let printed = context.printed?;
+    let def = baylee_cards::by_index(printed.card())?;
+    let face_idx = usize::from(printed.face());
+    let either_of = |part: &'static CostPart| match part {
+        CostPart::Either(a, b) => Some((*a, *b)),
+        _ => None,
+    };
+    if let Some(ab_idx) = context.ability_index {
+        let ab = def
+            .abilities_for_face(face_idx)
+            .get(usize::try_from(ab_idx).ok()?)?;
+        let (AbilityDef::Activated { cost, .. }
+        | AbilityDef::ActivatedConditional { cost, .. }
+        | AbilityDef::ModalActivated { cost, .. }) = ab
+        else {
+            return None;
+        };
+        return cost
+            .parts
+            .iter()
+            .filter_map(either_of)
+            .nth(usize::from(index));
+    }
+    let f = def.faces.get(face_idx)?;
+    f.mandatory_additional_costs
+        .iter()
+        .filter_map(either_of)
+        .nth(usize::from(index))
+}
+
+impl HeuristicAgent {
+    /// Whether the first branch (`YesNo(true)`) of `CostPart::Either(a, b)` is
+    /// cheaper to pay than the second branch (`YesNo(false)`).
+    pub(crate) fn prefers_first_cost_branch(
+        &self,
+        view: &PlayerView,
+        context: &DecisionContext<'_>,
+        index: u8,
+    ) -> bool {
+        let Some((a, b)) = either_cost_pair(context, index) else {
+            return true;
+        };
+        self.prefers_cost_branch_pair(view, context, a, b)
+    }
+
+    pub(crate) fn prefers_cost_branch_pair(
+        &self,
+        view: &PlayerView,
+        context: &DecisionContext<'_>,
+        a: &baylee_cards_dsl::Cost,
+        b: &baylee_cards_dsl::Cost,
+    ) -> bool {
+        let id = context.source.unwrap_or_else(|| ObjectId::new(0, 0));
+        let origin = crate::worth::Origin {
+            id,
+            object: view.object(id),
+        };
+        let branch_mana_ok = |extra: &ManaCost| {
+            if *extra == ManaCost::ZERO {
+                return true;
+            }
+            let Some(seat) = view.seat(resource_player(view)) else {
+                return false;
+            };
+            let base = context.cost.unwrap_or(ManaCost::ZERO).with_x(context.x);
+            let (sources, _) = crate::mana_sources_in_view_for(view, id);
+            manaplan::plan_frozen(&base.combine(extra), &seat.mana_pool, &sources).is_some()
+        };
+        let wa = branch_mana_ok(&a.mana)
+            .then(|| self.cost_worth(view, origin, a))
+            .flatten();
+        let wb = branch_mana_ok(&b.mana)
+            .then(|| self.cost_worth(view, origin, b))
+            .flatten();
+        match (wa, wb) {
+            (Some(ca), Some(cb)) => ca <= cb,
+            (Some(_), None) => true,
+            (None, Some(_)) => false,
+            (None, None) => a.mana.cmc() <= b.mana.cmc(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

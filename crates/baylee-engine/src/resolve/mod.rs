@@ -26,8 +26,12 @@ mod battle_defeat;
 mod behold;
 mod bird_entry;
 mod names;
+pub(crate) mod wave4_combat;
 pub use names::resume_name;
+pub(crate) use wave4_combat::finish_sneak_enter_attacking;
 mod chosen;
+pub(crate) mod clash;
+mod class;
 mod colors;
 mod conditional_grants;
 mod continuous_subjects;
@@ -37,6 +41,7 @@ mod control_observers;
 mod copying;
 mod damage_returns;
 pub(crate) mod for_each;
+mod wave10b;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod coin;
@@ -49,6 +54,7 @@ mod counters;
 mod creature_type;
 #[cfg(test)]
 mod creature_type_tests;
+mod delayed_general;
 mod delayed_returns;
 mod destruction_receipts;
 mod draw_debts;
@@ -86,7 +92,7 @@ mod this_way;
 mod token_choices;
 mod top_card;
 mod would_destroy;
-pub use subjects::SubjectContext;
+pub use subjects::{ModalTargetStep, SubjectContext};
 mod amass;
 mod card_copies;
 mod empower;
@@ -95,6 +101,7 @@ mod sacrifices;
 pub mod tokens;
 #[cfg(not(feature = "test-support"))]
 pub(crate) mod tokens;
+pub(crate) mod wave3_ops;
 mod zones;
 
 mod answers;
@@ -105,6 +112,7 @@ mod river;
 pub use discard::{DiscardReveal, DiscardThen};
 use discard::{discard_or_ask, resume_discard_destination};
 mod counter_move;
+mod dice;
 mod dig;
 mod directed_search;
 #[cfg(test)]
@@ -705,6 +713,44 @@ impl Resolution {
             reference: self.targets.first().copied().or(self.event_object),
         }
     }
+
+    /// Chosen color for this resolution: resolution-time choice first, else the
+    /// exact originating source incarnation's `chosen_color` (including LKI in
+    /// `state.damage_sources` after source removal or blink, CR 113.7a).
+    pub(crate) fn source_chosen_color(&self, state: &GameState) -> Option<ManaColor> {
+        self.subject.chosen_color.or_else(|| {
+            if let Some(version) = source_version(state, self) {
+                let reference = baylee_core::ids::DamageSourceRef {
+                    object: self.source,
+                    version,
+                };
+                if let Some(obj) = state.source_object(reference) {
+                    return obj.chosen_color;
+                }
+            }
+            state.object(self.source).and_then(|obj| obj.chosen_color)
+        })
+    }
+
+    /// Chosen creature subtype for this resolution: resolution-time choice
+    /// first, else the exact originating source incarnation's `chosen_subtype`.
+    pub(crate) fn source_chosen_subtype(
+        &self,
+        state: &GameState,
+    ) -> Option<baylee_core::ids::SubtypeId> {
+        self.subject.chosen_subtype.or_else(|| {
+            if let Some(version) = source_version(state, self) {
+                let reference = baylee_core::ids::DamageSourceRef {
+                    object: self.source,
+                    version,
+                };
+                if let Some(obj) = state.source_object(reference) {
+                    return obj.chosen_subtype;
+                }
+            }
+            state.object(self.source).and_then(|obj| obj.chosen_subtype)
+        })
+    }
 }
 
 /// Amount evaluation with target context ([`Amount::TargetPower`]).
@@ -762,17 +808,39 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                 .unwrap_or(0);
             u32::try_from(power).unwrap_or(0)
         }
-        Amount::EventLastToughness => state
-            .object(res.on_stack)
-            .and_then(|o| {
+        Amount::EventLastToughness => {
+            if let Some(toughness) = state.object(res.on_stack).and_then(|o| {
                 o.riders.iter().find_map(|r| match r {
-                    crate::object::Rider::EventDeparture(_, toughness) => {
-                        Some((*toughness).max(0) as u32)
-                    }
+                    crate::object::Rider::EventDeparture(_, toughness) => Some(*toughness),
                     _ => None,
                 })
-            })
-            .unwrap_or(0),
+            }) {
+                return u32::try_from(toughness.max(0)).unwrap_or(0);
+            }
+            let Some(source) = res.event_object else {
+                return 0;
+            };
+            let identity = event_object_identity(state, res);
+            let toughness = state
+                .object(source)
+                .filter(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && identity.is_none_or(|(v, _)| o.version == v)
+                })
+                .and_then(|o| o.characteristics().toughness)
+                .or_else(|| {
+                    state
+                        .last_known_characteristics(source)
+                        .and_then(|c| c.toughness)
+                })
+                .or_else(|| {
+                    state
+                        .damage_source(source, identity.map(|(v, _)| v))
+                        .and_then(|o| o.characteristics().toughness)
+                })
+                .unwrap_or(0);
+            u32::try_from(toughness.max(0)).unwrap_or(0)
+        }
         Amount::TargetPower => target_chars(res, state)
             .and_then(|c| c.power)
             .map_or(0, |p| p.max(0) as u32),
@@ -790,10 +858,17 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                     _ => None,
                 })
             })
+            .or_else(|| {
+                res.event_object
+                    .and_then(|id| state.object_or_departed(id))
+                    .map(|o| o.characteristics().mana_value())
+            })
             .unwrap_or(0),
         Amount::EventAmount => state
             .object(res.on_stack)
             .map_or(0, GameObject::event_amount),
+        Amount::LastDieRoll => res.subject.last_die_roll.unwrap_or(0),
+        Amount::CoinsWonThisResolution => res.subject.coins_won,
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
         Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
@@ -806,6 +881,20 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::SnowManaSpentToCast => state
+            .object(res.on_stack)
+            .map(eval::object_snow_mana_spent)
+            .filter(|&n| n > 0)
+            .unwrap_or_else(|| eval::snow_mana_spent_on(state, res.source)),
+        Amount::EntrySacrifices => state
+            .object(res.on_stack)
+            .and_then(|o| {
+                o.riders.iter().find_map(|r| match r {
+                    crate::object::Rider::EntrySacrifices(n) => Some(*n),
+                    _ => None,
+                })
+            })
+            .unwrap_or_else(|| eval::entry_sacrifices_on(state, res.source)),
         Amount::ManaTypeSpentOnX(color) => state
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
@@ -903,6 +992,11 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::Players(who) => {
             u32::try_from(players_of(*who, state, you, res).len()).unwrap_or(u32::MAX)
         }
+        Amount::ManaExpendedOnSpellsThisTurn(who) => players_of(*who, state, you, res)
+            .into_iter()
+            .fold(0u32, |acc, p| {
+                acc.saturating_add(state.per_turn.mana_expended_by(p))
+            }),
         Amount::CountOf {
             filter,
             zone: baylee_cards_dsl::ZoneSel::LinkedExile,
@@ -987,6 +1081,9 @@ pub(super) fn amount_for_player(
             .unwrap_or(0),
         Amount::LibrarySize(PlayerRel::Recipient) => {
             u32::try_from(state.zones.list(ZoneLocation::Library(player)).len()).unwrap_or(u32::MAX)
+        }
+        Amount::ManaExpendedOnSpellsThisTurn(PlayerRel::Recipient) => {
+            state.per_turn.mana_expended_by(player)
         }
         Amount::Plus { base, offset } => each(base).saturating_add(*offset),
         Amount::SaturatingSub { base, subtract } => each(base).saturating_sub(*subtract),
@@ -1245,9 +1342,67 @@ pub(super) fn players_of(
         PlayerRel::ControllerOfAttached => eval::controller_of_attached(state, res.source)
             .into_iter()
             .collect(),
+        PlayerRel::EnchantedPlayer => enchanted_player_of_resolution(state, res)
+            .into_iter()
+            .collect(),
+        PlayerRel::GiftRecipient => gift_recipient_of_resolution(state, res)
+            .filter(|seat| !state.has_left(*seat))
+            .into_iter()
+            .collect(),
         other => eval::players(other, state, you)
             .expect("the context relations are matched above this arm"),
     }
+}
+
+/// The opponent a resolving Gift spell or permanent ability promised a gift to
+/// (`CR 702.174a–b`), read from the resolving spell or the ability's source
+/// incarnation (`CR 608.2h`).
+pub(crate) fn gift_recipient_of_resolution(
+    state: &GameState,
+    res: &Resolution,
+) -> Option<PlayerId> {
+    let from = |object: &crate::object::GameObject| {
+        object.riders.iter().find_map(|r| match r {
+            crate::object::Rider::GiftPromisedTo(p) => Some(*p),
+            _ => None,
+        })
+    };
+    state
+        .object(res.on_stack)
+        .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+        .and_then(from)
+        .or_else(|| {
+            state
+                .damage_source(res.source, source_version(state, res))
+                .and_then(from)
+        })
+        .or_else(|| state.object(res.on_stack).and_then(from))
+}
+
+/// "Enchanted player" (CR 303.4b, CR 303.4m): the player `res.source` enchants
+/// now, or the last known player it enchanted if the Aura left the battlefield
+/// while its ability waited on the stack (CR 608.2h).
+fn enchanted_player_of_resolution(state: &GameState, res: &Resolution) -> Option<PlayerId> {
+    eval::enchanted_player(state, res.source)
+        .or_else(|| {
+            state.object(res.on_stack).and_then(|o| {
+                o.riders.iter().find_map(|r| match r {
+                    crate::object::Rider::SourceAttachmentPlayerLki(seat) => Some(*seat),
+                    _ => None,
+                })
+            })
+        })
+        .or_else(|| {
+            source_version(state, res)
+                .and_then(|version| {
+                    state.source_object(baylee_core::ids::DamageSourceRef {
+                        object: res.source,
+                        version,
+                    })
+                })
+                .and_then(super::object::GameObject::attached_player)
+        })
+        .filter(|seat| !state.has_left(*seat))
 }
 
 /// Flattens nested `Sequence`s into one flat op list.
@@ -1285,6 +1440,44 @@ pub enum Flow {
 /// Runs a resolution until it completes or suspends on a choice.
 #[must_use]
 pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
+    let prev_color = state.resolution_chosen_color;
+    state.resolution_chosen_color = res.subject.chosen_color.map(|c| (res.source, c));
+    let flow = run_inner(state, res);
+    state.resolution_chosen_color = prev_color;
+    flow
+}
+
+fn init_resolution_lki(state: &GameState, res: &mut Resolution) {
+    if !res.mana_ability {
+        let index = state
+            .object(res.on_stack)
+            .and_then(|object| object.ability)
+            .map_or(0, |loc| loc.index);
+        res.text = state.ability_text(res.on_stack, index);
+    }
+    res.target_lki = Some(
+        res.targets
+            .iter()
+            .chain(res.second_targets.iter())
+            .chain(
+                res.subject
+                    .modal_steps()
+                    .iter()
+                    .flat_map(|step| step.targets.iter().chain(step.second_targets.iter())),
+            )
+            .filter_map(|&id| {
+                state.object(id).map(|o| TargetLki {
+                    id,
+                    version: o.version,
+                    controller: o.controller,
+                    chars: o.characteristics().clone(),
+                })
+            })
+            .collect(),
+    );
+}
+
+fn run_inner(state: &mut GameState, res: &mut Resolution) -> Flow {
     subjects::flush(state, res);
     linked_reanimation::flush(state, res);
     // A payment may have moved several cards just before this resolution
@@ -1297,27 +1490,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     // suspended choice, so this has to be the *first* entry and not any
     // entry, which is what the `Option` says.
     if res.target_lki.is_none() {
-        if !res.mana_ability {
-            let index = state
-                .object(res.on_stack)
-                .and_then(|object| object.ability)
-                .map_or(0, |loc| loc.index);
-            res.text = state.ability_text(res.on_stack, index);
-        }
-        res.target_lki = Some(
-            res.targets
-                .iter()
-                .chain(res.second_targets.iter())
-                .filter_map(|&id| {
-                    state.object(id).map(|o| TargetLki {
-                        id,
-                        version: o.version,
-                        controller: o.controller,
-                        chars: o.characteristics().clone(),
-                    })
-                })
-                .collect(),
-        );
+        init_resolution_lki(state, res);
     }
     loop {
         if let Some(pending) = crate::replacement::counter_order::pending(state) {
@@ -1364,6 +1537,15 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
             res.targets = std::mem::take(&mut res.second_targets)
                 .into_iter()
                 .collect();
+        }
+        while let Some(step) = res.subject.take_modal_step(res.effects.len() - res.pc) {
+            res.targets = step.targets;
+            res.target_players = step.target_players;
+            res.chosen_player = (res.target_players.len() == 1)
+                .then(|| res.target_players.iter().next())
+                .flatten();
+            res.second_targets = step.second_targets;
+            res.subject.set_second_players(step.second_players);
         }
         let op = res.effects[res.pc];
         // Continuous effects apply at all times (CR 613), so an effect of
@@ -1623,6 +1805,8 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::MayDoFor { .. }
         | Effect::MayDoOnceEachTurn { .. }
         | Effect::OwnerPutsOnTopOrBottom { .. }
+        | Effect::SoulbondPair { .. }
+        | Effect::Clash { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     };
@@ -1650,6 +1834,17 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         }
     }
     pending
+}
+
+pub(super) fn soulbond_try_pair(
+    state: &mut GameState,
+    controller: PlayerId,
+    source: ObjectId,
+    source_version: Option<u32>,
+    partner: ObjectId,
+    partner_version: Option<u32>,
+) {
+    let _ = state.pair_creatures(controller, source, source_version, partner, partner_version);
 }
 
 /// The card ability a resolution belongs to.
@@ -1700,7 +1895,10 @@ fn may_clause_possible(state: &GameState, res: &Resolution, effects: &[Effect]) 
         // exiled with it while the list was matched whole.
         [Effect::SacrificeSelf, ..] => zones::can_sacrifice_self(state, res),
         [Effect::SacrificeGrantor, ..] => zones::can_sacrifice_grantor(state, res),
-        [Effect::RemoveAllCountersSelf { .. }, ..] => subjects::source(state, res)
+        [
+            Effect::RemoveAllCountersSelf { .. } | Effect::ExertSource,
+            ..,
+        ] => subjects::source(state, res)
             .is_some_and(|source| subjects::on_battlefield(state, source)),
         [Effect::RemoveCounterSelf { kind, n }, ..] => state.object(res.source).is_some_and(|o| {
             o.zone == crate::zone::Zone::Battlefield
@@ -1814,10 +2012,29 @@ fn run_nested(
     run_nested_with(state, res, flatten(branch), targets)
 }
 
+/// Runs a dynamically constructed nested instruction sequence inline.
+pub(super) fn run_nested_ops(
+    state: &mut GameState,
+    res: &mut Resolution,
+    ops: Vec<Effect>,
+) -> Option<Pending> {
+    let targets = res.targets.clone();
+    run_nested_with(state, res, ops, targets)
+}
+
 /// Sacrifices `victims` as one event: every departure is read before any of
 /// them leaves, so a creature and the Aura on it go together and each
 /// leave trigger sees the board as it was (Lich's rulings).
-pub(super) fn sacrifice_together(state: &mut GameState, victims: &[ObjectId]) {
+pub(super) fn sacrifice_together(
+    state: &mut GameState,
+    victims: &[ObjectId],
+    cause_controller: Option<PlayerId>,
+) {
+    let victims: Vec<ObjectId> = victims
+        .iter()
+        .copied()
+        .filter(|&id| state.can_be_sacrificed(id, cause_controller))
+        .collect();
     let departures: Vec<_> = victims
         .iter()
         .map(|&id| state.departure_snapshot(id))
@@ -1852,7 +2069,7 @@ fn sacrifice_amount_or_lose(
     if n == 0 {
         return None;
     }
-    let options = chosen::options(state, you, filter, you, res.source);
+    let options = chosen::sacrifice_options(state, you, filter, you, res.source);
     if options.len() > n {
         let n = u8::try_from(n).unwrap_or(u8::MAX);
         res.awaiting = Some(AwaitingOp::SacrificeAllChosen);
@@ -1865,7 +2082,7 @@ fn sacrifice_amount_or_lose(
             total: None,
         });
     }
-    sacrifice_together(state, &options);
+    sacrifice_together(state, &options, Some(you));
     if options.len() < n {
         let _ = sba::lose_by_effect(state, you);
     }
@@ -1895,10 +2112,7 @@ fn sacrifice_amount_or_lose(
 /// put a "became untapped" in the log for a permanent that did not.
 fn untap(state: &mut GameState, id: ObjectId) {
     if state.set_tapped(id, false) {
-        state.journal.record(GameEvent::ObjectUntapped {
-            object: id,
-            cause: Cause::Effect,
-        });
+        state.record_tap_event(id, false, Cause::Effect);
     }
 }
 
@@ -1907,10 +2121,7 @@ fn tap(state: &mut GameState, id: ObjectId) -> bool {
     if !state.set_tapped(id, true) {
         return false;
     }
-    state.journal.record(GameEvent::ObjectTapped {
-        object: id,
-        cause: Cause::Effect,
-    });
+    state.record_tap_event(id, true, Cause::Effect);
     true
 }
 

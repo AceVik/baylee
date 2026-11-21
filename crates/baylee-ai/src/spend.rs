@@ -46,6 +46,9 @@ pub struct Mana<'a> {
 pub fn pool_for(pool: &ManaPoolView, legal: &LegalActions, spend: Spend) -> ManaPoolView {
     let floating = legal.restricted_floating_for(spend);
     let mut out = *pool;
+    if let Some(spending) = legal.spell_spending_for(spend) {
+        out.spending = spending;
+    }
     for color in ManaColor::ALL {
         let slot = match color {
             ManaColor::White => &mut out.white,
@@ -163,11 +166,15 @@ pub fn plan_for(
         floating: legal.restricted_floating_for(spend),
         taps: &taps,
     };
+    let mut pool = *mana.pool;
+    if let Some(spending) = legal.spell_spending_for(spend) {
+        pool.spending = spending;
+    }
     let plan = |sources: &[Source], with_life: bool| match life {
         Some(life) if with_life => {
-            manaplan::plan_with_life_earmarked(cost, mana.pool, earmarked, sources, life)
+            manaplan::plan_with_life_earmarked(cost, &pool, earmarked, sources, life)
         }
-        _ => manaplan::plan_earmarked(cost, mana.pool, earmarked, sources),
+        _ => manaplan::plan_earmarked(cost, &pool, earmarked, sources),
     };
     let all = (!named.is_empty()).then(|| sources_for(legal, spend, mana, except));
     if let Some(all_sources) = all.as_deref()
@@ -199,6 +206,9 @@ pub fn plan_for(
 #[must_use]
 pub fn inputs_for(legal: &LegalActions, spend: Spend, mana: Mana<'_>) -> WindowMana {
     let mut pool = *mana.pool;
+    if let Some(spending) = legal.spell_spending_for(spend) {
+        pool.spending = spending;
+    }
     pool.restricted = [0; 6];
     WindowMana {
         pool,

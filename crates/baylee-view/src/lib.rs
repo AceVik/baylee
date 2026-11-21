@@ -292,7 +292,39 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 94 adds `YesNoPrompt::KickerOption` for multi-kicker spells
 /// (CR 702.33b, CR 702.33f), an engine prompt variant a reader of 93 cannot
 /// decode.
-pub const VIEW_VERSION: u32 = 94;
+/// Version 95 adds `ChoicePrompt::Amplify` for Amplify hand reveals
+/// (CR 702.38a, CR 702.38b), an engine prompt variant a reader of 94 cannot
+/// decode.
+/// Version 96 adds `CastModeKind::Bestow` (CR 702.103) and
+/// `CastModeKind::JumpStart` (CR 702.133a), engine cast-mode variants a reader
+/// of 95 cannot decode.
+/// Version 97 adds `CastModeKind::Blitz` (CR 702.152a), an engine cast-mode
+/// variant a reader of 96 cannot decode.
+/// Version 98 adds `CastModeKind::Emerge` (CR 702.119), `YesNoPrompt::Bargain`
+/// (CR 702.166), and `LegalActions::spell_spending` (CR 609.4b).
+/// Version 99 adds `CastModeKind::Fused` (CR 702.102), `NumberPrompt::Squad`
+/// (CR 702.157), `YesNoPrompt::Offspring` (CR 702.175), and
+/// `ChoicePrompt::ManifestDread` (CR 701.62).
+/// Version 100 adds `CastModeKind::Plot` and [`PublicObject::plotted`]
+/// (CR 702.170) alongside `YesNoPrompt::Casualty` (CR 702.153).
+/// Version 101 adds `CastModeKind::Impending` (CR 702.176) and
+/// `YesNoPrompt::Gift` (CR 702.174), engine variants a reader of 100 cannot
+/// decode.
+/// Version 102 adds `CastModeKind::Warp` and [`PublicObject::warped`]
+/// (CR 702.185), `ChoicePrompt::Devour` (CR 702.82), and [`ManaPoolView::snow`]
+/// (CR 107.4h).
+/// Version 103 adds `CastModeKind::Retrace` (CR 702.81a),
+/// `YesNoPrompt::{Riot, Unleash}` (CR 702.136, CR 702.98), and
+/// [`PublicObject::suspected`] (CR 701.60).
+/// Version 104–107 unify Engine Waves 9a–10b (`YesNoPrompt::AssignDamageAsThoughUnblocked`,
+/// `YesNoPrompt::ClashBottom`, `ChoicePrompt::ChooseRingBearer`,
+/// `YesNoPrompt::{ChooseFirstCostBranch, OpeningHandBattlefield, OpeningHandReveal}`,
+/// `CastModeKind::Sneak`, `YesNoPrompt::Endure`, `CastModeKind::Awaken`,
+/// `ChoicePrompt::{Splice, CipherEncode, Champion}`, and
+/// `YesNoPrompt::{Conspire, Tribute}`).
+/// Version 108 makes the Class level designation public (CR 717) on
+/// [`PublicObject`] and records its changes as [`LogEvent::ClassLevel`].
+pub const VIEW_VERSION: u32 = 108;
 
 // ------------------------------------------------------------------- targets
 

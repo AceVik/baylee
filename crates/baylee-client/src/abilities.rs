@@ -873,6 +873,9 @@ fn special_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
     if index == baylee_engine::choice::TURN_FACE_UP {
         return Some(Phrase::TurnFaceUp.text(lang).to_string());
     }
+    if index == baylee_engine::choice::PLOT_CARD {
+        return Some(Phrase::PlotCard.text(lang).to_string());
+    }
     let half = baylee_engine::choice::door_to_unlock(index)?;
     Some(unlock_label(lang, view, object, half))
 }
@@ -1032,7 +1035,17 @@ fn offered_cost(view: &PlayerView, object: ObjectId, index: u32) -> Option<Strin
         let face = baylee_cards::by_index(card.index)?
             .faces
             .get(usize::from(card.face))?;
-        return face.disguise.or(face.morph).map(|c| c.to_string());
+        return face.turn_face_up_cost().map(|(c, _, _)| c.to_string());
+    }
+    if index == baylee_engine::choice::PLOT_CARD {
+        let card = baylee_client_core::decision::known_cards(view)
+            .find(|c| c.id == object)
+            .map(|c| c.card)
+            .or_else(|| view.object(object)?.card)?;
+        let face = baylee_cards::by_index(card.index)?
+            .faces
+            .get(usize::from(card.face))?;
+        return face.plot.map(|c| c.to_string());
     }
     if index == baylee_engine::choice::PREPARED_CAST {
         prepared_of(view, object).and_then(spell_cost)
@@ -1054,7 +1067,9 @@ fn cost_key(view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
         AbilityDef::Loyalty { cost, .. } => Some(manapip::loyalty_token(*cost)),
         AbilityDef::Activated { cost, .. }
         | AbilityDef::ActivatedConditional { cost, .. }
-        | AbilityDef::ModalActivated { cost, .. } => cost_key_of(cost),
+        | AbilityDef::ModalActivated { cost, .. }
+        | AbilityDef::Unearth { cost }
+        | AbilityDef::Encore { cost } => cost_key_of(cost),
         _ => None,
     }
 }

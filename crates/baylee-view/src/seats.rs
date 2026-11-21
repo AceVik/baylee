@@ -40,6 +40,10 @@ pub struct ManaPoolView {
     /// question, answered when the payment is attempted; which colour is under
     /// it is a fact the player chose a moment ago and is owed back.
     pub restricted: [u64; 6],
+    /// Unrestricted snow-produced mana floating per color (`ManaColor::index`),
+    /// already included in the six plain color counts above (`CR 107.4h`).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub snow: [u32; 6],
 }
 
 impl ManaPoolView {
@@ -53,6 +57,17 @@ impl ManaPoolView {
             + self.green as u64
             + self.colorless as u64
             + self.restricted_total()
+    }
+
+    /// Unrestricted snow-produced mana floating across all colors (`CR 107.4h`).
+    #[must_use]
+    pub const fn snow_total(&self) -> u64 {
+        self.snow[0] as u64
+            + self.snow[1] as u64
+            + self.snow[2] as u64
+            + self.snow[3] as u64
+            + self.snow[4] as u64
+            + self.snow[5] as u64
     }
 
     /// Just the restricted mana, whatever colour it is under.

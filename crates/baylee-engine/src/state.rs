@@ -40,7 +40,7 @@ mod per_turn;
 mod player_counters;
 mod players;
 mod projection;
-mod reads;
+pub(crate) mod reads;
 mod setup;
 mod supplies;
 #[cfg(test)]
@@ -52,10 +52,13 @@ pub(crate) use hash::{
     structural_fingerprint,
 };
 
-pub use delayed::{DelayedAction, DelayedTrigger, DelayedWhen, PlayerTurnControl};
+pub use delayed::{
+    DelayedAction, DelayedTrigger, DelayedTriggerSpec, DelayedWhen, PlayerTurnControl,
+    RememberedContext,
+};
 pub use per_turn::{
-    AbilityResolved, BlockRecord, DamageLogEntry, GraveyardPlay, PerTurn, PlayLifetime,
-    PlayPermission, PreviousTurn,
+    AbilityResolved, BlockRecord, DamageLogEntry, GraveyardPlay, MustBlockRequirement, PerTurn,
+    PlayLifetime, PlayPermission, PreviousTurn,
 };
 use reads::printed_pt_cda;
 pub(crate) use reads::{
@@ -206,6 +209,18 @@ pub struct Player {
     pub dungeon_room: u8,
     /// Number of dungeons this player has completed this game.
     pub dungeons_completed: u8,
+    /// Number of times The Ring has tempted this player this game (`CR 701.54`).
+    pub ring_temptations: u8,
+    /// The creature currently designated as this player's Ring-bearer (`CR 701.54a`).
+    pub ring_bearer: Option<ObjectId>,
+}
+
+impl GameState {
+    /// Whether `id` is currently any player's Ring-bearer (`CR 701.54a`).
+    #[must_use]
+    pub fn is_ring_bearer(&self, id: ObjectId) -> bool {
+        self.players.iter().any(|p| p.ring_bearer == Some(id))
+    }
 }
 
 impl Player {
@@ -353,6 +368,9 @@ pub enum StateError {
     /// The object does not exist (anymore).
     #[error("no such object: {0}")]
     NoSuchObject(ObjectId),
+    /// A continuous effect forbids sacrificing this permanent (`CR 701.21`).
+    #[error("object cannot be sacrificed: {0}")]
+    CantBeSacrificed(ObjectId),
 }
 
 /// Printed characteristics, shared by every object that prints the same.
@@ -733,6 +751,11 @@ pub struct GameState {
     /// `snapshot_hash` nor `loop_signature` reads it. It rests on a rule the
     /// build enforces, not on which cards happen to exist.
     pub reflexive: Vec<crate::trigger::PendingTrigger>,
+    /// Transient `(source, color)` binding active only while `resolve::run` is
+    /// executing a resolution that chose a color (`Effect::ChooseColor`,
+    /// CR 608.2d); always `None` at rest (between calls into `resolve::run`),
+    /// where `Resolution::subject.chosen_color` carries the persisted state.
+    pub(crate) resolution_chosen_color: Option<(ObjectId, baylee_core::mana::ManaColor)>,
     /// Cards a resolving discover (CR 701.57a) exiled and stopped at:
     /// `(the discovering player, the card, its version in exile)`.
     ///
@@ -775,6 +798,9 @@ pub struct GameState {
     pub commanders: Vec<Vec<Commander>>,
     /// The monarch designation (CR 726), if any.
     pub monarch: Option<PlayerId>,
+    /// Active goad designations on battlefield permanents until the goading
+    /// player's next turn (CR 701.15a–d).
+    pub goaded: per_turn::PerTurnVec<crate::combat::GoadEntry>,
     /// The game as an effect ended it: "you win the game" (CR 104.2b) or
     /// "the game is a draw" (CR 104.4c). The game ends at once (CR 104.1):
     /// the engine reads this before anything else when it next looks.
@@ -971,11 +997,13 @@ impl GameState {
             ltb_combat,
             ceased,
             reflexive,
+            resolution_chosen_color: _,
             discovered,
             divided,
             synthetic_copies,
             commanders,
             monarch,
+            goaded,
             game_end,
             day_night,
             previous_turn,
@@ -1105,6 +1133,7 @@ impl GameState {
             ("state.synthetic_copies", format!("{synthetic_copies:?}")),
             ("state.commanders", format!("{commanders:?}")),
             ("state.monarch", format!("{monarch:?}")),
+            ("state.goaded", format!("{goaded:?}")),
             ("state.game_end", format!("{game_end:?}")),
             ("state.day_night", format!("{day_night:?}")),
             ("state.previous_turn", format!("{previous_turn:?}")),
@@ -1283,6 +1312,7 @@ impl GameState {
         if self.has_left(player)
             || self.life_total_cant_change(player)
             || (by < 0 && self.cant_lose_life(player))
+            || (by > 0 && self.cant_gain_life(player))
         {
             return;
         }
@@ -1359,6 +1389,22 @@ impl GameState {
             return false;
         }
         self.restore_tapped(id, tapped)
+    }
+
+    /// Records an actual tap or untap and freezes who controlled its permanent.
+    pub(crate) fn record_tap_event(&mut self, id: ObjectId, tapped: bool, cause: Cause) {
+        let observation = self.object(id).map(|object| crate::event::TapObservation {
+            version: object.version,
+            controller: object.controller,
+            power: object.characteristics().power.unwrap_or(0),
+            toughness: object.characteristics().toughness.unwrap_or(0),
+        });
+        let event = if tapped {
+            GameEvent::ObjectTapped { object: id, cause }
+        } else {
+            GameEvent::ObjectUntapped { object: id, cause }
+        };
+        self.journal.record_with_tap_observation(event, observation);
     }
 
     /// Restores a reversed action without applying game-event replacements.

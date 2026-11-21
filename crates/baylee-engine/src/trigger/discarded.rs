@@ -53,6 +53,7 @@ fn collect_madness(
             counter_source_version: None,
             event_mana: None,
             event_mana_value: None,
+            event_tap_snapshot: None,
             event_departure: None,
             event_amount: None,
             event_player: Some(owner),
@@ -61,6 +62,7 @@ fn collect_madness(
             once_per_turn: false,
             synthetic_target: None,
             chosen_mode: None,
+            synthetic_condition: None,
             in_chosen_order: false,
         });
     }
@@ -126,6 +128,7 @@ fn collect_opponent_discards(
                 counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
+                event_tap_snapshot: None,
                 event_departure: None,
                 event_amount: None,
                 event_player: Some(by),
@@ -134,6 +137,7 @@ fn collect_opponent_discards(
                 once_per_turn: firing.once_per_turn,
                 synthetic_target: None,
                 chosen_mode: None,
+                synthetic_condition: None,
                 in_chosen_order: false,
             });
         }

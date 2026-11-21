@@ -435,6 +435,25 @@ impl StaticParts {
     }
 }
 
+const SINGLE_CHAPTERS: [&[u8]; 16] = [
+    &[0],
+    &[1],
+    &[2],
+    &[3],
+    &[4],
+    &[5],
+    &[6],
+    &[7],
+    &[8],
+    &[9],
+    &[10],
+    &[11],
+    &[12],
+    &[13],
+    &[14],
+    &[15],
+];
+
 /// The parts of an [`AbilityDef::SagaChapter`], with rules defaults.
 #[derive(Clone, Copy, Debug)]
 pub struct SagaChapterParts {
@@ -444,6 +463,10 @@ pub struct SagaChapterParts {
     pub effects: &'static [Effect],
     /// What it targets, if anything.
     pub targets: Option<TargetReq>,
+    /// A second instance of the word "target", if the chapter prints one.
+    pub second_targets: Option<TargetReq>,
+    /// An intervening-`if` clause on the chapter trigger, if printed (CR 603.4).
+    pub condition: Option<Condition>,
 }
 
 impl SagaChapterParts {
@@ -455,16 +478,39 @@ impl SagaChapterParts {
             chapter,
             effects,
             targets: None,
+            second_targets: None,
+            condition: None,
         }
     }
 
-    /// Turns the parts into the ability.
+    /// Turns the parts into the ability, preserving [`AbilityDef::SagaChapter`]
+    /// for plain single-chapter abilities and producing [`Trigger::Chapter`]
+    /// when `second_targets` or `condition` is specified.
+    ///
+    /// # Panics
+    ///
+    /// When `second_targets` or `condition` is set on a chapter number `>= 16`.
     #[must_use]
     pub const fn build(self) -> AbilityDef {
-        AbilityDef::SagaChapter {
-            chapter: self.chapter,
-            effects: self.effects,
-            targets: self.targets,
+        if self.second_targets.is_none() && self.condition.is_none() {
+            AbilityDef::SagaChapter {
+                chapter: self.chapter,
+                effects: self.effects,
+                targets: self.targets,
+            }
+        } else {
+            let idx = self.chapter as usize;
+            assert!(idx < SINGLE_CHAPTERS.len(), "saga chapter out of range");
+            AbilityDef::Triggered {
+                trigger: Trigger::Chapter(SINGLE_CHAPTERS[idx]),
+                zone: TriggerZone::Battlefield,
+                effects: self.effects,
+                targets: self.targets,
+                second_targets: self.second_targets,
+                once_per_turn: false,
+                condition: self.condition,
+                resolves_if_targets_illegal: false,
+            }
         }
     }
 }
@@ -926,6 +972,24 @@ macro_rules! chapter {
     };
 }
 
+/// Multiple chapter symbols sharing one Saga ability (CR 715.2c):
+/// `chapters!(&[1, 2], effects)`.
+///
+/// ```ignore
+/// chapters!(&[1, 2], &[Effect::scry(1)])
+/// chapters!(&[2, 3], EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
+/// ```
+#[macro_export]
+macro_rules! chapters {
+    ($chapters:expr, $effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
+        $crate::TriggeredParts {
+            $($field: $value,)*
+            ..$crate::TriggeredParts::new($crate::Trigger::Chapter($chapters), $effects)
+        }
+        .build()
+    };
+}
+
 /// Equip (CR 702.6): `equip!("{2}")`.
 ///
 /// Every part of an equip ability except the cost comes from the keyword's
@@ -1004,6 +1068,64 @@ macro_rules! saddle {
     };
 }
 
+/// Unearth [cost] (CR 702.84a), from the owner's graveyard at sorcery speed.
+#[macro_export]
+macro_rules! unearth {
+    ($mana:literal) => {
+        $crate::AbilityDef::Unearth {
+            cost: $crate::cost!($mana),
+        }
+    };
+    ($cost:expr) => {
+        $crate::AbilityDef::Unearth { cost: $cost }
+    };
+}
+
+/// Encore [cost] (CR 702.141a), exiling self from the owner's graveyard at sorcery speed.
+#[macro_export]
+macro_rules! encore {
+    ($mana:literal) => {
+        $crate::AbilityDef::Encore {
+            cost: $crate::cost!($mana),
+        }
+    };
+    ($cost:expr) => {
+        $crate::AbilityDef::Encore { cost: $cost }
+    };
+}
+
+/// Embalm [cost] (CR 702.128a): sorcery-speed graveyard activation exiling self
+/// to create a white Zombie token copy with no mana cost.
+#[macro_export]
+macro_rules! embalm {
+    ($mana:literal) => {
+        $crate::activated!(
+            $crate::cost!($mana, ExileSelf),
+            &[$crate::Effect::CreateTokenCopyOfSource {
+                mods: $crate::EMBALM_MODS,
+            }],
+            zone = $crate::ActivationZone::Graveyard,
+            timing = $crate::ActivationTiming::SorcerySpeed
+        )
+    };
+}
+
+/// Eternalize [cost] (CR 702.129a): sorcery-speed graveyard activation exiling
+/// self to create a 4/4 black Zombie token copy with no mana cost.
+#[macro_export]
+macro_rules! eternalize {
+    ($mana:literal) => {
+        $crate::activated!(
+            $crate::cost!($mana, ExileSelf),
+            &[$crate::Effect::CreateTokenCopyOfSource {
+                mods: $crate::ETERNALIZE_MODS,
+            }],
+            zone = $crate::ActivationZone::Graveyard,
+            timing = $crate::ActivationTiming::SorcerySpeed
+        )
+    };
+}
+
 /// Everything a card file needs, in one import.
 ///
 /// A card file used to open with eight `use` lines and
@@ -1014,8 +1136,8 @@ macro_rules! saddle {
 /// documents the static it defines.
 pub mod prelude {
     pub use crate::ability::{
-        AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, Condition,
-        CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
+        AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, AmountCmp,
+        Condition, CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
     };
     pub use crate::build::{
         ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,
@@ -1030,25 +1152,29 @@ pub mod prelude {
     /// of every card file.
     pub use crate::counters;
     pub use crate::effect::{
-        Amount, ColorSubject, CombatWatchEvent, CounterKind, DamageRedirectTo, DamageTo,
-        DelayedObservation, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
-        ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
-        PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetChooser, TargetReq,
-        TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
+        Amount, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup, CounterKind,
+        DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
+        DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay,
+        ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
+        ManaValueBound, ManaValueCmp, PeekPickDest, PeekRestDest, PlayWindow, PlayerRel,
+        ReflexiveEvent, ReflexiveWhen, RepeatDomain, SearchDest, SpendRider, TargetChooser,
+        TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, ZoneSel,
     };
-    pub use crate::filter::{Filter, OriginalExpansion, ZoneRef};
+    pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{
-        DamageAmountReplacement, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
-        StaticAbility,
+        DamageAmountReplacement, DamageRecipients, Duration, LAYERS, Layer, Modifier, PtCount,
+        ReplacementRule, StaticAbility,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,
-        EnterModifier, Escape, FaceDef, KeywordSet, PartnerKind,
+        EMBALM_MODS, ETERNALIZE_MODS, Emerge, EnterModifier, Escape, FaceDef, GiftKind, KeywordSet,
+        PartnerKind, Prototype,
     };
     pub use crate::{SpecialActionCost, SpecialActionEffect, SpecialActionTiming, TextWordKind};
     pub use crate::{
-        activated, card, chapter, cost, crew, equip, f, face, loyalty, mana_ability,
-        modal_activated, modal_triggered, mode, saddle, spell, static_ability, triggered,
+        activated, card, chapter, chapters, cost, crew, embalm, encore, equip, eternalize, f, face,
+        loyalty, mana_ability, modal_activated, modal_triggered, mode, saddle, spell,
+        static_ability, triggered, unearth,
     };
     pub use baylee_core::color::{Color, ColorSet};
     /// Every card's `CardIndex` under the name the ledger froze for it.
@@ -1349,6 +1475,7 @@ mod tests {
                 effects: &[],
                 target: None,
             },
+            Modifier::GrantTriggeredDefinition(&const { triggered!(Trigger::ETB, &[]) }),
         ];
         for modifier in adds_or_removes_an_ability {
             assert_eq!(

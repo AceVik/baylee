@@ -103,6 +103,7 @@ pub(super) fn counter_kind(code: &str) -> Option<String> {
     Some(
         match code {
             "LOYALTY" => "CounterKind::Loyalty",
+            "DEFENSE" => "CounterKind::Defense",
             "LORE" => "CounterKind::Lore",
             "TIME" => "CounterKind::Time",
             "CHARGE" => "CounterKind::Charge",
@@ -116,7 +117,9 @@ pub(super) fn counter_kind(code: &str) -> Option<String> {
             "Shadow" => "CounterKind::Shadow",
             "Indestructible" => "CounterKind::Indestructible",
             "HONE" => "CounterKind::Hone",
-            "STUN" => "CounterKind::Stun",
+            "STUN" | "Stun" => "CounterKind::Stun",
+            "SHIELD" | "Shield" => "CounterKind::Shield",
+            "FINALITY" | "Finality" => "CounterKind::Finality",
             "BORE" => "CounterKind::Bore",
             _ => return assigned_counter(code),
         }
@@ -237,6 +240,7 @@ pub(super) fn keyword_static(line: &str) -> Option<&'static str> {
         "Prevent all damage that would be dealt to CARDNAME." => {
             Some("Modifier::PreventDamageFrom(&Filter::Any)")
         }
+        "CARDNAME can only attack alone." => Some("Modifier::AttacksAloneOnly"),
         _ => None,
     }
 }
@@ -270,6 +274,34 @@ pub(super) fn keyword_const(line: &str) -> Option<&'static str> {
         "Banding" => "KeywordSet::BANDING",
         "Devoid" => "KeywordSet::DEVOID",
         "Storm" => "KeywordSet::STORM",
+        "Infect" => "KeywordSet::INFECT",
+        "Wither" => "KeywordSet::WITHER",
+        "Horsemanship" => "KeywordSet::HORSEMANSHIP",
+        "Skulk" => "KeywordSet::SKULK",
+        "Flanking" => "KeywordSet::FLANKING",
+        "Undying" => "KeywordSet::UNDYING",
+        "Persist" => "KeywordSet::PERSIST",
+        "Intimidate" => "KeywordSet::INTIMIDATE",
+        "Split second" | "Split Second" => "KeywordSet::SPLIT_SECOND",
+        "Phasing" => "KeywordSet::PHASING",
+        "Rebound" => "KeywordSet::REBOUND",
+        "Ascend" => "KeywordSet::ASCEND",
+        "Daybound" => "KeywordSet::DAYBOUND",
+        "Nightbound" => "KeywordSet::NIGHTBOUND",
+        "Read ahead" | "Read Ahead" => "KeywordSet::READ_AHEAD",
+        "Battle cry" | "Battle Cry" => "KeywordSet::BATTLE_CRY",
+        "Dethrone" => "KeywordSet::DETHRONE",
+        "Melee" => "KeywordSet::MELEE",
+        "Mentor" => "KeywordSet::MENTOR",
+        "Training" => "KeywordSet::TRAINING",
+        "Myriad" => "KeywordSet::MYRIAD",
+        "Extort" => "KeywordSet::EXTORT",
+        "Enlist" => "KeywordSet::ENLIST",
+        "Soulbond" => "KeywordSet::SOULBOND",
+        "Exploit" => "KeywordSet::EXPLOIT",
+        "Evolve" => "KeywordSet::EVOLVE",
+        "Riot" => "KeywordSet::RIOT",
+        "Unleash" => "KeywordSet::UNLEASH",
         _ => return None,
     })
 }

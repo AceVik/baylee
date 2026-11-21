@@ -2,7 +2,7 @@
 //!
 //! [`CounterKind`] names counters with intrinsic rules: signed P/T,
 //! loyalty, Saga lore, suspend/vanishing time, player counters, keyword
-//! counters (CR 122.1b), Equipment hone counters (CR 122.1j), and Class levels.
+//! counters (CR 122.1b), Equipment hone counters (CR 122.1j), and level counters.
 //! An engine that did not know those rules would play the card wrong.
 //!
 //! A great many other counters are **a name and a number**. A depletion

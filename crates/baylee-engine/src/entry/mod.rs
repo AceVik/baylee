@@ -8,6 +8,7 @@ mod counters;
 mod departure;
 mod equilibrium;
 mod forms;
+mod sagas;
 mod tapping;
 #[cfg(feature = "test-support")]
 pub use choices::{advance, answer, next_question};
@@ -63,7 +64,22 @@ struct AfterEntry {
     remaining: u32,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Copy, Debug, Default)]
+struct EntryKeywordState {
+    initialized: bool,
+    riot_remaining: u8,
+    unleash_remaining: u8,
+    riot_haste: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(super) enum TributeState {
+    None,
+    Ask(PlayerId, u16),
+    Paid,
+}
+
+#[derive(Clone, Debug)]
 struct Attempt {
     object: ObjectId,
     version: u32,
@@ -84,6 +100,9 @@ struct Attempt {
     sacrifices: Option<u32>,
     chosen_number: Option<u8>,
     battle_protector: Option<PlayerId>,
+    saga_chapter: Option<u8>,
+    kw_choices: EntryKeywordState,
+    tribute: TributeState,
     counters: Vec<(Option<PlayerId>, CounterKind, u16)>,
     counter_plans: Vec<crate::replacement::counter_order::CounterPlacementPlan>,
     counters_prepared: bool,
@@ -91,6 +110,81 @@ struct Attempt {
     next_counter: usize,
     copy: CopyStatus,
     preview_effects: Vec<baylee_core::ids::EffectId>,
+}
+
+impl Hash for Attempt {
+    fn hash<H: Hasher>(&self, h: &mut H) {
+        let Self {
+            object,
+            version,
+            controller,
+            putter,
+            applied,
+            tapped,
+            sacrifices_after,
+            own_first,
+            position,
+            cause,
+            modifiers,
+            next,
+            refusal,
+            sacrifices,
+            chosen_number,
+            battle_protector,
+            saga_chapter,
+            kw_choices,
+            tribute,
+            counters,
+            counter_plans,
+            counters_prepared,
+            counter_caps,
+            next_counter,
+            copy,
+            preview_effects,
+        } = self;
+        object.hash(h);
+        version.hash(h);
+        controller.hash(h);
+        putter.hash(h);
+        applied.hash(h);
+        tapped.hash(h);
+        sacrifices_after.hash(h);
+        own_first.hash(h);
+        position.hash(h);
+        cause.hash(h);
+        modifiers.hash(h);
+        next.hash(h);
+        refusal.hash(h);
+        sacrifices.hash(h);
+        chosen_number.hash(h);
+        battle_protector.hash(h);
+        // Folded in only when set (Read-Ahead Sagas, CR 702.155b), preserving
+        // recorded hashes on entries that never choose a starting chapter.
+        if let Some(chapter) = saga_chapter {
+            chapter.hash(h);
+        }
+        if kw_choices.riot_remaining > 0
+            || kw_choices.unleash_remaining > 0
+            || kw_choices.riot_haste
+        {
+            (
+                kw_choices.riot_remaining,
+                kw_choices.unleash_remaining,
+                kw_choices.riot_haste,
+            )
+                .hash(h);
+        }
+        if *tribute != TributeState::None {
+            tribute.hash(h);
+        }
+        counters.hash(h);
+        counter_plans.hash(h);
+        counters_prepared.hash(h);
+        counter_caps.hash(h);
+        next_counter.hash(h);
+        copy.hash(h);
+        preview_effects.hash(h);
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -156,6 +250,28 @@ enum Question {
     },
     PayLifeUpTo,
     GraveyardOrder,
+    /// Amplify hand-reveal choice (CR 702.38a, CR 702.38b).
+    Amplify {
+        factor: u8,
+    },
+    /// Devour sacrifice choice (CR 702.82a–c).
+    Devour {
+        factor: u8,
+    },
+    /// Read-ahead starting chapter choice (CR 702.155b, CR 715.3b).
+    ReadAhead,
+    /// Riot +1/+1 counter vs. haste choice (CR 702.136a–b).
+    Riot,
+    /// Unleash optional +1/+1 counter choice (CR 702.98a).
+    Unleash,
+    /// Tribute multiplayer opponent choice (CR 702.104a).
+    TributeOpponent {
+        counters: u16,
+    },
+    /// Tribute opponent yes/no counter placement choice (CR 702.104a–b).
+    Tribute {
+        counters: u16,
+    },
 }
 
 impl Hash for Entries {
@@ -269,6 +385,22 @@ fn copy_clause(
         })
 }
 
+const ENTRY_CHOICE_KEYWORDS: baylee_cards_dsl::KeywordSet =
+    baylee_cards_dsl::KeywordSet::RIOT.union(baylee_cards_dsl::KeywordSet::UNLEASH);
+
+pub(super) fn may_have_keyword_entry(state: &GameState, id: ObjectId) -> bool {
+    state
+        .object(id)
+        .is_some_and(|o| (o.base.keywords.bits() & ENTRY_CHOICE_KEYWORDS.bits()) != 0)
+        || state.effects.iter().any(|fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::AddKeyword(kw)
+            | baylee_cards_dsl::Modifier::AddKeywordIfCountersAtLeast { keywords: kw, .. } => {
+                (kw.bits() & ENTRY_CHOICE_KEYWORDS.bits()) != 0
+            }
+            _ => false,
+        })
+}
+
 fn needs_before_entry(modifier: &EnterModifier) -> bool {
     tapping::handles(modifier)
         || matches!(
@@ -282,6 +414,9 @@ fn needs_before_entry(modifier: &EnterModifier) -> bool {
                 | EnterModifier::ChooseCounterPerEntryCount(_)
                 | EnterModifier::PayLifeUpTo(_)
                 | EnterModifier::SacrificeOthers(_)
+                | EnterModifier::Amplify(_)
+                | EnterModifier::Suspected
+                | EnterModifier::Tribute(_)
         )
 }
 
@@ -320,11 +455,15 @@ pub(crate) fn defer(
     let copy = copy_clause(state, id);
     let external = equilibrium::exists(state);
     let aura = auras::needs_choice(state, id);
-    let counter_entry = counters::needs_entry(state, id) || battles::needs_entry(state, id);
+    let mut counter_entry = counters::needs_entry(state, id)
+        || battles::needs_entry(state, id)
+        || sagas::needs_entry(state, id);
+    let maybe_kw_entry = may_have_keyword_entry(state, id);
     state.entries.counter_transaction |= counter_entry;
     if !aura
         && !external
         && !counter_entry
+        && !maybe_kw_entry
         && copy.is_none()
         && !modifiers.iter().any(needs_before_entry)
     {
@@ -338,6 +477,8 @@ pub(crate) fn defer(
     prospective.version = prospective.version.wrapping_add(1);
     let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
     let projected = crate::layers::recompute_with(state, &prospective, &plan);
+    let kw_entry = (projected.characteristics.keywords.bits() & ENTRY_CHOICE_KEYWORDS.bits()) != 0;
+    counter_entry |= kw_entry;
     let lost = projected.characteristics.rules_text_lost
         || projected.characteristics.abilities_lost.is_some();
     if lost {
@@ -368,6 +509,9 @@ pub(crate) fn defer(
         sacrifices: None,
         chosen_number: None,
         battle_protector: None,
+        saga_chapter: None,
+        kw_choices: EntryKeywordState::default(),
+        tribute: TributeState::None,
         counters: Vec::new(),
         counter_plans: Vec::new(),
         counters_prepared: false,
@@ -380,6 +524,7 @@ pub(crate) fn defer(
         },
         preview_effects: Vec::new(),
     };
+    state.entries.counter_transaction |= kw_entry;
     state.entries.pending_objects.insert(id);
     state.entries.order_prepared = false;
     state.entries.pending.push_back(attempt);
@@ -456,7 +601,9 @@ fn options(state: &GameState, entry: &Attempt, filter: &Filter, hand: bool) -> V
         .filter(|id| *id != entry.object && !unavailable.contains(id))
         .filter(|id| {
             state.object(*id).is_some_and(|object| {
-                (hand || object.controller == entry.controller)
+                (hand
+                    || (object.controller == entry.controller
+                        && state.can_be_sacrificed(*id, None)))
                     && crate::eval::matches(filter, state, object, entry.controller, entry.object)
             })
         })

@@ -97,7 +97,12 @@
 // Effect::branches; the composite mana/life payment has paid and unpaid arms.
 // AtNextEndStepForCreatedTokens adds one walker-tested delayed-effect body.
 // PlayerMayPayLifeThen adds one walker-tested successful-payment body.
-const NESTING_FIELDS: usize = 89;
+// ReflexiveTrigger and RegisterDelayedTrigger add one walker-tested body each.
+// FlipCoins, FlipUntilLose, and IfDieRollInRange add two walker-tested bodies each.
+// RepeatEach, ChooseCard, PeekAndReveal, and RevealFromHand add one walker-tested
+// body each; RevealTop adds two walker-tested bodies.
+// Clash adds two walker-tested bodies (`on_win` and `on_loss`).
+const NESTING_FIELDS: usize = 105;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -160,7 +165,15 @@ const NESTING_FIELDS: usize = 89;
 /// sixty-ninth carriers. `AtNextEndStepForCreatedTokens` is the eightieth.
 /// `PlayerMayPayLifeThen` is the eighty-first; its successful-payment effects
 /// are walked by `life_payment_outcomes_are_visited`.
-const CARRYING_VARIANTS: usize = 81;
+/// `ReflexiveTrigger` and `RegisterDelayedTrigger` are the eighty-second and
+/// eighty-third (`reflexive_and_registered_delayed_trigger_bodies_are_visited`).
+/// `FlipCoins`, `FlipUntilLose`, and `IfDieRollInRange` are the eighty-fourth
+/// through eighty-sixth (`multi_coin_and_die_roll_branches_are_visited`).
+/// `RepeatEach`, `ChooseCard`, `PeekAndReveal`, `RevealFromHand`, and
+/// `RevealTop` are the eighty-seventh through ninety-first
+/// (`repeat_each_choose_card_peek_and_reveal_branches_are_visited`).
+/// `Clash` is the ninety-second (`clash_branches_and_additional_combat_phase_are_visited`).
+const CARRYING_VARIANTS: usize = 92;
 
 /// The floor under the reader itself.
 ///

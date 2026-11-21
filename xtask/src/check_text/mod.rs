@@ -325,6 +325,123 @@ pub(crate) fn check_player_targets_match_the_printing(
 /// therefore says no card in the pool is may-blind; it does not say every
 /// printed "may" is asked, and reading it as the second claim is how a
 /// check like this stops finding anything.
+// Every construct that hands a choice to the player, as the compiled
+// definition spells it. `min: 0` is a target requirement's and nothing
+// else's — it is the one `min` field in the whole DSL.
+const OFFERS_A_CHOICE: &[&str] = &[
+    "MayDo",
+    "MayChooseNotToUntap",
+    "Exploit",
+    "EXPLOIT",
+    "Clash",
+    "min: 0",
+    "PayLifeOrEnterTapped",
+    "PlayerMayPayCostOr",
+    "PlayerMayPayCostThen",
+    // Both variants resolve a YesNo prompt and require an affordable
+    // payment before applying their respective continuation.
+    "PlayerMayPayLifeOr",
+    "PlayerMayPayLifeThen",
+    "PlayerMayPayOr",
+    "PlayerMayPayThen",
+    "PlayerMayPayManaOr",
+    "PlayerMayPayManaThen",
+    "PlayerMayPayManaEachThenElse",
+    "PlayerMayPayManaAndLifeEachThenElse",
+    "PlayerMayPayThenElse",
+    "PlayerMaySacrificeNOr",
+    "PlayerMaySacrificeNThen",
+    "PlayerMayGainControl",
+    "PlayerMayGetPoisonOr",
+    "PlayerMayMillOr",
+    "RevealTopPlayerMayPutOntoBattlefield",
+    "MayRedirectDamageToYou",
+    "PreventNextFromChosenSource",
+    "PreventFromChosenSource",
+    "CopyOnEnter",
+    "CopyTargetSpell",
+    "CopyTargetAbility",
+    "CopyEventSpellOrAbility",
+    "CopyThisSpell",
+    "CopySpell",
+    "ChooseOne",
+    "BottomCardFromHand",
+    "OptionalBasicLandSearchFor",
+    "MayBehold",
+    "SearchWithManaDifference",
+    "optional: true",
+    "Scry",
+    "PutFromHandOnTop",
+    "ReorderTopLibrary",
+    "SearchTakeover",
+    "SpendManaAs",
+    // Optional spending permission is exercised during activation payment.
+    "CreatureAbilityManaAnyColor",
+    "GrantSpecialActionUntilEndOfTurn",
+    "PlayLandsFromGraveyard",
+    "PlayLandsFromLibraryTop",
+    // Playing the top card is already optional, whether its cost is mana
+    // or this permission's life payment. No extra trigger prompt exists.
+    "PlayFromLibraryTopForManaValueLife",
+    "ExtraLandDrops",
+    "ChooseExiledToPlay",
+    "LookAtTopKeepBottomPlay",
+    "LookAtTopFind",
+    "RevealTopFind",
+    "LookAtTopMayTake",
+    "Fabricate",
+    "Endure",
+    "Sneak",
+    "LookAtTopMayPut",
+    "DiscardUpToThenDraw",
+    "PermanentOfEachTypeFromGraveyard",
+    "CastPermanentSpellsFromGraveyard",
+    "CastSpellsFromGraveyard",
+    "GraveyardInstantSorceryOnce",
+    "GraveyardVampireOnce",
+    "OneSpellManaAnyType",
+    // The player may use the permission on a later casting decision.
+    "SpellsHaveFlash",
+    "SorceriesHaveFlash",
+    "MillMayTakeOne",
+    "RevealTopOnePerType",
+    "RevealTopPutOntoBattlefield",
+    "ExileTopMayCast",
+    "ExileTopToPlay",
+    "ExileTopWithPermission",
+    "ExileWithPermission",
+    "GrantLinkedExilePermission",
+    "ManifestTop",
+    "ManifestDread",
+    "TurnFaceUp",
+    "Plot",
+    "PlotTop",
+    "Backup",
+    "MaySkipDrawStepDraw",
+    "MaySkipDrawStepGainLife",
+    "SkipTurnToUntapSelf",
+    "MayDiscardToLibraryTop",
+    "MayRevealOpponentDiscardToLibraryTop",
+    "TargetMayBlockAttackerOfChoice",
+    "CastFaceDownUsingSpentX",
+    "MayPlayLinkedExile",
+    "ExileAndCastCopies",
+    "MayCastTargetAnyMana",
+    "MayPutFromHandOntoBattlefieldAttachIfEquipment",
+    "MayExileFromYourGraveyardThen",
+    "RechooseGraveyardCard",
+    "MayRemoveCountersSelfCreateTokens",
+    "MayExileTokensCreatedWithThisForCounters",
+    "OpeningHandBattlefieldWithLuckCounterExilingHandCard",
+    "OpeningHandOnBattlefield",
+    "OpeningHandRevealAtFirstUpkeep",
+    "LookAtLibraryTop",
+    "ManaIsAnyColor",
+    "PeekAndReveal",
+    "RevealFromHand",
+    "SoulbondPair",
+];
+
 pub(crate) fn check_optional_clauses_are_offered(
     slug: &str,
     def: &baylee_cards::dsl::CardDef,
@@ -332,89 +449,6 @@ pub(crate) fn check_optional_clauses_are_offered(
     tally: &mut PrintingTally,
     problems: &mut usize,
 ) {
-    // Every construct that hands a choice to the player, as the compiled
-    // definition spells it. `min: 0` is a target requirement's and nothing
-    // else's — it is the one `min` field in the whole DSL.
-    const OFFERS_A_CHOICE: &[&str] = &[
-        "MayDo",
-        "MayChooseNotToUntap",
-        "min: 0",
-        "PayLifeOrEnterTapped",
-        "PlayerMayPayCostOr",
-        "PlayerMayPayCostThen",
-        // Both variants resolve a YesNo prompt and require an affordable
-        // payment before applying their respective continuation.
-        "PlayerMayPayLifeOr",
-        "PlayerMayPayLifeThen",
-        "PlayerMayPayOr",
-        "PlayerMayPayThen",
-        "PlayerMayPayManaOr",
-        "PlayerMayPayManaThen",
-        "PlayerMayPayManaEachThenElse",
-        "MayRedirectDamageToYou",
-        "PreventNextFromChosenSource",
-        "CopyOnEnter",
-        "CopyTargetSpell",
-        "CopyTargetAbility",
-        "CopySpell",
-        "BottomCardFromHand",
-        "OptionalBasicLandSearchFor",
-        "MayBehold",
-        "SearchWithManaDifference",
-        "optional: true",
-        "Scry",
-        "PutFromHandOnTop",
-        "ReorderTopLibrary",
-        "SearchTakeover",
-        "SpendManaAs",
-        // Optional spending permission is exercised during activation payment.
-        "CreatureAbilityManaAnyColor",
-        "GrantSpecialActionUntilEndOfTurn",
-        "PlayLandsFromGraveyard",
-        "PlayLandsFromLibraryTop",
-        // Playing the top card is already optional, whether its cost is mana
-        // or this permission's life payment. No extra trigger prompt exists.
-        "PlayFromLibraryTopForManaValueLife",
-        "ExtraLandDrops",
-        "ChooseExiledToPlay",
-        "LookAtTopKeepBottomPlay",
-        "LookAtTopFind",
-        "RevealTopFind",
-        "LookAtTopMayTake",
-        "Fabricate",
-        "LookAtTopMayPut",
-        "DiscardUpToThenDraw",
-        "PermanentOfEachTypeFromGraveyard",
-        "CastPermanentSpellsFromGraveyard",
-        "CastSpellsFromGraveyard",
-        "GraveyardInstantSorceryOnce",
-        "GraveyardVampireOnce",
-        "OneSpellManaAnyType",
-        // The player may use the permission on a later casting decision.
-        "SpellsHaveFlash",
-        "SorceriesHaveFlash",
-        "MillMayTakeOne",
-        "RevealTopOnePerType",
-        "RevealTopPutOntoBattlefield",
-        "ExileTopMayCast",
-        "ExileTopToPlay",
-        "MaySkipDrawStepDraw",
-        "MaySkipDrawStepGainLife",
-        "SkipTurnToUntapSelf",
-        "MayDiscardToLibraryTop",
-        "MayRevealOpponentDiscardToLibraryTop",
-        "TargetMayBlockAttackerOfChoice",
-        "CastFaceDownUsingSpentX",
-        "MayPlayLinkedExile",
-        "ExileAndCastCopies",
-        "MayCastTargetAnyMana",
-        "MayPutFromHandOntoBattlefieldAttachIfEquipment",
-        "MayExileFromYourGraveyardThen",
-        "RechooseGraveyardCard",
-        "MayRemoveCountersSelfCreateTokens",
-        "MayExileTokensCreatedWithThisForCounters",
-        "OpeningHandBattlefieldWithLuckCounterExilingHandCard",
-    ];
     if !def.is_fully_read() {
         return;
     }
@@ -431,6 +465,19 @@ pub(crate) fn check_optional_clauses_are_offered(
             || !f.additional_costs.is_empty()
             || f.miracle.is_some()
             || !f.enter_modifiers.is_empty()
+            || f.dash.is_some()
+            || f.blitz.is_some()
+            || f.buyback.is_some()
+            || f.replicate.is_some()
+            || f.multikicker.is_some()
+            || f.entwine.is_some()
+            || f.bestow.is_some()
+            || f.madness.is_some()
+            || f.flashback.is_some()
+            || f.escape.is_some()
+            || f.impending.is_some()
+            || f.gift.is_some()
+            || f.has_face_down_cast()
     }) {
         return;
     }
@@ -460,7 +507,11 @@ pub(crate) fn up_to_target_phrase(printed: &str) -> Option<String> {
     let mut from = 0;
     while let Some(at) = printed[from..].find("up to ") {
         let start = from + at;
-        let rest = &printed[start..printed.len().min(start + 44)];
+        let mut end = printed.len().min(start + 44);
+        while !printed.is_char_boundary(end) {
+            end -= 1;
+        }
+        let rest = &printed[start..end];
         let window = rest.split(['\n', '\u{2022}']).next().unwrap_or_default();
         if let Some(i) = window.find("target") {
             return Some(window[..i + "target".len()].to_string());
@@ -547,6 +598,48 @@ pub(crate) const KEYWORD_WORDS: &[(baylee_cards::dsl::KeywordSet, &str)] = {
         (K::CANT_ATTACK, "can't attack"),
         (K::UNDYING, "undying"),
         (K::PERSIST, "persist"),
+        (K::READ_AHEAD, "read ahead"),
+        (K::PROVOKE, "provoke"),
+        (K::BATTLE_CRY, "battle cry"),
+        (K::DETHRONE, "dethrone"),
+        (K::MELEE, "melee"),
+        (K::MENTOR, "mentor"),
+        (K::TRAINING, "training"),
+        (K::MYRIAD, "myriad"),
+        (K::EXTORT, "extort"),
+        (K::ENLIST, "enlist"),
+        (K::RENOWN, "renown"),
+        (K::MODULAR, "modular"),
+        (K::SOULBOND, "soulbond"),
+        (K::EXPLOIT, "exploit"),
+        (K::EVOLVE, "evolve"),
+        (K::BLOODTHIRST, "bloodthirst"),
+        (K::WARP, "warp"),
+        (K::DEVOUR, "devour"),
+        (K::SPREE, "spree"),
+        (K::RETRACE, "retrace"),
+        (K::RIOT, "riot"),
+        (K::UNLEASH, "unleash"),
+        (K::UMBRA_ARMOR, "umbra armor"),
+        (K::MOBILIZE, "mobilize"),
+        (K::TRANSMUTE, "transmute"),
+        (K::SCAVENGE, "scavenge"),
+        (K::FIREBENDING, "firebending"),
+        (K::FREERUNNING, "freerunning"),
+        (K::SNEAK, "sneak"),
+        (K::SUNBURST, "sunburst"),
+        (K::RAVENOUS, "ravenous"),
+        (K::GRAFT, "graft"),
+        (K::OUTLAST, "outlast"),
+        (K::AFTERLIFE, "afterlife"),
+        (K::AFFLICT, "afflict"),
+        (K::REINFORCE, "reinforce"),
+        (K::SPLICE, "splice"),
+        (K::AWAKEN, "awaken"),
+        (K::CONSPIRE, "conspire"),
+        (K::CIPHER, "cipher"),
+        (K::CHAMPION, "champion"),
+        (K::TRIBUTE, "tribute"),
     ]
 };
 
@@ -558,6 +651,18 @@ pub(crate) fn mentions_word(text: &str, word: &str) -> bool {
         text[..at].chars().next_back().is_none_or(boundary)
             && text[at + word.len()..].chars().next().is_none_or(boundary)
     })
+}
+
+/// Whether `printed` mentions `bit`'s keyword word, allowing `CANT_BLOCK` on
+/// cards that print `"can't attack or block"` (*Grakk the Pacifist*).
+pub(crate) fn keyword_mentioned(
+    printed: &str,
+    bit: baylee_cards::dsl::KeywordSet,
+    word: &str,
+) -> bool {
+    mentions_word(printed, word)
+        || (bit == baylee_cards::dsl::KeywordSet::CANT_BLOCK
+            && mentions_word(printed, "can't attack or block"))
 }
 
 /// Every face's printed text, joined.
@@ -815,6 +920,7 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("ControlledCreaturePowerAtLeast(")
         || built.contains("YouControl(")
         || built.contains("WhileYouControlSource")
+        || built.contains("ControlYourCommander")
         || built.contains("GainControl")
         // This verb installs a YOUR_CREATURE effect for the trigger controller.
         || built.contains("AttackWithoutTappingWhileSourceUntappedThisCombat")
@@ -825,9 +931,15 @@ pub(crate) fn check_scope_matches_the_text(
         // Both comparative combat restrictions count the effect controller's creatures.
         || built.contains("UnlessYouControlMoreCreaturesThan")
         // This cumulative coin-flip effect untaps only lands its controller controls.
-        || built.contains("FlipCoinsUntilLossOrStopCumulative");
+        || built.contains("FlipCoinsUntilLossOrStopCumulative")
+        || built.contains("PlayersOrTheirPermanents(You)");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
+        || built.contains("ObjectOfEachOpponent(")
+        || built.contains("PlayersOrTheirPermanents(Opponent)")
+        || built.contains("PlayersOrTheirPermanents(EachOpponent)")
+        || (built.contains("TargetSpec::AnyOpponent")
+            && built.contains("controlled_by: Some(PlayerRel::Chosen)"))
         || built.contains("OpponentControlCountAtMost(")
         || built.contains("PayLifeForPtCapWhiteOpponents")
         // These restrict the controller of the effect/spell/ability,
@@ -863,4 +975,40 @@ pub(crate) fn check_scope_matches_the_text(
 /// one the generated table is built with.
 pub(crate) fn strip_reminders(text: &str) -> String {
     lines::without_reminder(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{keyword_mentioned, up_to_target_phrase};
+    use baylee_cards::dsl::KeywordSet;
+
+    #[test]
+    fn cant_block_allows_cant_attack_or_block_phrase() {
+        assert!(keyword_mentioned(
+            "this creature can't attack or block.",
+            KeywordSet::CANT_BLOCK,
+            "can't block",
+        ));
+        assert!(!keyword_mentioned(
+            "this creature attacks each combat if able.",
+            KeywordSet::CANT_BLOCK,
+            "can't block",
+        ));
+    }
+
+    #[test]
+    fn up_to_target_phrase_handles_multibyte_em_dash_at_window_boundary() {
+        let text = "Exile up to one target nonland permanent.\nSuspend 5\u{2014}{1}{W}";
+        assert_eq!(
+            up_to_target_phrase(text).as_deref(),
+            Some("up to one target")
+        );
+
+        let dash_on_44 =
+            "When this enters, exile up to one artifact or creature.\nsuspend 5 \u{2014}{1}{W}";
+        let _ = up_to_target_phrase(dash_on_44);
+
+        let exact_44_emdash = "exile up to three creatures then pause — wait target";
+        assert_eq!(up_to_target_phrase(exact_44_emdash), None);
+    }
 }

@@ -93,8 +93,14 @@ pub(super) fn ability_colors(ability: &AbilityDef) -> ColorSet {
     let cost: ManaCost = match ability {
         AbilityDef::Activated { cost, .. }
         | AbilityDef::ActivatedConditional { cost, .. }
-        | AbilityDef::ModalActivated { cost, .. } => cost.mana,
-        AbilityDef::Echo { cost } | AbilityDef::Suspend { cost, .. } => *cost,
+        | AbilityDef::ModalActivated { cost, .. }
+        | AbilityDef::Unearth { cost }
+        | AbilityDef::Encore { cost }
+        | AbilityDef::Splice { cost, .. }
+        | AbilityDef::Awaken { cost, .. } => cost.mana,
+        AbilityDef::Echo { cost }
+        | AbilityDef::Suspend { cost, .. }
+        | AbilityDef::PerExtraTargetCost(cost) => *cost,
         AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => modes
             .iter()
             .filter_map(|mode| mode.cost_override)
@@ -111,6 +117,7 @@ pub(super) fn ability_colors(ability: &AbilityDef) -> ColorSet {
         | AbilityDef::Replacement(_)
         | AbilityDef::CopyOnEnterUntilEot { .. }
         | AbilityDef::CopyOnEnter { .. }
+        | AbilityDef::Champion { .. }
         | AbilityDef::Loyalty { .. } => ManaCost::ZERO,
     };
     branches(ability)
@@ -146,34 +153,57 @@ pub(super) fn identity_gap(def: &CardDef) -> ColorSet {
 
 /// Why a face's power, toughness and creature type do not agree (CR 208.1).
 ///
+/// Whether `abilities` contains a static modifier on `Filter::This` that can
+/// turn the permanent into a creature (such as a Spacecraft's station threshold).
+pub(super) fn becomes_creature_on_self(abilities: &[AbilityDef]) -> bool {
+    abilities.iter().any(|ability| {
+        let AbilityDef::Static(static_ab) = ability else {
+            return false;
+        };
+        matches!(static_ab.filter, Filter::This)
+            && match static_ab.modifier {
+                Modifier::AddType(types) | Modifier::AddTypeIfCountersAtLeast { types, .. } => {
+                    types.contains(TypeSet::CREATURE)
+                }
+                _ => false,
+            }
+    })
+}
+
+/// Whether `face` disagrees with CR 208.1 about its own body: creatures must
+/// carry power and toughness, noncreatures must not unless they are a Vehicle
+/// or Spacecraft whose printed numbers wait on crew or station, Vehicles always
+/// require them, and Spacecraft require them when an ability animates the face.
+///
 /// Both directions are silent bugs of their own. A creature with no
 /// power/toughness is a permanent combat cannot size, and state-based
 /// actions read a toughness that is not there; a face carrying numbers that
 /// is not a creature is either a wrong type line or a Vehicle whose subtype
 /// was dropped, and only the second of those is legal (CR 301.7).
-pub(super) fn pt_fault(face: &FaceDef) -> Option<&'static str> {
+pub(super) fn pt_fault(face: &FaceDef, animates_self: bool) -> Option<&'static str> {
     let creature = face.types.contains(TypeSet::CREATURE);
+    let half = face.power.is_some() != face.toughness.is_some();
     let numbered = face.power.is_some() || face.toughness.is_some();
-    // Two subtypes print a body they are not yet entitled to use: a Vehicle
-    // is not a creature until it crews (CR 301.7) and a Spacecraft is not
-    // one until it is stationed to 8+. Both print the numbers on the card,
-    // and a Spacecraft left without them became a creature with no body at
-    // all: Inspirit, Flagship Vessel reached 8 charge counters, turned into
-    // an artifact creature and was put into its owner's graveyard by the
-    // next state-based check.
-    let printed_body = [
-        baylee_core::generated::subtypes::artifact::VEHICLE,
-        baylee_core::generated::subtypes::artifact::SPACECRAFT,
-    ]
-    .iter()
-    .any(|s| face.subtypes.contains(s));
-    if creature && !(face.power.is_some() && face.toughness.is_some()) {
+    // Two subtypes may print a body they are not yet entitled to use: a Vehicle
+    // is not a creature until it crews (CR 301.7) and a Spacecraft with a
+    // station animation threshold is not one until it is stationed.
+    let vehicle = face
+        .subtypes
+        .contains(&baylee_core::generated::subtypes::artifact::VEHICLE);
+    let spacecraft = face
+        .subtypes
+        .contains(&baylee_core::generated::subtypes::artifact::SPACECRAFT);
+    let printed_body = vehicle || (spacecraft && (animates_self || numbered));
+    if half {
+        return Some("has only one of power or toughness");
+    }
+    if creature && !numbered {
         return Some("is a creature with no power/toughness");
     }
-    if numbered && !creature && !printed_body {
+    if numbered && !creature && !vehicle && !spacecraft {
         return Some("has power/toughness and is neither a creature nor a Vehicle or Spacecraft");
     }
-    if printed_body && !(face.power.is_some() && face.toughness.is_some()) {
+    if printed_body && !numbered {
         return Some("prints a body on the card and carries none in the code");
     }
     None

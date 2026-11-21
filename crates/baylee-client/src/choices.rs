@@ -37,7 +37,6 @@
 //! index is its place in that order. The card and face go out through
 //! [`pick`], which is the door every chooser press goes through.
 
-use baylee_client_core::card_face::TextBlock;
 use baylee_client_core::deckbuilder::PoolCard;
 use baylee_client_core::i18n::{Lang, Phrase, seat_name};
 use baylee_client_core::interaction::{Interaction, Prompt};
@@ -145,13 +144,6 @@ fn card_sentence(
         of: found.of,
     };
     let blocks = crate::cardtext::sentence(texts, card, printed)?;
-    let said: Vec<&str> = blocks
-        .iter()
-        .filter_map(|block| match block {
-            TextBlock::Rules(text) => Some(text.as_str()),
-            TextBlock::Reminder(_) => None,
-        })
-        .collect();
     // The bullet a modal card lists its modes under is the list's mark and
     // not the mode's words — the row is already one of several.
     //
@@ -161,7 +153,7 @@ fn card_sentence(
     // German, French, Spanish and Italian, and `・` in Japanese. The index
     // is computed against the English text and is unaffected; only what the
     // row draws is.
-    let said = said.join(" ");
+    let said = crate::cardtext::join_rules(&blocks);
     let said = without_spree_cost(
         said.trim_start_matches(['\u{2022}', '*', '\u{30fb}', ' '])
             .trim(),
@@ -1214,6 +1206,7 @@ fn walk_the_names(
 /// found, and the effect-less mode a player declines "choose up to one"
 /// with, which a card prints nowhere. A trigger's mode costs nothing, so
 /// without the number those rows would be blank and identical.
+#[allow(clippy::too_many_lines)] // exhaustive flat match over every CastModeKind variant
 fn cast_label(
     kind: baylee_engine::choice::CastModeKind,
     lang: Lang,
@@ -1283,9 +1276,20 @@ fn cast_label(
         K::Madness => Phrase::CastMadness.text(lang).to_string(),
         K::Flashback => Phrase::CastFlashback.text(lang).to_string(),
         K::Foretell => Phrase::CastForetell.text(lang).to_string(),
+        K::Plot => Phrase::CastPlot.text(lang).to_string(),
+        K::Impending => Phrase::CastImpending.text(lang).to_string(),
+        K::Awaken => Phrase::CastAwaken.text(lang).to_string(),
         K::BeamMeUp => Phrase::CastBeamMeUp.text(lang).to_string(),
         K::Dash => Phrase::CastDash.text(lang).to_string(),
+        K::Blitz => Phrase::CastBlitz.text(lang).to_string(),
+        K::Warp => Phrase::CastWarp.text(lang).to_string(),
+        K::Sneak => Phrase::CastSneak.text(lang).to_string(),
+        K::Emerge => Phrase::CastEmerge.text(lang).to_string(),
+        K::Fused => Phrase::CastFused.text(lang).to_string(),
         K::Mutate => Phrase::CastMutate.text(lang).to_string(),
+        K::Bestow => Phrase::CastBestow.text(lang).to_string(),
+        K::JumpStart => Phrase::CastJumpStart.text(lang).to_string(),
+        K::Retrace => Phrase::CastRetrace.text(lang).to_string(),
         K::Escape => Phrase::CastEscape.text(lang).to_string(),
         K::EscapeGranted {
             face,
@@ -1378,7 +1382,9 @@ fn is_morph_card(names: FaceNames<'_>, object: ObjectId) -> bool {
     cast_card(names, object)
         .and_then(baylee_cards::by_index)
         .and_then(|def| def.faces.first())
-        .is_some_and(|face| face.morph.is_some() && face.disguise.is_none())
+        .is_some_and(|face| {
+            (face.morph.is_some() || face.megamorph.is_some()) && face.disguise.is_none()
+        })
 }
 
 fn append_cast_detail(label: &mut String, detail: &str) {
@@ -1514,14 +1520,7 @@ pub(crate) fn target_explanation(
         }
     });
     if let Some(blocks) = blocks {
-        let text = blocks
-            .iter()
-            .filter_map(|b| match b {
-                baylee_client_core::card_face::TextBlock::Rules(s) => Some(s.as_str()),
-                baylee_client_core::card_face::TextBlock::Reminder(_) => None,
-            })
-            .collect::<Vec<_>>()
-            .join(" ");
+        let text = crate::cardtext::join_rules(&blocks);
         if !text.is_empty() {
             lines.push(text);
         }

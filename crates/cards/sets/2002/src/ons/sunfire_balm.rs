@@ -12,7 +12,7 @@ card!(
     oracle_id = "61d2f269-8674-4429-a07c-59972afd9ede",
     scryfall_id = "0d563ebb-ecd1-406c-9d69-c101acdeced7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunfire Balm",
         mana_cost = mana!("{2}{W}"),

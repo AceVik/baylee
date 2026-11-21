@@ -269,11 +269,13 @@ fn cast_in_mode(engine: &mut Engine<RegistryLookup>, spell: CardIndex, mode: usi
     engine.apply(me(), PlayerAction::ChooseMode(slot)).unwrap();
 }
 mod annihilate;
+mod astral_confrontation;
 mod beast_attack;
 mod blessed_light;
 mod breath_of_malfegor;
 mod bright_reprisal;
 mod broken_visage;
+mod caught_red_handed;
 mod cinder_cloud;
 mod command_the_storm;
 mod confirm_suspicions;

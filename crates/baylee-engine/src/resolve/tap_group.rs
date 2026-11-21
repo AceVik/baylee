@@ -1,11 +1,6 @@
 //! Simultaneous optional nonsymbol tap payments, with exact offered identities.
 use super::{AwaitingOp, Flow, Pending, Resolution};
-use crate::{
-    choice::ChoicePrompt,
-    engine::cost_wizard,
-    event::{Cause, GameEvent},
-    state::GameState,
-};
+use crate::{choice::ChoicePrompt, engine::cost_wizard, event::Cause, state::GameState};
 use baylee_cards_dsl::{CostPart, Effect};
 use baylee_core::ids::{DamageSourceRef, ObjectId, PlayerId};
 
@@ -93,10 +88,7 @@ pub(super) fn resume(
             state.set_tapped(id, true);
         }
         for &id in chosen {
-            state.journal.record(GameEvent::ObjectTapped {
-                object: id,
-                cause: Cause::Cost,
-            });
+            state.record_tap_event(id, true, Cause::Cost);
         }
     }
     if paid == selection.on_payment {

@@ -157,6 +157,7 @@ const TRANSLITERATE: &[(char, &str)] = &[
     ('ñ', "n"),
     ('ó', "o"),
     ('ô', "o"),
+    ('õ', "o"),
     ('ö', "o"),
     ('ø', "o"),
     ('ō', "o"),
@@ -326,11 +327,22 @@ fn type_expr(line: &str, cats: &SubtypeCatalogs) -> (String, String, Vec<String>
             unknown.push(word.to_string());
         }
     }
-    for word in right.split_whitespace() {
-        match cats.const_path(word) {
-            Some(path) => subtype_paths.push(path),
-            None => unknown.push(word.to_string()),
+    let right_words: Vec<&str> = right.split_whitespace().collect();
+    let mut i = 0;
+    while i < right_words.len() {
+        if i + 1 < right_words.len() {
+            let pair = format!("{} {}", right_words[i], right_words[i + 1]);
+            if let Some(path) = cats.const_path(&pair) {
+                subtype_paths.push(path);
+                i += 2;
+                continue;
+            }
         }
+        match cats.const_path(right_words[i]) {
+            Some(path) => subtype_paths.push(path),
+            None => unknown.push(right_words[i].to_string()),
+        }
+        i += 1;
     }
 
     let types = if type_bits.is_empty() {
@@ -640,19 +652,9 @@ fn render_face(
     card_name: &str,
     f: &FaceData,
     cats: &SubtypeCatalogs,
-    enter_modifiers: &[String],
-    alternative_costs: &[String],
-    flashback: Option<&str>,
-    flashback_parts: &[String],
-    madness: Option<&str>,
-    foretell: Option<&str>,
-    morph: Option<&str>,
-    cost_reduction: Option<&str>,
-    entwine: Option<&str>,
-    buyback: Option<&str>,
-    multikicker: Option<&str>,
-    additional_costs: &[String],
-    kicked_targets: Option<&str>,
+    body: Option<&CardBody>,
+    emit_face_rules: bool,
+    adventure: bool,
     is_back: bool,
     layout: Option<&str>,
 ) -> Result<String, CodegenError> {
@@ -663,10 +665,14 @@ fn render_face(
         format!("&[{}]", subtype_paths.join(", "))
     };
     let mut fields = vec![format!("name = {:?}", f.name)];
+    let disturb_back = is_back
+        .then(|| body.and_then(|b| b.disturb.as_deref()))
+        .flatten();
+    let face_mana = disturb_back.unwrap_or(&f.mana_cost);
     push_field(
         &mut fields,
         "mana_cost",
-        &mana_expr(card_name, &f.mana_cost)?,
+        &mana_expr(card_name, face_mana)?,
         "ManaCost::ZERO",
     );
     fields.push(format!("types = {types}"));
@@ -693,58 +699,153 @@ fn render_face(
         &color_indicator_expr(card_name, f)?,
         "ColorSet::EMPTY",
     );
-    if !enter_modifiers.is_empty() {
-        fields.push(format!(
-            "enter_modifiers = &[{}]",
-            enter_modifiers.join(", ")
-        ));
+    if let Some(body) = body {
+        if !body.enter_modifiers.is_empty() {
+            fields.push(format!(
+                "enter_modifiers = &[{}]",
+                body.enter_modifiers.join(", ")
+            ));
+        }
+        if !body.alternative_costs.is_empty() {
+            fields.push(format!(
+                "alternative_costs = &[{}]",
+                body.alternative_costs.join(", ")
+            ));
+        }
+        if !body.mandatory_additional_costs.is_empty() {
+            fields.push(format!(
+                "mandatory_additional_costs = &[{}]",
+                body.mandatory_additional_costs.join(", ")
+            ));
+        }
+        if body.convoke {
+            fields.push("convoke = true".to_string());
+        }
+        if body.delve {
+            fields.push("delve = true".to_string());
+        }
+        if body.improvise {
+            fields.push("improvise = true".to_string());
+        }
+        if let Some(rep) = body.replicate.as_deref() {
+            fields.push(format!("replicate = {rep}"));
+        }
+        if let Some(dis) = body.disguise.as_deref() {
+            fields.push(format!("disguise = {dis}"));
+        }
+        if let Some(fb) = body.flashback.as_deref() {
+            fields.push(format!("flashback = {fb}"));
+        }
+        push_cost_parts_field(&mut fields, "flashback_parts", &body.flashback_parts);
+        if let Some(madness) = body.madness.as_deref() {
+            fields.push(format!("madness = {madness}"));
+        }
+        if let Some(ft) = body.foretell.as_deref() {
+            fields.push(format!("foretell = {ft}"));
+        }
+        if let Some(miracle) = body.miracle.as_deref() {
+            fields.push(format!("miracle = {miracle}"));
+        }
+        if let Some(dash) = body.dash.as_deref() {
+            fields.push(format!("dash = {dash}"));
+        }
+        if let Some(blitz) = body.blitz.as_deref() {
+            fields.push(format!("blitz = {blitz}"));
+        }
+        if let Some(morph) = body.morph.as_deref() {
+            fields.push(format!("morph = {morph}"));
+        }
+        if let Some(megamorph) = body.megamorph.as_deref() {
+            fields.push(format!("megamorph = {megamorph}"));
+        }
+        push_cost_parts_field(&mut fields, "morph_parts", &body.morph_parts);
+        if let Some(bestow) = body.bestow.as_deref() {
+            fields.push(format!("bestow = {bestow}"));
+        }
+        if let Some(proto) = body.prototype.as_deref() {
+            fields.push(format!("prototype = {proto}"));
+        }
+        if body.bargain {
+            fields.push("bargain = true".to_string());
+        }
+        if let Some(emerge) = body.emerge.as_deref() {
+            fields.push(format!("emerge = {emerge}"));
+        }
+        if body.jump_start {
+            fields.push("jump_start = true".to_string());
+        }
+        if body.aftermath {
+            fields.push("aftermath = true".to_string());
+        }
+        if is_back && body.disturb.is_some() {
+            fields.push("disturb = true".to_string());
+        }
+        if let Some(esc) = body.escape.as_deref() {
+            fields.push(format!("escape = {esc}"));
+        }
+        if let Some(sq) = body.squad.as_deref() {
+            fields.push(format!("squad = {sq}"));
+        }
+        if let Some(off) = body.offspring.as_deref() {
+            fields.push(format!("offspring = {off}"));
+        }
+        if let Some(behold) = body.behold_or_pay.as_deref() {
+            fields.push(format!("behold_or_pay = {behold}"));
+        }
+        if let Some(mutate) = body.mutate.as_deref() {
+            fields.push(format!("mutate = {mutate}"));
+        }
+        if let Some(plot) = body.plot.as_deref() {
+            fields.push(format!("plot = {plot}"));
+        }
+        if let Some(casualty) = body.casualty.as_deref() {
+            fields.push(format!("casualty = {casualty}"));
+        }
+        if let Some(impending) = body.impending.as_deref() {
+            fields.push(format!("impending = {impending}"));
+        }
+        if let Some(gift) = body.gift.as_deref() {
+            fields.push(format!("gift = {gift}"));
+        }
+        if let Some(warp) = body.warp.as_deref() {
+            fields.push(format!("warp = {warp}"));
+        }
+        if let Some(cr) = body.cost_reduction.as_deref() {
+            fields.push(format!("cost_reduction = {cr}"));
+        }
+        if let Some(e) = body.entwine.as_deref() {
+            fields.push(format!("entwine = {e}"));
+        }
+        if let Some(b) = body.buyback.as_deref() {
+            fields.push(format!("buyback = {b}"));
+        }
+        if let Some(m) = body.multikicker.as_deref() {
+            fields.push(format!("multikicker = {m}"));
+        }
+        if !body.additional_costs.is_empty() {
+            fields.push(format!(
+                "additional_costs = &[{}]",
+                body.additional_costs.join(", ")
+            ));
+        }
+        if let Some(kt) = body.kicked_targets.as_deref() {
+            fields.push(format!("kicked_targets = {kt}"));
+        }
+        let prepare_front = !is_back && body.back_is_prepare;
+        if emit_face_rules && !body.keywords.is_empty() {
+            fields.push(format!("keywords = {}", join_union_owned(&body.keywords)));
+        }
+        if emit_face_rules && !prepare_front && !body.abilities.is_empty() {
+            let mut list = String::from("abilities = &[\n");
+            for ability in &body.abilities {
+                list.push_str(&format!("            {ability},\n"));
+            }
+            list.push_str("        ]");
+            fields.push(list);
+        }
     }
-    if !alternative_costs.is_empty() {
-        fields.push(format!(
-            "alternative_costs = &[{}]",
-            alternative_costs.join(", ")
-        ));
-    }
-    if let Some(fb) = flashback {
-        fields.push(format!("flashback = {fb}"));
-    }
-    if !flashback_parts.is_empty() {
-        let parts = flashback_parts
-            .iter()
-            .map(|part| format!("CostPart::{part}"))
-            .collect::<Vec<_>>()
-            .join(", ");
-        fields.push(format!("flashback_parts = &[{parts}]"));
-    }
-    if let Some(madness) = madness {
-        fields.push(format!("madness = {madness}"));
-    }
-    if let Some(ft) = foretell {
-        fields.push(format!("foretell = {ft}"));
-    }
-    if let Some(morph) = morph {
-        fields.push(format!("morph = {morph}"));
-    }
-    if let Some(cr) = cost_reduction {
-        fields.push(format!("cost_reduction = {cr}"));
-    }
-    if let Some(e) = entwine {
-        fields.push(format!("entwine = {e}"));
-    }
-    if let Some(b) = buyback {
-        fields.push(format!("buyback = {b}"));
-    }
-    if let Some(m) = multikicker {
-        fields.push(format!("multikicker = {m}"));
-    }
-    if !additional_costs.is_empty() {
-        fields.push(format!(
-            "additional_costs = &[{}]",
-            additional_costs.join(", ")
-        ));
-    }
-    if let Some(kt) = kicked_targets {
-        fields.push(format!("kicked_targets = {kt}"));
+    if adventure {
+        fields.push("adventure = true".to_string());
     }
     // CR 712.2 vs. 712.4a: an MDFC's back is castable or playable from hand,
     // a nonmodal (transforming) one's back is not — in hand the card has
@@ -767,7 +868,12 @@ fn render_face(
     // still catches a meld back or any other layout whose back prints no
     // cost and is no land.
     let transforming = matches!(layout, Some("transform" | "meld"));
-    if is_back && (transforming || (!types.contains("TypeSet::LAND") && f.mana_cost.is_empty())) {
+    let aftermath = body.is_some_and(|b| b.aftermath);
+    if is_back
+        && (transforming
+            || aftermath
+            || (!types.contains("TypeSet::LAND") && f.mana_cost.is_empty()))
+    {
         fields.push("castable_from_hand = false".to_string());
     }
 
@@ -782,6 +888,18 @@ fn render_face(
         ));
     }
     Ok(out)
+}
+
+fn push_cost_parts_field(fields: &mut Vec<String>, name: &str, parts: &[String]) {
+    if parts.is_empty() {
+        return;
+    }
+    let rendered = parts
+        .iter()
+        .map(|part| format!("CostPart::{part}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    fields.push(format!("{name} = &[{rendered}]"));
 }
 
 /// The coverage line of a card a reader read in full.
@@ -842,8 +960,11 @@ fn render_card_literal(
     );
 
     if let Some(land) = land {
-        if !land.keywords.is_empty() {
+        if land.back.is_none() && !land.keywords.is_empty() {
             fields.push(format!("keywords = {}", join_union_owned(&land.keywords)));
+        }
+        if land.fuse {
+            fields.push("fuse = true".to_string());
         }
         fields.push(read_coverage(tested).to_string());
     }
@@ -854,9 +975,15 @@ fn render_card_literal(
     }
     out.push_str(&format!("    faces = &[\n{face_defs}    ],\n"));
     if let Some(land) = land
-        && !land.abilities.is_empty()
+        && (land.back.is_none() || land.back_is_prepare)
+        && (!land.abilities.is_empty() || land.back_is_prepare)
     {
         out.push_str("    abilities = &[\n");
+        if land.back_is_prepare {
+            out.push_str(&format!(
+                "        AbilityDef::Prepared {{ card: index::{constant}, face: 1 }},\n"
+            ));
+        }
         for ability in &land.abilities {
             out.push_str(&format!("        {ability},\n"));
         }
@@ -932,6 +1059,7 @@ fn vanilla(faces: &[FaceData], script: &crate::scriptgen::CardScript) -> Option<
     })
 }
 
+#[cfg(test)]
 fn transcode_card(
     script: &crate::scriptgen::CardScript,
     type_line: &str,
@@ -942,6 +1070,86 @@ fn transcode_card(
     if let Some(ability) = crate::landgen::intrinsic_mana_ability(type_line) {
         body.abilities.insert(0, ability);
         body.notes.insert(0, "intrinsic type mana".to_string());
+    }
+    Some(body)
+}
+
+fn transcode_faces(
+    card: &ScryfallCard,
+    faces: &[FaceData],
+    script: &crate::scriptgen::CardScript,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&crate::tokengen::TokenLookup>,
+) -> Option<CardBody> {
+    let mut body = crate::scriptgen::transcode(script, cats, tokens)?;
+    if body.has_partner {
+        let has_printed_partner = faces.iter().any(|f| {
+            f.oracle_text
+                .lines()
+                .any(|l| l == "Partner" || l.starts_with("Partner ("))
+        });
+        if !has_printed_partner {
+            return None;
+        }
+    }
+    if script.has_commander_text && commander_rule(faces) != "CommanderRule::ExplicitlyAllowed" {
+        return None;
+    }
+    if body.aftermath {
+        return None;
+    }
+    if body.back.is_some() {
+        if faces.len() != 2 {
+            return None;
+        }
+        if body.back.as_deref().is_some_and(|b| b.aftermath)
+            && script.alternate_mode.as_deref() != Some("Split")
+        {
+            return None;
+        }
+        if body.disturb.is_some()
+            && (script.alternate_mode.as_deref() != Some("DoubleFaced")
+                || !faces[1].mana_cost.trim().is_empty())
+        {
+            return None;
+        }
+        let layout_ok = matches!(
+            (script.alternate_mode.as_deref(), card.layout.as_deref()),
+            (Some("Split"), Some("split"))
+                | (Some("Adventure"), Some("adventure"))
+                | (Some("Modal"), Some("modal_dfc"))
+                | (Some("DoubleFaced"), Some("transform"))
+                | (Some("Prepare"), Some("prepare"))
+        );
+        if !layout_ok {
+            return None;
+        }
+        if let Some(ability) = crate::landgen::intrinsic_mana_ability(&faces[0].type_line) {
+            body.abilities.insert(0, ability);
+            body.notes.insert(0, "intrinsic type mana".to_string());
+        }
+        if let Some(back) = body.back.as_deref_mut()
+            && let Some(ability) = crate::landgen::intrinsic_mana_ability(&faces[1].type_line)
+        {
+            back.abilities.insert(0, ability);
+            body.notes.insert(0, "intrinsic type mana".to_string());
+        }
+        if !body.has_own_rules() && !faces[0].oracle_text.trim().is_empty() {
+            return None;
+        }
+        if body.back.as_deref().is_some_and(|b| !b.has_own_rules())
+            && !faces[1].oracle_text.trim().is_empty()
+        {
+            return None;
+        }
+    } else {
+        if faces.len() != 1 {
+            return None;
+        }
+        if let Some(ability) = crate::landgen::intrinsic_mana_ability(&faces[0].type_line) {
+            body.abilities.insert(0, ability);
+            body.notes.insert(0, "intrinsic type mana".to_string());
+        }
     }
     Some(body)
 }
@@ -1249,8 +1457,13 @@ mod tests {
         assert_eq!(slug("Ifh-Bíff Efreet"), "ifh_biff_efreet");
         assert_eq!(slug("Séance"), "seance");
         assert_eq!(slug("Márton Stromgald"), "marton_stromgald");
+        assert_eq!(
+            slug("Võx, Child of the Collective"),
+            "vox_child_of_the_collective"
+        );
         // Uppercase folds to the same letter, and punctuation still goes.
         assert_eq!(slug("Éowyn, Lady of Rohan"), "eowyn_lady_of_rohan");
+        assert_eq!(slug("Õ"), "o");
         assert_eq!(slug("Ach! Hans, Run!"), "ach_hans_run");
         // A digit cannot open a Rust identifier.
         assert!(slug("1996 World Champion").starts_with("c_"));
@@ -1262,6 +1475,8 @@ mod tests {
     #[test]
     fn a_letter_with_no_ascii_answer_is_refused_rather_than_dropped() {
         assert_eq!(untransliterable("Barad-dûr"), None);
+        assert_eq!(untransliterable("Võx, Child of the Collective"), None);
+        assert_eq!(untransliterable("Õ"), None);
         assert_eq!(untransliterable("Lightning Bolt"), None);
         // Punctuation is meant to be dropped and is not a refusal.
         assert_eq!(untransliterable("Ach! Hans, Run! — again"), None);
@@ -1862,6 +2077,1056 @@ mod tests {
         assert!(
             rendered.contains("coverage = Coverage::Generated"),
             "{rendered}"
+        );
+    }
+
+    #[test]
+    fn split_card_renders_face_local_abilities() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("split.txt"),
+            "Name:Alpha\nManaCost:R\nTypes:Sorcery\n\
+             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2\n\
+             AlternateMode:Split\n\
+             ALTERNATE\n\
+             Name:Beta\nManaCost:1 U\nTypes:Instant\n\
+             A:SP$ Draw | NumCards$ 1\n",
+        )
+        .expect("split script");
+        let mut index = BTreeMap::new();
+        index.insert("Alpha // Beta".to_string(), "split.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let split_card = ScryfallCard {
+            name: "Alpha // Beta".to_string(),
+            layout: Some("split".to_string()),
+            card_faces: Some(vec![
+                ScryfallFace {
+                    watermark: None,
+                    name: "Alpha".to_string(),
+                    mana_cost: Some("{R}".to_string()),
+                    type_line: Some("Sorcery".to_string()),
+                    oracle_text: Some("Alpha deals 2 damage to any target.".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+                ScryfallFace {
+                    watermark: None,
+                    name: "Beta".to_string(),
+                    mana_cost: Some("{1}{U}".to_string()),
+                    type_line: Some("Instant".to_string()),
+                    oracle_text: Some("Draw a card.".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+            ]),
+            ..bare_card("Alpha // Beta", "Sorcery // Instant")
+        };
+        let (_, rendered_split) = render_stub(
+            &split_card,
+            &row(10, "ALPHA"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .unwrap();
+        assert!(
+            rendered_split.contains("coverage = Coverage::Generated"),
+            "{rendered_split}"
+        );
+        assert_eq!(
+            rendered_split.matches("        abilities = &[\n").count(),
+            2,
+            "{rendered_split}"
+        );
+        assert!(
+            !rendered_split.contains("\n    abilities = &[\n"),
+            "{rendered_split}"
+        );
+    }
+
+    #[test]
+    fn adventure_card_renders_face_local_abilities() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("adv.txt"),
+            "Name:Knight\nManaCost:2 W\nTypes:Creature\nPT:2/2\nK:Flying\n\
+             AlternateMode:Adventure\n\
+             ALTERNATE\n\
+             Name:Quest\nManaCost:W\nTypes:Instant Adventure\n\
+             A:SP$ GainLife | LifeAmount$ 3\n",
+        )
+        .expect("adv script");
+        let mut index = BTreeMap::new();
+        index.insert("Knight // Quest".to_string(), "adv.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let adv_card = ScryfallCard {
+            name: "Knight // Quest".to_string(),
+            layout: Some("adventure".to_string()),
+            card_faces: Some(vec![
+                ScryfallFace {
+                    watermark: None,
+                    name: "Knight".to_string(),
+                    mana_cost: Some("{2}{W}".to_string()),
+                    type_line: Some("Creature".to_string()),
+                    oracle_text: Some("Flying".to_string()),
+                    power: Some("2".to_string()),
+                    toughness: Some("2".to_string()),
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+                ScryfallFace {
+                    watermark: None,
+                    name: "Quest".to_string(),
+                    mana_cost: Some("{W}".to_string()),
+                    type_line: Some("Instant".to_string()),
+                    oracle_text: Some("You gain 3 life.".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+            ]),
+            ..bare_card("Knight // Quest", "Creature // Instant")
+        };
+        let (_, rendered_adv) = render_stub(
+            &adv_card,
+            &row(11, "KNIGHT"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .unwrap();
+        assert!(
+            rendered_adv.contains("coverage = Coverage::Generated"),
+            "{rendered_adv}"
+        );
+        assert!(
+            rendered_adv.contains("keywords = KeywordSet::FLYING"),
+            "{rendered_adv}"
+        );
+        assert!(rendered_adv.contains("adventure = true"), "{rendered_adv}");
+        assert!(
+            !rendered_adv.contains("\n    abilities = &[\n"),
+            "{rendered_adv}"
+        );
+    }
+
+    #[test]
+    fn wave5_aftermath_renders_back_only_and_refuses_front_or_solo() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("split_after.txt"),
+            "Name:Spark\nManaCost:1 R\nTypes:Sorcery\n\
+             A:SP$ Draw | NumCards$ 1\n\
+             AlternateMode:Split\n\
+             ALTERNATE\n\
+             Name:Ember\nManaCost:2 R\nTypes:Sorcery\n\
+             K:Aftermath\n\
+             A:SP$ GainLife | LifeAmount$ 3\n",
+        )
+        .expect("split_after script");
+        std::fs::write(
+            dir.path().join("bad_after_front.txt"),
+            "Name:Front\nManaCost:R\nTypes:Sorcery\n\
+             K:Aftermath\n\
+             A:SP$ Draw | NumCards$ 1\n\
+             AlternateMode:Split\n\
+             ALTERNATE\n\
+             Name:Back\nManaCost:1 R\nTypes:Sorcery\n\
+             A:SP$ GainLife | LifeAmount$ 2\n",
+        )
+        .expect("bad_after_front script");
+        std::fs::write(
+            dir.path().join("bad_after_single.txt"),
+            "Name:SoloAfter\nManaCost:1 U\nTypes:Instant\n\
+             K:Aftermath\n\
+             A:SP$ Draw | NumCards$ 1\n",
+        )
+        .expect("bad_after_single script");
+
+        let mut index = BTreeMap::new();
+        index.insert("Spark // Ember".to_string(), "split_after.txt".to_string());
+        index.insert(
+            "Front // Back".to_string(),
+            "bad_after_front.txt".to_string(),
+        );
+        index.insert("SoloAfter".to_string(), "bad_after_single.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let make_face = |name: &str, mana: &str, oracle: &str| ScryfallFace {
+            watermark: None,
+            name: name.to_string(),
+            mana_cost: Some(mana.to_string()),
+            type_line: Some("Sorcery".to_string()),
+            oracle_text: Some(oracle.to_string()),
+            power: None,
+            toughness: None,
+            loyalty: None,
+            defense: None,
+            colors: None,
+            image_uris: None,
+        };
+
+        let render_one = |card: &ScryfallCard, id, sym| {
+            render_stub(
+                card,
+                &row(id, sym),
+                &IndexLedger::default(),
+                &SubtypeCatalogs::default(),
+                Some(&scripts),
+                None,
+                &|_| false,
+            )
+            .expect("render")
+            .1
+        };
+
+        let split_card = ScryfallCard {
+            name: "Spark // Ember".to_string(),
+            layout: Some("split".to_string()),
+            card_faces: Some(vec![
+                make_face("Spark", "{1}{R}", "Draw a card."),
+                make_face("Ember", "{2}{R}", "Aftermath"),
+            ]),
+            ..bare_card("Spark // Ember", "Sorcery // Sorcery")
+        };
+        let rendered_after = render_one(&split_card, 20, "SPARK");
+        assert!(
+            rendered_after.contains("aftermath = true")
+                && rendered_after.contains("castable_from_hand = false"),
+            "{rendered_after}"
+        );
+
+        let bad_front = ScryfallCard {
+            name: "Front // Back".to_string(),
+            layout: Some("split".to_string()),
+            card_faces: split_card.card_faces.clone(),
+            ..bare_card("Front // Back", "Sorcery // Sorcery")
+        };
+        let rendered_bad_front = render_one(&bad_front, 21, "FRONT");
+        assert!(
+            rendered_bad_front.contains("// GENERATED STUB")
+                && !rendered_bad_front.contains("aftermath = true"),
+            "{rendered_bad_front}"
+        );
+
+        let rendered_solo_after = render_one(&bare_card("SoloAfter", "Instant"), 22, "SOLO_AFTER");
+        assert!(
+            rendered_solo_after.contains("// GENERATED STUB")
+                && !rendered_solo_after.contains("aftermath = true"),
+            "{rendered_solo_after}"
+        );
+    }
+
+    #[test]
+    fn wave5_megamorph_morph_parts_bestow_and_jump_start_render_on_face() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("mega_parts.txt"),
+            "Name:Shell\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+             K:Megamorph:1 U PayLife<3>\n",
+        )
+        .expect("mega_parts script");
+        std::fs::write(
+            dir.path().join("bestow_jump.txt"),
+            "Name:SparkAura\nManaCost:1 W\nTypes:Enchantment Creature\nPT:1/1\n\
+             K:Bestow:3 W\n",
+        )
+        .expect("bestow script");
+        std::fs::write(
+            dir.path().join("jump.txt"),
+            "Name:SparkJump\nManaCost:1 R\nTypes:Instant\n\
+             K:Jump-start\n\
+             A:SP$ Draw | NumCards$ 1\n",
+        )
+        .expect("jump script");
+
+        let mut index = BTreeMap::new();
+        index.insert("Shell".to_string(), "mega_parts.txt".to_string());
+        index.insert("SparkAura".to_string(), "bestow_jump.txt".to_string());
+        index.insert("SparkJump".to_string(), "jump.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let (_, rendered_mega) = render_stub(
+            &bare_card("Shell", "Creature"),
+            &row(23, "SHELL"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("megamorph should render");
+        assert!(
+            rendered_mega.contains("megamorph = Some(mana!(\"{1}{U}\"))")
+                && rendered_mega.contains("morph_parts = &[CostPart::PayLife(3)]"),
+            "{rendered_mega}"
+        );
+
+        let (_, rendered_bestow) = render_stub(
+            &bare_card("SparkAura", "Enchantment Creature"),
+            &row(24, "SPARK_AURA"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("bestow should render");
+        assert!(
+            rendered_bestow.contains("bestow = Some(cost!(\"{3}{W}\"))"),
+            "{rendered_bestow}"
+        );
+
+        let (_, rendered_jump) = render_stub(
+            &bare_card("SparkJump", "Instant"),
+            &row(25, "SPARK_JUMP"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("jump-start should render");
+        assert!(
+            rendered_jump.contains("jump_start = true"),
+            "{rendered_jump}"
+        );
+    }
+
+    #[test]
+    fn wave6b_miracle_dash_and_blitz_render_on_face() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("miracle_x.txt"),
+            "Name:DawnBolt\nManaCost:X R\nTypes:Sorcery\n\
+             K:Miracle:X W\nSVar:X:Count$xPaid\nA:SP$ GainLife | LifeAmount$ X\n",
+        )
+        .expect("miracle script");
+        std::fs::write(
+            dir.path().join("dash_creature.txt"),
+            "Name:SwiftScout\nManaCost:2 R\nTypes:Creature\nPT:2/1\nK:Dash:1 R\n",
+        )
+        .expect("dash script");
+        std::fs::write(
+            dir.path().join("blitz_creature.txt"),
+            "Name:AshBrawler\nManaCost:3 B\nTypes:Creature\nPT:3/2\nK:Blitz:1 B PayLife<2>\n",
+        )
+        .expect("blitz script");
+
+        let mut index = BTreeMap::new();
+        index.insert("DawnBolt".to_string(), "miracle_x.txt".to_string());
+        index.insert("SwiftScout".to_string(), "dash_creature.txt".to_string());
+        index.insert("AshBrawler".to_string(), "blitz_creature.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let (_, rendered_miracle) = render_stub(
+            &bare_card("DawnBolt", "Sorcery"),
+            &row(26, "DAWN_BOLT"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("miracle should render");
+        assert!(
+            rendered_miracle.contains("miracle = Some(mana!(\"{X}{W}\"))"),
+            "{rendered_miracle}"
+        );
+
+        let (_, rendered_dash) = render_stub(
+            &bare_card("SwiftScout", "Creature"),
+            &row(27, "SWIFT_SCOUT"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("dash should render");
+        assert!(
+            rendered_dash.contains("dash = Some(mana!(\"{1}{R}\"))"),
+            "{rendered_dash}"
+        );
+
+        let (_, rendered_blitz) = render_stub(
+            &bare_card("AshBrawler", "Creature"),
+            &row(28, "ASH_BRAWLER"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("blitz should render");
+        assert!(
+            rendered_blitz.contains("blitz = Some(cost!(\"{1}{B}\", PayLife(2)))"),
+            "{rendered_blitz}"
+        );
+    }
+
+    #[test]
+    fn wave7_prepare_and_copy_face_from_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("arcane_spark.txt"),
+            "Name:Arcane Spark\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 2\n",
+        )
+        .expect("spark script");
+        std::fs::write(
+            dir.path().join("dawn_scholar.txt"),
+            "Name:Dawn Scholar\nManaCost:2 U\nTypes:Creature Human Wizard\nPT:2/3\n\
+             K:Flying\n\
+             K:ETBReplacement:Other:DBPrepare\n\
+             SVar:DBPrepare:DB$ AlterAttribute | Attributes$ Prepared\n\
+             T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ Gain\n\
+             SVar:Gain:DB$ GainLife | LifeAmount$ 1\n\
+             AlternateMode:Prepare\n\
+             ALTERNATE\n\
+             Name:Arcane Spark\n\
+             CopyFaceFrom:Arcane Spark\n",
+        )
+        .expect("prepare script");
+        let mut index = BTreeMap::new();
+        index.insert("Arcane Spark".to_string(), "arcane_spark.txt".to_string());
+        index.insert("Dawn Scholar".to_string(), "dawn_scholar.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let prep_card = ScryfallCard {
+            name: "Dawn Scholar // Arcane Spark".to_string(),
+            layout: Some("prepare".to_string()),
+            card_faces: Some(vec![
+                ScryfallFace {
+                    watermark: None,
+                    name: "Dawn Scholar".to_string(),
+                    mana_cost: Some("{2}{U}".to_string()),
+                    type_line: Some("Creature".to_string()),
+                    oracle_text: Some("Flying\nThis creature enters prepared.".to_string()),
+                    power: Some("2".to_string()),
+                    toughness: Some("3".to_string()),
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+                ScryfallFace {
+                    watermark: None,
+                    name: "Arcane Spark".to_string(),
+                    mana_cost: Some("{U}".to_string()),
+                    type_line: Some("Instant".to_string()),
+                    oracle_text: Some("Draw two cards.".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+            ]),
+            ..bare_card("Dawn Scholar // Arcane Spark", "Creature // Instant")
+        };
+        let (_, rendered) = render_stub(
+            &prep_card,
+            &row(29, "DAWN_SCHOLAR"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("prepare card should render");
+        assert!(
+            rendered.contains("coverage = Coverage::Generated"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("EnterModifier::Prepared"), "{rendered}");
+        assert!(
+            rendered.contains("AbilityDef::Prepared { card: index::DAWN_SCHOLAR, face: 1 }"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("Effect::gain_life(1)"), "{rendered}");
+        assert!(rendered.contains("Effect::draw(2)"), "{rendered}");
+        assert!(
+            !rendered.contains("            triggered!("),
+            "front abilities belong on CardDef, not faces[0]: {rendered}"
+        );
+        assert!(
+            !rendered.contains("castable_from_hand = false"),
+            "{rendered}"
+        );
+    }
+
+    #[test]
+    fn wave11a_squad_offspring_and_escape_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("squad_guy.txt"),
+            "Name:SquadGuy\nManaCost:2 W\nTypes:Creature Soldier\nPT:2/2\nK:Squad:1 W\nK:Offspring:2\n",
+        )
+        .expect("squad script");
+        std::fs::write(
+            dir.path().join("escape_guy.txt"),
+            "Name:EscapeGuy\nManaCost:1 G\nTypes:Creature Hound\nPT:2/2\n\
+             K:Escape:2 G ExileFromGrave<3/Card.Other/other cards>\n",
+        )
+        .expect("escape script");
+
+        let mut index = BTreeMap::new();
+        index.insert("SquadGuy".to_string(), "squad_guy.txt".to_string());
+        index.insert("EscapeGuy".to_string(), "escape_guy.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let (_, squad_out) = render_stub(
+            &bare_card("SquadGuy", "Creature"),
+            &row(30, "SQUAD_GUY"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("squad renders");
+        assert!(
+            squad_out.contains("squad = Some(cost!(\"{1}{W}\"))"),
+            "{squad_out}"
+        );
+        assert!(
+            squad_out.contains("offspring = Some(cost!(\"{2}\"))"),
+            "{squad_out}"
+        );
+
+        let (_, escape_out) = render_stub(
+            &bare_card("EscapeGuy", "Creature"),
+            &row(31, "ESCAPE_GUY"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("escape renders");
+        assert!(
+            escape_out.contains("escape = Some(Escape { cost: mana!(\"{2}{G}\"), exile: 3 })"),
+            "{escape_out}"
+        );
+    }
+
+    #[test]
+    fn wave11a_fuse_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("fuse_split.txt"),
+            "Name:Spark\nManaCost:R\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2\n\
+             K:Fuse\nAlternateMode:Split\nALTERNATE\n\
+             Name:Glow\nManaCost:1 W\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ 3\n",
+        )
+        .expect("fuse script");
+
+        let mut index = BTreeMap::new();
+        index.insert("Spark".to_string(), "fuse_split.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let split_card = ScryfallCard {
+            name: "Spark // Glow".to_string(),
+            layout: Some("split".to_string()),
+            card_faces: Some(vec![
+                ScryfallFace {
+                    watermark: None,
+                    name: "Spark".to_string(),
+                    mana_cost: Some("{R}".to_string()),
+                    type_line: Some("Instant".to_string()),
+                    oracle_text: Some("Deal 2 damage.\nFuse".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+                ScryfallFace {
+                    watermark: None,
+                    name: "Glow".to_string(),
+                    mana_cost: Some("{1}{W}".to_string()),
+                    type_line: Some("Sorcery".to_string()),
+                    oracle_text: Some("Gain 3 life.\nFuse".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+            ]),
+            ..bare_card("Spark // Glow", "Instant // Sorcery")
+        };
+        let (_, fuse_out) = render_stub(
+            &split_card,
+            &row(32, "SPARK_GLOW"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("fuse renders");
+        assert!(fuse_out.contains("fuse = true,"), "{fuse_out}");
+    }
+
+    #[test]
+    fn wave11a_disturb_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("disturb_dude.txt"),
+            "Name:MortalScout\nManaCost:1 U\nTypes:Creature Human\nPT:1/1\n\
+             K:Disturb:2 U\nAlternateMode:DoubleFaced\nALTERNATE\n\
+             Name:SpiritScout\nColors:blue\nTypes:Creature Spirit\nPT:2/2\nK:Flying\n\
+             R:Event$ Moved | ValidCard$ Card.Self | Destination$ Graveyard | ReplaceWith$ ExileSelf\n\
+             SVar:ExileSelf:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard\n",
+        )
+        .expect("disturb script");
+
+        let mut index = BTreeMap::new();
+        index.insert("MortalScout".to_string(), "disturb_dude.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let disturb_card = ScryfallCard {
+            name: "MortalScout // SpiritScout".to_string(),
+            layout: Some("transform".to_string()),
+            card_faces: Some(vec![
+                ScryfallFace {
+                    watermark: None,
+                    name: "MortalScout".to_string(),
+                    mana_cost: Some("{1}{U}".to_string()),
+                    type_line: Some("Creature".to_string()),
+                    oracle_text: Some("Disturb {2}{U}".to_string()),
+                    power: Some("1".to_string()),
+                    toughness: Some("1".to_string()),
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+                ScryfallFace {
+                    watermark: None,
+                    name: "SpiritScout".to_string(),
+                    mana_cost: None,
+                    type_line: Some("Creature".to_string()),
+                    oracle_text: Some("Flying\nExile if put into graveyard.".to_string()),
+                    power: Some("2".to_string()),
+                    toughness: Some("2".to_string()),
+                    loyalty: None,
+                    defense: None,
+                    colors: Some(vec!["U".to_string()]),
+                    image_uris: None,
+                },
+            ]),
+            ..bare_card("MortalScout // SpiritScout", "Creature // Creature")
+        };
+        let (_, disturb_out) = render_stub(
+            &disturb_card,
+            &row(33, "MORTAL_SCOUT"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("disturb renders");
+        assert!(disturb_out.contains("disturb = true,"), "{disturb_out}");
+        assert_eq!(
+            disturb_out.matches("disturb = true,").count(),
+            1,
+            "{disturb_out}"
+        );
+        assert!(
+            disturb_out.contains("mana_cost = mana!(\"{2}{U}\")"),
+            "{disturb_out}"
+        );
+        assert!(
+            disturb_out.contains("castable_from_hand = false,"),
+            "{disturb_out}"
+        );
+    }
+
+    #[test]
+    fn wave12a_behold_and_mutate_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("behold.txt"),
+            "Name:BeholdScout\nManaCost:2 W\nTypes:Creature Goblin\nPT:2/2\n\
+             K:AlternateAdditionalCost:Behold<1/Goblin>:2\n",
+        )
+        .expect("behold script");
+        std::fs::write(
+            dir.path().join("mutate.txt"),
+            "Name:MutateBeast\nManaCost:3 G\nTypes:Creature\nPT:3/3\nK:Mutate:1 G\n",
+        )
+        .expect("mutate script");
+
+        let mut index = BTreeMap::new();
+        index.insert("BeholdScout".to_string(), "behold.txt".to_string());
+        index.insert("MutateBeast".to_string(), "mutate.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let mut cats = SubtypeCatalogs {
+            creature: vec!["Goblin".to_string()],
+            ..SubtypeCatalogs::default()
+        };
+        cats.normalize();
+
+        let (_, behold_out) = render_stub(
+            &bare_card("BeholdScout", "Creature — Goblin"),
+            &row(34, "BEHOLD_SCOUT"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("behold renders");
+        assert!(
+            behold_out.contains("behold_or_pay = Some(BeholdOrPay {")
+                && behold_out.contains("cost: mana!(\"{2}\")")
+                && behold_out.contains("GOBLIN"),
+            "{behold_out}"
+        );
+
+        let (_, mutate_out) = render_stub(
+            &bare_card("MutateBeast", "Creature"),
+            &row(35, "MUTATE_BEAST"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("mutate renders");
+        assert!(
+            mutate_out.contains("mutate = Some(mana!(\"{1}{G}\")),"),
+            "{mutate_out}"
+        );
+    }
+
+    #[test]
+    fn wave12a_commander_text_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("commander_walker.txt"),
+            "Name:SparkWalker\nManaCost:2 U\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             K:Flying\nText:CARDNAME can be your commander.\n",
+        )
+        .expect("commander walker script");
+
+        let mut index = BTreeMap::new();
+        index.insert(
+            "SparkWalker".to_string(),
+            "commander_walker.txt".to_string(),
+        );
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let walker_ok = ScryfallCard {
+            loyalty: Some("3".to_string()),
+            oracle_text: Some("Flying\nSparkWalker can be your commander.".to_string()),
+            ..bare_card("SparkWalker", "Legendary Planeswalker")
+        };
+        let (_, walker_out) = render_stub(
+            &walker_ok,
+            &row(36, "SPARK_WALKER"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("commander walker renders");
+        assert!(
+            walker_out.contains("KeywordSet::FLYING")
+                && walker_out.contains("CommanderRule::ExplicitlyAllowed"),
+            "{walker_out}"
+        );
+
+        let walker_mismatch = ScryfallCard {
+            oracle_text: Some("Flying".to_string()),
+            ..walker_ok
+        };
+        let (_, mismatch_out) = render_stub(
+            &walker_mismatch,
+            &row(37, "SPARK_WALKER_MISMATCH"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("mismatched commander walker renders stub fallback");
+        assert!(
+            !mismatch_out.contains("KeywordSet::FLYING"),
+            "{mismatch_out}"
+        );
+    }
+
+    #[test]
+    fn wave13a_plot_casualty_and_pruned_static_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("plot.txt"),
+            "Name:PlotSpell\nManaCost:2 R\nTypes:Sorcery\nK:Plot:1 R\n\
+             A:SP$ Draw | Defined$ You | NumCards$ 1\n",
+        )
+        .expect("plot script");
+        std::fs::write(
+            dir.path().join("casualty.txt"),
+            "Name:CasSpell\nManaCost:1 B\nTypes:Instant\nK:Casualty:2\n\
+             A:SP$ GainLife | LifeAmount$ 3\n",
+        )
+        .expect("casualty script");
+        std::fs::write(
+            dir.path().join("each_opp.txt"),
+            "Name:EachOppSweep\nManaCost:3 B G\nTypes:Instant\n\
+             A:SP$ Destroy | ValidTgts$ Creature.powerGE3+OppCtrl | \
+             TargetMin$ 0 | TargetMax$ OneEach | TargetsForEachPlayer$ True\n\
+             SVar:OneEach:PlayerCountOpponents$Amount\n",
+        )
+        .expect("each_opp script");
+
+        let mut index = BTreeMap::new();
+        index.insert("PlotSpell".to_string(), "plot.txt".to_string());
+        index.insert("CasSpell".to_string(), "casualty.txt".to_string());
+        index.insert("EachOppSweep".to_string(), "each_opp.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let (_, plot_out) = render_stub(
+            &bare_card("PlotSpell", "Sorcery"),
+            &row(38, "PLOT_SPELL"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("plot renders");
+        assert!(
+            plot_out.contains("plot = Some(mana!(\"{1}{R}\")),"),
+            "{plot_out}"
+        );
+
+        let (_, cas_out) = render_stub(
+            &bare_card("CasSpell", "Instant"),
+            &row(39, "CAS_SPELL"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("casualty renders");
+        assert!(cas_out.contains("casualty = Some(2),"), "{cas_out}");
+
+        let (_, opp_out) = render_stub(
+            &bare_card("EachOppSweep", "Instant"),
+            &row(40, "EACH_OPP_SWEEP"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("each_opp renders");
+        assert!(
+            opp_out.contains("TargetSpec::ObjectOfEachOpponent(&TARGET2)")
+                && opp_out.contains("static TARGET2:")
+                && !opp_out.contains("static TARGET1:"),
+            "{opp_out}"
+        );
+    }
+
+    #[test]
+    fn wave13a_backup_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("backup.txt"),
+            "Name:BackupScout\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+             K:Flying\nK:Backup:1:Grant\n\
+             SVar:Grant:DB$ Animate | Keywords$ Flying | Abilities$ AbGain\n\
+             SVar:AbGain:AB$ GainLife | Cost$ T | LifeAmount$ 1\n",
+        )
+        .expect("backup script");
+        let mut index = BTreeMap::new();
+        index.insert("BackupScout".to_string(), "backup.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let (_, out) = render_stub(
+            &bare_card("BackupScout", "Creature"),
+            &row(41, "BACKUP_SCOUT"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("backup renders");
+        assert!(
+            out.contains("static BACKUP_GRANTED1: [AbilityDef; 1] = [activated!(Cost::TAP, &[Effect::gain_life(1)])];")
+                && out.contains("Effect::Backup { count: 1, keywords: KeywordSet::FLYING, grant_abilities: &BACKUP_GRANTED1 }"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn two_word_subtypes_resolve_without_unknowns() {
+        let mut cats = SubtypeCatalogs {
+            creature: vec!["Scientist".into(), "Time Lord".into()],
+            ..SubtypeCatalogs::default()
+        };
+        cats.normalize();
+        let (types, _supers, subtype_paths, unknown) =
+            type_expr("Creature \u{2014} Time Lord Scientist", &cats);
+        assert!(unknown.is_empty(), "{unknown:?}");
+        assert!(types.contains("TypeSet::CREATURE"), "{types}");
+        assert!(
+            subtype_paths
+                .iter()
+                .any(|p| p == "subtypes::creature::TIME_LORD"),
+            "{subtype_paths:?}"
+        );
+        assert!(
+            subtype_paths
+                .iter()
+                .any(|p| p == "subtypes::creature::SCIENTIST"),
+            "{subtype_paths:?}"
+        );
+    }
+
+    #[test]
+    fn wave15a_impending_and_gift_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("impending_giant.txt"),
+            "Name:ImpendingGiant\nManaCost:4 R R\nTypes:Creature Giant\nPT:5/5\n\
+             K:Impending:4:2 R R\n",
+        )
+        .expect("impending script");
+        std::fs::write(
+            dir.path().join("gift_charm.txt"),
+            "Name:GiftCharm\nManaCost:1 W\nTypes:Instant\n\
+             K:Gift\n\
+             SVar:GiftAbility:DB$ Token | TokenScript$ c_a_food_sac | TokenOwner$ Promised | GiftDescription$ a Food\n\
+             A:SP$ GainLife | Defined$ You | LifeAmount$ 3\n",
+        )
+        .expect("gift script");
+
+        let mut index = BTreeMap::new();
+        index.insert(
+            "ImpendingGiant".to_string(),
+            "impending_giant.txt".to_string(),
+        );
+        index.insert("GiftCharm".to_string(), "gift_charm.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let (_, imp_out) = render_stub(
+            &bare_card("ImpendingGiant", "Creature"),
+            &row(42, "IMPENDING_GIANT"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("impending renders");
+        assert!(
+            imp_out.contains("impending = Some((4, mana!(\"{2}{R}{R}\"))),"),
+            "{imp_out}"
+        );
+
+        let (_, gift_out) = render_stub(
+            &bare_card("GiftCharm", "Instant"),
+            &row(43, "GIFT_CHARM"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("gift renders");
+        assert!(
+            gift_out.contains("gift = Some(GiftKind::Food),"),
+            "{gift_out}"
+        );
+    }
+
+    #[test]
+    fn wave16a_warp_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("warp_drifter.txt"),
+            "Name:WarpDrifter\nManaCost:3 U\nTypes:Creature Elemental\nPT:3/2\nK:Warp:1 U\n",
+        )
+        .expect("warp script");
+        std::fs::write(
+            dir.path().join("warp_blood.txt"),
+            "Name:WarpBlood\nManaCost:2 B\nTypes:Creature Horror\nPT:2/2\n\
+             K:Warp:X B PayLife<2>\nSVar:X:Count$xPaid\n",
+        )
+        .expect("warp life script");
+
+        let mut index = BTreeMap::new();
+        index.insert("WarpDrifter".to_string(), "warp_drifter.txt".to_string());
+        index.insert("WarpBlood".to_string(), "warp_blood.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let (_, warp_out) = render_stub(
+            &bare_card("WarpDrifter", "Creature"),
+            &row(44, "WARP_DRIFTER"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("warp renders");
+        assert!(
+            warp_out.contains("warp = Some(cost!(\"{1}{U}\")),"),
+            "{warp_out}"
+        );
+        assert!(warp_out.contains("KeywordSet::WARP"), "{warp_out}");
+
+        let (_, life_out) = render_stub(
+            &bare_card("WarpBlood", "Creature"),
+            &row(45, "WARP_BLOOD"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("warp life renders");
+        assert!(
+            life_out.contains("warp = Some(cost!(\"{X}{B}\", PayLife(2))),"),
+            "{life_out}"
         );
     }
 }

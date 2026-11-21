@@ -59,6 +59,154 @@ pub enum CombatWatchEvent {
     AttacksAndIsntBlocked,
 }
 
+/// Which object(s) from the current resolution a reflexive or delayed trigger
+/// captures as its event binding (`TargetSpec::EventObject`, LKI power/toughness,
+/// mana value, controller) when created (CR 603.7c, CR 603.12).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TriggerRemember {
+    /// No remembered object from the creating resolution (an event-based delayed
+    /// trigger may still bind the future event's own object when it fires).
+    None,
+    /// The source incarnation of the resolving spell or ability.
+    Source,
+    /// The first surviving chosen target of the resolving spell or ability.
+    FirstTarget,
+    /// Register or queue one trigger separately for each surviving chosen target.
+    EachTarget,
+    /// The resolving ability's own `EventObject`.
+    EventObject,
+    /// The resolving ability's `EventSubject`.
+    EventSubject,
+    /// Register or queue one trigger separately for each token created earlier
+    /// in this resolution (`ThisWayEntry::CreatedToken`).
+    EachCreatedToken,
+    /// The object(s) sacrificed earlier in this resolution (by cost or effect),
+    /// preserving departure LKI power/toughness/controller.
+    SacrificedObject,
+    /// Register or queue one trigger separately for each card exiled earlier in
+    /// this resolution (`ThisWayEntry::Exiled`).
+    EachExiledThisWay,
+}
+
+/// What gates an on-resolution reflexive stack trigger (CR 603.12).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ReflexiveWhen {
+    /// Fires unconditionally as this instruction resolves ("When …" / immediate
+    /// reflexive trigger inside a resolved branch, CR 603.12).
+    Always,
+    /// Fires when the resolution caused a [`ReflexiveEvent`].
+    Event(ReflexiveEvent),
+    /// Fires when the resolution recorded at least one matching [`ThisWay`]
+    /// action ("when one or more … this way" with `once: true`, or "whenever a
+    /// … this way" per occurrence with `once: false`, CR 603.12a).
+    ThisWay(ThisWay),
+    /// Fires when the resolution tapped at least one permanent matching the
+    /// filter (`ThisWayEntry::Tapped`).
+    Tapped(&'static Filter),
+}
+
+/// Which step of a turn a delayed triggered ability (`Effect::RegisterDelayedTrigger`)
+/// waits for (CR 603.7).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DelayedStep {
+    /// Beginning of the upkeep step (CR 503.1).
+    Upkeep,
+    /// Beginning of the draw step (CR 504.2).
+    Draw,
+    /// Beginning of the next main phase (precombat or postcombat, CR 505.1).
+    MainPhase,
+    /// Beginning of combat step (CR 507.1).
+    CombatBegin,
+    /// Beginning of the end of combat step (CR 511.1).
+    CombatEnd,
+    /// Beginning of the end step (CR 513.1).
+    EndStep,
+    /// Beginning of the cleanup step (CR 514.3a).
+    Cleanup,
+}
+
+/// Lifetime and firing multiplicity of an event-driven delayed triggered ability
+/// (CR 603.7b–c).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DelayedDuration {
+    /// Fires at most once, whenever the event next occurs (no turn limit, CR 603.7b).
+    OneShot,
+    /// Fires at most once during the current turn, expiring at cleanup (CR 603.7b).
+    OneShotThisTurn,
+    /// Fires each time the event occurs during the current turn, expiring at cleanup (CR 603.7c).
+    ThisTurn,
+    /// Fires each time the event occurs during the current combat phase, expiring at end of combat.
+    ThisCombat,
+    /// Fires each time the event occurs until the controller's next turn begins.
+    UntilYourNextTurn,
+    /// Fires each time the event occurs for the rest of the game (or until a watched
+    /// battlefield incarnation leaves, CR 400.7).
+    Indefinitely,
+}
+
+/// When a delayed triggered ability registered by [`Effect::RegisterDelayedTrigger`]
+/// triggers (CR 603.7).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DelayedTriggerWhen {
+    /// At the beginning of a named step (CR 603.7a).
+    AtStep {
+        /// Which step begins.
+        step: DelayedStep,
+        /// Whose turn the step must belong to (`None` = the next such step of
+        /// any turn; `Some(PlayerRel::You)` = your next such step; etc.).
+        whose: Option<PlayerRel>,
+        /// If `true`, expires at cleanup if the step was not reached this turn
+        /// ("at end of combat this turn", CR 603.7b).
+        this_turn_only: bool,
+        /// If `true`, triggers every time that step begins rather than only once.
+        recurring: bool,
+    },
+    /// When/whenever a [`crate::Trigger`] event occurs (CR 603.7a–c).
+    ///
+    /// When `watch` names an object (e.g. `FirstTarget`, `Source`,
+    /// `EachCreatedToken`), `Filter::This` inside `trigger` refers to that exact
+    /// watched incarnation, and if that incarnation leaves the battlefield
+    /// without satisfying `trigger`, a battlefield watch expires per CR 400.7.
+    OnTrigger {
+        /// Trigger event matched against future game events.
+        trigger: &'static crate::Trigger,
+        /// Optional watched object(s); registers one delayed watch per resolved
+        /// object when `EachTarget` / `EachCreatedToken` / `EachExiledThisWay`.
+        watch: TriggerRemember,
+        /// Whether it fires once or repeatedly, and when it expires.
+        duration: DelayedDuration,
+    },
+    /// One-shot state/control observation on a watched permanent (e.g. leaves
+    /// battlefield or untaps, or controller loses control).
+    OnObservation {
+        /// Watched permanent(s).
+        watch: TriggerRemember,
+        /// Observation condition.
+        observation: DelayedObservation,
+        /// Expire at cleanup if unobserved this turn.
+        this_turn_only: bool,
+    },
+}
+
+/// Delayed cleanup scheduled for tokens created by [`Effect::CreateTokenCopy`]
+/// or [`Effect::ChooseAndCreateTokenCopy`] (CR 603.7).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CopyCleanup {
+    /// No delayed cleanup; the token remains on the battlefield indefinitely.
+    None,
+    /// Sacrifice the created token(s) at the beginning of the next end step
+    /// (Kiki-Jiki, Fable of the Mirror Breaker).
+    SacrificeAtNextEndStep,
+    /// Exile the created token(s) at the beginning of the next end step
+    /// (Twinflame, Heat Shimmer, Feldon).
+    ExileAtNextEndStep,
+    /// Sacrifice the created token(s) at end of combat this turn.
+    SacrificeAtEndOfCombat,
+    /// Exile the created token(s) at end of combat this turn (Electroduplicate,
+    /// Delina,riad-like combat copies).
+    ExileAtEndOfCombat,
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
@@ -4333,6 +4481,687 @@ pub enum Effect {
         who: PlayerRel,
         /// Which graveyard cards are shuffled in.
         filter: &'static Filter,
+    },
+    /// "Target creature blocks this creature this combat if able" (Provoke,
+    /// CR 702.39a, CR 509.1c). Binds the exact target incarnation and the exact
+    /// source incarnation (CR 400.7) for this combat; does nothing if either
+    /// has left the battlefield before resolution. Appended to preserve replay
+    /// identities.
+    MustBlockSourceIfAbleThisCombat,
+    /// "`blocker` blocks `attacker` this combat / this turn if able" (CR 509.1c;
+    /// Rampant Elephant, Trumpeting Armodon, Hunt Down). Records a pair-specific
+    /// blocking requirement on the exact battlefield incarnations of `blocker`
+    /// and `attacker` (CR 400.7). Appended to preserve replay identities.
+    MustBlockIfAble {
+        /// Which creature(s) gain the requirement to block.
+        blocker: TargetSpec,
+        /// Which creature(s) they must block if able.
+        attacker: TargetSpec,
+        /// `true` expires at end of combat; `false` lasts until end of turn.
+        this_combat_only: bool,
+    },
+    /// "Choose a color" during spell or ability resolution (CR 105.4,
+    /// CR 608.2d; Prismatic Strands). Stored on the resolution's
+    /// `SubjectContext` for [`Filter::OfSourceChosenColor`] without requiring a
+    /// permanent on the battlefield. Appended to preserve replay identities.
+    ChooseColor,
+    /// Generalized chosen-source damage prevention shield (CR 609.7, CR 615.7;
+    /// Pilgrim of Justice, Samite Blessing, Charm Peddler, Shieldmage Advocate).
+    /// `target: None` protects everything (`Shielded::Everything`);
+    /// `target: Some(spec)` protects each resolved recipient (`Player` or exact
+    /// `Object` incarnation). `next_only: true` prevents the next damage event
+    /// from the chosen source (`all_but` unprevented, optional `gain_life`);
+    /// `next_only: false` prevents all damage from the chosen source this turn.
+    /// Appended to preserve replay identities.
+    PreventFromChosenSource {
+        /// Protected recipient(s), or `None` for any recipient.
+        target: Option<TargetSpec>,
+        /// Eligibility and damage-time source filter (CR 609.7a–b).
+        sources: &'static Filter,
+        /// Consume after the next matching damage event (`true`) or last until
+        /// cleanup (`false`).
+        next_only: bool,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+        /// Amount of that damage left unprevented (`0` prevents all).
+        all_but: u8,
+        /// Controller gains life equal to damage prevented this way (CR 615.5).
+        gain_life: bool,
+    },
+    /// "The next time a `<sources>` would deal [combat] damage [to `<target>`]
+    /// this turn, prevent that damage" (Circle of Solace, Trained Pronghorn;
+    /// CR 615.7). Waits for the next matching source without choosing a source
+    /// on resolution; if multiple matching sources deal damage simultaneously,
+    /// prevents one source of the affected controller's choice (CR 616.1).
+    /// Appended to preserve replay identities.
+    PreventNextFromMatchingSources {
+        /// Protected recipient(s), or `None` for any recipient.
+        target: Option<TargetSpec>,
+        /// Criterion the damage source must match when dealing damage.
+        sources: &'static Filter,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+    },
+    /// "Prevent all [combat] damage that `<sources>` would deal [to `<target>`]
+    /// this turn" (Prismatic Strands; CR 615.1a). Creates a turn-long shield
+    /// matching spells, abilities, and permanents alike (including objects
+    /// entering later this turn, CR 611.2c). Appended to preserve replay
+    /// identities.
+    PreventAllDamageFromMatchingThisTurn {
+        /// Protected recipient(s), or `None` for any recipient.
+        target: Option<TargetSpec>,
+        /// Criterion each damage source is tested against when dealing damage.
+        sources: &'static Filter,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+    },
+    /// Put one or more reflexive triggered abilities onto the stack when the
+    /// resolving spell or ability finishes resolving (CR 603.12, CR 603.12a,
+    /// CR 603.4). Appended to preserve replay identities.
+    ReflexiveTrigger {
+        /// What action earlier in this resolution gates the trigger (`Always`
+        /// for unconditional "When …" reflexive triggers inside a branch).
+        when: ReflexiveWhen,
+        /// When `true`, fires at most once even if multiple objects matched
+        /// ("when one or more …"); when `false`, fires once per matched
+        /// occurrence ("whenever a … this way", CR 603.12a).
+        once: bool,
+        /// Optional intervening-`if` clause checked both when queuing and when
+        /// resolving (CR 603.4).
+        condition: Option<&'static crate::Condition>,
+        /// Target requirement chosen as the reflexive trigger goes onto the
+        /// stack (CR 603.12, CR 603.3d).
+        targets: Option<TargetReq>,
+        /// Which object(s) from this resolution become the reflexive trigger's
+        /// remembered `EventObject` / LKI binding (`TriggerRemember::None` uses
+        /// the matched `when` object when one exists).
+        remember: TriggerRemember,
+        /// Instructions of the reflexive triggered ability.
+        effects: &'static [Effect],
+    },
+    /// Register one or more delayed triggered abilities during resolution
+    /// (CR 603.7a–h, CR 603.4). Appended to preserve replay identities.
+    RegisterDelayedTrigger {
+        /// Step, event, or observation that triggers the delayed ability, plus
+        /// its duration and multiplicity.
+        when: DelayedTriggerWhen,
+        /// Optional intervening-`if` clause checked both when the delayed
+        /// ability triggers and when it resolves (CR 603.4).
+        condition: Option<&'static crate::Condition>,
+        /// Target requirement chosen when the delayed ability goes onto the
+        /// stack (CR 603.7d, CR 603.3d).
+        targets: Option<TargetReq>,
+        /// Remembered object(s) from the creating resolution bound onto the
+        /// delayed trigger (`TargetSpec::EventObject` / LKI); for `OnTrigger`
+        /// with `TriggerRemember::None`, the future triggering event's own
+        /// object/player/amount are bound instead.
+        remember: TriggerRemember,
+        /// Instructions executed when the delayed triggered ability resolves.
+        effects: &'static [Effect],
+    },
+    /// Tap every surviving target in the named target slot (`First` or
+    /// `Second`) without touching the other slot (Arena, dual-target tap
+    /// spells; CR 701.26a). Appended to preserve replay identities.
+    TapTargetSlot(TargetSlot),
+    /// Untap every surviving target in the named target slot (`First` or
+    /// `Second`) without touching the other slot (CR 701.26b). Appended to
+    /// preserve replay identities.
+    UntapTargetSlot(TargetSlot),
+    /// Create one or more token copies of a resolved or implicit object
+    /// (`TargetSpec::Object`, `ThisObject`, `EventObject`, `CardInGraveyard`,
+    /// etc.; CR 707.2, CR 707.9, CR 111.10) under `controller`'s control, with
+    /// characteristic exceptions `mods`, optional tapped/attacking/haste riders,
+    /// and optional delayed cleanup. Appended to preserve replay identities.
+    CreateTokenCopy {
+        /// Object to copy (chosen target(s), `ThisObject`, `EventObject`, etc.).
+        target: TargetSpec,
+        /// Player under whose control the token(s) enter the battlefield.
+        controller: PlayerRel,
+        /// Number of token copies to create per copied object.
+        amount: Amount,
+        /// Characteristic exceptions applied in Layer 1 (CR 707.9b).
+        mods: &'static [crate::ability::CopyMod],
+        /// Whether the token(s) enter tapped.
+        tapped: bool,
+        /// Whether the token(s) enter attacking (CR 508.4).
+        attacking: bool,
+        /// Grant haste until end of turn to each created token.
+        haste_until_eot: bool,
+        /// Delayed sacrifice or exile cleanup scheduled for the created token(s).
+        cleanup: CopyCleanup,
+    },
+    /// Choose an untargeted battlefield permanent matching `filter` during
+    /// resolution (prompting when more than one matches, doing nothing when
+    /// none match) and create `amount` token copies of it under your control
+    /// (Rite of Replication / Mythos of Illuna / untargeted `CopyPermanent`
+    /// effects; CR 707.2, CR 707.9). Appended to preserve replay identities.
+    ChooseAndCreateTokenCopy {
+        /// Battlefield filter evaluated from the resolving controller.
+        filter: &'static Filter,
+        /// Number of token copies to create of the chosen permanent.
+        amount: Amount,
+        /// Characteristic exceptions applied in Layer 1 (CR 707.9b).
+        mods: &'static [crate::ability::CopyMod],
+        /// Whether the token(s) enter tapped.
+        tapped: bool,
+        /// Whether the token(s) enter attacking (CR 508.4).
+        attacking: bool,
+        /// Grant haste until end of turn to each created token.
+        haste_until_eot: bool,
+        /// Delayed sacrifice or exile cleanup scheduled for the created token(s).
+        cleanup: CopyCleanup,
+    },
+    /// Make one or more battlefield permanents become copies of another object
+    /// (Cytoshape, Sakashima's Will, Lazav, Mirrorweave, Mirage Mirror; CR 707.2,
+    /// CR 707.9, CR 613.1a). Appended to preserve replay identities.
+    BecomeCopy {
+        /// Which target slot (`First` or `Second`) becomes a copy when
+        /// `subject_filter` is `None` (when `First` has no targets, falls back
+        /// to the resolving source permanent).
+        subject: TargetSlot,
+        /// When `Some(filter)`, every battlefield permanent matching `filter`
+        /// (other than the copied original itself) becomes a copy instead of
+        /// reading `subject` (Mirrorweave).
+        subject_filter: Option<&'static Filter>,
+        /// Which object supplies the copiable values when
+        /// `original_is_second_target` is `false` (`Object` reads primary
+        /// targets; `ThisObject` reads the source; `EventObject` reads the
+        /// triggering/remembered object, including graveyard/exile/stack cards).
+        original: TargetSpec,
+        /// When `true`, reads the copied original from `second_targets`
+        /// instead of `original`.
+        original_is_second_target: bool,
+        /// `true` for `Duration::UntilEndOfTurn`, `false` for
+        /// `Duration::Indefinite`.
+        until_eot: bool,
+        /// Characteristic exceptions applied in Layer 1 (CR 707.9b).
+        mods: &'static [crate::ability::CopyMod],
+    },
+    /// Copy a spell or stack ability `amount` times under `controller`'s
+    /// control (Reverberate, Twincast, Strionic Resonator, Lithoform Engine;
+    /// CR 707.10, CR 707.10c, CR 707.12). Appended to preserve replay
+    /// identities.
+    CopySpellOrAbility {
+        /// Stack spell or ability to copy (`Spell`, `AbilityOnStack`,
+        /// `SpellOrAbility`, `ThisObject`, or `EventObject`).
+        target: TargetSpec,
+        /// Controller of the created stack copies.
+        controller: PlayerRel,
+        /// Number of copies put onto the stack.
+        amount: Amount,
+        /// Characteristic exceptions applied when copying a permanent spell
+        /// (CR 707.10f / CR 707.12).
+        mods: &'static [crate::ability::CopyMod],
+        /// Whether `controller` may choose new targets for each copy
+        /// (CR 707.10c).
+        may_choose_new_targets: bool,
+    },
+    /// Flip `count` coins sequentially (honoring `Modifier::FlipTwoCoinsIgnoreOne`
+    /// per flip and emitting `GameEvent::CoinFlipped`, CR 705.1–2). Executes
+    /// `per_win` after each won flip, stops early on the first lost flip when
+    /// `stop_on_loss` is `true`, and executes `if_won_all` when `count >= 1`
+    /// and every flip was won (Ral Zarek, Stitch in Time, Karplusan Minotaur,
+    /// Two-Headed Giant). Appended to preserve replay identities.
+    FlipCoins {
+        /// Number of coins to flip.
+        count: Amount,
+        /// Stop flipping immediately upon losing a flip.
+        stop_on_loss: bool,
+        /// Instructions executed immediately for each won flip.
+        per_win: &'static [Effect],
+        /// Instructions executed after all `count` flips if `count >= 1` and
+        /// zero flips were lost.
+        if_won_all: &'static [Effect],
+    },
+    /// Flip a coin repeatedly until you lose a flip (or until `max_flips`
+    /// flips have been made), executing `per_win` on each won flip and `after`
+    /// once flipping ends (`Amount::CoinsWonThisResolution` holds the total
+    /// flips won; Mana Screw, Krark's Thumb combos, Frenetic Sliver / Molten
+    /// Birth / Squee's Revenge families; CR 705). Appended to preserve replay
+    /// identities.
+    FlipUntilLose {
+        /// Optional safety or card-printed upper bound on total flips.
+        max_flips: Option<u8>,
+        /// Instructions executed immediately on each won flip.
+        per_win: &'static [Effect],
+        /// Instructions executed once after the losing (or final) flip.
+        after: &'static [Effect],
+    },
+    /// Roll `count` `sides`-sided dice (honoring
+    /// `Modifier::RollAdditionalDieIgnoreLowest` per CR 706.6 and journalling
+    /// each non-ignored natural roll via `GameEvent::DiceRolled`), add signed
+    /// `modifier` (clamped to `0..`), and store the total in the resolution's
+    /// `Amount::LastDieRoll` (CR 706.1–6). Appended to preserve replay
+    /// identities.
+    RollDice {
+        /// Number of dice to roll before CR 706.6 replacement modifiers.
+        count: Amount,
+        /// Number of faces on each die (`4`, `6`, `8`, `10`, `12`, `20`, etc.).
+        sides: u8,
+        /// Signed modifier added to the sum of the kept rolls (CR 706.2).
+        modifier: i8,
+    },
+    /// Branch on the most recent [`Effect::RollDice`] result in this resolution:
+    /// executes `then` when `min <= result <= max` (inclusive) and `otherwise`
+    /// when outside that range, allowing AFR result tables to chain cleanly
+    /// while exposing every nested branch to `Effect::branches` (CR 706.2).
+    /// Appended to preserve replay identities.
+    IfDieRollInRange {
+        /// Inclusive lower bound.
+        min: u8,
+        /// Inclusive upper bound (`u8::MAX` for open-ended `N+` rows).
+        max: u8,
+        /// Instructions executed when the last die result is in `min..=max`.
+        then: &'static [Effect],
+        /// Instructions executed when the last die result is outside `min..=max`
+        /// (chain another `IfDieRollInRange` here for multi-row AFR tables).
+        otherwise: &'static [Effect],
+    },
+    /// Grant protection from the color chosen earlier in this resolution by
+    /// [`Effect::ChooseColor`] (or the source's persistent chosen color) until
+    /// end of turn to permanent(s) matching `filter` (Akroma's Blessing, Brave
+    /// the Elements, Reverent Mantra, Glory; CR 702.16, CR 611.2c). `Filter::This`
+    /// follows surviving target(s) (or the source when untargeted);
+    /// `Filter::AttachedToBySource` follows the enchanted/equipped host; broader
+    /// filters lock their affected battlefield set on resolution. Appended to
+    /// preserve replay identities.
+    GrantProtectionFromChosenColorUntilEot {
+        /// Which permanent(s) gain protection from the chosen color until end of turn.
+        filter: &'static Filter,
+    },
+    /// Execute `effects` once for each item in `domain` in deterministic APNAP
+    /// player order (CR 101.4) or permanent order (CR 608.2h), with full
+    /// re-entrant suspension so interactive choices inside `effects` pause and
+    /// resume cleanly across iterations. Appended to preserve replay identities.
+    RepeatEach {
+        /// Players, matching permanents, or bounded iteration count.
+        domain: RepeatDomain,
+        /// Loop body executed on each pass.
+        effects: &'static [Effect],
+    },
+    /// Untargeted resolution choice of `min..=max` objects/cards from
+    /// `zone` (`Battlefield` or `Graveyard`) matching `filter` (CR 608.2d),
+    /// binding chosen object(s) to `EventObject` (`Remembered`), optionally
+    /// moving them via `movement`, and running `then` per chosen object.
+    /// Appended to preserve replay identities.
+    ChooseCard {
+        /// Which player makes the choice.
+        chooser: PlayerRel,
+        /// Battlefield or graveyard source zone.
+        zone: ChooseZone,
+        /// Eligibility filter evaluated from the resolving controller.
+        filter: &'static Filter,
+        /// Minimum selection count (`0` for optional / "up to", clamped to
+        /// available legal options per CR 608.2d / CR 609.3).
+        min: u8,
+        /// Maximum selection count.
+        max: Amount,
+        /// Optional zone movement applied to each chosen object.
+        movement: ChooseMove,
+        /// Optional follow-up instructions executed per chosen object with
+        /// `EventObject` bound.
+        then: &'static [Effect],
+    },
+    /// Look at (or reveal when `reveal_all` is `true`) the top `count` cards of
+    /// `library`, optionally choose `min_pick..=max_pick` cards matching `filter`
+    /// (revealing them when `reveal_chosen` is `true`, CR 701.20a), move chosen
+    /// cards to `picked` and remaining cards to `rest`, and run `if_picked` if at
+    /// least one card was chosen (with `EventObject` bound). Appended to preserve
+    /// replay identities.
+    PeekAndReveal {
+        /// Whose library is inspected.
+        library: PlayerRel,
+        /// Number of top cards inspected.
+        count: Amount,
+        /// Publicly reveal all `count` top cards up front rather than looking privately.
+        reveal_all: bool,
+        /// Reveal chosen cards when `reveal_all` is `false`.
+        reveal_chosen: bool,
+        /// Filter selectable cards must match (`&Filter::Any` when unrestricted).
+        filter: &'static Filter,
+        /// Minimum cards to select (`0` for optional / "up to").
+        min_pick: u8,
+        /// Maximum cards to select (`u8::MAX` for all matching).
+        max_pick: u8,
+        /// Destination for selected cards.
+        picked: PeekPickDest,
+        /// Destination for unselected inspected cards.
+        rest: PeekRestDest,
+        /// Instructions executed when at least one card was selected.
+        if_picked: &'static [Effect],
+    },
+    /// Player(s) matching `who` choose `min..=max` cards matching `filter` from
+    /// their hand and reveal them without moving them (CR 701.20a, CR 701.20b),
+    /// binding `EventObject` to the first revealed card and running `if_revealed`
+    /// if at least one card was revealed. Appended to preserve replay identities.
+    RevealFromHand {
+        /// Whose hand cards are chosen and revealed from.
+        who: PlayerRel,
+        /// Eligible cards in hand.
+        filter: &'static Filter,
+        /// Minimum cards to reveal (`0` for "you may reveal" / "any number").
+        min: u8,
+        /// Maximum cards to reveal.
+        max: Amount,
+        /// Executed when at least one card is revealed.
+        if_revealed: &'static [Effect],
+    },
+    /// Reveal the top `count` card(s) of `player`'s library in place (CR 701.20a,
+    /// CR 701.20b), bind `EventObject` to the top revealed card, and branch to
+    /// `if_matches` when at least one revealed card matches `filter` (or
+    /// `otherwise` when cards were revealed and none matched). Appended to
+    /// preserve replay identities.
+    RevealTop {
+        /// Whose library's top card(s) are revealed.
+        player: PlayerRel,
+        /// Number of top cards revealed.
+        count: Amount,
+        /// Filter tested against the revealed card(s).
+        filter: &'static Filter,
+        /// Executed when at least one revealed card matches `filter`.
+        if_matches: &'static [Effect],
+        /// Executed when cards were revealed and none matched `filter`.
+        otherwise: &'static [Effect],
+    },
+    /// Goad the creature(s) `target` names until the resolving controller's
+    /// next turn (CR 701.15a–d). Appended to preserve replay identities.
+    Goad {
+        /// Which creature(s) to goad (`TargetSpec::Object(&Filter::CREATURE)`
+        /// for targeted goad, `TargetSpec::EventObject` for triggered event
+        /// goad, `TargetSpec::Attached` for attached goad).
+        target: TargetSpec,
+    },
+    /// Goad every creature on the battlefield matching `filter` (optionally
+    /// narrowed to `controlled_by`) until the resolving controller's next turn
+    /// (CR 701.15a–d — Disrupt Decorum, Marisi, Geode Rager). Appended to
+    /// preserve replay identities.
+    GoadAll {
+        /// Creature filter evaluated from the resolving controller's side.
+        filter: &'static Filter,
+        /// Optional controller restriction (e.g. `TargetPlayerOrController`
+        /// or `DefendingPlayer`).
+        controlled_by: Option<PlayerRel>,
+    },
+    /// Exile up to `count` cards from the top of each `who` player's library and
+    /// grant the resolving controller `permission` on each exiled card
+    /// incarnation (CR 601.1a, CR 609.4). Appended to preserve replay identities.
+    ExileTopWithPermission {
+        /// Whose library top is exiled.
+        who: PlayerRel,
+        /// Number of top cards to exile (capped by remaining library size).
+        count: Amount,
+        /// Play or cast permission granted on each exiled card incarnation.
+        permission: ExilePermission,
+    },
+    /// Exile the object(s) named by `target` (optionally linked with `until`
+    /// per CR 610.3) and grant the resolving controller `permission` on each
+    /// card incarnation that arrives in exile (CR 601.1a, CR 609.4). Appended
+    /// to preserve replay identities.
+    ExileWithPermission {
+        /// Which object(s) to exile.
+        target: TargetSpec,
+        /// Optional temporary exile duration (such as `SourceLeavesBattlefield`).
+        until: Option<ExileUntil>,
+        /// Play or cast permission granted on each exiled card incarnation.
+        permission: ExilePermission,
+    },
+    /// Grant the resolving controller `permission` on each card currently in
+    /// exile linked to the resolving source incarnation (CR 607.2a, CR 609.4).
+    /// Appended to preserve replay identities.
+    GrantLinkedExilePermission {
+        /// Play or cast permission granted on each linked exiled card incarnation.
+        permission: ExilePermission,
+    },
+    /// Put this exact source card incarnation from your hand or command zone
+    /// onto the battlefield tapped and attacking the defender recorded when
+    /// [`crate::CostPart::ReturnUnblockedAttacker`] was paid (ninjutsu and
+    /// commander ninjutsu, CR 702.49a, CR 702.49c, CR 702.49d). If that
+    /// defender is no longer a legal combat defender, enters tapped and not
+    /// attacking (CR 508.4a). Appended to preserve replay identities.
+    PutNinjutsuOntoBattlefield,
+    /// Myriad's resolution body (CR 702.116a): for each opponent other than the
+    /// defending player recorded when this creature attacked, you may create a
+    /// token copy of this creature tapped and attacking that opponent or a
+    /// planeswalker they control, exiled at end of combat. Appended to preserve
+    /// replay identities.
+    Myriad,
+    /// Exert this ability's source permanent if it is still on the battlefield
+    /// (CR 701.43a–c): it doesn't untap during its controller's next untap step,
+    /// and [`crate::Trigger::Exerted`] / [`ReflexiveEvent::ExertedThis`] observe
+    /// the exertion. Appended to preserve replay identities.
+    ExertSource,
+    /// Manifest the top `count` card(s) of each `who` player's library one at
+    /// a time (CR 701.40a–g): put each onto the battlefield face down under
+    /// that player's control as a 2/2 colorless nameless creature with no Ward.
+    /// Appended to preserve replay identities.
+    ManifestTop {
+        /// Which player(s) manifest from the top of their library.
+        who: PlayerRel,
+        /// Number of cards to manifest sequentially (CR 701.40e).
+        count: Amount,
+    },
+    /// Manifest dread for the resolving controller (CR 701.62a–b): look at the
+    /// top two cards of your library, manifest one of them, then put the
+    /// remaining looked-at card(s) into your graveyard. Appended to preserve
+    /// replay identities.
+    ManifestDread,
+    /// Turn the face-down permanent(s) named by `target` face up (CR 708.8),
+    /// honoring CR 701.40g (a manifested permanent represented by an instant
+    /// or sorcery card is revealed and remains face down without triggering
+    /// `Trigger::TurnedFaceUp`). Appended to preserve replay identities.
+    TurnFaceUp {
+        /// Which face-down permanent(s) to turn face up.
+        target: TargetSpec,
+    },
+    /// Bolster N (CR 701.39a): choose a creature you control with the least
+    /// toughness or tied for least toughness among creatures you control
+    /// (untargeted, ignoring marked damage per CR 120.6) and put N +1/+1
+    /// counters on that creature. Appended to preserve replay identities.
+    Bolster(Amount),
+    /// Exile the card(s) named by `target` face up (if not already in exile)
+    /// and make each a plotted card on the current turn (CR 702.170c–d).
+    /// Appended to preserve replay identities.
+    Plot {
+        /// Which object(s) become plotted in exile.
+        target: TargetSpec,
+    },
+    /// Exile the top `count` card(s) of each `who` player's library face up
+    /// and make each a plotted card on the current turn (CR 702.170c–d).
+    /// Appended to preserve replay identities.
+    PlotTop {
+        /// Which player(s) exile and plot from the top of their library.
+        who: PlayerRel,
+        /// Number of top library cards to exile and plot.
+        count: Amount,
+    },
+    /// Backup N (CR 702.165a–d): put `count` +1/+1 counters on the targeted
+    /// creature; if that is another creature (`target != source`), it also
+    /// gains `keywords` and `grant_abilities` until end of turn in layer 6.
+    /// Appended to preserve replay identities.
+    Backup {
+        /// Number of +1/+1 counters placed on the targeted creature.
+        count: u8,
+        /// Printed keywords below Backup granted to another targeted creature
+        /// until end of turn.
+        keywords: crate::KeywordSet,
+        /// Printed abilities below Backup granted to another targeted creature
+        /// until end of turn (`CR 702.165a`, `CR 702.165c–d`).
+        grant_abilities: &'static [crate::AbilityDef],
+    },
+    /// Renown N's resolution effect (CR 702.112a–c): if this ability's source
+    /// permanent is still on the battlefield and isn't renowned, put `N` +1/+1
+    /// counters on it and it becomes renowned until it leaves the battlefield.
+    /// Appended to preserve replay identities.
+    BecomeRenowned(u8),
+    /// Soulbond's resolution body (CR 702.95a–d): when `with_event_object` is
+    /// `false`, you may pair this source creature with an unpaired creature
+    /// you control; when `true`, you may pair this source creature with the
+    /// entering event creature if both are still unpaired creatures under your
+    /// control. Appended to preserve replay identities.
+    SoulbondPair {
+        /// `false` for soulbond's self-ETB trigger, `true` for soulbond's
+        /// other-creature-ETB trigger.
+        with_event_object: bool,
+    },
+    /// Deliver the promised [`crate::GiftKind`] to the chosen opponent
+    /// (`PlayerRel::GiftRecipient`, CR 702.174b–j) and emit
+    /// `GameEvent::GiftGiven` for `Trigger::GaveGift` (CR 702.174c). Appended
+    /// to preserve replay identities.
+    DeliverGift(crate::GiftKind),
+    /// Incubate `count` for each player matching `who` (CR 701.53a–b,
+    /// CR 111.10i): create a double-faced Incubator // Phyrexian token that
+    /// enters the battlefield with `count` +1/+1 counters on it. Appended to
+    /// preserve replay identities.
+    Incubate {
+        /// Which player(s) incubate.
+        who: PlayerRel,
+        /// Number of +1/+1 counters the Incubator token enters with.
+        count: Amount,
+    },
+    /// Exploit's optional ETB sacrifice resolution effect (CR 702.110a–b): you
+    /// may sacrifice a creature you control (including this permanent if still
+    /// a controlled creature), emitting `GameEvent::CreatureExploited` for
+    /// [`crate::Trigger::Exploited`]. Appended to preserve replay identities.
+    Exploit,
+    /// Craft's resolution effect (CR 702.167a–c, CR 712.11a–b): if the source
+    /// card exiled to pay this ability's cost is still in exile and has a
+    /// permanent back face, return it to the battlefield transformed under its
+    /// owner's control and link the exiled material cards from
+    /// [`crate::CostPart::CraftMaterials`] to that permanent. Appended to
+    /// preserve replay identities.
+    ReturnCraftedTransformed,
+    /// Warp's next-end-step delayed trigger effect (CR 702.185a–b): exiles the
+    /// exact permanent the warped spell became (`EventObject`); if it is a card
+    /// that moves to exile this way, its owner may cast it from exile on a
+    /// later turn for as long as it remains exiled. Appended to preserve replay
+    /// identities.
+    ExileWarped,
+    /// Monstrosity N (CR 701.37a–c): if this ability's source permanent is on
+    /// the battlefield and isn't already monstrous, put `N` +1/+1 counters on
+    /// it, give it the monstrous designation until it leaves the battlefield,
+    /// and emit `GameEvent::BecameMonstrous` with `count = N`. Appended to
+    /// preserve replay identities.
+    Monstrosity(Amount),
+    /// Suspect the permanent(s) named by `target` (CR 701.60a–d): each matching
+    /// permanent on the battlefield that isn't already suspected becomes
+    /// suspected until it leaves the battlefield or becomes unsuspected.
+    /// Appended to preserve replay identities.
+    Suspect {
+        /// Which permanent(s) become suspected.
+        target: TargetSpec,
+    },
+    /// Cause the permanent(s) named by `target` to no longer be suspected
+    /// (CR 701.60a): removes the suspected designation if present. Appended to
+    /// preserve replay identities.
+    Unsuspect {
+        /// Which permanent(s) stop being suspected.
+        target: TargetSpec,
+    },
+    /// "The Ring tempts you" (CR 701.54a–d): advances the controller's Ring
+    /// emblem tier (`1..=4`), requires choosing a controlled creature as that
+    /// player's Ring-bearer if they control at least one creature, and emits
+    /// `GameEvent::RingTempted` (even if they control no creatures). Appended
+    /// to preserve replay identities.
+    RingTemptsYou,
+    /// Firebending's resolution effect ("add N {R}. Until end of combat, you
+    /// don't lose this mana as steps and phases end", CR 702.189a–b): adds
+    /// combat-sustained `{R}` mana and emits `GameEvent::PlayerFirebent` for
+    /// [`crate::Trigger::Firebends`]. Appended to preserve replay identities.
+    Firebend(Amount),
+    /// Mobilize N's resolution effect (CR 702.181a): create `amount` tapped and
+    /// attacking 1/1 red Warrior creature tokens ([`crate::WARRIOR_1_1_RED`]),
+    /// and sacrifice them at the beginning of the next end step. Appended to
+    /// preserve replay identities.
+    Mobilize(Amount),
+    /// Detain the object(s) named by `target` (CR 701.35a): until your next
+    /// turn, that permanent can't attack or block and its activated abilities
+    /// can't be activated (including mana abilities). Appended to preserve
+    /// replay identities.
+    Detain {
+        /// Which permanent(s) to detain (`TargetSpec::Object`, `ThisObject`,
+        /// `EventObject`, etc.).
+        target: TargetSpec,
+    },
+    /// Detain every battlefield permanent matching `filter` without targeting
+    /// (CR 701.35a, e.g. Lavinia of the Tenth). Appended to preserve replay
+    /// identities.
+    DetainFilter {
+        /// Permanents detained as this instruction resolves.
+        filter: &'static Filter,
+    },
+    /// Endure N (CR 701.63a–b): if `amount` evaluates to 1 or more, the source
+    /// permanent's controller creates an N/N white Spirit creature token
+    /// ([`crate::SPIRIT_X_X_WHITE`]) unless the source permanent is still on
+    /// the battlefield and they choose to put N +1/+1 counters on it. Appended
+    /// to preserve replay identities.
+    Endure(Amount),
+    /// Clash with an opponent (CR 701.30a–d): if the resolving controller has
+    /// multiple opponents, they choose one; each clashing player reveals the
+    /// top card of their library simultaneously, decides in APNAP order whether
+    /// to put that card on the bottom of their library, moves chosen cards
+    /// simultaneously, and wins the clash iff they revealed a card with a
+    /// strictly greater mana value than all other revealed cards. Executes
+    /// `on_win` if the resolving controller won the clash, and `on_loss`
+    /// otherwise. Appended to preserve replay identities.
+    Clash {
+        /// Instructions executed when the resolving controller wins the clash.
+        on_win: &'static [Effect],
+        /// Instructions executed when the resolving controller does not win.
+        on_loss: &'static [Effect],
+    },
+    /// Create an additional combat phase after the current phase, optionally
+    /// followed by an additional postcombat main phase (CR 500.8; Relentless
+    /// Assault, Seize the Day, Aurelia, Fury of the Horde). Multiple extra
+    /// phases created before the current phase ends occur in LIFO order (most
+    /// recently created first, CR 500.8) while preserving any remaining normal
+    /// phases of the turn afterwards. Appended to preserve replay identities.
+    AdditionalCombatPhase {
+        /// Whether an additional main phase immediately follows the created
+        /// combat phase (`true` for "followed by an additional main phase").
+        followed_by_main_phase: bool,
+    },
+    /// Awaken N's resolution body (CR 702.113a): put `count` +1/+1 counters on
+    /// target land you control and make it a 0/0 Elemental creature with haste
+    /// indefinitely while retaining its land type and subtypes ("It's still a
+    /// land"). Appended to preserve replay identities.
+    AwakenLand {
+        /// Number of +1/+1 counters placed on the targeted land.
+        count: u16,
+    },
+    /// Cipher's spell-resolution instruction (CR 702.99b): if the resolving
+    /// spell is represented by a card, its controller may exile it encoded on a
+    /// creature they control (`ChoicePrompt::CipherEncode`). Appended to
+    /// preserve replay identities.
+    Cipher,
+    /// Cipher's combat-damage trigger body (CR 702.99b–c): while the encoded
+    /// card remains in exile, the controller of the creature that dealt combat
+    /// damage to a player may copy the encoded card and cast the copy without
+    /// paying its mana cost. Appended to preserve replay identities.
+    CipherCastEncoded,
+    /// Champion's ETB trigger body (CR 702.72a): sacrifice this permanent
+    /// unless you exile another permanent you control matching `filter`
+    /// (`ChoicePrompt::Champion`), linking the exiled card to this incarnation
+    /// for [`Self::ReturnChampioned`]. Appended to preserve replay identities.
+    Champion {
+        /// Quality of controlled permanent that may be championed.
+        filter: &'static Filter,
+    },
+    /// Champion's LTB trigger body (CR 702.72a): return the card exiled by this
+    /// permanent's [`Self::Champion`] ability to the battlefield under its
+    /// owner's control. Appended to preserve replay identities.
+    ReturnChampioned,
+    /// Set the source permanent's level as a Class level ability resolves
+    /// (CR 717.2a). Appended to preserve replay identities.
+    SetClassLevel(u8),
+    /// Deal damage simultaneously to a permanent and its controller.
+    /// Appended to preserve replay identities.
+    DamagePermanentAndController {
+        /// Permanent receiving damage and determining which player receives damage.
+        target: TargetSpec,
+        /// Damage dealt to the permanent.
+        permanent_amount: Amount,
+        /// Damage dealt to the permanent's controller.
+        controller_amount: Amount,
     },
 }
 

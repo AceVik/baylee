@@ -106,6 +106,7 @@ fn body(
         keywords,
         commander: CommanderRule::NotEligible,
         partner: baylee_cards_dsl::PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities,
     }))

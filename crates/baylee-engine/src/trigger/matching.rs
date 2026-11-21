@@ -70,6 +70,10 @@ pub(super) fn hits_with_context(
             } if match rel {
                 PlayerRel::You => *player == you,
                 PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*player, you),
+                PlayerRel::EnchantedPlayer | PlayerRel::ControllerOfAttached => {
+                    eval::players_for_source(*rel, state, you, Some(context.source))
+                        .is_some_and(|seats| seats.contains(player))
+                }
                 _ => true,
             } =>
             {
@@ -91,7 +95,8 @@ pub(super) fn hits_with_context(
                 drawn_this_turn_after,
                 ..
             } if *count > 0
-                && eval::players(*who, state, you).is_some_and(|seats| seats.contains(player)) =>
+                && eval::players_for_source(*who, state, you, Some(context.source))
+                    .is_some_and(|seats| seats.contains(player)) =>
             {
                 let first = drawn_this_turn_after.saturating_sub(u32::from(*count)) + 1;
                 u32::from((first..=*drawn_this_turn_after).contains(&u32::from(*n)))
@@ -139,7 +144,24 @@ pub(super) fn departure_hit(
 /// the controller the permanent left with while triggers are collected, and
 /// only a later refresh settles it back to the owner, which is why
 /// `ltb_controllers` exists for what reads it at resolution.
-fn departed_matches(
+pub(super) const fn trigger_looks_back(trigger: &Trigger) -> bool {
+    match trigger {
+        Trigger::Dies(_)
+        | Trigger::DiesNotSacrificed(_)
+        | Trigger::LeavesBattlefield(_)
+        | Trigger::LinkedCreatureLeaves
+        | Trigger::Sacrificed { .. }
+        | Trigger::Exploited { .. } => true,
+        Trigger::ChangesZoneAll {
+            origin,
+            destination,
+            ..
+        } => event_groups::changes_zone_all_looks_back(*origin, *destination),
+        _ => false,
+    }
+}
+
+pub(super) fn departed_matches(
     filter: &baylee_cards_dsl::Filter,
     state: &GameState,
     object: ObjectId,
@@ -159,6 +181,36 @@ fn departed_matches(
         .find(|(id, _)| *id == object)
         .map_or_default(|(_, counters)| counters.clone());
     eval::matches_projected_with_context(filter, state, &as_it_was, was, you, context)
+}
+
+/// CR 603.10b: abilities that trigger when a permanent phases out look back in
+/// time to the game state immediately before it phased out. Its projected
+/// characteristics and controller stay frozen at phase-out (`phasing.rs`), so
+/// clearing the phased-out status bits reconstructs the pre-event permanent.
+fn phased_out_matches(
+    filter: &baylee_cards_dsl::Filter,
+    state: &GameState,
+    object: ObjectId,
+    you: PlayerId,
+    context: RuleContext,
+) -> bool {
+    let Some(o) = state.object_or_departed(object) else {
+        return false;
+    };
+    let mut as_it_was = o.clone();
+    as_it_was.zone = Zone::Battlefield;
+    as_it_was.status.remove(crate::object::Status::PHASED_OUT);
+    as_it_was
+        .status
+        .remove(crate::object::Status::PHASED_OUT_INDIRECTLY);
+    eval::matches_projected_with_context(
+        filter,
+        state,
+        &as_it_was,
+        o.characteristics(),
+        you,
+        context,
+    )
 }
 
 /// [`Trigger::TargetedByOpponent`]'s count: the fitting targets an
@@ -208,6 +260,11 @@ fn targeted_by_opponent(
                 .targets
                 .iter()
                 .chain(obj.second_targets())
+                .chain(
+                    obj.extra_target_instances()
+                        .iter()
+                        .flat_map(|inst| inst.targets.iter()),
+                )
                 .copied()
                 .collect();
             targets.sort_unstable();
@@ -219,6 +276,10 @@ fn targeted_by_opponent(
             let player = counts_you
                 && (obj.target_players.contains(you)
                     || obj.second_target_players().contains(you)
+                    || obj
+                        .extra_target_instances()
+                        .iter()
+                        .any(|inst| inst.players.contains(you))
                     || obj.chosen_player == Some(you));
             u32::try_from(objects).unwrap_or(u32::MAX) + u32::from(player)
         }
@@ -269,11 +330,29 @@ pub(super) fn trigger_count(
     let event_kind = match trigger {
         Trigger::EntersBattlefield(_)
         | Trigger::EntersBattlefieldFromGraveyardOrCast(_)
-        | Trigger::EnteredThisFrom(_) => baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
+        | Trigger::EnteredThisFrom(_)
+        | Trigger::ChangesZoneAll {
+            destination: Some(baylee_cards_dsl::ZoneRef::Battlefield),
+            ..
+        } => baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
         _ => baylee_cards_dsl::TriggerEventKind::Any,
     };
     let _ = controller;
     times_triggered(state, event_kind, source)
+}
+
+pub(super) fn tap_trigger_count(
+    state: &GameState,
+    source: &crate::object::GameObject,
+    controller: PlayerId,
+) -> u32 {
+    let event = baylee_cards_dsl::TriggerEventKind::Any;
+    if source.controller == controller {
+        return times_triggered_with_source(state, event, source);
+    }
+    let mut source = source.clone();
+    source.controller = controller;
+    times_triggered_with_source(state, event, &source)
 }
 
 /// How many times a triggered ability of `source` triggers for one event
@@ -363,6 +442,9 @@ fn matches(
         baylee_cards_dsl::ZoneRef::Exile => from == Zone::Exile,
         baylee_cards_dsl::ZoneRef::Stack => from == Zone::Stack,
         baylee_cards_dsl::ZoneRef::Command => from == Zone::Command,
+        baylee_cards_dsl::ZoneRef::BattlefieldOrCommand => {
+            matches!(from, Zone::Battlefield | Zone::Command)
+        }
         baylee_cards_dsl::ZoneRef::NotBattlefield => from != Zone::Battlefield,
     };
     match (trigger, event) {
@@ -374,7 +456,23 @@ fn matches(
         | (Trigger::TransformsIntoThis, GameEvent::Transformed { object, .. })
         | (Trigger::CycledThis, GameEvent::Cycled { object, .. })
         | (Trigger::Rampage, GameEvent::AttackerBlocked { object })
-        | (Trigger::Mutates, GameEvent::CreatureMutated { object }) => *object == source,
+        | (Trigger::Mutates, GameEvent::CreatureMutated { object })
+        | (Trigger::BecomesMonstrous, GameEvent::BecameMonstrous { object, .. }) => {
+            *object == source
+        }
+        (
+            Trigger::ClassLevelGained(wanted),
+            GameEvent::ClassLevelChanged {
+                object,
+                version,
+                level,
+                ..
+            },
+        ) => {
+            *object == source
+                && wanted == level
+                && state.object(source).is_some_and(|o| o.version == *version)
+        }
         // CR 709.5h: the designation, however it was given.
         (Trigger::UnlockThisDoor(door), GameEvent::DoorUnlocked { object, half }) => {
             *object == source && door == half
@@ -420,6 +518,14 @@ fn matches(
             },
         )
         | (
+            Trigger::PhasesOutOrLeavesBattlefield(filter),
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                ..
+            },
+        )
+        | (
             Trigger::ExiledFromBattlefield(filter),
             GameEvent::ZoneChanged {
                 object,
@@ -437,6 +543,24 @@ fn matches(
                 ..
             },
         ) => departed_matches(filter, state, *object, you, context),
+        (
+            Trigger::PhasesIn(filter),
+            GameEvent::PhaseChanged {
+                object,
+                phased_out: false,
+            },
+        ) => state
+            .object(*object)
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        // CR 603.10b: abilities that trigger when a permanent phases out look
+        // back in time to the game state immediately before it phased out.
+        (
+            Trigger::PhasesOut(filter) | Trigger::PhasesOutOrLeavesBattlefield(filter),
+            GameEvent::PhaseChanged {
+                object,
+                phased_out: true,
+            },
+        ) => phased_out_matches(filter, state, *object, you, context),
         (
             Trigger::DiesNotSacrificed(filter),
             GameEvent::ZoneChanged {
@@ -520,7 +644,8 @@ fn matches(
             },
         ) => {
             *amount > 0
-                && eval::players(*who, state, you).is_some_and(|players| players.contains(player))
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|players| players.contains(player))
                 && state.object(*damage_source).is_some_and(|object| {
                     eval::matches_damage_source_with_context(filter, state, object, you, context)
                 })
@@ -605,7 +730,8 @@ fn matches(
             },
         ) => {
             *amount > 0
-                && eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
+                && eval::players_for_source(*rel, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
                 && (!*is_combat || first_combat_damage_to(event, batch, *target))
         }
         (
@@ -628,7 +754,8 @@ fn matches(
             new > old
                 && changed == kind
                 && (!first_this_turn || *first)
-                && eval::players(*by, state, you).is_some_and(|players| players.contains(placer))
+                && eval::players_for_source(*by, state, you, Some(source))
+                    .is_some_and(|players| players.contains(placer))
                 && state
                     .source_object(baylee_core::ids::DamageSourceRef {
                         object: *object,
@@ -648,19 +775,32 @@ fn matches(
                 ..
             },
         ) => *object == source && changed == kind && *old < u16::from(*n) && u16::from(*n) <= *new,
-        // "When you remove the last [kind] counter from this": an effect of
-        // the ability's controller took the count from some to none.
+        // "When [you remove / the] last [kind] counter [is removed] from this":
+        // `by: Some(rel)` restricts whose removal counts (Divine Intervention);
+        // `by: None` matches any player, effect, cost, or SBA (Vanishing, CR 702.63a).
         (
-            Trigger::LastCounterRemoved { kind },
+            Trigger::LastCounterRemoved { kind, by },
             GameEvent::CounterChanged {
                 object,
                 kind: changed,
                 old,
                 new,
-                by: Some(remover),
+                by: remover,
                 ..
             },
-        ) => *object == source && changed == kind && *old > 0 && *new == 0 && *remover == you,
+        ) => {
+            *object == source
+                && changed == kind
+                && *old > 0
+                && *new == 0
+                && match by {
+                    None => true,
+                    Some(rel) => remover.is_some_and(|player| {
+                        eval::players_for_source(*rel, state, you, Some(source))
+                            .is_some_and(|seats| seats.contains(&player))
+                    }),
+                }
+        }
         (
             Trigger::TappedForMana { by, filter },
             GameEvent::ManaProduced {
@@ -670,10 +810,11 @@ fn matches(
             },
         ) => {
             // Who tapped it: the mana is the activating player's, and the
-            // relation is asked of the state alone (`You`, `EachPlayer`,
-            // `EachOpponent`; a relation that needs a resolution names
-            // nobody here).
-            eval::players(*by, state, you).is_some_and(|seats| seats.contains(player))
+            // relation is asked of the state and source (`You`, `EachPlayer`,
+            // `EachOpponent`, `EnchantedPlayer`; a relation that needs a
+            // resolution names nobody here).
+            eval::players_for_source(*by, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(player))
                 && first_mana_of_a_tap(event, state.journal.entries(), *tapped)
                 && state
                     .object(*tapped)
@@ -699,7 +840,8 @@ fn matches(
         ) => {
             tap_cost.is_none_or(|required| required == *tapped)
                 && mana_ability.is_none_or(|required| required == *mana)
-                && eval::players(*who, state, you).is_some_and(|players| players.contains(player))
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|players| players.contains(player))
                 && state.source_object(*activated).is_some_and(|object| {
                     activations::source_matches(filter, state, object, you, context)
                 })
@@ -742,9 +884,23 @@ fn matches(
                 })
         }
         (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. })
-        | (Trigger::BecomesUntapped(filter), GameEvent::ObjectUntapped { object, .. }) => state
-            .object(*object)
-            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        | (Trigger::BecomesUntapped(filter), GameEvent::ObjectUntapped { object, .. }) => {
+            let Some(index) = event_groups::index_of_event(event, batch) else {
+                return state
+                    .object(*object)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context));
+            };
+            super::events::tap_subject_at_event(state, *object, batch, index).is_some_and(
+                |(subject, controller)| {
+                    if subject.controller == controller {
+                        return eval::matches_with_context(filter, state, subject, you, context);
+                    }
+                    let mut subject = subject.clone();
+                    subject.controller = controller;
+                    eval::matches_with_context(filter, state, &subject, you, context)
+                },
+            )
+        }
         (
             Trigger::SpellCast(filter) | Trigger::SpellCastOrCopied(filter),
             GameEvent::SpellCast { object, .. },
@@ -765,9 +921,8 @@ fn matches(
                     PlayerRel::Opponent | PlayerRel::EachOpponent => {
                         state.is_opponent(*player, you)
                     }
-                    _ => {
-                        eval::players(*who, state, you).is_some_and(|seats| seats.contains(player))
-                    }
+                    _ => eval::players_for_source(*who, state, you, Some(source))
+                        .is_some_and(|seats| seats.contains(player)),
                 }
         }
         (Trigger::NthSpellCast { n, filter }, GameEvent::SpellCast { object, number, .. }) => {
@@ -807,7 +962,8 @@ fn matches(
                 ..
             },
         ) => {
-            eval::players(*who, state, you).is_some_and(|players| players.contains(player))
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|players| players.contains(player))
                 && (matches!(filter, baylee_cards_dsl::Filter::Any)
                     || (*known
                         && state
@@ -820,7 +976,8 @@ fn matches(
                             })))
         }
         (Trigger::Cycled { by, filter }, GameEvent::Cycled { object, player }) => {
-            eval::players(*by, state, you).is_some_and(|players| players.contains(player))
+            eval::players_for_source(*by, state, you, Some(source))
+                .is_some_and(|players| players.contains(player))
                 && (matches!(filter, baylee_cards_dsl::Filter::Any)
                     || state.object_or_departed(*object).is_some_and(|card| {
                         eval::matches_with_context(filter, state, card, you, context)
@@ -854,6 +1011,10 @@ fn matches(
         | (Trigger::PlaysLand(rel), GameEvent::LandPlayed { player, .. }) => match rel {
             PlayerRel::You => *player == you,
             PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*player, you),
+            PlayerRel::EnchantedPlayer | PlayerRel::ControllerOfAttached => {
+                eval::players_for_source(*rel, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+            }
             _ => true,
         },
         (Trigger::AttackWithAtLeast(minimum), GameEvent::BecameAttacker { .. }) => {
@@ -1105,6 +1266,7 @@ fn matches(
             }
             match whose {
                 PlayerRel::You => *active == you,
+                PlayerRel::EachOtherPlayer => *active != you,
                 // "Each opponent's upkeep" is the upkeep of whichever
                 // opponent is active, which is what "an opponent's" says.
                 PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*active, you),
@@ -1112,6 +1274,9 @@ fn matches(
                 // controller" (Cursed Land): that controller's step only.
                 PlayerRel::ControllerOfAttached => {
                     crate::eval::controller_of_attached(state, source) == Some(*active)
+                }
+                PlayerRel::EnchantedPlayer => {
+                    crate::eval::enchanted_player(state, source) == Some(*active)
                 }
                 PlayerRel::EachPlayer | PlayerRel::ActivePlayer => true,
                 // Every other relation names no step's player. This was a
@@ -1123,7 +1288,8 @@ fn matches(
             }
         }
         (Trigger::SearchesLibrary(rel), GameEvent::LibrarySearched { player }) => {
-            eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
+            eval::players_for_source(*rel, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(player))
         }
         (
             Trigger::GainsLife(rel) | Trigger::LosesLife(rel),
@@ -1135,7 +1301,8 @@ fn matches(
                 new < old
             } else {
                 new > old
-            }) && eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
+            }) && eval::players_for_source(*rel, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(player))
         }
         (
             Trigger::DealsCombatDamage(filter),
@@ -1175,6 +1342,322 @@ fn matches(
                     eval::matches_damage_source_with_context(filter, state, o, you, context)
                 })
         }
+        (Trigger::CoinFlipped { who, outcome }, GameEvent::CoinFlipped { player, won }) => {
+            outcome.is_none_or(|want| want == *won)
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
+        (Trigger::DieRolled { who, min_result }, GameEvent::DiceRolled { player, result, .. }) => {
+            min_result.is_none_or(|min| *result >= u32::from(min))
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
+        (
+            Trigger::ChangesZoneAll {
+                origin,
+                destination,
+                filter,
+                exclude_self,
+            },
+            GameEvent::ZoneChanged { .. },
+        ) => {
+            event_groups::zone_batch_count(
+                event,
+                batch,
+                state,
+                you,
+                context,
+                *origin,
+                *destination,
+                filter,
+                *exclude_self,
+            ) > 0
+        }
+        (
+            Trigger::Sacrificed { who, filter },
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                to,
+                ..
+            },
+        ) => {
+            *to != Zone::Battlefield
+                && event_groups::index_of_event(event, batch)
+                    .and_then(|index| batch.get(index))
+                    .and_then(|entry| entry.departure.as_ref())
+                    .is_some_and(|departure| {
+                        departure.sacrificed
+                            && eval::players_for_source(*who, state, you, Some(source))
+                                .is_some_and(|seats| seats.contains(&departure.controller))
+                            && state
+                                .source_object(baylee_core::ids::DamageSourceRef {
+                                    object: *object,
+                                    version: departure.version,
+                                })
+                                .map_or_else(
+                                    || departed_matches(filter, state, *object, you, context),
+                                    |snapshot| {
+                                        let mut as_it_was = snapshot.clone();
+                                        if let Some((_, counters)) =
+                                            state.ltb_counters.iter().find(|(id, _)| id == object)
+                                        {
+                                            as_it_was.counters = counters.clone();
+                                        }
+                                        eval::matches_with_context(
+                                            filter, state, &as_it_was, you, context,
+                                        )
+                                    },
+                                )
+                    })
+        }
+        (
+            Trigger::PlayerAttacked(who),
+            GameEvent::BecameAttacker {
+                defending: baylee_core::ids::Defender::Player(attacked),
+                ..
+            },
+        ) => {
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(attacked))
+                && event_groups::player_attacked_count(event, batch, *attacked) > 0
+        }
+        (Trigger::Exerted(filter), GameEvent::PermanentExerted { object, .. }) => state
+            .object(*object)
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        (
+            Trigger::SpellCastTargeting {
+                who,
+                spell,
+                target,
+                targets_you,
+                only,
+            },
+            GameEvent::SpellCast {
+                object: spell_id,
+                player: caster,
+                ..
+            },
+        ) => spell_cast_targeting_matches(
+            state,
+            *spell_id,
+            *caster,
+            *who,
+            spell,
+            *target,
+            *targets_you,
+            *only,
+            you,
+            context,
+        ),
+        (Trigger::Enlisted(filter), GameEvent::CreatureEnlisted { attacker, .. }) => state
+            .object(*attacker)
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        (Trigger::Plotted { who, filter }, GameEvent::CardPlotted { object, player })
+        | (Trigger::SpellWarped { who, filter }, GameEvent::SpellWarped { object, player }) => {
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(player))
+                && state
+                    .object_or_departed(*object)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        (Trigger::GaveGift(who), GameEvent::GiftGiven { giver, .. }) => {
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(giver))
+        }
+        (Trigger::CommittedCrime { who, .. }, GameEvent::CommittedCrime { player }) => {
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(player))
+        }
+        (
+            Trigger::Expended { who, threshold },
+            GameEvent::ManaExpended {
+                player,
+                previous,
+                total,
+            },
+        ) => {
+            *previous < *threshold
+                && *total >= *threshold
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
+        (Trigger::Clashed { who, won_only }, GameEvent::Clashed { player, won }) => {
+            (!*won_only || *won)
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
+        (
+            Trigger::Exploited {
+                exploiter: exploiter_filter,
+                exploited: exploited_filter,
+            },
+            GameEvent::CreatureExploited {
+                exploiter,
+                exploited,
+                ..
+            },
+        ) => exploit_matches(
+            state,
+            event,
+            batch,
+            source,
+            you,
+            context,
+            (exploiter_filter, *exploiter),
+            (exploited_filter, *exploited),
+        ),
+        (Trigger::Scried { who }, GameEvent::PlayerScried { player, count }) => {
+            *count > 0
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
+        (Trigger::RingTemptsYou { who }, GameEvent::RingTempted { player, .. }) => {
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(player))
+        }
+        (Trigger::Firebends(who), GameEvent::PlayerFirebent { player, amount, .. }) => {
+            *amount > 0
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
         _ => false,
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn exploit_matches(
+    state: &GameState,
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+    source: ObjectId,
+    you: PlayerId,
+    context: RuleContext,
+    (exploiter_filter, exploiter): (&baylee_cards_dsl::Filter, baylee_core::ids::DamageSourceRef),
+    (exploited_filter, exploited): (&baylee_cards_dsl::Filter, ObjectId),
+) -> bool {
+    let Some(entry) = event_groups::index_of_event(event, batch).and_then(|i| batch.get(i)) else {
+        return false;
+    };
+    let observer_alive = state
+        .object(source)
+        .is_some_and(|o| o.zone == Zone::Battlefield)
+        || exploited == source
+        || batch.iter().any(|e| {
+            e.seq > entry.seq
+                && matches!(
+                    e.event,
+                    GameEvent::ZoneChanged {
+                        object,
+                        from: Zone::Battlefield,
+                        ..
+                    } if object == source
+                )
+        });
+    if !observer_alive {
+        return false;
+    }
+    let exploiter_ok = state
+        .source_object(exploiter)
+        .or_else(|| state.object_or_departed(exploiter.object))
+        .is_some_and(|exp_obj| {
+            eval::matches_with_context(exploiter_filter, state, exp_obj, you, context)
+        });
+    if !exploiter_ok {
+        return false;
+    }
+    entry
+        .departure
+        .as_ref()
+        .and_then(|dep| {
+            state.source_object(baylee_core::ids::DamageSourceRef {
+                object: exploited,
+                version: dep.version,
+            })
+        })
+        .map_or_else(
+            || departed_matches(exploited_filter, state, exploited, you, context),
+            |snapshot| {
+                let mut as_it_was = snapshot.clone();
+                if let Some((_, counters)) =
+                    state.ltb_counters.iter().find(|(id, _)| *id == exploited)
+                {
+                    as_it_was.counters = counters.clone();
+                }
+                eval::matches_with_context(exploited_filter, state, &as_it_was, you, context)
+            },
+        )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spell_cast_targeting_matches(
+    state: &GameState,
+    spell_id: ObjectId,
+    caster: PlayerId,
+    who: PlayerRel,
+    spell: &baylee_cards_dsl::Filter,
+    target: Option<&baylee_cards_dsl::Filter>,
+    targets_you: bool,
+    only: bool,
+    you: PlayerId,
+    context: RuleContext,
+) -> bool {
+    let caster_matches = match who {
+        PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(caster, you),
+        _ => eval::players(who, state, you).is_some_and(|seats| seats.contains(&caster)),
+    };
+    if !caster_matches {
+        return false;
+    }
+    let Some(spell_obj) = state.object(spell_id) else {
+        return false;
+    };
+    if !eval::matches_with_context(spell, state, spell_obj, you, context) {
+        return false;
+    }
+    let mut obj_targets: smallvec::SmallVec<[ObjectId; 4]> = spell_obj
+        .targets
+        .iter()
+        .chain(spell_obj.second_targets())
+        .chain(
+            spell_obj
+                .extra_target_instances()
+                .iter()
+                .flat_map(|inst| inst.targets.iter()),
+        )
+        .copied()
+        .filter(|&t| state.targets_current_object(spell_id, t))
+        .collect();
+    obj_targets.sort_unstable();
+    obj_targets.dedup();
+
+    let mut player_targets: smallvec::SmallVec<[PlayerId; 4]> = spell_obj
+        .target_players
+        .iter()
+        .chain(spell_obj.second_target_players().iter())
+        .chain(
+            spell_obj
+                .extra_target_instances()
+                .iter()
+                .flat_map(|inst| inst.players.iter()),
+        )
+        .collect();
+    if (spell_obj.target_req.is_some() || spell_obj.second_target_req().is_some())
+        && let Some(p) = spell_obj.chosen_player
+    {
+        player_targets.push(p);
+    }
+    player_targets.sort_unstable();
+    player_targets.dedup();
+
+    let any_obj = target.is_some_and(|tf| {
+        obj_targets.iter().any(|&t| {
+            state.object(t).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && eval::matches_with_context(tf, state, o, you, context)
+            })
+        })
+    });
+    let any_player = targets_you && player_targets.contains(&you);
+    (any_obj || any_player) && (!only || obj_targets.len() + player_targets.len() == 1)
 }

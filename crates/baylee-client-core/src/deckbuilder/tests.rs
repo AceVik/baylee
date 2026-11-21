@@ -1429,6 +1429,29 @@ fn issue_194_partner_roles_can_be_added_removed_saved_and_reloaded() {
 }
 
 #[test]
+fn a_background_can_be_selected_as_partner_and_reload_in_either_position() {
+    let mut cards = pool();
+    cards[1].commander = true;
+    cards[1].partners = vec![cards[2].index];
+    cards[2].partners = vec![cards[1].index];
+    let mut builder = DeckBuilder::new();
+    builder.set_pool(cards.clone(), true);
+    assert!(!builder.set_commander(2));
+    assert!(builder.set_commander(1));
+    assert!(builder.add_partner(2));
+    let mut names = builder.commander_names();
+    let rows = builder.rows(Zone::Main);
+    for slots in [[1, 2], [2, 1]] {
+        let mut loaded = DeckBuilder::new();
+        loaded.load("d", "Background", &rows, &[], &names);
+        loaded.set_pool(cards.clone(), true);
+        assert_eq!(loaded.commanders(), slots);
+        assert_eq!(loaded.rows(Zone::Main), rows);
+        names.reverse();
+    }
+}
+
+#[test]
 fn localized_names_and_types_do_not_change_saved_card_identity() {
     use crate::card_face::{CardTextEntry, FaceText};
     let mut b = DeckBuilder::new();

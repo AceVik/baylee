@@ -146,23 +146,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // was paid for the spell that became its source (CR 400.7d, 607.2i),
         // and that is `Effect::IfKicked`'s question of the object on the
         // stack.
-        let announced = matches!(
-            abilities.get(ability_index as usize),
-            Some(
-                baylee_cards_dsl::AbilityDef::Triggered {
-                    trigger: baylee_cards_dsl::Trigger::ETB,
-                    ..
-                } | baylee_cards_dsl::AbilityDef::ModalTriggered {
-                    trigger: baylee_cards_dsl::Trigger::ETB,
-                    ..
-                }
-            )
-        )
-        .then(|| self.state.object(source))
-        .flatten()
-        .map_or((0, 0, None), |o| {
-            (o.x_value, o.times_kicked, o.kicked_mask())
-        });
+        let announced = etb_announced_from_source(&self.state, source, &abilities, ability_index);
+        let token_source_face = self
+            .state
+            .object(source)
+            .filter(|o| o.card.is_none() && o.token.is_some_and(|t| t.back_face.is_some()))
+            .map(|o| o.face_index);
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(
                 id,
@@ -180,6 +169,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if let Some(version) = source_version {
                 obj.riders
                     .push(crate::object::Rider::AbilitySourceVersion(version));
+            }
+            if let Some(face) = token_source_face {
+                obj.riders
+                    .push(crate::object::Rider::AbilitySourceFace(face));
             }
             obj.x_value = announced.0;
             obj.times_kicked = announced.1;
@@ -212,6 +205,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         });
         id
     }
+}
+
+fn etb_announced_from_source(
+    state: &crate::state::GameState,
+    source: ObjectId,
+    abilities: &crate::copiable_abilities::AbilityDefs,
+    ability_index: u32,
+) -> (u32, u8, Option<u8>) {
+    matches!(
+        abilities.get(ability_index as usize),
+        Some(
+            baylee_cards_dsl::AbilityDef::Triggered {
+                trigger: baylee_cards_dsl::Trigger::ETB,
+                ..
+            } | baylee_cards_dsl::AbilityDef::ModalTriggered {
+                trigger: baylee_cards_dsl::Trigger::ETB,
+                ..
+            }
+        )
+    )
+    .then(|| state.object(source))
+    .flatten()
+    .map_or((0, 0, None), |o| {
+        (o.x_value, o.times_kicked, o.kicked_mask())
+    })
 }
 
 /// The engine's own steps, named for the card test crates (`test-support`) and

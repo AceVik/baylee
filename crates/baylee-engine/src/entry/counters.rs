@@ -7,17 +7,23 @@ pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
     // External instructions attach counters after requesting the move. Keep that
     // move open whenever replacement ordering could need a decision. Intrinsic
     // counters alone keep their synchronous path when arithmetic is unambiguous.
-    super::modifiers(state, id)
-        .iter()
-        .any(|m| matches!(m, EnterModifier::ChooseCounterPerEntryCount(_)))
-        || state.effects.iter().any(|effect| {
-            matches!(
-                effect.modifier,
-                baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n: 1.. }
-                    | baylee_cards_dsl::Modifier::AdditionalCounterOnEntryByCount { .. }
-                    | baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
-            )
-        })
+    super::modifiers(state, id).iter().any(|m| {
+        matches!(
+            m,
+            EnterModifier::ChooseCounterPerEntryCount(_)
+                | EnterModifier::Amplify(_)
+                | EnterModifier::Devour { .. }
+                | EnterModifier::Sunburst
+                | EnterModifier::Tribute(_)
+        )
+    }) || state.effects.iter().any(|effect| {
+        matches!(
+            effect.modifier,
+            baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n: 1.. }
+                | baylee_cards_dsl::Modifier::AdditionalCounterOnEntryByCount { .. }
+                | baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
+        )
+    })
 }
 
 pub(super) fn question(state: &mut GameState, entry: &mut Attempt) -> Option<Pending> {
@@ -62,15 +68,64 @@ fn collect_modifier_counters(
                         .push((None, *kind, u16::try_from(n).unwrap_or(u16::MAX)));
                 }
             }
+            EnterModifier::WithCountersIf {
+                kind,
+                count,
+                condition,
+            } => {
+                if crate::eval::condition_holds(state, entry.controller, entry.object, *condition) {
+                    let n =
+                        crate::eval::amount(count, state, entry.controller, entry.object, Some(x));
+                    if n > 0 {
+                        entry
+                            .counters
+                            .push((None, *kind, u16::try_from(n).unwrap_or(u16::MAX)));
+                    }
+                }
+            }
             EnterModifier::IfKicked {
                 index, counters, ..
             } if from_stack
                 && *counters > 0
-                && index.is_none_or(|i| prospective.kicked_with(i)) =>
+                && index.map_or_else(|| prospective.kicked(), |i| prospective.kicked_with(i)) =>
             {
                 entry
                     .counters
                     .push((None, CounterKind::P1P1, u16::from(*counters)));
+            }
+            EnterModifier::Bloodthirst(amount)
+                if crate::eval::condition_holds(
+                    state,
+                    entry.controller,
+                    entry.object,
+                    baylee_cards_dsl::Condition::OpponentDealtDamageThisTurn,
+                ) =>
+            {
+                let n = crate::eval::amount(amount, state, entry.controller, entry.object, Some(x));
+                if n > 0 {
+                    entry.counters.push((
+                        None,
+                        CounterKind::P1P1,
+                        u16::try_from(n).unwrap_or(u16::MAX),
+                    ));
+                }
+            }
+            EnterModifier::Sunburst if from_stack => {
+                let colors = prospective
+                    .paid
+                    .as_ref()
+                    .map_or(0, |p| p.colors_spent.len());
+                if colors > 0 {
+                    let is_creature = crate::layers::copiable_values(state, entry.object)
+                        .map_or_else(|| prospective.base.types, |values| values.types)
+                        .contains(baylee_core::types::TypeSet::CREATURE);
+                    let kind = if is_creature {
+                        CounterKind::P1P1
+                    } else {
+                        CounterKind::Charge
+                    };
+                    entry.counters.push((None, kind, u16::from(colors)));
+                }
             }
             _ => {}
         }
@@ -88,13 +143,6 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
         0
     };
     collect_modifier_counters(state, entry, &prospective, from_stack, x);
-    if prospective
-        .abilities(state.bases.as_ref())
-        .iter()
-        .any(|ability| matches!(ability, AbilityDef::SagaChapter { .. }))
-    {
-        entry.counters.push((None, CounterKind::Lore, 1));
-    }
     if let Some(values) = crate::layers::copiable_values(state, entry.object)
         && values
             .types
@@ -113,6 +161,19 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
                 entry.counters.push((None, CounterKind::P1P1, amount));
             }
         }
+        if prospective.riders.contains(&Rider::ImpendingPaid)
+            && let Some((n @ 1.., _)) = prospective
+                .printed_face()
+                .and_then(|face| {
+                    state
+                        .bases
+                        .card(face.card())
+                        .and_then(|card| card.faces.get(usize::from(face.face())))
+                })
+                .and_then(|face| face.impending)
+        {
+            entry.counters.push((None, CounterKind::Time, u16::from(n)));
+        }
     }
     prospective.zone = Zone::Battlefield;
     prospective.version = prospective.version.wrapping_add(1);
@@ -123,6 +184,14 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
         .store(projection.characteristics, &prospective.base);
     prospective.controller = projection.controller;
     entry.controller = projection.controller;
+    if prospective
+        .abilities(state.bases.as_ref())
+        .iter()
+        .any(AbilityDef::is_saga_chapter)
+    {
+        let lore = u16::from(entry.saga_chapter.unwrap_or(1));
+        entry.counters.push((None, CounterKind::Lore, lore));
+    }
     if let Some(defense) = crate::battle::intrinsic_defense(&prospective) {
         entry.counters.push((None, CounterKind::Defense, defense));
     }
@@ -193,7 +262,7 @@ fn own_caps(state: &GameState, object: &crate::object::GameObject) -> Vec<(Count
             else {
                 return None;
             };
-            (ability.source_zone == baylee_cards_dsl::ZoneRef::Battlefield
+            (crate::zone::Zone::Battlefield.matches_ref(ability.source_zone)
                 && matches!(ability.filter, Filter::This)
                 && ability.condition.is_none_or(|condition| {
                     crate::eval::condition_holds(state, object.controller, object.id, condition)

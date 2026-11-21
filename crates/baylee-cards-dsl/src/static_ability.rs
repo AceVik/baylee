@@ -67,6 +67,23 @@ pub enum DamageAmountReplacement {
     FloorAtEffectSourcePower,
 }
 
+/// Which damage recipients a [`Modifier::MultiplyDamageFrom`] or
+/// [`Modifier::AddDamageFrom`] replacement applies to (CR 614.1a).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DamageRecipients {
+    /// Any permanent or player ("to any target", "to a permanent or player",
+    /// Furnace of Rath, Fiery Emancipation, Mechanized Warfare).
+    Any,
+    /// Players matching the relation relative to the effect's controller.
+    Players(crate::effect::PlayerRel),
+    /// Permanents matching the filter, read with the effect's controller as "you".
+    Permanents(&'static Filter),
+    /// Players matching the relation or permanents those players control
+    /// (Torbran, Thane of Red Fell; Gisela; Solphim: "an opponent or a
+    /// permanent an opponent controls").
+    PlayersOrTheirPermanents(crate::effect::PlayerRel),
+}
+
 /// What a continuous effect changes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Modifier {
@@ -1108,6 +1125,173 @@ pub enum Modifier {
     /// (CR 205.1b, Layer 4 — e.g. Roaming Throne). Nothing while no type was
     /// chosen. Appended to preserve replay identities.
     AddChosenSubtype,
+    /// Matching spells cost `cost` less mana to cast (CR 118.7b–d). When
+    /// `colored_only` is `true`, unspent colored reduction does not reduce
+    /// generic mana ("This effect reduces only the amount of colored mana you
+    /// pay", Edgewalker, Morophon); when `false`, excess colored or colorless
+    /// reduction reduces generic mana (CR 118.7b–c).
+    SpellsCostLessMana {
+        /// Mana symbols subtracted from the spell's total cost.
+        cost: baylee_core::mana::ManaCost,
+        /// Whether unspent colored reduction stops instead of reducing generic mana.
+        colored_only: bool,
+    },
+    /// Matching spells cost less generic mana to cast equal to the evaluated
+    /// amount (CR 601.2f, CR 118.7a).
+    SpellsCostLessByAmount(crate::Amount),
+    /// Cycling abilities of matching cards (or activated by matching
+    /// controller) cost this much less generic mana to activate, down to `{0}`
+    /// (CR 702.29a, CR 118.7a — Fluctuator).
+    CyclingCostsLess(u32),
+    /// Standing per-source finite prevention across `you` (when `include_you`
+    /// is true) and/or permanents matching the static ability's `filter`
+    /// (CR 615.1, CR 615.7 — Sphere of Law cycle, Urza's Armor, Cover of
+    /// Winter). In each simultaneous damage event, each matching source gets
+    /// its own `amount` prevention budget shared across the covered recipients
+    /// (asking `Pending::AllocatePrevention` when `0 < amount < sum` across
+    /// multiple recipients). Appended to preserve replay identities.
+    PreventDamagePerSource {
+        /// Which damage sources have `amount` of their damage prevented.
+        sources: &'static Filter,
+        /// Whether the effect controller (`you`) is also a covered recipient.
+        include_you: bool,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+        /// Finite damage prevented per matching source per damage event.
+        amount: crate::Amount,
+    },
+    /// Standing per-(source, affected permanent) finite prevention (CR 615.1,
+    /// CR 615.7 — Daunting Defender: "If a source would deal damage to a Cleric
+    /// creature you control, prevent 1 of that damage"). Each `(source,
+    /// affected permanent)` pair gets its own `amount` prevention budget in a
+    /// damage event. Appended to preserve replay identities.
+    PreventDamageToAffectedPerSource {
+        /// Which damage sources have `amount` of their damage prevented.
+        sources: &'static Filter,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+        /// Finite damage prevented per `(source, affected permanent)` per event.
+        amount: crate::Amount,
+    },
+    /// Grant a complete triggered or modal-triggered [`crate::AbilityDef`],
+    /// retaining its target counts, second target slot, intervening-`if`
+    /// condition (CR 603.4), and `once_per_turn` limit in layer 6 (CR 613.1f).
+    /// Appended to preserve replay identities.
+    GrantTriggeredDefinition(&'static crate::AbilityDef),
+    /// The affected permanent can't phase out, whether from its own phasing
+    /// keyword in the untap step or from a resolving effect (CR 702.26a–b —
+    /// Ertai's Familiar). Appended to preserve replay identities.
+    CantPhaseOut,
+    /// "If you would roll one or more dice, instead roll that many dice plus
+    /// one and ignore the lowest roll" (Barbarian Class, Pixie Guide, Wyll;
+    /// CR 706.6). Appended to preserve replay identities.
+    RollAdditionalDieIgnoreLowest,
+    /// The affected creature is goaded by this effect's controller (CR 701.15b
+    /// — Shiny Impetus, Bloodthirsty Blade). Appended to preserve replay
+    /// identities.
+    Goaded,
+    /// Maximum actual spells matching `filter` cast by each affected player
+    /// during the current turn (Deafening Silence, Ethersworn Canonist,
+    /// Phyrexian Censor, Curse of Exhaustion; CR 601.3). Includes matching
+    /// spells cast earlier in the turn before this rule began. Appended to
+    /// preserve replay identities.
+    MatchingSpellCastLimitPerTurn {
+        /// Affected players relative to this rule's source and controller.
+        who: crate::PlayerRel,
+        /// Spell predicate counted and prohibited once `limit` is reached.
+        filter: &'static crate::Filter,
+        /// Maximum number of matching spells allowed per turn.
+        limit: u32,
+    },
+    /// The affected creature can't be blocked by more than `n` creatures
+    /// (Alpha Authority, Madcap Skills, Familiar Ground, Bristling Boar;
+    /// CR 509.1b). Independent maximums combine by taking the lowest; when a
+    /// minimum-blocker rule exceeds the maximum (e.g. menace with `MaxBlockers(1)`),
+    /// no non-empty block is legal so the creature can't be blocked. Appended
+    /// to preserve replay identities.
+    MaxBlockers(u8),
+    /// Prevent all noncombat damage that would be dealt to the affected
+    /// permanent by sources matching the filter (Blessed Sanctuary, Tajic,
+    /// Mark of Asylum, The Wanderer; CR 615.1a). Appended to preserve replay
+    /// identities.
+    PreventNoncombatDamageFrom(&'static Filter),
+    /// Prevent all noncombat damage that would be dealt to the named players
+    /// by sources matching `from` (Personal Sanctuary, The Wanderer;
+    /// CR 615.1a). Appended to preserve replay identities.
+    PreventNoncombatDamageToPlayers {
+        /// Whose noncombat damage is prevented, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+        /// Sources whose noncombat damage is prevented.
+        from: &'static Filter,
+    },
+    /// If a source matching `sources` would deal positive damage to a matching
+    /// recipient, it deals `factor` times that much damage instead (Furnace of
+    /// Rath, Fiery Emancipation, Dictate of the Twin Gods, City on Fire,
+    /// Solphim, Gisela; CR 614.1a, CR 614.5, CR 616.1, CR 120.8). Appended to
+    /// preserve replay identities.
+    MultiplyDamageFrom {
+        /// Damage sources whose positive damage is multiplied.
+        sources: &'static Filter,
+        /// Multiplication factor (e.g. `2` for double, `3` for triple).
+        factor: u8,
+        /// Restrict to combat damage only when `true`.
+        combat_only: bool,
+        /// Restrict to noncombat damage only when `true`.
+        noncombat_only: bool,
+        /// Which recipients' incoming damage is multiplied.
+        recipients: DamageRecipients,
+    },
+    /// If a source matching `sources` would deal positive damage to a matching
+    /// recipient, it deals that much damage plus `extra` instead (Torbran,
+    /// Thane of Red Fell, Mechanized Warfare, Jaya, Venerated Firemage, City
+    /// on Fire's sibling; CR 614.1a, CR 614.5, CR 616.1, CR 120.8). Appended
+    /// to preserve replay identities.
+    AddDamageFrom {
+        /// Damage sources whose positive damage is increased.
+        sources: &'static Filter,
+        /// Flat damage added to each matching `(source, recipient)` event.
+        extra: u8,
+        /// Restrict to combat damage only when `true`.
+        combat_only: bool,
+        /// Restrict to noncombat damage only when `true`.
+        noncombat_only: bool,
+        /// Which recipients' incoming damage is increased.
+        recipients: DamageRecipients,
+    },
+    /// Affected creatures assign combat damage equal to their toughness rather
+    /// than their power (Doran, the Siege Tower, Assault Formation, Arcades,
+    /// Belligerent Brontodon; CR 510.1c). Appended to preserve replay
+    /// identities.
+    AssignCombatDamageUsingToughness,
+    /// Affected creatures assign combat damage equal to their toughness rather
+    /// than their power as long as their toughness is greater than their power
+    /// (Huetsli, Rasaad yn Bashir, Baldin; CR 510.1c). Appended to preserve
+    /// replay identities.
+    AssignCombatDamageUsingToughnessIfToughnessGreater,
+    /// Affected attacking creatures may assign their combat damage as though
+    /// they weren't blocked (Thorn Elemental, Rhox, Siege Behemoth; CR 510.1c).
+    /// Appended to preserve replay identities.
+    MayAssignCombatDamageAsThoughUnblocked,
+    /// Named players can't gain life (Erebos, Tibalt, Screaming Nemesis,
+    /// Rampaging Ferocidon; CR 119.7, CR 614.17c). Appended to preserve replay
+    /// identities.
+    PlayersCantGainLife(crate::effect::PlayerRel),
+    /// Affected permanents can't be sacrificed — either to spells or abilities
+    /// opponents control (`opponents_only: true`, Sigarda, Tajuru Preserver) or
+    /// to any cost, effect, or state-based action (`opponents_only: false`,
+    /// Assault Suit) (CR 701.21). Appended to preserve replay identities.
+    CantBeSacrificed {
+        /// When `true`, only opponents' spells and abilities are forbidden from
+        /// causing the permanent's controller to sacrifice it.
+        opponents_only: bool,
+    },
+    /// Sneak [cost] (CR 702.190a–b): any time you could cast an instant during
+    /// your declare blockers step, you may cast this spell by paying `cost` and
+    /// returning an unblocked creature you control to its owner's hand rather
+    /// than paying its mana cost; if it is a permanent spell, it enters tapped
+    /// and attacking the same player, planeswalker, or battle. Appended to
+    /// preserve replay identities.
+    Sneak(crate::cost::Cost),
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1272,6 +1456,7 @@ impl Modifier {
             | Self::GrantStatic { .. }
             | Self::GrantsFlashback
             | Self::GrantsEscape(_)
+            | Self::Sneak(_)
             | Self::CantActivateArtifacts
             // CR 613.1f is the whole argument for these two: "Layer 6:
             // Ability-adding effects, keyword counters, ability-removing
@@ -1282,7 +1467,8 @@ impl Modifier {
             | Self::ProtectionFrom(_)
             | Self::ProtectionFromExiledWithSourceTypes
             | Self::GrantTriggered { .. }
-            | Self::GrantTriggeredUpToOne { .. } => Layer::Ability,
+            | Self::GrantTriggeredUpToOne { .. }
+            | Self::GrantTriggeredDefinition(_) => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } | Self::CharacteristicPTSeparate { .. } => Layer::PtCda,
             Self::SetPT(..) | Self::SetPower(_) | Self::SetToughness(_) | Self::SetPTToCount(_) => Layer::PtSet,
@@ -1297,8 +1483,11 @@ impl Modifier {
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::SpellsCostLess(_)
+            | Self::SpellsCostLessMana { .. }
+            | Self::SpellsCostLessByAmount(_)
             | Self::SpellsCostLessPerCounter(_)
             | Self::BuybackCostsLess(_)
+            | Self::CyclingCostsLess(_)
             | Self::BandsWithOther(_)
             | Self::GraveyardInstantSorceryOnce
             | Self::GraveyardVampireOnce
@@ -1335,6 +1524,7 @@ impl Modifier {
             | Self::CantActivateNonMana
             | Self::ChosenNameCantActivate
             | Self::SpellCastLimitPerTurn { .. }
+            | Self::MatchingSpellCastLimitPerTurn { .. }
             | Self::OpponentsCantCast(_)
             | Self::PlayersCantCast { .. }
             | Self::PlayersCantPlay(_)
@@ -1371,6 +1561,8 @@ impl Modifier {
             | Self::PreventDamageToYouFrom(_)
             | Self::PreventCombatDamageFrom(_)
             | Self::PreventDamageFrom(_)
+            | Self::PreventDamagePerSource { .. }
+            | Self::PreventDamageToAffectedPerSource { .. }
             | Self::CombatDamageCantBePrevented
             | Self::DamageToItCantBePreventedOrRedirected
             | Self::BlockableWithoutLandwalk(_)
@@ -1439,7 +1631,20 @@ impl Modifier {
             | Self::CantBlockUnlessYouControlMoreCreaturesThanAttacker
             | Self::ExileInsteadOfYourGraveyard
             | Self::ExileInsteadOfLeavingBattlefield
-            | Self::CastSpellsFromGraveyard => Layer::Text,
+            | Self::RollAdditionalDieIgnoreLowest
+            | Self::CastSpellsFromGraveyard
+            | Self::CantPhaseOut
+            | Self::Goaded
+            | Self::MaxBlockers(_)
+            | Self::PreventNoncombatDamageFrom(_)
+            | Self::PreventNoncombatDamageToPlayers { .. }
+            | Self::MultiplyDamageFrom { .. }
+            | Self::AddDamageFrom { .. }
+            | Self::AssignCombatDamageUsingToughness
+            | Self::AssignCombatDamageUsingToughnessIfToughnessGreater
+            | Self::MayAssignCombatDamageAsThoughUnblocked
+            | Self::PlayersCantGainLife(_)
+            | Self::CantBeSacrificed { .. } => Layer::Text,
         }
     }
 }
@@ -1480,6 +1685,23 @@ pub struct StaticAbility {
     /// it stops (`sync_static_effects`), so the projection sees a table that
     /// changed rather than a filter that reads the source.
     pub condition: Option<crate::Condition>,
+}
+
+impl StaticAbility {
+    /// Sneak [cost] (CR 702.190a–b): static ability functioning while the spell
+    /// is on the stack, allowing it to be cast during your declare blockers
+    /// step at instant speed by paying `cost` and returning an unblocked
+    /// creature you control to its owner's hand.
+    #[must_use]
+    pub const fn sneak(cost: crate::cost::Cost) -> Self {
+        Self {
+            source_zone: crate::ZoneRef::Stack,
+            layer: Layer::Ability,
+            filter: Filter::This,
+            modifier: Modifier::Sneak(cost),
+            condition: None,
+        }
+    }
 }
 
 /// How long a created continuous effect lasts.
@@ -1684,6 +1906,16 @@ pub enum ReplacementRule {
     /// battlefield with a luck counter on it. If you do, exile a card from
     /// your hand" (Gemstone Caverns, CR 103.6a).
     OpeningHandBattlefieldWithLuckCounterExilingHandCard,
+    /// "If this card is in your opening hand, you may begin the game with it on
+    /// the battlefield" (*Leyline* cycle, CR 103.6a). Available to every seat,
+    /// including the starting player. Appended to preserve replay identities.
+    OpeningHandOnBattlefield,
+    /// "You may reveal this card from your opening hand. If you do, at the
+    /// beginning of the first upkeep, [effects]" (*Chancellor* cycle, *Sphinx
+    /// of Foresight*, CR 103.6b). Reveals the card until the first turn begins
+    /// (at most once per card) and registers a first-upkeep delayed trigger.
+    /// Appended to preserve replay identities.
+    OpeningHandRevealAtFirstUpkeep(&'static [crate::effect::Effect]),
 }
 
 #[cfg(test)]
@@ -1820,6 +2052,7 @@ mod tests {
                 Layer::Ability,
             ),
             (Modifier::GrantsFlashback, Layer::Ability),
+            (Modifier::Sneak(crate::cost::Cost::FREE), Layer::Ability),
             (Modifier::CantActivateArtifacts, Layer::Ability),
             // The two that moved. Layer 6 by CR 613.1f, not layer 3.
             (Modifier::ProtectionFrom(&Filter::CREATURE), Layer::Ability),
@@ -1837,6 +2070,12 @@ mod tests {
                     effects: NOTHING,
                     target: crate::effect::TargetSpec::Object(&Filter::CREATURE),
                 },
+                Layer::Ability,
+            ),
+            (
+                Modifier::GrantTriggeredDefinition(
+                    &const { crate::triggered!(crate::ability::Trigger::ETB, NOTHING) },
+                ),
                 Layer::Ability,
             ),
             (
@@ -1914,7 +2153,13 @@ mod tests {
             Modifier::NextDrawWish,
             Modifier::NextDrawFromTop { count: 3 },
             Modifier::SpellsCostLess(3),
+            Modifier::SpellsCostLessMana {
+                cost: baylee_core::mana::ManaCost::ZERO,
+                colored_only: true,
+            },
+            Modifier::SpellsCostLessByAmount(crate::Amount::Fixed(1)),
             Modifier::BuybackCostsLess(2),
+            Modifier::CyclingCostsLess(2),
             Modifier::SpellsCostMore(3),
             Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
             Modifier::SpellsCostSacrificePerManaSymbol {
@@ -1950,6 +2195,11 @@ mod tests {
             Modifier::ChosenNameCantActivate,
             Modifier::SpellCastLimitPerTurn {
                 who: crate::PlayerRel::EachPlayer,
+                limit: 1,
+            },
+            Modifier::MatchingSpellCastLimitPerTurn {
+                who: crate::PlayerRel::EachPlayer,
+                filter: &Filter::NONCREATURE,
                 limit: 1,
             },
             Modifier::PlayersCantPlay(&Filter::Any),
@@ -1995,6 +2245,7 @@ mod tests {
             },
             Modifier::AdditionalCounterPlacement { n: 1 },
             Modifier::FlipTwoCoinsIgnoreOne,
+            Modifier::RollAdditionalDieIgnoreLowest,
             Modifier::DoubleCountersPlacedByYou,
             Modifier::NextDestructionClearsDamage,
             Modifier::PreventDamageToIt,
@@ -2003,6 +2254,17 @@ mod tests {
             Modifier::PreventDamageToYouFrom(&Filter::CREATURE),
             Modifier::PreventCombatDamageFrom(&Filter::ARTIFACT),
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
+            Modifier::PreventDamagePerSource {
+                sources: &Filter::Any,
+                include_you: true,
+                combat_only: false,
+                amount: crate::Amount::Fixed(1),
+            },
+            Modifier::PreventDamageToAffectedPerSource {
+                sources: &Filter::Any,
+                combat_only: false,
+                amount: crate::Amount::Fixed(1),
+            },
             Modifier::CombatDamageCantBePrevented,
             Modifier::DamageToItCantBePreventedOrRedirected,
             Modifier::CantBlock(&Filter::CREATURE),
@@ -2061,6 +2323,15 @@ mod tests {
             Modifier::CastSpellsFromGraveyard,
             Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender,
             Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker,
+            Modifier::CantPhaseOut,
+            Modifier::Goaded,
+            Modifier::AssignCombatDamageUsingToughness,
+            Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater,
+            Modifier::MayAssignCombatDamageAsThoughUnblocked,
+            Modifier::PlayersCantGainLife(crate::PlayerRel::EachOpponent),
+            Modifier::CantBeSacrificed {
+                opponents_only: true,
+            },
         ] {
             assert_eq!(
                 modifier.layer(),

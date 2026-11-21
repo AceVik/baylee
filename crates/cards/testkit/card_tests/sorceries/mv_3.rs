@@ -23,6 +23,7 @@ mod crippling_fatigue;
 mod death_s_duet;
 mod deconstruct;
 mod deep_reconnaissance;
+mod dirge_of_dread;
 mod distorting_wake;
 mod divination;
 mod dream_cache;

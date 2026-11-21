@@ -22,6 +22,9 @@ impl GameState {
         if object.zone != Zone::Battlefield {
             return Ok(id);
         }
+        if !self.can_be_sacrificed(id, None) {
+            return Err(StateError::CantBeSacrificed(id));
+        }
         let owner = object.owner;
         let mut departure = departure.or_else(|| self.departure_snapshot(id));
         if let Some(departure) = &mut departure {

@@ -76,6 +76,9 @@ pub struct DecisionContext<'a> {
     /// Live sources for an optional mana payment, lent by the host to the
     /// in-process agent answering for the payer. Never serialized.
     pub optional_mana_offer: Option<&'a crate::choice::LegalActions>,
+    /// Triggering event object on the active resolution (e.g. entering creature
+    /// for Graft's `Effect::MoveCounterToEvent`), if any.
+    pub event_object: Option<ObjectId>,
 }
 
 /// Effects of the chosen ability or mode. An unknown ability stays unknown:
@@ -99,32 +102,24 @@ pub fn ability_effects(ability: &AbilityDef, mode: Option<usize>) -> &'static [E
     }
 }
 
-/// Which of several chosen modes a cast is asking about: the one whose
-/// targets are asked — the first of them that says "target", or at the
-/// second instance of the word the second (CR 700.2c) — and otherwise the
-/// first chosen.
+/// Which of several chosen modes a cast is asking about: the mode owning the
+/// `clause_idx` target clause (`CR 700.2c`), and otherwise the first chosen.
 fn asked_mode(
     def: &baylee_cards_dsl::CardDef,
     face: usize,
     set: u8,
-    second: bool,
+    clause_idx: Option<usize>,
 ) -> Option<usize> {
-    def.abilities_for_face(face).iter().find_map(|a| match a {
-        AbilityDef::ModalSpell { modes, .. } => {
-            let mut targeting = crate::casting::chosen_modes(modes, set)
-                .filter(|(_, mode)| mode.targets.is_some())
-                .map(|(i, _)| i);
-            let asked = if second {
-                targeting.nth(1)
-            } else {
-                targeting.next()
-            };
-            asked.or_else(|| {
-                crate::casting::chosen_modes(modes, set)
-                    .next()
-                    .map(|(i, _)| i)
-            })
-        }
+    let abilities = def.abilities_for_face(face);
+    if let Some(&(mode, _, _)) =
+        crate::casting::modal_target_clauses(abilities, set).get(clause_idx.unwrap_or(0))
+    {
+        return Some(mode);
+    }
+    abilities.iter().find_map(|a| match a {
+        AbilityDef::ModalSpell { modes, .. } => crate::casting::chosen_modes(modes, set)
+            .next()
+            .map(|(i, _)| i),
         _ => None,
     })
 }
@@ -235,6 +230,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | PlanKind::ChoosePhyrexianLife {
                     source,
                     ability_index,
+                }
+                | PlanKind::ChooseActivationCostBranch {
+                    source,
+                    ability_index,
                 },
             ) => Some((
                 *source,
@@ -292,7 +291,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     x: self.activation_x.unwrap_or(0),
                     second_instance: matches!(
                         self.pending_plan,
-                        Some(PlanKind::ActivateAbilitySecondTargets { .. })
+                        Some(
+                            PlanKind::ActivateAbilitySecondTargets { .. }
+                                | PlanKind::TriggerSecondTarget { .. }
+                        )
                     ),
                     first_targets: first,
                     ..DecisionContext::default()
@@ -336,7 +338,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 x: self.activation_x.unwrap_or(0),
                 second_instance: matches!(
                     self.pending_plan,
-                    Some(PlanKind::ActivateAbilitySecondTargets { .. })
+                    Some(
+                        PlanKind::ActivateAbilitySecondTargets { .. }
+                            | PlanKind::TriggerSecondTarget { .. }
+                    )
                 ),
                 first_targets: first,
                 ..DecisionContext::default()
@@ -375,9 +380,47 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     whole_spell: stack.is_some_and(|o| o.ability.is_none()) && mode.is_none(),
                     effects: res.effects.get(res.pc..).unwrap_or_default(),
                     x: res.x.unwrap_or(0),
+                    event_object: res.event_object,
                     ..DecisionContext::default()
                 }
             })
+    }
+
+    fn wizard_target_clause_info<'a>(
+        &'a self,
+        def: &baylee_cards_dsl::CardDef,
+        face: usize,
+        wizard: &'a super::cast_wizard::CastWizard,
+        second_stage: bool,
+    ) -> (Option<usize>, bool, &'a [ObjectId]) {
+        let target_clause = match wizard.stage {
+            super::cast_wizard::WizardStage::Targets
+            | super::cast_wizard::WizardStage::ChoosePlayer => Some(0_usize),
+            super::cast_wizard::WizardStage::SecondTargets => Some(1_usize),
+            super::cast_wizard::WizardStage::ExtraTargets => Some(2 + wizard.extra_targets.len()),
+            _ => None,
+        };
+        let several = matches!(wizard.option, Some(CastModeKind::Modes(_)));
+        let modal_clause = target_clause.and_then(|idx| self.wizard_modal_clause(wizard, idx));
+        let mode = match wizard.option {
+            Some(CastModeKind::Mode(i)) => Some(i),
+            Some(CastModeKind::Modes(set)) => asked_mode(def, face, set, target_clause),
+            _ => None,
+        };
+        let second_instance = if several {
+            modal_clause.is_some_and(|(_, is_second, _)| is_second)
+        } else {
+            second_stage
+        };
+        let first_targets = if several {
+            match (target_clause, second_instance) {
+                (Some(idx), true) => wizard.clause_first_targets(idx).2,
+                _ => &[],
+            }
+        } else {
+            &wizard.targets
+        };
+        (mode, second_instance, first_targets)
     }
 
     /// [`Self::decision_context`] while a cast is being announced.
@@ -393,14 +436,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         else {
             return DecisionContext::default();
         };
-        let face = wizard.face_index();
         let second_stage = wizard.stage == super::cast_wizard::WizardStage::SecondTargets;
-        let several = matches!(wizard.option, Some(CastModeKind::Modes(_)));
-        let mode = match wizard.option {
-            Some(CastModeKind::Mode(i)) => Some(i),
-            Some(CastModeKind::Modes(set)) => asked_mode(def, face, set, second_stage),
-            _ => None,
-        };
+        let face = wizard_context_face(def, wizard, second_stage);
+        let (mode, second_instance, first_targets) =
+            self.wizard_target_clause_info(def, face, wizard, second_stage);
         DecisionContext {
             actor: Some(wizard.player),
             source: Some(wizard.card),
@@ -428,7 +467,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .find(|o| Some(o.kind) == wizard.announced.or(wizard.option))
                 .map(|o| {
                     let mut cost = o.cost;
-                    if wizard.kicked_mask != 0
+                    if wizard.kicked
                         && wizard.option != Some(CastModeKind::Kicked)
                         && !matches!(
                             wizard.announced,
@@ -440,10 +479,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         && let Some(f) = def.faces.get(face)
                     {
                         for (idx, add) in f.additional_costs.iter().enumerate() {
-                            if idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0 {
+                            if wizard.kicked_mask == 0
+                                || (idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0)
+                            {
                                 cost = cost.combine(&add.mana);
                             }
                         }
+                    }
+                    if wizard.offspring
+                        && let Some(offspring) = def.faces.get(face).and_then(|f| f.offspring)
+                    {
+                        cost = cost.combine(&offspring.mana);
+                    }
+                    if wizard.squad > 0
+                        && let Some(squad) = def.faces.get(face).and_then(|f| f.squad)
+                    {
+                        cost = cost.combine_n(&squad.mana, u32::from(wizard.squad));
                     }
                     cost
                 }),
@@ -466,15 +517,38 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .len();
                     u32::try_from(objects + players).unwrap_or(u32::MAX)
                 }),
-            // The second instance of a spell cast with several modes belongs
-            // to a mode of its own, with its own effects: it is that mode's
-            // first, and what the other mode chose is nothing to weigh.
-            second_instance: second_stage && !several,
-            first_targets: if several { &[] } else { &wizard.targets },
+            second_instance,
+            first_targets,
             // A clone chooses as it resolves, never while it is being cast.
             copying: None,
             optional_mana_offer: None,
+            event_object: None,
         }
+    }
+}
+
+fn wizard_context_face(
+    def: &baylee_cards_dsl::CardDef,
+    wizard: &super::cast_wizard::CastWizard,
+    second_stage: bool,
+) -> usize {
+    if wizard.option == Some(CastModeKind::Fused)
+        && second_stage
+        && def.abilities_for_face(0).iter().any(|a| {
+            matches!(
+                a,
+                AbilityDef::Spell {
+                    targets: Some(_),
+                    second_targets: None,
+                    ..
+                }
+            )
+        })
+        && def.faces.len() > 1
+    {
+        1
+    } else {
+        wizard.face_index()
     }
 }
 

@@ -849,6 +849,11 @@ most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP, each player's by timestamp unless the game asks.
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
+Tap and untap events capture the permanent's controller and incarnation when
+they are recorded. The trigger scan uses that controller for filters such as
+Wake Thrasher's and for effects such as Mesmeric Orb's. A controller change
+later in the resolution does not change who observed an earlier tap or untap.
+
 ### The order of a player's triggers
 
 CR 603.3b is a two-part process: first the triggered abilities whose trigger
@@ -965,8 +970,9 @@ id is unchanged. The former Scavenging Ghoul self-counter leak is guarded by
 `resolve::counters` checking the captured source version before adding counters;
 the exact Ghoul/Kenrith scenario is not yet a dedicated regression.
 
-Source power and source-counter amounts read that exact incarnation, live while
-it remains and from its departure snapshot after it leaves (CR 608.2h). Paying
+At resolution, source power queries and source-counter amounts and comparisons
+read that exact incarnation, live while it remains and from its departure
+snapshot after it leaves (CR 608.2h). Paying
 a sacrifice cost can remove the source before its stack ability is created.
 Immediate mana abilities retain the pre-payment source version in their
 resolution context because they have no stack object. Counter amounts use the
@@ -1668,6 +1674,10 @@ redirection before committing any damage result. Combat retains this work in
 `AwaitingOp::Damage`. Finishing a choice resumes that exact instruction or
 combat step, without granting priority or checking state-based actions midway.
 Fight collects both creatures' power before either result changes counters.
+An instruction that damages a permanent and its controller adds both recipients
+to the same batch. After redirection and prevention, one source deals its
+combined damage to each remaining recipient. Lifelink produces one life gain
+per source across those recipients (CR 119.9, 120.4b).
 
 `ChooseDamageEffect` asks the affected player, or an affected permanent's
 controller, which applicable effect to apply. After each answer the engine
@@ -1735,6 +1745,16 @@ spell follows its recorded resolution into a permanent, not an assumed version
 increment. The chooser's historical view carries its own entitled identity and
 characteristics instead of looking up the current object. Target revalidation
 uses the separate exact-target contract described above (#117).
+
+### Class levels (CR 717.2)
+
+Every permanent defaults to level one. A class level bar changes the
+designation of the same battlefield incarnation and journals the new level
+once per change. A copied activation that assigns the same level again
+produces no second trigger. The designation survives phasing, control
+changes and type changes. A copy starts with its own level, and returning
+to the battlefield starts a new incarnation. Level counters on a creature
+with Level Up remain in the ordinary counter store.
 
 ### The monarch's abilities have no source (CR 726.2)
 

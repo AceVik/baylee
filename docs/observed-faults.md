@@ -3279,12 +3279,10 @@ none of these among them — so they are usable, behind a fourth glyph door
 with that date on it. A **fifth** door is not needed for the level and the
 chapter separately: they are one mark asked twice.
 
-One rules detail whichever route is taken, because the two halves of the
-report are not the same arithmetic. A Class's level is *one plus* its level
-counters (CR 717.2c) and a Leveler's level *is* its level counters
-(CR 711.2b), so a Wizard Class carrying one counter stands at level 2 while a
-Hexdrinker carrying one stands at level 1. The client can tell them apart
-without asking the pool: a Class is an enchantment, a Leveler is a creature.
+The review of PR #439 corrected the underlying distinction. A permanent has
+its own Class level designation, defaulting to one (CR 717.2b, 717.2d).
+A creature with Level Up uses level counters. The public view carries the
+designation separately, so a permanent can display both values.
 
 ### 59. A blinked creature came back still pumped — FIXED
 

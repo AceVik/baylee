@@ -25,10 +25,13 @@ use baylee_cards_dsl::{Filter, TargetSpec};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 pub use amounts::{amount, amount_with_context, public_linked_exile_cards, tapped_power};
-pub(crate) use amounts::{colors_among, colors_in_zone, count_controlled_by, linked_exile_cards};
+pub(crate) use amounts::{
+    colors_among, colors_in_zone, count_controlled_by, entry_sacrifices_on, linked_exile_cards,
+    object_snow_mana_spent, snow_mana_spent_on,
+};
 pub(crate) use conditions::{
-    attached_for_ability, condition_reads_event, condition_with_event,
-    intervening_if_for_incarnation,
+    attached_for_ability, condition_reads_event, condition_with_event, discarded_for_cost,
+    evolve_holds, intervening_if_for_incarnation, sacrificed_for_cost,
 };
 pub use conditions::{
     condition_holds, condition_holds_with_context, controlled_matching,
@@ -36,9 +39,14 @@ pub use conditions::{
 };
 pub(crate) use protection::protection_from_exiled_types;
 pub use protection::{
-    permits_enchantment, protected_from, untargetable_by, untargetable_by_source,
+    permits_enchantment, player_protected_from, protected_from, untargetable_by,
+    untargetable_by_source,
 };
-pub use relations::{controller_of_attached, defending_player_of, most_life, players};
+pub use relations::{
+    controller_of_attached, defending_player_of, enchanted_player, most_life, players,
+    players_for_source,
+};
+pub(crate) use targets::defenders_target_filter;
 pub use targets::{
     choice_options, choice_options_with_context, first_target_players, stack_target_options,
     stack_target_options_relative, target_options, target_options_with_context,
@@ -121,9 +129,34 @@ pub(crate) fn matches_damage_source_with_context(
     you: PlayerId,
     context: RuleContext,
 ) -> bool {
+    matches_damage_source_with_choices(filter, state, obj, you, context, None, None)
+}
+
+/// Same as [`matches_damage_source_with_context`], with frozen source choices
+/// (`chosen_color` and `chosen_subtype`) captured when a shield or instruction
+/// resolved (CR 113.7a, CR 609.7b).
+#[must_use]
+pub(crate) fn matches_damage_source_with_choices(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+    context: RuleContext,
+    chosen_color: Option<baylee_core::mana::ManaColor>,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+) -> bool {
     let characteristics = obj.characteristics();
     if characteristics.colors.is_empty() || !state.effects.may_change_damage_source_color() {
-        return matches_with_context(filter, state, obj, you, context);
+        return matches_projected_with_choices(
+            filter,
+            state,
+            obj,
+            characteristics,
+            you,
+            context,
+            chosen_color,
+            chosen_subtype,
+        );
     }
     let colorless = state.effects.iter().any(|fx| {
         crate::effects::applies_to(state, fx, obj)
@@ -135,11 +168,52 @@ pub(crate) fn matches_damage_source_with_context(
             }
     });
     if !colorless {
-        return matches_with_context(filter, state, obj, you, context);
+        return matches_projected_with_choices(
+            filter,
+            state,
+            obj,
+            characteristics,
+            you,
+            context,
+            chosen_color,
+            chosen_subtype,
+        );
     }
     let mut chars = characteristics.clone();
     chars.colors = baylee_core::color::ColorSet::EMPTY;
-    matches_projected_with_context(filter, state, obj, &chars, you, context)
+    matches_projected_with_choices(
+        filter,
+        state,
+        obj,
+        &chars,
+        you,
+        context,
+        chosen_color,
+        chosen_subtype,
+    )
+}
+
+/// Whether `filter` directly or recursively reads [`Filter::OfSourceChosenColor`]
+/// or [`Filter::ChosenColor`].
+#[must_use]
+pub(crate) fn filter_reads_chosen_color(filter: &Filter) -> bool {
+    match filter {
+        Filter::OfSourceChosenColor | Filter::ChosenColor => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_chosen_color),
+        Filter::Not(inner) => filter_reads_chosen_color(inner),
+        _ => false,
+    }
+}
+
+/// Whether `filter` directly or recursively reads [`Filter::MatchesChosenTypeOfSource`].
+#[must_use]
+pub(crate) fn filter_reads_chosen_subtype(filter: &Filter) -> bool {
+    match filter {
+        Filter::MatchesChosenTypeOfSource => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_chosen_subtype),
+        Filter::Not(inner) => filter_reads_chosen_subtype(inner),
+        _ => false,
+    }
 }
 
 /// Evaluates a [`Filter`] against an object whose characteristics are
@@ -163,7 +237,6 @@ pub fn matches_projected(
 /// Projected matching with explicit rules text; recursion keeps that same
 /// snapshot even when the original source has changed or left the battlefield.
 #[must_use]
-#[allow(clippy::too_many_lines)] // One arm per Filter variant, with no wildcard.
 pub fn matches_projected_with_context(
     filter: &Filter,
     state: &GameState,
@@ -172,11 +245,37 @@ pub fn matches_projected_with_context(
     you: PlayerId,
     context: RuleContext,
 ) -> bool {
+    matches_projected_with_choices(filter, state, obj, chars, you, context, None, None)
+}
+
+#[must_use]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+pub(crate) fn matches_projected_with_choices(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    chars: &crate::object::Characteristics,
+    you: PlayerId,
+    context: RuleContext,
+    chosen_color: Option<baylee_core::mana::ManaColor>,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+) -> bool {
     if obj.is_merged_component() {
         return false;
     }
     let this = context.source;
-    let matches = |f: &Filter| matches_projected_with_context(f, state, obj, chars, you, context);
+    let matches = |f: &Filter| {
+        matches_projected_with_choices(
+            f,
+            state,
+            obj,
+            chars,
+            you,
+            context,
+            chosen_color,
+            chosen_subtype,
+        )
+    };
     // Unchanged wording is nearly every read, and a leaf is copied only to be
     // rewritten.
     let rewritten;
@@ -234,11 +333,22 @@ pub fn matches_projected_with_context(
             stack_filters::activated_source_matches(filter, state, obj, you, context)
         }
         Filter::TargetsPermanentYouControl => {
-            obj.targets.iter().chain(obj.second_targets()).any(|id| {
-                state.object(*id).is_some_and(|target| {
-                    target.zone == Zone::Battlefield && target.controller == you
-                }) && state.targets_current_object(obj.id, *id)
-            })
+            let pre_stack_projection = state
+                .object(obj.id)
+                .is_some_and(|live| live.zone != Zone::Stack);
+            obj.targets
+                .iter()
+                .chain(obj.second_targets())
+                .chain(
+                    obj.extra_target_instances()
+                        .iter()
+                        .flat_map(|inst| inst.targets.iter()),
+                )
+                .any(|id| {
+                    state.object(*id).is_some_and(|target| {
+                        target.zone == Zone::Battlefield && target.controller == you
+                    }) && (pre_stack_projection || state.targets_current_object(obj.id, *id))
+                })
         }
         Filter::WithSingleTarget => {
             let players = obj.target_players.len()
@@ -246,10 +356,16 @@ pub fn matches_projected_with_context(
                     obj.chosen_player
                         .is_some_and(|p| !obj.target_players.contains(p)),
                 );
+            let extra_count: usize = obj
+                .extra_target_instances()
+                .iter()
+                .map(|inst| inst.targets.len() + inst.players.len())
+                .sum();
             obj.targets.len()
                 + obj.second_targets().len()
                 + players
                 + obj.second_target_players().len()
+                + extra_count
                 == 1
         }
         Filter::HasManaAbility => {
@@ -260,13 +376,15 @@ pub fn matches_projected_with_context(
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::ControlledByActivePlayer => obj.controller == state.turn.active,
-        // An attacking source's own defending player (CR 508.5: Floral
-        // Spuzzem's "target artifact defending player controls" at a table of
-        // three is the one it attacks); for anything else, any opponent of
-        // the attacking player during combat, as before.
+        // CR 508.5: an attack trigger can belong to the attacker itself or
+        // to its Equipment. The latter gets the attacker from the event.
         Filter::ControlledByDefendingPlayer => {
-            if last_defender(state, this).is_some() {
-                crate::combat::historical_defending_player(state, this) == Some(obj.controller)
+            if let Some(attacker) = [Some(this), context.reference]
+                .into_iter()
+                .flatten()
+                .find(|&id| last_defender(state, id).is_some())
+            {
+                crate::combat::historical_defending_player(state, attacker) == Some(obj.controller)
             } else {
                 state.turn.phase == crate::turn::Phase::Combat
                     && state.is_opponent(obj.controller, state.turn.active)
@@ -280,7 +398,18 @@ pub fn matches_projected_with_context(
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
         // A lookup and not a scan: this arm runs once per object whenever a
         // filter is walked over the battlefield (`CombatState`'s doc).
-        Filter::Attacking => state.combat.is_attacking(obj.id),
+        Filter::Attacking => {
+            if state
+                .object(obj.id)
+                .is_some_and(|live| live.version == obj.version)
+            {
+                state.combat.is_attacking(obj.id)
+            } else {
+                state
+                    .journal
+                    .was_attacking_on_departure(obj.id, obj.version)
+            }
+        }
         Filter::AttackingYou => state.combat.attackers().iter().any(|attacker| {
             attacker.creature == obj.id
                 && attacker.defending == baylee_core::ids::Defender::Player(you)
@@ -380,7 +509,12 @@ pub fn matches_projected_with_context(
                         baylee_cards_dsl::Modifier::GrantTriggered {
                             trigger: baylee_cards_dsl::Trigger::Rampage,
                             ..
-                        }
+                        } | baylee_cards_dsl::Modifier::GrantTriggeredDefinition(
+                            baylee_cards_dsl::AbilityDef::Triggered {
+                                trigger: baylee_cards_dsl::Trigger::Rampage,
+                                ..
+                            },
+                        )
                     ) && crate::effects::applies_to(state, fx, obj)
                 })
         }
@@ -412,12 +546,19 @@ pub fn matches_projected_with_context(
             printed
                 || state.effects.iter().any(|fx| {
                     matches!(
-                        fx.modifier,
+                        &fx.modifier,
                         baylee_cards_dsl::Modifier::GrantTriggered {
-                            ref trigger,
+                            trigger,
                             effects,
                             ..
-                        } if is_cu(trigger, effects)
+                        }
+                        | baylee_cards_dsl::Modifier::GrantTriggeredDefinition(
+                            baylee_cards_dsl::AbilityDef::Triggered {
+                                trigger,
+                                effects,
+                                ..
+                            },
+                        ) if is_cu(trigger, effects)
                     ) && crate::effects::applies_to(state, fx, obj)
                 })
         }
@@ -468,6 +609,12 @@ pub fn matches_projected_with_context(
                 .into_iter()
                 .filter_map(|id| state.object(id))
                 .any(|exiled| exiled.characteristics().colors.intersects(chars.colors))
+        }
+        Filter::SharesColorWithSource => {
+            !chars.colors.is_empty()
+                && state
+                    .object_or_departed(this)
+                    .is_some_and(|src| src.characteristics().colors.intersects(chars.colors))
         }
         Filter::CmcEqualsYourUnspentMana => state
             .players
@@ -554,18 +701,26 @@ pub fn matches_projected_with_context(
         }),
         Filter::SpellTargetingAffected => state.spell_targets_affected(obj, this),
         Filter::CountersAtLeast(kind, n) => obj.counters.get(*kind) >= *n,
-        Filter::MatchesChosenTypeOfSource => context
-            .resolved_subtype
+        Filter::MatchesChosenTypeOfSource => chosen_subtype
+            .or(context.resolved_subtype)
             .or_else(|| state.object(this).and_then(|src| src.chosen_subtype))
             .is_some_and(|s| chars.subtypes.contains(s)),
         Filter::OfSourceChosenCardType => state
             .object(this)
             .and_then(crate::object::GameObject::chosen_card_type)
             .is_some_and(|chosen| chars.types.intersects(chosen)),
-        Filter::OfSourceChosenColor => {
+        Filter::OfSourceChosenColor | Filter::ChosenColor => {
             use baylee_core::color::Color;
             use baylee_core::mana::ManaColor;
-            let chosen = match state.object(this).and_then(|src| src.chosen_color) {
+            let chosen = match chosen_color
+                .or_else(|| {
+                    state
+                        .resolution_chosen_color
+                        .filter(|(src, _)| *src == this)
+                        .map(|(_, c)| c)
+                })
+                .or_else(|| state.object(this).and_then(|src| src.chosen_color))
+            {
                 Some(ManaColor::White) => Some(Color::White),
                 Some(ManaColor::Blue) => Some(Color::Blue),
                 Some(ManaColor::Black) => Some(Color::Black),
@@ -585,6 +740,22 @@ pub fn matches_projected_with_context(
                                 && matches_with_context(inner, state, other, you, context)
                         })
                 })
+        }
+        Filter::FaceDown => obj.status.contains(crate::object::Status::FACE_DOWN),
+        Filter::SharesCreatureTypeWith(inner) => {
+            if matches!(inner, Filter::This) {
+                state
+                    .object(this)
+                    .is_some_and(|src| target_pair::shares(chars, src.characteristics()))
+            } else {
+                state.battlefield_seen().any(|id| {
+                    id != obj.id
+                        && state.object(id).is_some_and(|other| {
+                            target_pair::shares(chars, other.characteristics())
+                                && matches_with_context(inner, state, other, you, context)
+                        })
+                })
+            }
         }
         // The live attachment first, then what `this` was wearing the moment
         // `obj` left the battlefield (CR 603.10a). The fallback is what lets
@@ -607,7 +778,76 @@ pub fn matches_projected_with_context(
         // CR 303.4b: what the source enchants, equips or fortifies is what
         // the object is attached to, read from the attachment's side.
         Filter::AttachedToSource => obj.attached_to == Some(this),
-        Filter::IsAttached => obj.attached_to.is_some(),
+        Filter::IsAttached => obj.is_attached(),
+        Filter::Historic => {
+            chars.types.contains(baylee_core::types::TypeSet::ARTIFACT)
+                || chars
+                    .supertypes
+                    .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+                || chars
+                    .subtypes
+                    .contains(baylee_core::generated::subtypes::enchantment::SAGA)
+        }
+        Filter::HasCounters(kind) => match kind {
+            Some(k) => obj.counters.get(*k) > 0,
+            None => obj.counters.iter().any(|(_, n)| n > 0),
+        },
+        Filter::AnyCountersAtLeast(n) => {
+            obj.counters.iter().fold(0_u32, |acc, (_, count)| {
+                acc.saturating_add(u32::from(count))
+            }) >= u32::from(*n)
+        }
+        Filter::ControlledByEnchantedPlayer => {
+            enchanted_player(state, this) == Some(obj.controller)
+        }
+        Filter::PairedWithSource => state.paired_partner(this) == Some(obj.id),
+        Filter::WarpedInExile => {
+            obj.zone == crate::zone::Zone::Exile
+                && obj
+                    .riders
+                    .iter()
+                    .any(|r| matches!(r, crate::object::Rider::WarpedInExile(_)))
+        }
+        Filter::CmcAtMostSnowManaSpent => {
+            chars.mana_value() <= amounts::snow_mana_spent_on(state, this)
+        }
+        Filter::Monstrous => {
+            obj.zone == Zone::Battlefield
+                && !obj.status.contains(crate::object::Status::PHASED_OUT)
+                && obj.riders.contains(&crate::object::Rider::Monstrous)
+        }
+        Filter::Suspected => {
+            obj.zone == Zone::Battlefield
+                && !obj.status.contains(crate::object::Status::PHASED_OUT)
+                && obj.riders.contains(&crate::object::Rider::Suspected)
+        }
+        Filter::RingBearer => {
+            if obj.zone == Zone::Battlefield {
+                !obj.status.contains(crate::object::Status::PHASED_OUT)
+                    && state.is_ring_bearer(obj.id)
+            } else {
+                state
+                    .journal
+                    .entries()
+                    .iter()
+                    .rev()
+                    .find_map(|entry| match &entry.event {
+                        crate::event::GameEvent::ZoneChanged {
+                            object,
+                            from: Zone::Battlefield,
+                            ..
+                        } if *object == obj.id => entry.departure.as_ref().and_then(|d| {
+                            (d.version == obj.version || d.version.wrapping_add(1) == obj.version)
+                                .then_some(d.was_ring_bearer_of.is_some())
+                        }),
+                        _ => None,
+                    })
+                    .unwrap_or(false)
+            }
+        }
+        Filter::SameManaValueAsSource => {
+            source_mana_value(state, this).is_some_and(|mv| chars.mana_value() == mv)
+        }
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.
             // The marker list rather than the command zone, for the reason
@@ -654,11 +894,9 @@ pub fn matches_projected_with_context(
         // way and for the same reason.
         Filter::PowerAtLeast(n) => chars.power.is_some_and(|p| p >= *n),
         Filter::PowerAtMost(n) => chars.power.is_some_and(|p| p <= *n),
-        Filter::PowerAtMostSourcePower => chars.power.is_some_and(|power| {
-            state
-                .object(this)
-                .is_some_and(|source| power <= source.characteristics().power.unwrap_or(0))
-        }),
+        Filter::PowerAtMostSourcePower => chars
+            .power
+            .is_some_and(|power| source_power(state, this).is_some_and(|bound| power <= bound)),
         Filter::PowerLessThanSourcePower => below_source_power(chars.power, state, this),
         Filter::ToughnessLessThanSourcePower => below_source_power(chars.toughness, state, this),
         Filter::InZone(z) => obj.zone.matches_ref(*z),
@@ -846,17 +1084,78 @@ pub(crate) fn damage_this_turn(
 }
 
 /// The X announced for `this`, where `cast_wizard` and an activation write
-/// it; 0 for a source that is gone or announced none.
-fn announced_x(state: &GameState, this: ObjectId) -> u32 {
+/// it; 0 for a source that is gone or announced none. When an activated or
+/// triggered ability of `this` is resolving on top of the stack with an
+/// announced `x_value`, read that stack object's `x_value` first (`CR 107.3a`,
+/// `CR 107.3m`, `CR 602.2b`).
+pub(crate) fn announced_x(state: &GameState, this: ObjectId) -> u32 {
+    if let Some(&top) = state.zones.list(crate::zone::ZoneLocation::Stack).last()
+        && let Some(stack_obj) = state.object(top)
+        && stack_obj.kind == crate::object::ObjectKind::AbilityOnStack
+        && stack_obj.ability.is_some_and(|loc| loc.source == this)
+        && (stack_obj.x_value > 0
+            || (stack_obj.paid.is_some()
+                && state
+                    .object(this)
+                    .is_none_or(|o| o.zone != crate::zone::Zone::Stack)))
+    {
+        return stack_obj.x_value;
+    }
     state.object(this).map_or(0, |o| o.x_value)
 }
 
-/// Whether `stat` is less than the source's projected power. A source with
-/// no power, or none at all, bounds nothing in, and neither does an object
-/// with no such number.
+/// Projected power of `this` on the battlefield, or as it last existed there
+/// if it has left (CR 608.2h; Mentor CR 702.134b).
+fn source_power(state: &GameState, this: ObjectId) -> Option<i16> {
+    if let Some(obj) = state
+        .object(this)
+        .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+    {
+        return obj.characteristics().power;
+    }
+    if let Some(version) = last_battlefield_version(state, this)
+        && let Some(departed) = state.source_object(baylee_core::ids::DamageSourceRef {
+            object: this,
+            version,
+        })
+    {
+        return departed.characteristics().power;
+    }
+    state.object(this).and_then(|o| o.characteristics().power)
+}
+
+/// Whether `stat` is less than the source's projected power (using last-known
+/// battlefield power if the source left, CR 608.2h).
 fn below_source_power(stat: Option<i16>, state: &GameState, this: ObjectId) -> bool {
-    let bound = state.object(this).and_then(|o| o.characteristics().power);
-    stat.zip(bound).is_some_and(|(stat, bound)| stat < bound)
+    stat.zip(source_power(state, this))
+        .is_some_and(|(stat, bound)| stat < bound)
+}
+
+fn source_mana_value(state: &GameState, this: ObjectId) -> Option<u32> {
+    if let Some(&top) = state.zones.list(crate::zone::ZoneLocation::Stack).last()
+        && let Some(stack_obj) = state.object(top)
+        && stack_obj.kind == crate::object::ObjectKind::AbilityOnStack
+        && stack_obj.ability.is_some_and(|loc| loc.source == this)
+    {
+        if let Some(version) = stack_obj.riders.iter().find_map(|r| match *r {
+            crate::object::Rider::AbilitySourceVersion(v) => Some(v),
+            _ => None,
+        }) && let Some(src) = state.damage_source(this, Some(version))
+        {
+            return Some(src.characteristics().mana_value());
+        }
+        if let Some(discarded) = stack_obj
+            .paid
+            .as_ref()
+            .and_then(|p| p.discarded.iter().find(|d| d.object == this).copied())
+            && let Some(src) = state.source_object(discarded)
+        {
+            return Some(src.characteristics().mana_value());
+        }
+    }
+    state
+        .object_or_departed(this)
+        .map(|o| o.characteristics().mana_value())
 }
 
 /// Whether `filter` reads the X announced for its source

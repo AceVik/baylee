@@ -8,6 +8,7 @@ mod always_watching;
 mod arenson_s_aura;
 mod armistice;
 mod arnjlot_s_ascent;
+mod astral_slide;
 mod aura_flux;
 mod aura_fracture;
 mod aura_of_silence;

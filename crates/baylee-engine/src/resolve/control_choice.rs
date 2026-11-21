@@ -138,7 +138,8 @@ pub(super) fn sacrifice_n_or_else(
     if count == 0 {
         return None;
     }
-    let options = super::chosen::options(state, res.controller, filter, res.controller, res.source);
+    let options =
+        super::chosen::sacrifice_options(state, res.controller, filter, res.controller, res.source);
     if options.len() > usize::from(count) {
         res.awaiting = Some(AwaitingOp::SacrificeAllChosen);
         return Some(Pending::ChooseCards {
@@ -150,7 +151,7 @@ pub(super) fn sacrifice_n_or_else(
             prompt: crate::choice::ChoicePrompt::Generic,
         });
     }
-    super::sacrifice_together(state, &options);
+    super::sacrifice_together(state, &options, Some(res.controller));
     if options.len() < usize::from(count) {
         return super::run_nested(state, res, otherwise);
     }

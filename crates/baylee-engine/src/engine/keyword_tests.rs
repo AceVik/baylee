@@ -154,6 +154,51 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("all nonbasic land types", K::ALL_NONBASIC_LAND_TYPES), // object::Characteristics::from_face
         ("costless land mayhem", K::MAYHEM),                     // casting::mayhem_land_permission
         ("banding", K::BANDING), // Engine::ask_band, combat::divisions_owed
+        ("provoke", K::PROVOKE), // trigger::provoke::collect (CR 702.39a)
+        ("battle cry", K::BATTLE_CRY), // trigger::combat_keywords::collect (CR 702.91a)
+        ("dethrone", K::DETHRONE), // trigger::combat_keywords::collect (CR 702.105a)
+        ("melee", K::MELEE),     // trigger::combat_keywords::collect (CR 702.121a)
+        ("mentor", K::MENTOR),   // trigger::combat_keywords::collect (CR 702.134a)
+        ("training", K::TRAINING), // trigger::combat_keywords::collect (CR 702.149a)
+        ("myriad", K::MYRIAD),   // trigger::combat_keywords::collect (CR 702.116a)
+        ("extort", K::EXTORT),   // trigger::collect (CR 702.101a)
+        ("wither", K::WITHER),   // damage::counter_result + damage::commit (CR 702.80a)
+        ("horsemanship", K::HORSEMANSHIP), // combat::can_block (CR 702.31b)
+        ("skulk", K::SKULK),     // combat::can_block (CR 702.118b)
+        ("read ahead", K::READ_AHEAD), // entry::sagas + trigger::sagas (CR 702.155a)
+        ("enlist", K::ENLIST), // Engine::declare_attackers + combat_keywords::collect_enlist (CR 702.154a)
+        ("renown", K::RENOWN), // eval::matches(Filter::HasKeyword) + Effect::BecomeRenowned (CR 702.112a)
+        ("modular", K::MODULAR), // trigger::return_keywords::collect_modular (CR 702.43a)
+        ("soulbond", K::SOULBOND), // trigger::soulbond::collect (CR 702.95a)
+        ("exploit", K::EXPLOIT), // trigger::entry_keywords::collect + Effect::Exploit (CR 702.110a)
+        ("evolve", K::EVOLVE), // trigger::entry_keywords::collect + Condition::EvolveFromEvent (CR 702.100a)
+        ("bloodthirst", K::BLOODTHIRST), // eval::matches(Filter::HasKeyword) + EnterModifier::Bloodthirst (CR 702.54a)
+        ("warp", K::WARP),               // casting + cast_wizard + progress::stack (CR 702.185a)
+        ("devour", K::DEVOUR),           // entry::choices + entry::counters (CR 702.82a)
+        ("spree", K::SPREE),             // casting + cast_wizard + progress::stack (CR 702.172a)
+        ("retrace", K::RETRACE),         // casting + cast_wizard CastModeKind::Retrace (CR 702.81a)
+        ("riot", K::RIOT), // entry::choices + layers::projection RiotHaste (CR 702.136a)
+        ("unleash", K::UNLEASH), // entry::choices + layers::projection CANT_BLOCK (CR 702.98a)
+        ("umbra armor", K::UMBRA_ARMOR), // sba::replace_destroy_with_umbra_armor + sba::destroy_all (CR 702.89a)
+        ("mobilize", K::MOBILIZE), // eval::matches(Filter::HasKeyword) + Effect::Mobilize (CR 702.181a)
+        ("transmute", K::TRANSMUTE), // eval::matches(Filter::HasKeyword) + AbilityDef::transmute (CR 702.53a)
+        ("scavenge", K::SCAVENGE), // eval::matches(Filter::HasKeyword) + AbilityDef::scavenge (CR 702.97a)
+        ("firebending", K::FIREBENDING), // resolve::immediate + mana::add_combat_mana (CR 702.189a)
+        ("freerunning", K::FREERUNNING), // AlternativeCost::freerunning + Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn (CR 702.173a)
+        ("sneak", K::SNEAK),             // casting + cast_wizard + entry::commit (CR 702.190a–b)
+        ("sunburst", K::SUNBURST), // entry::counters::collect_modifier_counters (CR 702.44a–d)
+        ("ravenous", K::RAVENOUS), // EnterModifier::ravenous + AbilityDef::ravenous_draw (CR 702.156a)
+        ("graft", K::GRAFT),       // EnterModifier::graft + AbilityDef::graft_trigger (CR 702.58a)
+        ("outlast", K::OUTLAST), // eval::matches(Filter::HasKeyword) + activated ability (CR 702.107a)
+        ("afterlife", K::AFTERLIFE), // eval::matches(Filter::HasKeyword) + SPIRIT_1_1_WHITE_BLACK_FLYING (CR 702.135a)
+        ("afflict", K::AFFLICT), // eval::matches(Filter::HasKeyword) + blocked trigger (CR 702.130a)
+        ("reinforce", K::REINFORCE), // eval::matches(Filter::HasKeyword) + hand activated ability (CR 702.77a)
+        ("splice", K::SPLICE),       // cast_wizard + progress::stack (CR 702.47a)
+        ("awaken", K::AWAKEN),       // casting + cast_wizard + Effect::AwakenLand (CR 702.113a)
+        ("conspire", K::CONSPIRE),   // cast_wizard + trigger::watches (CR 702.78a)
+        ("cipher", K::CIPHER), // progress::stack + Effect::Cipher + trigger::watches (CR 702.99a)
+        ("champion", K::CHAMPION), // trigger::collect_for_objects + Effect::Champion (CR 702.72a)
+        ("tribute", K::TRIBUTE), // entry::choices + Condition::TributeWasNotPaid (CR 702.104a)
     ]
 };
 
@@ -1255,23 +1300,14 @@ fn no_card_mentions_a_keyword_the_engine_ignores() {
         let (mut mentioned, mut unknown, mut sets) = (0u128, 0u128, 0);
         let rendering = format!("{def:?}");
         let mut fragments = rendering.split("KeywordSet(");
-        let mut prefix = fragments.next().unwrap_or_default();
+        let _ = fragments.next();
         for tail in fragments {
             let digits: String = tail.chars().take_while(char::is_ascii_digit).collect();
             let bits = digits
                 .parse::<u128>()
                 .expect("a KeywordSet renders its bits");
             mentioned |= bits;
-            // Brotherhood reads freerunning's printed presence. This does not
-            // implement its alternative cost: the face sweep still rejects a
-            // card printing it, and grants/removals remain unsupported here.
-            let readable = if prefix.ends_with("HasKeyword(") {
-                enforced | baylee_cards_dsl::KeywordSet::FREERUNNING.bits()
-            } else {
-                enforced
-            };
-            unknown |= bits & !readable;
-            prefix = tail;
+            unknown |= bits & !enforced;
             sets += 1;
         }
         read += usize::from(sets > 0);

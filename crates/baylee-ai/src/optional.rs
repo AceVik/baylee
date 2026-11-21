@@ -92,6 +92,19 @@ fn closed(view: &PlayerView, condition: &Condition) -> bool {
         }
         Condition::All(parts) => parts.iter().any(|c| closed(view, c)),
         Condition::Any(parts) => parts.iter().all(|c| closed(view, c)),
+        Condition::ControlYourCommander => !view
+            .battlefield_of(me)
+            .any(|o| !o.status.is_phased_out() && o.commander && o.owner == me),
+        Condition::InCombatAfterBlockers => {
+            view.phase != baylee_view::Phase::Combat
+                || !matches!(
+                    view.step,
+                    Step::DeclareBlockers
+                        | Step::CombatDamageFirst
+                        | Step::CombatDamage
+                        | Step::CombatEnd
+                )
+        }
         _ => false,
     }
 }
@@ -314,18 +327,123 @@ impl HeuristicAgent {
         let Some(id) = context.source else {
             return true;
         };
+        if matches!(then, [Effect::ExertSource]) {
+            return self.exert_may_worth(view, Origin::of(view, id), context.effects, context.x);
+        }
+        if let Some(kind) = then.iter().find_map(|effect| match effect {
+            Effect::MoveCounterToEvent { kind } => Some(*kind),
+            _ => None,
+        }) {
+            return self.moves_counter_to_event(view, id, context.event_object, kind);
+        }
         // The resolving object's own target, when it has one: what "it" is
-        // in the yes.
+        // in the yes. For a triggered or activated ability on the stack,
+        // `context.source` is the originating permanent (`res.source`), while
+        // the chosen target rides on the top `StackItem::Ability` entry.
         let aim = view
             .object(id)
             .and_then(|o| o.targets.first())
+            .or_else(|| {
+                view.stack
+                    .last()
+                    .filter(|s| {
+                        matches!(
+                            s.stack_item,
+                            Some(baylee_view::StackItem::Ability { source, .. }) if source == id
+                        )
+                    })
+                    .and_then(|s| s.targets.first())
+            })
             .and_then(|t| match t {
                 baylee_core::ids::TargetRef::Object(r) => Some(r.object),
                 baylee_core::ids::TargetRef::Player(_) => None,
             })
             .map_or(Aim::Source, Aim::Object);
-        self.effects_worth(view, Origin::of(view, id), then, aim, context.x)
-            .is_none_or(|worth| worth >= 0)
+        if let Some(worth) = self.effects_worth(view, Origin::of(view, id), then, aim, context.x) {
+            return worth >= 0;
+        }
+        if self.aims_by_side()
+            && let Aim::Object(target_id) = aim
+            && let Some(target_obj) = view.object(target_id)
+            && let Some(side) = baylee_engine::target_side::effects_side(then, context.x)
+        {
+            let target_is_hostile = hostile(target_obj.controller);
+            return match side {
+                baylee_core::types::TargetSide::Helpful => !target_is_hostile,
+                baylee_core::types::TargetSide::Harmful => target_is_hostile,
+            };
+        }
+        true
+    }
+
+    /// Graft's `Effect::MoveCounterToEvent` (`CR 702.58a`): never buff an
+    /// opponent's entering creature (`+1/+1`), and keep a 1-remaining-toughness
+    /// Graft creature alive unless the entering friendly creature carries
+    /// stronger evasion/combat keywords.
+    pub(crate) fn moves_counter_to_event(
+        &self,
+        view: &PlayerView,
+        source: ObjectId,
+        event_object: Option<ObjectId>,
+        kind: baylee_cards_dsl::CounterKind,
+    ) -> bool {
+        let Some(entering) = event_object.and_then(|id| view.object(id)) else {
+            return false;
+        };
+        let target_hostile = self.hostile(entering.controller, view.seat);
+        if kind == baylee_cards_dsl::CounterKind::M1M1 {
+            return target_hostile;
+        }
+        if target_hostile {
+            return false;
+        }
+        let Some(src) = view.object(source) else {
+            return true;
+        };
+        if !src.types.contains(baylee_core::types::TypeSet::CREATURE) {
+            return true;
+        }
+        let rem_toughness = src
+            .toughness
+            .unwrap_or(0)
+            .saturating_sub(i16::try_from(src.damage).unwrap_or(i16::MAX));
+        if rem_toughness >= 2 {
+            return true;
+        }
+        let premium = baylee_cards_dsl::KeywordSet::FLYING
+            .union(baylee_cards_dsl::KeywordSet::DOUBLE_STRIKE)
+            .union(baylee_cards_dsl::KeywordSet::TRAMPLE)
+            .union(baylee_cards_dsl::KeywordSet::LIFELINK)
+            .union(baylee_cards_dsl::KeywordSet::INFECT);
+        entering.keywords & premium.bits() != 0 && src.keywords & premium.bits() == 0
+    }
+
+    /// `YesNoPrompt::Endure` (`CR 701.63a`): put `+1/+1` counters on `source`
+    /// when it is an attacking-capable creature with combat/evasion keywords;
+    /// otherwise create the separate `N/N` white Spirit body.
+    pub(crate) fn endures_counters(&self, view: &PlayerView, source: Option<ObjectId>) -> bool {
+        let Some(obj) = source.and_then(|id| view.object(id)) else {
+            return false;
+        };
+        let cant_attack = baylee_cards_dsl::KeywordSet::DEFENDER
+            .union(baylee_cards_dsl::KeywordSet::CANT_ATTACK)
+            .bits();
+        if self.hostile(obj.controller, view.seat)
+            || !obj.types.contains(baylee_core::types::TypeSet::CREATURE)
+            || obj.keywords & cant_attack != 0
+        {
+            return false;
+        }
+        let combat_kw = baylee_cards_dsl::KeywordSet::FLYING
+            .union(baylee_cards_dsl::KeywordSet::DOUBLE_STRIKE)
+            .union(baylee_cards_dsl::KeywordSet::FIRST_STRIKE)
+            .union(baylee_cards_dsl::KeywordSet::TRAMPLE)
+            .union(baylee_cards_dsl::KeywordSet::LIFELINK)
+            .union(baylee_cards_dsl::KeywordSet::VIGILANCE)
+            .union(baylee_cards_dsl::KeywordSet::MENACE)
+            .union(baylee_cards_dsl::KeywordSet::HASTE)
+            .union(baylee_cards_dsl::KeywordSet::UNBLOCKABLE);
+        obj.keywords & combat_kw.bits() != 0
     }
 
     /// False Orders' re-block: the attacker `blocker` blocks, if any.

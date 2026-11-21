@@ -42,7 +42,13 @@ enum EffectKey {
     FaceUp(baylee_core::ids::DamageSourceRef),
     ShieldCounter(baylee_core::ids::DamageSourceRef),
     Shield(u64),
+    ShieldSource(u64, baylee_core::ids::DamageSourceRef),
     Continuous(EffectId),
+    SourcePrevention {
+        effect: EffectId,
+        source: baylee_core::ids::DamageSourceRef,
+        scope: Option<DamageTarget>,
+    },
     MayRedirect(EffectId),
     Paid,
 }
@@ -88,6 +94,13 @@ pub struct DamageWork {
     recipient_lock: Option<recipient_lock::RecipientLock>,
     life_gains: Vec<(PlayerId, u32)>,
     consumed_shields: Vec<u64>,
+    locked_matching_shields: Vec<(u64, baylee_core::ids::DamageSourceRef)>,
+    source_prevention_used: Vec<(
+        EffectId,
+        baylee_core::ids::DamageSourceRef,
+        Option<DamageTarget>,
+        u32,
+    )>,
     counter_removals: Vec<(ObjectId, u32, CounterKind, u32)>,
     result_plans: Option<Vec<crate::replacement::counter_order::CounterPlacementPlan>>,
     result_question: Option<usize>,
@@ -144,6 +157,10 @@ fn order_matters(options: &[Candidate]) -> bool {
     let meet = options.iter().enumerate().any(|(at, option)| {
         options[..at].iter().any(|earlier| {
             earlier.key == option.key
+                || matches!(
+                    (earlier.key, option.key),
+                    (EffectKey::ShieldSource(a, _), EffectKey::ShieldSource(b, _)) if a == b
+                )
                 || earlier
                     .option
                     .parts
@@ -194,6 +211,8 @@ fn only_prevents(kind: DamageEffectKind) -> bool {
         | DamageEffectKind::PreventAll
         | DamageEffectKind::PreventFromSource { .. } => true,
         DamageEffectKind::ReplaceAmount { .. }
+        | DamageEffectKind::MultiplyDamage { .. }
+        | DamageEffectKind::AddDamage { .. }
         | DamageEffectKind::Reflect { .. }
         | DamageEffectKind::RemoveShieldCounter
         | DamageEffectKind::TurnFaceUp { .. }
@@ -280,6 +299,8 @@ impl DamageWork {
             recipient_lock: None,
             life_gains: Vec::new(),
             consumed_shields: Vec::new(),
+            locked_matching_shields: Vec::new(),
+            source_prevention_used: Vec::new(),
             counter_removals: Vec::new(),
             result_plans: None,
             result_question: None,
@@ -359,6 +380,43 @@ impl DamageWork {
         self.commit(state);
         self.complete = true;
         None
+    }
+
+    /// Resolve a non-combat cost damage batch (`CostPart::DealDamageToYou`) to
+    /// completion, applying deterministic default answers if multiple
+    /// competing replacement/prevention effects ask an ordering question.
+    pub(crate) fn finish_cost_damage(&mut self, state: &mut GameState) {
+        let mut pending = self.advance(state);
+        while let Some(question) = pending {
+            let answer = match question {
+                Pending::ChooseDamageEffect {
+                    choice, options, ..
+                } => PlayerAction::ChooseDamageEffect {
+                    choice,
+                    effect: options[0].id,
+                },
+                Pending::AllocatePrevention {
+                    choice,
+                    damage,
+                    total,
+                    ..
+                } => {
+                    let mut left = total;
+                    let allocation = damage
+                        .iter()
+                        .map(|part| {
+                            let share = left.min(part.amount);
+                            left -= share;
+                            (part.id, share)
+                        })
+                        .collect();
+                    PlayerAction::AllocatePrevention { choice, allocation }
+                }
+                Pending::YesNo { .. } => PlayerAction::YesNo(false),
+                _ => unreachable!("unexpected pending during cost damage"),
+            };
+            pending = self.answer(state, &answer);
+        }
     }
 
     fn prepare(&mut self, state: &mut GameState) -> Option<Pending> {
@@ -648,12 +706,40 @@ impl DamageWork {
                     }
                 }
             }
+            EffectKey::SourcePrevention {
+                effect,
+                source,
+                scope,
+            } => self.record_source_prevention(effect, source, scope, prevented),
             EffectKey::Continuous(_)
+            | EffectKey::ShieldSource(..)
             | EffectKey::MayRedirect(_)
             | EffectKey::FaceUp(_)
             | EffectKey::ShieldCounter(_) => {
                 unreachable!("finite prevention")
             }
+        }
+    }
+
+    fn record_source_prevention(
+        &mut self,
+        effect: EffectId,
+        source: baylee_core::ids::DamageSourceRef,
+        scope: Option<DamageTarget>,
+        prevented: u32,
+    ) {
+        if prevented == 0 {
+            return;
+        }
+        if let Some((_, _, _, used)) = self
+            .source_prevention_used
+            .iter_mut()
+            .find(|(e, s, sc, _)| *e == effect && *s == source && *sc == scope)
+        {
+            *used = used.saturating_add(prevented);
+        } else {
+            self.source_prevention_used
+                .push((effect, source, scope, prevented));
         }
     }
 
@@ -759,6 +845,8 @@ impl DamageWork {
                 }
                 DamageEffectKind::TurnFaceUp { .. }
                 | DamageEffectKind::ReplaceAmount { .. }
+                | DamageEffectKind::MultiplyDamage { .. }
+                | DamageEffectKind::AddDamage { .. }
                 | DamageEffectKind::Reflect { .. }
                 | DamageEffectKind::RemoveShieldCounter => unreachable!("handled first"),
                 DamageEffectKind::RemoveCounter { .. } => unreachable!("allocated counters"),
@@ -788,22 +876,36 @@ impl DamageWork {
                 | DamageEffectKind::RedirectNext { .. } => unreachable!("allocated shield"),
             }
         }
-        if used
-            && let EffectKey::Shield(id) = candidate.key
-            && let Some(i) = state.shields.position(id)
-            && !matches!(
-                state.shields[i].kind,
-                ShieldKind::RedirectSource { next: false, .. } | ShieldKind::RedirectCombat { .. }
-            )
-        {
-            if state.shields[i].protects == crate::prevention::Shielded::Everything
-                && matches!(state.shields[i].kind, ShieldKind::NextFrom { .. })
-            {
-                if !self.consumed_shields.contains(&id) {
-                    self.consumed_shields.push(id);
+        if used {
+            match candidate.key {
+                EffectKey::Shield(id) => {
+                    if let Some(i) = state.shields.position(id)
+                        && !matches!(
+                            state.shields[i].kind,
+                            ShieldKind::RedirectSource { next: false, .. }
+                                | ShieldKind::RedirectCombat { .. }
+                        )
+                    {
+                        if state.shields[i].protects == crate::prevention::Shielded::Everything
+                            && matches!(state.shields[i].kind, ShieldKind::NextFrom { .. })
+                        {
+                            if !self.consumed_shields.contains(&id) {
+                                self.consumed_shields.push(id);
+                            }
+                        } else {
+                            state.shields.remove(i);
+                        }
+                    }
                 }
-            } else {
-                state.shields.remove(i);
+                EffectKey::ShieldSource(id, source_ref) if state.shields.position(id).is_some() => {
+                    if !self.locked_matching_shields.contains(&(id, source_ref)) {
+                        self.locked_matching_shields.push((id, source_ref));
+                    }
+                    if !self.consumed_shields.contains(&id) {
+                        self.consumed_shields.push(id);
+                    }
+                }
+                _ => {}
             }
         }
         if let DamageEffectKind::PreventFromSource {

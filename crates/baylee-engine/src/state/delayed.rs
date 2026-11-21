@@ -232,6 +232,43 @@ pub enum DelayedWhen {
         /// The journal sequence number the watch was created at.
         after: u64,
     },
+    /// Generalized step-timed delayed trigger (`Effect::RegisterDelayedTrigger`, CR 603.7a).
+    AtStep {
+        /// Which step begins.
+        step: baylee_cards_dsl::DelayedStep,
+        /// Specific player(s) whose turn matches, or `None` for any player's turn.
+        players: Option<baylee_core::ids::SeatSet>,
+        /// Expire at cleanup if not reached this turn.
+        this_turn_only: bool,
+        /// Keep firing every matching step rather than removing on first trigger.
+        recurring: bool,
+    },
+    /// Generalized event-timed delayed trigger (`Effect::RegisterDelayedTrigger`, CR 603.7a–c).
+    OnEvent {
+        /// Trigger pattern matched against future journal events.
+        trigger: &'static baylee_cards_dsl::Trigger,
+        /// Optional watched incarnation (`Filter::This` in `trigger`).
+        watch: Option<baylee_core::ids::DamageSourceRef>,
+        /// Whether `watch` was on the battlefield when registered (expiring on departure, CR 400.7).
+        watch_battlefield: bool,
+        /// Multiplicity and lifetime.
+        duration: baylee_cards_dsl::DelayedDuration,
+        /// Rule context frozen when registered.
+        context: crate::text_changes::RuleContext,
+        /// Journal sequence number at registration (ignore events `<= after`, CR 603.7a).
+        after: u64,
+    },
+    /// Generalized observation watch with optional turn limit (`DelayedTriggerWhen::OnObservation`).
+    ObservedGeneral {
+        /// Watched battlefield incarnation.
+        watch: baylee_core::ids::DamageSourceRef,
+        /// Observation condition.
+        when: baylee_cards_dsl::DelayedObservation,
+        /// Expire at cleanup if unobserved this turn.
+        this_turn_only: bool,
+        /// Journal sequence number at registration.
+        after: u64,
+    },
 }
 
 impl DelayedWhen {
@@ -252,8 +289,61 @@ impl DelayedWhen {
                 | Self::OneOrMoreDealCombatDamageToPlayerThisTurn { .. }
                 | Self::TappedForManaThisTurn { .. }
                 | Self::AttacksAndIsntBlockedThisTurn { .. }
+                | Self::AtStep {
+                    this_turn_only: true,
+                    ..
+                }
+                | Self::OnEvent {
+                    duration: baylee_cards_dsl::DelayedDuration::OneShotThisTurn
+                        | baylee_cards_dsl::DelayedDuration::ThisTurn
+                        | baylee_cards_dsl::DelayedDuration::ThisCombat,
+                    ..
+                }
+                | Self::ObservedGeneral {
+                    this_turn_only: true,
+                    ..
+                }
         )
     }
+}
+
+/// Remembered object and LKI context captured when a reflexive or delayed
+/// trigger is created (CR 603.7c, CR 603.12, CR 608.2h).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub struct RememberedContext {
+    /// Remembered object (`TargetSpec::EventObject`).
+    pub object: Option<ObjectId>,
+    /// Exact `(version, power)` captured at creation (`Rider::EventObjectIdentity`).
+    pub identity: Option<(u32, i16)>,
+    /// Departure `(controller, toughness)` if departed (`Rider::EventDeparture`).
+    pub departure: Option<(PlayerId, i16)>,
+    /// Mana value (`Rider::EventManaValue`).
+    pub mana_value: Option<u32>,
+    /// Remembered player (`Rider::EventPlayer`).
+    pub player: Option<PlayerId>,
+    /// Remembered amount (`Rider::EventAmount`).
+    pub amount: Option<u32>,
+    /// Secondary subject (`Rider::EventSubject`).
+    pub subject: Option<baylee_core::ids::DamageSourceRef>,
+}
+
+/// Payload for [`DelayedAction::GeneralTrigger`] (`Effect::RegisterDelayedTrigger`).
+#[derive(Clone, Hash, Debug)]
+pub struct DelayedTriggerSpec {
+    /// Source of the creating spell or ability (CR 603.7e).
+    pub source: ObjectId,
+    /// Source incarnation when registered.
+    pub source_version: u32,
+    /// Instructions executed when the delayed triggered ability resolves.
+    pub effects: &'static [baylee_cards_dsl::Effect],
+    /// Frozen text-change map from the creating resolution.
+    pub text: crate::text_changes::TextChangeMap,
+    /// Optional intervening-`if` clause checked at trigger and resolution (CR 603.4).
+    pub condition: Option<&'static baylee_cards_dsl::Condition>,
+    /// Optional target requirement chosen when put onto the stack (CR 603.7d).
+    pub targets: Option<baylee_cards_dsl::TargetReq>,
+    /// Optional remembered object/LKI context from the creating resolution.
+    pub remembered: Option<RememberedContext>,
 }
 
 /// What a delayed trigger does.
@@ -450,4 +540,6 @@ pub enum DelayedAction {
         /// Its identity on entering exile through madness.
         version: u32,
     },
+    /// Generalized delayed triggered ability (`Effect::RegisterDelayedTrigger`, CR 603.7).
+    GeneralTrigger(Box<DelayedTriggerSpec>),
 }

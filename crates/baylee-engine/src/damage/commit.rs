@@ -4,6 +4,7 @@ use super::life_result::LifeLossBudgets;
 use super::{CounterKind, DamageTarget, DamageWork, GameState, KeywordSet, Part};
 use crate::event::Cause;
 use baylee_core::types::TypeSet;
+use rustc_hash::FxHashMap;
 
 impl DamageWork {
     pub(super) fn commit(&mut self, state: &mut GameState) {
@@ -14,6 +15,7 @@ impl DamageWork {
                 part.view.amount = 0;
             }
         }
+        self.combine_damage_to_same_recipient();
         let mut life_loss = LifeLossBudgets::new(self, state);
         for part in &self.parts {
             if part.view.amount == 0 {
@@ -75,17 +77,63 @@ impl DamageWork {
         for plan in self.result_plans.take().expect("damage results planned") {
             crate::replacement::counter_order::commit_plan(state, plan);
         }
-        // Lifelink is a result of the same damage, before priority or SBAs.
-        for part in &self.parts {
-            if part.view.amount > 0 && part.keywords.contains(KeywordSet::LIFELINK) {
-                state.change_life(
-                    part.controller,
-                    i32::try_from(part.view.amount).unwrap_or(i32::MAX),
-                    Cause::Effect,
-                );
+        self.commit_lifelink(state);
+        self.commit_additional(state);
+    }
+
+    /// Replacement effects can redirect two parts of this event to the
+    /// same recipient. Keep the parts separate through prevention choices,
+    /// then deal the combined amount from that source once (CR 120.4b).
+    fn combine_damage_to_same_recipient(&mut self) {
+        if self.parts.len() < 2 {
+            return;
+        }
+        let mut first_by_recipient = FxHashMap::default();
+        for index in 0..self.parts.len() {
+            let (prior, rest) = self.parts.split_at_mut(index);
+            let part = &mut rest[0];
+            if part.view.amount == 0 {
+                continue;
+            }
+            let key = (
+                part.view.source,
+                part.source_version,
+                part.view.recipient,
+                part.recipient_version,
+                part.view.is_combat,
+            );
+            let first = *first_by_recipient.entry(key).or_insert(index);
+            if first != index {
+                let amount = &mut prior[first].view.amount;
+                *amount = amount.saturating_add(part.view.amount);
+                part.view.amount = 0;
             }
         }
-        self.commit_additional(state);
+    }
+
+    /// Each lifelink source causes one gain, even if it damaged multiple
+    /// recipients. Distinct sources cause distinct gains (CR 119.9).
+    fn commit_lifelink(&self, state: &mut GameState) {
+        let mut gains = smallvec::SmallVec::<[(_, u32); 4]>::new();
+        let mut by_source = FxHashMap::default();
+        for part in &self.parts {
+            if part.view.amount == 0 || !part.keywords.contains(KeywordSet::LIFELINK) {
+                continue;
+            }
+            let key = (part.view.source, part.source_version);
+            let index = *by_source.entry(key).or_insert_with(|| {
+                gains.push((part.controller, 0));
+                gains.len() - 1
+            });
+            gains[index].1 = gains[index].1.saturating_add(part.view.amount);
+        }
+        for (player, amount) in gains {
+            state.change_life(
+                player,
+                i32::try_from(amount).unwrap_or(i32::MAX),
+                Cause::Effect,
+            );
+        }
     }
 
     pub(super) fn commit_additional(&mut self, state: &mut GameState) {
@@ -131,7 +179,12 @@ impl Part {
         }
         if types.contains(TypeSet::CREATURE) {
             if let Some(obj) = state.object_mut(target) {
-                if !self.keywords.contains(KeywordSet::INFECT) {
+                // CR 120.3e / CR 702.80a: neither infect nor wither marks
+                // damage on a creature; -1/-1 counters are placed instead.
+                if !self
+                    .keywords
+                    .contains(KeywordSet::INFECT.union(KeywordSet::WITHER))
+                {
                     obj.damage = obj.damage.saturating_add(counters);
                 }
                 // Infect counter amounts were replaced before any damage result

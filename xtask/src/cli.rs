@@ -93,6 +93,16 @@ pub(crate) enum Cmd {
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
     },
+    /// Rebuild `data/script-index.json` from a local card-script reference
+    /// without running full `codegen`.
+    ScriptIndex {
+        /// Path to the card-script reference cardsfolder.
+        #[arg(long, default_value = "../mtg/card-scripts")]
+        scripts: PathBuf,
+        /// Verify `data/script-index.json` is up to date instead of writing it.
+        #[arg(long)]
+        check: bool,
+    },
     /// Assign a `CardIndex` to every card in the corpus that has none.
     ///
     /// The only thing that writes the ledger, and the reason `codegen` never
@@ -246,6 +256,9 @@ pub(crate) enum Cmd {
         /// and what it leaves out is counted rather than dropped in silence.
         #[arg(long, default_value_t = 30)]
         causes: usize,
+        /// Print every script name read in full (sorted).
+        #[arg(long)]
+        list_read: bool,
     },
     /// Name the cards the reader would write in full and this pool does not
     /// have — the worklist §E8 step 1 is made of.

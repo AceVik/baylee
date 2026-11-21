@@ -41,6 +41,26 @@ impl GameState {
         })
     }
 
+    /// Whether one of `player`'s own designated commanders is within `object`
+    /// (CR 903.3c–d, CR 702.124d).
+    #[must_use]
+    pub fn holds_commander_of(
+        &self,
+        player: baylee_core::ids::PlayerId,
+        object: &GameObject,
+    ) -> bool {
+        self.commanders
+            .get(usize::from(player.get()))
+            .is_some_and(|commanders| {
+                commanders.iter().any(|commander| {
+                    commander.object == object.id
+                        || object
+                            .riders
+                            .contains(&Rider::MergedComponent(commander.object))
+                })
+            })
+    }
+
     /// Every commander within this permanent, including a departure snapshot.
     #[must_use]
     pub fn merged_commanders(&self, object: &GameObject) -> smallvec::SmallVec<[ObjectId; 2]> {

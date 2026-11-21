@@ -29,11 +29,14 @@ mod block;
 mod damage;
 mod defenders;
 mod exchange;
+pub mod goad;
 use crate::object::Status;
 pub(crate) use defenders::{
-    active_damage_recipient, historical_defending_player, recheck_defenders, remember_attack,
+    active_damage_recipient, defending_player_for_incarnation, historical_defending_player,
+    recheck_defenders, remember_attack,
 };
 pub(crate) use exchange::exchange_blockers;
+pub use goad::GoadEntry;
 
 use crate::state::GameState;
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
@@ -47,6 +50,7 @@ pub use block::{
     ready_blockers,
 };
 pub use damage::divisions_owed;
+pub(crate) use damage::unblocked_damage_owed;
 pub(crate) use damage::{collect_combat_damage, prepare_damage_step, unpreventable};
 
 /// The creatures each player controls, counted once for a combat declaration.
@@ -89,12 +93,12 @@ impl CreatureCounts {
     }
 }
 
-/// One declared attacker.
+/// One creature currently attacking.
 #[derive(Clone, Copy, Hash, Debug)]
 pub struct AttackerInfo {
     /// The attacking creature.
     pub creature: ObjectId,
-    /// What it attacks: a player, or one of their planeswalkers.
+    /// What it attacks: a player, planeswalker, or battle.
     pub defending: Defender,
     /// Whether a blocker was ever declared against it (CR 509.1h).
     ///
@@ -239,6 +243,10 @@ pub struct CombatState {
     /// The divisions players have chosen for the damage step about to be
     /// dealt, emptied once it is (`deal_combat_damage`).
     divisions: Vec<Division>,
+    /// Per-attacker answers to `YesNoPrompt::AssignDamageAsThoughUnblocked`
+    /// (`Modifier::MayAssignCombatDamageAsThoughUnblocked`, CR 510.1c) for the
+    /// current combat damage step, emptied once it is dealt.
+    unblocked_damage_choices: Vec<(ObjectId, bool)>,
     /// What each creature that attacked this combat attacked, as the object
     /// it was then, kept after it is removed from combat: "the player that
     /// creature was attacking before it was removed from combat" (CR 508.5,
@@ -265,6 +273,9 @@ impl std::hash::Hash for CombatState {
         self.prepared_damage.hash(state);
         self.defended.hash(state);
         self.defender_contexts.hash(state);
+        if !self.unblocked_damage_choices.is_empty() {
+            self.unblocked_damage_choices.hash(state);
+        }
     }
 }
 
@@ -280,7 +291,7 @@ impl CombatState {
         !self.attackers.is_empty()
     }
 
-    /// The declared attackers, in declaration order.
+    /// The current attackers, in the order they entered combat.
     #[must_use]
     pub fn attackers(&self) -> &[AttackerInfo] {
         &self.attackers
@@ -328,6 +339,45 @@ impl CombatState {
             .iter()
             .find(|(c, _, _)| *c == id)
             .map(|(_, v, d)| (*v, *d))
+    }
+
+    /// Number of distinct opponents `player` declared at least one attacking
+    /// creature against during this combat (CR 702.121a: melee).
+    #[must_use]
+    pub fn opponents_attacked_by(&self, state: &GameState, player: PlayerId) -> u32 {
+        let mut mask = 0_u64;
+        for &(id, version, defender) in &self.defended {
+            let Defender::Player(opp) = defender else {
+                continue;
+            };
+            if state.is_opponent(opp, player)
+                && self.participants.contains(&(id, version))
+                && state.per_turn.attacked.contains(&(id, version, player))
+            {
+                mask |= 1_u64 << opp.get();
+            }
+        }
+        mask.count_ones()
+    }
+
+    /// Counts opponents currently attacked directly by creatures `player`
+    /// controls. Creatures put onto the battlefield attacking count (CR 508.4).
+    pub(crate) fn opponents_being_attacked_by(&self, state: &GameState, player: PlayerId) -> u32 {
+        let mut mask = 0_u64;
+        for attacker in &self.attackers {
+            let Defender::Player(opponent) = attacker.defending else {
+                continue;
+            };
+            if state.is_opponent(opponent, player)
+                && !state.has_left(opponent)
+                && state
+                    .object(attacker.creature)
+                    .is_some_and(|creature| creature.controller == player)
+            {
+                mask |= 1_u64 << opponent.get();
+            }
+        }
+        mask.count_ones()
     }
 
     /// Keeps the attackers `keep` says to, in their order.
@@ -427,6 +477,26 @@ impl CombatState {
     /// Records a chosen division for the damage step about to be dealt.
     pub fn record_division(&mut self, division: Division) {
         self.divisions.push(division);
+    }
+
+    /// Whether `source`'s controller has already answered whether it assigns
+    /// combat damage as though unblocked in this strike step (CR 510.1c).
+    #[must_use]
+    pub fn unblocked_damage_choice(&self, source: ObjectId) -> Option<bool> {
+        self.unblocked_damage_choices
+            .iter()
+            .find(|&&(c, _)| c == source)
+            .map(|&(_, choice)| choice)
+    }
+
+    /// Records `source`'s choice for `Modifier::MayAssignCombatDamageAsThoughUnblocked`.
+    pub fn record_unblocked_damage_choice(&mut self, source: ObjectId, as_unblocked: bool) {
+        self.unblocked_damage_choices.retain(|&(c, _)| c != source);
+        self.unblocked_damage_choices.push((source, as_unblocked));
+    }
+
+    pub(crate) fn clear_unblocked_damage_choices(&mut self) {
+        self.unblocked_damage_choices.clear();
     }
 
     /// Blockers assigned to an attacker, in declaration order.
@@ -559,6 +629,7 @@ impl CombatState {
         }
         self.blockers
             .retain(|b| b.blocker != id && b.attacker != id);
+        self.unblocked_damage_choices.retain(|&(c, _)| c != id);
     }
 }
 

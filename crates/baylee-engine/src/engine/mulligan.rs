@@ -28,6 +28,18 @@ use crate::state::CardLookup;
 use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_core::ids::{PlayerId, SeatSet};
 
+/// Kind of CR 103.6 pre-game opening-hand action offered to a seat.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum OpeningHandAction {
+    /// Gemstone Caverns (`CR 103.6a`, non-starting player only).
+    GemstoneCaverns,
+    /// Begin the game on the battlefield (*Leyline* cycle, `CR 103.6a`).
+    Battlefield,
+    /// Reveal until the first turn begins and trigger at the first upkeep
+    /// (*Chancellor* cycle / *Sphinx of Foresight*, `CR 103.6b`).
+    RevealAtFirstUpkeep(&'static [baylee_cards_dsl::Effect]),
+}
+
 /// One seat's place in the opening mulligans.
 #[derive(Clone, Debug)]
 pub(crate) struct SeatMulligan {
@@ -38,10 +50,11 @@ pub(crate) struct SeatMulligan {
     rng: GameRng,
     /// Whether this seat's kept opening hand has been scanned for CR 103.6 actions.
     opening_hand_scanned: bool,
-    /// Remaining opening-hand cards with CR 103.6 actions to offer this seat.
-    opening_hand_queue: std::collections::VecDeque<baylee_core::ids::ObjectId>,
-    /// The opening-hand card currently being asked about.
-    opening_hand_current: Option<baylee_core::ids::ObjectId>,
+    /// Remaining opening-hand `(card, ability_index, action)` items to offer this seat.
+    opening_hand_queue:
+        std::collections::VecDeque<(baylee_core::ids::ObjectId, u32, OpeningHandAction)>,
+    /// The opening-hand action currently being asked about.
+    opening_hand_current: Option<(baylee_core::ids::ObjectId, u32, OpeningHandAction)>,
 }
 
 impl SeatMulligan {
@@ -240,54 +253,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 None
             }
             (Some(Pending::YesNo { .. }), PlayerAction::YesNo(yes)) => {
-                let caverns = self
-                    .mulligans
-                    .as_mut()
-                    .and_then(|w| w.get_mut(seat))
-                    .and_then(|s| s.opening_hand_current.take());
-                if yes
-                    && let Some(caverns) = caverns
-                    && self.in_hand(player, caverns)
-                {
-                    if let Some(obj) = self.state.object_mut(caverns) {
-                        obj.kind = crate::object::ObjectKind::Permanent;
-                        obj.set_controller(player);
-                    }
-                    self.state.move_object(
-                        caverns,
-                        ZoneLocation::Battlefield,
-                        ZonePosition::Top,
-                        Cause::Effect,
-                    )?;
-                    if self
-                        .state
-                        .object(caverns)
-                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
-                    {
-                        crate::replacement::put_counters_by(
-                            &mut self.state,
-                            player,
-                            caverns,
-                            baylee_cards_dsl::counters::LUCK,
-                            1,
-                        );
-                    }
-                    let options = self.state.zones.list(ZoneLocation::Hand(player)).clone();
-                    if options.is_empty() {
-                        None
-                    } else {
-                        Some(Pending::ChooseCards {
-                            player,
-                            options,
-                            min: 1,
-                            max: 1,
-                            prompt: crate::choice::ChoicePrompt::Generic,
-                            total: None,
-                        })
-                    }
-                } else {
-                    None
-                }
+                self.apply_opening_hand_yes_no(player, seat, yes)?
             }
             (Some(Pending::ChooseCards { .. }), PlayerAction::ChooseObjects { objects }) => {
                 if !objects.iter().all(|card| self.in_hand(player, *card)) {
@@ -301,7 +267,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         Cause::Effect,
                     )?;
                     if let Some(window) = self.mulligans.as_mut() {
-                        window[seat].opening_hand_queue.retain(|&c| c != card);
+                        window[seat]
+                            .opening_hand_queue
+                            .retain(|&(c, _, _)| c != card);
                     }
                 }
                 None
@@ -349,6 +317,120 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         // CR 103.6a: after all mulligans are complete, players may take
         // opening-hand actions in turn order starting with the starting player.
+        if self.offer_next_opening_hand_action() {
+            return;
+        }
+        self.clear_opening_hand_reveals();
+        self.mulligans = None;
+        // CR 800.4k: a player who has left does not begin a turn, and the
+        // next one in turn order does.
+        let first = self.state.turn.active;
+        if self.state.players[first.get() as usize].has_lost() {
+            self.state.turn.active = self.next_alive_after(first);
+        }
+        self.begin_turn(true);
+        self.awaiting_answer = false;
+        self.run_until_choice();
+    }
+
+    fn apply_opening_hand_yes_no(
+        &mut self,
+        player: PlayerId,
+        seat: usize,
+        yes: bool,
+    ) -> Result<Option<Pending>, EngineError> {
+        let current = self
+            .mulligans
+            .as_mut()
+            .and_then(|w| w.get_mut(seat))
+            .and_then(|s| s.opening_hand_current.take());
+        let Some((card, _, action)) = current else {
+            return Ok(None);
+        };
+        if !yes || !self.in_hand(player, card) {
+            return Ok(None);
+        }
+        match action {
+            OpeningHandAction::GemstoneCaverns => {
+                if let Some(obj) = self.state.object_mut(card) {
+                    obj.kind = crate::object::ObjectKind::Permanent;
+                    obj.set_controller(player);
+                }
+                self.state.move_object(
+                    card,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )?;
+                if self
+                    .state
+                    .object(card)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                {
+                    crate::replacement::put_counters_by(
+                        &mut self.state,
+                        player,
+                        card,
+                        baylee_cards_dsl::counters::LUCK,
+                        1,
+                    );
+                }
+                let options = self.state.zones.list(ZoneLocation::Hand(player)).clone();
+                Ok((!options.is_empty()).then_some(Pending::ChooseCards {
+                    player,
+                    options,
+                    min: 1,
+                    max: 1,
+                    prompt: crate::choice::ChoicePrompt::Generic,
+                    total: None,
+                }))
+            }
+            OpeningHandAction::Battlefield => {
+                if let Some(obj) = self.state.object_mut(card) {
+                    obj.kind = crate::object::ObjectKind::Permanent;
+                    obj.set_controller(player);
+                }
+                self.state.move_object(
+                    card,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )?;
+                Ok(None)
+            }
+            OpeningHandAction::RevealAtFirstUpkeep(effects) => {
+                let source_version = self.state.object(card).map_or(0, |o| o.version);
+                if let Some(obj) = self.state.object_mut(card)
+                    && !obj
+                        .riders
+                        .contains(&crate::object::Rider::RevealedFromOpeningHand)
+                {
+                    obj.riders
+                        .push(crate::object::Rider::RevealedFromOpeningHand);
+                }
+                self.state
+                    .journal
+                    .record(crate::event::GameEvent::Revealed {
+                        player,
+                        cards: vec![card],
+                    });
+                self.state.delayed.push(crate::state::DelayedTrigger {
+                    controller: player,
+                    when: crate::state::DelayedWhen::NextUpkeepOfAnyone,
+                    action: crate::state::DelayedAction::Trigger {
+                        source: card,
+                        source_version,
+                        effects,
+                        text: crate::text_changes::TextChangeMap::IDENTITY,
+                    },
+                });
+                Ok(None)
+            }
+        }
+    }
+
+    fn offer_next_opening_hand_action(&mut self) -> bool {
+        use baylee_cards_dsl::{AbilityDef, ReplacementRule};
         let starting = self.state.turn.active;
         let seats = self.state.players.len();
         for offset in 0..seats {
@@ -363,20 +445,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .is_some_and(|w| w[seat_idx].opening_hand_scanned);
             if !scanned {
                 let mut candidates = std::collections::VecDeque::new();
-                if p != starting {
-                    for &card in self.state.zones.list(ZoneLocation::Hand(p)) {
-                        let has_caverns = self.state.object(card).is_some_and(|o| {
-                            o.abilities(&self.lookup).iter().any(|a| {
-                                matches!(
-                                    a,
-                                    baylee_cards_dsl::AbilityDef::Replacement(
-                                        baylee_cards_dsl::ReplacementRule::OpeningHandBattlefieldWithLuckCounterExilingHandCard,
-                                    )
-                                )
-                            })
-                        });
-                        if has_caverns {
-                            candidates.push_back(card);
+                for &card in self.state.zones.list(ZoneLocation::Hand(p)) {
+                    let Some(obj) = self.state.object(card) else {
+                        continue;
+                    };
+                    for (idx, ability) in obj.abilities(&self.lookup).iter().enumerate() {
+                        let idx_u32 = u32::try_from(idx).unwrap_or(0);
+                        match ability {
+                            AbilityDef::Replacement(
+                                ReplacementRule::OpeningHandBattlefieldWithLuckCounterExilingHandCard,
+                            ) if p != starting => {
+                                candidates.push_back((
+                                    card,
+                                    idx_u32,
+                                    OpeningHandAction::GemstoneCaverns,
+                                ));
+                            }
+                            AbilityDef::Replacement(ReplacementRule::OpeningHandOnBattlefield) => {
+                                candidates.push_back((
+                                    card,
+                                    idx_u32,
+                                    OpeningHandAction::Battlefield,
+                                ));
+                            }
+                            AbilityDef::Replacement(
+                                ReplacementRule::OpeningHandRevealAtFirstUpkeep(effects),
+                            ) => {
+                                candidates.push_back((
+                                    card,
+                                    idx_u32,
+                                    OpeningHandAction::RevealAtFirstUpkeep(effects),
+                                ));
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -385,42 +486,56 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     w[seat_idx].opening_hand_queue = candidates;
                 }
             }
-            while let Some(caverns) = self
+            while let Some((card, ability_idx, action)) = self
                 .mulligans
                 .as_mut()
                 .and_then(|w| w[seat_idx].opening_hand_queue.pop_front())
             {
-                if !self.in_hand(p, caverns) {
+                if !self.in_hand(p, card) {
                     continue;
                 }
                 let source = self
                     .state
-                    .object(caverns)
+                    .object(card)
                     .and_then(|o| o.card)
-                    .map(|c| baylee_core::ids::AbilityRef::new(c.index, 0));
+                    .map(|c| baylee_core::ids::AbilityRef::new(c.index, ability_idx));
+                let prompt = match action {
+                    OpeningHandAction::GemstoneCaverns => crate::choice::YesNoPrompt::Generic,
+                    OpeningHandAction::Battlefield => {
+                        crate::choice::YesNoPrompt::OpeningHandBattlefield
+                    }
+                    OpeningHandAction::RevealAtFirstUpkeep(_) => {
+                        crate::choice::YesNoPrompt::OpeningHandReveal
+                    }
+                };
                 let q = Pending::YesNo {
                     player: p,
-                    prompt: crate::choice::YesNoPrompt::Generic,
+                    prompt,
                     source,
                 };
                 if let Some(w) = self.mulligans.as_mut() {
-                    w[seat_idx].opening_hand_current = Some(caverns);
+                    w[seat_idx].opening_hand_current = Some((card, ability_idx, action));
                     w[seat_idx].question = Some(q.clone());
                 }
                 self.pending = q;
                 self.awaiting_answer = true;
-                return;
+                return true;
             }
         }
-        self.mulligans = None;
-        // CR 800.4k: a player who has left does not begin a turn, and the
-        // next one in turn order does.
-        let first = self.state.turn.active;
-        if self.state.players[first.get() as usize].has_lost() {
-            self.state.turn.active = self.next_alive_after(first);
+        false
+    }
+
+    fn clear_opening_hand_reveals(&mut self) {
+        let seats = self.state.players.len();
+        for seat in 0..seats {
+            let p = PlayerId::new(seat as u8);
+            let hand = self.state.zones.list(ZoneLocation::Hand(p)).clone();
+            for card in hand {
+                if let Some(obj) = self.state.object_mut(card) {
+                    obj.riders
+                        .retain(|r| *r != crate::object::Rider::RevealedFromOpeningHand);
+                }
+            }
         }
-        self.begin_turn(true);
-        self.awaiting_answer = false;
-        self.run_until_choice();
     }
 }

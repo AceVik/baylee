@@ -65,3 +65,5 @@ baylee-cards-2026-q1 = { path = "../sets/2026-q1" }
 baylee-cards-2026-q2 = { path = "../sets/2026-q2" }
 baylee-cards-2026-q3 = { path = "../sets/2026-q3" }
 baylee-cards-2026-q4 = { path = "../sets/2026-q4" }
+baylee-cards-2027-q1 = { path = "../sets/2027-q1" }
+baylee-cards-2027-q2 = { path = "../sets/2027-q2" }

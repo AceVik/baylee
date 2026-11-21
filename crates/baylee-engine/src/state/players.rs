@@ -124,7 +124,7 @@ impl GameState {
                 else {
                     return false;
                 };
-                crate::eval::players(who, self, effect.controller)
+                crate::eval::players_for_source(who, self, effect.controller, effect.source)
                     .is_some_and(|players| players.contains(&player))
             })
     }
@@ -143,7 +143,77 @@ impl GameState {
                 let baylee_cards_dsl::Modifier::CantLoseLife { who } = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
+            })
+    }
+
+    /// Whether an effect says `player` can't gain life
+    /// (`Modifier::PlayersCantGainLife`, CR 119.7, CR 614.17c).
+    #[must_use]
+    pub fn cant_gain_life(&self, player: PlayerId) -> bool {
+        self.effects.may_change_player_or_sba_rules()
+            && self.effects.iter().any(|fx| {
+                let baylee_cards_dsl::Modifier::PlayersCantGainLife(who) = fx.modifier else {
+                    return false;
+                };
+                if !crate::effects::source_is_present(self, fx) {
+                    return false;
+                }
+                if let crate::effects::EffectFilter::DslControlledBy(_, seats) = fx.filter {
+                    return seats.contains(player) && !self.has_left(player);
+                }
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
+            })
+    }
+
+    /// Whether permanent `id` may be sacrificed (`Modifier::CantBeSacrificed`,
+    /// CR 701.21). `cause_controller` is `Some(controller)` when a spell,
+    /// ability, or delayed trigger causes the sacrifice, or `None` for costs,
+    /// state-based actions, and turn-based actions.
+    #[must_use]
+    pub fn can_be_sacrificed(&self, id: ObjectId, cause_controller: Option<PlayerId>) -> bool {
+        if !self.effects.may_change_player_or_sba_rules() {
+            return true;
+        }
+        let Some(obj) = self.object(id) else {
+            return false;
+        };
+        !self.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::CantBeSacrificed { opponents_only } = fx.modifier
+            else {
+                return false;
+            };
+            if !crate::effects::applies_to(self, fx, obj) {
+                return false;
+            }
+            match (opponents_only, cause_controller) {
+                (false, _) => true,
+                (true, Some(actor)) => self.is_opponent(actor, obj.controller),
+                (true, None) => false,
+            }
+        })
+    }
+
+    /// Whether `Modifier::CantActivate` or `Modifier::CantActivateArtifacts`
+    /// forbids activating abilities (including intrinsic mana abilities) of `id`.
+    #[must_use]
+    pub(crate) fn activations_locked(&self, id: ObjectId) -> bool {
+        self.effects.may_change_or_forbid_abilities()
+            && self.object(id).is_some_and(|obj| {
+                self.effects.iter().any(|fx| match fx.modifier {
+                    baylee_cards_dsl::Modifier::CantActivateArtifacts => {
+                        obj.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::ARTIFACT)
+                            && self.is_opponent(obj.controller, fx.controller)
+                    }
+                    baylee_cards_dsl::Modifier::CantActivate => {
+                        crate::effects::applies_to(self, fx, obj)
+                    }
+                    _ => false,
+                })
             })
     }
 
@@ -158,7 +228,8 @@ impl GameState {
                 let baylee_cards_dsl::Modifier::NoLossForZeroLife { who } = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
             })
     }
 
@@ -172,7 +243,8 @@ impl GameState {
                 let baylee_cards_dsl::Modifier::LifeGainDrawsInstead { who } = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
             })
     }
 
@@ -184,7 +256,8 @@ impl GameState {
                 let baylee_cards_dsl::Modifier::SkipDrawStep { who } = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
             })
     }
 
@@ -198,7 +271,8 @@ impl GameState {
                 let baylee_cards_dsl::Modifier::SkipUntapStep { who } = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
+                    .is_some_and(|p| p.contains(&player))
             })
     }
 
@@ -373,7 +447,7 @@ impl GameState {
                 else {
                     return None;
                 };
-                crate::eval::players(who, self, fx.controller)?
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)?
                     .contains(&player)
                     .then_some(u32::from(limit))
             })

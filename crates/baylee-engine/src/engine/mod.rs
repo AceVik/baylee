@@ -570,6 +570,8 @@ pub struct Engine<L: CardLookup, D: LoopDetection = DetectLoops> {
     /// questions make, and taken when the cost is paid; cleared on a fresh
     /// press like [`Engine::activation_x`].
     activation_phyrexian: Vec<bool>,
+    /// Settled `CostPart::Either` branches for an activation in progress (`true` = first, `false` = second).
+    activation_either_branches: Vec<bool>,
     /// The ability list the next push to the stack should use instead of
     /// asking the source — read before its cost is paid, or carried on a
     /// trigger that is looking back in time.
@@ -913,6 +915,12 @@ enum PlanKind {
         /// The shares given so far, one per recipient from the first.
         shares: Vec<i16>,
     },
+    /// Choosing whether `attacker` assigns combat damage as though unblocked
+    /// (`Modifier::MayAssignCombatDamageAsThoughUnblocked`, CR 510.1c).
+    CombatUnblockedDamage {
+        /// The blocked attacker whose combat damage assignment is asked about.
+        attacker: ObjectId,
+    },
     /// A loyalty ability waiting for its target player.
     LoyaltyPlayer {
         /// The walker.
@@ -967,6 +975,14 @@ enum PlanKind {
     /// paid. Carries only the ability, for [`PlanKind::ChooseActivationX`]'s
     /// reason: it is asked before the targets.
     ChoosePhyrexianLife {
+        /// The object whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+    },
+    /// An activation asking whether its next [`baylee_cards_dsl::CostPart::Either`]
+    /// pays its first (`true`) or second (`false`) branch (`CR 118.8`).
+    ChooseActivationCostBranch {
         /// The object whose ability is being activated.
         source: ObjectId,
         /// Ability index.
@@ -1094,6 +1110,7 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             activation_x: None,
             activation_graveyard: None,
             activation_phyrexian: Vec::new(),
+            activation_either_branches: Vec::new(),
             activating_abilities: None,
             activating_grant: None,
             entry_scan_seq: 0,
@@ -1198,10 +1215,14 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                 | resolve::AwaitingOp::SearchLibrary { inspected, .. }
                 | resolve::AwaitingOp::SearchTakeover { inspected, .. },
             ) => inspected,
-            Some(resolve::AwaitingOp::DigRest { rest, .. }) => rest,
+            Some(
+                resolve::AwaitingOp::DigRest { rest, .. }
+                | resolve::AwaitingOp::PeekAndRevealOp { looked: rest, .. },
+            ) => rest,
             Some(
                 resolve::AwaitingOp::Hideaway { looked }
-                | resolve::AwaitingOp::LookedCardToExile { looked, .. },
+                | resolve::AwaitingOp::LookedCardToExile { looked, .. }
+                | resolve::AwaitingOp::ManifestDread { looked },
             ) => looked,
             Some(
                 resolve::AwaitingOp::TakeTop { looked, .. }
@@ -1477,6 +1498,15 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                 extra = extra.wrapping_mul(31).wrapping_add(entry.seq);
                 extra = extra.wrapping_mul(31).wrapping_add(departure.fingerprint());
             }
+            if let Some(observation) = entry.tap_observation {
+                extra = extra
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::structural_fingerprint(&(
+                        entry.seq,
+                        &entry.event,
+                        observation,
+                    )));
+            }
         }
         if self.library_announcement_open() {
             for top in self.library_action_tops.iter().flatten() {
@@ -1521,6 +1551,11 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                     .wrapping_add(trigger.event_departure.map_or(0, |(p, t)| {
                         1 + u64::from(p.get()) + (u64::from(t as u16) << 8)
                     }));
+            if let Some((player, toughness)) = trigger.event_tap_snapshot {
+                extra = extra
+                    .wrapping_mul(31)
+                    .wrapping_add(1 + u64::from(player.get()) + (u64::from(toughness as u16) << 8));
+            }
             extra = extra.wrapping_mul(31).wrapping_add(
                 trigger
                     .counter_source_version
@@ -1539,6 +1574,11 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             // keeps every hash a record holds.
             if trigger.in_chosen_order {
                 extra = extra.wrapping_mul(31).wrapping_add(1);
+            }
+            if let Some(condition) = trigger.synthetic_condition {
+                extra = extra
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::structural_fingerprint(condition));
             }
         }
         extra = extra
@@ -1773,6 +1813,7 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             activation_x,
             activation_graveyard,
             activation_phyrexian,
+            activation_either_branches,
             activating_abilities,
             activating_grant,
             capabilities,
@@ -1843,6 +1884,10 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             ("activation_x", format!("{activation_x:?}")),
             ("activation_graveyard", format!("{activation_graveyard:?}")),
             ("activation_phyrexian", format!("{activation_phyrexian:?}")),
+            (
+                "activation_either_branches",
+                format!("{activation_either_branches:?}"),
+            ),
             ("activating_abilities", format!("{activating_abilities:?}")),
             ("activating_grant", format!("{activating_grant:?}")),
             ("loyalty_paid", format!("{loyalty_paid:?}")),
@@ -2088,6 +2133,7 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                         | PlanKind::ChooseActivationX { .. }
                         | PlanKind::ChooseActivationGraveyard { .. }
                         | PlanKind::ChoosePhyrexianLife { .. }
+                        | PlanKind::ChooseActivationCostBranch { .. }
                         | PlanKind::PayActivationCost { .. }
                         | PlanKind::LoyaltyPlayer { .. }
                         | PlanKind::EntryCounters { .. }
@@ -2166,6 +2212,7 @@ mod checkpoint;
 mod checkpoint_tests;
 mod constrained_mana;
 pub(crate) mod cost_wizard;
+mod crime;
 mod effect_play;
 mod foretell;
 mod granted;
@@ -2187,6 +2234,7 @@ mod payment_window;
 mod player_control;
 #[cfg(test)]
 mod player_control_tests;
+mod plot;
 #[cfg(feature = "test-support")]
 pub mod progress;
 #[cfg(not(feature = "test-support"))]

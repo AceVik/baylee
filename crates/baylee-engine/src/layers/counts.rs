@@ -14,6 +14,20 @@ pub(super) fn counts_by_attachment(filter: &baylee_cards_dsl::Filter) -> bool {
     }
 }
 
+/// Whether a count's filter binds `Filter::This` / `Filter::Another` /
+/// `Filter::AttachedToSource` to each affected permanent rather than the static
+/// ability's own source (`Coat of Arms`, `Alpha Status`, Aura counts).
+fn rebinds_source_to_affected(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::Filter;
+    match filter {
+        Filter::AttachedToSource => true,
+        Filter::SharesCreatureTypeWith(inner) => matches!(inner, Filter::This),
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(rebinds_source_to_affected),
+        Filter::Not(inner) => rebinds_source_to_affected(inner),
+        _ => false,
+    }
+}
+
 pub(super) fn count_controlled(
     state: &GameState,
     obj: &GameObject,
@@ -23,7 +37,7 @@ pub(super) fn count_controlled(
     filter: &baylee_cards_dsl::Filter,
     context: crate::text_changes::RuleContext,
 ) -> usize {
-    let context = if counts_by_attachment(filter) {
+    let context = if rebinds_source_to_affected(filter) {
         crate::text_changes::RuleContext {
             source: obj.id,
             ..context

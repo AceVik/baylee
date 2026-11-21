@@ -29,6 +29,26 @@ pub enum CoinContinuation {
         /// The opponent's result once known.
         opponent_heads: Option<bool>,
     },
+    /// Sequential `Effect::FlipCoins` continuation.
+    MultiFlip {
+        /// Flips remaining in this batch (including the flip just resolved).
+        remaining: u32,
+        /// Whether to stop immediately on a loss.
+        stop_on_loss: bool,
+        /// Instructions run for each won flip.
+        per_win: &'static [Effect],
+        /// Instructions run after the final flip if none were lost.
+        if_won_all: &'static [Effect],
+    },
+    /// Sequential `Effect::FlipUntilLose` continuation.
+    UntilLose {
+        /// Optional remaining flip bound (including the flip just resolved).
+        max_flips: Option<u8>,
+        /// Instructions run for each won flip.
+        per_win: &'static [Effect],
+        /// Instructions run once flipping stops.
+        after: &'static [Effect],
+    },
 }
 
 /// An operation suspended on a player choice.
@@ -39,6 +59,8 @@ pub enum AwaitingOp {
         /// The permanent that was present when the question was asked.
         source: baylee_core::ids::DamageSourceRef,
     },
+    /// Record a color on the resolution's `SubjectContext` (CR 105.4).
+    ChooseColor,
     /// An optional nontargeting choice of a permanent to gain control of.
     ControlChoice(super::control_choice::ControlChoice),
     /// The latest coin flip's winner chooses whether to repeat at a higher stake.
@@ -92,6 +114,12 @@ pub enum AwaitingOp {
     /// All cards privately inspected by hideaway.
     Hideaway {
         /// Top cards, in their inspection order.
+        looked: Vec<ObjectId>,
+    },
+    /// Manifest dread (CR 701.62a): look at the top two cards of your library,
+    /// manifest one of them, and put the rest into your graveyard.
+    ManifestDread {
+        /// Top cards of the library inspected privately.
         looked: Vec<ObjectId>,
     },
     /// A matching hand card chosen for exile with the resolving source.
@@ -443,6 +471,8 @@ pub enum AwaitingOp {
         /// Maximum total after placement and replacement effects.
         maximum: u16,
     },
+    /// Choose a creature you control to become your Ring-bearer (`CR 701.54a`).
+    ChooseRingBearer,
     /// An owner orders simultaneous graveyard arrivals before the next
     /// instruction or a choice that instruction produced.
     GraveyardOrder {
@@ -667,6 +697,12 @@ pub enum AwaitingOp {
         /// `res.controller` here moved the card from one player's library
         /// into another's.
         player: PlayerId,
+        /// `Some(n)` for a true `Effect::Scry` (`CR 701.22a–d`) so finishing
+        /// the arrangement emits `GameEvent::PlayerScried { player, count: n }`;
+        /// `None` for `Effect::ScryFor` ("look at the top card of target
+        /// player's library; you may put it on the bottom"), which is not a
+        /// scry keyword action.
+        scried_count: Option<u8>,
     },
     /// Surveil: chosen cards go to the graveyard, the rest stays on top
     /// (CR 701.25a).
@@ -902,11 +938,14 @@ pub enum AwaitingOp {
         /// What happens to it.
         then: &'static [Effect],
     },
-    /// After `PreventNextFromChosenSource`: the shield waits for the
-    /// chosen source.
+    /// After `PreventNextFromChosenSource` / `PreventFromChosenSource`: the
+    /// shield(s) wait for the chosen source.
     ShieldFromChosenSource {
-        /// Repeatable prevention to every recipient until cleanup.
-        all_recipients: bool,
+        /// Recipients protected by the created shield(s).
+        protects: Vec<crate::prevention::Shielded>,
+        /// Consume after the next matching damage event (`true`) or last until
+        /// cleanup (`false`).
+        next_only: bool,
         /// What the source had to be, and must still be.
         sources: &'static baylee_cards_dsl::Filter,
         /// Only its combat damage.
@@ -973,6 +1012,25 @@ pub enum AwaitingOp {
     HandToBottom,
     /// The player `Effect::ChoosePlayerFrom` asked for.
     ChoosePlayerFrom,
+    /// Choosing an opponent to clash with (`Effect::Clash`, CR 701.30a).
+    ClashOpponent {
+        /// Instructions executed when the resolving controller wins the clash.
+        on_win: &'static [baylee_cards_dsl::Effect],
+        /// Instructions executed when the resolving controller does not win.
+        on_loss: &'static [baylee_cards_dsl::Effect],
+    },
+    /// Deciding in APNAP order whether to put each revealed clash card on the
+    /// bottom of its owner's library (`Effect::Clash`, CR 701.30c).
+    ClashBottom {
+        /// Clashing players and their revealed top cards in APNAP order.
+        entries: Vec<super::clash::ClashEntry>,
+        /// Index in `entries` currently deciding.
+        index: usize,
+        /// Instructions executed when the resolving controller wins the clash.
+        on_win: &'static [baylee_cards_dsl::Effect],
+        /// Instructions executed when the resolving controller does not win.
+        on_loss: &'static [baylee_cards_dsl::Effect],
+    },
     /// Where `Effect::MoveTargetAuraToAnother` attaches the Aura.
     MoveAura {
         /// The targeted Aura.
@@ -1214,6 +1272,157 @@ pub enum AwaitingOp {
         /// Prospective spell types the exact exile incarnation may be cast as.
         cast_types: baylee_core::types::TypeSet,
     },
+    /// Untargeted permanent choice for `Effect::ChooseAndCreateTokenCopy`.
+    ChooseTokenCopy {
+        /// Number of token copies to create.
+        count: u32,
+        /// Copy modifiers, entry flags, and cleanup.
+        spec: super::tokens::copy_tokens::TokenCopySpec,
+    },
+    /// Untargeted selection for `Effect::ChooseCard`.
+    ChooseCardOp {
+        /// Battlefield or graveyard source zone.
+        zone: baylee_cards_dsl::ChooseZone,
+        /// Optional zone movement applied to each chosen object.
+        movement: baylee_cards_dsl::ChooseMove,
+        /// Optional follow-up instructions executed per chosen object.
+        then: &'static [Effect],
+    },
+    /// Selection step of `Effect::PeekAndReveal`.
+    PeekAndRevealOp {
+        /// Owner of the inspected library.
+        lib_owner: PlayerId,
+        /// Inspected top cards, top first.
+        looked: Vec<ObjectId>,
+        /// Whether chosen cards are publicly revealed on selection.
+        reveal_chosen: bool,
+        /// Destination for selected cards.
+        picked: baylee_cards_dsl::PeekPickDest,
+        /// Destination for unselected inspected cards.
+        rest: baylee_cards_dsl::PeekRestDest,
+        /// Follow-up instructions run when at least one card was selected.
+        if_picked: &'static [Effect],
+    },
+    /// Hand selection step of `Effect::RevealFromHand`.
+    RevealFromHandOp {
+        /// Player currently choosing from their hand.
+        player: PlayerId,
+        /// Remaining players in reverse APNAP order.
+        remaining_players: Vec<PlayerId>,
+        /// Filter selectable hand cards must match.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Printed minimum cards to reveal.
+        min: u8,
+        /// Maximum cards to reveal.
+        max: u8,
+        /// Whether any player has revealed at least one card so far.
+        any_revealed: bool,
+        /// First card revealed across players, bound to `EventObject` at completion.
+        first_revealed: Option<ObjectId>,
+        /// Follow-up instructions run if `any_revealed` is `true`.
+        if_revealed: &'static [Effect],
+    },
+    /// Bottom-ordering step of `Effect::PeekAndReveal` for `player`'s library.
+    PeekBottom {
+        /// Library owner whose bottom cards are ordered.
+        player: PlayerId,
+    },
+    /// Per-opponent optional copy & planeswalker choice for `Effect::Myriad`.
+    Myriad(Box<super::wave4_combat::MyriadPlan>),
+    /// Tie-breaker creature selection for `Effect::Bolster` (CR 701.39a).
+    Bolster {
+        /// Number of +1/+1 counters to place on the chosen creature.
+        count: u16,
+    },
+    /// Soulbond self-ETB (`Effect::SoulbondPair { with_event_object: false }`):
+    /// choose up to one other unpaired creature you control to pair with `source`.
+    SoulbondChoosePartner {
+        /// Soulbond permanent incarnation.
+        source: ObjectId,
+        /// Captured source version.
+        source_version: Option<u32>,
+    },
+    /// Soulbond other-ETB (`Effect::SoulbondPair { with_event_object: true }`):
+    /// confirm whether to pair `source` with the entering `partner`.
+    SoulbondConfirmPair {
+        /// Soulbond permanent incarnation.
+        source: ObjectId,
+        /// Captured source version.
+        source_version: Option<u32>,
+        /// Entering unpaired creature.
+        partner: ObjectId,
+        /// Captured entering creature version.
+        partner_version: Option<u32>,
+    },
+    /// Optional `CostPart::DealDamageToYou` inside `PlayerMayPayCostOr`/`Then`.
+    PlayerMayPayDamageToYou {
+        /// Run `effect` on payment (`true`) or refusal (`false`).
+        on_payment: bool,
+        /// Deciding player.
+        player: PlayerId,
+        /// Damage dealt by the source to `player`.
+        damage: u16,
+        /// Contingent branch effect.
+        effect: &'static Effect,
+    },
+    /// Second step of `CostPart::Forage` inside `PlayerMayPayCostOr`/`Then`
+    /// after choosing a graveyard card: select the remaining two graveyard cards.
+    ForageRemainingGraveyard {
+        /// Run `effect` on payment (`true`) or refusal (`false`).
+        on_payment: bool,
+        /// Deciding player.
+        player: PlayerId,
+        /// First graveyard card already selected.
+        first: ObjectId,
+        /// Contingent branch effect.
+        effect: &'static Effect,
+    },
+    /// Card selection for `SacrificeX` / `TapX` / `DiscardX` / `ExileFromGraveyardX`
+    /// inside `PlayerMayPayCostOr`/`Then`, binding `res.x` when `required` is `None`.
+    PlayerMayPayCountedCost {
+        /// Run `effect` on payment (`true`) or refusal (`false`).
+        on_payment: bool,
+        /// Deciding player.
+        player: PlayerId,
+        /// Variable cost part.
+        cost: &'static CostPart,
+        /// Exact required count when `res.x` was already announced, or `None`.
+        required: Option<u8>,
+        /// Contingent branch effect.
+        effect: &'static Effect,
+    },
+    /// Initial yes/no confirmation when `res.x` was already announced for a
+    /// counted `PlayerMayPayCostOr`/`Then` (`required >= 1`).
+    ConfirmCountedCost {
+        /// Run `effect` on payment (`true`) or refusal (`false`).
+        on_payment: bool,
+        /// Deciding player.
+        player: PlayerId,
+        /// Variable cost part.
+        cost: &'static CostPart,
+        /// Exact required object count.
+        required: u8,
+        /// Contingent branch effect.
+        effect: &'static Effect,
+    },
+    /// Optional controlled-creature sacrifice for `Effect::Exploit` (CR 702.110a–b).
+    Exploit,
+    /// Endure N choice (`CR 701.63a`): put `count` +1/+1 counters on `source`
+    /// or create a `count`/`count` white Spirit creature token under `controller`.
+    Endure {
+        /// Permanent instructed to endure.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Controller answering and receiving the counters or Spirit token.
+        controller: PlayerId,
+        /// Evaluated endure magnitude (`N >= 1`).
+        count: u16,
+    },
+    /// Optional controlled-creature choice to encode a resolving cipher spell card
+    /// (`Effect::Cipher`, CR 702.99b).
+    CipherEncode,
+    /// Optional controlled-permanent exile choice for `Effect::Champion`
+    /// (CR 702.72a).
+    ChampionExile,
 }
 
 /// Work to resume after an optional life payment.
@@ -1501,6 +1710,123 @@ impl AwaitingOp {
             Self::ChooseCreatureType { exclude } => {
                 crate::state::structural_fingerprint(&(92_u8, exclude))
             }
+            Self::ChooseColor => crate::state::structural_fingerprint(&93_u8),
+            Self::ChooseTokenCopy { count, spec } => {
+                crate::state::structural_fingerprint(&(96_u8, count, spec))
+            }
+            Self::ChooseCardOp {
+                zone,
+                movement,
+                then,
+            } => crate::state::structural_fingerprint(&(98_u8, zone, movement, then)),
+            Self::PeekAndRevealOp {
+                lib_owner,
+                looked,
+                reveal_chosen,
+                picked,
+                rest,
+                if_picked,
+            } => crate::state::structural_fingerprint(&(
+                99_u8,
+                lib_owner,
+                looked,
+                reveal_chosen,
+                picked,
+                rest,
+                if_picked,
+            )),
+            Self::RevealFromHandOp {
+                player,
+                remaining_players,
+                filter,
+                min,
+                max,
+                any_revealed,
+                first_revealed,
+                if_revealed,
+            } => crate::state::structural_fingerprint(&(
+                100_u8,
+                player,
+                remaining_players,
+                filter,
+                min,
+                max,
+                any_revealed,
+                first_revealed,
+                if_revealed,
+            )),
+            Self::PeekBottom { player } => crate::state::structural_fingerprint(&(101_u8, player)),
+            Self::Myriad(plan) => crate::state::structural_fingerprint(&(102_u8, plan)),
+            Self::ManifestDread { looked } => {
+                crate::state::structural_fingerprint(&(114_u8, looked))
+            }
+            Self::Bolster { count } => crate::state::structural_fingerprint(&(116_u8, count)),
+            Self::SoulbondChoosePartner {
+                source,
+                source_version,
+            } => crate::state::structural_fingerprint(&(121_u8, source, source_version)),
+            Self::SoulbondConfirmPair {
+                source,
+                source_version,
+                partner,
+                partner_version,
+            } => crate::state::structural_fingerprint(&(
+                122_u8,
+                source,
+                source_version,
+                partner,
+                partner_version,
+            )),
+            Self::PlayerMayPayDamageToYou {
+                on_payment,
+                player,
+                damage,
+                effect,
+            } => {
+                crate::state::structural_fingerprint(&(123_u8, on_payment, player, damage, effect))
+            }
+            Self::ForageRemainingGraveyard {
+                on_payment,
+                player,
+                first,
+                effect,
+            } => crate::state::structural_fingerprint(&(124_u8, on_payment, player, first, effect)),
+            Self::PlayerMayPayCountedCost {
+                on_payment,
+                player,
+                cost,
+                required,
+                effect,
+            } => crate::state::structural_fingerprint(&(
+                125_u8, on_payment, player, cost, required, effect,
+            )),
+            Self::ConfirmCountedCost {
+                on_payment,
+                player,
+                cost,
+                required,
+                effect,
+            } => crate::state::structural_fingerprint(&(
+                126_u8, on_payment, player, cost, required, effect,
+            )),
+            Self::Exploit => crate::state::structural_fingerprint(&151_u8),
+            Self::ChooseRingBearer => crate::state::structural_fingerprint(&191_u8),
+            Self::Endure {
+                source,
+                controller,
+                count,
+            } => crate::state::structural_fingerprint(&(199_u8, source, controller, count)),
+            Self::ClashOpponent { on_win, on_loss } => {
+                crate::state::structural_fingerprint(&(183_u8, on_win, on_loss))
+            }
+            Self::ClashBottom {
+                entries,
+                index,
+                on_win,
+                on_loss,
+            } => crate::state::structural_fingerprint(&(184_u8, entries, index, on_win, on_loss)),
+            Self::CipherEncode => crate::state::structural_fingerprint(&207_u8),
+            Self::ChampionExile => crate::state::structural_fingerprint(&209_u8),
             _ => 0,
         }
     }

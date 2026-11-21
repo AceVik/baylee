@@ -20,7 +20,9 @@ card!(
         &[Effect::PumpTarget {
             power: Amount::Fixed(1),
             toughness: Amount::Fixed(1),
-            keywords: KeywordSet::FLYING.union(KeywordSet::FIRST_STRIKE.union(KeywordSet::TRAMPLE)),
+            keywords: KeywordSet::FLYING
+                .union(KeywordSet::FIRST_STRIKE)
+                .union(KeywordSet::TRAMPLE),
             duration: Duration::UntilEndOfTurn
         }],
         target = Some(TargetSpec::Object(&Filter::CREATURE))

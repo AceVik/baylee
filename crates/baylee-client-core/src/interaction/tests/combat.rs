@@ -615,3 +615,109 @@ fn block_rows_are_empty_for_another_seat_and_for_any_other_question() {
         "declaring attackers has no block list"
     );
 }
+
+#[test]
+fn single_capacity_blocker_reaims_between_attackers_and_enforces_must_block_on_confirm() {
+    let mut i = interaction(Pending::ChooseBlockers {
+        player: me(),
+        attacker: PlayerId::new(1),
+        blockers: vec![BlockOption {
+            blocker: obj(10),
+            attackers: vec![obj(1), obj(2)],
+        }],
+        capacity: Vec::new(),
+        obeying: vec![(obj(10), obj(1))],
+        demands: vec![
+            baylee_engine::choice::BlockDemand {
+                blocker: obj(10),
+                attacker: obj(1),
+                count: 1,
+            },
+            baylee_engine::choice::BlockDemand {
+                blocker: obj(10),
+                attacker: obj(2),
+                count: 1,
+            },
+        ],
+        bounds: Vec::new(),
+    });
+    assert!(i.can_confirm());
+    // Aim at attacker 2 and press blocker 10 once: re-aims onto attacker 2!
+    assert_eq!(i.toggle(obj(2)), SelectionOutcome::Added);
+    assert_eq!(i.toggle(obj(10)), SelectionOutcome::Added);
+    assert_eq!(i.blocking(obj(10)), Some(obj(2)));
+    assert!(
+        i.can_confirm(),
+        "blocking attacker 2 also satisfies 1 demand"
+    );
+    // Press blocker 10 again while still aimed at attacker 2: withdraws block,
+    // which now violates `AnswerFault::MustBlock` so `can_confirm()` is false!
+    assert_eq!(i.toggle(obj(10)), SelectionOutcome::Removed);
+    assert!(!i.can_confirm());
+    assert_eq!(i.confirm(), None);
+}
+
+#[test]
+fn multi_capacity_blocker_adds_up_to_its_limit_before_reporting_full() {
+    let mut i = interaction(Pending::ChooseBlockers {
+        player: me(),
+        attacker: PlayerId::new(1),
+        blockers: vec![BlockOption {
+            blocker: obj(10),
+            attackers: vec![obj(1), obj(2), obj(3)],
+        }],
+        capacity: vec![baylee_engine::choice::BlockCapacity {
+            blocker: obj(10),
+            most: Some(2),
+        }],
+        obeying: Vec::new(),
+        demands: Vec::new(),
+        bounds: Vec::new(),
+    });
+    assert_eq!(i.toggle(obj(10)), SelectionOutcome::Added);
+    assert_eq!(i.toggle(obj(2)), SelectionOutcome::Added);
+    assert_eq!(i.toggle(obj(10)), SelectionOutcome::Added);
+    assert_eq!(i.toggle(obj(3)), SelectionOutcome::Added);
+    assert_eq!(i.toggle(obj(10)), SelectionOutcome::Full);
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareBlockers {
+            blockers: vec![(obj(10), obj(1)), (obj(10), obj(2))]
+        })
+    );
+}
+
+#[test]
+fn attacker_limits_restrict_selectability_toggle_and_bulk_addition() {
+    let mut i = interaction(Pending::ChooseAttackers {
+        player: me(),
+        attackers: vec![obj(1), obj(2)],
+        defenders: vec![seat(1), seat(2)],
+        required: vec![obj(1)],
+        alone: Vec::new(),
+        minimum_required: Some(1),
+        limits: vec![baylee_engine::choice::AttackLimit {
+            creature: obj(1),
+            defenders: vec![seat(2)],
+        }],
+    });
+    assert_eq!(i.combat_focus(), CombatFocus::Defender(seat(1)));
+    assert!(!i.is_selectable(obj(1)), "goaded away from seat(1)");
+    assert!(i.is_selectable(obj(2)));
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Rejected);
+    assert!(!i.declare_attacker(obj(1), seat(1)));
+    assert!(i.edit_attack(AttackOption::AddRemaining));
+    assert_eq!(i.assignment(obj(1)), None);
+    assert_eq!(i.assignment(obj(2)), Some(CombatFocus::Defender(seat(1))));
+
+    i.cycle_focus(1);
+    assert_eq!(i.combat_focus(), CombatFocus::Defender(seat(2)));
+    assert!(i.is_selectable(obj(1)));
+    assert_eq!(i.toggle(obj(1)), SelectionOutcome::Added);
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareAttackers {
+            attackers: vec![(obj(2), seat(1)), (obj(1), seat(2))]
+        })
+    );
+}

@@ -457,6 +457,12 @@ struct Reply<'a> {
     going: u32,
     groups: [u32; MAX],
     outcomes: [Result; MAX],
+    demands: [[u16; MAX]; MAX],
+    suffix_max_demand: [u32; MAX + 1],
+    required_demand: u32,
+    min_blockers: [u8; MAX],
+    max_blockers: [u8; MAX],
+    found_valid: bool,
     worst: i64,
     cutoff: i64,
     best_groups: [u32; MAX],
@@ -467,7 +473,10 @@ struct Reply<'a> {
 }
 
 impl Reply<'_> {
-    fn visit(&mut self, blocker: usize, balance: Balance) {
+    fn visit(&mut self, blocker: usize, balance: Balance, demand_so_far: u32) {
+        if demand_so_far + self.suffix_max_demand[blocker] < self.required_demand {
+            return;
+        }
         // This reply already disproves an improvement over the incumbent.
         // Remaining replies can only lower the attacking player's score.
         if self.worst <= self.cutoff {
@@ -479,16 +488,20 @@ impl Reply<'_> {
         }
         self.nodes += 1;
         if blocker == self.position.blockers.len() {
-            // A menace block with exactly one creature is not a legal leaf.
-            if self
-                .position
-                .attackers
-                .iter()
-                .enumerate()
-                .any(|(i, a)| has(*a, KeywordSet::MENACE) && self.groups[i].is_power_of_two())
-            {
+            // A bounded block (menace or MinimumBlockers) below its minimum is
+            // not a legal leaf.
+            if self.position.attackers.iter().enumerate().any(|(i, a)| {
+                let group = self.groups[i];
+                if group == 0 {
+                    return false;
+                }
+                let min_req =
+                    self.min_blockers[i].max(if has(*a, KeywordSet::MENACE) { 2 } else { 1 });
+                group.count_ones() < u32::from(min_req)
+            }) {
                 return;
             }
+            self.found_valid = true;
             self.all_lethal &= balance.kills(self.position.enemy_life);
             let score = self.position.score(self.going, &self.outcomes, balance);
             if score < self.worst {
@@ -497,17 +510,24 @@ impl Reply<'_> {
             }
             return;
         }
-        self.visit(blocker + 1, balance);
+        self.visit(blocker + 1, balance, demand_so_far);
         let choices = self.position.can_block[blocker] & self.going;
         for i in 0..self.position.attackers.len() {
-            if choices & (1 << i) == 0 || !self.complete {
+            if choices & (1 << i) == 0
+                || !self.complete
+                || self.groups[i].count_ones() >= u32::from(self.max_blockers[i])
+            {
                 continue;
             }
             let old = self.outcomes[i];
             self.groups[i] |= 1 << blocker;
             let new = self.position.exchange(i, self.groups[i]);
             self.outcomes[i] = new;
-            self.visit(blocker + 1, balance.replacing(old, new));
+            self.visit(
+                blocker + 1,
+                balance.replacing(old, new),
+                demand_so_far + u32::from(self.demands[blocker][i]),
+            );
             self.groups[i] &= !(1 << blocker);
             self.outcomes[i] = old;
         }
@@ -720,6 +740,12 @@ pub(crate) fn attackers_on(
             going,
             groups: [0; MAX],
             outcomes: [Result::default(); MAX],
+            demands: [[0; MAX]; MAX],
+            suffix_max_demand: [0; MAX + 1],
+            required_demand: 0,
+            min_blockers: [1; MAX],
+            max_blockers: [u8::MAX; MAX],
+            found_valid: false,
             worst: i64::MAX,
             cutoff: best,
             best_groups: [0; MAX],
@@ -740,7 +766,7 @@ pub(crate) fn attackers_on(
                 balance = balance.replacing(Result::default(), *outcome);
             }
         }
-        reply.visit(0, balance);
+        reply.visit(0, balance, 0);
         result.nodes += reply.nodes;
         if going == greedy {
             fallback_upper = reply.worst;
@@ -845,9 +871,26 @@ pub(crate) fn blockers_within(
     profile: AIProfile,
     allow: u32,
 ) -> (Vec<(ObjectId, ObjectId)>, u32) {
+    blockers_within_rules(view, options, &[], &[], &[], life, profile, allow)
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub(crate) fn blockers_within_rules(
+    view: &PlayerView,
+    options: &[baylee_engine::choice::BlockOption],
+    obeying: &[(ObjectId, ObjectId)],
+    demands: &[baylee_engine::choice::BlockDemand],
+    bounds: &[baylee_engine::choice::AttackerBound],
+    life: i32,
+    profile: AIProfile,
+    allow: u32,
+) -> (Vec<(ObjectId, ObjectId)>, u32) {
     let board = Board::new(view);
     if profile.lookahead == 0 || allow == 0 || options.len() > MAX {
-        return (crate::combat::choose_blocks(&board, options, life), 0);
+        return (
+            crate::combat::choose_blocks_with_rules(&board, options, life, obeying, demands),
+            0,
+        );
     }
     // Out of the engine's own pairings, not out of the view's combat block:
     // the offer is the authority on what is attacking this seat, and it is
@@ -855,7 +898,10 @@ pub(crate) fn blockers_within(
     // out of. In a healthy game the two name the same creatures.
     let ids = crate::combat::deduped(options.iter().flat_map(|o| o.attackers.iter().copied()));
     if ids.len() > MAX {
-        return (crate::combat::choose_blocks(&board, options, life), 0);
+        return (
+            crate::combat::choose_blocks_with_rules(&board, options, life, obeying, demands),
+            0,
+        );
     }
     let attackers: Vec<_> = ids.iter().filter_map(|&id| board.fighter(id)).collect();
     let mut ordered_options: Vec<_> = options
@@ -870,13 +916,66 @@ pub(crate) fn blockers_within(
     // function's blind spot.
     let described = ids.iter().all(|id| board.aim(*id).is_some());
     if !described || attackers.len() != ids.len() || ordered_options.len() != options.len() {
-        return (crate::combat::choose_blocks(&board, options, life), 0);
+        return (
+            crate::combat::choose_blocks_with_rules(&board, options, life, obeying, demands),
+            0,
+        );
     }
     // Sort blockers most valuable first, as `fight` and `attack_position`
     // require: the attacker assigns gang-block damage to kill our most
     // valuable blocker first, and `Reply::visit` explores single-blocker
     // replies from the tail (least valuable blocker) first.
     ordered_options.sort_by_key(|(o, f)| (std::cmp::Reverse(worth(*f)), o.blocker));
+    let demand_of = |blocker: ObjectId, attacker: ObjectId| -> u32 {
+        demands
+            .iter()
+            .find(|d| d.blocker == blocker && d.attacker == attacker)
+            .map_or(0, |d| d.count)
+    };
+    let required_demand: u32 = obeying.iter().map(|&(b, a)| demand_of(b, a)).sum();
+    let mut demand_matrix = [[0_u16; MAX]; MAX];
+    let mut suffix_max_demand = [0_u32; MAX + 1];
+    if required_demand > 0 {
+        for (b_idx, (opt, _)) in ordered_options.iter().enumerate() {
+            for (a_idx, &att_id) in ids.iter().enumerate() {
+                if opt.attackers.contains(&att_id) {
+                    demand_matrix[b_idx][a_idx] =
+                        u16::try_from(demand_of(opt.blocker, att_id)).unwrap_or(u16::MAX);
+                }
+            }
+        }
+        for b_idx in (0..ordered_options.len()).rev() {
+            let best_for_b = demand_matrix[b_idx][..ids.len()]
+                .iter()
+                .copied()
+                .max()
+                .unwrap_or(0);
+            suffix_max_demand[b_idx] = suffix_max_demand[b_idx + 1] + u32::from(best_for_b);
+        }
+        // When `obeying` needed multi-block capacity (> 1 attacker per blocker)
+        // to reach `required_demand`, the 1-attacker-per-blocker tree cannot
+        // reach `required_demand`; fall back to `choose_blocks_with_rules`.
+        if suffix_max_demand[0] < required_demand {
+            return (
+                crate::combat::choose_blocks_with_rules(&board, options, life, obeying, demands),
+                0,
+            );
+        }
+    }
+    let mut min_blockers = [1_u8; MAX];
+    let mut max_blockers = [u8::MAX; MAX];
+    for bound in bounds {
+        if let Some(pos) = ids.iter().position(|&id| id == bound.attacker) {
+            if bound.min_blockers > 1 {
+                min_blockers[pos] =
+                    min_blockers[pos].max(u8::try_from(bound.min_blockers).unwrap_or(u8::MAX));
+            }
+            if bound.max_blockers < u32::MAX {
+                max_blockers[pos] =
+                    max_blockers[pos].min(u8::try_from(bound.max_blockers).unwrap_or(u8::MAX));
+            }
+        }
+    }
     let defenders: Vec<_> = ordered_options.iter().map(|(_, f)| *f).collect();
     let (walkers, aimed, walker_base, unblockable) = defended(&board, &ids);
     let position = Position {
@@ -922,6 +1021,12 @@ pub(crate) fn blockers_within(
         going: (1 << ids.len()) - 1,
         groups: [0; MAX],
         outcomes: [Result::default(); MAX],
+        demands: demand_matrix,
+        suffix_max_demand,
+        required_demand,
+        min_blockers,
+        max_blockers,
+        found_valid: false,
         worst: i64::MAX,
         cutoff: i64::MIN,
         best_groups: [0; MAX],
@@ -936,7 +1041,13 @@ pub(crate) fn blockers_within(
         *outcome = position.exchange(i, 0);
         balance = balance.replacing(Result::default(), *outcome);
     }
-    reply.visit(0, balance);
+    reply.visit(0, balance, 0);
+    if !reply.found_valid && required_demand > 0 {
+        return (
+            crate::combat::choose_blocks_with_rules(&board, options, life, obeying, demands),
+            reply.nodes,
+        );
+    }
     let mut result = Vec::new();
     for (i, &id) in ids.iter().enumerate() {
         for option in options {

@@ -447,7 +447,7 @@ fn drive_watching(
                 player_options,
                 min,
                 max,
-                ..
+                reason: crate::choice::TargetPrompt::Targets,
             } => {
                 prompted = true;
                 if watch.is_none() && options.len() >= 2 {
@@ -504,6 +504,16 @@ const REACHES_FURTHER: &[(&str, &str)] = &[
         "Cryptic Command",
         "\"Tap all creatures your opponents control\" is a mode of its own: chosen beside \
          the bounce, it taps every opposing Elf the bounce did not take",
+    ),
+    (
+        "Inner Demon",
+        "\"When this Aura enters, all non-Demon creatures get -2/-2 until end of turn\": \
+         casting the Aura targets one Elf, and its arrival kills every other Elf on the board",
+    ),
+    (
+        "Mirrorform",
+        "\"Each nonland permanent you control becomes a copy of target non-Aura permanent\": \
+         targeting one non-Aura permanent turns every controlled Elf and Sol Ring into it",
     ),
 ];
 
@@ -1083,4 +1093,14 @@ fn split_cast_trigger_fixture_population_keeps_targeting_and_bystander_damage_se
         check_blue_cast_trigger(def);
         check_red_cast_trigger(def);
     }
+}
+
+#[test]
+fn convoke_choice_does_not_open_a_target_watch() {
+    let def = baylee_cards::by_index(baylee_core::generated::index::OVERWHELM)
+        .expect("Overwhelm is registered");
+    let (offenders, tally) = strays(def);
+    assert!(offenders.is_empty(), "{offenders:?}");
+    assert_eq!(tally.watched, 0);
+    assert!(tally.silent >= 1);
 }

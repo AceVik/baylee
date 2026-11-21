@@ -30,23 +30,27 @@ pub(super) fn start(
             .count(),
     )
     .unwrap_or(u8::MAX);
-    if scries > 0
-        && let Some(card) = state
+    if scries > 0 {
+        if let Some(card) = state
             .zones
             .list(ZoneLocation::Library(player))
             .last()
             .copied()
-    {
-        res.awaiting = Some(AwaitingOp::ExploreScry {
-            player,
-            target,
-            remaining: scries - 1,
-        });
-        return Some(look_question(
-            player,
-            vec![card],
-            ArrangePlace::LibraryBottom,
-        ));
+        {
+            res.awaiting = Some(AwaitingOp::ExploreScry {
+                player,
+                target,
+                remaining: scries - 1,
+            });
+            return Some(look_question(
+                player,
+                vec![card],
+                ArrangePlace::LibraryBottom,
+            ));
+        }
+        for _ in 0..scries {
+            state.record_player_scried(player, 1);
+        }
     }
     explore_now(state, res, target)
 }
@@ -67,19 +71,23 @@ pub(super) fn resume_scry(
     for &card in top.iter().rev() {
         let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
     }
-    if remaining > 0
-        && let Some(card) = state.zones.list(library).last().copied()
-    {
-        res.awaiting = Some(AwaitingOp::ExploreScry {
-            player,
-            target,
-            remaining: remaining - 1,
-        });
-        return Some(look_question(
-            player,
-            vec![card],
-            ArrangePlace::LibraryBottom,
-        ));
+    state.record_player_scried(player, 1);
+    if remaining > 0 {
+        if let Some(card) = state.zones.list(library).last().copied() {
+            res.awaiting = Some(AwaitingOp::ExploreScry {
+                player,
+                target,
+                remaining: remaining - 1,
+            });
+            return Some(look_question(
+                player,
+                vec![card],
+                ArrangePlace::LibraryBottom,
+            ));
+        }
+        for _ in 0..remaining {
+            state.record_player_scried(player, 1);
+        }
     }
     explore_now(state, res, target)
 }

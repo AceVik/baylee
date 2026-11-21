@@ -554,6 +554,13 @@ pub enum LogEvent {
         /// The targets, in the order they were chosen.
         targets: Vec<LogTarget>,
     },
+    /// A permanent's Class designation changed (CR 717).
+    ClassLevel {
+        /// The permanent, named as its face-up status permits.
+        object: LogObject,
+        /// Its new Class level.
+        level: u8,
+    },
 }
 
 impl LogEvent {
@@ -587,6 +594,7 @@ impl LogEvent {
             | Self::Moved { object: o, .. }
             | Self::Created { object: o, .. }
             | Self::Counters { object: o, .. }
+            | Self::ClassLevel { object: o, .. }
             | Self::Attacked { attacker: o, .. }
             | Self::ControlChanged { object: o, .. }
             | Self::TurnedFaceUp { object: o }
@@ -653,6 +661,7 @@ impl LogEvent {
             | Self::Moved { object: o, .. }
             | Self::Created { object: o, .. }
             | Self::Counters { object: o, .. }
+            | Self::ClassLevel { object: o, .. }
             | Self::Attacked { attacker: o, .. }
             | Self::ControlChanged { object: o, .. }
             | Self::TurnedFaceUp { object: o }

@@ -215,6 +215,11 @@ pub(super) fn resume_with_color_inner(
         res.pc += 1;
         return run(state, res);
     }
+    if matches!(awaiting, AwaitingOp::ChooseColor) {
+        res.subject.chosen_color = Some(color);
+        res.pc += 1;
+        return run(state, res);
+    }
     if let AwaitingOp::ManaUnlessPaidColor { amount, cost } = awaiting {
         if let Some(pending) = mana::offer_prevention(state, res, color, amount, cost, 0) {
             return Flow::Wait(pending);
@@ -615,13 +620,26 @@ pub(super) fn resume_yes_no_inner(
     res: &mut Resolution,
     answer: bool,
 ) -> Flow {
+    if let Some(AwaitingOp::Endure {
+        source,
+        controller,
+        count,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        super::token_choices::finish_endure(state, res, answer, source, controller, count);
+        res.pc += 1;
+        return run(state, res);
+    }
     if let Some(flow) = super::coin_stakes::answer(state, res, answer)
+        .or_else(|| super::clash::resume_bottom(state, res, answer))
         .or_else(|| super::search::resume_consent(state, res, answer))
         .or_else(|| resume_selected_commander(state, res, answer))
         .or_else(|| graveyard_choice::resume_commander(state, res, answer))
         .or_else(|| resume_cast_question(state, res, answer))
         .or_else(|| super::proliferate::resume_player(state, res, answer))
         .or_else(|| resume_may_exile_graveyard(state, res, answer))
+        .or_else(|| super::wave4_combat::resume_myriad_yes_no(state, res, answer))
     {
         return flow;
     }
@@ -783,7 +801,8 @@ pub(super) fn resume_yes_no_inner(
         };
         if step == 0 {
             if answer {
-                let options = chosen::options(state, asked, filter, asked, res.source);
+                let options =
+                    chosen::sacrifice_options(state, asked, filter, res.controller, res.source);
                 if options.len() >= usize::from(count) {
                     res.awaiting = Some(AwaitingOp::AnyPlayerSacrificeOrDamage {
                         asked,
@@ -938,6 +957,93 @@ pub(super) fn resume_yes_no_inner(
             _ => WIN_3,
         };
         return run_fallback(state, res, effects);
+    }
+    if let Some(AwaitingOp::SoulbondConfirmPair {
+        source,
+        source_version,
+        partner,
+        partner_version,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer {
+            super::soulbond_try_pair(
+                state,
+                res.controller,
+                source,
+                source_version,
+                partner,
+                partner_version,
+            );
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
+    if let Some(AwaitingOp::PlayerMayPayDamageToYou {
+        on_payment,
+        player,
+        damage,
+        effect,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer {
+            if on_payment {
+                let next = res.pc + 1;
+                res.effects.splice(next..next, core::iter::once(*effect));
+            }
+            if let Some(pending) = life::deal_to_players(state, res, &[(player, u32::from(damage))])
+            {
+                return Flow::Wait(pending);
+            }
+            res.pc += 1;
+            return run(state, res);
+        }
+        if !on_payment {
+            return run_fallback(state, res, std::slice::from_ref(effect));
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
+    if let Some(AwaitingOp::ConfirmCountedCost {
+        on_payment,
+        player,
+        cost,
+        required,
+        effect,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer {
+            let options = crate::engine::cost_wizard::options_with_context(
+                state,
+                player,
+                res.rule_context(),
+                cost,
+            );
+            if options.len() >= usize::from(required) {
+                res.awaiting = Some(AwaitingOp::PlayerMayPayCountedCost {
+                    on_payment,
+                    player,
+                    cost,
+                    required: Some(required),
+                    effect,
+                });
+                return Flow::Wait(Pending::ChooseCards {
+                    player,
+                    options,
+                    min: required,
+                    max: required,
+                    prompt: crate::engine::cost_wizard::prompt(cost),
+                    total: None,
+                });
+            }
+        }
+        if !on_payment {
+            return run_fallback(state, res, std::slice::from_ref(effect));
+        }
+        res.pc += 1;
+        return run(state, res);
     }
     let AwaitingOp::PayLifeOrTapSelf { amount } =
         res.awaiting.take().expect("resume without awaiting op")
@@ -1095,17 +1201,32 @@ pub(super) fn resume_arranged_inner(
                 let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
             }
         }
-        // CR 701.22a: any number on the bottom in any order, the rest on top
+        (AwaitingOp::PeekBottom { player }, [bottom]) => {
+            let target_lib = ZoneLocation::Library(player);
+            for &card in bottom {
+                let _ = state.move_object(card, target_lib, ZonePosition::Bottom, Cause::Effect);
+            }
+        }
+        // CR 701.22a–d: any number on the bottom in any order, the rest on top
         // in any order. The library is the one the cards were looked at in,
         // which for Jace's "look at the top card of target player's library"
         // is not the controller's — see the variant's own doc.
-        (AwaitingOp::Scry { player }, [top, bottom]) => {
+        (
+            AwaitingOp::Scry {
+                player,
+                scried_count,
+            },
+            [top, bottom],
+        ) => {
             let library = ZoneLocation::Library(player);
             for &card in bottom {
                 let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
             }
             for &card in top.iter().rev() {
                 let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
+            }
+            if let Some(count) = scried_count {
+                state.record_player_scried(player, count);
             }
         }
         (
@@ -1257,14 +1378,9 @@ pub(super) fn resume_tax_choice_inner(
                 for (id, version) in chosen {
                     if state.object(id).is_some_and(|o| {
                         o.version == version && o.zone == crate::zone::Zone::Battlefield
-                    }) {
-                        state.set_tapped(id, false);
-                        state
-                            .journal
-                            .record(crate::event::GameEvent::ObjectUntapped {
-                                object: id,
-                                cause: crate::event::Cause::Effect,
-                            });
+                    }) && state.set_tapped(id, false)
+                    {
+                        state.record_tap_event(id, false, crate::event::Cause::Effect);
                     }
                 }
             }

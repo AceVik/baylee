@@ -1,21 +1,111 @@
 //! Reading activated abilities, spells, charms and their conditions.
 
 use super::{
-    Bound, Chain, Params, Price, Tx, cost_parts, count_bound, counter_kind, hybrid_pair,
-    on_the_battlefield, printed_mana,
+    Bound, Chain, Params, Price, Tx, asks_for_an_object, cost_parts, count_bound, counter_kind,
+    hybrid_pair, on_the_battlefield, printed_mana,
 };
 
+/// Optional payment parsed off a trigger-executed `AB$ ... | Cost$ ...` line.
+pub(super) enum OptionalTriggerPrice {
+    Generic(String),
+    Printed(String),
+    Life(String),
+    CostPart(String),
+    SacrificeN { filter: String, count: u8 },
+}
+
+enum Wave14aCost {
+    Matched(String),
+    Denied,
+    Pass,
+}
+
+/// `(mode_expr, first_target_spec, has_second_target, could_add_mana)`.
+pub(super) type CharmMode = (String, Option<String>, bool, bool);
+
+/// Components of a parsed `AB$` activated ability line or granted `AddAbility$` `SVar`.
+pub(super) struct ParsedActivated {
+    pub cost: String,
+    pub effects: String,
+    pub mana_ability: bool,
+    pub extras: String,
+    pub ability_expr: String,
+    pub alternate_ability_expr: Option<String>,
+    pub non_battlefield_zone: bool,
+    pub simple_target: Option<String>,
+}
+
+struct ExtractedAbilitySpec {
+    cost: Option<String>,
+    alternate_cost: Option<String>,
+    limit: Option<String>,
+    activation_zone: Option<String>,
+    non_battlefield_zone: bool,
+    zone_suffix: &'static str,
+    any_player: bool,
+    sorcery_speed: bool,
+    condition: String,
+    cost_reduction: Option<String>,
+    chain: Chain,
+}
+
 impl Tx<'_> {
+    fn activation_phase_condition(
+        &self,
+        probe: &mut Params,
+        phases: &str,
+        claimed: &mut Vec<&'static str>,
+    ) -> Option<&'static str> {
+        let clause = match phases {
+            "BeginCombat->EndCombat" => "Condition::DuringCombat",
+            "Upkeep" => "Condition::DuringStep(StepKind::Upkeep)",
+            "Draw" => "Condition::DuringStep(StepKind::Draw)",
+            "BeginCombat" => "Condition::DuringStep(StepKind::CombatBegin)",
+            "Declare Attackers" => "Condition::DuringStep(StepKind::DeclareAttackers)",
+            "Declare Blockers" => "Condition::DuringStep(StepKind::DeclareBlockers)",
+            "EndCombat" => "Condition::DuringStep(StepKind::CombatEnd)",
+            "End of Turn" => "Condition::DuringStep(StepKind::End)",
+            "Declare Blockers->EndCombat"
+                if matches!(probe.peek("ActivationAfterBlockers"), None | Some("True")) =>
+            {
+                if probe.take("ActivationAfterBlockers").is_some() {
+                    claimed.push("ActivationAfterBlockers$");
+                }
+                "Condition::InCombatAfterBlockers"
+            }
+            "Upkeep->BeginCombat" if probe.peek("ActivationFirstCombat") == Some("True") => {
+                probe.take("ActivationFirstCombat");
+                claimed.push("ActivationFirstCombat$");
+                "Condition::BeforeStep(StepKind::DeclareAttackers)"
+            }
+            "Upkeep->Declare Attackers" if probe.peek("ActivationFirstCombat") == Some("True") => {
+                probe.take("ActivationFirstCombat");
+                claimed.push("ActivationFirstCombat$");
+                "Condition::BeforeStep(StepKind::DeclareBlockers)"
+            }
+            "Upkeep->Declare Blockers" if probe.peek("ActivationFirstCombat") == Some("True") => {
+                probe.take("ActivationFirstCombat");
+                claimed.push("ActivationFirstCombat$");
+                "Condition::BeforeStep(StepKind::CombatDamage)"
+            }
+            "Upkeep->Main1" if probe.peek("ActivationFirstCombat") == Some("True") => {
+                probe.take("ActivationFirstCombat");
+                claimed.push("ActivationFirstCombat$");
+                "Condition::BeforeStep(StepKind::CombatBegin)"
+            }
+            _ => return self.deny(format!("`ActivationPhases$ {phases}`")),
+        };
+        Some(clause)
+    }
+
     /// When an ability may be activated, beyond its `IsPresent$` clause: a
     /// restriction on activating (CR 602.5) that the `condition` field says,
     /// and so only where no other clause already fills it. Hands back the
     /// keys it claimed.
     ///
-    /// - `PlayerTurn$ True`: "activate only during your turn" (Disrupting
-    ///   Scepter).
-    /// - `ActivationPhases$ BeginCombat->EndCombat`: "activate only during
-    ///   combat" (Jade Statue). The other spellings — an upkeep, a single
-    ///   combat step, "before blockers are declared" — are other sentences.
+    /// - `PlayerTurn$ True` / `OpponentTurn$ True`: turn-owner gating.
+    /// - `ActivationPhases$`: combat phase, individual turn steps, or bounded
+    ///   pre-combat/pre-attacker/post-blocker windows.
     pub(super) fn activation_restriction(
         &mut self,
         probe: &mut Params,
@@ -36,38 +126,72 @@ impl Tx<'_> {
             clauses.push("Condition::YourTurn".to_string());
             claimed.push("PlayerTurn$");
         }
+        if let Some(opp_turn) = probe.take("OpponentTurn") {
+            if opp_turn != "True"
+                || !is_activated
+                || clauses.iter().any(|c| c == "Condition::YourTurn")
+            {
+                return self.deny(format!("`OpponentTurn$ {opp_turn}` beside another clause"));
+            }
+            clauses.push("Condition::OpponentsTurn".to_string());
+            claimed.push("OpponentTurn$");
+        }
         if let Some(phases) = probe.take("ActivationPhases") {
             if !is_activated {
                 return self.deny(format!("`ActivationPhases$ {phases}`"));
             }
-            let clause = match phases.as_str() {
-                "BeginCombat->EndCombat" if clauses.is_empty() => "Condition::DuringCombat",
-                "Upkeep" if clauses.iter().any(|c| c == "Condition::YourTurn") => {
-                    "Condition::DuringStep(StepKind::Upkeep)"
-                }
-                _ => return self.deny(format!("`ActivationPhases$ {phases}`")),
-            };
+            let clause = self.activation_phase_condition(probe, &phases, &mut claimed)?;
             clauses.push(clause.to_string());
             claimed.push("ActivationPhases$");
         }
         if let Some(act) = probe.take("Activation") {
-            if !is_activated || act != "Threshold" {
+            if !is_activated {
                 return self.deny(format!("`Activation$ {act}`"));
             }
-            clauses.push("Condition::GraveyardCountAtLeast(7)".to_string());
+            let cond = match act.as_str() {
+                "Threshold" => "Condition::GraveyardCountAtLeast(7)",
+                "Delirium" => "Condition::GraveyardTypesAtLeast(4)",
+                "Metalcraft" => "Condition::ControlCount(&Filter::ARTIFACT, 3)",
+                "Hellbent" => "Condition::HandSizeAtMost(0)",
+                "Blessing" => "Condition::CitysBlessing",
+                _ => return self.deny(format!("`Activation$ {act}`")),
+            };
+            clauses.push(cond.to_string());
             claimed.push("Activation$");
         }
         if let Some(name) = probe.take("CheckSVar") {
-            if !is_activated || !clauses.is_empty() {
+            if !is_activated {
                 return self
                     .deny("an entry-history activation clause beside another clause".to_string());
             }
-            let Some(raw) = self.svars.get(&name) else {
-                return self.deny(format!("activation check `{name}` without an SVar"));
-            };
-            let Some(alternatives) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_") else {
-                return self.deny(format!("activation check `{name}`"));
-            };
+            self.activation_check_svar(probe, &name, &mut clauses, &mut claimed)?;
+        }
+        *condition = match clauses.as_slice() {
+            [] => String::new(),
+            [one] => format!(", condition = Some({one})"),
+            many => format!(", condition = Some(Condition::All(&[{}]))", many.join(", ")),
+        };
+        Some(claimed)
+    }
+
+    fn activation_check_svar(
+        &mut self,
+        probe: &mut Params,
+        name: &str,
+        clauses: &mut Vec<String>,
+        claimed: &mut Vec<&'static str>,
+    ) -> Option<()> {
+        let Some(raw) = self.svars.get(name).cloned() else {
+            return self.deny(format!("activation check `{name}` without an SVar"));
+        };
+        let cmp = probe.peek("SVarCompare").map(str::to_string);
+        if let Some(alternatives) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
+            && cmp.is_none()
+        {
+            if !clauses.is_empty() {
+                return self
+                    .deny("an entry-history activation clause beside another clause".to_string());
+            }
             let mut subtypes = Vec::new();
             for alternative in alternatives.split(',') {
                 let Some(subtype) = alternative.strip_suffix(".YouCtrl") else {
@@ -83,13 +207,30 @@ impl Tx<'_> {
                 subtypes.join(", ")
             ));
             claimed.push("CheckSVar$");
+            return Some(());
         }
-        *condition = match clauses.as_slice() {
-            [] => String::new(),
-            [one] => format!(", condition = Some({one})"),
-            many => format!(", condition = Some(Condition::All(&[{}]))", many.join(", ")),
+        let Some(first) = self.svar_condition_clause(name, cmp.as_deref().unwrap_or("GE1")) else {
+            return self.deny(format!("activation check `{name}`"));
         };
-        Some(claimed)
+        let clause = if let Some(name2) = probe.take("CheckSecondSVar") {
+            let cmp2 = probe
+                .take("SecondSVarCompare")
+                .unwrap_or_else(|| "GE1".to_string());
+            let Some(second) = self.svar_condition_clause(&name2, &cmp2) else {
+                return self.deny(format!("activation check `{name2}`"));
+            };
+            claimed.push("CheckSecondSVar$");
+            claimed.push("SecondSVarCompare$");
+            format!("Condition::All(&[{first}, {second}])")
+        } else {
+            first
+        };
+        clauses.push(clause);
+        claimed.push("CheckSVar$");
+        if probe.take("SVarCompare").is_some() {
+            claimed.push("SVarCompare$");
+        }
+        Some(())
     }
 
     /// Read the activation count separately from cost and effect emission.
@@ -110,7 +251,19 @@ impl Tx<'_> {
         })
     }
 
-    #[allow(clippy::too_many_lines)]
+    pub(super) fn parse_activated_spec(
+        &mut self,
+        spec: &str,
+        allow_oracle_tap: bool,
+        allow_alternate_cost: bool,
+    ) -> Option<ParsedActivated> {
+        let extracted = self.extract_ability_spec(spec, true, allow_oracle_tap)?;
+        if !allow_alternate_cost && extracted.alternate_cost.is_some() {
+            return self.deny("an `AlternateCost` on a granted ability".to_string());
+        }
+        self.build_activated_parts(&extracted)
+    }
+
     pub(super) fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
         if !is_activated
@@ -128,68 +281,116 @@ impl Tx<'_> {
             }
             return self.gond_mana_reflected(p);
         }
-        if !is_activated && Params::parse(spec).is_some_and(|(api, _)| api == "Charm") {
-            return self.charm(spec);
+        if Params::parse(spec).is_some_and(|(api, _)| api == "Charm") {
+            return if is_activated {
+                self.modal_activated(spec)
+            } else {
+                self.charm(spec)
+            };
         }
-        let Some((_, mut probe)) = Params::parse(spec) else {
-            return self.deny("an `A:` line with no `$` in it".to_string());
-        };
-        probe.drop_prose();
-        let mut cost = probe.take("Cost");
+        let extracted = self.extract_ability_spec(spec, is_activated, true)?;
+        if is_activated {
+            let built = self.build_activated_parts(&extracted)?;
+            self.body.abilities.push(built.ability_expr);
+            if let Some(alt) = built.alternate_ability_expr {
+                self.body.abilities.push(alt);
+            }
+            Some(())
+        } else {
+            let effects = format!("&[{}]", extracted.chain.effects.join(", "));
+            let second_targets = Self::second_target_req_expr(&extracted.chain)
+                .map_or_default(|req| format!(", second_targets = Some({req})"));
+            self.push_spell_ability(
+                extracted.cost.as_deref(),
+                extracted.limit.as_deref(),
+                &extracted.condition,
+                &effects,
+                extracted.chain.target.as_deref(),
+                extracted.chain.target_is_x,
+                extracted.chain.target_up_to,
+                extracted.chain.target_exact,
+                &second_targets,
+            )
+        }
+    }
+
+    fn infer_single_ability_tap(&self, cost: Option<String>) -> Option<String> {
         let printed_cost = self.oracle.split(':').next().unwrap_or_default();
         let tap_before_other_costs = printed_cost
             .split(", ")
             .take_while(|part| *part != "{T}")
             .all(|part| part.starts_with('{') && part.ends_with('}') && part != "{Q}");
-        // A script can omit a printed tap symbol from its only activated
-        // ability. With exactly one Oracle colon there is no other ability it
-        // could belong to, so the printed cost is an unambiguous correction;
-        // never infer a tap across several activated abilities. Preserve the
-        // printed position relative to the non-mana costs as well.
-        if is_activated
-            && self.oracle.matches(':').count() == 1
+        if self.oracle.matches(':').count() == 1
             && printed_cost.split(", ").any(|part| part == "{T}")
             && cost
                 .as_deref()
                 .is_some_and(|parts| !parts.split_whitespace().any(|part| part == "T"))
         {
-            cost = cost.map(|parts| {
+            cost.map(|parts| {
                 if tap_before_other_costs {
                     format!("T {parts}")
                 } else {
                     format!("{parts} T")
                 }
-            });
+            })
+        } else {
+            cost
+        }
+    }
+
+    fn extract_ability_spec(
+        &mut self,
+        spec: &str,
+        is_activated: bool,
+        allow_oracle_tap: bool,
+    ) -> Option<ExtractedAbilitySpec> {
+        let Some((api, mut probe)) = Params::parse(spec) else {
+            return self.deny("an `A:` line with no `$` in it".to_string());
+        };
+        if is_activated && !allow_oracle_tap && (api == "ManaReflected" || api == "Charm") {
+            return self.deny(format!("a granted `{api}` ability"));
+        }
+        let line_prose = Self::params_prose(&probe);
+        probe.drop_prose();
+        let mut cost = probe.take("Cost");
+        if is_activated && allow_oracle_tap {
+            cost = self.infer_single_ability_tap(cost);
         }
         let alternate_cost = probe.take("AlternateCost");
         if !is_activated && alternate_cost.is_some() {
             return self.deny("an `AlternateCost` on a spell".to_string());
         }
-        // "Activate only once each turn" belongs to the ability for the same
-        // reason the cost does: it restricts activating it, not what happens
-        // when it resolves.
         let limit = probe.take("ActivationLimit");
         let activator = probe.take("Activator");
         let activation_zone = probe.take("ActivationZone");
-        let graveyard_zone = is_activated && activation_zone.as_deref() == Some("Graveyard");
-        let battlefield_zone = is_activated && activation_zone.as_deref() == Some("Battlefield");
+        if !is_activated && let Some(zone) = activation_zone.as_deref() {
+            return self.deny(format!("a spell in `ActivationZone$ {zone}`"));
+        }
+        let reduce_cost = probe.take("ReduceCost");
+        if !is_activated && reduce_cost.is_some() {
+            return self.deny("`ReduceCost$` on a spell".to_string());
+        }
+        if is_activated && reduce_cost.is_some() && probe.has("ReduceAmount") {
+            return self.deny("a `ReduceCost$` with `ReduceAmount$`".to_string());
+        }
+        let cost_reduction = match (is_activated, reduce_cost.as_deref()) {
+            (true, Some(raw)) => {
+                Some(self.activation_cost_reduction(raw, activation_zone.as_deref())?)
+            }
+            _ => None,
+        };
+        let any_player = is_activated && activator.as_deref() == Some("Player");
+        let (non_battlefield_zone, zone_suffix) = if is_activated {
+            self.activation_zone_expr(activation_zone.as_deref(), any_player, false)?
+        } else {
+            (false, "")
+        };
+        let zone_handled = is_activated && activation_zone.is_some();
         let sorcery_speed = is_activated && probe.take("SorcerySpeed").as_deref() == Some("True");
-        // And so does the clause, which on an `A:` line is a restriction on
-        // activating rather than CR 603.4's intervening `if`: the reference
-        // spells a resolution-time condition `ConditionPresent$`, a
-        // different key on a different line (1521 of them, all on `SVar:`),
-        // and this reader claims neither it nor its family.
-        let mut condition = self.condition(&mut probe)?;
-        // The `IsPresent$` family is claimed only where that clause was read,
-        // not where a restriction below filled `condition` instead.
+        let mut condition = self.condition_with_prose(&mut probe, &line_prose)?;
         let present_read = !condition.is_empty();
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
         let mut chain = Chain::default();
-        // The cost belongs to the ability, not to the effect chain, so it is
-        // removed from the spec before the chain reads it. The clause's keys
-        // go with it, but **only** once the clause was read: a line carrying
-        // `PresentZone$` and no `IsPresent$` at all keeps it, and refuses one
-        // level down as the unclaimed parameter it is.
         let claimed: &[&str] = if present_read {
             &[
                 "Condition$",
@@ -201,15 +402,15 @@ impl Tx<'_> {
         } else {
             &[]
         };
-        let any_player = is_activated && activator.as_deref() == Some("Player");
         let stripped: Vec<&str> = spec
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
             .filter(|part| alternate_cost.is_none() || !part.starts_with("AlternateCost$"))
-            .filter(|part| !(any_player && part.starts_with("Activator$")))
             .filter(|part| {
-                !((graveyard_zone || battlefield_zone) && part.starts_with("ActivationZone$"))
+                !is_activated || reduce_cost.is_none() || !part.starts_with("ReduceCost$")
             })
+            .filter(|part| !(any_player && part.starts_with("Activator$")))
+            .filter(|part| !(zone_handled && part.starts_with("ActivationZone$")))
             .filter(|part| !(sorcery_speed && part.starts_with("SorcerySpeed$")))
             .filter(|part| !restrictions.iter().any(|key| part.starts_with(key)))
             .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
@@ -218,11 +419,11 @@ impl Tx<'_> {
             && cost
                 .as_deref()
                 .is_some_and(|c| c.split_whitespace().any(|t| t == "Sac<1/CARDNAME>"));
-        self.cost_sacrifices_other = is_activated
-            && cost.as_deref().is_some_and(|c| {
-                c.split_whitespace()
-                    .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"))
-            });
+        self.cost_sacrifices_other = cost.as_deref().is_some_and(|c| {
+            cost_parts(c)
+                .iter()
+                .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"))
+        });
         let chain_ok = self.chain(&stripped.join(" | "), &mut chain);
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
@@ -230,109 +431,147 @@ impl Tx<'_> {
         if chain.effects.is_empty() {
             return self.deny("an ability that reads as no effect at all".to_string());
         }
-        let effects = format!("&[{}]", chain.effects.join(", "));
-        let second_targets = chain
-            .second_target
-            .as_ref()
-            .map_or_default(|t| format!(", second_targets = Some(TargetReq::one({t}))"));
-        if is_activated {
-            let zone = if any_player {
-                ", zone = ActivationZone::BattlefieldAnyPlayer"
-            } else if graveyard_zone {
-                ", zone = ActivationZone::Graveyard"
-            } else {
-                ""
-            };
-            self.push_activated_ability(
-                cost.as_deref(),
-                alternate_cost.as_deref(),
-                limit.as_deref(),
-                sorcery_speed,
-                zone,
-                &condition,
-                &effects,
-                &chain,
-                &second_targets,
-            )
-        } else {
-            self.push_spell_ability(
-                cost.as_deref(),
-                limit.as_deref(),
-                &condition,
-                &effects,
-                chain.target.as_deref(),
-                chain.target_is_x,
-                chain.target_up_to,
-                chain.target_exact,
-                &second_targets,
-            )
+        Some(ExtractedAbilitySpec {
+            cost,
+            alternate_cost,
+            limit,
+            activation_zone,
+            non_battlefield_zone,
+            zone_suffix,
+            any_player,
+            sorcery_speed,
+            condition,
+            cost_reduction,
+            chain,
+        })
+    }
+
+    fn activation_zone_expr(
+        &self,
+        activation_zone: Option<&str>,
+        any_player: bool,
+        modal: bool,
+    ) -> Option<(bool, &'static str)> {
+        match (activation_zone, any_player) {
+            (None | Some("Battlefield"), false) => Some((false, "")),
+            (None | Some("Battlefield"), true) => {
+                Some((false, ", zone = ActivationZone::BattlefieldAnyPlayer"))
+            }
+            (Some("Graveyard"), false) => Some((true, ", zone = ActivationZone::Graveyard")),
+            (Some("Hand"), false) => Some((true, ", zone = ActivationZone::Hand")),
+            (Some("Command"), false) => Some((true, ", zone = ActivationZone::Command")),
+            (Some("Battlefield,Command" | "Command,Battlefield"), false) => {
+                Some((true, ", zone = ActivationZone::BattlefieldOrCommand"))
+            }
+            (Some(zone), true) => {
+                self.deny(format!("`Activator$ Player` in `ActivationZone$ {zone}`"))
+            }
+            (Some(zone), false) => {
+                let prefix = if modal { "a modal " } else { "an " };
+                self.deny(format!(
+                    "{prefix}activated ability in `ActivationZone$ {zone}`"
+                ))
+            }
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn push_activated_ability(
-        &mut self,
-        cost: Option<&str>,
-        alternate_cost: Option<&str>,
-        limit: Option<&str>,
-        sorcery_speed: bool,
-        zone: &str,
-        condition: &str,
-        effects: &str,
-        chain: &Chain,
-        second_targets: &str,
-    ) -> Option<()> {
-        let Some(cost) = cost else {
+    fn build_activated_parts(&mut self, spec: &ExtractedAbilitySpec) -> Option<ParsedActivated> {
+        let Some(cost) = spec.cost.as_deref() else {
             return self.deny("an activated ability with no `Cost$`".to_string());
         };
-        let cost = self.cost_expr(cost)?;
-        // CR 605.1a includes the library-movement exclusion. These
-        // properties describe this chain, not separately created delayed
-        // or granted abilities and not any external replacement.
-        let mana_ability = chain.could_add_mana && !chain.moves_library && chain.target.is_none();
+        let cost = self.parse_activated_cost(cost, spec.activation_zone.as_deref())?;
+        let effects = format!("&[{}]", spec.chain.effects.join(", "));
+        let second_targets = Self::second_target_req_expr(&spec.chain)
+            .map_or_default(|req| format!(", second_targets = Some({req})"));
+        let zone = spec.zone_suffix;
+        let has_targets = spec.chain.target.is_some() || spec.chain.second_target.is_some();
+        let mana_ability =
+            spec.chain.could_add_mana && !spec.chain.moves_library && spec.chain.target.is_none();
+        self.reject_non_mana_counter_x(&cost, mana_ability, has_targets)?;
         if !zone.is_empty() && mana_ability {
             return self.deny("a non-default activation zone on a mana ability".to_string());
         }
-        if sorcery_speed && mana_ability {
+        if spec.sorcery_speed && mana_ability {
             return self.deny("`SorcerySpeed$ True` on a mana ability".to_string());
         }
-        let timing = if sorcery_speed {
+        let timing = if spec.sorcery_speed {
             ", timing = ActivationTiming::SorcerySpeed"
         } else {
             ""
         };
-        let target = chain
-            .target
-            .as_ref()
-            .map_or_default(|t| format!(", target = Some({t})"));
-        let limit = self.activation_limit(limit)?;
-        // `mana_ability!(effects)` *is* `mana_ability!({T}, effects)`
-        // — the macro supplies the tap, because tapping is what almost
-        // every mana ability costs. Writing the cost out again says
-        // nothing and reads as though this one were the exception.
-        //
-        // The short form takes the cost as its *only* positional
-        // argument, so it is right exactly while there is nothing else
-        // to say: `mana_ability!(&[…], limit = …)` would bind the
-        // effects where the cost goes and `limit = …` — an assignment
-        // expression, and so a legal one — where the effects go.
-        let extras = format!("{timing}{zone}{target}{second_targets}{limit}{condition}");
-        let line = match (mana_ability, cost.as_str()) {
+        if spec.chain.target_is_x {
+            return self.deny("`TargetMin$/TargetMax$ X` on an activated ability".to_string());
+        }
+        let target = spec.chain.target.as_ref().map_or_default(|t| {
+            if let Some(max) = spec.chain.target_up_to {
+                if max == 1 {
+                    format!(", targets = Some(TargetReq::up_to_one({t}))")
+                } else {
+                    format!(", targets = Some(TargetReq::up_to({t}, {max}))")
+                }
+            } else if let Some(n) = spec.chain.target_exact {
+                format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+            } else {
+                format!(", target = Some({t})")
+            }
+        });
+        let limit_str = self.activation_limit(spec.limit.as_deref())?;
+        let condition = &spec.condition;
+        let cost_reduction = spec.cost_reduction.as_deref().unwrap_or("");
+        let extras =
+            format!("{timing}{zone}{target}{second_targets}{limit_str}{condition}{cost_reduction}");
+        let ability_expr = Self::format_activated_macro(mana_ability, &cost, &effects, &extras);
+        let alternate_ability_expr = match spec.alternate_cost.as_deref() {
+            Some(alt) => {
+                let alt_cost = self.parse_activated_cost(alt, spec.activation_zone.as_deref())?;
+                self.reject_non_mana_counter_x(&alt_cost, mana_ability, has_targets)?;
+                Some(Self::format_activated_macro(
+                    mana_ability,
+                    &alt_cost,
+                    &effects,
+                    &extras,
+                ))
+            }
+            None => None,
+        };
+        let simple_target = if !mana_ability
+            && !spec.non_battlefield_zone
+            && !spec.any_player
+            && !spec.sorcery_speed
+            && limit_str.is_empty()
+            && condition.is_empty()
+            && spec.cost_reduction.is_none()
+            && spec.chain.second_target.is_none()
+            && spec.chain.target_up_to.is_none()
+            && spec.chain.target_exact.is_none()
+        {
+            spec.chain.target.clone()
+        } else {
+            None
+        };
+        Some(ParsedActivated {
+            cost,
+            effects,
+            mana_ability,
+            extras,
+            ability_expr,
+            alternate_ability_expr,
+            non_battlefield_zone: spec.non_battlefield_zone,
+            simple_target,
+        })
+    }
+
+    fn format_activated_macro(
+        mana_ability: bool,
+        cost: &str,
+        effects: &str,
+        extras: &str,
+    ) -> String {
+        match (mana_ability, cost) {
             (true, "Cost::TAP") if extras.is_empty() => format!("mana_ability!({effects})"),
             (true, _) => format!("mana_ability!({cost}, {effects}{extras})"),
             (false, _) => format!("activated!({cost}, {effects}{extras})"),
-        };
-        self.body.abilities.push(line);
-        if let Some(alternate_cost) = alternate_cost {
-            let alternate_cost = self.cost_expr(alternate_cost)?;
-            let line = match (mana_ability, alternate_cost.as_str()) {
-                (true, "Cost::TAP") if extras.is_empty() => format!("mana_ability!({effects})"),
-                (true, _) => format!("mana_ability!({alternate_cost}, {effects}{extras})"),
-                (false, _) => format!("activated!({alternate_cost}, {effects}{extras})"),
-            };
-            self.body.abilities.push(line);
         }
-        Some(())
     }
     // And the third of them, which this branch dropped in silence
     // until a batch of four hundred cards walked into it. A spell's
@@ -413,31 +652,224 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// Validate the spell's cost tokens without treating additional costs as mana.
-    fn spell_mana_cost(&self, raw: &str) -> Option<()> {
+    /// Validate the spell's cost tokens and record any non-mana mandatory
+    /// additional costs (`FaceDef::mandatory_additional_costs`) that
+    /// `cast_wizard::paid_as_a_mandatory_additional_cost` pays.
+    fn spell_mana_cost(&mut self, raw: &str) -> Option<()> {
+        let mut extra = Vec::new();
         for token in cost_parts(raw) {
             let is_mana = token.chars().all(|c| c.is_ascii_digit())
-                || matches!(token.as_str(), "W" | "U" | "B" | "R" | "G" | "C" | "X")
+                || matches!(
+                    token.as_str(),
+                    "W" | "U" | "B" | "R" | "G" | "C" | "S" | "X"
+                )
                 || hybrid_pair(&token).is_some();
             if !is_mana {
-                let head = token.split('<').next().unwrap_or(&token);
-                return self.deny(format!(
-                    "`{head}` on a spell line, beside the mana the face carries"
-                ));
+                extra.push(token);
             }
         }
+        if extra.is_empty() {
+            return Some(());
+        }
+        if !self.body.mandatory_additional_costs.is_empty() {
+            return self
+                .deny("multiple spell lines declaring mandatory additional costs".to_string());
+        }
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics_len = self.body.statics.len();
+        if let Some(parts) = self.parse_spell_cost_parts(raw) {
+            self.body.mandatory_additional_costs.extend(parts);
+            return Some(());
+        }
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        self.body.statics.truncate(saved_statics_len);
+        let has_wave14a = extra.iter().any(|t| Self::is_wave14a_cost_token(t));
+        let prev_alt = self.in_alternative_cost;
+        self.in_alternative_cost = true;
+        let parsed = if has_wave14a {
+            self.parse_chunked_cost_tokens(extra.clone(), false, false, true)
+        } else {
+            self.cost_pieces(&extra.join(" "))
+        };
+        self.in_alternative_cost = prev_alt;
+        let Some((mana, parts)) = parsed else {
+            if self.unclaimed.borrow().is_some() {
+                return None;
+            }
+            let head = extra[0].split('<').next().unwrap_or(&extra[0]);
+            return self.deny(format!(
+                "`{head}` on a spell line, beside the mana the face carries"
+            ));
+        };
+        if !mana.is_empty() || parts.is_empty() {
+            let head = extra[0].split('<').next().unwrap_or(&extra[0]);
+            return self.deny(format!(
+                "`{head}` on a spell line, beside the mana the face carries"
+            ));
+        }
+        let all_supported = parts.iter().all(|part| {
+            part == "PayLifeX"
+                || part == "PayEnergyX"
+                || part == "Forage"
+                || part == "DiscardRandom"
+                || part == "DiscardHand"
+                || part == "DiscardLastDrawnThisTurn"
+                || part.starts_with("DealDamageToYou(")
+                || part.starts_with("PayLife(")
+                || part.starts_with("PayEnergy(")
+                || part.starts_with("Sacrifice(")
+                || part.starts_with("SacrificeX(")
+                || part.starts_with("SacrificeAll(")
+                || part.starts_with("ReturnToHand(")
+                || part.starts_with("ExilePermanent(")
+                || part.starts_with("ExileFromHand(")
+                || part.starts_with("ExileFromGraveyard(")
+                || part.starts_with("ExileFromGraveyardX(")
+                || part.starts_with("ExileTopOfLibrary(")
+                || part.starts_with("Discard(")
+                || part.starts_with("DiscardX(")
+                || part.starts_with("TapOther(")
+                || part.starts_with("TapX(")
+                || part.starts_with("TapN {")
+        });
+        if !all_supported {
+            let head = extra[0].split('<').next().unwrap_or(&extra[0]);
+            return self.deny(format!(
+                "`{head}` on a spell line, beside the mana the face carries"
+            ));
+        }
+        for part in parts {
+            self.body
+                .mandatory_additional_costs
+                .push(format!("CostPart::{part}"));
+        }
         Some(())
+    }
+
+    /// Formats a `TargetReq` from a chain's target fields.
+    pub(super) fn target_req_expr(chain: &Chain) -> Option<String> {
+        let t = chain.target.as_deref()?;
+        Some(if let Some(max) = chain.target_up_to {
+            if max == 1 {
+                format!("TargetReq::up_to_one({t})")
+            } else {
+                format!("TargetReq::up_to({t}, {max})")
+            }
+        } else if let Some(n) = chain.target_exact {
+            format!("TargetReq::exactly({t}, {n})")
+        } else if chain.target_is_x {
+            format!("TargetReq::x_targets({t})")
+        } else {
+            format!("TargetReq::one({t})")
+        })
+    }
+
+    /// Formats a `TargetReq` from a chain's second target fields.
+    pub(super) fn second_target_req_expr(chain: &Chain) -> Option<String> {
+        let t = chain.second_target.as_deref()?;
+        Some(if let Some(max) = chain.second_target_up_to {
+            if max == 1 {
+                format!("TargetReq::up_to_one({t})")
+            } else {
+                format!("TargetReq::up_to({t}, {max})")
+            }
+        } else {
+            format!("TargetReq::one({t})")
+        })
+    }
+
+    /// Reads the `Choices$` list of a `Charm` ability into [`CharmMode`] tuples.
+    pub(super) fn read_charm_modes(&mut self, choices: &str) -> Option<Vec<CharmMode>> {
+        self.read_charm_modes_with(choices, false)
+    }
+
+    fn read_charm_modes_with(
+        &mut self,
+        choices: &str,
+        allow_mode_cost: bool,
+    ) -> Option<Vec<CharmMode>> {
+        let mut modes = Vec::new();
+        for name in choices.split(',').map(str::trim) {
+            let Some(line) = self.svars.get(name).cloned() else {
+                return self.deny(format!("charm choice `{name}` with no `SVar`"));
+            };
+            let mut mode_cost_raw: Option<String> = None;
+            let mut kept_parts = Vec::new();
+            for part in line.split(" | ") {
+                if let Some(val) = part.trim_start().strip_prefix("ModeCost$") {
+                    if mode_cost_raw.is_some() {
+                        return self.deny(format!("multiple `ModeCost$` keys in mode `{name}`"));
+                    }
+                    mode_cost_raw = Some(val.trim().to_string());
+                } else {
+                    kept_parts.push(part);
+                }
+            }
+            let additional_cost = match mode_cost_raw {
+                Some(raw) => {
+                    if !allow_mode_cost {
+                        return self.deny("`ModeCost$` on a non-Spree charm mode".to_string());
+                    }
+                    let mana = self.parse_fixed_spree_mana(&raw)?;
+                    format!(", additional_cost = Some(mana!(\"{mana}\"))")
+                }
+                None if allow_mode_cost => {
+                    return self.deny(format!("a `Spree` mode `{name}` without `ModeCost$`"));
+                }
+                None => String::new(),
+            };
+            let stripped = kept_parts.join(" | ");
+            let mut chain = Chain::default();
+            self.chain(&stripped, &mut chain)?;
+            if chain.effects.is_empty() {
+                return self.deny("a charm mode that reads as no effect at all".to_string());
+            }
+            let targets = Self::target_req_expr(&chain)
+                .map_or_default(|req| format!(", targets = Some({req})"));
+            let has_second = chain.second_target.is_some();
+            let second = Self::second_target_req_expr(&chain)
+                .map_or_default(|req| format!(", second_targets = Some({req})"));
+            modes.push((
+                format!(
+                    "mode!(&[{}]{targets}{second}{additional_cost})",
+                    chain.effects.join(", ")
+                ),
+                chain.target,
+                has_second,
+                chain.could_add_mana,
+            ));
+        }
+        Some(modes)
+    }
+
+    fn parse_fixed_spree_mana(&self, raw: &str) -> Option<String> {
+        let mut mana = String::new();
+        for token in cost_parts(raw) {
+            if token == "X" || token.starts_with("XMin") {
+                return self.deny(format!("variable `X` in `ModeCost$ {raw}`"));
+            }
+            if token.chars().all(|c| c.is_ascii_digit())
+                || matches!(token.as_str(), "W" | "U" | "B" | "R" | "G" | "C" | "S")
+            {
+                mana.push('{');
+                mana.push_str(&token);
+                mana.push('}');
+            } else if let Some(pair) = hybrid_pair(&token) {
+                mana.push_str(&pair);
+            } else {
+                return self.deny(format!("non-mana `ModeCost$ {raw}`"));
+            }
+        }
+        if mana.is_empty() || baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+            return self.deny(format!("invalid `ModeCost$ {raw}`"));
+        }
+        Some(mana)
     }
 
     /// "Choose one —" (CR 700.2): `SP$ Charm | Choices$ A,B` is a modal
     /// spell whose modes are the named `SVar`s, each read as the chain it
     /// is and each targeting for itself, since a target a mode names is
     /// chosen only when that mode is (CR 700.2c).
-    ///
-    /// Only a spell, and only "choose one" or "choose two": a modal
-    /// activated ability is a different `AbilityDef`, and the other counts
-    /// the reference spells (`MinCharmNum$`, a count the board works out)
-    /// are rules this reader has not met yet.
     pub(super) fn charm(&mut self, spec: &str) -> Option<()> {
         let Some((_, mut p)) = Params::parse(spec) else {
             return self.deny("an `A:` line with no `$` in it".to_string());
@@ -446,44 +878,888 @@ impl Tx<'_> {
         let Some(choices) = p.take("Choices") else {
             return self.deny("a charm with no `Choices$`".to_string());
         };
-        let choose = match p.take("CharmNum").as_deref() {
-            None | Some("1") => "ModeCount::ONE",
-            Some("2") => "ModeCount::TWO",
-            Some(n) => return self.deny(format!("a charm choosing `{n}`")),
+        let max: u8 = match p.take("CharmNum").as_deref() {
+            None => 1,
+            Some(raw) => match raw.trim().parse::<u8>() {
+                Ok(n) if n > 0 => n,
+                _ => return self.deny(format!("a charm choosing `{raw}`")),
+            },
+        };
+        let min: u8 = match p.take("MinCharmNum").as_deref() {
+            None => max,
+            Some(raw) => match raw.trim().parse::<u8>() {
+                Ok(n) if n > 0 => n,
+                _ => return self.deny(format!("a charm with `MinCharmNum$ {raw}`")),
+            },
         };
         if let Some(key) = p.first_key() {
             self.note(format!("unclaimed parameter `Charm.{key}`"));
             return None;
         }
-        let mut modes = Vec::new();
-        for name in choices.split(',').map(str::trim) {
-            let Some(line) = self.svars.get(name).cloned() else {
-                return self.deny(format!("charm choice `{name}` with no `SVar`"));
-            };
-            let mut chain = Chain::default();
-            self.chain(&line, &mut chain)?;
-            if chain.effects.is_empty() {
-                return self.deny("a charm mode that reads as no effect at all".to_string());
-            }
-            let targets = chain
-                .target
-                .map_or_default(|t| format!(", targets = Some(TargetReq::one({t}))"));
-            let second = chain
-                .second_target
-                .map_or_default(|t| format!(", second_targets = Some(TargetReq::one({t}))"));
-            modes.push(format!(
-                "mode!(&[{}]{targets}{second})",
-                chain.effects.join(", ")
-            ));
+        if min == 0 || min > max {
+            return self.deny(format!("a charm with min {min} > max {max}"));
         }
-        if modes.len() < 2 {
+        let has_spree = self.body.keywords.iter().any(|k| k == "KeywordSet::SPREE");
+        if has_spree && max == 1 {
+            return self.deny("a `Spree` charm choosing only one mode".to_string());
+        }
+        let parsed = self.read_charm_modes_with(&choices, has_spree && max > 1)?;
+        if parsed.len() < 2 {
             return self.deny("a charm with fewer than two modes".to_string());
         }
+        if usize::from(min) > parsed.len() {
+            return self.deny("a charm choosing more modes than it has".to_string());
+        }
+        // Mirror `crates/cards/src/lints/shapes.rs::modes_fault` for multi-mode
+        // spells so no generated card violates the pool invariant.
+        if max > 1 {
+            if parsed.len() > 8 {
+                return self.deny("a multi-mode charm with more than eight modes".to_string());
+            }
+            let total_target_clauses: usize = parsed
+                .iter()
+                .map(|(_, tgt, has_second, _)| {
+                    usize::from(tgt.is_some()) + usize::from(*has_second)
+                })
+                .sum();
+            if total_target_clauses > 16 {
+                return self
+                    .deny("a multi-mode charm with more than sixteen target clauses".to_string());
+            }
+        }
+        let choose = match (min, max) {
+            (1, 1) => "ModeCount::ONE".to_string(),
+            (2, 2) => "ModeCount::TWO".to_string(),
+            _ => format!("ModeCount {{ min: {min}, max: {max} }}"),
+        };
+        let modes: Vec<String> = parsed.into_iter().map(|(m, _, _, _)| m).collect();
         self.body.abilities.push(format!(
             "AbilityDef::ModalSpell {{ choose: {choose}, modes: &[{}] }}",
             modes.join(", ")
         ));
         Some(())
+    }
+
+    /// `AB$ Charm | Cost$ ... | Choices$ A,B`: a modal activated ability
+    /// (`modal_activated!`). Choose-one only; non-mana only.
+    fn modal_activated(&mut self, spec: &str) -> Option<()> {
+        let Some((_, mut p)) = Params::parse(spec) else {
+            return self.deny("an `A:` line with no `$` in it".to_string());
+        };
+        let line_prose = Self::params_prose(&p);
+        p.drop_prose();
+        let Some(cost_raw) = p.take("Cost") else {
+            return self.deny("a modal activated ability with no `Cost$`".to_string());
+        };
+        let Some(choices) = p.take("Choices") else {
+            return self.deny("a charm with no `Choices$`".to_string());
+        };
+        match p.take("CharmNum").as_deref() {
+            None | Some("1") => {}
+            Some(n) => return self.deny(format!("a modal activated ability choosing `{n}`")),
+        }
+        let limit = p.take("ActivationLimit");
+        let activator = p.take("Activator");
+        let activation_zone = p.take("ActivationZone");
+        let reduce_cost = p.take("ReduceCost");
+        if reduce_cost.is_some() && p.has("ReduceAmount") {
+            return self.deny("a `ReduceCost$` with `ReduceAmount$`".to_string());
+        }
+        let cost_reduction = match reduce_cost.as_deref() {
+            Some(raw) => Some(self.activation_cost_reduction(raw, activation_zone.as_deref())?),
+            None => None,
+        };
+        let sorcery_speed = match p.take("SorcerySpeed").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`SorcerySpeed$ {other}`")),
+        };
+        let any_player = match activator.as_deref() {
+            None => false,
+            Some("Player") => true,
+            Some(other) => return self.deny(format!("`Activator$ {other}`")),
+        };
+        let (_non_battlefield, zone) =
+            self.activation_zone_expr(activation_zone.as_deref(), any_player, true)?;
+        let mut condition = self.condition_with_prose(&mut p, &line_prose)?;
+        let _restrictions = self.activation_restriction(&mut p, true, &mut condition)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Charm.{key}`"));
+        }
+        let cost = self.parse_activated_cost(&cost_raw, activation_zone.as_deref())?;
+        self.reject_non_mana_counter_x(&cost, false, true)?;
+        self.cost_sacrifices_self = cost_raw.split_whitespace().any(|t| t == "Sac<1/CARDNAME>");
+        self.cost_sacrifices_other = cost_raw
+            .split_whitespace()
+            .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"));
+        let parsed = self.read_charm_modes(&choices);
+        self.cost_sacrifices_self = false;
+        self.cost_sacrifices_other = false;
+        let parsed = parsed?;
+        if parsed.len() < 2 {
+            return self.deny("a charm with fewer than two modes".to_string());
+        }
+        if parsed.iter().any(|(_, _, _, mana)| *mana) {
+            return self.deny("a modal activated ability with a mana mode".to_string());
+        }
+        let timing = if sorcery_speed {
+            ", timing = ActivationTiming::SorcerySpeed"
+        } else {
+            ""
+        };
+        let limit = self.activation_limit(limit.as_deref())?;
+        let reduction_suffix = cost_reduction.as_deref().unwrap_or("");
+        let modes: Vec<String> = parsed.into_iter().map(|(m, _, _, _)| m).collect();
+        self.body.abilities.push(format!(
+            "modal_activated!({cost}, &[{}]{timing}{zone}{limit}{condition}{reduction_suffix})",
+            modes.join(", ")
+        ));
+        Some(())
+    }
+
+    fn self_zone_cost_part(token: &str, in_graveyard: bool, in_hand: bool) -> Option<&'static str> {
+        let (kind, body) = super::object_cost(token)?;
+        let mut fields = body.splitn(3, '/');
+        let (Some("1"), Some(spec)) = (fields.next(), fields.next()) else {
+            return None;
+        };
+        match kind {
+            "ExileFromGrave" if in_graveyard && matches!(spec, "CARDNAME" | "NICKNAME") => {
+                Some("ExileSelf")
+            }
+            "Discard" if in_hand && matches!(spec, "CARDNAME" | "NICKNAME") => Some("DiscardSelf"),
+            "ExileFromHand" if in_hand && matches!(spec, "CARDNAME" | "NICKNAME") => {
+                Some("ExileSelf")
+            }
+            _ => None,
+        }
+    }
+
+    fn exert_self_cost_part(token: &str) -> bool {
+        matches!(token, "Exert<1/CARDNAME>" | "Exert<1/NICKNAME>")
+            || token.starts_with("Exert<1/CARDNAME/")
+            || token.starts_with("Exert<1/NICKNAME/")
+    }
+
+    fn reject_non_mana_counter_x(
+        &self,
+        cost: &str,
+        mana_ability: bool,
+        has_targets: bool,
+    ) -> Option<()> {
+        if !mana_ability
+            && cost.contains("RemoveCounterSelfX {")
+            && (has_targets || !cost.contains("ExileSelf"))
+        {
+            return self.deny("`SubCounter<X/...>` on a non-mana activated ability".to_string());
+        }
+        Some(())
+    }
+
+    pub(super) fn parse_activated_cost(
+        &mut self,
+        raw: &str,
+        activation_zone: Option<&str>,
+    ) -> Option<String> {
+        let in_graveyard = activation_zone == Some("Graveyard");
+        let in_hand = activation_zone == Some("Hand");
+        let prev_grave = std::mem::replace(&mut self.in_graveyard_activation, in_graveyard);
+        let prev_hand = std::mem::replace(&mut self.in_hand_activation, in_hand);
+        let res = self.parse_activated_cost_inner(raw, in_graveyard, in_hand);
+        self.in_graveyard_activation = prev_grave;
+        self.in_hand_activation = prev_hand;
+        res
+    }
+
+    fn parse_activated_cost_inner(
+        &mut self,
+        raw: &str,
+        in_graveyard: bool,
+        in_hand: bool,
+    ) -> Option<String> {
+        let tokens = cost_parts(raw);
+        if (in_graveyard || in_hand) && tokens.iter().any(|t| t.starts_with("Exert<")) {
+            return self.deny("`Exert` outside the battlefield".to_string());
+        }
+        let has_nickname_exert = !in_graveyard
+            && !in_hand
+            && tokens
+                .iter()
+                .any(|t| t == "Exert<1/NICKNAME>" || t.starts_with("Exert<1/NICKNAME/"));
+        let has_wave14a = tokens.iter().any(|t| Self::is_wave14a_cost_token(t));
+        if !in_graveyard && !in_hand && !has_nickname_exert && !has_wave14a {
+            return self.cost_expr(raw);
+        }
+        let (mana, parts) = self.parse_chunked_cost_tokens(tokens, in_graveyard, in_hand, false)?;
+        Some(crate::body::cost_literal(&mana, &parts))
+    }
+
+    fn is_wave14a_cost_token(token: &str) -> bool {
+        if token == "Forage" || token.starts_with("DamageYou<") {
+            return true;
+        }
+        matches!(
+            super::object_cost(token),
+            Some(("Discard" | "ExileFromGrave", body)) if body.split('/').next() == Some("X")
+        )
+    }
+
+    fn damage_you_cost_token(token: &str) -> Option<Result<String, String>> {
+        let raw_n = token.strip_prefix("DamageYou<")?.strip_suffix('>')?;
+        Some(match raw_n.trim().parse::<u16>() {
+            Ok(n) if n > 0 => Ok(format!("DealDamageToYou({n})")),
+            _ => Err(format!("cost `{token}`")),
+        })
+    }
+
+    fn wave14a_cost_part(&mut self, token: &str, for_mandatory_spell: bool) -> Wave14aCost {
+        if token == "Forage" {
+            return Wave14aCost::Matched("Forage".to_string());
+        }
+        if let Some(res) = Self::damage_you_cost_token(token) {
+            return match res {
+                Ok(part) => Wave14aCost::Matched(part),
+                Err(msg) => {
+                    self.deny::<()>(msg);
+                    Wave14aCost::Denied
+                }
+            };
+        }
+        let Some((kind, body)) = super::object_cost(token) else {
+            return Wave14aCost::Pass;
+        };
+        if !matches!(kind, "Discard" | "ExileFromGrave") {
+            return Wave14aCost::Pass;
+        }
+        let mut fields = body.splitn(3, '/');
+        if fields.next() != Some("X") {
+            return Wave14aCost::Pass;
+        }
+        let Some(spec) = fields.next() else {
+            self.deny::<()>(format!("cost `{token}`"));
+            return Wave14aCost::Denied;
+        };
+        if (self.in_alternative_cost && !for_mandatory_spell)
+            || !self.has_x
+            || self.trigger_mode.is_some()
+            || self.svars.get("X").map(String::as_str) != Some("Count$xPaid")
+            || self.oracle.to_ascii_lowercase().contains("x is ")
+            || matches!(spec, "CARDNAME" | "NICKNAME" | "Hand" | "Random")
+            || spec.contains("Ctrl")
+            || (kind == "Discard" && spec.contains("Random"))
+        {
+            self.deny::<()>(format!("cost `{token}`"));
+            return Wave14aCost::Denied;
+        }
+        let normalized = spec.replace(';', ",");
+        let Some(expr) = self.filter_expr_in_zone(&normalized, true) else {
+            return Wave14aCost::Denied;
+        };
+        let name = self.body.filter_static("COST", &expr);
+        let variant = if kind == "Discard" {
+            "DiscardX"
+        } else {
+            "ExileFromGraveyardX"
+        };
+        Wave14aCost::Matched(format!("{variant}(&{name})"))
+    }
+
+    fn parse_chunked_cost_tokens(
+        &mut self,
+        tokens: Vec<String>,
+        in_graveyard: bool,
+        in_hand: bool,
+        for_mandatory_spell: bool,
+    ) -> Option<(String, Vec<String>)> {
+        let mut mana = String::new();
+        let mut parts = Vec::new();
+        let mut chunk = Vec::new();
+        for token in tokens {
+            let intercepted = Self::self_zone_cost_part(&token, in_graveyard, in_hand)
+                .map(str::to_string)
+                .or_else(|| {
+                    (!in_graveyard && !in_hand && Self::exert_self_cost_part(&token))
+                        .then(|| "ExertSelf".to_string())
+                });
+            let intercepted = match intercepted {
+                Some(part) => Some(part),
+                None => match self.wave14a_cost_part(&token, for_mandatory_spell) {
+                    Wave14aCost::Matched(part) => Some(part),
+                    Wave14aCost::Denied => return None,
+                    Wave14aCost::Pass => None,
+                },
+            };
+            if let Some(part) = intercepted {
+                if !chunk.is_empty() {
+                    let (m, p) = self.cost_pieces(&chunk.join(" "))?;
+                    mana.push_str(&m);
+                    parts.extend(p);
+                    chunk.clear();
+                }
+                parts.push(part);
+            } else {
+                chunk.push(token);
+            }
+        }
+        if !chunk.is_empty() {
+            let (m, p) = self.cost_pieces(&chunk.join(" "))?;
+            mana.push_str(&m);
+            parts.extend(p);
+        }
+        Some((mana, parts))
+    }
+
+    fn activation_cost_reduction(
+        &mut self,
+        raw: &str,
+        activation_zone: Option<&str>,
+    ) -> Option<String> {
+        let raw = raw.trim();
+        let def = if raw.starts_with("Count$") || raw.starts_with("PlayerCount") {
+            raw.to_string()
+        } else if let Some(resolved) = self.svars.get(raw).cloned() {
+            resolved.trim().to_string()
+        } else {
+            return self.deny(format!("`ReduceCost$ {raw}` naming no `SVar`"));
+        };
+        if def == "PlayerCountPropertyYou$HasPropertyActive" {
+            return Some(
+                ", cost_reduction = Some(CostReduction::If { condition: Condition::YourTurn, amount: 1 })"
+                    .to_string(),
+            );
+        }
+        if let Some(compare) = def.strip_prefix("Count$Compare ") {
+            if let Some((lhs_part, else_str)) = compare.rsplit_once('.')
+                && else_str.trim() == "0"
+                && let Some((cond_spec, then_str)) = lhs_part.rsplit_once('.')
+                && let Ok(amount) = then_str.trim().parse::<u32>()
+                && amount > 0
+                && let Some((var, cmp)) = cond_spec.trim().rsplit_once(' ')
+                && let Some(cond) = self.svar_condition_clause(var.trim(), cmp.trim())
+                && !cond.contains("Condition::XAtLeast")
+            {
+                return Some(format!(
+                    ", cost_reduction = Some(CostReduction::If {{ condition: {cond}, amount: {amount} }})"
+                ));
+            }
+            return self.deny(format!("unsupported `ReduceCost$ {raw}`"));
+        }
+        let Some(amt) = self.static_count_expr(&def) else {
+            return self.deny(format!("unsupported `ReduceCost$ {raw}`"));
+        };
+        if amt.starts_with("Amount::Fixed(")
+            || (amt.contains("SourcePower")
+                && !matches!(activation_zone, None | Some("Battlefield")))
+        {
+            return self.deny(format!("unsupported `ReduceCost$ {raw}`"));
+        }
+        Some(format!(
+            ", cost_reduction = Some(CostReduction::PerCount {{ amount: {amt}, each: 1 }})"
+        ))
+    }
+
+    /// Named ability-word / game-state conditions shared by `S:`, `T:`, `A:`,
+    /// and line-level `Condition$`.
+    pub(super) fn named_condition(cond: &str) -> Option<&'static str> {
+        Some(match cond.trim() {
+            "Threshold" => "Condition::GraveyardCountAtLeast(7)",
+            "PlayerTurn" => "Condition::YourTurn",
+            "NotPlayerTurn" => "Condition::Not(&Condition::YourTurn)",
+            "MaxSpeed" => "Condition::MaxSpeed",
+            "Delirium" => "Condition::GraveyardTypesAtLeast(4)",
+            "Metalcraft" => "Condition::ControlCount(&Filter::ARTIFACT, 3)",
+            "Hellbent" => "Condition::HandSizeAtMost(0)",
+            "Blessing" => "Condition::CitysBlessing",
+            "EnduringStory" => "Condition::EnduringStory",
+            "FatefulHour" => "Condition::LifeAtMost(5)",
+            "Revolt" => "Condition::Revolt",
+            _ => return None,
+        })
+    }
+
+    /// Unified `CheckSVar$` + `SVarCompare$` entry point across activated,
+    /// static, and cost-reduction readers.
+    pub(super) fn svar_condition_clause(&mut self, var: &str, cmp: &str) -> Option<String> {
+        self.svar_condition(var, cmp)
+            .or_else(|| self.inline_valid_count_condition(var.trim(), cmp))
+            .or_else(|| self.extra_svar_condition_clause(var, cmp))
+            .or_else(|| self.inline_svar_condition(var, cmp))
+    }
+
+    fn inline_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        let def = var.trim();
+        let cmp = cmp.trim();
+        if def == "PlayerCountPropertyYou$HasPropertyMaxSpeed" {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::MaxSpeed".to_string()),
+                "EQ0" | "NE1" | "LT1" => Some("Condition::Not(&Condition::MaxSpeed)".to_string()),
+                _ => None,
+            };
+        }
+        if def.starts_with("Count$")
+            && let Some(amt) = self.static_count_expr(def)
+        {
+            return match count_bound(cmp)? {
+                Bound::AtLeast(n) if n > 0 => Some(format!("Condition::AmountAtLeast({amt}, {n})")),
+                Bound::AtMost(max) => {
+                    let bound = u32::from(max).checked_add(1)?;
+                    Some(format!(
+                        "Condition::Not(&Condition::AmountAtLeast({amt}, {bound}))"
+                    ))
+                }
+                Bound::AtLeast(_) => None,
+            };
+        }
+        None
+    }
+
+    /// Reads a `CheckSVar$` + `SVarCompare$` (or `ConditionCheckSVar$` +
+    /// `ConditionSVarCompare$`) pair into a `Condition` expression.
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        let raw = self.svars.get(var.trim())?.trim().to_string();
+        let cmp = cmp.trim();
+        let eq_num = cmp.strip_prefix("EQ").and_then(|n| n.parse::<u16>().ok());
+        let bound = count_bound(cmp);
+
+        if raw == "Count$xPaid" {
+            if !self.on_a_spell || !self.has_x {
+                return None;
+            }
+            return match bound {
+                Some(Bound::AtLeast(n)) => Some(format!("Condition::XAtLeast({n})")),
+                _ => None,
+            };
+        }
+        if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
+            return match bound {
+                Some(Bound::AtLeast(n)) => {
+                    Some(format!("Condition::CreaturesDiedThisTurnAtLeast({n})"))
+                }
+                Some(Bound::AtMost(0)) => {
+                    Some("Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast(1))".to_string())
+                }
+                _ => None,
+            };
+        }
+        if raw == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" {
+            return self.amount_bound_condition(
+                "Amount::CreaturesEnteredUnderYourControlThisTurn",
+                bound,
+                eq_num,
+            );
+        }
+        if matches!(
+            raw.as_str(),
+            "Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl"
+                | "Count$ThisTurnCast_Sorcery.YouCtrl,Instant.YouCtrl"
+                | "Count$ThisTurnCast_Card.Instant,Sorcery+YouCtrl"
+                | "Count$ThisTurnCast_Card.Instant+YouCtrl,Card.Sorcery+YouCtrl"
+        ) {
+            return match cmp {
+                "GE1" => Some("Condition::CastInstantOrSorceryThisTurn".to_string()),
+                "EQ0" => {
+                    Some("Condition::Not(&Condition::CastInstantOrSorceryThisTurn)".to_string())
+                }
+                _ => None,
+            };
+        }
+        if matches!(
+            raw.as_str(),
+            "Count$ThisTurnCast_Creature.YouCtrl" | "Count$ThisTurnCast_Card.Creature+YouCtrl"
+        ) {
+            return match cmp {
+                "GE1" => Some("Condition::CastCreatureThisTurn".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::CastCreatureThisTurn)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "Count$ThisTurnCast_Card.YouCtrl" {
+            return match cmp {
+                "EQ0" => Some("Condition::YouCastNoSpellThisTurn".to_string()),
+                "GE1" => Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string()),
+                _ => None,
+            };
+        }
+        if matches!(raw.as_str(), "Count$Morbid.1.0" | "Count$Morbid") {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::CreaturesDiedThisTurnAtLeast(1)".to_string()),
+                "EQ0" => {
+                    Some("Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast(1))".to_string())
+                }
+                _ => None,
+            };
+        }
+        if matches!(raw.as_str(), "Count$Raid.1.0" | "Count$Raid") {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::AttackedWithAtLeast(1)".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::AttackedWithAtLeast(1))".to_string()),
+                _ => None,
+            };
+        }
+        if matches!(raw.as_str(), "Count$Revolt.1.0" | "Count$Revolt") {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::Revolt".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::Revolt)".to_string()),
+                _ => None,
+            };
+        }
+        if matches!(
+            raw.as_str(),
+            "Count$DescendedThisTurn" | "Count$ThisTurnDescended"
+        ) {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::DescendedThisTurn".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::DescendedThisTurn)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "Count$AltCost.1.0" {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::AltCostPaid".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::AltCostPaid)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "Count$CastTotalManaSpent Snow" {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::SnowManaWasSpent".to_string()),
+                "EQ0" | "LE0" | "LT1" => {
+                    Some("Condition::Not(&Condition::SnowManaWasSpent)".to_string())
+                }
+                _ => self.amount_bound_condition("Amount::SnowManaSpentToCast", bound, eq_num),
+            };
+        }
+        if raw == "Count$Bargained.1.0" && self.body.bargain {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::Bargained".to_string()),
+                "EQ0" | "NE1" | "LT1" => Some("Condition::Not(&Condition::Bargained)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "PlayerCountPropertyYou$HasPropertyActive" {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::YourTurn".to_string()),
+                "EQ0" | "NE1" | "LT1" => Some("Condition::Not(&Condition::YourTurn)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "PlayerCountRegisteredOpponents$HasPropertyLostLifeThisTurn" {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::OpponentLostLifeThisTurn".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "Count$LastTurnCast_Card" {
+            return match bound {
+                Some(Bound::AtMost(0)) => Some("Condition::NoSpellsCastLastTurn".to_string()),
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    Some(format!("Condition::APlayerCastLastTurnAtLeast({n})"))
+                }
+                _ => None,
+            };
+        }
+        if let Some(entered_valid) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
+            && matches!(cmp, "GE1" | "EQ0")
+        {
+            let mut paths = Vec::new();
+            let mut ok = true;
+            for alt in entered_valid.split(',').map(str::trim) {
+                let Some(base) = alt
+                    .strip_suffix(".YouCtrl")
+                    .or_else(|| {
+                        alt.strip_prefix("Permanent.")
+                            .and_then(|s| s.strip_suffix("+YouCtrl"))
+                    })
+                    .or_else(|| {
+                        alt.strip_prefix("Card.")
+                            .and_then(|s| s.strip_suffix("+YouCtrl"))
+                    })
+                else {
+                    ok = false;
+                    break;
+                };
+                if let Some(path) = self.cats.const_path(base) {
+                    paths.push(path);
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+            if ok && !paths.is_empty() {
+                let inner = format!(
+                    "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
+                    paths.join(", ")
+                );
+                return Some(if cmp == "EQ0" {
+                    format!("Condition::Not(&{inner})")
+                } else {
+                    inner
+                });
+            }
+        }
+        if raw == "Count$ThisTurnLandPlayed" {
+            return match bound {
+                Some(Bound::AtLeast(n)) => {
+                    Some(format!("Condition::LandsPlayedThisTurnAtLeast({n})"))
+                }
+                _ => None,
+            };
+        }
+        if raw == "Count$AttackersDeclared" {
+            return match bound {
+                Some(Bound::AtLeast(n)) => Some(format!("Condition::AttackedWithAtLeast({n})")),
+                _ => None,
+            };
+        }
+        if raw == "Count$LifeOppsLostThisTurn/LimitMax.1" {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::OpponentLostLifeThisTurn".to_string()),
+                "EQ0" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string())
+                }
+                _ => None,
+            };
+        }
+        if raw == "Count$LifeOppsLostThisTurn" {
+            return match (bound, eq_num) {
+                (Some(Bound::AtMost(0)), _) => {
+                    Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string())
+                }
+                (Some(Bound::AtLeast(1)), _) => {
+                    Some("Condition::OpponentLostLifeThisTurn".to_string())
+                }
+                (_, Some(1)) => {
+                    let inner = "Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, 2)";
+                    let name = self.body.condition_static("CHECK", inner);
+                    Some(format!(
+                        "Condition::All(&[Condition::OpponentLostLifeThisTurn, Condition::Not(&{name})])"
+                    ))
+                }
+                _ => {
+                    self.amount_bound_condition("Amount::OpponentsLifeLostThisTurn", bound, eq_num)
+                }
+            };
+        }
+        if raw == "Count$LifeYouGainedThisTurn" {
+            return self.amount_bound_condition(
+                "Amount::LifeGainedThisTurn(PlayerRel::You)",
+                bound,
+                eq_num,
+            );
+        }
+        if raw == "Count$YourLifeTotal" {
+            if let Some(n) = eq_num
+                && n > 0
+            {
+                return Some(format!(
+                    "Condition::All(&[Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n}), Condition::LifeAtMost({n})])"
+                ));
+            }
+            if let Some(bound) = bound {
+                return Some(match bound {
+                    Bound::AtLeast(n) => {
+                        format!("Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n})")
+                    }
+                    Bound::AtMost(n) => format!("Condition::LifeAtMost({n})"),
+                });
+            }
+        }
+        if matches!(
+            raw.as_str(),
+            "Count$ValidHand Card.YouOwn" | "Count$CardsInYourHand"
+        ) {
+            if let Some(n) = eq_num.and_then(|v| u8::try_from(v).ok()) {
+                return Some(if n == 0 {
+                    "Condition::HandSizeAtMost(0)".to_string()
+                } else {
+                    format!("Condition::HandSizeExactly({n})")
+                });
+            }
+            return match bound {
+                Some(Bound::AtMost(n)) => Some(format!("Condition::HandSizeAtMost({n})")),
+                Some(Bound::AtLeast(n)) => Some(format!(
+                    "Condition::AmountAtLeast(Amount::HandSize(PlayerRel::You), {n})"
+                )),
+                None => None,
+            };
+        }
+        if raw == "Count$ValidGraveyard Card.YouOwn"
+            && let Some(Bound::AtLeast(n)) = bound
+        {
+            return Some(format!("Condition::GraveyardCountAtLeast({n})"));
+        }
+        if raw == "Count$ValidGraveyard Card.YouOwn$CardTypes" {
+            return match bound {
+                Some(Bound::AtLeast(n)) => Some(format!("Condition::GraveyardTypesAtLeast({n})")),
+                _ => None,
+            };
+        }
+        if raw == "Count$ValidGraveyard Card.OppOwn" {
+            return match bound {
+                Some(Bound::AtLeast(n)) => {
+                    Some(format!("Condition::OpponentGraveyardCountAtLeast({n})"))
+                }
+                _ => None,
+            };
+        }
+        if let Some(kind_code) = raw.strip_prefix("Count$CardCounters.") {
+            let kind = counter_kind(kind_code)?;
+            if let Some(n) = eq_num.and_then(|v| u8::try_from(v).ok()) {
+                return Some(format!("Condition::CountersOnSelfExactly({kind}, {n})"));
+            }
+            if let Some(Bound::AtLeast(n)) = bound {
+                return Some(format!("Condition::CountersOnSelf({kind}, {n})"));
+            }
+            if let Some(Bound::AtMost(_)) = bound {
+                return self.amount_bound_condition(
+                    &format!("Amount::CountersOnSource({kind})"),
+                    bound,
+                    None,
+                );
+            }
+        }
+        if matches!(
+            raw.as_str(),
+            "Count$Valid Creature.YouCtrl$CardPower"
+                | "Count$Valid Creature.YouCtrl$GreatestCardPower"
+        ) {
+            return match bound {
+                Some(Bound::AtLeast(n)) => {
+                    Some(format!("Condition::ControlledCreaturePowerAtLeast({n})"))
+                }
+                _ => None,
+            };
+        }
+        if let Some(valid_raw) = raw.strip_prefix("Count$Valid ") {
+            if let Some(distinct_valid) = valid_raw.strip_suffix("$DifferentCardNames") {
+                let Some(Bound::AtLeast(n)) = bound else {
+                    return None;
+                };
+                let relative = distinct_valid.split(',').any(|alt| {
+                    alt.split(['.', '+']).any(|a| {
+                        matches!(
+                            a.trim(),
+                            "Self"
+                                | "Other"
+                                | "EnchantedBy"
+                                | "EquippedBy"
+                                | "AttachedBy"
+                                | "Attached"
+                        )
+                    })
+                });
+                let yours = distinct_valid
+                    .split(',')
+                    .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+                if relative || !yours {
+                    return None;
+                }
+                let expr = self.filter_expr(distinct_valid)?;
+                let name = self.body.filter_static("CHECK", &expr);
+                return Some(format!("Condition::ControlDistinctNames(&{name}, {n})"));
+            }
+            let valid = match valid_raw.split_once("/Plus.") {
+                None => valid_raw.to_string(),
+                Some((first, second_var)) => {
+                    if let Some(second) = self
+                        .svars
+                        .get(second_var.trim())
+                        .and_then(|s| s.trim().strip_prefix("Count$Valid "))
+                    {
+                        format!("{first},{second}")
+                    } else {
+                        String::new()
+                    }
+                }
+            };
+            if !valid.is_empty() && !valid.contains('/') && !valid.contains('$') {
+                let relative = valid.split(',').any(|alt| {
+                    alt.split(['.', '+']).any(|a| {
+                        matches!(
+                            a.trim(),
+                            "Self"
+                                | "Other"
+                                | "EnchantedBy"
+                                | "EquippedBy"
+                                | "AttachedBy"
+                                | "Attached"
+                        )
+                    })
+                });
+                let yours = valid
+                    .split(',')
+                    .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+                let opps = valid
+                    .split(',')
+                    .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
+                    && matches!(bound, Some(Bound::AtMost(0)));
+                let nobodys = !valid
+                    .split(',')
+                    .flat_map(|alt| alt.split(['.', '+']))
+                    .any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
+                if !relative
+                    && let Some(n) = eq_num.filter(|&n| n > 0)
+                    && (yours || nobodys)
+                {
+                    let expr = self.filter_expr(&valid)?;
+                    let name = self.body.filter_static("CHECK", &expr);
+                    return Some(if yours {
+                        format!(
+                            "Condition::All(&[Condition::ControlCount(&{name}, {n}), Condition::ControlCountAtMost(&{name}, {n})])"
+                        )
+                    } else {
+                        format!(
+                            "Condition::All(&[Condition::BattlefieldCount(&{name}, {n}), Condition::BattlefieldCountAtMost(&{name}, {n})])"
+                        )
+                    });
+                }
+                if !relative
+                    && (yours || opps || nobodys)
+                    && let Some(bound) = bound
+                {
+                    let expr = self.filter_expr(&valid)?;
+                    let name = self.body.filter_static("CHECK", &expr);
+                    let (variant, n) = match (yours, bound) {
+                        (true, Bound::AtLeast(n)) => ("ControlCount", n),
+                        (true, Bound::AtMost(n)) => ("ControlCountAtMost", n),
+                        (false, Bound::AtLeast(n)) => ("BattlefieldCount", n),
+                        (false, Bound::AtMost(n)) => ("BattlefieldCountAtMost", n),
+                    };
+                    return Some(format!("Condition::{variant}(&{name}, {n})"));
+                }
+            }
+        }
+        let amt = self.static_count_expr(&raw)?;
+        self.amount_bound_condition(&amt, bound, eq_num)
+    }
+
+    fn amount_bound_condition(
+        &mut self,
+        amt: &str,
+        bound: Option<Bound>,
+        eq_num: Option<u16>,
+    ) -> Option<String> {
+        if let Some(n) = eq_num
+            && n > 0
+        {
+            let above = u32::from(n).checked_add(1)?;
+            let inner = format!("Condition::AmountAtLeast({amt}, {above})");
+            let name = self.body.condition_static("CHECK", &inner);
+            return Some(format!(
+                "Condition::All(&[Condition::AmountAtLeast({amt}, {n}), Condition::Not(&{name})])"
+            ));
+        }
+        match bound? {
+            Bound::AtLeast(n) => Some(format!("Condition::AmountAtLeast({amt}, {n})")),
+            Bound::AtMost(n) => {
+                let above = u32::from(n).checked_add(1)?;
+                let inner = format!("Condition::AmountAtLeast({amt}, {above})");
+                let name = self.body.condition_static("CHECK", &inner);
+                Some(format!("Condition::Not(&{name})"))
+            }
+        }
     }
 
     /// The reference's `IsPresent$` family as an intervening-`if` clause
@@ -528,9 +1804,16 @@ impl Tx<'_> {
     /// of CR 603.4's second check — a clause asked once instead of twice,
     /// which this DSL cannot say at all.
     pub(super) fn condition(&mut self, p: &mut Params) -> Option<String> {
-        if p.peek("Condition") == Some("Threshold") && !p.has("IsPresent") {
+        self.condition_with_prose(p, "")
+    }
+
+    fn condition_with_prose(&mut self, p: &mut Params, line_prose: &str) -> Option<String> {
+        if let Some(cond_raw) = p.peek("Condition")
+            && !p.has("IsPresent")
+            && let Some(cond) = Self::named_condition(cond_raw)
+        {
             p.take("Condition");
-            return Some(", condition = Some(Condition::GraveyardCountAtLeast(7))".to_string());
+            return Some(format!(", condition = Some({cond})"));
         }
         if p.peek("LifeTotal") == Some("You") && !p.has("IsPresent") {
             p.take("LifeTotal");
@@ -548,7 +1831,7 @@ impl Tx<'_> {
         let Some(valid) = p.take("IsPresent") else {
             return Some(String::new());
         };
-        let clause = self.present_clause(p, &valid)?;
+        let clause = self.present_clause_with_prose(p, &valid, line_prose)?;
         Some(format!(", condition = Some({clause})"))
     }
 
@@ -557,14 +1840,28 @@ impl Tx<'_> {
     /// [`Self::condition`] splices in as an intervening "if", and what a
     /// state trigger (`Mode$ Always`, CR 603.8) triggers on.
     pub(super) fn present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
+        self.present_clause_with_prose(p, valid, "")
+    }
+
+    fn present_clause_with_prose(
+        &mut self,
+        p: &mut Params,
+        valid: &str,
+        line_prose: &str,
+    ) -> Option<String> {
         if p.take("NoResolvingCheck").is_some() {
             return self.deny("`NoResolvingCheck$`, a clause checked once".to_string());
         }
         if p.take("IsPresent2").is_some() {
             return self.deny("a second `IsPresent2$` clause".to_string());
         }
-        if p.peek("PresentZone") == Some("Graveyard") && p.peek("PresentPlayer") == Some("You") {
-            return self.graveyard_present_clause(p, valid);
+        if p.peek("PresentZone") == Some("Graveyard")
+            && (p.peek("PresentPlayer") == Some("You")
+                || (p.peek("PresentPlayer").is_none()
+                    && (matches!(valid, "Card.StrictlySelf" | "Card.Self")
+                        || has_you_own_every_alt(valid))))
+        {
+            return self.graveyard_present_clause(p, valid, line_prose);
         }
         if let Some(who) = p.take("PresentPlayer") {
             return self.deny(format!("`PresentPlayer$ {who}`"));
@@ -576,7 +1873,12 @@ impl Tx<'_> {
         let compare = p
             .take("PresentCompare")
             .unwrap_or_else(|| "GE1".to_string());
-        if compare == "GE1"
+        if let Some(clause) =
+            Self::commander_present_clause(valid, &compare, p.peek("PresentDefined").is_some())
+        {
+            return Some(clause);
+        }
+        if matches!(compare.as_str(), "GE1" | "EQ1")
             && matches!(p.peek("PresentDefined"), None | Some("Self"))
             && let Some(raw) = valid.strip_prefix("Card.Self+counters_GE")
         {
@@ -596,65 +1898,71 @@ impl Tx<'_> {
         };
         // Both readings need a number before the filter is worth building,
         // so that a refusal names the clause rather than an atom inside it.
-        let count = if about_source {
-            if compare != "GE1" {
-                return self.deny(format!("a clause about this card compared `{compare}`"));
-            }
+        if !about_source {
+            return self.battlefield_count_present_clause(valid, &compare);
+        }
+        if !matches!(compare.as_str(), "GE1" | "EQ1") {
+            return self.deny(format!("a clause about this card compared `{compare}`"));
+        }
+        let expr = self.filter_expr(valid)?;
+        let zoned = on_the_battlefield(&expr);
+        let name = self.body.filter_static("CHECK", &zoned);
+        Some(format!("Condition::SourceMatches(&{name})"))
+    }
+
+    fn battlefield_count_present_clause(&mut self, valid: &str, compare: &str) -> Option<String> {
+        let exact_one = compare == "EQ1";
+        let bound = if exact_one {
             None
         } else {
-            let Some(bound) = count_bound(&compare) else {
+            let Some(bound) = count_bound(compare) else {
                 return self.deny(format!("`PresentCompare$ {compare}`"));
             };
-            // Whose permanents: yours (`YouCtrl` in every alternative), or
-            // everybody's when no alternative names a controller or an
-            // owner at all ("if no creatures are on the battlefield").
-            let atoms = || valid.split(',').flat_map(|alt| alt.split(['.', '+']));
-            let yours = valid
-                .split(',')
-                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
-            let opponents = valid
-                .split(',')
-                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
-                && matches!(bound, Bound::AtMost(0));
-            let nobodys = !atoms().any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
-            if !yours && !nobodys && !opponents {
-                return self.deny(format!("`IsPresent$ {valid}`, a count of somebody else's"));
-            }
-            // And a count says nothing about the card that states it.
-            // `eval::condition_holds` walks a battlefield handing each
-            // candidate its *own* id as the object a filter's `This` and
-            // `Another` compare against, so "another creature you control"
-            // would count nothing at all — 28 corpus lines write one, and
-            // a trigger that can never fire is exactly the wrong card the
-            // honest-stub rule exists to refuse.
-            // The attachment atoms are relative too: `AttachedToBySource`
-            // asks what *this* card is attached to.
-            if valid.split(',').any(|alt| {
-                alt.split(['.', '+']).any(|a| {
-                    matches!(
-                        a.trim(),
-                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy" | "Attached"
-                    )
-                })
-            }) {
-                return self.deny(format!(
-                    "`IsPresent$ {valid}`, a count relative to this card"
-                ));
-            }
-            Some((yours, bound))
+            Some(bound)
         };
+        // Whose permanents: yours (`YouCtrl` in every alternative), or
+        // everybody's when no alternative names a controller or an
+        // owner at all ("if no creatures are on the battlefield").
+        let atoms = || valid.split(',').flat_map(|alt| alt.split(['.', '+']));
+        let yours = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+        let opponents = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
+            && matches!(bound, Some(Bound::AtMost(0)));
+        let nobodys = !atoms().any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
+        if !yours && !nobodys && !opponents {
+            return self.deny(format!("`IsPresent$ {valid}`, a count of somebody else's"));
+        }
+        // And a count says nothing about the card that states it.
+        // `eval::condition_holds` walks a battlefield handing each
+        // candidate its *own* id as the object a filter's `This` and
+        // `Another` compare against, so "another creature you control"
+        // would count nothing at all — 28 corpus lines write one, and
+        // a trigger that can never fire is exactly the wrong card the
+        // honest-stub rule exists to refuse.
+        // The attachment atoms are relative too: `AttachedToBySource`
+        // asks what *this* card is attached to.
+        if valid.split(',').any(|alt| {
+            alt.split(['.', '+']).any(|a| {
+                matches!(
+                    a.trim(),
+                    "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy" | "Attached"
+                )
+            })
+        }) {
+            return self.deny(format!(
+                "`IsPresent$ {valid}`, a count relative to this card"
+            ));
+        }
         let expr = self.filter_expr(valid)?;
-        let clause = match count {
-            None => {
-                let zoned = on_the_battlefield(&expr);
-                let name = self.body.filter_static("CHECK", &zoned);
-                format!("Condition::SourceMatches(&{name})")
-            }
-            // `ControlCount` counts one player's battlefield and nothing
-            // else, and `BattlefieldCount` all of it, so the zone and the
-            // player are both already in the sentence each is.
-            Some((yours, bound)) => {
-                let name = self.body.filter_static("CHECK", &expr);
+        let name = self.body.filter_static("CHECK", &expr);
+        // `ControlCount` counts one player's battlefield and nothing
+        // else, and `BattlefieldCount` all of it, so the zone and the
+        // player are both already in the sentence each is.
+        Some(match bound {
+            Some(bound) => {
                 let (variant, n) = match (yours, bound) {
                     (true, Bound::AtLeast(n)) => ("ControlCount", n),
                     (true, Bound::AtMost(n)) => ("ControlCountAtMost", n),
@@ -663,24 +1971,136 @@ impl Tx<'_> {
                 };
                 format!("Condition::{variant}(&{name}, {n})")
             }
-        };
-        Some(clause)
+            None if yours => format!(
+                "Condition::All(&[Condition::ControlCount(&{name}, 1), Condition::ControlCountAtMost(&{name}, 1)])"
+            ),
+            None => format!(
+                "Condition::All(&[Condition::BattlefieldCount(&{name}, 1), Condition::BattlefieldCountAtMost(&{name}, 1)])"
+            ),
+        })
     }
 
-    fn graveyard_present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
+    fn commander_present_clause(valid: &str, compare: &str, has_defined: bool) -> Option<String> {
+        if has_defined
+            || !matches!(
+                valid,
+                "Card.IsCommander+YouOwn+YouCtrl"
+                    | "Card.IsCommander+YouCtrl+YouOwn"
+                    | "Permanent.IsCommander+YouOwn+YouCtrl"
+                    | "Permanent.IsCommander+YouCtrl+YouOwn"
+            )
+        {
+            return None;
+        }
+        match compare {
+            "GE1" => Some("Condition::ControlYourCommander".to_string()),
+            "EQ0" => Some("Condition::Not(&Condition::ControlYourCommander)".to_string()),
+            _ => None,
+        }
+    }
+
+    fn graveyard_present_clause(
+        &mut self,
+        p: &mut Params,
+        valid: &str,
+        line_prose: &str,
+    ) -> Option<String> {
         p.take("PresentZone");
-        p.take("PresentPlayer");
-        let compare = p
-            .take("PresentCompare")
-            .unwrap_or_else(|| "GE1".to_string());
-        let Some(Bound::AtLeast(n)) = count_bound(&compare) else {
-            return self.deny(format!("`PresentCompare$ {compare}`"));
+        let has_you = p.take("PresentPlayer").as_deref() == Some("You");
+        let compare = match p.take("PresentCompare") {
+            Some(cmp) => cmp,
+            None => self.infer_graveyard_present_compare(p, valid, line_prose)?,
         };
-        let expr = self.filter_expr_in_zone(valid, true)?;
+        if matches!(valid, "Card.StrictlySelf" | "Card.Self") {
+            if !matches!(compare.as_str(), "GE1" | "EQ1") {
+                return self.deny(format!("a graveyard self clause compared `{compare}`"));
+            }
+            return Some(
+                "Condition::SourceMatches(&Filter::InZone(ZoneRef::Graveyard))".to_string(),
+            );
+        }
+        let Some((stripped, above)) = strip_graveyard_filter(valid, !has_you) else {
+            return self.deny(format!("`IsPresent$ {valid}` in graveyard"));
+        };
+        let expr = self.filter_expr_in_zone(&stripped, true)?;
         let name = self.body.filter_static("CHECK", &expr);
-        Some(format!(
-            "Condition::AmountAtLeast(Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}, {n})"
-        ))
+        if above {
+            let Some(Bound::AtLeast(n)) = count_bound(&compare) else {
+                return self.deny(format!("`PresentCompare$ {compare}` with `Above`"));
+            };
+            return Some(format!("Condition::GraveyardCardsAbove(&{name}, {n})"));
+        }
+        let amt = format!(
+            "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}"
+        );
+        if compare == "EQ1" {
+            return Some(format!(
+                "Condition::All(&[Condition::AmountAtLeast({amt}, 1), Condition::Not(&Condition::AmountAtLeast({amt}, 2))])"
+            ));
+        }
+        match count_bound(&compare) {
+            Some(Bound::AtLeast(n)) => Some(format!("Condition::AmountAtLeast({amt}, {n})")),
+            Some(Bound::AtMost(n)) => {
+                let Some(threshold) = u8::try_from(n).ok().and_then(|v| v.checked_add(1)) else {
+                    return self.deny(format!("`PresentCompare$ {compare}`"));
+                };
+                Some(format!(
+                    "Condition::Not(&Condition::AmountAtLeast({amt}, {threshold}))"
+                ))
+            }
+            None => self.deny(format!("`PresentCompare$ {compare}`")),
+        }
+    }
+
+    fn params_prose(p: &Params) -> String {
+        [
+            "PrecostDesc",
+            "SpellDescription",
+            "Description",
+            "TriggerDescription",
+        ]
+        .into_iter()
+        .filter_map(|k| p.peek(k))
+        .collect::<Vec<_>>()
+        .join(" ")
+    }
+
+    fn infer_graveyard_present_compare(
+        &self,
+        p: &Params,
+        valid: &str,
+        saved_prose: &str,
+    ) -> Option<String> {
+        if matches!(valid, "Card.StrictlySelf" | "Card.Self") {
+            return Some("GE1".to_string());
+        }
+        let fresh = Self::params_prose(p);
+        let prose = if !fresh.is_empty() {
+            fresh.to_ascii_lowercase()
+        } else if !saved_prose.trim().is_empty() {
+            saved_prose.to_ascii_lowercase()
+        } else {
+            self.oracle.to_ascii_lowercase()
+        };
+        let has_d4 = prose.contains("descend 4")
+            || prose.contains("four or more permanent cards in your graveyard");
+        let has_d8 = prose.contains("descend 8")
+            || prose.contains("eight or more permanent cards in your graveyard");
+        let has_other_threshold = prose.contains("descend ")
+            || prose.contains("threshold")
+            || prose.contains("seven or more cards in your graveyard")
+            || prose.contains("or more permanent cards in your graveyard");
+        match (has_d4, has_d8) {
+            (true, false) => Some("GE4".to_string()),
+            (false, true) => Some("GE8".to_string()),
+            (true, true) => self.deny(
+                "ambiguous graveyard `Descend` threshold without `PresentCompare$`".to_string(),
+            ),
+            (false, false) if has_other_threshold => {
+                self.deny("multi-card graveyard threshold without `PresentCompare$`".to_string())
+            }
+            (false, false) => Some("GE1".to_string()),
+        }
     }
 
     /// The executed line of a "you may pay {N}. If you do, …" trigger with
@@ -710,4 +2130,143 @@ impl Tx<'_> {
             .collect();
         Some((rest.join(" | "), price))
     }
+
+    /// Extends [`Self::optional_price`] for trigger-executed `AB$` lines whose
+    /// optional cost is paying life or a single object-selection `CostPart`
+    /// (`Discard<1/...>`, `Sac<1/...>`, `ExileFromGrave<1/...>`, etc.).
+    pub(super) fn optional_trigger_price(
+        &mut self,
+        body: &str,
+    ) -> Option<(String, OptionalTriggerPrice)> {
+        if let Some((stripped, price)) = Self::optional_price(body) {
+            return Some((
+                stripped,
+                match price {
+                    Price::Generic(m) => OptionalTriggerPrice::Generic(m),
+                    Price::Printed(c) => OptionalTriggerPrice::Printed(c),
+                    Price::Part(p) => OptionalTriggerPrice::CostPart(p),
+                },
+            ));
+        }
+        if !body.trim_start().starts_with("AB$") {
+            return None;
+        }
+        let parts: Vec<&str> = body.split(" | ").collect();
+        let cost = parts
+            .iter()
+            .find_map(|part| part.strip_prefix("Cost$"))?
+            .trim();
+        let rest = parts
+            .into_iter()
+            .filter(|part| !part.starts_with("Cost$"))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        if cost == "Sac<1/CARDNAME>"
+            || (cost.starts_with("Sac<1/CARDNAME/") && cost.find('>') == Some(cost.len() - 1))
+        {
+            return Some((
+                rest,
+                OptionalTriggerPrice::CostPart("Sacrifice(&Filter::This)".to_string()),
+            ));
+        }
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let parsed = if cost == "Forage" {
+            Some((String::new(), vec!["Forage".to_string()]))
+        } else if let Some(dmg) = Self::damage_you_cost_token(cost) {
+            dmg.ok().map(|part| (String::new(), vec![part]))
+        } else {
+            self.cost_pieces(cost)
+        };
+        let Some((mana, cost_parts)) = parsed else {
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            return None;
+        };
+        if !mana.is_empty() {
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            return None;
+        }
+        let result = match cost_parts.as_slice() {
+            [one] => {
+                if let Some(n) = one
+                    .strip_prefix("PayLife(")
+                    .and_then(|s| s.strip_suffix(')'))
+                {
+                    Some(OptionalTriggerPrice::Life(format!("Amount::Fixed({n})")))
+                } else if asks_for_an_object(one)
+                    || one == "Forage"
+                    || one.starts_with("DealDamageToYou(")
+                {
+                    Some(OptionalTriggerPrice::CostPart(one.clone()))
+                } else {
+                    None
+                }
+            }
+            many if many.len() >= 2 => {
+                let first = &many[0];
+                if let Some(filter) = first
+                    .strip_prefix("Sacrifice(")
+                    .and_then(|s| s.strip_suffix(')'))
+                    && many.iter().all(|p| p == first)
+                    && let Ok(count) = u8::try_from(many.len())
+                {
+                    Some(OptionalTriggerPrice::SacrificeN {
+                        filter: filter.to_string(),
+                        count,
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+        if result.is_none() {
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+        }
+        result.map(|price| (rest, price))
+    }
+}
+
+fn has_you_own_every_alt(valid: &str) -> bool {
+    valid
+        .split(',')
+        .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouOwn"))
+}
+
+fn strip_graveyard_filter(valid: &str, require_you_own: bool) -> Option<(String, bool)> {
+    let mut cleaned_alts = Vec::new();
+    let mut saw_above: Option<bool> = None;
+    for alt in valid.split(',') {
+        let mut parts = alt
+            .split('.')
+            .flat_map(|s| s.split('+'))
+            .map(str::trim)
+            .filter(|a| !a.is_empty());
+        let base = parts.next()?;
+        let mut has_you = false;
+        let mut alt_above = false;
+        let mut kept = Vec::new();
+        for atom in parts {
+            match atom {
+                "DirectlyAbove" => return None,
+                "Above" => alt_above = true,
+                "YouOwn" => has_you = true,
+                other if other.contains("Ctrl") || other.contains("Own") => return None,
+                other => kept.push(other),
+            }
+        }
+        if require_you_own && !has_you {
+            return None;
+        }
+        match saw_above {
+            Some(prev) if prev != alt_above => return None,
+            None => saw_above = Some(alt_above),
+            Some(_) => {}
+        }
+        if kept.is_empty() {
+            cleaned_alts.push(base.to_string());
+        } else {
+            cleaned_alts.push(format!("{base}.{}", kept.join("+")));
+        }
+    }
+    Some((cleaned_alts.join(","), saw_above.unwrap_or(false)))
 }

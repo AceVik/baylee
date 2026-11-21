@@ -7,8 +7,14 @@ use crate::state::GameState;
 use crate::text_changes::RuleContext;
 use crate::zone::Zone;
 use baylee_cards_dsl::{AbilityDef, Effect, Filter, PlayerRel, TargetSpec};
-use baylee_core::ids::{DamageSourceRef, ObjectId};
+use baylee_core::ids::{DamageSourceRef, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
+
+const ANY_TARGET_PERMANENT: Filter = Filter::HasType(
+    TypeSet::CREATURE
+        .union(TypeSet::PLANESWALKER)
+        .union(TypeSet::BATTLE),
+);
 
 mod reanimation;
 mod relocation;
@@ -32,15 +38,28 @@ pub(crate) struct ReanimatedAura {
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum EnchantRestriction {
     Permanent(&'static Filter, RuleContext),
+    Player(TargetSpec),
+    PlayerOrPermanent {
+        any_player: bool,
+        filter: &'static Filter,
+        context: RuleContext,
+    },
     GraveyardCard(&'static Filter, PlayerRel, RuleContext),
     ReturnedBy(DamageSourceRef),
 }
 
-pub(crate) fn printed_restriction(
+pub(crate) fn printed_restriction_with(
     state: &GameState,
     aura: &GameObject,
+    lookup: &impl crate::state::CardLookup,
 ) -> Option<EnchantRestriction> {
-    aura.ability_list(state.bases.as_ref())
+    if aura.riders.contains(&crate::object::Rider::Bestowed) {
+        return Some(EnchantRestriction::Permanent(
+            &Filter::CREATURE,
+            crate::eval::live_context(state, aura.id),
+        ));
+    }
+    aura.ability_list(lookup)
         .abilities
         .iter()
         .enumerate()
@@ -60,6 +79,36 @@ pub(crate) fn printed_restriction(
                     target: TargetSpec::Object(filter),
                 } => Some(EnchantRestriction::Permanent(filter, context)),
                 Effect::AttachSelf {
+                    target:
+                        spec @ (TargetSpec::AnyPlayer
+                        | TargetSpec::AnyOpponent
+                        | TargetSpec::Player(_)
+                        | TargetSpec::PlayerWhoAttackedThisTurn
+                        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+                        | TargetSpec::OpponentWithMoreThanPlayer(..)),
+                } => Some(EnchantRestriction::Player(*spec)),
+                Effect::AttachSelf {
+                    target: TargetSpec::PlayerOrObject(filter),
+                } => Some(EnchantRestriction::PlayerOrPermanent {
+                    any_player: true,
+                    filter,
+                    context,
+                }),
+                Effect::AttachSelf {
+                    target: TargetSpec::OpponentOrObject(filter),
+                } => Some(EnchantRestriction::PlayerOrPermanent {
+                    any_player: false,
+                    filter,
+                    context,
+                }),
+                Effect::AttachSelf {
+                    target: TargetSpec::AnyTarget,
+                } => Some(EnchantRestriction::PlayerOrPermanent {
+                    any_player: true,
+                    filter: &ANY_TARGET_PERMANENT,
+                    context,
+                }),
+                Effect::AttachSelf {
                     target: TargetSpec::CardInGraveyard(filter, who),
                 } => Some(EnchantRestriction::GraveyardCard(filter, *who, context)),
                 _ => None,
@@ -70,6 +119,14 @@ pub(crate) fn printed_restriction(
 /// A changed enchant ability follows this Aura incarnation, never a new
 /// copy or a later battlefield incarnation of the same physical card.
 pub(crate) fn restriction(state: &GameState, aura: &GameObject) -> Option<EnchantRestriction> {
+    restriction_with(state, aura, state.bases.as_ref())
+}
+
+pub(crate) fn restriction_with(
+    state: &GameState,
+    aura: &GameObject,
+    lookup: &impl crate::state::CardLookup,
+) -> Option<EnchantRestriction> {
     state
         .reanimated_auras
         .iter()
@@ -77,7 +134,7 @@ pub(crate) fn restriction(state: &GameState, aura: &GameObject) -> Option<Enchan
             (binding.aura.object == aura.id && binding.aura.version == aura.version)
                 .then_some(EnchantRestriction::ReturnedBy(binding.aura))
         })
-        .or_else(|| printed_restriction(state, aura))
+        .or_else(|| printed_restriction_with(state, aura, lookup))
 }
 
 /// The shared attachment rule, also usable before the Aura enters.
@@ -91,6 +148,83 @@ pub(crate) fn can_attach(state: &GameState, aura: ObjectId, host: ObjectId) -> b
     ));
     crate::permanent_guards::permits_new_enchantment(state, host, aura)
         && can_enchant(state, aura, host, restriction)
+}
+
+/// Whether `aura` may attach to `player` (CR 303.4f, CR 303.4j, CR 702.16c).
+/// Untargeted Aura entry and attachment checks ignore hexproof/shroud, asking
+/// only the Aura's own enchant restriction and protection.
+pub(crate) fn can_attach_player(state: &GameState, aura: ObjectId, player: PlayerId) -> bool {
+    let Some(object) = state.object(aura) else {
+        return false;
+    };
+    let Some(restriction) = restriction(state, object) else {
+        return false;
+    };
+    can_enchant_player(state, aura, player, restriction)
+}
+
+/// Whether `aura` may enchant `player` under `restriction` (CR 303.4c, CR 702.16c).
+pub(crate) fn can_enchant_player(
+    state: &GameState,
+    aura: ObjectId,
+    player: PlayerId,
+    restriction: EnchantRestriction,
+) -> bool {
+    let Some(aura_obj) = state.object(aura) else {
+        return false;
+    };
+    if state.has_left(player)
+        || aura_obj
+            .characteristics()
+            .types
+            .intersects(TypeSet::CREATURE.union(TypeSet::BATTLE))
+        || aura_obj.status.contains(Status::PHASED_OUT)
+    {
+        return false;
+    }
+    let permitted = match restriction {
+        EnchantRestriction::Player(spec) => match spec {
+            TargetSpec::AnyPlayer => true,
+            TargetSpec::AnyOpponent => state.is_opponent(player, aura_obj.controller),
+            TargetSpec::Player(rel) => {
+                crate::eval::players_for_source(rel, state, aura_obj.controller, Some(aura))
+                    .is_some_and(|seats| seats.contains(&player))
+            }
+            TargetSpec::PlayerWhoAttackedThisTurn => state
+                .per_turn
+                .attacked
+                .iter()
+                .any(|&(_, _, who)| who == player),
+            TargetSpec::OpponentWithMoreThanActivePlayer(_) => {
+                state.is_opponent(player, aura_obj.controller)
+            }
+            TargetSpec::OpponentWithMoreThanPlayer(filter, reference) => {
+                let context = crate::eval::live_context(state, aura);
+                state.is_opponent(player, reference)
+                    && crate::eval::count_controlled_by(
+                        state,
+                        player,
+                        aura_obj.controller,
+                        filter,
+                        context,
+                    ) > crate::eval::count_controlled_by(
+                        state,
+                        reference,
+                        aura_obj.controller,
+                        filter,
+                        context,
+                    )
+            }
+            _ => false,
+        },
+        EnchantRestriction::PlayerOrPermanent { any_player, .. } => {
+            any_player || state.is_opponent(player, aura_obj.controller)
+        }
+        EnchantRestriction::Permanent(..)
+        | EnchantRestriction::GraveyardCard(..)
+        | EnchantRestriction::ReturnedBy(_) => false,
+    };
+    permitted && !crate::eval::player_protected_from(state, player, aura)
 }
 
 /// Attachment legality is distinct from targeting. Shroud and hexproof do
@@ -115,10 +249,14 @@ pub(crate) fn can_enchant(
         return false;
     }
     let permitted = match restriction {
-        EnchantRestriction::Permanent(filter, context) => {
+        EnchantRestriction::Permanent(filter, context)
+        | EnchantRestriction::PlayerOrPermanent {
+            filter, context, ..
+        } => {
             host.zone == Zone::Battlefield
                 && crate::eval::matches_with_context(filter, state, host, aura.controller, context)
         }
+        EnchantRestriction::Player(_) => false,
         EnchantRestriction::GraveyardCard(filter, who, context) => {
             host.zone == Zone::Graveyard
                 && host.card.is_some()

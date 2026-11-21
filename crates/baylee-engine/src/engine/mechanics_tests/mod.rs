@@ -16,15 +16,21 @@
 //! never the rule that is set.
 
 mod alone_attack;
+mod alternate_casting_wave3;
+mod amplify;
 mod assignment_restrictions;
 mod attacking_tokens;
 mod battle_sba;
 mod blocks;
 mod branches;
 mod chosen_count_entry;
+mod class_levels;
 mod color_source;
+mod combat_and_keywords_wave4;
 mod combat_memory;
+mod command_and_combat_wave3;
 mod control;
+mod cost_reductions_and_kicker;
 mod costs;
 mod counter_payment;
 mod counter_removal;
@@ -40,7 +46,9 @@ mod draw_replacements;
 mod effects;
 mod exile_counters;
 mod flanking;
+mod granted_abilities_and_phasing;
 mod grantor;
+mod graveyard_and_facedown_casting;
 mod land_transformations;
 mod library_top;
 mod life_gain;
@@ -49,14 +57,35 @@ mod modal_activated;
 mod names;
 mod powerstone;
 mod preparation;
+mod prevention_shields;
+mod provoke;
 mod regeneration_prohibitions;
+mod sagas_and_reflexive_triggers;
 mod storm;
 mod tokens;
 mod transforms;
 mod triggers;
 pub(super) mod untap_scope;
+mod wave10a_freerunning_sneak_sunburst_ravenous_graft_endure;
+mod wave10b_splice_awaken_conspire_cipher_champion_tribute;
+mod wave2_bugs_copy_and_dice;
+mod wave3_repeat_choose_color;
 mod wave3_rules;
 mod wave3b_rules;
+mod wave4_exile_and_costs;
+mod wave4_triggers_auras_locks;
+mod wave5_costs_and_manifest;
+mod wave5b_keywords_heroic_enlist_bolster;
+mod wave6a_triggers_costs_soulbond_modular;
+mod wave6b_plot_casualty_backup;
+mod wave6c_combat_damage_renown;
+mod wave7a_impending_gift_linked_counters;
+mod wave7b_incubate_exploit_craft_evolve_bloodthirst;
+mod wave8a_warp_snow_devour_spree;
+mod wave8b_retrace_scry_monstrosity_suspect_riot_unleash;
+mod wave9a_umbra_mobilize_toughness_detain_locks;
+mod wave9b_crime_expend_clash_addphase_transmute_scavenge;
+mod wave9c_either_openinghand_ring_strive_firebending;
 mod zones;
 
 use super::synthetic::{SyntheticLookup, forest, land_face, walk_past};
@@ -138,6 +167,7 @@ pub(super) fn card(
         keywords,
         commander: CommanderRule::NotEligible,
         partner: PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities,
     }))

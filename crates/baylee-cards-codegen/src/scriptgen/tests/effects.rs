@@ -3,6 +3,76 @@
 use super::*;
 
 #[test]
+fn revealed_hand_discard_distinguishes_permanents_from_other_nonlands() {
+    for (valid, permanent_only) in [("Permanent.nonLand", true), ("Card.nonLand", false)] {
+        let body = read(&format!(
+            "Name:Private inspection\nManaCost:2 B\nTypes:Sorcery\n\
+             A:SP$ Discard | ValidTgts$ Opponent | Mode$ RevealYouChoose | DiscardValid$ {valid}"
+        ));
+        let effect = &body.abilities[0];
+        assert!(effect.contains("Filter::NONLAND"), "{effect}");
+        assert_eq!(
+            effect.contains("TypeSet::PLANESWALKER"),
+            permanent_only,
+            "{effect}"
+        );
+    }
+}
+
+#[test]
+fn a_sweep_exempts_its_source_from_each_printed_type() {
+    for (instruction, exceptions) in [
+        (
+            "Destroy all artifacts and creatures other than Private furnace.",
+            2,
+        ),
+        (
+            "Destroy all artifacts and creatures other than this creature.",
+            2,
+        ),
+        ("Destroy all other creatures and all artifacts.", 1),
+    ] {
+        let body = read(&format!(
+            "Name:Private furnace\nManaCost:4 R\nTypes:Artifact\n\
+             A:AB$ DestroyAll | Cost$ T | ValidCards$ Creature.Other,Artifact\n\
+             Oracle:{{T}}: {instruction}"
+        ));
+        let effect = &body.abilities[0];
+        assert_eq!(
+            effect.matches("Filter::Another").count(),
+            exceptions,
+            "{effect}"
+        );
+    }
+}
+
+#[test]
+fn control_and_untap_resolve_in_printed_order() {
+    for (oracle, control_first) in [
+        (
+            "Gain control of target artifact until end of turn. Untap it.",
+            true,
+        ),
+        (
+            "Untap target artifact and gain control of it until end of turn.",
+            false,
+        ),
+    ] {
+        let body = read(&format!(
+            "Name:Private exchange\nManaCost:3 R\nTypes:Instant\n\
+             A:SP$ GainControl | ValidTgts$ Artifact | LoseControl$ EOT | Untap$ True\nOracle:{oracle}"
+        ));
+        let effects = &body.abilities[0];
+        assert_eq!(
+            effects.find("Modifier::GainControl").unwrap()
+                < effects.find("Effect::UntapTarget").unwrap(),
+            control_first,
+            "{effects}"
+        );
+    }
+}
+
+#[test]
 fn repeated_target_declarations_keep_independent_pump_slots() {
     // Synthetic grammar fixture, not a corpus card: distinct numbers make
     // accidentally moving an instruction to the other slot observable.
@@ -429,6 +499,40 @@ fn a_library_change_zone_is_a_search() {
     );
 }
 
+#[test]
+fn threshold_and_stated_quality_searches_honor_optional_rules() {
+    let threshold = read(
+        "Name:ThresholdSearch\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | Tapped$ True | \
+         ChangeType$ Land.Basic | ChangeNum$ NumLands\n\
+         SVar:NumLands:Count$Threshold.3.1\n\
+         Oracle:Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\\nThreshold — If there are seven or more cards in your graveyard, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",
+    );
+    let rendered = threshold.abilities.join("");
+    assert!(
+        rendered.contains(
+            "then: &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED], optional: true }]"
+        ),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains(
+            "otherwise: &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD_TAPPED], optional: false }]"
+        ),
+        "{rendered}"
+    );
+
+    let stated_mandatory = parse(
+        "Name:StrictQualitySearch\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | \
+         ChangeNum$ 2 | Mandatory$ True | ChangeType$ Land.Basic",
+    );
+    assert_eq!(
+        refusal_reason(&stated_mandatory, &cats(), None).as_deref(),
+        Some("`ChangeZone` requiring multiple cards with a stated quality")
+    );
+}
+
 /// `ChangeTypeDesc$` restates the filter beside it for a human, and is
 /// claimed only while that filter is there to carry the meaning.
 ///
@@ -667,8 +771,10 @@ fn gathered_damage_is_dealt_in_one_resolution() {
     );
 }
 
-/// Zombie Master: a granted activated ability, "this permanent" being
-/// the one that has it; a granted ability that targets is refused.
+/// Zombie Master / Viridian Longbow: a plain granted activated ability uses
+/// `Modifier::GrantActivated`; a granted ability that targets hoists a
+/// `static GRANTED_ACTIVATED_<N>: AbilityDef` via `Modifier::GrantActivatedDefinition`,
+/// while unsupported granted forms (e.g. `ActivationZone$ Graveyard`) stay refused.
 #[test]
 fn a_granted_ability_is_the_holders_own() {
     let body = read(
@@ -683,10 +789,29 @@ fn a_granted_ability_is_the_holders_own() {
     assert!(text.contains("TargetSpec::ThisObject"), "{text}");
     assert!(text.contains("mana_ability: false"), "{text}");
 
-    assert!(refused(
+    let targeted = read(
         "Name:X\nTypes:Creature Goblin\nPT:2/3\n\
          S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ Ping\n\
-         SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n"
+         SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n",
+    );
+    assert!(
+        targeted
+            .statics
+            .contains("static GRANTED_ACTIVATED_1: AbilityDef = activated!(Cost::TAP, &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::AnyTarget }], target = Some(TargetSpec::AnyTarget));"),
+        "{}",
+        targeted.statics
+    );
+    assert_eq!(
+        targeted.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::HasSubtype(subtypes::creature::GOBLIN)]), Modifier::GrantActivatedDefinition(&GRANTED_ACTIVATED_1))"
+        ]
+    );
+
+    assert!(refused(
+        "Name:X\nTypes:Creature Goblin\nPT:2/3\n\
+         S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ GravePing\n\
+         SVar:GravePing:AB$ DealDamage | Cost$ 1 | ActivationZone$ Graveyard | ValidTgts$ Any | NumDmg$ 1\n"
     ));
 }
 
@@ -1210,9 +1335,16 @@ fn gond_reflection_is_color_only_own_gate_and_keeps_unknown_guards() {
         body.abilities[0]
             .contains("mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, false)")
     );
+    let pool = gond_read(
+        &text
+            .replace("ColorOrType$ Color", "ColorOrType$ Type")
+            .replace("Gate.YouCtrl", "Land.YouCtrl"),
+    )
+    .unwrap();
+    assert!(pool.abilities[0].contains("mana_from_lands(&Filter::ControlledByYou, true, true)"));
     for (from, to) in [
-        ("ColorOrType$ Color", "ColorOrType$ Type"),
-        ("Gate.YouCtrl", "Land.YouCtrl"),
+        ("ColorOrType$ Color", "ColorOrType$ Any"),
+        ("Gate.YouCtrl", "Creature.YouCtrl"),
         ("Gate.YouCtrl", "Gate.OppCtrl"),
         ("ReflectProperty$ Produce", "ReflectProperty$ Color"),
         ("Cost$ T", "Cost$ 1 T"),
@@ -2273,7 +2405,7 @@ fn planeshift_batch_three_and_four_reader_patterns() {
         A:AB$ ManaReflected | Cost$ T | ColorOrType$ Color | Valid$ Land.OppCtrl | ReflectProperty$ Produce";
     assert_eq!(
         read(explorer).abilities,
-        ["mana_ability!(&[Effect::mana_land_color(false)])"]
+        ["mana_ability!(&[Effect::mana_from_lands(&Filter::ControlledByOpponent, false, false)])"]
     );
 
     let compass = "Name:Star Compass\nManaCost:2\nTypes:Artifact\n\
@@ -2824,4 +2956,543 @@ fn a_you_may_have_after_a_mandatory_clause_does_not_make_the_chain_optional() {
         !read(&after_a_clause).abilities[0].contains("Effect::MayDo"),
         "a may after a mandatory clause is not the whole chain's choice"
     );
+}
+
+#[test]
+fn oracle_gates_stale_trigger_description_you_may() {
+    let mandatory = "Name:Mandatory crab\nTypes:Creature Goblin\nPT:1/1\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ Draw | TriggerDescription$ When CARDNAME dies, you may draw a card.\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         Oracle:When this creature dies, draw a card.\n";
+    let body = read(mandatory);
+    assert!(
+        !body.abilities[0].contains("Effect::MayDo"),
+        "mandatory oracle must suppress stale TriggerDescription$ you may: {}",
+        body.abilities[0]
+    );
+
+    let optional = mandatory.replace(
+        "Oracle:When this creature dies, draw a card.",
+        "Oracle:When this creature dies, you may draw a card.",
+    );
+    assert!(
+        read(&optional).abilities[0].contains("Effect::MayDo"),
+        "oracle containing you may preserves Effect::MayDo"
+    );
+
+    let no_oracle = mandatory.replace("Oracle:When this creature dies, draw a card.\n", "");
+    assert!(
+        read(&no_oracle).abilities[0].contains("Effect::MayDo"),
+        "minimal synthetic scripts without Oracle keep TriggerDescription$ behavior"
+    );
+}
+
+#[test]
+fn becomes_blocked_self_trigger_sets_trigger_is_self() {
+    let self_blocked = "Name:Spiny runner\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Card.Self | OptionalDecider$ TriggeredCardController | Execute$ Ping\n\
+         SVar:Ping:DB$ GainLife | Defined$ You | LifeAmount$ 1\n\
+         Oracle:Whenever this creature becomes blocked, you may gain 1 life.\n";
+    let body = read(self_blocked);
+    assert!(
+        body.abilities[0].contains("Trigger::BecomesBlocked")
+            && body.abilities[0].contains("Effect::MayDo"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let team_blocked = "Name:Banner guard\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Ping\n\
+         SVar:Ping:DB$ GainLife | Defined$ You | LifeAmount$ 1\n";
+    assert!(
+        read(team_blocked).abilities[0].contains("Trigger::ControlledBecomesBlocked"),
+        "{}",
+        read(team_blocked).abilities[0]
+    );
+    // Non-self ControlledBecomesBlocked must NOT treat TriggeredCardController as You.
+    assert!(refused(&self_blocked.replace(
+        "ValidCard$ Card.Self",
+        "ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield"
+    )));
+}
+
+#[test]
+fn immediate_trigger_reflexive_cost_and_remembered_when_rules() {
+    let sac_power = "Name:Fling beetle\nTypes:Creature Goblin\nPT:2/2\n\
+         A:AB$ ImmediateTrigger | Cost$ Sac<1/Creature.Other> | Execute$ Hit\n\
+         SVar:Hit:DB$ DealDamage | ValidTgts$ Any | NumDmg$ X\n\
+         SVar:X:Spawner>Sacrificed$CardPower\n";
+    let a = &read(sac_power).abilities[0];
+    assert!(a.contains("Effect::ReflexiveTrigger"), "{a}");
+    assert!(a.contains("when: ReflexiveWhen::Always"), "{a}");
+    assert!(
+        a.contains("remember: TriggerRemember::SacrificedObject"),
+        "{a}"
+    );
+    assert!(a.contains("TargetReq::one(TargetSpec::AnyTarget)"), "{a}");
+    assert!(a.contains("Amount::EventPower"), "{a}");
+
+    let mill_once = "Name:Dredge bell\nTypes:Sorcery\nManaCost:1 B\n\
+         A:SP$ Mill | Defined$ You | NumCards$ 3 | RememberMilled$ True | SubAbility$ Ref\n\
+         SVar:Ref:DB$ ImmediateTrigger | ConditionDefined$ Remembered | ConditionPresent$ Creature | Execute$ Gain | TriggerDescription$ When a creature card is milled this way, gain 2 life.\n\
+         SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 2\n";
+    let a = &read(mill_once).abilities[0];
+    assert!(a.contains("ReflexiveWhen::ThisWay(ThisWay::Milled("), "{a}");
+    assert!(a.contains("once: true"), "{a}");
+
+    let mill_each = mill_once.replace("When a creature card", "Whenever a creature card");
+    assert!(read(&mill_each).abilities[0].contains("once: false"));
+
+    let attach_ref = "Name:Battle clasp\nTypes:Artifact Equipment\n\
+         T:Mode$ Attacks | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Ref\n\
+         SVar:Ref:DB$ ImmediateTrigger | RememberObjects$ TriggeredAttackerLKICopy | Execute$ Snap | OptionalDecider$ You\n\
+         SVar:Snap:DB$ Attach | Object$ Self | Defined$ DelayTriggerRemembered\n";
+    let a = &read(attach_ref).abilities[0];
+    assert!(a.contains("remember: TriggerRemember::EventObject"), "{a}");
+    assert!(
+        a.contains("Effect::AttachSelf { target: TargetSpec::EventObject }"),
+        "{a}"
+    );
+
+    assert!(refused(&format!("{sac_power} | Announce$ True")));
+    assert!(refused(&mill_once.replace(
+        "ConditionPresent$ Creature",
+        "ConditionPresent$ Creature | ConditionCompare$ EQ4"
+    )));
+}
+
+#[test]
+fn generalized_delayed_trigger_phase_event_and_observation() {
+    let phase_sac = "Name:Borrowed fury\nTypes:Sorcery\nManaCost:2 R\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 3 | SubAbility$ Del\n\
+         SVar:Del:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | RememberObjects$ Targeted | Execute$ Sac\n\
+         SVar:Sac:DB$ Sacrifice | Defined$ DelayTriggerRemembered\n";
+    let a = &read(phase_sac).abilities[0];
+    assert!(a.contains("Effect::RegisterDelayedTrigger"), "{a}");
+    assert!(a.contains("DelayedStep::EndStep"), "{a}");
+    assert!(a.contains("remember: TriggerRemember::FirstTarget"), "{a}");
+    assert!(a.contains("Effect::SacrificeEvent"), "{a}");
+
+    let dies_return = "Name:Graceful spark\nTypes:Instant\nManaCost:1 W\n\
+         A:SP$ DelayedTrigger | ValidTgts$ Creature | Mode$ ChangesZone | RememberObjects$ Targeted | ValidCard$ Card.IsTriggerRemembered | Origin$ Battlefield | Destination$ Graveyard | ThisTurn$ True | Execute$ Ret\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ TriggeredNewCardLKICopy | Origin$ Graveyard | Destination$ Battlefield\n";
+    let a = &read(dies_return).abilities[0];
+    assert!(a.contains("DelayedTriggerWhen::OnTrigger"), "{a}");
+    assert!(a.contains("watch: TriggerRemember::FirstTarget"), "{a}");
+    assert!(
+        a.contains("duration: DelayedDuration::OneShotThisTurn"),
+        "{a}"
+    );
+    assert!(
+        a.contains("Effect::GraveyardToBattlefield { target: TargetSpec::EventObject, owner_control: true, counters: None }"),
+        "{a}"
+    );
+
+    let copy_next = "Name:Twin echo\nTypes:Instant\nManaCost:2 R\n\
+         A:SP$ DelayedTrigger | Mode$ SpellCast | ValidCard$ Instant,Sorcery | ValidActivatingPlayer$ You | ThisTurn$ True | Execute$ Copy\n\
+         SVar:Copy:DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | MayChooseTarget$ True | Amount$ 2\n";
+    let a = &read(copy_next).abilities[0];
+    assert_eq!(
+        a.matches("Effect::CopyEventSpellOrAbility").count(),
+        2,
+        "{a}"
+    );
+
+    let lose_ctrl = "Name:Loyal leash\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Watch\n\
+         SVar:Watch:DB$ DelayedTrigger | Mode$ ChangesController | ValidCard$ Card.Self | Execute$ Draw\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1\n";
+    let a = &read(lose_ctrl).abilities[0];
+    assert!(a.contains("DelayedTriggerWhen::OnObservation"), "{a}");
+    assert!(a.contains("DelayedObservation::YouLoseControl"), "{a}");
+
+    assert!(refused(
+        "Name:Bad upkeep\nTypes:Instant\n\
+         A:SP$ DelayedTrigger | Mode$ Phase | Phase$ Upkeep | Execute$ Draw\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1\n"
+    ));
+    assert!(refused(
+        &copy_next.replace("ThisTurn$ True", "Static$ True")
+    ));
+}
+
+#[test]
+fn wave5_effect_choose_one_phase_conditions_and_event_zones() {
+    let choose = "Name:Bimodal choice\nTypes:Sorcery\nManaCost:4 W W\n\
+         A:SP$ GenericChoice | Choices$ WipeLand,WipeCreat\n\
+         SVar:WipeLand:DB$ DestroyAll | ValidCards$ Land\n\
+         SVar:WipeCreat:DB$ DestroyAll | ValidCards$ Creature\n";
+    let a = &read(choose).abilities[0];
+    assert!(a.contains("Effect::ChooseOne { choices: &["), "{a}");
+
+    let multi_static = "Name:Silence flash\nTypes:Instant\nManaCost:1 W\n\
+         A:SP$ Effect | StaticAbilities$ Lock,Flash | Duration$ UntilEndOfTurn\n\
+         SVar:Lock:Mode$ CantBeCast | Caster$ Opponent | ValidCard$ Card\n\
+         SVar:Flash:Mode$ CastWithFlash | Caster$ You | ValidCard$ Artifact,Creature\n";
+    let a = &read(multi_static).abilities[0];
+    assert!(
+        a.contains("Modifier::OpponentsCantCast(&Filter::Any)"),
+        "{a}"
+    );
+    assert!(
+        a.contains("Modifier::SpellsHaveFlash(Some(TypeSet::ARTIFACT.union(TypeSet::CREATURE)))"),
+        "{a}"
+    );
+    // CantGainLife is a CR 101.2 prohibition, never conflated with LifeGainNoLifeInstead.
+    assert!(refused(
+        "Name:No life\nTypes:Instant\n\
+         A:SP$ Effect | StaticAbilities$ NoGain | Duration$ UntilEndOfTurn\n\
+         SVar:NoGain:Mode$ CantGainLife | ValidPlayer$ Player\n"
+    ));
+
+    let phase_cond = "Name:Descend scout\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You.descended | TriggerZones$ Battlefield | Execute$ Draw | CheckSVar$ X | SVarCompare$ GE1\n\
+         SVar:Draw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:Count$ThisTurnEntered_Battlefield_Goblin.YouCtrl\n";
+    let a = &read(phase_cond).abilities[0];
+    assert!(a.contains("Condition::DescendedThisTurn"), "{a}");
+    assert!(
+        a.contains(
+            "Condition::EnteredSubtypeUnderYourControlThisTurn(&[subtypes::creature::GOBLIN])"
+        ),
+        "{a}"
+    );
+
+    let self_die_exile = "Name:Self exile\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Defined$ TriggeredNewCardLKICopy | Origin$ Graveyard | Destination$ Exile\n";
+    assert!(read(self_die_exile).abilities[0].contains("Effect::ExileSource"));
+    assert!(refused(
+        &self_die_exile.replace("ValidCard$ Card.Self", "ValidCard$ Creature.Other")
+    ));
+}
+
+#[test]
+fn wave5_self_blink_exile_counters_token_followups_and_search() {
+    let blink_flip = "Name:Flip walker\nTypes:Creature Goblin\nPT:1/1\n\
+         A:AB$ ChangeZone | Cost$ T | Defined$ Self | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ Ret\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | Transformed$ True | SubAbility$ Cln\n\
+         SVar:Cln:DB$ Cleanup | ClearRemembered$ True\n";
+    assert!(
+        read(blink_flip).abilities[0]
+            .contains("Effect::ExileSelfReturnAsFace { face: 1, owner_control: true }")
+    );
+
+    let suspend_like = "Name:Hourglass spell\nTypes:Sorcery\nManaCost:2 B B\n\
+         A:SP$ ChangeZone | Defined$ Self | Origin$ Stack | Destination$ Exile | RememberChanged$ True | SubAbility$ Put\n\
+         SVar:Put:DB$ PutCounter | Defined$ Remembered | CounterType$ TIME | CounterNum$ 2 | SubAbility$ Cln\n\
+         SVar:Cln:DB$ Cleanup | ClearRemembered$ True\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Exile | Execute$ Fin\n\
+         SVar:Fin:DB$ ChangeZone | Defined$ Self | Origin$ Exile | Destination$ Graveyard\n";
+    let body = read(suspend_like);
+    assert!(
+        body.abilities[0]
+            .contains("Effect::ExileSourceWithCounters { kind: CounterKind::Time, n: 2 }"),
+        "{}",
+        body.abilities[0]
+    );
+    assert!(
+        body.abilities[1].contains("Effect::MoveSourceToOwnerGraveyard"),
+        "{}",
+        body.abilities[1]
+    );
+
+    let tok_map = tokens();
+    let living = "Name:Living blade\nTypes:Artifact Equipment\n\
+         T:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Make\n\
+         SVar:Make:DB$ Token | TokenScript$ r_1_1_goblin | RememberTokens$ True | SubAbility$ Att\n\
+         SVar:Att:DB$ Attach | Object$ Self | Defined$ Remembered | SubAbility$ Cln\n\
+         SVar:Cln:DB$ Cleanup | ClearRemembered$ True\n";
+    let living_body = transcode(&parse(living), &cats(), Some(&tok_map)).expect("living blade");
+    assert!(
+        living_body.abilities[0].contains("Effect::CreateTokenThenAttachSelf"),
+        "{}",
+        living_body.abilities[0]
+    );
+
+    let fractal = "Name:Growing token\nTypes:Sorcery\nManaCost:2 G\n\
+         A:SP$ Token | TokenScript$ r_1_1_goblin | RememberTokens$ True | SubAbility$ Pump\n\
+         SVar:Pump:DB$ PutCounter | Defined$ Remembered | CounterType$ P1P1 | CounterNum$ 4 | SubAbility$ Cln\n\
+         SVar:Cln:DB$ Cleanup | ClearRemembered$ True\n";
+    let fractal_body = transcode(&parse(fractal), &cats(), Some(&tok_map)).expect("fractal");
+    assert!(
+        fractal_body.abilities[0].contains("Effect::CreateTokenThenCounters"),
+        "{}",
+        fractal_body.abilities[0]
+    );
+
+    let entomb = "Name:Grave tutor\nTypes:Instant\nManaCost:B\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Graveyard | ChangeType$ Card | ChangeNum$ 1\n";
+    assert!(read(entomb).abilities[0].contains("Find::GRAVEYARD"));
+
+    let squad = "Name:Pack search\nTypes:Sorcery\nManaCost:1 W\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Goblin | ChangeNum$ X\n\
+         SVar:X:Count$ValidLibrary Goblin.YouOwn\n";
+    assert!(read(squad).abilities[0].contains("Find::HAND.any_number()"));
+}
+
+#[test]
+fn wave7_non_source_and_implicit_animate() {
+    let implicit = read(
+        "Name:AscendKnight\nManaCost:W\nTypes:Creature Human\nPT:1/1\n\
+         A:AB$ Animate | Cost$ 1 W | Power$ 4 | Toughness$ 4 | Types$ Creature,Goblin | \
+         Keywords$ Flying | Duration$ Permanent",
+    );
+    let a = implicit.abilities.join("");
+    assert!(
+        a.contains(
+            "Effect::continuous(&Filter::This, Modifier::SetPT(4, 4), Duration::Indefinitely)"
+        ),
+        "{a}"
+    );
+
+    let aura = read(
+        "Name:WarHarness\nManaCost:1 R\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         T:Mode$ Attacks | ValidCard$ Card.AttachedBy | Execute$ Anim\n\
+         SVar:Anim:DB$ Animate | Defined$ Enchanted | Power$ 5 | Toughness$ 5 | Triggers$ Tr\n\
+         SVar:Tr:Mode$ Attacks | ValidCard$ Card.Self | Execute$ Ping\n\
+         SVar:Ping:DB$ GainLife | LifeAmount$ 1",
+    );
+    let a = aura.abilities.join("");
+    assert!(
+        a.contains("Effect::continuous(&Filter::AttachedToBySource, Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_1), Duration::UntilEndOfTurn)"),
+        "{a}"
+    );
+
+    let parent = read(
+        "Name:SculptRelic\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Draw | ValidTgts$ Artifact | NumCards$ 1 | SubAbility$ Anim\n\
+         SVar:Anim:DB$ Animate | Defined$ ParentTarget | Power$ 4 | Toughness$ 4 | \
+         Types$ Creature | Abilities$ TapPing\n\
+         SVar:TapPing:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1",
+    );
+    let a = parent.abilities.join("");
+    assert!(
+        a.contains("Effect::continuous(&Filter::This, Modifier::GrantActivatedDefinition(&GRANTED_ACTIVATED_1), Duration::UntilEndOfTurn)"),
+        "{a}"
+    );
+
+    let trig = read(
+        "Name:AwakenGuide\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Land.YouCtrl | Execute$ Anim\n\
+         SVar:Anim:DB$ Animate | Defined$ TriggeredCardLKICopy | Power$ 3 | Toughness$ 3 | Types$ Creature",
+    );
+    assert!(
+        trig.abilities[0].contains("Effect::continuous(&Filter::Reference, Modifier::SetPT(3, 3), Duration::UntilEndOfTurn)"),
+        "{:?}",
+        trig.abilities
+    );
+
+    assert!(refused(
+        "Name:BadPlayerAnim\nManaCost:U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Player | Types$ Creature"
+    ));
+}
+
+#[test]
+fn wave8a_goad_static_command_and_continuous_check_svar() {
+    let goad = read(
+        "Name:FuryGoad\nManaCost:2 R\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | AddPower$ 2 | Goad$ True",
+    );
+    assert!(
+        goad.abilities.contains(&"static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]), Modifier::ModifyPT(2, 0))".to_string())
+            && goad.abilities.contains(&"static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]), Modifier::Goaded)".to_string()),
+        "{:?}",
+        goad.abilities
+    );
+
+    let cmd_static = read(
+        "Name:EmblemLord\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | EffectZone$ Command | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1\n\
+         S:Mode$ Continuous | EffectZone$ Battlefield,Command | Affected$ Creature.YouCtrl | IsPresent$ Card.IsCommander+YouOwn+YouCtrl | AddKeyword$ Vigilance",
+    );
+    assert_eq!(
+        cmd_static.abilities,
+        [
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::ModifyPT(1, 1), zone = ZoneRef::Command)",
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::AddKeyword(KeywordSet::VIGILANCE), zone = ZoneRef::BattlefieldOrCommand, condition = Some(Condition::ControlYourCommander))",
+        ]
+    );
+
+    let corrupted = read(
+        "Name:PlagueBanner\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 2 | AddAbility$ Drain | CheckSVar$ P | SVarCompare$ GE3\n\
+         SVar:P:PlayerCountOpponents$HighestCounters.Poison\n\
+         SVar:Drain:AB$ GainLife | Cost$ 1 | LifeAmount$ 1",
+    );
+    assert!(
+        corrupted.abilities[0].contains("condition = Some(Condition::OpponentPoisonAtLeast(3))")
+            && corrupted.abilities[1]
+                .contains("condition = Some(Condition::OpponentPoisonAtLeast(3))"),
+        "{:?}",
+        corrupted.abilities
+    );
+
+    let combined = read(
+        "Name:TideWatch\nManaCost:2 U\nTypes:Creature\nPT:2/3\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | Condition$ PlayerTurn | CheckSVar$ Count$Domain | SVarCompare$ GE4 | CheckSecondSVar$ P | AddKeyword$ Flying\n\
+         SVar:P:PlayerCountOpponents$HighestCounters.Poison",
+    );
+    assert!(
+        combined.abilities[0].contains("Condition::All(&[Condition::YourTurn, Condition::AmountAtLeast(Amount::BasicLandTypesAmong(&Filter::YOUR_LAND), 4), Condition::OpponentPoisonAtLeast(1)])"),
+        "{:?}",
+        combined.abilities
+    );
+
+    let cant_attack = read(
+        "Name:ShyBehemoth\nManaCost:3 G\nTypes:Creature\nPT:5/5\n\
+         S:Mode$ CantAttack | ValidCard$ Card.Self | IsPresent$ Creature.YouCtrl | PresentCompare$ EQ0\n\
+         S:Mode$ CantAttack,CantBlock | ValidCard$ Card.Self | CheckSVar$ PlayerCountPropertyYou$HasPropertyMaxSpeed | SVarCompare$ NE1",
+    );
+    assert_eq!(
+        cant_attack.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_ATTACK), condition = Some(Condition::ControlCountAtMost(&Filter::YOUR_CREATURE, 0)))",
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)), condition = Some(Condition::Not(&Condition::MaxSpeed)))",
+        ]
+    );
+
+    assert!(refused(
+        "Name:BareSelfCant\nManaCost:1 R\nTypes:Creature\nPT:3/3\nS:Mode$ CantAttack | ValidCard$ Card.Self"
+    ));
+}
+
+#[test]
+fn bargain_and_your_turn_conditions() {
+    let bargained = read(
+        "Name:BargainWisp\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1 | ConditionCheckSVar$ BargainedCheck | ConditionSVarCompare$ GE1\n\
+         SVar:BargainedCheck:Count$Bargained.1.0",
+    );
+    assert!(bargained.bargain);
+    assert!(
+        bargained.abilities[0].contains("Condition::Bargained"),
+        "{:?}",
+        bargained.abilities
+    );
+
+    let not_bargained = read(
+        "Name:AntiBargainWisp\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1 | ConditionCheckSVar$ BargainedCheck | ConditionSVarCompare$ EQ0\n\
+         SVar:BargainedCheck:Count$Bargained.1.0",
+    );
+    assert!(
+        not_bargained.abilities[0].contains("Condition::Not(&Condition::Bargained)"),
+        "{:?}",
+        not_bargained.abilities
+    );
+
+    let turn_watcher = read(
+        "Name:TurnWatcher\nManaCost:1 W\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 2 | CheckSVar$ IsMyTurn | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddToughness$ 2 | CheckSVar$ IsMyTurn | SVarCompare$ EQ0\n\
+         SVar:IsMyTurn:PlayerCountPropertyYou$HasPropertyActive",
+    );
+    assert!(
+        turn_watcher.abilities[0].contains("Condition::YourTurn")
+            && turn_watcher.abilities[1].contains("Condition::Not(&Condition::YourTurn)"),
+        "{:?}",
+        turn_watcher.abilities
+    );
+
+    for bad in [
+        "Name:BadNoBargainKeyword\nManaCost:1 U\nTypes:Creature\nPT:2/1\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\nSVar:TrigDraw:DB$ Draw | NumCards$ 1 | ConditionCheckSVar$ BargainedCheck | ConditionSVarCompare$ GE1\nSVar:BargainedCheck:Count$Bargained.1.0",
+        "Name:BadDupBargain\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain\nK:Bargain",
+        "Name:BadExtraBargain\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain:Extra",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn emerge_and_prototype_keywords() {
+    let simple_emerge = read("Name:EmergeBeast\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:5 U");
+    assert_eq!(
+        simple_emerge.emerge.as_deref(),
+        Some("Some(Emerge::creature(mana!(\"{5}{U}\")))")
+    );
+    assert!(simple_emerge.has_own_rules());
+
+    let filtered_emerge =
+        read("Name:ArtifactEmerger\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:5 U:Artifact");
+    assert!(
+        filtered_emerge
+            .emerge
+            .as_deref()
+            .is_some_and(|e| e.starts_with("Some(Emerge::from(mana!(\"{5}{U}\")")
+                && e.contains("Filter::ARTIFACT")),
+        "{:?}",
+        filtered_emerge.emerge
+    );
+
+    let composite_emerge = read(
+        "Name:CompositeEmerger\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:4 G:Artifact.Green",
+    );
+    assert!(
+        composite_emerge
+            .emerge
+            .as_deref()
+            .is_some_and(|e| e.starts_with("Some(Emerge::from(mana!(\"{4}{G}\")")),
+        "{:?}",
+        composite_emerge.emerge
+    );
+
+    let proto = read(
+        "Name:ProtoConstruct\nManaCost:7\nTypes:Artifact Creature\nPT:6/6\nK:Prototype:1 B:3:3",
+    );
+    assert_eq!(
+        proto.prototype.as_deref(),
+        Some("Some(Prototype::new(mana!(\"{1}{B}\"), 3, 3))")
+    );
+    assert!(proto.has_own_rules());
+
+    for bad in [
+        "Name:BadDupEmerge\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:5 U\nK:Emerge:6 U",
+        "Name:BadEmptyEmerge\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:",
+        "Name:BadEmergeMana\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:NotMana",
+        "Name:BadEmergeEmptyFilter\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:5 U:",
+        "Name:BadEmergeExtra\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:5 U:Artifact:Extra",
+        "Name:BadDupProto\nManaCost:7\nTypes:Artifact Creature\nPT:6/6\nK:Prototype:1 B:2:2\nK:Prototype:2 B:3:3",
+        "Name:BadArityProto\nManaCost:7\nTypes:Artifact Creature\nPT:6/6\nK:Prototype:1 B:3",
+        "Name:BadPtProto\nManaCost:7\nTypes:Artifact Creature\nPT:6/6\nK:Prototype:1 B:X:3",
+        "Name:BadManaProto\nManaCost:7\nTypes:Artifact Creature\nPT:6/6\nK:Prototype:NotMana:3:3",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn myriad_and_extort_keywords_and_duplicates() {
+    let single_myriad = read("Name:LegionScout\nManaCost:2 R\nTypes:Creature\nPT:3/1\nK:Myriad");
+    assert_eq!(single_myriad.keywords, ["KeywordSet::MYRIAD"]);
+    assert!(single_myriad.abilities.is_empty());
+
+    let double_myriad =
+        read("Name:DoubleLegion\nManaCost:2 G\nTypes:Creature\nPT:2/2\nK:Myriad\nK:Myriad");
+    assert_eq!(double_myriad.keywords, ["KeywordSet::MYRIAD"]);
+    assert_eq!(
+        double_myriad.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::MYRIAD))"]
+    );
+
+    let single_extort = read("Name:TitheCleric\nManaCost:1 W\nTypes:Creature\nPT:1/3\nK:Extort");
+    assert_eq!(single_extort.keywords, ["KeywordSet::EXTORT"]);
+    assert!(single_extort.abilities.is_empty());
+
+    let double_extort =
+        read("Name:DoubleCleric\nManaCost:1 B\nTypes:Creature\nPT:1/4\nK:Extort\nK:Extort");
+    assert_eq!(double_extort.keywords, ["KeywordSet::EXTORT"]);
+    assert_eq!(
+        double_extort.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::EXTORT))"]
+    );
+
+    for bad in [
+        "Name:BadMyriad\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Myriad:1",
+        "Name:BadExtort\nManaCost:1 W\nTypes:Creature\nPT:1/2\nK:Extort:1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
 }

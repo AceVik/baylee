@@ -192,8 +192,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         if options.len() + player_options.len() < usize::from(req.min) {
             // No legal choice for a required target: "the ability is simply
-            // removed from the stack" (CR 603.3d). No card prints a required
-            // second target on a trigger today; Ravager's is "up to one".
+            // removed from the stack" (CR 603.3d).
+            self.cleanup_check_acted();
             self.state
                 .zones
                 .remove(top, crate::zone::ZoneLocation::Stack);
@@ -243,14 +243,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // A trigger that asks a second instance of "target" asks it between
         // one occurrence and the next, so the series is not one answer
         // repeated.
-        if matches!(
-            self.trigger_abilities(first)
-                .get(first.ability_index as usize),
-            Some(baylee_cards_dsl::AbilityDef::Triggered {
-                second_targets: Some(_),
-                ..
-            })
-        ) {
+        if crate::object::ability_second_target_req(
+            self.trigger_abilities(first),
+            first.ability_index,
+            first.chosen_mode,
+        )
+        .is_some()
+        {
             return 0;
         }
         u32::try_from(

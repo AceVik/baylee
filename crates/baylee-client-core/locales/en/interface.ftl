@@ -2852,6 +2852,14 @@ DamageShield = Prevent the next damage; shield remaining: { $remaining }
 # Arguments: amount
 DamageReplaceAmount = Set each indicated source's damage to each recipient to { $amount }; this is not prevention
 
+# Damage replacement multiplies each indicated positive amount without prevention.
+# Arguments: factor
+DamageMultiplyAmount = Multiply each indicated damage amount by { $factor }; this is not prevention
+
+# Damage replacement increases each indicated source's positive damage to each recipient without prevention.
+# Arguments: extra
+DamageAddAmount = Add { $extra } to each indicated source's damage to each recipient; this is not prevention
+
 # Reflection adds damage from an exact source to a named player.
 # Arguments: player
 DamageReflect = This effect's source also deals the indicated damage to { $player }
@@ -3306,6 +3314,62 @@ NounCardsToReveal =
        *[other] cards to reveal
     }
 
+# Card in hand to reveal for amplify (CR 702.38a).
+# Arguments: count
+NounCardsToAmplify =
+    { $count ->
+        [one] card to reveal for amplify
+       *[other] cards to reveal for amplify
+    }
+
+# Creature to sacrifice for devour (CR 702.82a).
+# Arguments: count
+NounCreaturesToDevour =
+    { $count ->
+        [one] creature to devour
+       *[other] creatures to devour
+    }
+
+# Card to manifest for manifest dread (CR 701.62a).
+# Arguments: count
+NounCardsToManifest =
+    { $count ->
+        [one] card to manifest
+       *[other] cards to manifest
+    }
+
+# Creature to become your Ring-bearer (CR 701.54a).
+# Arguments: count
+NounCreaturesForRingBearer =
+    { $count ->
+        [one] creature as your Ring-bearer
+       *[other] creatures as your Ring-bearer
+    }
+
+# Card in hand to reveal for splice (CR 702.47a).
+# Arguments: count
+NounCardsToSplice =
+    { $count ->
+        [one] card to splice
+       *[other] cards to splice
+    }
+
+# Creature to encode a cipher card onto (CR 702.99a).
+# Arguments: count
+NounCreatureForCipher =
+    { $count ->
+        [one] creature to encode onto
+       *[other] creatures to encode onto
+    }
+
+# Permanent to exile for champion (CR 702.72a).
+# Arguments: count
+NounPermanentToChampion =
+    { $count ->
+        [one] permanent to champion
+       *[other] permanents to champion
+    }
+
 # attacker to join the band (banding, CR 702.22c)
 # Arguments: count
 NounAttackersToBand =
@@ -3490,6 +3554,14 @@ ChooseCounters = How many { $counter }? ({ $min }–{ $max })
 # Arguments: counter, target, min, max
 ChooseCountersNamed = How many { $counter } on { $target }? ({ $min }–{ $max })
 
+# Starting chapter chosen as a Saga with read ahead enters (CR 702.155b).
+# Arguments: min, max
+ChooseReadAheadChapter = Read ahead: choose starting chapter ({ $min }–{ $max })
+
+# Starting chapter with the Saga named.
+# Arguments: target, min, max
+ChooseReadAheadChapterNamed = Read ahead for { $target }: choose starting chapter ({ $min }–{ $max })
+
 # Choose a number ($min–$max)
 # Arguments: min, max
 ChooseNumberIn = Choose a number ({ $min }–{ $max })
@@ -3521,6 +3593,10 @@ ReplicateHowOften = Replicate { $cost }: pay it how many times? ({ $min }–{ $m
 # Multikicker $cost: pay it how many times? ($min–$max)
 # Arguments: cost, min, max
 MultikickerHowOften = Multikicker { $cost }: pay it how many times? ({ $min }–{ $max })
+
+# Squad $price: pay it how many times? ($min–$max)
+# Arguments: price, min, max
+SquadHowOften = Squad { $price }: pay it how many times? ({ $min }–{ $max })
 
 # The buyback question. $price is the whole cost, one or more of the
 # price phrases below joined by commas.
@@ -3663,6 +3739,52 @@ BuybackAsk = Buyback: { $price }? The spell comes back to your hand as it resolv
 # Arguments: price
 KickerOptionAsk = Pay kicker cost { $price }?
 
+BargainAsk = Bargain: sacrifice an artifact, enchantment, or token?
+
+# Offspring question (CR 702.175a).
+# Arguments: price
+OffspringAsk = Offspring: { $price }? Create a 1/1 token copy when it enters.
+
+# Casualty question (CR 702.153a).
+# Arguments: power
+CasualtyAsk = Casualty { $power }: sacrifice a creature with power { $power } or greater to copy this spell?
+
+# Conspire question (CR 702.78a).
+ConspireAsk = Conspire: tap two matching untapped creatures to copy this spell?
+
+# Tribute question (CR 702.104a).
+# Arguments: count, counter
+TributeAsk = Tribute { $count }: put { $count } { $counter } on it as it enters?
+
+# Gift a card question (CR 702.174a).
+GiftAskCard = Gift a card: promise an opponent a card?
+
+# Gift a Food question (CR 702.174a).
+GiftAskFood = Gift a Food: promise an opponent a Food token?
+
+# Gift a tapped Fish question (CR 702.174a).
+GiftAskTappedFish = Gift a tapped Fish: promise an opponent a tapped 1/1 blue Fish token?
+
+# Gift a Treasure question (CR 702.174a).
+GiftAskTreasure = Gift a Treasure: promise an opponent a Treasure token?
+
+# Gift an Octopus question (CR 702.174a).
+GiftAskOctopus = Gift an Octopus: promise an opponent an 8/8 blue Octopus token?
+
+# Gift an extra turn question (CR 702.174a).
+GiftAskExtraTurn = Gift an extra turn: promise an opponent an extra turn?
+
+# Combat damage as though unblocked question (CR 510.1c).
+AssignDamageAsThoughUnblocked = Assign combat damage as though unblocked?
+
+# Endure N question (CR 701.63a).
+# Arguments: count
+EndureAsk =
+    { $count ->
+        [one] Endure 1: put a +1/+1 counter on it instead of creating a 1/1 white Spirit token?
+       *[other] Endure { $count }: put { $count } +1/+1 counters on it instead of creating a { $count }/{ $count } white Spirit token?
+    }
+
 # Part of a buyback price: life.
 # Arguments: amount
 BuybackPriceLife = pay { $amount } life
@@ -3707,6 +3829,9 @@ ChoosePlayer = Choose a player
 
 # Choose how to cast
 ChooseHowToCast = Choose how to cast
+ChooseCardAction = Choose what to do with this card
+CastNormally = Cast
+SuspendCard = Suspend
 
 # Choose a pile to put into your hand (Fact or Fiction)
 ChoosePileForHand = Choose a pile for your hand; the other goes to your graveyard
@@ -3743,6 +3868,15 @@ CastFlashback = Flashback
 # Foretell, both the special action and the later alternative cast
 CastForetell = Foretell
 
+# Plot alternative cast from exile (CR 702.170d)
+CastPlot = Plot
+
+# Impending alternative cast (CR 702.176a)
+CastImpending = Impending
+
+# Awaken alternative cast (CR 702.113a)
+CastAwaken = Awaken
+
 # Beam me up's casting option.
 CastBeamMeUp = Beam me up
 
@@ -3752,8 +3886,58 @@ DifferentManaValues = Choose targets with different mana values
 # Dash (CR 702.109a), the keyword as the German printing names it
 CastDash = Dash
 
+# Blitz (CR 702.152a), the keyword as the German printing names it
+CastBlitz = Blitz
+
+# Warp (CR 702.185a), cast from hand for its warp cost
+CastWarp = Warp
+
+# Sneak (CR 702.190a), cast during declare blockers by returning an unblocked attacker
+CastSneak = Sneak
+
+# Emerge (CR 702.119a), the keyword as the German printing names it
+CastEmerge = Emerge
+
+# Fuse (CR 702.102a), cast both halves of a split card from hand
+CastFused = Fuse
+
 # Mutate (CR 702.140a), the keyword as the German printing names it
 CastMutate = Mutate
+
+# Bestow (CR 702.103), the keyword as the German printing names it
+CastBestow = Bestow
+
+# Jump-start (CR 702.133a), the keyword as the German printing names it
+CastJumpStart = Jump-start
+
+# Retrace (CR 702.81a), cast from graveyard by discarding a land card
+CastRetrace = Retrace
+
+# Riot as-enters choice (CR 702.136a), unnamed permanent fallback
+RiotAsk = Riot: enter with a +1/+1 counter? (No gives haste instead)
+
+# Riot as-enters choice (CR 702.136a), naming the entering permanent
+# Arguments: permanent
+RiotAskNamed = Riot ({ $permanent }): enter with a +1/+1 counter? (No gives haste instead)
+
+# Unleash as-enters choice (CR 702.98a), unnamed permanent fallback
+UnleashAsk = Unleash: enter with a +1/+1 counter? (Can't block with a +1/+1 counter)
+
+# Unleash as-enters choice (CR 702.98a), naming the entering permanent
+# Arguments: permanent
+UnleashAskNamed = Unleash ({ $permanent }): enter with a +1/+1 counter? (Can't block with a +1/+1 counter)
+
+# Suspected battlefield designation label (CR 701.60)
+HudSuspected = Suspected
+
+# Alternative additional cost branch choice (CR 118.8)
+ChooseFirstCostBranchAsk = Pay the first cost option? ("No" pays the second option instead.)
+
+# Pre-game opening-hand battlefield action (CR 103.6a)
+OpeningHandBattlefieldAsk = Opening hand: begin the game with this card on the battlefield?
+
+# Pre-game opening-hand reveal action (CR 103.6b)
+OpeningHandRevealAsk = Opening hand: reveal this card from your opening hand?
 
 # Escape (CR 702.138a), the keyword as the German printing names it
 CastEscape = Escape
@@ -3784,9 +3968,17 @@ NoAbilities = No abilities
 # Arguments: level
 LevelShort = LV { $level }
 
-# The same label under the pointer, in full.
+# A generic level, in full.
 # Arguments: level
 LevelLong = Level { $level }
+
+# A permanent's Class designation (CR 717).
+# Arguments: level
+ClassLevel = Class level { $level }
+
+# The permanent reached a different Class level.
+# Arguments: object, level
+LogClassLevel = { $object } reached Class level { $level }
 
 # What an empty search box in the question's sheet says (report 16).
 FilterPlaceholder = type to search…
@@ -3947,6 +4139,7 @@ UseTheOptionalAbility = This ability is optional. Use it?
 
 # Your card goes into your library: the top, or the bottom? (Subtlety)
 TopOfLibraryOrBottom = Your card goes into your library. On top? (No puts it on the bottom.)
+ClashPutOnBottom = Put the revealed card on the bottom of your library? (No leaves it on top.)
 
 # One card of a named card type into the hand, or none (Atraxa).
 # Arguments: card_type
@@ -4205,6 +4398,9 @@ CastMorph = Morph — 2/2 face down
 
 # Face-up special action.
 TurnFaceUp = Turn face up
+
+# Plot special action from hand (CR 702.170a).
+PlotCard = Plot
 
 # Unlock $door: a Room's special action, naming the door it opens.
 # Arguments: door

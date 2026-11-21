@@ -123,12 +123,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let rules = combat::BlockRules::new(&self.state);
         let mut blocks: Vec<(ObjectId, ObjectId)> = Vec::new();
         for (pile, &attacker) in piles.iter().zip(&attackers) {
-            let able: Vec<ObjectId> = pile
+            let mut able: Vec<ObjectId> = pile
                 .iter()
                 .copied()
                 .filter(|&creature| rules.can_declare(defending, creature, attacker))
                 .collect();
             let enough = combat::block_bound(&self.state, attacker).is_none_or(|bound| {
+                if bound.min_blockers > bound.max_blockers {
+                    return false;
+                }
+                able.truncate(usize::try_from(bound.max_blockers).unwrap_or(usize::MAX));
                 u32::try_from(able.len()).unwrap_or(u32::MAX) >= bound.min_blockers
             });
             if enough {

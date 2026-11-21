@@ -102,11 +102,13 @@ impl GameState {
             ltb_combat: _,
             ceased: _,
             reflexive,
+            resolution_chosen_color: _,
             discovered,
             divided: _,
             synthetic_copies: _,
             commanders,
             monarch: _,
+            goaded: _,
             // Refused before the audit (`ForkRefusal::GameOver`).
             game_end: _,
             day_night: _,
@@ -354,7 +356,13 @@ impl GameState {
 #[allow(clippy::match_same_arms)] // one arm per shape of condition
 const fn delayed_when_object(when: &DelayedWhen) -> Option<ObjectId> {
     match *when {
-        DelayedWhen::Observed { watch, .. } => Some(watch.object),
+        DelayedWhen::Observed { watch, .. } | DelayedWhen::ObservedGeneral { watch, .. } => {
+            Some(watch.object)
+        }
+        DelayedWhen::OnEvent { watch, context, .. } => Some(match watch {
+            Some(w) => w.object,
+            None => context.source,
+        }),
         DelayedWhen::TriggeredThisTurn { context, .. } => Some(context.source),
         DelayedWhen::DiesOrIsExiled { card, .. }
         | DelayedWhen::DiesThisTurn { card, .. }
@@ -364,6 +372,7 @@ const fn delayed_when_object(when: &DelayedWhen) -> Option<ObjectId> {
         | DelayedWhen::LeavesBattlefieldOrUntaps { card, .. }
         | DelayedWhen::AttacksAndIsntBlockedThisTurn { card, .. } => Some(card),
         DelayedWhen::NextSpellCastThisTurn { .. }
+        | DelayedWhen::AtStep { .. }
         | DelayedWhen::NextUpkeep
         | DelayedWhen::NextDraw
         | DelayedWhen::NextAffectedTurn

@@ -205,6 +205,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.activation_targets_answered = false;
         self.activation_x = None;
         self.activation_phyrexian.clear();
+        self.activation_either_branches.clear();
         self.activating_abilities = None;
         self.activating_grant = None;
         self.awaiting_answer = false;
@@ -247,6 +248,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if activation_life > 0 {
             self.state
                 .change_life(player, -activation_life, crate::event::Cause::Cost);
+        }
+        // CR 702.49a–b, d: activating a ninjutsu ability reveals the source
+        // card from hand or command zone.
+        if cost
+            .parts
+            .contains(&baylee_cards_dsl::CostPart::ReturnUnblockedAttacker)
+            && self.state.object(source).is_some_and(|o| {
+                matches!(o.zone, crate::zone::Zone::Hand | crate::zone::Zone::Command)
+                    && Some(o.version) == activated_source_version
+            })
+        {
+            self.state.journal.record(GameEvent::Revealed {
+                player,
+                cards: vec![source],
+            });
         }
         // "When you cycle this card" is "when you discard this card to pay
         // an activation cost of a cycling ability" (CR 702.29c), and this is
@@ -300,6 +316,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .riders
                     .push(crate::object::Rider::ExhaustedAbility(ability_index));
             }
+        }
+        if ability_index == crate::choice::TURN_FACE_UP {
+            self.release_activation_capture();
+            self.activation_target_choice =
+                super::super::targeting::ActivationTargetChoice::default();
+            self.finish_turn_face_up(player, source, x);
+            return;
         }
         if mana_ability {
             // The activation ends here, with no push to take what it
@@ -450,6 +473,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // the effect that asks (Birthing Pod's "1 plus the sacrificed
             // creature's mana value", station's "the tapped creature's
             // power"), the way a spell carries its own.
+            if let Some((defender, target_ver)) = paid.ninjutsu_defender.take()
+                && let Some(obj) = self.state.object_mut(ability)
+            {
+                obj.riders
+                    .push(crate::object::Rider::NinjutsuDefender(defender, target_ver));
+            }
+            let crafted_materials = std::mem::take(&mut paid.crafted_materials);
+            if !crafted_materials.is_empty()
+                && let Some(obj) = self.state.object_mut(ability)
+            {
+                for mat in crafted_materials {
+                    obj.riders.push(crate::object::Rider::CraftMaterial(mat));
+                }
+            }
             if paid != crate::object::PaidRecord::default()
                 && let Some(obj) = self.state.object_mut(ability)
             {
@@ -479,6 +516,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 &cost,
                 Some(ability),
             );
+            self.note_crime_if_any(player, ability);
         }
         self.activating_grant = None;
         self.activation_target_choice = super::super::targeting::ActivationTargetChoice::default();

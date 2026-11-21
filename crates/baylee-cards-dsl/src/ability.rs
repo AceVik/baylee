@@ -76,6 +76,11 @@ pub enum ActivationZone {
     /// From your graveyard (eternalize, embalm): the card is in its owner's
     /// graveyard and the owner activates it.
     Graveyard,
+    /// On the battlefield under your control, or from your command zone.
+    BattlefieldOrCommand,
+    /// From your hand or from your command zone (commander ninjutsu, CR 702.49d).
+    /// Appended to preserve replay identities.
+    HandOrCommand,
 }
 
 /// Where a printed triggered ability functions (CR 113.6).
@@ -87,6 +92,25 @@ pub enum TriggerZone {
     Graveyard,
     /// In exile (CR 113.6b, All Hallow's Eve).
     Exile,
+    /// In the card owner's command zone (CR 113.6b: Oloro, Ageless Ascetic).
+    Command,
+    /// On the battlefield or in the card owner's command zone (CR 113.6b:
+    /// eminence — Edgar Markov, Inalla, Arahbo, Sidar Jabari).
+    BattlefieldOrCommand,
+}
+
+impl TriggerZone {
+    /// Whether this trigger zone includes the battlefield.
+    #[must_use]
+    pub const fn functions_on_battlefield(self) -> bool {
+        matches!(self, Self::Battlefield | Self::BattlefieldOrCommand)
+    }
+
+    /// Whether this trigger zone includes the owner's command zone.
+    #[must_use]
+    pub const fn functions_in_command(self) -> bool {
+        matches!(self, Self::Command | Self::BattlefieldOrCommand)
+    }
 }
 
 /// Steps a trigger can listen to, and a step a timing restriction names.
@@ -116,6 +140,38 @@ pub enum StepKind {
     End,
     /// First actual main phase reached this turn (not necessarily precombat).
     FirstMain,
+}
+
+/// Relational comparison operator between two [`crate::Amount`] expressions.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AmountCmp {
+    /// `left >= right`.
+    AtLeast,
+    /// `left > right`.
+    GreaterThan,
+    /// `left <= right`.
+    AtMost,
+    /// `left < right`.
+    LessThan,
+    /// `left == right`.
+    Equal,
+    /// `left != right`.
+    NotEqual,
+}
+
+impl AmountCmp {
+    /// Evaluates `left <op> right`.
+    #[must_use]
+    pub const fn holds(self, left: u32, right: u32) -> bool {
+        match self {
+            Self::AtLeast => left >= right,
+            Self::GreaterThan => left > right,
+            Self::AtMost => left <= right,
+            Self::LessThan => left < right,
+            Self::Equal => left == right,
+            Self::NotEqual => left != right,
+        }
+    }
 }
 
 /// A sentence a card states about the game, for an ability that only does
@@ -358,7 +414,7 @@ pub enum Condition {
     /// The source has at least N counters of a kind (Luminarch
     /// Ascension's quest counters).
     CountersOnSelf(crate::effect::CounterKind, u8),
-    /// The source has EXACTLY N counters of a kind (class level gating).
+    /// The source has exactly N counters of a kind.
     CountersOnSelfExactly(crate::effect::CounterKind, u8),
     /// The source has at least the first number and no more than the second
     /// of a kind of counter: a leveler's `{LEVEL N1-N2}` band (CR 711.2a,
@@ -507,6 +563,146 @@ pub enum Condition {
     /// was kicked with `face.additional_costs[index]` (CR 702.33f, CR 400.7d).
     /// Appended to preserve replay identities.
     KickedWith(u8),
+    /// "If this spell's blitz cost was paid" (CR 702.152a), asked of the
+    /// source on the battlefield as the permanent a spell cast for its blitz
+    /// cost became, and not having left it since. Appended to preserve replay
+    /// identities.
+    BlitzCostPaid,
+    /// The source spell (or the permanent that spell became on resolving from
+    /// the stack) was cast for an `AlternativeCost` (`CastModeKind::Alternative`,
+    /// e.g. spectacle, surge, prowl, evoke; CR 601.2b, CR 400.7d). Appended to
+    /// preserve replay identities.
+    AltCostPaid,
+    /// An opponent lost life this turn (Spectacle, CR 702.137a; Bloodthirst).
+    /// Appended to preserve replay identities.
+    OpponentLostLifeThisTurn,
+    /// You or one of your teammates has cast another spell this turn (Surge,
+    /// CR 702.117a). Appended to preserve replay identities.
+    Surge,
+    /// A player was dealt combat damage this turn by a source that, at the
+    /// time it dealt that damage, was under your control and had any of this
+    /// spell's creature types (Prowl, CR 702.76a). Appended to preserve replay
+    /// identities.
+    Prowl,
+    /// You control one of your own designated commanders on the battlefield
+    /// (CR 903.3c–d, 702.124d: Bastion Protector, Loyal Apprentice). Appended
+    /// to preserve replay identities.
+    ControlYourCommander,
+    /// This exact source object is currently in the stated zone (CR 113.6b,
+    /// CR 603.4, CR 400.7: Oloro's and eminence's intervening `if`). Appended
+    /// to preserve replay identities.
+    SourceInZone(crate::ZoneRef),
+    /// This spell (or the permanent it became) was bargained by sacrificing an
+    /// artifact, enchantment, or token as an additional cost (Bargain,
+    /// CR 702.166b–c). Appended to preserve replay identities.
+    Bargained,
+    /// This spell (or the permanent it became, or a copy of either) is
+    /// prototyped (Prototype, CR 702.160, CR 719.3b–d). Appended to preserve
+    /// replay identities.
+    Prototyped,
+    /// The game is in the combat phase in or after the declare-blockers step
+    /// (`DeclareBlockers`, `CombatDamageFirst`, `CombatDamage`, or `CombatEnd`),
+    /// so blockers have already been declared (ninjutsu, CR 702.49a). Appended
+    /// to preserve replay identities.
+    InCombatAfterBlockers,
+    /// Whether the object named by `what` (`&TargetSpec::Object(&Filter::Any)`
+    /// for first target, `&TargetSpec::EventObject` for the event object, or
+    /// `&TargetSpec::ThisObject` for source) matches `filter`, reading
+    /// last-known characteristics if it departed earlier in resolution
+    /// (CR 608.2h, CR 603.4). Appended to preserve replay identities.
+    ObjectMatches {
+        /// Which object to test.
+        what: &'static TargetSpec,
+        /// Predicate tested against that object.
+        filter: &'static Filter,
+    },
+    /// Compares two evaluated [`crate::Amount`] expressions (`left <op> right`).
+    /// Appended to preserve replay identities.
+    AmountCompare {
+        /// Left-hand evaluated amount.
+        left: &'static crate::Amount,
+        /// Relational operator.
+        op: AmountCmp,
+        /// Right-hand evaluated amount.
+        right: &'static crate::Amount,
+    },
+    /// Whether this permanent currently has the renowned designation
+    /// (CR 702.112b–c; e.g. `Condition::Not(&Condition::IsRenowned)` for
+    /// renown's intervening `if`, or `Condition::IsRenowned` for "as long as
+    /// this creature is renowned"). Appended to preserve replay identities.
+    IsRenowned,
+    /// The source permanent is currently paired with another creature via
+    /// soulbond ("As long as [this] is paired with another creature…",
+    /// CR 702.95a–e). Appended to preserve replay identities.
+    IsPaired,
+    /// Soulbond's self-ETB intervening `if` (CR 702.95a, CR 603.4): the source
+    /// is an unpaired creature you control and you control at least one other
+    /// unpaired creature. Appended to preserve replay identities.
+    SoulbondSelfCanPair,
+    /// Soulbond's other-creature-ETB intervening `if` (CR 702.95a, CR 603.4):
+    /// both the source and the entering event creature are still unpaired
+    /// creatures under your control. Appended to preserve replay identities.
+    SoulbondEventCanPair,
+    /// This spell's (or the permanent it became's) gift cost was promised as it
+    /// was cast (`Rider::GiftPromisedTo`, CR 702.174a, CR 702.174k). Appended to
+    /// preserve replay identities.
+    GiftWasPromised,
+    /// An opponent of "you" was dealt damage this turn (Bloodthirst,
+    /// CR 702.54a — distinct from life loss). Appended to preserve replay
+    /// identities.
+    OpponentDealtDamageThisTurn,
+    /// Evolve's intervening `if` (CR 702.100c, CR 603.4, CR 608.2h): both this
+    /// permanent and the entering creature from the trigger event are creatures
+    /// (using LKI if departed) and the entering creature has strictly greater
+    /// power or strictly greater toughness than this permanent. Appended to
+    /// preserve replay identities.
+    EvolveFromEvent,
+    /// "If this spell's warp cost was paid" (CR 702.185a), asked of the source
+    /// spell or the permanent it became on resolving from the stack while it
+    /// remains on the battlefield. Appended to preserve replay identities.
+    WarpCostPaid,
+    /// A card was warped this turn (CR 702.185c), restricted to players
+    /// matching the relation when `Some(who)` or any player when `None` ("if a
+    /// card was warped this turn"). Appended to preserve replay identities.
+    SpellWarpedThisTurn(Option<crate::PlayerRel>),
+    /// At least one snow mana (mana produced by a snow source, CR 107.4h) was
+    /// spent to cast this spell, activate this ability, or cast the spell that
+    /// became this permanent. Appended to preserve replay identities.
+    SnowManaWasSpent,
+    /// Source permanent is on the battlefield and is monstrous (CR 701.37a–b).
+    /// Appended to preserve replay identities.
+    IsMonstrous,
+    /// Source permanent is on the battlefield and is suspected (CR 701.60a–b).
+    /// Appended to preserve replay identities.
+    IsSuspected,
+    /// "You" currently control a creature on the battlefield with the
+    /// Ring-bearer designation (CR 701.54a, CR 701.54e). Appended to preserve
+    /// replay identities.
+    HasRingBearer,
+    /// A player was dealt combat damage this turn by a creature that, at the
+    /// time it dealt that damage, was an Assassin creature or a commander under
+    /// your control (Freerunning, CR 702.173a). Appended to preserve replay
+    /// identities.
+    DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn,
+    /// A player matching the relation has committed a crime this turn
+    /// (CR 700.13). Appended to preserve replay identities.
+    CommittedCrimeThisTurn(crate::PlayerRel),
+    /// You have spent at least `N` total mana to cast spells this turn
+    /// (expend N, CR 700.14). Appended to preserve replay identities.
+    ExpendedThisTurn(u32),
+    /// "If tribute wasn't paid" (CR 702.104b): true when no opponent chose to
+    /// have this permanent enter the battlefield with +1/+1 counters from its
+    /// [`crate::EnterModifier::Tribute`] ability. Appended to preserve replay
+    /// identities.
+    TributeWasNotPaid,
+    /// The source's Class level is exactly N, the requirement to advance
+    /// to N + 1 (CR 717.2a). A permanent with no level is level 1 (CR 717.2d).
+    /// Appended to preserve replay identities.
+    ClassLevelExactly(u8),
+    /// The source has the abilities printed at Class level N (CR 717.2a).
+    /// A triggered ability checks this when it triggers. Appended to preserve
+    /// replay identities.
+    ClassLevelAtLeast(u8),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -684,28 +880,21 @@ pub enum Trigger {
     /// The count of a kind of counter on the source rises from below `n`
     /// to `n` or more — the window CR 715.2b writes out for a chapter
     /// symbol, asked of any kind.
-    ///
-    /// Druid Class's "When this Class becomes level 3": this pool keeps a
-    /// Class's level as level counters over level 1 (Wizard Class), so
-    /// level 3 is `n: 2`. It is a trigger of its own and not a rider on
-    /// the level-up activation, because the ability it starts targets: a
-    /// target removed in response would otherwise take the level with it
-    /// (CR 608.2b).
     CountersReach {
         /// The kind counted.
         kind: crate::effect::CounterKind,
         /// The count that must be reached.
         n: u8,
     },
-    /// "When you remove the last [kind] counter from this permanent"
-    /// (Divine Intervention): its controller takes the count of that kind on
-    /// the source from one or more to none, however they do it — an effect
-    /// they control or a cost they pay. A removal by another player's effect,
-    /// or by the game's rules (a stun counter, damage to a planeswalker), does
-    /// not trigger it.
+    /// "When [you remove / the] last [kind] counter [is removed] from this
+    /// permanent" (Divine Intervention: `by: Some(PlayerRel::You)`; Vanishing,
+    /// CR 702.63a: `by: None`, matching any player, effect, cost, or SBA).
     LastCounterRemoved {
         /// The kind removed.
         kind: crate::effect::CounterKind,
+        /// Optional player relation restricting whose removal counts (`None`
+        /// triggers regardless of who or what removed the last counter).
+        by: Option<crate::effect::PlayerRel>,
     },
     /// The controller casts their Nth spell this turn (Storm of
     /// Saruman's second-spell trigger).
@@ -906,6 +1095,207 @@ pub enum Trigger {
         /// Filter on the cycled card.
         filter: &'static Filter,
     },
+    /// One or more chapter numbers of a Saga (CR 715.2, CR 715.2c): triggers
+    /// when the number of lore counters on this Saga moves from below a listed
+    /// chapter number to at or above it (or equals it on the Saga's entry turn
+    /// while this Saga has read ahead, CR 702.155a).
+    Chapter(&'static [u8]),
+    /// A permanent matching the filter phases in (CR 702.26c, CR 502.1 —
+    /// Shimmering Efreet, Teferi's Imp, Warping Wurm).
+    PhasesIn(&'static Filter),
+    /// A permanent matching the filter phases out (CR 702.26b, CR 603.10b —
+    /// Teferi's Imp; looks back in time immediately prior to phasing out).
+    PhasesOut(&'static Filter),
+    /// A permanent matching the filter phases out or leaves the battlefield
+    /// (CR 702.26d, CR 603.10a, CR 603.10b — Ertai's Familiar).
+    PhasesOutOrLeavesBattlefield(&'static Filter),
+    /// A player flips a coin (CR 705.2): `outcome: None` triggers on any coin
+    /// flip by `who`, `Some(true)` on a won flip, and `Some(false)` on a lost
+    /// flip. Sets `EventPlayer` to the flipping player.
+    CoinFlipped {
+        /// Which player(s)' coin flips count.
+        who: crate::effect::PlayerRel,
+        /// Optional win (`true`) or loss (`false`) filter.
+        outcome: Option<bool>,
+    },
+    /// A player rolls a die (CR 706.2): `min_result: None` triggers on any
+    /// non-ignored die roll by `who`; `Some(n)` triggers when the result is at
+    /// least `n`. Sets `EventPlayer` to the rolling player and `EventAmount`
+    /// to the die result.
+    DieRolled {
+        /// Which player(s)' die rolls count.
+        who: crate::effect::PlayerRel,
+        /// Optional inclusive minimum natural die result.
+        min_result: Option<u8>,
+    },
+    /// A permanent matching the filter becomes exerted (CR 701.43a–d), whether
+    /// by [`crate::CostPart::ExertSelf`] or [`Effect::ExertSource`]. Sets
+    /// `EventObject` to the exerted permanent and `EventPlayer` to the player
+    /// who exerted it. Appended to preserve replay identities.
+    Exerted(&'static Filter),
+    /// One or more objects matching `filter` change zones simultaneously or in
+    /// one action batch (`"Whenever one or more [filter] [enter / leave your
+    /// graveyard / die / are put into a library]..."`, CR 603.2c, CR 603.10a):
+    /// fires once per batch in which at least one matching object moves from
+    /// `origin` (any zone when `None`) to `destination` (any zone when `None`),
+    /// excluding this ability's source when `exclude_self` is `true`. Binds
+    /// `Amount::EventAmount` to the matched batch count and `EventObject` to the
+    /// first matching object. Appended to preserve replay identities.
+    ChangesZoneAll {
+        /// Optional required origin zone.
+        origin: Option<crate::ZoneRef>,
+        /// Optional required destination zone.
+        destination: Option<crate::ZoneRef>,
+        /// Filter each counted moving object must match.
+        filter: &'static Filter,
+        /// Whether this ability's own source is excluded ("one or more other").
+        exclude_self: bool,
+    },
+    /// A player matching `who` sacrifices a permanent matching `filter` via a
+    /// cost, effect, or Saga completion SBA (CR 701.21a, CR 715.4, CR 603.10a;
+    /// distinct from destruction, lethal damage, zero toughness, and the legend
+    /// rule). Looks back to pre-sacrifice battlefield characteristics and binds
+    /// `EventPlayer` to the sacrificing player and `EventObject` to the
+    /// sacrificed object. Appended to preserve replay identities.
+    Sacrificed {
+        /// Which player(s)' sacrifices trigger this ability.
+        who: crate::effect::PlayerRel,
+        /// Pre-sacrifice permanent filter.
+        filter: &'static Filter,
+    },
+    /// One or more creatures are declared as attackers attacking a player
+    /// matching `PlayerRel` (`"Whenever [you / enchanted player / a player] is
+    /// attacked"`, CR 508.3b): fires once per attacked matching player per
+    /// declare-attackers step, binding `EventPlayer` to the attacking player and
+    /// `EventAmount` to the number of creatures declared attacking that player.
+    /// Appended to preserve replay identities.
+    PlayerAttacked(crate::effect::PlayerRel),
+    /// A player matching `who` casts a spell matching `spell` that targets at
+    /// least one permanent matching `target` and/or `you` (`targets_you`),
+    /// firing at most once per cast (CR 207.2c heroic, CR 601.2h, CR 603.2c).
+    /// When `only` is `true`, the spell must have exactly one distinct target in
+    /// total across object and player targets (Zada, Hedron Grinder; Beamsplitter
+    /// Mage). Sets `EventObject` to the cast spell and `EventPlayer` to the
+    /// caster. Appended to preserve replay identities.
+    SpellCastTargeting {
+        /// Which casting players count.
+        who: crate::effect::PlayerRel,
+        /// Filter the cast spell must match (`&Filter::Any` for any spell).
+        spell: &'static Filter,
+        /// Optional filter a targeted permanent on the battlefield must match
+        /// (`Some(&Filter::This)` for heroic, CR 109.2).
+        target: Option<&'static Filter>,
+        /// Whether targeting the ability's controller satisfies the trigger.
+        targets_you: bool,
+        /// Whether the spell must have only that single distinct target in total.
+        only: bool,
+    },
+    /// An attacking creature matching the filter enlists a creature by paying an
+    /// enlist tap cost as it attacks (CR 702.154a–d). Sets `EventObject` to the
+    /// enlisted creature and `EventPlayer` to the attacking player. Appended to
+    /// preserve replay identities.
+    Enlisted(&'static Filter),
+    /// A card becomes plotted by a player matching `who` (`"Whenever [you / a
+    /// player] plot(s) a card"` or `"Whenever a card becomes plotted"`,
+    /// CR 702.170a–e), binding `EventPlayer` to that player and `EventObject`
+    /// to the plotted card in exile. Appended to preserve replay identities.
+    Plotted {
+        /// Which player(s) plotting the card trigger this ability.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the exiled plotted card.
+        filter: &'static Filter,
+    },
+    /// A player matching the relation gives a gift ("Whenever [you / an
+    /// opponent / a player] give(s) a gift", CR 702.174c), firing when an
+    /// instant or sorcery spell whose gift cost was paid resolves or when a
+    /// permanent's gift triggered ability resolves, binding `EventPlayer` to
+    /// the gift recipient. Appended to preserve replay identities.
+    GaveGift(crate::effect::PlayerRel),
+    /// A creature matching `exploiter` exploits a creature matching `exploited`
+    /// (`"When [this creature / a creature you control] exploits a creature"`,
+    /// CR 702.110b, CR 603.10a), looking back to pre-sacrifice characteristics
+    /// (including when a creature exploits itself) and binding `EventObject` to
+    /// the exploited creature and `EventPlayer` to the sacrificing player.
+    /// Appended to preserve replay identities.
+    Exploited {
+        /// Filter matched against the exploiting creature (`&Filter::This` for self).
+        exploiter: &'static Filter,
+        /// Filter matched against the sacrificed exploited creature (`&Filter::Any` for any).
+        exploited: &'static Filter,
+    },
+    /// A player matching `who` casts a spell matching `filter` for its warp
+    /// cost ("Whenever you warp a card…", CR 702.185a–c), binding `EventPlayer`
+    /// to the caster and `EventObject` to the warped spell. Appended to
+    /// preserve replay identities.
+    SpellWarped {
+        /// Which casting players count.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the warped spell on the stack.
+        filter: &'static Filter,
+    },
+    /// A player matching `who` scries one or more cards ("Whenever [you / an
+    /// opponent / a player] scries", CR 701.22a–d; scrying 0 emits no event per
+    /// CR 701.22b), binding `EventPlayer` to that player and `Amount::EventAmount`
+    /// to the scry count. Appended to preserve replay identities.
+    Scried {
+        /// Which player(s) scrying trigger this ability.
+        who: crate::effect::PlayerRel,
+    },
+    /// Source permanent becomes monstrous ("When ~ becomes monstrous",
+    /// CR 701.37a–c), binding `Amount::EventAmount` to the monstrosity `N` / `X`
+    /// count (`CR 701.37c`). Appended to preserve replay identities.
+    BecomesMonstrous,
+    /// The Ring tempts a player matching `who` ("Whenever the Ring tempts you",
+    /// CR 701.54d), firing even if that player controlled no creatures to choose
+    /// as Ring-bearer, binding `EventPlayer` to that player, `EventObject` to
+    /// the chosen Ring-bearer (if any), and `EventAmount` to that player's total
+    /// Ring temptations. Appended to preserve replay identities.
+    RingTemptsYou {
+        /// Which player(s) being tempted trigger this ability.
+        who: crate::effect::PlayerRel,
+    },
+    /// A player matching `who` firebends ("Whenever you firebend", CR 702.189b),
+    /// firing whenever a firebending ability controlled by that player resolves,
+    /// binding `EventPlayer` to that player, `EventObject` to the firebending
+    /// source, and `EventAmount` to the `{R}` mana added. Appended to preserve
+    /// replay identities.
+    Firebends(crate::effect::PlayerRel),
+    /// A player matching `who` commits a crime by casting a spell, activating
+    /// an ability, or putting a triggered ability on the stack that targets at
+    /// least one opponent, permanent/spell/ability an opponent controls, or
+    /// card in an opponent's graveyard (CR 700.13), optionally restricted to
+    /// once each turn. Binds `EventPlayer` to the player who committed the
+    /// crime. Appended to preserve replay identities.
+    CommittedCrime {
+        /// Which player(s) committing a crime trigger this ability.
+        who: crate::effect::PlayerRel,
+        /// Whether this ability triggers at most once each turn.
+        once_per_turn: bool,
+    },
+    /// A player matching `who` expends `threshold` — i.e., casts a spell whose
+    /// mana spent moves that player's cumulative mana spent to cast spells this
+    /// turn from below `threshold` to at least `threshold` (CR 700.14). Binds
+    /// `EventPlayer` to that player and `EventAmount` to the new cumulative
+    /// total. Appended to preserve replay identities.
+    Expended {
+        /// Which player(s) expending mana trigger this ability.
+        who: crate::effect::PlayerRel,
+        /// Cumulative spell-mana threshold reached (`4` for `Expend 4`).
+        threshold: u32,
+    },
+    /// A player matching `who` clashes (`won_only: false`) or wins a clash
+    /// (`won_only: true`, CR 701.30a–d). Binds `EventPlayer` to that clashing
+    /// player. Appended to preserve replay identities.
+    Clashed {
+        /// Which clashing player(s) trigger this ability.
+        who: crate::effect::PlayerRel,
+        /// Whether only winning a clash triggers this ability.
+        won_only: bool,
+    },
+    /// "When this Class becomes level N." The new level's triggered ability
+    /// can choose its own targets after the level ability has resolved.
+    /// Appended to preserve replay identities.
+    ClassLevelGained(u8),
 }
 
 impl Trigger {
@@ -919,6 +1309,46 @@ impl Trigger {
     /// variant with its filter, which is the whole reason this is a
     /// constant and not a macro — there is nothing to parameterise.
     pub const ETB: Self = Self::EntersBattlefield(&Filter::This);
+
+    /// "Whenever this permanent phases in…" (CR 702.26c).
+    pub const PHASES_IN: Self = Self::PhasesIn(&Filter::This);
+
+    /// "Whenever this permanent phases out…" (CR 702.26b, CR 603.10b).
+    pub const PHASES_OUT: Self = Self::PhasesOut(&Filter::This);
+
+    /// "Whenever you exert this permanent…" (CR 701.43a).
+    pub const EXERTED_THIS: Self = Self::Exerted(&Filter::This);
+
+    /// Heroic — "Whenever you cast a spell that targets this creature…"
+    /// (CR 207.2c, CR 601.2h, CR 603.2c).
+    pub const HEROIC: Self = Self::SpellCastTargeting {
+        who: crate::effect::PlayerRel::You,
+        spell: &Filter::Any,
+        target: Some(&Filter::This),
+        targets_you: false,
+        only: false,
+    };
+
+    /// "Whenever this creature enlists a creature…" (CR 702.154c).
+    pub const ENLISTED_THIS: Self = Self::Enlisted(&Filter::This);
+
+    /// "When this creature exploits a creature…" (CR 702.110b).
+    pub const EXPLOITED_THIS: Self = Self::Exploited {
+        exploiter: &Filter::This,
+        exploited: &Filter::Any,
+    };
+
+    /// "Whenever you commit a crime…" (CR 700.13).
+    pub const COMMITTED_CRIME: Self = Self::CommittedCrime {
+        who: crate::effect::PlayerRel::You,
+        once_per_turn: false,
+    };
+
+    /// "Whenever you commit a crime, … This ability triggers only once each turn" (CR 700.13).
+    pub const COMMITTED_CRIME_ONCE_PER_TURN: Self = Self::CommittedCrime {
+        who: crate::effect::PlayerRel::You,
+        once_per_turn: true,
+    };
 }
 
 /// An ability definition on a [`crate::CardDef`].
@@ -1193,9 +1623,89 @@ pub enum AbilityDef {
         /// the omission would be found again, one card at a time.
         condition: Option<Condition>,
     },
+    /// Unearth (CR 702.84a): `[cost]: Return this card from your graveyard to
+    /// the battlefield. It gains haste. Exile it at the beginning of the next
+    /// end step. If it would leave the battlefield, exile it instead of putting
+    /// it anywhere else. Activate only as a sorcery.`
+    Unearth {
+        /// The unearth activation cost.
+        cost: Cost,
+    },
+    /// Encore (CR 702.141a): `[cost], Exile this card from your graveyard: For
+    /// each opponent, create a token that's a copy of this card that attacks
+    /// that opponent this turn if able. The tokens gain haste. Sacrifice them
+    /// at the beginning of the next end step. Activate only as a sorcery.`
+    Encore {
+        /// The encore cost before the implicit `CostPart::ExileSelf`.
+        cost: Cost,
+    },
+    /// Strive / per-extra-target spell mana surcharge ("This spell costs
+    /// [cost] more to cast for each target beyond the first", CR 207.2c,
+    /// CR 601.2f): adds `(chosen_targets.saturating_sub(1)) * cost` to the
+    /// spell's total cost before cost reductions. Appended to preserve replay
+    /// identities.
+    PerExtraTargetCost(baylee_core::mana::ManaCost),
+    /// Splice onto `[onto]` `[cost]` (CR 702.47a–e): while this card is in your
+    /// hand, you may reveal it as you cast a spell matching `onto` and pay
+    /// `cost` as an additional cost; if you do, that spell gains the rules text
+    /// (effects and target clauses) of this card's spell ability while this
+    /// card remains in your hand.
+    Splice {
+        /// Filter matched against the spell being cast (`Filter::ARCANE`, `Filter::INSTANT_OR_SORCERY`, …).
+        onto: &'static Filter,
+        /// Additional cost paid to splice this card onto that spell.
+        cost: Cost,
+    },
+    /// Awaken `count`—`[cost]` (CR 702.113a): alternative cost `cost` to cast
+    /// this instant or sorcery spell; if paid, adds `target land you control`
+    /// and puts `count` +1/+1 counters on that land and makes it a 0/0
+    /// Elemental creature with haste that's still a land.
+    Awaken {
+        /// Number of +1/+1 counters placed on the targeted land.
+        count: u16,
+        /// Alternative cost paid instead of the spell's mana cost.
+        cost: Cost,
+    },
+    /// Champion a `[filter]` (CR 702.72a–b): represents `"When this permanent
+    /// enters, sacrifice it unless you exile another [filter] you control"` and
+    /// `"When this permanent leaves the battlefield, return the exiled card to
+    /// the battlefield under its owner's control."`
+    Champion {
+        /// Quality of another controlled permanent that may be championed.
+        filter: &'static Filter,
+    },
 }
 
 impl AbilityDef {
+    /// Leyline opening-hand static ability (`CR 103.6a`).
+    pub const OPENING_HAND_ON_BATTLEFIELD: Self =
+        Self::Replacement(crate::static_ability::ReplacementRule::OpeningHandOnBattlefield);
+
+    /// Chancellor / *Sphinx of Foresight* opening-hand reveal ability (`CR 103.6b`).
+    #[must_use]
+    pub const fn opening_hand_reveal_at_first_upkeep(
+        effects: &'static [crate::effect::Effect],
+    ) -> Self {
+        Self::Replacement(
+            crate::static_ability::ReplacementRule::OpeningHandRevealAtFirstUpkeep(effects),
+        )
+    }
+
+    /// Strive per-extra-target mana cost (`CR 207.2c`, `CR 601.2f`).
+    #[must_use]
+    pub const fn strive(cost: baylee_core::mana::ManaCost) -> Self {
+        Self::PerExtraTargetCost(cost)
+    }
+
+    /// Returns the per-extra-target mana surcharge when this entry is
+    /// [`Self::PerExtraTargetCost`].
+    #[must_use]
+    pub const fn per_extra_target_cost(&self) -> Option<baylee_core::mana::ManaCost> {
+        match self {
+            Self::PerExtraTargetCost(cost) => Some(*cost),
+            _ => None,
+        }
+    }
     /// Whether this is a cycling ability: "Cycling [cost]" means "[Cost],
     /// Discard this card: Draw a card" and "[Type]cycling [cost]" means
     /// "[Cost], Discard this card: Search your library for a [type] card,
@@ -1309,6 +1819,196 @@ impl AbilityDef {
                 ..
             } if crate::mana_rule::could_add_mana(effects)
         )
+    }
+
+    /// The Saga chapter numbers (1-based) this ability represents, if it is a
+    /// chapter ability on the battlefield (CR 715.2, CR 715.2c).
+    #[must_use]
+    pub const fn saga_chapters(&self) -> &[u8] {
+        match self {
+            Self::SagaChapter { chapter, .. } => core::slice::from_ref(chapter),
+            Self::Triggered {
+                trigger: Trigger::Chapter(chapters),
+                zone: TriggerZone::Battlefield,
+                ..
+            }
+            | Self::ModalTriggered {
+                trigger: Trigger::Chapter(chapters),
+                zone: TriggerZone::Battlefield,
+                ..
+            } => chapters,
+            _ => &[],
+        }
+    }
+
+    /// Whether this ability is a Saga chapter ability (CR 715.2).
+    #[must_use]
+    pub const fn is_saga_chapter(&self) -> bool {
+        !self.saga_chapters().is_empty()
+    }
+
+    /// The greatest chapter number named by this ability, or `0` if it is not
+    /// a Saga chapter ability (CR 715.2d).
+    #[must_use]
+    pub const fn max_saga_chapter(&self) -> u8 {
+        let chapters = self.saga_chapters();
+        let mut max = 0;
+        let mut i = 0;
+        while i < chapters.len() {
+            if chapters[i] > max {
+                max = chapters[i];
+            }
+            i += 1;
+        }
+        max
+    }
+
+    /// Sneak [cost] (CR 702.190a–b): static casting rule functioning on the stack.
+    #[must_use]
+    pub const fn sneak(cost: Cost) -> Self {
+        Self::Static(crate::static_ability::StaticAbility::sneak(cost))
+    }
+
+    /// Ravenous's triggered half (CR 702.156a): "When this permanent enters, if
+    /// X is 5 or more, draw a card."
+    #[must_use]
+    pub const fn ravenous_draw() -> Self {
+        const DRAW_ONE: [Effect; 1] = [Effect::draw(1)];
+        Self::Triggered {
+            trigger: Trigger::ETB,
+            effects: &DRAW_ONE,
+            targets: None,
+            second_targets: None,
+            zone: TriggerZone::Battlefield,
+            condition: Some(Condition::XAtLeast(5)),
+            once_per_turn: false,
+            resolves_if_targets_illegal: false,
+        }
+    }
+
+    /// Graft N's triggered half (CR 702.58a): "Whenever another creature enters,
+    /// if this permanent has a +1/+1 counter on it, you may move a +1/+1 counter
+    /// from this permanent onto that creature."
+    #[must_use]
+    pub const fn graft_trigger() -> Self {
+        const ANOTHER_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Another]);
+        const MOVE_P1P1: [Effect; 1] = [Effect::MoveCounterToEvent {
+            kind: crate::CounterKind::P1P1,
+        }];
+        const MAY_MOVE: [Effect; 1] = [Effect::MayDo {
+            effects: &MOVE_P1P1,
+        }];
+        Self::Triggered {
+            trigger: Trigger::EntersBattlefield(&ANOTHER_CREATURE),
+            effects: &MAY_MOVE,
+            targets: None,
+            second_targets: None,
+            zone: TriggerZone::Battlefield,
+            condition: Some(Condition::CountersOnSelf(crate::CounterKind::P1P1, 1)),
+            once_per_turn: false,
+            resolves_if_targets_illegal: false,
+        }
+    }
+
+    /// Transmute `[mana]` (CR 702.53a): `[Mana], Discard this card: Search your
+    /// library for a card with the same mana value as this card, reveal it, put
+    /// it into your hand, then shuffle. Activate only as a sorcery.`
+    #[must_use]
+    pub const fn transmute(mana: baylee_core::mana::ManaCost) -> Self {
+        Self::transmute_with_parts(mana, &[crate::cost::CostPart::DiscardSelf])
+    }
+
+    /// Transmute with custom cost parts (must include [`crate::CostPart::DiscardSelf`]).
+    #[must_use]
+    pub const fn transmute_with_parts(
+        mana: baylee_core::mana::ManaCost,
+        parts: &'static [crate::cost::CostPart],
+    ) -> Self {
+        Self::Activated {
+            cost: Cost { mana, parts },
+            effects: &[crate::effect::Effect::SearchLibrary {
+                filter: &Filter::SameManaValueAsSource,
+                finds: &[crate::effect::Find::HAND],
+                optional: true,
+            }],
+            targets: None,
+            second_targets: None,
+            timing: ActivationTiming::SorcerySpeed,
+            mana_ability: false,
+            zone: ActivationZone::Hand,
+            limit: ActivationLimit::Unlimited,
+            x_value: ActivationX::Any,
+            cost_reduction: None,
+        }
+    }
+
+    /// Scavenge `[mana]` (CR 702.97a): `[Mana], Exile this card from your
+    /// graveyard: Put a number of +1/+1 counters equal to this card's power on
+    /// target creature. Activate only as a sorcery.`
+    #[must_use]
+    pub const fn scavenge(mana: baylee_core::mana::ManaCost) -> Self {
+        Self::scavenge_with_parts(mana, &[crate::cost::CostPart::ExileSelf])
+    }
+
+    /// Scavenge with custom cost parts (must include [`crate::CostPart::ExileSelf`]).
+    #[must_use]
+    pub const fn scavenge_with_parts(
+        mana: baylee_core::mana::ManaCost,
+        parts: &'static [crate::cost::CostPart],
+    ) -> Self {
+        Self::Activated {
+            cost: Cost { mana, parts },
+            effects: &[crate::effect::Effect::AddCounter {
+                kind: crate::CounterKind::P1P1,
+                amount: crate::effect::Amount::SourcePower,
+            }],
+            targets: Some(crate::effect::TargetReq::one(
+                crate::effect::TargetSpec::Object(&Filter::CREATURE),
+            )),
+            second_targets: None,
+            timing: ActivationTiming::SorcerySpeed,
+            mana_ability: false,
+            zone: ActivationZone::Graveyard,
+            limit: ActivationLimit::Unlimited,
+            x_value: ActivationX::Any,
+            cost_reduction: None,
+        }
+    }
+
+    /// Splice onto `[onto]` `[cost]` (CR 702.47a).
+    #[must_use]
+    pub const fn splice(onto: &'static Filter, cost: Cost) -> Self {
+        Self::Splice { onto, cost }
+    }
+
+    /// Splice onto `[onto]` `[mana]` with no non-mana cost parts (CR 702.47a).
+    #[must_use]
+    pub const fn splice_mana(onto: &'static Filter, mana: baylee_core::mana::ManaCost) -> Self {
+        Self::Splice {
+            onto,
+            cost: Cost { mana, parts: &[] },
+        }
+    }
+
+    /// Awaken `count`—`[mana]` (CR 702.113a).
+    #[must_use]
+    pub const fn awaken(count: u16, mana: baylee_core::mana::ManaCost) -> Self {
+        Self::Awaken {
+            count,
+            cost: Cost { mana, parts: &[] },
+        }
+    }
+
+    /// Awaken `count`—`[cost]` with general cost parts (CR 702.113a).
+    #[must_use]
+    pub const fn awaken_cost(count: u16, cost: Cost) -> Self {
+        Self::Awaken { count, cost }
+    }
+
+    /// Champion a `[filter]` (CR 702.72a).
+    #[must_use]
+    pub const fn champion(filter: &'static Filter) -> Self {
+        Self::Champion { filter }
     }
 }
 
@@ -1434,6 +2134,18 @@ pub enum CopyMod {
     /// [`Modifier::GrantActivated`]: crate::static_ability::Modifier::GrantActivated
     /// [`Modifier::GrantTriggered`]: crate::static_ability::Modifier::GrantTriggered
     Grant(&'static crate::static_ability::Modifier),
+    /// Sets the copy's copiable name ("except its name is …", CR 707.9b).
+    SetName(&'static str),
+    /// Retains the copier's prior copiable name ("except it keeps its name", CR 707.9b).
+    KeepName,
+    /// Sets the copy's copiable mana cost ("except its mana cost is …", CR 707.9b).
+    SetManaCost(baylee_core::mana::ManaCost),
+    /// Retains the copier's prior copiable mana cost (CR 707.9b).
+    KeepManaCost,
+    /// Replaces the copy's card types outright (CR 707.9b).
+    SetTypes(baylee_core::types::TypeSet),
+    /// Adds color(s) to the copy's copiable colors ("in addition to its other colors", CR 707.9b).
+    AddColor(baylee_core::color::ColorSet),
 }
 
 /// How many modes a modal spell's caster chooses (CR 700.2): the count
@@ -1483,13 +2195,10 @@ pub struct SpellMode {
     /// the stack on a board with no other artifact on it.
     pub targets: Option<crate::effect::TargetReq>,
     /// A second instance of the word "target" in this mode, as on
-    /// [`crate::AbilityDef::Spell::second_targets`]: Archdruid's Charm's
-    /// "Put a +1/+1 counter on target creature you control. It deals damage
-    /// equal to its power to target creature you don't control."
-    ///
-    /// A modal **spell**'s only: the cast wizard asks it once the mode is
-    /// chosen. A modal trigger's mode never carries one, which
-    /// `no_modal_trigger_mode_prints_a_second_target` holds.
+    /// [`crate::AbilityDef::Spell::second_targets`] (CR 115.3, CR 603.3d):
+    /// Archdruid's Charm's "Put a +1/+1 counter on target creature you
+    /// control. It deals damage equal to its power to target creature you
+    /// don't control", or Ayula, Queen Among Bears' modal trigger fight mode.
     pub second_targets: Option<crate::effect::TargetReq>,
     /// Cost override for this mode (overload); `None` = the printed cost.
     pub cost_override: Option<baylee_core::mana::ManaCost>,
@@ -1738,6 +2447,23 @@ mod tests {
                 zone: TriggerZone::Battlefield,
                 once_per_turn: false,
                 condition: None,
+            },
+            AbilityDef::Unearth {
+                cost: crate::cost::Cost::FREE,
+            },
+            AbilityDef::Encore {
+                cost: crate::cost::Cost::FREE,
+            },
+            AbilityDef::Splice {
+                onto: &crate::Filter::INSTANT_OR_SORCERY,
+                cost: crate::cost::Cost::FREE,
+            },
+            AbilityDef::Awaken {
+                count: 3,
+                cost: crate::cost::Cost::FREE,
+            },
+            AbilityDef::Champion {
+                filter: &crate::Filter::CREATURE,
             },
         ];
         for ability in others {

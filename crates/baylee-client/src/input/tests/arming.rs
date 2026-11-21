@@ -27,6 +27,7 @@ fn confirming_a_priority_choice_passes() {
                 unpaid_suspend: vec![],
                 restricted_taps: vec![],
                 restricted_floating: vec![],
+                spell_spending: vec![],
                 granted_actions: vec![],
             }),
         },

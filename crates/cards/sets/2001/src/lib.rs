@@ -53,6 +53,8 @@ pub mod angelfire_crusader;
 pub mod animal_boneyard;
 #[path = "pls/arctic_merfolk.rs"]
 pub mod arctic_merfolk;
+#[path = "psdg/arden_angel.rs"]
+pub mod arden_angel;
 #[path = "ody/ashen_firebeast.rs"]
 pub mod ashen_firebeast;
 #[path = "ody/atogatog.rs"]
@@ -1163,6 +1165,8 @@ pub mod urborg_uprising;
 pub mod urza_s_guilt;
 #[path = "ody/vampiric_dragon.rs"]
 pub mod vampiric_dragon;
+#[path = "psdg/velukan_dragon.rs"]
+pub mod velukan_dragon;
 #[path = "ody/verdant_succession.rs"]
 pub mod verdant_succession;
 #[path = "apc/vindicate.rs"]

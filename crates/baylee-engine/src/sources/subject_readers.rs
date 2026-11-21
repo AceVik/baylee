@@ -1,11 +1,25 @@
 //! References to a source found through its own public-zone cost (CR 400.7j).
 use baylee_cards_dsl::{Effect, Filter, TargetSpec};
+#[allow(clippy::too_many_lines)] // Flat vocabulary table matching each subject-bearing variant.
 pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: bool) -> bool {
     let mut refers = false;
     Effect::walk(effects, &mut 0, &mut |effect| {
         refers |= match effect {
             Effect::DestroyTargetSlots { targets, .. } => {
                 targets.contains(&baylee_cards_dsl::TargetSlot::This)
+            }
+            Effect::TapTargetSlot(slot) | Effect::UntapTargetSlot(slot) => {
+                matches!(slot, baylee_cards_dsl::TargetSlot::This)
+            }
+            Effect::BecomeCopy {
+                subject,
+                subject_filter,
+                original,
+                ..
+            } => {
+                matches!(subject, baylee_cards_dsl::TargetSlot::This)
+                    || matches!(original, TargetSpec::ThisObject)
+                    || subject_filter.is_some_and(|f| implicit_source && matches!(f, Filter::This))
             }
             Effect::RedirectTargetSourceDamageThisTurn { source, to, .. } => {
                 matches!(source, TargetSpec::ThisObject)
@@ -16,6 +30,8 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                     )
             }
             Effect::ChooseLandwalk { target, .. }
+            | Effect::CreateTokenCopy { target, .. }
+            | Effect::CopySpellOrAbility { target, .. }
             | Effect::RedirectNextChosenSourceDamageToTarget { target }
             | Effect::PreventDamageFromTargetingCausesThisTurn { target }
             | Effect::GrantSpecialActionUntilEndOfTurn {
@@ -45,10 +61,17 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::RedirectNextDamage { target, .. }
             | Effect::PreventNextDamage { target, .. }
             | Effect::DealDamage { target, .. }
+            | Effect::DamagePermanentAndController { target, .. }
             | Effect::DealDamageWithoutPreventionOrRedirection { target, .. }
-            | Effect::DealDamageEvenly { target, .. } => matches!(target, TargetSpec::ThisObject),
+            | Effect::DealDamageEvenly { target, .. }
+            | Effect::Detain { target }
+            | Effect::Goad { target }
+            | Effect::Suspect { target }
+            | Effect::Unsuspect { target } => matches!(target, TargetSpec::ThisObject),
             Effect::CreateContinuousEffect { filter, .. }
             | Effect::BecomeChosenCreatureType { filter, .. }
+            | Effect::GrantProtectionFromChosenColorUntilEot { filter }
+            | Effect::DetainFilter { filter }
             | Effect::PumpFilter { filter, .. }
             | Effect::PumpFilterPerKeyword { filter, .. }
             | Effect::SetPTFilter { filter, .. } => {
@@ -62,11 +85,18 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             Effect::PreventNextDamageFromSource { .. }
             | Effect::PreventNextDamageToAttached { .. }
             | Effect::ReflectNextChosenSourceDamage
+            | Effect::MustBlockSourceIfAbleThisCombat
             | Effect::ExileSourceThenCastTransformed { .. }
             | Effect::TakklemaggotDeath
             | Effect::MeldWithNamed { .. }
             | Effect::MoveSourceToOwnerGraveyard
             | Effect::PutSourceFromHandOntoBattlefield
+            | Effect::PutNinjutsuOntoBattlefield
+            | Effect::Myriad
+            | Effect::ExertSource
+            | Effect::Exploit
+            | Effect::Endure(_)
+            | Effect::ReturnCraftedTransformed
             | Effect::SacrificeSelf
             | Effect::UntapSelf
             | Effect::TapSelf
@@ -74,6 +104,9 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::RemoveCounterSelf { .. }
             | Effect::MoveCounterToEvent { .. }
             | Effect::DetachSource
+            | Effect::SoulbondPair { .. }
+            | Effect::Monstrosity(_)
+            | Effect::SetClassLevel(_)
             | Effect::IfNoCountersOnSelf { .. } => true,
             Effect::AddCounter { .. }
             | Effect::AddCountersUpTo { .. }
@@ -82,10 +115,40 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             Effect::AtEndOfCombat { about, .. } | Effect::AtEndOfCombatThisTurn { about, .. } => {
                 matches!(about, TargetSpec::ThisObject)
             }
+            Effect::MustBlockIfAble {
+                blocker, attacker, ..
+            } => {
+                matches!(blocker, TargetSpec::ThisObject)
+                    || matches!(attacker, TargetSpec::ThisObject)
+            }
+            Effect::PreventFromChosenSource { target, .. }
+            | Effect::PreventNextFromMatchingSources { target, .. }
+            | Effect::PreventAllDamageFromMatchingThisTurn { target, .. } => {
+                matches!(target, Some(TargetSpec::ThisObject))
+            }
+            Effect::IfCondition { condition, .. } => condition_refers_to_subject(condition),
             _ => false,
         };
     });
     refers
+}
+
+fn condition_refers_to_subject(condition: &baylee_cards_dsl::Condition) -> bool {
+    use baylee_cards_dsl::Condition as C;
+    match condition {
+        C::ObjectMatches { what, .. } => matches!(*what, TargetSpec::ThisObject),
+        C::SourceMatches(_)
+        | C::IsPaired
+        | C::IsMonstrous
+        | C::ClassLevelExactly(_)
+        | C::ClassLevelAtLeast(_)
+        | C::IsSuspected
+        | C::SoulbondSelfCanPair
+        | C::SoulbondEventCanPair => true,
+        C::All(parts) | C::Any(parts) => parts.iter().any(condition_refers_to_subject),
+        C::Not(inner) => condition_refers_to_subject(inner),
+        _ => false,
+    }
 }
 
 /// A zone-move trigger may find its own public destination for an instruction

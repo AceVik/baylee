@@ -158,10 +158,16 @@ fn pool(pool: &ManaPoolView) -> String {
         })
     });
     let restricted = symbols(&|color| pool.restricted[color.index()]);
-    match (plain.is_empty(), restricted.is_empty()) {
+    let base = match (plain.is_empty(), restricted.is_empty()) {
         (_, true) => format!("pool {plain}"),
         (true, false) => format!("pool {restricted} (restricted to some spells)"),
         (false, false) => format!("pool {plain} (+{restricted} restricted to some spells)"),
+    };
+    let snow = pool.snow_total();
+    if snow > 0 {
+        format!("{base} ({snow} snow)")
+    } else {
+        base
     }
 }
 
@@ -380,6 +386,12 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     if let Some(protector) = object.battle_protector {
         out.push(format!("protected by {}", table.player(protector)));
     }
+    if object.suspected {
+        out.push("suspected".into());
+    }
+    if let Some(level) = object.class_level {
+        out.push(format!("Class level {level}"));
+    }
     for counter in &object.counters {
         if counter.kind == baylee_view::CounterKind::Loyalty {
             continue;
@@ -392,6 +404,11 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     }
     if let Some(host) = object.attached_to {
         out.push(format!("attached to {}", table.named(host)));
+    } else if let Some(player) = object.attached_player() {
+        out.push(format!("attached to {}", table.player(player)));
+    }
+    if let Some(partner) = object.paired_with() {
+        out.push(format!("paired with {}", table.named(partner)));
     }
     let combat = &table.view.combat;
     if let Some(attack) = combat.attackers.iter().find(|a| a.creature == object.id) {
@@ -406,6 +423,32 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     if object.controller != object.owner {
         out.push(format!("owned by {}", table.player(object.owner)));
     }
+    push_chosen_details(table, object, &mut out);
+    for choice in table
+        .view
+        .held_choices
+        .iter()
+        .filter(|c| c.object == Some(object.id))
+    {
+        out.push(format!(
+            "chosen by {} to {}",
+            table.player(choice.player),
+            chosen_action_verb(choice.action)
+        ));
+    }
+    if let Some([left, right]) = object.unlocked_doors {
+        let open: Vec<&str> = [(left, "left"), (right, "right")]
+            .into_iter()
+            .filter_map(|(open, side)| open.then_some(side))
+            .collect();
+        if !open.is_empty() {
+            out.push(format!("unlocked: {}", open.join(" and ")));
+        }
+    }
+    out
+}
+
+fn push_chosen_details(table: &Table<'_>, object: &PublicObject, out: &mut Vec<String>) {
     match (
         object
             .chosen_subtype
@@ -451,28 +494,6 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
             .collect();
         out.push(format!("exiled: {}", exiled.join(", ")));
     }
-    for choice in table
-        .view
-        .held_choices
-        .iter()
-        .filter(|c| c.object == Some(object.id))
-    {
-        out.push(format!(
-            "chosen by {} to {}",
-            table.player(choice.player),
-            chosen_action_verb(choice.action)
-        ));
-    }
-    if let Some([left, right]) = object.unlocked_doors {
-        let open: Vec<&str> = [(left, "left"), (right, "right")]
-            .into_iter()
-            .filter_map(|(open, side)| open.then_some(side))
-            .collect();
-        if !open.is_empty() {
-            out.push(format!("unlocked: {}", open.join(" and ")));
-        }
-    }
-    out
 }
 
 /// What an attack is aimed at: "you", "P2", "Jace #90".
@@ -873,6 +894,12 @@ fn zone_line(
                     "suspended, {}",
                     words::count(usize::from(time), "time counter")
                 ));
+            }
+            if object.plotted {
+                notes.push("plotted".to_string());
+            }
+            if object.warped {
+                notes.push("warped".to_string());
             }
             if object.commander {
                 notes.push(format!("{} commander", table.whose(object.owner)));

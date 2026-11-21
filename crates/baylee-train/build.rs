@@ -37,7 +37,49 @@ fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (St
         // worth of keyword (`docs/trained-ai.md`, "Card catalog compatibility").
         // Every face field added from now on belongs in this list;
         // `a_plain_face_keeps_its_41_children` fails until it is.
-        if label == "FaceDef" && ["buyback", "multikicker", "madness"].contains(&field.as_str()) {
+        if label == "FaceDef"
+            && [
+                "buyback",
+                "multikicker",
+                "madness",
+                "blitz",
+                "megamorph",
+                "bestow",
+                "emerge",
+                "squad",
+                "offspring",
+                "plot",
+                "casualty",
+                "impending",
+                "gift",
+                "warp",
+            ]
+            .contains(&field.as_str())
+        {
+            writeln!(
+                present_only,
+                "if self.{field}.is_some() {{ children.push(b.field(\"{label}.{field}\", {access})); }}"
+            )
+            .unwrap();
+            continue;
+        }
+        if label == "FaceDef" && ["jump_start", "aftermath", "bargain"].contains(&field.as_str()) {
+            writeln!(
+                present_only,
+                "if self.{field} {{ children.push(b.field(\"{label}.{field}\", {access})); }}"
+            )
+            .unwrap();
+            continue;
+        }
+        if label == "FaceDef" && ["morph_parts"].contains(&field.as_str()) {
+            writeln!(
+                present_only,
+                "if !self.{field}.is_empty() {{ children.push(b.field(\"{label}.{field}\", {access})); }}"
+            )
+            .unwrap();
+            continue;
+        }
+        if label == "TokenDef" && ["back_face"].contains(&field.as_str()) {
             writeln!(
                 present_only,
                 "if self.{field}.is_some() {{ children.push(b.field(\"{label}.{field}\", {access})); }}"

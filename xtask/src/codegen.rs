@@ -467,14 +467,7 @@ pub(crate) fn codegen(
         //    (read as an automated lookup, never copied).
         let scripts_dir = scripts_root(root, scripts_dir);
         let lookup = if scripts_dir.exists() {
-            let index = scripts::build_index(&scripts_dir)?;
-            write_or_check(
-                check,
-                &root.join("data/script-index.json"),
-                &serde_json::to_string_pretty(&index)?,
-                &mut changed,
-            )?;
-            println!("script index: {} scripts", index.len());
+            let index = write_script_index(root, &scripts_dir, check, &mut changed)?;
             Some(scriptgen::ScriptLookup::new(scripts_dir.clone(), index))
         } else {
             println!(
@@ -571,6 +564,50 @@ pub(crate) fn codegen(
         );
     }
     println!("codegen complete");
+    Ok(())
+}
+
+/// Walks `scripts_dir`, writes `data/script-index.json`, and returns the built
+/// map so `codegen` and `xtask script-index` never duplicate serialization.
+fn write_script_index(
+    root: &Path,
+    scripts_dir: &Path,
+    check: bool,
+    changed: &mut Vec<PathBuf>,
+) -> anyhow::Result<BTreeMap<String, String>> {
+    let index = scripts::build_index(scripts_dir)?;
+    write_or_check(
+        check,
+        &root.join("data/script-index.json"),
+        &serde_json::to_string_pretty(&index)?,
+        changed,
+    )?;
+    println!("script index: {} scripts", index.len());
+    Ok(index)
+}
+
+/// Refreshes `data/script-index.json` without running full `codegen`.
+pub(crate) fn refresh_script_index(
+    root: &Path,
+    scripts_dir: &Path,
+    check: bool,
+) -> anyhow::Result<()> {
+    let resolved = scripts_root(root, scripts_dir);
+    anyhow::ensure!(
+        resolved.is_dir(),
+        "card-script reference not found at {}; pass `--scripts <cardsfolder>`",
+        resolved.display()
+    );
+    let mut changed = Vec::new();
+    let _ = write_script_index(root, &resolved, check, &mut changed)?;
+    if check {
+        anyhow::ensure!(
+            changed.is_empty(),
+            "data/script-index.json is stale; run `cargo run -p xtask -- script-index --scripts {}`",
+            scripts_dir.display()
+        );
+        println!("script-index check: up to date");
+    }
     Ok(())
 }
 
@@ -724,5 +761,33 @@ mod relocate_tests {
             fs::read_to_string(cards.join("2009/src/con_/b.rs")).unwrap(),
             "b"
         );
+    }
+}
+
+#[cfg(test)]
+mod script_index_tests {
+    use super::refresh_script_index;
+    use std::fs;
+
+    #[test]
+    fn refresh_script_index_writes_and_checks_staleness() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let scripts = root.join("cardsfolder");
+        fs::create_dir_all(scripts.join("a")).unwrap();
+        fs::write(scripts.join("a/alpha.txt"), "Name:Alpha Card\n").unwrap();
+
+        refresh_script_index(root, &scripts, false).unwrap();
+        let snapshot: std::collections::BTreeMap<String, String> =
+            serde_json::from_str(&fs::read_to_string(root.join("data/script-index.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            snapshot.get("Alpha Card").map(String::as_str),
+            Some("a/alpha.txt")
+        );
+        refresh_script_index(root, &scripts, true).unwrap();
+
+        fs::write(scripts.join("a/beta.txt"), "Name:Beta Card\n").unwrap();
+        assert!(refresh_script_index(root, &scripts, true).is_err());
     }
 }

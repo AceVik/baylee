@@ -3,36 +3,11 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// One line in `controls_at_least` skips the entering permanent, and this is
-/// the list of cards that would change if it went.
-///
-/// Its own comment used to say the list was empty — "nothing in the pool can
-/// see the difference", every enters-tapped-unless clause naming something
-/// the land is not, and the one cycle that could saying "other" itself. Both
-/// halves are wrong. The slow lands print `Filter::And(&[ControlledByYou,
-/// LAND])` and are lands, so all ten count themselves; and the cycle the note
-/// named as the safe one, Mystic Sanctuary, is a generated stub with no
-/// enter-modifier at all. The line is load-bearing for ten implemented cards,
-/// and the test above is what plays one.
-///
-/// The word the ten are missing is one the DSL *can* say — `Filter::Another`,
-/// which `eval` reads as `obj.id != this` — and none of them says it, because
-/// `landgen` reads "two or more other lands" into a bare count and lets the
-/// engine supply the "other". That is a workable division of labour and this
-/// is the fence around it: the day a filter here stops matching its own card,
-/// or a new cycle starts, the split has to be looked at again rather than
-/// discovered by a land that taps for one turn too few.
-///
-/// Asked through `eval::matches` rather than by reading the filters, because a
-/// second implementation of "does this match" is exactly the thing that would
-/// agree with itself and not with the engine. Both directions are asserted:
-/// an unexpected land is a new cycle, a missing one is a list gone stale.
-///
-/// The catch-all skips [`EnterModifier::TappedUnlessReveal`] with the rest,
-/// and that one is skipped for a reason of its own: it is the only filter in
-/// this family that is *not* a permanent filter. It reads a card in hand,
-/// where the entering land has never been, so "would it count itself" cannot
-/// be asked of it at all.
+/// Pin the lands whose entry filters match the entering land itself. The
+/// entry count in `controls_count` skips that land to implement "other."
+/// Additions to the census need a play test at the printed count boundary.
+/// The census uses the same `eval::matches` call as the engine. Reveal land
+/// filters read cards in hand and fall outside this battlefield census.
 #[test]
 fn the_only_lands_that_would_count_themselves_are_the_slow_ones() {
     let mut clauses = Vec::new();

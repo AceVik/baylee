@@ -603,6 +603,126 @@ pub enum GameEvent {
         /// Its owner, who controls the madness trigger.
         owner: PlayerId,
     },
+    /// A permanent on the battlefield became exerted (CR 701.43a–d).
+    PermanentExerted {
+        /// The exerted permanent.
+        object: ObjectId,
+        /// The player who exerted it.
+        player: PlayerId,
+        /// Whether exerted to pay a cost or by an effect.
+        cause: Cause,
+    },
+    /// An attacking creature enlisted another creature by tapping it as an
+    /// optional attack cost (CR 702.154a–d).
+    CreatureEnlisted {
+        /// The attacking creature whose enlist cost was paid.
+        attacker: ObjectId,
+        /// The creature tapped to pay that enlist cost.
+        enlisted: ObjectId,
+        /// The attacking player who paid the enlist cost.
+        player: PlayerId,
+    },
+    /// A card became plotted in exile (CR 702.170a, CR 702.170c).
+    CardPlotted {
+        /// The plotted card, now face up in exile.
+        object: ObjectId,
+        /// The player who plotted it.
+        player: PlayerId,
+    },
+    /// A player gave a promised gift to an opponent (CR 702.174c).
+    GiftGiven {
+        /// The controller of the resolving gift spell or permanent gift trigger.
+        giver: PlayerId,
+        /// The chosen opponent who received the gift.
+        recipient: PlayerId,
+    },
+    /// A creature exploited a creature by sacrificing it as its exploit ability
+    /// resolved (CR 702.110a–b).
+    CreatureExploited {
+        /// Exact incarnation of the exploiting creature.
+        exploiter: baylee_core::ids::DamageSourceRef,
+        /// The sacrificed exploited creature.
+        exploited: ObjectId,
+        /// The player who sacrificed the creature.
+        player: PlayerId,
+    },
+    /// A spell was cast for its warp cost (CR 702.185a–c).
+    SpellWarped {
+        /// The warped spell on the stack.
+        object: ObjectId,
+        /// The player who cast it for its warp cost.
+        player: PlayerId,
+    },
+    /// A player scried one or more cards (CR 701.22a–d; scrying 0 emits no
+    /// event per CR 701.22b).
+    PlayerScried {
+        /// The player who scried.
+        player: PlayerId,
+        /// Number of cards scried (`>= 1`).
+        count: u8,
+    },
+    /// A permanent became monstrous via monstrosity N (CR 701.37a–c).
+    BecameMonstrous {
+        /// The permanent that became monstrous.
+        object: ObjectId,
+        /// The monstrosity value `N` / `X` (`CR 701.37c`).
+        count: u32,
+    },
+    /// The Ring tempted a player (`CR 701.54a–e`).
+    RingTempted {
+        /// The player whom The Ring tempted.
+        player: PlayerId,
+        /// The player's Ring-bearer after choosing, if any (`CR 701.54a`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ring_bearer: Option<ObjectId>,
+        /// Total times The Ring has tempted `player` this game (`1..=255`).
+        count: u8,
+    },
+    /// A player firebent via Firebending N (`CR 702.189a–b`).
+    PlayerFirebent {
+        /// The player who firebent.
+        player: PlayerId,
+        /// Source of the firebending ability.
+        source: ObjectId,
+        /// Amount of `{R}` produced (`>= 1`).
+        amount: u16,
+    },
+    /// A player committed a crime by casting a spell, activating an ability, or
+    /// putting a triggered ability on the stack targeting an opponent, a
+    /// permanent/spell/ability an opponent controls, or a card in an opponent's
+    /// graveyard (CR 700.13).
+    CommittedCrime {
+        /// The player who committed the crime.
+        player: PlayerId,
+    },
+    /// A player spent mana to cast a spell, advancing their cumulative spell
+    /// mana expended this turn from `previous` to `total` (expend N, CR 700.14).
+    ManaExpended {
+        /// The casting player.
+        player: PlayerId,
+        /// Cumulative mana spent on spells this turn before this spell.
+        previous: u32,
+        /// Cumulative mana spent on spells this turn after this spell.
+        total: u32,
+    },
+    /// A player participated in a clash (CR 701.30a–d).
+    Clashed {
+        /// The clashing player.
+        player: PlayerId,
+        /// Whether this player won the clash (CR 701.30d).
+        won: bool,
+    },
+    /// A class level bar set the level of this battlefield incarnation (CR 717.2a).
+    ClassLevelChanged {
+        /// The permanent whose level changed.
+        object: ObjectId,
+        /// Its battlefield incarnation when the level changed.
+        version: u32,
+        /// Its new level.
+        level: u8,
+        /// Whether the identity of the permanent was concealed at this event.
+        face_down: bool,
+    },
 }
 
 /// Where in a library a card was put.
@@ -659,9 +779,14 @@ pub enum LossReason {
     Effect,
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
+const fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
+}
+
 /// Immutable battlefield information for a zone-change event. Kept on the
 /// journal entry because an object may move again before triggers are collected.
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Departure {
     /// The operation was a sacrifice, even if a replacement changed its destination.
     #[serde(default)]
@@ -669,6 +794,9 @@ pub struct Departure {
     /// Independent undying and persist instances immediately before departure.
     #[serde(default)]
     pub return_keywords: [u32; 2],
+    /// Independent modular instances immediately before departure (CR 702.43b).
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub modular_instances: u32,
     /// Identity immediately before leaving the battlefield.
     #[serde(default)]
     pub version: u32,
@@ -681,9 +809,39 @@ pub struct Departure {
     pub toughness: i16,
     /// Auras/equipment attached immediately before departure.
     pub attachments: Vec<ObjectId>,
+    /// Player whose Ring-bearer this permanent was immediately before departure (`CR 603.10a`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub was_ring_bearer_of: Option<PlayerId>,
+    /// Whether this incarnation was attacking immediately before departure.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub was_attacking: bool,
+}
+
+impl std::hash::Hash for Departure {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.sacrificed.hash(state);
+        self.return_keywords.hash(state);
+        if self.modular_instances > 0 {
+            self.modular_instances.hash(state);
+        }
+        self.version.hash(state);
+        self.power.hash(state);
+        self.controller.hash(state);
+        self.toughness.hash(state);
+        self.attachments.hash(state);
+        if let Some(who) = self.was_ring_bearer_of {
+            who.hash(state);
+        }
+        if self.was_attacking {
+            Departure::ATTACKING_TAG.hash(state);
+        }
+    }
 }
 
 impl Departure {
+    // Above the entire encoded Ring-bearer seat range.
+    const ATTACKING_TAG: u16 = 257;
+
     /// Stable continuation fingerprint while a departure awaits trigger collection.
     pub(crate) fn fingerprint(&self) -> u64 {
         let mut hash =
@@ -698,11 +856,24 @@ impl Departure {
         for count in self.return_keywords {
             hash = hash.wrapping_mul(31).wrapping_add(u64::from(count));
         }
+        if self.modular_instances > 0 {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(self.modular_instances));
+        }
         for id in &self.attachments {
             hash = hash.wrapping_mul(31).wrapping_add(u64::from(id.slot()));
             hash = hash
                 .wrapping_mul(31)
                 .wrapping_add(u64::from(id.generation()));
+        }
+        if let Some(who) = self.was_ring_bearer_of {
+            hash = hash.wrapping_mul(31).wrapping_add(u64::from(who.get()) + 1);
+        }
+        if self.was_attacking {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(Self::ATTACKING_TAG));
         }
         hash
     }
@@ -718,6 +889,22 @@ pub struct JournalEntry {
     /// Last battlefield information, present only on a departure.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub departure: Option<Box<Departure>>,
+    /// Identity and controller of the permanent when it tapped or untapped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tap_observation: Option<TapObservation>,
+}
+
+/// Information captured at a tap or untap, before later instructions resolve.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct TapObservation {
+    /// Incarnation of the permanent at the event.
+    pub version: u32,
+    /// Controller of that incarnation.
+    pub controller: PlayerId,
+    /// Projected power of the permanent at the event.
+    pub power: i16,
+    /// Projected toughness of the permanent at the event.
+    pub toughness: i16,
 }
 
 /// The append-only event journal.
@@ -730,13 +917,36 @@ pub struct Journal {
 }
 
 impl Journal {
+    /// Combat membership of this exact permanent immediately before it left.
+    pub(crate) fn was_attacking_on_departure(&self, id: ObjectId, version: u32) -> bool {
+        self.entries()
+            .iter()
+            .rev()
+            .find_map(|entry| {
+                let departure = entry.departure.as_ref()?;
+                (departure.version == version
+                    && matches!(entry.event, GameEvent::ZoneChanged { object, .. } if object == id))
+                .then_some(departure.was_attacking)
+            })
+            .unwrap_or(false)
+    }
+
     /// Appends an event, returning its sequence number.
     pub fn record(&mut self, event: GameEvent) -> u64 {
+        self.record_with_tap_observation(event, None)
+    }
+
+    pub(crate) fn record_with_tap_observation(
+        &mut self,
+        event: GameEvent,
+        tap_observation: Option<TapObservation>,
+    ) -> u64 {
         let seq = self.entries.len() as u64 + 1;
         Arc::make_mut(&mut self.entries).push(JournalEntry {
             seq,
             event,
             departure: None,
+            tap_observation,
         });
         seq
     }

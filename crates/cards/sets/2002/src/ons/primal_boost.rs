@@ -12,7 +12,7 @@ card!(
     oracle_id = "902e7d4b-7ab4-40b5-b3a5-c83ef604989a",
     scryfall_id = "59f93eb0-cb0c-4ee0-8006-3d3c7515d254",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Primal Boost",
         mana_cost = mana!("{2}{G}"),

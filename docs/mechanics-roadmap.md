@@ -189,10 +189,10 @@ section C maps onto these or onto section A.
 | B9 | **Disturb / graveyard casting family** | cast-from-graveyard zone permission + face/cost override, exile-on-resolve | M | Mirrorhall Mimic; future: flashback keyword, unearth, escape, jump-start, embalm/eternalize, aftermath, encore |
 | B10 | **Player hexproof** | player-targeting prevention in target_options (spell sources) | S | Everybody Lives! rider |
 | B11 | **Permanent-spell copy tokens** | copy resolution: permanent spells resolve as tokens | S | Reflections of Littjara rider, Double Major |
-| B12 | **Classes / level-up** | class counters per permanent + level-gated ability sets (builds on B3) | M | Wizard Class; future: all classes, level-up creatures |
+| B12 | **Classes / level-up** | Implemented. Each permanent tracks its own Class level designation across type and control changes. Level Up creatures use level counters. | M | Wizard Class, Druid Class, Innkeeper's Talent and the generated Classes |
 
 Bundles: **B1+B2+B5+B6+B8+B10+B11 are all S and independent** — one small
-engine iteration. B3, B4, B7, B9, B12 are the remaining real milestones.
+engine iteration. B3, B4, B7 and B9 are the remaining real milestones.
 
 ---
 

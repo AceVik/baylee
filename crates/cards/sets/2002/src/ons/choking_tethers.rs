@@ -12,7 +12,7 @@ card!(
     oracle_id = "a60348fa-b182-4667-9e38-15bdf3511f82",
     scryfall_id = "eb0d0c81-8698-41db-a687-47af028e910e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Choking Tethers",
         mana_cost = mana!("{3}{U}"),

@@ -1092,7 +1092,9 @@ impl Builder<'_, '_> {
     }
 
     pub(super) fn ability_label(&self, source: ObjectId, index: u32) -> String {
-        use baylee_engine::choice::{PREPARED_CAST, TURN_FACE_UP, door_to_unlock, granted_slot};
+        use baylee_engine::choice::{
+            PLOT_CARD, PREPARED_CAST, TURN_FACE_UP, door_to_unlock, granted_slot,
+        };
         let table = self.table;
         let named = table.named(source);
         if let Some(slot) = granted_slot(index) {
@@ -1121,6 +1123,9 @@ impl Builder<'_, '_> {
         }
         if index == TURN_FACE_UP {
             return format!("Turn {named} face up");
+        }
+        if index == PLOT_CARD {
+            return format!("Plot {named} from your hand");
         }
         if let Some(half) = door_to_unlock(index) {
             let side = if half == 0 { "left" } else { "right" };
@@ -1640,12 +1645,30 @@ impl Builder<'_, '_> {
         self.line(format!("QUESTION: {question}"));
         let kicker = matches!(
             prompt,
-            YesNoPrompt::Kicker | YesNoPrompt::KickerOption { .. } | YesNoPrompt::Buyback { .. }
+            YesNoPrompt::Kicker
+                | YesNoPrompt::Bargain
+                | YesNoPrompt::Offspring { .. }
+                | YesNoPrompt::Casualty { .. }
+                | YesNoPrompt::Conspire
+                | YesNoPrompt::Gift { .. }
+                | YesNoPrompt::KickerOption { .. }
+                | YesNoPrompt::Buyback { .. }
         );
         if let Some(about) = about {
             self.line(format!("The ability asking: \"{about}\""));
-        } else if kicker && let Some((name, sentence)) = source.and_then(additional_cost) {
+        } else if (kicker || matches!(prompt, YesNoPrompt::ChooseFirstCostBranch { .. }))
+            && let Some((name, sentence)) = source.and_then(additional_cost)
+        {
             self.line(format!("The spell: {name}: \"{sentence}\""));
+        } else if matches!(
+            prompt,
+            YesNoPrompt::OpeningHandBattlefield | YesNoPrompt::OpeningHandReveal
+        ) && let Some(s) = source
+            && let Some(def) = baylee_cards::by_index(s.card)
+            && let Some(text) = baylee_cards::oracle::face(s.card, 0)
+        {
+            let compact = text.replace('\n', " ");
+            self.line(format!("The card: {}: \"{compact}\"", def.name()));
         }
         if kicker {
             // Said here because the table does not say it later: a cast
@@ -1848,6 +1871,21 @@ impl Builder<'_, '_> {
                 "How many times do you pay its multikicker? Each time costs {cost} more, and \
                  zero is not kicked at all. Fewer than the mana you floated is a legal answer"
             ),
+            NumberPrompt::Squad { cost, parts } => {
+                let price = baylee_client_core::interaction::buyback_price(
+                    baylee_client_core::Lang::En,
+                    *cost,
+                    *parts,
+                );
+                format!(
+                    "How many times do you pay its squad cost ({price} each)? It creates a token \
+                     copy when it enters for each time paid"
+                )
+            }
+            NumberPrompt::ReadAhead { saga } => format!(
+                "Choose the starting chapter for {} (read ahead)",
+                table.named(*saga)
+            ),
             NumberPrompt::CombatDamage { .. } => combat_division_words(table, reason),
             NumberPrompt::DivideDamage {
                 target,
@@ -1870,6 +1908,9 @@ impl Builder<'_, '_> {
         // leaves its range open; the number is the one the mana pays.
         let max = match reason {
             NumberPrompt::Multikicker { cost } => self
+                .kicks_floating(cost)
+                .map_or(max, |pays| pays.clamp(min, max)),
+            NumberPrompt::Squad { cost, .. } if *cost != baylee_core::mana::ManaCost::ZERO => self
                 .kicks_floating(cost)
                 .map_or(max, |pays| pays.clamp(min, max)),
             NumberPrompt::X => self.payable_x().map_or(max, |pays| pays.clamp(min, max)),

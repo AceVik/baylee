@@ -437,7 +437,38 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // and protocol 47 on binary frames.
     // 94: `YesNoPrompt::KickerOption` is an imported engine prompt variant a
     // reader of 93 cannot decode (protocol 50 on binary frames).
-    const RECORDED: (u32, u64) = (94, 5_197_534_328_483_882_664);
+    // 95: `ChoicePrompt::Amplify` is an imported engine prompt variant a
+    // reader of 94 cannot decode (protocol 51 on binary frames).
+    // 96: `CastModeKind::Bestow` and `CastModeKind::JumpStart` are imported
+    // engine cast-mode variants a reader of 95 cannot decode (protocol 52 on
+    // binary frames).
+    // 97: `CastModeKind::Blitz` is an imported engine cast-mode variant a
+    // reader of 96 cannot decode (protocol 53 on binary frames).
+    // 98: `CastModeKind::Emerge` and `YesNoPrompt::Bargain` are imported
+    // engine variants a reader of 97 cannot decode (protocol 54 on binary
+    // frames).
+    // 99: `CastModeKind::Fused`, `NumberPrompt::Squad`,
+    // `YesNoPrompt::Offspring`, and `ChoicePrompt::ManifestDread` are imported
+    // engine variants a reader of 98 cannot decode (protocol 55 on binary
+    // frames).
+    // 100: `CastModeKind::Plot` and `YesNoPrompt::Casualty` are imported
+    // engine variants a reader of 99 cannot decode, alongside additive
+    // `PublicObject::plotted` (protocol 56 on binary frames).
+    // 101: `CastModeKind::Impending` and `YesNoPrompt::Gift` are imported
+    // engine variants a reader of 100 cannot decode (protocol 58 on binary
+    // frames).
+    // 102: `CastModeKind::Warp` and `ChoicePrompt::Devour` are imported engine
+    // variants a reader of 101 cannot decode, alongside `PublicObject::warped`
+    // and `ManaPoolView::snow` (protocol 59 on binary frames).
+    // 103: `CastModeKind::Retrace`, `YesNoPrompt::{Riot, Unleash}`, and
+    // additive `PublicObject::suspected` (protocol 60 on binary frames).
+    // 104–107: Engine Waves 9a–10b (`AssignDamageAsThoughUnblocked`, `ClashBottom`,
+    // `ChooseRingBearer`, `ChooseFirstCostBranch`, `OpeningHandBattlefield`,
+    // `OpeningHandReveal`, `Sneak`, `Endure`, `Awaken`, `Splice`, `CipherEncode`,
+    // `Champion`, `Conspire`, and `Tribute`; protocol 64 on binary frames).
+    // 108: `PublicObject::class_level` and `LogEvent::ClassLevel` (CR 717;
+    // protocol 65 on binary frames).
+    const RECORDED: (u32, u64) = (108, 17_548_864_900_884_604_084);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

@@ -12,7 +12,7 @@ card!(
     oracle_id = "ece3e379-c586-48bd-8742-472b5deccc35",
     scryfall_id = "87202a72-72aa-46d3-ba16-10a180276905",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Solar Blast",
         mana_cost = mana!("{3}{R}"),

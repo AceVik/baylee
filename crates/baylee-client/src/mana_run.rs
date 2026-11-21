@@ -586,21 +586,6 @@ pub fn foretell_mana_for(
 ) -> Option<baylee_client_core::manaplan::Plan> {
     let view = duel.view.as_ref()?;
     let legal = duel.interaction.as_ref()?.legal_actions()?;
-    let hand_card = baylee_client_core::decision::hand(view)
-        .iter()
-        .find(|c| c.id == card)?;
-    let def = baylee_cards::by_index(hand_card.card.index)?;
-    let face = def
-        .faces
-        .get(usize::from(hand_card.card.face))
-        .or_else(|| def.faces.first())?;
-    face.foretell?;
-    let pool = view
-        .seat(baylee_client_core::decision::resource_player(view))?
-        .mana_pool;
-    baylee_client_core::manaplan::plan(
-        &baylee_core::mana::ManaCost::parse("{2}"),
-        &pool,
-        &manasources::sources(view, legal),
-    )
+    let plan = crate::castmodes::foretell_mode(view, legal, card)?.plan;
+    (!plan.steps.is_empty()).then_some(plan)
 }

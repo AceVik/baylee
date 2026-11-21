@@ -282,6 +282,46 @@ pub enum CostPart {
     /// Only a granted ability may carry this part; the recipient is not the
     /// permanent being sacrificed. Appended to preserve replay identities.
     SacrificeGrantor,
+    /// Return an unblocked attacking creature you control to its owner's hand
+    /// (ninjutsu and commander ninjutsu, CR 702.49a, CR 702.49d), recording
+    /// what that creature was attacking for [`crate::Effect::PutNinjutsuOntoBattlefield`].
+    /// Appended to preserve replay identities.
+    ReturnUnblockedAttacker,
+    /// The source deals `n` damage to you as a cost (CR 118.3, CR 120.3).
+    /// Always payable even under `CantLoseLife` or at low life; goes through
+    /// damage replacement and prevention effects. Appended to preserve replay
+    /// identities.
+    DealDamageToYou(u16),
+    /// Announce X and discard that many cards matching the filter from your
+    /// hand, binding X for [`crate::Amount::X`] (CR 107.3a, CR 701.9a).
+    /// Appended to preserve replay identities.
+    DiscardX(&'static Filter),
+    /// Announce X and exile that many cards matching the filter from your
+    /// graveyard, binding X for [`crate::Amount::X`] (CR 107.3a, CR 406).
+    /// Appended to preserve replay identities.
+    ExileFromGraveyardX(&'static Filter),
+    /// Forage (CR 701.61a): "Exile three cards from your graveyard or sacrifice
+    /// a Food." Appended to preserve replay identities.
+    Forage,
+    /// Exile `min..=max` matching materials from among permanents you control
+    /// and/or cards in your graveyard (excluding the source itself) as part of
+    /// activating a craft ability (CR 702.167a–c), linking the exiled cards for
+    /// [`crate::Effect::ReturnCraftedTransformed`]. Appended to preserve replay
+    /// identities.
+    CraftMaterials {
+        /// Material filter evaluated on controlled permanents and graveyard cards.
+        filter: &'static Filter,
+        /// Minimum materials to exile.
+        min: u8,
+        /// Maximum materials to exile (`u8::MAX` for `"one or more"` / `"any number"`).
+        max: u8,
+    },
+    /// Pay either complete cost branch (`"As an additional cost to cast this
+    /// spell, [cost A] or [cost B]"`, CR 118.8; *Spark Harvest*, *Bone Shards*,
+    /// *Cathartic Pyre*, *Final Payment*, and activated costs). Prompts when
+    /// both branches are payable and auto-selects the sole payable branch when
+    /// only one can be paid. Appended to preserve replay identities.
+    Either(&'static Cost, &'static Cost),
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its
@@ -333,6 +373,53 @@ pub struct AlternativeCost {
     pub cost: Cost,
     /// When it may be used.
     pub condition: AltCondition,
+}
+
+impl AlternativeCost {
+    /// Spectacle [cost] (CR 702.137a): pay `cost` rather than its mana cost if
+    /// an opponent lost life this turn.
+    #[must_use]
+    pub const fn spectacle(cost: Cost) -> Self {
+        Self {
+            cost,
+            condition: AltCondition::If(&crate::Condition::OpponentLostLifeThisTurn),
+        }
+    }
+
+    /// Surge [cost] (CR 702.117a): pay `cost` rather than its mana cost if you
+    /// or one of your teammates has cast another spell this turn.
+    #[must_use]
+    pub const fn surge(cost: Cost) -> Self {
+        Self {
+            cost,
+            condition: AltCondition::If(&crate::Condition::Surge),
+        }
+    }
+
+    /// Prowl [cost] (CR 702.76a): pay `cost` rather than its mana cost if a
+    /// player was dealt combat damage this turn by a source you controlled at
+    /// that time that shared a creature type with this spell.
+    #[must_use]
+    pub const fn prowl(cost: Cost) -> Self {
+        Self {
+            cost,
+            condition: AltCondition::If(&crate::Condition::Prowl),
+        }
+    }
+
+    /// Freerunning [cost] (CR 702.173a): pay `cost` rather than its mana cost
+    /// if a player was dealt combat damage this turn by a creature that, at the
+    /// time it dealt that damage, was an Assassin creature or a commander under
+    /// your control.
+    #[must_use]
+    pub const fn freerunning(cost: Cost) -> Self {
+        Self {
+            cost,
+            condition: AltCondition::If(
+                &crate::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn,
+            ),
+        }
+    }
 }
 
 /// A complete cost: a mana part plus non-mana parts.

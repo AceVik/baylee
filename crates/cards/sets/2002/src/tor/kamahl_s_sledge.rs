@@ -18,20 +18,18 @@ card!(
         types = TypeSet::SORCERY,
     ),],
     abilities = &[spell!(
-        &[
-            Effect::DealDamage {
+        &[Effect::IfCondition {
+            condition: Condition::GraveyardCountAtLeast(7),
+            then: &[Effect::DamagePermanentAndController {
+                target: TargetSpec::Object(&Filter::CREATURE),
+                permanent_amount: Amount::Fixed(4),
+                controller_amount: Amount::Fixed(4)
+            }],
+            otherwise: &[Effect::DealDamage {
                 amount: Amount::Fixed(4),
                 target: TargetSpec::Object(&Filter::CREATURE)
-            },
-            Effect::IfCondition {
-                condition: Condition::GraveyardCountAtLeast(7),
-                then: &[Effect::DealDamage {
-                    amount: Amount::Fixed(4),
-                    target: TargetSpec::Player(PlayerRel::ControllerOfTarget)
-                }],
-                otherwise: &[]
-            }
-        ],
+            }]
+        }],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
     ),],
 );

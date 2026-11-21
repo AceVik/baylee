@@ -905,7 +905,7 @@ pub fn judge(key: &str, text: &str, working: &Working) -> anyhow::Result<Status>
     match leaders.as_slice() {
         [] => {}
         [(name, one)] => {
-            if !leads(*one).is_some_and(|l| l.eligible) {
+            if !leads(*one).is_some_and(|l| l.eligible_alone) {
                 fail(name, Why::NoLeader);
             }
         }

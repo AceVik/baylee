@@ -140,7 +140,7 @@ pub(crate) fn sacrifice_event(state: &mut GameState, res: &Resolution) {
         return;
     };
     let controller = object.controller;
-    if state.has_left(controller) {
+    if state.has_left(controller) || !state.can_be_sacrificed(event.object, Some(res.controller)) {
         return;
     }
     let _ = state.sacrifice_object(event.object, Cause::Effect);

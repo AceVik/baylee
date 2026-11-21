@@ -170,6 +170,7 @@ mod tithe;
 mod touch_of_darkness;
 mod trickery_charm;
 mod tunnel;
+mod turn_the_earth;
 mod turn_to_dust;
 mod twiddle;
 mod undergrowth;

@@ -3,4 +3,5 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
+mod teachings_of_the_kirin;
 mod the_birth_of_meletis;

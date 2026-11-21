@@ -213,7 +213,10 @@ fn restricted_sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                 bundle,
                 priced,
                 preserve: 0,
-                snow: false,
+                snow: view.object(id).is_some_and(|o| {
+                    o.supertypes
+                        .contains(baylee_core::types::SupertypeSet::SNOW)
+                }),
                 dear: None,
                 converter: None,
                 bonus: Vec::new(),

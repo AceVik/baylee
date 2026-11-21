@@ -480,7 +480,9 @@ fn push_public_object7(
     f[41] = f32::from(u8::from(obj.suspended));
     f[42] = f32::from(u8::from(obj.commander));
     f[43] = f32::from(u8::from(obj.summoning_sick));
-    f[44] = f32::from(u8::from(obj.attached_to.is_some()));
+    f[44] = f32::from(u8::from(
+        obj.attached_to.is_some() || obj.attached_player().is_some(),
+    ));
     f[45] = raw_unit(obj.mana_value as f32, 12.0);
 
     // [46..56]: unclipped projected & base P/T, damage, remaining toughness, lethal, loyalty
@@ -586,6 +588,12 @@ fn push_public_object7(
                 f[81] += raw_unit(amt, 6.0);
             }
         }
+    }
+
+    // Class uses the progression channel. The level-counter channel [100]
+    // remains reserved for actual counters.
+    if let Some(level) = obj.class_level {
+        f[74] += raw_unit(f32::from(level.saturating_sub(1)), 6.0);
     }
 
     // [82..90]: Combat state & mana/grant capabilities

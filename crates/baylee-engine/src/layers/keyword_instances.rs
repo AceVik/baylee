@@ -15,9 +15,20 @@ pub(crate) fn keyword_instances(
     if !object.characteristics().keywords.contains(keyword) {
         return 0;
     }
-    let mut count = u32::from(object.base.keywords.contains(keyword));
     let plan = LayerPlan::build(&state.effects);
-    let (projected, _, _) = recompute_observing(state, object, &plan, |layer, effect, after| {
+    keyword_instances_with_plan(state, object, keyword, &plan)
+}
+
+/// Number of instances of `keyword` on `object` projected under `plan`
+/// (including prospective battlefield entries before arrival).
+pub(crate) fn keyword_instances_with_plan(
+    state: &GameState,
+    object: &GameObject,
+    keyword: KeywordSet,
+    plan: &LayerPlan,
+) -> u32 {
+    let mut count = u32::from(object.base.keywords.contains(keyword));
+    let (projected, _, _) = recompute_observing(state, object, plan, |layer, effect, after| {
         if !after.keywords.contains(keyword) {
             count = 0;
             return;

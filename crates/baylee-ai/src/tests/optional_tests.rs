@@ -473,3 +473,97 @@ fn self_decking_is_refused_across_optional_draws_taxes_spells_and_flickers() {
         "Baleful Strix is refused at library_count == 1"
     );
 }
+
+#[test]
+fn graft_never_buffs_opponent_and_endure_favors_evasive_attackers_over_vanilla() {
+    static GRAFT_EFFECTS: [Effect; 1] = [Effect::MayDo {
+        effects: &[Effect::MoveCounterToEvent {
+            kind: baylee_cards_dsl::CounterKind::P1P1,
+        }],
+    }];
+    let mut flier = creature(2, ME, 2, 2);
+    flier.keywords |= baylee_cards_dsl::KeywordSet::FLYING.bits();
+    let v = view(
+        0,
+        &[20, 20],
+        vec![
+            creature(1, ME, 2, 2),
+            flier,
+            creature(3, THEM, 2, 2),
+            creature(4, ME, 1, 1),
+        ],
+    );
+
+    let yn = |prompt| Pending::YesNo {
+        player: ME,
+        prompt,
+        source: None,
+    };
+
+    // Graft onto opponent's entering creature -> No.
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &yn(YesNoPrompt::MayDo),
+            &DecisionContext {
+                source: Some(obj(1)),
+                effects: &GRAFT_EFFECTS,
+                event_object: Some(obj(3)),
+                ..Default::default()
+            },
+        ),
+        PlayerAction::YesNo(false)
+    );
+    // Graft from 2/2 onto friendly entering creature -> Yes.
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &yn(YesNoPrompt::MayDo),
+            &DecisionContext {
+                source: Some(obj(1)),
+                effects: &GRAFT_EFFECTS,
+                event_object: Some(obj(4)),
+                ..Default::default()
+            },
+        ),
+        PlayerAction::YesNo(true)
+    );
+    // Graft from 1/1 vanilla onto 2/2 vanilla -> No (keeps 1/1 Graft creature alive).
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &yn(YesNoPrompt::MayDo),
+            &DecisionContext {
+                source: Some(obj(4)),
+                effects: &GRAFT_EFFECTS,
+                event_object: Some(obj(1)),
+                ..Default::default()
+            },
+        ),
+        PlayerAction::YesNo(false)
+    );
+
+    // Endure on flier -> Yes (+1/+1 counters); Endure on vanilla -> No (N/N Spirit body).
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &yn(YesNoPrompt::Endure(2)),
+            &DecisionContext {
+                source: Some(obj(2)),
+                ..Default::default()
+            },
+        ),
+        PlayerAction::YesNo(true)
+    );
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &yn(YesNoPrompt::Endure(2)),
+            &DecisionContext {
+                source: Some(obj(1)),
+                ..Default::default()
+            },
+        ),
+        PlayerAction::YesNo(false)
+    );
+}

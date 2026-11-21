@@ -97,7 +97,7 @@ fn exact_object_view(
             }),
         rules: obj.printed_face().filter(|_| known).map(rules_face),
         token: obj
-            .token
+            .active_token()
             .filter(|_| known)
             .map(baylee_cards::tokens::token_id),
         controller: obj.controller,
@@ -177,6 +177,18 @@ pub(super) fn target_objects(
                 }
             }
         }
+        for (group, inst) in obj.extra_target_instances().iter().enumerate() {
+            let group = u32::try_from(group).expect("extra target group");
+            for index in 0..inst.targets.len() {
+                if let Some(reference) = state.recorded_extra_target_reference(
+                    id,
+                    group,
+                    u32::try_from(index).expect("target slot"),
+                ) {
+                    targets.insert(reference);
+                }
+            }
+        }
     }
     if let Some(Pending::ChooseTargets {
         player,
@@ -212,7 +224,20 @@ pub(super) fn target_objects(
 
 fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
     if obj.zone != Zone::Stack {
-        return Vec::new();
+        let mut out = Vec::new();
+        if let Some(player) = obj.attached_player() {
+            out.push(TargetRef::Player(player));
+        }
+        if obj.zone == Zone::Battlefield
+            && let Some(partner) = state.paired_partner(obj.id)
+            && let Some(partner_obj) = state.object(partner)
+        {
+            out.push(TargetRef::Object(baylee_core::ids::DamageSourceRef {
+                object: partner,
+                version: partner_obj.version,
+            }));
+        }
+        return out;
     }
     let id = obj.id;
     let players = baylee_engine::eval::first_target_players(obj);
@@ -221,6 +246,7 @@ fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
         && players.is_empty()
         && obj.second_targets().is_empty()
         && obj.second_target_players().is_empty()
+        && obj.extra_target_instances().is_empty()
     {
         return Vec::new();
     }
@@ -248,6 +274,27 @@ fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
                 }),
         )
         .chain(obj.second_target_players().iter().map(TargetRef::Player))
+        .chain(
+            obj.extra_target_instances()
+                .iter()
+                .enumerate()
+                .flat_map(|(group, inst)| {
+                    let group = u32::try_from(group).expect("extra target group");
+                    inst.targets
+                        .iter()
+                        .enumerate()
+                        .filter_map(move |(index, _)| {
+                            state
+                                .recorded_extra_target_reference(
+                                    id,
+                                    group,
+                                    u32::try_from(index).expect("target slot"),
+                                )
+                                .map(TargetRef::Object)
+                        })
+                        .chain(inst.players.iter().map(TargetRef::Player))
+                }),
+        )
         .collect()
 }
 
@@ -340,6 +387,7 @@ fn linked_exile_of(
     }
 }
 
+#[allow(clippy::too_many_lines)] // Single flat PublicObject projection literal.
 pub(super) fn public_object(
     board: &ViewBoard<'_>,
     id: ObjectId,
@@ -412,11 +460,37 @@ pub(super) fn public_object(
             && obj.zone == Zone::Exile
             && obj.riders.contains(&baylee_engine::object::Rider::Suspend)
             && obj.counters.get(baylee_cards_dsl::CounterKind::Time) > 0,
+        plotted: known
+            && obj.zone == Zone::Exile
+            && obj.riders.contains(&baylee_engine::object::Rider::Plotted),
+        warped: known
+            && obj.zone == Zone::Exile
+            && obj
+                .riders
+                .iter()
+                .any(|r| matches!(r, baylee_engine::object::Rider::WarpedInExile(_))),
+        suspected: obj.zone == Zone::Battlefield
+            && !obj
+                .status
+                .contains(baylee_engine::object::Status::PHASED_OUT)
+            && obj
+                .riders
+                .contains(&baylee_engine::object::Rider::Suspected),
+        class_level: (obj.zone == Zone::Battlefield)
+            .then(|| obj.class_level())
+            .filter(|&level| {
+                level > 1
+                    || public_face
+                        && chars
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::enchantment::CLASS)
+            }),
         // The engine holds the definition; the client needs the number, and
         // this crate is the one that can see both.
         token: state
             .merged_top(obj)
-            .token
+            .active_token()
+            .filter(|_| known)
             .map(baylee_cards::tokens::token_id),
         colors: chars.colors,
         // The projected keywords, and on the stack "can't be countered" as

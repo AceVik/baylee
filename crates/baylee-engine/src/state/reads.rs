@@ -34,8 +34,14 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::BlockingReference
         | Filter::BlockedByReference
         | Filter::Unblocked
+        | Filter::FaceDown
+        | Filter::Monstrous
+        | Filter::Suspected
+        | Filter::RingBearer
         | Filter::SharesAColorWith(_)
-        | Filter::SharesColorWithExiledWithSource => true,
+        | Filter::SharesCreatureTypeWith(_)
+        | Filter::SharesColorWithExiledWithSource
+        | Filter::SharesColorWithSource => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) | Filter::ControllerControls(f) => filter_reads_board_state(f),
         _ => false,
@@ -62,6 +68,7 @@ pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool 
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
+        | Filter::SharesCreatureTypeWith(f)
         | Filter::ControllerControls(f) => filter_reads_reference(f),
         _ => false,
     }
@@ -150,4 +157,285 @@ pub(crate) fn filter_reaches_other_zones(filter: &baylee_cards_dsl::Filter) -> b
         Filter::Not(f) => filter_reaches_other_zones(f),
         _ => false,
     }
+}
+
+pub(crate) fn card_reads_crime(def: &CardDef) -> bool {
+    (0..def.faces.len().max(1))
+        .any(|face| def.abilities_for_face(face).iter().any(ability_reads_crime))
+}
+
+pub(crate) fn ability_reads_crime(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    use baylee_cards_dsl::{AbilityDef, Trigger};
+    match ability {
+        AbilityDef::Triggered {
+            trigger,
+            effects,
+            condition,
+            ..
+        } => {
+            matches!(trigger, Trigger::CommittedCrime { .. })
+                || condition.as_ref().is_some_and(condition_reads_crime)
+                || effects_read_crime(effects)
+        }
+        AbilityDef::ModalTriggered {
+            trigger,
+            modes,
+            condition,
+            ..
+        } => {
+            matches!(trigger, Trigger::CommittedCrime { .. })
+                || condition.as_ref().is_some_and(condition_reads_crime)
+                || modes.iter().any(|m| effects_read_crime(m.effects))
+        }
+        AbilityDef::Spell {
+            effects, condition, ..
+        } => condition.as_ref().is_some_and(condition_reads_crime) || effects_read_crime(effects),
+        AbilityDef::Activated {
+            effects,
+            cost_reduction,
+            ..
+        } => cost_reduction_reads_crime(cost_reduction.as_ref()) || effects_read_crime(effects),
+        AbilityDef::ActivatedConditional {
+            effects,
+            condition,
+            cost_reduction,
+            ..
+        } => {
+            condition_reads_crime(condition)
+                || cost_reduction_reads_crime(cost_reduction.as_ref())
+                || effects_read_crime(effects)
+        }
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalActivated { modes, .. } => {
+            modes.iter().any(|m| effects_read_crime(m.effects))
+        }
+        AbilityDef::SagaChapter { effects, .. } | AbilityDef::Loyalty { effects, .. } => {
+            effects_read_crime(effects)
+        }
+        AbilityDef::Static(sa) => {
+            sa.condition.as_ref().is_some_and(condition_reads_crime)
+                || modifier_reads_crime(&sa.modifier)
+        }
+        _ => false,
+    }
+}
+
+fn cost_reduction_reads_crime(cr: Option<&baylee_cards_dsl::CostReduction>) -> bool {
+    matches!(
+        cr,
+        Some(baylee_cards_dsl::CostReduction::If { condition, .. })
+            if condition_reads_crime(condition)
+    )
+}
+
+fn condition_reads_crime(cond: &baylee_cards_dsl::Condition) -> bool {
+    use baylee_cards_dsl::Condition;
+    match cond {
+        Condition::CommittedCrimeThisTurn(_) => true,
+        Condition::Not(inner) => condition_reads_crime(inner),
+        Condition::All(parts) | Condition::Any(parts) => parts.iter().any(condition_reads_crime),
+        _ => false,
+    }
+}
+
+fn modifier_reads_crime(modifier: &baylee_cards_dsl::Modifier) -> bool {
+    use baylee_cards_dsl::Modifier;
+    match modifier {
+        Modifier::GrantTriggered {
+            trigger, effects, ..
+        } => {
+            matches!(trigger, baylee_cards_dsl::Trigger::CommittedCrime { .. })
+                || effects_read_crime(effects)
+        }
+        Modifier::GrantTriggeredDefinition(ability) => ability_reads_crime(ability),
+        Modifier::GrantActivated { effects, .. } => effects_read_crime(effects),
+        _ => false,
+    }
+}
+
+fn effects_read_crime(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::{DelayedTriggerWhen, Effect, Trigger};
+        found |= match effect {
+            Effect::IfCondition { condition, .. } | Effect::RepeatWhile { condition, .. } => {
+                condition_reads_crime(condition)
+            }
+            Effect::ReflexiveTrigger { condition, .. } => {
+                condition.is_some_and(condition_reads_crime)
+            }
+            Effect::RegisterDelayedTrigger {
+                when, condition, ..
+            } => {
+                matches!(
+                    when,
+                    DelayedTriggerWhen::OnTrigger {
+                        trigger: Trigger::CommittedCrime { .. },
+                        ..
+                    }
+                ) || condition.is_some_and(condition_reads_crime)
+            }
+            Effect::CreateEmblem { abilities } => abilities.iter().any(ability_reads_crime),
+            Effect::Backup {
+                grant_abilities, ..
+            } => grant_abilities.iter().any(ability_reads_crime),
+            _ => false,
+        };
+    });
+    found
+}
+
+pub(crate) fn card_reads_expend(def: &CardDef) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face)
+            .iter()
+            .any(ability_reads_expend)
+    })
+}
+
+pub(crate) fn ability_reads_expend(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    use baylee_cards_dsl::{AbilityDef, Trigger};
+    match ability {
+        AbilityDef::Triggered {
+            trigger,
+            effects,
+            condition,
+            ..
+        } => {
+            matches!(trigger, Trigger::Expended { .. })
+                || condition.as_ref().is_some_and(condition_reads_expend)
+                || effects_read_expend(effects)
+        }
+        AbilityDef::ModalTriggered {
+            trigger,
+            modes,
+            condition,
+            ..
+        } => {
+            matches!(trigger, Trigger::Expended { .. })
+                || condition.as_ref().is_some_and(condition_reads_expend)
+                || modes.iter().any(|m| effects_read_expend(m.effects))
+        }
+        AbilityDef::Spell {
+            effects, condition, ..
+        } => condition.as_ref().is_some_and(condition_reads_expend) || effects_read_expend(effects),
+        AbilityDef::Activated { effects, .. } => effects_read_expend(effects),
+        AbilityDef::ActivatedConditional {
+            effects, condition, ..
+        } => condition_reads_expend(condition) || effects_read_expend(effects),
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalActivated { modes, .. } => {
+            modes.iter().any(|m| effects_read_expend(m.effects))
+        }
+        AbilityDef::SagaChapter { effects, .. } | AbilityDef::Loyalty { effects, .. } => {
+            effects_read_expend(effects)
+        }
+        AbilityDef::Static(sa) => {
+            sa.condition.as_ref().is_some_and(condition_reads_expend)
+                || modifier_reads_expend(&sa.modifier)
+        }
+        _ => false,
+    }
+}
+
+fn condition_reads_expend(cond: &baylee_cards_dsl::Condition) -> bool {
+    use baylee_cards_dsl::Condition;
+    match cond {
+        Condition::ExpendedThisTurn(_) => true,
+        Condition::AmountCompare { left, right, .. } => {
+            amount_reads_expend(left) || amount_reads_expend(right)
+        }
+        Condition::Not(inner) => condition_reads_expend(inner),
+        Condition::All(parts) | Condition::Any(parts) => parts.iter().any(condition_reads_expend),
+        _ => false,
+    }
+}
+
+fn amount_reads_expend(amount: &baylee_cards_dsl::Amount) -> bool {
+    use baylee_cards_dsl::Amount;
+    match amount {
+        Amount::ManaExpendedOnSpellsThisTurn(_) => true,
+        Amount::Negated(a)
+        | Amount::Plus { base: a, .. }
+        | Amount::SaturatingSub { base: a, .. }
+        | Amount::Half { base: a, .. }
+        | Amount::Divided { base: a, .. }
+        | Amount::Times { base: a, .. } => amount_reads_expend(a),
+        Amount::Sum { left: a, right: b } | Amount::Difference { left: a, right: b } => {
+            amount_reads_expend(a) || amount_reads_expend(b)
+        }
+        _ => false,
+    }
+}
+
+fn modifier_reads_expend(modifier: &baylee_cards_dsl::Modifier) -> bool {
+    use baylee_cards_dsl::Modifier;
+    match modifier {
+        Modifier::GrantTriggered {
+            trigger, effects, ..
+        } => {
+            matches!(trigger, baylee_cards_dsl::Trigger::Expended { .. })
+                || effects_read_expend(effects)
+        }
+        Modifier::GrantTriggeredDefinition(ability) => ability_reads_expend(ability),
+        Modifier::GrantActivated { effects, .. } => effects_read_expend(effects),
+        Modifier::ModifyPTByAmount { power, toughness } => {
+            amount_reads_expend(power) || amount_reads_expend(toughness)
+        }
+        _ => false,
+    }
+}
+
+fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::{DelayedTriggerWhen, Effect, Trigger};
+        found |= match effect {
+            Effect::IfCondition { condition, .. } | Effect::RepeatWhile { condition, .. } => {
+                condition_reads_expend(condition)
+            }
+            Effect::ReflexiveTrigger { condition, .. } => {
+                condition.is_some_and(condition_reads_expend)
+            }
+            Effect::RegisterDelayedTrigger {
+                when, condition, ..
+            } => {
+                matches!(
+                    when,
+                    DelayedTriggerWhen::OnTrigger {
+                        trigger: Trigger::Expended { .. },
+                        ..
+                    }
+                ) || condition.is_some_and(condition_reads_expend)
+            }
+            Effect::DrawCards { amount }
+            | Effect::GainLife { amount }
+            | Effect::LoseLife { amount, .. }
+            | Effect::DealDamage { amount, .. }
+            | Effect::AddCounter { amount, .. }
+            | Effect::AddCounterSource { amount, .. }
+            | Effect::CreateTokenN { amount, .. }
+            | Effect::NextSpellThisTurnCostsLess(amount) => amount_reads_expend(amount),
+            Effect::DamagePermanentAndController {
+                permanent_amount,
+                controller_amount,
+                ..
+            } => amount_reads_expend(permanent_amount) || amount_reads_expend(controller_amount),
+            Effect::PumpTarget {
+                power, toughness, ..
+            }
+            | Effect::PumpFilter {
+                power, toughness, ..
+            }
+            | Effect::PumpEventObject {
+                power, toughness, ..
+            } => amount_reads_expend(power) || amount_reads_expend(toughness),
+            Effect::CreateEmblem { abilities } => abilities.iter().any(ability_reads_expend),
+            Effect::Backup {
+                grant_abilities, ..
+            } => grant_abilities.iter().any(ability_reads_expend),
+            _ => false,
+        };
+    });
+    found
 }

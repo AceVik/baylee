@@ -894,3 +894,177 @@ fn ltb_and_sacrifice_then_bodies_are_visited() {
     assert_eq!(inner_seen, 10);
     assert_eq!(seen, 20);
 }
+
+#[test]
+fn reflexive_and_registered_delayed_trigger_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::ReflexiveTrigger {
+            when: crate::ReflexiveWhen::Always,
+            once: true,
+            condition: None,
+            targets: None,
+            remember: crate::TriggerRemember::None,
+            effects: &[Effect::SacrificeSelf],
+        },
+        Effect::RegisterDelayedTrigger {
+            when: crate::DelayedTriggerWhen::AtStep {
+                step: crate::DelayedStep::EndStep,
+                whose: None,
+                this_turn_only: false,
+                recurring: false,
+            },
+            condition: None,
+            targets: None,
+            remember: crate::TriggerRemember::None,
+            effects: &[Effect::SacrificeSelf],
+        },
+    ];
+    let mut seen = 0;
+    let mut inner_seen = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        if matches!(effect, Effect::SacrificeSelf) {
+            inner_seen += 1;
+        }
+    });
+    assert_eq!(inner_seen, 2);
+    assert_eq!(seen, 4);
+}
+
+#[test]
+fn multi_coin_and_die_roll_branches_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::FlipCoins {
+            count: Amount::Fixed(2),
+            stop_on_loss: false,
+            per_win: &[Effect::draw(1)],
+            if_won_all: &[Effect::TakeExtraTurn],
+        },
+        Effect::FlipUntilLose {
+            max_flips: None,
+            per_win: &[Effect::gain_life(1)],
+            after: &[Effect::SacrificeSelf],
+        },
+        Effect::IfDieRollInRange {
+            min: 1,
+            max: 9,
+            then: &[Effect::scry(1)],
+            otherwise: &[Effect::draw(2)],
+        },
+    ];
+    let mut seen = 0;
+    let mut leaves = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        if matches!(
+            effect,
+            Effect::DrawCards { .. }
+                | Effect::TakeExtraTurn
+                | Effect::GainLife { .. }
+                | Effect::SacrificeSelf
+                | Effect::Scry { .. }
+        ) {
+            leaves += 1;
+        }
+    });
+    assert_eq!(leaves, 6);
+    assert_eq!(seen, 9);
+}
+
+#[test]
+fn repeat_each_choose_card_peek_and_reveal_branches_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::RepeatEach {
+            domain: crate::RepeatDomain::EachPlayer,
+            effects: &[Effect::draw(1)],
+        },
+        Effect::ChooseCard {
+            chooser: crate::PlayerRel::You,
+            zone: crate::ChooseZone::Battlefield,
+            filter: &crate::Filter::CREATURE,
+            min: 1,
+            max: Amount::Fixed(1),
+            movement: crate::ChooseMove::None,
+            then: &[Effect::gain_life(2)],
+        },
+        Effect::PeekAndReveal {
+            library: crate::PlayerRel::You,
+            count: Amount::Fixed(4),
+            reveal_all: false,
+            reveal_chosen: true,
+            filter: &crate::Filter::CREATURE,
+            min_pick: 0,
+            max_pick: 1,
+            picked: crate::PeekPickDest::Hand,
+            rest: crate::PeekRestDest::BottomOfLibrary { random: true },
+            if_picked: &[Effect::scry(1)],
+        },
+        Effect::RevealFromHand {
+            who: crate::PlayerRel::You,
+            filter: &crate::Filter::LAND,
+            min: 0,
+            max: Amount::Fixed(1),
+            if_revealed: &[Effect::TakeExtraTurn],
+        },
+        Effect::RevealTop {
+            player: crate::PlayerRel::You,
+            count: Amount::Fixed(1),
+            filter: &crate::Filter::CREATURE,
+            if_matches: &[Effect::SacrificeSelf],
+            otherwise: &[Effect::UntapSelf],
+        },
+    ];
+    let mut seen = 0;
+    let mut leaves = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        if matches!(
+            effect,
+            Effect::DrawCards { .. }
+                | Effect::GainLife { .. }
+                | Effect::Scry { .. }
+                | Effect::TakeExtraTurn
+                | Effect::SacrificeSelf
+                | Effect::UntapSelf
+        ) {
+            leaves += 1;
+        }
+    });
+    assert_eq!(leaves, 6);
+    assert_eq!(seen, 11);
+}
+
+#[test]
+fn clash_branches_and_additional_combat_phase_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::Clash {
+            on_win: &[Effect::draw(1)],
+            on_loss: &[Effect::gain_life(2)],
+        },
+        Effect::AdditionalCombatPhase {
+            followed_by_main_phase: true,
+        },
+    ];
+    let mut seen = 0;
+    let (mut drew, mut gained, mut extra_combat) = (false, false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        drew |= matches!(effect, Effect::DrawCards { .. });
+        gained |= matches!(effect, Effect::GainLife { .. });
+        extra_combat |= matches!(effect, Effect::AdditionalCombatPhase { .. });
+    });
+    assert_eq!(seen, 4);
+    assert!(drew && gained && extra_combat);
+}
+
+#[test]
+fn wave10b_effects_are_leaf_instructions() {
+    static EFFECTS: &[Effect] = &[
+        Effect::AwakenLand { count: 3 },
+        Effect::Cipher,
+        Effect::CipherCastEncoded,
+        Effect::Champion {
+            filter: &Filter::CREATURE,
+        },
+        Effect::ReturnChampioned,
+    ];
+    let mut seen = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |_| {});
+    assert_eq!(seen, 5);
+}

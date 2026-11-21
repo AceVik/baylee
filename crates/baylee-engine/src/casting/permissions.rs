@@ -35,6 +35,7 @@ pub(crate) fn permitted_spell_types(
     }
     if object.zone == Zone::Hand
         || (face == 0 && adventure_permission(state, player, card))
+        || super::warp_exile_permission(state, player, card)
         || object
             .riders
             .contains(&crate::object::Rider::PlayableFromExileFor(player))
@@ -44,10 +45,7 @@ pub(crate) fn permitted_spell_types(
     }
     let mut found = false;
     for permission in &state.play_permissions {
-        if permission.player == player
-            && permission.card == card
-            && permission.version == object.version
-        {
+        if permission.grants_to(state, player, card, object.version) {
             found = true;
             if permission
                 .spell_types

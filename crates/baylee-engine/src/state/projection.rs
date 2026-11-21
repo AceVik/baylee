@@ -12,7 +12,9 @@ impl GameState {
     pub fn refresh_characteristics(&mut self) {
         loop {
             self.refresh_characteristics_once();
-            if !self.expire_source_durations() {
+            let expired = self.expire_source_durations();
+            let unpaired = self.prune_broken_soulbond_pairs();
+            if !expired && !unpaired {
                 break;
             }
         }
@@ -151,8 +153,30 @@ impl GameState {
         // CR 302.6 wants control held continuously since the turn began. A
         // permanent a walk moved and a later one moved back never changed
         // hands, so the comparison is with the controller before the first.
+        let cleared_ring_bearer = self.reconcile_changed_controllers(was);
+        ids.clear();
+        self.projection_ids = ids;
+        self.projected_cross_zone = cross_zone;
+        self.characteristics_generation = generation;
+        if cleared_ring_bearer {
+            self.invalidate_projections();
+            self.refresh_characteristics();
+            return;
+        }
+        crate::combat::recheck_defenders(self);
+    }
+
+    fn reconcile_changed_controllers(&mut self, was: Vec<(ObjectId, PlayerId)>) -> bool {
+        let mut cleared_ring_bearer = false;
         for (id, before) in was {
             if self.object(id).is_some_and(|o| o.controller != before) {
+                let current_controller = self.object(id).map(|o| o.controller);
+                for p in &mut self.players {
+                    if p.ring_bearer == Some(id) && Some(p.id) != current_controller {
+                        p.ring_bearer = None;
+                        cleared_ring_bearer = true;
+                    }
+                }
                 if let Some(new) = self
                     .object(id)
                     .filter(|object| object.zone == Zone::Battlefield)
@@ -165,6 +189,7 @@ impl GameState {
                             new,
                         });
                 }
+                let _ = self.unpair_creature(id);
                 self.restart_summoning_sickness(id);
                 self.combat.remove_from_combat(id);
                 if let Some(reference) = self.source_identity(id) {
@@ -172,11 +197,7 @@ impl GameState {
                 }
             }
         }
-        ids.clear();
-        self.projection_ids = ids;
-        self.projected_cross_zone = cross_zone;
-        self.characteristics_generation = generation;
-        crate::combat::recheck_defenders(self);
+        cleared_ring_bearer
     }
 
     /// One walk of the refresh: projects `ids` through every layer and

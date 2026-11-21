@@ -1039,7 +1039,7 @@ fn issue_194_commander_management_is_visible_without_opening_card_details() {
         let mut cards = pool_cards();
         cards[0].commander = true;
         cards[0].partners = vec![cards[1].index];
-        cards[1].commander = true;
+        cards[1].commander = false; // A Background can only be chosen as the partner.
         state.lobby.builder_mut().set_pool(cards, true);
     }
     app.update();
@@ -1059,13 +1059,15 @@ fn issue_194_commander_management_is_visible_without_opening_card_details() {
         &[0, 1]
     );
     press(&mut app, Press::Build(BuildPress::RemoveCommander(0)));
+    let deck = app.world().resource::<LobbyState>().lobby.builder();
+    assert!(
+        deck.commanders().is_empty(),
+        "a Background cannot lead alone"
+    );
     assert_eq!(
-        app.world()
-            .resource::<LobbyState>()
-            .lobby
-            .builder()
-            .commanders(),
-        &[1]
+        deck.count_of(1, Zone::Main),
+        1,
+        "the Background stays in the deck"
     );
 }
 

@@ -17,7 +17,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 
     pub(crate) fn activation_definition(&self, source: ObjectId, index: u32) -> Option<AbilityDef> {
-        if crate::choice::granted_slot(index).is_some() {
+        if index == crate::choice::TURN_FACE_UP {
+            let (mana, parts, _) = self.turn_face_up_spec(source)?;
+            Some(AbilityDef::Activated {
+                cost: baylee_cards_dsl::Cost { mana, parts },
+                effects: &[],
+                targets: None,
+                second_targets: None,
+                timing: baylee_cards_dsl::ActivationTiming::InstantSpeed,
+                mana_ability: false,
+                zone: baylee_cards_dsl::ActivationZone::Battlefield,
+                limit: baylee_cards_dsl::ActivationLimit::Unlimited,
+                x_value: baylee_cards_dsl::ActivationX::Any,
+                cost_reduction: None,
+            })
+        } else if crate::choice::granted_slot(index).is_some() {
             self.granted_definition(source, index)
                 .map(|grant| grant.definition)
         } else {

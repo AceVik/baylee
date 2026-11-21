@@ -3460,6 +3460,7 @@ fn is_activated_ability_worth_activating_now(
                                 Effect::Destroy { .. }
                                     | Effect::DestroyAll { .. }
                                     | Effect::DealDamage { .. }
+                                    | Effect::DamagePermanentAndController { .. }
                             )
                         }),
                         _ => false,
@@ -4011,7 +4012,12 @@ pub(super) fn is_hostile_object_effects(effects: &[Effect]) -> bool {
             Effect::Destroy { .. }
             | Effect::Exile { .. }
             | Effect::DealDamage { .. }
+            | Effect::DamagePermanentAndController { .. }
             | Effect::TapTarget
+            | Effect::MustBlockSourceIfAbleThisCombat
+            | Effect::MustBlockIfAble { .. }
+            | Effect::Goad { .. }
+            | Effect::GoadAll { .. }
             | Effect::Fight {
                 fighter: baylee_cards_dsl::TargetSlot::This,
                 ..
@@ -4030,6 +4036,19 @@ fn condition_closed(view: &PlayerView, actor: PlayerId, cond: &Condition) -> boo
     match cond {
         Condition::MaxSpeed => view.seat(actor).is_none_or(|s| s.speed != 4),
         Condition::YourTurn => view.active != actor,
+        Condition::ControlYourCommander => !view.battlefield_of(actor).any(|o| {
+            !o.status.contains(ObjectStatus::PHASED_OUT) && o.commander && o.owner == actor
+        }),
+        Condition::InCombatAfterBlockers => {
+            view.phase != baylee_view::Phase::Combat
+                || !matches!(
+                    view.step,
+                    Step::DeclareBlockers
+                        | Step::CombatDamageFirst
+                        | Step::CombatDamage
+                        | Step::CombatEnd
+                )
+        }
         Condition::ControlCount(filter, min) => {
             let count = view
                 .battlefield_of(actor)
@@ -5067,7 +5086,7 @@ pub(super) fn non_sac_source_colors(view: &PlayerView, source: ObjectId) -> [boo
                     <= permanent_tap_self_damage(def.abilities_for_face(usize::from(rf.face))))
                 || cost.parts.iter().any(|p| match p {
                     CostPart::PayEnergy(n) => view.seat(actor).map_or(0, |s| s.energy) < *n,
-                    CostPart::PayLife(n) => my_life <= i32::from(*n),
+                    CostPart::PayLife(n) | CostPart::DealDamageToYou(n) => my_life <= i32::from(*n),
                     CostPart::TapOther(filter) | CostPart::TapX(filter) => {
                         !view.battlefield_of(actor).any(|o| {
                             o.id != source

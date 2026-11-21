@@ -84,6 +84,47 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             no.clone(),
         ),
         (yes_no(YesNoPrompt::Kicker), no.clone()),
+        (yes_no(YesNoPrompt::Bargain), no.clone()),
+        (
+            yes_no(YesNoPrompt::Offspring {
+                cost: baylee_core::mana::ManaCost::parse("{2}"),
+                parts: crate::choice::BuybackParts::default(),
+            }),
+            no.clone(),
+        ),
+        (yes_no(YesNoPrompt::Casualty { min_power: 2 }), no.clone()),
+        (yes_no(YesNoPrompt::Conspire), no.clone()),
+        (
+            yes_no(YesNoPrompt::Tribute {
+                permanent: object(),
+                counters: 2,
+            }),
+            no.clone(),
+        ),
+        (
+            yes_no(YesNoPrompt::Gift {
+                kind: baylee_cards_dsl::GiftKind::Card,
+            }),
+            no.clone(),
+        ),
+        (
+            yes_no(YesNoPrompt::Riot {
+                permanent: ObjectId::new(9, 0),
+            }),
+            None,
+        ),
+        (
+            yes_no(YesNoPrompt::Unleash {
+                permanent: ObjectId::new(9, 0),
+            }),
+            no.clone(),
+        ),
+        (
+            yes_no(YesNoPrompt::ChooseFirstCostBranch { index: 0 }),
+            None,
+        ),
+        (yes_no(YesNoPrompt::OpeningHandBattlefield), no.clone()),
+        (yes_no(YesNoPrompt::OpeningHandReveal), no.clone()),
         (
             yes_no(YesNoPrompt::KickerOption {
                 index: 0,
@@ -198,7 +239,16 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             no.clone(),
         ),
         (yes_no(YesNoPrompt::Generic), no.clone()),
+        (
+            yes_no(YesNoPrompt::ClashBottom { card: object() }),
+            no.clone(),
+        ),
         (yes_no(YesNoPrompt::ManaAnyType), no.clone()),
+        (
+            yes_no(YesNoPrompt::AssignDamageAsThoughUnblocked { attacker: object() }),
+            no.clone(),
+        ),
+        (yes_no(YesNoPrompt::Endure(2)), no.clone()),
         (
             yes_no(YesNoPrompt::UseRegenerationShield {
                 permanent: object(),
@@ -425,7 +475,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 56;
+const KINDS: usize = 70;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -490,6 +540,20 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::ContinueRemovingCounters { .. } => 36,
                 YesNoPrompt::RevealHandForGuess { .. } => 37,
                 YesNoPrompt::KickerOption { .. } => 38,
+                YesNoPrompt::Bargain => 39,
+                YesNoPrompt::Offspring { .. } => 40,
+                YesNoPrompt::Casualty { .. } => 41,
+                YesNoPrompt::Gift { .. } => 42,
+                YesNoPrompt::Riot { .. } => 43,
+                YesNoPrompt::Unleash { .. } => 44,
+                YesNoPrompt::ChooseFirstCostBranch { .. } => 45,
+                YesNoPrompt::OpeningHandBattlefield => 46,
+                YesNoPrompt::OpeningHandReveal => 47,
+                YesNoPrompt::AssignDamageAsThoughUnblocked { .. } => 48,
+                YesNoPrompt::Endure(_) => 49,
+                YesNoPrompt::ClashBottom { .. } => 50,
+                YesNoPrompt::Conspire => 51,
+                YesNoPrompt::Tribute { .. } => 52,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -568,7 +632,7 @@ fn the_unlock_slots_sit_below_turning_face_up_and_decode_to_their_halves() {
     let others = [0, 1, 7, 8, 255, 65_535, MAX_GRANTED_IDS - 1]
         .into_iter()
         .map(granted_ability)
-        .chain([PREPARED_CAST, TURN_FACE_UP, TURN_FACE_UP - UNLOCK_SLOTS - 1])
+        .chain([PREPARED_CAST, TURN_FACE_UP, PLOT_CARD, PLOT_CARD - 1])
         .chain([0, 1, 2, 7, 100, 65_535]);
     for index in others {
         assert_eq!(
@@ -579,6 +643,7 @@ fn the_unlock_slots_sit_below_turning_face_up_and_decode_to_their_halves() {
     }
     assert!(is_special_action(TURN_FACE_UP));
     assert!(is_special_action(unlock_door(1)));
+    assert!(is_special_action(PLOT_CARD));
     assert!(!is_special_action(PREPARED_CAST));
     assert!(!is_special_action(granted_ability(0)));
 }
@@ -707,6 +772,17 @@ fn expected_automatable(prompt: YesNoPrompt) -> bool {
         | YesNoPrompt::ProliferatePlayer { .. }
         | YesNoPrompt::PayLifeOrEnterTapped { .. }
         | YesNoPrompt::Kicker
+        | YesNoPrompt::Bargain
+        | YesNoPrompt::Offspring { .. }
+        | YesNoPrompt::Casualty { .. }
+        | YesNoPrompt::Gift { .. }
+        | YesNoPrompt::Riot { .. }
+        | YesNoPrompt::Unleash { .. }
+        | YesNoPrompt::ChooseFirstCostBranch { .. }
+        | YesNoPrompt::OpeningHandBattlefield
+        | YesNoPrompt::OpeningHandReveal
+        | YesNoPrompt::AssignDamageAsThoughUnblocked { .. }
+        | YesNoPrompt::Endure(_)
         | YesNoPrompt::KickerOption { .. }
         | YesNoPrompt::Buyback { .. }
         | YesNoPrompt::ManaAnyType
@@ -727,11 +803,15 @@ fn expected_automatable(prompt: YesNoPrompt) -> bool {
         | YesNoPrompt::SkipTurn { .. }
         | YesNoPrompt::GuessNamedCardInHand { .. }
         | YesNoPrompt::RevealHandForGuess { .. }
+        | YesNoPrompt::ClashBottom { .. }
+        | YesNoPrompt::Conspire
+        | YesNoPrompt::Tribute { .. }
         | YesNoPrompt::Generic => false,
     }
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // one sample per `YesNoPrompt` variant
 fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
     for prompt in [
         YesNoPrompt::UseRegenerationShield {
@@ -772,6 +852,26 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             guessed_in_hand: true,
         },
         YesNoPrompt::Kicker,
+        YesNoPrompt::Bargain,
+        YesNoPrompt::Offspring {
+            cost: baylee_core::mana::ManaCost::parse("{2}"),
+            parts: crate::choice::BuybackParts::default(),
+        },
+        YesNoPrompt::Casualty { min_power: 2 },
+        YesNoPrompt::Gift {
+            kind: baylee_cards_dsl::GiftKind::Card,
+        },
+        YesNoPrompt::Riot {
+            permanent: object(),
+        },
+        YesNoPrompt::Unleash {
+            permanent: object(),
+        },
+        YesNoPrompt::ChooseFirstCostBranch { index: 0 },
+        YesNoPrompt::OpeningHandBattlefield,
+        YesNoPrompt::OpeningHandReveal,
+        YesNoPrompt::AssignDamageAsThoughUnblocked { attacker: object() },
+        YesNoPrompt::Endure(2),
         YesNoPrompt::KickerOption {
             index: 1,
             cost: baylee_core::mana::ManaCost::parse("{2}{U}"),
@@ -796,6 +896,12 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
         YesNoPrompt::CastPaying { card: object() },
         YesNoPrompt::CommanderZone { card: object() },
         YesNoPrompt::TopOfLibrary { card: object() },
+        YesNoPrompt::ClashBottom { card: object() },
+        YesNoPrompt::Conspire,
+        YesNoPrompt::Tribute {
+            permanent: object(),
+            counters: 2,
+        },
         YesNoPrompt::Discover { card: object() },
         YesNoPrompt::CommanderReplace {
             card: object(),

@@ -88,6 +88,189 @@ pub(super) fn first_matching_damage(
         .is_some_and(|first| std::ptr::eq(&raw const first.event, event))
 }
 
+pub(super) const fn zone_ref_matches(
+    zone_ref: baylee_cards_dsl::ZoneRef,
+    zone: crate::zone::Zone,
+) -> bool {
+    use crate::zone::Zone as Z;
+    use baylee_cards_dsl::ZoneRef as R;
+    match zone_ref {
+        R::Battlefield => matches!(zone, Z::Battlefield),
+        R::Stack => matches!(zone, Z::Stack),
+        R::Library => matches!(zone, Z::Library),
+        R::Hand => matches!(zone, Z::Hand),
+        R::Graveyard => matches!(zone, Z::Graveyard),
+        R::Exile => matches!(zone, Z::Exile),
+        R::Command => matches!(zone, Z::Command),
+        R::NotBattlefield => !matches!(zone, Z::Battlefield),
+        R::BattlefieldOrCommand => matches!(zone, Z::Battlefield | Z::Command),
+    }
+}
+
+/// CR 603.10a: zone-batch triggers that look back to the game state
+/// immediately before the event (leaves-the-battlefield, leaves-a-graveyard,
+/// or public-zone object put into a hand or library).
+pub(super) const fn changes_zone_all_looks_back(
+    origin: Option<baylee_cards_dsl::ZoneRef>,
+    destination: Option<baylee_cards_dsl::ZoneRef>,
+) -> bool {
+    use baylee_cards_dsl::ZoneRef as R;
+    (matches!(origin, Some(R::Battlefield)) && !matches!(destination, Some(R::Battlefield)))
+        || matches!(origin, Some(R::Graveyard))
+        || (matches!(destination, Some(R::Hand | R::Library))
+            && matches!(
+                origin,
+                Some(R::Battlefield | R::Graveyard | R::Exile | R::Stack | R::Command)
+            ))
+}
+
+const fn breaks_zone_run(event: &GameEvent) -> bool {
+    matches!(
+        event,
+        GameEvent::CardsDrawn { .. }
+            | GameEvent::SpellCast { .. }
+            | GameEvent::SpellCopied { .. }
+            | GameEvent::AbilityActivated { .. }
+            | GameEvent::AbilityTriggered { .. }
+            | GameEvent::StepChanged { .. }
+            | GameEvent::TurnStarted { .. }
+            | GameEvent::DamageDealt { .. }
+            | GameEvent::LifeChanged { .. }
+            | GameEvent::LibrarySearched { .. }
+            | GameEvent::Shuffled { .. }
+            | GameEvent::CoinFlipped { .. }
+            | GameEvent::DiceRolled { .. }
+            | GameEvent::ManaProduced { .. }
+    )
+}
+
+/// Count matching zone changes in the contiguous action run containing `event`
+/// (`CR 603.2c`, `CR 603.10a`), returning that batch count only on the first
+/// matching `ZoneChanged` entry of the run (and `0` on subsequent entries).
+#[allow(clippy::too_many_arguments)]
+pub(super) fn zone_batch_count(
+    event: &GameEvent,
+    batch: &[JournalEntry],
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    origin: Option<baylee_cards_dsl::ZoneRef>,
+    destination: Option<baylee_cards_dsl::ZoneRef>,
+    filter: &Filter,
+    exclude_self: bool,
+) -> u32 {
+    if !matches!(event, GameEvent::ZoneChanged { .. }) {
+        return 0;
+    }
+    let Some(idx) = index_of_event(event, batch) else {
+        return 0;
+    };
+    let start = batch[..idx]
+        .iter()
+        .rposition(|e| breaks_zone_run(&e.event))
+        .map_or(0, |pos| pos + 1);
+    let end = batch[idx + 1..]
+        .iter()
+        .position(|e| breaks_zone_run(&e.event))
+        .map_or(batch.len(), |pos| idx + 1 + pos);
+    let run = &batch[start..end];
+    let looks_back = changes_zone_all_looks_back(origin, destination);
+    let entry_matches = |entry: &JournalEntry| -> bool {
+        let GameEvent::ZoneChanged {
+            object, from, to, ..
+        } = entry.event
+        else {
+            return false;
+        };
+        if exclude_self && object == context.source {
+            return false;
+        }
+        if origin.is_some_and(|want| !zone_ref_matches(want, from))
+            || destination.is_some_and(|want| !zone_ref_matches(want, to))
+        {
+            return false;
+        }
+        if from == crate::zone::Zone::Battlefield && looks_back {
+            return super::matching::departed_matches(filter, state, object, you, context);
+        }
+        let Some(current) = state.object_or_departed(object) else {
+            return false;
+        };
+        let moves_after = batch
+            .iter()
+            .filter(|e| {
+                (if looks_back {
+                    e.seq >= entry.seq
+                } else {
+                    e.seq > entry.seq
+                }) && matches!(e.event, GameEvent::ZoneChanged { object: id, .. } if id == object)
+            })
+            .count();
+        let snapshot = if moves_after == 0 {
+            current
+        } else {
+            let version = current
+                .version
+                .wrapping_sub(u32::try_from(moves_after).expect("zone changes fit version"));
+            state
+                .source_object(baylee_core::ids::DamageSourceRef { object, version })
+                .unwrap_or(current)
+        };
+        crate::eval::matches_with_context(filter, state, snapshot, you, context)
+    };
+
+    let mut first_idx = None;
+    let mut count = 0_u32;
+    for (offset, candidate) in run.iter().enumerate() {
+        if entry_matches(candidate) {
+            if first_idx.is_none() {
+                first_idx = Some(start + offset);
+            }
+            count = count.saturating_add(1);
+        }
+    }
+    if first_idx == Some(idx) { count } else { 0 }
+}
+
+/// Count creatures declared attacking `attacked` in `batch` (`CR 508.3b`),
+/// returning the count only on the first `BecameAttacker` targeting `attacked`.
+pub(super) fn player_attacked_count(
+    event: &GameEvent,
+    batch: &[JournalEntry],
+    attacked: PlayerId,
+) -> u32 {
+    let GameEvent::BecameAttacker {
+        defending: baylee_core::ids::Defender::Player(target),
+        ..
+    } = *event
+    else {
+        return 0;
+    };
+    if target != attacked {
+        return 0;
+    }
+    let Some(idx) = index_of_event(event, batch) else {
+        return 0;
+    };
+    let mut first_idx = None;
+    let mut count = 0_u32;
+    for (i, entry) in batch.iter().enumerate() {
+        if matches!(
+            entry.event,
+            GameEvent::BecameAttacker {
+                defending: baylee_core::ids::Defender::Player(p),
+                ..
+            } if p == attacked
+        ) {
+            if first_idx.is_none() {
+                first_idx = Some(i);
+            }
+            count = count.saturating_add(1);
+        }
+    }
+    if first_idx == Some(idx) { count } else { 0 }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -104,6 +287,7 @@ mod tests {
                     object: ObjectId::new(index % 7, 0),
                     cause: Cause::Effect,
                 },
+                tap_observation: None,
                 departure: None,
             })
             .collect();

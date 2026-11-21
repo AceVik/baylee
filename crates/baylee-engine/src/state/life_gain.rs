@@ -59,7 +59,7 @@ impl GameState {
                     }
                     _ => return None,
                 };
-                crate::eval::players(who, self, fx.controller)
+                crate::eval::players_for_source(who, self, fx.controller, fx.source)
                     .is_some_and(|players| players.contains(&player))
                     .then_some(LifeGainReplacement {
                         source: fx.source,
@@ -85,7 +85,10 @@ impl GameState {
         amount: i32,
         cause: Cause,
     ) -> bool {
-        if self.has_left(player) || self.life_total_cant_change(player) {
+        if self.has_left(player)
+            || self.life_total_cant_change(player)
+            || self.cant_gain_life(player)
+        {
             return false;
         }
         if !self.life_gains_to_offer.is_empty() {
@@ -122,7 +125,10 @@ impl GameState {
             return None;
         }
         while let Some(gain) = self.life_gains_to_offer.front().copied() {
-            if self.has_left(gain.player) || self.life_total_cant_change(gain.player) {
+            if self.has_left(gain.player)
+                || self.life_total_cant_change(gain.player)
+                || self.cant_gain_life(gain.player)
+            {
                 self.life_gains_to_offer.pop_front();
                 continue;
             }

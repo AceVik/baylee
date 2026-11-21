@@ -621,6 +621,15 @@ fn a_queued_line_drops_the_reminder_and_the_gap_it_left() {
         ability_line(&blocks).as_deref(),
         Some("Fliegend und Wachsamkeit")
     );
+    let mid_sentence_blocks = vec![
+        TextBlock::Rules("You get {E}{E}{E}".to_string()),
+        TextBlock::Reminder("three energy counters".to_string()),
+        TextBlock::Rules(".".to_string()),
+    ];
+    assert_eq!(
+        ability_line(&mid_sentence_blocks).as_deref(),
+        Some("You get {E}{E}{E}.")
+    );
     assert_eq!(
         ability_line(&[TextBlock::Reminder("nur dies".to_string())]),
         None,

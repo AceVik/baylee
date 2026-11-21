@@ -1026,7 +1026,7 @@ fn bound_to_this_step(view: &PlayerView, legal: &LegalActions) -> bool {
     use baylee_cards_dsl::{AbilityDef, Condition};
     fn during_a_step(condition: &Condition) -> bool {
         match condition {
-            Condition::DuringStep(_) => true,
+            Condition::DuringStep(_) | Condition::InCombatAfterBlockers => true,
             Condition::All(all) => all.iter().any(during_a_step),
             _ => false,
         }
@@ -1217,6 +1217,8 @@ pub fn face_down_keyword(card: baylee_view::CardIdentity) -> Option<&'static str
         .get(usize::from(card.face))?;
     if face.disguise.is_some() {
         Some("disguise")
+    } else if face.megamorph.is_some() {
+        Some("megamorph")
     } else if face.morph.is_some() {
         Some("morph")
     } else {

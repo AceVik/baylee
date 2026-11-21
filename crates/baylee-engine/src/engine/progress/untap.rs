@@ -238,7 +238,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let baylee_cards_dsl::Modifier::UntapAtMost { who, of, count } = fx.modifier else {
                     return None;
                 };
-                crate::eval::players(who, &self.state, fx.controller)
+                crate::eval::players_for_source(who, &self.state, fx.controller, fx.source)
                     .is_some_and(|p| p.contains(&active))
                     .then_some(UntapLimit {
                         of,

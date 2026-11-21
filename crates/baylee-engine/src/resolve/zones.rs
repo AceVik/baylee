@@ -30,6 +30,7 @@ pub(super) fn can_sacrifice_self(state: &GameState, res: &Resolution) -> bool {
             o.zone == crate::zone::Zone::Battlefield
                 && o.controller == res.controller
                 && !o.status.contains(crate::object::Status::PHASED_OUT)
+                && state.can_be_sacrificed(res.source, Some(res.controller))
         })
 }
 
@@ -42,6 +43,7 @@ pub(super) fn can_sacrifice_grantor(state: &GameState, res: &Resolution) -> bool
                 && object.zone == crate::zone::Zone::Battlefield
                 && object.controller == res.controller
                 && !object.status.contains(crate::object::Status::PHASED_OUT)
+                && state.can_be_sacrificed(grantor.object, Some(res.controller))
         })
     })
 }
@@ -168,7 +170,11 @@ pub(super) fn spec_objects(
 /// The stacking stands in for the triggering (CR 610.3b), which it follows
 /// with nothing resolving in between. An object with no such record, a
 /// spell, finds nothing and exiles as before.
-fn an_opponent_was_crowned_since(state: &GameState, on_stack: ObjectId, you: PlayerId) -> bool {
+pub(super) fn an_opponent_was_crowned_since(
+    state: &GameState,
+    on_stack: ObjectId,
+    you: PlayerId,
+) -> bool {
     let entries = state.journal.entries();
     let Some(stacked) = entries.iter().rposition(
         |e| matches!(e.event, GameEvent::AbilityTriggered { object, .. } if object == on_stack),
@@ -238,11 +244,19 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::Blink { owner_control, .. } => {
-            if let Some(&target_id) = res.targets.first() {
-                let components = state.merged_components(target_id);
+        Effect::ExileWarped => {
+            if let Some(target_id) = spec_object(state, res, TargetSpec::EventObject)
+                && state.object(target_id).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && !o.status.contains(crate::object::Status::PHASED_OUT)
+                        && o.riders.contains(&crate::object::Rider::WarpedSpell)
+                })
+            {
+                let turn = state.turn.number;
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
-                if let Some(obj) = state.object_mut(target_id) {
+                if let Some(obj) = state.object_mut(target_id)
+                    && obj.is_card()
+                {
                     obj.kind = ObjectKind::Card;
                 }
                 let _ = state.move_object(
@@ -251,11 +265,49 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+                if let Some(obj) = state.object_mut(target_id)
+                    && obj.zone == crate::zone::Zone::Exile
+                    && obj.is_card()
+                {
+                    obj.riders
+                        .retain(|r| !matches!(r, crate::object::Rider::WarpedInExile(_)));
+                    obj.riders.push(crate::object::Rider::WarpedInExile(turn));
+                }
+            }
+            None
+        }
+        Effect::Blink {
+            target,
+            owner_control,
+        } => {
+            let targets = moving_objects(state, res, target);
+            if !targets.is_empty() {
+                let mut components: SmallVec<[ObjectId; 2]> = SmallVec::new();
+                for target_id in targets {
+                    if state
+                        .object(target_id)
+                        .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield)
+                    {
+                        continue;
+                    }
+                    components.extend(state.merged_components(target_id));
+                    let owner = state.object(target_id).map_or(you, |o| o.owner);
+                    if let Some(obj) = state.object_mut(target_id) {
+                        obj.kind = ObjectKind::Card;
+                    }
+                    let _ = state.move_object(
+                        target_id,
+                        ZoneLocation::Exile(owner),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
                 if !owner_control && state.has_left(you) {
                     return None;
                 }
-                // A merged permanent leaves once, then each physical card returns
-                // separately. Tokens cannot return after changing zones.
+                // Every target leaves the battlefield before any physical card
+                // returns separately (CR 400.7, CR 608.2c). Tokens cannot return
+                // after changing zones (CR 111.8).
                 for card in components {
                     if let Some(obj) = state
                         .object_mut(card)
@@ -462,7 +514,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::GraveyardToHand { target } => {
             let moves: Vec<_> = moving_objects(state, res, target)
                 .into_iter()
-                .filter_map(|id| state.object(id).map(|o| (id, ZoneLocation::Hand(o.owner))))
+                .filter_map(|id| {
+                    state
+                        .object(id)
+                        .filter(|o| o.zone == crate::zone::Zone::Graveyard && o.is_card())
+                        .map(|o| (id, ZoneLocation::Hand(o.owner)))
+                })
                 .collect();
             // Ask every commander's owner before moving any selected card.
             // CR 903.9b is a separate choice from leaving a graveyard (903.9a).
@@ -705,13 +762,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // nonland permanents" phases out as many as it named, and a
             // target that became illegal already left the list (CR 608.2b).
             // What is attached to each goes with it (CR 702.26g).
-            match target {
-                Some(_) => {
-                    let targets = res.targets.clone();
-                    state.phase_out(&targets);
-                }
-                None => state.phase_out(&[res.source]),
-            }
+            let objects = spec_objects(state, res, target.unwrap_or(TargetSpec::ThisObject));
+            state.phase_out(&objects);
             None
         }
         Effect::PhaseOutUntilSourceLeaves { tap_on_phase_in } => {
@@ -752,7 +804,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             state.phase_out(&targets);
             None
         }
-        Effect::ExileLinked { until, .. } => {
+        Effect::ExileLinked { target, until } => {
             let until = until.map(|until| match until {
                 baylee_cards_dsl::ExileUntil::SourceLeavesBattlefield => {
                     crate::object::LinkUntil::HostLeaves
@@ -784,7 +836,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             {
                 return None;
             }
-            if let Some(&target_id) = res.targets.first() {
+            let host_version = super::source_version(state, res)
+                .or_else(|| state.object(res.source).map(|o| o.version));
+            for target_id in moving_objects(state, res, target) {
                 let components = state.merged_components(target_id);
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 if let Some(obj) = state.object_mut(target_id) {
@@ -800,9 +854,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
-                if let Some(version) = super::source_version(state, res)
-                    .or_else(|| state.object(res.source).map(|o| o.version))
-                {
+                if let Some(version) = host_version {
                     for component in components {
                         if let Some(object) = state
                             .object_mut(component)
@@ -975,7 +1027,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     })
                 })
                 .collect();
-            super::sacrifice_together(state, &all);
+            super::sacrifice_together(state, &all, Some(you));
             None
         }
         // CR 701.21a: a player sacrifices only a permanent they control.
@@ -984,7 +1036,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let _owner = state.object(id).and_then(|o| {
                 (o.zone == crate::zone::Zone::Battlefield
                     && o.controller == res.controller
-                    && !o.status.contains(crate::object::Status::PHASED_OUT))
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    && state.can_be_sacrificed(id, Some(res.controller)))
                 .then_some(o.owner)
             })?;
             if let Some(obj) = state.object_mut(id) {
@@ -1035,7 +1088,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             let x = match op {
                 Effect::RollDiePutTargetIntoLibraryBeneathTop { sides } => {
-                    (state.rng.below(u64::from(sides.max(1))) as usize) + 1
+                    usize::try_from(super::dice::roll_dice(state, you, 1, sides.max(1), 0))
+                        .unwrap_or(usize::MAX)
                 }
                 Effect::PutTargetIntoLibraryBeneathTop { count } => {
                     usize::try_from(amount2(&count, state, you, res)).unwrap_or(usize::MAX)
@@ -1428,7 +1482,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let mut players = players_of(who, state, you, res);
             chosen::order_apnap(state, &mut players);
             let (player, options) =
-                chosen::next_asked(state, &mut players, filter, you, res.source)?;
+                chosen::next_sacrifice_asked(state, &mut players, filter, you, res.source)?;
             res.awaiting = Some(AwaitingOp::SacrificeFilter {
                 asked: player,
                 filter,
@@ -1449,7 +1503,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if_it_was,
             then,
         } => {
-            let options = chosen::options(state, you, filter, you, res.source);
+            let options = chosen::sacrifice_options(state, you, filter, you, res.source);
             if options.is_empty() {
                 return None;
             }
@@ -1872,11 +1926,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // transforms in between would show the same face again and are not
         // told apart; nothing in the pool reaches that.)
         Effect::TransformSource => {
-            let printed = state
-                .object(res.on_stack)
-                .and_then(|ability| ability.own_origin)
-                .and_then(crate::object::AbilityOrigin::printed)
-                .map(crate::object::PrintedFace::face);
+            let printed = state.object(res.on_stack).and_then(|ability| {
+                ability
+                    .own_origin
+                    .and_then(crate::object::AbilityOrigin::printed)
+                    .map(crate::object::PrintedFace::face)
+                    .or_else(|| {
+                        ability.riders.iter().find_map(|r| match r {
+                            crate::object::Rider::AbilitySourceFace(face) => Some(*face),
+                            _ => None,
+                        })
+                    })
+            });
             if let Some(obj) = state.object_mut(res.source)
                 && obj.zone == crate::zone::Zone::Battlefield
                 && !obj.status.contains(crate::object::Status::PHASED_OUT)

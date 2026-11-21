@@ -47,6 +47,7 @@ pub struct Checkpoint<D: LoopDetection = DetectLoops> {
     activation_x: Option<u32>,
     activation_graveyard: Option<PlayerId>,
     activation_phyrexian: Vec<bool>,
+    activation_either_branches: Vec<bool>,
     activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
     activating_grant: Option<(ObjectId, u32, crate::effects::GrantedAbility)>,
     capabilities: Vec<baylee_core::preset::SeatCapabilities>,
@@ -113,6 +114,7 @@ impl<D: LoopDetection> Checkpoint<D> {
             activation_x,
             activation_graveyard,
             activation_phyrexian,
+            activation_either_branches,
             activating_abilities,
             activating_grant,
             capabilities,
@@ -160,6 +162,7 @@ impl<D: LoopDetection> Checkpoint<D> {
             activation_x: *activation_x,
             activation_graveyard: *activation_graveyard,
             activation_phyrexian: activation_phyrexian.clone(),
+            activation_either_branches: activation_either_branches.clone(),
             activating_abilities: activating_abilities.clone(),
             activating_grant: *activating_grant,
             capabilities: capabilities.clone(),
@@ -214,6 +217,7 @@ impl<D: LoopDetection> Checkpoint<D> {
             activation_x,
             activation_graveyard,
             activation_phyrexian,
+            activation_either_branches,
             activating_abilities,
             activating_grant,
             capabilities,
@@ -261,6 +265,7 @@ impl<D: LoopDetection> Checkpoint<D> {
         *activation_x = self.activation_x;
         *activation_graveyard = self.activation_graveyard;
         *activation_phyrexian = self.activation_phyrexian;
+        *activation_either_branches = self.activation_either_branches;
         *activating_abilities = self.activating_abilities;
         *activating_grant = self.activating_grant;
         *capabilities = self.capabilities;

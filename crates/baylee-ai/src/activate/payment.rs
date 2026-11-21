@@ -52,7 +52,10 @@ pub(super) fn reachable(
     let spends_life = cost.parts.iter().any(|part| {
         matches!(
             part,
-            CostPart::PayLife(_) | CostPart::PayLifeX | CostPart::PayCommanderColors
+            CostPart::PayLife(_)
+                | CostPart::DealDamageToYou(_)
+                | CostPart::PayLifeX
+                | CostPart::PayCommanderColors
         )
     });
     let cost = cost

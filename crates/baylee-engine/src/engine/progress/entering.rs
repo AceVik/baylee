@@ -238,6 +238,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             else {
                 continue;
             };
+            if !orientation_applied
+                && from_zone == Zone::Stack
+                && self
+                    .state
+                    .object(id)
+                    .is_some_and(|o| o.riders.contains(&crate::object::Rider::ImpendingPaid))
+                && let Some((n @ 1.., _)) = face.impending
+            {
+                crate::replacement::put_counters(
+                    &mut self.state,
+                    id,
+                    baylee_cards_dsl::CounterKind::Time,
+                    u16::from(n),
+                );
+                changed = true;
+            }
             // A modifier that *asks* is applied last, whatever order the
             // card prints it in: it is queued, and asked once every
             // arrival's other modifiers are on the board. Uncharted Haven is
@@ -251,7 +267,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             for modifier in face.enter_modifiers {
                 if orientation_applied
                     && (crate::entry::is_orientation_modifier(modifier)
-                        || matches!(modifier, EnterModifier::WithCounters { .. }))
+                        || matches!(
+                            modifier,
+                            EnterModifier::WithCounters { .. }
+                                | EnterModifier::WithCountersIf { .. }
+                                | EnterModifier::Bloodthirst(_)
+                        ))
                 {
                     continue;
                 }
@@ -264,7 +285,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     | EnterModifier::ExileFromGraveyardXOrGraveyard(_)
                     | EnterModifier::ChooseCounterPerEntryCount(_)
                     | EnterModifier::PayLifeUpTo(_)
-                    | EnterModifier::SacrificeOthers(_) => {}
+                    | EnterModifier::SacrificeOthers(_)
+                    | EnterModifier::Amplify(_)
+                    | EnterModifier::Devour { .. }
+                    | EnterModifier::Sunburst
+                    | EnterModifier::Tribute(_) => {}
                     EnterModifier::TappedUnlessCondition(condition) => {
                         if !eval::condition_holds(&self.state, controller, id, *condition) {
                             self.state.set_tapped(id, true);
@@ -348,6 +373,42 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             changed = true;
                         }
                     }
+                    EnterModifier::WithCountersIf {
+                        kind,
+                        count,
+                        condition,
+                    } => {
+                        if eval::condition_holds(&self.state, controller, id, *condition) {
+                            let x = Some(self.state.object(id).map_or(0, |o| o.x_value));
+                            let n = crate::eval::amount(count, &self.state, controller, id, x);
+                            if n > 0 {
+                                let n = u16::try_from(n).unwrap_or(u16::MAX);
+                                crate::replacement::put_counters(&mut self.state, id, *kind, n);
+                                changed = true;
+                            }
+                        }
+                    }
+                    EnterModifier::Bloodthirst(amount) => {
+                        if eval::condition_holds(
+                            &self.state,
+                            controller,
+                            id,
+                            baylee_cards_dsl::Condition::OpponentDealtDamageThisTurn,
+                        ) {
+                            let x = Some(self.state.object(id).map_or(0, |o| o.x_value));
+                            let n = crate::eval::amount(amount, &self.state, controller, id, x);
+                            if n > 0 {
+                                let n = u16::try_from(n).unwrap_or(u16::MAX);
+                                crate::replacement::put_counters(
+                                    &mut self.state,
+                                    id,
+                                    baylee_cards_dsl::CounterKind::P1P1,
+                                    n,
+                                );
+                                changed = true;
+                            }
+                        }
+                    }
                     EnterModifier::LoseLifeEqualToLife => {
                         let life = self
                             .state
@@ -373,10 +434,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         modifiers,
                     } => {
                         if from_zone == Zone::Stack
-                            && self
-                                .state
-                                .object(id)
-                                .is_some_and(|o| index.is_none_or(|i| o.kicked_with(i)))
+                            && self.state.object(id).is_some_and(|o| {
+                                index.map_or_else(|| o.kicked(), |i| o.kicked_with(i))
+                            })
                         {
                             if !orientation_applied && *counters > 0 {
                                 crate::replacement::put_counters(
@@ -426,6 +486,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     | EnterModifier::TappedUnlessReveal(_)
                     | EnterModifier::TappedUnlessRevealOrControl(_) => {
                         asks.push((id, controller, EntryAsk::Modifier(modifier)));
+                    }
+                    EnterModifier::Suspected => {
+                        if !orientation_applied
+                            && self.state.object(id).is_some_and(|o| {
+                                o.characteristics()
+                                    .types
+                                    .contains(baylee_core::types::TypeSet::CREATURE)
+                                    && !o.riders.contains(&crate::object::Rider::Suspected)
+                            })
+                            && let Some(obj) = self.state.object_mut(id)
+                        {
+                            obj.riders.push(crate::object::Rider::Suspected);
+                            self.state.invalidate_projections();
+                            changed = true;
+                        }
                     }
                 }
             }

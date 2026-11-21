@@ -1010,6 +1010,44 @@ fn reflection_retains_original_damage_and_has_its_own_lifelink_source() {
 }
 
 #[test]
+fn lifelink_gains_once_per_source_across_simultaneous_recipients() {
+    let mut state = state(2);
+    let first = creature(&mut state, A, 2, 2);
+    let second = creature(&mut state, A, 2, 2);
+    for source in [first, second] {
+        state.object_mut(source).unwrap().base_mut().keywords = KeywordSet::LIFELINK;
+    }
+    let target = creature(&mut state, B, 4, 4);
+    let mut work = DamageWork::new(
+        &mut state,
+        vec![
+            assigned(first, DamageTarget::Object(target), 1),
+            assigned(second, DamageTarget::Player(B), 1),
+            assigned(first, DamageTarget::Player(B), 2),
+        ],
+    );
+    assert!(work.advance(&mut state).is_none());
+    let gains: Vec<_> = state
+        .journal
+        .entries()
+        .iter()
+        .filter_map(|entry| {
+            if let crate::event::GameEvent::LifeChanged {
+                player: A,
+                old,
+                new,
+                ..
+            } = entry.event
+            {
+                return Some(new - old);
+            }
+            None
+        })
+        .collect();
+    assert_eq!(gains, [3, 1]);
+}
+
+#[test]
 fn targeting_cause_is_distinct_from_damage_source_and_combat() {
     for targeted in [false, true] {
         let mut state = state(2);

@@ -100,6 +100,18 @@ pub enum DamageEffectKind {
         /// Counters currently available.
         remaining: u32,
     },
+    /// Multiply each indicated positive damage part by `factor` without
+    /// preventing damage (Furnace of Rath, Fiery Emancipation; CR 614.1a).
+    MultiplyDamage {
+        /// Positive integer factor applied to each matching part.
+        factor: u8,
+    },
+    /// Increase each indicated source's positive damage to each recipient by
+    /// `extra` without preventing damage (Torbran, Mechanized Warfare; CR 614.1a).
+    AddDamage {
+        /// Flat bonus added per `(source, recipient)` pair.
+        extra: u8,
+    },
 }
 
 /// A legal effect, with sufficient provenance and affected damage to label

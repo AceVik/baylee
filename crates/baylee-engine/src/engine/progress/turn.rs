@@ -38,6 +38,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let extra = self.state.extra_turns.pop_front();
             self.state.resume_after = extra.map(|_| after);
             let next = extra.unwrap_or_else(|| self.next_alive_after(after));
+            if extra.is_none() {
+                crate::combat::goad::expire_between(&mut self.state, after, next);
+            }
             self.state.turn.active = next;
             self.state.turn.number += 1;
             // "When that creature dies this turn" watches no other turn.
@@ -121,15 +124,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             {
                 // Journaled like every effect's untap, so "whenever ...
                 // becomes untapped" sees it (`resolve::untap`).
-                self.state.journal.record(GameEvent::ObjectUntapped {
-                    object: id,
-                    cause: crate::event::Cause::Effect,
-                });
+                self.state
+                    .record_tap_event(id, false, crate::event::Cause::Effect);
             }
         }
     }
 
     fn expire_until_next_turn_effects(&mut self, new_active: PlayerId) {
+        crate::combat::goad::expire_for_turn(&mut self.state, new_active);
         // "Until your next turn" effects end as their controller's turn
         // begins (Elspeth's flying, Teferi's sorcery-flash).
         self.state.effects.remove_where(|fx| {
@@ -141,21 +143,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 && matches!(
                     d.when,
                     crate::state::DelayedWhen::CreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn { .. }
+                        | crate::state::DelayedWhen::OnEvent {
+                            duration: baylee_cards_dsl::DelayedDuration::UntilYourNextTurn,
+                            ..
+                        }
                 ))
         });
         self.state.play_permissions.retain_mut(|permission| {
-            use baylee_cards_dsl::PlayWindow;
             if permission.player == new_active {
-                use crate::state::PlayLifetime;
-                match permission.window {
-                    PlayLifetime::Turns(PlayWindow::UntilYourNextTurn) => return false,
-                    PlayLifetime::Turns(PlayWindow::ThroughYourNextTurn) => {
-                        permission.window = PlayWindow::ThisTurn.into();
-                    }
-                    PlayLifetime::Turns(PlayWindow::ThisTurn | PlayWindow::UntilYourNextUpkeep)
-                    | PlayLifetime::Prepared(_)
-                    | PlayLifetime::WhileExiled => {}
-                }
+                return permission.window.advance_turn_start();
             }
             true
         });
@@ -380,7 +376,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .state
                 .object(card)
                 .map_or(0, |o| o.counters.get(baylee_cards_dsl::CounterKind::Time));
-            if remaining <= 1 {
+            if remaining == 1 {
                 // Last counter removed: cast it without paying (CR 702.62a).
                 if let Some(obj) = self.state.object_mut(card) {
                     obj.counters.set(baylee_cards_dsl::CounterKind::Time, 0);
@@ -392,7 +388,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         version: self.state.object(card).map_or(0, |o| o.version),
                     },
                 ));
-            } else {
+            } else if remaining > 1 {
                 crate::replacement::remove_counters(
                     &mut self.state,
                     card,
@@ -426,6 +422,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 i += 1;
             }
         }
+        self.queue_at_step(baylee_cards_dsl::DelayedStep::Upkeep);
     }
 
     /// The name a synthetic ability on the stack goes by: its source's, or,
@@ -505,7 +502,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
             controller: t.controller,
         });
-        self.discard_empty_trigger_without_effect(id);
+        if !self.discard_empty_trigger_without_effect(id) {
+            self.note_crime_if_any(t.controller, id);
+        }
     }
 
     /// Queues the delayed actions that fire as one of the active player's
@@ -531,6 +530,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 i += 1;
             }
         }
+        self.queue_at_step(baylee_cards_dsl::DelayedStep::MainPhase);
     }
 
     /// Whether `id` is a Saga.
@@ -546,7 +546,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.state.object(id).is_some_and(|o| {
             o.abilities(&self.lookup)
                 .iter()
-                .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::SagaChapter { .. }))
+                .any(baylee_cards_dsl::AbilityDef::is_saga_chapter)
         })
     }
 
@@ -583,9 +583,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         })
                         && o.printed_abilities(&self.lookup)
                             .get(loc.index as usize)
-                            .is_some_and(|a| {
-                                matches!(a, baylee_cards_dsl::AbilityDef::SagaChapter { .. })
-                            })
+                            .is_some_and(baylee_cards_dsl::AbilityDef::is_saga_chapter)
                 })
             })
     }
@@ -601,11 +599,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             || self.trigger_queue.iter().any(|trigger| {
                 trigger.source == source
                     && trigger.source_version == Some(version)
-                    && matches!(
-                        self.trigger_abilities(trigger)
-                            .get(trigger.ability_index as usize),
-                        Some(baylee_cards_dsl::AbilityDef::SagaChapter { .. })
-                    )
+                    && self
+                        .trigger_abilities(trigger)
+                        .get(trigger.ability_index as usize)
+                        .is_some_and(baylee_cards_dsl::AbilityDef::is_saga_chapter)
             })
     }
 
@@ -674,10 +671,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let max = o
                     .abilities(&self.lookup)
                     .iter()
-                    .filter_map(|a| match a {
-                        baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. } => Some(*chapter),
-                        _ => None,
-                    })
+                    .map(baylee_cards_dsl::AbilityDef::max_saga_chapter)
                     .max()
                     .unwrap_or(0);
                 max > 0 && o.counters.get(baylee_cards_dsl::CounterKind::Lore) >= u16::from(max)
@@ -734,6 +728,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(crate) fn queue_end_step_delayed(&mut self) {
         self.queue_delayed_at(crate::state::DelayedWhen::NextEndStep);
         self.queue_delayed_at(crate::state::DelayedWhen::NextYourEndStep);
+        self.queue_at_step(baylee_cards_dsl::DelayedStep::EndStep);
     }
 
     /// Queues the delayed triggers that wait for "end of combat": they
@@ -742,6 +737,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(crate) fn queue_end_of_combat_delayed(&mut self) {
         self.queue_delayed_at(crate::state::DelayedWhen::EndOfCombat);
         self.queue_delayed_at(crate::state::DelayedWhen::EndOfCombatThisTurn);
+        self.queue_at_step(baylee_cards_dsl::DelayedStep::CombatEnd);
     }
 
     /// End advance-payment windows before the turn-based draw or its replacement.
@@ -778,6 +774,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .push_back((trigger.controller, trigger.action));
             } else {
                 i += 1;
+            }
+        }
+    }
+
+    /// Queue every [`DelayedWhen::AtStep`] matching `step` and the active turn's player.
+    pub(super) fn queue_at_step(&mut self, step: baylee_cards_dsl::DelayedStep) {
+        let active = self.state.turn.active;
+        let mut i = 0;
+        while i < self.state.delayed.len() {
+            let matches_step = match self.state.delayed[i].when {
+                crate::state::DelayedWhen::AtStep {
+                    step: s,
+                    players,
+                    recurring,
+                    ..
+                } if s == step && players.is_none_or(|set| set.contains(active)) => Some(recurring),
+                _ => None,
+            };
+            match matches_step {
+                Some(true) => {
+                    let trigger = self.state.delayed[i].clone();
+                    i += 1;
+                    self.delayed_queue
+                        .push_back((trigger.controller, trigger.action));
+                }
+                Some(false) => {
+                    let trigger = self.state.delayed.remove(i);
+                    self.delayed_queue
+                        .push_back((trigger.controller, trigger.action));
+                }
+                None => {
+                    i += 1;
+                }
             }
         }
     }

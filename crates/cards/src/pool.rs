@@ -244,7 +244,7 @@ fn partners(index: baylee_core::ids::CardIndex) -> Vec<u32> {
         .get_or_init(|| {
             let leaders: Vec<_> = crate::all()
                 .filter_map(|d| crate::decks::leader_of(d.index))
-                .filter(|l| l.eligible)
+                .filter(crate::decks::Leader::eligible)
                 .collect();
             leaders
                 .iter()

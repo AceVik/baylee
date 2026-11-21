@@ -34,10 +34,10 @@
 //!   view carries. Answering `true` would let an agent plan a tutor for a
 //!   card the search may not legally find, which is exactly the
 //!   considered-looking wrong decision above. [`Filter::CmcExactlyX`] reads
-//!   the same number. [`Filter::CmcAtMostColorsSpent`]
-//!   is the same refusal for the same reason: its bound is what the source's
-//!   payment spent, which the engine keeps on the source and no view
-//!   carries.
+//!   the same number. [`Filter::CmcAtMostColorsSpent`] and
+//!   [`Filter::CmcAtMostSnowManaSpent`] are the same refusal for the same
+//!   reason: their bound is what the source's payment spent, which the engine
+//!   keeps on the source and no view carries.
 //! - [`Filter::PowerLessThanSourcePower`] and
 //!   [`Filter::ToughnessLessThanSourcePower`] compare with the source's
 //!   power, and this reader is handed the candidate and not the source.
@@ -286,6 +286,20 @@ impl HeuristicAgent {
             Filter::HasColor(c) => Some(object.colors.intersects(*c)),
             Filter::IsColorless => Some(object.colors.is_colorless()),
             Filter::Monocolored => Some(object.colors.len() == 1),
+            Filter::FaceDown => Some(object.status.contains(baylee_view::ObjectStatus::FACE_DOWN)),
+            Filter::Suspected => Some(object.suspected),
+            Filter::SharesCreatureTypeWith(Filter::This) => this.and_then(|id| {
+                let src = view.object(id)?;
+                Some(
+                    object
+                        .subtypes
+                        .intersection(src.subtypes)
+                        .intersects(baylee_core::types::SubtypeSet::ALL_CREATURE),
+                )
+            }),
+            Filter::SharesColorWithSource => {
+                this.and_then(|id| Some(object.colors.intersects(view.object(id)?.colors)))
+            }
             // CR 201.2 reads the name an object has now, which is what the
             // view already projects: a clone answers with what it copied,
             // and a face-down permanent has no name to answer with
@@ -301,7 +315,7 @@ impl HeuristicAgent {
                 .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS)
                 .then(|| of_chosen_card_type(view, object, this))
                 .flatten(),
-            Filter::OfSourceChosenColor => self
+            Filter::OfSourceChosenColor | Filter::ChosenColor => self
                 .profile
                 .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS)
                 .then(|| of_chosen_color(view, object, this))
@@ -370,7 +384,35 @@ impl HeuristicAgent {
                     .any(|attacker| attacker.creature == object.id && !attacker.blocked),
             ),
             // The view names what every public object is attached to.
-            Filter::IsAttached => Some(object.attached_to.is_some()),
+            Filter::IsAttached => {
+                Some(object.attached_to.is_some() || object.attached_player().is_some())
+            }
+            // CR 700.6: historic means artifact, legendary, or Saga.
+            Filter::Historic => Some(
+                object.types.contains(baylee_core::types::TypeSet::ARTIFACT)
+                    || object
+                        .supertypes
+                        .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+                    || object
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::enchantment::SAGA),
+            ),
+            Filter::AnyCountersAtLeast(min) => {
+                let total: u32 = object
+                    .counters
+                    .iter()
+                    .map(|entry| u32::from(entry.count))
+                    .sum();
+                Some(total >= u32::from(*min))
+            }
+            Filter::ControlledByEnchantedPlayer => {
+                let source = view.object(this?)?;
+                Some(source.attached_player() == Some(object.controller))
+            }
+            Filter::PairedWithSource => {
+                let source = view.object(this?)?;
+                Some(source.paired_with() == Some(object.id))
+            }
             // `KeywordSet::contains` is an intersection test, so this is
             // has-*any* rather than has-all whatever a filter names.
             Filter::HasKeyword(k) => Some(object.keywords & k.bits() != 0),
@@ -380,15 +422,26 @@ impl HeuristicAgent {
             Filter::ToughnessAtLeast(n) => Some(object.toughness.is_some_and(|t| t >= *n)),
             Filter::PowerAtLeast(n) => Some(object.power.is_some_and(|p| p >= *n)),
             Filter::PowerAtMost(n) => Some(object.power.is_some_and(|p| p <= *n)),
-            Filter::InZone(want) => Some(zone == *want),
+            Filter::IsCommander => Some(object.commander),
+            Filter::WarpedInExile => Some(zone == ZoneRef::Exile && object.warped),
+            Filter::InZone(want) => Some(match *want {
+                ZoneRef::BattlefieldOrCommand => {
+                    matches!(zone, ZoneRef::Battlefield | ZoneRef::Command | ZoneRef::BattlefieldOrCommand)
+                }
+                ZoneRef::NotBattlefield => zone != ZoneRef::Battlefield,
+                exact => zone == exact,
+            }),
             // The view lists every instance's targets and every player on a
             // stack object, which is the count CR 115.9a asks for.
-            Filter::WithSingleTarget => Some(object.targets.len() == 1),
+            Filter::WithSingleTarget => {
+                Some(zone == ZoneRef::Stack && object.targets.len() == 1)
+            }
             // The ones the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             // Ability removal and granted mana abilities require engine evaluation.
-            Filter::OwnedBySourceOwner
+            Filter::Monstrous
+            | Filter::OwnedBySourceOwner
             | Filter::HasWatermark
             | Filter::SharesWatermarkWithSource
             | Filter::UnCard
@@ -400,6 +453,8 @@ impl HeuristicAgent {
             | Filter::CmcAtMostX
             | Filter::CmcExactlyX
             | Filter::CmcAtMostColorsSpent
+            | Filter::CmcAtMostSnowManaSpent
+            | Filter::SameManaValueAsSource
             | Filter::AttackingYou
             | Filter::PowerAtMostSourcePower
             | Filter::PowerLessThanSourcePower
@@ -412,8 +467,8 @@ impl HeuristicAgent {
             // Not one of those: a gap, and the header says why.
             | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
+        | Filter::HasCounters(_)
         | Filter::NotTargetedByAnotherNamed(_)
-        | Filter::IsCommander
         | Filter::HasAdventure
         | Filter::ActivatedAbilityFrom(_)
         | Filter::TargetsPermanentYouControl
@@ -448,10 +503,12 @@ impl HeuristicAgent {
         // A colour compared across the board is a gap like the reference
         // family.
         | Filter::SharesAColorWith(_)
+        | Filter::SharesCreatureTypeWith(_)
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::NotControlledByReferenceController
         | Filter::LowestManaValueOnBattlefield(_)
+        | Filter::RingBearer
         | Filter::CmcEqualsYourUnspentMana => None,
         }
     }
@@ -521,6 +578,21 @@ impl HeuristicAgent {
             _ => false,
         }) {
             return free;
+        }
+        // Conditional turn-state discounts (spectacle, surge, prowl) with no
+        // non-mana drawback beat or tie `Normal` while unlocking cast bonuses.
+        let normal_cmc = options
+            .iter()
+            .find(|o| matches!(o.kind, CastModeKind::Normal))
+            .map(|o| o.cost.cmc());
+        if let Some(bonus_alt) = options.iter().position(|option| match option.kind {
+            CastModeKind::Alternative(i) => {
+                Self::is_upside_turn_alt(view, object, i)
+                    && normal_cmc.is_none_or(|cmc| option.cost.cmc() <= cmc)
+            }
+            _ => false,
+        }) {
+            return bonus_alt;
         }
         if let Some(normal) = options
             .iter()
@@ -606,6 +678,30 @@ impl HeuristicAgent {
             .and_then(crate::policy::face)
             .and_then(|face| face.alternative_costs.get(index))
             .is_some_and(|alt| alt.cost.parts.is_empty())
+    }
+
+    /// Whether alternative cost `index` is a pure-upside mana-only conditional
+    /// cost (spectacle, surge, prowl) with no non-mana sacrifice/discard/life.
+    fn is_upside_turn_alt(view: &PlayerView, object: ObjectId, index: usize) -> bool {
+        view.hand
+            .iter()
+            .find(|c| c.id == object)
+            .map(|c| c.card)
+            .or_else(|| view.object(object).and_then(|o| o.card))
+            .and_then(crate::policy::face)
+            .and_then(|face| face.alternative_costs.get(index))
+            .is_some_and(|alt| {
+                alt.cost.parts.is_empty()
+                    && matches!(
+                        alt.condition,
+                        baylee_cards_dsl::AltCondition::If(
+                            baylee_cards_dsl::Condition::OpponentLostLifeThisTurn
+                                | baylee_cards_dsl::Condition::Surge
+                                | baylee_cards_dsl::Condition::Prowl
+                                | baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn
+                        )
+                    )
+            })
     }
 
     /// The printed modes the question is about, or `None` when they cannot be
@@ -798,6 +894,7 @@ impl HeuristicAgent {
             }
             PlayerRel::Chosen
             | PlayerRel::Recipient
+            | PlayerRel::GiftRecipient
             | PlayerRel::DefendingPlayer
             | PlayerRel::OwnerOfEvent
             | PlayerRel::ControllerOfTarget
@@ -807,7 +904,8 @@ impl HeuristicAgent {
             | PlayerRel::DamagedPlayer
             | PlayerRel::EventPlayer
             | PlayerRel::OwnerOfSource
-            | PlayerRel::ControllerOfAttached => {
+            | PlayerRel::ControllerOfAttached
+            | PlayerRel::EnchantedPlayer => {
                 return None;
             }
         })

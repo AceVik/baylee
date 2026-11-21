@@ -4,7 +4,7 @@ use super::{Attempt, ChoicePrompt, GameState, ObjectId, Pending, Question, Zone,
 pub(super) fn needs_choice(state: &GameState, id: ObjectId) -> bool {
     state.object(id).is_some_and(|object| {
         !matches!(object.zone, Zone::Stack | Zone::Battlefield)
-            && object.attached_to.is_none()
+            && !object.is_attached()
             && object
                 .characteristics()
                 .subtypes
@@ -27,19 +27,47 @@ pub(super) fn question(state: &GameState, entry: &mut Attempt) -> Option<(Questi
         }))
         .filter(|host| crate::aura_bindings::can_attach(state, entry.object, *host))
         .collect();
-    if options.is_empty() {
+    let player_options: Vec<_> = state
+        .players
+        .iter()
+        .map(|player| player.id)
+        .filter(|&player| crate::aura_bindings::can_attach_player(state, entry.object, player))
+        .collect();
+    if options.is_empty() && player_options.is_empty() {
         entry.refusal = Some(super::Refusal::StayInZone);
         return None;
     }
+    if options.is_empty() {
+        return Some((
+            Question::AuraHost,
+            Pending::ChoosePlayer {
+                player: entry.controller,
+                options: player_options,
+            },
+        ));
+    }
+    if player_options.is_empty() {
+        return Some((
+            Question::AuraHost,
+            Pending::ChooseCards {
+                player: entry.controller,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::NewHost { aura: entry.object },
+                total: None,
+            },
+        ));
+    }
     Some((
         Question::AuraHost,
-        Pending::ChooseCards {
+        Pending::ChooseTargets {
             player: entry.controller,
             options,
+            player_options,
             min: 1,
             max: 1,
-            prompt: ChoicePrompt::NewHost { aura: entry.object },
-            total: None,
+            reason: crate::choice::TargetPrompt::Targets,
         },
     ))
 }

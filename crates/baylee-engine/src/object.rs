@@ -294,6 +294,29 @@ pub fn ability_target_req(
     }
 }
 
+/// The second target requirement of `abilities[index]` (`mode_index` for modal
+/// abilities), mirroring [`ability_target_req`].
+#[must_use]
+pub fn ability_second_target_req(
+    abilities: impl Into<AbilityDefs>,
+    index: u32,
+    mode_index: Option<u8>,
+) -> Option<baylee_cards_dsl::TargetReq> {
+    use baylee_cards_dsl::AbilityDef;
+    let abilities = abilities.into();
+    match abilities.get(index as usize)? {
+        AbilityDef::Activated { second_targets, .. }
+        | AbilityDef::ActivatedConditional { second_targets, .. }
+        | AbilityDef::Loyalty { second_targets, .. }
+        | AbilityDef::Triggered { second_targets, .. } => *second_targets,
+        AbilityDef::ModalTriggered { modes, .. } | AbilityDef::ModalActivated { modes, .. } => {
+            let idx = mode_index? as usize;
+            modes.get(idx).and_then(|m| m.second_targets)
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 thread_local! {
     /// Set, a split card is its left half off the stack, as the engine read
@@ -623,9 +646,9 @@ impl Characteristics {
             // A back face nobody may cast out of hand is a nonmodal one
             // (`xtask validate` holds the flag against Scryfall's layout):
             // its mana value is the front face's (CR 202.3b). A modal back,
-            // an adventure and a split half are cast for their own cost and
-            // keep it.
-            front_mana_value: (face > 0 && !f.castable_from_hand)
+            // an adventure and a split half (including aftermath, CR 709.3b)
+            // are cast for their own cost and keep it.
+            front_mana_value: (face > 0 && !f.castable_from_hand && !f.aftermath)
                 .then(|| u8::try_from(def.faces[0].mana_cost.cmc()).unwrap_or(u8::MAX)),
             x_on_stack: 0,
         }
@@ -1006,7 +1029,7 @@ pub enum Rider {
     /// Full damage amount captured by a triggered ability. Sparse because
     /// only damage-triggered stack objects need this 32-bit value.
     EventAmount(u32),
-    /// Event-time controller and toughness of a departed permanent.
+    /// Event-time controller and toughness of a permanent that departed, tapped, or untapped.
     EventDeparture(PlayerId, i16),
     /// Opponent chosen as this permanent entered; not a target. Stored in
     /// the sparse rider list to preserve the per-object size budget.
@@ -1109,6 +1132,142 @@ pub enum Rider {
     /// kicker cost and at least one was paid, keeping single-kicker objects
     /// unchanged. Appended to preserve derived replay identities.
     KickedMask(u8),
+    /// Intervening-`if` condition carried on a synthetic triggered ability on
+    /// the stack (reflexive or delayed triggers, CR 603.4, CR 603.7, CR 603.12).
+    SyntheticCondition(&'static baylee_cards_dsl::Condition),
+    /// Cast bestowed (CR 702.103b): makes this spell on the stack and the
+    /// permanent it becomes an Aura enchantment with enchant creature (not a
+    /// creature) in layer 4 until its target is illegal on resolution
+    /// (CR 702.103e) or it becomes unattached on the battlefield (CR 702.103f–g).
+    Bestowed,
+    /// Encore token requirement (CR 702.141a): attacks this opponent this turn if able.
+    MustAttackPlayerThisTurn(PlayerId),
+    /// Creature spell cast via suspend (CR 702.62a): gains haste until this
+    /// caster loses control of the spell or the permanent it becomes.
+    SuspendHaste(PlayerId),
+    /// Cast for its blitz cost (CR 702.152a): the permanent it becomes has
+    /// haste, draws a card when it dies, and is sacrificed at the next end step.
+    Blitzed,
+    /// Bargained as an additional cost when cast (CR 702.166b): tracked on the
+    /// spell and on the permanent it becomes until leaving the battlefield.
+    Bargained,
+    /// Defender (and optional planeswalker/battle incarnation) the creature
+    /// returned to pay `CostPart::ReturnUnblockedAttacker` was attacking
+    /// (ninjutsu, CR 702.49c). Appended to preserve replay identities.
+    NinjutsuDefender(baylee_core::ids::Defender, Option<u32>),
+    /// Player this Aura is attached to ("enchant player" / Curses, CR 303.4b).
+    /// Stored sparsely in `riders` so `GameObject` stays within 296B.
+    AttachedToPlayer(PlayerId),
+    /// Enchanted player captured on waiting stack abilities when a player-attached
+    /// Aura leaves the battlefield or phases out (CR 113.7a, CR 608.2h).
+    SourceAttachmentPlayerLki(PlayerId),
+    /// Squad payments made when casting this spell (CR 702.157a): creates this
+    /// many token copies when the permanent enters the battlefield.
+    SquadPaid(u8),
+    /// Offspring paid when casting this spell (CR 702.175a): creates a 1/1
+    /// token copy when the permanent enters the battlefield.
+    OffspringPaid,
+    /// Split spell cast fused from hand (CR 702.102a–d): carries combined
+    /// characteristics on the stack and resolves left half then right half.
+    Fused,
+    /// Face-down permanent manifested onto the battlefield (CR 701.40a–g):
+    /// has no Ward and may be turned face up for its front creature mana cost.
+    Manifested,
+    /// Turn number on which this exiled incarnation became plotted (CR 702.170a,
+    /// CR 702.170d): castable without paying its mana cost only on a later turn.
+    PlottedOnTurn(u32),
+    /// Casualty additional cost was paid when casting this spell (CR 702.153a):
+    /// triggers the cast trigger copying this spell once.
+    CasualtyPaid,
+    /// Permanent has the renowned designation until it leaves the battlefield
+    /// (CR 702.112b; neither an ability nor a copiable value). Appended to
+    /// preserve replay identities.
+    Renowned,
+    /// Soulbond pairing partner and its battlefield incarnation version (CR 702.95b).
+    /// Stored reciprocally on both paired creatures while both remain creatures
+    /// on the battlefield under the same player's control (CR 702.95e).
+    PairedWith(ObjectId, u32),
+    /// Impending alternative cost was paid when casting this spell (CR 702.176a):
+    /// enters with N time counters, is not a creature while it has a time
+    /// counter, and removes one time counter at each of your end steps.
+    ImpendingPaid,
+    /// Gift additional cost was promised to this opponent when casting this
+    /// spell (CR 702.174a, CR 702.174k).
+    GiftPromisedTo(PlayerId),
+    /// Face index (`0` front, `1` back) shown by a double-faced token when
+    /// this activated or triggered ability was put on the stack (`CR 701.27g`).
+    /// Appended to preserve replay identities.
+    AbilitySourceFace(u8),
+    /// Exiled material card reference paid for a craft activation
+    /// (`CostPart::CraftMaterials`, `CR 702.167a–c`), linked to the returned
+    /// transformed permanent by `Effect::ReturnCraftedTransformed`. Appended to
+    /// preserve replay identities.
+    CraftMaterial(baylee_core::ids::DamageSourceRef),
+    /// Spell cast for its warp cost (CR 702.185a), carried onto the permanent
+    /// it becomes on resolving from the stack. Appended to preserve replay
+    /// identities.
+    WarpedSpell,
+    /// Card exiled by a warp delayed trigger on `turn` (CR 702.185a–b): its
+    /// owner may cast it from exile on any turn after `turn` for as long as it
+    /// remains exiled. Appended to preserve replay identities.
+    WarpedInExile(u32),
+    /// Units of snow mana (mana produced by snow sources, CR 107.4h) spent to
+    /// cast the spell that became this permanent or triggered this ability
+    /// (CR 400.7d, CR 608.2h). Appended to preserve replay identities.
+    SnowManaSpent(u32),
+    /// Permanent has the monstrous designation until it leaves the battlefield
+    /// (CR 701.37b; neither an ability nor a copiable value).
+    Monstrous,
+    /// Permanent has the suspected designation until it leaves the battlefield
+    /// or becomes unsuspected (CR 701.60a–b; neither an ability nor a copiable
+    /// value).
+    Suspected,
+    /// Permanent gained haste indefinitely from declining Riot's +1/+1 counter
+    /// as it entered the battlefield (CR 702.136a).
+    RiotHaste,
+    /// Revealed from its owner's opening hand for a pre-game action until the
+    /// first turn begins (`CR 103.6b`, *Chancellor* cycle / *Sphinx of Foresight*).
+    RevealedFromOpeningHand,
+    /// Spell cast for its sneak cost (CR 702.190a–b), entering tapped and
+    /// attacking the defender stored in [`Self::NinjutsuDefender`] when it
+    /// resolves as a permanent spell. Appended to preserve replay identities.
+    Sneaked,
+    /// Card face spliced onto this spell in chosen splice order (CR 702.47a–e).
+    /// Appended to preserve replay identities.
+    Spliced {
+        /// Catalog index of the revealed splice card.
+        card: baylee_core::ids::CardIndex,
+        /// Face index on `card`.
+        face: u8,
+    },
+    /// Spell cast for its awaken cost with `N` +1/+1 counters (CR 702.113a).
+    /// Appended to preserve replay identities.
+    Awakened(u16),
+    /// Number of conspire instances paid when casting this spell (CR 702.78a–b).
+    /// Appended to preserve replay identities.
+    ConspirePaid(u8),
+    /// Exiled instant or sorcery card encoded via cipher onto exact permanent
+    /// incarnation `(host, version)` (CR 702.99b–c). Appended to preserve
+    /// replay identities.
+    CipherEncodedOn {
+        /// Encoded permanent handle on the battlefield.
+        host: ObjectId,
+        /// Exact battlefield version of `host` when encoded.
+        version: u32,
+    },
+    /// Exiled permanent card championed by exact permanent incarnation
+    /// `(host, version)` (CR 702.72a–b). Appended to preserve replay identities.
+    ChampionedBy {
+        /// Championing permanent handle.
+        host: ObjectId,
+        /// Exact battlefield version of `host`.
+        version: u32,
+    },
+    /// Tribute was paid by the chosen opponent as this permanent entered the
+    /// battlefield (CR 702.104a–b). Appended to preserve replay identities.
+    TributePaid,
+    /// Class level designation above the default of one (CR 717.2b, 717.2d).
+    ClassLevel(u8),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1155,6 +1314,7 @@ impl Rider {
     ///
     /// Every variant is named, so a new rider has to answer.
     #[must_use]
+    #[allow(clippy::too_many_lines)] // exhaustive Rider arm list; new riders must answer explicitly
     pub const fn ends_as_it_leaves_exile(self) -> bool {
         match self {
             Self::Linked { .. }
@@ -1167,6 +1327,10 @@ impl Rider {
             | Self::Rebound
             | Self::Foretold { .. }
             | Self::Plotted
+            | Self::PlottedOnTurn(_)
+            | Self::WarpedInExile(_)
+            | Self::CipherEncodedOn { .. }
+            | Self::ChampionedBy { .. }
             | Self::NotedCounter(_, _)
             | Self::ActivationManaNote { .. } => true,
             // About the stack or the battlefield, not exile.
@@ -1228,7 +1392,39 @@ impl Rider {
             // never in exile.
             | Self::EventDeparture(..)
             | Self::EventAmount(_)
-            | Self::EventPlayer(_) => false,
+            | Self::Bestowed
+            | Self::MustAttackPlayerThisTurn(_)
+            | Self::SuspendHaste(_)
+            | Self::Blitzed
+            | Self::Bargained
+            | Self::AttachedToPlayer(_)
+            | Self::SourceAttachmentPlayerLki(_)
+            | Self::SquadPaid(_)
+            | Self::OffspringPaid
+            | Self::Fused
+            | Self::Manifested
+            | Self::CasualtyPaid
+            | Self::Renowned
+            | Self::PairedWith(..)
+            | Self::ImpendingPaid
+            | Self::GiftPromisedTo(_)
+            | Self::Monstrous
+            | Self::ClassLevel(_)
+            | Self::Suspected
+            | Self::RiotHaste
+            | Self::EventPlayer(_)
+            | Self::NinjutsuDefender(_, _)
+            | Self::SyntheticCondition(_)
+            | Self::AbilitySourceFace(_)
+            | Self::CraftMaterial(_)
+            | Self::WarpedSpell
+            | Self::SnowManaSpent(_)
+            | Self::RevealedFromOpeningHand
+            | Self::Sneaked
+            | Self::Spliced { .. }
+            | Self::Awakened(_)
+            | Self::ConspirePaid(_)
+            | Self::TributePaid => false,
         }
     }
 }
@@ -1248,7 +1444,21 @@ pub type RiderSet = Vec<Rider>;
 /// narrowing drops an illegal target from a list, which would slide a fight's
 /// second creature into the first one's place. Read by
 /// [`baylee_cards_dsl::TargetSlot::Second`] and nothing else.
+/// Additional target instances (`3rd`, `4th`, …) chosen across modes of a
+/// multi-mode spell (Spree, CR 700.2c–d, CR 702.172a).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct ExtraTargetInstance {
+    /// Players chosen for this target instance.
+    pub players: SeatSet,
+    /// Objects chosen for this target instance.
+    pub targets: SmallVec<[ObjectId; 2]>,
+    /// Requirement under which this target instance was chosen (for CR 608.2b).
+    pub req: Option<baylee_cards_dsl::TargetReq>,
+}
+
+/// The second target instance (and any 3rd+ modal target instances) carried by
+/// a stack object.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SecondInstance {
     /// Players chosen for this instance, independent of the first instance.
     pub players: SeatSet,
@@ -1259,6 +1469,22 @@ pub struct SecondInstance {
     /// time the face and the copy status are settled on the object and not
     /// in the card. An activated ability's is read off its definition.
     pub req: Option<baylee_cards_dsl::TargetReq>,
+    /// Target instances `2..` (3rd and subsequent target clauses) of a
+    /// multi-mode spell, kept inside `SecondInstance` so `GameObject` stays
+    /// 296 B and 0/1/2-target replay hashes are untouched.
+    pub extra: Vec<ExtraTargetInstance>,
+}
+
+impl std::hash::Hash for SecondInstance {
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        self.players.hash(h);
+        self.targets.hash(h);
+        self.req.hash(h);
+        if !self.extra.is_empty() {
+            0x6578_7472_u32.hash(h);
+            self.extra.hash(h);
+        }
+    }
 }
 
 /// What a cost's sacrificed permanent was as it last existed on the
@@ -1295,17 +1521,16 @@ impl SacrificedLki {
 /// spell gives it up as it resolves as well: nothing on the battlefield
 /// reads it yet (adamant would be the first), and a record held there would
 /// be an allocation in every AI ply's clone.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PaidRecord {
     /// Exact pre-discard cards paid for this ability, including replaced discards.
     pub discarded: Vec<baylee_core::ids::DamageSourceRef>,
     /// Source found after this cost actually moved it to a public zone (CR 400.7j).
     pub source_after_cost: Option<baylee_core::ids::DamageSourceRef>,
-    /// The permanent sacrificed to pay the cost as it last existed on the
-    /// battlefield (CR 608.2h) — "the sacrificed creature's mana value",
-    /// "… power", "… toughness". `None` when nothing was sacrificed.
+    /// Characteristics of the object sacrificed or exiled for the cost,
+    /// captured before it moved (CR 608.2h).
     pub sacrificed_lki: Option<SacrificedLki>,
-    /// Exact creature sacrificed to pay this object's cost.
+    /// Exact incarnation sacrificed or exiled to pay this object's cost.
     pub sacrificed: Option<(ObjectId, u32)>,
     /// Every permanent a `CostPart::SacrificeX` sacrificed, each as the card
     /// it became in its owner's graveyard (id and version) with the power it
@@ -1340,6 +1565,68 @@ pub struct PaidRecord {
     /// then (id and version) — "the tapped creature" station counts the
     /// power of (CR 702.184a). `None` when the cost tapped nothing else.
     pub tapped: Option<(ObjectId, u32)>,
+    /// Defender (and optional planeswalker/battle incarnation) captured when
+    /// `CostPart::ReturnUnblockedAttacker` bounced an unblocked attacker
+    /// (ninjutsu, CR 702.49c), moved onto `Rider::NinjutsuDefender` as the
+    /// ability goes on the stack.
+    pub ninjutsu_defender: Option<(baylee_core::ids::Defender, Option<u32>)>,
+    /// Exiled material card incarnations paid for `CostPart::CraftMaterials`
+    /// (`CR 702.167a–c`), moved onto `Rider::CraftMaterial` as the ability goes
+    /// on the stack.
+    pub crafted_materials: Vec<baylee_core::ids::DamageSourceRef>,
+}
+
+impl PaidRecord {
+    /// Units of snow-produced mana consumed by this payment (`CR 107.4h`).
+    #[must_use]
+    pub fn snow_mana_spent(&self) -> u32 {
+        u32::try_from(self.mana_paid.snow_total()).unwrap_or(u32::MAX)
+    }
+}
+
+impl std::hash::Hash for PaidRecord {
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        let Self {
+            discarded,
+            source_after_cost,
+            sacrificed_lki,
+            sacrificed,
+            sacrificed_many,
+            mana_spent,
+            colors_spent,
+            mana_types_spent,
+            mana_types_spent_on_x,
+            mana_paid,
+            spend_riders,
+            fixed_mana_cost,
+            mana_spending,
+            tapped,
+            ninjutsu_defender,
+            crafted_materials,
+        } = self;
+        discarded.hash(h);
+        source_after_cost.hash(h);
+        sacrificed_lki.hash(h);
+        sacrificed.hash(h);
+        sacrificed_many.hash(h);
+        mana_spent.hash(h);
+        colors_spent.hash(h);
+        mana_types_spent.hash(h);
+        mana_types_spent_on_x.hash(h);
+        mana_paid.hash(h);
+        spend_riders.hash(h);
+        fixed_mana_cost.hash(h);
+        mana_spending.hash(h);
+        tapped.hash(h);
+        // Folded in only when set (ninjutsu, CR 702.49c), preserving recorded
+        // hashes on spells and activations that never bounced an attacker.
+        if let Some(defender) = ninjutsu_defender {
+            defender.hash(h);
+        }
+        if !crafted_materials.is_empty() {
+            crafted_materials.hash(h);
+        }
+    }
 }
 
 /// A game object.
@@ -1617,6 +1904,18 @@ pub struct GameObject {
 }
 
 impl GameObject {
+    /// A permanent with no explicit class level is treated as level one (CR 717.2d).
+    #[must_use]
+    pub fn class_level(&self) -> u8 {
+        self.riders
+            .iter()
+            .find_map(|rider| match rider {
+                Rider::ClassLevel(level) => Some(*level),
+                _ => None,
+            })
+            .unwrap_or(1)
+    }
+
     /// Whether this is an owner-private native inventory source. Its activated
     /// effect is public, but its remaining stock is not. No card can set this bit.
     #[must_use]
@@ -1732,6 +2031,17 @@ impl GameObject {
         })
     }
 
+    /// Soulbond partner and its version as stored in `riders` (CR 702.95b).
+    /// Call [`crate::state::GameState::paired_partner`] to verify the reciprocal
+    /// battlefield creature relationship.
+    #[must_use]
+    pub fn paired_with_raw(&self) -> Option<(ObjectId, u32)> {
+        self.riders.iter().find_map(|rider| match *rider {
+            Rider::PairedWith(partner, version) => Some((partner, version)),
+            _ => None,
+        })
+    }
+
     /// Whether `face.additional_costs[index]` was paid as a kicker cost for
     /// this spell or the spell that became this permanent (CR 702.33f, CR 400.7d).
     #[must_use]
@@ -1774,6 +2084,32 @@ impl GameObject {
         }
     }
 
+    /// Player this Aura is attached to ("enchant player" / Curses, CR 303.4b).
+    #[must_use]
+    pub fn attached_player(&self) -> Option<PlayerId> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::AttachedToPlayer(player) => Some(*player),
+            _ => None,
+        })
+    }
+
+    /// Sets or clears player attachment, enforcing CR 303.4d (an Aura cannot be
+    /// attached to both an object and a player).
+    pub fn set_attached_player(&mut self, player: Option<PlayerId>) {
+        self.riders
+            .retain(|rider| !matches!(rider, Rider::AttachedToPlayer(_)));
+        if let Some(p) = player {
+            self.attached_to = None;
+            self.riders.push(Rider::AttachedToPlayer(p));
+        }
+    }
+
+    /// Whether this object is attached to an object or a player (CR 303.4b, CR 301.5b).
+    #[must_use]
+    pub fn is_attached(&self) -> bool {
+        self.attached_to.is_some() || self.attached_player().is_some()
+    }
+
     /// Whether this spell or ability targets `id` through **either**
     /// instance of the word "target".
     ///
@@ -1783,7 +2119,30 @@ impl GameObject {
     /// and "becomes the target" both trigger on *any* instance.
     #[must_use]
     pub fn targets_object(&self, id: ObjectId) -> bool {
-        self.targets.contains(&id) || self.second_targets().contains(&id)
+        self.targets.contains(&id)
+            || self.second_targets().contains(&id)
+            || self
+                .extra_target_instances()
+                .iter()
+                .any(|inst| inst.targets.contains(&id))
+    }
+
+    /// Additional target instances (`3rd`, `4th`, …) chosen on this object.
+    #[must_use]
+    pub fn extra_target_instances(&self) -> &[ExtraTargetInstance] {
+        self.second.as_ref().map_or(&[], |s| s.extra.as_slice())
+    }
+
+    /// Writes the additional target instances (`3rd`, `4th`, …) on this object.
+    pub fn set_extra_targets(&mut self, extra: Vec<ExtraTargetInstance>) {
+        if !extra.is_empty() {
+            self.second.get_or_insert_with(Default::default).extra = extra;
+        } else if let Some(second) = &mut self.second {
+            second.extra.clear();
+            if second.targets.is_empty() && second.players.is_empty() && second.req.is_none() {
+                self.second = None;
+            }
+        }
     }
 
     /// What the second instance of "target" named — empty when the ability
@@ -1822,13 +2181,20 @@ impl GameObject {
         req: Option<baylee_cards_dsl::TargetReq>,
     ) {
         let players = self.second_target_players();
-        self.second = (!targets.is_empty() || !players.is_empty() || req.is_some()).then(|| {
-            Box::new(SecondInstance {
-                players,
-                targets,
-                req,
-            })
-        });
+        let extra = self
+            .second
+            .as_mut()
+            .map_or_else(Vec::new, |s| std::mem::take(&mut s.extra));
+        self.second =
+            (!targets.is_empty() || !players.is_empty() || req.is_some() || !extra.is_empty())
+                .then(|| {
+                    Box::new(SecondInstance {
+                        players,
+                        targets,
+                        req,
+                        extra,
+                    })
+                });
     }
 
     /// Creates a card-less object (token, emblem).
@@ -1917,6 +2283,13 @@ impl GameObject {
         )
     }
 
+    /// Active face of this token (`TokenDef::face(self.face_index)`, CR 701.27a,
+    /// CR 712.7).
+    #[must_use]
+    pub fn active_token(&self) -> Option<&'static baylee_cards_dsl::TokenDef> {
+        self.token.map(|t| t.face(self.face_index))
+    }
+
     /// Token whose rules this list carries, including through copies.
     #[must_use]
     pub fn ability_token(
@@ -1929,7 +2302,7 @@ impl GameObject {
         if self.own_abilities.is_some() && self.own_origin.is_some() {
             return self.own_origin.and_then(AbilityOrigin::token);
         }
-        let id = lookup.token_id(self.token?)?;
+        let id = lookup.token_id(self.active_token()?)?;
         id.checked_add(1).and_then(std::num::NonZeroU16::new)
     }
 
@@ -2106,8 +2479,14 @@ impl GameObject {
                 .card
                 .and_then(|c| lookup.card(c.index))
                 .and_then(|d| d.faces.get(usize::from(self.face_index)))
-                .is_some_and(|f| f.morph.is_some() && f.disguise.is_none());
-            return if self.zone == Zone::Exile || self.riders.contains(&Rider::Masked) || is_morph {
+                .is_some_and(|f| {
+                    (f.morph.is_some() || f.megamorph.is_some()) && f.disguise.is_none()
+                });
+            return if self.zone == Zone::Exile
+                || self.riders.contains(&Rider::Masked)
+                || self.riders.contains(&Rider::Manifested)
+                || is_morph
+            {
                 AbilityDefs::EMPTY
             } else {
                 AbilityDefs::Static(crate::engine::disguise::WARD)
@@ -2127,7 +2506,7 @@ impl GameObject {
                 }
             }));
         }
-        AbilityDefs::Static(self.token.map_or(&[], |token| token.abilities))
+        AbilityDefs::Static(self.active_token().map_or(&[], |token| token.abilities))
     }
 
     /// Mutable access to the base, splitting the sharing if anyone else

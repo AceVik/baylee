@@ -73,8 +73,9 @@ pub const fn step_id(phase: Phase, step: Step) -> &'static str {
 /// A positive list, so `every_keyword_a_card_prints_has_a_name` holds it
 /// to the pool: a keyword a card carries and this table lacks fails there
 /// rather than going silent on a board.
-pub const KEYWORDS: [(KeywordSet, &str); 51] = [
+pub const KEYWORDS: [(KeywordSet, &str); 93] = [
     (KeywordSet::STORM, "storm"),
+    (KeywordSet::READ_AHEAD, "read ahead"),
     (KeywordSet::FLYING, "flying"),
     (KeywordSet::FIRST_STRIKE, "first strike"),
     (KeywordSet::DOUBLE_STRIKE, "double strike"),
@@ -124,6 +125,47 @@ pub const KEYWORDS: [(KeywordSet, &str); 51] = [
     (KeywordSet::DEVOID, "devoid"),
     (KeywordSet::RANGELING, "rangeling"),
     (KeywordSet::MAYHEM, "mayhem"),
+    (KeywordSet::PROVOKE, "provoke"),
+    (KeywordSet::BATTLE_CRY, "battle cry"),
+    (KeywordSet::DETHRONE, "dethrone"),
+    (KeywordSet::MELEE, "melee"),
+    (KeywordSet::MENTOR, "mentor"),
+    (KeywordSet::TRAINING, "training"),
+    (KeywordSet::MYRIAD, "myriad"),
+    (KeywordSet::EXTORT, "extort"),
+    (KeywordSet::ENLIST, "enlist"),
+    (KeywordSet::RENOWN, "renown"),
+    (KeywordSet::MODULAR, "modular"),
+    (KeywordSet::SOULBOND, "soulbond"),
+    (KeywordSet::EXPLOIT, "exploit"),
+    (KeywordSet::EVOLVE, "evolve"),
+    (KeywordSet::BLOODTHIRST, "bloodthirst"),
+    (KeywordSet::WARP, "warp"),
+    (KeywordSet::DEVOUR, "devour"),
+    (KeywordSet::SPREE, "spree"),
+    (KeywordSet::RETRACE, "retrace"),
+    (KeywordSet::RIOT, "riot"),
+    (KeywordSet::UNLEASH, "unleash"),
+    (KeywordSet::UMBRA_ARMOR, "umbra armor"),
+    (KeywordSet::MOBILIZE, "mobilize"),
+    (KeywordSet::TRANSMUTE, "transmute"),
+    (KeywordSet::SCAVENGE, "scavenge"),
+    (KeywordSet::FIREBENDING, "firebending"),
+    (KeywordSet::FREERUNNING, "freerunning"),
+    (KeywordSet::SNEAK, "sneak"),
+    (KeywordSet::SUNBURST, "sunburst"),
+    (KeywordSet::RAVENOUS, "ravenous"),
+    (KeywordSet::GRAFT, "graft"),
+    (KeywordSet::OUTLAST, "outlast"),
+    (KeywordSet::AFTERLIFE, "afterlife"),
+    (KeywordSet::AFFLICT, "afflict"),
+    (KeywordSet::REINFORCE, "reinforce"),
+    (KeywordSet::SPLICE, "splice"),
+    (KeywordSet::AWAKEN, "awaken"),
+    (KeywordSet::CONSPIRE, "conspire"),
+    (KeywordSet::CIPHER, "cipher"),
+    (KeywordSet::CHAMPION, "champion"),
+    (KeywordSet::TRIBUTE, "tribute"),
     (
         KeywordSet::ALL_NONBASIC_LAND_TYPES,
         "every nonbasic land type",
@@ -265,6 +307,7 @@ pub fn band_prompt_with_one_unbanded() -> String {
 
 /// What a [`ChoicePrompt`] asks, as an instruction.
 #[must_use]
+#[allow(clippy::too_many_lines)] // flat exhaustive dispatch over every ChoicePrompt variant
 pub fn choice_prompt(prompt: ChoicePrompt) -> String {
     match prompt {
         ChoicePrompt::EntryOrder => "Choose the permanent whose entry replacements are applied first".into(),
@@ -333,6 +376,48 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         }
         ChoicePrompt::RevealOrEnterTapped => {
             "Choose a card to reveal (choose none and it enters tapped)".into()
+        }
+        ChoicePrompt::Amplify => {
+            "Amplify: choose any number of matching cards from your hand to reveal for +1/+1 \
+             counters (choose none to reveal nothing)"
+                .into()
+        }
+        ChoicePrompt::Devour { factor } => {
+            if factor == 0 {
+                "Devour X: choose any number of matching permanents you control to sacrifice \
+                 (receives X +1/+1 counters for each sacrificed, where X is the number sacrificed; \
+                 choose none to sacrifice nothing)"
+                    .into()
+            } else {
+                format!(
+                    "Devour {factor}: choose any number of matching permanents you control to \
+                     sacrifice for {factor} +1/+1 counter{} each (choose none to sacrifice nothing)",
+                    if factor == 1 { "" } else { "s" }
+                )
+            }
+        }
+        ChoicePrompt::ManifestDread => {
+            "Manifest dread: choose one card to manifest face down onto the battlefield (the \
+             remaining looked-at card goes to your graveyard)"
+                .into()
+        }
+        ChoicePrompt::ChooseRingBearer => {
+            "The Ring tempts you: choose a creature you control to become your Ring-bearer".into()
+        }
+        ChoicePrompt::Splice => {
+            "Splice: choose any number of splice cards from your hand to reveal and splice onto \
+             this spell (choose none to splice nothing)"
+                .into()
+        }
+        ChoicePrompt::CipherEncode => {
+            "Cipher: choose up to one creature you control to encode the exiled card onto \
+             (choose none to leave it in exile unencoded)"
+                .into()
+        }
+        ChoicePrompt::Champion => {
+            "Champion: choose another matching permanent you control to exile (choose none to \
+             sacrifice this permanent instead)"
+                .into()
         }
         ChoicePrompt::PutIntoHand => "Choose the cards to put into your hand".into(),
         ChoicePrompt::PlayFromExile => "Choose a card to play from exile".into(),
@@ -493,6 +578,6 @@ mod tests {
         );
         assert_eq!(keywords(KeywordSet::MAYHEM.bits()), ["mayhem"]);
         assert_eq!(KeywordSet::MAYHEM.bits(), 1_u128 << 51);
-        assert_eq!(keywords(1 << 120), ["another keyword"]);
+        assert_eq!(keywords(1 << 126), ["another keyword"]);
     }
 }

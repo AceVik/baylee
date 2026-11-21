@@ -30,9 +30,11 @@
 //! keeps carrying it, because an entry that has been assigned an id is an
 //! entry whose body must still compile after the reference it was read from
 //! has moved on.
+//! An assigned duplicate becomes an alias for the earlier definition. That
+//! keeps the old number readable while new cards use the canonical id.
 
 use crate::tokengen::TokenBody;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 /// One row of the ledger, in assignment order.
@@ -49,6 +51,11 @@ pub struct Entry {
 pub enum Body {
     /// In `baylee_cards::tokens`, written by a person; the ledger names it.
     HandWritten,
+    /// A duplicate's old slot still resolves in saved games.
+    Alias {
+        /// The earlier ledger entry that owns this identity.
+        canonical: String,
+    },
     /// In the ledger itself, written by [`crate::tokengen`].
     Generated {
         /// The doc comment the constant carries.
@@ -115,32 +122,65 @@ impl std::error::Error for LedgerError {}
 /// would reassign every id, so a file that is not understood stops the run.
 pub fn parse(text: &str) -> Result<Vec<Entry>, LedgerError> {
     let mut defs: Vec<(String, String, String)> = Vec::new();
+    let mut aliases = BTreeMap::new();
     let mut lines = text.lines().peekable();
     let mut doc = String::new();
     let mut order: Option<Vec<String>> = None;
     while let Some(line) = lines.next() {
         let line = line.trim();
+        if let Some((canonical, alias)) = line
+            .strip_prefix("pub use self::")
+            .and_then(|line| line.strip_suffix(';'))
+            .and_then(|line| line.split_once(" as "))
+        {
+            if aliases
+                .insert(alias.to_string(), canonical.to_string())
+                .is_some()
+            {
+                return Err(LedgerError::Unreadable(format!(
+                    "duplicate alias `{alias}`"
+                )));
+            }
+            continue;
+        }
         if let Some(rest) = line.strip_prefix("/// ") {
             doc = rest.to_string();
             continue;
         }
-        if let Some(rest) = line.strip_prefix("pub static ")
-            && let Some(name) = rest.strip_suffix(": TokenDef = TokenDef {")
-        {
-            let mut literal = "TokenDef {\n".to_string();
-            loop {
-                let body = lines
-                    .next()
-                    .ok_or_else(|| LedgerError::Unreadable(format!("`{name}` is unterminated")))?;
-                if body.trim() == "};" {
-                    literal.push('}');
-                    break;
+        if let Some(rest) = line.strip_prefix("pub static ") {
+            let name = if let Some(name) = rest.strip_suffix(": TokenDef = TokenDef {") {
+                Some(name.to_string())
+            } else if let Some(name) = rest.strip_suffix(':')
+                && lines
+                    .peek()
+                    .is_some_and(|next| next.trim() == "TokenDef = TokenDef {")
+            {
+                lines.next();
+                Some(name.to_string())
+            } else if let Some(name) = rest.strip_suffix(": TokenDef =")
+                && lines.peek().is_some_and(|next| next.trim() == "TokenDef {")
+            {
+                lines.next();
+                Some(name.to_string())
+            } else {
+                None
+            };
+            if let Some(name) = name {
+                let mut literal = "TokenDef {\n".to_string();
+                loop {
+                    let body = lines.next().ok_or_else(|| {
+                        LedgerError::Unreadable(format!("`{name}` is unterminated"))
+                    })?;
+                    if body.trim() == "};" {
+                        literal.push('}');
+                        break;
+                    }
+                    literal.push_str(body);
+                    literal.push('\n');
                 }
-                literal.push_str(body);
-                literal.push('\n');
+                defs.push((name, std::mem::take(&mut doc), literal));
+                continue;
             }
-            defs.push((name.to_string(), std::mem::take(&mut doc), literal));
-            continue;
         }
         // `GENERATED` is rendered from the rows and never read back — it is a
         // view over `ALL`, and reading it would be reading the same fact twice.
@@ -172,25 +212,42 @@ pub fn parse(text: &str) -> Result<Vec<Entry>, LedgerError> {
     }
 
     let order = order.ok_or_else(|| LedgerError::Unreadable("no `ALL` table".into()))?;
-    let mut bodies: Vec<_> = defs;
-    let entries = order
-        .into_iter()
-        .map(|constant| {
-            let body = match bodies.iter().position(|(n, _, _)| *n == constant) {
-                Some(i) => {
-                    let (_, doc, literal) = bodies.remove(i);
-                    Body::Generated {
-                        modules: modules_of(&literal),
-                        doc,
-                        literal,
-                    }
-                }
-                None => Body::HandWritten,
-            };
-            Entry { constant, body }
-        })
-        .collect();
-    if let Some((name, _, _)) = bodies.first() {
+    entries_from_order(order, defs, aliases)
+}
+
+fn entries_from_order(
+    order: Vec<String>,
+    mut defs: Vec<(String, String, String)>,
+    mut aliases: BTreeMap<String, String>,
+) -> Result<Vec<Entry>, LedgerError> {
+    let mut entries: Vec<Entry> = Vec::with_capacity(order.len());
+    for constant in order {
+        let body = if let Some(canonical) = aliases.remove(&constant) {
+            if !entries.iter().any(|entry| {
+                entry.constant == canonical && !matches!(entry.body, Body::Alias { .. })
+            }) {
+                return Err(LedgerError::Unreadable(format!(
+                    "`{constant}` must alias an earlier canonical entry, found `{canonical}`"
+                )));
+            }
+            Body::Alias { canonical }
+        } else if let Some(index) = defs.iter().position(|(name, _, _)| *name == constant) {
+            let (_, doc, literal) = defs.remove(index);
+            Body::Generated {
+                modules: modules_of(&literal),
+                doc,
+                literal,
+            }
+        } else {
+            Body::HandWritten
+        };
+        entries.push(Entry { constant, body });
+    }
+    if let Some(name) = defs
+        .first()
+        .map(|(name, _, _)| name)
+        .or_else(|| aliases.keys().next())
+    {
         // A definition the table does not name has no id, so it is not in the
         // ledger at all — and silently keeping it would let a later run give
         // it one out of order.
@@ -199,6 +256,40 @@ pub fn parse(text: &str) -> Result<Vec<Entry>, LedgerError> {
         )));
     }
     Ok(entries)
+}
+
+/// Canonical names for previously assigned duplicate definitions. The old
+/// positions remain readable, but the reader uses these names for new cards.
+pub(crate) fn canonical_name(constant: &str) -> &str {
+    match constant {
+        "TETRAVITE_ARTIFACT_1_1_FLYING_A3DB0257E" => "TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING",
+        "WOLVES_OF_THE_HUNT_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_NAMEDWOLVES_OF_THE_HUNT" => {
+            "WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF"
+        }
+        _ => constant,
+    }
+}
+
+fn retire_duplicate_ids(entries: &mut [Entry]) -> Result<(), LedgerError> {
+    for at in 0..entries.len() {
+        let canonical = canonical_name(&entries[at].constant);
+        if canonical == entries[at].constant {
+            continue;
+        }
+        if !entries[..at]
+            .iter()
+            .any(|entry| entry.constant == canonical && !matches!(entry.body, Body::Alias { .. }))
+        {
+            return Err(LedgerError::Unreadable(format!(
+                "`{canonical}` has no canonical id before `{}`",
+                entries[at].constant
+            )));
+        }
+        entries[at].body = Body::Alias {
+            canonical: canonical.to_string(),
+        };
+    }
+    Ok(())
 }
 
 /// The subtype modules a literal names, recovered from the literal itself.
@@ -241,6 +332,7 @@ pub fn assign(
     generated: &[TokenBody],
 ) -> Result<Vec<Entry>, LedgerError> {
     let mut out = existing;
+    retire_duplicate_ids(&mut out)?;
     // Grows as rows are appended, and that is the whole of why it is a `mut`
     // set rather than a snapshot. Two readable scripts can describe the same
     // token — the name is a function of the token, not of the script — and a
@@ -313,13 +405,38 @@ pub fn assign(
 /// breaks over four lines, and the second `codegen` run refused it as two
 /// tokens at one name.
 ///
-/// Whitespace is dropped rather than collapsed, and that is safe **only**
-/// because this answers a yes/no question: `name: "Eldrazi Spawn"` becomes
-/// `name:"EldraziSpawn"` on both sides alike, so two definitions agree
-/// exactly when they agreed before. Nothing here may be shown to anybody.
+/// Ignore formatting around fields and arguments. Characters inside a quoted
+/// name are part of the token's identity, including spaces and punctuation.
 fn same_definition(a: &str, b: &str) -> bool {
-    let bare = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
-    bare(a) == bare(b)
+    let normalize = |s: &str| -> String {
+        let mut out = String::with_capacity(s.len());
+        let mut in_str = false;
+        let mut escaped = false;
+        for c in s.chars() {
+            if in_str {
+                out.push(c);
+                if escaped {
+                    escaped = false;
+                } else if c == '\\' {
+                    escaped = true;
+                } else if c == '"' {
+                    in_str = false;
+                }
+                continue;
+            }
+            if c.is_whitespace() {
+                continue;
+            }
+            // rustfmt may insert a trailing comma before a closing delimiter.
+            if matches!(c, ']' | ')' | '}') && out.ends_with(',') {
+                out.pop();
+            }
+            in_str = c == '"';
+            out.push(c);
+        }
+        out
+    };
+    a == b || normalize(a) == normalize(b)
 }
 
 /// Renders the ledger as `crates/cards/src/generated_tokens.rs`.
@@ -415,6 +532,9 @@ pub fn render(entries: &[Entry]) -> String {
             let _ = writeln!(out, "pub static {}: TokenDef = {literal};", entry.constant);
             out.push('\n');
         }
+        if let Body::Alias { canonical } = &entry.body {
+            let _ = writeln!(out, "pub use self::{canonical} as {};", entry.constant);
+        }
     }
 
     out.push_str("/// Every token there is, in the order ids were assigned.\n");
@@ -424,7 +544,7 @@ pub fn render(entries: &[Entry]) -> String {
             Body::HandWritten => {
                 let _ = writeln!(out, "    &tokens::{},", entry.constant);
             }
-            Body::Generated { .. } => {
+            Body::Generated { .. } | Body::Alias { .. } => {
                 let _ = writeln!(out, "    &{},", entry.constant);
             }
         }
@@ -446,13 +566,59 @@ pub fn render(entries: &[Entry]) -> String {
             let _ = writeln!(out, "    &{},", entry.constant);
         }
     }
-    out.push_str("];\n");
+    out.push_str("];\n\n");
+    render_legacy_aliases(&mut out, entries);
     out
+}
+
+fn render_legacy_aliases(out: &mut String, entries: &[Entry]) {
+    out.push_str("/// Legacy duplicate ids and the canonical ids they now resolve to.\n");
+    out.push_str("pub static LEGACY_ALIASES: &[(usize, usize)] = &[\n");
+    for (alias, entry) in entries.iter().enumerate() {
+        if let Body::Alias { canonical } = &entry.body
+            && let Some(id) = entries
+                .iter()
+                .position(|entry| entry.constant == *canonical)
+        {
+            let _ = writeln!(out, "    ({alias}, {id}),");
+        }
+    }
+    out.push_str("];\n");
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_duplicate_id_becomes_an_alias_without_renumbering() {
+        let hand = ["TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING".to_string()];
+        let alias = "TETRAVITE_ARTIFACT_1_1_FLYING_A3DB0257E";
+        let entries = vec![
+            Entry {
+                constant: hand[0].clone(),
+                body: Body::HandWritten,
+            },
+            Entry {
+                constant: alias.to_string(),
+                body: Body::Generated {
+                    doc: "An old definition.".to_string(),
+                    literal: "TokenDef { ..TokenDef::DEFAULT }".to_string(),
+                    modules: Vec::new(),
+                },
+            },
+        ];
+        let assigned = assign(entries, &hand, &[]).unwrap();
+        assert_eq!(assigned[0].constant, hand[0]);
+        assert_eq!(assigned[1].constant, alias);
+        assert_eq!(
+            assigned[1].body,
+            Body::Alias {
+                canonical: hand[0].clone()
+            }
+        );
+        assert_eq!(parse(&render(&assigned)).unwrap(), assigned);
+    }
 
     fn generated(constant: &str, literal: &str) -> TokenBody {
         TokenBody {
@@ -649,6 +815,38 @@ mod tests {
         let again = [generated("ELDRAZI_SPAWN_0_1", built)];
         let out = assign(existing, &[], &again).expect("one token, two spellings");
         assert_eq!(out.len(), 1);
+
+        let wrapped = "TokenDef {\n    name: \"Phyrexian Mite\",\n    abilities: &[\n        \
+                       AbilityDef::Toxic { poison: 1 },\n        \
+                       static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_BLOCK)),\n    ],\n}";
+        let inline = "TokenDef {\n    name: \"Phyrexian Mite\",\n    abilities: &[AbilityDef::Toxic { poison: 1 }, \
+                      static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_BLOCK))],\n}";
+        let mite_existing = vec![Entry {
+            constant: "PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47".into(),
+            body: Body::Generated {
+                doc: "1/1 colorless artifact Phyrexian Mite.".into(),
+                literal: wrapped.into(),
+                modules: vec!["creature".into()],
+            },
+        }];
+        let mite_again = [generated(
+            "PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47",
+            inline,
+        )];
+        assert_eq!(
+            assign(mite_existing, &[], &mite_again)
+                .expect("trailing comma matches")
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn token_names_keep_whitespace_and_punctuation_when_checking_for_collisions() {
+        let body = r#"TokenDef { name: "A \"B,]\"", }"#;
+        assert!(same_definition(body, r#"TokenDef{name:"A \"B,]\""}"#));
+        assert!(!same_definition(body, r#"TokenDef{name:"A\"B,]\""}"#));
+        assert!(!same_definition(body, r#"TokenDef{name:"A \"B]\""}"#));
     }
 
     /// A hand-written token that has been deleted takes its id with it, and
@@ -685,5 +883,14 @@ mod tests {
             parse("// nothing"),
             Err(LedgerError::Unreadable(_))
         ));
+
+        let wrapped_def = "/// 1/1 wolf.\n\
+                           pub static VERY_LONG_TOKEN_CONSTANT_NAME_THAT_RUSTFMT_WRAPS:\n    \
+                           TokenDef = TokenDef {\n\
+                           };\n\
+                           pub static ALL: &[&TokenDef] = &[\n    \
+                               &VERY_LONG_TOKEN_CONSTANT_NAME_THAT_RUSTFMT_WRAPS,\n\
+                           ];\n";
+        assert_eq!(parse(wrapped_def).expect("wrapped pub static").len(), 1);
     }
 }

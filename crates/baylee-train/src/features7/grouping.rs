@@ -52,6 +52,7 @@ struct PermanentActionOfferKey {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(clippy::struct_excessive_bools)]
 struct PermanentGroupKey7 {
     controller: PlayerId,
     owner: PlayerId,
@@ -70,10 +71,14 @@ struct PermanentGroupKey7 {
     chosen_number: Option<u8>,
     chosen_color: Option<baylee_core::mana::ManaColor>,
     chosen_opponent: Option<PlayerId>,
+    attached_player: Option<PlayerId>,
+    paired_with: Option<ObjectId>,
     chosen_name: Option<(u32, u8)>,
     linked_exile: Vec<ObjectId>,
     unlocked_doors: Option<[bool; 2]>,
     prepared_spell: Option<(u32, u8)>,
+    suspected: bool,
+    class_level: Option<u8>,
     colors_bits: u8,
     keywords_bits: u128,
     power: Option<i16>,
@@ -342,10 +347,14 @@ fn build_group_key(
         chosen_number: obj.chosen_number,
         chosen_color: obj.chosen_color,
         chosen_opponent: obj.chosen_opponent,
+        attached_player: obj.attached_player(),
+        paired_with: obj.paired_with(),
         chosen_name: obj.chosen_name.map(|n| (n.card.get(), n.face)),
         linked_exile: obj.linked_exile.clone(),
         unlocked_doors: obj.unlocked_doors,
         prepared_spell: obj.prepared_spell.map(|r| (r.card.get(), r.face)),
+        suspected: obj.suspected,
+        class_level: obj.class_level,
         colors_bits: obj.colors.bits(),
         keywords_bits: obj.keywords,
         power: obj.power,

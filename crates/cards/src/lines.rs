@@ -385,7 +385,13 @@ pub fn grants_in(
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
+        | AbilityDef::Unearth { .. }
+        | AbilityDef::Encore { .. }
+        | AbilityDef::Splice { .. }
+        | AbilityDef::Awaken { .. }
+        | AbilityDef::Champion { .. }
         | AbilityDef::Replacement(_)
+        | AbilityDef::PerExtraTargetCost(_)
         | AbilityDef::Suspend { .. } => Vec::new(),
     };
     for effects in lists {
@@ -416,11 +422,18 @@ pub fn grants_in(
 /// is never the nearest one.
 #[must_use]
 pub fn grant_home(abilities: &'static [AbilityDef], grant: &Modifier) -> Option<usize> {
-    abilities.iter().position(|ability| {
-        grants_in(ability, &mut 0)
-            .iter()
-            .any(|(_, found)| *found == grant)
-    })
+    abilities
+        .iter()
+        .position(|ability| {
+            grants_in(ability, &mut 0)
+                .iter()
+                .any(|(_, found)| *found == grant)
+        })
+        .or_else(|| {
+            abilities.iter().position(
+                |ability| matches!(ability, AbilityDef::Static(rule) if &rule.modifier == grant),
+            )
+        })
 }
 
 #[cfg(test)]
@@ -823,6 +836,32 @@ mod tests {
     /// One card, no generator round.
     /// Ojer Axonil adds Temple of Power's activated transform ability once
     /// its noncombat damage condition can be tracked.
+    /// Batch wave 5 (1,000 cards) completes Bloodline Keeper, Cloistered Youth,
+    /// Screeching Bat, Ravenous Demon, and Chalice of Life, adding their
+    /// back-face stackable abilities.
+    /// Batch wave 6 (1,000 cards) completes eleven Shadows over Innistrad /
+    /// Eldritch Moon transforming cards whose back faces reach the stack
+    /// (Avacynian Missionaries, Elusive Tormentor, Hanweir Militia Captain,
+    /// Pious Evangel, Town Gossipmonger, Conduit of Storms, Docent of
+    /// Perfection, Grizzled Angler, Shrill Howler, Vildin-Pack Outcast,
+    /// and Voldaren Pariah).
+    /// Batch wave 8 (994 generated cards) adds Thing in the Ice (Awoken
+    /// Horror's transform trigger) and Esika, God of the Tree (The Prismatic
+    /// Bridge's upkeep trigger).
+    /// Batch wave 9 (996 generated cards) adds 29 Daybound/Nightbound,
+    /// Saga, and Battle transforming cards whose back faces reach the stack
+    /// (MID/VOW creatures, NEO Sagas, and MOM Battles).
+    /// Pass E6 completes Kindly Stranger (Demon-Possessed Witch's transform
+    /// trigger), Smoldering Werewolf (Erupting Dreadwolf's attack trigger),
+    /// Lunarch Veteran (Luminous Phantom's leaves-battlefield trigger),
+    /// Overwhelmed Archivist (Archive Haunt's attack trigger), and
+    /// Ill-Tempered Loner (Howlpack Avenger's damage trigger and pump).
+    /// Pass E7 adds eight FIN/ECL transforming/saga cards whose back faces
+    /// reach the stack (Cecil, Crystal Fragments, Garland, Jecht, two
+    /// Sidequests, Vincent Valentine, and Trystan, Callous Cultivator).
+    /// Pass E8 adds seven transforming/battle cards whose back faces reach the
+    /// stack (Daring Sleuth, Kessig Naturalist, The Long Reach of Night,
+    /// Invasion of Ulgrotha, Venat, King T'Challa, and Monica Rambeau).
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -836,50 +875,128 @@ mod tests {
             })
             .collect();
         assert_eq!(
-            named,
-            [
-                "Huntmaster of the Fells",
-                "Archangel Avacyn",
-                "Arguel's Blood Fast",
-                "Conqueror's Galleon",
-                "Legion's Landing",
-                "Search for Azcanta",
-                "Thaumatic Compass",
-                "Treasure Map",
-                "Vance's Blasting Cannons",
-                "Golden Guardian",
-                "Hadana's Climb",
-                "Journey to Eternity",
-                "Path of Mettle",
-                "Profane Procession",
-                "Birgi, God of Storytelling",
-                "Hostile Hostel",
-                "Havengul Laboratory",
-                "Mirrorhall Mimic",
-                "Fable of the Mirror-Breaker",
-                "Sheoldred",
-                "Aclazotz, Deepest Betrayal",
-                "Brass's Tunnel-Grinder",
-                "Dowsing Device",
-                "Grasping Shadows",
-                "Ojer Axonil, Deepest Might",
-                "Ojer Kaslem, Deepest Growth",
-                "Ojer Pakpatiq, Deepest Epoch",
-                "Ojer Taq, Deepest Foundation",
-                "Tarrian's Journal",
-                "The Everflowing Well",
-                "Thousand Moons Smithy",
-                "Twists and Turns",
-                "Grist, Voracious Larva",
-                "Tamiyo, Inquisitive Student",
-                "Walk-In Closet",
-                "Balamb Garden, SeeD Academy",
-                "Sidequest: Catch a Fish",
-                "Tony Stark"
-            ],
+            named.as_slice(),
+            STACKABLE_BACK_FACES,
             "the back faces that reach the stack"
         );
     }
+
+    /// Cards whose back face adds a stackable ability, pinned by index order.
+    const STACKABLE_BACK_FACES: &[&str] = &[
+        "Bloodline Keeper",
+        "Cloistered Youth",
+        "Screeching Bat",
+        "Ravenous Demon",
+        "Chalice of Life",
+        "Huntmaster of the Fells",
+        "Archangel Avacyn",
+        "Avacynian Missionaries",
+        "Daring Sleuth",
+        "Elusive Tormentor",
+        "Hanweir Militia Captain",
+        "Kindly Stranger",
+        "Pious Evangel",
+        "Thing in the Ice",
+        "Town Gossipmonger",
+        "Conduit of Storms",
+        "Docent of Perfection",
+        "Grizzled Angler",
+        "Shrill Howler",
+        "Smoldering Werewolf",
+        "Vildin-Pack Outcast",
+        "Voldaren Pariah",
+        "Arguel's Blood Fast",
+        "Conqueror's Galleon",
+        "Legion's Landing",
+        "Search for Azcanta",
+        "Thaumatic Compass",
+        "Treasure Map",
+        "Vance's Blasting Cannons",
+        "Golden Guardian",
+        "Hadana's Climb",
+        "Journey to Eternity",
+        "Path of Mettle",
+        "Profane Procession",
+        "Birgi, God of Storytelling",
+        "Esika, God of the Tree",
+        "Baneblade Scoundrel",
+        "Brutal Cathar",
+        "Burly Breaker",
+        "Dennick, Pious Apprentice",
+        "Fangblade Brigand",
+        "Hostile Hostel",
+        "Hound Tamer",
+        "Jerren, Corrupted Bishop",
+        "Kessig Naturalist",
+        "Lunarch Veteran",
+        "Mysterious Tome",
+        "Outland Liberator",
+        "Overwhelmed Archivist",
+        "Reckless Stormseeker",
+        "Spellrune Painter",
+        "Suspicious Stowaway",
+        "Tovolar's Huntmaster",
+        "Havengul Laboratory",
+        "Avabruck Caretaker",
+        "Ill-Tempered Loner",
+        "Infestation Expert",
+        "Lambholt Raconteur",
+        "Mirrorhall Mimic",
+        "Panicked Bystander",
+        "Restless Bloodseeker",
+        "Wolfkin Outcast",
+        "Fable of the Mirror-Breaker",
+        "Teachings of the Kirin",
+        "The Long Reach of Night",
+        "The Restoration of Eiganjo",
+        "Tribute to Horobi",
+        "Invasion of Eldraine",
+        "Invasion of Ergamon",
+        "Invasion of Ixalan",
+        "Invasion of Kaladesh",
+        "Invasion of Karsus",
+        "Invasion of Mercadia",
+        "Invasion of Moag",
+        "Invasion of Shandalar",
+        "Invasion of Tolvada",
+        "Invasion of Ulgrotha",
+        "Sheoldred",
+        "Aclazotz, Deepest Betrayal",
+        "Brass's Tunnel-Grinder",
+        "Clay-Fired Bricks",
+        "Dowsing Device",
+        "Grasping Shadows",
+        "Idol of the Deep King",
+        "Lodestone Needle",
+        "Ojer Axonil, Deepest Might",
+        "Ojer Kaslem, Deepest Growth",
+        "Ojer Pakpatiq, Deepest Epoch",
+        "Ojer Taq, Deepest Foundation",
+        "Oteclan Landmark",
+        "Spring-Loaded Sawblades",
+        "Tarrian's Journal",
+        "The Everflowing Well",
+        "Thousand Moons Smithy",
+        "Tithing Blade",
+        "Twists and Turns",
+        "Grist, Voracious Larva",
+        "Tamiyo, Inquisitive Student",
+        "Walk-In Closet",
+        "Balamb Garden, SeeD Academy",
+        "Cecil, Dark Knight",
+        "Crystal Fragments",
+        "Garland, Knight of Cornelia",
+        "Jecht, Reluctant Guardian",
+        "Sidequest: Card Collection",
+        "Sidequest: Catch a Fish",
+        "Sidequest: Raise a Chocobo",
+        "Venat, Heart of Hydaelyn",
+        "Vincent Valentine",
+        "Trystan, Callous Cultivator",
+        "King T'Challa",
+        "Monica Rambeau",
+        "Tony Stark",
+    ];
 
     /// The table is indexed by `CardIndex`, so a row that is not the card
     /// the index names is a lookup that answers with a stranger's text.

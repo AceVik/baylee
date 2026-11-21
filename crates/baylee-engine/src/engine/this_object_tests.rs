@@ -315,6 +315,53 @@ fn landwalk_targets_read(text: &str, target: &str) -> usize {
         .count()
 }
 
+/// `MustBlockIfAble` reads `attacker` through `subjects::source` for
+/// `ThisObject` and `subjects::event` for `EventObject`; `blocker` precedes it.
+fn must_block_attackers_read(text: &str, attacker: &str) -> usize {
+    let needle = format!("attacker: {attacker},");
+    text.split("MustBlockIfAble {")
+        .skip(1)
+        .filter(|tail| {
+            tail.split_once(" }")
+                .is_some_and(|(effect, _)| effect.contains(&needle))
+        })
+        .count()
+}
+
+const THIS_OBJECT_READ: &[&str] = &[
+    "ReturnToHand { target: ThisObject }",
+    "ReturnToBattlefieldTapped { target: ThisObject }",
+    "Destroy { target: ThisObject, no_regen: false }",
+    "Destroy { target: ThisObject, no_regen: true }",
+    "Exile { target: ThisObject }",
+    "GraveyardToBattlefield { target: ThisObject, owner_control: false, counters: None }",
+    "Regenerate { target: ThisObject }",
+    "CantBeRegeneratedThisTurn { target: ThisObject }",
+    // Rock Hydra's "{R}: Prevent the next 1 damage that would be dealt
+    // to this creature": `resolve::life::recipients`. Left open, the
+    // amount after the target is not this list's business.
+    // Galleon's played regression proves the delayed source is retained.
+    "AtEndOfCombat { about: ThisObject",
+    // Krovikan Vampire watches its own exact incarnation for control loss
+    // or departure; `control_observers::register` retains that version.
+    "CreateDelayedObserver { watch: ThisObject",
+    "PreventNextDamage { target: ThisObject",
+    // Goblin Tinkerer's "that artifact deals damage equal to its mana value
+    // to this creature": the recipient goes through
+    // `resolve::life::recipients`, which reads the source.
+    "EventObjectDealsDamage { amount: TargetCmc, target: ThisObject",
+    "RedirectNextDamage { target: ThisObject",
+    "SuppressUntap { target: ThisObject",
+    "Explore { target: ThisObject }",
+    "CreateTokenCopy { target: ThisObject,",
+    "CopySpellOrAbility { target: ThisObject,",
+    "Suspect { target: ThisObject }",
+    "BecomeCopy { subject: First, subject_filter: None, original: ThisObject, original_is_second_target: true,",
+    "DealDamage { amount: Fixed(2), target: ThisObject }",
+    "DealDamage { amount: Fixed(3), target: ThisObject }",
+    "ObjectMatches { what: ThisObject, filter:",
+];
+
 /// Which effects may be spelled with `ThisObject`, held against the pool.
 ///
 /// The spec must reach an implicit-subject reader, such as
@@ -335,50 +382,22 @@ fn landwalk_targets_read(text: &str, target: &str) -> usize {
 /// never took. The floor below is the other half of that guard.
 #[test]
 fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
-    // Exactly the spellings an implicit-subject reader is reached from.
-    // Written as the
-    // `Debug` of the effect, so adding an arm there and forgetting this list
-    // fails loudly on the next card rather than quietly on the next player.
-    //
-    // `Destroy` is spelled twice because its `no_regen` rider is part of the
-    // `Debug` and a prefix match would stop being a reading of the whole
-    // effect — which is the property this list is here for.
-    const READ: &[&str] = &[
-        "ReturnToHand { target: ThisObject }",
-        "ReturnToBattlefieldTapped { target: ThisObject }",
-        "Destroy { target: ThisObject, no_regen: false }",
-        "Destroy { target: ThisObject, no_regen: true }",
-        "Exile { target: ThisObject }",
-        "GraveyardToBattlefield { target: ThisObject, owner_control: false, counters: None }",
-        "Regenerate { target: ThisObject }",
-        "CantBeRegeneratedThisTurn { target: ThisObject }",
-        // Rock Hydra's "{R}: Prevent the next 1 damage that would be dealt
-        // to this creature": `resolve::life::recipients`. Left open, the
-        // amount after the target is not this list's business.
-        // Galleon's played regression proves the delayed source is retained.
-        "AtEndOfCombat { about: ThisObject",
-        // Krovikan Vampire watches its own exact incarnation for control loss
-        // or departure; `control_observers::register` retains that version.
-        "CreateDelayedObserver { watch: ThisObject",
-        "PreventNextDamage { target: ThisObject",
-        // Goblin Tinkerer's "that artifact deals damage equal to its mana value
-        // to this creature": the recipient goes through
-        // `resolve::life::recipients`, which reads the source.
-        "EventObjectDealsDamage { amount: TargetCmc, target: ThisObject",
-        "RedirectNextDamage { target: ThisObject",
-        "SuppressUntap { target: ThisObject",
-    ];
-
-    // Shimian's destination is `DamageRedirectTo::ThisObject`, not a
-    // `TargetSpec`. The batch57 resolver reads it through subjects::source,
-    // retaining the source's exact incarnation. Match the complete effect
-    // so another effect merely carrying a similarly named field cannot pass.
     let redirect_to_self = format!(
         "{:?}",
         Effect::RedirectTargetSourceDamageThisTurn {
             source: TargetSpec::Object(&Filter::ATTACKING_CREATURE),
             only_to_you: true,
             to: baylee_cards_dsl::DamageRedirectTo::ThisObject,
+        }
+    );
+    let sunflare_self = format!(
+        "{:?}",
+        Effect::DealDamage {
+            amount: baylee_cards_dsl::Amount::CountOf {
+                filter: &Filter::HasSubtype(baylee_core::generated::subtypes::creature::ELEMENTAL),
+                zone: baylee_cards_dsl::ZoneSel::GraveyardOf(baylee_cards_dsl::PlayerRel::You),
+            },
+            target: TargetSpec::ThisObject,
         }
     );
 
@@ -390,12 +409,14 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         if total == 0 {
             continue;
         }
-        let read: usize = READ
+        let read: usize = THIS_OBJECT_READ
             .iter()
             .map(|shape| text.matches(shape).count())
             .sum::<usize>()
             + text.matches(&redirect_to_self).count()
-            + landwalk_targets_read(&text, "ThisObject");
+            + text.matches(&sunflare_self).count()
+            + landwalk_targets_read(&text, "ThisObject")
+            + must_block_attackers_read(&text, "ThisObject");
         seen += total;
         if read < total {
             unread.push(format!(
@@ -421,6 +442,46 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
     );
 }
 
+const EVENT_OBJECT_READ: &[&str] = &[
+    "spec: EventObject",
+    "TapEventObject",
+    "PumpEventObject",
+    "RemoveEventObjectFromCombat",
+    "SuppressUntap { target: EventObject",
+    "CantAttackDuringNextControllerTurn { target: EventObject",
+    "CantBeRegeneratedThisTurn { target: EventObject",
+    "ReturnToHand { target: EventObject",
+    "GraveyardToHand { target: EventObject }",
+    "GraveyardToBattlefield { target: EventObject",
+    "GraveyardToBattlefieldModified { target: EventObject",
+    "GraveyardToTop { target: EventObject",
+    "AttachSelf { target: EventObject",
+    "PutOnBottomOfLibraryFromGraveyard { target: EventObject",
+    "Destroy { target: EventObject",
+    "Exile { target: EventObject",
+    "IfEventObjectMatches",
+    "SacrificeObject { target: EventObject",
+    "AtEndOfCombat { about: EventObject",
+    "CreateDelayedObserver { watch: ThisObject, when: YouLoseControl, about: EventObject",
+    "EventObjectDealsDamage {",
+    "EventObjectDealsDamageEqualToPower",
+    "DamagePermanentAndController { target: EventObject,",
+    "DealDamage { amount: Fixed(1), target: EventObject",
+    "DealDamage { amount: Fixed(2), target: EventObject",
+    "DealDamage { amount: Fixed(3), target: EventObject }",
+    "DealDamage { amount: Fixed(4), target: EventObject }",
+    "DealDamage { amount: SourcePower, target: EventObject }",
+    "remember: EventObject,",
+    "CreateTokenCopy { target: EventObject,",
+    "CopySpellOrAbility { target: EventObject,",
+    "BecomeCopy { subject: This, subject_filter: None, original: EventObject, original_is_second_target: false,",
+    "Explore { target: EventObject }",
+    "ExileWithPermission { target: EventObject,",
+    "PhaseOut { target: Some(EventObject) }",
+    "Blink { target: EventObject,",
+    "ObjectMatches { what: EventObject, filter:",
+];
+
 /// The same census for `EventObject`, which is the **second** implicit spec
 /// and was found the same way.
 ///
@@ -440,67 +501,6 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
 /// `EventObject` in the pool is in *one* of the two places that reads it.
 #[test]
 fn every_event_object_in_the_pool_is_one_the_engine_reads() {
-    // A declared target requirement (filled by `progress::stack_triggers`)
-    // and the effect fields `spec_object` reads. Written as `Debug`, so an
-    // arm added to the resolver and forgotten here fails on the next card
-    // rather than on the next player.
-    //
-    // The struct spelling is left **open** — no closing brace — because the
-    // fields after `target` are not this test's business and a variant that
-    // grows one goes silently unread otherwise. It did: undying and persist
-    // put `owner_control` and `counters` on `GraveyardToBattlefield`, and
-    // the closed spelling stopped matching Journey to Eternity the same day,
-    // reporting a card the resolver reads perfectly well.
-    const READ: &[&str] = &[
-        "spec: EventObject",
-        "TapEventObject",
-        "PumpEventObject",
-        "RemoveEventObjectFromCombat",
-        "SuppressUntap { target: EventObject",
-        "CantAttackDuringNextControllerTurn { target: EventObject",
-        "CantBeRegeneratedThisTurn { target: EventObject",
-        "ReturnToHand { target: EventObject",
-        "GraveyardToBattlefield { target: EventObject",
-        "GraveyardToBattlefieldModified { target: EventObject",
-        "GraveyardToTop { target: EventObject",
-        "AttachSelf { target: EventObject",
-        "PutOnBottomOfLibraryFromGraveyard { target: EventObject",
-        // Stone Giant's delayed "destroy that creature": `Destroy` reads
-        // its spec through `spec_objects`, which asks `spec_object`.
-        "Destroy { target: EventObject",
-        // Stangg and Dance of Many's delayed "exile that token": `Exile`
-        // reads its spec through `spec_objects`, which asks `spec_object`.
-        "Exile { target: EventObject",
-        // Puppet Master's "If that card is returned to its owner's hand this
-        // way": the effect reads the triggering object through
-        // `sources::event_readers` (`resolve/mod.rs`).
-        "IfEventObjectMatches",
-        // Dragon Whelp's delayed "sacrifice this creature": `spec_object`.
-        "SacrificeObject { target: EventObject",
-        // Cockatrice's delayed trigger remembers the block's other creature:
-        // `AtEndOfCombat` reads `about` through `spec_object`.
-        "AtEndOfCombat { about: EventObject",
-        // Krovikan Vampire's delayed sacrifice: `control_observers::register`
-        // reads `about` through `subjects::event` and retains its exact version.
-        "CreateDelayedObserver { watch: ThisObject, when: YouLoseControl, about: EventObject",
-        // Pyrogoyf's "that creature deals damage equal to its power" and
-        // Farrel's Mantle's "have it deal damage equal to its power plus 2":
-        // both variants name the event object itself and `resolve::life`
-        // reads `res.event_object`; `target` is the damage's recipient.
-        "EventObjectDealsDamage {",
-        "EventObjectDealsDamageEqualToPower",
-        // Dwarven Sea Clan's delayed "deals 2 damage to that creature" and
-        // Caltrops' "deals 1 damage to it": `resolve::life::recipients` reads
-        // the event object for any amount. `Debug` prints the amount first,
-        // so each amount the pool spells is listed.
-        "DealDamage { amount: Fixed(1), target: EventObject",
-        "DealDamage { amount: Fixed(2), target: EventObject",
-        // Berserk's delayed "if it attacked this turn": the variant asks
-        // `res.event_object` itself, and the destroy inside it is counted
-        // above.
-        "IfEventObjectMatches",
-    ];
-
     let mut unread = Vec::new();
     let mut seen = 0_usize;
     for def in baylee_cards::all() {
@@ -509,11 +509,12 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         if total == 0 {
             continue;
         }
-        let read: usize = READ
+        let read: usize = EVENT_OBJECT_READ
             .iter()
             .map(|shape| text.matches(shape).count())
             .sum::<usize>()
-            + landwalk_targets_read(&text, "EventObject");
+            + landwalk_targets_read(&text, "EventObject")
+            + must_block_attackers_read(&text, "EventObject");
         seen += total;
         if read < total {
             unread.push(format!(
@@ -672,4 +673,231 @@ fn a_granted_trigger_pumps_the_creature_that_has_it_and_not_the_one_that_set_it_
         "the Grantee got its +1/+0"
     );
     assert_eq!(power(&engine, runner), Some(2), "the Runner got nothing");
+}
+
+const TOKEN_CLONER: u32 = 1_404;
+const ELEMENTAL_GRANTOR: u32 = 1_405;
+const PLAIN_BEAR: u32 = 1_406;
+
+static TOKEN_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::IsToken]);
+static ANOTHER_YOUR_CREATURE: Filter = Filter::And(&[Filter::YOUR_CREATURE, Filter::Another]);
+static IS_ELEMENTAL: Filter =
+    Filter::HasSubtype(baylee_core::generated::subtypes::creature::ELEMENTAL);
+
+static CLONER_ABILITIES: &[AbilityDef] = &[
+    baylee_cards_dsl::activated!(
+        Cost::FREE,
+        &[Effect::CreateToken {
+            token: &baylee_cards_dsl::WARRIOR_1_1_RED,
+        }]
+    ),
+    baylee_cards_dsl::activated!(
+        baylee_cards_dsl::cost!(Sacrifice(&TOKEN_CREATURE)),
+        &[Effect::gain_life(1)]
+    ),
+    baylee_cards_dsl::triggered!(
+        Trigger::Dies(&Filter::ANOTHER_CREATURE),
+        &[Effect::CreateTokenCopy {
+            target: TargetSpec::EventObject,
+            controller: baylee_cards_dsl::PlayerRel::You,
+            amount: baylee_cards_dsl::Amount::Fixed(1),
+            mods: &[],
+            tapped: false,
+            attacking: false,
+            haste_until_eot: false,
+            cleanup: baylee_cards_dsl::CopyCleanup::None,
+        }]
+    ),
+];
+
+/// CR 707.2, CR 608.2h: when a token creature dies, SBA 704.5d removes it
+/// from the graveyard before the death trigger resolves, and
+/// `CreateTokenCopy { target: EventObject }` still copies its departed LKI.
+#[test]
+fn token_copy_of_event_object_copies_a_token_that_ceased_to_exist() {
+    let me = PlayerId::new(0);
+    let cloner_def: &'static CardDef = Box::leak(Box::new(CardDef {
+        abilities: CLONER_ABILITIES,
+        ..*creature(TOKEN_CLONER, "Token Cloner", 2, 2, &[])
+    }));
+    let lookup = SyntheticLookup::new(vec![cloner_def]);
+    let mut engine = Engine::new(&preset(4, &[TOKEN_CLONER]), lookup).expect("the game starts");
+    keep_mulligans(&mut engine);
+    for _ in 0..400 {
+        if matches!(engine.state().turn.phase, Phase::FirstMain)
+            && engine.state().turn.active == me
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == me)
+        {
+            break;
+        }
+        let pending = engine.pending().clone();
+        assert!(walk_past(&mut engine, &pending), "walked past {pending:?}");
+    }
+    let cloner = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .first()
+        .expect("cloner seated");
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: cloner,
+                ability_index: 0,
+            },
+        )
+        .expect("creates token");
+    while !engine.state().zones.list(ZoneLocation::Stack).is_empty() {
+        let pending = engine.pending().clone();
+        assert!(walk_past(&mut engine, &pending), "{pending:?}");
+    }
+    let first_token = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|&id| id != cloner)
+        .expect("warrior token on battlefield");
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: cloner,
+                ability_index: 1,
+            },
+        )
+        .expect("sacrifices token");
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![first_token],
+            },
+        )
+        .expect("pays token sacrifice cost");
+    assert!(
+        engine.state().object(first_token).is_none(),
+        "SBA 704.5d removed the sacrificed token before the trigger resolved"
+    );
+    while !engine.state().zones.list(ZoneLocation::Stack).is_empty() {
+        let pending = engine.pending().clone();
+        assert!(walk_past(&mut engine, &pending), "{pending:?}");
+    }
+    let copied_token = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|&id| id != cloner)
+        .expect("CreateTokenCopy { target: EventObject } copied the departed token");
+    assert_ne!(copied_token, first_token);
+    assert_eq!(
+        engine
+            .state()
+            .object(copied_token)
+            .and_then(|o| o.characteristics().power),
+        Some(1)
+    );
+}
+
+static ELEMENTAL_WATCHER_ABILITIES: &[AbilityDef] = &[
+    baylee_cards_dsl::static_ability!(
+        Filter::YOUR_CREATURE,
+        Modifier::AddSubtype(baylee_core::generated::subtypes::creature::ELEMENTAL)
+    ),
+    baylee_cards_dsl::activated!(
+        baylee_cards_dsl::cost!(Sacrifice(&ANOTHER_YOUR_CREATURE)),
+        &[]
+    ),
+    baylee_cards_dsl::triggered!(
+        Trigger::Dies(&Filter::ANOTHER_CREATURE),
+        &[Effect::IfCondition {
+            condition: baylee_cards_dsl::Condition::ObjectMatches {
+                what: &TargetSpec::EventObject,
+                filter: &IS_ELEMENTAL,
+            },
+            then: &[Effect::gain_life(4)],
+            otherwise: &[],
+        }]
+    ),
+];
+
+/// CR 608.2h: `Condition::ObjectMatches { what: EventObject }` on a death
+/// trigger reads the creature's battlefield LKI (including granted subtypes)
+/// rather than only its bare graveyard card.
+#[test]
+fn object_matches_event_object_reads_battlefield_lki_after_death() {
+    let me = PlayerId::new(0);
+    let watcher_def: &'static CardDef = Box::leak(Box::new(CardDef {
+        abilities: ELEMENTAL_WATCHER_ABILITIES,
+        ..*creature(ELEMENTAL_GRANTOR, "Elemental Watcher", 2, 3, &[])
+    }));
+    let lookup = SyntheticLookup::new(vec![
+        watcher_def,
+        creature(PLAIN_BEAR, "Plain Bear", 2, 2, &[]),
+    ]);
+    let mut engine =
+        Engine::new(&preset(5, &[ELEMENTAL_GRANTOR, PLAIN_BEAR]), lookup).expect("the game starts");
+    keep_mulligans(&mut engine);
+    for _ in 0..400 {
+        if matches!(engine.state().turn.phase, Phase::FirstMain)
+            && engine.state().turn.active == me
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == me)
+        {
+            break;
+        }
+        let pending = engine.pending().clone();
+        assert!(walk_past(&mut engine, &pending), "walked past {pending:?}");
+    }
+    let watcher = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|&id| {
+            engine
+                .state()
+                .object(id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index.get() == ELEMENTAL_GRANTOR)
+        })
+        .expect("watcher seated");
+    let bear = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|&id| id != watcher)
+        .expect("bear seated");
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: watcher,
+                ability_index: 1,
+            },
+        )
+        .expect("sacrifices plain bear");
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![bear],
+            },
+        )
+        .expect("pays bear sacrifice cost");
+    while !engine.state().zones.list(ZoneLocation::Stack).is_empty() {
+        let pending = engine.pending().clone();
+        assert!(walk_past(&mut engine, &pending), "{pending:?}");
+    }
+    assert_eq!(
+        engine.state().players[usize::from(me.get())].life,
+        24,
+        "Plain Bear had Elemental on the battlefield when it died (CR 608.2h)"
+    );
 }

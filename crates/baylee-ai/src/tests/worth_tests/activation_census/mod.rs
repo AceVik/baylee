@@ -523,7 +523,101 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Strider).
     // The seven additional typecycling cards add seven searches and three
     // other readable activations (Chartooth Cougar, Eternal Dragon and Twisted Abomination).
-    assert_eq!((read, of), (3050, 3857), "activated/loyalty reader census");
+    // The Legions Amplify batch (8 cards) adds 3 non-mana activations across
+    // Canopy Crawler, Daru Stinger, and Kilnmouth Dragon; all three scale by
+    // `Amount::CountersOnSource(CounterKind::P1P1)` and stay contextual unread
+    // on an empty board.
+    // Completing 44 newly readable stubs adds 12 activated abilities across
+    // 10 cards (Aquamoeba, Breya, Etherium Shaper, Dragon Arch, Essence Fracture,
+    // Hermit Druid, Krosan Restorer (2), Nomad Decoy (2), Petradon, Pyre Zombie,
+    // Twigwalker): 8 read by the table and 4 remaining contextual.
+    // Batch wave 1 (120 generated cards) adds 19 non-mana activations: 14 read
+    // by the table and 5 remaining contextual.
+    // Completing 22 newly readable pool stubs adds 4 activated abilities across
+    // Spiritmonger (2) and Soul-Guide Lantern (2): 2 read and 2 contextual.
+    // Batch wave 2 (500 generated cards) adds 158 non-mana activations: 119
+    // read by the table and 39 remaining contextual.
+    // Batch wave 3 (122 generated cards) adds 34 non-mana activations: 26
+    // read by the table and 8 remaining contextual.
+    // Completing 40 newly readable pool stubs adds 12 activated abilities (1 each
+    // across 12 cards: Gerrard Capashen, Mirror Wall, Mistform Warchief, Nosy
+    // Goblin, Pilgrim of Justice, Pilgrim of Virtue, Rampant Elephant, Sand
+    // Squid, Story Circle, Swooping Talon, Walking Desecration, Whirling
+    // Catapult): 3 read and 9 remaining contextual.
+    // Completing 18 newly readable pool stubs adds 3 activated abilities across
+    // Battlefield Medic, Circle of Solace, and Knight of the Reliquary: 1 read
+    // and 2 remaining contextual.
+    // Completing 18 Wave 5 pool stubs adds 4 activated abilities on Pemmin's
+    // Aura: 3 read by the table and 1 remaining contextual.
+    // Completing 33 Wave 6/6b/P10-12 pool stubs adds 16 non-mana activated
+    // abilities across 15 cards (Crookclaw Elder (2), Ancestor's Prophet,
+    // Aphetto Grifter, Catapult Master, Catapult Squad, Diversionary Tactics,
+    // Ertai's Familiar, Gangrenous Goliath, Gravespawn Sovereign, Keeper of the
+    // Nine Gales, Slate of Ancestry, Spatial Binding, Spurred Wolverine,
+    // Symbiotic Deployment, and Voice of the Woods): 14 read and 2 contextual.
+    // Batch wave 4 (319 generated cards, pre-ZEN) adds 108 non-mana
+    // activations: 84 read by the table and 24 remaining contextual.
+    // Completing 16 Wave 7 pool stubs adds 2 non-mana activated abilities
+    // across Kyren Toy and Nakaya Shade: 1 read and 1 contextual.
+    // Batch wave 5 (1,000 generated cards) adds 223 non-mana activations:
+    // 159 read by the table and 64 remaining contextual.
+    // Batch wave 6 (1,000 generated cards) adds 263 non-mana activations:
+    // 182 read by the table and 81 remaining contextual.
+    // Batch wave 7 (225 pre-WAR generated cards) adds 60 non-mana activations:
+    // 49 read by the table and 11 remaining contextual.
+    // Revert Fang Skulkin to a canonical stub pending WITHER enforcement
+    // (-1 read, -1 of), and complete 15 Wave 8 pool stubs (+6 non-mana
+    // activations across Akroma's Blessing, Aven Windreader, Ghostly Wings,
+    // Glory, Mishra's Bauble, and Root Greevil: 3 read and 3 contextual).
+    // Batch wave 8 (994 generated cards) adds 273 non-mana activations:
+    // 225 read by the table and 48 remaining contextual.
+    // Batch wave 9 (996 generated cards) adds 283 non-mana activations:
+    // 222 read by the table and 61 remaining contextual.
+    // Removing 45 non-deck Vanguard (pvan/pmoa) cards removes 13 command-zone
+    // non-mana activations: 10 read by the table and 3 remaining contextual.
+    // Completing 14 Wave 10+11c pool stubs adds 4 non-mana activations
+    // across Elvish Reclaimer, Infinite Hourglass, Trained Pronghorn, and
+    // Urborg Phantom: 3 read by the table and 1 remaining contextual.
+    // Pass E6 (982 generated cards after holding back 18 reader/offer-gap
+    // cards) adds 323 non-mana activations: 253 read by the table and 70
+    // remaining contextual.
+    // Pass E7 (994 generated cards after holding back 6 reader/lint-gap
+    // cards) adds 294 non-mana activations: 250 read by the table and 44
+    // remaining contextual.
+    // Reconverging with Codegen Wave 13a-13c adds 6 non-mana activations across
+    // refreshed pool cards: 4 read by the table and 2 remaining contextual.
+    // Unholding 7 Wave 13-fixed cards and completing 5 Wave 12+13 stubs adds
+    // 1 non-mana activation (Dismantling Wave's Cycling): 1 read by the table.
+    // Pass E8 (989 generated cards after holding back 11 reader/lint-gap
+    // cards) adds 188 non-mana activations: 143 read by the table and 45
+    // remaining contextual.
+    // Reconverging Pass E8 with Codegen Wave 14 upgrades 18 additional pool
+    // stubs (incl. Dwarven Driller and Dwarven Scorcher), adding 2 read
+    // non-mana activations.
+    // Pass E9 (182 generated cards after holding back 24 reader/codegen-gap
+    // cards) adds 65 non-mana activations: 55 read by the table and 10
+    // remaining contextual; Beat 15 2x codegen --scripts reconvergence
+    // upgrades 22 pool stubs, adding 1 contextual non-mana activation.
+    // Unholding 29 Wave 15 / Beat 15-fixed cards (22 Star Trek creature
+    // subtypes plus Ambassador K'Ehleyr, Curse of Oblivion, Evasive
+    // Maneuvers, Grakk the Pacifist, Lithoform Engine, Nimble Obstructionist,
+    // and The Master, Mesmerist) adds 9 non-mana activations: 6 read by the
+    // table and 3 remaining contextual.
+    // Pass E10 (481 generated cards after holding back 10 newly exposed
+    // validate/lint-gap cards) adds 181 non-mana activations: 128 read by the
+    // table and 53 remaining contextual.
+    // Pass E11 (207 generated cards after holding back 3 reader/validate-gap
+    // cards) adds 40 non-mana activations: 31 read by the table and 9
+    // remaining contextual.
+    // Pass E12 (110 generated cards after holding back Rikala, Homarid King,
+    // plus Wave 17b Patriarch's Desire stub upgrade) adds 38 non-mana
+    // activations: 36 read by the table and 2 remaining contextual.
+    // Beat 17 this_object_tests audit holds back 5 defective generated cards
+    // (removing Durkwood Tracker's read activation and Sword of War and
+    // Peace's Equip activation: -1 read, -2 total).
+    // Wizard Class's level-three activation is now a readable level change.
+    // Its draw trigger comes from the level's static ability.
+    assert_eq!((read, of), (5066, 6476), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

@@ -482,11 +482,24 @@ impl GameLog {
             objects: if synthetic {
                 Vec::new()
             } else if about_its_event {
-                obj.second_targets().to_vec()
+                obj.second_targets()
+                    .iter()
+                    .chain(
+                        obj.extra_target_instances()
+                            .iter()
+                            .flat_map(|inst| inst.targets.iter()),
+                    )
+                    .copied()
+                    .collect()
             } else {
                 obj.targets
                     .iter()
                     .chain(obj.second_targets().iter())
+                    .chain(
+                        obj.extra_target_instances()
+                            .iter()
+                            .flat_map(|inst| inst.targets.iter()),
+                    )
                     .copied()
                     .collect()
             },
@@ -496,6 +509,11 @@ impl GameLog {
                 baylee_engine::eval::first_target_players(obj)
                     .iter()
                     .chain(obj.second_target_players().iter())
+                    .chain(
+                        obj.extra_target_instances()
+                            .iter()
+                            .flat_map(|inst| inst.players.iter()),
+                    )
                     .collect()
             },
         })
@@ -523,6 +541,11 @@ impl GameLog {
             .targets
             .iter()
             .chain(obj.second_targets().iter())
+            .chain(
+                obj.extra_target_instances()
+                    .iter()
+                    .flat_map(|inst| inst.targets.iter()),
+            )
             .copied()
             .eq(held.objects.iter().copied());
         if !objects_match {
@@ -531,6 +554,11 @@ impl GameLog {
         let players: SeatSet = baylee_engine::eval::first_target_players(obj)
             .iter()
             .chain(obj.second_target_players().iter())
+            .chain(
+                obj.extra_target_instances()
+                    .iter()
+                    .flat_map(|inst| inst.players.iter()),
+            )
             .collect();
         Some(players == held.players)
     }
@@ -706,6 +734,19 @@ impl GameLog {
             // it set off has its own line.
             | GameEvent::AttackerBlocked { .. }
             | GameEvent::CreatureMutated { .. }
+            | GameEvent::PermanentExerted { .. }
+            | GameEvent::CreatureEnlisted { .. }
+            | GameEvent::CardPlotted { .. }
+            | GameEvent::GiftGiven { .. }
+            | GameEvent::CreatureExploited { .. }
+            | GameEvent::SpellWarped { .. }
+            | GameEvent::PlayerScried { .. }
+            | GameEvent::BecameMonstrous { .. }
+            | GameEvent::RingTempted { .. }
+            | GameEvent::PlayerFirebent { .. }
+            | GameEvent::CommittedCrime { .. }
+            | GameEvent::ManaExpended { .. }
+            | GameEvent::Clashed { .. }
             | GameEvent::AttackerUnblocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.
@@ -799,6 +840,29 @@ impl GameLog {
             }
             GameEvent::PlayerCountersChanged { player, kind, old, new } => {
                 self.push(LogEvent::PlayerCounters { player: *player, kind: counter(*kind), old: *old, new: *new }, vec![]);
+            }
+            GameEvent::ClassLevelChanged {
+                object,
+                version,
+                level,
+                face_down,
+            } => {
+                let Some(permanent) = state.object(*object).filter(|o| {
+                    o.version == *version && o.zone == Zone::Battlefield && !o.private_inventory()
+                }) else {
+                    return;
+                };
+                // The level is public, including on a face-down permanent.
+                // Use the blank name if either the event or the current view
+                // was face down.
+                let (object, sees) = if *face_down
+                    || permanent.status.contains(baylee_engine::object::Status::FACE_DOWN)
+                {
+                    (LogObject::FaceDown { id: *object }, Sees::Everyone)
+                } else {
+                    self.refer(state, *object)
+                };
+                self.push(LogEvent::ClassLevel { object, level: *level }, vec![sees]);
             }
             GameEvent::LifeChanged {
                 player, old, new, ..
@@ -1450,7 +1514,7 @@ impl GameLog {
                 print: card.print,
                 face: obj.face_index,
             }),
-            token: obj.token.map(baylee_cards::tokens::token_id),
+            token: obj.active_token().map(baylee_cards::tokens::token_id),
             // A split card off the stack by both names, "Fire // Ice".
             name: crate::view::known_text(state, obj),
         };
@@ -1603,6 +1667,9 @@ fn activated(state: &GameState, obj: &GameObject) -> Option<bool> {
     match abilities.get(usize::try_from(loc.index).ok()?)? {
         AbilityDef::Activated { .. }
         | AbilityDef::ActivatedConditional { .. }
+        | AbilityDef::ModalActivated { .. }
+        | AbilityDef::Unearth { .. }
+        | AbilityDef::Encore { .. }
         | AbilityDef::Loyalty { .. } => Some(true),
         AbilityDef::Triggered { .. }
         | AbilityDef::ModalTriggered { .. }

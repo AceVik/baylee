@@ -528,6 +528,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 };
                 wizard.option = Some(option);
                 wizard.kicked = option == crate::choice::CastModeKind::Kicked;
+                if option == crate::choice::CastModeKind::Awaken
+                    && let Some((_, cost)) = self
+                        .state
+                        .object(wizard.card)
+                        .and_then(|o| o.card)
+                        .and_then(|c| self.lookup.card(c.index))
+                        .and_then(|d| cast_wizard::wave10b::face_awaken(d, wizard.face_index()))
+                {
+                    wizard.awaken_parts = cost.parts;
+                }
                 // CR 601.2b announces the mode and *then* the value of X, in
                 // the same step: choosing how to cast the spell does not
                 // answer what X is. Going to `Targets` here skipped the
@@ -627,13 +637,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // 702.33d); zero times it has not.
                     wizard.multikicked = u8::try_from(n).unwrap_or(u8::MAX);
                     wizard.kicked = n > 0;
+                    wizard.stage = cast_wizard::WizardStage::Squad;
+                } else if wizard.stage == cast_wizard::WizardStage::Squad {
+                    wizard.squad = u8::try_from(n).unwrap_or(u8::MAX);
                     wizard.stage = cast_wizard::WizardStage::Replicate;
                 } else if wizard.stage == cast_wizard::WizardStage::Replicate {
                     wizard.replicated = u8::try_from(n).unwrap_or(u8::MAX);
-                    wizard.stage = cast_wizard::WizardStage::Targets;
+                    wizard.stage = cast_wizard::WizardStage::Splice;
                 } else {
                     wizard.x = n;
-                    wizard.stage = cast_wizard::WizardStage::Kicker;
+                    wizard.stage = if wizard.stage == cast_wizard::WizardStage::KickerX {
+                        cast_wizard::WizardStage::Buyback
+                    } else {
+                        cast_wizard::WizardStage::Kicker
+                    };
                     // X is announced before targets are chosen (CR 601.2b,
                     // 601.2c), and a target filter that reads it
                     // (`Filter::CmcExactlyX`) reads it off the card: so the
@@ -799,7 +816,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 // "Choose a player with the most life or tied" (The Black Gate).
                 if self.resolution.as_ref().is_some_and(|r| {
-                    matches!(r.awaiting, Some(resolve::AwaitingOp::ChoosePlayerFrom))
+                    matches!(
+                        r.awaiting,
+                        Some(
+                            resolve::AwaitingOp::ChoosePlayerFrom
+                                | resolve::AwaitingOp::ClashOpponent { .. }
+                        )
+                    )
                 }) {
                     let mut res = self.resolution.take().expect("player choice suspended");
                     match resolve::resume_chosen_player(&mut self.state, &mut res, chosen) {
@@ -860,8 +883,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     return Ok(());
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
-                wizard.chosen_player = Some(chosen);
-                wizard.stage = cast_wizard::WizardStage::SecondTargets;
+                if wizard.stage == cast_wizard::WizardStage::Gift {
+                    wizard.gift_recipient = Some(chosen);
+                    wizard.stage = cast_wizard::WizardStage::Multikicker;
+                } else {
+                    wizard.chosen_player = Some(chosen);
+                    wizard.stage = cast_wizard::WizardStage::SecondTargets;
+                }
                 self.cast_wizard = Some(wizard);
                 self.continue_cast_wizard();
                 Ok(())
@@ -882,6 +910,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.activation_cost_choices.clear();
                 self.activation_x = None;
                 self.activation_phyrexian.clear();
+                self.activation_either_branches.clear();
                 self.activation_second_targets = None;
                 self.activation_target_choice = super::targeting::ActivationTargetChoice::default();
                 self.activation_mode = None;
@@ -897,13 +926,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             (Pending::Priority { player: p, .. }, PlayerAction::Suspend { card })
                 if *p == player =>
             {
+                if !casting::can_begin_suspend(&self.state, &self.lookup, player, card) {
+                    return Err(EngineError::IllegalAction("cannot suspend this card now"));
+                }
                 let (counters, cost) = self
                     .state
                     .object(card)
                     .and_then(|o| o.card)
                     .and_then(|c| self.lookup.card(c.index))
                     .and_then(|def| {
-                        def.abilities.iter().find_map(|a| match a {
+                        def.abilities_for_face(0).iter().find_map(|a| match a {
                             AbilityDef::Suspend { counters, cost } => Some((*counters, *cost)),
                             _ => None,
                         })
@@ -978,7 +1010,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         wizard.target_references.second = self.state.capture_target_group(&objects);
                         wizard.second_targets = objects.into_iter().collect();
                         wizard.second_target_players = players.into_iter().collect();
-                        wizard.stage = cast_wizard::WizardStage::DivideDamage;
+                        wizard.stage = cast_wizard::WizardStage::ExtraTargets;
+                    } else if wizard.stage == cast_wizard::WizardStage::ExtraTargets {
+                        wizard
+                            .target_references
+                            .extra
+                            .push(self.state.capture_target_group(&objects));
+                        wizard
+                            .extra_targets
+                            .push((objects.into_iter().collect(), players.into_iter().collect()));
                     } else {
                         wizard.target_references.first = self.state.capture_target_group(&objects);
                         wizard.targets = objects.into_iter().collect();
@@ -1036,6 +1076,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     PlanKind::ChoosePhyrexianLife { .. } => {
                         unreachable!("a Phyrexian symbol is answered via YesNo")
+                    }
+                    PlanKind::ChooseActivationCostBranch { .. } => {
+                        unreachable!("an activation cost branch is answered via YesNo")
                     }
                     PlanKind::TriggerOrder => {
                         unreachable!("an order is answered via Arrange")
@@ -1200,6 +1243,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         let controller =
                             queued.as_ref().map_or(player, |trigger| trigger.controller);
                         if let Some(t) = queued.as_ref() {
+                            self.record_trigger_fired(t);
                             self.hand_over_trigger_abilities(t);
                         }
                         let top =
@@ -1234,6 +1278,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         if !self.discard_empty_trigger_without_effect(top)
                             && !self.ask_trigger_second_target()
                         {
+                            self.note_crime_if_any(controller, top);
                             self.ask_trigger_division();
                         }
                     }
@@ -1242,6 +1287,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             let req = obj.second_target_req();
                             obj.set_second(targets.into_iter().collect(), req);
                             obj.set_second_players(players.iter().copied().collect());
+                        }
+                        if let Some(ctrl) = self.state.object(on_stack).map(|o| o.controller) {
+                            self.note_crime_if_any(ctrl, on_stack);
                         }
                     }
                     PlanKind::EntryCounters { .. } | PlanKind::EntryTap { .. } => {
@@ -1383,6 +1431,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // untap determination's are.
                     PlanKind::Band { .. }
                     | PlanKind::CombatDamage { .. }
+                    | PlanKind::CombatUnblockedDamage { .. }
                     | PlanKind::CamouflagePiles { .. } => {
                         self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
@@ -1604,6 +1653,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                if let Some(PlanKind::CombatUnblockedDamage { attacker }) = self.pending_plan {
+                    self.pending_plan = None;
+                    self.answer_unblocked_damage(attacker, answer);
+                    return Ok(());
+                }
                 if matches!(self.pending_plan, Some(PlanKind::UntapReplacements(_))) {
                     let Some(PlanKind::UntapReplacements(mut batch)) = self.pending_plan.take()
                     else {
@@ -1616,6 +1670,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // An activation's Phyrexian symbol: yes is 2 life, no is its
                 // mana (CR 107.4f). Nothing is paid yet; the answer is kept
                 // and the activation goes on to its next question.
+                if let Some(PlanKind::ChooseActivationCostBranch {
+                    source,
+                    ability_index,
+                }) = self.pending_plan
+                {
+                    self.pending_plan = None;
+                    self.activation_either_branches.push(answer);
+                    if self
+                        .start_activation(player, source, ability_index, SmallVec::new())
+                        .is_err()
+                    {
+                        self.reverse_activation(player);
+                    }
+                    return Ok(());
+                }
                 if let Some(PlanKind::ChoosePhyrexianLife {
                     source,
                     ability_index,
@@ -1906,7 +1975,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     } else {
                         None
                     };
-                    wizard.stage = cast_wizard::WizardStage::XValue;
+                    wizard.stage = cast_wizard::WizardStage::EmergeSacrifice;
                     self.continue_cast_wizard();
                     return Ok(());
                 }
@@ -1940,7 +2009,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         wizard.kicker_cursor = idx.saturating_add(1);
                     } else {
                         wizard.kicked = answer;
-                        wizard.stage = cast_wizard::WizardStage::Buyback;
+                        wizard.stage = if self.wizard_needs_kicker_x(&wizard) {
+                            cast_wizard::WizardStage::KickerX
+                        } else {
+                            cast_wizard::WizardStage::Buyback
+                        };
                     }
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
@@ -1955,7 +2028,113 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.buyback = answer.then(|| self.buyback_on_offer(&wizard)).flatten();
-                    wizard.stage = cast_wizard::WizardStage::Multikicker;
+                    wizard.stage = cast_wizard::WizardStage::Bargain;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: bargain yes/no (`CR 702.166a`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Bargain)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.bargained = answer;
+                    wizard.stage = cast_wizard::WizardStage::Offspring;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: offspring yes/no (`CR 702.175a`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Offspring)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.offspring = answer;
+                    wizard.stage = cast_wizard::WizardStage::Casualty;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: casualty yes/no (`CR 702.153a`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Casualty)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.casualty = answer;
+                    wizard.stage = cast_wizard::WizardStage::Gift;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: gift yes/no (`CR 702.174a`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Gift)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    if answer {
+                        wizard.gift_promised = true;
+                        let opponents = crate::eval::players(
+                            baylee_cards_dsl::PlayerRel::Opponent,
+                            &self.state,
+                            wizard.player,
+                        )
+                        .unwrap_or_default();
+                        if opponents.len() == 1 {
+                            wizard.gift_recipient = Some(opponents[0]);
+                            wizard.stage = cast_wizard::WizardStage::Multikicker;
+                        }
+                    } else {
+                        wizard.stage = cast_wizard::WizardStage::Multikicker;
+                    }
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::EitherCost)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    let face = self.wizard_face(&wizard);
+                    if let (_, Some((first_cost, second_cost))) =
+                        cast_wizard::next_either_cost(face, wizard.cost_choice())
+                    {
+                        let idx = wizard.either_decided;
+                        if answer && idx < 8 {
+                            wizard.either_first_mask |= 1_u8 << idx;
+                        }
+                        let chosen = if answer { first_cost } else { second_cost };
+                        if chosen.mana != baylee_core::mana::ManaCost::ZERO {
+                            wizard.either_pays_mana = true;
+                        }
+                        wizard.either_decided = idx.saturating_add(1);
+                    }
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: conspire yes/no (`CR 702.78a–b`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Conspire)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.conspire_cursor = wizard.conspire_cursor.saturating_add(1);
+                    if answer {
+                        wizard.conspired = wizard.conspired.saturating_add(1);
+                    } else {
+                        wizard.stage = cast_wizard::WizardStage::Targets;
+                    }
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());
@@ -2011,6 +2190,56 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 if let Some(result) = self.answer_effect_play(player, &objects) {
                     return result;
+                }
+                // Wizard path: emerge permanent chosen at announcement (`CR 702.119c`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::EmergeSacrifice)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    let chosen = objects.first().copied();
+                    wizard.emerge_sacrifice = chosen;
+                    let mv = chosen
+                        .and_then(|id| self.state.object(id))
+                        .map_or(0, |o| o.characteristics().mana_value());
+                    let priced = self.emerge_option_cost(&wizard, mv);
+                    for opt in &mut wizard.options {
+                        if opt.kind == crate::choice::CastModeKind::Emerge {
+                            opt.cost = priced;
+                        }
+                    }
+                    wizard.reduction = Some(self.frozen_spell_reduction(&wizard));
+                    wizard.stage = cast_wizard::WizardStage::XValue;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: splice cards revealed from hand (`CR 702.47a–c`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Splice)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    if let Some(&card_id) = objects.first()
+                        && let Some(card_obj) = self.state.object(card_id)
+                        && let Some(card_ref) = card_obj.card
+                        && let Some(def) = self.lookup.card(card_ref.index)
+                        && let Some((_, cost)) = cast_wizard::wave10b::splice_ability_for(
+                            def,
+                            usize::from(card_obj.face_index),
+                        )
+                    {
+                        wizard
+                            .spliced
+                            .push((card_id, card_ref.index, card_obj.face_index, cost));
+                    } else {
+                        wizard.stage = cast_wizard::WizardStage::Conspire;
+                    }
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Wizard path: pitch cards (exile-from-hand costs).
                 if self
@@ -2113,6 +2342,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         remaining,
                         mut chosen,
                     }) => {
+                        let is_forage_first = chosen.is_empty()
+                            && remaining == Some(3)
+                            && objects.len() == 1
+                            && matches!(
+                                &self.pending,
+                                Pending::ChooseCards {
+                                    prompt: crate::choice::ChoicePrompt::CostSacrifice,
+                                    max: 1,
+                                    ..
+                                }
+                            );
                         let is_single_graveyard = matches!(
                             &self.pending,
                             Pending::ChooseCards {
@@ -2142,13 +2382,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 ));
                             }
                         }
-                        let remaining =
-                            remaining.map(|n| n - u32::try_from(objects.len()).unwrap_or(u32::MAX));
+                        let forage_chose_food = is_forage_first
+                            && self
+                                .state
+                                .object(objects[0])
+                                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield);
+                        let remaining = if forage_chose_food {
+                            Some(0)
+                        } else {
+                            remaining.map(|n| n - u32::try_from(objects.len()).unwrap_or(u32::MAX))
+                        };
                         chosen.extend_from_slice(&objects);
                         if remaining.is_some_and(|n| n > 0) {
                             let mut next = self.pending.clone();
                             if let Pending::ChooseCards {
-                                options, min, max, ..
+                                options,
+                                min,
+                                max,
+                                prompt,
+                                ..
                             } = &mut next
                             {
                                 let first_owner = chosen
@@ -2159,10 +2411,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 used.sort_unstable();
                                 options.retain(|id| {
                                     used.binary_search(id).is_err()
+                                        && (!is_forage_first
+                                            || self.state.object(*id).is_some_and(|o| {
+                                                o.zone == crate::zone::Zone::Graveyard
+                                                    && o.zone_owner == Some(player)
+                                            }))
                                         && (!is_single_graveyard
                                             || self.state.object(*id).and_then(|o| o.zone_owner)
                                                 == first_owner)
                                 });
+                                if is_forage_first {
+                                    *prompt = crate::choice::ChoicePrompt::CostExile;
+                                }
                                 *max = u8::try_from(remaining.unwrap_or(0)).unwrap_or(u8::MAX);
                                 *min = *max;
                             }
@@ -2403,6 +2663,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.activation_x = None;
         self.activation_graveyard = None;
         self.activation_phyrexian.clear();
+        self.activation_either_branches.clear();
         self.activation_second_targets = None;
         self.activation_target_choice = super::targeting::ActivationTargetChoice::default();
         self.activation_mode = None;

@@ -78,6 +78,7 @@ pub(super) fn check_settled<L: CardLookup, D: crate::engine::LoopDetection>(
         activation_x,
         activation_graveyard,
         activation_phyrexian,
+        activation_either_branches,
         activating_abilities,
         activating_grant,
         // Replaced by `forget_settings`.
@@ -141,6 +142,10 @@ pub(super) fn check_settled<L: CardLookup, D: crate::engine::LoopDetection>(
         (activation_x.is_some(), "activation_x"),
         (activation_graveyard.is_some(), "activation_graveyard"),
         (!activation_phyrexian.is_empty(), "activation_phyrexian"),
+        (
+            !activation_either_branches.is_empty(),
+            "activation_either_branches",
+        ),
         (activating_abilities.is_some(), "activating_abilities"),
         (activating_grant.is_some(), "activating_grant"),
         // Every event up to now has been read for triggers: the journal's
@@ -219,6 +224,7 @@ pub(super) fn duplicate<L: CardLookup + Clone, D: crate::engine::LoopDetection>(
         activation_x,
         activation_graveyard,
         activation_phyrexian,
+        activation_either_branches,
         activating_abilities,
         activating_grant,
         capabilities,
@@ -268,6 +274,7 @@ pub(super) fn duplicate<L: CardLookup + Clone, D: crate::engine::LoopDetection>(
         activation_x: *activation_x,
         activation_graveyard: *activation_graveyard,
         activation_phyrexian: activation_phyrexian.clone(),
+        activation_either_branches: activation_either_branches.clone(),
         activating_abilities: activating_abilities.clone(),
         activating_grant: *activating_grant,
         capabilities: capabilities.clone(),

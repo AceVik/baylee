@@ -45,6 +45,7 @@ fn offer(lands: &[u32], castable: &[u32], abilities: &[(u32, u32)], mana: &[u32]
             unpaid_suspend: vec![],
             restricted_taps: vec![],
             restricted_floating: vec![],
+            spell_spending: vec![],
             granted_actions: vec![],
         }),
     }

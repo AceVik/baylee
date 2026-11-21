@@ -305,6 +305,15 @@ pub(crate) fn run_with_context(
             dying.push((id, true));
         }
     }
+    if dying.len() > 1 {
+        let dying_ids: smallvec::SmallVec<[baylee_core::ids::ObjectId; 8]> = dying
+            .iter()
+            .filter_map(|&(id, is_destroy)| is_destroy.then_some(id))
+            .collect();
+        dying.sort_by_key(|&(id, is_destroy)| {
+            is_destroy && has_co_destroyed_umbra_host(state, id, &dying_ids)
+        });
+    }
     for (id, is_destroy) in dying {
         if is_destroy {
             destroy_with(
@@ -367,11 +376,8 @@ pub(crate) fn run_with_context(
         );
         if plus > 0 && minus > 0 {
             let cancel = plus.min(minus);
-            if let Some(obj) = state.object_mut(id) {
-                obj.counters.set(CounterKind::P1P1, plus - cancel);
-                obj.counters.set(CounterKind::M1M1, minus - cancel);
-            }
-            state.invalidate_projections();
+            crate::replacement::remove_counters(state, id, CounterKind::P1P1, cancel);
+            crate::replacement::remove_counters(state, id, CounterKind::M1M1, cancel);
             outcome.changed = true;
         }
     }
@@ -404,8 +410,12 @@ pub(crate) fn run_with_context(
         if state
             .object(id)
             .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            && state.can_be_sacrificed(id, None)
+            && state
+                .sacrifice_object_with_departure(id, crate::event::Cause::StateBased, departure(id))
+                .is_ok()
         {
-            put_into_graveyard_with_departure(state, id, departure(id));
+            // CR 715.4, CR 701.21a: a finished Saga is sacrificed only while it can be.
             outcome.changed = true;
         }
     }
@@ -554,6 +564,9 @@ fn enchant_restriction(
     lookup: &impl crate::state::CardLookup,
 ) -> Option<&'static baylee_cards_dsl::Filter> {
     use baylee_cards_dsl::{AbilityDef, Effect, TargetSpec};
+    if obj.riders.contains(&crate::object::Rider::Bestowed) {
+        return Some(&baylee_cards_dsl::Filter::CREATURE);
+    }
     obj.abilities(lookup).iter().find_map(|ability| {
         let AbilityDef::Spell { effects, .. } = ability else {
             return None;
@@ -596,6 +609,26 @@ fn enchant_restriction(
 /// attaches it to a creature — so the two are asked differently and answered
 /// differently, which is why the counter-test matters more than the test:
 /// both sit on the same illegal host, and only one of them is destroyed.
+/// CR 301.5b, CR 303.4c, CR 704.5m, CR 704.5n, CR 702.16c: only an Aura whose
+/// enchant ability allows that player may enchant a player, and protection
+/// from the Aura's quality unattaches it.
+fn player_attachment_legal(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    obj: &crate::object::GameObject,
+    id: baylee_core::ids::ObjectId,
+    player: baylee_core::ids::PlayerId,
+    is_aura: bool,
+) -> bool {
+    is_aura
+        && match crate::aura_bindings::restriction_with(state, obj, lookup) {
+            Some(bound) => crate::aura_bindings::can_enchant_player(state, id, player, bound),
+            None => {
+                !state.has_left(player) && !crate::eval::player_protected_from(state, player, id)
+            }
+        }
+}
+
 fn attachment_sbas(
     state: &GameState,
     lookup: &impl crate::state::CardLookup,
@@ -617,7 +650,7 @@ fn attachment_sbas(
             .characteristics()
             .subtypes
             .contains(baylee_core::generated::subtypes::enchantment::AURA);
-        if obj.attached_to.is_none() && !is_aura {
+        if !obj.is_attached() && !is_aura {
             continue;
         }
         let types = obj.characteristics().types;
@@ -625,7 +658,7 @@ fn attachment_sbas(
         // object or player becomes unattached and remains on the
         // battlefield. Asked of every permanent, an Aura's and an
         // Equipment's type included, because the sentence excepts none.
-        if obj.attached_to.is_some() && types.intersects(T::CREATURE.union(T::BATTLE)) {
+        if obj.is_attached() && types.intersects(T::CREATURE.union(T::BATTLE)) {
             unattaching.push(id);
             continue;
         }
@@ -645,19 +678,34 @@ fn attachment_sbas(
                 .characteristics()
                 .subtypes
                 .contains(baylee_core::generated::subtypes::artifact::FORTIFICATION);
-            if obj.attached_to.is_some() && !fortification {
+            if obj.is_attached() && !fortification {
+                unattaching.push(id);
+            }
+            continue;
+        }
+        if let Some(player) = obj.attached_player() {
+            if player_attachment_legal(state, lookup, obj, id, player, is_aura) {
+                continue;
+            }
+            if obj.riders.contains(&crate::object::Rider::Bestowed) {
+                unattaching.push(id);
+            } else if is_aura && !types.contains(T::CREATURE) {
+                falling_off.push(id);
+            } else {
                 unattaching.push(id);
             }
             continue;
         }
         // Animate Dead's two enchant abilities name a card in a graveyard and
-        // then the one creature it returned; both are tied to this Aura
-        // incarnation, so the shared attachment rule answers them (CR 303.4c).
+        // then the one creature it returned; player-only Auras cannot stay on
+        // a permanent either (CR 303.4c).
         if is_aura
             && let Some(
                 bound @ (crate::aura_bindings::EnchantRestriction::GraveyardCard(..)
-                | crate::aura_bindings::EnchantRestriction::ReturnedBy(_)),
-            ) = crate::aura_bindings::restriction(state, obj)
+                | crate::aura_bindings::EnchantRestriction::ReturnedBy(_)
+                | crate::aura_bindings::EnchantRestriction::Player(_)
+                | crate::aura_bindings::EnchantRestriction::PlayerOrPermanent { .. }),
+            ) = crate::aura_bindings::restriction_with(state, obj, lookup)
         {
             let legal = obj
                 .attached_to
@@ -711,9 +759,15 @@ fn attachment_sbas(
         // and ceased to be bestowed (CR 702.103f); the engine has no bestow,
         // and CR 303.4d and 704.5m would put any other Aura creature into
         // its owner's graveyard.
-        if is_aura && !types.contains(T::CREATURE) {
+        // CR 702.103f: a bestowed Aura that becomes unattached or is attached
+        // to an illegal object or player becomes unattached, ceases to be
+        // bestowed, and stays on the battlefield as a creature (an exception
+        // to CR 704.5m).
+        if obj.riders.contains(&crate::object::Rider::Bestowed) {
+            unattaching.push(id);
+        } else if is_aura && !types.contains(T::CREATURE) {
             falling_off.push(id);
-        } else if obj.attached_to.is_some() {
+        } else if obj.is_attached() {
             unattaching.push(id);
         }
     }
@@ -741,6 +795,8 @@ fn apply_attachment_sbas(
     for id in unattaching {
         if let Some(obj) = state.object_mut(id) {
             obj.attached_to = None;
+            obj.set_attached_player(None);
+            obj.riders.retain(|r| *r != crate::object::Rider::Bestowed);
         }
         // The same projection input as the attaching side: an Equipment
         // grants through `Filter::AttachedToBySource`, so a host that is
@@ -907,43 +963,98 @@ fn destroy_with_replacements(
             order,
         );
     }
-    if regeneratable
-        && let Some(obj) = state.object_mut(id)
-        && (standing_regeneration || obj.regeneration_shields > 0)
-    {
-        if !standing_regeneration {
-            obj.regeneration_shields -= 1;
-        }
-        obj.damage = 0;
-        obj.deathtouched = false;
-        let reference = baylee_core::ids::DamageSourceRef {
-            object: id,
-            version: obj.version,
-        };
-        let was_attacking_or_blocking = state.combat.is_attacking(id)
-            || state
-                .combat
-                .blockers
-                .iter()
-                .any(|block| block.blocker == id);
-        // `set_tapped` and not the bit: tapping is what the layer
-        // projection has to hear about, and
-        // `rules::nothing_writes_the_tapped_bit_except_the_one_door` is the
-        // test that says so — it caught this line writing the bit directly.
-        state.set_tapped(id, true);
-        state.combat.remove_from_combat(id);
-        if was_attacking_or_blocking {
-            state.combat.remove_defender_from_combat(reference);
-        }
+    if regeneratable && apply_regeneration_shield(state, id, standing_regeneration) {
+        return;
+    }
+    if replace_destroy_with_umbra_armor(state, id) {
         return;
     }
     put_into_graveyard_with_cause(state, id, departure, Cause::Destroy);
 }
 
+fn apply_regeneration_shield(
+    state: &mut GameState,
+    id: baylee_core::ids::ObjectId,
+    standing_regeneration: bool,
+) -> bool {
+    let Some(obj) = state.object_mut(id) else {
+        return false;
+    };
+    if !standing_regeneration && obj.regeneration_shields == 0 {
+        return false;
+    }
+    if !standing_regeneration {
+        obj.regeneration_shields -= 1;
+    }
+    obj.damage = 0;
+    obj.deathtouched = false;
+    let reference = baylee_core::ids::DamageSourceRef {
+        object: id,
+        version: obj.version,
+    };
+    let was_attacking_or_blocking = state.combat.is_attacking(id)
+        || state
+            .combat
+            .blockers
+            .iter()
+            .any(|block| block.blocker == id);
+    state.set_tapped(id, true);
+    state.combat.remove_from_combat(id);
+    if was_attacking_or_blocking {
+        state.combat.remove_defender_from_combat(reference);
+    }
+    true
+}
+
+/// Umbra armor (`CR 702.89a–b`): if an enchanted permanent would be destroyed,
+/// instead remove all damage marked on it and destroy one attached Aura with
+/// umbra armor. Does not tap the permanent or remove it from combat.
+fn replace_destroy_with_umbra_armor(state: &mut GameState, id: baylee_core::ids::ObjectId) -> bool {
+    let aura_id = state.battlefield_seen().find(|&cand| {
+        state.object(cand).is_some_and(|aura| {
+            aura.attached_to == Some(id)
+                && aura
+                    .characteristics()
+                    .subtypes
+                    .contains(baylee_core::generated::subtypes::enchantment::AURA)
+                && aura
+                    .characteristics()
+                    .keywords
+                    .contains(baylee_cards_dsl::KeywordSet::UMBRA_ARMOR)
+        })
+    });
+    let Some(aura_id) = aura_id else {
+        return false;
+    };
+    if let Some(obj) = state.object_mut(id) {
+        obj.damage = 0;
+        obj.deathtouched = false;
+    }
+    destroy(state, aura_id);
+    true
+}
+
+fn has_co_destroyed_umbra_host(
+    state: &GameState,
+    id: baylee_core::ids::ObjectId,
+    co_destroyed: &[baylee_core::ids::ObjectId],
+) -> bool {
+    state.object(id).is_some_and(|o| {
+        o.attached_to
+            .is_some_and(|host| co_destroyed.contains(&host))
+            && o.characteristics()
+                .subtypes
+                .contains(baylee_core::generated::subtypes::enchantment::AURA)
+            && o.characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::UMBRA_ARMOR)
+    })
+}
+
 /// Destroy a simultaneous set, retaining attachments before any member leaves.
 #[doc(hidden)]
 pub fn destroy_all(state: &mut GameState, objects: &[baylee_core::ids::ObjectId], no_regen: bool) {
-    let departures: Vec<_> = objects
+    let mut departures: Vec<_> = objects
         .iter()
         .map(|id| {
             (
@@ -953,6 +1064,9 @@ pub fn destroy_all(state: &mut GameState, objects: &[baylee_core::ids::ObjectId]
             )
         })
         .collect();
+    if departures.len() > 1 {
+        departures.sort_by_key(|&(id, _, _)| has_co_destroyed_umbra_host(state, id, objects));
+    }
     for (id, departure, regeneratable) in departures {
         destroy_with(state, id, regeneratable, departure, true);
     }
@@ -1065,7 +1179,7 @@ pub fn player_cant_lose(state: &GameState, player: PlayerId) -> bool {
                 let baylee_cards_dsl::Modifier::NamedPlayersCantLose(who) = fx.modifier else {
                     return false;
                 };
-                crate::eval::players(who, state, fx.controller)
+                crate::eval::players_for_source(who, state, fx.controller, fx.source)
                     .is_some_and(|players| players.contains(&player))
             }))
 }
@@ -1078,7 +1192,7 @@ pub fn player_cant_win(state: &GameState, player: PlayerId) -> bool {
             let baylee_cards_dsl::Modifier::PlayersCantWin(who) = fx.modifier else {
                 return false;
             };
-            crate::eval::players(who, state, fx.controller)
+            crate::eval::players_for_source(who, state, fx.controller, fx.source)
                 .is_some_and(|players| players.contains(&player))
         })
 }
@@ -1181,7 +1295,17 @@ fn leave(
     // and the card comes back to its owner (CR 610.3).
     state.return_what_departed_hosts_held();
     state.monarch_leaves(player, leaving);
+    state.players[usize::from(player.get())].ring_bearer = None;
     let exiled = exile_what_the_departed_control(state);
+    for p in 0..state.players.len() {
+        if let Some(bearer) = state.players[p].ring_bearer
+            && state.object(bearer).is_none_or(|o| {
+                o.zone != crate::zone::Zone::Battlefield || o.controller != PlayerId::new(p as u8)
+            })
+        {
+            state.players[p].ring_bearer = None;
+        }
+    }
     let mut gone: Vec<_> = state
         .combat
         .attackers()

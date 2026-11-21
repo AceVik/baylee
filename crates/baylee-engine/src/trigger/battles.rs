@@ -96,6 +96,7 @@ pub(super) fn collect(
                 timestamp,
                 event_object: None,
                 event_mana_value: None,
+                event_tap_snapshot: None,
                 event_departure: None,
                 event_mana: None,
                 event_amount: None,
@@ -105,6 +106,7 @@ pub(super) fn collect(
                 synthetic_target: None,
                 once_per_turn: false,
                 chosen_mode: None,
+                synthetic_condition: None,
                 in_chosen_order: false,
             });
         }

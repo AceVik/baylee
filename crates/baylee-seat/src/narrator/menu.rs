@@ -1137,6 +1137,7 @@ fn kicker_option_words(
 }
 
 /// A yes/no question in words: the question, what yes does, what no does.
+#[allow(clippy::too_many_lines)] // one arm per `YesNoPrompt` variant
 fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, String) {
     match prompt {
         YesNoPrompt::EnterTappedForCounters { kind, amount } => entry_counter_words(*kind, *amount),
@@ -1157,6 +1158,127 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "Pay the kicker or additional cost?".into(),
             "pay it".into(),
             "cast it without it".into(),
+        ),
+        YesNoPrompt::Bargain => (
+            "Bargain — sacrifice an artifact, enchantment, or token as an additional cost?".into(),
+            "bargain (sacrifice one)".into(),
+            "cast it without bargaining".into(),
+        ),
+        YesNoPrompt::Offspring { cost, parts } => {
+            let price = baylee_client_core::interaction::buyback_price(
+                baylee_client_core::Lang::En,
+                *cost,
+                *parts,
+            );
+            let label = if price.is_empty() {
+                "offspring".into()
+            } else {
+                price
+            };
+            (
+                format!(
+                    "Offspring — pay {label} as an additional cost to create a 1/1 token copy when it enters?"
+                ),
+                format!("pay offspring ({label})"),
+                "cast it without offspring".into(),
+            )
+        }
+        YesNoPrompt::Casualty { min_power } => (
+            format!(
+                "Casualty {min_power} — sacrifice a creature with power {min_power} or greater as an additional cost to copy this spell?"
+            ),
+            format!("pay casualty {min_power} (sacrifice a creature with power >= {min_power})"),
+            "cast it without casualty".into(),
+        ),
+        YesNoPrompt::Conspire => (
+            "Conspire — tap two untapped creatures you control that share a color with this spell \
+             as an additional cost to copy it?"
+                .into(),
+            "pay conspire (tap two matching creatures)".into(),
+            "cast it without conspire".into(),
+        ),
+        YesNoPrompt::Tribute {
+            permanent,
+            counters,
+        } => (
+            format!(
+                "Tribute {counters} — have {} enter with {counters} additional +1/+1 counter{}?",
+                table.named(*permanent),
+                if *counters == 1 { "" } else { "s" }
+            ),
+            format!("pay tribute {counters}"),
+            "do not pay tribute".into(),
+        ),
+        YesNoPrompt::Gift { kind } => {
+            let (gift_name, gift_desc) = match kind {
+                baylee_cards::dsl::GiftKind::Card => ("a card", "chosen opponent draws a card"),
+                baylee_cards::dsl::GiftKind::Food => {
+                    ("a Food", "chosen opponent creates a Food token")
+                }
+                baylee_cards::dsl::GiftKind::TappedFish => (
+                    "a tapped Fish",
+                    "chosen opponent creates a tapped 1/1 blue Fish token",
+                ),
+                baylee_cards::dsl::GiftKind::Treasure => {
+                    ("a Treasure", "chosen opponent creates a Treasure token")
+                }
+                baylee_cards::dsl::GiftKind::Octopus => (
+                    "an Octopus",
+                    "chosen opponent creates an 8/8 blue Octopus token",
+                ),
+                baylee_cards::dsl::GiftKind::ExtraTurn => (
+                    "an extra turn",
+                    "chosen opponent takes an extra turn after this one",
+                ),
+            };
+            (
+                format!("Gift {gift_name} — promise an opponent {gift_name} ({gift_desc})?"),
+                format!("promise gift ({gift_name})"),
+                "cast it without promising a gift".into(),
+            )
+        }
+        YesNoPrompt::Riot { permanent } => riot_words(table, *permanent),
+        YesNoPrompt::Unleash { permanent } => unleash_words(table, *permanent),
+        YesNoPrompt::ChooseFirstCostBranch { index } => (
+            format!(
+                "Choose how to pay cost clause {} — pay the first cost option instead of the second?",
+                u16::from(*index) + 1
+            ),
+            "pay the first cost option".into(),
+            "pay the second cost option".into(),
+        ),
+        YesNoPrompt::OpeningHandBattlefield => (
+            "Begin the game with this card from your opening hand on the battlefield?".into(),
+            "begin with it on the battlefield".into(),
+            "keep it in hand".into(),
+        ),
+        YesNoPrompt::OpeningHandReveal => (
+            "Reveal this card from your opening hand for its opening-hand ability?".into(),
+            "reveal it from your opening hand".into(),
+            "keep it unrevealed".into(),
+        ),
+        YesNoPrompt::AssignDamageAsThoughUnblocked { attacker } => (
+            format!(
+                "Have {} assign its combat damage as though it weren't blocked?",
+                table.named(*attacker)
+            ),
+            "assign combat damage to what it is attacking as though unblocked".into(),
+            "assign combat damage to its blockers".into(),
+        ),
+        YesNoPrompt::Endure(n) => (
+            format!(
+                "Endure {n} — put {n} +1/+1 {} on it instead of creating a {n}/{n} white Spirit creature token?",
+                if *n == 1 { "counter" } else { "counters" }
+            ),
+            format!(
+                "put {n} +1/+1 {}",
+                if *n == 1 {
+                    "counter on it"
+                } else {
+                    "counters on it"
+                }
+            ),
+            format!("create a {n}/{n} white Spirit creature token"),
         ),
         YesNoPrompt::KickerOption { index, cost, parts } => {
             kicker_option_words(*index, cost, *parts)
@@ -1224,6 +1346,14 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "the top".into(),
             "the bottom".into(),
         ),
+        YesNoPrompt::ClashBottom { card } => (
+            format!(
+                "Put revealed {} on the bottom of your library? (No leaves it on top.)",
+                table.named(*card)
+            ),
+            "put on the bottom".into(),
+            "leave on top".into(),
+        ),
         YesNoPrompt::Discover { card } => discover_words(table, *card),
         YesNoPrompt::SkipTurn { source } => skip_turn_words(table, *source),
         YesNoPrompt::GuessNamedCardInHand { holder, card, face } => {
@@ -1245,6 +1375,28 @@ fn skip_turn_words(table: &Table<'_>, source: ObjectId) -> (String, String, Stri
         format!("Skip this turn to untap {}?", table.named(source)),
         "skip this turn; untap it when the next turn begins".into(),
         "take this turn; leave it tapped".into(),
+    )
+}
+
+fn riot_words(table: &Table<'_>, permanent: ObjectId) -> (String, String, String) {
+    (
+        format!(
+            "Riot — have {} enter with an additional +1/+1 counter? (No gives it haste instead.)",
+            table.named(permanent)
+        ),
+        "enter with a +1/+1 counter".into(),
+        "gain haste instead".into(),
+    )
+}
+
+fn unleash_words(table: &Table<'_>, permanent: ObjectId) -> (String, String, String) {
+    (
+        format!(
+            "Unleash — have {} enter with an additional +1/+1 counter? (It can't block while it has a +1/+1 counter.)",
+            table.named(permanent)
+        ),
+        "enter with a +1/+1 counter (unleashed)".into(),
+        "enter without the +1/+1 counter".into(),
     )
 }
 
@@ -1737,6 +1889,7 @@ fn spell_ending_label(ending: baylee_engine::choice::SpellEnding) -> &'static st
     }
 }
 
+#[allow(clippy::too_many_lines)] // Exhaustive one-arm-per-variant CastModeKind label table.
 fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDesc) -> String {
     let face = card.map_or(0, |c| usize::from(c.face));
     let sentence = |line: Option<baylee_cards::lines::AbilityLine>| {
@@ -1792,6 +1945,22 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             )
         }
         CastModeKind::Foretell => format!("Cast it with foretell for {cost}"),
+        CastModeKind::Plot => format!("Cast this plotted card from exile for {cost}"),
+        CastModeKind::Impending => {
+            let counters = card
+                .and_then(|c| baylee_cards::by_index(c.index))
+                .and_then(|def| def.faces.get(face))
+                .and_then(|f| f.impending)
+                .map(|(n, _)| n);
+            counters.map_or_else(
+                || format!("Cast it with impending for {cost}"),
+                |n| {
+                    format!(
+                        "Cast it with impending {n} for {cost} (enters with {n} time counters, not a creature until the last is removed)"
+                    )
+                },
+            )
+        }
         CastModeKind::Flashback => {
             if option.cost == ManaCost::ZERO {
                 format!("Cast it with {}", board::flashback_note(card, option.cost))
@@ -1803,6 +1972,17 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             format!("Cast it with beam me up for {cost}, returning a creature you control")
         }
         CastModeKind::Dash => format!("Cast it with dash for {cost}"),
+        CastModeKind::Blitz => format!("Cast it with blitz for {cost}"),
+        CastModeKind::Warp => format!("Cast it from hand with warp for {cost}"),
+        CastModeKind::Sneak => {
+            format!("Cast it with sneak for {cost}, returning an unblocked creature you control")
+        }
+        CastModeKind::Emerge => {
+            format!("Cast it with emerge for {cost}, sacrificing a matching permanent")
+        }
+        CastModeKind::Fused => {
+            format!("Cast both halves fused together from your hand for {cost}")
+        }
         CastModeKind::Dungeon(dungeon) => format!("Enter {}", dungeon.name()),
         CastModeKind::DungeonRoom { dungeon, room } => {
             format!("Enter {}", dungeon.rooms()[usize::from(room)])
@@ -1812,6 +1992,18 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         }
         CastModeKind::SpellEnding(ending) => spell_ending_label(ending).to_string(),
         CastModeKind::Mutate => format!("Cast it with mutate for {cost}"),
+        CastModeKind::Bestow => format!("Cast it bestowed as an Aura for {cost}"),
+        CastModeKind::Awaken => {
+            format!(
+                "Cast it with awaken for {cost}, putting +1/+1 counters on target land you control"
+            )
+        }
+        CastModeKind::JumpStart => {
+            format!("Cast it with jump-start for {cost}, discarding a card")
+        }
+        CastModeKind::Retrace => {
+            format!("Cast it with retrace for {cost}, discarding a land card")
+        }
         CastModeKind::Escape => format!("Cast it with escape for {cost}"),
         CastModeKind::EscapeGranted {
             face,

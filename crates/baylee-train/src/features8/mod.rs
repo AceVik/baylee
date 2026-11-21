@@ -64,6 +64,8 @@ const fn number_prompt_code(reason: &NumberPrompt) -> u8 {
         NumberPrompt::Sacrifices => 8,
         NumberPrompt::Choice => 9,
         NumberPrompt::TextReplacement { .. } => 10,
+        NumberPrompt::ReadAhead { .. } => 12,
+        NumberPrompt::Squad { .. } => 13,
     }
 }
 

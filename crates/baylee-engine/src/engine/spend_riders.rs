@@ -102,6 +102,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             timestamp: provenance.timestamp,
             event_object: Some(original),
             event_mana_value: None,
+            event_tap_snapshot: None,
             event_departure: None,
             event_mana: None,
             event_amount: None,
@@ -111,6 +112,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             synthetic_target: None,
             once_per_turn: false,
             chosen_mode: None,
+            synthetic_condition: None,
             in_chosen_order: false,
         });
     }
@@ -163,6 +165,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             timestamp: provenance.timestamp,
             event_object: None,
             event_mana_value: None,
+            event_tap_snapshot: None,
             event_departure: None,
             event_mana: None,
             event_amount: Some(amount),
@@ -172,6 +175,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             synthetic_target: None,
             once_per_turn: false,
             chosen_mode: None,
+            synthetic_condition: None,
             in_chosen_order: false,
         });
     }

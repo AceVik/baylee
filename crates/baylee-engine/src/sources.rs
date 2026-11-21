@@ -31,6 +31,7 @@ pub(crate) enum Slot {
     Linked(u32),
     DelayedObject(u32),
     GrantedSource,
+    Extra(u32, u32),
 }
 
 /// Targets announced before any payment can change their incarnations.
@@ -38,6 +39,7 @@ pub(crate) enum Slot {
 pub(crate) struct TargetReferences {
     pub(crate) first: Vec<DamageSourceRef>,
     pub(crate) second: Vec<DamageSourceRef>,
+    pub(crate) extra: Vec<Vec<DamageSourceRef>>,
 }
 
 impl TargetReferences {
@@ -55,6 +57,23 @@ impl TargetReferences {
                 hash = hash
                     .wrapping_mul(31)
                     .wrapping_add(u64::from(reference.version));
+            }
+        }
+        if !self.extra.is_empty() {
+            hash = hash.wrapping_mul(31).wrapping_add(self.extra.len() as u64);
+            for group in &self.extra {
+                hash = hash.wrapping_mul(31).wrapping_add(group.len() as u64);
+                for reference in group {
+                    hash = hash
+                        .wrapping_mul(31)
+                        .wrapping_add(u64::from(reference.object.slot()));
+                    hash = hash
+                        .wrapping_mul(31)
+                        .wrapping_add(u64::from(reference.object.generation()));
+                    hash = hash
+                        .wrapping_mul(31)
+                        .wrapping_add(u64::from(reference.version));
+                }
             }
         }
         hash
@@ -431,6 +450,16 @@ impl GameState {
                         None,
                     ));
                 }
+                for (g, inst) in obj.extra_target_instances().iter().enumerate() {
+                    let group = u32::try_from(g).expect("extra target group");
+                    for (i, &target) in inst.targets.iter().enumerate() {
+                        slots.push((
+                            Slot::Extra(group, u32::try_from(i).expect("target index")),
+                            target,
+                            None,
+                        ));
+                    }
+                }
             }
             if let Some((id, version)) = obj.paid.as_ref().and_then(|p| p.tapped) {
                 slots.push((Slot::Tapped, id, Some(version)));
@@ -690,22 +719,43 @@ impl GameState {
             .copied()
     }
 
+    /// Exact object announced for one slot of an extra target group (`2 + group`).
+    #[must_use]
+    pub fn recorded_extra_target_reference(
+        &self,
+        holder: ObjectId,
+        group: u32,
+        index: u32,
+    ) -> Option<DamageSourceRef> {
+        self.source_identity(holder)
+            .and_then(|r| self.source_memory.stack.get(&r))
+            .and_then(|refs| refs.get(&Slot::Extra(group, index)))
+            .copied()
+    }
+
     /// Read the chosen target identities of this exact spell, including retained LKI.
     pub(crate) fn spell_targets_affected(&self, spell: &GameObject, affected: ObjectId) -> bool {
         if spell.kind != crate::object::ObjectKind::Spell {
             return false;
         }
-        let Some(affected) = self.source_identity(affected) else {
+        let Some(affected_ref) = self.source_identity(affected) else {
             return false;
         };
-        self.source_memory
-            .stack
-            .get(&identity(spell))
-            .is_some_and(|refs| {
-                refs.iter().any(|(slot, target)| {
-                    matches!(slot, Slot::Target(_) | Slot::Second(_)) && *target == affected
-                })
-            })
+        if let Some(refs) = self.source_memory.stack.get(&identity(spell)) {
+            return refs.iter().any(|(slot, target)| {
+                matches!(slot, Slot::Target(_) | Slot::Second(_) | Slot::Extra(..))
+                    && *target == affected_ref
+            });
+        }
+        // Projected spell during cast_wizard before stack reference binding (CR 601.2c/f).
+        self.object(spell.id)
+            .is_some_and(|live| live.zone != crate::zone::Zone::Stack)
+            && (spell.targets.contains(&affected)
+                || spell.second_targets().contains(&affected)
+                || spell
+                    .extra_target_instances()
+                    .iter()
+                    .any(|inst| inst.targets.contains(&affected)))
     }
 
     pub(crate) fn targets_current_object(&self, holder: ObjectId, target: ObjectId) -> bool {
@@ -716,7 +766,8 @@ impl GameState {
             .and_then(|holder| self.source_memory.stack.get(&holder))
             .is_some_and(|refs| {
                 refs.iter().any(|(slot, reference)| {
-                    matches!(slot, Slot::Target(_) | Slot::Second(_)) && *reference == current
+                    matches!(slot, Slot::Target(_) | Slot::Second(_) | Slot::Extra(..))
+                        && *reference == current
                 })
             })
     }
@@ -742,6 +793,85 @@ impl GameState {
         if self.source_memory.event_readers.contains(&original) {
             self.source_memory.event_readers.insert(to);
         }
+
+        let (
+            was_bargained,
+            was_prototyped,
+            squad_paid,
+            offspring_paid,
+            casualty_paid,
+            impending_paid,
+            gift_recipient,
+            was_fused,
+        ) = self
+            .source_object(original)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .map_or(
+                (false, false, None, false, false, false, None, false),
+                |object| {
+                    (
+                        object.riders.contains(&crate::object::Rider::Bargained),
+                        object.prototyped,
+                        object.riders.iter().find_map(|r| match r {
+                            crate::object::Rider::SquadPaid(n) => Some(*n),
+                            _ => None,
+                        }),
+                        object.riders.contains(&crate::object::Rider::OffspringPaid),
+                        object.riders.contains(&crate::object::Rider::CasualtyPaid),
+                        object.riders.contains(&crate::object::Rider::ImpendingPaid),
+                        object.riders.iter().find_map(|r| match r {
+                            crate::object::Rider::GiftPromisedTo(p) => Some(*p),
+                            _ => None,
+                        }),
+                        object.riders.contains(&crate::object::Rider::Fused),
+                    )
+                },
+            );
+        if (was_bargained
+            || was_prototyped
+            || squad_paid.is_some()
+            || offspring_paid
+            || casualty_paid
+            || impending_paid
+            || gift_recipient.is_some()
+            || was_fused)
+            && let Some(copied) = self.object_mut(copy)
+        {
+            if was_bargained && !copied.riders.contains(&crate::object::Rider::Bargained) {
+                copied.riders.push(crate::object::Rider::Bargained);
+            }
+            if let Some(n) = squad_paid
+                && !copied
+                    .riders
+                    .iter()
+                    .any(|r| matches!(r, crate::object::Rider::SquadPaid(_)))
+            {
+                copied.riders.push(crate::object::Rider::SquadPaid(n));
+            }
+            if offspring_paid && !copied.riders.contains(&crate::object::Rider::OffspringPaid) {
+                copied.riders.push(crate::object::Rider::OffspringPaid);
+            }
+            if casualty_paid && !copied.riders.contains(&crate::object::Rider::CasualtyPaid) {
+                copied.riders.push(crate::object::Rider::CasualtyPaid);
+            }
+            if impending_paid && !copied.riders.contains(&crate::object::Rider::ImpendingPaid) {
+                copied.riders.push(crate::object::Rider::ImpendingPaid);
+            }
+            if let Some(p) = gift_recipient
+                && !copied
+                    .riders
+                    .iter()
+                    .any(|r| matches!(r, crate::object::Rider::GiftPromisedTo(_)))
+            {
+                copied.riders.push(crate::object::Rider::GiftPromisedTo(p));
+            }
+            if was_fused && !copied.riders.contains(&crate::object::Rider::Fused) {
+                copied.riders.push(crate::object::Rider::Fused);
+            }
+            if was_prototyped {
+                copied.prototyped = true;
+            }
+        }
     }
 
     pub(crate) fn capture_target_group(&self, objects: &[ObjectId]) -> Vec<DamageSourceRef> {
@@ -758,7 +888,7 @@ impl GameState {
         self.source_memory.invalidate_object(holder);
         let refs =
             std::sync::Arc::make_mut(self.source_memory.stack.entry(holder_ref).or_default());
-        refs.retain(|slot, _| !matches!(slot, Slot::Target(_) | Slot::Second(_)));
+        refs.retain(|slot, _| !matches!(slot, Slot::Target(_) | Slot::Second(_) | Slot::Extra(..)));
         for (group, objects) in [(false, &targets.first), (true, &targets.second)] {
             for (index, &reference) in objects.iter().enumerate() {
                 let index = u32::try_from(index).expect("target slot");
@@ -770,6 +900,13 @@ impl GameState {
                     },
                     reference,
                 );
+            }
+        }
+        for (group, objects) in targets.extra.iter().enumerate() {
+            let group = u32::try_from(group).expect("extra target group");
+            for (index, &reference) in objects.iter().enumerate() {
+                let index = u32::try_from(index).expect("target slot");
+                refs.insert(Slot::Extra(group, index), reference);
             }
         }
     }
@@ -939,7 +1076,12 @@ impl GameState {
             }
         }
         for delayed in &self.delayed {
-            if let DelayedWhen::Observed { watch, .. } = delayed.when {
+            if let DelayedWhen::Observed { watch, .. }
+            | DelayedWhen::ObservedGeneral { watch, .. }
+            | DelayedWhen::OnEvent {
+                watch: Some(watch), ..
+            } = delayed.when
+            {
                 out.insert(watch);
             }
             if let DelayedWhen::DiesOrIsExiled { card, version, .. }
@@ -1069,10 +1211,34 @@ fn is_prevention(modifier: &Modifier) -> bool {
             | Modifier::PreventAllDamageFromIt
             | Modifier::PreventDamageToYouFrom(_)
             | Modifier::PreventCombatDamageFrom(_)
+            | Modifier::PreventNoncombatDamageFrom(_)
+            | Modifier::PreventNoncombatDamageToPlayers { .. }
+            | Modifier::MultiplyDamageFrom { .. }
+            | Modifier::AddDamageFrom { .. }
             | Modifier::PreventDamageFrom(_)
+            | Modifier::PreventDamagePerSource { .. }
+            | Modifier::PreventDamageToAffectedPerSource { .. }
             | Modifier::RedirectDamageToYou(_)
             | Modifier::CountersPreventDamage(_)
     )
+}
+
+fn general_trigger_references(
+    spec: &crate::state::DelayedTriggerSpec,
+    out: &mut BTreeSet<DamageSourceRef>,
+) {
+    out.insert(DamageSourceRef {
+        object: spec.source,
+        version: spec.source_version,
+    });
+    if let Some(rem) = spec.remembered {
+        if let (Some(object), Some((version, _))) = (rem.object, rem.identity) {
+            out.insert(DamageSourceRef { object, version });
+        }
+        if let Some(subject) = rem.subject {
+            out.insert(subject);
+        }
+    }
 }
 
 /// Every incarnation a delayed action names; also what a forked simulation
@@ -1118,6 +1284,7 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
             });
             out.insert(DamageSourceRef { object, version });
         }
+        DelayedAction::GeneralTrigger(ref spec) => general_trigger_references(spec, out),
         DelayedAction::LinkedCounterCleanup {
             source: object,
             version,
@@ -1193,18 +1360,31 @@ pub(crate) fn options_with_context(
     you: PlayerId,
     context: crate::text_changes::RuleContext,
 ) -> Vec<DamageSourceRef> {
+    options_with_choices(state, filter, you, context, None, None)
+}
+
+pub(crate) fn options_with_choices(
+    state: &mut GameState,
+    filter: &'static Filter,
+    you: PlayerId,
+    context: crate::text_changes::RuleContext,
+    chosen_color: Option<baylee_core::mana::ManaColor>,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+) -> Vec<DamageSourceRef> {
     state
         .eligible_damage_sources()
         .into_iter()
         .filter(|&source| {
             state.source_object(source).is_some_and(|obj| {
-                crate::eval::matches_projected_with_context(
+                crate::eval::matches_projected_with_choices(
                     filter,
                     state,
                     obj,
                     obj.characteristics(),
                     you,
                     context,
+                    chosen_color,
+                    chosen_subtype,
                 )
             })
         })

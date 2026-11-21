@@ -200,10 +200,36 @@ fn damage_triggers_read_whose_damage_and_to_whom() {
         "{:?}",
         fungusaur.abilities
     );
+    let player_dealt = read(
+        "Name:X\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ DamageDoneOnce | ValidTarget$ You | Execute$ C\n\
+         SVar:C:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        player_dealt
+            .abilities
+            .join("")
+            .contains("Trigger::PlayerDealtDamage(PlayerRel::You)")
+    );
+    let noncombat_player = read(
+        "Name:X\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ C\n\
+         SVar:C:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(noncombat_player.abilities.join("").contains(
+        "Trigger::DealsDamageToPlayer { source: &Filter::This, player: PlayerRel::EachPlayer }"
+    ));
+    let noncombat_creature = read(
+        "Name:X\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Creature | Execute$ C\n\
+         SVar:C:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(noncombat_creature.abilities.join("").contains(
+        "Trigger::DealsDamageToObject { source: &Filter::This, recipient: &Filter::CREATURE }"
+    ));
     for refused_line in [
-        "T:Mode$ DamageDoneOnce | ValidTarget$ You | Execute$ C",
-        "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Creature | Execute$ C",
-        "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ C",
+        "T:Mode$ DamageDoneOnce | ValidTarget$ You | CombatDamage$ True | Execute$ C",
+        "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player,Battle | CombatDamage$ True | Execute$ C",
     ] {
         assert!(
             refused(&format!(
@@ -390,11 +416,16 @@ fn an_unless_cost_wraps_the_line_whatever_it_says() {
         "{:?}",
         bought.abilities
     );
-    // Refused by name: a payer this cannot ask, subs on one answer, and
-    // an absent payer on a line with no target to take one from.
+    // Refused by name: a switched/non-mana `Player` cost, an absent payer on a
+    // line with no target to take one from, subs on one answer, and an
+    // unsupported cost part.
     for (line, reason) in [
         (
-            "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ 2",
+            "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ 2 | UnlessSwitched$ True",
+            "an unless-cost paid by `Player`",
+        ),
+        (
+            "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ PayLife<2>",
             "an unless-cost paid by `Player`",
         ),
         (
@@ -404,10 +435,6 @@ fn an_unless_cost_wraps_the_line_whatever_it_says() {
         (
             "DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ 2 | UnlessResolveSubs$ WhenNotPaid",
             "`UnlessResolveSubs$ WhenNotPaid`",
-        ),
-        (
-            "DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ PayLife<2>",
-            "an unless-cost of `PayLife<2>`",
         ),
     ] {
         let script = parse(&format!(
@@ -421,6 +448,49 @@ fn an_unless_cost_wraps_the_line_whatever_it_says() {
             "{line}"
         );
     }
+
+    let damage_you_unless = read(
+        "Name:X\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+         | Execute$ S | TriggerDescription$ x.\n\
+         SVar:S:DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ DamageYou<2>",
+    );
+    assert!(
+        damage_you_unless.abilities[0].contains("Effect::PlayerMayPayCostOr")
+            && damage_you_unless.abilities[0].contains("CostPart::DealDamageToYou(2)"),
+        "{:?}",
+        damage_you_unless.abilities
+    );
+}
+
+#[test]
+fn wave7_any_player_and_pay_life_unless_costs() {
+    let any_player = read(
+        "Name:X\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+         | Execute$ S | TriggerDescription$ x.\n\
+         SVar:S:DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ 2",
+    );
+    assert!(
+        any_player.abilities[0].contains(
+            "Effect::AnyPlayerMayPayManaOr { cost: mana!(\"{2}\"), effects: &[Effect::SacrificeSelf] }"
+        ),
+        "{:?}",
+        any_player.abilities
+    );
+    let pay_life = read(
+        "Name:X\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+         | Execute$ S | TriggerDescription$ x.\n\
+         SVar:S:DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ PayLife<2>",
+    );
+    assert!(
+        pay_life.abilities[0].contains(
+            "Effect::PlayerMayPayLifeOr { player: PlayerRel::You, life: Amount::Fixed(2), effect: &Effect::SacrificeSelf }"
+        ),
+        "{:?}",
+        pay_life.abilities
+    );
 }
 
 #[test]
@@ -1002,35 +1072,37 @@ fn the_rest_of_the_condition_family_refuses_by_name() {
     }
 }
 
-/// A trigger that fires from somewhere other than the battlefield is
-/// refused, rather than quietly relocated to it.
-///
-/// `AbilityDef::Triggered` carries no zone and the engine collects
-/// triggers off the battlefield, so a `TriggerZones$ Command` read as
-/// an ordinary trigger is an ability that can never fire on a card
-/// claiming `Coverage::Implemented` — worse than the stub it replaced.
-/// The same line without the key is read as it always was, which is the
-/// half that says the refusal is about the zone and not about the
-/// trigger.
+/// A trigger that fires from an unsupported zone (such as `Hand`) is
+/// refused, rather than quietly relocated to the battlefield, while
+/// supported non-battlefield zones (`Command`, `Battlefield,Command`)
+/// emit their explicit `TriggerZone` variant.
 #[test]
 fn a_trigger_that_fires_from_another_zone_is_refused_rather_than_relocated() {
     let elsewhere = "Name:X\nTypes:Creature\nPT:1/1\n\
-         T:Mode$ ChangesZone | TriggerZones$ Command | Origin$ Battlefield | \
+         T:Mode$ ChangesZone | TriggerZones$ Hand | Origin$ Battlefield | \
          Destination$ Graveyard | ValidCard$ Creature.YouCtrl | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | NumCards$ 1\n";
     let parsed = parse(elsewhere);
     assert!(transcode(&parsed, &cats(), None).is_none());
     assert_eq!(
         refusal_reason(&parsed, &cats(), None).as_deref(),
-        Some("`TriggerZones$ Command`")
+        Some("`TriggerZones$ Hand`")
     );
 
-    let here = parse(&elsewhere.replace("TriggerZones$ Command", "TriggerZones$ Battlefield"));
+    let here = parse(&elsewhere.replace("TriggerZones$ Hand", "TriggerZones$ Battlefield"));
     assert!(
         transcode(&here, &cats(), None).is_some(),
         "the same trigger on the battlefield: {:?}",
         refusal_reason(&here, &cats(), None)
     );
+
+    let command = parse(&elsewhere.replace("TriggerZones$ Hand", "TriggerZones$ Command"));
+    let cmd_body = transcode(&command, &cats(), None).expect("command trigger");
+    assert!(cmd_body.abilities[0].contains("zone = TriggerZone::Command"));
+
+    let both = parse(&elsewhere.replace("TriggerZones$ Hand", "TriggerZones$ Battlefield,Command"));
+    let both_body = transcode(&both, &cats(), None).expect("battlefield-or-command trigger");
+    assert!(both_body.abilities[0].contains("zone = TriggerZone::BattlefieldOrCommand"));
 }
 
 /// `Defined$ Self` on a line that also targets is the **source**, and
@@ -1430,10 +1502,6 @@ fn creature_count_combat_restrictions_refuse_every_nearby_idiom() {
             "S:Mode$ CantAttack | ValidCard$ Creature.YouCtrl",
             1,
         ),
-        CREATURE_COUNT_COMBAT.replace(
-            "S:Mode$ CantBlock | ValidCard$ Card.Self",
-            "S:Mode$ CantBlock | ValidCard$ Creature.YouCtrl",
-        ),
         CREATURE_COUNT_COMBAT.replace("Creature.YouCtrl", "Creature.OppCtrl"),
         CREATURE_COUNT_COMBAT.replace("Creature.ActivePlayerCtrl", "Creature.YouCtrl"),
         swapped,
@@ -1454,6 +1522,16 @@ fn creature_count_combat_restrictions_refuse_every_nearby_idiom() {
             "a nearby idiom was silently accepted:\n{text}"
         );
     }
+    let filtered_block = read(&CREATURE_COUNT_COMBAT.replace(
+        "S:Mode$ CantBlock | ValidCard$ Card.Self",
+        "S:Mode$ CantBlock | ValidCard$ Creature.YouCtrl",
+    ));
+    assert!(
+        filtered_block.abilities[1].contains("Condition::Not(&Condition::YourTurn)")
+            && filtered_block.abilities[1].contains("Amount::Difference"),
+        "expected both YourTurn negation and Amount::Difference on filtered CantBlock: {:?}",
+        filtered_block.abilities
+    );
 }
 
 #[test]

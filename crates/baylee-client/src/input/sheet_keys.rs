@@ -61,7 +61,7 @@ pub(super) fn sheet_digits(typed: &mut MessageReader<KeyboardInput>, duel: &mut 
                 .to_digit(10)
                 .and_then(|n| n.checked_sub(1))
                 .map(|n| n as usize);
-            if let Some(row) = row.filter(|row| *row < menu.modes.len()) {
+            if let Some(row) = row.filter(|row| *row < menu.row_count()) {
                 take_cast_row(duel, row);
             }
             // Choosing only arms. Further digits from this frame cannot

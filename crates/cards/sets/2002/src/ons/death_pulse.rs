@@ -12,7 +12,7 @@ card!(
     oracle_id = "2227bab2-36a0-47f1-a797-7b82323eca9d",
     scryfall_id = "524fd470-e535-47ea-98a0-6187e429dfe1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Death Pulse",
         mana_cost = mana!("{2}{B}{B}"),

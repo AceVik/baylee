@@ -80,6 +80,36 @@ fn the_census_tells_a_filter_it_can_read_from_one_it_cannot() {
     ));
 }
 
+/// Exact unread spell-target membership (`min >= 1`) that genuinely requires
+/// turn history, unannounced X, stack ability source/kind, wire-untranslated
+/// counter kind, or `Enchanted` absent from [`PlayerView`].
+const EXPECTED_BLIND: [&str; 24] = [
+    "Bind",
+    "Blue Sun's Twilight",
+    "Cradle to Grave",
+    "Crushing Pain",
+    "Cut the Earthly Bond",
+    "Detonate",
+    "Dominate",
+    "Entrancing Melody",
+    "Fatal Blow",
+    "Feast of Dreams",
+    "Fire and Brimstone",
+    "Glyph of Delusion",
+    "Interdict",
+    "Kaervek's Purge",
+    "Mirrodin Avenged",
+    "Mutant's Prey",
+    "Rust",
+    "Sizzling Barrage",
+    "Spell Blast",
+    "Spell Burst",
+    "Squelch",
+    "Stir the Grave",
+    "Venomous Vines",
+    "You Are Already Dead",
+];
+
 /// How much of the pool [`provably_targetless`] can actually reach.
 ///
 /// This replaces three frozen numbers that used to sit in the module
@@ -104,24 +134,6 @@ fn the_census_tells_a_filter_it_can_read_from_one_it_cannot() {
 /// never be targetless, provable 185 -> 187, blind 2 -> 0.
 #[test]
 fn the_pools_targets_are_a_population_this_client_can_read() {
-    // Exact membership replaces a growing budget. These predicates require
-    // history, unannounced X, or stack-source facts absent from PlayerView.
-    // They deliberately remain unknown; their printed cards are unchanged.
-    const EXPECTED_BLIND: [&str; 12] = [
-        "Bind",
-        "Detonate",
-        "Dominate",
-        "Fatal Blow",
-        "Fire and Brimstone",
-        "Glyph of Delusion",
-        "Interdict",
-        "Kaervek's Purge",
-        "Rust",
-        "Spell Blast",
-        "Stir the Grave",
-        "Venomous Vines",
-    ];
-
     // Two seats, because `Filter::ControlledByOpponent` refuses to answer
     // at any other table size. And one well-formed permanent, because on
     // an empty battlefield `count` never calls `matches` at all and would

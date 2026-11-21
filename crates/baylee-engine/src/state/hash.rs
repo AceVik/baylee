@@ -77,11 +77,14 @@ impl GameState {
             // Empty whenever a question is out, by a rule the build
             // enforces; the field says which.
             reflexive: _,
+            // Transient scope bound only inside `resolve::run`; `None` at rest.
+            resolution_chosen_color: _,
             discovered,
             divided,
             synthetic_copies,
             commanders,
             monarch,
+            goaded,
             game_end,
             day_night,
             previous_turn,
@@ -179,6 +182,9 @@ impl GameState {
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
         monarch.hash(&mut h);
+        if !goaded.is_empty() {
+            goaded.hash(&mut h);
+        }
         game_end.hash(&mut h);
         format.hash(&mut h);
         starting_player.hash(&mut h);
@@ -429,6 +435,13 @@ impl GameState {
         // A land already cleaned by this incarnation is not eligible again,
         // even if the visible board and counter totals are identical.
         self.counter_links.hash(&mut h);
+        if !self.goaded.is_empty() {
+            h.usize(self.goaded.len());
+            for entry in &self.goaded.0 {
+                h.u32(position(entry.creature.object));
+                entry.goader.hash(&mut h);
+            }
+        }
         h.finish()
     }
 
@@ -535,6 +548,12 @@ impl GameState {
             h.u32(self.commander_casts.get(seat).copied().unwrap_or(0));
             for c in self.commanders.get(seat).into_iter().flatten() {
                 h.u32(c.casts);
+            }
+            if p.ring_temptations != 0 {
+                h.u8(p.ring_temptations.min(4));
+            }
+            if let Some(bearer) = p.ring_bearer {
+                h.u32(position(bearer));
             }
         }
     }
@@ -654,6 +673,60 @@ impl GameState {
             .collect();
         placements.sort_unstable();
         placements.hash(h);
+        self.hash_must_block_pairs(h, position);
+        self.hash_extra_turn_tallies(h);
+    }
+
+    fn hash_extra_turn_tallies(&self, h: &mut Hasher) {
+        if !self.per_turn.spells_warped.is_empty() {
+            self.per_turn.spells_warped.0.as_slice().hash(h);
+        }
+        if self.per_turn.crimes_committed.tracked
+            && !self.per_turn.crimes_committed.items.is_empty()
+        {
+            self.per_turn.crimes_committed.items.as_slice().hash(h);
+        }
+        if self.per_turn.mana_expended_on_spells.tracked
+            && !self.per_turn.mana_expended_on_spells.items.is_empty()
+        {
+            self.per_turn
+                .mana_expended_on_spells
+                .items
+                .as_slice()
+                .hash(h);
+        }
+        if self.per_turn.phase_stack_active.0 {
+            true.hash(h);
+            self.per_turn.extra_phases.0.as_slice().hash(h);
+            self.per_turn.extra_phases_created.0.hash(h);
+        }
+    }
+
+    fn hash_must_block_pairs(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        if self.per_turn.must_block_pairs.is_empty() {
+            return;
+        }
+        let mut must_block: Vec<_> = self
+            .per_turn
+            .must_block_pairs
+            .iter()
+            .filter(|req| {
+                self.object(req.blocker.object)
+                    .is_some_and(|b| b.version == req.blocker.version)
+                    && self
+                        .object(req.attacker.object)
+                        .is_some_and(|a| a.version == req.attacker.version)
+            })
+            .map(|req| {
+                (
+                    position(req.blocker.object),
+                    position(req.attacker.object),
+                    req.this_combat_only,
+                )
+            })
+            .collect();
+        must_block.sort_unstable();
+        must_block.hash(h);
     }
 
     /// Every zone, in a fixed order — the canonical ordering object
@@ -715,90 +788,128 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
             }
             crate::prevention::Shielded::Everything => h.u8(2),
         }
-        match shield.kind {
-            crate::prevention::ShieldKind::RedirectSource { source, to, next } => {
-                h.u8(6);
-                hash_chosen_source(h, state, &source, position);
-                match to {
-                    crate::prevention::RedirectDestination::Object(reference) => {
-                        h.u8(0);
-                        h.u32(position(reference.object));
-                        h.u8(moves_since(
-                            state.object(reference.object),
-                            reference.version,
-                        ));
-                    }
-                    crate::prevention::RedirectDestination::SourceController => h.u8(1),
-                }
-                h.boolean(next);
-            }
-            crate::prevention::ShieldKind::ReflectNextSource { source, reflection } => {
-                h.u8(7);
-                hash_chosen_source(h, state, &source, position);
-                h.u32(position(reflection.object));
-                h.u8(moves_since(
-                    state.object(reflection.object),
-                    reflection.version,
-                ));
-                hash_damage_source(h, state, reflection.object, reflection.version);
-            }
-            crate::prevention::ShieldKind::TargetingCauses => h.u8(8),
-            crate::prevention::ShieldKind::RedirectCombat {
-                sources,
-                to,
-                context,
-            } => {
-                h.u8(9);
-                filter_hash(h, sources);
-                context.text.hash(h);
-                h.u32(position(context.source));
-                context.resolved_name.hash(h);
-                context.reference.map(position).hash(h);
-                match to {
-                    crate::prevention::RedirectDestination::Object(reference) => {
-                        h.u8(0);
-                        h.u32(position(reference.object));
-                        h.u8(moves_since(
-                            state.object(reference.object),
-                            reference.version,
-                        ));
-                    }
-                    crate::prevention::RedirectDestination::SourceController => h.u8(1),
-                }
-            }
-            crate::prevention::ShieldKind::Next(n) => {
-                h.u8(0);
-                h.u32(n);
-            }
-            crate::prevention::ShieldKind::RedirectNext { remaining, to } => {
-                h.u8(4);
-                h.u32(remaining);
-                h.u8(to.get());
-            }
-            crate::prevention::ShieldKind::AllCombat => h.u8(1),
-            crate::prevention::ShieldKind::AllFrom { source } => {
-                h.u8(5);
-                hash_chosen_source(h, state, &source, position);
-            }
-            crate::prevention::ShieldKind::NextFrom {
-                source,
-                all_but,
-                gain_life,
-                combat_only,
-            } => {
-                h.u8(2);
-                hash_chosen_source(h, state, &source, position);
-                h.u32(all_but);
-                h.boolean(gain_life);
-                h.boolean(combat_only);
-            }
-            crate::prevention::ShieldKind::RedirectNextFrom { source, to } => {
-                h.u8(3);
-                hash_chosen_source(h, state, &source, position);
-                h.u8(to.get());
-            }
-        }
+        hash_shield_kind(h, state, &shield.kind, position);
         h.u8(shield.controller.get());
+    }
+}
+
+fn hash_shield_kind(
+    h: &mut Hasher,
+    state: &GameState,
+    kind: &crate::prevention::ShieldKind,
+    position: &dyn Fn(ObjectId) -> u32,
+) {
+    match *kind {
+        crate::prevention::ShieldKind::RedirectSource { source, to, next } => {
+            h.u8(6);
+            hash_chosen_source(h, state, &source, position);
+            hash_redirect_dest(h, state, to, position);
+            h.boolean(next);
+        }
+        crate::prevention::ShieldKind::ReflectNextSource { source, reflection } => {
+            h.u8(7);
+            hash_chosen_source(h, state, &source, position);
+            h.u32(position(reflection.object));
+            h.u8(moves_since(
+                state.object(reflection.object),
+                reflection.version,
+            ));
+            hash_damage_source(h, state, reflection.object, reflection.version);
+        }
+        crate::prevention::ShieldKind::TargetingCauses => h.u8(8),
+        crate::prevention::ShieldKind::RedirectCombat {
+            sources,
+            to,
+            context,
+        } => {
+            h.u8(9);
+            filter_hash(h, sources);
+            context.text.hash(h);
+            h.u32(position(context.source));
+            context.resolved_name.hash(h);
+            context.reference.map(position).hash(h);
+            hash_redirect_dest(h, state, to, position);
+        }
+        crate::prevention::ShieldKind::Next(n) => {
+            h.u8(0);
+            h.u32(n);
+        }
+        crate::prevention::ShieldKind::RedirectNext { remaining, to } => {
+            h.u8(4);
+            h.u32(remaining);
+            h.u8(to.get());
+        }
+        crate::prevention::ShieldKind::AllCombat => h.u8(1),
+        crate::prevention::ShieldKind::AllFrom { source } => {
+            h.u8(5);
+            hash_chosen_source(h, state, &source, position);
+        }
+        crate::prevention::ShieldKind::NextFrom {
+            source,
+            all_but,
+            gain_life,
+            combat_only,
+        } => {
+            h.u8(2);
+            hash_chosen_source(h, state, &source, position);
+            h.u32(all_but);
+            h.boolean(gain_life);
+            h.boolean(combat_only);
+        }
+        crate::prevention::ShieldKind::RedirectNextFrom { source, to } => {
+            h.u8(3);
+            hash_chosen_source(h, state, &source, position);
+            h.u8(to.get());
+        }
+        crate::prevention::ShieldKind::NextMatching {
+            sources,
+            combat_only,
+            chosen_color,
+            chosen_subtype,
+            text,
+            this,
+        }
+        | crate::prevention::ShieldKind::AllMatching {
+            sources,
+            combat_only,
+            chosen_color,
+            chosen_subtype,
+            text,
+            this,
+        } => {
+            h.u8(
+                if matches!(kind, crate::prevention::ShieldKind::NextMatching { .. }) {
+                    10
+                } else {
+                    11
+                },
+            );
+            filter_hash(h, sources);
+            h.boolean(combat_only);
+            chosen_color.hash(h);
+            chosen_subtype.hash(h);
+            text.hash(h);
+            h.u32(position(this));
+        }
+    }
+}
+
+fn hash_redirect_dest(
+    h: &mut Hasher,
+    state: &GameState,
+    to: crate::prevention::RedirectDestination,
+    position: &dyn Fn(ObjectId) -> u32,
+) {
+    match to {
+        crate::prevention::RedirectDestination::Object(reference) => {
+            h.u8(0);
+            h.u32(position(reference.object));
+            h.u8(moves_since(
+                state.object(reference.object),
+                reference.version,
+            ));
+        }
+        crate::prevention::RedirectDestination::SourceController => h.u8(1),
     }
 }
 
@@ -832,6 +943,14 @@ fn hash_chosen_source(
     source.text.hash(h);
     h.u8(source.you.get());
     h.u32(position(source.this));
+    if let Some(color) = source.chosen_color {
+        h.u8(1);
+        color.hash(h);
+    }
+    if let Some(subtype) = source.chosen_subtype {
+        h.u8(2);
+        subtype.hash(h);
+    }
     hash_damage_source(h, state, source.id, source.version);
 }
 
@@ -876,19 +995,7 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
         if let Some(source) = state.source_object(reference)
             && source.kind == ObjectKind::Spell
         {
-            // A surviving copy trigger observes these announcement decisions
-            // even after the original spell has left the stack.
-            h.u32(source.x_value);
-            source.kicked().hash(h);
-            hash_times_kicked(h, source.times_kicked);
-            if let Some(mask) = source.kicked_mask() {
-                h.u8(95);
-                h.u8(mask);
-            }
-            source.replicated.hash(h);
-            source.mode_index.hash(h);
-            source.modes.hash(h);
-            h.u8(source.face_index);
+            hash_spell_source_decisions(h, source);
         }
         if let Some(shares) = state.source_memory.divisions.get(&reference) {
             h.usize(shares.len());
@@ -913,6 +1020,34 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
             h.usize(0);
         }
     }
+}
+
+fn hash_spell_source_decisions(h: &mut Hasher, source: &crate::object::GameObject) {
+    // A surviving copy trigger observes these announcement decisions
+    // even after the original spell has left the stack.
+    h.u32(source.x_value);
+    source.kicked().hash(h);
+    hash_times_kicked(h, source.times_kicked);
+    if let Some(mask) = source.kicked_mask() {
+        h.u8(95);
+        h.u8(mask);
+    }
+    if source.riders.contains(&crate::object::Rider::CasualtyPaid) {
+        h.u8(162);
+    }
+    if source.riders.contains(&crate::object::Rider::ImpendingPaid) {
+        h.u8(181);
+    }
+    for rider in &source.riders {
+        if let crate::object::Rider::GiftPromisedTo(player) = rider {
+            h.u8(182);
+            h.u8(player.get());
+        }
+    }
+    source.replicated.hash(h);
+    source.mode_index.hash(h);
+    source.modes.hash(h);
+    h.u8(source.face_index);
 }
 
 fn hash_damage_source(h: &mut Hasher, state: &GameState, id: ObjectId, version: u32) {
@@ -1234,6 +1369,11 @@ fn hash_object_situation(
     h.option_u32(tapped.map(|(id, _)| position(id)));
     h.option_u32(tapped.map(|(_, version)| version));
     h.option_u32(obj.attached_to.map(position));
+    hash_target_situation(h, obj, position);
+    hash_ability_situation(h, obj, position);
+}
+
+fn hash_target_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(ObjectId) -> u32) {
     h.usize(obj.targets.len());
     for t in &obj.targets {
         h.u32(position(*t));
@@ -1243,7 +1383,16 @@ fn hash_object_situation(
     for t in obj.second_targets() {
         h.u32(position(*t));
     }
-    hash_ability_situation(h, obj, position);
+    if !obj.extra_target_instances().is_empty() {
+        h.usize(obj.extra_target_instances().len());
+        for inst in obj.extra_target_instances() {
+            inst.players.hash(h);
+            h.usize(inst.targets.len());
+            for t in &inst.targets {
+                h.u32(position(*t));
+            }
+        }
+    }
 }
 
 fn hash_ability_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(ObjectId) -> u32) {
@@ -1363,6 +1512,10 @@ fn hash_rider_situation(
                 }));
             }
             crate::object::Rider::AttachmentHostLeft => h.u8(24),
+            crate::object::Rider::PairedWith(partner, _) => {
+                h.u8(151);
+                h.u32(position(*partner));
+            }
             crate::object::Rider::EventAmount(amount) => {
                 h.u8(26);
                 h.u32(*amount);
@@ -1448,6 +1601,127 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         crate::object::Rider::BattleProtector(player) => {
             h.u8(79);
             player.hash(h);
+        }
+        crate::object::Rider::SyntheticCondition(condition) => {
+            h.u8(96);
+            condition.hash(h);
+        }
+        _ => hash_expansion_acquired_rider(h, rider),
+    }
+}
+
+fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
+    match rider {
+        crate::object::Rider::Bestowed => h.u8(101),
+        crate::object::Rider::MustAttackPlayerThisTurn(player) => {
+            h.u8(102);
+            player.hash(h);
+        }
+        crate::object::Rider::SuspendHaste(player) => {
+            h.u8(103);
+            player.hash(h);
+        }
+        crate::object::Rider::Blitzed => h.u8(104),
+        crate::object::Rider::Bargained => h.u8(105),
+        crate::object::Rider::AttachedToPlayer(player) => {
+            h.u8(121);
+            player.hash(h);
+        }
+        crate::object::Rider::SourceAttachmentPlayerLki(player) => {
+            h.u8(122);
+            player.hash(h);
+        }
+        crate::object::Rider::BattleProtector(player) => {
+            h.u8(79);
+            player.hash(h);
+        }
+        crate::object::Rider::SyntheticCondition(condition) => {
+            h.u8(96);
+            condition.hash(h);
+        }
+        _ => hash_cast_keyword_rider(h, rider),
+    }
+}
+
+fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
+    match rider {
+        crate::object::Rider::SquadPaid(n) => {
+            h.u8(131);
+            h.u8(*n);
+        }
+        crate::object::Rider::OffspringPaid => h.u8(132),
+        crate::object::Rider::Fused => h.u8(133),
+        crate::object::Rider::Manifested => h.u8(134),
+        crate::object::Rider::Plotted => h.u8(5),
+        crate::object::Rider::PlottedOnTurn(turn) => {
+            h.u8(161);
+            turn.hash(h);
+        }
+        crate::object::Rider::CasualtyPaid => h.u8(162),
+        crate::object::Rider::Renowned => h.u8(171),
+        crate::object::Rider::ImpendingPaid => h.u8(181),
+        crate::object::Rider::GiftPromisedTo(player) => {
+            h.u8(182);
+            player.hash(h);
+        }
+        crate::object::Rider::AbilitySourceFace(face) => {
+            h.u8(191);
+            h.u8(*face);
+        }
+        crate::object::Rider::CraftMaterial(mat) => {
+            h.u8(192);
+            mat.hash(h);
+        }
+        crate::object::Rider::WarpedSpell => h.u8(201),
+        crate::object::Rider::WarpedInExile(turn) => {
+            h.u8(202);
+            turn.hash(h);
+        }
+        crate::object::Rider::SnowManaSpent(count) => {
+            h.u8(203);
+            count.hash(h);
+        }
+        crate::object::Rider::Monstrous => h.u8(211),
+        crate::object::Rider::ClassLevel(level) => {
+            h.u8(255);
+            h.u16(267);
+            h.u8(*level);
+        }
+        crate::object::Rider::Suspected => h.u8(212),
+        crate::object::Rider::RiotHaste => h.u8(213),
+        crate::object::Rider::RevealedFromOpeningHand => h.u8(241),
+        crate::object::Rider::Sneaked => h.u8(251),
+        crate::object::Rider::Spliced { card, face } => {
+            h.u8(255);
+            h.u16(261);
+            card.hash(h);
+            h.u8(*face);
+        }
+        crate::object::Rider::Awakened(count) => {
+            h.u8(255);
+            h.u16(262);
+            h.u16(*count);
+        }
+        crate::object::Rider::ConspirePaid(count) => {
+            h.u8(255);
+            h.u16(263);
+            h.u8(*count);
+        }
+        crate::object::Rider::CipherEncodedOn { host, version } => {
+            h.u8(255);
+            h.u16(264);
+            host.hash(h);
+            version.hash(h);
+        }
+        crate::object::Rider::ChampionedBy { host, version } => {
+            h.u8(255);
+            h.u16(265);
+            host.hash(h);
+            version.hash(h);
+        }
+        crate::object::Rider::TributePaid => {
+            h.u8(255);
+            h.u16(266);
         }
         _ => {}
     }
@@ -1634,6 +1908,8 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         dungeon,
         dungeon_room,
         dungeons_completed,
+        ring_temptations,
+        ring_bearer,
     } = player;
     id.hash(h);
     life.hash(h);
@@ -1661,6 +1937,14 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         dungeon.hash(h);
         dungeon_room.hash(h);
         dungeons_completed.hash(h);
+    }
+    if *ring_temptations != 0 {
+        0x7269_6e67_u32.hash(h);
+        ring_temptations.hash(h);
+    }
+    if let Some(bearer) = ring_bearer {
+        0x7262_7272_u32.hash(h);
+        bearer.hash(h);
     }
     tried_empty_draw.hash(h);
     // Commander damage (CR 903.10a), which no life total records: two
@@ -2089,6 +2373,25 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 turn.hash(h);
             }
             Rider::Plotted => h.u8(5),
+            Rider::PlottedOnTurn(turn) => {
+                h.u8(161);
+                turn.hash(h);
+            }
+            Rider::CasualtyPaid => h.u8(162),
+            Rider::ImpendingPaid => h.u8(181),
+            Rider::GiftPromisedTo(p) => {
+                h.u8(182);
+                h.u8(p.get());
+            }
+            Rider::Monstrous => h.u8(211),
+            Rider::ClassLevel(level) => {
+                h.u8(255);
+                h.u16(267);
+                h.u8(*level);
+            }
+            Rider::Suspected => h.u8(212),
+            Rider::RiotHaste => h.u8(213),
+            Rider::RevealedFromOpeningHand => h.u8(241),
             Rider::Suspend => h.u8(6),
             Rider::Flashback => h.u8(7),
             Rider::Uncounterable => h.u8(8),
@@ -2113,6 +2416,38 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::KickedMask(mask) => {
                 h.u8(95);
                 h.u8(*mask);
+            }
+            Rider::Bestowed => h.u8(101),
+            Rider::MustAttackPlayerThisTurn(p) => {
+                h.u8(102);
+                h.u8(p.get());
+            }
+            Rider::SuspendHaste(p) => {
+                h.u8(103);
+                h.u8(p.get());
+            }
+            Rider::Blitzed => h.u8(104),
+            Rider::Bargained => h.u8(105),
+            Rider::AttachedToPlayer(p) => {
+                h.u8(121);
+                h.u8(p.get());
+            }
+            Rider::SourceAttachmentPlayerLki(p) => {
+                h.u8(122);
+                h.u8(p.get());
+            }
+            Rider::SquadPaid(n) => {
+                h.u8(131);
+                h.u8(*n);
+            }
+            Rider::OffspringPaid => h.u8(132),
+            Rider::Fused => h.u8(133),
+            Rider::Manifested => h.u8(134),
+            Rider::Renowned => h.u8(171),
+            Rider::PairedWith(partner, version) => {
+                h.u8(151);
+                partner.hash(h);
+                version.hash(h);
             }
             Rider::ExiledWith { host, version } => {
                 h.u8(13);
@@ -2184,6 +2519,64 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::MergedComponent(comp) => {
                 h.u8(86);
                 comp.hash(h);
+            }
+            Rider::SyntheticCondition(condition) => {
+                h.u8(96);
+                condition.hash(h);
+            }
+            Rider::NinjutsuDefender(defender, version) => {
+                h.u8(109);
+                (defender, version).hash(h);
+            }
+            Rider::AbilitySourceFace(face) => {
+                h.u8(191);
+                h.u8(*face);
+            }
+            Rider::CraftMaterial(mat) => {
+                h.u8(192);
+                mat.hash(h);
+            }
+            Rider::WarpedSpell => h.u8(201),
+            Rider::WarpedInExile(turn) => {
+                h.u8(202);
+                turn.hash(h);
+            }
+            Rider::SnowManaSpent(count) => {
+                h.u8(203);
+                count.hash(h);
+            }
+            Rider::Sneaked => h.u8(251),
+            Rider::Spliced { card, face } => {
+                h.u8(255);
+                h.u16(261);
+                card.hash(h);
+                h.u8(*face);
+            }
+            Rider::Awakened(count) => {
+                h.u8(255);
+                h.u16(262);
+                h.u16(*count);
+            }
+            Rider::ConspirePaid(count) => {
+                h.u8(255);
+                h.u16(263);
+                h.u8(*count);
+            }
+            Rider::CipherEncodedOn { host, version } => {
+                h.u8(255);
+                h.u16(264);
+                host.hash(h);
+                version.hash(h);
+            }
+            Rider::ChampionedBy { host, version } => {
+                h.u8(255);
+                h.u16(265);
+                host.hash(h);
+                version.hash(h);
+            }
+            Rider::TributePaid => {
+                h.u8(255);
+                h.u16(266);
             }
         }
     }
@@ -2440,6 +2833,36 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::CmcEqualsYourUnspentMana => h.u8(148),
         F::SharesColorWithExiledWithSource => h.u8(150),
         F::OfSourceChosenCardType => h.u8(151),
+        F::FaceDown => h.u8(152),
+        F::SharesCreatureTypeWith(inner) => {
+            h.u8(153);
+            filter_hash(h, inner);
+        }
+        F::ChosenColor => h.u8(154),
+        F::Historic => h.u8(165),
+        F::HasCounters(kind) => {
+            h.u8(166);
+            match kind {
+                None => h.u8(0),
+                Some(k) => {
+                    h.u8(1);
+                    hash_counter(h, *k);
+                }
+            }
+        }
+        F::AnyCountersAtLeast(n) => {
+            h.u8(167);
+            h.u16(*n);
+        }
+        F::ControlledByEnchantedPlayer => h.u8(168),
+        F::PairedWithSource => h.u8(169),
+        F::WarpedInExile => h.u8(201),
+        F::CmcAtMostSnowManaSpent => h.u8(202),
+        F::Monstrous => h.u8(186),
+        F::Suspected => h.u8(187),
+        F::RingBearer => h.u8(195),
+        F::SameManaValueAsSource => h.u8(231),
+        F::SharesColorWithSource => h.u8(232),
     }
 }
 

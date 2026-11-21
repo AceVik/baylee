@@ -39,6 +39,7 @@ fn probe_spell(reduction: u32, restricted: bool, damage: bool) -> &'static CardD
         keywords: template.keywords,
         commander: template.commander,
         partner: template.partner,
+        fuse: false,
         coverage: template.coverage,
     }))
 }

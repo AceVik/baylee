@@ -29,6 +29,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
+        | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageToAttached { .. }
         | Effect::DealDamageDivided { .. }
@@ -256,30 +257,83 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // no shield and no question (CR 609.3).
         Effect::ChooseDamageSourcePreventAllThisTurn
         | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
-        | Effect::PreventNextFromChosenSource { .. } => {
-            let (sources, combat_only, all_but, gain_life, all_recipients) = match op {
+        | Effect::PreventNextFromChosenSource { .. }
+        | Effect::PreventFromChosenSource { .. } => {
+            let (protects, next_only, sources, combat_only, all_but, gain_life) = match op {
                 Effect::PreventNextFromChosenSource {
                     sources,
                     combat_only,
                     all_but,
                     gain_life,
-                } => (sources, combat_only, all_but, gain_life, false),
+                } => (
+                    vec![Shielded::Player(you)],
+                    true,
+                    sources,
+                    combat_only,
+                    all_but,
+                    gain_life,
+                ),
                 Effect::ChooseDamageSourcePreventAllThisTurnMatching(sources) => {
-                    (sources, false, 0, false, true)
+                    (vec![Shielded::Everything], false, sources, false, 0, false)
                 }
-                _ => (&Filter::Any, false, 0, false, true),
+                Effect::ChooseDamageSourcePreventAllThisTurn => (
+                    vec![Shielded::Everything],
+                    false,
+                    &Filter::Any,
+                    false,
+                    0,
+                    false,
+                ),
+                Effect::PreventFromChosenSource {
+                    target,
+                    sources,
+                    next_only,
+                    combat_only,
+                    all_but,
+                    gain_life,
+                } => {
+                    let protected = match target {
+                        None => vec![Shielded::Everything],
+                        Some(spec) => recipients(state, res, you, spec)
+                            .into_iter()
+                            .filter_map(|recipient| match recipient {
+                                DamageTarget::Player(player) => Some(Shielded::Player(player)),
+                                DamageTarget::Object(id) => state
+                                    .object(id)
+                                    .map(|obj| Shielded::Object(id, obj.version)),
+                            })
+                            .collect(),
+                    };
+                    (
+                        protected,
+                        next_only,
+                        sources,
+                        combat_only,
+                        all_but,
+                        gain_life,
+                    )
+                }
+                _ => unreachable!("chosen-source shield effect"),
             };
-            let options = crate::prevention::source_options_with_context(
+            if protects.is_empty() {
+                return None;
+            }
+            let chosen_color = res.source_chosen_color(state);
+            let chosen_subtype = res.source_chosen_subtype(state);
+            let options = crate::prevention::source_options_with_choices(
                 state,
                 sources,
                 you,
                 res.rule_context(),
+                chosen_color,
+                chosen_subtype,
             );
             if options.is_empty() {
                 return None;
             }
             res.awaiting = Some(AwaitingOp::ShieldFromChosenSource {
-                all_recipients,
+                protects,
+                next_only,
                 sources,
                 combat_only,
                 all_but,
@@ -290,6 +344,70 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 choice: state.next_source_choice(),
                 options,
             })
+        }
+        Effect::PreventNextFromMatchingSources {
+            target,
+            sources,
+            combat_only,
+        }
+        | Effect::PreventAllDamageFromMatchingThisTurn {
+            target,
+            sources,
+            combat_only,
+        } => {
+            let next_only = matches!(op, Effect::PreventNextFromMatchingSources { .. });
+            let protects = match target {
+                None => vec![Shielded::Everything],
+                Some(spec) => recipients(state, res, you, spec)
+                    .into_iter()
+                    .filter_map(|recipient| match recipient {
+                        DamageTarget::Player(player) => Some(Shielded::Player(player)),
+                        DamageTarget::Object(id) => state
+                            .object(id)
+                            .map(|obj| Shielded::Object(id, obj.version)),
+                    })
+                    .collect(),
+            };
+            if protects.is_empty() {
+                return None;
+            }
+            let chosen_color = crate::eval::filter_reads_chosen_color(sources)
+                .then(|| res.source_chosen_color(state))
+                .flatten();
+            let chosen_subtype = crate::eval::filter_reads_chosen_subtype(sources)
+                .then(|| res.source_chosen_subtype(state))
+                .flatten();
+            let kind = if next_only {
+                ShieldKind::NextMatching {
+                    sources,
+                    combat_only,
+                    chosen_color,
+                    chosen_subtype,
+                    text: res.text,
+                    this: res.source,
+                }
+            } else {
+                ShieldKind::AllMatching {
+                    sources,
+                    combat_only,
+                    chosen_color,
+                    chosen_subtype,
+                    text: res.text,
+                    this: res.source,
+                }
+            };
+            let origin = origin(state, res);
+            for protected in protects {
+                state.shields.push_from(
+                    Shield {
+                        protects: protected,
+                        kind,
+                        controller: you,
+                    },
+                    Some(origin),
+                );
+            }
+            None
         }
         // Jade Monolith: the creature is the target (still legal, or this
         // would not be resolving), and the source is chosen now, as the
@@ -754,6 +872,45 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
         // Each recipient's amount is determined as the effect is applied
         // (CR 608.2h), before any of it is dealt; a player recipient's
         // through `amount_for_player` ("that player", Typhoon).
+        Effect::DamagePermanentAndController {
+            target,
+            permanent_amount,
+            controller_amount,
+        } => {
+            let reference = if target == TargetSpec::EventObject {
+                super::subjects::event(state, res)
+            } else {
+                super::zones::spec_object(state, res, target)
+                    .and_then(|id| super::subjects::target(state, res, id))
+            };
+            let Some(reference) = reference else {
+                return Vec::new();
+            };
+            // An untargeted blocked or blocking creature can have left. Its
+            // last controller is still known, but its new incarnation cannot
+            // receive the damage (CR 608.2h, 400.7).
+            let Some(permanent) = state.source_object(reference) else {
+                return Vec::new();
+            };
+            let mut result = Vec::with_capacity(2);
+            if super::subjects::on_battlefield(state, reference) {
+                result.push(assignment(
+                    state,
+                    res,
+                    res.source,
+                    DamageTarget::Object(reference.object),
+                    amount2(&permanent_amount, state, you, res),
+                ));
+            }
+            result.push(assignment(
+                state,
+                res,
+                res.source,
+                DamageTarget::Player(permanent.controller),
+                super::amount_for_player(&controller_amount, state, you, res, permanent.controller),
+            ));
+            result
+        }
         Effect::DealDamageToBothTargetInstances { amount } => {
             let first = recipients(state, res, you, TargetSpec::AnyTarget);
             first

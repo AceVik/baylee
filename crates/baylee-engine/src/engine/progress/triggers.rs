@@ -86,6 +86,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
     }
 
+    pub(in crate::engine) fn record_trigger_fired(&mut self, t: &crate::trigger::PendingTrigger) {
+        if t.once_per_turn {
+            let version = t
+                .source_version
+                .unwrap_or_else(|| self.state.object(t.source).expect("trigger source").version);
+            self.state.ability_fires.insert(
+                (
+                    baylee_core::ids::DamageSourceRef {
+                        object: t.source,
+                        version,
+                    },
+                    t.fire_key(),
+                ),
+                1,
+            );
+        }
+    }
+
     /// The Aura's graveyard incarnation a departure trigger of its host
     /// finds, if any.
     ///
@@ -126,10 +144,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.state.text_changes.set(reference, trigger.text);
         }
         let bound = self.stack_target_req(top).map(|mut req| {
-            req.spec = trigger.bind_target(req.spec);
+            req.spec = self.bound_trigger_target(trigger, req.spec);
             req
         });
-        let graveyard_source = is_graveyard_trigger(trigger);
+        let graveyard_source = is_graveyard_trigger(&self.state, trigger);
         // An instruction about the event's exact incarnation ("destroy it",
         // Kudzu) remembers which object that was as the trigger goes on the
         // stack, so one that has left the battlefield since is a new object
@@ -152,7 +170,42 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             Some((object.version, object.characteristics().power.unwrap_or(0)))
         });
         let aura_successor = self.aura_successor(trigger);
+        let (source_snow_spent, source_entry_sacrifices) = self
+            .state
+            .damage_source(trigger.source, trigger.source_version)
+            .map_or((0, 0), |src| {
+                let snow = src
+                    .paid
+                    .as_ref()
+                    .map(|p| p.snow_mana_spent())
+                    .or_else(|| {
+                        src.riders.iter().find_map(|r| match r {
+                            crate::object::Rider::SnowManaSpent(n) => Some(*n),
+                            _ => None,
+                        })
+                    })
+                    .unwrap_or(0);
+                let sacs = src
+                    .riders
+                    .iter()
+                    .find_map(|r| match r {
+                        crate::object::Rider::EntrySacrifices(n) => Some(*n),
+                        _ => None,
+                    })
+                    .unwrap_or(0);
+                (snow, sacs)
+            });
         if let Some(object) = self.state.object_mut(top) {
+            if source_snow_spent > 0 {
+                object
+                    .riders
+                    .push(crate::object::Rider::SnowManaSpent(source_snow_spent));
+            }
+            if source_entry_sacrifices > 0 {
+                object.riders.push(crate::object::Rider::EntrySacrifices(
+                    source_entry_sacrifices,
+                ));
+            }
             object.event_object = trigger.event_object;
             if let Some(grantor) = trigger.grantor {
                 object
@@ -200,7 +253,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .push(crate::object::Rider::TriggerSourceVersion(version));
                 }
             }
-            if let Some((controller, toughness)) = trigger.event_departure {
+            if let Some((controller, toughness)) =
+                trigger.event_departure.or(trigger.event_tap_snapshot)
+            {
                 object
                     .riders
                     .push(crate::object::Rider::EventDeparture(controller, toughness));
@@ -228,8 +283,75 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .riders
                     .push(crate::object::Rider::EventPlayer(player));
             }
+            if let Some(condition) = trigger.synthetic_condition {
+                object
+                    .riders
+                    .push(crate::object::Rider::SyntheticCondition(condition));
+            }
             object.target_req = bound;
         }
+    }
+
+    /// Bind an attack's defending player while the declaration is still
+    /// known. An Equipment's trigger can be retargeted after the wearer
+    /// blinks, when its new incarnation has never attacked (CR 508.5).
+    fn bound_trigger_target(
+        &self,
+        trigger: &crate::trigger::PendingTrigger,
+        spec: baylee_cards_dsl::TargetSpec,
+    ) -> baylee_cards_dsl::TargetSpec {
+        use baylee_cards_dsl::{TargetSpec, Trigger};
+        let Some(remaining) = eval::defenders_target_filter(spec) else {
+            return trigger.bind_target(spec);
+        };
+        let Some(attacker) = trigger.event_object else {
+            return spec;
+        };
+        if matches!(
+            self.trigger_abilities(trigger)
+                .get(trigger.ability_index as usize),
+            Some(
+                AbilityDef::Triggered {
+                    trigger: Trigger::Attacks(_),
+                    ..
+                } | AbilityDef::ModalTriggered {
+                    trigger: Trigger::Attacks(_),
+                    ..
+                }
+            )
+        ) && let Some(defender) =
+            crate::combat::historical_defending_player(&self.state, attacker)
+        {
+            return TargetSpec::ObjectControlledBy(remaining, defender);
+        }
+        spec
+    }
+
+    fn trigger_target_options(
+        &self,
+        trigger: &crate::trigger::PendingTrigger,
+        spec: baylee_cards_dsl::TargetSpec,
+        wall_only: bool,
+    ) -> (Vec<ObjectId>, Vec<PlayerId>) {
+        let spec = self.bound_trigger_target(trigger, spec);
+        let context = crate::text_changes::RuleContext {
+            source: trigger.source,
+            text: trigger.text,
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: trigger.event_object,
+        };
+        (
+            eval::target_options_in_domain(
+                &spec,
+                &self.state,
+                trigger.controller,
+                context,
+                None,
+                wall_only,
+            ),
+            eval::target_player_options_from(&self.state, &spec, trigger.controller, context),
+        )
     }
 
     /// The modes of a queued trigger, if it is a modal one.
@@ -245,6 +367,60 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             })
     }
 
+    fn trigger_second_depends_on_first(spec: baylee_cards_dsl::TargetSpec) -> bool {
+        crate::casting::spec_reads_reference(spec)
+            || matches!(
+                spec,
+                baylee_cards_dsl::TargetSpec::ObjectOfFirstTargetsPlayer(_)
+                    | baylee_cards_dsl::TargetSpec::CardInFirstTargetsGraveyard(_)
+            )
+    }
+
+    fn trigger_second_satisfied_for_first(
+        &self,
+        t: &crate::trigger::PendingTrigger,
+        second_req: baylee_cards_dsl::TargetReq,
+        wall_only: bool,
+        first_obj: Option<ObjectId>,
+        first_player: Option<PlayerId>,
+    ) -> bool {
+        if second_req.min == 0 {
+            return true;
+        }
+        let mut spec = self.bound_trigger_target(t, second_req.spec);
+        let player = first_player.or_else(|| {
+            first_obj
+                .and_then(|id| self.state.object_or_departed(id))
+                .map(|o| o.controller)
+        });
+        match (spec, player) {
+            (baylee_cards_dsl::TargetSpec::ObjectOfFirstTargetsPlayer(filter), Some(player)) => {
+                spec = baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player);
+            }
+            (baylee_cards_dsl::TargetSpec::CardInFirstTargetsGraveyard(filter), Some(player)) => {
+                spec = baylee_cards_dsl::TargetSpec::CardInPlayersGraveyard(filter, player);
+            }
+            (
+                baylee_cards_dsl::TargetSpec::ObjectOfFirstTargetsPlayer(_)
+                | baylee_cards_dsl::TargetSpec::CardInFirstTargetsGraveyard(_),
+                None,
+            ) => return false,
+            _ => {}
+        }
+        let ctx = crate::text_changes::RuleContext {
+            source: t.source,
+            text: t.text,
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: first_obj.or(t.event_object),
+        };
+        let objects =
+            eval::target_options_in_domain(&spec, &self.state, t.controller, ctx, None, wall_only)
+                .len();
+        let players = eval::target_player_options_from(&self.state, &spec, t.controller, ctx).len();
+        objects + players >= usize::from(second_req.min)
+    }
+
     /// Whether `mode` can legally be chosen for `t` right now (CR 603.3c).
     ///
     /// A mode that needs targets it cannot find is off the list. The count
@@ -254,46 +430,92 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// answered for.
     fn mode_is_choosable(&self, t: &crate::trigger::PendingTrigger, mode: &SpellMode) -> bool {
         let wall_only = eval::target_domain::walls(mode.targets, mode.second_targets);
-        [mode.targets, mode.second_targets]
-            .into_iter()
-            .flatten()
-            .all(|req| {
-                if req.min == 0 {
-                    return true;
+        let ctx = crate::text_changes::RuleContext {
+            source: t.source,
+            text: t.text,
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: t.event_object,
+        };
+        let req_satisfied = |req: baylee_cards_dsl::TargetReq| {
+            if req.min == 0 {
+                return true;
+            }
+            if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
+                return t.event_object.is_some();
+            }
+            let spec = self.bound_trigger_target(t, req.spec);
+            let objects = eval::target_options_in_domain(
+                &spec,
+                &self.state,
+                t.controller,
+                ctx,
+                None,
+                wall_only,
+            )
+            .len();
+            let players =
+                eval::target_player_options_from(&self.state, &spec, t.controller, ctx).len();
+            objects + players >= usize::from(req.min)
+        };
+        if let Some(first_req) = mode.targets {
+            if !req_satisfied(first_req) {
+                return false;
+            }
+            if let Some(second_req) = mode.second_targets
+                && second_req.min > 0
+            {
+                if Self::trigger_second_depends_on_first(second_req.spec) {
+                    if matches!(first_req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
+                        return self.trigger_second_satisfied_for_first(
+                            t,
+                            second_req,
+                            wall_only,
+                            t.event_object,
+                            None,
+                        );
+                    }
+                    let first_spec = self.bound_trigger_target(t, first_req.spec);
+                    let first_objs = eval::target_options_in_domain(
+                        &first_spec,
+                        &self.state,
+                        t.controller,
+                        ctx,
+                        None,
+                        wall_only,
+                    );
+                    let first_players = eval::target_player_options_from(
+                        &self.state,
+                        &first_spec,
+                        t.controller,
+                        ctx,
+                    );
+                    return first_objs.into_iter().any(|id| {
+                        self.trigger_second_satisfied_for_first(
+                            t,
+                            second_req,
+                            wall_only,
+                            Some(id),
+                            None,
+                        )
+                    }) || first_players.into_iter().any(|p| {
+                        self.trigger_second_satisfied_for_first(
+                            t,
+                            second_req,
+                            wall_only,
+                            None,
+                            Some(p),
+                        )
+                    });
                 }
-                if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
-                    return t.event_object.is_some();
-                }
-                let objects = eval::target_options_in_domain(
-                    &t.bind_target(req.spec),
-                    &self.state,
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                    None,
-                    wall_only,
-                )
-                .len();
-                let players = eval::target_player_options_from(
-                    &self.state,
-                    &t.bind_target(req.spec),
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                )
-                .len();
-                objects + players >= usize::from(req.min)
-            })
+                return req_satisfied(second_req);
+            }
+            true
+        } else if let Some(second_req) = mode.second_targets {
+            req_satisfied(second_req)
+        } else {
+            true
+        }
     }
 
     /// Resolves every queued triggered mana ability at once, off the stack
@@ -398,13 +620,105 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         false
     }
 
+    fn prune_spent_delayed_watches(state: &mut crate::state::GameState, scan_from: usize) {
+        let entries = &state.journal.entries()[scan_from..];
+        let on_event_consumed: smallvec::SmallVec<[bool; 4]> = if state
+            .delayed
+            .iter()
+            .any(|d| matches!(d.when, crate::state::DelayedWhen::OnEvent { .. }))
+        {
+            state
+                .delayed
+                .iter()
+                .map(|d| trigger::on_event_watch_consumed(state, entries, d))
+                .collect()
+        } else {
+            smallvec::SmallVec::new()
+        };
+        let arena = &state.arena;
+        let mut watch_idx = 0usize;
+        state.delayed.retain(|d| {
+            let consumed = on_event_consumed.get(watch_idx).copied().unwrap_or(false);
+            watch_idx += 1;
+            if consumed {
+                return false;
+            }
+            match d.when {
+                crate::state::DelayedWhen::Observed { watch, .. }
+                | crate::state::DelayedWhen::ObservedGeneral { watch, .. } => {
+                    arena.get(watch.object).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield && o.version == watch.version
+                    }) && !d.when.observation_fired(entries, d.controller)
+                }
+                crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
+                | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
+                | crate::state::DelayedWhen::DealtDamageThisTurn { card, version, .. }
+                | crate::state::DelayedWhen::LeavesBattlefield { card, version, .. }
+                | crate::state::DelayedWhen::LeavesBattlefieldThisTurn { card, version, .. }
+                | crate::state::DelayedWhen::AttacksAndIsntBlockedThisTurn {
+                    card, version, ..
+                } => arena.get(card).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.version == version
+                }),
+                crate::state::DelayedWhen::LeavesBattlefieldOrUntaps {
+                    card,
+                    version,
+                    after,
+                } => {
+                    arena.get(card).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield && o.version == version
+                    }) && !entries.iter().any(|entry| {
+                        entry.seq > after
+                            && matches!(
+                                entry.event,
+                                GameEvent::ObjectUntapped { object, .. } if object == card
+                            )
+                    })
+                }
+                _ => true,
+            }
+        });
+    }
+
     /// Remember event-time abilities before a state-based action removes them.
     pub(super) fn queue_new_triggers(&mut self) {
         if self.loop_control.is_breaking() {
             return;
         }
         let scan_from = self.trigger_scan_seq;
-        let found = trigger::collect(&self.state, &self.lookup, scan_from);
+        for entry in &self.state.journal.entries()[scan_from as usize..] {
+            if let crate::event::GameEvent::CounterChanged {
+                object,
+                version,
+                kind: baylee_cards_dsl::CounterKind::Time,
+                old,
+                new: 0,
+                ..
+            } = entry.event
+                && old > 0
+                && let Some(owner) = self
+                    .state
+                    .object(object)
+                    .filter(|o| {
+                        o.zone == crate::zone::Zone::Exile
+                            && o.version == version
+                            && o.riders.contains(&crate::object::Rider::Suspend)
+                    })
+                    .map(|o| o.owner)
+            {
+                self.delayed_queue.push_back((
+                    owner,
+                    crate::state::DelayedAction::CastFromExileWithoutPaying {
+                        card: object,
+                        version,
+                    },
+                ));
+            }
+        }
+        let mut found = trigger::collect(&self.state, &self.lookup, scan_from);
+        self.collect_squad_and_offspring_triggers(scan_from, &mut found);
+        self.collect_gift_etb_triggers(scan_from, &mut found);
+        self.collect_impending_end_step_triggers(scan_from, &mut found);
         crate::trigger::bird_entry::consume(&mut self.state, scan_from);
         self.trigger_scan_seq = self.state.journal.last_seq();
         crate::resolve::linked_reanimation::prune(&mut self.state);
@@ -443,38 +757,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // the scan just fired it or the object left some other way: the
         // object it watched no longer exists (CR 400.7, 603.7b). Here and
         // not in the scan, which reads the state and writes nothing.
-        let arena = &self.state.arena;
-        let entries = &self.state.journal.entries()[scan_from as usize..];
-        self.state.delayed.retain(|d| match d.when {
-            crate::state::DelayedWhen::Observed { watch, .. } => {
-                arena.get(watch.object).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield && o.version == watch.version
-                }) && !d.when.observation_fired(entries, d.controller)
-            }
-            crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
-            | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
-            | crate::state::DelayedWhen::DealtDamageThisTurn { card, version, .. }
-            | crate::state::DelayedWhen::LeavesBattlefield { card, version, .. }
-            | crate::state::DelayedWhen::LeavesBattlefieldThisTurn { card, version, .. }
-            | crate::state::DelayedWhen::AttacksAndIsntBlockedThisTurn { card, version, .. } => {
-                arena.get(card).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield && o.version == version
-                })
-            }
-            crate::state::DelayedWhen::LeavesBattlefieldOrUntaps {
-                card,
-                version,
-                after,
-            } => {
-                arena.get(card).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield && o.version == version
-                }) && !entries.iter().any(|entry| {
-                    entry.seq > after
-                        && matches!(entry.event, GameEvent::ObjectUntapped { object, .. } if object == card)
-                })
-            }
-            _ => true,
-        });
+        Self::prune_spent_delayed_watches(&mut self.state, scan_from as usize);
         self.trigger_queue.extend(found);
         // State triggers (CR 603.8) read the state, not the journal, so they
         // are looked for on every pass, and an ability that is still waiting
@@ -487,12 +770,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let in_flight = |source: ObjectId, index: u32| {
             queued
                 .iter()
-                .any(|t| t.source == source && t.ability_index == index)
+                .any(|t| t.source == source && t.fire_key() == index)
                 || stack.iter().any(|id| {
-                    state
-                        .object(*id)
-                        .and_then(|o| o.ability)
-                        .is_some_and(|loc| loc.source == source && loc.index == index)
+                    state.object(*id).is_some_and(|o| {
+                        let Some(loc) = o.ability else {
+                            return false;
+                        };
+                        if loc.source != source {
+                            return false;
+                        }
+                        let stack_key = if let Some(bundle) = &o.own_abilities
+                            && bundle.entries().get(loc.index as usize).is_some_and(|e| {
+                                e.provenance.index == baylee_core::ids::AbilityRef::SYNTHETIC
+                            }) {
+                            u32::MAX - 16_384 - (o.rules_acquisition() as u32)
+                        } else {
+                            loc.index
+                        };
+                        stack_key == index
+                    })
                 })
         };
         let standing = trigger::state_triggers(&self.state, &self.lookup, in_flight);
@@ -510,6 +806,239 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 timestamp,
             )
         });
+    }
+
+    /// Queues synthetic ETB triggered abilities for permanents entering the
+    /// battlefield with `Rider::SquadPaid` (`CR 702.157a`) or
+    /// `Rider::OffspringPaid` (`CR 702.175a`).
+    fn collect_squad_and_offspring_triggers(
+        &self,
+        scan_from: u64,
+        out: &mut Vec<crate::trigger::PendingTrigger>,
+    ) {
+        let all_events = self.state.journal.entries();
+        let start = all_events.partition_point(|e| e.seq <= scan_from);
+        let events = &all_events[start..];
+        for (idx, entry) in events.iter().enumerate() {
+            let GameEvent::ZoneChanged {
+                object,
+                to: crate::zone::Zone::Battlefield,
+                ..
+            } = entry.event
+            else {
+                continue;
+            };
+            let later_moves = events[idx + 1..]
+                .iter()
+                .filter(|later| {
+                    matches!(later.event, GameEvent::ZoneChanged { object: id, .. } if id == object)
+                })
+                .count();
+            let entrant = if later_moves == 0 {
+                self.state.object(object)
+            } else {
+                self.state.object(object).and_then(|current| {
+                    self.state.source_object(baylee_core::ids::DamageSourceRef {
+                        object,
+                        version: current
+                            .version
+                            .wrapping_sub(u32::try_from(later_moves).unwrap_or(0)),
+                    })
+                })
+            }
+            .or_else(|| self.state.ceased.iter().find(|o| o.id == object));
+            let Some(entrant) = entrant else {
+                continue;
+            };
+            if entrant.status.contains(crate::object::Status::FACE_DOWN)
+                || entrant.characteristics().abilities_lost.is_some()
+                || entrant.characteristics().rules_text_lost
+            {
+                continue;
+            }
+            let squad_paid = entrant.riders.iter().find_map(|r| match r {
+                crate::object::Rider::SquadPaid(n) if *n > 0 => Some(*n),
+                _ => None,
+            });
+            let offspring_paid = entrant
+                .riders
+                .contains(&crate::object::Rider::OffspringPaid);
+            if squad_paid.is_none() && !offspring_paid {
+                continue;
+            }
+            let times = crate::trigger::times_triggered(
+                &self.state,
+                baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
+                object,
+            );
+            for _ in 0..times {
+                if let Some(n) = squad_paid {
+                    out.push(synthetic_copy_etb_trigger(
+                        object,
+                        entrant,
+                        SQUAD_ETB_COPIES,
+                        Some(u32::from(n)),
+                    ));
+                }
+                if offspring_paid {
+                    out.push(synthetic_copy_etb_trigger(
+                        object,
+                        entrant,
+                        OFFSPRING_ETB_COPY,
+                        None,
+                    ));
+                }
+            }
+        }
+    }
+
+    /// Queues synthetic ETB triggered abilities for permanents entering the
+    /// battlefield with `Rider::GiftPromisedTo` (`CR 702.174b`).
+    fn collect_gift_etb_triggers(
+        &self,
+        scan_from: u64,
+        out: &mut Vec<crate::trigger::PendingTrigger>,
+    ) {
+        let all_events = self.state.journal.entries();
+        let start = all_events.partition_point(|e| e.seq <= scan_from);
+        let events = &all_events[start..];
+        for (idx, entry) in events.iter().enumerate() {
+            let GameEvent::ZoneChanged {
+                object,
+                to: crate::zone::Zone::Battlefield,
+                ..
+            } = entry.event
+            else {
+                continue;
+            };
+            let later_moves = events[idx + 1..]
+                .iter()
+                .filter(|later| {
+                    matches!(later.event, GameEvent::ZoneChanged { object: id, .. } if id == object)
+                })
+                .count();
+            let entrant = if later_moves == 0 {
+                self.state.object(object)
+            } else {
+                self.state.object(object).and_then(|current| {
+                    self.state.source_object(baylee_core::ids::DamageSourceRef {
+                        object,
+                        version: current
+                            .version
+                            .wrapping_sub(u32::try_from(later_moves).unwrap_or(0)),
+                    })
+                })
+            }
+            .or_else(|| self.state.ceased.iter().find(|o| o.id == object));
+            let Some(entrant) = entrant else {
+                continue;
+            };
+            if entrant.status.contains(crate::object::Status::FACE_DOWN)
+                || entrant.characteristics().abilities_lost.is_some()
+                || entrant.characteristics().rules_text_lost
+                || !entrant
+                    .riders
+                    .iter()
+                    .any(|r| matches!(r, crate::object::Rider::GiftPromisedTo(_)))
+            {
+                continue;
+            }
+            let Some(kind) = entrant
+                .printed_face()
+                .and_then(|f| {
+                    self.lookup
+                        .card(f.card())
+                        .and_then(|def| def.faces.get(usize::from(f.face())))
+                })
+                .and_then(|face| face.gift)
+            else {
+                continue;
+            };
+            let already_printed = entrant
+                .printed_abilities(&self.lookup)
+                .iter()
+                .any(|ability| match ability {
+                    AbilityDef::Triggered { effects, .. } => {
+                        let mut has = false;
+                        baylee_cards_dsl::Effect::walk(effects, &mut 0, &mut |e| {
+                            has |= matches!(e, baylee_cards_dsl::Effect::DeliverGift(_));
+                        });
+                        has
+                    }
+                    _ => false,
+                });
+            if already_printed {
+                continue;
+            }
+            let times = crate::trigger::times_triggered(
+                &self.state,
+                baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
+                object,
+            );
+            for _ in 0..times {
+                let mut trig = synthetic_copy_etb_trigger(object, entrant, gift_etb_fx(kind), None);
+                trig.synthetic_condition = Some(&GIFT_ETB_CONDITION);
+                out.push(trig);
+            }
+        }
+    }
+
+    /// Queues synthetic end-step counter-removal triggers for permanents whose
+    /// impending cost was paid while they have a time counter (`CR 702.176a`, `CR 603.4`).
+    fn collect_impending_end_step_triggers(
+        &self,
+        scan_from: u64,
+        out: &mut Vec<crate::trigger::PendingTrigger>,
+    ) {
+        let all_events = self.state.journal.entries();
+        let start = all_events.partition_point(|e| e.seq <= scan_from);
+        for entry in &all_events[start..] {
+            let GameEvent::StepChanged {
+                step: crate::turn::Step::End,
+                active,
+                ..
+            } = entry.event
+            else {
+                continue;
+            };
+            for id in self.state.battlefield_seen() {
+                let Some(perm) = self.state.object(id) else {
+                    continue;
+                };
+                if perm.controller != active
+                    || perm.status.contains(crate::object::Status::FACE_DOWN)
+                    || perm.characteristics().abilities_lost.is_some()
+                    || perm.characteristics().rules_text_lost
+                    || !perm.riders.contains(&crate::object::Rider::ImpendingPaid)
+                    || perm.counters.get(baylee_cards_dsl::CounterKind::Time) < 1
+                {
+                    continue;
+                }
+                let has_impending = perm
+                    .printed_face()
+                    .and_then(|f| {
+                        self.lookup
+                            .card(f.card())
+                            .and_then(|def| def.faces.get(usize::from(f.face())))
+                    })
+                    .is_some_and(|face| face.impending.is_some());
+                if !has_impending {
+                    continue;
+                }
+                let times = crate::trigger::times_triggered(
+                    &self.state,
+                    baylee_cards_dsl::TriggerEventKind::Any,
+                    id,
+                );
+                for _ in 0..times {
+                    let mut trig =
+                        synthetic_copy_etb_trigger(id, perm, IMPENDING_END_STEP_FX, None);
+                    trig.event_object = None;
+                    trig.synthetic_condition = Some(&IMPENDING_END_STEP_CONDITION);
+                    out.push(trig);
+                }
+            }
+        }
     }
 
     #[allow(clippy::too_many_lines)] // the trigger queue processor is a flat state machine
@@ -620,20 +1149,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
                     let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
                     self.trigger_queue.pop_front();
-                    if t.once_per_turn {
-                        self.state.ability_fires.insert(
-                            (
-                                baylee_core::ids::DamageSourceRef {
-                                    object: t.source,
-                                    version: t.source_version.unwrap_or_else(|| {
-                                        self.state.object(t.source).expect("trigger source").version
-                                    }),
-                                },
-                                t.ability_index,
-                            ),
-                            1,
-                        );
-                    }
+                    self.record_trigger_fired(&t);
                     self.hand_over_trigger_abilities(&t);
                     self.push_ability_to_stack(t.controller, t.source, t.ability_index, targets);
                     self.set_top_mode(t.chosen_mode);
@@ -651,36 +1167,48 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     continue;
                 }
-                let options = eval::target_options_in_domain(
-                    &t.bind_target(req.spec),
-                    &self.state,
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                    None,
-                    self.trigger_wall_only(&t),
-                );
+                let wall_only = self.trigger_wall_only(&t);
                 // A trigger may point at a player as readily as a spell does
                 // ("it deals 1 damage to target opponent"), and "any target"
                 // offers both lists at once (CR 115.4). The choice is one
                 // choice, so the counts add up.
-                let player_options = eval::target_player_options_from(
-                    &self.state,
-                    &t.bind_target(req.spec),
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                );
+                let (mut options, mut player_options) =
+                    self.trigger_target_options(&t, req.spec, wall_only);
+                if let Some(second_req) = crate::object::ability_second_target_req(
+                    self.trigger_abilities(&t),
+                    t.ability_index,
+                    t.chosen_mode,
+                ) && second_req.min > 0
+                {
+                    if Self::trigger_second_depends_on_first(second_req.spec) {
+                        if req.max == 1 && !req.count_is_x {
+                            options.retain(|&id| {
+                                self.trigger_second_satisfied_for_first(
+                                    &t,
+                                    second_req,
+                                    wall_only,
+                                    Some(id),
+                                    None,
+                                )
+                            });
+                            player_options.retain(|&p| {
+                                self.trigger_second_satisfied_for_first(
+                                    &t,
+                                    second_req,
+                                    wall_only,
+                                    None,
+                                    Some(p),
+                                )
+                            });
+                        }
+                    } else if !self
+                        .trigger_second_satisfied_for_first(&t, second_req, wall_only, None, None)
+                    {
+                        self.cleanup_check_acted();
+                        self.trigger_queue.pop_front();
+                        continue;
+                    }
+                }
                 let offered = options.len() + player_options.len();
                 if offered < req.min as usize {
                     // No legal target: the trigger is removed from the stack
@@ -786,20 +1314,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
             }
             self.trigger_queue.pop_front();
-            if t.once_per_turn {
-                self.state.ability_fires.insert(
-                    (
-                        baylee_core::ids::DamageSourceRef {
-                            object: t.source,
-                            version: t.source_version.unwrap_or_else(|| {
-                                self.state.object(t.source).expect("trigger source").version
-                            }),
-                        },
-                        t.ability_index,
-                    ),
-                    1,
-                );
-            }
+            self.record_trigger_fired(&t);
             // Synthetic triggers with a target requirement (granted
             // triggered abilities): ask for the target first.
             if t.synthetic_effects.is_some()
@@ -813,7 +1328,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // legally (CR 603.3d removes only a trigger that cannot).
                 if let TargetSpec::ObjectOfEachOpponent(_) = spec {
                     let first = super::super::PerOpponent {
-                        spec: t.bind_target(spec),
+                        spec: self.bound_trigger_target(&t, spec),
                         gathered: SmallVec::new(),
                         remaining: self.opponents_in_turn_order(t.controller),
                     };
@@ -846,32 +1361,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                let options = eval::target_options_in_domain(
-                    &t.bind_target(spec),
-                    &self.state,
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                    None,
-                    self.trigger_wall_only(&t),
-                );
-                let player_options = eval::target_player_options_from(
-                    &self.state,
-                    &t.bind_target(spec),
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                );
+                let (options, player_options) =
+                    self.trigger_target_options(&t, spec, self.trigger_wall_only(&t));
                 // Objects and players are answers to the same target choice.
                 // Counting only objects loses a mandatory "any target" ability
                 // or caps a multi-target one below its legal maximum.
@@ -1016,23 +1507,33 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let Some(loc) = obj.ability else {
             return false;
         };
-        if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+        let condition = if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+            obj.riders
+                .iter()
+                .find_map(|rider| match rider {
+                    crate::object::Rider::SyntheticCondition(cond) => Some(**cond),
+                    _ => None,
+                })
+                .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)))
+        } else {
+            let abilities = obj.own_abilities.as_ref().map_or_else(
+                || {
+                    self.state
+                        .object(loc.source)
+                        .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                            o.printed_abilities(&self.lookup)
+                        })
+                },
+                crate::copiable_abilities::AbilityDefs::from,
+            );
+            abilities
+                .get(loc.index as usize)
+                .and_then(crate::trigger::intervening_clause)
+                .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)))
+        };
+        if condition.is_none() {
             return false;
         }
-        let abilities = obj.own_abilities.as_ref().map_or_else(
-            || {
-                self.state
-                    .object(loc.source)
-                    .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
-                        o.printed_abilities(&self.lookup)
-                    })
-            },
-            crate::copiable_abilities::AbilityDefs::from,
-        );
-        let condition = abilities
-            .get(loc.index as usize)
-            .and_then(crate::trigger::intervening_clause)
-            .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)));
         let version = obj
             .riders
             .iter()
@@ -1068,22 +1569,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 }
 
-fn is_graveyard_trigger(trigger: &crate::trigger::PendingTrigger) -> bool {
+fn is_graveyard_trigger(
+    state: &crate::state::GameState,
+    trigger: &crate::trigger::PendingTrigger,
+) -> bool {
     trigger.abilities.as_ref().is_some_and(|list| {
-        matches!(
-            list.abilities.get(trigger.ability_index as usize),
-            Some(
-                AbilityDef::Triggered {
-                    zone: baylee_cards_dsl::TriggerZone::Graveyard
-                        | baylee_cards_dsl::TriggerZone::Exile,
-                    ..
-                } | AbilityDef::ModalTriggered {
-                    zone: baylee_cards_dsl::TriggerZone::Graveyard
-                        | baylee_cards_dsl::TriggerZone::Exile,
-                    ..
-                }
-            )
-        )
+        let Some(AbilityDef::Triggered { zone, .. } | AbilityDef::ModalTriggered { zone, .. }) =
+            list.abilities.get(trigger.ability_index as usize)
+        else {
+            return false;
+        };
+        match zone {
+            baylee_cards_dsl::TriggerZone::Graveyard
+            | baylee_cards_dsl::TriggerZone::Exile
+            | baylee_cards_dsl::TriggerZone::Command => true,
+            baylee_cards_dsl::TriggerZone::BattlefieldOrCommand => trigger
+                .source_version
+                .and_then(|version| {
+                    state.source_object(baylee_core::ids::DamageSourceRef {
+                        object: trigger.source,
+                        version,
+                    })
+                })
+                .is_some_and(|o| o.zone == crate::zone::Zone::Command),
+            baylee_cards_dsl::TriggerZone::Battlefield => false,
+        }
     })
 }
 
@@ -1094,5 +1604,115 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn collect_triggers_for_tests(&mut self) {
         self.collect_triggers();
+    }
+}
+
+static SQUAD_ETB_COPIES: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::CreateTokenCopy {
+        target: baylee_cards_dsl::TargetSpec::ThisObject,
+        controller: baylee_cards_dsl::PlayerRel::You,
+        amount: baylee_cards_dsl::Amount::EventAmount,
+        mods: &[],
+        tapped: false,
+        attacking: false,
+        haste_until_eot: false,
+        cleanup: baylee_cards_dsl::CopyCleanup::None,
+    }];
+
+static OFFSPRING_ETB_MODS: &[baylee_cards_dsl::CopyMod] = &[baylee_cards_dsl::CopyMod::SetPT(1, 1)];
+
+static OFFSPRING_ETB_COPY: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::CreateTokenCopy {
+        target: baylee_cards_dsl::TargetSpec::ThisObject,
+        controller: baylee_cards_dsl::PlayerRel::You,
+        amount: baylee_cards_dsl::Amount::Fixed(1),
+        mods: OFFSPRING_ETB_MODS,
+        tapped: false,
+        attacking: false,
+        haste_until_eot: false,
+        cleanup: baylee_cards_dsl::CopyCleanup::None,
+    }];
+
+static IMPENDING_END_STEP_CLAUSES: &[baylee_cards_dsl::Condition] = &[
+    baylee_cards_dsl::Condition::SourceInZone(baylee_cards_dsl::ZoneRef::Battlefield),
+    baylee_cards_dsl::Condition::CountersOnSelf(baylee_cards_dsl::CounterKind::Time, 1),
+];
+
+static IMPENDING_END_STEP_CONDITION: baylee_cards_dsl::Condition =
+    baylee_cards_dsl::Condition::All(IMPENDING_END_STEP_CLAUSES);
+
+static IMPENDING_END_STEP_FX: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::RemoveCounterSelf {
+        kind: baylee_cards_dsl::CounterKind::Time,
+        n: 1,
+    }];
+
+static GIFT_ETB_CONDITION: baylee_cards_dsl::Condition =
+    baylee_cards_dsl::Condition::GiftWasPromised;
+
+static GIFT_CARD_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::Card,
+)];
+static GIFT_FOOD_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::Food,
+)];
+static GIFT_TAPPED_FISH_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::TappedFish,
+)];
+static GIFT_TREASURE_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::Treasure,
+)];
+static GIFT_OCTOPUS_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::Octopus,
+)];
+static GIFT_EXTRA_TURN_FX: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::DeliverGift(
+    baylee_cards_dsl::GiftKind::ExtraTurn,
+)];
+
+const fn gift_etb_fx(kind: baylee_cards_dsl::GiftKind) -> &'static [baylee_cards_dsl::Effect] {
+    match kind {
+        baylee_cards_dsl::GiftKind::Card => GIFT_CARD_FX,
+        baylee_cards_dsl::GiftKind::Food => GIFT_FOOD_FX,
+        baylee_cards_dsl::GiftKind::TappedFish => GIFT_TAPPED_FISH_FX,
+        baylee_cards_dsl::GiftKind::Treasure => GIFT_TREASURE_FX,
+        baylee_cards_dsl::GiftKind::Octopus => GIFT_OCTOPUS_FX,
+        baylee_cards_dsl::GiftKind::ExtraTurn => GIFT_EXTRA_TURN_FX,
+    }
+}
+
+fn synthetic_copy_etb_trigger(
+    object: ObjectId,
+    entrant: &crate::object::GameObject,
+    effects: &'static [baylee_cards_dsl::Effect],
+    amount: Option<u32>,
+) -> crate::trigger::PendingTrigger {
+    crate::trigger::PendingTrigger {
+        text: crate::text_changes::TextChangeMap::IDENTITY,
+        source_version: Some(entrant.version),
+        related_objects: None,
+        grantor: None,
+        event_subject: None,
+        event_ability: None,
+        event_object_identity: None,
+        counter_source_version: None,
+        event_mana: None,
+        event_mana_value: None,
+        event_tap_snapshot: None,
+        event_departure: None,
+        event_amount: amount,
+        event_player: None,
+        source: object,
+        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+        controller: entrant.controller,
+        timestamp: entrant.timestamp,
+        event_object: Some(object),
+        implicit_target: None,
+        abilities: None,
+        synthetic_effects: Some(effects),
+        once_per_turn: false,
+        synthetic_target: None,
+        chosen_mode: None,
+        synthetic_condition: None,
+        in_chosen_order: false,
     }
 }

@@ -142,6 +142,15 @@ pub(super) fn count(
                     ..
                 },
                 ThisWay::ExiledFromLibrary(filter),
+            )
+            | (
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Graveyard,
+                    to: Zone::Exile,
+                    ..
+                },
+                ThisWay::ExiledFromGraveyard(filter),
             ) => u32::from(state.object(*object).is_some_and(|card| {
                 mine(card.owner)
                     && eval::matches_with_context(
@@ -213,6 +222,12 @@ pub(super) fn count(
                     .filter_map(|&id| state.object(id).map(|c| c.characteristics().mana_value()))
                     .sum()
             }
+            (
+                GameEvent::LifeChanged {
+                    player, old, new, ..
+                },
+                ThisWay::LifeLost,
+            ) if new < old && mine(*player) => old.abs_diff(*new),
             _ => 0,
         };
         total = total.saturating_add(n);

@@ -3,6 +3,17 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+fn level_wizard_class_to_three(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let class = on_battlefield(engine, seat, wizard_class()).expect("Wizard Class is out");
+    // Eight Islands pay for both levels during the same main phase.
+    tap_mana_except(engine, seat, class);
+    activate(engine, seat, wizard_class(), 1);
+    pass_until(engine, stack_is_empty);
+    activate(engine, seat, wizard_class(), 3);
+    pass_until(engine, stack_is_empty);
+    assert_eq!(engine.state().object(class).unwrap().class_level(), 3);
+}
+
 /// A trigger that can find no legal target takes *itself* off the queue and
 /// nothing else.
 ///
@@ -11,12 +22,9 @@ use super::*;
 /// trigger with no legal target (CR 603.3d) was popping a second time — and
 /// the second pop took whatever was queued behind it, unread and unresolved.
 ///
-/// Wizard Class at level 3 is the only card in the pool that grants a
-/// *targeted* trigger, and a Class is an enchantment, so its controller can
-/// hold it with no creature anywhere to put the counter on. The draw that
-/// fires it fires Sheoldred across the table on the same event, and
-/// Sheoldred's is the trigger that was being eaten: the life it takes is the
-/// whole assertion.
+/// Wizard Class at level 3 grants a targeted draw trigger. Its controller
+/// has no creature of their own, so the trigger has no legal target.
+/// The same draw triggers the opponent's Sheoldred, which still takes life.
 #[test]
 fn a_trigger_that_finds_no_target_takes_only_itself_off_the_queue() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -29,14 +37,7 @@ fn a_trigger_that_finds_no_target_takes_only_itself_off_the_queue() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    // Both levels in one main phase: eight Islands is {2}{U} and {4}{U}
-    // exactly, and a mana pool empties at the end of a step, not on a pass.
-    let class = on_battlefield(&engine, p0, wizard_class()).expect("the Class is out");
-    tap_mana_except(&mut engine, p0, class);
-    activate(&mut engine, p0, wizard_class(), 1);
-    pass_until(&mut engine, stack_is_empty);
-    activate(&mut engine, p0, wizard_class(), 2);
-    pass_until(&mut engine, stack_is_empty);
+    level_wizard_class_to_three(&mut engine, p0);
 
     let before = engine.state().players[0].life;
     reach_their_main_phase(&mut engine, p1);
@@ -45,7 +46,7 @@ fn a_trigger_that_finds_no_target_takes_only_itself_off_the_queue() {
     assert_eq!(
         engine.state().players[0].life,
         before - 2,
-        "Sheoldred's trigger was queued behind one that fizzled, and still resolved",
+        "Sheoldred's trigger was queued behind one with no legal target, and still resolved",
     );
 }
 
@@ -70,12 +71,7 @@ fn answering_a_granted_triggers_target_takes_only_itself_off_the_queue() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let class = on_battlefield(&engine, p0, wizard_class()).expect("the Class is out");
-    tap_mana_except(&mut engine, p0, class);
-    activate(&mut engine, p0, wizard_class(), 1);
-    pass_until(&mut engine, stack_is_empty);
-    activate(&mut engine, p0, wizard_class(), 2);
-    pass_until(&mut engine, stack_is_empty);
+    level_wizard_class_to_three(&mut engine, p0);
 
     let elves = on_battlefield(&engine, p0, quiet_creature()).expect("the Elves are out");
     let before = engine.state().players[0].life;

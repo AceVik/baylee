@@ -137,6 +137,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
         | Modifier::GrantsEscape(_)
+        | Modifier::Sneak(_)
         | Modifier::GainControl
         | Modifier::AddTypeIfCountersAtLeast { .. }
         | Modifier::AddKeywordIfCountersAtLeast { .. }
@@ -146,6 +147,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GrantStatic { .. }
         | Modifier::GrantTriggered { .. }
         | Modifier::GrantTriggeredUpToOne { .. }
+        | Modifier::GrantTriggeredDefinition(_)
         | Modifier::CharacteristicPT { .. }
         | Modifier::CharacteristicPTSeparate { .. }
         | Modifier::ModifyPTPerCount { .. }
@@ -173,11 +175,15 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AdditionalCounterPlacement { .. }
         | Modifier::AdditionalCounterOnEntryByCount { .. }
         | Modifier::FlipTwoCoinsIgnoreOne
+        | Modifier::RollAdditionalDieIgnoreLowest
         | Modifier::DoubleCountersPlacedByYou
         | Modifier::NextDestructionClearsDamage
         | Modifier::SpellsCostLess(_)
+        | Modifier::SpellsCostLessMana { .. }
+        | Modifier::SpellsCostLessByAmount(_)
         | Modifier::SpellsCostLessPerCounter(_)
         | Modifier::BuybackCostsLess(_)
+        | Modifier::CyclingCostsLess(_)
         | Modifier::SpellsCostMore(_)
         | Modifier::SpellsCostMorePerControlled(_)
         | Modifier::SpellsCostSacrificePerManaSymbol { .. }
@@ -238,11 +244,18 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
             | Modifier::PreventAllDamageFromIt
             | Modifier::PreventDamageToYouFrom(_)
         | Modifier::PreventCombatDamageFrom(_)
+        | Modifier::PreventNoncombatDamageFrom(_)
+        | Modifier::PreventNoncombatDamageToPlayers { .. }
+        | Modifier::MultiplyDamageFrom { .. }
+        | Modifier::AddDamageFrom { .. }
         | Modifier::PreventDamageFrom(_)
+        | Modifier::PreventDamagePerSource { .. }
+        | Modifier::PreventDamageToAffectedPerSource { .. }
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
         | Modifier::MinimumBlockers(_)
+        | Modifier::MaxBlockers(_)
         | Modifier::CantBeBlockedByPlayer(_)
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
@@ -259,6 +272,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::MustBeBlockedByAllAble
         | Modifier::MustBeBlockedByAllAbleMatching(_)
         | Modifier::AssignsNoCombatDamage
+        | Modifier::AssignCombatDamageUsingToughness
+        | Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater
+        | Modifier::MayAssignCombatDamageAsThoughUnblocked
+        | Modifier::PlayersCantGainLife(_)
+        | Modifier::CantBeSacrificed { .. }
         | Modifier::BlocksEachAttackerIfAble
         | Modifier::RedirectDamageToYou(_)
         | Modifier::CountersPreventDamage(_)
@@ -281,6 +299,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PlayerProtectionFrom { .. }
         | Modifier::PlayerProtectionFromOpponents { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
+        | Modifier::MatchingSpellCastLimitPerTurn { .. }
         | Modifier::PlayerHexproof { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash
@@ -293,6 +312,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RemoveCountersInsteadOfUntapping(_)
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
+        | Modifier::CantPhaseOut
+        | Modifier::Goaded
         | Modifier::UntapAtMost { .. }
         // A permission read as the attack is declared: whatever matches the
         // filter then may attack, not a set fixed as the effect began.
@@ -639,7 +660,9 @@ impl EffectTable {
             RuleHints::GRANT_TRIGGERED,
             matches!(
                 fx.modifier,
-                Modifier::GrantTriggered { .. } | Modifier::GrantTriggeredUpToOne { .. }
+                Modifier::GrantTriggered { .. }
+                    | Modifier::GrantTriggeredUpToOne { .. }
+                    | Modifier::GrantTriggeredDefinition(_)
             ),
         );
         self.hints.insert_if(
@@ -665,6 +688,8 @@ impl EffectTable {
                     | Modifier::SpellsCostMorePerControlled(_)
                     | Modifier::SpellsCostMoreMana(_)
                     | Modifier::SpellsCostLess(_)
+                    | Modifier::SpellsCostLessMana { .. }
+                    | Modifier::SpellsCostLessByAmount(_)
                     | Modifier::SpellsCostLessPerCounter(_)
                     | Modifier::BuybackCostsLess(_)
                     | Modifier::SpellsCostSacrificePerManaSymbol { .. }
@@ -678,6 +703,7 @@ impl EffectTable {
                     | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
                     | Modifier::AbilitiesCostLess { .. }
                     | Modifier::EquipCostsLess(_)
+                    | Modifier::CyclingCostsLess(_)
                     | Modifier::CantActivate
                     | Modifier::CantActivateNonMana
                     | Modifier::CantActivateArtifacts
@@ -692,6 +718,7 @@ impl EffectTable {
                     | Modifier::SorceriesHaveFlash
                     | Modifier::SpellsHaveFlash(_)
                     | Modifier::SpellCastLimitPerTurn { .. }
+                    | Modifier::MatchingSpellCastLimitPerTurn { .. }
                     | Modifier::OpponentsCantCast(_)
                     | Modifier::PlayersCantCast { .. }
                     | Modifier::PlayersCantPlay(_)
@@ -747,6 +774,8 @@ impl EffectTable {
                     | Modifier::NoLossForZeroLife { .. }
                     | Modifier::LifeGainDrawsInstead { .. }
                     | Modifier::LifeGainNoLifeInstead { .. }
+                    | Modifier::PlayersCantGainLife(_)
+                    | Modifier::CantBeSacrificed { .. }
                     | Modifier::PlayersCantLose
                     | Modifier::NamedPlayersCantLose(_)
                     | Modifier::PlayersCantWin(_)
@@ -864,6 +893,12 @@ impl EffectTable {
     /// All active effects (registration order).
     pub fn iter(&self) -> impl Iterator<Item = &ContinuousEffect> {
         self.effects.iter()
+    }
+
+    /// Parked static effects of phased-out permanents, exposed so CR 603.10b
+    /// phase-out look-back can inspect a grantor that static sync just parked.
+    pub(crate) fn parked_slice(&self) -> &[ContinuousEffect] {
+        &self.parked
     }
 
     /// Every registered effect: the active ones, then those parked while
@@ -1816,6 +1851,17 @@ mod tests {
             Modifier::PreventDamageToYouFrom(&Filter::CREATURE),
             Modifier::PreventCombatDamageFrom(&Filter::ARTIFACT),
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
+            Modifier::PreventDamagePerSource {
+                sources: &Filter::Any,
+                include_you: true,
+                combat_only: false,
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+            },
+            Modifier::PreventDamageToAffectedPerSource {
+                sources: &Filter::Any,
+                combat_only: false,
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+            },
             Modifier::ReplacePlayerDamage {
                 sources: &Filter::Any,
                 recipients: PlayerRel::You,
@@ -1894,6 +1940,11 @@ mod tests {
                 who: PlayerRel::EachPlayer,
                 limit: 1,
             },
+            Modifier::MatchingSpellCastLimitPerTurn {
+                who: PlayerRel::EachPlayer,
+                filter: &Filter::NONCREATURE,
+                limit: 1,
+            },
             Modifier::PlayerHexproof {
                 who: PlayerRel::You,
             },
@@ -1939,6 +1990,48 @@ mod tests {
             Modifier::PlayFromLibraryTopForManaValueLife,
             Modifier::WardDoesntTrigger,
             Modifier::CanBeTargetedAsThoughNoHexproof,
+            Modifier::SpellsCostLessMana {
+                cost: baylee_core::mana::ManaCost::ZERO,
+                colored_only: true,
+            },
+            Modifier::SpellsCostLessByAmount(baylee_cards_dsl::Amount::Fixed(1)),
+            Modifier::CyclingCostsLess(2),
+            Modifier::GrantTriggeredDefinition(
+                &const { baylee_cards_dsl::triggered!(baylee_cards_dsl::Trigger::ETB, &[]) },
+            ),
+            Modifier::CantPhaseOut,
+            Modifier::RollAdditionalDieIgnoreLowest,
+            Modifier::Goaded,
+            Modifier::MaxBlockers(1),
+            Modifier::PreventNoncombatDamageFrom(&Filter::Any),
+            Modifier::PreventNoncombatDamageToPlayers {
+                who: PlayerRel::You,
+                from: &Filter::Any,
+            },
+            Modifier::MultiplyDamageFrom {
+                sources: &Filter::Any,
+                factor: 2,
+                combat_only: false,
+                noncombat_only: false,
+                recipients: baylee_cards_dsl::DamageRecipients::Any,
+            },
+            Modifier::AddDamageFrom {
+                sources: &Filter::Any,
+                extra: 2,
+                combat_only: false,
+                noncombat_only: false,
+                recipients: baylee_cards_dsl::DamageRecipients::PlayersOrTheirPermanents(
+                    PlayerRel::EachOpponent,
+                ),
+            },
+            Modifier::AssignCombatDamageUsingToughness,
+            Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater,
+            Modifier::MayAssignCombatDamageAsThoughUnblocked,
+            Modifier::PlayersCantGainLife(PlayerRel::EachOpponent),
+            Modifier::CantBeSacrificed {
+                opponents_only: false,
+            },
+            Modifier::Sneak(baylee_cards_dsl::Cost::FREE),
         ]
     }
 
@@ -1977,7 +2070,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            201,
+            222,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2080,7 +2173,22 @@ mod tests {
         // and CanBeTargetedAsThoughNoHexproof
         // are three more rules-only modifiers.
         // AddChosenSubtype is Layer 4 (characteristics, +1 locking -> 56).
-        assert_eq!((locking, all.len() - locking), (56, 145));
+        // SpellsCostLessMana, SpellsCostLessByAmount, and CyclingCostsLess modify
+        // casting/activation costs only (+3 rules -> 148).
+        // PreventDamagePerSource and PreventDamageToAffectedPerSource are
+        // standing prevention rules (+2 rules-only -> 150).
+        // GrantTriggeredDefinition locks its recipient set (+1 -> 57);
+        // CantPhaseOut modifies a rule (+1 -> 151);
+        // RollAdditionalDieIgnoreLowest is a die-rolling replacement (+1 rules-only -> 152);
+        // Goaded modifies combat rules (+1 rules-only -> 153);
+        // MatchingSpellCastLimitPerTurn restricts casting by filter (+1 rules-only -> 154);
+        // MaxBlockers, PreventNoncombatDamageFrom, PreventNoncombatDamageToPlayers,
+        // MultiplyDamageFrom, and AddDamageFrom modify combat/damage rules (+5 rules-only -> 159).
+        // AssignCombatDamageUsingToughness, AssignCombatDamageUsingToughnessIfToughnessGreater,
+        // MayAssignCombatDamageAsThoughUnblocked, PlayersCantGainLife, and CantBeSacrificed
+        // modify combat, life-gain, and sacrifice rules (+5 rules-only -> 164).
+        // Sneak grants an ability on Layer::Ability (+1 locking -> 58).
+        assert_eq!((locking, all.len() - locking), (58, 164));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

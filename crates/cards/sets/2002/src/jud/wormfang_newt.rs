@@ -4,6 +4,8 @@
 //! Set: JUD #59 — Judgment | Scryfall ID: df8012c1-76ec-4c36-8b38-5bc41ce5e156 | Oracle ID: be014a79-5550-4f79-8789-b4d6783d7ec8
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: ChooseMove::Exile does not push Rider::Linked, so ReturnLinkedToBattlefield finds no linked card (#349).
+
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 

@@ -41,9 +41,7 @@
 //! every question before `pay_cost` runs. Making the offer exact is a matching
 //! problem, and not one a card is asking yet.
 
-use super::{
-    Cause, CostPart, EngineError, GameEvent, ObjectId, PlayerId, Status, ZoneLocation, ZonePosition,
-};
+use super::{Cause, CostPart, EngineError, ObjectId, PlayerId, Status, ZoneLocation, ZonePosition};
 use crate::choice::ChoicePrompt;
 use crate::eval;
 use crate::state::GameState;
@@ -63,15 +61,20 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::SacrificeX(_)
             | CostPart::ExilePermanent(_)
             | CostPart::Discard(_)
+            | CostPart::DiscardX(_)
             | CostPart::TapN { .. }
             | CostPart::TapOther(_)
             | CostPart::TapX(_)
             | CostPart::Crew(_)
             | CostPart::Saddle(_)
             | CostPart::ReturnToHand(_)
+            | CostPart::ReturnUnblockedAttacker
             | CostPart::ExileFromGraveyard(_)
+            | CostPart::ExileFromGraveyardX(_)
             | CostPart::ExileFromSingleGraveyard { .. }
+            | CostPart::CraftMaterials { .. }
             | CostPart::PutCounterOnOther { .. }
+            | CostPart::Forage
     )
 }
 
@@ -142,7 +145,68 @@ pub(crate) fn options(
     options_with_context(state, player, eval::live_context(state, source), part)
 }
 
+/// Unblocked attacking creatures controlled by `player` in combat after blockers
+/// have been declared (CR 702.49a, CR 702.49d, CR 509.1h).
+fn unblocked_attacker_options(state: &GameState, player: PlayerId) -> Vec<ObjectId> {
+    if state.turn.phase != crate::turn::Phase::Combat
+        || !matches!(
+            state.turn.step,
+            crate::turn::Step::DeclareBlockers
+                | crate::turn::Step::CombatDamageFirst
+                | crate::turn::Step::CombatDamage
+                | crate::turn::Step::CombatEnd
+        )
+    {
+        return Vec::new();
+    }
+    state
+        .battlefield_view()
+        .iter()
+        .copied()
+        .filter(|&id| {
+            state.combat.is_attacking(id)
+                && !state.combat.is_blocked(id)
+                && state.object(id).is_some_and(|o| {
+                    o.controller == player && o.characteristics().types.contains(TypeSet::CREATURE)
+                })
+        })
+        .collect()
+}
+
+fn craft_material_options(
+    state: &GameState,
+    player: PlayerId,
+    context: crate::text_changes::RuleContext,
+    filter: &baylee_cards_dsl::Filter,
+) -> Vec<ObjectId> {
+    let mut out: Vec<ObjectId> = state
+        .battlefield_view()
+        .iter()
+        .copied()
+        .filter(|&id| {
+            state.object(id).is_some_and(|o| {
+                o.controller == player
+                    && eval::matches_with_context(filter, state, o, player, context)
+            })
+        })
+        .collect();
+    out.extend(
+        state
+            .zones
+            .list(ZoneLocation::Graveyard(player))
+            .iter()
+            .copied()
+            .filter(|&id| {
+                state.object(id).is_some_and(|o| {
+                    o.is_card() && eval::matches_with_context(filter, state, o, player, context)
+                })
+            }),
+    );
+    out
+}
+
 /// Cost choices under the words captured by a resolving ability.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn options_with_context(
     state: &GameState,
     player: PlayerId,
@@ -188,6 +252,33 @@ pub(crate) fn options_with_context(
             .copied()
             .collect();
     }
+    if matches!(part, CostPart::ReturnUnblockedAttacker) {
+        return unblocked_attacker_options(state, player);
+    }
+    if matches!(part, CostPart::Forage) {
+        let mut out: Vec<ObjectId> = state
+            .battlefield_view()
+            .iter()
+            .copied()
+            .filter(|&id| {
+                state.object(id).is_some_and(|o| {
+                    o.controller == player
+                        && state.can_be_sacrificed(id, None)
+                        && o.characteristics()
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::artifact::FOOD)
+                })
+            })
+            .collect();
+        let gy = state.zones.list(ZoneLocation::Graveyard(player));
+        if gy.len() >= 3 {
+            out.extend(gy.iter().copied());
+        }
+        return out;
+    }
+    if let CostPart::CraftMaterials { filter, .. } = part {
+        return craft_material_options(state, player, context, filter);
+    }
     let (zone, controlled, untapped) = match part {
         CostPart::Sacrifice(_)
         | CostPart::SacrificeX(_)
@@ -198,10 +289,12 @@ pub(crate) fn options_with_context(
         CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_) => {
             (ZoneLocation::Battlefield, true, true)
         }
-        CostPart::Discard(_) | CostPart::ExileFromHand(_) => {
+        CostPart::Discard(_) | CostPart::DiscardX(_) | CostPart::ExileFromHand(_) => {
             (ZoneLocation::Hand(player), false, false)
         }
-        CostPart::ExileFromGraveyard(_) => (ZoneLocation::Graveyard(player), false, false),
+        CostPart::ExileFromGraveyard(_) | CostPart::ExileFromGraveyardX(_) => {
+            (ZoneLocation::Graveyard(player), false, false)
+        }
         _ => return Vec::new(),
     };
     let (CostPart::Sacrifice(filter)
@@ -209,12 +302,14 @@ pub(crate) fn options_with_context(
     | CostPart::SacrificeAll(filter)
     | CostPart::ExilePermanent(filter)
     | CostPart::Discard(filter)
+    | CostPart::DiscardX(filter)
     | CostPart::TapN { filter, .. }
     | CostPart::TapOther(filter)
     | CostPart::TapX(filter)
     | CostPart::ReturnToHand(filter)
     | CostPart::ExileFromHand(filter)
     | CostPart::ExileFromGraveyard(filter)
+    | CostPart::ExileFromGraveyardX(filter)
     | CostPart::PutCounterOnOther { filter, .. }) = part
     else {
         return Vec::new();
@@ -228,12 +323,17 @@ pub(crate) fn options_with_context(
     } else {
         state.zones.list(zone).clone()
     };
+    let is_sacrifice = matches!(
+        part,
+        CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
+    );
     listed
         .iter()
         .filter(|id| {
             state.object(**id).is_some_and(|o| {
                 (!controlled || o.controller == player)
                     && (!untapped || !o.status.contains(Status::TAPPED))
+                    && (!is_sacrifice || state.can_be_sacrificed(**id, None))
                     && eval::matches_with_context(filter, state, o, player, context)
             })
         })
@@ -273,7 +373,30 @@ pub(crate) fn menu(
     if parts.iter().any(|own| spends_the_source_as(own, part)) {
         listed.retain(|id| *id != source);
     }
+    if matches!(part, CostPart::Forage) {
+        prune_incomplete_forage_graveyard(state, &mut listed);
+    }
     listed
+}
+
+/// Remove graveyard cards from a [`CostPart::Forage`] option list when fewer
+/// than three graveyard cards remain available (CR 701.61a).
+pub(crate) fn prune_incomplete_forage_graveyard(state: &GameState, listed: &mut Vec<ObjectId>) {
+    let gy_count = listed
+        .iter()
+        .filter(|&&id| {
+            state
+                .object(id)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
+        })
+        .count();
+    if gy_count < 3 {
+        listed.retain(|&id| {
+            state
+                .object(id)
+                .is_none_or(|o| o.zone != crate::zone::Zone::Graveyard)
+        });
+    }
 }
 
 /// Whether `own` pays with the source the way `part` would pay with a
@@ -286,27 +409,40 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
             CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_)
         ) | (
             CostPart::SacrificeSelf,
-            CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
-        ) | (CostPart::ReturnSelfToHand, CostPart::ReturnToHand(_))
-            | (CostPart::DiscardSelf, CostPart::Discard(_))
-            | (
-                CostPart::ExileSelf,
-                CostPart::ExileFromGraveyard(_) | CostPart::ExilePermanent(_)
-            )
+            CostPart::Sacrifice(_)
+                | CostPart::SacrificeX(_)
+                | CostPart::SacrificeAll(_)
+                | CostPart::Forage
+        ) | (
+            CostPart::ReturnSelfToHand,
+            CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker
+        ) | (
+            CostPart::DiscardSelf,
+            CostPart::Discard(_) | CostPart::DiscardX(_)
+        ) | (
+            CostPart::ExileSelf,
+            CostPart::ExileFromGraveyard(_)
+                | CostPart::ExileFromGraveyardX(_)
+                | CostPart::ExilePermanent(_)
+                | CostPart::Forage
+                | CostPart::CraftMaterials { .. }
+        )
     )
 }
 
 /// What the player is being asked for.
 pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
     match part {
-        CostPart::Discard(_) => ChoicePrompt::CostDiscard,
+        CostPart::Discard(_) | CostPart::DiscardX(_) => ChoicePrompt::CostDiscard,
         CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_) => ChoicePrompt::CostTap,
         CostPart::Crew(power) => ChoicePrompt::CostCrew { power: *power },
         CostPart::Saddle(power) => ChoicePrompt::CostSaddle { power: *power },
-        CostPart::ReturnToHand(_) => ChoicePrompt::CostReturn,
+        CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker => ChoicePrompt::CostReturn,
         CostPart::ExileFromHand(_)
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExileFromGraveyardX(_)
         | CostPart::ExileFromSingleGraveyard { .. }
+        | CostPart::CraftMaterials { .. }
         | CostPart::ExilePermanent(_) => ChoicePrompt::CostExile,
         CostPart::PutCounterOnOther { .. } => ChoicePrompt::Generic,
         _ => ChoicePrompt::CostSacrifice,
@@ -323,7 +459,7 @@ pub(crate) use power::PowerPayment;
 /// [`GameState::discard_card`], the same door as `DiscardSelf`, an effect and
 /// the cleanup step: each discard has one event and one successor, and madness
 /// can replace its destination. A tap goes through the `TapSelf` arm's door
-/// for the same reason, down to the [`GameEvent::ObjectTapped`] it records:
+/// for the same reason, down to the [`crate::event::GameEvent::ObjectTapped`] it records:
 /// an ability that triggers on a creature becoming tapped may not see one of
 /// the two and miss the other.
 ///
@@ -363,10 +499,7 @@ pub(crate) fn pay(
             | CostPart::Saddle(_)
     ) {
         state.set_tapped(chosen, true);
-        state.journal.record(GameEvent::ObjectTapped {
-            object: chosen,
-            cause: Cause::Cost,
-        });
+        state.record_tap_event(chosen, true, Cause::Cost);
         return Ok(());
     }
     if matches!(
@@ -381,15 +514,26 @@ pub(crate) fn pay(
     // zone of the player who owns it, and a Forest borrowed off somebody
     // else's battlefield goes home rather than joining the borrower's hand.
     let to = match part {
-        CostPart::ReturnToHand(_) => ZoneLocation::Hand(owner),
+        CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker => ZoneLocation::Hand(owner),
         CostPart::ExileFromHand(_)
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExileFromGraveyardX(_)
         | CostPart::ExileFromSingleGraveyard { .. }
-        | CostPart::ExilePermanent(_) => ZoneLocation::Exile(owner),
+        | CostPart::ExilePermanent(_)
+        | CostPart::Forage
+        | CostPart::CraftMaterials { .. } => ZoneLocation::Exile(owner),
         _ => ZoneLocation::Graveyard(owner),
     };
-    if matches!(part, CostPart::Discard(_)) {
+    if matches!(part, CostPart::Discard(_) | CostPart::DiscardX(_)) {
         state.discard_card(chosen, player, Cause::Cost, None);
+        return Ok(());
+    }
+    if matches!(part, CostPart::Forage)
+        && state
+            .object(chosen)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+    {
+        state.sacrifice_object(chosen, Cause::Cost)?;
         return Ok(());
     }
     state.move_object(chosen, to, ZonePosition::Top, Cause::Cost)?;
@@ -592,7 +736,7 @@ mod tests {
         assert!(
             state.journal.entries().iter().any(|e| matches!(
                 e.event,
-                GameEvent::ZoneChanged {
+                crate::event::GameEvent::ZoneChanged {
                     object,
                     from: crate::zone::Zone::Graveyard,
                     to: crate::zone::Zone::Exile,

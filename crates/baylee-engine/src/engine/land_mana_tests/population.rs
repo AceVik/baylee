@@ -228,8 +228,10 @@ const LANDS: Bounds = Bounds {
     // one newly judged simple promise. Chocobo Camp's Bird rider remains
     // explicitly unparsed, not a seventh simple promise. Keep the original
     // six-promise slack budget above the current measured population.
-    // 1055 non-opponent-dependent promises after the October card batches.
-    promises: 700..=1061,
+    // 1095 non-opponent-dependent promises after the generated land waves,
+    // with Under-Construction Skyscraper's level-gated strip classified under
+    // unparsed and the six-promise slack budget retained above 1095.
+    promises: 700..=1101,
     opponents_lands: 1..=3,
     creature_promises: 1..=5,
     fully_read: 700,
@@ -339,17 +341,26 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// one costly line; the card tests exercise its exact noted mana separately.
 /// Vraska, the Silencer adds one wholly readable creature face and one granted
 /// Treasure mana line. It has no direct mana route or printed promise of its own.
+///
+/// Full-corpus codegen waves (including Kyren Toy, Mana Cache, Overlaid Terrain,
+/// general Aura host attachment, X=1 counter placement for X-counter arrivals,
+/// level-gated strip classification, and monochrome bundle reading on Ulvenwald
+/// Abomination) bring the nonland mana population to 238 Generated faces (181
+/// wholly readable) alongside the 447 Implemented faces (387 wholly readable)
+/// and 15 remaining partial/unimplemented faces: 709 colours proven over 286
+/// routes, 285 promises plus 3 opponent-land promises, and 124 creature
+/// promises across 391 non-summoning-sick creatures.
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
-    colors: 475,
-    routes: 215,
-    promises: 214..=214,
-    creature_promises: 92..=92,
-    unparsed: 62..=62,
-    fully_read: 387,
-    costly_lines: 149..=149,
-    triggered_lines: 29..=29,
-    granted_lines: 43..=43,
-    self_granted: 7..=7,
+    colors: 709,
+    routes: 286,
+    promises: 285..=285,
+    creature_promises: 124..=124,
+    unparsed: 118..=118,
+    fully_read: 568,
+    costly_lines: 194..=194,
+    triggered_lines: 65..=65,
+    granted_lines: 81..=81,
+    self_granted: 11..=11,
     busy: 0,
     not_implemented: 0,
     ..OTHER_PERMANENTS
@@ -384,13 +395,17 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [447, 0, 18],
+        [447, 238, 15],
         "the coverage-tier population changed"
     );
-    assert_eq!(readable, [387, 0, 0], "the readable coverage tiers changed");
+    assert_eq!(
+        readable,
+        [387, 181, 0],
+        "the readable coverage tiers changed"
+    );
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 387,
+        expected, 568,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -406,10 +421,10 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.promises,
             tally.opponents_lands
         ),
-        (475, 215, 214, 2)
+        (709, 286, 285, 3)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (245, 92));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (29, 62));
+    assert_eq!((tally.creatures, tally.creature_promises), (391, 124));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (65, 118));
     assert_eq!(
         (
             tally.conditional,
@@ -418,7 +433,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (4, 105, 84, 0, 0),
+        (13, 148, 131, 0, 0),
         "the measured skip categories changed"
     );
 }
@@ -438,7 +453,7 @@ fn reviewed_cards_explain_the_mana_population_changes() {
         (index::WITCH_ENGINE, true, (0, 1, 0, 0, 1, 0, 0)),
         (index::METALWORKER, false, (0, 1, 0, 0, 1, 0, 0)),
         (index::FOOD_CHAIN, true, (1, 0, 1, 0, 0, 1, 0)),
-        (index::KYREN_TOY, false, (0, 0, 1, 0, 0, 0, 0)),
+        (index::KYREN_TOY, true, (1, 0, 1, 0, 0, 1, 0)),
         (index::VRASKA_THE_SILENCER, true, (1, 1, 0, 0, 0, 0, 1)),
     ] {
         let def = baylee_cards::by_index(card).expect("reviewed card remains registered");

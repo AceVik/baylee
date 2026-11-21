@@ -106,3 +106,95 @@ pub(super) fn living_weapon(
         total: None,
     })
 }
+
+/// Starts `Effect::Endure(amount)` (CR 701.63a–b).
+pub(super) fn endure(
+    state: &mut GameState,
+    res: &mut Resolution,
+    amount: &baylee_cards_dsl::Amount,
+) -> Option<Pending> {
+    let n = amount2(amount, state, res.controller, res);
+    if n == 0 {
+        return None;
+    }
+    let raw_source = subjects::source(state, res);
+    let live_source = raw_source.filter(|id| {
+        subjects::is_current(state, *id)
+            && state
+                .object(id.object)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+    });
+    let Some(source) = live_source else {
+        let controller = raw_source
+            .and_then(|s| state.last_known_controller(s.object))
+            .unwrap_or(res.controller);
+        if !state.has_left(controller) {
+            let size = i16::try_from(n).unwrap_or(i16::MAX);
+            tokens::create_tokens_with_text(
+                state,
+                controller,
+                &baylee_cards_dsl::SPIRIT_X_X_WHITE,
+                Some(size),
+                1,
+                res.text,
+            );
+        }
+        return None;
+    };
+    let controller = state
+        .object(source.object)
+        .map_or(res.controller, |o| o.controller);
+    if state.has_left(controller) {
+        return None;
+    }
+    let count = u16::try_from(n).unwrap_or(u16::MAX);
+    res.awaiting = Some(AwaitingOp::Endure {
+        source,
+        controller,
+        count,
+    });
+    Some(Pending::YesNo {
+        player: controller,
+        prompt: crate::choice::YesNoPrompt::Endure(n),
+        source: resolving_ability(state, res),
+    })
+}
+
+/// Resumes `AwaitingOp::Endure` with `answer` (`true` = put `N` +1/+1 counters
+/// on `source`; `false` = create an `N/N` white Spirit creature token).
+pub(super) fn finish_endure(
+    state: &mut GameState,
+    res: &Resolution,
+    answer: bool,
+    source: DamageSourceRef,
+    controller: PlayerId,
+    count: u16,
+) {
+    if state.has_left(controller) || count == 0 {
+        return;
+    }
+    if answer
+        && subjects::is_current(state, source)
+        && state
+            .object(source.object)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+    {
+        crate::replacement::put_counters_by(
+            state,
+            controller,
+            source.object,
+            baylee_cards_dsl::CounterKind::P1P1,
+            count,
+        );
+    } else {
+        let size = i16::try_from(count).unwrap_or(i16::MAX);
+        tokens::create_tokens_with_text(
+            state,
+            controller,
+            &baylee_cards_dsl::SPIRIT_X_X_WHITE,
+            Some(size),
+            1,
+            res.text,
+        );
+    }
+}

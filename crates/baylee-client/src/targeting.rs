@@ -282,9 +282,11 @@ fn legal_targets_from(
                 | PlayerRel::SecondTargetPlayerOrController
                 | PlayerRel::ControllerOfEvent
                 | PlayerRel::ControllerOfAttached
+                | PlayerRel::EnchantedPlayer
                 | PlayerRel::DamagedPlayer
                 | PlayerRel::EventPlayer
                 | PlayerRel::Recipient
+                | PlayerRel::GiftRecipient
                 | PlayerRel::EachOtherPlayer
                 | PlayerRel::OwnerOfEvent
                 | PlayerRel::MostLifeOrTied
@@ -410,6 +412,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         Filter::HasColor(c) => object.colors.intersects(*c),
         Filter::IsColorless => object.colors.is_colorless(),
         Filter::Monocolored => object.colors.len() == 1,
+        Filter::IsCommander => object.commander,
         // CR 201.2 reads the name an object has *now*, which is the one
         // thing this walk gets for free: `PublicObject::name` is projected,
         // so a clone answers with what it copied. A face-down permanent
@@ -431,7 +434,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         // field the view carries for exactly this question — and the
         // face-down bail above is what keeps the two apart.
         Filter::IsToken => object.status.contains(baylee_view::ObjectStatus::TOKEN) || (object.token.is_some() && !object.status.contains(baylee_view::ObjectStatus::MELDED_CARD)),
-        Filter::WithSingleTarget => object.targets.len() == 1,
+        Filter::WithSingleTarget => object.stack_item.is_some() && object.targets.len() == 1,
         Filter::TargetsPermanentYouControl => {
             return targets_permanent_you_control(view, object);
         }
@@ -479,7 +482,25 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         Filter::Blocked => is_blocked(view, object.id),
         Filter::Unblocked => is_unblocked(view, object.id),
         // The view names what every public object is attached to.
-        Filter::IsAttached => object.attached_to.is_some(),
+        Filter::IsAttached => object.attached_to.is_some() || object.attached_player().is_some(),
+        // CR 700.6: historic means artifact, legendary, or Saga.
+        Filter::Historic => {
+            object.types.contains(baylee_core::types::TypeSet::ARTIFACT)
+                || object
+                    .supertypes
+                    .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+                || object
+                    .subtypes
+                    .contains(baylee_core::generated::subtypes::enchantment::SAGA)
+        }
+        Filter::AnyCountersAtLeast(min) => {
+            let total: u32 = object
+                .counters
+                .iter()
+                .map(|entry| u32::from(entry.count))
+                .sum();
+            total >= u32::from(*min)
+        }
         Filter::AttachedTo(inner) => {
             let Some(host) = object.attached_to else {
                 return Some(false);
@@ -540,7 +561,9 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         // translation is gamehost's; `baylee-ai` refuses it for that reason.
         | Filter::CountersAtLeast(_, _)
         | Filter::HasCounter(_)
-        | Filter::IsCommander
+        | Filter::HasCounters(_)
+        | Filter::ControlledByEnchantedPlayer
+        | Filter::PairedWithSource
         | Filter::HasAdventure
         // StackItem has neither an exact source incarnation nor an
         // authoritative activated/triggered kind. Printed ability identity
@@ -555,7 +578,6 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::BlockingSource
         | Filter::BlockedBySource
         | Filter::SpellTargetingAffected
-        | Filter::InZone(_)
         | Filter::Kicked
         | Filter::CastFromHand
         // Relative to a resolution's reference object, this turn's blocks
@@ -581,15 +603,47 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::ControllerControls(_)
         | Filter::TappedToPayForSourceThisTurn
         | Filter::OfSourceChosenColor
+        | Filter::ChosenColor
         | Filter::OfSourceChosenCardType
         | Filter::SharesAColorWith(_)
+        | Filter::SharesCreatureTypeWith(_)
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::NotControlledByReferenceController
         | Filter::LowestManaValueOnBattlefield(_)
         | Filter::SameNameAsLinkedExile
         | Filter::SharesColorWithExiledWithSource
+        | Filter::CmcAtMostSnowManaSpent
+        | Filter::Monstrous
+        | Filter::RingBearer
+        | Filter::SameManaValueAsSource
+        | Filter::SharesColorWithSource
         | Filter::CmcEqualsYourUnspentMana => return None,
+        Filter::FaceDown => object.status.contains(baylee_view::ObjectStatus::FACE_DOWN),
+        Filter::WarpedInExile => object.warped,
+        Filter::Suspected => object.suspected,
+        Filter::InZone(zone) => match zone {
+            baylee_cards_dsl::ZoneRef::Battlefield => {
+                view.battlefield.iter().any(|o| o.id == object.id)
+            }
+            baylee_cards_dsl::ZoneRef::Stack => view.stack.iter().any(|o| o.id == object.id),
+            baylee_cards_dsl::ZoneRef::Graveyard => {
+                view.graveyards.iter().flatten().any(|o| o.id == object.id)
+            }
+            baylee_cards_dsl::ZoneRef::Command => {
+                view.command.iter().flatten().any(|o| o.id == object.id)
+            }
+            baylee_cards_dsl::ZoneRef::BattlefieldOrCommand => {
+                view.battlefield.iter().any(|o| o.id == object.id)
+                    || view.command.iter().flatten().any(|o| o.id == object.id)
+            }
+            // Face-down exile, hidden zones, and `NotBattlefield` (phased-out
+            // permanents) stay unknown so the client never withholds a legal cast.
+            baylee_cards_dsl::ZoneRef::Exile
+            | baylee_cards_dsl::ZoneRef::NotBattlefield
+            | baylee_cards_dsl::ZoneRef::Library
+            | baylee_cards_dsl::ZoneRef::Hand => return None,
+        },
     })
 }
 

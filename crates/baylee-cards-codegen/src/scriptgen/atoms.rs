@@ -41,22 +41,18 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     // (`/Twice`, `/Thrice`, `/Times.<n>`), which the reference writes under
     // the same letter.
     if let Some(def) = svars.get(raw).map(|def| def.trim()) {
-        if def == "Count$TimesKicked" {
-            return Some("Amount::TimesKicked".to_string());
-        }
-        if let Some(rest) = def.strip_prefix("Count$TimesKicked/") {
-            let factor: Option<u32> = match rest {
-                "Twice" => Some(2),
-                "Thrice" => Some(3),
-                _ => rest.strip_prefix("Times.").and_then(|n| n.parse().ok()),
-            };
-            if let Some(factor) = factor.filter(|&f| f > 0) {
-                return Some(if factor == 1 {
-                    "Amount::TimesKicked".to_string()
-                } else {
-                    format!("Amount::Times {{ base: &Amount::TimesKicked, factor: {factor} }}")
-                });
-            }
+        let (head, suffix) = match def.split_once('/') {
+            Some((h, s)) => (h.trim(), Some(s.trim())),
+            None => (def, None),
+        };
+        let base = match head {
+            "Count$TimesKicked" => Some("Amount::TimesKicked"),
+            "Count$CastTotalManaSpent Snow" => Some("Amount::SnowManaSpentToCast"),
+            "Count$Devoured Card" => Some("Amount::EntrySacrifices"),
+            _ => None,
+        };
+        if let Some(base) = base {
+            return scaled_svar_amount(base, suffix);
         }
     }
     if let Some(kind) = svars
@@ -96,6 +92,25 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     let resolved = svars.get(raw)?;
     let n = resolved.trim().parse::<i64>().ok()?;
     Some(format!("Amount::Fixed({n})"))
+}
+
+fn scaled_svar_amount(base: &str, suffix: Option<&str>) -> Option<String> {
+    let Some(rest) = suffix else {
+        return Some(base.to_string());
+    };
+    let factor: u32 = match rest {
+        "Twice" => 2,
+        "Thrice" => 3,
+        _ => rest.strip_prefix("Times.").and_then(|n| n.parse().ok())?,
+    };
+    if factor == 0 {
+        return None;
+    }
+    Some(if factor == 1 {
+        base.to_string()
+    } else {
+        format!("Amount::Times {{ base: &{base}, factor: {factor} }}")
+    })
 }
 
 /// `W` as `ManaColor::White`, for a reader that is not inside a closure.
@@ -200,24 +215,78 @@ pub(super) fn keyword_atom(atom: &str) -> Option<String> {
             has.to_string()
         });
     }
-    let printed = [
-        "Flying",
-        "First Strike",
-        "Double Strike",
-        "Deathtouch",
-        "Haste",
-        "Hexproof",
-        "Indestructible",
-        "Lifelink",
-        "Menace",
-        "Reach",
-        "Trample",
-        "Vigilance",
-        "Defender",
-    ]
-    .into_iter()
-    .find(|p| p.replace(' ', "") == name)?;
-    let has = format!("Filter::HasKeyword({})", keyword_const(printed)?);
+    let direct_kw = match name {
+        "Modular" => Some("KeywordSet::MODULAR"),
+        "Renown" => Some("KeywordSet::RENOWN"),
+        "Partner" => Some("KeywordSet::PARTNER"),
+        "Retrace" => Some("KeywordSet::RETRACE"),
+        "Warp" => Some("KeywordSet::WARP"),
+        "Bloodthirst" => Some("KeywordSet::BLOODTHIRST"),
+        "Devour" => Some("KeywordSet::DEVOUR"),
+        "Spree" => Some("KeywordSet::SPREE"),
+        _ => None,
+    };
+    let kw_bit = if let Some(bit) = direct_kw {
+        bit
+    } else {
+        let printed = [
+            "Flying",
+            "First Strike",
+            "Double Strike",
+            "Deathtouch",
+            "Haste",
+            "Hexproof",
+            "Indestructible",
+            "Lifelink",
+            "Menace",
+            "Reach",
+            "Trample",
+            "Vigilance",
+            "Defender",
+            "Flash",
+            "Shroud",
+            "Shadow",
+            "Fear",
+            "Intimidate",
+            "Infect",
+            "Flanking",
+            "Wither",
+            "Horsemanship",
+            "Skulk",
+            "Enlist",
+            "Persist",
+            "Undying",
+            "Phasing",
+            "Rebound",
+            "Prowess",
+            "Devoid",
+            "Changeling",
+            "Banding",
+            "Storm",
+            "Intimidate",
+            "Battle Cry",
+            "Dethrone",
+            "Melee",
+            "Mentor",
+            "Training",
+            "Myriad",
+            "Extort",
+            "Soulbond",
+            "Ascend",
+            "Daybound",
+            "Nightbound",
+            "Split Second",
+            "Read Ahead",
+            "Exploit",
+            "Evolve",
+            "Riot",
+            "Unleash",
+        ]
+        .into_iter()
+        .find(|p| p.replace(' ', "") == name)?;
+        keyword_const(printed)?
+    };
+    let has = format!("Filter::HasKeyword({kw_bit})");
     Some(if negated {
         format!("Filter::Not(&{has})")
     } else {
@@ -343,6 +412,11 @@ pub(super) enum Bound {
 #[must_use]
 pub fn token_stems(script: &CardScript) -> Vec<String> {
     let mut out = Vec::new();
+    collect_token_stems(script, &mut out);
+    out
+}
+
+fn collect_token_stems(script: &CardScript, out: &mut Vec<String>) {
     let bodies = script
         .rules
         .iter()
@@ -372,27 +446,46 @@ pub fn token_stems(script: &CardScript) -> Vec<String> {
         // of these lines also *prints* it, and `SpellDescription$
         // Investigate. (Create a Clue token…)` is on 21 of the corpus's
         // 112.
-        if Params::parse(body).is_some_and(|(api, _)| api == "Investigate")
-            && !out.iter().any(|stem| stem == CLUE_TOKEN_SCRIPT)
-        {
-            out.push(CLUE_TOKEN_SCRIPT.to_string());
+        if let Some((api, mut p)) = Params::parse(body) {
+            if api == "Investigate" && !out.iter().any(|stem| stem == CLUE_TOKEN_SCRIPT) {
+                out.push(CLUE_TOKEN_SCRIPT.to_string());
+            } else if api == "Amass"
+                && let Some(raw_type) = p.take("Type")
+            {
+                let sub = raw_type.trim().to_ascii_lowercase();
+                if !sub.is_empty() && sub.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                    let stem = format!("b_0_0_{sub}_army");
+                    if !out.contains(&stem) {
+                        out.push(stem);
+                    }
+                }
+            }
         }
     }
-    out
+    for line in &script.keywords {
+        let trimmed = line.trim();
+        let stem = match trimmed {
+            "Living Weapon" | "Living weapon" => Some("b_0_0_phyrexian_germ"),
+            "For Mirrodin" | "For Mirrodin!" => Some("r_2_2_rebel"),
+            "Job select" => Some("c_1_1_hero"),
+            _ if trimmed.starts_with("Fabricate:") => Some("c_1_1_a_servo"),
+            _ => None,
+        };
+        if let Some(stem) = stem
+            && !out.iter().any(|existing| existing == stem)
+        {
+            out.push(stem.to_string());
+        }
+    }
+    if let Some(back) = script.alternate.as_deref() {
+        collect_token_stems(back, out);
+    }
 }
 
-/// Every distinct mechanic a script touches, as flat strings.
-///
-/// This is the unit a coverage plan is built out of: `api:Token`,
-/// `param:Pump.Duration`, `kw:Equip`, `line:S`. It is deliberately *not*
-/// a list of what the transcoder refused — it names what the script
-/// *uses*, so that atoms already appearing in scripts the transcoder reads
-/// in full can be subtracted as known. That subtraction is what keeps the
-/// plan honest without restating each rule's parameter list here, where
-/// the copy would rot the first time a rule learned a new key.
-#[must_use]
-pub fn atoms(script: &CardScript) -> Vec<String> {
-    let mut out = Vec::new();
+fn collect_atoms(script: &CardScript, out: &mut Vec<String>) {
+    if let Some(mode) = &script.alternate_mode {
+        out.push(format!("alt:{mode}"));
+    }
     for line in &script.keywords {
         let head = line.split(':').next().unwrap_or(line);
         let head = head.split(' ').next().unwrap_or(head);
@@ -433,6 +526,24 @@ pub fn atoms(script: &CardScript) -> Vec<String> {
             }
         }
     }
+    if let Some(back) = script.alternate.as_deref() {
+        collect_atoms(back, out);
+    }
+}
+
+/// Every distinct mechanic a script touches, as flat strings.
+///
+/// This is the unit a coverage plan is built out of: `api:Token`,
+/// `param:Pump.Duration`, `kw:Equip`, `line:S`. It is deliberately *not*
+/// a list of what the transcoder refused — it names what the script
+/// *uses*, so that atoms already appearing in scripts the transcoder reads
+/// in full can be subtracted as known. That subtraction is what keeps the
+/// plan honest without restating each rule's parameter list here, where
+/// the copy would rot the first time a rule learned a new key.
+#[must_use]
+pub fn atoms(script: &CardScript) -> Vec<String> {
+    let mut out = Vec::new();
+    collect_atoms(script, &mut out);
     out.sort();
     out.dedup();
     out

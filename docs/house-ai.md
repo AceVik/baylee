@@ -55,6 +55,10 @@ the ordinary color question. It does not spend them toward an unaffordable
 spell. The view and trained features include command-zone supply objects with
 their distinct definitions; no hidden deck information is introduced.
 
+Class upgrades use the engine's normal paid and unpaid activation offers. The
+house values the change to the source's Class level, separately from actual
+level counters, and weighs it against the activation's cost and other plays.
+
 ## Frozen challenge execution
 
 The opponent finishes its simultaneous opening decisions before a human answer

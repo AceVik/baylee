@@ -621,6 +621,11 @@ pub const TURN_FACE_UP: u32 = PREPARED_CAST - 1;
 /// How many unlock slots there are: one per half of a Room.
 pub const UNLOCK_SLOTS: u32 = 2;
 
+/// The index plotting a card from hand (CR 702.170a, CR 116.2k) is offered
+/// under: a special action carried by the card's action menu, like turning a
+/// permanent face up or unlocking a door.
+pub const PLOT_CARD: u32 = TURN_FACE_UP - UNLOCK_SLOTS - 1;
+
 /// The index unlocking `half` of a Room (0 the left, 1 the right) is
 /// offered under: CR 709.5e's special action (CR 116.2m), carried by the
 /// permanent's action menu as turning one face up is.
@@ -652,7 +657,7 @@ pub const fn door_to_unlock(index: u32) -> Option<u8> {
 /// CR 702.61a).
 #[must_use]
 pub const fn is_special_action(index: u32) -> bool {
-    index == TURN_FACE_UP || door_to_unlock(index).is_some()
+    index == TURN_FACE_UP || door_to_unlock(index).is_some() || index == PLOT_CARD
 }
 
 // The indices in this module are **not** `AbilityRef` indices, and that is
@@ -805,6 +810,11 @@ pub struct LegalActions {
     /// Elf.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub restricted_floating: Vec<(Spend, [u32; 6])>,
+    /// Per-spend mana-spending permissions when casting a specific card (such as
+    /// `ExileMana::AnyColor` or `ExileMana::AnyType` under CR 609.4b / CR 118.14)
+    /// grants a broader `ManaSpending` than the seat's global pool spending.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub spell_spending: Vec<(Spend, baylee_core::mana::ManaSpending)>,
 }
 
 /// The most taps and spends [`LegalActions::restricted_taps`] names in all,
@@ -850,7 +860,10 @@ impl Spend {
             CastModeKind::Face(_)
             | CastModeKind::Prototype
             | CastModeKind::Disguise
+            | CastModeKind::Bestow
             | CastModeKind::Foretell
+            | CastModeKind::Plot
+            | CastModeKind::Impending
             | CastModeKind::LibraryTopLife { .. } => Self::Cast(card, kind),
             _ => Self::Cast(card, CastModeKind::Normal),
         }
@@ -877,6 +890,16 @@ impl LegalActions {
             .iter()
             .find(|(s, _)| *s == spend)
             .map_or_default(|(_, by_colour)| *by_colour)
+    }
+
+    /// Card-specific [`baylee_core::mana::ManaSpending`] for `spend`, when
+    /// broader than the seat's global `ManaPoolView::spending` (CR 609.4b).
+    #[must_use]
+    pub fn spell_spending_for(&self, spend: Spend) -> Option<baylee_core::mana::ManaSpending> {
+        self.spell_spending
+            .iter()
+            .find(|(s, _)| *s == spend)
+            .map(|(_, spending)| *spending)
     }
 
     /// Additional generic mana for an activation of this permanent.

@@ -96,6 +96,17 @@ fn best(
         .iter()
         .copied()
         .filter_map(|(source, index)| {
+            if index == baylee_engine::choice::TURN_FACE_UP {
+                let worth = agent.turn_face_up_worth(view, source)?;
+                return (worth > THRESHOLD.max(minimum)).then_some((worth, (source, index)));
+            }
+            if index == baylee_engine::choice::PLOT_CARD {
+                if legal.castable_once_paid(source) {
+                    return None;
+                }
+                let worth = 120_i64;
+                return (worth > THRESHOLD.max(minimum)).then_some((worth, (source, index)));
+            }
             if on_the_stack(view, source, index) {
                 return None;
             }
@@ -106,6 +117,7 @@ fn best(
             let floor = match def {
                 AbilityDef::Loyalty { .. } if agent.profile.lookahead == 0 => return None,
                 AbilityDef::Loyalty { .. } => 0,
+                AbilityDef::Unearth { .. } | AbilityDef::Encore { .. } => THRESHOLD,
                 _ => {
                     let (cost, effects) = activated(def)?;
                     if !consumes(cost) && !settles(effects) {
@@ -377,16 +389,22 @@ fn consumes(cost: &Cost) -> bool {
             // board shrinks the same way — more so than a tap, which leaves
             // the permanent where it was.
             | CostPart::ReturnToHand(_)
+            | CostPart::ReturnUnblockedAttacker
             // A card exiled out of the graveyard is gone for good, so the
             // pile that pays for the next activation is one card shorter.
             | CostPart::ExileFromGraveyard(_)
             | CostPart::ExileFromSingleGraveyard { .. }
+            | CostPart::Forage
+            | CostPart::CraftMaterials { .. }
             | CostPart::PutCounterOnOther { .. } => true,
             CostPart::ExileTopOfLibrary(n) => *n > 0,
             CostPart::TapN { count, .. } => *count > 0,
+            CostPart::Either(a, b) => consumes(a) && consumes(b),
             // Exerting again is legal and adds no further untap penalty.
             CostPart::ExertSelf | CostPart::PayLifeX | CostPart::PayCommanderColors
             | CostPart::PayAttachedManaCost | CostPart::TapX(_) | CostPart::SacrificeX(_)
+            | CostPart::DiscardX(_) | CostPart::ExileFromGraveyardX(_)
+            | CostPart::DealDamageToYou(_)
             | CostPart::SacrificeAll(_) => false,
         })
 }
@@ -425,7 +443,7 @@ pub(crate) fn commander_color_count(view: &PlayerView) -> Option<u16> {
 /// in step.
 pub(crate) fn life_ok(view: &PlayerView, cost: &Cost) -> bool {
     let need = cost.parts.iter().fold(0u16, |sum, part| match part {
-        CostPart::PayLife(n) => sum.saturating_add(*n),
+        CostPart::PayLife(n) | CostPart::DealDamageToYou(n) => sum.saturating_add(*n),
         _ => sum,
     });
     let commander_parts = cost
@@ -443,6 +461,13 @@ pub(crate) fn life_ok(view: &PlayerView, cost: &Cost) -> bool {
     } else {
         need
     };
+    if cost
+        .parts
+        .iter()
+        .any(|p| matches!(p, CostPart::Either(a, b) if !life_ok(view, a) && !life_ok(view, b)))
+    {
+        return false;
+    }
     need == 0
         || view
             .seat(view.seat)

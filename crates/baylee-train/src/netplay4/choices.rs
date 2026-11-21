@@ -274,7 +274,11 @@ pub(super) fn mask_non_priority_single_choice(
                 false
             };
             let force_pay_tax =
-                matches!(prompt, YesNoPrompt::PayTax { .. }) && !decline_draw && !decline_tax;
+                (matches!(prompt, YesNoPrompt::PayTax { .. }) && !decline_draw && !decline_tax)
+                    || matches!(
+                        prompt,
+                        YesNoPrompt::OpeningHandBattlefield | YesNoPrompt::OpeningHandReveal
+                    );
             if decline_draw || decline_tax || decline_shock || decline_kicker_option {
                 let mut trial = masked_logits.to_vec();
                 for (i, c) in cands.candidates.iter().enumerate() {
@@ -1031,6 +1035,7 @@ fn is_single_target_concentrated_source(
             .faces
             .get(face_idx)
             .is_some_and(|f| f.extra_target_cost > 0)
+            || def.per_extra_target_cost(face_idx).is_some()
         {
             return true;
         }

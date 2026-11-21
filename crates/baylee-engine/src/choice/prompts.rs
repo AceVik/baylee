@@ -119,6 +119,48 @@ pub enum CastModeKind {
         /// Whether the replacement-target kicker option was announced.
         kicked: bool,
     },
+    /// Cast bestowed for the face's bestow cost (CR 702.103a): becomes an Aura
+    /// enchantment spell with enchant creature, resolving as a creature if its
+    /// target becomes illegal (CR 702.103e).
+    Bestow,
+    /// Cast from the owner's graveyard using jump-start (CR 702.133a): pays the
+    /// face's mana cost plus discarding a card, and exiles when leaving the stack.
+    JumpStart,
+    /// Cast for the face's blitz cost (CR 702.152a): the permanent it becomes
+    /// has haste, draws a card when it dies, and is sacrificed at the beginning
+    /// of the next end step.
+    Blitz,
+    /// Cast for the face's emerge cost (CR 702.119a–b): sacrifices a matching
+    /// permanent and reduces the spell's generic mana cost by its mana value.
+    Emerge,
+    /// Cast both halves of a split card with fuse from hand (CR 702.102a–d):
+    /// pays the combined mana cost of both halves, carries combined
+    /// characteristics on the stack, and resolves left then right.
+    Fused,
+    /// Cast a plotted card from exile as a sorcery without paying its mana cost
+    /// on a turn after the turn in which it became plotted (CR 702.170d).
+    Plot,
+    /// Cast a spell for its impending alternative cost (CR 702.176a): enters
+    /// with N time counters, is not a creature while it has a time counter, and
+    /// removes a time counter at the beginning of each of your end steps.
+    Impending,
+    /// Cast from your hand for the face's warp cost (CR 702.185a): exiles the
+    /// permanent it becomes at the beginning of the next end step, and its
+    /// owner may cast that card from exile on a later turn.
+    Warp,
+    /// Cast from the owner's graveyard using retrace (CR 702.81a): pays the
+    /// face's mana cost plus discarding a land card, and returns to the
+    /// graveyard normally on resolution or counter.
+    Retrace,
+    /// Cast any time you could cast an instant during your declare blockers step
+    /// for its sneak cost and returning an unblocked creature you control to its
+    /// owner's hand (CR 702.190a–b): if a permanent spell, enters tapped and
+    /// attacking the same player, planeswalker, or battle.
+    Sneak,
+    /// Cast for the spell's awaken alternative cost (CR 702.113a): adds target
+    /// land you control, puts N +1/+1 counters on that land, and makes it a 0/0
+    /// Elemental creature with haste that's still a land.
+    Awaken,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -413,6 +455,35 @@ pub enum ChoicePrompt {
     /// the battlefield tapped and the second goes into the searcher's hand
     /// (Kodama's Reach, Cultivate).
     SearchLibraryTappedAndHand,
+    /// Amplify (CR 702.38a, CR 702.38b): reveal any number of cards from your
+    /// hand that share a creature type with the entering permanent to put +1/+1
+    /// counters on it. Naming none declines to reveal any cards.
+    Amplify,
+    /// Manifest dread (CR 701.62a): look at the top two cards of your library,
+    /// choose one to manifest onto the battlefield face down, and put the other
+    /// into your graveyard.
+    ManifestDread,
+    /// Devour N (CR 702.82a): sacrifice any number of other matching controlled
+    /// permanents as this permanent enters (`factor == 0` means `count * count`
+    /// +1/+1 counters). Choosing none declines to devour anything.
+    Devour {
+        /// +1/+1 counters per devoured permanent (`0` means `count * count`).
+        factor: u8,
+    },
+    /// Choose a creature you control to become your Ring-bearer when the Ring
+    /// tempts you (`CR 701.54a`). Mandatory (`min == 1, max == 1`) whenever you
+    /// control at least one creature.
+    ChooseRingBearer,
+    /// Splice (CR 702.47a–c): reveal a card with splice from your hand and pay
+    /// its splice cost to add its rules text to the spell being cast. Choosing
+    /// none finishes splicing.
+    Splice,
+    /// Cipher (CR 702.99b): exile the resolving spell card encoded on a
+    /// creature you control. Choosing none declines to encode it.
+    CipherEncode,
+    /// Champion (CR 702.72a): exile another matching permanent you control, or
+    /// choose none and sacrifice this permanent.
+    Champion,
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).
@@ -517,6 +588,20 @@ pub enum NumberPrompt {
     Multikicker {
         /// The cost paid each time.
         cost: baylee_core::mana::ManaCost,
+    },
+    /// Starting chapter number (`1..=final_chapter`) chosen as a Saga with read
+    /// ahead enters the battlefield (CR 702.155b, CR 715.3b).
+    ReadAhead {
+        /// The entering Saga object.
+        saga: ObjectId,
+    },
+    /// How many times to pay a spell's squad cost (CR 702.157a): when the
+    /// creature enters, it creates a token copy of itself for each payment.
+    Squad {
+        /// Mana part paid per instance.
+        cost: baylee_core::mana::ManaCost,
+        /// Non-mana parts paid per instance, if any.
+        parts: BuybackParts,
     },
 }
 
@@ -853,6 +938,84 @@ pub enum YesNoPrompt {
         /// Non-mana parts of this kicker cost, if any.
         parts: BuybackParts,
     },
+    /// Bargain optional additional cost yes-or-no at cast time (CR 702.166a).
+    /// Appended to preserve replay identities.
+    Bargain,
+    /// Pay this spell's offspring cost (CR 702.175a)? When the permanent
+    /// enters, if paid, create a 1/1 token copy of it.
+    Offspring {
+        /// Mana part of the offspring cost.
+        cost: baylee_core::mana::ManaCost,
+        /// Non-mana parts of the offspring cost, if any.
+        parts: BuybackParts,
+    },
+    /// Pay this spell's casualty cost by sacrificing a creature with projected
+    /// power `min_power` or greater (CR 702.153a)? When cast with casualty
+    /// paid, copy the spell on the stack (`may_choose_new_targets = true`).
+    Casualty {
+        /// Minimum projected power of the sacrificed creature.
+        min_power: u8,
+    },
+    /// Promise this spell's optional [`baylee_cards_dsl::GiftKind`] additional
+    /// cost by choosing an opponent (CR 702.174a)?
+    Gift {
+        /// What the chosen opponent receives when the gift is delivered.
+        kind: baylee_cards_dsl::GiftKind,
+    },
+    /// Riot's as-enters choice (CR 702.136a–b): enter with an additional +1/+1
+    /// counter (`true`) or gain haste (`false`)?
+    Riot {
+        /// The entering permanent.
+        permanent: ObjectId,
+    },
+    /// Unleash's optional as-enters choice (CR 702.98a): have this permanent
+    /// enter with an additional +1/+1 counter?
+    Unleash {
+        /// The entering permanent.
+        permanent: ObjectId,
+    },
+    /// Choose whether to pay the first (`true`) or second (`false`) branch of
+    /// the `index`-th [`baylee_cards_dsl::CostPart::Either`] when both branches
+    /// are payable (`CR 118.8`).
+    ChooseFirstCostBranch {
+        /// Zero-based index among `CostPart::Either` parts of this cast or activation.
+        index: u8,
+    },
+    /// Begin the game with this card from your opening hand on the battlefield
+    /// (*Leyline* cycle, `CR 103.6a`)?
+    OpeningHandBattlefield,
+    /// Reveal this card from your opening hand to register its first-upkeep
+    /// delayed triggered ability (*Chancellor* cycle / *Sphinx of Foresight*,
+    /// `CR 103.6b`)?
+    OpeningHandReveal,
+    /// Have `attacker` assign its combat damage as though it weren't blocked
+    /// (`Modifier::MayAssignCombatDamageAsThoughUnblocked`, CR 510.1c)?
+    AssignDamageAsThoughUnblocked {
+        /// The blocked attacking creature assigning combat damage.
+        attacker: baylee_core::ids::ObjectId,
+    },
+    /// Endure N (CR 701.63a): put `0` (`N`) +1/+1 counters on this permanent
+    /// instead of creating an `N/N` white Spirit creature token?
+    Endure(u32),
+    /// Clash (CR 701.30c): put the revealed top card of your library on the
+    /// bottom of your library? Answering yes puts it on the bottom; answering
+    /// no leaves it on top.
+    ClashBottom {
+        /// The revealed top card of the deciding player's library.
+        card: baylee_core::ids::ObjectId,
+    },
+    /// Conspire (CR 702.78a): tap two untapped creatures you control that share
+    /// a color with this spell as an additional cost to copy it when cast?
+    Conspire,
+    /// Tribute N (CR 702.104a): asked of the chosen opponent as `permanent`
+    /// enters — have `permanent` enter with `counters` additional +1/+1
+    /// counters on it?
+    Tribute {
+        /// The creature entering the battlefield with tribute.
+        permanent: baylee_core::ids::ObjectId,
+        /// Number of +1/+1 counters placed if tribute is paid.
+        counters: u16,
+    },
 }
 
 impl YesNoPrompt {
@@ -905,6 +1068,13 @@ impl YesNoPrompt {
             | Self::PayEnergy { .. }
             | Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
+            | Self::Bargain
+            | Self::Offspring { .. }
+            | Self::Casualty { .. }
+            | Self::Gift { .. }
+            | Self::Unleash { .. }
+            | Self::AssignDamageAsThoughUnblocked { .. }
+            | Self::Endure(_)
             | Self::KickerOption { .. }
             | Self::Buyback { .. }
             | Self::ManaAnyType
@@ -920,6 +1090,11 @@ impl YesNoPrompt {
             | Self::RevealHandForGuess { .. }
             | Self::ContinueRemovingCounters { .. }
             | Self::SkipTurn { .. }
+            | Self::OpeningHandBattlefield
+            | Self::OpeningHandReveal
+            | Self::ClashBottom { .. }
+            | Self::Conspire
+            | Self::Tribute { .. }
             | Self::Generic => true,
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a
@@ -937,6 +1112,8 @@ impl YesNoPrompt {
             | Self::TopOfLibrary { .. }
             | Self::Discover { .. }
             | Self::Madness { .. }
+            | Self::Riot { .. }
+            | Self::ChooseFirstCostBranch { .. }
             | Self::GuessNamedCardInHand { .. } => false,
         }
     }

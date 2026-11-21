@@ -21,10 +21,69 @@ pub(super) fn attach(
     } else {
         zones::spec_object(state, res, target)
     };
-    let Some(host) = host else {
+    if let Some(host) = host {
+        attach_to(state, source, host, reconfigure);
+        return;
+    }
+    let player = match target {
+        TargetSpec::AnyPlayer
+        | TargetSpec::AnyOpponent
+        | TargetSpec::PlayerWhoAttackedThisTurn
+        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+        | TargetSpec::OpponentWithMoreThanPlayer(..)
+        | TargetSpec::AnyTarget
+        | TargetSpec::PlayerOrObject(_)
+        | TargetSpec::OpponentOrObject(_) => res.target_players.iter().next().or(res.chosen_player),
+        TargetSpec::Player(rel) => {
+            if res.targeted {
+                res.target_players.iter().next().or(res.chosen_player)
+            } else {
+                super::players_of(rel, state, res.controller, res)
+                    .into_iter()
+                    .next()
+            }
+        }
+        _ => None,
+    };
+    if let Some(player) = player {
+        attach_to_player(state, source, player, reconfigure);
+    }
+}
+
+pub(super) fn attach_to_player(
+    state: &mut GameState,
+    source: DamageSourceRef,
+    player: baylee_core::ids::PlayerId,
+    reconfigure: bool,
+) {
+    if !subjects::is_current(state, source) {
+        return;
+    }
+    let Some(object) = state.object(source.object) else {
         return;
     };
-    attach_to(state, source, host, reconfigure);
+    // An Aura spell records its intended player host before its normal entry procedure (CR 303.4b).
+    if object.zone == Zone::Stack {
+        state.attach_to_player(source.object, player);
+        return;
+    }
+    if object.zone != Zone::Battlefield
+        || reconfigure
+        || object
+            .characteristics()
+            .types
+            .intersects(TypeSet::CREATURE.union(TypeSet::BATTLE))
+        || object.status.contains(Status::PHASED_OUT)
+        || !object
+            .characteristics()
+            .subtypes
+            .contains(subtypes::enchantment::AURA)
+    {
+        return;
+    }
+    if crate::aura_bindings::can_attach_player(state, source.object, player) {
+        state.attach_to_player(source.object, player);
+    }
 }
 
 pub(super) fn attach_to(

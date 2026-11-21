@@ -21,7 +21,8 @@ card!(
             power: Amount::Fixed(3),
             toughness: Amount::Fixed(3),
             keywords: KeywordSet::TRAMPLE
-                .union(KeywordSet::HEXPROOF.union(KeywordSet::INDESTRUCTIBLE)),
+                .union(KeywordSet::HEXPROOF)
+                .union(KeywordSet::INDESTRUCTIBLE),
             duration: Duration::UntilEndOfTurn
         }],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE)))

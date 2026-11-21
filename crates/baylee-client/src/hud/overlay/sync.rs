@@ -83,7 +83,7 @@ pub fn sync_overlay(
         .cast_menu
         .as_ref()
         .filter(|_| !over)
-        .map(|m| (m.card, m.modes.len(), m.pick));
+        .map(|m| (m.card, m.row_count(), m.pick));
     let prompt = duel.headline(lang, &texts);
     // A refusal used to *stand in* for the headline, which meant it was only
     // ever seen when nothing was being asked — and the engine refuses an

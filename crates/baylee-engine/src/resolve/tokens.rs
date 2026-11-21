@@ -4,6 +4,9 @@
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
 use crate::text_changes::TextChangeMap;
+use baylee_core::ids::DamageSourceRef;
+
+pub(in crate::resolve) mod copy_tokens;
 
 #[derive(Clone, Copy, Default)]
 struct TokenEntry {
@@ -42,9 +45,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             target,
             kicked_bonus,
         } => {
-            let target_id = match target {
-                Some(_) => res.targets.first().copied(),
-                None => Some(res.source),
+            let original = match target {
+                Some(_) => res
+                    .targets
+                    .first()
+                    .and_then(|&id| state.source_identity(id)),
+                None => subjects::source(state, res),
             };
             let kicked = state
                 .object(res.on_stack)
@@ -53,10 +59,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // Copiable values, not `base`: a token copy of a Cursed Mirror
             // that became an Elf is a copy of the Elf (CR 707.2), and `base`
             // is the artifact underneath it.
-            if let Some(id) = target_id
-                && let Some(base) = crate::layers::copiable_values(state, id)
-            {
-                create_token_copies(state, you, id, &base, count);
+            if let Some(reference) = original {
+                create_modified_token_copies_for(state, res, you, reference, &[], count);
             }
             None
         }
@@ -158,7 +162,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::CreateTokenCopyOfSource { mods } => {
-            create_modified_token_copies(state, res, res.source, mods, 1);
+            if let Some(original) = subjects::source(state, res) {
+                create_modified_token_copies_for(state, res, you, original, mods, 1);
+            }
             None
         }
         Effect::CreateTokenCopyOfEquipped { kicked_bonus, mods } => {
@@ -212,37 +218,19 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             token,
             amount,
             sacrifice_at_next_end_step,
-        } => {
-            let count = amount2(&amount, state, you, res);
-            let made = create_tokens_entering(
-                state,
-                you,
-                token,
-                None,
-                count,
-                res.text,
-                TokenEntry {
-                    tapped: true,
-                    temporary_haste_source: None,
-                },
-            );
-            // One delayed trigger per token, naming that token as the
-            // object it is now (CR 400.7), as Kiki-Jiki's copies are.
-            if sacrifice_at_next_end_step {
-                for &id in &made {
-                    let version = state.object(id).map_or(0, |o| o.version);
-                    state.delayed.push(crate::state::DelayedTrigger {
-                        controller: you,
-                        when: crate::state::DelayedWhen::NextEndStep,
-                        action: crate::state::DelayedAction::Sacrifice { card: id, version },
-                    });
-                }
-            }
-            super::attacking_tokens::start(state, res, made)
-        }
+        } => create_attacking_tokens(state, res, you, token, &amount, sacrifice_at_next_end_step),
+        Effect::Mobilize(amount) => create_attacking_tokens(
+            state,
+            res,
+            you,
+            &baylee_cards_dsl::WARRIOR_1_1_RED,
+            &amount,
+            true,
+        ),
         Effect::Fabricate { count, token } => {
             super::token_choices::fabricate(state, res, count, token)
         }
+        Effect::Endure(amount) => super::token_choices::endure(state, res, &amount),
         Effect::CreateTokenThenAttachSelf { token } => {
             super::token_choices::living_weapon(state, res, token)
         }
@@ -308,6 +296,72 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             create_tokens_with_text(state, res.controller, token, None, 1, res.text);
             None
         }
+        Effect::Incubate { who, count } => {
+            let n = u16::try_from(amount2(&count, state, you, res)).unwrap_or(u16::MAX);
+            for controller in players_of(who, state, you, res) {
+                let created = create_tokens_with_text(
+                    state,
+                    controller,
+                    &baylee_cards_dsl::INCUBATOR_TOKEN,
+                    None,
+                    1,
+                    res.text,
+                );
+                for id in created {
+                    crate::entry::put_entry_counters(
+                        state,
+                        id,
+                        baylee_cards_dsl::CounterKind::P1P1,
+                        n,
+                    );
+                }
+            }
+            None
+        }
+        Effect::CreateTokenCopy {
+            target,
+            controller,
+            amount,
+            mods,
+            tapped,
+            attacking,
+            haste_until_eot,
+            cleanup,
+        } => copy_tokens::create_for_target(
+            state,
+            res,
+            target,
+            controller,
+            amount,
+            copy_tokens::TokenCopySpec {
+                mods,
+                tapped,
+                attacking,
+                haste_until_eot,
+                cleanup,
+            },
+        ),
+        Effect::ChooseAndCreateTokenCopy {
+            filter,
+            amount,
+            mods,
+            tapped,
+            attacking,
+            haste_until_eot,
+            cleanup,
+        } => copy_tokens::choose_and_create(
+            state,
+            res,
+            filter,
+            amount,
+            copy_tokens::TokenCopySpec {
+                mods,
+                tapped,
+                attacking,
+                haste_until_eot,
+                cleanup,
+            },
+        ),
         Effect::CreateTokenFromLinked { token } => {
             // The exiled card's owner creates the token; its power and
             // toughness are the exiled card's mana value.
@@ -338,7 +392,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     }
 }
 
-/// Maps literal words in a copy exception, leaving copied values unchanged.
+/// Copies the incarnation selected from the battlefield or graveyard.
 fn create_modified_token_copies(
     state: &mut GameState,
     res: &Resolution,
@@ -346,36 +400,51 @@ fn create_modified_token_copies(
     mods: &[baylee_cards_dsl::CopyMod],
     count: u32,
 ) -> Vec<ObjectId> {
-    let Some(base) = crate::layers::copiable_values(state, original) else {
+    let Some(reference) = state.source_identity(original) else {
         return Vec::new();
     };
+    create_modified_token_copies_for(state, res, res.controller, reference, mods, count)
+}
+
+pub(super) fn create_modified_token_copies_for(
+    state: &mut GameState,
+    res: &Resolution,
+    controller: PlayerId,
+    reference: DamageSourceRef,
+    mods: &[baylee_cards_dsl::CopyMod],
+    count: u32,
+) -> Vec<ObjectId> {
+    let Some((base, copied)) = crate::copiable_abilities::copy_snapshot(state, reference) else {
+        return Vec::new();
+    };
+    if mods.is_empty() {
+        return create_token_copies_from(state, controller, reference, &base, count);
+    }
     let mut modified = (*base).clone();
     for modifier in mods {
-        apply_copy_mod_with_text(&mut modified, modifier, res.text);
+        apply_copy_mod_with_names(&mut modified, modifier, res.text, Some(&mut state.names));
     }
     let types = modified.types;
-    let made = create_token_copies(
+    let made = create_token_copies_from(
         state,
-        res.controller,
-        original,
+        controller,
+        reference,
         &std::sync::Arc::new(modified),
         count,
     );
     // Copy exceptions also suppress the abilities defining the replaced values
     // (CR 707.9d), before the next projection or entry trigger scan.
-    if let Some(copied) = state.printed_ability_list(original) {
-        let own = state
-            .printed_ability_list(res.source)
-            .unwrap_or_else(|| copied.clone());
-        let index = state
-            .object(res.on_stack)
-            .and_then(|o| o.ability)
-            .map_or(0, |a| a.index);
-        let abilities = crate::copiable_abilities::compose(copied, &own, index, mods, None);
-        for id in &made {
-            if let Some(object) = state.object_mut(*id) {
-                object.take_abilities(abilities.clone());
-            }
+    let own = state
+        .printed_ability_list(res.source)
+        .unwrap_or_else(|| copied.clone());
+    let index = state
+        .object(res.on_stack)
+        .and_then(|o| o.ability)
+        .map_or(0, |a| a.index);
+    let abilities = crate::copiable_abilities::compose(copied, &own, index, mods, None);
+    for id in &made {
+        if let Some(object) = state.object_mut(*id) {
+            object.take_abilities(abilities.clone());
         }
     }
     // No rules processing intervenes before these entry counters are placed.
@@ -390,24 +459,35 @@ fn create_modified_token_copies(
                 crate::copiable_abilities::copy_entry_counter(modifier, types, res.x.unwrap_or(0))
                 && amount > 0
             {
-                crate::entry::put_counters(state, res.controller, id, kind, amount);
+                crate::entry::put_counters(state, controller, id, kind, amount);
             }
         }
     }
     made
 }
 
+#[cfg(test)]
 pub(super) fn apply_copy_mod_with_text(
     base: &mut Characteristics,
     modifier: &baylee_cards_dsl::CopyMod,
     text: TextChangeMap,
 ) {
+    apply_copy_mod_with_names(base, modifier, text, None);
+}
+
+pub(super) fn apply_copy_mod_with_names(
+    base: &mut Characteristics,
+    modifier: &baylee_cards_dsl::CopyMod,
+    text: TextChangeMap,
+    names: Option<&mut crate::state::Names>,
+) {
     let previous = base.clone();
-    crate::copiable_abilities::apply_characteristic_exceptions_with_text(
+    crate::copiable_abilities::apply_characteristic_exceptions_with_names(
         base,
         &previous,
         std::slice::from_ref(modifier),
         text,
+        names,
     );
 }
 
@@ -464,6 +544,112 @@ pub(super) fn create_tokens_with_text(
         text,
         TokenEntry::default(),
     )
+}
+
+static GIFT_ANY_COLOR: &[baylee_core::mana::ManaColor] = &[
+    baylee_core::mana::ManaColor::White,
+    baylee_core::mana::ManaColor::Blue,
+    baylee_core::mana::ManaColor::Black,
+    baylee_core::mana::ManaColor::Red,
+    baylee_core::mana::ManaColor::Green,
+];
+
+static GIFT_TREASURE_ABILITIES: &[baylee_cards_dsl::AbilityDef] =
+    &[baylee_cards_dsl::mana_ability!(
+        baylee_cards_dsl::cost!(TapSelf, SacrificeSelf),
+        &[baylee_cards_dsl::Effect::mana_choice(GIFT_ANY_COLOR)]
+    )];
+
+static GIFT_FOOD_ABILITIES: &[baylee_cards_dsl::AbilityDef] = &[baylee_cards_dsl::activated!(
+    baylee_cards_dsl::cost!("{2}", TapSelf, SacrificeSelf),
+    &[baylee_cards_dsl::Effect::gain_life(3)]
+)];
+
+static GIFT_FOOD: baylee_cards_dsl::TokenDef = baylee_cards_dsl::TokenDef {
+    name: "Food",
+    types: baylee_core::types::TypeSet::ARTIFACT,
+    subtypes: &[baylee_core::generated::subtypes::artifact::FOOD],
+    abilities: GIFT_FOOD_ABILITIES,
+    scryfall_id: "bf36408d-ed85-497f-8e68-d3a922c388a0",
+    ..baylee_cards_dsl::TokenDef::DEFAULT
+};
+
+static GIFT_TREASURE: baylee_cards_dsl::TokenDef = baylee_cards_dsl::TokenDef {
+    name: "Treasure",
+    types: baylee_core::types::TypeSet::ARTIFACT,
+    subtypes: &[baylee_core::generated::subtypes::artifact::TREASURE],
+    abilities: GIFT_TREASURE_ABILITIES,
+    scryfall_id: "0559f9f3-eff0-465d-93c1-e875a8afe87f",
+    ..baylee_cards_dsl::TokenDef::DEFAULT
+};
+
+static GIFT_FISH_1_1_BLUE: baylee_cards_dsl::TokenDef = baylee_cards_dsl::TokenDef {
+    name: "Fish",
+    colors: baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Blue]),
+    types: baylee_core::types::TypeSet::CREATURE,
+    subtypes: &[baylee_core::generated::subtypes::creature::FISH],
+    power: Some(1),
+    toughness: Some(1),
+    ..baylee_cards_dsl::TokenDef::DEFAULT
+};
+
+static GIFT_OCTOPUS_8_8_BLUE: baylee_cards_dsl::TokenDef = baylee_cards_dsl::TokenDef {
+    name: "Octopus",
+    colors: baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Blue]),
+    types: baylee_core::types::TypeSet::CREATURE,
+    subtypes: &[baylee_core::generated::subtypes::creature::OCTOPUS],
+    power: Some(8),
+    toughness: Some(8),
+    ..baylee_cards_dsl::TokenDef::DEFAULT
+};
+
+/// Delivers the promised `kind` gift to [`super::gift_recipient_of_resolution`]
+/// and records [`GameEvent::GiftGiven`] (`CR 702.174a–i`).
+pub(super) fn deliver_gift(
+    state: &mut GameState,
+    res: &Resolution,
+    kind: baylee_cards_dsl::GiftKind,
+) {
+    let Some(recipient) =
+        super::gift_recipient_of_resolution(state, res).filter(|seat| !state.has_left(*seat))
+    else {
+        return;
+    };
+    match kind {
+        baylee_cards_dsl::GiftKind::Card => {
+            state.draw_cards(recipient, 1);
+        }
+        baylee_cards_dsl::GiftKind::Food => {
+            create_tokens_with_text(state, recipient, &GIFT_FOOD, None, 1, res.text);
+        }
+        baylee_cards_dsl::GiftKind::TappedFish => {
+            create_tokens_entering(
+                state,
+                recipient,
+                &GIFT_FISH_1_1_BLUE,
+                None,
+                1,
+                res.text,
+                TokenEntry {
+                    tapped: true,
+                    ..TokenEntry::default()
+                },
+            );
+        }
+        baylee_cards_dsl::GiftKind::Treasure => {
+            create_tokens_with_text(state, recipient, &GIFT_TREASURE, None, 1, res.text);
+        }
+        baylee_cards_dsl::GiftKind::Octopus => {
+            create_tokens_with_text(state, recipient, &GIFT_OCTOPUS_8_8_BLUE, None, 1, res.text);
+        }
+        baylee_cards_dsl::GiftKind::ExtraTurn => {
+            state.extra_turns.push_front(recipient);
+        }
+    }
+    state.journal.record(crate::event::GameEvent::GiftGiven {
+        giver: res.controller,
+        recipient,
+    });
 }
 
 fn create_tokens_entering(
@@ -525,17 +711,32 @@ pub(super) fn create_token_copies(
     base: &std::sync::Arc<Characteristics>,
     count: u32,
 ) -> Vec<ObjectId> {
+    let Some(reference) = state.source_identity(original) else {
+        return Vec::new();
+    };
+    create_token_copies_from(state, controller, reference, base, count)
+}
+
+fn create_token_copies_from(
+    state: &mut GameState,
+    controller: PlayerId,
+    reference: DamageSourceRef,
+    base: &std::sync::Arc<Characteristics>,
+    count: u32,
+) -> Vec<ObjectId> {
     // As `create_tokens` (CR 800.4b, 800.4d).
     if state.has_left(controller) {
         return Vec::new();
     }
-    let own = state.printed_ability_list(original);
-    let (token, face) = state.object(original).map_or((None, None), |object| {
-        (
-            object.token,
-            object.card.map(|card| (card.index, object.face_index)),
-        )
-    });
+    let Some(object) = state.source_object(reference) else {
+        return Vec::new();
+    };
+    let token = object.token;
+    let dfc_token = object.card.is_none() && token.is_some_and(|t| t.back_face.is_some());
+    let token_face = if dfc_token { object.face_index } else { 0 };
+    let own = (!dfc_token || object.own_abilities.is_some())
+        .then(|| object.printed_ability_list(state.bases.as_ref()));
+    let face = object.card.map(|card| (card.index, object.face_index));
     let Some(count) = crate::replacement::token_multiplier(state, controller, base.types)
         .and_then(|factor| count.checked_mul(factor))
     else {
@@ -554,6 +755,7 @@ pub(super) fn create_token_copies(
                     obj.take_abilities(own.clone());
                 }
                 obj.token = token;
+                obj.face_index = token_face;
                 obj
             });
             if let Some((card, face)) = face {
@@ -672,6 +874,40 @@ fn create_token_entering(
     }
     arrive(state, id);
     id
+}
+
+fn create_attacking_tokens(
+    state: &mut GameState,
+    res: &mut Resolution,
+    you: PlayerId,
+    token: &'static baylee_cards_dsl::TokenDef,
+    amount: &Amount,
+    sacrifice_at_next_end_step: bool,
+) -> Option<Pending> {
+    let count = amount2(amount, state, you, res);
+    let made = create_tokens_entering(
+        state,
+        you,
+        token,
+        None,
+        count,
+        res.text,
+        TokenEntry {
+            tapped: true,
+            temporary_haste_source: None,
+        },
+    );
+    if sacrifice_at_next_end_step {
+        for &id in &made {
+            let version = state.object(id).map_or(0, |o| o.version);
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::NextEndStep,
+                action: crate::state::DelayedAction::Sacrifice { card: id, version },
+            });
+        }
+    }
+    super::attacking_tokens::start(state, res, made)
 }
 
 #[cfg(test)]

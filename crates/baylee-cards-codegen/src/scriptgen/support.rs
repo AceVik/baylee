@@ -13,7 +13,67 @@ use super::{BTreeMap, CardScript, Params, SubtypeCatalogs, TokenLookup, Tx, cost
 /// `transcode-report`) count it as read on this alone, and `codegen` decides.
 #[must_use]
 pub fn is_vanilla(script: &CardScript) -> bool {
-    script.keywords.is_empty() && script.rules.is_empty() && script.unknown_lines.is_empty()
+    script.keywords.is_empty()
+        && script.rules.is_empty()
+        && script.unknown_lines.is_empty()
+        && script.alternate_mode.is_none()
+        && script.alternate.is_none()
+}
+
+fn refusal_reason_face(
+    script: &CardScript,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
+    allow_vanilla: bool,
+) -> Option<String> {
+    if script.keywords.iter().any(|word| word == "Mayhem") && !script.is_land {
+        return Some("costless Mayhem without a land type line".to_string());
+    }
+    if script.has_commander_text
+        && !script.oracle.trim().is_empty()
+        && !script
+            .oracle
+            .to_ascii_lowercase()
+            .contains("can be your commander")
+    {
+        return Some("commander `Text:` without matching `Oracle:` line".to_string());
+    }
+    let mut tx = Tx::new(script, cats, tokens);
+    for line in script
+        .keywords
+        .iter()
+        .filter(|line| line.starts_with("Kicker:"))
+    {
+        if tx.keyword(line).is_none() {
+            return tx.unclaimed.into_inner();
+        }
+    }
+    for line in script
+        .keywords
+        .iter()
+        .filter(|line| !line.starts_with("Kicker:"))
+    {
+        if tx.keyword(line).is_none() {
+            return tx.unclaimed.into_inner();
+        }
+    }
+    for (kind, spec) in &script.rules {
+        if tx.rule(*kind, spec).is_none() {
+            return tx.unclaimed.into_inner();
+        }
+    }
+    if tx.block_halves_paired().is_none() {
+        return tx.unclaimed.into_inner();
+    }
+    // [`transcode`]'s last refusal, mirrored. A script that is read in full
+    // and yields nothing is a card whose rules text this transcoder has no
+    // rule for at all — usually a vanilla body, and never a defect — but it
+    // is a *reason*, and leaving it out filed every one of them under "no
+    // reason recorded".
+    if !(tx.body.has_own_rules() || allow_vanilla && super::is_vanilla_face(script)) {
+        return Some("a script that reads as an empty card".to_string());
+    }
+    None
 }
 
 /// Reads a script and, when it is refused over a parameter, names it.
@@ -33,29 +93,50 @@ pub fn refusal_reason(
     if !script.unknown_lines.is_empty() {
         return None;
     }
-    if script.keywords.iter().any(|word| word == "Mayhem") && !script.is_land {
-        return Some("costless Mayhem without a land type line".to_string());
+    if script.alternate_mode.is_none() && script.alternate.is_none() {
+        return refusal_reason_face(script, cats, tokens, false);
     }
-    let mut tx = Tx::new(script, cats, tokens);
-    for line in &script.keywords {
-        if tx.keyword(line).is_none() {
-            return tx.unclaimed.into_inner();
+    let Some(mode) = script.alternate_mode.as_deref() else {
+        return Some("ALTERNATE face without AlternateMode".to_string());
+    };
+    if !matches!(
+        mode,
+        "Split" | "Adventure" | "Modal" | "DoubleFaced" | "Prepare"
+    ) {
+        return Some(format!("unsupported alternate mode `{mode}`"));
+    }
+    let Some(back) = script.alternate.as_deref() else {
+        return Some("alternate mode without an ALTERNATE face".to_string());
+    };
+    if script.is_room || back.is_room {
+        return Some("Room split card".to_string());
+    }
+    if back.alternate_mode.is_some() || back.alternate.is_some() {
+        return Some("more than two faces".to_string());
+    }
+    if back.copy_face_from.is_some() {
+        return Some("unresolved `CopyFaceFrom` face".to_string());
+    }
+    if let Some(line) = back.unknown_lines.first() {
+        let head = line.split(':').next().unwrap_or(line);
+        return Some(format!("unmodelled line kind `{head}:`"));
+    }
+    if let Some(why) = refusal_reason_face(script, cats, tokens, true) {
+        return Some(why);
+    }
+    if let Some(why) = refusal_reason_face(back, cats, tokens, true) {
+        return Some(why);
+    }
+    if let Some(mut front_body) = super::transcode_face(script, cats, tokens, String::new(), true) {
+        let statics = std::mem::take(&mut front_body.statics);
+        if let Some(mut back_body) = super::transcode_face(back, cats, tokens, statics, true)
+            && let Some(why) =
+                super::finalize_two_face_bodies(mode, script, back, &front_body, &mut back_body)
+        {
+            return Some(why);
         }
     }
-    for (kind, spec) in &script.rules {
-        if tx.rule(*kind, spec).is_none() {
-            return tx.unclaimed.into_inner();
-        }
-    }
-    if tx.block_halves_paired().is_none() {
-        return tx.unclaimed.into_inner();
-    }
-    // [`transcode`]'s last refusal, mirrored. A script that is read in full
-    // and yields nothing is a card whose rules text this transcoder has no
-    // rule for at all — usually a vanilla body, and never a defect — but it
-    // is a *reason*, and leaving it out filed every one of them under "no
-    // reason recorded".
-    if tx.body.is_empty() {
+    if super::is_vanilla_face(script) && super::is_vanilla_face(back) {
         return Some("a script that reads as an empty card".to_string());
     }
     None
@@ -118,8 +199,11 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Untap",
     "Counter",
     "PutCounter",
+    "PutCounterAll",
     "RemoveCounter",
     "RemoveCounterAll",
+    "Proliferate",
+    "SetState",
     "Cleanup",
     "Sacrifice",
     "Pump",
@@ -133,6 +217,40 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Token",
     "Investigate",
     "WinsGame",
+    "TargetOnly",
+    "Fight",
+    "Poison",
+    "Attach",
+    "MustBlock",
+    "RevealHand",
+    "CopySpellAbility",
+    "CopyPermanent",
+    "Clone",
+    "FlipCoin",
+    "RollDice",
+    "ImmediateTrigger",
+    "Amass",
+    "AlterAttribute",
+    "BecomeMonarch",
+    "GainControl",
+    "ChooseColor",
+    "ProtectionAll",
+    "RepeatEach",
+    "ChooseCard",
+    "PeekAndReveal",
+    "Reveal",
+    "Goad",
+    "Incubate",
+    "MultiplyCounter",
+    "Earthbend",
+    "ChangeTargets",
+    "Monstrosity",
+    "Suspect",
+    "Radiation",
+    "ExchangeControl",
+    "MoveCounter",
+    "LosesGame",
+    "SkipPhase",
 ];
 
 /// A cost token that names an object, split into its kind and its body.
@@ -171,7 +289,9 @@ pub(super) fn asks_for_an_object(part: &str) -> bool {
         "Sacrifice(",
         "Discard(",
         "TapOther(",
+        "TapN {",
         "ReturnToHand(",
+        "ExileFromHand(",
         "ExileFromGraveyard(",
         "ExilePermanent(",
     ]

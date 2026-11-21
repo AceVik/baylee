@@ -364,3 +364,39 @@ fn ability_origin_stays_unknown_without_authoritative_kind_and_source_version() 
         ));
     }
 }
+
+#[test]
+fn in_zone_reads_public_zones_and_leaves_hidden_zones_unknown() {
+    let mut artifact = printed(1, 1, "Sol Ring", 2);
+    artifact.types = TypeSet::ARTIFACT;
+    let artifact_only = ViewBuilder::new(2)
+        .with_battlefield(1, vec![artifact])
+        .build();
+    assert!(provably_targetless(
+        &artifact_only,
+        in_hand("Unsubstantiate")
+    ));
+
+    let with_creature = ViewBuilder::new(2)
+        .with_battlefield(1, vec![printed(2, 1, "Grizzly Bears", 2)])
+        .build();
+    assert!(!provably_targetless(
+        &with_creature,
+        in_hand("Unsubstantiate")
+    ));
+
+    let with_stack_spell = ViewBuilder::new(2).with_stack(vec![spell(vec![])]).build();
+    assert!(!provably_targetless(
+        &with_stack_spell,
+        in_hand("Unsubstantiate")
+    ));
+    let exiled = printed(4, 1, "Exiled card", 4);
+    assert_eq!(
+        matches(
+            &with_stack_spell,
+            &exiled,
+            &Filter::InZone(baylee_cards_dsl::ZoneRef::Exile)
+        ),
+        None
+    );
+}

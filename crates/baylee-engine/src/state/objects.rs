@@ -115,6 +115,55 @@ impl GameState {
         true
     }
 
+    /// Puts face `face` of a double-faced token permanent up in place of the
+    /// one it shows (`CR 701.27a`, `CR 712.7`, `CR 111.10i`). Returns whether
+    /// the face changed.
+    pub fn turn_over_token(&mut self, id: ObjectId, face: u8) -> bool {
+        let Some((token, current_face)) = self.object(id).and_then(|o| {
+            o.card
+                .is_none()
+                .then_some(o.token?)
+                .filter(|t| t.back_face.is_some())
+                .map(|t| (t, o.face_index))
+        }) else {
+            return false;
+        };
+        let face = face.min(1);
+        if current_face == face {
+            return false;
+        }
+        self.effects.remove_where(|fx| {
+            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
+        });
+        self.replacement_rules.retain(|r| r.source != id);
+        let new_base = self.token_base(token.face(face), None);
+        if let Some(obj) = self.object_mut(id) {
+            obj.face_index = face;
+            obj.base = new_base;
+            obj.cache.clear();
+        }
+        self.characteristics_generation = u64::MAX;
+        true
+    }
+
+    /// Transforms a double-faced token permanent in place (`CR 701.27a,c`,
+    /// `CR 613.7g`, `CR 712.15`), keeping its object identity, counters,
+    /// status, and `controlled_since`, stamping a new `timestamp`, and
+    /// recording `GameEvent::Transformed`.
+    pub fn transform_token(&mut self, id: ObjectId, face: u8) -> bool {
+        let face = face.min(1);
+        if !self.turn_over_token(id, face) {
+            return false;
+        }
+        let ts = self.next_timestamp();
+        if let Some(obj) = self.object_mut(id) {
+            obj.timestamp = ts;
+        }
+        self.journal
+            .record(GameEvent::Transformed { object: id, face });
+        true
+    }
+
     /// Attach an Aura or Equipment to a new permanent. A new attachment
     /// gives it and its static effects a new timestamp (CR 613.7a, 613.7e).
     /// Reattaching to the same object does nothing (CR 701.3b).
@@ -138,7 +187,37 @@ impl GameState {
         }
         let timestamp = on_battlefield.then(|| self.next_timestamp());
         if let Some(object) = self.object_mut(source) {
+            object.set_attached_player(None);
             object.attached_to = Some(host);
+            if let Some(timestamp) = timestamp {
+                object.timestamp = timestamp;
+            }
+        }
+        if let Some(timestamp) = timestamp {
+            self.effects.retimestamp_statics(source, timestamp);
+        }
+        self.invalidate_projections();
+    }
+
+    /// Attach an Aura to a player ("enchant player" / Curses, CR 303.4b). A new
+    /// attachment on the battlefield gives the Aura and its static effects a new
+    /// timestamp (CR 613.7a, CR 613.7e); reattaching to the same player does
+    /// nothing (CR 701.3b).
+    #[doc(hidden)]
+    pub fn attach_to_player(&mut self, source: ObjectId, player: baylee_core::ids::PlayerId) {
+        let Some(object) = self.object(source) else {
+            return;
+        };
+        if object.attached_player() == Some(player) {
+            return;
+        }
+        if self.has_left(player) {
+            return;
+        }
+        let on_battlefield = object.zone == Zone::Battlefield;
+        let timestamp = on_battlefield.then(|| self.next_timestamp());
+        if let Some(object) = self.object_mut(source) {
+            object.set_attached_player(Some(player));
             if let Some(timestamp) = timestamp {
                 object.timestamp = timestamp;
             }
@@ -385,6 +464,130 @@ impl GameState {
         true
     }
 
+    /// Manifests `id` under `controller`'s control as a face-down 2/2 colorless
+    /// nameless creature permanent with no text or mana cost (CR 701.40a).
+    ///
+    /// If a rule or replacement prohibits the face-down permanent from entering
+    /// the battlefield, nothing happens and `id` stays in its current zone
+    /// unchanged (CR 701.40f).
+    pub(crate) fn manifest_card(
+        &mut self,
+        controller: baylee_core::ids::PlayerId,
+        id: ObjectId,
+    ) -> bool {
+        let Some(o) = self.object(id) else {
+            return false;
+        };
+        if !o.is_card() {
+            return false;
+        }
+        let prev_base = Arc::clone(&o.base);
+        let prev_original_base = o.original_base.clone();
+        let prev_status = o.status;
+        let prev_controller = o.controller;
+        let prev_kind = o.kind;
+        let prev_face_index = o.face_index;
+        let had_manifested = o.riders.contains(&crate::object::Rider::Manifested);
+        let nameless = self.names.intern("");
+        if let Some(obj) = self.object_mut(id) {
+            obj.original_base = prev_original_base
+                .clone()
+                .or_else(|| Some(Arc::clone(&prev_base)));
+            obj.status.insert(crate::object::Status::FACE_DOWN);
+            if !had_manifested {
+                obj.riders.push(crate::object::Rider::Manifested);
+            }
+            obj.kind = ObjectKind::Permanent;
+            obj.set_controller(controller);
+            obj.face_index = 0;
+            let c = obj.base_mut();
+            c.name = nameless;
+            c.mana_cost = baylee_core::mana::ManaCost::ZERO;
+            c.colors = baylee_core::color::ColorSet::EMPTY;
+            c.types = baylee_core::types::TypeSet::CREATURE;
+            c.supertypes = baylee_core::types::SupertypeSet::EMPTY;
+            c.subtypes = baylee_core::types::SubtypeSet::EMPTY;
+            c.keywords = baylee_cards_dsl::KeywordSet::EMPTY;
+            c.power = Some(2);
+            c.toughness = Some(2);
+            c.loyalty = None;
+            c.produced_colors = baylee_core::color::ColorSet::EMPTY;
+            c.produced_colorless = false;
+            c.produced_chosen = false;
+            obj.cache.clear();
+        }
+        self.set_tapped(id, false);
+        let moved = self.move_object(
+            id,
+            ZoneLocation::Battlefield,
+            ZonePosition::Top,
+            crate::event::Cause::Effect,
+        );
+        let entered = moved.is_ok()
+            && (self.object(id).is_some_and(|o| o.zone == Zone::Battlefield)
+                || self.entries.contains(id));
+        if !entered {
+            if let Some(obj) = self.object_mut(id) {
+                obj.base = prev_base;
+                obj.original_base = prev_original_base;
+                obj.status = prev_status;
+                obj.set_controller(prev_controller);
+                obj.kind = prev_kind;
+                obj.face_index = prev_face_index;
+                if !had_manifested {
+                    obj.riders
+                        .retain(|r| *r != crate::object::Rider::Manifested);
+                }
+                obj.cache.clear();
+            }
+            self.invalidate_projections();
+            return false;
+        }
+        self.invalidate_projections();
+        true
+    }
+
+    /// Turns a face-down permanent on the battlefield face up by effect
+    /// (CR 708.8). If it is represented by an instant or sorcery card, its
+    /// controller reveals it and leaves it face down without firing
+    /// `TurnedFaceUp` triggers (CR 701.40g).
+    pub(crate) fn turn_permanent_face_up(&mut self, id: ObjectId) -> bool {
+        let Some(o) = self.object(id) else {
+            return false;
+        };
+        if o.zone != Zone::Battlefield || !o.status.contains(crate::object::Status::FACE_DOWN) {
+            return false;
+        }
+        let non_permanent_spell = o.original_base.as_ref().is_some_and(|b| {
+            b.types.intersects(
+                baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY),
+            )
+        });
+        if non_permanent_spell {
+            let controller = o.controller;
+            self.journal.record(GameEvent::Revealed {
+                player: controller,
+                cards: vec![id],
+            });
+            return false;
+        }
+        let object = self.object_mut(id).expect("checked permanent");
+        object.status.remove(crate::object::Status::FACE_DOWN);
+        object.riders.retain(|r| {
+            !matches!(
+                r,
+                crate::object::Rider::Manifested | crate::object::Rider::Masked
+            )
+        });
+        if let Some(original) = object.original_base.take() {
+            object.base = original;
+        }
+        object.cache.clear();
+        self.invalidate_projections();
+        self.journal.record(GameEvent::TurnedFaceUp { object: id });
+        true
+    }
+
     /// Tells the projection that the board moved under it — something tapped,
     /// something began or stopped attacking.
     ///
@@ -516,11 +719,15 @@ impl GameState {
                 Some(AbilityDef::ModalTriggered { .. } | AbilityDef::ModalActivated { .. })
             );
         !announcing
-            && foreign(crate::object::ability_target_req(
+            && (foreign(crate::object::ability_target_req(
+                abilities.clone(),
+                loc.index,
+                object.mode_index,
+            )) || foreign(crate::object::ability_second_target_req(
                 abilities,
                 loc.index,
                 object.mode_index,
-            ))
+            )))
     }
 
     /// The current copiable rules of an admitted object, without a second registry.
@@ -659,5 +866,201 @@ impl GameState {
             return self.text_changes.get(source);
         }
         crate::text_changes::TextChangeMap::IDENTITY
+    }
+
+    /// Active soulbond partner of `id`, if both permanents are currently
+    /// non-phased-out creatures on the battlefield under the same player's
+    /// control with reciprocal [`crate::object::Rider::PairedWith`] riders
+    /// (CR 702.95b, CR 702.95d, CR 702.95e, CR 702.26b).
+    #[must_use]
+    pub fn paired_partner(&self, id: ObjectId) -> Option<ObjectId> {
+        let a = self.object(id)?;
+        if a.zone != Zone::Battlefield
+            || a.status.contains(crate::object::Status::PHASED_OUT)
+            || !a
+                .characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+        {
+            return None;
+        }
+        let (partner_id, partner_version) = a.paired_with_raw()?;
+        if partner_id == id {
+            return None;
+        }
+        let b = self.object(partner_id)?;
+        if b.zone != Zone::Battlefield
+            || b.status.contains(crate::object::Status::PHASED_OUT)
+            || b.version != partner_version
+            || b.controller != a.controller
+            || !b
+                .characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+            || b.paired_with_raw() != Some((id, a.version))
+        {
+            return None;
+        }
+        Some(partner_id)
+    }
+
+    /// Whether `id` (at optional `version`) is currently a non-phased-out,
+    /// unpaired creature on the battlefield controlled by `player`.
+    #[must_use]
+    pub(crate) fn is_unpaired_creature_controlled_by(
+        &self,
+        id: ObjectId,
+        version: Option<u32>,
+        player: baylee_core::ids::PlayerId,
+    ) -> bool {
+        let Some(obj) = self.object(id) else {
+            return false;
+        };
+        obj.zone == Zone::Battlefield
+            && !obj.status.contains(crate::object::Status::PHASED_OUT)
+            && version.is_none_or(|v| obj.version == v)
+            && obj.controller == player
+            && obj
+                .characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+            && self.paired_partner(id).is_none()
+    }
+
+    /// Whether `a` and `b` can currently become paired by `player`'s soulbond
+    /// ability (CR 702.95a, CR 702.95c, CR 702.95d).
+    #[must_use]
+    pub(crate) fn can_soulbond_pair(
+        &self,
+        player: baylee_core::ids::PlayerId,
+        a: ObjectId,
+        a_version: Option<u32>,
+        b: ObjectId,
+        b_version: Option<u32>,
+    ) -> bool {
+        a != b
+            && self.is_unpaired_creature_controlled_by(a, a_version, player)
+            && self.is_unpaired_creature_controlled_by(b, b_version, player)
+    }
+
+    /// Breaks any soulbond pairing involving `id` on both sides (CR 702.95e),
+    /// returning `true` if a rider was removed.
+    pub(crate) fn unpair_creature(&mut self, id: ObjectId) -> bool {
+        let direct_partner = self
+            .object(id)
+            .and_then(crate::object::GameObject::paired_with_raw)
+            .map(|(partner, _)| partner);
+        let mut to_clear = smallvec::SmallVec::<[ObjectId; 2]>::new();
+        if self.object(id).is_some_and(|o| {
+            o.riders
+                .iter()
+                .any(|r| matches!(r, crate::object::Rider::PairedWith(..)))
+        }) {
+            to_clear.push(id);
+        }
+        if let Some(partner) = direct_partner
+            && !to_clear.contains(&partner)
+        {
+            to_clear.push(partner);
+        }
+        // phasing: unpairing also clears PairedWith riders on phased-out partners (CR 702.95e).
+        for &bf_id in self.zones.list(ZoneLocation::Battlefield) {
+            if !to_clear.contains(&bf_id)
+                && self.object(bf_id).is_some_and(|o| {
+                    o.riders
+                        .iter()
+                        .any(|r| matches!(*r, crate::object::Rider::PairedWith(p, _) if p == id))
+                })
+            {
+                to_clear.push(bf_id);
+            }
+        }
+        let mut changed = false;
+        for clear_id in to_clear {
+            if let Some(obj) = self.object_mut(clear_id) {
+                let before = obj.riders.len();
+                obj.riders
+                    .retain(|r| !matches!(r, crate::object::Rider::PairedWith(..)));
+                changed |= obj.riders.len() != before;
+            }
+        }
+        if changed {
+            self.invalidate_projections();
+        }
+        changed
+    }
+
+    /// Pairs `a` and `b` via soulbond if still legal (CR 702.95a–d), refreshing
+    /// projections immediately so continuous grants on the pair take effect.
+    pub(crate) fn pair_creatures(
+        &mut self,
+        player: baylee_core::ids::PlayerId,
+        a: ObjectId,
+        a_version: Option<u32>,
+        b: ObjectId,
+        b_version: Option<u32>,
+    ) -> bool {
+        if !self.can_soulbond_pair(player, a, a_version, b, b_version) {
+            return false;
+        }
+        let _ = self.unpair_creature(a);
+        let _ = self.unpair_creature(b);
+        let (Some(va), Some(vb)) = (
+            self.object(a).map(|o| o.version),
+            self.object(b).map(|o| o.version),
+        ) else {
+            return false;
+        };
+        if let Some(oa) = self.object_mut(a) {
+            oa.riders.push(crate::object::Rider::PairedWith(b, vb));
+        }
+        if let Some(ob) = self.object_mut(b) {
+            ob.riders.push(crate::object::Rider::PairedWith(a, va));
+        }
+        self.invalidate_projections();
+        self.refresh_characteristics();
+        true
+    }
+
+    /// Unpairs any battlefield permanents whose soulbond pairing has ceased to
+    /// hold because either stopped being a creature, left the battlefield, or
+    /// changed controller (CR 702.95e). Leaves pairings with a phased-out
+    /// permanent dormant while phased out until it phases in (CR 702.26b).
+    pub(crate) fn prune_broken_soulbond_pairs(&mut self) -> bool {
+        let mut broken = smallvec::SmallVec::<[ObjectId; 2]>::new();
+        // phasing: walks raw battlefield while keeping phased-out pairings dormant (CR 702.26b, CR 702.95e).
+        for &id in self.zones.list(ZoneLocation::Battlefield) {
+            let Some(a) = self.object(id) else {
+                continue;
+            };
+            if a.status.contains(crate::object::Status::PHASED_OUT) {
+                continue;
+            }
+            let Some((partner_id, partner_version)) = a.paired_with_raw() else {
+                continue;
+            };
+            let valid = partner_id != id
+                && a.characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+                && self.object(partner_id).is_some_and(|b| {
+                    b.zone == Zone::Battlefield
+                        && b.version == partner_version
+                        && (b.status.contains(crate::object::Status::PHASED_OUT)
+                            || (b.controller == a.controller
+                                && b.characteristics()
+                                    .types
+                                    .contains(baylee_core::types::TypeSet::CREATURE)
+                                && b.paired_with_raw() == Some((id, a.version))))
+                });
+            if !valid && !broken.contains(&id) {
+                broken.push(id);
+            }
+        }
+        let mut changed = false;
+        for id in broken {
+            changed |= self.unpair_creature(id);
+        }
+        changed
     }
 }

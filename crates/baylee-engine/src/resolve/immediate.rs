@@ -46,6 +46,13 @@ pub(super) fn exec_immediate(
             res.awaiting = Some(AwaitingOp::SourceColor { source });
             Some(pending)
         }
+        Effect::ChooseColor => {
+            res.awaiting = Some(AwaitingOp::ChooseColor);
+            Some(Pending::ChooseColor {
+                player: you,
+                options: ManaColor::ALL[..5].to_vec(),
+            })
+        }
         Effect::PlayerMayPayManaAndLifeEachThenElse {
             player,
             mana,
@@ -109,6 +116,18 @@ pub(super) fn exec_immediate(
             effects,
         } => {
             super::control_observers::register(state, res, watch, when, about, effects);
+            None
+        }
+        Effect::RegisterDelayedTrigger {
+            when,
+            condition,
+            targets,
+            remember,
+            effects,
+        } => {
+            super::delayed_general::register(
+                state, res, when, condition, targets, remember, effects,
+            );
             None
         }
         Effect::TapAndPayEnergyForCounters { who, filter, kind } => {
@@ -247,6 +266,43 @@ pub(super) fn exec_immediate(
             );
             None
         }
+        Effect::BecomeCopy {
+            subject,
+            subject_filter,
+            original,
+            original_is_second_target,
+            until_eot,
+            mods,
+        } => {
+            super::copying::become_copy(
+                state,
+                res,
+                super::copying::BecomeCopySpec {
+                    subject,
+                    subject_filter,
+                    original,
+                    original_is_second_target,
+                    until_eot,
+                    mods,
+                },
+            );
+            None
+        }
+        Effect::CopySpellOrAbility {
+            target,
+            controller,
+            amount,
+            mods,
+            may_choose_new_targets,
+        } => super::copying::copy_spell_or_ability(
+            state,
+            res,
+            target,
+            controller,
+            amount,
+            mods,
+            may_choose_new_targets,
+        ),
         Effect::ControlPlayerPlayCard { player } => {
             let player = players_of(player, state, you, res).first().copied()?;
             let options = state.zones.list(ZoneLocation::Hand(player)).clone();
@@ -367,6 +423,7 @@ pub(super) fn exec_immediate(
         | Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { .. }
         | Effect::LoseLife { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
+        | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamage { .. }
         | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }
@@ -393,6 +450,9 @@ pub(super) fn exec_immediate(
         | Effect::ChooseDamageSourcePreventAllThisTurn
         | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
         | Effect::PreventNextFromChosenSource { .. }
+        | Effect::PreventFromChosenSource { .. }
+        | Effect::PreventNextFromMatchingSources { .. }
+        | Effect::PreventAllDamageFromMatchingThisTurn { .. }
         | Effect::RedirectNextFromChosenSource { .. }
         | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
             life::exec(state, res, op)
@@ -445,6 +505,7 @@ pub(super) fn exec_immediate(
         | Effect::PutTargetIntoLibraryBeneathTop { .. }
         | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::ExileSource
+        | Effect::ExileWarped
         | Effect::ExileAndReturnAtEndStep
         | Effect::ExileAndReturnTappedAtEndStep
         | Effect::ReturnExiledGroupToOwners { .. }
@@ -542,11 +603,16 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokenN { .. }
         | Effect::CreateTokenModified { .. }
         | Effect::CreateTokenAttacking { .. }
+        | Effect::Mobilize(_)
         | Effect::CreateTokenThenCounters { .. }
         | Effect::Fabricate { .. }
+        | Effect::Endure(_)
         | Effect::CreateTokenThenAttachSelf { .. }
         | Effect::CreateTokenPtPerCount { .. }
         | Effect::CreateToken { .. }
+        | Effect::Incubate { .. }
+        | Effect::CreateTokenCopy { .. }
+        | Effect::ChooseAndCreateTokenCopy { .. }
         | Effect::CreateTokenFromLinked { .. } => tokens::exec(state, res, op),
         // --- Control ---------------------------------------------------
         Effect::ExchangeControlOrSacrifice => {
@@ -1518,7 +1584,8 @@ pub(super) fn exec_immediate(
             let can = |player: PlayerId, delta: i32| {
                 delta == 0
                     || (!state.life_total_cant_change(player)
-                        && (delta > 0 || !state.cant_lose_life(player)))
+                        && (delta >= 0 || !state.cant_lose_life(player))
+                        && (delta <= 0 || !state.cant_gain_life(player)))
             };
             if can(you, theirs - mine) && can(other, mine - theirs) {
                 state.change_life(you, theirs - mine, Cause::Effect);
@@ -1770,11 +1837,108 @@ pub(super) fn exec_immediate(
                 super::CoinContinuation::FlipBranches { won, lost },
             ) {
                 super::coin::Flip::Outcome(heads) => {
+                    if heads {
+                        res.subject.coins_won = res.subject.coins_won.saturating_add(1);
+                    }
                     run_nested(state, res, if heads { won } else { lost })
                 }
                 super::coin::Flip::Wait(pending) => Some(*pending),
             }
         }
+        Effect::FlipCoins {
+            count,
+            stop_on_loss,
+            per_win,
+            if_won_all,
+        } => super::coin::flip_coins(state, res, count, stop_on_loss, per_win, if_won_all),
+        Effect::FlipUntilLose {
+            max_flips,
+            per_win,
+            after,
+        } => super::coin::flip_until_lose(state, res, max_flips, per_win, after),
+        Effect::RollDice {
+            count,
+            sides,
+            modifier,
+        } => {
+            let dice = amount2(&count, state, you, res);
+            let result = super::dice::roll_dice(state, you, dice, sides, modifier);
+            res.subject.last_die_roll = Some(result);
+            None
+        }
+        Effect::IfDieRollInRange {
+            min,
+            max,
+            then,
+            otherwise,
+        } => {
+            let roll = res.subject.last_die_roll.unwrap_or(0);
+            let branch = if roll >= u32::from(min) && roll <= u32::from(max) {
+                then
+            } else {
+                otherwise
+            };
+            run_nested(state, res, branch)
+        }
+        Effect::GrantProtectionFromChosenColorUntilEot { filter } => {
+            super::wave3_ops::grant_protection_from_chosen_color(state, res, filter);
+            None
+        }
+        Effect::RepeatEach { domain, effects } => {
+            super::wave3_ops::repeat_each(state, res, domain, effects, op)
+        }
+        Effect::ChooseCard {
+            chooser,
+            zone,
+            filter,
+            min,
+            max,
+            movement,
+            then,
+        } => super::wave3_ops::choose_card_start(
+            state, res, chooser, zone, filter, min, max, movement, then,
+        ),
+        Effect::PeekAndReveal {
+            library,
+            count,
+            reveal_all,
+            reveal_chosen,
+            filter,
+            min_pick,
+            max_pick,
+            picked,
+            rest,
+            if_picked,
+        } => super::wave3_ops::peek_and_reveal_start(
+            state,
+            res,
+            library,
+            count,
+            reveal_all,
+            reveal_chosen,
+            filter,
+            min_pick,
+            max_pick,
+            picked,
+            rest,
+            if_picked,
+        ),
+        Effect::RevealFromHand {
+            who,
+            filter,
+            min,
+            max,
+            if_revealed,
+        } => {
+            super::wave3_ops::reveal_from_hand_start(state, res, who, filter, min, max, if_revealed)
+        }
+        Effect::RevealTop {
+            player,
+            count,
+            filter,
+            if_matches,
+            otherwise,
+        } => super::wave3_ops::reveal_top(state, res, player, count, filter, if_matches, otherwise),
         Effect::IfEventPowerAtLeast { n, then, otherwise } => {
             let power = res
                 .event_object
@@ -1855,6 +2019,10 @@ pub(super) fn exec_immediate(
             {
                 return None;
             }
+            let bound_seats = resolution_bound_seats(state, res, you, &modifier);
+            if matches!(bound_seats.as_deref(), Some([])) {
+                return None;
+            }
             let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
                 // Nothing to become anything: the ability said "target" and
                 // was activated with none, or its object is gone, so this
@@ -1862,7 +2030,14 @@ pub(super) fn exec_immediate(
                 let this = this_to_affect(state, res)?;
                 smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
             } else {
-                bound_now_with_context(state, filter, &modifier, you, res.rule_context(), None)
+                bound_now_with_context(
+                    state,
+                    filter,
+                    &modifier,
+                    you,
+                    res.rule_context(),
+                    bound_seats.as_deref(),
+                )
             };
             let timestamp = state.next_timestamp();
             for filter in filters {
@@ -2044,6 +2219,19 @@ pub(super) fn exec_immediate(
             target,
         } => {
             reflexive::arm(state, res, when, effects, target);
+            None
+        }
+        Effect::ReflexiveTrigger {
+            when,
+            once,
+            condition,
+            targets,
+            remember,
+            effects,
+        } => {
+            reflexive::arm_general(
+                state, res, when, once, condition, targets, remember, effects,
+            );
             None
         }
         Effect::BecomeSaddled => {
@@ -2665,6 +2853,23 @@ pub(super) fn exec_immediate(
             state.extra_turns.push_front(you);
             None
         }
+        Effect::AdditionalCombatPhase {
+            followed_by_main_phase,
+        } => {
+            resolve_additional_combat_phase(state, followed_by_main_phase);
+            None
+        }
+        Effect::AwakenLand { count } => {
+            super::wave10b::resolve_awaken_land(state, res, count);
+            None
+        }
+        Effect::Cipher => super::wave10b::resolve_cipher(state, res),
+        Effect::CipherCastEncoded => super::wave10b::resolve_cipher_cast_encoded(state, res),
+        Effect::Champion { filter } => super::wave10b::resolve_champion(state, res, filter),
+        Effect::ReturnChampioned => {
+            super::wave10b::resolve_return_championed(state, res);
+            None
+        }
         Effect::CreateEmblem { abilities } => {
             let name = match state.object(res.source) {
                 Some(o) => o.base.name,
@@ -2715,8 +2920,39 @@ pub(super) fn exec_immediate(
             for &target in &res.targets.clone() {
                 tap(state, target);
             }
-            for &target in &res.second_targets.clone() {
+            None
+        }
+        Effect::TapTargetSlot(slot) => {
+            let targets: SmallVec<[ObjectId; 2]> = match slot {
+                baylee_cards_dsl::TargetSlot::This => subjects::source(state, res)
+                    .filter(|s| subjects::on_battlefield(state, *s))
+                    .map(|s| s.object)
+                    .into_iter()
+                    .collect(),
+                baylee_cards_dsl::TargetSlot::First => res.targets.clone(),
+                baylee_cards_dsl::TargetSlot::Second => {
+                    res.second_targets.iter().copied().collect()
+                }
+            };
+            for target in targets {
                 tap(state, target);
+            }
+            None
+        }
+        Effect::UntapTargetSlot(slot) => {
+            let targets: SmallVec<[ObjectId; 2]> = match slot {
+                baylee_cards_dsl::TargetSlot::This => subjects::source(state, res)
+                    .filter(|s| subjects::on_battlefield(state, *s))
+                    .map(|s| s.object)
+                    .into_iter()
+                    .collect(),
+                baylee_cards_dsl::TargetSlot::First => res.targets.clone(),
+                baylee_cards_dsl::TargetSlot::Second => {
+                    res.second_targets.iter().copied().collect()
+                }
+            };
+            for target in targets {
+                untap(state, target);
             }
             None
         }
@@ -2824,6 +3060,253 @@ pub(super) fn exec_immediate(
         Effect::ExileTopMayCast { who, nonland_only } => {
             permissions::exile_top_may_cast(state, res, who, nonland_only)
         }
+        Effect::ExileTopWithPermission {
+            who,
+            ref count,
+            permission,
+        } => permissions::exile_top_with_permission(state, res, who, count, permission),
+        Effect::ExileWithPermission {
+            target,
+            until,
+            permission,
+        } => permissions::exile_with_permission(state, res, target, until, permission),
+        Effect::GrantLinkedExilePermission { permission } => {
+            permissions::grant_linked_exile_permission(state, res, permission)
+        }
+        Effect::ManifestTop { who, count } => {
+            // CR 701.40a, CR 701.40e: manifest the top N cards of each affected
+            // player's library one at a time.
+            let counts: Vec<(PlayerId, usize)> = players_of(who, state, you, res)
+                .into_iter()
+                .map(|player| {
+                    let n = super::amount_for_player(&count, state, you, res, player);
+                    (player, n as usize)
+                })
+                .collect();
+            for (player, n) in counts {
+                let library = ZoneLocation::Library(player);
+                for _ in 0..n {
+                    let Some(&top) = state.zones.list(library).last() else {
+                        break;
+                    };
+                    if !state.manifest_card(player, top) {
+                        break;
+                    }
+                }
+            }
+            None
+        }
+        Effect::ManifestDread => {
+            // CR 701.62a: look at the top two cards of your library, manifest
+            // one of them, then put the cards you looked at that were not
+            // manifested this way into your graveyard.
+            let library = ZoneLocation::Library(you);
+            let looked: Vec<ObjectId> = state
+                .zones
+                .list(library)
+                .iter()
+                .rev()
+                .take(2)
+                .copied()
+                .collect();
+            match looked.as_slice() {
+                [] => None,
+                [only] => {
+                    if !state.manifest_card(you, *only) && state.zones.contains(*only, library) {
+                        let owner = state.object(*only).map_or(you, |o| o.owner);
+                        let _ = state.move_object(
+                            *only,
+                            ZoneLocation::Graveyard(owner),
+                            ZonePosition::Top,
+                            Cause::Effect,
+                        );
+                    }
+                    None
+                }
+                _ => {
+                    res.awaiting = Some(AwaitingOp::ManifestDread {
+                        looked: looked.clone(),
+                    });
+                    Some(Pending::ChooseCards {
+                        player: you,
+                        options: looked,
+                        min: 1,
+                        max: 1,
+                        prompt: ChoicePrompt::ManifestDread,
+                        total: None,
+                    })
+                }
+            }
+        }
+        Effect::TurnFaceUp { target } => {
+            for target_id in zones::moving_objects(state, res, target) {
+                state.turn_permanent_face_up(target_id);
+            }
+            None
+        }
+        Effect::Plot { target } => {
+            for target_id in zones::moving_objects(state, res, target) {
+                state.plot_card_into_exile(you, target_id);
+            }
+            None
+        }
+        Effect::PlotTop { who, count } => {
+            let counts: Vec<(PlayerId, u32)> = players_of(who, state, you, res)
+                .into_iter()
+                .map(|player| {
+                    let n = super::amount_for_player(&count, state, you, res, player);
+                    (player, n)
+                })
+                .collect();
+            for (player, n) in counts {
+                for _ in 0..n {
+                    let Some(&top) = state.zones.list(ZoneLocation::Library(player)).last() else {
+                        break;
+                    };
+                    if !state.plot_card_into_exile(player, top) {
+                        break;
+                    }
+                }
+            }
+            None
+        }
+        Effect::Backup {
+            count,
+            keywords,
+            grant_abilities,
+        } => {
+            let targets = res.targets.clone();
+            for target_id in targets {
+                if !state
+                    .object(target_id)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                {
+                    continue;
+                }
+                if count > 0 {
+                    crate::replacement::put_counters_by(
+                        state,
+                        you,
+                        target_id,
+                        baylee_cards_dsl::CounterKind::P1P1,
+                        u16::from(count),
+                    );
+                }
+                let Some(target_version) = state
+                    .object(target_id)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                    .map(|o| o.version)
+                else {
+                    continue;
+                };
+                let same_source = subjects::source(state, res)
+                    .map_or(target_id == res.source, |src| {
+                        src.object == target_id && src.version == target_version
+                    });
+                if same_source {
+                    continue;
+                }
+                let filter = crate::effects::EffectFilter::ObjectIs(target_id, target_version);
+                let mut granted_any = false;
+                if !keywords.is_empty() {
+                    let timestamp = state.next_timestamp();
+                    state.effects.register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(res.source),
+                        controller: you,
+                        origin: crate::effects::EffectOrigin::Resolution,
+                        layer: baylee_cards_dsl::Layer::Ability,
+                        timestamp,
+                        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                        filter,
+                        modifier: baylee_cards_dsl::Modifier::AddKeyword(keywords),
+                    });
+                    granted_any = true;
+                }
+                for ability in grant_abilities {
+                    let (layer, modifier) = match ability {
+                        baylee_cards_dsl::AbilityDef::Activated { .. }
+                        | baylee_cards_dsl::AbilityDef::ActivatedConditional { .. }
+                        | baylee_cards_dsl::AbilityDef::Loyalty { .. }
+                        | baylee_cards_dsl::AbilityDef::ModalActivated { .. } => (
+                            baylee_cards_dsl::Layer::Ability,
+                            baylee_cards_dsl::Modifier::GrantActivatedDefinition(ability),
+                        ),
+                        baylee_cards_dsl::AbilityDef::Triggered { .. }
+                        | baylee_cards_dsl::AbilityDef::ModalTriggered { .. } => (
+                            baylee_cards_dsl::Layer::Ability,
+                            baylee_cards_dsl::Modifier::GrantTriggeredDefinition(ability),
+                        ),
+                        baylee_cards_dsl::AbilityDef::Static(s) => {
+                            if s.filter == baylee_cards_dsl::Filter::This {
+                                (s.modifier.layer(), s.modifier)
+                            } else {
+                                (
+                                    baylee_cards_dsl::Layer::Ability,
+                                    baylee_cards_dsl::Modifier::GrantStatic {
+                                        filter: &s.filter,
+                                        modifier: &s.modifier,
+                                    },
+                                )
+                            }
+                        }
+                        _ => continue,
+                    };
+                    let timestamp = state.next_timestamp();
+                    state.effects.register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(res.source),
+                        controller: you,
+                        origin: crate::effects::EffectOrigin::Resolution,
+                        layer,
+                        timestamp,
+                        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                        filter,
+                        modifier,
+                    });
+                    granted_any = true;
+                }
+                if granted_any {
+                    state.invalidate_projections();
+                }
+            }
+            None
+        }
+        Effect::DeliverGift(kind) => {
+            tokens::deliver_gift(state, res, kind);
+            None
+        }
+        Effect::Monstrosity(amount) => {
+            super::wave4_combat::become_monstrous(state, res, amount);
+            None
+        }
+        Effect::SetClassLevel(level) => {
+            super::class::set_level(state, res, level);
+            None
+        }
+        Effect::Suspect { target } => {
+            super::wave4_combat::resolve_suspect(state, res, target, true);
+            None
+        }
+        Effect::Unsuspect { target } => {
+            super::wave4_combat::resolve_suspect(state, res, target, false);
+            None
+        }
+        Effect::RingTemptsYou => super::wave4_combat::resolve_ring_tempts_you(state, res),
+        Effect::Firebend(amount) => {
+            let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
+            if n > 0 && !state.has_left(you) {
+                mana::add_combat_mana(state, res, baylee_core::mana::ManaColor::Red, n);
+                state
+                    .journal
+                    .record(crate::event::GameEvent::PlayerFirebent {
+                        player: you,
+                        source: res.source,
+                        amount: n,
+                    });
+            }
+            None
+        }
         Effect::TapAll { filter } => {
             let you = res.controller;
             let all: Vec<ObjectId> = state
@@ -2885,6 +3368,77 @@ pub(super) fn exec_immediate(
         Effect::UntapTarget => {
             for &target in &res.targets {
                 untap(state, target);
+            }
+            None
+        }
+        Effect::MustBlockSourceIfAbleThisCombat => {
+            if let Some(attacker) =
+                subjects::source(state, res).filter(|r| subjects::on_battlefield(state, *r))
+            {
+                for &target in &res.targets {
+                    if let Some(blocker) = subjects::target(state, res, target)
+                        .filter(|r| subjects::on_battlefield(state, *r))
+                        && blocker != attacker
+                    {
+                        state.per_turn.must_block_pairs.0.push(
+                            crate::state::MustBlockRequirement {
+                                blocker,
+                                attacker,
+                                this_combat_only: true,
+                            },
+                        );
+                    }
+                }
+            }
+            None
+        }
+        Effect::MustBlockIfAble {
+            blocker,
+            attacker,
+            this_combat_only,
+        } => {
+            let resolve_group =
+                |spec: TargetSpec, use_second: bool| -> Vec<baylee_core::ids::DamageSourceRef> {
+                    match spec {
+                        TargetSpec::ThisObject => subjects::source(state, res)
+                            .filter(|r| subjects::on_battlefield(state, *r))
+                            .into_iter()
+                            .collect(),
+                        TargetSpec::EventObject => subjects::event(state, res)
+                            .filter(|r| subjects::on_battlefield(state, *r))
+                            .into_iter()
+                            .collect(),
+                        _ if use_second => res
+                            .second_targets
+                            .iter()
+                            .filter_map(|&id| state.source_identity(id))
+                            .filter(|r| subjects::on_battlefield(state, *r))
+                            .collect(),
+                        _ => res
+                            .targets
+                            .iter()
+                            .filter_map(|&id| subjects::target(state, res, id))
+                            .filter(|r| subjects::on_battlefield(state, *r))
+                            .collect(),
+                    }
+                };
+            let attacker_is_second = !res.second_targets.is_empty()
+                && !matches!(attacker, TargetSpec::ThisObject | TargetSpec::EventObject)
+                && !matches!(blocker, TargetSpec::ThisObject | TargetSpec::EventObject);
+            let blockers = resolve_group(blocker, false);
+            let attackers = resolve_group(attacker, attacker_is_second);
+            for b in &blockers {
+                for a in &attackers {
+                    if b != a {
+                        state.per_turn.must_block_pairs.0.push(
+                            crate::state::MustBlockRequirement {
+                                blocker: *b,
+                                attacker: *a,
+                                this_combat_only,
+                            },
+                        );
+                    }
+                }
             }
             None
         }
@@ -3231,6 +3785,9 @@ pub(super) fn exec_immediate(
                     let idx = state.rng.below(pool.len() as u64) as usize;
                     cards.push(pool.remove(idx));
                 }
+                if let Some(&first) = cards.first() {
+                    super::wave3_ops::bind_remembered_object(state, res, first);
+                }
                 state.journal.record(GameEvent::Revealed { player, cards });
             }
             None
@@ -3388,6 +3945,8 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayMillOr { .. }
         | Effect::RaidingParty
         | Effect::ChoosePhaseToSkipThisTurn
+        | Effect::SoulbondPair { .. }
+        | Effect::Clash { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
@@ -3510,6 +4069,37 @@ pub(super) fn exec_immediate(
             })
         }
         Effect::RevealUntilLandDealDamage { target } => life::reveal_until_land(state, res, target),
+        Effect::Goad { target } => crate::combat::goad::resolve_target(state, res, target),
+        Effect::GoadAll {
+            filter,
+            controlled_by,
+        } => {
+            let seats = controlled_by.map(|rel| players_of(rel, state, you, res));
+            crate::combat::goad::resolve_all(state, res, filter, seats.as_deref())
+        }
+        Effect::PutNinjutsuOntoBattlefield => {
+            wave4_combat::put_ninjutsu_onto_battlefield(state, res)
+        }
+        Effect::Myriad => wave4_combat::start_myriad(state, res),
+        Effect::ExertSource => {
+            wave4_combat::exert_source(state, res);
+            None
+        }
+        Effect::Bolster(amount) => wave4_combat::start_bolster(state, res, amount),
+        Effect::Exploit => wave4_combat::start_exploit(state, res),
+        Effect::ReturnCraftedTransformed => reanimation::exec(state, res, op),
+        Effect::BecomeRenowned(count) => {
+            wave4_combat::become_renowned(state, res, count);
+            None
+        }
+        Effect::Detain { target } => {
+            wave4_combat::detain_target(state, res, target);
+            None
+        }
+        Effect::DetainFilter { filter } => {
+            wave4_combat::detain_filter(state, res, filter);
+            None
+        }
     }
 }
 
@@ -3666,40 +4256,20 @@ fn resolution_condition(
 ) -> bool {
     use baylee_cards_dsl::{Condition, Filter};
     match condition {
-        Condition::DiscardedForCost(filter) => state
-            .object(res.on_stack)
-            .and_then(|object| object.paid.as_ref())
-            .is_some_and(|paid| {
-                paid.discarded.iter().any(|reference| {
-                    state.source_object(*reference).is_some_and(|object| {
-                        eval::matches_with_context(
-                            filter,
-                            state,
-                            object,
-                            res.controller,
-                            res.rule_context(),
-                        )
-                    })
-                })
-            }),
-        Condition::SacrificedForCost(filter) => state
-            .object(res.on_stack)
-            .and_then(|object| object.paid.as_ref())
-            .is_some_and(|paid| {
-                paid.sacrificed.is_some_and(|(object, version)| {
-                    state
-                        .source_object(baylee_core::ids::DamageSourceRef { object, version })
-                        .is_some_and(|object| {
-                            eval::matches_with_context(
-                                filter,
-                                state,
-                                object,
-                                res.controller,
-                                res.rule_context(),
-                            )
-                        })
-                })
-            }),
+        Condition::DiscardedForCost(filter) => eval::discarded_for_cost(
+            state,
+            res.on_stack,
+            res.controller,
+            res.rule_context(),
+            filter,
+        ),
+        Condition::SacrificedForCost(filter) => eval::sacrificed_for_cost(
+            state,
+            res.on_stack,
+            res.controller,
+            res.rule_context(),
+            filter,
+        ),
         Condition::SourceMatches(Filter::PowerAtLeast(n)) => {
             state
                 .object(res.on_stack)
@@ -3728,6 +4298,13 @@ fn resolution_condition(
         Condition::AmountAtLeast(amount, minimum) => {
             amount2(&amount, state, res.controller, res) >= minimum
         }
+        Condition::AmountCompare { left, op, right } => op.holds(
+            amount2(left, state, res.controller, res),
+            amount2(right, state, res.controller, res),
+        ),
+        Condition::ObjectMatches { what, filter } => {
+            resolution_object_matches(state, res, *what, filter)
+        }
         Condition::All(parts) => parts.iter().all(|c| resolution_condition(state, res, *c)),
         Condition::Any(parts) => parts.iter().any(|c| resolution_condition(state, res, *c)),
         Condition::Not(inner) => !resolution_condition(state, res, *inner),
@@ -3740,6 +4317,37 @@ fn resolution_condition(
             .or_else(|| state.damage_source(res.source, source_version(state, res)))
             .or_else(|| state.object(res.on_stack))
             .is_some_and(|object| object.kicked_with(index)),
+        Condition::IsRenowned => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Renowned)),
+        Condition::IsMonstrous => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Monstrous)),
+        Condition::ClassLevelExactly(_) | Condition::ClassLevelAtLeast(_) => {
+            eval::condition_with_event(
+                state,
+                res.controller,
+                res.rule_context(),
+                condition,
+                source_version(state, res),
+                None,
+            )
+        }
+        Condition::IsSuspected => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Suspected)),
+        Condition::CountersOnSelf(kind, min) => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| object.counters.get(kind) >= u16::from(min)),
+        Condition::CountersOnSelfExactly(kind, count) => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| object.counters.get(kind) == u16::from(count)),
+        Condition::CountersOnSelfBetween(kind, min, max) => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| {
+                (u16::from(min)..=u16::from(max)).contains(&object.counters.get(kind))
+            }),
+        Condition::GiftWasPromised => super::gift_recipient_of_resolution(state, res).is_some(),
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)
         }
@@ -3852,4 +4460,124 @@ fn takklemaggot_death(state: &mut GameState, res: &mut Resolution) -> Option<Pen
         Cause::Effect,
     );
     None
+}
+
+fn resolution_object_matches(
+    state: &GameState,
+    res: &Resolution,
+    what: TargetSpec,
+    filter: &'static baylee_cards_dsl::Filter,
+) -> bool {
+    let reference = match what {
+        TargetSpec::ThisObject => subjects::source(state, res),
+        TargetSpec::EventObject => subjects::event(state, res),
+        _ => res
+            .targets
+            .first()
+            .and_then(|&id| subjects::target(state, res, id)),
+    };
+    let Some(r) = reference else {
+        return false;
+    };
+    let Some(object) = state.source_object(r) else {
+        return false;
+    };
+    let context = res.rule_context();
+    if object.zone != crate::zone::Zone::Battlefield
+        && let Some(&(_, ltb_ver)) = state.ltb_versions.iter().find(|&&(id, ver)| {
+            id == r.object && (ver == r.version || ver.wrapping_add(1) == r.version)
+        })
+    {
+        // InZone reads the successor's location, while combat history is
+        // keyed by the incarnation that left the battlefield.
+        let mut as_it_was = object.clone();
+        as_it_was.version = ltb_ver;
+        if !state
+            .damage_source(r.object, Some(ltb_ver))
+            .is_some_and(|pre| pre.status.contains(crate::object::Status::FACE_DOWN))
+            && let Some(was) = state.last_known_characteristics(r.object)
+        {
+            as_it_was.counters = state
+                .ltb_counters
+                .iter()
+                .find(|(id, _)| *id == r.object)
+                .map_or_default(|(_, counters)| counters.clone());
+            return eval::matches_projected_with_context(
+                filter,
+                state,
+                &as_it_was,
+                was,
+                res.controller,
+                context,
+            );
+        }
+        return eval::matches_with_context(filter, state, &as_it_was, res.controller, context);
+    }
+    eval::matches_with_context(filter, state, object, res.controller, context)
+}
+
+fn resolution_bound_seats(
+    state: &GameState,
+    res: &Resolution,
+    you: PlayerId,
+    modifier: &baylee_cards_dsl::Modifier,
+) -> Option<Vec<PlayerId>> {
+    use baylee_cards_dsl::{DamageRecipients, Modifier};
+    let (Modifier::PlayersCantCast { who, .. }
+    | Modifier::SpellCastLimitPerTurn { who, .. }
+    | Modifier::MatchingSpellCastLimitPerTurn { who, .. }
+    | Modifier::PlayerHexproof { who }
+    | Modifier::PlayerProtectionFrom { who, .. }
+    | Modifier::PlayerProtectionFromEverything { who }
+    | Modifier::PlayerProtectionFromOpponents { who }
+    | Modifier::PlayersCantGainLife(who)
+    | Modifier::PreventNoncombatDamageToPlayers { who, .. }
+    | Modifier::MultiplyDamageFrom {
+        recipients: DamageRecipients::Players(who) | DamageRecipients::PlayersOrTheirPermanents(who),
+        ..
+    }
+    | Modifier::AddDamageFrom {
+        recipients: DamageRecipients::Players(who) | DamageRecipients::PlayersOrTheirPermanents(who),
+        ..
+    }) = *modifier
+    else {
+        return None;
+    };
+    if crate::eval::players_for_source(who, state, you, Some(res.source)).is_some() {
+        return None;
+    }
+    Some(players_of(who, state, you, res))
+}
+
+fn resolve_additional_combat_phase(state: &mut GameState, followed_by_main_phase: bool) {
+    use crate::turn::Phase;
+    const MAX_EXTRA_COMBAT_PHASES_PER_TURN: u32 = 16;
+    if state.turn.phase == Phase::Ending
+        || state.per_turn.extra_phases_created.0 >= MAX_EXTRA_COMBAT_PHASES_PER_TURN
+    {
+        return;
+    }
+    if !state.per_turn.phase_stack_active.0 {
+        state.per_turn.phase_stack_active.0 = true;
+        match state.turn.phase {
+            Phase::Beginning => {
+                state.per_turn.extra_phases.0.push(Phase::SecondMain);
+                state.per_turn.extra_phases.0.push(Phase::Combat);
+                state.per_turn.extra_phases.0.push(Phase::FirstMain);
+            }
+            Phase::FirstMain => {
+                state.per_turn.extra_phases.0.push(Phase::SecondMain);
+                state.per_turn.extra_phases.0.push(Phase::Combat);
+            }
+            Phase::Combat => {
+                state.per_turn.extra_phases.0.push(Phase::SecondMain);
+            }
+            Phase::SecondMain | Phase::Ending => {}
+        }
+    }
+    state.per_turn.extra_phases_created.0 = state.per_turn.extra_phases_created.0.saturating_add(1);
+    if followed_by_main_phase {
+        state.per_turn.extra_phases.0.push(Phase::SecondMain);
+    }
+    state.per_turn.extra_phases.0.push(Phase::Combat);
 }

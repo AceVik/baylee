@@ -216,23 +216,15 @@ fn leader_problems(main: &[CardIndex], leaders: &[CardIndex], problems: &mut Vec
     }
     let led: Vec<_> = leaders.iter().filter_map(|l| leader_of(*l)).collect();
     for l in &led {
-        if !l.eligible {
+        if !l.eligible() || (leaders.len() == 1 && !l.eligible_alone) {
             problems.push(Problem::NotALeader {
                 card: l.index.get(),
             });
         }
     }
-    if let [a] = led.as_slice()
-        && a.eligible
-        && a.background
-    {
-        problems.push(Problem::NotALeader {
-            card: a.index.get(),
-        });
-    }
     if let [a, b] = led.as_slice()
-        && a.eligible
-        && b.eligible
+        && a.eligible()
+        && b.eligible()
         && !may_lead_together(a, b)
     {
         problems.push(Problem::CannotLeadTogether {
@@ -349,7 +341,7 @@ mod tests {
         // A mono-white leader cannot take an Island.
         let white = crate::all()
             .find(|d| {
-                crate::decks::leader_of(d.index).is_some_and(|l| l.eligible)
+                crate::decks::leader_of(d.index).is_some_and(|l| l.eligible_alone)
                     && d.color_identity == ColorSet::from_slice(&[baylee_core::color::Color::White])
             })
             .expect("a mono-white leader in the pool")

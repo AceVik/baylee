@@ -111,6 +111,47 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
                 card: front,
                 price: None,
             });
+            for (_, way) in legal.cast_ways.iter().filter(|(card, w)| {
+                if *card != id {
+                    return false;
+                }
+                match w.kind {
+                    CastModeKind::Prototype
+                    | CastModeKind::Disguise
+                    | CastModeKind::Bestow
+                    | CastModeKind::Dash
+                    | CastModeKind::Blitz
+                    | CastModeKind::Warp
+                    | CastModeKind::Sneak
+                    | CastModeKind::Emerge
+                    | CastModeKind::Fused
+                    | CastModeKind::Plot
+                    | CastModeKind::Impending
+                    | CastModeKind::Awaken => true,
+                    CastModeKind::Alternative(i) => face(front)
+                        .and_then(|f| f.alternative_costs.get(i))
+                        .is_some_and(|alt| {
+                            alt.cost.parts.is_empty()
+                                && matches!(
+                                    alt.condition,
+                                    baylee_cards_dsl::AltCondition::If(
+                                        baylee_cards_dsl::Condition::OpponentLostLifeThisTurn
+                                            | baylee_cards_dsl::Condition::Surge
+                                            | baylee_cards_dsl::Condition::Prowl
+                                            | baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn
+                                    )
+                                )
+                        }),
+                    _ => false,
+                }
+            }) {
+                out.push(Way {
+                    id,
+                    kind: way.kind,
+                    card: front,
+                    price: Some(way.cost),
+                });
+            }
             continue;
         }
         for (kind, cost) in named {
@@ -256,7 +297,12 @@ impl HeuristicAgent {
             if view.sorcery_lock.is_some() && !main {
                 continue;
             }
-            let Some(score) = score(view, id, card, available).filter(|score| *score > 0) else {
+            let raw_score = if kind == CastModeKind::Disguise {
+                Some(200)
+            } else {
+                score(view, id, card, available)
+            };
+            let Some(score) = raw_score.filter(|score| *score > 0) else {
                 continue;
             };
             let budget = if main && !instant {

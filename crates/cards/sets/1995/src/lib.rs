@@ -447,6 +447,8 @@ pub mod infuse;
 pub mod irini_sengir;
 #[path = "hml/ironclaw_curse.rs"]
 pub mod ironclaw_curse;
+#[path = "pmei/jamuraan_lion.rs"]
+pub mod jamuraan_lion;
 #[path = "ice/jester_s_cap.rs"]
 pub mod jester_s_cap;
 #[path = "ice/jester_s_mask.rs"]
@@ -647,10 +649,14 @@ pub mod panic;
 pub mod pentagram_of_the_ages;
 #[path = "ice/pestilence_rats.rs"]
 pub mod pestilence_rats;
+#[path = "pmei/phantasmal_dragon.rs"]
+pub mod phantasmal_dragon;
 #[path = "ice/phantasmal_mount.rs"]
 pub mod phantasmal_mount;
 #[path = "pmei/phyrexian_rager.rs"]
 pub mod phyrexian_rager;
+#[path = "pmei/picard_steadfast_captain.rs"]
+pub mod picard_steadfast_captain;
 #[path = "ice/pit_trap.rs"]
 pub mod pit_trap;
 #[path = "ice/polar_kraken.rs"]

@@ -351,17 +351,30 @@ fn pick_block_choice(duel: &mut Duel, index: usize) -> bool {
 /// read, exactly as every other chooser in this file does — a bar drawn a
 /// frame ago must not be able to pick a way the board no longer offers.
 pub(crate) fn take_cast_row(duel: &mut Duel, at: usize) {
-    let Some(card) = duel.cast_menu.as_ref().map(|m| m.card) else {
+    let Some(menu) = duel.cast_menu.take() else {
         return;
     };
-    let Some(mode) = cast_menu_for(duel, card).and_then(|m| m.mode(at).cloned()) else {
-        // The card has stopped offering that many ways. Close rather than
-        // guess: the player is looking at a list that is no longer true.
-        duel.cast_menu = None;
+    let card = menu.card;
+    let Some(fresh) = cast_rows_for(duel, card) else {
         duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
         return;
     };
-    duel.cast_menu = None;
+    if at == menu.modes.len()
+        && menu.suspend_cost.is_some()
+        && fresh.suspend_cost.is_some()
+        && arm_suspend(duel, card)
+    {
+        return;
+    }
+    // A stale row must still name the same play even when another row has
+    // appeared or disappeared in front of it.
+    let Some(mode) = menu
+        .mode(at)
+        .and_then(|old| fresh.modes.into_iter().find(|mode| mode.kind == old.kind))
+    else {
+        duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
+        return;
+    };
     if matches!(mode.kind, baylee_engine::choice::CastModeKind::Foretell) {
         // This is a special action from hand, not a cast mode to remember for
         // the engine's later ChooseCastMode question.
@@ -408,21 +421,9 @@ pub(crate) fn take_cast_row(duel: &mut Duel, at: usize) {
 /// [`activate_card`] is the only door either menu is opened through, and it
 /// closes the other one before it takes any branch at all.
 pub fn cast_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
-    let Some(card) = duel.cast_menu.as_ref().map(|m| m.card) else {
+    let Some(menu) = duel.cast_menu.as_ref() else {
         return false;
     };
-    let Some(fresh) = cast_menu_for(duel, card) else {
-        // Fewer than two ways left: the chooser is stale, and holding it open
-        // would keep the keyboard hostage over a question that has answered
-        // itself.
-        duel.cast_menu = None;
-        return false;
-    };
-    let len = fresh.modes.len();
-    if let Some(menu) = duel.cast_menu.as_mut() {
-        menu.modes = fresh.modes;
-        menu.pick = menu.pick.min(len - 1);
-    }
     if fired.has(Action::Cancel) {
         duel.cast_menu = None;
         return true;
@@ -430,18 +431,39 @@ pub fn cast_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
     let step = i32::from(fired.has(Action::CursorDown)) - i32::from(fired.has(Action::CursorUp))
         + i32::from(fired.has(Action::CursorRight))
         - i32::from(fired.has(Action::CursorLeft));
-    if step != 0 {
-        if let Some(menu) = duel.cast_menu.as_mut() {
-            let at = i32::try_from(menu.pick).unwrap_or(0);
-            let wide = i32::try_from(len).unwrap_or(1);
-            menu.pick = usize::try_from((at + step).rem_euclid(wide)).unwrap_or(0);
-        }
-        return true;
-    }
-    if fired.has(Action::Primary) || fired.has(Action::Confirm) || fired.has(Action::ActivateCard) {
-        let at = duel.cast_menu.as_ref().map_or(0, |m| m.pick);
+    if step == 0
+        && (fired.has(Action::Primary)
+            || fired.has(Action::Confirm)
+            || fired.has(Action::ActivateCard))
+    {
+        let at = menu.pick;
         take_cast_row(duel, at);
         return true;
     }
-    false
+    let Some(mut fresh) = cast_menu_for(duel, menu.card) else {
+        // Fewer than two ways left: the chooser is stale, and holding it open
+        // would keep the keyboard hostage over a question that has answered
+        // itself.
+        duel.cast_menu = None;
+        return false;
+    };
+    let len = fresh.row_count();
+    fresh.pick = if let Some(old) = menu.mode(menu.pick) {
+        fresh
+            .modes
+            .iter()
+            .position(|mode| mode.kind == old.kind)
+            .unwrap_or(0)
+    } else if menu.suspend_cost.is_some() && fresh.suspend_cost.is_some() {
+        fresh.modes.len()
+    } else {
+        0
+    };
+    if step != 0 {
+        let at = i32::try_from(fresh.pick).unwrap_or(0);
+        let wide = i32::try_from(len).unwrap_or(1);
+        fresh.pick = usize::try_from((at + step).rem_euclid(wide)).unwrap_or(0);
+    }
+    duel.cast_menu = Some(fresh);
+    step != 0
 }

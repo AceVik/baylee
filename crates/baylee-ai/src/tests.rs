@@ -121,6 +121,10 @@ fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
+        plotted: false,
+        warped: false,
+        suspected: false,
+        class_level: None,
         token: None,
         colors: ColorSet::EMPTY,
         mana_value: 1,
@@ -382,6 +386,7 @@ fn chosen_and_linked_filters_are_read_from_generation_19_and_refused_before() {
     for filter in [
         Filter::OfSourceChosenCardType,
         Filter::OfSourceChosenColor,
+        Filter::ChosenColor,
         Filter::SameNameAsLinkedExile,
         Filter::SharesColorWithExiledWithSource,
     ] {
@@ -396,4 +401,85 @@ fn chosen_and_linked_filters_are_read_from_generation_19_and_refused_before() {
             "{filter:?} before generation 19"
         );
     }
+}
+
+#[test]
+fn wave9c_strive_cap_either_cost_preference_and_ring_bearer_selection() {
+    use baylee_cards_dsl::{Cost, CostPart, Filter, KeywordSet};
+    use baylee_core::mana::ManaCost;
+    use baylee_engine::choice::ChoicePrompt;
+    use baylee_engine::engine::DecisionContext;
+
+    let me = PlayerId::new(0);
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+
+    // 1) Strive cap: base `{R}` + `{2}{R}` per extra target with `{R}{R}{C}{C}` floating -> 2 targets.
+    let mut v = view(0, &[20, 20], vec![]);
+    v.seats[0].mana_pool.red = 2;
+    v.seats[0].mana_pool.colorless = 2;
+    let base = ManaCost::parse("{R}");
+    let each = ManaCost::parse("{2}{R}");
+    assert_eq!(
+        policy::strive_affordable_targets(&v, obj(90), (1, 4), &base, &each),
+        2
+    );
+
+    // 2) Either cost branch preference: `{3}{B}` beats sacrificing a 5/5 creature,
+    // while sacrificing a 1/1 token beats `{3}{B}`.
+    let sac_creature = Cost {
+        mana: ManaCost::ZERO,
+        parts: &[CostPart::Sacrifice(&Filter::CREATURE)],
+    };
+    let pay_3b = Cost {
+        mana: ManaCost::parse("{3}{B}"),
+        parts: &[],
+    };
+    let mut big = carded(permanent(obj(1), me, 5), "Serra Angel", TypeSet::CREATURE);
+    big.mana_value = 5;
+    let mut v_big = view(0, &[20, 20], vec![big]);
+    v_big.seats[0].mana_pool.black = 5;
+    let cast_ctx = DecisionContext {
+        actor: Some(me),
+        source: Some(obj(91)),
+        cost: Some(ManaCost::parse("{B}")),
+        ..DecisionContext::default()
+    };
+    assert!(
+        !agent.prefers_cost_branch_pair(&v_big, &cast_ctx, &sac_creature, &pay_3b),
+        "paying {{3}}{{B}} beats sacrificing a 5/5 non-token creature"
+    );
+
+    let mut token = permanent(obj(2), me, 0);
+    token.toughness = Some(1);
+    let mut v_tok = view(0, &[20, 20], vec![token]);
+    v_tok.hand.push(hand_card(50, "Counterspell"));
+    v_tok.seats[0].mana_pool.black = 5;
+    assert!(
+        agent.prefers_cost_branch_pair(&v_tok, &cast_ctx, &sac_creature, &pay_3b),
+        "sacrificing a 0/1 token beats spending {{3}}{{B}} when holding up interaction"
+    );
+
+    // 3) ChooseRingBearer prefers a 2/2 non-legendary attacker over a Defender wall.
+    let mut wall = permanent(obj(3), me, 0);
+    wall.toughness = Some(4);
+    wall.keywords = KeywordSet::DEFENDER.bits();
+    let scout = permanent(obj(4), me, 2);
+    let v_ring = view(0, &[20, 20], vec![wall, scout]);
+    let ans = agent.act(
+        &v_ring,
+        &Pending::ChooseCards {
+            player: me,
+            options: vec![obj(3), obj(4)],
+            min: 1,
+            max: 1,
+            prompt: ChoicePrompt::ChooseRingBearer,
+            total: None,
+        },
+    );
+    assert_eq!(
+        ans,
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(4)]
+        }
+    );
 }

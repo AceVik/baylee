@@ -493,6 +493,15 @@ fn a_back_face_is_named_and_a_leading_match_comes_first() {
     );
     assert_eq!(
         rows.first().map(|row| row.label.as_str()),
+        Some("Pith Driller")
+    );
+    let rows = card_name_rows(
+        "pithi",
+        baylee_core::types::TypeSet::EMPTY,
+        baylee_core::types::TypeSet::EMPTY,
+    );
+    assert_eq!(
+        rows.first().map(|row| row.label.as_str()),
         Some("Pithing Needle")
     );
     assert!(
@@ -1085,8 +1094,15 @@ fn every_mode_in_the_pool_is_a_row_in_the_card_s_words() {
             );
             let oracle = baylee_cards::oracle::face(def.index, CAST_FACE)
                 .expect("a pool card has its Oracle text");
+            let oracle_rules: String = oracle
+                .lines()
+                .map(|line| {
+                    crate::cardtext::join_rules(&baylee_client_core::card_face::split_blocks(line))
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
             assert!(
-                oracle.contains(row.label.as_str()),
+                oracle_rules.contains(row.label.as_str()),
                 "{} mode {at}: {:?} is not what the card prints",
                 def.name(),
                 row.label

@@ -459,7 +459,7 @@ fn main() -> anyhow::Result<()> {
                         }
                     }
                     (baylee_deckio::Zone::Commander, Ok(cid)) => {
-                        if leader_of(cid).is_some_and(|l| l.eligible) {
+                        if leader_of(cid).is_some_and(|l| l.eligible()) {
                             cmd_ok.push(cid);
                         } else {
                             *reason_counts

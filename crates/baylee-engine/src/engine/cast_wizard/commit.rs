@@ -145,7 +145,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             )?;
         }
         // Non-mana parts of the chosen alternative or flashback cost.
-        for part in super::wizard_alternative_parts(face, wizard.alternative_cost.or(wizard.option))
+        for part in
+            &super::cost_parts::wizard_alternative_parts_expanded(face, wizard.cost_choice())
         {
             if !paid_as_an_alternative_cost(part) {
                 continue;
@@ -153,6 +154,58 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             match part {
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
+                }
+                CostPart::DealDamageToYou(n) => {
+                    if *n > 0 {
+                        let assignment = crate::damage::Assignment {
+                            source: wizard.card,
+                            source_version: self.state.object(wizard.card).map(|o| o.version),
+                            recipient: crate::event::DamageTarget::Player(player),
+                            amount: u32::from(*n),
+                            is_combat: false,
+                        };
+                        let mut work =
+                            crate::damage::DamageWork::new(&mut self.state, vec![assignment]);
+                        work.finish_cost_damage(&mut self.state);
+                    }
+                }
+                CostPart::Forage => {
+                    let first = cost_objects
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction(
+                            "an object cost the cast never asked about",
+                        ))?;
+                    if self
+                        .state
+                        .object(first)
+                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                    {
+                        sacrificed_object = self.state.object(first).map(|o| (first, o.version));
+                        sacrificed_lki = self
+                            .state
+                            .object(first)
+                            .map(crate::object::SacrificedLki::of);
+                        super::super::cost_wizard::pay(&mut self.state, player, part, first)?;
+                    } else {
+                        let second =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "incomplete graveyard forage cost",
+                                ))?;
+                        let third =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "incomplete graveyard forage cost",
+                                ))?;
+                        for id in [first, second, third] {
+                            super::super::cost_wizard::pay(&mut self.state, player, part, id)?;
+                        }
+                    }
                 }
                 CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) => {
                     let chosen = cost_objects
@@ -217,10 +270,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PayAttachedManaCost
                 | CostPart::ExileTopOfLibrary(_)
                 | CostPart::SacrificeGrantor
+                | CostPart::ReturnUnblockedAttacker
+                | CostPart::DiscardX(_)
+                | CostPart::ExileFromGraveyardX(_)
+                | CostPart::CraftMaterials { .. }
+                | CostPart::Either(_, _)
                 | CostPart::PayLifeX => {}
             }
         }
         // Mandatory additional cost parts (e.g. Toxic Deluge's pay X life).
+        if wizard.option == Some(CastModeKind::Emerge) {
+            let emerge = face
+                .emerge
+                .ok_or(EngineError::IllegalAction("no emerge cost on this spell"))?;
+            let victim = wizard
+                .emerge_sacrifice
+                .ok_or(EngineError::IllegalAction("no permanent chosen for emerge"))?;
+            sacrificed_object = self.state.object(victim).map(|o| (victim, o.version));
+            sacrificed_lki = self
+                .state
+                .object(victim)
+                .map(crate::object::SacrificedLki::of);
+            super::super::cost_wizard::pay(
+                &mut self.state,
+                player,
+                &CostPart::Sacrifice(emerge.from),
+                victim,
+            )?;
+        }
         if wizard.option == Some(CastModeKind::BeamMeUp) {
             let returned = wizard.returned.ok_or(EngineError::IllegalAction(
                 "no creature returned for beam me up",
@@ -229,6 +306,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 &mut self.state,
                 player,
                 &casting::BEAM_RETURN,
+                returned,
+            )?;
+        }
+        let mut sneak_defender = None;
+        if wizard.option == Some(CastModeKind::Sneak) {
+            let returned = wizard.returned.ok_or(EngineError::IllegalAction(
+                "no unblocked creature returned for sneak",
+            ))?;
+            sneak_defender = self
+                .state
+                .combat
+                .attackers()
+                .iter()
+                .find(|a| a.creature == returned)
+                .map(|a| {
+                    let ver = match a.defending {
+                        baylee_core::ids::Defender::Planeswalker(id)
+                        | baylee_core::ids::Defender::Battle(id) => {
+                            self.state.object(id).map(|o| o.version)
+                        }
+                        baylee_core::ids::Defender::Player(_) => None,
+                    };
+                    (a.defending, ver)
+                });
+            super::super::cost_wizard::pay(
+                &mut self.state,
+                player,
+                &CostPart::ReturnUnblockedAttacker,
                 returned,
             )?;
         }
@@ -257,16 +362,94 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
                 }
-                CostPart::Sacrifice(_)
-                | CostPart::ExilePermanent(_)
-                | CostPart::ExileFromGraveyard(_) => {
+                CostPart::DealDamageToYou(n) => {
+                    if *n > 0 {
+                        let assignment = crate::damage::Assignment {
+                            source: wizard.card,
+                            source_version: self.state.object(wizard.card).map(|o| o.version),
+                            recipient: crate::event::DamageTarget::Player(player),
+                            amount: u32::from(*n),
+                            is_combat: false,
+                        };
+                        let mut work =
+                            crate::damage::DamageWork::new(&mut self.state, vec![assignment]);
+                        work.finish_cost_damage(&mut self.state);
+                    }
+                }
+                CostPart::Forage => {
+                    let first = cost_objects
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction(
+                            "an object cost the cast never asked about",
+                        ))?;
+                    if self
+                        .state
+                        .object(first)
+                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                    {
+                        sacrificed_object = self.state.object(first).map(|o| (first, o.version));
+                        sacrificed_lki = self
+                            .state
+                            .object(first)
+                            .map(crate::object::SacrificedLki::of);
+                        super::super::cost_wizard::pay(&mut self.state, player, part, first)?;
+                    } else {
+                        let second =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "incomplete graveyard forage cost",
+                                ))?;
+                        let third =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "incomplete graveyard forage cost",
+                                ))?;
+                        for id in [first, second, third] {
+                            super::super::cost_wizard::pay(&mut self.state, player, part, id)?;
+                        }
+                    }
+                }
+                CostPart::DiscardX(_) | CostPart::ExileFromGraveyardX(_) => {
+                    for _ in 0..wizard.x {
+                        let chosen =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "an object cost the cast never asked about",
+                                ))?;
+                        if matches!(part, CostPart::DiscardX(_))
+                            && let Some(reference) = self.state.source_identity(chosen)
+                        {
+                            paid_mana.discarded.push(reference);
+                        }
+                        super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    }
+                }
+                CostPart::PayEnergy(n) => {
+                    if !self.state.pay_energy(player, u32::from(*n)) {
+                        return Err(EngineError::IllegalAction("not enough energy"));
+                    }
+                }
+                CostPart::PayEnergyX => {
+                    if !self.state.pay_energy(player, wizard.x) {
+                        return Err(EngineError::IllegalAction("not enough energy"));
+                    }
+                }
+                CostPart::Sacrifice(_) | CostPart::ExilePermanent(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
                         .ok_or(EngineError::IllegalAction(
                             "an object cost the cast never asked about",
                         ))?;
-                    // Read LKI before the cost moves the permanent (CR 608.2h).
+                    // Both payments can refer back to the permanent as it was
+                    // on the battlefield (Soul Exchange, CR 608.2h).
                     sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
                     sacrificed_lki = self
                         .state
@@ -274,12 +457,56 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .map(crate::object::SacrificedLki::of);
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                 }
-                CostPart::Discard(_) => {
+                CostPart::ReturnToHand(_)
+                | CostPart::TapOther(_)
+                | CostPart::ExileFromGraveyard(_)
+                | CostPart::ExileFromHand(_)
+                | CostPart::Discard(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
-                        .ok_or(EngineError::IllegalAction("unanswered discard cost"))?;
+                        .ok_or(EngineError::IllegalAction(
+                            "an object cost the cast never asked about",
+                        ))?;
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
+                CostPart::SacrificeX(_) => {
+                    for _ in 0..wizard.x {
+                        let chosen =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "an object cost the cast never asked about",
+                                ))?;
+                        sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
+                        sacrificed_lki = self
+                            .state
+                            .object(chosen)
+                            .map(crate::object::SacrificedLki::of);
+                        super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    }
+                }
+                CostPart::SacrificeAll(_) => {
+                    let targets =
+                        super::super::cost_wizard::options(&self.state, player, wizard.card, part);
+                    for chosen in targets {
+                        if chosen != wizard.card {
+                            super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                        }
+                    }
+                }
+                CostPart::TapX(_) => {
+                    for _ in 0..wizard.x {
+                        let chosen =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "the cast did not choose every tap",
+                                ))?;
+                        super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    }
                 }
                 CostPart::TapN { count, .. } => {
                     for _ in 0..*count {
@@ -291,6 +518,29 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                     "the cast did not choose every tap",
                                 ))?;
                         super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    }
+                }
+                CostPart::ExileTopOfLibrary(n) => {
+                    let count = usize::from(*n);
+                    if self.state.zones.list(ZoneLocation::Library(player)).len() < count {
+                        return Err(EngineError::IllegalAction(
+                            "not enough cards in library to exile",
+                        ));
+                    }
+                    for _ in 0..count {
+                        let top = *self
+                            .state
+                            .zones
+                            .list(ZoneLocation::Library(player))
+                            .last()
+                            .expect("library count checked");
+                        let owner = self.state.object(top).map_or(player, |o| o.owner);
+                        self.state.move_object(
+                            top,
+                            ZoneLocation::Exile(owner),
+                            ZonePosition::Top,
+                            Cause::Cost,
+                        )?;
                     }
                 }
                 CostPart::DiscardLastDrawnThisTurn => {
@@ -309,22 +559,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                // Unsupported variants stay named to prevent silent free costs.
-                CostPart::TapSelf
+                // Random discard is paid in the CR 601.2h random step below.
+                // Unsupported activation-only variants stay named to prevent silent free costs.
+                CostPart::DiscardRandom
+                | CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::ExertSelf
                 | CostPart::SacrificeSelf
-                | CostPart::DiscardRandom
-                | CostPart::PayEnergy(_)
-                | CostPart::PayEnergyX
-                | CostPart::TapOther(_)
-                | CostPart::TapX(_)
-                | CostPart::SacrificeX(_)
-                | CostPart::SacrificeAll(_)
                 | CostPart::PayCommanderColors
                 | CostPart::Crew(_)
                 | CostPart::Saddle(_)
-                | CostPart::ReturnToHand(_)
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
@@ -334,16 +578,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost
-                | CostPart::ExileTopOfLibrary(_)
-                | CostPart::SacrificeGrantor
-                | CostPart::ExileFromHand(_) => {}
+                | CostPart::ReturnUnblockedAttacker
+                | CostPart::CraftMaterials { .. }
+                | CostPart::Either(_, _)
+                | CostPart::SacrificeGrantor => {}
             }
         }
         // Buyback's parts name no object any "sacrificed creature" of the
         // spell reads: that sentence is linked to the printed additional
         // cost (CR 607.2i), so the receipt above is not touched.
-        let buyback = super::wizard_buyback_parts(face, wizard.buyback.is_some());
-        for part in buyback {
+        let buyback = super::cost_parts::wizard_buyback_parts_expanded(face, wizard.cost_choice());
+        for part in &buyback {
             graveyard_batch.before_part(&mut self.state, part);
             if !super::paid_as_a_buyback_cost(part) {
                 continue;
@@ -351,6 +596,45 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             match part {
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
+                }
+                CostPart::DealDamageToYou(n) => {
+                    if *n > 0 {
+                        let assignment = crate::damage::Assignment {
+                            source: wizard.card,
+                            source_version: self.state.object(wizard.card).map(|o| o.version),
+                            recipient: crate::event::DamageTarget::Player(player),
+                            amount: u32::from(*n),
+                            is_combat: false,
+                        };
+                        let mut work =
+                            crate::damage::DamageWork::new(&mut self.state, vec![assignment]);
+                        work.finish_cost_damage(&mut self.state);
+                    }
+                }
+                CostPart::Forage => {
+                    let first = cost_objects
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction("an unanswered buyback cost"))?;
+                    if self
+                        .state
+                        .object(first)
+                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                    {
+                        super::super::cost_wizard::pay(&mut self.state, player, part, first)?;
+                    } else {
+                        let second = cost_objects
+                            .next()
+                            .copied()
+                            .ok_or(EngineError::IllegalAction("an unanswered buyback cost"))?;
+                        let third = cost_objects
+                            .next()
+                            .copied()
+                            .ok_or(EngineError::IllegalAction("an unanswered buyback cost"))?;
+                        for id in [first, second, third] {
+                            super::super::cost_wizard::pay(&mut self.state, player, part, id)?;
+                        }
+                    }
                 }
                 CostPart::Sacrifice(_) | CostPart::Discard(_) => {
                     let chosen = cost_objects
@@ -394,8 +678,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // CR 601.2h: costs with a random element are paid after the others,
         // out of the hand the others left. The card being cast is on the
         // stack by now in all but this object's bookkeeping (CR 601.2a).
-        for _ in buyback
-            .iter()
+        for _ in super::wizard_cost_parts(face, wizard.cost_choice())
             .filter(|part| matches!(part, CostPart::DiscardRandom))
         {
             let hand: Vec<_> = self
@@ -419,6 +702,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // of its own to re-derive it from.
         let target_req = self.wizard_target_req(wizard);
         let second_target_req = self.wizard_second_target_req(wizard);
+        let extra_target_instances: Vec<crate::object::ExtraTargetInstance> = wizard
+            .extra_targets
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (targets, players))| {
+                let (_, _, req) = self.wizard_extra_clause(wizard, 2 + i)?;
+                Some(crate::object::ExtraTargetInstance {
+                    targets: targets.clone(),
+                    players: *players,
+                    req: Some(req),
+                })
+            })
+            .collect();
         let card = wizard.card;
         // The face being cast prints "exile it instead" (a disturb back): the
         // object still shows the face it had in the graveyard, so the face is
@@ -460,6 +756,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             obj.target_req = target_req;
             obj.set_second(wizard.second_targets.clone(), second_target_req);
             obj.set_second_players(wizard.second_target_players);
+            obj.set_extra_targets(extra_target_instances);
             obj.x_value = wizard.x;
             obj.times_kicked = wizard.times_kicked();
             obj.riders
@@ -469,8 +766,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .push(crate::object::Rider::KickedMask(wizard.kicked_mask));
             }
             obj.replicated = wizard.replicated;
-            obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)))
-                || matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }));
+            obj.alt_cast =
+                matches!(
+                    wizard.option,
+                    Some(CastModeKind::Alternative(_) | CastModeKind::Emerge)
+                ) || matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }));
             obj.chosen_player = wizard.chosen_player;
             // Where it was cast from, read before it moves: a card cast from
             // exile under a play permission (Expressive Iteration) or from
@@ -483,10 +783,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // The chosen permission determines the replacement, independent
             // of other permissions that happen to be available.
             if obj.zone == crate::zone::Zone::Graveyard {
+                let aftermath_face = obj
+                    .card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .and_then(|d| d.faces.get(wizard.face_index()))
+                    .is_some_and(|f| f.aftermath);
                 if matches!(
                     wizard.option,
-                    Some(CastModeKind::Flashback | CastModeKind::BeamMeUp)
-                ) || wizard.permission == Some(casting::GraveyardPermission::Flashback)
+                    Some(
+                        CastModeKind::Flashback | CastModeKind::JumpStart | CastModeKind::BeamMeUp
+                    )
+                ) || aftermath_face
+                    || wizard.permission == Some(casting::GraveyardPermission::Flashback)
                 {
                     obj.riders.push(crate::object::Rider::Flashback);
                 }
@@ -503,9 +811,99 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if wizard.option == Some(CastModeKind::Dash) {
                 obj.riders.push(crate::object::Rider::Dashed);
             }
+            obj.riders.retain(|r| *r != crate::object::Rider::Blitzed);
+            if wizard.option == Some(CastModeKind::Blitz) {
+                obj.riders.push(crate::object::Rider::Blitzed);
+            }
+            obj.riders.retain(|r| {
+                !matches!(
+                    r,
+                    crate::object::Rider::WarpedSpell
+                        | crate::object::Rider::WarpedInExile(_)
+                        | crate::object::Rider::Sneaked
+                        | crate::object::Rider::NinjutsuDefender(_, _)
+                )
+            });
+            if wizard.option == Some(CastModeKind::Warp) {
+                obj.riders.push(crate::object::Rider::WarpedSpell);
+            }
+            if wizard.option == Some(CastModeKind::Sneak) {
+                obj.riders.push(crate::object::Rider::Sneaked);
+                if let Some((defender, target_ver)) = sneak_defender {
+                    obj.riders
+                        .push(crate::object::Rider::NinjutsuDefender(defender, target_ver));
+                }
+            }
+            obj.riders.retain(|r| *r != crate::object::Rider::Bargained);
+            if wizard.bargained {
+                obj.riders.push(crate::object::Rider::Bargained);
+            }
+            obj.riders
+                .retain(|r| !matches!(r, crate::object::Rider::SquadPaid(_)));
+            if wizard.squad > 0 {
+                obj.riders
+                    .push(crate::object::Rider::SquadPaid(wizard.squad));
+            }
+            obj.riders
+                .retain(|r| *r != crate::object::Rider::OffspringPaid);
+            if wizard.offspring {
+                obj.riders.push(crate::object::Rider::OffspringPaid);
+            }
+            obj.riders
+                .retain(|r| *r != crate::object::Rider::CasualtyPaid);
+            if wizard.casualty {
+                obj.riders.push(crate::object::Rider::CasualtyPaid);
+            }
+            obj.riders.retain(|r| {
+                !matches!(
+                    r,
+                    crate::object::Rider::Awakened(_)
+                        | crate::object::Rider::Spliced { .. }
+                        | crate::object::Rider::ConspirePaid(_)
+                )
+            });
+            if wizard.option == Some(CastModeKind::Awaken)
+                && let Some((count, _)) = obj
+                    .card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .and_then(|d| super::wave10b::face_awaken(d, wizard.face_index()))
+            {
+                obj.riders.push(crate::object::Rider::Awakened(count));
+            }
+            for &(_, s_card, s_face, _) in &wizard.spliced {
+                obj.riders.push(crate::object::Rider::Spliced {
+                    card: s_card,
+                    face: s_face,
+                });
+            }
+            if wizard.conspired > 0 {
+                obj.riders
+                    .push(crate::object::Rider::ConspirePaid(wizard.conspired));
+            }
+            obj.riders.retain(|r| *r != crate::object::Rider::Fused);
+            if wizard.option == Some(CastModeKind::Fused) {
+                obj.riders.push(crate::object::Rider::Fused);
+            }
+            obj.riders
+                .retain(|r| !matches!(r, crate::object::Rider::SuspendHaste(_)));
             obj.riders.retain(|r| *r != crate::object::Rider::Mutating);
             if wizard.option == Some(CastModeKind::Mutate) {
                 obj.riders.push(crate::object::Rider::Mutating);
+            }
+            obj.riders.retain(|r| *r != crate::object::Rider::Bestowed);
+            if wizard.option == Some(CastModeKind::Bestow) {
+                obj.riders.push(crate::object::Rider::Bestowed);
+            }
+            obj.riders
+                .retain(|r| *r != crate::object::Rider::ImpendingPaid);
+            if wizard.option == Some(CastModeKind::Impending) {
+                obj.riders.push(crate::object::Rider::ImpendingPaid);
+            }
+            obj.riders
+                .retain(|r| !matches!(r, crate::object::Rider::GiftPromisedTo(_)));
+            if let Some(recipient) = wizard.gift_recipient {
+                obj.riders
+                    .push(crate::object::Rider::GiftPromisedTo(recipient));
             }
             if wizard.buyback.is_some() {
                 obj.riders.push(crate::object::Rider::Buyback);
@@ -529,6 +927,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 _ => 0,
             };
         }
+        if !wizard.spliced.is_empty() {
+            let cards: Vec<ObjectId> = wizard.spliced.iter().map(|&(id, ..)| id).collect();
+            self.state
+                .journal
+                .record(GameEvent::Revealed { player, cards });
+        }
         // Commander-cast tracking: casts from the command zone count, once
         // for the seat (Commander's Insight) and once for the commander
         // itself (CR 903.8's tax). Both here, so the two cannot drift.
@@ -551,14 +955,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         // MDFC back-face cast: the object becomes its chosen face (CR 712.8b).
         // A split card is both halves in hand and only the half cast on the
-        // stack (CR 709.3b), its left half too.
+        // stack (CR 709.3b), its left half too — unless cast fused (CR 702.102b,
+        // CR 709.4d), where it keeps both halves' combined characteristics.
         let i = wizard.face_index();
         let def = self
             .state
             .object(card)
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index));
-        if i != 0 || def.is_some_and(crate::object::reads_both_halves) {
+        if wizard.option != Some(CastModeKind::Fused)
+            && (i != 0 || def.is_some_and(crate::object::reads_both_halves))
+        {
             let def = def.expect("wizard card known");
             self.state.switch_face(card, def, i);
         }
@@ -580,6 +987,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // gives it up: the spell on the stack is the object that reads it.
         // A free cast spent no mana (CR 601.2h pays nothing it was not
         // asked for), whatever its printed cost says.
+        let mana_spent_on_spell = paid_mana.mana_spent;
         if (paid_mana.mana_spent > 0 || sacrificed_lki.is_some())
             && let Some(obj) = self.state.object_mut(card)
         {
@@ -591,7 +999,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             && let Some(prototype) = face.prototype
             && let Some(obj) = self.state.object_mut(card)
         {
-            obj.original_base = Some(std::sync::Arc::clone(&obj.base));
+            if obj.original_base.is_none() {
+                obj.original_base = Some(std::sync::Arc::clone(&obj.base));
+            }
             obj.prototyped = true;
             let base = obj.base_mut();
             base.mana_cost = prototype.cost;
@@ -612,6 +1022,40 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 object.riders.push(crate::object::Rider::Masked);
             }
         }
+        if matches!(wizard.option, Some(CastModeKind::Bestow)) {
+            self.state.invalidate_projections();
+        }
+        if wizard.from_suspend
+            && self.state.object(card).is_some_and(|o| {
+                o.characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+            })
+        {
+            if let Some(obj) = self.state.object_mut(card) {
+                obj.riders.push(crate::object::Rider::SuspendHaste(player));
+            }
+            let ts = self.state.next_timestamp();
+            let filter = crate::effects::EffectFilter::object(&self.state, card);
+            self.state
+                .effects
+                .register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(card),
+                    controller: player,
+                    layer: baylee_cards_dsl::Layer::Ability,
+                    filter,
+                    modifier: baylee_cards_dsl::Modifier::AddKeyword(
+                        baylee_cards_dsl::KeywordSet::HASTE,
+                    ),
+                    timestamp: ts,
+                    duration: baylee_cards_dsl::Duration::WhileSourceInZone(
+                        baylee_cards_dsl::ZoneRef::Stack,
+                    ),
+                    origin: crate::effects::EffectOrigin::Resolution,
+                });
+            self.state.invalidate_projections();
+        }
         self.apply_spend_riders(player, wizard.card, &spent_riders);
         if self.state.object(card).is_some_and(|object| {
             object.characteristics().types.intersects(
@@ -623,7 +1067,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // Per-turn tracking for conditional triggers (Esper Sentinel).
         if !wizard.masked
             && !matches!(wizard.option, Some(CastModeKind::Disguise))
-            && !face.types.contains(baylee_core::types::TypeSet::CREATURE)
+            && (matches!(wizard.option, Some(CastModeKind::Bestow))
+                || !face.types.contains(baylee_core::types::TypeSet::CREATURE))
             && let Some(v) = self
                 .state
                 .per_turn
@@ -695,12 +1140,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         } else {
             0
         };
+        if wizard.option == Some(CastModeKind::Warp) {
+            self.state.per_turn.spells_warped.0.push(player);
+        }
         self.state.journal.record(GameEvent::SpellCast {
             instant_number,
             object: card,
             player,
             number: self.state.per_turn.spells_cast_by(player),
         });
+        if wizard.option == Some(CastModeKind::Warp) {
+            self.state.journal.record(GameEvent::SpellWarped {
+                object: card,
+                player,
+            });
+        }
+        self.note_crime_if_any(player, card);
+        self.note_expend_if_any(player, mana_spent_on_spell);
         self.cast_wizard = None;
         if !self.finish_nested_cast() {
             self.after_action(player);

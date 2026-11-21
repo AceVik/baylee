@@ -137,6 +137,9 @@ struct Evaluation<'a> {
     aim: Aim,
     x: u32,
     created_tokens: i64,
+    die_range: Option<(i64, i64)>,
+    event_player: Option<PlayerId>,
+    event_object: Option<ObjectId>,
 }
 
 impl<'a> Origin<'a> {
@@ -415,10 +418,62 @@ impl HeuristicAgent {
                 }
                 Some(net)
             }
+            AbilityDef::Unearth { cost } if pick == Pick::Best => {
+                let obj = origin.object?;
+                let gain = i64::from(obj.power.unwrap_or(0).max(0)) * 120 + 80;
+                Some(gain - self.cost_worth(view, origin, cost)?)
+            }
+            AbilityDef::Encore { cost } if pick == Pick::Best => {
+                let obj = origin.object?;
+                let opponents = view
+                    .seats
+                    .iter()
+                    .filter(|s| self.hostile(s.player, view.seat) && !s.has_lost())
+                    .count() as i64;
+                if opponents == 0 {
+                    return None;
+                }
+                let gain = opponents * (i64::from(obj.power.unwrap_or(0).max(0)) * 120 + 80);
+                Some(gain - self.cost_worth(view, origin, cost)?)
+            }
             // This includes modal activations: their chosen mode is not bound
             // yet, so valuing all modes as if they resolve together is wrong.
             _ => None,
         }
+    }
+
+    /// Net worth of turning a face-down permanent (`source`) face up now.
+    pub(crate) fn turn_face_up_worth(&self, view: &PlayerView, source: ObjectId) -> Option<i64> {
+        let obj = view.object(source).filter(|o| o.status.is_face_down())?;
+        let card = obj.card?;
+        let def = baylee_cards::by_index(card.index)?;
+        let f = def.faces.get(usize::from(card.face))?;
+        let (mana, parts, is_mega) = f.turn_face_up_cost()?;
+        let cost = baylee_cards_dsl::Cost { mana, parts };
+        let mega = i64::from(u8::from(is_mega));
+        let dp = i64::from(f.power.unwrap_or(2)) + mega - 2;
+        let dt = i64::from(f.toughness.unwrap_or(2)) + mega - 2;
+        let origin = Origin::of(view, source);
+        let trigger_bonus: i64 = def
+            .abilities_for_face(usize::from(card.face))
+            .iter()
+            .filter_map(|a| match a {
+                AbilityDef::Triggered {
+                    trigger: Trigger::TurnedFaceUp,
+                    effects,
+                    targets,
+                    ..
+                } => self
+                    .aimed(view, origin, effects, targets.as_ref(), 0, Pick::Best)
+                    .map(|(g, _)| g),
+                _ => None,
+            })
+            .sum();
+        let stat_gain = (dp.max(0) * 100)
+            + (dt.max(0) * 50)
+            + i64::from(f.keywords.bits().count_ones()) * 60
+            + trigger_bonus;
+        Some(stat_gain - self.cost_worth(view, origin, &cost)?)
     }
 
     /// The damage that can reach `walker` in its controller's opponents'
@@ -595,8 +650,106 @@ impl HeuristicAgent {
                 aim,
                 x,
                 created_tokens: 0,
+                die_range: None,
+                event_player: None,
+                event_object: None,
             },
         )
+    }
+
+    /// Starting chapter choice for a Saga with read ahead (CR 702.155b):
+    /// scores each candidate `c in min..=max` as chapter `c` now plus a
+    /// discounted sum of chapters `(c + 1)..=max` on future turns, falling
+    /// back to `min` when any chapter cannot be priced.
+    pub(crate) fn read_ahead_chapter(
+        &self,
+        view: &PlayerView,
+        saga: ObjectId,
+        min: u32,
+        max: u32,
+    ) -> u32 {
+        if min >= max {
+            return min;
+        }
+        let origin = Origin::of(view, saga);
+        let card_idx = origin
+            .object
+            .and_then(|o| o.rules.map(|r| r.card).or_else(|| o.card.map(|c| c.index)))
+            .or_else(|| {
+                view.hand
+                    .iter()
+                    .find(|c| c.id == saga)
+                    .map(|c| c.card.index)
+            });
+        let Some(def) = card_idx.and_then(baylee_cards::by_index) else {
+            return min;
+        };
+        let face = origin
+            .object
+            .and_then(|o| o.rules.map(|r| usize::from(r.face)))
+            .unwrap_or(0);
+        let abilities = def.abilities_for_face(face);
+        let chapter_worth = |ch_num: u8| -> Option<i64> {
+            let mut sum = 0i64;
+            for ability in abilities {
+                if !ability.saga_chapters().contains(&ch_num) {
+                    continue;
+                }
+                let val = match ability {
+                    AbilityDef::SagaChapter {
+                        effects, targets, ..
+                    }
+                    | AbilityDef::Triggered {
+                        effects,
+                        targets,
+                        second_targets: None,
+                        ..
+                    } => match targets {
+                        None => self.effects_worth(view, origin, effects, Aim::Source, 0)?,
+                        Some(req) => {
+                            let candidates = self.aims(view, origin, &req.spec)?;
+                            if candidates.len() < usize::from(req.min) {
+                                0
+                            } else {
+                                let mut best = (req.min == 0).then_some(0i64);
+                                for aim in candidates {
+                                    let w = self.effects_worth(view, origin, effects, aim, 0)?;
+                                    best = Some(best.map_or(w, |b| b.max(w)));
+                                }
+                                best.unwrap_or(0)
+                            }
+                        }
+                    },
+                    _ => return None,
+                };
+                sum = sum.saturating_add(val);
+            }
+            Some(sum)
+        };
+        let mut per_chapter = Vec::with_capacity((max - min + 1) as usize);
+        for c in min..=max {
+            let Ok(ch) = u8::try_from(c) else {
+                return min;
+            };
+            let Some(val) = chapter_worth(ch) else {
+                return min;
+            };
+            per_chapter.push((c, val));
+        }
+        let mut best_chapter = min;
+        let mut best_score = i64::MIN;
+        for (idx, &(c, now)) in per_chapter.iter().enumerate() {
+            let future: i64 = per_chapter[idx + 1..]
+                .iter()
+                .map(|&(_, v)| v)
+                .fold(0i64, i64::saturating_add);
+            let score = now.saturating_add(future.saturating_mul(3) / 4);
+            if score > best_score {
+                best_score = score;
+                best_chapter = c;
+            }
+        }
+        best_chapter
     }
 
     fn effects_worth_in(
@@ -1523,6 +1676,41 @@ impl HeuristicAgent {
                 | Effect::WhenTargetLeavesBattlefieldThisTurn { .. }
                 | Effect::WhenSourceLeavesBattlefieldThisTurn { .. }
                 | Effect::CreateDelayedObserver { .. }
+                | Effect::ReflexiveTrigger {
+                    targets: Some(_),
+                    ..
+                }
+                | Effect::ReflexiveTrigger {
+                    remember: baylee_cards_dsl::TriggerRemember::Source
+                        | baylee_cards_dsl::TriggerRemember::FirstTarget
+                        | baylee_cards_dsl::TriggerRemember::EachTarget
+                        | baylee_cards_dsl::TriggerRemember::EventObject
+                        | baylee_cards_dsl::TriggerRemember::EventSubject
+                        | baylee_cards_dsl::TriggerRemember::EachCreatedToken
+                        | baylee_cards_dsl::TriggerRemember::SacrificedObject
+                        | baylee_cards_dsl::TriggerRemember::EachExiledThisWay,
+                    ..
+                }
+                | Effect::RegisterDelayedTrigger {
+                    targets: Some(_),
+                    ..
+                }
+                | Effect::RegisterDelayedTrigger {
+                    remember: baylee_cards_dsl::TriggerRemember::Source
+                        | baylee_cards_dsl::TriggerRemember::FirstTarget
+                        | baylee_cards_dsl::TriggerRemember::EachTarget
+                        | baylee_cards_dsl::TriggerRemember::EventObject
+                        | baylee_cards_dsl::TriggerRemember::EventSubject
+                        | baylee_cards_dsl::TriggerRemember::EachCreatedToken
+                        | baylee_cards_dsl::TriggerRemember::SacrificedObject
+                        | baylee_cards_dsl::TriggerRemember::EachExiledThisWay,
+                    ..
+                }
+                | Effect::RegisterDelayedTrigger {
+                    when: baylee_cards_dsl::DelayedTriggerWhen::OnTrigger { .. }
+                        | baylee_cards_dsl::DelayedTriggerWhen::OnObservation { .. },
+                    ..
+                }
                 | Effect::DestroyAllThenForEachDestroyed { .. }
                 | Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { .. }
                 | Effect::ForEachTarget { .. }
@@ -1531,6 +1719,63 @@ impl HeuristicAgent {
                 | Effect::IfCastFromGraveyard { .. }
         ) {
             return None;
+        }
+        if let Effect::RepeatEach { domain, effects } = effect {
+            return self.repeat_each_worth(view, *domain, effects, evaluation);
+        }
+        if let Effect::ChooseCard {
+            chooser,
+            zone,
+            filter,
+            min,
+            max,
+            movement,
+            then,
+        } = effect
+        {
+            return self.choose_card_worth(
+                view, *chooser, *zone, filter, *min, *max, *movement, then, evaluation,
+            );
+        }
+        if let Effect::PeekAndReveal {
+            count,
+            max_pick,
+            picked,
+            if_picked,
+            ..
+        } = effect
+        {
+            let n = self.count(view, origin, *count, aim, x)?.max(0);
+            if n == 0 {
+                return Some(0);
+            }
+            let base = match (*max_pick, picked) {
+                (0, _) => {
+                    if self.profile.card_skill() >= 2 {
+                        n * 20
+                    } else {
+                        0
+                    }
+                }
+                (
+                    k,
+                    baylee_cards_dsl::PeekPickDest::Hand
+                    | baylee_cards_dsl::PeekPickDest::Battlefield { .. },
+                ) => i64::from(k.min(3)).min(n) * 350,
+                (
+                    _,
+                    baylee_cards_dsl::PeekPickDest::StayOnTop
+                    | baylee_cards_dsl::PeekPickDest::TopOfLibrary,
+                ) => 120,
+                _ => 150,
+            };
+            let bonus = if if_picked.is_empty() {
+                0
+            } else {
+                let mut sub = *evaluation;
+                self.effects_worth_in(view, if_picked, &mut sub)?.max(0) / 2
+            };
+            return Some(base.saturating_add(bonus));
         }
         let (then, otherwise) = effect.branches();
         if !then.is_empty() || !otherwise.is_empty() {
@@ -1552,6 +1797,56 @@ impl HeuristicAgent {
                 Effect::Sequence(_) => then,
                 // This seat's own "may": taken when it helps.
                 Effect::MayDo { .. } | Effect::MayDoOnceEachTurn { .. } => then.max(0),
+                Effect::FlipCoins {
+                    count,
+                    stop_on_loss,
+                    ..
+                } => {
+                    let n = self.count(view, origin, *count, aim, x)?.max(0);
+                    if n == 0 {
+                        0
+                    } else {
+                        let shift = u32::try_from(n.min(16)).unwrap_or(16);
+                        let all_bonus = otherwise >> shift;
+                        let wins_ev = if *stop_on_loss {
+                            then - (then >> shift)
+                        } else {
+                            n.saturating_mul(then) / 2
+                        };
+                        wins_ev.saturating_add(all_bonus)
+                    }
+                }
+                Effect::FlipUntilLose { max_flips, .. } => {
+                    let wins_ev = match max_flips {
+                        Some(0) => 0,
+                        Some(m) => {
+                            let shift = u32::from((*m).min(16));
+                            then - (then >> shift)
+                        }
+                        None => then,
+                    };
+                    wins_ev.saturating_add(otherwise)
+                }
+                Effect::IfDieRollInRange { min, max, .. } => {
+                    if let Some((low, high)) = evaluation.die_range
+                        && high >= low
+                    {
+                        let span = high - low + 1;
+                        let lo = low.max(i64::from(*min));
+                        let hi = high.min(i64::from(*max));
+                        let hits = (hi - lo + 1).max(0);
+                        (hits.saturating_mul(then) + (span - hits).saturating_mul(otherwise)) / span
+                    } else {
+                        i64::midpoint(then, otherwise)
+                    }
+                }
+                Effect::RevealFromHand { min, .. } => {
+                    if *min == 0 {
+                        then.max(0) / 2
+                    } else {
+                        then
+                    }
+                }
                 // A condition, or somebody else's choice: either may happen.
                 _ => i64::midpoint(then, otherwise),
             });
@@ -1561,8 +1856,23 @@ impl HeuristicAgent {
         // nothing at all for an "up to one" left empty.
         let subject = match aim {
             Aim::Object(id) => view.object(id),
-            Aim::Source => origin.object,
-            Aim::Nothing | Aim::Player(_) => None,
+            Aim::Source => evaluation
+                .event_object
+                .and_then(|id| view.object(id))
+                .or(origin.object),
+            Aim::Nothing | Aim::Player(_) => evaluation.event_object.and_then(|id| view.object(id)),
+        };
+        let eff_aim = match (aim, evaluation.event_player) {
+            (Aim::Source | Aim::Nothing, Some(p)) => Aim::Player(p),
+            _ => aim,
+        };
+        let players_for = |rel: PlayerRel| -> Option<Vec<PlayerId>> {
+            if matches!(rel, PlayerRel::EventPlayer | PlayerRel::DamagedPlayer)
+                && let Some(p) = evaluation.event_player
+            {
+                return Some(vec![p]);
+            }
+            self.players(view, rel, eff_aim)
         };
         let count = |amount: Amount| self.count(view, origin, amount, aim, x);
         let on_board = |filter: &Filter| -> Option<Vec<&PublicObject>> {
@@ -1584,7 +1894,7 @@ impl HeuristicAgent {
             }
             Effect::DrawCardsFor { amount, who } => {
                 let n = count(*amount)?;
-                self.players(view, *who, aim)?
+                players_for(*who)?
                     .into_iter()
                     .map(|p| self.draw_worth(view, p, n))
                     .sum()
@@ -1596,7 +1906,7 @@ impl HeuristicAgent {
             Effect::GainLife { amount } => count(*amount)? * life_price(view, me),
             Effect::GainLifeFor { amount, who } => {
                 let n = count(*amount)?;
-                self.players(view, *who, aim)?
+                players_for(*who)?
                     .into_iter()
                     .map(|p| {
                         let gain = n * life_price(view, p);
@@ -1606,7 +1916,7 @@ impl HeuristicAgent {
             }
             Effect::LoseLife { amount, target } => {
                 let n = count(*amount)?;
-                self.players(view, *target, aim)?
+                players_for(*target)?
                     .into_iter()
                     .map(|p| {
                         let loss = hurt(view, p, n);
@@ -1657,8 +1967,211 @@ impl HeuristicAgent {
                 evaluation.created_tokens = evaluation.created_tokens.saturating_add(made);
                 worth
             }
+            Effect::CreateTokenCopy {
+                target,
+                controller,
+                amount,
+                mods,
+                cleanup,
+                ..
+            } => {
+                let n = count(*amount)?.max(0);
+                let recipients = self.players(view, *controller, aim)?;
+                let orig = match target {
+                    TargetSpec::ThisObject => origin.object?,
+                    _ => subject?,
+                };
+                let ephemeral = !matches!(cleanup, baylee_cards_dsl::CopyCleanup::None);
+                let per_player = tokens::single_copy_worth(self, view, orig, n, mods, ephemeral)?;
+                let mut total = 0_i64;
+                for p in recipients {
+                    if p == me {
+                        evaluation.created_tokens = evaluation.created_tokens.saturating_add(n);
+                    }
+                    total = total.saturating_add(if self.hostile(p, me) {
+                        -per_player
+                    } else {
+                        per_player
+                    });
+                }
+                total
+            }
+            Effect::ChooseAndCreateTokenCopy {
+                filter,
+                amount,
+                mods,
+                cleanup,
+                ..
+            } => {
+                let n = count(*amount)?.max(0);
+                let ephemeral = !matches!(cleanup, baylee_cards_dsl::CopyCleanup::None);
+                let best = on_board(filter)?
+                    .into_iter()
+                    .filter_map(|orig| {
+                        tokens::single_copy_worth(self, view, orig, n, mods, ephemeral)
+                    })
+                    .max()
+                    .unwrap_or(0);
+                if best > 0 {
+                    evaluation.created_tokens = evaluation.created_tokens.saturating_add(n);
+                }
+                best
+            }
+            Effect::Myriad => {
+                let orig = origin.object?;
+                let extra = i64::try_from(
+                    view.seats
+                        .iter()
+                        .filter(|s| s.loss.is_none() && self.hostile(s.player, me))
+                        .count()
+                        .saturating_sub(1),
+                )
+                .unwrap_or(0);
+                let worth = tokens::single_copy_worth(self, view, orig, extra, &[], true)?;
+                if worth > 0 {
+                    evaluation.created_tokens = evaluation.created_tokens.saturating_add(extra);
+                }
+                worth
+            }
+            Effect::PutNinjutsuOntoBattlefield => {
+                let pre_damage = view.phase == Phase::Combat
+                    && matches!(view.step, Step::DeclareBlockers | Step::CombatDamageFirst);
+                if let Some(o) = origin.object {
+                    let hit = if pre_damage {
+                        i64::from(o.power.unwrap_or(0).max(0)) * 30
+                    } else {
+                        0
+                    };
+                    Self::permanent_worth(view, o) + self.etb_worth(view, o) + hit
+                } else {
+                    let held = baylee_client_core::decision::known_cards(view)
+                        .find(|c| c.id == origin.id)?;
+                    let def = baylee_cards::by_index(held.card.index)?;
+                    let face = def.faces.get(usize::from(held.card.face))?;
+                    let p = i64::from(face.power.unwrap_or(0).max(0));
+                    let t = i64::from(face.toughness.unwrap_or(0).max(0));
+                    let mv = i64::from(face.mana_cost.cmc());
+                    let kw = i64::from(face.keywords.union(def.keywords).bits().count_ones()) * 30;
+                    let hit = if pre_damage { p * 30 } else { 0 };
+                    100 + p * 60 + t * 25 + mv * 20 + kw + hit
+                }
+            }
+            Effect::ExertSource => {
+                let o = origin.object?;
+                if creature(o) {
+                    -(30 + i64::from(o.power.unwrap_or(0).max(0)) * 15
+                        + i64::from(o.toughness.unwrap_or(0).max(0)) * 10)
+                } else if makes_mana(o) {
+                    -Self::mana_price(view)
+                } else {
+                    0
+                }
+            }
+            Effect::RollDice {
+                count: dice,
+                sides,
+                modifier,
+            } => {
+                let d = count(*dice)?.max(0);
+                if d > 0 && *sides > 0 {
+                    let mod_i64 = i64::from(*modifier);
+                    let low = (d + mod_i64).max(0);
+                    let high = (d * i64::from(*sides) + mod_i64).max(low);
+                    evaluation.die_range = Some((low, high));
+                }
+                0
+            }
             Effect::Amass { amount, .. } => 150 + count(*amount)? * 110,
-            Effect::SearchLibrary { .. }
+            Effect::Bolster(amount) => {
+                if view.battlefield_of(me).any(creature) {
+                    count(*amount)?.max(0) * 100
+                } else {
+                    0
+                }
+            }
+            Effect::BecomeRenowned(n) => i64::from(*n) * 110 + 40,
+            Effect::Incubate { who, count: n } => {
+                let counters = count(*n)?.max(0);
+                let per_player = 60 + counters * 95;
+                let mut total = 0_i64;
+                for p in self.players(view, *who, aim)? {
+                    total = total.saturating_add(if self.hostile(p, me) {
+                        -per_player
+                    } else {
+                        per_player
+                    });
+                }
+                total
+            }
+            Effect::TransformSource => {
+                let src = origin.object?;
+                if src.token != Some(baylee_cards::tokens::INCUBATOR_TOKEN_ID) {
+                    return None;
+                }
+                let p1p1 = src
+                    .counters
+                    .iter()
+                    .find_map(|c| {
+                        matches!(
+                            c.kind,
+                            baylee_view::CounterKind::Plus {
+                                power: 1,
+                                toughness: 1,
+                            }
+                        )
+                        .then_some(i64::from(c.count))
+                    })
+                    .unwrap_or(0);
+                if p1p1 > 0 { p1p1 * 110 + 60 } else { -200 }
+            }
+            Effect::Exploit => 60,
+            Effect::Monstrosity(amount) => count(*amount)?.max(0) * 110 + 40,
+            Effect::RingTemptsYou => 180,
+            Effect::Firebend(amount) => count(*amount)?.max(0) * 45,
+            Effect::Suspect { .. } => subject.map_or(40, |o| {
+                if self.hostile(o.controller, me) {
+                    80
+                } else {
+                    40
+                }
+            }),
+            Effect::Unsuspect { .. } => subject.map_or(30, |o| {
+                if !self.hostile(o.controller, me) && o.suspected {
+                    60
+                } else {
+                    20
+                }
+            }),
+            Effect::Mobilize(amount) => count(*amount)?.max(0) * 95,
+            Effect::Detain { .. } => subject.map_or(120, |o| {
+                if self.hostile(o.controller, me) {
+                    150
+                } else {
+                    -150
+                }
+            }),
+            Effect::DetainFilter { filter } => {
+                let mut total = 0_i64;
+                for perm in &view.battlefield {
+                    if self.filter_matches(
+                        filter,
+                        view,
+                        perm,
+                        ZoneRef::Battlefield,
+                        Some(origin.id),
+                    ) == Some(true)
+                    {
+                        total += if self.hostile(perm.controller, me) {
+                            140
+                        } else {
+                            -140
+                        };
+                    }
+                }
+                total
+            }
+            Effect::ReturnCraftedTransformed
+            | Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }
             | Effect::WishToHand { .. }
             | Effect::LookAtTopPick { .. }
@@ -1668,7 +2181,98 @@ impl HeuristicAgent {
             Effect::LookAtTopExileFaceDown { count, cast_types } => {
                 tokens::exile_selection(view, *count, *cast_types)
             }
+            Effect::ExileTopWithPermission {
+                count: cards,
+                permission,
+                ..
+            } => {
+                let n = count(*cards)?.max(0);
+                let per_card = if permission.free { 260 } else { 180 };
+                n.saturating_mul(per_card)
+            }
+            Effect::ExileWithPermission { permission, .. } => {
+                let bonus = if permission.free { 240 } else { 140 };
+                subject.map_or(bonus, |o| {
+                    let base = if self.hostile(o.controller, me) {
+                        Self::permanent_worth(view, o).max(120)
+                    } else {
+                        -Self::permanent_worth(view, o)
+                    };
+                    base.saturating_add(bonus)
+                })
+            }
+            Effect::GrantLinkedExilePermission { permission } => {
+                let per_card = if permission.free { 220 } else { 130 };
+                origin.object.map_or(per_card, |o| {
+                    i64::try_from(o.linked_exile.len()).unwrap_or(1) * per_card
+                })
+            }
+            Effect::ManifestTop { who, count: cards } => {
+                let n = count(*cards)?.max(0);
+                if self
+                    .players(view, *who, aim)?
+                    .iter()
+                    .any(|p| !self.hostile(*p, me))
+                {
+                    n.saturating_mul(220)
+                } else {
+                    -n.saturating_mul(220)
+                }
+            }
+            Effect::ManifestDread => 260,
+            Effect::AwakenLand { count } => i64::from(*count) * 140 + 180,
+            Effect::Cipher => 200,
+            Effect::CipherCastEncoded => 280,
+            Effect::Champion { .. } => -120,
+            Effect::ReturnChampioned => 150,
+            Effect::SoulbondPair { .. } => 80,
+            Effect::TurnFaceUp { .. } => subject.map_or(80, |o| {
+                if self.hostile(o.controller, me) {
+                    -80
+                } else {
+                    120
+                }
+            }),
+            Effect::Plot { .. } => {
+                subject.map_or(120, |o| if self.hostile(o.owner, me) { 150 } else { 180 })
+            }
+            Effect::PlotTop { who, count: cards } => {
+                let n = count(*cards)?.max(0);
+                if self
+                    .players(view, *who, aim)?
+                    .iter()
+                    .any(|p| !self.hostile(*p, me))
+                {
+                    n.saturating_mul(200)
+                } else {
+                    -n.saturating_mul(200)
+                }
+            }
+            Effect::Backup {
+                count: counters,
+                keywords,
+                grant_abilities,
+            } => {
+                let base = i64::from(*counters).saturating_mul(120)
+                    + i64::from(!keywords.is_empty()) * 80
+                    + i64::try_from(grant_abilities.len()).unwrap_or(0) * 60;
+                subject.map_or(base, |o| {
+                    if self.hostile(o.controller, me) {
+                        -base
+                    } else {
+                        base
+                    }
+                })
+            }
             Effect::TakeExtraTurn => 10_000,
+            Effect::DeliverGift(kind) => match kind {
+                baylee_cards_dsl::GiftKind::Food => -100,
+                baylee_cards_dsl::GiftKind::TappedFish => -110,
+                baylee_cards_dsl::GiftKind::Treasure => -150,
+                baylee_cards_dsl::GiftKind::Card => -220,
+                baylee_cards_dsl::GiftKind::Octopus => -750,
+                baylee_cards_dsl::GiftKind::ExtraTurn => -10_000,
+            },
             Effect::ExileLibraryAndShuffleHand { player } => {
                 if self
                     .players(view, *player, aim)?
@@ -1717,6 +2321,27 @@ impl HeuristicAgent {
             }),
             Effect::PutTargetOnBottomOfLibrary => subject.map_or(0, |o| self.removal(view, o)),
             Effect::ReturnToHand { .. } => subject.map_or(0, |o| self.bounce(view, o)),
+            Effect::PhaseOut { target } => {
+                let target_obj = match target {
+                    Some(_) => subject?,
+                    None => origin.object?,
+                };
+                self.phase_out_worth(view, target_obj)
+            }
+            Effect::PhaseOutFilter(filter) => {
+                let matched = on_board(filter)?;
+                if matched.is_empty() && origin.object.is_none() {
+                    return None;
+                }
+                matched
+                    .into_iter()
+                    .map(|o| self.phase_out_worth(view, o))
+                    .sum()
+            }
+            Effect::PhaseOutUntilSourceLeaves { .. } => {
+                let target_obj = subject?;
+                self.removal(view, target_obj)
+            }
             Effect::Blink { .. } | Effect::ExileAndReturnAtEndStep => {
                 subject.map_or(0, |o| self.blink(view, o))
             }
@@ -1738,6 +2363,36 @@ impl HeuristicAgent {
             }
             Effect::AttachSelf { .. } => subject.map_or(0, |c| self.attach(view, origin, c)),
             Effect::UntapTarget => subject.map_or(0, |o| self.untap_worth(view, o)),
+            Effect::MustBlockSourceIfAbleThisCombat
+            | Effect::MustBlockIfAble {
+                attacker: baylee_cards_dsl::TargetSpec::ThisObject,
+                ..
+            } => match (origin.object, subject) {
+                (Some(attacker), Some(blocker)) => {
+                    Self::provoke_worth(view, attacker, blocker, hostile_subject)
+                }
+                _ => -50,
+            },
+            Effect::Goad { target } => {
+                let object = if matches!(target, TargetSpec::ThisObject) {
+                    origin.object
+                } else {
+                    subject
+                };
+                object.map_or(0, |o| self.goad_worth(view, o))
+            }
+            Effect::GoadAll {
+                filter,
+                controlled_by,
+            } => on_board(filter)?
+                .into_iter()
+                .filter(|o| match controlled_by {
+                    Some(baylee_cards_dsl::PlayerRel::You) => o.controller == me,
+                    Some(baylee_cards_dsl::PlayerRel::Opponent) => self.hostile(o.controller, me),
+                    _ => true,
+                })
+                .map(|o| self.goad_worth(view, o))
+                .sum(),
             Effect::UntapSelf => origin.object.map_or(0, |o| self.untap_worth(view, o)),
             // A shield is useful in a lethal combat exchange; it is not a
             // permanent upgrade to buy repeatedly on an idle board.
@@ -1888,6 +2543,18 @@ impl HeuristicAgent {
                 Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
                 None => 0,
             },
+            Effect::SetClassLevel(level) => origin.object.map_or(0, |o| {
+                let current = o.class_level.unwrap_or(1);
+                let sign = if self.hostile(o.controller, me) {
+                    -1
+                } else {
+                    1
+                };
+                // A new level unlocks an ongoing ability or a one-time
+                // effect. Price it on the scale of an ability, separately
+                // from the value of a counter.
+                sign * (i64::from(*level) - i64::from(current)) * (CARD * 3 / 4)
+            }),
             Effect::AddCountersUpTo {
                 kind,
                 amount,
@@ -1940,6 +2607,39 @@ impl HeuristicAgent {
                     _ => subject.map_or(0, |o| self.damage_object(view, o, n)),
                 }
             }
+            Effect::DamagePermanentAndController {
+                target,
+                permanent_amount,
+                controller_amount,
+            } => {
+                let subject = match target {
+                    TargetSpec::ThisObject => origin.object,
+                    TargetSpec::EventObject => {
+                        evaluation.event_object.and_then(|id| view.object(id))
+                    }
+                    _ => subject,
+                };
+                let Some(o) = subject else {
+                    return Some(0);
+                };
+                let permanent = count(*permanent_amount)?;
+                let controller = count(*controller_amount)?;
+                if permanent > 0 && o.types.contains(TypeSet::BATTLE) {
+                    return None;
+                }
+                let object_damage = if permanent > 0 {
+                    self.damage_object(view, o, permanent)
+                } else {
+                    0
+                };
+                let to_controller = hurt(view, o.controller, controller);
+                let player_damage = if self.hostile(o.controller, me) {
+                    to_controller
+                } else {
+                    -to_controller
+                };
+                object_damage + player_damage
+            }
             // Every creature goes home to its owner (CR 108.3).
             Effect::AllCreaturesToOwner => view
                 .battlefield
@@ -1986,11 +2686,180 @@ impl HeuristicAgent {
             // mana ability. Exiling a hand card with its own continuing cast
             // permission moves that card without changing its material value.
             // The surrounding effects carry the activation's worth in both cases.
+            Effect::GrantProtectionFromChosenColorUntilEot { filter } => {
+                let objects: Vec<&PublicObject> = if matches!(filter, Filter::This) {
+                    subject.into_iter().collect()
+                } else {
+                    on_board(filter)?
+                };
+                objects
+                    .into_iter()
+                    .map(|o| self.prevent(view, o, false))
+                    .sum()
+            }
             Effect::AddMana { .. }
+            | Effect::ChooseColor
             | Effect::NoteActivationMana
             | Effect::ExileChosenFromHandWithSourceAndCast(_) => 0,
             _ => return None,
         })
+    }
+
+    /// Value of forcing `blocker` to block `attacker` this combat or turn.
+    fn provoke_worth(
+        view: &PlayerView,
+        attacker: &PublicObject,
+        blocker: &PublicObject,
+        hostile_blocker: bool,
+    ) -> i64 {
+        if !hostile_blocker {
+            return -100;
+        }
+        let (Some(att_f), Some(blk_f)) = (
+            crate::combat::Fighter::from_object(attacker),
+            crate::combat::Fighter::from_object(blocker),
+        ) else {
+            return -50;
+        };
+        if has(blocker, KeywordSet::CANT_BLOCK) || !crate::combat::could_block(att_f, blk_f) {
+            return -50;
+        }
+        let e = crate::combat::exchange(att_f, blk_f);
+        let att_worth = Self::permanent_worth(view, attacker);
+        let blk_worth = Self::permanent_worth(view, blocker);
+        if e.blocker_dies && !e.attacker_dies {
+            blk_worth + 50
+        } else if e.blocker_dies && e.attacker_dies {
+            (blk_worth - att_worth) + 25
+        } else if e.attacker_dies {
+            -att_worth - 50
+        } else {
+            -30
+        }
+    }
+
+    fn goad_worth(&self, view: &PlayerView, object: &PublicObject) -> i64 {
+        let me = view.seat;
+        if !creature(object) {
+            return 0;
+        }
+        if !self.hostile(object.controller, me) {
+            return -250;
+        }
+        if has(object, KeywordSet::DEFENDER) || has(object, KeywordSet::CANT_ATTACK) {
+            return 20;
+        }
+        let power = i64::from(object.power.unwrap_or(0).max(0));
+        let has_other_victim = view.seats.iter().any(|s| {
+            s.loss.is_none()
+                && s.player != me
+                && s.player != object.controller
+                && self.hostile(object.controller, s.player)
+        });
+        if has_other_victim {
+            160 + power * 45
+        } else {
+            let my_life = view.seat(me).map_or(20, |s| i64::from(s.life));
+            if power >= my_life {
+                -150
+            } else {
+                80 + power * 20
+            }
+        }
+    }
+
+    /// Whether `"you may exert ~"` (`[Effect::ExertSource]`) is worth taking
+    /// given a trailing reflexive payoff or any `Trigger::Exerted` listeners on
+    /// this seat's battlefield (CR 701.43a, CR 603.12).
+    pub(crate) fn exert_may_worth(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        context_effects: &[Effect],
+        x: u32,
+    ) -> bool {
+        use baylee_cards_dsl::{ReflexiveEvent, ReflexiveWhen};
+        let exert_delta = self
+            .effects_worth(view, origin, &[Effect::ExertSource], Aim::Source, x)
+            .unwrap_or(-60);
+        let payoff_at = |effects: &[Effect], req: Option<TargetReq>| -> Option<i64> {
+            match req {
+                None => self.effects_worth(view, origin, effects, Aim::Source, x),
+                Some(r) => {
+                    let candidates = self.aims(view, origin, &r.spec)?;
+                    if candidates.len() < usize::from(r.min) {
+                        return Some(i64::MIN / 4);
+                    }
+                    let mut best = (r.min == 0).then_some(0_i64);
+                    for aim in candidates {
+                        let w = self.effects_worth(view, origin, effects, aim, x)?;
+                        best = Some(best.map_or(w, |b| b.max(w)));
+                    }
+                    Some(best.unwrap_or(i64::MIN / 4))
+                }
+            }
+        };
+        for eff in context_effects {
+            match eff {
+                Effect::Reflexive {
+                    when: ReflexiveEvent::ExertedThis,
+                    effects,
+                    target,
+                } => {
+                    let req = target.map(|spec| match spec {
+                        TargetSpec::ObjectOfEachOpponent(_) => TargetReq::up_to(spec, u8::MAX),
+                        _ => TargetReq::one(spec),
+                    });
+                    return payoff_at(effects, req)
+                        .is_none_or(|w| w.saturating_add(exert_delta) >= 0);
+                }
+                Effect::ReflexiveTrigger {
+                    when: ReflexiveWhen::Event(ReflexiveEvent::ExertedThis),
+                    effects,
+                    targets,
+                    ..
+                } => {
+                    return payoff_at(effects, *targets)
+                        .is_none_or(|w| w.saturating_add(exert_delta) >= 0);
+                }
+                _ => {}
+            }
+        }
+        let mut any_listener = false;
+        let mut total = 0_i64;
+        for o in view.battlefield_of(view.seat) {
+            if o.status.is_phased_out() {
+                continue;
+            }
+            for ability in printed_list(o) {
+                let AbilityDef::Triggered {
+                    trigger: Trigger::Exerted(filter),
+                    effects,
+                    targets,
+                    ..
+                } = ability
+                else {
+                    continue;
+                };
+                let matches_src = if matches!(filter, Filter::This) {
+                    o.id == origin.id
+                } else {
+                    origin.object.is_none_or(|src| {
+                        self.filter_matches(filter, view, src, ZoneRef::Battlefield, Some(o.id))
+                            != Some(false)
+                    })
+                };
+                if !matches_src {
+                    continue;
+                }
+                any_listener = true;
+                let Some(val) = payoff_at(effects, *targets) else {
+                    return true;
+                };
+                total = total.saturating_add(val);
+            }
+        }
+        any_listener && total.saturating_add(exert_delta) >= 0
     }
 
     /// Tapping status and controller determine the immediate value of untapping.
@@ -2003,6 +2872,31 @@ impl HeuristicAgent {
             40
         } else {
             30
+        }
+    }
+
+    /// `o` phased out until its controller's next untap step (CR 702.26, 502.1).
+    ///
+    /// Unlike [`Self::bounce`], phasing out costs no mana to recast and keeps
+    /// tokens and counters intact (CR 702.26d); it removes an opposing
+    /// permanent for one round or saves a doomed friendly permanent.
+    fn phase_out_worth(&self, view: &PlayerView, o: &PublicObject) -> i64 {
+        let tempo = 40 + i64::from(o.power.unwrap_or(0).max(0)) * 35;
+        if self.hostile(o.controller, view.seat) {
+            if self.answered(view, o) {
+                return 0;
+            }
+            if creature(o) {
+                let pressure =
+                    hurt(view, view.seat, i64::from(o.power.unwrap_or(0).max(0))).min(material(o));
+                tempo.max(pressure)
+            } else {
+                50 + i64::from(o.mana_value) * 15
+            }
+        } else if self.doomed(view, o) {
+            Self::permanent_worth(view, o) - tempo / 2
+        } else {
+            -tempo
         }
     }
 
@@ -2035,19 +2929,37 @@ impl HeuristicAgent {
                 self.pump(view, objects, (i32::from(*p), i32::from(*t), 0), duration)
             }
             Modifier::AddKeyword(k) => self.pump(view, objects, (0, 0, k.bits()), duration),
+            Modifier::Goaded => objects.iter().map(|o| self.goad_worth(view, o)).sum(),
             Modifier::PreventDamageToIt => {
                 objects.iter().map(|o| self.prevent(view, o, false)).sum()
             }
             Modifier::PreventDamageFromIt => {
                 objects.iter().map(|o| self.prevent(view, o, true)).sum()
             }
-            Modifier::PreventDamageFrom(_) => {
+            Modifier::PreventDamageFrom(_)
+            | Modifier::PreventDamagePerSource { .. }
+            | Modifier::PreventDamageToAffectedPerSource { .. } => {
                 objects.iter().map(|o| self.prevent(view, o, false)).sum()
             }
             // Cumulative upkeep asks later payment questions, which `pays_tax`
             // values when they are offered. Its grant adds no immediate value
             // of its own and must not hide the effect that returned the body.
-            Modifier::GrantTriggered { effects, .. } if Effect::is_cumulative_upkeep(effects) => 0,
+            Modifier::GrantTriggered { effects, .. }
+            | Modifier::GrantTriggeredDefinition(AbilityDef::Triggered { effects, .. })
+                if Effect::is_cumulative_upkeep(effects) =>
+            {
+                0
+            }
+            Modifier::CantPhaseOut => {
+                let first = objects.first().copied()?;
+                if !has(first, KeywordSet::PHASING) {
+                    0
+                } else if self.hostile(first.controller, view.seat) {
+                    -60
+                } else {
+                    60
+                }
+            }
             // A later destination changes no resource now. A type, a colour or
             // a subtype changes what other cards say about the object and
             // nothing by itself.
@@ -2136,7 +3048,9 @@ impl HeuristicAgent {
                 | CostPart::PayLifeX
                 | CostPart::PayEnergyX
                 | CostPart::TapX(_)
-                | CostPart::SacrificeX(_) => 0,
+                | CostPart::SacrificeX(_)
+                | CostPart::DiscardX(_)
+                | CostPart::ExileFromGraveyardX(_) => 0,
                 CostPart::PayCommanderColors => {
                     if !crate::activate::life_ok(view, cost) {
                         return None;
@@ -2160,14 +3074,24 @@ impl HeuristicAgent {
                 }
                 // The exact Equipment is not exposed as a payment choice;
                 // price it conservatively like another sacrificed permanent.
-                CostPart::SacrificeGrantor => 50,
+                CostPart::SacrificeGrantor | CostPart::Forage => 50,
+                CostPart::Either(a, b) => {
+                    match (
+                        self.cost_worth(view, origin, a),
+                        self.cost_worth(view, origin, b),
+                    ) {
+                        (Some(wa), Some(wb)) => wa.min(wb),
+                        (Some(w), None) | (None, Some(w)) => w,
+                        (None, None) => return None,
+                    }
+                }
                 CostPart::Sacrifice(filter) | CostPart::ExilePermanent(filter) => {
                     own(filter, &|_| true)
                         .into_iter()
                         .map(|o| self.given_up(view, o))
                         .min()?
                 }
-                CostPart::PayLife(n) => {
+                CostPart::PayLife(n) | CostPart::DealDamageToYou(n) => {
                     if !crate::activate::life_ok(view, cost) {
                         return None;
                     }
@@ -2236,10 +3160,41 @@ impl HeuristicAgent {
                 .min()?,
                 CostPart::TapN { .. } => return None,
                 CostPart::Crew(_) | CostPart::Saddle(_) => 80,
+                CostPart::CraftMaterials { min, .. } => i64::from(*min) * 80,
                 CostPart::ReturnToHand(filter) => own(filter, &|_| true)
                     .into_iter()
                     .map(|o| i64::from(o.mana_value) * 60 + 50)
                     .min()?,
+                CostPart::ReturnUnblockedAttacker => {
+                    if view.phase != Phase::Combat
+                        || !matches!(
+                            view.step,
+                            Step::DeclareBlockers
+                                | Step::CombatDamageFirst
+                                | Step::CombatDamage
+                                | Step::CombatEnd
+                        )
+                    {
+                        return None;
+                    }
+                    let pre_damage =
+                        matches!(view.step, Step::DeclareBlockers | Step::CombatDamageFirst);
+                    view.combat
+                        .attackers
+                        .iter()
+                        .filter(|a| !a.blocked)
+                        .filter_map(|a| view.object(a.creature))
+                        .filter(|o| o.controller == me && creature(o))
+                        .map(|o| {
+                            let damage_given_up = if pre_damage {
+                                i64::from(o.power.unwrap_or(0).max(0)) * 30
+                            } else {
+                                0
+                            };
+                            i64::from(o.mana_value) * 60 + 50 + damage_given_up
+                        })
+                        .min()?
+                }
             };
         }
         Some(total)
@@ -2361,6 +3316,187 @@ impl HeuristicAgent {
             }
         }
         Some(baylee_engine::choice::PlayerAction::ChooseTargets { objects, players })
+    }
+
+    fn repeat_each_worth(
+        &self,
+        view: &PlayerView,
+        domain: baylee_cards_dsl::RepeatDomain,
+        effects: &[Effect],
+        evaluation: &mut Evaluation<'_>,
+    ) -> Option<i64> {
+        use baylee_cards_dsl::RepeatDomain;
+        let Evaluation { origin, aim, x, .. } = *evaluation;
+        match domain {
+            RepeatDomain::EachPlayer | RepeatDomain::EachOpponent => {
+                let rel = if matches!(domain, RepeatDomain::EachPlayer) {
+                    PlayerRel::EachPlayer
+                } else {
+                    PlayerRel::EachOpponent
+                };
+                let mut total = 0_i64;
+                for p in self.seats(rel, view)? {
+                    let mut iter_eval = *evaluation;
+                    iter_eval.event_player = Some(p);
+                    total = total.saturating_add(self.effects_worth_in(
+                        view,
+                        effects,
+                        &mut iter_eval,
+                    )?);
+                    evaluation.created_tokens = iter_eval.created_tokens;
+                }
+                Some(total)
+            }
+            RepeatDomain::EachMatchingPermanent(filter) => {
+                let mut total = 0_i64;
+                for o in &view.battlefield {
+                    if !self.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        ZoneRef::Battlefield,
+                        Some(origin.id),
+                    )? {
+                        continue;
+                    }
+                    let mut iter_eval = *evaluation;
+                    iter_eval.event_object = Some(o.id);
+                    iter_eval.event_player = Some(o.controller);
+                    total = total.saturating_add(self.effects_worth_in(
+                        view,
+                        effects,
+                        &mut iter_eval,
+                    )?);
+                    evaluation.created_tokens = iter_eval.created_tokens;
+                }
+                Some(total)
+            }
+            RepeatDomain::Times(amount) => {
+                let n = self.count(view, origin, amount, aim, x)?.clamp(0, 64);
+                if n == 0 {
+                    return Some(0);
+                }
+                let base_tokens = evaluation.created_tokens;
+                let mut iter_eval = *evaluation;
+                let per = self.effects_worth_in(view, effects, &mut iter_eval)?;
+                let delta_tokens = iter_eval.created_tokens.saturating_sub(base_tokens);
+                evaluation.created_tokens =
+                    base_tokens.saturating_add(delta_tokens.saturating_mul(n));
+                Some(n.saturating_mul(per))
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn choose_card_worth(
+        &self,
+        view: &PlayerView,
+        chooser: PlayerRel,
+        zone: baylee_cards_dsl::ChooseZone,
+        filter: &Filter,
+        min: u8,
+        max: Amount,
+        movement: baylee_cards_dsl::ChooseMove,
+        then: &[Effect],
+        evaluation: &mut Evaluation<'_>,
+    ) -> Option<i64> {
+        use baylee_cards_dsl::{ChooseMove, ChooseZone};
+        if !matches!(chooser, PlayerRel::You) {
+            return None;
+        }
+        let Evaluation { origin, aim, x, .. } = *evaluation;
+        let max_n = usize::try_from(self.count(view, origin, max, aim, x)?.max(0)).unwrap_or(0);
+        if max_n == 0 {
+            return Some(0);
+        }
+        let me = view.seat;
+        let mut candidates: Vec<&PublicObject> = Vec::new();
+        match zone {
+            ChooseZone::Battlefield => {
+                for o in &view.battlefield {
+                    if self.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        ZoneRef::Battlefield,
+                        Some(origin.id),
+                    )? {
+                        candidates.push(o);
+                    }
+                }
+            }
+            ChooseZone::Graveyard(owner_rel) => {
+                for p in self.players(view, owner_rel, aim)? {
+                    if let Some(gy) = view.graveyards.get(usize::from(p.get())) {
+                        for o in gy {
+                            if self.filter_matches(
+                                filter,
+                                view,
+                                o,
+                                ZoneRef::Graveyard,
+                                Some(origin.id),
+                            )? {
+                                candidates.push(o);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if candidates.is_empty() {
+            return Some(0);
+        }
+        let mut scores: Vec<i64> = Vec::with_capacity(candidates.len());
+        for cand in candidates {
+            let move_val = match movement {
+                ChooseMove::None | ChooseMove::BottomOfLibrary => 0,
+                ChooseMove::Hand => {
+                    if self.hostile(cand.owner, me) {
+                        -350
+                    } else {
+                        350
+                    }
+                }
+                ChooseMove::Battlefield { .. } => {
+                    Self::permanent_worth(view, cand) + self.etb_worth(view, cand)
+                }
+                ChooseMove::TopOfLibrary => {
+                    if self.hostile(cand.owner, me) {
+                        -150
+                    } else {
+                        200
+                    }
+                }
+                ChooseMove::Graveyard | ChooseMove::Exile | ChooseMove::ExileLinked => {
+                    if matches!(zone, ChooseZone::Battlefield) {
+                        self.removal(view, cand)
+                    } else if self.hostile(cand.owner, me) {
+                        30
+                    } else {
+                        -30
+                    }
+                }
+            };
+            let then_val = if then.is_empty() {
+                0
+            } else {
+                let mut iter_eval = *evaluation;
+                iter_eval.event_object = Some(cand.id);
+                iter_eval.event_player = Some(cand.controller);
+                self.effects_worth_in(view, then, &mut iter_eval)?
+            };
+            scores.push(move_val.saturating_add(then_val));
+        }
+        scores.sort_unstable_by_key(|&v| std::cmp::Reverse(v));
+        let take_max = max_n.min(scores.len());
+        let take_min = usize::from(min).min(take_max);
+        let mut total = 0_i64;
+        for (i, &val) in scores.iter().take(take_max).enumerate() {
+            if i < take_min || val > 0 {
+                total = total.saturating_add(val);
+            }
+        }
+        Some(total)
     }
 }
 

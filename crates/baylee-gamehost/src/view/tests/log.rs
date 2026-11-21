@@ -787,6 +787,39 @@ fn a_face_down_permanent_is_named_as_the_view_shows_it() {
     assert!(shown.card.is_none(), "and the view agrees");
 }
 
+#[test]
+fn class_level_log_hides_printings_and_tells_changes_from_the_same_incarnation() {
+    let (mut engine, mut log) = a_logged_table();
+    let me = PlayerId::new(0);
+    let object = engine.state().zones.list(ZoneLocation::Battlefield)[0];
+    let from = log.len();
+    let state = engine.dev_state_mut(me).unwrap();
+    let version = state.object(object).unwrap().version;
+    for (version, face_down, level) in [
+        (version, false, 2),
+        (version, true, 3),
+        (version + 1, false, 4),
+    ] {
+        state.journal.record(GameEvent::ClassLevelChanged {
+            object,
+            version,
+            level,
+            face_down,
+        });
+    }
+    log.consume(engine.state());
+    assert!(matches!(
+        told_since(&log, me, from).as_slice(),
+        [LogEvent::ClassLevel {
+            object: LogObject::Known { id, .. },
+            level: 2,
+        }, LogEvent::ClassLevel {
+            object: LogObject::FaceDown { id: face_down },
+            level: 3,
+        }] if *id == object && *face_down == object
+    ));
+}
+
 /// Face down in exile, the same: the view shows the other seats a blank
 /// with a handle, and the log names it the same way.
 #[test]

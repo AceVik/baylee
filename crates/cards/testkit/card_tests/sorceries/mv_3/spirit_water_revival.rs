@@ -3,18 +3,14 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-/// Declining the waterbend declines its taps (CR 701.67b): after "waterbend
-/// {6}?" is answered no, the cast asks nothing more and taps nothing.
+/// With six untapped permanents to pay for waterbend, the caster can decline
+/// it and cast for the printed cost without tapping any of them.
 #[test]
 fn spirit_water_revival_asks_for_no_taps_when_the_waterbend_is_declined() {
     let seat = PlayerId::new(0);
-    let mut engine = revival_table(&[
-        island(),
-        island(),
-        island(),
-        ondu_cleric(),
-        darksteel_pendant(),
-    ]);
+    let mut board = vec![island(), island(), island(), darksteel_pendant()];
+    board.extend([ondu_cleric(); 5]);
+    let mut engine = revival_table(&board);
     let revival = in_hand(&engine, seat, spirit_water_revival()).expect("in hand");
     engine
         .apply(seat, PlayerAction::CastSpell { card: revival })
@@ -42,8 +38,11 @@ fn spirit_water_revival_asks_for_no_taps_when_the_waterbend_is_declined() {
         !engine.state().zones.stack_is_empty(),
         "the spell never reached the stack"
     );
-    for card in [ondu_cleric(), darksteel_pendant()] {
-        let id = on_battlefield(&engine, seat, card).expect("on the battlefield");
+    let pendant = on_battlefield(&engine, seat, darksteel_pendant()).unwrap();
+    for id in all_on_battlefield(&engine, seat, ondu_cleric())
+        .into_iter()
+        .chain(std::iter::once(pendant))
+    {
         assert!(
             !is_tapped(&engine, id),
             "a declined waterbend tapped something"
@@ -97,10 +96,10 @@ fn spirit_water_revival_s_waterbend_taps_pay_the_six_and_no_more() {
 
 // ---- Abilities no test had fired (L4 sweep, 2026-10-01) ----
 
-/// Spirit Water Revival, waterbend declined: "Draw two cards." and "Exile
-/// Spirit Water Revival." Nothing else tested the spell once it resolves.
+/// With only enough mana for the printed cost, the spell skips the waterbend
+/// choice, draws two cards, and exiles itself.
 #[test]
-fn spirit_water_revival_draws_two_and_exiles_itself_when_the_waterbend_is_declined() {
+fn spirit_water_revival_draws_two_and_exiles_itself_when_the_waterbend_is_unpayable() {
     let seat = PlayerId::new(0);
     let mut engine = revival_table(&[island(), island(), island()]);
     let revival = in_hand(&engine, seat, spirit_water_revival()).expect("in hand");
@@ -108,7 +107,8 @@ fn spirit_water_revival_draws_two_and_exiles_itself_when_the_waterbend_is_declin
     engine
         .apply(seat, PlayerAction::CastSpell { card: revival })
         .unwrap();
-    engine.apply(seat, PlayerAction::YesNo(false)).unwrap();
+    assert!(matches!(engine.pending(), Pending::Priority { .. }));
+    assert!(!stack_is_empty(&engine));
     let lib = library_size(&engine, seat);
     pass_until(&mut engine, stack_is_empty);
 

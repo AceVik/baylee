@@ -205,6 +205,7 @@ fn an_object_writes_only_what_is_not_default_and_reads_back_whole() {
         "\"card\"",
         "\"commander\"",
         "\"counters\"",
+        "\"class_level\"",
         "\"damage\"",
         "\"targets\"",
         "\"grants\"",
@@ -238,6 +239,7 @@ fn an_object_writes_only_what_is_not_default_and_reads_back_whole() {
     busy.damage = 3;
     busy.token = Some(4);
     busy.loyalty = Some(5);
+    busy.class_level = Some(3);
     busy.attached_to = Some(ObjectId::new(9, 0));
     busy.flashback = Some(ManaCost::default());
     let json = serde_json::to_string(&busy).expect("writes");
@@ -246,6 +248,7 @@ fn an_object_writes_only_what_is_not_default_and_reads_back_whole() {
         "\"damage\"",
         "\"token\"",
         "\"loyalty\"",
+        "\"class_level\"",
         "\"attached_to\"",
         "\"flashback\"",
     ] {
@@ -377,6 +380,10 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
             o.subtypes.insert(baylee_core::ids::SubtypeId::new(1));
         }),
         ("suspended", |o| o.suspended = true),
+        ("plotted", |o| o.plotted = true),
+        ("warped", |o| o.warped = true),
+        ("suspected", |o| o.suspected = true),
+        ("class_level", |o| o.class_level = Some(2)),
         ("chosen_subtype", |o| {
             o.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ALLY);
         }),
@@ -513,4 +520,33 @@ fn an_older_object_without_prepare_metadata_still_decodes() {
         serde_json::from_value::<PublicObject>(json).unwrap(),
         object
     );
+}
+
+#[test]
+fn player_attached_aura_reports_attached_player_off_stack_and_splits_summary_key() {
+    let plain = obj(1, 0);
+    assert_eq!(plain.attached_player(), None);
+    let mut curse = plain.clone();
+    curse.targets = vec![baylee_core::ids::TargetRef::Player(PlayerId::new(1))];
+    assert_eq!(curse.attached_player(), Some(PlayerId::new(1)));
+    assert_ne!(plain.summary_key(), curse.summary_key());
+    curse.stack_item = Some(StackItem::Spell);
+    assert_eq!(curse.attached_player(), None);
+}
+
+#[test]
+fn paired_creature_reports_paired_with_off_stack_and_splits_summary_key() {
+    let plain = obj(1, 0);
+    assert_eq!(plain.paired_with(), None);
+    let mut paired = plain.clone();
+    paired.targets = vec![baylee_core::ids::TargetRef::Object(
+        baylee_core::ids::DamageSourceRef {
+            object: ObjectId::new(2, 0),
+            version: 0,
+        },
+    )];
+    assert_eq!(paired.paired_with(), Some(ObjectId::new(2, 0)));
+    assert_ne!(plain.summary_key(), paired.summary_key());
+    paired.stack_item = Some(StackItem::Spell);
+    assert_eq!(paired.paired_with(), None);
 }

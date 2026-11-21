@@ -144,9 +144,7 @@ pub(crate) fn madness_options<L: CardLookup>(
     let choice = CostChoice {
         option: Some(CastModeKind::Normal),
         alternative_cost: Some(CastModeKind::Madness),
-        buyback: false,
-        kicked: false,
-        kicked_mask: 0,
+        ..Default::default()
     };
     casting::additional_payment_capacity_for(state, player, card, face, choice, &[])?;
     let options = if casting::modes_are_the_only_way(def, 0) {

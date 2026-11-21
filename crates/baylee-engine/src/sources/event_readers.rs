@@ -76,6 +76,15 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. } => {
             reads_amount(*amount) || reads_target(*target)
         }
+        Effect::DamagePermanentAndController {
+            target,
+            permanent_amount,
+            controller_amount,
+        } => {
+            reads_target(*target)
+                || reads_amount(*permanent_amount)
+                || reads_amount(*controller_amount)
+        }
         Effect::PayManaToPreventDamage { player, amount, .. }
         | Effect::ScryFor { player, amount, .. }
         | Effect::CreateTokensFor { player, amount, .. } => {
@@ -113,7 +122,9 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::AddCounterFilter { amount, .. }
         | Effect::AddCounterCreatedTokens { amount, .. }
         | Effect::CreateTokenThenCounters { amount, .. }
-        | Effect::CreateTokenN { amount, .. } => reads_amount(*amount),
+        | Effect::CreateTokenN { amount, .. }
+        | Effect::Monstrosity(amount)
+        | Effect::ChooseAndCreateTokenCopy { amount, .. } => reads_amount(*amount),
         Effect::Poison { amount, who }
         | Effect::DiscardAmountForPlayers { amount, who }
         | Effect::SacrificeAmountForPlayers { amount, who, .. }
@@ -144,10 +155,41 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::Assimilate { target }
         | Effect::AttachSelf { target, .. }
         | Effect::ExileLinked { target, .. }
-        | Effect::SacrificeObject { target, .. } => reads_target(*target),
-        Effect::LookAtTopPick { count, .. } | Effect::SearchLibraryUpTo { count, .. } => {
-            reads_amount(*count)
+        | Effect::BecomeCopy {
+            original: target, ..
         }
+        | Effect::ExileWithPermission { target, .. }
+        | Effect::TurnFaceUp { target }
+        | Effect::Plot { target }
+        | Effect::Suspect { target }
+        | Effect::Unsuspect { target }
+        | Effect::SacrificeObject { target, .. } => reads_target(*target),
+        Effect::LookAtTopPick { count, .. }
+        | Effect::SearchLibraryUpTo { count, .. }
+        | Effect::FlipCoins { count, .. }
+        | Effect::RollDice { count, .. }
+        | Effect::RepeatEach {
+            domain: baylee_cards_dsl::RepeatDomain::Times(count),
+            ..
+        } => reads_amount(*count),
+        Effect::ChooseCard {
+            chooser, zone, max, ..
+        } => {
+            reads_player(*chooser)
+                || reads_amount(*max)
+                || matches!(zone, baylee_cards_dsl::ChooseZone::Graveyard(p) if reads_player(*p))
+        }
+        Effect::PeekAndReveal {
+            library: player,
+            count,
+            ..
+        }
+        | Effect::RevealFromHand {
+            who: player,
+            max: count,
+            ..
+        }
+        | Effect::RevealTop { player, count, .. } => reads_player(*player) || reads_amount(*count),
         Effect::ChooseExiledToPlay { owner, .. }
         | Effect::RemoveCountersFromChosenExile { owner, .. }
         | Effect::CreateTokenCopiesOfGraveyard { player: owner, .. } => reads_player(*owner),
@@ -181,10 +223,33 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::LoseUnspentMana { who, .. }
         | Effect::ExileTopToPlay { who, .. }
         | Effect::ExileTopMayCast { who, .. } => reads_player(*who),
-        Effect::DiscardRandom { who, count, .. } => reads_player(*who) || reads_amount(*count),
+        Effect::ExileTopWithPermission { who, count, .. }
+        | Effect::ManifestTop { who, count }
+        | Effect::PlotTop { who, count }
+        | Effect::DiscardRandom { who, count, .. } => reads_player(*who) || reads_amount(*count),
         Effect::Reflexive { target, .. }
         | Effect::CreateTokenCopyOf { target, .. }
-        | Effect::PhaseOut { target, .. } => target.is_some_and(reads_target),
+        | Effect::PhaseOut { target, .. }
+        | Effect::PreventFromChosenSource { target, .. }
+        | Effect::PreventNextFromMatchingSources { target, .. }
+        | Effect::PreventAllDamageFromMatchingThisTurn { target, .. } => {
+            target.is_some_and(reads_target)
+        }
+        Effect::MustBlockIfAble {
+            blocker, attacker, ..
+        } => reads_target(*blocker) || reads_target(*attacker),
+        Effect::ReflexiveTrigger {
+            targets, remember, ..
+        }
+        | Effect::RegisterDelayedTrigger {
+            targets, remember, ..
+        } => {
+            matches!(
+                remember,
+                baylee_cards_dsl::TriggerRemember::EventObject
+                    | baylee_cards_dsl::TriggerRemember::EventSubject
+            ) || targets.is_some_and(|req| reads_target(req.spec))
+        }
         Effect::SetPTFilter {
             power, toughness, ..
         }
@@ -204,6 +269,18 @@ fn reads_event(effect: &Effect) -> bool {
             reads_player(*player) || reads_amount(*life)
         }
         Effect::ChangeController { new_controller, .. } => reads_player(*new_controller),
+        Effect::CreateTokenCopy {
+            target,
+            controller,
+            amount,
+            ..
+        }
+        | Effect::CopySpellOrAbility {
+            target,
+            controller,
+            amount,
+            ..
+        } => reads_target(*target) || reads_player(*controller) || reads_amount(*amount),
         Effect::SearchLibraryOf { library, .. } => reads_player(*library),
         Effect::PumpFilter {
             controlled_by,
@@ -215,6 +292,21 @@ fn reads_event(effect: &Effect) -> bool {
                 || reads_amount(*power)
                 || reads_amount(*toughness)
         }
+        Effect::IfCondition { condition, .. } => reads_condition(condition),
+        Effect::SoulbondPair { with_event_object } => *with_event_object,
+        _ => false,
+    }
+}
+
+fn reads_condition(condition: &baylee_cards_dsl::Condition) -> bool {
+    use baylee_cards_dsl::Condition as C;
+    match condition {
+        C::ObjectMatches { what, .. } => reads_target(**what),
+        C::AmountAtLeast(amount, _) | C::AmountIsEven(amount) => reads_amount(*amount),
+        C::AmountCompare { left, right, .. } => reads_amount(**left) || reads_amount(**right),
+        C::SoulbondEventCanPair => true,
+        C::All(parts) | C::Any(parts) => parts.iter().any(reads_condition),
+        C::Not(inner) => reads_condition(inner),
         _ => false,
     }
 }

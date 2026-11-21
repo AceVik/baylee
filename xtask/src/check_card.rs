@@ -4,8 +4,8 @@
 use crate::{
     KEYWORD_WORDS, PrintingTally, check_activation_cost_matches_the_printing,
     check_mana_matches_the_printing, check_optional_clauses_are_offered,
-    check_scope_matches_the_text, code_costs, face_texts, knob, mentions_word, printed_text,
-    quoted_value, strip_reminders,
+    check_scope_matches_the_text, code_costs, face_texts, keyword_mentioned, knob, mentions_word,
+    printed_text, quoted_value, strip_reminders,
 };
 
 /// A Scryfall color letter.
@@ -100,7 +100,7 @@ pub(crate) fn check_card_matches_the_printing(
             continue;
         }
         asked = true;
-        if !mentions_word(&printed, word) {
+        if !keyword_mentioned(&printed, *bit, word) {
             println!("{slug}: the code claims {word} and the printed text never says it");
             *problems += 1;
         }

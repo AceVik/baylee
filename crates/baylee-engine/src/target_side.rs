@@ -57,6 +57,8 @@ pub const fn acts_elsewhere(effect: &Effect) -> bool {
     matches!(
         effect,
         Effect::CreateDelayedObserver { .. }
+            | Effect::ReflexiveTrigger { .. }
+            | Effect::RegisterDelayedTrigger { .. }
             | Effect::DestroyAllThenForEachDestroyed { .. }
             | Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { .. }
             | Effect::ForEachTarget { .. }
@@ -115,6 +117,7 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         Effect::CreateContinuousEffect { modifier, .. } => Some(match modifier {
             Modifier::ModifyPT(p, t) => (i32::from(*p) + i32::from(*t)).signum(),
             Modifier::AddKeyword(_) => 1,
+            Modifier::Goaded => -2,
             _ => 0,
         }),
         Effect::Destroy { .. }
@@ -128,14 +131,27 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::CounterTargetAbility
         | Effect::CounterTargetSpellOrAbility
         | Effect::DealDamage { .. }
+        | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamageEvenly { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::DealDamageWithLimitedLifeGain { .. }
         | Effect::DealDamageDivided { .. }
-        | Effect::TapTarget => Some(-1),
+        | Effect::PhaseOutUntilSourceLeaves { .. }
+        | Effect::TapTarget
+        | Effect::TapTargetSlot(baylee_cards_dsl::TargetSlot::First) => Some(-1),
+        Effect::PhaseOut { target: Some(spec) } => {
+            Some(if spec_only_yours(*spec) { 1 } else { -1 })
+        }
+        Effect::MustBlockSourceIfAbleThisCombat
+        | Effect::MustBlockIfAble { .. }
+        | Effect::Detain { .. }
+        | Effect::Goad { .. }
+        | Effect::GoadAll { .. } => Some(-2),
         Effect::Blink { .. }
         | Effect::ExileAndReturnAtEndStep
         | Effect::UntapTarget
+        | Effect::UntapTargetSlot(baylee_cards_dsl::TargetSlot::First)
+        | Effect::CreateTokenCopy { .. }
         | Effect::GrantFlashback
         | Effect::GraveyardToHand { .. }
         | Effect::GraveyardToTop { .. }
@@ -164,11 +180,17 @@ fn hurts(effect: &Effect, x: u32) -> bool {
         | Effect::CounterTargetSpell
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetAbility
-        | Effect::CounterTargetSpellOrAbility => true,
+        | Effect::CounterTargetSpellOrAbility
+        | Effect::PhaseOutUntilSourceLeaves { .. } => true,
         Effect::DealDamage { amount: n, .. }
         | Effect::DealDamageEvenly { amount: n, .. }
         | Effect::DealDamageWithCappedLifeGain { amount: n }
         | Effect::DealDamageWithLimitedLifeGain { amount: n, .. } => amount(*n, x) > 0,
+        Effect::DamagePermanentAndController {
+            permanent_amount,
+            controller_amount,
+            ..
+        } => amount(*permanent_amount, x) > 0 || amount(*controller_amount, x) > 0,
         Effect::DealDamageDivided { amount: n } => n.total(x) > 0,
         _ => false,
     }
@@ -261,6 +283,39 @@ pub fn effects_side(effects: &[Effect], x: u32) -> Option<TargetSide> {
     }
 }
 
+/// Whether a target specification is restricted to permanents the caster controls.
+fn spec_only_yours(spec: baylee_cards_dsl::TargetSpec) -> bool {
+    fn filter_only_yours(filter: &Filter) -> bool {
+        match filter {
+            Filter::ControlledByYou => true,
+            Filter::And(parts) => parts.iter().any(filter_only_yours),
+            Filter::Or(parts) => !parts.is_empty() && parts.iter().all(filter_only_yours),
+            _ => false,
+        }
+    }
+    matches!(spec, baylee_cards_dsl::TargetSpec::Object(f) if filter_only_yours(f))
+}
+
+/// Whether granted trigger `effects` clearly help (`Some(1)`) or hurt (`Some(-1)`)
+/// the enchanted creature's controller.
+pub fn granted_trigger_sign(effects: &[Effect]) -> Option<i32> {
+    if Effect::is_cumulative_upkeep(effects) {
+        return Some(-1);
+    }
+    match effects {
+        [
+            Effect::DrawCards { .. }
+            | Effect::MayDo {
+                effects: [Effect::DrawCards { .. }],
+            },
+        ] => Some(1),
+        _ => match effects_side(effects, 0) {
+            Some(TargetSide::Helpful) => Some(1),
+            _ => None,
+        },
+    }
+}
+
 /// Whether a static ability's filter is the creature its Aura is attached to.
 #[must_use]
 pub fn enchants(filter: &Filter) -> bool {
@@ -271,28 +326,143 @@ pub fn enchants(filter: &Filter) -> bool {
     }
 }
 
-/// The side an Aura printing `abilities` wants its creature on, by what its
-/// statics do to that creature. `None` for a static with no row here (a
-/// control Aura, a mana Aura's trigger) and for one that nets out at nothing.
+/// Whether a static ability's filter names permanents controlled by the
+/// Aura's enchanted player (`Filter::ControlledByEnchantedPlayer`).
+#[must_use]
+pub fn enchants_players_permanents(filter: &Filter) -> bool {
+    match filter {
+        Filter::ControlledByEnchantedPlayer => true,
+        Filter::And(parts) => parts.iter().any(enchants_players_permanents),
+        _ => false,
+    }
+}
+
+fn effect_sign_for_enchanted_player(effects: &[Effect]) -> i32 {
+    let mut sign = 0_i32;
+    for effect in effects {
+        sign += match effect {
+            Effect::LoseLife {
+                target: PlayerRel::EnchantedPlayer,
+                ..
+            }
+            | Effect::DealDamage {
+                target: baylee_cards_dsl::TargetSpec::Player(PlayerRel::EnchantedPlayer),
+                ..
+            }
+            | Effect::DiscardForPlayers {
+                who: PlayerRel::EnchantedPlayer,
+                ..
+            }
+            | Effect::Mill {
+                target: PlayerRel::EnchantedPlayer,
+                ..
+            }
+            | Effect::SacrificeFilter {
+                who: PlayerRel::EnchantedPlayer,
+                ..
+            } => -1,
+            Effect::GainLifeFor {
+                who: PlayerRel::EnchantedPlayer,
+                ..
+            }
+            | Effect::DrawCardsFor {
+                who: PlayerRel::EnchantedPlayer,
+                ..
+            } => 1,
+            _ => 0,
+        };
+        let (then, otherwise) = effect.branches();
+        sign +=
+            effect_sign_for_enchanted_player(then) + effect_sign_for_enchanted_player(otherwise);
+    }
+    sign
+}
+
+/// The side an Aura printing `abilities` wants its creature or player on, by
+/// what its statics and triggers do to that host. `None` for a static with no
+/// row here (a control Aura, a mana Aura's trigger) and for one that nets out
+/// at nothing.
 #[must_use]
 pub fn aura_side(abilities: &[AbilityDef]) -> Option<TargetSide> {
     let mut sign = 0_i32;
     for ability in abilities {
-        let AbilityDef::Static(s) = ability else {
-            continue;
-        };
-        if !enchants(&s.filter) {
-            continue;
-        }
-        sign += match s.modifier {
-            Modifier::ModifyPT(power, toughness) => {
-                (i32::from(power) + i32::from(toughness)).signum()
+        match ability {
+            AbilityDef::Static(s) if enchants(&s.filter) => {
+                sign += match &s.modifier {
+                    Modifier::ModifyPT(power, toughness) => {
+                        (i32::from(*power) + i32::from(*toughness)).signum()
+                    }
+                    Modifier::AddKeyword(keywords) if keywords.contains(KeywordSet::DEFENDER) => -1,
+                    Modifier::AddKeyword(_)
+                    | Modifier::GrantActivated { .. }
+                    | Modifier::GrantActivatedDefinition(_) => 1,
+                    Modifier::GrantTriggered { effects, .. }
+                    | Modifier::GrantTriggeredUpToOne { effects, .. }
+                    | Modifier::GrantTriggeredDefinition(AbilityDef::Triggered {
+                        effects, ..
+                    }) => granted_trigger_sign(effects)?,
+                    Modifier::CantAttack | Modifier::CantBlock(_) => -1,
+                    Modifier::Goaded => -2,
+                    _ => return None,
+                };
             }
-            Modifier::AddKeyword(keywords) if keywords.contains(KeywordSet::DEFENDER) => -1,
-            Modifier::AddKeyword(_) => 1,
-            Modifier::CantAttack | Modifier::CantBlock(_) => -1,
-            _ => return None,
-        };
+            AbilityDef::Static(s) if enchants_players_permanents(&s.filter) => {
+                sign += match &s.modifier {
+                    Modifier::ModifyPT(power, toughness) => {
+                        (i32::from(*power) + i32::from(*toughness)).signum()
+                    }
+                    Modifier::CantAttack | Modifier::CantBlock(_) => -1,
+                    _ => 0,
+                };
+            }
+            AbilityDef::Static(s) => match &s.modifier {
+                Modifier::PlayersCantCast {
+                    who: PlayerRel::EnchantedPlayer,
+                    ..
+                }
+                | Modifier::SpellCastLimitPerTurn {
+                    who: PlayerRel::EnchantedPlayer,
+                    ..
+                }
+                | Modifier::MatchingSpellCastLimitPerTurn {
+                    who: PlayerRel::EnchantedPlayer,
+                    ..
+                }
+                | Modifier::LifeGainNoLifeInstead {
+                    who: PlayerRel::EnchantedPlayer,
+                }
+                | Modifier::PlayersCantGainLife(PlayerRel::EnchantedPlayer)
+                | Modifier::PlayersCantWin(PlayerRel::EnchantedPlayer) => sign -= 1,
+                Modifier::PlayerHexproof {
+                    who: PlayerRel::EnchantedPlayer,
+                }
+                | Modifier::PlayerProtectionFrom {
+                    who: PlayerRel::EnchantedPlayer,
+                    ..
+                }
+                | Modifier::PlayerProtectionFromEverything {
+                    who: PlayerRel::EnchantedPlayer,
+                }
+                | Modifier::PreventNoncombatDamageToPlayers {
+                    who: PlayerRel::EnchantedPlayer,
+                    ..
+                }
+                | Modifier::NamedPlayersCantLose(PlayerRel::EnchantedPlayer) => sign += 1,
+                _ => {}
+            },
+            AbilityDef::Triggered {
+                trigger, effects, ..
+            } => {
+                if matches!(
+                    trigger,
+                    baylee_cards_dsl::Trigger::PlayerAttacked(PlayerRel::EnchantedPlayer)
+                ) {
+                    sign -= 1;
+                }
+                sign += effect_sign_for_enchanted_player(effects);
+            }
+            _ => {}
+        }
     }
     match sign.signum() {
         1 => Some(TargetSide::Helpful),

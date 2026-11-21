@@ -53,15 +53,38 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
         CommanderRule::NotEligible
     )));
     s[69] = f32::from(u8::from(!matches!(def.partner, PartnerKind::None)));
-    s[70] = f32::from(u8::from(face.flashback.is_some() || face.disturb));
+    s[70] = f32::from(u8::from(
+        face.flashback.is_some()
+            || face.disturb
+            || face.jump_start
+            || face.aftermath
+            || kw.contains(KeywordSet::RETRACE),
+    ));
     s[71] = f32::from(u8::from(face.escape.is_some()));
     s[72] = f32::from(u8::from(face.adventure || face.prototype.is_some()));
-    s[73] = f32::from(u8::from(face.morph.is_some() || face.disguise.is_some()));
+    s[73] = f32::from(u8::from(face.has_face_down_cast()));
     s[74] = f32::from(u8::from(
-        face.miracle.is_some() || face.dash.is_some() || face.mutate.is_some(),
+        face.miracle.is_some()
+            || face.dash.is_some()
+            || face.blitz.is_some()
+            || face.warp.is_some()
+            || face.emerge.is_some()
+            || face.mutate.is_some()
+            || face.bestow.is_some()
+            || face.plot.is_some()
+            || face.impending.is_some()
+            || def.fuse,
     ));
     s[75] = f32::from(u8::from(
-        face.delve || face.convoke || face.improvise || face.waterbend,
+        face.delve
+            || face.convoke
+            || face.improvise
+            || face.waterbend
+            || face.bargain
+            || face.squad.is_some()
+            || face.offspring.is_some()
+            || face.casualty.is_some()
+            || face.gift.is_some(),
     ));
     s[76] = f32::from(u8::from(face.cost_reduction.is_some()));
     s[77] = unit(face.additional_costs.len() as f32, 3.0);
@@ -82,8 +105,14 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             | EnterModifier::TappedUnlessRevealOrControl(_) => s[81] = 1.0,
             EnterModifier::TappedOrPayLife(_) => s[82] = 1.0,
             EnterModifier::WithCounters { .. }
+            | EnterModifier::WithCountersIf { .. }
             | EnterModifier::ChooseCounterPerEntryCount(_)
-            | EnterModifier::IfKicked { .. } => {
+            | EnterModifier::IfKicked { .. }
+            | EnterModifier::Amplify(_)
+            | EnterModifier::Bloodthirst(_)
+            | EnterModifier::Devour { .. }
+            | EnterModifier::Sunburst
+            | EnterModifier::Tribute(_) => {
                 s[83] = 1.0;
             }
             EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_) => s[84] = 1.0,
@@ -94,6 +123,9 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             | EnterModifier::ChooseOpponent => s[86] = 1.0,
             _ => s[87] = 1.0,
         }
+    }
+    if kw.contains(KeywordSet::RIOT) || kw.contains(KeywordSet::UNLEASH) {
+        s[83] = 1.0;
     }
 
     // Encode individual abilities + aggregate counts & effect channels

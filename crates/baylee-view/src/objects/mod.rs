@@ -364,6 +364,21 @@ pub struct PublicObject {
     /// Whether this face-up exiled card is suspended. Its time counters are public.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub suspended: bool,
+    /// Whether this face-up exiled card is plotted (`CR 702.170`).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub plotted: bool,
+    /// Whether this face-up exiled card was exiled by a warp delayed trigger
+    /// and may be cast from exile on a later turn (`CR 702.185a–b`).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub warped: bool,
+    /// Whether this permanent on the battlefield is suspected (`CR 701.60`).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub suspected: bool,
+    /// Public Class designation (CR 717). Level 1 is shown for a face-up
+    /// Class. An established higher level remains visible through any change
+    /// to the permanent's face or types.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub class_level: Option<u8>,
     /// Which token this is, for permanents with no card behind them.
     ///
     /// The index into `baylee_cards::tokens::ALL`. A token has no printing
@@ -419,7 +434,8 @@ pub struct PublicObject {
     /// What this is attached to (auras, equipment, fortifications).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub attached_to: Option<ObjectId>,
-    /// Targets, for objects on the stack.
+    /// Targets, for objects on the stack (and `[TargetRef::Player(p)]` for
+    /// player-attached Auras on the battlefield; see [`Self::attached_player`]).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub targets: Vec<TargetRef>,
     /// What this is, for objects on the stack; `None` everywhere else.
@@ -674,6 +690,32 @@ impl PublicObject {
             .map_or(0, |c| c.count)
     }
 
+    /// Which player this permanent is attached to on the battlefield (Curses
+    /// and `Enchant player` Auras, CR 303.4b).
+    #[must_use]
+    pub fn attached_player(&self) -> Option<PlayerId> {
+        if self.stack_item.is_some() {
+            return None;
+        }
+        self.targets.iter().find_map(|target| match *target {
+            TargetRef::Player(player) => Some(player),
+            TargetRef::Object(_) => None,
+        })
+    }
+
+    /// Which creature on the battlefield this permanent is paired with via
+    /// soulbond (CR 702.95b).
+    #[must_use]
+    pub fn paired_with(&self) -> Option<ObjectId> {
+        if self.stack_item.is_some() {
+            return None;
+        }
+        self.targets.iter().find_map(|target| match *target {
+            TargetRef::Object(reference) => Some(reference.object),
+            TargetRef::Player(_) => None,
+        })
+    }
+
     /// A stable grouping key for identical objects.
     ///
     /// Token-heavy boards are unreadable one card at a time; a client collapses
@@ -712,6 +754,10 @@ impl PublicObject {
             linked_exile: self.linked_exile.clone(),
             unlocked_doors: self.unlocked_doors,
             suspended: self.suspended,
+            plotted: self.plotted,
+            warped: self.warped,
+            suspected: self.suspected,
+            class_level: self.class_level,
             colors: self.colors,
             keywords: self.keywords,
             power: self.power,
@@ -721,7 +767,9 @@ impl PublicObject {
             damage: self.damage,
             loyalty: self.loyalty,
             counters,
-            attached: self.attached_to.is_some(),
+            attached: self.attached_to.is_some()
+                || self.attached_player().is_some()
+                || self.paired_with().is_some(),
             summoning_sick: self.summoning_sick,
             granted_mana: self.granted_mana.clone(),
             board_mana: self.board_mana.clone(),
@@ -773,6 +821,10 @@ pub struct ObjectSummaryKey {
     /// one has a door left to unlock.
     unlocked_doors: Option<[bool; 2]>,
     suspended: bool,
+    plotted: bool,
+    warped: bool,
+    suspected: bool,
+    class_level: Option<u8>,
     colors: ColorSet,
     keywords: u128,
     power: Option<i16>,
@@ -818,6 +870,10 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.linked_exile.hash(state);
         self.unlocked_doors.hash(state);
         self.suspended.hash(state);
+        self.plotted.hash(state);
+        self.warped.hash(state);
+        self.suspected.hash(state);
+        self.class_level.hash(state);
         self.power.hash(state);
         self.toughness.hash(state);
         self.damage.hash(state);

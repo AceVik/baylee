@@ -77,20 +77,34 @@ fn putting_a_creature_in_a_graveyard_is_not_destroying_it() {
 /// Spite as three mana for five life off a target — both
 /// `Coverage::Implemented`, both offered to a deckbuilder as playable.
 #[test]
-fn an_additional_cost_on_a_spell_is_refused_and_not_dropped() {
-    // Crop Rotation.
-    assert!(refused(
+fn an_additional_cost_on_a_spell_is_read_or_refused_and_never_dropped() {
+    // Crop Rotation: a single paid sacrifice lands on `mandatory_additional_costs`.
+    let crop = read(
         "Name:X\nTypes:Instant\n\
          A:SP$ ChangeZone | Cost$ G Sac<1/Land> | Origin$ Library | \
-         Destination$ Battlefield | ChangeType$ Land | ChangeNum$ 1"
-    ));
-    // Kaervek's Spite: two additional costs, and the first of them is
-    // one `cost_pieces` can read, so the refusal has to come from the
-    // spell branch rather than from a part nobody could map.
+         Destination$ Battlefield | ChangeType$ Land | ChangeNum$ 1",
+    );
+    assert_eq!(
+        crop.mandatory_additional_costs,
+        ["CostPart::Sacrifice(&Filter::YOUR_LAND)"]
+    );
+    // Kaervek's Spite: `Sac<All/Permanent>` is not a paid mandatory cost part,
+    // so it stays refused rather than being dropped.
     assert!(refused(
         "Name:X\nTypes:Instant\n\
          A:SP$ LoseLife | Cost$ B B B Sac<All/Permanent> Discard<0/Hand> | \
          ValidTgts$ Player | LifeAmount$ 5"
+    ));
+    // Random discard is a paid mandatory additional cost on spells.
+    let rand = read(
+        "Name:X\nTypes:Instant\n\
+         A:SP$ Draw | Cost$ R Discard<1/Random> | NumCards$ 2",
+    );
+    assert_eq!(rand.mandatory_additional_costs, ["CostPart::DiscardRandom"]);
+    // An unsupported cost token on a spell still stays refused rather than dropped.
+    assert!(refused(
+        "Name:X\nTypes:Instant\n\
+         A:SP$ Draw | Cost$ R SubCounter<1/P1P1> | NumCards$ 2"
     ));
     // The mana half alone is not an additional cost: it is the card's
     // own mana cost, which the face already carries.
@@ -127,13 +141,10 @@ fn anything_unread_refuses_the_whole_card() {
         "Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | UnlessCost$ 2"
     ));
     // A keyword that is data rather than a bit, and that no rule reads.
-    // This was `K:Cycling:2` until one rule read it, then
-    // `K:TypeCycling:Basic:2` until the typecycling rule read that: the
-    // example has to be a keyword nothing here understands *today*, and
-    // ninjutsu (CR 702.49) is one.
-    assert!(refused(
-        "Name:X\nTypes:Creature Goblin\nPT:1/1\nK:Ninjutsu:1 U"
-    ));
+    // This was `K:Cycling:2`, then `K:TypeCycling:Basic:2`, then
+    // `K:Ninjutsu:1 U`, then `K:Retrace` until each rule read them; the
+    // example stays a parameterized keyword that is still unmodeled here.
+    assert!(refused("Name:X\nTypes:Instant\nK:MayFlashCost:2"));
     // A line kind with rules in it that this module does not model.
     assert!(refused(
         "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
@@ -240,7 +251,7 @@ fn a_card_may_make_a_token_that_carries_an_ability() {
     );
     assert!(
         body.abilities[0]
-            .contains("Effect::CreateToken { token: &generated_tokens::GOBLIN_1_1_RED }"),
+            .contains("Effect::CreateToken { token: &generated_tokens::GOBLIN_1_1_RED_A852C8CC6 }"),
         "{}",
         body.abilities[0]
     );
@@ -277,14 +288,26 @@ fn an_x_is_a_token_amount_only_where_a_player_announced_one() {
         body.abilities[0]
     );
 
-    // The same `X`, counted a way nothing here can say.
+    // `Count$Domain` lowers to `Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)`.
     let domain = parse(
         "Name:X\nTypes:Sorcery\nA:SP$ Token | Cost$ G | TokenScript$ r_1_1_goblin \
          | TokenOwner$ You | TokenAmount$ X\nSVar:X:Count$Domain",
     );
+    let domain_body = transcode(&domain, &cats(), Some(&tokens())).expect("domain token count");
+    assert!(
+        domain_body.abilities[0].contains("Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)"),
+        "{}",
+        domain_body.abilities[0]
+    );
+
+    // The same `X`, counted a way nothing here can say.
+    let unknown_count = parse(
+        "Name:X\nTypes:Sorcery\nA:SP$ Token | Cost$ G | TokenScript$ r_1_1_goblin \
+         | TokenOwner$ You | TokenAmount$ X\nSVar:X:Count$ValidExile Card.YouOwn",
+    );
     assert_eq!(
-        refusal_reason(&domain, &cats(), Some(&tokens())).as_deref(),
-        Some("token amount `X` = `Count$Domain`")
+        refusal_reason(&unknown_count, &cats(), Some(&tokens())).as_deref(),
+        Some("token amount `X` = `Count$ValidExile Card.YouOwn`")
     );
 
     // The right definition on a line that announces nothing.
@@ -310,12 +333,140 @@ fn an_absent_owner_is_you_only_where_no_player_is_targeted() {
     let body = read_with_tokens("Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin");
     assert!(body.abilities[0].contains("Effect::CreateToken"));
 
-    let rootcast =
-        parse("Name:X\nTypes:Instant\nA:SP$ Token | ValidTgts$ Player | TokenScript$ r_1_1_goblin");
-    assert_eq!(
-        refusal_reason(&rootcast, &cats(), Some(&tokens())).as_deref(),
-        Some("a token created under another player's control")
+    let rootcast = read_with_tokens(
+        "Name:X\nTypes:Instant\nA:SP$ Token | ValidTgts$ Player | TokenScript$ r_1_1_goblin",
     );
+    assert!(rootcast.abilities[0].contains("Effect::CreateTokensFor { player: PlayerRel::Chosen"));
+}
+
+#[test]
+fn token_modifiers_and_owners_lower_cleanly() {
+    let tapped = read_with_tokens(
+        "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenTapped$ True | TokenAmount$ 2",
+    );
+    assert!(
+        tapped.abilities[0].contains(
+            "Effect::CreateTokenModified { token: &generated_tokens::GOBLIN_1_1_RED, amount: Amount::Fixed(2), tapped: true, haste: false }"
+        ),
+        "{}",
+        tapped.abilities[0]
+    );
+
+    let haste_eot = read_with_tokens(
+        "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | PumpKeywords$ Haste | PumpDuration$ EOT",
+    );
+    assert!(
+        haste_eot.abilities[0].contains(
+            "Effect::CreateTokenModified { token: &generated_tokens::GOBLIN_1_1_RED, amount: Amount::Fixed(1), tapped: false, haste: true }"
+        ),
+        "{}",
+        haste_eot.abilities[0]
+    );
+
+    // Permanent haste (no `PumpDuration$`) stays refused.
+    let perm_haste = parse(
+        "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | PumpKeywords$ Haste",
+    );
+    assert_eq!(
+        refusal_reason(&perm_haste, &cats(), Some(&tokens())).as_deref(),
+        Some("unclaimed parameter `Token.PumpKeywords`")
+    );
+
+    let attacking = read_with_tokens(
+        "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenTapped$ True | TokenAttacking$ True | AtEOT$ Sacrifice",
+    );
+    assert!(
+        attacking.abilities[0].contains(
+            "Effect::CreateTokenAttacking { token: &generated_tokens::GOBLIN_1_1_RED, amount: Amount::Fixed(1), sacrifice_at_next_end_step: true }"
+        ),
+        "{}",
+        attacking.abilities[0]
+    );
+
+    let each_player = read_with_tokens(
+        "Name:X\nTypes:Sorcery\nA:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ Player | TokenAmount$ 2",
+    );
+    assert!(
+        each_player.abilities[0].contains(
+            "Effect::CreateTokensFor { player: PlayerRel::EachPlayer, token: &generated_tokens::GOBLIN_1_1_RED, amount: Amount::Fixed(2) }"
+        ),
+        "{}",
+        each_player.abilities[0]
+    );
+}
+
+#[test]
+fn alternate_mode_and_flavor_variant_rules() {
+    // Split card with token on back face and hoisted filter statics on both faces.
+    let split = parse(
+        "Name:Front\nManaCost:R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature.nonBlack | NumDmg$ 2\n\
+         AlternateMode:Split\n\
+         ALTERNATE\n\
+         Name:Back\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You\n\
+         A:SP$ Destroy | ValidTgts$ Creature.nonBlack",
+    );
+    assert_eq!(token_stems(&split), vec!["r_1_1_goblin"]);
+    let body = transcode(&split, &cats(), Some(&tokens())).expect("split transcodes");
+    assert!(!body.back_is_adventure);
+    let back = body.back.as_ref().expect("back face");
+    assert_eq!(body.abilities.len(), 1);
+    assert_eq!(back.abilities.len(), 2);
+    // Shared filter static deduplicated across faces.
+    assert_eq!(body.statics.matches("static ").count(), 1);
+    assert!(back.statics.is_empty());
+
+    // Adventure with vanilla creature front face and spell back face.
+    let adv = parse(
+        "Name:Hero\nManaCost:2 G\nTypes:Creature Elf\nPT:3/3\n\
+         AlternateMode:Adventure\n\
+         ALTERNATE\n\
+         Name:Quest\nManaCost:G\nTypes:Instant Adventure\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    let adv_body = transcode(&adv, &cats(), Some(&tokens())).expect("adventure transcodes");
+    assert!(adv_body.back_is_adventure);
+    assert!(!adv_body.has_own_rules());
+    assert_eq!(adv_body.back.as_ref().unwrap().abilities.len(), 1);
+
+    // Room split cards stay refused.
+    let room = parse(
+        "Name:Left\nManaCost:1 W\nTypes:Enchantment Room\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigGain\n\
+         SVar:TrigGain:DB$ GainLife | LifeAmount$ 2\n\
+         AlternateMode:Split\n\
+         ALTERNATE\n\
+         Name:Right\nManaCost:2 W\nTypes:Enchantment Room\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        refusal_reason(&room, &cats(), Some(&tokens())).as_deref(),
+        Some("Room split card")
+    );
+
+    // Unsupported alternate modes stay refused.
+    let flip = parse(
+        "Name:Top\nManaCost:1 W\nTypes:Creature Human\nK:Flying\n\
+         AlternateMode:Flip\n\
+         ALTERNATE\n\
+         Name:Bottom\nTypes:Legendary Creature Human\nK:Vigilance",
+    );
+    assert_eq!(
+        refusal_reason(&flip, &cats(), Some(&tokens())).as_deref(),
+        Some("unsupported alternate mode `Flip`")
+    );
+
+    // UniversesWithin flavor-name variant is pure alias metadata; Attraction Variant stays refused.
+    let uw = read(
+        "Name:Original\nManaCost:R\nTypes:Instant\n\
+         Variant:UniversesWithin:FlavorName:Alias Name\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3",
+    );
+    assert_eq!(uw.abilities.len(), 1);
+    let attr = parse("Name:Ride\nTypes:Artifact Attraction\nVariant:A:Lights:2 6\nK:Flying");
+    assert!(transcode(&attr, &cats(), Some(&tokens())).is_none());
 }
 
 /// A named owner this cannot say is refused by name, and so is every
@@ -329,8 +480,8 @@ fn a_token_parameter_with_no_rule_refuses_the_card() {
             "token owner `Targeted`",
         ),
         (
-            "A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenTapped$ True",
-            "unclaimed parameter `Token.TokenTapped`",
+            "A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenAttacking$ True",
+            "an attacking token with unsupported entry modifiers",
         ),
         (
             "A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenAmount$ X",
@@ -515,9 +666,9 @@ fn a_creature_type_that_replaces_until_end_of_combat_only_during_combat() {
         assert!(a.contains(part), "{part} in {a}");
     }
     for refused_line in [
-        // "Activate only during your upkeep" is another sentence.
+        // An unsupported phase window stays refused.
         "A:AB$ Animate | Cost$ 2 | Defined$ Self | Power$ 3 | Toughness$ 6 | \
-         Types$ Creature | ActivationPhases$ Upkeep",
+         Types$ Creature | ActivationPhases$ Main1",
         // Replacing creature types with none named is losing them all.
         "A:AB$ Animate | Cost$ 2 | Defined$ Self | Power$ 3 | Toughness$ 6 | \
          Types$ Creature | RemoveCreatureTypes$ True",
@@ -670,13 +821,35 @@ fn an_aura_is_the_spell_that_attaches_it() {
     let named = read("Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature.tapped:tapped creature");
     assert_eq!(named.statics.matches("static ").count(), 1);
     assert_eq!(named.abilities[0].matches("&ENCHANT1").count(), 2);
-    // An Aura on a player has nothing for `AttachSelf` to attach to.
-    let parsed = parse("Name:X\nTypes:Enchantment Aura\nK:Enchant:Player");
-    assert!(transcode(&parsed, &cats(), None).is_none());
-    assert_eq!(
-        refusal_reason(&parsed, &cats(), None).as_deref(),
-        Some("an `Enchant Player`, which attaches to no object")
-    );
+    // Auras enchanting players lower to player TargetSpecs (`Player`,
+    // `Opponent`, `Player.You`), while qualified player filters refuse cleanly.
+    for (spec, expected) in [
+        ("Player:player", "TargetSpec::AnyPlayer"),
+        ("Opponent", "TargetSpec::AnyOpponent"),
+        ("Player.Opponent:an opponent", "TargetSpec::AnyOpponent"),
+        ("Player.OppCtrl", "TargetSpec::AnyOpponent"),
+        ("Player.You:you", "TargetSpec::Player(PlayerRel::You)"),
+        ("You", "TargetSpec::Player(PlayerRel::You)"),
+    ] {
+        let aura = read(&format!("Name:X\nTypes:Enchantment Aura\nK:Enchant:{spec}"));
+        assert!(aura.statics.is_empty(), "{spec}: {}", aura.statics);
+        assert_eq!(
+            aura.abilities,
+            [format!(
+                "spell!(&[Effect::AttachSelf {{ target: {expected} }}], targets = Some(TargetReq::one({expected})))"
+            )],
+            "{spec}"
+        );
+    }
+    for bad in ["Player.Active", "Player,Creature"] {
+        let parsed = parse(&format!("Name:X\nTypes:Enchantment Aura\nK:Enchant:{bad}"));
+        assert!(transcode(&parsed, &cats(), None).is_none(), "{bad}");
+        assert_eq!(
+            refusal_reason(&parsed, &cats(), None).as_deref(),
+            Some(format!("an `Enchant {bad}` player qualifier").as_str()),
+            "{bad}"
+        );
+    }
 }
 
 /// "Enchanted creature" and "equipped creature" are one question, and
@@ -702,7 +875,7 @@ fn a_counter_that_arrives_only_sometimes_is_refused() {
          K:etbCounter:P1P1:2:CheckSVar$ WasKicked:If CARDNAME was kicked, \
          it enters with two +1/+1 counters on it.",
         "Name:X\nTypes:Creature\n\
-         K:etbCounter:P1P1:1:ValidCard$ Card.Self+escaped:CARDNAME escapes with a counter.",
+         K:etbCounter:P1P1:1:Adamant$ White:CARDNAME enters with a counter if adamant.",
         // And a counter the DSL has no id for is refused exactly as it
         // is on an ability: this is `counter_kind`'s rule, reached from
         // a second place.
@@ -716,6 +889,20 @@ fn a_counter_that_arrives_only_sometimes_is_refused() {
             "and the refusal names the line it stopped on: {script}"
         );
     }
+}
+
+#[test]
+fn escaped_etb_counter_lowers_to_with_counters_if() {
+    let body = read(
+        "Name:EscapingTroll\nTypes:Creature\nPT:3/3\n\
+         K:etbCounter:P1P1:2:ValidCard$ Card.Self+escaped:CARDNAME escapes with two counters.",
+    );
+    assert_eq!(
+        body.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::Escaped }"
+        ]
+    );
 }
 
 /// CR 701.16a: "'Investigate' means 'Create a Clue token.'"
@@ -911,4 +1098,289 @@ fn a_card_that_only_investigates_still_names_the_clue() {
         ))
         .is_empty()
     );
+}
+
+#[test]
+fn a_card_that_only_amasses_still_names_its_army_token() {
+    assert_eq!(
+        token_stems(&parse(
+            "Name:X\nManaCost:1 B\nTypes:Sorcery\n\
+             A:SP$ Amass | Type$ Zombie | Num$ 2"
+        )),
+        ["b_0_0_zombie_army"]
+    );
+    assert_eq!(
+        token_stems(&parse(
+            "Name:X\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
+             Execute$ Trig | TriggerDescription$ x\n\
+             SVar:Trig:DB$ Amass | Type$ Orc | Num$ 1"
+        )),
+        ["b_0_0_orc_army"]
+    );
+    assert_eq!(
+        token_stems(&parse(
+            "Name:X\nManaCost:2 B\nTypes:Sorcery\n\
+             A:SP$ Amass | Type$ Zombie | Num$ 1 | SubAbility$ More\n\
+             SVar:More:DB$ Amass | Type$ Zombie | Num$ 2"
+        )),
+        ["b_0_0_zombie_army"]
+    );
+    assert!(
+        token_stems(&parse(
+            "Name:X\nTypes:Land\n\
+             A:AB$ Mana | Cost$ T | Produced$ B | \
+             SpellDescription$ Add {B}. Amass Zombies 2."
+        ))
+        .is_empty()
+    );
+}
+
+#[test]
+fn wave16a_bloodthirst_devour_and_snow() {
+    let bt = read(
+        "Name:BloodthirstBrute\nManaCost:2 R\nTypes:Creature Beast\nPT:2/2\n\
+         K:Bloodthirst:2\nK:Bloodthirst:X",
+    );
+    assert_eq!(bt.keywords, ["KeywordSet::BLOODTHIRST"]);
+    assert_eq!(
+        bt.enter_modifiers,
+        [
+            "EnterModifier::Bloodthirst(Amount::Fixed(2))",
+            "EnterModifier::Bloodthirst(Amount::DamageDealtToOpponentsThisTurn)",
+        ]
+    );
+
+    let mut c = cats();
+    c.artifact.push("Food".into());
+    c.normalize();
+    let devour_food = transcode(
+        &parse(
+            "Name:DevourOgre\nManaCost:3 R G\nTypes:Creature Ogre\nPT:3/3\n\
+             K:Devour:3:Food:desc\nK:etbCounter:P1P1:DevAmt\nSVar:DevAmt:Count$Devoured Card/Twice",
+        ),
+        &c,
+        None,
+    )
+    .expect("devour food");
+    assert_eq!(devour_food.keywords, ["KeywordSet::DEVOUR"]);
+    assert!(
+        devour_food.enter_modifiers[0].contains("EnterModifier::Devour")
+            && devour_food.enter_modifiers[0].contains("factor: 3")
+            && devour_food.statics.contains("subtypes::artifact::FOOD"),
+        "{} / {:?}",
+        devour_food.statics,
+        devour_food.enter_modifiers
+    );
+    assert!(
+        devour_food.enter_modifiers[1].contains("Amount::EntrySacrifices")
+            && devour_food.enter_modifiers[1].contains("factor: 2"),
+        "{:?}",
+        devour_food.enter_modifiers
+    );
+
+    let snow = read(
+        "Name:SnowVigil\nManaCost:1 S\nTypes:Creature Bear\nPT:2/2\n\
+         K:Cumulative upkeep:S\nK:Echo:1 S\n\
+         K:etbCounter:P1P1:Count$CastTotalManaSpent Snow\n\
+         A:AB$ Draw | Cost$ T | NumCards$ X | IsPresent$ Permanent.YouCtrl | CheckSVar$ X\n\
+         SVar:X:Count$CastTotalManaSpent Snow",
+    );
+    assert!(snow.abilities[0].contains("mana!(\"{S}\")"));
+    assert!(snow.abilities[1].contains("mana!(\"{1}{S}\")"));
+    assert!(snow.enter_modifiers[0].contains("Amount::SnowManaSpentToCast"));
+    assert!(snow.abilities[2].contains("Condition::SnowManaWasSpent"));
+
+    for bad in [
+        "Name:BadBt\nManaCost:1 R\nTypes:Enchantment\nK:Bloodthirst:2",
+        "Name:ZeroBt\nManaCost:1 R\nTypes:Creature Goblin\nPT:2/2\nK:Bloodthirst:0",
+        "Name:RelDevour\nManaCost:2 G\nTypes:Creature Beast\nPT:2/2\nK:Devour:2:Creature.YouCtrl",
+        "Name:SubDevour\nManaCost:2 G\nTypes:Creature Beast\nPT:2/2\n\
+         K:Devour:2\nK:etbCounter:P1P1:Amt\nSVar:Amt:Count$Devoured Card.Goblin",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave16a_fabricate_hideaway_exploit_and_evolve() {
+    let c = cats();
+    let servo_tokens = TokenLookup::held(&[(
+        "c_1_1_a_servo",
+        "Name:Servo\nTypes:Artifact Creature\nPT:1/1",
+    )]);
+    let fab_script =
+        "Name:ServoMaker\nManaCost:2 W\nTypes:Creature Artificer\nPT:1/3\nK:Fabricate:2";
+    assert_eq!(token_stems(&parse(fab_script)), ["c_1_1_a_servo"]);
+    let fab = transcode(&parse(fab_script), &c, Some(&servo_tokens)).expect("fabricate");
+    assert!(fab.abilities[0].contains("Effect::Fabricate { count: 2,"));
+
+    let hide = read("Name:HideawayNest\nTypes:Land\nK:Hideaway:4\nK:Hideaway:3");
+    assert_eq!(
+        hide.abilities,
+        [
+            "triggered!(Trigger::ETB, &[Effect::Hideaway(4)])",
+            "triggered!(Trigger::ETB, &[Effect::Hideaway(3)])",
+        ]
+    );
+
+    let exploit = read(
+        "Name:ExploitAdept\nManaCost:1 U\nTypes:Creature Wizard\nPT:1/1\nK:Exploit\nK:Exploit",
+    );
+    assert_eq!(exploit.keywords, ["KeywordSet::EXPLOIT"]);
+    assert_eq!(
+        exploit.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::EXPLOIT))"]
+    );
+
+    let evolve =
+        read("Name:EvolveOoze\nManaCost:G\nTypes:Creature Ooze\nPT:0/1\nK:Evolve\nK:Evolve");
+    assert_eq!(evolve.keywords, ["KeywordSet::EVOLVE"]);
+    assert_eq!(
+        evolve.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::EVOLVE))"]
+    );
+
+    for bad in [
+        "Name:SpellFab\nManaCost:2 W\nTypes:Sorcery\nK:Fabricate:2\nA:SP$ Draw | NumCards$ 1",
+        "Name:ZeroHide\nTypes:Artifact\nK:Hideaway:0",
+        "Name:SpellExploit\nManaCost:1 U\nTypes:Instant\nK:Exploit\nA:SP$ Draw | NumCards$ 1",
+        "Name:ArtEvolve\nManaCost:2\nTypes:Artifact\nK:Evolve",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+    assert!(refused(fab_script), "Fabricate requires token lookup");
+}
+
+#[test]
+fn wave16a_etb_counter_escaped_and_compare_x_unlocks() {
+    let escaped = read(
+        "Name:EscapedBeast\nManaCost:2 B G\nTypes:Creature Zombie Hydra\nPT:0/0\n\
+         K:etbCounter:P1P1:Count$Escaped.12.6",
+    );
+    assert_eq!(escaped.enter_modifiers.len(), 2);
+    assert!(escaped.enter_modifiers[0].contains("Amount::Fixed(12)"));
+    assert!(escaped.enter_modifiers[0].contains("Condition::Escaped"));
+    assert!(escaped.enter_modifiers[1].contains("Amount::Fixed(6)"));
+    assert!(escaped.enter_modifiers[1].contains("Condition::Not("));
+
+    let hydra = read(
+        "Name:CompareHydra\nManaCost:X G R\nTypes:Creature Hydra\nPT:0/0\n\
+         K:etbCounter:P1P1:Count$Compare X LT5.X.Z\n\
+         SVar:X:Count$xPaid\nSVar:Z:Count$xPaid/Twice",
+    );
+    assert_eq!(
+        hydra.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::X, condition: Condition::Not(&Condition::XAtLeast(5)) }",
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::DoubleX, condition: Condition::XAtLeast(5) }",
+        ]
+    );
+
+    let direct_x_cmp = read(
+        "Name:ThresholdHydra\nManaCost:X G\nTypes:Creature Hydra\nPT:0/0\n\
+         K:etbCounter:P1P1:2:CheckSVar$ X | SVarCompare$ GE5:desc\nSVar:X:Count$xPaid",
+    );
+    assert_eq!(
+        direct_x_cmp.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::XAtLeast(5) }"
+        ]
+    );
+
+    for bad in [
+        "Name:BadEsc\nManaCost:2 G\nTypes:Creature Beast\nPT:0/0\nK:etbCounter:P1P1:Count$Escaped.12",
+        "Name:ZeroEsc\nManaCost:2 G\nTypes:Creature Beast\nPT:0/0\nK:etbCounter:P1P1:Count$Escaped.0.0",
+        "Name:NoXHydra\nManaCost:4 G\nTypes:Creature Hydra\nPT:0/0\n\
+         K:etbCounter:P1P1:Count$Compare X LT5.X.Z\nSVar:X:Count$xPaid\nSVar:Z:Count$xPaid/Twice",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave17a_riot_unleash_and_keyword_atoms() {
+    let single_riot = read("Name:RiotBrute\nManaCost:1 R G\nTypes:Creature Ogre\nPT:3/3\nK:Riot");
+    assert_eq!(single_riot.keywords, ["KeywordSet::RIOT"]);
+    assert!(single_riot.abilities.is_empty());
+
+    let dup_riot =
+        read("Name:TwinRiot\nManaCost:2 R G\nTypes:Creature Beast\nPT:4/4\nK:Riot\nK:Riot");
+    assert_eq!(dup_riot.keywords, ["KeywordSet::RIOT"]);
+    assert_eq!(
+        dup_riot.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::RIOT))"]
+    );
+
+    let single_unleash =
+        read("Name:ClownFiend\nManaCost:B R\nTypes:Creature Devil\nPT:2/1\nK:Unleash");
+    assert_eq!(single_unleash.keywords, ["KeywordSet::UNLEASH"]);
+    assert!(single_unleash.abilities.is_empty());
+
+    let dup_unleash =
+        read("Name:TwinUnleash\nManaCost:3 B\nTypes:Creature Horror\nPT:3/3\nK:Unleash\nK:Unleash");
+    assert_eq!(dup_unleash.keywords, ["KeywordSet::UNLEASH"]);
+    assert_eq!(
+        dup_unleash.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::UNLEASH))"]
+    );
+
+    let perm_artifact = read("Name:RiotCart\nManaCost:2\nTypes:Artifact\nK:Riot\nK:Unleash");
+    assert_eq!(
+        perm_artifact.keywords,
+        ["KeywordSet::RIOT", "KeywordSet::UNLEASH"]
+    );
+
+    for bad in [
+        "Name:LandRiot\nTypes:Land\nK:Riot",
+        "Name:SpellRiot\nManaCost:R\nTypes:Sorcery\nK:Riot\nA:SP$ Draw | NumCards$ 1",
+        "Name:LandUnleash\nTypes:Land\nK:Unleash",
+        "Name:SpellUnleash\nManaCost:B\nTypes:Instant\nK:Unleash\nA:SP$ Draw | NumCards$ 1",
+        "Name:ParamRiot\nManaCost:1 R\nTypes:Creature Warrior\nPT:2/2\nK:Riot:2",
+        "Name:ParamUnleash\nManaCost:1 B\nTypes:Creature Devil\nPT:2/1\nK:Unleash:1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+
+    for (atom, expected) in [
+        (
+            "Creature.withRiot",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::RIOT)])",
+        ),
+        (
+            "Creature.withoutUnleash",
+            "Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::HasKeyword(KeywordSet::UNLEASH))])",
+        ),
+        (
+            "Creature.withPartner",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::PARTNER)])",
+        ),
+        (
+            "Card.withRetrace",
+            "Filter::HasKeyword(KeywordSet::RETRACE)",
+        ),
+        (
+            "Creature.withWarp",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::WARP)])",
+        ),
+        (
+            "Creature.withBloodthirst",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::BLOODTHIRST)])",
+        ),
+        (
+            "Creature.withDevour",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::DEVOUR)])",
+        ),
+        ("Card.withSpree", "Filter::HasKeyword(KeywordSet::SPREE)"),
+        (
+            "Creature.withExploit",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::EXPLOIT)])",
+        ),
+        (
+            "Creature.withEvolve",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::EVOLVE)])",
+        ),
+    ] {
+        assert_eq!(filter(atom), expected, "{atom}");
+    }
 }

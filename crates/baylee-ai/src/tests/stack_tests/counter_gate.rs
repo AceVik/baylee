@@ -20,6 +20,14 @@ use super::*;
 /// PR #394's review holds Lim-Dûl's Vault and implements Ransack as `ScryFor`
 /// on its chosen player's library. Neither has the former pure-selection
 /// shape accepted by this deliberately narrow predicate.
+/// Batch wave 2 (500 generated cards) adds Mystic Speculation (`Scry(3)`),
+/// Think Twice (`Draw(1)`), and Train of Thought (`Draw(1)`), each carrying only
+/// one of those accepted cantrip/selection effects.
+/// Batch wave 8 (994 generated cards) adds Mentor's Guidance (`Scry(1)`,
+/// `Draw(1)`) and Scour All Possibilities (`Scry(2)`, `Draw(1)`).
+/// Batch wave 9 (997 generated cards) adds Otherworldly Gaze (`Surveil(3)`).
+/// Pass E6 adds Glimpse of Freedom (`Draw(1)` with escape).
+/// Pass E7 adds Dreams of Laguna (`Surveil(1)`, `Draw(1)` with flashback).
 #[test]
 fn the_counter_gate_lets_only_a_cantrip_resolve() {
     let mut held: Vec<&str> = baylee_cards::all()
@@ -64,15 +72,24 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Curate",
             "Deliberate",
             "Dream Cache",
+            "Dreams of Laguna",
+            "Glimpse of Freedom",
             "Index",
             "Introduction to Prophecy",
+            "Mentor's Guidance",
+            "Mystic Speculation",
             "Obsessive Search",
             "Open Communications",
             "Opt",
+            "Otherworldly Gaze",
             "Preordain",
+            "Radical Idea",
             "Reach Through Mists",
+            "Scour All Possibilities",
             "Serum Visions",
             "Taigam's Scheming",
+            "Think Twice",
+            "Train of Thought",
             "Whispers of the Muse",
         ]
     );

@@ -57,14 +57,14 @@ use check_text::{
     KEYWORD_WORDS, check_optional_clauses_are_offered, check_oracle_matches_the_printing,
     check_player_targets_match_the_printing, check_scope_matches_the_text,
     check_search_tapped_matches_text, check_set_line_matches_the_printing,
-    check_target_counts_match_the_printing, face_texts, mentions_word, printed_text,
-    strip_reminders,
+    check_target_counts_match_the_printing, face_texts, keyword_mentioned, mentions_word,
+    printed_text, strip_reminders,
 };
 use clap::{Parser, Subcommand};
 use cli::{Cli, Cmd};
 #[cfg(test)]
 use codegen::refuse_twin_names;
-use codegen::{Pool, codegen, front_face_slug};
+use codegen::{Pool, codegen, front_face_slug, refresh_script_index};
 #[cfg(test)]
 use corpus::one_row_per_token;
 use corpus::{scripts_root, token_ledger};
@@ -154,6 +154,7 @@ fn main() -> anyhow::Result<()> {
             None => codegen(&root, check, tables, registry, &scripts, &cache),
         },
         Cmd::Sets { check, cache } => sets::run(&root, &cache, check),
+        Cmd::ScriptIndex { scripts, check } => refresh_script_index(&root, &scripts, check),
         Cmd::Ledger {
             corpus,
             check,
@@ -177,6 +178,7 @@ fn main() -> anyhow::Result<()> {
             names,
             reason,
             causes,
+            list_read,
         } => transcode_report(
             &root,
             &scripts,
@@ -187,6 +189,7 @@ fn main() -> anyhow::Result<()> {
             },
             reason.as_deref(),
             causes,
+            list_read,
         ),
         Cmd::Batch {
             count,

@@ -25,6 +25,8 @@ pub(super) enum TargetLegality {
         /// still are — a list of its own, narrowed by its own requirement.
         second: SmallVec<[ObjectId; 1]>,
         second_players: SeatSet,
+        /// Narrowed targets for third and subsequent target instances.
+        extra: Vec<(SmallVec<[ObjectId; 2]>, SeatSet)>,
     },
     /// Every chosen target is now illegal: it does not resolve.
     AllIllegal,
@@ -169,13 +171,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             },
             crate::copiable_abilities::AbilityDefs::from,
         );
-        match abilities.get(loc.index as usize)? {
-            AbilityDef::Activated { second_targets, .. }
-            | AbilityDef::ActivatedConditional { second_targets, .. }
-            | AbilityDef::Loyalty { second_targets, .. }
-            | AbilityDef::Triggered { second_targets, .. } => *second_targets,
-            _ => None,
-        }
+        crate::object::ability_second_target_req(abilities, loc.index, obj.mode_index)
     }
 
     /// CR 608.2b, asked of the top of the stack as it begins to resolve.
@@ -190,30 +186,85 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     ///
     /// CR 400.7: each announced slot names an incarnation, not the arena
     /// handle of a card which may since have left and returned.
+    #[allow(clippy::type_complexity)]
+    fn check_extra_target_legality(
+        &self,
+        obj: &crate::object::GameObject,
+        modal_clauses: Option<&[(usize, bool, TargetReq)]>,
+    ) -> Vec<Option<(SmallVec<[ObjectId; 2]>, SeatSet)>> {
+        obj.extra_target_instances()
+            .iter()
+            .enumerate()
+            .map(|(group_idx, inst)| {
+                let is_sec = modal_clauses
+                    .and_then(|c| c.get(2 + group_idx))
+                    .is_some_and(|&(_, is_sec, _)| is_sec);
+                let prev_ref = is_sec
+                    .then(|| {
+                        if group_idx == 0 {
+                            self.state.recorded_target_reference(obj.id, true, 0)
+                        } else {
+                            self.state.recorded_extra_target_reference(
+                                obj.id,
+                                u32::try_from(group_idx - 1).expect("extra target group"),
+                                0,
+                            )
+                        }
+                    })
+                    .flatten();
+                self.extra_instance_legality(obj, group_idx, inst, prev_ref)
+            })
+            .collect()
+    }
+
     fn target_legality(&self, on_stack: ObjectId) -> TargetLegality {
         let Some(obj) = self.state.object(on_stack) else {
             return TargetLegality::NotAsked;
         };
-        // "For every instance of the word 'target'": each instance is asked
-        // on its own, against its own requirement, and the spell fizzles
-        // only when every instance that chose something has lost all of it.
-        // A fight whose second creature was bounced still resolves — the
-        // first target is legal — and does nothing to either creature,
-        // which is CR 701.14b's business in the resolver and not this one's.
+        let modal_clauses = self.extended_stack_clauses(obj).or_else(|| {
+            (obj.modes != 0)
+                .then(|| {
+                    obj.card.and_then(|c| self.lookup.card(c.index)).map(|def| {
+                        crate::casting::modal_target_clauses(
+                            def.abilities_for_face(obj.face_index as usize),
+                            obj.modes,
+                        )
+                        .into_vec()
+                    })
+                })
+                .flatten()
+        });
+        let first_ref = match &modal_clauses {
+            Some(clauses) => clauses
+                .get(1)
+                .is_some_and(|&(_, is_sec, _)| is_sec)
+                .then(|| self.state.recorded_target_reference(obj.id, true, 0))
+                .flatten(),
+            None => self.state.recorded_target_reference(obj.id, true, 0),
+        };
         let first = self
             .stack_target_req(on_stack)
-            .and_then(|req| self.instance_legality(obj, req, &obj.targets, true));
-        let second = self
-            .stack_second_target_req(on_stack)
-            .and_then(|req| self.instance_legality(obj, req, obj.second_targets(), false));
-        if first.is_none() && second.is_none() {
+            .and_then(|req| self.instance_legality(obj, req, &obj.targets, true, first_ref));
+        let second_ref = match &modal_clauses {
+            Some(clauses) => clauses
+                .get(1)
+                .is_some_and(|&(_, is_sec, _)| is_sec)
+                .then(|| self.state.recorded_target_reference(obj.id, false, 0))
+                .flatten(),
+            None => self.state.recorded_target_reference(obj.id, false, 0),
+        };
+        let second = self.stack_second_target_req(on_stack).and_then(|req| {
+            self.instance_legality(obj, req, obj.second_targets(), false, second_ref)
+        });
+        let extra_checked = self.check_extra_target_legality(obj, modal_clauses.as_deref());
+        if first.is_none() && second.is_none() && extra_checked.iter().all(Option::is_none) {
             return TargetLegality::NotAsked;
         }
         let lost = |kept: &Option<(SmallVec<[ObjectId; 2]>, SeatSet)>| {
             kept.as_ref()
                 .is_none_or(|(objects, players)| objects.is_empty() && players.is_empty())
         };
-        if lost(&first) && lost(&second) {
+        if lost(&first) && lost(&second) && extra_checked.iter().all(lost) {
             // Gilded Drake prints its own exception to CR 608.2b: it
             // resolves with nothing to aim at, and its effects do what
             // they do with no target.
@@ -223,6 +274,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     players: SeatSet::new(),
                     second: SmallVec::new(),
                     second_players: SeatSet::new(),
+                    extra: obj
+                        .extra_target_instances()
+                        .iter()
+                        .map(|_| (SmallVec::new(), SeatSet::new()))
+                        .collect(),
                 };
             }
             return TargetLegality::AllIllegal;
@@ -238,34 +294,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             },
             |(objects, players)| (objects.into_iter().collect(), players),
         );
+        let extra = extra_checked
+            .into_iter()
+            .enumerate()
+            .map(|(i, opt)| {
+                opt.unwrap_or_else(|| {
+                    let inst = &obj.extra_target_instances()[i];
+                    (inst.targets.clone(), inst.players)
+                })
+            })
+            .collect();
         TargetLegality::Kept {
             objects,
             players,
             second,
             second_players,
+            extra,
         }
     }
 
     /// One instance of the word "target", re-checked: what it chose that is
     /// still legal, or `None` when there is nothing of it to ask.
-    ///
-    /// The question is asked with the very enumeration that offered the
-    /// targets in the first place — `eval::stack_target_options`, which is
-    /// `eval::target_options` and `eval::target_player_options` with the same
-    /// `(you, this)` the cast wizard and `ability_has_a_target` pass. One
-    /// predicate read from both ends: an offer and a re-check that disagreed
-    /// would be a target the engine let a player choose and then refused to
-    /// resolve at. A change of targets (CR 115.7) asks it too.
-    ///
-    /// `players` is whether this instance is the one whose players ride in
-    /// `target_players` — the first, since a second instance is objects only
-    /// in every shape that can print one.
     fn instance_legality(
         &self,
         obj: &crate::object::GameObject,
         req: TargetReq,
         chosen: &[ObjectId],
         players: bool,
+        reference: Option<baylee_core::ids::DamageSourceRef>,
     ) -> Option<(SmallVec<[ObjectId; 2]>, SeatSet)> {
         // Event objects and context-player relations are implicit. An explicit
         // self-target requirement chooses a player and must be rechecked;
@@ -281,16 +337,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         } else {
             obj.second_target_players()
         };
-        // CR 608.2b is about targets that were chosen. A requirement with a
-        // minimum of zero, taken with nothing pointed at, has none to lose —
-        // and an empty list satisfies "all of them are illegal" vacuously,
-        // which would fizzle every untargeted half of the pool.
         if chosen.is_empty() && chosen_players.is_empty() {
             return None;
         }
-        // Relational pairs use the opposite announced incarnation, even if
-        // that card left and the same arena handle has since returned.
-        let reference = self.state.recorded_target_reference(obj.id, players, 0);
         let (legal_objects, legal_players) =
             eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
         let objects: SmallVec<[ObjectId; 2]> = chosen
@@ -310,6 +359,50 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .collect();
         let mut kept = SeatSet::new();
         for player in chosen_players.iter() {
+            if legal_players.contains(&player) {
+                kept.insert(player);
+            }
+        }
+        Some((objects, kept))
+    }
+
+    fn extra_instance_legality(
+        &self,
+        obj: &crate::object::GameObject,
+        group_idx: usize,
+        inst: &crate::object::ExtraTargetInstance,
+        reference: Option<baylee_core::ids::DamageSourceRef>,
+    ) -> Option<(SmallVec<[ObjectId; 2]>, SeatSet)> {
+        let req = inst.req?;
+        if matches!(req.spec, TargetSpec::EventObject)
+            || matches!(req.spec, TargetSpec::Player(rel) if rel != baylee_cards_dsl::PlayerRel::You)
+        {
+            return None;
+        }
+        if inst.targets.is_empty() && inst.players.is_empty() {
+            return None;
+        }
+        let group = u32::try_from(group_idx).expect("extra target group");
+        let (legal_objects, legal_players) =
+            eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
+        let objects: SmallVec<[ObjectId; 2]> = inst
+            .targets
+            .iter()
+            .enumerate()
+            .filter_map(|(index, &id)| {
+                let announced = self.state.recorded_extra_target_reference(
+                    obj.id,
+                    group,
+                    u32::try_from(index).expect("target slot"),
+                );
+                (legal_objects.contains(&id)
+                    && announced.is_some()
+                    && announced == self.state.source_identity(id))
+                .then_some(id)
+            })
+            .collect();
+        let mut kept = SeatSet::new();
+        for player in inst.players.iter() {
             if legal_players.contains(&player) {
                 kept.insert(player);
             }
@@ -537,6 +630,26 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         obj.targets.clear();
                         obj.target_req = None;
                     }
+                } else if resolution_object
+                    .riders
+                    .contains(&crate::object::Rider::Bestowed)
+                {
+                    // CR 702.103e: if an Aura spell with bestow is countered or
+                    // otherwise ceases to be bestowed because its target is
+                    // illegal as it begins to resolve, it ceases to be bestowed
+                    // and continues to resolve as a creature spell.
+                    resolution_object
+                        .riders
+                        .retain(|r| *r != crate::object::Rider::Bestowed);
+                    resolution_object.targets.clear();
+                    resolution_object.target_req = None;
+                    if let Some(obj) = self.state.object_mut(top) {
+                        obj.riders.retain(|r| *r != crate::object::Rider::Bestowed);
+                        obj.targets.clear();
+                        obj.target_req = None;
+                        obj.cache.clear();
+                    }
+                    self.state.invalidate_projections();
                 } else {
                     self.state
                         .journal
@@ -562,6 +675,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 players,
                 second,
                 second_players,
+                extra,
             } => {
                 let obj = &mut resolution_object;
                 if obj.targets.len() != objects.len() {
@@ -572,13 +686,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     obj.set_second(second, req);
                 }
                 obj.set_second_players(second_players);
+                if !extra.is_empty() {
+                    let narrowed = obj
+                        .extra_target_instances()
+                        .iter()
+                        .zip(extra)
+                        .map(
+                            |(inst, (targets, players))| crate::object::ExtraTargetInstance {
+                                targets,
+                                players,
+                                req: inst.req,
+                            },
+                        )
+                        .collect();
+                    obj.set_extra_targets(narrowed);
+                }
                 if obj.target_players != players {
                     obj.target_players = players;
-                    // `chosen_player` is the same choice written twice
-                    // and `resolve::players_of` reads *it* for
-                    // `PlayerRel::Chosen`. Left behind, a player who
-                    // gained hexproof in response would still be dealt
-                    // to by the half of the spell that reads the scalar.
                     obj.chosen_player = obj.chosen_player.filter(|p| players.contains(*p));
                 }
             }
@@ -652,6 +776,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     Some(AbilityDef::Echo { cost }) => {
                         vec![self.demand_echo(obj.controller, loc.source, *cost)]
                     }
+                    Some(AbilityDef::Unearth { .. } | AbilityDef::Encore { .. }) => Vec::new(),
                     Some(
                         AbilityDef::ModalTriggered { modes, .. }
                         | AbilityDef::ModalActivated { modes, .. },
@@ -673,6 +798,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 .map(|m| m.effects)
                                 .expect("modal trigger mode exists"),
                         )
+                    }
+                    Some(AbilityDef::Champion { filter }) => {
+                        vec![Effect::Champion { filter }]
                     }
                     _ => panic!(
                         "ability object references non-resolvable ability: source {:?} index {}",
@@ -777,6 +905,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             };
             #[cfg(any(test, feature = "test-support"))]
             crate::ability_log::resolving(&self.state, &self.lookup, top);
+            match abilities.get(loc.index as usize) {
+                Some(AbilityDef::Unearth { .. }) => {
+                    let expected_version = obj.riders.iter().find_map(|r| match r {
+                        crate::object::Rider::AbilitySourceVersion(v) => Some(*v),
+                        _ => None,
+                    });
+                    self.resolve_unearth(obj.controller, loc.source, expected_version);
+                    self.finish_resolution(&res);
+                    return;
+                }
+                Some(AbilityDef::Encore { .. }) => {
+                    self.resolve_encore(obj.controller, loc.source);
+                    self.finish_resolution(&res);
+                    return;
+                }
+                _ => {}
+            }
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
                 resolve::Flow::Enter => {
@@ -791,47 +936,143 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             return;
         }
-        // A spell resolves (plain spells and modal spells alike — the
-        // chosen mode is stored on the spell object).
-        let spell_fx = self
-            .state
-            .object(top)
-            .and_then(|o| {
-                let face = o.face_index as usize;
-                o.card
-                    .and_then(|c| self.lookup.card(c.index))
-                    .map(|def| def.abilities_for_face(face))
+        // A spell resolves (plain spells, fused split spells, and modal spells
+        // alike — the chosen mode or fused rider is stored on the spell object).
+        let mut modal_initial: Option<crate::resolve::ModalTargetStep> = None;
+        let mut modal_steps: Vec<crate::resolve::ModalTargetStep> = Vec::new();
+        let mut spell_fx = self
+            .extended_stack_program(&resolution_object)
+            .map(|(program, targeted, retarget_left, initial, steps)| {
+                modal_initial = initial;
+                modal_steps = steps;
+                (program, targeted, retarget_left)
             })
-            .and_then(|abilities| {
-                abilities.iter().find_map(|a| match a {
-                    AbilityDef::Spell {
-                        effects, targets, ..
-                    } if !effects.is_empty() => {
-                        Some((resolve::flatten(effects), targets.is_some(), None))
-                    }
-                    _ => None,
-                })
+            .or_else(|| self.fused_program(&resolution_object))
+            .or_else(|| {
+                self.state
+                    .object(top)
+                    .and_then(|o| {
+                        let face = o.face_index as usize;
+                        o.card
+                            .and_then(|c| self.lookup.card(c.index))
+                            .map(|def| def.abilities_for_face(face))
+                    })
+                    .and_then(|abilities| {
+                        abilities.iter().find_map(|a| match a {
+                            AbilityDef::Spell {
+                                effects, targets, ..
+                            } if !effects.is_empty() => {
+                                Some((resolve::flatten(effects), targets.is_some(), None))
+                            }
+                            _ => None,
+                        })
+                    })
             })
-            .or_else(|| self.modal_program(top))
+            .or_else(|| {
+                let (program, targeted, retarget_left, initial, steps) =
+                    self.modal_program(&resolution_object)?;
+                modal_initial = initial;
+                modal_steps = steps;
+                Some((program, targeted, retarget_left))
+            })
             .or_else(|| {
                 resolution_object
                     .riders
                     .contains(&crate::object::Rider::Mutating)
                     .then(|| (vec![Effect::MergeMutatingSpell], true, None))
+            })
+            .or_else(|| {
+                resolution_object
+                    .riders
+                    .contains(&crate::object::Rider::Bestowed)
+                    .then(|| {
+                        (
+                            vec![Effect::AttachSelf {
+                                target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+                            }],
+                            true,
+                            None,
+                        )
+                    })
             });
+        if resolution_object.kind == ObjectKind::Spell
+            && !resolution_object.characteristics().types.is_permanent()
+            && resolution_object
+                .riders
+                .iter()
+                .any(|r| matches!(r, crate::object::Rider::GiftPromisedTo(_)))
+            && let Some(kind) = resolution_object
+                .printed_face()
+                .and_then(|f| {
+                    self.lookup
+                        .card(f.card())
+                        .and_then(|def| def.faces.get(usize::from(f.face())))
+                })
+                .and_then(|face| face.gift)
+        {
+            match &mut spell_fx {
+                Some((program, _, _)) => {
+                    if !program.iter().any(|e| matches!(e, Effect::DeliverGift(_))) {
+                        program.insert(0, Effect::DeliverGift(kind));
+                    }
+                }
+                None => {
+                    spell_fx = Some((vec![Effect::DeliverGift(kind)], false, None));
+                }
+            }
+        }
+        if resolution_object.kind == ObjectKind::Spell
+            && !resolution_object.characteristics().types.is_permanent()
+            && resolution_object
+                .characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::CIPHER)
+        {
+            match &mut spell_fx {
+                Some((program, _, _)) => {
+                    if !program.contains(&Effect::Cipher) {
+                        program.push(Effect::Cipher);
+                    }
+                }
+                None => {
+                    spell_fx = Some((vec![Effect::Cipher], false, None));
+                }
+            }
+        }
         if let Some((program, targeted, retarget_left)) = spell_fx {
             let obj = &resolution_object;
+            let (init_targets, init_players, init_chosen, init_second, init_second_players) =
+                if let Some(step) = modal_initial {
+                    let chosen = (step.target_players.len() == 1)
+                        .then(|| step.target_players.iter().next())
+                        .flatten();
+                    (
+                        step.targets,
+                        step.target_players,
+                        chosen,
+                        step.second_targets,
+                        step.second_players,
+                    )
+                } else {
+                    (
+                        obj.targets.clone(),
+                        obj.target_players,
+                        obj.chosen_player,
+                        SmallVec::from_slice(obj.second_targets()),
+                        obj.second_target_players(),
+                    )
+                };
             let mut res = Resolution {
                 source: top,
                 on_stack: top,
                 controller: obj.controller,
                 effects: program,
                 pc: 0,
-                targets: obj.targets.clone(),
-                second_targets: SmallVec::from_slice(obj.second_targets()),
+                targets: init_targets,
+                second_targets: init_second,
                 x: Some(obj.x_value),
-                chosen_player: obj.chosen_player,
-                target_players: obj.target_players,
+                chosen_player: init_chosen,
+                target_players: init_players,
                 event_object: None,
                 targeted,
                 awaiting: None,
@@ -839,7 +1080,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 countered_source: None,
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default()
-                    .with_second_players(obj.second_target_players()),
+                    .with_second_players(init_second_players)
+                    .with_modal_steps(modal_steps),
                 text: crate::text_changes::TextChangeMap::IDENTITY,
                 retarget_left,
                 loot: None,
@@ -880,8 +1122,86 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// modes that says "target" begins: that mode's targets were chosen as
     /// the spell's second instance of the word, and from there on they are
     /// the ones "target" means (`Resolution::retarget_left`).
-    fn modal_program(&self, top: ObjectId) -> Option<(Vec<Effect>, bool, Option<usize>)> {
-        let obj = self.state.object(top)?;
+    #[allow(clippy::type_complexity)]
+    fn build_multi_modal_steps(
+        obj: &GameObject,
+        modes: &'static [baylee_cards_dsl::SpellMode],
+    ) -> (
+        Vec<Effect>,
+        bool,
+        Option<usize>,
+        Option<crate::resolve::ModalTargetStep>,
+        Vec<crate::resolve::ModalTargetStep>,
+    ) {
+        let first_players = eval::first_target_players(obj);
+        let mut clause_stream: Vec<(SmallVec<[ObjectId; 2]>, SeatSet)> =
+            Vec::with_capacity(2 + obj.extra_target_instances().len());
+        clause_stream.push((obj.targets.clone(), first_players));
+        clause_stream.push((
+            SmallVec::from_slice(obj.second_targets()),
+            obj.second_target_players(),
+        ));
+        for inst in obj.extra_target_instances() {
+            clause_stream.push((inst.targets.clone(), inst.players));
+        }
+        let mut cursor = 0_usize;
+        let mut take_clause = || {
+            let item = clause_stream
+                .get(cursor)
+                .cloned()
+                .unwrap_or_else(|| (SmallVec::new(), SeatSet::new()));
+            cursor += 1;
+            item
+        };
+        let mut program = Vec::new();
+        let mut initial = None;
+        let mut staged = Vec::new();
+        for (_, mode) in crate::casting::chosen_modes(modes, obj.modes) {
+            if mode.targets.is_some() || mode.second_targets.is_some() {
+                let (targets, target_players) = if mode.targets.is_some() {
+                    take_clause()
+                } else {
+                    (SmallVec::new(), SeatSet::new())
+                };
+                let (second_objs, second_players) = if mode.second_targets.is_some() {
+                    take_clause()
+                } else {
+                    (SmallVec::new(), SeatSet::new())
+                };
+                let step = crate::resolve::ModalTargetStep {
+                    left_from_end: program.len(),
+                    targets,
+                    target_players,
+                    second_targets: second_objs.into_iter().collect(),
+                    second_players,
+                };
+                if initial.is_none() {
+                    initial = Some(step);
+                } else {
+                    staged.push(step);
+                }
+            }
+            program.extend(resolve::flatten(mode.effects));
+        }
+        let total_len = program.len();
+        for step in &mut staged {
+            step.left_from_end = total_len - step.left_from_end;
+        }
+        let targeted = initial.is_some();
+        (program, targeted, None, initial, staged)
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn modal_program(
+        &self,
+        obj: &GameObject,
+    ) -> Option<(
+        Vec<Effect>,
+        bool,
+        Option<usize>,
+        Option<crate::resolve::ModalTargetStep>,
+        Vec<crate::resolve::ModalTargetStep>,
+    )> {
         let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
         let modes = def
             .abilities_for_face(obj.face_index as usize)
@@ -891,23 +1211,71 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 _ => None,
             })?;
         if obj.modes != 0 {
-            let mut program = Vec::new();
-            let mut targeting = 0_usize;
-            let mut second = None;
-            for (_, mode) in crate::casting::chosen_modes(modes, obj.modes) {
-                if mode.targets.is_some() {
-                    if targeting == 1 {
-                        second = Some(program.len());
+            let any_second = crate::casting::chosen_modes(modes, obj.modes)
+                .any(|(_, mode)| mode.second_targets.is_some());
+            if !any_second && obj.extra_target_instances().is_empty() {
+                let mut program = Vec::new();
+                let mut targeting = 0_usize;
+                let mut second = None;
+                for (_, mode) in crate::casting::chosen_modes(modes, obj.modes) {
+                    if mode.targets.is_some() {
+                        if targeting == 1 {
+                            second = Some(program.len());
+                        }
+                        targeting += 1;
                     }
-                    targeting += 1;
+                    program.extend(resolve::flatten(mode.effects));
                 }
-                program.extend(resolve::flatten(mode.effects));
+                let left = second.map(|at| program.len() - at);
+                return Some((program, targeting > 0, left, None, Vec::new()));
             }
-            let left = second.map(|at| program.len() - at);
-            return Some((program, targeting > 0, left));
+            return Some(Self::build_multi_modal_steps(obj, modes));
         }
         let mode = modes.get(usize::from(obj.mode_index?))?;
-        Some((resolve::flatten(mode.effects), mode.targets.is_some(), None))
+        Some((
+            resolve::flatten(mode.effects),
+            mode.targets.is_some(),
+            None,
+            None,
+            Vec::new(),
+        ))
+    }
+
+    /// What a fused split spell on the stack does (CR 702.102d): follow the
+    /// instructions of the left half, then follow the instructions of the
+    /// right half.
+    fn fused_program(&self, obj: &GameObject) -> Option<(Vec<Effect>, bool, Option<usize>)> {
+        if !obj.riders.contains(&crate::object::Rider::Fused) {
+            return None;
+        }
+        let def = obj.card.and_then(|c| self.lookup.card(c.index))?;
+        if def.faces.len() < 2 {
+            return None;
+        }
+        let spell_of = |face: usize| {
+            def.abilities_for_face(face).iter().find_map(|a| match a {
+                AbilityDef::Spell {
+                    effects,
+                    targets,
+                    second_targets,
+                    ..
+                } => Some((*effects, *targets, *second_targets)),
+                _ => None,
+            })
+        };
+        let (left_fx, left_t1, left_t2) = spell_of(0).unwrap_or((&[], None, None));
+        let (right_fx, right_t1, right_t2) = spell_of(1).unwrap_or((&[], None, None));
+        let mut program = resolve::flatten(left_fx);
+        let split_at =
+            (left_t1.is_some() && left_t2.is_none() && right_t1.is_some()).then_some(program.len());
+        program.extend(resolve::flatten(right_fx));
+        if program.is_empty() {
+            return None;
+        }
+        let targeted =
+            left_t1.is_some() || left_t2.is_some() || right_t1.is_some() || right_t2.is_some();
+        let retarget_left = split_at.map(|at| program.len() - at);
+        Some((program, targeted, retarget_left))
     }
 
     /// Applies a face switch queued by a resolution effect (transforms).
@@ -929,6 +1297,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .and_then(|c| self.lookup.card(c.index))
             {
                 self.state.transform(id, def, face as usize);
+            } else {
+                self.state.transform_token(id, face);
             }
         }
     }
@@ -1379,11 +1749,42 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.state
                     .delay_for_resolved_permanent(spell, controller, &DASH_RETURN);
             }
+            let blitzed = self
+                .state
+                .object(spell)
+                .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::Blitzed));
+            if blitzed && let Some(obj) = self.state.object(spell) {
+                let controller = obj.controller;
+                self.state
+                    .delay_for_resolved_permanent(spell, controller, &super::BLITZ_SACRIFICE);
+            }
+            let warped = self
+                .state
+                .object(spell)
+                .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::WarpedSpell));
+            if warped && let Some(obj) = self.state.object(spell) {
+                let controller = obj.controller;
+                self.state
+                    .delay_for_resolved_permanent(spell, controller, &super::WARP_EXILE);
+            }
+            let suspend_haste_caster = self.state.object(spell).and_then(|obj| {
+                obj.riders
+                    .iter()
+                    .find_map(|r| match r {
+                        crate::object::Rider::SuspendHaste(caster) => Some(*caster),
+                        _ => None,
+                    })
+                    .filter(|&caster| obj.controller == caster)
+            });
+            let sneaked = self
+                .state
+                .object(spell)
+                .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::Sneaked));
             self.a_copy_becomes_a_token(spell);
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Permanent;
             }
-            self.state.set_tapped(spell, false);
+            self.state.set_tapped(spell, sneaked);
             // The common entry queue asks copy and other replacement choices before the move.
             let _ = self.state.move_object(
                 spell,
@@ -1391,6 +1792,63 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ZonePosition::Top,
                 Cause::Spell,
             );
+            if sneaked && !self.state.entries.contains(spell) {
+                crate::resolve::finish_sneak_enter_attacking(&mut self.state, spell);
+            }
+            if let Some(object) = self.state.object_mut(spell) {
+                object
+                    .riders
+                    .retain(|rider| !matches!(rider, crate::object::Rider::SuspendHaste(_)));
+            }
+            if let Some(caster) = suspend_haste_caster
+                && self.state.object(spell).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.controller == caster
+                })
+            {
+                let ts = self.state.next_timestamp();
+                let filter = crate::effects::EffectFilter::object(&self.state, spell);
+                self.state
+                    .effects
+                    .register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(spell),
+                        controller: caster,
+                        layer: baylee_cards_dsl::Layer::Ability,
+                        filter,
+                        modifier: baylee_cards_dsl::Modifier::AddKeyword(
+                            baylee_cards_dsl::KeywordSet::HASTE,
+                        ),
+                        timestamp: ts,
+                        duration: baylee_cards_dsl::Duration::WhileYouControlSource,
+                        origin: crate::effects::EffectOrigin::Resolution,
+                    });
+                self.state.invalidate_projections();
+            }
+            if blitzed
+                && let Some(controller) = self
+                    .state
+                    .object(spell)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                    .map(|o| o.controller)
+            {
+                let filter = crate::effects::EffectFilter::object(&self.state, spell);
+                self.state
+                    .effects
+                    .register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(spell),
+                        controller,
+                        layer: baylee_cards_dsl::Layer::Ability,
+                        filter,
+                        modifier: baylee_cards_dsl::Modifier::AddKeyword(
+                            baylee_cards_dsl::KeywordSet::HASTE,
+                        ),
+                        timestamp: 0,
+                        duration: baylee_cards_dsl::Duration::Indefinitely,
+                        origin: crate::effects::EffectOrigin::Resolution,
+                    });
+                self.state.invalidate_projections();
+            }
             if finality {
                 crate::entry::put_entry_counters(
                     &mut self.state,

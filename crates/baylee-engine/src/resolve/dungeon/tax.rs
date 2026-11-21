@@ -115,7 +115,10 @@ fn advance(state: &mut GameState, res: &mut Resolution, mut tax: Box<Tax>) -> Op
             ]))
         };
         let mut options = crate::engine::cost_wizard::options(state, player, res.source, cost);
-        options.retain(|id| !tax.chosen.contains(&Some(*id)));
+        options.retain(|id| {
+            !tax.chosen.contains(&Some(*id))
+                && (tax.discard || state.can_be_sacrificed(*id, Some(res.controller)))
+        });
         if options.is_empty() || state.has_left(player) {
             tax.chosen.push(None);
             continue;
@@ -161,6 +164,7 @@ fn advance(state: &mut GameState, res: &mut Resolution, mut tax: Box<Tax>) -> Op
         sacrifice_together(
             state,
             &payments.iter().map(|(card, _)| *card).collect::<Vec<_>>(),
+            Some(res.controller),
         );
     }
     for (&player, card) in tax.players.iter().zip(&tax.chosen) {

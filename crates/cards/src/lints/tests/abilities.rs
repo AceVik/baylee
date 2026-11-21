@@ -13,6 +13,42 @@ use super::*;
 /// answered only by a resolution, so there they name nobody: the effect
 /// would be registered and limit no one. The match on the relation is
 /// exhaustive so that a new relation has to be sorted into one side.
+fn continuous_player_rel(modifier: Modifier) -> Option<crate::dsl::effect::PlayerRel> {
+    match modifier {
+        Modifier::DrawLimitPerTurn { who, .. }
+        | Modifier::SpellCastLimitPerTurn { who, .. }
+        | Modifier::MatchingSpellCastLimitPerTurn { who, .. }
+        | Modifier::LifeTotalCantChange { who }
+        | Modifier::PlayerProtectionFromEverything { who }
+        | Modifier::CantLoseLife { who }
+        | Modifier::NoLossForZeroLife { who }
+        | Modifier::LifeGainDrawsInstead { who }
+        | Modifier::LifeGainNoLifeInstead { who }
+        | Modifier::PlayersCantGainLife(who)
+        | Modifier::CantBeAttackedExceptBy { who, .. }
+        | Modifier::SkipUntapStep { who }
+        | Modifier::UntapAtMost { who, .. }
+        | Modifier::ReplacePlayerDamage {
+            recipients: who, ..
+        }
+        | Modifier::DamageLifeLossFloor { players: who, .. }
+        | Modifier::PreventNoncombatDamageToPlayers { who, .. }
+        | Modifier::MultiplyDamageFrom {
+            recipients:
+                crate::dsl::DamageRecipients::Players(who)
+                | crate::dsl::DamageRecipients::PlayersOrTheirPermanents(who),
+            ..
+        }
+        | Modifier::AddDamageFrom {
+            recipients:
+                crate::dsl::DamageRecipients::Players(who)
+                | crate::dsl::DamageRecipients::PlayersOrTheirPermanents(who),
+            ..
+        } => Some(who),
+        _ => None,
+    }
+}
+
 #[test]
 fn a_continuous_player_relation_is_one_the_state_can_answer() {
     use crate::dsl::effect::PlayerRel;
@@ -22,30 +58,15 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
         let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
         for ability in def.abilities.iter().chain(faces) {
             let printed = match ability {
-                AbilityDef::Static(sa) => vec![sa.modifier],
+                AbilityDef::Static(sa) => vec![(true, sa.modifier)],
                 _ => Vec::new(),
             };
             let granted = branches(ability)
                 .into_iter()
                 .flat_map(|b| b.effects.iter().flat_map(declared_layers))
-                .map(|(_, modifier)| modifier);
-            for modifier in printed.into_iter().chain(granted) {
-                let (Modifier::DrawLimitPerTurn { who, .. }
-                | Modifier::SpellCastLimitPerTurn { who, .. }
-                | Modifier::LifeTotalCantChange { who }
-                | Modifier::PlayerProtectionFromEverything { who }
-                | Modifier::CantLoseLife { who }
-                | Modifier::NoLossForZeroLife { who }
-                | Modifier::LifeGainDrawsInstead { who }
-                | Modifier::LifeGainNoLifeInstead { who }
-                | Modifier::CantBeAttackedExceptBy { who, .. }
-                | Modifier::SkipUntapStep { who }
-                | Modifier::UntapAtMost { who, .. }
-                | Modifier::ReplacePlayerDamage {
-                    recipients: who, ..
-                }
-                | Modifier::DamageLifeLossFloor { players: who, .. }) = modifier
-                else {
+                .map(|(_, modifier)| (false, modifier));
+            for (is_printed, modifier) in printed.into_iter().chain(granted) {
+                let Some(who) = continuous_player_rel(modifier) else {
                     continue;
                 };
                 seen += 1;
@@ -59,18 +80,34 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::MostLifeOrTied
                     | PlayerRel::LeastLifeOrTied
                     | PlayerRel::MostLife => true,
+                    PlayerRel::OwnerOfSource
+                    | PlayerRel::ControllerOfAttached
+                    | PlayerRel::EnchantedPlayer => {
+                        !matches!(modifier, Modifier::CantBeAttackedExceptBy { .. })
+                    }
                     PlayerRel::Chosen
-                    | PlayerRel::Recipient
                     | PlayerRel::DefendingPlayer
-                    | PlayerRel::OwnerOfEvent
                     | PlayerRel::ControllerOfTarget
                     | PlayerRel::TargetPlayerOrController
                     | PlayerRel::SecondTargetPlayerOrController
                     | PlayerRel::ControllerOfEvent
                     | PlayerRel::DamagedPlayer
-                    | PlayerRel::EventPlayer
-                    | PlayerRel::OwnerOfSource
-                    | PlayerRel::ControllerOfAttached => false,
+                    | PlayerRel::EventPlayer => {
+                        !is_printed
+                            && matches!(
+                                modifier,
+                                Modifier::SpellCastLimitPerTurn { .. }
+                                    | Modifier::MatchingSpellCastLimitPerTurn { .. }
+                                    | Modifier::PlayerProtectionFromEverything { .. }
+                                    | Modifier::PlayersCantGainLife(_)
+                                    | Modifier::PreventNoncombatDamageToPlayers { .. }
+                                    | Modifier::MultiplyDamageFrom { .. }
+                                    | Modifier::AddDamageFrom { .. }
+                            )
+                    }
+                    PlayerRel::Recipient | PlayerRel::GiftRecipient | PlayerRel::OwnerOfEvent => {
+                        false
+                    }
                 };
                 if !answerable {
                     wrong.push(format!("{}: {modifier:?}", def.name()));
@@ -307,17 +344,36 @@ fn a_modes_fault_fires_on_each_bad_shape() {
     let one = Some(const { ManaCost::parse("{1}") });
     let spell = |choose, modes: &'static [SpellMode]| AbilityDef::ModalSpell { modes, choose };
     let leak = |modes: Vec<SpellMode>| -> &'static [SpellMode] { Vec::leak(modes) };
-    assert_eq!(
-        modes_fault(&spell(
+    for valid in [
+        spell(
             ModeCount::ONE_OR_MORE,
             leak(vec![
                 mode(PLAYER, None, one),
                 mode(CREATURE, None, one),
                 mode(None, None, one),
-            ])
-        )),
-        None
-    );
+            ]),
+        ),
+        spell(
+            ModeCount::ONE_OR_MORE,
+            leak(vec![mode(CREATURE, None, None); 3]),
+        ),
+        spell(
+            ModeCount::ONE_OR_MORE,
+            leak(vec![mode(CREATURE, None, None), mode(PLAYER, None, None)]),
+        ),
+        spell(
+            ModeCount::ONE_OR_MORE,
+            leak(vec![
+                SpellMode {
+                    second_targets: CREATURE,
+                    ..mode(CREATURE, None, None)
+                },
+                mode(None, None, None),
+            ]),
+        ),
+    ] {
+        assert_eq!(modes_fault(&valid), None);
+    }
     for (shape, ability) in [
         (
             "choosing none",
@@ -342,37 +398,10 @@ fn a_modes_fault_fires_on_each_bad_shape() {
             ),
         ),
         (
-            "three targeting modes",
-            spell(
-                ModeCount::ONE_OR_MORE,
-                leak(vec![mode(CREATURE, None, None); 3]),
-            ),
-        ),
-        (
-            "a player in the second instance",
-            spell(
-                ModeCount::ONE_OR_MORE,
-                leak(vec![mode(CREATURE, None, None), mode(PLAYER, None, None)]),
-            ),
-        ),
-        (
             "nine modes",
             spell(
                 ModeCount::ONE_OR_MORE,
                 leak(vec![mode(None, None, None); 9]),
-            ),
-        ),
-        (
-            "a mode that says \"target\" twice among several",
-            spell(
-                ModeCount::ONE_OR_MORE,
-                leak(vec![
-                    SpellMode {
-                        second_targets: CREATURE,
-                        ..mode(CREATURE, None, None)
-                    },
-                    mode(None, None, None),
-                ]),
             ),
         ),
     ] {

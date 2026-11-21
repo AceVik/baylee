@@ -1184,17 +1184,53 @@ fn push_needs(symbol: ManaSymbol, generic_twobrid: bool, out: &mut Vec<ColorMask
 /// before it taps anything.
 fn units(pool: &ManaPoolView, sources: &[Source], limit: usize, widen: bool) -> Vec<Unit> {
     let mut units = Vec::new();
-    for (color, count) in [
-        (ManaColor::White, pool.white),
-        (ManaColor::Blue, pool.blue),
-        (ManaColor::Black, pool.black),
-        (ManaColor::Red, pool.red),
-        (ManaColor::Green, pool.green),
-        (ManaColor::Colorless, pool.colorless),
+    for (color, count, snow) in [
+        (
+            ManaColor::White,
+            pool.white,
+            pool.snow[ManaColor::White.index()],
+        ),
+        (
+            ManaColor::Blue,
+            pool.blue,
+            pool.snow[ManaColor::Blue.index()],
+        ),
+        (
+            ManaColor::Black,
+            pool.black,
+            pool.snow[ManaColor::Black.index()],
+        ),
+        (ManaColor::Red, pool.red, pool.snow[ManaColor::Red.index()]),
+        (
+            ManaColor::Green,
+            pool.green,
+            pool.snow[ManaColor::Green.index()],
+        ),
+        (
+            ManaColor::Colorless,
+            pool.colorless,
+            pool.snow[ManaColor::Colorless.index()],
+        ),
     ] {
-        for _ in 0..usize::try_from(count).unwrap_or(usize::MAX).min(limit) {
+        let snow_clamped = snow.min(count);
+        let plain_units = usize::try_from(count - snow_clamped)
+            .unwrap_or(usize::MAX)
+            .min(limit);
+        let snow_units = usize::try_from(snow_clamped)
+            .unwrap_or(usize::MAX)
+            .min(limit);
+        let base = ColorMask::of(color);
+        for _ in 0..plain_units {
             units.push(Unit {
-                colors: ColorMask::of(color),
+                colors: base,
+                from: None,
+                bonus: false,
+            });
+        }
+        let snowy = ColorMask(base.0 | ColorMask::SNOW.0);
+        for _ in 0..snow_units {
+            units.push(Unit {
+                colors: snowy,
                 from: None,
                 bonus: false,
             });
@@ -2383,6 +2419,19 @@ mod tests {
         let found = plan(&cost("{2}{S}"), &empty(), &sources).expect("all three");
         assert_eq!(found.taps(), 3);
         assert!(plan(&cost("{S}{S}"), &empty(), &sources).is_none());
+    }
+
+    #[test]
+    fn floating_snow_mana_pays_snow_pips_and_preserves_snow_when_plain_floats() {
+        let mut pool = empty();
+        pool.green = 3;
+        pool.snow[ManaColor::Green.index()] = 1;
+        assert_eq!(pool.snow_total(), 1);
+        let one_snow = plan(&cost("{S}"), &pool, &[]).expect("floating snow pays {S}");
+        assert!(one_snow.is_empty());
+        assert!(plan(&cost("{S}{S}"), &pool, &[]).is_none());
+        let mixed = plan(&cost("{2}{S}"), &pool, &[]).expect("2 plain + 1 snow pays {2}{S}");
+        assert!(mixed.is_empty());
     }
 
     /// A source that makes two of *one chosen* colour pays two pips only of

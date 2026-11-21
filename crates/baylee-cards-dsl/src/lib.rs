@@ -34,9 +34,97 @@ pub const ALL_MANA_COLORS: &[baylee_core::mana::ManaColor] = &[
 /// City of Brass, Great Divide Guide).
 pub static ANY_COLOR_MANA: &[crate::effect::Effect] = &[crate::effect::Effect::mana_of_any_color()];
 
+/// Shared copy modifications for Embalm (CR 702.128a): white Zombie with no mana cost.
+pub static EMBALM_MODS: &[CopyMod] = &[
+    CopyMod::SetColor(ColorSet::from_slice(&[Color::White])),
+    CopyMod::AddSubtype(baylee_core::generated::subtypes::creature::ZOMBIE),
+    CopyMod::NoManaCost,
+];
+
+/// Shared copy modifications for Eternalize (CR 702.129a): 4/4 black Zombie with no mana cost.
+pub static ETERNALIZE_MODS: &[CopyMod] = &[
+    CopyMod::SetPT(4, 4),
+    CopyMod::SetColor(ColorSet::from_slice(&[Color::Black])),
+    CopyMod::AddSubtype(baylee_core::generated::subtypes::creature::ZOMBIE),
+    CopyMod::NoManaCost,
+];
+
+static INCUBATOR_TRANSFORM_ABILITIES: &[AbilityDef] = &[AbilityDef::Activated {
+    cost: Cost {
+        mana: baylee_core::mana!("{2}"),
+        parts: &[],
+    },
+    effects: &[Effect::TransformSource],
+    targets: None,
+    second_targets: None,
+    timing: ActivationTiming::InstantSpeed,
+    mana_ability: false,
+    zone: ActivationZone::Battlefield,
+    limit: ActivationLimit::Unlimited,
+    x_value: ActivationX::Any,
+    cost_reduction: None,
+}];
+
+/// Back face of an Incubator token (CR 111.10i, CR 701.53b): 0/0 colorless
+/// Phyrexian artifact creature token.
+pub static PHYREXIAN_TOKEN: TokenDef = TokenDef {
+    name: "Phyrexian",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[baylee_core::generated::subtypes::creature::PHYREXIAN],
+    power: Some(0),
+    toughness: Some(0),
+    ..TokenDef::DEFAULT
+};
+
+/// Predefined double-faced Incubator token (CR 111.10i, CR 701.53a–b):
+/// colorless Incubator artifact with `{2}: Transform this token.` whose back
+/// face is [`PHYREXIAN_TOKEN`].
+pub static INCUBATOR_TOKEN: TokenDef = TokenDef {
+    name: "Incubator",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[baylee_core::generated::subtypes::artifact::INCUBATOR],
+    abilities: INCUBATOR_TRANSFORM_ABILITIES,
+    back_face: Some(&PHYREXIAN_TOKEN),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Warrior creature token created by Mobilize (CR 702.181a).
+pub static WARRIOR_1_1_RED: TokenDef = TokenDef {
+    name: "Warrior",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[baylee_core::generated::subtypes::creature::WARRIOR],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white and black Spirit creature token with flying created by Afterlife
+/// (CR 702.135a).
+pub static SPIRIT_1_1_WHITE_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::White, Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[baylee_core::generated::subtypes::creature::SPIRIT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// Dynamically sized N/N white Spirit creature token created by Endure N
+/// (CR 701.63a); power and toughness are supplied by resolution (`Some(n)`).
+pub static SPIRIT_X_X_WHITE: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[baylee_core::generated::subtypes::creature::SPIRIT],
+    ..TokenDef::DEFAULT
+};
+
 pub use ability::{
-    AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, Condition, CopyMod,
-    ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, AmountCmp,
+    Condition, CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
 };
 pub use build::prelude;
 pub use build::{
@@ -45,13 +133,15 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, ColorSubject, CombatWatchEvent, CounterKind, DamageRedirectTo, DamageTo,
-    DelayedObservation, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
-    ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
-    PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetChooser, TargetReq,
-    TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
+    Amount, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup, CounterKind,
+    DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
+    DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil,
+    Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
+    ManaValueCmp, PeekPickDest, PeekRestDest, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen,
+    RepeatDomain, SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec,
+    ThisWay, TokenDef, TriggerRemember, ZoneSel,
 };
-pub use filter::{Filter, OriginalExpansion, ZoneRef};
+pub use filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
 pub use manaread::{
     BranchedMana, Conversion, SimpleMana, mana_branched, mana_bundle, mana_conversion, mana_made,
     mana_of_each_color, mana_offer, mana_shape, mana_with_riders, mana_written, simple_mana,
@@ -65,8 +155,8 @@ pub use baylee_core::mana;
 pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
-    DamageAmountReplacement, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
-    StaticAbility,
+    DamageAmountReplacement, DamageRecipients, Duration, LAYERS, Layer, Modifier, PtCount,
+    ReplacementRule, StaticAbility,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
@@ -94,6 +184,9 @@ pub struct CardDef {
     pub coverage: Coverage,
     /// Ability definitions; empty until the card is implemented.
     pub abilities: &'static [AbilityDef],
+    /// Fuse (CR 702.102a–d): whether both halves of this split spell card may
+    /// be cast together from a player's hand as a fused split spell.
+    pub fuse: bool,
 }
 
 impl CardDef {
@@ -147,14 +240,17 @@ impl CardDef {
     #[must_use]
     pub fn abilities_for_face(&self, face: usize) -> &'static [crate::ability::AbilityDef] {
         if face == 0 {
-            let face_abilities = self.faces[0].abilities;
+            let face_abilities: &'static [crate::ability::AbilityDef] =
+                self.faces.first().map_or(&[], |f| f.abilities);
             if face_abilities.is_empty() {
                 self.abilities
             } else {
                 face_abilities
             }
         } else {
-            self.faces[face.min(self.faces.len() - 1)].abilities
+            self.faces
+                .get(face.min(self.faces.len().saturating_sub(1)))
+                .map_or(&[], |f| f.abilities)
         }
     }
 
@@ -224,12 +320,13 @@ impl CardDef {
         let [left, right] = self.faces else {
             return false;
         };
-        [left, right].iter().all(|half| {
-            half.castable_from_hand
-                && !half.adventure
-                && !half.types.is_empty()
-                && half.types.difference(spells).is_empty()
-        })
+        left.castable_from_hand
+            && [left, right].iter().all(|half| {
+                (half.castable_from_hand || half.aftermath)
+                    && !half.adventure
+                    && !half.types.is_empty()
+                    && half.types.difference(spells).is_empty()
+            })
     }
 
     /// Whether this is a split card with one shared type line (CR 709.5), a
@@ -285,7 +382,9 @@ impl CardDef {
             let own = self.faces.first().map_or(KeywordSet::EMPTY, |f| f.keywords);
             if own.is_empty() { self.keywords } else { own }
         } else {
-            self.faces[face.min(self.faces.len() - 1)].keywords
+            self.faces
+                .get(face.min(self.faces.len().saturating_sub(1)))
+                .map_or(KeywordSet::EMPTY, |f| f.keywords)
         };
         // Generic partner is a keyword ability, not only deckbuilding
         // metadata. Keeping it in the same projection as every other keyword
@@ -294,15 +393,41 @@ impl CardDef {
         if face == 0 && self.partner == PartnerKind::Partner {
             keywords = keywords.union(KeywordSet::PARTNER);
         }
-        if self
-            .faces
-            .get(face.min(self.faces.len().saturating_sub(1)))
-            .is_some_and(|f| f.freerunning.is_some())
-        {
-            keywords.union(KeywordSet::FREERUNNING)
-        } else {
-            keywords
+        let face_idx = face.min(self.faces.len().saturating_sub(1));
+        if self.faces.get(face_idx).is_some_and(|f| {
+            f.freerunning.is_some()
+                || f.alternative_costs.iter().any(|alt| {
+                    matches!(
+                        alt.condition,
+                        AltCondition::If(
+                            Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn
+                        )
+                    )
+                })
+        }) {
+            keywords = keywords.union(KeywordSet::FREERUNNING);
         }
+        if self.faces.get(face_idx).is_some_and(|f| {
+            f.enter_modifiers
+                .iter()
+                .any(|m| matches!(m, EnterModifier::Sunburst))
+        }) {
+            keywords = keywords.union(KeywordSet::SUNBURST);
+        }
+        if self.abilities_for_face(face).iter().any(|ability| {
+            matches!(
+                ability,
+                AbilityDef::Static(StaticAbility {
+                    filter: Filter::This,
+                    modifier: Modifier::Sneak(_),
+                    condition: None,
+                    ..
+                })
+            )
+        }) {
+            keywords = keywords.union(KeywordSet::SNEAK);
+        }
+        keywords
     }
 
     /// Every keyword printed anywhere on the card.
@@ -315,6 +440,19 @@ impl CardDef {
         (0..self.faces.len().max(1))
             .map(|f| self.keywords_for_face(f))
             .fold(self.keywords, KeywordSet::union)
+    }
+
+    /// Returns the combined per-extra-target mana cost (`CR 207.2c` Strive /
+    /// `CR 601.2f`) printed on `face`, if any.
+    #[must_use]
+    pub fn per_extra_target_cost(&self, face: usize) -> Option<ManaCost> {
+        let mut out: Option<ManaCost> = None;
+        for ability in self.abilities_for_face(face) {
+            if let Some(cost) = ability.per_extra_target_cost() {
+                out = Some(out.map_or(cost, |acc| acc.combine(&cost)));
+            }
+        }
+        out
     }
 }
 
@@ -342,6 +480,7 @@ impl CardDef {
         partner: PartnerKind::None,
         coverage: Coverage::Unimplemented,
         abilities: &[],
+        fuse: false,
     };
 }
 
@@ -364,8 +503,8 @@ pub enum UseBeyondMana {
     Free,
 }
 
-/// Prototype's alternative characteristics (CR 719.3).
-#[derive(Clone, Copy, Debug)]
+/// Prototype's alternative characteristics (CR 702.160, CR 719.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Prototype {
     /// Mana cost, which also determines color and mana value.
     pub cost: ManaCost,
@@ -373,6 +512,48 @@ pub struct Prototype {
     pub power: i16,
     /// Base toughness.
     pub toughness: i16,
+}
+
+impl Prototype {
+    /// Construct a prototype characteristic block (CR 702.160, CR 719.3).
+    #[must_use]
+    pub const fn new(cost: ManaCost, power: i16, toughness: i16) -> Self {
+        Self {
+            cost,
+            power,
+            toughness,
+        }
+    }
+}
+
+/// Emerge's alternative casting cost (CR 702.119a–b): pay `cost` and sacrifice
+/// a permanent matching `from` rather than paying the printed mana cost,
+/// reducing the spell's total generic mana cost by the sacrificed permanent's
+/// mana value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Emerge {
+    /// Base emerge mana cost.
+    pub cost: ManaCost,
+    /// Filter for the controlled permanent sacrificed (normally `&Filter::CREATURE`,
+    /// or e.g. `&Filter::ARTIFACT` for "Emerge from artifact", CR 702.119b).
+    pub from: &'static Filter,
+}
+
+impl Emerge {
+    /// Standard creature emerge (`Emerge [cost]`, CR 702.119a).
+    #[must_use]
+    pub const fn creature(cost: ManaCost) -> Self {
+        Self {
+            cost,
+            from: &Filter::CREATURE,
+        }
+    }
+
+    /// Variant emerge (`Emerge from [quality] [cost]`, CR 702.119b).
+    #[must_use]
+    pub const fn from(cost: ManaCost, from: &'static Filter) -> Self {
+        Self { cost, from }
+    }
 }
 
 /// Escape's cost (CR 702.138a): "Escape—[mana], Exile [N] other cards from
@@ -557,6 +738,11 @@ pub struct FaceDef {
     /// returns to its owner's hand at the beginning of the next end step.
     /// Mana only, as every printed dash cost is.
     pub dash: Option<ManaCost>,
+    /// Blitz (CR 702.152a): the card may be cast for this cost rather than
+    /// its mana cost; if it was, the permanent it becomes has haste,
+    /// "When this permanent dies, draw a card", and is sacrificed at the
+    /// beginning of the next end step.
+    pub blitz: Option<crate::cost::Cost>,
     /// Escape (CR 702.138a): the card may be cast from its owner's
     /// graveyard for this cost rather than its mana cost. A spell cast so,
     /// and the permanent it becomes, "escaped" (CR 702.138b), which
@@ -568,6 +754,18 @@ pub struct FaceDef {
     pub behold_or_pay: Option<BeholdOrPay>,
     /// Morph cost to turn this permanent face up (CR 702.37).
     pub morph: Option<ManaCost>,
+    /// Megamorph cost to turn this permanent face up and put a +1/+1 counter on it (CR 702.37b).
+    pub megamorph: Option<ManaCost>,
+    /// Non-mana parts of this face's morph/megamorph/disguise cost, paid when turning face up.
+    pub morph_parts: &'static [crate::cost::CostPart],
+    /// Bestow cost to cast this card as an Aura enchantment with enchant creature (CR 702.103).
+    pub bestow: Option<crate::cost::Cost>,
+    /// Jump-start (CR 702.133a): cast from owner's graveyard by discarding a card in addition to
+    /// its other costs, and exile it instead of putting it anywhere else when leaving the stack.
+    pub jump_start: bool,
+    /// Aftermath (CR 702.127a): this split-card half can only be cast from its owner's graveyard,
+    /// and is exiled instead of put anywhere else when leaving the stack.
+    pub aftermath: bool,
     /// Mutate cost to cast this creature spell merging with a non-Human creature you own (CR 702.140).
     pub mutate: Option<ManaCost>,
     /// Entwine cost to choose all modes of this modal spell (CR 702.42).
@@ -575,9 +773,65 @@ pub struct FaceDef {
     /// Madness (CR 702.35): discard this card into exile instead, then its
     /// owner may cast it for this cost as that triggered ability resolves.
     pub madness: Option<crate::cost::Cost>,
+    /// Bargain (CR 702.166a): as an optional additional cost to cast this
+    /// spell, its controller may sacrifice an artifact, enchantment, or token.
+    pub bargain: bool,
+    /// Emerge (CR 702.119a–b): alternative cost sacrificing a matching
+    /// permanent and reducing generic mana by its mana value.
+    pub emerge: Option<Emerge>,
+    /// Squad (CR 702.157a–b): optional repeatable additional cost; when this
+    /// creature enters, create a token copy of it for each time paid.
+    pub squad: Option<crate::cost::Cost>,
+    /// Offspring (CR 702.175a–b): optional additional cost; when this permanent
+    /// enters, create a 1/1 token copy of it if paid.
+    pub offspring: Option<crate::cost::Cost>,
+    /// Plot (CR 702.170a–f): sorcery-speed special action from hand paying this
+    /// cost to exile the card face up as plotted; on any later turn its owner
+    /// may cast it from exile as a sorcery without paying its mana cost.
+    pub plot: Option<ManaCost>,
+    /// Casualty N (CR 702.153a–b): optional additional cost sacrificing a
+    /// creature with power N or greater; when cast with casualty paid, copy
+    /// this spell on the stack (`may_choose_new_targets = true`).
+    pub casualty: Option<u8>,
+    /// Impending N—[cost] (CR 702.176a): alternative cost `(N, cost)`; when
+    /// paid, enters with `N` time counters, is not a creature while it has a
+    /// time counter on it, and removes a time counter at the beginning of each
+    /// of your end steps.
+    pub impending: Option<(u8, ManaCost)>,
+    /// Gift a [something] (CR 702.174a–i): optional additional cost choosing an
+    /// opponent (`Rider::GiftPromisedTo`); delivers the promised gift on spell
+    /// resolution (instants/sorceries) or permanent entry.
+    pub gift: Option<GiftKind>,
+    /// Warp (CR 702.185a–b): alternative cost to cast this card from your hand;
+    /// if its warp cost was paid, exile the permanent this spell becomes at the
+    /// beginning of the next end step, and its owner may cast it from exile on
+    /// a later turn.
+    pub warp: Option<crate::cost::Cost>,
 }
 
 impl FaceDef {
+    /// Whether this face prints morph, megamorph, or disguise to be cast face down for `{3}`.
+    #[must_use]
+    pub const fn has_face_down_cast(&self) -> bool {
+        self.disguise.is_some() || self.morph.is_some() || self.megamorph.is_some()
+    }
+
+    /// The `(mana, parts, is_megamorph)` paid to turn a face-down permanent with this face up.
+    #[must_use]
+    pub const fn turn_face_up_cost(
+        &self,
+    ) -> Option<(ManaCost, &'static [crate::cost::CostPart], bool)> {
+        if let Some(cost) = self.disguise {
+            Some((cost, self.morph_parts, false))
+        } else if let Some(cost) = self.megamorph {
+            Some((cost, self.morph_parts, true))
+        } else if let Some(cost) = self.morph {
+            Some((cost, self.morph_parts, false))
+        } else {
+            None
+        }
+    }
+
     /// The neutral face: nameless, costless, typeless, castable from hand.
     ///
     /// Every card file builds its faces as `FaceDef { …, ..FaceDef::DEFAULT }`
@@ -627,13 +881,28 @@ impl FaceDef {
         disturb: false,
         adventure: false,
         dash: None,
+        blitz: None,
         escape: None,
         freerunning: None,
         behold_or_pay: None,
         morph: None,
+        megamorph: None,
+        morph_parts: &[],
+        bestow: None,
+        jump_start: false,
+        aftermath: false,
         mutate: None,
         entwine: None,
         madness: None,
+        bargain: false,
+        emerge: None,
+        squad: None,
+        offspring: None,
+        plot: None,
+        casualty: None,
+        impending: None,
+        gift: None,
+        warp: None,
     };
 }
 
@@ -641,6 +910,57 @@ impl Default for FaceDef {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+const CASUALTY_CLAUSES: [[Filter; 2]; 256] = {
+    let mut out = [[Filter::CREATURE, Filter::PowerAtLeast(0)]; 256];
+    let mut i = 0_usize;
+    while i < 256 {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+        {
+            out[i] = [Filter::CREATURE, Filter::PowerAtLeast(i as i16)];
+        }
+        i += 1;
+    }
+    out
+};
+
+const CASUALTY_FILTERS: [Filter; 256] = {
+    let mut out = [Filter::CREATURE; 256];
+    let mut i = 0_usize;
+    while i < 256 {
+        out[i] = Filter::And(&CASUALTY_CLAUSES[i]);
+        i += 1;
+    }
+    out
+};
+
+/// Creature with projected power `min_power` or greater, used by
+/// [`FaceDef::casualty`] (`CR 702.153a`).
+#[must_use]
+pub const fn casualty_creature_filter(min_power: u8) -> &'static Filter {
+    &CASUALTY_FILTERS[min_power as usize]
+}
+
+/// Gift promised to a chosen opponent as an optional additional spell cost
+/// (`CR 702.174a–i`).
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub enum GiftKind {
+    /// "Gift a card" — the chosen player draws a card (`CR 702.174e`).
+    Card,
+    /// "Gift a Food" — the chosen player creates a Food token (`CR 702.174d`).
+    Food,
+    /// "Gift a tapped Fish" — the chosen player creates a tapped 1/1 blue Fish
+    /// creature token (`CR 702.174f`).
+    TappedFish,
+    /// "Gift a Treasure" — the chosen player creates a Treasure token (`CR 702.174h`).
+    Treasure,
+    /// "Gift an Octopus" — the chosen player creates an 8/8 blue Octopus
+    /// creature token (`CR 702.174i`).
+    Octopus,
+    /// "Gift an extra turn" — the chosen player takes an extra turn after this
+    /// one (`CR 702.174g`).
+    ExtraTurn,
 }
 
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).
@@ -886,6 +1206,120 @@ pub enum EnterModifier {
         /// Continuous-effect modifiers granted indefinitely to this incarnation.
         modifiers: &'static [Modifier],
     },
+    /// "Amplify N" (CR 702.38a, CR 702.38b, CR 614.1c, CR 614.12, CR 614.12a):
+    /// as this object enters the battlefield, reveal any number of cards from
+    /// your hand that share a creature type with it (excluding this card and
+    /// any cards entering simultaneously). This permanent enters with `N`
+    /// +1/+1 counters on it for each card revealed this way (subject to counter
+    /// replacements, CR 702.38b). Repeat the entry for multiple amplify
+    /// instances so each prompts and applies separately (CR 702.38b).
+    Amplify(u8),
+    /// "This permanent enters with [count] [kind] counters on it if [condition]"
+    /// (CR 614.1c, CR 614.12): evaluates `condition` as the permanent enters;
+    /// when it holds, places `count` counters of `kind` through counter
+    /// replacements (CR 614.16), using the spell's announced `X` when entering
+    /// from the stack (CR 107.3m). Appended to preserve replay identities.
+    WithCountersIf {
+        /// Kind of counter placed when `condition` holds.
+        kind: crate::effect::CounterKind,
+        /// Number of counters before replacement multipliers.
+        count: Amount,
+        /// Condition tested as the permanent enters.
+        condition: crate::Condition,
+    },
+    /// "Bloodthirst N" / "Bloodthirst X" (CR 702.54a–c, CR 614.1c, CR 614.16):
+    /// if an opponent was dealt damage this turn, this permanent enters with
+    /// `amount` (`Amount::Fixed(n)` or `Amount::DamageDealtToOpponentsThisTurn`)
+    /// +1/+1 counters on it. Repeat for multiple instances so each applies
+    /// separately (CR 702.54c). Appended to preserve replay identities.
+    Bloodthirst(Amount),
+    /// "Devour N" / "Devour [quality] N" (CR 702.82a–c, CR 614.1c, CR 614.12):
+    /// as this object enters the battlefield, you may sacrifice any number of
+    /// other permanents you control matching `filter`. When `factor` is
+    /// nonzero, this permanent enters with `factor * count` +1/+1 counters on
+    /// it; when `factor == 0` (*Thromok the Insatiable*: "Devour X, where X is
+    /// the number of creatures devoured this way"), it enters with
+    /// `count * count` +1/+1 counters on it (subject to counter replacements
+    /// per CR 614.16), and records `count` for [`Amount::EntrySacrifices`] and
+    /// [`PtCount::EntrySacrifices`]. Appended to preserve replay identities.
+    Devour {
+        /// Filter on controlled permanents eligible to be devoured.
+        filter: &'static Filter,
+        /// +1/+1 counters per devoured permanent (`0` means `count * count`).
+        factor: u8,
+    },
+    /// "This creature enters suspected" (CR 701.60a, CR 614.1c): gives the
+    /// entering permanent the suspected designation as it enters the
+    /// battlefield. Appended to preserve replay identities.
+    Suspected,
+    /// "Sunburst" (CR 702.44a–d, CR 614.1c, CR 614.16): if this object is
+    /// entering from the stack as a resolving spell and one or more colored
+    /// mana was spent to cast it, it enters with a +1/+1 counter on it for each
+    /// color of mana spent to cast it if entering as a creature (ignoring Layer
+    /// 4 type-changing effects), or a charge counter on it for each color of
+    /// mana spent to cast it otherwise. Repeat for multiple instances
+    /// (CR 702.44d). Appended to preserve replay identities.
+    Sunburst,
+    /// "Tribute N" (CR 702.104a–b, CR 614.1c, CR 614.16): as this creature
+    /// enters the battlefield, choose an opponent; that player may have this
+    /// creature enter with `N` additional +1/+1 counters on it. When they do,
+    /// records `Rider::TributePaid` on the permanent so
+    /// [`crate::Condition::TributeWasNotPaid`] evaluates `false`; when they
+    /// decline (or no opponent exists), [`crate::Condition::TributeWasNotPaid`]
+    /// evaluates `true`. Appended to preserve replay identities.
+    Tribute(u16),
+}
+
+impl EnterModifier {
+    /// Modular N's static entry replacement (CR 702.43a): "This permanent
+    /// enters with N +1/+1 counters on it" (subject to counter replacements
+    /// per CR 614.16). Pair with [`KeywordSet::MODULAR`] on the face/card for
+    /// modular's death trigger.
+    #[must_use]
+    pub const fn modular(n: u32) -> Self {
+        Self::WithCounters {
+            kind: crate::effect::CounterKind::P1P1,
+            amount: crate::effect::Amount::Fixed(n),
+        }
+    }
+
+    /// Standard `Devour N` (`filter: &Filter::CREATURE`, `factor: n`; `0` for
+    /// Thromok's `Devour X`, CR 702.82a).
+    #[must_use]
+    pub const fn devour(n: u8) -> Self {
+        Self::Devour {
+            filter: &Filter::CREATURE,
+            factor: n,
+        }
+    }
+
+    /// Ravenous's static entry replacement (CR 702.156a): "This permanent
+    /// enters with X +1/+1 counters on it." Pair with
+    /// [`AbilityDef::ravenous_draw`] and [`KeywordSet::RAVENOUS`].
+    #[must_use]
+    pub const fn ravenous() -> Self {
+        Self::WithCounters {
+            kind: crate::effect::CounterKind::P1P1,
+            amount: crate::effect::Amount::X,
+        }
+    }
+
+    /// Graft N's static entry replacement (CR 702.58a): "This permanent enters
+    /// with N +1/+1 counters on it." Pair with [`AbilityDef::graft_trigger`]
+    /// and [`KeywordSet::GRAFT`].
+    #[must_use]
+    pub const fn graft(n: u32) -> Self {
+        Self::WithCounters {
+            kind: crate::effect::CounterKind::P1P1,
+            amount: crate::effect::Amount::Fixed(n),
+        }
+    }
+
+    /// `Tribute N` (CR 702.104a).
+    #[must_use]
+    pub const fn tribute(n: u16) -> Self {
+        Self::Tribute(n)
+    }
 }
 
 /// Simple keyword abilities as a bitset.
@@ -976,6 +1410,47 @@ keywords! {
     STORM = 49, "Storm (CR 702.40).";
     MAYHEM = 51, "Costless permission to play this land after discarding it this turn.";
     FREERUNNING = 50, "Has freerunning; its cost remains on `FaceDef` (CR 702.173a).";
+    PROVOKE = 52, "Provoke (CR 702.39).";
+    READ_AHEAD = 53, "Read ahead (CR 702.155).";
+    BATTLE_CRY = 54, "Battle cry (CR 702.91).";
+    DETHRONE = 55, "Dethrone (CR 702.105).";
+    MELEE = 56, "Melee (CR 702.121).";
+    MENTOR = 57, "Mentor (CR 702.134).";
+    TRAINING = 58, "Training (CR 702.149).";
+    MYRIAD = 59, "Myriad (CR 702.116).";
+    EXTORT = 60, "Extort (CR 702.101).";
+    ENLIST = 61, "Enlist (CR 702.154).";
+    MODULAR = 62, "Modular (CR 702.43).";
+    SOULBOND = 63, "Soulbond (CR 702.95).";
+    RENOWN = 66, "Renown (CR 702.112).";
+    EXPLOIT = 76, "Exploit (CR 702.110).";
+    EVOLVE = 77, "Evolve (CR 702.100).";
+    BLOODTHIRST = 78, "Bloodthirst (CR 702.54).";
+    WARP = 81, "Warp (CR 702.185).";
+    DEVOUR = 82, "Devour (CR 702.82).";
+    SPREE = 83, "Spree (CR 702.172).";
+    RETRACE = 86, "Retrace (CR 702.81).";
+    RIOT = 87, "Riot (CR 702.136).";
+    UNLEASH = 88, "Unleash (CR 702.98).";
+    UMBRA_ARMOR = 91, "Umbra armor (CR 702.89).";
+    MOBILIZE = 92, "Mobilize (CR 702.181).";
+    TRANSMUTE = 96, "Transmute (CR 702.53).";
+    SCAVENGE = 97, "Scavenge (CR 702.97).";
+    FIREBENDING = 101, "Firebending (CR 702.189).";
+    SNEAK = 107, "Sneak (CR 702.190).";
+    SUNBURST = 108, "Sunburst (CR 702.44).";
+    RAVENOUS = 109, "Ravenous (CR 702.156).";
+    GRAFT = 110, "Graft (CR 702.58).";
+    OUTLAST = 111, "Outlast (CR 702.107).";
+    AFTERLIFE = 112, "Afterlife (CR 702.135).";
+    AFFLICT = 113, "Afflict (CR 702.130).";
+    REINFORCE = 114, "Reinforce (CR 702.77).";
+    SPLICE = 116, "Splice (CR 702.47).";
+    AWAKEN = 117, "Awaken (CR 702.113).";
+    CONSPIRE = 118, "Conspire (CR 702.78).";
+    CIPHER = 119, "Cipher (CR 702.99).";
+    CHAMPION = 120, "Champion (CR 702.72).";
+    TRIBUTE = 121, "Tribute (CR 702.104).";
 }
 
 impl KeywordSet {
@@ -1094,6 +1569,48 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::DEVOID, "Devoid"),
     (KeywordSet::PHASING, "Phasing"),
     (KeywordSet::STORM, "Storm"),
+    (KeywordSet::PROVOKE, "Provoke"),
+    (KeywordSet::READ_AHEAD, "Read ahead"),
+    (KeywordSet::BATTLE_CRY, "Battle cry"),
+    (KeywordSet::DETHRONE, "Dethrone"),
+    (KeywordSet::MELEE, "Melee"),
+    (KeywordSet::MENTOR, "Mentor"),
+    (KeywordSet::TRAINING, "Training"),
+    (KeywordSet::MYRIAD, "Myriad"),
+    (KeywordSet::EXTORT, "Extort"),
+    (KeywordSet::ENLIST, "Enlist"),
+    (KeywordSet::MODULAR, "Modular"),
+    (KeywordSet::SOULBOND, "Soulbond"),
+    (KeywordSet::RENOWN, "Renown"),
+    (KeywordSet::EXPLOIT, "Exploit"),
+    (KeywordSet::EVOLVE, "Evolve"),
+    (KeywordSet::BLOODTHIRST, "Bloodthirst"),
+    (KeywordSet::WARP, "Warp"),
+    (KeywordSet::DEVOUR, "Devour"),
+    (KeywordSet::SPREE, "Spree"),
+    (KeywordSet::RETRACE, "Retrace"),
+    (KeywordSet::RIOT, "Riot"),
+    (KeywordSet::UNLEASH, "Unleash"),
+    (KeywordSet::UMBRA_ARMOR, "Umbra armor"),
+    (KeywordSet::MOBILIZE, "Mobilize"),
+    (KeywordSet::TRANSMUTE, "Transmute"),
+    (KeywordSet::SCAVENGE, "Scavenge"),
+    (KeywordSet::FIREBENDING, "Firebending"),
+    (KeywordSet::FREERUNNING, "Freerunning"),
+    (KeywordSet::SNEAK, "Sneak"),
+    (KeywordSet::SUNBURST, "Sunburst"),
+    (KeywordSet::RAVENOUS, "Ravenous"),
+    (KeywordSet::GRAFT, "Graft"),
+    (KeywordSet::OUTLAST, "Outlast"),
+    (KeywordSet::AFTERLIFE, "Afterlife"),
+    (KeywordSet::AFFLICT, "Afflict"),
+    (KeywordSet::REINFORCE, "Reinforce"),
+    (KeywordSet::SPLICE, "Splice"),
+    (KeywordSet::AWAKEN, "Awaken"),
+    (KeywordSet::CONSPIRE, "Conspire"),
+    (KeywordSet::CIPHER, "Cipher"),
+    (KeywordSet::CHAMPION, "Champion"),
+    (KeywordSet::TRIBUTE, "Tribute"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

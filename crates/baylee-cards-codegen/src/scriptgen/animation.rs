@@ -54,15 +54,55 @@ impl Tx<'_> {
         p: &mut Params,
         target: Option<&str>,
     ) -> Option<Vec<String>> {
-        let source_only = match (p.take("Defined").as_deref(), target) {
-            (Some("Self"), None) => true,
-            (None | Some("Targeted"), Some(_)) => false,
+        let defined = p.take("Defined");
+        let (filter, source_only) = match (defined.as_deref(), target) {
+            (None | Some("Self"), None) if !self.on_a_spell => ("&Filter::This", true),
+            (None | Some("Targeted" | "ParentTarget" | "ParentTargeted"), Some(t))
+                if !t.starts_with("TargetSpec::Player(") =>
+            {
+                ("&Filter::This", false)
+            }
+            (Some("Enchanted" | "Equipped"), None) => ("&Filter::AttachedToBySource", false),
+            (Some(def), None) if self.animate_triggered_subject(def) => {
+                ("&Filter::Reference", false)
+            }
             _ => {
                 self.note("`Animate` of something other than the source".to_string());
                 return None;
             }
         };
-        self.animate_for_filter(p, "&Filter::This", target.is_some(), source_only)
+        self.animate_for_filter(p, filter, target.is_some(), source_only)
+    }
+
+    fn animate_triggered_subject(&self, def: &str) -> bool {
+        match def {
+            "TriggeredCardLKICopy" | "TriggeredCard" => {
+                self.trigger_mode.as_deref() == Some("ChangesZone")
+            }
+            "TriggeredAttackerLKICopy" | "TriggeredAttacker" => {
+                matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
+                ) || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                    && self
+                        .block_line
+                        .as_ref()
+                        .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks))
+            }
+            "TriggeredBlockerLKICopy" | "TriggeredBlocker" => {
+                self.trigger_mode.as_deref() == Some("Blocks")
+                    || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                        && self
+                            .block_line
+                            .as_ref()
+                            .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocked))
+            }
+            "TriggeredTargetLKICopy" | "TriggeredTarget" => {
+                self.trigger_mode.as_deref() == Some("DamageDone")
+            }
+            "DelayTriggerRemembered" | "DelayTriggerRememberedLKI" => self.in_delayed,
+            _ => false,
+        }
     }
 
     fn animate_for_filter(
@@ -220,42 +260,19 @@ impl Tx<'_> {
             ));
         }
         if let Some(raw) = p.take("Abilities") {
-            for name in raw.split(',').map(str::trim) {
-                let Some(line) = self.svars.get(name).cloned() else {
-                    return self.deny(format!("`Abilities$ {name}` naming no `SVar`"));
+            for name in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                let super::statics::GrantedActivated::Modifier(modifier) =
+                    self.build_grant_activated_modifier(name, "Abilities$", false)?
+                else {
+                    unreachable!("for_static_this is false");
                 };
-                if !line.trim_start().starts_with("AB$") {
-                    return self.deny("a granted ability that is not an activated one".to_string());
-                }
-                let Some((_, mut probe)) = Params::parse(&line) else {
-                    return self.deny("a granted ability with no `$` in it".to_string());
-                };
-                let Some(cost) = probe.take("Cost") else {
-                    return self.deny("a granted ability with no `Cost$`".to_string());
-                };
-                let cost = self.cost_expr(&cost)?;
-                let stripped: Vec<&str> = line
-                    .split(" | ")
-                    .filter(|part| !part.starts_with("Cost$"))
-                    .collect();
-                let mut chain = super::Chain::default();
-                self.chain(&stripped.join(" | "), &mut chain)?;
-                if chain.target.is_some() {
-                    return self.deny("a granted ability with a target".to_string());
-                }
-                if chain.effects.is_empty() {
-                    return self
-                        .deny("a granted ability that reads as no effect at all".to_string());
-                }
-                let mana = chain.could_add_mana && !chain.moves_library;
-                out.push(Self::animate_expr_for(
-                    filter,
-                    &format!(
-                        "Modifier::GrantActivated {{ cost: {cost}, effects: &[{}], mana_ability: {mana} }}",
-                        chain.effects.join(", ")
-                    ),
-                    duration,
-                ));
+                out.push(Self::animate_expr_for(filter, &modifier, duration));
+            }
+        }
+        if let Some(raw) = p.take("Triggers") {
+            for name in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                let modifier = self.build_grant_triggered_modifier(name, "Triggers$")?;
+                out.push(Self::animate_expr_for(filter, &modifier, duration));
             }
         }
         Some(())

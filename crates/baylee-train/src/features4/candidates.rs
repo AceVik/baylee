@@ -227,7 +227,9 @@ pub fn encode_candidates4(
                     }
                     DamageEffectKind::ReplaceAmount { .. }
                     | DamageEffectKind::Reflect { .. }
-                    | DamageEffectKind::TurnFaceUp { .. } => c.feat[18] = 1.0,
+                    | DamageEffectKind::TurnFaceUp { .. }
+                    | DamageEffectKind::MultiplyDamage { .. }
+                    | DamageEffectKind::AddDamage { .. } => c.feat[18] = 1.0,
                 }
                 if let Some(src_obj) = eff.source
                     && let Some(eidx) = state.find_entity(src_obj)
@@ -1065,6 +1067,9 @@ pub fn public_object_matches_basic_filter(
         baylee_cards_dsl::Filter::OwnedByYou => obj.owner == actor,
         baylee_cards_dsl::Filter::Tapped => obj.status.contains(ObjectStatus::TAPPED),
         baylee_cards_dsl::Filter::Untapped => !obj.status.contains(ObjectStatus::TAPPED),
+        baylee_cards_dsl::Filter::FaceDown => obj.status.contains(ObjectStatus::FACE_DOWN),
+        baylee_cards_dsl::Filter::Suspected => obj.suspected,
+        baylee_cards_dsl::Filter::RingBearer => false,
         baylee_cards_dsl::Filter::HasAnyCounter => !obj.counters.is_empty(),
         _ => true,
     }
@@ -1282,17 +1287,24 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         // Foretell and madness are alternative costs (CR 702.143a, 702.35b):
         // their slot, so the candidate width the trained nets read stays the
         // same.
-        CastModeKind::Alternative(_) | CastModeKind::Foretell | CastModeKind::Madness => 28,
+        CastModeKind::Alternative(_)
+        | CastModeKind::Foretell
+        | CastModeKind::Madness
+        | CastModeKind::Bestow
+        | CastModeKind::Emerge
+        | CastModeKind::Plot
+        | CastModeKind::Impending
+        | CastModeKind::Awaken => 28,
         CastModeKind::Mode(_) => 29,
-        CastModeKind::Modes(_) => 30,
+        CastModeKind::Modes(_) | CastModeKind::Fused => 30,
         CastModeKind::Face(_) => 31,
         CastModeKind::PlayLandFace(_) => 32,
         CastModeKind::Prototype => 33,
         CastModeKind::Disguise => 34,
         CastModeKind::Miracle => 35,
-        CastModeKind::Flashback => 36,
+        CastModeKind::Flashback | CastModeKind::JumpStart | CastModeKind::Retrace => 36,
         CastModeKind::BeamMeUp => 37,
-        CastModeKind::Dash => 38,
+        CastModeKind::Dash | CastModeKind::Blitz | CastModeKind::Warp | CastModeKind::Sneak => 38,
         CastModeKind::Mutate => 39,
         // Where a resolving spell goes, as a mutating spell's position is:
         // its slot, so the candidate width the trained nets read stays the

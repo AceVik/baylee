@@ -229,12 +229,14 @@ fn a_rooms_card_list_is_its_doors_lists_end_to_end() {
 fn the_pt_lint_catches_both_halves_of_cr_208_1() {
     static VEHICLE: [baylee_core::ids::SubtypeId; 1] =
         [baylee_core::generated::subtypes::artifact::VEHICLE];
+    static SPACECRAFT: [baylee_core::ids::SubtypeId; 1] =
+        [baylee_core::generated::subtypes::artifact::SPACECRAFT];
     let bodiless = FaceDef {
         types: TypeSet::CREATURE,
         ..FaceDef::DEFAULT
     };
     assert!(
-        pt_fault(&bodiless).is_some(),
+        pt_fault(&bodiless, false).is_some(),
         "a creature with no power or toughness slipped through"
     );
     let half = FaceDef {
@@ -243,7 +245,7 @@ fn the_pt_lint_catches_both_halves_of_cr_208_1() {
         ..FaceDef::DEFAULT
     };
     assert!(
-        pt_fault(&half).is_some(),
+        pt_fault(&half, false).is_some(),
         "a creature with a power and no toughness slipped through"
     );
     let numbered_land = FaceDef {
@@ -253,7 +255,7 @@ fn the_pt_lint_catches_both_halves_of_cr_208_1() {
         ..FaceDef::DEFAULT
     };
     assert!(
-        pt_fault(&numbered_land).is_some(),
+        pt_fault(&numbered_land, false).is_some(),
         "a land printing 3/3 without becoming a creature slipped through"
     );
     let vehicle = FaceDef {
@@ -264,9 +266,34 @@ fn the_pt_lint_catches_both_halves_of_cr_208_1() {
         ..FaceDef::DEFAULT
     };
     assert!(
-        pt_fault(&vehicle).is_none(),
+        pt_fault(&vehicle, false).is_none(),
         "a Vehicle prints power and toughness and is not a creature \
          until it crews (CR 301.7)"
+    );
+    let bodiless_station_spacecraft = FaceDef {
+        types: TypeSet::ARTIFACT,
+        subtypes: &SPACECRAFT,
+        ..FaceDef::DEFAULT
+    };
+    let station_abilities = [crate::dsl::static_ability!(
+        Filter::This,
+        Modifier::AddTypeIfCountersAtLeast {
+            kind: crate::dsl::CounterKind::Charge,
+            at_least: 8,
+            types: TypeSet::CREATURE,
+        }
+    )];
+    assert!(
+        pt_fault(
+            &bodiless_station_spacecraft,
+            becomes_creature_on_self(&station_abilities),
+        )
+        .is_some(),
+        "a Spacecraft that becomes a creature at N+ without P/T slipped through"
+    );
+    assert!(
+        pt_fault(&bodiless_station_spacecraft, false).is_none(),
+        "a non-animating Spacecraft without P/T is legal"
     );
     let bear = FaceDef {
         types: TypeSet::CREATURE,
@@ -274,7 +301,7 @@ fn the_pt_lint_catches_both_halves_of_cr_208_1() {
         toughness: Some(2),
         ..FaceDef::DEFAULT
     };
-    assert!(pt_fault(&bear).is_none(), "a 2/2 is not a fault");
+    assert!(pt_fault(&bear, false).is_none(), "a 2/2 is not a fault");
 }
 
 /// Every creature in the pool has a body, and nothing else has one it
@@ -287,8 +314,9 @@ fn the_pt_lint_catches_both_halves_of_cr_208_1() {
 fn a_creature_is_exactly_a_face_with_a_body() {
     let mut wrong = Vec::new();
     for def in crate::all() {
-        for face in def.faces {
-            if let Some(fault) = pt_fault(face) {
+        for (face_idx, face) in def.faces.iter().enumerate() {
+            let animates = becomes_creature_on_self(def.abilities_for_face(face_idx));
+            if let Some(fault) = pt_fault(face, animates) {
                 wrong.push(format!("{} ({}) {fault}", def.name(), face.name));
             }
         }

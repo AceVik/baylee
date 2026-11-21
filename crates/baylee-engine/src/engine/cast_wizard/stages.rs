@@ -2,11 +2,25 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
+enum WizardStep {
+    Continue,
+    Yield(Result<(), EngineError>),
+}
+
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
-    #[allow(clippy::too_many_lines)]
     pub(super) fn advance_cast_wizard_inner(&mut self) -> Result<(), EngineError> {
+        loop {
+            match self.advance_cast_wizard_step() {
+                WizardStep::Continue => {}
+                WizardStep::Yield(result) => return result,
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn advance_cast_wizard_step(&mut self) -> WizardStep {
         let Some(mut wizard) = self.cast_wizard.clone() else {
-            return Ok(());
+            return WizardStep::Yield(Ok(()));
         };
         let split = match wizard.option {
             Some(CastModeKind::EscapeGranted {
@@ -40,32 +54,59 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             });
             self.cast_wizard = Some(wizard.clone());
         }
-        if wizard.option.is_some() && wizard.reduction.is_none() {
-            wizard.reduction = Some(self.frozen_spell_reduction(&wizard));
-            self.cast_wizard = Some(wizard.clone());
-        }
-        if let Some(CastModeKind::PlayLandFace(face)) = wizard.option {
+        if wizard.option == Some(CastModeKind::Sneak) && wizard.sneak_parts.is_empty() {
             let def = self
                 .state
                 .object(wizard.card)
                 .and_then(|object| object.card)
+                .and_then(|card| self.lookup.card(card.index));
+            if let Some(sneak) = casting::sneak_cost_for(
+                &self.state,
+                wizard.player,
+                wizard.card,
+                def,
+                wizard.face_index(),
+            ) && !sneak.parts.is_empty()
+            {
+                wizard.sneak_parts = sneak.parts;
+                self.cast_wizard = Some(wizard.clone());
+            }
+        }
+        if wizard.option.is_some()
+            && wizard.reduction.is_none()
+            && (wizard.option != Some(CastModeKind::Emerge) || wizard.emerge_sacrifice.is_some())
+        {
+            wizard.reduction = Some(self.frozen_spell_reduction(&wizard));
+            self.cast_wizard = Some(wizard.clone());
+        }
+        if let Some(CastModeKind::PlayLandFace(face)) = wizard.option {
+            let Some(def) = self
+                .state
+                .object(wizard.card)
+                .and_then(|object| object.card)
                 .and_then(|card| self.lookup.card(card.index))
-                .ok_or(EngineError::IllegalAction("unknown land"))?;
+            else {
+                return WizardStep::Yield(Err(EngineError::IllegalAction("unknown land")));
+            };
             if face > 0 {
                 self.state.switch_face(wizard.card, def, face);
             }
-            casting::play_land_by_effect(&mut self.state, wizard.player, wizard.card)?;
+            if let Err(err) =
+                casting::play_land_by_effect(&mut self.state, wizard.player, wizard.card)
+            {
+                return WizardStep::Yield(Err(err.into()));
+            }
             self.cast_wizard = None;
             if self.state.entries.contains(wizard.card) {
                 self.suspend_nested_land_entry();
             } else {
                 self.finish_nested_cast();
             }
-            return Ok(());
+            return WizardStep::Yield(Ok(()));
         }
         match wizard.stage {
-            WizardStage::ManaPermission => self.ask_north_star(wizard),
-            WizardStage::Permission => self.choose_graveyard_permission(wizard),
+            WizardStage::ManaPermission => WizardStep::Yield(self.ask_north_star(wizard)),
+            WizardStage::Permission => WizardStep::Yield(self.choose_graveyard_permission(wizard)),
             WizardStage::ChooseMode => {
                 self.pending = Pending::ChooseCastMode {
                     player: wizard.player,
@@ -73,11 +114,78 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     options: wizard.options.clone(),
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::EmergeSacrifice => {
+                if wizard.option != Some(CastModeKind::Emerge) || wizard.emerge_sacrifice.is_some()
+                {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::XValue;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                let face = self.wizard_face(&wizard);
+                let Some(emerge) = face.emerge else {
+                    self.cast_wizard = None;
+                    return WizardStep::Yield(Err(EngineError::IllegalAction(
+                        "no emerge cost on this spell",
+                    )));
+                };
+                let candidates = casting::emerge_candidates(
+                    &self.state,
+                    wizard.player,
+                    wizard.card,
+                    face,
+                    emerge,
+                );
+                let pool_only = !wizard.makes_mana_after_choices()
+                    && !self.can_make_mana_for_cast(wizard.player);
+                let options: Vec<ObjectId> = candidates
+                    .into_iter()
+                    .filter(|&(candidate, mv)| {
+                        if !pool_only {
+                            return true;
+                        }
+                        let mut probe = wizard.clone();
+                        probe.emerge_sacrifice = Some(candidate);
+                        let priced = self.emerge_option_cost(&probe, mv);
+                        for opt in &mut probe.options {
+                            if opt.kind == CastModeKind::Emerge {
+                                opt.cost = priced;
+                            }
+                        }
+                        probe.reduction = Some(self.frozen_spell_reduction(&probe));
+                        self.wizard_pool_can_pay(&probe, wizard_total_cost(face, &probe))
+                    })
+                    .map(|(candidate, _)| candidate)
+                    .collect();
+                if options.is_empty() {
+                    self.cast_wizard = None;
+                    return WizardStep::Yield(Err(EngineError::IllegalAction(
+                        "nothing can pay this spell's emerge cost",
+                    )));
+                }
+                self.pending = Pending::ChooseCards {
+                    player: wizard.player,
+                    options,
+                    min: 1,
+                    max: 1,
+                    prompt: ChoicePrompt::CostSacrifice,
+                    total: None,
+                };
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::XValue => {
+                if wizard.option == Some(CastModeKind::Emerge) && wizard.emerge_sacrifice.is_none()
+                {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::EmergeSacrifice;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
                 if let Some(asked) = self.ask_phyrexian(&wizard) {
-                    return asked;
+                    return WizardStep::Yield(asked);
                 }
                 // The chosen option's *printed* cost, and deliberately not
                 // `wizard_cost`: that one substitutes the chosen X into the
@@ -88,16 +196,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // cast for X = 0 without anybody being asked. Nothing failed;
                 // the question simply never appeared.
                 let cost = chosen_option_cost(&wizard);
+                let face = self.wizard_face(&wizard);
+                let disguised = wizard.option == Some(CastModeKind::Disguise) || wizard.masked;
                 // X is asked when the cost has a variable OR a mandatory
-                // part scales with it (Toxic Deluge's pay-X-life).
-                let pays_life_x = self
-                    .wizard_face(&wizard)
-                    .mandatory_additional_costs
-                    .contains(&CostPart::PayLifeX);
+                // part scales with it (Toxic Deluge's pay-X-life, SacrificeX, TapX, PayEnergyX).
+                let scales_mandatory = !disguised && mandatory_scales_with_x(face);
                 // A spell cast without paying its mana cost has exactly one
                 // legal X, which is 0 (CR 107.3b), so a free cast is not
-                // asked for it; a life payment that scales with X still is.
-                let needs_x = (cost.has_variable() && !wizard.free) || pays_life_x;
+                // asked for it; a non-mana payment that scales with X still is.
+                let waives_mana_cost = wizard.free
+                    || wizard.option == Some(CastModeKind::Plot)
+                    || wizard.alternative_cost == Some(CastModeKind::Plot);
+                let needs_x = (cost.has_variable() && !waives_mana_cost) || scales_mandatory;
                 if needs_x {
                     // The mana for X may still be made during the cast (CR
                     // 601.2g): a cast whose mana comes after its choices, and
@@ -110,17 +220,79 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // Life payments still cannot exceed payable life.
                     let more_mana = !wizard.makes_mana_after_choices()
                         && self.can_make_mana_for_cast(wizard.player);
-                    let mut max = if cost.has_variable() && !wizard.free && !more_mana {
+                    let mut max = if cost.has_variable() && !waives_mana_cost && !more_mana {
                         self.x_resource_bound(&wizard)
                     } else {
                         u32::MAX
                     };
-                    if pays_life_x {
-                        let life = self
-                            .state
-                            .life_payable(wizard.player)
-                            .saturating_sub(wizard.reserved_life(self.wizard_face(&wizard)));
-                        max = max.min(u32::try_from(life).unwrap_or(0));
+                    if scales_mandatory {
+                        let life_x_count = face
+                            .mandatory_additional_costs
+                            .iter()
+                            .filter(|p| matches!(p, CostPart::PayLifeX))
+                            .count();
+                        if life_x_count > 0 {
+                            let life = self
+                                .state
+                                .life_payable(wizard.player)
+                                .saturating_sub(wizard.reserved_life(face));
+                            let avail = u32::try_from(life).unwrap_or(0)
+                                / u32::try_from(life_x_count).unwrap_or(1);
+                            max = max.min(avail);
+                        }
+                        let energy_x_count = face
+                            .mandatory_additional_costs
+                            .iter()
+                            .filter(|p| matches!(p, CostPart::PayEnergyX))
+                            .count();
+                        if energy_x_count > 0 {
+                            let avail = u32::from(
+                                self.state.players[usize::from(wizard.player.get())].energy,
+                            )
+                            .saturating_sub(fixed_energy_cost(face, wizard.cost_choice()))
+                                / u32::try_from(energy_x_count).unwrap_or(1);
+                            max = max.min(avail);
+                        }
+                        if face.mandatory_additional_costs.iter().any(|p| {
+                            matches!(
+                                p,
+                                CostPart::SacrificeX(_)
+                                    | CostPart::TapX(_)
+                                    | CostPart::DiscardX(_)
+                                    | CostPart::ExileFromGraveyardX(_)
+                            )
+                        }) {
+                            let cap = u32::try_from(
+                                self.state
+                                    .battlefield_view()
+                                    .len()
+                                    .max(
+                                        self.state
+                                            .zones
+                                            .list(ZoneLocation::Hand(wizard.player))
+                                            .len(),
+                                    )
+                                    .max(
+                                        self.state
+                                            .zones
+                                            .list(ZoneLocation::Graveyard(wizard.player))
+                                            .len(),
+                                    ),
+                            )
+                            .unwrap_or(u32::MAX);
+                            max = casting::greatest_affordable(max.min(cap), |x| {
+                                casting::additional_payment_capacity_for_x(
+                                    &self.state,
+                                    wizard.player,
+                                    wizard.card,
+                                    face,
+                                    wizard.cost_choice(),
+                                    x,
+                                    &[],
+                                )
+                                .is_some()
+                            });
+                        }
                     }
                     // With nothing left to tap, the pool is all that pays,
                     // so the question offers only the X that mana pays:
@@ -132,10 +304,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // reports of 12.10.2026.
                     if !wizard.makes_mana_after_choices()
                         && !more_mana
-                        && ((self.wizard_face(&wizard).x_mana_color.is_some()
-                            || self.wizard_face(&wizard).x_mana_colors.is_some())
+                        && ((face.x_mana_color.is_some() || face.x_mana_colors.is_some())
                             || (cost.has_variable()
-                                && !wizard.free
+                                && !waives_mana_cost
                                 && self.pool_alone_pays_x(&wizard)))
                     {
                         let mut probe = wizard.clone();
@@ -151,20 +322,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         reason: NumberPrompt::X,
                     };
                     self.awaiting_answer = true;
-                    return Ok(());
+                    return WizardStep::Yield(Ok(()));
                 }
                 let mut wizard = wizard;
                 wizard.stage = WizardStage::Kicker;
                 self.cast_wizard = Some(wizard);
-                self.advance_cast_wizard()
+                WizardStep::Continue
             }
-            WizardStage::DivideDamage => self.advance_damage_division(wizard),
+            WizardStage::DivideDamage => WizardStep::Yield(self.advance_damage_division(wizard)),
             WizardStage::Targets => {
                 let Some(req) = self.wizard_target_req(&wizard) else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::SecondTargets;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 };
                 let (min, max) = req.bounds(wizard.x);
                 let max = self
@@ -175,7 +346,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::ChoosePlayer;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
                 if max == 0 {
                     // Zero required targets (e.g. X = 0): skip targeting.
@@ -186,7 +357,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::SecondTargets;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
                 let options = self.wizard_target_options(&wizard, &spec);
                 let player_options = eval::target_player_options_from(
@@ -200,7 +371,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // count that has to reach `min` spans both halves.
                 if options.len() + player_options.len() < min as usize {
                     self.cast_wizard = None;
-                    return Err(EngineError::IllegalAction("not enough legal targets"));
+                    return WizardStep::Yield(Err(EngineError::IllegalAction(
+                        "not enough legal targets",
+                    )));
                 }
                 if options.is_empty() && player_options.is_empty() {
                     // Nothing to point at, and `min` is zero or the check
@@ -218,7 +391,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::SecondTargets;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
                 let max = max
                     .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
@@ -245,7 +418,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     reason,
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::SecondTargets => {
                 // The second instance is asked the way the first is, and is
@@ -258,15 +431,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // that doesn't.
                 let Some(req) = self.wizard_second_target_req(&wizard) else {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::DivideDamage;
+                    wizard.stage = WizardStage::ExtraTargets;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 };
-                let options = self.wizard_target_options_relative(
-                    &wizard,
-                    &req.spec,
-                    wizard.targets.first().copied(),
-                );
+                let reference = if matches!(wizard.option, Some(CastModeKind::Modes(_))) {
+                    self.wizard_modal_clause(&wizard, 1)
+                        .and_then(|(_, is_second, _)| {
+                            is_second.then(|| wizard.targets.first().copied()).flatten()
+                        })
+                } else {
+                    wizard.targets.first().copied()
+                };
+                let options = self.wizard_target_options_relative(&wizard, &req.spec, reference);
                 let player_options = eval::target_player_options_from(
                     &self.state,
                     &req.spec,
@@ -275,15 +452,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 );
                 if options.len() + player_options.len() < req.min as usize {
                     self.cast_wizard = None;
-                    return Err(EngineError::IllegalAction("not enough legal targets"));
+                    return WizardStep::Yield(Err(EngineError::IllegalAction(
+                        "not enough legal targets",
+                    )));
                 }
                 if (options.is_empty() && player_options.is_empty()) || req.max == 0 {
                     // "Up to one" with nothing to point at: the empty answer
                     // is the only one, for the reason the first stage gives.
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::DivideDamage;
+                    wizard.stage = WizardStage::ExtraTargets;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
                 let (min, max) = req.bounds(wizard.x);
                 let max = max
@@ -297,7 +476,69 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::ExtraTargets => {
+                let clause_idx = 2 + wizard.extra_targets.len();
+                let Some((_, is_second, req)) = self.wizard_extra_clause(&wizard, clause_idx)
+                else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::DivideDamage;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                let reference = is_second
+                    .then(|| wizard.clause_first_targets(clause_idx).0)
+                    .flatten();
+                let options = self.wizard_target_options_relative(&wizard, &req.spec, reference);
+                let player_options = eval::target_player_options_from(
+                    &self.state,
+                    &req.spec,
+                    wizard.player,
+                    eval::live_context(&self.state, wizard.card),
+                );
+                if options.len() + player_options.len() < req.min as usize {
+                    self.cast_wizard = None;
+                    return WizardStep::Yield(Err(EngineError::IllegalAction(
+                        "not enough legal targets",
+                    )));
+                }
+                if (options.is_empty() && player_options.is_empty()) || req.max == 0 {
+                    let mut wizard = wizard;
+                    wizard.target_references.extra.push(Vec::new());
+                    wizard
+                        .extra_targets
+                        .push((SmallVec::new(), baylee_core::ids::SeatSet::new()));
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                let (min, max) = req.bounds(wizard.x);
+                let max = max
+                    .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
+                let reason = if req.distinct_mana_values {
+                    let mut values: Vec<_> = options
+                        .iter()
+                        .filter_map(|&id| {
+                            self.state
+                                .object(id)
+                                .map(|object| (id, object.characteristics().mana_value()))
+                        })
+                        .collect();
+                    values.sort_unstable_by_key(|(id, _)| *id);
+                    TargetPrompt::DistinctManaValues(values)
+                } else {
+                    TargetPrompt::Targets
+                };
+                self.pending = Pending::ChooseTargets {
+                    player: wizard.player,
+                    options,
+                    player_options,
+                    min,
+                    max,
+                    reason,
+                };
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::ChoosePlayer => {
                 // The same enumeration the object half of targeting uses, and
@@ -321,14 +562,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // answer. `miracle_targets_available` reads the same list.
                 if options.is_empty() {
                     self.cast_wizard = None;
-                    return Err(EngineError::IllegalAction("not enough legal targets"));
+                    return WizardStep::Yield(Err(EngineError::IllegalAction(
+                        "not enough legal targets",
+                    )));
                 }
                 self.pending = Pending::ChoosePlayer {
                     player: wizard.player,
                     options,
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::Kicker => {
                 let face = self.wizard_face(&wizard);
@@ -350,7 +593,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Buyback;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
                 let source = self.state.object(wizard.card).and_then(|o| {
                     o.card.map(|c| {
@@ -383,15 +626,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 source,
                             };
                             self.awaiting_answer = true;
-                            return Ok(());
+                            return WizardStep::Yield(Ok(()));
                         }
                         idx += 1;
                     }
                     let mut wizard = wizard;
                     wizard.kicker_cursor = u8::try_from(count).unwrap_or(u8::MAX);
+                    wizard.stage = if self.wizard_needs_kicker_x(&wizard) {
+                        WizardStage::KickerX
+                    } else {
+                        WizardStage::Buyback
+                    };
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                let mut probe = wizard.clone();
+                probe.kicked = true;
+                if !self.announced_cost_payable(&probe) {
+                    let mut wizard = wizard;
                     wizard.stage = WizardStage::Buyback;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
                 self.pending = Pending::YesNo {
                     player: wizard.player,
@@ -399,29 +654,165 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     source,
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::KickerX => {
+                let face = self.wizard_face(&wizard);
+                let more_mana = !wizard.makes_mana_after_choices()
+                    && self.can_make_mana_for_cast(wizard.player);
+                let kicker_has_mana_x =
+                    face.additional_costs.iter().enumerate().any(|(idx, add)| {
+                        (wizard.kicked_mask == 0
+                            || (idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0))
+                            && add.mana.has_variable()
+                    });
+                let mut max = if more_mana || !kicker_has_mana_x {
+                    u32::MAX
+                } else {
+                    self.x_resource_bound(&wizard)
+                };
+                if super::wizard_mandatory_parts(face, wizard.cost_choice()).any(part_scales_with_x)
+                {
+                    let cap = u32::try_from(
+                        self.state
+                            .battlefield_view()
+                            .len()
+                            .max(
+                                self.state
+                                    .zones
+                                    .list(ZoneLocation::Hand(wizard.player))
+                                    .len(),
+                            )
+                            .max(
+                                self.state
+                                    .zones
+                                    .list(ZoneLocation::Graveyard(wizard.player))
+                                    .len(),
+                            ),
+                    )
+                    .unwrap_or(u32::MAX);
+                    let life_cap = u32::try_from(self.state.life_payable(wizard.player))
+                        .unwrap_or(0)
+                        .max(u32::from(
+                            self.state.players[usize::from(wizard.player.get())].energy,
+                        ));
+                    max = casting::greatest_affordable(max.min(cap.max(life_cap)), |x| {
+                        casting::additional_payment_capacity_for_x(
+                            &self.state,
+                            wizard.player,
+                            wizard.card,
+                            face,
+                            wizard.cost_choice(),
+                            x,
+                            &[],
+                        )
+                        .is_some()
+                    });
+                }
+                if kicker_has_mana_x
+                    && !wizard.makes_mana_after_choices()
+                    && !more_mana
+                    && (face.x_mana_color.is_some()
+                        || face.x_mana_colors.is_some()
+                        || self.pool_alone_pays_x(&wizard))
+                {
+                    let mut probe = wizard.clone();
+                    max = casting::greatest_affordable(max, |x| {
+                        probe.x = x;
+                        self.restricted_x_affordable(&probe)
+                    });
+                }
+                self.pending = Pending::ChooseNumber {
+                    player: wizard.player,
+                    min: 0,
+                    max,
+                    reason: NumberPrompt::X,
+                };
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::Buyback => {
                 let Some(question) = self.ask_buyback(&wizard) else {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Multikicker;
+                    wizard.stage = WizardStage::Bargain;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 };
                 self.pending = question;
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Bargain => {
+                let Some(question) = self.ask_bargain(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Offspring;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Offspring => {
+                let Some(question) = self.ask_offspring(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Casualty;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Casualty => {
+                let Some(question) = self.ask_casualty(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Gift;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Gift => {
+                if wizard.gift_recipient.is_some() {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Multikicker;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                let Some(question) = self.ask_gift(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Multikicker;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::Multikicker => {
                 let Some(question) = self.ask_multikicker(&wizard) else {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Replicate;
+                    wizard.stage = WizardStage::Squad;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 };
                 self.pending = question;
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Squad => {
+                let Some(question) = self.ask_squad(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Replicate;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::Replicate => {
                 let face = self.wizard_face(&wizard);
@@ -432,9 +823,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // Nothing to ask: no replicate, or not one payment the
                     // pool covers, and zero is then the only answer.
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Targets;
+                    wizard.stage = WizardStage::Splice;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
                 self.pending = Pending::ChooseNumber {
                     player: wizard.player,
@@ -443,7 +834,83 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     reason: NumberPrompt::Replicate { cost },
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::EitherCost => {
+                let face = self.wizard_face(&wizard);
+                let mut wizard = wizard;
+                while let (_, Some((first_cost, second_cost))) =
+                    super::cost_parts::next_either_cost(face, wizard.cost_choice())
+                {
+                    let idx = wizard.either_decided;
+                    let first_ok =
+                        self.wizard_either_branch_payable(&wizard, face, true, first_cost);
+                    let second_ok =
+                        self.wizard_either_branch_payable(&wizard, face, false, second_cost);
+                    match (first_ok, second_ok) {
+                        (true, true) => {
+                            let source = self
+                                .state
+                                .object(wizard.card)
+                                .and_then(|o| o.card)
+                                .map(|c| baylee_core::ids::AbilityRef::new(c.index, 0));
+                            self.pending = Pending::YesNo {
+                                player: wizard.player,
+                                prompt: YesNoPrompt::ChooseFirstCostBranch { index: idx },
+                                source,
+                            };
+                            self.cast_wizard = Some(wizard);
+                            self.awaiting_answer = true;
+                            return WizardStep::Yield(Ok(()));
+                        }
+                        (true, false) => {
+                            if idx < 8 {
+                                wizard.either_first_mask |= 1_u8 << idx;
+                            }
+                            if first_cost.mana != ManaCost::ZERO {
+                                wizard.either_pays_mana = true;
+                            }
+                            wizard.either_decided = idx.saturating_add(1);
+                        }
+                        (false, true) => {
+                            if second_cost.mana != ManaCost::ZERO {
+                                wizard.either_pays_mana = true;
+                            }
+                            wizard.either_decided = idx.saturating_add(1);
+                        }
+                        (false, false) => {
+                            self.cast_wizard = None;
+                            return WizardStep::Yield(Err(EngineError::IllegalAction(
+                                "neither branch of the additional cost can be paid",
+                            )));
+                        }
+                    }
+                }
+                wizard.stage = WizardStage::PitchChoice;
+                self.cast_wizard = Some(wizard);
+                WizardStep::Continue
+            }
+            WizardStage::Splice => {
+                let Some(question) = self.ask_splice(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Conspire;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Conspire => {
+                let Some(question) = self.ask_conspire(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Targets;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::PitchChoice => {
                 let parts = self.wizard_pitch_parts(&wizard);
@@ -465,15 +932,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             &self.state,
                             wizard.player,
                             wizard.card,
-                            parts,
+                            &parts,
                             &chosen,
                         )
                     });
                     if options.is_empty() {
                         self.cast_wizard = None;
-                        return Err(EngineError::IllegalAction(
+                        return WizardStep::Yield(Err(EngineError::IllegalAction(
                             "no card to exile for the pitch cost",
-                        ));
+                        )));
                     }
                     self.pending = Pending::ChooseCards {
                         player: wizard.player,
@@ -484,22 +951,40 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         total: None,
                     };
                     self.awaiting_answer = true;
-                    return Ok(());
+                    return WizardStep::Yield(Ok(()));
                 }
                 let mut wizard = wizard;
                 wizard.stage = WizardStage::ReturnCreature;
                 self.cast_wizard = Some(wizard);
-                self.advance_cast_wizard()
+                WizardStep::Continue
             }
             WizardStage::ReturnCreature => {
-                if wizard.option != Some(CastModeKind::BeamMeUp) {
+                if !matches!(
+                    wizard.option,
+                    Some(CastModeKind::BeamMeUp | CastModeKind::Sneak)
+                ) {
                     wizard.stage = WizardStage::Behold;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
-                let options = casting::beam_return_options(&self.state, wizard.player, wizard.card);
+                let options = if wizard.option == Some(CastModeKind::Sneak) {
+                    let face = self.wizard_face(&wizard);
+                    let sneak = baylee_cards_dsl::Cost {
+                        mana: ManaCost::ZERO,
+                        parts: wizard.sneak_parts,
+                    };
+                    casting::sneak_candidates(&self.state, wizard.player, wizard.card, face, sneak)
+                } else {
+                    casting::beam_return_options(&self.state, wizard.player, wizard.card)
+                };
                 if options.is_empty() {
-                    return Err(EngineError::IllegalAction("no creature can pay beam me up"));
+                    return WizardStep::Yield(Err(EngineError::IllegalAction(
+                        if wizard.option == Some(CastModeKind::Sneak) {
+                            "no unblocked creature can pay sneak"
+                        } else {
+                            "no creature can pay beam me up"
+                        },
+                    )));
                 }
                 self.pending = Pending::ChooseCards {
                     player: wizard.player,
@@ -510,7 +995,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     total: None,
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::Behold => {
                 let face = self.wizard_face(&wizard);
@@ -518,7 +1003,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Delve;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 };
                 let options =
                     casting::behold_options(&self.state, wizard.player, wizard.card, behold.filter);
@@ -527,7 +1012,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     wizard.behold_paid_mana = true;
                     wizard.stage = WizardStage::Delve;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
                 let mut probe = wizard.clone();
                 probe.behold_paid_mana = true;
@@ -544,12 +1029,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     total: None,
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
             }
-            WizardStage::Escape => {
-                self.ask_escape_payment(&wizard)?;
-                Ok(())
-            }
+            WizardStage::Escape => WizardStep::Yield(self.ask_escape_payment(&wizard).map(|_| ())),
             WizardStage::Delve => {
                 let face = self.wizard_face(&wizard);
                 // The offer's own list (`casting::delve_sources`): the
@@ -578,7 +1060,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Convoke;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
                 let max = u8::try_from(room).unwrap_or(u8::MAX);
                 self.pending = Pending::ChooseCards {
@@ -590,7 +1072,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     total: None,
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::Convoke => {
                 let face = self.wizard_face(&wizard);
@@ -642,7 +1124,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Sacrifice;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 }
                 // The bound is what is actually on the table, not a sentinel.
                 // `99` is what a player casting a waterbend spell was shown:
@@ -659,23 +1141,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     reason: TargetPrompt::Convoke,
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
             }
             WizardStage::Sacrifice => {
                 let face = self.wizard_face(&wizard);
-                let asked = wizard.cost_objects.len();
-                let parts = additional_card_costs_for(
+                let parts = additional_card_costs_for_x(
                     &self.state,
                     wizard.player,
                     wizard.card,
                     face,
                     wizard.cost_choice(),
+                    wizard.x,
                 );
-                let Some(part) = parts.get(asked) else {
+                let tail =
+                    casting::remaining_spell_card_costs(&self.state, &parts, &wizard.cost_objects);
+                let Some(part) = tail.first() else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Done;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    return WizardStep::Continue;
                 };
                 // The reader `casting::can_cast_form` refused an empty board
                 // with, less what an earlier part of this cost already named:
@@ -687,23 +1171,37 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     wizard.card,
                     part,
                 );
-                options.retain(|id| *id != wizard.card && !wizard.cost_objects.contains(id));
+                options.retain(|id| {
+                    *id != wizard.card
+                        && Some(*id) != wizard.emerge_sacrifice
+                        && Some(*id) != wizard.returned
+                        && !wizard.cost_objects.contains(id)
+                });
+                if matches!(part, CostPart::Forage) {
+                    super::super::cost_wizard::prune_incomplete_forage_graveyard(
+                        &self.state,
+                        &mut options,
+                    );
+                }
                 options.retain(|candidate| {
                     let mut chosen = wizard.cost_objects.to_vec();
                     chosen.push(*candidate);
-                    casting::additional_payment_capacity_for(
+                    casting::additional_payment_capacity_for_x(
                         &self.state,
                         wizard.player,
                         wizard.card,
                         face,
                         wizard.cost_choice(),
+                        wizard.x,
                         &chosen,
                     )
                     .is_some()
                 });
                 if options.is_empty() {
                     self.cast_wizard = None;
-                    return Err(EngineError::IllegalAction("nothing can pay this cost"));
+                    return WizardStep::Yield(Err(EngineError::IllegalAction(
+                        "nothing can pay this cost",
+                    )));
                 }
                 self.pending = Pending::ChooseCards {
                     player: wizard.player,
@@ -714,9 +1212,35 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     total: None,
                 };
                 self.awaiting_answer = true;
-                Ok(())
+                WizardStep::Yield(Ok(()))
             }
-            WizardStage::Done => self.cast_or_make_miracle_mana(wizard),
+            WizardStage::Done => WizardStep::Yield(self.cast_or_make_miracle_mana(wizard)),
         }
+    }
+
+    pub(in crate::engine) fn wizard_needs_kicker_x(&self, wizard: &CastWizard) -> bool {
+        if !wizard.kicked
+            || wizard.option == Some(CastModeKind::Kicked)
+            || matches!(
+                wizard.announced,
+                Some(
+                    CastModeKind::EscapeGranted { kicked: true, .. }
+                        | CastModeKind::LibraryTopLife { kicked: true, .. }
+                )
+            )
+        {
+            return false;
+        }
+        let face = self.wizard_face(wizard);
+        let disguised = wizard.option == Some(CastModeKind::Disguise) || wizard.masked;
+        if (chosen_option_cost(wizard).has_variable() && !wizard.free)
+            || (!disguised && mandatory_scales_with_x(face))
+        {
+            return false;
+        }
+        face.additional_costs.iter().enumerate().any(|(idx, add)| {
+            (wizard.kicked_mask == 0 || (idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0))
+                && (add.mana.has_variable() || add.parts.iter().any(part_scales_with_x))
+        })
     }
 }

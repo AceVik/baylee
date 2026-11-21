@@ -21,7 +21,7 @@ fn main() {
         }
         if commanders
             && !baylee_cards::decks::leader_of(card.index)
-                .is_some_and(|leader| leader.eligible && !leader.background)
+                .is_some_and(|leader| leader.eligible_alone)
         {
             continue;
         }

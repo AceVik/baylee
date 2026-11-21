@@ -108,6 +108,7 @@ pub(super) fn mana_pool(state: &GameState, player: PlayerId) -> baylee_view::Man
         green: pool.available(ManaColor::Green),
         colorless: pool.available(ManaColor::Colorless),
         restricted,
+        snow: ManaColor::ALL.map(|c| pool.snow_available(c)),
     }
 }
 
@@ -128,6 +129,10 @@ fn offered(pending: &Pending) -> Vec<ObjectId> {
         | Pending::LegendChoice { options, .. } => options.clone(),
         Pending::Arrange { cards, .. } => cards.clone(),
         Pending::ChoosePile { piles, .. } => piles.concat(),
+        Pending::YesNo {
+            prompt: baylee_engine::choice::YesNoPrompt::ClashBottom { card },
+            ..
+        } => vec![*card],
         _ => Vec::new(),
     }
 }

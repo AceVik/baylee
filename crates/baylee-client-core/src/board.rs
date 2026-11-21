@@ -2021,6 +2021,16 @@ fn build_stack_item(
             art: host_obj.and_then(|h| art_of(h, ArtSize::Small, reg)),
             share: None,
         });
+    } else if targets.is_empty()
+        && let Some(player) = o.attached_player()
+    {
+        targets.push(StackTarget {
+            what: TargetRef::Player(player),
+            is_current: true,
+            name: None,
+            art: None,
+            share: None,
+        });
     }
     let copy_original = (kind == StackKind::Spell)
         .then(|| original_in(o, ArtSize::Small, reg, view))
@@ -2082,6 +2092,8 @@ fn individual_objects(view: &PlayerView, lookup: &Lookup<'_>) -> HashMap<ObjectI
         if let Some(host) = o.attached_to {
             map.entry(o.id).or_insert(Individual::Attached);
             map.entry(host).or_insert(Individual::HasAttachments);
+        } else if o.attached_player().is_some() || o.paired_with().is_some() {
+            map.entry(o.id).or_insert(Individual::Attached);
         }
     }
     for item in &view.stack {

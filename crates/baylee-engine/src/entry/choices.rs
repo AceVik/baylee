@@ -69,6 +69,23 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
         if let Some((question, pending)) = initial_question(state, &mut entry) {
             return Some(ask(state, entry, question, pending));
         }
+        if let super::TributeState::Ask(opp, counters) = entry.tribute {
+            entry.tribute = super::TributeState::None;
+            let permanent = entry.object;
+            return Some(ask(
+                state,
+                entry,
+                Question::Tribute { counters },
+                Pending::YesNo {
+                    player: opp,
+                    prompt: YesNoPrompt::Tribute {
+                        permanent,
+                        counters,
+                    },
+                    source: None,
+                },
+            ));
+        }
         if entry.refusal.is_none() {
             while let Some(&modifier) = entry.modifiers.get(entry.next) {
                 entry.next += 1;
@@ -233,6 +250,85 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
                             },
                         ));
                     }
+                    EnterModifier::Amplify(factor) => {
+                        let options = amplify_options(state, &entry);
+                        if options.is_empty() {
+                            continue;
+                        }
+                        let max = u8::try_from(options.len().min(255)).expect("bounded page");
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::Amplify { factor },
+                            Pending::ChooseCards {
+                                player,
+                                options,
+                                min: 0,
+                                max,
+                                prompt: ChoicePrompt::Amplify,
+                                total: None,
+                            },
+                        ));
+                    }
+                    EnterModifier::Devour { filter, factor } => {
+                        let options = options(state, &entry, filter, false);
+                        entry.sacrifices = Some(entry.sacrifices.unwrap_or(0));
+                        if options.is_empty() {
+                            continue;
+                        }
+                        let max = u8::try_from(options.len().min(255)).expect("bounded page");
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::Devour { factor },
+                            Pending::ChooseCards {
+                                player,
+                                options,
+                                min: 0,
+                                max,
+                                prompt: ChoicePrompt::Devour { factor },
+                                total: None,
+                            },
+                        ));
+                    }
+                    EnterModifier::Tribute(counters) => {
+                        let opponents = crate::eval::players(
+                            baylee_cards_dsl::PlayerRel::Opponent,
+                            state,
+                            player,
+                        )
+                        .unwrap_or_default();
+                        match opponents.as_slice() {
+                            [] => continue,
+                            [opp] => {
+                                let permanent = entry.object;
+                                return Some(ask(
+                                    state,
+                                    entry,
+                                    Question::Tribute { counters },
+                                    Pending::YesNo {
+                                        player: *opp,
+                                        prompt: YesNoPrompt::Tribute {
+                                            permanent,
+                                            counters,
+                                        },
+                                        source: None,
+                                    },
+                                ));
+                            }
+                            _ => {
+                                return Some(ask(
+                                    state,
+                                    entry,
+                                    Question::TributeOpponent { counters },
+                                    Pending::ChoosePlayer {
+                                        player,
+                                        options: opponents,
+                                    },
+                                ));
+                            }
+                        }
+                    }
                     _ => {}
                 }
                 state.entries.pending.push_front(entry);
@@ -254,6 +350,14 @@ fn finish_or_suspend(state: &mut GameState, mut entry: Attempt) -> Option<Pendin
         return Some(ask(state, entry, question, pending));
     }
     state.entries.counter_transaction |= entry.battle_protector.is_some();
+    if let Some((question, pending)) = super::sagas::question(state, &mut entry) {
+        state.entries.counter_transaction = true;
+        return Some(ask(state, entry, question, pending));
+    }
+    state.entries.counter_transaction |= entry.saga_chapter.is_some();
+    if let Some((question, pending)) = keyword_entry_question(state, &mut entry) {
+        return Some(ask(state, entry, question, pending));
+    }
     if let Some(pending) = super::counters::question(state, &mut entry) {
         return Some(ask(state, entry, Question::Counters, pending));
     }
@@ -301,11 +405,40 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
         (Question::BattleProtector, PlayerAction::ChoosePlayer(player)) => {
             entry.battle_protector = Some(*player);
         }
+        (Question::ReadAhead, PlayerAction::ChooseNumber(chapter)) => {
+            entry.saga_chapter = Some(u8::try_from(*chapter).expect("bounded saga chapter"));
+        }
+        (Question::Riot, PlayerAction::YesNo(counter)) => {
+            if *counter {
+                entry
+                    .counters
+                    .push((Some(entry.controller), CounterKind::P1P1, 1));
+            } else {
+                entry.kw_choices.riot_haste = true;
+            }
+        }
+        (Question::Unleash, PlayerAction::YesNo(counter)) => {
+            if *counter {
+                entry
+                    .counters
+                    .push((Some(entry.controller), CounterKind::P1P1, 1));
+            }
+        }
         (Question::Counters, PlayerAction::YesNo(apply)) => {
             entry.counter_plans[entry.next_counter].answer(*apply);
         }
         (Question::AuraHost, PlayerAction::ChooseObjects { objects }) => {
             state.attach(entry.object, objects[0]);
+        }
+        (Question::AuraHost, PlayerAction::ChoosePlayer(player)) => {
+            state.attach_to_player(entry.object, *player);
+        }
+        (Question::AuraHost, PlayerAction::ChooseTargets { objects, players }) => {
+            if let Some(&host) = objects.first() {
+                state.attach(entry.object, host);
+            } else if let Some(&player) = players.first() {
+                state.attach_to_player(entry.object, player);
+            }
         }
         (Question::Number, PlayerAction::ChooseNumber(number)) => {
             entry.chosen_number = Some(u8::try_from(*number).expect("bounded choice"));
@@ -395,9 +528,93 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
                 state.change_life(entry.controller, delta, Cause::Effect);
             }
         }
+        (Question::Amplify { factor }, PlayerAction::ChooseObjects { objects }) => {
+            if !objects.is_empty() {
+                state.journal.record(GameEvent::Revealed {
+                    player: entry.controller,
+                    cards: objects.clone(),
+                });
+                let revealed = u16::try_from(objects.len()).unwrap_or(u16::MAX);
+                let count = u16::from(factor).saturating_mul(revealed);
+                if count > 0 {
+                    entry
+                        .counters
+                        .push((Some(entry.controller), CounterKind::P1P1, count));
+                }
+            }
+        }
+        (Question::Devour { factor }, PlayerAction::ChooseObjects { objects }) => {
+            let sacrificed = u32::try_from(objects.len()).unwrap_or(u32::MAX);
+            entry.sacrifices = Some(entry.sacrifices.unwrap_or(0).saturating_add(sacrificed));
+            if !objects.is_empty() {
+                sacrifice(state, objects);
+                let raw = if factor == 0 {
+                    sacrificed.saturating_mul(sacrificed)
+                } else {
+                    u32::from(factor).saturating_mul(sacrificed)
+                };
+                let counters = u16::try_from(raw).unwrap_or(u16::MAX);
+                if counters > 0 {
+                    entry
+                        .counters
+                        .push((Some(entry.controller), CounterKind::P1P1, counters));
+                }
+                state.refresh_characteristics();
+            }
+        }
+        (Question::TributeOpponent { counters }, PlayerAction::ChoosePlayer(opp)) => {
+            entry.tribute = super::TributeState::Ask(*opp, counters);
+        }
+        (Question::Tribute { counters }, PlayerAction::YesNo(paid)) => {
+            if *paid {
+                entry.tribute = super::TributeState::Paid;
+                if counters > 0 {
+                    entry.counters.push((None, CounterKind::P1P1, counters));
+                }
+            }
+        }
         _ => unreachable!("entry answer shape was validated"),
     }
     state.entries.pending.push_front(entry);
+}
+
+/// Hand cards eligible to be revealed for `EnterModifier::Amplify` (CR 702.38a,
+/// CR 614.12): share at least one creature type with the prospective permanent
+/// (including Changeling, CR 702.73a), excluding the entering object itself and
+/// any co-entering cards in `unavailable(state)`.
+fn amplify_options(state: &GameState, entry: &Attempt) -> Vec<ObjectId> {
+    let Some(object) = state.object(entry.object) else {
+        return Vec::new();
+    };
+    let excluded = unavailable(state);
+    let mut prospective = object.clone();
+    prospective.zone = Zone::Battlefield;
+    prospective.version = prospective.version.wrapping_add(1);
+    let plan = crate::layers::LayerPlan::before_entries(&state.effects, excluded);
+    let projection = crate::layers::recompute_with(state, &prospective, &plan);
+    let entering_types = projection
+        .characteristics
+        .subtypes
+        .intersection(baylee_core::types::SubtypeSet::ALL_CREATURE);
+    if entering_types.is_empty() {
+        return Vec::new();
+    }
+    state
+        .zones
+        .list(ZoneLocation::Hand(entry.controller))
+        .iter()
+        .copied()
+        .filter(|id| *id != entry.object && !excluded.contains(id))
+        .filter(|id| {
+            state.object(*id).is_some_and(|card| {
+                let hand_proj = crate::layers::recompute_with(state, card, &plan);
+                hand_proj
+                    .characteristics
+                    .subtypes
+                    .intersects(entering_types)
+            })
+        })
+        .collect()
 }
 
 fn discard_to_destination(
@@ -519,4 +736,67 @@ fn initial_question(state: &mut GameState, entry: &mut Attempt) -> Option<(Quest
         }
         equilibrium::replacement_order(state, entry).map(|pending| (Question::Replacement, pending))
     })
+}
+
+fn keyword_entry_question(
+    state: &mut GameState,
+    entry: &mut Attempt,
+) -> Option<(Question, Pending)> {
+    if entry.refusal.is_some() {
+        return None;
+    }
+    if !entry.kw_choices.initialized {
+        entry.kw_choices.initialized = true;
+        if super::may_have_keyword_entry(state, entry.object)
+            && let Some(object) = state.object(entry.object)
+        {
+            let mut prospective = object.clone();
+            prospective.zone = Zone::Battlefield;
+            prospective.version = prospective.version.wrapping_add(1);
+            let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
+            let riot = crate::layers::keyword_instances_with_plan(
+                state,
+                &prospective,
+                baylee_cards_dsl::KeywordSet::RIOT,
+                &plan,
+            );
+            let unleash = crate::layers::keyword_instances_with_plan(
+                state,
+                &prospective,
+                baylee_cards_dsl::KeywordSet::UNLEASH,
+                &plan,
+            );
+            entry.kw_choices.riot_remaining = u8::try_from(riot).unwrap_or(u8::MAX);
+            entry.kw_choices.unleash_remaining = u8::try_from(unleash).unwrap_or(u8::MAX);
+        }
+    }
+    if entry.kw_choices.riot_remaining > 0 {
+        entry.kw_choices.riot_remaining -= 1;
+        state.entries.counter_transaction = true;
+        return Some((
+            Question::Riot,
+            Pending::YesNo {
+                player: entry.controller,
+                prompt: YesNoPrompt::Riot {
+                    permanent: entry.object,
+                },
+                source: None,
+            },
+        ));
+    }
+    if entry.kw_choices.unleash_remaining > 0 {
+        entry.kw_choices.unleash_remaining -= 1;
+        state.entries.counter_transaction = true;
+        return Some((
+            Question::Unleash,
+            Pending::YesNo {
+                player: entry.controller,
+                prompt: YesNoPrompt::Unleash {
+                    permanent: entry.object,
+                },
+                source: None,
+            },
+        ));
+    }
+    None
 }

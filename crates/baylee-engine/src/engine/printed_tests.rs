@@ -193,6 +193,10 @@ fn shielded(def: &CardDef) -> Vec<Field> {
                 kind: baylee_cards_dsl::CounterKind::Plus { .. }
                     | baylee_cards_dsl::CounterKind::Minus { .. },
                 ..
+            } | EnterModifier::WithCountersIf {
+                kind: baylee_cards_dsl::CounterKind::Plus { .. }
+                    | baylee_cards_dsl::CounterKind::Minus { .. },
+                ..
             }
         )
     });
@@ -502,16 +506,44 @@ const CHECK_FLOOR: usize = 11000;
 /// left to explain: nothing. There is no number left to raise; a card that
 /// leaves for any other reason fails the sweep and is one somebody reads.
 ///
-/// So this is also the test's answer to "is that creature gone": it is a
-/// creature that prints a toughness of 0. A star counts: a characteristic-defining ability uses 0 for a number
-/// that can't be determined (CR 208.2a), and the pool writes a printed `*`
-/// as that 0. Such a creature, placed alone, is put into its owner's
-/// graveyard as soon as state-based actions are checked unless something on
-/// the board makes it bigger (CR 704.5f): a clone with nothing to copy, a
-/// Hydra that entered with no counters, a Nightmare with no Swamps. One that
-/// stays is read like any other permanent; only its departure is named here.
-fn prints_zero_toughness(face: &FaceDef) -> bool {
-    face.types.contains(TypeSet::CREATURE) && face.toughness == Some(0)
+/// So this is also the test's answer to "is that creature gone": either it
+/// prints a nonpositive toughness (a `*` counts: a characteristic-defining
+/// ability uses 0 for a number that can't be determined, CR 208.2a, and the
+/// pool writes a printed `*` as that 0), or its own unconditional static
+/// ability subtracts its controller's 20 starting life from a smaller printed
+/// toughness (Death's Shadow: printed 13/13 with -X/-X where X is your life
+/// total, leaving -7/-7 on an untouched board). Either way, placed alone, CR
+/// 704.5f puts it into its owner's graveyard as soon as state-based actions
+/// are checked. One that stays is read like any other permanent; only its
+/// departure is named here.
+fn prints_zero_toughness(def: &CardDef, face: &FaceDef) -> bool {
+    const STARTING_LIFE: i32 = 20;
+    if !face.types.contains(TypeSet::CREATURE) {
+        return false;
+    }
+    let Some(printed) = face.toughness else {
+        return false;
+    };
+    if printed <= 0 {
+        return true;
+    }
+    def.abilities_for_face(0).iter().any(|ability| {
+        matches!(
+            ability,
+            AbilityDef::Static(StaticAbility {
+                source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
+                filter: baylee_cards_dsl::Filter::This,
+                condition: None,
+                modifier: Modifier::ModifyPTByAmount {
+                    toughness: baylee_cards_dsl::Amount::Negated(
+                        baylee_cards_dsl::Amount::LifeTotal(_)
+                    ),
+                    ..
+                },
+                ..
+            }) if i32::from(printed) - STARTING_LIFE <= 0
+        )
+    })
 }
 
 /// Whether the face prints `Aura`.
@@ -548,7 +580,7 @@ fn walk(slice: &[&'static CardDef]) -> (Vec<String>, Tally) {
         let Ok((object, name)) = read(&engine, def.index) else {
             if is_aura(face) {
                 tally.auras += 1;
-            } else if prints_zero_toughness(face) {
+            } else if prints_zero_toughness(def, face) {
                 tally.zero_toughness += 1;
             } else {
                 tally.left.push(face.name);
@@ -807,5 +839,29 @@ fn changeling_fixture_population_checks_exact_subtypes_without_shielding() {
     println!("changeling fixture population: {}", population.len());
     for def in population {
         check_changeling_subtypes(def);
+    }
+}
+
+/// Death's Shadow dies to CR 704.5f at the sweep's 20 starting life; below 13
+/// life it survives, projects 13 - life, and still matches every unshielded
+/// printed characteristic.
+#[test]
+fn deaths_shadow_survives_below_thirteen_life_and_matches_unshielded_fields() {
+    let shadow_idx = card_index("e08722b3-0f79-4c82-b298-603e04a37857");
+    let def = baylee_cards::by_index(shadow_idx).expect("Death's Shadow is in the pool");
+    let mut engine = Duel::new(11, basic_forest())
+        .life(0, 7)
+        .battlefield(0, &[shadow_idx])
+        .start();
+    settle(&mut engine).expect("board settles");
+    let (object, name) = read(&engine, shadow_idx).expect("Death's Shadow survives at 7 life");
+    let c = engine.state().object(object).unwrap().characteristics();
+    assert_eq!((c.power, c.toughness), (Some(6), Some(6)));
+    let skip = shielded(def);
+    for field in FIELDS.into_iter().filter(|f| !skip.contains(f)) {
+        assert!(
+            mismatch(field, def, &def.faces[0], c, &name).is_none(),
+            "Death's Shadow disagreed on {field:?}"
+        );
     }
 }

@@ -105,3 +105,33 @@ fn identical_current_combat_distinguishes_sole_and_multiple_history_in_both_hash
     assert_ne!(sole.snapshot_hash(), multiple.snapshot_hash());
     assert_ne!(sole.loop_signature(), multiple.loop_signature());
 }
+
+#[test]
+fn current_attacks_count_each_direct_defender_once() {
+    let mut state = seated(4);
+    let p2 = PlayerId::new(2);
+    let p3 = PlayerId::new(3);
+    let first = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+    let second = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+    let third = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+    let fourth = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+    let walker = planeswalker(&mut state, p2, 4);
+    attack(&mut state, first, P1);
+    attack(&mut state, second, P1);
+    attack_walker(&mut state, third, walker);
+    let battle = creature(&mut state, P0, 4, 4, KeywordSet::EMPTY);
+    state.object_mut(battle).unwrap().base_mut().types = TypeSet::BATTLE;
+    let reference = state.source_identity(battle).unwrap();
+    crate::battle::set_protector(&mut state, reference, p3);
+    state.combat.declare_attackers([AttackerInfo {
+        creature: fourth,
+        defending: Defender::Battle(battle),
+        blocked: false,
+        band: None,
+    }]);
+    assert_eq!(state.combat.opponents_being_attacked_by(&state, P0), 1);
+    state.combat.remove_from_combat(first);
+    assert_eq!(state.combat.opponents_being_attacked_by(&state, P0), 1);
+    state.combat.remove_from_combat(second);
+    assert_eq!(state.combat.opponents_being_attacked_by(&state, P0), 0);
+}

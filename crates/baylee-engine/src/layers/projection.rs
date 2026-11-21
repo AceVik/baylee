@@ -59,6 +59,26 @@ pub(super) fn recompute_observing<'a>(
     {
         c.to_mut().keywords = c.keywords.union(KeywordSet::HASTE);
     }
+    if obj.zone == crate::zone::Zone::Battlefield {
+        // CR 702.136a: choosing haste for Riot grants haste indefinitely while
+        // on the battlefield.
+        if obj.riders.contains(&crate::object::Rider::RiotHaste)
+            && !c.keywords.contains(KeywordSet::HASTE)
+        {
+            c.to_mut().keywords = c.keywords.union(KeywordSet::HASTE);
+        }
+        // CR 701.60c: a suspected permanent has menace and "This creature
+        // can't block" for as long as it's suspected.
+        if obj.riders.contains(&crate::object::Rider::Suspected) {
+            let keywords = c
+                .keywords
+                .union(KeywordSet::MENACE)
+                .union(KeywordSet::CANT_BLOCK);
+            if keywords != c.keywords {
+                c.to_mut().keywords = keywords;
+            }
+        }
+    }
     // Layer 2 starts from the *base* controller, not from whatever the
     // last refresh projected: an effect that has since ended must leave
     // no trace.
@@ -70,6 +90,7 @@ pub(super) fn recompute_observing<'a>(
     let mut animations: SmallVec<[u32; 4]> = SmallVec::new();
     let all = state.effects.as_slice();
     let mut prohibited = KeywordSet::EMPTY;
+    let mut max_ability_ts = 0_u64;
     for layer in LAYERS {
         if layer == Layer::Text {
             // Text changes affect the type line and printed/copied keywords
@@ -87,6 +108,60 @@ pub(super) fn recompute_observing<'a>(
                     }
                     c_mut.keywords = new_keywords;
                 }
+            }
+        }
+        if layer == Layer::Type
+            && obj.riders.contains(&crate::object::Rider::Bestowed)
+            && matches!(
+                obj.zone,
+                crate::zone::Zone::Stack | crate::zone::Zone::Battlefield
+            )
+        {
+            let c_mut = c.to_mut();
+            let old_subtypes = c_mut.subtypes;
+            c_mut.types = c_mut
+                .types
+                .difference(TypeSet::CREATURE)
+                .union(TypeSet::ENCHANTMENT);
+            if !c_mut.types.contains(TypeSet::KINDRED) {
+                c_mut.subtypes = c_mut.subtypes.difference(SubtypeSet::ALL_CREATURE);
+            }
+            c_mut
+                .subtypes
+                .insert(baylee_core::generated::subtypes::enchantment::AURA);
+            if c_mut.subtypes != old_subtypes {
+                update_intrinsic_mana_summary(state, obj, c_mut, old_subtypes);
+            }
+            c_mut.power = None;
+            c_mut.toughness = None;
+        }
+        if layer == Layer::Type
+            && obj.zone == crate::zone::Zone::Battlefield
+            && !obj.status.contains(crate::object::Status::PHASED_OUT)
+            && state.is_ring_bearer(obj.id)
+        {
+            let c_mut = c.to_mut();
+            c_mut.supertypes = c_mut
+                .supertypes
+                .union(baylee_core::types::SupertypeSet::LEGENDARY);
+        }
+        if layer == Layer::Type
+            && obj.zone == crate::zone::Zone::Battlefield
+            && obj.riders.contains(&crate::object::Rider::ImpendingPaid)
+        {
+            read_board = true;
+            if obj.counters.get(baylee_cards_dsl::CounterKind::Time) >= 1 {
+                let c_mut = c.to_mut();
+                let old_subtypes = c_mut.subtypes;
+                c_mut.types = c_mut.types.difference(TypeSet::CREATURE);
+                if !c_mut.types.contains(TypeSet::KINDRED) {
+                    c_mut.subtypes = c_mut.subtypes.difference(SubtypeSet::ALL_CREATURE);
+                }
+                if c_mut.subtypes != old_subtypes {
+                    update_intrinsic_mana_summary(state, obj, c_mut, old_subtypes);
+                }
+                c_mut.power = None;
+                c_mut.toughness = None;
             }
         }
         if !plan.layer(layer).is_empty() {
@@ -120,6 +195,9 @@ pub(super) fn recompute_observing<'a>(
                     if carried && layer == Layer::Type {
                         animations.push(idx);
                     }
+                    if layer == Layer::Ability {
+                        max_ability_ts = max_ability_ts.max(fx.timestamp);
+                    }
                     #[cfg(any(test, feature = "test-support"))]
                     crate::ability_log::static_applied(fx);
                     let c_mut = c.to_mut();
@@ -132,10 +210,40 @@ pub(super) fn recompute_observing<'a>(
                         &mut read_board,
                         layer,
                     );
+                    // CR 613.8: when an ability-removing effect waits on a
+                    // later-timestamp dependency (e.g. "creatures with flying
+                    // lose all abilities" after a later "creatures have
+                    // flying"), every layer-6 grant applied before it in the
+                    // dependency order is wiped, not only older timestamps.
+                    if layer == Layer::Ability
+                        && matches!(
+                            fx.modifier,
+                            Modifier::LoseAllAbilities
+                                | Modifier::AnimateNoncreatureArtifact
+                                | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
+                        )
+                    {
+                        c_mut.abilities_lost = Some(Characteristics::lost_at(max_ability_ts));
+                    }
                     // A prohibited grant must not be visible to later filters either.
                     c_mut.keywords = c_mut.keywords.difference(prohibited);
                     applied(layer, fx, c_mut);
                 }
+            }
+        }
+        // CR 702.98a: "This permanent can't block as long as it has a +1/+1
+        // counter on it." Evaluated after layer-6 effects so losing Unleash
+        // (e.g. Dress Down) restores the ability to block.
+        if layer == Layer::Ability
+            && obj.zone == crate::zone::Zone::Battlefield
+            && c.keywords.contains(KeywordSet::UNLEASH)
+        {
+            read_board = true;
+            if obj.counters.get(baylee_cards_dsl::CounterKind::P1P1) >= 1
+                && !prohibited.contains(KeywordSet::CANT_BLOCK)
+                && !c.keywords.contains(KeywordSet::CANT_BLOCK)
+            {
+                c.to_mut().keywords = c.keywords.union(KeywordSet::CANT_BLOCK);
             }
         }
         // CR 604.3: a characteristic-defining P/T works in every zone. On

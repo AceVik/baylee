@@ -168,7 +168,32 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::Transformed { object, .. }
         | GameEvent::DoorUnlocked { object, .. }
         | GameEvent::AttackerBlocked { object }
-        | GameEvent::CreatureMutated { object } => f(object),
+        | GameEvent::CreatureMutated { object }
+        | GameEvent::PermanentExerted { object, .. }
+        | GameEvent::CardPlotted { object, .. }
+        | GameEvent::SpellWarped { object, .. }
+        | GameEvent::BecameMonstrous { object, .. }
+        | GameEvent::ClassLevelChanged { object, .. }
+        | GameEvent::PlayerFirebent { source: object, .. } => f(object),
+        GameEvent::RingTempted { ring_bearer, .. } => {
+            if let Some(id) = ring_bearer {
+                f(id);
+            }
+        }
+        GameEvent::CreatureEnlisted {
+            attacker, enlisted, ..
+        } => {
+            f(attacker);
+            f(enlisted);
+        }
+        GameEvent::CreatureExploited {
+            exploiter,
+            exploited,
+            ..
+        } => {
+            f(&mut exploiter.object);
+            f(exploited);
+        }
         GameEvent::GameStarted { .. }
         | GameEvent::CoinFlipped { .. }
         | GameEvent::Shuffled { .. }
@@ -185,6 +210,11 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::BecameMonarch { .. }
         | GameEvent::LoopDetected { .. }
         | GameEvent::GameWon { .. }
+        | GameEvent::GiftGiven { .. }
+        | GameEvent::PlayerScried { .. }
+        | GameEvent::CommittedCrime { .. }
+        | GameEvent::ManaExpended { .. }
+        | GameEvent::Clashed { .. }
         | GameEvent::DevCommandApplied { .. } => {}
     }
 }

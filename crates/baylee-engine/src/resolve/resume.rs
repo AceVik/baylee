@@ -33,6 +33,9 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::ChooseRingBearer => {
+            wave4_combat::finish_choose_ring_bearer(state, res, chosen);
+        }
         AwaitingOp::MeldPartner => {
             let Effect::MeldWithNamed {
                 source_name,
@@ -70,9 +73,41 @@ pub(super) fn resume_inner(
             return run(state, res);
         }
         AwaitingOp::Hideaway { looked } => hidden_exile::choose(state, res, looked, chosen),
+        AwaitingOp::ManifestDread { looked } => {
+            let library = ZoneLocation::Library(res.controller);
+            let picked = chosen
+                .first()
+                .copied()
+                .filter(|id| looked.contains(id) && state.zones.contains(*id, library))
+                .or_else(|| {
+                    looked
+                        .iter()
+                        .copied()
+                        .find(|id| state.zones.contains(*id, library))
+                });
+            let manifested = picked.is_some_and(|card| state.manifest_card(res.controller, card));
+            for card in looked {
+                if !(manifested && Some(card) == picked) && state.zones.contains(card, library) {
+                    let owner = state.object(card).map_or(res.controller, |o| o.owner);
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Graveyard(owner),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            }
+        }
         AwaitingOp::LookedCardToExile { looked, cast_types } => {
             if let Some(pending) =
                 hidden_exile::finish_look_at_top(state, res, looked, cast_types, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::ChooseTokenCopy { count, spec } => {
+            if let Some(pending) =
+                tokens::copy_tokens::finish_chosen(state, res, chosen, count, spec)
             {
                 return next_choice(state, res, since, pending);
             }
@@ -199,6 +234,12 @@ pub(super) fn resume_inner(
                 super::weakest::destroy(state, card, no_regen);
             }
         }
+        AwaitingOp::Bolster { count } => {
+            super::wave4_combat::resume_bolster(state, res, count, chosen);
+        }
+        AwaitingOp::Exploit => {
+            super::wave4_combat::resume_exploit(state, res, chosen);
+        }
         AwaitingOp::Behold { then } => {
             if let Some(&card) = chosen.first() {
                 if state
@@ -223,11 +264,13 @@ pub(super) fn resume_inner(
             if chosen.len() == usize::from(count)
                 && chosen.iter().all(|id| {
                     state.object(*id).is_some_and(|o| {
-                        o.zone == crate::zone::Zone::Battlefield && o.controller == player
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.controller == player
+                            && state.can_be_sacrificed(*id, Some(res.controller))
                     })
                 })
             {
-                sacrifice_together(state, chosen);
+                sacrifice_together(state, chosen, Some(res.controller));
                 if on_payment {
                     return run_fallback(state, res, std::slice::from_ref(effect));
                 }
@@ -331,7 +374,7 @@ pub(super) fn resume_inner(
                     let sacrificed = state
                         .object(victim)
                         .map(|object| (object.version, crate::object::SacrificedLki::of(object)));
-                    sacrifice_together(state, chosen);
+                    sacrifice_together(state, chosen, Some(res.controller));
                     let succeeded = sacrificed.filter(|(version, _)| {
                         state
                             .object(victim)
@@ -412,7 +455,11 @@ pub(super) fn resume_inner(
             if let Some(&victim) = chosen.first()
                 && let Some(_owner) = state
                     .object(victim)
-                    .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.controller == player)
+                    .filter(|o| {
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.controller == player
+                            && state.can_be_sacrificed(victim, Some(res.controller))
+                    })
                     .map(|o| o.owner)
             {
                 let _ = state.sacrifice_object(victim, Cause::Effect);
@@ -837,6 +884,13 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::Myriad(plan) => {
+            if let Some(pending) =
+                super::wave4_combat::resume_myriad_walker(state, res, *plan, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::BlockedReturns(returns) => {
             if let Some(pending) = super::blocked_returns::resume(state, res, *returns, chosen) {
                 return next_choice(state, res, since, pending);
@@ -855,7 +909,7 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
-        AwaitingOp::ChoosePlayerFrom => {
+        AwaitingOp::ChoosePlayerFrom | AwaitingOp::ClashOpponent { .. } => {
             unreachable!("a chosen player resumes through resume_chosen_player")
         }
         AwaitingOp::HandToBottom => {
@@ -991,6 +1045,65 @@ pub(super) fn resume_inner(
             if let Some(pending) =
                 dig::finish_with_destination(state, res, found, rest, reveal, destination, chosen)
             {
+                return Flow::Wait(pending);
+            }
+        }
+        AwaitingOp::ChooseCardOp {
+            zone,
+            movement,
+            then,
+        } => {
+            if let Some(pending) =
+                super::wave3_ops::choose_card_finish(state, res, zone, movement, then, chosen)
+            {
+                return Flow::Wait(pending);
+            }
+        }
+        AwaitingOp::PeekAndRevealOp {
+            lib_owner,
+            looked,
+            reveal_chosen,
+            picked,
+            rest,
+            if_picked,
+        } => {
+            if let Some(pending) = super::wave3_ops::peek_and_reveal_finish(
+                state,
+                res,
+                lib_owner,
+                looked,
+                reveal_chosen,
+                picked,
+                rest,
+                if_picked,
+                chosen,
+            ) {
+                return Flow::Wait(pending);
+            }
+        }
+        AwaitingOp::RevealFromHandOp {
+            player,
+            remaining_players,
+            filter,
+            min,
+            max,
+            any_revealed,
+            first_revealed,
+            if_revealed,
+        } => {
+            if let Some(pending) = super::wave3_ops::reveal_from_hand_resume(
+                state,
+                res,
+                player,
+                remaining_players,
+                filter,
+                min,
+                max,
+                any_revealed,
+                first_revealed,
+                if_revealed,
+                chosen,
+            ) {
                 return Flow::Wait(pending);
             }
         }
@@ -1216,8 +1329,13 @@ pub(super) fn resume_inner(
             let recorded = chosen::record_choice(state, asked, chosen, &mut held);
             // Ask the next player in APNAP order who has a legal sacrifice,
             // then sacrifice every chosen permanent together (CR 101.4).
-            let next =
-                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source);
+            let next = chosen::next_sacrifice_asked(
+                state,
+                &mut remaining,
+                filter,
+                res.controller,
+                res.source,
+            );
             if let Some(id) = recorded
                 && (was_multi || next.is_some())
             {
@@ -1248,7 +1366,7 @@ pub(super) fn resume_inner(
                     },
                 );
             }
-            chosen::sacrifice_held(state, &held);
+            chosen::sacrifice_held(state, &held, res.controller);
         }
         AwaitingOp::HeldSacrifice { player } => {
             super::for_each::held(state, res, player, chosen);
@@ -1290,7 +1408,7 @@ pub(super) fn resume_inner(
                 }
             }
         }
-        AwaitingOp::SacrificeAllChosen => sacrifice_together(state, chosen),
+        AwaitingOp::SacrificeAllChosen => sacrifice_together(state, chosen, Some(res.controller)),
         AwaitingOp::ReturnChosen {
             asked,
             filter,
@@ -1416,6 +1534,7 @@ pub(super) fn resume_inner(
                     state.object(id).is_some_and(|o| {
                         o.zone == crate::zone::Zone::Battlefield
                             && o.controller == asked
+                            && state.can_be_sacrificed(id, Some(res.controller))
                             && eval::matches_with_context(
                                 filter,
                                 state,
@@ -1426,7 +1545,7 @@ pub(super) fn resume_inner(
                     })
                 })
             {
-                sacrifice_together(state, chosen);
+                sacrifice_together(state, chosen, Some(res.controller));
                 return super::answers::run_fallback(state, res, effects);
             }
             if let Some(pending) = super::immediate::any_player_sac_or_damage_advance(
@@ -1553,6 +1672,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::DamagePayment { .. }
         | AwaitingOp::SacrificeOpponent { .. }
         | AwaitingOp::SourceColor { .. }
+        | AwaitingOp::ChooseColor
         | AwaitingOp::ManaUnlessPaidColor { .. }
         | AwaitingOp::CounterPlacementChoice
         | AwaitingOp::ShieldCounterChoice
@@ -1588,11 +1708,117 @@ pub(super) fn resume_inner(
         | AwaitingOp::FlipCoinsUntilLossOrStopCumulative { .. }
         | AwaitingOp::CoinFlipIgnore { .. }
         | AwaitingOp::RevealTopPlayerMayPut { .. }
+        | AwaitingOp::PeekBottom { .. }
+        | AwaitingOp::SoulbondConfirmPair { .. }
+        | AwaitingOp::ClashBottom { .. }
+        | AwaitingOp::PlayerMayPayDamageToYou { .. }
+        | AwaitingOp::ConfirmCountedCost { .. }
+        | AwaitingOp::Endure { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
+        AwaitingOp::SoulbondChoosePartner {
+            source,
+            source_version,
+        } => {
+            if let Some(&partner) = chosen.first() {
+                super::soulbond_try_pair(
+                    state,
+                    res.controller,
+                    source,
+                    source_version,
+                    partner,
+                    None,
+                );
+            }
+        }
         AwaitingOp::PlayerMayPay { .. } => {
             unreachable!("tax choices resume via resume_tax_choice")
+        }
+        AwaitingOp::ForageRemainingGraveyard {
+            on_payment,
+            player,
+            first,
+            effect,
+        } => {
+            let valid = chosen.len() == 2
+                && chosen[0] != chosen[1]
+                && chosen[0] != first
+                && chosen[1] != first
+                && [first, chosen[0], chosen[1]].into_iter().all(|id| {
+                    state.object(id).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Graveyard && o.zone_owner == Some(player)
+                    })
+                });
+            let mut paid = valid;
+            if valid {
+                for id in [first, chosen[0], chosen[1]] {
+                    paid &=
+                        cost_wizard::pay(state, player, &baylee_cards_dsl::CostPart::Forage, id)
+                            .is_ok();
+                }
+            }
+            if paid == on_payment {
+                return run_fallback(state, res, std::slice::from_ref(effect));
+            }
+        }
+        AwaitingOp::PlayerMayPayCountedCost {
+            on_payment,
+            player,
+            cost,
+            required,
+            effect,
+        } => {
+            let count_ok = required.is_none_or(|req| chosen.len() == usize::from(req));
+            let mut paid_count = 0u32;
+            if count_ok && !chosen.is_empty() {
+                let mut batch = crate::graveyard_order::PaymentBatch::new(state);
+                batch.before_part(state, cost);
+                for &card in chosen {
+                    let power = state
+                        .object(card)
+                        .map(|o| i32::from(o.characteristics().power.unwrap_or(0)));
+                    let disc_ref = state.source_identity(card);
+                    if cost_wizard::pay(state, player, cost, card).is_ok() {
+                        paid_count += 1;
+                        if matches!(cost, baylee_cards_dsl::CostPart::DiscardX(_))
+                            && let (Some(reference), Some(stack)) =
+                                (disc_ref, state.object_mut(res.on_stack))
+                        {
+                            stack
+                                .paid
+                                .get_or_insert_with(Default::default)
+                                .discarded
+                                .push(reference);
+                        }
+                        if matches!(cost, baylee_cards_dsl::CostPart::SacrificeX(_))
+                            && let Some(power) = power
+                            && let Some(version) = state.object(card).map(|o| o.version)
+                            && let Some(stack) = state.object_mut(res.on_stack)
+                        {
+                            stack
+                                .paid
+                                .get_or_insert_with(Default::default)
+                                .sacrificed_many
+                                .push((card, version, power));
+                        }
+                    }
+                }
+                batch.finish(state);
+            }
+            if required.is_none() {
+                res.x = Some(paid_count);
+                if let Some(stack) = state.object_mut(res.on_stack) {
+                    stack.x_value = paid_count;
+                }
+            }
+            let paid = match required {
+                Some(req) => paid_count == u32::from(req),
+                None => paid_count > 0,
+            };
+            if paid == on_payment {
+                return run_fallback(state, res, std::slice::from_ref(effect));
+            }
         }
         AwaitingOp::PlayerMayPayCost {
             on_payment,
@@ -1600,6 +1826,40 @@ pub(super) fn resume_inner(
             cost,
             effect,
         } => {
+            if matches!(cost, baylee_cards_dsl::CostPart::Forage)
+                && let &[first] = chosen
+                && state
+                    .object(first)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
+            {
+                let remaining: Vec<ObjectId> = state
+                    .zones
+                    .list(ZoneLocation::Graveyard(player))
+                    .iter()
+                    .copied()
+                    .filter(|&id| id != first)
+                    .collect();
+                if remaining.len() >= 2 {
+                    res.awaiting = Some(AwaitingOp::ForageRemainingGraveyard {
+                        on_payment,
+                        player,
+                        first,
+                        effect,
+                    });
+                    return Flow::Wait(Pending::ChooseCards {
+                        player,
+                        options: remaining,
+                        min: 2,
+                        max: 2,
+                        prompt: ChoicePrompt::CostExile,
+                        total: None,
+                    });
+                }
+                if !on_payment {
+                    return run_fallback(state, res, std::slice::from_ref(effect));
+                }
+                return finish_choice(state, res, since);
+            }
             // Naming nothing is declining. `min: 0` is what makes the
             // question a "may", so an empty answer is the not-paid branch
             // rather than an error — and it is the only shape that can
@@ -1635,6 +1895,8 @@ pub(super) fn resume_inner(
                 return run_fallback(state, res, std::slice::from_ref(effect));
             }
         }
+        AwaitingOp::CipherEncode => super::wave10b::resume_cipher_encode(state, res, chosen),
+        AwaitingOp::ChampionExile => super::wave10b::resume_champion_exile(state, res, chosen),
     }
     finish_choice(state, res, since)
 }
@@ -1667,47 +1929,51 @@ pub(super) fn resume_source_inner(
             }
         }
         AwaitingOp::ShieldFromChosenSource {
-            all_recipients,
+            protects,
+            next_only,
             sources,
             combat_only,
             all_but,
             gain_life,
         } => {
             let you = res.controller;
+            let chosen_color = res.source_chosen_color(state);
+            let chosen_subtype = res.source_chosen_subtype(state);
             if let Some(source) = chosen.and_then(|id| {
-                crate::prevention::ChosenSource::new_with_context(
+                crate::prevention::ChosenSource::new_with_choices(
                     state,
                     id,
                     sources,
                     you,
                     res.rule_context(),
+                    chosen_color,
+                    chosen_subtype,
                 )
             }) {
                 let origin = crate::prevention::ShieldOrigin {
                     source: res.source,
                     ability: resolving_ability(state, res),
                 };
-                state.shields.push_from(
-                    crate::prevention::Shield {
-                        protects: if all_recipients {
-                            crate::prevention::Shielded::Everything
-                        } else {
-                            crate::prevention::Shielded::Player(you)
+                let kind = if next_only {
+                    crate::prevention::ShieldKind::NextFrom {
+                        source,
+                        all_but: u32::from(all_but),
+                        gain_life,
+                        combat_only,
+                    }
+                } else {
+                    crate::prevention::ShieldKind::AllFrom { source }
+                };
+                for protected in protects {
+                    state.shields.push_from(
+                        crate::prevention::Shield {
+                            protects: protected,
+                            kind,
+                            controller: you,
                         },
-                        kind: if all_recipients {
-                            crate::prevention::ShieldKind::AllFrom { source }
-                        } else {
-                            crate::prevention::ShieldKind::NextFrom {
-                                source,
-                                all_but: u32::from(all_but),
-                                gain_life,
-                                combat_only,
-                            }
-                        },
-                        controller: you,
-                    },
-                    Some(origin),
-                );
+                        Some(origin),
+                    );
+                }
             }
         }
         AwaitingOp::RedirectFromChosenSource { protects } => {

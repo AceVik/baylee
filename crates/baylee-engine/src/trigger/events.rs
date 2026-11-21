@@ -51,8 +51,52 @@ pub(super) fn event_damage_of(
         }
         GameEvent::DamageDealt { amount, .. } => Some(*amount),
         GameEvent::LifeChanged { old, new, .. } => Some(new.abs_diff(*old)),
+        GameEvent::DiceRolled { result, .. } => Some(*result),
+        GameEvent::PlayerScried { count, .. } | GameEvent::RingTempted { count, .. } => {
+            Some(u32::from(*count))
+        }
+        GameEvent::PlayerFirebent { amount, .. } => Some(u32::from(*amount)),
+        GameEvent::BecameMonstrous { count, .. } => Some(*count),
+        GameEvent::ManaExpended { total, .. } => Some(*total),
+        GameEvent::BecameAttacker {
+            defending: baylee_core::ids::Defender::Player(attacked),
+            ..
+        } if matches!(trigger, Trigger::PlayerAttacked(_)) => Some(
+            super::event_groups::player_attacked_count(event, batch, *attacked),
+        ),
         _ => None,
     }
+}
+
+pub(super) fn event_amount_for(
+    trigger: &Trigger,
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+    state: &GameState,
+    you: PlayerId,
+    context: crate::text_changes::RuleContext,
+) -> Option<u32> {
+    if let Trigger::ChangesZoneAll {
+        origin,
+        destination,
+        filter,
+        exclude_self,
+    } = trigger
+    {
+        let count = super::event_groups::zone_batch_count(
+            event,
+            batch,
+            state,
+            you,
+            context,
+            *origin,
+            *destination,
+            filter,
+            *exclude_self,
+        );
+        return (count > 0).then_some(count);
+    }
+    event_damage_of(trigger, event, batch)
 }
 
 /// The player a triggering event is about: "that player" or "they" of the
@@ -88,12 +132,178 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
         | GameEvent::LifeChanged { player, .. }
         | GameEvent::ManaProduced { player, .. }
         | GameEvent::LibrarySearched { player }
+        | GameEvent::CoinFlipped { player, .. }
+        | GameEvent::DiceRolled { player, .. }
+        | GameEvent::PermanentExerted { player, .. }
+        | GameEvent::CreatureEnlisted { player, .. }
+        | GameEvent::CardPlotted { player, .. }
+        | GameEvent::PlayerScried { player, .. }
+        | GameEvent::RingTempted { player, .. }
+        | GameEvent::PlayerFirebent { player, .. }
+        | GameEvent::GiftGiven {
+            recipient: player, ..
+        }
+        | GameEvent::CreatureExploited { player, .. }
+        | GameEvent::SpellWarped { player, .. }
+        | GameEvent::CommittedCrime { player }
+        | GameEvent::ManaExpended { player, .. }
+        | GameEvent::Clashed { player, .. }
         | GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),
             ..
         } => Some(*player),
         _ => None,
     }
+}
+
+pub(super) fn event_player_for(
+    trigger: &Trigger,
+    entry: &crate::event::JournalEntry,
+    state: &GameState,
+) -> Option<PlayerId> {
+    if matches!(trigger, Trigger::Sacrificed { .. }) {
+        return entry
+            .departure
+            .as_ref()
+            .filter(|d| d.sacrificed)
+            .map(|d| d.controller);
+    }
+    if let (Trigger::PlayerAttacked(_), GameEvent::BecameAttacker { object, .. }) =
+        (trigger, &entry.event)
+    {
+        return state
+            .object_or_departed(*object)
+            .map(|o| o.controller)
+            .or(Some(state.turn.active));
+    }
+    event_player_of(&entry.event)
+}
+
+pub(super) fn event_identity_for(
+    trigger: &Trigger,
+    entry: &crate::event::JournalEntry,
+    id: ObjectId,
+    state: &GameState,
+) -> Option<(u32, i16)> {
+    let base = state.event_object_identity(id, entry.seq);
+    if matches!(
+        trigger,
+        Trigger::Sacrificed { .. } | Trigger::Exploited { .. }
+    ) && let Some(departure) = &entry.departure
+    {
+        let version = base.map_or_else(|| departure.version.wrapping_add(1), |(v, _)| v);
+        return Some((version, departure.power));
+    }
+    base
+}
+
+pub(super) const fn tap_event_object(event: &GameEvent) -> Option<ObjectId> {
+    match *event {
+        GameEvent::ObjectTapped { object, .. } | GameEvent::ObjectUntapped { object, .. } => {
+            Some(object)
+        }
+        _ => None,
+    }
+}
+
+pub(super) struct ControlChange {
+    object: ObjectId,
+    seq: u64,
+    old: PlayerId,
+}
+
+pub(super) fn control_changes(
+    entries: &[crate::event::JournalEntry],
+) -> smallvec::SmallVec<[ControlChange; 4]> {
+    entries
+        .iter()
+        .filter_map(|entry| match entry.event {
+            GameEvent::ControllerChanged { object, old, .. } => Some(ControlChange {
+                object,
+                seq: entry.seq,
+                old,
+            }),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Read the observer's controller at this tap or untap. The subject carries
+/// it directly, and any other observer can only have changed within its own
+/// incarnation before the first later move.
+pub(super) fn tap_observer_controller(
+    source: &crate::object::GameObject,
+    entry: &crate::event::JournalEntry,
+    changes: &[ControlChange],
+    moves: &[ObjectMove],
+) -> PlayerId {
+    if let Some(observation) = entry.tap_observation
+        && tap_event_object(&entry.event) == Some(source.id)
+        && observation.version == source.version
+    {
+        return observation.controller;
+    }
+    let end = moves.iter().find(|movement| movement.seq > entry.seq);
+    changes
+        .iter()
+        .find(|change| {
+            change.object == source.id
+                && change.seq > entry.seq
+                && end.is_none_or(|movement| change.seq < movement.seq)
+        })
+        .map_or(source.controller, |change| change.old)
+}
+
+/// A controller change within this incarnation records the controller it
+/// replaced. A later incarnation has its own control history.
+fn controller_before_events(
+    object: &crate::object::GameObject,
+    later: &[crate::event::JournalEntry],
+) -> PlayerId {
+    for entry in later {
+        match entry.event {
+            GameEvent::ControllerChanged {
+                object: id, old, ..
+            } if id == object.id => return old,
+            GameEvent::ZoneChanged { object: id, .. } if id == object.id => break,
+            _ => {}
+        }
+    }
+    object.controller
+}
+
+pub(super) fn tap_subject_at_event<'a>(
+    state: &'a GameState,
+    id: ObjectId,
+    events: &[crate::event::JournalEntry],
+    index: usize,
+) -> Option<(&'a crate::object::GameObject, PlayerId)> {
+    if let Some(observation) = events[index].tap_observation {
+        let object = state.source_object(baylee_core::ids::DamageSourceRef {
+            object: id,
+            version: observation.version,
+        })?;
+        return Some((object, observation.controller));
+    }
+    let current = state.object_or_departed(id)?;
+    let later = &events[index + 1..];
+    let moves = object_moves(later, true, id);
+    let object = source_at_event_with_moves(state, current, &moves, events[index].seq, false);
+    Some((object, controller_before_events(object, later)))
+}
+
+pub(super) fn tap_event_snapshot(
+    state: &GameState,
+    events: &[crate::event::JournalEntry],
+    entry: &crate::event::JournalEntry,
+) -> Option<(PlayerId, i16)> {
+    if let Some(observation) = entry.tap_observation {
+        return Some((observation.controller, observation.toughness));
+    }
+    let id = tap_event_object(&entry.event)?;
+    let index = super::event_groups::index_of_event(&entry.event, events)?;
+    let (object, controller) = tap_subject_at_event(state, id, events, index)?;
+    Some((controller, object.characteristics().toughness.unwrap_or(0)))
 }
 
 /// The object a trigger's event is about, as the triggered ability reads it
@@ -223,11 +433,28 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::BecameBlocker { object, .. }
         | GameEvent::AttackerBlocked { object }
         | GameEvent::CreatureMutated { object }
+        | GameEvent::PermanentExerted { object, .. }
+        | GameEvent::CreatureEnlisted {
+            enlisted: object, ..
+        }
+        | GameEvent::CreatureExploited {
+            exploited: object, ..
+        }
+        | GameEvent::CardPlotted { object, .. }
+        | GameEvent::SpellWarped { object, .. }
+        | GameEvent::BecameMonstrous { object, .. }
+        | GameEvent::ClassLevelChanged { object, .. }
+        | GameEvent::PlayerFirebent { source: object, .. }
+        | GameEvent::RingTempted {
+            ring_bearer: Some(object),
+            ..
+        }
         | GameEvent::AttackerUnblocked { object }
         // The permanent that changed tap state: "that land's controller"
         // of Psychic Venom and "that permanent's controller" of Mesmeric Orb.
         | GameEvent::ObjectTapped { object, .. }
         | GameEvent::ObjectUntapped { object, .. }
+        | GameEvent::PhaseChanged { object, .. }
         // The permanent tapped for mana (CR 106.12a): "its controller" and
         // "that player" of Gauntlet of Might and Manabarbs.
         | GameEvent::ManaProduced {

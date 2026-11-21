@@ -178,7 +178,14 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::PutCounterOnOther { .. }
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExileTopOfLibrary(_)
-        | CostPart::PayAttachedManaCost => false,
+        | CostPart::PayAttachedManaCost
+        | CostPart::ReturnUnblockedAttacker
+        | CostPart::DealDamageToYou(_)
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::Forage
+        | CostPart::Either(_, _)
+        | CostPart::CraftMaterials { .. } => false,
     }
 }
 
@@ -208,6 +215,7 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
         | CostPart::Discard(_)
+        | CostPart::DiscardX(_)
         | CostPart::DiscardRandom
         | CostPart::DiscardHand
         | CostPart::DiscardLastDrawnThisTurn
@@ -219,14 +227,20 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
+        | CostPart::ReturnUnblockedAttacker
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExileFromGraveyardX(_)
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExileTopOfLibrary(_)
-        | CostPart::PutCounterOnOther { .. } => true,
+        | CostPart::PutCounterOnOther { .. }
+        | CostPart::Forage
+        | CostPart::Either(_, _)
+        | CostPart::CraftMaterials { .. } => true,
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::ExertSelf
         | CostPart::PayLife(_)
+        | CostPart::DealDamageToYou(_)
         | CostPart::PutCounterSelf { .. }
         | CostPart::ExileFromHand(_)
         | CostPart::PayLifeX

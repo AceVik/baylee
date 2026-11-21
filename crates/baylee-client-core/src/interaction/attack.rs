@@ -46,6 +46,7 @@ impl Interaction {
         if !self.attack_options().contains(&option) {
             return false;
         }
+        let pending = &self.pending;
         let Mode::Attackers {
             candidates,
             defenders,
@@ -68,7 +69,9 @@ impl Interaction {
                     return false;
                 };
                 for id in candidates {
-                    if !pairs.iter().any(|(a, _)| a == id) {
+                    if !pairs.iter().any(|(a, _)| a == id)
+                        && super::attacker_may_attack(pending, *id, defender)
+                    {
                         pairs.push((*id, defender));
                     }
                 }
@@ -76,8 +79,10 @@ impl Interaction {
             AttackOption::Toggle(id) => {
                 if let Some(at) = pairs.iter().position(|(a, _)| *a == id) {
                     pairs.remove(at);
-                } else if let Some(defender) = defenders.get(*focus) {
-                    pairs.push((id, *defender));
+                } else if let Some(defender) = defenders.get(*focus).copied()
+                    && super::attacker_may_attack(pending, id, defender)
+                {
+                    pairs.push((id, defender));
                 } else {
                     return false;
                 }

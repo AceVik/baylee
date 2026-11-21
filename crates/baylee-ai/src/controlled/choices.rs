@@ -249,6 +249,14 @@ impl HeuristicAgent {
             {
                 best(min)
             }
+            ChoicePrompt::Generic
+                if context
+                    .effects
+                    .iter()
+                    .any(|e| matches!(e, Effect::SoulbondPair { .. })) =>
+            {
+                worst(min)
+            }
             // What they keep, find, take or put down: as little as the
             // question allows, and the least of it.
             ChoicePrompt::Keep
@@ -261,14 +269,21 @@ impl HeuristicAgent {
             | ChoicePrompt::PutIntoHand
             | ChoicePrompt::PlayFromExile
             | ChoicePrompt::PutOntoBattlefield
+            | ChoicePrompt::ManifestDread
             | ChoicePrompt::FromGraveyard
             | ChoicePrompt::OneOfType { .. }
-            | ChoicePrompt::PutIntoGraveyard => worst(min),
-            // Nothing that helps them: no reveal for an untapped land, no
-            // dredge in place of the draw, nothing untapped under Winter Orb.
-            ChoicePrompt::RevealOrEnterTapped | ChoicePrompt::Dredge | ChoicePrompt::Untap => {
-                worst(min)
-            }
+            | ChoicePrompt::PutIntoGraveyard
+            // Nothing that helps them: no reveal for an untapped land or Amplify counters,
+            // no dredge in place of the draw, nothing untapped under Winter Orb.
+            | ChoicePrompt::RevealOrEnterTapped
+            | ChoicePrompt::Amplify
+            | ChoicePrompt::Devour { .. }
+            | ChoicePrompt::ChooseRingBearer
+            | ChoicePrompt::Splice
+            | ChoicePrompt::CipherEncode
+            | ChoicePrompt::Champion
+            | ChoicePrompt::Dredge
+            | ChoicePrompt::Untap => worst(min),
             // Separating for this seat's Fact or Fiction: one pile is
             // everything, and this seat takes it.
             ChoicePrompt::FirstPile => options[..usize::from(max).min(options.len())].to_vec(),
@@ -424,8 +439,10 @@ impl HeuristicAgent {
                 }
                 Some(Self::largest_x(view, min, max, context, |_| true))
             }
-            // Every kick makes their spell better, so they get none.
-            NumberPrompt::Multikicker { .. } => Some(min),
+            // Every kick or squad copy makes their spell better, so they get none.
+            NumberPrompt::Multikicker { .. } | NumberPrompt::Squad { .. } => Some(min),
+            // Skipping earlier chapters denies them every chapter before the final one.
+            NumberPrompt::ReadAhead { .. } => Some(max),
             _ => None,
         }
     }
@@ -442,6 +459,26 @@ impl HeuristicAgent {
     ) -> Option<bool> {
         Some(match prompt {
             YesNoPrompt::MayDo => self.may_against(theirs, source, context),
+            YesNoPrompt::ClashBottom { card } => {
+                let lands = theirs
+                    .battlefield
+                    .iter()
+                    .filter(|o| {
+                        o.controller == theirs.seat
+                            && o.types.contains(baylee_core::types::TypeSet::LAND)
+                    })
+                    .count();
+                let is_excess_land = lands >= 5
+                    && theirs
+                        .looking_at
+                        .iter()
+                        .find(|o| o.id == card)
+                        .is_some_and(|o| {
+                            o.types.contains(baylee_core::types::TypeSet::LAND)
+                                && !o.types.contains(baylee_core::types::TypeSet::CREATURE)
+                        });
+                !is_excess_land
+            }
             // A pact's debt unpaid loses them the game (CR 724.5: theirs to
             // decide, so this seat's). Their commander stays where it went,
             // and a card of theirs goes to the bottom rather than back as
@@ -457,10 +494,25 @@ impl HeuristicAgent {
             | YesNoPrompt::PayLife { .. }
             | YesNoPrompt::PayEnergy { .. }
             | YesNoPrompt::KickerOption { .. }
+            | YesNoPrompt::Bargain
+            | YesNoPrompt::Offspring { .. }
+            | YesNoPrompt::Casualty { .. }
+            | YesNoPrompt::Conspire
+            | YesNoPrompt::Gift { .. }
+            | YesNoPrompt::Riot { .. }
+            | YesNoPrompt::Unleash { .. }
+            | YesNoPrompt::OpeningHandBattlefield
+            | YesNoPrompt::OpeningHandReveal
+            | YesNoPrompt::AssignDamageAsThoughUnblocked { .. }
             | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }
             | YesNoPrompt::Generic => false,
+            YesNoPrompt::Endure(_) => !self.endures_counters(theirs, context.source),
+            YesNoPrompt::Tribute {
+                permanent,
+                counters,
+            } => !crate::policy::pays_tribute(theirs, permanent, counters),
             YesNoPrompt::RevealHandForGuess {
                 card,
                 face,
@@ -492,6 +544,9 @@ impl HeuristicAgent {
                 baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana)),
                 context,
             ),
+            YesNoPrompt::ChooseFirstCostBranch { index } => {
+                !self.prefers_first_cost_branch(theirs, context, index)
+            }
             YesNoPrompt::PayMana { cost } | YesNoPrompt::PayManaAndLife { cost, .. } => {
                 taxed_against(view, cost, context)
             }
@@ -520,6 +575,12 @@ impl HeuristicAgent {
         let Some(id) = context.source else {
             return false;
         };
+        if let Some(kind) = then.iter().find_map(|effect| match effect {
+            Effect::MoveCounterToEvent { kind } => Some(*kind),
+            _ => None,
+        }) {
+            return !self.moves_counter_to_event(theirs, id, context.event_object, kind);
+        }
         let aim = theirs
             .object(id)
             .and_then(|o| o.targets.first())

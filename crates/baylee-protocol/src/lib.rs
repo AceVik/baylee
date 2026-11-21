@@ -61,7 +61,35 @@ pub mod tape;
 /// `chosen_card_type`, `chosen_number`, and `linked_exile`.
 /// Version 49 adds the private, bounded Tower execution/recovery/whole-batch ACK plane.
 /// Version 50 carries `YesNoPrompt::KickerOption` for multi-kicker spells (CR 702.33b/f).
-pub const PROTOCOL_VERSION: u32 = 50;
+/// Version 51 carries `ChoicePrompt::Amplify` for Amplify hand reveals (CR 702.38a/b).
+/// Version 52 carries `CastModeKind::Bestow` and `CastModeKind::JumpStart` (CR 702.103, CR 702.133a).
+/// Version 53 carries `CastModeKind::Blitz` (CR 702.152a).
+/// Version 54 carries `CastModeKind::Emerge` (CR 702.119), `YesNoPrompt::Bargain`
+/// (CR 702.166), and `LegalActions::spell_spending` (CR 609.4b).
+/// Version 55 carries `CastModeKind::Fused` (CR 702.102), `NumberPrompt::Squad`
+/// (CR 702.157), `YesNoPrompt::Offspring` (CR 702.175), and
+/// `ChoicePrompt::ManifestDread` (CR 701.62).
+/// Version 56 carries `CastModeKind::Plot` and `PublicObject::plotted`
+/// (CR 702.170) alongside `YesNoPrompt::Casualty` (CR 702.153).
+/// Version 57 carries `DamageEffectKind::MultiplyDamage` and
+/// `DamageEffectKind::AddDamage` for CR 616.1 damage replacement ordering.
+/// Version 58 carries `CastModeKind::Impending` (CR 702.176) and
+/// `YesNoPrompt::Gift` (CR 702.174) on positional binary frames.
+/// Version 59 carries `CastModeKind::Warp`, `PublicObject::warped`
+/// (CR 702.185), `ChoicePrompt::Devour` (CR 702.82), and `ManaPoolView::snow`
+/// (CR 107.4h).
+/// Version 60 carries `CastModeKind::Retrace` (CR 702.81a),
+/// `YesNoPrompt::{Riot, Unleash}` (CR 702.136, CR 702.98), and
+/// `PublicObject::suspected` (CR 701.60) on positional binary frames.
+/// Version 61–64 unify Engine Waves 9a–10b (`YesNoPrompt::AssignDamageAsThoughUnblocked`,
+/// `YesNoPrompt::ClashBottom`, `ChoicePrompt::ChooseRingBearer`,
+/// `YesNoPrompt::{ChooseFirstCostBranch, OpeningHandBattlefield, OpeningHandReveal}`,
+/// `CastModeKind::Sneak`, `YesNoPrompt::Endure`, `CastModeKind::Awaken`,
+/// `ChoicePrompt::{Splice, CipherEncode, Champion}`, and
+/// `YesNoPrompt::{Conspire, Tribute}`) on positional binary frames.
+/// Version 65 carries `PublicObject::class_level` and `LogEvent::ClassLevel`
+/// for Class designations (CR 717) on positional binary frames.
+pub const PROTOCOL_VERSION: u32 = 65;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -375,7 +403,27 @@ mod tests {
         // and linked exile on positional binary frames.
         // 48: compiled execution identity; 49: private Tower durable transport.
         // 50: `YesNoPrompt::KickerOption` for multi-kicker spells on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 50);
+        // 51: `ChoicePrompt::Amplify` for Amplify hand reveals on positional binary frames.
+        // 52: `CastModeKind::Bestow` and `CastModeKind::JumpStart` on positional binary frames.
+        // 53: `CastModeKind::Blitz` on positional binary frames.
+        // 54: `CastModeKind::Emerge`, `YesNoPrompt::Bargain`, and `LegalActions::spell_spending`.
+        // 55: `CastModeKind::Fused`, `NumberPrompt::Squad`, `YesNoPrompt::Offspring`, and
+        // `ChoicePrompt::ManifestDread` on positional binary frames.
+        // 56: `CastModeKind::Plot`, `PublicObject::plotted`, and `YesNoPrompt::Casualty`
+        // on positional binary frames.
+        // 57: `DamageEffectKind::MultiplyDamage` and `DamageEffectKind::AddDamage` on
+        // positional binary frames.
+        // 58: `CastModeKind::Impending` and `YesNoPrompt::Gift` on positional binary frames.
+        // 59: `CastModeKind::Warp`, `PublicObject::warped`, `ChoicePrompt::Devour`, and
+        // `ManaPoolView::snow` on positional binary frames.
+        // 60: `CastModeKind::Retrace`, `YesNoPrompt::{Riot, Unleash}`, and
+        // `PublicObject::suspected` on positional binary frames.
+        // 61–64: Engine Waves 9a–10b (`AssignDamageAsThoughUnblocked`, `ClashBottom`,
+        // `ChooseRingBearer`, `ChooseFirstCostBranch`, `OpeningHandBattlefield`,
+        // `OpeningHandReveal`, `Sneak`, `Endure`, `Awaken`, `Splice`, `CipherEncode`,
+        // `Champion`, `Conspire`, and `Tribute`) on positional binary frames.
+        // 65: `PublicObject::class_level` and `LogEvent::ClassLevel`.
+        assert_eq!(PROTOCOL_VERSION, 65);
     }
 
     #[test]

@@ -95,11 +95,14 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
                 ch.mill += 1.0;
             }
         }
-        Effect::LookAtTopPick { .. } | Effect::LookAtTopPickThenReorder { .. }
+        Effect::LookAtTopPick { .. }
+        | Effect::LookAtTopPickThenReorder { .. }
         | Effect::LookAtTopFind { .. }
         | Effect::LookAtTopExileFaceDown { .. }
         | Effect::LookAtTopMayTake { .. }
         | Effect::LookAtTopKeepBottomPlay { .. }
+        | Effect::PeekAndReveal { .. }
+        | Effect::RevealTop { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopAllMatching { .. }
         | Effect::Cascade
@@ -149,7 +152,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::DungeonExileTwo => {
             ch.discard += 1.5;
         }
-        Effect::AddMana { amount, .. } => {
+        Effect::AddMana { amount, .. } | Effect::Firebend(amount) => {
             ch.mana_add += amount_scalar(amount).max(1.0);
         }
         Effect::AddManaFor { .. }
@@ -169,6 +172,15 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::DealDamageWithLimitedLifeGain { amount, .. }
         | Effect::EventObjectDealsDamage { amount, .. } => {
             ch.damage_any += amount_scalar(amount).max(1.0);
+        }
+        Effect::DamagePermanentAndController {
+            permanent_amount,
+            controller_amount,
+            ..
+        } => {
+            let permanent = amount_scalar(permanent_amount).max(0.0);
+            let controller = amount_scalar(controller_amount).max(0.0);
+            ch.damage_any += (permanent + controller).max(1.0);
         }
         Effect::DealDamageDivided { amount, .. } => {
             let v = match amount {
@@ -208,7 +220,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::Exile { .. }
         | Effect::ExileLinked { .. }
         | Effect::ExileTargetsWithSource
-        | Effect::ExileTargetsCreateTokens { .. } => {
+        | Effect::ExileTargetsCreateTokens { .. }
+        | Effect::Plot { .. } => {
             ch.exile_single += 1.0;
         }
         Effect::ExileAll { .. }
@@ -231,15 +244,24 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             ch.counter_spell += 1.0;
         }
         Effect::TapTarget
+        | Effect::TapTargetSlot(_)
         | Effect::TapEventObject
         | Effect::ToggleTapTarget
         | Effect::TapAll { .. }
         | Effect::TapAllOf { .. }
         | Effect::UntapTarget
+        | Effect::UntapTargetSlot(_)
         | Effect::UntapSelf
         | Effect::UntapFound
         | Effect::UntapAll { .. }
-        | Effect::UntapChosen { .. } => {
+        | Effect::UntapChosen { .. }
+        | Effect::MustBlockSourceIfAbleThisCombat
+        | Effect::MustBlockIfAble { .. }
+        | Effect::Detain { .. }
+        | Effect::DetainFilter { .. }
+        | Effect::Goad { .. }
+        | Effect::GoadAll { .. }
+        | Effect::ExertSource => {
             ch.tap_untap += 1.0;
         }
         Effect::PumpTarget {
@@ -262,8 +284,26 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::AddCounter { amount, .. }
         | Effect::AddCounterSource { amount, .. }
         | Effect::AddCounterFilter { amount, .. }
-        | Effect::AddCounterCreatedTokens { amount, .. } => {
+        | Effect::AddCounterCreatedTokens { amount, .. }
+        | Effect::Bolster(amount)
+        | Effect::Monstrosity(amount) => {
             ch.counters_add += amount_scalar(amount).max(1.0);
+        }
+        Effect::Backup { count, .. } => {
+            ch.counters_add += f32::from(*count).max(1.0);
+        }
+        Effect::PlotTop { count, .. } => {
+            ch.draw += amount_scalar(count).max(1.0);
+        }
+        Effect::BecomeRenowned(n) => {
+            ch.counters_add += f32::from(*n).max(1.0);
+        }
+        Effect::Incubate { count, .. } => {
+            ch.tokens_create += 1.5;
+            ch.counters_add += amount_scalar(count).max(1.0);
+        }
+        Effect::Suspect { .. } | Effect::Unsuspect { .. } | Effect::RingTemptsYou => {
+            ch.pump_pt += 0.5;
         }
         Effect::Proliferate
         | Effect::AddCountersUpTo { .. }
@@ -280,7 +320,9 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenModified { .. }
         | Effect::CreateTokenAttacking { .. }
+        | Effect::Mobilize(_)
         | Effect::CreateTokenThenCounters { .. }
+        | Effect::Endure(_)
         | Effect::CreateTokenThenAttachSelf { .. }
         | Effect::CreateTokenPtPerCount { .. }
         | Effect::CreateTokenForTargetController { .. }
@@ -290,11 +332,17 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::CreateTokenCopiesOfGraveyard { .. }
         | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokenCopyOfFirstToken
+        | Effect::CreateTokenCopy { .. }
+        | Effect::ChooseAndCreateTokenCopy { .. }
+        | Effect::Myriad
+        | Effect::ManifestTop { .. }
+        | Effect::ManifestDread
         | Effect::Fabricate { .. }
         | Effect::Populate => {
             ch.tokens_create += 1.5;
         }
-        Effect::GraveyardToBattlefield { .. }
+        Effect::PutNinjutsuOntoBattlefield
+        | Effect::GraveyardToBattlefield { .. }
         | Effect::GraveyardToBattlefieldModified { .. }
         | Effect::GraveyardToBattlefieldLinked { .. }
         | Effect::YourGraveyardToBattlefield { .. }
@@ -305,7 +353,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::GraveyardAllToHand { .. }
         | Effect::RandomGraveyardToHand { .. }
         | Effect::ReturnFromGraveyardOf { .. }
-        | Effect::ReanimateEnchanted => {
+        | Effect::ReanimateEnchanted
+        | Effect::ReturnCraftedTransformed => {
             ch.reanimate += 1.0;
         }
         Effect::GainLife { amount } | Effect::GainLifeFor { amount, .. } => {
@@ -324,7 +373,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::SacrificeChosenByOpponent { .. }
         | Effect::SacrificeObject { .. }
         | Effect::SacrificeEvent
-        | Effect::DungeonSacrificeThree => {
+        | Effect::DungeonSacrificeThree
+        | Effect::Exploit => {
             ch.sacrifice_force += 1.0;
         }
         Effect::Blink { .. }
@@ -333,15 +383,30 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::CopyEventSpellOrAbility
         | Effect::CopyResolvingSpell { .. }
         | Effect::CopyThisSpell { .. }
+        | Effect::CopySpellOrAbility { .. }
         | Effect::ChangeController { .. }
         | Effect::GainControlAll { .. }
         | Effect::ExchangeControl
-        | Effect::BecomeCopyOfTarget { .. } => {
+        | Effect::BecomeCopyOfTarget { .. }
+        | Effect::BecomeCopy { .. }
+        | Effect::Cipher
+        | Effect::CipherCastEncoded
+        | Effect::Champion { .. }
+        | Effect::ReturnChampioned => {
             ch.blink_copy_control += 1.0;
+        }
+        Effect::AwakenLand { count } => {
+            ch.counters_add += f32::from(*count);
+            ch.tokens_create += 1.0;
         }
         Effect::TakeExtraTurn | Effect::WinGame => {
             ch.extra_turn_or_win += 1.0;
         }
+        Effect::DeliverGift(kind) => match kind {
+            baylee_cards_dsl::GiftKind::Card => ch.draw -= 1.0,
+            baylee_cards_dsl::GiftKind::ExtraTurn => ch.extra_turn_or_win -= 1.0,
+            _ => ch.tokens_create -= 0.5,
+        },
         _ => {}
     }
 }

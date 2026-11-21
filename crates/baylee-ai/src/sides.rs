@@ -45,6 +45,7 @@ impl HeuristicAgent {
         &self,
         view: &PlayerView,
         objects: &[ObjectId],
+        players: &[baylee_core::ids::PlayerId],
         min: u32,
         context: &DecisionContext<'_>,
     ) -> Option<PlayerAction> {
@@ -56,18 +57,30 @@ impl HeuristicAgent {
         };
         let printed = context.printed?;
         let abilities = crate::controlled::aura(printed.card(), printed.face())?;
-        let mut best: Option<(i64, ObjectId)> = None;
+        let mut best: Option<(i64, Aim)> = None;
         for &id in objects {
             let value = self.enchanting(view, abilities, Aim::Object(id))?;
             if best.is_none_or(|(kept, _)| value > kept) {
-                best = Some((value, id));
+                best = Some((value, Aim::Object(id)));
             }
         }
-        let (_, id) = best?;
-        Some(PlayerAction::ChooseTargets {
-            objects: vec![id],
-            players: vec![],
-        })
+        for &player in players {
+            let value = self.enchanting(view, abilities, Aim::Player(player))?;
+            if best.is_none_or(|(kept, _)| value > kept) {
+                best = Some((value, Aim::Player(player)));
+            }
+        }
+        match best?.1 {
+            Aim::Object(id) => Some(PlayerAction::ChooseTargets {
+                objects: vec![id],
+                players: vec![],
+            }),
+            Aim::Player(player) => Some(PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![player],
+            }),
+            Aim::Source | Aim::Nothing => None,
+        }
     }
 
     /// Whether casting `card` (`id`, where the seat holds it) would name

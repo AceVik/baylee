@@ -44,7 +44,7 @@ pub(super) fn collect(
         }
         let event_object = events::event_object_for(&trigger, &entry.event, base.source, state);
         let event_object_identity =
-            event_object.and_then(|id| state.event_object_identity(id, entry.seq));
+            event_object.and_then(|id| events::event_identity_for(&trigger, entry, id, state));
         for _ in 0..count {
             out.push(PendingTrigger {
                 event_object,
@@ -55,11 +55,19 @@ pub(super) fn collect(
                     base.source,
                     state,
                 ),
-                event_amount: events::event_damage_of(&trigger, &entry.event, events),
-                event_player: events::event_player_of(&entry.event),
+                event_amount: events::event_amount_for(
+                    &trigger,
+                    &entry.event,
+                    events,
+                    state,
+                    watch.controller,
+                    context,
+                ),
+                event_player: events::event_player_for(&trigger, entry, state),
                 event_ability: crate::trigger::activated_stack_ability(&entry.event),
                 event_mana: super::produced_mana(&entry.event, events),
-                event_mana_value: crate::trigger::cast_mana_value(state, &entry.event),
+                event_mana_value: crate::trigger::cast_mana_value(state, entry),
+                event_tap_snapshot: None,
                 event_departure: entry
                     .departure
                     .as_ref()
@@ -69,6 +77,275 @@ pub(super) fn collect(
             });
         }
     }
+}
+
+/// Collect triggers from [`DelayedWhen::OnEvent`] (`Effect::RegisterDelayedTrigger`).
+#[allow(clippy::too_many_lines)]
+pub(crate) fn collect_general(
+    state: &GameState,
+    events: &[JournalEntry],
+    delayed: &DelayedTrigger,
+    out: &mut Vec<PendingTrigger>,
+) {
+    let DelayedWhen::OnEvent {
+        trigger,
+        watch,
+        watch_battlefield,
+        duration,
+        context,
+        after,
+    } = delayed.when
+    else {
+        return;
+    };
+    let crate::state::DelayedAction::GeneralTrigger(ref spec) = delayed.action else {
+        return;
+    };
+    let events = &events[events.partition_point(|entry| entry.seq <= after)..];
+    if events.is_empty() {
+        return;
+    }
+    if watch_battlefield
+        && let Some(w) = watch
+        && state
+            .object(w.object)
+            .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield || o.version != w.version)
+        && !events.iter().any(|e| {
+            matches!(
+                e.event,
+                crate::event::GameEvent::ZoneChanged {
+                    object,
+                    from: crate::zone::Zone::Battlefield,
+                    ..
+                } if object == w.object
+            ) && e.departure.as_ref().is_some_and(|d| d.version == w.version)
+        })
+    {
+        return;
+    }
+
+    let one_shot = matches!(
+        duration,
+        baylee_cards_dsl::DelayedDuration::OneShot
+            | baylee_cards_dsl::DelayedDuration::OneShotThisTurn
+    );
+    let match_source = watch.map_or(spec.source, |w| w.object);
+    let timestamp = state.object(spec.source).map_or(0, |o| o.timestamp);
+
+    for entry in events {
+        let departed_this_entry = watch_battlefield
+            && watch.is_some_and(|w| {
+                matches!(
+                    entry.event,
+                    crate::event::GameEvent::ZoneChanged {
+                        object,
+                        from: crate::zone::Zone::Battlefield,
+                        ..
+                    } if object == w.object
+                ) && entry
+                    .departure
+                    .as_ref()
+                    .is_some_and(|d| d.version == w.version)
+            });
+
+        let mut count =
+            matching::departure_hit(trigger, entry, match_source).unwrap_or_else(|| {
+                matching::hits_with_context(
+                    trigger,
+                    &entry.event,
+                    events,
+                    state,
+                    context,
+                    delayed.controller,
+                )
+            });
+
+        if count == 0 {
+            if departed_this_entry {
+                break;
+            }
+            continue;
+        }
+        if one_shot {
+            count = 1;
+        }
+
+        let (
+            event_object,
+            event_object_identity,
+            event_subject,
+            event_amount,
+            event_player,
+            event_ability,
+            event_mana,
+            event_mana_value,
+            event_departure,
+        ) = if let Some(rem) = spec.remembered {
+            let identity = rem.identity.map(|(ver, old_power)| {
+                let live_power = rem.object.and_then(|obj| {
+                    state
+                        .source_object(baylee_core::ids::DamageSourceRef {
+                            object: obj,
+                            version: ver,
+                        })
+                        .and_then(|o| o.characteristics().power)
+                });
+                (ver, live_power.unwrap_or(old_power))
+            });
+            (
+                rem.object,
+                identity,
+                rem.subject,
+                rem.amount,
+                rem.player,
+                None,
+                None,
+                rem.mana_value,
+                rem.departure,
+            )
+        } else {
+            let ev_obj = events::event_object_for(trigger, &entry.event, match_source, state)
+                .or_else(|| watch.map(|w| w.object));
+            let ev_id = ev_obj
+                .and_then(|id| {
+                    entry.departure.as_deref().and_then(|dep| {
+                        let ver = state
+                            .object(id)
+                            .map_or_else(|| dep.version.saturating_add(1), |o| o.version);
+                        (matches!(entry.event, crate::event::GameEvent::ZoneChanged { object, .. } if object == id))
+                            .then_some((ver, dep.power))
+                    })
+                })
+                .or_else(|| ev_obj.and_then(|id| state.event_object_identity(id, entry.seq)));
+            (
+                ev_obj,
+                ev_id,
+                events::event_subject_for(trigger, &entry.event, match_source, state),
+                events::event_amount_for(
+                    trigger,
+                    &entry.event,
+                    events,
+                    state,
+                    delayed.controller,
+                    context,
+                ),
+                events::event_player_for(trigger, entry, state),
+                crate::trigger::activated_stack_ability(&entry.event),
+                super::produced_mana(&entry.event, events),
+                crate::trigger::cast_mana_value(state, entry),
+                entry
+                    .departure
+                    .as_ref()
+                    .map(|d| (d.controller, d.toughness)),
+            )
+        };
+
+        let event_ref = event_object
+            .zip(event_object_identity.map(|(v, _)| v))
+            .map(|(object, version)| baylee_core::ids::DamageSourceRef { object, version });
+        let event_tap_snapshot = if spec.remembered.is_none() {
+            events::tap_event_snapshot(state, events, entry)
+        } else {
+            None
+        };
+        if crate::eval::intervening_if_for_incarnation(
+            state,
+            spec.condition.copied(),
+            delayed.controller,
+            spec.source,
+            Some(spec.source_version),
+            None,
+            event_ref,
+        ) {
+            for _ in 0..count {
+                out.push(PendingTrigger {
+                    text: spec.text,
+                    source_version: Some(spec.source_version),
+                    related_objects: None,
+                    grantor: None,
+                    event_subject,
+                    event_ability,
+                    event_object_identity,
+                    counter_source_version: None,
+                    event_amount,
+                    event_player,
+                    event_mana,
+                    event_mana_value,
+                    event_tap_snapshot,
+                    event_departure,
+                    source: spec.source,
+                    ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                    abilities: None,
+                    controller: delayed.controller,
+                    timestamp,
+                    event_object,
+                    implicit_target: None,
+                    synthetic_effects: Some(spec.effects),
+                    synthetic_target: spec.targets,
+                    synthetic_condition: spec.condition,
+                    once_per_turn: false,
+                    chosen_mode: None,
+                    in_chosen_order: false,
+                });
+            }
+        }
+
+        if one_shot || departed_this_entry {
+            break;
+        }
+    }
+}
+
+/// Whether a [`DelayedWhen::OnEvent`] watch has been consumed by `events` or by
+/// its watched battlefield incarnation having departed (CR 603.7b, CR 400.7).
+pub(crate) fn on_event_watch_consumed(
+    state: &GameState,
+    events: &[JournalEntry],
+    delayed: &DelayedTrigger,
+) -> bool {
+    let DelayedWhen::OnEvent {
+        trigger,
+        watch,
+        watch_battlefield,
+        duration,
+        context,
+        after,
+    } = delayed.when
+    else {
+        return false;
+    };
+    if watch_battlefield
+        && let Some(w) = watch
+        && state
+            .object(w.object)
+            .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield || o.version != w.version)
+    {
+        return true;
+    }
+    if !matches!(
+        duration,
+        baylee_cards_dsl::DelayedDuration::OneShot
+            | baylee_cards_dsl::DelayedDuration::OneShotThisTurn
+    ) {
+        return false;
+    }
+    let crate::state::DelayedAction::GeneralTrigger(ref spec) = delayed.action else {
+        return false;
+    };
+    let match_source = watch.map_or(spec.source, |w| w.object);
+    let events = &events[events.partition_point(|entry| entry.seq <= after)..];
+    events.iter().any(|entry| {
+        matching::departure_hit(trigger, entry, match_source).unwrap_or_else(|| {
+            matching::hits_with_context(
+                trigger,
+                &entry.event,
+                events,
+                state,
+                context,
+                delayed.controller,
+            )
+        }) > 0
+    })
 }
 
 #[cfg(test)]

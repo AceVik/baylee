@@ -272,6 +272,11 @@ fn duel_holding_named(
                     can_pass: true,
                     mana_abilities: ids,
                     payable: vec![ObjectId::new(50, 0)],
+                    unpaid_foretell: def.faces[0]
+                        .foretell
+                        .map(|_| ObjectId::new(50, 0))
+                        .into_iter()
+                        .collect(),
                     ..LegalActions::default()
                 }),
             },
@@ -416,6 +421,18 @@ fn foretell_is_reachable_throughout_its_owners_turn_only() {
     );
 
     duel.view.as_mut().expect("the view").active = PlayerId::new(1);
+    let Pending::Priority { mut legal, .. } = duel.interaction.as_ref().unwrap().pending().clone()
+    else {
+        panic!("expected priority");
+    };
+    legal.unpaid_foretell.clear();
+    duel.interaction = Some(Interaction::new(
+        Pending::Priority {
+            player: PlayerId::new(0),
+            legal,
+        },
+        PlayerId::new(0),
+    ));
     assert!(foretell_reach(&duel).is_empty());
 }
 

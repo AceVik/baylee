@@ -59,6 +59,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn offer_restricted_mana(&self, player: PlayerId, legal: &mut LegalActions) {
         legal.restricted_taps.clear();
         legal.restricted_floating.clear();
+        legal.spell_spending.clear();
+        if !self.state.play_permissions.is_empty() {
+            let base = casting::mana_spending(&self.state, player);
+            for (spend, what) in self.spends(player, legal) {
+                let card = match what {
+                    SpendFor::Spell(card)
+                    | SpendFor::SpellOnFace(card, _)
+                    | SpendFor::SpellAs(card, _)
+                    | SpendFor::KickedSpell(card, ..) => Some(card),
+                    _ => None,
+                };
+                if let Some(card) = card {
+                    let specific = casting::spell_mana_spending(&self.state, player, card);
+                    if specific != base {
+                        legal.spell_spending.push((spend, specific));
+                    }
+                }
+            }
+        }
         let mut classes: Vec<(ManaProvenance, RestrictedTaps)> = Vec::new();
         let mut class_of: HashMap<ProvenanceClass, usize> = HashMap::new();
         let mut budget = RESTRICTED_ENTRIES;
@@ -182,8 +201,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
             }
         }
-        for &(source, ..) in &legal.unpaid_abilities {
-            add(Spend::Activate(source), SpendFor::Ability(source));
+        for &(source, index, _) in &legal.unpaid_abilities {
+            let what = if crate::choice::is_special_action(index) {
+                self.state
+                    .source_identity(source)
+                    .map_or(SpendFor::Other, SpendFor::OtherFrom)
+            } else {
+                SpendFor::Ability(source)
+            };
+            add(Spend::Activate(source), what);
         }
         if let Some(what) = self.window_spend(player) {
             add(Spend::Owed, what);
@@ -219,9 +245,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             Spend::Cast(_, CastModeKind::Disguise) => {
                 Some(SpendFor::SpellAs(card, SpellForm::Disguise))
             }
+            Spend::Cast(_, CastModeKind::Bestow) => {
+                Some(SpendFor::SpellAs(card, SpellForm::Bestow(face()?.bestow?)))
+            }
             Spend::Cast(_, CastModeKind::Foretell) => Some(SpendFor::SpellAs(
                 card,
                 SpellForm::Foretell(face()?.foretell?),
+            )),
+            Spend::Cast(_, CastModeKind::Plot) => Some(SpendFor::SpellAs(card, SpellForm::Plot)),
+            Spend::Cast(_, CastModeKind::Impending) => Some(SpendFor::SpellAs(
+                card,
+                SpellForm::Impending(face()?.impending?.1),
             )),
             // Playing a land face is no cast (CR 305.1), and costs nothing.
             _ if matches!(kind, CastModeKind::PlayLandFace(_)) => None,

@@ -320,6 +320,39 @@ pub enum Amount {
     /// way counts none, because arriving from anywhere but the stack clears
     /// the count with the X (`progress::apply_enter_modifiers`).
     TimesKicked,
+    /// Result of the most recent [`Effect::RollDice`](super::Effect::RollDice)
+    /// executed earlier in this resolution (CR 706.2).
+    LastDieRoll,
+    /// Number of coin flips won by the controller so far in this resolution
+    /// (CR 705.2).
+    CoinsWonThisResolution,
+    /// Number of distinct opponents you declared at least one attacking
+    /// creature against during this combat (CR 702.121a: melee, Adriana).
+    OpponentsYouAttackedThisCombat,
+    /// Total damage dealt to your opponents this turn (Bloodthirst X,
+    /// CR 702.54b — strictly damage dealt, not non-damage life loss).
+    /// Appended to preserve replay identities.
+    DamageDealtToOpponentsThisTurn,
+    /// Amount of snow mana (mana produced by snow sources, CR 107.4h) spent to
+    /// cast this spell or the spell that became this permanent (or the source
+    /// of this triggered ability, CR 400.7d, CR 608.2h). Zero when not cast or
+    /// when copied. Appended to preserve replay identities.
+    SnowManaSpentToCast,
+    /// Number of permanents sacrificed as this permanent entered the
+    /// battlefield via [`crate::EnterModifier::Devour`] or
+    /// [`crate::EnterModifier::SacrificeForPowerToughness`] ("each creature it
+    /// devoured", CR 702.82b, CR 608.2h). Appended to preserve replay
+    /// identities.
+    EntrySacrifices,
+    /// Number of spells warped by players matching the relation this turn
+    /// (CR 702.185c). Appended to preserve replay identities.
+    SpellsWarpedThisTurn(super::PlayerRel),
+    /// Cumulative mana spent to cast spells this turn by players matching the
+    /// relation (expend, CR 700.14). Appended to preserve replay identities.
+    ManaExpendedOnSpellsThisTurn(super::PlayerRel),
+    /// Number of distinct opponents currently being attacked directly by
+    /// creatures you control (CR 506.3–4, CR 508.4).
+    OpponentsYouAreAttacking,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.
@@ -396,6 +429,13 @@ pub enum ThisWay {
     /// Total mana value of cards revealed this way: Wand of Ith's
     /// "unless they pay life equal to its mana value".
     RevealedManaValue,
+    /// Total life actually lost by players earlier in this resolution
+    /// (extort's "you gain life equal to the total life lost this way",
+    /// CR 702.101a). Appended to preserve replay identities.
+    LifeLost,
+    /// Cards moved from a graveyard to exile during this resolution that
+    /// match the filter in exile.
+    ExiledFromGraveyard(&'static Filter),
 }
 
 impl Amount {

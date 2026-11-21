@@ -23,8 +23,10 @@
 //! bound wearing a count's clothes.
 
 use baylee_cards_dsl::{
-    AbilityDef, AltCondition, AlternativeCost, CostPart, Effect, Filter, StepKind, Trigger,
+    AbilityDef, AltCondition, AlternativeCost, Amount, Cost, CostPart, CounterKind, Effect, Filter,
+    StepKind, Trigger,
 };
+use baylee_core::mana::ManaCost;
 use baylee_core::types::TypeSet;
 
 /// The sentences a printed oracle text is made of.
@@ -172,19 +174,32 @@ fn ability_colon(line: &str) -> Option<usize> {
     None
 }
 
-/// Whether the line is "Crew N" (CR 702.122a) or "Saddle N" (CR 702.171a)
-/// and nothing else.
+/// The printed payment of a bare "Crew N" or "Saddle N" keyword.
 ///
 /// Both are activated abilities whose cost is tapping creatures, so the line
 /// carries no `{`, and a printing that drops the reminder leaves no colon for
 /// [`reminder_spells_out_an_ability`] to find either: Unlicensed Hearse
 /// prints "Crew 2" and not a word more, and its crew ability had no
 /// sentence.
-fn a_numbered_tapping_keyword(line: &str) -> bool {
-    ["Crew ", "Saddle "].iter().any(|keyword| {
-        line.strip_prefix(keyword)
-            .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
-    })
+fn numbered_tapping_cost(line: &str) -> Option<CostPart> {
+    if let Some(number) = line.strip_prefix("Crew ") {
+        return number.parse().ok().map(CostPart::Crew);
+    }
+    line.strip_prefix("Saddle ")?
+        .parse()
+        .ok()
+        .map(CostPart::Saddle)
+}
+
+/// The cost of an Equip keyword, including one preceded by an ability word.
+fn equip_cost_head(line: &str) -> Option<&str> {
+    let equip = line.split_once(" — ").map_or(line, |(_, rest)| rest);
+    let rest = equip.strip_prefix("Equip")?;
+    let cost = rest
+        .strip_prefix('—')
+        .or_else(|| rest.strip_prefix(' ').filter(|cost| cost.starts_with('{')))?;
+    let cost = cost.split('.').next()?.trim();
+    (!cost.is_empty()).then_some(cost)
 }
 
 /// A type-changing effect may grant crew without quoting an activation.
@@ -240,6 +255,7 @@ fn reminder_spells_out_an_ability(printed: &str) -> bool {
 pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
     use baylee_cards_dsl::AbilityDef as A;
     match ability {
+        _ if ability.is_saga_chapter() => LineShape::Chapter,
         A::Loyalty { .. } => LineShape::Loyalty,
         A::ModalActivated { .. } => {
             if ability.is_mana_ability() {
@@ -281,7 +297,6 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
                 LineShape::Activated
             }
         }
-        A::SagaChapter { .. } => LineShape::Chapter,
         _ if granted_cost(ability).is_some() => LineShape::Grant,
         _ => LineShape::Other,
     }
@@ -329,6 +344,12 @@ pub fn chapter_head(line: &str) -> Option<Vec<u8>> {
     head.split(',').map(|part| roman(part.trim())).collect()
 }
 
+fn class_level_head(line: &str) -> Option<u8> {
+    let line = without_reminder(line);
+    let (_, level) = line.split_once(':')?;
+    level.trim().strip_prefix("Level ")?.parse().ok()
+}
+
 /// The `{…}` symbols a string prints, in order.
 pub fn braced(src: &str) -> Vec<String> {
     let mut out = Vec::new();
@@ -345,37 +366,93 @@ pub fn braced(src: &str) -> Vec<String> {
 
 /// Does a compiled activation cost fit the head of a printed line?
 ///
-/// Only the part of a cost that is written in symbols is compared — the
-/// mana, the tap and the untap — because "Sacrifice a creature" is prose a
-/// filter cannot be held against cheaply. That is enough for what this is
-/// for: a card with two activated abilities almost always prints two
-/// different costs, and `{T}` against `{2}{U}, {T}` separates them.
-pub fn cost_fits(cost: &baylee_cards_dsl::Cost, line: &str) -> bool {
-    use baylee_cards_dsl::CostPart;
+/// Compares symbols and the non-mana payments the printed form identifies
+/// directly, such as Crew's number, Equip's life payment, and Exert.
+pub fn cost_fits(cost: &Cost, line: &str) -> bool {
     let line = without_reminder(line);
+    let numbered_cost = cost
+        .parts
+        .iter()
+        .find(|part| matches!(part, CostPart::Crew(_) | CostPart::Saddle(_)));
+    if numbered_tapping_cost(&line).as_ref() != numbered_cost {
+        return false;
+    }
     // A keyword ability prints its cost with no colon after it — "Cycling
     // {B}" is a whole line — so a line without one is read as all cost.
-    let head = line.split_once(':').map_or(line.as_str(), |(head, _)| head);
+    let head =
+        if let Some(equip) = equip_cost_head(&line) {
+            let lower = equip.to_ascii_lowercase();
+            if !cost.parts.iter().all(|part| {
+                part_named(part, &lower).unwrap_or(true) && sacrifice_named(part, &lower)
+            }) {
+                return false;
+            }
+            equip
+        } else {
+            line.split_once(':').map_or(line.as_str(), |(head, _)| head)
+        };
+    if let Some((a, b)) = cost.parts.iter().find_map(|p| match p {
+        CostPart::Either(a, b) => Some((*a, *b)),
+        _ => None,
+    }) {
+        return [a, b].into_iter().any(|sub| {
+            cost_branch_fits(&cost.mana.combine(&sub.mana), cost.parts, sub.parts, head)
+        });
+    }
+    cost_branch_fits(&cost.mana, cost.parts, &[], head)
+}
+
+fn cost_branch_fits(
+    mana: &baylee_core::mana::ManaCost,
+    outer_parts: &[baylee_cards_dsl::CostPart],
+    branch_parts: &[baylee_cards_dsl::CostPart],
+    head: &str,
+) -> bool {
+    use baylee_cards_dsl::CostPart;
+    let has_part =
+        |wanted: &CostPart| outer_parts.contains(wanted) || branch_parts.contains(wanted);
     let printed = braced(head);
     let taps = printed.iter().any(|s| s == "T");
     let untaps = printed.iter().any(|s| s == "Q");
-    if taps != cost.parts.contains(&CostPart::TapSelf) {
-        return false;
-    }
-    if untaps != cost.parts.contains(&CostPart::UntapSelf) {
+    if taps != has_part(&CostPart::TapSelf) || untaps != has_part(&CostPart::UntapSelf) {
         return false;
     }
     // Exert has no symbol, but must distinguish otherwise identical
     // activations so the client preserves this additional payment.
-    if head.to_lowercase().contains("exert") != cost.parts.contains(&CostPart::ExertSelf) {
+    if head.to_lowercase().contains("exert") != has_part(&CostPart::ExertSelf) {
         return false;
     }
-    // Energy symbols belong to nonmana payments, not the mana cost.
-    let mut want = braced(&cost.mana.to_string());
+    let parts = outer_parts.iter().chain(branch_parts);
+    let energy: usize = parts
+        .clone()
+        .filter_map(|part| match part {
+            CostPart::PayEnergy(n) => Some(usize::from(*n)),
+            _ => None,
+        })
+        .sum();
+    let energy_x = parts
+        .filter(|part| matches!(part, CostPart::PayEnergyX))
+        .count();
+    let mut want = braced(&mana.to_string());
     want.retain(|s| s != "0");
     want.sort();
     for alt_head in head.split(" or ") {
         let mut alt_printed = braced(alt_head);
+        let lower = alt_head.to_ascii_lowercase();
+        // “Pay eight {E}” prints one glyph for eight counters.
+        let spelled_energy: usize = lower
+            .split(',')
+            .filter_map(|part| {
+                let number = part.trim().strip_prefix("pay ")?.strip_suffix(" {e}")?;
+                let count = usize::try_from(crate::landgen::number(number)?).ok()?;
+                count.checked_sub(1)
+            })
+            .sum();
+        let printed_energy = alt_printed.iter().filter(|s| *s == "E").count() + spelled_energy;
+        let printed_energy_x = lower.matches("pay x {e}").count();
+        if (printed_energy, printed_energy_x) != (energy + energy_x, energy_x) {
+            continue;
+        }
         alt_printed.retain(|s| s != "T" && s != "Q" && s != "E" && s != "0");
         alt_printed.sort();
         if alt_printed == want {
@@ -507,9 +584,24 @@ fn symbol(color: baylee_core::mana::ManaColor) -> &'static str {
 /// as a sentence at all, so a trigger that accepted an "enters" line took
 /// Mulldrifter's *other* ETB — the draw — and the card was reported as
 /// aligned while its table pointed two abilities at one sentence and left
+fn step_begin_words(step: StepKind) -> &'static [&'static str] {
+    match step {
+        StepKind::Upkeep => &["upkeep"],
+        StepKind::Draw => &["draw step"],
+        StepKind::CombatBegin => &["beginning of combat"],
+        StepKind::DeclareAttackers => &["declare attackers step"],
+        StepKind::DeclareBlockers => &["declare blockers step"],
+        StepKind::CombatDamage => &["combat damage step"],
+        StepKind::CombatEnd => &["end of combat"],
+        StepKind::End => &["end step"],
+        StepKind::FirstMain => &["first main phase"],
+    }
+}
+
 /// the real one unclaimed. Reveillark is what showed it: its two triggers
 /// are "leaves" and evoke, nothing says "enters", and it was the only one
 /// of the three evoke cards the old reading could not quietly mismatch.
+#[allow(clippy::too_many_lines)] // Exhaustive one-arm-per-Trigger-variant word table.
 pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static str] {
     use baylee_cards_dsl::Trigger as T;
     match trigger {
@@ -519,16 +611,23 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::EnteredThisFrom(_) => &["enters"],
         T::Discarded { .. } | T::DiscardedThisByOpponent => &["discard"],
         T::LeavesBattlefield(_) | T::LinkedCreatureLeaves => &["leave"],
-        T::Dies(_) | T::DiesNotSacrificed(_) | T::DiesAfterDamageByThis(_) => {
-            &["die", "put into a graveyard"]
-        }
+        T::PhasesIn(_) => &["phases in", "phase in"],
+        T::PhasesOut(_) | T::PhasesOutOrLeavesBattlefield(_) => &["phases out", "phase out"],
+        T::Dies(_) | T::DiesNotSacrificed(_) | T::DiesAfterDamageByThis(_) => &[
+            "die",
+            "put into a graveyard",
+            "put into your graveyard",
+            "put into their graveyard",
+            "put into an opponent's graveyard",
+        ],
         T::CastThisWithMana(_)
         | T::SpellCast(_)
         | T::SpellCastUsingSourceMana(_)
         | T::SpellCastOrCopied(_)
         | T::InstantCastAfterFirst { .. }
         | T::NthSpellCast { .. }
-        | T::FirstNoncreatureSpellCast(_) => &["cast"],
+        | T::FirstNoncreatureSpellCast(_)
+        | T::SpellCastTargeting { .. } => &["cast"],
         T::BecomesTarget | T::EnchantedBecomesTarget | T::TargetedByOpponent { .. } => {
             &["becomes the target"]
         }
@@ -558,11 +657,10 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::AbilityActivated { .. } => &["activates"],
         // Badgermole Cub, "Whenever you tap a creature for mana".
         T::TappedForMana { .. } => &["for mana"],
-        // Druid Class, "When this Class becomes level 3".
-        T::CountersPlaced { .. } => &["counter"],
-        T::CountersReach { .. } => &["becomes level"],
+        T::CountersPlaced { .. } | T::CountersReach { .. } => &["counter"],
+        T::ClassLevelGained(_) => &["this class becomes level"],
         // Divine Intervention, "When you remove the last intervention counter".
-        T::LastCounterRemoved { .. } => &["remove the last"],
+        T::LastCounterRemoved { .. } => &["remove the last", "is removed"],
         T::Draws(_) | T::DrawsExceptFirst(_) | T::NthCardDrawnInTurn { .. } => &["draw"],
         T::SearchesLibrary(_) => &["search"],
         T::GainsLife(_) => &["gain life", "gains life"],
@@ -602,17 +700,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // of it that cannot be phrased otherwise: "At the beginning of your
         // upkeep", "… of your draw step", "… of your end step", "At the
         // beginning of combat on your turn".
-        T::StepBegin { step, .. } | T::StepBeginChosenOpponent { step } => match step {
-            StepKind::Upkeep => &["upkeep"],
-            StepKind::Draw => &["draw step"],
-            StepKind::CombatBegin => &["beginning of combat"],
-            StepKind::DeclareAttackers => &["declare attackers step"],
-            StepKind::DeclareBlockers => &["declare blockers step"],
-            StepKind::CombatDamage => &["combat damage step"],
-            StepKind::CombatEnd => &["end of combat"],
-            StepKind::End => &["end step"],
-            StepKind::FirstMain => &["first main phase"],
-        },
+        T::StepBegin { step, .. } | T::StepBeginChosenOpponent { step } => step_begin_words(*step),
         // A state trigger (CR 603.8) prints the state it waits for: Sea
         // Serpent's "When you control no Islands".
         T::State(_) => &[
@@ -620,6 +708,27 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
             "when there are no",
             "when you have no",
         ],
+        // Saga chapters match via `ability.saga_chapters()` / `chapter_head`
+        // before `Trigger::trigger_words` is consulted.
+        T::Chapter(_) => &[],
+        T::CoinFlipped { .. } => &["flip"],
+        T::DieRolled { .. } => &["roll"],
+        T::Exerted(_) => &["exert"],
+        T::ChangesZoneAll { .. } => &["one or more", "enter", "leave", "die", "put into"],
+        T::Sacrificed { .. } => &["sacrifice"],
+        T::PlayerAttacked(_) => &["is attacked", "attack"],
+        T::Enlisted(_) => &["enlist"],
+        T::Plotted { .. } => &["plot"],
+        T::GaveGift(_) => &["give", "gift"],
+        T::Exploited { .. } => &["exploit"],
+        T::SpellWarped { .. } => &["warp"],
+        T::Scried { .. } => &["scry", "scries"],
+        T::BecomesMonstrous => &["monstrous"],
+        T::RingTemptsYou { .. } => &["the ring tempts"],
+        T::Firebends(_) => &["firebend", "firebends"],
+        T::CommittedCrime { .. } => &["crime", "commit"],
+        T::Expended { .. } => &["expend"],
+        T::Clashed { .. } => &["clash"],
     }
 }
 
@@ -685,12 +794,22 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::FirstNoncreatureSpellCast(rel)
         | Trigger::PlayerDealtDamage(rel)
         | Trigger::Cycled { by: rel, .. }
+        | Trigger::SpellCastTargeting { who: rel, .. }
+        | Trigger::Plotted { who: rel, .. }
+        | Trigger::GaveGift(rel)
+        | Trigger::SpellWarped { who: rel, .. }
+        | Trigger::Scried { who: rel }
+        | Trigger::RingTemptsYou { who: rel }
+        | Trigger::Firebends(rel)
+        | Trigger::CommittedCrime { who: rel, .. }
+        | Trigger::Expended { who: rel, .. }
+        | Trigger::Clashed { who: rel, .. }
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),
             _ => true,
         },
-        Trigger::EnteredThisFrom(_) => !about_someone_else(),
+        Trigger::EnteredThisFrom(_) | Trigger::BecomesMonstrous => !about_someone_else(),
         Trigger::EntersBattlefield(filter)
         | Trigger::EntersBattlefieldFromGraveyardOrCast(filter)
         | Trigger::LeavesBattlefield(filter)
@@ -720,7 +839,12 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::DealtCombatDamage(filter)
         | Trigger::SpellCast(filter)
         | Trigger::SpellCastUsingSourceMana(filter)
-        | Trigger::SpellCastOrCopied(filter) => {
+        | Trigger::SpellCastOrCopied(filter)
+        | Trigger::Exerted(filter)
+        | Trigger::Enlisted(filter)
+        | Trigger::Exploited {
+            exploiter: filter, ..
+        } => {
             // "This" narrowed by a condition is still this object: Bogardan
             // Phoenix's two dies triggers are `This` and with and without a
             // death counter, and both are "when this creature dies".
@@ -762,11 +886,51 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
             mana_ability: true,
             ..
         } => cost_fits(cost, line) && mana_fits(effects, line),
-        A::Activated { cost, .. }
-        | A::ActivatedConditional { cost, .. }
-        | A::ModalActivated { cost, .. } => cost_fits(cost, line),
-        A::SagaChapter { chapter, .. } => {
-            chapter_head(line).is_some_and(|chapters| chapters.contains(chapter))
+        A::Activated { cost, effects, .. } | A::ActivatedConditional { cost, effects, .. } => {
+            let printed = without_reminder(line);
+            if printed == "Station" {
+                return cost.mana == ManaCost::ZERO
+                    && cost.parts == [CostPart::TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)]
+                    && matches!(
+                        *effects,
+                        [Effect::AddCounter {
+                            kind: CounterKind::Charge,
+                            amount: Amount::TappedPower
+                        }]
+                    );
+            }
+            if equip_cost_head(&printed).is_some()
+                && !effects
+                    .iter()
+                    .any(|effect| matches!(effect, Effect::AttachSelf { .. }))
+            {
+                return false;
+            }
+            let level = match *effects {
+                [Effect::SetClassLevel(level)] => Some(*level),
+                _ => None,
+            };
+            class_level_head(line) == level && cost_fits(cost, line)
+        }
+        A::ModalActivated { cost, .. } => class_level_head(line).is_none() && cost_fits(cost, line),
+        _ if ability.is_saga_chapter() => {
+            let wanted = ability.saga_chapters();
+            chapter_head(line).is_some_and(|chapters| wanted.iter().any(|c| chapters.contains(c)))
+        }
+        A::Triggered {
+            trigger: Trigger::ClassLevelGained(level),
+            ..
+        }
+        | A::ModalTriggered {
+            trigger: Trigger::ClassLevelGained(level),
+            ..
+        } => {
+            without_reminder(line)
+                .to_lowercase()
+                .strip_prefix("when this class becomes level ")
+                .and_then(|tail| tail.split_once(','))
+                .and_then(|(printed, _)| printed.parse().ok())
+                == Some(*level)
         }
         A::Triggered { trigger, .. } => {
             let lower = without_reminder(line).to_lowercase();
@@ -823,6 +987,17 @@ fn effect_words(effect: &Effect) -> &'static [&'static str] {
         Effect::ChooseCreatureType { .. } => &["creature type"],
         Effect::BecomeChosenCreatureType { .. } => &["becomes"],
         Effect::ShuffleGraveyardMatchingIntoLibrary { .. } => &["shuffle"],
+        Effect::DeliverGift(_) => &["gift"],
+        Effect::Incubate { .. } => &["incubate"],
+        Effect::Exploit => &["exploit", "sacrifice"],
+        Effect::ReturnCraftedTransformed => &["craft", "return"],
+        Effect::Monstrosity(_) => &["monstrosity"],
+        Effect::Suspect { .. } => &["suspect"],
+        Effect::Unsuspect { .. } => &["unsuspect", "no longer suspected"],
+        Effect::RingTemptsYou => &["the ring tempts"],
+        Effect::Firebend(_) => &["firebend", "add"],
+        Effect::Mobilize(_) => &["mobilize", "warrior"],
+        Effect::Detain { .. } | Effect::DetainFilter { .. } => &["detain"],
         _ => &[],
     }
 }
@@ -831,6 +1006,9 @@ fn effect_words(effect: &Effect) -> &'static [&'static str] {
 fn says_effect(effect: &Effect, lower: &str) -> bool {
     if let Effect::MayDo { effects } = effect {
         return effects.iter().all(|inner| says_effect(inner, lower));
+    }
+    if matches!(effect, Effect::DamagePermanentAndController { .. }) {
+        return lower.contains("damage") && lower.contains("controller");
     }
     let words = effect_words(effect);
     words.is_empty() || words.iter().any(|word| lower.contains(word))
@@ -1085,11 +1263,20 @@ fn alternative_fits(alt: &AlternativeCost, line: &str) -> bool {
     // exile up to one other target creature" is a line with no braces
     // fitting a cost with no mana, which is nothing compared against
     // nothing.
-    let Some((_, rest)) = keyword_cost(&text) else {
+    let Some((kw, rest)) = keyword_cost(&text) else {
         return false;
     };
     match alt.condition {
         AltCondition::Always => {}
+        AltCondition::If(baylee_cards_dsl::Condition::OpponentLostLifeThisTurn)
+            if kw.eq_ignore_ascii_case("spectacle") => {}
+        AltCondition::If(baylee_cards_dsl::Condition::Surge)
+            if kw.eq_ignore_ascii_case("surge") => {}
+        AltCondition::If(baylee_cards_dsl::Condition::Prowl)
+            if kw.eq_ignore_ascii_case("prowl") => {}
+        AltCondition::If(
+            baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn,
+        ) if kw.eq_ignore_ascii_case("freerunning") => {}
         AltCondition::NotYourTurn | AltCondition::CommanderControlled | AltCondition::If(_) => {
             return false;
         }
@@ -1187,17 +1374,27 @@ fn part_named(part: &CostPart, lower: &str) -> Option<bool> {
                 || (*count == 1 && (lower.contains("tap a ") || lower.contains("tap an ")))
         }
         CostPart::ExileFromHand(_) => lower.contains("exile") && lower.contains("from your hand"),
-        CostPart::Discard(_) => lower.contains("discard"),
-        CostPart::Sacrifice(_) | CostPart::SacrificeSelf => lower.contains("sacrifice"),
-        CostPart::ExileSelf => lower.contains("exile"),
+        CostPart::Discard(_) | CostPart::DiscardX(_) => lower.contains("discard"),
+        CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeSelf => {
+            lower.contains("sacrifice")
+        }
+        CostPart::ExileSelf => lower.contains("exile") || lower.contains("craft"),
+        CostPart::CraftMaterials { .. } => lower.contains("craft") || lower.contains("exile"),
+        CostPart::DealDamageToYou(n) => lower.contains(&format!("deals {n} damage to you")),
+        CostPart::Forage => lower.contains("forage"),
         // As loose as the two above it, and for the same reason: the word is
         // what the card prints, and a sentence whose *effect* also returns
         // something ("Return a Forest you control …: Untap target creature"
         // does not, but Flooded Shoreline's does) is still a sentence that
         // names this cost.
         CostPart::ReturnToHand(_) => lower.contains("return"),
-        CostPart::ExileFromGraveyard(_) => {
+        CostPart::ExileFromGraveyard(_) | CostPart::ExileFromGraveyardX(_) => {
             lower.contains("exile") && lower.contains("from your graveyard")
+        }
+        CostPart::Either(a, b) => {
+            (a.parts.is_empty() || a.parts.iter().any(|p| part_named(p, lower).unwrap_or(true)))
+                || (b.parts.is_empty()
+                    || b.parts.iter().any(|p| part_named(p, lower).unwrap_or(true)))
         }
         _ => return None,
     })

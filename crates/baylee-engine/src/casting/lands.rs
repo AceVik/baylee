@@ -267,12 +267,22 @@ pub(crate) fn graveyard_face_open(
     !graveyard_face_permissions(state, player, card, face).is_empty()
         || !escape_grants(state, player, card).is_empty()
         || (face == 0 && flashback_granted(state, card))
+        || (face == 0
+            && object
+                .characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::RETRACE))
         || object
             .card
             .and_then(|card| state.bases.card(card.index))
             .and_then(|def| def.faces.get(face))
             .is_some_and(|face| {
                 face.disturb
+                    || face.aftermath
+                    || face.jump_start
+                    || face
+                        .keywords
+                        .contains(baylee_cards_dsl::KeywordSet::RETRACE)
                     || face.flashback.is_some()
                     || face.escape.is_some()
                     || face.beam_me_up.is_some()
@@ -403,15 +413,11 @@ pub fn play_permission(
     card: ObjectId,
 ) -> Option<crate::state::PlayPermission> {
     let version = state.object(card)?.version;
-    state.play_permissions.iter().copied().find(|p| {
-        let controller = match p.window {
-            crate::state::PlayLifetime::Prepared(source) => state.prepared_controller(source),
-            crate::state::PlayLifetime::Turns(_) | crate::state::PlayLifetime::WhileExiled => {
-                Some(p.player)
-            }
-        };
-        controller == Some(player) && p.card == card && p.version == version
-    })
+    state
+        .play_permissions
+        .iter()
+        .copied()
+        .find(|p| p.grants_to(state, player, card, version))
 }
 
 /// Whether a continuous effect forbids playing `obj` as a land ("Players
@@ -451,11 +457,10 @@ pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bo
     if land_play_is_forbidden(state, obj) {
         return false;
     }
-    let version = Some(obj.version);
     if state
         .play_permissions
         .iter()
-        .any(|p| p.player == player && p.card == card && Some(p.version) == version && !p.cast_only)
+        .any(|p| !p.cast_only && p.grants_to(state, player, card, obj.version))
     {
         return true;
     }

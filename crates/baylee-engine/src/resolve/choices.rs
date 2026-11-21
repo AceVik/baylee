@@ -299,7 +299,10 @@ pub(super) fn exec_choice(
             if looked.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::Scry { player });
+            res.awaiting = Some(AwaitingOp::Scry {
+                player,
+                scried_count: None,
+            });
             // Two players, two roles. Jace's +2 prints "Look at the top card
             // of **target player's** library. **You** may put that card on
             // the bottom of **that player's** library" — so the library is
@@ -309,7 +312,13 @@ pub(super) fn exec_choice(
             Some(look_question(you, looked, ArrangePlace::LibraryBottom))
         }
         Effect::Scry { amount } => {
-            let n = amount2(&amount, state, you, res) as usize;
+            let raw = amount2(&amount, state, you, res);
+            // CR 701.22b: scry 0 is not a scry event.
+            if raw == 0 {
+                return None;
+            }
+            let count = u8::try_from(raw).unwrap_or(u8::MAX);
+            let n = raw as usize;
             let looked: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))
@@ -319,9 +328,15 @@ pub(super) fn exec_choice(
                 .copied()
                 .collect();
             if looked.is_empty() {
+                // CR 701.22d: scry triggers fire after the process completes,
+                // even if looking/reordering was impossible on an empty library.
+                state.record_player_scried(you, count);
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::Scry { player: you });
+            res.awaiting = Some(AwaitingOp::Scry {
+                player: you,
+                scried_count: Some(count),
+            });
             Some(look_question(you, looked, ArrangePlace::LibraryBottom))
         }
         Effect::Surveil { amount } => {
@@ -762,6 +777,106 @@ pub(super) fn exec_choice(
             // relative to the ability, and a Karoo names its own controller
             // where a ward names the caster.
             let player = players_of(player, state, you, res).first().copied()?;
+            if let baylee_cards_dsl::CostPart::DealDamageToYou(damage) = cost {
+                res.awaiting = Some(AwaitingOp::PlayerMayPayDamageToYou {
+                    on_payment,
+                    player,
+                    damage: *damage,
+                    effect,
+                });
+                return Some(Pending::YesNo {
+                    player,
+                    prompt: YesNoPrompt::Generic,
+                    source: resolving_ability(state, res),
+                });
+            }
+            if matches!(
+                cost,
+                baylee_cards_dsl::CostPart::SacrificeX(_)
+                    | baylee_cards_dsl::CostPart::TapX(_)
+                    | baylee_cards_dsl::CostPart::DiscardX(_)
+                    | baylee_cards_dsl::CostPart::ExileFromGraveyardX(_)
+            ) {
+                let options =
+                    cost_wizard::options_with_context(state, player, res.rule_context(), cost);
+                let fixed_x = if !on_payment {
+                    Some(res.x.unwrap_or(0))
+                } else if res.x.is_some_and(|x| x > 0)
+                    || stack_object_announces_x(state, res.on_stack)
+                {
+                    res.x
+                } else {
+                    None
+                };
+                if let Some(announced_x) = fixed_x {
+                    if announced_x == 0 {
+                        let zero_mana = baylee_core::mana::ManaCost::ZERO;
+                        res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                            player,
+                            cost: zero_mana,
+                            outcome: ManaPaymentOutcome::Effects {
+                                effects: std::slice::from_ref(effect),
+                                on_payment,
+                            },
+                        });
+                        return Some(Pending::YesNo {
+                            player,
+                            prompt: YesNoPrompt::Generic,
+                            source: resolving_ability(state, res),
+                        });
+                    }
+                    let Ok(required) = u8::try_from(announced_x) else {
+                        return if on_payment {
+                            None
+                        } else {
+                            run_nested(state, res, std::slice::from_ref(effect))
+                        };
+                    };
+                    if options.len() < usize::from(required) {
+                        return if on_payment {
+                            None
+                        } else {
+                            run_nested(state, res, std::slice::from_ref(effect))
+                        };
+                    }
+                    res.awaiting = Some(AwaitingOp::ConfirmCountedCost {
+                        on_payment,
+                        player,
+                        cost,
+                        required,
+                        effect,
+                    });
+                    return Some(Pending::YesNo {
+                        player,
+                        prompt: YesNoPrompt::Generic,
+                        source: resolving_ability(state, res),
+                    });
+                }
+                if options.is_empty() {
+                    res.x = Some(0);
+                    return if on_payment {
+                        None
+                    } else {
+                        run_nested(state, res, std::slice::from_ref(effect))
+                    };
+                }
+                let max = u8::try_from(options.len()).unwrap_or(u8::MAX);
+                res.awaiting = Some(AwaitingOp::PlayerMayPayCountedCost {
+                    on_payment,
+                    player,
+                    cost,
+                    required: None,
+                    effect,
+                });
+                return Some(Pending::ChooseCards {
+                    player,
+                    options,
+                    min: 0,
+                    max,
+                    prompt: cost_wizard::prompt(cost),
+                    total: None,
+                });
+            }
             if let baylee_cards_dsl::CostPart::TapN { count, .. } = cost {
                 if *count == 0 {
                     // Paying nothing is still optional, so retain both answers.
@@ -1080,6 +1195,53 @@ pub(super) fn exec_choice(
                 reason: crate::choice::NumberPrompt::Choice,
             })
         }
+        Effect::SoulbondPair { with_event_object } => {
+            let src_ver = source_version(state, res);
+            if with_event_object {
+                let partner = res.event_object?;
+                let partner_ver = event_object_identity(state, res).map(|(v, _)| v);
+                if !state.can_soulbond_pair(you, res.source, src_ver, partner, partner_ver) {
+                    return None;
+                }
+                res.awaiting = Some(AwaitingOp::SoulbondConfirmPair {
+                    source: res.source,
+                    source_version: src_ver,
+                    partner,
+                    partner_version: partner_ver,
+                });
+                Some(Pending::YesNo {
+                    player: you,
+                    prompt: YesNoPrompt::MayDo,
+                    source: resolving_ability(state, res),
+                })
+            } else {
+                if !state.is_unpaired_creature_controlled_by(res.source, src_ver, you) {
+                    return None;
+                }
+                let options: Vec<ObjectId> = state
+                    .battlefield_seen()
+                    .filter(|&id| {
+                        id != res.source && state.is_unpaired_creature_controlled_by(id, None, you)
+                    })
+                    .collect();
+                if options.is_empty() {
+                    return None;
+                }
+                res.awaiting = Some(AwaitingOp::SoulbondChoosePartner {
+                    source: res.source,
+                    source_version: src_ver,
+                });
+                Some(Pending::ChooseCards {
+                    player: you,
+                    options,
+                    min: 0,
+                    max: 1,
+                    prompt: ChoicePrompt::Generic,
+                    total: None,
+                })
+            }
+        }
+        Effect::Clash { on_win, on_loss } => super::clash::begin(state, res, on_win, on_loss),
         _ => unreachable!("not a choice op"),
     }
 }
@@ -1220,6 +1382,50 @@ pub(super) struct PaymentBatch {
     operation: Effect,
     remaining: Vec<PlayerId>,
     previous_player: Option<PlayerId>,
+}
+
+fn stack_object_announces_x(state: &GameState, on_stack: ObjectId) -> bool {
+    let Some(obj) = state.object(on_stack) else {
+        return false;
+    };
+    if obj.kind == crate::object::ObjectKind::Spell {
+        return obj.base.mana_cost.has_variable();
+    }
+    let Some(loc) = obj.ability else {
+        return false;
+    };
+    let abilities = if obj.own_abilities.is_some() {
+        Some(obj.abilities(state.bases.as_ref()))
+    } else {
+        state
+            .object(loc.source)
+            .map(|src| src.abilities(state.bases.as_ref()))
+    };
+    let Some(def) = abilities
+        .as_ref()
+        .and_then(|list| list.get(loc.index as usize))
+    else {
+        return false;
+    };
+    let (baylee_cards_dsl::AbilityDef::Activated { cost, .. }
+    | baylee_cards_dsl::AbilityDef::ModalActivated { cost, .. }
+    | baylee_cards_dsl::AbilityDef::ActivatedConditional { cost, .. }) = def
+    else {
+        return false;
+    };
+    cost.mana.has_variable()
+        || cost.parts.iter().any(|p| {
+            matches!(
+                p,
+                baylee_cards_dsl::CostPart::PayLifeX
+                    | baylee_cards_dsl::CostPart::PayEnergyX
+                    | baylee_cards_dsl::CostPart::SacrificeX(_)
+                    | baylee_cards_dsl::CostPart::TapX(_)
+                    | baylee_cards_dsl::CostPart::DiscardX(_)
+                    | baylee_cards_dsl::CostPart::ExileFromGraveyardX(_)
+                    | baylee_cards_dsl::CostPart::RemoveCounterSelfX { .. }
+            )
+        })
 }
 
 fn payment_player(

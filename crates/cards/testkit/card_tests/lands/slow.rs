@@ -8,6 +8,7 @@ mod deserted_beach;
 mod dreamroot_cascade;
 mod haunted_ridge;
 mod overgrown_farmland;
+mod q_continuum;
 mod rockfall_vale;
 mod shattered_sanctum;
 mod shipwreck_marsh;

@@ -75,6 +75,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             tap_cost: false,
             mana_ability: false,
         });
+        self.note_crime_if_any(player, id);
         self.after_action(player);
     }
 

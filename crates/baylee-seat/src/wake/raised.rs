@@ -101,7 +101,7 @@ pub(super) fn ways(
         // Read timing and mandatory costs from the announced face, while the
         // reach keeps the front identity for locating and displaying the card.
         let route_card = match desc.kind {
-            CastModeKind::LibraryTopLife { face, .. } => CardIdentity {
+            CastModeKind::LibraryTopLife { face, .. } | CastModeKind::Face(face) => CardIdentity {
                 face: u8::try_from(face).unwrap_or(u8::MAX),
                 ..card
             },

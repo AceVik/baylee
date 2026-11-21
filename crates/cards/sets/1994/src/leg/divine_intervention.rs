@@ -37,6 +37,7 @@ card!(
         triggered!(
             Trigger::LastCounterRemoved {
                 kind: counters::INTERVENTION,
+                by: Some(PlayerRel::You),
             },
             &[Effect::DrawGame],
         ),

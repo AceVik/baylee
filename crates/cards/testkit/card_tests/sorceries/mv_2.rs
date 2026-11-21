@@ -9,6 +9,7 @@ mod braingeyser;
 mod chainer_s_edict;
 mod channel;
 mod consume_spirit;
+mod dai_li_indoctrination;
 mod damn;
 mod death_stroke;
 mod demonic_tutor;

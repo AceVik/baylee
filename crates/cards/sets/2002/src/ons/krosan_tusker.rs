@@ -14,7 +14,7 @@ card!(
     oracle_id = "82406175-63b3-4972-be8b-db0e70c908cb",
     scryfall_id = "0a368f72-cc88-4f32-aad4-22d92c4d032d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Krosan Tusker",
         mana_cost = mana!("{5}{G}{G}"),

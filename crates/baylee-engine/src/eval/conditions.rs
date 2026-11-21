@@ -7,6 +7,41 @@ use crate::zone::{Zone, ZoneLocation};
 use baylee_cards_dsl::{Condition, Filter};
 use baylee_core::ids::{ObjectId, PlayerId};
 
+pub(crate) fn discarded_for_cost(
+    state: &GameState,
+    paid_on: ObjectId,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &Filter,
+) -> bool {
+    state
+        .object(paid_on)
+        .and_then(|object| object.paid.as_ref())
+        .is_some_and(|paid| {
+            paid.discarded
+                .iter()
+                .filter_map(|reference| state.source_object(*reference))
+                .any(|object| matches_with_context(filter, state, object, you, context))
+        })
+}
+
+pub(crate) fn sacrificed_for_cost(
+    state: &GameState,
+    paid_on: ObjectId,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &Filter,
+) -> bool {
+    state
+        .object(paid_on)
+        .and_then(|object| object.paid.as_ref())
+        .and_then(|paid| paid.sacrificed)
+        .and_then(|(object, version)| {
+            state.source_object(baylee_core::ids::DamageSourceRef { object, version })
+        })
+        .is_some_and(|object| matches_with_context(filter, state, object, you, context))
+}
+
 /// Whether a card's stated [`Condition`] holds right now.
 ///
 /// One vocabulary and one reading, for every ability kind that states a
@@ -88,30 +123,20 @@ pub fn condition_holds_with_context(
         Condition::SourceWasCastByYou => state
             .object(source)
             .is_some_and(|object| object.cast_history.caster() == Some(you)),
-        Condition::DiscardedForCost(filter) => state
-            .object(source)
-            .and_then(|object| object.paid.as_ref())
-            .is_some_and(|paid| {
-                paid.discarded.iter().any(|reference| {
-                    state.source_object(*reference).is_some_and(|object| {
-                        matches_with_context(filter, state, object, you, context)
-                    })
-                })
-            }),
-        Condition::SacrificedForCost(filter) => state
-            .object(source)
-            .and_then(|object| object.paid.as_ref())
-            .and_then(|paid| paid.sacrificed)
-            .and_then(|(object, version)| {
-                state.source_object(baylee_core::ids::DamageSourceRef { object, version })
-            })
-            .is_some_and(|object| matches_with_context(filter, state, object, you, context)),
+        Condition::DiscardedForCost(filter) => {
+            discarded_for_cost(state, source, you, context, filter)
+        }
+        Condition::SacrificedForCost(filter) => {
+            sacrificed_for_cost(state, source, you, context, filter)
+        }
         // These need the triggering incarnation, supplied separately, or a
         // resolution (`resolve::immediate::resolution_condition`).
         Condition::ControlCountExceptEvent(_, _)
         | Condition::EventBlockedByOthers { .. }
         | Condition::SourceWasBlockedThisTurn
-        | Condition::TargetSpellWouldDestroy(_) => false,
+        | Condition::SoulbondEventCanPair
+        | Condition::TargetSpellWouldDestroy(_)
+        | Condition::EvolveFromEvent => false,
         // "Only after combat": a main or ending phase after this turn's
         // combat (the postcombat main phase or the end phase).
         Condition::ChosenOpponentControls(filter) => state
@@ -267,9 +292,9 @@ pub fn condition_holds_with_context(
             player.life < player.starting_life
         }
         Condition::APlayerHasMostLife => most_life(state).is_some(),
-        // The announced X on the source, where `cast_wizard` writes it and
-        // where `Filter::CmcAtMostX` reads it.
-        Condition::XAtLeast(n) => state.object(source).map_or(0, |o| o.x_value) >= n,
+        // The announced X on the source (or resolving ability on the stack),
+        // where `cast_wizard` / activation writes it and `Filter::CmcAtMostX` reads it.
+        Condition::XAtLeast(n) => super::announced_x(state, source) >= n,
         // No last turn at the first upkeep of the game, so nothing was cast
         // in it and nothing wasn't: both sentences are false there.
         Condition::NoSpellsCastLastTurn => {
@@ -499,6 +524,9 @@ pub fn condition_holds_with_context(
         Condition::CountersOnSelf(kind, min) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) >= u16::from(min)),
+        Condition::ClassLevelExactly(_) | Condition::ClassLevelAtLeast(_) => {
+            condition_with_event(state, you, context, condition, None, None)
+        }
         Condition::CountersOnSelfExactly(kind, n) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
@@ -545,6 +573,53 @@ pub fn condition_holds_with_context(
             .object(source)
             .is_some_and(|o| o.riders.contains(&crate::object::Rider::Escaped)),
         Condition::KickedWith(index) => state.object(source).is_some_and(|o| o.kicked_with(index)),
+        Condition::BlitzCostPaid => state.object(source).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield
+                && o.riders.contains(&crate::object::Rider::Blitzed)
+        }),
+        Condition::AltCostPaid => state.object(source).is_some_and(|o| o.alt_cast),
+        Condition::OpponentLostLifeThisTurn => state.players.iter().any(|p| {
+            !state.has_left(p.id)
+                && state.is_opponent(p.id, you)
+                && state.per_turn.life_lost[usize::from(p.id.get())]
+        }),
+        Condition::Surge => {
+            let side = state.side_of(you);
+            state.players.iter().any(|p| {
+                !state.has_left(p.id)
+                    && state.side_of(p.id) == side
+                    && state.per_turn.spells_cast_by(p.id) > 0
+            })
+        }
+        Condition::Prowl => {
+            let Some(spell_obj) = state.object(source) else {
+                return false;
+            };
+            let front = crate::casting::split_front(state, spell_obj);
+            let spell_obj = front.as_ref().unwrap_or(spell_obj);
+            let creature_types = spell_obj
+                .characteristics()
+                .subtypes
+                .intersection(baylee_core::types::SubtypeSet::ALL_CREATURE);
+            !creature_types.is_empty()
+                && state.per_turn.damage_log.iter().any(|entry| {
+                    entry.combat
+                        && entry.amount > 0
+                        && matches!(entry.to, crate::event::DamageTarget::Player(_))
+                        && entry.snapshot.controller == you
+                        && entry
+                            .snapshot
+                            .characteristics()
+                            .subtypes
+                            .intersects(creature_types)
+                })
+        }
+        Condition::Bargained => state
+            .object(source)
+            .is_some_and(|object| object_was_bargained(state, object)),
+        Condition::Prototyped => state
+            .object(source)
+            .is_some_and(|object| object_is_prototyped(state, object)),
         Condition::AttachedMatches(filter) => attached_for_ability(state, source, None, None)
             .is_some_and(|o| matches_with_context(filter, state, o, you, context)),
         Condition::SourceMatches(filter) => state
@@ -563,7 +638,9 @@ pub fn condition_holds_with_context(
         // place in it, whether or not the step itself happens (506.7e).
         Condition::BeforeStep(kind) => state.turn.position() < crate::turn::position_of(kind),
         Condition::CanSacrifice(filter) => {
-            !controlled_matching_with_context(state, you, filter, you, context).is_empty()
+            controlled_matching_with_context(state, you, filter, you, context)
+                .into_iter()
+                .any(|id| state.can_be_sacrificed(id, Some(you)))
         }
         Condition::EvenCountersOnSelf => state.object(source).is_some_and(|o| {
             o.counters
@@ -572,6 +649,117 @@ pub fn condition_holds_with_context(
                 .sum::<u32>()
                 .is_multiple_of(2)
         }),
+        Condition::ControlYourCommander => state.battlefield_seen().any(|id| {
+            state
+                .object(id)
+                .is_some_and(|o| o.controller == you && state.holds_commander_of(you, o))
+        }),
+        Condition::SourceInZone(zone) => state.object(source).is_some_and(|o| {
+            o.zone.matches_ref(zone)
+                && (o.zone != Zone::Battlefield
+                    || !o.status.contains(crate::object::Status::PHASED_OUT))
+                && (o.zone != Zone::Exile || !o.status.contains(crate::object::Status::FACE_DOWN))
+        }),
+        Condition::InCombatAfterBlockers => {
+            state.turn.phase == crate::turn::Phase::Combat
+                && matches!(
+                    state.turn.step,
+                    crate::turn::Step::DeclareBlockers
+                        | crate::turn::Step::CombatDamageFirst
+                        | crate::turn::Step::CombatDamage
+                        | crate::turn::Step::CombatEnd
+                )
+        }
+        Condition::ObjectMatches { what, filter } => match *what {
+            baylee_cards_dsl::TargetSpec::ThisObject => state.object(source).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    && matches_with_context(filter, state, o, you, context)
+            }),
+            _ => false,
+        },
+        Condition::AmountCompare { left, op, right } => op.holds(
+            amount_with_context(left, state, you, context, None),
+            amount_with_context(right, state, you, context, None),
+        ),
+        Condition::IsRenowned => state
+            .object(source)
+            .is_some_and(|object| object_is_renowned(state, object)),
+        Condition::IsPaired => state.paired_partner(source).is_some(),
+        Condition::SoulbondSelfCanPair => {
+            state.is_unpaired_creature_controlled_by(source, None, you)
+                && state.battlefield_seen().any(|id| {
+                    id != source && state.is_unpaired_creature_controlled_by(id, None, you)
+                })
+        }
+        Condition::GiftWasPromised => state
+            .object_or_departed(source)
+            .is_some_and(object_gift_was_promised),
+        Condition::OpponentDealtDamageThisTurn => {
+            super::amounts::damage_dealt_to_opponents_this_turn(state, you) > 0
+        }
+        Condition::WarpCostPaid => state.object(source).is_some_and(|o| {
+            matches!(
+                o.zone,
+                crate::zone::Zone::Stack | crate::zone::Zone::Battlefield
+            ) && o.riders.contains(&crate::object::Rider::WarpedSpell)
+        }),
+        Condition::SpellWarpedThisTurn(who) => match who {
+            None => !state.per_turn.spells_warped.is_empty(),
+            Some(rel) => {
+                super::players_for_source(rel, state, you, Some(source)).is_some_and(|seats| {
+                    state
+                        .per_turn
+                        .spells_warped
+                        .iter()
+                        .any(|p| seats.contains(p))
+                })
+            }
+        },
+        Condition::SnowManaWasSpent => super::amounts::snow_mana_spent_on(state, source) > 0,
+        Condition::IsMonstrous => state
+            .object(source)
+            .is_some_and(|object| object_is_monstrous(state, object)),
+        Condition::IsSuspected => state
+            .object(source)
+            .is_some_and(|object| object_is_suspected(state, object)),
+        Condition::HasRingBearer => state
+            .players
+            .get(usize::from(you.get()))
+            .and_then(|p| p.ring_bearer)
+            .and_then(|id| state.object(id))
+            .is_some_and(|o| {
+                o.zone == crate::zone::Zone::Battlefield
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    && o.controller == you
+            }),
+        Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn => {
+            state.per_turn.damage_log.iter().any(|entry| {
+                entry.combat
+                    && entry.amount > 0
+                    && matches!(entry.to, crate::event::DamageTarget::Player(_))
+                    && entry.snapshot.controller == you
+                    && entry
+                        .snapshot
+                        .characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                    && (entry
+                        .snapshot
+                        .characteristics()
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::creature::ASSASSIN)
+                        || state.holds_commander(&entry.snapshot))
+            })
+        }
+        Condition::CommittedCrimeThisTurn(who) => {
+            super::players_for_source(who, state, you, Some(source))
+                .is_some_and(|seats| seats.iter().any(|&p| state.per_turn.committed_crime(p)))
+        }
+        Condition::ExpendedThisTurn(threshold) => state.per_turn.mana_expended_by(you) >= threshold,
+        Condition::TributeWasNotPaid => !state
+            .object_or_departed(source)
+            .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::TributePaid)),
     }
 }
 
@@ -711,6 +899,33 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::KickedWith(index)) => state
             .damage_source(source, version)
             .is_some_and(|object| object.kicked_with(index)),
+        Some(Condition::AltCostPaid) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.alt_cast),
+        Some(Condition::Bargained) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object_was_bargained(state, object)),
+        Some(Condition::GiftWasPromised) => state
+            .damage_source(source, version)
+            .is_some_and(object_gift_was_promised),
+        Some(Condition::Prototyped) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object_is_prototyped(state, object)),
+        Some(Condition::IsRenowned) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Renowned)),
+        Some(Condition::WarpCostPaid) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::WarpedSpell)),
+        Some(Condition::SnowManaWasSpent) => state
+            .damage_source(source, version)
+            .is_some_and(|object| super::amounts::object_snow_mana_spent(object) > 0),
+        Some(Condition::IsMonstrous) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Monstrous)),
+        Some(Condition::IsSuspected) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Suspected)),
         Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep) => {
             super::upkeep_history::came_under_your_control(state, you, source, version)
         }
@@ -718,7 +933,7 @@ pub(crate) fn intervening_if_for_incarnation(
             attached_for_ability(state, source, version, attachment)
                 .is_some_and(|o| matches(filter, state, o, you, source))
         }
-        Some(Condition::GraveyardCardsAbove(_, _)) => {
+        Some(Condition::GraveyardCardsAbove(_, _) | Condition::SourceInZone(_)) => {
             version.is_none_or(|version| state.object(source).is_some_and(|o| o.version == version))
                 && intervening_if(state, condition, you, source)
         }
@@ -739,7 +954,14 @@ pub(crate) fn condition_reads_event(condition: Condition) -> bool {
     match condition {
         Condition::ControlCountExceptEvent(_, _)
         | Condition::EventBlockedByOthers { .. }
-        | Condition::SourceWasBlockedThisTurn => true,
+        | Condition::SourceWasBlockedThisTurn
+        | Condition::SoulbondSelfCanPair
+        | Condition::SoulbondEventCanPair
+        | Condition::EvolveFromEvent
+        | Condition::ObjectMatches {
+            what: &baylee_cards_dsl::TargetSpec::EventObject,
+            ..
+        } => true,
         Condition::All(conditions) | Condition::Any(conditions) => {
             conditions.iter().copied().any(condition_reads_event)
         }
@@ -758,6 +980,12 @@ pub(crate) fn condition_with_event(
     event: Option<baylee_core::ids::DamageSourceRef>,
 ) -> bool {
     match condition {
+        Condition::ClassLevelExactly(level) => state
+            .damage_source(context.source, source_version)
+            .is_some_and(|o| o.zone == Zone::Battlefield && o.class_level() == level),
+        Condition::ClassLevelAtLeast(level) => state
+            .damage_source(context.source, source_version)
+            .is_some_and(|o| o.zone == Zone::Battlefield && o.class_level() >= level),
         Condition::ControlCountExceptEvent(filter, minimum) => {
             let Some(event) = event else { return false };
             state
@@ -806,6 +1034,10 @@ pub(crate) fn condition_with_event(
                 .iter()
                 .any(|b| matches_with_context(none, state, b, you, context))
         }
+        Condition::ObjectMatches {
+            what: &baylee_cards_dsl::TargetSpec::EventObject,
+            filter,
+        } => event_object_matches(state, you, context, filter, event),
         Condition::All(conditions) => conditions.iter().all(|&condition| {
             condition_with_event(state, you, context, condition, source_version, event)
         }),
@@ -815,8 +1047,144 @@ pub(crate) fn condition_with_event(
         Condition::Not(condition) => {
             !condition_with_event(state, you, context, *condition, source_version, event)
         }
+        Condition::SoulbondSelfCanPair => {
+            state.is_unpaired_creature_controlled_by(context.source, source_version, you)
+                && state.battlefield_seen().any(|id| {
+                    id != context.source && state.is_unpaired_creature_controlled_by(id, None, you)
+                })
+        }
+        Condition::SoulbondEventCanPair => event.is_some_and(|ev| {
+            state.can_soulbond_pair(
+                you,
+                context.source,
+                source_version,
+                ev.object,
+                Some(ev.version),
+            )
+        }),
+        Condition::EvolveFromEvent => evolve_holds(state, context.source, source_version, event),
+        Condition::TributeWasNotPaid => tribute_was_not_paid(state, context.source, source_version),
         _ => condition_holds_with_context(state, you, context, condition),
     }
+}
+
+fn event_object_matches(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &baylee_cards_dsl::Filter,
+    event: Option<baylee_core::ids::DamageSourceRef>,
+) -> bool {
+    let Some(event) = event else { return false };
+    let Some(obj) = state
+        .source_object(event)
+        .or_else(|| state.object_or_departed(event.object))
+    else {
+        return false;
+    };
+    if let Some(was) = state.last_known_characteristics(event.object) {
+        let mut as_it_was = obj.clone();
+        as_it_was.counters = state
+            .ltb_counters
+            .iter()
+            .find(|(id, _)| *id == event.object)
+            .map_or_default(|(_, counters)| counters.clone());
+        super::matches_projected_with_context(filter, state, &as_it_was, was, you, context)
+    } else {
+        matches_with_context(filter, state, obj, you, context)
+    }
+}
+
+fn tribute_was_not_paid(
+    state: &GameState,
+    source: baylee_core::ids::ObjectId,
+    source_version: Option<u32>,
+) -> bool {
+    let paid = if let Some(version) = source_version {
+        state
+            .source_object(baylee_core::ids::DamageSourceRef {
+                object: source,
+                version,
+            })
+            .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::TributePaid))
+    } else {
+        state
+            .object_or_departed(source)
+            .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::TributePaid))
+    };
+    !paid
+}
+
+fn battlefield_or_lki_chars(
+    state: &GameState,
+    id: ObjectId,
+    version: Option<u32>,
+) -> Option<&crate::object::Characteristics> {
+    if let Some(obj) = state.object(id).filter(|o| {
+        o.zone == Zone::Battlefield
+            && !o.status.contains(crate::object::Status::PHASED_OUT)
+            && version.is_none_or(|v| o.version == v)
+    }) {
+        return Some(obj.characteristics());
+    }
+    if let Some(v) = version {
+        if let Some(obj) = state
+            .source_object(baylee_core::ids::DamageSourceRef {
+                object: id,
+                version: v,
+            })
+            .filter(|o| o.zone == Zone::Battlefield)
+        {
+            return Some(obj.characteristics());
+        }
+        if state
+            .ltb_versions
+            .iter()
+            .any(|&(lid, lver)| lid == id && lver == v)
+        {
+            return state.last_known_characteristics(id);
+        }
+    }
+    None
+}
+
+/// Evolve's intervening `if` (CR 702.100a, CR 702.100c, CR 603.4, CR 608.2h):
+/// both objects are creatures (on the battlefield or in battlefield departure
+/// LKI) and the entering creature has strictly greater power or toughness.
+pub(crate) fn evolve_holds(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+    event: Option<baylee_core::ids::DamageSourceRef>,
+) -> bool {
+    let Some(event) = event else { return false };
+    if event.object == source && source_version.is_none_or(|v| v == event.version) {
+        return false;
+    }
+    let Some(src_chars) = battlefield_or_lki_chars(state, source, source_version) else {
+        return false;
+    };
+    let Some(ent_chars) = battlefield_or_lki_chars(state, event.object, Some(event.version)) else {
+        return false;
+    };
+    if !src_chars
+        .types
+        .contains(baylee_core::types::TypeSet::CREATURE)
+        || !ent_chars
+            .types
+            .contains(baylee_core::types::TypeSet::CREATURE)
+    {
+        return false;
+    }
+    let (Some(src_p), Some(src_t), Some(ent_p), Some(ent_t)) = (
+        src_chars.power,
+        src_chars.toughness,
+        ent_chars.power,
+        ent_chars.toughness,
+    ) else {
+        return false;
+    };
+    ent_p > src_p || ent_t > src_t
 }
 
 /// A resolving ability reads its source's current attachment, or the
@@ -861,4 +1229,37 @@ pub(crate) fn graveyard_card_types(
         .fold(TypeSet::EMPTY, |types, card| {
             types.union(card.characteristics().types)
         })
+}
+
+fn object_was_bargained(_state: &GameState, object: &crate::object::GameObject) -> bool {
+    object.riders.contains(&crate::object::Rider::Bargained)
+}
+
+fn object_gift_was_promised(object: &crate::object::GameObject) -> bool {
+    object
+        .riders
+        .iter()
+        .any(|r| matches!(r, crate::object::Rider::GiftPromisedTo(_)))
+}
+
+fn object_is_prototyped(_state: &GameState, object: &crate::object::GameObject) -> bool {
+    object.prototyped
+}
+
+fn object_is_renowned(_state: &GameState, object: &crate::object::GameObject) -> bool {
+    object.zone == Zone::Battlefield
+        && !object.status.contains(crate::object::Status::PHASED_OUT)
+        && object.riders.contains(&crate::object::Rider::Renowned)
+}
+
+fn object_is_monstrous(_state: &GameState, object: &crate::object::GameObject) -> bool {
+    object.zone == Zone::Battlefield
+        && !object.status.contains(crate::object::Status::PHASED_OUT)
+        && object.riders.contains(&crate::object::Rider::Monstrous)
+}
+
+fn object_is_suspected(_state: &GameState, object: &crate::object::GameObject) -> bool {
+    object.zone == Zone::Battlefield
+        && !object.status.contains(crate::object::Status::PHASED_OUT)
+        && object.riders.contains(&crate::object::Rider::Suspected)
 }

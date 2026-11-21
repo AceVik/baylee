@@ -75,6 +75,8 @@ impl GameState {
                     dungeon: None,
                     dungeon_room: 0,
                     dungeons_completed: 0,
+                    ring_temptations: 0,
+                    ring_bearer: None,
                 })
                 .collect(),
             turn: TurnInfo::new(starting_player),
@@ -121,11 +123,13 @@ impl GameState {
             ltb_attachments: Vec::new(),
             ceased: Vec::new(),
             reflexive: Vec::new(),
+            resolution_chosen_color: None,
             discovered: Vec::new(),
             divided: Vec::new(),
             synthetic_copies: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
+            goaded: super::per_turn::PerTurnVec::default(),
             game_end: None,
             day_night: None,
             previous_turn: None,
@@ -439,6 +443,8 @@ impl GameState {
             .ok_or(SetupError::UnknownCard(entry.card))?;
         self.admit_linked_rules(def, lookup)?;
         self.graveyard_order.enabled |= crate::graveyard_order::card_reads_order(def);
+        self.per_turn.crimes_committed.tracked |= super::reads::card_reads_crime(def);
+        self.per_turn.mana_expended_on_spells.tracked |= super::reads::card_reads_expend(def);
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -550,6 +556,8 @@ impl GameState {
         let def = lookup.card(index).ok_or(SetupError::UnknownCard(index))?;
         self.admit_linked_rules(def, lookup)?;
         self.graveyard_order.enabled |= crate::graveyard_order::card_reads_order(def);
+        self.per_turn.crimes_committed.tracked |= super::reads::card_reads_crime(def);
+        self.per_turn.mana_expended_on_spells.tracked |= super::reads::card_reads_expend(def);
         Ok(PrintedCard {
             base: self.card_base(def, index),
             cda: printed_pt_cda(def),

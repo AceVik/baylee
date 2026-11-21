@@ -313,8 +313,8 @@ pub(crate) fn pool_row_at(
         false,
         Press::Build(BuildPress::AddFromPool(slot, false)),
     ));
-    if card.commander && state.commander_pick.is_some() {
-        let partner = state.commander_pick == Some(true);
+    // The picker has already filtered these rows for the selected role.
+    if let Some(partner) = state.commander_pick {
         kids.push(controls::button(
             commands,
             kit,

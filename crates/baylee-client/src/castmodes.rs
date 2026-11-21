@@ -106,6 +106,7 @@ pub struct ReachableMode {
 /// asks a question only when there is more than one way, and everything else
 /// takes the path it always took.
 #[must_use]
+#[allow(clippy::too_many_lines)] // one branch per printed way to cast
 pub fn reachable_modes(
     view: &PlayerView,
     legal: &LegalActions,
@@ -170,27 +171,13 @@ pub fn reachable_modes(
     // 702.96a): each mode is a way with its own price, so the choice comes
     // before the floating like any alternative cost. A mode whose targets
     // this board provably lacks is left off, as the kicker is above.
-    if let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }) = def
-        .abilities_for_face(face_index)
-        .iter()
-        .find(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
-        && *choose == baylee_cards_dsl::ModeCount::ONE
-        && modes.iter().any(|m| m.cost_override.is_some())
-    {
-        for (i, mode) in modes.iter().enumerate() {
-            if mode
-                .targets
-                .is_none_or(|req| crate::targeting::requirement_possible(view, req))
-            {
-                offer(
-                    CastModeKind::Mode(i),
-                    mode.cost_override.unwrap_or(face.mana_cost),
-                );
-            }
-        }
-    }
+    offer_modal_override_modes(view, def, face_index, face, &mut offer);
     if let Some(req) = face.kicked_targets
         && crate::targeting::requirement_possible(view, req)
+        && face
+            .additional_costs
+            .iter()
+            .all(|c| parts_payable(view, card, c.parts))
     {
         offer(
             CastModeKind::Kicked,
@@ -200,11 +187,62 @@ pub fn reachable_modes(
     if let Some(prototype) = face.prototype {
         offer(CastModeKind::Prototype, prototype.cost);
     }
-    if face.disguise.is_some() || face.morph.is_some() {
+    if face.has_face_down_cast() {
         offer(CastModeKind::Disguise, const { ManaCost::parse("{3}") });
+    }
+    if let Some(bestow) = face.bestow
+        && crate::targeting::requirement_possible(view, baylee_engine::casting::BESTOW_TARGET_REQ)
+        && parts_payable(view, card, bestow.parts)
+    {
+        offer(CastModeKind::Bestow, bestow.mana);
     }
     if let Some(dash) = face.dash {
         offer(CastModeKind::Dash, dash);
+    }
+    if let Some(blitz) = face.blitz
+        && parts_payable(view, card, blitz.parts)
+    {
+        offer(CastModeKind::Blitz, blitz.mana);
+    }
+    if let Some(warp) = face.warp
+        && parts_payable(view, card, warp.parts)
+    {
+        offer(CastModeKind::Warp, warp.mana);
+    }
+    if let Some(sneak) = def.abilities_for_face(0).iter().find_map(|a| match a {
+        baylee_cards_dsl::AbilityDef::Static(sa) => match sa.modifier {
+            baylee_cards_dsl::Modifier::Sneak(cost) => Some(cost),
+            _ => None,
+        },
+        _ => None,
+    }) && (legal
+        .cast_ways
+        .iter()
+        .any(|(c, w)| *c == card && w.kind == CastModeKind::Sneak)
+        || (view.active == resource_player(view)
+            && view.step == baylee_view::Step::DeclareBlockers
+            && parts_payable(view, card, sneak.parts)
+            && view.combat.attackers.iter().any(|a| {
+                !a.blocked
+                    && view
+                        .object(a.creature)
+                        .is_some_and(|o| o.controller == resource_player(view))
+            })))
+    {
+        offer(CastModeKind::Sneak, sneak.mana);
+    }
+    for ability in def.abilities_for_face(face_index) {
+        if let baylee_cards_dsl::AbilityDef::Awaken { cost, .. } = ability
+            && crate::targeting::requirement_possible(
+                view,
+                baylee_cards_dsl::TargetReq::one(baylee_cards_dsl::TargetSpec::Object(
+                    &baylee_cards_dsl::Filter::YOUR_LAND,
+                )),
+            )
+            && parts_payable(view, card, cost.parts)
+        {
+            offer(CastModeKind::Awaken, cost.mana);
+        }
     }
     if let Some(mutate) = face.mutate
         && crate::targeting::requirement_possible(view, baylee_engine::casting::MUTATE_TARGET_REQ)
@@ -219,13 +257,136 @@ pub fn reachable_modes(
         }
     }
     for (i, alt) in face.alternative_costs.iter().enumerate() {
-        if condition_holds(view, alt.condition) && parts_payable(view, card, alt.cost.parts) {
+        if alternative_mode_open(view, legal, card, i, alt)
+            && parts_payable(view, card, alt.cost.parts)
+        {
             offer(CastModeKind::Alternative(i), alt.cost.mana);
         }
     }
+    if let Some(emerge) = face.emerge
+        && let Some(emerge_mode) = emerge_mode(view, legal, card, hand.card, emerge, &pool, life)
+    {
+        out.push(emerge_mode);
+    }
     out.extend(face_modes(view, legal, card, &pool, life));
-    out.extend(foretell_mode(view, legal, face, &pool));
+    out.extend(foretell_mode(view, legal, card));
     out
+}
+
+fn alternative_mode_open(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: ObjectId,
+    index: usize,
+    alt: &baylee_cards_dsl::AlternativeCost,
+) -> bool {
+    condition_holds(view, alt.condition)
+        || legal
+            .cast_ways
+            .iter()
+            .any(|(c, w)| *c == card && w.kind == CastModeKind::Alternative(index))
+}
+
+fn emerge_mode(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: ObjectId,
+    identity: baylee_view::CardIdentity,
+    emerge: baylee_cards_dsl::Emerge,
+    pool: &baylee_view::ManaPoolView,
+    life: i32,
+) -> Option<ReachableMode> {
+    let cost = if let Some((_, way)) = legal
+        .cast_ways
+        .iter()
+        .find(|(id, w)| *id == card && w.kind == CastModeKind::Emerge)
+    {
+        way.cost
+    } else if parts_payable(view, card, &[CostPart::Sacrifice(emerge.from)]) {
+        let player = resource_player(view);
+        let max_mv = view
+            .battlefield_of(player)
+            .filter(|o| {
+                o.id != card && crate::targeting::matches(view, o, emerge.from) == Some(true)
+            })
+            .map(|o| o.mana_value)
+            .max()
+            .unwrap_or(0);
+        baylee_ai::spell_price(
+            view,
+            card,
+            Some(identity),
+            legal,
+            CastModeKind::Emerge,
+            emerge.cost,
+        )
+        .with_less_generic(max_mv)
+    } else {
+        return None;
+    };
+    crate::manasources::plan_with_life_for_spell(
+        &crate::reach::least_x(cost),
+        pool,
+        view,
+        legal,
+        card,
+        CastModeKind::Emerge,
+        life,
+    )
+    .map(|plan| ReachableMode {
+        kind: CastModeKind::Emerge,
+        cost,
+        plan,
+    })
+}
+
+fn offer_modal_override_modes(
+    view: &PlayerView,
+    def: &baylee_cards_dsl::CardDef,
+    face_index: usize,
+    face: &baylee_cards_dsl::FaceDef,
+    offer: &mut impl FnMut(CastModeKind, ManaCost),
+) {
+    let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }) = def
+        .abilities_for_face(face_index)
+        .iter()
+        .find(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+    else {
+        return;
+    };
+    if !choose.is_one() {
+        for set in baylee_engine::casting::mode_sets(modes, *choose) {
+            if baylee_engine::casting::chosen_modes(modes, set).all(|(_, mode)| {
+                mode.targets
+                    .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+                    && mode
+                        .second_targets
+                        .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+            }) {
+                offer(
+                    CastModeKind::Modes(set),
+                    baylee_engine::casting::mode_set_cost(face.mana_cost, modes, set),
+                );
+            }
+        }
+        return;
+    }
+    if modes.iter().any(|m| m.cost_override.is_some()) {
+        for (i, mode) in modes.iter().enumerate() {
+            if mode
+                .targets
+                .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+                && mode
+                    .second_targets
+                    .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+            {
+                offer(
+                    CastModeKind::Mode(i),
+                    mode.cost_override.unwrap_or(face.mana_cost),
+                );
+            }
+        }
+    }
 }
 
 /// Price only the casting permission named for this visible library top.
@@ -314,7 +475,7 @@ fn face_modes(
         .iter()
         .filter(|(id, way)| {
             *id == card
-                && matches!(way.kind, CastModeKind::Face(_))
+                && matches!(way.kind, CastModeKind::Face(_) | CastModeKind::Fused)
                 && way.cost.symbols().next().is_some()
         })
         .filter_map(|(_, way)| {
@@ -336,27 +497,53 @@ fn face_modes(
         .collect()
 }
 
-/// Foretell's special action (CR 702.143a), offered beside the ordinary ways
-/// so a foretell card that can also be cast never has either deed silently
-/// chosen for it. Its {2} is not a spell cost and receives no spell-cost
-/// increase.
-fn foretell_mode(
+/// The cost of an offered suspend action that can be funded now.
+pub(crate) fn suspend_cost(
+    duel: &crate::Duel,
     view: &PlayerView,
     legal: &LegalActions,
-    face: &baylee_cards_dsl::FaceDef,
-    pool: &baylee_view::ManaPoolView,
-) -> Option<ReachableMode> {
-    if view.active != resource_player(view) || face.foretell.is_none() {
-        return None;
+    card: ObjectId,
+) -> Option<ManaCost> {
+    if legal.suspendable.contains(&card) {
+        let hand = baylee_client_core::decision::hand(view)
+            .iter()
+            .find(|c| c.id == card)?;
+        let def = baylee_cards::by_index(hand.card.index)?;
+        return def
+            .abilities_for_face(0)
+            .iter()
+            .find_map(|ability| match ability {
+                baylee_cards_dsl::AbilityDef::Suspend { cost, .. } => Some(*cost),
+                _ => None,
+            });
     }
+    crate::suspend_mana_for(duel, card)?;
+    legal
+        .unpaid_suspend
+        .iter()
+        .find_map(|&(id, cost)| (id == card).then_some(cost))
+}
+
+/// The engine's paid or reachable foretell special action (CR 702.143a).
+pub(crate) fn foretell_mode(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: ObjectId,
+) -> Option<ReachableMode> {
     let cost = const { ManaCost::parse("{2}") };
-    baylee_client_core::manaplan::plan(&cost, pool, &crate::manasources::sources(view, legal)).map(
-        |plan| ReachableMode {
-            kind: CastModeKind::Foretell,
-            cost,
-            plan,
-        },
-    )
+    let plan = if legal.foretellable.contains(&card) {
+        Plan::default()
+    } else if legal.unpaid_foretell.contains(&card) {
+        let pool = view.seat(resource_player(view))?.mana_pool;
+        baylee_client_core::manaplan::plan(&cost, &pool, &crate::manasources::sources(view, legal))?
+    } else {
+        return None;
+    };
+    Some(ReachableMode {
+        kind: CastModeKind::Foretell,
+        cost,
+        plan,
+    })
 }
 
 /// Whether an alternative cost's condition holds, read off the view.
@@ -452,8 +639,10 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
             .seat(resource_player(view))
             .is_some_and(|seat| seat.life >= i32::from(*n)),
         // Collective availability, including distinct cards and permanents
-        // for repeated parts, was established by the two matchers above.
-        CostPart::ExileFromHand(Filter::HasColor(_))
+        // for repeated parts, was established by the two matchers above; self-damage
+        // is always payable regardless of life total (CR 118.3).
+        CostPart::DealDamageToYou(_)
+        | CostPart::ExileFromHand(Filter::HasColor(_))
         | CostPart::Sacrifice(_)
         | CostPart::ReturnToHand(_)
         | CostPart::TapN { .. } => true,
@@ -491,7 +680,17 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExileTopOfLibrary(_)
         | CostPart::PayAttachedManaCost
-        | CostPart::SacrificeGrantor => false,
+        | CostPart::ReturnUnblockedAttacker
+        | CostPart::SacrificeGrantor
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::Forage
+        | CostPart::CraftMaterials { .. } => false,
+        CostPart::Either(a, b) => {
+            (a.mana == baylee_core::mana::ManaCost::ZERO && parts_payable(view, card, a.parts))
+                || (b.mana == baylee_core::mana::ManaCost::ZERO
+                    && parts_payable(view, card, b.parts))
+        }
     })
 }
 
@@ -1044,8 +1243,10 @@ mod tests {
     #[test]
     fn foretell_plans_its_fixed_action_cost_beside_the_normal_cast() {
         let hand = card_in_hand(1, "Doomskar", &[Color::White]);
-        let (view, legal) = table(vec![hand], 5);
-        let modes = reachable_modes(&view, &legal, ObjectId::new(1, 0));
+        let id = hand.id;
+        let (view, mut legal) = table(vec![hand], 5);
+        legal.unpaid_foretell.push(id);
+        let modes = reachable_modes(&view, &legal, id);
         assert_eq!(
             kinds(&modes),
             [CastModeKind::Normal, CastModeKind::Foretell]
@@ -1053,6 +1254,11 @@ mod tests {
         assert_eq!(modes[1].cost, ManaCost::parse("{2}"));
         assert_eq!(modes[1].plan.taps(), 2);
         assert_eq!(modes[0].cost, ManaCost::parse("{3}{W}{W}"));
+        legal.unpaid_foretell.clear();
+        assert_eq!(
+            kinds(&reachable_modes(&view, &legal, id)),
+            [CastModeKind::Normal]
+        );
     }
 
     #[test]

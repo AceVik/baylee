@@ -448,6 +448,60 @@ fn the_mana_for_a_worthwhile_equip_is_made_by_the_careful_levels() {
     );
 }
 
+#[test]
+fn the_house_uses_floating_mana_to_advance_druid_class() {
+    let mut object = card(1, ME, "Druid Class", TypeSet::ENCHANTMENT);
+    object.class_level = Some(1);
+    let mut v = view(0, &[20, 20], vec![object]);
+    main_phase(&mut v);
+    v.seats[0].mana_pool.green = 1;
+    v.seats[0].mana_pool.colorless = 2;
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::SHARP).act(&v, &offering(vec![(obj(1), 1)])),
+        activates(1, 1)
+    );
+
+    v.battlefield[0].class_level = Some(2);
+    v.seats[0].mana_pool.colorless = 4;
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::SHARP).act(&v, &offering(vec![(obj(1), 3)])),
+        activates(1, 3)
+    );
+}
+
+#[test]
+fn the_house_funds_a_class_upgrade_only_when_the_engine_offers_it() {
+    let mut class = card(1, ME, "Druid Class", TypeSet::ENCHANTMENT);
+    class.class_level = Some(1);
+    let mut forest = card(2, ME, "Forest", TypeSet::LAND);
+    forest.supertypes = SupertypeSet::BASIC;
+    forest.subtypes.insert(land_type::FOREST);
+    let mut v = view(0, &[20, 20], vec![class, forest]);
+    main_phase(&mut v);
+    v.seats[0].mana_pool.colorless = 2;
+    let class_offers = |unpaid_abilities| Pending::Priority {
+        player: ME,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            mana_abilities: vec![obj(2)],
+            unpaid_abilities,
+            ..Default::default()
+        }),
+    };
+    let agent = HeuristicAgent::new(AIProfile::SHARP);
+    assert_eq!(
+        agent.act(&v, &class_offers(vec![])),
+        PlayerAction::PassPriority
+    );
+    assert_eq!(
+        agent.act(
+            &v,
+            &class_offers(vec![(obj(1), 1, baylee_core::mana!("{2}{G}"))])
+        ),
+        PlayerAction::ActivateManaAbility { source: obj(2) }
+    );
+}
+
 /// On the only creature there is, moving it again is mana for nothing.
 #[test]
 fn a_sword_is_not_moved_onto_the_creature_already_wearing_it() {
@@ -2037,5 +2091,172 @@ fn chosen_source_landwalk_values_a_real_printed_activation() {
         agent().effects_worth(&v, Origin::of(&v, obj(1)), &[effect], Aim::Source, 0,),
         // The generic delayed-effect valuation discounts the future attack by half.
         Some(30)
+    );
+}
+
+#[test]
+fn phase_out_worth_prices_hostile_threats_and_leaves_empty_board_unread() {
+    use baylee_cards_dsl::{Duration, Effect, Filter, KeywordSet, Modifier, TargetSpec};
+    let phase_target = Effect::PhaseOut {
+        target: Some(TargetSpec::Object(&Filter::CREATURE)),
+    };
+    let phase_self = Effect::PhaseOut { target: None };
+    let empty = view(0, &[20, 20], vec![]);
+    let bare = Origin {
+        id: obj(1),
+        object: None,
+    };
+    assert_eq!(
+        agent().effects_worth(&empty, bare, &[phase_target], Aim::Source, 0),
+        None
+    );
+    assert_eq!(
+        agent().effects_worth(&empty, bare, &[phase_self], Aim::Source, 0),
+        None
+    );
+
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![
+            keyworded(obj(1), ME, 2, "Rainbow Efreet", KeywordSet::PHASING),
+            keyworded(obj(2), THEM, 3, "Hill Giant", KeywordSet::EMPTY),
+        ],
+    );
+    main_phase(&mut v);
+    let foe_worth = agent()
+        .effects_worth(
+            &v,
+            Origin::of(&v, obj(1)),
+            &[phase_target],
+            Aim::Object(obj(2)),
+            0,
+        )
+        .expect("hostile creature phase-out is priced");
+    assert!(
+        foe_worth > 0,
+        "phasing out an opposing creature has positive tempo worth"
+    );
+    let own_idle = agent()
+        .effects_worth(
+            &v,
+            Origin::of(&v, obj(1)),
+            &[phase_target],
+            Aim::Object(obj(1)),
+            0,
+        )
+        .expect("friendly creature phase-out is priced");
+    assert!(
+        own_idle < 0,
+        "phasing out an unthreatened friendly creature is negative"
+    );
+
+    let anchor = Effect::ModifySource {
+        modifier: Modifier::CantPhaseOut,
+        duration: Duration::UntilEndOfYourNextUpkeep,
+    };
+    assert_eq!(
+        agent().effects_worth(&v, Origin::of(&v, obj(1)), &[anchor], Aim::Source, 0),
+        Some(60)
+    );
+}
+
+static AURA_PING: AbilityDef = baylee_cards_dsl::activated!(
+    baylee_cards_dsl::Cost::TAP,
+    &[baylee_cards_dsl::Effect::DealDamage {
+        amount: baylee_cards_dsl::Amount::Fixed(1),
+        target: baylee_cards_dsl::TargetSpec::AnyTarget,
+    }],
+    targets = Some(baylee_cards_dsl::TargetReq::one(
+        baylee_cards_dsl::TargetSpec::AnyTarget
+    ))
+);
+static AURA_DRAW_ON_HIT: AbilityDef = baylee_cards_dsl::triggered!(
+    baylee_cards_dsl::Trigger::DealsDamageToOpponent(&baylee_cards_dsl::Filter::This),
+    &[baylee_cards_dsl::Effect::DrawCards {
+        amount: baylee_cards_dsl::Amount::Fixed(1),
+    }]
+);
+static AURA_CU_UPKEEP: AbilityDef = baylee_cards_dsl::triggered!(
+    baylee_cards_dsl::Trigger::StepBegin {
+        step: baylee_cards_dsl::StepKind::Upkeep,
+        whose: baylee_cards_dsl::PlayerRel::You,
+    },
+    &[
+        baylee_cards_dsl::Effect::AddCounter {
+            kind: baylee_cards_dsl::counters::AGE,
+            amount: baylee_cards_dsl::Amount::Fixed(1),
+        },
+        baylee_cards_dsl::Effect::PlayerMayPayOr {
+            player: baylee_cards_dsl::PlayerRel::You,
+            mana: baylee_cards_dsl::Amount::Fixed(1),
+            effect: &baylee_cards_dsl::Effect::SacrificeSelf,
+        },
+    ]
+);
+
+#[test]
+fn aura_enchanting_values_granted_activated_and_triggered_abilities() {
+    use baylee_cards_dsl::{Filter, KeywordSet, Modifier, static_ability};
+    use baylee_core::types::TargetSide;
+    static ENCHANTED: Filter = Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]);
+
+    let ping_aura = [static_ability!(
+        ENCHANTED,
+        Modifier::GrantActivatedDefinition(&AURA_PING)
+    )];
+    let draw_aura = [static_ability!(
+        ENCHANTED,
+        Modifier::GrantTriggeredDefinition(&AURA_DRAW_ON_HIT)
+    )];
+    let cu_aura = [static_ability!(
+        ENCHANTED,
+        Modifier::GrantTriggeredDefinition(&AURA_CU_UPKEEP)
+    )];
+
+    assert_eq!(
+        baylee_engine::target_side::aura_side(&ping_aura),
+        Some(TargetSide::Helpful)
+    );
+    assert_eq!(
+        baylee_engine::target_side::aura_side(&draw_aura),
+        Some(TargetSide::Helpful)
+    );
+    assert_eq!(
+        baylee_engine::target_side::aura_side(&cu_aura),
+        Some(TargetSide::Harmful)
+    );
+
+    let v = view(
+        0,
+        &[20, 20],
+        vec![
+            keyworded(obj(1), ME, 2, "Grizzly Bears", KeywordSet::EMPTY),
+            keyworded(obj(2), THEM, 2, "Grizzly Bears", KeywordSet::EMPTY),
+        ],
+    );
+    assert!(
+        agent()
+            .enchanting(&v, &ping_aura, Aim::Object(obj(1)))
+            .unwrap()
+            > 0
+    );
+    assert!(
+        agent()
+            .enchanting(&v, &ping_aura, Aim::Object(obj(2)))
+            .unwrap()
+            < 0
+    );
+    assert!(
+        agent()
+            .enchanting(&v, &cu_aura, Aim::Object(obj(1)))
+            .unwrap()
+            < 0
+    );
+    assert!(
+        agent()
+            .enchanting(&v, &cu_aura, Aim::Object(obj(2)))
+            .unwrap()
+            > 0
     );
 }

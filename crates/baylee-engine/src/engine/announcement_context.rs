@@ -11,15 +11,26 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
         WizardStage::ChooseMode
         | WizardStage::Permission
         | WizardStage::ManaPermission
-        | WizardStage::XValue => None,
+        | WizardStage::EmergeSacrifice
+        | WizardStage::XValue
+        | WizardStage::KickerX => None,
         WizardStage::Kicker
         | WizardStage::Buyback
+        | WizardStage::Bargain
+        | WizardStage::Offspring
+        | WizardStage::Casualty
+        | WizardStage::Gift
         | WizardStage::Multikicker
+        | WizardStage::Squad
         | WizardStage::Replicate
+        | WizardStage::Splice
+        | WizardStage::Conspire
         | WizardStage::Targets
         | WizardStage::SecondTargets
+        | WizardStage::ExtraTargets
         | WizardStage::ChoosePlayer
         | WizardStage::DivideDamage
+        | WizardStage::EitherCost
         | WizardStage::PitchChoice
         | WizardStage::ReturnCreature
         | WizardStage::Behold

@@ -141,6 +141,12 @@ pub fn effect_label(
         DamageEffectKind::ReplaceAmount { amount } => {
             Phrase::DamageReplaceAmount.fill(lang, &[&amount.to_string()])
         }
+        DamageEffectKind::MultiplyDamage { factor } => {
+            Phrase::DamageMultiplyAmount.fill(lang, &[&factor.to_string()])
+        }
+        DamageEffectKind::AddDamage { extra } => {
+            Phrase::DamageAddAmount.fill(lang, &[&extra.to_string()])
+        }
         // `name` resolves a live handle, not an exact historical incarnation.
         // The origin already identifies the effect; do not relabel its source
         // using a later object that might occupy the same handle.
@@ -249,6 +255,16 @@ mod tests {
                 DamageEffectKind::RemoveShieldCounter,
                 "Remove one shield counter and prevent this event's damage",
                 "Entferne eine Schildmarke und verhindere den Schaden dieses Ereignisses",
+            ),
+            (
+                DamageEffectKind::MultiplyDamage { factor: 2 },
+                "Multiply each indicated damage amount by 2; this is not prevention",
+                "Vervielfache jeden angegebenen Schaden mit 2",
+            ),
+            (
+                DamageEffectKind::AddDamage { extra: 2 },
+                "Add 2 to each indicated source's damage to each recipient; this is not prevention",
+                "Erhöhe den Schaden jeder angegebenen Quelle an jedem Empfänger um 2",
             ),
         ] {
             let option = DamageEffectOption {

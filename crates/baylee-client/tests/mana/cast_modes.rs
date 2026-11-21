@@ -170,37 +170,128 @@ fn an_unpaid_suspend_is_named_with_its_cost() {
     );
 }
 
-/// The click path resolves a cast before a suspend, and nothing in the pool
-/// is both.
-///
-/// `activate_card` reads `play_card` first and `suspend` after it, which is
-/// an *order* and would be a silent choice on a card that offered both — and
-/// there is no undo for either. The pool makes the question moot: a suspend
-/// card prints no mana cost, so CR 202.1b keeps it out of `castable`
-/// altogether. This is that claim as a build failure rather than a comment,
-/// because the first card that breaks it needs a chooser and not an order.
+fn ephemeron_preset(islands: usize) -> GamePreset {
+    const EPHEMERON: &str = "c77b89ec-4514-4e62-a508-2012f38a3e15";
+    let mut preset = suspend_preset();
+    preset.seats[0].starting_hand = Some(vec![entry(EPHEMERON)]);
+    preset.seats[0].starting_battlefield = vec![entry(ISLAND); islands];
+    preset
+}
+
+/// A spell with a printed cost and suspend lets the player choose either
+/// action, both with the mana floating and with it in untapped lands.
 #[test]
-fn no_suspend_card_in_the_pool_is_also_castable() {
-    let mut both: Vec<&str> = Vec::new();
-    for def in baylee_cards::all() {
-        let suspends = def
-            .abilities
-            .iter()
-            .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::Suspend { .. }));
-        if !suspends {
-            continue;
-        }
-        for face in def.faces {
-            if face.mana_cost.symbols().next().is_some() {
-                both.push(face.name);
+fn errant_ephemeron_offers_cast_and_suspend_and_resolves_the_selected_action() {
+    use baylee_client::input::{activate_card, fire_armed, pick_choice};
+    use baylee_client::{Deed, Duel};
+    use baylee_engine::choice::CastModeKind;
+
+    let preset = ephemeron_preset(7);
+    for (float_first, suspend) in [(false, false), (false, true), (true, false), (true, true)] {
+        let mut table = Table::open_with(&preset);
+        table.walk_to_main();
+        let card = id_in_hand(&table, "Errant Ephemeron");
+        if float_first {
+            for source in table.legal().mana_abilities.clone() {
+                table.submit(PlayerAction::ActivateManaAbility { source });
             }
         }
+        assert_eq!(table.legal().suspendable.contains(&card), float_first);
+        assert_eq!(table.legal().castable.contains(&card), float_first);
+        let mut duel = Duel::default();
+        refresh(&mut duel, &table);
+        activate_card(&mut duel, card);
+        let menu = duel.cast_menu.as_ref().expect("cast or suspend");
+        assert_eq!(menu.row_count(), 2);
+        assert_eq!(menu.modes[0].kind, CastModeKind::Normal);
+        assert_eq!(menu.modes[0].cost, baylee_core::mana!("{6}{U}"));
+        assert_eq!(menu.suspend_cost, Some(baylee_core::mana!("{1}{U}")));
+        assert!(duel.armed.is_none() && duel.outbox().is_empty());
+
+        pick_choice(&mut duel, usize::from(suspend));
+        assert!(duel.armed.is_some() && duel.outbox().is_empty());
+        if suspend && !float_first {
+            let Some(Deed::Run { plan, .. }) = duel.armed.as_ref().map(|a| &a.deed) else {
+                panic!("the suspend cost still needs mana");
+            };
+            // Manually float part of the cost after picking the row.
+            table.submit(PlayerAction::ActivateManaAbility {
+                source: plan.steps[0].source,
+            });
+            refresh(&mut duel, &table);
+        }
+        fire_armed(&mut duel);
+        for action in duel.take_outbox() {
+            table.submit(action);
+        }
+        play_it_out(&mut duel, &mut table);
+        if suspend {
+            let exiled = table
+                .view()
+                .exile
+                .iter()
+                .flatten()
+                .find(|o| o.id == card)
+                .expect("the selected special action exiled the card");
+            assert_eq!(exiled.counter_count(baylee_view::CounterKind::Time), 4);
+            assert!(table.view().stack.is_empty());
+            assert_eq!(untapped_lands(&table), if float_first { 0 } else { 5 });
+        } else {
+            assert!(table.view().stack.iter().any(|o| o.id == card));
+            assert_eq!(untapped_lands(&table), 0);
+        }
     }
-    assert!(
-        both.is_empty(),
-        "these cards can be cast *and* suspended, so one click has two \
-         answers and `activate_card` picks the first silently: {both:?}"
-    );
+}
+
+#[test]
+fn an_unaffordable_cast_leaves_the_suspend_as_a_direct_action() {
+    use baylee_client::input::activate_card;
+
+    let mut table = Table::open_with(&ephemeron_preset(2));
+    table.walk_to_main();
+    let card = id_in_hand(&table, "Errant Ephemeron");
+    let mut duel = baylee_client::Duel::default();
+    refresh(&mut duel, &table);
+    activate_card(&mut duel, card);
+    assert!(duel.cast_menu.is_none());
+    assert!(matches!(
+        duel.armed.as_ref().map(|armed| &armed.deed),
+        Some(baylee_client::Deed::Run {
+            then: baylee_client::RunEnd::Suspend,
+            ..
+        })
+    ));
+    assert!(duel.outbox().is_empty());
+}
+
+#[test]
+fn a_withdrawn_suspend_row_does_not_arm_the_cast() {
+    use baylee_client::input::{activate_card, pick_choice};
+    use baylee_client_core::interaction::Interaction;
+
+    let mut table = Table::open_with(&ephemeron_preset(7));
+    table.walk_to_main();
+    let card = id_in_hand(&table, "Errant Ephemeron");
+    let mut duel = baylee_client::Duel::default();
+    refresh(&mut duel, &table);
+    activate_card(&mut duel, card);
+    let menu = duel.cast_menu.as_ref().expect("cast or suspend");
+    assert_eq!(menu.row_count(), 2);
+
+    let mut legal = table.legal().clone();
+    legal.unpaid_suspend.clear();
+    let player = PlayerId::new(0);
+    duel.interaction = Some(Interaction::new(
+        Pending::Priority {
+            player,
+            legal: Box::new(legal),
+        },
+        player,
+    ));
+    pick_choice(&mut duel, 1);
+    assert!(duel.armed.is_none());
+    assert!(duel.cast_menu.is_none());
+    assert!(duel.outbox().is_empty());
 }
 
 /// The measurement in the report, answered.

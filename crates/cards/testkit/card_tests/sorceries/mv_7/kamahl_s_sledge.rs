@@ -83,3 +83,49 @@ fn kamahl_s_sledge_also_deals_four_to_target_creatures_controller_at_threshold()
         "with threshold, controller of target creature also takes 4 damage"
     );
 }
+
+#[test]
+fn kamahl_s_sledge_at_threshold_combines_damage_redirected_to_ripjaw_raptor() {
+    use baylee_engine::event::DamageTarget;
+
+    let player = PlayerId::new(0);
+    let sledge = card_index("defa9b92-4b54-4b00-852e-6c5ec4015643");
+    let mut battlefield = vec![index::RIPJAW_RAPTOR, plains()];
+    battlefield.extend([mountain(); 9]);
+    let mut game = Duel::new(SEED, mountain())
+        .battlefield(0, &battlefield)
+        .hand(0, &[index::PARIAH, sledge])
+        .start();
+    keep_mulligans(&mut game);
+    reach_main_phase(&mut game, player);
+    seed_graveyard(&mut game, player, 7);
+    game.refresh_offer();
+
+    let host = on_battlefield(&game, player, index::RIPJAW_RAPTOR).unwrap();
+    cast_from_hand(&mut game, player, index::PARIAH);
+    aim_at(&mut game, player, host);
+    pass_until(&mut game, stack_is_empty);
+
+    let journal_start = game.journal().entries().len();
+    let library_before = library_size(&game, player);
+    cast_with_floating(&mut game, player, sledge);
+    aim_at(&mut game, player, host);
+    pass_until(&mut game, stack_is_empty);
+
+    assert_eq!(game.state().players[0].life, 20);
+    assert!(in_graveyard(&game, player, index::RIPJAW_RAPTOR).is_some());
+    let damage: u32 = damage_events(&game, journal_start)
+        .into_iter()
+        .map(|(_, recipient, amount, combat)| {
+            assert_eq!(recipient, DamageTarget::Object(host));
+            assert!(!combat);
+            amount
+        })
+        .sum();
+    assert_eq!(damage, 8);
+    assert_eq!(
+        library_size(&game, player),
+        library_before - 1,
+        "the simultaneous damage triggers enrage once"
+    );
+}

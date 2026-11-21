@@ -2123,7 +2123,7 @@ impl DeckBuilder {
         let (Some(a), Some(b)) = (self.card(*first), self.card(slot)) else {
             return false;
         };
-        *first != slot && b.commander && a.partners.contains(&b.index)
+        *first != slot && a.partners.contains(&b.index)
     }
 
     /// Add a compatible second commander without replacing the first.
@@ -2139,11 +2139,16 @@ impl DeckBuilder {
         true
     }
 
-    /// Remove only one role, keeping both the other commander and the deck cards.
+    /// Remove a role, keeping the deck cards and any commander that can lead alone.
     pub fn remove_commander(&mut self, slot: usize) {
         let before = self.commanders.len();
         self.commanders.retain(|leader| *leader != slot);
         if before != self.commanders.len() {
+            if let [remaining] = self.commanders.as_slice()
+                && !self.card(*remaining).is_some_and(|card| card.commander)
+            {
+                self.commanders.clear();
+            }
             self.touch();
         }
     }
@@ -2394,19 +2399,16 @@ impl DeckBuilder {
     }
 
     fn resolve_rows(&mut self) {
+        let pair = self.commanders.len() + self.pending_commander.len() == 2;
         for name in std::mem::take(&mut self.pending_commander) {
             let Some(slot) = self.slot_of(&name) else {
                 // No pool yet, or no such card: keep holding the name.
                 self.pending_commander.push(name);
                 continue;
             };
-            // The same question `set_commander` asks, and for the same
-            // reason: a mark the rules will not seat is one the gateway
-            // refuses on save. Asking it in only one of the two places meant
-            // a deck could be *loaded* into a state it could never be saved
-            // from — and the mark that got there that way looked exactly
-            // like one the player had chosen.
-            if self.pool.get(slot).is_some_and(|card| card.commander) {
+            // A Background can be one of two stored commanders in either
+            // position. The format check validates the combination.
+            if self.pool[slot].commander || (pair && !self.pool[slot].partners.is_empty()) {
                 // Pushed rather than `set_commander`ed: a stored deck's
                 // leaders are already in its rows, and re-adding them here
                 // would put a second copy of each in the library. The pair's

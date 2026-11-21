@@ -222,8 +222,13 @@ pub(crate) fn record_mana_payment(
 pub enum SpellForm {
     Prototype(baylee_cards_dsl::Prototype),
     Disguise,
+    Bestow(baylee_cards_dsl::Cost),
     /// A foretold card is announced face up with its printed characteristics.
     Foretell(ManaCost),
+    /// A plotted card is cast from exile without paying its mana cost (`CR 702.170d`).
+    Plot,
+    /// An impending creature spell is cast for its impending cost (`CR 702.176a`).
+    Impending(ManaCost),
 }
 
 /// The spell characteristics a player may use to assess a face-down exiled
@@ -261,7 +266,7 @@ fn face_up_projection(object: &crate::object::GameObject) -> crate::object::Game
 impl SpellForm {
     #[doc(hidden)]
     pub fn project(self, object: &crate::object::GameObject) -> crate::object::GameObject {
-        if matches!(self, Self::Foretell(_)) {
+        if matches!(self, Self::Foretell(_) | Self::Plot | Self::Impending(_)) {
             return face_up_projection(object);
         }
         let mut object = object.clone();
@@ -294,8 +299,26 @@ impl SpellForm {
                 base.produced_colors = baylee_core::color::ColorSet::EMPTY;
                 base.produced_colorless = false;
                 base.produced_chosen = false;
+                object.status.insert(crate::object::Status::FACE_DOWN);
             }
-            Self::Foretell(_) => unreachable!("handled before the characteristic projection"),
+            Self::Bestow(_) => {
+                base.types = base
+                    .types
+                    .difference(TypeSet::CREATURE)
+                    .union(TypeSet::ENCHANTMENT);
+                if !base.types.contains(TypeSet::KINDRED) {
+                    base.subtypes = base
+                        .subtypes
+                        .difference(baylee_core::types::SubtypeSet::ALL_CREATURE);
+                }
+                base.subtypes
+                    .insert(baylee_core::generated::subtypes::enchantment::AURA);
+                base.power = None;
+                base.toughness = None;
+            }
+            Self::Foretell(_) | Self::Plot | Self::Impending(_) => {
+                unreachable!("handled before the characteristic projection")
+            }
         }
         object
     }
@@ -304,7 +327,9 @@ impl SpellForm {
         match self {
             Self::Prototype(p) => p.cost,
             Self::Disguise => const { ManaCost::parse("{3}") },
-            Self::Foretell(cost) => cost,
+            Self::Bestow(cost) => cost.mana,
+            Self::Foretell(cost) | Self::Impending(cost) => cost,
+            Self::Plot => ManaCost::ZERO,
         }
     }
 }

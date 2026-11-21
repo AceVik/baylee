@@ -66,10 +66,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let own_cost_permission = wizard.escapes()
             || matches!(
                 wizard.option,
-                Some(CastModeKind::Flashback | CastModeKind::BeamMeUp)
+                Some(
+                    CastModeKind::Flashback
+                        | CastModeKind::JumpStart
+                        | CastModeKind::Retrace
+                        | CastModeKind::BeamMeUp
+                )
             )
             || matches!(wizard.option, Some(CastModeKind::Face(_)))
-                && self.wizard_face(&wizard).disturb;
+                && (self.wizard_face(&wizard).disturb || self.wizard_face(&wizard).aftermath);
         let in_graveyard = self
             .state
             .object(wizard.card)

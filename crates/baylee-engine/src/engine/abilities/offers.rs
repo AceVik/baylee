@@ -83,8 +83,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// planners add themselves. Both lists are empty on a board without
     /// either, which is the usual board: the walk over `cost_candidates` asks
     /// nothing more of a card than whether its faces print a reduction.
-    pub(super) fn spell_adjustments(&self, player: PlayerId) -> SpellAdjustments {
-        use crate::choice::CastModeKind;
+    fn board_spell_cost_flags(&self, player: PlayerId) -> (bool, bool, u32) {
         let effects = self.state.effects.may_change_spell_costs();
         let increases = effects
             && self.state.effects.iter().any(|fx| {
@@ -108,9 +107,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     matches!(
                         fx.modifier,
                         baylee_cards_dsl::Modifier::SpellsCostLess(_)
+                            | baylee_cards_dsl::Modifier::SpellsCostLessMana { .. }
+                            | baylee_cards_dsl::Modifier::SpellsCostLessByAmount(_)
                             | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
                     )
                 }));
+        (increases, reductions, next)
+    }
+
+    pub(super) fn spell_adjustments(&self, player: PlayerId) -> SpellAdjustments {
+        use crate::choice::CastModeKind;
+        let (increases, reductions, next) = self.board_spell_cost_flags(player);
         let mut out = SpellAdjustments::default();
         for card in self.cost_candidates(player) {
             let Some(def) = self
@@ -122,34 +129,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 continue;
             };
             let printed = def.faces.iter().any(|f| f.cost_reduction.is_some());
-            if !increases && !reductions && !printed {
+            let self_statics = casting::card_has_self_spell_cost_statics(def);
+            if !increases && !reductions && !printed && !self_statics {
                 continue;
             }
             let commander = casting::commander_tax(&self.state, player, card);
-            // One adjustment per way of casting, read for both lists. The
-            // printed reduction rides with the face it is printed on, and the
-            // disguise form has none: `cast_wizard::options` prices a face
-            // down spell at `{3}` with no reduction of the card's own.
+            let board_adjusts = increases || reductions || self_statics;
             let adjust = |face: usize, form: Option<casting::SpellForm>| {
-                let adjustment = if increases || reductions {
-                    casting::face_adjustment(&self.state, player, card, def, face, form)
-                } else {
-                    casting::SpellAdjustment {
-                        reduction: next,
-                        ..casting::SpellAdjustment::default()
-                    }
-                };
-                let own = if matches!(form, Some(casting::SpellForm::Disguise)) {
-                    0
-                } else {
-                    casting::printed_reduction(&self.state, &def.faces[face], player, card)
-                };
-                (
-                    adjustment
-                        .increase
-                        .saturating_add(adjustment.mana_increase.cmc())
-                        .saturating_sub(commander),
-                    adjustment.reduction.saturating_add(own),
+                self.face_cast_adjustment(
+                    player,
+                    card,
+                    def,
+                    face,
+                    form,
+                    commander,
+                    board_adjusts,
+                    next,
                 )
             };
             let normal = adjust(0, None);
@@ -181,14 +176,90 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     adjust(0, Some(casting::SpellForm::Prototype(prototype))),
                 );
             }
-            if def.faces[0].disguise.is_some() || def.faces[0].morph.is_some() {
+            if def.faces[0].has_face_down_cast() {
                 publish(
                     CastModeKind::Disguise,
                     adjust(0, Some(casting::SpellForm::Disguise)),
                 );
             }
+            if let Some(bestow) = def.faces[0].bestow {
+                publish(
+                    CastModeKind::Bestow,
+                    adjust(0, Some(casting::SpellForm::Bestow(bestow))),
+                );
+            }
+            if let Some((_, cost)) = def.faces[0].impending {
+                publish(
+                    CastModeKind::Impending,
+                    adjust(0, Some(casting::SpellForm::Impending(cost))),
+                );
+            }
+            if casting::plot_permission(&self.state, player, card) {
+                publish(
+                    CastModeKind::Plot,
+                    adjust(0, Some(casting::SpellForm::Plot)),
+                );
+            }
         }
         out
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn face_cast_adjustment(
+        &self,
+        player: PlayerId,
+        card: ObjectId,
+        def: &baylee_cards_dsl::CardDef,
+        face: usize,
+        form: Option<casting::SpellForm>,
+        commander: u32,
+        board_adjusts: bool,
+        next: u32,
+    ) -> (u32, u32) {
+        // One adjustment per way of casting, read for both lists. The
+        // printed reduction rides with the face it is printed on, and the
+        // disguise form has none: `cast_wizard::options` prices a face
+        // down spell at `{3}` with no reduction of the card's own.
+        let adjustment = if board_adjusts {
+            casting::face_adjustment(&self.state, player, card, def, face, form)
+        } else {
+            casting::SpellAdjustment {
+                reduction: next,
+                ..casting::SpellAdjustment::default()
+            }
+        };
+        let own = if matches!(form, Some(casting::SpellForm::Disguise)) {
+            0
+        } else {
+            casting::printed_reduction(&self.state, &def.faces[face], player, card)
+        };
+        let raw_cost = form.map_or(def.faces[face].mana_cost, |f| match f {
+            casting::SpellForm::Prototype(p) => p.cost,
+            casting::SpellForm::Disguise => const { baylee_core::mana::ManaCost::parse("{3}") },
+            casting::SpellForm::Bestow(c) => c.mana,
+            casting::SpellForm::Foretell(c) | casting::SpellForm::Impending(c) => c,
+            casting::SpellForm::Plot => baylee_core::mana::ManaCost::ZERO,
+        });
+        let with_inc = raw_cost
+            .with_x(0)
+            .combine(&adjustment.mana_increase)
+            .with_more_generic(adjustment.increase);
+        let colored_only_saved = with_inc.cmc().saturating_sub(
+            with_inc
+                .with_less_mana(&adjustment.colored_only_reduction, true)
+                .cmc(),
+        );
+        (
+            adjustment
+                .increase
+                .saturating_add(adjustment.mana_increase.cmc())
+                .saturating_sub(commander),
+            adjustment
+                .reduction
+                .saturating_add(own)
+                .saturating_add(adjustment.mana_reduction.cmc())
+                .saturating_add(colored_only_saved),
+        )
     }
 
     /// `LegalActions::buyback_less`: every printed reduction applies to every
@@ -307,6 +378,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }) {
             let permitted = casting::adventure_permission(&self.state, player, card)
                 || casting::foretell_permission(&self.state, player, card)
+                || casting::plot_permission(&self.state, player, card)
+                || casting::warp_exile_permission(&self.state, player, card)
                 || self.state.object(card).is_some_and(|o| {
                     o.riders
                         .contains(&crate::object::Rider::PlayableFromExileFor(player))
@@ -446,7 +519,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         object: id,
                         version: obj.version,
                     }),
-                    &cost,
+                    &cost.with_x(0),
                 ) {
                     legal.abilities.push((id, crate::choice::TURN_FACE_UP));
                 } else {
@@ -518,7 +591,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         ..
                     } => {
                         if !match zone {
-                            ActivationZone::Battlefield => obj.controller == player,
+                            ActivationZone::Battlefield | ActivationZone::BattlefieldOrCommand => {
+                                obj.controller == player
+                            }
                             ActivationZone::BattlefieldOwner => obj.owner == player,
                             ActivationZone::BattlefieldAnyPlayer => true,
                             ActivationZone::BattlefieldOpponent => {
@@ -571,7 +646,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         ..
                     } => {
                         if !match zone {
-                            ActivationZone::Battlefield => obj.controller == player,
+                            ActivationZone::Battlefield | ActivationZone::BattlefieldOrCommand => {
+                                obj.controller == player
+                            }
                             ActivationZone::BattlefieldOwner => obj.owner == player,
                             ActivationZone::BattlefieldAnyPlayer => true,
                             ActivationZone::BattlefieldOpponent => {
@@ -694,13 +771,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             cost_reduction,
                             ..
                         } => {
-                            if *zone != from {
+                            if *zone != from
+                                && !(from == ActivationZone::Command
+                                    && matches!(
+                                        *zone,
+                                        ActivationZone::BattlefieldOrCommand
+                                            | ActivationZone::HandOrCommand
+                                    ))
+                                && !(from == ActivationZone::Hand
+                                    && *zone == ActivationZone::HandOrCommand)
+                            {
                                 continue;
                             }
                             if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                                 continue;
                             }
                             if self.activation_limit_spent(player, card, i as u32, *limit) {
+                                continue;
+                            }
+                            if !self.source_cost_parts_ready(card, cost.parts) {
                                 continue;
                             }
                             // The same probe as the battlefield arms, for the
@@ -753,13 +842,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             // at all. No card in the pool prints one today; the
                             // hole is closed rather than recorded, because the
                             // arm is four lines longer than the note would be.
-                            if *zone != from {
+                            if *zone != from
+                                && !(from == ActivationZone::Command
+                                    && matches!(
+                                        *zone,
+                                        ActivationZone::BattlefieldOrCommand
+                                            | ActivationZone::HandOrCommand
+                                    ))
+                                && !(from == ActivationZone::Hand
+                                    && *zone == ActivationZone::HandOrCommand)
+                            {
                                 continue;
                             }
                             if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
                                 continue;
                             }
                             if self.activation_limit_spent(player, card, i as u32, *limit) {
+                                continue;
+                            }
+                            if !self.source_cost_parts_ready(card, cost.parts) {
                                 continue;
                             }
                             if !crate::eval::condition_holds_with_context(
@@ -814,7 +915,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         // could ever suspend a card that prints no mana cost
                         // (Carbon block 3, Ancestral Vision).
                         AbilityDef::Suspend { cost, .. }
-                            if from == ActivationZone::Hand && sorcery_timing =>
+                            if from == ActivationZone::Hand
+                                && casting::can_begin_suspend(
+                                    &self.state,
+                                    &self.lookup,
+                                    player,
+                                    card,
+                                ) =>
                         {
                             if self.can_pay_mana(
                                 player,
@@ -839,6 +946,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // `unpaid_suspend` too: a hint only while there is mana to make it
         // with (CR 605.3a).
         self.offer_foretell(player, &mut legal);
+        self.offer_plot(player, &mut legal);
         if !legal.unpaid_suspend.is_empty() && !self.offers_mana(&legal) {
             legal.unpaid_suspend.clear();
         }
@@ -872,7 +980,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .unpaid_abilities
             .iter()
             .filter(|(source, index, mana)| {
-                mana.has_variable() && {
+                !crate::choice::is_special_action(*index) && mana.has_variable() && {
                     let least = self.activation_x_minimum(player, *source, *index);
                     self.reaches_activation_mana(
                         player,
@@ -926,11 +1034,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 object.zone,
                 crate::zone::Zone::Hand | crate::zone::Zone::Command
             );
+            let def = object.card.and_then(|c| self.lookup.card(c.index));
             let priced = elsewhere
-                || object
-                    .card
-                    .and_then(|c| self.lookup.card(c.index))
-                    .is_some_and(casting::has_priced_ways);
+                || def.is_some_and(casting::has_priced_ways)
+                || (self.state.effects.may_change_or_forbid_abilities()
+                    && casting::sneak_cost_for(&self.state, player, card, def, 0).is_some());
             if !priced || self.commanded_card(card) {
                 continue;
             }

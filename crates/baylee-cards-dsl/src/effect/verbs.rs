@@ -74,6 +74,41 @@ impl Effect {
         }
     }
 
+    /// "Incubate N." (CR 701.53a)
+    #[must_use]
+    pub const fn incubate(count: u32) -> Self {
+        Self::Incubate {
+            who: super::PlayerRel::You,
+            count: Amount::Fixed(count),
+        }
+    }
+
+    /// Mobilize N's resolution effect (CR 702.181a).
+    #[must_use]
+    pub const fn mobilize(count: u32) -> Self {
+        Self::Mobilize(Amount::Fixed(count))
+    }
+
+    /// Endure N's resolution effect (CR 701.63a–b).
+    #[must_use]
+    pub const fn endure(count: u32) -> Self {
+        Self::Endure(Amount::Fixed(count))
+    }
+
+    /// "Detain [that permanent / target …]." (CR 701.35a)
+    #[must_use]
+    pub const fn detain(target: TargetSpec) -> Self {
+        Self::Detain { target }
+    }
+
+    /// "Detain target [filter]." (CR 701.35a)
+    #[must_use]
+    pub const fn detain_target(filter: &'static Filter) -> Self {
+        Self::Detain {
+            target: TargetSpec::Object(filter),
+        }
+    }
+
     /// "You gain 3 life."
     #[must_use]
     pub const fn gain_life(life: u32) -> Self {
@@ -590,6 +625,14 @@ impl Effect {
         }
     }
 
+    /// `Goad target creature.` (CR 701.15a–b).
+    #[must_use]
+    pub const fn goad_target() -> Self {
+        Self::Goad {
+            target: super::TargetSpec::Object(&Filter::CREATURE),
+        }
+    }
+
     /// The effect lists this one runs, as at most two slices.
     ///
     /// **Ten variants carry another effect and this is the only list of
@@ -659,6 +702,8 @@ impl Effect {
                 effects,
                 target: _,
             }
+            | Effect::ReflexiveTrigger { effects, .. }
+            | Effect::RegisterDelayedTrigger { effects, .. }
             // What the payment buys: the list runs on a yes.
             | Effect::PlayerMayPayThen {
                 player: _,
@@ -740,6 +785,38 @@ impl Effect {
                 player: _,
                 filter: _,
                 then,
+            }
+            | Effect::RepeatEach {
+                domain: _,
+                effects: then,
+            }
+            | Effect::ChooseCard {
+                chooser: _,
+                zone: _,
+                filter: _,
+                min: _,
+                max: _,
+                movement: _,
+                then,
+            }
+            | Effect::PeekAndReveal {
+                library: _,
+                count: _,
+                reveal_all: _,
+                reveal_chosen: _,
+                filter: _,
+                min_pick: _,
+                max_pick: _,
+                picked: _,
+                rest: _,
+                if_picked: then,
+            }
+            | Effect::RevealFromHand {
+                who: _,
+                filter: _,
+                min: _,
+                max: _,
+                if_revealed: then,
             } => (then, NONE),
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
             | Effect::PlayerMayPayManaAndLifeEachThenElse { paid: then, unpaid: otherwise, .. }
@@ -754,6 +831,30 @@ impl Effect {
                 won: then,
                 lost: otherwise,
             }
+            | Effect::FlipCoins {
+                count: _,
+                stop_on_loss: _,
+                per_win: then,
+                if_won_all: otherwise,
+            }
+            | Effect::FlipUntilLose {
+                max_flips: _,
+                per_win: then,
+                after: otherwise,
+            }
+            | Effect::IfDieRollInRange {
+                min: _,
+                max: _,
+                then,
+                otherwise,
+            }
+            | Effect::RevealTop {
+                player: _,
+                count: _,
+                filter: _,
+                if_matches: then,
+                otherwise,
+            }
             | Effect::IfCondition {
                 condition: _,
                 then,
@@ -763,6 +864,10 @@ impl Effect {
                 n: _,
                 then,
                 otherwise,
+            }
+            | Effect::Clash {
+                on_win: then,
+                on_loss: otherwise,
             } => (then, otherwise),
             // A single effect, not a list: the branch taken when the player
             // declines the price. `from_ref` is what makes it one shape with
@@ -853,6 +958,7 @@ impl Effect {
             | Effect::EmpowerJace { .. }
             | Effect::ModifySource { .. }
             | Effect::ChooseSourceColor
+            | Effect::ChooseColor
             | Effect::ChooseColors { .. }
             | Effect::ChooseSourceLandwalk { .. }
             | Effect::ChooseLandwalk { .. }
@@ -863,6 +969,7 @@ impl Effect {
             | Effect::SetSourcePTFromTarget { .. }
             | Effect::SetSourceToughness { .. }
             | Effect::AddCounterSource { .. }
+            | Effect::SetClassLevel(_)
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
             | Effect::DrawThenDiscardDrawn { .. }
@@ -873,6 +980,7 @@ impl Effect {
             | Effect::DrawRevealDiscardUnless { .. }
             | Effect::ExileTargetsCreateTokens { .. }
             | Effect::DealDamageToBothTargetInstances { .. }
+            | Effect::DamagePermanentAndController { .. }
             | Effect::DealDamage { .. }
             | Effect::GrantorDealsDamage { .. }
             | Effect::DealDamageWithoutPreventionOrRedirection { .. }
@@ -901,6 +1009,9 @@ impl Effect {
             | Effect::ChooseDamageSourcePreventAllThisTurn
             | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
             | Effect::PreventNextFromChosenSource { .. }
+            | Effect::PreventFromChosenSource { .. }
+            | Effect::PreventNextFromMatchingSources { .. }
+            | Effect::PreventAllDamageFromMatchingThisTurn { .. }
             | Effect::RedirectNextFromChosenSource { .. }
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
@@ -936,6 +1047,10 @@ impl Effect {
             | Effect::LeftRightPilesRestrictBlocks
             | Effect::BlockInPilesAtRandomThisTurn
             | Effect::TargetMayBlockAttackerOfChoice
+            | Effect::MustBlockSourceIfAbleThisCombat
+            | Effect::MustBlockIfAble { .. }
+            | Effect::Goad { .. }
+            | Effect::GoadAll { .. }
             | Effect::ToggleTapTarget
             | Effect::TapAll { .. }
             | Effect::TapAllOf { .. }
@@ -943,8 +1058,11 @@ impl Effect {
             | Effect::UntapAll { .. }
             | Effect::RegenerateAll { .. }
             | Effect::ExileTopMayCast { .. }
-        | Effect::ExileTopToPlay { .. }
-        | Effect::ExileAndCastCopies { .. }
+            | Effect::ExileTopToPlay { .. }
+            | Effect::ExileTopWithPermission { .. }
+            | Effect::ExileWithPermission { .. }
+            | Effect::GrantLinkedExilePermission { .. }
+            | Effect::ExileAndCastCopies { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::UntapFound
@@ -1232,7 +1350,47 @@ impl Effect {
             | Effect::PumpTarget { .. }
             | Effect::PumpEventObject { .. }
             | Effect::Madness
-            | Effect::PumpTargetSlot { .. } => (NONE, NONE),
+            | Effect::PumpTargetSlot { .. }
+            | Effect::TapTargetSlot(_)
+            | Effect::UntapTargetSlot(_)
+            | Effect::CreateTokenCopy { .. }
+            | Effect::ChooseAndCreateTokenCopy { .. }
+            | Effect::BecomeCopy { .. }
+            | Effect::CopySpellOrAbility { .. }
+            | Effect::RollDice { .. }
+            | Effect::GrantProtectionFromChosenColorUntilEot { .. }
+            | Effect::PutNinjutsuOntoBattlefield
+            | Effect::Myriad
+            | Effect::ExertSource
+            | Effect::ManifestTop { .. }
+            | Effect::ManifestDread
+            | Effect::TurnFaceUp { .. }
+            | Effect::Bolster(_)
+            | Effect::Plot { .. }
+            | Effect::PlotTop { .. }
+            | Effect::Backup { .. }
+            | Effect::BecomeRenowned(_)
+            | Effect::SoulbondPair { .. }
+            | Effect::DeliverGift(_)
+            | Effect::Incubate { .. }
+            | Effect::Exploit
+            | Effect::ReturnCraftedTransformed
+            | Effect::ExileWarped
+            | Effect::Monstrosity(_)
+            | Effect::Suspect { .. }
+            | Effect::Unsuspect { .. }
+            | Effect::RingTemptsYou
+            | Effect::Firebend(_)
+            | Effect::Mobilize(_)
+            | Effect::Detain { .. }
+            | Effect::DetainFilter { .. }
+            | Effect::Endure(_)
+            | Effect::AdditionalCombatPhase { .. }
+            | Effect::AwakenLand { .. }
+            | Effect::Cipher
+            | Effect::CipherCastEncoded
+            | Effect::Champion { .. }
+            | Effect::ReturnChampioned => (NONE, NONE),
         }
     }
 

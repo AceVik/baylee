@@ -241,9 +241,19 @@ impl HeuristicAgent {
     /// attacking or being blocked, or another of its controller's about a
     /// creature like it attacking. An unreadable filter counts as a match.
     fn attack_sets_off(&self, view: &PlayerView, attacker: ObjectId) -> bool {
+        const ATTACK_TRIGGER_KEYWORDS: u128 = KeywordSet::PROVOKE
+            .union(KeywordSet::BATTLE_CRY)
+            .union(KeywordSet::DETHRONE)
+            .union(KeywordSet::MELEE)
+            .union(KeywordSet::MENTOR)
+            .union(KeywordSet::TRAINING)
+            .bits();
         let Some(a) = view.object(attacker) else {
             return true;
         };
+        if a.keywords & ATTACK_TRIGGER_KEYWORDS != 0 {
+            return true;
+        }
         view.battlefield_of(a.controller).any(|o| {
             crate::activate::printed_list(o).iter().any(|ability| {
                 let (AbilityDef::Triggered { trigger, .. }

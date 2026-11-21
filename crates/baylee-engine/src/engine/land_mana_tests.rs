@@ -72,8 +72,8 @@
 
 use super::testkit::{
     Duel, RegistryLookup, Rest, answer_one, basic_forest, card_index, drive_to_rest, mine,
-    on_battlefield, placed_face, play_land_face, play_land_face_facing, quiet_creature,
-    walk_to_own_main,
+    on_battlefield, placed_face, play_land_face, play_land_face_facing, quiet_artifact,
+    quiet_creature, walk_to_own_main,
 };
 use super::*;
 use baylee_cards_dsl::{AbilityDef, CardDef, CostPart, FaceDef, SimpleMana};
@@ -223,7 +223,9 @@ fn promised(
                         .then_some(SimpleMana { colors, amount: 1 })
                         .ok_or(Unreadable::Reading);
                 }
-                baylee_cards_dsl::simple_mana(cost, effects).ok_or(Unreadable::Reading)
+                baylee_cards_dsl::simple_mana(cost, effects)
+                    .or_else(|| monochrome_bundle(cost, effects))
+                    .ok_or(Unreadable::Reading)
             }
             AbilityDef::ActivatedConditional { .. } => Err(Unreadable::Conditional),
             _ => Err(Unreadable::Reading),
@@ -232,6 +234,24 @@ fn promised(
         // read here.
         Route::Granted(_) => Err(Unreadable::Reading),
     }
+}
+
+/// A [`baylee_cards_dsl::mana_bundle`] with no riders whose steps all add the
+/// same colour (`[AddMana(C, 1), AddMana(C, 1)]` for `{T}: Add {C}{C}.`),
+/// which both the engine and the planner's bundle path read identically to a
+/// single `AddMana` of that total.
+fn monochrome_bundle(
+    cost: &baylee_cards_dsl::Cost,
+    effects: &[baylee_cards_dsl::Effect],
+) -> Option<SimpleMana> {
+    let colors = baylee_cards_dsl::mana_bundle(cost, effects)?;
+    let first = *colors.first()?;
+    (colors.len() == effects.len() && colors.iter().all(|color| *color == first)).then(|| {
+        SimpleMana {
+            colors: vec![first],
+            amount: u8::try_from(colors.len()).expect("bundle length fits u8"),
+        }
+    })
 }
 
 /// A reading with the order a card happens to list its colours in taken out:
@@ -450,6 +470,14 @@ struct Prints {
     unparsed: Vec<&'static str>,
 }
 
+/// Whether a line introduces a leveler strip (`LEVEL 1-4`, `LEVEL 5+`,
+/// CR 711.2a), whose abilities apply only once the permanent carries enough
+/// level counters and are therefore not unconditional Level-0 promises.
+fn is_level_header(line: &str) -> bool {
+    line.strip_prefix("LEVEL ")
+        .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()))
+}
+
 /// Every `{T}: Add …` line of the face's Oracle text, and the mana its lone
 /// basic land type gives it (CR 305.6): the type line is printed too, and
 /// `validate` holds it to Scryfall like the text.
@@ -457,9 +485,17 @@ fn prints(def: &CardDef, index: usize) -> Result<Prints, String> {
     let text = baylee_cards::oracle::face(def.index, index)
         .ok_or("has no Oracle text for this face in the compiled table")?;
     let mut out = Prints::default();
+    let mut leveled = false;
     for line in text.lines() {
+        if is_level_header(line) {
+            leveled = true;
+            continue;
+        }
         match read_printed(line) {
             None => {}
+            Some(Printed::Promise(_) | Printed::OpponentsLands) if leveled => {
+                out.unparsed.push(line);
+            }
             Some(Printed::Promise(mana)) => {
                 out.promises.push((line.to_owned(), normalised(&mana)));
             }
@@ -809,6 +845,151 @@ fn attached_mana_aura_board(card: CardIndex) -> Result<(Engine<RegistryLookup>, 
     Ok((engine, aura))
 }
 
+fn is_aura_face(face: &FaceDef) -> bool {
+    face.types.contains(TypeSet::ENCHANTMENT)
+        && face
+            .subtypes
+            .contains(&baylee_core::generated::subtypes::enchantment::AURA)
+}
+
+fn quiet_legendary_creature() -> CardIndex {
+    static HOST: std::sync::OnceLock<CardIndex> = std::sync::OnceLock::new();
+    *HOST.get_or_init(|| {
+        baylee_cards::all()
+            .find(|def| {
+                let face = &def.faces[0];
+                def.is_fully_read()
+                    && def.faces.len() == 1
+                    && face.types == TypeSet::CREATURE
+                    && face
+                        .supertypes
+                        .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+                    && face.toughness.is_some_and(|value| value > 0)
+                    && face.enter_modifiers.is_empty()
+                    && def.abilities_for_face(0).is_empty()
+                    && def.keywords_for_face(0).is_empty()
+            })
+            .expect("the pool contains a quiet legendary creature")
+            .index
+    })
+}
+
+fn attached_aura_with_host(
+    card: CardIndex,
+    face: usize,
+    host_card: CardIndex,
+) -> Result<(Engine<RegistryLookup>, ObjectId), String> {
+    let seat = PlayerId::new(0);
+    let def = baylee_cards::by_index(card).ok_or("is not in the pool")?;
+    let mut engine = Duel::new(7, basic_forest())
+        .battlefield(0, &[card, host_card])
+        .battlefield(1, &facing())
+        .start();
+    let aura = on_battlefield(&engine, seat, card).ok_or("Aura was not placed")?;
+    let host = on_battlefield(&engine, seat, host_card).ok_or("host was not placed")?;
+    {
+        let state = engine
+            .dev_state_mut(seat)
+            .ok_or("the harness was refused the board")?;
+        if face != 0 && !state.transform(aura, def, face) {
+            return Err(format!("refused to turn over to face {face}"));
+        }
+        state.attach(aura, host);
+    }
+    if !walk_to_own_main(&mut engine, seat) {
+        return Err("attached Aura never reached its controller's main phase".into());
+    }
+    if engine.state().object(aura).is_none_or(|object| {
+        object.zone != crate::zone::Zone::Battlefield
+            || object.attached_to != Some(host)
+            || usize::from(object.face_index) != face
+    }) {
+        return Err("Aura did not retain its legal attachment".into());
+    }
+    Ok((engine, aura))
+}
+
+/// Seed any Aura face onto a quiet permanent that satisfies CR 704.5m for its
+/// enchant ability so the Aura itself can be inspected at priority.
+fn attached_aura_board(
+    card: CardIndex,
+    face: usize,
+) -> Result<(Engine<RegistryLookup>, ObjectId), String> {
+    for host in [
+        quiet_creature(),
+        basic_forest(),
+        quiet_legendary_creature(),
+        quiet_artifact(),
+    ] {
+        if let Ok(placed) = attached_aura_with_host(card, face, host) {
+            return Ok(placed);
+        }
+    }
+    Err("Aura found no legal host among the quiet fixtures".into())
+}
+
+fn x_entry_counter(face: &FaceDef) -> Option<baylee_cards_dsl::CounterKind> {
+    face.enter_modifiers
+        .iter()
+        .find_map(|modifier| match modifier {
+            baylee_cards_dsl::EnterModifier::WithCounters {
+                kind,
+                amount: baylee_cards_dsl::Amount::X,
+            } => Some(*kind),
+            _ => None,
+        })
+}
+
+/// Place a permanent printed with "enters with X counters" as an `X = 1`
+/// arrival before the first turn so 0/0 X-creatures (CR 704.5f) and empty-counter
+/// upkeep departures survive to be measured at priority.
+fn placed_x_counter_face(
+    card: CardIndex,
+    face: usize,
+    kind: baylee_cards_dsl::CounterKind,
+) -> Result<(Engine<RegistryLookup>, ObjectId), String> {
+    let seat = PlayerId::new(0);
+    let def = baylee_cards::by_index(card).ok_or("is not in the pool")?;
+    let mut engine = Duel::new(7, basic_forest())
+        .battlefield(0, &[card])
+        .battlefield(1, &facing())
+        .start();
+    let object = on_battlefield(&engine, seat, card).ok_or("never reached the battlefield")?;
+    {
+        let state = engine
+            .dev_state_mut(seat)
+            .ok_or("the harness was refused the board")?;
+        if face != 0 && !state.transform(object, def, face) {
+            return Err(format!("refused to turn over to face {face}"));
+        }
+        state
+            .object_mut(object)
+            .ok_or("vanished before counters were placed")?
+            .counters
+            .add(kind, 1);
+    }
+    if !walk_to_own_main(&mut engine, seat) {
+        return Err(format!(
+            "never reached its controller's main phase: {:?}",
+            engine.pending()
+        ));
+    }
+    let placed = engine
+        .state()
+        .object(object)
+        .ok_or("was placed and then vanished")?;
+    if placed.zone != crate::zone::Zone::Battlefield {
+        return Err(format!("was placed and is in {:?}", placed.zone));
+    }
+    if usize::from(placed.face_index) != face {
+        return Err(format!(
+            "is showing face {} when face {face} was asked for",
+            placed.face_index
+        ));
+    }
+    Ok((engine, object))
+}
+
 /// The board a face makes its mana on, across an opponent who controls the
 /// [`facing`] lands: played as a land drop where it is a land that is one,
 /// and otherwise put on the battlefield before the first turn
@@ -842,10 +1023,14 @@ fn board(card: CardIndex, face: usize) -> Result<(Engine<RegistryLookup>, Object
         && types.contains(TypeSet::LAND)
         && !types.contains(TypeSet::CREATURE)
         && def.land_faces_from_hand().any(|playable| playable == face);
-    let (mut engine, land) = if simple_creature_mana_aura(def) {
+    let (mut engine, land) = if simple_creature_mana_aura(def) && face == 0 {
         attached_mana_aura_board(card)
+    } else if is_aura_face(&def.faces[face]) {
+        attached_aura_board(card, face)
     } else if dropped {
         play_land_face_facing(card, face, &facing())
+    } else if let Some(kind) = x_entry_counter(&def.faces[face]) {
+        placed_x_counter_face(card, face, kind)
     } else {
         placed_face(card, face, &facing())
     }?;
@@ -1625,4 +1810,28 @@ fn simple_mana_aura_fixtures_keep_grants_local_and_revoke_them() {
     for def in population {
         check_attached_mana_aura(def.index);
     }
+}
+
+#[test]
+fn level_strips_are_not_counted_as_level_zero_promises() {
+    use baylee_core::generated::index;
+    let skyscraper = baylee_cards::by_index(index::UNDER_CONSTRUCTION_SKYSCRAPER).unwrap();
+    let sky_prints = prints(skyscraper, 0).unwrap();
+    assert_eq!(
+        sky_prints.promises,
+        vec![("{T}: Add {C}.".to_owned(), (vec![ManaColor::Colorless], 1))]
+    );
+    assert_eq!(
+        sky_prints.unparsed,
+        vec![
+            "{T}: Add {W}, {B}, {G}, or {C}.",
+            "{T}: Add {W}, {B}, {G}, or {C}. Scry 1.",
+        ]
+    );
+
+    let treespeaker = baylee_cards::by_index(index::JORAGA_TREESPEAKER).unwrap();
+    let tree_prints = prints(treespeaker, 0).unwrap();
+    assert!(tree_prints.promises.is_empty());
+    assert_eq!(tree_prints.unparsed, vec!["{T}: Add {G}{G}."]);
+    assert_eq!(tree_prints.granted, 1);
 }

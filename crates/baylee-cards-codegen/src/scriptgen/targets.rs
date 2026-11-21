@@ -1,9 +1,41 @@
 //! Reading what a script points at: filters, targets, players, and the
 //! sources a prevention names.
 
-use super::{Params, Tx, color_atom, counter_kind};
+use super::{Params, Tx, color_atom, counter_kind, named_atom};
+
+/// CR 700.12: Assassins, Mercenaries, Pirates, Rogues, and Warlocks are outlaws.
+const OUTLAW_FILTER: &str = "Filter::Or(&[\
+    Filter::HasSubtype(subtypes::creature::ASSASSIN), \
+    Filter::HasSubtype(subtypes::creature::MERCENARY), \
+    Filter::HasSubtype(subtypes::creature::PIRATE), \
+    Filter::HasSubtype(subtypes::creature::ROGUE), \
+    Filter::HasSubtype(subtypes::creature::WARLOCK)])";
+
+/// CR 305.6: The five basic land types.
+const BASIC_LAND_TYPE_FILTER: &str = "Filter::Or(&[\
+    Filter::HasSubtype(subtypes::land::PLAINS), \
+    Filter::HasSubtype(subtypes::land::ISLAND), \
+    Filter::HasSubtype(subtypes::land::SWAMP), \
+    Filter::HasSubtype(subtypes::land::MOUNTAIN), \
+    Filter::HasSubtype(subtypes::land::FOREST)])";
 
 impl Tx<'_> {
+    /// Whether this permanent chooses a card type as it enters (`EnterModifier::ChooseCardType`).
+    pub(super) fn has_chosen_card_type(&self) -> bool {
+        self.body
+            .enter_modifiers
+            .iter()
+            .any(|m| m == "EnterModifier::ChooseCardType")
+    }
+
+    /// Whether this permanent chooses a color as it enters (`EnterModifier::ChooseColor`).
+    pub(super) fn has_chosen_color(&self) -> bool {
+        self.body
+            .enter_modifiers
+            .iter()
+            .any(|m| m == "EnterModifier::ChooseColor")
+    }
+
     /// "The next time a red source of your choice would deal damage to you
     /// this turn, prevent that damage" (the Circles of Protection; CR 609.7a,
     /// 615.8), and Reverse Damage's "you gain life equal to the damage
@@ -20,100 +52,67 @@ impl Tx<'_> {
         mut p: Params,
         sub: Option<&str>,
     ) -> Option<Vec<String>> {
+        p.drop_prose();
         let Some(choices) = p.take("Choices") else {
             return self.deny("`ChooseSource` with no `Choices$`".to_string());
         };
         if choices == "Card.SharesColorWith Imprinted" {
             return self.prevent_from_exiled_color(p, sub);
         }
+        let remember_chosen = p.take("RememberChosen").as_deref() == Some("True");
+        if remember_chosen {
+            p.take("ChoiceTitle");
+        }
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `ChooseSource.{key}`"));
         }
-        // What may be chosen, and the same words as the replacement must
-        // recheck them when the damage comes (CR 609.7b). "A source of your
-        // choice" is any card or emblem; the engine does not offer an emblem
-        // (`prevention::source_options`), and no emblem in the pool deals
-        // damage.
-        let (filter, recheck) = if choices == "Card,Emblem" {
-            (
-                "Filter::Any".to_string(),
-                "Card.ChosenCardStrict,Emblem.ChosenCard".to_string(),
-            )
-        } else if choices.contains(',') {
-            return self.deny(format!("chosen source `{choices}`"));
-        } else {
-            let atoms = choices.strip_prefix("Card.").unwrap_or(&choices);
-            // "A red source" is a red object: the reference's `RedSource`.
-            let read = match atoms.strip_suffix("Source") {
-                Some(color) if color_atom(color).is_some() => format!("Card.{color}"),
-                Some(_) => return self.deny(format!("chosen source `{choices}`")),
-                None => choices.clone(),
-            };
-            let filter = self.filter_expr(&read)?;
-            (filter, format!("Card.ChosenCardStrict+{atoms}"))
-        };
-        let Some(effect_name) = sub else {
-            return self.deny("`ChooseSource` with nothing chosen for".to_string());
-        };
-        let Some(body) = self.svars.get(effect_name).cloned() else {
-            return self.deny(format!("`SubAbility$ {effect_name}` names no SVar"));
-        };
-        let Some((api, mut effect)) = Params::parse(&body) else {
-            return self.deny(format!("`SubAbility$ {effect_name}` is no ability"));
-        };
-        if api != "Effect" {
-            return self.deny("`ChooseSource` followed by something other than its shield".into());
-        }
-        effect.drop_prose();
-        let condition_holds = effect.take("ConditionDefined").as_deref() == Some("ChosenCard")
-            && matches!(
-                effect.take("ConditionPresent").as_deref(),
-                Some("Card" | "Card,Emblem")
-            )
-            && matches!(
-                effect.take("ConditionCompare").as_deref(),
-                None | Some("GE1")
-            );
-        if !condition_holds {
-            return self.deny("a chosen-source shield on another condition".to_string());
-        }
-        let cleanup = effect.take("SubAbility");
-        let Some(replacement) = effect.take("ReplacementEffects") else {
-            return self.deny("a chosen-source `Effect` with no replacement".to_string());
-        };
+        let (filter, rechecks) = self.chosen_source_choices(&choices, remember_chosen)?;
+        let (effect, replacement) = self.read_chosen_source_effect(sub, remember_chosen)?;
         if let Some(key) = effect.first_key() {
             return self.deny(format!("unclaimed parameter `Effect.{key}`"));
         }
-        if let Some(name) = cleanup {
-            let clears = self
-                .svars
-                .get(&name)
-                .and_then(|body| Params::parse(body))
-                .is_some_and(|(api, mut c)| {
-                    api == "Cleanup"
-                        && c.take("ClearChosenCard").as_deref() == Some("True")
-                        && c.exhausted()
-                });
-            if !clears {
-                return self.deny(format!("`{name}` after a chosen-source shield"));
-            }
-        }
-        if choices == "Card,Emblem" && self.all_damage_from_chosen_source(&replacement) {
+        if choices == "Card,Emblem"
+            && !remember_chosen
+            && self.all_damage_from_chosen_source(&replacement)
+        {
             return Some(vec![
                 "Effect::ChooseDamageSourcePreventAllThisTurn".to_string(),
             ]);
         }
-        let gain_life = self.chosen_source_replacement(&replacement, recheck)?;
+        let (target_you, next_only, combat_only, gain_life) =
+            self.chosen_source_replacement(&replacement, &rechecks)?;
+        // Preserves `chosen_source_all_damage_shield_is_repeatable_and_not_recipient_limited`:
+        // unremembered `Choices$ Card,Emblem` with `Prevent$ True` and `ValidTarget$ You`
+        // remains refused on this path until that test is retired in a follow-up.
+        if choices == "Card,Emblem" && !remember_chosen && target_you && !next_only {
+            return self.deny("a chosen-source replacement that is not a shield on you".into());
+        }
         let sources = self.body.filter_static("SOURCE", &filter);
-        Some(vec![format!(
-            "Effect::PreventNextFromChosenSource {{ sources: &{sources}, combat_only: false, \
-             all_but: 0, gain_life: {gain_life} }}"
-        )])
+        Some(vec![if target_you && next_only {
+            format!(
+                "Effect::PreventNextFromChosenSource {{ sources: &{sources}, \
+                 combat_only: {combat_only}, all_but: 0, gain_life: {gain_life} }}"
+            )
+        } else {
+            let target = if target_you {
+                "Some(TargetSpec::Player(PlayerRel::You))"
+            } else {
+                "None"
+            };
+            format!(
+                "Effect::PreventFromChosenSource {{ target: {target}, sources: &{sources}, \
+                 next_only: {next_only}, combat_only: {combat_only}, all_but: 0, \
+                 gain_life: {gain_life} }}"
+            )
+        }])
     }
 
     /// "Target permanent becomes the color of your choice until end of turn"
     /// (Distorting Lens, Alchor's Tomb): `ChooseColor` followed by `DB$ Animate
-    /// | ValidTgts$ <valid> | Colors$ ChosenColor | OverwriteColors$ True`.
+    /// | ValidTgts$ <valid> | Colors$ ChosenColor | OverwriteColors$ True`; or
+    /// turn-long / next-damage color-based prevention (Prismatic Strands,
+    /// Avacyn, Guardian Angel): `ChooseColor` followed by `DB$ Effect |
+    /// ReplacementEffects$ <RPrevent>`.
     pub(super) fn choose_color_animate(
         &mut self,
         mut p: Params,
@@ -135,6 +134,9 @@ impl Tx<'_> {
         let Some((api, mut animate)) = Params::parse(&body) else {
             return self.deny(format!("`SubAbility$ {animate_name}` is no ability"));
         };
+        if api == "Effect" {
+            return self.choose_color_prevention(animate, chain);
+        }
         if api != "Animate" {
             return self.deny("`ChooseColor` followed by something other than `Animate`".into());
         }
@@ -166,6 +168,85 @@ impl Tx<'_> {
         Some(vec![format!(
             "Effect::ChooseColors {{ subject: {subject}, max: 1, duration: {duration} }}"
         )])
+    }
+
+    /// "Prevent all damage that sources of the color of your choice would deal
+    /// [to target ...] this turn" (Prismatic Strands, Avacyn, Guardian Angel).
+    fn choose_color_prevention(
+        &mut self,
+        mut effect: Params,
+        chain: &mut super::Chain,
+    ) -> Option<Vec<String>> {
+        effect.drop_prose();
+        let Some(replacement) = effect.take("ReplacementEffects") else {
+            return self.deny("`ChooseColor` `Effect` with no `ReplacementEffects$`".into());
+        };
+        // Display label on multi-ability `Effect` blocks (e.g., Avacyn).
+        effect.take("Name");
+        let (target_spec, expected_target) =
+            self.bind_effect_prevention_target(&mut effect, chain, "`ChooseColor` `Effect`")?;
+        if let Some(key) = effect.first_key() {
+            return self.deny(format!("unclaimed parameter `Effect.{key}`"));
+        }
+        let Some((event, mut shield)) = self.svars.get(&replacement).and_then(|b| Params::parse(b))
+        else {
+            return self.deny(format!("replacement `{replacement}` names no SVar"));
+        };
+        shield.drop_prose();
+        if event != "DamageDone"
+            || !matches!(
+                shield.take("ActiveZones").as_deref(),
+                None | Some("Command")
+            )
+            || shield.take("ValidSource").as_deref() != Some("Card.ChosenColor")
+        {
+            return self.deny("a chosen-color prevention with another event or source".into());
+        }
+        let valid_target = shield.take("ValidTarget");
+        let target_matches = match (expected_target, valid_target.as_deref()) {
+            (None, None) => true,
+            (Some(expected), Some(actual)) => expected.contains(&actual),
+            _ => false,
+        };
+        if !target_matches {
+            return self.deny("a chosen-color prevention with a mismatched target".into());
+        }
+        let combat_only = match shield.take("IsCombat").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!(
+                    "a chosen-color prevention with `IsCombat$ {other}`"
+                ));
+            }
+        };
+        let next_only = if shield.take("Prevent").as_deref() == Some("True") {
+            false
+        } else if shield.take("PreventionEffect").as_deref() == Some("True")
+            && shield
+                .take("ReplaceWith")
+                .is_some_and(|rw| self.exiles_itself(&rw))
+        {
+            true
+        } else {
+            return self.deny("a chosen-color prevention with another replacement".into());
+        };
+        if let Some(key) = shield.first_key() {
+            return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+        }
+        let target = target_spec.map_or_else(|| "None".to_string(), |s| format!("Some({s})"));
+        let variant = if next_only {
+            "Effect::PreventNextFromMatchingSources"
+        } else {
+            "Effect::PreventAllDamageFromMatchingThisTurn"
+        };
+        Some(vec![
+            "Effect::ChooseColor".to_string(),
+            format!(
+                "{variant} {{ target: {target}, sources: &Filter::OfSourceChosenColor, \
+                 combat_only: {combat_only} }}"
+            ),
+        ])
     }
 
     /// Choose a source sharing a color with the source's exiled card and
@@ -238,31 +319,59 @@ impl Tx<'_> {
     }
 
     /// The replacement a chosen-source shield waits with: damage from the
-    /// chosen source (`recheck`, its properties spelled as the choice spelled
-    /// them) to you, prevented, and then either nothing more or "you gain
-    /// life equal to the damage prevented this way". The answer is whether
-    /// it gains the life.
+    /// chosen source (`rechecks`, its properties spelled as the choice spelled
+    /// them) to you or everything, prevented (all turn with `Prevent$ True`, or
+    /// next-only when exiling the shield or gaining life equal to the damage
+    /// prevented this way). Returns `(target_you, next_only, combat_only, gain_life)`.
     pub(super) fn chosen_source_replacement(
         &self,
         replacement: &str,
-        recheck: String,
-    ) -> Option<bool> {
+        rechecks: &[String],
+    ) -> Option<(bool, bool, bool, bool)> {
         let Some((event, mut shield)) = self.svars.get(replacement).and_then(|b| Params::parse(b))
         else {
             return self.deny(format!("replacement `{replacement}` names no SVar"));
         };
         shield.drop_prose();
-        let waits = event == "DamageDone"
-            && shield.take("ValidSource") == Some(recheck)
-            && shield.take("ValidTarget").as_deref() == Some("You")
-            && shield.take("PreventionEffect").as_deref() == Some("True");
+        if event != "DamageDone"
+            || !matches!(
+                shield.take("ActiveZones").as_deref(),
+                None | Some("Command")
+            )
+            || !shield
+                .take("ValidSource")
+                .is_some_and(|src| rechecks.iter().any(|r| r == &src))
+        {
+            return self.deny("a chosen-source replacement that is not a shield on you".into());
+        }
+        let target_you = match shield.take("ValidTarget").as_deref() {
+            Some("You") => true,
+            None => false,
+            Some(_) => {
+                return self.deny("a chosen-source replacement that is not a shield on you".into());
+            }
+        };
+        let combat_only = match shield.take("IsCombat").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!("a chosen-source shield with `IsCombat$ {other}`"));
+            }
+        };
+        if shield.take("Prevent").as_deref() == Some("True") {
+            if let Some(key) = shield.first_key() {
+                return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+            }
+            return Some((target_you, false, combat_only, false));
+        }
+        let waits = shield.take("PreventionEffect").as_deref() == Some("True");
         let Some(then) = shield.take("ReplaceWith").filter(|_| waits) else {
             return self.deny("a chosen-source replacement that is not a shield on you".into());
         };
         if let Some(key) = shield.first_key() {
             return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
         }
-        match self.svars.get(&then).and_then(|b| Params::parse(b)) {
+        let gain_life = match self.svars.get(&then).and_then(|b| Params::parse(b)) {
             Some((api, mut gain)) if api == "GainLife" => {
                 let reads = gain.take("Defined").as_deref() == Some("You")
                     && gain.take("LifeAmount").is_some_and(|x| {
@@ -272,11 +381,12 @@ impl Tx<'_> {
                 if !reads || !gain.exhausted() || !exile.is_some_and(|e| self.exiles_itself(&e)) {
                     return self.deny("a chosen-source shield's life gain".to_string());
                 }
-                Some(true)
+                true
             }
-            _ if self.exiles_itself(&then) => Some(false),
-            _ => self.deny(format!("`ReplaceWith$ {then}` on a chosen-source shield")),
-        }
+            _ if self.exiles_itself(&then) => false,
+            _ => return self.deny(format!("`ReplaceWith$ {then}` on a chosen-source shield")),
+        };
+        Some((target_you, true, combat_only, gain_life))
     }
 
     /// Whether `name` is the line a used-up command-zone effect exiles
@@ -314,15 +424,20 @@ impl Tx<'_> {
             "Enchantment" => clauses.push("Filter::ENCHANTMENT".to_string()),
             "Land" => clauses.push("Filter::LAND".to_string()),
             "Planeswalker" => clauses.push("Filter::PLANESWALKER".to_string()),
+            "Battle" => clauses.push("Filter::HasType(TypeSet::BATTLE)".to_string()),
             "Instant" => clauses.push("Filter::HasType(TypeSet::INSTANT)".to_string()),
             "Sorcery" => clauses.push("Filter::HasType(TypeSet::SORCERY)".to_string()),
+            "Spell" => clauses.push("Filter::InZone(ZoneRef::Stack)".to_string()),
             "Basic" => clauses.push("Filter::HasSupertype(SupertypeSet::BASIC)".to_string()),
             "Legendary" => {
                 clauses.push("Filter::HasSupertype(SupertypeSet::LEGENDARY)".to_string());
             }
             "Snow" => clauses.push("Filter::HasSupertype(SupertypeSet::SNOW)".to_string()),
-            "Enchanted" => clauses.push("Filter::AttachedToBySource".to_string()),
+            "Self" => clauses.push("Filter::This".to_string()),
+            "Enchanted" | "Equipped" => clauses.push("Filter::AttachedToBySource".to_string()),
             "Kicked" => clauses.push("Filter::Kicked".to_string()),
+            "Historic" => clauses.push("Filter::Historic".to_string()),
+            "Outlaw" => clauses.push(OUTLAW_FILTER.to_string()),
             _ => {
                 let Some(path) = self.cats.const_path(base) else {
                     self.note(format!("filter base `{base}`"));
@@ -340,16 +455,55 @@ impl Tx<'_> {
     /// `"Permanent"` means a permanent card under CR 110.4a).
     #[allow(clippy::too_many_lines)]
     pub(super) fn filter_expr_in_zone(&self, valid: &str, card_zone: bool) -> Option<String> {
+        let raw_alts: Vec<&str> = valid.split(',').collect();
         let mut alternatives = Vec::new();
-        for alt in valid.split(',') {
-            let mut clauses = Vec::new();
-            let mut atoms = alt.split('.');
-            let base = atoms.next()?.trim();
-            if !self.push_filter_base(base, card_zone, &mut clauses) {
-                return None;
+        for &alt in &raw_alts {
+            if !card_zone && raw_alts.len() > 1 && emblem_subsumed_by_card(alt, &raw_alts) {
+                continue;
             }
-            for atom in atoms.flat_map(|a| a.split('+')) {
-                clauses.push(match atom.trim() {
+            let mut clauses = Vec::new();
+            let raw_atoms: Vec<&str> =
+                if alt.contains("AttachedTo ") || alt.contains("SharesColorWith Valid ") {
+                    let Some((base, tail)) = alt.split_once('.') else {
+                        return self.deny(format!("filter base `{}`", alt.trim()));
+                    };
+                    if !self.push_filter_base(base.trim(), card_zone, &mut clauses) {
+                        return None;
+                    }
+                    let mut parts: Vec<&str> = Vec::new();
+                    let mut saw_embedded = false;
+                    for piece in tail.split('+') {
+                        if saw_embedded {
+                            // A `+` following an embedded sub-filter is ambiguous between the
+                            // inner and outer predicates; refuse rather than mis-scope it.
+                            self.note(format!("filter atom `{tail}`"));
+                            return None;
+                        }
+                        let t = piece.trim();
+                        if t.starts_with("AttachedTo ")
+                            || t.starts_with("SharesColorWith Valid ")
+                            || t.starts_with("!SharesColorWith Valid ")
+                        {
+                            saw_embedded = true;
+                        }
+                        parts.push(t);
+                    }
+                    parts
+                } else {
+                    let mut atoms = alt.split('.');
+                    let base = atoms.next()?.trim();
+                    if !self.push_filter_base(base, card_zone, &mut clauses) {
+                        return None;
+                    }
+                    atoms.flat_map(|a| a.split('+')).collect()
+                };
+            let mut has_controller = false;
+            let mut has_is_commander = false;
+            let mut has_you_own = false;
+            let mut named_targets: Vec<String> = Vec::new();
+            for atom in raw_atoms {
+                let atom = atom.trim();
+                clauses.push(match atom {
                     // "Enchanted creature gets +2/+1", "equipped creature has
                     // flying": one filter for both, because there is one
                     // question — what is this permanent attached to — and the
@@ -361,29 +515,147 @@ impl Tx<'_> {
                     "EnchantedBy" | "EquippedBy" | "AttachedBy" => {
                         "Filter::AttachedToBySource".to_string()
                     }
+                    "!EnchantedBy" | "!EquippedBy" | "!AttachedBy" => {
+                        "Filter::Not(&Filter::AttachedToBySource)".to_string()
+                    }
                     "Attached" => "Filter::AttachedToSource".to_string(),
+                    "PairedWith" if !card_zone => "Filter::PairedWithSource".to_string(),
                     "equipped" => "Filter::Equipped".to_string(),
-                    "YouCtrl" => "Filter::ControlledByYou".to_string(),
-                    "YouDontCtrl" => "Filter::Not(&Filter::ControlledByYou)".to_string(),
-                    "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
-                    "ActivePlayerCtrl" => "Filter::ControlledByActivePlayer".to_string(),
-                    "YouOwn" => "Filter::OwnedByYou".to_string(),
+                    "!equipped" => "Filter::Not(&Filter::Equipped)".to_string(),
+                    "YouCtrl" => {
+                        has_controller = true;
+                        "Filter::ControlledByYou".to_string()
+                    }
+                    "YouDontCtrl" => {
+                        has_controller = true;
+                        "Filter::Not(&Filter::ControlledByYou)".to_string()
+                    }
+                    "OppCtrl" => {
+                        has_controller = true;
+                        "Filter::ControlledByOpponent".to_string()
+                    }
+                    "ActivePlayerCtrl" => {
+                        has_controller = true;
+                        "Filter::ControlledByActivePlayer".to_string()
+                    }
+                    "DefenderCtrl" if !card_zone => {
+                        has_controller = true;
+                        "Filter::ControlledByDefendingPlayer".to_string()
+                    }
+                    "EnchantedPlayerCtrl"
+                    | "ControlledBy EnchantedPlayer"
+                    | "ControlledBy Player.EnchantedBy" => {
+                        has_controller = true;
+                        "Filter::ControlledByEnchantedPlayer".to_string()
+                    }
+                    "ControlledBy TriggeredPlayer"
+                        if self.trigger_mode.as_deref() == Some("Phase") =>
+                    {
+                        has_controller = true;
+                        "Filter::ControlledByActivePlayer".to_string()
+                    }
+                    "ControlledBy TriggeredDefendingPlayer"
+                        if matches!(
+                            self.trigger_mode.as_deref(),
+                            Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                        ) =>
+                    {
+                        has_controller = true;
+                        "Filter::ControlledByDefendingPlayer".to_string()
+                    }
+                    "IsCommander" => {
+                        has_is_commander = true;
+                        "Filter::IsCommander".to_string()
+                    }
+                    "!IsCommander" | "nonCommander" => {
+                        "Filter::Not(&Filter::IsCommander)".to_string()
+                    }
+                    "NamedCard" => "Filter::NamedBySource".to_string(),
+                    "wasDealtDamageThisTurn" => "Filter::DealtDamageThisTurn".to_string(),
+                    "!wasDealtDamageThisTurn" => {
+                        "Filter::Not(&Filter::DealtDamageThisTurn)".to_string()
+                    }
+                    "attackedThisTurn" => "Filter::AttackedThisTurn".to_string(),
+                    "!attackedThisTurn" => "Filter::Not(&Filter::AttackedThisTurn)".to_string(),
+                    "blockedThisTurn" => "Filter::BlockedThisTurn".to_string(),
+                    "!blockedThisTurn" => "Filter::Not(&Filter::BlockedThisTurn)".to_string(),
+                    "wasCastFromHand" | "CastFromHand" => "Filter::CastFromHand".to_string(),
+                    "!wasCastFromHand" => "Filter::Not(&Filter::CastFromHand)".to_string(),
+                    "wasCastFromYourHand" if self.trigger_mode.as_deref() == Some("SpellCast") => {
+                        "Filter::CastFromHand".to_string()
+                    }
+                    "!wasCastFromYourHand" if self.trigger_mode.as_deref() == Some("SpellCast") => {
+                        "Filter::Not(&Filter::CastFromHand)".to_string()
+                    }
+                    "wasCastFromYourHandByYou"
+                        if self.trigger_mode.as_deref() == Some("SpellCast") =>
+                    {
+                        has_controller = true;
+                        "Filter::And(&[Filter::CastFromHand, Filter::ControlledByYou])".to_string()
+                    }
+                    "counters_GE1_ALL" | "counters_GT0_ALL" | "HasCounters" => {
+                        "Filter::HasAnyCounter".to_string()
+                    }
+                    "counters_EQ0_ALL" | "counters_LE0_ALL" | "counters_LT1_ALL"
+                    | "!HasCounters" => "Filter::Not(&Filter::HasAnyCounter)".to_string(),
+                    "inZoneBattlefield" => "Filter::InZone(ZoneRef::Battlefield)".to_string(),
+                    "inZoneStack" => "Filter::InZone(ZoneRef::Stack)".to_string(),
+                    "Historic" => "Filter::Historic".to_string(),
+                    "nonHistoric" | "!Historic" => "Filter::Not(&Filter::Historic)".to_string(),
+                    "Outlaw" => OUTLAW_FILTER.to_string(),
+                    "nonOutlaw" | "!Outlaw" => format!("Filter::Not(&{OUTLAW_FILTER})"),
+                    "hasABasicLandType" => BASIC_LAND_TYPE_FILTER.to_string(),
+                    "!hasABasicLandType" | "nonBasicLandType" => {
+                        format!("Filter::Not(&{BASIC_LAND_TYPE_FILTER})")
+                    }
+                    "AdventureCard" => "Filter::HasAdventure".to_string(),
+                    "!AdventureCard" | "nonAdventureCard" => {
+                        "Filter::Not(&Filter::HasAdventure)".to_string()
+                    }
+                    "IsSingleTarget" => "Filter::WithSingleTarget".to_string(),
+                    "!IsSingleTarget" => "Filter::Not(&Filter::WithSingleTarget)".to_string(),
+                    "withCumulative upkeep" => "Filter::HasCumulativeUpkeep".to_string(),
+                    "withoutCumulative upkeep" | "!withCumulative upkeep" => {
+                        "Filter::Not(&Filter::HasCumulativeUpkeep)".to_string()
+                    }
+                    "Permanent" if !card_zone => continue,
+                    "Permanent" => "Filter::HasType(TypeSet::ARTIFACT.union(TypeSet::BATTLE)\
+                         .union(TypeSet::CREATURE).union(TypeSet::ENCHANTMENT)\
+                         .union(TypeSet::LAND).union(TypeSet::PLANESWALKER))"
+                        .to_string(),
+                    "nonPermanent" => {
+                        "Filter::HasType(TypeSet::INSTANT.union(TypeSet::SORCERY))".to_string()
+                    }
+                    "YouOwn" => {
+                        has_you_own = true;
+                        "Filter::OwnedByYou".to_string()
+                    }
+                    "YouDontOwn" => "Filter::Not(&Filter::OwnedByYou)".to_string(),
                     "Other" | "StrictlyOther" => "Filter::Another".to_string(),
-                    "Self" => "Filter::This".to_string(),
+                    "Self" | "StrictlySelf" => "Filter::This".to_string(),
                     "attacking" => "Filter::Attacking".to_string(),
+                    "!attacking" => "Filter::Not(&Filter::Attacking)".to_string(),
                     "attackingYou" => "Filter::AttackingYou".to_string(),
+                    "attackersBandedWith" => "Filter::BandedWithSource".to_string(),
                     "blocking" => "Filter::Blocking".to_string(),
+                    "!blocking" => "Filter::Not(&Filter::Blocking)".to_string(),
                     "blockingSource" => "Filter::BlockingSource".to_string(),
                     "blockedBySource" => "Filter::BlockedBySource".to_string(),
                     "blockingTriggeredAttacker"
                         if self.trigger_mode.as_deref() == Some("AttackerBlocked") =>
                     {
-                        "Filter::BlockingSource".to_string()
+                        if self.trigger_is_self {
+                            "Filter::BlockingSource".to_string()
+                        } else {
+                            "Filter::BlockingReference".to_string()
+                        }
                     }
                     "blocked" => "Filter::Blocked".to_string(),
+                    "!blocked" => "Filter::Not(&Filter::Blocked)".to_string(),
                     "unblocked" => "Filter::Unblocked".to_string(),
-                    "tapped" => "Filter::Tapped".to_string(),
-                    "untapped" => "Filter::Untapped".to_string(),
+                    "!unblocked" => "Filter::Not(&Filter::Unblocked)".to_string(),
+                    "tapped" | "!untapped" => "Filter::Tapped".to_string(),
+                    "untapped" | "!tapped" => "Filter::Untapped".to_string(),
                     "enchanted" => "Filter::Enchanted".to_string(),
                     "!enchanted" | "unEnchanted" => "Filter::Not(&Filter::Enchanted)".to_string(),
                     "token" => "Filter::IsToken".to_string(),
@@ -395,8 +667,14 @@ impl Tx<'_> {
                     // creature" a second spelling that only `filter_hash`
                     // can tell from the first.
                     "nonLand" => "Filter::NONLAND".to_string(),
+                    "Land" => "Filter::LAND".to_string(),
                     "Artifact" => "Filter::ARTIFACT".to_string(),
                     "Creature" => "Filter::CREATURE".to_string(),
+                    "Enchantment" => "Filter::ENCHANTMENT".to_string(),
+                    "Planeswalker" => "Filter::PLANESWALKER".to_string(),
+                    "Battle" => "Filter::HasType(TypeSet::BATTLE)".to_string(),
+                    "Instant" => "Filter::INSTANT".to_string(),
+                    "Sorcery" => "Filter::SORCERY".to_string(),
                     "nonCreature" => "Filter::NONCREATURE".to_string(),
                     // Supertypes read like subtypes in a script filter but are
                     // a different set on the card (CR 205.4).
@@ -409,14 +687,33 @@ impl Tx<'_> {
                         "Filter::Not(&Filter::HasSupertype(SupertypeSet::LEGENDARY))".to_string()
                     }
                     "Snow" => "Filter::HasSupertype(SupertypeSet::SNOW)".to_string(),
-                    "nonSnow" => {
+                    "nonSnow" | "!Snow" => {
                         "Filter::Not(&Filter::HasSupertype(SupertypeSet::SNOW))".to_string()
                     }
-                    // The two card types a noun cannot say "not" to on its
+                    "WarpedInExile" | "ExiledWithWarp" => "Filter::WarpedInExile".to_string(),
+                    "!WarpedInExile" | "!ExiledWithWarp" => {
+                        "Filter::Not(&Filter::WarpedInExile)".to_string()
+                    }
+                    "IsMonstrous" | "monstrous" => "Filter::Monstrous".to_string(),
+                    "!IsMonstrous" | "!monstrous" | "nonMonstrous" => {
+                        "Filter::Not(&Filter::Monstrous)".to_string()
+                    }
+                    "IsSuspected" | "suspected" => "Filter::Suspected".to_string(),
+                    "!IsSuspected" | "!suspected" | "nonSuspected" => {
+                        "Filter::Not(&Filter::Suspected)".to_string()
+                    }
+                    // Card-type negations a noun cannot say "not" to on its
                     // own ("nonartifact, nonblack creature").
                     "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),
                     "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
+                    "nonPlaneswalker" => "Filter::LacksType(TypeSet::PLANESWALKER)".to_string(),
+                    "nonBattle" => "Filter::LacksType(TypeSet::BATTLE)".to_string(),
+                    "nonInstant" => "Filter::LacksType(TypeSet::INSTANT)".to_string(),
+                    "nonSorcery" => "Filter::LacksType(TypeSet::SORCERY)".to_string(),
                     "Colorless" => "Filter::IsColorless".to_string(),
+                    "nonColorless" | "!Colorless" | "Colored" => {
+                        "Filter::Not(&Filter::IsColorless)".to_string()
+                    }
                     "MonoColor" => "Filter::Monocolored".to_string(),
                     "MultiColor" => "Filter::And(&[Filter::Not(&Filter::IsColorless), \
                          Filter::Not(&Filter::Monocolored)])"
@@ -425,30 +722,113 @@ impl Tx<'_> {
                         "Filter::Or(&[Filter::IsColorless, Filter::Monocolored])".to_string()
                     }
                     "ChosenColor" => "Filter::OfSourceChosenColor".to_string(),
+                    "!ChosenColor" | "nonChosenColor" => {
+                        "Filter::Not(&Filter::OfSourceChosenColor)".to_string()
+                    }
                     "ChosenType" if self.has_chosen_creature_type() => {
                         "Filter::MatchesChosenTypeOfSource".to_string()
                     }
+                    "ChosenType" if self.has_chosen_card_type() => {
+                        "Filter::OfSourceChosenCardType".to_string()
+                    }
                     "kicked" | "Kicked" => "Filter::Kicked".to_string(),
                     "!kicked" => "Filter::Not(&Filter::Kicked)".to_string(),
+                    "faceDown" => "Filter::FaceDown".to_string(),
+                    "faceUp" => "Filter::Not(&Filter::FaceDown)".to_string(),
+                    "hasManaAbility" => "Filter::HasManaAbility".to_string(),
+                    "!hasManaAbility" => "Filter::Not(&Filter::HasManaAbility)".to_string(),
+                    "withRampage" => "Filter::HasRampage".to_string(),
+                    "!withRampage" => "Filter::Not(&Filter::HasRampage)".to_string(),
+                    "ThisTurnEntered" if !card_zone => "Filter::EnteredThisTurn".to_string(),
+                    "!ThisTurnEntered" if !card_zone => {
+                        "Filter::Not(&Filter::EnteredThisTurn)".to_string()
+                    }
+                    "PutIntoGraveyardThisTurn" if card_zone => {
+                        "Filter::PutIntoGraveyardThisTurn".to_string()
+                    }
+                    "!PutIntoGraveyardThisTurn" if card_zone => {
+                        "Filter::Not(&Filter::PutIntoGraveyardThisTurn)".to_string()
+                    }
+                    "!firstTurnControlled" if !card_zone => {
+                        "Filter::ControlledSinceTurnBegan".to_string()
+                    }
+                    "firstTurnControlled" if !card_zone => {
+                        "Filter::Not(&Filter::ControlledSinceTurnBegan)".to_string()
+                    }
+                    "sharesNameWith ExiledWith" | "sharesNameWith Imprinted" => {
+                        "Filter::SameNameAsLinkedExile".to_string()
+                    }
+                    "!sharesNameWith ExiledWith" | "!sharesNameWith Imprinted" => {
+                        "Filter::Not(&Filter::SameNameAsLinkedExile)".to_string()
+                    }
+                    "sharesCreatureTypeWith" | "sharesCreatureTypeWith Self" => {
+                        "Filter::SharesCreatureTypeWith(&Filter::This)".to_string()
+                    }
+                    "sharesCreatureTypeWith Equipped"
+                    | "sharesCreatureTypeWith Enchanted"
+                    | "sharesCreatureTypeWith AttachedBy" => {
+                        "Filter::SharesCreatureTypeWith(&Filter::AttachedToBySource)".to_string()
+                    }
+                    "sharesCreatureTypeWith Commander" => {
+                        "Filter::SharesSubtypeWithCommander".to_string()
+                    }
+                    "SharesColorWith Equipped" | "SharesColorWith Enchanted" => {
+                        "Filter::SharesAColorWith(&Filter::AttachedToBySource)".to_string()
+                    }
+                    "!SharesColorWith Equipped" | "!SharesColorWith Enchanted" => {
+                        "Filter::Not(&Filter::SharesAColorWith(&Filter::AttachedToBySource))"
+                            .to_string()
+                    }
+                    other if other.starts_with("AttachedTo ") => {
+                        let inner_raw = other.trim_start_matches("AttachedTo ").trim();
+                        if inner_raw == "Card.Self" || inner_raw == "Self" {
+                            "Filter::AttachedToSource".to_string()
+                        } else if inner_raw.contains("AttachedTo")
+                            || inner_raw.contains("SharesColorWith")
+                            || inner_raw.contains("IsRemembered")
+                            || inner_raw.contains("Targeted")
+                            || inner_raw.contains("Triggered")
+                            || matches!(inner_raw, "You" | "Player" | "Opponent")
+                            || inner_raw.starts_with("Player.")
+                        {
+                            self.note(format!("filter atom `{other}`"));
+                            return None;
+                        } else {
+                            let inner = self.filter_expr(inner_raw)?;
+                            format!("Filter::AttachedTo(&{inner})")
+                        }
+                    }
+                    other
+                        if other.starts_with("SharesColorWith Valid ")
+                            || other.starts_with("!SharesColorWith Valid ") =>
+                    {
+                        let (negated, inner_raw) =
+                            other.strip_prefix("!SharesColorWith Valid ").map_or_else(
+                                || (false, other.trim_start_matches("SharesColorWith Valid ")),
+                                |r| (true, r),
+                            );
+                        let inner_raw = inner_raw.trim();
+                        if inner_raw.contains("SharesColorWith") || inner_raw.contains("AttachedTo")
+                        {
+                            self.note(format!("filter atom `{other}`"));
+                            return None;
+                        }
+                        let inner = self.filter_expr(inner_raw)?;
+                        let pos = format!("Filter::SharesAColorWith(&{inner})");
+                        if negated {
+                            format!("Filter::Not(&{pos})")
+                        } else {
+                            pos
+                        }
+                    }
                     "" => continue,
                     other if other.starts_with("counters_") => {
-                        let Some((comparison, raw)) = other
-                            .strip_prefix("counters_GE")
-                            .map(|raw| ("GE", raw))
-                            .or_else(|| other.strip_prefix("counters_LT").map(|raw| ("LT", raw)))
-                        else {
+                        let Some(expr) = counter_atom_filter(other) else {
                             return self.deny(format!("filter atom `{other}`"));
                         };
-                        let Some((n, code)) = raw.split_once('_') else {
-                            return self.deny(format!("filter atom `{other}`"));
-                        };
-                        let n = n.parse::<u16>().ok()?;
-                        let kind = counter_kind(code)?;
-                        let at_least = format!("Filter::CountersAtLeast({kind}, {n})");
-                        if comparison == "GE" {
-                            at_least
-                        } else {
-                            format!("Filter::Not(&{at_least})")
+                        match expr {
+                            CounterAtom::Always => continue,
+                            CounterAtom::Filter(clause) => clause,
                         }
                     }
                     // A colour word (CR 105.2): "black creatures", "target
@@ -465,7 +845,12 @@ impl Tx<'_> {
                             has
                         }
                     }
-                    other if self.worded_atom(other).is_some() => self.worded_atom(other)?,
+                    other if self.worded_atom(other).is_some() => {
+                        if let Some(name) = named_target_name(other) {
+                            named_targets.push(name);
+                        }
+                        self.worded_atom(other)?
+                    }
                     // `Creature.Goblin` puts the subtype after the base, so
                     // an atom can name one too — and it is the commonest
                     // shape in the corpus, not a corner.
@@ -484,6 +869,38 @@ impl Tx<'_> {
                         }
                     }
                 });
+            }
+            if !card_zone && !has_controller {
+                let lower = self.oracle.to_ascii_lowercase();
+                // Some corpus scripts write `Card.IsCommander+YouOwn` where the
+                // Oracle text explicitly scopes to "a commander you control"
+                // rather than "your commander" (Norn's Choirmaster).
+                if has_is_commander
+                    && has_you_own
+                    && lower.contains("commander you control")
+                    && !lower.contains("commander you own")
+                    && !lower.contains("your commander")
+                {
+                    for clause in &mut clauses {
+                        if clause == "Filter::OwnedByYou" {
+                            *clause = "Filter::ControlledByYou".to_string();
+                        }
+                    }
+                }
+                // Some corpus scripts omit `+YouCtrl` on a named-permanent
+                // filter whose Oracle text unambiguously restricts to "you
+                // control named <Name>" (Baloth Packhunter, Charmed Stray).
+                if (!named_targets.is_empty()
+                    && named_targets
+                        .iter()
+                        .all(|name| oracle_scopes_named_to_you(&lower, name)))
+                    || (clauses.iter().any(|c| c == "Filter::Blocking")
+                        && oracle_scopes_combat_target_to_you(&lower, "target blocking creature"))
+                    || (clauses.iter().any(|c| c == "Filter::Attacking")
+                        && oracle_scopes_combat_target_to_you(&lower, "target attacking creature"))
+                {
+                    clauses.push("Filter::ControlledByYou".to_string());
+                }
             }
             alternatives.push(match clauses.len() {
                 0 => "Filter::Any".to_string(),
@@ -526,10 +943,17 @@ impl Tx<'_> {
             }
             return Some("TargetSpec::AnyPlayer".to_string());
         }
-        if valid == "Opponent" {
+        if valid == "Opponent" || valid == "Player.Opponent" {
             return Some("TargetSpec::AnyOpponent".to_string());
         }
+        if valid == "Player.attackedWithCreaturesThisTurn" {
+            return Some("TargetSpec::PlayerWhoAttackedThisTurn".to_string());
+        }
         if matches!(valid, "Player,Planeswalker" | "Planeswalker,Player") {
+            let lower = self.oracle.to_ascii_lowercase();
+            if lower.contains("target opponent") && !lower.contains("target player") {
+                return Some("TargetSpec::OpponentOrObject(&Filter::PLANESWALKER)".to_string());
+            }
             return Some("TargetSpec::PlayerOrObject(&Filter::PLANESWALKER)".to_string());
         }
         if matches!(valid, "Opponent,Planeswalker" | "Planeswalker,Opponent") {
@@ -541,8 +965,13 @@ impl Tx<'_> {
         if valid == "Any" {
             return Some("TargetSpec::AnyTarget".to_string());
         }
-        if self.trigger_mode.as_deref() == Some("DamageDone")
-            && api != "Counter"
+        if let Some(mixed) = self.mixed_player_object_target(valid, api) {
+            return Some(mixed);
+        }
+        if matches!(
+            self.trigger_mode.as_deref(),
+            Some("DamageDone" | "DamageDoneOnce")
+        ) && api != "Counter"
             && let Some(stripped) = valid
                 .split(',')
                 .map(|alt| {
@@ -556,7 +985,11 @@ impl Tx<'_> {
             let name = self.body.filter_static("TARGET", &expr);
             return Some(format!("TargetSpec::ObjectOfEventPlayer(&{name})"));
         }
-        let expr = self.filter_expr(valid)?;
+        let expr = if api == "Counter" {
+            self.filter_expr_in_zone(valid, true)?
+        } else {
+            self.filter_expr(valid)?
+        };
         let name = self.body.filter_static("TARGET", &expr);
         Some(match api {
             "Counter" => format!("TargetSpec::Spell(&{name})"),
@@ -564,10 +997,54 @@ impl Tx<'_> {
         })
     }
 
+    fn mixed_player_object_target(&mut self, valid: &str, api: &str) -> Option<String> {
+        if !matches!(api, "DealDamage" | "PreventDamage") || !valid.contains(',') {
+            return None;
+        }
+        let alts: Vec<&str> = valid
+            .split(',')
+            .map(str::trim)
+            .filter(|a| !a.is_empty())
+            .collect();
+        let mut saw_player = false;
+        let mut saw_opponent = false;
+        let mut objects: Vec<&str> = Vec::new();
+        for &alt in &alts {
+            match alt {
+                "Player" => saw_player = true,
+                "Opponent" | "Player.Opponent" => saw_opponent = true,
+                _ => objects.push(alt),
+            }
+        }
+        if objects.is_empty() || (!saw_player && !saw_opponent) || (saw_player && saw_opponent) {
+            return None;
+        }
+        if saw_player
+            && objects.len() == 3
+            && objects.contains(&"Creature")
+            && objects.contains(&"Planeswalker")
+            && objects.contains(&"Battle")
+        {
+            return Some("TargetSpec::AnyTarget".to_string());
+        }
+        let expr = self.filter_expr(&objects.join(","))?;
+        let name = self.body.filter_static("TARGET", &expr);
+        let opponents_only = saw_opponent || {
+            let lower = self.oracle.to_ascii_lowercase();
+            lower.contains("target opponent") && !lower.contains("target player")
+        };
+        Some(if opponents_only {
+            format!("TargetSpec::OpponentOrObject(&{name})")
+        } else {
+            format!("TargetSpec::PlayerOrObject(&{name})")
+        })
+    }
+
     /// "Target spell or permanent": `TargetSpec::StackOrBattlefield` over the
-    /// valid-string's filter.
+    /// valid-string's filter (using `card_zone = true` so `Permanent` retains
+    /// its CR 110.4b permanent-card type union on the stack).
     pub(super) fn spell_or_permanent_target(&mut self, valid: &str) -> Option<String> {
-        let expr = self.filter_expr(valid)?;
+        let expr = self.filter_expr_in_zone(valid, true)?;
         let name = self.body.filter_static("TARGET", &expr);
         Some(format!("TargetSpec::StackOrBattlefield(&{name})"))
     }
@@ -585,15 +1062,63 @@ impl Tx<'_> {
     /// whose player is whose graveyard. In a graveyard the reference's
     /// `YouCtrl` means "yours" (a card there is controlled by nobody, and
     /// its owner is whose graveyard it is in); no such qualifier is any
-    /// graveyard unless the Oracle text explicitly scopes it to "your
-    /// graveyard" (Misery Charm). The rest of the valid-string is the card's
-    /// filter.
+    /// graveyard unless the target line scopes it to "your graveyard"
+    /// (Misery Charm). Its own description takes precedence over the whole
+    /// card's Oracle text, since another chapter or mode may use a different
+    /// scope. The rest of the valid-string is the card's filter.
     pub(super) fn graveyard_target(
         &mut self,
         valid: &str,
         defined_controller: Option<&str>,
+        description: Option<&str>,
     ) -> Option<String> {
-        let mut whose = "PlayerRel::EachPlayer";
+        let (mut whose, cleaned_alts) = self.split_graveyard_target_alts(valid)?;
+        if defined_controller == Some("ParentTarget") {
+            if whose != "PlayerRel::EachPlayer" {
+                return None;
+            }
+            let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
+            let filter = self.body.filter_static("TARGET", &filter);
+            return Some(format!(
+                "TargetSpec::CardInFirstTargetsGraveyard(&{filter})"
+            ));
+        }
+        if whose == "PlayerRel::EachPlayer"
+            && description
+                .and_then(Self::targets_own_graveyard)
+                .or_else(|| Self::targets_own_graveyard(self.oracle))
+                == Some(true)
+        {
+            whose = "PlayerRel::You";
+        }
+        whose = self.resolve_graveyard_defined_controller(whose, defined_controller)?;
+        let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
+        let filter = self.body.filter_static("TARGET", &filter);
+        Some(format!("TargetSpec::CardInGraveyard(&{filter}, {whose})"))
+    }
+
+    fn targets_own_graveyard(text: &str) -> Option<bool> {
+        let text = text.to_ascii_lowercase();
+        if [
+            "in a graveyard",
+            "from a graveyard",
+            "in any graveyard",
+            "from any graveyard",
+            "in graveyards",
+            "from graveyards",
+        ]
+        .into_iter()
+        .any(|phrase| text.contains(phrase))
+        {
+            Some(false)
+        } else {
+            (text.contains("from your graveyard") || text.contains("in your graveyard"))
+                .then_some(true)
+        }
+    }
+
+    fn split_graveyard_target_alts(&self, valid: &str) -> Option<(&'static str, Vec<String>)> {
+        let mut whose: Option<&'static str> = None;
         let mut cleaned_alts = Vec::new();
         for alt in valid.split(',') {
             let mut parts = alt
@@ -602,13 +1127,36 @@ impl Tx<'_> {
                 .map(str::trim)
                 .filter(|a| !a.is_empty());
             let base = parts.next()?;
+            let mut alt_whose: Option<&'static str> = None;
             let mut kept = Vec::new();
             for atom in parts {
                 match atom {
-                    "YouCtrl" | "YouOwn" => whose = "PlayerRel::You",
-                    "OppCtrl" | "OppOwn" => whose = "PlayerRel::Opponent",
+                    "YouCtrl" | "YouOwn" => alt_whose = Some("PlayerRel::You"),
+                    "OppCtrl" | "OppOwn" | "YouDontOwn" | "YouDontCtrl" => {
+                        alt_whose = Some("PlayerRel::Opponent");
+                    }
+                    "DefenderCtrl" | "DefenderOwn"
+                        if matches!(
+                            self.trigger_mode.as_deref(),
+                            Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                        ) =>
+                    {
+                        alt_whose = Some("PlayerRel::DefendingPlayer");
+                    }
+                    "ActivePlayerCtrl" | "ActivePlayerOwn" | "OwnedBy TriggeredPlayer"
+                        if self.trigger_mode.as_deref() == Some("Phase") =>
+                    {
+                        alt_whose = Some("PlayerRel::ActivePlayer");
+                    }
+                    "ThisTurnEntered" => kept.push("PutIntoGraveyardThisTurn"),
+                    "!ThisTurnEntered" => kept.push("!PutIntoGraveyardThisTurn"),
                     other => kept.push(other),
                 }
+            }
+            match (whose, alt_whose) {
+                (None, w) => whose = w,
+                (Some(prev), Some(curr)) if prev != curr => return None,
+                _ => {}
             }
             // Stir the Grave spells its "with mana value X or less" bound as
             // `SVar:X:Targeted$CardManaCost` instead of `+cmcLEX` on `ValidTgts$`.
@@ -628,27 +1176,39 @@ impl Tx<'_> {
                 cleaned_alts.push(format!("{base}.{}", kept.join("+")));
             }
         }
-        if whose == "PlayerRel::EachPlayer" {
-            let lower = self.oracle.to_ascii_lowercase();
-            if (lower.contains("from your graveyard") || lower.contains("in your graveyard"))
-                && !lower.contains("from a graveyard")
-                && !lower.contains("in a graveyard")
-            {
-                whose = "PlayerRel::You";
+        Some((whose.unwrap_or("PlayerRel::EachPlayer"), cleaned_alts))
+    }
+
+    fn resolve_graveyard_defined_controller(
+        &self,
+        whose: &'static str,
+        defined_controller: Option<&str>,
+    ) -> Option<&'static str> {
+        Some(match defined_controller {
+            None => whose,
+            Some("You") => "PlayerRel::You",
+            Some("TriggeredCardController") if whose == "PlayerRel::You" => whose,
+            Some("TriggeredPlayer") if self.trigger_mode.as_deref() == Some("Phase") => {
+                "PlayerRel::ActivePlayer"
             }
-        }
-        match defined_controller {
-            None => {}
-            Some("You") => whose = "PlayerRel::You",
-            Some("TriggeredCardController") if whose == "PlayerRel::You" => {}
-            Some("TriggeredTarget") if self.trigger_mode.as_deref() == Some("DamageDone") => {
-                whose = "PlayerRel::DamagedPlayer";
+            Some("TriggeredDefendingPlayer")
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                ) =>
+            {
+                "PlayerRel::DefendingPlayer"
+            }
+            Some("TriggeredTarget")
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("DamageDone" | "DamageDoneOnce")
+                ) =>
+            {
+                "PlayerRel::DamagedPlayer"
             }
             Some(_) => return None,
-        }
-        let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
-        let filter = self.body.filter_static("TARGET", &filter);
-        Some(format!("TargetSpec::CardInGraveyard(&{filter}, {whose})"))
+        })
     }
 
     /// `Defined$ You` and friends as a `PlayerRel`.
@@ -664,11 +1224,30 @@ impl Tx<'_> {
             "You" => "PlayerRel::You",
             "Opponent" | "Player.Opponent" => "PlayerRel::Opponent",
             "Player" => "PlayerRel::EachPlayer",
+            "Player.Other" => "PlayerRel::EachOtherPlayer",
+            // Gift recipient (CR 702.174a).
+            "Promised" => "PlayerRel::GiftRecipient",
             // "Enchanted land's controller" (CR 303.4e).
             "EnchantedController" | "Player.EnchantedController" => {
                 "PlayerRel::ControllerOfAttached"
             }
+            // "Enchanted player" (CR 303.4b, CR 303.4m: Curses and player Auras).
+            "EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer" => {
+                "PlayerRel::EnchantedPlayer"
+            }
             "TriggeredPlayer" if trigger == Some("Phase") => "PlayerRel::ActivePlayer",
+            "TriggeredPlayer" | "TriggeredCardController" if trigger == Some("Sacrificed") => {
+                "PlayerRel::EventPlayer"
+            }
+            "TriggeredCardOwner" if trigger == Some("Sacrificed") => "PlayerRel::OwnerOfEvent",
+            "TriggeredAttackingPlayer"
+                if matches!(
+                    trigger,
+                    Some("AttackersDeclared" | "AttackersDeclaredOneTarget")
+                ) =>
+            {
+                "PlayerRel::EventPlayer"
+            }
             // Last known (CR 603.10a): a land put into a graveyard is
             // controlled by nobody by the time the ability resolves.
             "TriggeredCardController" if trigger == Some("ChangesZone") => {
@@ -700,12 +1279,55 @@ impl Tx<'_> {
             // The player a damage trigger's damage was dealt to: the
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.
-            "TriggeredTarget" if trigger == Some("DamageDone") => "PlayerRel::DamagedPlayer",
-            "TriggeredTargetController" if trigger == Some("DamageDone") => {
+            "TriggeredTarget" if matches!(trigger, Some("DamageDone" | "DamageDoneOnce")) => {
+                "PlayerRel::DamagedPlayer"
+            }
+            "TriggeredTargetController"
+                if matches!(trigger, Some("DamageDone" | "DamageDoneOnce")) =>
+            {
                 "PlayerRel::ControllerOfEvent"
             }
+            "TriggeredBlockerController" if trigger == Some("Blocks") => {
+                "PlayerRel::ControllerOfEvent"
+            }
+            "TriggeredAttackerController"
+                if matches!(trigger, Some("Attacks" | "AttackerUnblocked")) =>
+            {
+                "PlayerRel::ControllerOfEvent"
+            }
+            "TriggeredAttackerController"
+                if trigger == Some("AttackerBlocked") && !self.trigger_is_self =>
+            {
+                "PlayerRel::ControllerOfEvent"
+            }
+            "TriggeredAttackerController"
+                if trigger == Some("AttackerBlocked") && self.trigger_is_self =>
+            {
+                "PlayerRel::You"
+            }
+            "TriggeredSourceSAController" | "TriggeredSourceController"
+                if trigger == Some("BecomesTarget") =>
+            {
+                "PlayerRel::EventPlayer"
+            }
+            "TriggeredPlayer"
+                if matches!(
+                    trigger,
+                    Some(
+                        "LifeGained" | "LifeLost" | "Discarded" | "LandPlayed" | "SearchedLibrary"
+                    )
+                ) =>
+            {
+                "PlayerRel::EventPlayer"
+            }
+            "TriggeredCardOwner" | "TriggeredCardController" if trigger == Some("Discarded") => {
+                "PlayerRel::EventPlayer"
+            }
             "TriggeredDefendingPlayer"
-                if matches!(trigger, Some("Attacks" | "AttackerBlocked")) =>
+                if matches!(
+                    trigger,
+                    Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                ) =>
             {
                 "PlayerRel::DefendingPlayer"
             }
@@ -751,15 +1373,200 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<&'static str> {
-        let player_target = target == Some("TargetSpec::Player(PlayerRel::Chosen)");
+        let player_target = matches!(
+            target,
+            Some(
+                "TargetSpec::Player(PlayerRel::Chosen)"
+                    | "TargetSpec::AnyPlayer"
+                    | "TargetSpec::AnyOpponent"
+                    | "TargetSpec::PlayerWhoAttackedThisTurn"
+            )
+        );
         let object_target = target.is_some_and(|t| {
-            t.starts_with("TargetSpec::Spell(") || t.starts_with("TargetSpec::Object(")
+            t.starts_with("TargetSpec::Spell(")
+                || t.starts_with("TargetSpec::Object(")
+                || t.starts_with("TargetSpec::StackOrBattlefield(")
+                || t.starts_with("TargetSpec::ObjectOfEventPlayer(")
+                || t.starts_with("TargetSpec::ObjectOrCardInAnyGraveyard(")
         });
         match defined {
             Some("Targeted" | "TargetedPlayer") if player_target => Some("PlayerRel::Chosen"),
+            Some("ParentTarget") if player_target && !targets_a_player => Some("PlayerRel::Chosen"),
             Some("TargetedController") if object_target => Some("PlayerRel::ControllerOfTarget"),
-            Some("Targeted" | "TargetedPlayer" | "TargetedController") => None,
+            Some("ParentTargetController") if object_target && !targets_a_player => {
+                Some("PlayerRel::ControllerOfTarget")
+            }
+            Some(
+                "Targeted"
+                | "TargetedPlayer"
+                | "ParentTarget"
+                | "TargetedController"
+                | "ParentTargetController",
+            ) => None,
             other => self.player_rel_of(other, targets_a_player),
         }
     }
+}
+
+enum CounterAtom {
+    Always,
+    Filter(String),
+}
+
+/// Parses `counters_<OP><N>_<KIND>`, `counters_<OP><N>_ALL`, or bare
+/// `counters_<OP><N>` into a `Filter` expression (`CounterAtom::Always` for
+/// tautological `GE0`, or `None` on unsupported input).
+fn counter_atom_filter(other: &str) -> Option<CounterAtom> {
+    let (comparison, raw) = other
+        .strip_prefix("counters_GE")
+        .map(|raw| ("GE", raw))
+        .or_else(|| other.strip_prefix("counters_GT").map(|raw| ("GT", raw)))
+        .or_else(|| other.strip_prefix("counters_LE").map(|raw| ("LE", raw)))
+        .or_else(|| other.strip_prefix("counters_LT").map(|raw| ("LT", raw)))
+        .or_else(|| other.strip_prefix("counters_EQ").map(|raw| ("EQ", raw)))?;
+    let (n_str, kind) = match raw.split_once('_') {
+        Some((n_str, "ALL")) => (n_str, None),
+        Some((n_str, code)) => (n_str, Some(counter_kind(code)?)),
+        None => (raw, None),
+    };
+    let n = n_str.parse::<u16>().ok()?;
+    let at_least = |k: u16| match kind.as_deref() {
+        Some(kind) => format!("Filter::CountersAtLeast({kind}, {k})"),
+        None => format!("Filter::AnyCountersAtLeast({k})"),
+    };
+    match comparison {
+        "GE" if n == 0 => Some(CounterAtom::Always),
+        "GE" => Some(CounterAtom::Filter(at_least(n))),
+        "GT" => Some(CounterAtom::Filter(at_least(n.checked_add(1)?))),
+        "LT" if n > 0 => Some(CounterAtom::Filter(format!(
+            "Filter::Not(&{})",
+            at_least(n)
+        ))),
+        "LE" => Some(CounterAtom::Filter(format!(
+            "Filter::Not(&{})",
+            at_least(n.checked_add(1)?)
+        ))),
+        "EQ" if n == 0 => Some(CounterAtom::Filter(format!(
+            "Filter::Not(&{})",
+            at_least(1)
+        ))),
+        "EQ" => {
+            let above = n.checked_add(1)?;
+            Some(CounterAtom::Filter(format!(
+                "Filter::And(&[{}, Filter::Not(&{})])",
+                at_least(n),
+                at_least(above)
+            )))
+        }
+        _ => None,
+    }
+}
+
+/// Extracts the card name from a `named<Name>` filter atom, matching both
+/// plain names and semicolon-escaped commas.
+fn named_target_name(atom: &str) -> Option<String> {
+    if let Some(name) = named_atom(atom) {
+        return Some(name.to_string());
+    }
+    let raw = atom.strip_prefix("named")?;
+    (!raw.is_empty()
+        && raw.contains(';')
+        && raw
+            .chars()
+            .all(|c| c.is_alphanumeric() || " '-;".contains(c)))
+    .then(|| raw.replace(';', ","))
+}
+
+/// Returns `true` when Oracle text explicitly scopes permanents named `name`
+/// to `"you control named <name>"` without also mentioning an unscoped
+/// permanent/creature/card named `name`.
+fn oracle_scopes_named_to_you(oracle_lower: &str, name: &str) -> bool {
+    let name_lower = name.to_ascii_lowercase();
+    oracle_lower.contains(&format!("you control named {name_lower}"))
+        && !oracle_lower.contains(&format!("creature named {name_lower}"))
+        && !oracle_lower.contains(&format!("creatures named {name_lower}"))
+        && !oracle_lower.contains(&format!("permanent named {name_lower}"))
+        && !oracle_lower.contains(&format!("permanents named {name_lower}"))
+        && !oracle_lower.contains(&format!("card named {name_lower}"))
+        && !oracle_lower.contains(&format!("cards named {name_lower}"))
+}
+
+/// Returns `true` when an `Emblem[.<ctrl>]` alternative in a battlefield/source
+/// comma-list is already matched by a companion `Card[.<ctrl>][+non<Type>...]`
+/// alternative in the same list. Emblems carry `TypeSet::EMPTY` and a controller
+/// equal to their owner, so `Filter::Any`, controller predicates, and
+/// `Filter::LacksType(...)` already match them.
+pub(super) fn emblem_subsumed_by_card(alt: &str, all_alts: &[&str]) -> bool {
+    fn is_ctrl_atom(atom: &str) -> bool {
+        matches!(
+            atom,
+            "YouCtrl"
+                | "OppCtrl"
+                | "YouDontCtrl"
+                | "ActivePlayerCtrl"
+                | "DefenderCtrl"
+                | "EnchantedPlayerCtrl"
+                | "ColorlessSource"
+                | "Colorless"
+        )
+    }
+    fn is_non_card_type_atom(atom: &str) -> bool {
+        matches!(
+            atom,
+            "nonCreature"
+                | "nonArtifact"
+                | "nonEnchantment"
+                | "nonLand"
+                | "nonPlaneswalker"
+                | "nonBattle"
+                | "nonInstant"
+                | "nonSorcery"
+                | "nonPermanent"
+        )
+    }
+    let mut parts = alt
+        .split('.')
+        .flat_map(|s| s.split('+'))
+        .map(str::trim)
+        .filter(|a| !a.is_empty());
+    if parts.next() != Some("Emblem") {
+        return false;
+    }
+    let mut emblem_ctrl: Vec<&str> = Vec::new();
+    for atom in parts {
+        if is_ctrl_atom(atom) {
+            emblem_ctrl.push(atom);
+        } else {
+            return false;
+        }
+    }
+    emblem_ctrl.sort_unstable();
+    all_alts.iter().any(|other| {
+        let mut op = other
+            .split('.')
+            .flat_map(|s| s.split('+'))
+            .map(str::trim)
+            .filter(|a| !a.is_empty());
+        if op.next() != Some("Card") {
+            return false;
+        }
+        let mut card_ctrl: Vec<&str> = Vec::new();
+        for atom in op {
+            if is_ctrl_atom(atom) {
+                card_ctrl.push(atom);
+            } else if !is_non_card_type_atom(atom) {
+                return false;
+            }
+        }
+        card_ctrl.sort_unstable();
+        card_ctrl == emblem_ctrl
+    })
+}
+
+fn oracle_scopes_combat_target_to_you(lower_oracle: &str, phrase: &str) -> bool {
+    let total = lower_oracle.matches(phrase).count();
+    let yours = lower_oracle
+        .matches(&format!("{phrase} you control"))
+        .count();
+    total > 0 && total == yours
 }

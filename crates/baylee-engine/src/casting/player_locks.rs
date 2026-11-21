@@ -6,6 +6,31 @@ use crate::state::GameState;
 use baylee_cards_dsl::{Filter, PlayerRel};
 use baylee_core::ids::PlayerId;
 
+pub(super) fn affects_player(
+    state: &GameState,
+    effect: &ContinuousEffect,
+    who: PlayerRel,
+    player: PlayerId,
+) -> bool {
+    if !crate::effects::source_is_present(state, effect)
+        || (matches!(
+            effect.duration,
+            baylee_cards_dsl::Duration::WhileSourceOnBattlefield
+        ) && effect.source.is_some_and(|source| {
+            state
+                .object(source)
+                .is_some_and(|source| source.status.contains(crate::object::Status::PHASED_OUT))
+        }))
+    {
+        return false;
+    }
+    if let crate::effects::EffectFilter::DslControlledBy(_, seats) = effect.filter {
+        return !state.has_left(player) && seats.contains(player);
+    }
+    crate::eval::players_for_source(who, state, effect.controller, effect.source)
+        .is_some_and(|players| players.contains(&player))
+}
+
 pub(super) fn prevents(
     state: &GameState,
     effect: &ContinuousEffect,
@@ -14,30 +39,7 @@ pub(super) fn prevents(
     player: PlayerId,
     spell: &GameObject,
 ) -> bool {
-    if !crate::effects::source_is_present(state, effect)
-        || effect.source.is_some_and(|source| {
-            state
-                .object(source)
-                .is_some_and(|source| source.status.contains(crate::object::Status::PHASED_OUT))
-        })
-    {
-        return false;
-    }
-    let affected = match who {
-        PlayerRel::ControllerOfAttached => {
-            effect
-                .source
-                .and_then(|source| crate::eval::controller_of_attached(state, source))
-                == Some(player)
-        }
-        PlayerRel::OwnerOfSource => effect
-            .source
-            .and_then(|source| state.object(source))
-            .is_some_and(|source| source.owner == player),
-        _ => crate::eval::players(who, state, effect.controller)
-            .is_some_and(|players| players.contains(&player)),
-    };
-    affected
+    affects_player(state, effect, who, player)
         && crate::eval::matches(
             filter,
             state,
@@ -45,6 +47,69 @@ pub(super) fn prevents(
             effect.controller,
             effect.source.unwrap_or(spell.id),
         )
+}
+
+pub(super) fn matching_limit_reached(
+    state: &GameState,
+    effect: &ContinuousEffect,
+    who: PlayerRel,
+    filter: &'static Filter,
+    limit: u32,
+    player: PlayerId,
+    candidate_spell: &GameObject,
+) -> bool {
+    if !affects_player(state, effect, who, player) {
+        return false;
+    }
+    let src = effect.source.unwrap_or(candidate_spell.id);
+    if !crate::eval::matches(filter, state, candidate_spell, effect.controller, src) {
+        return false;
+    }
+    if limit == 0 {
+        return true;
+    }
+    if state.per_turn.spells_cast_by(player) < limit {
+        return false;
+    }
+    let mut moves = std::collections::BTreeMap::<baylee_core::ids::ObjectId, u32>::new();
+    let mut cast_matching = 0_u32;
+    for entry in state.journal.entries().iter().rev() {
+        if matches!(entry.event, crate::event::GameEvent::TurnStarted { .. }) {
+            break;
+        }
+        if let crate::event::GameEvent::ZoneChanged { object, .. } = entry.event {
+            *moves.entry(object).or_default() += 1;
+            continue;
+        }
+        let crate::event::GameEvent::SpellCast {
+            object,
+            player: caster,
+            ..
+        } = entry.event
+        else {
+            continue;
+        };
+        if caster != player {
+            continue;
+        }
+        let Some(current) = state.object_or_departed(object) else {
+            continue;
+        };
+        let reference = baylee_core::ids::DamageSourceRef {
+            object,
+            version: current
+                .version
+                .wrapping_sub(moves.get(&object).copied().unwrap_or(0)),
+        };
+        let spell = state.source_object(reference).unwrap_or(current);
+        if crate::eval::matches(filter, state, spell, effect.controller, src) {
+            cast_matching = cast_matching.saturating_add(1);
+            if cast_matching >= limit {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 #[cfg(test)]

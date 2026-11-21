@@ -1,0 +1,134 @@
+# Generated cards currently held back from `xtask batch` and `xtask reach-list`
+#
+# Keep entries aligned with `docs/generated-held-back.md` (excluding cards that
+# are already `Coverage::Implemented` on HEAD). Remove a card here once its
+# reader, engine, fixture, or identity blocker is resolved so future batches
+# can propose it again.
+#
+# Format: <oracle_id>\t<name>\t<reason>   (or <name>\t<reason>)
+
+# Reader gaps
+79591c18-0065-49bb-a77a-734d4af87a3c	Bloodhall Ooze	reader-gap: optional "may" semantics dropped
+6fa90258-3c9f-4723-880f-31871c0772e0	Disembowel	reader-gap: target preview for X (ceiling 6)
+86b98c3e-f568-4bfc-977f-d1be270936e5	Molder	reader-gap: target preview for X (ceiling 6)
+b1f2b26c-91b2-4f3c-9f48-6429ec3fde48	Repeal	reader-gap: target preview for X (ceiling 6)
+adfd33cb-086c-48f4-b443-ba971ff43684	Cogwork Spy	reader-gap: validate fails on omitted "you may"
+1269f7dc-a5d6-48e9-8887-b581ce38c204	Deal Broker	reader-gap: validate fails on omitted "you may"
+5e8c6894-c9ad-4a50-af13-c2d95395c71e	Illusionary Informant	reader-gap: validate fails on omitted "you may"
+97bb382b-16b2-44db-a2bd-de09ca90bfcc	Myr Kinsmith	reader-gap: validate fails on omitted "you may"
+658d54d4-e967-490c-b958-3743b3b1ef45	Rage-Scarred Berserker	reader-gap: validate: "you control" without Filter::ControlledByYou
+face0a43-6604-4508-b511-81ab0bef7b18	Worst Fears	reader-gap: validate: "you control" without Filter::ControlledByYou
+b6ec5a5c-144d-4ac3-bd05-2dc360c670fd	Tempest Caller	reader-gap: validate: "an opponent controls" without Filter::ControlledByOpponent
+212d058b-69c6-4dc2-8c93-bdfe26dc2ffe	Hammer of Purphoros	reader-gap: validate: Enchantment Artifact type order mismatch
+e1afaef7-9fa3-4662-a95f-adfb0da9fd11	Bident of Thassa	reader-gap: validate: Enchantment Artifact type order mismatch
+361b965f-2ce7-49f8-84e7-7325ea0c948d	Bow of Nylea	reader-gap: validate: Enchantment Artifact type order mismatch
+ca4d3d27-ea3a-44ac-96e9-b52b563129f8	Lotus Ring	reader-gap: granted mana ability missing printed line and board test
+dac85722-d741-4584-8b98-8ac220958a38	Demonmail Hauberk	reader-gap: mana sheet row lacks printed sentence and cost
+f0ea953a-10c3-4ec7-8f03-f7aed75dbb94	Murderer's Axe	reader-gap: mana sheet row lacks printed sentence and cost
+8aaf248e-66cf-447b-b062-9aa2ab1ec864	Orzhov Locket	reader-gap: mana sheet row cannot name printed sentence
+e0cb503e-9814-4280-9c29-4eff3379bc24	Letter of Acceptance	reader-gap: mana sheet row cannot name printed sentence
+2a08d878-7816-4d0a-9532-4f2d3c8eee90	Sarkhan's Dragonfire	reader-gap: reference dig script lacks random bottom order
+c08ce0ec-e3fc-4fc3-a7b0-ce8e8fd079c0	Diviner's Wand	reader-gap: dual-grant sentence leaves GrantActivated/GrantTriggeredDefinition without printed lines
+53e540b5-8338-4b21-a61a-c5b7fe652a6e	Undercity Uprising	lint-gap: deathtouch sweep and Fight target share Filter::YOUR_CREATURE in target_reuse
+d0a31db0-69db-405c-99a3-945617900c54	Obscuring Haze	reader-gap: validate: "you control" with AltCondition::CommanderControlled omits Filter::ControlledByYou
+7ad97dd9-1342-4ed4-bea9-1bb21d748e04	Witch of the Moors	lint-gap: SacrificeFilter and GraveyardToHand share Filter::CREATURE in target_reuse
+dcd8b9d4-c76a-4cad-8d43-13e42fb65bd6	Eladamri, Lord of Leaves Avatar	lint-gap: Vanguard card prints {G}{G} with empty Scryfall color_identity (CR 903.4)
+38d2176c-1a1e-4030-9c63-e28ba4a69b6d	Dune Mover	reader-gap: validate fails on omitted "you may" (optional: false)
+73c7fdb3-4742-4d08-8658-daa4435c49b1	Invasion of Vryn // Overloaded Mage-Ring	reader-gap: reference CopySpellAbility script omits MayChooseTarget$ True for "You may choose new targets for the copy"
+d22196b5-b111-45ce-ae51-a06ca02533b6	Wildfire Awakener	reader-gap: check_text rejects lowered player target on generated token (Pass E6)
+3346a585-d35a-4f8b-b9ab-7e453ebd15f4	Romana II	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
+992ddd9f-e0db-4383-909c-6dacca41d188	The Fifth Doctor	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
+49cb8d81-d8a0-4ae7-9750-6788a3e9c81b	The Sixth Doctor	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
+2a73db99-5e31-49a8-91e7-b28b3434585d	The Third Doctor	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
+3778e06c-62c7-4b8f-90ff-b2fc2d2e213c	The Thirteenth Doctor	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
+b793141d-581c-4cc7-b09f-1fe8bd5536c5	Neutralize the Guards	reader-gap: check_text rejects PumpFilter.controlled_by lowering (Pass E6)
+3df4eb80-e8dd-4a9e-bd8a-b4b23fb9de6c	Psychic Whorl	reader-gap: Target opponent mis-lowered to TargetSpec::AnyPlayer (Pass E6)
+c8714939-aaf9-4ede-a04f-61f0df5ea4d4	Bolshack Dragon	reader-gap: Armored creature subtype missing from subtypes.rs (Pass E6)
+271264fb-965c-4fe3-baec-2217de20f8b5	Omenpath to Naya	reader-gap: Omenpath subtype missing from subtypes.rs (Pass E6)
+292aafef-8945-4827-90b2-1dd9764e517b	Osgood, Operation Double	reader-gap: cast trigger lowers "create a token that's a copy of it" to CopySpellOrAbility instead of creating a battlefield token copy (CR 111.13, Pass E6)
+3173ca98-d46a-4de3-a95e-3eaad28d4017	Omega, Heartless Evolution	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent(&Filter::NONLAND), missing Filter::ControlledByOpponent (-D dead_code, Pass E7)
+fc0abdf3-3a88-4cb2-ba79-35fcaebbf7d2	Wail of War	reader-gap: check_text rejects controlled_by: Some(PlayerRel::Chosen) on TargetSpec::AnyOpponent without Filter::ControlledByOpponent (Pass E7)
+4a0cc2a2-3711-473a-b2c5-b1e52b34e4fb	Dion, Bahamut's Dominant // Bahamut, Warden of Light	reader-gap: Chapter III "return it to the battlefield (front face up)" emits owner_control: true without "under its owner's control" (Pass E7)
+c6655e05-9e31-4a74-a97d-1eeb473fe900	Jill, Shiva's Dominant // Shiva, Warden of Ice	reader-gap: Chapter III "return it to the battlefield (front face up)" emits owner_control: true without "under its owner's control" (Pass E7)
+11323af4-b8b8-4ca9-932f-377c7fd77dea	The Eternity Elevator	lint-gap: pt_fault requires power/toughness on all SPACECRAFT faces, but non-creature Spacecraft prints no P/T box (Pass E7)
+9e5df175-5f91-47f7-957c-63bac31f0858	Hog-Monkey Rampage	reader-gap: "creature an opponent controls" mis-lowered to Filter::Not(&Filter::ControlledByYou) instead of Filter::ControlledByOpponent (Pass E8)
+905889fb-a123-4f7a-afc6-b4c6ccac9105	Feast of Worms	lint-gap: target_reuse rejects shared Filter::LAND on destroy target and SacrificeFilter (Pass E8)
+3966bd03-a98e-43b6-a0c0-10d4d81c173c	Render Silent	lint-gap: target_reuse rejects shared Filter::Any on spell target and Modifier::PlayersCantCast (Pass E8)
+99d42ae8-8cee-449b-812b-98a81a593077	Startled Awake // Persistent Nightmare	lint-gap: entries::every_self_return_comes_back_under_the_control_its_sentence_prints requires "return" wording, whereas Startled Awake prints "Put this card from your graveyard onto the battlefield transformed" (Pass E8)
+f0b24d59-b3f4-47e6-befd-40a25ad976e2	Strength of the Coalition	lint-gap: target_reuse rejects shared Filter::YOUR_CREATURE on target and IfKicked AddCounterFilter (Pass E8)
+c918baa5-0e7c-4df2-8567-64a7fbef4df8	Forked-Branch Garami	reader-gap: dual Soulshift 4 emits two single-target triggers instead of one "up to two target" trigger (Pass E10)
+ae24b863-974c-4efa-ab41-23cfa1906c54	Blight Grenade	lint-gap: target_reuse rejects shared Filter::CREATURE on destroy target and PumpFilter sweep (Pass E10)
+de6e4aa2-23f1-46e5-a061-05522944e0c6	For the Common Good	lint-gap: target_reuse rejects shared Filter::And(&[IsToken, ControlledByYou]) on CreateTokenCopy target and PumpFilter sweep (Pass E10)
+5cdb69e5-9395-4ef6-be18-71e3dd70df66	Swashbuckler's Whip	reader-gap: dual granted ability sentence leaves GrantActivated without a printed line in generated_lines.rs (Pass E10)
+997f5a5a-9ee1-4b66-9ffc-d1a2e996e615	Reroute	reader-gap: scriptgen emits nonexistent TargetSpec::ActivatedAbility instead of TargetSpec::AbilityOnStack with an activated-ability filter (Pass E11)
+74a7d880-5a49-412b-af4d-0b4cdb8453ee	Redirect	lint-gap: validate optional clause check does not treat bare Effect::ChooseNewTargets without MayDo as asking "you may" (Pass E11)
+07180afc-5c63-42e0-907b-0ed52f777165	Sideswipe	lint-gap: validate optional clause check does not treat bare Effect::ChooseNewTargets without MayDo as asking "you may" (Pass E11)
+45284633-8aab-4078-ae5c-7b0d75efe2f5	Rikala, Homarid King	reader-gap: corpus script marks mandatory upkeep tide-counter trigger optional (Effect::MayDo) despite no "you may" in Oracle (Pass E12)
+b10ad415-0aae-4d70-82e6-a4055a40cbe4	Sword of War and Peace	reader-gap: DealsCombatDamageToPlayer lowered damage recipient as TargetSpec::EventObject instead of DamagedPlayer (this_object_tests Beat 17 audit)
+d0868a52-5b19-4429-acf1-399f3ae8308c	Furnace Scamp	reader-gap: DealsCombatDamageToPlayer lowered sacrifice-then-damage recipient as TargetSpec::EventObject instead of DamagedPlayer (this_object_tests Beat 17 audit)
+a0f25ffa-0e53-4e38-8001-d595fd2c2045	Temporal Firestorm	reader-gap: DealDamageEach emitted inside ChooseCard.then instead of after ChooseCard so unkicked deals 0 and double-kicked deals 10 (this_object_tests Beat 17 audit)
+955abada-aba2-41c2-96ff-58e3679ad7e5	Taborax, Hope's Demise	reader-gap: MayDo wraps unconditional draw(1) outside IfCondition(Cleric) so non-Cleric death still draws (this_object_tests Beat 17 audit)
+9216c2e5-4cfe-4945-b45f-20a1e0d308a0	Durkwood Tracker	reader-gap: TargetPower fight-back lowered with Durkwood Tracker as damage source instead of target creature (this_object_tests Beat 17 audit)
+
+# Engine gaps
+9843d8a6-bcbf-40c2-8c41-316e97db9c62	Shallow Grave	engine-gap: held-back stub awaiting completion and test
+9c2b262b-53c0-41a1-8f1a-0c336453d4bf	Comet Storm	engine-gap: Amount::TimesKicked target count not in TargetReq
+132401fb-6754-4190-9c85-1e57e7f63ed6	Strength of the Tajuru	engine-gap: Amount::TimesKicked target count not in TargetReq
+ac136d46-32b7-4222-a840-b8be011c1872	Zethi, Arcane Blademaster	engine-gap: Amount::TimesKicked target count not in TargetReq
+45f1e957-09f0-4d46-8e32-238f26060a87	Kolaghan's Command	engine-gap: targets in more than two modes
+7052fbd6-94df-41a9-a382-641701086804	Silumgar's Command	engine-gap: targets in more than two modes
+b2402ac0-8ab8-413c-bac4-9f4ba2163c58	Behold the Beyond	engine-gap: quantity-only search (CR 701.23d) may not settle for fewer
+b44d3fe8-b1e2-4abb-ab82-7a516a1db1e5	Keldon Warcaller	engine-gap: lore counters require AI guard regression first (#166)
+0f12aec9-5898-4261-bebd-1b545e0aea68	Mind Unbound	engine-gap: lore counters require AI guard regression first (#166)
+9fceca3c-fc10-4e46-a727-122aafcef349	Cruel Sadist	engine-gap: RemoveCounterSelfX + target announces X before target (CR 601.2b/c)
+143714b8-30ae-42c2-84d9-e58aed7dff5b	Geistflame Reservoir	engine-gap: RemoveCounterSelfX + target announces X before target (CR 601.2b/c)
+a79d2fc8-467f-464d-9e73-2dae4b059628	Ayula, Queen Among Bears	engine-gap: modal trigger mode uses second_targets (engine reads primary target only)
+bf89bd6d-aa6c-4fd8-9278-151529ab0e62	Hourglass of the Lost	engine-gap: RemoveCounterSelfX on non-mana activated ability requires an engine stack x_value test before release (Pass E6)
+
+# Fixture gaps
+29ae5540-5fdf-48be-86ba-b4db0fe19f6c	Vapor Snare	fixture-gap: Aura upkeep bounce; fixture plays creatures only
+0d78ba2c-4de0-47d9-b1b9-13dc9de8844b	Faerie Impostor	fixture-gap: pay by returning a permanent; missing card_tests::lands case
+5d24525f-dbac-434b-bda7-ff8af55245ff	Glint Hawk	fixture-gap: pay by returning a permanent; missing card_tests::lands case
+109899e1-abd7-4582-8b67-b0852755bf75	Quickling	fixture-gap: pay by returning a permanent; missing card_tests::lands case
+516d1ac4-e831-44b6-8266-131dde7fe802	Tragic Lesson	fixture-gap: pay by returning a permanent; missing card_tests::lands case
+f955bc96-d602-4142-a9a2-87009cc7028c	Awakening Zone	fixture-gap: upkeep "may" stops mana sweep before main phase
+947a2665-2f4d-4193-8768-118f85334549	Abundant Growth	fixture-gap: mana Aura attach fixture gap in pool-wide sweep
+43a86d36-9653-4498-a533-8b30b919cdbf	Gift of Paradise	fixture-gap: mana Aura attach fixture gap in pool-wide sweep
+fc3e48c9-e303-435c-bdb1-7dc7881a9858	Karametra's Favor	fixture-gap: mana Aura attach fixture gap in pool-wide sweep
+9ab101c2-215b-4736-873a-4a1ef6666b6d	Nature's Embrace	fixture-gap: mana Aura attach fixture gap in pool-wide sweep
+8834d3c9-cdb5-423b-bc78-94a94add5e74	New Horizons	fixture-gap: mana Aura attach fixture gap in pool-wide sweep
+f2c408f6-3994-4a90-a9f5-f248eb976017	Sheltered Aerie	fixture-gap: mana Aura attach fixture gap in pool-wide sweep
+d749d075-6135-486a-a94a-36c3142960d7	Unbridled Growth	fixture-gap: mana Aura attach fixture gap in pool-wide sweep
+77b73f11-a59a-4f2b-83d3-e6fe5064bc87	Urban Utopia	fixture-gap: mana Aura attach fixture gap in pool-wide sweep
+9ce5cc2f-e223-4c3b-adc1-c0109fd31762	Weirding Wood	fixture-gap: mana Aura attach fixture gap in pool-wide sweep
+
+# Identity clashes (tokens and Alchemy A-* path collisions)
+2970d09b-4bef-468e-8de5-f994c820ccc0	Pestbrood Sloth	identity-clash: collides on PEST_1_1_BLACK_GREEN token constant
+955bfcb8-6477-4ed0-b6e7-8940874ae5e4	Send in the Pest	identity-clash: collides on PEST_1_1_BLACK_GREEN token constant
+d63f4eeb-3fa5-4e65-8414-e3fd3c03c128	Drudge Spell	identity-clash: collides on SKELETON_1_1_BLACK token constant
+40b04ae2-b0b0-48ea-9005-394c59afa8fa	A-Sepulcher Ghoul	identity-clash: Alchemy A-* card collides on paper card path
+1d96c049-d747-4c98-a5fe-a0c94b6a899c	A-Blood Artist	identity-clash: Alchemy A-* card collides on paper card path
+9b51b64d-24e1-40c2-95de-2cdd1fc49aee	A-Canopy Tactician	identity-clash: Alchemy A-* card collides on paper card path
+0500a57f-3bfa-47ef-9b0e-faafd3563e04	A-Elderleaf Mentor	identity-clash: Alchemy A-* card collides on paper card path
+bd983b4d-158c-46f7-940a-5220eab22796	A-Skemfar Avenger	identity-clash: Alchemy A-* card collides on paper card path
+49c2261c-6680-44f9-b8d6-7e7c9890aaea	A-Rockslide Sorcerer	identity-clash: Alchemy A-* card collides on paper card path
+8e812375-168a-4859-8cc8-c7d2a764b212	A-Umara Mystic	identity-clash: Alchemy A-* card collides on paper card path
+da73c44c-08b5-469c-ace0-1f048ce447a2	A-Dragonborn Looter	identity-clash: Alchemy A-* card collides on paper card path
+b2747a8c-13eb-48fc-8a1a-ba74ecbaa122	A-Eyes of the Beholder	identity-clash: Alchemy A-* card collides on paper card path
+294208f8-da7d-45fd-a0c5-1b0dd40aad5e	A-Goggles of Night	identity-clash: Alchemy A-* card collides on paper card path
+3c3d7dbe-c0ca-4d63-bfa0-2e0edb1bede1	A-Pseudodragon Familiar	identity-clash: Alchemy A-* card collides on paper card path
+60ae87f0-807f-47a9-b1b0-6cea4e68973d	A-Celebrity Fencer	identity-clash: Alchemy A-* card collides on paper card path
+b7326665-2cae-43f8-935f-04936ba4da69	A-Glittermonger	identity-clash: Alchemy A-* card collides on paper card path
+33115373-bd63-463c-a50e-0af090f8dc85	A-Jackhammer	identity-clash: Alchemy A-* card collides on paper card path
+4b0b97a2-95ef-496e-ac88-48f97c70f34b	A-Midnight Assassin	identity-clash: Alchemy A-* card collides on paper card path
+e65a38e0-91fd-4b03-a92e-cf639c17ffb2	A-Most Wanted	identity-clash: Alchemy A-* card collides on paper card path
+78ce839e-6701-4e6a-8ffd-90e75358d706	A-Ominous Parcel	identity-clash: Alchemy A-* card collides on paper card path
+d507e988-6005-49a8-8e7e-b7993537a431	A-Riveteers Initiate	identity-clash: Alchemy A-* card collides on paper card path
+0d5a023f-c968-4cf7-9875-fefbde082fc0	A-Social Climber	identity-clash: Alchemy A-* card collides on paper card path
+587840b2-9af8-4efd-a6cf-d15a2d1d0a76	A-Speakeasy Server	identity-clash: Alchemy A-* card collides on paper card path
+ecaf5d0c-17b6-43e5-a791-a36183e36616	A-Stimulus Package	identity-clash: Alchemy A-* card collides on paper card path
+2b6743f4-59d0-4fa8-a0f9-01064e4dd4bc	A-Haywire Mite	identity-clash: Alchemy A-* card collides on paper card path
+5f5d6f2d-2793-4355-b3f6-6eba42603756	A-The One Ring	identity-clash: Alchemy A-* card collides on paper card path
+a26288bc-3bb2-483d-80a1-fb99961be971	A-Mightstone's Animation	identity-clash: Alchemy A-* card collides on paper card path
+8f7b6421-e399-425c-b403-90d7c28a59db	A-Harald, King of Skemfar	identity-clash: Alchemy A-* card collides on paper card path
+6ca4328e-1326-435f-819e-554133f0d63e	A-Warm Welcome	identity-clash: Alchemy A-* card collides on paper card path

@@ -202,6 +202,9 @@ fn at_a_table_of_three_the_controller_chooses_whom_the_token_attacks() {
     engine
         .apply(me(), PlayerAction::ChoosePlayer(third))
         .expect("an offered player is taken");
+    let state = engine.state();
+    assert_eq!(state.combat.opponents_being_attacked_by(state, me()), 2);
+    assert_eq!(state.combat.opponents_attacked_by(state, me()), 1);
     walk_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
 
     assert_eq!(life(&engine, them()), second_life - 2, "the Captain's 2");

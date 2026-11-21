@@ -50,8 +50,26 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
         | CostPart::ExileFromHand(_)
-        | CostPart::ExileTopOfLibrary(_) => false,
+        | CostPart::ReturnUnblockedAttacker
+        | CostPart::ExileTopOfLibrary(_)
+        | CostPart::DealDamageToYou(_)
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::Forage
+        | CostPart::CraftMaterials { .. } => false,
+        CostPart::Either(a, b) => any_needs_the_source(a.parts) || any_needs_the_source(b.parts),
     }
+}
+
+const fn any_needs_the_source(parts: &[CostPart]) -> bool {
+    let mut i = 0;
+    while i < parts.len() {
+        if needs_the_source(&parts[i]) {
+            return true;
+        }
+        i += 1;
+    }
+    false
 }
 
 /// Does paying this part move the source out of the zone it is being paid
@@ -85,6 +103,8 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::Crew(_)
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
+        | CostPart::ReturnUnblockedAttacker
+        | CostPart::CraftMaterials { .. }
         | CostPart::ExileFromGraveyard(_)
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExilePermanent(_)
@@ -93,8 +113,24 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
         | CostPart::ExileFromHand(_)
-        | CostPart::ExileTopOfLibrary(_) => false,
+        | CostPart::ExileTopOfLibrary(_)
+        | CostPart::DealDamageToYou(_)
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::Forage => false,
+        CostPart::Either(a, b) => any_moves_the_source(a.parts) || any_moves_the_source(b.parts),
     }
+}
+
+const fn any_moves_the_source(parts: &[CostPart]) -> bool {
+    let mut i = 0;
+    while i < parts.len() {
+        if moves_the_source(&parts[i]) {
+            return true;
+        }
+        i += 1;
+    }
+    false
 }
 
 /// The first part of a cost that is paid after the source has already left,
@@ -273,7 +309,13 @@ pub(super) fn face_cost_lists(def: &CardDef) -> Vec<&'static [CostPart]> {
 pub(super) fn face_costs(def: &CardDef) -> Vec<Cost> {
     def.faces
         .iter()
-        .flat_map(|face| face.alternative_costs.iter().map(|alt| alt.cost))
+        .flat_map(|face| {
+            face.alternative_costs
+                .iter()
+                .map(|alt| alt.cost)
+                .chain(face.squad)
+                .chain(face.offspring)
+        })
         .collect()
 }
 

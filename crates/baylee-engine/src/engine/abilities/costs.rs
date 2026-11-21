@@ -44,6 +44,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         cost: &Cost,
         reduction: Option<baylee_cards_dsl::CostReduction>,
     ) -> ActivationPrice {
+        if ability_index == crate::choice::TURN_FACE_UP {
+            let spend = self.state.source_identity(source).map_or(
+                casting::SpendFor::Ability(source),
+                casting::SpendFor::OtherFrom,
+            );
+            return ActivationPrice {
+                mana: cost.mana,
+                parts: cost.parts.iter().copied().collect(),
+                imposed: 0,
+                allowance: casting::base_allowance(&self.state, spend),
+                grantor: None,
+            };
+        }
         let (eligible, ordinary) = casting::activation_increases(&self.state, source);
         let increase = eligible.saturating_add(ordinary);
         let mut base_mana = cost.mana;
@@ -71,6 +84,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .any(|effect| matches!(effect, baylee_cards_dsl::Effect::AttachSelf { .. })),
                 _ => false,
             });
+        let cycling = self
+            .activation_definition(source, ability_index)
+            .is_some_and(|ability| ability.is_cycling());
         let granted = self.granted_definition(source, ability_index);
         let mut damage_from_grantor = false;
         if let Some(grant) = granted {
@@ -87,44 +103,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             None
         };
         let mut parts: SmallVec<[CostPart; 4]> = cost.parts.iter().copied().collect();
+        if matches!(
+            self.activation_definition(source, ability_index),
+            Some(AbilityDef::Encore { .. })
+        ) && !parts.contains(&CostPart::ExileSelf)
+        {
+            parts.push(CostPart::ExileSelf);
+        }
         // Apply reductions with a local floor first, so they do not limit
         // an independent unrestricted reduction applied afterwards. External
         // non-mana costs also apply when the printed activation has no generic mana.
-        if self.state.effects.may_change_or_forbid_abilities()
-            && let Some(object) = self.state.object(source)
-        {
-            for effect in self.state.effects.iter() {
-                match effect.modifier {
-                    baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum }
-                        if full.generic_total() > 0
-                            && crate::effects::applies_to(&self.state, effect, object) =>
-                    {
-                        // A minimum limits this reduction, never increases a free cost.
-                        let reduction = amount.min(mana.cmc().saturating_sub(minimum));
-                        mana = mana.with_less_generic(reduction);
-                    }
-                    baylee_cards_dsl::Modifier::EquipCostsLess(amount)
-                        if full.generic_total() > 0
-                            && crate::effects::applies_to(&self.state, effect, object)
-                            && object.characteristics().subtypes.contains(
-                                baylee_core::generated::subtypes::artifact::EQUIPMENT,
-                            )
-                            && equip =>
-                    {
-                        mana = mana.with_less_generic(amount);
-                    }
-                    baylee_cards_dsl::Modifier::AbilitiesCostSacrificePerManaSymbol {
-                        color,
-                        sacrifice,
-                    } if crate::effects::applies_to(&self.state, effect, object) => {
-                        casting::extend_sacrifices_per_mana_symbol(
-                            &mut parts, &base_mana, color, sacrifice,
-                        );
-                    }
-                    _ => {}
-                }
-            }
-        }
+        self.apply_activation_effect_adjustments(
+            player, source, &base_mana, &full, equip, cycling, &mut mana, &mut parts,
+        );
         mana = mana.with_less_generic(off);
         let imposed = parts.len() - cost.parts.len();
         ActivationPrice {
@@ -138,6 +129,66 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     full.generic_total() - mana.generic_total(),
                 ),
             grantor,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn apply_activation_effect_adjustments(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        base_mana: &baylee_core::mana::ManaCost,
+        full: &baylee_core::mana::ManaCost,
+        equip: bool,
+        cycling: bool,
+        mana: &mut baylee_core::mana::ManaCost,
+        parts: &mut SmallVec<[CostPart; 4]>,
+    ) {
+        if !self.state.effects.may_change_or_forbid_abilities() {
+            return;
+        }
+        let Some(object) = self.state.object(source) else {
+            return;
+        };
+        for effect in self.state.effects.iter() {
+            match effect.modifier {
+                baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum }
+                    if full.generic_total() > 0
+                        && crate::effects::applies_to(&self.state, effect, object) =>
+                {
+                    // A minimum limits this reduction, never increases a free cost.
+                    let reduction = amount.min(mana.cmc().saturating_sub(minimum));
+                    *mana = mana.with_less_generic(reduction);
+                }
+                baylee_cards_dsl::Modifier::EquipCostsLess(amount)
+                    if full.generic_total() > 0
+                        && crate::effects::applies_to(&self.state, effect, object)
+                        && object
+                            .characteristics()
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
+                        && equip =>
+                {
+                    *mana = mana.with_less_generic(amount);
+                }
+                baylee_cards_dsl::Modifier::CyclingCostsLess(amount)
+                    if cycling && full.generic_total() > 0 =>
+                {
+                    let mut cycling_card = object.clone();
+                    cycling_card.controller = player;
+                    cycling_card.base_controller = player;
+                    if crate::effects::matches_filter(&self.state, effect, &cycling_card) {
+                        *mana = mana.with_less_generic(amount);
+                    }
+                }
+                baylee_cards_dsl::Modifier::AbilitiesCostSacrificePerManaSymbol {
+                    color,
+                    sacrifice,
+                } if crate::effects::applies_to(&self.state, effect, object) => {
+                    casting::extend_sacrifices_per_mana_symbol(parts, base_mana, color, sacrifice);
+                }
+                _ => {}
+            }
         }
     }
 
@@ -261,6 +312,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             CostPart::TapSelf | CostPart::UntapSelf | CostPart::ExertSelf => {
                 self.can_pay_source_action(source, part)
             }
+            CostPart::SacrificeSelf => self.state.can_be_sacrificed(source, None),
             CostPart::RemoveCounterSelf { kind, n } => self
                 .state
                 .object(source)
@@ -295,6 +347,29 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         parts: &[CostPart],
         what: casting::SpendFor,
     ) -> bool {
+        if let Some((idx, CostPart::Either(a, b))) = parts
+            .iter()
+            .enumerate()
+            .find(|(_, p)| matches!(p, CostPart::Either(_, _)))
+        {
+            let x = self.activation_x.unwrap_or(0);
+            let branch = |sub: &Cost| {
+                let next_parts: SmallVec<[CostPart; 4]> = parts[..idx]
+                    .iter()
+                    .chain(sub.parts)
+                    .chain(&parts[idx + 1..])
+                    .copied()
+                    .collect();
+                self.can_afford_parts(
+                    player,
+                    source,
+                    mana.combine(&sub.mana.with_x(x)),
+                    &next_parts,
+                    what,
+                )
+            };
+            return branch(a) || branch(b);
+        }
         if !self.source_cost_parts_ready(source, parts) {
             return false;
         }
@@ -327,15 +402,38 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 CostPart::SacrificeX(_)
                 | CostPart::TapX(_)
+                | CostPart::DiscardX(_)
+                | CostPart::ExileFromGraveyardX(_)
                 | CostPart::TapN { .. }
-                | CostPart::ExileFromSingleGraveyard { .. } => {
+                | CostPart::ExileFromSingleGraveyard { .. }
+                | CostPart::CraftMaterials { .. } => {
                     let count = match part {
                         CostPart::TapN { count, .. } => *count,
                         CostPart::ExileFromSingleGraveyard { count, .. } => u32::from(*count),
+                        CostPart::CraftMaterials { min, .. } => u32::from(*min),
                         _ => self.activation_x.unwrap_or(0),
                     };
                     let count = usize::try_from(count).unwrap_or(usize::MAX);
                     if cost_wizard::menu(&self.state, player, source, parts, part).len() < count {
+                        return false;
+                    }
+                }
+                CostPart::Forage => {
+                    let menu = cost_wizard::menu(&self.state, player, source, parts, part);
+                    let foods = menu
+                        .iter()
+                        .filter(|&&id| {
+                            self.state
+                                .object(id)
+                                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                        })
+                        .count();
+                    let gy = menu.len().saturating_sub(foods);
+                    let needed = parts
+                        .iter()
+                        .filter(|other| matches!(other, CostPart::Forage))
+                        .count();
+                    if foods.saturating_add(gy / 3) < needed {
                         return false;
                     }
                 }
@@ -389,6 +487,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_)
+                | CostPart::ReturnUnblockedAttacker
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::PutCounterOnOther { .. } => {
                     // **As many candidates as the cost asks questions.** A
@@ -454,6 +553,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PutCounterSelf { .. }
                 | CostPart::PayLifeX
                 | CostPart::PayEnergyX
+                | CostPart::DealDamageToYou(_)
+                | CostPart::Either(_, _)
                 | CostPart::PayAttachedManaCost => {}
             }
         }
@@ -657,42 +758,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             .push((src_ref, tapped_ref));
                     }
                     self.state.set_tapped(source, true);
-                    self.state.journal.record(GameEvent::ObjectTapped {
-                        object: source,
-                        cause: Cause::Cost,
-                    });
+                    self.state.record_tap_event(source, true, Cause::Cost);
                 }
                 CostPart::ExertSelf => {
-                    let version = self.state.object(source).expect("exerted source").version;
-                    let filter = crate::effects::EffectFilter::DslAbout(
-                        &baylee_cards_dsl::Filter::And(&[
-                            baylee_cards_dsl::Filter::Reference,
-                            baylee_cards_dsl::Filter::ControlledByYou,
-                        ]),
+                    crate::resolve::wave4_combat::exert_permanent(
+                        &mut self.state,
                         source,
-                        version,
+                        player,
+                        Cause::Cost,
                     );
-                    let timestamp = self.state.next_timestamp();
-                    self.state
-                        .effects
-                        .register(crate::effects::ContinuousEffect {
-                            id: baylee_core::ids::EffectId::new(0),
-                            source: Some(source),
-                            controller: player,
-                            origin: crate::effects::EffectOrigin::Resolution,
-                            layer: baylee_cards_dsl::Modifier::DoesNotUntap.layer(),
-                            timestamp,
-                            duration: baylee_cards_dsl::Duration::UntilYourNextUntapStep,
-                            filter,
-                            modifier: baylee_cards_dsl::Modifier::DoesNotUntap,
-                        });
                 }
                 CostPart::UntapSelf => {
                     if self.state.set_tapped(source, false) {
-                        self.state.journal.record(GameEvent::ObjectUntapped {
-                            object: source,
-                            cause: Cause::Cost,
-                        });
+                        self.state.record_tap_event(source, false, Cause::Cost);
                     }
                 }
                 CostPart::DiscardRandom => {
@@ -781,7 +859,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         cost_wizard::pay(&mut self.state, player, part, card)?;
                     }
                 }
-                CostPart::SacrificeX(_) | CostPart::TapX(_) => {
+                CostPart::SacrificeX(_)
+                | CostPart::TapX(_)
+                | CostPart::DiscardX(_)
+                | CostPart::ExileFromGraveyardX(_) => {
                     let Some(cards) = answers.next() else {
                         return Err(EngineError::IllegalAction("unanswered counted cost"));
                     };
@@ -811,6 +892,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 .tapped_for_ability
                                 .push((src_ref, tapped_ref));
                         }
+                        if matches!(part, CostPart::DiscardX(_))
+                            && let Some(reference) = self.state.source_identity(card)
+                        {
+                            paid.discarded.push(reference);
+                        }
                         let power = self
                             .state
                             .object(card)
@@ -821,6 +907,64 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 (power, self.state.object(card).map(|o| o.version))
                         {
                             paid.sacrificed_many.push((card, version, power));
+                        }
+                    }
+                }
+                CostPart::DealDamageToYou(n) => {
+                    if *n > 0 {
+                        let assignment = crate::damage::Assignment {
+                            source,
+                            source_version: self.state.object(source).map(|o| o.version),
+                            recipient: crate::event::DamageTarget::Player(player),
+                            amount: u32::from(*n),
+                            is_combat: false,
+                        };
+                        let mut work =
+                            crate::damage::DamageWork::new(&mut self.state, vec![assignment]);
+                        work.finish_cost_damage(&mut self.state);
+                    }
+                }
+                CostPart::Forage => {
+                    let Some(selected) = answers.next() else {
+                        return Err(EngineError::IllegalAction("unanswered forage cost"));
+                    };
+                    match *selected.as_slice() {
+                        [food]
+                            if self.state.object(food).is_some_and(|o| {
+                                o.zone == crate::zone::Zone::Battlefield
+                                    && o.controller == player
+                                    && o.characteristics()
+                                        .subtypes
+                                        .contains(baylee_core::generated::subtypes::artifact::FOOD)
+                            }) =>
+                        {
+                            if work.next <= cost.parts.len().saturating_sub(cost.imposed) {
+                                paid.sacrificed =
+                                    self.state.object(food).map(|o| (food, o.version));
+                                paid.sacrificed_lki = self
+                                    .state
+                                    .object(food)
+                                    .map(crate::object::SacrificedLki::of);
+                            }
+                            self.state.sacrifice_object(food, Cause::Cost)?;
+                        }
+                        [a, b, c]
+                            if a != b
+                                && b != c
+                                && a != c
+                                && [a, b, c].into_iter().all(|id| {
+                                    self.state.object(id).is_some_and(|o| {
+                                        o.zone == crate::zone::Zone::Graveyard
+                                            && o.zone_owner == Some(player)
+                                    })
+                                }) =>
+                        {
+                            for id in [a, b, c] {
+                                cost_wizard::pay(&mut self.state, player, part, id)?;
+                            }
+                        }
+                        _ => {
+                            return Err(EngineError::IllegalAction("invalid forage payment"));
                         }
                     }
                 }
@@ -864,8 +1008,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // wizard to pay them anywhere else. Named here rather than
                 // swept into a `_` so that a new `CostPart` is still a
                 // compile error in this match.
-                CostPart::ExileFromHand(_) | CostPart::PayLifeX | CostPart::PayAttachedManaCost => {
-                }
+                CostPart::ExileFromHand(_)
+                | CostPart::PayLifeX
+                | CostPart::PayAttachedManaCost
+                | CostPart::Either(_, _) => {}
                 // Through the removal door rather than off the object by
                 // hand, because the journal entry and the projection
                 // invalidation live there: a +1/+1 counter spent on Walking
@@ -967,10 +1113,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         self.state.set_tapped(id, true);
                     }
                     for &id in selected {
-                        self.state.journal.record(GameEvent::ObjectTapped {
-                            object: id,
-                            cause: Cause::Cost,
-                        });
+                        self.state.record_tap_event(id, true, Cause::Cost);
                     }
                 }
                 CostPart::ExileFromSingleGraveyard { count, .. } => {
@@ -993,6 +1136,40 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     for &id in selected {
                         cost_wizard::pay(&mut self.state, player, part, id)?;
+                    }
+                }
+                CostPart::CraftMaterials { min, max, .. } => {
+                    let selected = answers
+                        .next()
+                        .ok_or(EngineError::IllegalAction("unanswered craft material cost"))?;
+                    let options = cost_wizard::menu(&self.state, player, source, &cost.parts, part);
+                    if selected.len() < usize::from(*min)
+                        || selected.len() > usize::from(*max)
+                        || selected
+                            .iter()
+                            .enumerate()
+                            .any(|(i, id)| selected[..i].contains(id) || !options.contains(id))
+                    {
+                        return Err(EngineError::IllegalAction("invalid craft material group"));
+                    }
+                    for &id in selected {
+                        if let Some(obj) = self.state.object_mut(id)
+                            && obj.is_card()
+                        {
+                            obj.kind = crate::object::ObjectKind::Card;
+                        }
+                        cost_wizard::pay(&mut self.state, player, part, id)?;
+                        if let Some(exiled) = self
+                            .state
+                            .object(id)
+                            .filter(|o| o.zone == crate::zone::Zone::Exile && o.is_card())
+                        {
+                            paid.crafted_materials
+                                .push(baylee_core::ids::DamageSourceRef {
+                                    object: id,
+                                    version: exiled.version,
+                                });
+                        }
                     }
                 }
                 CostPart::Crew(power) | CostPart::Saddle(power) => {
@@ -1027,6 +1204,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_)
+                | CostPart::ReturnUnblockedAttacker
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::PutCounterOnOther { .. } => {
                     let Some(&[card]) = answers.next().map(Vec::as_slice) else {
@@ -1034,6 +1212,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             "a cost that has to ask reached the payer unanswered",
                         ));
                     };
+                    if matches!(part, CostPart::ReturnUnblockedAttacker) {
+                        if self.state.combat.is_blocked(card) {
+                            return Err(EngineError::IllegalAction(
+                                "cannot return a blocked creature for ninjutsu",
+                            ));
+                        }
+                        let defender = self.state.combat.defender_of(card).ok_or(
+                            EngineError::IllegalAction("chosen creature is no longer attacking"),
+                        )?;
+                        let target_ver = match defender {
+                            baylee_core::ids::Defender::Player(_) => None,
+                            baylee_core::ids::Defender::Planeswalker(id)
+                            | baylee_core::ids::Defender::Battle(id) => {
+                                self.state.object(id).map(|o| o.version)
+                            }
+                        };
+                        paid.ninjutsu_defender = Some((defender, target_ver));
+                    }
                     // "The sacrificed creature's mana value" (Birthing Pod)
                     // is read off the permanent as it last existed on the
                     // battlefield (CR 608.2h), so before it goes. Only the

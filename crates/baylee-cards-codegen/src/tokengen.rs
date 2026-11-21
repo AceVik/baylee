@@ -131,6 +131,180 @@ const SUPERTYPES: &[(&str, &str)] = &[
     ("Snow", "SupertypeSet::SNOW"),
 ];
 
+struct RawToken {
+    name: String,
+    colors: Option<String>,
+    types: String,
+    pt: Option<String>,
+    defense: Option<u16>,
+    keywords: Vec<&'static str>,
+    ability_keywords: Vec<String>,
+    text_all_colors: bool,
+    has_rule_lines: bool,
+}
+
+fn parse_token_lines(text: &str) -> Option<RawToken> {
+    let (mut name, mut colors, mut types, mut pt) = (None, None, None, None);
+    let mut defense = None;
+    let mut keywords: Vec<&'static str> = Vec::new();
+    let mut ability_keywords: Vec<String> = Vec::new();
+    let mut text_all_colors = false;
+    let mut has_rule_lines = false;
+    for line in text.lines() {
+        let line = line.trim_end();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let (head, rest) = line.split_once(':')?;
+        match head {
+            "Name" => name = Some(rest.trim().to_string()),
+            "Colors" => colors = Some(rest.trim().to_string()),
+            "Types" => types = Some(rest.trim().to_string()),
+            "PT" => pt = Some(rest.trim().to_string()),
+            "Defense" => defense = Some(rest.trim().parse::<u16>().ok()?),
+            "Text" => match rest.trim() {
+                "This creature is all colors." | "CARDNAME is all colors." => {
+                    text_all_colors = true;
+                }
+                _ => return None,
+            },
+            "K" => {
+                if let Some(bit) = single_instance_trigger_keyword(rest.trim()) {
+                    // CR 702.39b/91b/105b/121b/134b/149b: multiple instances
+                    // trigger separately; refuse duplicate lines rather than
+                    // silently collapsing them onto one bit.
+                    if keywords.contains(&bit) {
+                        return None;
+                    }
+                    keywords.push(bit);
+                } else if let Some(bit) = crate::scriptgen::keyword_const_of(rest) {
+                    keywords.push(bit);
+                } else {
+                    match rest.trim() {
+                        "CARDNAME can't attack." => keywords.push("KeywordSet::CANT_ATTACK"),
+                        "CARDNAME can't block." => keywords.push("KeywordSet::CANT_BLOCK"),
+                        "CARDNAME can't attack or block." => {
+                            keywords.push("KeywordSet::CANT_ATTACK");
+                            keywords.push("KeywordSet::CANT_BLOCK");
+                        }
+                        other if is_token_ability_keyword(other) => {
+                            ability_keywords.push(other.to_string());
+                        }
+                        _ => return None,
+                    }
+                }
+            }
+            "A" | "T" | "S" | "R" => has_rule_lines = true,
+            _ if IGNORED.contains(&head) || TRANSCODED.contains(&head) => {}
+            _ => return None,
+        }
+    }
+    // The script's line order is the script's, not the token's: the corpus
+    // writes `Defender,Flying` beside `Flying,Vigilance` and `red,white`
+    // beside `green,blue`. A name built from the order the lines happen to
+    // arrive in is two names for one token — two ids, in a table that may
+    // only ever grow. So both lists are put in a canonical order before
+    // either the name or the literal is built: keywords alphabetically,
+    // colours in WUBRG, which is the order Magic itself prints them.
+    keywords.sort_unstable();
+    keywords.dedup();
+    // CR 111.2: a token has the characteristics the effect that created it
+    // states, and the type line is the one field none of them can omit.
+    Some(RawToken {
+        name: name?,
+        colors,
+        types: types?,
+        pt,
+        defense,
+        keywords,
+        ability_keywords,
+        text_all_colors,
+        has_rule_lines,
+    })
+}
+
+fn single_instance_trigger_keyword(kw: &str) -> Option<&'static str> {
+    match kw {
+        "Provoke" => Some("KeywordSet::PROVOKE"),
+        "Battle Cry" | "Battle cry" => Some("KeywordSet::BATTLE_CRY"),
+        "Dethrone" => Some("KeywordSet::DETHRONE"),
+        "Melee" => Some("KeywordSet::MELEE"),
+        "Mentor" => Some("KeywordSet::MENTOR"),
+        "Training" => Some("KeywordSet::TRAINING"),
+        "Myriad" => Some("KeywordSet::MYRIAD"),
+        "Extort" => Some("KeywordSet::EXTORT"),
+        "Enlist" => Some("KeywordSet::ENLIST"),
+        "Soulbond" => Some("KeywordSet::SOULBOND"),
+        "Exploit" => Some("KeywordSet::EXPLOIT"),
+        "Evolve" => Some("KeywordSet::EVOLVE"),
+        "Riot" => Some("KeywordSet::RIOT"),
+        "Unleash" => Some("KeywordSet::UNLEASH"),
+        _ => None,
+    }
+}
+
+fn render_token_literal(
+    name: &str,
+    colors: Option<&Colors>,
+    types: &TypeLine,
+    pt: Option<(i16, i16)>,
+    defense: Option<u16>,
+    keywords: &[&str],
+    abilities: &[String],
+) -> String {
+    let mut literal = String::with_capacity(256);
+    literal.push_str("TokenDef {\n");
+    let _ = writeln!(literal, "    name: {:?},", token_name(name));
+    if let Some(colors) = colors
+        && !colors.words.is_empty()
+    {
+        let _ = writeln!(literal, "    colors: {},", colors.expr);
+    }
+    let _ = writeln!(literal, "    types: {},", types.set);
+    if let Some(supertypes) = &types.supertypes {
+        let _ = writeln!(literal, "    supertypes: {supertypes},");
+    }
+    if !types.subtypes.is_empty() {
+        let _ = writeln!(literal, "    subtypes: &[{}],", types.subtypes.join(", "));
+    }
+    if let Some((p, t)) = pt {
+        let _ = writeln!(literal, "    power: Some({p}),");
+        let _ = writeln!(literal, "    toughness: Some({t}),");
+    }
+    if let Some(defense) = defense {
+        let _ = writeln!(literal, "    defense: Some({defense}),");
+    }
+    if !keywords.is_empty() {
+        let _ = writeln!(literal, "    keywords: {},", union_of(keywords));
+    }
+    if !abilities.is_empty() {
+        let _ = writeln!(literal, "    abilities: &[{}],", abilities.join(", "));
+    }
+    literal.push_str("    ..TokenDef::DEFAULT\n}");
+    literal
+}
+
+fn token_shape_ok(raw: &RawToken, types: &TypeLine) -> bool {
+    if types.set.contains("TypeSet::BATTLE") != raw.defense.is_some() {
+        return false;
+    }
+    let is_equipment =
+        !types.is_creature && types.subtypes.iter().any(|s| s == "artifact::EQUIPMENT");
+    if !is_equipment && raw.ability_keywords.iter().any(|k| k.starts_with("Equip:")) {
+        return false;
+    }
+    // CR 303.7 Role uniqueness SBA is not yet enforced in the engine; keep
+    // Role Aura tokens refused while allowing plain Aura tokens.
+    let is_non_role_aura = !types.is_creature
+        && types.subtypes.iter().any(|s| s == "enchantment::AURA")
+        && !types.subtypes.iter().any(|s| s == "enchantment::ROLE");
+    is_non_role_aura
+        || !raw
+            .ability_keywords
+            .iter()
+            .any(|k| k.starts_with("Enchant:"))
+}
+
 /// Reads a token script, or refuses it.
 ///
 /// `None` is an honest refusal, and a token whose ability this cannot write
@@ -144,168 +318,647 @@ const SUPERTYPES: &[(&str, &str)] = &[
 /// worklist with nothing keeping it true.
 #[must_use]
 pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
-    let (mut name, mut colors, mut types, mut pt) = (None, None, None, None);
-    let mut defense = None;
-    let mut keywords: Vec<&'static str> = Vec::new();
-    for line in text.lines() {
-        let line = line.trim_end();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        let (head, rest) = line.split_once(':')?;
-        match head {
-            "Name" => name = Some(rest.trim().to_string()),
-            "Colors" => colors = Some(rest.trim().to_string()),
-            "Types" => types = Some(rest.trim().to_string()),
-            "PT" => pt = Some(rest.trim().to_string()),
-            "Defense" => defense = Some(rest.trim().parse::<u16>().ok()?),
-            "K" => keywords.push(crate::scriptgen::keyword_const_of(rest)?),
-            _ if IGNORED.contains(&head) => {}
-            _ if TRANSCODED.contains(&head) => {}
-            _ => return None,
-        }
-    }
+    read_with_tokens(text, cats, None)
+}
 
-    // The script's line order is the script's, not the token's: the corpus
-    // writes `Defender,Flying` beside `Flying,Vigilance` and `red,white`
-    // beside `green,blue`. A name built from the order the lines happen to
-    // arrive in is two names for one token — two ids, in a table that may
-    // only ever grow. So both lists are put in a canonical order before
-    // either the name or the literal is built: keywords alphabetically,
-    // colours in WUBRG, which is the order Magic itself prints them.
-    keywords.sort_unstable();
-    keywords.dedup();
-
-    // CR 111.2: a token has the characteristics the effect that created it
-    // states, and the type line is the one field none of them can omit.
-    let name = name?;
-    let types = type_line(types.as_deref()?, cats)?;
-    if types.set.contains("TypeSet::BATTLE") != defense.is_some() {
+/// Reads a token script with an optional [`TokenLookup`] for nested token
+/// creation (e.g. a token whose ability creates a Treasure or Food token).
+///
+/// Only nested references to hand-written `crate::tokens::*` constants are
+/// admitted, because `xtask/src/corpus.rs` collects token stems only from card
+/// scripts and `generated_tokens.rs` brings `crate::tokens` into scope.
+#[must_use]
+pub fn read_with_tokens(
+    text: &str,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
+) -> Option<TokenBody> {
+    let raw = parse_token_lines(text)?;
+    let mut types = type_line(&raw.types, cats)?;
+    if !token_shape_ok(&raw, &types) {
         return None;
     }
-    let (power, toughness) = match (pt.as_deref(), types.is_creature) {
-        // `PT:*/*` is a token whose size is computed by the card that makes
-        // it, which is a rule rather than a definition.
-        (Some(pt), true) => {
+    let is_vehicle = !types.is_creature && types.subtypes.iter().any(|s| s == "artifact::VEHICLE");
+    let (power, toughness, star_pt) = match (raw.pt.as_deref(), types.is_creature, is_vehicle) {
+        (Some("*/*"), true, false) => (None, None, true),
+        (Some(pt), true, false) | (Some(pt), false, true) => {
             let (p, t) = pt.split_once('/')?;
             let p = p.trim().parse::<i16>().ok()?;
             let t = t.trim().parse::<i16>().ok()?;
-            (Some(p), Some(t))
+            (Some(p), Some(t), false)
         }
-        (None, false) => (None, None),
-        // A creature with no size, or a size on something that is not a
-        // creature: the two halves of the script disagree, and deciding
-        // which of them is right is not this reader's business.
+        (None, false, false) => (None, None, false),
+        // A creature or Vehicle with no size, a Vehicle with `*/*` and no CDA,
+        // or a size on something that is neither a creature nor a Vehicle:
+        // refuse rather than guessing.
         _ => return None,
     };
-    let colors = match colors.as_deref() {
-        Some(raw) => Some(color_line(raw)?),
+    let colors = match raw.colors.as_deref() {
+        Some(raw_colors) => Some(color_line(raw_colors)?),
         None => None,
     };
-    let abilities = abilities(text, cats)?;
-
-    let mut literal = String::with_capacity(256);
-    literal.push_str("TokenDef {\n");
-    let _ = writeln!(literal, "    name: {:?},", token_name(&name));
-    if let Some(colors) = &colors
-        && !colors.words.is_empty()
+    if raw.text_all_colors && colors.as_ref().is_none_or(|c| c.words.len() != 5) {
+        return None;
+    }
+    let abilities = abilities(
+        text,
+        &raw.ability_keywords,
+        raw.text_all_colors,
+        cats,
+        tokens,
+        &mut types.modules,
+    )?;
+    if star_pt
+        && !abilities
+            .iter()
+            .any(|a| a.contains("Modifier::CharacteristicPT"))
     {
-        let _ = writeln!(literal, "    colors: {},", colors.expr);
+        return None;
     }
-    let _ = writeln!(literal, "    types: {},", types.set);
-    if let Some(supertypes) = &types.supertypes {
-        let _ = writeln!(literal, "    supertypes: {supertypes},");
+    let literal = render_token_literal(
+        &raw.name,
+        colors.as_ref(),
+        &types,
+        power.zip(toughness),
+        raw.defense,
+        &raw.keywords,
+        &abilities,
+    );
+    let mut keyword_tags: Vec<String> = raw
+        .keywords
+        .iter()
+        .map(|k| k.trim_start_matches("KeywordSet::").to_string())
+        .collect();
+    for kw in &raw.ability_keywords {
+        keyword_tags.push(ability_keyword_slug(kw)?);
     }
-    if !types.subtypes.is_empty() {
-        let _ = writeln!(literal, "    subtypes: &[{}],", types.subtypes.join(", "));
+    keyword_tags.sort_unstable();
+    let mut constant = constant_name(
+        &raw.name,
+        &types.qualifiers,
+        power,
+        toughness,
+        star_pt,
+        colors.as_ref(),
+        &keyword_tags,
+    );
+    if raw.has_rule_lines && !abilities.is_empty() {
+        let hash = fnv1a_32_bare(&abilities.join(","));
+        if !is_legacy_unsuffixed_ability_token(&constant, hash) {
+            let _ = write!(constant, "_A{hash:08X}");
+        }
     }
-    if let (Some(p), Some(t)) = (power, toughness) {
-        let _ = writeln!(literal, "    power: Some({p}),");
-        let _ = writeln!(literal, "    toughness: Some({t}),");
-    }
-    if let Some(defense) = defense {
-        let _ = writeln!(literal, "    defense: Some({defense}),");
-    }
-    if !keywords.is_empty() {
-        let _ = writeln!(literal, "    keywords: {},", union_of(&keywords));
-    }
-    if !abilities.is_empty() {
-        let _ = writeln!(literal, "    abilities: &[{}],", abilities.join(", "));
-    }
-    literal.push_str("    ..TokenDef::DEFAULT\n}");
-
     Some(TokenBody {
-        constant: constant_name(
-            &name,
-            &types.qualifiers,
-            power,
-            toughness,
-            colors.as_ref(),
-            &keywords,
-        ),
+        constant: crate::tokenledger::canonical_name(&constant).to_string(),
         doc: doc_line(
-            &name,
+            &raw.name,
             &types.qualifiers,
             power,
             toughness,
+            star_pt,
             colors.as_ref(),
-            &keywords,
+            &keyword_tags,
         ),
         literal,
         modules: types.modules,
     })
 }
 
+/// Deterministic 32-bit FNV-1a hash ignoring ASCII whitespace, matching
+/// [`crate::tokenledger`]'s whitespace-insensitive definition equivalence.
+const fn fnv1a_32_bare(s: &str) -> u32 {
+    let bytes = s.as_bytes();
+    let mut h: u32 = 0x811c_9dc5;
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if !matches!(b, b' ' | b'\n' | b'\r' | b'\t') {
+            h ^= b as u32;
+            h = h.wrapping_mul(0x0100_0193);
+        }
+        i += 1;
+    }
+    h
+}
+
+/// Rules-bearing token constants that were already frozen in `tokens.rs` or
+/// `generated_tokens.rs` before content-addressed ability suffixes existed.
+///
+/// Keyed by `(constant, abilities_hash)` so ONLY the exact legacy definition
+/// retains the unsuffixed constant name while any different rules-bearing
+/// variant on the same base body receives its own `_A<HEX>` constant.
+const LEGACY_UNSUFFIXED_ABILITY_TOKENS: &[(&str, u32)] = &[
+    // Predefined hand-written artifact tokens in `baylee_cards::tokens`.
+    (
+        "TREASURE",
+        fnv1a_32_bare(
+            "mana_ability!(cost!(TapSelf, SacrificeSelf), &[Effect::mana_of_any_color()])",
+        ),
+    ),
+    (
+        "FOOD",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{2}\", TapSelf, SacrificeSelf), &[Effect::gain_life(3)])",
+        ),
+    ),
+    (
+        "CLUE",
+        fnv1a_32_bare("activated!(cost!(\"{2}\", SacrificeSelf), &[Effect::draw(1)])"),
+    ),
+    (
+        "BLOOD",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{1}\", TapSelf, Discard(&Filter::Any), SacrificeSelf), &[Effect::draw(1)])",
+        ),
+    ),
+    (
+        "POWERSTONE",
+        fnv1a_32_bare(
+            "mana_ability!(&[Effect::mana(ManaColor::Colorless, 1).restricted_for(&Filter::ARTIFACT, SpendRider::None, ManaUse::NonSpellPaymentsOrMatchingSpells)])",
+        ),
+    ),
+    (
+        "MAP",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{1}\", TapSelf, SacrificeSelf), &[Effect::Explore { \
+             target: TargetSpec::Object(&Filter::YOUR_CREATURE) }], \
+             timing = ActivationTiming::SorcerySpeed, \
+             target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE)))",
+        ),
+    ),
+    // Previously assigned generated ability-bearing tokens in `generated_tokens.rs`.
+    (
+        "GOLD",
+        fnv1a_32_bare("mana_ability!(cost!(SacrificeSelf), &[Effect::mana_of_any_color()])"),
+    ),
+    (
+        "ELDRAZI_SPAWN_0_1",
+        fnv1a_32_bare(
+            "mana_ability!(cost!(SacrificeSelf), &[Effect::mana(ManaColor::Colorless, 1)])",
+        ),
+    ),
+    (
+        "ELDRAZI_SCION_1_1",
+        fnv1a_32_bare(
+            "mana_ability!(cost!(SacrificeSelf), &[Effect::mana(ManaColor::Colorless, 1)])",
+        ),
+    ),
+    (
+        "BIRD_2_2_GREEN",
+        fnv1a_32_bare(
+            "triggered!(Trigger::EntersBattlefield(&Filter::YOUR_LAND), &[Effect::PumpFilter { \
+             filter: &Filter::This, controlled_by: None, power: Amount::Fixed(1), \
+             toughness: Amount::Fixed(0), keywords: KeywordSet::EMPTY, \
+             duration: Duration::UntilEndOfTurn }])",
+        ),
+    ),
+    (
+        "TRISKELAVITE_ARTIFACT_1_1_FLYING",
+        fnv1a_32_bare(
+            "activated!(cost!(SacrificeSelf), &[Effect::DealDamage { amount: Amount::Fixed(1), \
+             target: TargetSpec::AnyTarget }], target = Some(TargetSpec::AnyTarget))",
+        ),
+    ),
+    (
+        "FESTERING_GOBLIN_1_1_BLACK",
+        fnv1a_32_bare(
+            "triggered!(Trigger::Dies(&Filter::This), &[Effect::PumpTarget { \
+             power: Amount::NegXFixed(1), toughness: Amount::NegXFixed(1), \
+             keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }], \
+             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))",
+        ),
+    ),
+    (
+        "GOLDMEADOW_HARRIER_1_1_WHITE",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{W}\", TapSelf), &[Effect::TapTarget], \
+             target = Some(TargetSpec::Object(&Filter::CREATURE)))",
+        ),
+    ),
+    (
+        "LLANOWAR_ELVES_1_1_GREEN",
+        fnv1a_32_bare("mana_ability!(&[Effect::mana(ManaColor::Green, 1)])"),
+    ),
+    (
+        "PEST_1_1_BLACK_GREEN",
+        fnv1a_32_bare(
+            "triggered!(Trigger::Dies(&Filter::This), &[Effect::GainLifeFor { \
+             amount: Amount::Fixed(1), who: PlayerRel::ControllerOfEvent }])",
+        ),
+    ),
+    (
+        "DEVIL_1_1_RED",
+        fnv1a_32_bare(
+            "triggered!(Trigger::Dies(&Filter::This), &[Effect::DealDamage { \
+             amount: Amount::Fixed(1), target: TargetSpec::AnyTarget }], \
+             targets = Some(TargetReq::one(TargetSpec::AnyTarget)))",
+        ),
+    ),
+    (
+        "DRAGON_2_2_RED_FLYING",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{R}\"), &[Effect::PumpFilter { filter: &Filter::This, \
+             controlled_by: None, power: Amount::Fixed(1), toughness: Amount::Fixed(0), \
+             keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])",
+        ),
+    ),
+    (
+        "REDWING_LEGENDARY_1_1_BLUE_FLYING",
+        fnv1a_32_bare("triggered!(Trigger::Attacks(&Filter::This), &[Effect::surveil(1)])"),
+    ),
+    (
+        "WIZARD_1_1_BLUE",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{1}\", SacrificeSelf), &[Effect::PlayerMayPayOr { \
+             player: PlayerRel::ControllerOfTarget, mana: Amount::Fixed(1), \
+             effect: &Effect::CounterTargetSpell }], \
+             target = Some(TargetSpec::Spell(&Filter::NONCREATURE)))",
+        ),
+    ),
+    (
+        "SNAKE_ARTIFACT_1_1",
+        fnv1a_32_bare(
+            "triggered!(Trigger::DealsDamageToPlayer { source: &Filter::This, \
+             player: PlayerRel::EachPlayer }, &[Effect::Poison { \
+             who: PlayerRel::DamagedPlayer, amount: Amount::Fixed(1) }])",
+        ),
+    ),
+];
+
+fn is_legacy_unsuffixed_ability_token(constant: &str, hash: u32) -> bool {
+    LEGACY_UNSUFFIXED_ABILITY_TOKENS
+        .iter()
+        .any(|&(name, expected)| name == constant && expected == hash)
+}
+
+fn sanitize_tag(raw: &str) -> Option<String> {
+    let mut out = String::new();
+    for ch in raw.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_uppercase());
+        } else if !out.is_empty() && !out.ends_with('_') {
+            out.push('_');
+        }
+    }
+    let out = out.trim_end_matches('_').to_string();
+    (!out.is_empty()).then_some(out)
+}
+
+fn ability_keyword_slug(kw: &str) -> Option<String> {
+    if let Some(rest) = kw.strip_prefix("Ward:") {
+        return Some(format!("WARD_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Toxic:") {
+        return Some(format!("TOXIC_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Crew:") {
+        return Some(format!("CREW_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Saddle:") {
+        return Some(format!("SADDLE_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Equip:") {
+        return Some(format!("EQUIP_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Protection from ") {
+        return Some(format!("PROTECTION_FROM_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Protection:") {
+        let quality = rest.split(':').next()?;
+        return Some(format!("PROTECTION_FROM_{}", sanitize_tag(quality)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Landwalk:") {
+        let land = rest.split(':').next()?.trim();
+        return match land {
+            "Plains" => Some("PLAINSWALK".to_string()),
+            "Island" => Some("ISLANDWALK".to_string()),
+            "Swamp" => Some("SWAMPWALK".to_string()),
+            "Mountain" => Some("MOUNTAINWALK".to_string()),
+            "Forest" => Some("FORESTWALK".to_string()),
+            other => Some(format!("LANDWALK_{}", sanitize_tag(other)?)),
+        };
+    }
+    if let Some(rest) = kw.strip_prefix("Rampage:") {
+        return Some(format!("RAMPAGE_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Cumulative upkeep:") {
+        let cost = rest.split(':').next()?;
+        return Some(format!("CUMULATIVE_UPKEEP_{}", sanitize_tag(cost)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Enchant:") {
+        let valid = rest.split(':').next()?;
+        return Some(format!("ENCHANT_{}", sanitize_tag(valid)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Bands with other:") {
+        let valid = rest.split(':').next()?;
+        return Some(format!("BANDS_WITH_OTHER_{}", sanitize_tag(valid)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Annihilator:") {
+        return Some(format!("ANNIHILATOR_{}", sanitize_tag(rest)?));
+    }
+    match kw {
+        "Exalted" => Some("EXALTED".to_string()),
+        "Prevent all damage that would be dealt to CARDNAME." => Some("PREVENT_DAMAGE".to_string()),
+        "CARDNAME can only attack alone." => Some("ATTACKS_ALONE".to_string()),
+        _ => None,
+    }
+}
+
+fn is_token_ability_keyword(kw: &str) -> bool {
+    kw.starts_with("Ward:")
+        || kw.starts_with("Toxic:")
+        || kw.starts_with("Crew:")
+        || kw.starts_with("Saddle:")
+        || kw.starts_with("Equip:")
+        || kw.starts_with("Protection from ")
+        || kw.starts_with("Protection:")
+        || kw.starts_with("Landwalk:")
+        || kw.starts_with("Rampage:")
+        || kw.starts_with("Cumulative upkeep:")
+        || kw.starts_with("Enchant:")
+        || kw.starts_with("Bands with other:")
+        || kw.starts_with("Annihilator:")
+        || matches!(
+            kw,
+            "Exalted"
+                | "Prevent all damage that would be dealt to CARDNAME."
+                | "CARDNAME can only attack alone."
+        )
+}
+
 /// The abilities a token script prints, read by the card transcoder.
 ///
 /// `Some(vec![])` is a token with no rules line at all, `None` a refusal.
 ///
-/// Three things are refused here that a *card* would be given, and each is
-/// a field a [`TokenDef`] does not have. A `static` above the definition —
-/// what a filter too long to inline becomes — has nowhere to go in a
-/// generated file two hundred tokens share, and two tokens would claim the
-/// name `TARGET1`. An `EnterModifier` is a card entering with counters on
-/// it, which the effect that *creates* a token says instead. And a
-/// `KeywordSet` produced by a rule rather than by a `K:` line would be a
-/// second writer of the field read above.
-///
-/// The transcoder is handed **no token lookup**, so a token whose ability
-/// creates another token refuses itself — `token_effect` already says "with
-/// no token scripts to read it against". That is a named refusal rather than
-/// a special case, and it is what makes recursion impossible: a script that
-/// made a copy of itself would otherwise read forever, and a definition
-/// naming `generated_tokens::` from inside `generated_tokens.rs` would have
-/// to be ordered as well as written.
-fn abilities(text: &str, cats: &SubtypeCatalogs) -> Option<Vec<String>> {
-    let mut script = crate::scriptgen::parse(text);
-    if script.rules.is_empty() && script.svars.is_empty() {
+/// Filter and condition `static` items produced by `scriptgen` are inlined back
+/// into the `AbilityDef` expressions (valid under Rust constant promotion inside
+/// `pub static ...: TokenDef`), and any `subtypes::<mod>::` references are
+/// rewritten to `<mod>::` and recorded in `modules` so `generated_tokens.rs`
+/// imports them cleanly. Non-ability `CardBody` fields (`EnterModifier`, cast
+/// cost mechanics, extra `KeywordSet` writes) remain refused because `TokenDef`
+/// does not carry them.
+/// Hand-written `crate::tokens::*` artifact constants guaranteed to be in scope
+/// inside `generated_tokens.rs` via `use crate::tokens;`, so a generated token's
+/// ability may safely rewrite `&generated_tokens::<NAME>` -> `&tokens::<NAME>`.
+const HAND_WRITTEN_NESTED_TOKENS: &[&str] = &[
+    "BLOOD",
+    "CLUE",
+    "FOOD",
+    "JUNK",
+    "MAP",
+    "POWERSTONE",
+    "TREASURE",
+    "VIBRANIUM",
+];
+
+/// Generated `pub static` token constants already frozen in the append-only
+/// `crates/cards/src/generated_tokens.rs` ledger, so another generated token's
+/// ability may safely rewrite `&generated_tokens::<NAME>` -> `&<NAME>`.
+const GENERATED_NESTED_TOKENS: &[&str] = &[
+    "DRAGON_2_2_RED_FLYING",
+    "KRAKEN_9_9_BLUE",
+    "RABBIT_1_1_WHITE",
+];
+
+fn rewrite_nested_token_refs(abilities: &mut [String]) -> bool {
+    for ability in abilities.iter_mut() {
+        let mut out = String::with_capacity(ability.len());
+        let mut rest = ability.as_str();
+        while let Some((before, after)) = rest.split_once("&generated_tokens::") {
+            let ident: String = after
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                .collect();
+            if ident.is_empty() {
+                return false;
+            }
+            out.push_str(before);
+            if HAND_WRITTEN_NESTED_TOKENS.contains(&ident.as_str()) {
+                out.push_str("&tokens::");
+                out.push_str(&ident);
+            } else if GENERATED_NESTED_TOKENS.contains(&ident.as_str()) {
+                out.push('&');
+                out.push_str(&ident);
+            } else {
+                return false;
+            }
+            rest = &after[ident.len()..];
+        }
+        out.push_str(rest);
+        *ability = out;
+    }
+    true
+}
+
+fn abilities(
+    text: &str,
+    ability_keywords: &[String],
+    strip_all_colors_text: bool,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
+    modules: &mut Vec<String>,
+) -> Option<Vec<String>> {
+    let cleaned;
+    let source = if strip_all_colors_text {
+        cleaned = text
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("Text:"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        cleaned.as_str()
+    } else {
+        text
+    };
+    let mut script = crate::scriptgen::parse(source);
+    if script.rules.is_empty() && script.svars.is_empty() && ability_keywords.is_empty() {
         return Some(Vec::new());
     }
     // A head this module read is not a head the transcoder may read again,
     // and a head neither of them knows has already refused the token above
     // — except a malformed `SVar:` with no second colon, which only the
     // parser sees.
-    if !script.unknown_lines.is_empty() {
-        return None;
-    }
-    script.keywords.clear();
-    let body = crate::scriptgen::transcode(&script, cats, None)?;
-    if !body.statics.is_empty()
-        || !body.enter_modifiers.is_empty()
-        || !body.alternative_costs.is_empty()
-        || !body.keywords.is_empty()
+    if !script.unknown_lines.is_empty()
+        || script.alternate_mode.is_some()
+        || script.alternate.is_some()
     {
         return None;
     }
-    // The generated file opens the card DSL's prelude, which carries no
-    // `subtypes` module: a card names one by hand beside it. Nothing reaches
-    // here today — a filter naming a subtype is long enough to have become a
-    // `static` and been refused one line up — and this is the door being
-    // shut rather than a case being handled.
-    if body.abilities.iter().any(|a| a.contains("subtypes::")) {
+    script.keywords = ability_keywords.to_vec();
+    let body = crate::scriptgen::transcode(&script, cats, tokens)?;
+    if !body.enter_modifiers.is_empty()
+        || !body.alternative_costs.is_empty()
+        || !body.mandatory_additional_costs.is_empty()
+        || !body.keywords.is_empty()
+        || body.convoke
+        || body.delve
+        || body.improvise
+        || body.replicate.is_some()
+        || body.disguise.is_some()
+        || body.flashback.is_some()
+        || !body.flashback_parts.is_empty()
+        || body.madness.is_some()
+        || body.foretell.is_some()
+        || body.morph.is_some()
+        || body.megamorph.is_some()
+        || !body.morph_parts.is_empty()
+        || body.bestow.is_some()
+        || body.jump_start
+        || body.aftermath
+        || body.disturb.is_some()
+        || body.escape.is_some()
+        || body.squad.is_some()
+        || body.offspring.is_some()
+        || body.fuse
+        || body.behold_or_pay.is_some()
+        || body.mutate.is_some()
+        || body.plot.is_some()
+        || body.casualty.is_some()
+        || body.impending.is_some()
+        || body.gift.is_some()
+        || body.warp.is_some()
+        || body.cost_reduction.is_some()
+        || body.entwine.is_some()
+        || body.buyback.is_some()
+        || body.multikicker.is_some()
+        || !body.additional_costs.is_empty()
+        || body.kicked_targets.is_some()
+        || body.has_partner
+        || body.back.is_some()
+    {
         return None;
     }
-    Some(body.abilities)
+    let mut abilities = body.abilities;
+    if !body.statics.is_empty() {
+        inline_statics(&body.statics, &mut abilities)?;
+    }
+    if !rewrite_nested_token_refs(&mut abilities) {
+        return None;
+    }
+    rewrite_subtypes(&mut abilities, modules)?;
+    Some(abilities)
+}
+
+fn inline_statics(statics: &str, abilities: &mut [String]) -> Option<()> {
+    let mut defs: Vec<(&str, &str)> = Vec::new();
+    for line in statics.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let rest = trimmed.strip_prefix("static ")?;
+        let (name, rhs) = rest.split_once(": ")?;
+        let (ty, expr) = rhs.split_once(" = ")?;
+        let ty = ty.trim();
+        let valid_ty = matches!(ty, "Filter" | "Condition" | "AbilityDef")
+            || (ty.starts_with("[AbilityDef; ") && ty.ends_with(']'));
+        if !valid_ty {
+            return None;
+        }
+        let expr = expr.strip_suffix(';')?;
+        defs.push((name.trim(), expr.trim()));
+    }
+    if defs.is_empty() {
+        return None;
+    }
+    for _ in 0..4 {
+        let mut changed = false;
+        for ability in abilities.iter_mut() {
+            for &(name, expr) in &defs {
+                if let Some(updated) = replace_ref_ident(ability, name, expr) {
+                    *ability = updated;
+                    changed = true;
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    // Verify no static identifier remains unresolved (with or without `&`).
+    for ability in abilities.iter() {
+        for &(name, _) in &defs {
+            if contains_ident(ability, name) {
+                return None;
+            }
+        }
+    }
+    Some(())
+}
+
+fn contains_ident(text: &str, ident: &str) -> bool {
+    let bytes = text.as_bytes();
+    let mut cursor = 0;
+    while let Some(rel) = text[cursor..].find(ident) {
+        let start = cursor + rel;
+        let end = start + ident.len();
+        let prev_is_ident = start > 0
+            && bytes
+                .get(start - 1)
+                .is_some_and(|&b| b.is_ascii_alphanumeric() || b == b'_');
+        let next_is_ident = bytes
+            .get(end)
+            .is_some_and(|&b| b.is_ascii_alphanumeric() || b == b'_');
+        if !prev_is_ident && !next_is_ident {
+            return true;
+        }
+        cursor = end;
+    }
+    false
+}
+
+fn replace_ref_ident(text: &str, ident: &str, replacement: &str) -> Option<String> {
+    let needle = format!("&{ident}");
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut cursor = 0;
+    let mut replaced = false;
+    while let Some(rel) = text[cursor..].find(&needle) {
+        let start = cursor + rel;
+        let end = start + needle.len();
+        let next_is_ident = bytes
+            .get(end)
+            .is_some_and(|&b| b.is_ascii_alphanumeric() || b == b'_');
+        if next_is_ident {
+            out.push_str(&text[cursor..end]);
+        } else {
+            out.push_str(&text[cursor..start]);
+            out.push('&');
+            out.push_str(replacement);
+            replaced = true;
+        }
+        cursor = end;
+    }
+    if !replaced {
+        return None;
+    }
+    out.push_str(&text[cursor..]);
+    Some(out)
+}
+
+fn rewrite_subtypes(abilities: &mut [String], modules: &mut Vec<String>) -> Option<()> {
+    const KNOWN: &[&str] = &[
+        "artifact",
+        "creature",
+        "enchantment",
+        "land",
+        "planeswalker",
+    ];
+    for ability in abilities.iter_mut() {
+        for &module in KNOWN {
+            let full = format!("subtypes::{module}::");
+            if ability.contains(&full) {
+                let short = format!("{module}::");
+                *ability = ability.replace(&full, &short);
+                if !modules.iter().any(|m| m == module) {
+                    modules.push(module.to_string());
+                }
+            }
+        }
+        if ability.contains("subtypes::") {
+            return None;
+        }
+    }
+    Some(())
 }
 
 /// A colour word list as a `ColorSet` expression plus the words themselves.
@@ -321,6 +974,13 @@ const WUBRG: [&str; 5] = ["White", "Blue", "Black", "Red", "Green"];
 fn color_line(raw: &str) -> Option<Colors> {
     let mut found = [false; 5];
     for word in raw.split(',').map(str::trim).filter(|w| !w.is_empty()) {
+        if word.eq_ignore_ascii_case("all") {
+            if raw.contains(',') {
+                return None;
+            }
+            found = [true; 5];
+            continue;
+        }
         // "colorless" is the absence of colours and not a sixth one, so it
         // adds nothing — and a script naming it beside a real colour is one
         // this reader has misunderstood rather than one it can average out.
@@ -373,7 +1033,10 @@ fn type_line(line: &str, cats: &SubtypeCatalogs) -> Option<TypeLine> {
         (Vec::new(), Vec::new(), Vec::new(), Vec::new());
     let mut qualifiers = Vec::new();
     let mut is_creature = false;
-    for word in line.split_whitespace() {
+    let words: Vec<&str> = line.split_whitespace().collect();
+    let mut i = 0;
+    while i < words.len() {
+        let word = words[i];
         if let Some((_, konst)) = TYPES.iter().find(|(w, _)| *w == word) {
             if *konst == "TypeSet::CREATURE" {
                 is_creature = true;
@@ -381,9 +1044,11 @@ fn type_line(line: &str, cats: &SubtypeCatalogs) -> Option<TypeLine> {
                 qualifiers.push(word.to_ascii_uppercase());
             }
             types.push(*konst);
+            i += 1;
         } else if let Some((_, konst)) = SUPERTYPES.iter().find(|(w, _)| *w == word) {
             qualifiers.push(word.to_ascii_uppercase());
             supers.push(*konst);
+            i += 1;
         } else if TypeSet::from_word(word).is_some() || SupertypeSet::from_word(word).is_some() {
             // A card type this reader does not write. Refused by name rather
             // than left to the subtype lookup below, which would answer
@@ -391,15 +1056,34 @@ fn type_line(line: &str, cats: &SubtypeCatalogs) -> Option<TypeLine> {
             // the token failed.
             return None;
         } else {
+            let (raw_sub, consumed) = if i + 1 < words.len() {
+                let next = words[i + 1];
+                let next_is_type = TYPES.iter().any(|(w, _)| *w == next)
+                    || SUPERTYPES.iter().any(|(w, _)| *w == next)
+                    || TypeSet::from_word(next).is_some()
+                    || SupertypeSet::from_word(next).is_some();
+                if next_is_type {
+                    (cats.const_path(word)?, 1)
+                } else {
+                    let pair = format!("{word} {next}");
+                    if let Some(path) = cats.const_path(&pair) {
+                        (path, 2)
+                    } else {
+                        (cats.const_path(word)?, 1)
+                    }
+                }
+            } else {
+                (cats.const_path(word)?, 1)
+            };
             // `subtypes::creature::SOLDIER` — the generated file imports the
             // modules, so the literal names the shorter path.
-            let path = cats.const_path(word)?;
-            let path = path.strip_prefix("subtypes::")?.to_string();
+            let path = raw_sub.strip_prefix("subtypes::")?.to_string();
             let module = path.split("::").next()?.to_string();
             if !modules.contains(&module) {
                 modules.push(module);
             }
             subtypes.push(path);
+            i += consumed;
         }
     }
     if types.is_empty() {
@@ -447,8 +1131,9 @@ fn constant_name(
     qualifiers: &[String],
     power: Option<i16>,
     toughness: Option<i16>,
+    star_pt: bool,
     colors: Option<&Colors>,
-    keywords: &[&str],
+    keyword_tags: &[String],
 ) -> String {
     let mut out = String::new();
     for ch in token_name(name).chars() {
@@ -469,12 +1154,14 @@ fn constant_name(
     }
     if let (Some(p), Some(t)) = (power, toughness) {
         let _ = write!(out, "_{}_{}", pt_word(p), pt_word(t));
+    } else if star_pt {
+        out.push_str("_X_X");
     }
     for word in colors.map_or_default(|c| c.words.as_slice()) {
         let _ = write!(out, "_{}", word.to_ascii_uppercase());
     }
-    for keyword in keywords {
-        let _ = write!(out, "_{}", keyword.trim_start_matches("KeywordSet::"));
+    for tag in keyword_tags {
+        let _ = write!(out, "_{tag}");
     }
     out
 }
@@ -495,12 +1182,15 @@ fn doc_line(
     qualifiers: &[String],
     power: Option<i16>,
     toughness: Option<i16>,
+    star_pt: bool,
     colors: Option<&Colors>,
-    keywords: &[&str],
+    keyword_tags: &[String],
 ) -> String {
     let mut out = String::new();
     if let (Some(p), Some(t)) = (power, toughness) {
         let _ = write!(out, "{p}/{t} ");
+    } else if star_pt {
+        out.push_str("*/* ");
     }
     match colors.map_or_default(|c| c.words.as_slice()) {
         [] => out.push_str("colorless "),
@@ -514,14 +1204,10 @@ fn doc_line(
         let _ = write!(out, "{} ", word.to_ascii_lowercase());
     }
     out.push_str(token_name(name));
-    if !keywords.is_empty() {
-        let words: Vec<String> = keywords
+    if !keyword_tags.is_empty() {
+        let words: Vec<String> = keyword_tags
             .iter()
-            .map(|k| {
-                k.trim_start_matches("KeywordSet::")
-                    .to_ascii_lowercase()
-                    .replace('_', " ")
-            })
+            .map(|k| k.to_ascii_lowercase().replace('_', " "))
             .collect();
         let _ = write!(out, " with {}", words.join(" and "));
     }
@@ -662,13 +1348,23 @@ impl TokenLookup {
         if !self.stems.contains(stem) {
             return None;
         }
-        match &self.source {
-            Source::Dir(root) => {
-                let text = std::fs::read_to_string(root.join(format!("{stem}.txt"))).ok()?;
-                read(&text, cats)
-            }
-            Source::Held(held) => read(held.get(stem)?, cats),
+        let text = self.text(stem)?;
+        self.read_entry(&text, cats)
+    }
+
+    fn read_entry(&self, text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
+        std::thread_local! {
+            static IN_NESTED_TOKEN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
         }
+        IN_NESTED_TOKEN.with(|nested| {
+            if nested.get() {
+                return read_with_tokens(text, cats, None);
+            }
+            nested.set(true);
+            let res = read_with_tokens(text, cats, Some(self));
+            nested.set(false);
+            res
+        })
     }
 
     /// The script a stem names, whichever half of the lookup holds it.
@@ -703,7 +1399,7 @@ impl TokenLookup {
                     .is_some_and(|(head, _)| TRANSCODED.contains(&head))
             });
             out.with_ability += usize::from(prints);
-            if let Some(body) = read(&text, cats) {
+            if let Some(body) = self.read_entry(&text, cats) {
                 out.read += 1;
                 out.ability_read += usize::from(prints);
                 names.entry(body.constant).or_default().insert(body.literal);
@@ -747,8 +1443,14 @@ mod tests {
 
     fn cats() -> SubtypeCatalogs {
         let mut cats = SubtypeCatalogs {
-            creature: vec!["Soldier".into(), "Bird".into(), "Shapeshifter".into()],
+            creature: vec![
+                "Soldier".into(),
+                "Bird".into(),
+                "Shapeshifter".into(),
+                "Pest".into(),
+            ],
             artifact: vec!["Treasure".into(), "Equipment".into()],
+            enchantment: vec!["Aura".into(), "Role".into()],
             ..SubtypeCatalogs::default()
         };
         cats.normalize();
@@ -954,22 +1656,12 @@ mod tests {
         );
     }
 
-    /// An ability is not part of the constant's name, and that is a hole
-    /// this reader may not fill on its own.
-    ///
-    /// The reference prints `b_1_1_skeleton` beside `b_1_1_skeleton_regenerate`
-    /// and `g_2_2_ooze` beside `g_2_2_ooze_mitotic` — 18 of its 832 naming
-    /// groups hold more than one behaviour — so two different definitions
-    /// come out under one name. In an append-only table that is two tokens
-    /// at one id, and one of them on the table wearing the other's picture.
-    ///
-    /// Naming a token after its abilities as well is *a* way out and is not
-    /// taken here on a guess: what the ledger does instead is refuse the
-    /// collision by name ([`crate::tokenledger::LedgerError::Collision`]),
-    /// so the day this pool reaches for both halves of such a pair it stops
-    /// the run and hands a person the example.
+    /// Two tokens that share every printed characteristic but differ in their
+    /// rules-line abilities receive distinct content-addressed constants so the
+    /// ledger never assigns two definitions to one id, while two identical
+    /// rules-bearing scripts resolve to the same constant.
     #[test]
-    fn two_tokens_that_differ_only_in_their_ability_share_a_name() {
+    fn two_tokens_that_differ_only_in_their_ability_get_distinct_names() {
         let plain = read(
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1",
             &cats(),
@@ -981,8 +1673,26 @@ mod tests {
             &cats(),
         )
         .expect("read");
-        assert_eq!(plain.constant, drawing.constant, "one name");
-        assert_ne!(plain.literal, drawing.literal, "two definitions");
+        let drawing_again = read(
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\n\
+             A:AB$ Draw | Cost$ T | NumCards$ 1",
+            &cats(),
+        )
+        .expect("read");
+        let lifegain = read(
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\n\
+             A:AB$ GainLife | Cost$ T | LifeAmount$ 1",
+            &cats(),
+        )
+        .expect("read");
+        assert_eq!(plain.constant, "SOLDIER_1_1_WHITE");
+        assert_ne!(plain.constant, drawing.constant, "distinct from vanilla");
+        assert_eq!(drawing.constant, drawing_again.constant, "deterministic");
+        assert_ne!(
+            drawing.constant, lifegain.constant,
+            "distinct abilities get distinct constants"
+        );
+        assert!(drawing.constant.starts_with("SOLDIER_1_1_WHITE_A"));
     }
 
     /// One unread line and the token is refused. Each of these is a real
@@ -1028,6 +1738,662 @@ mod tests {
             "ManaCost:no cost\nTypes:Creature Soldier\nPT:1/1",
         ] {
             assert!(read(script, &cats()).is_none(), "{script}");
+        }
+    }
+
+    #[test]
+    fn ability_keywords_and_keyword_sentences_read_on_tokens() {
+        let ward_toxic = read(
+            "Name:Mite Token\nTypes:Artifact Creature Soldier\nPT:1/1\n\
+             K:CARDNAME can't block.\nK:Toxic:1\nK:Ward:2",
+            &cats(),
+        )
+        .expect("token with can't block + toxic + ward");
+        assert_eq!(
+            ward_toxic.constant,
+            "MITE_ARTIFACT_1_1_CANT_BLOCK_TOXIC_1_WARD_2"
+        );
+        assert!(
+            ward_toxic
+                .literal
+                .contains("keywords: KeywordSet::CANT_BLOCK,")
+        );
+        assert!(
+            ward_toxic
+                .literal
+                .contains("AbilityDef::Toxic { poison: 1 }")
+        );
+        assert!(ward_toxic.literal.contains("AbilityDef::Ward { mana: 2 }"));
+
+        let equip_token = read(
+            "Name:Blade Token\nTypes:Artifact Equipment\n\
+             S:Mode$ Continuous | Affected$ Creature.EquippedBy | AddPower$ 1 | AddToughness$ 1\n\
+             K:Equip:2",
+            &cats(),
+        )
+        .expect("equipment token with equip keyword");
+        assert!(
+            equip_token.constant.starts_with("BLADE_EQUIP_2_A"),
+            "constant: {}",
+            equip_token.constant
+        );
+        assert!(equip_token.literal.contains("equip!(cost!(\"{2}\"))"));
+
+        let pro_token = read(
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:2/2\n\
+             K:Protection from black",
+            &cats(),
+        )
+        .expect("protection token avoids plain collision");
+        assert_eq!(
+            pro_token.constant,
+            "SOLDIER_2_2_WHITE_PROTECTION_FROM_BLACK"
+        );
+        assert_eq!(
+            pro_token.doc,
+            "2/2 white Soldier with protection from black."
+        );
+
+        let provoke_token = read(
+            "Name:Scout Token\nColors:white\nTypes:Creature Soldier\nPT:2/2\nK:Provoke",
+            &cats(),
+        )
+        .expect("provoke token");
+        assert_eq!(provoke_token.constant, "SCOUT_2_2_WHITE_PROVOKE");
+        assert!(
+            provoke_token
+                .literal
+                .contains("keywords: KeywordSet::PROVOKE,")
+        );
+
+        // Duplicate Provoke must be refused rather than silently collapsed.
+        assert!(
+            read(
+                "Name:Scout Token\nColors:white\nTypes:Creature Soldier\nPT:2/2\n\
+                 K:Provoke\nK:Provoke",
+                &cats()
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn token_inlines_filter_statics_and_rewrites_subtype_modules() {
+        let body = read(
+            "Name:Banner Token\nTypes:Artifact Treasure\n\
+             A:AB$ Pump | Cost$ T | ValidTgts$ Soldier | NumAtt$ 1 | NumDef$ 1",
+            &cats(),
+        )
+        .expect("token referencing a subtype filter in an ability");
+        assert!(
+            !body.literal.contains("TARGET1") && !body.literal.contains("subtypes::"),
+            "literal: {}",
+            body.literal
+        );
+        assert!(
+            body.literal.contains("creature::SOLDIER"),
+            "literal: {}",
+            body.literal
+        );
+        assert!(
+            body.modules.iter().any(|m| m == "creature")
+                && body.modules.iter().any(|m| m == "artifact"),
+            "modules: {:?}",
+            body.modules
+        );
+    }
+
+    #[test]
+    fn star_pt_token_reads_only_with_characteristic_pt_modifier() {
+        let body = read(
+            "Name:Avatar Token\nColors:white\nTypes:Creature Soldier\nPT:*/*\n\
+             S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+             SVar:X:Count$Valid Creature.YouCtrl",
+            &cats(),
+        )
+        .expect("star P/T token with CDA");
+        assert!(
+            body.constant.starts_with("AVATAR_X_X_WHITE_A"),
+            "constant: {}",
+            body.constant
+        );
+        assert_eq!(body.doc, "*/* white Avatar.");
+        assert!(!body.literal.contains("power:"));
+        assert!(!body.literal.contains("toughness:"));
+        assert!(
+            body.literal.contains("Modifier::CharacteristicPT"),
+            "literal: {}",
+            body.literal
+        );
+    }
+
+    #[test]
+    fn legacy_ability_tokens_keep_unsuffixed_names_while_variants_disambiguate() {
+        let treasure = read(
+            "Name:Treasure Token\nTypes:Artifact Treasure\n\
+             A:AB$ Mana | Cost$ T Sac<1/CARDNAME/this token> | Produced$ Any | Amount$ 1",
+            &cats(),
+        )
+        .expect("canonical treasure");
+        assert_eq!(treasure.constant, "TREASURE");
+
+        let dies_pest = read(
+            "Name:Pest Token\nColors:black,green\nTypes:Creature Pest\nPT:1/1\n\
+             T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | \
+             ValidCard$ Card.Self | Execute$ TrigGain\n\
+             SVar:TrigGain:DB$ GainLife | Defined$ TriggeredCardController | LifeAmount$ 1",
+            &cats(),
+        )
+        .expect("legacy dies pest");
+        assert_eq!(dies_pest.constant, "PEST_1_1_BLACK_GREEN");
+
+        let attack_pest = read(
+            "Name:Pest Token\nColors:black,green\nTypes:Creature Pest\nPT:1/1\n\
+             T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigGain\n\
+             SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+            &cats(),
+        )
+        .expect("attack pest variant");
+        assert!(
+            attack_pest.constant.starts_with("PEST_1_1_BLACK_GREEN_A"),
+            "constant: {}",
+            attack_pest.constant
+        );
+        assert_ne!(dies_pest.constant, attack_pest.constant);
+    }
+
+    #[test]
+    fn all_colors_cumulative_upkeep_and_non_role_aura_tokens() {
+        let five_color = read(
+            "Name:Citizen Token\nColors:all\nTypes:Creature Soldier\nPT:2/2\n\
+             Text:This creature is all colors.",
+            &cats(),
+        )
+        .expect("all-colors token");
+        assert_eq!(
+            five_color.constant,
+            "CITIZEN_2_2_WHITE_BLUE_BLACK_RED_GREEN"
+        );
+        assert!(
+            five_color
+                .literal
+                .contains("Color::White, Color::Blue, Color::Black, Color::Red, Color::Green")
+        );
+
+        let upkeep_tok = read(
+            "Name:Splinter Token\nColors:green\nTypes:Creature Soldier\nPT:1/1\n\
+             K:Flying\nK:Cumulative upkeep:G",
+            &cats(),
+        )
+        .expect("cumulative upkeep token");
+        assert_eq!(
+            upkeep_tok.constant,
+            "SPLINTER_1_1_GREEN_CUMULATIVE_UPKEEP_G_FLYING"
+        );
+
+        let aura_tok = read(
+            "Name:Aura Token\nColors:green\nTypes:Enchantment Aura\n\
+             K:Enchant:Land\n\
+             S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddAbility$ TapAny\n\
+             SVar:TapAny:AB$ Mana | Cost$ T | Produced$ Any",
+            &cats(),
+        )
+        .expect("non-role aura token");
+        assert!(
+            aura_tok.constant.starts_with("AURA_GREEN_ENCHANT_LAND_A"),
+            "constant: {}",
+            aura_tok.constant
+        );
+
+        // Role Aura tokens stay refused while CR 303.7 is unmodeled.
+        assert!(
+            read(
+                "Name:Role Token\nTypes:Enchantment Aura Role\nK:Enchant:Creature",
+                &cats()
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn wave5_vehicle_annihilator_bands_and_cant_attack_tokens() {
+        let mut c = cats();
+        c.artifact.push("Vehicle".to_string());
+        c.creature.push("Eldrazi".to_string());
+        c.creature.push("Wolf".to_string());
+
+        let vehicle = read(
+            "Name:Skiff Token\nTypes:Artifact Vehicle\nPT:3/2\nK:Flying\nK:Crew:1",
+            &c,
+        )
+        .expect("vehicle token with fixed P/T and crew");
+        assert_eq!(vehicle.constant, "SKIFF_3_2_CREW_1_FLYING");
+        assert!(vehicle.literal.contains("power: Some(3),"));
+        assert!(vehicle.literal.contains("toughness: Some(2),"));
+        assert!(vehicle.literal.contains("crew!(1)"));
+
+        // Vehicle with `*/*` or missing P/T, and non-Vehicle artifact with P/T, stay refused.
+        assert!(
+            read(
+                "Name:Star Skiff\nTypes:Artifact Vehicle\nPT:*/*\nK:Crew:2",
+                &c
+            )
+            .is_none()
+        );
+        assert!(read("Name:Boxless Skiff\nTypes:Artifact Vehicle\nK:Crew:2", &c).is_none());
+        assert!(read("Name:Sized Rock\nTypes:Artifact\nPT:2/2", &c).is_none());
+
+        let eldrazi = read(
+            "Name:Titan Token\nTypes:Creature Eldrazi\nPT:7/7\nK:Annihilator:1",
+            &c,
+        )
+        .expect("annihilator creature token");
+        assert_eq!(eldrazi.constant, "TITAN_7_7_ANNIHILATOR_1");
+        assert!(
+            eldrazi
+                .literal
+                .contains("Effect::SacrificeAmountForPlayers")
+        );
+        assert!(eldrazi.literal.contains("PlayerRel::DefendingPlayer"));
+
+        let bands = read(
+            "Name:Pack Token\nColors:green\nTypes:Creature Wolf\nPT:1/1\n\
+             K:Bands with other:Creature.Wolf:Wolves",
+            &c,
+        )
+        .expect("bands-with-other token");
+        assert_eq!(
+            bands.constant,
+            "PACK_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_WOLF"
+        );
+        assert!(bands.literal.contains("Modifier::BandsWithOther"));
+        assert!(bands.literal.contains("creature::WOLF"));
+
+        let pacific = read(
+            "Name:Sentry Token\nColors:white\nTypes:Creature Soldier\nPT:0/4\n\
+             K:CARDNAME can't attack.",
+            &c,
+        )
+        .expect("cant-attack token");
+        assert_eq!(pacific.constant, "SENTRY_0_4_WHITE_CANT_ATTACK");
+        assert!(pacific.literal.contains("KeywordSet::CANT_ATTACK"));
+    }
+
+    #[test]
+    fn wave6_powerstone_and_nested_token_refs() {
+        let mut c = cats();
+        c.artifact.push("Powerstone".to_string());
+        c.creature.push("Rabbit".to_string());
+
+        let powerstone = read(
+            "Name:Powerstone Token\nTypes:Artifact Powerstone\n\
+             A:AB$ Mana | Cost$ T | Produced$ C | RestrictValid$ CantCastNonArtifactSpells",
+            &c,
+        )
+        .expect("powerstone token");
+        assert_eq!(powerstone.constant, "POWERSTONE");
+        assert!(
+            powerstone
+                .literal
+                .contains("ManaUse::NonSpellPaymentsOrMatchingSpells")
+        );
+
+        let lookup = TokenLookup::held(&[
+            (
+                "t_treasure",
+                "Name:Treasure Token\nTypes:Artifact Treasure\n\
+                 A:AB$ Mana | Cost$ T Sac<1/CARDNAME> | Produced$ Any",
+            ),
+            (
+                "t_rabbit",
+                "Name:Rabbit Token\nColors:white\nTypes:Creature Rabbit\nPT:1/1",
+            ),
+            (
+                "t_soldier",
+                "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1",
+            ),
+            (
+                "t_raider",
+                "Name:Raider Token\nColors:red\nTypes:Creature Soldier\nPT:2/2\n\
+                 T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ Mk\n\
+                 SVar:Mk:DB$ Token | TokenScript$ t_treasure",
+            ),
+            (
+                "t_hat",
+                "Name:Hat Token\nTypes:Artifact\n\
+                 A:AB$ Token | Cost$ 1 T Sac<1/CARDNAME> | TokenScript$ t_rabbit",
+            ),
+            (
+                "t_unknown_nested",
+                "Name:Banner Token\nTypes:Artifact\n\
+                 A:AB$ Token | Cost$ 1 T Sac<1/CARDNAME> | TokenScript$ t_soldier",
+            ),
+            (
+                "t_self_loop",
+                "Name:Loop Token\nTypes:Artifact\n\
+                 A:AB$ Token | Cost$ T Sac<1/CARDNAME> | TokenScript$ t_self_loop",
+            ),
+        ]);
+
+        let raider = lookup
+            .body("t_raider", &c)
+            .expect("hand-written nested token");
+        assert!(raider.literal.contains("token: &tokens::TREASURE"));
+        let hat = lookup
+            .body("t_hat", &c)
+            .expect("frozen generated nested token");
+        assert!(hat.literal.contains("token: &RABBIT_1_1_WHITE"));
+        assert!(lookup.body("t_unknown_nested", &c).is_none());
+        assert!(lookup.body("t_self_loop", &c).is_none());
+    }
+
+    #[test]
+    fn wave7_equipment_grantor_sacrifice_and_owner_graveyard_cda_tokens() {
+        let mut c = cats();
+        c.creature.push("Elephant".to_string());
+        c.normalize();
+
+        let pebble = read(
+            "Name:Pebble\nTypes:Artifact Equipment\n\
+             S:Mode$ Continuous | Affected$ Creature.EquippedBy | AddAbility$ Toss\n\
+             SVar:Toss:AB$ DealDamage | Cost$ 1 T Sac<1/OriginalHost/Pebble> | ValidTgts$ Any | NumDmg$ 2\n\
+             K:Equip:1",
+            &c,
+        )
+        .expect("equipment token granting SacrificeGrantor");
+        assert!(pebble.literal.contains("SacrificeGrantor"));
+        assert!(pebble.literal.contains("GrantActivatedDefinition"));
+        assert!(pebble.constant.starts_with("PEBBLE_EQUIP_1_A"));
+
+        let elephant = read(
+            "Name:Elephant Token\nColors:green\nTypes:Creature Elephant\nPT:*/*\n\
+             S:Mode$ Continuous | SetPower$ G | SetToughness$ G | EffectZone$ Battlefield | \
+             CharacteristicDefining$ True\n\
+             SVar:G:Count$ValidGraveyard Creature.YouOwn",
+            &c,
+        )
+        .expect("owner-graveyard CDA star creature token");
+        assert!(elephant.literal.contains("Modifier::CharacteristicPT"));
+        assert!(elephant.literal.contains("PtCount::InAllGraveyards"));
+        assert!(elephant.literal.contains("Filter::OwnedByYou"));
+        assert!(elephant.constant.starts_with("ELEPHANT_X_X_GREEN_A"));
+    }
+
+    #[test]
+    fn wave8_training_and_combat_trigger_keywords() {
+        let mut c = cats();
+        c.creature.push("Human".to_string());
+        c.normalize();
+
+        let trainee = read(
+            "Name:Human Soldier Token\nColors:white,green\nTypes:Creature Human Soldier\n\
+             PT:1/1\nK:Training",
+            &c,
+        )
+        .expect("Training token");
+        assert!(trainee.literal.contains("KeywordSet::TRAINING"));
+        assert_eq!(trainee.constant, "HUMAN_SOLDIER_1_1_WHITE_GREEN_TRAINING");
+
+        let cry = read(
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Battle Cry",
+            &c,
+        )
+        .expect("Battle cry token");
+        assert!(cry.literal.contains("KeywordSet::BATTLE_CRY"));
+
+        // Duplicate triggered-keyword instances must stay refused rather than collapsing.
+        assert!(
+            read(
+                "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\n\
+                 PT:1/1\nK:Training\nK:Training",
+                &c,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn wave10_myriad_and_extort_tokens() {
+        let mut c = cats();
+        c.creature.push("Spirit".to_string());
+        c.normalize();
+
+        let myriad = read(
+            "Name:Spirit Token\nColors:white\nTypes:Creature Spirit\nPT:1/1\nK:Myriad",
+            &c,
+        )
+        .expect("Myriad token");
+        assert!(myriad.literal.contains("KeywordSet::MYRIAD"));
+
+        let extort = read(
+            "Name:Spirit Token\nColors:black\nTypes:Creature Spirit\nPT:1/1\nK:Extort",
+            &c,
+        )
+        .expect("Extort token");
+        assert!(extort.literal.contains("KeywordSet::EXTORT"));
+
+        for dup in ["Myriad", "Extort"] {
+            assert!(
+                read(
+                    &format!(
+                        "Name:Spirit Token\nColors:white\nTypes:Creature Spirit\nPT:1/1\nK:{dup}\nK:{dup}"
+                    ),
+                    &c,
+                )
+                .is_none(),
+                "duplicate {dup} token must stay refused"
+            );
+        }
+    }
+
+    #[test]
+    fn wave11a_enchant_player_aura_token_and_keyword_guards() {
+        let mut c = cats();
+        c.enchantment.push("Curse".to_string());
+        c.normalize();
+
+        let curse = read(
+            "Name:Hex Token\nColors:black\nTypes:Enchantment Aura Curse\n\
+             K:Enchant:Player\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Drain\n\
+             SVar:Drain:DB$ LoseLife | Defined$ Opponent | LifeAmount$ 1\n\
+             Oracle:Enchant player\\nAt the beginning of your upkeep, each opponent loses 1 life.",
+            &c,
+        )
+        .expect("player aura token");
+        assert!(
+            curse
+                .literal
+                .contains("Effect::AttachSelf { target: TargetSpec::AnyPlayer }")
+                && curse
+                    .literal
+                    .contains("TargetReq::one(TargetSpec::AnyPlayer)")
+                && curse.literal.contains("Effect::LoseLife {"),
+            "{}",
+            curse.literal
+        );
+
+        for unsupported in [
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Squad:1 W",
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Offspring:2",
+            "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:2/2\nK:Escape:2 G ExileFromGrave<3/Card.Other>",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
+        }
+    }
+
+    #[test]
+    fn wave12a_wave5b_and_attacks_alone_tokens() {
+        let c = cats();
+        for (kw, expected) in [
+            ("Wither", "KeywordSet::WITHER"),
+            ("Horsemanship", "KeywordSet::HORSEMANSHIP"),
+            ("Skulk", "KeywordSet::SKULK"),
+            ("Enlist", "KeywordSet::ENLIST"),
+        ] {
+            let tok = read(
+                &format!(
+                    "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:{kw}"
+                ),
+                &c,
+            )
+            .unwrap_or_else(|| panic!("{kw} token should transcode"));
+            assert!(tok.literal.contains(expected), "{kw}: {}", tok.literal);
+        }
+
+        let alone = read(
+            "Name:Soldier Token\nColors:red\nTypes:Creature Soldier\nPT:2/1\nK:CARDNAME can only attack alone.",
+            &c,
+        )
+        .expect("attacks alone token");
+        assert!(
+            alone.literal.contains("Modifier::AttacksAloneOnly"),
+            "{}",
+            alone.literal
+        );
+
+        for unsupported in [
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Enlist\nK:Enlist",
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:AlternateAdditionalCost:Behold<1/Soldier>:2",
+            "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:2/2\nK:Mutate:1 G",
+            "Name:Soldier Token\nColors:blue\nTypes:Creature Soldier\nPT:2/2\nK:Plot:1 U",
+            "Name:Soldier Token\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Casualty:1",
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Backup:1:B\nSVar:B:DB$ Pump | KW$ Flying",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
+        }
+    }
+
+    #[test]
+    fn wave14a_soulbond_two_word_subtype_and_map_legacy_hash() {
+        let mut c = cats();
+        c.creature.push("Time Lord".into());
+        c.normalize();
+        let sb = read(
+            "Name:Scout Token\nColors:white\nTypes:Creature Time Lord\nPT:2/2\nK:Soulbond",
+            &c,
+        )
+        .expect("Soulbond + Time Lord token");
+        assert!(
+            sb.literal.contains("KeywordSet::SOULBOND"),
+            "{}",
+            sb.literal
+        );
+        assert!(sb.literal.contains("creature::TIME_LORD"), "{}", sb.literal);
+        assert!(
+            read(
+                "Name:Scout Token\nColors:white\nTypes:Creature Time Lord\nPT:2/2\nK:Soulbond\nK:Soulbond",
+                &c
+            )
+            .is_none(),
+            "duplicate Soulbond on token must be refused"
+        );
+        let map_hash = fnv1a_32_bare(
+            "activated!(cost!(\"{1}\", TapSelf, SacrificeSelf), &[Effect::Explore { \
+             target: TargetSpec::Object(&Filter::YOUR_CREATURE) }], \
+             timing = ActivationTiming::SorcerySpeed, \
+             target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE)))",
+        );
+        assert!(is_legacy_unsuffixed_ability_token("MAP", map_hash));
+    }
+
+    #[test]
+    fn wave15a_slice_statics_and_impending_gift_refusals() {
+        let c = cats();
+        let mut abilities =
+            vec!["static_ability!(Filter::This, Modifier::GrantAbilities(&SLICE1))".into()];
+        inline_statics(
+            "static SLICE1: [AbilityDef; 1] = [activated!(Cost::TAP, &[Effect::draw(1)])];\n",
+            &mut abilities,
+        )
+        .expect("inline slice static");
+        assert_eq!(
+            abilities[0],
+            "static_ability!(Filter::This, Modifier::GrantAbilities(&[activated!(Cost::TAP, &[Effect::draw(1)])]))"
+        );
+
+        for unsupported in [
+            "Name:ImpToken\nColors:red\nTypes:Creature Giant\nPT:4/4\nK:Impending:3:1 R",
+            "Name:GiftToken\nColors:blue\nTypes:Creature Fish\nPT:1/1\nK:Gift\n\
+             SVar:GiftAbility:DB$ Draw | Defined$ Promised | GiftDescription$ a card",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
+        }
+    }
+
+    #[test]
+    fn wave16a_keyword_token_rules_and_refusals() {
+        let c = cats();
+        let exploit_tok = read(
+            "Name:ExploitToken\nColors:black\nTypes:Creature Soldier\nPT:1/1\nK:Exploit",
+            &c,
+        )
+        .expect("single Exploit token");
+        assert!(
+            exploit_tok.literal.contains("KeywordSet::EXPLOIT"),
+            "{}",
+            exploit_tok.literal
+        );
+
+        let evolve_tok = read(
+            "Name:EvolveToken\nColors:green\nTypes:Creature Bird\nPT:0/1\nK:Evolve",
+            &c,
+        )
+        .expect("single Evolve token");
+        assert!(
+            evolve_tok.literal.contains("KeywordSet::EVOLVE"),
+            "{}",
+            evolve_tok.literal
+        );
+
+        for unsupported in [
+            "Name:WarpToken\nColors:blue\nTypes:Creature Bird\nPT:2/2\nK:Warp:1 U",
+            "Name:DupExploit\nColors:black\nTypes:Creature Soldier\nPT:1/1\nK:Exploit\nK:Exploit",
+            "Name:DupEvolve\nColors:green\nTypes:Creature Bird\nPT:0/1\nK:Evolve\nK:Evolve",
+            "Name:DevourToken\nColors:red\nTypes:Creature Soldier\nPT:3/3\nK:Devour:2",
+            "Name:SpreeToken\nColors:red\nTypes:Creature Soldier\nPT:1/1\nK:Spree",
+            "Name:CraftToken\nColors:white\nTypes:Artifact\nK:Craft:2 ExileCtrlOrGrave<1/Artifact.Other>",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
+        }
+    }
+
+    #[test]
+    fn wave17a_riot_unleash_and_retrace_refusals() {
+        let c = cats();
+        let riot_tok = read(
+            "Name:RiotToken\nColors:red,green\nTypes:Creature Soldier\nPT:2/2\nK:Riot",
+            &c,
+        )
+        .expect("single Riot token");
+        assert!(
+            riot_tok.literal.contains("KeywordSet::RIOT"),
+            "{}",
+            riot_tok.literal
+        );
+
+        let unleash_tok = read(
+            "Name:UnleashToken\nColors:black,red\nTypes:Creature Soldier\nPT:1/1\nK:Unleash",
+            &c,
+        )
+        .expect("single Unleash token");
+        assert!(
+            unleash_tok.literal.contains("KeywordSet::UNLEASH"),
+            "{}",
+            unleash_tok.literal
+        );
+
+        for unsupported in [
+            "Name:RetraceToken\nColors:green\nTypes:Creature Soldier\nPT:2/2\nK:Retrace",
+            "Name:DupRiot\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Riot\nK:Riot",
+            "Name:DupUnleash\nColors:black\nTypes:Creature Soldier\nPT:1/1\nK:Unleash\nK:Unleash",
+            "Name:BadRiot\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Riot:2",
+            "Name:BadUnleash\nColors:black\nTypes:Creature Soldier\nPT:1/1\nK:Unleash:1",
+            "Name:LureToken\nColors:green\nTypes:Creature Soldier\nPT:3/3\nK:CARDNAME must be blocked if able.",
+            "Name:MayFlashToken\nColors:blue\nTypes:Creature Soldier\nPT:1/1\nK:MayFlashCost:2",
+            "Name:PartnerSelToken\nColors:white\nTypes:Creature Soldier\nPT:2/2\nK:Partner:Character select",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
         }
     }
 }

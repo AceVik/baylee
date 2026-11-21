@@ -107,10 +107,7 @@ impl GameState {
         for (card, tap_on_phase_in) in phased {
             self.phase_in(card);
             if tap_on_phase_in && self.set_tapped(card, true) {
-                self.journal.record(GameEvent::ObjectTapped {
-                    object: card,
-                    cause: Cause::Effect,
-                });
+                self.record_tap_event(card, true, Cause::Effect);
             }
         }
     }
@@ -135,6 +132,9 @@ impl GameState {
             return;
         };
         let source_version = source.version;
+        let player_attachment = source
+            .attached_player()
+            .map(crate::object::Rider::SourceAttachmentPlayerLki);
         let attachment = source.attached_to.and_then(|host| {
             self.object(host).map(|object| {
                 let version = if object.zone == Zone::Battlefield {
@@ -166,9 +166,13 @@ impl GameState {
                         rider,
                         crate::object::Rider::SourceAttachmentLki(_)
                             | crate::object::Rider::SourceAttachmentVersion(_)
+                            | crate::object::Rider::SourceAttachmentPlayerLki(_)
                     )
                 });
                 ability.riders.extend(attachment.into_iter().flatten());
+                if let Some(player_rider) = player_attachment {
+                    ability.riders.push(player_rider);
+                }
             }
         }
     }
@@ -405,6 +409,8 @@ impl GameState {
                 && (o
                     .riders
                     .contains(&crate::object::Rider::RevealedInHandCantPlayUntilTurn)
+                    || o.riders
+                        .contains(&crate::object::Rider::RevealedFromOpeningHand)
                     || o.zone_owner.is_some_and(|owner| self.hand_revealed(owner)))
         })
     }
@@ -435,7 +441,13 @@ impl GameState {
             damage: self.damage_death_snapshot(id),
             event: crate::event::Departure {
                 sacrificed: false,
+                was_attacking: self.combat.is_attacking(id),
                 return_keywords: crate::trigger::return_keyword_counts(self, object),
+                modular_instances: crate::layers::keyword_instances(
+                    self,
+                    object,
+                    baylee_cards_dsl::KeywordSet::MODULAR,
+                ),
                 version: object.version,
                 power: object.characteristics().power.unwrap_or(0),
                 controller: object.controller,
@@ -447,6 +459,10 @@ impl GameState {
                             .is_some_and(|o| o.attached_to == Some(id))
                     })
                     .collect(),
+                was_ring_bearer_of: self
+                    .players
+                    .iter()
+                    .find_map(|p| (p.ring_bearer == Some(id)).then_some(p.id)),
             },
         })
     }
@@ -530,14 +546,18 @@ impl GameState {
                 o.characteristics()
                     .subtypes
                     .contains(baylee_core::generated::subtypes::enchantment::AURA)
-                    && o.attached_to.is_some_and(|host| {
+                    && (o.attached_to.is_some_and(|host| {
                         !crate::eval::permits_enchantment(self, host, id)
                             || !crate::permanent_guards::permits_new_enchantment(self, host, id)
-                    })
+                    }) || o.attached_player().is_some_and(|player| {
+                        self.has_left(player)
+                            || crate::eval::player_protected_from(self, player, id)
+                    }))
             });
         let to = if blocked_entry || blocked_aura {
             if let Some(o) = self.object_mut(id) {
                 o.attached_to = None;
+                o.set_attached_player(None);
                 o.kind = ObjectKind::Card;
             }
             if from_zone != Zone::Stack {
@@ -616,6 +636,12 @@ impl GameState {
         let ts = self.timestamp;
         self.record_last_known(id, from_zone);
         if from_zone == Zone::Battlefield && to.zone() != Zone::Battlefield {
+            for p in &mut self.players {
+                if p.ring_bearer == Some(id) {
+                    p.ring_bearer = None;
+                }
+            }
+            let _ = self.unpair_creature(id);
             // CR 400.7: a returning permanent is a new object even though
             // its arena handle is stable. Detach now, after departure
             // snapshots, so a blink cannot restore the old relationship
@@ -739,6 +765,11 @@ impl GameState {
                             | crate::object::Rider::CreatedBy(_)
                             | crate::object::Rider::Prepared
                             | crate::object::Rider::Saddled
+                            | crate::object::Rider::Renowned
+                            | crate::object::Rider::Monstrous
+                            | crate::object::Rider::ClassLevel(_)
+                            | crate::object::Rider::Suspected
+                            | crate::object::Rider::RiotHaste
                             | crate::object::Rider::ExhaustedAbility(_)
                             | crate::object::Rider::EntrySacrifices(_)
                             | crate::object::Rider::SecondChosenSubtype(_)
@@ -752,6 +783,10 @@ impl GameState {
                             | crate::object::Rider::MergedComponent(_)
                             | crate::object::Rider::MergedTop(_)
                             | crate::object::Rider::MergedToken(_)
+                            | crate::object::Rider::MustAttackPlayerThisTurn(_)
+                            | crate::object::Rider::AttachedToPlayer(_)
+                            | crate::object::Rider::PairedWith(..)
+                            | crate::object::Rider::TributePaid
                     )
                 });
                 // A name chosen as it entered belongs to that permanent
@@ -789,21 +824,43 @@ impl GameState {
                         crate::object::Rider::EntryP1P1(_)
                             | crate::object::Rider::EntryFinality
                             | crate::object::Rider::Dashed
+                            | crate::object::Rider::Blitzed
+                            | crate::object::Rider::Bargained
+                            | crate::object::Rider::SquadPaid(_)
+                            | crate::object::Rider::OffspringPaid
+                            | crate::object::Rider::CasualtyPaid
+                            | crate::object::Rider::ImpendingPaid
+                            | crate::object::Rider::GiftPromisedTo(_)
+                            | crate::object::Rider::Fused
+                            | crate::object::Rider::SuspendHaste(_)
                             | crate::object::Rider::Mutating
+                            | crate::object::Rider::Bestowed
                             | crate::object::Rider::Escaped
                             | crate::object::Rider::Masked
                             | crate::object::Rider::KickedMask(_)
+                            | crate::object::Rider::WarpedSpell
+                            | crate::object::Rider::RevealedFromOpeningHand
+                            | crate::object::Rider::SnowManaSpent(_)
+                            | crate::object::Rider::Sneaked
+                            | crate::object::Rider::NinjutsuDefender(_, _)
+                            | crate::object::Rider::Spliced { .. }
+                            | crate::object::Rider::Awakened(_)
+                            | crate::object::Rider::ConspirePaid(_)
                     )
                 });
             }
             obj.riders.retain(|rider| match rider {
                 crate::object::Rider::Uncounterable => to.zone() == Zone::Stack,
+                crate::object::Rider::Manifested => to.zone() == Zone::Battlefield,
                 // Foretell lasts for as long as the card remains exiled
                 // (CR 702.143a); a move from exile to exile does not end
                 // that. Every other move makes a new object (CR 400.7): the
                 // cast puts "was foretold" back on the spell itself after its
                 // move, and a spell exiled from the stack is not foretold.
-                crate::object::Rider::Foretold { .. } => {
+                crate::object::Rider::Foretold { .. }
+                | crate::object::Rider::Plotted
+                | crate::object::Rider::PlottedOnTurn(_)
+                | crate::object::Rider::WarpedInExile(_) => {
                     from_zone == Zone::Exile && to.zone() == Zone::Exile
                 }
                 _ => true,
@@ -822,9 +879,19 @@ impl GameState {
             if from_zone == Zone::Exile && to.zone() != Zone::Exile {
                 obj.riders.retain(|r| !r.ends_as_it_leaves_exile());
             }
+            if from_zone == Zone::Stack
+                && to.zone() == Zone::Battlefield
+                && let Some(snow) = obj
+                    .paid
+                    .as_ref()
+                    .map(|p| p.snow_mana_spent())
+                    .filter(|&n| n > 0)
+            {
+                obj.riders.push(crate::object::Rider::SnowManaSpent(snow));
+            }
             // What was paid is the spell's and no later object's (a flashback
-            // is a new payment); nothing on the battlefield reads it yet, so
-            // a resolved permanent spell gives it up too (`PaidRecord`).
+            // is a new payment); snow mana spent is carried on a rider above
+            // when nonzero (`CR 107.4h`, `CR 400.7d`).
             obj.paid = None;
             // The same rule for the other thing a copy replaced. Copiable
             // values are fixed while the copy exists (CR 707.2a) and the
@@ -842,7 +909,8 @@ impl GameState {
             // captured its list) have no card to fall back to.
             if obj.card.is_some()
                 && !(to.zone() == Zone::Battlefield
-                    && obj.riders.contains(&crate::object::Rider::EntryCopyApplied))
+                    && (obj.riders.contains(&crate::object::Rider::EntryCopyApplied)
+                        || obj.riders.contains(&crate::object::Rider::Manifested)))
                 && !((obj.prototyped || obj.status.contains(crate::object::Status::FACE_DOWN))
                     && from_zone == Zone::Stack
                     && to.zone() == Zone::Battlefield)
@@ -873,6 +941,10 @@ impl GameState {
                         | crate::object::Rider::EntryTappingApplied
                 )
             });
+        }
+        if from_zone == Zone::Battlefield && !self.play_permissions.is_empty() {
+            self.play_permissions
+                .retain(|p| !p.window.depends_on_departed_source(id));
         }
         // Off the stack and the battlefield a card is its front face again,
         // and a split card both of its halves (CR 709.4): Fire // Ice cast as

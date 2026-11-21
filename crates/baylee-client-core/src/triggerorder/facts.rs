@@ -429,6 +429,15 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
                 Struck::Object => facts.deeds.add(Deeds::REMOVES),
             }
         }
+        Effect::DamagePermanentAndController {
+            permanent_amount,
+            controller_amount,
+            ..
+        } => {
+            facts.reads.add(counted(permanent_amount));
+            facts.reads.add(counted(controller_amount));
+            facts.deeds.add(Deeds::REMOVES);
+        }
         Effect::Poison { who, amount } => {
             facts.reads.add(counted(amount));
             for seat in reading.players(who) {
@@ -480,6 +489,11 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::LookAtTopKeepBottomPlay { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::ReorderTopLibraryOf { .. }
+        | Effect::ExileTopToPlay { .. }
+        | Effect::ExileTopMayCast { .. }
+        | Effect::ExileTopWithPermission { .. }
+        | Effect::PlotTop { .. }
+        | Effect::RevealTop { .. }
         | Effect::NextDrawLooksAtTop { .. } => facts.deeds.add(Deeds::LOOKS),
         Effect::Surveil { .. } => {
             facts.deeds.add(Deeds::LOOKS);
@@ -518,7 +532,12 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::ChooseNumber { .. }
         | Effect::ChooseCardName { .. }
         | Effect::ChooseCreatureType { .. }
+        | Effect::ChooseColor
         | Effect::ChooseColors { .. }
+        | Effect::ChooseCard { .. }
+        | Effect::PeekAndReveal { .. }
+        | Effect::RevealFromHand { .. }
+        | Effect::PreventFromChosenSource { .. }
         | Effect::DiscardCount { .. }
         | Effect::DiscardMatching { .. }
         | Effect::DiscardUpToThenDraw { .. }
@@ -564,9 +583,19 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::PutTargetOnBottomOfLibrary
         | Effect::RemoveTargetFromCombat { .. }
         | Effect::DealDamageEach { .. }
-        | Effect::DealDamageDivided { .. } => facts.deeds.add(Deeds::REMOVES),
+        | Effect::DealDamageDivided { .. }
+        | Effect::ExileLinked { .. }
+        | Effect::ExileWithPermission { .. }
+        | Effect::Plot { .. }
+        | Effect::TapTarget
+        | Effect::TapEventObject
+        | Effect::Detain { .. }
+        | Effect::DetainFilter { .. }
+        | Effect::CounterTargetSpell
+        | Effect::CounterTargetAbility => facts.deeds.add(Deeds::REMOVES),
         Effect::SacrificeSelf
         | Effect::ExileSource
+        | Effect::ExileWarped
         | Effect::ExileSelfReturnAsFace { .. }
         | Effect::ExileSourceWithCounters { .. }
         | Effect::MoveSourceToOwnerGraveyard
@@ -589,6 +618,27 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.reads.add(Stuff::BOARD);
             facts.makes.add(Stuff::POWER);
         }
+        Effect::CreateContinuousEffect { modifier, .. } => {
+            use baylee_cards::dsl::Modifier as M;
+            match modifier {
+                M::ModifyPT(p, t) if p < 0 || t < 0 => {
+                    facts.deeds.add(Deeds::REMOVES);
+                    facts.reads.add(Stuff::BOARD);
+                }
+                M::ModifyPT(p, t) if p > 0 || t > 0 => {
+                    facts.deeds.add(Deeds::PUMPS);
+                    facts.reads.add(Stuff::BOARD);
+                    facts.makes.add(Stuff::POWER);
+                }
+                M::AddKeyword(_) | M::SetPT(..) => {
+                    facts.deeds.add(Deeds::PUMPS);
+                    facts.reads.add(Stuff::BOARD);
+                    facts.makes.add(Stuff::POWER);
+                }
+                _ => {}
+            }
+        }
+        Effect::UntapTarget => facts.deeds.add(Deeds::PUMPS),
         Effect::PumpEventObject { .. }
         | Effect::PumpTargetSlot { .. }
         | Effect::ModifySource { .. }
@@ -604,7 +654,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.makes.add(Stuff::COUNTERS);
             facts.makes.add(Stuff::POWER);
         }
-        Effect::AddCounterSource { amount, .. } => {
+        Effect::AddCounterSource { amount, .. } | Effect::Monstrosity(amount) => {
             facts.reads.add(counted(amount));
             facts.deeds.add(Deeds::PUMPS);
             facts.makes.add(Stuff::OWN_COUNTERS);
@@ -612,10 +662,38 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         }
         Effect::AddCounterFilter { .. }
         | Effect::AddCounterCreatedTokens { .. }
-        | Effect::AddCountersUpTo { .. } => {
+        | Effect::AddCountersUpTo { .. }
+        | Effect::Backup { .. } => {
             facts.deeds.add(Deeds::PUMPS);
             facts.makes.add(Stuff::COUNTERS);
             facts.makes.add(Stuff::POWER);
+        }
+        Effect::Bolster(amount) => {
+            facts.reads.add(counted(amount));
+            facts.reads.add(Stuff::BOARD);
+            facts.deeds.add(Deeds::PUMPS);
+            facts.makes.add(Stuff::COUNTERS);
+            facts.makes.add(Stuff::POWER);
+        }
+        Effect::BecomeRenowned(count) => {
+            if count > 0 {
+                facts.deeds.add(Deeds::PUMPS);
+                facts.makes.add(Stuff::OWN_COUNTERS);
+                facts.makes.add(Stuff::POWER);
+            }
+        }
+        Effect::Incubate { count, .. } => {
+            facts.reads.add(counted(count));
+            facts.makes.add(Stuff::BOARD);
+            facts.makes.add(Stuff::COUNTERS);
+        }
+        Effect::Exploit => {
+            facts.reads.add(Stuff::BOARD);
+            facts.deeds.add(Deeds::ASKS);
+            facts.deeds.add(Deeds::MAY);
+            facts.deeds.add(Deeds::REMOVES);
+            facts.makes.add(Stuff::BOARD);
+            facts.makes.add(Stuff::GRAVEYARD);
         }
         Effect::Proliferate => {
             facts.reads.add(Stuff::COUNTERS);
@@ -625,22 +703,92 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.reads.add(counted(amount));
             facts.makes.add(Stuff::BOARD);
         }
+        Effect::Myriad | Effect::CipherCastEncoded => {
+            facts.deeds.add(Deeds::ASKS);
+            facts.deeds.add(Deeds::MAY);
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::ManifestTop { .. }
+        | Effect::ReturnCraftedTransformed
+        | Effect::Suspect { .. }
+        | Effect::Unsuspect { .. }
+        | Effect::ReturnChampioned => {
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::ManifestDread => {
+            facts.deeds.add(Deeds::LOOKS);
+            facts.deeds.add(Deeds::ASKS);
+            facts.makes.add(Stuff::BOARD);
+            facts.makes.add(Stuff::GRAVEYARD);
+        }
+        Effect::RingTemptsYou => {
+            facts.reads.add(Stuff::BOARD);
+            facts.deeds.add(Deeds::ASKS);
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::Firebend(amount) => {
+            facts.reads.add(counted(amount));
+            facts.makes.add(Stuff::MANA);
+        }
+        Effect::AwakenLand { .. } => {
+            facts.makes.add(Stuff::BOARD);
+            facts.makes.add(Stuff::COUNTERS);
+            facts.makes.add(Stuff::POWER);
+        }
+        Effect::Cipher => {
+            facts.deeds.add(Deeds::ASKS);
+            facts.deeds.add(Deeds::MAY);
+            facts.reads.add(Stuff::BOARD);
+        }
+        Effect::Champion { .. } => {
+            facts.deeds.add(Deeds::ASKS);
+            facts.reads.add(Stuff::BOARD);
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::Clash { .. } => {
+            facts.deeds.add(Deeds::LOOKS);
+            facts.deeds.add(Deeds::ASKS);
+        }
+        Effect::SoulbondPair { .. } => {
+            facts.deeds.add(Deeds::ASKS);
+            facts.deeds.add(Deeds::MAY);
+            facts.reads.add(Stuff::BOARD);
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::TurnFaceUp { .. } => {
+            facts.reads.add(Stuff::BOARD);
+            facts.makes.add(Stuff::BOARD);
+            facts.makes.add(Stuff::POWER);
+        }
         Effect::CreateToken { .. }
         | Effect::CreateTokenAttacking { .. }
+        | Effect::Mobilize(_)
         | Effect::CreateTokenModified { .. }
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenCopyOf { .. }
         | Effect::CreateTokenCopiesOfGraveyard { .. }
         | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokenCopyOfTarget { .. }
+        | Effect::CreateTokenCopy { .. }
+        | Effect::ChooseAndCreateTokenCopy { .. }
         | Effect::CreateTokenThenCounters { .. }
         | Effect::Populate
         | Effect::Amass { .. }
         | Effect::Fabricate { .. }
+        | Effect::Endure(_)
         | Effect::PutFromHandOntoBattlefield { .. }
+        | Effect::PutNinjutsuOntoBattlefield
         | Effect::GraveyardToBattlefield { .. }
         | Effect::GraveyardToBattlefieldModified { .. }
         | Effect::YourGraveyardToBattlefield { .. } => facts.makes.add(Stuff::BOARD),
+        Effect::DeliverGift(kind) => match kind {
+            baylee_cards::dsl::GiftKind::Card => facts.makes.add(Stuff::HAND),
+            baylee_cards::dsl::GiftKind::Food
+            | baylee_cards::dsl::GiftKind::TappedFish
+            | baylee_cards::dsl::GiftKind::Treasure
+            | baylee_cards::dsl::GiftKind::Octopus => facts.makes.add(Stuff::BOARD),
+            baylee_cards::dsl::GiftKind::ExtraTurn => {}
+        },
         Effect::AddMana { .. }
         | Effect::AddManaFor { .. }
         | Effect::AddManaAmountFor { .. }

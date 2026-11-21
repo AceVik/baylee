@@ -490,6 +490,19 @@ impl SubtypeSet {
         Self(out)
     }
 
+    /// Intersection of two sets.
+    #[inline]
+    #[must_use]
+    pub const fn intersection(self, other: Self) -> Self {
+        let mut out = [0u64; SUBTYPE_WORDS];
+        let mut i = 0;
+        while i < SUBTYPE_WORDS {
+            out[i] = self.0[i] & other.0[i];
+            i += 1;
+        }
+        Self(out)
+    }
+
     /// The subtypes of `self` that are not in `other`.
     #[inline]
     #[must_use]

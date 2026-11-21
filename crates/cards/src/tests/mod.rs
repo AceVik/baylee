@@ -308,6 +308,24 @@ fn no_card_costs_a_colour_its_identity_leaves_out() {
             if let Some(miracle) = face.miracle {
                 add(&miracle);
             }
+            if let Some(megamorph) = face.megamorph {
+                add(&megamorph);
+            }
+            if let Some(bestow) = face.bestow {
+                add(&bestow.mana);
+            }
+            if let Some(dash) = face.dash {
+                add(&dash);
+            }
+            if let Some(blitz) = face.blitz {
+                add(&blitz.mana);
+            }
+            if let Some(emerge) = face.emerge {
+                add(&emerge.cost);
+            }
+            if let Some(prototype) = face.prototype {
+                add(&prototype.cost);
+            }
         }
         for ability in def
             .faces
@@ -317,7 +335,11 @@ fn no_card_costs_a_colour_its_identity_leaves_out() {
         {
             match ability {
                 AbilityDef::Activated { cost, .. }
-                | AbilityDef::ActivatedConditional { cost, .. } => add(&cost.mana),
+                | AbilityDef::ActivatedConditional { cost, .. }
+                | AbilityDef::Unearth { cost }
+                | AbilityDef::Encore { cost }
+                | AbilityDef::Splice { cost, .. }
+                | AbilityDef::Awaken { cost, .. } => add(&cost.mana),
                 AbilityDef::Echo { cost } => add(cost),
                 // `ModalTriggered` carries `SpellMode`s too and is not
                 // read here, which is a statement rather than the
@@ -394,43 +416,6 @@ fn no_modal_trigger_overrides_a_cost() {
     );
 }
 
-/// A mode of a modal **trigger** never prints a second target.
-///
-/// `SpellMode::second_targets` is read by the cast wizard alone, which a
-/// trigger never passes through: its targets are chosen as it is put on
-/// the stack (CR 603.3d), by a path that asks one instance of the word.
-/// A trigger's mode that wrote one would be put on the stack with the
-/// second instance unanswered and resolve against nothing, so the day a
-/// card needs it this fails first and names the card, rather than the
-/// card resolving half of itself.
-#[test]
-fn no_modal_trigger_mode_prints_a_second_target() {
-    use baylee_cards_dsl::AbilityDef;
-
-    let mut seen = 0usize;
-    for (_, def) in generated::ALL {
-        for face in 0..def.faces.len() {
-            for ability in def.abilities_for_face(face) {
-                let AbilityDef::ModalTriggered { modes, .. } = ability else {
-                    continue;
-                };
-                seen += 1;
-                for (at, mode) in modes.iter().enumerate() {
-                    assert!(
-                        mode.second_targets.is_none(),
-                        "{} face {face} mode {at} is a trigger's and says \"target\" twice",
-                        def.name()
-                    );
-                }
-            }
-        }
-    }
-    assert!(
-        seen >= 7,
-        "only {seen} modal triggers in the pool, so this proves nothing"
-    );
-}
-
 /// A card file's `// NOT SUPPORTED:` note and its `coverage` line are two
 /// statements about the same thing, and only the second one is checked by
 /// anything. Five cards drifted apart that way: the mechanic landed, the
@@ -484,7 +469,7 @@ fn every_equip_ability_is_sorcery_speed_untapped_and_targets_your_own() {
             continue;
         }
         for (i, _) in def.faces.iter().enumerate() {
-            for ability in def.abilities_for_face(i) {
+            for (ability_idx, ability) in def.abilities_for_face(i).iter().enumerate() {
                 // Both arms, so a conditional equip ability cannot walk
                 // past the lint. No card prints one today — the two
                 // sibling lints above already read both, and this one
@@ -510,6 +495,15 @@ fn every_equip_ability_is_sorcery_speed_untapped_and_targets_your_own() {
                     .iter()
                     .any(|e| matches!(e, Effect::AttachSelf { .. }))
                 {
+                    continue;
+                }
+                // Fifth Dawn's instant-speed "{C}{C}: Attach this Equipment to
+                // target creature you control." abilities are not Equip (CR 702.6).
+                let sentence = u32::try_from(ability_idx)
+                    .ok()
+                    .and_then(|idx| crate::lines::ability_line(def.index, i, idx))
+                    .and_then(|at| crate::oracle::sentence(def.index, i, at.line));
+                if sentence.is_some_and(|s| !s.starts_with("Equip") && s.contains(": Attach")) {
                     continue;
                 }
                 let name = def.name();

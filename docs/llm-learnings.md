@@ -6,6 +6,207 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Independent review of the final PR 439 card batches
+
+Reviewed the Wave 16 unholds (`34b765a07`), E11 (`a7f3822e9`) and E12
+(`04b837211`) against the printed abilities. Dai Li Indoctrination needs a
+permanent-card filter in the revealed hand. Grim Giganotosaurus must survive
+its own ability even when it is also an artifact. Infernal Captor and Caught
+Red-Handed take control before they untap the permanent. Each correction is
+covered by a reader regression. Artist's Talent exposed the use of counters
+for Class levels. The engine now records a permanent's class level separately,
+and the nine generated Classes and three hand-authored Classes use it.
+
+Review of earlier batches also found that Lost Isle Calling needs the verse
+counter count from before its exile cost, and Six must still offer a payable
+Disturb cast when its granted Retrace cost cannot be paid. Teachings of the
+Kirin checks for a card exiled from a graveyard. Those Old Scientists uses
+different graveyard owners in chapters II and III. Astral Confrontation and
+Apothecary White count the players currently under direct attack. The nine
+newly read cards that damage a permanent and its controller now make one
+damage event: Assembled Alphas, Burn the Accursed, Carnival // Carnage,
+Chandra's Outrage, First Volley, Judgment Bolt, Neonate's Rush, Shocker,
+Unshakable, and Unleash Shell. The same reader handles Kamahl's Sledge by
+checking threshold before either amount is dealt. A subsequent instruction
+such as Burn the Accursed's death replacement stays after the damage. Two
+instructions joined by "then" still cause separate events. If Pariah
+redirects the controller's damage to the same creature, enrage triggers
+once for the combined damage (CR 120.4b, CR 614.9, CR 603.2c).
+
+Play a copy effect with the same card on different faces in successive zones.
+Grist can die to its own ultimate and then be copied as the creature card
+in its graveyard. Soul Exchange needs the creature type of its additional
+cost immediately before exile. Desculpting Blast needs the target's combat
+status immediately before the bounce, including whether Reconnaissance
+already removed it from combat. At a three-player table, Icingdeath's
+Equipment trigger targets a creature of the player its bearer attacked.
+The other opponent's creatures distinguish this from a generic opponent
+filter. Wake the Dragon and Rekindling Phoenix also have played regressions
+for control and temporary haste on the exact object their tokens affect.
+
+## 2026-11-21 — Beat 17: Engine Waves 9a–10b, Codegen Wave 17a–17c, Unholds, Passes E11–E12 & Full 13-Crate Gate (`21,807` Conforming / `20,639` Playable)
+
+- **Exhaustive Pool & Zero Remaining Unattempted Readable Scripts (`xtask reach-list --count 0 == 0`)**:
+  - Cherry-picked **Codegen Wave 17a–17c** (`e91a05143`, `ad86ab2ce`, `d76e13cd1`: `Retrace`, `Riot`, `Unleash`, `Monstrous`/`Suspected`/`Scried` filters/triggers/conditions, `Radiation`/`ExchangeControlOfEventAndTarget`/`LoseGame`/`SkipNextCombatPhase`), **Unholds** (`34b765a07`, `+7`: *Abyssal Lotus* + 6 `PlayersOrTheirPermanents(Opponent)` damage-replacement cards), **Pass E11** (`a7f3822e9`, `+207`), and **Amended Pass E12** (`04b837211`, `+110` new + *Patriarch's Desire* stub upgrade `-1`, holding back *Rikala, Homarid King* `45284633-8aab-4078-ae5c-7b0d75efe2f5` for corpus `OptionalDecider$` defect).
+  - During the unfiltered `baylee-engine --lib` `this_object_tests` audit, held back 5 additional Fall-C defective `Coverage::Generated` cards (`b10ad415-0aae-4d70-82e6-a4055a40cbe4` *Sword of War and Peace*, `d0868a52-5b19-4429-acf1-399f3ae8308c` *Furnace Scamp*, `a0f25ffa-0e53-4e38-8001-d595fd2c2045` *Temporal Firestorm*, `955abada-aba2-41c2-96ff-58e3679ad7e5` *Taborax, Hope's Demise*, `9216c2e5-4cfe-4945-b45f-20a1e0d308a0` *Durkwood Tracker*) in `data/held-back.tsv` & `docs/generated-held-back.md`, and *Death's Shadow* promoted automatically to `Coverage::Implemented` via `deaths_shadow_survives_below_thirteen_life_and_matches_unshielded_fields`.
+  - Converged `xtask codegen --scripts` idempotently (`PASS3_IDEMPOTENT=OK`): **`21,807` conforming cards** (**`20,902` finished / `20,639` playable** = `11,017` `Implemented` + **`9,622` `Generated`**, `263` `Partial`, `905` stubs; `21,717` lines in `data/card-pool.txt`; `91` active held-back rows skipped in `data/held-back.tsv`; `1,245` tokens; `67 / 1,203` precons playable; **`0` remaining unattempted readable scripts** in `reach-list`; `transcode-report` **`20,218 / 34,482` = `58%`**).
+- **Unified Engine Waves 9a + 9b + 9c + 10a + 10b (`a5db08b73`, `VIEW_VERSION = 107`, `PROTOCOL_VERSION = 64`, `OBJECT_BUDGET = 296`)**:
+  - Landed `Umbra armor`, `Mobilize`, toughness combat damage / as-though-unblocked, `Detain`, `PlayersCantGainLife`, `CantBeSacrificed`, `Commit a Crime`, `Expend N`, `Clash`, `AdditionalCombatPhase`, `Transmute`, `Scavenge`, `CostPart::Either`, Opening-Hand Leylines/Chancellors, `The Ring Tempts You` (4 tiers), `Strive`, `Firebending N`, `Freerunning`, `Sneak`, `Sunburst`, `Ravenous`, `Graft`, `Outlast`, `Afterlife`, `Afflict`, `Reinforce`, `Endure`, `Splice`, `Awaken`, `Conspire`, `Cipher`, `Champion`, and `Tribute`, plus per-face back-face mandatory additional-cost capacity gating (`My Precious // Allure of Power` fix across all 8 `every_implemented_card_survives_a_game` shards).
+- **Engine, Seat, Client & Commander Guard Fixes (`CR 702.124k/m`)**:
+  - Fixed `leader_of` in `crates/cards/src/decks.rs` so legendary Backgrounds are pair-eligible (`!l.background` solo check kept) and `"the Doctor"` enforces `CR 702.124m` legendary `Time Lord Doctor` with no other creature types (excluding `Human Doctor` *Doctor Jane Foster*). Closed both remaining `ai_coverage_guards` `mechanic_debt` rows (`42` non-plain-Partner + `60` Infect/Wither) and `REACHABLE_CLOCKS` (`5` untargeted clock arrivals).
+  - Closed all 14 unfiltered `baylee-engine --lib` failures across 3 audited slices (`2ac628f8e`, `632b65672`, `b9c6e531e`): payable Kicker/Waterbend test boards, `state.battlefield_seen()` in `crime::any_own_ability` (`CR 702.26b`) + phasing bookkeeping reasons in `state/objects.rs`, `StepBegin(PlayerRel::EachOtherPlayer)`, `EnterModifier::WithCountersIf` printed shielding + *Death's Shadow* `CR 704.5f` projection, CR 711.2a leveler strips + `attached_aura_board` + `KYREN_TOY` / `FULL_CORPUS_OTHER_PERMANENTS` + `TargetPrompt::Targets` convoke gating in `target_tests.rs`, `ThisObject`/`EventObject` pool censuses + `resolve/tokens.rs` / `resolve/immediate.rs` LKI + `resolve/zones.rs` `GraveyardToHand` card/zone guard.
+  - Updated `baylee-ai` `activation_census` `(5065, 6476)`, blessed `baylee-seat` `prefix_precon_*.txt` (*Shipbreaker Kraken*, *Spitting Image*, ceiling `5,600 -> 5,700`), taught `baylee-client` `Filter::InZone` over public `PlayerView` zones (unblocking *Bilbo's Gambit*, *Reprieve*, *Spellscorn Coven*, *Unsubstantiate*; `EXPECTED_BLIND` = `24`), and updated `baylee-client::cardart` for shared FRA Prepared secondary spell faces (`Seed Suture`, `Peer Review`).
+- **Full 13-Crate Verification Gate Green (`task-6622`, `task-6627`, `task-6636`, `task-6647`, `task-6720`, `task-6738`)**: `baylee-engine --lib` `2,908/2,908` (`3` ignored) + `footprint` `1` + `hostile_actions` `2` ignored, `baylee-ai` `434/434`, `baylee-cards-dsl` `99+1`, `baylee-view` `112/112` + `hostile_frames` `9/9`, `baylee-protocol` `52+17`, `baylee-gamehost --lib` `441/441` + `integration` `99/99`, `baylee-cards-codegen` `730/730`, `baylee-cards --lib` `169/169`, `baylee-card-tests-verification` `58/58`, `baylee-seat --lib` `563/563`, `baylee-client-core --lib -- --skip music::` `2,603/2,603`, `baylee-client --lib` `2,779/2,779`, `baylee-train --lib` `228/228`, `xtask` `151/151`, 13-crate `clippy --all-targets -- -D warnings` + `baylee-cards --lib` `clippy` (`0` warnings), `cargo fmt --all -- --check`, `codegen --tables --check`, `validate`, `reach-list --count 0`, and `git diff --check origin/main..HEAD` ALL PASS.
+
+## 2026-11-21 — Beat 16: Engine Wave 8b, Codegen Wave 16a–16c, Unholds & Pass E10 (`21,488` Conforming / `20,321` Playable)
+
+- **Cherry-picked 6 `PASS` commits cleanly onto Beat 15 `c3a065f41`**:
+  - **Engine Wave 8b (`a117b9d8d` -> `e452fd3eb`, `Reviewed-by: gemini-4-argon-high (#446), pass`)**: `Retrace` (`KeywordSet::RETRACE = 86`), `Trigger::Scried`, `Monstrosity` (`Effect::Monstrosity`, `Rider::Monstrous` `211`, `Trigger::BecomesMonstrous`), `Suspect` (`Rider::Suspected` `212`, `PublicObject::suspected`, `VIEW_VERSION = 103`, `PROTOCOL_VERSION = 60`), `Riot` (`KeywordSet::RIOT = 87`, `Rider::RiotHaste` `213`), and `Unleash` (`KeywordSet::UNLEASH = 88`).
+  - **Codegen Wave 16a (`fd824cb24` -> `692f32ccc`, `PASS` `#475`), Wave 16b (`b9f2b7ccb` -> `6d1942993`, `PASS` `#469`), Wave 16c (`db35e13b7` -> `6806f861d`, `PASS` `#470`)**: lowered Engine Wave 7b (`Exploit`, `Evolve`, `Bloodthirst`, `Craft`, `Incubate`) & Wave 8a (`Warp`, `Devour`, `Spree`, `{S}` snow mana & conditions), `Fabricate`, `Hideaway`, `Earthbend`, `MultiplyCounter`, `ChangeTargets`, `AffectedZone$ Stack`, graveyard target owners/static abilities, and `#436` *Abyssal Lotus* Descend threshold inference.
+  - **Unholds (`9325dbd57` -> `6a7fe07c0`, `PASS` `#460`, `+29` cards) + Pass E10 (`314853bb1` -> `3d50c3766`, `PASS` `#473`, `+481` net)**: restored `22` Star Trek creature subtype cards + `Ambassador K'Ehleyr` + `Curse of Oblivion` + `Nimble Obstructionist` + `Lithoform Engine` + `Evasive Maneuvers` + `The Master, Mesmerist` + `Grakk the Pacifist`, held back `10` new defects (`Forked-Branch Garami`, `Swashbuckler's Whip`, `Blight Grenade`, `For the Common Good`, plus `6` `DamageRecipients::PlayersOrTheirPermanents(Opponent)` cards), and updated `activation_census` to `(4999, 6400)`.
+  - **`xtask/src/check_text/mod.rs` fix (`026b0c809`)**: `format!("{def:?}")` prints `PlayersOrTheirPermanents(Opponent)` / `EachOpponent` / `You` without `PlayerRel::`, unblocking those 6 damage-replacement cards for Pass E11; `2x codegen --scripts` reconvergence upgraded `+3` more pool stubs (`divert`, `ground_seal`, `willbender`; `909 -> 906` stubs).
+- **Verified (`task-5805`, `task-5809`)**: `validate` (**`21,488` conforming = `20,582` finished [`11,017` `Implemented` + `9,304` `Generated` = `20,321` playable + `261` `Partial`] + `906` stubs**; `67 / 1,203` precons playable), `codegen --tables --check` PASS, `transcode-report`: **`20,096 / 34,482` (`58%`)** (`758 / 864` tokens, `140 / 188` rules-bearing), `fmt --check` & `git diff --check` PASS, `baylee-cards-dsl` `97+1`, `baylee-view` `112/112` + `hostile_frames` `9/9`, `baylee-protocol` `52+17`, `baylee-engine` `155/155` + `footprint` `2/2` + `hostile_actions` `15/15`, `baylee-gamehost --lib` `191/191` + `integration` `53/53`, `baylee-cards-codegen` `723/723`, `baylee-cards --lib` `169/169`, `baylee-card-tests-verification` `58/58`, `baylee-ai --lib` `432/432`, `baylee-seat` `narrator::tests::` `138/138`, `baylee-client-core --lib -- --skip music::` `2,603/2,603`, `baylee-client --lib` `212/212`, `baylee-train --lib` `92/92`, `xtask` `151/151`, and 13-crate `clippy --all-targets -- -D warnings` (`0` warnings).
+
+## 2026-11-21 — Beat 15: Codegen Wave 15a–15c, Pass E9 & Star Trek Subtypes (`20,978` Conforming / `19,808` Playable)
+
+- **Codegen Wave 15a (`602ca57ca`, cherry-picked as `556ee124f`, `PASS` `#441`), Wave 15b (`e851feabc`, `e84bbb5a2`, `PASS` `#432`), Wave 15c (`9d3ced455`, `49f0cd6bd`, `PASS` `#443`) + Pass E9 (`4fc216528`, `63c9ddad4`, `PASS` `#438`)**:
+  - Landed `Impending`, all 6 `GiftKind` variants + `Trigger::GaveGift` + `Condition::GiftWasPromised`, conditional `K:etbCounter:` (`EnterModifier::WithCountersIf`), `ChooseMove::ExileLinked`, `Effect::RegisterDelayedTrigger`, `Effect::CreateEmblem`, dual-target chains, `#421` *Curse of Oblivion*, `#425` *Nimble Obstructionist*, `#436` *Ambassador K'Ehleyr*, plus commit `5d73d9027` supplementing 16 Star Trek creature subtypes in `baylee-cards-codegen/src/scryfall.rs` and allowing `"can't attack or block"` for `KeywordSet::CANT_BLOCK` in `xtask/src/check_text`.
+  - Ran `2x xtask codegen --scripts` reconvergence atop `63c9ddad4`, **upgrading `+22` existing pool stubs** (`931 -> 909` stubs) and bumping `crates/baylee-ai/src/tests/worth_tests/activation_census/mod.rs` `(4865, 6209) -> (4865, 6210)` (`+1` contextual activation).
+- **Verified (`task-5492`, `task-5511`, `task-5556`, `task-5589`)**: `validate` (**`20,978` conforming = `20,069` finished [`11,017` `Implemented` + `8,791` `Generated` = `19,808` playable + `261` `Partial`] + `909` stubs**), `codegen --tables --check` PASS, `transcode-report`: **`19,867 / 34,482` (`57%`)** (`758 / 864` token scripts, `140 / 188` rules-bearing), `fmt --check` PASS, `git diff --check` PASS, `baylee-cards-codegen` `710/710`, `baylee-cards --lib` `169/169`, `baylee-card-tests-verification` `58/58`, `baylee-ai --lib` `432/432`, `baylee-seat` `narrator::tests::` `138/138`, `baylee-client --lib -- choices::` `54/54`, `baylee-train --lib -- features4:: features7::` `38/38`, `xtask` `151/151`, and 13-crate `clippy --all-targets -- -D warnings` (`0` warnings).
+
+## 2026-11-21 — Beat 14: Engine Wave 8a (`3dbcb6055`) & `VIEW_VERSION = 102` Foresight Pin (`828d6ea29`)
+
+- **Engine Wave 8a (`fee525383`, cherry-picked as `3dbcb6055`, `Reviewed-by: gemini-4-argon-high (#437), pass`)**:
+  - Landed `Warp [cost]` (`KeywordSet::WARP = 81`, `FaceDef::warp`, `CastModeKind::Warp`, `Rider::WarpedSpell` tag `201`, `WARP_EXILE`, `Rider::WarpedInExile` tag `202`, `PublicObject::warped`, `Filter::WarpedInExile`, `Trigger::SpellWarped`, `Condition::WarpCostPaid`, `Condition::SpellWarpedThisTurn`, `Amount::SpellsWarpedThisTurn`), Snow Mana `{S}` completeness (`ManaPool::snow_total`, `ManaPoolView::snow`, `PaidRecord::snow_mana_spent`, `Rider::SnowManaSpent` tag `203`, `Amount::SnowManaSpentToCast`, `Condition::SnowManaWasSpent`, `Filter::CmcAtMostSnowManaSpent`, floating snow preservation in `manaplan.rs`), `Devour N` (`KeywordSet::DEVOUR = 82`, `EnterModifier::Devour`, `ChoicePrompt::Devour`, `Amount::EntrySacrifices`), and `Spree` (`KeywordSet::SPREE = 83`, `ExtraTargetInstance`, `WizardStage::ExtraTargets`, `ModalTargetStep`, 3+ target clauses across modes, within-mode `second_targets`, `Plot` + `Spree`).
+  - **Combined-merge catches**: Restored `first_ref` (`Slot::Second(0)`) in `crates/baylee-engine/src/engine/progress/stack.rs::target_legality` for `Filter::SharesCreatureTypeWithOtherTarget` (+ regression test in `wave8a_warp_snow_devour_spree.rs`), defaulted `clause_idx.unwrap_or(0)` in `crates/baylee-engine/src/engine/decision.rs::asked_mode` on non-target wizard stages, and kept `#[allow(clippy::too_many_lines)]` on exhaustive `redeal.rs::rider_object`. Bumped `VIEW_VERSION = 102` (`wire_shape` `(102, 17_762_471_742_051_875_900)`), `PROTOCOL_VERSION = 59`, and `narrator::KEYWORDS` (`70`).
+  - **Foresight generation-7 pin (`828d6ea29`)**: `ManaPoolView::snow` and `PublicObject::warped` changed `baylee_core::wire::encode` bytes hashed by `stall::position(&view)` -> `world_seed` (`foresight-generation-7.json` updated for both tuples while leaving `foresight-generation-7-pool.txt`, `generation_pins` (`generation=6`), and `sharp-2026-11` untouched, `53/53` integration PASS).
+  - Verified (`task-5300`, `task-5442`, `task-5269`): `fmt --check` PASS, `git diff --check` PASS, `baylee-cards-dsl` `97+1`, `baylee-view` `112/112` + `hostile_frames` `9/9`, `baylee-protocol` `52+17`, `baylee-engine` (`offer_tests::`, `keyword_tests::`, `vocabulary_tests::`, `state::tests::`, `choice::choice_tests::`, `wave8a::`) `157/157` + `footprint` `2/2` + `hostile_actions` `15/15`, `baylee-gamehost --lib` (`record::seen::`, `view::`, `foresight::`) `191/191` + `integration` (`generation_pins::`, `reference_profile::`, `ai_decisions::`, `ai_target_sides::`) `53/53`, `baylee-cards --lib` `169/169`, `baylee-cards-codegen --lib -- lines::` `65/65`, `baylee-ai --lib` `432/432`, `baylee-seat` `138/138`, `baylee-client-core --lib -- --skip music::` `2,603/2,603`, `baylee-client --lib` `212/212`, `baylee-train --lib` `84/84`, `xtask` `150/150`, and 13-crate `clippy --all-targets -- -D warnings` (`0` warnings).
+
+## 2026-11-21 — Beat 13: Engine Wave 7b (`0d141c6f6`)
+
+- **Engine Wave 7b (`e9ad29e1d`, cherry-picked as `0d141c6f6`, `Reviewed-by: gemini-4-argon-high (#433), pass`)**:
+  - Landed `Incubate N` + double-faced tokens (`TokenDef::back_face`, `INCUBATOR_TOKEN` // `PHYREXIAN_TOKEN`, `Effect::Incubate`, `Rider::AbilitySourceFace(u8)` hash tag `191`, `CR 701.51`), `Exploit` (`KeywordSet::EXPLOIT = 76`, `Effect::Exploit`, `AwaitingOp::Exploit = 151`, `Trigger::Exploited`, `CR 702.110`), `Craft` (`CostPart::CraftMaterials`, `Rider::CraftMaterial(DamageSourceRef)` hash tag `192`, `Effect::ReturnCraftedTransformed`, `CR 702.167a–c`), `Evolve` (`KeywordSet::EVOLVE = 77`, `Condition::EvolveFromEvent`, `CR 702.100`), `Bloodthirst N` (`KeywordSet::BLOODTHIRST = 78`, `Condition::OpponentDealtDamageThisTurn`, `Amount::DamageDealtToOpponentsThisTurn`, `EnterModifier::Bloodthirst`, `CR 702.54`), and stack `RemoveCounterSelfX` (`eval::announced_x`, `Condition::XAtLeast`).
+  - Preserved `a_plain_face_keeps_its_41_children == 41`, resolved `KEYWORDS` array length (`64 -> 67`) in `baylee-seat/src/narrator/words.rs`, and extracted conditional state/object replay hashing.
+  - Verified (`task-5034`): `fmt --check` PASS, `baylee-cards-dsl` `97+1` PASS, `baylee-view` `112/112` + `hostile_frames` `9/9`, `baylee-protocol` `52+17`, `baylee-engine` (`offer_tests::`, `keyword_tests::`, `vocabulary_tests::`, `state::tests::`, `choice::choice_tests::`, `wave7a::`, `wave7b::`) `165/165` + `footprint` `2/2` + `hostile_actions` `15/15`, `baylee-gamehost --lib` `191/191` + `integration` `53/53`, `baylee-cards --lib` `169/169`, `baylee-cards-codegen --lib -- lines::` `65/65`, `baylee-ai --lib` `432/432`, `baylee-seat --lib -- narrator::tests::` `138/138`, `baylee-client-core --lib` `2,680/2,680`, `baylee-client --lib` (`abilities::`, `reach::`, `input::`, `choices::`) `194/194`, `baylee-train --lib` (`cardstructure::`, `features4::`, `features7::`, `encoder_contract::`) `84/84`, `xtask` `150/150`, and 13-crate `clippy --all-targets -- -D warnings` (`0` warnings).
+
+## 2026-11-21 — Beat 12 (Part 2): Pass E8 + Wave 14 Reconvergence (`20,796` Conforming / `19,620` Playable)
+
+- **Pass E8 (`09addf2e0`, `PASS` `#427`) + Commit 1 (`ac52f60c3`, `PASS` `#417`) Reconverged with Codegen Wave 14a–14c**:
+  - Merged `+7` unheld Wave 13 cards, `+5` completed pool stubs, and `+989` generated cards (`20,796` conforming cards total, `+996` over Beat 10's `19,800`), then ran `2x xtask codegen --scripts` atop Codegen Wave 14a–14c (`cd2051977`), **automatically upgrading `+18` more existing pool stubs** (`blazing_salvo`, `blessed_wind`, `chill_haunting`, `dwarven_driller`, `dwarven_scorcher`, `form_of_the_dragon`, `gratuitous_violence`, `krosan_vorine`, `lava_blister`, `molten_influence`, `nostalgic_dreams`, `recoup`, `restless_dreams`, `sickening_dreams`, `skeletal_scrying`, `skullscorch`, `turbulent_dreams`, `vengeful_dreams`), reducing remaining pool stubs from `936` down to **`913`**.
+  - Updated `crates/baylee-ai/src/tests/worth_tests/activation_census/mod.rs` `(4808, 6142) -> (4810, 6144)` (`+2` read activations from *Dwarven Driller* + *Dwarven Scorcher*).
+  - Verified (`task-4857` + `task-4881`): `2x codegen --scripts` (`20,796` cards, `1,229` tokens), `codegen --tables --check`, `validate` (**`20,796` conforming = `19,883` finished [`11,015` `Implemented` + `8,605` `Generated` = `19,620` playable + `263` `Partial`] + `913` stubs**), `fmt --check` PASS; `baylee-engine --lib -- offer_tests:: keyword_tests:: vocabulary_tests::` `55/55`; `baylee-cards --lib` `169/169`; `baylee-card-tests-verification` `58/58`; `baylee-ai --lib` `432/432`; `baylee-seat` `narrator::tests::` `138/138`; `baylee-client --lib -- choices::` `54/54`; `baylee-train --lib -- features4:: features7::` `38/38`; `xtask` `150/150`; `clippy --all-targets -- -D warnings` (`baylee-cards`, `baylee-ai`, `baylee-seat`, `baylee-client`, `xtask`) `0` warnings.
+
+## 2026-11-21 — Beat 12 (Part 1): Codegen Wave 14a–14c (`19,751 / 34,482` = `57%`) & `check_text` / `pt_fault` Fixes
+
+- **Codegen Wave 14a–14c (`Reviewed: a8bb6673e, 518e04a7d, 746f0f400`, `Reviewed-by: gemini-4-argon-high (#406, #413, #418), pass`)**:
+  - Merged zero-conflict across `mana.rs`/`targets.rs`/`statics.rs`/`prevention.rs`/`protection52.rs` (`e77c4f904`), `chains.rs`/`effects.rs`/`triggers.rs` (`84625fe38`), and `stubgen.rs`/`tokengen.rs`/`keywords.rs`/`activated.rs`/`atoms.rs`/`constants.rs` (`e32a19e5b`).
+  - Added combine-time fixes: `activated.rs` `spec.contains("Ctrl")` guard + `filter_expr_in_zone(..., true)` on `Discard<X/...>` / `ExileFromGrave<X/...>` (harmonizing Wave 14a/14b against `CR 109.4`), `tests/blocks_and_conditions.rs` positive `UnlessCost$ DamageYou<2>` check, `xtask/src/check_text/mod.rs::filters_theirs` (`ObjectOfEachOpponent(`, `PlayersOrTheirPermanents(Opponent)`, `TargetSpec::AnyOpponent` + `controlled_by: Chosen` for *Wail of War* / *Omega* / *Torbran* / *Solphim*), and `crates/cards/src/lints/faces.rs::pt_fault` + `becomes_creature_on_self` allowing non-animating Spacecraft (*The Eternity Elevator*) with `power: None, toughness: None`.
+  - Verified (`task-4808`): `fmt --check` PASS, `baylee-cards-codegen` `699/699` PASS, `baylee-cards --lib -- lints::` `50/50` PASS, `xtask` `150/150` PASS, `clippy --all-targets -- -D warnings` `0` warnings; `transcode-report`: **`19,751 / 34,482` (`57%`, `+445` over Beat 10)** full corpus scripts read in full, **`756 / 864` token scripts (`139 / 188` rules-bearing, `756` names, `0` collisions)**, **`34 / 935` pool stubs** readable.
+
+## 2026-11-21 — Beat 11: Engine Wave 7a (`a2bb95d64`), `SearchLibrary` `CR 701.23b` Fix & Client `join_rules`
+
+- **Engine Wave 7a (`5c00a087c`, merged as `a2bb95d64`, `Reviewed-by: gemini-4-argon-high (#410), pass`)**:
+  - Landed `ChooseMove::ExileLinked` (`CR 610.3a–b`, unblocking `#349`/`#350` linked exile without triggering `#349` on unlinked `Exile`), `EnterModifier::WithCountersIf` (`Condition`, conditional ETB counters for `105` `etbCounter` scripts), `KeywordSet::IMPENDING` + `FaceDef::impending` + `Rider::ImpendingPaid` (hash tag `181`, `CR 702.176`), and `FaceDef::gift` + `GiftKind` + `Rider::GiftPromisedTo` (hash tag `182`) + `Condition::GiftWasPromised` + `Effect::DeliverGift` + `Trigger::GaveGift` (`CR 702.174`), bumping `PROTOCOL_VERSION = 58` (`VIEW_VERSION = 101`).
+- **Two pool/client invariants caught and closed on `19,800`-card merge**:
+  - `crates/baylee-cards-codegen/src/scriptgen/effects.rs::resolve_search_optional`: enforced `CR 701.23b` / `CR 701.23d` uniformly across both `Count$Threshold.<hi>.<lo>` and plain-count `SearchLibrary` paths, regenerating `crates/cards/sets/2002/src/tor/far_wanderings.rs` (`optional: false` -> `true` on the 3-card `then` branch) and passing `baylee-engine` `vocabulary_tests::only_a_quantity_only_search_may_require_an_exact_count`.
+  - `crates/baylee-client/src/cardtext.rs::join_rules`: shared rule-block joiner stripping mid-sentence reminder blocks without inserting a space before punctuation (`choices.rs`, `hud/stack/sentence.rs::ability_line`), fixing `choices::tests::every_mode_in_the_pool_is_a_row_in_the_card_s_words` for MH3 *Inspired Inventor* (`"You get {E}{E}{E}."`).
+- **Verified (`task-4609`, `task-4642`, `task-4723`, `task-4735`)**: `2x codegen --scripts` (`19,800` cards, `1,203` tokens), `codegen --tables --check`, `validate`, `fmt --check`, `baylee-cards-dsl`, `baylee-view` + `hostile_frames` (`9/9`), `baylee-protocol`, `baylee-engine` (`offer_tests::`, `keyword_tests::`, `vocabulary_tests::`, `wave7a_impending_gift_linked_counters::` `60/60`, `footprint` `2/2`, `hostile_actions` `15/15`), `baylee-gamehost --lib` (`191/191`) + `integration` (`generation_pins:: reference_profile:: ai_decisions:: ai_target_sides::` `53/53`), `baylee-cards --lib` (`169/169`), `baylee-cards-codegen` (`687/687` + integration), `baylee-ai --lib` (`432/432`), `baylee-seat` `narrator::tests::` (`138/138`), `baylee-client-core --lib` (`2,679/2,679`), `baylee-client --lib` (`230/230`), `baylee-train --lib` (`84/84`), `xtask` (`150/150`), and 13-crate `clippy --all-targets -- -D warnings` (`0` warnings).
+
+## 2026-11-21 — Beat 10: Codegen Wave 13a–13c (`36f7fa3a8`) & Pass E6 + E7 (`19,800` Conforming / `18,601` Playable)
+
+- **Pass E6 + E7 + Wave 13 Reconvergence (`d59a1c2ea`, `4f94eb054`, `d75ec6f2f`, `95c3d9ff6`, reviewed `PASS` `#352/#377/#391`)**:
+  - Merged `+1,976` new pool cards through `2026-q2` (`17,824 -> 19,800` conforming cards), reconverged `2x codegen --scripts` with Wave 13 (upgrading `+23` additional pool stubs automatically), and added `Filter::{INSTANT, SORCERY}` + `NAMED` + `docs/card-dsl.md` for `targets.rs` (`warping_wail.rs`, `arcane_infusion.rs`).
+  - Verified (`task-4376` + `task-4422`): **`19,800` conforming** (`18,864` finished = `11,015` `Implemented` + **`7,586` `Generated`** [`18,601` playable] + `263` `Partial`; **`936` stubs** remaining; `67 / 1,203` retail precons playable), `baylee-ai` `432/432` (`activation_census` `(4664, 5953)`), `baylee-seat` `138/138` (narrator goldens clean with *Dance of the Elements* +7 precon cards), `baylee-cards` `169/169`, `baylee-card-tests-verification` `58/58`, `clippy --all-targets -- -D warnings` `0` warnings.
+- **Codegen Wave 13a–13c (`Reviewed: fb701e17c, 558182c5d, 3ed9976b9`, `Reviewed-by: gemini-4-argon-high (#392, #395), pass`):**
+  - Merged zero-conflict across `targets.rs`/`mana.rs` (Wave 13b `f27808e6a`), `chains.rs`/`effects.rs`/`triggers.rs` (Wave 13c `b01df558b`), and `body.rs`/`stubgen.rs`/`tokengen.rs`/`keywords.rs`/`activated.rs`/`constants.rs`/`atoms.rs` (Wave 13a `b07c34397`), plus resolved `tests/saga_ward_convoke.rs:2087` coordination (`AB$ Mana` + explicit non-mana `SubCounter<X/CHARGE>` refusal test).
+  - Lowered Wave 6b **`Plot`**, **`Casualty N`**, **`Backup N`**, fixed `#374` (`Archmage of Echoes` `Permanent` type filter on `SpellCast` + `Osgood, Operation Double` token-copy refusal) and `#370` (`CardBody::prune_unused_statics()` for `TARGET1`, non-mana `RemoveCounterSelfX` guard), and widened stack targeting/zone changes, *Brainstorm*-style `Hand -> Library` puts, bite damage, player targets/relations, and `with/without<Keyword>` atoms.
+  - Verified (`task-4279`): `baylee-cards-codegen` `686/686` unit + all integration suites PASS, `xtask` `150/150` PASS, `clippy --all-targets -- -D warnings` `0` warnings; `transcode-report`: **`19,306 / 34,482` (`55%`, `+120`)** full corpus scripts read in full, **`754 / 864`** token scripts (`137 / 188` rules-bearing, `0` collisions).
+
+## 2026-11-21 — Beat 9: Engine Wave 6a (`f069dcb75`) & Gamehost Pin Re-Record (`33cdb39fc`)
+
+- **Engine Wave 6a (`Reviewed: b764cb8ab`, merged as `f069dcb75`, `Reviewed-by: gemini-4-argon-high (#384), pass`)**: Landed `SpellMode::second_targets` on `ModalTriggered`/`ModalActivated`, `CostPart::{DealDamageToYou, DiscardX, ExileFromGraveyardX, Forage}` + counted-`X` parity, `KeywordSet::MODULAR = 62` (`EnterModifier::modular`, `Departure::modular_instances`), and `KeywordSet::SOULBOND = 63` (`Rider::PairedWith` tag `151`, `Condition::{IsPaired, SoulbondSelfCanPair, SoulbondEventCanPair}`, `Effect::SoulbondPair`, `Filter::PairedWithSource`, `PublicObject::paired_with`).
+- **Generation-7/reference pin discipline**: Gated `crates/baylee-ai/src/optional.rs` `target_side::effects_side` check behind `self.aims_by_side()` (`AIProfile::TARGET_SIDES`, generation 11), and re-recorded `sharp-2026-11.json`, `generation-6.json`, and `foresight-generation-7.json` (preserving frozen `foresight-generation-7-pool.txt`) in dedicated commit `33cdb39fc` for `652970e6f`'s `WizardStage::Kicker` `announced_cost_payable` omission of unpayable Kicker prompts.
+- Also noted 2 pre-existing `ai_coverage_guards` items (`mechanic_debt` Commander pairings, `time_counters` *Lavacore Elemental*/*Scroll of the Masters*/*Soultether Golem*) to address alongside Pass E6+E7 integration.
+
+## 2026-11-21 — Beat 8: Engine Wave 6c (`079d573b0`) & `check_text` UTF-8 Fix (`07b4050ed`)
+
+- **Engine Wave 6c** (`079d573b0`): Landed `Modifier::MaxBlockers(u8)`, noncombat damage prevention (`PreventNoncombatDamageFrom`, `PreventNoncombatDamageToPlayers`), `DamageRecipients` + `MultiplyDamageFrom` / `AddDamageFrom`, `KeywordSet::RENOWN = 66`, `Rider::Renowned = 171`, `Condition::IsRenowned`, and `Effect::BecomeRenowned(u8)` (`PROTOCOL_VERSION = 57`). Extracted `hash_expansion_acquired_rider` in `crates/baylee-engine/src/state/hash.rs` to stay under `clippy::too_many_lines` (`<= 100` lines).
+- **Pre-existing client test collision**: Fixed `crates/baylee-client/src/choices/tests.rs` where `"pith"` matched Pass E4a `"Pith Driller"` before `"Pithing Needle"` (`"pithi"` now asserts `"Pithing Needle"`).
+- **UTF-8 slicing in `xtask check-text`**: Fixed byte-index slicing before em-dash `'—'` in `xtask/src/check_text/mod.rs::up_to_target_phrase` triggered by *Atraxi Warden* (`07b4050ed`).
+
+## 2026-11-21 — Beat 7 (Part 1): Engine Wave 6b (`27f4e0494`) & Codegen Wave 12a–12c (`fa5c83ea4`, `efb98e98c`, `de336fb5f`)
+
+- **Engine Wave 6b — `Plot`, `Casualty N`, & `Backup N` (`Reviewed: 7cfe7952d`, merged as `27f4e0494`, `Reviewed-by: gemini-4-argon-high (#357), pass`):**
+  - Landed **`Plot`** (`CR 702.170a–f`, `FaceDef::plot`, special action `PLOT_CARD = u32::MAX - 12`, `Rider::Plotted` + `Rider::PlottedOnTurn(u32)` tag `161`, `GameEvent::CardPlotted`, `Trigger::Plotted`, `Effect::{Plot, PlotTop}`, `CastModeKind::Plot` / `SpellForm::Plot`, `{X} = 0`, static cost increases preserved), **`Casualty N`** (`CR 702.153`, `FaceDef::casualty`, `YesNoPrompt::Casualty`, `WizardStage::Casualty`, `Rider::CasualtyPaid` tag `162`, non-double-sacrifice with `Bargain`), and **`Backup N`** (`CR 702.165`, `Effect::Backup`, self-vs-other layer-6 UOT grant persistence), bumping `VIEW_VERSION = 100` (`11_305_914_789_443_822_192`), `PROTOCOL_VERSION = 56`, while keeping `a_plain_face_keeps_its_41_children == 41`.
+  - Verified full 12-crate suite (`task-3697`): `baylee-cards-dsl` `97/97`, `baylee-view` `111/111` + `hostile_frames` `9/9`, `baylee-protocol` `52+17`, `baylee-engine` `168/168` (`wave6b` `5/5`) + `footprint` `2/2` + `hostile_actions` `15/15`, `baylee-gamehost` `173/173` + `ai_decisions` `38/38`, `baylee-ai` `430/430`, `baylee-seat` `138/138`, `baylee-train` `75/75`, `baylee-client-core` `2,679/2,679`, `baylee-client` (`abilities:: reach:: input::`) `147/147`, `clippy --all-targets -- -D warnings` `0` warnings.
+- **Codegen Wave 12a–12c (`Reviewed: dba550784 607eb5eb2 8909cc4d0`, merged as `fa5c83ea4`–`de336fb5f`, `Reviewed-by: gemini-4-argon-high (#362, #366, #369), pass`):**
+  - **Wave 12a (`fa5c83ea4`)**: Wired `Wither`/`Horsemanship`/`Skulk`/`Enlist`/`AttacksAloneOnly`, added `CardBody::{behold_or_pay, mutate}`, `CommanderRule::ExplicitlyAllowed` (`"can be your commander."`), `Count$LifeOppsLostThisTurn`, exact `CheckSVar` bounds, and identified remaining `etbCounter:` engine gaps (`EnterModifier::WithCountersIf`).
+  - **Wave 12b (`de336fb5f`)**: Lowered `PersistentMana$ True`, split `Spell`/`Activated` mana spend restrictions, `ValidBattlefield,Graveyard` sums, `Emblem` companion subsumption, targeted cost modifiers (`SpellTargetingAffected`, `TargetsPermanentYouControl`), `Modifier::{GrantStatic, BuybackCostsLess, BoastTwice, OpponentsSearchTop(4)}`, self-cast-from-graveyard / granted `Flashback` / `Escape` statics, and broadened `CreateToken` replacements.
+  - **Wave 12c (`efb98e98c`)**: Lowered `pump_keyword_bits` for Wave 5b keywords (flipping `tests/reader_unlocks.rs:1367` unblocking Wave 12a), `Trigger::HEROIC` / `SpellCastTargeting` (`80` scripts), `Trigger::Enlisted`, `Effect::Bolster`, `Event$ DamageDone` prevention statics, `AttacksDespiteDefender`, `ExtraLandDrops`, `ExchangeControl` `Defined$ ParentTarget`, remembered zone-change follow-ups, `ExileTopFaceDownLinked`, PLUS `#349`/`#350` `has_linked_exile_reader` guard rejecting `ChooseMove::Exile` when `ExiledWith` is read.
+  - Fixed `xtask/src/check_text/mod.rs::up_to_target_phrase` UTF-8 char-boundary panic on `'—'` (`Atraxi Warden`).
+  - Combined `baylee-cards-codegen` **`673/673` PASS**, `xtask` **`149/149` PASS**, `clippy` `0` warnings; `xtask transcode-report`: **`19,186 / 34,482` (`55%`, `+282` over Wave 11 / `+754` over Beat 4)** full corpus scripts read in full, **`754 / 864`** token scripts (`137 / 188` rules-bearing, `0` collisions), **`40 / 969`** pool stubs readable!
+
+## 2026-11-21 — Beat 6 (Part 1): Codegen Wave 11a (`2d057b189`), Wave 11b (`f45a482c1`), & Wave 11c (`dec339acf`)
+
+- **Codegen Wave 11a (`Reviewed: f4ad85a93`, merged as `2d057b189`, `Reviewed-by: gemini-4-argon-high (#340), pass`):**
+  - Added `CardBody::{disturb, escape, squad, offspring, fuse}` (`crates/baylee-cards-codegen/src/body.rs`), lowered `K:Squad:<cost>`, `K:Offspring:<cost>`, `K:Fuse`, `K:Disturb:<mana>`, `K:Escape:<mana> ExileFromGrave<N/Card.Other>`, `K:Enchant:{Player,Opponent,Player.Opponent,Player.OppCtrl,Player.You,You}`, and extended `activated.rs` combat windows (`Upkeep->Declare Attackers`/`Blockers`), graveyard `.YouOwn`/`Above`/`AtMost`, and `PresentCompare$ EQ1`.
+- **Codegen Wave 11b (`Reviewed: 080f6bbbb`, merged as `f45a482c1`, `Reviewed-by: gemini-4-argon-high (#346), pass`):**
+  - Lowered `ChangesZoneAll`, `Sacrificed`, and `PlayerAttacked` triggers + `EventPlayer` / `ControllerOfEvent` / `EventObject` / `EventAmount` / `EventPower` / `EventLastToughness` bindings (`triggers.rs`, `effects.rs`, `chains.rs`); lowered `Manifest`, `ManifestDread`, `SetState` `TurnFaceUp`/`Transform` `Optional$ True`, resolution-bound `Effect` spell/attack/life locks, `Condition::{ObjectMatches, AmountCompare}`, `DamageEqualToPower` `First -> This`, and generalized untargeted graveyard `ChooseCard`.
+  - Fixed `#326` *Invasion of Vryn* (`CopySpellAbility` absent `MayChooseTarget$` Oracle fallback), Pass E5 *Dune Mover* optional ETB search, and `ChangesZone`-scoped `wasCastFromYourHandByYou`.
+- **Codegen Wave 11c (`Reviewed: ef4ea3f54`, merged as `dec339acf`, `Reviewed-by: gemini-4-argon-high (#337), pass`):**
+  - Fixed Pass E4b/E5 Oracle scope mismatches on `!card_zone && !has_controller` (`Baloth Packhunter`, `Charmed Stray`, `Norn's Choirmaster`); lowered `EnchantedPlayer` / `EnchantedPlayerCtrl` Curse filters, relations, statics, cost taxes, and replacements; wired `Filter::{Historic, AnyCountersAtLeast(n)}`, `Condition::AmountCompare` `NotEqual`, `Modifier::MatchingSpellCastLimitPerTurn`, `Modifier::AbilitiesCostMore(n)`, `StrictlySelf`, `Count$YourTurns`, and `Wave 11b` `ChangesZoneAll`/`Sacrificed` `PlayerRel` & `Amount` hooks.
+  - Combined Wave 11a+11b+11c verification: `fmt --check` PASS, `baylee-cards-codegen` **`659/659`**, `xtask` **`149/149`**, `clippy --all-targets -- -D warnings` `0` warnings; `xtask transcode-report`: **`18,904 / 34,482` (`54%`, `+472`)** full corpus scripts, **`753 / 864`** tokens (`0` collisions), **`29 / 969`** pool stubs.
+
+## 2026-11-20 — Beat 5: Engine Wave 5b (`cece6d440`), Pass E5 (`50b1377c6`–`5dcba1293`), & Non-Deck Vanguard Exclusion (`0d1e3d5b2`)
+
+- **Engine Wave 5b — Keyword Enforcement, Heroic, Enlist & Bolster (`Reviewed: 2c945f78d`, merged as `cece6d440`, `Reviewed-by: gemini-4-argon-high (#333), pass`):**
+  - Enforced `KeywordSet::WITHER` (`CR 702.80`), `KeywordSet::HORSEMANSHIP` (`CR 702.31b`), `KeywordSet::SKULK` (`CR 702.118`), and `KeywordSet::READ_AHEAD` (`CR 702.155a`) in `keyword_tests::ENFORCED`.
+  - Landed `Trigger::SpellCastTargeting { caster, filter }` / `Trigger::HEROIC` (`CR 207.2c`), `KeywordSet::ENLIST` (`bit 61`) + `Trigger::Enlisted` (`CR 702.154`), and `Effect::Bolster(Amount)` (`AwaitingOp::Bolster` tag `116`, `CR 701.39a`) across `baylee-engine`, `baylee-ai`, `baylee-seat`, `baylee-train`, `baylee-client-core`, `baylee-client`, and `baylee-cards-codegen`.
+  - Extracted `step_begin_words(StepKind)` in `crates/baylee-cards-codegen/src/lines.rs` (`0d1e3d5b2`) to keep `trigger_words` under `clippy::too_many_lines`.
+- **Pass E5 (`+996` generated cards) & Non-Deck Vanguard Exclusion (`50b1377c6` + `5dcba1293` [`PASS` `#334`]; `0d1e3d5b2`):**
+  - Landed Pass E5 (`2021-q2..2023-q2`, holding back *Dune Mover*, *Norn's Choirmaster*, *Geistflame Reservoir*, and *Invasion of Vryn* pending Wave 11b/11c reader fixes).
+  - Caught via `engine::offer_tests::a_face_with_no_mana_cost_has_another_way_out_of_the_hand` that Pass E4b (`6d8713a4b`) had admitted 45 `pvan`/`pmoa` `TypeSet::VANGUARD` cards (`castable_from_hand: true`, no mana cost). Removed all 45 non-deck Vanguard cards (`crates/cards/sets/{1997/src/pvan,2003/src/pmoa}`, `data/card-pool.txt`), reconciled `activation_census` (`(4154, 5326)`), and added `xtask/src/batch.rs::is_non_deck_card_type` so `xtask reach-list`/`batch` skip `Vanguard`, `Plane`, `Scheme`, `Conspiracy`, `Phenomenon`, non-Planeswalker `Dungeon`, `Attraction`, and `Stickers` scripts up front (`docs/mechanics-roadmap.md` §C4/§E1).
+  - Blessed `baylee-seat` precon goldens for *Foundation Breaker* (`5,114` estimated tokens; budget ceiling `5,260 -> 5,300`), leaving `xtask validate` at **`17,824` conforming cards** (**`16,854` finished**: `11,015` `Implemented` + `5,576` `Generated` = **`16,591` playable**, `+ 263` `Partial`, `970` stubs), `fmt --check`, `codegen --tables --check`, `offer_tests` `58/58`, `footprint` `2/2`, `hostile_actions` `15/15`, `gamehost` `9/9 + 38/38`, `cards` `170/170`, `card-tests-verification` `58/58`, `ai` `430/430`, `seat` `138/138`, `train` `84/84`, `codegen lines::` `65/65`, `xtask` `149/149`, and `clippy --all-targets -- -D warnings` `0` warnings.
+
+## 2026-11-20 — Beat 4: Codegen Wave 10a–10c (`c8b315fd9`, `cc2c50edb`, `5c9deac78`), Wave 9 Stubs (`e29437c24`), & Pass E4b (`6d8713a4b`)
+
+- **Codegen Wave 10a–10c (`Reviewed: ce38954fd 8df62d4de 5d6efb43d`, `Reviewed-by: gemini-4-argon-high (#314, #319, #324), pass`):**
+  - **Wave 10a (`c8b315fd9`)**: `K:Ninjutsu` & `K:CommanderNinjutsu` -> `CostPart::ReturnUnblockedAttacker` + `Effect::PutNinjutsuOntoBattlefield` (`Condition::InCombatAfterBlockers`), `K:Myriad` & `K:Extort` (`tokengen` + duplicate `Modifier::AddKeyword`), `Exert<1/NICKNAME>`, `Equip` `:Flavor` & `ActivationLimit$`, `OpponentTurn$ True`, `Activation$`, and `ActivationPhases$`.
+  - **Wave 10b (`5c9deac78`)**: `T:Mode$ Exerted` -> `Trigger::Exerted` + `EventObject`, `MoveCounter`/`MoveCounterToEvent`, `DestroyTargetSlots`/`TapTargetSlot`/`UntapTargetSlot`/`DealDamageToBothTargetInstances`, `TargetsForEachPlayer$ True` (`TargetSpec::ObjectOfEachOpponent`), `Pump` `KWChoice$`/`KW$` preventions/`Defined$ Valid`, `TriggeredCard$CardCounters.<kind>`, hidden multi-card `ChooseCard`, `TriggerZones$ Command` combat/targeting/Exerted, and `Phase.CheckSVar` sweeps.
+  - **Wave 10c (`cc2c50edb`)**: Exert `S:Mode$ OptionalAttackCost` (`Effect::ExertSource` + `ReflexiveEvent::ExertedThis`), static `AddKeyword$ Ward:<cost>`, pure AI-hint `AddSVar$` stripping, `IgnoreLandWalk`, generalized cast-self ETB (`wasCastByYou`), `SpellCast` hand provenance atoms, `CastWithFlash` extensions, inline `CheckSVar$`, `/DivideEvenly{Down,Up}` & `/Thrice`.
+  - Combined `xtask transcode-report`: **`18,432 / 34,482` (`53%`)** corpus scripts read in full (**`+316`** net), **`752 / 864`** tokens (`0` collisions).
+- **Wave 9 Stubs & Pass E4b (`Reviewed: 87f2178ce b313bd168`, `Reviewed-by: gemini-4-argon-high (#311, #316), pass`; `baylee-seat` goldens blessed in `73cd01e6f`):**
+  - Completed `3` Wave 9 stubs + `8` upgrades (`e29437c24`) and landed **Pass E4b** (`6d8713a4b`, `+994` generated cards through `2019/war..2021-q2`, holding back `6` cards and updating `activation_census` to `(3942, 5056)`), bringing `xtask validate` to **`16,873` conforming cards** (**`15,903` finished**: `11,015` `Implemented` + `4,625` `Generated` = **`15,640` playable**, `+ 263` `Partial`, `970` stubs).
+  - Blessed `baylee-seat` Commander precon goldens for *Elder Deep-Fiend* (`Emerge`) and *Omnath, Locus of the Roil* (`73cd01e6f`, budget `5,140 -> 5,260`, `138/138` PASS).
+  - Verified Beat 4 gate: `baylee-cards-codegen` `644/644`, `xtask` `148/148`, `baylee-cards --lib` `170/170`, `baylee-card-tests-verification` `58/58`, `baylee-ai --lib` `429/429`, `triggerorder::` `51/51`, `baylee-seat` `138/138`, `keyword_tests::` `20/20`, `clippy` `0` warnings.
+
+## 2026-11-20 — Beat 3: Engine Wave 4c (`d4ded4751`) & Engine Wave 5 (`0ec03dc3d`)
+
+- **Engine Wave 4c — Triggers, Player Auras, Filters & Locks (`Reviewed: ac5b48d2f`, merged as `d4ded4751`, `Reviewed-by: gemini-4-argon-high (#296), pass`):**
+  - Landed `Trigger::ChangesZoneAll { origin, destination, filter, exclude_self }` (`ZoneKind` alias, `CR 603.2c`, `CR 603.10a` batched zone-change look-back and `Amount::EventAmount`), `Trigger::Sacrificed { who, filter }` (`CR 701.21a`, `CR 715.4` Saga completion SBA), **Enchant Player / Curses** (`Rider::AttachedToPlayer` tag `121`, `Rider::SourceAttachmentPlayerLki` tag `122`, `PlayerRel::EnchantedPlayer`, `Filter::ControlledByEnchantedPlayer`, `Trigger::PlayerAttacked`, untargeted `CR 303.4f–g` entry, `PublicObject::attached_player()`), `Filter::{Historic, HasCounters, AnyCountersAtLeast}`, `Condition::{ObjectMatches, AmountCompare}`, and `Modifier::MatchingSpellCastLimitPerTurn`.
+- **Engine Wave 5 — Squad, Offspring, Fuse, Manifest & Manifest Dread (`Reviewed: 01df75326`, merged as `0ec03dc3d`, `Reviewed-by: gemini-4-argon-high (#299), pass`):**
+  - Landed `Squad` (`CR 702.157`, `FaceDef::squad`, `NumberPrompt::Squad`, `Rider::SquadPaid`), `Offspring` (`CR 702.175`, `FaceDef::offspring`, `YesNoPrompt::Offspring`, `Rider::OffspringPaid`), `Fuse` (`CR 702.102`, `CardDef::fuse`, `CastModeKind::Fused`, `Rider::Fused`, `VIEW_VERSION = 99`, `PROTOCOL_VERSION = 55`), and `Manifest` / `Manifest Dread` / `Effect::TurnFaceUp` (`CR 701.40`, `CR 701.62`, `ChoicePrompt::ManifestDread`, `AwaitingOp::ManifestDread` tag `114`, `Rider::Manifested` tag `134`), plus `baylee-train/build.rs` `a_plain_face_keeps_its_41_children` guard and `baylee-client-core::triggerorder::facts` coverage.
+  - Cross-wave integration fixes: added `fuse: false` to `commander_ninjutsu_bench`, `R::BattlefieldOrCommand` to `trigger::event_groups::zone_ref_matches`, extracted `trigger::build_off_battlefield_trigger` (`clippy::too_many_lines`), and raised `xtask::mechanics::the_engine_is_read_to_a_plausible_number_of_sites` ceiling `3000 -> 3600` (`3050` sites).
+  - Verified full Beat 3 gate: `baylee-cards-dsl` `97/97`, `baylee-view` `111/111` + `hostile_frames` `9/9`, `baylee-protocol` `52+17`, `baylee-engine` `709/709` + `trigger::` `33/33` + `footprint` `2/2` + `hostile_actions` `15/15`, `baylee-gamehost` `193/193` + `ai_decisions::` `38/38`, `baylee-cards` `170/170`, `baylee-ai` `429/429`, `baylee-client-core` `292/292`, `baylee-seat` `138/138`, `baylee-train` `90/90`, `baylee-cards-codegen` `631/631`, `xtask` `148/148`, `clippy --all-targets -- -D warnings` `0` warnings.
+
+## 2026-11-20 — Engine Wave 4b (`93a5c0c66`, `ef2044086`), Codegen Wave 9a–9c (`0ba5ed7ac`, `42d334b9e`, `1a1751dc5`), & Wave 8 Stubs (`a7f177044`)
+
+- **Replay Contract & Keyword Guard (`Reviewed: ef2044086 93a5c0c66`, `Reviewed-by: gemini-4-argon-high (#277, #303), pass`):**
+  - `Attempt` (`crates/baylee-engine/src/entry/mod.rs`) and `PaidRecord` (`crates/baylee-engine/src/object.rs`) now implement manual `Hash` so `saga_chapter` and `ninjutsu_defender` fold into snapshots only when `Some`, and `YesNoPrompt::Bargain` (`crates/baylee-engine/src/choice/prompts.rs`) appends at enum tail (`record::seen::tests::` `29/29` PASS on `acceptance-seed3.jsonl`).
+  - Landed **Engine Wave 4b** (`93a5c0c66`): `Ninjutsu` & `Commander Ninjutsu` (`CR 702.49`), `KeywordSet::MYRIAD` (`CR 702.116`, bit `59`), `KeywordSet::EXTORT` (`CR 702.101`, bit `60`), `Exert` (`CR 701.43`, `Trigger::Exerted`, `ReflexiveEvent::ExertedThis`), plus extended `baylee-client-core::triggerorder::facts` (`51/51`, `>= 84%` pool trigger coverage) and `ControlYourCommander` in `xtask/src/check_text/mod.rs`.
+  - Gated unenforced `pump_keyword_bits` (`Wither`, `Horsemanship`, `Skulk`) in `scriptgen/effects.rs` (`keyword_tests` caught pre-existing `Fang Skulkin` / `Riding Red Hare`, both restored to canonical stubs pending Engine Wave 5b).
+- **Codegen Wave 9a–9c & Wave 8 Pool Stubs (`Reviewed: 0ba5ed7ac 1a1751dc5 a7f177044`, `Reviewed-by: gemini-4-argon-high (#283, #289, #291, #293), pass`):**
+  - Landed Wave 9a (`0ba5ed7ac`: `ExileFromGrave<1/CARDNAME>`, `ActivationZone$ Hand`, `AB$`/`Charm` `ReduceCost$`, `Bargain`/`Emerge`/`Prototype` lowering, `{X}`-kicker `etbCounter`), Wave 9b (`42d334b9e`: `ExileTopWithPermission`, `ExileWithPermission`, `GrantLinkedExilePermission`, `Bargained`/`Prototyped` conditions & splitting + `chains.rs` `self.body.bargain` guard, `Scent of Ivy` `PumpTarget`/`PumpFilter` fix, Top-25 sweeps), and Wave 9c (`1a1751dc5`: `Historic`/`Outlaw`/`hasABasicLandType`, `ManaForColorsAmong`/`BasicLandTypesAmong`, `Converge`/`ManaPool:All` CMC filters, destruction prevention shields, replacement flags) -> `xtask transcode-report`: **`18,116 / 34,482` (`52%`)** scripts read in full, **`752 / 864`** tokens (`0` collisions).
+  - Completed `15` Wave 8 stubs + refreshed `8` graveyard/commander cards (`a7f177044`, reconciling `activation_census` to `(3717, 4783)`) -> verified `baylee-cards-codegen` (`631/631`), `xtask` (`148/148`), `xtask validate` (`15,879` conform: `11,015` `Implemented` + `3,628` `Generated` = **`14,643` playable**, `+ 263` `Partial` = `14,906` finished, `973` stubs), `baylee-cards --lib` (`170/170`), `baylee-ai --lib` (`429/429`), `baylee-seat --lib -- narrator::tests::` (`138/138`), `baylee-card-tests-verification` (`58/58`), `keyword_tests::` (`20/20`), and `clippy` (`0` warnings).
+
+## 2026-11-20 — Amass token-stem fix (`75aa4169d`) & Passes E3–E4a (`31b657790`, `4aeaffb8b`, `f99b00a86`, `a5930da2d`)
+
+- **Amass implicit token stem fix (`Reviewed: 75aa4169d`, `Reviewed-by: gemini-4-argon-high (#270), pass`):**
+  - `amass_effect` emits `&generated_tokens::<TYPE>_ARMY_0_0_BLACK` without a `TokenScript$` line, so `scriptgen::atoms::collect_token_stems` omitted `b_0_0_<type>_army` from `tokens_the_pool_reaches_for` (`generated_tokens::ARMY_0_0_BLACK` in `crates/cards/src/tokens.rs` is `Orc Army`, not `Zombie Army`). Collecting `Amass` `Type$` stems alongside `Investigate` unblocks War of the Spark (`war`) Amass cards cleanly.
+- **Pool Passes E3 + E4a (`+1,225` generated cards; `Reviewed: 31b657790 4aeaffb8b f99b00a86`, `Reviewed-by: gemini-4-argon-high (#263, #274), pass`; `a5930da2d` posted to `@reviewer-2`):**
+  - Landed Pass E3 (`31b657790`, `1,000` cards), held back `Undercity Uprising` (`4aeaffb8b`, `target_reuse` lint false positive), and landed Pass E4a (`f99b00a86`, `225` pre-WAR cards, plus `16` DFC back faces) -> `15,879` conforming pool cards (`11,015` `Implemented` + `3,615` `Generated` = `14,630` playable, plus `263` `Partial` = `14,893` finished, `986` stubs remaining).
+  - Blessed `baylee-seat` Reap the Tides precon goldens (`Growth Spiral`, `Sharktocrab`, `Slinn Voda, the Rising Deep`, `Verdant Sun's Avatar`; ceiling bumped `5,100 -> 5,140`) in `a5930da2d` and verified `baylee-cards-codegen` (`617/617`), `baylee-seat` (`138/138`), `xtask validate` (`15,879` conform), `baylee-cards --lib` (`170/170`), `baylee-ai --lib` (`429/429`), `baylee-card-tests-verification` (`58/58`), and `clippy` (`0` warnings).
+
 ## 2026-11-20 — Mechanic 2 (Storm: 11 `Coverage::Implemented` promotions & audit of `5d0a32b51`)
 
 - **11/11 `Coverage::Implemented` promotions (`Reviewed: 5d0a32b51 da10e6147 a78570408`, `Reviewed-by: gemini-4-neon-xhigh, pass`):**
@@ -2408,9 +2609,9 @@ land type"; both are convention tests that fire on a first try.
   pump is 7c and survives a 7b "becomes 1/1" that should win. Write it as
   `CharacteristicPT`. The same sentence *granted* (Druid Class's land) is no
   characteristic-defining ability (CR 604.3a) and is `SetPTToCount`, 7b.
-- **A level-up or class payoff that targets must be a trigger.** A static
-  cannot choose. Class levels are Level counters (level 2 = one counter),
-  and "when this Class becomes level N" is `Trigger::CountersReach`.
+- **A Class payoff that targets gets its own trigger.** A static cannot
+  choose. PR #439 replaced the original counter representation with
+  `Trigger::ClassLevelGained` and a separate level designation.
 - **Two agents built the same piece twice.** `ControllerOfEvent` and
   `CharacteristicPT` from night-decks replaced this group's
   `ControllerOfEventObject` and `DefinePTByCount` at the merge. Read the
@@ -8254,3 +8455,155 @@ When this batch was merged on 20 November, main already handled cycling
 triggers with `Trigger::Cycled { by, filter }` and had finished 18 of these
 26 cards. The combined reader uses that trigger for both filtered and
 unfiltered cards. The eight additional cards come from typecycling and dredge.
+
+## 2026-11-20 — Wave 1 & Wave 2 Mechanics + Scriptgen Unlocks (Gemini Swarm)
+
+- **`CostPart::ExileTopOfLibrary` library indexing (`cast_wizard/commit.rs`)**:
+  in `baylee-engine`, `ZonePosition::Top` is `.last()` of
+  `state.zones.list(ZoneLocation::Library(player))` while `.first()` is the
+  bottom. Cross-model review (`#52`) caught `commit.rs` reading `.first()`
+  instead of matching `abilities/costs.rs` (upfront `.len() < count` check,
+  `.last()` pop, `ZoneLocation::Exile(owner)`). Always add a distinct-top-vs-bottom
+  fixture whenever touching library-exile costs.
+- **Digital `A-*` Alchemy rebalances & twin deduplication (`xtask/src/batch.rs`)**:
+  216 `A-*` Alchemy rows in the expanded 34,240-card ledger collide on paper
+  card paths via Scryfall fuzzy-name fallback (`"A-Mentor's Guidance"` ->
+  `"Mentor's Guidance"`), and twin front-face slugs across `acceptance-decks.txt`
+  or within one batch can trip `refuse_twin_names`. `reach_measure` now skips
+  `is_alchemy_rebalance` and deduplicates against `acceptance::all_names` +
+  `front_face_slug` while keeping `xtask validate` strict.
+- **LKI freeze on chosen-source prevention shields (`CR 609.7b`, `CR 400.7`)**:
+  `ChosenSource` freezes `chosen_color` and `chosen_subtype` when the filter
+  reads them, and `Resolution` reads the originating stack/permanent LKI so
+  destruction or blink-and-rechoose in response never mutates or erases an
+  active prevention shield (`Story Circle`, `Prismatic Circle`).
+- **`Trigger::LastCounterRemoved` & `Effect::Blink`/`ExileLinked`/`TapTarget` gaps**:
+  `scriptgen` Wave 2 kept `K:Vanishing` refused (engine `LastCounterRemoved`
+  currently checks `*remover == you` rather than any removal per CR 702.63a) and
+  guarded `Effect::Blink` to single targets (`resolve/zones.rs:242` uses
+  `first()`, matching `ExileLinked` at `:787`). `Effect::TapTarget` in
+  `resolve/immediate.rs:2714` also unconditionally taps `res.second_targets` for
+  `Arena`, which mis-taps targets of `Spirit Flare`/`Deadshot`. All queued for
+  engine `resolve/` cleanup.
+
+## 2026-11-20 — Wave 3 & Wave 4 Scriptgen, Tokens, Triggers, Sagas & B9/Morph/Bestow (Gemini Swarm)
+
+- **Content-addressed token names (`crates/baylee-cards-codegen/src/tokengen.rs`)**:
+  adding ability-bearing token rules caused 14 constant-name collisions
+  (`SPIRIT_1_1`, `GOBLIN_1_1_RED`, etc.) against existing pool cards, which
+  stopped `xtask codegen` (`two_tokens_at_one_name`). Keeping the 18 legacy
+  ability-bearing constants unsuffixed via exact `(constant, fnv1a_32_bare)`
+  matching and appending deterministic `_A<8HEX>` suffixes to new rules-line
+  tokens resolved all 14 collisions (`0 claimed by two definitions` across
+  727 tokens).
+- **Single-clause trigger optionality (`scriptgen/triggers.rs` & `OFFERS_A_CHOICE`)**:
+  cards whose trigger omits both `OptionalDecider$` and `Optional$` (e.g.
+  `Mighty Emergence`) carry `", you may ..."` directly in `TriggerDescription$`.
+  Handling explicit `Optional$ Yes|True|No|False` plus single-clause prose
+  `", you may ..."` wrapping (refusing ambiguous multi-clause/conditional prose)
+  fixed `xtask validate`, and hoisting `OFFERS_A_CHOICE` to module scope kept
+  `xtask/src/check_text/mod.rs` under Clippy's line-count cap while covering
+  all `PlayerMay*` and copy-target variants.
+- **Disjoint `Rider` hash tags across parallel engine branches (`state/hash.rs`)**:
+  merging parallel engine features (`SyntheticCondition` tag `96` and
+  `Bestowed` / `MustAttackPlayerThisTurn` tags `101`/`102`) without collision
+  requires reserving disjoint snapshot-hash tags explicitly in branch briefs.
+- **Layer/resolution catches queued from card audits (`#84`, `#109`)**:
+  `Amount::EventLastToughness` in `resolve/mod.rs:803-813` only read
+  `Rider::EventDeparture` (returning `0` on ETB triggers like `Angelic Chorus`),
+  and `count_controlled` in `layers/counts.rs:8-33` only rebound
+  `context.source = obj.id` for `Filter::AttachedToSource`, missing
+  `Filter::SharesCreatureTypeWith(Filter::This)` (`Coat of Arms`, `Alpha Status`).
+
+## 2026-11-20 — P5 Granted Triggers, P10/P11/P12, Card Lints & Wave 5 Scriptgen (Gemini Swarm)
+
+- **Always gate card batches with `cargo test -p baylee-cards --lib`**:
+  `xtask validate` does not execute `baylee-cards` library lint tests
+  (`every_equip_ability_is_sorcery_speed_untapped_and_targets_your_own`,
+  custom-counter & self-return ceiling tests, etc.). Running
+  `cargo test -p baylee-cards --lib` caught `Nether Traitor` dies-line matching
+  (`"put into your graveyard"` pre-M10 wording in `lines.rs`), Fifth Dawn
+  non-Equip `: Attach` wording, and pool ceiling bumps before pushing; keep
+  `baylee-cards --lib` in every batch gate.
+- **Wave 2 resolution/layer fixes & Wave 5 reader unlocks (`b98b93212`, `d3945a51e`)**:
+  resolved multi-target `ExileLinked`/`Blink`, isolated `TapTarget` from
+  `second_targets` (`TapTargetSlot`/`UntapTargetSlot`), added live/LKI
+  `Amount::EventLastToughness` fallback, rebound `context.source` inside
+  `count_controlled` for `SharesCreatureTypeWith(&Filter::This)`, generalized
+  `LastCounterRemoved { kind, by }` + SBA counter-annihilation journalling,
+  updated `Modifier` census (`209 = 57 locking + 152 rules-only`), preserved
+  trailing Oracle text in `triggers.rs::prose_you_may` (`Riptide Crab`), switched
+  blocked-attacker triggers to `Filter::BlockingReference`, and added
+  `"ChooseOne"` to `OFFERS_A_CHOICE`, bringing `transcode-report` to
+  `16,171 / 34,482` (`46%`) scripts and `733 / 864` (`0` collisions) tokens.
+
+## 2026-11-20 — Wave 3 Alternate Casting, Token Ledger Fixes & Wave 6/6b Scriptgen (Gemini Swarm)
+
+- **`tokenledger` round-trip traps (`PHYREXIAN_MITE_...` & `WOLVES_OF_THE_HUNT_...`)**:
+  `rustfmt` wraps multi-element `TokenDef::abilities` slices across lines with
+  trailing commas (`,]` / `,)` / `,}`), and wraps very long `pub static <NAME>:`
+  declarations onto a second line (`TokenDef = TokenDef {`). Both broke
+  subsequent `xtask codegen` runs with false collision or orphan errors until
+  `tokenledger::same_definition` stripped pre-delimiter commas outside string
+  literals and `tokenledger::parse` joined 2-line wrapped `pub static` headers.
+- **`Effect::MayDo` vs `Effect::MayDoFor` on optional spell copies (`Chain of Acid` / `Chain of Smog`)**:
+  optional `CopySpellAbility` whose `Controller$` is not `PlayerRel::You`
+  must emit `Effect::MayDoFor { player: <controller>, ... }` rather than
+  `Effect::MayDo` (which prompts only the spell's controller).
+- **Wave 3 Alternate Casting & Wave 6/6b Codegen Reach (`c43425dfb`, `30b8130d9`)**:
+  landed Creature `Suspend` Haste (`Rider::SuspendHaste`), `Blitz`, `Dash`,
+  `Miracle`, `Spectacle`, `Surge`, and `Prowl` (`VIEW_VERSION = 97`,
+  `PROTOCOL_VERSION = 53`), blessed `baylee-seat` Reap/Dance precon goldens,
+  and raised `transcode-report` to **`17,047 / 34,482` (`49%`)** scripts and
+  **`747 / 864` (`0` collisions)** tokens while clearing `44` pool stubs
+  (`1,078 -> 1,034` stubs remaining).
+
+## 2026-11-20 — Engine Wave 3 (Eminence/Goad/RepeatEach/PeekAndReveal) & Codegen Wave 7 (`d7a8edc35`)
+
+- **Command-Zone/Eminence, Goad, Combat Attack Keywords & Narrator Sync (`027bf3beb`)**:
+  landed `TriggerZone::{Command, BattlefieldOrCommand}`, `ZoneRef::BattlefieldOrCommand`,
+  `ActivationZone::BattlefieldOrCommand`, `Condition::{ControlYourCommander, SourceInZone}`,
+  `Effect::{Goad, GoadAll}`, `Modifier::Goaded`, `KeywordSet::{BATTLE_CRY, DETHRONE, MELEE, MENTOR, TRAINING}`,
+  and `Amount::OpponentsYouAttackedThisCombat` (`Modifier` census updated to `210 = 57 + 153`),
+  alongside extending `baylee-seat/src/narrator/words.rs::KEYWORDS` (`53 -> 58`) so
+  `every_keyword_a_card_prints_has_a_name` stays closed across upcoming batches.
+- **Chosen-Color Protection, Re-Entrant `RepeatEach`, `ChooseCard`, `PeekAndReveal`, `Reveal` (`e1950952a`)**:
+  added `Filter::ChosenColor`, `Effect::GrantProtectionFromChosenColorUntilEot`,
+  re-entrant `Effect::RepeatEach` (`RepeatFrame`), `Effect::ChooseCard`, `Effect::PeekAndReveal`,
+  and `Effect::{RevealFromHand, RevealTop}` across engine, AI, train, seat, and client.
+- **Codegen Wave 7 (`8eb2473a9`, `38acd5fb0`, `d7a8edc35`) & Pass E0c (`40f4d7a02`, `0eedca2f1`)**:
+  lowered `Prepare` + single-hop `CopyFaceFrom:`, extended `etbCounter`, non-source/implicit
+  `Animate`, `Amass`, `AlterAttribute` (`Prepared`/`Saddled`), `BecomeMonarch`, Wave 6b
+  alt-cost conditions, zoneless self-cast `SpellCast`, `UnlessPayer$ Player`, and
+  `Mill`/`Sacrifice`/`ChangeZone`/`DigUntil`/`GainControl` sweeps; fixed Populate
+  `Filter::IsToken` (`effects.rs:3653`), `Prepare` back-face `generated_tokens::` import
+  (`stubgen/render.rs:196`), and `xtask` optional-clause face-cost checks; and landed 32
+  newly readable Wave 6/6b pool stubs (`Spoils of Evil` kept as stub pending
+  `ZoneSel::GraveyardOf(PlayerRel::Chosen)` fix in `mana.rs`), plus **Pass E1 (`608bc2bfe`,
+  `55f0da5eb`)** adding **+319** pre-`zen` generated cards (`12,652` finished / `13,654`
+  pool cards; `Smokebraider` precon golden blessed in `a9bbf86ea`) and **Wave 7c (`4b645d21b`)**
+  raising `transcode-report` to **`17,515 / 34,482` (`50%`)** scripts and
+  **`750 / 864` (`0` collisions)** tokens (`+2` tokens, `22` additional stubs immediately readable).
+
+## 2026-11-20 — Engine Wave 4 (`@engine-costs`), Codegen Wave 8a/8b/8c (`17,780`), & Passes E1c–E2 (`13,405` Playable Cards)
+
+- **Impulsive Draw (`MayPlay` `CR 609.4`), `Bargain`, `Emerge`, & `Prototype` (`41688c134`, `PASS` `#247`)**:
+  landed `PlayWindow::{WhileExiled, WhileSourceOnBattlefield}`, `ExileMana::{Exact, AnyColor, AnyType}`,
+  `ExilePermission`, `Effect::{ExileTopWithPermission, ExileWithPermission, GrantLinkedExilePermission}`,
+  `FaceDef::bargain` (`Rider::Bargained` hash tag `105`, `Condition::Bargained`),
+  `Emerge::{creature, from}` (`CastModeKind::Emerge`, `WizardStage::EmergeSacrifice` w/ distinct fodder isolation),
+  `Prototype::new` (`Condition::Prototyped`, copy/clone inheritance), `O(1)`-stack `WizardStep` loop,
+  and all-seat/locale support (`VIEW_VERSION = 98`, `PROTOCOL_VERSION = 54`).
+- **Codegen Wave 8a/8b/8c (`a70080544`, `f4707ec88`, `223e4b4d7`, `72929dc2d`, `PASS` `#244/#250/#256/#259`)**:
+  lowered Wave 3 Combat Keywords (`Battle cry`, `Dethrone`, `Melee`, `Mentor`, `Training`) across `constants.rs` and
+  `tokengen.rs`, Command-Zone/Eminence statics/activations/triggers (`TriggerZone`/`ZoneRef`/`ActivationZone::{Command, BattlefieldOrCommand}`,
+  `Condition::{ControlYourCommander, SourceInZone}`), `Modifier::Goaded`, `Effect::{Goad, GoadAll}`,
+  resolution `ChooseColor`/`ProtectionAll`, `Effect::RepeatEach`, `Effect::ChooseCard`, `Effect::{PeekAndReveal, RevealTop, RevealFromHand}`,
+  `LibraryPosition$ 0` (`Find::TOP_OF_LIBRARY`), `Moved` replacements (`ChooseShape`, `SacrificeOthers`, `TappedUnlessCondition`),
+  and aligned `blocks_and_conditions.rs:1494` (`CantBlock | ValidCard$ Creature.YouCtrl`) with `Amount::Difference`.
+  Combined `transcode-report`: **`17,780 / 34,482` (`51.6%`)** scripts and **`752 / 864` (`0` collisions)** tokens,
+  clearing `RepeatEach`, `ChooseCard`, `PeekAndReveal`, `Reveal`, `Goad`, and `ChooseColor` non-`Animate` from `--stubs` Top 15.
+- **Pass E1c (`d217b8c39`, `PASS` `#241`) & Pass E2 (`691630d82`, `cbdb61794`, `7f18684b9`, `39ba036e7`, `PASS` `#254/#261`)**:
+  completed `16` Wave-7 pool stubs (holding back `Cruel Sadist` / `Bident of Thassa` / `Bow of Nylea` / `Worst Fears`)
+  and landed **+1,000** generated cards across `zen`–`m15` + DFC back faces (`13,405` playable = `11,015` `Implemented` + `2,390` `Generated`,
+  `263` `Partial`, `986` stubs across `14,654` conform pool cards), blessing `baylee-seat` Reap the Tides goldens (`5_060` reference ceiling).

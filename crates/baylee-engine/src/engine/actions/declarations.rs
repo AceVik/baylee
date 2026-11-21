@@ -1,6 +1,6 @@
 //! Declaring attackers and blockers: the attack tax and its payment window, the blocks made, and what a declaration records (CR 508.1, 509.1).
 
-use super::super::attack_sacrifice::{AttackSacrificeCost, AttackSacrificePayment};
+use super::super::attack_sacrifice::{AttackCostKind, AttackSacrificeCost, AttackSacrificePayment};
 use super::{
     AttackerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent, ObjectId,
     ObjectKind, PlayerId, combat,
@@ -130,28 +130,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 return Err(EngineError::IllegalAction("duplicate attacker"));
             }
         }
-        // CR 508.1d: every creature that attacks if able, and can, does, up to
-        // any cap on how many creatures may attack (CR 508.1c). A player is
-        // never required to pay a cost to declare an attacker (CR 508.1d), so
-        // only defenders with zero life tax count toward a requirement.
-        let required_able: Vec<ObjectId> = self
-            .state
-            .battlefield_seen()
-            .filter(|id| {
-                rules.must_attack(*id)
-                    && rules.sacrifice_tax(*id).is_empty()
-                    && combat::can_attack(&self.state, player, *id)
-                    && legal.iter().any(|d| {
-                        rules.allows(*id, *d)
-                            && rules.mana_tax_for(*id, *d) == 0
-                            && rules.life_tax(*id, *d) == 0
-                    })
-            })
-            .collect();
-        let required_target = rules.required_maximum(&required_able);
-        let required_declared = seen.iter().filter(|id| rules.must_attack(**id)).count();
-        if required_declared < required_target {
-            return Err(crate::choice::AnswerFault::MustAttack.into());
+        // CR 508.1d: the declaration must obey the maximum simultaneously
+        // satisfiable number of untaxed attack requirements. Paying an attack
+        // cost is never required, and voluntarily paying one on one creature
+        // cannot excuse skipping another creature's free requirement.
+        let required_score = rules.max_total_requirement_score(player, &legal);
+        if required_score > 0 {
+            let declared_score: u32 = attackers
+                .iter()
+                .map(|&(id, defending)| {
+                    rules
+                        .requirement_score(id, defending)
+                        .min(rules.max_free_requirement_score(id, &legal))
+                })
+                .sum();
+            if declared_score < required_score {
+                return Err(crate::choice::AnswerFault::MustAttack.into());
+            }
         }
         let total_life_tax = attackers
             .iter()
@@ -162,12 +157,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 "cannot pay life required to declare those attackers",
             ));
         }
-        let sacrifices: Vec<AttackSacrificeCost> = attackers
+        let mut sacrifices: Vec<AttackSacrificeCost> = attackers
             .iter()
             .flat_map(|&(creature, _)| rules.sacrifice_tax(creature))
             .map(AttackSacrificeCost::from)
-            .filter(|cost| cost.count > 0)
+            .filter(|cost| !cost.is_empty_sacrifice())
             .collect();
+        // CR 508.1g, CR 702.154a–d: each instance of enlist on a declared
+        // attacker offers an independent optional tap cost after mandatory
+        // sacrifice costs.
+        for &(creature, _) in attackers {
+            let enlist_n = self.state.object(creature).map_or(0, |obj| {
+                crate::layers::keyword_instances(
+                    &self.state,
+                    obj,
+                    baylee_cards_dsl::KeywordSet::ENLIST,
+                )
+            });
+            for _ in 0..enlist_n {
+                sacrifices.push(AttackSacrificeCost::enlist(creature));
+            }
+        }
         // CR 508.1h–i: every cost is now known and none is paid yet. A mana
         // tax the pool does not cover is made in a payment window, and the
         // declaration waits in it with nothing paid.
@@ -184,6 +194,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
     /// Pays the already determined costs with the permanents their controller
     /// chose, then makes the declaration (CR 508.1h–k).
+    #[allow(clippy::too_many_lines)] // CR 508.1h–k cost settlement + attacker registration
     pub(in crate::engine) fn finish_attack_declaration(
         &mut self,
         player: PlayerId,
@@ -193,7 +204,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         total_life_tax: i32,
         reach: u64,
     ) -> Result<(), EngineError> {
-        if !super::super::attack_sacrifice::valid_payments(&self.state, player, &sacrifices) {
+        if !super::super::attack_sacrifice::valid_payments(
+            &self.state,
+            player,
+            &attackers,
+            &sacrifices,
+        ) {
             return Err(EngineError::IllegalAction(
                 "chosen permanents no longer pay the attack sacrifice cost",
             ));
@@ -225,12 +241,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             );
             debug_assert!(paid, "mana tax was validated");
         }
+        let mut enlists: Vec<(ObjectId, ObjectId)> = Vec::new();
         for payment in sacrifices {
-            for sac_id in payment.objects {
-                if let Some(obj) = self.state.object_mut(sac_id) {
-                    obj.kind = ObjectKind::Card;
+            match payment.cost.kind {
+                AttackCostKind::Sacrifice { .. } => {
+                    for sac_id in payment.objects {
+                        if let Some(obj) = self.state.object_mut(sac_id) {
+                            obj.kind = ObjectKind::Card;
+                        }
+                        let _ = self.state.sacrifice_object(sac_id, Cause::TurnBased);
+                    }
                 }
-                let _ = self.state.sacrifice_object(sac_id, Cause::TurnBased);
+                AttackCostKind::Enlist => {
+                    for enlisted in payment.objects {
+                        enlists.push((payment.cost.source, enlisted));
+                    }
+                }
             }
         }
         // CR 508.1k: only a creature its cost left under this player's control
@@ -243,13 +269,28 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 })
             })
             .collect();
+        // CR 508.1j, CR 702.154c: pay chosen enlist tap costs and emit one
+        // CreatureEnlisted event per paid enlist instance.
+        for (attacker, enlisted) in enlists {
+            if attackers.iter().any(|&(c, _)| c == attacker)
+                && self.state.object(enlisted).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.controller == player
+                })
+            {
+                self.state.set_tapped(enlisted, true);
+                self.state.record_tap_event(enlisted, true, Cause::Cost);
+                self.state.journal.record(GameEvent::CreatureEnlisted {
+                    attacker,
+                    enlisted,
+                    player,
+                });
+            }
+        }
         for &(creature, defending) in &attackers {
             if combat::attack_taps(&self.state, creature) {
                 self.state.set_tapped(creature, true);
-                self.state.journal.record(GameEvent::ObjectTapped {
-                    object: creature,
-                    cause: Cause::TurnBased,
-                });
+                self.state
+                    .record_tap_event(creature, true, Cause::TurnBased);
             }
             self.state.journal.record(GameEvent::BecameAttacker {
                 object: creature,

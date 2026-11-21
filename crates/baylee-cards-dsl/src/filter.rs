@@ -402,6 +402,67 @@ pub enum Filter {
     /// (Glissa Sunseeker: "if its mana value is equal to the amount of mana in
     /// your mana pool").
     CmcEqualsYourUnspentMana,
+    /// Is face down (CR 708.2): a face-down creature spell on the stack or a
+    /// face-down permanent on the battlefield (Dream Chisel, Ixidor).
+    FaceDown,
+    /// Shares at least one creature type with an object matching the inner
+    /// filter (`&Filter::This` for Mistform Warchief's "creature spells you
+    /// cast that share a creature type with this creature", or a battlefield
+    /// filter for Coat of Arms).
+    SharesCreatureTypeWith(&'static Filter),
+    /// Has the color chosen earlier in the current resolution (`Effect::ChooseColor`,
+    /// CR 608.2d), falling back to the source permanent's persistent chosen color
+    /// (`EnterModifier::ChooseColor`). A colorless object or an unset choice matches
+    /// nothing (CR 105.2c). Appended to preserve replay identities.
+    ChosenColor,
+    /// Is historic: has the legendary supertype, the artifact card type, or the
+    /// Saga subtype (CR 700.6). Evaluates projected characteristics in any zone.
+    /// Appended to preserve replay identities.
+    Historic,
+    /// Has at least one counter of `Some(kind)`, or at least one counter of any
+    /// kind when `None` (with LTB counter look-back on battlefield departures,
+    /// CR 603.10a). Appended to preserve replay identities.
+    HasCounters(Option<crate::CounterKind>),
+    /// Total number of counters across all counter kinds on the object is at
+    /// least `n` (with LTB counter look-back on battlefield departures,
+    /// CR 603.10a). Appended to preserve replay identities.
+    AnyCountersAtLeast(u16),
+    /// Controlled by the player the source permanent enchants ("creatures
+    /// enchanted player controls", CR 303.4b, CR 303.4m). Matches nothing when
+    /// the source is not attached to a player still in the game. Appended to
+    /// preserve replay identities.
+    ControlledByEnchantedPlayer,
+    /// The creature currently paired with the source permanent via soulbond
+    /// (CR 702.95a–e). Matches nothing when the source is unpaired or not on
+    /// the battlefield. Appended to preserve replay identities.
+    PairedWithSource,
+    /// An exiled card exiled by a warp delayed trigger (`Rider::WarpedInExile`,
+    /// CR 702.185a–b). Appended to preserve replay identities.
+    WarpedInExile,
+    /// Mana value is less than or equal to the amount of snow mana spent to
+    /// cast the source spell or the spell that became the source permanent
+    /// (*Blood on the Snow*, *Draugr Necromancer*, CR 107.4h). Appended to
+    /// preserve replay identities.
+    CmcAtMostSnowManaSpent,
+    /// Permanent with the monstrous designation on the battlefield
+    /// (CR 701.37a–b). Appended to preserve replay identities.
+    Monstrous,
+    /// Permanent with the suspected designation on the battlefield
+    /// (CR 701.60a–b). Appended to preserve replay identities.
+    Suspected,
+    /// Creature on the battlefield with the Ring-bearer designation under its
+    /// controller's control (CR 701.54a–b, CR 701.54e). Appended to preserve
+    /// replay identities.
+    RingBearer,
+    /// Mana value equals the mana value of this ability's or spell's source,
+    /// reading last-known pre-departure characteristics when the source moved
+    /// as a cost (transmute, CR 702.53a). Appended to preserve replay
+    /// identities.
+    SameManaValueAsSource,
+    /// Shares at least one color with this ability's or spell's source
+    /// (conspire, CR 702.78a). Matches nothing when either object is
+    /// colorless. Appended to preserve replay identities.
+    SharesColorWithSource,
 }
 
 /// Zone references for filters (engine zones, DSL view).
@@ -424,6 +485,9 @@ pub enum ZoneRef {
     /// Any zone except the battlefield ("cards you own that aren't on the
     /// battlefield").
     NotBattlefield,
+    /// On the battlefield or in the command zone (CR 113.6b: The Ur-Dragon's
+    /// eminence static ability).
+    BattlefieldOrCommand,
 }
 
 /// An expansion referenced by an expansion-symbol / original-printing rule
@@ -637,6 +701,10 @@ impl Filter {
     pub const LAND: Self = Self::HasType(TypeSet::LAND);
     /// A planeswalker.
     pub const PLANESWALKER: Self = Self::HasType(TypeSet::PLANESWALKER);
+    /// An instant.
+    pub const INSTANT: Self = Self::HasType(TypeSet::INSTANT);
+    /// A sorcery.
+    pub const SORCERY: Self = Self::HasType(TypeSet::SORCERY);
     /// Anything that is not a land — "nonland permanent".
     pub const NONLAND: Self = Self::LacksType(TypeSet::LAND);
     /// Anything that is not a creature.
@@ -714,6 +782,11 @@ impl Filter {
     pub const YOUR_BASIC_LAND: Self = Self::And(&[Self::BASIC_LAND, Self::ControlledByYou]);
     /// An artifact you control.
     pub const YOUR_ARTIFACT: Self = Self::And(&[Self::ARTIFACT, Self::ControlledByYou]);
+    /// A commander you both own and control (CR 903.3c–d).
+    pub const YOUR_COMMANDER: Self =
+        Self::And(&[Self::IsCommander, Self::ControlledByYou, Self::OwnedByYou]);
+    /// Any commander on the battlefield under your control (CR 903.3d).
+    pub const COMMANDER_YOU_CONTROL: Self = Self::And(&[Self::IsCommander, Self::ControlledByYou]);
     /// A creature you control other than the source — "another creature you
     /// control".
     ///
@@ -749,6 +822,11 @@ impl Filter {
     /// same data and not merely the same meaning.
     pub const YOUR_CREATURE_WITH_POWER_4_OR_GREATER: Self =
         Self::And(&[Self::YOUR_CREATURE, Self::PowerAtLeast(4)]);
+    /// Either this permanent or the creature currently paired with it via
+    /// soulbond ("each of those creatures", CR 702.95a–e).
+    pub const SOULBOND_PAIR: Self = Self::Or(&[Self::This, Self::PairedWithSource]);
+    /// Your Ring-bearer (`CR 701.54a–e`), noun first like [`Self::YOUR_CREATURE`].
+    pub const YOUR_RING_BEARER: Self = Self::And(&[Self::RingBearer, Self::ControlledByYou]);
 }
 
 #[cfg(test)]
@@ -769,6 +847,8 @@ mod tests {
         ("ENCHANTMENT", Filter::ENCHANTMENT),
         ("LAND", Filter::LAND),
         ("PLANESWALKER", Filter::PLANESWALKER),
+        ("INSTANT", Filter::INSTANT),
+        ("SORCERY", Filter::SORCERY),
         ("NONLAND", Filter::NONLAND),
         ("NONCREATURE", Filter::NONCREATURE),
         ("BASIC_LAND", Filter::BASIC_LAND),
@@ -790,6 +870,8 @@ mod tests {
         ("YOUR_LAND", Filter::YOUR_LAND),
         ("YOUR_BASIC_LAND", Filter::YOUR_BASIC_LAND),
         ("YOUR_ARTIFACT", Filter::YOUR_ARTIFACT),
+        ("YOUR_COMMANDER", Filter::YOUR_COMMANDER),
+        ("COMMANDER_YOU_CONTROL", Filter::COMMANDER_YOU_CONTROL),
         (
             "ANOTHER_CREATURE_YOU_CONTROL",
             Filter::ANOTHER_CREATURE_YOU_CONTROL,
@@ -798,6 +880,8 @@ mod tests {
             "YOUR_CREATURE_WITH_POWER_4_OR_GREATER",
             Filter::YOUR_CREATURE_WITH_POWER_4_OR_GREATER,
         ),
+        ("SOULBOND_PAIR", Filter::SOULBOND_PAIR),
+        ("YOUR_RING_BEARER", Filter::YOUR_RING_BEARER),
     ];
 
     /// The table above is the file below. Read out of the source for the

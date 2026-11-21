@@ -35,12 +35,9 @@ card!(
         ),
         activated!(
             cost!("{G}"),
-            &[Effect::AddCounter {
-                kind: CounterKind::Level,
-                amount: Amount::Fixed(1),
-            }],
+            &[Effect::SetClassLevel(2)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 0)),
+            condition = Some(Condition::ClassLevelExactly(1)),
         ),
         static_ability!(
             Filter::And(&[Filter::ControlledByYou, Filter::HasAnyCounter]),
@@ -53,21 +50,18 @@ card!(
                 }],
                 target: None,
             },
-            condition = Some(Condition::CountersOnSelf(CounterKind::Level, 1)),
+            condition = Some(Condition::ClassLevelAtLeast(2)),
         ),
         activated!(
             cost!("{3}{G}"),
-            &[Effect::AddCounter {
-                kind: CounterKind::Level,
-                amount: Amount::Fixed(1),
-            }],
+            &[Effect::SetClassLevel(3)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 1)),
+            condition = Some(Condition::ClassLevelExactly(2)),
         ),
         static_ability!(
             Filter::Any,
             Modifier::DoubleCountersPlacedByYou,
-            condition = Some(Condition::CountersOnSelf(CounterKind::Level, 2)),
+            condition = Some(Condition::ClassLevelAtLeast(3)),
         ),
     ],
 );

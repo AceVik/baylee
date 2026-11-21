@@ -96,25 +96,11 @@ fn innkeepers_talent_levels_up_grants_ward_and_doubles_counters_at_level_3() {
     // Level up to Level 2 ({G}, ability index 1), then Level 3 ({3}{G}, ability index 3).
     activate_by_card(&mut e, P0, index::INNKEEPER_S_TALENT, 1);
     pass_until(&mut e, stack_is_empty);
-    assert_eq!(
-        e.state()
-            .object(talent)
-            .unwrap()
-            .counters
-            .get(CounterKind::Level),
-        1
-    );
+    assert_eq!(e.state().object(talent).unwrap().class_level(), 2);
 
     activate_by_card(&mut e, P0, index::INNKEEPER_S_TALENT, 3);
     pass_until(&mut e, stack_is_empty);
-    assert_eq!(
-        e.state()
-            .object(talent)
-            .unwrap()
-            .counters
-            .get(CounterKind::Level),
-        2
-    );
+    assert_eq!(e.state().object(talent).unwrap().class_level(), 3);
 
     // Level 3 covers counters on players too: Aether Hub's printed one energy
     // becomes two when its own enter-the-battlefield trigger resolves.

@@ -4,6 +4,96 @@ use crate::object::CounterKind;
 use baylee_core::ids::{ObjectId, PlayerId};
 use std::hash::Hash;
 
+/// A `Vec<T>` on [`PerTurn`] that writes nothing into [`Hash`] while empty so
+/// historical snapshots that do not populate the field keep their exact digest,
+/// while any populated entry moves [`crate::state::GameState::snapshot_hash`].
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct PerTurnVec<T>(pub Vec<T>);
+
+impl<T> Default for PerTurnVec<T> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<T> std::ops::Deref for PerTurnVec<T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Hash> Hash for PerTurnVec<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if !self.0.is_empty() {
+            self.0.as_slice().hash(state);
+        }
+    }
+}
+
+/// A `bool` on [`PerTurn`] that writes nothing into [`Hash`] while `false`.
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub struct PerTurnBool(pub bool);
+
+impl Hash for PerTurnBool {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.0 {
+            true.hash(state);
+        }
+    }
+}
+
+/// A `u32` counter on [`PerTurn`] that writes nothing into [`Hash`] while `0`.
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub struct PerTurnCount(pub u32);
+
+impl Hash for PerTurnCount {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.0 > 0 {
+            self.0.hash(state);
+        }
+    }
+}
+
+/// Per-turn list whose entries are always recorded in memory, and included in
+/// [`Hash`] whenever `tracked` is set for the game and `items` is non-empty.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct PerTurnTracked<T> {
+    /// Whether any card or ability in this game reads this history.
+    pub tracked: bool,
+    /// Entries recorded during the current turn.
+    pub items: Vec<T>,
+}
+
+impl<T> Default for PerTurnTracked<T> {
+    fn default() -> Self {
+        Self {
+            tracked: false,
+            items: Vec::new(),
+        }
+    }
+}
+
+impl<T: Hash> Hash for PerTurnTracked<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.tracked && !self.items.is_empty() {
+            self.items.as_slice().hash(state);
+        }
+    }
+}
+
+/// Pair-specific blocking requirement ("`blocker` blocks `attacker` this
+/// combat / this turn if able", CR 509.1c, CR 702.39a).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct MustBlockRequirement {
+    /// Exact creature incarnation required to block.
+    pub blocker: baylee_core::ids::DamageSourceRef,
+    /// Exact creature incarnation that must be blocked if able.
+    pub attacker: baylee_core::ids::DamageSourceRef,
+    /// Expires at end of combat (`true`, e.g. Provoke) or at cleanup (`false`).
+    pub this_combat_only: bool,
+}
+
 /// Per-turn counters for conditional triggers (reset at every turn start).
 #[derive(Clone, Hash, Debug)]
 #[allow(clippy::struct_excessive_bools)]
@@ -168,6 +258,26 @@ pub struct PerTurn {
     pub skip_main_phases: bool,
     /// Active player skips their combat phases this turn (Fatespinner).
     pub skip_combat_phases: bool,
+    /// Pair-specific blocking requirements active for this combat or turn
+    /// (Provoke, Rampant Elephant, Hunt Down; CR 509.1c, CR 702.39a).
+    pub must_block_pairs: PerTurnVec<MustBlockRequirement>,
+    /// Players who cast a spell for its warp cost this turn, one entry per
+    /// warped spell (`CR 702.185c`: Void capability and warped-this-turn
+    /// counts). Empty `PerTurnVec` preserves historical snapshot digests.
+    pub spells_warped: PerTurnVec<PlayerId>,
+    /// Players who committed a crime this turn (CR 700.13).
+    pub crimes_committed: PerTurnTracked<PlayerId>,
+    /// Cumulative mana spent to cast spells this turn per player (expend,
+    /// CR 700.14).
+    pub mana_expended_on_spells: PerTurnTracked<(PlayerId, u32)>,
+    /// LIFO stack of remaining/created phases for the current turn when
+    /// [`Effect::AdditionalCombatPhase`] has resolved (CR 500.8).
+    pub extra_phases: PerTurnVec<crate::turn::Phase>,
+    /// Whether [`Self::extra_phases`] governs phase exits for the rest of this turn.
+    pub phase_stack_active: PerTurnBool,
+    /// Number of additional combat phases created this turn (bounded to prevent
+    /// nonterminating infinite phase creation).
+    pub extra_phases_created: PerTurnCount,
 }
 
 /// One block declared this turn ([`PerTurn::blocks`]).
@@ -256,11 +366,102 @@ pub enum PlayLifetime {
     Prepared(baylee_core::ids::DamageSourceRef),
     /// The exact card incarnation remains exiled, independently of turn boundaries.
     WhileExiled,
+    /// Active only while the exact source permanent remains on the battlefield.
+    SourceOnBattlefield(baylee_core::ids::DamageSourceRef),
+    /// Turn-bounded permission that also grants `ManaSpending::ANY_COLOR` (CR 609.4b).
+    AnyColorTurns(baylee_cards_dsl::PlayWindow),
+    /// Permanent-exile permission that also grants `ManaSpending::ANY_COLOR` (CR 609.4b).
+    AnyColorWhileExiled,
+    /// Battlefield-source permission that also grants `ManaSpending::ANY_COLOR` (CR 609.4b).
+    AnyColorSourceOnBattlefield(baylee_core::ids::DamageSourceRef),
+}
+
+impl PlayLifetime {
+    /// Construct a runtime lifetime from a DSL `PlayWindow`, optional source
+    /// incarnation, and `ExileMana::AnyColor` flag.
+    #[must_use]
+    pub fn from_window(
+        window: baylee_cards_dsl::PlayWindow,
+        source: Option<baylee_core::ids::DamageSourceRef>,
+        any_color: bool,
+    ) -> Option<Self> {
+        use baylee_cards_dsl::PlayWindow as W;
+        Some(match (window, any_color) {
+            (W::WhileExiled, false) => Self::WhileExiled,
+            (W::WhileExiled, true) => Self::AnyColorWhileExiled,
+            (W::WhileSourceOnBattlefield, false) => Self::SourceOnBattlefield(source?),
+            (W::WhileSourceOnBattlefield, true) => Self::AnyColorSourceOnBattlefield(source?),
+            (w, false) => Self::Turns(w),
+            (w, true) => Self::AnyColorTurns(w),
+        })
+    }
+
+    /// Whether this permission allows spending mana as though it were mana of any color (CR 609.4b).
+    #[must_use]
+    pub const fn mana_any_color(self) -> bool {
+        matches!(
+            self,
+            Self::AnyColorTurns(_)
+                | Self::AnyColorWhileExiled
+                | Self::AnyColorSourceOnBattlefield(_)
+        )
+    }
+
+    /// Whether this lifetime expires when the benefiting player's upkeep begins.
+    #[must_use]
+    pub const fn expires_at_upkeep(self) -> bool {
+        matches!(
+            self,
+            Self::Turns(baylee_cards_dsl::PlayWindow::UntilYourNextUpkeep)
+                | Self::AnyColorTurns(baylee_cards_dsl::PlayWindow::UntilYourNextUpkeep)
+        )
+    }
+
+    /// Whether this lifetime expires in the cleanup step.
+    #[must_use]
+    pub const fn expires_at_cleanup(self) -> bool {
+        matches!(
+            self,
+            Self::Turns(baylee_cards_dsl::PlayWindow::ThisTurn)
+                | Self::AnyColorTurns(baylee_cards_dsl::PlayWindow::ThisTurn)
+        )
+    }
+
+    /// Whether this lifetime depended on `source_id` remaining on the battlefield.
+    #[must_use]
+    pub fn depends_on_departed_source(self, source_id: ObjectId) -> bool {
+        matches!(
+            self,
+            Self::SourceOnBattlefield(src) | Self::AnyColorSourceOnBattlefield(src)
+                if src.object == source_id
+        )
+    }
+
+    /// Advance turn-based lifetimes at the start of the benefiting player's turn;
+    /// returns `false` when the permission expires immediately (`UntilYourNextTurn`).
+    pub fn advance_turn_start(&mut self) -> bool {
+        use baylee_cards_dsl::PlayWindow as W;
+        match *self {
+            Self::Turns(W::UntilYourNextTurn) | Self::AnyColorTurns(W::UntilYourNextTurn) => false,
+            Self::Turns(W::ThroughYourNextTurn) => {
+                *self = Self::Turns(W::ThisTurn);
+                true
+            }
+            Self::AnyColorTurns(W::ThroughYourNextTurn) => {
+                *self = Self::AnyColorTurns(W::ThisTurn);
+                true
+            }
+            _ => true,
+        }
+    }
 }
 
 impl From<baylee_cards_dsl::PlayWindow> for PlayLifetime {
     fn from(window: baylee_cards_dsl::PlayWindow) -> Self {
-        Self::Turns(window)
+        match window {
+            baylee_cards_dsl::PlayWindow::WhileExiled => Self::WhileExiled,
+            other => Self::Turns(other),
+        }
     }
 }
 
@@ -288,6 +489,38 @@ pub struct PlayPermission {
     pub spell_types: Option<baylee_core::types::TypeSet>,
     /// Turn-based expiry or the prepared permanent granting access.
     pub window: PlayLifetime,
+}
+
+impl PlayPermission {
+    /// Whether this permission is currently active for `player` on `card` at `version`.
+    #[must_use]
+    pub fn grants_to(
+        &self,
+        state: &super::GameState,
+        player: PlayerId,
+        card: ObjectId,
+        version: u32,
+    ) -> bool {
+        if self.card != card || self.version != version {
+            return false;
+        }
+        match self.window {
+            PlayLifetime::Prepared(source) => state.prepared_controller(source) == Some(player),
+            PlayLifetime::SourceOnBattlefield(source)
+            | PlayLifetime::AnyColorSourceOnBattlefield(source) => {
+                self.player == player
+                    && state.object(source.object).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.version == source.version
+                            && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    })
+            }
+            PlayLifetime::Turns(_)
+            | PlayLifetime::AnyColorTurns(_)
+            | PlayLifetime::WhileExiled
+            | PlayLifetime::AnyColorWhileExiled => self.player == player,
+        }
+    }
 }
 
 impl PerTurn {
@@ -346,6 +579,13 @@ impl PerTurn {
             skip_draw_step: false,
             skip_main_phases: false,
             skip_combat_phases: false,
+            must_block_pairs: PerTurnVec::default(),
+            spells_warped: PerTurnVec::default(),
+            crimes_committed: PerTurnTracked::default(),
+            mana_expended_on_spells: PerTurnTracked::default(),
+            extra_phases: PerTurnVec::default(),
+            phase_stack_active: PerTurnBool::default(),
+            extra_phases_created: PerTurnCount::default(),
         }
     }
 
@@ -388,6 +628,47 @@ impl PerTurn {
             .unwrap_or(0)
     }
 
+    /// Records that `player` committed a crime this turn (CR 700.13).
+    pub fn note_crime(&mut self, player: PlayerId) {
+        if !self.crimes_committed.items.contains(&player) {
+            self.crimes_committed.items.push(player);
+        }
+    }
+
+    /// Whether `player` has committed a crime this turn (CR 700.13).
+    #[must_use]
+    pub fn committed_crime(&self, player: PlayerId) -> bool {
+        self.crimes_committed.items.contains(&player)
+    }
+
+    /// Adds `spent` mana spent on a cast spell to `player`'s cumulative turn
+    /// total, returning `(previous, total)` (expend, CR 700.14).
+    pub fn record_mana_expended(&mut self, player: PlayerId, spent: u32) -> (u32, u32) {
+        if let Some((_, total)) = self
+            .mana_expended_on_spells
+            .items
+            .iter_mut()
+            .find(|(p, _)| *p == player)
+        {
+            let prev = *total;
+            *total = total.saturating_add(spent);
+            (prev, *total)
+        } else {
+            self.mana_expended_on_spells.items.push((player, spent));
+            (0, spent)
+        }
+    }
+
+    /// Cumulative mana `player` has spent to cast spells this turn (CR 700.14).
+    #[must_use]
+    pub fn mana_expended_by(&self, player: PlayerId) -> u32 {
+        self.mana_expended_on_spells
+            .items
+            .iter()
+            .find(|(p, _)| *p == player)
+            .map_or(0, |(_, total)| *total)
+    }
+
     /// Clears the object and event history that belongs only to this turn.
     fn clear_turn_history(&mut self) {
         self.pending_entry_history.clear();
@@ -410,6 +691,13 @@ impl PerTurn {
         self.tapped_for_ability.clear();
         self.permanent_damage.clear();
         self.damaged_creature_deaths.clear();
+        self.must_block_pairs.0.clear();
+        self.spells_warped.0.clear();
+        self.crimes_committed.items.clear();
+        self.mana_expended_on_spells.items.clear();
+        self.extra_phases.0.clear();
+        self.phase_stack_active.0 = false;
+        self.extra_phases_created.0 = 0;
     }
 
     /// Resets all counters (called at every turn start).
@@ -469,6 +757,13 @@ impl PerTurn {
             pending_entry_history: _,
             permanent_damage: _,
             damaged_creature_deaths: _,
+            must_block_pairs: _,
+            spells_warped: _,
+            crimes_committed: _,
+            mana_expended_on_spells: _,
+            extra_phases: _,
+            phase_stack_active: _,
+            extra_phases_created: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

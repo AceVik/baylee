@@ -94,12 +94,17 @@ impl Kind {
             AbilityDef::Activated { .. }
             | AbilityDef::ActivatedConditional { .. }
             | AbilityDef::ModalActivated { .. }
+            | AbilityDef::Unearth { .. }
+            | AbilityDef::Encore { .. }
             | AbilityDef::Loyalty { .. } => Self::Activated,
             AbilityDef::Triggered { .. }
             | AbilityDef::ModalTriggered { .. }
             | AbilityDef::SagaChapter { .. }
-            | AbilityDef::Echo { .. } => Self::Triggered,
-            AbilityDef::Static(_) => Self::Static,
+            | AbilityDef::Echo { .. }
+            | AbilityDef::Champion { .. } => Self::Triggered,
+            AbilityDef::Static(_) | AbilityDef::Splice { .. } | AbilityDef::Awaken { .. } => {
+                Self::Static
+            }
             AbilityDef::Replacement(_)
             | AbilityDef::CopyOnEnter { .. }
             | AbilityDef::CopyOnEnterUntilEot { .. } => Self::Replacement,
@@ -108,6 +113,7 @@ impl Kind {
             | AbilityDef::Toxic { .. }
             | AbilityDef::Prepared { .. }
             | AbilityDef::Suspend { .. }
+            | AbilityDef::PerExtraTargetCost(_)
             | AbilityDef::StartYourEngines => return None,
         })
     }

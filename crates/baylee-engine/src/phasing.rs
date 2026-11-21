@@ -27,6 +27,12 @@ impl GameState {
     /// Aura on an Equipment on a creature).
     #[doc(hidden)]
     pub fn phase_out(&mut self, direct: &[ObjectId]) {
+        let can_phase_out = |state: &Self, o: &crate::object::GameObject| {
+            !state.effects.iter().any(|fx| {
+                fx.modifier == baylee_cards_dsl::Modifier::CantPhaseOut
+                    && crate::effects::applies_to(state, fx, o)
+            })
+        };
         let named: Vec<ObjectId> = direct
             .iter()
             .copied()
@@ -34,6 +40,7 @@ impl GameState {
                 self.object(id).is_some_and(|o| {
                     o.zone == crate::zone::Zone::Battlefield
                         && !o.status.contains(Status::PHASED_OUT)
+                        && can_phase_out(self, o)
                 })
             })
             .collect();
@@ -45,7 +52,9 @@ impl GameState {
         while let Some(&host) = hosts.get(next) {
             next += 1;
             for id in self.battlefield_seen() {
-                if self.object(id).is_some_and(|o| o.attached_to == Some(host))
+                if self
+                    .object(id)
+                    .is_some_and(|o| o.attached_to == Some(host) && can_phase_out(self, o))
                     && !indirect.contains(&id)
                 {
                     indirect.push(id);
@@ -143,6 +152,10 @@ impl GameState {
         let mut next = 0;
         while let Some(&host) = coming.get(next) {
             next += 1;
+            let attached_player_left = self
+                .object(host)
+                .and_then(crate::object::GameObject::attached_player)
+                .is_some_and(|p| self.has_left(p));
             if let Some(obj) = self.object_mut(host) {
                 obj.status.remove(Status::PHASED_OUT);
                 obj.status.remove(Status::PHASED_OUT_INDIRECTLY);
@@ -156,6 +169,12 @@ impl GameState {
                     obj.attached_to = None;
                     obj.riders
                         .retain(|r| *r != crate::object::Rider::AttachmentHostLeft);
+                }
+                if attached_player_left {
+                    obj.set_attached_player(None);
+                }
+                if !obj.is_attached() {
+                    obj.riders.retain(|r| *r != crate::object::Rider::Bestowed);
                 }
             }
             self.journal.record(GameEvent::PhaseChanged {

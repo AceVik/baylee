@@ -202,9 +202,20 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
             // Only a mode with a price of its own is left (Cyclonic Rift with
             // nothing to bounce, #00): the printed cost reaches nothing the
             // engine will cast, so only the modes castmodes can pay count.
-            if baylee_cards::by_index(card.card.index)
-                .is_some_and(|def| def.faces[0].kicked_targets.is_some())
-                || crate::targeting::only_a_dearer_mode_is_left(view, card.card)
+            if baylee_cards::by_index(card.card.index).is_some_and(|def| {
+                def.faces[0].kicked_targets.is_some()
+                    || def
+                        .abilities_for_face(usize::from(card.card.face))
+                        .iter()
+                        .any(|a| {
+                            matches!(
+                                a,
+                                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }
+                                    if !choose.is_one()
+                                        && modes.iter().any(|m| m.additional_cost.is_some())
+                            )
+                        })
+            }) || crate::targeting::only_a_dearer_mode_is_left(view, card.card)
             {
                 return !castmodes::reachable_modes(view, legal, card.id).is_empty();
             }
@@ -382,6 +393,25 @@ fn pile_way_reachable(
             return false;
         }
         card
+    } else if matches!(way.kind, CastModeKind::Plot) {
+        let me = baylee_client_core::decision::resource_player(view);
+        if view.active != me
+            || !matches!(
+                view.phase,
+                baylee_view::Phase::FirstMain | baylee_view::Phase::SecondMain
+            )
+            || !view.stack.is_empty()
+            || !baylee_client_core::timing::allows(
+                view,
+                baylee_core::types::TypeSet::SORCERY,
+                false,
+            )
+            || targeting::provably_targetless_from(view, card, Some(o.id))
+            || (check_cast_now && !baylee_ai::spell_can_be_cast_now(view, legal, o.id, card))
+        {
+            return false;
+        }
+        card
     } else {
         let face = match way.kind {
             CastModeKind::Face(at)
@@ -462,35 +492,6 @@ pub(super) fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> 
 /// empty stack (CR 702.143a). Its special action always costs {2}; the printed
 /// foretell cost is for the later cast, not for this payment.
 pub(super) fn foretell_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
-    special_action_reach(
-        duel,
-        |legal| &legal.foretellable,
-        |card| {
-            let def = baylee_cards::by_index(card.index)?;
-            def.faces
-                .get(usize::from(card.face))
-                .or_else(|| def.faces.first())?
-                .foretell
-                .is_some()
-                .then(|| baylee_core::mana::ManaCost::parse("{2}"))
-        },
-        |view| view.active == baylee_client_core::decision::resource_player(view),
-    )
-}
-
-/// The planner of a hand special action whose cost the card states (foretell;
-/// suspend reads the engine's `unpaid_suspend` instead). The engine's offer
-/// remains authoritative: these are only cards not already payable from
-/// floating mana.
-fn special_action_reach(
-    duel: &Duel,
-    offered: impl for<'a> Fn(&'a baylee_engine::choice::LegalActions) -> &'a [ObjectId],
-    cost: impl Fn(baylee_view::CardIdentity) -> Option<baylee_core::mana::ManaCost>,
-    timing: impl Fn(&baylee_view::PlayerView) -> bool,
-) -> std::collections::HashSet<ObjectId> {
-    let Some(view) = duel.view.as_ref() else {
-        return std::collections::HashSet::new();
-    };
     let Some(legal) = duel
         .interaction
         .as_ref()
@@ -498,25 +499,11 @@ fn special_action_reach(
     else {
         return std::collections::HashSet::new();
     };
-    if !timing(view) {
-        return std::collections::HashSet::new();
-    }
-    let sources = manasources::sources(view, legal);
-    let Some(pool) = view
-        .seat(baylee_client_core::decision::resource_player(view))
-        .map(|s| s.mana_pool)
-    else {
-        return std::collections::HashSet::new();
-    };
-    baylee_client_core::decision::hand(view)
+    legal
+        .unpaid_foretell
         .iter()
-        .filter(|card| !offered(legal).contains(&card.id))
-        .filter(|card| {
-            cost(card.card).is_some_and(|cost| {
-                baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
-            })
-        })
-        .map(|card| card.id)
+        .copied()
+        .filter(|&card| crate::foretell_mana_for(duel, card).is_some())
         .collect()
 }
 

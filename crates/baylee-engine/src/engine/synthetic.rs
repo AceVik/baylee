@@ -72,11 +72,26 @@ pub fn land_face(name: &'static str) -> FaceDef {
         disturb: false,
         adventure: false,
         dash: None,
+        blitz: None,
         mutate: None,
         morph: None,
+        megamorph: None,
+        morph_parts: &[],
+        bestow: None,
+        jump_start: false,
+        aftermath: false,
         escape: None,
         behold_or_pay: None,
         madness: None,
+        bargain: false,
+        emerge: None,
+        squad: None,
+        offspring: None,
+        plot: None,
+        casualty: None,
+        impending: None,
+        gift: None,
+        warp: None,
     }
 }
 
@@ -97,6 +112,7 @@ pub fn land(index: u32, name: &'static str, abilities: &'static [AbilityDef]) ->
         keywords: KeywordSet::EMPTY,
         commander: CommanderRule::NotEligible,
         partner: baylee_cards_dsl::PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities,
     }))
@@ -148,6 +164,7 @@ pub fn creature(
         keywords: KeywordSet::EMPTY,
         commander: CommanderRule::NotEligible,
         partner: baylee_cards_dsl::PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities: &[],
     }))

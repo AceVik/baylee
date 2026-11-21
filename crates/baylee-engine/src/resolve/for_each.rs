@@ -173,7 +173,8 @@ fn advance(
         let turn_over = next.is_none_or(|next| Some(next.controller) != count.current);
         if turn_over && !count.owed.is_empty() {
             let (player, filter) = count.owed.remove(0);
-            let mut options = chosen::options(state, player, filter, res.controller, res.source);
+            let mut options =
+                chosen::sacrifice_options(state, player, filter, res.controller, res.source);
             options.retain(|id| !count.held.iter().any(|(_, held)| held.object == *id));
             // As much as can be done (CR 609.3): with nothing left to give
             // up, nothing more is asked.
@@ -221,7 +222,7 @@ fn advance(
             })
             .map(|(_, held)| held.object)
             .collect();
-        sacrifice_together(state, &victims);
+        sacrifice_together(state, &victims, Some(res.controller));
         return None;
     }
 }

@@ -100,6 +100,7 @@ fn card(index: u32, face: &FaceDef, abilities: &'static [AbilityDef]) -> &'stati
         keywords: KeywordSet::EMPTY,
         commander: CommanderRule::NotEligible,
         partner: baylee_cards_dsl::PartnerKind::None,
+        fuse: false,
         coverage: Coverage::Implemented,
         abilities,
     }))

@@ -1,6 +1,6 @@
 //! Remaining work within an instruction that first creates a permanent.
 use super::{GameState, Pending, Resolution};
-use baylee_core::ids::SubtypeId;
+use baylee_core::ids::{Defender, ObjectId, SubtypeId};
 
 /// An instruction cannot inspect its entrants until their replacements finish.
 #[derive(Clone, Copy, Debug, Hash)]
@@ -17,6 +17,16 @@ pub enum AfterEntry {
         /// Counters to place after creation has completed.
         amount: u16,
     },
+    /// Place a creature that entered via ninjutsu into combat attacking its
+    /// recorded defender once entry replacements finish (CR 702.49c).
+    EnterAttacking {
+        /// Entering permanent.
+        creature: ObjectId,
+        /// Recorded defender and optional planeswalker/battle incarnation.
+        defender: Option<(Defender, Option<u32>)>,
+    },
+    /// Place deferred myriad token copies into combat once entry replacements finish.
+    FinishMyriadCombat,
 }
 
 pub(super) fn resume(
@@ -28,6 +38,14 @@ pub(super) fn resume(
         AfterEntry::EmpowerJace { amount } => super::empower::after_entry(state, res, amount),
         AfterEntry::Amass { subtype, amount } => {
             super::amass::after_entry(state, res, subtype, amount)
+        }
+        AfterEntry::EnterAttacking { creature, defender } => {
+            super::wave4_combat::finish_enter_attacking(state, res.controller, creature, defender);
+            None
+        }
+        AfterEntry::FinishMyriadCombat => {
+            super::wave4_combat::after_myriad_entry(state, res);
+            None
         }
     }
 }

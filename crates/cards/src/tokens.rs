@@ -25,11 +25,14 @@ use baylee_cards_dsl::{
     AbilityDef, Effect, Filter, KeywordSet, Modifier, PtCount, TokenDef, Trigger, activated, cost,
     mana_ability, static_ability, triggered,
 };
+pub use baylee_cards_dsl::{INCUBATOR_TOKEN, PHYREXIAN_TOKEN, SPIRIT_X_X_WHITE};
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{artifact, creature};
 use baylee_core::mana::ManaColor;
 use baylee_core::types::TypeSet;
 
+#[path = "tokens/generated_sentences.rs"]
+mod generated_sentences;
 #[path = "tokens/printings.rs"]
 pub mod printings;
 pub use printings::picture;
@@ -584,19 +587,43 @@ pub static ZOMBIE_2_2_BLACK: TokenDef = TokenDef {
 /// the order ids were assigned in, whichever half an entry came from, and
 /// `cargo xtask codegen` may only append to it.
 pub use crate::generated_tokens::ALL;
+pub use crate::generated_tokens::SPIRIT_1_1_WHITE_BLACK_FLYING;
+pub use crate::generated_tokens::WARRIOR_1_1_RED;
+
+/// Stable reserved token id for [`SPIRIT_X_X_WHITE`] (`CR 701.63a`).
+pub const SPIRIT_X_X_WHITE_ID: u16 = u16::MAX - 4;
+/// Stable reserved token id for [`INCUBATOR_TOKEN`] (`CR 111.10i`, `CR 701.53b`).
+pub const INCUBATOR_TOKEN_ID: u16 = u16::MAX - 3;
+/// Stable reserved token id for [`PHYREXIAN_TOKEN`] (`CR 111.10i`, `CR 701.53b`).
+pub const PHYREXIAN_TOKEN_ID: u16 = u16::MAX - 2;
 
 /// The stable id of a central token (its index in [`ALL`]).
 #[must_use]
 pub fn token_id(token: &TokenDef) -> u16 {
+    if std::ptr::eq(token, &raw const SPIRIT_X_X_WHITE) {
+        return SPIRIT_X_X_WHITE_ID;
+    }
+    if std::ptr::eq(token, &raw const INCUBATOR_TOKEN) {
+        return INCUBATOR_TOKEN_ID;
+    }
+    if std::ptr::eq(token, &raw const PHYREXIAN_TOKEN) {
+        return PHYREXIAN_TOKEN_ID;
+    }
     ALL.iter()
         .position(|t| std::ptr::eq(*t, token))
+        .or_else(|| ALL.iter().position(|t| **t == *token))
         .map_or(u16::MAX, |i| i as u16)
 }
 
 /// The token a stable id names, if it names one.
 #[must_use]
 pub fn by_token_id(id: u16) -> Option<&'static TokenDef> {
-    ALL.get(id as usize).copied()
+    match id {
+        SPIRIT_X_X_WHITE_ID => Some(&SPIRIT_X_X_WHITE),
+        INCUBATOR_TOKEN_ID => Some(&INCUBATOR_TOKEN),
+        PHYREXIAN_TOKEN_ID => Some(&PHYREXIAN_TOKEN),
+        _ => ALL.get(id as usize).copied(),
+    }
 }
 
 /// The printed sentence of each ability of the card tokens that have one, in
@@ -618,6 +645,8 @@ static SENTENCES: &[(&TokenDef, &[&str])] = &[
         &TREASURE,
         &["{T}, Sacrifice this token: Add one mana of any color."],
     ),
+    // Incubate's predefined token (CR 111.10i, CR 701.53b).
+    (&INCUBATOR_TOKEN, &["{2}: Transform this token."]),
     // Investigate's reminder (CR 701.16a).
     (&CLUE, &["{2}, Sacrifice this token: Draw a card."]),
     // Every Blood maker's reminder.
@@ -776,8 +805,8 @@ static SENTENCES: &[(&TokenDef, &[&str])] = &[
 ];
 
 /// Ability text for registry objects, indexed by the DSL list. Tower supplies
-/// use explicitly original rules; card tokens the printed sentences in
-/// [`SENTENCES`]. Unknown pairs have no invented sentence.
+/// use explicitly original rules. Card tokens use the printed sentences in
+/// [`SENTENCES`] and [`generated_sentences::ROWS`].
 #[must_use]
 pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
     let token = by_token_id(id)?;
@@ -786,6 +815,7 @@ pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
     }
     let (_, sentences) = SENTENCES
         .iter()
+        .chain(generated_sentences::ROWS)
         .find(|(known, _)| std::ptr::eq(*known, token))?;
     sentences.get(usize::try_from(index).ok()?).copied()
 }

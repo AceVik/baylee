@@ -6,6 +6,7 @@ impl Tx<'_> {
     /// Read the complete spell line before the ordinary one-target chain.
     pub(super) fn divided_damage_spell(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
+        p.claim_label("ValidTgtsDesc", "ValidTgts");
         let valid = p.take("ValidTgts")?;
         let target = self.target_spec(&valid, "DealDamage")?;
         if matches!(
@@ -32,6 +33,7 @@ impl Tx<'_> {
             let body = self.svars.get(&next)?;
             let (api, mut gain) = Params::parse(body)?;
             gain.drop_prose();
+            gain.claim_label("ValidTgtsDesc", "ValidTgts");
             if api != "GainLife"
                 || gain.take("ValidTgts").as_deref() != Some("Opponent")
                 || gain.take("Defined").is_some_and(|v| v != "Targeted")

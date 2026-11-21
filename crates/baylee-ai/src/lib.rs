@@ -502,26 +502,39 @@ impl HeuristicAgent {
             Pending::ChooseBlockers {
                 blockers,
                 obeying,
+                demands,
                 bounds,
                 ..
             } => {
-                let (searched, nodes) = search::blockers_within(
+                let (mut pairs, nodes) = search::blockers_within_rules(
                     view,
                     &blockers,
+                    &obeying,
+                    &demands,
+                    &bounds,
                     view.seat(player).map_or(0, |s| s.life),
                     self.profile,
                     self.work.nodes(self.profile.node_budget()),
                 );
                 self.work.spend(u64::from(nodes));
-                let mut pairs = combat::obey_block_rules(searched, &obeying, |attacker| {
-                    view.object(attacker).is_some_and(|o| {
-                        o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() != 0
-                    })
-                });
-                // Whatever chose them, the blocks are held to the counts the
-                // question states (menace, CR 702.111b), which are the ones
-                // the engine holds the declaration to.
-                combat::keep_bounds(&board::Board::new(view), &blockers, &bounds, &mut pairs);
+                let board = board::Board::new(view);
+                combat::keep_bounds(&board, &blockers, &bounds, &mut pairs);
+                let demand_of = |b: ObjectId, a: ObjectId| -> u64 {
+                    demands
+                        .iter()
+                        .find(|d| d.blocker == b && d.attacker == a)
+                        .map_or(0, |d| u64::from(d.count))
+                };
+                let required_score: u64 = obeying.iter().map(|&(b, a)| demand_of(b, a)).sum();
+                let achieved_score: u64 = pairs.iter().map(|&(b, a)| demand_of(b, a)).sum();
+                if achieved_score < required_score {
+                    pairs = combat::obey_block_rules(pairs, &obeying, |attacker| {
+                        view.object(attacker).is_some_and(|o| {
+                            o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() != 0
+                        })
+                    });
+                    combat::keep_bounds(&board, &blockers, &bounds, &mut pairs);
+                }
                 PlayerAction::DeclareBlockers { blockers: pairs }
             }
             Pending::LegendChoice { options, .. } => PlayerAction::ChooseObjects {
@@ -555,6 +568,20 @@ impl HeuristicAgent {
                     // submitting an invalid partial payment or tapping blindly.
                     return PlayerAction::ChooseObjects {
                         objects: Vec::new(),
+                    };
+                }
+                // Enlist (CR 702.154a): tap the highest-power helper creature
+                // when it adds positive power or triggers an enlist payoff.
+                if prompt == ChoicePrompt::CostTap
+                    && min == 0
+                    && max == 1
+                    && view.step == baylee_view::Step::DeclareAttackers
+                    && view
+                        .battlefield_of(view.seat)
+                        .any(|o| (o.keywords & baylee_cards_dsl::KeywordSet::ENLIST.bits()) != 0)
+                {
+                    return PlayerAction::ChooseObjects {
+                        objects: enlist_choice(view, &options),
                     };
                 }
                 if let ChoicePrompt::TappedForCounters { kind } = prompt {
@@ -702,7 +729,7 @@ impl HeuristicAgent {
                     }) {
                     max.min(1)
                 } else {
-                    max
+                    policy::strive_target_cap(view, min, max, context)
                 };
                 if let Some(action) =
                     self.targets(view, &options, &player_options, min, max, context)
@@ -851,6 +878,9 @@ impl HeuristicAgent {
                 baylee_engine::choice::NumberPrompt::Multikicker { cost } => {
                     policy::multikicks(view, context, cost, min, max)
                 }
+                baylee_engine::choice::NumberPrompt::Squad { cost, parts } => {
+                    policy::squads(view, context, cost, parts, min, max)
+                }
                 // A share of a division: what the target needs to die, if it
                 // is an opponent's, within what the question allows; the
                 // least for anything else.
@@ -878,6 +908,9 @@ impl HeuristicAgent {
                 baylee_engine::choice::NumberPrompt::CombatDamage {
                     source, recipient, ..
                 } => self.combat_share(view, source, recipient, min, max),
+                baylee_engine::choice::NumberPrompt::ReadAhead { saga } => {
+                    self.read_ahead_chapter(view, saga, min, max)
+                }
             }),
             Pending::ChoosePlayer { options, .. } => {
                 PlayerAction::ChoosePlayer(self.player_target(view, &options, context))
@@ -986,6 +1019,70 @@ impl HeuristicAgent {
                 // already covers it, because the engine pays from the pool
                 // alone and a short one loses the whole cast.
                 YesNoPrompt::Kicker => PlayerAction::YesNo(policy::kicks(view, context)),
+                YesNoPrompt::Bargain => PlayerAction::YesNo(policy::bargains(view)),
+                YesNoPrompt::Offspring { cost, parts } => {
+                    PlayerAction::YesNo(policy::offsprings(view, context, cost, parts))
+                }
+                YesNoPrompt::Casualty { min_power } => {
+                    PlayerAction::YesNo(policy::casualties(view, min_power))
+                }
+                YesNoPrompt::Conspire => {
+                    PlayerAction::YesNo(policy::conspires(view, context))
+                }
+                YesNoPrompt::Tribute {
+                    permanent,
+                    counters,
+                } => PlayerAction::YesNo(policy::pays_tribute(view, permanent, counters)),
+                YesNoPrompt::Gift { kind } => {
+                    PlayerAction::YesNo(policy::promises_gift(view, context, kind))
+                }
+                YesNoPrompt::Riot { .. } => PlayerAction::YesNo(
+                    !(view.active == player && matches!(view.phase, baylee_view::Phase::FirstMain)),
+                ),
+                YesNoPrompt::Unleash { .. } => {
+                    PlayerAction::YesNo(view.seat(player).is_some_and(|seat| seat.life > 8))
+                }
+                YesNoPrompt::ChooseFirstCostBranch { index } => {
+                    PlayerAction::YesNo(self.prefers_first_cost_branch(view, context, index))
+                }
+                YesNoPrompt::OpeningHandBattlefield | YesNoPrompt::OpeningHandReveal => {
+                    PlayerAction::YesNo(true)
+                }
+                YesNoPrompt::Endure(_) => {
+                    PlayerAction::YesNo(self.endures_counters(view, context.source))
+                }
+                YesNoPrompt::AssignDamageAsThoughUnblocked { attacker } => {
+                    let hit_defender = view
+                        .combat
+                        .attackers
+                        .iter()
+                        .find(|a| a.creature == attacker)
+                        .is_none_or(|att| match att.defending {
+                            baylee_core::ids::Defender::Player(def_id) => {
+                                let power = view
+                                    .object(attacker)
+                                    .and_then(|o| o.power)
+                                    .unwrap_or(0);
+                                let def_life =
+                                    view.seat(def_id).map_or(20, |seat| seat.life);
+                                i32::from(power) >= def_life
+                                    || !view.combat.blockers.iter().any(|b| {
+                                        b.attacker == attacker
+                                            && view.object(b.blocker).is_some_and(|blk| {
+                                                let bt = blk
+                                                    .toughness
+                                                    .unwrap_or(1)
+                                                    .saturating_sub(blk.damage as i16);
+                                                let bp = blk.power.unwrap_or(0);
+                                                i32::from(power) >= i32::from(bt)
+                                                    && bp >= 4
+                                            })
+                                    })
+                            }
+                            _ => true,
+                        });
+                    PlayerAction::YesNo(hit_defender)
+                }
                 YesNoPrompt::KickerOption { index, cost, parts } => {
                     PlayerAction::YesNo(policy::kicks_option(view, context, index, cost, parts))
                 }
@@ -1045,6 +1142,26 @@ impl HeuristicAgent {
                 YesNoPrompt::UseRegenerationShield { .. }
                 | YesNoPrompt::UseShieldCounter { .. } => PlayerAction::YesNo(false),
                 YesNoPrompt::MayDo => PlayerAction::YesNo(self.may_do(view, source, context)),
+                YesNoPrompt::ClashBottom { card } => {
+                    let lands = view
+                        .battlefield
+                        .iter()
+                        .filter(|o| {
+                            o.controller == view.seat
+                                && o.types.contains(baylee_core::types::TypeSet::LAND)
+                        })
+                        .count();
+                    let is_excess_land = lands >= 5
+                        && view
+                            .looking_at
+                            .iter()
+                            .find(|o| o.id == card)
+                            .is_some_and(|o| {
+                                o.types.contains(baylee_core::types::TypeSet::LAND)
+                                    && !o.types.contains(baylee_core::types::TypeSet::CREATURE)
+                            });
+                    PlayerAction::YesNo(is_excess_land)
+                }
                 YesNoPrompt::SacrificeToEnter { .. }
                 | YesNoPrompt::CommanderZone { .. }
                 | YesNoPrompt::TopOfLibrary { .. }
@@ -1617,7 +1734,8 @@ pub fn ability_taps_its_source(view: &PlayerView, source: ObjectId, index: u32) 
         Some(
             AbilityDef::Activated { cost, .. }
             | AbilityDef::ActivatedConditional { cost, .. }
-            | AbilityDef::ModalActivated { cost, .. },
+            | AbilityDef::ModalActivated { cost, .. }
+            | AbilityDef::Unearth { cost },
         ) => cost.parts.iter().any(|part| {
             matches!(
                 part,
@@ -1629,6 +1747,7 @@ pub fn ability_taps_its_source(view: &PlayerView, source: ObjectId, index: u32) 
                     | baylee_cards_dsl::CostPart::ReturnSelfToHand
             )
         }),
+        Some(AbilityDef::Encore { .. }) => true,
         _ => false,
     }
 }
@@ -1661,6 +1780,35 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::Arrange { player, .. }
         | Pending::YesNo { player, .. } => Some(*player),
         Pending::GameOver(_) => None,
+    }
+}
+
+fn enlist_choice(view: &PlayerView, options: &[ObjectId]) -> Vec<ObjectId> {
+    let has_payoff = view.battlefield_of(view.seat).any(|o| {
+        activate::printed_list(o).iter().any(|ab| {
+            matches!(
+                ab,
+                baylee_cards_dsl::AbilityDef::Triggered {
+                    trigger: baylee_cards_dsl::Trigger::Enlisted(_),
+                    ..
+                } | baylee_cards_dsl::AbilityDef::ModalTriggered {
+                    trigger: baylee_cards_dsl::Trigger::Enlisted(_),
+                    ..
+                }
+            )
+        })
+    });
+    let best = options
+        .iter()
+        .copied()
+        .filter_map(|id| {
+            let o = view.object(id)?;
+            Some((id, o.power.unwrap_or(0), o.mana_value))
+        })
+        .max_by_key(|&(_, power, mv)| (power, std::cmp::Reverse(mv)));
+    match best {
+        Some((id, power, _)) if power > 0 || has_payoff => vec![id],
+        _ => Vec::new(),
     }
 }
 

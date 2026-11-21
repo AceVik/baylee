@@ -19,7 +19,7 @@ pub(super) fn offer_payment(
     let player = players_of(who, state, res.controller, res)
         .first()
         .copied()?;
-    let options = chosen::options(state, player, filter, res.controller, res.source);
+    let options = chosen::sacrifice_options(state, player, filter, res.controller, res.source);
     if options.len() < usize::from(count) {
         return if on_payment {
             None
@@ -91,7 +91,8 @@ pub(super) fn offer_conditional(
     check: &'static Filter,
     effect: &'static Effect,
 ) -> Option<Pending> {
-    let options = chosen::options(state, res.controller, filter, res.controller, res.source);
+    let options =
+        chosen::sacrifice_options(state, res.controller, filter, res.controller, res.source);
     if options.is_empty() {
         return None;
     }

@@ -357,6 +357,7 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
             unpaid_suspend: vec![],
             restricted_taps: vec![],
             restricted_floating: vec![],
+            spell_spending: vec![],
             granted_actions: vec![],
         }),
     }
@@ -510,18 +511,26 @@ fn the_prefix_is_byte_stable_and_told_as_the_style_says() {
 
 /// A Commander deck's prefix (estimated tokens): its full text was 4,685
 /// with every reminder and 4,508 with the reminder text of unparametrised
-/// keywords and basic lands stripped on 2026-10-06 (now 4,791 and 4,563 as
-/// more of Reap the Tides entered the pool), held at 97 per cent of the
-/// first; its names alone are 662, held at 800. The stripping is the
-/// conservative rule (`docs/llm-protocol.md` §"The deck"): a keyword's
-/// reminder after a cost or a number stays.
+/// keywords and basic lands stripped on 2026-10-06 (then 4,791 and 4,563, and
+/// now 5,700 reference ceiling as `Kodama's Reach`, `Meloku the Clouded Mirror`,
+/// `Mulldrifter`, `Rampaging Baloths`, `Avenger of Zendikar`, `Beast Within`,
+/// `Explore`, `Khalni Heart Expedition`, `Search for Tomorrow`, `Distant Melody`,
+/// `Ingot Chewer`, `Shriekmaw`, `Growth Spiral`, `Sharktocrab`, `Slinn Voda, the
+/// Rising Deep`, `Verdant Sun's Avatar`, `Elder Deep-Fiend`, `Omnath, Locus of
+/// the Roil`, `Foundation Breaker`, `Belonging`, `Eclipsed Flamekin`,
+/// `Elemental Spectacle`, `Flamebraider`, `Jubilation`, `Lamentation`,
+/// `Mass of Mysteries`, `Shipbreaker Kraken`, and `Spitting Image` from Reap
+/// the Tides / Dance of the Elements entered the pool), held at 97 per cent of
+/// the first; its names alone are held at 800.
+/// The stripping is the conservative rule (`docs/llm-protocol.md` §"The deck"):
+/// a keyword's reminder after a cost or a number stays.
 #[test]
 fn a_commander_deck_s_prefix_holds_its_budget() {
     let context = precon();
     let full = estimate_tokens(&prefix(&context, DeckText::Full));
     let names = estimate_tokens(&prefix(&context, DeckText::Names));
     assert!(
-        full * 100 <= 4_791 * 97,
+        full * 100 <= 5_700 * 97,
         "the full prefix costs about {full}"
     );
     assert!(names <= 800, "the names prefix costs about {names}");
@@ -2419,6 +2428,33 @@ fn a_melded_permanent_is_not_called_a_token() {
     brisela.status = baylee_view::ObjectStatus::TOKEN;
     let line = super::board::type_line(&brisela);
     assert!(line.ends_with(" token"), "{line}");
+}
+
+#[test]
+fn class_level_and_level_counters_are_narrated_independently() {
+    let (mut view, log) = board();
+    let mut class = card(70, "Druid Class");
+    class.class_level = Some(3);
+    class.counters.push(baylee_view::CounterEntry {
+        kind: baylee_view::CounterKind::Level,
+        count: 1,
+    });
+    view.battlefield.push(class);
+    let request = request(
+        view,
+        Pending::Priority {
+            player: ME,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                ..Default::default()
+            }),
+        },
+        log,
+    );
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    assert!(text.contains("Class level 3, 1 level counter"), "{text}");
 }
 
 #[test]

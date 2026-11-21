@@ -99,11 +99,23 @@ impl Tx<'_> {
             return None;
         }
         let mut p_rest = p.clone();
-        for key in ["ValidTgts", "TargetMin", "TargetMax", "SubAbility"] {
+        for key in [
+            "ValidTgts",
+            "ValidTgtsDesc",
+            "TargetMin",
+            "TargetMax",
+            "SubAbility",
+        ] {
             p_rest.take(key);
         }
         let mut cp_rest = cp.clone();
-        for key in ["ValidTgts", "TargetMin", "TargetMax", "SubAbility"] {
+        for key in [
+            "ValidTgts",
+            "ValidTgtsDesc",
+            "TargetMin",
+            "TargetMax",
+            "SubAbility",
+        ] {
             cp_rest.take(key);
         }
         if cp_rest.peek("Condition") == Some("Kicked") {
@@ -117,13 +129,14 @@ impl Tx<'_> {
         }
         let mut p_spec1 = p.clone();
         p_spec1.take("ValidTgts");
-        let spec1 = self.resolve_target_spec(api, &mut p_spec1, &valid1, chain)?;
+        let spec1 = self.resolve_target_spec(api, &mut p_spec1, &valid1, chain, None)?;
         let mut cp_spec2 = cp.clone();
         cp_spec2.take("ValidTgts");
-        let spec2 = self.resolve_target_spec(api, &mut cp_spec2, &valid2, chain)?;
+        let spec2 = self.resolve_target_spec(api, &mut cp_spec2, &valid2, chain, None)?;
         if !Self::same_target_domain(&spec1, &spec2) {
             return None;
         }
+        p.claim_label("ValidTgtsDesc", "ValidTgts");
         p.take("ValidTgts");
         p.take("TargetMin");
         p.take("TargetMax");
@@ -182,10 +195,11 @@ impl Tx<'_> {
             (Some(min), Some(max)) if min == max && self.kicked_pair(min) == Some((1, 0)) => {}
             _ => return None,
         }
+        p.claim_label("ValidTgtsDesc", "ValidTgts");
         p.take("ValidTgts");
         p.take("TargetMin");
         p.take("TargetMax");
-        let spec = self.resolve_target_spec(api, p, &valid, chain)?;
+        let spec = self.resolve_target_spec(api, p, &valid, chain, None)?;
         let effect_target = Self::effect_target_of(&spec);
         self.body.kicked_targets = Some(format!("Some(TargetReq::one({spec}))"));
         Some(effect_target)
@@ -767,4 +781,320 @@ impl Tx<'_> {
             chain.effects.join(", ")
         ))
     }
+
+    /// Parses one `K:Kicker:<arm>` cost string — supporting `{X}` (`cost!("{X}")`,
+    /// `cost!("{X}{2}")`), non-mana `CostPart`s (`Sac`, `Return`, `Discard`,
+    /// `PayLife`, `ExileFromHand`, `ExileFromGrave`, `ExileFromTop`, `tapXType`,
+    /// `PayEnergy`), and mixed mana + non-mana kicker costs.
+    ///
+    /// Returns `(cost_literal, uses_x)`.
+    pub(super) fn parse_kicker_cost_expr(&mut self, raw: &str) -> Option<(String, bool)> {
+        let mut mana = String::new();
+        let mut parts = Vec::new();
+        let mut uses_x = false;
+        for token in super::cost_parts(raw) {
+            let token = token.as_str();
+            if token == "X" {
+                uses_x = true;
+                mana.push_str("{X}");
+            } else if token.chars().all(|c| c.is_ascii_digit())
+                || matches!(token, "W" | "U" | "B" | "R" | "G" | "C")
+            {
+                mana.push('{');
+                mana.push_str(token);
+                mana.push('}');
+            } else if let Some(pair) = super::hybrid_pair(token) {
+                mana.push_str(&pair);
+            } else if token.starts_with("XMin") {
+                return self.deny("a variable-X `Kicker` cost".to_string());
+            } else {
+                parts.extend(self.parse_spell_cost_token(token)?);
+            }
+        }
+        if mana.is_empty() && parts.is_empty() {
+            return self.deny("an empty `Kicker` cost".to_string());
+        }
+        Some((crate::body::cost_literal(&mana, &parts), uses_x))
+    }
+
+    /// Lowers `K:Kicker:<c1>[:<c2>]` (variable-`{X}`, non-mana, or mixed kicker)
+    /// into `FaceDef::additional_costs`, preserving Oracle-order dual-kicker
+    /// alignment.
+    pub(super) fn lower_kicker_line(&mut self, rest: &str) -> Option<()> {
+        if !self.body.additional_costs.is_empty() || self.body.multikicker.is_some() {
+            return self.deny("a second `Kicker` cost".to_string());
+        }
+        let arms: Vec<&str> = rest.split(':').collect();
+        match arms.as_slice() {
+            [single] => {
+                let (expr, uses_x) = self.parse_kicker_cost_expr(single)?;
+                if uses_x && self.has_x_mana_cost {
+                    return self.deny("a variable-X `Kicker` beside `{X}` mana cost".to_string());
+                }
+                if uses_x {
+                    self.has_x = true;
+                }
+                self.body.additional_costs.push(expr);
+                self.body.notes.push("kicker".to_string());
+                Some(())
+            }
+            [first, second] => {
+                let (expr0, x0) = self.parse_kicker_cost_expr(first)?;
+                let (expr1, x1) = self.parse_kicker_cost_expr(second)?;
+                if (x0 || x1) && self.has_x_mana_cost {
+                    return self.deny("a variable-X `Kicker` beside `{X}` mana cost".to_string());
+                }
+                let (ordered, remap) = self.align_dual_kicker_exprs(&expr0, &expr1)?;
+                if x0 || x1 {
+                    self.has_x = true;
+                }
+                self.body.additional_costs.push(ordered[0].clone());
+                self.body.additional_costs.push(ordered[1].clone());
+                self.dual_kicker_remap = Some(remap);
+                self.body.notes.push("kicker".to_string());
+                Some(())
+            }
+            _ => self.deny("a `Kicker` with more than two costs".to_string()),
+        }
+    }
+
+    /// Parses all non-mana `CostPart::...` entries from a spell's `Cost$`
+    /// string for `FaceDef::mandatory_additional_costs`.
+    ///
+    /// Staged for follow-up wiring in `activated.rs` / `mana.rs`.
+    #[allow(dead_code)]
+    pub(super) fn parse_spell_cost_parts(&mut self, raw: &str) -> Option<Vec<String>> {
+        let mut out = Vec::new();
+        for token in super::cost_parts(raw) {
+            let token = token.as_str();
+            let is_mana = token.chars().all(|c| c.is_ascii_digit())
+                || matches!(token, "W" | "U" | "B" | "R" | "G" | "C" | "X")
+                || super::hybrid_pair(token).is_some();
+            if is_mana {
+                continue;
+            }
+            for part in self.parse_spell_cost_token(token)? {
+                out.push(format!("CostPart::{part}"));
+            }
+        }
+        (!out.is_empty()).then_some(out)
+    }
+
+    fn parse_spell_cost_token(&mut self, token: &str) -> Option<Vec<String>> {
+        if token == "DiscardHand" {
+            return Some(vec!["DiscardHand".to_string()]);
+        }
+        if let Some(amt) = token
+            .strip_prefix("PayLife<")
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            return self.parse_scalar_spell_cost(amt, "PayLife", token);
+        }
+        if let Some(amt) = token
+            .strip_prefix("PayEnergy<")
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            return self.parse_scalar_spell_cost(amt, "PayEnergy", token);
+        }
+        let Some((kind, body)) = token
+            .split_once('<')
+            .and_then(|(k, rest)| rest.strip_suffix('>').map(|inner| (k, inner)))
+        else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        if !matches!(
+            kind,
+            "Sac"
+                | "Return"
+                | "Discard"
+                | "ExileFromHand"
+                | "ExileFromGrave"
+                | "ExileFromTop"
+                | "tapXType"
+        ) {
+            return self.deny(format!("cost `{token}`"));
+        }
+        self.parse_object_spell_cost_part(kind, body, token)
+    }
+
+    fn parse_scalar_spell_cost(
+        &self,
+        amt: &str,
+        variant: &str,
+        token: &str,
+    ) -> Option<Vec<String>> {
+        if amt == "X" {
+            if self.has_x && self.svars.get("X").map(String::as_str) == Some("Count$xPaid") {
+                return Some(vec![format!("{variant}X")]);
+            }
+            return self.deny(format!("cost `{variant}<X>` without announced X"));
+        }
+        let Some(value) = amt.parse::<u16>().ok().filter(|&v| v > 0) else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        Some(vec![format!("{variant}({value})")])
+    }
+
+    fn parse_object_spell_cost_part(
+        &mut self,
+        kind: &str,
+        body: &str,
+        token: &str,
+    ) -> Option<Vec<String>> {
+        let mut fields = body.splitn(3, '/');
+        let (Some(n), Some(spec)) = (fields.next(), fields.next()) else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        if kind == "ExileFromTop" {
+            if !matches!(spec, "Card" | "Card.YouOwn") {
+                return self.deny(format!("cost `{token}`"));
+            }
+            let Some(count) = n.parse::<u8>().ok().filter(|&c| c > 0) else {
+                return self.deny(format!("cost `{token}`"));
+            };
+            return Some(vec![format!("ExileTopOfLibrary({count})")]);
+        }
+        if spec == "CARDNAME" {
+            return self.deny(format!("cost `{token}` naming itself"));
+        }
+        if kind == "Discard" && spec == "Random" {
+            let Some(count) = n.parse::<usize>().ok().filter(|&c| (1..=3).contains(&c)) else {
+                return self.deny(format!("a cost naming `{n}` objects"));
+            };
+            return Some(vec!["DiscardRandom".to_string(); count]);
+        }
+
+        let (controlled, card_zone) = match kind {
+            "Sac" | "Return" | "tapXType" => (true, false),
+            "ExileFromHand" => (false, true),
+            _ => (false, false),
+        };
+        let normalized = Self::normalize_spell_cost_spec(spec, kind, controlled);
+        let expr = if card_zone {
+            self.filter_expr_in_zone(&normalized, true)?
+        } else {
+            self.filter_expr(&normalized)?
+        };
+        let filter_name = self.body.filter_static("COST", &expr);
+
+        let announced_x = n == "X"
+            && self.has_x
+            && self.svars.get("X").map(String::as_str) == Some("Count$xPaid");
+        match kind {
+            "Sac" if n == "All" => Some(vec![format!("SacrificeAll(&{filter_name})")]),
+            "Sac" if announced_x => Some(vec![format!("SacrificeX(&{filter_name})")]),
+            "tapXType" if announced_x => Some(vec![format!("TapX(&{filter_name})")]),
+            "tapXType" => {
+                let Some(count) = n.parse::<u32>().ok().filter(|c| (1..=10).contains(c)) else {
+                    return self.deny(format!("a cost naming `{n}` objects"));
+                };
+                Some(vec![format!(
+                    "TapN {{ filter: &{filter_name}, count: {count} }}"
+                )])
+            }
+            _ => {
+                let Some(count) = n.parse::<usize>().ok().filter(|&c| (1..=3).contains(&c)) else {
+                    return self.deny(format!("a cost naming `{n}` objects"));
+                };
+                let variant = match kind {
+                    "Sac" => "Sacrifice",
+                    "Return" => "ReturnToHand",
+                    "Discard" => "Discard",
+                    "ExileFromHand" => "ExileFromHand",
+                    _ => "ExileFromGraveyard",
+                };
+                Some(vec![format!("{variant}(&{filter_name})"); count])
+            }
+        }
+    }
+
+    fn normalize_spell_cost_spec(spec: &str, kind: &str, controlled: bool) -> String {
+        spec.split([',', ';'])
+            .map(|alt| {
+                let alt = alt.trim();
+                if controlled {
+                    if alt.contains("YouCtrl") {
+                        alt.to_string()
+                    } else if alt.contains('.') {
+                        format!("{alt}+YouCtrl")
+                    } else {
+                        format!("{alt}.YouCtrl")
+                    }
+                } else if kind == "ExileFromHand" {
+                    let mut parts = alt.split('.');
+                    let base = parts.next().unwrap_or_default().trim();
+                    let rest: Vec<&str> = parts
+                        .flat_map(|s| s.split('+'))
+                        .map(str::trim)
+                        .filter(|a| !a.is_empty() && !matches!(*a, "Other" | "StrictlyOther"))
+                        .collect();
+                    if rest.is_empty() {
+                        base.to_string()
+                    } else {
+                        format!("{base}.{}", rest.join("+"))
+                    }
+                } else {
+                    alt.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn align_dual_kicker_exprs(&self, expr0: &str, expr1: &str) -> Option<([String; 2], [u8; 2])> {
+        let oracle_pair = self
+            .oracle
+            .split("\\n")
+            .flat_map(|chunk| chunk.lines())
+            .find_map(|line| {
+                let trimmed = line.trim();
+                let body = trimmed
+                    .strip_prefix("Kicker ")
+                    .or_else(|| trimmed.strip_prefix("Kicker\u{2014}"))?;
+                let without_reminder = body.split('(').next()?.trim();
+                let (a, b) = without_reminder.split_once(" and/or ")?;
+                Some((a.trim().to_string(), b.trim().to_string()))
+            });
+        let Some((a, b)) = oracle_pair else {
+            return Some(([expr0.to_string(), expr1.to_string()], [0, 1]));
+        };
+        let needle0 = kicker_order_needle(expr0);
+        let needle1 = kicker_order_needle(expr1);
+        match (needle0, needle1) {
+            (Some(n0), Some(n1)) if !expr0.contains(", ") && !expr1.contains(", ") => {
+                if a == n0 && b == n1 {
+                    Some(([expr0.to_string(), expr1.to_string()], [0, 1]))
+                } else if a == n1 && b == n0 {
+                    Some(([expr1.to_string(), expr0.to_string()], [1, 0]))
+                } else {
+                    self.deny(
+                        "a dual `Kicker` cost that disagrees with its Oracle text".to_string(),
+                    )
+                }
+            }
+            (Some(n0), Some(n1)) => {
+                if a.contains(&n0) && b.contains(&n1) && !(b.contains(&n0) && a.contains(&n1)) {
+                    Some(([expr0.to_string(), expr1.to_string()], [0, 1]))
+                } else if a.contains(&n1) && b.contains(&n0) {
+                    Some(([expr1.to_string(), expr0.to_string()], [1, 0]))
+                } else {
+                    self.deny(
+                        "a dual `Kicker` cost that disagrees with its Oracle text".to_string(),
+                    )
+                }
+            }
+            _ => Some(([expr0.to_string(), expr1.to_string()], [0, 1])),
+        }
+    }
+}
+
+fn kicker_order_needle(cost_expr: &str) -> Option<String> {
+    if let Some(mana) = cost_expr
+        .strip_prefix("cost!(\"")
+        .and_then(|s| s.split('"').next())
+        && !mana.is_empty()
+    {
+        return Some(mana.to_string());
+    }
+    None
 }

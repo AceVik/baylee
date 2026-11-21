@@ -37,6 +37,7 @@ pub fn could_add_mana(effects: &[Effect]) -> bool {
             effect,
             Effect::AddMana { .. }
                 | Effect::AddCombatMana { .. }
+                | Effect::Firebend(_)
                 | Effect::AddManaUnlessAnyPlayerPays { .. }
                 | Effect::AddManaFor { .. }
                 | Effect::AddManaAmountFor { .. }
@@ -54,6 +55,8 @@ fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect])
         Effect::GrantTriggeredIfAbsent { .. }
         | Effect::CreateDelayedObserver { .. }
         | Effect::Reflexive { .. }
+        | Effect::ReflexiveTrigger { .. }
+        | Effect::RegisterDelayedTrigger { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
         | Effect::AtNextEndStep { .. }
         | Effect::AtNextTurnsUpkeep { .. }
@@ -111,7 +114,16 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::PayLifeX
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
-        | CostPart::PutCounterSelf { .. } => false,
+        | CostPart::PutCounterSelf { .. }
+        | CostPart::ReturnUnblockedAttacker
+        | CostPart::DealDamageToYou(_)
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::Forage
+        | CostPart::CraftMaterials { .. } => false,
+        CostPart::Either(a, b) => {
+            a.parts.iter().any(cost_moves_library) || b.parts.iter().any(cost_moves_library)
+        }
         CostPart::ExileTopOfLibrary(_) => true,
     }
 }
@@ -138,6 +150,16 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::DiscardAnyThenDraw
         | Effect::ExileTopMayCast { .. }
         | Effect::ExileTopToPlay { .. }
+        | Effect::ExileTopWithPermission { .. }
+        | Effect::ExileWithPermission { .. }
+        | Effect::GrantLinkedExilePermission { .. }
+        | Effect::ManifestTop { .. }
+        | Effect::ManifestDread
+        | Effect::TurnFaceUp { .. }
+        | Effect::Plot { .. }
+        | Effect::PlotTop { .. }
+        | Effect::Backup { .. }
+        | Effect::DeliverGift(_)
         | Effect::LookAtTopExileFaceDown { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopIf { .. }

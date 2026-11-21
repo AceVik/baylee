@@ -120,10 +120,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.activation_target_choice.controller = Some(player);
         }
         if ability_index == crate::choice::TURN_FACE_UP {
-            return self.turn_face_up(player, source);
+            let (mana, parts, _) = self
+                .turn_face_up_spec(source)
+                .ok_or(EngineError::IllegalAction("no disguise cost"))?;
+            if parts.is_empty() && !mana.has_variable() {
+                return self.turn_face_up(player, source);
+            }
         }
         if let Some(half) = crate::choice::door_to_unlock(ability_index) {
             return self.unlock_door(player, source, half);
+        }
+        if ability_index == crate::choice::PLOT_CARD {
+            return self.plot_card(player, source);
         }
         if ability_index == crate::choice::PREPARED_CAST {
             return self.start_prepared_cast(player, source);
@@ -137,7 +145,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // return before reaching — so a locked artifact's *granted* ability
         // passed under it. Structural rather than observed: the offer guard
         // above refuses first, and no test gets this far.
-        if self.artifact_activations_are_locked(source) {
+        if ability_index != crate::choice::TURN_FACE_UP
+            && self.artifact_activations_are_locked(source)
+        {
             return Err(EngineError::IllegalAction(
                 "activated abilities of artifacts can't be activated (Karn)",
             ));
@@ -163,7 +173,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return Ok(());
         }
         let (cost, effects, (first, second), mana_ability, zone, limit, cost_reduction) = {
-            let obj = self
+            let _obj = self
                 .state
                 .object(source)
                 .ok_or(EngineError::IllegalAction("no such permanent"))?;
@@ -183,24 +193,32 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // at index 1 and refused it with "no such ability", because
             // Glasspool Mimic's printed list is one entry long.
             let ability = granted_definition
-                .as_ref()
-                .or_else(|| obj.abilities(&self.lookup).get(ability_index as usize))
+                .or_else(|| self.activation_definition(source, ability_index))
                 .ok_or(EngineError::IllegalAction("no such ability"))?;
             if ability.is_intrinsic_mana_ability()
                 && casting::intrinsic_mana_colors(&self.state, source).is_empty()
             {
                 return Err(EngineError::IllegalAction("no basic land mana ability"));
             }
-            let selected = match ability {
+            let selected = match &ability {
                 AbilityDef::ModalActivated { modes, .. } => {
                     let mode = self
                         .activation_mode_index(source, ability_index)
                         .ok_or(EngineError::IllegalAction("activation mode not chosen"))?;
-                    super::modes::selected_definition(ability, &modes[usize::from(mode)])
+                    super::modes::selected_definition(&ability, &modes[usize::from(mode)])
                 }
-                _ => *ability,
+                _ => ability,
             };
             match &selected {
+                AbilityDef::Unearth { cost } | AbilityDef::Encore { cost } => (
+                    *cost,
+                    &[][..],
+                    (None, None),
+                    false,
+                    ActivationZone::Graveyard,
+                    ActivationLimit::Unlimited,
+                    None,
+                ),
                 AbilityDef::Activated {
                     cost,
                     effects,
@@ -271,7 +289,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         } else {
             mana_ability
         };
-        if !mana_ability && self.non_mana_activations_are_locked(source) {
+        if !mana_ability
+            && ability_index != crate::choice::TURN_FACE_UP
+            && self.non_mana_activations_are_locked(source)
+        {
             return Err(EngineError::IllegalAction(
                 "non-mana activated abilities of this permanent can't be activated",
             ));
@@ -309,6 +330,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .state
                 .object(source)
                 .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == player),
+            ActivationZone::BattlefieldOrCommand => self.state.object(source).is_some_and(|o| {
+                (o.zone == Zone::Battlefield && o.controller == player)
+                    || (o.zone == Zone::Command && o.owner == player && !o.is_merged_component())
+            }),
             ActivationZone::BattlefieldOwner => self
                 .state
                 .object(source)
@@ -333,6 +358,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .state
                 .object(source)
                 .is_some_and(|o| o.zone == Zone::Hand && o.zone_owner == Some(player)),
+            ActivationZone::HandOrCommand => self.state.object(source).is_some_and(|o| {
+                (o.zone == Zone::Hand && o.zone_owner == Some(player))
+                    || (o.zone == Zone::Command && o.owner == player && !o.is_merged_component())
+            }),
             ActivationZone::Graveyard => self
                 .state
                 .object(source)
@@ -350,7 +379,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return Ok(());
         }
         let variable_mana = cost.mana.has_variable();
-        let (cost, fixed_mana_cost, additional_life) = locked_price.unwrap_or_else(|| {
+        let (mut cost, mut fixed_mana_cost, additional_life) = locked_price.unwrap_or_else(|| {
             let price = |x| {
                 self.activation_price(
                     player,
@@ -374,6 +403,106 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 },
             )
         });
+        let settled_x = self.activation_x.unwrap_or(0);
+        let splice_either = |price: &mut ActivationPrice,
+                             fixed: &mut baylee_core::mana::ManaCost,
+                             at: usize,
+                             chosen: &Cost| {
+            price.mana = price.mana.combine(&chosen.mana.with_x(settled_x));
+            *fixed = fixed.combine(&chosen.mana.with_x(0));
+            price.parts = price.parts[..at]
+                .iter()
+                .chain(chosen.parts)
+                .chain(&price.parts[at + 1..])
+                .copied()
+                .collect();
+        };
+        let mut applied_eithers = 0_usize;
+        while applied_eithers < self.activation_either_branches.len() {
+            let Some((at, CostPart::Either(a, b))) = cost
+                .parts
+                .iter()
+                .enumerate()
+                .find(|(_, p)| matches!(p, CostPart::Either(_, _)))
+            else {
+                break;
+            };
+            let chosen = if self.activation_either_branches[applied_eithers] {
+                *a
+            } else {
+                *b
+            };
+            splice_either(&mut cost, &mut fixed_mana_cost, at, chosen);
+            applied_eithers += 1;
+        }
+        while let Some((at, CostPart::Either(a, b))) = cost
+            .parts
+            .iter()
+            .enumerate()
+            .find(|(_, p)| matches!(p, CostPart::Either(_, _)))
+        {
+            let (first_cost, second_cost) = (*a, *b);
+            let branch_ok = |sub: &Cost| {
+                let mut probe = cost.clone();
+                let mut probe_fixed = fixed_mana_cost;
+                splice_either(&mut probe, &mut probe_fixed, at, sub);
+                self.activation_affordable(player, source, &probe, &[], additional_life)
+                    || ((variable_mana || sub.mana.has_variable())
+                        && self.can_make_more_mana(player, source, ability_index)
+                        && self.activation_affordable(
+                            player,
+                            source,
+                            &probe.with_mana(baylee_core::mana::ManaCost::ZERO),
+                            &[],
+                            additional_life,
+                        ))
+            };
+            let first_ok = branch_ok(first_cost);
+            let second_ok = branch_ok(second_cost);
+            let branch_idx = u8::try_from(self.activation_either_branches.len()).unwrap_or(u8::MAX);
+            match (first_ok, second_ok) {
+                (true, true) => {
+                    self.activation_target_players = chosen_players;
+                    self.pending_plan = Some(PlanKind::ChooseActivationCostBranch {
+                        source,
+                        ability_index,
+                    });
+                    self.pending = Pending::YesNo {
+                        player,
+                        prompt: crate::choice::YesNoPrompt::ChooseFirstCostBranch {
+                            index: branch_idx,
+                        },
+                        source: self
+                            .state
+                            .printed_ability_list(source)
+                            .and_then(|list| list.entry(ability_index as usize))
+                            .and_then(|entry| entry.provenance.ability_ref())
+                            .or_else(|| {
+                                self.state.object(source).and_then(|o| o.card).map(|card| {
+                                    baylee_core::ids::AbilityRef::new(card.index, ability_index)
+                                })
+                            }),
+                    };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
+                (true, false) => {
+                    self.activation_either_branches.push(true);
+                    splice_either(&mut cost, &mut fixed_mana_cost, at, first_cost);
+                }
+                (false, true) => {
+                    self.activation_either_branches.push(false);
+                    splice_either(&mut cost, &mut fixed_mana_cost, at, second_cost);
+                }
+                (false, false) => {
+                    self.activation_either_branches.clear();
+                    self.activation_either_branches.clear();
+                    self.activation_phyrexian.clear();
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("cannot pay the cost"));
+                }
+            }
+        }
         // Each Phyrexian symbol: 2 life or its mana, announced beside the X
         // (CR 601.2b through CR 602.2b; CR 118.13a). Asked only where both
         // answers still leave a way to pay; where one does, it is taken
@@ -419,6 +548,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 (true, false) => self.activation_phyrexian.push(true),
                 (false, true) => self.activation_phyrexian.push(false),
                 (false, false) => {
+                    self.activation_either_branches.clear();
                     self.activation_phyrexian.clear();
                     self.activation_x = None;
                     return Err(EngineError::IllegalAction("cannot pay the cost"));
@@ -631,6 +761,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.activation_cost_choices.clear();
             self.activation_x = None;
             self.activation_phyrexian.clear();
+            self.activation_either_branches.clear();
             return Err(EngineError::IllegalAction("cannot pay the cost"));
         }
         // CR 601.2h, and the one step of it the player has to take: a cost
@@ -644,11 +775,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let wanted = cost_wizard::answers_wanted(priced_cost);
         // X = 0 still supplies one (empty) answer for its cost part.
         while self.activation_cost_choices.len() < wanted
-            && self.activation_x == Some(0)
-            && matches!(
-                cost_wizard::asking_parts(priced_cost).nth(self.activation_cost_choices.len()),
-                Some(CostPart::SacrificeX(_) | CostPart::TapX(_))
-            )
+            && match cost_wizard::asking_parts(priced_cost).nth(self.activation_cost_choices.len())
+            {
+                Some(
+                    CostPart::SacrificeX(_)
+                    | CostPart::TapX(_)
+                    | CostPart::DiscardX(_)
+                    | CostPart::ExileFromGraveyardX(_),
+                ) => self.activation_x == Some(0),
+                Some(CostPart::CraftMaterials { min, max, .. }) => {
+                    *max == 0
+                        || (*min == 0
+                            && cost_wizard::menu(
+                                &self.state,
+                                player,
+                                source,
+                                priced_cost,
+                                cost_wizard::asking_parts(priced_cost)
+                                    .nth(self.activation_cost_choices.len())
+                                    .expect("checked"),
+                            )
+                            .is_empty())
+                }
+                _ => false,
+            }
         {
             self.activation_cost_choices.push(Vec::new());
         }
@@ -671,6 +821,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .iter()
                     .any(|answer| answer.contains(id))
             });
+            if matches!(part, CostPart::Forage) {
+                cost_wizard::prune_incomplete_forage_graveyard(&self.state, &mut options);
+            }
             let prompt = cost_wizard::prompt(part);
             // `can_afford` asked the same question of the same function a
             // moment ago, so an empty list here is not a board this engine
@@ -690,9 +843,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 remaining: match part {
                     CostPart::TapN { count, .. } => Some(*count),
                     CostPart::ExileFromSingleGraveyard { count, .. } => Some(u32::from(*count)),
-                    CostPart::SacrificeX(_) | CostPart::TapX(_) => {
-                        Some(self.activation_x.unwrap_or(0))
-                    }
+                    CostPart::SacrificeX(_)
+                    | CostPart::TapX(_)
+                    | CostPart::DiscardX(_)
+                    | CostPart::ExileFromGraveyardX(_) => Some(self.activation_x.unwrap_or(0)),
+                    CostPart::Forage => Some(3),
                     _ => None,
                 },
                 chosen: Vec::new(),
@@ -737,9 +892,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     },
                     None,
                 )
-            } else if matches!(part, CostPart::SacrificeX(_) | CostPart::TapX(_)) {
+            } else if matches!(
+                part,
+                CostPart::SacrificeX(_)
+                    | CostPart::TapX(_)
+                    | CostPart::DiscardX(_)
+                    | CostPart::ExileFromGraveyardX(_)
+            ) {
                 (
                     u8::try_from(self.activation_x.unwrap_or(0)).unwrap_or(u8::MAX),
+                    None,
+                )
+            } else if let CostPart::CraftMaterials { max, .. } = part {
+                (
+                    (*max).min(u8::try_from(options.len()).unwrap_or(u8::MAX)),
                     None,
                 )
             } else {
@@ -748,10 +914,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.pending = Pending::ChooseCards {
                 player,
                 options,
-                min: if matches!(
+                min: if let CostPart::CraftMaterials { min, .. } = part {
+                    *min
+                } else if matches!(
                     part,
                     CostPart::SacrificeX(_)
                         | CostPart::TapX(_)
+                        | CostPart::DiscardX(_)
+                        | CostPart::ExileFromGraveyardX(_)
                         | CostPart::TapN { .. }
                         | CostPart::ExileFromSingleGraveyard { .. }
                 ) {
@@ -790,6 +960,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let x = self.activation_x.take().unwrap_or(0);
         self.activation_targets_answered = false;
         self.activation_phyrexian.clear();
+        self.activation_either_branches.clear();
         let activated_source_version = self.state.object(source).map(|o| o.version);
         let activated_text = granted.map_or_else(
             || {

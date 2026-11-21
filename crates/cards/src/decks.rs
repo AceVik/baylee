@@ -2,7 +2,7 @@
 //! presets. Used by self-play tests and the local play harness.
 
 use crate::by_index;
-use baylee_cards_dsl::{CommanderRule, PartnerKind};
+use baylee_cards_dsl::{CardDef, CommanderRule, PartnerKind};
 use baylee_core::acceptance::{Zone, parse_decks};
 use baylee_core::deckrow::PrintChoice;
 use baylee_core::generated::subtypes;
@@ -11,6 +11,7 @@ use baylee_core::preset::{
     AIProfile, DeckEntry, FormatId, GamePreset, PrintInfo, SeatController, SeatSpec,
 };
 use baylee_core::preset::{Finish, HouseRules};
+use baylee_core::types::{SupertypeSet, TypeSet};
 
 /// One copy of one card in a deck, with the printing its owner chose.
 ///
@@ -468,14 +469,23 @@ fn print_ref_for(prints: &mut Vec<PrintInfo>, print: &PrintInfo) -> PrintRef {
 pub struct Leader {
     /// The card's rules identity, which is what `PartnerWith` names.
     pub index: CardIndex,
-    /// Whether the card may lead a deck at all (CR 903.3).
-    pub eligible: bool,
+    /// Whether the card may lead a deck on its own (CR 903.3).
+    pub eligible_alone: bool,
     /// Which partner family it is in (CR 702.124).
     pub partner: PartnerKind,
     /// Whether it is a Doctor, for Doctor's companion.
     pub doctor: bool,
     /// Whether it is a Background, for "Choose a Background".
     pub background: bool,
+}
+
+impl Leader {
+    /// Whether the card can be considered for a commander slot, including
+    /// a legendary Background beside a card with “Choose a Background”.
+    #[must_use]
+    pub const fn eligible(&self) -> bool {
+        self.eligible_alone || self.background
+    }
 }
 
 /// Whether two cards may lead one deck together (CR 702.124, CR 903.3b).
@@ -488,7 +498,7 @@ pub struct Leader {
 /// legendary creatures in one command zone, which is not a deck.
 #[must_use]
 pub fn may_lead_together(a: &Leader, b: &Leader) -> bool {
-    if !a.eligible || !b.eligible {
+    if !a.eligible() || !b.eligible() {
         return false;
     }
     match (a.partner, b.partner) {
@@ -511,15 +521,33 @@ pub fn may_lead_together(a: &Leader, b: &Leader) -> bool {
 /// "unknown card" rather than into "not a legal pair".
 #[must_use]
 pub fn leader_of(index: CardIndex) -> Option<Leader> {
-    let def = crate::by_index(index)?;
+    crate::by_index(index).map(leader_from)
+}
+
+fn leader_from(def: &CardDef) -> Leader {
     let face = &def.faces[0];
-    Some(Leader {
+    let background = face.supertypes.contains(SupertypeSet::LEGENDARY)
+        && face.types.contains(TypeSet::ENCHANTMENT)
+        && face.subtypes.contains(&subtypes::enchantment::BACKGROUND);
+    // CR 702.124m: "Doctor's companion" pairs only with a legendary creature
+    // that is a Time Lord and a Doctor and has no other creature types.
+    let doctor = face.supertypes.contains(SupertypeSet::LEGENDARY)
+        && face.types.contains(TypeSet::CREATURE)
+        && face.subtypes.contains(&subtypes::creature::TIME_LORD)
+        && face.subtypes.contains(&subtypes::creature::DOCTOR)
+        && face
+            .subtypes
+            .iter()
+            .filter(|&&t| subtypes::ALL_CREATURE_TYPES.contains(t))
+            .count()
+            == 2;
+    Leader {
         index: def.index,
-        eligible: !matches!(def.commander, CommanderRule::NotEligible),
+        eligible_alone: !matches!(def.commander, CommanderRule::NotEligible),
         partner: def.partner,
-        doctor: face.subtypes.contains(&subtypes::creature::DOCTOR),
-        background: face.subtypes.contains(&subtypes::enchantment::BACKGROUND),
-    })
+        doctor,
+        background,
+    }
 }
 
 /// What a stored deck plays when nobody said, in the store's spelling.
@@ -1214,10 +1242,31 @@ mod partner_tests {
 
     use baylee_core::generated::index;
 
+    #[test]
+    fn a_legendary_creature_keeps_its_roles_with_an_enchantment_subtype() {
+        use baylee_cards_dsl::FaceDef;
+        const CARD: CardDef = CardDef {
+            commander: CommanderRule::Legendary,
+            faces: &[FaceDef {
+                types: TypeSet::CREATURE.union(TypeSet::ENCHANTMENT),
+                supertypes: SupertypeSet::LEGENDARY,
+                subtypes: &[
+                    subtypes::creature::TIME_LORD,
+                    subtypes::creature::DOCTOR,
+                    subtypes::enchantment::BACKGROUND,
+                ],
+                ..FaceDef::DEFAULT
+            }],
+            ..CardDef::DEFAULT
+        };
+        let reading = leader_from(&CARD);
+        assert!(reading.eligible_alone && reading.background && reading.doctor);
+    }
+
     fn leader(index: CardIndex, partner: PartnerKind) -> Leader {
         Leader {
             index,
-            eligible: true,
+            eligible_alone: true,
             partner,
             doctor: false,
             background: false,
@@ -1302,12 +1351,12 @@ mod partner_tests {
     #[test]
     fn a_card_that_cannot_be_a_commander_cannot_be_a_partner() {
         let mut ineligible = leader(index::LLANOWAR_ELVES, PartnerKind::Partner);
-        ineligible.eligible = false;
+        ineligible.eligible_alone = false;
         let partner = leader(index::THRASIOS_TRITON_HERO, PartnerKind::Partner);
         assert!(!may_lead_together(&ineligible, &partner));
         assert!(!may_lead_together(&partner, &ineligible));
         // The counter-half: the same pair with eligibility restored does.
-        ineligible.eligible = true;
+        ineligible.eligible_alone = true;
         assert!(may_lead_together(&ineligible, &partner));
     }
 
@@ -1321,13 +1370,32 @@ mod partner_tests {
         let index = by_name("Sakashima of a Thousand Faces").expect("in the pool");
         let read = leader_of(index).expect("a card in the pool has a leader reading");
         assert_eq!(read.index, index);
-        assert!(read.eligible, "a legendary creature may lead a deck");
+        assert!(read.eligible_alone, "a legendary creature may lead a deck");
         assert_eq!(read.partner, PartnerKind::Partner);
 
         let plain = by_name("Forest").expect("in the pool");
         let read = leader_of(plain).expect("a land has a reading too");
-        assert!(!read.eligible, "a Forest may not lead a deck");
+        assert!(!read.eligible(), "a Forest may not lead a deck");
         assert_eq!(read.partner, PartnerKind::None);
+
+        let trynn = leader_of(by_name("Trynn, Champion of Freedom").unwrap()).unwrap();
+        let silvar = leader_of(by_name("Silvar, Devourer of the Free").unwrap()).unwrap();
+        assert!(may_lead_together(&trynn, &silvar));
+        assert!(may_lead_together(&silvar, &trynn));
+
+        let jaheira = leader_of(by_name("Jaheira, Friend of the Forest").unwrap()).unwrap();
+        let background = leader_of(by_name("Far Traveler").unwrap()).unwrap();
+        assert!(background.eligible() && background.background && !background.eligible_alone);
+        assert!(may_lead_together(&jaheira, &background));
+        assert!(may_lead_together(&background, &jaheira));
+
+        let companion = leader_of(by_name("Barbara Wright").unwrap()).unwrap();
+        let jane_foster = leader_of(by_name("Doctor Jane Foster").unwrap()).unwrap();
+        assert!(
+            !jane_foster.doctor,
+            "Human Doctor is not a Time Lord Doctor (CR 702.124m)"
+        );
+        assert!(!may_lead_together(&companion, &jane_foster));
     }
 
     #[test]
