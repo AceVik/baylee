@@ -10,7 +10,7 @@ card!(
     oracle_id = "b5d5cfc0-17e0-42d1-b5bd-9f27b11191f9",
     scryfall_id = "51f724db-0427-44f9-963d-ae2356c928f4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jagged Lightning",
         mana_cost = mana!("{3}{R}{R}"),

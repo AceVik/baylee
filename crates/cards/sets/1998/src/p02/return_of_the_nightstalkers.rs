@@ -23,7 +23,7 @@ card!(
     oracle_id = "6082f66e-3641-4b09-bb04-86bf29ee1c6f",
     scryfall_id = "e85d85c2-9f34-4375-adcd-a1c5b487cacc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Return of the Nightstalkers",
         mana_cost = mana!("{5}{B}{B}"),

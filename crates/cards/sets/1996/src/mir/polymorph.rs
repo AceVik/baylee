@@ -10,7 +10,7 @@ card!(
     oracle_id = "039115f2-6322-4674-bc64-f21883ed375a",
     scryfall_id = "83d274f4-452b-4ff2-b026-83667e9ba98f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Polymorph",
         mana_cost = mana!("{3}{U}"),

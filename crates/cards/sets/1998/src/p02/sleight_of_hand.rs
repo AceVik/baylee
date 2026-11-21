@@ -10,7 +10,7 @@ card!(
     oracle_id = "05a039ad-1689-4d13-b393-6c1219583b5d",
     scryfall_id = "80dea5c0-ada3-488a-9f2b-f895b92c762f",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sleight of Hand",
         mana_cost = mana!("{U}"),

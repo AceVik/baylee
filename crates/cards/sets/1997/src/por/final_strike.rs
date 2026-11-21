@@ -11,7 +11,7 @@ card!(
     oracle_id = "4d98aea2-b4ff-4903-ba28-a53fbfaad6b1",
     scryfall_id = "ecdfcb03-2f77-4f54-af62-3012cd3efd4f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Final Strike",
         mana_cost = mana!("{2}{B}{B}"),

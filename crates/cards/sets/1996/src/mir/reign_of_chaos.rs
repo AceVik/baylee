@@ -27,7 +27,7 @@ card!(
     oracle_id = "436b5989-9b8c-4e03-a82e-046837c891ca",
     scryfall_id = "9285b14a-fc8e-457a-b803-202e05be41e5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reign of Chaos",
         mana_cost = mana!("{2}{R}{R}"),
