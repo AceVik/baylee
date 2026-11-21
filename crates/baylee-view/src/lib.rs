@@ -310,7 +310,10 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 101 adds `CastModeKind::Impending` (CR 702.176) and
 /// `YesNoPrompt::Gift` (CR 702.174), engine variants a reader of 100 cannot
 /// decode.
-pub const VIEW_VERSION: u32 = 101;
+/// Version 102 adds `CastModeKind::Warp` and [`PublicObject::warped`]
+/// (CR 702.185), `ChoicePrompt::Devour` (CR 702.82), and [`ManaPoolView::snow`]
+/// (CR 107.4h).
+pub const VIEW_VERSION: u32 = 102;
 
 // ------------------------------------------------------------------- targets
 

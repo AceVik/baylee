@@ -673,6 +673,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // of its own to re-derive it from.
         let target_req = self.wizard_target_req(wizard);
         let second_target_req = self.wizard_second_target_req(wizard);
+        let extra_target_instances: Vec<crate::object::ExtraTargetInstance> = wizard
+            .extra_targets
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (targets, players))| {
+                let (_, _, req) = self.wizard_extra_clause(wizard, 2 + i)?;
+                Some(crate::object::ExtraTargetInstance {
+                    targets: targets.clone(),
+                    players: *players,
+                    req: Some(req),
+                })
+            })
+            .collect();
         let card = wizard.card;
         // The face being cast prints "exile it instead" (a disturb back): the
         // object still shows the face it had in the graveyard, so the face is
@@ -714,6 +727,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             obj.target_req = target_req;
             obj.set_second(wizard.second_targets.clone(), second_target_req);
             obj.set_second_players(wizard.second_target_players);
+            obj.set_extra_targets(extra_target_instances);
             obj.x_value = wizard.x;
             obj.times_kicked = wizard.times_kicked();
             obj.riders
@@ -771,6 +785,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             obj.riders.retain(|r| *r != crate::object::Rider::Blitzed);
             if wizard.option == Some(CastModeKind::Blitz) {
                 obj.riders.push(crate::object::Rider::Blitzed);
+            }
+            obj.riders.retain(|r| {
+                !matches!(
+                    r,
+                    crate::object::Rider::WarpedSpell | crate::object::Rider::WarpedInExile(_)
+                )
+            });
+            if wizard.option == Some(CastModeKind::Warp) {
+                obj.riders.push(crate::object::Rider::WarpedSpell);
             }
             obj.riders.retain(|r| *r != crate::object::Rider::Bargained);
             if wizard.bargained {
@@ -1045,12 +1068,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         } else {
             0
         };
+        if wizard.option == Some(CastModeKind::Warp) {
+            self.state.per_turn.spells_warped.0.push(player);
+        }
         self.state.journal.record(GameEvent::SpellCast {
             instant_number,
             object: card,
             player,
             number: self.state.per_turn.spells_cast_by(player),
         });
+        if wizard.option == Some(CastModeKind::Warp) {
+            self.state.journal.record(GameEvent::SpellWarped {
+                object: card,
+                player,
+            });
+        }
         self.cast_wizard = None;
         if !self.finish_nested_cast() {
             self.after_action(player);

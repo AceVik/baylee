@@ -606,6 +606,37 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 });
             }
         }
+        // Warp (CR 702.185a): cast from your hand for its warp cost.
+        if obj.zone == crate::zone::Zone::Hand
+            && obj.zone_owner == Some(player)
+            && let Some(warp) = face.warp
+        {
+            let taxed = baylee_cards_dsl::Cost {
+                mana: if defer_mana {
+                    ManaCost::ZERO
+                } else {
+                    price(warp.mana)
+                },
+                ..warp
+            };
+            if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card))
+                && casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::Warp),
+                    &[],
+                )
+                .is_some()
+            {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u32,
+                    kind: CastModeKind::Warp,
+                    cost: price(warp.mana),
+                });
+            }
+        }
         // Emerge (CR 702.119a–c): its emerge cost reduced by the sacrificed
         // permanent's mana value, "rather than paying this spell's mana cost".
         if let Some(emerge) = face.emerge {
@@ -779,6 +810,62 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 });
             }
         }
+        let plot_only = plot_ok
+            && !commanded
+            && foretell_cost.is_none()
+            && casting::play_permission(&self.state, player, card).is_none();
+        let plot_with_restricted = plot_only.then(|| {
+            casting::planning_pool(
+                &self.state,
+                player,
+                casting::SpendFor::SpellAs(card, casting::SpellForm::Plot),
+                0,
+            )
+        });
+        let plot_pool = plot_with_restricted
+            .as_ref()
+            .and_then(Option::as_ref)
+            .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
+        let plot_adjustment = plot_only.then(|| {
+            casting::face_adjustment(
+                &self.state,
+                player,
+                card,
+                def,
+                0,
+                Some(casting::SpellForm::Plot),
+            )
+        });
+        let afford_plot = |cost: &ManaCost| {
+            let adj = plot_adjustment.expect("plot_only");
+            let allow = adj.allowance(
+                &self.state,
+                casting::SpendFor::SpellAs(card, casting::SpellForm::Plot),
+                printed_reduction,
+            );
+            defer_mana
+                || casting::source_affordable(
+                    &self.state,
+                    player,
+                    casting::SpendFor::SpellAs(card, casting::SpellForm::Plot),
+                    plot_pool,
+                    &adj.price(*cost, printed_reduction),
+                    &[],
+                    Some(allow),
+                )
+        };
+        let modal_base = if plot_only {
+            ManaCost::ZERO
+        } else {
+            face.mana_cost
+        };
+        let modal_price = |cost: ManaCost| {
+            if let Some(adj) = plot_adjustment {
+                adj.price(cost, printed_reduction)
+            } else {
+                price(cost)
+            }
+        };
         // Modal spells (overload & friends): one option per mode — or, for a
         // spell that chooses more than one, one per set of modes it may be
         // cast with, each priced with its modes' own costs (CR 700.2h).
@@ -788,8 +875,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             };
             if !choose.is_one() {
                 for set in casting::mode_sets(modes, *choose) {
-                    let cost = casting::mode_set_cost(face.mana_cost, modes, set);
-                    if afford_normal(&cost.with_x(0))
+                    let cost = casting::mode_set_cost(modal_base, modes, set);
+                    let affordable = if plot_only {
+                        afford_plot(&cost.with_x(0))
+                    } else {
+                        afford_normal(&cost.with_x(0))
+                    };
+                    if affordable
                         && casting::mode_set_has_legal_targets(
                             &self.state,
                             &self.lookup,
@@ -801,14 +893,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         options.push(CastModeDesc {
                             index: (options.len()) as u32,
                             kind: CastModeKind::Modes(set),
-                            cost: price(cost),
+                            cost: modal_price(cost),
                         });
                     }
                 }
                 continue;
             }
             for (i, mode) in modes.iter().enumerate() {
-                let cost = mode.cost_override.unwrap_or(face.mana_cost);
+                if plot_only && mode.cost_override.is_some() {
+                    continue;
+                }
+                let cost = mode.cost_override.unwrap_or(modal_base);
                 // Affordable *and* pointable. Every other option in this
                 // function is paired with the probe `can_cast` makes, and a
                 // mode was the one that was not: Cyclonic Rift on an empty
@@ -816,7 +911,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // control" and answered the press with "not enough legal
                 // targets", leaving the question standing so an agent pressed
                 // it again on the next pass.
-                if (if mode.cost_override.is_some() {
+                if (if plot_only {
+                    afford_plot(&cost.with_x(0))
+                } else if mode.cost_override.is_some() {
                     afford(&cost.with_x(0))
                 } else {
                     afford_normal(&cost.with_x(0))
@@ -830,14 +927,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     options.push(CastModeDesc {
                         index: (options.len()) as u32,
                         kind: CastModeKind::Mode(i),
-                        cost: price(cost),
+                        cost: modal_price(cost),
                     });
                 }
             }
             if let Some(entwine) = face.entwine {
                 let set = casting::entwine_set(modes);
-                let cost = face.mana_cost.combine(&entwine.mana);
-                if afford_normal(&cost.with_x(0))
+                let cost = modal_base.combine(&entwine.mana);
+                let affordable = if plot_only {
+                    afford_plot(&cost.with_x(0))
+                } else {
+                    afford_normal(&cost.with_x(0))
+                };
+                if affordable
                     && casting::additional_payment_capacity_for(
                         &self.state,
                         player,
@@ -858,7 +960,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     options.push(CastModeDesc {
                         index: (options.len()) as u32,
                         kind: CastModeKind::Modes(set),
-                        cost: price(cost),
+                        cost: modal_price(cost),
                     });
                 }
             }
@@ -895,6 +997,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     && casting::spell_condition_allows(&self.state, player, card, def, 0)
             }
             CastModeKind::Plot => {
+                casting::sorcery_window(&self.state, player)
+                    && !face.types.contains(baylee_core::types::TypeSet::LAND)
+                    && casting::permitted_spell_types(&self.state, player, card, face.types, 0)
+                    && casting::spell_condition_allows(&self.state, player, card, def, 0)
+                    && !casting::cast_is_forbidden(&self.state, player, front_spell)
+            }
+            CastModeKind::Mode(_) | CastModeKind::Modes(_) if plot_only => {
                 casting::sorcery_window(&self.state, player)
                     && !face.types.contains(baylee_core::types::TypeSet::LAND)
                     && casting::permitted_spell_types(&self.state, player, card, face.types, 0)
@@ -947,12 +1056,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         {
             options.retain(|o| matches!(o.kind, CastModeKind::Foretell));
         }
-        if plot_ok
-            && !commanded
-            && foretell_cost.is_none()
-            && casting::play_permission(&self.state, player, card).is_none()
-        {
-            options.retain(|o| matches!(o.kind, CastModeKind::Plot));
+        if plot_only {
+            options.retain(|o| {
+                if modal_only {
+                    matches!(o.kind, CastModeKind::Mode(_) | CastModeKind::Modes(_))
+                } else {
+                    matches!(o.kind, CastModeKind::Plot)
+                }
+            });
         }
         if commanded
             && self.state.turn.active == player

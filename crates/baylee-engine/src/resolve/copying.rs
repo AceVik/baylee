@@ -184,6 +184,7 @@ fn copied_spell_riders(riders: &[crate::object::Rider]) -> Vec<crate::object::Ri
                     | R::GiftPromisedTo(_)
                     | R::Fused
                     | R::PrepareSpellFace(_)
+                    | R::WarpedSpell
             )
         })
         .collect()

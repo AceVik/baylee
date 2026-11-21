@@ -586,6 +586,7 @@ fn references(object: &GameObject) -> SmallVec<[ObjectId; 4]> {
 }
 
 /// The object a rider names, if it names one.
+#[allow(clippy::too_many_lines)] // exhaustive Rider arm list; new riders must answer explicitly
 const fn rider_object(rider: &Rider) -> Option<ObjectId> {
     match *rider {
         Rider::DelayedReturnObject(source)
@@ -684,6 +685,9 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::Mutating
         | Rider::MergedToken(_)
         | Rider::AbilitySourceFace(_)
-        | Rider::SyntheticCondition(_) => None,
+        | Rider::SyntheticCondition(_)
+        | Rider::WarpedSpell
+        | Rider::WarpedInExile(_)
+        | Rider::SnowManaSpent(_) => None,
     }
 }

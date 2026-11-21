@@ -186,7 +186,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // A spell cast without paying its mana cost has exactly one
                 // legal X, which is 0 (CR 107.3b), so a free cast is not
                 // asked for it; a non-mana payment that scales with X still is.
-                let waives_mana_cost = wizard.free || wizard.option == Some(CastModeKind::Plot);
+                let waives_mana_cost = wizard.free
+                    || wizard.option == Some(CastModeKind::Plot)
+                    || wizard.alternative_cost == Some(CastModeKind::Plot);
                 let needs_x = (cost.has_variable() && !waives_mana_cost) || scales_mandatory;
                 if needs_x {
                     // The mana for X may still be made during the cast (CR
@@ -411,15 +413,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // that doesn't.
                 let Some(req) = self.wizard_second_target_req(&wizard) else {
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::DivideDamage;
+                    wizard.stage = WizardStage::ExtraTargets;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 };
-                let options = self.wizard_target_options_relative(
-                    &wizard,
-                    &req.spec,
-                    wizard.targets.first().copied(),
-                );
+                let reference = if matches!(wizard.option, Some(CastModeKind::Modes(_))) {
+                    self.wizard_modal_clause(&wizard, 1)
+                        .and_then(|(_, is_second, _)| {
+                            is_second.then(|| wizard.targets.first().copied()).flatten()
+                        })
+                } else {
+                    wizard.targets.first().copied()
+                };
+                let options = self.wizard_target_options_relative(&wizard, &req.spec, reference);
                 let player_options = eval::target_player_options_from(
                     &self.state,
                     &req.spec,
@@ -436,7 +442,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // "Up to one" with nothing to point at: the empty answer
                     // is the only one, for the reason the first stage gives.
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::DivideDamage;
+                    wizard.stage = WizardStage::ExtraTargets;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
@@ -450,6 +456,68 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     min,
                     max,
                     reason: TargetPrompt::Targets,
+                };
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::ExtraTargets => {
+                let clause_idx = 2 + wizard.extra_targets.len();
+                let Some((_, is_second, req)) = self.wizard_extra_clause(&wizard, clause_idx)
+                else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::DivideDamage;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                let reference = is_second
+                    .then(|| wizard.clause_first_targets(clause_idx).0)
+                    .flatten();
+                let options = self.wizard_target_options_relative(&wizard, &req.spec, reference);
+                let player_options = eval::target_player_options_from(
+                    &self.state,
+                    &req.spec,
+                    wizard.player,
+                    eval::live_context(&self.state, wizard.card),
+                );
+                if options.len() + player_options.len() < req.min as usize {
+                    self.cast_wizard = None;
+                    return WizardStep::Yield(Err(EngineError::IllegalAction(
+                        "not enough legal targets",
+                    )));
+                }
+                if (options.is_empty() && player_options.is_empty()) || req.max == 0 {
+                    let mut wizard = wizard;
+                    wizard.target_references.extra.push(Vec::new());
+                    wizard
+                        .extra_targets
+                        .push((SmallVec::new(), baylee_core::ids::SeatSet::new()));
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                }
+                let (min, max) = req.bounds(wizard.x);
+                let max = max
+                    .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
+                let reason = if req.distinct_mana_values {
+                    let mut values: Vec<_> = options
+                        .iter()
+                        .filter_map(|&id| {
+                            self.state
+                                .object(id)
+                                .map(|object| (id, object.characteristics().mana_value()))
+                        })
+                        .collect();
+                    values.sort_unstable_by_key(|(id, _)| *id);
+                    TargetPrompt::DistinctManaValues(values)
+                } else {
+                    TargetPrompt::Targets
+                };
+                self.pending = Pending::ChooseTargets {
+                    player: wizard.player,
+                    options,
+                    player_options,
+                    min,
+                    max,
+                    reason,
                 };
                 self.awaiting_answer = true;
                 WizardStep::Yield(Ok(()))

@@ -950,6 +950,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CmcAtMostX
         | Filter::CmcExactlyX
         | Filter::CmcAtMostColorsSpent
+        | Filter::CmcAtMostSnowManaSpent
+        | Filter::WarpedInExile
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_)
         | Filter::Kicked

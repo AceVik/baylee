@@ -443,6 +443,8 @@ pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::Cast
                     | baylee_engine::choice::CastModeKind::Disguise
                     | baylee_engine::choice::CastModeKind::Dash
                     | baylee_engine::choice::CastModeKind::Blitz
+                    | baylee_engine::choice::CastModeKind::Warp
+                    | baylee_engine::choice::CastModeKind::Modes(_)
                     | baylee_engine::choice::CastModeKind::Emerge
                     | baylee_engine::choice::CastModeKind::Mutate
                     | baylee_engine::choice::CastModeKind::Bestow

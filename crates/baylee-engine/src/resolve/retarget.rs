@@ -128,7 +128,8 @@ fn begin(
     players_only: bool,
 ) -> Option<Pending> {
     state.capture_source_references();
-    let obj = state.object(spell).filter(|o| o.zone == Zone::Stack)?;
+    let state_ref = &*state;
+    let obj = state_ref.object(spell).filter(|o| o.zone == Zone::Stack)?;
     let req = obj.target_req?;
     let was: Vec<(u8, Aim)> = obj
         .targets
@@ -138,7 +139,7 @@ fn begin(
             (
                 0,
                 Aim::Object(
-                    state
+                    state_ref
                         .recorded_target_reference(
                             spell,
                             false,
@@ -157,7 +158,7 @@ fn begin(
             (
                 1,
                 Aim::Object(
-                    state
+                    state_ref
                         .recorded_target_reference(
                             spell,
                             true,
@@ -171,6 +172,37 @@ fn begin(
             obj.second_target_players()
                 .iter()
                 .map(|player| (1, Aim::Player(player))),
+        )
+        .chain(
+            obj.extra_target_instances()
+                .iter()
+                .enumerate()
+                .flat_map(|(g, inst)| {
+                    let group_u8 = u8::try_from(2 + g).expect("target group");
+                    let group_u32 = u32::try_from(g).expect("extra target group");
+                    inst.targets
+                        .iter()
+                        .enumerate()
+                        .map(move |(index, _)| {
+                            (
+                                group_u8,
+                                Aim::Object(
+                                    state_ref
+                                        .recorded_extra_target_reference(
+                                            spell,
+                                            group_u32,
+                                            u32::try_from(index).expect("target slot"),
+                                        )
+                                        .expect("announced extra target"),
+                                ),
+                            )
+                        })
+                        .chain(
+                            inst.players
+                                .iter()
+                                .map(move |player| (group_u8, Aim::Player(player))),
+                        )
+                }),
         )
         .collect();
     if change_to.is_some() && was.len() != 1 {
@@ -337,6 +369,15 @@ fn write(state: &mut GameState, retarget: &Retarget) {
     }
     let mut second = smallvec::SmallVec::new();
     let mut second_players = SeatSet::new();
+    let mut extra: Vec<crate::object::ExtraTargetInstance> = obj
+        .extra_target_instances()
+        .iter()
+        .map(|inst| crate::object::ExtraTargetInstance {
+            targets: smallvec::SmallVec::new(),
+            players: SeatSet::new(),
+            req: inst.req,
+        })
+        .collect();
     for ((group, was), now) in retarget.was.iter().zip(&retarget.now) {
         let aim = now.unwrap_or(*was);
         match (*group, aim) {
@@ -350,9 +391,19 @@ fn write(state: &mut GameState, retarget: &Retarget) {
                     obj.target_players.insert(player);
                 }
             }
-            (_, Aim::Object(reference)) => second.push(reference.object),
-            (_, Aim::Player(player)) => {
+            (1, Aim::Object(reference)) => second.push(reference.object),
+            (1, Aim::Player(player)) => {
                 second_players.insert(player);
+            }
+            (g, Aim::Object(reference)) => {
+                if let Some(inst) = extra.get_mut(usize::from(g - 2)) {
+                    inst.targets.push(reference.object);
+                }
+            }
+            (g, Aim::Player(player)) => {
+                if let Some(inst) = extra.get_mut(usize::from(g - 2)) {
+                    inst.players.insert(player);
+                }
             }
         }
     }
@@ -361,12 +412,31 @@ fn write(state: &mut GameState, retarget: &Retarget) {
     }
     obj.set_second(second, second_req);
     obj.set_second_players(second_players);
+    if !extra.is_empty() {
+        obj.set_extra_targets(extra);
+    }
+    bind_retarget_references(state, retarget, references);
+    state.capture_source_references();
+    record_new_targets(state, retarget.spell, &previous, &previous_players);
+}
+
+fn bind_retarget_references(
+    state: &mut GameState,
+    retarget: &Retarget,
+    references: Vec<(u8, u32, baylee_core::ids::DamageSourceRef)>,
+) {
     let mut targets = crate::sources::TargetReferences::default();
-    for (second, _, reference) in references {
-        if second {
-            targets.second.push(reference);
-        } else {
-            targets.first.push(reference);
+    for (group, _, reference) in references {
+        match group {
+            0 => targets.first.push(reference),
+            1 => targets.second.push(reference),
+            g => {
+                let idx = usize::from(g - 2);
+                if targets.extra.len() <= idx {
+                    targets.extra.resize_with(idx + 1, Vec::new);
+                }
+                targets.extra[idx].push(reference);
+            }
         }
     }
     state.bind_target_references(retarget.spell, &targets);
@@ -388,20 +458,21 @@ fn write(state: &mut GameState, retarget: &Retarget) {
             }
         }
     }
-    state.capture_source_references();
-    record_new_targets(state, retarget.spell, &previous, &previous_players);
 }
 
 /// Object slots compact when a target becomes a player. Carry the retained
 /// incarnation with its target rather than re-reading its newer zone object.
-fn retarget_references(retarget: &Retarget) -> Vec<(bool, u32, baylee_core::ids::DamageSourceRef)> {
-    let mut new_indices = [0_u32; 2];
+fn retarget_references(retarget: &Retarget) -> Vec<(u8, u32, baylee_core::ids::DamageSourceRef)> {
+    let mut new_indices = Vec::new();
     let mut references = Vec::new();
     for ((group, was), now) in retarget.was.iter().zip(&retarget.now) {
-        let group = usize::from(*group != 0);
+        let g = usize::from(*group);
+        if new_indices.len() <= g {
+            new_indices.resize(g + 1, 0_u32);
+        }
         if let Aim::Object(reference) = now.unwrap_or(*was) {
-            references.push((group != 0, new_indices[group], reference));
-            new_indices[group] += 1;
+            references.push((*group, new_indices[g], reference));
+            new_indices[g] += 1;
         }
     }
     references
@@ -416,6 +487,11 @@ fn targeted_players(obj: &crate::object::GameObject) -> Vec<PlayerId> {
         .iter()
         .chain(obj.chosen_player)
         .chain(obj.second_target_players().iter())
+        .chain(
+            obj.extra_target_instances()
+                .iter()
+                .flat_map(|inst| inst.players.iter()),
+        )
         .collect();
     players.sort_unstable();
     players.dedup();
@@ -423,10 +499,13 @@ fn targeted_players(obj: &crate::object::GameObject) -> Vec<PlayerId> {
 }
 
 fn requirement(obj: &crate::object::GameObject, group: u8) -> Option<TargetReq> {
-    if group == 0 {
-        obj.target_req
-    } else {
-        obj.second_target_req()
+    match group {
+        0 => obj.target_req,
+        1 => obj.second_target_req(),
+        g => obj
+            .extra_target_instances()
+            .get(usize::from(g - 2))
+            .and_then(|inst| inst.req),
     }
 }
 
@@ -525,6 +604,20 @@ pub(super) fn record_new_targets(
             if let Some(reference) = state.recorded_target_reference(
                 spell,
                 second,
+                u32::try_from(index).expect("target slot"),
+            ) && !previous.contains(&reference)
+                && state.source_identity(reference.object) == Some(reference)
+            {
+                targets.push(reference);
+            }
+        }
+    }
+    for (group, inst) in obj.extra_target_instances().iter().enumerate() {
+        let group = u32::try_from(group).expect("extra target group");
+        for index in 0..inst.targets.len() {
+            if let Some(reference) = state.recorded_extra_target_reference(
+                spell,
+                group,
                 u32::try_from(index).expect("target slot"),
             ) && !previous.contains(&reference)
                 && state.source_identity(reference.object) == Some(reference)

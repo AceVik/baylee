@@ -5030,6 +5030,12 @@ pub enum Effect {
     /// [`crate::CostPart::CraftMaterials`] to that permanent. Appended to
     /// preserve replay identities.
     ReturnCraftedTransformed,
+    /// Warp's next-end-step delayed trigger effect (CR 702.185a–b): exiles the
+    /// exact permanent the warped spell became (`EventObject`); if it is a card
+    /// that moves to exile this way, its owner may cast it from exile on a
+    /// later turn for as long as it remains exiled. Appended to preserve replay
+    /// identities.
+    ExileWarped,
 }
 
 #[cfg(test)]

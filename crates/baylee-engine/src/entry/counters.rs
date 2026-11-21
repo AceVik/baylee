@@ -10,7 +10,9 @@ pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
     super::modifiers(state, id).iter().any(|m| {
         matches!(
             m,
-            EnterModifier::ChooseCounterPerEntryCount(_) | EnterModifier::Amplify(_)
+            EnterModifier::ChooseCounterPerEntryCount(_)
+                | EnterModifier::Amplify(_)
+                | EnterModifier::Devour { .. }
         )
     }) || state.effects.iter().any(|effect| {
         matches!(

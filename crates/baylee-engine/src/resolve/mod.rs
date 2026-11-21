@@ -88,7 +88,7 @@ mod this_way;
 mod token_choices;
 mod top_card;
 mod would_destroy;
-pub use subjects::SubjectContext;
+pub use subjects::{ModalTargetStep, SubjectContext};
 mod amass;
 mod card_copies;
 mod empower;
@@ -877,6 +877,20 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::SnowManaSpentToCast => state
+            .object(res.on_stack)
+            .map(eval::object_snow_mana_spent)
+            .filter(|&n| n > 0)
+            .unwrap_or_else(|| eval::snow_mana_spent_on(state, res.source)),
+        Amount::EntrySacrifices => state
+            .object(res.on_stack)
+            .and_then(|o| {
+                o.riders.iter().find_map(|r| match r {
+                    crate::object::Rider::EntrySacrifices(n) => Some(*n),
+                    _ => None,
+                })
+            })
+            .unwrap_or_else(|| eval::entry_sacrifices_on(state, res.source)),
         Amount::ManaTypeSpentOnX(color) => state
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
@@ -1421,6 +1435,36 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     flow
 }
 
+fn init_resolution_lki(state: &GameState, res: &mut Resolution) {
+    if !res.mana_ability {
+        let index = state
+            .object(res.on_stack)
+            .and_then(|object| object.ability)
+            .map_or(0, |loc| loc.index);
+        res.text = state.ability_text(res.on_stack, index);
+    }
+    res.target_lki = Some(
+        res.targets
+            .iter()
+            .chain(res.second_targets.iter())
+            .chain(
+                res.subject
+                    .modal_steps()
+                    .iter()
+                    .flat_map(|step| step.targets.iter().chain(step.second_targets.iter())),
+            )
+            .filter_map(|&id| {
+                state.object(id).map(|o| TargetLki {
+                    id,
+                    version: o.version,
+                    controller: o.controller,
+                    chars: o.characteristics().clone(),
+                })
+            })
+            .collect(),
+    );
+}
+
 fn run_inner(state: &mut GameState, res: &mut Resolution) -> Flow {
     subjects::flush(state, res);
     linked_reanimation::flush(state, res);
@@ -1434,27 +1478,7 @@ fn run_inner(state: &mut GameState, res: &mut Resolution) -> Flow {
     // suspended choice, so this has to be the *first* entry and not any
     // entry, which is what the `Option` says.
     if res.target_lki.is_none() {
-        if !res.mana_ability {
-            let index = state
-                .object(res.on_stack)
-                .and_then(|object| object.ability)
-                .map_or(0, |loc| loc.index);
-            res.text = state.ability_text(res.on_stack, index);
-        }
-        res.target_lki = Some(
-            res.targets
-                .iter()
-                .chain(res.second_targets.iter())
-                .filter_map(|&id| {
-                    state.object(id).map(|o| TargetLki {
-                        id,
-                        version: o.version,
-                        controller: o.controller,
-                        chars: o.characteristics().clone(),
-                    })
-                })
-                .collect(),
-        );
+        init_resolution_lki(state, res);
     }
     loop {
         if let Some(pending) = crate::replacement::counter_order::pending(state) {
@@ -1501,6 +1525,15 @@ fn run_inner(state: &mut GameState, res: &mut Resolution) -> Flow {
             res.targets = std::mem::take(&mut res.second_targets)
                 .into_iter()
                 .collect();
+        }
+        while let Some(step) = res.subject.take_modal_step(res.effects.len() - res.pc) {
+            res.targets = step.targets;
+            res.target_players = step.target_players;
+            res.chosen_player = (res.target_players.len() == 1)
+                .then(|| res.target_players.iter().next())
+                .flatten();
+            res.second_targets = step.second_targets;
+            res.subject.set_second_players(step.second_players);
         }
         let op = res.effects[res.pc];
         // Continuous effects apply at all times (CR 613), so an effect of

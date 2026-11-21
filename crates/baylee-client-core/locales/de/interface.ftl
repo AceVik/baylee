@@ -1126,6 +1126,11 @@ NounCardsToAmplify =
         [one] Karte zum Vorzeigen für Verstärken
        *[other] Karten zum Vorzeigen für Verstärken
     }
+NounCreaturesToDevour =
+    { $count ->
+        [one] Kreatur zum Verschlingen
+       *[other] Kreaturen zum Verschlingen
+    }
 NounCardsToManifest =
     { $count ->
         [one] Karte zum Manifestieren
@@ -1264,6 +1269,7 @@ CastBeamMeUp = Beam mich hoch
 DifferentManaValues = Wähle Ziele mit unterschiedlichen Manabeträgen
 CastDash = Sturmangriff
 CastBlitz = Blitzangriff
+CastWarp = Warp
 CastEmerge = Auftauchen
 CastFused = Fusion
 CastMutate = Mutation

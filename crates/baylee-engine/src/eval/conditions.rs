@@ -670,6 +670,25 @@ pub fn condition_holds_with_context(
         Condition::OpponentDealtDamageThisTurn => {
             super::amounts::damage_dealt_to_opponents_this_turn(state, you) > 0
         }
+        Condition::WarpCostPaid => state.object(source).is_some_and(|o| {
+            matches!(
+                o.zone,
+                crate::zone::Zone::Stack | crate::zone::Zone::Battlefield
+            ) && o.riders.contains(&crate::object::Rider::WarpedSpell)
+        }),
+        Condition::SpellWarpedThisTurn(who) => match who {
+            None => !state.per_turn.spells_warped.is_empty(),
+            Some(rel) => {
+                super::players_for_source(rel, state, you, Some(source)).is_some_and(|seats| {
+                    state
+                        .per_turn
+                        .spells_warped
+                        .iter()
+                        .any(|p| seats.contains(p))
+                })
+            }
+        },
+        Condition::SnowManaWasSpent => super::amounts::snow_mana_spent_on(state, source) > 0,
     }
 }
 
@@ -824,6 +843,12 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::IsRenowned) => state
             .damage_source(source, version)
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::Renowned)),
+        Some(Condition::WarpCostPaid) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::WarpedSpell)),
+        Some(Condition::SnowManaWasSpent) => state
+            .damage_source(source, version)
+            .is_some_and(|object| super::amounts::object_snow_mana_spent(object) > 0),
         Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep) => {
             super::upkeep_history::came_under_your_control(state, you, source, version)
         }

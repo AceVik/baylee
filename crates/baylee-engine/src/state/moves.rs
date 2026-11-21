@@ -824,6 +824,8 @@ impl GameState {
                             | crate::object::Rider::Escaped
                             | crate::object::Rider::Masked
                             | crate::object::Rider::KickedMask(_)
+                            | crate::object::Rider::WarpedSpell
+                            | crate::object::Rider::SnowManaSpent(_)
                     )
                 });
             }
@@ -837,7 +839,8 @@ impl GameState {
                 // move, and a spell exiled from the stack is not foretold.
                 crate::object::Rider::Foretold { .. }
                 | crate::object::Rider::Plotted
-                | crate::object::Rider::PlottedOnTurn(_) => {
+                | crate::object::Rider::PlottedOnTurn(_)
+                | crate::object::Rider::WarpedInExile(_) => {
                     from_zone == Zone::Exile && to.zone() == Zone::Exile
                 }
                 _ => true,
@@ -856,9 +859,19 @@ impl GameState {
             if from_zone == Zone::Exile && to.zone() != Zone::Exile {
                 obj.riders.retain(|r| !r.ends_as_it_leaves_exile());
             }
+            if from_zone == Zone::Stack
+                && to.zone() == Zone::Battlefield
+                && let Some(snow) = obj
+                    .paid
+                    .as_ref()
+                    .map(|p| p.snow_mana_spent())
+                    .filter(|&n| n > 0)
+            {
+                obj.riders.push(crate::object::Rider::SnowManaSpent(snow));
+            }
             // What was paid is the spell's and no later object's (a flashback
-            // is a new payment); nothing on the battlefield reads it yet, so
-            // a resolved permanent spell gives it up too (`PaidRecord`).
+            // is a new payment); snow mana spent is carried on a rider above
+            // when nonzero (`CR 107.4h`, `CR 400.7d`).
             obj.paid = None;
             // The same rule for the other thing a copy replaced. Copiable
             // values are fixed while the copy exists (CR 707.2a) and the

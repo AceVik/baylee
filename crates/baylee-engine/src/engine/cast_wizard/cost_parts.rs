@@ -100,6 +100,7 @@ pub(crate) fn wizard_alternative_parts(
         Some(CastModeKind::Madness) => face.madness.expect("madness").parts,
         Some(CastModeKind::Bestow) => face.bestow.expect("bestow").parts,
         Some(CastModeKind::Blitz) => face.blitz.expect("blitz").parts,
+        Some(CastModeKind::Warp) => face.warp.expect("warp").parts,
         _ => &[],
     }
 }

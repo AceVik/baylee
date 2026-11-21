@@ -436,6 +436,14 @@ pub enum Filter {
     /// (CR 702.95a–e). Matches nothing when the source is unpaired or not on
     /// the battlefield. Appended to preserve replay identities.
     PairedWithSource,
+    /// An exiled card exiled by a warp delayed trigger (`Rider::WarpedInExile`,
+    /// CR 702.185a–b). Appended to preserve replay identities.
+    WarpedInExile,
+    /// Mana value is less than or equal to the amount of snow mana spent to
+    /// cast the source spell or the spell that became the source permanent
+    /// (*Blood on the Snow*, *Draugr Necromancer*, CR 107.4h). Appended to
+    /// preserve replay identities.
+    CmcAtMostSnowManaSpent,
 }
 
 /// Zone references for filters (engine zones, DSL view).

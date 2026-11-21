@@ -277,6 +277,7 @@ impl HeuristicAgent {
             // no dredge in place of the draw, nothing untapped under Winter Orb.
             | ChoicePrompt::RevealOrEnterTapped
             | ChoicePrompt::Amplify
+            | ChoicePrompt::Devour { .. }
             | ChoicePrompt::Dredge
             | ChoicePrompt::Untap => worst(min),
             // Separating for this seat's Fact or Fiction: one pile is

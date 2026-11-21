@@ -342,17 +342,36 @@ fn a_modes_fault_fires_on_each_bad_shape() {
     let one = Some(const { ManaCost::parse("{1}") });
     let spell = |choose, modes: &'static [SpellMode]| AbilityDef::ModalSpell { modes, choose };
     let leak = |modes: Vec<SpellMode>| -> &'static [SpellMode] { Vec::leak(modes) };
-    assert_eq!(
-        modes_fault(&spell(
+    for valid in [
+        spell(
             ModeCount::ONE_OR_MORE,
             leak(vec![
                 mode(PLAYER, None, one),
                 mode(CREATURE, None, one),
                 mode(None, None, one),
-            ])
-        )),
-        None
-    );
+            ]),
+        ),
+        spell(
+            ModeCount::ONE_OR_MORE,
+            leak(vec![mode(CREATURE, None, None); 3]),
+        ),
+        spell(
+            ModeCount::ONE_OR_MORE,
+            leak(vec![mode(CREATURE, None, None), mode(PLAYER, None, None)]),
+        ),
+        spell(
+            ModeCount::ONE_OR_MORE,
+            leak(vec![
+                SpellMode {
+                    second_targets: CREATURE,
+                    ..mode(CREATURE, None, None)
+                },
+                mode(None, None, None),
+            ]),
+        ),
+    ] {
+        assert_eq!(modes_fault(&valid), None);
+    }
     for (shape, ability) in [
         (
             "choosing none",
@@ -377,37 +396,10 @@ fn a_modes_fault_fires_on_each_bad_shape() {
             ),
         ),
         (
-            "three targeting modes",
-            spell(
-                ModeCount::ONE_OR_MORE,
-                leak(vec![mode(CREATURE, None, None); 3]),
-            ),
-        ),
-        (
-            "a player in the second instance",
-            spell(
-                ModeCount::ONE_OR_MORE,
-                leak(vec![mode(CREATURE, None, None), mode(PLAYER, None, None)]),
-            ),
-        ),
-        (
             "nine modes",
             spell(
                 ModeCount::ONE_OR_MORE,
                 leak(vec![mode(None, None, None); 9]),
-            ),
-        ),
-        (
-            "a mode that says \"target\" twice among several",
-            spell(
-                ModeCount::ONE_OR_MORE,
-                leak(vec![
-                    SpellMode {
-                        second_targets: CREATURE,
-                        ..mode(CREATURE, None, None)
-                    },
-                    mode(None, None, None),
-                ]),
             ),
         ),
     ] {

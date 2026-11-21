@@ -1342,7 +1342,8 @@ impl Effect {
             | Effect::DeliverGift(_)
             | Effect::Incubate { .. }
             | Effect::Exploit
-            | Effect::ReturnCraftedTransformed => (NONE, NONE),
+            | Effect::ReturnCraftedTransformed
+            | Effect::ExileWarped => (NONE, NONE),
         }
     }
 

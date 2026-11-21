@@ -39,6 +39,7 @@ pub(crate) fn obj(id: u32, controller: u8) -> PublicObject {
         unlocked_doors: None,
         suspended: false,
         plotted: false,
+        warped: false,
         token: None,
         colors: ColorSet::default(),
         keywords: 0,

@@ -158,10 +158,16 @@ fn pool(pool: &ManaPoolView) -> String {
         })
     });
     let restricted = symbols(&|color| pool.restricted[color.index()]);
-    match (plain.is_empty(), restricted.is_empty()) {
+    let base = match (plain.is_empty(), restricted.is_empty()) {
         (_, true) => format!("pool {plain}"),
         (true, false) => format!("pool {restricted} (restricted to some spells)"),
         (false, false) => format!("pool {plain} (+{restricted} restricted to some spells)"),
+    };
+    let snow = pool.snow_total();
+    if snow > 0 {
+        format!("{base} ({snow} snow)")
+    } else {
+        base
     }
 }
 
@@ -885,6 +891,9 @@ fn zone_line(
             }
             if object.plotted {
                 notes.push("plotted".to_string());
+            }
+            if object.warped {
+                notes.push("warped".to_string());
             }
             if object.commander {
                 notes.push(format!("{} commander", table.whose(object.owner)));

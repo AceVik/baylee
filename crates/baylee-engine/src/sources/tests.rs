@@ -171,6 +171,7 @@ fn ceased_source_and_stack_target_references_are_exact_and_copyable() {
         &TargetReferences {
             first: vec![state.source_identity(target).unwrap()],
             second: Vec::new(),
+            extra: Vec::new(),
         },
     );
     state.prune_damage_sources();
@@ -530,6 +531,7 @@ fn targeting_spell_predicate_keeps_second_targets_lki_and_exact_incarnations() {
         &TargetReferences {
             first: vec![],
             second: vec![reference],
+            extra: Vec::new(),
         },
     );
     let original = state.object(spell).unwrap().clone();

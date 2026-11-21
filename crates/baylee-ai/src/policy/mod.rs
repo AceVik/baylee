@@ -940,6 +940,61 @@ impl HeuristicAgent {
                 ranked.sort_by_key(|id| (value(id), *id));
                 usize::from(min)
             }
+            ChoicePrompt::Devour { factor } => {
+                ranked.sort_by_key(|id| {
+                    (
+                        view.object(*id)
+                            .map_or(0, |o| Self::permanent_worth(view, o)),
+                        *id,
+                    )
+                });
+                let cap = usize::from(max).min(ranked.len());
+                let zero_toughness = view
+                    .casting
+                    .and_then(|c| identity(view, c))
+                    .and_then(face)
+                    .is_some_and(|f| f.toughness == Some(0));
+                if factor == 0 {
+                    let mut best_k = usize::from(zero_toughness && cap > 0);
+                    let mut sac_stats = 0_i32;
+                    for (idx, &id) in ranked.iter().take(cap).enumerate() {
+                        let k = idx + 1;
+                        let pt = view.object(id).map_or(0, |o| {
+                            i32::from(o.power.unwrap_or(0).max(0))
+                                + i32::from(o.toughness.unwrap_or(0).max(0))
+                        });
+                        sac_stats += pt;
+                        let gained = 2 * i32::try_from(k * k).unwrap_or(i32::MAX / 2);
+                        if gained > sac_stats {
+                            best_k = k;
+                        }
+                    }
+                    best_k
+                } else {
+                    let gain_per = 2 * i32::from(factor);
+                    ranked.retain(|&id| {
+                        view.object(id).is_some_and(|o| {
+                            i32::from(o.power.unwrap_or(0).max(0))
+                                + i32::from(o.toughness.unwrap_or(0).max(0))
+                                < gain_per
+                        })
+                    });
+                    if ranked.is_empty() && zero_toughness && !options.is_empty() {
+                        let mut fallback = options.to_vec();
+                        fallback.sort_by_key(|id| {
+                            (
+                                view.object(*id)
+                                    .map_or(0, |o| Self::permanent_worth(view, o)),
+                                *id,
+                            )
+                        });
+                        ranked = fallback;
+                        1.min(usize::from(max))
+                    } else {
+                        ranked.len().min(usize::from(max))
+                    }
+                }
+            }
             _ => return None,
         };
         ranked.truncate(count);
@@ -2776,6 +2831,7 @@ fn card_as_object(
         unlocked_doors: None,
         suspended: false,
         plotted: false,
+        warped: false,
         token: None,
         colors,
         mana_value: f.mana_cost.cmc(),

@@ -170,7 +170,42 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             Some((object.version, object.characteristics().power.unwrap_or(0)))
         });
         let aura_successor = self.aura_successor(trigger);
+        let (source_snow_spent, source_entry_sacrifices) = self
+            .state
+            .damage_source(trigger.source, trigger.source_version)
+            .map_or((0, 0), |src| {
+                let snow = src
+                    .paid
+                    .as_ref()
+                    .map(|p| p.snow_mana_spent())
+                    .or_else(|| {
+                        src.riders.iter().find_map(|r| match r {
+                            crate::object::Rider::SnowManaSpent(n) => Some(*n),
+                            _ => None,
+                        })
+                    })
+                    .unwrap_or(0);
+                let sacs = src
+                    .riders
+                    .iter()
+                    .find_map(|r| match r {
+                        crate::object::Rider::EntrySacrifices(n) => Some(*n),
+                        _ => None,
+                    })
+                    .unwrap_or(0);
+                (snow, sacs)
+            });
         if let Some(object) = self.state.object_mut(top) {
+            if source_snow_spent > 0 {
+                object
+                    .riders
+                    .push(crate::object::Rider::SnowManaSpent(source_snow_spent));
+            }
+            if source_entry_sacrifices > 0 {
+                object.riders.push(crate::object::Rider::EntrySacrifices(
+                    source_entry_sacrifices,
+                ));
+            }
             object.event_object = trigger.event_object;
             if let Some(grantor) = trigger.grantor {
                 object

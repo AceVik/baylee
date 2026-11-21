@@ -121,6 +121,7 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
                     | CastModeKind::Bestow
                     | CastModeKind::Dash
                     | CastModeKind::Blitz
+                    | CastModeKind::Warp
                     | CastModeKind::Emerge
                     | CastModeKind::Fused
                     | CastModeKind::Plot

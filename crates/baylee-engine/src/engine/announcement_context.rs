@@ -25,6 +25,7 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
         | WizardStage::Replicate
         | WizardStage::Targets
         | WizardStage::SecondTargets
+        | WizardStage::ExtraTargets
         | WizardStage::ChoosePlayer
         | WizardStage::DivideDamage
         | WizardStage::PitchChoice

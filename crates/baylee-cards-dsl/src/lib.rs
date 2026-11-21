@@ -724,6 +724,11 @@ pub struct FaceDef {
     /// opponent (`Rider::GiftPromisedTo`); delivers the promised gift on spell
     /// resolution (instants/sorceries) or permanent entry.
     pub gift: Option<GiftKind>,
+    /// Warp (CR 702.185a–b): alternative cost to cast this card from your hand;
+    /// if its warp cost was paid, exile the permanent this spell becomes at the
+    /// beginning of the next end step, and its owner may cast it from exile on
+    /// a later turn.
+    pub warp: Option<crate::cost::Cost>,
 }
 
 impl FaceDef {
@@ -819,6 +824,7 @@ impl FaceDef {
         casualty: None,
         impending: None,
         gift: None,
+        warp: None,
     };
 }
 
@@ -1127,7 +1133,7 @@ pub enum EnterModifier {
     /// your hand that share a creature type with it (excluding this card and
     /// any cards entering simultaneously). This permanent enters with `N`
     /// +1/+1 counters on it for each card revealed this way (subject to counter
-    /// replacements, CR 614.16). Repeat the entry for multiple amplify
+    /// replacements, CR 702.38b). Repeat the entry for multiple amplify
     /// instances so each prompts and applies separately (CR 702.38b).
     Amplify(u8),
     /// "This permanent enters with [count] [kind] counters on it if [condition]"
@@ -1149,6 +1155,21 @@ pub enum EnterModifier {
     /// +1/+1 counters on it. Repeat for multiple instances so each applies
     /// separately (CR 702.54c). Appended to preserve replay identities.
     Bloodthirst(Amount),
+    /// "Devour N" / "Devour [quality] N" (CR 702.82a–c, CR 614.1c, CR 614.12):
+    /// as this object enters the battlefield, you may sacrifice any number of
+    /// other permanents you control matching `filter`. When `factor` is
+    /// nonzero, this permanent enters with `factor * count` +1/+1 counters on
+    /// it; when `factor == 0` (*Thromok the Insatiable*: "Devour X, where X is
+    /// the number of creatures devoured this way"), it enters with
+    /// `count * count` +1/+1 counters on it (subject to counter replacements
+    /// per CR 614.16), and records `count` for [`Amount::EntrySacrifices`] and
+    /// [`PtCount::EntrySacrifices`]. Appended to preserve replay identities.
+    Devour {
+        /// Filter on controlled permanents eligible to be devoured.
+        filter: &'static Filter,
+        /// +1/+1 counters per devoured permanent (`0` means `count * count`).
+        factor: u8,
+    },
 }
 
 impl EnterModifier {
@@ -1161,6 +1182,16 @@ impl EnterModifier {
         Self::WithCounters {
             kind: crate::effect::CounterKind::P1P1,
             amount: crate::effect::Amount::Fixed(n),
+        }
+    }
+
+    /// Standard `Devour N` (`filter: &Filter::CREATURE`, `factor: n`; `0` for
+    /// Thromok's `Devour X`, CR 702.82a).
+    #[must_use]
+    pub const fn devour(n: u8) -> Self {
+        Self::Devour {
+            filter: &Filter::CREATURE,
+            factor: n,
         }
     }
 }
@@ -1269,6 +1300,9 @@ keywords! {
     EXPLOIT = 76, "Exploit (CR 702.110).";
     EVOLVE = 77, "Evolve (CR 702.100).";
     BLOODTHIRST = 78, "Bloodthirst (CR 702.54).";
+    WARP = 81, "Warp (CR 702.185).";
+    DEVOUR = 82, "Devour (CR 702.82).";
+    SPREE = 83, "Spree (CR 702.172).";
 }
 
 impl KeywordSet {
@@ -1403,6 +1437,9 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::EXPLOIT, "Exploit"),
     (KeywordSet::EVOLVE, "Evolve"),
     (KeywordSet::BLOODTHIRST, "Bloodthirst"),
+    (KeywordSet::WARP, "Warp"),
+    (KeywordSet::DEVOUR, "Devour"),
+    (KeywordSet::SPREE, "Spree"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

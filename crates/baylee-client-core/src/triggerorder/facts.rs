@@ -584,6 +584,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::CounterTargetAbility => facts.deeds.add(Deeds::REMOVES),
         Effect::SacrificeSelf
         | Effect::ExileSource
+        | Effect::ExileWarped
         | Effect::ExileSelfReturnAsFace { .. }
         | Effect::ExileSourceWithCounters { .. }
         | Effect::MoveSourceToOwnerGraveyard

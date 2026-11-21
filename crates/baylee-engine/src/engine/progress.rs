@@ -1266,6 +1266,15 @@ static BLITZ_SACRIFICE: [Effect; 1] = [Effect::IfCondition {
     otherwise: &[],
 }];
 
+/// Warp's delayed triggered ability (CR 702.185a): "exile the permanent this
+/// spell becomes at the beginning of the next end step" (granting its owner
+/// permission to cast that exiled card on a later turn).
+static WARP_EXILE: [Effect; 1] = [Effect::IfCondition {
+    condition: baylee_cards_dsl::Condition::WarpCostPaid,
+    then: &[Effect::ExileWarped],
+    otherwise: &[],
+}];
+
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]

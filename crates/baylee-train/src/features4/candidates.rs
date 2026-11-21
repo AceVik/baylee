@@ -1301,7 +1301,7 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         CastModeKind::Miracle => 35,
         CastModeKind::Flashback | CastModeKind::JumpStart => 36,
         CastModeKind::BeamMeUp => 37,
-        CastModeKind::Dash | CastModeKind::Blitz => 38,
+        CastModeKind::Dash | CastModeKind::Blitz | CastModeKind::Warp => 38,
         CastModeKind::Mutate => 39,
         // Where a resolving spell goes, as a mutating spell's position is:
         // its slot, so the candidate width the trained nets read stays the

@@ -84,17 +84,12 @@ pub(super) const fn objects_only(spec: TargetSpec) -> bool {
 /// Why a modal spell could not be cast the way its card prints it, or
 /// [`None`] when it can, or when the ability is no modal spell.
 ///
-/// Choosing one mode is the shape every modal spell had before Farewell: a
-/// mode may replace the card's cost (overload), and has no cost of its own
-/// to add, because the one-mode path never adds one. Choosing several
-/// (CR 700.2d) is `CastModeKind::Modes`, a set of at most eight bits. There
-/// a mode's own cost is added to the card's (CR 700.2h) and never put in
-/// its place. The engine holds two instances of the word "target" for a
-/// spell, and each chosen mode that targets takes the next one
-/// (`cast_wizard::targeted_mode`), so at most two modes may target, and the
-/// second of them objects only ([`objects_only`]). A mode that says
-/// "target" twice itself (`SpellMode::second_targets`, Archdruid's Charm)
-/// takes both instances, so only a choose-one spell may print one.
+/// Choosing one mode may replace the card's cost (overload), and has no cost
+/// of its own to add. Choosing several (`CR 700.2d`) is `CastModeKind::Modes`,
+/// a set of at most eight bits where each chosen mode's additional cost is
+/// added to the spell's (`CR 700.2h`) and each target clause across the chosen
+/// modes (`targets` and `second_targets`) is asked in printed order (`CR 700.2c`,
+/// `CR 608.2c`).
 pub(super) fn modes_fault(ability: &AbilityDef) -> Option<&'static str> {
     if let AbilityDef::ModalActivated { modes, .. } = ability {
         if modes.is_empty() || modes.len() > usize::from(u8::MAX) {
@@ -128,22 +123,12 @@ pub(super) fn modes_fault(ability: &AbilityDef) -> Option<&'static str> {
     if modes.iter().any(|m| m.cost_override.is_some()) {
         return Some("replaces the card's cost in one of several modes");
     }
-    if modes.iter().any(|m| m.second_targets.is_some()) {
-        return Some(
-            "says \"target\" twice in one of several modes, and each chosen mode takes one instance of the word",
-        );
-    }
-    let targeting: Vec<TargetSpec> = modes
+    let total_target_clauses: usize = modes
         .iter()
-        .filter_map(|m| m.targets.map(|req| req.spec))
-        .collect();
-    if targeting.len() > 2 {
-        return Some(
-            "targets in more than two of its modes, and a spell holds two instances of the word",
-        );
-    }
-    if targeting.get(1).is_some_and(|spec| !objects_only(*spec)) {
-        return Some("may name a player in its second targeting mode, which holds objects only");
+        .map(|m| usize::from(m.targets.is_some()) + usize::from(m.second_targets.is_some()))
+        .sum();
+    if total_target_clauses > 16 {
+        return Some("prints more than sixteen target clauses across its modes");
     }
     None
 }

@@ -17,6 +17,20 @@ impl ManaPool {
         Some(paid)
     }
 
+    /// Total snow-produced mana in this pool or receipt, including restricted
+    /// snow mana (`CR 107.4h`).
+    #[must_use]
+    pub fn snow_total(&self) -> u64 {
+        let plain_snow: u64 = self.snow.iter().map(|&n| u64::from(n)).sum();
+        let restricted_snow: u64 = self
+            .restricted
+            .iter()
+            .filter(|r| r.flags.contains(super::ManaFlags::SNOW))
+            .map(|r| u64::from(r.amount))
+            .sum();
+        plain_snow + restricted_snow
+    }
+
     /// Transfer every unspent unit into another pool, preserving snow,
     /// retention flags, restrictions and spend riders.
     ///

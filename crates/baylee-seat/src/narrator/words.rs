@@ -73,7 +73,7 @@ pub const fn step_id(phase: Phase, step: Step) -> &'static str {
 /// A positive list, so `every_keyword_a_card_prints_has_a_name` holds it
 /// to the pool: a keyword a card carries and this table lacks fails there
 /// rather than going silent on a board.
-pub const KEYWORDS: [(KeywordSet, &str); 67] = [
+pub const KEYWORDS: [(KeywordSet, &str); 70] = [
     (KeywordSet::STORM, "storm"),
     (KeywordSet::READ_AHEAD, "read ahead"),
     (KeywordSet::FLYING, "flying"),
@@ -140,6 +140,9 @@ pub const KEYWORDS: [(KeywordSet, &str); 67] = [
     (KeywordSet::EXPLOIT, "exploit"),
     (KeywordSet::EVOLVE, "evolve"),
     (KeywordSet::BLOODTHIRST, "bloodthirst"),
+    (KeywordSet::WARP, "warp"),
+    (KeywordSet::DEVOUR, "devour"),
+    (KeywordSet::SPREE, "spree"),
     (
         KeywordSet::ALL_NONBASIC_LAND_TYPES,
         "every nonbasic land type",
@@ -355,6 +358,20 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
             "Amplify: choose any number of matching cards from your hand to reveal for +1/+1 \
              counters (choose none to reveal nothing)"
                 .into()
+        }
+        ChoicePrompt::Devour { factor } => {
+            if factor == 0 {
+                "Devour X: choose any number of matching permanents you control to sacrifice \
+                 (receives X +1/+1 counters for each sacrificed, where X is the number sacrificed; \
+                 choose none to sacrifice nothing)"
+                    .into()
+            } else {
+                format!(
+                    "Devour {factor}: choose any number of matching permanents you control to \
+                     sacrifice for {factor} +1/+1 counter{} each (choose none to sacrifice nothing)",
+                    if factor == 1 { "" } else { "s" }
+                )
+            }
         }
         ChoicePrompt::ManifestDread => {
             "Manifest dread: choose one card to manifest face down onto the battlefield (the \

@@ -204,6 +204,11 @@ pub fn reachable_modes(
     {
         offer(CastModeKind::Blitz, blitz.mana);
     }
+    if let Some(warp) = face.warp
+        && parts_payable(view, card, warp.parts)
+    {
+        offer(CastModeKind::Warp, warp.mana);
+    }
     if let Some(mutate) = face.mutate
         && crate::targeting::requirement_possible(view, baylee_engine::casting::MUTATE_TARGET_REQ)
     {
@@ -307,17 +312,38 @@ fn offer_modal_override_modes(
     face: &baylee_cards_dsl::FaceDef,
     offer: &mut impl FnMut(CastModeKind, ManaCost),
 ) {
-    if let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }) = def
+    let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }) = def
         .abilities_for_face(face_index)
         .iter()
         .find(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
-        && *choose == baylee_cards_dsl::ModeCount::ONE
-        && modes.iter().any(|m| m.cost_override.is_some())
-    {
+    else {
+        return;
+    };
+    if !choose.is_one() {
+        for set in baylee_engine::casting::mode_sets(modes, *choose) {
+            if baylee_engine::casting::chosen_modes(modes, set).all(|(_, mode)| {
+                mode.targets
+                    .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+                    && mode
+                        .second_targets
+                        .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+            }) {
+                offer(
+                    CastModeKind::Modes(set),
+                    baylee_engine::casting::mode_set_cost(face.mana_cost, modes, set),
+                );
+            }
+        }
+        return;
+    }
+    if modes.iter().any(|m| m.cost_override.is_some()) {
         for (i, mode) in modes.iter().enumerate() {
             if mode
                 .targets
                 .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+                && mode
+                    .second_targets
+                    .is_none_or(|req| crate::targeting::requirement_possible(view, req))
             {
                 offer(
                     CastModeKind::Mode(i),

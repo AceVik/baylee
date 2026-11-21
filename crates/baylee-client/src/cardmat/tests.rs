@@ -75,6 +75,7 @@ fn permanent(types: baylee_core::types::TypeSet) -> baylee_view::PublicObject {
         unlocked_doors: None,
         suspended: false,
         plotted: false,
+        warped: false,
         token: None,
         colors: ColorSet::default(),
         keywords: 0,

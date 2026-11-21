@@ -91,6 +91,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         casualty: None,
         impending: None,
         gift: None,
+        warp: None,
     }
 }
 

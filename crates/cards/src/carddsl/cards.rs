@@ -63,6 +63,7 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
         face.miracle.is_some()
             || face.dash.is_some()
             || face.blitz.is_some()
+            || face.warp.is_some()
             || face.emerge.is_some()
             || face.mutate.is_some()
             || face.bestow.is_some()
@@ -104,7 +105,8 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             | EnterModifier::ChooseCounterPerEntryCount(_)
             | EnterModifier::IfKicked { .. }
             | EnterModifier::Amplify(_)
-            | EnterModifier::Bloodthirst(_) => {
+            | EnterModifier::Bloodthirst(_)
+            | EnterModifier::Devour { .. } => {
                 s[83] = 1.0;
             }
             EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_) => s[84] = 1.0,

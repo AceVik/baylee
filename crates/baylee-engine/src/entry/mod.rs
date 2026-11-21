@@ -221,6 +221,10 @@ enum Question {
     Amplify {
         factor: u8,
     },
+    /// Devour sacrifice choice (CR 702.82a–c).
+    Devour {
+        factor: u8,
+    },
     /// Read-ahead starting chapter choice (CR 702.155b, CR 715.3b).
     ReadAhead,
 }

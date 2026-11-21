@@ -171,6 +171,7 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         unlocked_doors: None,
         suspended: false,
         plotted: false,
+        warped: false,
         token: None,
         colors: held.colors,
         mana_value: held.mana_value,

@@ -504,6 +504,7 @@ pub(super) fn exec_immediate(
         | Effect::PutTargetIntoLibraryBeneathTop { .. }
         | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::ExileSource
+        | Effect::ExileWarped
         | Effect::ExileAndReturnAtEndStep
         | Effect::ExileAndReturnTappedAtEndStep
         | Effect::ReturnExiledGroupToOwners { .. }

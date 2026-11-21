@@ -36,6 +36,48 @@ pub fn tapped_power(state: &GameState, paid_on: ObjectId) -> u32 {
     u32::try_from(power.max(0)).unwrap_or(0)
 }
 
+/// Units of snow mana spent on `object` (either via live `PaidRecord` on the
+/// stack or via `Rider::SnowManaSpent` carried onto a permanent or trigger,
+/// `CR 107.4h`, `CR 400.7d`, `CR 608.2h`).
+#[must_use]
+pub(crate) fn object_snow_mana_spent(object: &crate::object::GameObject) -> u32 {
+    object
+        .paid
+        .as_ref()
+        .map(|p| p.snow_mana_spent())
+        .or_else(|| {
+            object.riders.iter().find_map(|r| match r {
+                crate::object::Rider::SnowManaSpent(n) => Some(*n),
+                _ => None,
+            })
+        })
+        .unwrap_or(0)
+}
+
+/// Units of snow mana spent on `source` (using `object_or_departed` for LKI).
+#[must_use]
+pub(crate) fn snow_mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
+    state
+        .object_or_departed(source)
+        .map_or(0, object_snow_mana_spent)
+}
+
+/// Number of permanents sacrificed as `source` entered the battlefield
+/// (`EnterModifier::Devour` / `SacrificeForPowerToughness`, `CR 702.82b`).
+#[must_use]
+pub(crate) fn entry_sacrifices_on(state: &GameState, source: ObjectId) -> u32 {
+    state.object_or_departed(source).map_or(0, |object| {
+        object
+            .riders
+            .iter()
+            .find_map(|r| match r {
+                crate::object::Rider::EntrySacrifices(n) => Some(*n),
+                _ => None,
+            })
+            .unwrap_or(0)
+    })
+}
+
 /// Evaluates an [`Amount`].
 #[must_use]
 pub fn amount(
@@ -228,6 +270,21 @@ pub fn amount_with_context(
         Amount::OpponentsLifeLostThisTurn => opponents_life_lost(state, you),
         Amount::OpponentsYouAttackedThisCombat => state.combat.opponents_attacked_by(state, you),
         Amount::DamageDealtToOpponentsThisTurn => damage_dealt_to_opponents_this_turn(state, you),
+        Amount::SnowManaSpentToCast => snow_mana_spent_on(state, this),
+        Amount::EntrySacrifices => entry_sacrifices_on(state, this),
+        Amount::SpellsWarpedThisTurn(who) => {
+            super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                u32::try_from(
+                    state
+                        .per_turn
+                        .spells_warped
+                        .iter()
+                        .filter(|p| seats.contains(p))
+                        .count(),
+                )
+                .unwrap_or(u32::MAX)
+            })
+        }
     }
 }
 

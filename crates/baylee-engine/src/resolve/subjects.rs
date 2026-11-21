@@ -25,10 +25,27 @@ pub struct GuessOutcome {
     pub revealed: bool,
 }
 
+/// Per-mode narrowed target bindings for modal spells with 3+ target clauses or
+/// within-mode `second_targets` (`CR 700.2c`, `CR 608.2b–c`).
+#[derive(Clone, Debug, Hash)]
+pub struct ModalTargetStep {
+    /// Remaining effects from the end of `res.effects` at which this mode starts.
+    pub left_from_end: usize,
+    /// Legal object targets of this mode's first target clause.
+    pub targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 2]>,
+    /// Legal player targets of this mode's first target clause.
+    pub target_players: baylee_core::ids::SeatSet,
+    /// Legal object targets of this mode's second target clause.
+    pub second_targets: smallvec::SmallVec<[baylee_core::ids::ObjectId; 1]>,
+    /// Legal player targets of this mode's second target clause.
+    pub second_players: baylee_core::ids::SeatSet,
+}
+
 /// Public-zone objects found through earlier instructions of this resolution.
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
     second_target_players: baylee_core::ids::SeatSet,
+    modal_steps: Vec<ModalTargetStep>,
     followed: Vec<DamageSourceRef>,
     pub(super) reanimation_links: Vec<super::linked_reanimation::PendingLink>,
     /// Exact future/current battlefield incarnations from the latest search.
@@ -68,10 +85,36 @@ impl SubjectContext {
         self.second_target_players
     }
 
+    pub(crate) fn set_second_players(&mut self, players: baylee_core::ids::SeatSet) {
+        self.second_target_players = players;
+    }
+
+    pub(crate) fn with_modal_steps(mut self, steps: Vec<ModalTargetStep>) -> Self {
+        self.modal_steps = steps;
+        self
+    }
+
+    pub(crate) fn modal_steps(&self) -> &[ModalTargetStep] {
+        &self.modal_steps
+    }
+
+    pub(crate) fn take_modal_step(&mut self, left_from_end: usize) -> Option<ModalTargetStep> {
+        if self
+            .modal_steps
+            .first()
+            .is_some_and(|step| step.left_from_end == left_from_end)
+        {
+            Some(self.modal_steps.remove(0))
+        } else {
+            None
+        }
+    }
+
     /// A mana ability has no stack object to retain its cost record.
     pub(crate) fn after_cost(paid: &crate::object::PaidRecord) -> Self {
         Self {
             second_target_players: baylee_core::ids::SeatSet::new(),
+            modal_steps: Vec::new(),
             followed: paid.source_after_cost.into_iter().collect(),
             reanimation_links: Vec::new(),
             found: Vec::new(),
@@ -204,21 +247,14 @@ impl SubjectContext {
         h = h
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.payment_batches));
-        for r in &self.followed {
-            h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
+        if !self.modal_steps.is_empty() {
             h = h
                 .wrapping_mul(31)
-                .wrapping_add(u64::from(r.object.generation()));
-            h = h.wrapping_mul(31).wrapping_add(u64::from(r.version));
+                .wrapping_add(crate::state::structural_fingerprint(&self.modal_steps));
         }
+        h = mix_damage_refs(h, &self.followed);
         h = h.wrapping_mul(31).wrapping_add(self.found.len() as u64);
-        for r in &self.found {
-            h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
-            h = h
-                .wrapping_mul(31)
-                .wrapping_add(u64::from(r.object.generation()));
-            h = h.wrapping_mul(31).wrapping_add(u64::from(r.version));
-        }
+        h = mix_damage_refs(h, &self.found);
         h = h
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.guess));
@@ -270,6 +306,17 @@ impl SubjectContext {
         debug_assert!(self.checkpoint.is_none());
         h.wrapping_mul(31).wrapping_add(links)
     }
+}
+
+fn mix_damage_refs(mut h: u64, refs: &[baylee_core::ids::DamageSourceRef]) -> u64 {
+    for r in refs {
+        h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(r.object.generation()));
+        h = h.wrapping_mul(31).wrapping_add(u64::from(r.version));
+    }
+    h
 }
 
 pub(super) fn acquisition(state: &GameState, res: &Resolution) -> u64 {

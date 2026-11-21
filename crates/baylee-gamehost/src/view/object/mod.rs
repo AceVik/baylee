@@ -177,6 +177,18 @@ pub(super) fn target_objects(
                 }
             }
         }
+        for (group, inst) in obj.extra_target_instances().iter().enumerate() {
+            let group = u32::try_from(group).expect("extra target group");
+            for index in 0..inst.targets.len() {
+                if let Some(reference) = state.recorded_extra_target_reference(
+                    id,
+                    group,
+                    u32::try_from(index).expect("target slot"),
+                ) {
+                    targets.insert(reference);
+                }
+            }
+        }
     }
     if let Some(Pending::ChooseTargets {
         player,
@@ -234,6 +246,7 @@ fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
         && players.is_empty()
         && obj.second_targets().is_empty()
         && obj.second_target_players().is_empty()
+        && obj.extra_target_instances().is_empty()
     {
         return Vec::new();
     }
@@ -261,6 +274,27 @@ fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
                 }),
         )
         .chain(obj.second_target_players().iter().map(TargetRef::Player))
+        .chain(
+            obj.extra_target_instances()
+                .iter()
+                .enumerate()
+                .flat_map(|(group, inst)| {
+                    let group = u32::try_from(group).expect("extra target group");
+                    inst.targets
+                        .iter()
+                        .enumerate()
+                        .filter_map(move |(index, _)| {
+                            state
+                                .recorded_extra_target_reference(
+                                    id,
+                                    group,
+                                    u32::try_from(index).expect("target slot"),
+                                )
+                                .map(TargetRef::Object)
+                        })
+                        .chain(inst.players.iter().map(TargetRef::Player))
+                }),
+        )
         .collect()
 }
 
@@ -429,6 +463,12 @@ pub(super) fn public_object(
         plotted: known
             && obj.zone == Zone::Exile
             && obj.riders.contains(&baylee_engine::object::Rider::Plotted),
+        warped: known
+            && obj.zone == Zone::Exile
+            && obj
+                .riders
+                .iter()
+                .any(|r| matches!(r, baylee_engine::object::Rider::WarpedInExile(_))),
         // The engine holds the definition; the client needs the number, and
         // this crate is the one that can see both.
         token: state

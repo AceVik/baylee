@@ -1881,6 +1881,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         }
         CastModeKind::Dash => format!("Cast it with dash for {cost}"),
         CastModeKind::Blitz => format!("Cast it with blitz for {cost}"),
+        CastModeKind::Warp => format!("Cast it from hand with warp for {cost}"),
         CastModeKind::Emerge => {
             format!("Cast it with emerge for {cost}, sacrificing a matching permanent")
         }

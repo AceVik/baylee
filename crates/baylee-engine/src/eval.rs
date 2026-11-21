@@ -25,7 +25,10 @@ use baylee_cards_dsl::{Filter, TargetSpec};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 pub use amounts::{amount, amount_with_context, public_linked_exile_cards, tapped_power};
-pub(crate) use amounts::{colors_among, colors_in_zone, count_controlled_by, linked_exile_cards};
+pub(crate) use amounts::{
+    colors_among, colors_in_zone, count_controlled_by, entry_sacrifices_on, linked_exile_cards,
+    object_snow_mana_spent, snow_mana_spent_on,
+};
 pub(crate) use conditions::{
     attached_for_ability, condition_reads_event, condition_with_event, evolve_holds,
     intervening_if_for_incarnation,
@@ -332,11 +335,19 @@ pub(crate) fn matches_projected_with_choices(
             let pre_stack_projection = state
                 .object(obj.id)
                 .is_some_and(|live| live.zone != Zone::Stack);
-            obj.targets.iter().chain(obj.second_targets()).any(|id| {
-                state.object(*id).is_some_and(|target| {
-                    target.zone == Zone::Battlefield && target.controller == you
-                }) && (pre_stack_projection || state.targets_current_object(obj.id, *id))
-            })
+            obj.targets
+                .iter()
+                .chain(obj.second_targets())
+                .chain(
+                    obj.extra_target_instances()
+                        .iter()
+                        .flat_map(|inst| inst.targets.iter()),
+                )
+                .any(|id| {
+                    state.object(*id).is_some_and(|target| {
+                        target.zone == Zone::Battlefield && target.controller == you
+                    }) && (pre_stack_projection || state.targets_current_object(obj.id, *id))
+                })
         }
         Filter::WithSingleTarget => {
             let players = obj.target_players.len()
@@ -344,10 +355,16 @@ pub(crate) fn matches_projected_with_choices(
                     obj.chosen_player
                         .is_some_and(|p| !obj.target_players.contains(p)),
                 );
+            let extra_count: usize = obj
+                .extra_target_instances()
+                .iter()
+                .map(|inst| inst.targets.len() + inst.players.len())
+                .sum();
             obj.targets.len()
                 + obj.second_targets().len()
                 + players
                 + obj.second_target_players().len()
+                + extra_count
                 == 1
         }
         Filter::HasManaAbility => {
@@ -764,6 +781,16 @@ pub(crate) fn matches_projected_with_choices(
             enchanted_player(state, this) == Some(obj.controller)
         }
         Filter::PairedWithSource => state.paired_partner(this) == Some(obj.id),
+        Filter::WarpedInExile => {
+            obj.zone == crate::zone::Zone::Exile
+                && obj
+                    .riders
+                    .iter()
+                    .any(|r| matches!(r, crate::object::Rider::WarpedInExile(_)))
+        }
+        Filter::CmcAtMostSnowManaSpent => {
+            chars.mana_value() <= amounts::snow_mana_spent_on(state, this)
+        }
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.
             // The marker list rather than the command zone, for the reason

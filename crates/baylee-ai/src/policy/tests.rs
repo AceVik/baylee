@@ -256,6 +256,7 @@ fn test_public_object(
         unlocked_doors: None,
         suspended: false,
         plotted: false,
+        warped: false,
         token: None,
         colors: face.mana_cost.colors().union(face.color_indicator),
         mana_value: face.mana_cost.cmc(),

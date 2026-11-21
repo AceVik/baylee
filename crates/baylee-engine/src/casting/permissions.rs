@@ -35,6 +35,7 @@ pub(crate) fn permitted_spell_types(
     }
     if object.zone == Zone::Hand
         || (face == 0 && adventure_permission(state, player, card))
+        || super::warp_exile_permission(state, player, card)
         || object
             .riders
             .contains(&crate::object::Rider::PlayableFromExileFor(player))

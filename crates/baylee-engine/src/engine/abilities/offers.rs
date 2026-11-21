@@ -379,6 +379,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let permitted = casting::adventure_permission(&self.state, player, card)
                 || casting::foretell_permission(&self.state, player, card)
                 || casting::plot_permission(&self.state, player, card)
+                || casting::warp_exile_permission(&self.state, player, card)
                 || self.state.object(card).is_some_and(|o| {
                     o.riders
                         .contains(&crate::object::Rider::PlayableFromExileFor(player))

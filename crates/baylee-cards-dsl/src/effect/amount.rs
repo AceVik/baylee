@@ -333,6 +333,20 @@ pub enum Amount {
     /// CR 702.54b — strictly damage dealt, not non-damage life loss).
     /// Appended to preserve replay identities.
     DamageDealtToOpponentsThisTurn,
+    /// Amount of snow mana (mana produced by snow sources, CR 107.4h) spent to
+    /// cast this spell or the spell that became this permanent (or the source
+    /// of this triggered ability, CR 400.7d, CR 608.2h). Zero when not cast or
+    /// when copied. Appended to preserve replay identities.
+    SnowManaSpentToCast,
+    /// Number of permanents sacrificed as this permanent entered the
+    /// battlefield via [`crate::EnterModifier::Devour`] or
+    /// [`crate::EnterModifier::SacrificeForPowerToughness`] ("each creature it
+    /// devoured", CR 702.82b, CR 608.2h). Appended to preserve replay
+    /// identities.
+    EntrySacrifices,
+    /// Number of spells warped by players matching the relation this turn
+    /// (CR 702.185c). Appended to preserve replay identities.
+    SpellsWarpedThisTurn(super::PlayerRel),
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

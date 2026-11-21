@@ -170,6 +170,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         targeted.target_players = wizard.target_players;
         targeted.set_second(wizard.second_targets.clone(), None);
         targeted.set_second_players(wizard.second_target_players);
+        if !wizard.extra_targets.is_empty() {
+            let extra = wizard
+                .extra_targets
+                .iter()
+                .enumerate()
+                .filter_map(|(i, (targets, players))| {
+                    let (_, _, req) = self.wizard_extra_clause(wizard, 2 + i)?;
+                    Some(crate::object::ExtraTargetInstance {
+                        targets: targets.clone(),
+                        players: *players,
+                        req: Some(req),
+                    })
+                })
+                .collect();
+            targeted.set_extra_targets(extra);
+        }
         let with_targets =
             casting::spell_adjustment_with_def(&self.state, wizard.player, &targeted, Some(def));
         wizard.target_increase = with_targets
@@ -194,7 +210,8 @@ fn raw_option_cost(
     wizard: &CastWizard,
 ) -> ManaCost {
     let library_top = matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }));
-    let normal = if wizard.free || wizard.masked || library_top {
+    let plot_alt = wizard.alternative_cost == Some(CastModeKind::Plot);
+    let normal = if wizard.free || wizard.masked || library_top || plot_alt {
         ManaCost::ZERO
     } else if wizard.alternative_cost == Some(CastModeKind::Madness) {
         face.madness.expect("madness").mana
@@ -221,6 +238,7 @@ fn raw_option_cost(
         Some(CastModeKind::BeamMeUp) => face.beam_me_up.expect("beam me up"),
         Some(CastModeKind::Dash) => face.dash.expect("dash"),
         Some(CastModeKind::Blitz) => face.blitz.expect("blitz").mana,
+        Some(CastModeKind::Warp) => face.warp.expect("warp").mana,
         Some(CastModeKind::Emerge) => face.emerge.expect("emerge").cost,
         Some(CastModeKind::Fused) => def.faces[0].mana_cost.combine(&def.faces[1].mana_cost),
         Some(CastModeKind::Mutate) => face.mutate.expect("mutate"),

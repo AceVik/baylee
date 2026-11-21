@@ -614,8 +614,10 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::LowestManaValueOnBattlefield(_)
         | Filter::SameNameAsLinkedExile
         | Filter::SharesColorWithExiledWithSource
+        | Filter::CmcAtMostSnowManaSpent
         | Filter::CmcEqualsYourUnspentMana => return None,
         Filter::FaceDown => object.status.contains(baylee_view::ObjectStatus::FACE_DOWN),
+        Filter::WarpedInExile => object.warped,
     })
 }
 

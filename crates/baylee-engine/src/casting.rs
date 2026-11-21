@@ -234,16 +234,22 @@ pub fn face_has_a_legal_target(
         return mode_sets(modes, *choose).any(|set| {
             let wall_only = crate::eval::target_domain::modes_wall_only(modes, set);
             chosen_modes(modes, set).all(|(_, mode)| {
-                [mode.targets, mode.second_targets].into_iter().all(|req| {
-                    requirement_is_reachable_for(
-                        req,
-                        state,
-                        player,
-                        card,
-                        Some((def, face)),
-                        wall_only,
-                    )
-                })
+                requirement_is_reachable_for(
+                    mode.targets,
+                    state,
+                    player,
+                    card,
+                    Some((def, face)),
+                    wall_only,
+                ) && second_is_reachable(
+                    mode.targets,
+                    mode.second_targets,
+                    state,
+                    player,
+                    card,
+                    Some((def, face)),
+                    wall_only,
+                )
             })
         });
     }
@@ -401,6 +407,7 @@ pub fn has_priced_ways(def: &baylee_cards_dsl::CardDef) -> bool {
         || face.kicked_targets.is_some()
         || face.dash.is_some()
         || face.blitz.is_some()
+        || face.warp.is_some()
         || face.emerge.is_some()
         || face.mutate.is_some()
         || face.bestow.is_some()
@@ -521,6 +528,29 @@ pub fn mode_set_cost(
     })
 }
 
+/// Every target clause across the chosen modes of `abilities` in printed order
+/// (`CR 700.2c`, `CR 608.2c`): `(mode_index, is_second_in_mode, req)`.
+pub(crate) fn modal_target_clauses(
+    abilities: &'static [baylee_cards_dsl::AbilityDef],
+    set: u8,
+) -> SmallVec<[(usize, bool, baylee_cards_dsl::TargetReq); 4]> {
+    let mut out = SmallVec::new();
+    for ability in abilities {
+        if let baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } = ability {
+            for (mode_index, mode) in chosen_modes(modes, set) {
+                if let Some(first) = mode.targets {
+                    out.push((mode_index, false, first));
+                }
+                if let Some(second) = mode.second_targets {
+                    out.push((mode_index, true, second));
+                }
+            }
+            break;
+        }
+    }
+    out
+}
+
 /// Whether every mode in a set can be pointed at something: a mode that
 /// would be illegal can't be chosen (CR 700.2a), in a set as alone.
 #[must_use]
@@ -547,9 +577,16 @@ pub fn mode_set_has_legal_targets(
         .all(|modes| {
             let wall_only = crate::eval::target_domain::modes_wall_only(modes, set);
             chosen_modes(modes, set).all(|(_, mode)| {
-                [mode.targets, mode.second_targets].into_iter().all(|req| {
-                    requirement_is_reachable_for(req, state, player, card, None, wall_only)
-                })
+                requirement_is_reachable_for(mode.targets, state, player, card, None, wall_only)
+                    && second_is_reachable(
+                        mode.targets,
+                        mode.second_targets,
+                        state,
+                        player,
+                        card,
+                        None,
+                        wall_only,
+                    )
             })
         })
 }
@@ -973,6 +1010,22 @@ pub(crate) fn plot_permission(state: &GameState, player: PlayerId, card: ObjectI
     })
 }
 
+/// Whether this exact face-up exiled card was exiled by Warp's delayed
+/// triggered ability on a turn strictly before the current turn and `player`
+/// is its owner (`CR 702.185b`).
+#[must_use]
+pub fn warp_exile_permission(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
+    state.object(card).is_some_and(|object| {
+        object.zone == Zone::Exile
+            && object.owner == player
+            && !object.status.contains(crate::object::Status::FACE_DOWN)
+            && object.is_card()
+            && object.riders.iter().any(|rider| {
+                matches!(rider, crate::object::Rider::WarpedInExile(turn) if *turn < state.turn.number)
+            })
+    })
+}
+
 /// Whether `card` can be cast by `player` right now (printed cost or any
 /// alternative/mode).
 ///
@@ -1177,6 +1230,7 @@ pub(crate) fn can_cast_form_paying(
     if matches!(form, Some(SpellForm::Plot)) && !plot_ok {
         return Err(CastError::NotInHand);
     }
+    let warp_exile_ok = !in_hand && warp_exile_permission(state, player, card);
     // Adventure (CR 716): a card on an adventure may be cast from exile.
     let on_adventure = adventure_only_permission(state, player, card);
     let adventure_ok = !in_hand && adventure_permission(state, player, card);
@@ -1241,6 +1295,7 @@ pub(crate) fn can_cast_form_paying(
         && !graveyard_ok
         && !takeover_ok
         && !commander_ok
+        && !warp_exile_ok
         && matches!(
             form,
             Some(
@@ -1279,6 +1334,7 @@ pub(crate) fn can_cast_form_paying(
         && !commander_ok
         && !foretell_ok
         && !plot_ok
+        && !warp_exile_ok
         && permission.is_none()
     {
         return Err(CastError::NotInHand);
@@ -1417,6 +1473,59 @@ pub(crate) fn can_cast_form_paying(
                 printed_reduction(state, &def.faces[0], player, card)
             })
         };
+        if matches!(form, SpellForm::Plot)
+            && let Some(def) = printed
+            && modes_are_the_only_way(def, 0)
+        {
+            let allow = adjustment.allowance(state, SpendFor::SpellAs(card, form), form_printed);
+            let probe_plot = |cost: &ManaCost| {
+                affordable(
+                    state,
+                    player,
+                    pool,
+                    &adjustment.price(*cost, form_printed),
+                    SpendFor::SpellAs(card, form),
+                    allow,
+                )
+            };
+            let any_mode = def.abilities.iter().any(|a| match a {
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
+                    mode_sets(modes, *choose).any(|set| {
+                        probe_plot(&mode_set_cost(ManaCost::ZERO, modes, set).with_x(0))
+                            && mode_set_has_legal_targets(state, lookup, player, card, set)
+                    })
+                }
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
+                    modes.iter().enumerate().any(|(i, m)| {
+                        m.cost_override.is_none()
+                            && probe_plot(&ManaCost::ZERO)
+                            && mode_has_a_legal_target(state, lookup, player, card, i)
+                    })
+                }
+                _ => false,
+            });
+            if any_mode {
+                return Ok(());
+            }
+            let any_targetable = def.abilities.iter().any(|a| match a {
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
+                    mode_sets(modes, *choose)
+                        .any(|set| mode_set_has_legal_targets(state, lookup, player, card, set))
+                }
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
+                    modes.iter().enumerate().any(|(i, m)| {
+                        m.cost_override.is_none()
+                            && mode_has_a_legal_target(state, lookup, player, card, i)
+                    })
+                }
+                _ => false,
+            });
+            return Err(if any_targetable {
+                CastError::NotEnoughMana
+            } else {
+                CastError::NoWayToCast
+            });
+        }
         return if affordable(
             state,
             player,
@@ -1947,6 +2056,22 @@ pub(crate) fn can_cast_form_paying(
                     )
                     .is_some()
             });
+        // Warp (CR 702.185a), the offer's `CastModeKind::Warp` (from hand only).
+        let any_warp = in_hand
+            && !flashback_only
+            && face.warp.is_some_and(|warp| {
+                probe(&warp.mana.with_x(0))
+                    && alternative_parts_payable(state, player, card, warp.parts)
+                    && additional_payment_capacity_for(
+                        state,
+                        player,
+                        card,
+                        face,
+                        Some(crate::choice::CastModeKind::Warp),
+                        &[],
+                    )
+                    .is_some()
+            });
         // Emerge (CR 702.119a), the offer's `CastModeKind::Emerge`.
         let any_emerge = !flashback_only
             && face.emerge.is_some_and(|emerge| {
@@ -1986,6 +2111,7 @@ pub(crate) fn can_cast_form_paying(
             && !any_face
             && !any_dash
             && !any_blitz
+            && !any_warp
             && !any_emerge
             && !any_mutate
         {

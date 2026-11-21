@@ -3322,6 +3322,14 @@ NounCardsToAmplify =
        *[other] cards to reveal for amplify
     }
 
+# Creature to sacrifice for devour (CR 702.82a).
+# Arguments: count
+NounCreaturesToDevour =
+    { $count ->
+        [one] creature to devour
+       *[other] creatures to devour
+    }
+
 # Card to manifest for manifest dread (CR 701.62a).
 # Arguments: count
 NounCardsToManifest =
@@ -3824,6 +3832,9 @@ CastDash = Dash
 
 # Blitz (CR 702.152a), the keyword as the German printing names it
 CastBlitz = Blitz
+
+# Warp (CR 702.185a), cast from hand for its warp cost
+CastWarp = Warp
 
 # Emerge (CR 702.119a), the keyword as the German printing names it
 CastEmerge = Emerge

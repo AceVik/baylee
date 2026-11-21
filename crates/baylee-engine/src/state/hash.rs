@@ -668,6 +668,9 @@ impl GameState {
         placements.sort_unstable();
         placements.hash(h);
         self.hash_must_block_pairs(h, position);
+        if !self.per_turn.spells_warped.is_empty() {
+            self.per_turn.spells_warped.0.as_slice().hash(h);
+        }
     }
 
     fn hash_must_block_pairs(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
@@ -1337,6 +1340,11 @@ fn hash_object_situation(
     h.option_u32(tapped.map(|(id, _)| position(id)));
     h.option_u32(tapped.map(|(_, version)| version));
     h.option_u32(obj.attached_to.map(position));
+    hash_target_situation(h, obj, position);
+    hash_ability_situation(h, obj, position);
+}
+
+fn hash_target_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(ObjectId) -> u32) {
     h.usize(obj.targets.len());
     for t in &obj.targets {
         h.u32(position(*t));
@@ -1346,7 +1354,16 @@ fn hash_object_situation(
     for t in obj.second_targets() {
         h.u32(position(*t));
     }
-    hash_ability_situation(h, obj, position);
+    if !obj.extra_target_instances().is_empty() {
+        h.usize(obj.extra_target_instances().len());
+        for inst in obj.extra_target_instances() {
+            inst.players.hash(h);
+            h.usize(inst.targets.len());
+            for t in &inst.targets {
+                h.u32(position(*t));
+            }
+        }
+    }
 }
 
 fn hash_ability_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(ObjectId) -> u32) {
@@ -1625,6 +1642,15 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         crate::object::Rider::CraftMaterial(mat) => {
             h.u8(192);
             mat.hash(h);
+        }
+        crate::object::Rider::WarpedSpell => h.u8(201),
+        crate::object::Rider::WarpedInExile(turn) => {
+            h.u8(202);
+            turn.hash(h);
+        }
+        crate::object::Rider::SnowManaSpent(count) => {
+            h.u8(203);
+            count.hash(h);
         }
         _ => {}
     }
@@ -2420,6 +2446,15 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(192);
                 mat.hash(h);
             }
+            Rider::WarpedSpell => h.u8(201),
+            Rider::WarpedInExile(turn) => {
+                h.u8(202);
+                turn.hash(h);
+            }
+            Rider::SnowManaSpent(count) => {
+                h.u8(203);
+                count.hash(h);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -2698,6 +2733,8 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         }
         F::ControlledByEnchantedPlayer => h.u8(168),
         F::PairedWithSource => h.u8(169),
+        F::WarpedInExile => h.u8(201),
+        F::CmcAtMostSnowManaSpent => h.u8(202),
     }
 }
 

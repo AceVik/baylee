@@ -455,9 +455,12 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // engine variants a reader of 99 cannot decode, alongside additive
     // `PublicObject::plotted` (protocol 56 on binary frames).
     // 101: `CastModeKind::Impending` and `YesNoPrompt::Gift` are imported
-    // engine variants a reader of 100 cannot decode (protocol 57 on binary
+    // engine variants a reader of 100 cannot decode (protocol 58 on binary
     // frames).
-    const RECORDED: (u32, u64) = (101, 11_305_914_789_443_822_192);
+    // 102: `CastModeKind::Warp` and `ChoicePrompt::Devour` are imported engine
+    // variants a reader of 101 cannot decode, alongside `PublicObject::warped`
+    // and `ManaPoolView::snow` (protocol 59 on binary frames).
+    const RECORDED: (u32, u64) = (102, 17_762_471_742_051_875_900);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

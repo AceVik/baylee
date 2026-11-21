@@ -645,6 +645,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Plotted { .. } => &["plot"],
         T::GaveGift(_) => &["give", "gift"],
         T::Exploited { .. } => &["exploit"],
+        T::SpellWarped { .. } => &["warp"],
     }
 }
 
@@ -713,6 +714,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::SpellCastTargeting { who: rel, .. }
         | Trigger::Plotted { who: rel, .. }
         | Trigger::GaveGift(rel)
+        | Trigger::SpellWarped { who: rel, .. }
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),

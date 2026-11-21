@@ -253,6 +253,27 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
                             },
                         ));
                     }
+                    EnterModifier::Devour { filter, factor } => {
+                        let options = options(state, &entry, filter, false);
+                        entry.sacrifices = Some(entry.sacrifices.unwrap_or(0));
+                        if options.is_empty() {
+                            continue;
+                        }
+                        let max = u8::try_from(options.len().min(255)).expect("bounded page");
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::Devour { factor },
+                            Pending::ChooseCards {
+                                player,
+                                options,
+                                min: 0,
+                                max,
+                                prompt: ChoicePrompt::Devour { factor },
+                                total: None,
+                            },
+                        ));
+                    }
                     _ => {}
                 }
                 state.entries.pending.push_front(entry);
@@ -446,6 +467,25 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
                         .counters
                         .push((Some(entry.controller), CounterKind::P1P1, count));
                 }
+            }
+        }
+        (Question::Devour { factor }, PlayerAction::ChooseObjects { objects }) => {
+            let sacrificed = u32::try_from(objects.len()).unwrap_or(u32::MAX);
+            entry.sacrifices = Some(entry.sacrifices.unwrap_or(0).saturating_add(sacrificed));
+            if !objects.is_empty() {
+                sacrifice(state, objects);
+                let raw = if factor == 0 {
+                    sacrificed.saturating_mul(sacrificed)
+                } else {
+                    u32::from(factor).saturating_mul(sacrificed)
+                };
+                let counters = u16::try_from(raw).unwrap_or(u16::MAX);
+                if counters > 0 {
+                    entry
+                        .counters
+                        .push((Some(entry.controller), CounterKind::P1P1, counters));
+                }
+                state.refresh_characteristics();
             }
         }
         _ => unreachable!("entry answer shape was validated"),

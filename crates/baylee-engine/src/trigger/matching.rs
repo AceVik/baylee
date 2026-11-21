@@ -260,6 +260,11 @@ fn targeted_by_opponent(
                 .targets
                 .iter()
                 .chain(obj.second_targets())
+                .chain(
+                    obj.extra_target_instances()
+                        .iter()
+                        .flat_map(|inst| inst.targets.iter()),
+                )
                 .copied()
                 .collect();
             targets.sort_unstable();
@@ -271,6 +276,10 @@ fn targeted_by_opponent(
             let player = counts_you
                 && (obj.target_players.contains(you)
                     || obj.second_target_players().contains(you)
+                    || obj
+                        .extra_target_instances()
+                        .iter()
+                        .any(|inst| inst.players.contains(you))
                     || obj.chosen_player == Some(you));
             u32::try_from(objects).unwrap_or(u32::MAX) + u32::from(player)
         }
@@ -1399,7 +1408,8 @@ fn matches(
         (Trigger::Enlisted(filter), GameEvent::CreatureEnlisted { attacker, .. }) => state
             .object(*attacker)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
-        (Trigger::Plotted { who, filter }, GameEvent::CardPlotted { object, player }) => {
+        (Trigger::Plotted { who, filter }, GameEvent::CardPlotted { object, player })
+        | (Trigger::SpellWarped { who, filter }, GameEvent::SpellWarped { object, player }) => {
             eval::players_for_source(*who, state, you, Some(source))
                 .is_some_and(|seats| seats.contains(player))
                 && state
@@ -1528,6 +1538,12 @@ fn spell_cast_targeting_matches(
         .targets
         .iter()
         .chain(spell_obj.second_targets())
+        .chain(
+            spell_obj
+                .extra_target_instances()
+                .iter()
+                .flat_map(|inst| inst.targets.iter()),
+        )
         .copied()
         .filter(|&t| state.targets_current_object(spell_id, t))
         .collect();
@@ -1538,6 +1554,12 @@ fn spell_cast_targeting_matches(
         .target_players
         .iter()
         .chain(spell_obj.second_target_players().iter())
+        .chain(
+            spell_obj
+                .extra_target_instances()
+                .iter()
+                .flat_map(|inst| inst.players.iter()),
+        )
         .collect();
     if (spell_obj.target_req.is_some() || spell_obj.second_target_req().is_some())
         && let Some(p) = spell_obj.chosen_player

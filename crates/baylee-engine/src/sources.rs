@@ -31,6 +31,7 @@ pub(crate) enum Slot {
     Linked(u32),
     DelayedObject(u32),
     GrantedSource,
+    Extra(u32, u32),
 }
 
 /// Targets announced before any payment can change their incarnations.
@@ -38,6 +39,7 @@ pub(crate) enum Slot {
 pub(crate) struct TargetReferences {
     pub(crate) first: Vec<DamageSourceRef>,
     pub(crate) second: Vec<DamageSourceRef>,
+    pub(crate) extra: Vec<Vec<DamageSourceRef>>,
 }
 
 impl TargetReferences {
@@ -55,6 +57,23 @@ impl TargetReferences {
                 hash = hash
                     .wrapping_mul(31)
                     .wrapping_add(u64::from(reference.version));
+            }
+        }
+        if !self.extra.is_empty() {
+            hash = hash.wrapping_mul(31).wrapping_add(self.extra.len() as u64);
+            for group in &self.extra {
+                hash = hash.wrapping_mul(31).wrapping_add(group.len() as u64);
+                for reference in group {
+                    hash = hash
+                        .wrapping_mul(31)
+                        .wrapping_add(u64::from(reference.object.slot()));
+                    hash = hash
+                        .wrapping_mul(31)
+                        .wrapping_add(u64::from(reference.object.generation()));
+                    hash = hash
+                        .wrapping_mul(31)
+                        .wrapping_add(u64::from(reference.version));
+                }
             }
         }
         hash
@@ -431,6 +450,16 @@ impl GameState {
                         None,
                     ));
                 }
+                for (g, inst) in obj.extra_target_instances().iter().enumerate() {
+                    let group = u32::try_from(g).expect("extra target group");
+                    for (i, &target) in inst.targets.iter().enumerate() {
+                        slots.push((
+                            Slot::Extra(group, u32::try_from(i).expect("target index")),
+                            target,
+                            None,
+                        ));
+                    }
+                }
             }
             if let Some((id, version)) = obj.paid.as_ref().and_then(|p| p.tapped) {
                 slots.push((Slot::Tapped, id, Some(version)));
@@ -690,6 +719,20 @@ impl GameState {
             .copied()
     }
 
+    /// Exact object announced for one slot of an extra target group (`2 + group`).
+    #[must_use]
+    pub fn recorded_extra_target_reference(
+        &self,
+        holder: ObjectId,
+        group: u32,
+        index: u32,
+    ) -> Option<DamageSourceRef> {
+        self.source_identity(holder)
+            .and_then(|r| self.source_memory.stack.get(&r))
+            .and_then(|refs| refs.get(&Slot::Extra(group, index)))
+            .copied()
+    }
+
     /// Read the chosen target identities of this exact spell, including retained LKI.
     pub(crate) fn spell_targets_affected(&self, spell: &GameObject, affected: ObjectId) -> bool {
         if spell.kind != crate::object::ObjectKind::Spell {
@@ -700,13 +743,19 @@ impl GameState {
         };
         if let Some(refs) = self.source_memory.stack.get(&identity(spell)) {
             return refs.iter().any(|(slot, target)| {
-                matches!(slot, Slot::Target(_) | Slot::Second(_)) && *target == affected_ref
+                matches!(slot, Slot::Target(_) | Slot::Second(_) | Slot::Extra(..))
+                    && *target == affected_ref
             });
         }
         // Projected spell during cast_wizard before stack reference binding (CR 601.2c/f).
         self.object(spell.id)
             .is_some_and(|live| live.zone != crate::zone::Zone::Stack)
-            && (spell.targets.contains(&affected) || spell.second_targets().contains(&affected))
+            && (spell.targets.contains(&affected)
+                || spell.second_targets().contains(&affected)
+                || spell
+                    .extra_target_instances()
+                    .iter()
+                    .any(|inst| inst.targets.contains(&affected)))
     }
 
     pub(crate) fn targets_current_object(&self, holder: ObjectId, target: ObjectId) -> bool {
@@ -717,7 +766,8 @@ impl GameState {
             .and_then(|holder| self.source_memory.stack.get(&holder))
             .is_some_and(|refs| {
                 refs.iter().any(|(slot, reference)| {
-                    matches!(slot, Slot::Target(_) | Slot::Second(_)) && *reference == current
+                    matches!(slot, Slot::Target(_) | Slot::Second(_) | Slot::Extra(..))
+                        && *reference == current
                 })
             })
     }
@@ -838,7 +888,7 @@ impl GameState {
         self.source_memory.invalidate_object(holder);
         let refs =
             std::sync::Arc::make_mut(self.source_memory.stack.entry(holder_ref).or_default());
-        refs.retain(|slot, _| !matches!(slot, Slot::Target(_) | Slot::Second(_)));
+        refs.retain(|slot, _| !matches!(slot, Slot::Target(_) | Slot::Second(_) | Slot::Extra(..)));
         for (group, objects) in [(false, &targets.first), (true, &targets.second)] {
             for (index, &reference) in objects.iter().enumerate() {
                 let index = u32::try_from(index).expect("target slot");
@@ -850,6 +900,13 @@ impl GameState {
                     },
                     reference,
                 );
+            }
+        }
+        for (group, objects) in targets.extra.iter().enumerate() {
+            let group = u32::try_from(group).expect("extra target group");
+            for (index, &reference) in objects.iter().enumerate() {
+                let index = u32::try_from(index).expect("target slot");
+                refs.insert(Slot::Extra(group, index), reference);
             }
         }
     }

@@ -144,6 +144,10 @@ pub enum CastModeKind {
     /// with N time counters, is not a creature while it has a time counter, and
     /// removes a time counter at the beginning of each of your end steps.
     Impending,
+    /// Cast from your hand for the face's warp cost (CR 702.185a): exiles the
+    /// permanent it becomes at the beginning of the next end step, and its
+    /// owner may cast that card from exile on a later turn.
+    Warp,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -446,6 +450,13 @@ pub enum ChoicePrompt {
     /// choose one to manifest onto the battlefield face down, and put the other
     /// into your graveyard.
     ManifestDread,
+    /// Devour N (CR 702.82a): sacrifice any number of other matching controlled
+    /// permanents as this permanent enters (`factor == 0` means `count * count`
+    /// +1/+1 counters). Choosing none declines to devour anything.
+    Devour {
+        /// +1/+1 counters per devoured permanent (`0` means `count * count`).
+        factor: u8,
+    },
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).

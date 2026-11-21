@@ -1203,6 +1203,18 @@ pub enum Rider {
     /// transformed permanent by `Effect::ReturnCraftedTransformed`. Appended to
     /// preserve replay identities.
     CraftMaterial(baylee_core::ids::DamageSourceRef),
+    /// Spell cast for its warp cost (CR 702.185a), carried onto the permanent
+    /// it becomes on resolving from the stack. Appended to preserve replay
+    /// identities.
+    WarpedSpell,
+    /// Card exiled by a warp delayed trigger on `turn` (CR 702.185a–b): its
+    /// owner may cast it from exile on any turn after `turn` for as long as it
+    /// remains exiled. Appended to preserve replay identities.
+    WarpedInExile(u32),
+    /// Units of snow mana (mana produced by snow sources, CR 107.4h) spent to
+    /// cast the spell that became this permanent or triggered this ability
+    /// (CR 400.7d, CR 608.2h). Appended to preserve replay identities.
+    SnowManaSpent(u32),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1262,6 +1274,7 @@ impl Rider {
             | Self::Foretold { .. }
             | Self::Plotted
             | Self::PlottedOnTurn(_)
+            | Self::WarpedInExile(_)
             | Self::NotedCounter(_, _)
             | Self::ActivationManaNote { .. } => true,
             // About the stack or the battlefield, not exile.
@@ -1343,7 +1356,9 @@ impl Rider {
             | Self::NinjutsuDefender(_, _)
             | Self::SyntheticCondition(_)
             | Self::AbilitySourceFace(_)
-            | Self::CraftMaterial(_) => false,
+            | Self::CraftMaterial(_)
+            | Self::WarpedSpell
+            | Self::SnowManaSpent(_) => false,
         }
     }
 }
@@ -1363,7 +1378,21 @@ pub type RiderSet = Vec<Rider>;
 /// narrowing drops an illegal target from a list, which would slide a fight's
 /// second creature into the first one's place. Read by
 /// [`baylee_cards_dsl::TargetSlot::Second`] and nothing else.
+/// Additional target instances (`3rd`, `4th`, …) chosen across modes of a
+/// multi-mode spell (Spree, CR 700.2c–d, CR 702.172a).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct ExtraTargetInstance {
+    /// Players chosen for this target instance.
+    pub players: SeatSet,
+    /// Objects chosen for this target instance.
+    pub targets: SmallVec<[ObjectId; 2]>,
+    /// Requirement under which this target instance was chosen (for CR 608.2b).
+    pub req: Option<baylee_cards_dsl::TargetReq>,
+}
+
+/// The second target instance (and any 3rd+ modal target instances) carried by
+/// a stack object.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SecondInstance {
     /// Players chosen for this instance, independent of the first instance.
     pub players: SeatSet,
@@ -1374,6 +1403,22 @@ pub struct SecondInstance {
     /// time the face and the copy status are settled on the object and not
     /// in the card. An activated ability's is read off its definition.
     pub req: Option<baylee_cards_dsl::TargetReq>,
+    /// Target instances `2..` (3rd and subsequent target clauses) of a
+    /// multi-mode spell, kept inside `SecondInstance` so `GameObject` stays
+    /// 296 B and 0/1/2-target replay hashes are untouched.
+    pub extra: Vec<ExtraTargetInstance>,
+}
+
+impl std::hash::Hash for SecondInstance {
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        self.players.hash(h);
+        self.targets.hash(h);
+        self.req.hash(h);
+        if !self.extra.is_empty() {
+            0x6578_7472_u32.hash(h);
+            self.extra.hash(h);
+        }
+    }
 }
 
 /// What a cost's sacrificed permanent was as it last existed on the
@@ -1464,6 +1509,14 @@ pub struct PaidRecord {
     /// (`CR 702.167a–c`), moved onto `Rider::CraftMaterial` as the ability goes
     /// on the stack.
     pub crafted_materials: Vec<baylee_core::ids::DamageSourceRef>,
+}
+
+impl PaidRecord {
+    /// Units of snow-produced mana consumed by this payment (`CR 107.4h`).
+    #[must_use]
+    pub fn snow_mana_spent(&self) -> u32 {
+        u32::try_from(self.mana_paid.snow_total()).unwrap_or(u32::MAX)
+    }
 }
 
 impl std::hash::Hash for PaidRecord {
@@ -1989,7 +2042,30 @@ impl GameObject {
     /// and "becomes the target" both trigger on *any* instance.
     #[must_use]
     pub fn targets_object(&self, id: ObjectId) -> bool {
-        self.targets.contains(&id) || self.second_targets().contains(&id)
+        self.targets.contains(&id)
+            || self.second_targets().contains(&id)
+            || self
+                .extra_target_instances()
+                .iter()
+                .any(|inst| inst.targets.contains(&id))
+    }
+
+    /// Additional target instances (`3rd`, `4th`, …) chosen on this object.
+    #[must_use]
+    pub fn extra_target_instances(&self) -> &[ExtraTargetInstance] {
+        self.second.as_ref().map_or(&[], |s| s.extra.as_slice())
+    }
+
+    /// Writes the additional target instances (`3rd`, `4th`, …) on this object.
+    pub fn set_extra_targets(&mut self, extra: Vec<ExtraTargetInstance>) {
+        if !extra.is_empty() {
+            self.second.get_or_insert_with(Default::default).extra = extra;
+        } else if let Some(second) = &mut self.second {
+            second.extra.clear();
+            if second.targets.is_empty() && second.players.is_empty() && second.req.is_none() {
+                self.second = None;
+            }
+        }
     }
 
     /// What the second instance of "target" named — empty when the ability
@@ -2028,13 +2104,20 @@ impl GameObject {
         req: Option<baylee_cards_dsl::TargetReq>,
     ) {
         let players = self.second_target_players();
-        self.second = (!targets.is_empty() || !players.is_empty() || req.is_some()).then(|| {
-            Box::new(SecondInstance {
-                players,
-                targets,
-                req,
-            })
-        });
+        let extra = self
+            .second
+            .as_mut()
+            .map_or_else(Vec::new, |s| std::mem::take(&mut s.extra));
+        self.second =
+            (!targets.is_empty() || !players.is_empty() || req.is_some() || !extra.is_empty())
+                .then(|| {
+                    Box::new(SecondInstance {
+                        players,
+                        targets,
+                        req,
+                        extra,
+                    })
+                });
     }
 
     /// Creates a card-less object (token, emblem).

@@ -646,6 +646,13 @@ pub enum GameEvent {
         /// The player who sacrificed the creature.
         player: PlayerId,
     },
+    /// A spell was cast for its warp cost (CR 702.185a–c).
+    SpellWarped {
+        /// The warped spell on the stack.
+        object: ObjectId,
+        /// The player who cast it for its warp cost.
+        player: PlayerId,
+    },
 }
 
 /// Where in a library a card was put.

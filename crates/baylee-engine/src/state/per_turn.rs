@@ -210,6 +210,10 @@ pub struct PerTurn {
     /// Pair-specific blocking requirements active for this combat or turn
     /// (Provoke, Rampant Elephant, Hunt Down; CR 509.1c, CR 702.39a).
     pub must_block_pairs: PerTurnVec<MustBlockRequirement>,
+    /// Players who cast a spell for its warp cost this turn, one entry per
+    /// warped spell (`CR 702.185c`: Void capability and warped-this-turn
+    /// counts). Empty `PerTurnVec` preserves historical snapshot digests.
+    pub spells_warped: PerTurnVec<PlayerId>,
 }
 
 /// One block declared this turn ([`PerTurn::blocks`]).
@@ -512,6 +516,7 @@ impl PerTurn {
             skip_main_phases: false,
             skip_combat_phases: false,
             must_block_pairs: PerTurnVec::default(),
+            spells_warped: PerTurnVec::default(),
         }
     }
 
@@ -577,6 +582,7 @@ impl PerTurn {
         self.permanent_damage.clear();
         self.damaged_creature_deaths.clear();
         self.must_block_pairs.0.clear();
+        self.spells_warped.0.clear();
     }
 
     /// Resets all counters (called at every turn start).
@@ -637,6 +643,7 @@ impl PerTurn {
             permanent_damage: _,
             damaged_creature_deaths: _,
             must_block_pairs: _,
+            spells_warped: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

@@ -346,7 +346,9 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         Trigger::EntersBattlefield(_)
         | Trigger::EntersBattlefieldFromGraveyardOrCast(_)
         | Trigger::EnteredThisFrom(_)
-        | Trigger::EntersBattlefieldEvoked => dst[0] = 1.0,
+        | Trigger::EntersBattlefieldEvoked => {
+            dst[0] = 1.0;
+        }
         Trigger::PhasesIn(_) => dst[0] = 0.5,
         Trigger::Dies(_) | Trigger::DiesNotSacrificed(_) | Trigger::DiesAfterDamageByThis(_) => {
             dst[1] = 1.0;
@@ -393,7 +395,10 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::NthSpellCast { .. }
         | Trigger::InstantCastAfterFirst { .. }
         | Trigger::FirstNoncreatureSpellCast(_)
-        | Trigger::SpellCastTargeting { .. } => dst[6] = 1.0,
+        | Trigger::SpellCastTargeting { .. }
+        | Trigger::SpellWarped { .. } => {
+            dst[6] = 1.0;
+        }
         Trigger::StepBegin { .. } | Trigger::StepBeginChosenOpponent { .. } => dst[7] = 1.0,
         Trigger::PlaysLand(_)
         | Trigger::PlaysAnotherLand

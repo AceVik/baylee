@@ -367,6 +367,10 @@ pub struct PublicObject {
     /// Whether this face-up exiled card is plotted (`CR 702.170`).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub plotted: bool,
+    /// Whether this face-up exiled card was exiled by a warp delayed trigger
+    /// and may be cast from exile on a later turn (`CR 702.185a–b`).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub warped: bool,
     /// Which token this is, for permanents with no card behind them.
     ///
     /// The index into `baylee_cards::tokens::ALL`. A token has no printing
@@ -743,6 +747,7 @@ impl PublicObject {
             unlocked_doors: self.unlocked_doors,
             suspended: self.suspended,
             plotted: self.plotted,
+            warped: self.warped,
             colors: self.colors,
             keywords: self.keywords,
             power: self.power,
@@ -807,6 +812,7 @@ pub struct ObjectSummaryKey {
     unlocked_doors: Option<[bool; 2]>,
     suspended: bool,
     plotted: bool,
+    warped: bool,
     colors: ColorSet,
     keywords: u128,
     power: Option<i16>,
@@ -853,6 +859,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.unlocked_doors.hash(state);
         self.suspended.hash(state);
         self.plotted.hash(state);
+        self.warped.hash(state);
         self.power.hash(state);
         self.toughness.hash(state);
         self.damage.hash(state);

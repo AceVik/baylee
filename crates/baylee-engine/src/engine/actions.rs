@@ -993,7 +993,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         wizard.target_references.second = self.state.capture_target_group(&objects);
                         wizard.second_targets = objects.into_iter().collect();
                         wizard.second_target_players = players.into_iter().collect();
-                        wizard.stage = cast_wizard::WizardStage::DivideDamage;
+                        wizard.stage = cast_wizard::WizardStage::ExtraTargets;
+                    } else if wizard.stage == cast_wizard::WizardStage::ExtraTargets {
+                        wizard
+                            .target_references
+                            .extra
+                            .push(self.state.capture_target_group(&objects));
+                        wizard
+                            .extra_targets
+                            .push((objects.into_iter().collect(), players.into_iter().collect()));
                     } else {
                         wizard.target_references.first = self.state.capture_target_group(&objects);
                         wizard.targets = objects.into_iter().collect();

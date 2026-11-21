@@ -657,6 +657,18 @@ pub enum Condition {
     /// power or strictly greater toughness than this permanent. Appended to
     /// preserve replay identities.
     EvolveFromEvent,
+    /// "If this spell's warp cost was paid" (CR 702.185a), asked of the source
+    /// spell or the permanent it became on resolving from the stack while it
+    /// remains on the battlefield. Appended to preserve replay identities.
+    WarpCostPaid,
+    /// A card was warped this turn (CR 702.185c), restricted to players
+    /// matching the relation when `Some(who)` or any player when `None` ("if a
+    /// card was warped this turn"). Appended to preserve replay identities.
+    SpellWarpedThisTurn(Option<crate::PlayerRel>),
+    /// At least one snow mana (mana produced by a snow source, CR 107.4h) was
+    /// spent to cast this spell, activate this ability, or cast the spell that
+    /// became this permanent. Appended to preserve replay identities.
+    SnowManaWasSpent,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1183,6 +1195,16 @@ pub enum Trigger {
         exploiter: &'static Filter,
         /// Filter matched against the sacrificed exploited creature (`&Filter::Any` for any).
         exploited: &'static Filter,
+    },
+    /// A player matching `who` casts a spell matching `filter` for its warp
+    /// cost ("Whenever you warp a card…", CR 702.185a–c), binding `EventPlayer`
+    /// to the caster and `EventObject` to the warped spell. Appended to
+    /// preserve replay identities.
+    SpellWarped {
+        /// Which casting players count.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the warped spell on the stack.
+        filter: &'static Filter,
     },
 }
 

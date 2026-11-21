@@ -193,6 +193,7 @@ mod tests {
         let refs = crate::sources::TargetReferences {
             first: state.capture_target_group(&[first]),
             second: state.capture_target_group(&[second]),
+            extra: Vec::new(),
         };
         state.bind_target_references(stack, &refs);
         state

@@ -242,6 +242,38 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::ExileWarped => {
+            if let Some(target_id) = spec_object(state, res, TargetSpec::EventObject)
+                && state.object(target_id).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && !o.status.contains(crate::object::Status::PHASED_OUT)
+                        && o.riders.contains(&crate::object::Rider::WarpedSpell)
+                })
+            {
+                let turn = state.turn.number;
+                let owner = state.object(target_id).map_or(you, |o| o.owner);
+                if let Some(obj) = state.object_mut(target_id)
+                    && obj.is_card()
+                {
+                    obj.kind = ObjectKind::Card;
+                }
+                let _ = state.move_object(
+                    target_id,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                if let Some(obj) = state.object_mut(target_id)
+                    && obj.zone == crate::zone::Zone::Exile
+                    && obj.is_card()
+                {
+                    obj.riders
+                        .retain(|r| !matches!(r, crate::object::Rider::WarpedInExile(_)));
+                    obj.riders.push(crate::object::Rider::WarpedInExile(turn));
+                }
+            }
+            None
+        }
         Effect::Blink {
             target,
             owner_control,

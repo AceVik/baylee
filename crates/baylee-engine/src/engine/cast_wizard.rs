@@ -122,6 +122,8 @@ pub(crate) enum WizardStage {
     Escape,
     /// Gift yes/no and multiplayer opponent choice (`CR 702.174a`).
     Gift,
+    /// Third and subsequent target instances across chosen modes (`CR 700.2c`).
+    ExtraTargets,
 }
 
 /// A spell being cast step by step.
@@ -162,6 +164,8 @@ pub struct CastWizard {
     pub second_targets: SmallVec<[ObjectId; 1]>,
     /// Players named by the second target instance.
     pub second_target_players: baylee_core::ids::SeatSet,
+    /// Third and subsequent target instances (`objects`, `players`).
+    pub extra_targets: Vec<(SmallVec<[ObjectId; 2]>, baylee_core::ids::SeatSet)>,
     /// Players chosen as targets, the other half of "any target".
     pub target_players: baylee_core::ids::SeatSet,
     /// Chosen target player, if any.
@@ -257,6 +261,44 @@ pub struct CastWizard {
 }
 
 impl CastWizard {
+    pub(super) fn clause_first_targets(
+        &self,
+        clause_idx: usize,
+    ) -> (Option<ObjectId>, Option<PlayerId>, &[ObjectId]) {
+        if clause_idx == 0 {
+            return (None, None, &[]);
+        }
+        match clause_idx - 1 {
+            0 => (
+                self.targets.first().copied(),
+                self.chosen_player
+                    .or_else(|| self.target_players.iter().next()),
+                self.targets.as_slice(),
+            ),
+            1 => (
+                self.second_targets.first().copied(),
+                self.second_target_players.iter().next(),
+                self.second_targets.as_slice(),
+            ),
+            prev => {
+                let extra_idx = prev - 2;
+                let first_obj = self
+                    .extra_targets
+                    .get(extra_idx)
+                    .and_then(|(objs, _)| objs.first().copied());
+                let first_player = self
+                    .extra_targets
+                    .get(extra_idx)
+                    .and_then(|(_, players)| players.iter().next());
+                let slice = self
+                    .extra_targets
+                    .get(extra_idx)
+                    .map_or(&[][..], |(objs, _)| objs.as_slice());
+                (first_obj, first_player, slice)
+            }
+        }
+    }
+
     /// A cast nothing has been answered for yet, standing at `stage` with
     /// `options` to choose from: paid out of the pool at its full price by
     /// nobody's effect. Each way of starting a cast says what it changes
@@ -284,6 +326,7 @@ impl CastWizard {
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             second_target_players: baylee_core::ids::SeatSet::new(),
+            extra_targets: Vec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             x: 0,
@@ -433,6 +476,11 @@ impl CastWizard {
                     self.option,
                 )));
         }
+        if !self.extra_targets.is_empty() {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&self.extra_targets));
+        }
         hash = hash
             .wrapping_mul(2)
             .wrapping_add(u64::from(self.reduction.is_some()));
@@ -580,6 +628,21 @@ pub(crate) const fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
 }
 
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
+    pub(crate) fn is_plot_only_modal(&self, player: PlayerId, card: ObjectId) -> bool {
+        let Some(obj) = self.state.object(card) else {
+            return false;
+        };
+        let Some(def) = obj.card.and_then(|c| self.lookup.card(c.index)) else {
+            return false;
+        };
+        casting::modes_are_the_only_way(def, 0)
+            && casting::plot_permission(&self.state, player, card)
+            && !self.commanded_card(card)
+            && (def.faces[0].foretell.is_none()
+                || !casting::foretell_permission(&self.state, player, card))
+            && casting::play_permission(&self.state, player, card).is_none()
+    }
+
     /// Starts the casting wizard for `card` (validated castable).
     pub(crate) fn start_cast_wizard(
         &mut self,
@@ -592,7 +655,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             && casting::can_cast(&self.state, &self.lookup, player, card).is_err()
             && self.compute_legal(player).payable.contains(&card);
         let options = self.cast_options(player, card, pay_in_window)?;
+        let plot_modal = self.is_plot_only_modal(player, card);
         let mut wizard = CastWizard {
+            alternative_cost: plot_modal.then_some(CastModeKind::Plot),
             by_effect: self.commanded_card(card).then_some(EffectCast::Plain),
             paying: if pay_in_window {
                 casting::Paying::DuringTheCast
@@ -1619,7 +1684,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // Several modes: the first of them that says "target" is the
             // spell's first instance of the word (CR 700.2c), the second
             // its second — `wizard_second_target_req`.
-            Some(CastModeKind::Modes(set)) => targeted_mode(abilities, set, 0),
+            Some(CastModeKind::Modes(set)) => casting::modal_target_clauses(abilities, set)
+                .first()
+                .map(|&(_, _, req)| req),
             _ => abilities.iter().find_map(|a| match a {
                 AbilityDef::Spell { targets, .. } => *targets,
                 _ => None,
@@ -1627,11 +1694,47 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
     }
 
+    pub(super) fn wizard_modal_clause(
+        &self,
+        wizard: &CastWizard,
+        clause_idx: usize,
+    ) -> Option<(usize, bool, TargetReq)> {
+        if wizard.masked {
+            return None;
+        }
+        let Some(CastModeKind::Modes(set)) = wizard.option else {
+            return None;
+        };
+        let def = self
+            .state
+            .object(wizard.card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))?;
+        let face_index = wizard.face_index().min(def.faces.len() - 1);
+        casting::modal_target_clauses(def.abilities_for_face(face_index), set)
+            .get(clause_idx)
+            .copied()
+    }
+
+    pub(super) fn wizard_extra_clause(
+        &self,
+        wizard: &CastWizard,
+        clause_idx: usize,
+    ) -> Option<(usize, bool, TargetReq)> {
+        let (mode_idx, is_second, mut req) = self.wizard_modal_clause(wizard, clause_idx)?;
+        if is_second
+            && let TargetSpec::CardInFirstTargetsGraveyard(filter) = req.spec
+            && let Some(player) = wizard.clause_first_targets(clause_idx).1
+        {
+            req.spec = TargetSpec::CardInPlayersGraveyard(filter, player);
+        }
+        Some((mode_idx, is_second, req))
+    }
+
     /// The spell's requirement for a second instance of the word "target",
     /// if it prints one: [`AbilityDef::Spell`]'s, the chosen mode's
     /// (Archdruid's Charm's second mode says "target" twice), or, for a set
-    /// of chosen modes, the second of them that says "target" (Three Steps
-    /// Ahead, CR 700.2c).
+    /// of chosen modes, the second target clause across them (CR 700.2c).
     pub(super) fn wizard_second_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
         if wizard.masked {
             return None;
@@ -1644,6 +1747,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .expect("wizard card known");
         let face_index = wizard.face_index().min(def.faces.len() - 1);
         let abilities = def.abilities_for_face(face_index);
+        let mut is_second_in_mode = true;
         let mut req = match wizard.option {
             Some(CastModeKind::Fused) => fused_target_req(def, 1),
             Some(CastModeKind::Mode(i)) => abilities.iter().find_map(|a| match a {
@@ -1652,13 +1756,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 _ => None,
             }),
-            Some(CastModeKind::Modes(set)) => targeted_mode(abilities, set, 1),
+            Some(CastModeKind::Modes(set)) => {
+                let (_, is_sec, r) = *casting::modal_target_clauses(abilities, set).get(1)?;
+                is_second_in_mode = is_sec;
+                Some(r)
+            }
             _ => abilities.iter().find_map(|a| match a {
                 AbilityDef::Spell { second_targets, .. } => *second_targets,
                 _ => None,
             }),
         }?;
-        if let TargetSpec::CardInFirstTargetsGraveyard(filter) = req.spec
+        if is_second_in_mode
+            && let TargetSpec::CardInFirstTargetsGraveyard(filter) = req.spec
             && let Some(player) = wizard
                 .chosen_player
                 .or_else(|| wizard.target_players.iter().next())
@@ -1669,10 +1778,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 
     fn wizard_pitch_parts(&self, wizard: &CastWizard) -> &'static [CostPart] {
-        let Some(CastModeKind::Alternative(i)) = wizard.option else {
-            return &[];
-        };
-        self.wizard_face(wizard).alternative_costs[i].cost.parts
+        wizard_alternative_parts(
+            self.wizard_face(wizard),
+            wizard.alternative_cost.or(wizard.option),
+        )
     }
 
     /// Pays everything and puts the spell on the stack, or, refused, pays
@@ -1800,7 +1909,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let restricted_colors = face
             .x_mana_colors
             .or_else(|| face.x_mana_color.map(baylee_core::color::ColorSet::of))
-            .filter(|_| !wizard.free && wizard.option != Some(CastModeKind::Plot));
+            .filter(|_| {
+                !wizard.free
+                    && wizard.option != Some(CastModeKind::Plot)
+                    && wizard.alternative_cost != Some(CastModeKind::Plot)
+            });
         if restricted_colors.is_none() && face.extra_target_cost == 0 {
             return (total, None);
         }
@@ -1970,9 +2083,15 @@ fn wizard_total_before_reduction(
                 .chosen_player
                 .is_some_and(|p| !wizard.target_players.contains(p)),
         );
+    let extra_groups: usize = wizard
+        .extra_targets
+        .iter()
+        .map(|(objs, pls)| objs.len() + pls.len())
+        .sum();
     let extra = (wizard.targets.len()
         + wizard.second_targets.len()
         + wizard.second_target_players.len()
+        + extra_groups
         + players)
         .saturating_sub(1);
     total = total.with_more_generic(
@@ -2022,26 +2141,14 @@ fn wizard_total_before_reduction(
     total
 }
 
-/// The `nth` of the chosen modes that says "target" (0 or 1), and what it
-/// asks for: a spell cast with several modes points each of up to two of
-/// them at something, as its first and second instance of the word
-/// (CR 700.2c). `lints::modes_fault` holds a spell that chooses several to
-/// at most two such modes.
-fn targeted_mode(abilities: &'static [AbilityDef], set: u8, nth: usize) -> Option<TargetReq> {
-    abilities.iter().find_map(|a| match a {
-        AbilityDef::ModalSpell { modes, .. } => casting::chosen_modes(modes, set)
-            .filter_map(|(_, mode)| mode.targets)
-            .nth(nth),
-        _ => None,
-    })
-}
-
 /// Whether this cast pays mana at all. A free cast pays none of its mana
 /// cost (CR 601.2h pays nothing it was not asked for), but an additional
 /// cost it chose is still paid (CR 118.9d, 601.2f): a kicker, a buyback, and
 /// the replicate cost however many times it was announced.
 const fn pays_mana(wizard: &CastWizard) -> bool {
-    (!wizard.free && !matches!(wizard.option, Some(CastModeKind::Plot)))
+    (!wizard.free
+        && !matches!(wizard.option, Some(CastModeKind::Plot))
+        && !matches!(wizard.alternative_cost, Some(CastModeKind::Plot)))
         || wizard.kicked
         || wizard.buyback.is_some()
         || wizard.replicated > 0
@@ -2067,6 +2174,9 @@ pub(super) fn spend_for(
             Some(CastModeKind::Impending) => face
                 .impending
                 .map(|(_, c)| casting::SpellForm::Impending(c)),
+            _ if wizard.alternative_cost == Some(CastModeKind::Plot) => {
+                Some(casting::SpellForm::Plot)
+            }
             _ if wizard.masked => Some(casting::SpellForm::Disguise),
             _ => None,
         };
@@ -2099,6 +2209,9 @@ pub(super) fn spend_for(
             wizard.card,
             casting::SpellForm::Impending(face.impending.expect("impending option").1),
         ),
+        _ if wizard.alternative_cost == Some(CastModeKind::Plot) => {
+            casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Plot)
+        }
         _ if wizard.face_index() != 0 => {
             casting::SpendFor::SpellOnFace(wizard.card, wizard.face_index())
         }

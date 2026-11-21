@@ -52,6 +52,7 @@ fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (St
                 "casualty",
                 "impending",
                 "gift",
+                "warp",
             ]
             .contains(&field.as_str())
         {

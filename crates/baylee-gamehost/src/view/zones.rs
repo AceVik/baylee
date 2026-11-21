@@ -108,6 +108,7 @@ pub(super) fn mana_pool(state: &GameState, player: PlayerId) -> baylee_view::Man
         green: pool.available(ManaColor::Green),
         colorless: pool.available(ManaColor::Colorless),
         restricted,
+        snow: ManaColor::ALL.map(|c| pool.snow_available(c)),
     }
 }
 

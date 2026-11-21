@@ -34,10 +34,10 @@
 //!   view carries. Answering `true` would let an agent plan a tutor for a
 //!   card the search may not legally find, which is exactly the
 //!   considered-looking wrong decision above. [`Filter::CmcExactlyX`] reads
-//!   the same number. [`Filter::CmcAtMostColorsSpent`]
-//!   is the same refusal for the same reason: its bound is what the source's
-//!   payment spent, which the engine keeps on the source and no view
-//!   carries.
+//!   the same number. [`Filter::CmcAtMostColorsSpent`] and
+//!   [`Filter::CmcAtMostSnowManaSpent`] are the same refusal for the same
+//!   reason: their bound is what the source's payment spent, which the engine
+//!   keeps on the source and no view carries.
 //! - [`Filter::PowerLessThanSourcePower`] and
 //!   [`Filter::ToughnessLessThanSourcePower`] compare with the source's
 //!   power, and this reader is handed the candidate and not the source.
@@ -419,6 +419,7 @@ impl HeuristicAgent {
             Filter::PowerAtLeast(n) => Some(object.power.is_some_and(|p| p >= *n)),
             Filter::PowerAtMost(n) => Some(object.power.is_some_and(|p| p <= *n)),
             Filter::IsCommander => Some(object.commander),
+            Filter::WarpedInExile => Some(zone == ZoneRef::Exile && object.warped),
             Filter::InZone(want) => Some(match *want {
                 ZoneRef::BattlefieldOrCommand => {
                     matches!(zone, ZoneRef::Battlefield | ZoneRef::Command | ZoneRef::BattlefieldOrCommand)
@@ -447,6 +448,7 @@ impl HeuristicAgent {
             | Filter::CmcAtMostX
             | Filter::CmcExactlyX
             | Filter::CmcAtMostColorsSpent
+            | Filter::CmcAtMostSnowManaSpent
             | Filter::AttackingYou
             | Filter::PowerAtMostSourcePower
             | Filter::PowerLessThanSourcePower

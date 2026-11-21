@@ -135,6 +135,7 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
             recipient: player, ..
         }
         | GameEvent::CreatureExploited { player, .. }
+        | GameEvent::SpellWarped { player, .. }
         | GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),
             ..
@@ -319,6 +320,7 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
             exploited: object, ..
         }
         | GameEvent::CardPlotted { object, .. }
+        | GameEvent::SpellWarped { object, .. }
         | GameEvent::AttackerUnblocked { object }
         // The permanent that changed tap state: "that land's controller"
         // of Psychic Venom and "that permanent's controller" of Mesmeric Orb.

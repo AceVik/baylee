@@ -1281,6 +1281,7 @@ fn cast_label(
         K::BeamMeUp => Phrase::CastBeamMeUp.text(lang).to_string(),
         K::Dash => Phrase::CastDash.text(lang).to_string(),
         K::Blitz => Phrase::CastBlitz.text(lang).to_string(),
+        K::Warp => Phrase::CastWarp.text(lang).to_string(),
         K::Emerge => Phrase::CastEmerge.text(lang).to_string(),
         K::Fused => Phrase::CastFused.text(lang).to_string(),
         K::Mutate => Phrase::CastMutate.text(lang).to_string(),

@@ -482,11 +482,24 @@ impl GameLog {
             objects: if synthetic {
                 Vec::new()
             } else if about_its_event {
-                obj.second_targets().to_vec()
+                obj.second_targets()
+                    .iter()
+                    .chain(
+                        obj.extra_target_instances()
+                            .iter()
+                            .flat_map(|inst| inst.targets.iter()),
+                    )
+                    .copied()
+                    .collect()
             } else {
                 obj.targets
                     .iter()
                     .chain(obj.second_targets().iter())
+                    .chain(
+                        obj.extra_target_instances()
+                            .iter()
+                            .flat_map(|inst| inst.targets.iter()),
+                    )
                     .copied()
                     .collect()
             },
@@ -496,6 +509,11 @@ impl GameLog {
                 baylee_engine::eval::first_target_players(obj)
                     .iter()
                     .chain(obj.second_target_players().iter())
+                    .chain(
+                        obj.extra_target_instances()
+                            .iter()
+                            .flat_map(|inst| inst.players.iter()),
+                    )
                     .collect()
             },
         })
@@ -523,6 +541,11 @@ impl GameLog {
             .targets
             .iter()
             .chain(obj.second_targets().iter())
+            .chain(
+                obj.extra_target_instances()
+                    .iter()
+                    .flat_map(|inst| inst.targets.iter()),
+            )
             .copied()
             .eq(held.objects.iter().copied());
         if !objects_match {
@@ -531,6 +554,11 @@ impl GameLog {
         let players: SeatSet = baylee_engine::eval::first_target_players(obj)
             .iter()
             .chain(obj.second_target_players().iter())
+            .chain(
+                obj.extra_target_instances()
+                    .iter()
+                    .flat_map(|inst| inst.players.iter()),
+            )
             .collect();
         Some(players == held.players)
     }
@@ -711,6 +739,7 @@ impl GameLog {
             | GameEvent::CardPlotted { .. }
             | GameEvent::GiftGiven { .. }
             | GameEvent::CreatureExploited { .. }
+            | GameEvent::SpellWarped { .. }
             | GameEvent::AttackerUnblocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.

@@ -173,6 +173,9 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("exploit", K::EXPLOIT), // trigger::entry_keywords::collect + Effect::Exploit (CR 702.110a)
         ("evolve", K::EVOLVE), // trigger::entry_keywords::collect + Condition::EvolveFromEvent (CR 702.100a)
         ("bloodthirst", K::BLOODTHIRST), // eval::matches(Filter::HasKeyword) + EnterModifier::Bloodthirst (CR 702.54a)
+        ("warp", K::WARP),               // casting + cast_wizard + progress::stack (CR 702.185a)
+        ("devour", K::DEVOUR),           // entry::choices + entry::counters (CR 702.82a)
+        ("spree", K::SPREE),             // casting + cast_wizard + progress::stack (CR 702.172a)
     ]
 };
 

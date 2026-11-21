@@ -81,6 +81,9 @@ pub(super) fn can_finish(
     if group == 1 {
         return candidate != old_aim || may_keep(state, obj, retarget, group, old_aim);
     }
+    if group != 0 {
+        return true;
+    }
     let Some(old) = obj.second_target_req() else {
         return true;
     };

@@ -1191,6 +1191,7 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
                 targets: smallvec::SmallVec::new(),
                 players: baylee_core::ids::SeatSet::new(),
                 req: Some(REQ),
+                extra: Vec::new(),
             }));
         }),
         ("original_base", |s, id| {
