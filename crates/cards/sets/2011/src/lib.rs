@@ -175,6 +175,8 @@ pub mod crush;
 pub mod cryptoplasm;
 #[path = "isd/curse_of_death_s_hold.rs"]
 pub mod curse_of_death_s_hold;
+#[path = "isd/curse_of_oblivion.rs"]
+pub mod curse_of_oblivion;
 #[path = "isd/curse_of_the_bloody_tome.rs"]
 pub mod curse_of_the_bloody_tome;
 #[path = "isd/curse_of_the_nightly_hunt.rs"]

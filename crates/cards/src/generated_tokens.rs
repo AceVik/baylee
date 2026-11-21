@@ -5878,6 +5878,34 @@ pub static OFFICER_1_1_RED: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 green legendary Murf with indestructible.
+pub static MURF_LEGENDARY_0_1_GREEN_INDESTRUCTIBLE: TokenDef = TokenDef {
+    name: "Murf",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::OOZE, creature::SLUG],
+    power: Some(0),
+    toughness: Some(1),
+    keywords: KeywordSet::INDESTRUCTIBLE,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 red green Worm.
+pub static WORM_2_2_RED_GREEN_AA6F088A4: TokenDef = TokenDef {
+    name: "Worm",
+    colors: ColorSet::from_slice(&[Color::Red, Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WORM],
+    power: Some(2),
+    toughness: Some(2),
+    abilities: &[static_ability!(
+        Filter::And(&[Filter::CREATURE, Filter::This]),
+        Modifier::AddKeyword(KeywordSet::CANT_BLOCK)
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -7112,6 +7140,8 @@ pub static ALL: &[&TokenDef] = &[
     &BORG_ARTIFACT_1_1,
     &FOREST_TENTACLE_LAND_3_3_GREEN,
     &OFFICER_1_1_RED,
+    &MURF_LEGENDARY_0_1_GREEN_INDESTRUCTIBLE,
+    &WORM_2_2_RED_GREEN_AA6F088A4,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -7560,4 +7590,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &BORG_ARTIFACT_1_1,
     &FOREST_TENTACLE_LAND_3_3_GREEN,
     &OFFICER_1_1_RED,
+    &MURF_LEGENDARY_0_1_GREEN_INDESTRUCTIBLE,
+    &WORM_2_2_RED_GREEN_AA6F088A4,
 ];

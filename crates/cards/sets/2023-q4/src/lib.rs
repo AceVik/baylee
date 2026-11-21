@@ -379,6 +379,8 @@ pub mod the_everflowing_well;
 pub mod the_flux;
 #[path = "lcc/the_indomitable.rs"]
 pub mod the_indomitable;
+#[path = "who/the_master_mesmerist.rs"]
+pub mod the_master_mesmerist;
 #[path = "lci/thousand_moons_crackshot.rs"]
 pub mod thousand_moons_crackshot;
 #[path = "lci/thousand_moons_smithy.rs"]

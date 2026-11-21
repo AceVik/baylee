@@ -598,7 +598,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // cards) adds 65 non-mana activations: 55 read by the table and 10
     // remaining contextual; Beat 15 2x codegen --scripts reconvergence
     // upgrades 22 pool stubs, adding 1 contextual non-mana activation.
-    assert_eq!((read, of), (4865, 6210), "activated/loyalty reader census");
+    // Unholding 29 Wave 15 / Beat 15-fixed cards (22 Star Trek creature
+    // subtypes plus Ambassador K'Ehleyr, Curse of Oblivion, Evasive
+    // Maneuvers, Grakk the Pacifist, Lithoform Engine, Nimble Obstructionist,
+    // and The Master, Mesmerist) adds 9 non-mana activations: 6 read by the
+    // table and 3 remaining contextual.
+    assert_eq!((read, of), (4871, 6219), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

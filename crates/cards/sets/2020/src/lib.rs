@@ -591,6 +591,8 @@ pub mod lightning_visionary;
 pub mod liliana_s_devotee;
 #[path = "m21/liliana_s_steward.rs"]
 pub mod liliana_s_steward;
+#[path = "pznr/lithoform_engine.rs"]
+pub mod lithoform_engine;
 #[path = "jmp/living_lightning.rs"]
 pub mod living_lightning;
 #[path = "znr/living_tempest.rs"]

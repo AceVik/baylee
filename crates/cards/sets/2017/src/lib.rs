@@ -747,6 +747,8 @@ pub mod never;
 pub mod night_market_guard;
 #[path = "akh/nimble_blade_khenra.rs"]
 pub mod nimble_blade_khenra;
+#[path = "hou/nimble_obstructionist.rs"]
+pub mod nimble_obstructionist;
 #[path = "hou/nissa_s_defeat.rs"]
 pub mod nissa_s_defeat;
 #[path = "akh/oashra_cultivator.rs"]

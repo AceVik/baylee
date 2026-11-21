@@ -33231,7 +33231,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["When this creature enters, target creature can't block this turn."],
     // Curse of Death's Hold
     &["Enchant player\nCreatures enchanted player controls get -1/-1."],
-    &[],
+    // Curse of Oblivion
+    &[
+        "Enchant player\nAt the beginning of enchanted player's upkeep, that player exiles two cards from their graveyard.",
+    ],
     &[],
     // Curse of the Bloody Tome
     &[
@@ -45466,7 +45469,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Nimble Obstructionist
+    &[
+        "Flash\nFlying\nCycling {2}{U} ({2}{U}, Discard this card: Draw a card.)\nWhen you cycle this card, counter target activated or triggered ability you don't control.",
+    ],
     // Nissa's Defeat
     &[
         "Destroy target Forest, green enchantment, or green planeswalker. If that permanent was a Nissa planeswalker, draw a card.",
@@ -53966,7 +53972,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Lithoform Engine
+    &[
+        "{2}, {T}: Copy target activated or triggered ability you control. You may choose new targets for the copy.\n{3}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n{4}, {T}: Copy target permanent spell you control. (The copy becomes a token.)",
+    ],
     // Living Tempest
     &["Flash\nFlying"],
     &[],
@@ -67162,7 +67171,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // The Master, Mesmerist
+    &[
+        "{T}: Target creature an opponent controls with power less than or equal to The Master's power gains skulk until end of turn. Goad it. (A creature with skulk can't be blocked by creatures with greater power.)\nWhenever a creature with skulk deals combat damage to one of your opponents, put a +1/+1 counter on The Master and draw a card.",
+    ],
     &[],
     &[],
     &[],
@@ -81907,7 +81919,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Grakk the Pacifist
+    &[
+        "Grakk can't attack or block.\nWhenever you cast an Aura spell that targets a creature an opponent controls, draw a card. This ability triggers only once each turn.",
+    ],
     &[],
     &[],
     &[],
@@ -82079,7 +82094,8 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Emergency Medical Hologram
     &["When this creature enters, put a +1/+1 counter on target creature. You gain 1 life."],
-    &[],
+    // Evasive Maneuvers
+    &["Target blocking creature you control gets +2/+2 until end of turn.\nDraw a card."],
     // Exocomp
     &["Flying (This creature can't be blocked except by creatures with flying or reach.)"],
     // Federation Field Medic
@@ -82617,7 +82633,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Academy Instructor
+    &[
+        "This creature gets +1/+0 for each Officer token you control.\nWhenever you cast a noncreature spell, create a 1/1 red Officer creature token.",
+    ],
     &[],
     &[],
     &[],
@@ -82625,14 +82644,20 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Affinity for Vulcans (This spell costs {1} less to cast for each Vulcan you control.)\nLandfall — Whenever a land you control enters, put two +1/+1 counters on target creature you control.",
     ],
-    &[],
+    // Ambassador K'Ehleyr
+    &[
+        "Vigilance\nParley — At the beginning of combat on your turn, each player reveals the top card of their library, then draws a card. For each nonland card revealed this way, put a +1/+1 counter on Ambassador K'Ehleyr.",
+    ],
     // Ambulatory Reactor
     &[
         "Artifact creatures you control have \"{T}: Add {C}. Spend this mana only to cast an artifact spell or activate an ability of an artifact source.\"",
     ],
     // Andoria
     &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {U} or {R}."],
-    &[],
+    // Andromedan Automatons
+    &[
+        "When this creature enters, you may search your library for any number of cards named Andromedan Automatons, reveal them, put them into your hand, then shuffle.",
+    ],
     // Antagonist Incorporator
     &[
         "Artifact creatures you control have \"Whenever this creature deals combat damage to a player, you may pay {1}. If you do, create a 1/1 colorless Borg artifact creature token.\"",
@@ -82718,7 +82743,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Add one mana of any color.\nStation (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an artifact creature at 6+.)\n6+ | Flying, vigilance",
     ],
-    &[],
+    // Cleveland Booker, Empath
+    &[
+        "Landfall — Whenever a land you control enters, create a 2/2 red and green Worm creature token with \"This token can't block.\"\n{8}: Creatures you control get +2/+0 until end of turn.",
+    ],
     &[],
     &[],
     // Co-Option Adjutant
@@ -82749,7 +82777,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When Culber and Stamets enter, choose one —\n• Put a +1/+1 counter on target creature.\n• Add two mana of any one color.",
     ],
-    &[],
+    // Curzon Dax, Bound by Blood
+    &[
+        "Whenever another Klingon or Warrior you control dies, Curzon Dax deals 1 damage to each opponent.\nWhen Curzon Dax dies, you may put a creature card with mana value 3 or less from your hand onto the battlefield.",
+    ],
     // D'Ghor Bloodletter
     &[
         "When this creature enters, choose one —\n• All other creatures get -1/-1 until end of turn.\n• Each player sacrifices a creature of their choice.",
@@ -82769,8 +82800,12 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
-    &[],
+    // Data, New Life
+    &["Whenever you draw a card, put a +1/+1 counter on Data."],
+    // Data, Professor of Humanities
+    &[
+        "Seek out — Whenever you draw your second card each turn, create two 1/1 blue Faerie creature tokens with flying.",
+    ],
     &[],
     // David and Carol Marcus, Creators
     &[
@@ -82785,7 +82820,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Exile target artifact or creature. Create X 1/1 colorless Borg artifact creature tokens, where X is that permanent's mana value.",
     ],
-    &[],
+    // Dominion Assault Force
+    &[
+        "Vigilance\nWhen this creature enters, choose one —\n• Exile target card from a graveyard.\n• Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+    ],
     // Dominion Infiltration
     &[
         "Choose X target creatures your opponents control. For each of them, create a token that's a copy of that creature, except it has changeling. Those tokens gain haste. Exile those tokens at the beginning of the next end step. (They're every creature type.)",
@@ -82836,7 +82874,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Yes — {1}, {T}: Untap two other target creatures.\nNo — {2}, {T}: Tap two other target creatures.",
     ],
-    &[],
+    // Fugitive Listener
+    &["When this creature enters, each opponent discards a card."],
     &[],
     // Gagh Slinger
     &[
@@ -82875,7 +82914,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Trample\nWhenever you attack, Klingons and Warriors you control get +2/+0 and gain trample until end of turn.",
     ],
     &[],
-    &[],
+    // Grand Nagus Zek
+    &[
+        "Grand Nagus Zek gets +1/+1 for each Treasure you control.\nWhenever another creature dies, create a Treasure token. This ability triggers only once each turn. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    ],
     &[],
     // Grilka, Widowed Warrior
     &[
@@ -82885,7 +82927,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Hemmer, Fixing What Is Broken
+    &[
+        "During your turn, Spacecraft you control have hexproof. (They can't be the targets of spells or abilities your opponents control.)\nWhenever Hemmer becomes tapped, draw a card, then discard a card.",
+    ],
     &[],
     &[],
     &[],
@@ -82939,7 +82984,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Kes, Evolving Telepath
+    &[
+        "At the beginning of your end step, put a time counter on Kes, then draw X cards, where X is the number of time counters on her. Then if she has nine or more time counters on her, sacrifice her.",
+    ],
     // Khan, Despot by Design
     &[
         "Trample\nWhen Khan enters, he deals 1 damage to each opponent and each creature your opponents control.",
@@ -82973,7 +83021,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Artifact creatures you control get +1/+1.\n{W}{B}, Discard this card: It deals 2 damage to target creature. You gain 2 life.",
     ],
-    &[],
+    // Lore, Positronic Provocateur
+    &[
+        "When Lore enters, choose one —\n• Target creature gets +1/+0 until end of turn and can't be blocked this turn.\n• Surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
+    ],
     &[],
     &[],
     &[],
@@ -82998,7 +83049,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Neelix, Moral Support
+    &[
+        "When Neelix enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nWhenever you gain life, put a +1/+1 counter on Neelix.",
+    ],
     // Ni'Var Science Academy
     &[
         "This land enters tapped unless you control two or more other lands.\nWhen this land enters untapped, choose one —\n• Target creature gains flying until end of turn.\n• Surveil 1.\n{T}: Add {U}.",
@@ -83025,7 +83079,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Phlox, Unorthodox Doctor
+    &[
+        "Trample\nWhenever a creature you control with a counter on it deals combat damage to a player, draw a card.",
+    ],
     // Photosynthetic Physician
     &[
         "Reach\n{G}, Exile this card from your graveyard: Create a 1/1 red Officer creature token. Activate only as a sorcery.",
@@ -83076,9 +83133,18 @@ pub static ORACLE: &[&[&str]] = &[
     // Risa
     &["This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {G} or {W}."],
     &[],
-    &[],
-    &[],
-    &[],
+    // Ro Laren, Double Agent
+    &[
+        "Seek out — Whenever you draw your second card each turn, Ro Laren deals 2 damage to each opponent.\n{1}, {T}, Discard a card: Draw a card.",
+    ],
+    // Rok-Tahk, Budding Scientist
+    &[
+        "Creatures you control have \"{T}: Add {G}{G}.\"\nWhen Rok-Tahk enters, create Murf, a legendary 0/1 green Ooze Slug creature token with indestructible.",
+    ],
+    // Rom and Leeta, Unlikely Pair
+    &[
+        "Seek out — Whenever you draw your second card each turn, create two tapped Treasure tokens.",
+    ],
     // Romulan Bird-of-Prey
     &[
         "Cloaking Device — As long as this Spacecraft isn't a creature, it has hexproof.\nWhenever you cast a noncreature spell, if this Spacecraft isn't a creature, put two charge counters on it.\nStation\n8+ | Flying",
@@ -83104,7 +83170,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flash\nWhen Saru enters, another target creature you control gains hexproof until end of turn. (It can't be the target of spells or abilities your opponents control.)",
     ],
-    &[],
+    // Savvy Profiteer
+    &[
+        "{T}: Add {R}.\n{3}, {T}: Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+    ],
     // Scotty, Chief Engineer
     &["Tap an untapped artifact you control: Target creature can't be blocked this turn."],
     &[],
@@ -83184,8 +83253,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Tal Shiar Analyst
+    &[
+        "{T}: This creature deals 1 damage to each opponent.\nWhenever you cast a noncreature spell, untap this creature.",
+    ],
+    // Tal Shiar Operative
+    &[
+        "Whenever this creature attacks, choose one —\n• Target creature you control gains deathtouch until end of turn.\n• Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+    ],
     // Targ Wrangler
     &[
         "Menace (This creature can't be blocked except by two or more creatures.)\nAt the beginning of your end step, if this creature attacked this turn, sacrifice a nonland permanent.",
@@ -83268,8 +83343,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Equipped creature gets +1/+1.\nWhenever equipped creature attacks, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
     ],
-    &[],
-    &[],
+    // Troi, Winging It
+    &[
+        "Whenever an opponent draws a card during your turn, create a 1/1 blue Faerie creature token with flying.",
+    ],
+    // Troubling Tribbles
+    &[
+        "This creature can't block.\nAt the beginning of your upkeep, create a token that's a copy of this creature.",
+    ],
     &[],
     // Type-03 Borg Vessel
     &[

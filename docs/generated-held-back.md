@@ -40,18 +40,10 @@ never a reason to edit a card by hand.
 - Wail of War: `check_text` rejects `controlled_by: Some(PlayerRel::Chosen)` paired with `TargetSpec::AnyOpponent` without `Filter::ControlledByOpponent`.
 - Dion, Bahamut's Dominant, Jill, Shiva's Dominant: Chapter III (`"Exile ..., then return it to the battlefield (front face up)."`) lowers `ExileSelfReturnAsFace { owner_control: true }` despite omitting `"under its owner's control"`, tripping `entries::every_self_return_comes_back_under_the_control_its_sentence_prints`.
 - The Eternity Elevator: non-creature Spacecraft (`Station 20+`) with no printed P/T box, tripping `faces::a_creature_is_exactly_a_face_with_a_body` because `pt_fault` unconditionally expects `power`/`toughness` on every `SPACECRAFT` face.
-- Nimble Obstructionist: `"you don't control"` lowers to `Filter::ControlledByOpponent` instead of `Filter::Not(&Filter::ControlledByYou)` (`xtask validate`).
-- The Master, Mesmerist: `Time Lord` two-word subtype dropped until Wave 14a merges (`xtask validate`).
 - Hog-Monkey Rampage: `"creature an opponent controls"` lowers to `Filter::Not(&Filter::ControlledByYou)` instead of `Filter::ControlledByOpponent` (`xtask validate`).
-- Grakk the Pacifist: `"can't attack or block"` trips `xtask validate`'s `can't block` keyword phrase check.
-- Evasive Maneuvers: `"Target blocking creature you control"` drops `Filter::ControlledByYou` (`xtask validate`).
-- Lithoform Engine: `"{4}, {T}: Copy target permanent spell you control"` lowers to `TargetSpec::Spell(&Filter::ControlledByYou)`, dropping the permanent type restriction (`CR 110.4b`).
 - Feast of Worms, Render Silent, Strength of the Coalition: valid targeted spells that reuse `&Filter::LAND`, `&Filter::Any`, or `&Filter::YOUR_CREATURE` on their follow-up sacrifice/prevention/kicked-sweep effect, tripping `lints::tests::targets::no_targeted_ability_sweeps_the_board_instead` (`target_reuse`).
 - Startled Awake // Persistent Nightmare: its graveyard return ability prints `"Put this card from your graveyard onto the battlefield transformed"`, lacking `"return"` required by `lints::tests::entries::every_self_return_comes_back_under_the_control_its_sentence_prints`.
-- Curse of Oblivion: `parse_graveyard_chooser_and_owner` defaults `chooser` to `PlayerRel::You` instead of `PlayerRel::EnchantedPlayer` when `Chooser$` is omitted on `DefinedPlayer$ EnchantedPlayer`.
-- Ambassador K'Ehleyr: `scriptgen` emits nonexistent `Effect::AddCounterAmount` for its `ThisWayBy` counter placement instead of `Effect::AddCounter` / `Effect::AddCounterSource`.
 - Abyssal Lotus: Forge script omits `PresentCompare$ GE8` on `IsPresent$ Permanent.YouOwn | PresentZone$ Graveyard`, so `Condition::AmountAtLeast` defaults to `1` instead of `8` for Descend 8.
-- Star Trek creature subtypes (22 cards — Academy Instructor, Andromedan Automatons, Cleveland Booker, Empath, Curzon Dax, Bound by Blood, Data, New Life, Data, Professor of Humanities, Dominion Assault Force, Fugitive Listener, Grand Nagus Zek, Hemmer, Fixing What Is Broken, Kes, Evolving Telepath, Lore, Positronic Provocateur, Neelix, Moral Support, Phlox, Unorthodox Doctor, Ro Laren, Double Agent, Rok-Tahk, Budding Scientist, Rom and Leeta, Unlikely Pair, Savvy Profiteer, Tal Shiar Analyst, Tal Shiar Operative, Troi, Winging It, Troubling Tribbles): the cached `SubtypeCatalogs` read by `codegen::type_expr` omits 16 Star Trek creature subtypes (`Aenar`, `Android`, `Bajoran`, `Betazoid`, `Bolian`, `Brikar`, `Denobulan`, `El-Aurian`, `Ferengi`, `Jem'Hadar`, `Kwejian`, `Ocampa`, `Romulan`, `Talaxian`, `Tribble`, `Trill`) already present in `baylee-core`, so `codegen` drops them from `face!(subtypes)` and emits `// FIXME(codegen): unknown type-line word`.
 
 ## Engine gaps
 
