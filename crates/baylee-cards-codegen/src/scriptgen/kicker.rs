@@ -803,7 +803,9 @@ impl Tx<'_> {
                 mana.push('{');
                 mana.push_str(token);
                 mana.push('}');
-            } else if let Some(pair) = super::hybrid_pair(token) {
+            } else if let Some(pair) =
+                super::hybrid_pair(token).or_else(|| super::mana::special_mana_symbol(token))
+            {
                 mana.push_str(&pair);
             } else if token.starts_with("XMin") {
                 return self.deny("a variable-X `Kicker` cost".to_string());
@@ -872,7 +874,8 @@ impl Tx<'_> {
             let token = token.as_str();
             let is_mana = token.chars().all(|c| c.is_ascii_digit())
                 || matches!(token, "W" | "U" | "B" | "R" | "G" | "C" | "S" | "X")
-                || super::hybrid_pair(token).is_some();
+                || super::hybrid_pair(token).is_some()
+                || super::mana::special_mana_symbol(token).is_some();
             if is_mana {
                 continue;
             }

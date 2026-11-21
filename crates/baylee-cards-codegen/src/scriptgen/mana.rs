@@ -98,10 +98,11 @@ impl Tx<'_> {
                 let [only] = &colors[..] else {
                     return self.deny("a counted amount of more than one colour".to_string());
                 };
-                vec![format!(
-                    "Effect::mana_dynamic({only}, {})",
-                    self.counted_amount(&raw)?
-                )]
+                let amount = self
+                    .mono_devotion_mana_amount(only, &raw)
+                    .map(str::to_string)
+                    .or_else(|| self.counted_amount(&raw))?;
+                vec![format!("Effect::mana_dynamic({only}, {amount})")]
             }
         };
         let mut out = if let Some((filter, uses, ability_filter)) = restrict {
@@ -136,6 +137,19 @@ impl Tx<'_> {
             }
         }
         Some(out)
+    }
+
+    fn mono_devotion_mana_amount(&self, color_const: &str, raw: &str) -> Option<&'static str> {
+        let def = self.svars.get(raw.trim())?.trim();
+        let expected = match color_const {
+            "ManaColor::White" => "Count$Devotion.White",
+            "ManaColor::Blue" => "Count$Devotion.Blue",
+            "ManaColor::Black" => "Count$Devotion.Black",
+            "ManaColor::Red" => "Count$Devotion.Red",
+            "ManaColor::Green" => "Count$Devotion.Green",
+            _ => return None,
+        };
+        (def == expected).then_some("Amount::DevotionToManaColor")
     }
 
     /// [`Self::mana_effect`] for a pool other than the controller's:
@@ -195,6 +209,19 @@ impl Tx<'_> {
         let (chosen, rest): (Vec<&str>, Vec<&str>) = list
             .split_whitespace()
             .partition(|w| *w == "Chosen" || *w == "ChosenColor");
+        // `Combo AnyDifferent`: fixed 2–5 distinct colors of the five colors
+        // ("Add two mana of different colors", Interplanar Beacon et al.).
+        if rest == ["AnyDifferent"] {
+            if !chosen.is_empty() {
+                return self.deny("`Mana` combination over `AnyDifferent`".to_string());
+            }
+            return match fixed {
+                Some(n) if (2..=5).contains(&n) => Some(vec![format!(
+                    "Effect::mana_different_colors(ALL_MANA_COLORS, Amount::Fixed({n}))"
+                )]),
+                _ => self.deny("`Mana` combination over `AnyDifferent`".to_string()),
+            };
+        }
         // `Combo Any` is the five colours written as one word, and here it is
         // a *list* rather than a source — which is what makes "add four mana
         // in any combination of colors" the same rule as the filter lands'
@@ -1630,20 +1657,11 @@ impl Tx<'_> {
                 mana.push('{');
                 mana.push_str(token);
                 mana.push('}');
-            } else if let Some(pair) = hybrid_pair(token) {
-                // `Cost$ UR T` is `{U/R}, {T}` — one mana of either colour
-                // (CR 107.4e), which the corpus writes as the two letters run
-                // together and this side writes with the slash the card
-                // prints. The two have to be *different* letters: `{U/U}` is
-                // not a symbol, and `ColorPair::new` asserts as much. Nothing
-                // in the reference writes a doubled pair, which is checked
-                // rather than assumed — a doubled one would be a token this
-                // rule quietly turned into a panic at compile time.
-                //
-                // Strictly two colours, so `2W` and `WP` keep refusing by
-                // name: a `{2/W}` costs *two* generic as its other half and a
-                // `{W/P}` is paid with life, and neither is what a reader
-                // that saw "two letters" would have written.
+            } else if let Some(pair) = hybrid_pair(token).or_else(|| special_mana_symbol(token)) {
+                // `Cost$ UR T` -> `{U/R}`, `2W` -> `{2/W}`, `WP` -> `{W/P}`,
+                // `URP` -> `{U/R/P}` (CR 107.4e–f). Doubled pairs like `WW` or
+                // `WWP` and non-color symbols like `2C`/`CP` return `None` and
+                // keep refusing by name so `ColorPair::new` can never panic.
                 mana.push_str(&pair);
             } else {
                 let head = token.split('<').next().unwrap_or(token);
@@ -1671,7 +1689,9 @@ impl Tx<'_> {
             return self.deny(format!("counter `{kind_raw}`"));
         };
         match target_opt {
-            None | Some("CARDNAME") => Some(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}")),
+            None | Some("CARDNAME" | "NICKNAME") => {
+                Some(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}"))
+            }
             Some(valid) => {
                 if self.on_a_spell || self.in_alternative_cost || n == 0 {
                     return self.deny(format!("cost `{token}`"));
@@ -1727,13 +1747,18 @@ impl Tx<'_> {
 
     fn sub_counter_cost(&self, n: &str, kind: &str) -> Option<String> {
         // "Remove a corpse counter from this creature" as a cost: a fixed
-        // number of one kind, from the source, or `X` on a non-spell
+        // number of one kind, from the source (`SubCounter<1/CORPSE>` or
+        // `SubCounter<1/OIL/CARDNAME[/desc]>`), or `X` on a non-spell
         // activation. Loyalty costs (CR 606.3-4) and counters removed from
         // another permanent stay refused.
-        if kind.contains('/') {
+        let mut fields = kind.splitn(3, '/');
+        let kind_raw = fields.next()?;
+        if let Some(target) = fields.next()
+            && !matches!(target, "CARDNAME" | "NICKNAME")
+        {
             return self.deny(format!("a counter cost from `{kind}`"));
         }
-        if kind == "LOYALTY" {
+        if kind_raw == "LOYALTY" {
             return self.deny("a loyalty cost".to_string());
         }
         if n == "X" {
@@ -1744,16 +1769,16 @@ impl Tx<'_> {
             {
                 return self.deny("counter count `X`".to_string());
             }
-            let Some(kind) = counter_kind(kind) else {
-                return self.deny(format!("counter `{kind}`"));
+            let Some(kind) = counter_kind(kind_raw) else {
+                return self.deny(format!("counter `{kind_raw}`"));
             };
             return Some(format!("RemoveCounterSelfX {{ kind: {kind} }}"));
         }
         let Ok(n) = n.parse::<u16>() else {
             return self.deny(format!("counter count `{n}`"));
         };
-        let Some(kind) = counter_kind(kind) else {
-            return self.deny(format!("counter `{kind}`"));
+        let Some(kind) = counter_kind(kind_raw) else {
+            return self.deny(format!("counter `{kind_raw}`"));
         };
         Some(format!("RemoveCounterSelf {{ kind: {kind}, n: {n} }}"))
     }
@@ -2058,4 +2083,19 @@ fn normalize_graveyard_entered(valid: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(",")
+}
+
+/// Forge shorthand for printed non-hybrid special mana symbols understood by
+/// `ManaCost::try_parse`: two-or-color (`2W` -> `{2/W}`), Phyrexian
+/// (`WP` -> `{W/P}`), and hybrid Phyrexian (`WUP` -> `{W/U/P}`, distinct colors).
+pub(super) fn special_mana_symbol(token: &str) -> Option<String> {
+    let is_color = |b: u8| matches!(b, b'W' | b'U' | b'B' | b'R' | b'G');
+    match token.as_bytes() {
+        [b'2', c] if is_color(*c) => Some(format!("{{2/{}}}", *c as char)),
+        [c, b'P'] if is_color(*c) => Some(format!("{{{}/P}}", *c as char)),
+        [a, b, b'P'] if is_color(*a) && is_color(*b) && a != b => {
+            Some(format!("{{{}/{}/P}}", *a as char, *b as char))
+        }
+        _ => None,
+    }
 }

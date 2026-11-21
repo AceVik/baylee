@@ -179,33 +179,41 @@ fn a_combination_picks_once_per_mana_and_any_one_color_picks_once() {
         ["mana_ability!(&[Effect::mana_commander_identity()])"]
     );
 
-    // "Add two mana of different colors" is a third sentence again, and
-    // the DSL has no room for "different" — so it is refused by the word
-    // the corpus writes rather than by the line it sits on.
-    let different = parse(
+    // "Add two mana of different colors" lowers to `mana_different_colors`
+    // for fixed 2..=5, while out-of-range counts and `Each$` stay refused.
+    let different = read(
         "Name:X\nTypes:Land\n\
          A:AB$ Mana | Cost$ 1 T | Produced$ Combo AnyDifferent | Amount$ 2 | \
          SpellDescription$ Add two mana of different colors.\n",
     );
-    assert!(transcode(&different, &cats(), None).is_none());
     assert_eq!(
-        refusal_reason(&different, &cats(), None).as_deref(),
+        different.abilities,
+        [concat!(
+            "mana_ability!(cost!(\"{1}\", TapSelf), ",
+            "&[Effect::mana_different_colors(ALL_MANA_COLORS, Amount::Fixed(2))])"
+        )]
+    );
+
+    let bad_different = parse(
+        "Name:X\nTypes:Land\n\
+         A:AB$ Mana | Cost$ 1 T | Produced$ Combo AnyDifferent | Amount$ 1\n",
+    );
+    assert!(transcode(&bad_different, &cats(), None).is_none());
+    assert_eq!(
+        refusal_reason(&bad_different, &cats(), None).as_deref(),
         Some("`Mana` combination over `AnyDifferent`")
     );
 }
 
 /// `Cost$ UR T` is the filter cycle's price, and the letters run together.
 ///
-/// Three things are asserted rather than one, because a rule that saw
-/// "two letters" would get two of them wrong:
-///
-/// - the pair keeps the **printed order**, `{U/R}` and not `{R/U}`;
-/// - `2W` and `WP` are two letters and neither is a colour pair — a
-///   `{2/W}` costs two generic as its other half, a `{W/P}` is paid with
-///   life — so both keep refusing **by name**;
-/// - a doubled pair is not a symbol at all, and `ColorPair::new` asserts
-///   it, so `WW` has to be refused here rather than turned into a panic
-///   at the card's compile time. No reference script writes one.
+/// - colour pairs keep their **printed order** (`{U/R}` and not `{R/U}`);
+/// - two-or-color (`2W` -> `{2/W}`), Phyrexian (`WP` -> `{W/P}`), and hybrid
+///   Phyrexian (`URP` -> `{U/R/P}`) lower to the exact symbols `ManaCost`
+///   parses;
+/// - doubled pairs (`WW`, `WWP`), non-color symbols (`2C`, `CP`), and
+///   three-color tokens (`WUB`) keep refusing **by name** so `ColorPair::new`
+///   can never panic at compile time.
 #[test]
 fn a_hybrid_activation_cost_keeps_the_order_the_card_prints() {
     let body = read(
@@ -217,14 +225,23 @@ fn a_hybrid_activation_cost_keeps_the_order_the_card_prints() {
         ["mana_ability!(cost!(\"{U/R}\", TapSelf), &[Effect::mana(ManaColor::Blue, 1)])"]
     );
 
-    for token in ["2W", "WP", "WW", "WUB"] {
+    let special = read(
+        "Name:SpecialMana\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ 2W WP URP | NumCards$ 1\n",
+    );
+    assert_eq!(
+        special.abilities,
+        ["activated!(cost!(\"{2/W}{W/P}{U/R/P}\"), &[Effect::draw(1)])"]
+    );
+
+    for token in ["WW", "WUB", "2C", "CP", "WWP"] {
         let script = parse(&format!(
             "Name:X\nTypes:Land\n\
              A:AB$ Mana | Cost$ {token} T | Produced$ U | SpellDescription$ Add {{U}}.\n"
         ));
         assert!(
             transcode(&script, &cats(), None).is_none(),
-            "`{token}` is not a colour pair"
+            "`{token}` is not a valid mana symbol"
         );
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
@@ -5026,4 +5043,256 @@ fn wave18a_activation_svar_and_present_conditions() {
         "{:?}",
         morbid_ab.abilities
     );
+}
+
+#[test]
+fn wave19a_exhaust_boast_game_limit_and_svar_activation_limit() {
+    let exhaust = read(
+        "Name:ExhaustBot\nManaCost:2\nTypes:Artifact Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 2 T | NumCards$ 1 | Exhaust$ True",
+    );
+    assert_eq!(
+        exhaust.abilities,
+        [
+            "activated!(cost!(\"{2}\", TapSelf), &[Effect::draw(1)], limit = ActivationLimit::Exhaust)"
+        ]
+    );
+
+    let game_once = read(
+        "Name:OnceBot\nManaCost:1\nTypes:Creature\nPT:1/1\n\
+         A:AB$ PutCounter | Cost$ 3 | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2 | GameActivationLimit$ 1",
+    );
+    assert!(
+        game_once.abilities[0].contains("limit = ActivationLimit::Exhaust"),
+        "{:?}",
+        game_once.abilities
+    );
+
+    let boast = read(
+        "Name:BoastWarrior\nManaCost:W\nTypes:Creature\nPT:2/1\n\
+         A:AB$ Tap | Cost$ 1 W | ValidTgts$ Creature | Boast$ True",
+    );
+    assert!(
+        boast.abilities[0].contains("limit = ActivationLimit::Boast"),
+        "{:?}",
+        boast.abilities
+    );
+
+    let per_turn_amount = read(
+        "Name:SnowLimit\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ B | NumCards$ 1 | ActivationLimit$ X\n\
+         SVar:X:Count$Valid Land.Snow+YouCtrl",
+    );
+    assert!(
+        per_turn_amount.abilities[0]
+            .contains("limit = ActivationLimit::PerTurnAmount(Amount::CountOf {"),
+        "{:?}",
+        per_turn_amount.abilities
+    );
+
+    for bad in [
+        "Name:X\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | Exhaust$ True",
+        "Name:X\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | GameActivationLimit$ 1",
+        "Name:X\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | Boast$ True",
+        "Name:X\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | Exhaust$ False",
+        "Name:X\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | GameActivationLimit$ 2",
+        "Name:X\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | Boast$ False",
+        "Name:X\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | Exhaust$ True | Boast$ True",
+        "Name:X\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | ActivationLimit$ 1 | GameActivationLimit$ 1",
+        "Name:X\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | ActivationLimit$ X\nSVar:X:Count$xPaid",
+        "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Exhaust$ True | NumCards$ 1",
+        "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Boast$ True | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave19a_charms_with_cost_min_num_limits_and_additional_description() {
+    let sp_cost = read(
+        "Name:SacCharm\nManaCost:1 B\nTypes:Instant\n\
+         A:SP$ Charm | Cost$ 1 B Sac<1/Creature> | MinCharmNum$ 1 | CharmNum$ 2 | Choices$ M1,M2\n\
+         SVar:M1:DB$ Draw | NumCards$ 2\n\
+         SVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+         SVar:X:Sacrificed$CardPower",
+    );
+    assert_eq!(
+        sp_cost.mandatory_additional_costs,
+        ["CostPart::Sacrifice(&Filter::YOUR_CREATURE)"]
+    );
+    assert!(
+        sp_cost.abilities[0].contains("Amount::SacrificedPower"),
+        "{:?}",
+        sp_cost.abilities
+    );
+
+    let ab_modal = read(
+        "Name:ModalRelic\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ Charm | Cost$ 2 T | Choices$ M1,M2 | MinCharmNum$ 1 | SorcerySpeed$ True | GameActivationLimit$ 1 | AdditionalDescription$ . Activate only as a sorcery and only once.\n\
+         SVar:M1:DB$ Draw | NumCards$ 1\n\
+         SVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 3",
+    );
+    assert!(
+        ab_modal.abilities[0].contains("timing = ActivationTiming::SorcerySpeed")
+            && ab_modal.abilities[0].contains("limit = ActivationLimit::Exhaust"),
+        "{:?}",
+        ab_modal.abilities
+    );
+
+    let ab_cond_desc = read(
+        "Name:HatchRelic\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Charm | Cost$ Sac<1/CARDNAME> | Choices$ M1,M2 | IsPresent$ Card.Self+counters_GE2_CHARGE | AdditionalDescription$ . Activate only if there are two or more charge counters on CARDNAME.\n\
+         SVar:M1:DB$ Draw | NumCards$ 1\n\
+         SVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+    );
+    assert!(
+        ab_cond_desc.abilities[0].contains("condition = Some("),
+        "{:?}",
+        ab_cond_desc.abilities
+    );
+
+    for bad in [
+        "Name:X\nManaCost:1 R\nTypes:Instant\nA:SP$ Charm | Choices$ M1,M2 | AdditionalDescription$ . If you control a commander as you cast this spell, you may choose both.\nSVar:M1:DB$ Draw | NumCards$ 1\nSVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+        "Name:X\nManaCost:1 R\nTypes:Instant\nA:SP$ Charm | Cost$ XMin1 X R | Choices$ M1,M2\nSVar:M1:DB$ Draw | NumCards$ 1\nSVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+        "Name:X\nTypes:Artifact\nA:AB$ Charm | Cost$ 1 | Choices$ M1,M2 | AdditionalDescription$ . Activate only as a sorcery.\nSVar:M1:DB$ Draw | NumCards$ 1\nSVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+        "Name:X\nTypes:Artifact\nA:AB$ Charm | Cost$ 1 | Choices$ M1,M2 | MinCharmNum$ 2\nSVar:M1:DB$ Draw | NumCards$ 1\nSVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+        "Name:X\nTypes:Artifact\nA:AB$ Charm | Cost$ 1 | Choices$ M1,M2 | Condition$ Threshold | AdditionalDescription$ . Activate only if you have threshold and only once.\nSVar:M1:DB$ Draw | NumCards$ 1\nSVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave19a_activators_hand_or_command_and_activation_x_min() {
+    for (param, expected_zone) in [
+        (
+            "Activator$ Player.Opponent",
+            "ActivationZone::BattlefieldOpponent",
+        ),
+        (
+            "Activator$ Player.Owner",
+            "ActivationZone::BattlefieldOwner",
+        ),
+        (
+            "Activator$ Player.EnchantedController",
+            "ActivationZone::BattlefieldAttachedController",
+        ),
+        (
+            "ActivationZone$ Hand,Command",
+            "ActivationZone::HandOrCommand",
+        ),
+        (
+            "ActivationZone$ Command,Hand",
+            "ActivationZone::HandOrCommand",
+        ),
+    ] {
+        let body = read(&format!(
+            "Name:ZoneTest\nManaCost:2\nTypes:Artifact\n\
+             A:AB$ Draw | Cost$ 2 | NumCards$ 1 | {param}"
+        ));
+        assert!(
+            body.abilities[0].contains(&format!("zone = {expected_zone}")),
+            "{param} => {:?}",
+            body.abilities
+        );
+    }
+
+    let x_min = read(
+        "Name:MinX\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ XMin1 X G | NumCards$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert_eq!(
+        x_min.abilities,
+        [
+            "activated!(cost!(\"{X}{G}\"), &[Effect::DrawCards { amount: Amount::X }], x_value = ActivationX::AtLeast(1))"
+        ]
+    );
+
+    let modal_x_min = read(
+        "Name:ModalX\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Charm | Cost$ XMin1 X | Choices$ M1,M2 | AdditionalDescription$ . X can't be 0.\n\
+         SVar:M1:DB$ Draw | NumCards$ X\n\
+         SVar:M2:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        modal_x_min.abilities[0].contains("x_value = ActivationX::AtLeast(1)"),
+        "{:?}",
+        modal_x_min.abilities
+    );
+
+    for bad in [
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ G | Activator$ Player.Opponent",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | Activator$ Player.Owner | ActivationZone$ Graveyard",
+        "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Activator$ Player.Opponent | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ XMin1 2 | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ XMin0 X | NumCards$ X\nSVar:X:Count$xPaid",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ XMin1 XMin2 X | NumCards$ X\nSVar:X:Count$xPaid",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave19a_devotion_mana_any_different_and_sub_counter_self() {
+    let devotion = read(
+        "Name:GreenAcolyte\nManaCost:3 G\nTypes:Creature\nPT:1/4\n\
+         A:AB$ Mana | Cost$ T | Produced$ G | Amount$ X\n\
+         SVar:X:Count$Devotion.Green",
+    );
+    assert_eq!(
+        devotion.abilities,
+        ["mana_ability!(&[Effect::mana_dynamic(ManaColor::Green, Amount::DevotionToManaColor)])"]
+    );
+
+    let beacon = read(
+        "Name:BeaconLand\nTypes:Land\n\
+         A:AB$ Mana | Cost$ 1 T | Produced$ Combo AnyDifferent | Amount$ 2 | RestrictValid$ Spell.Planeswalker",
+    );
+    assert!(
+        beacon.abilities[0].contains(
+            "Effect::mana_different_colors(ALL_MANA_COLORS, Amount::Fixed(2)).restricted("
+        ),
+        "{:?}",
+        beacon.abilities
+    );
+
+    let self_sub = read(
+        "Name:OilRelic\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ SubCounter<2/OIL/CARDNAME/this artifact> | NumCards$ 1",
+    );
+    assert_eq!(
+        self_sub.abilities,
+        ["activated!(cost!(RemoveCounterSelf { kind: counters::OIL, n: 2 }), &[Effect::draw(1)])"]
+    );
+
+    let nick_add = read(
+        "Name:NickRelic\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ AddCounter<1/CHARGE/NICKNAME> | NumCards$ 1",
+    );
+    assert_eq!(
+        nick_add.abilities,
+        [
+            "activated!(cost!(PutCounterSelf { kind: CounterKind::Charge, n: 1 }), &[Effect::draw(1)])"
+        ]
+    );
+
+    let pw_card = read(
+        "Name:WalkerCard\nManaCost:3 W\nTypes:Planeswalker\nLoyalty:4\n\
+         A:AB$ Draw | Cost$ AddCounter<1/LOYALTY/CARDNAME> | Planeswalker$ True | NumCards$ 1",
+    );
+    assert_eq!(pw_card.abilities, ["loyalty!(1, &[Effect::draw(1)])"]);
+
+    for bad in [
+        "Name:X\nTypes:Creature\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ G | Amount$ X\nSVar:X:Count$Devotion.Red",
+        "Name:X\nTypes:Creature\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ C | Amount$ X\nSVar:X:Count$Devotion.Green",
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo AnyDifferent | Amount$ 6",
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo AnyDifferent | Amount$ 2 | Each$ 2",
+        "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo Chosen AnyDifferent | Amount$ 2",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/LOYALTY/CARDNAME> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/OIL/Creature.YouCtrl> | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
 }

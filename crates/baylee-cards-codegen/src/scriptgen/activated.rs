@@ -41,14 +41,31 @@ enum ActivationKind {
     Loyalty,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ActivatorRestriction {
+    Default,
+    AnyPlayer,
+    Opponent,
+    Owner,
+    AttachedController,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ParsedLimit {
+    Unlimited,
+    PerTurnRaw(String),
+    Exhaust,
+    Boast,
+}
+
 struct ExtractedAbilitySpec {
     cost: Option<String>,
     alternate_cost: Option<String>,
-    limit: Option<String>,
+    limit: ParsedLimit,
     activation_zone: Option<String>,
     non_battlefield_zone: bool,
     zone_suffix: &'static str,
-    any_player: bool,
+    activator: ActivatorRestriction,
     sorcery_speed: bool,
     kind: ActivationKind,
     condition: String,
@@ -249,22 +266,135 @@ impl Tx<'_> {
         Some(())
     }
 
+    fn take_activation_limit(
+        &self,
+        probe: &mut Params,
+        is_activated: bool,
+    ) -> Option<(ParsedLimit, Vec<&'static str>)> {
+        let limit_raw = probe.take("ActivationLimit");
+        let exhaust_raw = probe.take("Exhaust");
+        let game_limit_raw = probe.take("GameActivationLimit");
+        let boast_raw = probe.take("Boast");
+        if !is_activated {
+            if limit_raw.is_some() {
+                return self.deny("`ActivationLimit$` on a spell line".to_string());
+            }
+            if exhaust_raw.is_some() {
+                return self.deny("`Exhaust$` on a spell line".to_string());
+            }
+            if game_limit_raw.is_some() {
+                return self.deny("`GameActivationLimit$` on a spell line".to_string());
+            }
+            if boast_raw.is_some() {
+                return self.deny("`Boast$` on a spell line".to_string());
+            }
+            return Some((ParsedLimit::Unlimited, Vec::new()));
+        }
+        let count = usize::from(limit_raw.is_some())
+            + usize::from(exhaust_raw.is_some())
+            + usize::from(game_limit_raw.is_some())
+            + usize::from(boast_raw.is_some());
+        if count > 1 {
+            return self.deny("multiple activation limits on one ability".to_string());
+        }
+        if let Some(raw) = exhaust_raw {
+            return if raw == "True" {
+                Some((ParsedLimit::Exhaust, vec!["Exhaust$"]))
+            } else {
+                self.deny(format!("`Exhaust$ {raw}`"))
+            };
+        }
+        if let Some(raw) = game_limit_raw {
+            return if raw == "1" {
+                Some((ParsedLimit::Exhaust, vec!["GameActivationLimit$"]))
+            } else {
+                self.deny(format!("`GameActivationLimit$ {raw}`"))
+            };
+        }
+        if let Some(raw) = boast_raw {
+            return if raw == "True" {
+                Some((ParsedLimit::Boast, vec!["Boast$"]))
+            } else {
+                self.deny(format!("`Boast$ {raw}`"))
+            };
+        }
+        match limit_raw {
+            None => Some((ParsedLimit::Unlimited, Vec::new())),
+            Some(raw) => Some((ParsedLimit::PerTurnRaw(raw), vec!["ActivationLimit$"])),
+        }
+    }
+
+    fn parse_activator(
+        &self,
+        raw: Option<&str>,
+        is_activated: bool,
+    ) -> Option<ActivatorRestriction> {
+        let Some(val) = raw else {
+            return Some(ActivatorRestriction::Default);
+        };
+        if !is_activated {
+            return self.deny(format!("`Activator$ {val}` on a spell"));
+        }
+        match val {
+            "Player" => Some(ActivatorRestriction::AnyPlayer),
+            "Player.Opponent" => Some(ActivatorRestriction::Opponent),
+            "Player.Owner" => Some(ActivatorRestriction::Owner),
+            "Player.EnchantedController" => Some(ActivatorRestriction::AttachedController),
+            other => self.deny(format!("`Activator$ {other}`")),
+        }
+    }
+
     /// Read the activation count separately from cost and effect emission.
-    fn activation_limit(&mut self, limit: Option<&str>) -> Option<String> {
+    fn activation_limit(&mut self, limit: &ParsedLimit) -> Option<String> {
         Some(match limit {
-            None => String::new(),
-            Some(n) => {
-                let Ok(n) = n.parse::<u8>() else {
-                    // `GE4` and `X` are the corpus's other two spellings
-                    // (5 scripts between them) and neither is a count
-                    // this side can read: one is a *threshold* on the
-                    // counters already spent, the other a number the
-                    // board works out.
-                    return self.deny(format!("activation limit `{n}`"));
-                };
-                format!(", limit = ActivationLimit::PerTurn({n})")
+            ParsedLimit::Unlimited => String::new(),
+            ParsedLimit::Exhaust => ", limit = ActivationLimit::Exhaust".to_string(),
+            ParsedLimit::Boast => ", limit = ActivationLimit::Boast".to_string(),
+            ParsedLimit::PerTurnRaw(raw) => {
+                if let Ok(n) = raw.parse::<u8>() {
+                    format!(", limit = ActivationLimit::PerTurn({n})")
+                } else if let Some(def) = self.svars.get(raw.trim()).cloned()
+                    && let Some(expr) = self.static_count_expr(&def)
+                {
+                    format!(", limit = ActivationLimit::PerTurnAmount({expr})")
+                } else {
+                    return self.deny(format!("activation limit `{raw}`"));
+                }
             }
         })
+    }
+
+    fn strip_activation_x_min(&self, raw: &str) -> Option<(String, Option<u32>)> {
+        let mut kept = Vec::new();
+        let mut x_min: Option<u32> = None;
+        for token in cost_parts(raw) {
+            if let Some(n_str) = token.strip_prefix("XMin") {
+                if x_min.is_some() {
+                    return self.deny(format!("duplicate `XMin` in `Cost$ {raw}`"));
+                }
+                let Ok(n) = n_str.parse::<u32>() else {
+                    return self.deny(format!("invalid `{token}` in `Cost$ {raw}`"));
+                };
+                if n == 0 {
+                    return self.deny(format!("invalid `{token}` in `Cost$ {raw}`"));
+                }
+                x_min = Some(n);
+            } else {
+                kept.push(token);
+            }
+        }
+        Some((kept.join(" "), x_min))
+    }
+
+    fn cost_has_variable_x(cost: &str) -> bool {
+        cost.contains("{X}")
+            || cost.contains("SacrificeX(")
+            || cost.contains("TapX(")
+            || cost.contains("DiscardX(")
+            || cost.contains("ExileFromGraveyardX(")
+            || cost.contains("PayEnergyX")
+            || cost.contains("PayLifeX")
+            || cost.contains("RemoveCounterSelfX {")
     }
 
     pub(super) fn parse_activated_spec(
@@ -318,7 +448,7 @@ impl Tx<'_> {
                 .map_or_default(|req| format!(", second_targets = Some({req})"));
             self.push_spell_ability(
                 extracted.cost.as_deref(),
-                extracted.limit.as_deref(),
+                &extracted.limit,
                 &extracted.condition,
                 &effects,
                 extracted.chain.target.as_deref(),
@@ -412,8 +542,8 @@ impl Tx<'_> {
         if !is_activated && alternate_cost.is_some() {
             return self.deny("an `AlternateCost` on a spell".to_string());
         }
-        let limit = probe.take("ActivationLimit");
-        let activator = probe.take("Activator");
+        let (limit, limit_keys) = self.take_activation_limit(&mut probe, is_activated)?;
+        let activator = self.parse_activator(probe.take("Activator").as_deref(), is_activated)?;
         let activation_zone = probe.take("ActivationZone");
         if !is_activated && let Some(zone) = activation_zone.as_deref() {
             return self.deny(format!("a spell in `ActivationZone$ {zone}`"));
@@ -431,9 +561,8 @@ impl Tx<'_> {
             }
             _ => None,
         };
-        let any_player = is_activated && activator.as_deref() == Some("Player");
         let (non_battlefield_zone, zone_suffix) = if is_activated {
-            self.activation_zone_expr(activation_zone.as_deref(), any_player, false)?
+            self.activation_zone_expr(activation_zone.as_deref(), activator, false)?
         } else {
             (false, "")
         };
@@ -444,18 +573,18 @@ impl Tx<'_> {
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
         let mut drop_keys: Vec<&'static str> = [
             (true, "Cost$"),
-            (true, "ActivationLimit$"),
             (is_planeswalker, "Planeswalker$"),
             (has_ultimate, "Ultimate$"),
             (alternate_cost.is_some(), "AlternateCost$"),
             (is_activated && reduce_cost.is_some(), "ReduceCost$"),
-            (any_player, "Activator$"),
+            (activator != ActivatorRestriction::Default, "Activator$"),
             (zone_handled, "ActivationZone$"),
             (sorcery_speed, "SorcerySpeed$"),
         ]
         .into_iter()
         .filter_map(|(on, key)| on.then_some(key))
         .collect();
+        drop_keys.extend(limit_keys);
         drop_keys.extend(restrictions);
         if present_read {
             drop_keys.extend([
@@ -474,7 +603,7 @@ impl Tx<'_> {
             activation_zone,
             non_battlefield_zone,
             zone_suffix,
-            any_player,
+            activator,
             sorcery_speed,
             kind,
             condition,
@@ -518,40 +647,85 @@ impl Tx<'_> {
     fn activation_zone_expr(
         &self,
         activation_zone: Option<&str>,
-        any_player: bool,
+        activator: ActivatorRestriction,
         modal: bool,
     ) -> Option<(bool, &'static str)> {
-        match (activation_zone, any_player) {
-            (None | Some("Battlefield"), false) => Some((false, "")),
-            (None | Some("Battlefield"), true) => {
+        match (activation_zone, activator) {
+            (None | Some("Battlefield"), ActivatorRestriction::Default) => Some((false, "")),
+            (None | Some("Battlefield"), ActivatorRestriction::AnyPlayer) => {
                 Some((false, ", zone = ActivationZone::BattlefieldAnyPlayer"))
             }
-            (Some("Graveyard"), false) => Some((true, ", zone = ActivationZone::Graveyard")),
-            (Some("Hand"), false) => Some((true, ", zone = ActivationZone::Hand")),
-            (Some("Command"), false) => Some((true, ", zone = ActivationZone::Command")),
-            (Some("Battlefield,Command" | "Command,Battlefield"), false) => {
-                Some((true, ", zone = ActivationZone::BattlefieldOrCommand"))
+            (None | Some("Battlefield"), ActivatorRestriction::Opponent) => {
+                Some((false, ", zone = ActivationZone::BattlefieldOpponent"))
             }
-            (Some(zone), true) => {
+            (None | Some("Battlefield"), ActivatorRestriction::Owner) => {
+                Some((false, ", zone = ActivationZone::BattlefieldOwner"))
+            }
+            (None | Some("Battlefield"), ActivatorRestriction::AttachedController) => Some((
+                false,
+                ", zone = ActivationZone::BattlefieldAttachedController",
+            )),
+            (Some("Graveyard"), ActivatorRestriction::Default) => {
+                Some((true, ", zone = ActivationZone::Graveyard"))
+            }
+            (Some("Hand"), ActivatorRestriction::Default) => {
+                Some((true, ", zone = ActivationZone::Hand"))
+            }
+            (Some("Command"), ActivatorRestriction::Default) => {
+                Some((true, ", zone = ActivationZone::Command"))
+            }
+            (
+                Some("Battlefield,Command" | "Command,Battlefield"),
+                ActivatorRestriction::Default,
+            ) => Some((true, ", zone = ActivationZone::BattlefieldOrCommand")),
+            (Some("Hand,Command" | "Command,Hand"), ActivatorRestriction::Default) => {
+                Some((true, ", zone = ActivationZone::HandOrCommand"))
+            }
+            (Some(zone), ActivatorRestriction::AnyPlayer) => {
                 self.deny(format!("`Activator$ Player` in `ActivationZone$ {zone}`"))
             }
-            (Some(zone), false) => {
+            (Some(zone), ActivatorRestriction::Default) => {
                 let prefix = if modal { "a modal " } else { "an " };
                 self.deny(format!(
                     "{prefix}activated ability in `ActivationZone$ {zone}`"
                 ))
             }
+            (Some(zone), _) => self.deny(format!("`Activator$` in `ActivationZone$ {zone}`")),
         }
+    }
+
+    fn activated_target_suffix(chain: &Chain) -> String {
+        chain.target.as_ref().map_or_default(|t| {
+            if let Some(max) = chain.target_up_to {
+                if max == 1 {
+                    format!(", targets = Some(TargetReq::up_to_one({t}))")
+                } else {
+                    format!(", targets = Some(TargetReq::up_to({t}, {max}))")
+                }
+            } else if let Some(n) = chain.target_exact {
+                format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+            } else {
+                format!(", target = Some({t})")
+            }
+        })
     }
 
     fn build_activated_parts(&mut self, spec: &ExtractedAbilitySpec) -> Option<ParsedActivated> {
         if spec.kind == ActivationKind::Loyalty {
             return self.build_loyalty_parts(spec);
         }
-        let Some(cost) = spec.cost.as_deref() else {
+        let Some(cost_raw) = spec.cost.as_deref() else {
             return self.deny("an activated ability with no `Cost$`".to_string());
         };
-        let cost = self.parse_activated_cost(cost, spec.activation_zone.as_deref())?;
+        let (cost_without_xmin, x_min) = self.strip_activation_x_min(cost_raw)?;
+        let cost =
+            self.parse_activated_cost(&cost_without_xmin, spec.activation_zone.as_deref())?;
+        if x_min.is_some() && !Self::cost_has_variable_x(&cost) {
+            return self.deny("unused `XMin` in activation cost".to_string());
+        }
+        if x_min.is_some() && spec.alternate_cost.is_some() {
+            return self.deny("`XMin` beside `AlternateCost$`".to_string());
+        }
         let effects = format!("&[{}]", spec.chain.effects.join(", "));
         let second_targets = Self::second_target_req_expr(&spec.chain)
             .map_or_default(|req| format!(", second_targets = Some({req})"));
@@ -574,24 +748,14 @@ impl Tx<'_> {
         if spec.chain.target_is_x {
             return self.deny("`TargetMin$/TargetMax$ X` on an activated ability".to_string());
         }
-        let target = spec.chain.target.as_ref().map_or_default(|t| {
-            if let Some(max) = spec.chain.target_up_to {
-                if max == 1 {
-                    format!(", targets = Some(TargetReq::up_to_one({t}))")
-                } else {
-                    format!(", targets = Some(TargetReq::up_to({t}, {max}))")
-                }
-            } else if let Some(n) = spec.chain.target_exact {
-                format!(", targets = Some(TargetReq::exactly({t}, {n}))")
-            } else {
-                format!(", target = Some({t})")
-            }
-        });
-        let limit_str = self.activation_limit(spec.limit.as_deref())?;
+        let target = Self::activated_target_suffix(&spec.chain);
+        let limit_str = self.activation_limit(&spec.limit)?;
+        let x_value = x_min.map_or_default(|n| format!(", x_value = ActivationX::AtLeast({n})"));
         let condition = &spec.condition;
         let cost_reduction = spec.cost_reduction.as_deref().unwrap_or("");
-        let extras =
-            format!("{timing}{zone}{target}{second_targets}{limit_str}{condition}{cost_reduction}");
+        let extras = format!(
+            "{timing}{zone}{target}{second_targets}{limit_str}{x_value}{condition}{cost_reduction}"
+        );
         let ability_expr = Self::format_activated_macro(mana_ability, &cost, &effects, &extras);
         let alternate_ability_expr = match spec.alternate_cost.as_deref() {
             Some(alt) => {
@@ -608,9 +772,10 @@ impl Tx<'_> {
         };
         let simple_target = if !mana_ability
             && !spec.non_battlefield_zone
-            && !spec.any_player
+            && spec.activator == ActivatorRestriction::Default
             && !spec.sorcery_speed
             && limit_str.is_empty()
+            && x_min.is_none()
             && condition.is_empty()
             && spec.cost_reduction.is_none()
             && spec.chain.second_target.is_none()
@@ -637,8 +802,17 @@ impl Tx<'_> {
         if spec.alternate_cost.is_some() {
             return self.deny("`AlternateCost$` on a loyalty ability".to_string());
         }
-        if spec.limit.is_some() {
-            return self.deny("`ActivationLimit$` on a loyalty ability".to_string());
+        match spec.limit {
+            ParsedLimit::Unlimited => {}
+            ParsedLimit::PerTurnRaw(_) => {
+                return self.deny("`ActivationLimit$` on a loyalty ability".to_string());
+            }
+            ParsedLimit::Exhaust => {
+                return self.deny("`Exhaust$`/`GameActivationLimit$` on a loyalty ability".into());
+            }
+            ParsedLimit::Boast => {
+                return self.deny("`Boast$` on a loyalty ability".to_string());
+            }
         }
         if spec.non_battlefield_zone
             || spec
@@ -649,8 +823,12 @@ impl Tx<'_> {
             return self
                 .deny("a non-battlefield `ActivationZone$` on a loyalty ability".to_string());
         }
-        if spec.any_player {
-            return self.deny("`Activator$ Player` on a loyalty ability".to_string());
+        match spec.activator {
+            ActivatorRestriction::Default => {}
+            ActivatorRestriction::AnyPlayer => {
+                return self.deny("`Activator$ Player` on a loyalty ability".to_string());
+            }
+            _ => return self.deny("`Activator$` on a loyalty ability".to_string()),
         }
         if spec.sorcery_speed {
             return self.deny("`SorcerySpeed$` on a loyalty ability".to_string());
@@ -709,7 +887,12 @@ impl Tx<'_> {
         let Some((n, kind)) = inner.split_once('/') else {
             return self.deny(format!("a non-loyalty cost `{raw}` on a loyalty ability"));
         };
-        if kind != "LOYALTY" {
+        let mut kind_fields = kind.splitn(3, '/');
+        if kind_fields.next() != Some("LOYALTY")
+            || kind_fields
+                .next()
+                .is_some_and(|t| !matches!(t, "CARDNAME" | "NICKNAME"))
+        {
             return self.deny(format!("a non-loyalty cost `{raw}` on a loyalty ability"));
         }
         if n == "X" {
@@ -772,7 +955,7 @@ impl Tx<'_> {
     fn push_spell_ability(
         &mut self,
         cost: Option<&str>,
-        limit: Option<&str>,
+        limit: &ParsedLimit,
         condition: &str,
         effects: &str,
         target: Option<&str>,
@@ -781,7 +964,7 @@ impl Tx<'_> {
         target_exact: Option<u8>,
         second_targets: &str,
     ) -> Option<()> {
-        if limit.is_some() {
+        if *limit != ParsedLimit::Unlimited {
             // A spell is cast, not activated, so there is nothing for the
             // key to restrict and dropping it quietly would be the
             // unclaimed-parameter fault one level down.
@@ -827,7 +1010,8 @@ impl Tx<'_> {
                     token.as_str(),
                     "W" | "U" | "B" | "R" | "G" | "C" | "S" | "X"
                 )
-                || hybrid_pair(&token).is_some();
+                || hybrid_pair(&token).is_some()
+                || super::mana::special_mana_symbol(&token).is_some();
             if !is_mana {
                 extra.push(token);
             }
@@ -1018,7 +1202,9 @@ impl Tx<'_> {
                 mana.push('{');
                 mana.push_str(&token);
                 mana.push('}');
-            } else if let Some(pair) = hybrid_pair(&token) {
+            } else if let Some(pair) =
+                hybrid_pair(&token).or_else(|| super::mana::special_mana_symbol(&token))
+            {
                 mana.push_str(&pair);
             } else {
                 return self.deny(format!("non-mana `ModeCost$ {raw}`"));
@@ -1039,6 +1225,7 @@ impl Tx<'_> {
             return self.deny("an `A:` line with no `$` in it".to_string());
         };
         p.drop_prose();
+        let raw_cost = p.take("Cost");
         let Some(choices) = p.take("Choices") else {
             return self.deny("a charm with no `Choices$`".to_string());
         };
@@ -1067,7 +1254,17 @@ impl Tx<'_> {
         if has_spree && max == 1 {
             return self.deny("a `Spree` charm choosing only one mode".to_string());
         }
-        let parsed = self.read_charm_modes_with(&choices, has_spree && max > 1)?;
+        if let Some(raw) = raw_cost.as_deref() {
+            self.spell_mana_cost(raw)?;
+        }
+        self.cost_sacrifices_other = raw_cost.as_deref().is_some_and(|c| {
+            cost_parts(c)
+                .iter()
+                .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"))
+        });
+        let parsed = self.read_charm_modes_with(&choices, has_spree && max > 1);
+        self.cost_sacrifices_other = false;
+        let parsed = parsed?;
         if parsed.len() < 2 {
             return self.deny("a charm with fewer than two modes".to_string());
         }
@@ -1104,6 +1301,65 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// Claims `AdditionalDescription$` on `AB$ Charm` ONLY when it is a
+    /// verified pure restatement of already-claimed timing, limit, condition,
+    /// or `XMin1` parameters. Any semantic/conditional rule stays unclaimed so
+    /// the caller refuses it as `unclaimed parameter Charm.AdditionalDescription`.
+    fn claim_modal_additional_description(
+        p: &mut Params,
+        sorcery_speed: bool,
+        limit: &ParsedLimit,
+        has_condition: bool,
+        x_min: Option<u32>,
+    ) {
+        let Some(raw) = p.peek("AdditionalDescription") else {
+            return;
+        };
+        let norm = raw
+            .trim()
+            .trim_start_matches('.')
+            .trim()
+            .trim_end_matches('.')
+            .trim()
+            .to_ascii_lowercase();
+        let once_each_turn = matches!(limit, ParsedLimit::PerTurnRaw(s) if s == "1");
+        let is_exhaust = *limit == ParsedLimit::Exhaust;
+        let pure_restatement = match norm.as_str() {
+            "activate only as a sorcery" => sorcery_speed,
+            "activate only once each turn" | "activate this ability only once each turn" => {
+                once_each_turn
+            }
+            "activate only once" | "activate this ability only once" => is_exhaust,
+            "activate only as a sorcery and only once"
+            | "activate only once and only as a sorcery" => sorcery_speed && is_exhaust,
+            "activate only as a sorcery and only once each turn"
+            | "activate only once each turn and only as a sorcery" => {
+                sorcery_speed && once_each_turn
+            }
+            "x can't be 0" | "x can't be zero" => x_min == Some(1),
+            other if other.starts_with("activate only if ") && has_condition => {
+                const FORBIDDEN: &[&str] = &[
+                    "sorcery",
+                    "once",
+                    "turn",
+                    "choose",
+                    "mode",
+                    "instead",
+                    "x can",
+                    "different",
+                    "kicked",
+                    "commander",
+                    " and ",
+                ];
+                !FORBIDDEN.iter().any(|word| other.contains(word))
+            }
+            _ => false,
+        };
+        if pure_restatement {
+            p.take("AdditionalDescription");
+        }
+    }
+
     /// `AB$ Charm | Cost$ ... | Choices$ A,B`: a modal activated ability
     /// (`modal_activated!`). Choose-one only; non-mana only.
     fn modal_activated(&mut self, spec: &str) -> Option<()> {
@@ -1122,8 +1378,14 @@ impl Tx<'_> {
             None | Some("1") => {}
             Some(n) => return self.deny(format!("a modal activated ability choosing `{n}`")),
         }
-        let limit = p.take("ActivationLimit");
-        let activator = p.take("Activator");
+        match p.take("MinCharmNum").as_deref() {
+            None | Some("1") => {}
+            Some(n) => {
+                return self.deny(format!("a modal activated ability with `MinCharmNum$ {n}`"));
+            }
+        }
+        let (limit, _) = self.take_activation_limit(&mut p, true)?;
+        let activator = self.parse_activator(p.take("Activator").as_deref(), true)?;
         let activation_zone = p.take("ActivationZone");
         let reduce_cost = p.take("ReduceCost");
         if reduce_cost.is_some() && p.has("ReduceAmount") {
@@ -1138,23 +1400,31 @@ impl Tx<'_> {
             Some("True") => true,
             Some(other) => return self.deny(format!("`SorcerySpeed$ {other}`")),
         };
-        let any_player = match activator.as_deref() {
-            None => false,
-            Some("Player") => true,
-            Some(other) => return self.deny(format!("`Activator$ {other}`")),
-        };
         let (_non_battlefield, zone) =
-            self.activation_zone_expr(activation_zone.as_deref(), any_player, true)?;
+            self.activation_zone_expr(activation_zone.as_deref(), activator, true)?;
         let mut condition = self.condition_with_prose(&mut p, &line_prose)?;
         let _restrictions = self.activation_restriction(&mut p, true, &mut condition)?;
+        let (cost_without_xmin, x_min) = self.strip_activation_x_min(&cost_raw)?;
+        Self::claim_modal_additional_description(
+            &mut p,
+            sorcery_speed,
+            &limit,
+            !condition.is_empty(),
+            x_min,
+        );
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `Charm.{key}`"));
         }
-        let cost = self.parse_activated_cost(&cost_raw, activation_zone.as_deref())?;
+        let cost = self.parse_activated_cost(&cost_without_xmin, activation_zone.as_deref())?;
+        if x_min.is_some() && !Self::cost_has_variable_x(&cost) {
+            return self.deny("unused `XMin` in activation cost".to_string());
+        }
         self.reject_non_mana_counter_x(&cost, false, true)?;
-        self.cost_sacrifices_self = cost_raw.split_whitespace().any(|t| t == "Sac<1/CARDNAME>");
-        self.cost_sacrifices_other = cost_raw
-            .split_whitespace()
+        self.cost_sacrifices_self = cost_parts(&cost_without_xmin)
+            .iter()
+            .any(|t| t == "Sac<1/CARDNAME>");
+        self.cost_sacrifices_other = cost_parts(&cost_without_xmin)
+            .iter()
             .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"));
         let parsed = self.read_charm_modes(&choices);
         self.cost_sacrifices_self = false;
@@ -1171,11 +1441,12 @@ impl Tx<'_> {
         } else {
             ""
         };
-        let limit = self.activation_limit(limit.as_deref())?;
+        let limit = self.activation_limit(&limit)?;
+        let x_value = x_min.map_or_default(|n| format!(", x_value = ActivationX::AtLeast({n})"));
         let reduction_suffix = cost_reduction.as_deref().unwrap_or("");
         let modes: Vec<String> = parsed.into_iter().map(|(m, _, _, _)| m).collect();
         self.body.abilities.push(format!(
-            "modal_activated!({cost}, &[{}]{timing}{zone}{limit}{condition}{reduction_suffix})",
+            "modal_activated!({cost}, &[{}]{timing}{zone}{limit}{x_value}{condition}{reduction_suffix})",
             modes.join(", ")
         ));
         Some(())

@@ -503,3 +503,25 @@ fn wave18a_alternative_cost_parts_and_conditions() {
         ),
     ]);
 }
+
+#[test]
+fn wave19a_alternative_cost_phyrexian_and_two_generic_mana() {
+    let body = read(
+        "Name:PhyrAlt\nManaCost:3 U\nTypes:Instant\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 2U WP URP\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        body.alternative_costs,
+        ["AlternativeCost { cost: cost!(\"{2/U}{W/P}{U/R/P}\"), condition: AltCondition::Always }"]
+    );
+
+    for bad_cost in ["2C", "CP", "WWP"] {
+        let script = format!(
+            "Name:BadAlt\nManaCost:3 U\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ {bad_cost}\n\
+             A:SP$ Draw | NumCards$ 1"
+        );
+        assert!(refused(&script), "must refuse: {bad_cost}");
+    }
+}

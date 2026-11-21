@@ -724,3 +724,30 @@ fn wave18a_kicker_damage_you_discard_hand_and_snow_mana() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave19a_kicker_and_spell_cost_phyrexian_and_two_generic_mana() {
+    let kicker = read(
+        "Name:PhyrKick\nManaCost:1 G\nTypes:Instant\n\
+         K:Kicker:2W BP GUP\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(kicker.additional_costs, ["cost!(\"{2/W}{B/P}{G/U/P}\")"]);
+
+    let spell = read(
+        "Name:PhyrSpell\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Draw | Cost$ 2R UP Sac<1/Creature> | NumCards$ 2",
+    );
+    assert_eq!(
+        spell.mandatory_additional_costs,
+        ["CostPart::Sacrifice(&Filter::YOUR_CREATURE)"]
+    );
+
+    for bad in [
+        "Name:X\nTypes:Instant\nK:Kicker:CP\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nTypes:Instant\nK:Kicker:WWP\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nTypes:Instant\nA:SP$ Draw | Cost$ 2C | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
