@@ -12,7 +12,7 @@ card!(
     oracle_id = "49bf3805-cc9e-4550-8a01-171282aa49c9",
     scryfall_id = "40d72a34-0f31-4fec-b5a5-4574199bc312",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rune Snag",
         mana_cost = mana!("{1}{U}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "f2782c21-ed99-4821-8938-cc539e783ec7",
     scryfall_id = "be04ed26-8036-4505-83d3-b782e7e1fb45",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Call for Blood",
         mana_cost = mana!("{4}{B}"),

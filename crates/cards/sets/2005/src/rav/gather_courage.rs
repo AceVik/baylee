@@ -11,7 +11,7 @@ card!(
     oracle_id = "ae033eb6-47ec-4b9e-9cdb-6d023aca07d1",
     scryfall_id = "bf059c8d-6e61-41ca-ac79-3bf82fa2d4b3",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gather Courage",
         mana_cost = mana!("{G}"),

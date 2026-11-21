@@ -11,7 +11,7 @@ card!(
     oracle_id = "9e89db98-fc9f-4574-b5bc-ee421fa29428",
     scryfall_id = "046fd4b1-d3a4-4859-a0d4-0e8341e6c6c7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Path of Anger's Flame",
         mana_cost = mana!("{2}{R}"),

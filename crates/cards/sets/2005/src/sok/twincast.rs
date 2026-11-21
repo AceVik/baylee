@@ -10,7 +10,7 @@ card!(
     oracle_id = "8f878efc-850f-43d2-a6fe-5ea8d1dd5afb",
     scryfall_id = "f38eec33-a40e-4739-ad2c-2f57008cef4e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Twincast",
         mana_cost = mana!("{U}{U}"),

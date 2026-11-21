@@ -10,7 +10,7 @@ card!(
     oracle_id = "983a2a50-3634-4783-8576-30916c3d0818",
     scryfall_id = "abcb5e75-c7a1-41de-a952-05aefb115270",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Oppressive Will",
         mana_cost = mana!("{2}{U}"),

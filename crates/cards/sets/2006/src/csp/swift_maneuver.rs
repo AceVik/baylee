@@ -11,7 +11,7 @@ card!(
     oracle_id = "d7b5fb4b-8f3c-4143-9fb0-2e2544612528",
     scryfall_id = "1f97ef40-9d07-47fa-ad4b-45f26f7351c9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Swift Maneuver",
         mana_cost = mana!("{1}{W}"),

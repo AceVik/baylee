@@ -11,7 +11,7 @@ card!(
     oracle_id = "132c8a62-00bc-4b89-b775-099d8909f200",
     scryfall_id = "a491b58f-3c54-41ea-b93b-c32fdc1e5917",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sundering Vitae",
         mana_cost = mana!("{2}{G}"),

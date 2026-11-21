@@ -12,7 +12,7 @@ card!(
     oracle_id = "c17d5153-cc74-4fbb-9d75-f7ee7b557b0a",
     scryfall_id = "6b28c2a8-ee7d-4eea-8046-a47e81ddd28d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scatter the Seeds",
         mana_cost = mana!("{3}{G}{G}"),

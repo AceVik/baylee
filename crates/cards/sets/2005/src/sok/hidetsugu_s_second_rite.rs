@@ -10,7 +10,7 @@ card!(
     oracle_id = "749683c9-8cc0-4e8e-8d90-adda5e5f4e93",
     scryfall_id = "609421da-8d89-4365-b18b-778832d91482",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hidetsugu's Second Rite",
         mana_cost = mana!("{3}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "91af3c81-615a-4b89-acf2-34c72001ebbd",
     scryfall_id = "97cb8431-f741-4b1b-bfa7-87d828fe99fb",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fiery Conclusion",
         mana_cost = mana!("{1}{R}"),

@@ -12,7 +12,7 @@ card!(
     oracle_id = "64ab6dfe-ed87-47ec-afd5-a7f2e7e6bbd2",
     scryfall_id = "34cf7931-d086-496e-98dc-5daa60e01f5b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rending Vines",
         mana_cost = mana!("{1}{G}{G}"),

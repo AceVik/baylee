@@ -11,7 +11,7 @@ card!(
     oracle_id = "127ce189-2758-4789-9e02-4aa71d013431",
     scryfall_id = "066f185d-5f81-472a-8aff-2c11ba10d18c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cut the Earthly Bond",
         mana_cost = mana!("{U}"),

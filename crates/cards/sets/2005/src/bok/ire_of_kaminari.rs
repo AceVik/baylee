@@ -13,7 +13,7 @@ card!(
     oracle_id = "4870ec65-8067-45fb-b7ec-a6eca87c7e77",
     scryfall_id = "0b927e30-3508-4daf-91ce-8978b04062cb",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ire of Kaminari",
         mana_cost = mana!("{3}{R}"),
