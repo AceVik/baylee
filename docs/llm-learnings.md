@@ -6,6 +6,13 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Beat 12 (Part 2): Pass E8 + Wave 14 Reconvergence (`20,796` Conforming / `19,620` Playable)
+
+- **Pass E8 (`09addf2e0`, `PASS` `#427`) + Commit 1 (`ac52f60c3`, `PASS` `#417`) Reconverged with Codegen Wave 14a–14c**:
+  - Merged `+7` unheld Wave 13 cards, `+5` completed pool stubs, and `+989` generated cards (`20,796` conforming cards total, `+996` over Beat 10's `19,800`), then ran `2x xtask codegen --scripts` atop Codegen Wave 14a–14c (`cd2051977`), **automatically upgrading `+18` more existing pool stubs** (`blazing_salvo`, `blessed_wind`, `chill_haunting`, `dwarven_driller`, `dwarven_scorcher`, `form_of_the_dragon`, `gratuitous_violence`, `krosan_vorine`, `lava_blister`, `molten_influence`, `nostalgic_dreams`, `recoup`, `restless_dreams`, `sickening_dreams`, `skeletal_scrying`, `skullscorch`, `turbulent_dreams`, `vengeful_dreams`), reducing remaining pool stubs from `936` down to **`913`**.
+  - Updated `crates/baylee-ai/src/tests/worth_tests/activation_census/mod.rs` `(4808, 6142) -> (4810, 6144)` (`+2` read activations from *Dwarven Driller* + *Dwarven Scorcher*).
+  - Verified (`task-4857` + `task-4881`): `2x codegen --scripts` (`20,796` cards, `1,229` tokens), `codegen --tables --check`, `validate` (**`20,796` conforming = `19,883` finished [`11,015` `Implemented` + `8,605` `Generated` = `19,620` playable + `263` `Partial`] + `913` stubs**), `fmt --check` PASS; `baylee-engine --lib -- offer_tests:: keyword_tests:: vocabulary_tests::` `55/55`; `baylee-cards --lib` `169/169`; `baylee-card-tests-verification` `58/58`; `baylee-ai --lib` `432/432`; `baylee-seat` `narrator::tests::` `138/138`; `baylee-client --lib -- choices::` `54/54`; `baylee-train --lib -- features4:: features7::` `38/38`; `xtask` `150/150`; `clippy --all-targets -- -D warnings` (`baylee-cards`, `baylee-ai`, `baylee-seat`, `baylee-client`, `xtask`) `0` warnings.
+
 ## 2026-11-21 — Beat 12 (Part 1): Codegen Wave 14a–14c (`19,751 / 34,482` = `57%`) & `check_text` / `pt_fault` Fixes
 
 - **Codegen Wave 14a–14c (`Reviewed: a8bb6673e, 518e04a7d, 746f0f400`, `Reviewed-by: gemini-4-argon-high (#406, #413, #418), pass`)**:
