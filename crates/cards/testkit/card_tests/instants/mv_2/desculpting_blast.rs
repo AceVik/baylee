@@ -45,11 +45,9 @@ fn play_desculpting_blast(blast_target: BlastTarget, expected_drones: usize) {
     let opal = on_battlefield(&engine, attacking, mox_opal()).unwrap();
     if matches!(blast_target, BlastTarget::FaceDownAttacker) {
         let state = engine.dev_state_mut(attacking).unwrap();
-        state
-            .object_mut(bears)
-            .unwrap()
-            .status
-            .insert(Status::FACE_DOWN);
+        let object = state.object_mut(bears).unwrap();
+        object.status.insert(Status::FACE_DOWN);
+        object.riders.push(baylee_engine::object::Rider::Manifested);
         state.refresh_characteristics();
     }
     pass_until(
