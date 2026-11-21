@@ -347,6 +347,30 @@ impl Tx<'_> {
                 "Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }"
                     .to_string(),
             ]
+        } else if api == "Earthbend" {
+            if chain.target.is_some()
+                || targets_here
+                || had_second_target
+                || p.has("Defined")
+                || unless.is_some()
+                || p.has("Condition")
+                || p.has("ConditionPresent")
+                || p.has("ConditionCheckSVar")
+                || p.has("ConditionDefined")
+            {
+                return self.deny(
+                    "`Earthbend` beside an existing target, `Defined$`, or condition".to_string(),
+                );
+            }
+            let Some(n) = p
+                .take("Num")
+                .and_then(|s| s.trim().parse::<u16>().ok())
+                .filter(|&n| n > 0)
+            else {
+                return self.deny("unreadable value in `Earthbend`".to_string());
+            };
+            chain.target = Some("TargetSpec::Object(&Filter::YOUR_LAND)".to_string());
+            vec![format!("Effect::Earthbend({n})")]
         } else if api == "ChangeZone"
             && !targets_here
             && !self.on_a_spell
@@ -411,7 +435,14 @@ impl Tx<'_> {
             && p.peek("Destination") == Some("Battlefield")
             && p.peek("RememberChanged") == Some("True")
             && (self.sub_is_api(sub.as_deref(), "PutCounter")
-                || self.sub_is_api(sub.as_deref(), "Animate"))
+                || self.sub_is_api(sub.as_deref(), "Animate")
+                || sub
+                    .as_deref()
+                    .and_then(|s| self.svars.get(s.trim()))
+                    .and_then(|b| Params::parse(b))
+                    .is_some_and(|(s_api, sp)| {
+                        s_api == "Pump" && sp.peek("Duration") == Some("Permanent")
+                    }))
         {
             self.reanimate_remembered_modified(&mut p, &mut sub, target.as_deref(), targets_here)?
         } else if api == "ChangeZone"
@@ -949,6 +980,36 @@ impl Tx<'_> {
             } else {
                 "Condition::Not(&Condition::GiftWasPromised)".to_string()
             }
+        } else if matches!(
+            p.peek("ConditionPresent"),
+            Some(
+                "Card.Self+CastSa Spell.Warp"
+                    | "Card.CastSa Spell.Warp"
+                    | "Card.!CastSa Spell.Warp"
+                    | "Card.Self+!CastSa Spell.Warp"
+            )
+        ) && matches!(p.peek("ConditionDefined"), None | Some("Self"))
+            && matches!(p.peek("ConditionZone"), None | Some("Stack"))
+            && !p.has("PresentPlayer")
+            && !p.has("PresentZone")
+        {
+            let valid = p.take("ConditionPresent").expect("checked above");
+            p.take("ConditionDefined");
+            p.take("ConditionZone");
+            let cmp = p.take("PresentCompare");
+            let positive_present = !valid.contains('!');
+            let positive = match cmp.as_deref() {
+                None | Some("GE1" | "EQ1" | "GT0") => positive_present,
+                Some("EQ0" | "LT1") => !positive_present,
+                Some(other) => {
+                    return self.deny(format!("warp condition compared `{other}`"));
+                }
+            };
+            if positive {
+                "Condition::WarpCostPaid".to_string()
+            } else {
+                "Condition::Not(&Condition::WarpCostPaid)".to_string()
+            }
         } else if p.peek("ConditionDefined") == Some("Self")
             && !p.has("PresentPlayer")
             && !p.has("PresentZone")
@@ -1047,6 +1108,8 @@ impl Tx<'_> {
                         self.counter_or_stack_target(valid, p.peek("TargetType"), true)
                     } else if api == "CopySpellAbility" {
                         self.counter_or_stack_target(valid, p.peek("TargetType"), false)
+                    } else if api == "ChangeTargets" {
+                        self.change_targets_target(valid, p.peek("TargetType"))
                     } else if chain.target.is_some()
                         && (chain.target_unique
                             || matches!(api, "Fight" | "DealDamage" | "Clone" | "Tap" | "Untap"))
@@ -1082,7 +1145,7 @@ impl Tx<'_> {
         Some(spec)
     }
 
-    fn counter_or_stack_target(
+    pub(super) fn counter_or_stack_target(
         &mut self,
         valid: &str,
         target_type: Option<&str>,
@@ -1752,6 +1815,17 @@ impl Tx<'_> {
         let aimed = target.unwrap_or("TargetSpec::AnyPlayer");
         Some(match api {
             "Amass" => self.amass_effect(p, target, targets_a_player)?,
+            "Incubate" => self.incubate_effect(p, target, targets_a_player)?,
+            "MultiplyCounter" => self.multiply_counter_effect(
+                p,
+                target,
+                targets_here,
+                single_target,
+                prior_target_used,
+            )?,
+            "ChangeTargets" => {
+                self.change_targets_effect(p, target, targets_here, single_target)?
+            }
             "MoveCounter" => self.move_counter_effect(p, target, targets_here, false)?,
             "AlterAttribute" => {
                 Self::alter_attribute_effect(p, target, targets_here, single_target)?
@@ -1784,9 +1858,13 @@ impl Tx<'_> {
                 if p.take("DamageMap").is_some_and(|v| v != "True") {
                     return None;
                 }
-                if damage_source.as_deref() == Some("Targeted") {
-                    if !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
-                        || !self.is_power_of(&num_dmg, &["Targeted$CardPower"])
+                if matches!(damage_source.as_deref(), Some("Targeted" | "ParentTarget")) {
+                    if (damage_source.as_deref() == Some("ParentTarget") && targets_here)
+                        || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                        || !self.is_power_of(
+                            &num_dmg,
+                            &["Targeted$CardPower", "ParentTargeted$CardPower"],
+                        )
                     {
                         return None;
                     }
@@ -1886,14 +1964,30 @@ impl Tx<'_> {
                         Some("TriggeredCardLKICopy" | "TriggeredCard")
                             if matches!(
                                 self.trigger_mode.as_deref(),
-                                Some("ChangesZone" | "Exerted")
+                                Some(
+                                    "ChangesZone"
+                                        | "Exerted"
+                                        | "Enlisted"
+                                        | "Taps"
+                                        | "Untaps"
+                                        | "TurnFaceUp"
+                                        | "Transformed"
+                                )
                             ) && target.is_none() =>
                         {
                             "TargetSpec::EventObject".to_string()
                         }
-                        Some("TriggeredTargetLKICopy" | "TriggeredTarget")
-                            if self.trigger_mode.as_deref() == Some("DamageDone")
+                        Some("TriggeredNewCardLKICopy" | "TriggeredNewCard")
+                            if self.trigger_mode.as_deref() == Some("ChangesZone")
                                 && target.is_none() =>
+                        {
+                            "TargetSpec::EventObject".to_string()
+                        }
+                        Some("TriggeredTargetLKICopy" | "TriggeredTarget")
+                            if matches!(
+                                self.trigger_mode.as_deref(),
+                                Some("DamageDone" | "DamageDoneOnce")
+                            ) && target.is_none() =>
                         {
                             "TargetSpec::EventObject".to_string()
                         }
@@ -1927,8 +2021,32 @@ impl Tx<'_> {
                             match (src.as_str(), self.trigger_mode.as_deref()) {
                                 (
                                     "TriggeredCard" | "TriggeredCardLKICopy",
-                                    Some("ChangesZone" | "Exerted" | "Sacrificed"),
+                                    Some(
+                                        "ChangesZone" | "Exerted" | "Enlisted" | "Sacrificed"
+                                        | "Taps" | "Untaps" | "TurnFaceUp" | "Transformed",
+                                    ),
                                 ) => &["TriggeredCard$CardPower", "TriggeredCardLKICopy$CardPower"],
+                                (
+                                    "TriggeredNewCard" | "TriggeredNewCardLKICopy",
+                                    Some("ChangesZone"),
+                                ) => &[
+                                    "TriggeredNewCard$CardPower",
+                                    "TriggeredNewCardLKICopy$CardPower",
+                                ],
+                                (
+                                    "TriggeredExploited" | "TriggeredExploitedLKICopy",
+                                    Some("Exploited"),
+                                ) => &[
+                                    "TriggeredExploited$CardPower",
+                                    "TriggeredExploitedLKICopy$CardPower",
+                                ],
+                                (
+                                    "TriggeredTarget" | "TriggeredTargetLKICopy",
+                                    Some("DamageDone" | "DamageDoneOnce"),
+                                ) => &[
+                                    "TriggeredTarget$CardPower",
+                                    "TriggeredTargetLKICopy$CardPower",
+                                ],
                                 (
                                     "TriggeredAttacker" | "TriggeredAttackerLKICopy",
                                     Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked"),
@@ -2379,9 +2497,28 @@ impl Tx<'_> {
                     Some("Enchanted" | "Equipped") if target.is_none() => {
                         return Some(emit_filter("&Filter::AttachedToBySource"));
                     }
+                    Some(
+                        "TriggeredCardLKICopy"
+                        | "TriggeredCard"
+                        | "TriggeredNewCardLKICopy"
+                        | "TriggeredNewCard",
+                    ) if self.trigger_mode.as_deref() == Some("ChangesZone")
+                        && target.is_none() =>
+                    {
+                        return Some(emit_filter("&Filter::Reference"));
+                    }
                     Some("TriggeredCardLKICopy" | "TriggeredCard")
-                        if self.trigger_mode.as_deref() == Some("ChangesZone")
-                            && target.is_none() =>
+                        if matches!(
+                            self.trigger_mode.as_deref(),
+                            Some(
+                                "Exerted"
+                                    | "Enlisted"
+                                    | "Taps"
+                                    | "Untaps"
+                                    | "TurnFaceUp"
+                                    | "Transformed"
+                            )
+                        ) && target.is_none() =>
                     {
                         return Some(emit_filter("&Filter::Reference"));
                     }
@@ -2389,11 +2526,15 @@ impl Tx<'_> {
                         if self.trigger_mode.as_deref() == Some("ChangesZone")
                             && target.is_none()
                             && (def.starts_with("TriggeredCardLKICopy.")
-                                || def.starts_with("TriggeredCard.")) =>
+                                || def.starts_with("TriggeredCard.")
+                                || def.starts_with("TriggeredNewCardLKICopy.")
+                                || def.starts_with("TriggeredNewCard.")) =>
                     {
                         let qual = def
                             .strip_prefix("TriggeredCardLKICopy.")
-                            .or_else(|| def.strip_prefix("TriggeredCard."))?;
+                            .or_else(|| def.strip_prefix("TriggeredCard."))
+                            .or_else(|| def.strip_prefix("TriggeredNewCardLKICopy."))
+                            .or_else(|| def.strip_prefix("TriggeredNewCard."))?;
                         let q = self.filter_expr(&format!("Card.{qual}"))?;
                         let expr = format!("Filter::And(&[Filter::Reference, {q}])");
                         let name = self.body.filter_static("COUNTER", &expr);
@@ -3839,7 +3980,7 @@ impl Tx<'_> {
             .is_some_and(|(api, _)| api == expected)
     }
 
-    /// Wave-7/9b named alt-cost conditions (`Condition$ Surge/Prowl/Blitz/AltCost/Bargain/Prototype`).
+    /// Wave-7/9b/16c named alt-cost conditions (`Condition$ Surge/Prowl/Blitz/AltCost/Bargain/Prototype/Warp`).
     pub(super) fn wave7_named_condition(cond: &str) -> Option<&'static str> {
         Some(match cond.trim() {
             "Surge" => "Condition::Surge",
@@ -3848,6 +3989,7 @@ impl Tx<'_> {
             "AltCost" => "Condition::AltCostPaid",
             "Bargain" | "Bargained" => "Condition::Bargained",
             "Prototype" | "Prototyped" => "Condition::Prototyped",
+            "Warp" | "Warped" => "Condition::WarpCostPaid",
             _ => return None,
         })
     }
@@ -3861,6 +4003,11 @@ impl Tx<'_> {
             ("Condition::Bargained", rest)
         } else if let Some(rest) = def.strip_prefix("Count$PromisedGift.") {
             ("Condition::GiftWasPromised", rest)
+        } else if let Some(rest) = def
+            .strip_prefix("Count$Warped.")
+            .or_else(|| def.strip_prefix("Count$Warp."))
+        {
+            ("Condition::WarpCostPaid", rest)
         } else {
             let rest = def
                 .strip_prefix("Count$Prototyped.")
@@ -4186,8 +4333,25 @@ impl Tx<'_> {
                         )),
                         _ => None,
                     }
+                } else if raw == "Count$xPaid" && self.trigger_mode.is_none() {
+                    if let Some(n) = cmp
+                        .strip_prefix("GE")
+                        .and_then(|s| s.parse::<u32>().ok())
+                        .filter(|&n| n >= 1)
+                    {
+                        Some(format!("Condition::XAtLeast({n})"))
+                    } else if let Some(n) = cmp
+                        .strip_prefix("GT")
+                        .and_then(|s| s.parse::<u32>().ok())
+                    {
+                        Some(format!("Condition::XAtLeast({})", n.checked_add(1)?))
+                    } else if matches!(cmp, "EQ0" | "LT1") {
+                        Some("Condition::Not(&Condition::XAtLeast(1))".to_string())
+                    } else {
+                        None
+                    }
                 } else {
-                    None
+                    Self::wave16_svar_condition(raw, cmp)
                 }
             }
         }

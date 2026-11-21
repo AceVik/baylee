@@ -240,6 +240,10 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "PeekAndReveal",
     "Reveal",
     "Goad",
+    "Incubate",
+    "MultiplyCounter",
+    "Earthbend",
+    "ChangeTargets",
 ];
 
 /// A cost token that names an object, split into its kind and its body.

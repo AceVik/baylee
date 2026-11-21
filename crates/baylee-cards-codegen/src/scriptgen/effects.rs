@@ -3823,6 +3823,26 @@ impl Tx<'_> {
                 cursor = next;
                 continue;
             }
+            if s_api == "Pump"
+                && sp.peek("Defined") == Some("Remembered")
+                && sp.peek("Duration") == Some("Permanent")
+                && !sp.has("ValidTgts")
+                && !sp.has("AtEOT")
+                && !sp.has("UnlessCost")
+            {
+                sp.take("Defined");
+                sp.take("Duration");
+                let next = sp.take("SubAbility");
+                let kws = sp.take("KW")?;
+                let bits = Self::pump_keyword_bits(&kws)?;
+                if !sp.exhausted() {
+                    return None;
+                }
+                modifiers.push(format!("Modifier::AddKeyword({bits})"));
+                consumed_any = true;
+                cursor = next;
+                continue;
+            }
             if sp
                 .entries
                 .iter()
@@ -5851,12 +5871,20 @@ impl Tx<'_> {
                             | "Discarded"
                             | "Cycled"
                             | "Exerted"
+                            | "Enlisted"
                             | "Sacrificed"
                             | "BecomesPlotted"
                             | "Plotted"
                             | "SpellCastOrCopy"
+                            | "Taps"
+                            | "Untaps"
+                            | "TurnFaceUp"
+                            | "Transformed"
                     )
                 )
+            }
+            "TriggeredExploitedLKICopy" | "TriggeredExploited" => {
+                self.trigger_mode.as_deref() == Some("Exploited")
             }
             "TriggeredAttackerLKICopy" | "TriggeredAttacker" => {
                 matches!(
@@ -5984,23 +6012,51 @@ impl Tx<'_> {
         self.pump_side(raw)
     }
 
-    fn wave6_count_expr(&self, def: &str) -> Option<String> {
-        if def == "TriggerCount$Result" && self.trigger_mode.as_deref() == Some("RolledDie") {
-            return Some("Amount::EventAmount".to_string());
-        }
-        if matches!(
-            def,
-            "TriggeredCard$Toughness" | "TriggeredCardLKICopy$Toughness"
-        ) && self.trigger_mode.as_deref() == Some("ChangesZone")
-        {
-            return Some("Amount::EventLastToughness".to_string());
-        }
-        let (base_raw, op_raw) = def
-            .split_once('/')
-            .map_or((def, None), |(l, r)| (l.trim(), Some(r.trim())));
-        let base: String = match base_raw {
+    fn wave6_count_base(&self, base_raw: &str) -> Option<String> {
+        Some(match base_raw {
             "Count$LastDieRoll" => "Amount::LastDieRoll".to_string(),
             "Count$CoinsWonThisResolution" => "Amount::CoinsWonThisResolution".to_string(),
+            "Count$CastTotalManaSpent Snow" => "Amount::SnowManaSpentToCast".to_string(),
+            "Count$DamageOpponentsTookThisTurn" => {
+                "Amount::DamageDealtToOpponentsThisTurn".to_string()
+            }
+            "Count$ThisTurnCast_Card.CastSa Spell.Warp" | "Count$ThisTurnCast_Spell.Warp" => {
+                "Amount::SpellsWarpedThisTurn(PlayerRel::EachPlayer)".to_string()
+            }
+            "Count$ThisTurnCast_Card.YouCtrl+CastSa Spell.Warp"
+            | "Count$ThisTurnCast_Card.CastSa Spell.Warp+YouCtrl" => {
+                "Amount::SpellsWarpedThisTurn(PlayerRel::You)".to_string()
+            }
+            "Count$ThisTurnCast_Card.OppCtrl+CastSa Spell.Warp"
+            | "Count$ThisTurnCast_Card.CastSa Spell.Warp+OppCtrl" => {
+                "Amount::SpellsWarpedThisTurn(PlayerRel::EachOpponent)".to_string()
+            }
+            "TriggeredSpellAbility$CardManaCostLKI" | "TriggeredSpellAbility$CardManaCost"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("SpellCast" | "SpellCastOrCopy")
+                ) =>
+            {
+                "Amount::EventManaValue".to_string()
+            }
+            "TriggeredExploited$CardPower" | "TriggeredExploitedLKICopy$CardPower"
+                if self.trigger_mode.as_deref() == Some("Exploited") =>
+            {
+                "Amount::EventPower".to_string()
+            }
+            "TriggeredExploited$CardToughness"
+            | "TriggeredExploitedLKICopy$CardToughness"
+            | "TriggeredExploited$Toughness"
+            | "TriggeredExploitedLKICopy$Toughness"
+                if self.trigger_mode.as_deref() == Some("Exploited") =>
+            {
+                "Amount::EventLastToughness".to_string()
+            }
+            "TriggeredExploited$CardManaCost" | "TriggeredExploitedLKICopy$CardManaCost"
+                if self.trigger_mode.as_deref() == Some("Exploited") =>
+            {
+                "Amount::EventManaValue".to_string()
+            }
             "TriggerCount$Amount" | "Count$TriggeredObjectsNum" | "TriggeredNum"
                 if matches!(
                     self.trigger_mode.as_deref(),
@@ -6035,7 +6091,24 @@ impl Tx<'_> {
                 format!("Amount::CountersOnSource({kind})")
             }
             _ => return None,
-        };
+        })
+    }
+
+    fn wave6_count_expr(&self, def: &str) -> Option<String> {
+        if def == "TriggerCount$Result" && self.trigger_mode.as_deref() == Some("RolledDie") {
+            return Some("Amount::EventAmount".to_string());
+        }
+        if matches!(
+            def,
+            "TriggeredCard$Toughness" | "TriggeredCardLKICopy$Toughness"
+        ) && self.trigger_mode.as_deref() == Some("ChangesZone")
+        {
+            return Some("Amount::EventLastToughness".to_string());
+        }
+        let (base_raw, op_raw) = def
+            .split_once('/')
+            .map_or((def, None), |(l, r)| (l.trim(), Some(r.trim())));
+        let base = self.wave6_count_base(base_raw)?;
         let Some(op) = op_raw else {
             return Some(base);
         };
@@ -9909,6 +9982,217 @@ impl Tx<'_> {
         Some(vec![format!(
             "Effect::MoveCounter {{ from: {from}, to: {to}, kind: {kind_expr} }}"
         )])
+    }
+
+    pub(super) fn incubate_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        let count = self.amount_or_count_ext(&p.take("Amount")?)?;
+        let who =
+            self.wave11_player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        let times: usize = match p.take("Times").as_deref().map(str::trim) {
+            None => 1,
+            Some(raw) => raw
+                .parse::<usize>()
+                .ok()
+                .filter(|&n| (1..=10).contains(&n))?,
+        };
+        let one = if who == "PlayerRel::You"
+            && let Some(fixed) = count
+                .strip_prefix("Amount::Fixed(")
+                .and_then(|s| s.strip_suffix(')'))
+        {
+            format!("Effect::incubate({fixed})")
+        } else {
+            format!("Effect::Incubate {{ who: {who}, count: {count} }}")
+        };
+        Some(vec![one; times])
+    }
+
+    pub(super) fn multiply_counter_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        single_target: bool,
+        prior_target_used: bool,
+    ) -> Option<Vec<String>> {
+        if !matches!(
+            p.take("Multiplier").as_deref().map(str::trim),
+            None | Some("2")
+        ) {
+            return None;
+        }
+        let code = p.take("CounterType")?;
+        let Some(kind) = super::counter_kind(&code) else {
+            return self.deny(format!("counter `{code}`"));
+        };
+        let is_single_obj =
+            single_target && target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+        let filter = match p.take("Defined").as_deref() {
+            None if targets_here && is_single_obj => "&Filter::Reference".to_string(),
+            Some("Targeted" | "ParentTarget") if !targets_here && is_single_obj => {
+                "&Filter::Reference".to_string()
+            }
+            Some("Self") if !self.on_a_spell => "&Filter::This".to_string(),
+            Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
+                if (matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
+                ) || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                    && self
+                        .block_line
+                        .as_ref()
+                        .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks)))
+                    && target.is_none() =>
+            {
+                "&Filter::Reference".to_string()
+            }
+            Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
+                if (self.trigger_mode.as_deref() == Some("Blocks")
+                    || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                        && self
+                            .block_line
+                            .as_ref()
+                            .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocked)))
+                    && target.is_none() =>
+            {
+                "&Filter::Reference".to_string()
+            }
+            Some(
+                "TriggeredCardLKICopy"
+                | "TriggeredCard"
+                | "TriggeredNewCardLKICopy"
+                | "TriggeredNewCard",
+            ) if self.trigger_mode.as_deref() == Some("ChangesZone") && target.is_none() => {
+                "&Filter::Reference".to_string()
+            }
+            Some(def)
+                if (target.is_none() || prior_target_used)
+                    && def.starts_with("Valid ")
+                    && !def.contains("Remembered")
+                    && !def.contains("Targeted") =>
+            {
+                let valid = def.strip_prefix("Valid ")?.trim();
+                let expr = self.filter_expr(valid)?;
+                format!("&{}", self.body.filter_static("DOUBLE", &expr))
+            }
+            _ => return None,
+        };
+        Some(vec![format!(
+            "Effect::DoubleCountersFilter {{ filter: {filter}, kind: {kind} }}"
+        )])
+    }
+
+    pub(super) fn change_targets_target(
+        &mut self,
+        valid: &str,
+        target_type: Option<&str>,
+    ) -> Option<String> {
+        let raw = target_type?.trim();
+        let any_source = matches!(valid, "Card" | "Card,Emblem" | "Emblem,Card");
+        match raw {
+            "Spell.singleTarget" | "Spell.numTargets EQ1" => {
+                if valid == "Card" {
+                    Some("TargetSpec::Spell(&Filter::WithSingleTarget)".to_string())
+                } else {
+                    let inner = self.filter_expr_in_zone(valid, true)?;
+                    let expr = format!("Filter::And(&[{inner}, Filter::WithSingleTarget])");
+                    let name = self.body.filter_static("TARGET", &expr);
+                    Some(format!("TargetSpec::Spell(&{name})"))
+                }
+            }
+            "SpellAbility.singleTarget"
+            | "Spell.singleTarget,Activated.singleTarget,Triggered.singleTarget"
+                if any_source =>
+            {
+                Some("TargetSpec::SpellOrAbility(&Filter::WithSingleTarget)".to_string())
+            }
+            "Activated.singleTarget" if any_source => {
+                Some("TargetSpec::ActivatedAbility(&Filter::WithSingleTarget)".to_string())
+            }
+            "Instant.singleTarget,Sorcery.singleTarget"
+            | "Sorcery.singleTarget,Instant.singleTarget"
+                if valid == "Card" =>
+            {
+                let expr = "Filter::And(&[Filter::Or(&[Filter::INSTANT, Filter::SORCERY]), Filter::WithSingleTarget])";
+                let name = self.body.filter_static("TARGET", expr);
+                Some(format!("TargetSpec::Spell(&{name})"))
+            }
+            "SpellAbility" if any_source => {
+                Some("TargetSpec::SpellOrAbility(&Filter::Any)".to_string())
+            }
+            "Spell" | "Spell,Activated,Triggered" | "Activated,Triggered" => {
+                self.counter_or_stack_target(valid, Some(raw), false)
+            }
+            _ => None,
+        }
+    }
+
+    pub(super) fn change_targets_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        single_target: bool,
+    ) -> Option<Vec<String>> {
+        if (targets_here && !single_target)
+            || p.has("RandomTarget")
+            || p.has("Chooser")
+            || p.has("TargetValidTargeting")
+            || p.has("TargetRestriction")
+            || p.has("ConditionTargetValidTargeting")
+            || p.has("ConditionTargetsSingleTarget")
+        {
+            return None;
+        }
+        match p.take("Defined").as_deref() {
+            None if targets_here => {}
+            Some("Targeted" | "ParentTarget") if !targets_here => {}
+            _ => return None,
+        }
+        let target_spec = target?;
+        let is_stack_target = target_spec.starts_with("TargetSpec::Spell(")
+            || target_spec.starts_with("TargetSpec::SpellOrAbility(")
+            || target_spec.starts_with("TargetSpec::AbilityOnStack(")
+            || target_spec.starts_with("TargetSpec::ActivatedAbility(");
+        if !is_stack_target {
+            return None;
+        }
+        let raw_type = p.take("TargetType");
+        let single_target_stack = target_spec.contains("Filter::WithSingleTarget")
+            || raw_type
+                .as_deref()
+                .is_some_and(|t| t.contains("singleTarget") || t.contains("numTargets EQ1"));
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let magnet = p.take("DefinedMagnet");
+        let change_single = match p.take("ChangeSingleTarget").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        if optional && magnet.is_none() && !change_single {
+            return Some(vec!["Effect::ChooseNewTargets".to_string()]);
+        }
+        if !optional && single_target_stack {
+            return match magnet.as_deref() {
+                None if !change_single => Some(vec![
+                    "Effect::ChangeTarget { to: &Filter::Any }".to_string(),
+                ]),
+                Some("Self") if !self.on_a_spell => Some(vec![
+                    "Effect::ChangeTarget { to: &Filter::This }".to_string(),
+                ]),
+                _ => None,
+            };
+        }
+        None
     }
 }
 

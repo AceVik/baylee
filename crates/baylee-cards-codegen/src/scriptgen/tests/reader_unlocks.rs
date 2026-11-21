@@ -178,12 +178,33 @@ fn modal_charms_activated_triggered_and_min_charm_num() {
         multi.abilities[0]
     );
 
-    // Multi-mode charm whose 2nd targeting mode targets a player violates `modes_fault` and refuses.
-    assert!(refused(
-        "Name:BadCommand\nManaCost:2 R\nTypes:Sorcery\n\
+    // Multi-mode charm whose 2nd targeting mode targets a player is valid under
+    // Wave 8a's `shapes.rs::modes_fault` (<= 16 target clauses across <= 8 modes).
+    let two_target_modes = read(
+        "Name:PlayerCommand\nManaCost:2 R\nTypes:Sorcery\n\
          A:SP$ Charm | CharmNum$ 2 | Choices$ M1,M2\n\
          SVar:M1:DB$ Destroy | ValidTgts$ Artifact\n\
-         SVar:M2:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 2"
+         SVar:M2:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 2",
+    );
+    assert!(
+        two_target_modes.abilities[0].contains("ModeCount::TWO"),
+        "{}",
+        two_target_modes.abilities[0]
+    );
+
+    // Multi-mode charm exceeding 8 modes / 16 target clauses violates `modes_fault` and refuses.
+    assert!(refused(
+        "Name:OverstuffedCommand\nManaCost:5 R\nTypes:Sorcery\n\
+         A:SP$ Charm | CharmNum$ 2 | Choices$ M1,M2,M3,M4,M5,M6,M7,M8,M9\n\
+         SVar:M1:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1\n\
+         SVar:M2:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1\n\
+         SVar:M3:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1\n\
+         SVar:M4:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1\n\
+         SVar:M5:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1\n\
+         SVar:M6:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1\n\
+         SVar:M7:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1\n\
+         SVar:M8:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1\n\
+         SVar:M9:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 1"
     ));
 
     // Modal activated ability (`AB$ Charm`).
@@ -5028,5 +5049,244 @@ fn wave15c_phase_svars_change_zone_pump_hidden_sacrifice_n_and_coin_wins() {
             && !parley_counter.abilities[0].contains("AddCounterAmount"),
         "{}",
         parley_counter.abilities[0]
+    );
+}
+
+#[test]
+fn wave16c_incubate_exploited_warped_snow_and_supported_apis() {
+    for api in ["Incubate", "MultiplyCounter", "Earthbend", "ChangeTargets"] {
+        assert!(crate::scriptgen::is_supported_api(api), "{api}");
+    }
+
+    // Incubate fixed, repeated, and spell-mana-value driven.
+    let inc = read(
+        "Name:Hatchery\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ Incubate | Amount$ 3 | Times$ 2",
+    );
+    assert!(
+        inc.abilities[0].contains("Effect::incubate(3), Effect::incubate(3)"),
+        "{}",
+        inc.abilities[0]
+    );
+    let inc_cast = read(
+        "Name:CastHatch\nManaCost:3 U\nTypes:Enchantment\n\
+         T:Mode$ SpellCast | ValidCard$ Card.nonCreature | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ I\n\
+         SVar:I:DB$ Incubate | Amount$ TriggeredSpellAbility$CardManaCostLKI",
+    );
+    assert!(
+        inc_cast.abilities[0]
+            .contains("Effect::Incubate { who: PlayerRel::You, count: Amount::EventManaValue }"),
+        "{}",
+        inc_cast.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadIncTimes\nManaCost:X W\nTypes:Sorcery\n\
+         A:SP$ Incubate | Amount$ 2 | Times$ X\nSVar:X:Count$xPaid"
+    ));
+
+    // Exploited self trigger + filtered exploiter/exploited + TriggeredExploited$CardPower.
+    let exp_self = read(
+        "Name:SadistTest\nManaCost:1 B\nTypes:Creature\nPT:1/3\n\
+         T:Mode$ Exploited | ValidCard$ Creature | ValidSource$ Card.Self | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        exp_self.abilities[0].contains("Trigger::EXPLOITED_THIS"),
+        "{}",
+        exp_self.abilities[0]
+    );
+    let exp_cond = read(
+        "Name:PowerExploit\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Exploited | ValidCard$ Creature.!token | ValidSource$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | Defined$ You | NumCards$ 1 | ConditionCheckSVar$ X | ConditionSVarCompare$ GE3\n\
+         SVar:X:TriggeredExploited$CardPower",
+    );
+    assert!(
+        exp_cond.abilities[0].contains("Trigger::Exploited {")
+            && exp_cond.abilities[0].contains("Amount::EventPower"),
+        "{}",
+        exp_cond.abilities[0]
+    );
+
+    // SpellWarped trigger, WarpCostPaid, SpellWarpedThisTurn, and SnowManaWasSpent.
+    let warp_trig = read(
+        "Name:WarpWatcher\nManaCost:1 U\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ SpellCast | ValidCard$ Card | ValidSA$ Spell.Warp | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        warp_trig.abilities[0]
+            .contains("Trigger::SpellWarped { who: PlayerRel::You, filter: &Filter::Any }"),
+        "{}",
+        warp_trig.abilities[0]
+    );
+    let warp_cond = read(
+        "Name:WarpBonus\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | SubAbility$ Extra\n\
+         SVar:Extra:DB$ Draw | Defined$ You | NumCards$ 1 | ConditionDefined$ Self | ConditionPresent$ Card.CastSa Spell.Warp | ConditionCompare$ EQ1",
+    );
+    assert!(
+        warp_cond.abilities[0].contains("Condition::WarpCostPaid"),
+        "{}",
+        warp_cond.abilities[0]
+    );
+    let warp_turn = read(
+        "Name:WarpEnd\nManaCost:1 B\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ W | SVarCompare$ GE1 | Execute$ D\n\
+         SVar:D:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:W:Count$ThisTurnCast_Card.YouCtrl+CastSa Spell.Warp",
+    );
+    assert!(
+        warp_turn.abilities[0].contains("Condition::SpellWarpedThisTurn(Some(PlayerRel::You))"),
+        "{}",
+        warp_turn.abilities[0]
+    );
+    let snow_spent = read(
+        "Name:FrostTap\nManaCost:4 U\nTypes:Creature\nPT:4/4\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ D\n\
+         SVar:D:DB$ Draw | Defined$ You | NumCards$ 1 | ConditionCheckSVar$ S\n\
+         SVar:S:Count$CastTotalManaSpent Snow",
+    );
+    assert!(
+        snow_spent.abilities[0].contains("Condition::SnowManaWasSpent"),
+        "{}",
+        snow_spent.abilities[0]
+    );
+}
+
+#[test]
+fn wave16c_multiply_counter_and_earthbend() {
+    // MultiplyCounter: self, targeted, and Valid filter; refuses Multiplier$ 3, omitted CounterType$, multi-target.
+    let dbl_valid = read(
+        "Name:SpineDoubler\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
+         A:AB$ MultiplyCounter | Cost$ 3 G G | Defined$ Valid Creature.YouCtrl | CounterType$ P1P1",
+    );
+    assert!(
+        dbl_valid.abilities[0].contains(
+            "Effect::DoubleCountersFilter { filter: &Filter::YOUR_CREATURE, kind: CounterKind::P1P1 }"
+        ),
+        "{}",
+        dbl_valid.abilities[0]
+    );
+    let dbl_tgt = read(
+        "Name:TargetDoubler\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ MultiplyCounter | ValidTgts$ Creature.YouCtrl | CounterType$ P1P1",
+    );
+    assert!(
+        dbl_tgt.abilities[0].contains(
+            "Effect::DoubleCountersFilter { filter: &Filter::Reference, kind: CounterKind::P1P1 }"
+        ),
+        "{}",
+        dbl_tgt.abilities[0]
+    );
+    assert!(refused(
+        "Name:TripleBad\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ MultiplyCounter | ValidTgts$ Creature | CounterType$ P1P1 | Multiplier$ 3"
+    ));
+    assert!(refused(
+        "Name:AllKindsBad\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ MultiplyCounter | ValidTgts$ Creature | Multiplier$ 2"
+    ));
+    assert!(refused(
+        "Name:MultiTargetDoubleBad\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ MultiplyCounter | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | CounterType$ P1P1"
+    ));
+
+    // Earthbend: implicit YOUR_LAND target; refuses Num$ X and chained double-Earthbend.
+    let eb = read(
+        "Name:LandBender\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ E\n\
+         SVar:E:DB$ Earthbend | Num$ 2",
+    );
+    assert!(
+        eb.abilities[0].contains("Effect::Earthbend(2)")
+            && eb.abilities[0].contains("TargetSpec::Object(&Filter::YOUR_LAND)"),
+        "{}",
+        eb.abilities[0]
+    );
+    assert!(refused(
+        "Name:DoubleEarthbendBad\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ Earthbend | Num$ 1 | SubAbility$ E2\n\
+         SVar:E2:DB$ Earthbend | Num$ 1"
+    ));
+}
+
+#[test]
+fn wave16c_change_targets_and_sweeps() {
+    let deflect = read(
+        "Name:DeflectSpell\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ ChangeTargets | TargetType$ Spell.singleTarget | ValidTgts$ Card",
+    );
+    assert!(
+        deflect.abilities[0].contains("Effect::ChangeTarget { to: &Filter::Any }")
+            && deflect.abilities[0].contains("TargetSpec::Spell(&Filter::WithSingleTarget)"),
+        "{}",
+        deflect.abilities[0]
+    );
+    let magnet = read(
+        "Name:MagnetFish\nManaCost:2 U\nTypes:Creature\nPT:1/4\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | OptionalDecider$ You | Execute$ C\n\
+         SVar:C:DB$ ChangeTargets | TargetType$ Instant.singleTarget,Sorcery.singleTarget | ValidTgts$ Card | DefinedMagnet$ Self | ChangeSingleTarget$ True",
+    );
+    assert!(
+        magnet.abilities[0].contains("Effect::ChangeTarget { to: &Filter::This }")
+            && magnet.statics.contains("Filter::WithSingleTarget"),
+        "{} / {}",
+        magnet.abilities[0],
+        magnet.statics
+    );
+    let swat = read(
+        "Name:SwatSpell\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ ChangeTargets | TargetType$ Spell,Activated,Triggered | Optional$ True | ValidTgts$ Card,Emblem",
+    );
+    assert!(
+        swat.abilities[0].contains("Effect::ChooseNewTargets")
+            && swat.abilities[0].contains("TargetSpec::SpellOrAbility(&Filter::Any)"),
+        "{}",
+        swat.abilities[0]
+    );
+    assert!(refused(
+        "Name:NonSingleMagnetBad\nManaCost:2 U\nTypes:Creature\nPT:1/4\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ C\n\
+         SVar:C:DB$ ChangeTargets | TargetType$ Spell,Activated,Triggered | ValidTgts$ Card,Emblem | DefinedMagnet$ Self | ChangeSingleTarget$ True"
+    ));
+
+    // DealDamage sweep: DamageSource$ TriggeredTarget on DamageDoneOnce.
+    let reflect_dmg = read(
+        "Name:SpiteRaptor\nManaCost:4 R\nTypes:Creature\nPT:5/5\n\
+         T:Mode$ DamageDoneOnce | ValidTarget$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ R\n\
+         SVar:R:DB$ DealDamage | ValidTgts$ Any | NumDmg$ X | DamageSource$ TriggeredTarget\n\
+         SVar:X:TriggerCount$DamageAmount",
+    );
+    assert!(
+        reflect_dmg.abilities[0].contains("Effect::EventObjectDealsDamage {"),
+        "{}",
+        reflect_dmg.abilities[0]
+    );
+
+    // Phase.CheckSVar sweep: YourLifeTotal & ValidHand Card.YouOwn.
+    let phase_life = read(
+        "Name:LifeCheck\nManaCost:2 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | CheckSVar$ L | SVarCompare$ GE30 | Execute$ D\n\
+         SVar:D:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:L:Count$YourLifeTotal",
+    );
+    assert!(
+        phase_life.abilities[0].contains("Amount::LifeTotal(PlayerRel::You)"),
+        "{}",
+        phase_life.abilities[0]
+    );
+
+    // Reanimate with permanent Pump modifier.
+    let perm_reanim = read(
+        "Name:HasteReanim\nManaCost:4 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouOwn | RememberChanged$ True | SubAbility$ P\n\
+         SVar:P:DB$ Pump | Defined$ Remembered | Duration$ Permanent | KW$ Haste",
+    );
+    assert!(
+        perm_reanim.abilities[0].contains("Effect::GraveyardToBattlefieldModified {")
+            && perm_reanim.abilities[0].contains("Modifier::AddKeyword(KeywordSet::HASTE)"),
+        "{}",
+        perm_reanim.abilities[0]
     );
 }

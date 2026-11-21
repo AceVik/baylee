@@ -79,6 +79,28 @@ impl Tx<'_> {
                 return self.deny(format!("a spell cast by `{other}`"));
             }
         };
+        if p.peek("ValidSA") == Some("Spell.Warp")
+            && !p.has("TargetsValid")
+            && !p.has("ActivatorThisTurnCast")
+            && !p.has("Static")
+        {
+            p.take("ValidSA");
+            let who = match whose {
+                "" => "PlayerRel::EachPlayer",
+                ".YouCtrl" => "PlayerRel::You",
+                ".OppCtrl" => "PlayerRel::EachOpponent",
+                _ => unreachable!("player relation was checked above"),
+            };
+            let filter = if valid == "Card" {
+                "&Filter::Any".to_string()
+            } else {
+                let expr = self.filter_expr_in_zone(&valid, true)?;
+                format!("&{}", self.body.filter_static("TRIGGER", &expr))
+            };
+            return Some(format!(
+                "Trigger::SpellWarped {{ who: {who}, filter: {filter} }}"
+            ));
+        }
         if let Some(targets_valid) = p.take("TargetsValid") {
             if p.has("ActivatorThisTurnCast") {
                 return self.deny(
@@ -305,6 +327,30 @@ impl Tx<'_> {
         let expr = self.filter_expr(&valid)?;
         let filter = self.body.filter_static("TRIGGER", &expr);
         Some(format!("Trigger::Enlisted(&{filter})"))
+    }
+
+    fn exploited_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let exploiter = match p.take("ValidSource").as_deref() {
+            None => "&Filter::Any".to_string(),
+            Some("Card.Self") => "&Filter::This".to_string(),
+            Some(valid) => {
+                let expr = self.filter_expr(valid)?;
+                format!("&{}", self.body.filter_static("TRIGGER", &expr))
+            }
+        };
+        let exploited = match p.take("ValidCard").as_deref() {
+            None | Some("Creature") => "&Filter::Any".to_string(),
+            Some(valid) => {
+                let expr = self.filter_expr(valid)?;
+                format!("&{}", self.body.filter_static("TRIGGER", &expr))
+            }
+        };
+        if exploiter == "&Filter::This" && exploited == "&Filter::Any" {
+            return Some("Trigger::EXPLOITED_THIS".to_string());
+        }
+        Some(format!(
+            "Trigger::Exploited {{ exploiter: {exploiter}, exploited: {exploited} }}"
+        ))
     }
 
     fn plotted_trigger(&mut self, p: &mut Params) -> Option<String> {
@@ -589,6 +635,7 @@ impl Tx<'_> {
             "RolledDie" => self.rolled_die_trigger(p),
             "Exerted" => self.exerted_trigger(p),
             "Enlisted" => self.enlisted_trigger(p),
+            "Exploited" => self.exploited_trigger(p),
             "BecomesPlotted" | "Plotted" => self.plotted_trigger(p),
             "SpellCastOrCopy" => self.spell_cast_or_copy_trigger(p, zoned),
             // "Whenever you give a gift" (CR 702.174c). `EventPlayer` is the
@@ -1873,6 +1920,9 @@ impl Tx<'_> {
                 Some("Card.Self+bargained") => Some("Condition::Bargained"),
                 Some("Card.Self+prototyped") => Some("Condition::Prototyped"),
                 Some("Card.Self+PromisedGift") => Some("Condition::GiftWasPromised"),
+                Some("Card.Self+CastSa Spell.Warp" | "Card.Self+Warped") => {
+                    Some("Condition::WarpCostPaid")
+                }
                 _ => None,
             }
         } else {
@@ -3211,6 +3261,9 @@ impl Tx<'_> {
             | "GaveGift" => true,
             "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" | "Enlisted"
             | "Sacrificed" => non_self,
+            "Exploited" => p
+                .peek("ValidSource")
+                .is_some_and(|v| !v.split([',', '.', '+']).any(|a| a.trim() == "Self")),
             "ChangesZoneAll" => non_self_cards,
             _ => false,
         };
@@ -3321,7 +3374,96 @@ impl Tx<'_> {
         if raw == "Count$LifeYouGainedThisTurn" {
             return Self::wave15_amount_cmp("Amount::LifeGainedThisTurn(PlayerRel::You)", cmp);
         }
-        None
+        Self::wave16_svar_condition(raw, cmp)
+    }
+
+    /// Wave-16c shared `CheckSVar$` / `ConditionCheckSVar$` clauses for Wave 7b/8a
+    /// (`WarpCostPaid`, `SpellWarpedThisTurn`, `SnowManaWasSpent`,
+    /// `OpponentDealtDamageThisTurn`) and `Phase.CheckSVar` life/hand/graveyard counts.
+    pub(super) fn wave16_svar_condition(raw: &str, cmp: &str) -> Option<String> {
+        let bool_flag = |cond: &str| match cmp {
+            "GE1" | "GT0" => Some(cond.to_string()),
+            "EQ0" | "LT1" => Some(format!("Condition::Not(&{cond})")),
+            _ => None,
+        };
+        match raw {
+            "Count$Warped.1.0" | "Count$Warped" | "Count$Warp.1.0" | "Count$Warp" => match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::WarpCostPaid".to_string()),
+                "EQ0" | "LT1" => Some("Condition::Not(&Condition::WarpCostPaid)".to_string()),
+                _ => None,
+            },
+            "Count$Warped.0.1" | "Count$Warp.0.1" => match cmp {
+                "EQ0" | "LT1" => Some("Condition::WarpCostPaid".to_string()),
+                "GE1" | "EQ1" | "GT0" => {
+                    Some("Condition::Not(&Condition::WarpCostPaid)".to_string())
+                }
+                _ => None,
+            },
+            "Count$CastTotalManaSpent Snow" => bool_flag("Condition::SnowManaWasSpent")
+                .or_else(|| Self::wave15_amount_cmp("Amount::SnowManaSpentToCast", cmp)),
+            "Count$ThisTurnCast_Card.CastSa Spell.Warp" | "Count$ThisTurnCast_Spell.Warp" => {
+                bool_flag("Condition::SpellWarpedThisTurn(None)").or_else(|| {
+                    Self::wave15_amount_cmp(
+                        "Amount::SpellsWarpedThisTurn(PlayerRel::EachPlayer)",
+                        cmp,
+                    )
+                })
+            }
+            "Count$ThisTurnCast_Card.YouCtrl+CastSa Spell.Warp"
+            | "Count$ThisTurnCast_Card.CastSa Spell.Warp+YouCtrl" => {
+                bool_flag("Condition::SpellWarpedThisTurn(Some(PlayerRel::You))").or_else(|| {
+                    Self::wave15_amount_cmp("Amount::SpellsWarpedThisTurn(PlayerRel::You)", cmp)
+                })
+            }
+            "Count$ThisTurnCast_Card.OppCtrl+CastSa Spell.Warp"
+            | "Count$ThisTurnCast_Card.CastSa Spell.Warp+OppCtrl" => bool_flag(
+                "Condition::SpellWarpedThisTurn(Some(PlayerRel::EachOpponent))",
+            )
+            .or_else(|| {
+                Self::wave15_amount_cmp(
+                    "Amount::SpellsWarpedThisTurn(PlayerRel::EachOpponent)",
+                    cmp,
+                )
+            }),
+            "Count$DamageOpponentsTookThisTurn" => {
+                bool_flag("Condition::OpponentDealtDamageThisTurn").or_else(|| {
+                    Self::wave15_amount_cmp("Amount::DamageDealtToOpponentsThisTurn", cmp)
+                })
+            }
+            "Count$OpponentsDamagedThisTurn"
+            | "PlayerCountOpponents$HasPropertyDamagedThisTurn" => {
+                bool_flag("Condition::OpponentDealtDamageThisTurn")
+            }
+            "Count$YourLifeTotal" => {
+                Self::wave15_amount_cmp("Amount::LifeTotal(PlayerRel::You)", cmp)
+            }
+            "Count$ValidHand Card.YouOwn" => {
+                Self::wave15_amount_cmp("Amount::HandSize(PlayerRel::You)", cmp)
+            }
+            "Count$ValidGraveyard Card.YouOwn" => {
+                let (op, n_str) = cmp.split_at_checked(2)?;
+                let n: u8 = n_str.parse().ok()?;
+                match op {
+                    "GE" if n >= 1 => Some(format!("Condition::GraveyardCountAtLeast({n})")),
+                    "GT" => Some(format!(
+                        "Condition::GraveyardCountAtLeast({})",
+                        n.checked_add(1)?
+                    )),
+                    "LE" => Some(format!(
+                        "Condition::Not(&Condition::GraveyardCountAtLeast({}))",
+                        n.checked_add(1)?
+                    )),
+                    "LT" if n >= 1 => Some(format!(
+                        "Condition::Not(&Condition::GraveyardCountAtLeast({n}))"
+                    )),
+                    "EQ" if n == 0 => {
+                        Some("Condition::Not(&Condition::GraveyardCountAtLeast(1))".to_string())
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
     }
 
     /// Wave-15c lowering for `SP$/AB$/DB$ Effect` carrying `Triggers$` (or a
