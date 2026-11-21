@@ -87,31 +87,37 @@ impl GameState {
         if let Some(entry) = seq
             .checked_sub(1)
             .and_then(|index| self.journal.entries().get(index as usize))
-            && let GameEvent::AbilityActivated { source, .. } = entry.event
-            && source.object == id
         {
-            return Some((
-                source.version,
-                self.source_object(source)
-                    .and_then(|o| o.characteristics().power)
-                    .unwrap_or(0),
-            ));
-        }
-        if let Some(entry) = seq
-            .checked_sub(1)
-            .and_then(|index| self.journal.entries().get(index as usize))
-            && let GameEvent::Discarded {
-                object, version, ..
-            } = entry.event
-            && object == id
-        {
-            // CR 400.7: the discard trigger follows only the immediate successor.
-            return Some((
-                version.wrapping_add(1),
-                self.source_object(baylee_core::ids::DamageSourceRef { object, version })
-                    .and_then(|card| card.characteristics().power)
-                    .unwrap_or(0),
-            ));
+            match entry.event {
+                GameEvent::ObjectTapped { object, .. }
+                | GameEvent::ObjectUntapped { object, .. }
+                    if object == id =>
+                {
+                    if let Some(observation) = entry.tap_observation {
+                        return Some((observation.version, observation.power));
+                    }
+                }
+                GameEvent::AbilityActivated { source, .. } if source.object == id => {
+                    return Some((
+                        source.version,
+                        self.source_object(source)
+                            .and_then(|o| o.characteristics().power)
+                            .unwrap_or(0),
+                    ));
+                }
+                GameEvent::Discarded {
+                    object, version, ..
+                } if object == id => {
+                    // CR 400.7: the discard trigger follows only the immediate successor.
+                    return Some((
+                        version.wrapping_add(1),
+                        self.source_object(baylee_core::ids::DamageSourceRef { object, version })
+                            .and_then(|card| card.characteristics().power)
+                            .unwrap_or(0),
+                    ));
+                }
+                _ => {}
+            }
         }
         for entry in self.journal.entries().iter().skip(seq as usize) {
             if matches!(entry.event, GameEvent::ZoneChanged { object, from: Zone::Battlefield, .. } if object == id)

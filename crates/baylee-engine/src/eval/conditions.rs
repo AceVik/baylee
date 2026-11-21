@@ -7,6 +7,41 @@ use crate::zone::{Zone, ZoneLocation};
 use baylee_cards_dsl::{Condition, Filter};
 use baylee_core::ids::{ObjectId, PlayerId};
 
+pub(crate) fn discarded_for_cost(
+    state: &GameState,
+    paid_on: ObjectId,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &Filter,
+) -> bool {
+    state
+        .object(paid_on)
+        .and_then(|object| object.paid.as_ref())
+        .is_some_and(|paid| {
+            paid.discarded
+                .iter()
+                .filter_map(|reference| state.source_object(*reference))
+                .any(|object| matches_with_context(filter, state, object, you, context))
+        })
+}
+
+pub(crate) fn sacrificed_for_cost(
+    state: &GameState,
+    paid_on: ObjectId,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &Filter,
+) -> bool {
+    state
+        .object(paid_on)
+        .and_then(|object| object.paid.as_ref())
+        .and_then(|paid| paid.sacrificed)
+        .and_then(|(object, version)| {
+            state.source_object(baylee_core::ids::DamageSourceRef { object, version })
+        })
+        .is_some_and(|object| matches_with_context(filter, state, object, you, context))
+}
+
 /// Whether a card's stated [`Condition`] holds right now.
 ///
 /// One vocabulary and one reading, for every ability kind that states a
@@ -88,24 +123,12 @@ pub fn condition_holds_with_context(
         Condition::SourceWasCastByYou => state
             .object(source)
             .is_some_and(|object| object.cast_history.caster() == Some(you)),
-        Condition::DiscardedForCost(filter) => state
-            .object(source)
-            .and_then(|object| object.paid.as_ref())
-            .is_some_and(|paid| {
-                paid.discarded.iter().any(|reference| {
-                    state.source_object(*reference).is_some_and(|object| {
-                        matches_with_context(filter, state, object, you, context)
-                    })
-                })
-            }),
-        Condition::SacrificedForCost(filter) => state
-            .object(source)
-            .and_then(|object| object.paid.as_ref())
-            .and_then(|paid| paid.sacrificed)
-            .and_then(|(object, version)| {
-                state.source_object(baylee_core::ids::DamageSourceRef { object, version })
-            })
-            .is_some_and(|object| matches_with_context(filter, state, object, you, context)),
+        Condition::DiscardedForCost(filter) => {
+            discarded_for_cost(state, source, you, context, filter)
+        }
+        Condition::SacrificedForCost(filter) => {
+            sacrificed_for_cost(state, source, you, context, filter)
+        }
         // These need the triggering incarnation, supplied separately, or a
         // resolution (`resolve::immediate::resolution_condition`).
         Condition::ControlCountExceptEvent(_, _)

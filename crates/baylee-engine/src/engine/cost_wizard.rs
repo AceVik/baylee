@@ -41,9 +41,7 @@
 //! every question before `pay_cost` runs. Making the offer exact is a matching
 //! problem, and not one a card is asking yet.
 
-use super::{
-    Cause, CostPart, EngineError, GameEvent, ObjectId, PlayerId, Status, ZoneLocation, ZonePosition,
-};
+use super::{Cause, CostPart, EngineError, ObjectId, PlayerId, Status, ZoneLocation, ZonePosition};
 use crate::choice::ChoicePrompt;
 use crate::eval;
 use crate::state::GameState;
@@ -461,7 +459,7 @@ pub(crate) use power::PowerPayment;
 /// [`GameState::discard_card`], the same door as `DiscardSelf`, an effect and
 /// the cleanup step: each discard has one event and one successor, and madness
 /// can replace its destination. A tap goes through the `TapSelf` arm's door
-/// for the same reason, down to the [`GameEvent::ObjectTapped`] it records:
+/// for the same reason, down to the [`crate::event::GameEvent::ObjectTapped`] it records:
 /// an ability that triggers on a creature becoming tapped may not see one of
 /// the two and miss the other.
 ///
@@ -738,7 +736,7 @@ mod tests {
         assert!(
             state.journal.entries().iter().any(|e| matches!(
                 e.event,
-                GameEvent::ZoneChanged {
+                crate::event::GameEvent::ZoneChanged {
                     object,
                     from: crate::zone::Zone::Graveyard,
                     to: crate::zone::Zone::Exile,

@@ -11,7 +11,7 @@ card!(
     oracle_id = "ebb445f7-75da-4af4-9153-93d419c838e0",
     scryfall_id = "34076a93-9e8f-45d4-a1d7-31f40210a5b6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Turn the Earth",
         mana_cost = mana!("{G}"),

@@ -30,8 +30,8 @@ pub(crate) use amounts::{
     object_snow_mana_spent, snow_mana_spent_on,
 };
 pub(crate) use conditions::{
-    attached_for_ability, condition_reads_event, condition_with_event, evolve_holds,
-    intervening_if_for_incarnation,
+    attached_for_ability, condition_reads_event, condition_with_event, discarded_for_cost,
+    evolve_holds, intervening_if_for_incarnation, sacrificed_for_cost,
 };
 pub use conditions::{
     condition_holds, condition_holds_with_context, controlled_matching,

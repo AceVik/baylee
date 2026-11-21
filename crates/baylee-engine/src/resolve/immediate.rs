@@ -4255,40 +4255,20 @@ fn resolution_condition(
 ) -> bool {
     use baylee_cards_dsl::{Condition, Filter};
     match condition {
-        Condition::DiscardedForCost(filter) => state
-            .object(res.on_stack)
-            .and_then(|object| object.paid.as_ref())
-            .is_some_and(|paid| {
-                paid.discarded.iter().any(|reference| {
-                    state.source_object(*reference).is_some_and(|object| {
-                        eval::matches_with_context(
-                            filter,
-                            state,
-                            object,
-                            res.controller,
-                            res.rule_context(),
-                        )
-                    })
-                })
-            }),
-        Condition::SacrificedForCost(filter) => state
-            .object(res.on_stack)
-            .and_then(|object| object.paid.as_ref())
-            .is_some_and(|paid| {
-                paid.sacrificed.is_some_and(|(object, version)| {
-                    state
-                        .source_object(baylee_core::ids::DamageSourceRef { object, version })
-                        .is_some_and(|object| {
-                            eval::matches_with_context(
-                                filter,
-                                state,
-                                object,
-                                res.controller,
-                                res.rule_context(),
-                            )
-                        })
-                })
-            }),
+        Condition::DiscardedForCost(filter) => eval::discarded_for_cost(
+            state,
+            res.on_stack,
+            res.controller,
+            res.rule_context(),
+            filter,
+        ),
+        Condition::SacrificedForCost(filter) => eval::sacrificed_for_cost(
+            state,
+            res.on_stack,
+            res.controller,
+            res.rule_context(),
+            filter,
+        ),
         Condition::SourceMatches(Filter::PowerAtLeast(n)) => {
             state
                 .object(res.on_stack)

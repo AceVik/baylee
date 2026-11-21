@@ -185,11 +185,6 @@ pub(super) fn event_identity_for(
     id: ObjectId,
     state: &GameState,
 ) -> Option<(u32, i16)> {
-    if let Some(observation) = entry.tap_observation
-        && tap_event_object(&entry.event) == Some(id)
-    {
-        return Some((observation.version, observation.power));
-    }
     let base = state.event_object_identity(id, entry.seq);
     if matches!(
         trigger,

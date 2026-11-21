@@ -216,15 +216,7 @@ pub(crate) fn collect_general(
                             .then_some((ver, dep.power))
                     })
                 })
-                .or_else(|| {
-                    ev_obj.and_then(|id| {
-                        if entry.tap_observation.is_some() {
-                            events::event_identity_for(trigger, entry, id, state)
-                        } else {
-                            state.event_object_identity(id, entry.seq)
-                        }
-                    })
-                });
+                .or_else(|| ev_obj.and_then(|id| state.event_object_identity(id, entry.seq)));
             (
                 ev_obj,
                 ev_id,
