@@ -168,6 +168,8 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("read ahead", K::READ_AHEAD), // entry::sagas + trigger::sagas (CR 702.155a)
         ("enlist", K::ENLIST), // Engine::declare_attackers + combat_keywords::collect_enlist (CR 702.154a)
         ("renown", K::RENOWN), // eval::matches(Filter::HasKeyword) + Effect::BecomeRenowned (CR 702.112a)
+        ("modular", K::MODULAR), // trigger::return_keywords::collect_modular (CR 702.43a)
+        ("soulbond", K::SOULBOND), // trigger::soulbond::collect (CR 702.95a)
     ]
 };
 

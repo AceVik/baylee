@@ -292,7 +292,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     x: self.activation_x.unwrap_or(0),
                     second_instance: matches!(
                         self.pending_plan,
-                        Some(PlanKind::ActivateAbilitySecondTargets { .. })
+                        Some(
+                            PlanKind::ActivateAbilitySecondTargets { .. }
+                                | PlanKind::TriggerSecondTarget { .. }
+                        )
                     ),
                     first_targets: first,
                     ..DecisionContext::default()
@@ -336,7 +339,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 x: self.activation_x.unwrap_or(0),
                 second_instance: matches!(
                     self.pending_plan,
-                    Some(PlanKind::ActivateAbilitySecondTargets { .. })
+                    Some(
+                        PlanKind::ActivateAbilitySecondTargets { .. }
+                            | PlanKind::TriggerSecondTarget { .. }
+                    )
                 ),
                 first_targets: first,
                 ..DecisionContext::default()

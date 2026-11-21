@@ -945,6 +945,93 @@ pub(super) fn resume_yes_no_inner(
         };
         return run_fallback(state, res, effects);
     }
+    if let Some(AwaitingOp::SoulbondConfirmPair {
+        source,
+        source_version,
+        partner,
+        partner_version,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer {
+            super::soulbond_try_pair(
+                state,
+                res.controller,
+                source,
+                source_version,
+                partner,
+                partner_version,
+            );
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
+    if let Some(AwaitingOp::PlayerMayPayDamageToYou {
+        on_payment,
+        player,
+        damage,
+        effect,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer {
+            if on_payment {
+                let next = res.pc + 1;
+                res.effects.splice(next..next, core::iter::once(*effect));
+            }
+            if let Some(pending) = life::deal_to_players(state, res, &[(player, u32::from(damage))])
+            {
+                return Flow::Wait(pending);
+            }
+            res.pc += 1;
+            return run(state, res);
+        }
+        if !on_payment {
+            return run_fallback(state, res, std::slice::from_ref(effect));
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
+    if let Some(AwaitingOp::ConfirmCountedCost {
+        on_payment,
+        player,
+        cost,
+        required,
+        effect,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer {
+            let options = crate::engine::cost_wizard::options_with_context(
+                state,
+                player,
+                res.rule_context(),
+                cost,
+            );
+            if options.len() >= usize::from(required) {
+                res.awaiting = Some(AwaitingOp::PlayerMayPayCountedCost {
+                    on_payment,
+                    player,
+                    cost,
+                    required: Some(required),
+                    effect,
+                });
+                return Flow::Wait(Pending::ChooseCards {
+                    player,
+                    options,
+                    min: required,
+                    max: required,
+                    prompt: crate::engine::cost_wizard::prompt(cost),
+                    total: None,
+                });
+            }
+        }
+        if !on_payment {
+            return run_fallback(state, res, std::slice::from_ref(effect));
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
     let AwaitingOp::PayLifeOrTapSelf { amount } =
         res.awaiting.take().expect("resume without awaiting op")
     else {

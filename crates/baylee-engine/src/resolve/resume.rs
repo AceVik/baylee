@@ -1691,11 +1691,114 @@ pub(super) fn resume_inner(
         | AwaitingOp::CoinFlipIgnore { .. }
         | AwaitingOp::RevealTopPlayerMayPut { .. }
         | AwaitingOp::PeekBottom { .. }
+        | AwaitingOp::SoulbondConfirmPair { .. }
+        | AwaitingOp::PlayerMayPayDamageToYou { .. }
+        | AwaitingOp::ConfirmCountedCost { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
+        AwaitingOp::SoulbondChoosePartner {
+            source,
+            source_version,
+        } => {
+            if let Some(&partner) = chosen.first() {
+                super::soulbond_try_pair(
+                    state,
+                    res.controller,
+                    source,
+                    source_version,
+                    partner,
+                    None,
+                );
+            }
+        }
         AwaitingOp::PlayerMayPay { .. } => {
             unreachable!("tax choices resume via resume_tax_choice")
+        }
+        AwaitingOp::ForageRemainingGraveyard {
+            on_payment,
+            player,
+            first,
+            effect,
+        } => {
+            let valid = chosen.len() == 2
+                && chosen[0] != chosen[1]
+                && chosen[0] != first
+                && chosen[1] != first
+                && [first, chosen[0], chosen[1]].into_iter().all(|id| {
+                    state.object(id).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Graveyard && o.zone_owner == Some(player)
+                    })
+                });
+            let mut paid = valid;
+            if valid {
+                for id in [first, chosen[0], chosen[1]] {
+                    paid &=
+                        cost_wizard::pay(state, player, &baylee_cards_dsl::CostPart::Forage, id)
+                            .is_ok();
+                }
+            }
+            if paid == on_payment {
+                return run_fallback(state, res, std::slice::from_ref(effect));
+            }
+        }
+        AwaitingOp::PlayerMayPayCountedCost {
+            on_payment,
+            player,
+            cost,
+            required,
+            effect,
+        } => {
+            let count_ok = required.is_none_or(|req| chosen.len() == usize::from(req));
+            let mut paid_count = 0u32;
+            if count_ok && !chosen.is_empty() {
+                let mut batch = crate::graveyard_order::PaymentBatch::new(state);
+                batch.before_part(state, cost);
+                for &card in chosen {
+                    let power = state
+                        .object(card)
+                        .map(|o| i32::from(o.characteristics().power.unwrap_or(0)));
+                    let disc_ref = state.source_identity(card);
+                    if cost_wizard::pay(state, player, cost, card).is_ok() {
+                        paid_count += 1;
+                        if matches!(cost, baylee_cards_dsl::CostPart::DiscardX(_))
+                            && let (Some(reference), Some(stack)) =
+                                (disc_ref, state.object_mut(res.on_stack))
+                        {
+                            stack
+                                .paid
+                                .get_or_insert_with(Default::default)
+                                .discarded
+                                .push(reference);
+                        }
+                        if matches!(cost, baylee_cards_dsl::CostPart::SacrificeX(_))
+                            && let Some(power) = power
+                            && let Some(version) = state.object(card).map(|o| o.version)
+                            && let Some(stack) = state.object_mut(res.on_stack)
+                        {
+                            stack
+                                .paid
+                                .get_or_insert_with(Default::default)
+                                .sacrificed_many
+                                .push((card, version, power));
+                        }
+                    }
+                }
+                batch.finish(state);
+            }
+            if required.is_none() {
+                res.x = Some(paid_count);
+                if let Some(stack) = state.object_mut(res.on_stack) {
+                    stack.x_value = paid_count;
+                }
+            }
+            let paid = match required {
+                Some(req) => paid_count == u32::from(req),
+                None => paid_count > 0,
+            };
+            if paid == on_payment {
+                return run_fallback(state, res, std::slice::from_ref(effect));
+            }
         }
         AwaitingOp::PlayerMayPayCost {
             on_payment,
@@ -1703,6 +1806,40 @@ pub(super) fn resume_inner(
             cost,
             effect,
         } => {
+            if matches!(cost, baylee_cards_dsl::CostPart::Forage)
+                && let &[first] = chosen
+                && state
+                    .object(first)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
+            {
+                let remaining: Vec<ObjectId> = state
+                    .zones
+                    .list(ZoneLocation::Graveyard(player))
+                    .iter()
+                    .copied()
+                    .filter(|&id| id != first)
+                    .collect();
+                if remaining.len() >= 2 {
+                    res.awaiting = Some(AwaitingOp::ForageRemainingGraveyard {
+                        on_payment,
+                        player,
+                        first,
+                        effect,
+                    });
+                    return Flow::Wait(Pending::ChooseCards {
+                        player,
+                        options: remaining,
+                        min: 2,
+                        max: 2,
+                        prompt: ChoicePrompt::CostExile,
+                        total: None,
+                    });
+                }
+                if !on_payment {
+                    return run_fallback(state, res, std::slice::from_ref(effect));
+                }
+                return finish_choice(state, res, since);
+            }
             // Naming nothing is declining. `min: 0` is what makes the
             // question a "may", so an empty answer is the not-paid branch
             // rather than an error — and it is the only shape that can

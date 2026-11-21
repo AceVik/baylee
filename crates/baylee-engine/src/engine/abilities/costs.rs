@@ -378,6 +378,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 CostPart::SacrificeX(_)
                 | CostPart::TapX(_)
+                | CostPart::DiscardX(_)
+                | CostPart::ExileFromGraveyardX(_)
                 | CostPart::TapN { .. }
                 | CostPart::ExileFromSingleGraveyard { .. } => {
                     let count = match part {
@@ -387,6 +389,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     };
                     let count = usize::try_from(count).unwrap_or(usize::MAX);
                     if cost_wizard::menu(&self.state, player, source, parts, part).len() < count {
+                        return false;
+                    }
+                }
+                CostPart::Forage => {
+                    let menu = cost_wizard::menu(&self.state, player, source, parts, part);
+                    let foods = menu
+                        .iter()
+                        .filter(|&&id| {
+                            self.state
+                                .object(id)
+                                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                        })
+                        .count();
+                    let gy = menu.len().saturating_sub(foods);
+                    let needed = parts
+                        .iter()
+                        .filter(|other| matches!(other, CostPart::Forage))
+                        .count();
+                    if foods.saturating_add(gy / 3) < needed {
                         return false;
                     }
                 }
@@ -506,6 +527,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PutCounterSelf { .. }
                 | CostPart::PayLifeX
                 | CostPart::PayEnergyX
+                | CostPart::DealDamageToYou(_)
                 | CostPart::PayAttachedManaCost => {}
             }
         }
@@ -816,7 +838,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         cost_wizard::pay(&mut self.state, player, part, card)?;
                     }
                 }
-                CostPart::SacrificeX(_) | CostPart::TapX(_) => {
+                CostPart::SacrificeX(_)
+                | CostPart::TapX(_)
+                | CostPart::DiscardX(_)
+                | CostPart::ExileFromGraveyardX(_) => {
                     let Some(cards) = answers.next() else {
                         return Err(EngineError::IllegalAction("unanswered counted cost"));
                     };
@@ -846,6 +871,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 .tapped_for_ability
                                 .push((src_ref, tapped_ref));
                         }
+                        if matches!(part, CostPart::DiscardX(_))
+                            && let Some(reference) = self.state.source_identity(card)
+                        {
+                            paid.discarded.push(reference);
+                        }
                         let power = self
                             .state
                             .object(card)
@@ -856,6 +886,64 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 (power, self.state.object(card).map(|o| o.version))
                         {
                             paid.sacrificed_many.push((card, version, power));
+                        }
+                    }
+                }
+                CostPart::DealDamageToYou(n) => {
+                    if *n > 0 {
+                        let assignment = crate::damage::Assignment {
+                            source,
+                            source_version: self.state.object(source).map(|o| o.version),
+                            recipient: crate::event::DamageTarget::Player(player),
+                            amount: u32::from(*n),
+                            is_combat: false,
+                        };
+                        let mut work =
+                            crate::damage::DamageWork::new(&mut self.state, vec![assignment]);
+                        work.finish_cost_damage(&mut self.state);
+                    }
+                }
+                CostPart::Forage => {
+                    let Some(selected) = answers.next() else {
+                        return Err(EngineError::IllegalAction("unanswered forage cost"));
+                    };
+                    match *selected.as_slice() {
+                        [food]
+                            if self.state.object(food).is_some_and(|o| {
+                                o.zone == crate::zone::Zone::Battlefield
+                                    && o.controller == player
+                                    && o.characteristics()
+                                        .subtypes
+                                        .contains(baylee_core::generated::subtypes::artifact::FOOD)
+                            }) =>
+                        {
+                            if work.next <= cost.parts.len().saturating_sub(cost.imposed) {
+                                paid.sacrificed =
+                                    self.state.object(food).map(|o| (food, o.version));
+                                paid.sacrificed_lki = self
+                                    .state
+                                    .object(food)
+                                    .map(crate::object::SacrificedLki::of);
+                            }
+                            self.state.sacrifice_object(food, Cause::Cost)?;
+                        }
+                        [a, b, c]
+                            if a != b
+                                && b != c
+                                && a != c
+                                && [a, b, c].into_iter().all(|id| {
+                                    self.state.object(id).is_some_and(|o| {
+                                        o.zone == crate::zone::Zone::Graveyard
+                                            && o.zone_owner == Some(player)
+                                    })
+                                }) =>
+                        {
+                            for id in [a, b, c] {
+                                cost_wizard::pay(&mut self.state, player, part, id)?;
+                            }
+                        }
+                        _ => {
+                            return Err(EngineError::IllegalAction("invalid forage payment"));
                         }
                     }
                 }

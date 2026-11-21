@@ -692,6 +692,12 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.makes.add(Stuff::BOARD);
             facts.makes.add(Stuff::GRAVEYARD);
         }
+        Effect::SoulbondPair { .. } => {
+            facts.deeds.add(Deeds::ASKS);
+            facts.deeds.add(Deeds::MAY);
+            facts.reads.add(Stuff::BOARD);
+            facts.makes.add(Stuff::BOARD);
+        }
         Effect::TurnFaceUp { .. } => {
             facts.reads.add(Stuff::BOARD);
             facts.makes.add(Stuff::BOARD);

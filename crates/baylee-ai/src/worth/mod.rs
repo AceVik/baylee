@@ -2139,6 +2139,7 @@ impl HeuristicAgent {
                 }
             }
             Effect::ManifestDread => 260,
+            Effect::SoulbondPair { .. } => 80,
             Effect::TurnFaceUp { .. } => subject.map_or(80, |o| {
                 if self.hostile(o.controller, me) {
                     -80
@@ -2908,7 +2909,9 @@ impl HeuristicAgent {
                 | CostPart::PayLifeX
                 | CostPart::PayEnergyX
                 | CostPart::TapX(_)
-                | CostPart::SacrificeX(_) => 0,
+                | CostPart::SacrificeX(_)
+                | CostPart::DiscardX(_)
+                | CostPart::ExileFromGraveyardX(_) => 0,
                 CostPart::PayCommanderColors => {
                     if !crate::activate::life_ok(view, cost) {
                         return None;
@@ -2932,14 +2935,14 @@ impl HeuristicAgent {
                 }
                 // The exact Equipment is not exposed as a payment choice;
                 // price it conservatively like another sacrificed permanent.
-                CostPart::SacrificeGrantor => 50,
+                CostPart::SacrificeGrantor | CostPart::Forage => 50,
                 CostPart::Sacrifice(filter) | CostPart::ExilePermanent(filter) => {
                     own(filter, &|_| true)
                         .into_iter()
                         .map(|o| self.given_up(view, o))
                         .min()?
                 }
-                CostPart::PayLife(n) => {
+                CostPart::PayLife(n) | CostPart::DealDamageToYou(n) => {
                     if !crate::activate::life_ok(view, cost) {
                         return None;
                     }

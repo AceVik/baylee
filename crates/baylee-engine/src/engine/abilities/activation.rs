@@ -676,7 +676,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             && self.activation_x == Some(0)
             && matches!(
                 cost_wizard::asking_parts(priced_cost).nth(self.activation_cost_choices.len()),
-                Some(CostPart::SacrificeX(_) | CostPart::TapX(_))
+                Some(
+                    CostPart::SacrificeX(_)
+                        | CostPart::TapX(_)
+                        | CostPart::DiscardX(_)
+                        | CostPart::ExileFromGraveyardX(_)
+                )
             )
         {
             self.activation_cost_choices.push(Vec::new());
@@ -700,6 +705,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .iter()
                     .any(|answer| answer.contains(id))
             });
+            if matches!(part, CostPart::Forage) {
+                cost_wizard::prune_incomplete_forage_graveyard(&self.state, &mut options);
+            }
             let prompt = cost_wizard::prompt(part);
             // `can_afford` asked the same question of the same function a
             // moment ago, so an empty list here is not a board this engine
@@ -719,9 +727,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 remaining: match part {
                     CostPart::TapN { count, .. } => Some(*count),
                     CostPart::ExileFromSingleGraveyard { count, .. } => Some(u32::from(*count)),
-                    CostPart::SacrificeX(_) | CostPart::TapX(_) => {
-                        Some(self.activation_x.unwrap_or(0))
-                    }
+                    CostPart::SacrificeX(_)
+                    | CostPart::TapX(_)
+                    | CostPart::DiscardX(_)
+                    | CostPart::ExileFromGraveyardX(_) => Some(self.activation_x.unwrap_or(0)),
+                    CostPart::Forage => Some(3),
                     _ => None,
                 },
                 chosen: Vec::new(),
@@ -766,7 +776,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     },
                     None,
                 )
-            } else if matches!(part, CostPart::SacrificeX(_) | CostPart::TapX(_)) {
+            } else if matches!(
+                part,
+                CostPart::SacrificeX(_)
+                    | CostPart::TapX(_)
+                    | CostPart::DiscardX(_)
+                    | CostPart::ExileFromGraveyardX(_)
+            ) {
                 (
                     u8::try_from(self.activation_x.unwrap_or(0)).unwrap_or(u8::MAX),
                     None,
@@ -781,6 +797,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     part,
                     CostPart::SacrificeX(_)
                         | CostPart::TapX(_)
+                        | CostPart::DiscardX(_)
+                        | CostPart::ExileFromGraveyardX(_)
                         | CostPart::TapN { .. }
                         | CostPart::ExileFromSingleGraveyard { .. }
                 ) {

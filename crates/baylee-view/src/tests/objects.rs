@@ -527,3 +527,20 @@ fn player_attached_aura_reports_attached_player_off_stack_and_splits_summary_key
     curse.stack_item = Some(StackItem::Spell);
     assert_eq!(curse.attached_player(), None);
 }
+
+#[test]
+fn paired_creature_reports_paired_with_off_stack_and_splits_summary_key() {
+    let plain = obj(1, 0);
+    assert_eq!(plain.paired_with(), None);
+    let mut paired = plain.clone();
+    paired.targets = vec![baylee_core::ids::TargetRef::Object(
+        baylee_core::ids::DamageSourceRef {
+            object: ObjectId::new(2, 0),
+            version: 0,
+        },
+    )];
+    assert_eq!(paired.paired_with(), Some(ObjectId::new(2, 0)));
+    assert_ne!(plain.summary_key(), paired.summary_key());
+    paired.stack_item = Some(StackItem::Spell);
+    assert_eq!(paired.paired_with(), None);
+}

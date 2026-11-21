@@ -281,6 +281,7 @@ fn reads_event(effect: &Effect) -> bool {
                 || reads_amount(*toughness)
         }
         Effect::IfCondition { condition, .. } => reads_condition(condition),
+        Effect::SoulbondPair { with_event_object } => *with_event_object,
         _ => false,
     }
 }
@@ -291,6 +292,7 @@ fn reads_condition(condition: &baylee_cards_dsl::Condition) -> bool {
         C::ObjectMatches { what, .. } => reads_target(**what),
         C::AmountAtLeast(amount, _) | C::AmountIsEven(amount) => reads_amount(*amount),
         C::AmountCompare { left, right, .. } => reads_amount(**left) || reads_amount(**right),
+        C::SoulbondEventCanPair => true,
         C::All(parts) | C::Any(parts) => parts.iter().any(reads_condition),
         C::Not(inner) => reads_condition(inner),
         _ => false,

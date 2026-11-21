@@ -552,8 +552,10 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
             .seat(resource_player(view))
             .is_some_and(|seat| seat.life >= i32::from(*n)),
         // Collective availability, including distinct cards and permanents
-        // for repeated parts, was established by the two matchers above.
-        CostPart::ExileFromHand(Filter::HasColor(_))
+        // for repeated parts, was established by the two matchers above; self-damage
+        // is always payable regardless of life total (CR 118.3).
+        CostPart::DealDamageToYou(_)
+        | CostPart::ExileFromHand(Filter::HasColor(_))
         | CostPart::Sacrifice(_)
         | CostPart::ReturnToHand(_)
         | CostPart::TapN { .. } => true,
@@ -592,7 +594,10 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::ExileTopOfLibrary(_)
         | CostPart::PayAttachedManaCost
         | CostPart::ReturnUnblockedAttacker
-        | CostPart::SacrificeGrantor => false,
+        | CostPart::SacrificeGrantor
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::Forage => false,
     })
 }
 

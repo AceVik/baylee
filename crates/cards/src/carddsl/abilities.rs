@@ -306,19 +306,27 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             | CostPart::SacrificeAll(_)
             | CostPart::ReturnToHand(_)
             | CostPart::ReturnUnblockedAttacker => dst[3] = 1.0,
-            CostPart::PayLife(n) => dst[4] = unit(f32::from(*n), 10.0).max(0.2),
+            CostPart::PayLife(n) | CostPart::DealDamageToYou(n) => {
+                dst[4] = unit(f32::from(*n), 10.0).max(0.2);
+            }
             CostPart::PayLifeX | CostPart::PayCommanderColors => dst[4] = 0.5,
             CostPart::Discard(_)
+            | CostPart::DiscardX(_)
             | CostPart::DiscardHand
             | CostPart::DiscardSelf
             | CostPart::DiscardRandom
             | CostPart::DiscardLastDrawnThisTurn => dst[5] = 1.0,
             CostPart::ExileSelf
             | CostPart::ExileFromGraveyard(_)
+            | CostPart::ExileFromGraveyardX(_)
             | CostPart::ExileFromHand(_)
             | CostPart::ExilePermanent(_)
             | CostPart::ExileFromSingleGraveyard { .. }
             | CostPart::ExileTopOfLibrary(_) => dst[6] = 1.0,
+            CostPart::Forage => {
+                dst[3] = 1.0;
+                dst[6] = 1.0;
+            }
             CostPart::RemoveCounterSelf { .. }
             | CostPart::RemoveCounterSelfX { .. }
             | CostPart::PutCounterSelf { .. }

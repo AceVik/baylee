@@ -111,6 +111,7 @@ pub fn condition_holds_with_context(
         Condition::ControlCountExceptEvent(_, _)
         | Condition::EventBlockedByOthers { .. }
         | Condition::SourceWasBlockedThisTurn
+        | Condition::SoulbondEventCanPair
         | Condition::TargetSpellWouldDestroy(_) => false,
         // "Only after combat": a main or ending phase after this turn's
         // combat (the postcombat main phase or the end phase).
@@ -655,6 +656,13 @@ pub fn condition_holds_with_context(
         Condition::IsRenowned => state
             .object(source)
             .is_some_and(|object| object_is_renowned(state, object)),
+        Condition::IsPaired => state.paired_partner(source).is_some(),
+        Condition::SoulbondSelfCanPair => {
+            state.is_unpaired_creature_controlled_by(source, None, you)
+                && state.battlefield_seen().any(|id| {
+                    id != source && state.is_unpaired_creature_controlled_by(id, None, you)
+                })
+        }
     }
 }
 
@@ -835,6 +843,8 @@ pub(crate) fn condition_reads_event(condition: Condition) -> bool {
         Condition::ControlCountExceptEvent(_, _)
         | Condition::EventBlockedByOthers { .. }
         | Condition::SourceWasBlockedThisTurn
+        | Condition::SoulbondSelfCanPair
+        | Condition::SoulbondEventCanPair
         | Condition::ObjectMatches {
             what: &baylee_cards_dsl::TargetSpec::EventObject,
             ..
@@ -937,6 +947,21 @@ pub(crate) fn condition_with_event(
         Condition::Not(condition) => {
             !condition_with_event(state, you, context, *condition, source_version, event)
         }
+        Condition::SoulbondSelfCanPair => {
+            state.is_unpaired_creature_controlled_by(context.source, source_version, you)
+                && state.battlefield_seen().any(|id| {
+                    id != context.source && state.is_unpaired_creature_controlled_by(id, None, you)
+                })
+        }
+        Condition::SoulbondEventCanPair => event.is_some_and(|ev| {
+            state.can_soulbond_pair(
+                you,
+                context.source,
+                source_version,
+                ev.object,
+                Some(ev.version),
+            )
+        }),
         _ => condition_holds_with_context(state, you, context, condition),
     }
 }

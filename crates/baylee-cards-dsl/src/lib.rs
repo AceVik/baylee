@@ -1061,6 +1061,20 @@ pub enum EnterModifier {
     Amplify(u8),
 }
 
+impl EnterModifier {
+    /// Modular N's static entry replacement (CR 702.43a): "This permanent
+    /// enters with N +1/+1 counters on it" (subject to counter replacements
+    /// per CR 614.16). Pair with [`KeywordSet::MODULAR`] on the face/card for
+    /// modular's death trigger.
+    #[must_use]
+    pub const fn modular(n: u32) -> Self {
+        Self::WithCounters {
+            kind: crate::effect::CounterKind::P1P1,
+            amount: crate::effect::Amount::Fixed(n),
+        }
+    }
+}
+
 /// Simple keyword abilities as a bitset.
 ///
 /// Parameterized keywords (equip {2}, crew N, kicker, ward {2}, …) are NOT
@@ -1159,6 +1173,8 @@ keywords! {
     MYRIAD = 59, "Myriad (CR 702.116).";
     EXTORT = 60, "Extort (CR 702.101).";
     ENLIST = 61, "Enlist (CR 702.154).";
+    MODULAR = 62, "Modular (CR 702.43).";
+    SOULBOND = 63, "Soulbond (CR 702.95).";
     RENOWN = 66, "Renown (CR 702.112).";
 }
 
@@ -1288,6 +1304,8 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::MYRIAD, "Myriad"),
     (KeywordSet::EXTORT, "Extort"),
     (KeywordSet::ENLIST, "Enlist"),
+    (KeywordSet::MODULAR, "Modular"),
+    (KeywordSet::SOULBOND, "Soulbond"),
     (KeywordSet::RENOWN, "Renown"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),

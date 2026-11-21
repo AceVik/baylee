@@ -562,6 +562,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::HasCounter(_)
         | Filter::HasCounters(_)
         | Filter::ControlledByEnchantedPlayer
+        | Filter::PairedWithSource
         | Filter::HasAdventure
         // StackItem has neither an exact source incarnation nor an
         // authoritative activated/triggered kind. Printed ability identity

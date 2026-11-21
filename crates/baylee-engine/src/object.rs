@@ -294,6 +294,29 @@ pub fn ability_target_req(
     }
 }
 
+/// The second target requirement of `abilities[index]` (`mode_index` for modal
+/// abilities), mirroring [`ability_target_req`].
+#[must_use]
+pub fn ability_second_target_req(
+    abilities: impl Into<AbilityDefs>,
+    index: u32,
+    mode_index: Option<u8>,
+) -> Option<baylee_cards_dsl::TargetReq> {
+    use baylee_cards_dsl::AbilityDef;
+    let abilities = abilities.into();
+    match abilities.get(index as usize)? {
+        AbilityDef::Activated { second_targets, .. }
+        | AbilityDef::ActivatedConditional { second_targets, .. }
+        | AbilityDef::Loyalty { second_targets, .. }
+        | AbilityDef::Triggered { second_targets, .. } => *second_targets,
+        AbilityDef::ModalTriggered { modes, .. } | AbilityDef::ModalActivated { modes, .. } => {
+            let idx = mode_index? as usize;
+            modes.get(idx).and_then(|m| m.second_targets)
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 thread_local! {
     /// Set, a split card is its left half off the stack, as the engine read
@@ -1160,6 +1183,10 @@ pub enum Rider {
     /// (CR 702.112b; neither an ability nor a copiable value). Appended to
     /// preserve replay identities.
     Renowned,
+    /// Soulbond pairing partner and its battlefield incarnation version (CR 702.95b).
+    /// Stored reciprocally on both paired creatures while both remain creatures
+    /// on the battlefield under the same player's control (CR 702.95e).
+    PairedWith(ObjectId, u32),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1293,6 +1320,7 @@ impl Rider {
             | Self::Manifested
             | Self::CasualtyPaid
             | Self::Renowned
+            | Self::PairedWith(..)
             | Self::EventPlayer(_)
             | Self::NinjutsuDefender(_, _)
             | Self::SyntheticCondition(_) => false,
@@ -1841,6 +1869,17 @@ impl GameObject {
     pub fn kicked_mask(&self) -> Option<u8> {
         self.riders.iter().find_map(|rider| match rider {
             Rider::KickedMask(mask) => Some(*mask),
+            _ => None,
+        })
+    }
+
+    /// Soulbond partner and its version as stored in `riders` (CR 702.95b).
+    /// Call [`crate::state::GameState::paired_partner`] to verify the reciprocal
+    /// battlefield creature relationship.
+    #[must_use]
+    pub fn paired_with_raw(&self) -> Option<(ObjectId, u32)> {
+        self.riders.iter().find_map(|rider| match *rider {
+            Rider::PairedWith(partner, version) => Some((partner, version)),
             _ => None,
         })
     }

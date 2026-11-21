@@ -154,6 +154,58 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
                 }
+                CostPart::DealDamageToYou(n) => {
+                    if *n > 0 {
+                        let assignment = crate::damage::Assignment {
+                            source: wizard.card,
+                            source_version: self.state.object(wizard.card).map(|o| o.version),
+                            recipient: crate::event::DamageTarget::Player(player),
+                            amount: u32::from(*n),
+                            is_combat: false,
+                        };
+                        let mut work =
+                            crate::damage::DamageWork::new(&mut self.state, vec![assignment]);
+                        work.finish_cost_damage(&mut self.state);
+                    }
+                }
+                CostPart::Forage => {
+                    let first = cost_objects
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction(
+                            "an object cost the cast never asked about",
+                        ))?;
+                    if self
+                        .state
+                        .object(first)
+                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                    {
+                        sacrificed_object = self.state.object(first).map(|o| (first, o.version));
+                        sacrificed_lki = self
+                            .state
+                            .object(first)
+                            .map(crate::object::SacrificedLki::of);
+                        super::super::cost_wizard::pay(&mut self.state, player, part, first)?;
+                    } else {
+                        let second =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "incomplete graveyard forage cost",
+                                ))?;
+                        let third =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "incomplete graveyard forage cost",
+                                ))?;
+                        for id in [first, second, third] {
+                            super::super::cost_wizard::pay(&mut self.state, player, part, id)?;
+                        }
+                    }
+                }
                 CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) => {
                     let chosen = cost_objects
                         .next()
@@ -218,6 +270,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ExileTopOfLibrary(_)
                 | CostPart::SacrificeGrantor
                 | CostPart::ReturnUnblockedAttacker
+                | CostPart::DiscardX(_)
+                | CostPart::ExileFromGraveyardX(_)
                 | CostPart::PayLifeX => {}
             }
         }
@@ -276,6 +330,75 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
+                }
+                CostPart::DealDamageToYou(n) => {
+                    if *n > 0 {
+                        let assignment = crate::damage::Assignment {
+                            source: wizard.card,
+                            source_version: self.state.object(wizard.card).map(|o| o.version),
+                            recipient: crate::event::DamageTarget::Player(player),
+                            amount: u32::from(*n),
+                            is_combat: false,
+                        };
+                        let mut work =
+                            crate::damage::DamageWork::new(&mut self.state, vec![assignment]);
+                        work.finish_cost_damage(&mut self.state);
+                    }
+                }
+                CostPart::Forage => {
+                    let first = cost_objects
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction(
+                            "an object cost the cast never asked about",
+                        ))?;
+                    if self
+                        .state
+                        .object(first)
+                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                    {
+                        sacrificed_object = self.state.object(first).map(|o| (first, o.version));
+                        sacrificed_lki = self
+                            .state
+                            .object(first)
+                            .map(crate::object::SacrificedLki::of);
+                        super::super::cost_wizard::pay(&mut self.state, player, part, first)?;
+                    } else {
+                        let second =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "incomplete graveyard forage cost",
+                                ))?;
+                        let third =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "incomplete graveyard forage cost",
+                                ))?;
+                        for id in [first, second, third] {
+                            super::super::cost_wizard::pay(&mut self.state, player, part, id)?;
+                        }
+                    }
+                }
+                CostPart::DiscardX(_) | CostPart::ExileFromGraveyardX(_) => {
+                    for _ in 0..wizard.x {
+                        let chosen =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "an object cost the cast never asked about",
+                                ))?;
+                        if matches!(part, CostPart::DiscardX(_))
+                            && let Some(reference) = self.state.source_identity(chosen)
+                        {
+                            paid_mana.discarded.push(reference);
+                        }
+                        super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    }
                 }
                 CostPart::PayEnergy(n) => {
                     if !self.state.pay_energy(player, u32::from(*n)) {
@@ -442,6 +565,45 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             match part {
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
+                }
+                CostPart::DealDamageToYou(n) => {
+                    if *n > 0 {
+                        let assignment = crate::damage::Assignment {
+                            source: wizard.card,
+                            source_version: self.state.object(wizard.card).map(|o| o.version),
+                            recipient: crate::event::DamageTarget::Player(player),
+                            amount: u32::from(*n),
+                            is_combat: false,
+                        };
+                        let mut work =
+                            crate::damage::DamageWork::new(&mut self.state, vec![assignment]);
+                        work.finish_cost_damage(&mut self.state);
+                    }
+                }
+                CostPart::Forage => {
+                    let first = cost_objects
+                        .next()
+                        .copied()
+                        .ok_or(EngineError::IllegalAction("an unanswered buyback cost"))?;
+                    if self
+                        .state
+                        .object(first)
+                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                    {
+                        super::super::cost_wizard::pay(&mut self.state, player, part, first)?;
+                    } else {
+                        let second = cost_objects
+                            .next()
+                            .copied()
+                            .ok_or(EngineError::IllegalAction("an unanswered buyback cost"))?;
+                        let third = cost_objects
+                            .next()
+                            .copied()
+                            .ok_or(EngineError::IllegalAction("an unanswered buyback cost"))?;
+                        for id in [first, second, third] {
+                            super::super::cost_wizard::pay(&mut self.state, player, part, id)?;
+                        }
+                    }
                 }
                 CostPart::Sacrifice(_) | CostPart::Discard(_) => {
                     let chosen = cost_objects

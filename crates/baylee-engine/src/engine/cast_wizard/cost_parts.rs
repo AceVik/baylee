@@ -205,12 +205,21 @@ pub(crate) fn fixed_energy_cost(
 
 /// Whether a mandatory additional cost part scales with X.
 pub(crate) fn mandatory_scales_with_x(face: &baylee_cards_dsl::FaceDef) -> bool {
-    face.mandatory_additional_costs.iter().any(|part| {
-        matches!(
-            part,
-            CostPart::PayLifeX | CostPart::PayEnergyX | CostPart::SacrificeX(_) | CostPart::TapX(_)
-        )
-    })
+    face.mandatory_additional_costs
+        .iter()
+        .any(part_scales_with_x)
+}
+
+pub(crate) const fn part_scales_with_x(part: &CostPart) -> bool {
+    matches!(
+        part,
+        CostPart::PayLifeX
+            | CostPart::PayEnergyX
+            | CostPart::SacrificeX(_)
+            | CostPart::TapX(_)
+            | CostPart::DiscardX(_)
+            | CostPart::ExileFromGraveyardX(_)
+    )
 }
 
 impl super::CastWizard {
@@ -260,6 +269,7 @@ pub(crate) fn additional_card_costs_for_x(
                     | CostPart::ReturnToHand(_)
                     | CostPart::TapOther(_)
                     | CostPart::TapN { .. }
+                    | CostPart::Forage
             )
         });
     let add_iter = wizard_mandatory_parts(face, choice)
@@ -272,11 +282,14 @@ pub(crate) fn additional_card_costs_for_x(
                     | CostPart::ExilePermanent(_)
                     | CostPart::ExileFromHand(_)
                     | CostPart::ExileFromGraveyard(_)
+                    | CostPart::ExileFromGraveyardX(_)
                     | CostPart::Discard(_)
+                    | CostPart::DiscardX(_)
                     | CostPart::ReturnToHand(_)
                     | CostPart::TapOther(_)
                     | CostPart::TapX(_)
                     | CostPart::TapN { .. }
+                    | CostPart::Forage
             )
         });
     let mut parts: SmallVec<[CostPart; 4]> = alt_iter
@@ -284,9 +297,10 @@ pub(crate) fn additional_card_costs_for_x(
         .flat_map(|part| {
             let count = match part {
                 CostPart::TapN { count, .. } => usize::try_from(*count).unwrap_or(usize::MAX),
-                CostPart::SacrificeX(_) | CostPart::TapX(_) => {
-                    usize::try_from(x).unwrap_or(usize::MAX)
-                }
+                CostPart::SacrificeX(_)
+                | CostPart::TapX(_)
+                | CostPart::DiscardX(_)
+                | CostPart::ExileFromGraveyardX(_) => usize::try_from(x).unwrap_or(usize::MAX),
                 _ => 1,
             };
             std::iter::repeat_n(*part, count)

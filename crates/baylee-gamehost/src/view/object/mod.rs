@@ -212,9 +212,20 @@ pub(super) fn target_objects(
 
 fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
     if obj.zone != Zone::Stack {
-        return obj
-            .attached_player()
-            .map_or_else(Vec::new, |player| vec![TargetRef::Player(player)]);
+        let mut out = Vec::new();
+        if let Some(player) = obj.attached_player() {
+            out.push(TargetRef::Player(player));
+        }
+        if obj.zone == Zone::Battlefield
+            && let Some(partner) = state.paired_partner(obj.id)
+            && let Some(partner_obj) = state.object(partner)
+        {
+            out.push(TargetRef::Object(baylee_core::ids::DamageSourceRef {
+                object: partner,
+                version: partner_obj.version,
+            }));
+        }
+        return out;
     }
     let id = obj.id;
     let players = baylee_engine::eval::first_target_players(obj);

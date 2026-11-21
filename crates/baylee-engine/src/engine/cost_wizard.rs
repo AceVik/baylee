@@ -63,6 +63,7 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::SacrificeX(_)
             | CostPart::ExilePermanent(_)
             | CostPart::Discard(_)
+            | CostPart::DiscardX(_)
             | CostPart::TapN { .. }
             | CostPart::TapOther(_)
             | CostPart::TapX(_)
@@ -71,8 +72,10 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::ReturnToHand(_)
             | CostPart::ReturnUnblockedAttacker
             | CostPart::ExileFromGraveyard(_)
+            | CostPart::ExileFromGraveyardX(_)
             | CostPart::ExileFromSingleGraveyard { .. }
             | CostPart::PutCounterOnOther { .. }
+            | CostPart::Forage
     )
 }
 
@@ -172,6 +175,7 @@ fn unblocked_attacker_options(state: &GameState, player: PlayerId) -> Vec<Object
 }
 
 /// Cost choices under the words captured by a resolving ability.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn options_with_context(
     state: &GameState,
     player: PlayerId,
@@ -220,6 +224,26 @@ pub(crate) fn options_with_context(
     if matches!(part, CostPart::ReturnUnblockedAttacker) {
         return unblocked_attacker_options(state, player);
     }
+    if matches!(part, CostPart::Forage) {
+        let mut out: Vec<ObjectId> = state
+            .battlefield_view()
+            .iter()
+            .copied()
+            .filter(|&id| {
+                state.object(id).is_some_and(|o| {
+                    o.controller == player
+                        && o.characteristics()
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::artifact::FOOD)
+                })
+            })
+            .collect();
+        let gy = state.zones.list(ZoneLocation::Graveyard(player));
+        if gy.len() >= 3 {
+            out.extend(gy.iter().copied());
+        }
+        return out;
+    }
     let (zone, controlled, untapped) = match part {
         CostPart::Sacrifice(_)
         | CostPart::SacrificeX(_)
@@ -230,10 +254,12 @@ pub(crate) fn options_with_context(
         CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_) => {
             (ZoneLocation::Battlefield, true, true)
         }
-        CostPart::Discard(_) | CostPart::ExileFromHand(_) => {
+        CostPart::Discard(_) | CostPart::DiscardX(_) | CostPart::ExileFromHand(_) => {
             (ZoneLocation::Hand(player), false, false)
         }
-        CostPart::ExileFromGraveyard(_) => (ZoneLocation::Graveyard(player), false, false),
+        CostPart::ExileFromGraveyard(_) | CostPart::ExileFromGraveyardX(_) => {
+            (ZoneLocation::Graveyard(player), false, false)
+        }
         _ => return Vec::new(),
     };
     let (CostPart::Sacrifice(filter)
@@ -241,12 +267,14 @@ pub(crate) fn options_with_context(
     | CostPart::SacrificeAll(filter)
     | CostPart::ExilePermanent(filter)
     | CostPart::Discard(filter)
+    | CostPart::DiscardX(filter)
     | CostPart::TapN { filter, .. }
     | CostPart::TapOther(filter)
     | CostPart::TapX(filter)
     | CostPart::ReturnToHand(filter)
     | CostPart::ExileFromHand(filter)
     | CostPart::ExileFromGraveyard(filter)
+    | CostPart::ExileFromGraveyardX(filter)
     | CostPart::PutCounterOnOther { filter, .. }) = part
     else {
         return Vec::new();
@@ -305,7 +333,30 @@ pub(crate) fn menu(
     if parts.iter().any(|own| spends_the_source_as(own, part)) {
         listed.retain(|id| *id != source);
     }
+    if matches!(part, CostPart::Forage) {
+        prune_incomplete_forage_graveyard(state, &mut listed);
+    }
     listed
+}
+
+/// Remove graveyard cards from a [`CostPart::Forage`] option list when fewer
+/// than three graveyard cards remain available (CR 701.61a).
+pub(crate) fn prune_incomplete_forage_graveyard(state: &GameState, listed: &mut Vec<ObjectId>) {
+    let gy_count = listed
+        .iter()
+        .filter(|&&id| {
+            state
+                .object(id)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Graveyard)
+        })
+        .count();
+    if gy_count < 3 {
+        listed.retain(|&id| {
+            state
+                .object(id)
+                .is_none_or(|o| o.zone != crate::zone::Zone::Graveyard)
+        });
+    }
 }
 
 /// Whether `own` pays with the source the way `part` would pay with a
@@ -318,28 +369,37 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
             CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_)
         ) | (
             CostPart::SacrificeSelf,
-            CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
+            CostPart::Sacrifice(_)
+                | CostPart::SacrificeX(_)
+                | CostPart::SacrificeAll(_)
+                | CostPart::Forage
         ) | (
             CostPart::ReturnSelfToHand,
             CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker
-        ) | (CostPart::DiscardSelf, CostPart::Discard(_))
-            | (
-                CostPart::ExileSelf,
-                CostPart::ExileFromGraveyard(_) | CostPart::ExilePermanent(_)
-            )
+        ) | (
+            CostPart::DiscardSelf,
+            CostPart::Discard(_) | CostPart::DiscardX(_)
+        ) | (
+            CostPart::ExileSelf,
+            CostPart::ExileFromGraveyard(_)
+                | CostPart::ExileFromGraveyardX(_)
+                | CostPart::ExilePermanent(_)
+                | CostPart::Forage
+        )
     )
 }
 
 /// What the player is being asked for.
 pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
     match part {
-        CostPart::Discard(_) => ChoicePrompt::CostDiscard,
+        CostPart::Discard(_) | CostPart::DiscardX(_) => ChoicePrompt::CostDiscard,
         CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_) => ChoicePrompt::CostTap,
         CostPart::Crew(power) => ChoicePrompt::CostCrew { power: *power },
         CostPart::Saddle(power) => ChoicePrompt::CostSaddle { power: *power },
         CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker => ChoicePrompt::CostReturn,
         CostPart::ExileFromHand(_)
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExileFromGraveyardX(_)
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExilePermanent(_) => ChoicePrompt::CostExile,
         CostPart::PutCounterOnOther { .. } => ChoicePrompt::Generic,
@@ -418,12 +478,22 @@ pub(crate) fn pay(
         CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker => ZoneLocation::Hand(owner),
         CostPart::ExileFromHand(_)
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExileFromGraveyardX(_)
         | CostPart::ExileFromSingleGraveyard { .. }
-        | CostPart::ExilePermanent(_) => ZoneLocation::Exile(owner),
+        | CostPart::ExilePermanent(_)
+        | CostPart::Forage => ZoneLocation::Exile(owner),
         _ => ZoneLocation::Graveyard(owner),
     };
-    if matches!(part, CostPart::Discard(_)) {
+    if matches!(part, CostPart::Discard(_) | CostPart::DiscardX(_)) {
         state.discard_card(chosen, player, Cause::Cost, None);
+        return Ok(());
+    }
+    if matches!(part, CostPart::Forage)
+        && state
+            .object(chosen)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+    {
+        state.sacrifice_object(chosen, Cause::Cost)?;
         return Ok(());
     }
     state.move_object(chosen, to, ZonePosition::Top, Cause::Cost)?;

@@ -12,7 +12,9 @@ impl GameState {
     pub fn refresh_characteristics(&mut self) {
         loop {
             self.refresh_characteristics_once();
-            if !self.expire_source_durations() {
+            let expired = self.expire_source_durations();
+            let unpaired = self.prune_broken_soulbond_pairs();
+            if !expired && !unpaired {
                 break;
             }
         }
@@ -165,6 +167,7 @@ impl GameState {
                             new,
                         });
                 }
+                let _ = self.unpair_creature(id);
                 self.restart_summoning_sickness(id);
                 self.combat.remove_from_combat(id);
                 if let Some(reference) = self.source_identity(id) {

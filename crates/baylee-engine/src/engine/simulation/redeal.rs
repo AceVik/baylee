@@ -608,6 +608,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::MergedComponent(object)
         | Rider::MergedTop(object)
         | Rider::MergedInto(object)
+        | Rider::PairedWith(object, _)
         | Rider::NinjutsuDefender(
             baylee_core::ids::Defender::Planeswalker(object)
             | baylee_core::ids::Defender::Battle(object),

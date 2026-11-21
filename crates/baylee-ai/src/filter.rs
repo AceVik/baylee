@@ -405,6 +405,10 @@ impl HeuristicAgent {
                 let source = view.object(this?)?;
                 Some(source.attached_player() == Some(object.controller))
             }
+            Filter::PairedWithSource => {
+                let source = view.object(this?)?;
+                Some(source.paired_with() == Some(object.id))
+            }
             // `KeywordSet::contains` is an intersection test, so this is
             // has-*any* rather than has-all whatever a filter names.
             Filter::HasKeyword(k) => Some(object.keywords & k.bits() != 0),

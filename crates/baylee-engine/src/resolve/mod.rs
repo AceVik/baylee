@@ -1731,6 +1731,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::MayDoFor { .. }
         | Effect::MayDoOnceEachTurn { .. }
         | Effect::OwnerPutsOnTopOrBottom { .. }
+        | Effect::SoulbondPair { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     };
@@ -1758,6 +1759,17 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         }
     }
     pending
+}
+
+pub(super) fn soulbond_try_pair(
+    state: &mut GameState,
+    controller: PlayerId,
+    source: ObjectId,
+    source_version: Option<u32>,
+    partner: ObjectId,
+    partner_version: Option<u32>,
+) {
+    let _ = state.pair_creatures(controller, source, source_version, partner, partner_version);
 }
 
 /// The card ability a resolution belongs to.

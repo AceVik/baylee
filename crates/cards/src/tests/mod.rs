@@ -414,43 +414,6 @@ fn no_modal_trigger_overrides_a_cost() {
     );
 }
 
-/// A mode of a modal **trigger** never prints a second target.
-///
-/// `SpellMode::second_targets` is read by the cast wizard alone, which a
-/// trigger never passes through: its targets are chosen as it is put on
-/// the stack (CR 603.3d), by a path that asks one instance of the word.
-/// A trigger's mode that wrote one would be put on the stack with the
-/// second instance unanswered and resolve against nothing, so the day a
-/// card needs it this fails first and names the card, rather than the
-/// card resolving half of itself.
-#[test]
-fn no_modal_trigger_mode_prints_a_second_target() {
-    use baylee_cards_dsl::AbilityDef;
-
-    let mut seen = 0usize;
-    for (_, def) in generated::ALL {
-        for face in 0..def.faces.len() {
-            for ability in def.abilities_for_face(face) {
-                let AbilityDef::ModalTriggered { modes, .. } = ability else {
-                    continue;
-                };
-                seen += 1;
-                for (at, mode) in modes.iter().enumerate() {
-                    assert!(
-                        mode.second_targets.is_none(),
-                        "{} face {face} mode {at} is a trigger's and says \"target\" twice",
-                        def.name()
-                    );
-                }
-            }
-        }
-    }
-    assert!(
-        seen >= 7,
-        "only {seen} modal triggers in the pool, so this proves nothing"
-    );
-}
-
 /// A card file's `// NOT SUPPORTED:` note and its `coverage` line are two
 /// statements about the same thing, and only the second one is checked by
 /// anything. Five cards drifted apart that way: the mechanic landed, the

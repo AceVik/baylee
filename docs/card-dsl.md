@@ -682,7 +682,16 @@ express at all yet.
   `n` cards in library),
   `ReturnUnblockedAttacker` (ninjutsu's "Return an unblocked attacking creature
   you control to its owner's hand", CR 702.49a: records what that creature was
-  attacking onto the stack ability for `Effect::PutNinjutsuOntoBattlefield`).
+  attacking onto the stack ability for `Effect::PutNinjutsuOntoBattlefield`),
+  `DealDamageToYou(n)` ("~ deals N damage to you" as a cost, CR 118.3, CR 120.3:
+  always payable even under `CantLoseLife` or at low life, routed through damage
+  replacement and prevention),
+  `DiscardX(filter)` (announce X and discard X matching cards from your hand,
+  binding `Amount::X`),
+  `ExileFromGraveyardX(filter)` (announce X and exile X matching cards from your
+  graveyard, binding `Amount::X`),
+  `Forage` (CR 701.61a: "Exile three cards from your graveyard or sacrifice a
+  Food").
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;
@@ -1599,7 +1608,7 @@ predicates the pool kept reinventing — `CREATURE`, `ARTIFACT`,
 `YOUR_CREATURE`, `OPPONENT_CREATURE`, `YOUR_LAND`, `YOUR_BASIC_LAND`,
 `YOUR_ARTIFACT`, `YOUR_COMMANDER`, `COMMANDER_YOU_CONTROL`,
 `ANOTHER_CREATURE_YOU_CONTROL`,
-`YOUR_CREATURE_WITH_POWER_4_OR_GREATER`. "A creature" had been
+`YOUR_CREATURE_WITH_POWER_4_OR_GREATER`, `SOULBOND_PAIR`. "A creature" had been
 written out as `HasType(TypeSet::CREATURE)` in a differently-named `static`
 in twenty-six card files, which is twenty-six chances to type `LacksType` by
 accident and no way to grep for the one that did.
@@ -5685,7 +5694,6 @@ Each triggers once per keyword instance (`layers::keyword_instances`):
   - `Trigger::Sacrificed { who, filter }` fires on `GameEvent::Sacrificed` whenever a permanent is sacrificed via cost, effect, or Saga completion SBA (`CR 701.21a`, `CR 715.4`, `CR 603.10a`; distinct from destruction, lethal damage, zero toughness, and the legend rule), looking back to pre-sacrifice characteristics and binding `EventPlayer` (sacrificer) + `EventObject`.
   - Player-attached Auras & Curses (`CR 303.4a–j`, `CR 704.5m`, `CR 702.16c`): `Effect::AttachSelf { target: TargetSpec::AnyPlayer | TargetSpec::AnyOpponent | TargetSpec::Player(...) }` attaches an Aura to a player (both via resolving Aura spell and untargeted battlefield entry), with `PlayerRel::EnchantedPlayer`, `Filter::ControlledByEnchantedPlayer`, and `Trigger::PlayerAttacked(PlayerRel)` (`CR 508.3b`) resolving across triggers, effects, and static abilities.
   - `Filter::Historic` (`CR 700.6`), `Filter::HasCounters(Option<CounterKind>)`, `Filter::AnyCountersAtLeast(u16)`, `Condition::ObjectMatches { what, filter }`, `Condition::AmountCompare { left, op, right }` (`AmountCmp`), resolution-bound `PlayerRel` seats on `Effect::CreateContinuousEffect` (`Orim's Chant` / `Render Silent` / `Xantid Swarm`), and `Modifier::MatchingSpellCastLimitPerTurn { who, filter, limit }` (`Deafening Silence` / `Ethersworn Canonist` / `Curse of Exhaustion`).
-
 **Wither, horsemanship, skulk, spell-cast targeting, enlist, and bolster.**
 - `KeywordSet::WITHER` (`CR 702.80a–d`, `CR 120.3d`) deals damage to creatures in
   the form of `-1/-1` counters (including via source LKI, placing counters once
@@ -5736,3 +5744,9 @@ Each triggers once per keyword instance (`layers::keyword_instances`):
   keeping the noncopiable `Renowned` designation on that battlefield incarnation
   until it leaves the battlefield (`CR 702.112b`) and re-checking the
   intervening `if` on resolution (`CR 702.112c`).
+
+- **Modal trigger `second_targets`, self-damage & `X`-object costs, Forage, Modular, and Soulbond (`CR 115.3`, `CR 603.3d`, `CR 701.61`, `CR 702.43`, `CR 702.95`):**
+  - `SpellMode::second_targets` is supported on `AbilityDef::ModalTriggered` and `AbilityDef::ModalActivated` as well as `ModalSpell` (`CR 115.3`, `CR 603.3d`), prompting for the second target instance after the mode and first target instance are chosen.
+  - `CostPart::DealDamageToYou(n)`, `CostPart::DiscardX(filter)`, `CostPart::ExileFromGraveyardX(filter)`, and `CostPart::Forage` (`CR 701.61a`) work uniformly across activated abilities, spell additional costs, and `Effect::PlayerMayPayCostOr` / `Effect::PlayerMayPayCostThen`, with `SacrificeX`, `TapX`, `DiscardX`, and `ExileFromGraveyardX` binding `Amount::X`.
+  - Modular N (`CR 702.43a–b`): pair `EnterModifier::modular(n)` on the face with `KeywordSet::MODULAR` (repeated on the face/card or granted via `Modifier::AddKeyword(KeywordSet::MODULAR)` for multiple instances; triggers per instance on death reading pre-departure `+1/+1` counters onto target artifact creature per `CR 603.10a`).
+  - Soulbond (`CR 702.95a–e`): `KeywordSet::SOULBOND` supplies both untargeted ETB pairing triggers per instance (`Condition::SoulbondSelfCanPair`, `Condition::SoulbondEventCanPair`, `Effect::SoulbondPair { with_event_object }`), automatic immediate unpairing on leaving the battlefield, changing control, or losing `CREATURE` (`CR 702.95e`), and static/activated queries via `Filter::PairedWithSource`, `Filter::SOULBOND_PAIR`, and `Condition::IsPaired`.

@@ -97,6 +97,7 @@ mod tests {
             departure: Some(Box::new(Departure {
                 sacrificed: false,
                 return_keywords: [0, 0],
+                modular_instances: 0,
                 version,
                 power: 0,
                 controller: PlayerId::new(controller),

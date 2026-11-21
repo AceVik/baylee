@@ -114,7 +114,11 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PutCounterSelf { .. }
-        | CostPart::ReturnUnblockedAttacker => false,
+        | CostPart::ReturnUnblockedAttacker
+        | CostPart::DealDamageToYou(_)
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::Forage => false,
         CostPart::ExileTopOfLibrary(_) => true,
     }
 }

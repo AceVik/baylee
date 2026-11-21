@@ -1086,3 +1086,93 @@ fn ai_evaluates_wither_horsemanship_skulk_and_enlist_helper_choice() {
         PlayerAction::ChooseObjects { objects: vec![] }
     );
 }
+
+#[test]
+fn soulbond_picks_strongest_partner_and_modular_may_do_refuses_hostile_target() {
+    use baylee_cards_dsl::{Amount, CounterKind, Effect};
+    use baylee_engine::choice::ChoicePrompt;
+
+    static SOULBOND_EFF: [Effect; 1] = [Effect::SoulbondPair {
+        with_event_object: false,
+    }];
+    static MODULAR_EFF: [Effect; 1] = [Effect::MayDo {
+        effects: &[Effect::AddCounter {
+            kind: CounterKind::P1P1,
+            amount: Amount::CountersOnSource(CounterKind::P1P1),
+        }],
+    }];
+
+    let me = PlayerId::new(0);
+    let them = PlayerId::new(1);
+    let mut small = permanent(obj(1), me, 1);
+    small.mana_value = 1;
+    let mut big = permanent(obj(2), me, 5);
+    big.mana_value = 5;
+    let enemy_construct = permanent(obj(3), them, 2);
+    let mut v = view(0, &[20, 20], vec![small, big, enemy_construct]);
+
+    let sb_ctx = baylee_engine::engine::DecisionContext {
+        source: Some(obj(9)),
+        effects: &SOULBOND_EFF,
+        ..Default::default()
+    };
+    let sb_pending = Pending::ChooseCards {
+        player: me,
+        options: vec![obj(1), obj(2)],
+        min: 0,
+        max: 1,
+        prompt: ChoicePrompt::Generic,
+        total: None,
+    };
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &sb_pending, &sb_ctx),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(2)]
+        },
+        "Soulbond self-ETB chooses the higher-worth unpaired creature"
+    );
+
+    // Modular MayDo on stack: source (obj(10)) is in graveyard, top stack item is its trigger.
+    let mod_ctx = baylee_engine::engine::DecisionContext {
+        source: Some(obj(10)),
+        effects: &MODULAR_EFF,
+        ..Default::default()
+    };
+    let mut stack_trig = permanent(obj(99), me, 0);
+    stack_trig.stack_item = Some(baylee_view::StackItem::Ability {
+        source: obj(10),
+        ability: None,
+        text: None,
+        rules: None,
+        token: None,
+    });
+    stack_trig.targets = vec![baylee_core::ids::TargetRef::Object(
+        baylee_core::ids::DamageSourceRef {
+            object: obj(3),
+            version: 0,
+        },
+    )];
+    v.stack = vec![stack_trig];
+    let may_pending = Pending::YesNo {
+        player: me,
+        prompt: YesNoPrompt::MayDo,
+        source: None,
+    };
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &may_pending, &mod_ctx),
+        PlayerAction::YesNo(false),
+        "Modular MayDo declines putting +1/+1 counters on an opponent's artifact creature"
+    );
+
+    v.stack[0].targets = vec![baylee_core::ids::TargetRef::Object(
+        baylee_core::ids::DamageSourceRef {
+            object: obj(2),
+            version: 0,
+        },
+    )];
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &may_pending, &mod_ctx),
+        PlayerAction::YesNo(true),
+        "Modular MayDo accepts putting +1/+1 counters on a friendly artifact creature"
+    );
+}

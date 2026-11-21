@@ -902,6 +902,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         }
         Filter::ActivatedAbilityFrom(filter) => could_change_match(modifier, filter, layer),
         Filter::TargetsPermanentYouControl => matches!(layer, Layer::Control),
+        Filter::PairedWithSource => matches!(layer, Layer::Control | Layer::Type),
         Filter::Any
         | Filter::IsCommander
         | Filter::HasAdventure

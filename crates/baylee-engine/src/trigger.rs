@@ -21,6 +21,7 @@ mod provoke;
 mod radiation;
 mod return_keywords;
 mod sagas;
+mod soulbond;
 mod speed;
 mod watches;
 
@@ -1134,6 +1135,21 @@ fn collect_for_objects(
                 batch_has_enlists,
                 triggers,
             );
+        }
+        if all_kinds && !phased_out_only && batch_has_zone_changes {
+            soulbond::collect(
+                state,
+                obj,
+                events,
+                &moves,
+                batch_has_zone_changes,
+                batch_has_phasing,
+                currently_phased_out,
+                triggers,
+            );
+        }
+        if !phased_out_only && batch_has_zone_changes {
+            return_keywords::collect_modular(state, obj, events, triggers);
         }
         if !all_kinds && !phased_out_only {
             return_keywords::collect(state, obj, events, triggers);

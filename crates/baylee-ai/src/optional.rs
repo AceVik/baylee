@@ -353,8 +353,21 @@ impl HeuristicAgent {
                 baylee_core::ids::TargetRef::Player(_) => None,
             })
             .map_or(Aim::Source, Aim::Object);
-        self.effects_worth(view, Origin::of(view, id), then, aim, context.x)
-            .is_none_or(|worth| worth >= 0)
+        if let Some(worth) = self.effects_worth(view, Origin::of(view, id), then, aim, context.x) {
+            return worth >= 0;
+        }
+        if self.aims_by_side()
+            && let Aim::Object(target_id) = aim
+            && let Some(target_obj) = view.object(target_id)
+            && let Some(side) = baylee_engine::target_side::effects_side(then, context.x)
+        {
+            let target_is_hostile = hostile(target_obj.controller);
+            return match side {
+                baylee_core::types::TargetSide::Helpful => !target_is_hostile,
+                baylee_core::types::TargetSide::Harmful => target_is_hostile,
+            };
+        }
+        true
     }
 
     /// False Orders' re-block: the attacker `blocker` blocks, if any.

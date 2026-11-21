@@ -394,12 +394,15 @@ fn consumes(cost: &Cost) -> bool {
             // pile that pays for the next activation is one card shorter.
             | CostPart::ExileFromGraveyard(_)
             | CostPart::ExileFromSingleGraveyard { .. }
+            | CostPart::Forage
             | CostPart::PutCounterOnOther { .. } => true,
             CostPart::ExileTopOfLibrary(n) => *n > 0,
             CostPart::TapN { count, .. } => *count > 0,
             // Exerting again is legal and adds no further untap penalty.
             CostPart::ExertSelf | CostPart::PayLifeX | CostPart::PayCommanderColors
             | CostPart::PayAttachedManaCost | CostPart::TapX(_) | CostPart::SacrificeX(_)
+            | CostPart::DiscardX(_) | CostPart::ExileFromGraveyardX(_)
+            | CostPart::DealDamageToYou(_)
             | CostPart::SacrificeAll(_) => false,
         })
 }
@@ -438,7 +441,7 @@ pub(crate) fn commander_color_count(view: &PlayerView) -> Option<u16> {
 /// in step.
 pub(crate) fn life_ok(view: &PlayerView, cost: &Cost) -> bool {
     let need = cost.parts.iter().fold(0u16, |sum, part| match part {
-        CostPart::PayLife(n) => sum.saturating_add(*n),
+        CostPart::PayLife(n) | CostPart::DealDamageToYou(n) => sum.saturating_add(*n),
         _ => sum,
     });
     let commander_parts = cost

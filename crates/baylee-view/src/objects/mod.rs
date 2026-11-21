@@ -685,10 +685,23 @@ impl PublicObject {
         if self.stack_item.is_some() {
             return None;
         }
-        match self.targets.as_slice() {
-            [TargetRef::Player(player)] => Some(*player),
-            _ => None,
+        self.targets.iter().find_map(|target| match *target {
+            TargetRef::Player(player) => Some(player),
+            TargetRef::Object(_) => None,
+        })
+    }
+
+    /// Which creature on the battlefield this permanent is paired with via
+    /// soulbond (CR 702.95b).
+    #[must_use]
+    pub fn paired_with(&self) -> Option<ObjectId> {
+        if self.stack_item.is_some() {
+            return None;
         }
+        self.targets.iter().find_map(|target| match *target {
+            TargetRef::Object(reference) => Some(reference.object),
+            TargetRef::Player(_) => None,
+        })
     }
 
     /// A stable grouping key for identical objects.
@@ -739,7 +752,9 @@ impl PublicObject {
             damage: self.damage,
             loyalty: self.loyalty,
             counters,
-            attached: self.attached_to.is_some() || self.attached_player().is_some(),
+            attached: self.attached_to.is_some()
+                || self.attached_player().is_some()
+                || self.paired_with().is_some(),
             summoning_sick: self.summoning_sick,
             granted_mana: self.granted_mana.clone(),
             board_mana: self.board_mana.clone(),

@@ -169,13 +169,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             },
             crate::copiable_abilities::AbilityDefs::from,
         );
-        match abilities.get(loc.index as usize)? {
-            AbilityDef::Activated { second_targets, .. }
-            | AbilityDef::ActivatedConditional { second_targets, .. }
-            | AbilityDef::Loyalty { second_targets, .. }
-            | AbilityDef::Triggered { second_targets, .. } => *second_targets,
-            _ => None,
-        }
+        crate::object::ability_second_target_req(abilities, loc.index, obj.mode_index)
     }
 
     /// CR 608.2b, asked of the top of the stack as it begins to resolve.

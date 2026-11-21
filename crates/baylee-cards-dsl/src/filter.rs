@@ -432,6 +432,10 @@ pub enum Filter {
     /// the source is not attached to a player still in the game. Appended to
     /// preserve replay identities.
     ControlledByEnchantedPlayer,
+    /// The creature currently paired with the source permanent via soulbond
+    /// (CR 702.95a–e). Matches nothing when the source is unpaired or not on
+    /// the battlefield. Appended to preserve replay identities.
+    PairedWithSource,
 }
 
 /// Zone references for filters (engine zones, DSL view).
@@ -787,6 +791,9 @@ impl Filter {
     /// same data and not merely the same meaning.
     pub const YOUR_CREATURE_WITH_POWER_4_OR_GREATER: Self =
         Self::And(&[Self::YOUR_CREATURE, Self::PowerAtLeast(4)]);
+    /// Either this permanent or the creature currently paired with it via
+    /// soulbond ("each of those creatures", CR 702.95a–e).
+    pub const SOULBOND_PAIR: Self = Self::Or(&[Self::This, Self::PairedWithSource]);
 }
 
 #[cfg(test)]
@@ -838,6 +845,7 @@ mod tests {
             "YOUR_CREATURE_WITH_POWER_4_OR_GREATER",
             Filter::YOUR_CREATURE_WITH_POWER_4_OR_GREATER,
         ),
+        ("SOULBOND_PAIR", Filter::SOULBOND_PAIR),
     ];
 
     /// The table above is the file below. Read out of the source for the

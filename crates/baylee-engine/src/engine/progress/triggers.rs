@@ -268,6 +268,60 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             })
     }
 
+    fn trigger_second_depends_on_first(spec: baylee_cards_dsl::TargetSpec) -> bool {
+        crate::casting::spec_reads_reference(spec)
+            || matches!(
+                spec,
+                baylee_cards_dsl::TargetSpec::ObjectOfFirstTargetsPlayer(_)
+                    | baylee_cards_dsl::TargetSpec::CardInFirstTargetsGraveyard(_)
+            )
+    }
+
+    fn trigger_second_satisfied_for_first(
+        &self,
+        t: &crate::trigger::PendingTrigger,
+        second_req: baylee_cards_dsl::TargetReq,
+        wall_only: bool,
+        first_obj: Option<ObjectId>,
+        first_player: Option<PlayerId>,
+    ) -> bool {
+        if second_req.min == 0 {
+            return true;
+        }
+        let mut spec = t.bind_target(second_req.spec);
+        let player = first_player.or_else(|| {
+            first_obj
+                .and_then(|id| self.state.object_or_departed(id))
+                .map(|o| o.controller)
+        });
+        match (spec, player) {
+            (baylee_cards_dsl::TargetSpec::ObjectOfFirstTargetsPlayer(filter), Some(player)) => {
+                spec = baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player);
+            }
+            (baylee_cards_dsl::TargetSpec::CardInFirstTargetsGraveyard(filter), Some(player)) => {
+                spec = baylee_cards_dsl::TargetSpec::CardInPlayersGraveyard(filter, player);
+            }
+            (
+                baylee_cards_dsl::TargetSpec::ObjectOfFirstTargetsPlayer(_)
+                | baylee_cards_dsl::TargetSpec::CardInFirstTargetsGraveyard(_),
+                None,
+            ) => return false,
+            _ => {}
+        }
+        let ctx = crate::text_changes::RuleContext {
+            source: t.source,
+            text: t.text,
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: first_obj.or(t.event_object),
+        };
+        let objects =
+            eval::target_options_in_domain(&spec, &self.state, t.controller, ctx, None, wall_only)
+                .len();
+        let players = eval::target_player_options_from(&self.state, &spec, t.controller, ctx).len();
+        objects + players >= usize::from(second_req.min)
+    }
+
     /// Whether `mode` can legally be chosen for `t` right now (CR 603.3c).
     ///
     /// A mode that needs targets it cannot find is off the list. The count
@@ -277,46 +331,92 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// answered for.
     fn mode_is_choosable(&self, t: &crate::trigger::PendingTrigger, mode: &SpellMode) -> bool {
         let wall_only = eval::target_domain::walls(mode.targets, mode.second_targets);
-        [mode.targets, mode.second_targets]
-            .into_iter()
-            .flatten()
-            .all(|req| {
-                if req.min == 0 {
-                    return true;
+        let ctx = crate::text_changes::RuleContext {
+            source: t.source,
+            text: t.text,
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: t.event_object,
+        };
+        let req_satisfied = |req: baylee_cards_dsl::TargetReq| {
+            if req.min == 0 {
+                return true;
+            }
+            if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
+                return t.event_object.is_some();
+            }
+            let spec = t.bind_target(req.spec);
+            let objects = eval::target_options_in_domain(
+                &spec,
+                &self.state,
+                t.controller,
+                ctx,
+                None,
+                wall_only,
+            )
+            .len();
+            let players =
+                eval::target_player_options_from(&self.state, &spec, t.controller, ctx).len();
+            objects + players >= usize::from(req.min)
+        };
+        if let Some(first_req) = mode.targets {
+            if !req_satisfied(first_req) {
+                return false;
+            }
+            if let Some(second_req) = mode.second_targets
+                && second_req.min > 0
+            {
+                if Self::trigger_second_depends_on_first(second_req.spec) {
+                    if matches!(first_req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
+                        return self.trigger_second_satisfied_for_first(
+                            t,
+                            second_req,
+                            wall_only,
+                            t.event_object,
+                            None,
+                        );
+                    }
+                    let first_spec = t.bind_target(first_req.spec);
+                    let first_objs = eval::target_options_in_domain(
+                        &first_spec,
+                        &self.state,
+                        t.controller,
+                        ctx,
+                        None,
+                        wall_only,
+                    );
+                    let first_players = eval::target_player_options_from(
+                        &self.state,
+                        &first_spec,
+                        t.controller,
+                        ctx,
+                    );
+                    return first_objs.into_iter().any(|id| {
+                        self.trigger_second_satisfied_for_first(
+                            t,
+                            second_req,
+                            wall_only,
+                            Some(id),
+                            None,
+                        )
+                    }) || first_players.into_iter().any(|p| {
+                        self.trigger_second_satisfied_for_first(
+                            t,
+                            second_req,
+                            wall_only,
+                            None,
+                            Some(p),
+                        )
+                    });
                 }
-                if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
-                    return t.event_object.is_some();
-                }
-                let objects = eval::target_options_in_domain(
-                    &t.bind_target(req.spec),
-                    &self.state,
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                    None,
-                    wall_only,
-                )
-                .len();
-                let players = eval::target_player_options_from(
-                    &self.state,
-                    &t.bind_target(req.spec),
-                    t.controller,
-                    crate::text_changes::RuleContext {
-                        source: t.source,
-                        text: t.text,
-                        resolved_name: None,
-                        resolved_subtype: None,
-                        reference: t.event_object,
-                    },
-                )
-                .len();
-                objects + players >= usize::from(req.min)
-            })
+                return req_satisfied(second_req);
+            }
+            true
+        } else if let Some(second_req) = mode.second_targets {
+            req_satisfied(second_req)
+        } else {
+            true
+        }
     }
 
     /// Resolves every queued triggered mana ability at once, off the stack
@@ -817,7 +917,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     continue;
                 }
-                let options = eval::target_options_in_domain(
+                let wall_only = self.trigger_wall_only(&t);
+                let mut options = eval::target_options_in_domain(
                     &t.bind_target(req.spec),
                     &self.state,
                     t.controller,
@@ -829,13 +930,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         reference: t.event_object,
                     },
                     None,
-                    self.trigger_wall_only(&t),
+                    wall_only,
                 );
                 // A trigger may point at a player as readily as a spell does
                 // ("it deals 1 damage to target opponent"), and "any target"
                 // offers both lists at once (CR 115.4). The choice is one
                 // choice, so the counts add up.
-                let player_options = eval::target_player_options_from(
+                let mut player_options = eval::target_player_options_from(
                     &self.state,
                     &t.bind_target(req.spec),
                     t.controller,
@@ -847,6 +948,41 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         reference: t.event_object,
                     },
                 );
+                if let Some(second_req) = crate::object::ability_second_target_req(
+                    self.trigger_abilities(&t),
+                    t.ability_index,
+                    t.chosen_mode,
+                ) && second_req.min > 0
+                {
+                    if Self::trigger_second_depends_on_first(second_req.spec) {
+                        if req.max == 1 && !req.count_is_x {
+                            options.retain(|&id| {
+                                self.trigger_second_satisfied_for_first(
+                                    &t,
+                                    second_req,
+                                    wall_only,
+                                    Some(id),
+                                    None,
+                                )
+                            });
+                            player_options.retain(|&p| {
+                                self.trigger_second_satisfied_for_first(
+                                    &t,
+                                    second_req,
+                                    wall_only,
+                                    None,
+                                    Some(p),
+                                )
+                            });
+                        }
+                    } else if !self
+                        .trigger_second_satisfied_for_first(&t, second_req, wall_only, None, None)
+                    {
+                        self.cleanup_check_acted();
+                        self.trigger_queue.pop_front();
+                        continue;
+                    }
+                }
                 let offered = options.len() + player_options.len();
                 if offered < req.min as usize {
                     // No legal target: the trigger is removed from the stack

@@ -233,13 +233,33 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 / u32::try_from(energy_x_count).unwrap_or(1);
                             max = max.min(avail);
                         }
-                        if face
-                            .mandatory_additional_costs
-                            .iter()
-                            .any(|p| matches!(p, CostPart::SacrificeX(_) | CostPart::TapX(_)))
-                        {
-                            let cap = u32::try_from(self.state.battlefield_view().len())
-                                .unwrap_or(u32::MAX);
+                        if face.mandatory_additional_costs.iter().any(|p| {
+                            matches!(
+                                p,
+                                CostPart::SacrificeX(_)
+                                    | CostPart::TapX(_)
+                                    | CostPart::DiscardX(_)
+                                    | CostPart::ExileFromGraveyardX(_)
+                            )
+                        }) {
+                            let cap = u32::try_from(
+                                self.state
+                                    .battlefield_view()
+                                    .len()
+                                    .max(
+                                        self.state
+                                            .zones
+                                            .list(ZoneLocation::Hand(wizard.player))
+                                            .len(),
+                                    )
+                                    .max(
+                                        self.state
+                                            .zones
+                                            .list(ZoneLocation::Graveyard(wizard.player))
+                                            .len(),
+                                    ),
+                            )
+                            .unwrap_or(u32::MAX);
                             max = casting::greatest_affordable(max.min(cap), |x| {
                                 casting::additional_payment_capacity_for_x(
                                     &self.state,
@@ -554,12 +574,57 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let face = self.wizard_face(&wizard);
                 let more_mana = !wizard.makes_mana_after_choices()
                     && self.can_make_mana_for_cast(wizard.player);
-                let mut max = if more_mana {
+                let kicker_has_mana_x =
+                    face.additional_costs.iter().enumerate().any(|(idx, add)| {
+                        (wizard.kicked_mask == 0
+                            || (idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0))
+                            && add.mana.has_variable()
+                    });
+                let mut max = if more_mana || !kicker_has_mana_x {
                     u32::MAX
                 } else {
                     self.x_resource_bound(&wizard)
                 };
-                if !wizard.makes_mana_after_choices()
+                if super::wizard_mandatory_parts(face, wizard.cost_choice()).any(part_scales_with_x)
+                {
+                    let cap = u32::try_from(
+                        self.state
+                            .battlefield_view()
+                            .len()
+                            .max(
+                                self.state
+                                    .zones
+                                    .list(ZoneLocation::Hand(wizard.player))
+                                    .len(),
+                            )
+                            .max(
+                                self.state
+                                    .zones
+                                    .list(ZoneLocation::Graveyard(wizard.player))
+                                    .len(),
+                            ),
+                    )
+                    .unwrap_or(u32::MAX);
+                    let life_cap = u32::try_from(self.state.life_payable(wizard.player))
+                        .unwrap_or(0)
+                        .max(u32::from(
+                            self.state.players[usize::from(wizard.player.get())].energy,
+                        ));
+                    max = casting::greatest_affordable(max.min(cap.max(life_cap)), |x| {
+                        casting::additional_payment_capacity_for_x(
+                            &self.state,
+                            wizard.player,
+                            wizard.card,
+                            face,
+                            wizard.cost_choice(),
+                            x,
+                            &[],
+                        )
+                        .is_some()
+                    });
+                }
+                if kicker_has_mana_x
+                    && !wizard.makes_mana_after_choices()
                     && !more_mana
                     && (face.x_mana_color.is_some()
                         || face.x_mana_colors.is_some()
@@ -885,7 +950,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             WizardStage::Sacrifice => {
                 let face = self.wizard_face(&wizard);
-                let asked = wizard.cost_objects.len();
                 let parts = additional_card_costs_for_x(
                     &self.state,
                     wizard.player,
@@ -894,7 +958,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     wizard.cost_choice(),
                     wizard.x,
                 );
-                let Some(part) = parts.get(asked) else {
+                let tail =
+                    casting::remaining_spell_card_costs(&self.state, &parts, &wizard.cost_objects);
+                let Some(part) = tail.first() else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Done;
                     self.cast_wizard = Some(wizard);
@@ -915,6 +981,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         && Some(*id) != wizard.emerge_sacrifice
                         && !wizard.cost_objects.contains(id)
                 });
+                if matches!(part, CostPart::Forage) {
+                    super::super::cost_wizard::prune_incomplete_forage_graveyard(
+                        &self.state,
+                        &mut options,
+                    );
+                }
                 options.retain(|candidate| {
                     let mut chosen = wizard.cost_objects.to_vec();
                     chosen.push(*candidate);
@@ -972,7 +1044,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         face.additional_costs.iter().enumerate().any(|(idx, add)| {
             (wizard.kicked_mask == 0 || (idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0))
-                && add.mana.has_variable()
+                && (add.mana.has_variable() || add.parts.iter().any(part_scales_with_x))
         })
     }
 }

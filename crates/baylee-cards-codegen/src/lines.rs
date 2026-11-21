@@ -1221,16 +1221,20 @@ fn part_named(part: &CostPart, lower: &str) -> Option<bool> {
                 || (*count == 1 && (lower.contains("tap a ") || lower.contains("tap an ")))
         }
         CostPart::ExileFromHand(_) => lower.contains("exile") && lower.contains("from your hand"),
-        CostPart::Discard(_) => lower.contains("discard"),
-        CostPart::Sacrifice(_) | CostPart::SacrificeSelf => lower.contains("sacrifice"),
+        CostPart::Discard(_) | CostPart::DiscardX(_) => lower.contains("discard"),
+        CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeSelf => {
+            lower.contains("sacrifice")
+        }
         CostPart::ExileSelf => lower.contains("exile"),
+        CostPart::DealDamageToYou(n) => lower.contains(&format!("deals {n} damage to you")),
+        CostPart::Forage => lower.contains("forage"),
         // As loose as the two above it, and for the same reason: the word is
         // what the card prints, and a sentence whose *effect* also returns
         // something ("Return a Forest you control …: Untap target creature"
         // does not, but Flooded Shoreline's does) is still a sentence that
         // names this cost.
         CostPart::ReturnToHand(_) => lower.contains("return"),
-        CostPart::ExileFromGraveyard(_) => {
+        CostPart::ExileFromGraveyard(_) | CostPart::ExileFromGraveyardX(_) => {
             lower.contains("exile") && lower.contains("from your graveyard")
         }
         _ => return None,

@@ -51,7 +51,11 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::PayLifeX
         | CostPart::ExileFromHand(_)
         | CostPart::ReturnUnblockedAttacker
-        | CostPart::ExileTopOfLibrary(_) => false,
+        | CostPart::ExileTopOfLibrary(_)
+        | CostPart::DealDamageToYou(_)
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::Forage => false,
     }
 }
 
@@ -95,7 +99,11 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
         | CostPart::ExileFromHand(_)
-        | CostPart::ExileTopOfLibrary(_) => false,
+        | CostPart::ExileTopOfLibrary(_)
+        | CostPart::DealDamageToYou(_)
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::Forage => false,
     }
 }
 

@@ -51,7 +51,7 @@ impl PaymentBatch {
             | CostPart::Sacrifice(_)
             | CostPart::SacrificeX(_)
             | CostPart::SacrificeAll(_) => Some(0),
-            CostPart::DiscardSelf | CostPart::Discard(_) => Some(1),
+            CostPart::DiscardSelf | CostPart::Discard(_) | CostPart::DiscardX(_) => Some(1),
             _ => None,
         };
         if kind != self.kind || kind.is_none() {

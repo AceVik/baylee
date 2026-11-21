@@ -631,6 +631,18 @@ pub enum Condition {
     /// renown's intervening `if`, or `Condition::IsRenowned` for "as long as
     /// this creature is renowned"). Appended to preserve replay identities.
     IsRenowned,
+    /// The source permanent is currently paired with another creature via
+    /// soulbond ("As long as [this] is paired with another creature…",
+    /// CR 702.95a–e). Appended to preserve replay identities.
+    IsPaired,
+    /// Soulbond's self-ETB intervening `if` (CR 702.95a, CR 603.4): the source
+    /// is an unpaired creature you control and you control at least one other
+    /// unpaired creature. Appended to preserve replay identities.
+    SoulbondSelfCanPair,
+    /// Soulbond's other-creature-ETB intervening `if` (CR 702.95a, CR 603.4):
+    /// both the source and the entering event creature are still unpaired
+    /// creatures under your control. Appended to preserve replay identities.
+    SoulbondEventCanPair,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1809,13 +1821,10 @@ pub struct SpellMode {
     /// the stack on a board with no other artifact on it.
     pub targets: Option<crate::effect::TargetReq>,
     /// A second instance of the word "target" in this mode, as on
-    /// [`crate::AbilityDef::Spell::second_targets`]: Archdruid's Charm's
-    /// "Put a +1/+1 counter on target creature you control. It deals damage
-    /// equal to its power to target creature you don't control."
-    ///
-    /// A modal **spell**'s only: the cast wizard asks it once the mode is
-    /// chosen. A modal trigger's mode never carries one, which
-    /// `no_modal_trigger_mode_prints_a_second_target` holds.
+    /// [`crate::AbilityDef::Spell::second_targets`] (CR 115.3, CR 603.3d):
+    /// Archdruid's Charm's "Put a +1/+1 counter on target creature you
+    /// control. It deals damage equal to its power to target creature you
+    /// don't control", or Ayula, Queen Among Bears' modal trigger fight mode.
     pub second_targets: Option<crate::effect::TargetReq>,
     /// Cost override for this mode (overload); `None` = the printed cost.
     pub cost_override: Option<baylee_core::mana::ManaCost>,

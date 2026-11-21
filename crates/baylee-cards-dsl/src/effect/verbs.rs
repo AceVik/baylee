@@ -1328,7 +1328,8 @@ impl Effect {
             | Effect::Plot { .. }
             | Effect::PlotTop { .. }
             | Effect::Backup { .. }
-            | Effect::BecomeRenowned(_) => (NONE, NONE),
+            | Effect::BecomeRenowned(_)
+            | Effect::SoulbondPair { .. } => (NONE, NONE),
         }
     }
 

@@ -287,6 +287,22 @@ pub enum CostPart {
     /// what that creature was attacking for [`crate::Effect::PutNinjutsuOntoBattlefield`].
     /// Appended to preserve replay identities.
     ReturnUnblockedAttacker,
+    /// The source deals `n` damage to you as a cost (CR 118.3, CR 120.3).
+    /// Always payable even under `CantLoseLife` or at low life; goes through
+    /// damage replacement and prevention effects. Appended to preserve replay
+    /// identities.
+    DealDamageToYou(u16),
+    /// Announce X and discard that many cards matching the filter from your
+    /// hand, binding X for [`crate::Amount::X`] (CR 107.3a, CR 701.9a).
+    /// Appended to preserve replay identities.
+    DiscardX(&'static Filter),
+    /// Announce X and exile that many cards matching the filter from your
+    /// graveyard, binding X for [`crate::Amount::X`] (CR 107.3a, CR 406).
+    /// Appended to preserve replay identities.
+    ExileFromGraveyardX(&'static Filter),
+    /// Forage (CR 701.61a): "Exile three cards from your graveyard or sacrifice
+    /// a Food." Appended to preserve replay identities.
+    Forage,
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

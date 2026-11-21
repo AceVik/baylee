@@ -1,6 +1,21 @@
-//! Death-triggered return keywords, including their counter conditions.
-use super::{PendingTrigger, source_at_event, times_triggered};
+//! Death-triggered return and counter-transfer keywords, including their counter conditions.
+use super::{PendingTrigger, source_at_event, times_triggered, times_triggered_with_source};
 use crate::{event::GameEvent, object::GameObject, state::GameState, text_changes::TextChangeMap};
+
+static ARTIFACT_CREATURE: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::And(&[
+    baylee_cards_dsl::Filter::ARTIFACT,
+    baylee_cards_dsl::Filter::CREATURE,
+]);
+
+/// Modular's death trigger (CR 702.43a): "When this permanent is put into a
+/// graveyard from the battlefield, you may put a +1/+1 counter on target
+/// artifact creature for each +1/+1 counter on this permanent."
+static MODULAR_DIES: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::MayDo {
+    effects: &[baylee_cards_dsl::Effect::AddCounter {
+        kind: baylee_cards_dsl::CounterKind::P1P1,
+        amount: baylee_cards_dsl::Amount::CountersOnSource(baylee_cards_dsl::CounterKind::P1P1),
+    }],
+}];
 
 /// Undying (CR 702.93a) and persist (CR 702.79a) as the one sentence each
 /// of them is: "return it to the battlefield under its owner's control with
@@ -144,6 +159,80 @@ pub(super) fn collect(
                     in_chosen_order: false,
                 });
             }
+        }
+    }
+}
+
+/// Collects modular death triggers (CR 702.43a–b, CR 603.10a). Called on both
+/// departed and currently-on-battlefield permanents so a permanent put into a
+/// graveyard and returned in the same resolution still triggers modular.
+pub(super) fn collect_modular(
+    state: &GameState,
+    obj: &GameObject,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    for entry in events {
+        if !matches!(entry.event, GameEvent::ZoneChanged {
+            object, from: crate::zone::Zone::Battlefield, to: crate::zone::Zone::Graveyard, ..
+        } if object == obj.id)
+        {
+            continue;
+        }
+        let source = source_at_event(state, obj, events, entry, true);
+        let instances = entry.departure.as_ref().map_or_else(
+            || {
+                u32::from(
+                    source
+                        .characteristics()
+                        .keywords
+                        .contains(baylee_cards_dsl::KeywordSet::MODULAR),
+                )
+            },
+            |departure| departure.modular_instances,
+        );
+        if instances == 0 {
+            continue;
+        }
+        let times = instances.saturating_mul(times_triggered_with_source(
+            state,
+            baylee_cards_dsl::TriggerEventKind::Any,
+            source,
+        ));
+        for _ in 0..times {
+            triggers.push(PendingTrigger {
+                text: TextChangeMap::IDENTITY,
+                source_version: Some(source.version),
+                related_objects: None,
+                grantor: None,
+                event_subject: None,
+                event_ability: None,
+                event_object_identity: Some((
+                    source.version.wrapping_add(1),
+                    source.characteristics().power.unwrap_or(0),
+                )),
+                counter_source_version: None,
+                event_mana: None,
+                event_mana_value: None,
+                event_departure: None,
+                event_amount: None,
+                event_player: None,
+                source: obj.id,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                controller: source.controller,
+                timestamp: source.timestamp,
+                event_object: Some(obj.id),
+                implicit_target: None,
+                abilities: None,
+                synthetic_effects: Some(MODULAR_DIES),
+                once_per_turn: false,
+                synthetic_target: Some(baylee_cards_dsl::TargetReq::one(
+                    baylee_cards_dsl::TargetSpec::Object(&ARTIFACT_CREATURE),
+                )),
+                chosen_mode: None,
+                synthetic_condition: None,
+                in_chosen_order: false,
+            });
         }
     }
 }

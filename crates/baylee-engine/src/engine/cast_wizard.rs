@@ -31,8 +31,8 @@ mod stages;
 mod transformed;
 pub(crate) use cost_parts::{
     CostChoice, additional_card_costs_for_x, fixed_energy_cost, fixed_life_cost,
-    mandatory_scales_with_x, wizard_alternative_parts, wizard_buyback_parts, wizard_cost_parts,
-    wizard_mandatory_parts,
+    mandatory_scales_with_x, part_scales_with_x, wizard_alternative_parts, wizard_buyback_parts,
+    wizard_cost_parts, wizard_mandatory_parts,
 };
 pub(crate) use madness::madness_options;
 use pricing::FrozenReduction;
@@ -509,10 +509,12 @@ pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
     matches!(
         part,
         CostPart::PayLife(_)
+            | CostPart::DealDamageToYou(_)
             | CostPart::ExileFromHand(_)
             | CostPart::Sacrifice(_)
             | CostPart::ReturnToHand(_)
             | CostPart::TapN { .. }
+            | CostPart::Forage
     )
 }
 
@@ -522,6 +524,7 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
         part,
         CostPart::PayLifeX
             | CostPart::PayLife(_)
+            | CostPart::DealDamageToYou(_)
             | CostPart::PayEnergy(_)
             | CostPart::PayEnergyX
             | CostPart::Sacrifice(_)
@@ -531,14 +534,17 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
             | CostPart::ExilePermanent(_)
             | CostPart::ExileFromHand(_)
             | CostPart::ExileFromGraveyard(_)
+            | CostPart::ExileFromGraveyardX(_)
             | CostPart::ExileTopOfLibrary(_)
             | CostPart::Discard(_)
+            | CostPart::DiscardX(_)
             | CostPart::DiscardRandom
             | CostPart::DiscardHand
             | CostPart::DiscardLastDrawnThisTurn
             | CostPart::TapOther(_)
             | CostPart::TapX(_)
             | CostPart::TapN { .. }
+            | CostPart::Forage
     )
 }
 
@@ -548,9 +554,11 @@ pub(crate) const fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
     matches!(
         part,
         CostPart::PayLife(_)
+            | CostPart::DealDamageToYou(_)
             | CostPart::Sacrifice(_)
             | CostPart::Discard(_)
             | CostPart::DiscardRandom
+            | CostPart::Forage
     )
 }
 

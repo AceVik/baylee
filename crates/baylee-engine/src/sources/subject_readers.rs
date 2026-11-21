@@ -96,6 +96,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::RemoveCounterSelf { .. }
             | Effect::MoveCounterToEvent { .. }
             | Effect::DetachSource
+            | Effect::SoulbondPair { .. }
             | Effect::IfNoCountersOnSelf { .. } => true,
             Effect::AddCounter { .. }
             | Effect::AddCountersUpTo { .. }
@@ -126,7 +127,9 @@ fn condition_refers_to_subject(condition: &baylee_cards_dsl::Condition) -> bool 
     use baylee_cards_dsl::Condition as C;
     match condition {
         C::ObjectMatches { what, .. } => matches!(*what, TargetSpec::ThisObject),
-        C::SourceMatches(_) => true,
+        C::SourceMatches(_) | C::IsPaired | C::SoulbondSelfCanPair | C::SoulbondEventCanPair => {
+            true
+        }
         C::All(parts) | C::Any(parts) => parts.iter().any(condition_refers_to_subject),
         C::Not(inner) => condition_refers_to_subject(inner),
         _ => false,

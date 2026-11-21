@@ -1453,6 +1453,10 @@ fn hash_rider_situation(
                 }));
             }
             crate::object::Rider::AttachmentHostLeft => h.u8(24),
+            crate::object::Rider::PairedWith(partner, _) => {
+                h.u8(151);
+                h.u32(position(*partner));
+            }
             crate::object::Rider::EventAmount(amount) => {
                 h.u8(26);
                 h.u32(*amount);
@@ -2279,6 +2283,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Fused => h.u8(133),
             Rider::Manifested => h.u8(134),
             Rider::Renowned => h.u8(171),
+            Rider::PairedWith(partner, version) => {
+                h.u8(151);
+                partner.hash(h);
+                version.hash(h);
+            }
             Rider::ExiledWith { host, version } => {
                 h.u8(13);
                 host.hash(h);
@@ -2635,6 +2644,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u16(*n);
         }
         F::ControlledByEnchantedPlayer => h.u8(168),
+        F::PairedWithSource => h.u8(169),
     }
 }
 

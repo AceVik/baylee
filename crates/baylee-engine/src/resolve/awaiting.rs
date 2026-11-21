@@ -1307,6 +1307,77 @@ pub enum AwaitingOp {
         /// Number of +1/+1 counters to place on the chosen creature.
         count: u16,
     },
+    /// Soulbond self-ETB (`Effect::SoulbondPair { with_event_object: false }`):
+    /// choose up to one other unpaired creature you control to pair with `source`.
+    SoulbondChoosePartner {
+        /// Soulbond permanent incarnation.
+        source: ObjectId,
+        /// Captured source version.
+        source_version: Option<u32>,
+    },
+    /// Soulbond other-ETB (`Effect::SoulbondPair { with_event_object: true }`):
+    /// confirm whether to pair `source` with the entering `partner`.
+    SoulbondConfirmPair {
+        /// Soulbond permanent incarnation.
+        source: ObjectId,
+        /// Captured source version.
+        source_version: Option<u32>,
+        /// Entering unpaired creature.
+        partner: ObjectId,
+        /// Captured entering creature version.
+        partner_version: Option<u32>,
+    },
+    /// Optional `CostPart::DealDamageToYou` inside `PlayerMayPayCostOr`/`Then`.
+    PlayerMayPayDamageToYou {
+        /// Run `effect` on payment (`true`) or refusal (`false`).
+        on_payment: bool,
+        /// Deciding player.
+        player: PlayerId,
+        /// Damage dealt by the source to `player`.
+        damage: u16,
+        /// Contingent branch effect.
+        effect: &'static Effect,
+    },
+    /// Second step of `CostPart::Forage` inside `PlayerMayPayCostOr`/`Then`
+    /// after choosing a graveyard card: select the remaining two graveyard cards.
+    ForageRemainingGraveyard {
+        /// Run `effect` on payment (`true`) or refusal (`false`).
+        on_payment: bool,
+        /// Deciding player.
+        player: PlayerId,
+        /// First graveyard card already selected.
+        first: ObjectId,
+        /// Contingent branch effect.
+        effect: &'static Effect,
+    },
+    /// Card selection for `SacrificeX` / `TapX` / `DiscardX` / `ExileFromGraveyardX`
+    /// inside `PlayerMayPayCostOr`/`Then`, binding `res.x` when `required` is `None`.
+    PlayerMayPayCountedCost {
+        /// Run `effect` on payment (`true`) or refusal (`false`).
+        on_payment: bool,
+        /// Deciding player.
+        player: PlayerId,
+        /// Variable cost part.
+        cost: &'static CostPart,
+        /// Exact required count when `res.x` was already announced, or `None`.
+        required: Option<u8>,
+        /// Contingent branch effect.
+        effect: &'static Effect,
+    },
+    /// Initial yes/no confirmation when `res.x` was already announced for a
+    /// counted `PlayerMayPayCostOr`/`Then` (`required >= 1`).
+    ConfirmCountedCost {
+        /// Run `effect` on payment (`true`) or refusal (`false`).
+        on_payment: bool,
+        /// Deciding player.
+        player: PlayerId,
+        /// Variable cost part.
+        cost: &'static CostPart,
+        /// Exact required object count.
+        required: u8,
+        /// Contingent branch effect.
+        effect: &'static Effect,
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -1645,6 +1716,54 @@ impl AwaitingOp {
                 crate::state::structural_fingerprint(&(114_u8, looked))
             }
             Self::Bolster { count } => crate::state::structural_fingerprint(&(116_u8, count)),
+            Self::SoulbondChoosePartner {
+                source,
+                source_version,
+            } => crate::state::structural_fingerprint(&(121_u8, source, source_version)),
+            Self::SoulbondConfirmPair {
+                source,
+                source_version,
+                partner,
+                partner_version,
+            } => crate::state::structural_fingerprint(&(
+                122_u8,
+                source,
+                source_version,
+                partner,
+                partner_version,
+            )),
+            Self::PlayerMayPayDamageToYou {
+                on_payment,
+                player,
+                damage,
+                effect,
+            } => {
+                crate::state::structural_fingerprint(&(123_u8, on_payment, player, damage, effect))
+            }
+            Self::ForageRemainingGraveyard {
+                on_payment,
+                player,
+                first,
+                effect,
+            } => crate::state::structural_fingerprint(&(124_u8, on_payment, player, first, effect)),
+            Self::PlayerMayPayCountedCost {
+                on_payment,
+                player,
+                cost,
+                required,
+                effect,
+            } => crate::state::structural_fingerprint(&(
+                125_u8, on_payment, player, cost, required, effect,
+            )),
+            Self::ConfirmCountedCost {
+                on_payment,
+                player,
+                cost,
+                required,
+                effect,
+            } => crate::state::structural_fingerprint(&(
+                126_u8, on_payment, player, cost, required, effect,
+            )),
             _ => 0,
         }
     }

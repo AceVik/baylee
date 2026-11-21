@@ -785,6 +785,7 @@ impl HeuristicAgent {
         ranked
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn select_cards(
         &self,
         view: &PlayerView,
@@ -853,6 +854,26 @@ impl HeuristicAgent {
                 | ChoicePrompt::KeepPermanents
         ) {
             return Some(self.keep_permanents(view, options, max));
+        }
+        if prompt == ChoicePrompt::Generic
+            && max > 0
+            && context
+                .effects
+                .iter()
+                .any(|e| matches!(e, baylee_cards_dsl::Effect::SoulbondPair { .. }))
+        {
+            let mut ranked = options.to_vec();
+            ranked.sort_by_key(|id| {
+                (
+                    std::cmp::Reverse(
+                        view.object(*id)
+                            .map_or(0, |o| Self::permanent_worth(view, o)),
+                    ),
+                    *id,
+                )
+            });
+            ranked.truncate(usize::from(max));
+            return Some(ranked);
         }
         if self.profile.card_skill() < 2 {
             return None;
@@ -3540,6 +3561,22 @@ fn mandatory_part_readable(
         }
         baylee_cards_dsl::CostPart::PayLife(n) => {
             view.seat(me).is_none_or(|s| s.life >= i32::from(*n))
+        }
+        baylee_cards_dsl::CostPart::DealDamageToYou(n) => {
+            view.seat(me).is_none_or(|s| s.life > i32::from(*n))
+        }
+        baylee_cards_dsl::CostPart::Forage => {
+            let has_food = view.battlefield.iter().any(|o| {
+                o.controller == me
+                    && o.id != id
+                    && o.subtypes
+                        .contains(baylee_core::generated::subtypes::artifact::FOOD)
+            });
+            let gy_cards = view
+                .graveyards
+                .get(usize::from(me.get()))
+                .map_or(0, |g| g.iter().filter(|o| o.id != id).count());
+            has_food || gy_cards >= 3
         }
         _ => true,
     }

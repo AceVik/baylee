@@ -3887,6 +3887,7 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayMillOr { .. }
         | Effect::RaidingParty
         | Effect::ChoosePhaseToSkipThisTurn
+        | Effect::SoulbondPair { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }

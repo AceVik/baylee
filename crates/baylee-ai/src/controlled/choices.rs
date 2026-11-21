@@ -249,6 +249,14 @@ impl HeuristicAgent {
             {
                 best(min)
             }
+            ChoicePrompt::Generic
+                if context
+                    .effects
+                    .iter()
+                    .any(|e| matches!(e, Effect::SoulbondPair { .. })) =>
+            {
+                worst(min)
+            }
             // What they keep, find, take or put down: as little as the
             // question allows, and the least of it.
             ChoicePrompt::Keep

@@ -59,6 +59,16 @@ fn copy_ability(
             .as_ref()
             .and_then(|list| crate::object::ability_target_req(list, loc.index, copy.mode_index));
     }
+    if copy.second_target_req().is_none()
+        && loc.index != baylee_core::ids::AbilityRef::SYNTHETIC
+        && crate::choice::granted_slot(loc.index).is_none()
+        && let Some(second_req) = copy.own_abilities.as_ref().and_then(|list| {
+            crate::object::ability_second_target_req(list, loc.index, copy.mode_index)
+        })
+    {
+        let existing = smallvec::SmallVec::from_slice(copy.second_targets());
+        copy.set_second(existing, Some(second_req));
+    }
     let timestamp = state.next_timestamp();
     let id = state.arena.insert_with(|id| {
         copy.id = id;

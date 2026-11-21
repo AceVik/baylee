@@ -382,6 +382,43 @@ impl DamageWork {
         None
     }
 
+    /// Resolve a non-combat cost damage batch (`CostPart::DealDamageToYou`) to
+    /// completion, applying deterministic default answers if multiple
+    /// competing replacement/prevention effects ask an ordering question.
+    pub(crate) fn finish_cost_damage(&mut self, state: &mut GameState) {
+        let mut pending = self.advance(state);
+        while let Some(question) = pending {
+            let answer = match question {
+                Pending::ChooseDamageEffect {
+                    choice, options, ..
+                } => PlayerAction::ChooseDamageEffect {
+                    choice,
+                    effect: options[0].id,
+                },
+                Pending::AllocatePrevention {
+                    choice,
+                    damage,
+                    total,
+                    ..
+                } => {
+                    let mut left = total;
+                    let allocation = damage
+                        .iter()
+                        .map(|part| {
+                            let share = left.min(part.amount);
+                            left -= share;
+                            (part.id, share)
+                        })
+                        .collect();
+                    PlayerAction::AllocatePrevention { choice, allocation }
+                }
+                Pending::YesNo { .. } => PlayerAction::YesNo(false),
+                _ => unreachable!("unexpected pending during cost damage"),
+            };
+            pending = self.answer(state, &answer);
+        }
+    }
+
     fn prepare(&mut self, state: &mut GameState) -> Option<Pending> {
         loop {
             state.refresh_characteristics();

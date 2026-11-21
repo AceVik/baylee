@@ -5084,7 +5084,7 @@ pub(super) fn non_sac_source_colors(view: &PlayerView, source: ObjectId) -> [boo
                     <= permanent_tap_self_damage(def.abilities_for_face(usize::from(rf.face))))
                 || cost.parts.iter().any(|p| match p {
                     CostPart::PayEnergy(n) => view.seat(actor).map_or(0, |s| s.energy) < *n,
-                    CostPart::PayLife(n) => my_life <= i32::from(*n),
+                    CostPart::PayLife(n) | CostPart::DealDamageToYou(n) => my_life <= i32::from(*n),
                     CostPart::TapOther(filter) | CostPart::TapX(filter) => {
                         !view.battlefield_of(actor).any(|o| {
                             o.id != source

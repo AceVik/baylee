@@ -685,9 +685,14 @@ pub enum LossReason {
     Effect,
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
+const fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
+}
+
 /// Immutable battlefield information for a zone-change event. Kept on the
 /// journal entry because an object may move again before triggers are collected.
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Departure {
     /// The operation was a sacrifice, even if a replacement changed its destination.
     #[serde(default)]
@@ -695,6 +700,9 @@ pub struct Departure {
     /// Independent undying and persist instances immediately before departure.
     #[serde(default)]
     pub return_keywords: [u32; 2],
+    /// Independent modular instances immediately before departure (CR 702.43b).
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub modular_instances: u32,
     /// Identity immediately before leaving the battlefield.
     #[serde(default)]
     pub version: u32,
@@ -707,6 +715,21 @@ pub struct Departure {
     pub toughness: i16,
     /// Auras/equipment attached immediately before departure.
     pub attachments: Vec<ObjectId>,
+}
+
+impl std::hash::Hash for Departure {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.sacrificed.hash(state);
+        self.return_keywords.hash(state);
+        if self.modular_instances > 0 {
+            self.modular_instances.hash(state);
+        }
+        self.version.hash(state);
+        self.power.hash(state);
+        self.controller.hash(state);
+        self.toughness.hash(state);
+        self.attachments.hash(state);
+    }
 }
 
 impl Departure {
@@ -723,6 +746,11 @@ impl Departure {
             .wrapping_add(u64::from(self.power as u16));
         for count in self.return_keywords {
             hash = hash.wrapping_mul(31).wrapping_add(u64::from(count));
+        }
+        if self.modular_instances > 0 {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(self.modular_instances));
         }
         for id in &self.attachments {
             hash = hash.wrapping_mul(31).wrapping_add(u64::from(id.slot()));

@@ -443,6 +443,11 @@ impl GameState {
             event: crate::event::Departure {
                 sacrificed: false,
                 return_keywords: crate::trigger::return_keyword_counts(self, object),
+                modular_instances: crate::layers::keyword_instances(
+                    self,
+                    object,
+                    baylee_cards_dsl::KeywordSet::MODULAR,
+                ),
                 version: object.version,
                 power: object.characteristics().power.unwrap_or(0),
                 controller: object.controller,
@@ -627,6 +632,7 @@ impl GameState {
         let ts = self.timestamp;
         self.record_last_known(id, from_zone);
         if from_zone == Zone::Battlefield && to.zone() != Zone::Battlefield {
+            let _ = self.unpair_creature(id);
             // CR 400.7: a returning permanent is a new object even though
             // its arena handle is stable. Detach now, after departure
             // snapshots, so a blink cannot restore the old relationship
@@ -766,6 +772,7 @@ impl GameState {
                             | crate::object::Rider::MergedToken(_)
                             | crate::object::Rider::MustAttackPlayerThisTurn(_)
                             | crate::object::Rider::AttachedToPlayer(_)
+                            | crate::object::Rider::PairedWith(..)
                     )
                 });
                 // A name chosen as it entered belongs to that permanent

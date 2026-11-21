@@ -115,6 +115,68 @@ pub(crate) fn additional_payment_capacity_for(
     additional_payment_capacity_for_x(state, player, card, face, choice, 0, chosen)
 }
 
+static FORAGE_FOOD_FILTER: Filter =
+    Filter::HasSubtype(baylee_core::generated::subtypes::artifact::FOOD);
+static FORAGE_FOOD_PART: CostPart = CostPart::Sacrifice(&FORAGE_FOOD_FILTER);
+static FORAGE_GY_PART: CostPart = CostPart::ExileFromGraveyard(&Filter::Any);
+
+/// Walk `parts` against the flat `chosen` answers gathered so far in
+/// `CastWizard::cost_objects`, returning the unanswered tail (where a partially
+/// answered graveyard [`CostPart::Forage`] expands its remaining 1–2 graveyard
+/// picks into [`FORAGE_GY_PART`]).
+pub(crate) fn remaining_spell_card_costs(
+    state: &GameState,
+    parts: &[CostPart],
+    chosen: &[ObjectId],
+) -> SmallVec<[CostPart; 4]> {
+    let mut cursor = 0usize;
+    let mut tail = SmallVec::new();
+    for &part in parts {
+        if matches!(part, CostPart::Forage) {
+            if cursor < chosen.len() {
+                if state
+                    .object(chosen[cursor])
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                {
+                    cursor += 1;
+                } else {
+                    let answered_gy = (chosen.len() - cursor).min(3);
+                    cursor += answered_gy;
+                    for _ in answered_gy..3 {
+                        tail.push(FORAGE_GY_PART);
+                    }
+                }
+            } else {
+                tail.push(CostPart::Forage);
+            }
+        } else if cursor < chosen.len() {
+            cursor += 1;
+        } else {
+            tail.push(part);
+        }
+    }
+    tail
+}
+
+fn expand_forage_branches(tail: &[CostPart], branch_mask: u32) -> SmallVec<[CostPart; 6]> {
+    let mut out = SmallVec::new();
+    let mut forage_idx = 0u32;
+    for &part in tail {
+        if matches!(part, CostPart::Forage) {
+            let use_graveyard = (branch_mask & (1u32 << forage_idx)) != 0;
+            forage_idx += 1;
+            if use_graveyard {
+                out.extend_from_slice(&[FORAGE_GY_PART, FORAGE_GY_PART, FORAGE_GY_PART]);
+            } else {
+                out.push(FORAGE_FOOD_PART);
+            }
+        } else {
+            out.push(part);
+        }
+    }
+    out
+}
+
 pub(crate) fn additional_payment_capacity_for_x(
     state: &GameState,
     player: PlayerId,
@@ -153,65 +215,77 @@ pub(crate) fn additional_payment_capacity_for_x(
     let parts = crate::engine::cast_wizard::additional_card_costs_for_x(
         state, player, card, face, choice, x,
     );
-    let menus: Vec<Vec<_>> = parts
-        .iter()
-        .skip(chosen.len())
-        .map(|part| {
-            crate::engine::cost_wizard::options(state, player, card, part)
-                .into_iter()
-                .filter(|id| {
-                    *id != card && Some(*id) != choice.emerge_sacrifice && !chosen.contains(id)
-                })
-                .collect()
-        })
-        .collect();
-    let mut cards: Vec<_> = menus.iter().flatten().copied().collect();
-    cards.sort_unstable();
-    cards.dedup();
-    // Replacement evaluation can inspect continuous effects. Cache it once per
-    // candidate instead of repeating it inside the sorting comparator.
-    let mut candidates: Vec<_> = cards
-        .into_iter()
-        .map(|id| (id, additional_card_enters_graveyard(state, player, id)))
-        .collect();
-    candidates.sort_by_key(|(_, enters_graveyard)| !enters_graveyard);
-    let assignments = preferred_assignment(&menus, candidates.iter().map(|(id, _)| *id))?;
-    let mut paid: Vec<_> = chosen.iter().copied().chain(assignments).collect();
-    // A card discarded at random comes out of what the chosen answers leave,
-    // and the card being cast is on the stack by then (CR 601.2a).
+    let tail = remaining_spell_card_costs(state, &parts, chosen);
+    let unanswered_forages = u32::try_from(
+        tail.iter()
+            .filter(|p| matches!(p, CostPart::Forage))
+            .count(),
+    )
+    .unwrap_or(0)
+    .min(8);
+    let branches = 1u32 << unanswered_forages;
     let random = crate::engine::cast_wizard::wizard_cost_parts(face, choice)
         .filter(|part| matches!(part, CostPart::DiscardRandom))
         .count();
-    if random > 0 {
-        let left = state
-            .zones
-            .list(ZoneLocation::Hand(player))
+    let discards_hand = crate::engine::cast_wizard::wizard_mandatory_parts(face, choice)
+        .any(|p| matches!(p, CostPart::DiscardHand));
+    let mut best: Option<usize> = None;
+    for mask in 0..branches {
+        let expanded = expand_forage_branches(&tail, mask);
+        let menus: Vec<Vec<_>> = expanded
             .iter()
-            .filter(|id| **id != card && !paid.contains(id))
-            .count();
-        if left < random {
-            return None;
-        }
-    }
-    if crate::engine::cast_wizard::wizard_mandatory_parts(face, choice)
-        .any(|p| matches!(p, CostPart::DiscardHand))
-    {
-        paid.extend(
-            state
+            .map(|part| {
+                crate::engine::cost_wizard::options(state, player, card, part)
+                    .into_iter()
+                    .filter(|id| {
+                        *id != card && Some(*id) != choice.emerge_sacrifice && !chosen.contains(id)
+                    })
+                    .collect()
+            })
+            .collect();
+        let mut cards: Vec<_> = menus.iter().flatten().copied().collect();
+        cards.sort_unstable();
+        cards.dedup();
+        let mut candidates: Vec<_> = cards
+            .into_iter()
+            .map(|id| (id, additional_card_enters_graveyard(state, player, id)))
+            .collect();
+        candidates.sort_by_key(|(_, enters_graveyard)| !enters_graveyard);
+        let Some(assignments) = preferred_assignment(&menus, candidates.iter().map(|(id, _)| *id))
+        else {
+            continue;
+        };
+        let mut paid: Vec<_> = chosen.iter().copied().chain(assignments).collect();
+        if random > 0 {
+            let left = state
                 .zones
                 .list(ZoneLocation::Hand(player))
                 .iter()
-                .copied()
-                .filter(|id| *id != card),
-        );
-    }
-    paid.sort_unstable();
-    paid.dedup();
-    Some(
-        paid.into_iter()
+                .filter(|id| **id != card && !paid.contains(id))
+                .count();
+            if left < random {
+                continue;
+            }
+        }
+        if discards_hand {
+            paid.extend(
+                state
+                    .zones
+                    .list(ZoneLocation::Hand(player))
+                    .iter()
+                    .copied()
+                    .filter(|id| *id != card),
+            );
+        }
+        paid.sort_unstable();
+        paid.dedup();
+        let cap = paid
+            .into_iter()
             .filter(|id| additional_card_enters_graveyard(state, player, *id))
-            .count(),
-    )
+            .count();
+        best = Some(best.map_or(cap, |prev| prev.max(cap)));
+    }
+    best
 }
 
 /// Whether every menu can name a permanent of its own, each used once.

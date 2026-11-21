@@ -2191,6 +2191,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         remaining,
                         mut chosen,
                     }) => {
+                        let is_forage_first = chosen.is_empty()
+                            && remaining == Some(3)
+                            && objects.len() == 1
+                            && matches!(
+                                &self.pending,
+                                Pending::ChooseCards {
+                                    prompt: crate::choice::ChoicePrompt::CostSacrifice,
+                                    max: 1,
+                                    ..
+                                }
+                            );
                         let is_single_graveyard = matches!(
                             &self.pending,
                             Pending::ChooseCards {
@@ -2220,13 +2231,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 ));
                             }
                         }
-                        let remaining =
-                            remaining.map(|n| n - u32::try_from(objects.len()).unwrap_or(u32::MAX));
+                        let forage_chose_food = is_forage_first
+                            && self
+                                .state
+                                .object(objects[0])
+                                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield);
+                        let remaining = if forage_chose_food {
+                            Some(0)
+                        } else {
+                            remaining.map(|n| n - u32::try_from(objects.len()).unwrap_or(u32::MAX))
+                        };
                         chosen.extend_from_slice(&objects);
                         if remaining.is_some_and(|n| n > 0) {
                             let mut next = self.pending.clone();
                             if let Pending::ChooseCards {
-                                options, min, max, ..
+                                options,
+                                min,
+                                max,
+                                prompt,
+                                ..
                             } = &mut next
                             {
                                 let first_owner = chosen
@@ -2237,10 +2260,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 used.sort_unstable();
                                 options.retain(|id| {
                                     used.binary_search(id).is_err()
+                                        && (!is_forage_first
+                                            || self.state.object(*id).is_some_and(|o| {
+                                                o.zone == crate::zone::Zone::Graveyard
+                                                    && o.zone_owner == Some(player)
+                                            }))
                                         && (!is_single_graveyard
                                             || self.state.object(*id).and_then(|o| o.zone_owner)
                                                 == first_owner)
                                 });
+                                if is_forage_first {
+                                    *prompt = crate::choice::ChoicePrompt::CostExile;
+                                }
                                 *max = u8::try_from(remaining.unwrap_or(0)).unwrap_or(u8::MAX);
                                 *min = *max;
                             }

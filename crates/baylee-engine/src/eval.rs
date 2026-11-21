@@ -763,6 +763,7 @@ pub(crate) fn matches_projected_with_choices(
         Filter::ControlledByEnchantedPlayer => {
             enchanted_player(state, this) == Some(obj.controller)
         }
+        Filter::PairedWithSource => state.paired_partner(this) == Some(obj.id),
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.
             // The marker list rather than the command zone, for the reason

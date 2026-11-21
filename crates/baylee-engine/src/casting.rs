@@ -27,7 +27,7 @@ mod library_top;
 pub(crate) use additional::{
     additional_card_enters_graveyard, additional_payment_capacity, additional_payment_capacity_for,
     additional_payment_capacity_for_x, additional_spell_costs, distinct_answers_exist,
-    extend_sacrifices_per_mana_symbol, pitch_costs_payable,
+    extend_sacrifices_per_mana_symbol, pitch_costs_payable, remaining_spell_card_costs,
 };
 mod payment;
 mod permissions;
@@ -2201,6 +2201,8 @@ fn alternative_parts_payable(
         | CostPart::PayEnergyX
         | CostPart::TapX(_)
         | CostPart::SacrificeX(_)
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_)
         | CostPart::SacrificeAll(_)
         | CostPart::PayCommanderColors
         | CostPart::PayAttachedManaCost
@@ -2229,6 +2231,8 @@ fn alternative_parts_payable(
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PutCounterSelf { .. }
+        | CostPart::DealDamageToYou(_)
+        | CostPart::Forage
         | CostPart::PayLifeX => true,
     })
 }

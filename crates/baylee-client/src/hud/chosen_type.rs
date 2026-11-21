@@ -415,6 +415,11 @@ fn wanted_labels(duel: &Duel, lang: Lang, detail: bool) -> Vec<(ObjectId, String
                     parts.push(exiled.join(", "));
                 }
             }
+            if let Some(partner) = object.paired_with().and_then(|id| view.object(id))
+                && !partner.name.is_empty()
+            {
+                parts.push(partner.name.to_string());
+            }
             (!parts.is_empty()).then(|| (object.id, parts.join(" · "), icon))
         })
         .collect()

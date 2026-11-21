@@ -4993,6 +4993,16 @@ pub enum Effect {
     /// counters on it and it becomes renowned until it leaves the battlefield.
     /// Appended to preserve replay identities.
     BecomeRenowned(u8),
+    /// Soulbond's resolution body (CR 702.95a–d): when `with_event_object` is
+    /// `false`, you may pair this source creature with an unpaired creature
+    /// you control; when `true`, you may pair this source creature with the
+    /// entering event creature if both are still unpaired creatures under your
+    /// control. Appended to preserve replay identities.
+    SoulbondPair {
+        /// `false` for soulbond's self-ETB trigger, `true` for soulbond's
+        /// other-creature-ETB trigger.
+        with_event_object: bool,
+    },
 }
 
 #[cfg(test)]

@@ -152,13 +152,19 @@ fn a_variant_name_is_matched_as_a_whole_word() {
 fn every_price_paid_by_naming_an_object_puts_a_menu_up() {
     let asks = [
         "Sacrifice(",
+        "SacrificeX(",
         "Discard(",
+        "DiscardX(",
         "TapOther(",
+        "TapX(",
         "TapN {",
         "ReturnToHand(",
         "ExileFromHand(",
         "ExileFromGraveyard(",
+        "ExileFromGraveyardX(",
         "PutCounterOnOther {",
+        "DealDamageToYou(",
+        "Forage",
     ];
     let mut found = 0;
     for (oracle_id, def) in baylee_cards::generated::ALL {

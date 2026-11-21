@@ -395,6 +395,9 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     } else if let Some(player) = object.attached_player() {
         out.push(format!("attached to {}", table.player(player)));
     }
+    if let Some(partner) = object.paired_with() {
+        out.push(format!("paired with {}", table.named(partner)));
+    }
     let combat = &table.view.combat;
     if let Some(attack) = combat.attackers.iter().find(|a| a.creature == object.id) {
         out.push(format!("attacking {}", defender(table, attack.defending)));
@@ -408,6 +411,32 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     if object.controller != object.owner {
         out.push(format!("owned by {}", table.player(object.owner)));
     }
+    push_chosen_details(table, object, &mut out);
+    for choice in table
+        .view
+        .held_choices
+        .iter()
+        .filter(|c| c.object == Some(object.id))
+    {
+        out.push(format!(
+            "chosen by {} to {}",
+            table.player(choice.player),
+            chosen_action_verb(choice.action)
+        ));
+    }
+    if let Some([left, right]) = object.unlocked_doors {
+        let open: Vec<&str> = [(left, "left"), (right, "right")]
+            .into_iter()
+            .filter_map(|(open, side)| open.then_some(side))
+            .collect();
+        if !open.is_empty() {
+            out.push(format!("unlocked: {}", open.join(" and ")));
+        }
+    }
+    out
+}
+
+fn push_chosen_details(table: &Table<'_>, object: &PublicObject, out: &mut Vec<String>) {
     match (
         object
             .chosen_subtype
@@ -453,28 +482,6 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
             .collect();
         out.push(format!("exiled: {}", exiled.join(", ")));
     }
-    for choice in table
-        .view
-        .held_choices
-        .iter()
-        .filter(|c| c.object == Some(object.id))
-    {
-        out.push(format!(
-            "chosen by {} to {}",
-            table.player(choice.player),
-            chosen_action_verb(choice.action)
-        ));
-    }
-    if let Some([left, right]) = object.unlocked_doors {
-        let open: Vec<&str> = [(left, "left"), (right, "right")]
-            .into_iter()
-            .filter_map(|(open, side)| open.then_some(side))
-            .collect();
-        if !open.is_empty() {
-            out.push(format!("unlocked: {}", open.join(" and ")));
-        }
-    }
-    out
 }
 
 /// What an attack is aimed at: "you", "P2", "Jace #90".

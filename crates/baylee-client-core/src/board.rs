@@ -2092,7 +2092,7 @@ fn individual_objects(view: &PlayerView, lookup: &Lookup<'_>) -> HashMap<ObjectI
         if let Some(host) = o.attached_to {
             map.entry(o.id).or_insert(Individual::Attached);
             map.entry(host).or_insert(Individual::HasAttachments);
-        } else if o.attached_player().is_some() {
+        } else if o.attached_player().is_some() || o.paired_with().is_some() {
             map.entry(o.id).or_insert(Individual::Attached);
         }
     }

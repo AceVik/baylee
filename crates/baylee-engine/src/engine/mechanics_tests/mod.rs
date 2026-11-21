@@ -73,6 +73,7 @@ mod wave4_exile_and_costs;
 mod wave4_triggers_auras_locks;
 mod wave5_costs_and_manifest;
 mod wave5b_keywords_heroic_enlist_bolster;
+mod wave6a_triggers_costs_soulbond_modular;
 mod wave6b_plot_casualty_backup;
 mod wave6c_combat_damage_renown;
 mod zones;
