@@ -2090,7 +2090,43 @@ impl HeuristicAgent {
                 }
             }
             Effect::BecomeRenowned(n) => i64::from(*n) * 110 + 40,
-            Effect::SearchLibrary { .. }
+            Effect::Incubate { who, count: n } => {
+                let counters = count(*n)?.max(0);
+                let per_player = 60 + counters * 95;
+                let mut total = 0_i64;
+                for p in self.players(view, *who, aim)? {
+                    total = total.saturating_add(if self.hostile(p, me) {
+                        -per_player
+                    } else {
+                        per_player
+                    });
+                }
+                total
+            }
+            Effect::TransformSource => {
+                let src = origin.object?;
+                if src.token != Some(baylee_cards::tokens::INCUBATOR_TOKEN_ID) {
+                    return None;
+                }
+                let p1p1 = src
+                    .counters
+                    .iter()
+                    .find_map(|c| {
+                        matches!(
+                            c.kind,
+                            baylee_view::CounterKind::Plus {
+                                power: 1,
+                                toughness: 1,
+                            }
+                        )
+                        .then_some(i64::from(c.count))
+                    })
+                    .unwrap_or(0);
+                if p1p1 > 0 { p1p1 * 110 + 60 } else { -200 }
+            }
+            Effect::Exploit => 60,
+            Effect::ReturnCraftedTransformed
+            | Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }
             | Effect::WishToHand { .. }
             | Effect::LookAtTopPick { .. }
@@ -3019,6 +3055,7 @@ impl HeuristicAgent {
                 .min()?,
                 CostPart::TapN { .. } => return None,
                 CostPart::Crew(_) | CostPart::Saddle(_) => 80,
+                CostPart::CraftMaterials { min, .. } => i64::from(*min) * 80,
                 CostPart::ReturnToHand(filter) => own(filter, &|_| true)
                     .into_iter()
                     .map(|o| i64::from(o.mana_value) * 60 + 50)

@@ -670,6 +670,19 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
                 facts.makes.add(Stuff::POWER);
             }
         }
+        Effect::Incubate { count, .. } => {
+            facts.reads.add(counted(count));
+            facts.makes.add(Stuff::BOARD);
+            facts.makes.add(Stuff::COUNTERS);
+        }
+        Effect::Exploit => {
+            facts.reads.add(Stuff::BOARD);
+            facts.deeds.add(Deeds::ASKS);
+            facts.deeds.add(Deeds::MAY);
+            facts.deeds.add(Deeds::REMOVES);
+            facts.makes.add(Stuff::BOARD);
+            facts.makes.add(Stuff::GRAVEYARD);
+        }
         Effect::Proliferate => {
             facts.reads.add(Stuff::COUNTERS);
             facts.makes.add(Stuff::COUNTERS);
@@ -683,7 +696,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.deeds.add(Deeds::MAY);
             facts.makes.add(Stuff::BOARD);
         }
-        Effect::ManifestTop { .. } => {
+        Effect::ManifestTop { .. } | Effect::ReturnCraftedTransformed => {
             facts.makes.add(Stuff::BOARD);
         }
         Effect::ManifestDread => {

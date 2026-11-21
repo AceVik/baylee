@@ -329,6 +329,10 @@ pub enum Amount {
     /// Number of distinct opponents you declared at least one attacking
     /// creature against during this combat (CR 702.121a: melee, Adriana).
     OpponentsYouAttackedThisCombat,
+    /// Total damage dealt to your opponents this turn (Bloodthirst X,
+    /// CR 702.54b — strictly damage dealt, not non-damage life loss).
+    /// Appended to preserve replay identities.
+    DamageDealtToOpponentsThisTurn,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

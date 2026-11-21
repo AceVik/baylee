@@ -49,6 +49,45 @@ pub static ETERNALIZE_MODS: &[CopyMod] = &[
     CopyMod::NoManaCost,
 ];
 
+static INCUBATOR_TRANSFORM_ABILITIES: &[AbilityDef] = &[AbilityDef::Activated {
+    cost: Cost {
+        mana: baylee_core::mana!("{2}"),
+        parts: &[],
+    },
+    effects: &[Effect::TransformSource],
+    targets: None,
+    second_targets: None,
+    timing: ActivationTiming::InstantSpeed,
+    mana_ability: false,
+    zone: ActivationZone::Battlefield,
+    limit: ActivationLimit::Unlimited,
+    x_value: ActivationX::Any,
+    cost_reduction: None,
+}];
+
+/// Back face of an Incubator token (CR 111.10i, CR 701.53b): 0/0 colorless
+/// Phyrexian artifact creature token.
+pub static PHYREXIAN_TOKEN: TokenDef = TokenDef {
+    name: "Phyrexian",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[baylee_core::generated::subtypes::creature::PHYREXIAN],
+    power: Some(0),
+    toughness: Some(0),
+    ..TokenDef::DEFAULT
+};
+
+/// Predefined double-faced Incubator token (CR 111.10i, CR 701.53a–b):
+/// colorless Incubator artifact with `{2}: Transform this token.` whose back
+/// face is [`PHYREXIAN_TOKEN`].
+pub static INCUBATOR_TOKEN: TokenDef = TokenDef {
+    name: "Incubator",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[baylee_core::generated::subtypes::artifact::INCUBATOR],
+    abilities: INCUBATOR_TRANSFORM_ABILITIES,
+    back_face: Some(&PHYREXIAN_TOKEN),
+    ..TokenDef::DEFAULT
+};
+
 pub use ability::{
     AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, AmountCmp,
     Condition, CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
@@ -1104,6 +1143,12 @@ pub enum EnterModifier {
         /// Condition tested as the permanent enters.
         condition: crate::Condition,
     },
+    /// "Bloodthirst N" / "Bloodthirst X" (CR 702.54a–c, CR 614.1c, CR 614.16):
+    /// if an opponent was dealt damage this turn, this permanent enters with
+    /// `amount` (`Amount::Fixed(n)` or `Amount::DamageDealtToOpponentsThisTurn`)
+    /// +1/+1 counters on it. Repeat for multiple instances so each applies
+    /// separately (CR 702.54c). Appended to preserve replay identities.
+    Bloodthirst(Amount),
 }
 
 impl EnterModifier {
@@ -1221,6 +1266,9 @@ keywords! {
     MODULAR = 62, "Modular (CR 702.43).";
     SOULBOND = 63, "Soulbond (CR 702.95).";
     RENOWN = 66, "Renown (CR 702.112).";
+    EXPLOIT = 76, "Exploit (CR 702.110).";
+    EVOLVE = 77, "Evolve (CR 702.100).";
+    BLOODTHIRST = 78, "Bloodthirst (CR 702.54).";
 }
 
 impl KeywordSet {
@@ -1352,6 +1400,9 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::MODULAR, "Modular"),
     (KeywordSet::SOULBOND, "Soulbond"),
     (KeywordSet::RENOWN, "Renown"),
+    (KeywordSet::EXPLOIT, "Exploit"),
+    (KeywordSet::EVOLVE, "Evolve"),
+    (KeywordSet::BLOODTHIRST, "Bloodthirst"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

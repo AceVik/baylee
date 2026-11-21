@@ -673,16 +673,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let wanted = cost_wizard::answers_wanted(priced_cost);
         // X = 0 still supplies one (empty) answer for its cost part.
         while self.activation_cost_choices.len() < wanted
-            && self.activation_x == Some(0)
-            && matches!(
-                cost_wizard::asking_parts(priced_cost).nth(self.activation_cost_choices.len()),
+            && match cost_wizard::asking_parts(priced_cost).nth(self.activation_cost_choices.len())
+            {
                 Some(
                     CostPart::SacrificeX(_)
-                        | CostPart::TapX(_)
-                        | CostPart::DiscardX(_)
-                        | CostPart::ExileFromGraveyardX(_)
-                )
-            )
+                    | CostPart::TapX(_)
+                    | CostPart::DiscardX(_)
+                    | CostPart::ExileFromGraveyardX(_),
+                ) => self.activation_x == Some(0),
+                Some(CostPart::CraftMaterials { min, max, .. }) => {
+                    *max == 0
+                        || (*min == 0
+                            && cost_wizard::menu(
+                                &self.state,
+                                player,
+                                source,
+                                priced_cost,
+                                cost_wizard::asking_parts(priced_cost)
+                                    .nth(self.activation_cost_choices.len())
+                                    .expect("checked"),
+                            )
+                            .is_empty())
+                }
+                _ => false,
+            }
         {
             self.activation_cost_choices.push(Vec::new());
         }
@@ -787,13 +801,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     u8::try_from(self.activation_x.unwrap_or(0)).unwrap_or(u8::MAX),
                     None,
                 )
+            } else if let CostPart::CraftMaterials { max, .. } = part {
+                (
+                    (*max).min(u8::try_from(options.len()).unwrap_or(u8::MAX)),
+                    None,
+                )
             } else {
                 (1, None)
             };
             self.pending = Pending::ChooseCards {
                 player,
                 options,
-                min: if matches!(
+                min: if let CostPart::CraftMaterials { min, .. } = part {
+                    *min
+                } else if matches!(
                     part,
                     CostPart::SacrificeX(_)
                         | CostPart::TapX(_)

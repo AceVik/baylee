@@ -1886,11 +1886,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // transforms in between would show the same face again and are not
         // told apart; nothing in the pool reaches that.)
         Effect::TransformSource => {
-            let printed = state
-                .object(res.on_stack)
-                .and_then(|ability| ability.own_origin)
-                .and_then(crate::object::AbilityOrigin::printed)
-                .map(crate::object::PrintedFace::face);
+            let printed = state.object(res.on_stack).and_then(|ability| {
+                ability
+                    .own_origin
+                    .and_then(crate::object::AbilityOrigin::printed)
+                    .map(crate::object::PrintedFace::face)
+                    .or_else(|| {
+                        ability.riders.iter().find_map(|r| match r {
+                            crate::object::Rider::AbilitySourceFace(face) => Some(*face),
+                            _ => None,
+                        })
+                    })
+            });
             if let Some(obj) = state.object_mut(res.source)
                 && obj.zone == crate::zone::Zone::Battlefield
                 && !obj.status.contains(crate::object::Status::PHASED_OUT)

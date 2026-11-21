@@ -74,6 +74,15 @@ impl Effect {
         }
     }
 
+    /// "Incubate N." (CR 701.53a)
+    #[must_use]
+    pub const fn incubate(count: u32) -> Self {
+        Self::Incubate {
+            who: super::PlayerRel::You,
+            count: Amount::Fixed(count),
+        }
+    }
+
     /// "You gain 3 life."
     #[must_use]
     pub const fn gain_life(life: u32) -> Self {
@@ -1330,7 +1339,10 @@ impl Effect {
             | Effect::Backup { .. }
             | Effect::BecomeRenowned(_)
             | Effect::SoulbondPair { .. }
-            | Effect::DeliverGift(_) => (NONE, NONE),
+            | Effect::DeliverGift(_)
+            | Effect::Incubate { .. }
+            | Effect::Exploit
+            | Effect::ReturnCraftedTransformed => (NONE, NONE),
         }
     }
 

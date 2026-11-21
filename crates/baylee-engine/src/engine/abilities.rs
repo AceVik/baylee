@@ -183,7 +183,8 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::DealDamageToYou(_)
         | CostPart::DiscardX(_)
         | CostPart::ExileFromGraveyardX(_)
-        | CostPart::Forage => false,
+        | CostPart::Forage
+        | CostPart::CraftMaterials { .. } => false,
     }
 }
 
@@ -231,7 +232,8 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExileTopOfLibrary(_)
         | CostPart::PutCounterOnOther { .. }
-        | CostPart::Forage => true,
+        | CostPart::Forage
+        | CostPart::CraftMaterials { .. } => true,
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::ExertSelf

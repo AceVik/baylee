@@ -5008,6 +5008,28 @@ pub enum Effect {
     /// `GameEvent::GiftGiven` for `Trigger::GaveGift` (CR 702.174c). Appended
     /// to preserve replay identities.
     DeliverGift(crate::GiftKind),
+    /// Incubate `count` for each player matching `who` (CR 701.53a–b,
+    /// CR 111.10i): create a double-faced Incubator // Phyrexian token that
+    /// enters the battlefield with `count` +1/+1 counters on it. Appended to
+    /// preserve replay identities.
+    Incubate {
+        /// Which player(s) incubate.
+        who: PlayerRel,
+        /// Number of +1/+1 counters the Incubator token enters with.
+        count: Amount,
+    },
+    /// Exploit's optional ETB sacrifice resolution effect (CR 702.110a–b): you
+    /// may sacrifice a creature you control (including this permanent if still
+    /// a controlled creature), emitting `GameEvent::CreatureExploited` for
+    /// [`crate::Trigger::Exploited`]. Appended to preserve replay identities.
+    Exploit,
+    /// Craft's resolution effect (CR 702.167a–c, CR 712.11a–b): if the source
+    /// card exiled to pay this ability's cost is still in exile and has a
+    /// permanent back face, return it to the battlefield transformed under its
+    /// owner's control and link the exiled material cards from
+    /// [`crate::CostPart::CraftMaterials`] to that permanent. Appended to
+    /// preserve replay identities.
+    ReturnCraftedTransformed,
 }
 
 #[cfg(test)]

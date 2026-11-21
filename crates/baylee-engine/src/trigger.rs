@@ -13,6 +13,7 @@ pub(crate) mod bird_entry;
 mod combat_keywords;
 mod discarded;
 mod emblems;
+mod entry_keywords;
 mod event_groups;
 mod events;
 mod flanking;
@@ -707,17 +708,32 @@ fn begins_step(
     }
 }
 
-fn cast_mana_value(state: &GameState, event: &GameEvent) -> Option<u32> {
-    let GameEvent::SpellCast { object, .. } = event else {
-        return None;
-    };
-    let spell = state.object(*object)?;
-    let chars = spell.characteristics();
-    Some(
-        chars
-            .front_mana_value
-            .map_or_else(|| chars.mana_cost.with_x(spell.x_value).cmc(), u32::from),
-    )
+fn cast_mana_value(state: &GameState, entry: &crate::event::JournalEntry) -> Option<u32> {
+    match &entry.event {
+        GameEvent::SpellCast { object, .. } => {
+            let spell = state.object(*object)?;
+            let chars = spell.characteristics();
+            Some(
+                chars
+                    .front_mana_value
+                    .map_or_else(|| chars.mana_cost.with_x(spell.x_value).cmc(), u32::from),
+            )
+        }
+        GameEvent::CreatureExploited { exploited, .. } => {
+            let obj = entry
+                .departure
+                .as_ref()
+                .and_then(|dep| {
+                    state.source_object(baylee_core::ids::DamageSourceRef {
+                        object: *exploited,
+                        version: dep.version,
+                    })
+                })
+                .or_else(|| state.object_or_departed(*exploited))?;
+            Some(obj.characteristics().mana_value())
+        }
+        _ => None,
+    }
 }
 
 /// The largest generic ward cost [`WARD_PAY_OR_COUNTER`] can charge.
@@ -1135,6 +1151,16 @@ fn collect_for_objects(
                 batch_has_enlists,
                 triggers,
             );
+            if all_kinds {
+                entry_keywords::collect(
+                    state,
+                    obj,
+                    events,
+                    &moves,
+                    batch_has_zone_changes,
+                    triggers,
+                );
+            }
         }
         if all_kinds && !phased_out_only && batch_has_zone_changes {
             soulbond::collect(
@@ -1301,7 +1327,7 @@ fn collect_for_objects(
                     let event_ability = activated_stack_ability(&entry.event);
                     let event_object_identity =
                         event_object.and_then(|id| event_identity_for(trigger, entry, id, state));
-                    let event_mana_value = cast_mana_value(state, &entry.event);
+                    let event_mana_value = cast_mana_value(state, entry);
                     let event_departure = entry
                         .departure
                         .as_ref()
@@ -1707,7 +1733,7 @@ fn collect_for_objects(
                         }
                     });
                     let event_mana = produced_mana(&entry.event, events);
-                    let event_mana_value = cast_mana_value(state, &entry.event);
+                    let event_mana_value = cast_mana_value(state, entry);
                     let event_departure = entry
                         .departure
                         .as_ref()

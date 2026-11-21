@@ -285,6 +285,10 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::BecomeRenowned(n) => {
             ch.counters_add += f32::from(*n).max(1.0);
         }
+        Effect::Incubate { count, .. } => {
+            ch.tokens_create += 1.5;
+            ch.counters_add += amount_scalar(count).max(1.0);
+        }
         Effect::Proliferate
         | Effect::AddCountersUpTo { .. }
         | Effect::DoubleCountersFilter { .. }
@@ -331,7 +335,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::GraveyardAllToHand { .. }
         | Effect::RandomGraveyardToHand { .. }
         | Effect::ReturnFromGraveyardOf { .. }
-        | Effect::ReanimateEnchanted => {
+        | Effect::ReanimateEnchanted
+        | Effect::ReturnCraftedTransformed => {
             ch.reanimate += 1.0;
         }
         Effect::GainLife { amount } | Effect::GainLifeFor { amount, .. } => {
@@ -350,7 +355,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::SacrificeChosenByOpponent { .. }
         | Effect::SacrificeObject { .. }
         | Effect::SacrificeEvent
-        | Effect::DungeonSacrificeThree => {
+        | Effect::DungeonSacrificeThree
+        | Effect::Exploit => {
             ch.sacrifice_force += 1.0;
         }
         Effect::Blink { .. }

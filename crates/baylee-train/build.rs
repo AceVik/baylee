@@ -78,6 +78,14 @@ fn fields_code(fields: &Fields, label: &str, target: &str, is_enum: bool) -> (St
             .unwrap();
             continue;
         }
+        if label == "TokenDef" && ["back_face"].contains(&field.as_str()) {
+            writeln!(
+                present_only,
+                "if self.{field}.is_some() {{ children.push(b.field(\"{label}.{field}\", {access})); }}"
+            )
+            .unwrap();
+            continue;
+        }
         writeln!(code, "b.field(\"{label}.{field}\", {access}),").unwrap();
     }
     code.push_str("];\n");

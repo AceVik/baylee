@@ -606,3 +606,86 @@ pub(super) fn become_renowned(state: &mut GameState, res: &Resolution, count: u8
         state.board_state_changed();
     }
 }
+
+/// Starts `Effect::Exploit` (`CR 702.110a–b`): offers an optional untargeted
+/// sacrifice of any creature controlled by `res.controller` (including
+/// `res.source` itself if still a controlled creature on the battlefield).
+pub(super) fn start_exploit(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
+    let you = res.controller;
+    if state.has_left(you) {
+        return None;
+    }
+    let options: Vec<ObjectId> = state
+        .battlefield_seen()
+        .filter(|&id| {
+            state.object(id).is_some_and(|o| {
+                o.controller == you
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+            })
+        })
+        .collect();
+    if options.is_empty() {
+        return None;
+    }
+    res.awaiting = Some(AwaitingOp::Exploit);
+    Some(Pending::ChooseCards {
+        player: you,
+        options,
+        min: 0,
+        max: 1,
+        prompt: ChoicePrompt::SacrificeFor { player: you },
+        total: None,
+    })
+}
+
+/// Resumes `Effect::Exploit` once the controller picks `0` or `1` creature to
+/// sacrifice, recording `GameEvent::CreatureExploited` with pre-sacrifice LKI.
+pub(super) fn resume_exploit(state: &mut GameState, res: &Resolution, chosen: &[ObjectId]) {
+    let Some(&sac_id) = chosen.first() else {
+        return;
+    };
+    let you = res.controller;
+    let legal = state.object(sac_id).is_some_and(|o| {
+        o.zone == Zone::Battlefield
+            && !o.status.contains(Status::PHASED_OUT)
+            && o.controller == you
+            && o.characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+    });
+    if !legal {
+        return;
+    }
+    let exploiter =
+        subjects::source(state, res).unwrap_or_else(|| baylee_core::ids::DamageSourceRef {
+            object: res.source,
+            version: state.object(res.source).map_or(0, |o| o.version),
+        });
+    let before_version = state.object(sac_id).map(|o| o.version);
+    let departure = state.departure_snapshot(sac_id);
+    let mut departure_event = departure.as_ref().map(|d| d.event.clone());
+    if let Some(dep) = &mut departure_event {
+        dep.sacrificed = true;
+    }
+    if let Some(obj) = state.object_mut(sac_id)
+        && obj.is_card()
+    {
+        obj.kind = ObjectKind::Card;
+    }
+    let _ = state.sacrifice_object_with_departure(sac_id, Cause::Effect, departure);
+    if state
+        .object(sac_id)
+        .is_none_or(|o| o.zone != Zone::Battlefield || Some(o.version) != before_version)
+    {
+        state.journal.record_departure(
+            GameEvent::CreatureExploited {
+                exploiter,
+                exploited: sac_id,
+                player: you,
+            },
+            departure_event,
+        );
+    }
+}

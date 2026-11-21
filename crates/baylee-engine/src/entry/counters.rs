@@ -89,6 +89,23 @@ fn collect_modifier_counters(
                     .counters
                     .push((None, CounterKind::P1P1, u16::from(*counters)));
             }
+            EnterModifier::Bloodthirst(amount)
+                if crate::eval::condition_holds(
+                    state,
+                    entry.controller,
+                    entry.object,
+                    baylee_cards_dsl::Condition::OpponentDealtDamageThisTurn,
+                ) =>
+            {
+                let n = crate::eval::amount(amount, state, entry.controller, entry.object, Some(x));
+                if n > 0 {
+                    entry.counters.push((
+                        None,
+                        CounterKind::P1P1,
+                        u16::try_from(n).unwrap_or(u16::MAX),
+                    ));
+                }
+            }
             _ => {}
         }
     }

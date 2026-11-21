@@ -597,7 +597,8 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::SacrificeGrantor
         | CostPart::DiscardX(_)
         | CostPart::ExileFromGraveyardX(_)
-        | CostPart::Forage => false,
+        | CostPart::Forage
+        | CostPart::CraftMaterials { .. } => false,
     })
 }
 

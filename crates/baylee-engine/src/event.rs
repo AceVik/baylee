@@ -636,6 +636,16 @@ pub enum GameEvent {
         /// The chosen opponent who received the gift.
         recipient: PlayerId,
     },
+    /// A creature exploited a creature by sacrificing it as its exploit ability
+    /// resolved (CR 702.110a–b).
+    CreatureExploited {
+        /// Exact incarnation of the exploiting creature.
+        exploiter: baylee_core::ids::DamageSourceRef,
+        /// The sacrificed exploited creature.
+        exploited: ObjectId,
+        /// The player who sacrificed the creature.
+        player: PlayerId,
+    },
 }
 
 /// Where in a library a card was put.

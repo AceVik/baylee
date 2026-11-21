@@ -720,6 +720,7 @@ fn bargain_sacrifices_artifact_enchantment_or_token_and_sets_bargained_without_k
         subtypes: &[],
         keywords: KeywordSet::EMPTY,
         abilities: &[],
+        back_face: None,
     };
     static MAKE_TOKEN_ABILS: [AbilityDef; 1] = [free(
         &[Effect::CreateToken {

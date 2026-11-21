@@ -118,7 +118,8 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::DealDamageToYou(_)
         | CostPart::DiscardX(_)
         | CostPart::ExileFromGraveyardX(_)
-        | CostPart::Forage => false,
+        | CostPart::Forage
+        | CostPart::CraftMaterials { .. } => false,
         CostPart::ExileTopOfLibrary(_) => true,
     }
 }

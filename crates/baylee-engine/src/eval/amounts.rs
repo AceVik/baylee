@@ -227,6 +227,7 @@ pub fn amount_with_context(
         Amount::CountOf { filter, zone } => count_in_zone(filter, *zone, state, you, context),
         Amount::OpponentsLifeLostThisTurn => opponents_life_lost(state, you),
         Amount::OpponentsYouAttackedThisCombat => state.combat.opponents_attacked_by(state, you),
+        Amount::DamageDealtToOpponentsThisTurn => damage_dealt_to_opponents_this_turn(state, you),
     }
 }
 
@@ -249,6 +250,16 @@ fn opponents_life_lost(state: &GameState, you: PlayerId) -> u32 {
         .filter(|p| !state.has_left(p.id) && state.is_opponent(p.id, you))
         .fold(0u32, |total, p| {
             total.saturating_add(state.per_turn.life_lost_amount[usize::from(p.id.get())])
+        })
+}
+
+pub(crate) fn damage_dealt_to_opponents_this_turn(state: &GameState, you: PlayerId) -> u32 {
+    state
+        .players
+        .iter()
+        .filter(|p| !state.has_left(p.id) && state.is_opponent(p.id, you))
+        .fold(0u32, |total, p| {
+            total.saturating_add(state.per_turn.damage_dealt_to[usize::from(p.id.get())])
         })
 }
 

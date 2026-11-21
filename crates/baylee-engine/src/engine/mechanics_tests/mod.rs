@@ -77,6 +77,7 @@ mod wave6a_triggers_costs_soulbond_modular;
 mod wave6b_plot_casualty_backup;
 mod wave6c_combat_damage_renown;
 mod wave7a_impending_gift_linked_counters;
+mod wave7b_incubate_exploit_craft_evolve_bloodthirst;
 mod zones;
 
 use super::synthetic::{SyntheticLookup, forest, land_face, walk_past};

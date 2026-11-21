@@ -146,15 +146,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let still_there = self.state.object(card).is_some_and(|o| {
             o.zone == crate::zone::Zone::Battlefield && o.version == version && o.face_index == face
         });
-        if still_there
-            && let Some(def) = self
+        if still_there {
+            if let Some(def) = self
                 .state
                 .object(card)
                 .and_then(|o| o.card)
                 .and_then(|c| self.lookup.card(c.index))
-        {
-            self.state
-                .transform(card, def, 1 - usize::from(face.min(1)));
+            {
+                self.state
+                    .transform(card, def, 1 - usize::from(face.min(1)));
+            } else {
+                self.state.transform_token(card, 1 - face.min(1));
+            }
         }
     }
 

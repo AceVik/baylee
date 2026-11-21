@@ -310,6 +310,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             create_tokens_with_text(state, res.controller, token, None, 1, res.text);
             None
         }
+        Effect::Incubate { who, count } => {
+            let n = u16::try_from(amount2(&count, state, you, res)).unwrap_or(u16::MAX);
+            for controller in players_of(who, state, you, res) {
+                let created = create_tokens_with_text(
+                    state,
+                    controller,
+                    &baylee_cards_dsl::INCUBATOR_TOKEN,
+                    None,
+                    1,
+                    res.text,
+                );
+                for id in created {
+                    crate::entry::put_entry_counters(
+                        state,
+                        id,
+                        baylee_cards_dsl::CounterKind::P1P1,
+                        n,
+                    );
+                }
+            }
+            None
+        }
         Effect::CreateTokenCopy {
             target,
             controller,
@@ -735,15 +757,18 @@ fn create_token_copies_with_lki(
     let own = source_lki
         .map(|lki| lki.printed_ability_list(state.bases.as_ref()))
         .or_else(|| state.printed_ability_list(original));
-    let (token, face) =
-        source_lki
-            .or_else(|| state.object(original))
-            .map_or((None, None), |object| {
-                (
-                    object.token,
-                    object.card.map(|card| (card.index, object.face_index)),
-                )
-            });
+    let (token, token_face, keep_own_abilities, face) = source_lki
+        .or_else(|| state.object(original))
+        .map_or((None, 0, true, None), |object| {
+            let dfc_token =
+                object.card.is_none() && object.token.is_some_and(|t| t.back_face.is_some());
+            (
+                object.token,
+                if dfc_token { object.face_index } else { 0 },
+                !dfc_token || object.own_abilities.is_some(),
+                object.card.map(|card| (card.index, object.face_index)),
+            )
+        });
     let Some(count) = crate::replacement::token_multiplier(state, controller, base.types)
         .and_then(|factor| count.checked_mul(factor))
     else {
@@ -758,10 +783,11 @@ fn create_token_copies_with_lki(
                     GameObject::new_bare(oid, controller, ObjectKind::Permanent, base.clone());
                 obj.timestamp = ts;
                 obj.controlled_since = ts;
-                if let Some(own) = &own {
+                if keep_own_abilities && let Some(own) = &own {
                     obj.take_abilities(own.clone());
                 }
                 obj.token = token;
+                obj.face_index = token_face;
                 obj
             });
             if let Some((card, face)) = face {

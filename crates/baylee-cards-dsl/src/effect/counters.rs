@@ -178,7 +178,7 @@ impl CounterKind {
 /// the same [`crate::AbilityDef`] slice a card face carries, so a Treasure's
 /// "{T}, Sacrifice this artifact: Add one mana of any color" is written and
 /// executed exactly like the identical ability printed on a real card.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct TokenDef {
     /// Token name.
     pub name: &'static str,
@@ -216,6 +216,31 @@ pub struct TokenDef {
     /// means "no picture chosen", and a client draws the face instead rather
     /// than issuing a request that cannot succeed.
     pub scryfall_id: &'static str,
+    /// Optional back face of a double-faced token (CR 111.10i, CR 701.53b,
+    /// CR 701.27a, CR 712.7: Incubator // Phyrexian). `None` for single-faced
+    /// tokens.
+    pub back_face: Option<&'static TokenDef>,
+}
+
+impl core::hash::Hash for TokenDef {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.colors.hash(state);
+        self.types.hash(state);
+        self.supertypes.hash(state);
+        self.subtypes.hash(state);
+        self.power.hash(state);
+        self.toughness.hash(state);
+        self.loyalty.hash(state);
+        self.defense.hash(state);
+        self.keywords.hash(state);
+        self.abilities.hash(state);
+        self.scryfall_id.hash(state);
+        // Hashed only when present so existing single-faced token replay hashes stay unchanged.
+        if let Some(back) = self.back_face {
+            back.hash(state);
+        }
+    }
 }
 
 impl TokenDef {
@@ -237,5 +262,19 @@ impl TokenDef {
         keywords: KeywordSet::EMPTY,
         abilities: &[],
         scryfall_id: "",
+        back_face: None,
     };
+
+    /// Active face of this token (`0` front, `1+` back face when double-faced,
+    /// falling back to `self` on single-faced tokens; CR 701.27a, CR 712.7).
+    #[must_use]
+    pub const fn face(&'static self, face_index: u8) -> &'static Self {
+        if face_index == 0 {
+            self
+        } else if let Some(back) = self.back_face {
+            back
+        } else {
+            self
+        }
+    }
 }

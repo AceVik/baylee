@@ -1618,6 +1618,14 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(182);
             player.hash(h);
         }
+        crate::object::Rider::AbilitySourceFace(face) => {
+            h.u8(191);
+            h.u8(*face);
+        }
+        crate::object::Rider::CraftMaterial(mat) => {
+            h.u8(192);
+            mat.hash(h);
+        }
         _ => {}
     }
 }
@@ -2403,6 +2411,14 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::NinjutsuDefender(defender, version) => {
                 h.u8(109);
                 (defender, version).hash(h);
+            }
+            Rider::AbilitySourceFace(face) => {
+                h.u8(191);
+                h.u8(*face);
+            }
+            Rider::CraftMaterial(mat) => {
+                h.u8(192);
+                mat.hash(h);
             }
         }
     }

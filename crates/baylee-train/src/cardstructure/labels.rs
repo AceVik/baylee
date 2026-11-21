@@ -100,7 +100,7 @@ fn cards_and_life(v: &str, add: &mut dyn FnMut(bool, &'static str)) {
     );
     add(v.starts_with("Counter"), "counter_spell");
     add(
-        v.contains("CreateToken") || v == "Populate" || v == "Amass",
+        v.contains("CreateToken") || v == "Populate" || v == "Amass" || v == "Incubate",
         "token",
     );
     add(
@@ -113,7 +113,10 @@ fn cards_and_life(v: &str, add: &mut dyn FnMut(bool, &'static str)) {
 
 /// Zones, mana, the board and the turn: the remaining families.
 fn zones_and_board(v: &str, add: &mut dyn FnMut(bool, &'static str)) {
-    add(v.starts_with("Return") && v.ends_with("ToHand"), "bounce");
+    add(
+        (v.starts_with("Return") && v.ends_with("ToHand")) || v == "ReturnCraftedTransformed",
+        "bounce",
+    );
     add(
         (v.contains("Graveyard")
             && (v.contains("ToHand") || v.contains("ToBattlefield") || v.contains("ToTop")))
@@ -146,14 +149,15 @@ fn zones_and_board(v: &str, add: &mut dyn FnMut(bool, &'static str)) {
         (v.contains("Counter") && !v.starts_with("Counter"))
             || v == "Proliferate"
             || v == "Bolster"
-            || v == "BecomeRenowned",
+            || v == "BecomeRenowned"
+            || v == "Incubate",
         "counters",
     );
     add(
         v.starts_with("Tap") || v.starts_with("Untap") || v.starts_with("ToggleTap"),
         "tap_untap",
     );
-    add(v.contains("Sacrifice"), "sacrifice");
+    add(v.contains("Sacrifice") || v == "Exploit", "sacrifice");
     add(
         v.starts_with("GainControl")
             || v == "ChangeController"

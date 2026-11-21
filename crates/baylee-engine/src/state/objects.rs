@@ -115,6 +115,55 @@ impl GameState {
         true
     }
 
+    /// Puts face `face` of a double-faced token permanent up in place of the
+    /// one it shows (`CR 701.27a`, `CR 712.7`, `CR 111.10i`). Returns whether
+    /// the face changed.
+    pub fn turn_over_token(&mut self, id: ObjectId, face: u8) -> bool {
+        let Some((token, current_face)) = self.object(id).and_then(|o| {
+            o.card
+                .is_none()
+                .then_some(o.token?)
+                .filter(|t| t.back_face.is_some())
+                .map(|t| (t, o.face_index))
+        }) else {
+            return false;
+        };
+        let face = face.min(1);
+        if current_face == face {
+            return false;
+        }
+        self.effects.remove_where(|fx| {
+            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
+        });
+        self.replacement_rules.retain(|r| r.source != id);
+        let new_base = self.token_base(token.face(face), None);
+        if let Some(obj) = self.object_mut(id) {
+            obj.face_index = face;
+            obj.base = new_base;
+            obj.cache.clear();
+        }
+        self.characteristics_generation = u64::MAX;
+        true
+    }
+
+    /// Transforms a double-faced token permanent in place (`CR 701.27a,c`,
+    /// `CR 613.7g`, `CR 712.15`), keeping its object identity, counters,
+    /// status, and `controlled_since`, stamping a new `timestamp`, and
+    /// recording `GameEvent::Transformed`.
+    pub fn transform_token(&mut self, id: ObjectId, face: u8) -> bool {
+        let face = face.min(1);
+        if !self.turn_over_token(id, face) {
+            return false;
+        }
+        let ts = self.next_timestamp();
+        if let Some(obj) = self.object_mut(id) {
+            obj.timestamp = ts;
+        }
+        self.journal
+            .record(GameEvent::Transformed { object: id, face });
+        true
+    }
+
     /// Attach an Aura or Equipment to a new permanent. A new attachment
     /// gives it and its static effects a new timestamp (CR 613.7a, 613.7e).
     /// Reattaching to the same object does nothing (CR 701.3b).

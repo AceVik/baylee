@@ -97,7 +97,7 @@ fn exact_object_view(
             }),
         rules: obj.printed_face().filter(|_| known).map(rules_face),
         token: obj
-            .token
+            .active_token()
             .filter(|_| known)
             .map(baylee_cards::tokens::token_id),
         controller: obj.controller,
@@ -433,7 +433,7 @@ pub(super) fn public_object(
         // this crate is the one that can see both.
         token: state
             .merged_top(obj)
-            .token
+            .active_token()
             .map(baylee_cards::tokens::token_id),
         colors: chars.colors,
         // The projected keywords, and on the stack "can't be countered" as

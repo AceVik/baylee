@@ -25,6 +25,7 @@ use baylee_cards_dsl::{
     AbilityDef, Effect, Filter, KeywordSet, Modifier, PtCount, TokenDef, Trigger, activated, cost,
     mana_ability, static_ability, triggered,
 };
+pub use baylee_cards_dsl::{INCUBATOR_TOKEN, PHYREXIAN_TOKEN};
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{artifact, creature};
 use baylee_core::mana::ManaColor;
@@ -585,9 +586,20 @@ pub static ZOMBIE_2_2_BLACK: TokenDef = TokenDef {
 /// `cargo xtask codegen` may only append to it.
 pub use crate::generated_tokens::ALL;
 
+/// Stable reserved token id for [`INCUBATOR_TOKEN`] (`CR 111.10i`, `CR 701.53b`).
+pub const INCUBATOR_TOKEN_ID: u16 = u16::MAX - 3;
+/// Stable reserved token id for [`PHYREXIAN_TOKEN`] (`CR 111.10i`, `CR 701.53b`).
+pub const PHYREXIAN_TOKEN_ID: u16 = u16::MAX - 2;
+
 /// The stable id of a central token (its index in [`ALL`]).
 #[must_use]
 pub fn token_id(token: &TokenDef) -> u16 {
+    if std::ptr::eq(token, &INCUBATOR_TOKEN) {
+        return INCUBATOR_TOKEN_ID;
+    }
+    if std::ptr::eq(token, &PHYREXIAN_TOKEN) {
+        return PHYREXIAN_TOKEN_ID;
+    }
     ALL.iter()
         .position(|t| std::ptr::eq(*t, token))
         .or_else(|| ALL.iter().position(|t| **t == *token))
@@ -597,7 +609,11 @@ pub fn token_id(token: &TokenDef) -> u16 {
 /// The token a stable id names, if it names one.
 #[must_use]
 pub fn by_token_id(id: u16) -> Option<&'static TokenDef> {
-    ALL.get(id as usize).copied()
+    match id {
+        INCUBATOR_TOKEN_ID => Some(&INCUBATOR_TOKEN),
+        PHYREXIAN_TOKEN_ID => Some(&PHYREXIAN_TOKEN),
+        _ => ALL.get(id as usize).copied(),
+    }
 }
 
 /// The printed sentence of each ability of the card tokens that have one, in
@@ -619,6 +635,8 @@ static SENTENCES: &[(&TokenDef, &[&str])] = &[
         &TREASURE,
         &["{T}, Sacrifice this token: Add one mana of any color."],
     ),
+    // Incubate's predefined token (CR 111.10i, CR 701.53b).
+    (&INCUBATOR_TOKEN, &["{2}: Transform this token."]),
     // Investigate's reminder (CR 701.16a).
     (&CLUE, &["{2}, Sacrifice this token: Draw a card."]),
     // Every Blood maker's reminder.

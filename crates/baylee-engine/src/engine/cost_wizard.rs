@@ -74,6 +74,7 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::ExileFromGraveyard(_)
             | CostPart::ExileFromGraveyardX(_)
             | CostPart::ExileFromSingleGraveyard { .. }
+            | CostPart::CraftMaterials { .. }
             | CostPart::PutCounterOnOther { .. }
             | CostPart::Forage
     )
@@ -174,6 +175,38 @@ fn unblocked_attacker_options(state: &GameState, player: PlayerId) -> Vec<Object
         .collect()
 }
 
+fn craft_material_options(
+    state: &GameState,
+    player: PlayerId,
+    context: crate::text_changes::RuleContext,
+    filter: &baylee_cards_dsl::Filter,
+) -> Vec<ObjectId> {
+    let mut out: Vec<ObjectId> = state
+        .battlefield_view()
+        .iter()
+        .copied()
+        .filter(|&id| {
+            state.object(id).is_some_and(|o| {
+                o.controller == player
+                    && eval::matches_with_context(filter, state, o, player, context)
+            })
+        })
+        .collect();
+    out.extend(
+        state
+            .zones
+            .list(ZoneLocation::Graveyard(player))
+            .iter()
+            .copied()
+            .filter(|&id| {
+                state.object(id).is_some_and(|o| {
+                    o.is_card() && eval::matches_with_context(filter, state, o, player, context)
+                })
+            }),
+    );
+    out
+}
+
 /// Cost choices under the words captured by a resolving ability.
 #[allow(clippy::too_many_lines)]
 pub(crate) fn options_with_context(
@@ -243,6 +276,9 @@ pub(crate) fn options_with_context(
             out.extend(gy.iter().copied());
         }
         return out;
+    }
+    if let CostPart::CraftMaterials { filter, .. } = part {
+        return craft_material_options(state, player, context, filter);
     }
     let (zone, controlled, untapped) = match part {
         CostPart::Sacrifice(_)
@@ -385,6 +421,7 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
                 | CostPart::ExileFromGraveyardX(_)
                 | CostPart::ExilePermanent(_)
                 | CostPart::Forage
+                | CostPart::CraftMaterials { .. }
         )
     )
 }
@@ -401,6 +438,7 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         | CostPart::ExileFromGraveyard(_)
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::ExileFromSingleGraveyard { .. }
+        | CostPart::CraftMaterials { .. }
         | CostPart::ExilePermanent(_) => ChoicePrompt::CostExile,
         CostPart::PutCounterOnOther { .. } => ChoicePrompt::Generic,
         _ => ChoicePrompt::CostSacrifice,
@@ -481,7 +519,8 @@ pub(crate) fn pay(
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExilePermanent(_)
-        | CostPart::Forage => ZoneLocation::Exile(owner),
+        | CostPart::Forage
+        | CostPart::CraftMaterials { .. } => ZoneLocation::Exile(owner),
         _ => ZoneLocation::Graveyard(owner),
     };
     if matches!(part, CostPart::Discard(_) | CostPart::DiscardX(_)) {

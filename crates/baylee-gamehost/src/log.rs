@@ -710,6 +710,7 @@ impl GameLog {
             | GameEvent::CreatureEnlisted { .. }
             | GameEvent::CardPlotted { .. }
             | GameEvent::GiftGiven { .. }
+            | GameEvent::CreatureExploited { .. }
             | GameEvent::AttackerUnblocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.
@@ -1454,7 +1455,7 @@ impl GameLog {
                 print: card.print,
                 face: obj.face_index,
             }),
-            token: obj.token.map(baylee_cards::tokens::token_id),
+            token: obj.active_token().map(baylee_cards::tokens::token_id),
             // A split card off the stack by both names, "Fire // Ice".
             name: crate::view::known_text(state, obj),
         };

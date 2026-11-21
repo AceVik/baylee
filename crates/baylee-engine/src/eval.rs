@@ -27,7 +27,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 pub use amounts::{amount, amount_with_context, public_linked_exile_cards, tapped_power};
 pub(crate) use amounts::{colors_among, colors_in_zone, count_controlled_by, linked_exile_cards};
 pub(crate) use conditions::{
-    attached_for_ability, condition_reads_event, condition_with_event,
+    attached_for_ability, condition_reads_event, condition_with_event, evolve_holds,
     intervening_if_for_incarnation,
 };
 pub use conditions::{
@@ -1000,8 +1000,23 @@ pub(crate) fn damage_this_turn(
 }
 
 /// The X announced for `this`, where `cast_wizard` and an activation write
-/// it; 0 for a source that is gone or announced none.
-fn announced_x(state: &GameState, this: ObjectId) -> u32 {
+/// it; 0 for a source that is gone or announced none. When an activated or
+/// triggered ability of `this` is resolving on top of the stack with an
+/// announced `x_value`, read that stack object's `x_value` first (`CR 107.3a`,
+/// `CR 107.3m`, `CR 602.2b`).
+pub(crate) fn announced_x(state: &GameState, this: ObjectId) -> u32 {
+    if let Some(&top) = state.zones.list(crate::zone::ZoneLocation::Stack).last()
+        && let Some(stack_obj) = state.object(top)
+        && stack_obj.kind == crate::object::ObjectKind::AbilityOnStack
+        && stack_obj.ability.is_some_and(|loc| loc.source == this)
+        && (stack_obj.x_value > 0
+            || (stack_obj.paid.is_some()
+                && state
+                    .object(this)
+                    .is_none_or(|o| o.zone != crate::zone::Zone::Stack)))
+    {
+        return stack_obj.x_value;
+    }
     state.object(this).map_or(0, |o| o.x_value)
 }
 

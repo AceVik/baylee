@@ -606,6 +606,7 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokenThenAttachSelf { .. }
         | Effect::CreateTokenPtPerCount { .. }
         | Effect::CreateToken { .. }
+        | Effect::Incubate { .. }
         | Effect::CreateTokenCopy { .. }
         | Effect::ChooseAndCreateTokenCopy { .. }
         | Effect::CreateTokenFromLinked { .. } => tokens::exec(state, res, op),
@@ -4031,6 +4032,8 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::Bolster(amount) => wave4_combat::start_bolster(state, res, amount),
+        Effect::Exploit => wave4_combat::start_exploit(state, res),
+        Effect::ReturnCraftedTransformed => reanimation::exec(state, res, op),
         Effect::BecomeRenowned(count) => {
             wave4_combat::become_renowned(state, res, count);
             None

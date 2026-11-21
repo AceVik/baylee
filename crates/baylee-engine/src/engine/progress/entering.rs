@@ -271,6 +271,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             modifier,
                             EnterModifier::WithCounters { .. }
                                 | EnterModifier::WithCountersIf { .. }
+                                | EnterModifier::Bloodthirst(_)
                         ))
                 {
                     continue;
@@ -380,6 +381,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             if n > 0 {
                                 let n = u16::try_from(n).unwrap_or(u16::MAX);
                                 crate::replacement::put_counters(&mut self.state, id, *kind, n);
+                                changed = true;
+                            }
+                        }
+                    }
+                    EnterModifier::Bloodthirst(amount) => {
+                        if eval::condition_holds(
+                            &self.state,
+                            controller,
+                            id,
+                            baylee_cards_dsl::Condition::OpponentDealtDamageThisTurn,
+                        ) {
+                            let x = Some(self.state.object(id).map_or(0, |o| o.x_value));
+                            let n = crate::eval::amount(amount, &self.state, controller, id, x);
+                            if n > 0 {
+                                let n = u16::try_from(n).unwrap_or(u16::MAX);
+                                crate::replacement::put_counters(
+                                    &mut self.state,
+                                    id,
+                                    baylee_cards_dsl::CounterKind::P1P1,
+                                    n,
+                                );
                                 changed = true;
                             }
                         }

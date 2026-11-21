@@ -150,7 +150,8 @@ pub(super) const fn trigger_looks_back(trigger: &Trigger) -> bool {
         | Trigger::DiesNotSacrificed(_)
         | Trigger::LeavesBattlefield(_)
         | Trigger::LinkedCreatureLeaves
-        | Trigger::Sacrificed { .. } => true,
+        | Trigger::Sacrificed { .. }
+        | Trigger::Exploited { .. } => true,
         Trigger::ChangesZoneAll {
             origin,
             destination,
@@ -1409,8 +1410,92 @@ fn matches(
             eval::players_for_source(*who, state, you, Some(source))
                 .is_some_and(|seats| seats.contains(giver))
         }
+        (
+            Trigger::Exploited {
+                exploiter: exploiter_filter,
+                exploited: exploited_filter,
+            },
+            GameEvent::CreatureExploited {
+                exploiter,
+                exploited,
+                ..
+            },
+        ) => exploit_matches(
+            state,
+            event,
+            batch,
+            source,
+            you,
+            context,
+            (exploiter_filter, *exploiter),
+            (exploited_filter, *exploited),
+        ),
         _ => false,
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn exploit_matches(
+    state: &GameState,
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+    source: ObjectId,
+    you: PlayerId,
+    context: RuleContext,
+    (exploiter_filter, exploiter): (&baylee_cards_dsl::Filter, baylee_core::ids::DamageSourceRef),
+    (exploited_filter, exploited): (&baylee_cards_dsl::Filter, ObjectId),
+) -> bool {
+    let Some(entry) = event_groups::index_of_event(event, batch).and_then(|i| batch.get(i)) else {
+        return false;
+    };
+    let observer_alive = state
+        .object(source)
+        .is_some_and(|o| o.zone == Zone::Battlefield)
+        || exploited == source
+        || batch.iter().any(|e| {
+            e.seq > entry.seq
+                && matches!(
+                    e.event,
+                    GameEvent::ZoneChanged {
+                        object,
+                        from: Zone::Battlefield,
+                        ..
+                    } if object == source
+                )
+        });
+    if !observer_alive {
+        return false;
+    }
+    let exploiter_ok = state
+        .source_object(exploiter)
+        .or_else(|| state.object_or_departed(exploiter.object))
+        .is_some_and(|exp_obj| {
+            eval::matches_with_context(exploiter_filter, state, exp_obj, you, context)
+        });
+    if !exploiter_ok {
+        return false;
+    }
+    entry
+        .departure
+        .as_ref()
+        .and_then(|dep| {
+            state.source_object(baylee_core::ids::DamageSourceRef {
+                object: exploited,
+                version: dep.version,
+            })
+        })
+        .map_or_else(
+            || departed_matches(exploited_filter, state, exploited, you, context),
+            |snapshot| {
+                let mut as_it_was = snapshot.clone();
+                if let Some((_, counters)) =
+                    state.ltb_counters.iter().find(|(id, _)| *id == exploited)
+                {
+                    as_it_was.counters = counters.clone();
+                }
+                eval::matches_with_context(exploited_filter, state, &as_it_was, you, context)
+            },
+        )
 }
 
 #[allow(clippy::too_many_arguments)]

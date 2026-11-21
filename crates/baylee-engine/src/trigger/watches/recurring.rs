@@ -66,7 +66,7 @@ pub(super) fn collect(
                 event_player: events::event_player_for(&trigger, entry, state),
                 event_ability: crate::trigger::activated_stack_ability(&entry.event),
                 event_mana: super::produced_mana(&entry.event, events),
-                event_mana_value: crate::trigger::cast_mana_value(state, &entry.event),
+                event_mana_value: crate::trigger::cast_mana_value(state, entry),
                 event_departure: entry
                     .departure
                     .as_ref()
@@ -231,7 +231,7 @@ pub(crate) fn collect_general(
                 events::event_player_for(trigger, entry, state),
                 crate::trigger::activated_stack_ability(&entry.event),
                 super::produced_mana(&entry.event, events),
-                crate::trigger::cast_mana_value(state, &entry.event),
+                crate::trigger::cast_mana_value(state, entry),
                 entry
                     .departure
                     .as_ref()

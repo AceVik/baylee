@@ -331,6 +331,8 @@ pub(crate) fn check_player_targets_match_the_printing(
 const OFFERS_A_CHOICE: &[&str] = &[
     "MayDo",
     "MayChooseNotToUntap",
+    "Exploit",
+    "EXPLOIT",
     "min: 0",
     "PayLifeOrEnterTapped",
     "PlayerMayPayCostOr",
@@ -604,6 +606,9 @@ pub(crate) const KEYWORD_WORDS: &[(baylee_cards::dsl::KeywordSet, &str)] = {
         (K::RENOWN, "renown"),
         (K::MODULAR, "modular"),
         (K::SOULBOND, "soulbond"),
+        (K::EXPLOIT, "exploit"),
+        (K::EVOLVE, "evolve"),
+        (K::BLOODTHIRST, "bloodthirst"),
     ]
 };
 

@@ -134,6 +134,7 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
         | GameEvent::GiftGiven {
             recipient: player, ..
         }
+        | GameEvent::CreatureExploited { player, .. }
         | GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),
             ..
@@ -172,8 +173,10 @@ pub(super) fn event_identity_for(
     state: &GameState,
 ) -> Option<(u32, i16)> {
     let base = state.event_object_identity(id, entry.seq);
-    if matches!(trigger, Trigger::Sacrificed { .. })
-        && let Some(departure) = &entry.departure
+    if matches!(
+        trigger,
+        Trigger::Sacrificed { .. } | Trigger::Exploited { .. }
+    ) && let Some(departure) = &entry.departure
     {
         let version = base.map_or_else(|| departure.version.wrapping_add(1), |(v, _)| v);
         return Some((version, departure.power));
@@ -311,6 +314,9 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::PermanentExerted { object, .. }
         | GameEvent::CreatureEnlisted {
             enlisted: object, ..
+        }
+        | GameEvent::CreatureExploited {
+            exploited: object, ..
         }
         | GameEvent::CardPlotted { object, .. }
         | GameEvent::AttackerUnblocked { object }

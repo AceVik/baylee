@@ -381,10 +381,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::DiscardX(_)
                 | CostPart::ExileFromGraveyardX(_)
                 | CostPart::TapN { .. }
-                | CostPart::ExileFromSingleGraveyard { .. } => {
+                | CostPart::ExileFromSingleGraveyard { .. }
+                | CostPart::CraftMaterials { .. } => {
                     let count = match part {
                         CostPart::TapN { count, .. } => *count,
                         CostPart::ExileFromSingleGraveyard { count, .. } => u32::from(*count),
+                        CostPart::CraftMaterials { min, .. } => u32::from(*min),
                         _ => self.activation_x.unwrap_or(0),
                     };
                     let count = usize::try_from(count).unwrap_or(usize::MAX);
@@ -1116,6 +1118,40 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     for &id in selected {
                         cost_wizard::pay(&mut self.state, player, part, id)?;
+                    }
+                }
+                CostPart::CraftMaterials { min, max, .. } => {
+                    let selected = answers
+                        .next()
+                        .ok_or(EngineError::IllegalAction("unanswered craft material cost"))?;
+                    let options = cost_wizard::menu(&self.state, player, source, &cost.parts, part);
+                    if selected.len() < usize::from(*min)
+                        || selected.len() > usize::from(*max)
+                        || selected
+                            .iter()
+                            .enumerate()
+                            .any(|(i, id)| selected[..i].contains(id) || !options.contains(id))
+                    {
+                        return Err(EngineError::IllegalAction("invalid craft material group"));
+                    }
+                    for &id in selected {
+                        if let Some(obj) = self.state.object_mut(id)
+                            && obj.is_card()
+                        {
+                            obj.kind = crate::object::ObjectKind::Card;
+                        }
+                        cost_wizard::pay(&mut self.state, player, part, id)?;
+                        if let Some(exiled) = self
+                            .state
+                            .object(id)
+                            .filter(|o| o.zone == crate::zone::Zone::Exile && o.is_card())
+                        {
+                            paid.crafted_materials
+                                .push(baylee_core::ids::DamageSourceRef {
+                                    object: id,
+                                    version: exiled.version,
+                                });
+                        }
                     }
                 }
                 CostPart::Crew(power) | CostPart::Saddle(power) => {

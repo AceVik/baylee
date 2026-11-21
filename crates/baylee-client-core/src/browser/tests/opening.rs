@@ -350,3 +350,33 @@ fn a_mixed_target_sheet_keeps_its_obscured_battlefield_answer_reachable() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].id, obj(20));
 }
+
+#[test]
+fn a_mixed_craft_exile_cost_exposes_both_graveyard_and_battlefield_tabs() {
+    let view = ViewBuilder::new(2)
+        .with_battlefield(
+            0,
+            vec![printed(9, 0, "Relic", 1), printed(11, 0, "Ornithopter", 0)],
+        )
+        .with_graveyard(0, vec![printed(20, 0, "Welding Jar", 0)])
+        .build();
+    let it = Interaction::new(
+        Pending::ChooseCards {
+            player: me(),
+            options: vec![obj(11), obj(20)],
+            min: 2,
+            max: 2,
+            prompt: ChoicePrompt::CostExile,
+            total: None,
+        },
+        me(),
+    );
+    let mut browser = Browser::new();
+    browser.follow(&view, Some(&it));
+    assert!(browser.is_open());
+    assert!(browser.answers_here(Some(&it)));
+    assert_eq!(browser.locked(), None);
+    let zones = browser.zones(&view);
+    assert!(zones.contains(&BrowseZone::Battlefield));
+    assert!(zones.contains(&BrowseZone::Graveyard(me())));
+}

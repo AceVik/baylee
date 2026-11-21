@@ -124,7 +124,77 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::ReturnCraftedTransformed => {
+            return_crafted_transformed(state, res, you);
+            None
+        }
         _ => unreachable!("only return operations are dispatched here"),
+    }
+}
+
+/// Returns the card exiled by `CostPart::ExileSelf` on a craft ability to the
+/// battlefield transformed under its owner's control (`CR 702.167a`,
+/// `CR 712.11a–b`) and links every exiled material card from
+/// `CostPart::CraftMaterials` (`CR 702.167c`).
+fn return_crafted_transformed(state: &mut GameState, res: &Resolution, you: PlayerId) {
+    let Some(paid_source) = subjects::moving_source(state, res) else {
+        return;
+    };
+    let id = paid_source.object;
+    if !state.object(id).is_some_and(|o| {
+        o.zone == Zone::Exile
+            && o.version == paid_source.version
+            && o.is_card()
+            && !state.has_left(o.owner)
+    }) {
+        return;
+    }
+    let materials: Vec<baylee_core::ids::DamageSourceRef> =
+        state.object(res.on_stack).map_or_default(|o| {
+            o.riders
+                .iter()
+                .filter_map(|r| match r {
+                    crate::object::Rider::CraftMaterial(mat) => Some(*mat),
+                    _ => None,
+                })
+                .collect()
+        });
+    arrive(state, id, you, true, Some(1), false);
+    let new_version = if let Some(obj) = state
+        .object(id)
+        .filter(|o| o.zone == Zone::Battlefield && o.version != paid_source.version)
+    {
+        obj.version
+    } else if state.entries.contains(id) {
+        paid_source.version.wrapping_add(1)
+    } else {
+        return;
+    };
+    let host_ref = baylee_core::ids::DamageSourceRef {
+        object: id,
+        version: new_version,
+    };
+    let host_ver = u16::try_from(new_version).unwrap_or(u16::MAX);
+    for mat in materials {
+        if let Some(mat_obj) = state
+            .object_mut(mat.object)
+            .filter(|o| o.zone == Zone::Exile && o.version == mat.version && o.is_card())
+        {
+            let with = crate::object::Rider::ExiledWith {
+                host: id,
+                version: host_ver,
+            };
+            if !mat_obj.riders.contains(&with) {
+                mat_obj.riders.push(with);
+            }
+            let linked = crate::object::Rider::LinkedExile {
+                source: host_ref,
+                acquisition: 0,
+            };
+            if !mat_obj.riders.contains(&linked) {
+                mat_obj.riders.push(linked);
+            }
+        }
     }
 }
 

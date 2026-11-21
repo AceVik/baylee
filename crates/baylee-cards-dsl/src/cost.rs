@@ -303,6 +303,19 @@ pub enum CostPart {
     /// Forage (CR 701.61a): "Exile three cards from your graveyard or sacrifice
     /// a Food." Appended to preserve replay identities.
     Forage,
+    /// Exile `min..=max` matching materials from among permanents you control
+    /// and/or cards in your graveyard (excluding the source itself) as part of
+    /// activating a craft ability (CR 702.167a–c), linking the exiled cards for
+    /// [`crate::Effect::ReturnCraftedTransformed`]. Appended to preserve replay
+    /// identities.
+    CraftMaterials {
+        /// Material filter evaluated on controlled permanents and graveyard cards.
+        filter: &'static Filter,
+        /// Minimum materials to exile.
+        min: u8,
+        /// Maximum materials to exile (`u8::MAX` for `"one or more"` / `"any number"`).
+        max: u8,
+    },
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

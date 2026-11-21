@@ -647,6 +647,16 @@ pub enum Condition {
     /// was cast (`Rider::GiftPromisedTo`, CR 702.174a, CR 702.174k). Appended to
     /// preserve replay identities.
     GiftWasPromised,
+    /// An opponent of "you" was dealt damage this turn (Bloodthirst,
+    /// CR 702.54a — distinct from life loss). Appended to preserve replay
+    /// identities.
+    OpponentDealtDamageThisTurn,
+    /// Evolve's intervening `if` (CR 702.100c, CR 603.4, CR 608.2h): both this
+    /// permanent and the entering creature from the trigger event are creatures
+    /// (using LKI if departed) and the entering creature has strictly greater
+    /// power or strictly greater toughness than this permanent. Appended to
+    /// preserve replay identities.
+    EvolveFromEvent,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1162,6 +1172,18 @@ pub enum Trigger {
     /// permanent's gift triggered ability resolves, binding `EventPlayer` to
     /// the gift recipient. Appended to preserve replay identities.
     GaveGift(crate::effect::PlayerRel),
+    /// A creature matching `exploiter` exploits a creature matching `exploited`
+    /// (`"When [this creature / a creature you control] exploits a creature"`,
+    /// CR 702.110b, CR 603.10a), looking back to pre-sacrifice characteristics
+    /// (including when a creature exploits itself) and binding `EventObject` to
+    /// the exploited creature and `EventPlayer` to the sacrificing player.
+    /// Appended to preserve replay identities.
+    Exploited {
+        /// Filter matched against the exploiting creature (`&Filter::This` for self).
+        exploiter: &'static Filter,
+        /// Filter matched against the sacrificed exploited creature (`&Filter::Any` for any).
+        exploited: &'static Filter,
+    },
 }
 
 impl Trigger {
@@ -1197,6 +1219,12 @@ impl Trigger {
 
     /// "Whenever this creature enlists a creature…" (CR 702.154c).
     pub const ENLISTED_THIS: Self = Self::Enlisted(&Filter::This);
+
+    /// "When this creature exploits a creature…" (CR 702.110b).
+    pub const EXPLOITED_THIS: Self = Self::Exploited {
+        exploiter: &Filter::This,
+        exploited: &Filter::Any,
+    };
 }
 
 /// An ability definition on a [`crate::CardDef`].

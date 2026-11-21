@@ -234,6 +234,9 @@ pub(super) fn resume_inner(
         AwaitingOp::Bolster { count } => {
             super::wave4_combat::resume_bolster(state, res, count, chosen);
         }
+        AwaitingOp::Exploit => {
+            super::wave4_combat::resume_exploit(state, res, chosen);
+        }
         AwaitingOp::Behold { then } => {
             if let Some(&card) = chosen.first() {
                 if state

@@ -1194,6 +1194,15 @@ pub enum Rider {
     /// Gift additional cost was promised to this opponent when casting this
     /// spell (CR 702.174a, CR 702.174k).
     GiftPromisedTo(PlayerId),
+    /// Face index (`0` front, `1` back) shown by a double-faced token when
+    /// this activated or triggered ability was put on the stack (`CR 701.27g`).
+    /// Appended to preserve replay identities.
+    AbilitySourceFace(u8),
+    /// Exiled material card reference paid for a craft activation
+    /// (`CostPart::CraftMaterials`, `CR 702.167a–c`), linked to the returned
+    /// transformed permanent by `Effect::ReturnCraftedTransformed`. Appended to
+    /// preserve replay identities.
+    CraftMaterial(baylee_core::ids::DamageSourceRef),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1332,7 +1341,9 @@ impl Rider {
             | Self::GiftPromisedTo(_)
             | Self::EventPlayer(_)
             | Self::NinjutsuDefender(_, _)
-            | Self::SyntheticCondition(_) => false,
+            | Self::SyntheticCondition(_)
+            | Self::AbilitySourceFace(_)
+            | Self::CraftMaterial(_) => false,
         }
     }
 }
@@ -1449,6 +1460,10 @@ pub struct PaidRecord {
     /// (ninjutsu, CR 702.49c), moved onto `Rider::NinjutsuDefender` as the
     /// ability goes on the stack.
     pub ninjutsu_defender: Option<(baylee_core::ids::Defender, Option<u32>)>,
+    /// Exiled material card incarnations paid for `CostPart::CraftMaterials`
+    /// (`CR 702.167a–c`), moved onto `Rider::CraftMaterial` as the ability goes
+    /// on the stack.
+    pub crafted_materials: Vec<baylee_core::ids::DamageSourceRef>,
 }
 
 impl std::hash::Hash for PaidRecord {
@@ -1469,6 +1484,7 @@ impl std::hash::Hash for PaidRecord {
             mana_spending,
             tapped,
             ninjutsu_defender,
+            crafted_materials,
         } = self;
         discarded.hash(h);
         source_after_cost.hash(h);
@@ -1488,6 +1504,9 @@ impl std::hash::Hash for PaidRecord {
         // hashes on spells and activations that never bounced an attacker.
         if let Some(defender) = ninjutsu_defender {
             defender.hash(h);
+        }
+        if !crafted_materials.is_empty() {
+            crafted_materials.hash(h);
         }
     }
 }
@@ -2104,6 +2123,13 @@ impl GameObject {
         )
     }
 
+    /// Active face of this token (`TokenDef::face(self.face_index)`, CR 701.27a,
+    /// CR 712.7).
+    #[must_use]
+    pub fn active_token(&self) -> Option<&'static baylee_cards_dsl::TokenDef> {
+        self.token.map(|t| t.face(self.face_index))
+    }
+
     /// Token whose rules this list carries, including through copies.
     #[must_use]
     pub fn ability_token(
@@ -2116,7 +2142,7 @@ impl GameObject {
         if self.own_abilities.is_some() && self.own_origin.is_some() {
             return self.own_origin.and_then(AbilityOrigin::token);
         }
-        let id = lookup.token_id(self.token?)?;
+        let id = lookup.token_id(self.active_token()?)?;
         id.checked_add(1).and_then(std::num::NonZeroU16::new)
     }
 
@@ -2320,7 +2346,7 @@ impl GameObject {
                 }
             }));
         }
-        AbilityDefs::Static(self.token.map_or(&[], |token| token.abilities))
+        AbilityDefs::Static(self.active_token().map_or(&[], |token| token.abilities))
     }
 
     /// Mutable access to the base, splitting the sharing if anyone else

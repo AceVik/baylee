@@ -596,6 +596,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
             creature: source, ..
         }
         | Rider::GrantedSource(source)
+        | Rider::CraftMaterial(source)
         | Rider::LinkedExile { source, .. } => Some(source.object),
         Rider::ActivationManaNote {
             last_exile: Some(exile),
@@ -682,6 +683,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::ActivationManaNote { .. }
         | Rider::Mutating
         | Rider::MergedToken(_)
+        | Rider::AbilitySourceFace(_)
         | Rider::SyntheticCondition(_) => None,
     }
 }

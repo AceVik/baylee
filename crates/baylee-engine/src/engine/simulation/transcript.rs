@@ -177,6 +177,14 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
             f(attacker);
             f(enlisted);
         }
+        GameEvent::CreatureExploited {
+            exploiter,
+            exploited,
+            ..
+        } => {
+            f(&mut exploiter.object);
+            f(exploited);
+        }
         GameEvent::GameStarted { .. }
         | GameEvent::CoinFlipped { .. }
         | GameEvent::Shuffled { .. }

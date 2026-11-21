@@ -1041,6 +1041,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .and_then(|c| self.lookup.card(c.index))
             {
                 self.state.transform(id, def, face as usize);
+            } else {
+                self.state.transform_token(id, face);
             }
         }
     }

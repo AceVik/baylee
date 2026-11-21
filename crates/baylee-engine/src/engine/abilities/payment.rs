@@ -478,6 +478,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 obj.riders
                     .push(crate::object::Rider::NinjutsuDefender(defender, target_ver));
             }
+            let crafted_materials = std::mem::take(&mut paid.crafted_materials);
+            if !crafted_materials.is_empty()
+                && let Some(obj) = self.state.object_mut(ability)
+            {
+                for mat in crafted_materials {
+                    obj.riders.push(crate::object::Rider::CraftMaterial(mat));
+                }
+            }
             if paid != crate::object::PaidRecord::default()
                 && let Some(obj) = self.state.object_mut(ability)
             {

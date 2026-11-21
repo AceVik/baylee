@@ -55,7 +55,8 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::DealDamageToYou(_)
         | CostPart::DiscardX(_)
         | CostPart::ExileFromGraveyardX(_)
-        | CostPart::Forage => false,
+        | CostPart::Forage
+        | CostPart::CraftMaterials { .. } => false,
     }
 }
 
@@ -91,6 +92,7 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ReturnUnblockedAttacker
+        | CostPart::CraftMaterials { .. }
         | CostPart::ExileFromGraveyard(_)
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExilePermanent(_)

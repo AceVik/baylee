@@ -112,7 +112,8 @@ pub fn condition_holds_with_context(
         | Condition::EventBlockedByOthers { .. }
         | Condition::SourceWasBlockedThisTurn
         | Condition::SoulbondEventCanPair
-        | Condition::TargetSpellWouldDestroy(_) => false,
+        | Condition::TargetSpellWouldDestroy(_)
+        | Condition::EvolveFromEvent => false,
         // "Only after combat": a main or ending phase after this turn's
         // combat (the postcombat main phase or the end phase).
         Condition::ChosenOpponentControls(filter) => state
@@ -268,9 +269,9 @@ pub fn condition_holds_with_context(
             player.life < player.starting_life
         }
         Condition::APlayerHasMostLife => most_life(state).is_some(),
-        // The announced X on the source, where `cast_wizard` writes it and
-        // where `Filter::CmcAtMostX` reads it.
-        Condition::XAtLeast(n) => state.object(source).map_or(0, |o| o.x_value) >= n,
+        // The announced X on the source (or resolving ability on the stack),
+        // where `cast_wizard` / activation writes it and `Filter::CmcAtMostX` reads it.
+        Condition::XAtLeast(n) => super::announced_x(state, source) >= n,
         // No last turn at the first upkeep of the game, so nothing was cast
         // in it and nothing wasn't: both sentences are false there.
         Condition::NoSpellsCastLastTurn => {
@@ -666,6 +667,9 @@ pub fn condition_holds_with_context(
         Condition::GiftWasPromised => state
             .object_or_departed(source)
             .is_some_and(object_gift_was_promised),
+        Condition::OpponentDealtDamageThisTurn => {
+            super::amounts::damage_dealt_to_opponents_this_turn(state, you) > 0
+        }
     }
 }
 
@@ -851,6 +855,7 @@ pub(crate) fn condition_reads_event(condition: Condition) -> bool {
         | Condition::SourceWasBlockedThisTurn
         | Condition::SoulbondSelfCanPair
         | Condition::SoulbondEventCanPair
+        | Condition::EvolveFromEvent
         | Condition::ObjectMatches {
             what: &baylee_cards_dsl::TargetSpec::EventObject,
             ..
@@ -968,8 +973,81 @@ pub(crate) fn condition_with_event(
                 Some(ev.version),
             )
         }),
+        Condition::EvolveFromEvent => evolve_holds(state, context.source, source_version, event),
         _ => condition_holds_with_context(state, you, context, condition),
     }
+}
+
+fn battlefield_or_lki_chars(
+    state: &GameState,
+    id: ObjectId,
+    version: Option<u32>,
+) -> Option<&crate::object::Characteristics> {
+    if let Some(obj) = state.object(id).filter(|o| {
+        o.zone == Zone::Battlefield
+            && !o.status.contains(crate::object::Status::PHASED_OUT)
+            && version.is_none_or(|v| o.version == v)
+    }) {
+        return Some(obj.characteristics());
+    }
+    if let Some(v) = version {
+        if let Some(obj) = state
+            .source_object(baylee_core::ids::DamageSourceRef {
+                object: id,
+                version: v,
+            })
+            .filter(|o| o.zone == Zone::Battlefield)
+        {
+            return Some(obj.characteristics());
+        }
+        if state
+            .ltb_versions
+            .iter()
+            .any(|&(lid, lver)| lid == id && lver == v)
+        {
+            return state.last_known_characteristics(id);
+        }
+    }
+    None
+}
+
+/// Evolve's intervening `if` (CR 702.100a, CR 702.100c, CR 603.4, CR 608.2h):
+/// both objects are creatures (on the battlefield or in battlefield departure
+/// LKI) and the entering creature has strictly greater power or toughness.
+pub(crate) fn evolve_holds(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+    event: Option<baylee_core::ids::DamageSourceRef>,
+) -> bool {
+    let Some(event) = event else { return false };
+    if event.object == source && source_version.is_none_or(|v| v == event.version) {
+        return false;
+    }
+    let Some(src_chars) = battlefield_or_lki_chars(state, source, source_version) else {
+        return false;
+    };
+    let Some(ent_chars) = battlefield_or_lki_chars(state, event.object, Some(event.version)) else {
+        return false;
+    };
+    if !src_chars
+        .types
+        .contains(baylee_core::types::TypeSet::CREATURE)
+        || !ent_chars
+            .types
+            .contains(baylee_core::types::TypeSet::CREATURE)
+    {
+        return false;
+    }
+    let (Some(src_p), Some(src_t), Some(ent_p), Some(ent_t)) = (
+        src_chars.power,
+        src_chars.toughness,
+        ent_chars.power,
+        ent_chars.toughness,
+    ) else {
+        return false;
+    };
+    ent_p > src_p || ent_t > src_t
 }
 
 /// A resolving ability reads its source's current attachment, or the

@@ -644,6 +644,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Enlisted(_) => &["enlist"],
         T::Plotted { .. } => &["plot"],
         T::GaveGift(_) => &["give", "gift"],
+        T::Exploited { .. } => &["exploit"],
     }
 }
 
@@ -749,7 +750,10 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::SpellCastUsingSourceMana(filter)
         | Trigger::SpellCastOrCopied(filter)
         | Trigger::Exerted(filter)
-        | Trigger::Enlisted(filter) => {
+        | Trigger::Enlisted(filter)
+        | Trigger::Exploited {
+            exploiter: filter, ..
+        } => {
             // "This" narrowed by a condition is still this object: Bogardan
             // Phoenix's two dies triggers are `This` and with and without a
             // death counter, and both are "when this creature dies".
@@ -854,6 +858,9 @@ fn effect_words(effect: &Effect) -> &'static [&'static str] {
         Effect::BecomeChosenCreatureType { .. } => &["becomes"],
         Effect::ShuffleGraveyardMatchingIntoLibrary { .. } => &["shuffle"],
         Effect::DeliverGift(_) => &["gift"],
+        Effect::Incubate { .. } => &["incubate"],
+        Effect::Exploit => &["exploit", "sacrifice"],
+        Effect::ReturnCraftedTransformed => &["craft", "return"],
         _ => &[],
     }
 }
@@ -1228,7 +1235,8 @@ fn part_named(part: &CostPart, lower: &str) -> Option<bool> {
         CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeSelf => {
             lower.contains("sacrifice")
         }
-        CostPart::ExileSelf => lower.contains("exile"),
+        CostPart::ExileSelf => lower.contains("exile") || lower.contains("craft"),
+        CostPart::CraftMaterials { .. } => lower.contains("craft") || lower.contains("exile"),
         CostPart::DealDamageToYou(n) => lower.contains(&format!("deals {n} damage to you")),
         CostPart::Forage => lower.contains("forage"),
         // As loose as the two above it, and for the same reason: the word is

@@ -845,10 +845,18 @@ fn every_counter_x_cost_in_the_pool_is_on_a_mana_ability() {
     let mut offenders = Vec::new();
     let mut check = |who: &str, ability: &AbilityDef| {
         let (AbilityDef::Activated {
-            cost, mana_ability, ..
+            cost,
+            mana_ability,
+            targets,
+            second_targets,
+            ..
         }
         | AbilityDef::ActivatedConditional {
-            cost, mana_ability, ..
+            cost,
+            mana_ability,
+            targets,
+            second_targets,
+            ..
         }) = ability
         else {
             return;
@@ -861,7 +869,10 @@ fn every_counter_x_cost_in_the_pool_is_on_a_mana_ability() {
             return;
         }
         carried.push(who.to_string());
-        if !mana_ability {
+        // Untargeted stack abilities carry `x_value` on `AbilityOnStack` into
+        // resolution (covered by Wave 7b engine tests); targeted ones remain
+        // guarded until CR 601.2b/c X-before-target ordering is exercised.
+        if !mana_ability && (targets.is_some() || second_targets.is_some()) {
             offenders.push(who.to_string());
         }
     };

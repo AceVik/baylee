@@ -73,7 +73,7 @@ pub const fn step_id(phase: Phase, step: Step) -> &'static str {
 /// A positive list, so `every_keyword_a_card_prints_has_a_name` holds it
 /// to the pool: a keyword a card carries and this table lacks fails there
 /// rather than going silent on a board.
-pub const KEYWORDS: [(KeywordSet, &str); 64] = [
+pub const KEYWORDS: [(KeywordSet, &str); 67] = [
     (KeywordSet::STORM, "storm"),
     (KeywordSet::READ_AHEAD, "read ahead"),
     (KeywordSet::FLYING, "flying"),
@@ -137,6 +137,9 @@ pub const KEYWORDS: [(KeywordSet, &str); 64] = [
     (KeywordSet::RENOWN, "renown"),
     (KeywordSet::MODULAR, "modular"),
     (KeywordSet::SOULBOND, "soulbond"),
+    (KeywordSet::EXPLOIT, "exploit"),
+    (KeywordSet::EVOLVE, "evolve"),
+    (KeywordSet::BLOODTHIRST, "bloodthirst"),
     (
         KeywordSet::ALL_NONBASIC_LAND_TYPES,
         "every nonbasic land type",

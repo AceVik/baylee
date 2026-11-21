@@ -395,6 +395,7 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::ExileFromGraveyard(_)
             | CostPart::ExileFromSingleGraveyard { .. }
             | CostPart::Forage
+            | CostPart::CraftMaterials { .. }
             | CostPart::PutCounterOnOther { .. } => true,
             CostPart::ExileTopOfLibrary(n) => *n > 0,
             CostPart::TapN { count, .. } => *count > 0,

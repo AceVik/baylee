@@ -170,6 +170,9 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("renown", K::RENOWN), // eval::matches(Filter::HasKeyword) + Effect::BecomeRenowned (CR 702.112a)
         ("modular", K::MODULAR), // trigger::return_keywords::collect_modular (CR 702.43a)
         ("soulbond", K::SOULBOND), // trigger::soulbond::collect (CR 702.95a)
+        ("exploit", K::EXPLOIT), // trigger::entry_keywords::collect + Effect::Exploit (CR 702.110a)
+        ("evolve", K::EVOLVE), // trigger::entry_keywords::collect + Condition::EvolveFromEvent (CR 702.100a)
+        ("bloodthirst", K::BLOODTHIRST), // eval::matches(Filter::HasKeyword) + EnterModifier::Bloodthirst (CR 702.54a)
     ]
 };
 

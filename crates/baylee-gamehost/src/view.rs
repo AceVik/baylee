@@ -1331,7 +1331,7 @@ fn token_shown(
     state.arena.iter().any(|(_, object)| {
         state
             .merged_top(object)
-            .token
+            .active_token()
             .map(baylee_cards::tokens::token_id)
             == Some(token)
             && may_name(object, seat, controlled)

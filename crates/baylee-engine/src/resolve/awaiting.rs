@@ -1378,6 +1378,8 @@ pub enum AwaitingOp {
         /// Contingent branch effect.
         effect: &'static Effect,
     },
+    /// Optional controlled-creature sacrifice for `Effect::Exploit` (CR 702.110a–b).
+    Exploit,
 }
 
 /// Work to resume after an optional life payment.
@@ -1764,6 +1766,7 @@ impl AwaitingOp {
             } => crate::state::structural_fingerprint(&(
                 126_u8, on_payment, player, cost, required, effect,
             )),
+            Self::Exploit => crate::state::structural_fingerprint(&151_u8),
             _ => 0,
         }
     }

@@ -322,6 +322,7 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             | CostPart::ExileFromHand(_)
             | CostPart::ExilePermanent(_)
             | CostPart::ExileFromSingleGraveyard { .. }
+            | CostPart::CraftMaterials { .. }
             | CostPart::ExileTopOfLibrary(_) => dst[6] = 1.0,
             CostPart::Forage => {
                 dst[3] = 1.0;
@@ -345,12 +346,8 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         Trigger::EntersBattlefield(_)
         | Trigger::EntersBattlefieldFromGraveyardOrCast(_)
         | Trigger::EnteredThisFrom(_)
-        | Trigger::EntersBattlefieldEvoked => {
-            dst[0] = 1.0;
-        }
-        Trigger::PhasesIn(_) => {
-            dst[0] = 0.5;
-        }
+        | Trigger::EntersBattlefieldEvoked => dst[0] = 1.0,
+        Trigger::PhasesIn(_) => dst[0] = 0.5,
         Trigger::Dies(_) | Trigger::DiesNotSacrificed(_) | Trigger::DiesAfterDamageByThis(_) => {
             dst[1] = 1.0;
         }
@@ -358,9 +355,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::PhasesOut(_)
         | Trigger::PhasesOutOrLeavesBattlefield(_)
         | Trigger::ExiledFromBattlefield(_)
-        | Trigger::LinkedCreatureLeaves => {
-            dst[2] = 1.0;
-        }
+        | Trigger::LinkedCreatureLeaves => dst[2] = 1.0,
         Trigger::Attacks(_)
         | Trigger::OneOrMoreAttack(_)
         | Trigger::AttackWithAtLeast(_)
@@ -368,9 +363,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::AttacksAndIsntBlocked(_)
         | Trigger::AttacksAlone(_)
         | Trigger::Exerted(_)
-        | Trigger::Enlisted(_) => {
-            dst[3] = 1.0;
-        }
+        | Trigger::Enlisted(_) => dst[3] = 1.0,
         Trigger::Blocks(_)
         | Trigger::BlocksCreature(_)
         | Trigger::BecomesBlocked
@@ -379,26 +372,20 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::BlocksOrBecomesBlockedByOneOrMore(_)
         | Trigger::AttachedBlocksOrBecomesBlockedBy(_)
         | Trigger::AttachedBlocksOrBecomesBlockedByOneOrMore(_)
-        | Trigger::Rampage => {
-            dst[4] = 1.0;
-        }
+        | Trigger::Rampage => dst[4] = 1.0,
         Trigger::DealsCombatDamage(_)
         | Trigger::DealsCombatDamageToPlayer(_)
         | Trigger::DealsCombatDamageToYou(_)
         | Trigger::OneOrMoreDealCombatDamageToPlayer(_)
         | Trigger::DealsCombatDamageToOpponent(_)
         | Trigger::DealsCombatDamageToPlayerOrPlaneswalker(_)
-        | Trigger::DealsCombatDamageToCreature(_) => {
-            dst[5] = 1.0;
-        }
+        | Trigger::DealsCombatDamageToCreature(_) => dst[5] = 1.0,
         Trigger::DealsDamage(_)
         | Trigger::DealsDamageToOpponent(_)
         | Trigger::DealsDamageToPlayer { .. }
         | Trigger::DealtDamage(_)
         | Trigger::DealtCombatDamage(_)
-        | Trigger::PlayerDealtDamage(_) => {
-            dst[5] = 0.7;
-        }
+        | Trigger::PlayerDealtDamage(_) => dst[5] = 0.7,
         Trigger::SpellCast(_)
         | Trigger::SpellCastUsingSourceMana(_)
         | Trigger::SpellCastOrCopied(_)
@@ -406,12 +393,8 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::NthSpellCast { .. }
         | Trigger::InstantCastAfterFirst { .. }
         | Trigger::FirstNoncreatureSpellCast(_)
-        | Trigger::SpellCastTargeting { .. } => {
-            dst[6] = 1.0;
-        }
-        Trigger::StepBegin { .. } | Trigger::StepBeginChosenOpponent { .. } => {
-            dst[7] = 1.0;
-        }
+        | Trigger::SpellCastTargeting { .. } => dst[6] = 1.0,
+        Trigger::StepBegin { .. } | Trigger::StepBeginChosenOpponent { .. } => dst[7] = 1.0,
         Trigger::PlaysLand(_)
         | Trigger::PlaysAnotherLand
         | Trigger::GainsLife(_)
@@ -420,9 +403,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::DrawsExceptFirst(_)
         | Trigger::NthCardDrawnInTurn { .. }
         | Trigger::CoinFlipped { .. }
-        | Trigger::DieRolled { .. } => {
-            dst[8] = 1.0;
-        }
+        | Trigger::DieRolled { .. } => dst[8] = 1.0,
         Trigger::CountersPlaced { .. }
         | Trigger::CountersReach { .. }
         | Trigger::LastCounterRemoved { .. }
@@ -430,17 +411,14 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::Discarded { .. }
         | Trigger::DiscardedThisByOpponent
         | Trigger::Sacrificed { .. }
+        | Trigger::Exploited { .. }
         | Trigger::ChangesZoneAll { .. }
         | Trigger::PlayerAttacked(_)
         | Trigger::Plotted { .. }
         | Trigger::GaveGift(_)
         | Trigger::CycledThis
-        | Trigger::Cycled { .. } => {
-            dst[9] = 1.0;
-        }
-        _ => {
-            dst[8] = 0.5;
-        }
+        | Trigger::Cycled { .. } => dst[9] = 1.0,
+        _ => dst[8] = 0.5,
     }
 }
 

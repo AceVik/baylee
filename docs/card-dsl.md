@@ -705,7 +705,11 @@ express at all yet.
   `ExileFromGraveyardX(filter)` (announce X and exile X matching cards from your
   graveyard, binding `Amount::X`),
   `Forage` (CR 701.61a: "Exile three cards from your graveyard or sacrifice a
-  Food").
+  Food"),
+  `CraftMaterials { filter, min, max }` (craft's "Exile [materials] from among
+  other permanents you control and/or cards from your graveyard", CR 702.167a–c:
+  records exiled card materials on the stack ability for
+  `Effect::ReturnCraftedTransformed`).
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;
@@ -5765,3 +5769,37 @@ Each triggers once per keyword instance (`layers::keyword_instances`):
   - `CostPart::DealDamageToYou(n)`, `CostPart::DiscardX(filter)`, `CostPart::ExileFromGraveyardX(filter)`, and `CostPart::Forage` (`CR 701.61a`) work uniformly across activated abilities, spell additional costs, and `Effect::PlayerMayPayCostOr` / `Effect::PlayerMayPayCostThen`, with `SacrificeX`, `TapX`, `DiscardX`, and `ExileFromGraveyardX` binding `Amount::X`.
   - Modular N (`CR 702.43a–b`): pair `EnterModifier::modular(n)` on the face with `KeywordSet::MODULAR` (repeated on the face/card or granted via `Modifier::AddKeyword(KeywordSet::MODULAR)` for multiple instances; triggers per instance on death reading pre-departure `+1/+1` counters onto target artifact creature per `CR 603.10a`).
   - Soulbond (`CR 702.95a–e`): `KeywordSet::SOULBOND` supplies both untargeted ETB pairing triggers per instance (`Condition::SoulbondSelfCanPair`, `Condition::SoulbondEventCanPair`, `Effect::SoulbondPair { with_event_object }`), automatic immediate unpairing on leaving the battlefield, changing control, or losing `CREATURE` (`CR 702.95e`), and static/activated queries via `Filter::PairedWithSource`, `Filter::SOULBOND_PAIR`, and `Condition::IsPaired`.
+
+**Incubate, double-faced tokens, exploit, craft, evolve, and bloodthirst.**
+- `Effect::Incubate { who, count }` (`Effect::incubate(n)` for `who: PlayerRel::You, count: Amount::Fixed(n)`,
+  `CR 701.53a–b`, `CR 111.10i`) creates a predefined double-faced
+  `INCUBATOR_TOKEN` (`TokenDef::back_face: Some(&PHYREXIAN_TOKEN)`) that enters
+  with `count` `+1/+1` counters via counter replacements (`CR 614.16`) and
+  transforms in place via `{2}: Transform this token.` (`CR 701.27a,c,g`,
+  `CR 707.8a`).
+- `KeywordSet::EXPLOIT` (`CR 702.110a–b`) queues an optional ETB sacrifice
+  trigger (`Effect::Exploit`) per instance allowing its controller to sacrifice
+  any controlled creature (including itself if still a controlled creature on
+  the battlefield), emitting `GameEvent::CreatureExploited` for
+  `Trigger::Exploited { exploiter, exploited }` (`Trigger::EXPLOITED_THIS`),
+  which looks back in time (`CR 603.10a`) and binds `EventObject`,
+  `EventPower`, `EventLastToughness`, `EventManaValue`, and `EventPlayer`.
+- `CostPart::CraftMaterials { filter, min, max }` and
+  `Effect::ReturnCraftedTransformed` (`CR 702.167a–c`, `CR 712.11a–b`) implement
+  `"Craft with [materials] [cost]"` as a sorcery-speed activated ability with
+  `CostPart::ExileSelf` + `CostPart::CraftMaterials { .. }`, exiling matching
+  controlled permanents on the battlefield and/or cards in the activator's
+  graveyard and returning the source card transformed under its owner's control
+  with the exiled material cards linked (`ZoneSel::LinkedExile`).
+- `KeywordSet::EVOLVE` (`CR 702.100a–d`) and `Condition::EvolveFromEvent` trigger
+  per instance whenever another creature enters under your control with strictly
+  greater power or strictly greater toughness, re-checking the intervening `if`
+  on resolution (`CR 603.4`, `CR 608.2h`) before placing a `+1/+1` counter.
+- `KeywordSet::BLOODTHIRST` (`CR 702.54a–c`),
+  `Condition::OpponentDealtDamageThisTurn`,
+  `Amount::DamageDealtToOpponentsThisTurn`, and
+  `EnterModifier::Bloodthirst(Amount)` implement `Bloodthirst N`
+  (`EnterModifier::Bloodthirst(Amount::Fixed(n))`) and `Bloodthirst X`
+  (`EnterModifier::Bloodthirst(Amount::DamageDealtToOpponentsThisTurn)`),
+  reading damage dealt to opponents this turn (distinct from non-damage life
+  loss) and applying through counter replacements (`CR 614.16`).

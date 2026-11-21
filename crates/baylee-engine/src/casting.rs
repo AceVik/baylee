@@ -2220,6 +2220,7 @@ fn alternative_parts_payable(
         | CostPart::PayCommanderColors
         | CostPart::PayAttachedManaCost
         | CostPart::ReturnUnblockedAttacker
+        | CostPart::CraftMaterials { .. }
         | CostPart::ExileTopOfLibrary(_) => false,
         // `pitch_costs_payable` already proved a distinct card for every
         // exile-from-hand part; the rest are paid off the card or the board.

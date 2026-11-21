@@ -272,6 +272,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ReturnUnblockedAttacker
                 | CostPart::DiscardX(_)
                 | CostPart::ExileFromGraveyardX(_)
+                | CostPart::CraftMaterials { .. }
                 | CostPart::PayLifeX => {}
             }
         }
@@ -550,6 +551,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost
                 | CostPart::ReturnUnblockedAttacker
+                | CostPart::CraftMaterials { .. }
                 | CostPart::SacrificeGrantor => {}
             }
         }

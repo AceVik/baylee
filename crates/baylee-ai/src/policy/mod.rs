@@ -917,7 +917,7 @@ impl HeuristicAgent {
             // the price was protecting, every time and silently. An
             // activation asks with `min: 1`, where this is the same answer.
             ChoicePrompt::CostSacrifice | ChoicePrompt::CostDiscard | ChoicePrompt::CostExile => {
-                ranked.sort_by_key(|id| (value(id), *id));
+                Self::sort_cost_price(view, prompt, &mut ranked, &value);
                 usize::from(min.max(1).min(max))
             }
             // A rummage: one card, the least valuable, goes for a fresh one.
@@ -946,6 +946,20 @@ impl HeuristicAgent {
         Some(ranked)
     }
 
+    fn sort_cost_price(
+        view: &PlayerView,
+        prompt: baylee_engine::choice::ChoicePrompt,
+        ranked: &mut [ObjectId],
+        value: impl Fn(&ObjectId) -> i64,
+    ) {
+        if prompt == baylee_engine::choice::ChoicePrompt::CostExile {
+            let on_board = |id: ObjectId| u8::from(view.battlefield.iter().any(|o| o.id == id));
+            ranked.sort_by_key(|id| (on_board(*id), value(id), *id));
+        } else {
+            ranked.sort_by_key(|id| (value(id), *id));
+        }
+    }
+
     fn sacrifice_for_answer(
         &self,
         view: &PlayerView,
@@ -965,6 +979,30 @@ impl HeuristicAgent {
                 *id,
             )
         });
+        if min == 0 && !self.hostile(player, view.seat) {
+            let has_exploit_payoff = view.battlefield_of(view.seat).any(|o| {
+                crate::activate::printed_list(o).iter().any(|ab| {
+                    matches!(
+                        ab,
+                        baylee_cards_dsl::AbilityDef::Triggered {
+                            trigger: baylee_cards_dsl::Trigger::Exploited { .. },
+                            ..
+                        } | baylee_cards_dsl::AbilityDef::ModalTriggered {
+                            trigger: baylee_cards_dsl::Trigger::Exploited { .. },
+                            ..
+                        }
+                    )
+                })
+            });
+            if has_exploit_payoff
+                && let Some(&best) = ranked.first()
+                && view
+                    .object(best)
+                    .is_some_and(|o| self.given_up(view, o) < 300)
+            {
+                return vec![best];
+            }
+        }
         ranked.truncate(usize::from(min));
         ranked
     }
