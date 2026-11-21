@@ -4267,3 +4267,203 @@ fn wave14a_class_levels_and_overload() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave15a_impending_lowering() {
+    let imp = read(
+        "Name:ImpendingSentinel\nManaCost:4 W W\nTypes:Enchantment Creature Avatar\nPT:5/5\n\
+         K:Impending:4:2 W W",
+    );
+    assert_eq!(
+        imp.impending.as_deref(),
+        Some("Some((4, mana!(\"{2}{W}{W}\")))")
+    );
+
+    for bad_imp in [
+        "Name:ImpZero\nManaCost:2 G\nTypes:Creature Beast\nPT:3/3\nK:Impending:0:1 G",
+        "Name:ImpX\nManaCost:3 R\nTypes:Creature Giant\nPT:4/4\nK:Impending:2:X R\nSVar:X:Count$xPaid",
+        "Name:ImpNonMana\nManaCost:3 B\nTypes:Creature Demon\nPT:4/4\nK:Impending:3:1 B PayLife<2>",
+        "Name:ImpDup\nManaCost:3 U\nTypes:Creature Kraken\nPT:5/5\nK:Impending:3:1 U\nK:Impending:2:2 U",
+        "Name:ImpSpell\nManaCost:2 R\nTypes:Instant\nK:Impending:2:R\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad_imp), "must refuse invalid Impending: {bad_imp}");
+    }
+}
+
+#[test]
+fn wave15a_gift_lowering() {
+    for (gift_ability, expected) in [
+        (
+            "DB$ Draw | Defined$ Promised | GiftDescription$ a card",
+            "Some(GiftKind::Card)",
+        ),
+        (
+            "DB$ Token | TokenScript$ c_a_food_sac | TokenOwner$ Promised | GiftDescription$ a Food",
+            "Some(GiftKind::Food)",
+        ),
+        (
+            "DB$ Token | TokenScript$ u_1_1_fish | TokenTapped$ True | TokenOwner$ Promised | LockTokenScript$ True | GiftDescription$ a tapped Fish",
+            "Some(GiftKind::TappedFish)",
+        ),
+        (
+            "DB$ Token | TokenScript$ c_a_treasure_sac | TokenOwner$ Promised | GiftDescription$ a Treasure",
+            "Some(GiftKind::Treasure)",
+        ),
+        (
+            "DB$ Token | TokenScript$ u_8_8_octopus | TokenOwner$ Promised | LockTokenScript$ True | GiftDescription$ an Octopus",
+            "Some(GiftKind::Octopus)",
+        ),
+        (
+            "DB$ AddTurn | Defined$ Promised | NumTurns$ 1 | GiftDescription$ an extra turn",
+            "Some(GiftKind::ExtraTurn)",
+        ),
+    ] {
+        let body = read(&format!(
+            "Name:GiftBearer\nManaCost:2 U\nTypes:Creature Otter\nPT:2/2\n\
+             K:Gift\nSVar:GiftAbility:{gift_ability}"
+        ));
+        assert_eq!(body.gift.as_deref(), Some(expected), "{gift_ability}");
+    }
+
+    for bad_gift in [
+        "Name:GiftNoSvar\nManaCost:1 W\nTypes:Instant\nK:Gift\nA:SP$ GainLife | LifeAmount$ 2",
+        "Name:GiftLand\nTypes:Land\nK:Gift\nSVar:GiftAbility:DB$ Draw | Defined$ Promised | GiftDescription$ a card",
+        "Name:GiftDup\nManaCost:1 U\nTypes:Creature\nPT:1/1\nK:Gift\nK:Gift\nSVar:GiftAbility:DB$ Draw | Defined$ Promised | GiftDescription$ a card",
+        "Name:GiftMakeCard\nManaCost:2 U\nTypes:Instant\nK:Gift\nSVar:GiftAbility:DB$ MakeCard | Name$ Arcane Tome | Defined$ Promised | Zone$ Battlefield | GiftDescription$ an Arcane Tome\nA:SP$ Draw | NumCards$ 1",
+        "Name:GiftUntappedFish\nManaCost:1 U\nTypes:Instant\nK:Gift\nSVar:GiftAbility:DB$ Token | TokenScript$ u_1_1_fish | TokenOwner$ Promised | GiftDescription$ a tapped Fish\nA:SP$ Draw | NumCards$ 1",
+        "Name:GiftExtraKey\nManaCost:1 U\nTypes:Instant\nK:Gift\nSVar:GiftAbility:DB$ Draw | Defined$ Promised | ExtraKey$ Weird | GiftDescription$ a card\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad_gift), "must refuse invalid Gift: {bad_gift}");
+    }
+}
+
+#[test]
+fn wave15a_conditional_etb_counters_and_nickname_grave_exile() {
+    let raid = read(
+        "Name:RaidEtb\nManaCost:2 R\nTypes:Creature Warrior\nPT:2/2\n\
+         K:etbCounter:P1P1:1:CheckSVar$ RaidTest:Raid desc\n\
+         SVar:RaidTest:Count$AttackersDeclared",
+    );
+    assert_eq!(
+        raid.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(1), condition: Condition::AttackedWithAtLeast(1) }"
+        ]
+    );
+
+    let revolt = read(
+        "Name:RevoltEtb\nManaCost:1 G\nTypes:Creature Elf\nPT:2/1\n\
+         K:etbCounter:P1P1:2:Revolt$ True:Revolt desc",
+    );
+    assert_eq!(
+        revolt.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::Revolt }"
+        ]
+    );
+
+    let from_hand = read(
+        "Name:HandEtb\nManaCost:4 W W\nTypes:Creature Spirit\nPT:4/4\n\
+         K:etbCounter:P1P1:1:CheckSVar$ FromHand:desc\n\
+         SVar:FromHand:Count$wasCastFromYourHandByYou.1.0",
+    );
+    assert!(
+        from_hand.enter_modifiers[0].contains("WithCountersIf")
+            && from_hand.enter_modifiers[0].contains("Condition::SourceWasCastByYou")
+            && from_hand.enter_modifiers[0].contains("Filter::CastFromHand"),
+        "{:?}",
+        from_hand.enter_modifiers
+    );
+
+    let not_hand = read(
+        "Name:NotHandEtb\nManaCost:2 B\nTypes:Creature Horror\nPT:3/2\n\
+         K:etbCounter:P1P1:1:ValidCard$ Card.Self+!wasCastFromYourHandByYou:desc",
+    );
+    assert!(
+        not_hand.enter_modifiers[0].contains("Condition::Not(")
+            && not_hand.enter_modifiers[0].contains("Filter::CastFromHand"),
+        "{:?}",
+        not_hand.enter_modifiers
+    );
+
+    let cast_by_you = read(
+        "Name:CastYouEtb\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/2\n\
+         K:etbCounter:P1P1:1:ValidCard$ Card.Self+wasCastByYou:desc",
+    );
+    assert_eq!(
+        cast_by_you.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(1), condition: Condition::SourceWasCastByYou }"
+        ]
+    );
+
+    let no_mana = read(
+        "Name:PlotBonus\nManaCost:2 G\nTypes:Creature Centaur\nPT:3/3\n\
+         K:etbCounter:P1P1:2:CheckSVar$ X | SVarCompare$ EQ0:desc\n\
+         SVar:X:Count$CastTotalManaSpent",
+    );
+    assert_eq!(
+        no_mana.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::Not(&Condition::AmountAtLeast(Amount::ManaSpentToCast, 1)) }"
+        ]
+    );
+}
+
+#[test]
+fn wave15a_conditional_etb_counter_clauses_and_nickname_grave_exile() {
+    let inline_morbid = read(
+        "Name:MorbidEtb\nManaCost:3 B\nTypes:Creature Demon\nPT:3/3\n\
+         K:etbCounter:P1P1:1:CheckSVar$ Count$Morbid.1.0:desc",
+    );
+    assert_eq!(
+        inline_morbid.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(1), condition: Condition::CreaturesDiedThisTurnAtLeast(1) }"
+        ]
+    );
+
+    let is_present = read(
+        "Name:BigFriendEtb\nManaCost:3 G\nTypes:Creature Beast\nPT:3/3\n\
+         K:etbCounter:P1P1:1:IsPresent$ Permanent.YouCtrl+cmcGE4:desc",
+    );
+    assert!(
+        is_present.enter_modifiers[0].contains("WithCountersIf")
+            && is_present.enter_modifiers[0].contains("Condition::ControlCount("),
+        "{:?}",
+        is_present.enter_modifiers
+    );
+
+    let cmp_morbid = read(
+        "Name:CmpMorbidEtb\nManaCost:2 B\nTypes:Creature Shade\nPT:1/1\n\
+         K:etbCounter:P1P1:2:CheckSVar$ X:desc\n\
+         SVar:X:Count$Compare Y GE1.1.0\nSVar:Y:Count$Morbid.1.0",
+    );
+    assert_eq!(
+        cmp_morbid.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::CreaturesDiedThisTurnAtLeast(1) }"
+        ]
+    );
+
+    let nick_exile = read(
+        "Name:NickGrave\nManaCost:2 B\nTypes:Creature Zombie\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 B ExileFromGrave<1/NICKNAME> | ActivationZone$ Graveyard | NumCards$ 1",
+    );
+    assert!(
+        nick_exile.abilities[0].contains("ExileSelf"),
+        "{:?}",
+        nick_exile.abilities
+    );
+
+    for bad_etb in [
+        "Name:AdamantEtb\nManaCost:3 W\nTypes:Creature Knight\nPT:2/5\nK:etbCounter:P1P1:1:Adamant$ White:desc",
+        "Name:SelfCtrPresent\nManaCost:2 G\nTypes:Creature\nPT:2/2\nK:etbCounter:P1P1:1:IsPresent$ Card.Self+counters_GE1_P1P1:desc",
+        "Name:DragonPresence\nManaCost:3 R\nTypes:Creature\nPT:3/3\nK:etbCounter:P1P1:1:CheckSVar$ Count$Presence_Dragon.1.0:desc",
+    ] {
+        assert!(
+            refused(bad_etb),
+            "must refuse unsupported etbCounter: {bad_etb}"
+        );
+    }
+}

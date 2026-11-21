@@ -809,6 +809,8 @@ fn abilities(
         || body.mutate.is_some()
         || body.plot.is_some()
         || body.casualty.is_some()
+        || body.impending.is_some()
+        || body.gift.is_some()
         || body.cost_reduction.is_some()
         || body.entwine.is_some()
         || body.buyback.is_some()
@@ -839,10 +841,14 @@ fn inline_statics(statics: &str, abilities: &mut [String]) -> Option<()> {
             continue;
         }
         let rest = trimmed.strip_prefix("static ")?;
-        let (name, expr) = rest
-            .split_once(": Filter = ")
-            .or_else(|| rest.split_once(": Condition = "))
-            .or_else(|| rest.split_once(": AbilityDef = "))?;
+        let (name, rhs) = rest.split_once(": ")?;
+        let (ty, expr) = rhs.split_once(" = ")?;
+        let ty = ty.trim();
+        let valid_ty = matches!(ty, "Filter" | "Condition" | "AbilityDef")
+            || (ty.starts_with("[AbilityDef; ") && ty.ends_with(']'));
+        if !valid_ty {
+            return None;
+        }
         let expr = expr.strip_suffix(';')?;
         defs.push((name.trim(), expr.trim()));
     }
@@ -2284,5 +2290,29 @@ mod tests {
              target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE)))",
         );
         assert!(is_legacy_unsuffixed_ability_token("MAP", map_hash));
+    }
+
+    #[test]
+    fn wave15a_slice_statics_and_impending_gift_refusals() {
+        let c = cats();
+        let mut abilities =
+            vec!["static_ability!(Filter::This, Modifier::GrantAbilities(&SLICE1))".into()];
+        inline_statics(
+            "static SLICE1: [AbilityDef; 1] = [activated!(Cost::TAP, &[Effect::draw(1)])];\n",
+            &mut abilities,
+        )
+        .expect("inline slice static");
+        assert_eq!(
+            abilities[0],
+            "static_ability!(Filter::This, Modifier::GrantAbilities(&[activated!(Cost::TAP, &[Effect::draw(1)])]))"
+        );
+
+        for unsupported in [
+            "Name:ImpToken\nColors:red\nTypes:Creature Giant\nPT:4/4\nK:Impending:3:1 R",
+            "Name:GiftToken\nColors:blue\nTypes:Creature Fish\nPT:1/1\nK:Gift\n\
+             SVar:GiftAbility:DB$ Draw | Defined$ Promised | GiftDescription$ a card",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
+        }
     }
 }

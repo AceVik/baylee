@@ -106,6 +106,10 @@ pub struct CardBody {
     pub plot: Option<String>,
     /// `casualty` expression for the face, when present.
     pub casualty: Option<String>,
+    /// `impending` `(count, mana!(...))` expression for the face, when present.
+    pub impending: Option<String>,
+    /// `gift` (`GiftKind::...`) expression for the face, when present.
+    pub gift: Option<String>,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
@@ -176,6 +180,8 @@ impl CardBody {
             && self.mutate.is_none()
             && self.plot.is_none()
             && self.casualty.is_none()
+            && self.impending.is_none()
+            && self.gift.is_none()
             && self.additional_costs.is_empty()
             && self.kicked_targets.is_none()
             && self.keywords.is_empty()
@@ -346,6 +352,8 @@ impl CardBody {
             &self.mutate,
             &self.plot,
             &self.casualty,
+            &self.impending,
+            &self.gift,
             &self.cost_reduction,
             &self.kicked_targets,
         ] {

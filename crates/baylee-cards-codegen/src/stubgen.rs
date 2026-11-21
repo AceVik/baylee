@@ -801,6 +801,12 @@ fn render_face(
         if let Some(casualty) = body.casualty.as_deref() {
             fields.push(format!("casualty = {casualty}"));
         }
+        if let Some(impending) = body.impending.as_deref() {
+            fields.push(format!("impending = {impending}"));
+        }
+        if let Some(gift) = body.gift.as_deref() {
+            fields.push(format!("gift = {gift}"));
+        }
         if let Some(cr) = body.cost_reduction.as_deref() {
             fields.push(format!("cost_reduction = {cr}"));
         }
@@ -3007,6 +3013,64 @@ mod tests {
                 .iter()
                 .any(|p| p == "subtypes::creature::SCIENTIST"),
             "{subtype_paths:?}"
+        );
+    }
+
+    #[test]
+    fn wave15a_impending_and_gift_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("impending_giant.txt"),
+            "Name:ImpendingGiant\nManaCost:4 R R\nTypes:Creature Giant\nPT:5/5\n\
+             K:Impending:4:2 R R\n",
+        )
+        .expect("impending script");
+        std::fs::write(
+            dir.path().join("gift_charm.txt"),
+            "Name:GiftCharm\nManaCost:1 W\nTypes:Instant\n\
+             K:Gift\n\
+             SVar:GiftAbility:DB$ Token | TokenScript$ c_a_food_sac | TokenOwner$ Promised | GiftDescription$ a Food\n\
+             A:SP$ GainLife | Defined$ You | LifeAmount$ 3\n",
+        )
+        .expect("gift script");
+
+        let mut index = BTreeMap::new();
+        index.insert(
+            "ImpendingGiant".to_string(),
+            "impending_giant.txt".to_string(),
+        );
+        index.insert("GiftCharm".to_string(), "gift_charm.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let (_, imp_out) = render_stub(
+            &bare_card("ImpendingGiant", "Creature"),
+            &row(42, "IMPENDING_GIANT"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("impending renders");
+        assert!(
+            imp_out.contains("impending = Some((4, mana!(\"{2}{R}{R}\"))),"),
+            "{imp_out}"
+        );
+
+        let (_, gift_out) = render_stub(
+            &bare_card("GiftCharm", "Instant"),
+            &row(43, "GIFT_CHARM"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("gift renders");
+        assert!(
+            gift_out.contains("gift = Some(GiftKind::Food),"),
+            "{gift_out}"
         );
     }
 }

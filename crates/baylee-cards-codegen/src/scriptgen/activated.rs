@@ -972,7 +972,9 @@ impl Tx<'_> {
             return None;
         };
         match kind {
-            "ExileFromGrave" if in_graveyard && spec == "CARDNAME" => Some("ExileSelf"),
+            "ExileFromGrave" if in_graveyard && matches!(spec, "CARDNAME" | "NICKNAME") => {
+                Some("ExileSelf")
+            }
             "Discard" if in_hand && matches!(spec, "CARDNAME" | "NICKNAME") => Some("DiscardSelf"),
             "ExileFromHand" if in_hand && matches!(spec, "CARDNAME" | "NICKNAME") => {
                 Some("ExileSelf")

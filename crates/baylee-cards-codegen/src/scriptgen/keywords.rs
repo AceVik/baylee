@@ -116,6 +116,12 @@ impl Tx<'_> {
             }
             return None;
         }
+        if line == "Gift" {
+            return self.gift_keyword();
+        }
+        if let Some(rest) = line.strip_prefix("Impending:") {
+            return self.impending_keyword(rest);
+        }
         if let Some(rest) = line.strip_prefix("ETBReplacement:") {
             if self.try_etb_prepared(rest) {
                 return Some(());
@@ -1262,25 +1268,284 @@ impl Tx<'_> {
             return self.deny("keyword `etbCounter`".to_string());
         };
         let cond_raw = fields.next();
-        let _desc = fields.next();
+        let desc_raw = fields.next();
         if fields.next().is_some() {
             return self.deny("keyword `etbCounter`".to_string());
         }
-        if let Some(cond) = cond_raw {
-            let trimmed = cond.trim();
-            if !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("no condition") {
-                return self.deny("keyword `etbCounter`".to_string());
+        let cond = match cond_raw.map(str::trim) {
+            None | Some("") => None,
+            Some(c) if c.eq_ignore_ascii_case("no condition") => None,
+            Some(c) => {
+                // Keep 4-field `etbCounter:KIND:amt:Prose...` (with omitted condition
+                // colon slot) refused instead of parsing prose as parameters.
+                if desc_raw.is_none() && !c.contains('$') {
+                    return self.deny("keyword `etbCounter`".to_string());
+                }
+                let Some(cond_expr) = self.etb_counter_condition(c) else {
+                    return self.deny("keyword `etbCounter`".to_string());
+                };
+                Some(cond_expr)
             }
-        }
+        };
         let Some(kind) = super::counter_kind(kind_raw.trim()) else {
             return self.deny("keyword `etbCounter`".to_string());
         };
         let Some(amount) = self.etb_wave6_amount(amount_raw.trim()) else {
             return self.deny("keyword `etbCounter`".to_string());
         };
-        self.body.enter_modifiers.push(format!(
-            "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
-        ));
+        self.body.enter_modifiers.push(match cond {
+            None => format!("EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"),
+            Some(condition) => format!(
+                "EnterModifier::WithCountersIf {{ kind: {kind}, count: {amount}, condition: {condition} }}"
+            ),
+        });
+        Some(())
+    }
+
+    fn etb_counter_condition(&mut self, raw: &str) -> Option<String> {
+        let spec = format!("Stub$ _ | {}", raw.trim());
+        let (_, mut p) = Params::parse(&spec)?;
+        let cond = if let Some(valid) = p.take("ValidCard") {
+            match valid.trim() {
+                "Card.Self+escaped" | "Card.escaped+Self" => "Condition::Escaped".to_string(),
+                "Card.Self+wasCastByYou" | "Card.wasCastByYou+Self" => {
+                    "Condition::SourceWasCastByYou".to_string()
+                }
+                "Card.Self+!wasCastFromYourHandByYou" | "Card.!wasCastFromYourHandByYou+Self" => {
+                    "Condition::Not(&Condition::All(&[Condition::SourceWasCastByYou, \
+                     Condition::SourceMatches(&Filter::CastFromHand)]))"
+                        .to_string()
+                }
+                "Card.Self+wasCastFromYourHandByYou" | "Card.wasCastFromYourHandByYou+Self" => {
+                    "Condition::All(&[Condition::SourceWasCastByYou, \
+                     Condition::SourceMatches(&Filter::CastFromHand)])"
+                        .to_string()
+                }
+                _ => return None,
+            }
+        } else if p.peek("Revolt").is_some() {
+            if p.take("Revolt").as_deref() != Some("True") {
+                return None;
+            }
+            "Condition::Revolt".to_string()
+        } else if let Some(valid) = p.take("IsPresent") {
+            self.present_clause(&mut p, &valid)?
+        } else {
+            let var = p.take("CheckSVar")?;
+            let explicit_cmp = p.take("SVarCompare");
+            self.etb_check_svar_condition(&var, explicit_cmp.as_deref())?
+        };
+        if !p.exhausted() || cond.contains("CountersOnSelf") || cond.contains("CountersOnSource") {
+            return None;
+        }
+        Some(cond)
+    }
+
+    fn etb_check_svar_condition(
+        &mut self,
+        var: &str,
+        explicit_cmp: Option<&str>,
+    ) -> Option<String> {
+        self.etb_check_svar_condition_at(var, explicit_cmp, 0)
+    }
+
+    fn etb_check_svar_condition_at(
+        &mut self,
+        var: &str,
+        explicit_cmp: Option<&str>,
+        depth: u8,
+    ) -> Option<String> {
+        if depth >= 2 {
+            return None;
+        }
+        let trimmed_var = var.trim();
+        let cmp = explicit_cmp.unwrap_or("GE1").trim();
+        let def = self
+            .svars
+            .get(trimmed_var)
+            .map_or_else(|| trimmed_var.to_string(), |s| s.trim().to_string());
+        // Preserve existing contract: plain `Count$Valid ...` without explicit
+        // `SVarCompare$` and unhandled `Count$Kicked*` shapes stay refused.
+        if def.starts_with("Count$Kicked")
+            || (explicit_cmp.is_none()
+                && def
+                    .strip_prefix("Count$Valid ")
+                    .is_some_and(|rest| !rest.contains('$')))
+        {
+            return None;
+        }
+        if let Some(cond) = self.etb_compare_condition(&def, cmp, depth) {
+            return Some(cond);
+        }
+        if matches!(
+            def.as_str(),
+            "Count$CastTotalManaSpent" | "Count$TotalManaSpent"
+        ) {
+            return Self::mana_spent_condition(cmp);
+        }
+        self.svar_condition(trimmed_var, cmp)
+            .or_else(|| self.extra_svar_condition_clause(trimmed_var, cmp))
+            .or_else(|| self.extra_svar_condition_wave8(trimmed_var, cmp))
+            .or_else(|| {
+                explicit_cmp
+                    .is_some()
+                    .then(|| self.inline_valid_count_condition(trimmed_var, cmp))
+                    .flatten()
+            })
+    }
+
+    fn etb_compare_condition(&mut self, def: &str, cmp: &str, depth: u8) -> Option<String> {
+        let rest = def.strip_prefix("Count$Compare ")?;
+        let (lhs, else_arm) = rest.rsplit_once('.')?;
+        let (cond_spec, then_arm) = lhs.rsplit_once('.')?;
+        let flag_true = match (then_arm.trim(), else_arm.trim()) {
+            ("1", "0") => true,
+            ("0", "1") => false,
+            _ => return None,
+        };
+        let want_true = match cmp {
+            "GE1" | "GT0" | "EQ1" => true,
+            "EQ0" | "LE0" | "LT1" => false,
+            _ => return None,
+        };
+        let (inner_var, inner_cmp) = cond_spec.trim().rsplit_once(' ')?;
+        let inner = self.etb_check_svar_condition_at(inner_var, Some(inner_cmp), depth + 1)?;
+        if flag_true == want_true {
+            Some(inner)
+        } else if let Some(unwrapped) = inner
+            .strip_prefix("Condition::Not(&")
+            .and_then(|s| s.strip_suffix(')'))
+        {
+            Some(unwrapped.to_string())
+        } else {
+            let name = self.body.condition_static("CHECK", &inner);
+            Some(format!("Condition::Not(&{name})"))
+        }
+    }
+
+    fn mana_spent_condition(cmp: &str) -> Option<String> {
+        match cmp {
+            "EQ0" | "LE0" | "LT1" => Some(
+                "Condition::Not(&Condition::AmountAtLeast(Amount::ManaSpentToCast, 1))".to_string(),
+            ),
+            "NE0" | "GE1" | "GT0" => {
+                Some("Condition::AmountAtLeast(Amount::ManaSpentToCast, 1)".to_string())
+            }
+            _ => {
+                let min =
+                    if let Some(n) = cmp.strip_prefix("GE").and_then(|v| v.parse::<u32>().ok()) {
+                        (n >= 1).then_some(n)
+                    } else {
+                        cmp.strip_prefix("GT")
+                            .and_then(|v| v.parse::<u32>().ok())
+                            .and_then(|v| v.checked_add(1))
+                    }?;
+                Some(format!(
+                    "Condition::AmountAtLeast(Amount::ManaSpentToCast, {min})"
+                ))
+            }
+        }
+    }
+
+    /// `K:Impending:<N>:<cost>` (`CR 702.176a`): mana-only alternative cost on
+    /// a creature permanent that enters with `N` time counters and strips
+    /// creature characteristics while any remain.
+    fn impending_keyword(&mut self, rest: &str) -> Option<()> {
+        if self.body.impending.is_some() {
+            return self.deny("a second `Impending` cost on one card".to_string());
+        }
+        let is_creature = self
+            .type_line
+            .split_whitespace()
+            .any(|word| word == "Creature");
+        if !is_creature || self.is_land_card_type() || self.is_spell_card_type() {
+            return self.deny("`Impending` on a non-creature card".to_string());
+        }
+        let Some((count_raw, cost_raw)) = rest.split_once(':') else {
+            return self.deny("keyword `Impending`".to_string());
+        };
+        if cost_raw.contains(':') {
+            return self.deny("keyword `Impending`".to_string());
+        }
+        let Ok(n) = count_raw.trim().parse::<u8>() else {
+            return self.deny("keyword `Impending`".to_string());
+        };
+        if n == 0 {
+            return self.deny("`Impending 0`".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("Impending", cost_raw.trim(), false, true)?;
+        self.body.impending = Some(format!("Some(({n}, mana!(\"{mana}\")))"));
+        self.body.notes.push("impending".to_string());
+        Some(())
+    }
+
+    /// `K:Gift` (`CR 702.174a`): optional additional cost promising the named
+    /// gift from `SVar:GiftAbility` to a chosen opponent.
+    fn gift_keyword(&mut self) -> Option<()> {
+        if self.body.gift.is_some() {
+            return self.deny("a second `Gift` keyword on one card".to_string());
+        }
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`Gift` on a land or untyped card".to_string());
+        }
+        let Some(raw) = self.svars.get("GiftAbility").map(|s| s.trim().to_string()) else {
+            return self.deny("`Gift` without `SVar:GiftAbility`".to_string());
+        };
+        let Some((api, mut gp)) = Params::parse(&raw) else {
+            return self.deny("malformed `SVar:GiftAbility`".to_string());
+        };
+        let desc = gp.take("GiftDescription");
+        let kind = match api.as_str() {
+            "Draw" => {
+                if gp.take("Defined").as_deref() != Some("Promised")
+                    || !matches!(gp.take("NumCards").as_deref(), None | Some("1"))
+                    || !matches!(desc.as_deref(), None | Some("a card"))
+                {
+                    return self.deny("unsupported `Gift` draw ability".to_string());
+                }
+                "GiftKind::Card"
+            }
+            "AddTurn" => {
+                if gp.take("Defined").as_deref() != Some("Promised")
+                    || gp.take("NumTurns").as_deref() != Some("1")
+                    || !matches!(desc.as_deref(), None | Some("an extra turn"))
+                {
+                    return self.deny("unsupported `Gift` extra turn ability".to_string());
+                }
+                "GiftKind::ExtraTurn"
+            }
+            "Token" => {
+                if gp.take("TokenOwner").as_deref() != Some("Promised")
+                    || !matches!(gp.take("TokenAmount").as_deref(), None | Some("1"))
+                    || !matches!(gp.take("LockTokenScript").as_deref(), None | Some("True"))
+                {
+                    return self.deny("unsupported `Gift` token ability".to_string());
+                }
+                let script = gp.take("TokenScript");
+                let tapped = gp.take("TokenTapped");
+                match (script.as_deref(), tapped.as_deref(), desc.as_deref()) {
+                    (Some("c_a_food_sac"), None | Some("False"), None | Some("a Food")) => {
+                        "GiftKind::Food"
+                    }
+                    (Some("c_a_treasure_sac"), None | Some("False"), None | Some("a Treasure")) => {
+                        "GiftKind::Treasure"
+                    }
+                    (Some("u_1_1_fish"), Some("True"), None | Some("a tapped Fish")) => {
+                        "GiftKind::TappedFish"
+                    }
+                    (Some("u_8_8_octopus"), None | Some("False"), None | Some("an Octopus")) => {
+                        "GiftKind::Octopus"
+                    }
+                    _ => return self.deny("unsupported `Gift` token kind".to_string()),
+                }
+            }
+            _ => return self.deny(format!("unsupported `Gift` ability `{api}`")),
+        };
+        if let Some(leftover) = gp.first_key() {
+            return self.deny(format!("unclaimed `GiftAbility` parameter `{leftover}`"));
+        }
+        self.body.gift = Some(format!("Some({kind})"));
+        self.body.notes.push("gift".to_string());
         Some(())
     }
 

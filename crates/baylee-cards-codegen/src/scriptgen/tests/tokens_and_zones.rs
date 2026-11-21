@@ -875,7 +875,7 @@ fn a_counter_that_arrives_only_sometimes_is_refused() {
          K:etbCounter:P1P1:2:CheckSVar$ WasKicked:If CARDNAME was kicked, \
          it enters with two +1/+1 counters on it.",
         "Name:X\nTypes:Creature\n\
-         K:etbCounter:P1P1:1:ValidCard$ Card.Self+escaped:CARDNAME escapes with a counter.",
+         K:etbCounter:P1P1:1:Adamant$ White:CARDNAME enters with a counter if adamant.",
         // And a counter the DSL has no id for is refused exactly as it
         // is on an ability: this is `counter_kind`'s rule, reached from
         // a second place.
@@ -889,6 +889,20 @@ fn a_counter_that_arrives_only_sometimes_is_refused() {
             "and the refusal names the line it stopped on: {script}"
         );
     }
+}
+
+#[test]
+fn escaped_etb_counter_lowers_to_with_counters_if() {
+    let body = read(
+        "Name:EscapingTroll\nTypes:Creature\nPT:3/3\n\
+         K:etbCounter:P1P1:2:ValidCard$ Card.Self+escaped:CARDNAME escapes with two counters.",
+    );
+    assert_eq!(
+        body.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::Escaped }"
+        ]
+    );
 }
 
 /// CR 701.16a: "'Investigate' means 'Create a Clue token.'"
