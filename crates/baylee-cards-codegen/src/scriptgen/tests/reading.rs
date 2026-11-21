@@ -1291,6 +1291,29 @@ fn comma_separated_and_oracle_scoped_graveyard_targets_strip_player_qualifiers()
 }
 
 #[test]
+fn graveyard_target_scope_follows_its_own_saga_chapter() {
+    let saga = read(
+        "Name:Folio of Ruins\nManaCost:1 U\nTypes:Enchantment Saga\n\
+         K:Chapter:2:Recover,Clear\n\
+         SVar:Recover:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Artifact | SpellDescription$ Return target artifact card from your graveyard to your hand.\n\
+         SVar:Clear:DB$ ChangeZone | Origin$ Graveyard | Destination$ Library | Shuffle$ True | ValidTgts$ Card | TargetMin$ 0 | TargetMax$ 2 | SpellDescription$ Shuffle up to two target cards in graveyards into their owners' libraries.\n\
+         Oracle:I — Return target artifact card from your graveyard to your hand.\\nII — Shuffle up to two target cards in graveyards into their owners' libraries.",
+    );
+    assert!(
+        saga.abilities[0]
+            .contains("TargetSpec::CardInGraveyard(&Filter::ARTIFACT, PlayerRel::You)"),
+        "{}",
+        saga.abilities[0]
+    );
+    assert!(
+        saga.abilities[1]
+            .contains("TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::EachPlayer)"),
+        "{}",
+        saga.abilities[1]
+    );
+}
+
+#[test]
 fn permanent_card_in_graveyard_or_library_filters_permanent_types_only() {
     let spiral = read(
         "Name:Nature's Spiral\nManaCost:1 G\nTypes:Sorcery\n\

@@ -223,10 +223,7 @@ pub fn add_intrinsic_mana(
         .constrained_payment(player)
         .map(|_| state.players[usize::from(player.get())].mana_pool.clone());
     state.set_tapped(source, true);
-    state.journal.record(GameEvent::ObjectTapped {
-        object: source,
-        cause: Cause::Cost,
-    });
+    state.record_tap_event(source, true, Cause::Cost);
     state.journal.record(GameEvent::AbilityActivated {
         ability: None,
         source: state

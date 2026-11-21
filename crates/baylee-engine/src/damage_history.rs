@@ -479,6 +479,7 @@ fn pending(death: &DamageDeath, source: &GameObject) -> PendingTrigger {
         timestamp: source.timestamp,
         event_object: Some(death.victim.id),
         event_mana_value: Some(death.victim.characteristics().mana_value()),
+        event_tap_snapshot: None,
         event_departure: Some((
             death.victim.controller,
             death.victim.characteristics().toughness.unwrap_or(0),

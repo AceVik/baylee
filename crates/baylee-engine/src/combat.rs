@@ -92,12 +92,12 @@ impl CreatureCounts {
     }
 }
 
-/// One declared attacker.
+/// One creature currently attacking.
 #[derive(Clone, Copy, Hash, Debug)]
 pub struct AttackerInfo {
     /// The attacking creature.
     pub creature: ObjectId,
-    /// What it attacks: a player, or one of their planeswalkers.
+    /// What it attacks: a player, planeswalker, or battle.
     pub defending: Defender,
     /// Whether a blocker was ever declared against it (CR 509.1h).
     ///
@@ -290,7 +290,7 @@ impl CombatState {
         !self.attackers.is_empty()
     }
 
-    /// The declared attackers, in declaration order.
+    /// The current attackers, in the order they entered combat.
     #[must_use]
     pub fn attackers(&self) -> &[AttackerInfo] {
         &self.attackers
@@ -354,6 +354,26 @@ impl CombatState {
                 && state.per_turn.attacked.contains(&(id, version, player))
             {
                 mask |= 1_u64 << opp.get();
+            }
+        }
+        mask.count_ones()
+    }
+
+    /// Counts opponents currently attacked directly by creatures `player`
+    /// controls. Creatures put onto the battlefield attacking count (CR 508.4).
+    pub(crate) fn opponents_being_attacked_by(&self, state: &GameState, player: PlayerId) -> u32 {
+        let mut mask = 0_u64;
+        for attacker in &self.attackers {
+            let Defender::Player(opponent) = attacker.defending else {
+                continue;
+            };
+            if state.is_opponent(opponent, player)
+                && !state.has_left(opponent)
+                && state
+                    .object(attacker.creature)
+                    .is_some_and(|creature| creature.controller == player)
+            {
+                mask |= 1_u64 << opponent.get();
             }
         }
         mask.count_ones()

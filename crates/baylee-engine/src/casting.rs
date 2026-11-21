@@ -1861,11 +1861,13 @@ pub(crate) fn can_cast_form_paying(
             return Ok(());
         }
         if !flashback_granted(state, card) && !graveyard_ok && !escape_ok {
-            return Err(if parts_payable {
-                CastError::NotEnoughMana
+            return if a_back_face_castable() {
+                Ok(())
+            } else if parts_payable {
+                Err(CastError::NotEnoughMana)
             } else {
-                CastError::NoWayToCast
-            });
+                Err(CastError::NoWayToCast)
+            };
         }
     }
     // Escape's price is its mana and the other cards it exiles; beside a

@@ -1682,6 +1682,11 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             count.hash(h);
         }
         crate::object::Rider::Monstrous => h.u8(211),
+        crate::object::Rider::ClassLevel(level) => {
+            h.u8(255);
+            h.u16(267);
+            h.u8(*level);
+        }
         crate::object::Rider::Suspected => h.u8(212),
         crate::object::Rider::RiotHaste => h.u8(213),
         crate::object::Rider::RevealedFromOpeningHand => h.u8(241),
@@ -2379,6 +2384,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(p.get());
             }
             Rider::Monstrous => h.u8(211),
+            Rider::ClassLevel(level) => {
+                h.u8(255);
+                h.u16(267);
+                h.u8(*level);
+            }
             Rider::Suspected => h.u8(212),
             Rider::RiotHaste => h.u8(213),
             Rider::RevealedFromOpeningHand => h.u8(241),

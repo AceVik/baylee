@@ -668,6 +668,10 @@ explicit multiplicity (`entity_feat[122]`). The v4 runtime dispatches archived
 encoder-6 and Encoder 7 models separately; `upgrade_state_dict_to_v7` zero-pads
 older input projections and initializes the candidate-context residual.
 
+Class advancement uses the existing progression feature alongside lore and
+level counters. Encoder 7 also keeps its exact level-counter feature, and
+permanents at different Class levels remain distinct in its battlefield groups.
+
 **Known Encoder 7 gaps remain:** inventory bookkeeping and aggregate counts do
 not emit all unseen own-library/sideboard cards as graph entities; payable-cast
 candidate coverage is incomplete. Inventory uncertainty and some payment and

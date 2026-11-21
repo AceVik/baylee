@@ -21,7 +21,7 @@ card!(
     oracle_id = "5ca4e8c4-8358-49be-bafb-85849bf9bd01",
     scryfall_id = "44280b43-b07e-43a4-9ae3-2eac0baeb918",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Those Old Scientists",
         mana_cost = mana!("{2}{U}"),
@@ -53,7 +53,7 @@ card!(
             3,
             &[Effect::ShuffleTargetsIntoOwnersLibraries],
             targets = Some(TargetReq::up_to(
-                TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You),
+                TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::EachPlayer),
                 2
             ))
         ),

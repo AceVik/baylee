@@ -129,10 +129,10 @@ impl Tx<'_> {
         }
         let mut p_spec1 = p.clone();
         p_spec1.take("ValidTgts");
-        let spec1 = self.resolve_target_spec(api, &mut p_spec1, &valid1, chain)?;
+        let spec1 = self.resolve_target_spec(api, &mut p_spec1, &valid1, chain, None)?;
         let mut cp_spec2 = cp.clone();
         cp_spec2.take("ValidTgts");
-        let spec2 = self.resolve_target_spec(api, &mut cp_spec2, &valid2, chain)?;
+        let spec2 = self.resolve_target_spec(api, &mut cp_spec2, &valid2, chain, None)?;
         if !Self::same_target_domain(&spec1, &spec2) {
             return None;
         }
@@ -199,7 +199,7 @@ impl Tx<'_> {
         p.take("ValidTgts");
         p.take("TargetMin");
         p.take("TargetMax");
-        let spec = self.resolve_target_spec(api, p, &valid, chain)?;
+        let spec = self.resolve_target_spec(api, p, &valid, chain, None)?;
         let effect_target = Self::effect_target_of(&spec);
         self.body.kicked_targets = Some(format!("Some(TargetReq::one({spec}))"));
         Some(effect_target)

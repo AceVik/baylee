@@ -129,8 +129,10 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             let is_mana = ab.is_mana_ability()
                 || crate::dsl::simple_mana(cost, effects).is_some()
                 || crate::dsl::mana_offer(cost, effects).is_some();
-            out[0] = f32::from(u8::from(!is_mana));
+            let is_class_level = matches!(*effects, [Effect::SetClassLevel(_)]);
+            out[0] = f32::from(u8::from(!is_mana && !is_class_level));
             out[1] = f32::from(u8::from(is_mana));
+            out[7] = f32::from(u8::from(is_class_level));
             out[8] = f32::from(u8::from(matches!(timing, ActivationTiming::SorcerySpeed)));
             out[9] = f32::from(u8::from(!matches!(limit, ActivationLimit::Unlimited)));
             out[10] = f32::from(u8::from(!matches!(zone, ActivationZone::Battlefield)));
@@ -433,6 +435,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::Clashed { .. } => dst[8] = 1.0,
         Trigger::CountersPlaced { .. }
         | Trigger::CountersReach { .. }
+        | Trigger::ClassLevelGained(_)
         | Trigger::LastCounterRemoved { .. }
         | Trigger::Chapter(_)
         | Trigger::Discarded { .. }

@@ -93,6 +93,7 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         plotted: false,
         warped: false,
         suspected: false,
+        class_level: None,
         token: None,
         colors: ColorSet::default(),
         keywords: 0,

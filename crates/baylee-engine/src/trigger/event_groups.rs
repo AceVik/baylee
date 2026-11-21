@@ -287,6 +287,7 @@ mod tests {
                     object: ObjectId::new(index % 7, 0),
                     cause: Cause::Effect,
                 },
+                tap_observation: None,
                 departure: None,
             })
             .collect();

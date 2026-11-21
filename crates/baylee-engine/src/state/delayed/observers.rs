@@ -80,6 +80,7 @@ mod tests {
                 old: PlayerId::new(old),
                 new: PlayerId::new(new),
             },
+            tap_observation: None,
             departure: None,
         }
     }
@@ -94,6 +95,7 @@ mod tests {
                 cause: crate::event::Cause::Effect,
                 place: None,
             },
+            tap_observation: None,
             departure: Some(Box::new(Departure {
                 sacrificed: false,
                 return_keywords: [0, 0],
@@ -134,6 +136,7 @@ mod tests {
                 object: ObjectId::NO_SOURCE,
                 cause: crate::event::Cause::Effect,
             },
+            tap_observation: None,
             departure: None,
         };
         assert!(!observation.observation_fired(&[untap.clone()], you));

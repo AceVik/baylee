@@ -253,7 +253,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .push(crate::object::Rider::TriggerSourceVersion(version));
                 }
             }
-            if let Some((controller, toughness)) = trigger.event_departure {
+            if let Some((controller, toughness)) =
+                trigger.event_departure.or(trigger.event_tap_snapshot)
+            {
                 object
                     .riders
                     .push(crate::object::Rider::EventDeparture(controller, toughness));
@@ -1681,6 +1683,7 @@ fn synthetic_copy_etb_trigger(
         counter_source_version: None,
         event_mana: None,
         event_mana_value: None,
+        event_tap_snapshot: None,
         event_departure: None,
         event_amount: amount,
         event_player: None,

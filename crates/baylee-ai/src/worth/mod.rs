@@ -2543,6 +2543,18 @@ impl HeuristicAgent {
                 Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
                 None => 0,
             },
+            Effect::SetClassLevel(level) => origin.object.map_or(0, |o| {
+                let current = o.class_level.unwrap_or(1);
+                let sign = if self.hostile(o.controller, me) {
+                    -1
+                } else {
+                    1
+                };
+                // A new level unlocks an ongoing ability or a one-time
+                // effect. Price it on the scale of an ability, separately
+                // from the value of a counter.
+                sign * (i64::from(*level) - i64::from(current)) * (CARD * 3 / 4)
+            }),
             Effect::AddCountersUpTo {
                 kind,
                 amount,

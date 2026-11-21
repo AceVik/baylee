@@ -466,7 +466,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // `ChooseRingBearer`, `ChooseFirstCostBranch`, `OpeningHandBattlefield`,
     // `OpeningHandReveal`, `Sneak`, `Endure`, `Awaken`, `Splice`, `CipherEncode`,
     // `Champion`, `Conspire`, and `Tribute`; protocol 64 on binary frames).
-    const RECORDED: (u32, u64) = (107, 9_393_182_911_007_579_732);
+    // 108: `PublicObject::class_level` and `LogEvent::ClassLevel` (CR 717;
+    // protocol 65 on binary frames).
+    const RECORDED: (u32, u64) = (108, 17_548_864_900_884_604_084);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

@@ -5150,6 +5150,9 @@ pub enum Effect {
     /// permanent's [`Self::Champion`] ability to the battlefield under its
     /// owner's control. Appended to preserve replay identities.
     ReturnChampioned,
+    /// Set the source permanent's level as a Class level ability resolves
+    /// (CR 717.2a). Appended to preserve replay identities.
+    SetClassLevel(u8),
 }
 
 #[cfg(test)]

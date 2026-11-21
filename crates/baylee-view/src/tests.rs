@@ -41,6 +41,7 @@ pub(crate) fn obj(id: u32, controller: u8) -> PublicObject {
         plotted: false,
         warped: false,
         suspected: false,
+        class_level: None,
         token: None,
         colors: ColorSet::default(),
         keywords: 0,

@@ -350,6 +350,9 @@ pub enum Amount {
     /// Cumulative mana spent to cast spells this turn by players matching the
     /// relation (expend, CR 700.14). Appended to preserve replay identities.
     ManaExpendedOnSpellsThisTurn(super::PlayerRel),
+    /// Number of distinct opponents currently being attacked directly by
+    /// creatures you control (CR 506.3–4, CR 508.4).
+    OpponentsYouAreAttacking,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.
@@ -430,6 +433,9 @@ pub enum ThisWay {
     /// (extort's "you gain life equal to the total life lost this way",
     /// CR 702.101a). Appended to preserve replay identities.
     LifeLost,
+    /// Cards moved from a graveyard to exile during this resolution that
+    /// match the filter in exile.
+    ExiledFromGraveyard(&'static Filter),
 }
 
 impl Amount {

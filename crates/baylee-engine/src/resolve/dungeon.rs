@@ -129,6 +129,7 @@ fn enter(state: &mut GameState, res: &Resolution, dungeon: Dungeon, room: u8) {
         counter_source_version: None,
         event_mana: None,
         event_mana_value: None,
+        event_tap_snapshot: None,
         event_departure: None,
         event_amount: None,
         event_player: None,

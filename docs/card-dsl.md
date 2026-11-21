@@ -1465,11 +1465,12 @@ the land the trigger is about is already counted when it is collected.
 
 `CountersReach { kind, n }` fires when the source's count of `kind` goes
 from below `n` to `n` or more, the window CR 715.2b writes out for a
-chapter. It is Druid Class's "When this Class becomes level 3" (`Level`,
-`n: 2`, because a Class's level is kept as level counters over level 1). A
-level-up payoff that **targets** is this trigger, never an effect riding on
-the level-up activation: a target removed in response would take the level
-with it (CR 608.2b).
+chapter. A Class uses `Effect::SetClassLevel(n)` with sorcery timing and
+`Condition::ClassLevelExactly(n - 1)` for each level bar (CR 717.2a).
+`Condition::ClassLevelAtLeast(n)` enables the abilities in that section.
+Druid Class's level-three payoff uses `Trigger::ClassLevelGained(3)`. The
+player chooses its target after the designation changes, so removing the
+target in response leaves Druid Class at level three.
 
 `Trigger::ETB` is `EntersBattlefield(&Filter::This)`, which 99 of the pool's
 110 enter-triggers are. It is a constant and not a macro because there is
@@ -4241,6 +4242,7 @@ is 0.
 | `DamageDealtToYou` | the part of it dealt to the controller | Mishra's War Machine |
 | `Died(&Filter)` | permanents put into a graveyard from the battlefield that matched the filter as they left | Hellfire |
 | `Destroyed(&Filter)` | matching permanents successfully destroyed by this resolution, including destruction moved to exile by a replacement; regeneration and indestructible do not count | Multani's Decree |
+| `ExiledFromGraveyard(&Filter)` | cards exiled from a graveyard that match the filter in exile | Kirin-Touched Orochi's reflexive triggers |
 | `ReturnedToHand(&Filter)` | permanents returned from the battlefield to a hand, matched as they left (`Filter::Another` excludes the source) | Arid Archway |
 | `Discarded` | cards discarded | Recall |
 | `Milled(&Filter)` | cards milled (CR 701.17a) that match the filter in the graveyard | Grist, the Hunger Tide |
@@ -5698,6 +5700,10 @@ Each triggers once per keyword instance (`layers::keyword_instances`):
 - `KeywordSet::DETHRONE` — dethrone (`CR 702.105a–b`).
 - `KeywordSet::MELEE` — melee (`CR 702.121a–b`), backed by reusable
   `Amount::OpponentsYouAttackedThisCombat`.
+- `Amount::OpponentsYouAreAttacking` counts the distinct opponents under
+  direct attack by creatures you currently control. Creatures that enter
+  attacking count, and creatures removed from combat cease to count
+  (`CR 506.3–4`, `CR 508.4`).
 - `KeywordSet::MENTOR` — mentor (`CR 702.134a–b`), re-checking
   `Filter::PowerLessThanSourcePower` against source LKI on resolution
   (`CR 608.2b`, `CR 608.2h`).

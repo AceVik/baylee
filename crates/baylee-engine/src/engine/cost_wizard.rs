@@ -501,10 +501,7 @@ pub(crate) fn pay(
             | CostPart::Saddle(_)
     ) {
         state.set_tapped(chosen, true);
-        state.journal.record(GameEvent::ObjectTapped {
-            object: chosen,
-            cause: Cause::Cost,
-        });
+        state.record_tap_event(chosen, true, Cause::Cost);
         return Ok(());
     }
     if matches!(

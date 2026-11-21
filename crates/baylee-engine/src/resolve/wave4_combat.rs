@@ -775,7 +775,7 @@ pub(super) fn resolve_suspect(
     target: baylee_cards_dsl::TargetSpec,
     suspect: bool,
 ) {
-    use baylee_cards_dsl::TargetSpec;
+    use baylee_cards_dsl::{Filter, TargetSpec};
     let ids: Vec<ObjectId> = match target {
         TargetSpec::ThisObject => subjects::source(state, res)
             .filter(|r| subjects::is_current(state, *r))
@@ -789,6 +789,14 @@ pub(super) fn resolve_suspect(
             .collect(),
         TargetSpec::ObjectOfFirstTargetsPlayer(_) | TargetSpec::CardInFirstTargetsGraveyard(_) => {
             res.second_targets.to_vec()
+        }
+        TargetSpec::Object(Filter::AttachedToBySource)
+            if !res.targeted && res.targets.is_empty() =>
+        {
+            super::attached_host(state, res)
+                .map(|(id, _)| id)
+                .into_iter()
+                .collect()
         }
         TargetSpec::Object(filter) if !res.targeted && res.targets.is_empty() => state
             .battlefield_seen()

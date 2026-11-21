@@ -34,12 +34,12 @@ card!(
         activated!(
             cost!("{R}{R}{R}", TapSelf),
             &[
-                Effect::UntapTarget,
                 Effect::continuous(
                     &Filter::This,
                     Modifier::GainControl,
                     Duration::UntilEndOfTurn
                 ),
+                Effect::UntapTarget,
                 Effect::PumpTarget {
                     power: Amount::Fixed(0),
                     toughness: Amount::Fixed(0),

@@ -875,10 +875,11 @@ fn variant(event: &LogEvent) -> usize {
         LogEvent::Aimed { .. } => 36,
         LogEvent::Voted { .. } => 37,
         LogEvent::CardsChosen { .. } => 38,
+        LogEvent::ClassLevel { .. } => 39,
     }
 }
 
-const VARIANTS: usize = 39;
+const VARIANTS: usize = 40;
 
 /// Every kind of line, about `player`, with every answer, cause, zone and
 /// counter a line can carry.
@@ -886,6 +887,10 @@ const VARIANTS: usize = 39;
 fn every_line_about(player: PlayerId) -> Vec<LogEvent> {
     let card = bolt(3);
     let mut out = vec![
+        LogEvent::ClassLevel {
+            object: token(4, "Druid Class"),
+            level: 2,
+        },
         LogEvent::PlayerCounters {
             player,
             kind: CounterKind::Energy,
@@ -1278,6 +1283,7 @@ fn about_whom(event: &LogEvent) -> Option<PlayerId> {
             ..
         }
         | LogEvent::Counters { .. }
+        | LogEvent::ClassLevel { .. }
         | LogEvent::Attacked {
             defending: Defender::Planeswalker(_) | Defender::Battle(_),
             ..
@@ -1936,6 +1942,22 @@ fn counters_from_nothing_are_got() {
     assert_eq!(
         say(Lang::De, counters(CounterKind::Loyalty, 0, 4)),
         "Soldier hat 4 Loyalitätsmarken bekommen"
+    );
+}
+
+#[test]
+fn a_class_upgrade_is_written_in_both_languages() {
+    let level_up = || LogEvent::ClassLevel {
+        object: token(4, "Druid Class"),
+        level: 3,
+    };
+    assert_eq!(
+        say(Lang::En, level_up()),
+        "Druid Class reached Class level 3"
+    );
+    assert_eq!(
+        say(Lang::De, level_up()),
+        "Druid Class hat Klassenstufe 3 erreicht"
     );
 }
 

@@ -24,7 +24,7 @@ card!(
             Effect::gain_life(2)
         ],
         targets = Some(TargetReq::up_to(
-            TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You),
+            TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::EachPlayer),
             3
         ))
     ),],

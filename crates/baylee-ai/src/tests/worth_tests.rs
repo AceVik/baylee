@@ -448,6 +448,60 @@ fn the_mana_for_a_worthwhile_equip_is_made_by_the_careful_levels() {
     );
 }
 
+#[test]
+fn the_house_uses_floating_mana_to_advance_druid_class() {
+    let mut object = card(1, ME, "Druid Class", TypeSet::ENCHANTMENT);
+    object.class_level = Some(1);
+    let mut v = view(0, &[20, 20], vec![object]);
+    main_phase(&mut v);
+    v.seats[0].mana_pool.green = 1;
+    v.seats[0].mana_pool.colorless = 2;
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::SHARP).act(&v, &offering(vec![(obj(1), 1)])),
+        activates(1, 1)
+    );
+
+    v.battlefield[0].class_level = Some(2);
+    v.seats[0].mana_pool.colorless = 4;
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::SHARP).act(&v, &offering(vec![(obj(1), 3)])),
+        activates(1, 3)
+    );
+}
+
+#[test]
+fn the_house_funds_a_class_upgrade_only_when_the_engine_offers_it() {
+    let mut class = card(1, ME, "Druid Class", TypeSet::ENCHANTMENT);
+    class.class_level = Some(1);
+    let mut forest = card(2, ME, "Forest", TypeSet::LAND);
+    forest.supertypes = SupertypeSet::BASIC;
+    forest.subtypes.insert(land_type::FOREST);
+    let mut v = view(0, &[20, 20], vec![class, forest]);
+    main_phase(&mut v);
+    v.seats[0].mana_pool.colorless = 2;
+    let class_offers = |unpaid_abilities| Pending::Priority {
+        player: ME,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            mana_abilities: vec![obj(2)],
+            unpaid_abilities,
+            ..Default::default()
+        }),
+    };
+    let agent = HeuristicAgent::new(AIProfile::SHARP);
+    assert_eq!(
+        agent.act(&v, &class_offers(vec![])),
+        PlayerAction::PassPriority
+    );
+    assert_eq!(
+        agent.act(
+            &v,
+            &class_offers(vec![(obj(1), 1, baylee_core::mana!("{2}{G}"))])
+        ),
+        PlayerAction::ActivateManaAbility { source: obj(2) }
+    );
+}
+
 /// On the only creature there is, moving it again is mana for nothing.
 #[test]
 fn a_sword_is_not_moved_onto_the_creature_already_wearing_it() {

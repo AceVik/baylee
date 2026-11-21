@@ -841,6 +841,29 @@ impl GameLog {
             GameEvent::PlayerCountersChanged { player, kind, old, new } => {
                 self.push(LogEvent::PlayerCounters { player: *player, kind: counter(*kind), old: *old, new: *new }, vec![]);
             }
+            GameEvent::ClassLevelChanged {
+                object,
+                version,
+                level,
+                face_down,
+            } => {
+                let Some(permanent) = state.object(*object).filter(|o| {
+                    o.version == *version && o.zone == Zone::Battlefield && !o.private_inventory()
+                }) else {
+                    return;
+                };
+                // The level is public, including on a face-down permanent.
+                // Use the blank name if either the event or the current view
+                // was face down.
+                let (object, sees) = if *face_down
+                    || permanent.status.contains(baylee_engine::object::Status::FACE_DOWN)
+                {
+                    (LogObject::FaceDown { id: *object }, Sees::Everyone)
+                } else {
+                    self.refer(state, *object)
+                };
+                self.push(LogEvent::ClassLevel { object, level: *level }, vec![sees]);
+            }
             GameEvent::LifeChanged {
                 player, old, new, ..
             } => {

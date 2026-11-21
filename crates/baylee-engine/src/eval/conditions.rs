@@ -501,6 +501,9 @@ pub fn condition_holds_with_context(
         Condition::CountersOnSelf(kind, min) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) >= u16::from(min)),
+        Condition::ClassLevelExactly(_) | Condition::ClassLevelAtLeast(_) => {
+            condition_with_event(state, you, context, condition, None, None)
+        }
         Condition::CountersOnSelfExactly(kind, n) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
@@ -954,6 +957,12 @@ pub(crate) fn condition_with_event(
     event: Option<baylee_core::ids::DamageSourceRef>,
 ) -> bool {
     match condition {
+        Condition::ClassLevelExactly(level) => state
+            .damage_source(context.source, source_version)
+            .is_some_and(|o| o.zone == Zone::Battlefield && o.class_level() == level),
+        Condition::ClassLevelAtLeast(level) => state
+            .damage_source(context.source, source_version)
+            .is_some_and(|o| o.zone == Zone::Battlefield && o.class_level() >= level),
         Condition::ControlCountExceptEvent(filter, minimum) => {
             let Some(event) = event else { return false };
             state

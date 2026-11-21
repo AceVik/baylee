@@ -205,6 +205,7 @@ fn an_object_writes_only_what_is_not_default_and_reads_back_whole() {
         "\"card\"",
         "\"commander\"",
         "\"counters\"",
+        "\"class_level\"",
         "\"damage\"",
         "\"targets\"",
         "\"grants\"",
@@ -238,6 +239,7 @@ fn an_object_writes_only_what_is_not_default_and_reads_back_whole() {
     busy.damage = 3;
     busy.token = Some(4);
     busy.loyalty = Some(5);
+    busy.class_level = Some(3);
     busy.attached_to = Some(ObjectId::new(9, 0));
     busy.flashback = Some(ManaCost::default());
     let json = serde_json::to_string(&busy).expect("writes");
@@ -246,6 +248,7 @@ fn an_object_writes_only_what_is_not_default_and_reads_back_whole() {
         "\"damage\"",
         "\"token\"",
         "\"loyalty\"",
+        "\"class_level\"",
         "\"attached_to\"",
         "\"flashback\"",
     ] {
@@ -380,6 +383,7 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
         ("plotted", |o| o.plotted = true),
         ("warped", |o| o.warped = true),
         ("suspected", |o| o.suspected = true),
+        ("class_level", |o| o.class_level = Some(2)),
         ("chosen_subtype", |o| {
             o.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ALLY);
         }),

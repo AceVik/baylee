@@ -4,3 +4,4 @@
 use super::*;
 
 mod druid_class;
+mod innkeeper_s_talent;

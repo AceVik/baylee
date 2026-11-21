@@ -1378,14 +1378,9 @@ pub(super) fn resume_tax_choice_inner(
                 for (id, version) in chosen {
                     if state.object(id).is_some_and(|o| {
                         o.version == version && o.zone == crate::zone::Zone::Battlefield
-                    }) {
-                        state.set_tapped(id, false);
-                        state
-                            .journal
-                            .record(crate::event::GameEvent::ObjectUntapped {
-                                object: id,
-                                cause: crate::event::Cause::Effect,
-                            });
+                    }) && state.set_tapped(id, false)
+                    {
+                        state.record_tap_event(id, false, crate::event::Cause::Effect);
                     }
                 }
             }

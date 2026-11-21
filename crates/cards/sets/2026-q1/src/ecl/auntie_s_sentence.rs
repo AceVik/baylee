@@ -23,7 +23,17 @@ card!(
         modes: &[
             mode!(
                 &[Effect::RevealHandDiscard {
-                    filter: &Filter::NONLAND
+                    filter: &Filter::And(&[
+                        Filter::HasType(
+                            TypeSet::ARTIFACT
+                                .union(TypeSet::BATTLE)
+                                .union(TypeSet::CREATURE)
+                                .union(TypeSet::ENCHANTMENT)
+                                .union(TypeSet::LAND)
+                                .union(TypeSet::PLANESWALKER)
+                        ),
+                        Filter::NONLAND
+                    ])
                 }],
                 targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
             ),

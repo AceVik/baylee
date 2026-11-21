@@ -87,7 +87,9 @@ pub mod tape;
 /// `CastModeKind::Sneak`, `YesNoPrompt::Endure`, `CastModeKind::Awaken`,
 /// `ChoicePrompt::{Splice, CipherEncode, Champion}`, and
 /// `YesNoPrompt::{Conspire, Tribute}`) on positional binary frames.
-pub const PROTOCOL_VERSION: u32 = 64;
+/// Version 65 carries `PublicObject::class_level` and `LogEvent::ClassLevel`
+/// for Class designations (CR 717) on positional binary frames.
+pub const PROTOCOL_VERSION: u32 = 65;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -420,7 +422,8 @@ mod tests {
         // `ChooseRingBearer`, `ChooseFirstCostBranch`, `OpeningHandBattlefield`,
         // `OpeningHandReveal`, `Sneak`, `Endure`, `Awaken`, `Splice`, `CipherEncode`,
         // `Champion`, `Conspire`, and `Tribute`) on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 64);
+        // 65: `PublicObject::class_level` and `LogEvent::ClassLevel`.
+        assert_eq!(PROTOCOL_VERSION, 65);
     }
 
     #[test]

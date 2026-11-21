@@ -476,6 +476,15 @@ pub(super) fn public_object(
             && obj
                 .riders
                 .contains(&baylee_engine::object::Rider::Suspected),
+        class_level: (obj.zone == Zone::Battlefield)
+            .then(|| obj.class_level())
+            .filter(|&level| {
+                level > 1
+                    || public_face
+                        && chars
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::enchantment::CLASS)
+            }),
         // The engine holds the definition; the client needs the number, and
         // this crate is the one that can see both.
         token: state

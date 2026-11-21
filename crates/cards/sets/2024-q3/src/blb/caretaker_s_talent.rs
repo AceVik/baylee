@@ -30,18 +30,12 @@ card!(
     abilities = &[
         activated!(
             cost!("{W}"),
-            &[Effect::AddCounter {
-                kind: CounterKind::Level,
-                amount: Amount::Fixed(1)
-            }],
+            &[Effect::SetClassLevel(2)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 0))
+            condition = Some(Condition::ClassLevelExactly(1))
         ),
         triggered!(
-            Trigger::CountersReach {
-                kind: CounterKind::Level,
-                n: 1
-            },
+            Trigger::ClassLevelGained(2),
             &[Effect::CreateTokenCopy {
                 target: TargetSpec::Object(&TARGET1),
                 controller: PlayerRel::You,
@@ -56,17 +50,14 @@ card!(
         ),
         activated!(
             cost!("{3}{W}"),
-            &[Effect::AddCounter {
-                kind: CounterKind::Level,
-                amount: Amount::Fixed(1)
-            }],
+            &[Effect::SetClassLevel(3)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 1))
+            condition = Some(Condition::ClassLevelExactly(2))
         ),
         static_ability!(
             Filter::And(&[Filter::CREATURE, Filter::IsToken, Filter::ControlledByYou]),
             Modifier::ModifyPT(2, 2),
-            condition = Some(Condition::CountersOnSelf(CounterKind::Level, 2))
+            condition = Some(Condition::ClassLevelAtLeast(3))
         ),
         triggered!(
             Trigger::ChangesZoneAll {

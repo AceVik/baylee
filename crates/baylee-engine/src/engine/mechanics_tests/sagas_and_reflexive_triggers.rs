@@ -423,6 +423,88 @@ fn reflexive_trigger_this_way_once_vs_per_occurrence_and_intervening_if() {
 }
 
 #[test]
+fn reflexive_graveyard_exile_remembers_only_the_card_moved_from_that_zone() {
+    const GRAVEYARD_TARGET: TargetSpec = TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You);
+    static EXILE: &[AbilityDef] = &[free(
+        &[
+            Effect::ExileSource,
+            Effect::exile(GRAVEYARD_TARGET),
+            Effect::ReflexiveTrigger {
+                when: ReflexiveWhen::ThisWay(ThisWay::ExiledFromGraveyard(&Filter::CREATURE)),
+                once: true,
+                condition: None,
+                targets: None,
+                remember: TriggerRemember::None,
+                effects: &[Effect::GainLife {
+                    amount: Amount::EventManaValue,
+                }],
+            },
+        ],
+        Some(TargetReq::one(GRAVEYARD_TARGET)),
+    )];
+    let cards = vec![
+        card(
+            PROBE,
+            creature_face("Sigil", "{5}", 2, 2),
+            KeywordSet::EMPTY,
+            EXILE,
+        ),
+        card(
+            FODDER_5_2,
+            creature_face("Lost Mite", "{3}", 2, 2),
+            KeywordSet::EMPTY,
+            &[],
+        ),
+        card(
+            ARTIFACT_RELIC,
+            face("Grave Relic", "{4}", TypeSet::ARTIFACT),
+            KeywordSet::EMPTY,
+            &[],
+        ),
+    ];
+    for (fodder, expected_life) in [(FODDER_5_2, 23), (ARTIFACT_RELIC, 20)] {
+        let mut engine = bench(
+            99_863,
+            cards.clone(),
+            [Seat::with(&[PROBE]).holding(&[fodder]), Seat::default()],
+        );
+        to_main(&mut engine, me());
+        let source = the(&engine, ZoneLocation::Battlefield, PROBE);
+        let target = the(&engine, ZoneLocation::Hand(me()), fodder);
+        engine
+            .state
+            .move_object(
+                target,
+                ZoneLocation::Graveyard(me()),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        engine.refresh_offer();
+        activate(&mut engine, me(), source, 0);
+        engine
+            .apply(
+                me(),
+                PlayerAction::ChooseTargets {
+                    objects: vec![target],
+                    players: vec![],
+                },
+            )
+            .unwrap();
+        settle(&mut engine, me());
+        assert_eq!(
+            engine.state().object(source).unwrap().zone,
+            crate::zone::Zone::Exile
+        );
+        assert_eq!(
+            engine.state().object(target).unwrap().zone,
+            crate::zone::Zone::Exile
+        );
+        assert_eq!(life(&engine, me()), expected_life);
+    }
+}
+
+#[test]
 fn delayed_trigger_at_step_targeting_expiry_and_intervening_if() {
     static DELAYED_PROBE: &[AbilityDef] = &[
         // Ability 0: At the beginning of an opponent's next end step, if you control an artifact,

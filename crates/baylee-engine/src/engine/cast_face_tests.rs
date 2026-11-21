@@ -219,6 +219,64 @@ fn a_disturb_cast_is_offered_at_the_back_face_s_cost_and_not_the_front_s() {
     );
 }
 
+#[test]
+fn an_unpayable_retrace_preserves_an_affordable_disturb_cast() {
+    use crate::zone::{ZoneLocation, ZonePosition};
+    use baylee_cards_dsl::KeywordSet;
+
+    let player = PlayerId::new(0);
+    let six = card_index("dbcbdf37-c40f-4068-b4a7-a849cab1056c");
+    let chaplain = card_index("c21d1ca3-3d19-4b4d-bbfa-07b5b7bcea4b");
+    for land_count in [3, 4] {
+        let mut battlefield = vec![six];
+        battlefield.extend(std::iter::repeat_n(plains(), land_count));
+        let mut engine = Duel::new(31, plains())
+            .hand(0, &[chaplain])
+            .battlefield(0, &battlefield)
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, player);
+
+        let card = find(&engine, ZoneLocation::Hand(player), chaplain).unwrap();
+        engine
+            .dev_state_mut(player)
+            .unwrap()
+            .move_object(
+                card,
+                ZoneLocation::Graveyard(player),
+                ZonePosition::Top,
+                crate::event::Cause::DevCommand,
+            )
+            .unwrap();
+        tap_all_mana(&mut engine, player);
+        assert!(
+            engine
+                .state()
+                .zones
+                .list(ZoneLocation::Hand(player))
+                .is_empty()
+        );
+        assert!(
+            engine
+                .state()
+                .object(card)
+                .unwrap()
+                .characteristics()
+                .keywords
+                .contains(KeywordSet::RETRACE)
+        );
+        assert_eq!(is_offered(&engine, card), land_count == 4);
+        if land_count == 4 {
+            engine
+                .apply(player, PlayerAction::CastSpell { card })
+                .unwrap();
+            pass_until(&mut engine, stack_is_empty);
+            let permanent = find(&engine, ZoneLocation::Battlefield, chaplain).unwrap();
+            assert_eq!(engine.state().object(permanent).unwrap().face_index, 1);
+        }
+    }
+}
+
 /// The adventure is a way of casting the card, on boards the creature is not.
 ///
 /// Two Plains pay Swift Spiral's `{1}{W}` and come nowhere near Twining

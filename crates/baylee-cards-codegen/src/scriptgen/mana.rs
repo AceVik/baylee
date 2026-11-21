@@ -288,6 +288,20 @@ impl Tx<'_> {
         self.count_expr_depth(def, 0, false)
     }
 
+    pub(super) fn opponents_attacked_amount(&self) -> &'static str {
+        // The reference property is shared by two different counts. Read
+        // the printed scope before using it for a live combat amount.
+        let oracle = self.oracle.to_ascii_lowercase();
+        if oracle.contains("for each opponent you're attacking")
+            || oracle.contains("for each opponent you’re attacking")
+            || oracle.contains("for each player being attacked")
+        {
+            "Amount::OpponentsYouAreAttacking"
+        } else {
+            "Amount::OpponentsYouAttackedThisCombat"
+        }
+    }
+
     /// Static-safe subset of [`Self::count_expr`]: only amounts that evaluate
     /// without a stack resolution (safe inside static abilities and
     /// `Condition::AmountAtLeast`).
@@ -713,7 +727,7 @@ impl Tx<'_> {
             }
         }
         if def == "PlayerCountPropertyYou$OpponentsAttackedThisCombat" {
-            return Some("Amount::OpponentsYouAttackedThisCombat".to_string());
+            return Some(self.opponents_attacked_amount().to_string());
         }
         if let Some(expr) = self.enchanted_player_amount(def) {
             return Some(expr);

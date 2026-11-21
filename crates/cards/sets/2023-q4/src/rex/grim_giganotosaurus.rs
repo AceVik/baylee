@@ -18,7 +18,7 @@ card!(
     oracle_id = "1c197b3c-f540-4766-aeaa-ae09d22214cb",
     scryfall_id = "ae30b824-9586-413b-b925-ce6f915bf7e5",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grim Giganotosaurus",
         mana_cost = mana!("{5}{B}{G}"),
@@ -43,7 +43,7 @@ card!(
             Trigger::BecomesMonstrous,
             &[Effect::destroy_all(&Filter::Or(&[
                 Filter::And(&[Filter::CREATURE, Filter::Another]),
-                Filter::ARTIFACT
+                Filter::And(&[Filter::ARTIFACT, Filter::Another])
             ]))]
         ),
     ],

@@ -20,7 +20,7 @@ card!(
     oracle_id = "cb7edb5e-3a90-41c7-ae52-dc564086bf22",
     scryfall_id = "4c0c6c2a-4352-4c65-b41d-2a722bbef6c5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[
         face!(
             name = "Teachings of the Kirin",
@@ -74,7 +74,7 @@ card!(
                                 PlayerRel::EachPlayer
                             )),
                             Effect::ReflexiveTrigger {
-                                when: ReflexiveWhen::ThisWay(ThisWay::ExiledFromBattlefield(
+                                when: ReflexiveWhen::ThisWay(ThisWay::ExiledFromGraveyard(
                                     &Filter::Any
                                 )),
                                 once: true,
@@ -98,7 +98,7 @@ card!(
                                 PlayerRel::EachPlayer
                             )),
                             Effect::ReflexiveTrigger {
-                                when: ReflexiveWhen::ThisWay(ThisWay::ExiledFromBattlefield(
+                                when: ReflexiveWhen::ThisWay(ThisWay::ExiledFromGraveyard(
                                     &Filter::Any
                                 )),
                                 once: true,

@@ -8,9 +8,6 @@
 //! Set: AFR #180 — Adventures in the Forgotten Realms | Scryfall ID: 09278e95-eaae-4cd4-a0d8-a2d15b0abb58 | Oracle ID: dcbcbf42-4654-487a-acad-21f2606d229b
 // IMPLEMENTED — Landfall, both level bars, level 2's extra land drop while
 // the Class is level 2 or greater (CR 717.2a) and level 3's trigger.
-//
-// A level is kept as level counters over level 1, as on Wizard Class: level
-// 2 is one counter, level 3 two.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -37,39 +34,30 @@ card!(
         // only as a sorcery" (CR 717.2a).
         activated!(
             cost!("{2}{G}"),
-            &[Effect::AddCounter {
-                kind: CounterKind::Level,
-                amount: Amount::Fixed(1),
-            }],
+            &[Effect::SetClassLevel(2)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 0)),
+            condition = Some(Condition::ClassLevelExactly(1)),
         ),
         // Level 2: "You may play an additional land on each of your turns",
         // as long as the Class is level 2 or greater.
         static_ability!(
             Filter::Any,
             Modifier::ExtraLandDrops(1),
-            condition = Some(Condition::CountersOnSelf(CounterKind::Level, 1))
+            condition = Some(Condition::ClassLevelAtLeast(2))
         ),
         // {4}{G}: Level 3.
         activated!(
             cost!("{4}{G}"),
-            &[Effect::AddCounter {
-                kind: CounterKind::Level,
-                amount: Amount::Fixed(1),
-            }],
+            &[Effect::SetClassLevel(3)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 1)),
+            condition = Some(Condition::ClassLevelExactly(2)),
         ),
         // Level 3: "When this Class becomes level 3, target land you control
         // becomes a creature with haste and 'This creature's power and
         // toughness are each equal to the number of lands you control.' It's
         // still a land." No duration is printed, so it lasts.
         triggered!(
-            Trigger::CountersReach {
-                kind: CounterKind::Level,
-                n: 2,
-            },
+            Trigger::ClassLevelGained(3),
             &[
                 Effect::continuous(
                     &Filter::This,

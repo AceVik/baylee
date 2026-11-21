@@ -6,6 +6,26 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Independent review of the final PR 439 card batches
+
+Reviewed the Wave 16 unholds (`34b765a07`), E11 (`a7f3822e9`) and E12
+(`04b837211`) against the printed abilities. Dai Li Indoctrination needs a
+permanent-card filter in the revealed hand. Grim Giganotosaurus must survive
+its own ability even when it is also an artifact. Infernal Captor and Caught
+Red-Handed take control before they untap the permanent. Each correction is
+covered by a reader regression. Artist's Talent exposed the use of counters
+for Class levels. The engine now records a permanent's class level separately,
+and the nine generated Classes and three hand-authored Classes use it.
+
+Review of earlier batches also found that Lost Isle Calling needs the verse
+counter count from before its exile cost, and Six must still offer a payable
+Disturb cast when its granted Retrace cost cannot be paid. Teachings of the
+Kirin checks for a card exiled from a graveyard. Those Old Scientists uses
+different graveyard owners in chapters II and III. Astral Confrontation and
+Apothecary White count the players currently under direct attack. The nine
+cards in the simultaneous damage group are listed in
+`generated-held-back.md` with their shared engine requirement.
+
 ## 2026-11-21 — Beat 17: Engine Waves 9a–10b, Codegen Wave 17a–17c, Unholds, Passes E11–E12 & Full 13-Crate Gate (`21,807` Conforming / `20,639` Playable)
 
 - **Exhaustive Pool & Zero Remaining Unattempted Readable Scripts (`xtask reach-list --count 0 == 0`)**:
@@ -2571,9 +2591,9 @@ land type"; both are convention tests that fire on a first try.
   pump is 7c and survives a 7b "becomes 1/1" that should win. Write it as
   `CharacteristicPT`. The same sentence *granted* (Druid Class's land) is no
   characteristic-defining ability (CR 604.3a) and is `SetPTToCount`, 7b.
-- **A level-up or class payoff that targets must be a trigger.** A static
-  cannot choose. Class levels are Level counters (level 2 = one counter),
-  and "when this Class becomes level N" is `Trigger::CountersReach`.
+- **A Class payoff that targets gets its own trigger.** A static cannot
+  choose. PR #439 replaced the original counter representation with
+  `Trigger::ClassLevelGained` and a separate level designation.
 - **Two agents built the same piece twice.** `ControllerOfEvent` and
   `CharacteristicPT` from night-decks replaced this group's
   `ControllerOfEventObject` and `DefinePTByCount` at the merge. Read the

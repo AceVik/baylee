@@ -638,6 +638,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::ImpendingPaid
         | Rider::GiftPromisedTo(_)
         | Rider::Monstrous
+        | Rider::ClassLevel(_)
         | Rider::Suspected
         | Rider::RiotHaste
         | Rider::RevealedFromOpeningHand

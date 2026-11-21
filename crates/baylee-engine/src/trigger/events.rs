@@ -185,6 +185,11 @@ pub(super) fn event_identity_for(
     id: ObjectId,
     state: &GameState,
 ) -> Option<(u32, i16)> {
+    if let Some(observation) = entry.tap_observation
+        && tap_event_object(&entry.event) == Some(id)
+    {
+        return Some((observation.version, observation.power));
+    }
     let base = state.event_object_identity(id, entry.seq);
     if matches!(
         trigger,
@@ -195,6 +200,115 @@ pub(super) fn event_identity_for(
         return Some((version, departure.power));
     }
     base
+}
+
+pub(super) const fn tap_event_object(event: &GameEvent) -> Option<ObjectId> {
+    match *event {
+        GameEvent::ObjectTapped { object, .. } | GameEvent::ObjectUntapped { object, .. } => {
+            Some(object)
+        }
+        _ => None,
+    }
+}
+
+pub(super) struct ControlChange {
+    object: ObjectId,
+    seq: u64,
+    old: PlayerId,
+}
+
+pub(super) fn control_changes(
+    entries: &[crate::event::JournalEntry],
+) -> smallvec::SmallVec<[ControlChange; 4]> {
+    entries
+        .iter()
+        .filter_map(|entry| match entry.event {
+            GameEvent::ControllerChanged { object, old, .. } => Some(ControlChange {
+                object,
+                seq: entry.seq,
+                old,
+            }),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Read the observer's controller at this tap or untap. The subject carries
+/// it directly, and any other observer can only have changed within its own
+/// incarnation before the first later move.
+pub(super) fn tap_observer_controller(
+    source: &crate::object::GameObject,
+    entry: &crate::event::JournalEntry,
+    changes: &[ControlChange],
+    moves: &[ObjectMove],
+) -> PlayerId {
+    if let Some(observation) = entry.tap_observation
+        && tap_event_object(&entry.event) == Some(source.id)
+        && observation.version == source.version
+    {
+        return observation.controller;
+    }
+    let end = moves.iter().find(|movement| movement.seq > entry.seq);
+    changes
+        .iter()
+        .find(|change| {
+            change.object == source.id
+                && change.seq > entry.seq
+                && end.is_none_or(|movement| change.seq < movement.seq)
+        })
+        .map_or(source.controller, |change| change.old)
+}
+
+/// A controller change within this incarnation records the controller it
+/// replaced. A later incarnation has its own control history.
+fn controller_before_events(
+    object: &crate::object::GameObject,
+    later: &[crate::event::JournalEntry],
+) -> PlayerId {
+    for entry in later {
+        match entry.event {
+            GameEvent::ControllerChanged {
+                object: id, old, ..
+            } if id == object.id => return old,
+            GameEvent::ZoneChanged { object: id, .. } if id == object.id => break,
+            _ => {}
+        }
+    }
+    object.controller
+}
+
+pub(super) fn tap_subject_at_event<'a>(
+    state: &'a GameState,
+    id: ObjectId,
+    events: &[crate::event::JournalEntry],
+    index: usize,
+) -> Option<(&'a crate::object::GameObject, PlayerId)> {
+    if let Some(observation) = events[index].tap_observation {
+        let object = state.source_object(baylee_core::ids::DamageSourceRef {
+            object: id,
+            version: observation.version,
+        })?;
+        return Some((object, observation.controller));
+    }
+    let current = state.object_or_departed(id)?;
+    let later = &events[index + 1..];
+    let moves = object_moves(later, true, id);
+    let object = source_at_event_with_moves(state, current, &moves, events[index].seq, false);
+    Some((object, controller_before_events(object, later)))
+}
+
+pub(super) fn tap_event_snapshot(
+    state: &GameState,
+    events: &[crate::event::JournalEntry],
+    entry: &crate::event::JournalEntry,
+) -> Option<(PlayerId, i16)> {
+    if let Some(observation) = entry.tap_observation {
+        return Some((observation.controller, observation.toughness));
+    }
+    let id = tap_event_object(&entry.event)?;
+    let index = super::event_groups::index_of_event(&entry.event, events)?;
+    let (object, controller) = tap_subject_at_event(state, id, events, index)?;
+    Some((controller, object.characteristics().toughness.unwrap_or(0)))
 }
 
 /// The object a trigger's event is about, as the triggered ability reads it
@@ -334,6 +448,7 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::CardPlotted { object, .. }
         | GameEvent::SpellWarped { object, .. }
         | GameEvent::BecameMonstrous { object, .. }
+        | GameEvent::ClassLevelChanged { object, .. }
         | GameEvent::PlayerFirebent { source: object, .. }
         | GameEvent::RingTempted {
             ring_bearer: Some(object),

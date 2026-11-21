@@ -1,7 +1,7 @@
 //! Determine every untap replacement before committing simultaneous untaps.
 use crate::{
     choice::{Pending, YesNoPrompt},
-    event::{Cause, GameEvent},
+    event::Cause,
     state::GameState,
     zone::Zone,
 };
@@ -126,10 +126,7 @@ impl UntapBatch {
                 // Stun was included in this batch. Re-entering set_tapped would
                 // apply an already determined replacement a second time.
                 if state.restore_tapped(event.source.object, false) {
-                    state.journal.record(GameEvent::ObjectUntapped {
-                        object: event.source.object,
-                        cause: Cause::TurnBased,
-                    });
+                    state.record_tap_event(event.source.object, false, Cause::TurnBased);
                 }
             }
         }

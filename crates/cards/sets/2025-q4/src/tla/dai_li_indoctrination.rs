@@ -13,7 +13,7 @@ card!(
     oracle_id = "5591efbc-1b2c-489a-b4f3-935c9b6bd71a",
     scryfall_id = "eca652b8-44f1-4bd9-b4bf-036eeead13aa",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dai Li Indoctrination",
         mana_cost = mana!("{1}{B}"),
@@ -25,7 +25,17 @@ card!(
         modes: &[
             mode!(
                 &[Effect::RevealHandDiscard {
-                    filter: &Filter::NONLAND
+                    filter: &Filter::And(&[
+                        Filter::HasType(
+                            TypeSet::ARTIFACT
+                                .union(TypeSet::BATTLE)
+                                .union(TypeSet::CREATURE)
+                                .union(TypeSet::ENCHANTMENT)
+                                .union(TypeSet::LAND)
+                                .union(TypeSet::PLANESWALKER)
+                        ),
+                        Filter::NONLAND
+                    ])
                 }],
                 targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
             ),

@@ -1391,6 +1391,22 @@ impl GameState {
         self.restore_tapped(id, tapped)
     }
 
+    /// Records an actual tap or untap and freezes who controlled its permanent.
+    pub(crate) fn record_tap_event(&mut self, id: ObjectId, tapped: bool, cause: Cause) {
+        let observation = self.object(id).map(|object| crate::event::TapObservation {
+            version: object.version,
+            controller: object.controller,
+            power: object.characteristics().power.unwrap_or(0),
+            toughness: object.characteristics().toughness.unwrap_or(0),
+        });
+        let event = if tapped {
+            GameEvent::ObjectTapped { object: id, cause }
+        } else {
+            GameEvent::ObjectUntapped { object: id, cause }
+        };
+        self.journal.record_with_tap_observation(event, observation);
+    }
+
     /// Restores a reversed action without applying game-event replacements.
     #[doc(hidden)]
     pub fn restore_tapped(&mut self, id: ObjectId, tapped: bool) -> bool {

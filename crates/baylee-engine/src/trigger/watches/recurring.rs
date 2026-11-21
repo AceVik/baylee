@@ -67,6 +67,7 @@ pub(super) fn collect(
                 event_ability: crate::trigger::activated_stack_ability(&entry.event),
                 event_mana: super::produced_mana(&entry.event, events),
                 event_mana_value: crate::trigger::cast_mana_value(state, entry),
+                event_tap_snapshot: None,
                 event_departure: entry
                     .departure
                     .as_ref()
@@ -215,7 +216,15 @@ pub(crate) fn collect_general(
                             .then_some((ver, dep.power))
                     })
                 })
-                .or_else(|| ev_obj.and_then(|id| state.event_object_identity(id, entry.seq)));
+                .or_else(|| {
+                    ev_obj.and_then(|id| {
+                        if entry.tap_observation.is_some() {
+                            events::event_identity_for(trigger, entry, id, state)
+                        } else {
+                            state.event_object_identity(id, entry.seq)
+                        }
+                    })
+                });
             (
                 ev_obj,
                 ev_id,
@@ -242,6 +251,11 @@ pub(crate) fn collect_general(
         let event_ref = event_object
             .zip(event_object_identity.map(|(v, _)| v))
             .map(|(object, version)| baylee_core::ids::DamageSourceRef { object, version });
+        let event_tap_snapshot = if spec.remembered.is_none() {
+            events::tap_event_snapshot(state, events, entry)
+        } else {
+            None
+        };
         if crate::eval::intervening_if_for_incarnation(
             state,
             spec.condition.copied(),
@@ -265,6 +279,7 @@ pub(crate) fn collect_general(
                     event_player,
                     event_mana,
                     event_mana_value,
+                    event_tap_snapshot,
                     event_departure,
                     source: spec.source,
                     ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,

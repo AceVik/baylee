@@ -241,6 +241,15 @@ the seat was not already shown, so nothing was added to the question or the
 view: the frame, `VIEW_VERSION`, `PROTOCOL_VERSION` and `snapshot_hash` are as
 they were.
 
+## Class levels (protocol 65, view 108)
+
+`PublicObject.class_level` names a battlefield permanent's Class designation
+(CR 717). It includes level 1 for a face-up Class. A higher level is visible
+through changes of type or face. The field is absent outside the battlefield.
+Actual level counters remain in `counters`. `LogEvent::ClassLevel` reports the
+change while the same permanent remains on the battlefield, using a blank
+object name where the permanent was or is face down.
+
 ## Composed ability origins (compatible addition)
 
 `PublicObject.ability_sources` maps runtime indices in composed ability lists

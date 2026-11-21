@@ -356,6 +356,52 @@ fn a_tapped_trigger_answers_for_any_permanent_its_filter_names() {
 }
 
 #[test]
+fn a_tap_trigger_reads_the_controller_and_incarnation_at_the_event() {
+    use crate::event::Cause;
+    use crate::zone::ZonePosition;
+
+    let mut state = state();
+    let observer = permanent(&mut state, me(), "Observer");
+    let target = permanent(&mut state, them(), "Target");
+    let version = state.object(target).unwrap().version;
+    let before_tap = state.journal.len();
+    assert!(state.set_tapped(target, true));
+    state.record_tap_event(target, true, Cause::Effect);
+
+    state
+        .move_object(
+            target,
+            ZoneLocation::Exile(them()),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    state
+        .move_object(
+            target,
+            ZoneLocation::Battlefield,
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    state.object_mut(target).unwrap().set_controller(me());
+    assert_ne!(state.object(target).unwrap().version, version);
+
+    let batch = &state.journal.entries()[before_tap..];
+    let tap = &batch[0];
+    let trigger = Trigger::BecomesTapped(&Filter::ControlledByOpponent);
+    assert_eq!(hits(&trigger, &tap.event, batch, &state, observer, me()), 1);
+    assert_eq!(
+        events::event_identity_for(&trigger, tap, target, &state),
+        Some((version, 0))
+    );
+    assert_eq!(
+        events::tap_event_snapshot(&state, batch, tap),
+        Some((them(), 0))
+    );
+}
+
+#[test]
 fn an_untapped_permanent_is_the_event_object() {
     let mut state = state();
     let artifact = permanent(&mut state, them(), "Sol Ring");
@@ -421,6 +467,7 @@ fn damage_to_an_opponent_and_damage_dealt_to_this_count_their_events() {
     let entry = |seq, event| JournalEntry {
         seq,
         event,
+        tap_observation: None,
         departure: None,
     };
     let blocked = vec![
@@ -479,6 +526,7 @@ fn being_dealt_damage_is_one_event_per_combat_step_and_counts_all_of_it() {
     let entry = |seq, event| JournalEntry {
         seq,
         event,
+        tap_observation: None,
         departure: None,
     };
     let you = Trigger::PlayerDealtDamage(PlayerRel::You);
@@ -1006,6 +1054,7 @@ fn step_begin_each_other_player_fires_on_other_players_steps_and_not_yours() {
             &crate::event::JournalEntry {
                 seq: 1,
                 event: other_draw,
+                tap_observation: None,
                 departure: None,
             },
             &state,

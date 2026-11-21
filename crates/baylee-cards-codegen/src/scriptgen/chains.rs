@@ -26,6 +26,12 @@ impl Tx<'_> {
             && p.peek("TriggerDescription")
                 .or_else(|| p.peek("SpellDescription"))
                 .is_some_and(|d| d.trim_start().starts_with("Whenever "));
+        let graveyard_description =
+            if p.peek("Origin") == Some("Graveyard") || p.peek("TgtZone") == Some("Graveyard") {
+                p.take("SpellDescription")
+            } else {
+                None
+            };
         p.drop_prose();
         chain.could_add_mana |= api == "Mana";
         chain.moves_library |= matches!(
@@ -88,7 +94,13 @@ impl Tx<'_> {
                                 .to_string()
                         });
                     }
-                    self.chain_target(&api, &mut p, &valid, chain)?;
+                    self.chain_target(
+                        &api,
+                        &mut p,
+                        &valid,
+                        chain,
+                        graveyard_description.as_deref(),
+                    )?;
                 }
                 (targets_here, p.take("SubAbility"))
             };
@@ -1125,6 +1137,7 @@ impl Tx<'_> {
         p: &mut Params,
         valid: &str,
         chain: &Chain,
+        graveyard_description: Option<&str>,
     ) -> Option<String> {
         // A card in a graveyard is a different kind of target from a
         // permanent (CR 115.1 names both, and they are chosen from
@@ -1142,7 +1155,7 @@ impl Tx<'_> {
                 Some(zone) => return self.deny(format!("a target in `TgtZone$ {zone}`")),
             }
             let defined_ctrl = p.take("TargetsWithDefinedController");
-            self.graveyard_target(valid, defined_ctrl.as_deref())
+            self.graveyard_target(valid, defined_ctrl.as_deref(), graveyard_description)
         } else {
             // "Target spell or permanent" (the Laces): the stack is a
             // zone a target may be chosen in only where the line says
@@ -1266,9 +1279,10 @@ impl Tx<'_> {
         p: &mut Params,
         valid: &str,
         chain: &mut Chain,
+        graveyard_description: Option<&str>,
     ) -> Option<()> {
         let has_target_unique = p.peek("TargetUnique").is_some();
-        let mut spec = self.resolve_target_spec(api, p, valid, chain)?;
+        let mut spec = self.resolve_target_spec(api, p, valid, chain, graveyard_description)?;
         if chain.target.is_some() {
             // A fresh ValidTgts declares another target instance even
             // when its restriction is identical. Never alias it to the
@@ -1793,6 +1807,30 @@ impl Tx<'_> {
         })
     }
 
+    fn prints_simultaneous_damage_to_controller(&self) -> bool {
+        self.oracle.to_ascii_lowercase().split('.').any(|sentence| {
+            let Some((verb, recipients)) = sentence.split_once(" damage to ") else {
+                return false;
+            };
+            let Some((_, followup)) = recipients.split_once(" and ") else {
+                return false;
+            };
+            let Some((amount, recipient)) = followup.split_once(" damage to ") else {
+                return false;
+            };
+            verb.contains("deals ")
+                && !amount.contains("deals ")
+                && [
+                    "its controller",
+                    "that creature's controller",
+                    "that permanent's controller",
+                    "that planeswalker's controller",
+                ]
+                .iter()
+                .any(|prefix| recipient.starts_with(prefix))
+        })
+    }
+
     /// One effect API as the `Effect` expressions it stands for.
     ///
     /// Every parameter a rule reads is *taken* from `p`; the caller then
@@ -2063,6 +2101,17 @@ impl Tx<'_> {
                         ),
                     }
                 };
+                // Two DealDamage operations would let redirection deal
+                // separate damage to the same recipient (CR 614.9, 120.4b).
+                if matches!(
+                    to.as_str(),
+                    "TargetSpec::Player(PlayerRel::ControllerOfTarget)"
+                        | "TargetSpec::Player(PlayerRel::ControllerOfEvent)"
+                ) && self.prints_simultaneous_damage_to_controller()
+                {
+                    return self
+                        .deny("simultaneous damage to a permanent and its controller".to_string());
+                }
                 let dmg = if let Some(src) = damage_source {
                     if src == "Self" {
                         let n = self.amount_or_count_ext(&num_dmg)?;
@@ -2422,7 +2471,7 @@ impl Tx<'_> {
                 }
                 let filter = match p.take("DiscardValid").as_deref() {
                     None | Some("Card") => "Filter::Any".to_string(),
-                    Some(valid) => self.filter_expr(valid)?,
+                    Some(valid) => self.filter_expr_in_zone(valid, true)?,
                 };
                 vec![format!("Effect::RevealHandDiscard {{ filter: &{filter} }}")]
             }
@@ -3004,6 +3053,22 @@ impl Tx<'_> {
             // same two doors as the single destroy above (CR 701.19c).
             "DestroyAll" => {
                 let valid = p.take("ValidCards")?;
+                // “Other than this creature” also excludes the source when
+                // an effect has made it an artifact (Grim Giganotosaurus).
+                let valid = if valid == "Creature.Other,Artifact"
+                    && self
+                        .oracle
+                        .split_once(" all artifacts and creatures other than ")
+                        .is_some_and(|(_, rest)| {
+                            rest.starts_with("this creature.")
+                                || rest
+                                    .strip_prefix(self.script_name)
+                                    .is_some_and(|tail| tail.starts_with('.'))
+                        }) {
+                    "Creature.Other,Artifact.Other"
+                } else {
+                    &valid
+                };
                 let no_regen = p.take("NoRegen");
                 if target == Some("TargetSpec::Player(PlayerRel::Chosen)")
                     && let Some(stripped) = valid.strip_suffix("+TargetedPlayerCtrl")
@@ -3022,7 +3087,7 @@ impl Tx<'_> {
                 if targets_here || (target.is_some() && !prior_target_used) {
                     return None;
                 }
-                if let Some(filter) = self.filter_expr(&valid) {
+                if let Some(filter) = self.filter_expr(valid) {
                     // `Filter::CmcAtMostX` and `Filter::CmcExactlyX` read
                     // `this.x_value`, which is the announced X on a spell on
                     // the stack (`SP$`) and 0 on a permanent activating `AB$`.

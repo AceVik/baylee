@@ -879,6 +879,81 @@ fn entry_of(name: &str) -> DeckEntry {
 }
 
 #[test]
+fn public_class_levels_reach_players_and_spectators_without_leaking_the_printing() {
+    use baylee_engine::object::{CounterKind, Rider, Status};
+
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_battlefield = vec![entry_of("Druid Class"), entry_of("Forest")];
+    let mut state = GameState::from_preset(&preset, &Registry).unwrap();
+    let find = |name| {
+        let card = entry_of(name).card;
+        state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .find(|&id| {
+                state
+                    .object(id)
+                    .unwrap()
+                    .card
+                    .is_some_and(|identity| identity.index == card)
+            })
+            .unwrap()
+    };
+    let class = find("Druid Class");
+    let forest = find("Forest");
+    let me = PlayerId::new(0);
+    let check = |state: &GameState, class_level, forest_level, counters| {
+        let check_objects = |battlefield: &[baylee_view::PublicObject]| {
+            let class = battlefield.iter().find(|o| o.id == class).unwrap();
+            let forest = battlefield.iter().find(|o| o.id == forest).unwrap();
+            assert_eq!(class.class_level, class_level);
+            assert_eq!(forest.class_level, forest_level);
+            assert_eq!(
+                class.counter_count(baylee_view::CounterKind::Level),
+                counters
+            );
+        };
+        for seat in [me, PlayerId::new(1)] {
+            let view = player_view(state, seat, 0, None, &SeatContext::default(), &[]);
+            check_objects(&view.battlefield);
+        }
+        let view = spectator_view(state, 0, None, SeatSet::new(), SeatSet::new(), &[], &[]);
+        check_objects(&view.battlefield);
+    };
+
+    check(&state, Some(1), None, 0);
+    state
+        .object_mut(class)
+        .unwrap()
+        .status
+        .insert(Status::FACE_DOWN);
+    check(&state, None, None, 0);
+    let class_obj = state.object_mut(class).unwrap();
+    class_obj.status.remove(Status::FACE_DOWN);
+    class_obj.riders.push(Rider::ClassLevel(2));
+    class_obj.counters.add(CounterKind::Level, 4);
+    state
+        .object_mut(forest)
+        .unwrap()
+        .riders
+        .push(Rider::ClassLevel(3));
+    check(&state, Some(2), Some(3), 4);
+
+    state
+        .object_mut(class)
+        .unwrap()
+        .status
+        .insert(Status::FACE_DOWN);
+    check(&state, Some(2), Some(3), 4);
+    let view = spectator_view(&state, 0, None, SeatSet::new(), SeatSet::new(), &[], &[]);
+    let face_down = view.battlefield.iter().find(|o| o.id == class).unwrap();
+    assert_eq!(face_down.card, None);
+    assert_eq!(face_down.rules, None);
+}
+
+#[test]
 fn chosen_card_type_second_subtype_and_number_reach_every_seat_and_hide_when_face_down() {
     let mut preset = mixed_print_preset();
     preset.seats[0].starting_hand =

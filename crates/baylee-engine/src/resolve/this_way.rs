@@ -142,6 +142,15 @@ pub(super) fn count(
                     ..
                 },
                 ThisWay::ExiledFromLibrary(filter),
+            )
+            | (
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Graveyard,
+                    to: Zone::Exile,
+                    ..
+                },
+                ThisWay::ExiledFromGraveyard(filter),
             ) => u32::from(state.object(*object).is_some_and(|card| {
                 mine(card.owner)
                     && eval::matches_with_context(

@@ -124,10 +124,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             {
                 // Journaled like every effect's untap, so "whenever ...
                 // becomes untapped" sees it (`resolve::untap`).
-                self.state.journal.record(GameEvent::ObjectUntapped {
-                    object: id,
-                    cause: crate::event::Cause::Effect,
-                });
+                self.state
+                    .record_tap_event(id, false, crate::event::Cause::Effect);
             }
         }
     }

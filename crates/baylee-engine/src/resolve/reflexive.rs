@@ -66,6 +66,7 @@ pub(super) fn arm(
             counter_source_version: None,
             event_mana: None,
             event_mana_value: None,
+            event_tap_snapshot: None,
             event_departure: None,
             event_amount: None,
             event_player: None,
@@ -265,6 +266,7 @@ pub(super) fn arm_general(
             counter_source_version: None,
             event_mana: None,
             event_mana_value: rem.mana_value,
+            event_tap_snapshot: None,
             event_departure: rem.departure,
             event_amount: rem.amount,
             event_player: rem.player,
@@ -320,6 +322,7 @@ fn all_this_way_objects(
     out
 }
 
+#[allow(clippy::too_many_lines)] // Keep each journal event and its captured context in one flat match.
 fn this_way_entry_context(
     state: &GameState,
     res: &Resolution,
@@ -396,6 +399,15 @@ fn this_way_entry_context(
                 ..
             },
             ThisWay::ExiledFromLibrary(filter),
+        )
+        | (
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Graveyard,
+                to: Zone::Exile,
+                ..
+            },
+            ThisWay::ExiledFromGraveyard(filter),
         )
         | (
             GameEvent::ZoneChanged {

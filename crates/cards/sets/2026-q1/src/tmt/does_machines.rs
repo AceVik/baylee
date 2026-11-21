@@ -60,18 +60,12 @@ card!(
     abilities = &[
         activated!(
             cost!("{1}{U}"),
-            &[Effect::AddCounter {
-                kind: CounterKind::Level,
-                amount: Amount::Fixed(1)
-            }],
+            &[Effect::SetClassLevel(2)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 0))
+            condition = Some(Condition::ClassLevelExactly(1))
         ),
         triggered!(
-            Trigger::CountersReach {
-                kind: CounterKind::Level,
-                n: 1
-            },
+            Trigger::ClassLevelGained(2),
             &[Effect::GraveyardToHand {
                 target: TargetSpec::CardInGraveyard(&Filter::ARTIFACT, PlayerRel::You)
             }],
@@ -82,17 +76,14 @@ card!(
         ),
         activated!(
             cost!("{4}{U}"),
-            &[Effect::AddCounter {
-                kind: CounterKind::Level,
-                amount: Amount::Fixed(1)
-            }],
+            &[Effect::SetClassLevel(3)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 1))
+            condition = Some(Condition::ClassLevelExactly(2))
         ),
         static_ability!(
             Filter::This,
             Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_1),
-            condition = Some(Condition::CountersOnSelf(CounterKind::Level, 2))
+            condition = Some(Condition::ClassLevelAtLeast(3))
         ),
         triggered!(
             Trigger::ETB,

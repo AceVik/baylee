@@ -322,7 +322,9 @@ pub use turn::{DayNight, Phase, Step};
 /// `CastModeKind::Sneak`, `YesNoPrompt::Endure`, `CastModeKind::Awaken`,
 /// `ChoicePrompt::{Splice, CipherEncode, Champion}`, and
 /// `YesNoPrompt::{Conspire, Tribute}`).
-pub const VIEW_VERSION: u32 = 107;
+/// Version 108 makes the Class level designation public (CR 717) on
+/// [`PublicObject`] and records its changes as [`LogEvent::ClassLevel`].
+pub const VIEW_VERSION: u32 = 108;
 
 // ------------------------------------------------------------------- targets
 

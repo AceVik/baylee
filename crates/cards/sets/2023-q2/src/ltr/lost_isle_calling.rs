@@ -11,7 +11,7 @@ card!(
     oracle_id = "0efbf29c-09a0-4472-83ad-8d692c0232a5",
     scryfall_id = "7b744230-8127-4d4f-9d40-75e7c2aab77c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lost Isle Calling",
         mana_cost = mana!("{1}{U}"),

@@ -14,14 +14,15 @@
 //! [`super::choose`] takes it.
 //!
 //! Only shapes the offer will follow: an ability printed on a permanent of
-//! this seat's, used from the battlefield, with no limit and no condition,
-//! a fixed mana cost and an optional tap, at a moment its timing allows.
+//! this seat's, used from the battlefield, with no limit, a fixed mana cost
+//! and an optional tap, at a moment its timing allows. A Class upgrade's
+//! level condition must be covered by the engine's current unpaid offer.
 //! From generation 20, a fixed life payment may accompany that cost when
 //! the engine lists only mana as unpaid. Mana reserved for interaction is
 //! kept up ([`HeuristicAgent::reserve`]).
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Cost, CostPart,
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CostPart,
 };
 use baylee_client_core::decision::resource_player;
 use baylee_client_core::manaplan::Tap;
@@ -67,38 +68,24 @@ pub(crate) fn float_for(
         }
         consider_turn_face_up(view, legal, agent, object, room, &mut best);
         for (index, def) in printed_list(object).iter().enumerate() {
-            let AbilityDef::Activated {
-                cost,
-                timing,
-                mana_ability: false,
-                zone: ActivationZone::Battlefield,
-                limit: ActivationLimit::Unlimited,
-                cost_reduction: None,
-                ..
-            } = def
-            else {
-                continue;
-            };
-            if cost.mana.cmc() == 0 || cost.mana.has_variable() {
-                continue;
-            }
             let Ok(index) = u32::try_from(index) else {
                 continue;
             };
-            let Some(price) = funding_cost(legal, agent.profile(), object.id, index, cost) else {
+            let Some((price, timing, taps_self)) =
+                funding_cost(legal, agent.profile(), object.id, index, def)
+            else {
                 continue;
             };
             if u64::from(price.cmc()) > room {
                 continue;
             }
-            let taps_self = cost.parts.contains(&CostPart::TapSelf);
             if taps_self
                 && (object.status.contains(ObjectStatus::TAPPED)
                     || object.types.contains(TypeSet::CREATURE) && object.summoning_sick)
             {
                 continue;
             }
-            if *timing == ActivationTiming::SorcerySpeed && !main {
+            if timing == ActivationTiming::SorcerySpeed && !main {
                 continue;
             }
             if legal.abilities.contains(&(object.id, index)) || on_the_stack(view, object.id, index)
@@ -149,28 +136,55 @@ fn funding_cost(
     profile: AIProfile,
     source: ObjectId,
     index: u32,
-    cost: &Cost,
-) -> Option<ManaCost> {
-    if cost.parts.iter().all(|part| *part == CostPart::TapSelf) {
-        return Some(
-            cost.mana
-                .with_more_generic(legal.activation_increase(source)),
-        );
+    def: &AbilityDef,
+) -> Option<(ManaCost, ActivationTiming, bool)> {
+    let (AbilityDef::Activated {
+        cost,
+        timing,
+        mana_ability: false,
+        zone: ActivationZone::Battlefield,
+        limit: ActivationLimit::Unlimited,
+        cost_reduction: None,
+        ..
     }
-    if !profile.plays(AIProfile::PAY_LIFE_ACTIVATION_MANA)
-        || cost
-            .parts
-            .iter()
-            .any(|part| !matches!(part, CostPart::TapSelf | CostPart::PayLife(_)))
-    {
+    | AbilityDef::ActivatedConditional {
+        cost,
+        timing,
+        mana_ability: false,
+        zone: ActivationZone::Battlefield,
+        limit: ActivationLimit::Unlimited,
+        cost_reduction: None,
+        condition: Condition::ClassLevelExactly(_),
+        ..
+    }) = def
+    else {
+        return None;
+    };
+    if cost.mana.cmc() == 0 || cost.mana.has_variable() {
         return None;
     }
-    // The hint has already checked life payment, timing, targets and locks.
-    // Worth keeps a safe life margin, and each subsequent tap rechecks it.
-    legal
-        .unpaid_abilities
-        .iter()
-        .find_map(|&(id, ability, mana)| (id == source && ability == index).then_some(mana))
+    let conditional = matches!(def, AbilityDef::ActivatedConditional { .. });
+    let price = if !conditional && cost.parts.iter().all(|part| *part == CostPart::TapSelf) {
+        cost.mana
+            .with_more_generic(legal.activation_increase(source))
+    } else {
+        if !conditional
+            && (!profile.plays(AIProfile::PAY_LIFE_ACTIVATION_MANA)
+                || cost
+                    .parts
+                    .iter()
+                    .any(|part| !matches!(part, CostPart::TapSelf | CostPart::PayLife(_))))
+        {
+            return None;
+        }
+        // The engine has checked the current level or life payment, as well
+        // as timing, targets and locks. Each subsequent tap rechecks it.
+        legal
+            .unpaid_abilities
+            .iter()
+            .find_map(|&(id, ability, mana)| (id == source && ability == index).then_some(mana))?
+    };
+    Some((price, *timing, cost.parts.contains(&CostPart::TapSelf)))
 }
 
 fn consider_turn_face_up(

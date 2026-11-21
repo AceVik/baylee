@@ -590,6 +590,12 @@ fn push_public_object7(
         }
     }
 
+    // Class uses the progression channel. The level-counter channel [100]
+    // remains reserved for actual counters.
+    if let Some(level) = obj.class_level {
+        f[74] += raw_unit(f32::from(level.saturating_sub(1)), 6.0);
+    }
+
     // [82..90]: Combat state & mana/grant capabilities
     let is_attacking = view.combat.attackers.iter().find(|a| a.creature == obj.id);
     let is_blocking = view.combat.blockers.iter().any(|b| b.blocker == obj.id);

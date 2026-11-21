@@ -60,32 +60,23 @@ card!(
     abilities = &[
         activated!(
             cost!("{W}"),
-            &[Effect::AddCounter {
-                kind: CounterKind::Level,
-                amount: Amount::Fixed(1)
-            }],
+            &[Effect::SetClassLevel(2)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 0))
+            condition = Some(Condition::ClassLevelExactly(1))
         ),
         static_ability!(
             Filter::This,
             Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_2),
-            condition = Some(Condition::CountersOnSelf(CounterKind::Level, 1))
+            condition = Some(Condition::ClassLevelAtLeast(2))
         ),
         activated!(
             cost!("{4}{W}"),
-            &[Effect::AddCounter {
-                kind: CounterKind::Level,
-                amount: Amount::Fixed(1)
-            }],
+            &[Effect::SetClassLevel(3)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 1))
+            condition = Some(Condition::ClassLevelExactly(2))
         ),
         triggered!(
-            Trigger::CountersReach {
-                kind: CounterKind::Level,
-                n: 2
-            },
+            Trigger::ClassLevelGained(3),
             &[Effect::GraveyardToBattlefield {
                 target: TargetSpec::CardInGraveyard(&TARGET3, PlayerRel::You),
                 owner_control: false,

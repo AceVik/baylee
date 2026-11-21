@@ -414,6 +414,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// `PlayerRel::ControllerOfEvent` will read it once `t` is on the stack.
     fn event_owner(&self, t: &PendingTrigger) -> Option<PlayerId> {
         t.event_departure
+            .or(t.event_tap_snapshot)
             .map(|(controller, _)| controller)
             .or_else(|| {
                 let id = t.event_object?;
@@ -438,6 +439,7 @@ fn same_event(a: &PendingTrigger, b: &PendingTrigger) -> bool {
         && a.event_player == b.event_player
         && a.event_amount == b.event_amount
         && a.event_mana_value == b.event_mana_value
+        && a.event_tap_snapshot == b.event_tap_snapshot
         && a.event_departure == b.event_departure
         && a.event_mana.map(crate::trigger::EventMana::key)
             == b.event_mana.map(crate::trigger::EventMana::key)

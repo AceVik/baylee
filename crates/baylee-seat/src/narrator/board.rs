@@ -389,6 +389,9 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     if object.suspected {
         out.push("suspected".into());
     }
+    if let Some(level) = object.class_level {
+        out.push(format!("Class level {level}"));
+    }
     for counter in &object.counters {
         if counter.kind == baylee_view::CounterKind::Loyalty {
             continue;

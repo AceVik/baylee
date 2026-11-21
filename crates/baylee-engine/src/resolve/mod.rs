@@ -31,6 +31,7 @@ pub use names::resume_name;
 pub(crate) use wave4_combat::finish_sneak_enter_attacking;
 mod chosen;
 pub(crate) mod clash;
+mod class;
 mod colors;
 mod conditional_grants;
 mod continuous_subjects;
@@ -2111,10 +2112,7 @@ fn sacrifice_amount_or_lose(
 /// put a "became untapped" in the log for a permanent that did not.
 fn untap(state: &mut GameState, id: ObjectId) {
     if state.set_tapped(id, false) {
-        state.journal.record(GameEvent::ObjectUntapped {
-            object: id,
-            cause: Cause::Effect,
-        });
+        state.record_tap_event(id, false, Cause::Effect);
     }
 }
 
@@ -2123,10 +2121,7 @@ fn tap(state: &mut GameState, id: ObjectId) -> bool {
     if !state.set_tapped(id, true) {
         return false;
     }
-    state.journal.record(GameEvent::ObjectTapped {
-        object: id,
-        cause: Cause::Effect,
-    });
+    state.record_tap_event(id, true, Cause::Effect);
     true
 }
 

@@ -3099,13 +3099,25 @@ impl Tx<'_> {
             Some("True") => true,
             Some(_) => return None,
         };
-        let mut out = Vec::new();
-        if untap {
-            out.push("Effect::UntapTarget".to_string());
-        }
-        out.push(format!(
+        let mut out = vec![format!(
             "Effect::continuous(&Filter::This, Modifier::GainControl, {duration})"
-        ));
+        )];
+        if untap {
+            // A source may trigger on untapping. Its controller at that
+            // instant depends on the printed order (CR 608.2c).
+            let oracle = self.oracle.to_ascii_lowercase();
+            let mut orders = oracle
+                .split("\\n")
+                .filter_map(|line| Some(line.find("gain control of ")? < line.find("untap ")?));
+            let control_first = orders.next().unwrap_or(false);
+            if orders.any(|order| order != control_first) {
+                return self.deny("ambiguous printed control and untap order".to_string());
+            }
+            out.insert(
+                usize::from(control_first),
+                "Effect::UntapTarget".to_string(),
+            );
+        }
         if let Some(kw_raw) = p.take("AddKWs") {
             if duration != "Duration::UntilEndOfTurn" {
                 return None;
@@ -7884,7 +7896,7 @@ impl Tx<'_> {
                     "`ChooseColor` `Protection` with both `ValidTgts$` and `Defined$`".to_string(),
                 );
             }
-            self.chain_target("Protection", sp, &valid, chain)?;
+            self.chain_target("Protection", sp, &valid, chain, None)?;
             "Filter::This"
         } else {
             match defined.as_deref() {
@@ -9851,7 +9863,10 @@ impl Tx<'_> {
         let saved_target = chain.target.clone();
         sp.claim_label("ValidTgtsDesc", "ValidTgts");
         let targets_here = if let Some(valid) = sp.take("ValidTgts") {
-            if self.chain_target(&api, &mut sp, &valid, chain).is_none() {
+            if self
+                .chain_target(&api, &mut sp, &valid, chain, None)
+                .is_none()
+            {
                 chain.target = saved_target;
                 return None;
             }

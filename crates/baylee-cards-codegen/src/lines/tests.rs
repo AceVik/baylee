@@ -8,6 +8,47 @@ use baylee_cards_dsl::filter::Filter;
 use baylee_cards_dsl::{SpellMode, loyalty};
 
 #[test]
+fn class_level_bars_with_the_same_cost_map_by_level() {
+    use baylee_cards_dsl::{ActivationTiming, Condition, activated, cost};
+
+    const DRAW: &[Effect] = &[Effect::draw(1)];
+    let ordinary = activated!(cost!("{2}{R}"), DRAW);
+    let level_two = activated!(
+        cost!("{2}{R}"),
+        &[Effect::SetClassLevel(2)],
+        timing = ActivationTiming::SorcerySpeed,
+        condition = Some(Condition::ClassLevelExactly(1)),
+    );
+    let level_three = activated!(
+        cost!("{2}{R}"),
+        &[Effect::SetClassLevel(3)],
+        timing = ActivationTiming::SorcerySpeed,
+        condition = Some(Condition::ClassLevelExactly(2)),
+    );
+    let oracle = "{2}{R}: Draw a card.\n{2}{R}: Level 2\n{2}{R}: Level 3";
+    let mapping = map(&[level_three, ordinary, level_two], oracle);
+    assert_eq!(mapping.lines, [Some(2), Some(0), Some(1)]);
+    assert_eq!(mapping.ambiguous, 0);
+    assert!(!content_fits(&level_three, "{1}{R}: Level 3"));
+}
+
+#[test]
+fn class_level_triggers_map_by_exact_level() {
+    use baylee_cards_dsl::triggered;
+
+    const DRAW: &[Effect] = &[Effect::draw(1)];
+    let ability = triggered!(Trigger::ClassLevelGained(3), DRAW);
+    let oracle = "When this Class becomes level 2, draw a card.\nWhen this Class becomes level 3, draw a card.";
+    let mapping = map(&[ability], oracle);
+    assert_eq!(mapping.lines, [Some(1)]);
+    assert_eq!(mapping.ambiguous, 0);
+    assert!(!content_fits(
+        &ability,
+        "When this Class becomes level 30, draw a card."
+    ));
+}
+
+#[test]
 fn modal_activation_keeps_its_shared_cost_and_refuses_a_different_cost() {
     let ability = baylee_cards_dsl::modal_activated!(
         baylee_cards_dsl::cost!("{1}", TapSelf),

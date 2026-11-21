@@ -50,6 +50,7 @@ const RIOT_ANTHEM: u32 = 8866;
 const UNLEASH_DEVIL: u32 = 8867;
 const GROW_INSTANT: u32 = 8868;
 const SHRINK_COUNTER_INSTANT: u32 = 8869;
+const KEYWORDED_CREATURE: u32 = 8870;
 
 fn leak(id: u32, face: FaceDef) -> &'static CardDef {
     let keywords = face.keywords;
@@ -1004,6 +1005,65 @@ fn wave8b_suspect_grants_menace_and_cant_block_unsuspects_and_supports_enter_mod
         opp_bear,
         my_bear
     ));
+}
+
+#[test]
+fn suspect_grants_both_keywords_when_one_is_printed() {
+    for printed in [KeywordSet::MENACE, KeywordSet::CANT_BLOCK] {
+        let creature = leak(
+            KEYWORDED_CREATURE,
+            FaceDef {
+                keywords: printed,
+                ..creature_face("Keyworded Creature", "{1}{G}", 2, 2)
+            },
+        );
+        let mut engine = bench(
+            2,
+            vec![suspect_spell(), vanilla_bear(), creature],
+            [
+                Seat::with(&[VANILLA_BEAR]).holding(&[SUSPECT_SPELL]),
+                Seat::with(&[KEYWORDED_CREATURE]),
+            ],
+        );
+        to_main(&mut engine, me());
+        let attacker = the(&engine, ZoneLocation::Battlefield, VANILLA_BEAR);
+        let target = the(&engine, ZoneLocation::Battlefield, KEYWORDED_CREATURE);
+        let spell = the(&engine, ZoneLocation::Hand(me()), SUSPECT_SPELL);
+        assert_eq!(
+            crate::combat::can_block(&engine.state, them(), target, attacker),
+            printed == KeywordSet::MENACE
+        );
+
+        add_pool(&mut engine, me(), ManaColor::Red, 1);
+        engine
+            .apply(me(), PlayerAction::CastSpell { card: spell })
+            .unwrap();
+        engine
+            .apply(
+                me(),
+                PlayerAction::ChooseTargets {
+                    objects: vec![target],
+                    players: vec![],
+                },
+            )
+            .unwrap();
+        drain_stack(&mut engine);
+
+        let keywords = engine
+            .state
+            .object(target)
+            .unwrap()
+            .characteristics()
+            .keywords;
+        assert!(keywords.contains(KeywordSet::MENACE));
+        assert!(keywords.contains(KeywordSet::CANT_BLOCK));
+        assert!(!crate::combat::can_block(
+            &engine.state,
+            them(),
+            target,
+            attacker
+        ));
+    }
 }
 
 /// 5. `Riot` (`CR 702.136a–b`) & `Unleash` (`CR 702.98a`):

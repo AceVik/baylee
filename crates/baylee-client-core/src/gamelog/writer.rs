@@ -709,6 +709,10 @@ impl Writer<'_> {
                     Self::count(old),
                 ],
             ),
+            LogEvent::ClassLevel { object, level } => self.phrase(
+                Phrase::LogClassLevel,
+                &[self.object(object), Self::count(level)],
+            ),
             LogEvent::Attacked {
                 attacker,
                 defending,

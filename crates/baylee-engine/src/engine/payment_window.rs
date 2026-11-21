@@ -410,10 +410,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             {
                 // Journaled for whoever reads the board's history, as every
                 // untap is.
-                self.state.journal.record(GameEvent::ObjectUntapped {
-                    object,
-                    cause: Cause::Cost,
-                });
+                self.state.record_tap_event(object, false, Cause::Cost);
             }
         }
         // No ability triggers from an undone action (CR 734.1): neither from

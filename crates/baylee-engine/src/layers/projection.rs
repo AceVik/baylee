@@ -69,10 +69,14 @@ pub(super) fn recompute_observing<'a>(
         }
         // CR 701.60c: a suspected permanent has menace and "This creature
         // can't block" for as long as it's suspected.
-        let suspect_kw = KeywordSet::MENACE.union(KeywordSet::CANT_BLOCK);
-        if obj.riders.contains(&crate::object::Rider::Suspected) && !c.keywords.contains(suspect_kw)
-        {
-            c.to_mut().keywords = c.keywords.union(suspect_kw);
+        if obj.riders.contains(&crate::object::Rider::Suspected) {
+            let keywords = c
+                .keywords
+                .union(KeywordSet::MENACE)
+                .union(KeywordSet::CANT_BLOCK);
+            if keywords != c.keywords {
+                c.to_mut().keywords = keywords;
+            }
         }
     }
     // Layer 2 starts from the *base* controller, not from whatever the

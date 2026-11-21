@@ -112,6 +112,8 @@ pub struct PendingTrigger {
     pub event_object: Option<ObjectId>,
     /// The event permanent's mana value before leaving the battlefield.
     pub event_mana_value: Option<u32>,
+    /// Controller and toughness of an event permanent when it tapped or untapped.
+    pub event_tap_snapshot: Option<(PlayerId, i16)>,
     /// Controller and toughness captured before the event permanent left play.
     pub event_departure: Option<(PlayerId, i16)>,
     /// Actual production captured for a triggered mana ability.
@@ -526,6 +528,7 @@ fn build_off_battlefield_trigger(
         timestamp: object.timestamp,
         event_object,
         event_mana_value: None,
+        event_tap_snapshot: events::tap_event_snapshot(state, events, entry),
         event_departure: entry
             .departure
             .as_ref()
@@ -802,6 +805,7 @@ fn cast_this_spell_triggers(
                 counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
+                event_tap_snapshot: None,
                 event_departure: None,
                 source: object,
                 ability_index: index as u32,
@@ -964,6 +968,7 @@ fn collect_for_objects(
     let batch_has_zone_changes = events
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::ZoneChanged { .. }));
+    let control_changes = events::control_changes(events);
     let batch_has_spells_cast = events
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::SpellCast { .. }));
@@ -1054,6 +1059,7 @@ fn collect_for_objects(
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
+                            event_tap_snapshot: None,
                             event_departure: None,
                             event_amount: None,
                             event_player: None,
@@ -1120,6 +1126,7 @@ fn collect_for_objects(
                         counter_source_version: None,
                         event_mana: None,
                         event_mana_value: None,
+                        event_tap_snapshot: None,
                         event_departure: None,
                         event_amount: None,
                         event_player: None,
@@ -1250,6 +1257,10 @@ fn collect_for_objects(
                 _ => continue,
             };
             let trigger = firing.trigger;
+            let observes_tap = matches!(
+                trigger,
+                Trigger::BecomesTapped(_) | Trigger::BecomesUntapped(_)
+            );
             let text = state.effect_text(fx);
             let context = RuleContext {
                 source: permanent,
@@ -1267,6 +1278,9 @@ fn collect_for_objects(
                 continue;
             }
             for entry in events {
+                if observes_tap && events::tap_event_object(&entry.event).is_none() {
+                    continue;
+                }
                 if phased_out_only
                     && !matches!(
                         entry.event,
@@ -1300,18 +1314,30 @@ fn collect_for_objects(
                     continue;
                 }
                 let source = source_at_event_with_moves(state, obj, &moves, entry.seq, look_back);
+                if observes_tap && source.zone != Zone::Battlefield {
+                    continue;
+                }
+                let controller = if observes_tap {
+                    events::tap_observer_controller(source, entry, &control_changes, &moves)
+                } else {
+                    source.controller
+                };
                 // A grant belongs to its recipient's battlefield incarnation,
                 // not the new card in the graveyard (CR 603.10a).
                 let applies = if look_back {
                     crate::effects::applies_to_snapshot(state, fx, source)
-                } else {
+                } else if controller == source.controller {
                     crate::effects::applies_to(state, fx, source)
+                } else {
+                    let mut source = source.clone();
+                    source.controller = controller;
+                    crate::effects::applies_to(state, fx, &source)
                 };
                 if !applies
                     || !condition_matches(
                         state,
                         firing.condition,
-                        source.controller,
+                        controller,
                         context,
                         Some(source.version),
                         Some(entry),
@@ -1320,18 +1346,15 @@ fn collect_for_objects(
                     continue;
                 }
                 let hit = departure_hit(trigger, entry, permanent).unwrap_or_else(|| {
-                    hits_with_context(
-                        trigger,
-                        &entry.event,
-                        events,
-                        state,
-                        context,
-                        source.controller,
-                    )
+                    hits_with_context(trigger, &entry.event, events, state, context, controller)
                 });
                 if hit > 0 {
                     let event_object = event_object_for(trigger, &entry.event, permanent, state);
-                    let times = trigger_count(state, trigger, permanent, source.controller) * hit;
+                    let times = if observes_tap {
+                        matching::tap_trigger_count(state, source, controller)
+                    } else {
+                        trigger_count(state, trigger, permanent, controller)
+                    } * hit;
                     let event_subject = event_subject_for(trigger, &entry.event, permanent, state);
                     let event_ability = activated_stack_ability(&entry.event);
                     let event_object_identity =
@@ -1342,14 +1365,8 @@ fn collect_for_objects(
                         .as_ref()
                         .map(|d| (d.controller, d.toughness));
                     let event_player = event_player_for(trigger, entry, state);
-                    let event_amount = event_amount_for(
-                        trigger,
-                        &entry.event,
-                        events,
-                        state,
-                        source.controller,
-                        context,
-                    );
+                    let event_amount =
+                        event_amount_for(trigger, &entry.event, events, state, controller, context);
                     let grantor = fx.source.and_then(|id| state.source_identity(id));
                     for _ in 0..times {
                         let (ability_index, abilities, synthetic_effects, synthetic_target) =
@@ -1387,12 +1404,13 @@ fn collect_for_objects(
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value,
+                            event_tap_snapshot: events::tap_event_snapshot(state, events, entry),
                             event_departure,
                             event_amount,
                             event_player,
                             source: permanent,
                             ability_index,
-                            controller: source.controller,
+                            controller,
                             timestamp: source.timestamp,
                             event_object,
                             implicit_target: matches!(trigger, Trigger::Ward)
@@ -1509,6 +1527,7 @@ fn collect_for_objects(
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
+                            event_tap_snapshot: None,
                             event_departure: entry
                                 .departure
                                 .as_ref()
@@ -1589,6 +1608,7 @@ fn collect_for_objects(
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
+                            event_tap_snapshot: None,
                             event_departure: None,
                             event_amount: None,
                             event_player: None,
@@ -1619,6 +1639,10 @@ fn collect_for_objects(
                 continue;
             }
             let trigger = firing.trigger;
+            let observes_tap = matches!(
+                trigger,
+                Trigger::BecomesTapped(_) | Trigger::BecomesUntapped(_)
+            );
             let is_phase_out_trigger = matches!(
                 trigger,
                 Trigger::PhasesOut(_) | Trigger::PhasesOutOrLeavesBattlefield(_)
@@ -1651,7 +1675,11 @@ fn collect_for_objects(
                     None,
                     None,
                 );
-            if source_is_constant && !condition_reads_event && !obj_condition_holds {
+            if source_is_constant
+                && (!observes_tap || control_changes.is_empty())
+                && !condition_reads_event
+                && !obj_condition_holds
+            {
                 continue;
             }
             // CR 603.4, the first of its two checks: an ability whose
@@ -1660,6 +1688,9 @@ fn collect_for_objects(
             // to double — Panharmonicon doubles a trigger, not a
             // non-trigger.
             for entry in events {
+                if observes_tap && events::tap_event_object(&entry.event).is_none() {
+                    continue;
+                }
                 if phased_out_only
                     && !matches!(
                         entry.event,
@@ -1687,24 +1718,33 @@ fn collect_for_objects(
                 } else {
                     source_at_event_with_moves(state, obj, &moves, entry.seq, look_back)
                 };
+                if observes_tap && source.zone != Zone::Battlefield {
+                    continue;
+                }
+                let controller = if observes_tap {
+                    events::tap_observer_controller(source, entry, &control_changes, &moves)
+                } else {
+                    source.controller
+                };
                 let same_as_obj = std::ptr::eq(source, obj);
                 let context = if same_as_obj {
                     obj_context
                 } else {
                     ability_context(state, source, &list, index)
                 };
-                let cond_ok = if same_as_obj && !condition_reads_event {
-                    obj_condition_holds
-                } else {
-                    condition_matches(
-                        state,
-                        firing.condition,
-                        source.controller,
-                        context,
-                        Some(source.version),
-                        Some(entry),
-                    )
-                };
+                let cond_ok =
+                    if same_as_obj && controller == obj.controller && !condition_reads_event {
+                        obj_condition_holds
+                    } else {
+                        condition_matches(
+                            state,
+                            firing.condition,
+                            controller,
+                            context,
+                            Some(source.version),
+                            Some(entry),
+                        )
+                    };
                 if !cond_ok {
                     continue;
                 }
@@ -1714,26 +1754,17 @@ fn collect_for_objects(
                 let hit = linked_hit
                     .or_else(|| departure_hit(trigger, entry, permanent))
                     .unwrap_or_else(|| {
-                        hits_with_context(
-                            trigger,
-                            &entry.event,
-                            events,
-                            state,
-                            context,
-                            source.controller,
-                        )
+                        hits_with_context(trigger, &entry.event, events, state, context, controller)
                     });
                 if hit > 0 {
-                    let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
+                    let times = if observes_tap {
+                        matching::tap_trigger_count(state, source, controller)
+                    } else {
+                        trigger_count(state, trigger, permanent, obj.controller)
+                    } * hit;
                     let event_object = event_object_for(trigger, &entry.event, permanent, state);
-                    let event_damage = event_amount_for(
-                        trigger,
-                        &entry.event,
-                        events,
-                        state,
-                        source.controller,
-                        context,
-                    );
+                    let event_damage =
+                        event_amount_for(trigger, &entry.event, events, state, controller, context);
                     let event_subject = event_subject_for(trigger, &entry.event, permanent, state);
                     let event_ability = activated_stack_ability(&entry.event);
                     let event_object_identity =
@@ -1773,13 +1804,14 @@ fn collect_for_objects(
                             counter_source_version,
                             event_mana,
                             event_mana_value,
+                            event_tap_snapshot: events::tap_event_snapshot(state, events, entry),
                             event_departure,
                             event_amount: event_damage,
                             event_player,
                             source: permanent,
                             ability_index: index as u32,
                             abilities: Some(list.clone()),
-                            controller: source.controller,
+                            controller,
                             timestamp: source.timestamp,
                             event_object,
                             implicit_target: matches!(trigger, Trigger::Ward)

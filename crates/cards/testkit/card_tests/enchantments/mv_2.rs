@@ -65,6 +65,7 @@ mod lifeforce;
 mod lifetap;
 mod lightning_rift;
 mod lilting_refrain;
+mod lost_isle_calling;
 mod luminarch_ascension;
 mod meteor_storm;
 mod night_soil;

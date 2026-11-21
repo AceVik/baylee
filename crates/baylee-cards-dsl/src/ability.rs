@@ -414,7 +414,7 @@ pub enum Condition {
     /// The source has at least N counters of a kind (Luminarch
     /// Ascension's quest counters).
     CountersOnSelf(crate::effect::CounterKind, u8),
-    /// The source has EXACTLY N counters of a kind (class level gating).
+    /// The source has exactly N counters of a kind.
     CountersOnSelfExactly(crate::effect::CounterKind, u8),
     /// The source has at least the first number and no more than the second
     /// of a kind of counter: a leveler's `{LEVEL N1-N2}` band (CR 711.2a,
@@ -695,6 +695,14 @@ pub enum Condition {
     /// [`crate::EnterModifier::Tribute`] ability. Appended to preserve replay
     /// identities.
     TributeWasNotPaid,
+    /// The source's Class level is exactly N, the requirement to advance
+    /// to N + 1 (CR 717.2a). A permanent with no level is level 1 (CR 717.2d).
+    /// Appended to preserve replay identities.
+    ClassLevelExactly(u8),
+    /// The source has the abilities printed at Class level N (CR 717.2a).
+    /// A triggered ability checks this when it triggers. Appended to preserve
+    /// replay identities.
+    ClassLevelAtLeast(u8),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -872,13 +880,6 @@ pub enum Trigger {
     /// The count of a kind of counter on the source rises from below `n`
     /// to `n` or more — the window CR 715.2b writes out for a chapter
     /// symbol, asked of any kind.
-    ///
-    /// Druid Class's "When this Class becomes level 3": this pool keeps a
-    /// Class's level as level counters over level 1 (Wizard Class), so
-    /// level 3 is `n: 2`. It is a trigger of its own and not a rider on
-    /// the level-up activation, because the ability it starts targets: a
-    /// target removed in response would otherwise take the level with it
-    /// (CR 608.2b).
     CountersReach {
         /// The kind counted.
         kind: crate::effect::CounterKind,
@@ -1291,6 +1292,10 @@ pub enum Trigger {
         /// Whether only winning a clash triggers this ability.
         won_only: bool,
     },
+    /// "When this Class becomes level N." The new level's triggered ability
+    /// can choose its own targets after the level ability has resolved.
+    /// Appended to preserve replay identities.
+    ClassLevelGained(u8),
 }
 
 impl Trigger {

@@ -3002,6 +3002,12 @@ impl Tx<'_> {
                 "ReflexiveWhen::Event(ReflexiveEvent::Sacrificed({f}))"
             ));
         }
+        if last.starts_with("Effect::exile(TargetSpec::CardInGraveyard(") {
+            let f = zone_filter(self, true)?;
+            return Some(format!(
+                "ReflexiveWhen::ThisWay(ThisWay::ExiledFromGraveyard({f}))"
+            ));
+        }
         if last.starts_with("Effect::exile(") || last.starts_with("Effect::ExileAll {") {
             let f = zone_filter(self, false)?;
             return Some(format!(
@@ -3427,7 +3433,7 @@ impl Tx<'_> {
             return Self::wave15_amount_cmp("Amount::SourcePower", cmp);
         }
         if raw == "PlayerCountPropertyYou$OpponentsAttackedThisCombat" {
-            return Self::wave15_amount_cmp("Amount::OpponentsYouAttackedThisCombat", cmp);
+            return Self::wave15_amount_cmp(self.opponents_attacked_amount(), cmp);
         }
         if raw == "Count$LifeYouGainedThisTurn" {
             return Self::wave15_amount_cmp("Amount::LifeGainedThisTurn(PlayerRel::You)", cmp);

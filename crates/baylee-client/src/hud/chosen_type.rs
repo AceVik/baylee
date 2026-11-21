@@ -1,7 +1,7 @@
 //! Persistent labels for what a permanent named on entering: a creature type
 //! (Cavern of Souls), or a card name (Pithing Needle); for the doors of a
-//! Room still locked (CR 709.5); for a leveler's level (report 30), and for a
-//! permanent that has lost all its abilities (report 21).
+//! Room still locked (CR 709.5); for Class levels and level counters, and
+//! for a permanent that has lost all its abilities (report 21).
 use super::{UiFonts, glyph, icon_tf, palette, tf};
 use crate::{Duel, settings::ClientSettings, table};
 use baylee_client_core::{
@@ -77,17 +77,19 @@ fn words(object: &baylee_view::PublicObject, lang: Lang, detail: bool) -> Option
             ),
         );
     }
-    // A leveler's level (report 30: Hexdrinker), which nothing on the card
-    // says; the plate shows the body it bought.
-    for counter in &object.counters {
-        if counter.kind == baylee_view::CounterKind::Level && counter.count > 0 {
-            let level = if detail {
-                Phrase::LevelLong
-            } else {
-                Phrase::LevelShort
-            };
-            parts.push(level.fill(lang, &[&counter.count.to_string()]));
-        }
+    if let Some(level) = object.class_level {
+        parts.push(Phrase::ClassLevel.fill(lang, &[&level.to_string()]));
+    }
+    // Level counters can coexist with a Class designation. Preserve the
+    // compact leveler label and explicitly name the counters in detail mode.
+    let level_counters = object.counter_count(baylee_view::CounterKind::Level);
+    if level_counters > 0 {
+        parts.push(if detail {
+            let noun = Phrase::LogCountersLevel.fill_count(lang, usize::from(level_counters), &[]);
+            format!("{level_counters} {noun}")
+        } else {
+            Phrase::LevelShort.fill(lang, &[&level_counters.to_string()])
+        });
     }
     for counter in &object.counters {
         if counter.count == 0 {
@@ -615,10 +617,8 @@ mod tests {
 
     /// Reports 21 and 30: a permanent that lost all its abilities is labelled
     /// "No abilities", first; a leveler says its level, short ("LV 5") and,
-    /// with detail, long ("Level 5"); in German "Keine Fähigkeiten", "St. 5"
-    /// and "Stufe 5"; and an object with neither has no label. On the old
-    /// code `words` knew neither, so every assertion but the last read
-    /// `None`.
+    /// with detail, in full ("5 level counters"). An object with neither
+    /// has no label.
     #[test]
     fn a_permanent_without_abilities_or_with_a_level_says_so() {
         use baylee_view::{CounterEntry, CounterKind, ObjectStatus};
@@ -642,9 +642,15 @@ mod tests {
             count: 5,
         });
         assert_eq!(words(&object, Lang::En, false).as_deref(), Some("LV 5"));
-        assert_eq!(words(&object, Lang::En, true).as_deref(), Some("Level 5"));
+        assert_eq!(
+            words(&object, Lang::En, true).as_deref(),
+            Some("5 level counters")
+        );
         assert_eq!(words(&object, Lang::De, false).as_deref(), Some("St. 5"));
-        assert_eq!(words(&object, Lang::De, true).as_deref(), Some("Stufe 5"));
+        assert_eq!(
+            words(&object, Lang::De, true).as_deref(),
+            Some("5 Stufenmarken")
+        );
         object.counters[0].count = 0;
         assert_eq!(
             words(&object, Lang::En, false),
@@ -658,6 +664,32 @@ mod tests {
         assert_eq!(
             words(&object, Lang::En, false).as_deref(),
             Some("No abilities \u{b7} LV 5")
+        );
+    }
+
+    #[test]
+    fn class_levels_and_level_counters_have_distinct_labels() {
+        use baylee_view::{CounterEntry, CounterKind};
+
+        let mut class = crate::registry_printed(1, 0, "Druid Class");
+        class.class_level = Some(1);
+        assert_eq!(
+            words(&class, Lang::En, false).as_deref(),
+            Some("Class level 1")
+        );
+        assert_eq!(
+            words(&class, Lang::De, false).as_deref(),
+            Some("Klassenstufe 1")
+        );
+
+        class.class_level = Some(3);
+        class.counters.push(CounterEntry {
+            kind: CounterKind::Level,
+            count: 1,
+        });
+        assert_eq!(
+            words(&class, Lang::En, true).as_deref(),
+            Some("Class level 3 · 1 level counter")
         );
     }
 

@@ -57,6 +57,7 @@ never a reason to edit a card by hand.
 
 ## Engine gaps
 
+- Assembled Alphas, Burn the Accursed, Carnival // Carnage, Chandra's Outrage, First Volley, Judgment Bolt, Neonate's Rush, Shocker, Unshakable, and Unleash Shell deal damage to a permanent and its controller in one event. The reader refuses to split that instruction into two damage events. If Pariah redirects the controller's damage to the same creature, an enrage ability must trigger once for the combined damage (CR 120.4b, CR 614.9, CR 603.2c).
 - Shallow Grave: its effect exists since Corpse Dance (`Effect::TopOfYourGraveyard`, 4 November 2026). Nothing but its card file and its own test is left, and the same effects do it.
 - Comet Storm, Strength of the Tajuru, Zethi: a target count that grows with the kicks. `Amount::TimesKicked` reaches effects and entries, not `TargetReq`.
 

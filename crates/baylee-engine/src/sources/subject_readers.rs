@@ -105,6 +105,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::DetachSource
             | Effect::SoulbondPair { .. }
             | Effect::Monstrosity(_)
+            | Effect::SetClassLevel(_)
             | Effect::IfNoCountersOnSelf { .. } => true,
             Effect::AddCounter { .. }
             | Effect::AddCountersUpTo { .. }
@@ -138,6 +139,8 @@ fn condition_refers_to_subject(condition: &baylee_cards_dsl::Condition) -> bool 
         C::SourceMatches(_)
         | C::IsPaired
         | C::IsMonstrous
+        | C::ClassLevelExactly(_)
+        | C::ClassLevelAtLeast(_)
         | C::IsSuspected
         | C::SoulbondSelfCanPair
         | C::SoulbondEventCanPair => true,

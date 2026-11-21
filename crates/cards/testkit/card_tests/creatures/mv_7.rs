@@ -418,6 +418,7 @@ mod goblin_dynamo;
 mod goliath_sphinx;
 mod great_whale;
 mod greater_sandwurm;
+mod grim_giganotosaurus;
 mod groundshaker_sliver;
 mod guardian_of_cloverdell;
 mod havenwood_wurm;

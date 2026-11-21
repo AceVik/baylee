@@ -269,6 +269,7 @@ pub fn amount_with_context(
         Amount::CountOf { filter, zone } => count_in_zone(filter, *zone, state, you, context),
         Amount::OpponentsLifeLostThisTurn => opponents_life_lost(state, you),
         Amount::OpponentsYouAttackedThisCombat => state.combat.opponents_attacked_by(state, you),
+        Amount::OpponentsYouAreAttacking => state.combat.opponents_being_attacked_by(state, you),
         Amount::DamageDealtToOpponentsThisTurn => damage_dealt_to_opponents_this_turn(state, you),
         Amount::SnowManaSpentToCast => snow_mana_spent_on(state, this),
         Amount::EntrySacrifices => entry_sacrifices_on(state, this),

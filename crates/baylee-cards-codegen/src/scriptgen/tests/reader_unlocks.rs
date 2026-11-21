@@ -3,6 +3,31 @@
 use super::*;
 
 #[test]
+fn reflexive_exile_watches_the_zone_the_target_came_from() {
+    let script = "Name:Grave Sigil\nTypes:Sorcery\nManaCost:1 B\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Graveyard | Destination$ Exile | RememberChanged$ True | SubAbility$ Reward\n\
+         SVar:Reward:DB$ ImmediateTrigger | ConditionDefined$ Remembered | ConditionPresent$ Card | Execute$ Drain\n\
+         SVar:Drain:DB$ GainLife | Defined$ You | LifeAmount$ 3\n";
+    let graveyard = &read(script).abilities[0];
+    assert!(
+        graveyard.contains("TargetSpec::CardInGraveyard"),
+        "{graveyard}"
+    );
+    assert!(
+        graveyard.contains("ReflexiveWhen::ThisWay(ThisWay::ExiledFromGraveyard(&Filter::Any))"),
+        "{graveyard}"
+    );
+
+    let battlefield =
+        &read(&script.replace("Origin$ Graveyard", "Origin$ Battlefield")).abilities[0];
+    assert!(
+        battlefield
+            .contains("ReflexiveWhen::ThisWay(ThisWay::ExiledFromBattlefield(&Filter::Any))"),
+        "{battlefield}"
+    );
+}
+
+#[test]
 fn enforced_keywords_and_parameterized_keywords_lower_cleanly() {
     let kw = read(
         "Name:KeywordTest\nTypes:Creature\nPT:2/2\n\

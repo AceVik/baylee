@@ -1062,13 +1062,15 @@ impl Tx<'_> {
     /// whose player is whose graveyard. In a graveyard the reference's
     /// `YouCtrl` means "yours" (a card there is controlled by nobody, and
     /// its owner is whose graveyard it is in); no such qualifier is any
-    /// graveyard unless the Oracle text explicitly scopes it to "your
-    /// graveyard" (Misery Charm). The rest of the valid-string is the card's
-    /// filter.
+    /// graveyard unless the target line scopes it to "your graveyard"
+    /// (Misery Charm). Its own description takes precedence over the whole
+    /// card's Oracle text, since another chapter or mode may use a different
+    /// scope. The rest of the valid-string is the card's filter.
     pub(super) fn graveyard_target(
         &mut self,
         valid: &str,
         defined_controller: Option<&str>,
+        description: Option<&str>,
     ) -> Option<String> {
         let (mut whose, cleaned_alts) = self.split_graveyard_target_alts(valid)?;
         if defined_controller == Some("ParentTarget") {
@@ -1081,19 +1083,38 @@ impl Tx<'_> {
                 "TargetSpec::CardInFirstTargetsGraveyard(&{filter})"
             ));
         }
-        if whose == "PlayerRel::EachPlayer" {
-            let lower = self.oracle.to_ascii_lowercase();
-            if (lower.contains("from your graveyard") || lower.contains("in your graveyard"))
-                && !lower.contains("from a graveyard")
-                && !lower.contains("in a graveyard")
-            {
-                whose = "PlayerRel::You";
-            }
+        if whose == "PlayerRel::EachPlayer"
+            && description
+                .and_then(Self::targets_own_graveyard)
+                .or_else(|| Self::targets_own_graveyard(self.oracle))
+                == Some(true)
+        {
+            whose = "PlayerRel::You";
         }
         whose = self.resolve_graveyard_defined_controller(whose, defined_controller)?;
         let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
         let filter = self.body.filter_static("TARGET", &filter);
         Some(format!("TargetSpec::CardInGraveyard(&{filter}, {whose})"))
+    }
+
+    fn targets_own_graveyard(text: &str) -> Option<bool> {
+        let text = text.to_ascii_lowercase();
+        if [
+            "in a graveyard",
+            "from a graveyard",
+            "in any graveyard",
+            "from any graveyard",
+            "in graveyards",
+            "from graveyards",
+        ]
+        .into_iter()
+        .any(|phrase| text.contains(phrase))
+        {
+            Some(false)
+        } else {
+            (text.contains("from your graveyard") || text.contains("in your graveyard"))
+                .then_some(true)
+        }
     }
 
     fn split_graveyard_target_alts(&self, valid: &str) -> Option<(&'static str, Vec<String>)> {

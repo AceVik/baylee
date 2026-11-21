@@ -278,10 +278,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 })
             {
                 self.state.set_tapped(enlisted, true);
-                self.state.journal.record(GameEvent::ObjectTapped {
-                    object: enlisted,
-                    cause: Cause::Cost,
-                });
+                self.state.record_tap_event(enlisted, true, Cause::Cost);
                 self.state.journal.record(GameEvent::CreatureEnlisted {
                     attacker,
                     enlisted,
@@ -292,10 +289,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         for &(creature, defending) in &attackers {
             if combat::attack_taps(&self.state, creature) {
                 self.state.set_tapped(creature, true);
-                self.state.journal.record(GameEvent::ObjectTapped {
-                    object: creature,
-                    cause: Cause::TurnBased,
-                });
+                self.state
+                    .record_tap_event(creature, true, Cause::TurnBased);
             }
             self.state.journal.record(GameEvent::BecameAttacker {
                 object: creature,

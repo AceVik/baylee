@@ -258,6 +258,7 @@ fn test_public_object(
         plotted: false,
         warped: false,
         suspected: false,
+        class_level: None,
         token: None,
         colors: face.mana_cost.colors().union(face.color_indicator),
         mana_value: face.mana_cost.cmc(),

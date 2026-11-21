@@ -3608,10 +3608,10 @@ impl Tx<'_> {
         let cost = self.parse_activated_cost(cost_raw, None)?;
         self.class_next_level = level.saturating_add(1);
         self.body.abilities.push(format!(
-            "activated!({cost}, &[Effect::AddCounter {{ kind: CounterKind::Level, \
-             amount: Amount::Fixed(1) }}], timing = ActivationTiming::SorcerySpeed, \
-             condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, {})))",
-            level - 2
+            "activated!({cost}, &[Effect::SetClassLevel({level})], \
+             timing = ActivationTiming::SorcerySpeed, \
+             condition = Some(Condition::ClassLevelExactly({})))",
+            level - 1
         ));
         let mut any_action = false;
         for clause in actions_raw
@@ -3645,10 +3645,7 @@ impl Tx<'_> {
         if names.is_empty() {
             return self.deny(format!("Class action `{clause}` naming no SVar"));
         }
-        let cond = format!(
-            "Condition::CountersOnSelf(CounterKind::Level, {})",
-            level - 1
-        );
+        let cond = format!("Condition::ClassLevelAtLeast({level})");
         match key {
             "AddStaticAbility" => {
                 for name in names {
@@ -3784,7 +3781,11 @@ impl Tx<'_> {
         self.on_a_spell = prev_spell;
         self.trigger_is_self = prev_self;
         ok?;
-        if chain.effects.is_empty() || chain.target_is_x || chain.second_target.is_some() {
+        if chain.effects.is_empty()
+            || chain.target_is_x
+            || chain.target_unique
+            || chain.second_target.is_some()
+        {
             return self.deny("unsupported `ClassLevelGained` execution chain".to_string());
         }
         let targets = chain.target.as_deref().map_or_default(|t| {
@@ -3801,8 +3802,7 @@ impl Tx<'_> {
             }
         });
         self.body.abilities.push(format!(
-            "triggered!(Trigger::CountersReach {{ kind: CounterKind::Level, n: {} }}, &[{}]{targets})",
-            level - 1,
+            "triggered!(Trigger::ClassLevelGained({level}), &[{}]{targets})",
             chain.effects.join(", ")
         ));
         Some(())

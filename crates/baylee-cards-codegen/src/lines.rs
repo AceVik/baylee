@@ -329,6 +329,12 @@ pub fn chapter_head(line: &str) -> Option<Vec<u8>> {
     head.split(',').map(|part| roman(part.trim())).collect()
 }
 
+fn class_level_head(line: &str) -> Option<u8> {
+    let line = without_reminder(line);
+    let (_, level) = line.split_once(':')?;
+    level.trim().strip_prefix("Level ")?.parse().ok()
+}
+
 /// The `{…}` symbols a string prints, in order.
 pub fn braced(src: &str) -> Vec<String> {
     let mut out = Vec::new();
@@ -597,9 +603,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::AbilityActivated { .. } => &["activates"],
         // Badgermole Cub, "Whenever you tap a creature for mana".
         T::TappedForMana { .. } => &["for mana"],
-        // Druid Class, "When this Class becomes level 3".
-        T::CountersPlaced { .. } => &["counter"],
-        T::CountersReach { .. } => &["becomes level"],
+        T::CountersPlaced { .. } | T::CountersReach { .. } => &["counter"],
+        T::ClassLevelGained(_) => &["this class becomes level"],
         // Divine Intervention, "When you remove the last intervention counter".
         T::LastCounterRemoved { .. } => &["remove the last", "is removed"],
         T::Draws(_) | T::DrawsExceptFirst(_) | T::NthCardDrawnInTurn { .. } => &["draw"],
@@ -827,12 +832,32 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
             mana_ability: true,
             ..
         } => cost_fits(cost, line) && mana_fits(effects, line),
-        A::Activated { cost, .. }
-        | A::ActivatedConditional { cost, .. }
-        | A::ModalActivated { cost, .. } => cost_fits(cost, line),
+        A::Activated { cost, effects, .. } | A::ActivatedConditional { cost, effects, .. } => {
+            let level = match *effects {
+                [Effect::SetClassLevel(level)] => Some(*level),
+                _ => None,
+            };
+            class_level_head(line) == level && cost_fits(cost, line)
+        }
+        A::ModalActivated { cost, .. } => class_level_head(line).is_none() && cost_fits(cost, line),
         _ if ability.is_saga_chapter() => {
             let wanted = ability.saga_chapters();
             chapter_head(line).is_some_and(|chapters| wanted.iter().any(|c| chapters.contains(c)))
+        }
+        A::Triggered {
+            trigger: Trigger::ClassLevelGained(level),
+            ..
+        }
+        | A::ModalTriggered {
+            trigger: Trigger::ClassLevelGained(level),
+            ..
+        } => {
+            without_reminder(line)
+                .to_lowercase()
+                .strip_prefix("when this class becomes level ")
+                .and_then(|tail| tail.split_once(','))
+                .and_then(|(printed, _)| printed.parse().ok())
+                == Some(*level)
         }
         A::Triggered { trigger, .. } => {
             let lower = without_reminder(line).to_lowercase();

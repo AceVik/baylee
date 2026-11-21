@@ -23,12 +23,12 @@ card!(
         triggered!(
             Trigger::ETB,
             &[
-                Effect::UntapTarget,
                 Effect::continuous(
                     &Filter::This,
                     Modifier::GainControl,
                     Duration::UntilEndOfTurn
                 ),
+                Effect::UntapTarget,
                 Effect::continuous(
                     &Filter::This,
                     Modifier::AddSubtype(subtypes::creature::VILLAIN),

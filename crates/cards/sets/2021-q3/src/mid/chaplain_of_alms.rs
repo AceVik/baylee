@@ -18,7 +18,7 @@ card!(
     oracle_id = "c21d1ca3-3d19-4b4d-bbfa-07b5b7bcea4b",
     scryfall_id = "20e94e17-2e4c-41cd-8cc5-39ab41037287",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[
         face!(
             name = "Chaplain of Alms",

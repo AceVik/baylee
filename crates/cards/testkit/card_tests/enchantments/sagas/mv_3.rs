@@ -4,4 +4,5 @@
 use super::*;
 
 mod fable_of_the_mirror_breaker;
+mod those_old_scientists;
 mod welcome_to;

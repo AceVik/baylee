@@ -55,7 +55,7 @@ pub enum CounterKind {
     Lifelink,
     /// Deathtouch counter (grants deathtouch, CR 122.1b).
     Deathtouch,
-    /// Level counters (classes, CR 717).
+    /// Level counters (leveler cards and the level up keyword).
     Level,
     /// Flying keyword counter (CR 122.1b).
     Flying,

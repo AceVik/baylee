@@ -243,6 +243,21 @@ proptest! {
     }
 }
 
+#[test]
+fn a_class_level_change_survives_the_binary_view_stream() {
+    let mut sender = ViewSender::default();
+    let mut reader = ViewReader::default();
+    let mut table = view(2);
+    let mut class = obj(1, 0);
+    class.class_level = Some(1);
+    table.battlefield.push(class);
+    told(&mut sender, &mut reader, &table);
+
+    table.seq += 1;
+    table.battlefield[0].class_level = Some(2);
+    told(&mut sender, &mut reader, &table);
+}
+
 /// A frame's bytes, written out. Postcard names nothing, so a field moved or a
 /// variant put in the middle still reads on both ends of one build and only
 /// means something else: this is where it shows. A change here goes with

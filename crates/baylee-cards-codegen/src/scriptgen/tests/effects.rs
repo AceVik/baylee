@@ -3,6 +3,76 @@
 use super::*;
 
 #[test]
+fn revealed_hand_discard_distinguishes_permanents_from_other_nonlands() {
+    for (valid, permanent_only) in [("Permanent.nonLand", true), ("Card.nonLand", false)] {
+        let body = read(&format!(
+            "Name:Private inspection\nManaCost:2 B\nTypes:Sorcery\n\
+             A:SP$ Discard | ValidTgts$ Opponent | Mode$ RevealYouChoose | DiscardValid$ {valid}"
+        ));
+        let effect = &body.abilities[0];
+        assert!(effect.contains("Filter::NONLAND"), "{effect}");
+        assert_eq!(
+            effect.contains("TypeSet::PLANESWALKER"),
+            permanent_only,
+            "{effect}"
+        );
+    }
+}
+
+#[test]
+fn a_sweep_exempts_its_source_from_each_printed_type() {
+    for (instruction, exceptions) in [
+        (
+            "Destroy all artifacts and creatures other than Private furnace.",
+            2,
+        ),
+        (
+            "Destroy all artifacts and creatures other than this creature.",
+            2,
+        ),
+        ("Destroy all other creatures and all artifacts.", 1),
+    ] {
+        let body = read(&format!(
+            "Name:Private furnace\nManaCost:4 R\nTypes:Artifact\n\
+             A:AB$ DestroyAll | Cost$ T | ValidCards$ Creature.Other,Artifact\n\
+             Oracle:{{T}}: {instruction}"
+        ));
+        let effect = &body.abilities[0];
+        assert_eq!(
+            effect.matches("Filter::Another").count(),
+            exceptions,
+            "{effect}"
+        );
+    }
+}
+
+#[test]
+fn control_and_untap_resolve_in_printed_order() {
+    for (oracle, control_first) in [
+        (
+            "Gain control of target artifact until end of turn. Untap it.",
+            true,
+        ),
+        (
+            "Untap target artifact and gain control of it until end of turn.",
+            false,
+        ),
+    ] {
+        let body = read(&format!(
+            "Name:Private exchange\nManaCost:3 R\nTypes:Instant\n\
+             A:SP$ GainControl | ValidTgts$ Artifact | LoseControl$ EOT | Untap$ True\nOracle:{oracle}"
+        ));
+        let effects = &body.abilities[0];
+        assert_eq!(
+            effects.find("Modifier::GainControl").unwrap()
+                < effects.find("Effect::UntapTarget").unwrap(),
+            control_first,
+            "{effects}"
+        );
+    }
+}
+
+#[test]
 fn repeated_target_declarations_keep_independent_pump_slots() {
     // Synthetic grammar fixture, not a corpus card: distinct numbers make
     // accidentally moving an instruction to the other slot observable.

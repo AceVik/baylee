@@ -1498,6 +1498,15 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                 extra = extra.wrapping_mul(31).wrapping_add(entry.seq);
                 extra = extra.wrapping_mul(31).wrapping_add(departure.fingerprint());
             }
+            if let Some(observation) = entry.tap_observation {
+                extra = extra
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::structural_fingerprint(&(
+                        entry.seq,
+                        &entry.event,
+                        observation,
+                    )));
+            }
         }
         if self.library_announcement_open() {
             for top in self.library_action_tops.iter().flatten() {
@@ -1542,6 +1551,11 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                     .wrapping_add(trigger.event_departure.map_or(0, |(p, t)| {
                         1 + u64::from(p.get()) + (u64::from(t as u16) << 8)
                     }));
+            if let Some((player, toughness)) = trigger.event_tap_snapshot {
+                extra = extra
+                    .wrapping_mul(31)
+                    .wrapping_add(1 + u64::from(player.get()) + (u64::from(toughness as u16) << 8));
+            }
             extra = extra.wrapping_mul(31).wrapping_add(
                 trigger
                     .counter_source_version

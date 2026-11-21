@@ -395,6 +395,7 @@ struct BlockHalf {
 #[allow(clippy::struct_excessive_bools)]
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
+    script_name: &'a str,
     oracle: &'a str,
     type_line: &'a str,
     cats: &'a SubtypeCatalogs,
@@ -499,7 +500,7 @@ struct Tx<'a> {
     pt: Option<&'a str>,
     /// Cached `(keywords_expr, grant_abilities_ref)` for repeated `K:Backup:<N>:<SVar>` lines.
     backup_grants: BTreeMap<String, (String, String)>,
-    /// Next expected Class enchantment level (`K:Class:<level>:...`), starting at `2`.
+    /// Next Class level bar expected in script order.
     class_next_level: u8,
     /// Stashed `K:Overload:<mana>` cost for post-rule modal rewriting in `apply_overload`.
     overload_cost: Option<String>,
@@ -544,6 +545,7 @@ impl<'a> Tx<'a> {
         }
         Self {
             svars: &script.svars,
+            script_name: &script.script_name,
             oracle: &script.oracle,
             type_line: &script.type_line,
             cats,

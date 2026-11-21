@@ -341,6 +341,20 @@ pub(super) fn trigger_count(
     times_triggered(state, event_kind, source)
 }
 
+pub(super) fn tap_trigger_count(
+    state: &GameState,
+    source: &crate::object::GameObject,
+    controller: PlayerId,
+) -> u32 {
+    let event = baylee_cards_dsl::TriggerEventKind::Any;
+    if source.controller == controller {
+        return times_triggered_with_source(state, event, source);
+    }
+    let mut source = source.clone();
+    source.controller = controller;
+    times_triggered_with_source(state, event, &source)
+}
+
 /// How many times a triggered ability of `source` triggers for one event
 /// of `event_kind` (CR 603.2d): once, plus one for each multiplier whose
 /// filter the source matches, or not at all under a suppressor.
@@ -445,6 +459,19 @@ fn matches(
         | (Trigger::Mutates, GameEvent::CreatureMutated { object })
         | (Trigger::BecomesMonstrous, GameEvent::BecameMonstrous { object, .. }) => {
             *object == source
+        }
+        (
+            Trigger::ClassLevelGained(wanted),
+            GameEvent::ClassLevelChanged {
+                object,
+                version,
+                level,
+                ..
+            },
+        ) => {
+            *object == source
+                && wanted == level
+                && state.object(source).is_some_and(|o| o.version == *version)
         }
         // CR 709.5h: the designation, however it was given.
         (Trigger::UnlockThisDoor(door), GameEvent::DoorUnlocked { object, half }) => {
@@ -857,9 +884,23 @@ fn matches(
                 })
         }
         (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. })
-        | (Trigger::BecomesUntapped(filter), GameEvent::ObjectUntapped { object, .. }) => state
-            .object(*object)
-            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        | (Trigger::BecomesUntapped(filter), GameEvent::ObjectUntapped { object, .. }) => {
+            let Some(index) = event_groups::index_of_event(event, batch) else {
+                return state
+                    .object(*object)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context));
+            };
+            super::events::tap_subject_at_event(state, *object, batch, index).is_some_and(
+                |(subject, controller)| {
+                    if subject.controller == controller {
+                        return eval::matches_with_context(filter, state, subject, you, context);
+                    }
+                    let mut subject = subject.clone();
+                    subject.controller = controller;
+                    eval::matches_with_context(filter, state, &subject, you, context)
+                },
+            )
+        }
         (
             Trigger::SpellCast(filter) | Trigger::SpellCastOrCopied(filter),
             GameEvent::SpellCast { object, .. },

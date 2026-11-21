@@ -342,6 +342,10 @@ A client cannot run the layer system, so `PublicObject` carries **projected**
 characteristics (name, P/T, types, colours, keywords), not the printed card.
 An anthem, a clone, or an animated land arrives already resolved.
 
+The label beside a Class permanent starts at Class level 1 and updates when
+its designation changes. A higher level remains visible through a change of
+type or face. The detail label identifies any level counters separately.
+
 Hidden information is unrepresentable rather than merely omitted: library
 contents have no field, another seat's hand is a count, and a face-down
 permanent's `card` is `None` for anyone not entitled to look. `library_tops`
@@ -1501,7 +1505,7 @@ Three guards keep the merge honest:
 - objects merge only when every visible difference matches
   (`PublicObject::summary_key`): name, card or token, controller and owner,
   status (tapped, face down, …), the projected types, colours and keywords,
-  P/T and the printed P/T under it, damage, loyalty, counters, what is
+  P/T and the printed P/T under it, damage, loyalty, counters, Class level, what is
   attached, summoning sickness and any granted mana. So a pile splits by
   state: summoning-sick, tapped and neither are three piles, and a Soldier
   with lifelink stands beside the plain ones

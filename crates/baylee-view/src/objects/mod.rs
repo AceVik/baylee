@@ -374,6 +374,11 @@ pub struct PublicObject {
     /// Whether this permanent on the battlefield is suspected (`CR 701.60`).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub suspected: bool,
+    /// Public Class designation (CR 717). Level 1 is shown for a face-up
+    /// Class. An established higher level remains visible through any change
+    /// to the permanent's face or types.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub class_level: Option<u8>,
     /// Which token this is, for permanents with no card behind them.
     ///
     /// The index into `baylee_cards::tokens::ALL`. A token has no printing
@@ -752,6 +757,7 @@ impl PublicObject {
             plotted: self.plotted,
             warped: self.warped,
             suspected: self.suspected,
+            class_level: self.class_level,
             colors: self.colors,
             keywords: self.keywords,
             power: self.power,
@@ -818,6 +824,7 @@ pub struct ObjectSummaryKey {
     plotted: bool,
     warped: bool,
     suspected: bool,
+    class_level: Option<u8>,
     colors: ColorSet,
     keywords: u128,
     power: Option<i16>,
@@ -866,6 +873,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.plotted.hash(state);
         self.warped.hash(state);
         self.suspected.hash(state);
+        self.class_level.hash(state);
         self.power.hash(state);
         self.toughness.hash(state);
         self.damage.hash(state);

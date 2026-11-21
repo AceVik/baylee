@@ -12,7 +12,7 @@ card!(
     scryfall_id = "95bc5f89-2f01-40c4-9883-4c90ab89fcbb",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::UNCOUNTERABLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Caught Red-Handed",
         mana_cost = mana!("{4}{R}"),
@@ -20,12 +20,12 @@ card!(
     ),],
     abilities = &[spell!(
         &[
-            Effect::UntapTarget,
             Effect::continuous(
                 &Filter::This,
                 Modifier::GainControl,
                 Duration::UntilEndOfTurn
             ),
+            Effect::UntapTarget,
             Effect::PumpTarget {
                 power: Amount::Fixed(0),
                 toughness: Amount::Fixed(0),

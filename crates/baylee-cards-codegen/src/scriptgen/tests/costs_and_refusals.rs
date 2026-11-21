@@ -4195,9 +4195,11 @@ fn wave14a_class_levels_and_overload() {
         "Name:StudyHall\nManaCost:1 U\nTypes:Enchantment Class\n\
          S:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited\n\
          K:Class:2:2 U:AddTrigger$ Lvl2Trig | AddStaticAbility$ L2Pump\n\
-         K:Class:3:3 U:AddTrigger$ WatchDraw | AddReplacementEffect$ NoUntap\n\
+         K:Class:3:3 U:AddTrigger$ WatchDraw & Lvl3Trig | AddReplacementEffect$ NoUntap\n\
          SVar:Lvl2Trig:Mode$ ClassLevelGained | ClassLevel$ 2 | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ ExDraw\n\
          SVar:ExDraw:DB$ Draw | NumCards$ 2\n\
+         SVar:Lvl3Trig:Mode$ ClassLevelGained | ClassLevel$ 3 | ValidCard$ Card.Self | Execute$ ExDestroy\n\
+         SVar:ExDestroy:DB$ Destroy | ValidTgts$ Artifact.YouDontCtrl\n\
          SVar:L2Pump:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1\n\
          SVar:WatchDraw:Mode$ Drawn | ValidCard$ Card.YouCtrl | TriggerZones$ Battlefield | Execute$ ExLife\n\
          SVar:ExLife:DB$ GainLife | LifeAmount$ 1\n\
@@ -4213,37 +4215,45 @@ fn wave14a_class_levels_and_overload() {
         valid_class
             .abilities
             .iter()
-            .any(|a| a.contains("CountersOnSelfExactly(CounterKind::Level, 0)"))
+            .any(|a| a.contains("Effect::SetClassLevel(2)")
+                && a.contains("ActivationTiming::SorcerySpeed")
+                && a.contains("Condition::ClassLevelExactly(1)"))
     );
     assert!(
         valid_class
             .abilities
             .iter()
-            .any(|a| a.contains("Trigger::CountersReach { kind: CounterKind::Level, n: 1 }"))
+            .any(|a| a == "triggered!(Trigger::ClassLevelGained(2), &[Effect::draw(2)])")
     );
     assert!(
         valid_class
             .abilities
             .iter()
             .any(|a| a.contains("Modifier::ModifyPT(1, 1)")
-                && a.contains("CountersOnSelf(CounterKind::Level, 1)"))
+                && a.contains("Condition::ClassLevelAtLeast(2)"))
     );
     assert!(
         valid_class
             .abilities
             .iter()
-            .any(|a| a.contains("CountersOnSelfExactly(CounterKind::Level, 1)"))
+            .any(|a| a.contains("Effect::SetClassLevel(3)")
+                && a.contains("ActivationTiming::SorcerySpeed")
+                && a.contains("Condition::ClassLevelExactly(2)"))
     );
     assert!(valid_class.abilities.iter().any(|a| {
         a.contains("GrantTriggeredDefinition(&GRANTED_TRIGGER_1)")
-            && a.contains("CountersOnSelf(CounterKind::Level, 2)")
+            && a.contains("Condition::ClassLevelAtLeast(3)")
+    }));
+    assert!(valid_class.abilities.iter().any(|a| {
+        a.starts_with("triggered!(Trigger::ClassLevelGained(3),")
+            && a.contains("targets = Some(TargetReq::one(TargetSpec::Object(")
     }));
     assert!(
         valid_class
             .abilities
             .iter()
             .any(|a| a.contains("Modifier::DoesNotUntap")
-                && a.contains("CountersOnSelf(CounterKind::Level, 2)"))
+                && a.contains("Condition::ClassLevelAtLeast(3)"))
     );
 
     let ov_destroy = read(
@@ -4272,6 +4282,7 @@ fn wave14a_class_levels_and_overload() {
     for bad in [
         "Name:NoClassSub\nManaCost:1 U\nTypes:Enchantment\nK:Class:2:1 U:AddStaticAbility$ St\nSVar:St:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1",
         "Name:SkipLvl\nManaCost:1 U\nTypes:Enchantment Class\nK:Class:3:1 U:AddStaticAbility$ St\nSVar:St:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1",
+        "Name:WrongLevelTrigger\nManaCost:1 U\nTypes:Enchantment Class\nK:Class:2:1 U:AddTrigger$ Trig\nSVar:Trig:Mode$ ClassLevelGained | ClassLevel$ 3 | ValidCard$ Card.Self | Execute$ ExDraw\nSVar:ExDraw:DB$ Draw | NumCards$ 2",
         "Name:OvNonSpell\nManaCost:2\nTypes:Artifact\nK:Overload:4",
         "Name:OvDup\nManaCost:R\nTypes:Instant\nA:SP$ Tap | ValidTgts$ Creature\nK:Overload:3 R\nK:Overload:4 R",
         "Name:OvDisc\nManaCost:1 B\nTypes:Sorcery\nA:SP$ Discard | ValidTgts$ Player | NumCards$ 1 | Mode$ TgtChoose\nK:Overload:3 B",

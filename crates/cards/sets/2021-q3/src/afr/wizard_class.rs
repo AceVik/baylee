@@ -12,15 +12,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::enchantment;
 
-/// Gaining a level is one lore-free counter plus whatever the new level
-/// says, and the level it is gained *from* is the precondition — which is
-/// why both are `activated!` with a `condition` rather than two ability
-/// kinds.
-const LEVEL_UP: Effect = Effect::AddCounter {
-    kind: CounterKind::Level,
-    amount: Amount::Fixed(1),
-};
-
 card!(
     index = index::WIZARD_CLASS,
     oracle_id = "36f68aa3-9955-46f1-bc87-497f16ef5222",
@@ -39,30 +30,29 @@ card!(
         // {2}{U}: Level 2 (sorcery speed, requires level 1).
         activated!(
             cost!("{2}{U}"),
-            &[LEVEL_UP, Effect::draw(2)],
+            &[Effect::SetClassLevel(2)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 0)),
+            condition = Some(Condition::ClassLevelExactly(1)),
         ),
+        triggered!(Trigger::ClassLevelGained(2), &[Effect::draw(2)]),
         // {4}{U}: Level 3 (sorcery speed, requires level 2).
         activated!(
             cost!("{4}{U}"),
-            &[
-                LEVEL_UP,
-                Effect::continuous(
-                    &Filter::This,
-                    Modifier::GrantTriggered {
-                        trigger: Trigger::Draws(PlayerRel::You),
-                        effects: &[Effect::AddCounter {
-                            kind: CounterKind::P1P1,
-                            amount: Amount::Fixed(1),
-                        }],
-                        target: Some(TargetSpec::Object(&Filter::YOUR_CREATURE)),
-                    },
-                    Duration::WhileSourceOnBattlefield,
-                ),
-            ],
+            &[Effect::SetClassLevel(3)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 1)),
+            condition = Some(Condition::ClassLevelExactly(2)),
+        ),
+        static_ability!(
+            Filter::This,
+            Modifier::GrantTriggered {
+                trigger: Trigger::Draws(PlayerRel::You),
+                effects: &[Effect::AddCounter {
+                    kind: CounterKind::P1P1,
+                    amount: Amount::Fixed(1),
+                }],
+                target: Some(TargetSpec::Object(&Filter::YOUR_CREATURE)),
+            },
+            condition = Some(Condition::ClassLevelAtLeast(3)),
         ),
     ],
 );

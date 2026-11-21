@@ -712,6 +712,17 @@ pub enum GameEvent {
         /// Whether this player won the clash (CR 701.30d).
         won: bool,
     },
+    /// A class level bar set the level of this battlefield incarnation (CR 717.2a).
+    ClassLevelChanged {
+        /// The permanent whose level changed.
+        object: ObjectId,
+        /// Its battlefield incarnation when the level changed.
+        version: u32,
+        /// Its new level.
+        level: u8,
+        /// Whether the identity of the permanent was concealed at this event.
+        face_down: bool,
+    },
 }
 
 /// Where in a library a card was put.
@@ -864,6 +875,22 @@ pub struct JournalEntry {
     /// Last battlefield information, present only on a departure.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub departure: Option<Box<Departure>>,
+    /// Identity and controller of the permanent when it tapped or untapped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tap_observation: Option<TapObservation>,
+}
+
+/// Information captured at a tap or untap, before later instructions resolve.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct TapObservation {
+    /// Incarnation of the permanent at the event.
+    pub version: u32,
+    /// Controller of that incarnation.
+    pub controller: PlayerId,
+    /// Projected power of the permanent at the event.
+    pub power: i16,
+    /// Projected toughness of the permanent at the event.
+    pub toughness: i16,
 }
 
 /// The append-only event journal.
@@ -878,11 +905,20 @@ pub struct Journal {
 impl Journal {
     /// Appends an event, returning its sequence number.
     pub fn record(&mut self, event: GameEvent) -> u64 {
+        self.record_with_tap_observation(event, None)
+    }
+
+    pub(crate) fn record_with_tap_observation(
+        &mut self,
+        event: GameEvent,
+        tap_observation: Option<TapObservation>,
+    ) -> u64 {
         let seq = self.entries.len() as u64 + 1;
         Arc::make_mut(&mut self.entries).push(JournalEntry {
             seq,
             event,
             departure: None,
+            tap_observation,
         });
         seq
     }

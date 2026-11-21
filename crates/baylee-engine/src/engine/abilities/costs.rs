@@ -758,10 +758,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             .push((src_ref, tapped_ref));
                     }
                     self.state.set_tapped(source, true);
-                    self.state.journal.record(GameEvent::ObjectTapped {
-                        object: source,
-                        cause: Cause::Cost,
-                    });
+                    self.state.record_tap_event(source, true, Cause::Cost);
                 }
                 CostPart::ExertSelf => {
                     crate::resolve::wave4_combat::exert_permanent(
@@ -773,10 +770,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 CostPart::UntapSelf => {
                     if self.state.set_tapped(source, false) {
-                        self.state.journal.record(GameEvent::ObjectUntapped {
-                            object: source,
-                            cause: Cause::Cost,
-                        });
+                        self.state.record_tap_event(source, false, Cause::Cost);
                     }
                 }
                 CostPart::DiscardRandom => {
@@ -1119,10 +1113,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         self.state.set_tapped(id, true);
                     }
                     for &id in selected {
-                        self.state.journal.record(GameEvent::ObjectTapped {
-                            object: id,
-                            cause: Cause::Cost,
-                        });
+                        self.state.record_tap_event(id, true, Cause::Cost);
                     }
                 }
                 CostPart::ExileFromSingleGraveyard { count, .. } => {

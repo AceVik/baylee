@@ -107,10 +107,7 @@ impl GameState {
         for (card, tap_on_phase_in) in phased {
             self.phase_in(card);
             if tap_on_phase_in && self.set_tapped(card, true) {
-                self.journal.record(GameEvent::ObjectTapped {
-                    object: card,
-                    cause: Cause::Effect,
-                });
+                self.record_tap_event(card, true, Cause::Effect);
             }
         }
     }
@@ -769,6 +766,7 @@ impl GameState {
                             | crate::object::Rider::Saddled
                             | crate::object::Rider::Renowned
                             | crate::object::Rider::Monstrous
+                            | crate::object::Rider::ClassLevel(_)
                             | crate::object::Rider::Suspected
                             | crate::object::Rider::RiotHaste
                             | crate::object::Rider::ExhaustedAbility(_)

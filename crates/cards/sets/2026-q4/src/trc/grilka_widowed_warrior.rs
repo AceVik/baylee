@@ -36,12 +36,12 @@ card!(
     abilities = &[triggered!(
         Trigger::ETB,
         &[
-            Effect::UntapTarget,
             Effect::continuous(
                 &Filter::This,
                 Modifier::GainControl,
                 Duration::UntilEndOfTurn
             ),
+            Effect::UntapTarget,
             Effect::continuous(
                 &Filter::This,
                 Modifier::AddKeyword(KeywordSet::TRAMPLE.union(KeywordSet::HASTE)),

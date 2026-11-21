@@ -969,6 +969,7 @@ impl Effect {
             | Effect::SetSourcePTFromTarget { .. }
             | Effect::SetSourceToughness { .. }
             | Effect::AddCounterSource { .. }
+            | Effect::SetClassLevel(_)
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
             | Effect::DrawThenDiscardDrawn { .. }

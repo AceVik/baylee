@@ -83,6 +83,9 @@ pub(super) fn collect_emblems(
                                 counter_source_version: None,
                                 event_mana: produced_mana(&entry.event, events),
                                 event_mana_value: None,
+                                event_tap_snapshot: super::events::tap_event_snapshot(
+                                    state, events, entry,
+                                ),
                                 event_departure: entry
                                     .departure
                                     .as_ref()

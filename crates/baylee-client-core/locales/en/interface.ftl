@@ -3965,9 +3965,17 @@ NoAbilities = No abilities
 # Arguments: level
 LevelShort = LV { $level }
 
-# The same label under the pointer, in full.
+# A generic level, in full.
 # Arguments: level
 LevelLong = Level { $level }
+
+# A permanent's Class designation (CR 717).
+# Arguments: level
+ClassLevel = Class level { $level }
+
+# The permanent reached a different Class level.
+# Arguments: object, level
+LogClassLevel = { $object } reached Class level { $level }
 
 # What an empty search box in the question's sheet says (report 16).
 FilterPlaceholder = type to search…

@@ -36,7 +36,7 @@ card!(
             Trigger::OneOrMoreAttack(&Filter::YOUR_CREATURE),
             &[Effect::CreateTokenN {
                 token: &generated_tokens::FOOD,
-                amount: Amount::OpponentsYouAttackedThisCombat
+                amount: Amount::OpponentsYouAreAttacking
             }]
         ),
         activated!(

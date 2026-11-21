@@ -126,6 +126,7 @@ fn saga_trigger(
         timestamp: source.timestamp,
         event_object: None,
         event_mana_value: None,
+        event_tap_snapshot: None,
         event_departure: None,
         event_mana: None,
         event_amount: None,

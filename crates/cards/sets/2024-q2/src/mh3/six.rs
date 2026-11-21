@@ -15,7 +15,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Six",
         mana_cost = mana!("{2}{G}"),

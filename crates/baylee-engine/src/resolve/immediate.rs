@@ -3279,6 +3279,10 @@ pub(super) fn exec_immediate(
             super::wave4_combat::become_monstrous(state, res, amount);
             None
         }
+        Effect::SetClassLevel(level) => {
+            super::class::set_level(state, res, level);
+            None
+        }
         Effect::Suspect { target } => {
             super::wave4_combat::resolve_suspect(state, res, target, true);
             None
@@ -4338,9 +4342,30 @@ fn resolution_condition(
         Condition::IsMonstrous => state
             .damage_source(res.source, source_version(state, res))
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::Monstrous)),
+        Condition::ClassLevelExactly(_) | Condition::ClassLevelAtLeast(_) => {
+            eval::condition_with_event(
+                state,
+                res.controller,
+                res.rule_context(),
+                condition,
+                source_version(state, res),
+                None,
+            )
+        }
         Condition::IsSuspected => state
             .damage_source(res.source, source_version(state, res))
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::Suspected)),
+        Condition::CountersOnSelf(kind, min) => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| object.counters.get(kind) >= u16::from(min)),
+        Condition::CountersOnSelfExactly(kind, count) => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| object.counters.get(kind) == u16::from(count)),
+        Condition::CountersOnSelfBetween(kind, min, max) => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| {
+                (u16::from(min)..=u16::from(max)).contains(&object.counters.get(kind))
+            }),
         Condition::GiftWasPromised => super::gift_recipient_of_resolution(state, res).is_some(),
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)

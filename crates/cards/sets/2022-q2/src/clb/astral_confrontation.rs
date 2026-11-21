@@ -11,7 +11,7 @@ card!(
     oracle_id = "80788ac7-19d6-42d2-9f6e-676d7b5c912e",
     scryfall_id = "eefe66d8-1b35-49f1-9bc0-74c5861e5abf",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Astral Confrontation",
         mana_cost = mana!("{4}{W}"),
@@ -20,7 +20,7 @@ card!(
     abilities = &[
         static_ability!(
             Filter::This,
-            Modifier::SpellsCostLessByAmount(Amount::OpponentsYouAttackedThisCombat),
+            Modifier::SpellsCostLessByAmount(Amount::OpponentsYouAreAttacking),
             zone = ZoneRef::Stack
         ),
         spell!(

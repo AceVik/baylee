@@ -2607,6 +2607,60 @@ fn wave8_support_hooks_filter_atoms_and_mana_counts() {
 }
 
 #[test]
+fn attacking_count_preserves_printed_tense() {
+    for (oracle, amount) in [
+        (
+            "This spell costs {1} less for each opponent you're attacking.",
+            "Amount::OpponentsYouAreAttacking",
+        ),
+        (
+            "This spell costs {1} less for each opponent you attacked this combat.",
+            "Amount::OpponentsYouAttackedThisCombat",
+        ),
+    ] {
+        let body = read(&format!(
+            "Name:Combat Toll\nManaCost:4 W\nTypes:Instant\n\
+             S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ Stack | Amount$ Seats\n\
+             SVar:Seats:PlayerCountPropertyYou$OpponentsAttackedThisCombat\n\
+             A:SP$ Draw | NumCards$ 1\nOracle:{oracle}"
+        ));
+        assert!(
+            body.abilities[0].contains(&format!("SpellsCostLessByAmount({amount})")),
+            "{body:?}"
+        );
+    }
+
+    let body = read(
+        "Name:Battle Feast\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ AttackersDeclared | AttackingPlayer$ You | Execute$ Feast\n\
+         SVar:Feast:DB$ GainLife | Defined$ You | LifeAmount$ Seats\n\
+         SVar:Seats:PlayerCountPropertyYou$OpponentsAttackedThisCombat\n\
+         Oracle:Whenever you attack, gain 1 life for each player being attacked.",
+    );
+    assert!(body.abilities[0].contains("Amount::OpponentsYouAreAttacking"));
+}
+
+#[test]
+fn separate_damage_operations_refuse_simultaneous_damage_to_a_controller() {
+    let spec = "Name:Forked Flames\nManaCost:2 R\nTypes:Instant\n\
+                A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | SubAbility$ Scorch\n\
+                SVar:Scorch:DB$ DealDamage | Defined$ TargetedController | NumDmg$ 1";
+    let joined = parse(&format!(
+        "{spec}\nOracle:Forked Flames deals 3 damage to target creature and 1 damage to its controller."
+    ));
+    assert!(transcode(&joined, &cats(), None).is_none());
+    assert_eq!(
+        refusal_reason(&joined, &cats(), None).as_deref(),
+        Some("simultaneous damage to a permanent and its controller")
+    );
+
+    let separate = read(&format!(
+        "{spec}\nOracle:Forked Flames deals 3 damage to target creature. Then it deals 1 damage to that creature's controller."
+    ));
+    assert!(separate.abilities[0].contains("TargetSpec::Player(PlayerRel::ControllerOfTarget)"));
+}
+
+#[test]
 fn wave8_svar_conditions_opponent_counts_and_commander() {
     let conds = read(
         "Name:TaxScale\nTypes:Enchantment\n\

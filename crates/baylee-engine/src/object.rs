@@ -1029,7 +1029,7 @@ pub enum Rider {
     /// Full damage amount captured by a triggered ability. Sparse because
     /// only damage-triggered stack objects need this 32-bit value.
     EventAmount(u32),
-    /// Event-time controller and toughness of a departed permanent.
+    /// Event-time controller and toughness of a permanent that departed, tapped, or untapped.
     EventDeparture(PlayerId, i16),
     /// Opponent chosen as this permanent entered; not a target. Stored in
     /// the sparse rider list to preserve the per-object size budget.
@@ -1266,6 +1266,8 @@ pub enum Rider {
     /// Tribute was paid by the chosen opponent as this permanent entered the
     /// battlefield (CR 702.104a–b). Appended to preserve replay identities.
     TributePaid,
+    /// Class level designation above the default of one (CR 717.2b, 717.2d).
+    ClassLevel(u8),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1407,6 +1409,7 @@ impl Rider {
             | Self::ImpendingPaid
             | Self::GiftPromisedTo(_)
             | Self::Monstrous
+            | Self::ClassLevel(_)
             | Self::Suspected
             | Self::RiotHaste
             | Self::EventPlayer(_)
@@ -1902,6 +1905,18 @@ pub struct GameObject {
 }
 
 impl GameObject {
+    /// A permanent with no explicit class level is treated as level one (CR 717.2d).
+    #[must_use]
+    pub fn class_level(&self) -> u8 {
+        self.riders
+            .iter()
+            .find_map(|rider| match rider {
+                Rider::ClassLevel(level) => Some(*level),
+                _ => None,
+            })
+            .unwrap_or(1)
+    }
+
     /// Whether this is an owner-private native inventory source. Its activated
     /// effect is public, but its remaining stock is not. No card can set this bit.
     #[must_use]

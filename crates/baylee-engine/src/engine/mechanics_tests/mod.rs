@@ -24,6 +24,7 @@ mod battle_sba;
 mod blocks;
 mod branches;
 mod chosen_count_entry;
+mod class_levels;
 mod color_source;
 mod combat_and_keywords_wave4;
 mod combat_memory;

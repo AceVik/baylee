@@ -74,6 +74,7 @@ pub(super) fn collect(
             event_player: Some(watch.controller),
             event_mana: None,
             event_mana_value: None,
+            event_tap_snapshot: None,
             event_departure: None,
             source,
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,

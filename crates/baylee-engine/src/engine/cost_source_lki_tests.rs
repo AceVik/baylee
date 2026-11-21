@@ -118,6 +118,55 @@ fn surviving_source_power_remains_live_until_resolution() {
 }
 
 #[test]
+fn resolving_counter_conditions_follow_the_source_incarnation() {
+    use baylee_cards_dsl::Condition;
+
+    const CHECK_COUNTERS: &[Effect] = &[Effect::IfCondition {
+        condition: Condition::All(&[
+            Condition::CountersOnSelf(CounterKind::P1P1, 2),
+            Condition::CountersOnSelfExactly(CounterKind::P1P1, 3),
+            Condition::CountersOnSelfBetween(CounterKind::P1P1, 2, 4),
+        ]),
+        then: DAMAGE,
+        otherwise: &[],
+    }];
+    static ABILITIES: &[AbilityDef] = &[
+        GROW,
+        baylee_cards_dsl::activated!(baylee_cards_dsl::cost!(SacrificeSelf), CHECK_COUNTERS),
+        baylee_cards_dsl::activated!(baylee_cards_dsl::Cost::FREE, CHECK_COUNTERS),
+    ];
+
+    let (mut engine, source) = setup(ABILITIES);
+    activate(&mut engine, source, 1);
+    engine
+        .state
+        .move_object(
+            source,
+            ZoneLocation::Battlefield,
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    settle(&mut engine);
+    assert_eq!(engine.state.players[1].life, 15);
+
+    let (mut engine, source) = setup(ABILITIES);
+    activate(&mut engine, source, 2);
+    activate(&mut engine, source, 0);
+    settle(&mut engine);
+    assert_eq!(
+        engine
+            .state
+            .object(source)
+            .unwrap()
+            .counters
+            .get(CounterKind::P1P1),
+        6
+    );
+    assert_eq!(engine.state.players[1].life, 20);
+}
+
+#[test]
 fn sacrificing_mana_ability_uses_counters_remaining_after_costs_and_resumes_color_choice() {
     static ABILITIES: &[AbilityDef] = &[
         GROW,

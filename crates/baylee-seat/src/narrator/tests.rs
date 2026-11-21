@@ -2431,6 +2431,33 @@ fn a_melded_permanent_is_not_called_a_token() {
 }
 
 #[test]
+fn class_level_and_level_counters_are_narrated_independently() {
+    let (mut view, log) = board();
+    let mut class = card(70, "Druid Class");
+    class.class_level = Some(3);
+    class.counters.push(baylee_view::CounterEntry {
+        kind: baylee_view::CounterKind::Level,
+        count: 1,
+    });
+    view.battlefield.push(class);
+    let request = request(
+        view,
+        Pending::Priority {
+            player: ME,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                ..Default::default()
+            }),
+        },
+        log,
+    );
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    assert!(text.contains("Class level 3, 1 level counter"), "{text}");
+}
+
+#[test]
 fn board_shows_chosen_card_type_second_subtype_number_linked_exile_and_held_choices() {
     let (mut view, log) = board();
     let mut lens = card(70, "Extraplanar Lens");
