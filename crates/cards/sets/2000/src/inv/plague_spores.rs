@@ -15,7 +15,7 @@ card!(
     oracle_id = "f79f5cb7-d238-41ab-85f0-eb21cc6bf561",
     scryfall_id = "0d106d56-a688-49cc-8d5d-0279a5a7c0a7",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Plague Spores",
         mana_cost = mana!("{4}{B}{R}"),

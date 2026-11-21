@@ -10,7 +10,7 @@ card!(
     oracle_id = "dc17836d-8edf-44bd-a9ee-346d6af25dbf",
     scryfall_id = "1865c8f3-3dbb-4d50-bca8-5b289613c157",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stolen Grain",
         mana_cost = mana!("{4}{B}{B}"),

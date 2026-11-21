@@ -10,7 +10,7 @@ card!(
     oracle_id = "c82eda61-d195-49c9-8ff0-a78dfa650689",
     scryfall_id = "d22418cd-4c49-4754-aa75-17f6eaf1639a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tribal Flames",
         mana_cost = mana!("{1}{R}"),

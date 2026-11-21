@@ -10,7 +10,7 @@ card!(
     oracle_id = "5315ed83-cb93-4522-b439-3784e7f31e37",
     scryfall_id = "72ad4c79-a85d-4fc6-95ab-5a6d6d667579",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Virtuous Charge",
         mana_cost = mana!("{2}{W}"),

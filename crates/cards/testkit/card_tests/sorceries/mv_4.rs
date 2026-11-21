@@ -88,4 +88,5 @@ mod unmask;
 mod unyaro_bee_sting;
 mod vengeance;
 mod venomous_vines;
+mod wash_out;
 mod wrath_of_god;

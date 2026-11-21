@@ -13,7 +13,7 @@ card!(
     oracle_id = "a151c45f-0b9e-41af-90b3-fafa12e3bbce",
     scryfall_id = "2e19d68e-7554-4627-a316-beb1f75fa494",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Canopy Surge",
         mana_cost = mana!("{1}{G}"),

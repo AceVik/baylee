@@ -15,7 +15,7 @@ card!(
     oracle_id = "46b96552-830e-4732-9560-9872aeec858b",
     scryfall_id = "69ab37d4-6ba3-404a-8162-f207874738ea",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rolling Earthquake",
         mana_cost = mana!("{X}{R}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "1954994f-17bf-4ea5-af72-60f9bfcb6569",
     scryfall_id = "cbb60f03-7bcf-46a3-9310-c2067d9c5396",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Breath of Darigaaz",
         mana_cost = mana!("{1}{R}"),

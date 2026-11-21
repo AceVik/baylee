@@ -12,7 +12,7 @@ card!(
     oracle_id = "ff50d002-834e-4b5e-8db0-b0c8b4efb21f",
     scryfall_id = "c030eca0-bc5f-403b-8600-1f295fc85fee",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scent of Cinder",
         mana_cost = mana!("{1}{R}"),

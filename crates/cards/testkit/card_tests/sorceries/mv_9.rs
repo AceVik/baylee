@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod blessed_wind;
 mod crush_of_wurms;
 mod dragonstorm;
 mod plague_wind;

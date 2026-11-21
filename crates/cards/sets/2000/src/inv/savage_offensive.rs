@@ -11,7 +11,7 @@ card!(
     oracle_id = "b5944ca8-d54e-4830-9f66-be8fe97d101d",
     scryfall_id = "356744f3-e444-4f4e-bf00-80bb6b2ef76f",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Savage Offensive",
         mana_cost = mana!("{1}{R}"),

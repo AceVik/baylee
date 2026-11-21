@@ -10,7 +10,7 @@ card!(
     oracle_id = "50c52320-9f84-4655-a91a-e09b71f9025c",
     scryfall_id = "4620867c-a3a6-4c81-b923-24007367132e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Taunting Challenge",
         mana_cost = mana!("{1}{G}{G}"),

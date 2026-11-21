@@ -11,7 +11,7 @@ card!(
     oracle_id = "e2d54c59-7722-4520-adca-cd02a0871ab2",
     scryfall_id = "22147f72-7ff8-40c4-9bdd-df41dce17dad",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elephant Resurgence",
         mana_cost = mana!("{1}{G}"),
