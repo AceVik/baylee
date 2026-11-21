@@ -11,7 +11,7 @@ card!(
     oracle_id = "6732a587-e3cc-4c30-9267-f8949dd8724a",
     scryfall_id = "87ce2548-38d3-4763-960a-d5d802094a0c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Necrosavant",
         mana_cost = mana!("{3}{B}{B}{B}"),

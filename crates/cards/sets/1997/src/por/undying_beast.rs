@@ -11,7 +11,7 @@ card!(
     oracle_id = "5ae03181-a436-4bad-be3a-6c9f6c0ed4d6",
     scryfall_id = "9c95c752-3add-4830-8159-036b8689f40a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Undying Beast",
         mana_cost = mana!("{3}{B}"),

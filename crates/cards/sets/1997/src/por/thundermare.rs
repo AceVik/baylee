@@ -13,7 +13,7 @@ card!(
     scryfall_id = "7068c0c3-4ec9-4c02-84db-42b609df545f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thundermare",
         mana_cost = mana!("{5}{R}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "b6ea0c70-022a-43e4-aa40-3dc6a8b3b21e",
     scryfall_id = "11fa8831-6a17-4ac4-8ea0-5599fbfb8e20",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Steam Catapult",
         mana_cost = mana!("{3}{W}{W}"),

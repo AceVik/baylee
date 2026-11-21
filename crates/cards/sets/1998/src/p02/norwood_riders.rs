@@ -11,7 +11,7 @@ card!(
     oracle_id = "1816b87c-73ba-4bfc-a51e-c982381c067d",
     scryfall_id = "904ba8db-853e-4f51-acfe-83e472524380",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Norwood Riders",
         mana_cost = mana!("{3}{G}"),

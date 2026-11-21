@@ -14,7 +14,7 @@ card!(
     scryfall_id = "37d67f0d-82ed-4e40-baa6-8e4985af2224",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lightning Dragon",
         mana_cost = mana!("{2}{R}{R}"),

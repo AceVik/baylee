@@ -11,7 +11,7 @@ card!(
     oracle_id = "608293f1-34aa-4e55-8389-73f975858de6",
     scryfall_id = "a9e2df7d-5d72-4a32-a453-6d8611f0d63c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dirtcowl Wurm",
         mana_cost = mana!("{4}{G}"),

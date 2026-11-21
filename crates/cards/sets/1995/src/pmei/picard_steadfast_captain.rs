@@ -14,7 +14,7 @@ card!(
     scryfall_id = "ddfbfc4f-eeea-4b49-92c2-3060e2cef830",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Picard, Steadfast Captain",
         mana_cost = mana!("{4}{W}{W}"),
