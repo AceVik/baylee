@@ -906,11 +906,13 @@ pub(crate) fn check_scope_matches_the_text(
         // Both comparative combat restrictions count the effect controller's creatures.
         || built.contains("UnlessYouControlMoreCreaturesThan")
         // This cumulative coin-flip effect untaps only lands its controller controls.
-        || built.contains("FlipCoinsUntilLossOrStopCumulative");
+        || built.contains("FlipCoinsUntilLossOrStopCumulative")
+        || built.contains("PlayersOrTheirPermanents(You)");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
         || built.contains("ObjectOfEachOpponent(")
-        || (built.contains("PlayersOrTheirPermanents(") && built.contains("PlayerRel::Opponent"))
+        || built.contains("PlayersOrTheirPermanents(Opponent)")
+        || built.contains("PlayersOrTheirPermanents(EachOpponent)")
         || (built.contains("TargetSpec::AnyOpponent")
             && built.contains("controlled_by: Some(PlayerRel::Chosen)"))
         || built.contains("OpponentControlCountAtMost(")
