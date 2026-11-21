@@ -11,7 +11,7 @@ card!(
     index = index::MANAFORCE_MACE,
     oracle_id = "7e92be29-ccd1-4556-bb2a-ac7902bc77c2",
     scryfall_id = "ab60e11f-ea7c-4d87-bc82-9e7f4eaeef5a",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manaforce Mace",
         mana_cost = mana!("{4}"),

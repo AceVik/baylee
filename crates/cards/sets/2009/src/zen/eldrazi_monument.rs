@@ -10,7 +10,7 @@ card!(
     index = index::ELDRAZI_MONUMENT,
     oracle_id = "c7ee1b21-d02e-49ef-95d6-d6dbf2f886ae",
     scryfall_id = "d5439677-d3db-4083-8dd9-0d654016bd79",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eldrazi Monument",
         mana_cost = mana!("{5}"),

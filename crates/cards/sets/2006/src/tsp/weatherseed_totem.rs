@@ -15,7 +15,7 @@ card!(
     oracle_id = "5d19c68d-6eb8-4b34-9f31-c26931e59670",
     scryfall_id = "3275df49-c3f1-4310-87dd-25e3e0ee7fca",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Weatherseed Totem",
         mana_cost = mana!("{3}"),

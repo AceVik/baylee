@@ -9,7 +9,7 @@ card!(
     index = index::CAULDRON_OF_SOULS,
     oracle_id = "5811d905-cae5-4f92-a78e-abb43f8864a7",
     scryfall_id = "cbd4604e-c21a-42a1-b099-aad7f9263a82",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cauldron of Souls",
         mana_cost = mana!("{5}"),

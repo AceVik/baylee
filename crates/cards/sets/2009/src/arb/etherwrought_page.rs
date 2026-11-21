@@ -13,7 +13,7 @@ card!(
     oracle_id = "f1c87913-9374-41d7-ae70-444d427290b4",
     scryfall_id = "568785f1-47c7-4011-926f-44693f7e0233",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Etherwrought Page",
         mana_cost = mana!("{1}{W}{U}{B}"),

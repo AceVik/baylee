@@ -19,7 +19,7 @@ card!(
     oracle_id = "24542d66-e67a-4403-91a8-bb4231ea1f50",
     scryfall_id = "5acd482c-9815-4ff5-99ef-fb1a014251bb",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chronatog Totem",
         mana_cost = mana!("{3}"),

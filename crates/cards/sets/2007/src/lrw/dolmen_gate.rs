@@ -9,7 +9,7 @@ card!(
     index = index::DOLMEN_GATE,
     oracle_id = "d53d000f-c92f-4d70-ae60-8be3791da8a2",
     scryfall_id = "fdcbf10e-32f2-41c5-a7a2-5f24662892d2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dolmen Gate",
         mana_cost = mana!("{2}"),

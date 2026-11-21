@@ -12,7 +12,7 @@ card!(
     index = index::GRAPPLING_HOOK,
     oracle_id = "24c193cc-3f83-4414-8cac-8b9f48d5bb6d",
     scryfall_id = "acfbfddd-1535-477d-8bf4-5afd2648ac81",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grappling Hook",
         mana_cost = mana!("{4}"),

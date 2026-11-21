@@ -14,7 +14,7 @@ card!(
     index = index::QUIETUS_SPIKE,
     oracle_id = "0ff0a309-9b4a-4f9e-9ea6-c4d07906ebec",
     scryfall_id = "7dc8e9cc-1aac-4709-9629-9f4318c86cb0",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Quietus Spike",
         mana_cost = mana!("{3}"),

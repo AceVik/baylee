@@ -9,7 +9,7 @@ card!(
     index = index::GNARLED_EFFIGY,
     oracle_id = "5fa3cc1a-09ee-4152-8c50-ea719510fc20",
     scryfall_id = "e6aee954-2a04-425d-8d05-09dad58af656",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gnarled Effigy",
         mana_cost = mana!("{4}"),

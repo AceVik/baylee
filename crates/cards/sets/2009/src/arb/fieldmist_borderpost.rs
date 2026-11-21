@@ -18,7 +18,7 @@ card!(
     oracle_id = "a292ca5b-2472-4b02-a26b-d1b5b717a34b",
     scryfall_id = "bd652205-192c-4cad-a7c9-2433d5a4febb",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fieldmist Borderpost",
         mana_cost = mana!("{1}{W}{U}"),

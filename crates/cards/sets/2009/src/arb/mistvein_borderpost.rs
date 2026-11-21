@@ -18,7 +18,7 @@ card!(
     oracle_id = "1499af11-274f-4f8d-b0b6-20e1693ebab7",
     scryfall_id = "5d0588a8-6039-42d6-98ee-8fea16f63e88",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mistvein Borderpost",
         mana_cost = mana!("{1}{U}{B}"),

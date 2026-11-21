@@ -17,7 +17,7 @@ card!(
     index = index::BLADE_OF_THE_BLOODCHIEF,
     oracle_id = "8985e545-07c3-45f9-9058-fe3c1f50de04",
     scryfall_id = "34e7bebf-1844-476c-a947-978393908fa2",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blade of the Bloodchief",
         mana_cost = mana!("{1}"),

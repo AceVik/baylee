@@ -12,7 +12,7 @@ card!(
     oracle_id = "a588f047-02b4-4c6b-bce2-6e4d564296ec",
     scryfall_id = "ff5a4434-0d5e-4ba8-8d10-cba9b4db5713",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Demonspine Whip",
         mana_cost = mana!("{B}{R}"),
