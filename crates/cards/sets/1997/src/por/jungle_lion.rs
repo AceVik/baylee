@@ -11,7 +11,7 @@ card!(
     oracle_id = "45b42694-9ee8-44f3-9de3-aa2c0f1b6a13",
     scryfall_id = "71142f87-2ffd-4736-b796-e22dc410c9cd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jungle Lion",
         mana_cost = mana!("{G}"),

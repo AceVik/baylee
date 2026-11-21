@@ -11,7 +11,7 @@ card!(
     oracle_id = "19d11ca8-a95b-4e6e-a71f-8f9d06c580fd",
     scryfall_id = "78405864-fc83-47ab-9238-8e0464a700ec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Urborg Mindsucker",
         mana_cost = mana!("{2}{B}"),

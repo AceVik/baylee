@@ -15,7 +15,7 @@ card!(
     scryfall_id = "048f2368-0e2f-4197-b977-353d38b38ccc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING.union(KeywordSet::PHASING),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Teferi's Imp",
         mana_cost = mana!("{2}{U}"),

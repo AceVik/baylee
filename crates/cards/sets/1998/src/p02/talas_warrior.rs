@@ -11,7 +11,7 @@ card!(
     oracle_id = "12beabf3-a84b-49c2-9462-8876a4ac74d4",
     scryfall_id = "de3d8cc5-5889-4e52-a32c-d15556fd2166",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Talas Warrior",
         mana_cost = mana!("{1}{U}{U}"),

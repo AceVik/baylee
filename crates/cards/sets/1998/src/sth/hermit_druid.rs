@@ -14,7 +14,7 @@ card!(
     oracle_id = "16f6438d-2a29-41cb-bf0c-4d02bd66112b",
     scryfall_id = "39c66895-9c2d-49db-8261-e300a69b6cd5",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hermit Druid",
         mana_cost = mana!("{1}{G}"),

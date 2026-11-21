@@ -11,7 +11,7 @@ card!(
     oracle_id = "23745133-e5e2-4ce3-b94a-73d0d3d8a013",
     scryfall_id = "11cbdf06-f6b5-4bd8-80bf-6d7e57649684",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phantom Warrior",
         mana_cost = mana!("{1}{U}{U}"),

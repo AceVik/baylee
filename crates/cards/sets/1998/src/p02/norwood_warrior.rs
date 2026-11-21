@@ -11,7 +11,7 @@ card!(
     oracle_id = "b3ae1481-9fa7-45dd-bbf5-de2d815c4227",
     scryfall_id = "6f7ddf0a-1081-4ae0-ab91-b052153bab4c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Norwood Warrior",
         mana_cost = mana!("{2}{G}"),
