@@ -9,7 +9,7 @@ card!(
     index = index::CONJURER_S_BAUBLE,
     oracle_id = "4fd493b3-63f9-4633-8f88-8755e489da32",
     scryfall_id = "2d32960e-d182-455f-8e74-eb11b10050da",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Conjurer's Bauble",
         mana_cost = mana!("{1}"),

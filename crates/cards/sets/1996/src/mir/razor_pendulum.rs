@@ -11,7 +11,7 @@ card!(
     index = index::RAZOR_PENDULUM,
     oracle_id = "bf7c16db-01c9-41ed-bda6-c5326198ce77",
     scryfall_id = "72562860-6097-4c63-9858-ae130805f4d6",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Razor Pendulum",
         mana_cost = mana!("{4}"),

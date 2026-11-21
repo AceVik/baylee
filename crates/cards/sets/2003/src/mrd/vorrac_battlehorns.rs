@@ -11,7 +11,7 @@ card!(
     index = index::VORRAC_BATTLEHORNS,
     oracle_id = "89750d72-d1c0-4c8a-aa72-fdd48570aa92",
     scryfall_id = "b1b19949-90c9-46f1-85d4-d6eda0b7977e",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vorrac Battlehorns",
         mana_cost = mana!("{2}"),

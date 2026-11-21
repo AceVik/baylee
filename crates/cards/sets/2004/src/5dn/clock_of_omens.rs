@@ -9,7 +9,7 @@ card!(
     index = index::CLOCK_OF_OMENS,
     oracle_id = "5d0f4665-aa10-4251-b590-129b59274fb3",
     scryfall_id = "5b087992-9c30-4434-acb3-a12ee6f207b3",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Clock of Omens",
         mana_cost = mana!("{4}"),

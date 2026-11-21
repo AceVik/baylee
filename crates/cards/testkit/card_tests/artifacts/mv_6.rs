@@ -28,5 +28,6 @@ mod mirror_universe;
 mod celestial_sword;
 mod mindslaver;
 mod myr_incubator;
+mod urza_s_armor;
 mod urza_s_blueprints;
 mod well_of_discovery;

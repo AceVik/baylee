@@ -11,7 +11,7 @@ card!(
     index = index::INFINITE_HOURGLASS,
     oracle_id = "7c59ad65-ad1f-4dc4-bcf2-ea6b2b48fad8",
     scryfall_id = "fbafc838-7458-4542-86f3-594326ec0691",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Infinite Hourglass",
         mana_cost = mana!("{4}"),

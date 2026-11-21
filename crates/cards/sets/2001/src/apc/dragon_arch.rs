@@ -17,7 +17,7 @@ card!(
     index = index::DRAGON_ARCH,
     oracle_id = "fdf21a39-7392-49b1-b9c4-ee8122631cab",
     scryfall_id = "d2312a56-088f-42f9-9bd2-7b0b94935236",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dragon Arch",
         mana_cost = mana!("{5}"),

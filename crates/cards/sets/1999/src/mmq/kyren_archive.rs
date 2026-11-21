@@ -11,7 +11,7 @@ card!(
     index = index::KYREN_ARCHIVE,
     oracle_id = "f8c7da00-69e1-459d-9b66-6de649c5c511",
     scryfall_id = "5e65a06a-e7af-422a-9481-446731009935",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kyren Archive",
         mana_cost = mana!("{3}"),

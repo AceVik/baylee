@@ -12,7 +12,7 @@ card!(
     oracle_id = "1ab0a315-0d0d-4247-9bb9-107b35b353d6",
     scryfall_id = "133b367c-b1a1-46f7-a539-a33ee655affb",
     keywords = KeywordSet::FLASH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scale of Chiss-Goria",
         mana_cost = mana!("{3}"),

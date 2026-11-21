@@ -11,7 +11,7 @@ card!(
     index = index::WHIRLING_CATAPULT,
     oracle_id = "0987b5e9-0012-4189-8745-45f10e9557f3",
     scryfall_id = "5a405387-3018-40c8-9836-c8f5ef7a1986",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whirling Catapult",
         mana_cost = mana!("{4}"),
