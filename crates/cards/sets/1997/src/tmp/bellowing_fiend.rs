@@ -13,7 +13,7 @@ card!(
     scryfall_id = "2b0962d7-d797-4f07-bd73-9cd7a11ffad8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bellowing Fiend",
         mana_cost = mana!("{4}{B}"),

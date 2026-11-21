@@ -11,7 +11,7 @@ card!(
     oracle_id = "26966ecb-15d3-47e5-ab63-e38510c87ecc",
     scryfall_id = "f12724b4-3c73-4b16-b5f8-482dc3f56a3c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Charging Rhino",
         mana_cost = mana!("{3}{G}{G}"),
