@@ -6,6 +6,12 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Beat 9: Engine Wave 6a (`f069dcb75`) & Gamehost Pin Re-Record (`33cdb39fc`)
+
+- **Engine Wave 6a (`Reviewed: b764cb8ab`, merged as `f069dcb75`, `Reviewed-by: gemini-4-argon-high (#384), pass`)**: Landed `SpellMode::second_targets` on `ModalTriggered`/`ModalActivated`, `CostPart::{DealDamageToYou, DiscardX, ExileFromGraveyardX, Forage}` + counted-`X` parity, `KeywordSet::MODULAR = 62` (`EnterModifier::modular`, `Departure::modular_instances`), and `KeywordSet::SOULBOND = 63` (`Rider::PairedWith` tag `151`, `Condition::{IsPaired, SoulbondSelfCanPair, SoulbondEventCanPair}`, `Effect::SoulbondPair`, `Filter::PairedWithSource`, `PublicObject::paired_with`).
+- **Generation-7/reference pin discipline**: Gated `crates/baylee-ai/src/optional.rs` `target_side::effects_side` check behind `self.aims_by_side()` (`AIProfile::TARGET_SIDES`, generation 11), and re-recorded `sharp-2026-11.json`, `generation-6.json`, and `foresight-generation-7.json` (preserving frozen `foresight-generation-7-pool.txt`) in dedicated commit `33cdb39fc` for `652970e6f`'s `WizardStage::Kicker` `announced_cost_payable` omission of unpayable Kicker prompts.
+- Also noted 2 pre-existing `ai_coverage_guards` items (`mechanic_debt` Commander pairings, `time_counters` *Lavacore Elemental*/*Scroll of the Masters*/*Soultether Golem*) to address alongside Pass E6+E7 integration.
+
 ## 2026-11-21 — Beat 8: Engine Wave 6c (`079d573b0`) & `check_text` UTF-8 Fix (`07b4050ed`)
 
 - **Engine Wave 6c** (`079d573b0`): Landed `Modifier::MaxBlockers(u8)`, noncombat damage prevention (`PreventNoncombatDamageFrom`, `PreventNoncombatDamageToPlayers`), `DamageRecipients` + `MultiplyDamageFrom` / `AddDamageFrom`, `KeywordSet::RENOWN = 66`, `Rider::Renowned = 171`, `Condition::IsRenowned`, and `Effect::BecomeRenowned(u8)` (`PROTOCOL_VERSION = 57`). Extracted `hash_expansion_acquired_rider` in `crates/baylee-engine/src/state/hash.rs` to stay under `clippy::too_many_lines` (`<= 100` lines).
