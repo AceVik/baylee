@@ -389,6 +389,8 @@ pub mod reaper_s_talisman;
 pub mod reckless_stormseeker;
 #[path = "afr/red_dragon.rs"]
 pub mod red_dragon;
+#[path = "mid/rem_karolus_stalwart_slayer.rs"]
+pub mod rem_karolus_stalwart_slayer;
 #[path = "afc/ride_the_avalanche.rs"]
 pub mod ride_the_avalanche;
 #[path = "afr/rimeshield_frost_giant.rs"]

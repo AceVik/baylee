@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "nau/abyssal_lotus.rs"]
+pub mod abyssal_lotus;
 #[path = "nau/calmwater_mentor.rs"]
 pub mod calmwater_mentor;
 #[path = "nau/ring_of_unity.rs"]

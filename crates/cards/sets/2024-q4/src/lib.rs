@@ -261,6 +261,8 @@ pub mod thurid_mare_of_destiny;
 pub mod treetop_snarespinner;
 #[path = "fdn/twinblade_blessing.rs"]
 pub mod twinblade_blessing;
+#[path = "fdn/twinflame_tyrant.rs"]
+pub mod twinflame_tyrant;
 #[path = "fdn/vampire_gourmand.rs"]
 pub mod vampire_gourmand;
 #[path = "fdn/vampire_soulcaller.rs"]

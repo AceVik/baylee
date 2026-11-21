@@ -763,6 +763,8 @@ pub mod theorix_charm;
 pub mod those_old_scientists;
 #[path = "trc/tom_paris_risk_taker.rs"]
 pub mod tom_paris_risk_taker;
+#[path = "fra/tomik_izzet_sparkmage.rs"]
+pub mod tomik_izzet_sparkmage;
 #[path = "fra/transformative_commons.rs"]
 pub mod transformative_commons;
 #[path = "fra/traxos_scourge_eternal.rs"]

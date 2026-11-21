@@ -1407,6 +1407,8 @@ pub mod tome_raider;
 pub mod tomebound_lich;
 #[path = "war/topple_the_statue.rs"]
 pub mod topple_the_statue;
+#[path = "eld/torbran_thane_of_red_fell.rs"]
+pub mod torbran_thane_of_red_fell;
 #[path = "eld/tournament_grounds.rs"]
 pub mod tournament_grounds;
 #[path = "eld/trail_of_crumbs.rs"]

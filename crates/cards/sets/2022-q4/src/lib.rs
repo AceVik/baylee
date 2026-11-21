@@ -305,6 +305,8 @@ pub mod marneus_calgar;
 pub mod mass_production;
 #[path = "40k/mawloc.rs"]
 pub mod mawloc;
+#[path = "bro/mechanized_warfare.rs"]
+pub mod mechanized_warfare;
 #[path = "j22/merfolk_pupil.rs"]
 pub mod merfolk_pupil;
 #[path = "bro/mightstone_s_animation.rs"]

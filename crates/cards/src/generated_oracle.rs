@@ -52478,7 +52478,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This artifact enters with a page counter on it.\nWhenever your commander enters or attacks, put a page counter on this artifact.\n{1}, {T}, Remove a page counter from this artifact: Draw a card.",
     ],
-    &[],
+    // Torbran, Thane of Red Fell
+    &[
+        "If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead.",
+    ],
     // Tournament Grounds
     &[
         "{T}: Add {C}.\n{T}: Add {R}, {W}, or {B}. Spend this mana only to cast a Knight or Equipment spell.",
@@ -58807,7 +58810,10 @@ pub static ORACLE: &[&[&str]] = &[
         "At the beginning of combat on your turn, target creature you control gets +1/+0 and gains haste until end of turn.\nDaybound (If a player casts no spells during their own turn, it becomes night next turn.)",
         "At the beginning of combat on your turn, target creature you control gets +2/+0 and gains trample and haste until end of turn.\nNightbound (If a player casts at least two spells during their own turn, it becomes day next turn.)",
     ],
-    &[],
+    // Rem Karolus, Stalwart Slayer
+    &[
+        "Flying, haste\nIf a spell would deal damage to you or another permanent you control, prevent that damage.\nIf a spell would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 1 instead.",
+    ],
     &[],
     // Rise of the Ants
     &[
@@ -64099,7 +64105,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Mass Production
     &["Create four 1/1 colorless Soldier artifact creature tokens."],
-    &[],
+    // Mechanized Warfare
+    &[
+        "If a red or artifact source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 1 instead.",
+    ],
     &[],
     &[],
     // Mightstone's Animation
@@ -74120,7 +74129,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flash (You may cast this spell any time you could cast an instant.)\nEnchant creature\nEnchanted creature has double strike. (It deals both first-strike and regular combat damage.)",
     ],
-    &[],
+    // Twinflame Tyrant
+    &[
+        "Flying\nIf a source you control would deal damage to an opponent or a permanent an opponent controls, it deals double that damage instead.",
+    ],
     &[],
     &[],
     &[],
@@ -82143,7 +82155,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying, vigilance, prowess, prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn twice.)",
     ],
-    &[],
+    // Thor, Asgard's Avenger
+    &[
+        "Flying\nIf another source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 1 instead.",
+    ],
     // Thor, God of Thunder
     &[
         "Flying\nWhen Thor enters, exile target Equipment, instant, or sorcery card from your graveyard. Until the end of your next turn, you may play that card.\nWhenever you cast a noncreature spell, Thor deals damage equal to that spell's mana value to any target.",
@@ -83915,7 +83930,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Theorix Annex
     &["This land enters tapped unless you control a planeswalker.\n{T}: Add {U} or {B}."],
     &[],
-    &[],
+    // Tomik, Izzet Sparkmage
+    &[
+        "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nIf a source you control would deal noncombat damage to an opponent or a permanent an opponent controls, it deals that much damage plus 1 instead.",
+    ],
     &[],
     // Transformative Commons
     &["This land enters tapped unless you control a planeswalker.\n{T}: Add {G} or {U}."],
@@ -84867,7 +84885,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Abyssal Lotus
+    &[
+        "This artifact enters tapped.\nDescend 8 — {T}, Exile this artifact: Add three mana of any one color. Activate only if there are eight or more permanent cards in your graveyard.",
+    ],
     // Calmwater Mentor
     &[
         "When this creature enters, you may search your library for up to two creature cards with power 2 or less, reveal them, put them into your hand, then shuffle.",

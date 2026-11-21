@@ -857,6 +857,8 @@ pub mod the_wasp_janet_van_dyne;
 pub mod the_wasp_winsome_avenger;
 #[path = "msc/the_whizzer_classic_speedster.rs"]
 pub mod the_whizzer_classic_speedster;
+#[path = "msc/thor_asgard_s_avenger.rs"]
+pub mod thor_asgard_s_avenger;
 #[path = "msh/thor_god_of_thunder.rs"]
 pub mod thor_god_of_thunder;
 #[path = "msh/thor_odinson.rs"]
