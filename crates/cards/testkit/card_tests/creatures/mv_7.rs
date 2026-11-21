@@ -506,6 +506,7 @@ mod tsabo_tavoc;
 mod tyrranax_rex;
 mod vagrant_plowbeasts;
 mod veldrane_of_sengir;
+mod velukan_dragon;
 mod venerable_lammasu;
 mod vizzerdrix;
 mod whiptail_wurm;

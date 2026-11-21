@@ -12,7 +12,7 @@ card!(
     oracle_id = "c23aaf6d-151e-481a-a345-ca00c14940d1",
     scryfall_id = "b74a47b5-100d-424f-8432-7668c50458f8",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Desolation Giant",
         mana_cost = mana!("{2}{R}{R}"),

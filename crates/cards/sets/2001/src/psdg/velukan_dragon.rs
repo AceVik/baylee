@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1ef829f1-eaa7-43e7-acef-5bb688ca6077",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Velukan Dragon",
         mana_cost = mana!("{5}{R}{R}"),

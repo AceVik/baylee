@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Treva, the Renewer",
         mana_cost = mana!("{3}{G}{W}{U}"),

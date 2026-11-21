@@ -13,7 +13,7 @@ card!(
     oracle_id = "635c0a7d-d832-4c10-a5f0-9cde19152cbb",
     scryfall_id = "5fdf502f-445d-4724-b7d0-8fdd5bf557a8",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kavu Howler",
         mana_cost = mana!("{4}{G}{G}"),

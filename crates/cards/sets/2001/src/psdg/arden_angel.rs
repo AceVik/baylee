@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ceb42fb7-1ac5-4923-bec8-2aa2d4dbefd5",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arden Angel",
         mana_cost = mana!("{4}{W}{W}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "435d9562-8f2b-43fe-ba21-8f5896378280",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gorilla Titan",
         mana_cost = mana!("{3}{G}{G}"),

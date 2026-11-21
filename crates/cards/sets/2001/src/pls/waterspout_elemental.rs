@@ -16,7 +16,7 @@ card!(
     scryfall_id = "425156e6-8eee-4bff-8f2f-86edd9a4f73b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Waterspout Elemental",
         mana_cost = mana!("{3}{U}{U}"),

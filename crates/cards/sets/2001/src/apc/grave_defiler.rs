@@ -14,7 +14,7 @@ card!(
     oracle_id = "42c5c1aa-10a4-4cd5-b1f8-a393ed553f99",
     scryfall_id = "f8f76edc-6067-43bd-9582-1d59caf91597",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Grave Defiler",
         mana_cost = mana!("{3}{B}"),

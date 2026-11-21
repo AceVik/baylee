@@ -22,7 +22,7 @@ card!(
     oracle_id = "285c9f49-4aeb-468c-bb41-f5ccb5257e2b",
     scryfall_id = "1872f104-7cf1-41e3-b1b4-ca75c678e08b",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yavimaya Kavu",
         mana_cost = mana!("{2}{R}{G}"),
