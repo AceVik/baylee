@@ -6,6 +6,17 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Beat 17: Engine Waves 9a–10b, Codegen Wave 17a–17c, Unholds, Passes E11–E12 & AI Guard Reconciliation (`21,812` Conforming / `20,644` Playable)
+
+- **Exhaustive Pool & Zero Remaining Unattempted Readable Scripts (`xtask reach-list --count 0 == 0`)**:
+  - Cherry-picked **Codegen Wave 17a–17c** (`e91a05143`, `ad86ab2ce`, `d76e13cd1`: `Retrace`, `Riot`, `Unleash`, `Monstrous`/`Suspected`/`Scried` filters/triggers/conditions, `Radiation`/`ExchangeControlOfEventAndTarget`/`LoseGame`/`SkipNextCombatPhase`), **Unholds** (`34b765a07`, `+7`: *Abyssal Lotus* + 6 `PlayersOrTheirPermanents(Opponent)` damage-replacement cards), **Pass E11** (`a7f3822e9`, `+207`), and **Amended Pass E12** (`04b837211`, `+110` new + *Patriarch's Desire* stub upgrade `-1`, holding back *Rikala, Homarid King* `45284633-8aab-4078-ae5c-7b0d75efe2f5` for corpus `OptionalDecider$` defect).
+  - Converged `2x codegen --scripts`: **`21,812` conforming cards** (**`20,907` finished / `20,644` playable** = `11,016` `Implemented` + **`9,628` `Generated`**, `263` `Partial`, `905` stubs; `1,245` tokens; `67 / 1,203` precons playable; **`0` remaining unattempted readable scripts** in `reach-list`).
+- **Unified Engine Waves 9a + 9b + 9c + 10a + 10b (`a5db08b73`, `VIEW_VERSION = 107`, `PROTOCOL_VERSION = 64`)**:
+  - Landed `Umbra armor`, `Mobilize`, toughness combat damage / as-though-unblocked, `Detain`, `PlayersCantGainLife`, `CantBeSacrificed`, `Commit a Crime`, `Expend N`, `Clash`, `AdditionalCombatPhase`, `Transmute`, `Scavenge`, `CostPart::Either`, Opening-Hand Leylines/Chancellors, `The Ring Tempts You` (4 tiers), `Strive`, `Firebending N`, `Freerunning`, `Sneak`, `Sunburst`, `Ravenous`, `Graft`, `Outlast`, `Afterlife`, `Afflict`, `Reinforce`, `Endure`, `Splice`, `Awaken`, `Conspire`, `Cipher`, `Champion`, and `Tribute`, plus per-face back-face mandatory additional-cost capacity gating (`My Precious // Allure of Power` fix across all 8 `every_implemented_card_survives_a_game` shards).
+- **Commander Pair Rules (`CR 702.124k/m`) & AI Coverage Guards Paid**:
+  - Fixed `leader_of` in `crates/cards/src/decks.rs` so legendary Backgrounds are pair-eligible (`!l.background` solo check kept) and `"the Doctor"` enforces `CR 702.124m` legendary `Time Lord Doctor` with no other creature types (excluding `Human Doctor` *Doctor Jane Foster*).
+  - Closed both remaining `a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write` rows (`42` non-plain-Partner cards + `60` Infect/Wither cards) into live `a_mechanic_the_pool_already_prints_is_owed_now_and_not_later` guards with real-engine `Trynn`/`Silvar` (`PartnerWith` separate tax + separate 21 commander damage), `Jaheira`/`Far Traveler` (`ChooseABackground`), and `Experimental Augury`/`Plague Stinger`/`Knighted Myr` (`Proliferate` poison hostile vs `+1/+1` friendly) tests, and updated `REACHABLE_CLOCKS` in `time_counters.rs` with tests for all 5 untargeted clock arrivals (*Infinite Hourglass*, *Kes, Evolving Telepath*, *Lavacore Elemental*, *Scroll of the Masters*, *Soultether Golem*).
+
 ## 2026-11-21 — Beat 16: Engine Wave 8b, Codegen Wave 16a–16c, Unholds & Pass E10 (`21,488` Conforming / `20,321` Playable)
 
 - **Cherry-picked 6 `PASS` commits cleanly onto Beat 15 `c3a065f41`**:

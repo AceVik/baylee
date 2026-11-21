@@ -659,8 +659,9 @@ impl HeuristicAgent {
     /// ability and loses the permanent, and which of those is worth more is
     /// not a judgment this table can make. And vanishing, the other user of
     /// time counters, runs the opposite way from suspend: a counter added
-    /// there buys the permanent another turn. No card in this pool prints
-    /// vanishing, so the case is left unscored instead of modelled blind.
+    /// there buys the permanent another turn. Generated cards (e.g.
+    /// `Lavacore Elemental`, `Soultether Golem`) now add time counters only to
+    /// themselves without targeting, so targeted `clock_score` still returns 0.
     fn clock_score(&self, view: &PlayerView, object: &PublicObject, kind: CounterKind) -> i64 {
         let friendly = !self.hostile(object.controller, view.seat);
         let def = object.rules.and_then(|r| baylee_cards::by_index(r.card));

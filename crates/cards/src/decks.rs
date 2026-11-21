@@ -11,6 +11,7 @@ use baylee_core::preset::{
     AIProfile, DeckEntry, FormatId, GamePreset, PrintInfo, SeatController, SeatSpec,
 };
 use baylee_core::preset::{Finish, HouseRules};
+use baylee_core::types::{SupertypeSet, TypeSet};
 
 /// One copy of one card in a deck, with the printing its owner chose.
 ///
@@ -513,12 +514,22 @@ pub fn may_lead_together(a: &Leader, b: &Leader) -> bool {
 pub fn leader_of(index: CardIndex) -> Option<Leader> {
     let def = crate::by_index(index)?;
     let face = &def.faces[0];
+    let background = face.supertypes.contains(SupertypeSet::LEGENDARY)
+        && face.types.contains(TypeSet::ENCHANTMENT)
+        && face.subtypes.contains(&subtypes::enchantment::BACKGROUND);
+    // CR 702.124m: "Doctor's companion" pairs only with a legendary creature
+    // that is a Time Lord and a Doctor and has no other creature types.
+    let doctor = face.supertypes.contains(SupertypeSet::LEGENDARY)
+        && face.types.contains(TypeSet::CREATURE)
+        && face.subtypes.len() == 2
+        && face.subtypes.contains(&subtypes::creature::TIME_LORD)
+        && face.subtypes.contains(&subtypes::creature::DOCTOR);
     Some(Leader {
         index: def.index,
-        eligible: !matches!(def.commander, CommanderRule::NotEligible),
+        eligible: !matches!(def.commander, CommanderRule::NotEligible) || background,
         partner: def.partner,
-        doctor: face.subtypes.contains(&subtypes::creature::DOCTOR),
-        background: face.subtypes.contains(&subtypes::enchantment::BACKGROUND),
+        doctor,
+        background,
     })
 }
 
@@ -1328,6 +1339,25 @@ mod partner_tests {
         let read = leader_of(plain).expect("a land has a reading too");
         assert!(!read.eligible, "a Forest may not lead a deck");
         assert_eq!(read.partner, PartnerKind::None);
+
+        let trynn = leader_of(by_name("Trynn, Champion of Freedom").unwrap()).unwrap();
+        let silvar = leader_of(by_name("Silvar, Devourer of the Free").unwrap()).unwrap();
+        assert!(may_lead_together(&trynn, &silvar));
+        assert!(may_lead_together(&silvar, &trynn));
+
+        let jaheira = leader_of(by_name("Jaheira, Friend of the Forest").unwrap()).unwrap();
+        let background = leader_of(by_name("Far Traveler").unwrap()).unwrap();
+        assert!(background.eligible && background.background);
+        assert!(may_lead_together(&jaheira, &background));
+        assert!(may_lead_together(&background, &jaheira));
+
+        let companion = leader_of(by_name("Barbara Wright").unwrap()).unwrap();
+        let jane_foster = leader_of(by_name("Doctor Jane Foster").unwrap()).unwrap();
+        assert!(
+            !jane_foster.doctor,
+            "Human Doctor is not a Time Lord Doctor (CR 702.124m)"
+        );
+        assert!(!may_lead_together(&companion, &jane_foster));
     }
 
     #[test]

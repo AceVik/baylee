@@ -1,44 +1,11 @@
 #[allow(clippy::wildcard_imports)] // shared integration fixture vocabulary
 use super::*;
 
-/// The pool prints none of these, so the AI test each one would need cannot
-/// be written against a real card yet. When one of these fails, the mechanic
-/// has arrived and the named row of `docs/ai-coverage-todo.md` is due.
-#[test]
-fn a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write() {
-    let rows: [(&str, &str, usize); 2] = [
-        (
-            "Commander pair rules (every pairing but plain Partner)",
-            "a game pairing the commander kinds that are not plain Partner, \
-             where each one's tax and combat damage stay separate and a \
-             partner's damage never counts toward the other's 21",
-            // Written as an exclusion rather than a list of the four, so a
-            // pairing added to `PartnerKind` later is caught by this test
-            // instead of being silently left out of it.
-            count(|def| !matches!(def.partner, PartnerKind::None | PartnerKind::Partner)),
-        ),
-        (
-            "Proliferate and replacement effects (the poison half)",
-            "an AI decision that treats poison counters as hostile and \
-             +1/+1 counters as friendly, rather than assigning one sign to \
-             every counter kind",
-            count(|def| {
-                def.all_keywords()
-                    .contains(KeywordSet::INFECT.union(KeywordSet::WITHER))
-            }),
-        ),
-    ];
-
-    for (row, owed, found) in rows {
-        assert_eq!(
-            found, 0,
-            "{found} card(s) in the pool now reach `{row}` in \
-             docs/ai-coverage-todo.md. That row is no longer a TODO: write \
-             {owed}, then delete this entry. A mechanic that arrives \
-             without its AI test is a strategy nobody measured."
-        );
-    }
-}
+// Both former zero-tripwire rows in `a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write`
+// ("Commander pair rules (every pairing but plain Partner)" and
+// "Proliferate and replacement effects (the poison half)") reached the pool via
+// generated cards, were paid with real-engine AI decision regressions, and now
+// live in `a_mechanic_the_pool_already_prints_is_owed_now_and_not_later`.
 
 /// The pool already prints these, so the row is owed **now**. The assertion
 /// is "more than none" and not an exact number on purpose: a row does not
@@ -48,10 +15,27 @@ fn a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write() {
 #[test]
 #[allow(clippy::too_many_lines)] // one entry per table row, in one readable list
 fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
-    let rows: [(&str, usize); 29] = [
+    let rows: [(&str, usize); 31] = [
         (
             "Commander pair rules (plain Partner)",
             count(|def| matches!(def.partner, PartnerKind::Partner)),
+        ),
+        (
+            // Paid, 21.11.2026: `partner_with_commanders_keep_separate_tax_and_separate_twenty_one_damage`
+            // and `choose_a_background_deploys_both_commanders_with_independent_cast_counts`
+            // in `ai_decisions/casting.rs`.
+            "Commander pair rules (every pairing but plain Partner)",
+            count(|def| !matches!(def.partner, PartnerKind::None | PartnerKind::Partner)),
+        ),
+        (
+            // Paid, 21.11.2026: `proliferate_treats_poison_as_hostile_and_plus_one_counters_as_friendly`
+            // in `ai_decisions/time_counters.rs` (60 Infect/Wither cards in pool; `proliferate.rs`
+            // and `tactics.rs` treat Poison as hostile and +1/+1 as friendly).
+            "Proliferate and replacement effects (the poison half)",
+            count(|def| {
+                def.all_keywords()
+                    .contains(KeywordSet::INFECT.union(KeywordSet::WITHER))
+            }),
         ),
         (
             // Blocking to keep one paid, #75: `a_walker_that_would_die_is_\

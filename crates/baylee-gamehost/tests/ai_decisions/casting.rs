@@ -465,3 +465,245 @@ fn the_ai_taps_a_land_with_two_basic_types_for_the_colour_it_needs() {
     }
     panic!("the table never moved past the first turn");
 }
+
+fn pass_through_step(
+    engine: &mut Engine<RegistryLookup>,
+    agent: &HeuristicAgent,
+    me: PlayerId,
+    allow_agent_on_me_main: bool,
+    stop_when: impl Fn(&Engine<RegistryLookup>, &PlayerView) -> bool,
+) {
+    for seq in 0..300 {
+        let pending = engine.pending().clone();
+        let Some(seat) = pending_player(&pending) else {
+            return;
+        };
+        let view = asked_view(engine.state(), seat, seq, &pending);
+        if matches!(&pending, Pending::Priority { .. }) && stop_when(engine, &view) {
+            return;
+        }
+        let action = match &pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::ChooseAttackers { .. } => PlayerAction::DeclareAttackers { attackers: vec![] },
+            Pending::ChooseBlockers { .. } => PlayerAction::DeclareBlockers { blockers: vec![] },
+            Pending::DiscardChoice { count, .. } => PlayerAction::ChooseObjects {
+                objects: view
+                    .hand
+                    .iter()
+                    .take(*count as usize)
+                    .map(|o| o.id)
+                    .collect(),
+            },
+            Pending::Priority { .. } if seat != me || !allow_agent_on_me_main => {
+                PlayerAction::PassPriority
+            }
+            _ => agent.act_with_context(&view, &pending, &engine.decision_context()),
+        };
+        engine.apply(seat, action).expect("legal game step");
+    }
+    panic!("timed out waiting for expected board state");
+}
+
+fn find_on_board(view: &PlayerView, owner: PlayerId, name: &str) -> Option<ObjectId> {
+    let idx = entry(name).card;
+    view.battlefield_of(owner)
+        .find(|o| o.card.is_some_and(|c| c.index == idx))
+        .map(|o| o.id)
+}
+
+fn murder_commander_and_recast(
+    engine: &mut Engine<RegistryLookup>,
+    agent: &HeuristicAgent,
+    me: PlayerId,
+    them: PlayerId,
+    target_name: &str,
+) {
+    pass_through_step(engine, agent, me, false, |_, v| {
+        v.active == them && v.phase == baylee_view::Phase::FirstMain && v.stack.is_empty()
+    });
+    let view_them = asked_view(engine.state(), them, 0, engine.pending());
+    let target_id = find_on_board(&view_them, me, target_name).expect("commander on battlefield");
+    for swamp in view_them
+        .battlefield_of(them)
+        .filter(|o| !o.status.contains(baylee_view::ObjectStatus::TAPPED))
+        .map(|o| o.id)
+        .collect::<Vec<_>>()
+    {
+        engine
+            .apply(them, PlayerAction::ActivateManaAbility { source: swamp })
+            .unwrap();
+    }
+    let murder = view_them
+        .hand
+        .iter()
+        .find(|c| c.name == "Murder")
+        .expect("Murder in seat 1 hand")
+        .id;
+    engine
+        .apply(them, PlayerAction::CastSpell { card: murder })
+        .unwrap();
+    engine
+        .apply(
+            them,
+            PlayerAction::ChooseObjects {
+                objects: vec![target_id],
+            },
+        )
+        .unwrap();
+    pass_through_step(engine, agent, me, true, |e, v| {
+        v.active == me
+            && v.turn > 1
+            && v.stack.is_empty()
+            && v.battlefield_of(me).filter(|o| o.commander).count() == 2
+            && e.state().commanders[0]
+                .first()
+                .is_some_and(|c| c.casts == 2)
+    });
+}
+
+fn drive_commander_damage_race(
+    engine: &mut Engine<RegistryLookup>,
+    me: PlayerId,
+    them: PlayerId,
+    trynn: &str,
+    silvar: &str,
+) {
+    let (mut trynn_hit, mut checked_split) = (false, false);
+    for seq in 0..600 {
+        let pending = engine.pending().clone();
+        if let Pending::GameOver(res) = pending {
+            assert_eq!(res.winner, Some(baylee_engine::win::Victor::Player(me)));
+            assert!(
+                checked_split,
+                "must observe combined >= 21 before single reaches 21"
+            );
+            assert!(
+                engine.state().players[1].life > 0,
+                "40 life proves commander damage won"
+            );
+            return;
+        }
+        let seat = pending_player(&pending).expect("live game");
+        let view = asked_view(engine.state(), seat, seq, &pending);
+        if !checked_split && view.phase == baylee_view::Phase::SecondMain && trynn_hit {
+            let tally = &engine.state().players[1].commander_damage;
+            let sum: u16 = tally.iter().map(|(_, d)| *d).sum();
+            let max = tally.iter().map(|(_, d)| *d).max().unwrap_or(0);
+            if max == 20 {
+                assert!(
+                    sum >= 23,
+                    "combined partner commander damage is {sum} >= 21"
+                );
+                checked_split = true;
+            }
+        }
+        let action = match &pending {
+            Pending::ChooseAttackers { attackers, .. } => {
+                let mut swing = Vec::new();
+                if let Some(s) = find_on_board(&view, me, silvar)
+                    && attackers.contains(&s)
+                {
+                    swing.push((s, baylee_core::ids::Defender::Player(them)));
+                }
+                if !trynn_hit
+                    && let Some(t) = find_on_board(&view, me, trynn)
+                    && attackers.contains(&t)
+                {
+                    swing.push((t, baylee_core::ids::Defender::Player(them)));
+                    trynn_hit = true;
+                }
+                PlayerAction::DeclareAttackers { attackers: swing }
+            }
+            Pending::ChooseBlockers { .. } => PlayerAction::DeclareBlockers { blockers: vec![] },
+            Pending::DiscardChoice { count, .. } => PlayerAction::ChooseObjects {
+                objects: view
+                    .hand
+                    .iter()
+                    .take(*count as usize)
+                    .map(|o| o.id)
+                    .collect(),
+            },
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            other => panic!("unexpected pending in combat race: {other:?}"),
+        };
+        engine
+            .apply(seat, action)
+            .expect("legal combat progression");
+    }
+    panic!("Silvar never dealt fatal 21 commander damage");
+}
+
+#[test]
+fn partner_with_commanders_keep_separate_tax_and_separate_twenty_one_damage() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (trynn, silvar) = ("Trynn, Champion of Freedom", "Silvar, Devourer of the Free");
+    let trynn_leader = baylee_cards::decks::leader_of(entry(trynn).card).unwrap();
+    let silvar_leader = baylee_cards::decks::leader_of(entry(silvar).card).unwrap();
+    assert!(baylee_cards::decks::may_lead_together(
+        &trynn_leader,
+        &silvar_leader
+    ));
+
+    let mut preset = position(
+        &[],
+        &[
+            "Plains", "Plains", "Plains", "Plains", "Swamp", "Swamp", "Swamp", "Swamp", "Mountain",
+            "Mountain", "Mountain",
+        ],
+    );
+    for s in &mut preset.seats {
+        s.starting_life = Some(40);
+    }
+    preset.seats[0].commanders = vec![entry(trynn), entry(silvar)];
+    preset.seats[1].starting_battlefield = vec![entry("Swamp"), entry("Swamp"), entry("Swamp")];
+    preset.seats[1].starting_hand = Some(vec![entry("Murder")]);
+
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    pass_through_step(&mut engine, &agent, me, true, |e, v| {
+        v.stack.is_empty()
+            && v.battlefield_of(me).filter(|o| o.commander).count() == 2
+            && e.state().commanders[0]
+                .iter()
+                .map(|c| c.casts)
+                .collect::<Vec<_>>()
+                == vec![1, 1]
+    });
+    murder_commander_and_recast(&mut engine, &agent, me, them, trynn);
+    let casts: Vec<u32> = engine.state().commanders[0]
+        .iter()
+        .map(|c| c.casts)
+        .collect();
+    assert_eq!(
+        casts,
+        vec![2, 1],
+        "tax tracks each partner commander independently"
+    );
+    drive_commander_damage_race(&mut engine, me, them, trynn, silvar);
+}
+
+#[test]
+fn choose_a_background_deploys_both_commanders_with_independent_cast_counts() {
+    let me = PlayerId::new(0);
+    let (jaheira, bg) = ("Jaheira, Friend of the Forest", "Far Traveler");
+    let jl = baylee_cards::decks::leader_of(entry(jaheira).card).unwrap();
+    let bl = baylee_cards::decks::leader_of(entry(bg).card).unwrap();
+    assert!(bl.eligible && bl.background);
+    assert!(baylee_cards::decks::may_lead_together(&jl, &bl));
+
+    let mut preset = position(
+        &[],
+        &["Forest", "Forest", "Forest", "Plains", "Plains", "Plains"],
+    );
+    preset.seats[0].commanders = vec![entry(jaheira), entry(bg)];
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    pass_through_step(&mut engine, &agent, me, true, |_, v| {
+        v.stack.is_empty() && v.battlefield_of(me).filter(|o| o.commander).count() == 2
+    });
+    let casts: Vec<u32> = engine.state().commanders[0]
+        .iter()
+        .map(|c| c.casts)
+        .collect();
+    assert_eq!(casts, vec![1, 1]);
+}

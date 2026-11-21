@@ -55,12 +55,19 @@ use super::*;
 /// unread, even with mana floating. This arrival does not close #166 or
 /// make a targeted clock effect reachable.
 ///
-/// Infinite Hourglass is held back after the Argon review (23.10.2026):
-/// its earlier counter manipulation omitted the printed creature-power
-/// payoff. The canonical stub has no abilities and therefore no reachable
-/// clock effect or meaningful card-specific AI regression. Reassess it
-/// here when the full card is implemented; see
-/// `docs/history/2026-10-23-argon-review.md`.
+/// Five untargeted clock arrivals joined through generated cards:
+/// - `Infinite Hourglass`: self-only upkeep time counter, global power boost,
+///   any-player `{3}` upkeep removal; no target and no `Suspend`/`Saga` chapter.
+/// - `Kes, Evolving Telepath`: self-only end-step time counter + draw; no target.
+/// - `Lavacore Elemental`: vanishing + self-only combat-damage trigger; no target.
+/// - `Scroll of the Masters`: self-only spell-cast lore counter + targeted
+///   creature pump (the target is the creature, never `clock_score`); not a Saga.
+/// - `Soultether Golem`: vanishing + self-only creature-ETB trigger; no target.
+///
+/// Covered in `ai_decisions/time_counters.rs`:
+/// `infinite_hourglass_counts_upkeep_pumps_all_creatures_and_allows_upkeep_removal`
+/// and `self_only_time_and_lore_counter_arrivals_never_target_clock_score`.
+/// None prints a targeted lore/time placement or calls `clock_score` (#166).
 ///
 /// The two assertions above the list are what make it mean something.
 /// `signed` proves the walk reaches real `AddCounter` effects at all — the
@@ -70,7 +77,15 @@ use super::*;
 fn only_the_named_cards_put_a_lore_or_time_counter_on_anything() {
     // Named by the card that puts them, so another arrival is a name in a
     // failure message and not a number to bump.
-    const REACHABLE_CLOCKS: &[&str] = &["Time Bomb", "Trenzalore Clocktower"];
+    const REACHABLE_CLOCKS: &[&str] = &[
+        "Infinite Hourglass",
+        "Kes, Evolving Telepath",
+        "Lavacore Elemental",
+        "Scroll of the Masters",
+        "Soultether Golem",
+        "Time Bomb",
+        "Trenzalore Clocktower",
+    ];
     let mut seen = 0;
     let mut kinds = Vec::new();
     for def in baylee_cards::all() {
