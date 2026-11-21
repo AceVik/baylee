@@ -908,9 +908,9 @@ pub fn deserted_beach() -> CardIndex {
 /// Both bounds over `Filter::YOUR_LAND` are in it, and they are what the
 /// list is for: a slow land wants two other lands and a fast land wants at
 /// most two, so one count that included the entering land would turn one
-/// cycle on a land early and the other off a land early. Twenty-five cards
-/// ride on the skip in `Engine::controls_count`, and Cave of the Frost
-/// Dragon rides on it printing the bound as its complement.
+/// cycle on a land early and the other off a land early. The entries use
+/// the self-exclusion in `Engine::controls_count`, including Cave of the
+/// Frost Dragon, which prints the bound as its complement.
 pub const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
     "Blackcleave Cliffs",
     "Blooming Marsh",
@@ -930,6 +930,7 @@ pub const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
     "Lair of the Hydra",
     "Mystic Sanctuary",
     "Overgrown Farmland",
+    "Q Continuum",
     "Razorverge Thicket",
     "Rockfall Vale",
     "Seachrome Coast",

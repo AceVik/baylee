@@ -22,6 +22,7 @@ fn wizard_class_draws_two_at_level_two_and_rewards_later_draws_at_level_three() 
     let class = on_battlefield(&engine, p0, wizard).expect("the Class is on the table");
     let ours = on_battlefield(&engine, p0, grizzly_bears()).expect("our Bear is in play");
     let theirs = on_battlefield(&engine, p1, grizzly_bears()).expect("their Bear is in play");
+    // A pre-existing level counter stays independent of the Class's level.
     engine
         .state
         .object_mut(class)
