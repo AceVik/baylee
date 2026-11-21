@@ -731,12 +731,15 @@ impl AIProfile {
     /// may be named; it was split between a creature that survived it and a
     /// player (CR 601.2d).
     pub const WHOLE_BURN: u16 = 31;
+    /// Value a Class upgrade as unlocking its next ability and let careful
+    /// profiles make mana for it when the engine offers the unpaid upgrade.
+    pub const CLASS_UPGRADES: u16 = 32;
     /// What every level a player is offered plays: the newest generation.
     /// Generations are cumulative, so from [`Self::SOUND_ROOTS`] the named
     /// levels also play the Tower policies 20 to 23, which they skipped while
     /// this was [`Self::CHOSEN_AND_LINKED_FILTERS`]; a Tower contract keeps
     /// the generation it names ([`Self::TOWER_EXPERT`]).
-    pub const GENERATION: u16 = Self::WHOLE_BURN;
+    pub const GENERATION: u16 = Self::CLASS_UPGRADES;
 
     /// The widest noise a level plays with from [`Self::NOISE_BAND`]: the
     /// band of every level but `novice` before it.

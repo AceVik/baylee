@@ -903,6 +903,53 @@ const PIN_TABLES: [(&str, &str, u64); 2] =
 /// answers, how many there were, and how many were searched and replaced.
 type SearchPin = (String, u64, String, usize, u64, u64);
 
+#[test]
+fn frozen_worlds_encode_the_old_class_representation() {
+    use crate::session::foresight::world_position;
+    use baylee_view::{CounterEntry, CounterKind};
+
+    let seat = PlayerId::new(0);
+    let mut preset = deal(
+        1,
+        &merfolk_and_counters(),
+        &opponent("Plains", 60),
+        AIProfile::EXPERT,
+    );
+    let permanent = preset.seats[0].deck[0];
+    preset.seats[0].starting_battlefield.push(permanent);
+    let mut native = Session::new(&preset)
+        .expect("the table starts")
+        .observe_view(seat);
+    native.battlefield[0].counters.push(CounterEntry {
+        kind: CounterKind::Charge,
+        count: 1,
+    });
+    let mut old = native.clone();
+    let frozen = AIProfile::EXPERT.at_generation(AIProfile::FORESIGHT);
+    native.battlefield[0].class_level = Some(1);
+    assert_eq!(
+        world_position(&native, frozen),
+        world_position(&old, frozen)
+    );
+    native.battlefield[0].class_level = Some(2);
+    assert_ne!(
+        world_position(&native, frozen),
+        world_position(&old, frozen)
+    );
+    old.battlefield[0].counters.push(CounterEntry {
+        kind: CounterKind::Level,
+        count: 1,
+    });
+    assert_eq!(
+        world_position(&native, frozen),
+        world_position(&old, frozen)
+    );
+    assert_ne!(
+        world_position(&native, AIProfile::EXPERT),
+        world_position(&old, AIProfile::EXPERT)
+    );
+}
+
 /// A table of the frozen reference's decks played to [`PIN_TURN`] by
 /// `profile` in both chairs at a fair table with foresight on.
 fn searched_table(first: &str, second: &str, seed: u64, profile: AIProfile) -> SearchPin {

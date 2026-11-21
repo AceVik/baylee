@@ -45,8 +45,10 @@
 //! the leaf is read by nothing.
 
 mod host;
+mod position;
 
 pub use host::{HostForesight, SearchPermit, SearchPermits, Searches, WallGuard};
+pub(super) use position::world_position;
 
 use super::simulation::SimulationSession;
 use super::{SeatKind, Session};
@@ -583,7 +585,7 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
             return Some(own);
         }
         self.foresight.stats.asked += 1;
-        let position = HeuristicAgent::position(&view);
+        let position = world_position(&view, agent.profile());
         // An answer the engine took back leaves the position as it was. The
         // level's own answer is given there, which has its own guard
         // (`baylee_ai`'s `stall`).

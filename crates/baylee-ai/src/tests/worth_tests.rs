@@ -500,6 +500,39 @@ fn the_house_funds_a_class_upgrade_only_when_the_engine_offers_it() {
         ),
         PlayerAction::ActivateManaAbility { source: obj(2) }
     );
+    let frozen = HeuristicAgent::new(AIProfile::EXPERT.at_generation(AIProfile::FORESIGHT));
+    assert_eq!(
+        frozen.act(
+            &v,
+            &class_offers(vec![(obj(1), 1, baylee_core::mana!("{2}{G}"))])
+        ),
+        PlayerAction::PassPriority
+    );
+}
+
+#[test]
+fn frozen_profiles_keep_their_paid_class_upgrade_choices() {
+    let frozen = HeuristicAgent::new(AIProfile::NOVICE.at_generation(AIProfile::SEER_DRAWS));
+    let current = HeuristicAgent::new(AIProfile::NOVICE);
+    for (name, colour) in [("Druid Class", false), ("Wizard Class", true)] {
+        let mut class = card(1, ME, name, TypeSet::ENCHANTMENT);
+        class.class_level = Some(1);
+        let mut v = view(0, &[20, 20], vec![class]);
+        main_phase(&mut v);
+        v.seats[0].mana_pool.colorless = 2;
+        v.seats[0].mana_pool.green = u32::from(!colour);
+        v.seats[0].mana_pool.blue = u32::from(colour);
+        let paid = offering(vec![(obj(1), 1)]);
+        let expected = if colour {
+            // The old activation drew two directly as well as adding a
+            // level counter, and was worth using if the mana was floating.
+            activates(1, 1)
+        } else {
+            PlayerAction::PassPriority
+        };
+        assert_eq!(frozen.act(&v, &paid), expected, "{name}");
+        assert_eq!(current.act(&v, &paid), activates(1, 1), "{name}");
+    }
 }
 
 /// On the only creature there is, moving it again is mana for nothing.

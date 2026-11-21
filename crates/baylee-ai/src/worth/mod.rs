@@ -2543,18 +2543,7 @@ impl HeuristicAgent {
                 Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
                 None => 0,
             },
-            Effect::SetClassLevel(level) => origin.object.map_or(0, |o| {
-                let current = o.class_level.unwrap_or(1);
-                let sign = if self.hostile(o.controller, me) {
-                    -1
-                } else {
-                    1
-                };
-                // A new level unlocks an ongoing ability or a one-time
-                // effect. Price it on the scale of an ability, separately
-                // from the value of a counter.
-                sign * (i64::from(*level) - i64::from(current)) * (CARD * 3 / 4)
-            }),
+            Effect::SetClassLevel(level) => self.class_upgrade_worth(view, origin, *level)?,
             Effect::AddCountersUpTo {
                 kind,
                 amount,
@@ -2898,6 +2887,35 @@ impl HeuristicAgent {
         } else {
             -tempo
         }
+    }
+
+    fn class_upgrade_worth(&self, view: &PlayerView, origin: Origin<'_>, level: u8) -> Option<i64> {
+        let Some(object) = origin.object else {
+            return Some(0);
+        };
+        let sign = if self.hostile(object.controller, view.seat) {
+            -1
+        } else {
+            1
+        };
+        let change = i64::from(level) - i64::from(object.class_level.unwrap_or(1));
+        if self.profile.plays(crate::AIProfile::CLASS_UPGRADES) {
+            return Some(sign * change * (CARD * 3 / 4));
+        }
+
+        // Preserve the old valuation for frozen profiles. Class upgrades
+        // added a counter. Wizard Class also drew directly at level two and
+        // carried a triggered ability grant that the evaluator did not read
+        // at level three. The engine still executes the current printed rules.
+        let rules = object.rules.or_else(|| object.card.map(Into::into));
+        if rules.is_some_and(|face| face.card == baylee_core::generated::index::WIZARD_CLASS) {
+            return match level {
+                2 => Some(sign * 40 + self.draw_worth(view, view.seat, 2)),
+                3 => None,
+                _ => Some(sign * 40),
+            };
+        }
+        Some(sign * 40)
     }
 
     /// One shield can save its permanent once, even against multiple blockers.

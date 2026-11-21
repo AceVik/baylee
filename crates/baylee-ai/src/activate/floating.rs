@@ -15,8 +15,8 @@
 //!
 //! Only shapes the offer will follow: an ability printed on a permanent of
 //! this seat's, used from the battlefield, with no limit, a fixed mana cost
-//! and an optional tap, at a moment its timing allows. A Class upgrade's
-//! level condition must be covered by the engine's current unpaid offer.
+//! and an optional tap, at a moment its timing allows. From generation 32,
+//! a Class upgrade's level condition can be covered by an unpaid offer.
 //! From generation 20, a fixed life payment may accompany that cost when
 //! the engine lists only mana as unpaid. Mana reserved for interaction is
 //! kept up ([`HeuristicAgent::reserve`]).
@@ -164,6 +164,9 @@ fn funding_cost(
         return None;
     }
     let conditional = matches!(def, AbilityDef::ActivatedConditional { .. });
+    if conditional && !profile.plays(AIProfile::CLASS_UPGRADES) {
+        return None;
+    }
     let price = if !conditional && cost.parts.iter().all(|part| *part == CostPart::TapSelf) {
         cost.mana
             .with_more_generic(legal.activation_increase(source))

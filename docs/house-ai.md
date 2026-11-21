@@ -55,9 +55,11 @@ the ordinary color question. It does not spend them toward an unaffordable
 spell. The view and trained features include command-zone supply objects with
 their distinct definitions; no hidden deck information is introduced.
 
-Class upgrades use the engine's normal paid and unpaid activation offers. The
-house values the change to the source's Class level, separately from actual
-level counters, and weighs it against the activation's cost and other plays.
+From generation 32, the house values a Class upgrade as unlocking an ability
+and careful profiles make mana for it when the engine offers the unpaid
+activation. Earlier profiles keep their previous valuation and only upgrade
+when enough mana already floats. The engine applies the same Class rules
+for every profile.
 
 ## Frozen challenge execution
 
@@ -1831,6 +1833,10 @@ asks `profile.plays(...)`. The generations so far:
     target alone (`sides.rs`: `sided_meaning`, `side_of`).
 31. `WHOLE_BURN`: damage divided as its caster chooses that finishes no
     creature goes whole to an opponent, or whole to the best creature.
+32. `CLASS_UPGRADES`: Class upgrades have their own valuation and can be
+    funded from unpaid offers. Older generation searches keep the position
+    encoding they originally used to seed sampled worlds, including the
+    former representation of Class levels.
 
 Generations 24 to 31 were built on 12.11.2026 as 18 to 25, on a base whose
 newest generation was 17 (`CARD_SKILL`), and renumbered in the same order

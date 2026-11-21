@@ -21,7 +21,7 @@
 //! costs is kept in the teacher's own [`ForesightStats`].
 
 use super::Session;
-use super::foresight::{Plan, Search, Tried, kind, world_seed};
+use super::foresight::{Plan, Search, Tried, kind, world_position, world_seed};
 use crate::ForesightStats;
 use baylee_ai::HeuristicAgent;
 use baylee_ai::intelligence::DeckIntel;
@@ -210,6 +210,7 @@ impl Session {
         let started = std::time::Instant::now();
         // The chair's bounds: its level's work under the table's and the
         // host's (`Session::search_meter`), and the host's wall guard.
+        let position = world_position(&view, agent.profile());
         let search = Search {
             player,
             prior: Some(self.public_prior(&view)),
@@ -217,7 +218,7 @@ impl Session {
             model: agent.simulated(0),
             budget,
             seeds: (0..u64::from(budget.worlds))
-                .map(|world| world_seed(agent.seed(), HeuristicAgent::position(&view), world))
+                .map(|world| world_seed(agent.seed(), position, world))
                 .collect(),
             work: std::sync::Arc::new(self.search_meter(budget)),
             deadline: self.search_deadline(),
