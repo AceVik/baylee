@@ -6,6 +6,13 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Beat 10 (Part 1): Codegen Wave 13a–13c (`f27808e6a`, `b01df558b`, `b07c34397`)
+
+- **Codegen Wave 13a–13c (`Reviewed: fb701e17c, 558182c5d, 3ed9976b9`, `Reviewed-by: gemini-4-argon-high (#392, #395), pass`):**
+  - Merged zero-conflict across `targets.rs`/`mana.rs` (Wave 13b `f27808e6a`), `chains.rs`/`effects.rs`/`triggers.rs` (Wave 13c `b01df558b`), and `body.rs`/`stubgen.rs`/`tokengen.rs`/`keywords.rs`/`activated.rs`/`constants.rs`/`atoms.rs` (Wave 13a `b07c34397`), plus resolved `tests/saga_ward_convoke.rs:2087` coordination (`AB$ Mana` + explicit non-mana `SubCounter<X/CHARGE>` refusal test).
+  - Lowered Wave 6b **`Plot`**, **`Casualty N`**, **`Backup N`**, fixed `#374` (`Archmage of Echoes` `Permanent` type filter on `SpellCast` + `Osgood, Operation Double` token-copy refusal) and `#370` (`CardBody::prune_unused_statics()` for `TARGET1`, non-mana `RemoveCounterSelfX` guard), and widened stack targeting/zone changes, *Brainstorm*-style `Hand -> Library` puts, bite damage, player targets/relations, and `with/without<Keyword>` atoms.
+  - Verified (`task-4279`): `baylee-cards-codegen` `686/686` unit + all integration suites PASS, `xtask` `150/150` PASS, `clippy --all-targets -- -D warnings` `0` warnings; `transcode-report`: **`19,306 / 34,482` (`55%`, `+120`)** full corpus scripts read in full, **`754 / 864`** token scripts (`137 / 188` rules-bearing, `0` collisions).
+
 ## 2026-11-21 — Beat 9: Engine Wave 6a (`f069dcb75`) & Gamehost Pin Re-Record (`33cdb39fc`)
 
 - **Engine Wave 6a (`Reviewed: b764cb8ab`, merged as `f069dcb75`, `Reviewed-by: gemini-4-argon-high (#384), pass`)**: Landed `SpellMode::second_targets` on `ModalTriggered`/`ModalActivated`, `CostPart::{DealDamageToYou, DiscardX, ExileFromGraveyardX, Forage}` + counted-`X` parity, `KeywordSet::MODULAR = 62` (`EnterModifier::modular`, `Departure::modular_instances`), and `KeywordSet::SOULBOND = 63` (`Rider::PairedWith` tag `151`, `Condition::{IsPaired, SoulbondSelfCanPair, SoulbondEventCanPair}`, `Effect::SoulbondPair`, `Filter::PairedWithSource`, `PublicObject::paired_with`).

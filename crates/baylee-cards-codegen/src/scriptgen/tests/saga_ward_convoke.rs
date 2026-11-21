@@ -2114,6 +2114,13 @@ fn wave6_counts_costs_and_peer_hooks() {
          A:AB$ Draw | Cost$ SubCounter<X/LOYALTY> | NumCards$ X\n\
          SVar:X:Count$xPaid"
     ));
+    // Non-mana stack-using `RemoveCounterSelfX` stays refused until backed by a
+    // dedicated end-to-end engine test (Wave 7b / Hourglass of the Lost).
+    assert!(refused(
+        "Name:NonManaCounterX\nTypes:Artifact\n\
+         A:AB$ GainLife | Cost$ SubCounter<X/CHARGE> | LifeAmount$ X\n\
+         SVar:X:Count$xPaid"
+    ));
 }
 
 #[test]
