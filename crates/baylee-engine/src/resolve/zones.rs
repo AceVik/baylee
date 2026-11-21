@@ -514,7 +514,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::GraveyardToHand { target } => {
             let moves: Vec<_> = moving_objects(state, res, target)
                 .into_iter()
-                .filter_map(|id| state.object(id).map(|o| (id, ZoneLocation::Hand(o.owner))))
+                .filter_map(|id| {
+                    state
+                        .object(id)
+                        .filter(|o| o.zone == crate::zone::Zone::Graveyard && o.is_card())
+                        .map(|o| (id, ZoneLocation::Hand(o.owner)))
+                })
                 .collect();
             // Ask every commander's owner before moving any selected card.
             // CR 903.9b is a separate choice from leaving a graveyard (903.9a).

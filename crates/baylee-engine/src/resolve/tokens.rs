@@ -399,6 +399,30 @@ fn create_modified_token_copies(
     create_modified_token_copies_for(state, res, res.controller, original, mods, count)
 }
 
+fn copy_subject_lki(state: &GameState, res: &Resolution, original: ObjectId) -> Option<GameObject> {
+    let subject_ref = if original == res.source {
+        super::subjects::source(state, res)
+    } else if res.event_object == Some(original) {
+        super::subjects::event(state, res)
+    } else {
+        None
+    };
+    subject_ref
+        .filter(|src_ref| {
+            state.object(original).is_none_or(|o| {
+                o.zone != crate::zone::Zone::Battlefield || o.version != src_ref.version
+            })
+        })
+        .and_then(|src_ref| state.source_object(src_ref).cloned())
+        .or_else(|| {
+            state
+                .object(original)
+                .is_none()
+                .then(|| state.object_or_departed(original).cloned())
+                .flatten()
+        })
+}
+
 pub(super) fn create_modified_token_copies_for(
     state: &mut GameState,
     res: &Resolution,
@@ -407,15 +431,7 @@ pub(super) fn create_modified_token_copies_for(
     mods: &[baylee_cards_dsl::CopyMod],
     count: u32,
 ) -> Vec<ObjectId> {
-    let source_lki = (original == res.source)
-        .then(|| super::subjects::source(state, res))
-        .flatten()
-        .filter(|src_ref| {
-            state.object(original).is_none_or(|o| {
-                o.zone != crate::zone::Zone::Battlefield || o.version != src_ref.version
-            })
-        })
-        .and_then(|src_ref| state.source_object(src_ref).cloned());
+    let source_lki = copy_subject_lki(state, res, original);
     let Some(base) = source_lki
         .as_ref()
         .map(|lki| lki.base.clone())
