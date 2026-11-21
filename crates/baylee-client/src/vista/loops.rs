@@ -298,6 +298,18 @@ impl Loop {
         images: &mut Assets<Image>,
         keep: Duration,
     ) -> Option<Arc<Self>> {
+        Self::start_with_full_ring_wait(tavern, bytes, images, keep, |_| {
+            std::thread::park_timeout(NAP)
+        })
+    }
+
+    fn start_with_full_ring_wait(
+        tavern: bool,
+        bytes: &'static [u8],
+        images: &mut Assets<Image>,
+        keep: Duration,
+        wait_when_full: impl Fn(u64) + Send + 'static,
+    ) -> Option<Arc<Self>> {
         let sequence = Sequence::read(bytes, &Bounds::SHIPPED_LOOP).ok()?;
         let track = &sequence.colour;
         if track.samples.is_empty() || track.total_ticks == 0 {
@@ -352,7 +364,7 @@ impl Loop {
         let theirs = Arc::downgrade(&lp);
         let worker = std::thread::Builder::new()
             .name(if tavern { "tavern-loop" } else { "world-loop" }.to_string())
-            .spawn(move || work(&theirs, bytes, keep))
+            .spawn(move || work(&theirs, bytes, keep, wait_when_full))
             .ok()?;
         let _ = lp.worker.set(worker.thread().clone());
         Some(lp)
@@ -459,7 +471,12 @@ fn decode_into_slot(
 /// Background decode worker: fills the 8-slot lookahead ring while active or
 /// warming, parks immediately when full or paused, and frees its decoder and
 /// plane buffers after `keep` unseen.
-fn work(lp: &std::sync::Weak<Loop>, bytes: &'static [u8], keep: Duration) {
+fn work(
+    lp: &std::sync::Weak<Loop>,
+    bytes: &'static [u8],
+    keep: Duration,
+    wait_when_full: impl Fn(u64),
+) {
     let mut player: Option<Player> = None;
     let mut stream_ticks = 0u64;
     let mut active_gen = 0u64;
@@ -513,7 +530,7 @@ fn work(lp: &std::sync::Weak<Loop>, bytes: &'static [u8], keep: Duration) {
         let r = lp.ring.read_pos.load(Ordering::Acquire);
         if (w.saturating_sub(r) as usize) >= RING_CAP {
             drop(lp);
-            std::thread::park_timeout(NAP);
+            wait_when_full(gen_now);
             continue;
         }
         if let Some(decoder) = player.as_mut() {
@@ -1153,8 +1170,19 @@ mod tests {
     #[test]
     fn unseen_loop_releases_plane_buffers_on_eviction_and_drains_stale_generations() {
         let mut images = Assets::<Image>::default();
-        let lp = Loop::start_with_keep(false, WORLD, &mut images, Duration::from_millis(25))
-            .expect("world loop starts");
+        let (parked, full) = std::sync::mpsc::channel();
+        let lp = Loop::start_with_full_ring_wait(
+            false,
+            WORLD,
+            &mut images,
+            Duration::from_millis(25),
+            move |generation| {
+                // Only the consumer can wake the decoder from a full ring in this test.
+                let _ = parked.send(generation);
+                std::thread::park();
+            },
+        )
+        .expect("world loop starts");
         lp.active.store(true, Ordering::Release);
         lp.showing.store(true, Ordering::Release);
         lp.worker.get().unwrap().unpark();
@@ -1183,24 +1211,15 @@ mod tests {
         lp.worker.get().unwrap().unpark();
         wait_for_write_pos(&lp, RING_CAP as u64);
 
+        // Wait until the worker has observed this generation's full ring. An
+        // unpark just before it actually parks leaves the same wake token.
+        while full.recv_timeout(PATIENCE).expect("worker at full ring") != gen_before + 1 {}
         lp.generation.fetch_add(1, Ordering::AcqRel);
-        let drain_start = Instant::now();
         {
             let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
             assert_eq!(select_due_slot(&lp, &borrow), None);
         }
         assert_eq!(lp.ring.read_pos.load(Ordering::Acquire), RING_CAP as u64);
-        let first_slot_target = RING_CAP as u64 + 1;
-        while lp.ring.write_pos.load(Ordering::Acquire) < first_slot_target
-            && drain_start.elapsed() < PATIENCE
-        {
-            std::thread::sleep(Duration::from_millis(1));
-        }
-        let first_refill = drain_start.elapsed();
-        assert!(
-            first_refill < NAP,
-            "stale-ring drain unparked worker immediately ({first_refill:?} < {NAP:?})"
-        );
         wait_for_write_pos(&lp, RING_CAP as u64 * 2);
         let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
         assert_eq!(select_due_slot(&lp, &borrow), Some(RING_CAP as u64));

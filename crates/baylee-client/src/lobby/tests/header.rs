@@ -33,6 +33,11 @@ fn seated() -> App {
 /// The same, hosting it when `host`.
 fn seated_as(host: bool) -> App {
     let mut app = headless();
+    // These frames exercise the header. A slow runner must not advance the
+    // waiting room's two-second gateway poll between drawing and clicking.
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_millis(16),
+    ));
     stocked(&mut app);
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
@@ -951,14 +956,18 @@ fn a_toasts_cross_takes_that_toast_away() {
         said.iter().any(|l| l == "Lina#0031 sat down at your table"),
         "and the bell's toasts stand: {said:?}"
     );
-    assert_eq!(crosses(&mut app), drawn[1..].to_vec());
+    assert_eq!(
+        crosses(&mut app),
+        drawn[1..],
+        "visible text after dismissal: {said:?}"
+    );
     for _ in 0..30 {
         app.update();
     }
     assert!(
         !labels(&mut app)
             .iter()
-            .any(|l| l == "the house is warming up"),
+            .any(|l| l == "The house is warming up"),
         "a sentence the lobby still holds does not come back"
     );
 }
