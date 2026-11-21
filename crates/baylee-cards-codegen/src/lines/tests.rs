@@ -664,6 +664,86 @@ fn a_life_cost_equip_line_keeps_its_printed_sentence() {
     assert_eq!(map(&[ability], &oracle).lines, [Some(1)]);
 }
 
+#[test]
+fn equip_keeps_its_printed_cost_without_reminder_text() {
+    use baylee_cards_dsl::{activated, cost, equip};
+
+    let printed = [
+        (
+            cost!(Sacrifice(&Filter::YOUR_ARTIFACT)),
+            "Equip—Sacrifice an artifact.",
+        ),
+        (cost!("{0}"), "Equip {0}. Activate only once each turn."),
+        (
+            cost!(PayLife(3)),
+            "Chaosbringer — Equip—Pay 3 life. Activate only once each turn.",
+        ),
+        (cost!("{4}"), "Lightbringer and Hero's Shield — Equip {4}"),
+        (cost!("{2}", PayLife(2)), "Equip—{2}, Pay 2 life."),
+    ];
+    for (cost, line) in printed {
+        assert_eq!(line_shape(line), LineShape::Activated, "{line}");
+        assert_eq!(map(&[equip!(cost)], line).lines, [Some(0)], "{line}");
+    }
+    assert_eq!(
+        line_shape("Equip abilities you activate cost {1} less to activate."),
+        LineShape::Other
+    );
+    assert!(!cost_fits(&cost!(PayLife(2)), printed[2].1));
+    assert!(!content_fits(
+        &activated!(cost!("{4}"), &[Effect::TapSelf]),
+        printed[3].1
+    ));
+}
+
+#[test]
+fn bare_station_names_only_its_own_activation() {
+    use baylee_cards_dsl::{ActivationTiming, activated, cost};
+
+    let station = activated!(
+        cost!(TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
+        &[Effect::AddCounter {
+            kind: CounterKind::Charge,
+            amount: Amount::TappedPower,
+        }],
+        timing = ActivationTiming::SorcerySpeed,
+    );
+    let another = activated!(
+        cost!(TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
+        &[Effect::TapSelf],
+    );
+    assert_eq!(line_shape("Station"), LineShape::Activated);
+    assert_eq!(map(&[another, station], "Station").lines, [None, Some(0)]);
+}
+
+#[test]
+fn energy_payments_distinguish_their_own_lines_from_crew_and_each_other() {
+    use baylee_cards_dsl::{activated, cost, crew};
+
+    const CREW: AbilityDef = crew!(4);
+    let abilities = [
+        CREW,
+        activated!(cost!(PayEnergy(4)), &[Effect::TapSelf]),
+        activated!(cost!(TapSelf, PayEnergy(3)), draw(1)),
+        activated!(cost!(TapSelf, PayEnergy(2)), &[Effect::TapTarget]),
+    ];
+    let oracle = "{T}, Pay {E}{E}: Tap target creature.\n{T}, Pay {E}{E}{E}: Draw a card.\nPay {E}{E}{E}{E}: This Vehicle becomes an artifact creature until end of turn.\nCrew 4";
+    assert_eq!(
+        map(&abilities, oracle).lines,
+        [Some(3), Some(2), Some(1), Some(0)]
+    );
+    assert!(!cost_fits(&cost!(PayEnergy(1)), "Pay X {E}: Draw X cards."));
+    assert!(!cost_fits(&cost!(PayEnergyX), "Pay {E}: Draw a card."));
+    assert!(!cost_fits(&cost!(Crew(2)), "Crew 4"));
+    let spelled = "{T}, Pay six {E}: Draw three cards.";
+    assert!(cost_fits(&cost!(TapSelf, PayEnergy(6)), spelled));
+    assert!(!cost_fits(&cost!(TapSelf, PayEnergy(1)), spelled));
+    assert!(cost_fits(
+        &cost!(PayEnergy(8), ExileSelf),
+        "Pay eight {E}, Exile this artifact: Take an extra turn after this one."
+    ));
+}
+
 /// Three loyalty abilities, printed the way a walker prints them.
 const WALKER: &str = "+2: Look at the top card of target player's library.\n\
                       0: Draw three cards, then put two cards back.\n\

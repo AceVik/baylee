@@ -1,7 +1,7 @@
 //! Shape of a printed Oracle ability.
 
 use super::{
-    LineShape, a_numbered_tapping_keyword, ability_colon, granted_crew_number,
+    LineShape, ability_colon, equip_cost_head, granted_crew_number, numbered_tapping_cost,
     reminder_spells_out_an_ability, without_reminder,
 };
 
@@ -90,10 +90,13 @@ pub fn line_shape(line: &str) -> LineShape {
         // that exception anchored to one printed keyword, not any sentence.
         let activated_reminder = reminder_spells_out_an_ability(printed);
         let punctuated_keyword = activated_reminder && super::keyword_cost(line).is_some();
-        return if punctuated_keyword
+        return if line == "Station"
+            || equip_cost_head(line).is_some()
+            || numbered_tapping_cost(line).is_some()
+            || punctuated_keyword
             || (line.len() <= 40
                 && !line.ends_with('.')
-                && (line.contains('{') || activated_reminder || a_numbered_tapping_keyword(line)))
+                && (line.contains('{') || activated_reminder))
         {
             LineShape::Activated
         } else {

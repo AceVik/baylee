@@ -1052,16 +1052,25 @@ enum Column {
 /// The sweep's question, taken out so that its failing branch can be seen.
 fn column(sentence: &[baylee_client_core::card_face::TextBlock], key: &str) -> Column {
     use baylee_client_core::card_face::TextBlock;
-    let colon = match sentence.first() {
+    let split = match sentence.first() {
         Some(TextBlock::Rules(first)) => {
-            baylee_cardtext::split_cost(first).is_some_and(|split| !split.body.is_empty())
+            baylee_cardtext::split_cost(first).filter(|split| !split.body.is_empty())
         }
-        _ => false,
+        _ => None,
     };
-    match (abilitysheet::cut(sentence.to_vec(), key).head, colon) {
-        (Some(_), _) => Column::Head,
-        (None, false) => Column::Whole,
-        (None, true) => Column::Refused,
+    let cut = abilitysheet::cut(sentence.to_vec(), key);
+    match (cut.head, split) {
+        (Some(_), Some(split))
+            if cut
+                .blocks
+                .first()
+                .is_some_and(|body| body.text() == split.body)
+                && cut.blocks.get(1..) == Some(&sentence[1..]) =>
+        {
+            Column::Head
+        }
+        (None, None) if cut.blocks == sentence => Column::Whole,
+        _ => Column::Refused,
     }
 }
 
@@ -1080,16 +1089,14 @@ fn column(sentence: &[baylee_client_core::card_face::TextBlock], key: &str) -> C
 /// would drop the column from every row of its kind in silence. Asked offline,
 /// of the compiled English Oracle.
 ///
-/// The rows drawn whole are the ones with no cost colon at all, which is what
-/// a keyword line is (`Equip {1}`, whose only colon is in its reminder):
-/// listed by name in [`DRAWN_WHOLE`], equality both ways, so a row that lost
-/// its column shows up as a new name and a row that gained one as a stale
-/// entry.
+/// Each row drawn whole must preserve every printed block. Each cut row must
+/// preserve the printed body and any following reminder. The two populations
+/// are bounded independently so the sweep exercises both shapes.
 #[test]
 fn every_written_row_draws_its_printed_cost_or_its_whole_sentence() {
     let cards = candidates();
     let mut heads = 0usize;
-    let mut whole: Vec<String> = Vec::new();
+    let mut whole = 0usize;
     let mut refused: Vec<String> = Vec::new();
 
     for batch in cards.chunks(BATCH) {
@@ -1124,7 +1131,7 @@ fn every_written_row_draws_its_printed_cost_or_its_whole_sentence() {
                 let first = sentence.first().map(|b| b.text().to_string());
                 match column(&sentence, key) {
                     Column::Head => heads += 1,
-                    Column::Whole => whole.push(def.name().to_string()),
+                    Column::Whole => whole += 1,
                     Column::Refused => refused.push(format!(
                         "{}: key `{key}` against `{}`",
                         def.name(),
@@ -1134,200 +1141,25 @@ fn every_written_row_draws_its_printed_cost_or_its_whole_sentence() {
             }
         }
     }
-    whole.sort();
-    whole.dedup();
-
     println!(
-        "cost column: {heads} printed heads, {} cards drawn whole, {} refused",
-        whole.len(),
+        "cost column: {heads} printed heads, {whole} rows drawn whole, {} refused",
         refused.len()
     );
-    println!("drawn whole: {whole:?}");
     assert!(
         heads >= SHEET_FLOOR,
         "only {heads} rows drew a printed head, under the floor of {SHEET_FLOOR}"
     );
     assert!(
+        whole >= SHEET_FLOOR,
+        "only {whole} rows drew whole, under the floor of {SHEET_FLOOR}"
+    );
+    assert!(
         refused.is_empty(),
-        "{} rows print a cost their ability does not cost:\n{}",
+        "{} rows split or changed the printed sentence incorrectly:\n{}",
         refused.len(),
         refused.join("\n")
     );
-    let named: Vec<&str> = DRAWN_WHOLE.to_vec();
-    assert_eq!(
-        whole, named,
-        "the rows drawn whole, with no cost column, are the keyword lines named here"
-    );
 }
-
-/// Cards whose written row has no cost colon in its sentence, and is drawn
-/// whole with no column. Held equal by the sweep above.
-///
-/// Every one a keyword line whose cost stands after the keyword and whose
-/// only colon is in its reminder: Equip on twenty of them, Level up
-/// (Hexdrinker), Reconfigure (Rabbit Battery), Station (U.S.S. Enterprise-D,
-/// Inspirit, Evendo). Measured 24.09.2026 over the compiled English Oracle: 1302 rows
-/// drew a printed head, 19 cards drew whole, none was refused. Five more on
-/// 29.09.2026, when every batch was given a creature to equip: until then an
-/// Equipment's row was read only if its batch happened to hold one. Evendo,
-/// Waking Haven the same day, when its station was written. And Unlicensed
-/// Hearse the same day, whose "Crew 2" is the whole line: its cost is
-/// creatures, not a symbol, and the printing drops the reminder.
-/// The completed Planet stations and Smuggler's Copter's crew add five
-/// further keyword rows at the October card checkpoint.
-// Corpus batch: 18 additional Equipment cards print their Equip sentence whole.
-// Full corpus (2026-10-14): 81 further generated Equipment and Vehicles
-// print an Equip or Crew keyword line whole (each checked against its
-// header's Oracle text).
-// Banshee's Blade (Mirrodin, Equip {2}) is read since the review of PR #410
-// moved the ten-card seating batches; it was in a batch that never seated.
-// Still read once the review wrote Wall of Vipers and Mercenary Informer
-// back (01.11.2026: 3319 printed heads, 138 drawn whole, none refused).
-const DRAWN_WHOLE: &[&str] = &[
-    "+2 Mace",
-    "Accorder's Shield",
-    "Adagia, Windswept Bastion",
-    "Adventuring Gear",
-    "Aeronaut's Wings",
-    "Angelic Armaments",
-    "Avacyn's Collar",
-    "Banshee's Blade",
-    "Barbed Battlegear",
-    "Basilisk Collar",
-    "Behemoth Sledge",
-    "Bladed Bracers",
-    "Bladed Pinions",
-    "Blazing Torch",
-    "Bone Saw",
-    "Bonesplitter",
-    "Boots of Speed",
-    "Brawler's Plate",
-    "Bronze Sword",
-    "Butcher's Cleaver",
-    "Cathar's Shield",
-    "Champion's Helm",
-    "Chariot of Victory",
-    "Chitinous Cloak",
-    "Cloak of the Bat",
-    "Cobbled Wings",
-    "Colossus Hammer",
-    "Conqueror's Galleon",
-    "Crystal Slipper",
-    "Cultist's Staff",
-    "Daredevil's Billy Club",
-    "Darksteel Axe",
-    "Darksteel Plate",
-    "Dead-Iron Sledge",
-    "Dowsing Dagger",
-    "Echo Circlet",
-    "Empyrial Plate",
-    "Ensouled Scimitar",
-    "Evendo, Waking Haven",
-    "Experimental Armor",
-    "Fireshrieker",
-    "Fleetfeather Sandals",
-    "Gilded Pinions",
-    "Gimli's Axe",
-    "Glimmerlight",
-    "Goggles of Night",
-    "Gold Pan",
-    "Goldvein Pick",
-    "Golem-Skin Gauntlets",
-    "Gorgon Flail",
-    "Gorgon's Head",
-    "Greataxe",
-    "Greatsword",
-    "Hard-Won Jitte",
-    "Haunted Cloak",
-    "Heavy Mattock",
-    "Hedgewitch's Mask",
-    "Helm of the Host",
-    "Hero's Heirloom",
-    "Hexdrinker",
-    "Honed Khopesh",
-    "Inspirit, Flagship Vessel",
-    "Jackhammer",
-    "Kavaron, Memorial World",
-    "Kite Shield",
-    "Kitesail",
-    "Kor Halberd",
-    "Lead Pipe",
-    "Leering Emblem",
-    "Leonin Scimitar",
-    "Lightning Greaves",
-    "Lightning Spear",
-    "Lion Heart",
-    "Loxodon Warhammer",
-    "Marauder's Axe",
-    "Mask of Avacyn",
-    "Mask of Memory",
-    "Mask of Riddles",
-    "Meteor Sword",
-    "Nemesis Mask",
-    "Nettlecyst",
-    "Neurok Hoversail",
-    "Nightmare Lash",
-    "Nim Deathmantle",
-    "Ninja's Kunai",
-    "No-Dachi",
-    "Ogre's Cleaver",
-    "Paradise Mantle",
-    "Peregrine Mask",
-    "Prowler's Helm",
-    "Prying Blade",
-    "Rabbit Battery",
-    "Ranger's Longbow",
-    "Raven Wings",
-    "Riot Gear",
-    "Rogue's Gloves",
-    "Shadowspear",
-    "Sharpened Pitchfork",
-    "Shield of Kaldra",
-    "Short Bow",
-    "Short Sword",
-    "Shuko",
-    "Silver-Inlaid Dagger",
-    "Silverskin Armor",
-    "Skateboard",
-    "Skullclamp",
-    "Slagwurm Armor",
-    "Slayer's Plate",
-    "Smuggler's Copter",
-    "Spare Dagger",
-    "Specter's Shroud",
-    "Spidersilk Net",
-    "Strider Harness",
-    "Susur Secundi, Void Altar",
-    "Swiftfoot Boots",
-    "Sword of Hearth and Home",
-    "Sword of Vengeance",
-    "Sword of the Meek",
-    "Sylvok Lifestaff",
-    "Tenza, Godo's Maul",
-    "Thornbite Staff",
-    "Torch Gauntlet",
-    "True-Faith Censer",
-    "Trusty Machete",
-    "U.S.S. Enterprise-D, Galaxy-Class",
-    "Umbral Mantle",
-    "Umezawa's Jitte",
-    "Unlicensed Hearse",
-    "Uthros, Titanic Godcore",
-    "Vanguard's Shield",
-    "Vanquisher's Axe",
-    "Veteran's Sidearm",
-    "Vibranium Energy Daggers",
-    "Viridian Claw",
-    "Viridian Longbow",
-    "Vulshok Battlegear",
-    "Vulshok Morningstar",
-    "Warlord's Axe",
-    "Warmonger's Chariot",
-    "Well-Worn Spatula",
-    "Witches' Eye",
-    "Worldslayer",
-    "Zephyr Boots",
-];
 
 /// The injection for the sweep above: a key that does not license the head
 /// is refused, a sentence with no cost colon is drawn whole, and a head that
@@ -1349,4 +1181,86 @@ fn a_row_whose_key_does_not_license_its_head_is_refused() {
         "Equip {1}".into(),
     )];
     assert_eq!(column(&equip, "{1}"), Column::Whole);
+}
+
+fn assert_printed_row(name: &str, index: u32, cost: Option<&str>, head: Option<&str>, body: &str) {
+    let def = baylee_cards::by_index(by_name(name)).unwrap();
+    let Seated { view, .. } = seated(&[def]).expect("the card reaches its first main phase");
+    let object = view
+        .battlefield
+        .iter()
+        .find(|o| o.card.is_some_and(|card| card.index == def.index))
+        .unwrap()
+        .id;
+    // The sheet consumes the offered index. Supply it directly so the row can
+    // be inspected independently of the opening board's life, energy or crew.
+    let pending = Pending::Priority {
+        player: view.seat,
+        legal: Box::new(LegalActions {
+            abilities: vec![(object, index)],
+            ..Default::default()
+        }),
+    };
+    let interaction = Interaction::new(pending, view.seat);
+    let options = abilities::options(Lang::En, &view, &interaction, object);
+    let row = options
+        .iter()
+        .find(|row| row.printed_index() == Some(index))
+        .unwrap_or_else(|| panic!("{name}: no row for ability {index}"));
+    assert_eq!(row.cost.as_deref(), cost, "{name}: cost key");
+    let words = abilities::printed_words(None, &view, object, row)
+        .unwrap_or_else(|| panic!("{name}: no printed sentence for ability {index}"));
+    assert_eq!(words.head.as_deref(), head, "{name}: cost column");
+    assert_eq!(words.blocks[0].text(), body, "{name}: printed body");
+}
+
+#[test]
+fn equip_and_station_rows_keep_their_whole_printed_keyword_line() {
+    for (name, index, cost, text) in [
+        ("Piston Sledge", 0, None, "Equip—Sacrifice an artifact."),
+        (
+            "Leather Armor",
+            0,
+            Some("{0}"),
+            "Equip {0}. Activate only once each turn.",
+        ),
+        (
+            "Dark Knight's Greatsword",
+            1,
+            None,
+            "Chaosbringer — Equip—Pay 3 life. Activate only once each turn.",
+        ),
+        (
+            "Paladin's Arms",
+            1,
+            Some("{4}"),
+            "Lightbringer and Hero's Shield — Equip {4}",
+        ),
+        ("My Precious", 0, Some("{2}"), "Equip—{2}, Pay 2 life."),
+        ("Romulan Bird-of-Prey", 0, None, "Station"),
+        ("U.S.S. Defiant, Mirror Migrant", 0, None, "Station"),
+        ("U.S.S. Discovery, at Black Alert", 0, None, "Station"),
+    ] {
+        assert_printed_row(name, index, cost, None, text);
+    }
+}
+
+#[test]
+fn vehicle_energy_costs_and_crew_use_their_own_printed_rows() {
+    assert_printed_row("Aethersphere Harvester", 0, None, None, "Crew 1");
+    assert_printed_row(
+        "Aethersphere Harvester",
+        2,
+        Some("{E}"),
+        Some("Pay {E}"),
+        "This Vehicle gains lifelink until end of turn.",
+    );
+    assert_printed_row("Bespoke Battlewagon", 0, None, None, "Crew 4");
+    assert_printed_row(
+        "Bespoke Battlewagon",
+        4,
+        Some("{E}{E}{E}{E}"),
+        Some("Pay {E}{E}{E}{E}"),
+        "This Vehicle becomes an artifact creature until end of turn.",
+    );
 }

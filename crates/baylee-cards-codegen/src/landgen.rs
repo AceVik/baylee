@@ -88,7 +88,7 @@ fn symbols(text: &str) -> Option<Vec<String>> {
 }
 
 /// Number words as they appear in rules text.
-fn number(word: &str) -> Option<u32> {
+pub(crate) fn number(word: &str) -> Option<u32> {
     if let Ok(n) = word.parse::<u32>() {
         return Some(n);
     }

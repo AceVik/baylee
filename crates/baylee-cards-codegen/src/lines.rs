@@ -23,8 +23,10 @@
 //! bound wearing a count's clothes.
 
 use baylee_cards_dsl::{
-    AbilityDef, AltCondition, AlternativeCost, CostPart, Effect, Filter, StepKind, Trigger,
+    AbilityDef, AltCondition, AlternativeCost, Amount, Cost, CostPart, CounterKind, Effect, Filter,
+    StepKind, Trigger,
 };
+use baylee_core::mana::ManaCost;
 use baylee_core::types::TypeSet;
 
 /// The sentences a printed oracle text is made of.
@@ -172,19 +174,32 @@ fn ability_colon(line: &str) -> Option<usize> {
     None
 }
 
-/// Whether the line is "Crew N" (CR 702.122a) or "Saddle N" (CR 702.171a)
-/// and nothing else.
+/// The printed payment of a bare "Crew N" or "Saddle N" keyword.
 ///
 /// Both are activated abilities whose cost is tapping creatures, so the line
 /// carries no `{`, and a printing that drops the reminder leaves no colon for
 /// [`reminder_spells_out_an_ability`] to find either: Unlicensed Hearse
 /// prints "Crew 2" and not a word more, and its crew ability had no
 /// sentence.
-fn a_numbered_tapping_keyword(line: &str) -> bool {
-    ["Crew ", "Saddle "].iter().any(|keyword| {
-        line.strip_prefix(keyword)
-            .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
-    })
+fn numbered_tapping_cost(line: &str) -> Option<CostPart> {
+    if let Some(number) = line.strip_prefix("Crew ") {
+        return number.parse().ok().map(CostPart::Crew);
+    }
+    line.strip_prefix("Saddle ")?
+        .parse()
+        .ok()
+        .map(CostPart::Saddle)
+}
+
+/// The cost of an Equip keyword, including one preceded by an ability word.
+fn equip_cost_head(line: &str) -> Option<&str> {
+    let equip = line.split_once(" — ").map_or(line, |(_, rest)| rest);
+    let rest = equip.strip_prefix("Equip")?;
+    let cost = rest
+        .strip_prefix('—')
+        .or_else(|| rest.strip_prefix(' ').filter(|cost| cost.starts_with('{')))?;
+    let cost = cost.split('.').next()?.trim();
+    (!cost.is_empty()).then_some(cost)
 }
 
 /// A type-changing effect may grant crew without quoting an activation.
@@ -351,17 +366,31 @@ pub fn braced(src: &str) -> Vec<String> {
 
 /// Does a compiled activation cost fit the head of a printed line?
 ///
-/// Only the part of a cost that is written in symbols is compared — the
-/// mana, the tap and the untap — because "Sacrifice a creature" is prose a
-/// filter cannot be held against cheaply. That is enough for what this is
-/// for: a card with two activated abilities almost always prints two
-/// different costs, and `{T}` against `{2}{U}, {T}` separates them.
-pub fn cost_fits(cost: &baylee_cards_dsl::Cost, line: &str) -> bool {
-    use baylee_cards_dsl::CostPart;
+/// Compares symbols and the non-mana payments the printed form identifies
+/// directly, such as Crew's number, Equip's life payment, and Exert.
+pub fn cost_fits(cost: &Cost, line: &str) -> bool {
     let line = without_reminder(line);
+    let numbered_cost = cost
+        .parts
+        .iter()
+        .find(|part| matches!(part, CostPart::Crew(_) | CostPart::Saddle(_)));
+    if numbered_tapping_cost(&line).as_ref() != numbered_cost {
+        return false;
+    }
     // A keyword ability prints its cost with no colon after it — "Cycling
     // {B}" is a whole line — so a line without one is read as all cost.
-    let head = line.split_once(':').map_or(line.as_str(), |(head, _)| head);
+    let head =
+        if let Some(equip) = equip_cost_head(&line) {
+            let lower = equip.to_ascii_lowercase();
+            if !cost.parts.iter().all(|part| {
+                part_named(part, &lower).unwrap_or(true) && sacrifice_named(part, &lower)
+            }) {
+                return false;
+            }
+            equip
+        } else {
+            line.split_once(':').map_or(line.as_str(), |(head, _)| head)
+        };
     if let Some((a, b)) = cost.parts.iter().find_map(|p| match p {
         CostPart::Either(a, b) => Some((*a, *b)),
         _ => None,
@@ -393,12 +422,37 @@ fn cost_branch_fits(
     if head.to_lowercase().contains("exert") != has_part(&CostPart::ExertSelf) {
         return false;
     }
-    // Energy symbols belong to nonmana payments, not the mana cost.
+    let parts = outer_parts.iter().chain(branch_parts);
+    let energy: usize = parts
+        .clone()
+        .filter_map(|part| match part {
+            CostPart::PayEnergy(n) => Some(usize::from(*n)),
+            _ => None,
+        })
+        .sum();
+    let energy_x = parts
+        .filter(|part| matches!(part, CostPart::PayEnergyX))
+        .count();
     let mut want = braced(&mana.to_string());
     want.retain(|s| s != "0");
     want.sort();
     for alt_head in head.split(" or ") {
         let mut alt_printed = braced(alt_head);
+        let lower = alt_head.to_ascii_lowercase();
+        // “Pay eight {E}” prints one glyph for eight counters.
+        let spelled_energy: usize = lower
+            .split(',')
+            .filter_map(|part| {
+                let number = part.trim().strip_prefix("pay ")?.strip_suffix(" {e}")?;
+                let count = usize::try_from(crate::landgen::number(number)?).ok()?;
+                count.checked_sub(1)
+            })
+            .sum();
+        let printed_energy = alt_printed.iter().filter(|s| *s == "E").count() + spelled_energy;
+        let printed_energy_x = lower.matches("pay x {e}").count();
+        if (printed_energy, printed_energy_x) != (energy + energy_x, energy_x) {
+            continue;
+        }
         alt_printed.retain(|s| s != "T" && s != "Q" && s != "E" && s != "0");
         alt_printed.sort();
         if alt_printed == want {
@@ -833,6 +887,25 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
             ..
         } => cost_fits(cost, line) && mana_fits(effects, line),
         A::Activated { cost, effects, .. } | A::ActivatedConditional { cost, effects, .. } => {
+            let printed = without_reminder(line);
+            if printed == "Station" {
+                return cost.mana == ManaCost::ZERO
+                    && cost.parts == [CostPart::TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)]
+                    && matches!(
+                        *effects,
+                        [Effect::AddCounter {
+                            kind: CounterKind::Charge,
+                            amount: Amount::TappedPower
+                        }]
+                    );
+            }
+            if equip_cost_head(&printed).is_some()
+                && !effects
+                    .iter()
+                    .any(|effect| matches!(effect, Effect::AttachSelf { .. }))
+            {
+                return false;
+            }
             let level = match *effects {
                 [Effect::SetClassLevel(level)] => Some(*level),
                 _ => None,
