@@ -353,6 +353,23 @@ impl Tx<'_> {
         ))
     }
 
+    fn scry_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let who = match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => return self.deny(format!("a `Scry` trigger for `{other}`")),
+        };
+        Some(format!("Trigger::Scried {{ who: {who} }}"))
+    }
+
+    fn becomes_monstrous_trigger(&mut self, p: &mut Params) -> Option<String> {
+        match p.take("ValidCard").as_deref() {
+            None | Some("Card.Self") => Some("Trigger::BecomesMonstrous".to_string()),
+            Some(other) => self.deny(format!("a `BecomeMonstrous` trigger on `{other}`")),
+        }
+    }
+
     fn plotted_trigger(&mut self, p: &mut Params) -> Option<String> {
         let valid_player = p.take("ValidPlayer");
         let who = match valid_player.as_deref() {
@@ -636,6 +653,8 @@ impl Tx<'_> {
             "Exerted" => self.exerted_trigger(p),
             "Enlisted" => self.enlisted_trigger(p),
             "Exploited" => self.exploited_trigger(p),
+            "Scry" => self.scry_trigger(p),
+            "BecomeMonstrous" | "BecomesMonstrous" => self.becomes_monstrous_trigger(p),
             "BecomesPlotted" | "Plotted" => self.plotted_trigger(p),
             "SpellCastOrCopy" => self.spell_cast_or_copy_trigger(p, zoned),
             // "Whenever you give a gift" (CR 702.174c). `EventPlayer` is the
@@ -3209,6 +3228,37 @@ impl Tx<'_> {
             p.take("PresentCompare");
             return Some(cond.to_string());
         }
+        if matches!(p.peek("PresentZone"), None | Some("Battlefield"))
+            && let Some((base, positive_present)) = match valid {
+                "Card.Self+IsMonstrous" | "Card.Self+monstrous" => {
+                    Some(("Condition::IsMonstrous", true))
+                }
+                "Card.Self+!IsMonstrous" | "Card.Self+!monstrous" => {
+                    Some(("Condition::IsMonstrous", false))
+                }
+                "Card.Self+IsSuspected" | "Card.Self+suspected" => {
+                    Some(("Condition::IsSuspected", true))
+                }
+                "Card.Self+!IsSuspected" | "Card.Self+!suspected" => {
+                    Some(("Condition::IsSuspected", false))
+                }
+                _ => None,
+            }
+        {
+            let positive = match p.peek("PresentCompare") {
+                None | Some("GE1" | "EQ1" | "GT0") => positive_present,
+                Some("EQ0" | "LT1") => !positive_present,
+                _ => return None,
+            };
+            p.take("IsPresent");
+            p.take("PresentZone");
+            p.take("PresentCompare");
+            return Some(if positive {
+                base.to_string()
+            } else {
+                format!("Condition::Not(&{base})")
+            });
+        }
         None
     }
 
@@ -3257,6 +3307,7 @@ impl Tx<'_> {
             | "BecomesPlotted"
             | "Plotted"
             | "SpellCastOrCopy"
+            | "Scry"
             | "GiveGift"
             | "GaveGift" => true,
             "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" | "Enlisted"
@@ -3318,7 +3369,14 @@ impl Tx<'_> {
     /// Wave-15c trigger `CheckSVar$` / `SVarCompare$` clauses backed by
     /// existing `Condition` / `Amount` variants.
     fn wave15_trigger_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
-        let raw = self.svars.get(var.trim())?.trim();
+        let trimmed = var.trim();
+        let raw = if let Some(body) = self.svars.get(trimmed) {
+            body.trim()
+        } else if trimmed.starts_with("Count$") {
+            trimmed
+        } else {
+            return None;
+        };
         let cmp = cmp.trim();
         let bool_flag = |cond: &str| match cmp {
             "GE1" | "GT0" => Some(cond.to_string()),
@@ -3434,33 +3492,47 @@ impl Tx<'_> {
             | "PlayerCountOpponents$HasPropertyDamagedThisTurn" => {
                 bool_flag("Condition::OpponentDealtDamageThisTurn")
             }
+            "Count$Monstrous"
+            | "Count$Monstrous.1.0"
+            | "Count$ValidSelf Card.IsMonstrous"
+            | "Count$Valid Card.Self+IsMonstrous"
+            | "Count$ValidSelf Card.monstrous"
+            | "Count$Valid Card.Self+monstrous" => bool_flag("Condition::IsMonstrous"),
+            "Count$Suspected"
+            | "Count$Suspected.1.0"
+            | "Count$ValidSelf Card.IsSuspected"
+            | "Count$Valid Card.Self+IsSuspected"
+            | "Count$ValidSelf Card.suspected"
+            | "Count$Valid Card.Self+suspected" => bool_flag("Condition::IsSuspected"),
             "Count$YourLifeTotal" => {
                 Self::wave15_amount_cmp("Amount::LifeTotal(PlayerRel::You)", cmp)
             }
             "Count$ValidHand Card.YouOwn" => {
                 Self::wave15_amount_cmp("Amount::HandSize(PlayerRel::You)", cmp)
             }
-            "Count$ValidGraveyard Card.YouOwn" => {
-                let (op, n_str) = cmp.split_at_checked(2)?;
-                let n: u8 = n_str.parse().ok()?;
-                match op {
-                    "GE" if n >= 1 => Some(format!("Condition::GraveyardCountAtLeast({n})")),
-                    "GT" => Some(format!(
-                        "Condition::GraveyardCountAtLeast({})",
-                        n.checked_add(1)?
-                    )),
-                    "LE" => Some(format!(
-                        "Condition::Not(&Condition::GraveyardCountAtLeast({}))",
-                        n.checked_add(1)?
-                    )),
-                    "LT" if n >= 1 => Some(format!(
-                        "Condition::Not(&Condition::GraveyardCountAtLeast({n}))"
-                    )),
-                    "EQ" if n == 0 => {
-                        Some("Condition::Not(&Condition::GraveyardCountAtLeast(1))".to_string())
-                    }
-                    _ => None,
-                }
+            "Count$ValidGraveyard Card.YouOwn" => Self::wave16_graveyard_count_cmp(cmp),
+            _ => None,
+        }
+    }
+
+    fn wave16_graveyard_count_cmp(cmp: &str) -> Option<String> {
+        let (op, n_str) = cmp.split_at_checked(2)?;
+        let n: u8 = n_str.parse().ok()?;
+        match op {
+            "GE" if n >= 1 => Some(format!("Condition::GraveyardCountAtLeast({n})")),
+            "GT" => Some(format!(
+                "Condition::GraveyardCountAtLeast({})",
+                n.checked_add(1)?
+            )),
+            "LE" => Some(format!(
+                "Condition::Not(&Condition::GraveyardCountAtLeast({}))",
+                n.checked_add(1)?
+            )),
+            "LT" if n >= 1 => Some(format!(
+                "Condition::Not(&Condition::GraveyardCountAtLeast({n}))"
+            )),
+            "EQ" if n == 0 => {
+                Some("Condition::Not(&Condition::GraveyardCountAtLeast(1))".to_string())
             }
             _ => None,
         }

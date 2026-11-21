@@ -6065,9 +6065,15 @@ impl Tx<'_> {
                             | "Attacked"
                             | "AttackersDeclared"
                             | "AttackersDeclaredOneTarget"
+                            | "BecomeMonstrous"
+                            | "BecomesMonstrous"
+                            | "Scry"
                     )
                 ) =>
             {
+                "Amount::EventAmount".to_string()
+            }
+            "TriggerCount$Number" if self.trigger_mode.as_deref() == Some("Scry") => {
                 "Amount::EventAmount".to_string()
             }
             "TriggeredCard$CardPower" | "TriggeredCardLKICopy$CardPower"
@@ -7107,17 +7113,14 @@ impl Tx<'_> {
 
     /// `DB$/AB$/SP$ AlterAttribute | Attributes$ Prepared|Saddled` (CR 723.3 / 702.171).
     pub(super) fn alter_attribute_effect(
+        &mut self,
         p: &mut Params,
         target: Option<&str>,
         targets_here: bool,
         single_target: bool,
     ) -> Option<Vec<String>> {
         let attr = p.take("Attributes")?;
-        if let Some(activate) = p.take("Activate")
-            && activate != "True"
-        {
-            return None;
-        }
+        let activate = p.take("Activate");
         let optional = match p.take("Optional").as_deref() {
             None | Some("False") => false,
             Some("True") => true,
@@ -7125,6 +7128,29 @@ impl Tx<'_> {
         };
         let defined = p.take("Defined");
         let object_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+        if attr == "Suspected" {
+            let unsuspect = match activate.as_deref() {
+                None | Some("True") => false,
+                Some("False") => true,
+                Some(_) => return None,
+            };
+            let target_spec = self.resolve_suspect_target(
+                defined.as_deref(),
+                target,
+                targets_here,
+                object_target,
+            )?;
+            let variant = if unsuspect { "Unsuspect" } else { "Suspect" };
+            let effect = format!("Effect::{variant} {{ target: {target_spec} }}");
+            return Some(vec![if optional {
+                format!("Effect::MayDo {{ effects: &[{effect}] }}")
+            } else {
+                effect
+            }]);
+        }
+        if activate.is_some_and(|v| v != "True") {
+            return None;
+        }
         let effect = match (attr.as_str(), targets_here, defined.as_deref()) {
             ("Prepared", true, None | Some("Targeted")) | ("Prepared", false, Some("Targeted"))
                 if single_target && object_target =>
@@ -7140,6 +7166,42 @@ impl Tx<'_> {
         } else {
             effect.to_string()
         }])
+    }
+
+    fn resolve_suspect_target(
+        &mut self,
+        defined: Option<&str>,
+        target: Option<&str>,
+        targets_here: bool,
+        object_target: bool,
+    ) -> Option<String> {
+        match (targets_here, defined) {
+            (true, None | Some("Targeted")) if object_target => Some(target?.to_string()),
+            (false, Some("Targeted" | "ParentTarget")) if object_target => {
+                Some(target?.to_string())
+            }
+            (false, None | Some("Self")) if !self.on_a_spell && target.is_none() => {
+                Some("TargetSpec::ThisObject".to_string())
+            }
+            (false, Some("Enchanted" | "Equipped")) if !self.on_a_spell && target.is_none() => {
+                Some("TargetSpec::Object(&Filter::AttachedToBySource)".to_string())
+            }
+            (false, Some(d)) if target.is_none() && self.is_event_object_defined(d) => {
+                Some("TargetSpec::EventObject".to_string())
+            }
+            (false, Some(def))
+                if target.is_none()
+                    && def.starts_with("Valid ")
+                    && !def.contains("Remembered")
+                    && !def.contains("Targeted") =>
+            {
+                let valid = def.strip_prefix("Valid ")?.trim();
+                let expr = self.filter_expr(valid)?;
+                let name = self.body.filter_static("SUSPECT", &expr);
+                Some(format!("TargetSpec::Object(&{name})"))
+            }
+            _ => None,
+        }
     }
 
     /// `ChangeZone` from your graveyard to your hand at random.
@@ -9930,6 +9992,18 @@ impl Tx<'_> {
         if !matches!(p.take("CounterNum").as_deref(), None | Some("1")) {
             return None;
         }
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let wrap = |eff: String| {
+            if optional {
+                format!("Effect::MayDo {{ effects: &[{eff}] }}")
+            } else {
+                eff
+            }
+        };
         p.take("IsCurse");
         let raw_kind = p.take("CounterType")?;
         let kind_opt = if raw_kind.eq_ignore_ascii_case("Any") {
@@ -9947,9 +10021,9 @@ impl Tx<'_> {
                 return None;
             }
             let kind_expr = kind_opt.map_or_else(|| "None".to_string(), |k| format!("Some({k})"));
-            return Some(vec![format!(
+            return Some(vec![wrap(format!(
                 "Effect::MoveCounter {{ from: TargetSlot::First, to: TargetSlot::Second, kind: {kind_expr} }}"
-            )]);
+            ))]);
         }
         if source.as_deref() == Some("Self")
             && !self.on_a_spell
@@ -9960,9 +10034,9 @@ impl Tx<'_> {
                 .is_some_and(|d| self.is_event_object_defined(d))
         {
             let kind = kind_opt?;
-            return Some(vec![format!(
+            return Some(vec![wrap(format!(
                 "Effect::MoveCounterToEvent {{ kind: {kind} }}"
-            )]);
+            ))]);
         }
         let is_obj_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
         let (from, to) = match (source.as_deref(), defined.as_deref()) {
@@ -9971,17 +10045,27 @@ impl Tx<'_> {
             {
                 ("TargetSlot::This", "TargetSlot::First")
             }
+            (Some("Self"), Some("Targeted" | "ParentTarget"))
+                if !self.on_a_spell && !targets_here && is_obj_target =>
+            {
+                ("TargetSlot::This", "TargetSlot::First")
+            }
             (None | Some("Targeted"), Some("Self"))
                 if !self.on_a_spell && targets_here && is_obj_target =>
+            {
+                ("TargetSlot::First", "TargetSlot::This")
+            }
+            (Some("Targeted" | "ParentTarget"), Some("Self"))
+                if !self.on_a_spell && !targets_here && is_obj_target =>
             {
                 ("TargetSlot::First", "TargetSlot::This")
             }
             _ => return None,
         };
         let kind_expr = kind_opt.map_or_else(|| "None".to_string(), |k| format!("Some({k})"));
-        Some(vec![format!(
+        Some(vec![wrap(format!(
             "Effect::MoveCounter {{ from: {from}, to: {to}, kind: {kind_expr} }}"
-        )])
+        ))])
     }
 
     pub(super) fn incubate_effect(
@@ -10193,6 +10277,112 @@ impl Tx<'_> {
             };
         }
         None
+    }
+
+    pub(super) fn monstrosity_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if self.on_a_spell
+            || target.is_some()
+            || !matches!(p.take("Defined").as_deref(), None | Some("Self"))
+        {
+            return None;
+        }
+        let raw = p.take("Num").or_else(|| p.take("Amount"))?;
+        let n = self.amount_or_count_ext(&raw)?;
+        Some(vec![format!("Effect::Monstrosity({n})")])
+    }
+
+    pub(super) fn suspect_api_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let unsuspect = match p.take("Activate").as_deref() {
+            None | Some("True") => false,
+            Some("False") => true,
+            Some(_) => return None,
+        };
+        let defined = p.take("Defined");
+        let object_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+        let target_spec =
+            self.resolve_suspect_target(defined.as_deref(), target, targets_here, object_target)?;
+        let variant = if unsuspect { "Unsuspect" } else { "Suspect" };
+        let effect = format!("Effect::{variant} {{ target: {target_spec} }}");
+        Some(vec![if optional {
+            format!("Effect::MayDo {{ effects: &[{effect}] }}")
+        } else {
+            effect
+        }])
+    }
+
+    pub(super) fn radiation_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        let raw = p.take("Num").or_else(|| p.take("Amount"))?;
+        let amount = self.amount_or_count_ext(&raw)?;
+        let who =
+            self.wave11_player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        Some(vec![format!(
+            "Effect::Rad {{ who: {who}, amount: {amount} }}"
+        )])
+    }
+
+    pub(super) fn exchange_control_single_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        single_target: bool,
+    ) -> Option<Vec<String>> {
+        if !targets_here
+            || !single_target
+            || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            || p.has("TargetingPlayer")
+            || p.has("TargetsWithDefinedController")
+            || p.has("TargetsWithSharedCardType")
+            || p.has("TargetsWithSameCardType")
+            || p.has("TargetsWithDifferentControllers")
+            || p.has("RememberExchanged")
+        {
+            return None;
+        }
+        let defined = p.take("Defined")?;
+        if self.is_event_object_defined(&defined) {
+            return Some(vec!["Effect::ExchangeControlOfEventAndTarget".to_string()]);
+        }
+        None
+    }
+
+    pub(super) fn skip_phase_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        p.take("IsCurse");
+        if p.has("Step") || p.has("Duration") || p.has("NumPhases") {
+            return None;
+        }
+        if p.take("Phase").as_deref() != Some("BeginCombat") {
+            return None;
+        }
+        let player =
+            self.wave11_player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        Some(vec![format!(
+            "Effect::SkipNextCombatPhase {{ player: {player} }}"
+        )])
     }
 }
 

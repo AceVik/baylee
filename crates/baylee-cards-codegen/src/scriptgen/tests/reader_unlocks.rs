@@ -1943,9 +1943,14 @@ fn wave7_amass_and_prepare_rules() {
         "Name:Unprepare\nTypes:Creature\nPT:2/2\n\
          A:AB$ AlterAttribute | Cost$ 1 | Attributes$ Prepared | Activate$ False"
     ));
-    assert!(refused(
+    let suspector = read(
         "Name:Suspector\nTypes:Creature\nPT:2/2\n\
-         A:AB$ AlterAttribute | Cost$ 1 | ValidTgts$ Creature | Attributes$ Suspected"
+         A:AB$ AlterAttribute | Cost$ 1 | ValidTgts$ Creature | Attributes$ Suspected",
+    );
+    assert!(suspector.abilities[0].contains("Effect::Suspect { target: TargetSpec::Object("));
+    assert!(refused(
+        "Name:Solver\nTypes:Enchantment\n\
+         A:AB$ AlterAttribute | Cost$ 1 | Attributes$ Solved"
     ));
 }
 
@@ -5288,5 +5293,152 @@ fn wave16c_change_targets_and_sweeps() {
             && perm_reanim.abilities[0].contains("Modifier::AddKeyword(KeywordSet::HASTE)"),
         "{}",
         perm_reanim.abilities[0]
+    );
+}
+
+#[test]
+fn wave17c_wave8b_scry_monstrosity_and_suspect() {
+    for api in [
+        "Monstrosity",
+        "Suspect",
+        "Radiation",
+        "ExchangeControl",
+        "MoveCounter",
+        "LosesGame",
+        "SkipPhase",
+    ] {
+        assert!(crate::scriptgen::is_supported_api(api), "{api}");
+    }
+
+    // Mode$ Scry trigger + TriggerCount$Amount -> EventAmount.
+    let scry_trig = read(
+        "Name:ScrySeer\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Scry | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ P\n\
+         SVar:P:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ X\n\
+         SVar:X:TriggerCount$Amount",
+    );
+    assert!(
+        scry_trig.abilities[0].contains("Trigger::Scried { who: PlayerRel::You }")
+            && scry_trig.abilities[0].contains("Amount::EventAmount"),
+        "{}",
+        scry_trig.abilities[0]
+    );
+
+    // Monstrosity via PutCounter | Monstrosity$ + BecomeMonstrous trigger + IsMonstrous condition.
+    let monster = read(
+        "Name:GorgonMon\nManaCost:3 B B\nTypes:Creature\nPT:2/5\n\
+         A:AB$ PutCounter | Cost$ 5 B B | Monstrosity$ 3\n\
+         T:Mode$ BecomeMonstrous | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ D\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | IsPresent$ Card.Self+IsMonstrous | TriggerZones$ Battlefield | Execute$ Dr\n\
+         SVar:D:DB$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:TriggerCount$Amount\n\
+         SVar:Dr:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        monster.abilities[0].contains("Effect::Monstrosity(Amount::Fixed(3))")
+            && monster.abilities[1].contains("Trigger::BecomesMonstrous")
+            && monster.abilities[1].contains("Amount::EventAmount")
+            && monster.abilities[2].contains("condition = Some(Condition::IsMonstrous)"),
+        "{:?}",
+        monster.abilities
+    );
+
+    // Suspect / Unsuspect via AlterAttribute (Self, Targeted, Valid filter, Branch inline Count$Valid).
+    let suspect_branch = read(
+        "Name:SuspectBranch\nManaCost:1 B\nTypes:Creature\nPT:2/1\n\
+         A:AB$ Branch | Cost$ 2 B | BranchConditionSVar$ Count$Valid Card.Self+IsSuspected | TrueSubAbility$ C | FalseSubAbility$ S\n\
+         SVar:C:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1\n\
+         SVar:S:DB$ AlterAttribute | Attributes$ Suspected",
+    );
+    assert!(
+        suspect_branch.abilities[0].contains("Condition::IsSuspected")
+            && suspect_branch.abilities[0]
+                .contains("Effect::Suspect { target: TargetSpec::ThisObject }"),
+        "{}",
+        suspect_branch.abilities[0]
+    );
+    let unsuspect = read(
+        "Name:Absolver\nManaCost:3 W\nTypes:Sorcery\n\
+         A:SP$ AlterAttribute | Defined$ Valid Creature.OppCtrl | Attributes$ Suspected | Activate$ False",
+    );
+    assert!(
+        unsuspect.abilities[0].contains(
+            "Effect::Unsuspect { target: TargetSpec::Object(&Filter::OPPONENT_CREATURE) }"
+        ),
+        "{}",
+        unsuspect.abilities[0]
+    );
+}
+
+#[test]
+fn wave17c_radiation_exchange_move_lose_skip_and_sweeps() {
+    // Radiation -> Effect::Rad.
+    let rad = read(
+        "Name:RadBlast\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Radiation | ValidTgts$ Player | Num$ 2",
+    );
+    assert!(
+        rad.abilities[0]
+            .contains("Effect::Rad { who: PlayerRel::Chosen, amount: Amount::Fixed(2) }"),
+        "{}",
+        rad.abilities[0]
+    );
+
+    // ExchangeControlOfEventAndTarget vs refused 2-in-1-slot ExchangeControl.
+    let exch = read(
+        "Name:SwapAura\nManaCost:3 R\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Artifact | TriggerZones$ Battlefield | Execute$ E\n\
+         SVar:E:DB$ ExchangeControl | Defined$ TriggeredCard | ValidTgts$ Artifact.OppCtrl",
+    );
+    assert!(
+        exch.abilities[0].contains("Effect::ExchangeControlOfEventAndTarget"),
+        "{}",
+        exch.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadTwoTargetSwap\nManaCost:3 U\nTypes:Sorcery\n\
+         A:SP$ ExchangeControl | TargetMin$ 2 | TargetMax$ 2 | ValidTgts$ Creature"
+    ));
+
+    // Optional MoveCounterToEvent + LoseGame + SkipNextCombatPhase + dynamic Scry + optional Draw + RemoveAllCountersSelf.
+    let opt_move = read(
+        "Name:GraftMove\nManaCost:2 G\nTypes:Creature\nPT:0/0\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.Other | TriggerZones$ Battlefield | Execute$ M\n\
+         SVar:M:DB$ MoveCounter | Source$ Self | Defined$ TriggeredCardLKICopy | CounterType$ P1P1 | CounterNum$ 1 | Optional$ True",
+    );
+    assert!(
+        opt_move.abilities[0].contains(
+            "Effect::MayDo { effects: &[Effect::MoveCounterToEvent { kind: CounterKind::P1P1 }] }"
+        ),
+        "{}",
+        opt_move.abilities[0]
+    );
+    let lose_skip = read(
+        "Name:PactRisk\nManaCost:1 B\nTypes:Instant\n\
+         A:SP$ SkipPhase | ValidTgts$ Opponent | Phase$ BeginCombat | IsCurse$ True | SubAbility$ L\n\
+         SVar:L:DB$ LosesGame | Defined$ You",
+    );
+    assert!(
+        lose_skip.abilities[0]
+            .contains("Effect::SkipNextCombatPhase { player: PlayerRel::Chosen }")
+            && lose_skip.abilities[0].contains("Effect::LoseGame"),
+        "{}",
+        lose_skip.abilities[0]
+    );
+    assert!(refused(
+        "Name:SkipUntapBad\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ SkipPhase | ValidTgts$ Opponent | Step$ Untap"
+    ));
+    let dyn_scry = read(
+        "Name:SnowScry\nManaCost:3 U U\nTypes:Instant\n\
+         A:SP$ Scry | ScryNum$ X | SubAbility$ D\n\
+         SVar:D:DB$ Draw | Defined$ You | NumCards$ 1 | Optional$ True\n\
+         SVar:X:Count$CastTotalManaSpent Snow",
+    );
+    assert!(
+        dyn_scry.abilities[0].contains("Effect::Scry { amount: Amount::SnowManaSpentToCast }")
+            && dyn_scry.abilities[0].contains("Effect::MayDo { effects: &[Effect::draw(1)] }"),
+        "{}",
+        dyn_scry.abilities[0]
     );
 }

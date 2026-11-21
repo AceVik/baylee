@@ -1010,6 +1010,52 @@ impl Tx<'_> {
             } else {
                 "Condition::Not(&Condition::WarpCostPaid)".to_string()
             }
+        } else if matches!(p.peek("ConditionDefined"), None | Some("Self"))
+            && !p.has("PresentPlayer")
+            && !p.has("PresentZone")
+            && matches!(
+                p.peek("ConditionPresent"),
+                Some(
+                    "Card.Self+IsMonstrous"
+                        | "Card.IsMonstrous"
+                        | "Card.Self+!IsMonstrous"
+                        | "Card.!IsMonstrous"
+                        | "Card.Self+monstrous"
+                        | "Card.monstrous"
+                        | "Card.Self+!monstrous"
+                        | "Card.!monstrous"
+                        | "Card.Self+IsSuspected"
+                        | "Card.IsSuspected"
+                        | "Card.Self+!IsSuspected"
+                        | "Card.!IsSuspected"
+                        | "Card.Self+suspected"
+                        | "Card.suspected"
+                        | "Card.Self+!suspected"
+                        | "Card.!suspected"
+                )
+            )
+        {
+            let valid = p.take("ConditionPresent").expect("checked above");
+            p.take("ConditionDefined");
+            let cmp = p.take("PresentCompare");
+            let base = if valid.to_ascii_lowercase().contains("monstrous") {
+                "Condition::IsMonstrous"
+            } else {
+                "Condition::IsSuspected"
+            };
+            let positive_present = !valid.contains('!');
+            let positive = match cmp.as_deref() {
+                None | Some("GE1" | "EQ1" | "GT0") => positive_present,
+                Some("EQ0" | "LT1") => !positive_present,
+                Some(other) => {
+                    return self.deny(format!("monstrous/suspected condition compared `{other}`"));
+                }
+            };
+            if positive {
+                base.to_string()
+            } else {
+                format!("Condition::Not(&{base})")
+            }
         } else if p.peek("ConditionDefined") == Some("Self")
             && !p.has("PresentPlayer")
             && !p.has("PresentZone")
@@ -1826,9 +1872,22 @@ impl Tx<'_> {
             "ChangeTargets" => {
                 self.change_targets_effect(p, target, targets_here, single_target)?
             }
+            "Monstrosity" => self.monstrosity_effect(p, target)?,
+            "Suspect" => self.suspect_api_effect(p, target, targets_here)?,
+            "Radiation" => self.radiation_effect(p, target, targets_a_player)?,
+            "ExchangeControl" => {
+                self.exchange_control_single_effect(p, target, targets_here, single_target)?
+            }
+            "SkipPhase" => self.skip_phase_effect(p, target, targets_a_player)?,
+            "LosesGame" => {
+                if targets_here || targets_a_player || p.take("Defined").as_deref() != Some("You") {
+                    return None;
+                }
+                vec!["Effect::LoseGame".to_string()]
+            }
             "MoveCounter" => self.move_counter_effect(p, target, targets_here, false)?,
             "AlterAttribute" => {
-                Self::alter_attribute_effect(p, target, targets_here, single_target)?
+                self.alter_attribute_effect(p, target, targets_here, single_target)?
             }
             "BecomeMonarch" => self.become_monarch_effect(p, target, targets_a_player)?,
             "NameCard" => {
@@ -2193,11 +2252,19 @@ impl Tx<'_> {
             // player draws X cards".
             "Draw" => {
                 let n = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))?;
-                let may = match p.take("OptionalDecider").as_deref() {
+                let mut may = match p.take("OptionalDecider").as_deref() {
                     None => false,
                     Some("You") => true,
                     Some(_) => return None,
                 };
+                if !may
+                    && !targets_a_player
+                    && matches!(p.peek("Defined"), None | Some("You"))
+                    && p.peek("Optional") == Some("True")
+                {
+                    p.take("Optional");
+                    may = true;
+                }
                 if p.peek("Defined") == Some("TargetedAndYou") && targets_a_player {
                     p.take("Defined");
                     let you_draw = if let Some(fixed) = n
@@ -2396,6 +2463,16 @@ impl Tx<'_> {
                 vec![format!("Effect::Bolster({n})")]
             }
             "PutCounter" => {
+                if let Some(monstrosity) = p.take("Monstrosity") {
+                    if self.on_a_spell
+                        || target.is_some()
+                        || !matches!(p.take("Defined").as_deref(), None | Some("Self"))
+                    {
+                        return None;
+                    }
+                    let n = self.amount_or_count_ext(&monstrosity)?;
+                    return Some(vec![format!("Effect::Monstrosity({n})")]);
+                }
                 if let Some(adapt) = p.take("Adapt") {
                     if self.on_a_spell
                         || target.is_some()
@@ -2752,7 +2829,7 @@ impl Tx<'_> {
                 let all = p.peek("CounterNum") == Some("All");
                 let n = if all {
                     p.take("CounterNum");
-                    if p.take("RememberRemoved").as_deref() != Some("True") {
+                    if !matches!(p.take("RememberRemoved").as_deref(), None | Some("True")) {
                         return None;
                     }
                     0
@@ -2777,8 +2854,16 @@ impl Tx<'_> {
                 }
             }
             "Scry" => {
-                let n = self.plain_num(p.take("ScryNum").as_deref().unwrap_or("1"))?;
-                vec![format!("Effect::scry({n})")]
+                if !matches!(p.take("Defined").as_deref(), None | Some("You")) {
+                    return None;
+                }
+                let raw = p.take("ScryNum").unwrap_or_else(|| "1".to_string());
+                if let Some(n) = self.plain_num(&raw) {
+                    vec![format!("Effect::scry({n})")]
+                } else {
+                    let n = self.amount_or_count_ext(&raw)?;
+                    vec![format!("Effect::Scry {{ amount: {n} }}")]
+                }
             }
             "Surveil" => {
                 // `Amount$` and never `Defined$`: not one of the reference
@@ -2805,6 +2890,7 @@ impl Tx<'_> {
                     .svar_condition(&var, &cmp)
                     .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
                     .or_else(|| self.wave7_svar_condition(&var, &cmp))
+                    .or_else(|| Self::wave16_svar_condition(var.trim(), &cmp))
                     .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, true))?;
                 let true_sub = p.take("TrueSubAbility")?;
                 let false_sub = p.take("FalseSubAbility")?;
@@ -4130,7 +4216,14 @@ impl Tx<'_> {
     /// alternative-cost & opponent-life-loss clauses.
     #[allow(clippy::too_many_lines)]
     pub(super) fn wave7_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
-        let raw = self.svars.get(var.trim())?.trim();
+        let trimmed = var.trim();
+        let raw = if let Some(body) = self.svars.get(trimmed) {
+            body.trim()
+        } else if trimmed.starts_with("Count$") {
+            trimmed
+        } else {
+            return None;
+        };
         let cmp = cmp.trim();
         match raw {
             "Count$AltCost.1.0" | "Count$AltCost" => match cmp {
