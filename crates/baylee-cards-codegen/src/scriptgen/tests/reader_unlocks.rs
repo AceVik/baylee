@@ -4075,13 +4075,17 @@ fn wave12c_remembered_zone_changes_and_exiled_with_guard() {
 
     let thresh_search = read(
         "Name:DeepWander\nManaCost:2 G\nTypes:Sorcery\n\
+         Oracle:Search your library for a Plains card. Threshold — If there are seven or more cards in your graveyard, instead search your library for up to three Plains cards.\n\
          A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.Basic | Tapped$ True | ChangeNum$ X\n\
          SVar:X:Count$Threshold.3.1",
     );
     assert!(
         thresh_search.abilities[0].contains("Condition::GraveyardCountAtLeast(7)")
             && thresh_search.abilities[0].contains(
-                "Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED"
+                "then: &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED], optional: true }]"
+            )
+            && thresh_search.abilities[0].contains(
+                "otherwise: &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD_TAPPED], optional: false }]"
             ),
         "{}",
         thresh_search.abilities[0]

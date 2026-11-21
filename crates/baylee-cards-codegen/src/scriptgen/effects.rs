@@ -5003,6 +5003,10 @@ impl Tx<'_> {
                 return None;
             }
         }
+        let up_to = self
+            .oracle
+            .to_ascii_lowercase()
+            .contains("search your library for up to ");
         let raw_num = p.take("ChangeNum");
         if let Some(var) = raw_num.as_deref()
             && let Some(pair) = self
@@ -5016,18 +5020,19 @@ impl Tx<'_> {
             && !any_number
         {
             let filter = self.filter_expr_in_zone(&p.take("ChangeType")?, true)?;
-            if filter == "Filter::Any" && !optional && !mandatory && (hi > 1 || lo > 1) {
-                return None;
-            }
+            let optional_hi =
+                self.resolve_search_optional(hi, &filter, optional, mandatory, up_to)?;
+            let optional_lo =
+                self.resolve_search_optional(lo, &filter, optional, mandatory, up_to)?;
             let name = self.body.filter_static("SEARCH", &filter);
             let finds_hi = vec![find.as_str(); hi].join(", ");
             let finds_lo = vec![find.as_str(); lo].join(", ");
             return Some(vec![format!(
                 "Effect::IfCondition {{ condition: Condition::GraveyardCountAtLeast(7), \
                  then: &[Effect::SearchLibrary {{ filter: &{name}, finds: &[{finds_hi}], \
-                 optional: {optional} }}], \
+                 optional: {optional_hi} }}], \
                  otherwise: &[Effect::SearchLibrary {{ filter: &{name}, finds: &[{finds_lo}], \
-                 optional: {optional} }}] }}"
+                 optional: {optional_lo} }}] }}"
             )]);
         }
         let count = self.plain_num(raw_num.as_deref().unwrap_or("1"))?;
@@ -5036,41 +5041,39 @@ impl Tx<'_> {
             self.note(format!("`ChangeZone` finding {count} cards"));
             return None;
         }
-        // "Search your library for **up to** two basic land cards" and
-        // "search your library for three cards and reveal them" are two
-        // different cards, and above a count of one the difference is what
-        // the player is allowed to find — `optional` is exactly that flag.
-        //
-        // The script does not always say which it is. Measured over the
-        // reference: 137 lines search a library for more than one card, and
-        // of the 135 that carry no `Optional$`, 70 print "up to" and 65 do
-        // not — identical fields, opposite cards. `Mandatory$ True` does
-        // separate one side cleanly (36 lines, **none** of them "up to"),
-        // so a script that says either word is read and a script that says
-        // neither is refused. Reading the absence of a field as "up to"
-        // would be an inference rather than a reading, and it would have
-        // written Blighted Woodland — "up to two" — as a card that must
-        // find both.
-        let optional = optional
-            || (count > 1
-                && !mandatory
-                && self
-                    .oracle
-                    .to_ascii_lowercase()
-                    .contains("search your library for up to "));
-        if count > 1 && !optional && !mandatory {
-            self.note(
-                "`ChangeZone` finding several cards without saying whether that is a maximum"
-                    .to_string(),
-            );
-            return None;
-        }
         let filter = self.filter_expr_in_zone(&p.take("ChangeType")?, true)?;
+        let optional = self.resolve_search_optional(count, &filter, optional, mandatory, up_to)?;
         let name = self.body.filter_static("SEARCH", &filter);
         let finds = vec![find.as_str(); count].join(", ");
         Some(vec![format!(
             "Effect::SearchLibrary {{ filter: &{name}, finds: &[{finds}], optional: {optional} }}"
         )])
+    }
+
+    /// Resolve whether a `SearchLibrary` branch of `count` cards may settle for
+    /// fewer than `count` (CR 701.23b vs CR 701.23d).
+    fn resolve_search_optional(
+        &mut self,
+        count: usize,
+        filter: &str,
+        optional: bool,
+        mandatory: bool,
+        up_to: bool,
+    ) -> Option<bool> {
+        if count <= 1 {
+            return Some(optional);
+        }
+        let branch_opt = optional || (!mandatory && up_to);
+        if branch_opt || (mandatory && filter == "Filter::Any") {
+            return Some(branch_opt);
+        }
+        let msg = if mandatory {
+            "`ChangeZone` requiring multiple cards with a stated quality"
+        } else {
+            "`ChangeZone` finding several cards without saying whether that is a maximum"
+        };
+        self.note(msg.to_string());
+        None
     }
 
     fn reveal_library_search(&mut self, p: &mut Params) -> Option<Vec<String>> {

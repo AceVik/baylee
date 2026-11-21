@@ -37,7 +37,6 @@
 //! index is its place in that order. The card and face go out through
 //! [`pick`], which is the door every chooser press goes through.
 
-use baylee_client_core::card_face::TextBlock;
 use baylee_client_core::deckbuilder::PoolCard;
 use baylee_client_core::i18n::{Lang, Phrase, seat_name};
 use baylee_client_core::interaction::{Interaction, Prompt};
@@ -145,13 +144,6 @@ fn card_sentence(
         of: found.of,
     };
     let blocks = crate::cardtext::sentence(texts, card, printed)?;
-    let said: Vec<&str> = blocks
-        .iter()
-        .filter_map(|block| match block {
-            TextBlock::Rules(text) => Some(text.as_str()),
-            TextBlock::Reminder(_) => None,
-        })
-        .collect();
     // The bullet a modal card lists its modes under is the list's mark and
     // not the mode's words — the row is already one of several.
     //
@@ -161,7 +153,7 @@ fn card_sentence(
     // German, French, Spanish and Italian, and `・` in Japanese. The index
     // is computed against the English text and is unaffected; only what the
     // row draws is.
-    let said = said.join(" ");
+    let said = crate::cardtext::join_rules(&blocks);
     let said = without_spree_cost(
         said.trim_start_matches(['\u{2022}', '*', '\u{30fb}', ' '])
             .trim(),
@@ -1524,14 +1516,7 @@ pub(crate) fn target_explanation(
         }
     });
     if let Some(blocks) = blocks {
-        let text = blocks
-            .iter()
-            .filter_map(|b| match b {
-                baylee_client_core::card_face::TextBlock::Rules(s) => Some(s.as_str()),
-                baylee_client_core::card_face::TextBlock::Reminder(_) => None,
-            })
-            .collect::<Vec<_>>()
-            .join(" ");
+        let text = crate::cardtext::join_rules(&blocks);
         if !text.is_empty() {
             lines.push(text);
         }

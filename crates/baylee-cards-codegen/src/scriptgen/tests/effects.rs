@@ -429,6 +429,40 @@ fn a_library_change_zone_is_a_search() {
     );
 }
 
+#[test]
+fn threshold_and_stated_quality_searches_honor_optional_rules() {
+    let threshold = read(
+        "Name:ThresholdSearch\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | Tapped$ True | \
+         ChangeType$ Land.Basic | ChangeNum$ NumLands\n\
+         SVar:NumLands:Count$Threshold.3.1\n\
+         Oracle:Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\\nThreshold — If there are seven or more cards in your graveyard, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",
+    );
+    let rendered = threshold.abilities.join("");
+    assert!(
+        rendered.contains(
+            "then: &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED, Find::BATTLEFIELD_TAPPED], optional: true }]"
+        ),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains(
+            "otherwise: &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD_TAPPED], optional: false }]"
+        ),
+        "{rendered}"
+    );
+
+    let stated_mandatory = parse(
+        "Name:StrictQualitySearch\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | \
+         ChangeNum$ 2 | Mandatory$ True | ChangeType$ Land.Basic",
+    );
+    assert_eq!(
+        refusal_reason(&stated_mandatory, &cats(), None).as_deref(),
+        Some("`ChangeZone` requiring multiple cards with a stated quality")
+    );
+}
+
 /// `ChangeTypeDesc$` restates the filter beside it for a human, and is
 /// claimed only while that filter is there to carry the meaning.
 ///

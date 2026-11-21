@@ -256,15 +256,7 @@ pub(in crate::hud) fn heading(
 /// front of it and the space that was behind it, and two spaces in the
 /// middle of a one-line heading read as a missing word.
 pub(in crate::hud) fn ability_line(blocks: &[TextBlock]) -> Option<String> {
-    let joined = blocks
-        .iter()
-        .filter_map(|block| match block {
-            TextBlock::Rules(text) => Some(text.as_str()),
-            TextBlock::Reminder(_) => None,
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
-    let line = joined.split_whitespace().collect::<Vec<_>>().join(" ");
+    let line = crate::cardtext::join_rules(blocks);
     (!line.is_empty()).then_some(line)
 }
 

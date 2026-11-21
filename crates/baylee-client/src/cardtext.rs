@@ -73,6 +73,26 @@ pub fn token_sentence_in(
         .or_else(|| token_sentence(token, index))
 }
 
+/// Joins [`TextBlock::Rules`] runs of a sentence, dropping reminder text
+/// without inserting a space before trailing punctuation (e.g.
+/// `"You get {E}{E}{E} (three energy counters)."` -> `"You get {E}{E}{E}."`).
+#[must_use]
+pub(crate) fn join_rules(blocks: &[TextBlock]) -> String {
+    let mut out = String::new();
+    for block in blocks {
+        let TextBlock::Rules(text) = block else {
+            continue;
+        };
+        for word in text.split_whitespace() {
+            if !out.is_empty() && !word.starts_with(['.', ',', ';', ':', '!', '?', ')', ']']) {
+                out.push(' ');
+            }
+            out.push_str(word);
+        }
+    }
+    out
+}
+
 /// Where the fetch callback leaves its answer.
 ///
 /// A channel would be the obvious choice, but `Receiver` is not `Sync` and a

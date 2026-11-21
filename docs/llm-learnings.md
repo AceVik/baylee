@@ -6,6 +6,15 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Beat 11: Engine Wave 7a (`a2bb95d64`), `SearchLibrary` `CR 701.23b` Fix & Client `join_rules`
+
+- **Engine Wave 7a (`5c00a087c`, merged as `a2bb95d64`, `Reviewed-by: gemini-4-argon-high (#410), pass`)**:
+  - Landed `ChooseMove::ExileLinked` (`CR 610.3a–b`, unblocking `#349`/`#350` linked exile without triggering `#349` on unlinked `Exile`), `EnterModifier::WithCountersIf` (`Condition`, conditional ETB counters for `105` `etbCounter` scripts), `KeywordSet::IMPENDING` + `FaceDef::impending` + `Rider::ImpendingPaid` (hash tag `181`, `CR 702.176`), and `FaceDef::gift` + `GiftKind` + `Rider::GiftPromisedTo` (hash tag `182`) + `Condition::GiftWasPromised` + `Effect::DeliverGift` + `Trigger::GaveGift` (`CR 702.174`), bumping `PROTOCOL_VERSION = 58` (`VIEW_VERSION = 101`).
+- **Two pool/client invariants caught and closed on `19,800`-card merge**:
+  - `crates/baylee-cards-codegen/src/scriptgen/effects.rs::resolve_search_optional`: enforced `CR 701.23b` / `CR 701.23d` uniformly across both `Count$Threshold.<hi>.<lo>` and plain-count `SearchLibrary` paths, regenerating `crates/cards/sets/2002/src/tor/far_wanderings.rs` (`optional: false` -> `true` on the 3-card `then` branch) and passing `baylee-engine` `vocabulary_tests::only_a_quantity_only_search_may_require_an_exact_count`.
+  - `crates/baylee-client/src/cardtext.rs::join_rules`: shared rule-block joiner stripping mid-sentence reminder blocks without inserting a space before punctuation (`choices.rs`, `hud/stack/sentence.rs::ability_line`), fixing `choices::tests::every_mode_in_the_pool_is_a_row_in_the_card_s_words` for MH3 *Inspired Inventor* (`"You get {E}{E}{E}."`).
+- **Verified (`task-4609`, `task-4642`, `task-4723`, `task-4735`)**: `2x codegen --scripts` (`19,800` cards, `1,203` tokens), `codegen --tables --check`, `validate`, `fmt --check`, `baylee-cards-dsl`, `baylee-view` + `hostile_frames` (`9/9`), `baylee-protocol`, `baylee-engine` (`offer_tests::`, `keyword_tests::`, `vocabulary_tests::`, `wave7a_impending_gift_linked_counters::` `60/60`, `footprint` `2/2`, `hostile_actions` `15/15`), `baylee-gamehost --lib` (`191/191`) + `integration` (`generation_pins:: reference_profile:: ai_decisions:: ai_target_sides::` `53/53`), `baylee-cards --lib` (`169/169`), `baylee-cards-codegen` (`687/687` + integration), `baylee-ai --lib` (`432/432`), `baylee-seat` `narrator::tests::` (`138/138`), `baylee-client-core --lib` (`2,679/2,679`), `baylee-client --lib` (`230/230`), `baylee-train --lib` (`84/84`), `xtask` (`150/150`), and 13-crate `clippy --all-targets -- -D warnings` (`0` warnings).
+
 ## 2026-11-21 — Beat 10: Codegen Wave 13a–13c (`36f7fa3a8`) & Pass E6 + E7 (`19,800` Conforming / `18,601` Playable)
 
 - **Pass E6 + E7 + Wave 13 Reconvergence (`d59a1c2ea`, `4f94eb054`, `d75ec6f2f`, `95c3d9ff6`, reviewed `PASS` `#352/#377/#391`)**:

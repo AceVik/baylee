@@ -28,7 +28,7 @@ card!(
                 Find::BATTLEFIELD_TAPPED,
                 Find::BATTLEFIELD_TAPPED
             ],
-            optional: false
+            optional: true
         }],
         otherwise: &[Effect::SearchLibrary {
             filter: &SEARCH1,
