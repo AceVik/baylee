@@ -20,7 +20,7 @@ card!(
     scryfall_id = "77af9d28-1639-47bd-b925-7f3d2eefd352",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HASTE.union(KeywordSet::TRAMPLE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skizzik",
         mana_cost = mana!("{3}{R}"),

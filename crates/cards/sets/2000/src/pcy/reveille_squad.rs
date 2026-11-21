@@ -15,7 +15,7 @@ card!(
     oracle_id = "2531eb1a-ae24-450a-b8e8-dbbd65eaad64",
     scryfall_id = "8f6385bb-18f9-461b-b541-3c2a5e59189b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reveille Squad",
         mana_cost = mana!("{2}{W}{W}"),

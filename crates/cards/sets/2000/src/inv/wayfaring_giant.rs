@@ -11,7 +11,7 @@ card!(
     oracle_id = "e20e5ad9-36b5-4962-acc2-555d069c5daf",
     scryfall_id = "57e45de5-0e8b-41d3-979b-ec5a29cac682",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wayfaring Giant",
         mana_cost = mana!("{5}{W}"),

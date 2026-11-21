@@ -14,7 +14,7 @@ card!(
     oracle_id = "b0a0c17b-87c8-4610-adca-5e7f5ced49f6",
     scryfall_id = "39692846-0819-42a3-af25-d9e3a4233b52",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tidal Courier",
         mana_cost = mana!("{3}{U}"),

@@ -15,7 +15,7 @@ card!(
     oracle_id = "c39c1604-3bae-454d-9985-85101e51ec6e",
     scryfall_id = "92adcf6c-ab14-414c-a5cb-56feae048c84",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vodalian Serpent",
         mana_cost = mana!("{3}{U}"),

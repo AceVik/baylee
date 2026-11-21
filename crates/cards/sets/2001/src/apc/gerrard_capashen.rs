@@ -19,7 +19,7 @@ card!(
     scryfall_id = "447c8c98-ac0e-4a12-a99e-f75d82b7a51f",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Gerrard Capashen",
         mana_cost = mana!("{3}{W}{W}"),

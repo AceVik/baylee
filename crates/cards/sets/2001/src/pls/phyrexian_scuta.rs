@@ -12,7 +12,7 @@ card!(
     oracle_id = "af2845cf-8770-4efa-8a83-bf9eb4122b78",
     scryfall_id = "5b5b3b5c-121a-406e-a31a-537991309399",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phyrexian Scuta",
         mana_cost = mana!("{3}{B}"),

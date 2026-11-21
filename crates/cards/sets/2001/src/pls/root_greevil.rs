@@ -11,7 +11,7 @@ card!(
     oracle_id = "e43b25be-fe67-4eaa-80df-85718f38f904",
     scryfall_id = "306e3429-b3b4-4186-935b-18cfc308d22c",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Root Greevil",
         mana_cost = mana!("{3}{G}"),

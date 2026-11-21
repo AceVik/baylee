@@ -12,7 +12,7 @@ card!(
     oracle_id = "3b78b672-7773-44c6-9a21-f89c058966ff",
     scryfall_id = "324bc757-9942-4862-b691-5af42e07f682",
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stratadon",
         mana_cost = mana!("{10}"),

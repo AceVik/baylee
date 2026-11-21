@@ -15,7 +15,7 @@ card!(
     scryfall_id = "38138bb4-25ea-4aaf-8b1c-e9e60678fc6b",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enlistment Officer",
         mana_cost = mana!("{3}{W}"),

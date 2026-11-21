@@ -24,7 +24,7 @@ card!(
     scryfall_id = "1fb726e8-162d-4143-9778-32476c0e1ab1",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING.union(KeywordSet::VIGILANCE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wayward Angel",
         mana_cost = mana!("{4}{W}{W}"),
