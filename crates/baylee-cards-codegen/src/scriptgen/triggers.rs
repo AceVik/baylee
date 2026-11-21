@@ -152,6 +152,44 @@ impl Tx<'_> {
         Some(format!("Trigger::SpellCast(&{filter})"))
     }
 
+    /// `T:Mode$ SpellCastOrCopy` — magecraft ("whenever a player casts or
+    /// copies a matching spell", CR 707.10).
+    fn spell_cast_or_copy_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
+        if !zoned {
+            return self.deny("a `SpellCastOrCopy` trigger with no `TriggerZones$`".to_string());
+        }
+        let valid = match p.take("ValidCard") {
+            Some(valid) => valid,
+            None if p.has("ValidActivatingPlayer") => "Card".to_string(),
+            None => {
+                return self.deny("a `SpellCastOrCopy` trigger with no `ValidCard$`".to_string());
+            }
+        };
+        if valid.split(['.', '+', ',']).any(|atom| atom == "Self") {
+            return self.deny("a `SpellCastOrCopy` trigger on the card itself".to_string());
+        }
+        let whose = match p.take("ValidActivatingPlayer").as_deref() {
+            None | Some("Player") => "",
+            Some("You") => ".YouCtrl",
+            Some("Opponent" | "Player.Opponent") => ".OppCtrl",
+            Some(other) => {
+                return self.deny(format!("a spell cast or copied by `{other}`"));
+            }
+        };
+        let valid = if whose.is_empty() {
+            valid
+        } else {
+            valid
+                .split(',')
+                .map(|alt| format!("{alt}{whose}"))
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        let expr = self.filter_expr_in_zone(&valid, true)?;
+        let filter = self.body.filter_static("TRIGGER", &expr);
+        Some(format!("Trigger::SpellCastOrCopied(&{filter})"))
+    }
+
     #[allow(clippy::too_many_lines)]
     fn spell_cast_targeting_trigger(
         &mut self,
@@ -552,6 +590,7 @@ impl Tx<'_> {
             "Exerted" => self.exerted_trigger(p),
             "Enlisted" => self.enlisted_trigger(p),
             "BecomesPlotted" | "Plotted" => self.plotted_trigger(p),
+            "SpellCastOrCopy" => self.spell_cast_or_copy_trigger(p, zoned),
             "ChangesZoneAll" => self.changes_zone_all_trigger(p),
             "Sacrificed" => self.sacrificed_trigger(p),
             "Attacked" => self.player_attacked_trigger(p),
@@ -2578,6 +2617,7 @@ impl Tx<'_> {
                 mode,
                 "ChangesZone"
                     | "SpellCast"
+                    | "SpellCastOrCopy"
                     | "Attacks"
                     | "Blocks"
                     | "DamageDone"
@@ -3130,7 +3170,8 @@ impl Tx<'_> {
             | "RolledDie"
             | "SearchedLibrary"
             | "BecomesPlotted"
-            | "Plotted" => true,
+            | "Plotted"
+            | "SpellCastOrCopy" => true,
             "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" | "Enlisted"
             | "Sacrificed" => non_self,
             "ChangesZoneAll" => non_self_cards,

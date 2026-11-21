@@ -708,6 +708,35 @@ impl Tx<'_> {
                 "Effect::continuous(&Filter::Any, Modifier::PlayerHexproof {{ who: PlayerRel::You }}, {duration})"
             )]);
         }
+        if !second
+            && p.peek("PumpZone") == Some("Graveyard")
+            && p.peek("KW").map(str::trim) == Some("Flashback")
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+            && target.starts_with("TargetSpec::CardInGraveyard(")
+        {
+            if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn"))
+                || !matches!(
+                    p.take("Defined").as_deref(),
+                    None | Some("Targeted" | "ParentTarget")
+                )
+            {
+                return None;
+            }
+            p.take("PumpZone");
+            p.take("KW");
+            p.take("IsCurse");
+            return Some(vec!["Effect::GrantFlashback".to_string()]);
+        }
+        if !second
+            && !p.has("DefinedKW")
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+            && p.peek("KW")
+                .is_some_and(|kw| kw.trim().starts_with("Protection:"))
+        {
+            return self.pump_protection_effect(p, target);
+        }
         let power = self.pump_side_ext(p.take("NumAtt").as_deref().unwrap_or("0"))?;
         let toughness = self.pump_side_ext(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let (keywords, prevent_mods) = match p.take("KW") {
@@ -1036,19 +1065,92 @@ impl Tx<'_> {
 
     /// `PumpAll`: `ValidCards$ Creature.blocking | NumAtt$ +1 | NumDef$ +1`,
     /// pumping every permanent on the battlefield that matches `ValidCards$`.
+    fn pump_protection_spec(&mut self, kw: &str) -> Option<String> {
+        let rest = kw.trim().strip_prefix("Protection:")?;
+        let spec = rest.split(':').next()?.trim();
+        if spec.is_empty()
+            || spec.contains('&')
+            || spec.contains("Player")
+            || spec.contains("Spell")
+            || spec.contains("Chosen")
+            || spec.contains("Remembered")
+            || spec.contains("EffectSource")
+            || spec.contains("Triggered")
+        {
+            return None;
+        }
+        let expr = self.filter_expr(spec)?;
+        Some(self.body.filter_static("PROT", &expr))
+    }
+
+    fn pump_protection_effect(&mut self, p: &mut Params, target: &str) -> Option<Vec<String>> {
+        let kw = p.take("KW")?;
+        let from = self.pump_protection_spec(&kw)?;
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("Permanent") => "Duration::Indefinitely",
+            Some(_) => return None,
+        };
+        p.take("IsCurse");
+        let ctor = match p.take("Defined").as_deref() {
+            None | Some("Targeted" | "ParentTarget")
+                if target.starts_with("TargetSpec::Object(") =>
+            {
+                "ModifyTargets"
+            }
+            Some("Self") if !self.on_a_spell => "ModifySource",
+            None if target == "TargetSpec::AnyPlayer" && !self.on_a_spell => "ModifySource",
+            _ => return None,
+        };
+        Some(vec![format!(
+            "Effect::{ctor} {{ modifier: Modifier::ProtectionFrom(&{from}), duration: {duration} }}"
+        )])
+    }
+
+    fn pump_all_graveyard_flashback(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn")) {
+            return None;
+        }
+        p.take("PumpZone");
+        p.take("KW");
+        p.take("IsCurse");
+        let valid = p.take("ValidCards")?;
+        let mut rewritten = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() || alt.contains("OppCtrl") || alt.contains("OppOwn") {
+                return None;
+            }
+            if !alt.contains("YouCtrl") && !alt.contains("YouOwn") {
+                return None;
+            }
+            rewritten.push(alt.replace("YouCtrl", "YouOwn"));
+        }
+        let base = self.filter_expr_in_zone(&rewritten.join(","), true)?;
+        let expr = format!("Filter::And(&[{base}, Filter::InZone(ZoneRef::Graveyard)])");
+        let filter = self.body.filter_static("FLASHBACK", &expr);
+        Some(vec![format!(
+            "Effect::continuous(&{filter}, Modifier::GrantsFlashback, Duration::UntilEndOfTurn)"
+        )])
+    }
+
+    #[allow(clippy::too_many_lines)]
     pub(super) fn pump_all_effect(
         &mut self,
         p: &mut Params,
         target: Option<&str>,
         targets_here: bool,
         targets_a_player: bool,
+        prior_target_used: bool,
     ) -> Option<Vec<String>> {
         if p.peek("KW").map(str::trim)
             == Some("HIDDEN This card doesn't untap during your next untap step.")
             && p.peek("Duration") == Some("Permanent")
             && !p.has("NumAtt")
             && !p.has("NumDef")
-            && target.is_none()
+            && !targets_here
+            && (target.is_none() || prior_target_used)
             && p.peek("Defined").is_none()
         {
             p.take("KW");
@@ -1061,13 +1163,49 @@ impl Tx<'_> {
                 "Effect::SuppressUntap {{ target: TargetSpec::Object(&{name}), steps: 1 }}"
             )]);
         }
+        if p.peek("PumpZone") == Some("Graveyard")
+            && p.peek("KW").map(str::trim) == Some("Flashback")
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+            && !targets_here
+            && (target.is_none() || prior_target_used)
+            && p.peek("Defined").is_none()
+        {
+            return self.pump_all_graveyard_flashback(p);
+        }
+        if !p.has("DefinedKW")
+            && !p.has("NumAtt")
+            && !p.has("NumDef")
+            && !targets_here
+            && (target.is_none() || prior_target_used)
+            && p.peek("Defined").is_none()
+            && p.peek("KW")
+                .is_some_and(|kw| kw.trim().starts_with("Protection:"))
+        {
+            let kw = p.take("KW")?;
+            let from = self.pump_protection_spec(&kw)?;
+            let valid = p.take("ValidCards")?;
+            let duration = match p.take("Duration").as_deref() {
+                None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+                Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+                Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+                Some("Permanent") => "Duration::Indefinitely",
+                Some(_) => return None,
+            };
+            p.take("IsCurse");
+            let expr = self.filter_expr(&valid)?;
+            let filter = self.body.filter_static("PUMP_ALL", &expr);
+            return Some(vec![format!(
+                "Effect::continuous(&{filter}, Modifier::ProtectionFrom(&{from}), {duration})"
+            )]);
+        }
         let defined = p.take("Defined");
         let controlled_by = if target == Some("TargetSpec::Player(PlayerRel::Chosen)")
             && ((targets_a_player && matches!(defined.as_deref(), None | Some("Targeted")))
                 || (!targets_here && defined.as_deref() == Some("Targeted")))
         {
             "Some(PlayerRel::Chosen)"
-        } else if target.is_none() && defined.is_none() {
+        } else if defined.is_none() && !targets_here && (target.is_none() || prior_target_used) {
             "None"
         } else {
             return None;
@@ -1611,9 +1749,10 @@ impl Tx<'_> {
         if !matches!(r.take("ActiveZones").as_deref(), None | Some("Command")) {
             return None;
         }
-        let combat_only = match r.take("IsCombat").as_deref() {
-            None => false,
-            Some("True") => true,
+        let (combat_only, noncombat_only) = match r.take("IsCombat").as_deref() {
+            None => (false, false),
+            Some("True") => (true, false),
+            Some("False") => (false, true),
             Some(_) => return None,
         };
         let valid_source = r.take("ValidSource");
@@ -1622,6 +1761,9 @@ impl Tx<'_> {
             return None;
         }
         let Some(vt) = valid_target else {
+            if noncombat_only {
+                return None;
+            }
             let vs = valid_source?;
             if matches!(
                 vs.as_str(),
@@ -1644,7 +1786,6 @@ impl Tx<'_> {
                 || vs.contains("EffectSource")
                 || vs.contains("RememberedPlayer")
                 || vs.contains("ChosenCard")
-                || vs.contains("Emblem")
             {
                 return None;
             }
@@ -1670,7 +1811,6 @@ impl Tx<'_> {
                 || vs.contains("EffectSource")
                 || vs.contains("RememberedPlayer")
                 || vs.contains("ChosenCard")
-                || vs.contains("Emblem")
             {
                 return None;
             }
@@ -1684,15 +1824,32 @@ impl Tx<'_> {
         } else {
             None
         };
-        let mut has_you = false;
+        let mut player_rels = Vec::new();
         let mut perm_alts = Vec::new();
         for part in vt.split(',').map(str::trim) {
             if part.is_empty() {
                 return None;
             }
             if part == "You" {
-                has_you = true;
+                player_rels.push("PlayerRel::You");
                 continue;
+            }
+            if noncombat_only {
+                match (part, subject) {
+                    ("Player", EffectSubject::Unbound) => {
+                        player_rels.push("PlayerRel::EachPlayer");
+                        continue;
+                    }
+                    ("Opponent" | "Player.Opponent", EffectSubject::Unbound) => {
+                        player_rels.push("PlayerRel::EachOpponent");
+                        continue;
+                    }
+                    ("Player.IsRemembered", EffectSubject::Player(who)) => {
+                        player_rels.push(who);
+                        continue;
+                    }
+                    _ => {}
+                }
             }
             if part
                 .split(['.', '+'])
@@ -1703,7 +1860,10 @@ impl Tx<'_> {
             let (clean, _) = Self::strip_in_zone_battlefield(part)?;
             perm_alts.push(clean);
         }
-        if has_you && (combat_only || subject != EffectSubject::Unbound) {
+        if !player_rels.is_empty() && combat_only {
+            return None;
+        }
+        if !player_rels.is_empty() && !noncombat_only && subject != EffectSubject::Unbound {
             return None;
         }
         let src_ref = match &opt_src_expr {
@@ -1711,23 +1871,191 @@ impl Tx<'_> {
             None => "&Filter::Any".to_string(),
         };
         let mut out = Vec::new();
-        if has_you {
-            out.push(format!(
-                "Effect::continuous(&Filter::Any, Modifier::PreventDamageToYouFrom({src_ref}), \
-                 {duration})"
-            ));
+        for who in player_rels {
+            if noncombat_only {
+                out.push(format!(
+                    "Effect::continuous(&Filter::Any, Modifier::PreventNoncombatDamageToPlayers \
+                     {{ who: {who}, from: {src_ref} }}, {duration})"
+                ));
+            } else {
+                out.push(format!(
+                    "Effect::continuous(&Filter::Any, Modifier::PreventDamageToYouFrom({src_ref}), \
+                     {duration})"
+                ));
+            }
         }
         if !perm_alts.is_empty() {
             let perm_valid = perm_alts.join(",");
-            let modifier = match (opt_src_expr.is_some(), combat_only) {
-                (false, true) => "Modifier::PreventDamageToIt".to_string(),
-                (false, false) => "Modifier::PreventDamageFrom(&Filter::Any)".to_string(),
-                (true, true) => format!("Modifier::PreventCombatDamageFrom({src_ref})"),
-                (true, false) => format!("Modifier::PreventDamageFrom({src_ref})"),
+            let modifier = match (opt_src_expr.is_some(), combat_only, noncombat_only) {
+                (_, _, true) => format!("Modifier::PreventNoncombatDamageFrom({src_ref})"),
+                (false, true, false) => "Modifier::PreventDamageToIt".to_string(),
+                (false, false, false) => "Modifier::PreventDamageFrom(&Filter::Any)".to_string(),
+                (true, true, false) => format!("Modifier::PreventCombatDamageFrom({src_ref})"),
+                (true, false, false) => format!("Modifier::PreventDamageFrom({src_ref})"),
             };
             out.extend(self.emit_effect_modifiers(subject, &perm_valid, &[modifier], duration)?);
         }
         (!out.is_empty()).then_some(out)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn wave14_damage_modify_replacement(
+        &mut self,
+        r: &mut Params,
+        subject: EffectSubject,
+        duration: &str,
+    ) -> Option<Vec<String>> {
+        if r.has("Prevent") || r.has("PreventionEffect") || r.has("DamageTarget") {
+            return None;
+        }
+        if !matches!(
+            r.take("ActiveZones").as_deref(),
+            None | Some("Command" | "Battlefield")
+        ) {
+            return None;
+        }
+        let (combat_only, noncombat_only) = match r.take("IsCombat").as_deref() {
+            None => (false, false),
+            Some("True") => (true, false),
+            Some("False") => (false, true),
+            Some(_) => return None,
+        };
+        let rep_name = r.take("ReplaceWith")?;
+        let valid_source = r.take("ValidSource");
+        let valid_target = r.take("ValidTarget");
+        if !r.exhausted() {
+            return None;
+        }
+        let (rep_api, mut rep) = Params::parse(self.svars.get(rep_name.trim())?)?;
+        rep.drop_prose();
+        if rep_api != "ReplaceEffect" || rep.take("VarName").as_deref() != Some("DamageAmount") {
+            return None;
+        }
+        let raw_val = rep.take("VarValue")?;
+        if !rep.exhausted() {
+            return None;
+        }
+        let resolved_val = self
+            .svars
+            .get(raw_val.trim())
+            .map_or(raw_val.trim(), String::as_str)
+            .trim();
+        let (is_mul, num): (bool, u8) = match resolved_val {
+            "ReplaceCount$DamageAmount/Twice" => (true, 2),
+            "ReplaceCount$DamageAmount/Thrice" => (true, 3),
+            _ if resolved_val.starts_with("ReplaceCount$DamageAmount/Times.") => {
+                let f = resolved_val.strip_prefix("ReplaceCount$DamageAmount/Times.")?;
+                (true, f.trim().parse::<u8>().ok().filter(|&n| n >= 2)?)
+            }
+            _ if resolved_val.starts_with("ReplaceCount$DamageAmount/Plus.") => {
+                let e = resolved_val.strip_prefix("ReplaceCount$DamageAmount/Plus.")?;
+                (false, e.trim().parse::<u8>().ok().filter(|&n| n >= 1)?)
+            }
+            _ => return None,
+        };
+        let src_ref =
+            match valid_source.as_deref() {
+                None => "&Filter::Any".to_string(),
+                Some(
+                    "Card.Self" | "Creature.Self" | "Card.EffectSource" | "Creature.EffectSource",
+                ) if !self.on_a_spell => "&Filter::This".to_string(),
+                Some(vs)
+                    if !vs.contains("IsRemembered")
+                        && !vs.contains("EffectSource")
+                        && !vs.contains("RememberedPlayer")
+                        && !vs.contains("ChosenCard") =>
+                {
+                    let (vs_clean, stripped_bf) = Self::strip_in_zone_battlefield(vs)?;
+                    let base = self.filter_expr(&vs_clean)?;
+                    let expr = if stripped_bf {
+                        format!("Filter::And(&[Filter::InZone(ZoneRef::Battlefield), {base}])")
+                    } else {
+                        base
+                    };
+                    format!("&{}", self.body.filter_static("SOURCE", &expr))
+                }
+                Some(_) => return None,
+            };
+        let build_mod = |recipients: &str| {
+            if is_mul {
+                format!(
+                    "Modifier::MultiplyDamageFrom {{ sources: {src_ref}, factor: {num}, \
+                     combat_only: {combat_only}, noncombat_only: {noncombat_only}, \
+                     recipients: {recipients} }}"
+                )
+            } else {
+                format!(
+                    "Modifier::AddDamageFrom {{ sources: {src_ref}, extra: {num}, \
+                     combat_only: {combat_only}, noncombat_only: {noncombat_only}, \
+                     recipients: {recipients} }}"
+                )
+            }
+        };
+        match (valid_target.as_deref(), subject) {
+            (
+                None
+                | Some("Permanent,Player" | "Player,Permanent" | "Card,Player" | "Player,Card"),
+                EffectSubject::Unbound,
+            ) => Some(vec![format!(
+                "Effect::continuous(&Filter::Any, {}, {duration})",
+                build_mod("DamageRecipients::Any")
+            )]),
+            (Some("Player"), EffectSubject::Unbound) => Some(vec![format!(
+                "Effect::continuous(&Filter::Any, {}, {duration})",
+                build_mod("DamageRecipients::Players(PlayerRel::EachPlayer)")
+            )]),
+            (Some("You"), EffectSubject::Unbound) => Some(vec![format!(
+                "Effect::continuous(&Filter::Any, {}, {duration})",
+                build_mod("DamageRecipients::Players(PlayerRel::You)")
+            )]),
+            (Some("Opponent" | "Player.Opponent"), EffectSubject::Unbound) => Some(vec![format!(
+                "Effect::continuous(&Filter::Any, {}, {duration})",
+                build_mod("DamageRecipients::Players(PlayerRel::EachOpponent)")
+            )]),
+            (Some("Player.IsRemembered"), EffectSubject::Player(who)) => Some(vec![format!(
+                "Effect::continuous(&Filter::Any, {}, {duration})",
+                build_mod(&format!("DamageRecipients::Players({who})"))
+            )]),
+            (
+                Some("Player.Opponent,Permanent.OppCtrl" | "Permanent.OppCtrl,Player.Opponent"),
+                EffectSubject::Unbound,
+            ) => Some(vec![format!(
+                "Effect::continuous(&Filter::Any, {}, {duration})",
+                build_mod("DamageRecipients::PlayersOrTheirPermanents(PlayerRel::EachOpponent)")
+            )]),
+            (Some("You,Permanent.YouCtrl" | "Permanent.YouCtrl,You"), EffectSubject::Unbound) => {
+                Some(vec![format!(
+                    "Effect::continuous(&Filter::Any, {}, {duration})",
+                    build_mod("DamageRecipients::PlayersOrTheirPermanents(PlayerRel::You)")
+                )])
+            }
+            (
+                Some(vt @ ("Card.IsRemembered" | "Creature.IsRemembered")),
+                EffectSubject::Targets | EffectSubject::Source | EffectSubject::Event,
+            ) => {
+                let m = build_mod("DamageRecipients::Permanents(&Filter::This)");
+                self.emit_effect_modifiers(subject, vt, &[m], duration)
+            }
+            (Some(vt), EffectSubject::Unbound)
+                if !vt.contains("IsRemembered")
+                    && !vt.contains("EffectSource")
+                    && !vt.contains("RememberedPlayer")
+                    && !vt.split(',').any(|p| {
+                        p.trim()
+                            .split(['.', '+'])
+                            .any(|a| matches!(a, "You" | "Player" | "Opponent"))
+                    }) =>
+            {
+                let (clean, _) = Self::strip_in_zone_battlefield(vt)?;
+                let expr = self.filter_expr(&clean)?;
+                let name = self.body.filter_static("EFFECT", &expr);
+                let m = build_mod(&format!("DamageRecipients::Permanents(&{name})"));
+                Some(vec![format!(
+                    "Effect::continuous(&Filter::Any, {m}, {duration})"
+                )])
+            }
+            _ => None,
+        }
     }
 
     fn wave11_effect_replacement_line(
@@ -1743,7 +2071,13 @@ impl Tx<'_> {
             Some(_) => return None,
         }
         if event == "DamageDone" {
-            return self.wave12_damage_prevention_replacement(r, subject, duration);
+            if r.peek("Prevent") == Some("True") {
+                return self.wave12_damage_prevention_replacement(r, subject, duration);
+            }
+            if r.peek("ReplaceWith").is_some() {
+                return self.wave14_damage_modify_replacement(r, subject, duration);
+            }
+            return None;
         }
         if subject != EffectSubject::Unbound || host_leaves_or_eot {
             return None;
@@ -1887,6 +2221,22 @@ impl Tx<'_> {
                     &["Modifier::AttacksDespiteDefender".to_string()],
                     duration,
                 )
+            }
+            "MinMaxBlocker" => {
+                let valid = st.take("ValidCard")?;
+                let mut mods = Vec::new();
+                if let Some(raw_max) = st.take("Max") {
+                    let n: u8 = raw_max.trim().parse().ok().filter(|&v| v > 0)?;
+                    mods.push(format!("Modifier::MaxBlockers({n})"));
+                }
+                if let Some(raw_min) = st.take("Min") {
+                    let n: u8 = raw_min.trim().parse().ok().filter(|&v| v > 0)?;
+                    mods.push(format!("Modifier::MinimumBlockers({n})"));
+                }
+                if mods.is_empty() || !st.exhausted() {
+                    return None;
+                }
+                self.emit_effect_modifiers(subject, &valid, &mods, duration)
             }
             "CantPreventDamage" if subject == EffectSubject::Unbound => {
                 if st.take("CombatDamage").as_deref() != Some("True") || !st.exhausted() {
@@ -5167,8 +5517,19 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         let owner_control = match np.take("GainControl").as_deref() {
-            None | Some("False") => true,
             Some("True") => false,
+            Some("False") => true,
+            None => {
+                if self.oracle.is_empty() {
+                    true
+                } else {
+                    let lower = self.oracle.to_ascii_lowercase();
+                    lower.contains("under its owner's control")
+                        || lower.contains("under her owner's control")
+                        || lower.contains("under his owner's control")
+                        || lower.contains("under their owner's control")
+                }
+            }
             Some(_) => return None,
         };
         let cleanup_name = np.take("SubAbility");
@@ -5298,6 +5659,12 @@ impl Tx<'_> {
         let block_role = self.block_line.as_ref().map(|(r, _, _)| *r);
         match def {
             "DelayTriggerRemembered" | "DelayTriggerRememberedLKI" => self.in_delayed,
+            "TriggeredSpellAbility" => {
+                matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("SpellCast" | "SpellCastOrCopy")
+                )
+            }
             "TriggeredNewCardLKICopy"
             | "TriggeredNewCard"
             | "TriggeredCardLKICopy"
@@ -5312,6 +5679,7 @@ impl Tx<'_> {
                             | "Sacrificed"
                             | "BecomesPlotted"
                             | "Plotted"
+                            | "SpellCastOrCopy"
                     )
                 )
             }

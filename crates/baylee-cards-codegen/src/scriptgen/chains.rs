@@ -958,6 +958,10 @@ impl Tx<'_> {
         // the spec before the valid-string is read.
         let spec = if (api == "ChangeZone" && p.peek("Origin") == Some("Graveyard"))
             || (matches!(api, "Clone" | "CopyPermanent") && p.peek("TgtZone") == Some("Graveyard"))
+            || (api == "Pump"
+                && p.peek("TgtZone") == Some("Graveyard")
+                && p.peek("PumpZone") == Some("Graveyard")
+                && p.peek("KW").map(str::trim) == Some("Flashback"))
         {
             match p.take("TgtZone").as_deref() {
                 None | Some("Graveyard") => {}
@@ -1252,8 +1256,10 @@ impl Tx<'_> {
                     p.take("TargetMin");
                     p.take("TargetMax");
                     chain.target_is_x = true;
-                } else if (matches!(api, "Fight" | "Attach" | "MustBlock" | "Effect")
-                    || (api == "DealDamage" && !p.has("DividedAsYouChoose"))
+                } else if (matches!(
+                    api,
+                    "Fight" | "Attach" | "MustBlock" | "Effect" | "Connive" | "Explore" | "SetLife"
+                ) || (api == "DealDamage" && !p.has("DividedAsYouChoose"))
                     || (api == "ChangeZone"
                         && matches!(
                             (p.peek("Origin"), p.peek("Destination")),
@@ -1397,7 +1403,7 @@ impl Tx<'_> {
             }
             Some("Targeted") if targets_a_player => Some("PlayerRel::Chosen"),
             Some(who @ ("TriggeredActivator" | "TriggeredCardController"))
-                if trigger == Some("SpellCast") =>
+                if matches!(trigger, Some("SpellCast" | "SpellCastOrCopy")) =>
             {
                 self.player_rel(Some(who))
             }
@@ -1460,7 +1466,15 @@ impl Tx<'_> {
                 None => Price::Printed(m.to_string()),
             }),
             ("", [one]) if asks_for_an_object(one) => Some(Price::Part(one.clone())),
-            ("", [one]) if one.starts_with("PayLife(") && one.ends_with(')') => {
+            ("", [one])
+                if (one.starts_with("PayLife(") && one.ends_with(')'))
+                    || (one.starts_with("DealDamageToYou(") && one.ends_with(')'))
+                    || one == "Forage"
+                    || one.starts_with("SacrificeX(")
+                    || one.starts_with("TapX(")
+                    || one.starts_with("DiscardX(")
+                    || one.starts_with("ExileFromGraveyardX(") =>
+            {
                 Some(Price::Part(one.clone()))
             }
             _ => self.deny(format!("an unless-cost of `{raw}`")),
@@ -2195,64 +2209,91 @@ impl Tx<'_> {
                     let n = self.amount_or_count_ext(&bolster)?;
                     return Some(vec![format!("Effect::Bolster({n})")]);
                 }
-                let code = p.take("CounterType")?;
-                let Some(kind) = counter_kind(&code) else {
-                    return self.deny(format!("counter `{code}`"));
-                };
-                let n = self.amount_or_count_ext(p.take("CounterNum").as_deref().unwrap_or("1"))?;
-                if matches!(code.as_str(), "ENERGY" | "POISON" | "RAD")
-                    && (targets_a_player
-                        || p.peek("Defined").is_some_and(|d| {
-                            self.wave11_player_of_line(Some(d), target, targets_a_player)
-                                .is_some()
-                        }))
-                {
-                    let who = self.wave11_player_of_line(
-                        p.take("Defined").as_deref(),
-                        target,
-                        targets_a_player,
-                    )?;
-                    p.take("IsCurse");
-                    let variant = match code.as_str() {
-                        "ENERGY" => "Energy",
-                        "POISON" => "Poison",
-                        "RAD" => "Rad",
-                        _ => unreachable!(),
+                let specs = if let Some(code) = p.take("CounterType") {
+                    let Some(kind) = counter_kind(&code) else {
+                        return self.deny(format!("counter `{code}`"));
                     };
-                    return Some(vec![format!(
-                        "Effect::{variant} {{ who: {who}, amount: {n} }}"
-                    )]);
-                }
-                p.take("IsCurse");
-                match p.take("Defined").as_deref() {
-                    Some("Self") if target.is_some() || self.counter_on_source => {
+                    let n =
+                        self.amount_or_count_ext(p.take("CounterNum").as_deref().unwrap_or("1"))?;
+                    if matches!(code.as_str(), "ENERGY" | "POISON" | "RAD")
+                        && (targets_a_player
+                            || p.peek("Defined").is_some_and(|d| {
+                                self.wave11_player_of_line(Some(d), target, targets_a_player)
+                                    .is_some()
+                            }))
+                    {
+                        let who = self.wave11_player_of_line(
+                            p.take("Defined").as_deref(),
+                            target,
+                            targets_a_player,
+                        )?;
+                        p.take("IsCurse");
+                        let variant = match code.as_str() {
+                            "ENERGY" => "Energy",
+                            "POISON" => "Poison",
+                            "RAD" => "Rad",
+                            _ => unreachable!(),
+                        };
                         return Some(vec![format!(
-                            "Effect::AddCounterFilter {{ filter: &Filter::This, \
-                             kind: {kind}, amount: {n} }}"
+                            "Effect::{variant} {{ who: {who}, amount: {n} }}"
                         )]);
                     }
+                    vec![(kind, n)]
+                } else {
+                    let codes = p.take("CounterTypes")?;
+                    let raw_num = p.take("CounterNum");
+                    let n = self.amount_or_count_ext(raw_num.as_deref().unwrap_or("1"))?;
+                    match Self::collect_counter_specs(&codes, &n) {
+                        Ok(specs) => specs,
+                        Err(bad) => return self.deny(format!("counter `{bad}`")),
+                    }
+                };
+                p.take("IsCurse");
+                let emit_filter = |filter: &str| -> Vec<String> {
+                    specs
+                        .iter()
+                        .map(|(kind, n)| {
+                            format!(
+                                "Effect::AddCounterFilter {{ filter: {filter}, kind: {kind}, \
+                                 amount: {n} }}"
+                            )
+                        })
+                        .collect()
+                };
+                let emit_target = || -> Vec<String> {
+                    specs
+                        .iter()
+                        .map(|(kind, n)| {
+                            format!("Effect::AddCounter {{ kind: {kind}, amount: {n} }}")
+                        })
+                        .collect()
+                };
+                match p.take("Defined").as_deref() {
+                    Some("Self") if target.is_some() || self.counter_on_source => {
+                        return Some(emit_filter("&Filter::This"));
+                    }
                     None if self.counter_on_source => {
-                        return Some(vec![format!(
-                            "Effect::AddCounterFilter {{ filter: &Filter::This, \
-                             kind: {kind}, amount: {n} }}"
-                        )]);
+                        return Some(emit_filter("&Filter::This"));
+                    }
+                    Some("Self & Targeted" | "Targeted & Self")
+                        if !self.on_a_spell
+                            && !targets_here
+                            && target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) =>
+                    {
+                        let mut out = emit_target();
+                        out.extend(emit_filter("&Filter::This"));
+                        return Some(out);
                     }
                     Some("Targeted" | "ParentTarget")
                         if !targets_here && target.is_some() && !targets_a_player => {}
                     Some("Enchanted" | "Equipped") if target.is_none() => {
-                        return Some(vec![format!(
-                            "Effect::AddCounterFilter {{ filter: &Filter::AttachedToBySource, \
-                             kind: {kind}, amount: {n} }}"
-                        )]);
+                        return Some(emit_filter("&Filter::AttachedToBySource"));
                     }
                     Some("TriggeredCardLKICopy" | "TriggeredCard")
                         if self.trigger_mode.as_deref() == Some("ChangesZone")
                             && target.is_none() =>
                     {
-                        return Some(vec![format!(
-                            "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
-                             kind: {kind}, amount: {n} }}"
-                        )]);
+                        return Some(emit_filter("&Filter::Reference"));
                     }
                     Some(def)
                         if self.trigger_mode.as_deref() == Some("ChangesZone")
@@ -2266,9 +2307,7 @@ impl Tx<'_> {
                         let q = self.filter_expr(&format!("Card.{qual}"))?;
                         let expr = format!("Filter::And(&[Filter::Reference, {q}])");
                         let name = self.body.filter_static("COUNTER", &expr);
-                        return Some(vec![format!(
-                            "Effect::AddCounterFilter {{ filter: &{name}, kind: {kind}, amount: {n} }}"
-                        )]);
+                        return Some(emit_filter(&format!("&{name}")));
                     }
                     Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
                         if (matches!(
@@ -2282,10 +2321,7 @@ impl Tx<'_> {
                                 .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocks)))
                             && target.is_none() =>
                     {
-                        return Some(vec![format!(
-                            "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
-                             kind: {kind}, amount: {n} }}"
-                        )]);
+                        return Some(emit_filter("&Filter::Reference"));
                     }
                     Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
                         if (self.trigger_mode.as_deref() == Some("Blocks")
@@ -2297,27 +2333,18 @@ impl Tx<'_> {
                                     .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocked)))
                             && target.is_none() =>
                     {
-                        return Some(vec![format!(
-                            "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
-                             kind: {kind}, amount: {n} }}"
-                        )]);
+                        return Some(emit_filter("&Filter::Reference"));
                     }
                     Some("TriggeredTargetLKICopy" | "TriggeredTarget")
                         if self.trigger_mode.as_deref() == Some("DamageDone")
                             && target.is_none() =>
                     {
-                        return Some(vec![format!(
-                            "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
-                             kind: {kind}, amount: {n} }}"
-                        )]);
+                        return Some(emit_filter("&Filter::Reference"));
                     }
                     Some("DelayTriggerRemembered" | "DelayTriggerRememberedLKI")
                         if self.in_delayed && target.is_none() =>
                     {
-                        return Some(vec![format!(
-                            "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
-                             kind: {kind}, amount: {n} }}"
-                        )]);
+                        return Some(emit_filter("&Filter::Reference"));
                     }
                     Some(
                         "TriggeredCardLKICopy & Self"
@@ -2327,16 +2354,9 @@ impl Tx<'_> {
                     ) if self.trigger_mode.as_deref() == Some("ChangesZone")
                         && target.is_none() =>
                     {
-                        return Some(vec![
-                            format!(
-                                "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
-                                 kind: {kind}, amount: {n} }}"
-                            ),
-                            format!(
-                                "Effect::AddCounterFilter {{ filter: &Filter::This, \
-                                 kind: {kind}, amount: {n} }}"
-                            ),
-                        ]);
+                        let mut out = emit_filter("&Filter::Reference");
+                        out.extend(emit_filter("&Filter::This"));
+                        return Some(out);
                     }
                     Some(def)
                         if target.is_none()
@@ -2347,16 +2367,12 @@ impl Tx<'_> {
                         let valid = def.strip_prefix("Valid ")?.trim();
                         let expr = self.filter_expr(valid)?;
                         let name = self.body.filter_static("COUNTER", &expr);
-                        return Some(vec![format!(
-                            "Effect::AddCounterFilter {{ filter: &{name}, kind: {kind}, amount: {n} }}"
-                        )]);
+                        return Some(emit_filter(&format!("&{name}")));
                     }
                     None | Some("Self") => {}
                     Some(_) => return None,
                 }
-                vec![format!(
-                    "Effect::AddCounter {{ kind: {kind}, amount: {n} }}"
-                )]
+                emit_target()
             }
             "PutCounterAll" => {
                 if targets_here || (target.is_some() && !prior_target_used) {
@@ -2895,7 +2911,9 @@ impl Tx<'_> {
             }
             "Clone" => self.become_copy_effect(p, target, targets_here, false)?,
             "Pump" => self.pump_effect(p, aimed, false)?,
-            "PumpAll" => self.pump_all_effect(p, target, targets_here, targets_a_player)?,
+            "PumpAll" => {
+                self.pump_all_effect(p, target, targets_here, targets_a_player, prior_target_used)?
+            }
             "Effect" => {
                 let snapshot = p.clone();
                 let saved_unclaimed = self.unclaimed.borrow().clone();
@@ -3050,7 +3068,7 @@ impl Tx<'_> {
                     vec!["Effect::TapTarget".to_string()]
                 }
                 (None, None) | (Some("Self"), _) => vec!["Effect::TapSelf".to_string()],
-                (Some("Targeted"), Some(t))
+                (Some("Targeted" | "ParentTarget"), Some(t))
                     if t.starts_with("TargetSpec::Object(")
                         || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
                 {
@@ -3078,7 +3096,7 @@ impl Tx<'_> {
                 {
                     vec!["Effect::UntapTarget".to_string()]
                 }
-                (Some("Targeted"), Some(t))
+                (Some("Targeted" | "ParentTarget"), Some(t))
                     if t.starts_with("TargetSpec::Object(")
                         || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
                 {
@@ -3301,6 +3319,10 @@ impl Tx<'_> {
                 vec![format!("Effect::Poison {{ who: {who}, amount: {n} }}")]
             }
             "Goad" => self.goad_effect(p, target, targets_a_player)?,
+            "Connive" => self.connive_effect(p, target, targets_here, single_target)?,
+            "Explore" => self.explore_effect(p, target, targets_here, single_target)?,
+            "Discover" => self.discover_effect(p, target, targets_here, prior_target_used)?,
+            "SetLife" => self.set_life_effect(p, target, targets_a_player, prior_target_used)?,
             "WinsGame" => {
                 if target.is_some() || p.take("Defined").as_deref() != Some("You") {
                     return None;
@@ -3309,6 +3331,182 @@ impl Tx<'_> {
             }
             _ => return None,
         })
+    }
+
+    fn collect_counter_specs<'a>(
+        codes: &'a str,
+        amount: &str,
+    ) -> Result<Vec<(String, String)>, &'a str> {
+        let fixed_base = amount
+            .strip_prefix("Amount::Fixed(")
+            .and_then(|s| s.strip_suffix(')'))
+            .and_then(|s| s.parse::<u32>().ok());
+        let mut out: Vec<(String, String)> = Vec::new();
+        let mut fixed_counts: Vec<(String, u32)> = Vec::new();
+        for raw in codes.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let Some(kind) = counter_kind(raw) else {
+                return Err(raw);
+            };
+            if let Some(base) = fixed_base {
+                if let Some((_, count)) = fixed_counts.iter_mut().find(|(k, _)| *k == kind) {
+                    *count = count.checked_add(base).ok_or(raw)?;
+                } else {
+                    fixed_counts.push((kind, base));
+                }
+            } else {
+                out.push((kind, amount.to_string()));
+            }
+        }
+        if fixed_base.is_some() {
+            if fixed_counts.is_empty() {
+                return Err(codes);
+            }
+            Ok(fixed_counts
+                .into_iter()
+                .map(|(k, n)| (k, format!("Amount::Fixed({n})")))
+                .collect())
+        } else if out.is_empty() {
+            Err(codes)
+        } else {
+            Ok(out)
+        }
+    }
+
+    fn connive_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        single_target: bool,
+    ) -> Option<Vec<String>> {
+        let defined = p.take("Defined");
+        let player_only_target = target.is_some_and(|t| {
+            matches!(
+                t,
+                "TargetSpec::AnyPlayer"
+                    | "TargetSpec::AnyOpponent"
+                    | "TargetSpec::PlayerWhoAttackedThisTurn"
+            ) || t.starts_with("TargetSpec::Player(")
+                || t.starts_with("TargetSpec::OpponentWithMoreThan")
+        });
+        let ok = match defined.as_deref() {
+            None if targets_here => {
+                single_target && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            }
+            Some("Targeted" | "ParentTarget") if !targets_here => {
+                single_target && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            }
+            None | Some("Self") if !targets_here => {
+                !self.on_a_spell && (target.is_none() || player_only_target)
+            }
+            _ => false,
+        };
+        if !ok {
+            return None;
+        }
+        let amount = match p.take("ConniveNum").as_deref() {
+            None => "Amount::Fixed(1)".to_string(),
+            Some(raw) => self.amount_or_count_ext(raw)?,
+        };
+        Some(vec![format!("Effect::Connive {{ amount: {amount} }}")])
+    }
+
+    fn explore_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        single_target: bool,
+    ) -> Option<Vec<String>> {
+        let defined = p.take("Defined");
+        let subject = match defined.as_deref() {
+            None if targets_here => {
+                if !single_target {
+                    return None;
+                }
+                let tgt = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
+                tgt.to_string()
+            }
+            Some("Targeted" | "ParentTarget") if !targets_here => {
+                if !single_target {
+                    return None;
+                }
+                let tgt = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
+                tgt.to_string()
+            }
+            None | Some("Self") if !targets_here && !self.on_a_spell => {
+                "TargetSpec::ThisObject".to_string()
+            }
+            Some(def)
+                if !targets_here
+                    && !matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("SpellCast" | "SpellCastOrCopy")
+                    )
+                    && self.is_event_object_defined(def) =>
+            {
+                "TargetSpec::EventObject".to_string()
+            }
+            _ => return None,
+        };
+        let times: usize = match p.take("Num").as_deref() {
+            None => 1,
+            Some(raw) => raw
+                .trim()
+                .parse::<usize>()
+                .ok()
+                .filter(|&n| (1..=4).contains(&n))?,
+        };
+        Some(vec![
+            format!("Effect::Explore {{ target: {subject} }}");
+            times
+        ])
+    }
+
+    fn discover_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        prior_target_used: bool,
+    ) -> Option<Vec<String>> {
+        if targets_here
+            || (target.is_some() && !prior_target_used)
+            || !matches!(p.take("Defined").as_deref(), None | Some("You"))
+        {
+            return None;
+        }
+        let raw = p.take("Num")?;
+        if let Ok(n) = raw.trim().parse::<u8>() {
+            return Some(vec![format!("Effect::Discover {{ mana_value: {n} }}")]);
+        }
+        let amount = self.amount_or_count_ext(&raw)?;
+        Some(vec![format!(
+            "Effect::DiscoverAmount {{ mana_value: {amount} }}"
+        )])
+    }
+
+    fn set_life_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+        prior_target_used: bool,
+    ) -> Option<Vec<String>> {
+        p.take("IsCurse");
+        let amount = self.amount_or_count_ext(&p.take("LifeAmount")?)?;
+        let defined = p.take("Defined");
+        let who = if defined.is_none() && !targets_a_player {
+            if target.is_some() && !prior_target_used {
+                return None;
+            }
+            "PlayerRel::You"
+        } else {
+            self.wave11_player_of_line(defined.as_deref(), target, targets_a_player)?
+        };
+        Some(vec![format!(
+            "Effect::SetLifeTotal {{ who: {who}, amount: {amount} }}"
+        )])
     }
 
     fn is_power_of(&self, raw: &str, expected: &[&str]) -> bool {
@@ -3476,8 +3674,10 @@ impl Tx<'_> {
             ) if targets_here => stack_target?.to_string(),
             (None, Some("Targeted" | "ParentTarget")) => stack_target?.to_string(),
             (None, Some("TriggeredSpellAbility"))
-                if self.trigger_mode.as_deref() == Some("SpellCast")
-                    && !targets_here
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("SpellCast" | "SpellCastOrCopy")
+                ) && !targets_here
                     && target.is_none() =>
             {
                 "TargetSpec::EventObject".to_string()
@@ -3548,8 +3748,10 @@ impl Tx<'_> {
                 Some(("Effect::CopyTargetAbility".to_string(), count))
             }
             (None, Some("TriggeredSpellAbility"))
-                if self.trigger_mode.as_deref() == Some("SpellCast")
-                    && !targets_here
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("SpellCast" | "SpellCastOrCopy")
+                ) && !targets_here
                     && target.is_none() =>
             {
                 Some(("Effect::CopyEventSpellOrAbility".to_string(), count))
@@ -4154,6 +4356,19 @@ impl Tx<'_> {
                             | "Plotted"
                     )
                 ) =>
+            {
+                Some("PlayerRel::EventPlayer")
+            }
+            "TriggeredDefender"
+                if matches!(
+                    trigger,
+                    Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
+                ) =>
+            {
+                Some("PlayerRel::DefendingPlayer")
+            }
+            "TriggeredActivatingPlayer" | "TriggeredPlayer"
+                if trigger == Some("SpellCastOrCopy") =>
             {
                 Some("PlayerRel::EventPlayer")
             }

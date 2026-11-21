@@ -4339,3 +4339,327 @@ fn wave13c_stack_zone_change_counter_abilities_and_deal_damage() {
         brainstorm_like.abilities[0]
     );
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave14c_connive_explore_discover_set_life_and_magecraft() {
+    let self_connive = read(
+        "Name:VaultScout\nManaCost:1 U\nTypes:Creature\nPT:1/3\n\
+         A:AB$ Connive | Cost$ 2",
+    );
+    assert!(
+        self_connive.abilities[0].contains("Effect::Connive { amount: Amount::Fixed(1) }"),
+        "{}",
+        self_connive.abilities[0]
+    );
+
+    let tgt_connive = read(
+        "Name:SchemeTactician\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ Connive | ValidTgts$ Creature.YouCtrl | TargetMin$ 0 | TargetMax$ 1 | ConniveNum$ X\n\
+         SVar:X:Count$Valid Creature.YouCtrl",
+    );
+    assert!(
+        tgt_connive.abilities[0].contains("Effect::Connive { amount: Amount::CountOf {")
+            && tgt_connive.abilities[0].contains("TargetReq::up_to_one("),
+        "{}",
+        tgt_connive.abilities[0]
+    );
+
+    // Connive cannot aim at Self when the chain already targets another object,
+    // nor at arbitrary non-target subjects.
+    assert!(refused(
+        "Name:BadConniveOther\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Tap | Cost$ T | ValidTgts$ Creature | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Connive | Defined$ Self"
+    ));
+    assert!(refused(
+        "Name:BadConniveConvoked\nManaCost:2 B\nTypes:Instant\n\
+         A:SP$ Connive | Defined$ Convoked"
+    ));
+
+    let double_explore = read(
+        "Name:DeepRanger\nManaCost:1 G G\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Ex\n\
+         SVar:Ex:DB$ Explore | Num$ 2",
+    );
+    assert_eq!(
+        double_explore.abilities[0]
+            .matches("Effect::Explore { target: TargetSpec::ThisObject }")
+            .count(),
+        2,
+        "{}",
+        double_explore.abilities[0]
+    );
+
+    let etb_explore = read(
+        "Name:DiscoveryPath\nManaCost:3 G\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Ex\n\
+         SVar:Ex:DB$ Explore | Defined$ TriggeredCardLKICopy",
+    );
+    assert!(
+        etb_explore.abilities[0].contains("Effect::Explore { target: TargetSpec::EventObject }"),
+        "{}",
+        etb_explore.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadExploreAll\nManaCost:2 G U\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Ex\n\
+         SVar:Ex:DB$ Explore | Defined$ Valid Creature.YouCtrl"
+    ));
+
+    let disc_fixed = read(
+        "Name:CaveRelic\nManaCost:4 R\nTypes:Sorcery\n\
+         A:SP$ Discover | Num$ 4",
+    );
+    assert!(
+        disc_fixed.abilities[0].contains("Effect::Discover { mana_value: 4 }"),
+        "{}",
+        disc_fixed.abilities[0]
+    );
+    let disc_dyn = read(
+        "Name:ScaledDiscovery\nManaCost:X R\nTypes:Sorcery\n\
+         A:SP$ Discover | Num$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        disc_dyn.abilities[0].contains("Effect::DiscoverAmount { mana_value: Amount::X }"),
+        "{}",
+        disc_dyn.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadOtherDiscover\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ Discover | Defined$ TargetedOwner | Num$ 3"
+    ));
+
+    let set_life = read(
+        "Name:LifeSetter\nManaCost:3 W B\nTypes:Sorcery\n\
+         A:SP$ SetLife | ValidTgts$ Opponent | TargetMin$ 0 | TargetMax$ 1 | LifeAmount$ 10",
+    );
+    assert!(
+        set_life.abilities[0]
+            .contains("Effect::SetLifeTotal { who: PlayerRel::Chosen, amount: Amount::Fixed(10) }")
+            && set_life.abilities[0].contains("TargetReq::up_to_one(TargetSpec::AnyOpponent)"),
+        "{}",
+        set_life.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadRedistribute\nManaCost:4 W W\nTypes:Sorcery\n\
+         A:SP$ SetLife | PlayerChoices$ Player | ChoiceAmount$ Any | Redistribute$ True"
+    ));
+
+    let magecraft = read(
+        "Name:SpellScholar\nManaCost:2 U U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ SpellCastOrCopy | ValidCard$ Instant,Sorcery | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        magecraft.abilities[0].contains("Trigger::SpellCastOrCopied(&TRIGGER1)")
+            && magecraft.statics.contains("TypeSet::INSTANT")
+            && magecraft.statics.contains("TypeSet::SORCERY"),
+        "{}\n{}",
+        magecraft.statics,
+        magecraft.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadZonelessMagecraft\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ SpellCastOrCopy | ValidCard$ Instant,Sorcery | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1"
+    ));
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave14c_pass_e7_self_return_modal_second_targets_and_flashback() {
+    // Pass E7 fix: omitted GainControl$ respects Oracle ("under its owner's control" vs not).
+    let front_owner = read(
+        "Name:KnightDominant\nManaCost:3 W\nTypes:Creature\nPT:3/3\n\
+         A:AB$ ChangeZone | Cost$ 4 W T | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBRet\n\
+         SVar:DBRet:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | Transformed$ True | SubAbility$ DBCln\n\
+         SVar:DBCln:DB$ Cleanup | ClearRemembered$ True\n\
+         Oracle:{4}{W}, {T}: Exile KnightDominant, then return it to the battlefield transformed under its owner's control.",
+    );
+    assert!(
+        front_owner.abilities[0]
+            .contains("Effect::ExileSelfReturnAsFace { face: 1, owner_control: true }"),
+        "{}",
+        front_owner.abilities[0]
+    );
+    let back_front_up = read(
+        "Name:WardenSaga\nManaCost:no cost\nTypes:Enchantment Creature Saga\nPT:5/5\n\
+         K:Chapter:1:DBEx\n\
+         SVar:DBEx:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True | SubAbility$ DBRet\n\
+         SVar:DBRet:DB$ ChangeZone | Defined$ Remembered | Origin$ Exile | Destination$ Battlefield | SubAbility$ DBCln\n\
+         SVar:DBCln:DB$ Cleanup | ClearRemembered$ True\n\
+         Oracle:I — Exile WardenSaga, then return it to the battlefield (front face up).",
+    );
+    assert!(
+        back_front_up.abilities[0]
+            .contains("Effect::ExileSelfReturnAsFace { face: 0, owner_control: false }"),
+        "{}",
+        back_front_up.abilities[0]
+    );
+
+    // Wave 6a: ModalTriggered and ModalActivated carrying SpellMode::second_targets.
+    let modal_trig = read(
+        "Name:ModalBiter\nManaCost:3 G\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigC\n\
+         SVar:TrigC:DB$ Charm | Choices$ M1,M2\n\
+         SVar:M1:DB$ TargetOnly | ValidTgts$ Creature.YouCtrl | SubAbility$ M1Fight\n\
+         SVar:M1Fight:DB$ Fight | Defined$ ParentTarget | ValidTgts$ Creature.OppCtrl\n\
+         SVar:M2:DB$ GainLife | LifeAmount$ 3",
+    );
+    assert!(
+        modal_trig.abilities[0].contains("modal_triggered!(")
+            && modal_trig.abilities[0].contains("second_targets = Some("),
+        "{}",
+        modal_trig.abilities[0]
+    );
+    let modal_act = read(
+        "Name:ModalTool\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Charm | Cost$ T | Choices$ M1,M2\n\
+         SVar:M1:DB$ TargetOnly | ValidTgts$ Creature.YouCtrl | SubAbility$ M1Fight\n\
+         SVar:M1Fight:DB$ Fight | Defined$ ParentTarget | ValidTgts$ Creature.OppCtrl\n\
+         SVar:M2:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        modal_act.abilities[0].contains("modal_activated!(")
+            && modal_act.abilities[0].contains("second_targets = Some("),
+        "{}",
+        modal_act.abilities[0]
+    );
+
+    // Targeted & mass graveyard Flashback + follow-up PumpAll + Protection pump.
+    let snap = read(
+        "Name:SnapMage\nManaCost:1 U\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigFB\n\
+         SVar:TrigFB:DB$ Pump | ValidTgts$ Instant.YouCtrl,Sorcery.YouCtrl | TgtZone$ Graveyard | PumpZone$ Graveyard | KW$ Flashback",
+    );
+    assert!(
+        snap.abilities[0].contains("Effect::GrantFlashback")
+            && snap.abilities[0].contains("TargetSpec::CardInGraveyard("),
+        "{}",
+        snap.abilities[0]
+    );
+    let past_flames = read(
+        "Name:FlameRecall\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ PumpAll | ValidCards$ Instant.YouCtrl,Sorcery.YouCtrl | PumpZone$ Graveyard | KW$ Flashback",
+    );
+    assert!(
+        past_flames.abilities[0].contains("Modifier::GrantsFlashback")
+            && past_flames.statics.contains("Filter::OwnedByYou")
+            && past_flames
+                .statics
+                .contains("Filter::InZone(ZoneRef::Graveyard)"),
+        "{}\n{}",
+        past_flames.statics,
+        past_flames.abilities[0]
+    );
+    let barge_like = read(
+        "Name:ChargePush\nManaCost:R\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature.attacking | NumAtt$ +2 | NumDef$ +2 | SubAbility$ DBAll\n\
+         SVar:DBAll:DB$ PumpAll | ValidCards$ Creature.attacking | KW$ Trample",
+    );
+    assert!(
+        barge_like.abilities[0].contains("Effect::PumpFilter {"),
+        "{}",
+        barge_like.abilities[0]
+    );
+    let prot_pump = read(
+        "Name:VeilStride\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature.YouCtrl | KW$ Protection:Creature.OppCtrl:creatures your opponents control | SubAbility$ DBUntap\n\
+         SVar:DBUntap:DB$ Untap | Defined$ ParentTarget",
+    );
+    assert!(
+        prot_pump.abilities[0].contains("Modifier::ProtectionFrom(&Filter::OPPONENT_CREATURE)")
+            && prot_pump.abilities[0].contains("Effect::UntapTarget"),
+        "{}",
+        prot_pump.abilities[0]
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave14c_counter_types_and_wave6c_effect_modifiers() {
+    let renew = read(
+        "Name:RenewChamp\nManaCost:2 G\nTypes:Creature\nPT:3/3\n\
+         A:AB$ PutCounter | Cost$ 1 G ExileFromGrave<1/CARDNAME> | ActivationZone$ Graveyard | ValidTgts$ Creature | CounterTypes$ P1P1,P1P1,Lifelink | CounterNum$ 1 | SorcerySpeed$ True",
+    );
+    assert!(
+        renew.abilities[0]
+            .contains("Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(2) }")
+            && renew.abilities[0].contains(
+                "Effect::AddCounter { kind: CounterKind::Lifelink, amount: Amount::Fixed(1) }"
+            ),
+        "{}",
+        renew.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadListCounter\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ PutCounter | ValidTgts$ Creature | CounterTypes$ P1P1,ChosenFromList | TypeList$ Flying,Lifelink"
+    ));
+    assert!(refused(
+        "Name:UnmodeledKindCounter\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ PutCounter | ValidTgts$ Creature | CounterTypes$ P1P1,Trample | CounterNum$ 1"
+    ));
+
+    let max_block = read(
+        "Name:SingleBlockerSpell\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | StaticAbilities$ STMax\n\
+         SVar:STMax:Mode$ MinMaxBlocker | ValidCard$ Card.IsRemembered | Max$ 1",
+    );
+    assert!(
+        max_block.abilities[0].contains("Modifier::MaxBlockers(1)"),
+        "{}",
+        max_block.abilities[0]
+    );
+
+    let noncombat_shield = read(
+        "Name:NoncombatShield\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ RPrev\n\
+         SVar:RPrev:Event$ DamageDone | ValidTarget$ You,Creature.YouCtrl | IsCombat$ False | Prevent$ True",
+    );
+    assert!(
+        noncombat_shield.abilities[0].contains(
+            "Modifier::PreventNoncombatDamageToPlayers { who: PlayerRel::You, from: &Filter::Any }"
+        ) && noncombat_shield.abilities[0]
+            .contains("Modifier::PreventNoncombatDamageFrom(&Filter::Any)"),
+        "{}",
+        noncombat_shield.abilities[0]
+    );
+
+    let doubler = read(
+        "Name:FlameQuest\nManaCost:R\nTypes:Enchantment\n\
+         A:AB$ Effect | Cost$ Sac<1/CARDNAME> | ReplacementEffects$ DmgEv\n\
+         SVar:DmgEv:Event$ DamageDone | ValidSource$ Card.YouCtrl,Emblem.YouCtrl | ValidTarget$ Permanent,Player | ReplaceWith$ Dmg2\n\
+         SVar:Dmg2:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Times.2",
+    );
+    assert!(
+        doubler.abilities[0].contains(
+            "Modifier::MultiplyDamageFrom { sources: &Filter::ControlledByYou, factor: 2, combat_only: false, noncombat_only: false, recipients: DamageRecipients::Any }"
+        ),
+        "{}",
+        doubler.abilities[0]
+    );
+
+    let adder = read(
+        "Name:HeatBoost\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ DmgEv\n\
+         SVar:DmgEv:Event$ DamageDone | ValidSource$ Card.YouCtrl | ValidTarget$ Player.Opponent,Permanent.OppCtrl | IsCombat$ False | ReplaceWith$ DmgPlus\n\
+         SVar:DmgPlus:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Plus.2",
+    );
+    assert!(
+        adder.abilities[0].contains(
+            "Modifier::AddDamageFrom { sources: &Filter::ControlledByYou, extra: 2, combat_only: false, noncombat_only: true, recipients: DamageRecipients::PlayersOrTheirPermanents(PlayerRel::EachOpponent) }"
+        ),
+        "{}",
+        adder.abilities[0]
+    );
+
+    // MultiplyDamageFrom does not bind ValidSource$ Creature.IsRemembered via ObjectIs.
+    assert!(refused(
+        "Name:BadSourceRememberedMul\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | ReplacementEffects$ DmgEv\n\
+         SVar:DmgEv:Event$ DamageDone | ValidSource$ Creature.IsRemembered | ValidTarget$ Player.Opponent | IsCombat$ True | ReplaceWith$ Dmg3\n\
+         SVar:Dmg3:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ ReplaceCount$DamageAmount/Times.3"
+    ));
+}
