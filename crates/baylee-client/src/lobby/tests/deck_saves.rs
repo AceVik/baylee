@@ -4,6 +4,7 @@
 #[allow(clippy::wildcard_imports)] // the lobby's own test vocabulary
 use super::*;
 use crate::buildui::SaveState;
+use bevy::ecs::system::RunSystemOnce as _;
 use std::collections::VecDeque;
 use std::io::{Read as _, Write as _};
 use std::net::{TcpListener, TcpStream};
@@ -786,11 +787,31 @@ fn a_late_answer_leaves_the_next_decks_draft() {
 fn a_failed_new_deck_keeps_its_draft_through_another_decks_save() {
     let gateway = Gateway::new();
     let mut app = creating_a_deck(&gateway);
-    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    let back = press_target(&mut app, Press::Build(BuildPress::CloseBuilder));
+    tap(&mut app, back);
+    app.world_mut()
+        .run_system_once(super::super::clicks::clicks)
+        .unwrap();
+    app.world_mut()
+        .resource_mut::<Messages<PointerClick>>()
+        .clear();
+    assert_eq!(state(&app).lobby.screen(), &Screen::Table);
+
     gateway.answer(500, r#"{"error":"the database is down"}"#);
-    until(&mut app, "the refusal arrived", |app| {
-        !state(app).deck_save_out()
-    });
+    // Let the real HTTP reply arrive before the draft keeper sees the exit.
+    // Running a full frame here could allow the keeper to run first.
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while state(&app).deck_save_out() {
+        assert!(Instant::now() < deadline, "the refusal never arrived");
+        app.world_mut().run_system_once(super::super::poll).unwrap();
+        thread::sleep(Duration::from_millis(1));
+    }
+    assert_eq!(state(&app).build.save, SaveState::Failed);
+    app.update();
+    assert!(
+        !state(&app).deck_save_out(),
+        "Back must not retry a refused save"
+    );
     until(&mut app, "the lobby settled", |app| {
         !state(app).lobby.busy()
     });

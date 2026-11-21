@@ -305,6 +305,7 @@ impl BuildPress {
                         state.confirm_leave = true;
                     }
                 } else {
+                    crate::buildui::draft::save_on_leaving(state, prefs, mailbox);
                     leave_the_builder(state, mailbox);
                 }
             }

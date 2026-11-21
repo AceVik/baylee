@@ -39,6 +39,9 @@ pub(crate) struct Drafts {
     /// Whether the document has been read.
     #[serde(skip)]
     read: bool,
+    /// Which visit already offered its final draft when Back was pressed.
+    #[serde(skip)]
+    offered_on_back: Option<u64>,
 }
 
 fn key(editing: Option<&str>) -> String {
@@ -149,6 +152,34 @@ fn save(
     }
 }
 
+fn finish_visit(
+    state: &mut LobbyState,
+    prefs: Option<&mut crate::prefs::Prefs>,
+    mailbox: Option<&crate::lobby::Mailbox>,
+) {
+    let deck = state.lobby.builder();
+    if deck.dirty() {
+        let draft = deck.draft();
+        if !draft.is_empty() {
+            state.drafts.keep(&draft);
+        }
+        if let Some(mailbox) = mailbox {
+            save(state, prefs, mailbox);
+        }
+    }
+}
+
+/// Keeps and offers the last edit as part of accepting Back, while any save
+/// already out still occupies its place in the queue.
+pub(crate) fn save_on_leaving(
+    state: &mut LobbyState,
+    prefs: &mut crate::prefs::Prefs,
+    mailbox: &crate::lobby::Mailbox,
+) {
+    finish_visit(state, Some(prefs), Some(mailbox));
+    state.drafts.offered_on_back = Some(state.lobby.builder().visit());
+}
+
 /// Keeps the draft: takes it back when its deck is opened again, saves every
 /// change once it has stood [`SAVE_SETTLE_SECS`], and writes the draft a
 /// second after the last edit for as long as no save has landed.
@@ -168,19 +199,14 @@ pub(crate) fn keep_the_draft(
     }
     if !on_screen {
         if kept.visiting {
-            // Whatever becomes of the save that goes out now, the device
-            // holds the edit until the gateway has said it does.
-            let deck = state.lobby.builder();
-            if deck.dirty() {
-                let draft = deck.draft();
-                if !draft.is_empty() {
-                    state.drafts.keep(&draft);
-                }
-            }
-            if let Some(mailbox) = mailbox.as_deref()
-                && state.lobby.builder().dirty()
-            {
-                save(&mut state, prefs.as_deref_mut(), mailbox);
+            let visit = state.lobby.builder().visit();
+            let offered = state
+                .bypass_change_detection()
+                .drafts
+                .offered_on_back
+                .take();
+            if offered != Some(visit) && state.lobby.builder().dirty() {
+                finish_visit(&mut state, prefs.as_deref_mut(), mailbox.as_deref());
             }
             *kept = Keeper::default();
         }
