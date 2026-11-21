@@ -95,7 +95,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
                 ch.mill += 1.0;
             }
         }
-        Effect::LookAtTopPick { .. } | Effect::LookAtTopPickThenReorder { .. }
+        Effect::LookAtTopPick { .. }
+        | Effect::LookAtTopPickThenReorder { .. }
         | Effect::LookAtTopFind { .. }
         | Effect::LookAtTopExileFaceDown { .. }
         | Effect::LookAtTopMayTake { .. }
@@ -171,6 +172,15 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::DealDamageWithLimitedLifeGain { amount, .. }
         | Effect::EventObjectDealsDamage { amount, .. } => {
             ch.damage_any += amount_scalar(amount).max(1.0);
+        }
+        Effect::DamagePermanentAndController {
+            permanent_amount,
+            controller_amount,
+            ..
+        } => {
+            let permanent = amount_scalar(permanent_amount).max(0.0);
+            let controller = amount_scalar(controller_amount).max(0.0);
+            ch.damage_any += (permanent + controller).max(1.0);
         }
         Effect::DealDamageDivided { amount, .. } => {
             let v = match amount {

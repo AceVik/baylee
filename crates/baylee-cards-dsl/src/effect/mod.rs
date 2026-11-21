@@ -5153,6 +5153,16 @@ pub enum Effect {
     /// Set the source permanent's level as a Class level ability resolves
     /// (CR 717.2a). Appended to preserve replay identities.
     SetClassLevel(u8),
+    /// Deal damage simultaneously to a permanent and its controller.
+    /// Appended to preserve replay identities.
+    DamagePermanentAndController {
+        /// Permanent receiving damage and determining which player receives damage.
+        target: TargetSpec,
+        /// Damage dealt to the permanent.
+        permanent_amount: Amount,
+        /// Damage dealt to the permanent's controller.
+        controller_amount: Amount,
+    },
 }
 
 #[cfg(test)]

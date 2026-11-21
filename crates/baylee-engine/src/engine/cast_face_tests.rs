@@ -223,12 +223,12 @@ fn a_disturb_cast_is_offered_at_the_back_face_s_cost_and_not_the_front_s() {
 fn an_unpayable_retrace_preserves_an_affordable_disturb_cast() {
     use crate::zone::{ZoneLocation, ZonePosition};
     use baylee_cards_dsl::KeywordSet;
+    use baylee_core::generated::index;
 
     let player = PlayerId::new(0);
-    let six = card_index("dbcbdf37-c40f-4068-b4a7-a849cab1056c");
-    let chaplain = card_index("c21d1ca3-3d19-4b4d-bbfa-07b5b7bcea4b");
+    let chaplain = index::CHAPLAIN_OF_ALMS;
     for land_count in [3, 4] {
-        let mut battlefield = vec![six];
+        let mut battlefield = vec![index::SIX];
         battlefield.extend(std::iter::repeat_n(plains(), land_count));
         let mut engine = Duel::new(31, plains())
             .hand(0, &[chaplain])

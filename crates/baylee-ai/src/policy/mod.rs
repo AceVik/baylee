@@ -2643,6 +2643,7 @@ fn harmful_targeted(effect: &Effect) -> bool {
     }
     match effect {
         Effect::DealDamage { .. }
+        | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::ReturnToHand { .. }
         | Effect::TapTarget

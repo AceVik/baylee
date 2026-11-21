@@ -429,6 +429,15 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
                 Struck::Object => facts.deeds.add(Deeds::REMOVES),
             }
         }
+        Effect::DamagePermanentAndController {
+            permanent_amount,
+            controller_amount,
+            ..
+        } => {
+            facts.reads.add(counted(permanent_amount));
+            facts.reads.add(counted(controller_amount));
+            facts.deeds.add(Deeds::REMOVES);
+        }
         Effect::Poison { who, amount } => {
             facts.reads.add(counted(amount));
             for seat in reading.players(who) {

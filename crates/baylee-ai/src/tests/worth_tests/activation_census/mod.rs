@@ -615,7 +615,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Beat 17 this_object_tests audit holds back 5 defective generated cards
     // (removing Durkwood Tracker's read activation and Sword of War and
     // Peace's Equip activation: -1 read, -2 total).
-    assert_eq!((read, of), (5065, 6476), "activated/loyalty reader census");
+    // Wizard Class's level-three activation is now a readable level change.
+    // Its draw trigger comes from the level's static ability.
+    assert_eq!((read, of), (5066, 6476), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

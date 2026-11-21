@@ -2641,23 +2641,102 @@ fn attacking_count_preserves_printed_tense() {
 }
 
 #[test]
-fn separate_damage_operations_refuse_simultaneous_damage_to_a_controller() {
+fn permanent_and_controller_damage_follows_the_printed_event_boundary() {
     let spec = "Name:Forked Flames\nManaCost:2 R\nTypes:Instant\n\
                 A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | SubAbility$ Scorch\n\
                 SVar:Scorch:DB$ DealDamage | Defined$ TargetedController | NumDmg$ 1";
-    let joined = parse(&format!(
+    let joined = read(&format!(
         "{spec}\nOracle:Forked Flames deals 3 damage to target creature and 1 damage to its controller."
     ));
-    assert!(transcode(&joined, &cats(), None).is_none());
-    assert_eq!(
-        refusal_reason(&joined, &cats(), None).as_deref(),
-        Some("simultaneous damage to a permanent and its controller")
+    assert!(
+        joined.abilities[0].contains(
+            "Effect::DamagePermanentAndController { target: TargetSpec::Object(&Filter::CREATURE), permanent_amount: Amount::Fixed(3), controller_amount: Amount::Fixed(1) }"
+        )
     );
 
-    let separate = read(&format!(
-        "{spec}\nOracle:Forked Flames deals 3 damage to target creature. Then it deals 1 damage to that creature's controller."
-    ));
-    assert!(separate.abilities[0].contains("TargetSpec::Player(PlayerRel::ControllerOfTarget)"));
+    for oracle in [
+        "Forked Flames deals 3 damage to target creature. Then it deals 1 damage to that creature's controller.",
+        "Forked Flames deals 3 damage to target creature and then 1 damage to its controller.",
+    ] {
+        let separate = read(&format!("{spec}\nOracle:{oracle}"));
+        assert!(
+            separate.abilities[0].contains("TargetSpec::Player(PlayerRel::ControllerOfTarget)")
+        );
+        assert!(!separate.abilities[0].contains("DamagePermanentAndController"));
+    }
+
+    let unsupported = format!(
+        "{spec} | DamageSource$ TriggeredCard\nOracle:Forked Flames deals 3 damage to target creature and 1 damage to its controller."
+    );
+    assert!(refused(&unsupported));
+
+    let multiple = format!(
+        "{spec}\nOracle:Forked Flames deals 3 damage to target creature and 1 damage to its controller. Then it deals 2 damage to that creature's controller."
+    );
+    assert!(refused(&multiple));
+}
+
+#[test]
+fn threshold_chooses_the_damage_event_before_applying_either_amount() {
+    let body = read(
+        "Name:Cinder Sledge\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | DamageMap$ True | SubAbility$ Singe\n\
+         SVar:Singe:DB$ DealDamage | Defined$ TargetedController | Condition$ Threshold | NumDmg$ 3 | SubAbility$ Finish\n\
+         SVar:Finish:DB$ DamageResolve\n\
+         Oracle:Cinder Sledge deals 2 damage to target creature. Threshold — If there are seven or more cards in your graveyard, instead Cinder Sledge deals 2 damage to that creature and 3 damage to that creature's controller.",
+    );
+    assert!(
+        body.abilities[0].contains(
+            "Effect::IfCondition { condition: Condition::GraveyardCountAtLeast(7), then: &[Effect::DamagePermanentAndController { target: TargetSpec::Object(&Filter::CREATURE), permanent_amount: Amount::Fixed(2), controller_amount: Amount::Fixed(3) }], otherwise: &[Effect::DealDamage { amount: Amount::Fixed(2), target: TargetSpec::Object(&Filter::CREATURE) }] }"
+        )
+    );
+}
+
+#[test]
+fn paired_damage_preserves_the_permanent_filter_amounts_and_later_effects() {
+    let mut catalog = cats();
+    catalog.artifact.push("Equipment".into());
+    catalog.normalize();
+    let script = parse(
+        "Name:Ashfall\nManaCost:4 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature,Planeswalker | NumDmg$ 3 | ReplaceDyingDefined$ Targeted | SubAbility$ Burst\n\
+         SVar:Burst:DB$ DealDamage | Defined$ TargetedController | NumDmg$ Wounds | SubAbility$ Finish\n\
+         SVar:Finish:DB$ DamageResolve | SubAbility$ Cantrip\n\
+         SVar:Cantrip:DB$ Draw | NumCards$ 1\n\
+         SVar:Wounds:Count$Valid Equipment.YouCtrl\n\
+         Oracle:Ashfall deals 3 damage to target creature or planeswalker and X damage to that permanent's controller, where X is the number of Equipment you control. If that permanent would die this turn, exile it instead. Draw a card.",
+    );
+    let body = transcode(&script, &catalog, None).expect("the damage pair reads in full");
+    let spell = &body.abilities[0];
+    let damage = spell.find("Effect::DamagePermanentAndController").unwrap();
+    let exile = spell.find("Effect::ExileIfDiesThisTurn").unwrap();
+    let draw = spell.find("Effect::draw(1)").unwrap();
+    assert!(damage < exile && exile < draw);
+    assert!(spell.contains("TargetSpec::Object(&Filter::CREATURE_OR_PLANESWALKER)"));
+    assert!(spell.contains("controller_amount: Amount::CountOf"));
+    assert!(body.statics.contains("artifact::EQUIPMENT"));
+    assert!(body.statics.contains("Filter::ControlledByYou"));
+}
+
+#[test]
+fn paired_damage_uses_the_creature_at_either_side_of_a_block() {
+    let body = read(
+        "Name:Cinder Brute\nTypes:Creature\nPT:4/3\n\
+         T:Mode$ AttackerBlockedByCreature | ValidCard$ Creature | ValidBlocker$ Card.Self | Execute$ ScorchAttacker\n\
+         T:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature | Execute$ ScorchBlocker | Secondary$ True\n\
+         SVar:ScorchAttacker:DB$ DealDamage | Defined$ TriggeredAttacker | NumDmg$ 1 | SubAbility$ AttackController\n\
+         SVar:ScorchBlocker:DB$ DealDamage | Defined$ TriggeredBlocker | NumDmg$ 1 | SubAbility$ BlockController\n\
+         SVar:AttackController:DB$ DealDamage | Defined$ TriggeredAttackerController | NumDmg$ 2\n\
+         SVar:BlockController:DB$ DealDamage | Defined$ TriggeredBlockerController | NumDmg$ 2\n\
+         Oracle:Whenever this creature blocks or becomes blocked by a creature, this creature deals 1 damage to that creature and 2 damage to its controller.",
+    );
+    assert_eq!(body.abilities.len(), 1);
+    assert!(body.abilities[0].contains("Trigger::BlocksOrBecomesBlockedBy("));
+    assert!(
+        body.abilities[0].contains(
+            "Effect::DamagePermanentAndController { target: TargetSpec::EventObject, permanent_amount: Amount::Fixed(1), controller_amount: Amount::Fixed(2) }"
+        )
+    );
 }
 
 #[test]

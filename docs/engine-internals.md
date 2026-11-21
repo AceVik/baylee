@@ -1674,6 +1674,10 @@ redirection before committing any damage result. Combat retains this work in
 `AwaitingOp::Damage`. Finishing a choice resumes that exact instruction or
 combat step, without granting priority or checking state-based actions midway.
 Fight collects both creatures' power before either result changes counters.
+An instruction that damages a permanent and its controller adds both recipients
+to the same batch. After redirection and prevention, one source deals its
+combined damage to each remaining recipient. Lifelink produces one life gain
+per source across those recipients (CR 119.9, 120.4b).
 
 `ChooseDamageEffect` asks the affected player, or an affected permanent's
 controller, which applicable effect to apply. After each answer the engine

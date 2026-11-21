@@ -357,6 +357,10 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 m.counter = true;
             }
             Effect::DealDamage { amount: n, .. }
+            | Effect::DamagePermanentAndController {
+                permanent_amount: n,
+                ..
+            }
             | Effect::GrantorDealsDamage { amount: n, .. }
             | Effect::DealDamageEvenly { amount: n, .. }
             | Effect::DealDamageWithCappedLifeGain { amount: n }

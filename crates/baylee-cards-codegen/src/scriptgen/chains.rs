@@ -105,6 +105,14 @@ impl Tx<'_> {
                 (targets_here, p.take("SubAbility"))
             };
         let second_target_here = !had_second_target && chain.second_target.is_some();
+        if api == "DealDamage"
+            && self.prints_simultaneous_damage_to_controller()
+            && let Some((effects, next)) =
+                self.damage_pair(p.clone(), sub.as_deref(), chain, targets_here)
+        {
+            chain.effects.extend(effects);
+            return self.chain_sub_ability(next, chain);
+        }
         // The chosen-source shield is three lines in the reference and one
         // sentence on the card: its `SubAbility$` is part of the sentence,
         // not the next one, so this rule reads the rest of the chain itself.
@@ -1807,30 +1815,6 @@ impl Tx<'_> {
         })
     }
 
-    fn prints_simultaneous_damage_to_controller(&self) -> bool {
-        self.oracle.to_ascii_lowercase().split('.').any(|sentence| {
-            let Some((verb, recipients)) = sentence.split_once(" damage to ") else {
-                return false;
-            };
-            let Some((_, followup)) = recipients.split_once(" and ") else {
-                return false;
-            };
-            let Some((amount, recipient)) = followup.split_once(" damage to ") else {
-                return false;
-            };
-            verb.contains("deals ")
-                && !amount.contains("deals ")
-                && [
-                    "its controller",
-                    "that creature's controller",
-                    "that permanent's controller",
-                    "that planeswalker's controller",
-                ]
-                .iter()
-                .any(|prefix| recipient.starts_with(prefix))
-        })
-    }
-
     /// One effect API as the `Effect` expressions it stands for.
     ///
     /// Every parameter a rule reads is *taken* from `p`; the caller then
@@ -1945,13 +1929,9 @@ impl Tx<'_> {
                     Some("You") => true,
                     Some(_) => return None,
                 };
-                // "Deals 4 damage to any target and 2 damage to you"
-                // (Psionic Blast): the reference gathers both into one
-                // simultaneous event and deals it at `DamageResolve`. The
-                // engine journals one `DamageDealt` per recipient either
-                // way, as it does for `DealDamageEach`, and nothing checks
-                // state-based actions between two effects of one
-                // resolution, so the two in sequence are the same event.
+                // Some reference chains gather assignments into a damage
+                // map; the paired-recipient reader handles the printed
+                // permanent-and-controller shape before this path.
                 if p.take("DamageMap").is_some_and(|v| v != "True") {
                     return None;
                 }

@@ -76,6 +76,15 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. } => {
             reads_amount(*amount) || reads_target(*target)
         }
+        Effect::DamagePermanentAndController {
+            target,
+            permanent_amount,
+            controller_amount,
+        } => {
+            reads_target(*target)
+                || reads_amount(*permanent_amount)
+                || reads_amount(*controller_amount)
+        }
         Effect::PayManaToPreventDamage { player, amount, .. }
         | Effect::ScryFor { player, amount, .. }
         | Effect::CreateTokensFor { player, amount, .. } => {

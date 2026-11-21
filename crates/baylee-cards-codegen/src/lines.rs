@@ -934,6 +934,9 @@ fn says_effect(effect: &Effect, lower: &str) -> bool {
     if let Effect::MayDo { effects } = effect {
         return effects.iter().all(|inner| says_effect(inner, lower));
     }
+    if matches!(effect, Effect::DamagePermanentAndController { .. }) {
+        return lower.contains("damage") && lower.contains("controller");
+    }
     let words = effect_words(effect);
     words.is_empty() || words.iter().any(|word| lower.contains(word))
 }

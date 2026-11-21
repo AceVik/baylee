@@ -12,6 +12,7 @@ mod akoum_boulderfoot;
 mod akoum_warrior;
 mod aphetto_vulture;
 mod arcanis_the_omnipotent;
+mod assembled_alphas;
 mod autumn_willow;
 mod bartel_runeaxe;
 mod bloodshot_cyclops;

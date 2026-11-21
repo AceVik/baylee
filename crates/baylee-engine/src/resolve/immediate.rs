@@ -423,6 +423,7 @@ pub(super) fn exec_immediate(
         | Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { .. }
         | Effect::LoseLife { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
+        | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamage { .. }
         | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }

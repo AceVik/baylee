@@ -1814,9 +1814,9 @@ Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `RearrangeTopLibrary`/`ReorderTopLibrary`.
 Combat/damage: `DealDamage`, `DealDamageToTargetController`,
 `DealDamageEach` (`Effect::damage_each(n, &filter)`), `Fight`,
-`DamageEqualToPower`.
+`DamageEqualToPower`, `DamagePermanentAndController`.
 
-Three damage sentences, three spellings, and none of them overlaps:
+The printed recipient determines the damage effect:
 
 - **"… to target X"** is `DealDamage` with the choice on the ability's
   `targets`/`target`.
@@ -1827,6 +1827,11 @@ Three damage sentences, three spellings, and none of them overlaps:
 - **"… to each creature …"** is `DealDamageEach { amount, filter }`: every
   permanent the filter matches as it resolves, none of them a target, so
   hexproof does not stop it (CR 115.10a).
+- **"… to that permanent and … to its controller"** is
+  `DamagePermanentAndController { target, permanent_amount, controller_amount }`.
+  It deals both amounts in one event (CR 120.4b, CR 614.9). If a condition
+  changes the instruction, branch before the damage, as Kamahl's Sledge
+  does for threshold.
 
 A sentence naming both halves — "to you and each creature you control",
 "to each creature and each player" — is both effects in one list. Spell the

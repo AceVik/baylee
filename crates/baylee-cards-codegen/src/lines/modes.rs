@@ -184,6 +184,7 @@ fn effect_fits(effect: &Effect, lower: &str) -> bool {
         .collect();
     match effect {
         Effect::Mill { .. } => words.iter().any(|word| matches!(*word, "mill" | "mills")),
+        Effect::DamagePermanentAndController { .. } => super::says_effect(effect, lower),
         Effect::PhaseOut { .. } => words
             .windows(2)
             .any(|pair| matches!(pair[0], "phase" | "phases") && pair[1] == "out"),

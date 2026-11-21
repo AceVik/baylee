@@ -23,8 +23,15 @@ Disturb cast when its granted Retrace cost cannot be paid. Teachings of the
 Kirin checks for a card exiled from a graveyard. Those Old Scientists uses
 different graveyard owners in chapters II and III. Astral Confrontation and
 Apothecary White count the players currently under direct attack. The nine
-cards in the simultaneous damage group are listed in
-`generated-held-back.md` with their shared engine requirement.
+newly read cards that damage a permanent and its controller now make one
+damage event: Assembled Alphas, Burn the Accursed, Carnival // Carnage,
+Chandra's Outrage, First Volley, Judgment Bolt, Neonate's Rush, Shocker,
+Unshakable, and Unleash Shell. The same reader handles Kamahl's Sledge by
+checking threshold before either amount is dealt. A subsequent instruction
+such as Burn the Accursed's death replacement stays after the damage. Two
+instructions joined by "then" still cause separate events. If Pariah
+redirects the controller's damage to the same creature, enrage triggers
+once for the combined damage (CR 120.4b, CR 614.9, CR 603.2c).
 
 ## 2026-11-21 — Beat 17: Engine Waves 9a–10b, Codegen Wave 17a–17c, Unholds, Passes E11–E12 & Full 13-Crate Gate (`21,807` Conforming / `20,639` Playable)
 

@@ -980,6 +980,7 @@ impl Effect {
             | Effect::DrawRevealDiscardUnless { .. }
             | Effect::ExileTargetsCreateTokens { .. }
             | Effect::DealDamageToBothTargetInstances { .. }
+            | Effect::DamagePermanentAndController { .. }
             | Effect::DealDamage { .. }
             | Effect::GrantorDealsDamage { .. }
             | Effect::DealDamageWithoutPreventionOrRedirection { .. }

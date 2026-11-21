@@ -72,6 +72,7 @@ fn removes_one(effect: &Effect) -> bool {
         Effect::Destroy { target, .. }
         | Effect::Exile { target }
         | Effect::DealDamage { target, .. }
+        | Effect::DamagePermanentAndController { target, .. }
         | Effect::ReturnToHand { target } => reaches_permanents(target),
         Effect::DestroyTargetSlots { .. }
         | Effect::ExileTargetsCreateTokens { .. }

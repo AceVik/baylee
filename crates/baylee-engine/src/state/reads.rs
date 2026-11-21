@@ -416,6 +416,11 @@ fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
             | Effect::AddCounterSource { amount, .. }
             | Effect::CreateTokenN { amount, .. }
             | Effect::NextSpellThisTurnCostsLess(amount) => amount_reads_expend(amount),
+            Effect::DamagePermanentAndController {
+                permanent_amount,
+                controller_amount,
+                ..
+            } => amount_reads_expend(permanent_amount) || amount_reads_expend(controller_amount),
             Effect::PumpTarget {
                 power, toughness, ..
             }

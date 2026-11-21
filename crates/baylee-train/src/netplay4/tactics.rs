@@ -3460,6 +3460,7 @@ fn is_activated_ability_worth_activating_now(
                                 Effect::Destroy { .. }
                                     | Effect::DestroyAll { .. }
                                     | Effect::DealDamage { .. }
+                                    | Effect::DamagePermanentAndController { .. }
                             )
                         }),
                         _ => false,
@@ -4011,6 +4012,7 @@ pub(super) fn is_hostile_object_effects(effects: &[Effect]) -> bool {
             Effect::Destroy { .. }
             | Effect::Exile { .. }
             | Effect::DealDamage { .. }
+            | Effect::DamagePermanentAndController { .. }
             | Effect::TapTarget
             | Effect::MustBlockSourceIfAbleThisCombat
             | Effect::MustBlockIfAble { .. }

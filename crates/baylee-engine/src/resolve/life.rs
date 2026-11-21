@@ -29,6 +29,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::GrantorDealsDamage { .. }
         | Effect::DealDamageWithoutPreventionOrRedirection { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
+        | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageToAttached { .. }
         | Effect::DealDamageDivided { .. }
@@ -871,6 +872,45 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
         // Each recipient's amount is determined as the effect is applied
         // (CR 608.2h), before any of it is dealt; a player recipient's
         // through `amount_for_player` ("that player", Typhoon).
+        Effect::DamagePermanentAndController {
+            target,
+            permanent_amount,
+            controller_amount,
+        } => {
+            let reference = if target == TargetSpec::EventObject {
+                super::subjects::event(state, res)
+            } else {
+                super::zones::spec_object(state, res, target)
+                    .and_then(|id| super::subjects::target(state, res, id))
+            };
+            let Some(reference) = reference else {
+                return Vec::new();
+            };
+            // An untargeted blocked or blocking creature can have left. Its
+            // last controller is still known, but its new incarnation cannot
+            // receive the damage (CR 608.2h, 400.7).
+            let Some(permanent) = state.source_object(reference) else {
+                return Vec::new();
+            };
+            let mut result = Vec::with_capacity(2);
+            if super::subjects::on_battlefield(state, reference) {
+                result.push(assignment(
+                    state,
+                    res,
+                    res.source,
+                    DamageTarget::Object(reference.object),
+                    amount2(&permanent_amount, state, you, res),
+                ));
+            }
+            result.push(assignment(
+                state,
+                res,
+                res.source,
+                DamageTarget::Player(permanent.controller),
+                super::amount_for_player(&controller_amount, state, you, res, permanent.controller),
+            ));
+            result
+        }
         Effect::DealDamageToBothTargetInstances { amount } => {
             let first = recipients(state, res, you, TargetSpec::AnyTarget);
             first

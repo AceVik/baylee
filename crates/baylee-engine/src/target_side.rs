@@ -131,6 +131,7 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::CounterTargetAbility
         | Effect::CounterTargetSpellOrAbility
         | Effect::DealDamage { .. }
+        | Effect::DamagePermanentAndController { .. }
         | Effect::DealDamageEvenly { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::DealDamageWithLimitedLifeGain { .. }
@@ -185,6 +186,11 @@ fn hurts(effect: &Effect, x: u32) -> bool {
         | Effect::DealDamageEvenly { amount: n, .. }
         | Effect::DealDamageWithCappedLifeGain { amount: n }
         | Effect::DealDamageWithLimitedLifeGain { amount: n, .. } => amount(*n, x) > 0,
+        Effect::DamagePermanentAndController {
+            permanent_amount,
+            controller_amount,
+            ..
+        } => amount(*permanent_amount, x) > 0 || amount(*controller_amount, x) > 0,
         Effect::DealDamageDivided { amount: n } => n.total(x) > 0,
         _ => false,
     }

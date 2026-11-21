@@ -45,6 +45,7 @@ mod atoms;
 mod chains;
 mod constants;
 mod creature_type;
+mod damage_pair;
 mod dig;
 mod divided_damage;
 mod effects;

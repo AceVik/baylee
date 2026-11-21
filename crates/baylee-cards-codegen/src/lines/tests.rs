@@ -8,6 +8,24 @@ use baylee_cards_dsl::filter::Filter;
 use baylee_cards_dsl::{SpellMode, loyalty};
 
 #[test]
+fn damage_to_a_permanent_and_its_controller_matches_the_line_naming_both() {
+    use baylee_cards_dsl::{TargetSpec, activated, cost};
+
+    let ability = activated!(
+        cost!("{2}"),
+        &[Effect::DamagePermanentAndController {
+            target: TargetSpec::Object(&Filter::CREATURE),
+            permanent_amount: Amount::Fixed(3),
+            controller_amount: Amount::Fixed(1),
+        }],
+    );
+    let oracle = "{2}: This deals 3 damage to target creature.\n{2}: This deals 3 damage to target creature and 1 damage to its controller.";
+    let mapping = map(&[ability], oracle);
+    assert_eq!(mapping.lines, [Some(1)]);
+    assert_eq!(mapping.ambiguous, 0);
+}
+
+#[test]
 fn class_level_bars_with_the_same_cost_map_by_level() {
     use baylee_cards_dsl::{ActivationTiming, Condition, activated, cost};
 

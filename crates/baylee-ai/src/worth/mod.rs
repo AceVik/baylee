@@ -2607,6 +2607,39 @@ impl HeuristicAgent {
                     _ => subject.map_or(0, |o| self.damage_object(view, o, n)),
                 }
             }
+            Effect::DamagePermanentAndController {
+                target,
+                permanent_amount,
+                controller_amount,
+            } => {
+                let subject = match target {
+                    TargetSpec::ThisObject => origin.object,
+                    TargetSpec::EventObject => {
+                        evaluation.event_object.and_then(|id| view.object(id))
+                    }
+                    _ => subject,
+                };
+                let Some(o) = subject else {
+                    return Some(0);
+                };
+                let permanent = count(*permanent_amount)?;
+                let controller = count(*controller_amount)?;
+                if permanent > 0 && o.types.contains(TypeSet::BATTLE) {
+                    return None;
+                }
+                let object_damage = if permanent > 0 {
+                    self.damage_object(view, o, permanent)
+                } else {
+                    0
+                };
+                let to_controller = hurt(view, o.controller, controller);
+                let player_damage = if self.hostile(o.controller, me) {
+                    to_controller
+                } else {
+                    -to_controller
+                };
+                object_damage + player_damage
+            }
             // Every creature goes home to its owner (CR 108.3).
             Effect::AllCreaturesToOwner => view
                 .battlefield
