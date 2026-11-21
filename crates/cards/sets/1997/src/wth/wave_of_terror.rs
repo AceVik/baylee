@@ -11,7 +11,7 @@ card!(
     oracle_id = "2346be19-7344-4f11-be2c-a22750cb7e1d",
     scryfall_id = "d40ab3e7-9abb-4acc-9932-de03b533722f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wave of Terror",
         mana_cost = mana!("{2}{B}"),

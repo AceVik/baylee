@@ -11,7 +11,7 @@ card!(
     oracle_id = "c6eaa147-3566-43a9-999a-d58b877496f5",
     scryfall_id = "741612e3-fe3a-4099-9d2b-4a654c4ce949",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zur's Weirding",
         mana_cost = mana!("{3}{U}"),

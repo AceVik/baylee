@@ -110,6 +110,7 @@ fn may_block(
             .any(|b| b.blocker == blocker && b.attackers.contains(&attacker))
     })
 }
+mod angelic_chorus;
 mod asceticism;
 mod berserkers_onslaught;
 mod black_market;
@@ -159,4 +160,5 @@ mod tornado;
 mod where_ancients_tread;
 mod worms_of_the_earth;
 mod wrath_of_marit_lage;
+mod yawgmoth_s_agenda;
 mod zendikar_s_roil;

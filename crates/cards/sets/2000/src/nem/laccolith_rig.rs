@@ -12,7 +12,7 @@ card!(
     oracle_id = "0b583980-1508-4247-8a28-7127241d8ec0",
     scryfall_id = "4fb92039-03fd-4aee-be74-96997be629d6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Laccolith Rig",
         mana_cost = mana!("{R}"),

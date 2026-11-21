@@ -5,6 +5,7 @@ use super::*;
 
 mod abduction;
 mod animate_artifact;
+mod barbed_field;
 mod brand_of_ill_omen;
 mod control_magic;
 mod curse_artifact;
@@ -23,6 +24,7 @@ mod mind_whip;
 mod pattern_of_rebirth;
 mod serra_s_embrace;
 mod steal_artifact;
+mod strength_of_unity;
 mod takklemaggot;
 mod vampiric_embrace;
 mod zephid_s_embrace;

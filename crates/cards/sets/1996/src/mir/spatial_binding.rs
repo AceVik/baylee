@@ -10,7 +10,7 @@ card!(
     oracle_id = "52fc8217-5a14-40b5-a8fc-b6fc45af5f33",
     scryfall_id = "176d625f-1410-4ad6-a279-9a184fac6507",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spatial Binding",
         mana_cost = mana!("{U}{B}"),

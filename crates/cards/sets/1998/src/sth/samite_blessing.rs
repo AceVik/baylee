@@ -25,7 +25,7 @@ card!(
     oracle_id = "a524ae69-2594-467d-af0a-27b9984d4300",
     scryfall_id = "3b21aa2e-df36-4101-89b6-515858f2ab88",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Samite Blessing",
         mana_cost = mana!("{W}"),

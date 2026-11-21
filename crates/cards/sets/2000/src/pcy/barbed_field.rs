@@ -21,7 +21,7 @@ card!(
     oracle_id = "45222123-f5e0-48ff-b80c-858727d155d7",
     scryfall_id = "1c76db48-6f05-49c3-a49c-587c0a8a3613",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barbed Field",
         mana_cost = mana!("{2}{R}{R}"),

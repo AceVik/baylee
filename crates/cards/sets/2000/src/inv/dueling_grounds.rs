@@ -11,7 +11,7 @@ card!(
     oracle_id = "eb2df4a1-6b63-4f6a-a830-e9487afe59f8",
     scryfall_id = "52760183-bee0-4ce0-96c0-074b88f78980",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dueling Grounds",
         mana_cost = mana!("{1}{G}{W}"),
