@@ -12,7 +12,7 @@ card!(
     oracle_id = "83578de7-5488-4952-af47-8fe966897210",
     scryfall_id = "3cbd82d5-d64f-4833-b1a9-9652fcfa1578",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Headhunter",
         mana_cost = mana!("{1}{B}"),

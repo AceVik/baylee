@@ -11,7 +11,7 @@ card!(
     oracle_id = "ee90b4c5-f646-47a9-8aa8-393c86e35536",
     scryfall_id = "90b8ba27-c3bb-48cf-b831-518f5d255c2e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Twigwalker",
         mana_cost = mana!("{2}{G}"),

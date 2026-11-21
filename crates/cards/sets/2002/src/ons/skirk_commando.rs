@@ -12,7 +12,7 @@ card!(
     oracle_id = "c92f1d40-0441-4ede-9363-78821ff15f88",
     scryfall_id = "259a6b6d-368a-4ee0-b0ed-b52301bfd78f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Skirk Commando",
         mana_cost = mana!("{1}{R}{R}"),

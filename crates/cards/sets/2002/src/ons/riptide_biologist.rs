@@ -12,7 +12,7 @@ card!(
     oracle_id = "fe378f26-5c80-4548-8127-10724ac0c452",
     scryfall_id = "4d399b71-c365-492c-976e-2c79d97d08bc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Riptide Biologist",
         mana_cost = mana!("{1}{U}"),

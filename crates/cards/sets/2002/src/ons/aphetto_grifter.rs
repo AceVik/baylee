@@ -16,7 +16,7 @@ card!(
     oracle_id = "d9d7b7a9-5107-4720-9f92-b49e372372b8",
     scryfall_id = "3a7a7bf3-1b0c-415d-9c57-73ac55b1f915",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aphetto Grifter",
         mana_cost = mana!("{2}{U}"),

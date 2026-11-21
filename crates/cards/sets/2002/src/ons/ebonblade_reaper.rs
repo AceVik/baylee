@@ -13,7 +13,7 @@ card!(
     oracle_id = "86fd4652-a629-429a-bf95-0b8724708a71",
     scryfall_id = "16ebef2c-8bb2-4816-a628-0062f95e512e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ebonblade Reaper",
         mana_cost = mana!("{2}{B}"),

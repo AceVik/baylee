@@ -11,7 +11,7 @@ card!(
     oracle_id = "a896cedb-f10a-48ac-82e7-6ae1e8b5a439",
     scryfall_id = "099873b1-7181-4b9d-8ce1-8ec63c814afe",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dwarven Scorcher",
         mana_cost = mana!("{R}"),

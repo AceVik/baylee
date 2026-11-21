@@ -12,7 +12,7 @@ card!(
     oracle_id = "c7a60f81-f7cb-4fd7-b422-963290964069",
     scryfall_id = "5b0d9c2f-356c-4f27-8560-8ffceadac31c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Disruptive Pitmage",
         mana_cost = mana!("{2}{U}"),

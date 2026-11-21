@@ -12,7 +12,7 @@ card!(
     oracle_id = "c56671e1-28a6-40c3-bad5-b5e617ddb7da",
     scryfall_id = "86369fe5-d86d-4f4c-8f3d-dedc174f2032",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arctic Merfolk",
         mana_cost = mana!("{1}{U}"),

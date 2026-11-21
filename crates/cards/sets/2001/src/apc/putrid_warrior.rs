@@ -13,7 +13,7 @@ card!(
     oracle_id = "6ec24c24-7e87-4c12-b94e-3cd5b184beb5",
     scryfall_id = "17fce298-3338-4f41-8156-ab6322951a76",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Putrid Warrior",
         mana_cost = mana!("{W}{B}"),

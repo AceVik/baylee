@@ -30,7 +30,7 @@ card!(
     scryfall_id = "dd1452ff-cec6-4df3-8bdc-bfb7869553a1",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bloodcurdler",
         mana_cost = mana!("{1}{B}"),

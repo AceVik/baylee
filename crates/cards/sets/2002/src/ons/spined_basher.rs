@@ -11,7 +11,7 @@ card!(
     oracle_id = "4891923b-9c8c-4816-9623-d9362e4eb503",
     scryfall_id = "4d0d666a-8e31-466c-937f-54df910f664e",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spined Basher",
         mana_cost = mana!("{2}{B}"),

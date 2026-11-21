@@ -17,7 +17,7 @@ card!(
     oracle_id = "7e2cacae-2934-4ff5-81c6-dfce7a2820ef",
     scryfall_id = "b26d5fc8-c148-4383-a1b9-f80da4d875aa",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Voidmage Prodigy",
         mana_cost = mana!("{U}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "7bca544e-08d8-4e83-aa30-c7201a649a66",
     scryfall_id = "70ea023e-e66d-4049-b7bc-5e660804f088",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nosy Goblin",
         mana_cost = mana!("{2}{R}"),

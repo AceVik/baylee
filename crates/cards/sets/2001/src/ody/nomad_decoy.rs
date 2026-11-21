@@ -12,7 +12,7 @@ card!(
     oracle_id = "73c40477-7061-47db-af8f-2a5cf6c22c9b",
     scryfall_id = "da039589-f3ee-4aff-b8b0-e5fda13ebe97",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nomad Decoy",
         mana_cost = mana!("{2}{W}"),
