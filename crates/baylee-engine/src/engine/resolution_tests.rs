@@ -53,12 +53,9 @@ fn a_spell_that_exiles_itself_is_not_put_into_a_graveyard_afterwards() {
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     cast_from_hand(&mut engine, p0, spirit_water_revival());
     // Waterbend {6} is an *optional* additional cost (CR 601.2b), and three
-    // Islands could not pay it anyway. Declined, so the spell takes its
-    // printed branch — "draw two cards" — and the self-exile below is the
-    // one sentence that is the same either way.
-    engine
-        .apply(p0, PlayerAction::YesNo(false))
-        .expect("the waterbend question is the caster's");
+    // Islands cannot pay it, so the wizard skips the question and takes the
+    // printed branch — "draw two cards" — whose self-exile below is the one
+    // sentence that is the same either way.
     pass_until(&mut engine, |e| at_rest(e, p0));
 
     assert_eq!(

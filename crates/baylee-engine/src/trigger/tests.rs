@@ -943,6 +943,7 @@ fn mana_production_reads_its_activation_across_trigger_scan_boundaries() {
 fn every_step_trigger_names_a_player_the_matcher_reads() {
     const READ: &[&str] = &[
         "You",
+        "EachOtherPlayer",
         "Opponent",
         "EachOpponent",
         "ControllerOfAttached",
@@ -976,6 +977,40 @@ fn every_step_trigger_names_a_player_the_matcher_reads() {
     assert!(
         unread.is_empty(),
         "step triggers no matcher arm reads: {unread:?}"
+    );
+}
+
+#[test]
+fn step_begin_each_other_player_fires_on_other_players_steps_and_not_yours() {
+    let mut state = state();
+    let watcher = permanent(&mut state, me(), "Well of Ideas");
+    let trigger = Trigger::StepBegin {
+        step: baylee_cards_dsl::StepKind::Draw,
+        whose: PlayerRel::EachOtherPlayer,
+    };
+    let own_draw = GameEvent::StepChanged {
+        active: me(),
+        phase: crate::turn::Phase::Beginning,
+        step: crate::turn::Step::Draw,
+    };
+    let other_draw = GameEvent::StepChanged {
+        active: them(),
+        phase: crate::turn::Phase::Beginning,
+        step: crate::turn::Step::Draw,
+    };
+    assert_eq!(hits(&trigger, &own_draw, &[], &state, watcher, me()), 0);
+    assert_eq!(hits(&trigger, &other_draw, &[], &state, watcher, me()), 1);
+    assert_eq!(
+        super::events::event_player_for(
+            &trigger,
+            &crate::event::JournalEntry {
+                seq: 1,
+                event: other_draw,
+                departure: None,
+            },
+            &state,
+        ),
+        Some(them()),
     );
 }
 

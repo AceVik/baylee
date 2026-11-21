@@ -174,16 +174,15 @@ fn has_dynamic_expend_observer(state: &GameState) -> bool {
 
 fn any_own_ability(state: &GameState, pred: impl Fn(&AbilityDef) -> bool) -> bool {
     state
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
-        .chain(
+        .battlefield_seen()
+        .chain(state.players.iter().flat_map(|p| {
             state
-                .players
+                .zones
+                .list(ZoneLocation::Command(p.id))
                 .iter()
-                .flat_map(|p| state.zones.list(ZoneLocation::Command(p.id)).iter()),
-        )
-        .filter_map(|&id| state.object(id))
+                .copied()
+        }))
+        .filter_map(|id| state.object(id))
         .filter_map(|o| o.own_abilities.as_ref())
         .any(|bundle| bundle.entries().iter().any(|entry| pred(entry.definition)))
 }

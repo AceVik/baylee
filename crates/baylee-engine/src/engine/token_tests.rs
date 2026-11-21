@@ -402,9 +402,8 @@ fn a_copys_ability_is_addressed_by_no_card() {
     engine
         .apply(p0, PlayerAction::CastSpell { card: rite })
         .unwrap();
-    // Rite's kicker is an optional additional cost; five more mana is not
-    // what this board is for.
-    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    // Rite's kicker ({5}) cannot be paid off four Islands, so the wizard goes
+    // straight to targets.
     let cleric = super::testkit::on_battlefield(&engine, p0, ondu_cleric()).expect("the cleric");
     engine
         .apply(

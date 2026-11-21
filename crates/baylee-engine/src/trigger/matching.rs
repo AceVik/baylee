@@ -1225,6 +1225,7 @@ fn matches(
             }
             match whose {
                 PlayerRel::You => *active == you,
+                PlayerRel::EachOtherPlayer => *active != you,
                 // "Each opponent's upkeep" is the upkeep of whichever
                 // opponent is active, which is what "an opponent's" says.
                 PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*active, you),

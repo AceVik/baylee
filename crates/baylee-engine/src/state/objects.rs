@@ -963,6 +963,7 @@ impl GameState {
         {
             to_clear.push(partner);
         }
+        // phasing: unpairing also clears PairedWith riders on phased-out partners (CR 702.95e).
         for &bf_id in self.zones.list(ZoneLocation::Battlefield) {
             if !to_clear.contains(&bf_id)
                 && self.object(bf_id).is_some_and(|o| {
@@ -1027,6 +1028,7 @@ impl GameState {
     /// permanent dormant while phased out until it phases in (CR 702.26b).
     pub(crate) fn prune_broken_soulbond_pairs(&mut self) -> bool {
         let mut broken = smallvec::SmallVec::<[ObjectId; 2]>::new();
+        // phasing: walks raw battlefield while keeping phased-out pairings dormant (CR 702.26b, CR 702.95e).
         for &id in self.zones.list(ZoneLocation::Battlefield) {
             let Some(a) = self.object(id) else {
                 continue;

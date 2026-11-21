@@ -345,7 +345,7 @@ fn a_standing_answer_never_reaches_a_cost_decision() {
     let kicker = AbilityRef::new(rite_of_replication(), AbilityRef::ADDITIONAL_COST);
     let mut engine = started(
         Duel::new(32, island())
-            .battlefield(0, &[island(), island(), island(), island(), island()])
+            .battlefield(0, &[island(); 9])
             .battlefield(1, &[ondu_cleric()])
             .hand(0, &[rite_of_replication()]),
     );

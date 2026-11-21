@@ -50,7 +50,7 @@ fn tap_all_lands(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
     }
 }
 
-/// Five Islands, two bodies, and the waterbend sorcery in hand.
+/// Five Islands, four bodies, and the waterbend sorcery in hand.
 fn table() -> Engine<RegistryLookup> {
     let mut engine = Duel::new(4, island())
         .hand(0, &[spirit_water_revival()])
@@ -62,6 +62,8 @@ fn table() -> Engine<RegistryLookup> {
                 island(),
                 island(),
                 island(),
+                ondu_cleric(),
+                ondu_cleric(),
                 ondu_cleric(),
                 ondu_cleric(),
             ],
@@ -157,9 +159,9 @@ fn declining_the_waterbend_cost_casts_the_spell() {
 /// A waterbend the table cannot pay leaves the caster holding priority.
 ///
 /// This is the "ab hier war das Spiel gar nicht mehr spielbar" half of the
-/// report. `{1}{U}{U}` plus a waterbent `{6}` is `{7}{U}{U}`; five Islands and two
-/// untapped bodies cannot reach it, and the two bodies are worth nothing at
-/// all once the convoke question is answered with none. `finish_cast`
+/// report. `{1}{U}{U}` plus a waterbent `{6}` is `{7}{U}{U}`; five Islands
+/// plus four untapped bodies can reach it, yet the four bodies are worth
+/// nothing once the convoke question is answered with none. `finish_cast`
 /// refuses, correctly, and tears the wizard down.
 ///
 /// The answer itself is taken: "none" is what the convoke question offered,
@@ -231,7 +233,7 @@ fn a_waterbend_that_cannot_be_paid_gives_the_caster_their_turn_back() {
 /// expect the question, which pinned #229: a declined waterbend has no taps
 /// to ask about (CR 701.67b), and
 /// `card_tests::sorceries::spirit_water_revival_asks_for_no_taps_when_the_waterbend_is_declined`
-/// holds that half. Two bodies under a `{6}` keep the board the bound.
+/// holds that half. Four bodies under a `{6}` keep the board the bound.
 #[test]
 fn the_convoke_question_is_named_and_bounded_by_the_board() {
     let seat = PlayerId::new(0);
@@ -269,7 +271,7 @@ fn the_convoke_question_is_named_and_bounded_by_the_board() {
     assert_eq!(*min, 0, "convoke is never compulsory");
     assert_eq!(
         (*max as usize, options.len()),
-        (2, 2),
-        "the bound is a sentinel, not the two bodies on the table"
+        (4, 4),
+        "the bound is a sentinel, not the four bodies on the table"
     );
 }
