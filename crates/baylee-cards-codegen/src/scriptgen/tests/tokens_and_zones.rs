@@ -1384,3 +1384,151 @@ fn wave17a_riot_unleash_and_keyword_atoms() {
         assert_eq!(filter(atom), expected, "{atom}");
     }
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave18b_change_zone_origin_alternative_defined_player_and_remember_changed() {
+    // `ChangeZone.OriginAlternative`: Library <-> Graveyard with YouOwn stripped.
+    let lib_or_gy = read(
+        "Name:GraveTutor\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | OriginAlternative$ Graveyard | Destination$ Hand | \
+         ChangeType$ Creature.YouOwn | ShuffleNonMandatory$ True",
+    );
+    assert!(
+        lib_or_gy.abilities[0].contains(
+            "Effect::SearchLibraryOrGraveyard { filter: &Filter::CREATURE, find: &Find::HAND }"
+        ),
+        "{:?}",
+        lib_or_gy.abilities
+    );
+
+    let gy_or_lib = read(
+        "Name:BattleTutor\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | OriginAlternative$ Library | Destination$ Battlefield | \
+         Tapped$ True | ChangeType$ Land.Basic",
+    );
+    assert!(
+        gy_or_lib.abilities[0].contains("Effect::SearchLibraryOrGraveyard")
+            && gy_or_lib.abilities[0].contains("find: &Find::BATTLEFIELD_TAPPED"),
+        "{:?}",
+        gy_or_lib.abilities
+    );
+
+    // `ChangeZone.DefinedPlayer`: target's controller searches their own library.
+    let path_like = read(
+        "Name:ExileAndRamp\nManaCost:W\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile | SubAbility$ DBRamp\n\
+         SVar:DBRamp:DB$ ChangeZone | DefinedPlayer$ TargetedController | Origin$ Library | Destination$ Battlefield | \
+         ChangeType$ Land.Basic | Tapped$ True | Optional$ True | Reveal$ True",
+    );
+    assert!(
+        path_like.abilities[0].contains(
+            "Effect::SearchLibraryOf { library: PlayerRel::ControllerOfTarget, owner_searches: true,"
+        ),
+        "{:?}",
+        path_like.abilities
+    );
+
+    // `ChangeZone.DefinedPlayer`: you search target opponent's library with GainControl$ True.
+    let bribery_like = read(
+        "Name:StealFromDeck\nManaCost:3 U U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Opponent | DefinedPlayer$ Targeted | Chooser$ You | \
+         Origin$ Library | Destination$ Battlefield | ChangeType$ Creature | GainControl$ True | IsCurse$ True",
+    );
+    assert!(
+        bribery_like.abilities[0].contains(
+            "Effect::SearchLibraryOf { library: PlayerRel::Chosen, owner_searches: false, \
+             filter: &Filter::CREATURE, mana_value: None, finds: &[Find::BATTLEFIELD], optional: false }"
+        ),
+        "{:?}",
+        bribery_like.abilities
+    );
+
+    // `ChangeZone.DefinedPlayer`: group search (`Player` -> `RepeatEach`).
+    let group_search = read(
+        "Name:SharedHarvest\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | DefinedPlayer$ Player | Origin$ Library | Destination$ Battlefield | \
+         ChangeType$ Land.Basic | Tapped$ True | Optional$ True",
+    );
+    assert!(
+        group_search.abilities[0].contains(
+            "Effect::RepeatEach { domain: RepeatDomain::EachPlayer, effects: &[Effect::SearchLibraryOf { \
+             library: PlayerRel::EventPlayer, owner_searches: true,"
+        ),
+        "{:?}",
+        group_search.abilities
+    );
+
+    // `ChangeZone` targeting a player with `Origin$ Graveyard | Hidden$ True | DefinedPlayer$ Targeted`.
+    let gy_player_exile = read(
+        "Name:GraveNibbler\nManaCost:B\nTypes:Creature Merfolk\nPT:1/1\n\
+         A:AB$ ChangeZone | Cost$ T | ValidTgts$ Player | DefinedPlayer$ Targeted | Origin$ Graveyard | \
+         Destination$ Exile | ChangeType$ Card | Hidden$ True | Mandatory$ True | IsCurse$ True",
+    );
+    assert!(
+        gy_player_exile.abilities[0].contains("target = Some(TargetSpec::AnyPlayer)")
+            && gy_player_exile.abilities[0]
+                .contains("zone: ChooseZone::Graveyard(PlayerRel::Chosen)"),
+        "{:?}",
+        gy_player_exile.abilities
+    );
+
+    // `ChangeZone` graveyard any-number `TargetMin$ 0 | TargetMax$ X` with YouCtrl vs YouOwn equivalence.
+    let gy_any = read(
+        "Name:GraveShuffle\nManaCost:G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.YouCtrl | TargetMin$ 0 | TargetMax$ X | \
+         Origin$ Graveyard | Destination$ Library | Shuffle$ True\n\
+         SVar:X:Count$ValidGraveyard Creature.YouOwn",
+    );
+    assert!(
+        gy_any.abilities[0].contains("TargetReq::up_to(") && gy_any.abilities[0].contains(", 255)"),
+        "{:?}",
+        gy_any.abilities
+    );
+
+    // `ChangeZoneAll | RememberChanged$ True` -> `ThisWay::ExiledFromBattlefield` & `PutIntoLibraryFromHand`.
+    let exile_all_gain = read(
+        "Name:BanishTide\nManaCost:4 W W\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | ChangeType$ Creature | \
+         RememberChanged$ True | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        exile_all_gain.abilities[0]
+            .contains("Effect::GainLife { amount: Amount::ThisWay(ThisWay::ExiledFromBattlefield(&Filter::Any)) }"),
+        "{:?}",
+        exile_all_gain.abilities
+    );
+
+    let whirl_hand = read(
+        "Name:WhirlDeck\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ ChangeZoneAll | Defined$ You | Origin$ Hand | Destination$ Library | Shuffle$ True | \
+         RememberChanged$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ X | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        whirl_hand.abilities[0].contains(
+            "Effect::DrawCards { amount: Amount::ThisWay(ThisWay::PutIntoLibraryFromHand) }"
+        ),
+        "{:?}",
+        whirl_hand.abilities
+    );
+
+    // Refusals: unsupported OriginAlternative, DefinedPlayer, Chooser, CR 400.3 Hand steal, unrestricted Reveal.
+    for bad in [
+        "Name:BadAltHand\nManaCost:2 G\nTypes:Sorcery\nA:SP$ ChangeZone | Origin$ Library | OriginAlternative$ Graveyard,Hand | Destination$ Hand | ChangeType$ Creature",
+        "Name:BadAltSideboard\nManaCost:2 G\nTypes:Sorcery\nA:SP$ ChangeZone | Origin$ Library | OriginAlternative$ Sideboard | Destination$ Hand | ChangeType$ Creature",
+        "Name:BadDefOther\nManaCost:2 G\nTypes:Sorcery\nA:SP$ ChangeZone | DefinedPlayer$ Player.Other | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.Basic",
+        "Name:BadStealHand\nManaCost:3 U\nTypes:Sorcery\nA:SP$ ChangeZone | ValidTgts$ Opponent | DefinedPlayer$ Targeted | Chooser$ You | Origin$ Library | Destination$ Hand | ChangeType$ Card",
+        "Name:BadStealNoGainCtrl\nManaCost:3 U\nTypes:Sorcery\nA:SP$ ChangeZone | ValidTgts$ Opponent | DefinedPlayer$ Targeted | Chooser$ You | Origin$ Library | Destination$ Battlefield | ChangeType$ Creature",
+        "Name:BadRevealAny\nManaCost:1 B\nTypes:Sorcery\nA:SP$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Card | Reveal$ True",
+        "Name:BadHandDefOpp\nManaCost:2 G\nTypes:Sorcery\nA:SP$ ChangeZone | DefinedPlayer$ Opponent | Origin$ Hand | Destination$ Battlefield | ChangeType$ Creature | Optional$ True",
+        "Name:BadMultiWhirl\nManaCost:2 U\nTypes:Sorcery\nA:SP$ ChangeZoneAll | Defined$ Player | Origin$ Hand | Destination$ Library | Shuffle$ True | RememberChanged$ True | SubAbility$ D\nSVar:D:DB$ Draw | Defined$ Player | NumCards$ X\nSVar:X:Remembered$Amount",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

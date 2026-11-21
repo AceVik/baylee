@@ -438,6 +438,7 @@ impl Tx<'_> {
             "Kicked" => clauses.push("Filter::Kicked".to_string()),
             "Historic" => clauses.push("Filter::Historic".to_string()),
             "Outlaw" => clauses.push(OUTLAW_FILTER.to_string()),
+            "Ringbearer" | "RingBearer" => clauses.push("Filter::RingBearer".to_string()),
             _ => {
                 let Some(path) = self.cats.const_path(base) else {
                     self.note(format!("filter base `{base}`"));
@@ -569,6 +570,10 @@ impl Tx<'_> {
                     }
                     "!IsCommander" | "nonCommander" => {
                         "Filter::Not(&Filter::IsCommander)".to_string()
+                    }
+                    "IsRingbearer" | "IsRingBearer" => "Filter::RingBearer".to_string(),
+                    "!IsRingbearer" | "!IsRingBearer" | "nonRingbearer" | "nonRingBearer" => {
+                        "Filter::Not(&Filter::RingBearer)".to_string()
                     }
                     "NamedCard" => "Filter::NamedBySource".to_string(),
                     "wasDealtDamageThisTurn" => "Filter::DealtDamageThisTurn".to_string(),
@@ -779,6 +784,31 @@ impl Tx<'_> {
                         "Filter::Not(&Filter::SharesAColorWith(&Filter::AttachedToBySource))"
                             .to_string()
                     }
+                    "SharesColorWith" | "SharesColorWith Self" => {
+                        "Filter::SharesColorWithSource".to_string()
+                    }
+                    "!SharesColorWith" | "!SharesColorWith Self" => {
+                        "Filter::Not(&Filter::SharesColorWithSource)".to_string()
+                    }
+                    "SharesCMCWith" | "SharesCMCWith Self" | "cmcEQSelf" | "SameCMCAsSelf" => {
+                        "Filter::SameManaValueAsSource".to_string()
+                    }
+                    "!SharesCMCWith" | "!SharesCMCWith Self" | "cmcNESelf" | "!SameCMCAsSelf" => {
+                        "Filter::Not(&Filter::SameManaValueAsSource)".to_string()
+                    }
+                    other
+                        if other
+                            .strip_prefix("cmcEQ")
+                            .or_else(|| other.strip_prefix("cmcNE"))
+                            .and_then(|var| self.svars.get(var.trim()))
+                            .is_some_and(|def| def.trim() == "Count$CardManaCost") =>
+                    {
+                        if other.starts_with("cmcNE") {
+                            "Filter::Not(&Filter::SameManaValueAsSource)".to_string()
+                        } else {
+                            "Filter::SameManaValueAsSource".to_string()
+                        }
+                    }
                     other if other.starts_with("AttachedTo ") => {
                         let inner_raw = other.trim_start_matches("AttachedTo ").trim();
                         if inner_raw == "Card.Self" || inner_raw == "Self" {
@@ -919,6 +949,13 @@ impl Tx<'_> {
     /// The name for a filter the DSL already has one for, or the expression
     /// unchanged.
     pub(super) fn named_constant(expr: &str) -> String {
+        if matches!(
+            expr,
+            "Filter::And(&[Filter::RingBearer, Filter::ControlledByYou])"
+                | "Filter::And(&[Filter::ControlledByYou, Filter::RingBearer])"
+        ) {
+            return "Filter::YOUR_RING_BEARER".to_string();
+        }
         Self::NAMED
             .iter()
             .find(|(written, _)| *written == expr)

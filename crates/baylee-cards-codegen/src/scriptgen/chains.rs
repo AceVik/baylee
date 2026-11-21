@@ -8,11 +8,11 @@ use super::{
 
 #[derive(Clone, Copy)]
 #[allow(clippy::struct_excessive_bools)]
-struct LineFlags {
-    targets_here: bool,
-    targets_a_player: bool,
-    single_target: bool,
-    prior_target_used: bool,
+pub(super) struct LineFlags {
+    pub(super) targets_here: bool,
+    pub(super) targets_a_player: bool,
+    pub(super) single_target: bool,
+    pub(super) prior_target_used: bool,
 }
 
 impl Tx<'_> {
@@ -36,7 +36,7 @@ impl Tx<'_> {
         chain.could_add_mana |= api == "Mana";
         chain.moves_library |= matches!(
             api.as_str(),
-            "Draw" | "Mill" | "Surveil" | "DigUntil" | "PeekAndReveal"
+            "Draw" | "Mill" | "Surveil" | "DigUntil" | "PeekAndReveal" | "Clash"
         ) || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
             && (p
                 .peek("Origin")
@@ -155,9 +155,19 @@ impl Tx<'_> {
             return self.choose_type_chain(p, sub.as_deref(), chain);
         }
         if api == "ChoosePlayer" {
-            let effects = self.choose_player_effect(&mut p, sub.as_deref())?;
+            let saved_p = p.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effects) = self.choose_player_effect(&mut p, sub.as_deref()) {
+                chain.effects.extend(effects);
+                return Some(());
+            }
+            p = saved_p;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+            let effects = self.choose_player_chain(&mut p, &mut sub, targets_here, chain)?;
             chain.effects.extend(effects);
-            return Some(());
+            return self.chain_sub_ability(sub, chain);
         }
         if api == "GenericChoice" {
             let saved_p = p.clone();
@@ -584,6 +594,18 @@ impl Tx<'_> {
             self.flip_coin_effect(&mut p, &mut sub, chain)?
         } else if api == "RollDice" {
             self.roll_dice_effect(&mut p, &mut sub, chain)?
+        } else if api == "Clash" {
+            self.clash_effect(&mut p, targets_here, chain)?
+        } else if api == "DigUntil"
+            && !second_target_here
+            && p.peek("RememberRevealed") == Some("True")
+            && sub.is_some()
+            && unless.is_none()
+            && dying.is_none()
+            && at_end.is_none()
+            && !optional_counter
+        {
+            self.goblin_charbelcher_effect(&mut p, &mut sub, chain)?
         } else if api == "DelayedTrigger" {
             vec![self.delayed_trigger(&mut p, target.as_deref(), targets_here, chain)?]
         } else if api == "ImmediateTrigger" {
@@ -625,9 +647,71 @@ impl Tx<'_> {
                 effects
             }
         } else {
-            self.claim_followed_remember_flag(&api, &mut p, sub.as_deref());
-            let Some(effects) = (if second_target_here {
-                match api.as_str() {
+            let try_remember_this_way = !second_target_here
+                && sub.is_some()
+                && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+                && !self.sub_is_api(sub.as_deref(), "DelayedTrigger")
+                && unless.is_none()
+                && dying.is_none()
+                && at_end.is_none()
+                && !optional_counter
+                && !p.has("Condition")
+                && !p.has("ConditionPresent")
+                && !p.has("ConditionCheckSVar")
+                && !p.has("ConditionDefined")
+                && ((matches!(api.as_str(), "Destroy" | "DestroyAll")
+                    && p.peek("RememberDestroyed") == Some("True"))
+                    || (api == "Mill" && p.peek("RememberMilled") == Some("True"))
+                    || (api == "Discard" && p.peek("RememberDiscarded") == Some("True"))
+                    || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
+                        && p.peek("RememberChanged") == Some("True")));
+            let remembered_effects = if try_remember_this_way {
+                let saved_p = p.clone();
+                let saved_sub = sub.clone();
+                let saved_target = chain.target.clone();
+                let saved_up_to = chain.target_up_to;
+                let saved_exact = chain.target_exact;
+                let saved_is_x = chain.target_is_x;
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                let single_target = chain.target_exact.is_none()
+                    && !chain.target_is_x
+                    && chain.target_up_to.is_none_or(|n| n == 1);
+                let prior_target_used = !targets_here && !chain.effects.is_empty();
+                if let Some(effects) = self.remembered_this_way_chain(
+                    &api,
+                    &mut p,
+                    &mut sub,
+                    target.as_deref(),
+                    LineFlags {
+                        targets_here,
+                        targets_a_player,
+                        single_target,
+                        prior_target_used,
+                    },
+                    chain,
+                ) {
+                    Some(effects)
+                } else {
+                    p = saved_p;
+                    sub = saved_sub;
+                    chain.target = saved_target;
+                    chain.target_up_to = saved_up_to;
+                    chain.target_exact = saved_exact;
+                    chain.target_is_x = saved_is_x;
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                    None
+                }
+            } else {
+                None
+            };
+            if let Some(effects) = remembered_effects {
+                effects
+            } else {
+                self.claim_followed_remember_flag(&api, &mut p, sub.as_deref());
+                let Some(effects) = (if second_target_here {
+                    match api.as_str() {
                     "Pump" => {
                         self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
                     }
@@ -669,47 +753,48 @@ impl Tx<'_> {
                     },
                     _ => None,
                 }
-            } else if api == "Fight" {
-                if targets_here
-                    && target
-                        .as_deref()
-                        .is_some_and(|t| t.starts_with("TargetSpec::Object("))
-                    && chain.target_exact.is_none()
-                    && !chain.target_is_x
-                    && chain.target_up_to.is_none_or(|n| n == 1)
-                {
-                    self.fight_effect(&mut p, false)
+                } else if api == "Fight" {
+                    if targets_here
+                        && target
+                            .as_deref()
+                            .is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                        && chain.target_exact.is_none()
+                        && !chain.target_is_x
+                        && chain.target_up_to.is_none_or(|n| n == 1)
+                    {
+                        self.fight_effect(&mut p, false)
+                    } else {
+                        None
+                    }
                 } else {
-                    None
-                }
-            } else {
-                let single_target = chain.target_exact.is_none()
-                    && !chain.target_is_x
-                    && chain.target_up_to.is_none_or(|n| n == 1);
-                let prior_target_used = !targets_here && !chain.effects.is_empty();
-                self.effect_of_inner(
-                    &api,
-                    &mut p,
-                    target.as_deref(),
-                    LineFlags {
-                        targets_here,
-                        targets_a_player,
-                        single_target,
-                        prior_target_used,
-                    },
-                )
-            }) else {
-                // An API with no rule at all is a different report than a rule
-                // that met a value it cannot say — the first is a missing
-                // effect, the second is a missing case in one that exists.
-                if is_supported_api(&api) {
-                    self.note(format!("unreadable value in `{api}`"));
-                } else {
-                    self.note(format!("effect `{api}`"));
-                }
-                return None;
-            };
-            effects
+                    let single_target = chain.target_exact.is_none()
+                        && !chain.target_is_x
+                        && chain.target_up_to.is_none_or(|n| n == 1);
+                    let prior_target_used = !targets_here && !chain.effects.is_empty();
+                    self.effect_of_inner(
+                        &api,
+                        &mut p,
+                        target.as_deref(),
+                        LineFlags {
+                            targets_here,
+                            targets_a_player,
+                            single_target,
+                            prior_target_used,
+                        },
+                    )
+                }) else {
+                    // An API with no rule at all is a different report than a rule
+                    // that met a value it cannot say — the first is a missing
+                    // effect, the second is a missing case in one that exists.
+                    if is_supported_api(&api) {
+                        self.note(format!("unreadable value in `{api}`"));
+                    } else {
+                        self.note(format!("effect `{api}`"));
+                    }
+                    return None;
+                };
+                effects
+            }
         };
         let mut effects =
             self.wrap_line_condition(&api, &mut p, &mut sub, target.as_deref(), effects)?;
@@ -1151,8 +1236,16 @@ impl Tx<'_> {
         // permanent (CR 115.1 names both, and they are chosen from
         // different zones), so the zone the line moves *from* decides
         // the spec before the valid-string is read.
-        let spec = if (api == "ChangeZone" && p.peek("Origin") == Some("Graveyard"))
-            || (matches!(api, "Clone" | "CopyPermanent") && p.peek("TgtZone") == Some("Graveyard"))
+        let change_zone_targets_player = api == "ChangeZone"
+            && p.peek("Origin") == Some("Graveyard")
+            && matches!(valid, "Player" | "Opponent" | "Player.Opponent")
+            && p.peek("Hidden") == Some("True")
+            && p.has("DefinedPlayer");
+        let spec = if (api == "ChangeZone"
+            && p.peek("Origin") == Some("Graveyard")
+            && !change_zone_targets_player)
+            || (matches!(api, "Clone" | "CopyPermanent" | "TargetOnly")
+                && p.peek("TgtZone") == Some("Graveyard"))
             || (api == "Pump"
                 && p.peek("TgtZone") == Some("Graveyard")
                 && p.peek("PumpZone") == Some("Graveyard")
@@ -1412,6 +1505,36 @@ impl Tx<'_> {
                 chain.target_unique = true;
             }
             if !self.try_kicked_target_count(api, p, valid, &spec)? {
+                let target_only_multi_safe = api == "TargetOnly"
+                    && p.peek("SubAbility").is_none_or(|sub_name| {
+                        self.svars
+                            .get(sub_name.trim())
+                            .and_then(|body| Params::parse(body))
+                            .is_some_and(|(sub_api, sp)| {
+                                matches!(
+                                    sub_api.as_str(),
+                                    "Destroy"
+                                        | "Tap"
+                                        | "Untap"
+                                        | "Pump"
+                                        | "PutCounter"
+                                        | "Detain"
+                                        | "Goad"
+                                        | "Phases"
+                                        | "Animate"
+                                ) || (sub_api == "DealDamage"
+                                    && !sp.has("DividedAsYouChoose")
+                                    && sp.peek("DamageSource").is_none())
+                                    || (sub_api == "ChangeZone"
+                                        && matches!(
+                                            (sp.peek("Origin"), sp.peek("Destination")),
+                                            (
+                                                Some("Battlefield" | "Graveyard" | "Stack"),
+                                                Some("Hand" | "Exile")
+                                            ) | (Some("Graveyard"), Some("Battlefield"))
+                                        ))
+                            })
+                    });
                 let multi_target_ok = matches!(
                     api,
                     "Destroy"
@@ -1422,9 +1545,12 @@ impl Tx<'_> {
                         | "CopyPermanent"
                         | "Phases"
                         | "Goad"
-                ) || (api == "DealDamage"
-                    && !p.has("DividedAsYouChoose")
-                    && p.peek("DamageSource").is_none())
+                        | "Detain"
+                        | "Animate"
+                ) || target_only_multi_safe
+                    || (api == "DealDamage"
+                        && !p.has("DividedAsYouChoose")
+                        && p.peek("DamageSource").is_none())
                     || (api == "SetState" && p.peek("Mode") == Some("TurnFaceUp"))
                     || (api == "Effect" && p.peek("RememberObjects") == Some("Targeted"))
                     || (api == "ChangeZone"
@@ -1475,17 +1601,26 @@ impl Tx<'_> {
                     p.take("TargetMin");
                     p.take("TargetMax");
                     chain.target_is_x = true;
-                } else if (matches!(
-                    api,
-                    "Fight" | "Attach" | "MustBlock" | "Effect" | "Connive" | "Explore" | "SetLife"
-                ) || (api == "DealDamage" && !p.has("DividedAsYouChoose"))
+                } else if (multi_target_ok
+                    || matches!(
+                        api,
+                        "Fight"
+                            | "Attach"
+                            | "MustBlock"
+                            | "Effect"
+                            | "Connive"
+                            | "Explore"
+                            | "SetLife"
+                            | "TargetOnly"
+                    )
+                    || (api == "DealDamage" && !p.has("DividedAsYouChoose"))
                     || (api == "ChangeZone"
                         && matches!(
                             (p.peek("Origin"), p.peek("Destination")),
                             (Some("Battlefield" | "Graveyard"), Some("Library"))
                         )))
                     && p.peek("TargetMin") == Some("0")
-                    && p.peek("TargetMax") == Some("1")
+                    && matches!(p.peek("TargetMax"), None | Some("1"))
                 {
                     p.take("TargetMin");
                     p.take("TargetMax");
@@ -1508,7 +1643,11 @@ impl Tx<'_> {
                         def == format!("Count$Valid {valid}")
                             || (api == "ChangeZone"
                                 && p.peek("Origin") == Some("Graveyard")
-                                && def == format!("Count$ValidGraveyard {valid}"))
+                                && def.strip_prefix("Count$ValidGraveyard ").is_some_and(|cv| {
+                                    cv == valid
+                                        || cv.replace("YouOwn", "YouCtrl")
+                                            == valid.replace("YouOwn", "YouCtrl")
+                                }))
                     })
                 {
                     p.take("TargetMin");
@@ -1862,6 +2001,16 @@ impl Tx<'_> {
         )
     }
 
+    pub(super) fn effect_of_with_prior(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        target: Option<&str>,
+        flags: LineFlags,
+    ) -> Option<Vec<String>> {
+        self.effect_of_inner(api, p, target, flags)
+    }
+
     #[allow(clippy::too_many_lines)]
     fn effect_of_inner(
         &mut self,
@@ -1912,6 +2061,83 @@ impl Tx<'_> {
                 self.alter_attribute_effect(p, target, targets_here, single_target)?
             }
             "BecomeMonarch" => self.become_monarch_effect(p, target, targets_a_player)?,
+            "RingTemptsYou" => {
+                if targets_here
+                    || (target.is_some() && !prior_target_used)
+                    || !matches!(p.take("Defined").as_deref(), None | Some("You"))
+                {
+                    return None;
+                }
+                vec!["Effect::RingTemptsYou".to_string()]
+            }
+            "Venture" => {
+                if targets_here
+                    || (target.is_some() && !prior_target_used)
+                    || !matches!(p.take("Defined").as_deref(), None | Some("You"))
+                {
+                    return None;
+                }
+                vec!["Effect::VentureIntoTheDungeon".to_string()]
+            }
+            "Detain" => self.detain_effect(p, target, targets_here, prior_target_used)?,
+            "Mobilize" => {
+                if targets_here
+                    || (target.is_some() && !prior_target_used)
+                    || !matches!(p.take("Defined").as_deref(), None | Some("Self" | "You"))
+                {
+                    return None;
+                }
+                let raw = p.take("Num").or_else(|| p.take("Amount"))?;
+                let n = self.amount_or_count_ext(&raw)?;
+                vec![format!("Effect::Mobilize({n})")]
+            }
+            "Endure" => {
+                if self.on_a_spell
+                    || targets_here
+                    || (target.is_some() && !prior_target_used)
+                    || !matches!(p.take("Defined").as_deref(), None | Some("Self"))
+                {
+                    return None;
+                }
+                let raw = p.take("Num").or_else(|| p.take("Amount"))?;
+                let n = self.amount_or_count_ext(&raw)?;
+                vec![format!("Effect::Endure({n})")]
+            }
+            "Firebend" | "Firebending" => {
+                if targets_here
+                    || (target.is_some() && !prior_target_used)
+                    || !matches!(p.take("Defined").as_deref(), None | Some("You"))
+                {
+                    return None;
+                }
+                let raw = p.take("Num").or_else(|| p.take("Amount"))?;
+                let n = self.amount_or_count_ext(&raw)?;
+                vec![format!("Effect::Firebend({n})")]
+            }
+            "Cipher" => {
+                if !self.on_a_spell
+                    || targets_here
+                    || (target.is_some() && !prior_target_used)
+                    || !matches!(p.take("Defined").as_deref(), None | Some("Self"))
+                {
+                    return None;
+                }
+                vec!["Effect::Cipher".to_string()]
+            }
+            "ReturnChampioned" => {
+                if self.on_a_spell
+                    || targets_here
+                    || (target.is_some() && !prior_target_used)
+                    || !matches!(p.take("Defined").as_deref(), None | Some("Self"))
+                {
+                    return None;
+                }
+                vec!["Effect::ReturnChampioned".to_string()]
+            }
+            "AddPhase" => self.add_phase_effect(p, target, targets_here, prior_target_used)?,
+            "ChooseNumber" => {
+                self.choose_number_effect(p, target, targets_here, prior_target_used)?
+            }
             "NameCard" => {
                 if p.take("Defined").as_deref() != Some("You") {
                     return None;
@@ -2231,7 +2457,12 @@ impl Tx<'_> {
                 let snapshot = p.clone();
                 let saved_unclaimed = self.unclaimed.borrow().clone();
                 let saved_statics_len = self.body.statics.len();
-                if let Some(effects) = self.dig_until_effect(p, target, targets_a_player)
+                let is_named_card = matches!(
+                    p.peek("Valid").map(str::trim),
+                    Some("Card.NamedCard" | "NamedCard")
+                );
+                if !is_named_card
+                    && let Some(effects) = self.dig_until_effect(p, target, targets_a_player)
                     && only_conds(p)
                 {
                     effects
@@ -2841,9 +3072,17 @@ impl Tx<'_> {
             "Cleanup" => {
                 let rem = p.take("ClearRemembered");
                 let col = p.take("ClearChosenColor");
-                if !(rem.as_deref() == Some("True") || col.as_deref() == Some("True"))
+                let named = p.take("ClearNamedCard");
+                let player = p.take("ClearChosenPlayer");
+                let any_true = rem.as_deref() == Some("True")
+                    || col.as_deref() == Some("True")
+                    || named.as_deref() == Some("True")
+                    || player.as_deref() == Some("True");
+                if !any_true
                     || rem.as_deref().is_some_and(|v| v != "True")
                     || col.as_deref().is_some_and(|v| v != "True")
+                    || named.as_deref().is_some_and(|v| v != "True")
+                    || player.as_deref().is_some_and(|v| v != "True")
                     || !p.exhausted()
                 {
                     return None;
@@ -3250,7 +3489,29 @@ impl Tx<'_> {
             }
             "Token" => self.token_effect(p, target, targets_a_player)?,
             "Investigate" => self.investigate_effect(p, targets_a_player)?,
-            "Animate" => self.animate_effect(p, target)?,
+            "Animate" => {
+                let effs = self.animate_effect(p, target)?;
+                if !single_target && target.is_some() {
+                    effs.into_iter()
+                        .map(|eff| {
+                            let inner = eff
+                                .strip_prefix("Effect::continuous(&Filter::This, ")?
+                                .strip_suffix(')')?;
+                            let (modifier, duration) = inner.rsplit_once(", ")?;
+                            if !modifier.starts_with("Modifier::")
+                                || !duration.starts_with("Duration::")
+                            {
+                                return None;
+                            }
+                            Some(format!(
+                                "Effect::ModifyTargets {{ modifier: {modifier}, duration: {duration} }}"
+                            ))
+                        })
+                        .collect::<Option<Vec<_>>>()?
+                } else {
+                    effs
+                }
+            }
             "Debuff" => self.debuff_effect(p, target)?,
             "AnimateAll"
                 if target.is_none()
@@ -4972,7 +5233,7 @@ impl Tx<'_> {
             return None;
         }
         p.claim_label("ChangeTypeDesc", "ChangeType");
-        let mut out = self.search_library(p, "Battlefield", false)?;
+        let mut out = self.search_library(p, "Battlefield", target, false)?;
         let sub_name = sub.take()?;
         let body = self.svars.get(sub_name.trim())?.clone();
         let (s_api, mut sp) = Params::parse(&body)?;

@@ -28,6 +28,7 @@ enum First {
     Hand,
     Battlefield { tapped: bool },
     Exile,
+    TopOfLibrary,
 }
 
 /// Where the cards not moved go (`DestinationZone2$`, `LibraryPosition2$`).
@@ -89,15 +90,8 @@ impl Tx<'_> {
         // cards, which the player looking at their own library does here.
         let force_reveal = self.dig_flag(p, "ForceRevealToController")?;
         let tapped = self.dig_flag(p, "Tapped")?;
-        let first = match (p.take("DestinationZone").as_deref(), tapped) {
-            (None | Some("Hand"), false) => First::Hand,
-            (Some("Battlefield"), tapped) => First::Battlefield { tapped },
-            (Some("Exile"), false) => First::Exile,
-            (None | Some("Hand" | "Exile"), true) => {
-                return self.deny("`Tapped$` on a `Dig` to the hand or exile".to_string());
-            }
-            (Some(zone), _) => return self.deny(format!("a `Dig` destination `{zone}`")),
-        };
+        let dest_zone = p.take("DestinationZone");
+        let lib_pos = p.take("LibraryPosition");
         let rest_zone = p.take("DestinationZone2");
         let rest_position = p.take("LibraryPosition2");
         let rest_given = rest_zone.is_some() || rest_position.is_some();
@@ -114,7 +108,60 @@ impl Tx<'_> {
                 ));
             }
         };
+        let first = match (dest_zone.as_deref(), tapped) {
+            (None | Some("Hand"), false) => First::Hand,
+            (Some("Battlefield"), tapped) => First::Battlefield { tapped },
+            (Some("Exile"), false) => First::Exile,
+            (Some("Library"), false)
+                if lib_pos.as_deref() == Some("0") && matches!(rest, Rest::Bottom | Rest::Top) =>
+            {
+                First::TopOfLibrary
+            }
+            (Some("Library"), true) => {
+                return self.deny("`Tapped$` on a `Dig` to the library".to_string());
+            }
+            (None | Some("Hand" | "Exile"), true) => {
+                return self.deny("`Tapped$` on a `Dig` to the hand or exile".to_string());
+            }
+            (Some(zone), _) => return self.deny(format!("a `Dig` destination `{zone}`")),
+        };
+        if first != First::TopOfLibrary {
+            // In the reference, `LibraryPosition$` applies only when
+            // `DestinationZone$` is `Library`; many scripts still write
+            // `LibraryPosition$ -1` alongside `DestinationZone2$ Library` to
+            // describe putting the rest on the bottom (the default).
+            match lib_pos.as_deref() {
+                None => {}
+                Some("-1") if rest == Rest::Bottom => {}
+                Some(pos) => return self.deny(format!("`LibraryPosition$ {pos}` on a `Dig`")),
+            }
+        }
         let valid = p.take("ChangeValid");
+
+        // "Look at the top card of [a player's] library": putting the single
+        // looked-at card back on top leaves the library untouched.
+        if first == First::TopOfLibrary
+            && valid.is_none()
+            && take == Take::Exactly(1)
+            && count_raw.trim() == "1"
+            && !reveal
+            && !optional
+            && !random
+            && !force_reveal
+            && !no_reveal
+        {
+            if targets_here && !targets_a_player {
+                return self
+                    .deny("a `Dig` inspection on a line that targets an object".to_string());
+            }
+            let who = self.player_of_line(defined.as_deref(), target, targets_a_player)?;
+            if !Self::is_single_player_rel(who) {
+                return self.deny("a `Dig` inspection of more than one library".to_string());
+            }
+            return Some(vec![format!(
+                "Effect::LookAtTopOf {{ player: {who}, count: 1 }}"
+            )]);
+        }
 
         // "Exile the top N cards": every card moves, so nothing is left to
         // put anywhere, and nothing is revealed first (exile is public by
@@ -205,6 +252,7 @@ impl Tx<'_> {
         let find = match first {
             First::Battlefield { tapped: false } => "Find::BATTLEFIELD",
             First::Battlefield { tapped: true } => "Find::BATTLEFIELD_TAPPED",
+            First::TopOfLibrary => "Find::TOP_OF_LIBRARY",
             First::Hand | First::Exile => "Find::HAND",
         };
         match (take, reveal, optional, rest) {
@@ -214,7 +262,7 @@ impl Tx<'_> {
             (Take::All, true, false, Rest::Move(otherwise))
                 if fixed_count == Some(1)
                     && !random
-                    && first != (First::Battlefield { tapped: true }) =>
+                    && matches!(first, First::Hand | First::Battlefield { tapped: false }) =>
             {
                 let matched = if first == First::Hand {
                     "SearchDest::Hand"
@@ -262,10 +310,10 @@ impl Tx<'_> {
                     (Take::Exactly(n), true) => format!("up to {n}"),
                     (Take::Exactly(n), false) => n.to_string(),
                 },
-                if first == First::Hand {
-                    "the hand"
-                } else {
-                    "the battlefield"
+                match first {
+                    First::Hand | First::Exile => "the hand",
+                    First::Battlefield { .. } => "the battlefield",
+                    First::TopOfLibrary => "the top of the library",
                 },
                 match rest {
                     Rest::Bottom => "on the bottom",
@@ -333,6 +381,35 @@ impl Tx<'_> {
         };
         if !p.exhausted() {
             return None;
+        }
+        if matches!(valid.trim(), "Card.NamedCard" | "NamedCard") {
+            if pos.is_some() || random_order || !Self::is_single_player_rel(player) {
+                return None;
+            }
+            let otherwise = match revealed_raw.as_deref() {
+                Some("Library") => "SearchDest::TopOfLibrary",
+                Some("Graveyard") => "SearchDest::Graveyard",
+                Some("Exile") => "SearchDest::Exile",
+                _ => return None,
+            };
+            let matched = match found_raw.as_deref() {
+                Some("Battlefield") => "SearchDest::Battlefield",
+                Some("Hand") => "SearchDest::Hand",
+                Some("Graveyard") => "SearchDest::Graveyard",
+                Some("Exile") => "SearchDest::Exile",
+                Some("Library") => "SearchDest::TopOfLibrary",
+                None if matches!(otherwise, "SearchDest::Graveyard" | "SearchDest::Exile") => {
+                    otherwise
+                }
+                _ => return None,
+            };
+            let mut out = vec![format!(
+                "Effect::RevealUntilNamed {{ player: {player}, matched: {matched}, otherwise: {otherwise} }}"
+            )];
+            if shuffle {
+                out.push(format!("Effect::ShuffleLibrary {{ who: {player} }}"));
+            }
+            return Some(out);
         }
         let expr = self.filter_expr_in_zone(&valid, true)?;
         let name = self.body.filter_static("REVEAL_UNTIL", &expr);

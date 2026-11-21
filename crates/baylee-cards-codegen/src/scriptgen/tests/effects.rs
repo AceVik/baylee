@@ -3496,3 +3496,497 @@ fn myriad_and_extort_keywords_and_duplicates() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave18b_ring_tempts_clash_detain_and_venture() {
+    let ring = read(
+        "Name:RingSpell\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ RingTemptsYou | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        ring.abilities[0].contains("Effect::RingTemptsYou, Effect::draw(1)"),
+        "{:?}",
+        ring.abilities
+    );
+
+    let venture = read(
+        "Name:DungeonGuide\nManaCost:2 W\nTypes:Creature Scout\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigV\n\
+         SVar:TrigV:DB$ Venture | Defined$ You",
+    );
+    assert!(
+        venture.abilities[0].contains("Effect::VentureIntoTheDungeon"),
+        "{:?}",
+        venture.abilities
+    );
+
+    // Clash with win & loss branches, plus spell-return `Defined$ Parent | Origin$ Stack | Destination$ Hand`.
+    let clash_return = read(
+        "Name:SparkClash\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1 | SubAbility$ DBClash\n\
+         SVar:DBClash:DB$ Clash | WinSubAbility$ DBBounce | OtherwiseSubAbility$ DBGain\n\
+         SVar:DBBounce:DB$ ChangeZone | Defined$ Parent | Origin$ Stack | Destination$ Hand\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+    );
+    assert!(
+        clash_return.abilities[0].contains(
+            "Effect::Clash { on_win: &[Effect::bounce(TargetSpec::ThisObject)], \
+             on_loss: &[Effect::gain_life(1)] }"
+        ),
+        "{:?}",
+        clash_return.abilities
+    );
+
+    // Clash after a targeted line where `WinSubAbility$` is an untargeted sweep (`prior_target_used`).
+    let clash_after_target = read(
+        "Name:ForestClash\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Card.YouCtrl | SubAbility$ DBClash\n\
+         SVar:DBClash:DB$ Clash | WinSubAbility$ DBUntap\n\
+         SVar:DBUntap:DB$ UntapAll | ValidCards$ Forest",
+    );
+    assert!(
+        clash_after_target.abilities[0].contains("Effect::Clash { on_win: &[Effect::UntapAll"),
+        "{:?}",
+        clash_after_target.abilities
+    );
+
+    // Detain: single target, multi-target `TargetMin$ 0`, filter sweep, self, event object.
+    let detain_multi = read(
+        "Name:ArrestOrder\nManaCost:1 W\nTypes:Sorcery\n\
+         A:SP$ Detain | ValidTgts$ Creature.OppCtrl | TargetMin$ 0 | TargetMax$ 2 | IsCurse$ True",
+    );
+    assert!(
+        detain_multi.abilities[0].contains("Effect::Detain { target: TargetSpec::Object(")
+            && detain_multi.abilities[0].contains("TargetReq::up_to(")
+            && detain_multi.abilities[0].contains(", 2)"),
+        "{:?}",
+        detain_multi.abilities
+    );
+
+    let detain_sweep = read(
+        "Name:LawMarshal\nManaCost:3 W U\nTypes:Creature Soldier\nPT:4/4\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDet\n\
+         SVar:TrigDet:DB$ Detain | Defined$ Valid Permanent.OppCtrl+nonLand+cmcLE4",
+    );
+    assert!(
+        detain_sweep.abilities[0].contains("Effect::DetainFilter { filter: &DETAIN1 }"),
+        "{:?}",
+        detain_sweep.abilities
+    );
+
+    for bad in [
+        "Name:BadRing\nManaCost:B\nTypes:Sorcery\nA:SP$ RingTemptsYou | Defined$ Opponent",
+        "Name:BadVenture\nManaCost:W\nTypes:Sorcery\nA:SP$ Venture | Defined$ Opponent",
+        "Name:BadClashDef\nManaCost:U\nTypes:Sorcery\nA:SP$ Clash | Defined$ Opponent",
+        "Name:BadClashRem\nManaCost:U\nTypes:Sorcery\nA:SP$ Clash | RememberClasher$ True",
+        "Name:BadClashTgt\nManaCost:U\nTypes:Sorcery\nA:SP$ Clash | ValidTgts$ Opponent",
+        "Name:BadDetainRem\nManaCost:W\nTypes:Sorcery\nA:SP$ Detain | Defined$ Valid Permanent.IsRemembered",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave18b_mobilize_endure_firebend_cipher_champion_and_extra_combat() {
+    let mob = read(
+        "Name:BannerCaptain\nManaCost:2 R\nTypes:Creature Warrior\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigMob\n\
+         SVar:TrigMob:DB$ Mobilize | Num$ 2",
+    );
+    assert!(
+        mob.abilities[0].contains("Effect::Mobilize(Amount::Fixed(2))"),
+        "{:?}",
+        mob.abilities
+    );
+
+    let endure = read(
+        "Name:SteppeWarden\nManaCost:2 W\nTypes:Creature Soldier\nPT:2/2\n\
+         A:AB$ Endure | Cost$ 2 W T | Num$ 3",
+    );
+    assert!(
+        endure.abilities[0].contains("Effect::Endure(Amount::Fixed(3))"),
+        "{:?}",
+        endure.abilities
+    );
+
+    let fire = read(
+        "Name:FlameAdept\nManaCost:1 R\nTypes:Creature Monk\nPT:2/1\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigFire\n\
+         SVar:TrigFire:DB$ Firebend | Amount$ 2",
+    );
+    assert!(
+        fire.abilities[0].contains("Effect::Firebend(Amount::Fixed(2))"),
+        "{:?}",
+        fire.abilities
+    );
+
+    let cipher = read(
+        "Name:ShadowCode\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ 1 | SubAbility$ DBCipher\n\
+         SVar:DBCipher:DB$ Cipher",
+    );
+    assert!(
+        cipher.abilities[0].contains("Effect::draw(1), Effect::Cipher"),
+        "{:?}",
+        cipher.abilities
+    );
+
+    let champ = read(
+        "Name:FaeKeeper\nManaCost:3 U\nTypes:Creature Faerie\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ TrigRet\n\
+         SVar:TrigRet:DB$ ReturnChampioned",
+    );
+    assert!(
+        champ.abilities[0].contains("Effect::ReturnChampioned"),
+        "{:?}",
+        champ.abilities
+    );
+
+    // Relentless Assault shape: main phase guard + extra combat + main2.
+    let extra_main = read(
+        "Name:SecondWave\nManaCost:2 R R\nTypes:Sorcery\n\
+         A:SP$ AddPhase | ExtraPhase$ Combat | FollowedBy$ Main2 | ConditionPhases$ Main1,Main2",
+    );
+    assert!(
+        extra_main.abilities[0]
+            .contains("Effect::AdditionalCombatPhase { followed_by_main_phase: true }")
+            && extra_main.abilities[0].contains("Condition::DuringCombat"),
+        "{:?}",
+        extra_main.abilities
+    );
+
+    // Combat trigger shape: `AfterPhase$ EndCombat` without extra guard when inside Attacks trigger.
+    let extra_combat = read(
+        "Name:WarAngel\nManaCost:4 R W\nTypes:Creature Angel\nPT:3/4\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigExtra\n\
+         SVar:TrigExtra:DB$ AddPhase | ExtraPhase$ Combat | AfterPhase$ EndCombat",
+    );
+    assert!(
+        extra_combat.abilities[0]
+            .contains("Effect::AdditionalCombatPhase { followed_by_main_phase: false }"),
+        "{:?}",
+        extra_combat.abilities
+    );
+
+    for bad in [
+        // Endure always acts on `res.source`, never on a spell or triggered copy.
+        "Name:BadEndureSpell\nManaCost:1 W\nTypes:Sorcery\nA:SP$ Endure | Num$ 2",
+        "Name:BadEndureDef\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.YouCtrl | Execute$ E\n\
+         SVar:E:DB$ Endure | Defined$ TriggeredCardLKICopy | Num$ 1",
+        "Name:BadCipherPerm\nManaCost:1 U\nTypes:Creature\nPT:1/1\nA:AB$ Cipher | Cost$ T",
+        "Name:BadChampSpell\nManaCost:1 W\nTypes:Sorcery\nA:SP$ ReturnChampioned",
+        "Name:BadPhaseType\nManaCost:2 U\nTypes:Sorcery\nA:SP$ AddPhase | ExtraPhase$ Upkeep",
+        "Name:BadPhaseFollow\nManaCost:2 R\nTypes:Sorcery\nA:SP$ AddPhase | ExtraPhase$ Combat | FollowedBy$ End",
+        "Name:BadPhaseFirst\nManaCost:2 R\nTypes:Sorcery\nA:SP$ AddPhase | ExtraPhase$ Combat | ConditionFirstCombat$ True",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave18b_choose_number_choose_player_and_wave9_filters() {
+    let choose_num = read(
+        "Name:ShapeForm\nManaCost:6\nTypes:Artifact Creature\nPT:0/7\n\
+         A:AB$ ChooseNumber | Cost$ T | Defined$ You | Min$ 0 | Max$ 7",
+    );
+    assert!(
+        choose_num.abilities[0].contains("Effect::ChooseNumber { min: 0, max: 7 }"),
+        "{:?}",
+        choose_num.abilities
+    );
+
+    // ChoosePlayer -> Draw for ChosenPlayer + Cleanup ClearChosenPlayer.
+    let choose_draw = read(
+        "Name:TributeChoice\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ ChoosePlayer | Defined$ You | Choices$ Player.Opponent | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ ChosenPlayer | NumCards$ 1 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearChosenPlayer$ True",
+    );
+    assert!(
+        choose_draw.abilities[0].contains(
+            "Effect::ChoosePlayerFrom { among: PlayerRel::EachOpponent }, \
+             Effect::DrawCardsFor { amount: Amount::Fixed(1), who: PlayerRel::Chosen }"
+        ),
+        "{:?}",
+        choose_draw.abilities
+    );
+
+    // The Black Gate shape: ChoosePlayer withMostLife -> CantBeBlockedByPlayerThisTurn.
+    let gate = read(
+        "Name:ObsidianGate\nTypes:Land\n\
+         A:AB$ ChoosePlayer | Cost$ 1 B T | Defined$ You | Choices$ Player.withMostLife | ChoiceTitle$ Choose | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ValidTgts$ Creature | RememberObjects$ ChosenPlayer & Targeted | ExileOnMoved$ Battlefield | StaticAbilities$ CantBlock\n\
+         SVar:CantBlock:Mode$ CantBlockBy | ValidAttacker$ Creature.IsRemembered | ValidBlocker$ Creature.RememberedPlayerCtrl",
+    );
+    assert!(
+        gate.abilities[0].contains("Effect::ChoosePlayerFrom { among: PlayerRel::MostLifeOrTied }")
+            && gate.abilities[0]
+                .contains("Effect::CantBeBlockedByPlayerThisTurn { by: PlayerRel::Chosen }"),
+        "{:?}",
+        gate.abilities
+    );
+
+    // ChoosePlayer after an object-targeted line keeps the original object target intact.
+    let destroy_then_choose = read(
+        "Name:BargainDoom\nManaCost:2 B\nTypes:Instant\n\
+         A:SP$ Destroy | ValidTgts$ Creature | SubAbility$ DBChoose\n\
+         SVar:DBChoose:DB$ ChoosePlayer | Choices$ Opponent | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ ChosenPlayer | NumCards$ 1",
+    );
+    assert!(
+        destroy_then_choose.abilities[0]
+            .contains("Effect::destroy(TargetSpec::Object(&Filter::CREATURE))")
+            && destroy_then_choose.abilities[0]
+                .contains("Effect::ChoosePlayerFrom { among: PlayerRel::EachOpponent }")
+            && destroy_then_choose.abilities[0].contains(
+                "Effect::DrawCardsFor { amount: Amount::Fixed(1), who: PlayerRel::Chosen }"
+            ),
+        "{:?}",
+        destroy_then_choose.abilities
+    );
+
+    // Wave 9–10 filters: RingBearer, YOUR_RING_BEARER, SameManaValueAsSource, SharesColorWithSource.
+    assert_eq!(filter("Card.IsRingbearer"), "Filter::RingBearer");
+    assert_eq!(
+        filter("Card.IsRingbearer+YouCtrl"),
+        "Filter::YOUR_RING_BEARER"
+    );
+    assert_eq!(
+        filter("Card.YouCtrl+IsRingbearer"),
+        "Filter::YOUR_RING_BEARER"
+    );
+    assert_eq!(filter("RingBearer.YouCtrl"), "Filter::YOUR_RING_BEARER");
+    assert_eq!(
+        filter("Creature.!IsRingbearer"),
+        "Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::RingBearer)])"
+    );
+    assert_eq!(
+        filter("Card.SharesCMCWith"),
+        "Filter::SameManaValueAsSource"
+    );
+    assert_eq!(
+        filter("Card.SharesCMCWith Self"),
+        "Filter::SameManaValueAsSource"
+    );
+    assert_eq!(
+        filter("Card.SharesColorWith"),
+        "Filter::SharesColorWithSource"
+    );
+    assert_eq!(
+        filter("Card.!SharesColorWith Self"),
+        "Filter::Not(&Filter::SharesColorWithSource)"
+    );
+
+    let same_cmc_svar = read(
+        "Name:EchoSearch\nManaCost:1 U U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Card.cmcEQX\n\
+         SVar:X:Count$CardManaCost",
+    );
+    assert!(
+        same_cmc_svar.abilities[0].contains("Filter::SameManaValueAsSource")
+            || same_cmc_svar
+                .statics
+                .contains("Filter::SameManaValueAsSource"),
+        "{:?} / {}",
+        same_cmc_svar.abilities,
+        same_cmc_svar.statics
+    );
+
+    for bad in [
+        "Name:BadNumSpell\nManaCost:U\nTypes:Sorcery\nA:SP$ ChooseNumber | Min$ 0 | Max$ 3",
+        "Name:BadNumSecret\nManaCost:2 U\nTypes:Artifact\nA:AB$ ChooseNumber | Cost$ T | Min$ 0 | Max$ 3 | Secretly$ True",
+        "Name:BadNumOrder\nManaCost:2 U\nTypes:Artifact\nA:AB$ ChooseNumber | Cost$ T | Min$ 5 | Max$ 2",
+        "Name:BadChooseRandom\nManaCost:1 R\nTypes:Sorcery\nA:SP$ ChoosePlayer | Choices$ Opponent | Random$ True | SubAbility$ D\nSVar:D:DB$ Draw | Defined$ ChosenPlayer | NumCards$ 1",
+        "Name:BadChooseUnused\nManaCost:1 U\nTypes:Sorcery\nA:SP$ ChoosePlayer | Choices$ Opponent | SubAbility$ D\nSVar:D:DB$ Draw | Defined$ You | NumCards$ 1",
+        "Name:BadChooseOppDef\nManaCost:1 U\nTypes:Sorcery\nA:SP$ ChoosePlayer | Defined$ Opponent | Choices$ Player | SubAbility$ D\nSVar:D:DB$ Draw | Defined$ ChosenPlayer | NumCards$ 1",
+        "Name:BadSharesImprint\nManaCost:2 U\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Creature.SharesCMCWith Imprinted",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave18b_target_min_zero_and_remember_this_way_chains() {
+    // Omitted TargetMax$ with TargetMin$ 0 defaults to up to 1.
+    let up_to_one_omitted = read(
+        "Name:OptionalZap\nManaCost:R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | TargetMin$ 0 | NumDmg$ 2",
+    );
+    assert!(
+        up_to_one_omitted.abilities[0].contains("TargetReq::up_to_one("),
+        "{:?}",
+        up_to_one_omitted.abilities
+    );
+
+    // Multi-target Animate converts `Effect::continuous(&Filter::This, ...)` -> `Effect::ModifyTargets`.
+    let multi_animate = read(
+        "Name:TwinAwaken\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Animate | ValidTgts$ Land.YouCtrl | TargetMin$ 0 | TargetMax$ 2 | Power$ 3 | Toughness$ 3 | Types$ Creature",
+    );
+    assert!(
+        multi_animate.abilities[0].contains("TargetReq::up_to(")
+            && multi_animate.abilities[0].contains(", 2)")
+            && multi_animate.abilities[0].contains("Effect::ModifyTargets {")
+            && !multi_animate.abilities[0].contains("Effect::continuous(&Filter::This"),
+        "{:?}",
+        multi_animate.abilities
+    );
+
+    // TargetOnly with `TargetMin$ 0 | TargetMax$ 2` chaining into Pump.
+    let target_only_multi = read(
+        "Name:BoostPair\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | Defined$ Targeted | NumAtt$ 1 | NumDef$ 1",
+    );
+    assert!(
+        target_only_multi.abilities[0].contains("TargetReq::up_to(")
+            && target_only_multi.abilities[0].contains(", 2)")
+            && target_only_multi.abilities[0].contains("Effect::PumpTarget"),
+        "{:?}",
+        target_only_multi.abilities
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave18b_remember_this_way_chains() {
+    // DestroyAll | RememberDestroyed$ True -> GainLife (`RememberedLKI$Valid Card.YouCtrl/Times.2`).
+    let sweep_gain = read(
+        "Name:MercyWrath\nManaCost:3 W W\nTypes:Sorcery\n\
+         A:SP$ DestroyAll | ValidCards$ Creature | RememberDestroyed$ True | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:RememberedLKI$Valid Card.YouCtrl/Times.2",
+    );
+    assert!(
+        sweep_gain.abilities[0].contains("Effect::destroy_all(&Filter::CREATURE)")
+            && sweep_gain.abilities[0]
+                .contains("Amount::Times { base: &Amount::ThisWay(ThisWay::Destroyed(")
+            && sweep_gain.abilities[0].contains("factor: 2"),
+        "{:?}",
+        sweep_gain.abilities
+    );
+
+    // DestroyAll | RememberDestroyed$ True -> PutCounter on Self (`Remembered$Amount`).
+    let sweep_counters = read(
+        "Name:RelicEater\nManaCost:4 G G\nTypes:Creature Beast\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigD\n\
+         SVar:TrigD:DB$ DestroyAll | ValidCards$ Artifact,Enchantment | RememberDestroyed$ True | SubAbility$ DBPC\n\
+         SVar:DBPC:DB$ PutCounter | CounterType$ P1P1 | CounterNum$ X | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        sweep_counters.abilities[0].contains(
+            "Effect::AddCounterFilter { filter: &Filter::This, kind: CounterKind::P1P1, \
+             amount: Amount::ThisWay(ThisWay::Destroyed(&Filter::Any)) }"
+        ),
+        "{:?}",
+        sweep_counters.abilities
+    );
+
+    // Mill | RememberMilled$ True -> coalesced `ConditionDefined$ Remembered` (LoseLife + GainLife).
+    let mill_cond = read(
+        "Name:GraveWhisper\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Mill | NumCards$ 3 | Defined$ You | RememberMilled$ True | SubAbility$ DBLose\n\
+         SVar:DBLose:DB$ LoseLife | Defined$ Player.Opponent | LifeAmount$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Creature | ConditionCompare$ GE1 | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Creature | ConditionCompare$ GE1 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        mill_cond.abilities[0].contains(
+            "Condition::AmountAtLeast(Amount::ThisWay(ThisWay::Milled(&Filter::CREATURE)), 1)"
+        ) && mill_cond.abilities[0].contains("Effect::LoseLife")
+            && mill_cond.abilities[0].contains("Effect::gain_life(2)"),
+        "{:?}",
+        mill_cond.abilities
+    );
+
+    // Mill X -> targeted LoseLife using `Count$ValidGraveyard Creature.IsRemembered/Times.2`.
+    let mill_count = read(
+        "Name:DarkMill\nManaCost:X B\nTypes:Sorcery\n\
+         A:SP$ Mill | NumCards$ X | Defined$ You | RememberMilled$ True | SubAbility$ DBLose\n\
+         SVar:DBLose:DB$ LoseLife | ValidTgts$ Player | LifeAmount$ Y | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$xPaid\n\
+         SVar:Y:Count$ValidGraveyard Creature.IsRemembered/Times.2",
+    );
+    assert!(
+        mill_count.abilities[0]
+            .contains("Effect::Mill { amount: Amount::X, target: PlayerRel::You }")
+            && mill_count.abilities[0].contains(
+                "Effect::LoseLife { amount: Amount::Times { \
+                 base: &Amount::ThisWay(ThisWay::Milled(&Filter::CREATURE)), factor: 2 }, \
+                 target: PlayerRel::Chosen }"
+            ),
+        "{:?}",
+        mill_count.abilities
+    );
+
+    // Discard up to 2 -> draw that many (`DiscardUpToThenDraw`).
+    let discard_up_to = read(
+        "Name:RummageTwo\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Discard | Defined$ You | NumCards$ 2 | Optional$ True | Mode$ TgtChoose | RememberDiscarded$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ X | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        discard_up_to.abilities[0].contains("Effect::DiscardUpToThenDraw { count: 2 }"),
+        "{:?}",
+        discard_up_to.abilities
+    );
+
+    // Discard hand -> draw that many plus one (`ThisWay::Discarded`).
+    let discard_hand = read(
+        "Name:FreshHand\nManaCost:2 R W\nTypes:Instant\n\
+         A:SP$ Discard | Defined$ You | Mode$ Hand | RememberDiscarded$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ X | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount/Plus.1",
+    );
+    assert!(
+        discard_hand.abilities[0].contains("Effect::DiscardHand { who: PlayerRel::You }")
+            && discard_hand.abilities[0]
+                .contains("Amount::Plus { base: &Amount::ThisWay(ThisWay::Discarded), offset: 1 }"),
+        "{:?}",
+        discard_hand.abilities
+    );
+
+    // Sacrifice with `StrictAmount$ True` (count >= 2).
+    let sac_strict = read(
+        "Name:SwampTax\nManaCost:4 B B\nTypes:Creature Demon\nPT:5/5\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigSac\n\
+         SVar:TrigSac:DB$ Sacrifice | Defined$ You | Amount$ 2 | SacValid$ Land | StrictAmount$ True | RememberSacrificed$ True | SubAbility$ DBTap\n\
+         SVar:DBTap:DB$ Tap | Defined$ Self | ConditionCheckSVar$ X | ConditionSVarCompare$ LT2 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        sac_strict.abilities[0]
+            .contains("Effect::SacrificeNOrElse { filter: &Filter::LAND, count: 2"),
+        "{:?}",
+        sac_strict.abilities
+    );
+
+    // Refusals: multi-player mill/discard Remember*, EQ1 on multi-mill, TargetOnly -> GraveyardToTop multi.
+    for bad in [
+        "Name:BadMultiMill\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Mill | Defined$ Player | NumCards$ 3 | RememberMilled$ True | SubAbility$ G\n\
+         SVar:G:DB$ GainLife | Defined$ You | LifeAmount$ X\nSVar:X:Remembered$Amount",
+        "Name:BadMultiDiscard\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ Discard | Defined$ Player | Mode$ Hand | RememberDiscarded$ True | SubAbility$ D\n\
+         SVar:D:DB$ Draw | Defined$ Player | NumCards$ X\nSVar:X:Remembered$Amount",
+        "Name:BadMillEq1\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Mill | Defined$ You | NumCards$ 3 | RememberMilled$ True | SubAbility$ G\n\
+         SVar:G:DB$ GainLife | Defined$ You | LifeAmount$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Creature | ConditionCompare$ EQ1",
+        "Name:BadTargetOnlyGyTop\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Card | TgtZone$ Graveyard | TargetMin$ 0 | TargetMax$ 2 | SubAbility$ R\n\
+         SVar:R:DB$ ChangeZone | Defined$ Targeted | Origin$ Graveyard | Destination$ Library | LibraryPosition$ 0",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

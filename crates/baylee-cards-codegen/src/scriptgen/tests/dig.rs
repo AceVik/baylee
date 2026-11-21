@@ -359,3 +359,92 @@ fn the_shapes_no_card_above_spells_out() {
         );
     }
 }
+
+#[test]
+fn wave18b_dig_library_position_and_dig_until_subability() {
+    // Redundant `LibraryPosition$ -1` alongside `DestinationZone$ Hand/Battlefield`
+    // and bottom remainder (the Forge default) lowers cleanly.
+    let hand_with_pos = ability(
+        "Name:LookWithPos\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 3 | ChangeNum$ 1 | Optional$ True | ChangeValid$ Permanent | \
+         DestinationZone$ Hand | DestinationZone2$ Library | LibraryPosition$ -1 | RestRandomOrder$ True",
+    );
+    assert!(
+        hand_with_pos.contains("Effect::LookAtTopFind { found: Find::HAND, count: 3,"),
+        "{hand_with_pos}"
+    );
+
+    // `DestinationZone$ Library | LibraryPosition$ 0` + `ChangeValid$` -> `LookAtTopFind { found: Find::TOP_OF_LIBRARY }`.
+    let top_find = ability(
+        "Name:AtlasLook\nManaCost:2\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ Dig | DigNum$ 4 | Optional$ True | ChangeNum$ 1 | ChangeValid$ Land | \
+         DestinationZone$ Library | LibraryPosition$ 0 | RestRandomOrder$ True",
+    );
+    assert!(
+        top_find.contains(
+            "Effect::LookAtTopFind { found: Find::TOP_OF_LIBRARY, count: 4, filter: &Filter::LAND, random: true }"
+        ),
+        "{top_find}"
+    );
+
+    // `DestinationZone$ Library | LibraryPosition$ 0` + `DigNum$ 1` -> `LookAtTopOf`.
+    let peek_top = ability(
+        "Name:SpyIsle\nTypes:Land\n\
+         A:AB$ Dig | Cost$ U T | ValidTgts$ Player | DigNum$ 1 | DestinationZone$ Library | LibraryPosition$ 0",
+    );
+    assert!(
+        peek_top.contains("Effect::LookAtTopOf { player: PlayerRel::Chosen, count: 1 }"),
+        "{peek_top}"
+    );
+
+    // Refusals for invalid `Dig.LibraryPosition`.
+    for bad in [
+        "Name:BadPosZeroHand\nManaCost:U\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 3 | DestinationZone$ Hand | LibraryPosition$ 0",
+        "Name:BadPosNegGy\nManaCost:U\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 3 | DestinationZone$ Hand | DestinationZone2$ Graveyard | LibraryPosition$ -1",
+        "Name:BadPosNegLib\nManaCost:U\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 1 | DestinationZone$ Library | LibraryPosition$ -1 | Optional$ True | LibraryPosition2$ 0",
+        "Name:BadPeekTwo\nManaCost:U\nTypes:Sorcery\nA:SP$ Dig | DigNum$ 2 | DestinationZone$ Library | LibraryPosition$ 0",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+
+    // `DigUntil` with `Card.NamedCard` + `SubAbility$ DBCleanup` (`ClearNamedCard$ True`) -> `RevealUntilNamed`.
+    let named_dig = ability(
+        "Name:NameSeeker\nManaCost:1 B\nTypes:Creature Wizard\nPT:1/1\n\
+         A:AB$ NameCard | Cost$ 1 B T | Defined$ You | SubAbility$ DBDig\n\
+         SVar:DBDig:DB$ DigUntil | Valid$ Card.NamedCard | FoundDestination$ Hand | RevealedDestination$ Exile | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearNamedCard$ True",
+    );
+    assert!(
+        named_dig.contains("Effect::ChooseCardName")
+            && named_dig.contains(
+                "Effect::RevealUntilNamed { player: PlayerRel::You, matched: SearchDest::Hand, otherwise: SearchDest::Exile }"
+            ),
+        "{named_dig}"
+    );
+
+    // Goblin Charbelcher shape: `DigUntil | Valid$ Land | RememberRevealed$ True | SubAbility$ DBBelch` -> `RevealUntilLandDealDamage`.
+    let belcher = ability(
+        "Name:LandCannon\nManaCost:4\nTypes:Artifact\n\
+         A:AB$ DigUntil | Cost$ 3 T | Valid$ Land | ValidDescription$ land | RememberRevealed$ True | \
+         RevealedDestination$ Library | RevealedLibraryPosition$ -1 | SubAbility$ DBBelch\n\
+         SVar:DBBelch:DB$ DealDamage | ValidTgts$ Any | NumDmg$ X | ConditionCheckSVar$ Mtn | ConditionSVarCompare$ EQ0 | SubAbility$ DBDouble\n\
+         SVar:DBDouble:DB$ DealDamage | Defined$ Targeted | NumDmg$ DoubleX | ConditionCheckSVar$ Mtn | ConditionSVarCompare$ EQ1 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Valid Card.nonLand\n\
+         SVar:DoubleX:Remembered$Valid Card.nonLand/Times.2\n\
+         SVar:Mtn:Remembered$Valid Card.Mountain",
+    );
+    assert!(
+        belcher.contains("Effect::RevealUntilLandDealDamage { target: TargetSpec::AnyTarget }")
+            && belcher.contains("target = Some(TargetSpec::AnyTarget)"),
+        "{belcher}"
+    );
+
+    // Refusal: `DigUntil` with unhandled `RememberFound$ True` -> `Play`.
+    assert!(refused(
+        "Name:BadDigPlay\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ DigUntil | Valid$ Card.nonLand | FoundDestination$ Exile | RevealedDestination$ Exile | RememberFound$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | WithoutManaCost$ True"
+    ));
+}
