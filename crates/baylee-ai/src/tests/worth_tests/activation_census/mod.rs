@@ -596,8 +596,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // non-mana activations.
     // Pass E9 (182 generated cards after holding back 24 reader/codegen-gap
     // cards) adds 65 non-mana activations: 55 read by the table and 10
-    // remaining contextual.
-    assert_eq!((read, of), (4865, 6209), "activated/loyalty reader census");
+    // remaining contextual; Beat 15 2x codegen --scripts reconvergence
+    // upgrades 22 pool stubs, adding 1 contextual non-mana activation.
+    assert_eq!((read, of), (4865, 6210), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

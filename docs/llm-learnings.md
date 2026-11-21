@@ -6,6 +6,13 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Beat 15: Codegen Wave 15a–15c, Pass E9 & Star Trek Subtypes (`20,978` Conforming / `19,808` Playable)
+
+- **Codegen Wave 15a (`602ca57ca`, cherry-picked as `556ee124f`, `PASS` `#441`), Wave 15b (`e851feabc`, `e84bbb5a2`, `PASS` `#432`), Wave 15c (`9d3ced455`, `49f0cd6bd`, `PASS` `#443`) + Pass E9 (`4fc216528`, `63c9ddad4`, `PASS` `#438`)**:
+  - Landed `Impending`, all 6 `GiftKind` variants + `Trigger::GaveGift` + `Condition::GiftWasPromised`, conditional `K:etbCounter:` (`EnterModifier::WithCountersIf`), `ChooseMove::ExileLinked`, `Effect::RegisterDelayedTrigger`, `Effect::CreateEmblem`, dual-target chains, `#421` *Curse of Oblivion*, `#425` *Nimble Obstructionist*, `#436` *Ambassador K'Ehleyr*, plus commit `5d73d9027` supplementing 16 Star Trek creature subtypes in `baylee-cards-codegen/src/scryfall.rs` and allowing `"can't attack or block"` for `KeywordSet::CANT_BLOCK` in `xtask/src/check_text`.
+  - Ran `2x xtask codegen --scripts` reconvergence atop `63c9ddad4`, **upgrading `+22` existing pool stubs** (`931 -> 909` stubs) and bumping `crates/baylee-ai/src/tests/worth_tests/activation_census/mod.rs` `(4865, 6209) -> (4865, 6210)` (`+1` contextual activation).
+- **Verified (`task-5492`, `task-5511`, `task-5556`, `task-5589`)**: `validate` (**`20,978` conforming = `20,069` finished [`11,017` `Implemented` + `8,791` `Generated` = `19,808` playable + `261` `Partial`] + `909` stubs**), `codegen --tables --check` PASS, `transcode-report`: **`19,867 / 34,482` (`57%`)** (`758 / 864` token scripts, `140 / 188` rules-bearing), `fmt --check` PASS, `git diff --check` PASS, `baylee-cards-codegen` `710/710`, `baylee-cards --lib` `169/169`, `baylee-card-tests-verification` `58/58`, `baylee-ai --lib` `432/432`, `baylee-seat` `narrator::tests::` `138/138`, `baylee-client --lib -- choices::` `54/54`, `baylee-train --lib -- features4:: features7::` `38/38`, `xtask` `151/151`, and 13-crate `clippy --all-targets -- -D warnings` (`0` warnings).
+
 ## 2026-11-21 — Beat 14: Engine Wave 8a (`3dbcb6055`) & `VIEW_VERSION = 102` Foresight Pin (`828d6ea29`)
 
 - **Engine Wave 8a (`fee525383`, cherry-picked as `3dbcb6055`, `Reviewed-by: gemini-4-argon-high (#437), pass`)**:

@@ -4,8 +4,8 @@
 use crate::{
     KEYWORD_WORDS, PrintingTally, check_activation_cost_matches_the_printing,
     check_mana_matches_the_printing, check_optional_clauses_are_offered,
-    check_scope_matches_the_text, code_costs, face_texts, keyword_mentioned, knob,
-    mentions_word, printed_text, quoted_value, strip_reminders,
+    check_scope_matches_the_text, code_costs, face_texts, keyword_mentioned, knob, mentions_word,
+    printed_text, quoted_value, strip_reminders,
 };
 
 /// A Scryfall color letter.
