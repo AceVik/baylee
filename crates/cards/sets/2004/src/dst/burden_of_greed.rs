@@ -12,7 +12,7 @@ card!(
     oracle_id = "a80c13db-949d-4784-8177-04aaa22b96b0",
     scryfall_id = "d37abcf5-f009-4258-bf32-b93b47cb71dc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burden of Greed",
         mana_cost = mana!("{3}{B}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "9086d8ff-e375-4149-996d-2a88a7596c1c",
     scryfall_id = "98c80584-b7b5-4dcd-8a00-812b9dd9b1b9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Devour in Shadow",
         mana_cost = mana!("{B}{B}"),

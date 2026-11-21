@@ -11,7 +11,7 @@ card!(
     oracle_id = "06df923f-916e-49f4-960a-7b3fb108c704",
     scryfall_id = "d0f31ff9-f403-4082-88f8-65807c0af812",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Into Thin Air",
         mana_cost = mana!("{5}{U}"),

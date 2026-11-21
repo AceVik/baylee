@@ -17,7 +17,7 @@ card!(
     oracle_id = "b01d24d5-79d0-401f-99f5-da036628dd39",
     scryfall_id = "758fcfe4-0347-4ac6-8e29-f945cb1d7295",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Call to Glory",
         mana_cost = mana!("{1}{W}"),

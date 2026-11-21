@@ -16,7 +16,7 @@ card!(
     oracle_id = "97913c3c-eec0-4510-921a-d70c022f7961",
     scryfall_id = "a50a0fe0-249d-4a88-a538-cdf622388ce2",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blind with Anger",
         mana_cost = mana!("{3}{R}"),

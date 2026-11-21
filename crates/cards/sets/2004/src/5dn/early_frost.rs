@@ -10,7 +10,7 @@ card!(
     oracle_id = "9f9cdbc2-d2f2-4390-8506-350fabf3f89a",
     scryfall_id = "5989d4c4-bfa4-4b07-ab64-65a3aee6144e",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Early Frost",
         mana_cost = mana!("{1}{U}"),

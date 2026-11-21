@@ -13,7 +13,7 @@ card!(
     oracle_id = "0cdbd9e7-4941-46ac-99d8-ea227181bdf8",
     scryfall_id = "7f1996af-5f15-447f-9b1d-98a7e97df53a",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ethereal Haze",
         mana_cost = mana!("{W}"),

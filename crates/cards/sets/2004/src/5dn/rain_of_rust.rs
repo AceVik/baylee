@@ -13,7 +13,7 @@ card!(
     oracle_id = "074e467e-f574-4b44-b5a3-798b592a5a87",
     scryfall_id = "13a6ecc6-83c8-408b-8600-687cdb383ca9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rain of Rust",
         mana_cost = mana!("{3}{R}{R}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "ebe61471-e236-4ff8-9416-151970b5efd6",
     scryfall_id = "91035d03-2bf8-4e6b-945b-4dfbed0873ec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Chill Haunting",
         mana_cost = mana!("{1}{B}"),
