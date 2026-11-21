@@ -625,6 +625,18 @@ pub(crate) fn mentions_word(text: &str, word: &str) -> bool {
     })
 }
 
+/// Whether `printed` mentions `bit`'s keyword word, allowing `CANT_BLOCK` on
+/// cards that print `"can't attack or block"` (*Grakk the Pacifist*).
+pub(crate) fn keyword_mentioned(
+    printed: &str,
+    bit: baylee_cards::dsl::KeywordSet,
+    word: &str,
+) -> bool {
+    mentions_word(printed, word)
+        || (bit == baylee_cards::dsl::KeywordSet::CANT_BLOCK
+            && mentions_word(printed, "can't attack or block"))
+}
+
 /// Every face's printed text, joined.
 pub(crate) fn printed_text(payload: &serde_json::Value) -> String {
     let mut out = String::new();
@@ -937,7 +949,22 @@ pub(crate) fn strip_reminders(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::up_to_target_phrase;
+    use super::{keyword_mentioned, up_to_target_phrase};
+    use baylee_cards::dsl::KeywordSet;
+
+    #[test]
+    fn cant_block_allows_cant_attack_or_block_phrase() {
+        assert!(keyword_mentioned(
+            "this creature can't attack or block.",
+            KeywordSet::CANT_BLOCK,
+            "can't block",
+        ));
+        assert!(!keyword_mentioned(
+            "this creature attacks each combat if able.",
+            KeywordSet::CANT_BLOCK,
+            "can't block",
+        ));
+    }
 
     #[test]
     fn up_to_target_phrase_handles_multibyte_em_dash_at_window_boundary() {

@@ -564,6 +564,27 @@ pub fn fetch_subtype_catalogs(
     // Keep the cached response unmodified and merge the documented supplement.
     cats.artifact
         .extend(["Heartwood", "Lander", "Mutagen", "Vibranium"].map(str::to_owned));
+    cats.creature.extend(
+        [
+            "Aenar",
+            "Android",
+            "Bajoran",
+            "Betazoid",
+            "Bolian",
+            "Brikar",
+            "Denobulan",
+            "El-Aurian",
+            "Ferengi",
+            "Jem'Hadar",
+            "Kwejian",
+            "Ocampa",
+            "Romulan",
+            "Talaxian",
+            "Tribble",
+            "Trill",
+        ]
+        .map(str::to_owned),
+    );
     cats.normalize();
     Ok(cats)
 }

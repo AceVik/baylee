@@ -57,8 +57,8 @@ use check_text::{
     KEYWORD_WORDS, check_optional_clauses_are_offered, check_oracle_matches_the_printing,
     check_player_targets_match_the_printing, check_scope_matches_the_text,
     check_search_tapped_matches_text, check_set_line_matches_the_printing,
-    check_target_counts_match_the_printing, face_texts, mentions_word, printed_text,
-    strip_reminders,
+    check_target_counts_match_the_printing, face_texts, keyword_mentioned, mentions_word,
+    printed_text, strip_reminders,
 };
 use clap::{Parser, Subcommand};
 use cli::{Cli, Cmd};
