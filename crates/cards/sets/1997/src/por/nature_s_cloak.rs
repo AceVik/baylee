@@ -16,7 +16,7 @@ card!(
     oracle_id = "bb493c95-5f6d-405b-aac6-c56fe6b6f42f",
     scryfall_id = "86b97d7d-6a72-4663-8b09-bef306485ed6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nature's Cloak",
         mana_cost = mana!("{2}{G}"),

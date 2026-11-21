@@ -10,7 +10,7 @@ card!(
     oracle_id = "4527c622-cebe-41eb-9178-4895cccffe99",
     scryfall_id = "e2b8f443-dba5-45a5-bb2e-f57b4fdd1d01",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Burning Cloak",
         mana_cost = mana!("{R}"),

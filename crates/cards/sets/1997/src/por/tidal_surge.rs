@@ -15,7 +15,7 @@ card!(
     oracle_id = "be738992-77fe-498d-b219-e5da4ce5bf07",
     scryfall_id = "5dae1d63-aee0-4cbe-852d-25fde10fa4b7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tidal Surge",
         mana_cost = mana!("{1}{U}"),

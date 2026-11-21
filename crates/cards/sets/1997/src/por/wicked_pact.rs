@@ -15,7 +15,7 @@ card!(
     oracle_id = "39e21a5a-b278-478a-854c-17695c0f6246",
     scryfall_id = "ad6191bf-97b0-40a6-a2b0-a14e2d249ed5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wicked Pact",
         mana_cost = mana!("{1}{B}{B}"),

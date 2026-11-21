@@ -11,7 +11,7 @@ card!(
     oracle_id = "c629feae-084c-452f-9c09-4b9716331498",
     scryfall_id = "83ff4446-4afd-42db-9879-0295e95764f7",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kaervek's Torch",
         mana_cost = mana!("{X}{R}"),

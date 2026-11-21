@@ -15,7 +15,7 @@ card!(
     oracle_id = "5a61d51e-1a3f-49f6-9a94-a708dd6f69df",
     scryfall_id = "7e2d5a77-6ee8-463d-9e6a-fdb1cc6d70e6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Waiting in the Weeds",
         mana_cost = mana!("{1}{G}{G}"),

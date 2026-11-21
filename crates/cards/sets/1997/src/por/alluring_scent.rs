@@ -10,7 +10,7 @@ card!(
     oracle_id = "ad218276-a44b-4a61-8e42-26a27929bbbb",
     scryfall_id = "543373fe-8623-4a2c-aa8f-57c80b2481ff",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Alluring Scent",
         mana_cost = mana!("{1}{G}{G}"),

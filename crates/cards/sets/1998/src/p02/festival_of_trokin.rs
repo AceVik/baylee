@@ -10,7 +10,7 @@ card!(
     oracle_id = "a5a3cd2c-20ae-49a8-88fa-e8e3e7cc50db",
     scryfall_id = "f5bd783b-d4cd-4a53-8fec-a5ead7c14738",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Festival of Trokin",
         mana_cost = mana!("{W}"),
