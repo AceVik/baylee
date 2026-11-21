@@ -11,7 +11,7 @@ card!(
     oracle_id = "f3623759-bf3a-4846-9ef7-1b732ad4355f",
     scryfall_id = "827b9c99-87d7-493c-9dc3-0c6aa4a61b49",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rushwood Legate",
         mana_cost = mana!("{2}{G}"),

@@ -12,7 +12,7 @@ card!(
     scryfall_id = "a11d58fb-fb70-4e8f-8f64-232ad2c1f59b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wei Scout",
         mana_cost = mana!("{1}{B}"),

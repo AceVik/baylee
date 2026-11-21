@@ -11,7 +11,7 @@ card!(
     oracle_id = "cdada8f0-d001-485c-a245-5e1c1ab748ab",
     scryfall_id = "9cae2231-183a-4627-be49-f59fb1d951cf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Young Wei Recruits",
         mana_cost = mana!("{1}{B}"),

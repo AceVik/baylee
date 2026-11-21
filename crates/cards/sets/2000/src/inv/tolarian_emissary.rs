@@ -16,7 +16,7 @@ card!(
     scryfall_id = "1cbc55e5-b84c-4449-a288-ec26cdd3997c",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tolarian Emissary",
         mana_cost = mana!("{2}{U}"),

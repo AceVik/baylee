@@ -14,7 +14,7 @@ card!(
     scryfall_id = "39dce974-846f-4365-b0a5-851e38668e7d",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ardent Soldier",
         mana_cost = mana!("{1}{W}"),

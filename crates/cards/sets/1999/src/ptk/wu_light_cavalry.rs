@@ -12,7 +12,7 @@ card!(
     scryfall_id = "60e55b25-fde2-4b57-b5db-65b75262ff3d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wu Light Cavalry",
         mana_cost = mana!("{1}{U}"),

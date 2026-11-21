@@ -12,7 +12,7 @@ card!(
     scryfall_id = "60790b07-53da-41fa-b9e0-e7ce22fdcb11",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Zhuge Jin, Wu Strategist",
         mana_cost = mana!("{1}{U}{U}"),

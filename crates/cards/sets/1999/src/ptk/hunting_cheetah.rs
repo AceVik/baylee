@@ -13,7 +13,7 @@ card!(
     oracle_id = "057e1cfc-d528-49e1-a386-9fb1edc1d135",
     scryfall_id = "99030058-283a-4888-8bfe-1bfab946fc98",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hunting Cheetah",
         mana_cost = mana!("{2}{G}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "2bd91ce8-1797-4dd7-8150-0d4caa7dad61",
     scryfall_id = "cbc2670d-a3f4-47c2-b424-01fd379ff186",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kavu Scout",
         mana_cost = mana!("{2}{R}"),

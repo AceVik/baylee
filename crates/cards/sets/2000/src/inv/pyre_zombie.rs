@@ -12,7 +12,7 @@ card!(
     oracle_id = "accb82be-4f90-4d9a-bafd-f8de3622b3a3",
     scryfall_id = "49c2db45-0ef7-45c8-ac65-eb785c173bd7",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyre Zombie",
         mana_cost = mana!("{1}{B}{R}"),

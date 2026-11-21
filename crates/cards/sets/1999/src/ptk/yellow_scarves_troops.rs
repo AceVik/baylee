@@ -11,7 +11,7 @@ card!(
     oracle_id = "fcfa5671-a7b1-4170-9c72-f18a9eccfa31",
     scryfall_id = "3ca36a8d-ca44-485e-a219-85814f160c4d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yellow Scarves Troops",
         mana_cost = mana!("{1}{R}"),

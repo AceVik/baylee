@@ -12,7 +12,7 @@ card!(
     oracle_id = "df166d0e-f944-404d-83b9-8cf53e220774",
     scryfall_id = "2c5fb86d-1d9a-4da2-bb5b-4266faa20197",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kavu Titan",
         mana_cost = mana!("{1}{G}"),

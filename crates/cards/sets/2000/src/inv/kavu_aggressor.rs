@@ -13,7 +13,7 @@ card!(
     oracle_id = "84c00644-d0e2-418b-b931-4e972ecb3366",
     scryfall_id = "a2832ad3-ce7f-44d2-beb2-c95d982905a6",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kavu Aggressor",
         mana_cost = mana!("{2}{R}"),

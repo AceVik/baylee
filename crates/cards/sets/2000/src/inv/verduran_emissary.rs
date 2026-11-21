@@ -14,7 +14,7 @@ card!(
     oracle_id = "915bd598-c3dd-4982-bdcc-5904a6f17436",
     scryfall_id = "cf0a1951-4482-4ba0-b29e-2091adde0628",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Verduran Emissary",
         mana_cost = mana!("{2}{G}"),

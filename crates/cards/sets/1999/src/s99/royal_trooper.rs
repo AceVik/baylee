@@ -11,7 +11,7 @@ card!(
     oracle_id = "e31510d5-b74e-4a8d-94e8-8bd098cac3c7",
     scryfall_id = "d2ef5a76-e91c-4687-8323-7436ced35153",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Royal Trooper",
         mana_cost = mana!("{2}{W}"),

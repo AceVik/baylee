@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8f0a25ea-b414-423c-94a6-8a4795d60b46",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Xun Yu, Wei Advisor",
         mana_cost = mana!("{1}{B}{B}"),
