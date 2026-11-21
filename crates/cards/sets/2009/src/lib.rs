@@ -35,6 +35,8 @@ pub mod ancient_ziggurat;
 pub mod angel_s_mercy;
 #[path = "pm10/ant_queen.rs"]
 pub mod ant_queen;
+#[path = "con_/apocalypse_hydra.rs"]
+pub mod apocalypse_hydra;
 #[path = "arb/architects_of_will.rs"]
 pub mod architects_of_will;
 #[path = "arb/ardent_plea.rs"]
@@ -319,6 +321,8 @@ pub mod glorious_charge;
 pub mod glory_of_warfare;
 #[path = "arb/gloryscale_viashino.rs"]
 pub mod gloryscale_viashino;
+#[path = "con_/gluttonous_slime.rs"]
+pub mod gluttonous_slime;
 #[path = "m10/goblin_artillery.rs"]
 pub mod goblin_artillery;
 #[path = "zen/goblin_bushwhacker.rs"]
@@ -337,6 +341,8 @@ pub mod goblin_shortcutter;
 pub mod goblin_war_paint;
 #[path = "arb/godtracker_of_jund.rs"]
 pub mod godtracker_of_jund;
+#[path = "arb/gorger_wurm.rs"]
+pub mod gorger_wurm;
 #[path = "m10/gorgon_flail.rs"]
 pub mod gorgon_flail;
 #[path = "zen/grappling_hook.rs"]
@@ -521,6 +527,8 @@ pub mod marisi_s_twinclaws;
 pub mod mark_of_asylum;
 #[path = "zen/mark_of_mutiny.rs"]
 pub mod mark_of_mutiny;
+#[path = "arb/marrow_chomper.rs"]
+pub mod marrow_chomper;
 #[path = "zen/marsh_casualties.rs"]
 pub mod marsh_casualties;
 #[path = "zen/marsh_flats.rs"]

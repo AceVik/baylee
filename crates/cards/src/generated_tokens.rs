@@ -6002,6 +6002,18 @@ pub static UNICORN_2_2_WHITE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 white Spirit with flying.
+pub static SPIRIT_2_2_WHITE_FLYING: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIRIT],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -7246,6 +7258,7 @@ pub static ALL: &[&TokenDef] = &[
     &TRIBBLE_1_1_WHITE_AA6F088A4,
     &INSECT_2_1_WHITE_FLYING,
     &UNICORN_2_2_WHITE,
+    &SPIRIT_2_2_WHITE_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -7704,4 +7717,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &TRIBBLE_1_1_WHITE_AA6F088A4,
     &INSECT_2_1_WHITE_FLYING,
     &UNICORN_2_2_WHITE,
+    &SPIRIT_2_2_WHITE_FLYING,
 ];

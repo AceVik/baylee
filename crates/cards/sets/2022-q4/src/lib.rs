@@ -265,6 +265,8 @@ pub mod keeper_of_secrets;
 pub mod keeper_of_the_cadence;
 #[path = "j22/kibo_uktabi_prince.rs"]
 pub mod kibo_uktabi_prince;
+#[path = "40k/kill_maim_burn.rs"]
+pub mod kill_maim_burn;
 #[path = "bro/kill_zone_acrobat.rs"]
 pub mod kill_zone_acrobat;
 #[path = "40k/knight_paladin.rs"]
@@ -537,6 +539,8 @@ pub mod trygon_prime;
 pub mod tyranid_harridan;
 #[path = "40k/tyranid_invasion.rs"]
 pub mod tyranid_invasion;
+#[path = "40k/tyranid_prime.rs"]
+pub mod tyranid_prime;
 #[path = "bro/tyrant_of_kher_ridges.rs"]
 pub mod tyrant_of_kher_ridges;
 #[path = "40k/tzaangor_shaman.rs"]

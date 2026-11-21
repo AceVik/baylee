@@ -73,6 +73,8 @@ pub mod charisma_bobblehead;
 pub mod coerced_to_kill;
 #[path = "mkm/cold_case_cracker.rs"]
 pub mod cold_case_cracker;
+#[path = "pip/colonel_autumn.rs"]
+pub mod colonel_autumn;
 #[path = "clu/commander_mustard.rs"]
 pub mod commander_mustard;
 #[path = "pip/commander_sofia_daguerre.rs"]

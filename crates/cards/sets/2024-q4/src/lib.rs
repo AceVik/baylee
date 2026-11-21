@@ -173,6 +173,8 @@ pub mod kykar_zephyr_awakener;
 pub mod midnight_snack;
 #[path = "fdn/mischievous_mystic.rs"]
 pub mod mischievous_mystic;
+#[path = "fdn/mossborn_hydra.rs"]
+pub mod mossborn_hydra;
 #[path = "fdn/needletooth_pack.rs"]
 pub mod needletooth_pack;
 #[path = "j25/ozox_the_clattering_king.rs"]

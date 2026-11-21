@@ -135,6 +135,8 @@ pub mod defenestrate;
 pub mod demogorgon_s_clutches;
 #[path = "afr/den_of_the_bugbear.rs"]
 pub mod den_of_the_bugbear;
+#[path = "mid/dennick_pious_apprentice.rs"]
+pub mod dennick_pious_apprentice;
 #[path = "mid/deserted_beach.rs"]
 pub mod deserted_beach;
 #[path = "afr/devoted_paladin.rs"]

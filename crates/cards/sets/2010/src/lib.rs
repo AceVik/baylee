@@ -157,6 +157,8 @@ pub mod caravan_escort;
 pub mod carnifex_demon;
 #[path = "som/carrion_call.rs"]
 pub mod carrion_call;
+#[path = "roe/cast_through_time.rs"]
+pub mod cast_through_time;
 #[path = "wwk/caustic_crawler.rs"]
 pub mod caustic_crawler;
 #[path = "pwwk/celestial_colonnade.rs"]

@@ -93,6 +93,8 @@ pub mod cactarantula;
 pub mod cactus_preserve;
 #[path = "otj/cactusfolk_sureshot.rs"]
 pub mod cactusfolk_sureshot;
+#[path = "otj/caught_in_the_crossfire.rs"]
+pub mod caught_in_the_crossfire;
 #[path = "otc/charred_graverobber.rs"]
 pub mod charred_graverobber;
 #[path = "m3c/chittering_dispatcher.rs"]
@@ -181,6 +183,8 @@ pub mod eviscerator_s_insight;
 pub mod evolution_witness;
 #[path = "mh3/expel_the_unworthy.rs"]
 pub mod expel_the_unworthy;
+#[path = "otj/explosive_derailment.rs"]
+pub mod explosive_derailment;
 #[path = "otj/failed_fording.rs"]
 pub mod failed_fording;
 #[path = "mh3/faithful_watchdog.rs"]
@@ -271,6 +275,10 @@ pub mod horrific_assault;
 pub mod hydroelectric_specimen;
 #[path = "mh3/imskir_iron_eater.rs"]
 pub mod imskir_iron_eater;
+#[path = "mh3/infernal_captor.rs"]
+pub mod infernal_captor;
+#[path = "otj/insatiable_avarice.rs"]
+pub mod insatiable_avarice;
 #[path = "mh3/inspired_inventor.rs"]
 pub mod inspired_inventor;
 #[path = "otj/intrepid_stablemaster.rs"]
@@ -325,6 +333,8 @@ pub mod malevolent_rumble;
 pub mod mandibular_kite;
 #[path = "mh3/marionette_apprentice.rs"]
 pub mod marionette_apprentice;
+#[path = "otj/metamorphic_blast.rs"]
+pub mod metamorphic_blast;
 #[path = "mh3/metastatic_evangel.rs"]
 pub mod metastatic_evangel;
 #[path = "mh3/mindless_conscription.rs"]
@@ -379,6 +389,8 @@ pub mod perilous_landscape;
 pub mod pest_control;
 #[path = "mh3/petrifying_meddler.rs"]
 pub mod petrifying_meddler;
+#[path = "otj/phantom_interference.rs"]
+pub mod phantom_interference;
 #[path = "mh3/phyrexian_ironworks.rs"]
 pub mod phyrexian_ironworks;
 #[path = "otj/pillage_the_bog.rs"]
@@ -393,6 +405,8 @@ pub mod planar_nexus;
 pub mod polygoyf;
 #[path = "otj/prickly_pair.rs"]
 pub mod prickly_pair;
+#[path = "mh3/propagator_drone.rs"]
+pub mod propagator_drone;
 #[path = "otj/prosperity_tycoon.rs"]
 pub mod prosperity_tycoon;
 #[path = "mh3/proud_pack_rhino.rs"]
@@ -573,6 +587,8 @@ pub mod titans_vanguard;
 pub mod tomb_trawler;
 #[path = "mh3/tranquil_landscape.rs"]
 pub mod tranquil_landscape;
+#[path = "otj/trash_the_town.rs"]
+pub mod trash_the_town;
 #[path = "otj/treasure_dredger.rs"]
 pub mod treasure_dredger;
 #[path = "m3c/trenchpost.rs"]
@@ -593,6 +609,8 @@ pub mod ugin_s_labyrinth;
 pub mod ulamog_s_dreadsire;
 #[path = "mh3/unfathomable_truths.rs"]
 pub mod unfathomable_truths;
+#[path = "otj/unfortunate_accident.rs"]
+pub mod unfortunate_accident;
 #[path = "otj/unscrupulous_contractor.rs"]
 pub mod unscrupulous_contractor;
 #[path = "mh3/urza_s_cave.rs"]

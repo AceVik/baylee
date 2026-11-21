@@ -111,6 +111,8 @@ pub mod greta_sweettooth_scourge;
 pub mod gumdrop_poisoner;
 #[path = "woe/harried_spearguard.rs"]
 pub mod harried_spearguard;
+#[path = "pwoe/heartflame_duelist.rs"]
+pub mod heartflame_duelist;
 #[path = "woe/hearth_elemental.rs"]
 pub mod hearth_elemental;
 #[path = "woe/high_fae_negotiator.rs"]

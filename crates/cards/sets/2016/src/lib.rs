@@ -19,6 +19,8 @@ pub mod abandon_reason;
 pub mod abstruse_interference;
 #[path = "emn/abundant_maw.rs"]
 pub mod abundant_maw;
+#[path = "kld/accomplished_automaton.rs"]
+pub mod accomplished_automaton;
 #[path = "kld/acrobatic_maneuver.rs"]
 pub mod acrobatic_maneuver;
 #[path = "cn2/adriana_captain_of_the_guard.rs"]
@@ -53,8 +55,12 @@ pub mod alms_of_the_vein;
 pub mod altered_ego;
 #[path = "psoi/always_watching.rs"]
 pub mod always_watching;
+#[path = "kld/ambitious_aetherborn.rs"]
+pub mod ambitious_aetherborn;
 #[path = "ogw/ancient_crab.rs"]
 pub mod ancient_crab;
+#[path = "kld/angel_of_invention.rs"]
+pub mod angel_of_invention;
 #[path = "soi/angelic_purge.rs"]
 pub mod angelic_purge;
 #[path = "psoi/anguished_unmaking.rs"]
@@ -257,6 +263,8 @@ pub mod cryptbreaker;
 pub mod cryptolith_rite;
 #[path = "emn/cultist_s_staff.rs"]
 pub mod cultist_s_staff;
+#[path = "kld/cultivator_of_blades.rs"]
+pub mod cultivator_of_blades;
 #[path = "kld/cultivator_s_caravan.rs"]
 pub mod cultivator_s_caravan;
 #[path = "kld/curio_vendor.rs"]
@@ -355,6 +363,8 @@ pub mod eldrazi_obligator;
 pub mod eldritch_evolution;
 #[path = "kld/electrostatic_pummeler.rs"]
 pub mod electrostatic_pummeler;
+#[path = "kld/elegant_edgecrafters.rs"]
+pub mod elegant_edgecrafters;
 #[path = "kld/eliminate_the_competition.rs"]
 pub mod eliminate_the_competition;
 #[path = "psoi/elusive_tormentor.rs"]
@@ -501,6 +511,8 @@ pub mod glassblower_s_puzzleknot;
 pub mod glimmer_of_genius;
 #[path = "kld/glint_nest_crane.rs"]
 pub mod glint_nest_crane;
+#[path = "kld/glint_sleeve_artisan.rs"]
+pub mod glint_sleeve_artisan;
 #[path = "emn/gnarlwood_dryad.rs"]
 pub mod gnarlwood_dryad;
 #[path = "ogw/goblin_freerunner.rs"]
@@ -563,6 +575,8 @@ pub mod herald_of_the_fair;
 pub mod heron_s_grace_champion;
 #[path = "soi/highland_lake.rs"]
 pub mod highland_lake;
+#[path = "kld/highspire_artisan.rs"]
+pub mod highspire_artisan;
 #[path = "kld/hightide_hermit.rs"]
 pub mod hightide_hermit;
 #[path = "kld/hijack.rs"]
@@ -599,6 +613,8 @@ pub mod inner_struggle;
 pub mod inquisitor_s_ox;
 #[path = "emn/insatiable_gorgers.rs"]
 pub mod insatiable_gorgers;
+#[path = "kld/insidious_will.rs"]
+pub mod insidious_will;
 #[path = "soi/insolent_neonate.rs"]
 pub mod insolent_neonate;
 #[path = "soi/inspiring_captain.rs"]
@@ -615,6 +631,8 @@ pub mod inventor_s_goggles;
 pub mod inventors_fair;
 #[path = "ogw/iona_s_blessing.rs"]
 pub mod iona_s_blessing;
+#[path = "kld/iron_league_steed.rs"]
+pub mod iron_league_steed;
 #[path = "emn/ironclad_slayer.rs"]
 pub mod ironclad_slayer;
 #[path = "emn/ironwright_s_cleansing.rs"]
@@ -693,6 +711,8 @@ pub mod long_finned_skywhale;
 pub mod longtusk_cub;
 #[path = "emn/lunarch_mantle.rs"]
 pub mod lunarch_mantle;
+#[path = "emn/lupine_prototype.rs"]
+pub mod lupine_prototype;
 #[path = "soi/magnifying_glass.rs"]
 pub mod magnifying_glass;
 #[path = "ogw/make_a_stand.rs"]
@@ -709,10 +729,14 @@ pub mod malakir_soothsayer;
 pub mod malevolent_whispers;
 #[path = "kld/malfunction.rs"]
 pub mod malfunction;
+#[path = "kld/marionette_master.rs"]
+pub mod marionette_master;
 #[path = "psoi/markov_dreadknight.rs"]
 pub mod markov_dreadknight;
 #[path = "kld/master_trinketeer.rs"]
 pub mod master_trinketeer;
+#[path = "kld/maulfist_squad.rs"]
+pub mod maulfist_squad;
 #[path = "emn/mausoleum_wanderer.rs"]
 pub mod mausoleum_wanderer;
 #[path = "ogw/maw_of_kozilek.rs"]
@@ -827,6 +851,8 @@ pub mod panharmonicon;
 pub mod paradox_engine;
 #[path = "soi/paranoid_parish_blade.rs"]
 pub mod paranoid_parish_blade;
+#[path = "kld/peema_outrider.rs"]
+pub mod peema_outrider;
 #[path = "kld/pia_nalaar.rs"]
 pub mod pia_nalaar;
 #[path = "soi/pious_evangel.rs"]
@@ -847,6 +873,8 @@ pub mod primal_druid;
 pub mod primeval_protector;
 #[path = "c16/prismatic_geoscope.rs"]
 pub mod prismatic_geoscope;
+#[path = "kld/propeller_pioneer.rs"]
+pub mod propeller_pioneer;
 #[path = "ogw/prophet_of_distortion.rs"]
 pub mod prophet_of_distortion;
 #[path = "emn/prophetic_ravings.rs"]
@@ -1235,6 +1263,8 @@ pub mod vexing_scuttler;
 pub mod vildin_pack_outcast;
 #[path = "ogw/vines_of_the_recluse.rs"]
 pub mod vines_of_the_recluse;
+#[path = "kld/visionary_augmenter.rs"]
+pub mod visionary_augmenter;
 #[path = "ogw/void_grafter.rs"]
 pub mod void_grafter;
 #[path = "ogw/void_shatter.rs"]
@@ -1261,6 +1291,8 @@ pub mod wastes;
 pub mod watcher_in_the_web;
 #[path = "kld/wayward_giant.rs"]
 pub mod wayward_giant;
+#[path = "kld/weaponcraft_enthusiast.rs"]
+pub mod weaponcraft_enthusiast;
 #[path = "ogw/weapons_trainer.rs"]
 pub mod weapons_trainer;
 #[path = "emn/weaver_of_lightning.rs"]

@@ -203,6 +203,8 @@ pub mod daredevil_s_billy_club;
 pub mod dark_deed;
 #[path = "msh/dark_fortress.rs"]
 pub mod dark_fortress;
+#[path = "msc/darwin_adaptive_mutant.rs"]
+pub mod darwin_adaptive_mutant;
 #[path = "msc/daughter_of_the_deep.rs"]
 pub mod daughter_of_the_deep;
 #[path = "msh/decoy_ploy.rs"]
@@ -347,6 +349,8 @@ pub mod great_hall_of_the_biblioplex;
 pub mod grim_reaper_s_scythe;
 #[path = "sos/group_project.rs"]
 pub mod group_project;
+#[path = "sos/growth_curve.rs"]
+pub mod growth_curve;
 #[path = "msh/guerrilla_gorilla.rs"]
 pub mod guerrilla_gorilla;
 #[path = "msh/h_e_r_b_i_e_scout_unit.rs"]
@@ -365,6 +369,8 @@ pub mod hawkeye_avenging_archer;
 pub mod hawkeye_bowslinger;
 #[path = "msc/hawkeye_clint_barton.rs"]
 pub mod hawkeye_clint_barton;
+#[path = "msh/hawkeye_s_bow.rs"]
+pub mod hawkeye_s_bow;
 #[path = "msc/hawkeye_trick_shot.rs"]
 pub mod hawkeye_trick_shot;
 #[path = "sos/heated_argument.rs"]
@@ -391,6 +397,8 @@ pub mod hulk_always_angry;
 pub mod hulk_bruce_banner;
 #[path = "msc/hulk_brutal_brawler.rs"]
 pub mod hulk_brutal_brawler;
+#[path = "msc/hulk_strongest_there_is.rs"]
+pub mod hulk_strongest_there_is;
 #[path = "msh/hydra_assault_robot.rs"]
 pub mod hydra_assault_robot;
 #[path = "msc/hydra_disintegrator.rs"]
@@ -677,6 +685,8 @@ pub mod repulsor_bots;
 pub mod repulsor_rays;
 #[path = "msc/rescue_pepper_potts.rs"]
 pub mod rescue_pepper_potts;
+#[path = "soc/ribtruss_roaster.rs"]
+pub mod ribtruss_roaster;
 #[path = "msh/rick_jones_destined_sidekick.rs"]
 pub mod rick_jones_destined_sidekick;
 #[path = "sos/root_manipulation.rs"]

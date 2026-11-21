@@ -671,6 +671,8 @@ pub mod merciless_executioner;
 pub mod meteor_blast;
 #[path = "frf/mindscour_dragon.rs"]
 pub mod mindscour_dragon;
+#[path = "dtk/minister_of_pain.rs"]
+pub mod minister_of_pain;
 #[path = "dtk/mirror_mockery.rs"]
 pub mod mirror_mockery;
 #[path = "frf/mistfire_adept.rs"]
@@ -771,10 +773,14 @@ pub mod profound_journey;
 pub mod qal_sisma_behemoth;
 #[path = "frf/qarsi_high_priest.rs"]
 pub mod qarsi_high_priest;
+#[path = "dtk/qarsi_sadist.rs"]
+pub mod qarsi_sadist;
 #[path = "ori/rabid_bloodsucker.rs"]
 pub mod rabid_bloodsucker;
 #[path = "dtk/radiant_purge.rs"]
 pub mod radiant_purge;
+#[path = "dtk/rakshasa_gravecaller.rs"]
+pub mod rakshasa_gravecaller;
 #[path = "frf/rakshasa_s_disdain.rs"]
 pub mod rakshasa_s_disdain;
 #[path = "frf/reach_of_shadows.rs"]
@@ -917,6 +923,10 @@ pub mod sibsig_host;
 pub mod sibsig_icebreakers;
 #[path = "frf/sibsig_muckdraggers.rs"]
 pub mod sibsig_muckdraggers;
+#[path = "dtk/sidisi_s_faithful.rs"]
+pub mod sidisi_s_faithful;
+#[path = "dtk/sidisi_undead_vizier.rs"]
+pub mod sidisi_undead_vizier;
 #[path = "dtk/sight_beyond_sight.rs"]
 pub mod sight_beyond_sight;
 #[path = "dtk/sight_of_the_scalelords.rs"]
@@ -925,8 +935,12 @@ pub mod sight_of_the_scalelords;
 pub mod silent_skimmer;
 #[path = "dtk/silkwrap.rs"]
 pub mod silkwrap;
+#[path = "dtk/silumgar_butcher.rs"]
+pub mod silumgar_butcher;
 #[path = "dtk/silumgar_monument.rs"]
 pub mod silumgar_monument;
+#[path = "dtk/silumgar_sorcerer.rs"]
+pub mod silumgar_sorcerer;
 #[path = "dtk/silumgar_spell_eater.rs"]
 pub mod silumgar_spell_eater;
 #[path = "bfz/sire_of_stagnation.rs"]
@@ -1111,6 +1125,8 @@ pub mod volcanic_upheaval;
 pub mod voracious_null;
 #[path = "ori/vryn_wingmare.rs"]
 pub mod vryn_wingmare;
+#[path = "dtk/vulturous_aven.rs"]
+pub mod vulturous_aven;
 #[path = "frf/wandering_champion.rs"]
 pub mod wandering_champion;
 #[path = "dtk/wandering_tombshell.rs"]

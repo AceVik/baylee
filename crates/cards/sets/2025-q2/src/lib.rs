@@ -475,6 +475,8 @@ pub mod rufus_shinra;
 pub mod rydia_s_return;
 #[path = "fin/sabotender.rs"]
 pub mod sabotender;
+#[path = "tdm/sage_of_the_fang.rs"]
+pub mod sage_of_the_fang;
 #[path = "fin/sage_s_nouliths.rs"]
 pub mod sage_s_nouliths;
 #[path = "tdm/salt_road_packbeast.rs"]
@@ -483,6 +485,8 @@ pub mod salt_road_packbeast;
 pub mod samurai_s_katana;
 #[path = "tdm/sarkhan_s_resolve.rs"]
 pub mod sarkhan_s_resolve;
+#[path = "fin/sazh_katzroy.rs"]
+pub mod sazh_katzroy;
 #[path = "fin/sazh_s_chocobo.rs"]
 pub mod sazh_s_chocobo;
 #[path = "fin/scorpion_sentinel.rs"]

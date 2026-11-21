@@ -41,12 +41,16 @@ pub mod appa_aang_s_companion;
 pub mod appa_the_vigilant;
 #[path = "tla/avatar_enthusiasts.rs"]
 pub mod avatar_enthusiasts;
+#[path = "tle/avatar_kyoshi_earthbender.rs"]
+pub mod avatar_kyoshi_earthbender;
 #[path = "tla/azula_always_lies.rs"]
 pub mod azula_always_lies;
 #[path = "ptla/ba_sing_se.rs"]
 pub mod ba_sing_se;
 #[path = "tle/baboon_spirit.rs"]
 pub mod baboon_spirit;
+#[path = "tla/badgermole.rs"]
+pub mod badgermole;
 #[path = "ptla/badgermole_cub.rs"]
 pub mod badgermole_cub;
 #[path = "tla/barrels_of_blasting_jelly.rs"]
@@ -61,6 +65,8 @@ pub mod boiling_rock_prison;
 pub mod bosco_just_a_bear;
 #[path = "tla/bumi_bash.rs"]
 pub mod bumi_bash;
+#[path = "tle/bumi_eclectic_earthbender.rs"]
+pub mod bumi_eclectic_earthbender;
 #[path = "tla/callous_inspector.rs"]
 pub mod callous_inspector;
 #[path = "tla/canyon_crawler.rs"]
@@ -91,6 +97,8 @@ pub mod curious_farm_animals;
 pub mod cycle_of_renewal;
 #[path = "tle/dai_li_censor.rs"]
 pub mod dai_li_censor;
+#[path = "tla/dai_li_indoctrination.rs"]
+pub mod dai_li_indoctrination;
 #[path = "tle/deer_dog.rs"]
 pub mod deer_dog;
 #[path = "tle/deny_entry.rs"]
@@ -111,6 +119,14 @@ pub mod earth_kingdom_jailer;
 pub mod earth_kingdom_protectors;
 #[path = "tla/earth_kingdom_soldier.rs"]
 pub mod earth_kingdom_soldier;
+#[path = "tla/earth_village_ruffians.rs"]
+pub mod earth_village_ruffians;
+#[path = "tla/earthbending_lesson.rs"]
+pub mod earthbending_lesson;
+#[path = "tle/earthbending_student.rs"]
+pub mod earthbending_student;
+#[path = "ptla/earthen_ally.rs"]
+pub mod earthen_ally;
 #[path = "tle/eel_hounds.rs"]
 pub mod eel_hounds;
 #[path = "tle/elephant_mandrill.rs"]
@@ -123,6 +139,8 @@ pub mod ember_island_production;
 pub mod enter_the_avatar_state;
 #[path = "tle/explosive_shot.rs"]
 pub mod explosive_shot;
+#[path = "tla/fatal_fissure.rs"]
+pub mod fatal_fissure;
 #[path = "tle/fire_nation_ambushers.rs"]
 pub mod fire_nation_ambushers;
 #[path = "tle/fire_nation_archers.rs"]
@@ -177,6 +195,8 @@ pub mod glider_kids;
 pub mod great_divide_guide;
 #[path = "tla/guru_pathik.rs"]
 pub mod guru_pathik;
+#[path = "tla/haru_hidden_talent.rs"]
+pub mod haru_hidden_talent;
 #[path = "tla/hermitic_herbalist.rs"]
 pub mod hermitic_herbalist;
 #[path = "tle/hippo_cows.rs"]
@@ -231,6 +251,8 @@ pub mod kyoshi_warriors;
 pub mod leaves_from_the_vine;
 #[path = "tle/lion_vulture.rs"]
 pub mod lion_vulture;
+#[path = "tla/lo_and_li_twin_tutors.rs"]
+pub mod lo_and_li_twin_tutors;
 #[path = "tla/long_feng_grand_secretariat.rs"]
 pub mod long_feng_grand_secretariat;
 #[path = "tle/longshot_rebel_bowman.rs"]
@@ -311,8 +333,12 @@ pub mod rowdy_snowballers;
 pub mod rumble_arena;
 #[path = "tla/saber_tooth_moose_lion.rs"]
 pub mod saber_tooth_moose_lion;
+#[path = "tla/sandbenders_storm.rs"]
+pub mod sandbenders_storm;
 #[path = "ptla/secret_tunnel.rs"]
 pub mod secret_tunnel;
+#[path = "tle/seismic_tutelage.rs"]
+pub mod seismic_tutelage;
 #[path = "tla/serpent_s_pass.rs"]
 pub mod serpent_s_pass;
 #[path = "tla/shared_roots.rs"]
@@ -355,6 +381,8 @@ pub mod teo_spirited_glider;
 pub mod the_art_of_tea;
 #[path = "tle/the_cabbage_merchant.rs"]
 pub mod the_cabbage_merchant;
+#[path = "tla/the_cave_of_two_lovers.rs"]
+pub mod the_cave_of_two_lovers;
 #[path = "ptla/the_fire_nation_drill.rs"]
 pub mod the_fire_nation_drill;
 #[path = "ptla/the_lion_turtle.rs"]
@@ -371,6 +399,8 @@ pub mod the_walls_of_ba_sing_se;
 pub mod tiger_seal;
 #[path = "tla/tolls_of_war.rs"]
 pub mod tolls_of_war;
+#[path = "ptla/toph_the_first_metalbender.rs"]
+pub mod toph_the_first_metalbender;
 #[path = "tle/toucan_puffin.rs"]
 pub mod toucan_puffin;
 #[path = "tla/treetop_freedom_fighters.rs"]

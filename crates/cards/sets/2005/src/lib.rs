@@ -219,6 +219,8 @@ pub mod genju_of_the_fields;
 pub mod genju_of_the_realm;
 #[path = "pal05/genju_of_the_spires.rs"]
 pub mod genju_of_the_spires;
+#[path = "psal/ghor_clan_savage.rs"]
+pub mod ghor_clan_savage;
 #[path = "sok/ghost_lit_nourisher.rs"]
 pub mod ghost_lit_nourisher;
 #[path = "psok/ghost_lit_raider.rs"]
@@ -569,6 +571,8 @@ pub mod sanguine_praetor;
 pub mod savage_thallid;
 #[path = "rav/savra_queen_of_the_golgari.rs"]
 pub mod savra_queen_of_the_golgari;
+#[path = "psal/scab_clan_mauler.rs"]
+pub mod scab_clan_mauler;
 #[path = "bok/scaled_hulk.rs"]
 pub mod scaled_hulk;
 #[path = "psal/scatter_the_seeds.rs"]

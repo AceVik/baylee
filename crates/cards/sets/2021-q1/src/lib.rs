@@ -45,6 +45,8 @@ pub mod battlefield_raptor;
 pub mod bearded_axe;
 #[path = "khm/behold_the_multiverse.rs"]
 pub mod behold_the_multiverse;
+#[path = "khm/berg_strider.rs"]
+pub mod berg_strider;
 #[path = "khm/beskir_shieldmate.rs"]
 pub mod beskir_shieldmate;
 #[path = "khm/binding_the_old_gods.rs"]
@@ -275,6 +277,8 @@ pub mod saw_it_coming;
 pub mod scorn_effigy;
 #[path = "khm/sculptor_of_winter.rs"]
 pub mod sculptor_of_winter;
+#[path = "khm/search_for_glory.rs"]
+pub mod search_for_glory;
 #[path = "khm/seize_the_spoils.rs"]
 pub mod seize_the_spoils;
 #[path = "khm/shackles_of_treachery.rs"]
@@ -325,6 +329,8 @@ pub mod the_world_tree;
 pub mod tormentor_s_helm;
 #[path = "khm/toski_bearer_of_secrets.rs"]
 pub mod toski_bearer_of_secrets;
+#[path = "khm/tundra_fumarole.rs"]
+pub mod tundra_fumarole;
 #[path = "khm/tyrite_sanctum.rs"]
 pub mod tyrite_sanctum;
 #[path = "khm/undersea_invader.rs"]

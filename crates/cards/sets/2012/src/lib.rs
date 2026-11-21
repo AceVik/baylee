@@ -671,6 +671,8 @@ pub mod precinct_captain;
 pub mod predator_ooze;
 #[path = "avr/predator_s_gambit.rs"]
 pub mod predator_s_gambit;
+#[path = "pc2/preyseizer_dragon.rs"]
+pub mod preyseizer_dragon;
 #[path = "m13/primal_huntbeast.rs"]
 pub mod primal_huntbeast;
 #[path = "m13/prized_elephant.rs"]
@@ -685,6 +687,8 @@ pub mod pyroconvergence;
 pub mod racecourse_fury;
 #[path = "avr/raging_poltergeist.rs"]
 pub mod raging_poltergeist;
+#[path = "avr/rain_of_thorns.rs"]
+pub mod rain_of_thorns;
 #[path = "rtr/rakdos_guildgate.rs"]
 pub mod rakdos_guildgate;
 #[path = "rtr/rakdos_keyrune.rs"]
@@ -843,6 +847,8 @@ pub mod sphinx_s_revelation;
 pub mod spiked_baloth;
 #[path = "avr/spirit_away.rs"]
 pub mod spirit_away;
+#[path = "dka/spiteful_shadows.rs"]
+pub mod spiteful_shadows;
 #[path = "rtr/stab_wound.rs"]
 pub mod stab_wound;
 #[path = "pm13/staff_of_nin.rs"]
@@ -899,6 +905,8 @@ pub mod thraben_heretic;
 pub mod thraben_valiant;
 #[path = "m13/thragtusk.rs"]
 pub mod thragtusk;
+#[path = "pc2/thromok_the_insatiable.rs"]
+pub mod thromok_the_insatiable;
 #[path = "m13/thundermaw_hellkite.rs"]
 pub mod thundermaw_hellkite;
 #[path = "avr/thunderous_wrath.rs"]

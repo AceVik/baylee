@@ -103,6 +103,8 @@ pub mod falkenrath_forebear;
 pub mod fear_of_death;
 #[path = "vow/fearful_villager.rs"]
 pub mod fearful_villager;
+#[path = "vow/fell_stinger.rs"]
+pub mod fell_stinger;
 #[path = "vow/flame_blessed_bolt.rs"]
 pub mod flame_blessed_bolt;
 #[path = "ymid/forsaken_crossroads.rs"]
@@ -115,6 +117,8 @@ pub mod gift_of_fangs;
 pub mod glorious_sunrise;
 #[path = "vow/gluttonous_guest.rs"]
 pub mod gluttonous_guest;
+#[path = "pvow/graf_reaver.rs"]
+pub mod graf_reaver;
 #[path = "vow/grisly_ritual.rs"]
 pub mod grisly_ritual;
 #[path = "vow/gryff_rider.rs"]
@@ -175,6 +179,8 @@ pub mod lightning_wolf;
 pub mod markov_enforcer;
 #[path = "vow/markov_purifier.rs"]
 pub mod markov_purifier;
+#[path = "vow/markov_retribution.rs"]
+pub mod markov_retribution;
 #[path = "vow/markov_waltzer.rs"]
 pub mod markov_waltzer;
 #[path = "vow/massive_might.rs"]
@@ -199,6 +205,8 @@ pub mod olivia_s_attendants;
 pub mod olivia_s_wrath;
 #[path = "vow/ollenbock_escort.rs"]
 pub mod ollenbock_escort;
+#[path = "pvow/overcharged_amalgam.rs"]
+pub mod overcharged_amalgam;
 #[path = "vow/panicked_bystander.rs"]
 pub mod panicked_bystander;
 #[path = "vow/persistent_specimen.rs"]
@@ -215,8 +223,12 @@ pub mod reckless_impulse;
 pub mod reclusive_taxidermist;
 #[path = "vow/rending_flame.rs"]
 pub mod rending_flame;
+#[path = "vow/repository_skaab.rs"]
+pub mod repository_skaab;
 #[path = "vow/restless_bloodseeker.rs"]
 pub mod restless_bloodseeker;
+#[path = "vow/rot_tide_gargantua.rs"]
+pub mod rot_tide_gargantua;
 #[path = "vow/runebound_wolf.rs"]
 pub mod runebound_wolf;
 #[path = "vow/rural_recruit.rs"]
@@ -239,6 +251,8 @@ pub mod sheltering_boughs;
 pub mod sigarda_s_imprisonment;
 #[path = "pvow/sigarda_s_summons.rs"]
 pub mod sigarda_s_summons;
+#[path = "vow/skull_skaab.rs"]
+pub mod skull_skaab;
 #[path = "vow/spiked_ripsaw.rs"]
 pub mod spiked_ripsaw;
 #[path = "vow/spore_crawler.rs"]
@@ -247,6 +261,8 @@ pub mod spore_crawler;
 pub mod sporeback_wolf;
 #[path = "vow/steelclad_spirit.rs"]
 pub mod steelclad_spirit;
+#[path = "vow/stitched_assistant.rs"]
+pub mod stitched_assistant;
 #[path = "pvow/stormcarved_coast.rs"]
 pub mod stormcarved_coast;
 #[path = "pvow/sundown_pass.rs"]

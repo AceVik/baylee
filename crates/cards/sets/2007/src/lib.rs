@@ -69,6 +69,8 @@ pub mod bloodshot_trainee;
 pub mod bog_serpent;
 #[path = "lrw/bog_strider_ash.rs"]
 pub mod bog_strider_ash;
+#[path = "fut/bogardan_lancer.rs"]
+pub mod bogardan_lancer;
 #[path = "lrw/boggart_birth_rite.rs"]
 pub mod boggart_birth_rite;
 #[path = "lrw/boggart_forager.rs"]
@@ -325,6 +327,8 @@ pub mod hurly_burly;
 pub mod ichor_slick;
 #[path = "lrw/immaculate_magistrate.rs"]
 pub mod immaculate_magistrate;
+#[path = "plc/imp_s_mischief.rs"]
+pub mod imp_s_mischief;
 #[path = "lrw/imperious_perfect.rs"]
 pub mod imperious_perfect;
 #[path = "fut/infiltrator_il_kor.rs"]
@@ -515,6 +519,8 @@ pub mod ponder;
 pub mod pongify;
 #[path = "plc/poultice_sliver.rs"]
 pub mod poultice_sliver;
+#[path = "lrw/primal_command.rs"]
+pub mod primal_command;
 #[path = "plc/primal_plasma.rs"]
 pub mod primal_plasma;
 #[path = "plc/prodigal_pyromancer.rs"]
@@ -745,6 +751,8 @@ pub mod wellgabber_apothecary;
 pub mod whetwheel;
 #[path = "fut/whip_spine_drake.rs"]
 pub mod whip_spine_drake;
+#[path = "lrw/wild_ricochet.rs"]
+pub mod wild_ricochet;
 #[path = "lrw/windbrisk_heights.rs"]
 pub mod windbrisk_heights;
 #[path = "lrw/wispmare.rs"]

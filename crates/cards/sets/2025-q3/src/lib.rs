@@ -19,6 +19,8 @@ pub mod adagia_windswept_bastion;
 pub mod agent_venom;
 #[path = "spe/alchemax_slayer_bots.rs"]
 pub mod alchemax_slayer_bots;
+#[path = "eoe/all_fates_stalker.rs"]
+pub mod all_fates_stalker;
 #[path = "spe/amateur_hero.rs"]
 pub mod amateur_hero;
 #[path = "om1/angry_rabble.rs"]
@@ -49,6 +51,8 @@ pub mod biosynthic_burst;
 pub mod biotech_specialist;
 #[path = "eoe/blooming_stinger.rs"]
 pub mod blooming_stinger;
+#[path = "eoe/bygone_colossus.rs"]
+pub mod bygone_colossus;
 #[path = "eoe/cerebral_download.rs"]
 pub mod cerebral_download;
 #[path = "eoe/chrome_companion.rs"]
@@ -99,6 +103,8 @@ pub mod doc_ock_s_henchmen;
 pub mod doc_ock_s_tentacles;
 #[path = "eoe/drill_too_deep.rs"]
 pub mod drill_too_deep;
+#[path = "eoe/drix_fatemaker.rs"]
+pub mod drix_fatemaker;
 #[path = "eoe/dual_sun_adepts.rs"]
 pub mod dual_sun_adepts;
 #[path = "eoe/dual_sun_technique.rs"]
@@ -117,8 +123,12 @@ pub mod emergency_eject;
 pub mod eumidian_hatchery;
 #[path = "eoe/eumidian_terrabotanist.rs"]
 pub mod eumidian_terrabotanist;
+#[path = "eoe/eusocial_engineering.rs"]
+pub mod eusocial_engineering;
 #[path = "eoe/evendo_waking_haven.rs"]
 pub mod evendo_waking_haven;
+#[path = "eoe/exalted_sunborn.rs"]
+pub mod exalted_sunborn;
 #[path = "eoe/exosuit_savior.rs"]
 pub mod exosuit_savior;
 #[path = "eoe/extinguisher_battleship.rs"]
@@ -151,6 +161,8 @@ pub mod gallant_citizen;
 pub mod galvanizing_sawship;
 #[path = "eoe/gene_pollinator.rs"]
 pub mod gene_pollinator;
+#[path = "eoe/germinating_wurm.rs"]
+pub mod germinating_wurm;
 #[path = "spe/ghost_spider_gwen_stacy.rs"]
 pub mod ghost_spider_gwen_stacy;
 #[path = "eoe/gigastorm_titan.rs"]
@@ -175,6 +187,8 @@ pub mod guy_in_the_chair;
 pub mod gwenom_remorseless;
 #[path = "eoe/haliya_ascendant_cadet.rs"]
 pub mod haliya_ascendant_cadet;
+#[path = "eoe/haliya_guided_by_light.rs"]
+pub mod haliya_guided_by_light;
 #[path = "eoe/hardlight_containment.rs"]
 pub mod hardlight_containment;
 #[path = "eoe/harmonious_grovestrider.rs"]
@@ -221,6 +235,8 @@ pub mod kavaron_memorial_world;
 pub mod kavaron_turbodrone;
 #[path = "eoc/kilo_apogee_mind.rs"]
 pub mod kilo_apogee_mind;
+#[path = "eoe/knight_luminary.rs"]
+pub mod knight_luminary;
 #[path = "om1/kraven_s_cats.rs"]
 pub mod kraven_s_cats;
 #[path = "eoe/larval_scoutlander.rs"]
@@ -247,12 +263,16 @@ pub mod masked_meower;
 pub mod mechan_assembler;
 #[path = "eoe/mechan_navigator.rs"]
 pub mod mechan_navigator;
+#[path = "eoe/mechanozoa.rs"]
+pub mod mechanozoa;
 #[path = "eoe/melded_moxite.rs"]
 pub mod melded_moxite;
 #[path = "eoe/meltstrider_eulogist.rs"]
 pub mod meltstrider_eulogist;
 #[path = "eoe/meltstrider_s_gear.rs"]
 pub mod meltstrider_s_gear;
+#[path = "eoe/memorial_team_leader.rs"]
+pub mod memorial_team_leader;
 #[path = "eoe/memorial_vault.rs"]
 pub mod memorial_vault;
 #[path = "eoe/mental_modulation.rs"]
@@ -287,6 +307,8 @@ pub mod nanoform_sentinel;
 pub mod nebula_dragon;
 #[path = "om1/news_helicopter.rs"]
 pub mod news_helicopter;
+#[path = "eoe/nova_hellkite.rs"]
+pub mod nova_hellkite;
 #[path = "eoe/nutrient_block.rs"]
 pub mod nutrient_block;
 #[path = "om1/ominous_asylum.rs"]
@@ -303,6 +325,8 @@ pub mod oscorp_research_team;
 pub mod ouroboroid;
 #[path = "om1/passenger_ferry.rs"]
 pub mod passenger_ferry;
+#[path = "eoe/pinnacle_emissary.rs"]
+pub mod pinnacle_emissary;
 #[path = "eoe/pinnacle_kill_ship.rs"]
 pub mod pinnacle_kill_ship;
 #[path = "om1/professional_wrestler.rs"]
@@ -321,6 +345,10 @@ pub mod radioactive_spider;
 pub mod ragost_deft_gastronaut;
 #[path = "spe/rampaging_classmate.rs"]
 pub mod rampaging_classmate;
+#[path = "eoe/rayblade_trooper.rs"]
+pub mod rayblade_trooper;
+#[path = "eoe/red_tiger_mechan.rs"]
+pub mod red_tiger_mechan;
 #[path = "eoe/remnant_elemental.rs"]
 pub mod remnant_elemental;
 #[path = "eoe/reroute_systems.rs"]
@@ -381,6 +409,8 @@ pub mod shattered_wings;
 pub mod shocker_unshakable;
 #[path = "om1/shriek_treblemaker.rs"]
 pub mod shriek_treblemaker;
+#[path = "eoe/sinister_cryologist.rs"]
+pub mod sinister_cryologist;
 #[path = "om1/sinister_hideout.rs"]
 pub mod sinister_hideout;
 #[path = "eoe/slagdrill_scrapper.rs"]
@@ -425,6 +455,12 @@ pub mod spider_suit;
 pub mod spider_woman_stunning_savior;
 #[path = "eoe/squire_s_lightblade.rs"]
 pub mod squire_s_lightblade;
+#[path = "eoe/starbreach_whale.rs"]
+pub mod starbreach_whale;
+#[path = "eoe/starfield_shepherd.rs"]
+pub mod starfield_shepherd;
+#[path = "eoe/starfield_vocalist.rs"]
+pub mod starfield_vocalist;
 #[path = "eoe/starfighter_pilot.rs"]
 pub mod starfighter_pilot;
 #[path = "om1/starling_aerial_ally.rs"]
@@ -461,6 +497,8 @@ pub mod surge_conductor;
 pub mod susur_secundi_void_altar;
 #[path = "eoe/susurian_dirgecraft.rs"]
 pub mod susurian_dirgecraft;
+#[path = "eoe/susurian_voidborn.rs"]
+pub mod susurian_voidborn;
 #[path = "eoe/swarm_culler.rs"]
 pub mod swarm_culler;
 #[path = "spe/symbiote_spawn.rs"]
@@ -537,6 +575,10 @@ pub mod web_up;
 pub mod web_warriors;
 #[path = "eoe/wedgelight_rammer.rs"]
 pub mod wedgelight_rammer;
+#[path = "eoe/weftblade_enhancer.rs"]
+pub mod weftblade_enhancer;
+#[path = "eoe/weftstalker_ardent.rs"]
+pub mod weftstalker_ardent;
 #[path = "om1/whoosh.rs"]
 pub mod whoosh;
 #[path = "om1/wild_pack_squad.rs"]

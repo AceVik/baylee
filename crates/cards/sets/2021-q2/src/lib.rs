@@ -109,6 +109,8 @@ pub mod cabal_initiate;
 pub mod callous_bloodmage;
 #[path = "stx/campus_guide.rs"]
 pub mod campus_guide;
+#[path = "mh2/caprichrome.rs"]
+pub mod caprichrome;
 #[path = "mh2/captain_ripley_vance.rs"]
 pub mod captain_ripley_vance;
 #[path = "mh2/captured_by_lagacs.rs"]
@@ -157,6 +159,8 @@ pub mod darkmoss_bridge;
 pub mod dauthi_voidwalker;
 #[path = "stx/decisive_denial.rs"]
 pub mod decisive_denial;
+#[path = "c21/deekah_fractal_theorist.rs"]
+pub mod deekah_fractal_theorist;
 #[path = "stx/defend_the_campus.rs"]
 pub mod defend_the_campus;
 #[path = "c21/digsite_engineer.rs"]
@@ -169,6 +173,8 @@ pub mod disciple_of_the_sun;
 pub mod double_major;
 #[path = "mh2/dragon_s_rage_channeler.rs"]
 pub mod dragon_s_rage_channeler;
+#[path = "pstx/dragonsguard_elite.rs"]
+pub mod dragonsguard_elite;
 #[path = "pstx/dramatic_finale.rs"]
 pub mod dramatic_finale;
 #[path = "pmh2/dress_down.rs"]
@@ -339,6 +345,8 @@ pub mod leyline_invocation;
 pub mod lightning_spear;
 #[path = "mh2/liquimetal_torque.rs"]
 pub mod liquimetal_torque;
+#[path = "mh2/loathsome_curator.rs"]
+pub mod loathsome_curator;
 #[path = "stx/lorehold_apprentice.rs"]
 pub mod lorehold_apprentice;
 #[path = "stx/lorehold_campus.rs"]
@@ -411,6 +419,8 @@ pub mod orchard_strider;
 pub mod ornithopter_of_paradise;
 #[path = "stx/owlin_shieldmage.rs"]
 pub mod owlin_shieldmage;
+#[path = "c21/paradox_zone.rs"]
+pub mod paradox_zone;
 #[path = "mh2/parcel_myr.rs"]
 pub mod parcel_myr;
 #[path = "c21/perplexing_test.rs"]
@@ -503,6 +513,8 @@ pub mod scion_of_draco;
 pub mod scour_the_desert;
 #[path = "stx/scurrid_colony.rs"]
 pub mod scurrid_colony;
+#[path = "mh2/scurry_oak.rs"]
+pub mod scurry_oak;
 #[path = "mh2/scuttletide.rs"]
 pub mod scuttletide;
 #[path = "stx/secret_rendezvous.rs"]
@@ -521,6 +533,8 @@ pub mod silverbluff_bridge;
 pub mod silverquill_apprentice;
 #[path = "stx/silverquill_campus.rs"]
 pub mod silverquill_campus;
+#[path = "pstx/silverquill_command.rs"]
+pub mod silverquill_command;
 #[path = "stx/silverquill_pledgemage.rs"]
 pub mod silverquill_pledgemage;
 #[path = "mh2/sinister_starfish.rs"]
@@ -687,6 +701,8 @@ pub mod witch_s_clinic;
 pub mod witherbloom_apprentice;
 #[path = "stx/witherbloom_campus.rs"]
 pub mod witherbloom_campus;
+#[path = "pstx/witherbloom_command.rs"]
+pub mod witherbloom_command;
 #[path = "stx/witherbloom_pledgemage.rs"]
 pub mod witherbloom_pledgemage;
 #[path = "mh2/world_weary.rs"]

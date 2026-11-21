@@ -46,6 +46,8 @@ never a reason to edit a card by hand.
 - Forked-Branch Garami: dual `Soulshift 4` lowers as two single-target `Dies` triggers instead of one `"up to two target"` trigger matching its combined reminder text (`xtask validate`).
 - Blight Grenade, For the Common Good: valid spells whose `-3/-3` or token-indestructible sweep shares `&Filter::CREATURE` or `And(&[IsToken, ControlledByYou])` with their target, tripping `lints::tests::targets::no_targeted_ability_sweeps_the_board_instead` (`target_reuse`).
 - Swashbuckler's Whip: its compound Equipment grant leaves `Modifier::GrantActivated` (`Discover 10`) without a printed line in `generated_lines.rs` (`lines::tests::every_grant_is_found_on_its_own_face`).
+- Reroute: `scriptgen` emits nonexistent `TargetSpec::ActivatedAbility` instead of `TargetSpec::AbilityOnStack` for `"target activated ability with a single target"`.
+- Redirect, Sideswipe: print `"You may choose/change ... target(s)"` and lower to bare `Effect::ChooseNewTargets` without `MayDo`, tripping `xtask validate`'s optional-clause check.
 
 ## Engine gaps
 

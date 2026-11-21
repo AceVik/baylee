@@ -617,6 +617,8 @@ pub mod shinka_the_bloodsoaked_keep;
 pub mod shizo_death_s_storehouse;
 #[path = "dst/shriveling_rot.rs"]
 pub mod shriveling_rot;
+#[path = "dst/shunt.rs"]
+pub mod shunt;
 #[path = "5dn/silent_arbiter.rs"]
 pub mod silent_arbiter;
 #[path = "chk/sire_of_the_storm.rs"]

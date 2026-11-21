@@ -95,12 +95,16 @@ pub mod blightwidow;
 pub mod blind_zealot;
 #[path = "mbs/blisterstick_shaman.rs"]
 pub mod blisterstick_shaman;
+#[path = "m12/blood_ogre.rs"]
+pub mod blood_ogre;
 #[path = "isd/bloodcrazed_neonate.rs"]
 pub mod bloodcrazed_neonate;
 #[path = "isd/bloodgift_demon.rs"]
 pub mod bloodgift_demon;
 #[path = "isd/bloodline_keeper.rs"]
 pub mod bloodline_keeper;
+#[path = "m12/bloodrage_vampire.rs"]
+pub mod bloodrage_vampire;
 #[path = "isd/bonds_of_faith.rs"]
 pub mod bonds_of_faith;
 #[path = "m12/bonebreaker_giant.rs"]
@@ -127,6 +131,8 @@ pub mod butcher_s_cleaver;
 pub mod cackling_counterpart;
 #[path = "nph/caress_of_phyrexia.rs"]
 pub mod caress_of_phyrexia;
+#[path = "m12/carnage_wurm.rs"]
+pub mod carnage_wurm;
 #[path = "mbs/caustic_hound.rs"]
 pub mod caustic_hound;
 #[path = "cmd/celestial_force.rs"]
@@ -235,6 +241,8 @@ pub mod drifting_shade;
 pub mod dross_ripper;
 #[path = "m12/dungrove_elder.rs"]
 pub mod dungrove_elder;
+#[path = "m12/duskhunter_bat.rs"]
+pub mod duskhunter_bat;
 #[path = "isd/elder_of_laurels.rs"]
 pub mod elder_of_laurels;
 #[path = "nph/elesh_norn_grand_cenobite.rs"]
@@ -283,6 +291,8 @@ pub mod frost_breath;
 pub mod fuel_for_the_cause;
 #[path = "nph/furnace_scamp.rs"]
 pub mod furnace_scamp;
+#[path = "m12/furyborn_hellkite.rs"]
+pub mod furyborn_hellkite;
 #[path = "isd/gallows_warden.rs"]
 pub mod gallows_warden;
 #[path = "isd/galvanic_juggernaut.rs"]
@@ -333,6 +343,8 @@ pub mod goblin_bangchuckers;
 pub mod goblin_fireslinger;
 #[path = "mbs/goblin_wardriver.rs"]
 pub mod goblin_wardriver;
+#[path = "m12/gorehorn_minotaurs.rs"]
+pub mod gorehorn_minotaurs;
 #[path = "m12/grand_abolisher.rs"]
 pub mod grand_abolisher;
 #[path = "isd/grasp_of_phantoms.rs"]
@@ -451,6 +463,8 @@ pub mod loxodon_partisan;
 pub mod lumberknot;
 #[path = "mbs/lumengrid_gargoyle.rs"]
 pub mod lumengrid_gargoyle;
+#[path = "m12/lurking_crocodile.rs"]
+pub mod lurking_crocodile;
 #[path = "cmd/magmatic_force.rs"]
 pub mod magmatic_force;
 #[path = "mbs/magnetic_mine.rs"]
@@ -609,6 +623,8 @@ pub mod pride_guardian;
 pub mod priest_of_urabrask;
 #[path = "mbs/priests_of_norn.rs"]
 pub mod priests_of_norn;
+#[path = "m12/primordial_hydra.rs"]
+pub mod primordial_hydra;
 #[path = "pnph/pristine_talisman.rs"]
 pub mod pristine_talisman;
 #[path = "nph/psychic_barrier.rs"]
@@ -779,6 +795,8 @@ pub mod stingerfling_spider;
 pub mod stitcher_s_apprentice;
 #[path = "isd/stony_silence.rs"]
 pub mod stony_silence;
+#[path = "m12/stormblood_berserker.rs"]
+pub mod stormblood_berserker;
 #[path = "mbs/strandwalker.rs"]
 pub mod strandwalker;
 #[path = "isd/stromkirk_noble.rs"]
@@ -857,6 +875,8 @@ pub mod urabrask_the_hidden;
 pub mod urgent_exorcism;
 #[path = "isd/vampire_interloper.rs"]
 pub mod vampire_interloper;
+#[path = "m12/vampire_outcasts.rs"]
+pub mod vampire_outcasts;
 #[path = "isd/vampiric_fury.rs"]
 pub mod vampiric_fury;
 #[path = "nph/vapor_snag.rs"]

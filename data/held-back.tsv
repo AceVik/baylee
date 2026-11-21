@@ -60,6 +60,9 @@ c918baa5-0e7c-4df2-8567-64a7fbef4df8	Forked-Branch Garami	reader-gap: dual Souls
 ae24b863-974c-4efa-ab41-23cfa1906c54	Blight Grenade	lint-gap: target_reuse rejects shared Filter::CREATURE on destroy target and PumpFilter sweep (Pass E10)
 de6e4aa2-23f1-46e5-a061-05522944e0c6	For the Common Good	lint-gap: target_reuse rejects shared Filter::And(&[IsToken, ControlledByYou]) on CreateTokenCopy target and PumpFilter sweep (Pass E10)
 5cdb69e5-9395-4ef6-be18-71e3dd70df66	Swashbuckler's Whip	reader-gap: dual granted ability sentence leaves GrantActivated without a printed line in generated_lines.rs (Pass E10)
+997f5a5a-9ee1-4b66-9ffc-d1a2e996e615	Reroute	reader-gap: scriptgen emits nonexistent TargetSpec::ActivatedAbility instead of TargetSpec::AbilityOnStack with an activated-ability filter (Pass E11)
+74a7d880-5a49-412b-af4d-0b4cdb8453ee	Redirect	lint-gap: validate optional clause check does not treat bare Effect::ChooseNewTargets without MayDo as asking "you may" (Pass E11)
+07180afc-5c63-42e0-907b-0ed52f777165	Sideswipe	lint-gap: validate optional clause check does not treat bare Effect::ChooseNewTargets without MayDo as asking "you may" (Pass E11)
 
 # Engine gaps
 9843d8a6-bcbf-40c2-8c41-316e97db9c62	Shallow Grave	engine-gap: held-back stub awaiting completion and test

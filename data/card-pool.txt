@@ -21403,3 +21403,210 @@ Tomik, Izzet Sparkmage
 Torbran, Thane of Red Fell
 Twinflame Tyrant
 Abyssal Lotus
+Shunt
+Ghor-Clan Savage
+Scab-Clan Mauler
+Battering Wurm
+Bloodscale Prowler
+Gristleback
+Petrified Wood-Kin
+Rabble-Rouser
+Skarrgan Firebird
+Skarrgan Pit-Skulk
+Skarrgan Skybreaker
+Evolution Vat
+Cover of Winter
+Imp's Mischief
+Bogardan Lancer
+Primal Command
+Wild Ricochet
+Caldera Hellion
+Mycoloth
+Predator Dragon
+Skullmulcher
+Swerve
+Tar Fiend
+Thorn-Thrash Viashino
+Thunder-Thrash Elder
+Apocalypse Hydra
+Gluttonous Slime
+Gorger Wurm
+Marrow Chomper
+Cast Through Time
+Blood Ogre
+Bloodrage Vampire
+Carnage Wurm
+Duskhunter Bat
+Furyborn Hellkite
+Gorehorn Minotaurs
+Lurking Crocodile
+Primordial Hydra
+Stormblood Berserker
+Vampire Outcasts
+Spiteful Shadows
+Rain of Thorns
+Preyseizer Dragon
+Thromok the Insatiable
+Experiment One
+Adaptive Snapjaw
+Clan Defiance
+Clinging Anemones
+Cloudfin Raptor
+Crocanura
+Elusive Krasis
+Gyre Sage
+Shambleshark
+Simic Fluxmage
+Battering Krasis
+Kalonian Hydra
+Minister of Pain
+Qarsi Sadist
+Rakshasa Gravecaller
+Sidisi's Faithful
+Sidisi, Undead Vizier
+Silumgar Butcher
+Silumgar Sorcerer
+Vulturous Aven
+Lupine Prototype
+Accomplished Automaton
+Ambitious Aetherborn
+Angel of Invention
+Cultivator of Blades
+Elegant Edgecrafters
+Glint-Sleeve Artisan
+Highspire Artisan
+Insidious Will
+Iron League Steed
+Marionette Master
+Maulfist Squad
+Peema Outrider
+Propeller Pioneer
+Visionary Augmenter
+Weaponcraft Enthusiast
+Pestilent Spirit
+Bolt Bend
+Casualties of War
+Feaster of Fools
+Gluttonous Slug
+Voracious Hydra
+Invigorating Surge
+Sublime Epiphany
+Blazing Sunsteel
+Berg Strider
+Search for Glory
+Tundra Fumarole
+Deekah, Fractal Theorist
+Dragonsguard Elite
+Paradox Zone
+Silverquill Command
+Witherbloom Command
+Caprichrome
+Loathsome Curator
+Scurry Oak
+Dennick, Pious Apprentice // Dennick, Pious Apparition
+Fell Stinger
+Graf Reaver
+Markov Retribution
+Overcharged Amalgam
+Repository Skaab
+Rot-Tide Gargantua
+Skull Skaab
+Stitched Assistant
+Kill! Maim! Burn!
+Tyranid Prime
+Blight Titan
+Bloated Processor
+Bright-Palm, Soul Awakener
+Chrome Host Seedshark
+Compleated Huntmaster
+Converter Beast
+Essence of Orthodoxy
+Excise the Imperfect
+Eyes of Gitaxias
+Furnace Gremlin
+Gift of Compleation
+Glistening Dawn
+Ichor Drinker
+Infected Defector
+Injector Crocodile
+Marauding Dreadship
+Merciless Repurposing
+Phyrexian Awakening
+Sculpted Perfection
+Tangled Skyline
+Tiller of Flesh
+Heartflame Duelist // Heartflame Slash
+Sisterhood of Karn
+Fell Beast of Mordor
+Clay-Fired Bricks // Cosmium Kiln
+Dinosaur Egg
+Henry Wu, InGen Geneticist
+Idol of the Deep King // Sovereign's Macuahuitl
+Lodestone Needle // Guidestone Compass
+Oteclan Landmark // Oteclan Levitator
+Spring-Loaded Sawblades // Bladewheel Chariot
+Tithing Blade // Consuming Sepulcher
+Colonel Autumn
+Caught in the Crossfire
+Explosive Derailment
+Insatiable Avarice
+Metamorphic Blast
+Phantom Interference
+Trash the Town
+Unfortunate Accident
+Infernal Captor
+Propagator Drone
+Byrke, Long Ear of the Law
+Mossborn Hydra
+Glitch Ghost Surveyor
+Goblin Surveyor
+Leonin Surveyor
+Loxodon Surveyor
+Mutant Surveyor
+Sage of the Fang
+Sazh Katzroy
+All-Fates Stalker
+Bygone Colossus
+Drix Fatemaker
+Eusocial Engineering
+Exalted Sunborn
+Germinating Wurm
+Haliya, Guided by Light
+Knight Luminary
+Mechanozoa
+Memorial Team Leader
+Nova Hellkite
+Pinnacle Emissary
+Rayblade Trooper
+Red Tiger Mechan
+Sinister Cryologist
+Starbreach Whale
+Starfield Shepherd
+Starfield Vocalist
+Susurian Voidborn
+Weftblade Enhancer
+Weftstalker Ardent
+Avatar Kyoshi, Earthbender
+Badgermole
+Bumi, Eclectic Earthbender
+Dai Li Indoctrination
+Earth Village Ruffians
+Earthbending Lesson
+Earthbending Student
+Earthen Ally
+Fatal Fissure
+Haru, Hidden Talent
+Lo and Li, Twin Tutors
+Sandbenders' Storm
+Seismic Tutelage
+The Cave of Two Lovers
+Toph, the First Metalbender
+Brigid's Command
+Big Mother Mouser
+Ray Fillet, Wave Warrior
+Growth Curve
+Ribtruss Roaster
+Darwin, Adaptive Mutant
+Hawkeye's Bow
+Hulk, Strongest There Is
+Samut, Tyrant of Naktamun

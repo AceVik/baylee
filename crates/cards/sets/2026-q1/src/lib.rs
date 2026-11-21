@@ -53,6 +53,8 @@ pub mod belonging;
 pub mod bespoke_bo;
 #[path = "tmc/big_apple_3_a_m.rs"]
 pub mod big_apple_3_a_m;
+#[path = "tmc/big_mother_mouser.rs"]
+pub mod big_mother_mouser;
 #[path = "ecl/bile_vial_boggart.rs"]
 pub mod bile_vial_boggart;
 #[path = "ecl/bitterbloom_bearer.rs"]
@@ -71,6 +73,8 @@ pub mod boldwyr_aggressor;
 pub mod boneclub_berserker;
 #[path = "tmt/bot_bashing_time.rs"]
 pub mod bot_bashing_time;
+#[path = "ecl/brigid_s_command.rs"]
+pub mod brigid_s_command;
 #[path = "tmt/buzz_bots.rs"]
 pub mod buzz_bots;
 #[path = "tmt/casey_jones_jury_rig_justiciar.rs"]
@@ -399,6 +403,8 @@ pub mod raphael_tough_turtle;
 pub mod rat_king_pale_piper;
 #[path = "tmt/ravenous_robots.rs"]
 pub mod ravenous_robots;
+#[path = "tmc/ray_fillet_wave_warrior.rs"]
+pub mod ray_fillet_wave_warrior;
 #[path = "ecl/reckless_ransacking.rs"]
 pub mod reckless_ransacking;
 #[path = "tmt/renet_temporal_apprentice.rs"]

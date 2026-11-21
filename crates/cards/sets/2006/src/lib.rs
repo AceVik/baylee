@@ -67,6 +67,8 @@ pub mod balduvian_frostwaker;
 pub mod basal_sliver;
 #[path = "tsp/basalt_gargoyle.rs"]
 pub mod basalt_gargoyle;
+#[path = "gpt/battering_wurm.rs"]
+pub mod battering_wurm;
 #[path = "dis/beacon_hawk.rs"]
 pub mod beacon_hawk;
 #[path = "gpt/beastmaster_s_magemark.rs"]
@@ -79,6 +81,8 @@ pub mod bewilder;
 pub mod blazing_blade_askari;
 #[path = "dis/blood_crypt.rs"]
 pub mod blood_crypt;
+#[path = "gpt/bloodscale_prowler.rs"]
+pub mod bloodscale_prowler;
 #[path = "tsp/bogardan_rager.rs"]
 pub mod bogardan_rager;
 #[path = "dis/bond_of_agony.rs"]
@@ -143,6 +147,8 @@ pub mod condemn;
 pub mod coral_trickster;
 #[path = "tsp/corpulent_corpse.rs"]
 pub mod corpulent_corpse;
+#[path = "csp/cover_of_winter.rs"]
+pub mod cover_of_winter;
 #[path = "gpt/crash_landing.rs"]
 pub mod crash_landing;
 #[path = "dis/crime.rs"]
@@ -233,6 +239,8 @@ pub mod errant_ephemeron;
 pub mod eternity_snare;
 #[path = "tsp/evil_eye_of_urborg.rs"]
 pub mod evil_eye_of_urborg;
+#[path = "dis/evolution_vat.rs"]
+pub mod evolution_vat;
 #[path = "tsp/faceless_devourer.rs"]
 pub mod faceless_devourer;
 #[path = "tsp/fallen_ideal.rs"]
@@ -343,6 +351,8 @@ pub mod greenseeker;
 pub mod griffin_guide;
 #[path = "csp/gristle_grinner.rs"]
 pub mod gristle_grinner;
+#[path = "gpt/gristleback.rs"]
+pub mod gristleback;
 #[path = "tsp/ground_rift.rs"]
 pub mod ground_rift;
 #[path = "gpt/gruul_guildmage.rs"]
@@ -545,6 +555,8 @@ pub mod penumbra_spider;
 pub mod perilous_research;
 #[path = "gpt/petrahydrox.rs"]
 pub mod petrahydrox;
+#[path = "gpt/petrified_wood_kin.rs"]
+pub mod petrified_wood_kin;
 #[path = "csp/phobian_phantasm.rs"]
 pub mod phobian_phantasm;
 #[path = "tsp/phthisis.rs"]
@@ -585,6 +597,8 @@ pub mod pure;
 pub mod pyromatics;
 #[path = "tsp/quilled_sliver.rs"]
 pub mod quilled_sliver;
+#[path = "gpt/rabble_rouser.rs"]
+pub mod rabble_rouser;
 #[path = "dis/ragamuffyn.rs"]
 pub mod ragamuffyn;
 #[path = "dis/rakdos_carnarium.rs"]
@@ -693,6 +707,12 @@ pub mod simic_ragworm;
 pub mod simic_signet;
 #[path = "dis/simic_sky_swallower.rs"]
 pub mod simic_sky_swallower;
+#[path = "gpt/skarrgan_firebird.rs"]
+pub mod skarrgan_firebird;
+#[path = "gpt/skarrgan_pit_skulk.rs"]
+pub mod skarrgan_pit_skulk;
+#[path = "gpt/skarrgan_skybreaker.rs"]
+pub mod skarrgan_skybreaker;
 #[path = "gpt/skeletal_vampire.rs"]
 pub mod skeletal_vampire;
 #[path = "tsp/skittering_monstrosity.rs"]

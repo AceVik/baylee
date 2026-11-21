@@ -135,6 +135,8 @@ pub mod bull_cerodon;
 pub mod burrenton_shield_bearers;
 #[path = "eve/cache_raiders.rs"]
 pub mod cache_raiders;
+#[path = "ala/caldera_hellion.rs"]
+pub mod caldera_hellion;
 #[path = "ala/call_to_heel.rs"]
 pub mod call_to_heel;
 #[path = "ala/carrion_thrash.rs"]
@@ -655,6 +657,8 @@ pub mod murderous_redcap;
 pub mod murmuring_bosk;
 #[path = "mor/mutavault.rs"]
 pub mod mutavault;
+#[path = "ala/mycoloth.rs"]
+pub mod mycoloth;
 #[path = "shm/mystic_gate.rs"]
 pub mod mystic_gate;
 #[path = "ala/naya_battlemage.rs"]
@@ -749,6 +753,8 @@ pub mod poison_the_well;
 pub mod polluted_bonds;
 #[path = "shm/power_of_fire.rs"]
 pub mod power_of_fire;
+#[path = "ala/predator_dragon.rs"]
+pub mod predator_dragon;
 #[path = "shm/presence_of_gond.rs"]
 pub mod presence_of_gond;
 #[path = "mor/prickly_boggart.rs"]
@@ -939,6 +945,8 @@ pub mod silkbind_faerie;
 pub mod sinking_feeling;
 #[path = "ala/skeletal_kathari.rs"]
 pub mod skeletal_kathari;
+#[path = "ala/skullmulcher.rs"]
+pub mod skullmulcher;
 #[path = "shm/slinking_giant.rs"]
 pub mod slinking_giant;
 #[path = "eve/slippery_bogle.rs"]
@@ -1027,8 +1035,12 @@ pub mod sunken_ruins;
 pub mod sunseed_nurturer;
 #[path = "eve/suture_spirit.rs"]
 pub mod suture_spirit;
+#[path = "ala/swerve.rs"]
+pub mod swerve;
 #[path = "eve/talonrend.rs"]
 pub mod talonrend;
+#[path = "ala/tar_fiend.rs"]
+pub mod tar_fiend;
 #[path = "shm/tattermunge_duo.rs"]
 pub mod tattermunge_duo;
 #[path = "shm/tattermunge_maniac.rs"]
@@ -1043,6 +1055,8 @@ pub mod thieves_fortune;
 pub mod thistledown_duo;
 #[path = "shm/thistledown_liege.rs"]
 pub mod thistledown_liege;
+#[path = "ala/thorn_thrash_viashino.rs"]
+pub mod thorn_thrash_viashino;
 #[path = "mor/thornbite_staff.rs"]
 pub mod thornbite_staff;
 #[path = "shm/thornwatch_scarecrow.rs"]
@@ -1051,6 +1065,8 @@ pub mod thornwatch_scarecrow;
 pub mod thoughtcutter_agent;
 #[path = "shm/thoughtweft_gambit.rs"]
 pub mod thoughtweft_gambit;
+#[path = "ala/thunder_thrash_elder.rs"]
+pub mod thunder_thrash_elder;
 #[path = "eve/thunderblust.rs"]
 pub mod thunderblust;
 #[path = "ala/tidehollow_strix.rs"]

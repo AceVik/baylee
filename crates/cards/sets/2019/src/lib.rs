@@ -169,6 +169,8 @@ pub mod bloom_hulk;
 pub mod bog_naughty;
 #[path = "mh1/bogardan_dragonheart.rs"]
 pub mod bogardan_dragonheart;
+#[path = "war/bolt_bend.rs"]
+pub mod bolt_bend;
 #[path = "war/bond_of_discipline.rs"]
 pub mod bond_of_discipline;
 #[path = "war/bond_of_insight.rs"]
@@ -217,6 +219,8 @@ pub mod castle_garenbrig;
 pub mod castle_locthwain;
 #[path = "eld/castle_vantress.rs"]
 pub mod castle_vantress;
+#[path = "pwar/casualties_of_war.rs"]
+pub mod casualties_of_war;
 #[path = "rna/catacomb_crocodile.rs"]
 pub mod catacomb_crocodile;
 #[path = "eld/cauldron_familiar.rs"]
@@ -469,6 +473,8 @@ pub mod faerie_vandal;
 pub mod fallen_shinobi;
 #[path = "mh1/farmstead_gleaner.rs"]
 pub mod farmstead_gleaner;
+#[path = "mh1/feaster_of_fools.rs"]
+pub mod feaster_of_fools;
 #[path = "eld/feasting_troll_king.rs"]
 pub mod feasting_troll_king;
 #[path = "eld/fell_the_pheasant.rs"]
@@ -575,6 +581,8 @@ pub mod glass_of_the_guildpact;
 pub mod gleaming_overseer;
 #[path = "m20/glint_horn_buccaneer.rs"]
 pub mod glint_horn_buccaneer;
+#[path = "mh1/gluttonous_slug.rs"]
+pub mod gluttonous_slug;
 #[path = "eld/gluttonous_troll.rs"]
 pub mod gluttonous_troll;
 #[path = "m20/gnarlback_rhino.rs"]
@@ -965,6 +973,8 @@ pub mod paradise_druid;
 pub mod pashalik_mons;
 #[path = "sld/paul_atreides_ducal_heir.rs"]
 pub mod paul_atreides_ducal_heir;
+#[path = "rna/pestilent_spirit.rs"]
+pub mod pestilent_spirit;
 #[path = "mh1/phantom_ninja.rs"]
 pub mod phantom_ninja;
 #[path = "eld/piper_of_the_swarm.rs"]
@@ -1489,6 +1499,8 @@ pub mod vivien_s_grizzly;
 pub mod vizier_of_the_scorpion;
 #[path = "rna/vizkopa_vampire.rs"]
 pub mod vizkopa_vampire;
+#[path = "m20/voracious_hydra.rs"]
+pub mod voracious_hydra;
 #[path = "war/vraska_s_finisher.rs"]
 pub mod vraska_s_finisher;
 #[path = "m20/wakeroot_elemental.rs"]

@@ -115,6 +115,10 @@ pub mod gastal_raider;
 pub mod gastal_thrillroller;
 #[path = "dft/gastal_thrillseeker.rs"]
 pub mod gastal_thrillseeker;
+#[path = "dft/glitch_ghost_surveyor.rs"]
+pub mod glitch_ghost_surveyor;
+#[path = "dft/goblin_surveyor.rs"]
+pub mod goblin_surveyor;
 #[path = "pw25/gran_gran.rs"]
 pub mod gran_gran;
 #[path = "dft/grim_bauble.rs"]
@@ -141,12 +145,16 @@ pub mod hulldrifter;
 pub mod jibbirik_omnivore;
 #[path = "dft/kalakscion_hunger_tyrant.rs"]
 pub mod kalakscion_hunger_tyrant;
+#[path = "dft/leonin_surveyor.rs"]
+pub mod leonin_surveyor;
 #[path = "dft/lightshield_parry.rs"]
 pub mod lightshield_parry;
 #[path = "dft/locust_spray.rs"]
 pub mod locust_spray;
 #[path = "dft/lotusguard_disciple.rs"]
 pub mod lotusguard_disciple;
+#[path = "dft/loxodon_surveyor.rs"]
+pub mod loxodon_surveyor;
 #[path = "dft/lumbering_worldwagon.rs"]
 pub mod lumbering_worldwagon;
 #[path = "dft/marketback_walker.rs"]
@@ -165,6 +173,8 @@ pub mod migrating_ketradon;
 pub mod mu_yanling_wind_rider;
 #[path = "dft/muraganda_raceway.rs"]
 pub mod muraganda_raceway;
+#[path = "dft/mutant_surveyor.rs"]
+pub mod mutant_surveyor;
 #[path = "dft/nesting_bot.rs"]
 pub mod nesting_bot;
 #[path = "dft/night_market.rs"]

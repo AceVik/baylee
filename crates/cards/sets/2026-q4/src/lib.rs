@@ -603,6 +603,8 @@ pub mod saheeli_jewel_of_avishkar;
 pub mod sam_kirk_xenoanthropologist;
 #[path = "fra/samut_hazoret_s_champion.rs"]
 pub mod samut_hazoret_s_champion;
+#[path = "fra/samut_tyrant_of_naktamun.rs"]
+pub mod samut_tyrant_of_naktamun;
 #[path = "trk/sarcophagus_ship_of_the_dead.rs"]
 pub mod sarcophagus_ship_of_the_dead;
 #[path = "trk/saru_unthreatened.rs"]

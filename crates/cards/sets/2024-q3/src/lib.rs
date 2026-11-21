@@ -105,6 +105,8 @@ pub mod bureau_headmaster;
 pub mod burrowguard_mentor;
 #[path = "blb/bushy_bodyguard.rs"]
 pub mod bushy_bodyguard;
+#[path = "blb/byrke_long_ear_of_the_law.rs"]
+pub mod byrke_long_ear_of_the_law;
 #[path = "dsk/cackling_slasher.rs"]
 pub mod cackling_slasher;
 #[path = "blb/calamitous_tide.rs"]

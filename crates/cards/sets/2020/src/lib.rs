@@ -111,6 +111,8 @@ pub mod biowaste_blob;
 pub mod blackbloom_rogue;
 #[path = "iko/blade_banish.rs"]
 pub mod blade_banish;
+#[path = "cmr/blazing_sunsteel.rs"]
+pub mod blazing_sunsteel;
 #[path = "jmp/blessed_sanctuary.rs"]
 pub mod blessed_sanctuary;
 #[path = "iko/blisterspit_gremlin.rs"]
@@ -515,6 +517,8 @@ pub mod ingenuity_engine;
 pub mod inordinate_rage;
 #[path = "thb/inspire_awe.rs"]
 pub mod inspire_awe;
+#[path = "m21/invigorating_surge.rs"]
+pub mod invigorating_surge;
 #[path = "thb/iroas_s_blessing.rs"]
 pub mod iroas_s_blessing;
 #[path = "thb/irreverent_revelers.rs"]
@@ -1115,6 +1119,8 @@ pub mod storm_s_wrath;
 pub mod stormwing_entity;
 #[path = "m21/subira_tulzidi_caravanner.rs"]
 pub mod subira_tulzidi_caravanner;
+#[path = "m21/sublime_epiphany.rs"]
+pub mod sublime_epiphany;
 #[path = "iko/suffocating_fumes.rs"]
 pub mod suffocating_fumes;
 #[path = "thb/sunlit_hoplite.rs"]

@@ -53,6 +53,10 @@ pub mod beregond_of_the_guard;
 pub mod bitterthorn_nissa_s_animus;
 #[path = "mom/bladed_battle_fan.rs"]
 pub mod bladed_battle_fan;
+#[path = "moc/blight_titan.rs"]
+pub mod blight_titan;
+#[path = "mom/bloated_processor.rs"]
+pub mod bloated_processor;
 #[path = "mom/bola_slinger.rs"]
 pub mod bola_slinger;
 #[path = "ltr/book_of_mazarbul.rs"]
@@ -65,6 +69,8 @@ pub mod borne_upon_a_wind;
 pub mod boromir_gondor_s_hope;
 #[path = "ltr/brandywine_farmer.rs"]
 pub mod brandywine_farmer;
+#[path = "moc/bright_palm_soul_awakener.rs"]
+pub mod bright_palm_soul_awakener;
 #[path = "mom/burning_sun_s_fury.rs"]
 pub mod burning_sun_s_fury;
 #[path = "ltr/butterbur_bree_innkeeper.rs"]
@@ -81,6 +87,8 @@ pub mod change_the_equation;
 pub mod chivalric_alliance;
 #[path = "mom/chomping_kavu.rs"]
 pub mod chomping_kavu;
+#[path = "mom/chrome_host_seedshark.rs"]
+pub mod chrome_host_seedshark;
 #[path = "ltr/cirith_ungol_patrol.rs"]
 pub mod cirith_ungol_patrol;
 #[path = "mom/city_on_fire.rs"]
@@ -89,10 +97,14 @@ pub mod city_on_fire;
 pub mod collective_nightmare;
 #[path = "mom/coming_in_hot.rs"]
 pub mod coming_in_hot;
+#[path = "mom/compleated_huntmaster.rs"]
+pub mod compleated_huntmaster;
 #[path = "mom/complete_the_circuit.rs"]
 pub mod complete_the_circuit;
 #[path = "mom/consuming_aetherborn.rs"]
 pub mod consuming_aetherborn;
+#[path = "mom/converter_beast.rs"]
+pub mod converter_beast;
 #[path = "mom/copper_host_crusher.rs"]
 pub mod copper_host_crusher;
 #[path = "mat/coppercoat_vanguard.rs"]
@@ -149,8 +161,14 @@ pub mod erkenbrand_lord_of_westfold;
 pub mod escape_from_orthanc;
 #[path = "ltr/esquire_of_the_king.rs"]
 pub mod esquire_of_the_king;
+#[path = "mom/essence_of_orthodoxy.rs"]
+pub mod essence_of_orthodoxy;
 #[path = "mom/etched_familiar.rs"]
 pub mod etched_familiar;
+#[path = "moc/excise_the_imperfect.rs"]
+pub mod excise_the_imperfect;
+#[path = "mom/eyes_of_gitaxias.rs"]
+pub mod eyes_of_gitaxias;
 #[path = "mom/faerie_mastermind.rs"]
 pub mod faerie_mastermind;
 #[path = "mom/failed_conversion.rs"]
@@ -159,6 +177,8 @@ pub mod failed_conversion;
 pub mod fall_of_gil_galad;
 #[path = "mom/fearless_skald.rs"]
 pub mod fearless_skald;
+#[path = "ltc/fell_beast_of_mordor.rs"]
+pub mod fell_beast_of_mordor;
 #[path = "ltc/field_tested_frying_pan.rs"]
 pub mod field_tested_frying_pan;
 #[path = "mat/filter_out.rs"]
@@ -175,6 +195,8 @@ pub mod flowering_of_the_white_tree;
 pub mod flywheel_racer;
 #[path = "ltr/fog_on_the_barrow_downs.rs"]
 pub mod fog_on_the_barrow_downs;
+#[path = "mom/furnace_gremlin.rs"]
+pub mod furnace_gremlin;
 #[path = "mom/furnace_host_charger.rs"]
 pub mod furnace_host_charger;
 #[path = "mom/furtive_analyst.rs"]
@@ -191,6 +213,8 @@ pub mod galadhrim_guide;
 pub mod galadriel_gift_giver;
 #[path = "ltr/generous_ent.rs"]
 pub mod generous_ent;
+#[path = "mom/gift_of_compleation.rs"]
+pub mod gift_of_compleation;
 #[path = "ltr/gift_of_strands.rs"]
 pub mod gift_of_strands;
 #[path = "ltr/gimli_counter_of_kills.rs"]
@@ -203,6 +227,8 @@ pub mod gimli_s_axe;
 pub mod gimli_s_fury;
 #[path = "ltc/gimli_s_reckless_might.rs"]
 pub mod gimli_s_reckless_might;
+#[path = "mom/glistening_dawn.rs"]
+pub mod glistening_dawn;
 #[path = "mom/glistening_deluge.rs"]
 pub mod glistening_deluge;
 #[path = "ltr/gloin_dwarf_emissary.rs"]
@@ -253,10 +279,16 @@ pub mod hithlain_knots;
 pub mod hobbit_s_sting;
 #[path = "ltr/horn_of_gondor.rs"]
 pub mod horn_of_gondor;
+#[path = "mom/ichor_drinker.rs"]
+pub mod ichor_drinker;
 #[path = "ltr/improvised_club.rs"]
 pub mod improvised_club;
+#[path = "mom/infected_defector.rs"]
+pub mod infected_defector;
 #[path = "moc/infernal_sovereign.rs"]
 pub mod infernal_sovereign;
+#[path = "mom/injector_crocodile.rs"]
+pub mod injector_crocodile;
 #[path = "mom/interdisciplinary_mascot.rs"]
 pub mod interdisciplinary_mascot;
 #[path = "mom/invasion_of_belenon.rs"]
@@ -331,6 +363,8 @@ pub mod lothlorien_lookout;
 pub mod lotho_corrupt_shirriff;
 #[path = "ltr/many_partings.rs"]
 pub mod many_partings;
+#[path = "mom/marauding_dreadship.rs"]
+pub mod marauding_dreadship;
 #[path = "ltr/march_from_the_black_gate.rs"]
 pub mod march_from_the_black_gate;
 #[path = "mat/markov_baron.rs"]
@@ -341,6 +375,8 @@ pub mod marshal_of_zhalfir;
 pub mod meeting_of_minds;
 #[path = "ltr/meneldor_swift_savior.rs"]
 pub mod meneldor_swift_savior;
+#[path = "mom/merciless_repurposing.rs"]
+pub mod merciless_repurposing;
 #[path = "ltc/merry_warden_of_isengard.rs"]
 pub mod merry_warden_of_isengard;
 #[path = "mat/metropolis_reformer.rs"]
@@ -409,6 +445,8 @@ pub mod pain_distributor;
 pub mod pelargir_survivor;
 #[path = "mom/phyrexian_archivist.rs"]
 pub mod phyrexian_archivist;
+#[path = "mom/phyrexian_awakening.rs"]
+pub mod phyrexian_awakening;
 #[path = "mom/phyrexian_censor.rs"]
 pub mod phyrexian_censor;
 #[path = "mom/phyrexian_pegasus.rs"]
@@ -491,6 +529,8 @@ pub mod scorn_blade_berserker;
 pub mod scrappy_bruiser;
 #[path = "mom/scrollshift.rs"]
 pub mod scrollshift;
+#[path = "mom/sculpted_perfection.rs"]
+pub mod sculpted_perfection;
 #[path = "mom/seal_from_existence.rs"]
 pub mod seal_from_existence;
 #[path = "ltr/second_breakfast.rs"]
@@ -545,6 +585,8 @@ pub mod surrak_and_goreclaw;
 pub mod swarming_of_moria;
 #[path = "ltr/tale_of_tinuviel.rs"]
 pub mod tale_of_tinuviel;
+#[path = "mom/tangled_skyline.rs"]
+pub mod tangled_skyline;
 #[path = "mom/tenured_oilcaster.rs"]
 pub mod tenured_oilcaster;
 #[path = "mom/thalia_and_the_gitrog_monster.rs"]
@@ -571,6 +613,8 @@ pub mod the_torment_of_gollum;
 pub mod theoden_king_of_rohan;
 #[path = "mom/thunderhead_squadron.rs"]
 pub mod thunderhead_squadron;
+#[path = "mom/tiller_of_flesh.rs"]
+pub mod tiller_of_flesh;
 #[path = "mom/timberland_ancient.rs"]
 pub mod timberland_ancient;
 #[path = "mom/trailblazing_historian.rs"]

@@ -91,6 +91,8 @@ pub mod chupacabra_echo;
 pub mod city_of_death;
 #[path = "lcc/clavileno_first_of_the_blessed.rs"]
 pub mod clavileno_first_of_the_blessed;
+#[path = "lci/clay_fired_bricks.rs"]
+pub mod clay_fired_bricks;
 #[path = "who/clockwork_droid.rs"]
 pub mod clockwork_droid;
 #[path = "lci/coati_scavenger.rs"]
@@ -135,6 +137,8 @@ pub mod delete;
 pub mod diamond_pick_axe;
 #[path = "lci/didact_echo.rs"]
 pub mod didact_echo;
+#[path = "lcc/dinosaur_egg.rs"]
+pub mod dinosaur_egg;
 #[path = "lci/dinotomaton.rs"]
 pub mod dinotomaton;
 #[path = "lcc/don_andres_the_renegade.rs"]
@@ -207,6 +211,8 @@ pub mod grasping_shadows;
 pub mod greedy_freebooter;
 #[path = "lci/helping_hand.rs"]
 pub mod helping_hand;
+#[path = "rex/henry_wu_in_gen_geneticist.rs"]
+pub mod henry_wu_in_gen_geneticist;
 #[path = "lci/hermitic_nautilus.rs"]
 pub mod hermitic_nautilus;
 #[path = "lci/hidden_cataract.rs"]
@@ -229,6 +235,8 @@ pub mod huatli_s_final_strike;
 pub mod hulking_raptor;
 #[path = "lci/hunter_s_blowgun.rs"]
 pub mod hunter_s_blowgun;
+#[path = "lci/idol_of_the_deep_king.rs"]
+pub mod idol_of_the_deep_king;
 #[path = "lcc/illustrious_wanderglyph.rs"]
 pub mod illustrious_wanderglyph;
 #[path = "who/iraxxa_empress_of_mars.rs"]
@@ -251,6 +259,8 @@ pub mod kinjalli_s_dawnrunner;
 pub mod laser_screwdriver;
 #[path = "rex/life_finds_a_way.rs"]
 pub mod life_finds_a_way;
+#[path = "lci/lodestone_needle.rs"]
+pub mod lodestone_needle;
 #[path = "lci/malamet_brawler.rs"]
 pub mod malamet_brawler;
 #[path = "lci/malamet_scythe.rs"]
@@ -295,6 +305,8 @@ pub mod oltec_archaeologists;
 pub mod oltec_cloud_guard;
 #[path = "who/ominous_cemetery.rs"]
 pub mod ominous_cemetery;
+#[path = "lci/oteclan_landmark.rs"]
+pub mod oteclan_landmark;
 #[path = "lci/over_the_edge.rs"]
 pub mod over_the_edge;
 #[path = "lci/palani_s_hatcher.rs"]
@@ -379,6 +391,8 @@ pub mod sentinel_of_the_nameless_city;
 pub mod sergeant_john_benton;
 #[path = "lci/sinuous_benthisaur.rs"]
 pub mod sinuous_benthisaur;
+#[path = "who/sisterhood_of_karn.rs"]
+pub mod sisterhood_of_karn;
 #[path = "lcc/skeleton_crew.rs"]
 pub mod skeleton_crew;
 #[path = "lci/soaring_sandwing.rs"]
@@ -389,6 +403,8 @@ pub mod sonic_screwdriver;
 pub mod soulcoil_viper;
 #[path = "rex/spitting_dilophosaurus.rs"]
 pub mod spitting_dilophosaurus;
+#[path = "lci/spring_loaded_sawblades.rs"]
+pub mod spring_loaded_sawblades;
 #[path = "lci/spyglass_siren.rs"]
 pub mod spyglass_siren;
 #[path = "lci/staggering_size.rs"]
@@ -441,6 +457,8 @@ pub mod time_lord_regeneration;
 pub mod tinker_s_tote;
 #[path = "lci/tishana_s_tidebinder.rs"]
 pub mod tishana_s_tidebinder;
+#[path = "lci/tithing_blade.rs"]
+pub mod tithing_blade;
 #[path = "who/trenzalore_clocktower.rs"]
 pub mod trenzalore_clocktower;
 #[path = "lcc/tributary_instructor.rs"]

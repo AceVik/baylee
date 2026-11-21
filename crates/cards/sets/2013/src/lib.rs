@@ -17,6 +17,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 pub mod academy_raider;
 #[path = "m14/accursed_spirit.rs"]
 pub mod accursed_spirit;
+#[path = "gtc/adaptive_snapjaw.rs"]
+pub mod adaptive_snapjaw;
 #[path = "dgm/advent_of_the_wurm.rs"]
 pub mod advent_of_the_wurm;
 #[path = "m14/advocate_of_the_beast.rs"]
@@ -99,6 +101,8 @@ pub mod barrage_of_expendables;
 pub mod basilica_guards;
 #[path = "gtc/basilica_screecher.rs"]
 pub mod basilica_screecher;
+#[path = "dgm/battering_krasis.rs"]
+pub mod battering_krasis;
 #[path = "m14/battle_sliver.rs"]
 pub mod battle_sliver;
 #[path = "ths/battlewise_hoplite.rs"]
@@ -183,8 +187,14 @@ pub mod charging_griffin;
 pub mod chosen_by_heliod;
 #[path = "ths/chronicler_of_heroes.rs"]
 pub mod chronicler_of_heroes;
+#[path = "gtc/clan_defiance.rs"]
+pub mod clan_defiance;
 #[path = "dgm/clear_a_path.rs"]
 pub mod clear_a_path;
+#[path = "gtc/clinging_anemones.rs"]
+pub mod clinging_anemones;
+#[path = "gtc/cloudfin_raptor.rs"]
+pub mod cloudfin_raptor;
 #[path = "pm14/colossal_whale.rs"]
 pub mod colossal_whale;
 #[path = "ths/commune_with_the_gods.rs"]
@@ -205,6 +215,8 @@ pub mod court_street_denizen;
 pub mod crackling_perimeter;
 #[path = "ths/crackling_triton.rs"]
 pub mod crackling_triton;
+#[path = "gtc/crocanura.rs"]
+pub mod crocanura;
 #[path = "gtc/crowned_ceratok.rs"]
 pub mod crowned_ceratok;
 #[path = "gtc/crypt_ghast.rs"]
@@ -273,6 +285,8 @@ pub mod drown_in_filth;
 pub mod dutiful_thrull;
 #[path = "gtc/dying_wish.rs"]
 pub mod dying_wish;
+#[path = "gtc/elusive_krasis.rs"]
+pub mod elusive_krasis;
 #[path = "m14/elvish_mystic.rs"]
 pub mod elvish_mystic;
 #[path = "dgm/emmara_tandris.rs"]
@@ -285,6 +299,8 @@ pub mod enter_the_infinite;
 pub mod ephara_s_warden;
 #[path = "ths/erebos_s_emissary.rs"]
 pub mod erebos_s_emissary;
+#[path = "f13/experiment_one.rs"]
+pub mod experiment_one;
 #[path = "ths/fabled_hero.rs"]
 pub mod fabled_hero;
 #[path = "ths/fade_into_antiquity.rs"]
@@ -381,6 +397,8 @@ pub mod guardians_of_meletis;
 pub mod guildscorn_ward;
 #[path = "gtc/gutter_skulk.rs"]
 pub mod gutter_skulk;
+#[path = "gtc/gyre_sage.rs"]
+pub mod gyre_sage;
 #[path = "dgm/haazda_snare_squad.rs"]
 pub mod haazda_snare_squad;
 #[path = "dgm/haunter_of_nightveil.rs"]
@@ -429,6 +447,8 @@ pub mod ivy_lane_denizen;
 pub mod izzet_cluestone;
 #[path = "dgm/jelenn_sphinx.rs"]
 pub mod jelenn_sphinx;
+#[path = "m14/kalonian_hydra.rs"]
+pub mod kalonian_hydra;
 #[path = "m14/kalonian_tusker.rs"]
 pub mod kalonian_tusker;
 #[path = "gtc/keymaster_rogue.rs"]
@@ -741,6 +761,8 @@ pub mod setessan_battle_priest;
 pub mod setessan_griffin;
 #[path = "gtc/shadow_alley_denizen.rs"]
 pub mod shadow_alley_denizen;
+#[path = "gtc/shambleshark.rs"]
+pub mod shambleshark;
 #[path = "c13/shattergang_brothers.rs"]
 pub mod shattergang_brothers;
 #[path = "gtc/shattering_blow.rs"]
@@ -757,6 +779,8 @@ pub mod silent_artisan;
 pub mod simic_charm;
 #[path = "dgm/simic_cluestone.rs"]
 pub mod simic_cluestone;
+#[path = "gtc/simic_fluxmage.rs"]
+pub mod simic_fluxmage;
 #[path = "gtc/simic_guildgate.rs"]
 pub mod simic_guildgate;
 #[path = "gtc/simic_keyrune.rs"]
