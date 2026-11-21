@@ -5479,3 +5479,877 @@ fn wave17c_radiation_exchange_move_lose_skip_and_sweeps() {
         dyn_scry.abilities[0]
     );
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave18c_cost_and_spell_keywords() {
+    // Strive: per-extra-target mana cost on spells only.
+    let strive = read(
+        "Name:MultiBolt\nManaCost:R\nTypes:Instant\n\
+         K:Strive:2 R\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ MaxTgts | NumDmg$ 2\n\
+         SVar:MaxTgts:Count$Valid Creature",
+    );
+    assert!(
+        strive
+            .abilities
+            .iter()
+            .any(|a| a == "AbilityDef::strive(mana!(\"{2}{R}\"))"),
+        "{:?}",
+        strive.abilities
+    );
+    for bad in [
+        "Name:BadStriveCreature\nManaCost:1 R\nTypes:Creature\nPT:2/2\nK:Strive:1 R",
+        "Name:BadStriveDup\nManaCost:R\nTypes:Instant\nK:Strive:1 R\nK:Strive:2 R\n\
+         A:SP$ Draw | NumCards$ 1",
+        "Name:BadStriveNonMana\nManaCost:R\nTypes:Instant\nK:Strive:Sac<1/Creature>\n\
+         A:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "{bad}");
+    }
+
+    // AlternateAdditionalCost -> CostPart::Either(&cost_a, &cost_b).
+    let sac_or_mana = read(
+        "Name:GrimTribute\nManaCost:B\nTypes:Sorcery\n\
+         K:AlternateAdditionalCost:Sac<1/Creature>:3 B\n\
+         A:SP$ Draw | NumCards$ 2",
+    );
+    assert_eq!(
+        sac_or_mana.mandatory_additional_costs,
+        vec!["CostPart::Either(&cost!(Sacrifice(&Filter::YOUR_CREATURE)), &cost!(\"{3}{B}\"))"]
+    );
+    let multi_type_sac = read(
+        "Name:ScrapTribute\nManaCost:1 B\nTypes:Instant\n\
+         K:AlternateAdditionalCost:Sac<1/Creature;Artifact/artifact or creature>:4\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert!(
+        multi_type_sac.mandatory_additional_costs[0]
+            .starts_with("CostPart::Either(&cost!(Sacrifice(")
+            && multi_type_sac.mandatory_additional_costs[0].ends_with(", &cost!(\"{4}\"))"),
+        "{:?}",
+        multi_type_sac.mandatory_additional_costs
+    );
+    let forage_or_mana = read(
+        "Name:ForestTithe\nManaCost:1 B\nTypes:Instant\n\
+         K:AlternateAdditionalCost:Forage:B\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        forage_or_mana.mandatory_additional_costs,
+        vec!["CostPart::Either(&cost!(Forage), &cost!(\"{B}\"))"]
+    );
+    let discard_or_mana = read(
+        "Name:ThoughtTithe\nManaCost:U\nTypes:Sorcery\n\
+         K:AlternateAdditionalCost:Discard<1/Card>:2\n\
+         A:SP$ Draw | NumCards$ 2",
+    );
+    assert_eq!(
+        discard_or_mana.mandatory_additional_costs,
+        vec!["CostPart::Either(&cost!(Discard(&Filter::Any)), &cost!(\"{2}\"))"]
+    );
+    let life_or_mana = read(
+        "Name:BloodTithe\nManaCost:B\nTypes:Sorcery\n\
+         K:AlternateAdditionalCost:PayLife<5>:2\n\
+         A:SP$ Draw | NumCards$ 2",
+    );
+    assert_eq!(
+        life_or_mana.mandatory_additional_costs,
+        vec!["CostPart::Either(&cost!(PayLife(5)), &cost!(\"{2}\"))"]
+    );
+    let grave_or_mana = read(
+        "Name:CryptTithe\nManaCost:W\nTypes:Instant\n\
+         K:AlternateAdditionalCost:ExileFromGrave<2/Card>:1 W\n\
+         A:SP$ GainLife | LifeAmount$ 3",
+    );
+    assert_eq!(
+        grave_or_mana.mandatory_additional_costs,
+        vec![
+            "CostPart::Either(&cost!(ExileFromGraveyard(&Filter::Any), ExileFromGraveyard(&Filter::Any)), &cost!(\"{1}{W}\"))"
+        ]
+    );
+    let tap_or_mana = read(
+        "Name:GearTithe\nManaCost:1 U\nTypes:Instant\n\
+         K:AlternateAdditionalCost:tapXType<1/Artifact>:1\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert!(
+        tap_or_mana.mandatory_additional_costs[0]
+            .contains("TapN { filter: &Filter::YOUR_ARTIFACT, count: 1 }")
+            && tap_or_mana.mandatory_additional_costs[0].ends_with(", &cost!(\"{1}\"))"),
+        "{:?}",
+        tap_or_mana.mandatory_additional_costs
+    );
+    for bad in [
+        "Name:BadThreeWay\nManaCost:B\nTypes:Sorcery\nK:AlternateAdditionalCost:Sac<1/Creature>:Discard<1/Card>:PayLife<4>\nA:SP$ Draw | NumCards$ 1",
+        "Name:BadOneWay\nManaCost:B\nTypes:Sorcery\nK:AlternateAdditionalCost:Sac<1/Creature>\nA:SP$ Draw | NumCards$ 1",
+        "Name:BadRevealEither\nManaCost:1 B\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Reveal<1/Vampire>:1",
+        "Name:BadDupEither\nManaCost:B\nTypes:Sorcery\nK:AlternateAdditionalCost:PayLife<2>:1\nK:AlternateAdditionalCost:Discard<1/Card>:2\nA:SP$ Draw | NumCards$ 1",
+        "Name:BadLandEither\nTypes:Land\nK:AlternateAdditionalCost:PayLife<2>:1",
+    ] {
+        assert!(refused(bad), "{bad}");
+    }
+
+    // Transmute.
+    let transmute = read(
+        "Name:MindTutor\nManaCost:1 U U\nTypes:Sorcery\n\
+         K:Transmute:1 U U\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert!(
+        transmute
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::TRANSMUTE")
+    );
+    assert!(
+        transmute
+            .abilities
+            .iter()
+            .any(|a| a == "AbilityDef::transmute(mana!(\"{1}{U}{U}\"))"),
+        "{:?}",
+        transmute.abilities
+    );
+    assert!(refused(
+        "Name:BadTransmuteLand\nTypes:Land\nK:Transmute:1 U U"
+    ));
+    assert!(refused(
+        "Name:BadTransmuteDup\nManaCost:2 U\nTypes:Sorcery\nK:Transmute:1 U U\nK:Transmute:1 B B\nA:SP$ Draw | NumCards$ 1"
+    ));
+
+    // Scavenge (including {0}).
+    let scavenge =
+        read("Name:MossRotter\nManaCost:1 G\nTypes:Creature Zombie\nPT:2/1\nK:Scavenge:2 G");
+    assert!(
+        scavenge
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::SCAVENGE")
+    );
+    assert_eq!(
+        scavenge.abilities,
+        vec!["AbilityDef::scavenge(mana!(\"{2}{G}\"))"]
+    );
+    let scavenge_zero =
+        read("Name:FreeRotter\nManaCost:BG\nTypes:Creature Plant Zombie\nPT:1/1\nK:Scavenge:0");
+    assert_eq!(
+        scavenge_zero.abilities,
+        vec!["AbilityDef::scavenge(mana!(\"{0}\"))"]
+    );
+    assert!(refused(
+        "Name:BadScavengeSpell\nManaCost:1 G\nTypes:Sorcery\nK:Scavenge:2 G\nA:SP$ Draw | NumCards$ 1"
+    ));
+
+    // Outlast (including hybrid mana).
+    let outlast =
+        read("Name:DuneGuard\nManaCost:1 W\nTypes:Creature Human Soldier\nPT:2/1\nK:Outlast:GW");
+    assert!(outlast.keywords.iter().any(|k| k == "KeywordSet::OUTLAST"));
+    assert_eq!(
+        outlast.abilities,
+        vec![
+            "activated!(cost!(\"{G/W}\", TapSelf), &[Effect::AddCounterSource { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }], timing = ActivationTiming::SorcerySpeed)"
+        ]
+    );
+    assert!(refused(
+        "Name:BadOutlastSpell\nManaCost:W\nTypes:Instant\nK:Outlast:W\nA:SP$ GainLife | LifeAmount$ 1"
+    ));
+
+    // Reinforce (fixed N and variable X without card-level SVar:X).
+    let reinforce_n =
+        read("Name:ScoutAide\nManaCost:2 G\nTypes:Creature Elf\nPT:2/2\nK:Reinforce:2:1 G");
+    assert!(
+        reinforce_n
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::REINFORCE")
+    );
+    assert_eq!(
+        reinforce_n.abilities,
+        vec![
+            "activated!(cost!(\"{1}{G}\", DiscardSelf), &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(2) }], target = Some(TargetSpec::Object(&Filter::CREATURE)), zone = ActivationZone::Hand)"
+        ]
+    );
+    let reinforce_x = read(
+        "Name:BannerSwell\nManaCost:3 W W\nTypes:Instant\nK:Reinforce:X:X W W\nA:SP$ GainLife | LifeAmount$ 2",
+    );
+    assert!(
+        reinforce_x
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::REINFORCE")
+    );
+    assert!(
+        reinforce_x.abilities.iter().any(|a| {
+            a == "activated!(cost!(\"{X}{W}{W}\", DiscardSelf), &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::X }], target = Some(TargetSpec::Object(&Filter::CREATURE)), zone = ActivationZone::Hand)"
+        }),
+        "{:?}",
+        reinforce_x.abilities
+    );
+    for bad in [
+        "Name:BadReinforceZero\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Reinforce:0:1 W",
+        "Name:BadReinforceNoX\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Reinforce:X:2 W",
+        "Name:BadReinforceLand\nTypes:Land\nK:Reinforce:1:W",
+    ] {
+        assert!(refused(bad), "{bad}");
+    }
+
+    // Freerunning (mana, X mana, and Return cost part).
+    let fr_mana =
+        read("Name:RoofBlade\nManaCost:3 B\nTypes:Creature Assassin\nPT:3/2\nK:Freerunning:1 B");
+    assert_eq!(
+        fr_mana.alternative_costs,
+        vec!["AlternativeCost::freerunning(cost!(\"{1}{B}\"))"]
+    );
+    let fr_bounce = read(
+        "Name:MistStep\nManaCost:2 U\nTypes:Instant\nK:Freerunning:Return<1/Creature.Blue/blue creature>\nA:SP$ Draw | NumCards$ 1",
+    );
+    assert!(
+        fr_bounce.alternative_costs[0]
+            .starts_with("AlternativeCost::freerunning(cost!(ReturnToHand("),
+        "{:?}",
+        fr_bounce.alternative_costs
+    );
+    let fr_x = read(
+        "Name:RoofRaid\nManaCost:2 R\nTypes:Sorcery\nK:Freerunning:X R\nA:SP$ Draw | NumCards$ X\nSVar:X:Count$xPaid",
+    );
+    assert_eq!(
+        fr_x.alternative_costs,
+        vec!["AlternativeCost::freerunning(cost!(\"{X}{R}\"))"]
+    );
+    assert!(refused(
+        "Name:BadFreerunningLand\nTypes:Land\nK:Freerunning:1 B"
+    ));
+
+    // Sneak.
+    let sneak = read("Name:ShadowStalker\nManaCost:2 U\nTypes:Creature Ninja\nPT:2/2\nK:Sneak:1 U");
+    assert_eq!(
+        sneak.abilities,
+        vec!["AbilityDef::sneak(cost!(\"{1}{U}\"))"]
+    );
+    assert!(refused(
+        "Name:BadSneakDup\nManaCost:2 U\nTypes:Creature\nPT:2/2\nK:Sneak:1 U\nK:Sneak:U"
+    ));
+    assert!(refused("Name:BadSneakLand\nTypes:Land\nK:Sneak:1 U"));
+
+    // Splice (Arcane mana, Instant/Sorcery mana, and non-mana Sacrifice cost).
+    let splice_arcane = read(
+        "Name:SpiritSpark\nManaCost:1 R\nTypes:Instant Arcane\nK:Splice:Arcane:1 R\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2",
+    );
+    assert!(
+        splice_arcane
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::SPLICE")
+    );
+    assert!(
+        splice_arcane
+            .statics
+            .contains("Filter::HasSubtype(subtypes::spell::ARCANE)")
+            && splice_arcane
+                .abilities
+                .iter()
+                .any(|a| a.starts_with("AbilityDef::splice_mana(&SPLICE")
+                    && a.ends_with("mana!(\"{1}{R}\"))")),
+        "{} / {:?}",
+        splice_arcane.statics,
+        splice_arcane.abilities
+    );
+    let splice_inst_sorc = read(
+        "Name:WeaveBolt\nManaCost:1 U\nTypes:Instant\nK:Splice:Instant,Sorcery:2 U R\nA:SP$ Draw | NumCards$ 1",
+    );
+    assert!(
+        splice_inst_sorc
+            .abilities
+            .iter()
+            .any(|a| a
+                == "AbilityDef::splice_mana(&Filter::INSTANT_OR_SORCERY, mana!(\"{2}{U}{R}\"))"),
+        "{:?}",
+        splice_inst_sorc.abilities
+    );
+    let splice_sac = read(
+        "Name:PeakRitual\nManaCost:1 R\nTypes:Instant Arcane\nK:Splice:Arcane:Sac<2/Mountain>\nA:SP$ GainLife | LifeAmount$ 2",
+    );
+    assert!(
+        splice_sac
+            .abilities
+            .iter()
+            .any(|a| a.starts_with("AbilityDef::splice(&SPLICE") && a.contains("Sacrifice(")),
+        "{:?}",
+        splice_sac.abilities
+    );
+    for bad in [
+        "Name:BadSpliceCreature\nManaCost:1 R\nTypes:Creature\nPT:2/2\nK:Splice:Arcane:1 R",
+        "Name:BadSpliceGainLife\nManaCost:1 B\nTypes:Instant Arcane\nK:Splice:Arcane:GainLife<5/Player.Opponent>\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "{bad}");
+    }
+
+    // Awaken.
+    let awaken = read(
+        "Name:TideSurge\nManaCost:2 U\nTypes:Sorcery\nK:Awaken:3:4 U\nA:SP$ Draw | NumCards$ 1",
+    );
+    assert!(awaken.keywords.iter().any(|k| k == "KeywordSet::AWAKEN"));
+    assert!(
+        awaken
+            .abilities
+            .iter()
+            .any(|a| a == "AbilityDef::awaken(3, mana!(\"{4}{U}\"))"),
+        "{:?}",
+        awaken.abilities
+    );
+    for bad in [
+        "Name:BadAwakenCreature\nManaCost:2 U\nTypes:Creature\nPT:2/2\nK:Awaken:3:4 U",
+        "Name:BadAwakenZero\nManaCost:2 U\nTypes:Sorcery\nK:Awaken:0:4 U\nA:SP$ Draw | NumCards$ 1",
+        "Name:BadAwakenDup\nManaCost:2 U\nTypes:Sorcery\nK:Awaken:3:4 U\nK:Awaken:4:5 U\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "{bad}");
+    }
+
+    // Conspire (single and duplicate stack instances).
+    let conspire =
+        read("Name:TwinFlare\nManaCost:1 R\nTypes:Instant\nK:Conspire\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(conspire.keywords, vec!["KeywordSet::CONSPIRE"]);
+    let dup_conspire = read(
+        "Name:DoubleFlare\nManaCost:2 R\nTypes:Instant\nK:Conspire\nK:Conspire\nA:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(dup_conspire.keywords, vec!["KeywordSet::CONSPIRE"]);
+    assert!(
+        dup_conspire.abilities.iter().any(|a| {
+            a == "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CONSPIRE), zone = ZoneRef::Stack)"
+        }),
+        "{:?}",
+        dup_conspire.abilities
+    );
+    assert!(refused(
+        "Name:BadConspireCreature\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Conspire"
+    ));
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave18c_permanent_keywords_cipher_and_opening_hand() {
+    // Umbra armor on Aura only.
+    let umbra = read(
+        "Name:BearCoat\nManaCost:1 G\nTypes:Enchantment Aura\nK:Enchant:Creature\nK:Umbra armor",
+    );
+    assert!(
+        umbra
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::UMBRA_ARMOR")
+    );
+    assert!(refused(
+        "Name:BadUmbraCreature\nManaCost:1 G\nTypes:Creature\nPT:2/2\nK:Umbra armor"
+    ));
+
+    // Mobilize (fixed N and SVar X).
+    let mob_n =
+        read("Name:CampCaptain\nManaCost:2 R\nTypes:Creature Warrior\nPT:2/2\nK:Mobilize:2");
+    assert!(mob_n.keywords.iter().any(|k| k == "KeywordSet::MOBILIZE"));
+    assert_eq!(
+        mob_n.abilities,
+        vec!["triggered!(Trigger::Attacks(&Filter::This), &[Effect::mobilize(2)])"]
+    );
+    let mob_x = read(
+        "Name:GraveMarshal\nManaCost:2 B\nTypes:Creature Warrior\nPT:2/2\nK:Mobilize:X\n\
+         SVar:X:Count$ValidGraveyard Creature.YouOwn",
+    );
+    assert!(mob_x.keywords.iter().any(|k| k == "KeywordSet::MOBILIZE"));
+    assert!(
+        mob_x.abilities[0].contains("Effect::Mobilize(Amount::CountOf {"),
+        "{}",
+        mob_x.abilities[0]
+    );
+    for bad in [
+        "Name:BadMobSpell\nManaCost:2 R\nTypes:Sorcery\nK:Mobilize:1\nA:SP$ Draw | NumCards$ 1",
+        "Name:BadMobZero\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Mobilize:0",
+        "Name:BadMobNoSvar\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Mobilize:X",
+    ] {
+        assert!(refused(bad), "{bad}");
+    }
+
+    // Afterlife & Afflict.
+    let afterlife =
+        read("Name:ChoirShade\nManaCost:1 W B\nTypes:Creature Spirit\nPT:2/2\nK:Afterlife:2");
+    assert!(
+        afterlife
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::AFTERLIFE")
+    );
+    assert_eq!(
+        afterlife.abilities,
+        vec![
+            "triggered!(Trigger::Dies(&Filter::This), &[Effect::CreateTokenN { token: &generated_tokens::SPIRIT_1_1_WHITE_BLACK_FLYING, amount: Amount::Fixed(2) }])"
+        ]
+    );
+    let afflict =
+        read("Name:DuneBrawler\nManaCost:2 R\nTypes:Creature Minotaur\nPT:3/2\nK:Afflict:3");
+    assert!(afflict.keywords.iter().any(|k| k == "KeywordSet::AFFLICT"));
+    assert_eq!(
+        afflict.abilities,
+        vec![
+            "triggered!(Trigger::BecomesBlocked, &[Effect::LoseLife { amount: Amount::Fixed(3), target: PlayerRel::DefendingPlayer }])"
+        ]
+    );
+    assert!(refused(
+        "Name:BadAfterlifeSpell\nManaCost:1 B\nTypes:Sorcery\nK:Afterlife:1\nA:SP$ Draw | NumCards$ 1"
+    ));
+    assert!(refused(
+        "Name:BadAfflictArtifact\nManaCost:2\nTypes:Artifact\nK:Afflict:2"
+    ));
+
+    // Sunburst, Ravenous, Graft.
+    let sunburst = read("Name:PrismGolem\nManaCost:4\nTypes:Artifact Creature\nPT:0/0\nK:Sunburst");
+    assert_eq!(sunburst.enter_modifiers, vec!["EnterModifier::Sunburst"]);
+    assert!(refused(
+        "Name:BadSunburstInstant\nManaCost:2\nTypes:Instant\nK:Sunburst\nA:SP$ Draw | NumCards$ 1"
+    ));
+
+    let ravenous = read("Name:StarHydra\nManaCost:X G\nTypes:Creature Hydra\nPT:0/0\nK:Ravenous");
+    assert!(
+        ravenous
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::RAVENOUS")
+    );
+    assert_eq!(ravenous.enter_modifiers, vec!["EnterModifier::ravenous()"]);
+    assert_eq!(ravenous.abilities, vec!["AbilityDef::ravenous_draw()"]);
+    assert!(refused(
+        "Name:BadRavenousNoX\nManaCost:2 G\nTypes:Creature\nPT:2/2\nK:Ravenous"
+    ));
+
+    let graft = read("Name:OozeGraft\nManaCost:3 G\nTypes:Creature Ooze\nPT:0/0\nK:Graft:3");
+    assert!(graft.keywords.iter().any(|k| k == "KeywordSet::GRAFT"));
+    assert_eq!(graft.enter_modifiers, vec!["EnterModifier::graft(3)"]);
+    assert_eq!(graft.abilities, vec!["AbilityDef::graft_trigger()"]);
+    assert!(refused(
+        "Name:BadGraftZero\nManaCost:2 G\nTypes:Creature\nPT:0/0\nK:Graft:0"
+    ));
+
+    // Tribute + linked TrigNotTribute ETB trigger.
+    let tribute = read(
+        "Name:OmenHydra\nManaCost:3 G\nTypes:Creature Hydra\nPT:3/3\nK:Tribute:2\n\
+         SVar:TrigNotTribute:DB$ Destroy | ValidTgts$ Artifact",
+    );
+    assert!(tribute.keywords.iter().any(|k| k == "KeywordSet::TRIBUTE"));
+    assert_eq!(tribute.enter_modifiers, vec!["EnterModifier::tribute(2)"]);
+    assert!(
+        tribute.abilities[0].contains("Trigger::ETB")
+            && tribute.abilities[0]
+                .contains("Effect::destroy(TargetSpec::Object(&Filter::ARTIFACT))")
+            && tribute.abilities[0].contains("condition = Some(Condition::TributeWasNotPaid)"),
+        "{}",
+        tribute.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadTributeMissingTrig\nManaCost:3 G\nTypes:Creature\nPT:3/3\nK:Tribute:2\n\
+         Oracle:Tribute 2\\nWhen this creature enters, if tribute wasn't paid, draw a card."
+    ));
+
+    // Champion.
+    let champ =
+        read("Name:BogHero\nManaCost:3 G\nTypes:Creature Goblin\nPT:4/4\nK:Champion:Creature");
+    assert!(champ.keywords.iter().any(|k| k == "KeywordSet::CHAMPION"));
+    assert_eq!(
+        champ.abilities,
+        vec!["AbilityDef::champion(&Filter::CREATURE)"]
+    );
+    let champ_or = read(
+        "Name:ClanHero\nManaCost:3 R\nTypes:Creature Goblin\nPT:4/4\nK:Champion:Goblin,Wizard",
+    );
+    assert!(
+        champ_or.statics.contains("GOBLIN")
+            && champ_or.statics.contains("WIZARD")
+            && champ_or.abilities[0].starts_with("AbilityDef::champion(&CHAMPION"),
+        "{} / {:?}",
+        champ_or.statics,
+        champ_or.abilities
+    );
+    assert!(refused(
+        "Name:BadChampSpell\nManaCost:2 R\nTypes:Sorcery\nK:Champion:Goblin\nA:SP$ Draw | NumCards$ 1"
+    ));
+
+    // Cipher post-pass appends Effect::Cipher into spell!(&[...]).
+    let cipher = read(
+        "Name:HiddenPing\nManaCost:1 U B\nTypes:Sorcery\nK:Cipher\n\
+         A:SP$ LoseLife | ValidTgts$ Player | LifeAmount$ 2",
+    );
+    assert!(cipher.keywords.iter().any(|k| k == "KeywordSet::CIPHER"));
+    assert!(
+        cipher.abilities.len() == 1
+            && cipher.abilities[0].contains(", Effect::Cipher], targets = Some("),
+        "{:?}",
+        cipher.abilities
+    );
+    assert!(refused(
+        "Name:BadCipherCreature\nManaCost:2 U\nTypes:Creature\nPT:2/2\nK:Cipher"
+    ));
+    assert!(refused(
+        "Name:BadCipherOverload\nManaCost:1 U\nTypes:Sorcery\nK:Cipher\nK:Overload:4 U\n\
+         A:SP$ Tap | ValidTgts$ Creature"
+    ));
+
+    // Firebending (fixed, power, creature count; refuses Experience).
+    let fb_n =
+        read("Name:FlameDisciple\nManaCost:1 R\nTypes:Creature Monk\nPT:2/1\nK:Firebending:2");
+    assert!(fb_n.keywords.iter().any(|k| k == "KeywordSet::FIREBENDING"));
+    assert_eq!(
+        fb_n.abilities,
+        vec!["triggered!(Trigger::Attacks(&Filter::This), &[Effect::Firebend(Amount::Fixed(2))])"]
+    );
+    let fb_pow = read(
+        "Name:FlameMaster\nManaCost:2 R\nTypes:Creature Monk\nPT:3/2\n\
+         K:Firebending:X:, where X is this creature's power.\nSVar:X:Count$CardPower",
+    );
+    assert_eq!(
+        fb_pow.abilities,
+        vec![
+            "triggered!(Trigger::Attacks(&Filter::This), &[Effect::Firebend(Amount::SourcePower)])"
+        ]
+    );
+    assert!(refused(
+        "Name:BadFirebendExp\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Firebending:X:prose\n\
+         SVar:X:Count$YourCountersExperience"
+    ));
+
+    // MayEffectFromOpeningHand: Leyline, Gemstone Caverns, Reveal at first upkeep + honest refusals.
+    let leyline = read(
+        "Name:LeylineSample\nManaCost:2 W W\nTypes:Enchantment\n\
+         K:MayEffectFromOpeningHand:FromHand\n\
+         SVar:FromHand:DB$ ChangeZone | Defined$ Self | Origin$ Hand | Destination$ Battlefield",
+    );
+    assert_eq!(
+        leyline.abilities,
+        vec!["AbilityDef::OPENING_HAND_ON_BATTLEFIELD"]
+    );
+    let caverns = read(
+        "Name:GemSample\nTypes:Legendary Land\n\
+         K:MayEffectFromOpeningHand:FromOpeningHand:!PlayFirst\n\
+         SVar:FromOpeningHand:DB$ ChangeZone | Defined$ Self | Origin$ Hand | Destination$ Battlefield | SubAbility$ Luck\n\
+         SVar:Luck:DB$ PutCounter | CounterType$ LUCK | CounterNum$ 1 | Defined$ Self | SubAbility$ Ex\n\
+         SVar:Ex:DB$ ChangeZone | Origin$ Hand | Destination$ Exile | ChangeType$ Card | ChangeNum$ 1 | Mandatory$ True",
+    );
+    assert_eq!(
+        caverns.abilities,
+        vec![
+            "AbilityDef::Replacement(ReplacementRule::OpeningHandBattlefieldWithLuckCounterExilingHandCard)"
+        ]
+    );
+    let reveal_upkeep = read(
+        "Name:UpkeepHerald\nManaCost:4 U U\nTypes:Creature Sphinx\nPT:5/5\n\
+         K:MayEffectFromOpeningHand:RevealCard\n\
+         SVar:RevealCard:DB$ Reveal | RevealDefined$ Self | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | Triggers$ Trig\n\
+         SVar:Trig:Mode$ Phase | Phase$ Upkeep | OneOff$ True | Execute$ M\n\
+         SVar:M:DB$ Mill | NumCards$ 7 | Defined$ Player.Opponent",
+    );
+    assert_eq!(
+        reveal_upkeep.abilities,
+        vec![
+            "AbilityDef::opening_hand_reveal_at_first_upkeep(&[Effect::Mill { amount: Amount::Fixed(7), target: PlayerRel::Opponent }])"
+        ]
+    );
+    for bad in [
+        // "your first upkeep" (`ValidPlayer$ You`) != "the first upkeep" (`NextUpkeepOfAnyone`).
+        "Name:BadYourUpkeep\nManaCost:3 U\nTypes:Creature\nPT:4/4\n\
+         K:MayEffectFromOpeningHand:RevealCard\n\
+         SVar:RevealCard:DB$ Reveal | RevealDefined$ Self | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | Triggers$ Trig | Duration$ Permanent\n\
+         SVar:Trig:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | OneOff$ True | Execute$ S\n\
+         SVar:S:DB$ Scry | ScryNum$ 3",
+        // First main phase is not first upkeep.
+        "Name:BadFirstMain\nManaCost:4 G G\nTypes:Creature\nPT:6/7\n\
+         K:MayEffectFromOpeningHand:RevealCard\n\
+         SVar:RevealCard:DB$ Reveal | RevealDefined$ Self | SubAbility$ Eff\n\
+         SVar:Eff:DB$ Effect | Triggers$ Trig | Duration$ Permanent\n\
+         SVar:Trig:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | OneOff$ True | Execute$ M\n\
+         SVar:M:DB$ Mana | Produced$ G",
+        // BecomeStartingPlayer stays refused.
+        "Name:BadStarter\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         K:MayEffectFromOpeningHand:RevealCard:!PlayFirst\n\
+         SVar:RevealCard:DB$ Reveal | RevealDefined$ Self | BecomeStartingPlayer$ True",
+    ] {
+        assert!(refused(bad), "{bad}");
+    }
+
+    // etbCounter Morbid condition and CreaturesDiedThisTurn count.
+    let etb_morbid = read(
+        "Name:GraveSlime\nManaCost:2 B\nTypes:Creature Ooze\nPT:1/1\n\
+         K:etbCounter:P1P1:2:CheckSVar$ M:enters with two counters if a creature died\n\
+         SVar:M:Count$Morbid.1.0",
+    );
+    assert_eq!(
+        etb_morbid.enter_modifiers,
+        vec![
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::CreaturesDiedThisTurnAtLeast(1) }"
+        ]
+    );
+    let etb_died = read(
+        "Name:DeathSlime\nManaCost:3 B\nTypes:Creature Ooze\nPT:0/0\n\
+         K:etbCounter:P1P1:X:no condition\n\
+         SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature",
+    );
+    assert_eq!(
+        etb_died.enter_modifiers,
+        vec![
+            "EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::CreaturesDiedThisTurn }"
+        ]
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave18c_triggers_and_conditions() {
+    // Mode$ Mutates (self only, with or without TriggerZones$ Battlefield).
+    let mutates_bare = read(
+        "Name:MutantBeast\nManaCost:2 G\nTypes:Creature Beast\nPT:3/3\n\
+         T:Mode$ Mutates | ValidCard$ Card.Self | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        mutates_bare.abilities,
+        vec!["triggered!(Trigger::Mutates, &[Effect::draw(1)])"]
+    );
+    assert!(refused(
+        "Name:BadOtherMutates\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Mutates | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1"
+    ));
+
+    // Mode$ AbilityCast -> Trigger::AbilityActivated.
+    let ab_cast = read(
+        "Name:PulseWatcher\nManaCost:2 U\nTypes:Enchantment\n\
+         T:Mode$ AbilityCast | ValidActivatingPlayer$ You | ValidSA$ SpellAbility.!ManaAbility | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        ab_cast.abilities,
+        vec![
+            "triggered!(Trigger::AbilityActivated { filter: &Filter::Any, who: PlayerRel::You, tap_cost: None, mana_ability: Some(false) }, &[Effect::draw(1)])"
+        ]
+    );
+    let ab_cast_zone = read(
+        "Name:HarshWatcher\nManaCost:1 R\nTypes:Enchantment\n\
+         T:Mode$ AbilityCast | ValidActivatingPlayer$ Opponent | ValidCard$ Creature.inZoneBattlefield,Land.inZoneBattlefield | ValidSA$ Activated.!hasTapCost | TriggerZones$ Battlefield | Execute$ L\n\
+         SVar:L:DB$ LoseLife | Defined$ Opponent | LifeAmount$ 2",
+    );
+    assert!(
+        ab_cast_zone
+            .statics
+            .contains("Filter::InZone(ZoneRef::Battlefield)")
+            && ab_cast_zone.abilities[0].contains(
+                "who: PlayerRel::EachOpponent, tap_cost: Some(false), mana_ability: None"
+            ),
+        "{} / {}",
+        ab_cast_zone.statics,
+        ab_cast_zone.abilities[0]
+    );
+    for bad in [
+        "Name:BadLoyaltyAb\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ AbilityCast | ValidActivatingPlayer$ You | ValidSA$ Activated.Loyalty | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadExhaustAb\nManaCost:2 R\nTypes:Enchantment\n\
+         T:Mode$ AbilityCast | ValidActivatingPlayer$ You | ValidSA$ Activated.Exhaust | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadZonelessAb\nManaCost:2 U\nTypes:Enchantment\n\
+         T:Mode$ AbilityCast | ValidCard$ Card.Self | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "{bad}");
+    }
+
+    // Mode$ CommitCrime (battlefield once-per-turn, graveyard zone, opponent).
+    let crime_once = read(
+        "Name:OutlawSpy\nManaCost:1 B\nTypes:Creature Rogue\nPT:2/1\n\
+         T:Mode$ CommitCrime | ValidPlayer$ You | ActivationLimit$ 1 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        crime_once.abilities,
+        vec!["triggered!(Trigger::COMMITTED_CRIME_ONCE_PER_TURN, &[Effect::draw(1)])"]
+    );
+    let crime_gy = read(
+        "Name:GraveOutlaw\nManaCost:1 B\nTypes:Creature Skeleton\nPT:2/1\n\
+         T:Mode$ CommitCrime | ValidPlayer$ You | TriggerZones$ Graveyard | Execute$ G\n\
+         SVar:G:DB$ GainLife | LifeAmount$ 1",
+    );
+    assert_eq!(
+        crime_gy.abilities,
+        vec![
+            "triggered!(Trigger::COMMITTED_CRIME, &[Effect::gain_life(1)], zone = TriggerZone::Graveyard)"
+        ]
+    );
+    let crime_opp = read(
+        "Name:LawWatcher\nManaCost:2 W\nTypes:Creature Advisor\nPT:2/2\n\
+         T:Mode$ CommitCrime | ValidPlayer$ Opponent | TriggerZones$ Battlefield | Execute$ G\n\
+         SVar:G:DB$ GainLife | LifeAmount$ 2",
+    );
+    assert_eq!(
+        crime_opp.abilities,
+        vec![
+            "triggered!(Trigger::CommittedCrime { who: PlayerRel::EachOpponent, once_per_turn: false }, &[Effect::gain_life(2)])"
+        ]
+    );
+
+    // Mode$ ManaExpend.
+    let expend = read(
+        "Name:RaccoonScout\nManaCost:2 G\nTypes:Creature Raccoon\nPT:3/3\n\
+         T:Mode$ ManaExpend | Amount$ 4 | Player$ You | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        expend.abilities,
+        vec![
+            "triggered!(Trigger::Expended { who: PlayerRel::You, threshold: 4 }, &[Effect::draw(1)])"
+        ]
+    );
+    assert!(refused(
+        "Name:BadExpendZero\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ManaExpend | Amount$ 0 | Player$ You | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1"
+    ));
+
+    // Mode$ RingTemptsYou (with and without Graveyard zone; refuses ValidCard$).
+    let ring = read(
+        "Name:RingScholar\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/2\n\
+         T:Mode$ RingTemptsYou | ValidPlayer$ You | TriggerZones$ Graveyard | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        ring.abilities,
+        vec![
+            "triggered!(Trigger::RingTemptsYou { who: PlayerRel::You }, &[Effect::draw(1)], zone = TriggerZone::Graveyard)"
+        ]
+    );
+    assert!(refused(
+        "Name:BadRingCard\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ RingTemptsYou | ValidCard$ Creature.YouCtrl+Other | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1"
+    ));
+
+    // Mode$ Clashed (won_only true/false; refuses Won$ False).
+    let clash_won = read(
+        "Name:ClashSage\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/2\n\
+         T:Mode$ Clashed | ValidPlayer$ You | Won$ True | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        clash_won.abilities,
+        vec![
+            "triggered!(Trigger::Clashed { who: PlayerRel::You, won_only: true }, &[Effect::draw(1)])"
+        ]
+    );
+    assert!(refused(
+        "Name:BadClashLost\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Clashed | ValidPlayer$ You | Won$ False | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1"
+    ));
+
+    // Mode$ Firebend.
+    let fb_trig = read(
+        "Name:EmberTutor\nManaCost:2 R\nTypes:Creature Monk\nPT:2/2\n\
+         T:Mode$ Firebend | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        fb_trig.abilities,
+        vec!["triggered!(Trigger::Firebends(PlayerRel::You), &[Effect::draw(1)])"]
+    );
+
+    // WerewolfTransformCondition & WerewolfUntransformCondition.
+    let wolf_front = read(
+        "Name:WolfFront\nManaCost:1 G\nTypes:Creature Human Werewolf\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ Upkeep | WerewolfTransformCondition$ True | TriggerZones$ Battlefield | Execute$ Tr\n\
+         SVar:Tr:DB$ SetState | Defined$ Self | Mode$ Transform",
+    );
+    assert!(
+        wolf_front.abilities[0].contains("StepKind::Upkeep, whose: PlayerRel::EachPlayer")
+            && wolf_front.abilities[0]
+                .contains("condition = Some(Condition::NoSpellsCastLastTurn)"),
+        "{}",
+        wolf_front.abilities[0]
+    );
+    let wolf_back = read(
+        "Name:WolfBack\nTypes:Creature Werewolf\nPT:3/3\n\
+         T:Mode$ Phase | Phase$ Upkeep | WerewolfUntransformCondition$ True | TriggerZones$ Battlefield | Execute$ Tr\n\
+         SVar:Tr:DB$ SetState | Defined$ Self | Mode$ Transform",
+    );
+    assert!(
+        wolf_back.abilities[0]
+            .contains("condition = Some(Condition::APlayerCastLastTurnAtLeast(2))"),
+        "{}",
+        wolf_back.abilities[0]
+    );
+
+    // Wave 9-10b conditions: CommittedCrimeThisTurn, Morbid, YouCastNoSpellThisTurn, ExpendedThisTurn, HasRingBearer, Number$ SVarCompare.
+    let crime_cond = read(
+        "Name:CrimeCheck\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ C | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:C:Count$CommittedCrimeThisTurn.1.0\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        crime_cond.abilities[0]
+            .contains("condition = Some(Condition::CommittedCrimeThisTurn(PlayerRel::You))"),
+        "{}",
+        crime_cond.abilities[0]
+    );
+    let morbid_cond = read(
+        "Name:MorbidWatch\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ M | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:M:Count$Morbid.1.0\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        morbid_cond.abilities[0]
+            .contains("condition = Some(Condition::CreaturesDiedThisTurnAtLeast(1))"),
+        "{}",
+        morbid_cond.abilities[0]
+    );
+    let no_spell_cond = read(
+        "Name:QuietWatch\nManaCost:2 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ S | SVarCompare$ EQ0 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:S:Count$ThisTurnCast_Card.YouCtrl\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        no_spell_cond.abilities[0].contains("condition = Some(Condition::YouCastNoSpellThisTurn)"),
+        "{}",
+        no_spell_cond.abilities[0]
+    );
+    let ring_cond = read(
+        "Name:RingWatch\nManaCost:1 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | IsPresent$ Creature.YouCtrl+IsRingbearer | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        ring_cond.abilities[0].contains("condition = Some(Condition::HasRingBearer)"),
+        "{}",
+        ring_cond.abilities[0]
+    );
+    let expend_cond = read(
+        "Name:ExpendWatch\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ E | SVarCompare$ GE4 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:E:Count$ManaExpendedThisTurn\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        expend_cond.abilities[0].contains("condition = Some(Condition::ExpendedThisTurn(4))"),
+        "{}",
+        expend_cond.abilities[0]
+    );
+    let num_svar_cmp = read(
+        "Name:ExpendGoal\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ E | SVarCompare$ GEY | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:E:Count$ManaExpendedThisTurn\n\
+         SVar:Y:Number$6\n\
+         SVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        num_svar_cmp.abilities[0].contains("condition = Some(Condition::ExpendedThisTurn(6))"),
+        "{}",
+        num_svar_cmp.abilities[0]
+    );
+}

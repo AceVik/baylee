@@ -396,6 +396,199 @@ impl Tx<'_> {
         ))
     }
 
+    fn mutates_trigger(&mut self, p: &mut Params) -> Option<String> {
+        match p.take("ValidCard").as_deref() {
+            Some("Card.Self") => Some("Trigger::Mutates".to_string()),
+            Some(other) => self.deny(format!("`Mutates` trigger on `{other}`")),
+            None => self.deny("a `Mutates` trigger with no `ValidCard$`".to_string()),
+        }
+    }
+
+    fn ability_cast_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
+        if !zoned {
+            return self.deny("an `AbilityCast` trigger with no `TriggerZones$`".to_string());
+        }
+        let who = match p.take("ValidActivatingPlayer").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => return self.deny(format!("an `AbilityCast` trigger by `{other}`")),
+        };
+        let (tap_cost, mana_ability) = match p.take("ValidSA").as_deref() {
+            None | Some("SpellAbility" | "Activated") => ("None", "None"),
+            Some("SpellAbility.!ManaAbility" | "Activated.!ManaAbility") => ("None", "Some(false)"),
+            Some("SpellAbility.ManaAbility" | "Activated.ManaAbility") => ("None", "Some(true)"),
+            Some(
+                "SpellAbility.!ManaAbility+hasTapCost"
+                | "Activated.!ManaAbility+hasTapCost"
+                | "SpellAbility.hasTapCost+!ManaAbility"
+                | "Activated.hasTapCost+!ManaAbility",
+            ) => ("Some(true)", "Some(false)"),
+            Some(
+                "SpellAbility.!ManaAbility+!hasTapCost"
+                | "Activated.!ManaAbility+!hasTapCost"
+                | "SpellAbility.!hasTapCost+!ManaAbility"
+                | "Activated.!hasTapCost+!ManaAbility",
+            ) => ("Some(false)", "Some(false)"),
+            Some("SpellAbility.!hasTapCost" | "Activated.!hasTapCost") => ("Some(false)", "None"),
+            Some("SpellAbility.hasTapCost" | "Activated.hasTapCost") => ("Some(true)", "None"),
+            Some(other) => return self.deny(format!("`AbilityCast` with `ValidSA$ {other}`")),
+        };
+        let filter = match p.take("ValidCard").as_deref() {
+            None | Some("Card" | "Permanent") => "&Filter::Any".to_string(),
+            Some("Card.Self") => "&Filter::This".to_string(),
+            Some(valid) => {
+                let (cleaned, require_bf) = self.strip_ability_cast_battlefield_zone(valid)?;
+                let mut expr = self.filter_expr(&cleaned)?;
+                if require_bf {
+                    expr = super::on_the_battlefield(&expr);
+                }
+                format!("&{}", self.body.filter_static("TRIGGER", &expr))
+            }
+        };
+        Some(format!(
+            "Trigger::AbilityActivated {{ filter: {filter}, who: {who}, tap_cost: {tap_cost}, \
+             mana_ability: {mana_ability} }}"
+        ))
+    }
+
+    fn strip_ability_cast_battlefield_zone(&self, valid: &str) -> Option<(String, bool)> {
+        let mut saw_bf = false;
+        let mut all_bf = true;
+        let mut cleaned_alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            if alt.is_empty() {
+                return None;
+            }
+            let (base, atoms_raw) = alt.split_once('.').unwrap_or((alt, ""));
+            if base.starts_with("inZone") || base.starts_with("inRealZone") {
+                return self.deny(format!("`AbilityCast` source `{valid}`"));
+            }
+            let mut alt_bf = false;
+            let mut kept = Vec::new();
+            for atom in atoms_raw
+                .split('+')
+                .map(str::trim)
+                .filter(|a| !a.is_empty())
+            {
+                if matches!(atom, "inZoneBattlefield" | "inRealZoneBattlefield") {
+                    alt_bf = true;
+                    saw_bf = true;
+                } else if atom.starts_with("inZone") || atom.starts_with("inRealZone") {
+                    return self.deny(format!("`AbilityCast` source `{valid}`"));
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !alt_bf {
+                all_bf = false;
+            }
+            if kept.is_empty() {
+                cleaned_alts.push(base.to_string());
+            } else {
+                cleaned_alts.push(format!("{base}.{}", kept.join("+")));
+            }
+        }
+        if saw_bf && !all_bf {
+            return self.deny(format!("mixed zones in `AbilityCast` source `{valid}`"));
+        }
+        Some((cleaned_alts.join(","), saw_bf))
+    }
+
+    fn commit_crime_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let who = match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => return self.deny(format!("a `CommitCrime` trigger for `{other}`")),
+        };
+        let once_per_turn = if p.peek("ActivationLimit") == Some("1") {
+            p.take("ActivationLimit");
+            true
+        } else {
+            false
+        };
+        if who == "PlayerRel::You" {
+            Some(
+                if once_per_turn {
+                    "Trigger::COMMITTED_CRIME_ONCE_PER_TURN"
+                } else {
+                    "Trigger::COMMITTED_CRIME"
+                }
+                .to_string(),
+            )
+        } else {
+            Some(format!(
+                "Trigger::CommittedCrime {{ who: {who}, once_per_turn: {once_per_turn} }}"
+            ))
+        }
+    }
+
+    fn mana_expend_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let player_a = p.take("Player");
+        let player_b = p.take("ValidPlayer");
+        if player_a.is_some() && player_b.is_some() {
+            return self.deny("`ManaExpend` with both `Player$` and `ValidPlayer$`".to_string());
+        }
+        let who = match player_a.or(player_b).as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => return self.deny(format!("a `ManaExpend` trigger for `{other}`")),
+        };
+        let Some(amount_raw) = p.take("Amount") else {
+            return self.deny("a `ManaExpend` trigger with no `Amount$`".to_string());
+        };
+        let Some(threshold) = amount_raw.trim().parse::<u32>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("`ManaExpend` threshold `{amount_raw}`"));
+        };
+        Some(format!(
+            "Trigger::Expended {{ who: {who}, threshold: {threshold} }}"
+        ))
+    }
+
+    fn ring_tempts_you_trigger(&mut self, p: &mut Params) -> Option<String> {
+        if let Some(valid) = p.peek("ValidCard") {
+            return self.deny(format!(
+                "a `RingTemptsYou` trigger with `ValidCard$ {valid}`"
+            ));
+        }
+        let who = match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => return self.deny(format!("a `RingTemptsYou` trigger for `{other}`")),
+        };
+        Some(format!("Trigger::RingTemptsYou {{ who: {who} }}"))
+    }
+
+    fn clashed_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let who = match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => return self.deny(format!("a `Clashed` trigger for `{other}`")),
+        };
+        let won_only = match p.take("Won").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Clashed` with `Won$ {other}`")),
+        };
+        Some(format!(
+            "Trigger::Clashed {{ who: {who}, won_only: {won_only} }}"
+        ))
+    }
+
+    fn firebends_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let who = match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => return self.deny(format!("a `Firebend` trigger for `{other}`")),
+        };
+        Some(format!("Trigger::Firebends({who})"))
+    }
+
     /// `T:Mode$ DamageDone` — "whenever this creature deals [combat] damage
     /// to [a player | an opponent]" — and `DamageDoneOnce`, "whenever this
     /// creature is dealt damage".
@@ -672,6 +865,13 @@ impl Tx<'_> {
             "Sacrificed" => self.sacrificed_trigger(p),
             "Attacked" => self.player_attacked_trigger(p),
             "AttackersDeclaredOneTarget" => self.attackers_declared_one_target_trigger(p),
+            "Mutates" => self.mutates_trigger(p),
+            "AbilityCast" => self.ability_cast_trigger(p, zoned),
+            "CommitCrime" => self.commit_crime_trigger(p),
+            "ManaExpend" => self.mana_expend_trigger(p),
+            "RingTemptsYou" => self.ring_tempts_you_trigger(p),
+            "Clashed" => self.clashed_trigger(p),
+            "Firebend" | "Firebends" => self.firebends_trigger(p),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -1914,6 +2114,21 @@ impl Tx<'_> {
                 .as_deref()
                 .is_some_and(|effect| effect.starts_with("you may have "));
         let phase_descended = mode == "Phase" && p.peek("ValidPlayer") == Some("You.descended");
+        let werewolf_cond = if mode == "Phase" && p.peek("Phase") == Some("Upkeep") {
+            let transform = p.take("WerewolfTransformCondition");
+            let untransform = p.take("WerewolfUntransformCondition");
+            match (transform.as_deref(), untransform.as_deref()) {
+                (None, None) => None,
+                (Some("True"), None) => Some("Condition::NoSpellsCastLastTurn"),
+                (None, Some("True")) => Some("Condition::APlayerCastLastTurnAtLeast(2)"),
+                _ => {
+                    return self
+                        .deny("unsupported werewolf upkeep transform condition".to_string());
+                }
+            }
+        } else {
+            None
+        };
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
         if self.is_link_cleanup_trigger(&mode, &p) {
@@ -1985,6 +2200,18 @@ impl Tx<'_> {
                 format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
             } else {
                 return self.deny("`Card.Self+bargained/prototyped` beside another clause".into());
+            };
+        }
+        if let Some(clause) = werewolf_cond {
+            condition = if condition.is_empty() {
+                format!(", condition = Some({clause})")
+            } else if let Some(inner) = condition
+                .strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+            {
+                format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
+            } else {
+                return self.deny("werewolf condition beside another clause".to_string());
             };
         }
         if phase_descended {
@@ -2111,6 +2338,7 @@ impl Tx<'_> {
             || trigger == "Trigger::CycledThis"
             || trigger == "Trigger::DiscardedThisByOpponent"
             || trigger == "Trigger::BecomesBlocked"
+            || trigger == "Trigger::Mutates"
             || trigger == "Trigger::PHASES_IN"
             || trigger == "Trigger::PHASES_OUT"
             || trigger == "Trigger::EXERTED_THIS"
@@ -3248,6 +3476,13 @@ impl Tx<'_> {
                 "Card.Self+!IsSuspected" | "Card.Self+!suspected" => {
                     Some(("Condition::IsSuspected", false))
                 }
+                "Card.YouCtrl+IsRingbearer"
+                | "Creature.YouCtrl+IsRingbearer"
+                | "Card.IsRingbearer+YouCtrl"
+                | "Creature.IsRingbearer+YouCtrl" => Some(("Condition::HasRingBearer", true)),
+                "Card.Self+IsRingbearer" | "Creature.Self+IsRingbearer" => {
+                    Some(("Condition::SourceMatches(&Filter::RingBearer)", true))
+                }
                 _ => None,
             }
         {
@@ -3315,7 +3550,16 @@ impl Tx<'_> {
             | "SpellCastOrCopy"
             | "Scry"
             | "GiveGift"
-            | "GaveGift" => true,
+            | "GaveGift"
+            | "CommitCrime"
+            | "ManaExpend"
+            | "RingTemptsYou"
+            | "Clashed"
+            | "Firebend"
+            | "Firebends" => true,
+            "AbilityCast" => !p
+                .peek("ValidCard")
+                .is_some_and(|v| v.split([',', '.', '+']).any(|a| a.trim() == "Self")),
             "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" | "Enlisted"
             | "Sacrificed" => non_self,
             "Exploited" => p
@@ -3374,7 +3618,7 @@ impl Tx<'_> {
 
     /// Wave-15c trigger `CheckSVar$` / `SVarCompare$` clauses backed by
     /// existing `Condition` / `Amount` variants.
-    fn wave15_trigger_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
+    pub(super) fn wave15_trigger_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
         let trimmed = var.trim();
         let raw = if let Some(body) = self.svars.get(trimmed) {
             body.trim()
@@ -3383,7 +3627,24 @@ impl Tx<'_> {
         } else {
             return None;
         };
-        let cmp = cmp.trim();
+        let resolved_cmp;
+        let cmp = {
+            let trimmed_cmp = cmp.trim();
+            if let Some((op, rhs)) = trimmed_cmp.split_at_checked(2)
+                && matches!(op, "GE" | "GT" | "LE" | "LT" | "EQ" | "NE")
+                && rhs.parse::<u32>().is_err()
+                && let Some(num) = self
+                    .svars
+                    .get(rhs)
+                    .and_then(|s| s.trim().strip_prefix("Number$"))
+                    .and_then(|n| n.trim().parse::<u32>().ok())
+            {
+                resolved_cmp = format!("{op}{num}");
+                resolved_cmp.as_str()
+            } else {
+                trimmed_cmp
+            }
+        };
         let bool_flag = |cond: &str| match cmp {
             "GE1" | "GT0" => Some(cond.to_string()),
             "EQ0" | "LT1" => Some(format!("Condition::Not(&{cond})")),
@@ -3517,6 +3778,70 @@ impl Tx<'_> {
                 Self::wave15_amount_cmp("Amount::HandSize(PlayerRel::You)", cmp)
             }
             "Count$ValidGraveyard Card.YouOwn" => Self::wave16_graveyard_count_cmp(cmp),
+            _ => Self::wave18c_svar_condition(raw, cmp),
+        }
+    }
+
+    fn wave18c_svar_condition(raw: &str, cmp: &str) -> Option<String> {
+        let bool_flag = |cond: &str| match cmp {
+            "GE1" | "GT0" => Some(cond.to_string()),
+            "EQ0" | "LT1" => Some(format!("Condition::Not(&{cond})")),
+            _ => None,
+        };
+        match raw {
+            "Count$CommittedCrimeThisTurn.1.0" | "Count$CommittedCrimeThisTurn" => {
+                bool_flag("Condition::CommittedCrimeThisTurn(PlayerRel::You)")
+            }
+            "Count$CommittedCrimeThisTurn.0.1" => match cmp {
+                "EQ0" | "LT1" => Some("Condition::CommittedCrimeThisTurn(PlayerRel::You)".into()),
+                "GE1" | "EQ1" | "GT0" => Some(
+                    "Condition::Not(&Condition::CommittedCrimeThisTurn(PlayerRel::You))".into(),
+                ),
+                _ => None,
+            },
+            "Count$Morbid.1.0" | "Count$Morbid" => {
+                bool_flag("Condition::CreaturesDiedThisTurnAtLeast(1)")
+            }
+            "Count$Morbid.0.1" => match cmp {
+                "EQ0" | "LT1" => Some("Condition::CreaturesDiedThisTurnAtLeast(1)".into()),
+                "GE1" | "EQ1" | "GT0" => {
+                    Some("Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast(1))".into())
+                }
+                _ => None,
+            },
+            "Count$ThisTurnCast_Card.YouCtrl" => match cmp {
+                "EQ0" | "LT1" => Some("Condition::YouCastNoSpellThisTurn".to_string()),
+                "GE1" | "GT0" => {
+                    Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string())
+                }
+                _ => None,
+            },
+            "Count$ManaExpendedThisTurn" | "Count$ManaSpentOnSpellsThisTurn" => {
+                if let Some(n) = cmp
+                    .strip_prefix("GE")
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .filter(|&n| n >= 1)
+                    .or_else(|| {
+                        cmp.strip_prefix("GT")
+                            .and_then(|s| s.parse::<u32>().ok())
+                            .and_then(|n| n.checked_add(1))
+                    })
+                {
+                    Some(format!("Condition::ExpendedThisTurn({n})"))
+                } else {
+                    Self::wave15_amount_cmp(
+                        "Amount::ManaExpendedOnSpellsThisTurn(PlayerRel::You)",
+                        cmp,
+                    )
+                }
+            }
+            "Count$Valid Creature.YouCtrl+IsRingbearer"
+            | "Count$Valid Card.YouCtrl+IsRingbearer"
+            | "Count$Valid Creature.IsRingbearer+YouCtrl"
+            | "Count$Valid Card.IsRingbearer+YouCtrl" => bool_flag("Condition::HasRingBearer"),
+            "Count$Valid Card.Self+IsRingbearer" | "Count$ValidSelf Card.IsRingbearer" => {
+                bool_flag("Condition::SourceMatches(&Filter::RingBearer)")
+            }
             _ => None,
         }
     }

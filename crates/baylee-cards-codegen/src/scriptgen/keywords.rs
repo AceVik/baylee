@@ -347,6 +347,75 @@ impl Tx<'_> {
         if line.trim() == "Spree" {
             return self.spree_keyword();
         }
+        if let Some(rest) = line.strip_prefix("Strive:") {
+            return self.strive_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Transmute:") {
+            return self.transmute_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Scavenge:") {
+            return self.scavenge_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Outlast:") {
+            return self.outlast_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Reinforce:") {
+            return self.reinforce_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Freerunning:") {
+            return self.freerunning_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Sneak:") {
+            return self.sneak_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Splice:") {
+            return self.splice_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Awaken:") {
+            return self.awaken_keyword(rest);
+        }
+        if line.trim() == "Conspire" {
+            return self.conspire_keyword();
+        }
+        if line.starts_with("Conspire:") {
+            return self.deny(format!("keyword `{line}`"));
+        }
+        if let Some(rest) = line.strip_prefix("Mobilize:") {
+            return self.mobilize_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Afterlife:") {
+            return self.afterlife_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Afflict:") {
+            return self.afflict_keyword(rest);
+        }
+        if line.trim() == "Sunburst" {
+            return self.sunburst_keyword();
+        }
+        if line.trim() == "Ravenous" {
+            return self.ravenous_keyword();
+        }
+        if let Some(rest) = line.strip_prefix("Graft:") {
+            return self.graft_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Tribute:") {
+            return self.tribute_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Champion:") {
+            return self.champion_keyword(rest);
+        }
+        if line.trim() == "Cipher" {
+            return self.cipher_keyword();
+        }
+        if let Some(rest) = line.strip_prefix("Firebending:") {
+            return self.firebending_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("MayEffectFromOpeningHand:") {
+            return self.may_effect_from_opening_hand(rest);
+        }
+        if matches!(line.trim(), "Umbra armor" | "Umbra Armor") {
+            self.require_aura_permanent("Umbra armor")?;
+        }
         if line.trim() == "Exploit" {
             self.require_permanent_keyword("Exploit")?;
         }
@@ -1457,7 +1526,11 @@ impl Tx<'_> {
             let explicit_cmp = p.take("SVarCompare");
             self.etb_check_svar_condition(&var, explicit_cmp.as_deref())?
         };
-        if !p.exhausted() || cond.contains("CountersOnSelf") || cond.contains("CountersOnSource") {
+        if !p.exhausted()
+            || cond.contains("CountersOnSelf")
+            || cond.contains("CountersOnSource")
+            || cond.contains("SourcePower")
+        {
             return None;
         }
         Some(cond)
@@ -1517,6 +1590,7 @@ impl Tx<'_> {
         self.svar_condition(trimmed_var, cmp)
             .or_else(|| self.extra_svar_condition_clause(trimmed_var, cmp))
             .or_else(|| self.extra_svar_condition_wave8(trimmed_var, cmp))
+            .or_else(|| self.wave15_trigger_svar_condition(trimmed_var, cmp))
             .or_else(|| {
                 explicit_cmp
                     .is_some()
@@ -1706,6 +1780,9 @@ impl Tx<'_> {
         }
         if def == "Count$TimesKicked" {
             return Some("Amount::TimesKicked".to_string());
+        }
+        if def == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
+            return Some("Amount::CreaturesDiedThisTurn".to_string());
         }
         if def == "Count$xPaid" && self.has_x_mana_cost {
             return Some("Amount::X".to_string());
@@ -2082,37 +2159,64 @@ impl Tx<'_> {
         if self.type_line.is_empty() || self.is_land_card_type() {
             return self.deny("`AlternateAdditionalCost` on a land or untyped card".to_string());
         }
-        let Some((lhs, mana_str)) = rest.split_once(':') else {
+        let Some((lhs, rhs)) = split_two_top_level_colons(rest) else {
             return self.deny("keyword `AlternateAdditionalCost`".to_string());
         };
-        if mana_str.contains(':') {
-            return self.deny("keyword `AlternateAdditionalCost`".to_string());
-        }
-        let Some(inner) = lhs
+        if let Some(inner) = lhs
             .trim()
             .strip_prefix("Behold<")
             .and_then(|s| s.strip_suffix('>'))
-        else {
-            return self.deny("keyword `AlternateAdditionalCost`".to_string());
-        };
-        if self.body.behold_or_pay.is_some() {
-            return self.deny("a second `BeholdOrPay` cost on one card".to_string());
+        {
+            if self.body.behold_or_pay.is_some() {
+                return self.deny("a second `BeholdOrPay` cost on one card".to_string());
+            }
+            let mut fields = inner.splitn(3, '/');
+            let (Some(count_str), Some(valid)) = (fields.next(), fields.next()) else {
+                return self.deny(format!("malformed `Behold` cost `{lhs}`"));
+            };
+            if count_str.trim() != "1" {
+                return self.deny(format!("`Behold` count `{count_str}`"));
+            }
+            let expr = self.filter_expr(valid.trim())?;
+            let (mana, _) =
+                self.parse_alt_cost_pieces("AlternateAdditionalCost", rhs, false, true)?;
+            let filter_name = self.body.filter_static("BEHOLD", &expr);
+            self.body.behold_or_pay = Some(format!(
+                "Some(BeholdOrPay {{ filter: &{filter_name}, cost: mana!(\"{mana}\") }})"
+            ));
+            self.body.notes.push("behold or pay".to_string());
+            return Some(());
         }
-        let mut fields = inner.splitn(3, '/');
-        let (Some(count_str), Some(valid)) = (fields.next(), fields.next()) else {
-            return self.deny(format!("malformed `Behold` cost `{lhs}`"));
-        };
-        if count_str.trim() != "1" {
-            return self.deny(format!("`Behold` count `{count_str}`"));
+        if self
+            .body
+            .mandatory_additional_costs
+            .iter()
+            .any(|part| part.starts_with("CostPart::Either("))
+        {
+            return self.deny("a second `AlternateAdditionalCost` on one card".to_string());
         }
-        let expr = self.filter_expr(valid.trim())?;
-        let (mana, _) =
-            self.parse_alt_cost_pieces("AlternateAdditionalCost", mana_str, false, true)?;
-        let filter_name = self.body.filter_static("BEHOLD", &expr);
-        self.body.behold_or_pay = Some(format!(
-            "Some(BeholdOrPay {{ filter: &{filter_name}, cost: mana!(\"{mana}\") }})"
-        ));
-        self.body.notes.push("behold or pay".to_string());
+        let (mana_a, parts_a) = self.parse_cost_pieces_with(
+            "AlternateAdditionalCost",
+            lhs.trim(),
+            false,
+            false,
+            is_spell_either_cost_part,
+        )?;
+        let (mana_b, parts_b) = self.parse_cost_pieces_with(
+            "AlternateAdditionalCost",
+            rhs.trim(),
+            false,
+            false,
+            is_spell_either_cost_part,
+        )?;
+        let cost_a = crate::body::cost_literal(&mana_a, &parts_a);
+        let cost_b = crate::body::cost_literal(&mana_b, &parts_b);
+        self.body
+            .mandatory_additional_costs
+            .push(format!("CostPart::Either(&{cost_a}, &{cost_b})"));
+        self.body
+            .notes
+            .push("alternate additional cost".to_string());
         Some(())
     }
 
@@ -3825,36 +3929,845 @@ impl Tx<'_> {
     }
 
     pub(super) fn apply_overload(&mut self) -> Option<()> {
-        let Some(overload_mana) = self.overload_cost.take() else {
-            return Some(());
-        };
-        if !self.has_x_mana_cost && overload_mana.contains("{X}") {
-            return self.deny("`Overload` with `{X}` on a non-X spell".to_string());
+        let has_cipher = self.body.keywords.iter().any(|k| k == "KeywordSet::CIPHER");
+        if let Some(overload_mana) = self.overload_cost.take() {
+            if has_cipher {
+                return self.deny("`Overload` beside `Cipher`".to_string());
+            }
+            if !self.has_x_mana_cost && overload_mana.contains("{X}") {
+                return self.deny("`Overload` with `{X}` on a non-X spell".to_string());
+            }
+            if self.body.abilities.len() != 1
+                || !self.body.alternative_costs.is_empty()
+                || !self.body.additional_costs.is_empty()
+                || !self.body.mandatory_additional_costs.is_empty()
+                || !self.body.flashback_parts.is_empty()
+                || !self.body.morph_parts.is_empty()
+            {
+                return self
+                    .deny("`Overload` beside other spell costs or multiple abilities".to_string());
+            }
+            let Some((effect_raw, filter_ref)) = parse_single_target_spell(&self.body.abilities[0])
+            else {
+                return self.deny("`Overload` on an unsupported spell shape".to_string());
+            };
+            let Some(overloaded_effect) = map_overload_effect(effect_raw, filter_ref) else {
+                return self.deny("`Overload` on an unsupported spell effect".to_string());
+            };
+            self.body.abilities[0] = format!(
+                "AbilityDef::ModalSpell {{ choose: ModeCount::ONE, modes: &[\
+                 mode!(&[{effect_raw}], targets = Some(TargetReq::one(TargetSpec::Object({filter_ref})))), \
+                 mode!(&[{overloaded_effect}], cost_override = Some(mana!(\"{overload_mana}\")))] }}"
+            );
         }
-        if self.body.abilities.len() != 1
-            || !self.body.alternative_costs.is_empty()
-            || !self.body.additional_costs.is_empty()
-            || !self.body.mandatory_additional_costs.is_empty()
-            || !self.body.flashback_parts.is_empty()
-            || !self.body.morph_parts.is_empty()
-        {
-            return self
-                .deny("`Overload` beside other spell costs or multiple abilities".to_string());
+        if has_cipher {
+            self.apply_cipher()?;
         }
-        let Some((effect_raw, filter_ref)) = parse_single_target_spell(&self.body.abilities[0])
+        Some(())
+    }
+
+    fn apply_cipher(&mut self) -> Option<()> {
+        if self.body.abilities.len() != 1 {
+            return self.deny("`Cipher` on a spell without a single spell ability".to_string());
+        }
+        let Some(updated) = append_effect_to_spell_macro(&self.body.abilities[0], "Effect::Cipher")
         else {
-            return self.deny("`Overload` on an unsupported spell shape".to_string());
+            return self.deny("`Cipher` on an unsupported spell shape".to_string());
         };
-        let Some(overloaded_effect) = map_overload_effect(effect_raw, filter_ref) else {
-            return self.deny("`Overload` on an unsupported spell effect".to_string());
+        self.body.abilities[0] = updated;
+        Some(())
+    }
+
+    fn push_keyword_once(&mut self, bit: &str) {
+        if !self.body.keywords.iter().any(|k| k == bit) {
+            self.body.keywords.push(bit.to_string());
+        }
+    }
+
+    fn require_aura_permanent(&mut self, kw: &str) -> Option<()> {
+        self.require_permanent_keyword(kw)?;
+        if !self.type_line.split_whitespace().any(|w| w == "Aura") {
+            return self.deny(format!("`{kw}` on a non-Aura card"));
+        }
+        Some(())
+    }
+
+    /// `K:Strive:<mana>` (`CR 207.2c` / `CR 601.2f`): per-extra-target mana cost.
+    fn strive_keyword(&mut self, rest: &str) -> Option<()> {
+        if !self.is_spell_card_type() || self.type_line.is_empty() {
+            return self.deny("`Strive` on a non-instant/non-sorcery card".to_string());
+        }
+        if self
+            .body
+            .abilities
+            .iter()
+            .any(|a| a.starts_with("AbilityDef::strive("))
+        {
+            return self.deny("a second `Strive` cost on one card".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("Strive", rest, false, true)?;
+        self.body
+            .abilities
+            .push(format!("AbilityDef::strive(mana!(\"{mana}\"))"));
+        self.body.notes.push("strive".to_string());
+        Some(())
+    }
+
+    /// `K:Transmute:<mana>` (`CR 702.53a`): sorcery-speed hand discard tutor.
+    fn transmute_keyword(&mut self, rest: &str) -> Option<()> {
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`Transmute` on a land or untyped card".to_string());
+        }
+        if self
+            .body
+            .abilities
+            .iter()
+            .any(|a| a.starts_with("AbilityDef::transmute"))
+        {
+            return self.deny("a second `Transmute` cost on one card".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("Transmute", rest, false, true)?;
+        self.push_keyword_once("KeywordSet::TRANSMUTE");
+        self.body
+            .abilities
+            .push(format!("AbilityDef::transmute(mana!(\"{mana}\"))"));
+        self.body.notes.push("transmute".to_string());
+        Some(())
+    }
+
+    /// `K:Scavenge:<mana>` (`CR 702.97a`): sorcery-speed graveyard exile-self counter ability.
+    fn scavenge_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_creature_permanent("Scavenge")?;
+        if self
+            .body
+            .abilities
+            .iter()
+            .any(|a| a.starts_with("AbilityDef::scavenge"))
+        {
+            return self.deny("a second `Scavenge` cost on one card".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("Scavenge", rest, false, true)?;
+        self.push_keyword_once("KeywordSet::SCAVENGE");
+        self.body
+            .abilities
+            .push(format!("AbilityDef::scavenge(mana!(\"{mana}\"))"));
+        self.body.notes.push("scavenge".to_string());
+        Some(())
+    }
+
+    /// `K:Outlast:<mana>` (`CR 702.107a`): sorcery-speed `{cost}, {T}: Put a +1/+1 counter on this creature.`
+    fn outlast_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_creature_permanent("Outlast")?;
+        let (mana, _) = self.parse_alt_cost_pieces("Outlast", rest, false, true)?;
+        let cost = crate::body::cost_literal(&mana, &["TapSelf".to_string()]);
+        self.push_keyword_once("KeywordSet::OUTLAST");
+        self.body.abilities.push(format!(
+            "activated!({cost}, &[Effect::AddCounterSource {{ kind: CounterKind::P1P1, \
+             amount: Amount::Fixed(1) }}], timing = ActivationTiming::SorcerySpeed)"
+        ));
+        self.body.notes.push("outlast".to_string());
+        Some(())
+    }
+
+    /// `K:Reinforce:<N|X>:<mana>` (`CR 702.77a`): hand discard ability putting N/X +1/+1 counters on target creature.
+    fn reinforce_keyword(&mut self, rest: &str) -> Option<()> {
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`Reinforce` on a land or untyped card".to_string());
+        }
+        let Some((count_raw, cost_raw)) = split_two_top_level_colons(rest) else {
+            return self.deny(format!("keyword `Reinforce:{rest}`"));
         };
-        self.body.abilities[0] = format!(
-            "AbilityDef::ModalSpell {{ choose: ModeCount::ONE, modes: &[\
-             mode!(&[{effect_raw}], targets = Some(TargetReq::one(TargetSpec::Object({filter_ref})))), \
-             mode!(&[{overloaded_effect}], cost_override = Some(mana!(\"{overload_mana}\")))] }}"
+        let count_raw = count_raw.trim();
+        let (amount, mana) = if count_raw == "X" {
+            let mana = self.parse_x_mana_only("Reinforce", cost_raw.trim())?;
+            ("Amount::X".to_string(), mana)
+        } else if let Some(n) = count_raw.parse::<u32>().ok().filter(|&n| n >= 1) {
+            let (mana, _) =
+                self.parse_alt_cost_pieces("Reinforce", cost_raw.trim(), false, true)?;
+            (format!("Amount::Fixed({n})"), mana)
+        } else {
+            return self.deny(format!("keyword `Reinforce:{rest}`"));
+        };
+        let cost = crate::body::cost_literal(&mana, &["DiscardSelf".to_string()]);
+        self.push_keyword_once("KeywordSet::REINFORCE");
+        self.body.abilities.push(format!(
+            "activated!({cost}, &[Effect::AddCounter {{ kind: CounterKind::P1P1, \
+             amount: {amount} }}], target = Some(TargetSpec::Object(&Filter::CREATURE)), \
+             zone = ActivationZone::Hand)"
+        ));
+        self.body.notes.push("reinforce".to_string());
+        Some(())
+    }
+
+    /// `K:Freerunning:<cost>` (`CR 702.173a`): alternative cast cost if an Assassin or commander dealt combat damage this turn.
+    fn freerunning_keyword(&mut self, rest: &str) -> Option<()> {
+        self.keyword_alternative_cost("Freerunning", "freerunning", rest, true)
+    }
+
+    /// `K:Sneak:<cost>` (`CR 702.190a–b`): static alternative casting rule.
+    fn sneak_keyword(&mut self, rest: &str) -> Option<()> {
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`Sneak` on a land or untyped card".to_string());
+        }
+        if self
+            .body
+            .abilities
+            .iter()
+            .any(|a| a.starts_with("AbilityDef::sneak("))
+        {
+            return self.deny("a second `Sneak` cost on one card".to_string());
+        }
+        let (mana, parts) = self.parse_alt_cost_pieces("Sneak", rest, false, false)?;
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.body
+            .abilities
+            .push(format!("AbilityDef::sneak({cost})"));
+        self.body.notes.push("sneak".to_string());
+        Some(())
+    }
+
+    /// `K:Splice:<onto>:<cost>` (`CR 702.47a`): splice onto Arcane or spell filter.
+    fn splice_keyword(&mut self, rest: &str) -> Option<()> {
+        if !self.is_spell_card_type() || self.type_line.is_empty() {
+            return self.deny("`Splice` on a non-instant/non-sorcery card".to_string());
+        }
+        let Some((onto_raw, cost_raw)) = split_two_top_level_colons(rest) else {
+            return self.deny(format!("keyword `Splice:{rest}`"));
+        };
+        let onto_raw = onto_raw.trim();
+        let onto_expr = if onto_raw == "Arcane" {
+            "Filter::HasSubtype(subtypes::spell::ARCANE)".to_string()
+        } else {
+            self.filter_expr_in_zone(onto_raw, true)?
+        };
+        let filter_name = self.body.filter_static("SPLICE", &onto_expr);
+        let (mana, parts) = self.parse_cost_pieces_with(
+            "Splice",
+            cost_raw.trim(),
+            false,
+            false,
+            is_spell_either_cost_part,
+        )?;
+        self.push_keyword_once("KeywordSet::SPLICE");
+        let ability = if parts.is_empty() {
+            format!("AbilityDef::splice_mana(&{filter_name}, mana!(\"{mana}\"))")
+        } else {
+            let cost = crate::body::cost_literal(&mana, &parts);
+            format!("AbilityDef::splice(&{filter_name}, {cost})")
+        };
+        self.body.abilities.push(ability);
+        self.body.notes.push("splice".to_string());
+        Some(())
+    }
+
+    /// `K:Awaken:<N>:<cost>` (`CR 702.113a`): alternative spell cost animating a land with N +1/+1 counters.
+    fn awaken_keyword(&mut self, rest: &str) -> Option<()> {
+        if !self.is_spell_card_type() || self.type_line.is_empty() {
+            return self.deny("`Awaken` on a non-instant/non-sorcery card".to_string());
+        }
+        if self
+            .body
+            .abilities
+            .iter()
+            .any(|a| a.starts_with("AbilityDef::awaken"))
+        {
+            return self.deny("a second `Awaken` cost on one card".to_string());
+        }
+        let Some((count_raw, cost_raw)) = split_two_top_level_colons(rest) else {
+            return self.deny(format!("keyword `Awaken:{rest}`"));
+        };
+        let Some(n) = count_raw.trim().parse::<u16>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("keyword `Awaken:{rest}`"));
+        };
+        let (mana, parts) = self.parse_alt_cost_pieces("Awaken", cost_raw.trim(), false, false)?;
+        self.push_keyword_once("KeywordSet::AWAKEN");
+        let ability = if parts.is_empty() {
+            format!("AbilityDef::awaken({n}, mana!(\"{mana}\"))")
+        } else {
+            let cost = crate::body::cost_literal(&mana, &parts);
+            format!("AbilityDef::awaken_cost({n}, {cost})")
+        };
+        self.body.abilities.push(ability);
+        self.body.notes.push("awaken".to_string());
+        Some(())
+    }
+
+    /// `K:Conspire` (`CR 702.78a–b`): optional spell tap-2 copy keyword.
+    fn conspire_keyword(&mut self) -> Option<()> {
+        if !self.is_spell_card_type() || self.type_line.is_empty() {
+            return self.deny("`Conspire` on a non-instant/non-sorcery card".to_string());
+        }
+        if self
+            .body
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::CONSPIRE")
+        {
+            self.body.abilities.push(
+                "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CONSPIRE), \
+                 zone = ZoneRef::Stack)"
+                    .to_string(),
+            );
+        } else {
+            self.body.keywords.push("KeywordSet::CONSPIRE".to_string());
+        }
+        self.body.notes.push("conspire".to_string());
+        Some(())
+    }
+
+    /// `K:Mobilize:<N|X>` (`CR 702.181a`): attack trigger creating N/X tapped-and-attacking 1/1 red Warriors.
+    fn mobilize_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_creature_permanent("Mobilize")?;
+        let trimmed = rest.trim();
+        if trimmed.is_empty() || trimmed.contains(':') {
+            return self.deny(format!("keyword `Mobilize:{rest}`"));
+        }
+        let effect = if let Some(n) = trimmed.parse::<u32>().ok().filter(|&n| n >= 1) {
+            format!("Effect::mobilize({n})")
+        } else if trimmed == "X" {
+            let Some(def) = self.svars.get("X").cloned() else {
+                return self.deny("`Mobilize:X` without `SVar:X`".to_string());
+            };
+            let Some(amt) = self.static_count_expr(def.trim()) else {
+                return self.deny(format!("unsupported `Mobilize:X` count `{def}`"));
+            };
+            format!("Effect::Mobilize({amt})")
+        } else {
+            return self.deny(format!("keyword `Mobilize:{rest}`"));
+        };
+        self.push_keyword_once("KeywordSet::MOBILIZE");
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::Attacks(&Filter::This), &[{effect}])"
+        ));
+        Some(())
+    }
+
+    /// `K:Afterlife:<N>` (`CR 702.135a`): dies trigger creating N 1/1 W/B flying Spirit tokens.
+    fn afterlife_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_permanent_keyword("Afterlife")?;
+        let trimmed = rest.trim();
+        if trimmed.contains(':') {
+            return self.deny(format!("keyword `Afterlife:{rest}`"));
+        }
+        let Some(n) = trimmed.parse::<u32>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("keyword `Afterlife:{rest}`"));
+        };
+        self.push_keyword_once("KeywordSet::AFTERLIFE");
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::Dies(&Filter::This), &[Effect::CreateTokenN {{ \
+             token: &generated_tokens::SPIRIT_1_1_WHITE_BLACK_FLYING, amount: Amount::Fixed({n}) }}])"
+        ));
+        Some(())
+    }
+
+    /// `K:Afflict:<N>` (`CR 702.130a`): becomes-blocked trigger making defending player lose N life.
+    fn afflict_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_creature_permanent("Afflict")?;
+        let trimmed = rest.trim();
+        if trimmed.contains(':') {
+            return self.deny(format!("keyword `Afflict:{rest}`"));
+        }
+        let Some(n) = trimmed.parse::<u32>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("keyword `Afflict:{rest}`"));
+        };
+        self.push_keyword_once("KeywordSet::AFFLICT");
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::BecomesBlocked, &[Effect::LoseLife {{ \
+             amount: Amount::Fixed({n}), target: PlayerRel::DefendingPlayer }}])"
+        ));
+        Some(())
+    }
+
+    /// `K:Sunburst` (`CR 702.44a–b`): enters with counters per color of mana spent (`KeywordSet::SUNBURST` derived).
+    fn sunburst_keyword(&mut self) -> Option<()> {
+        self.require_permanent_keyword("Sunburst")?;
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::Sunburst".to_string());
+        Some(())
+    }
+
+    /// `K:Ravenous` (`CR 702.156a`): enters with X +1/+1 counters and draws a card on ETB if X >= 5.
+    fn ravenous_keyword(&mut self) -> Option<()> {
+        self.require_permanent_keyword("Ravenous")?;
+        if !self.has_x_mana_cost {
+            return self.deny("`Ravenous` on a card without `{X}` in its mana cost".to_string());
+        }
+        if self
+            .body
+            .enter_modifiers
+            .iter()
+            .any(|m| m == "EnterModifier::ravenous()")
+        {
+            return self.deny("a second `Ravenous` keyword on one card".to_string());
+        }
+        self.push_keyword_once("KeywordSet::RAVENOUS");
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::ravenous()".to_string());
+        self.body
+            .abilities
+            .push("AbilityDef::ravenous_draw()".to_string());
+        Some(())
+    }
+
+    /// `K:Graft:<N>` (`CR 702.58a`): enters with N +1/+1 counters and may move one onto entering creatures.
+    fn graft_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_permanent_keyword("Graft")?;
+        let trimmed = rest.trim();
+        if trimmed.contains(':') {
+            return self.deny(format!("keyword `Graft:{rest}`"));
+        }
+        let Some(n) = trimmed.parse::<u32>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("keyword `Graft:{rest}`"));
+        };
+        self.push_keyword_once("KeywordSet::GRAFT");
+        self.body
+            .enter_modifiers
+            .push(format!("EnterModifier::graft({n})"));
+        self.body
+            .abilities
+            .push("AbilityDef::graft_trigger()".to_string());
+        Some(())
+    }
+
+    /// `K:Tribute:<N>` (`CR 702.104a–b`): opponent choice of N +1/+1 counters on entry + linked `TrigNotTribute` ETB trigger.
+    fn tribute_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_permanent_keyword("Tribute")?;
+        let trimmed = rest.trim();
+        if trimmed.contains(':') {
+            return self.deny(format!("keyword `Tribute:{rest}`"));
+        }
+        if self
+            .body
+            .enter_modifiers
+            .iter()
+            .any(|m| m.starts_with("EnterModifier::tribute("))
+        {
+            return self.deny("a second `Tribute` keyword on one card".to_string());
+        }
+        let Some(n) = trimmed.parse::<u32>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("keyword `Tribute:{rest}`"));
+        };
+        self.push_keyword_once("KeywordSet::TRIBUTE");
+        self.body
+            .enter_modifiers
+            .push(format!("EnterModifier::tribute({n})"));
+        if let Some(exec_body) = self.svars.get("TrigNotTribute").cloned() {
+            if self.optional_trigger_price(&exec_body).is_some() {
+                return self.deny("`Tribute` with `Cost$` on `TrigNotTribute`".to_string());
+            }
+            let prev_x = std::mem::replace(&mut self.has_x, false);
+            let prev_spell = std::mem::replace(&mut self.on_a_spell, false);
+            let prev_self = std::mem::replace(&mut self.trigger_is_self, true);
+            let prev_etb = std::mem::replace(&mut self.is_etb_self_trigger, true);
+            let mut chain = Chain::default();
+            let ok = self.chain(&exec_body, &mut chain);
+            self.has_x = prev_x;
+            self.on_a_spell = prev_spell;
+            self.trigger_is_self = prev_self;
+            self.is_etb_self_trigger = prev_etb;
+            ok?;
+            if chain.effects.is_empty() {
+                return self.deny("`Tribute` `TrigNotTribute` with no effects".to_string());
+            }
+            let targets = Self::target_req_expr(&chain)
+                .map_or_default(|req| format!(", targets = Some({req})"));
+            let second = Self::second_target_req_expr(&chain)
+                .map_or_default(|req| format!(", second_targets = Some({req})"));
+            self.body.abilities.push(format!(
+                "triggered!(Trigger::ETB, &[{}]{targets}{second}, \
+                 condition = Some(Condition::TributeWasNotPaid))",
+                chain.effects.join(", ")
+            ));
+        } else if self
+            .oracle
+            .to_ascii_lowercase()
+            .contains("tribute wasn't paid")
+        {
+            return self.deny("`Tribute` missing `SVar:TrigNotTribute`".to_string());
+        }
+        Some(())
+    }
+
+    /// `K:Champion:<valid>` (`CR 702.72a–b`): exile another matching permanent on ETB and return on LTB.
+    fn champion_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_permanent_keyword("Champion")?;
+        let trimmed = rest.trim();
+        if trimmed.is_empty() || trimmed.contains(':') {
+            return self.deny(format!("keyword `Champion:{rest}`"));
+        }
+        let expr = self.filter_expr(trimmed)?;
+        let filter = self.body.filter_static("CHAMPION", &expr);
+        self.push_keyword_once("KeywordSet::CHAMPION");
+        self.body
+            .abilities
+            .push(format!("AbilityDef::champion(&{filter})"));
+        Some(())
+    }
+
+    /// `K:Cipher` (`CR 702.99a`): marks spell for `Effect::Cipher` post-pass in `apply_overload`.
+    fn cipher_keyword(&mut self) -> Option<()> {
+        if !self.is_spell_card_type() || self.type_line.is_empty() {
+            return self.deny("`Cipher` on a non-instant/non-sorcery card".to_string());
+        }
+        if self.body.keywords.iter().any(|k| k == "KeywordSet::CIPHER") {
+            return self.deny("a second `Cipher` keyword on one card".to_string());
+        }
+        self.body.keywords.push("KeywordSet::CIPHER".to_string());
+        self.body.notes.push("cipher".to_string());
+        Some(())
+    }
+
+    /// `K:Firebending:<N|X>[:<prose>]` (`CR 702.189a`): attack trigger adding N/X `{R}` until end of combat.
+    fn firebending_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_creature_permanent("Firebending")?;
+        let mut fields = rest.split(':');
+        let amt_raw = fields.next()?.trim();
+        let _prose = fields.next();
+        if fields.next().is_some() || amt_raw.is_empty() {
+            return self.deny(format!("keyword `Firebending:{rest}`"));
+        }
+        let amount = if let Some(n) = amt_raw.parse::<u32>().ok().filter(|&n| n >= 1) {
+            format!("Amount::Fixed({n})")
+        } else if amt_raw == "X" {
+            let Some(def) = self.svars.get("X").cloned() else {
+                return self.deny("`Firebending:X` without `SVar:X`".to_string());
+            };
+            let trimmed = def.trim();
+            if trimmed == "Count$CardPower" {
+                "Amount::SourcePower".to_string()
+            } else if let Some(expr) = self.static_count_expr(trimmed) {
+                expr
+            } else {
+                return self.deny(format!("unsupported `Firebending:X` count `{trimmed}`"));
+            }
+        } else {
+            return self.deny(format!("keyword `Firebending:{rest}`"));
+        };
+        self.push_keyword_once("KeywordSet::FIREBENDING");
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::Attacks(&Filter::This), &[Effect::Firebend({amount})])"
+        ));
+        Some(())
+    }
+
+    /// `K:MayEffectFromOpeningHand:<svar>[:!PlayFirst]` (`CR 103.6`):
+    /// - Leyline opening-hand onto battlefield (`AbilityDef::OPENING_HAND_ON_BATTLEFIELD`)
+    /// - Gemstone Caverns (`!PlayFirst` + luck counter + exile hand card)
+    /// - Reveal from opening hand for a one-off trigger at the beginning of the first upkeep
+    ///   (`AbilityDef::opening_hand_reveal_at_first_upkeep`)
+    fn may_effect_from_opening_hand(&mut self, rest: &str) -> Option<()> {
+        if self.body.abilities.iter().any(|a| {
+            a.contains("OPENING_HAND_") || a.contains("OpeningHand") || a.contains("opening_hand_")
+        }) {
+            return self.deny("a second `MayEffectFromOpeningHand` on one card".to_string());
+        }
+        let mut fields = rest.split(':');
+        let svar = fields.next()?.trim();
+        let not_first = match fields.next().map(str::trim) {
+            None => false,
+            Some("!PlayFirst") => true,
+            Some(other) => {
+                return self.deny(format!("`MayEffectFromOpeningHand` condition `{other}`"));
+            }
+        };
+        if svar.is_empty() || fields.next().is_some() {
+            return self.deny(format!("keyword `MayEffectFromOpeningHand:{rest}`"));
+        }
+        let Some(raw) = self.svars.get(svar).cloned() else {
+            return self.deny(format!(
+                "`MayEffectFromOpeningHand` naming missing SVar `{svar}`"
+            ));
+        };
+        let Some((api, mut p)) = Params::parse(&raw) else {
+            return self.deny(format!("malformed opening-hand SVar `{svar}`"));
+        };
+        p.drop_prose();
+        match (api.as_str(), not_first) {
+            ("ChangeZone", false) => self.opening_hand_leyline(svar, p),
+            ("ChangeZone", true) => self.opening_hand_gemstone_caverns(svar, p),
+            ("Reveal", false) => self.opening_hand_reveal_first_upkeep(svar, p),
+            _ => self.deny(format!("unsupported `MayEffectFromOpeningHand:{rest}`")),
+        }
+    }
+
+    fn opening_hand_leyline(&mut self, svar: &str, mut p: Params) -> Option<()> {
+        if self.type_line.is_empty() || self.is_spell_card_type() {
+            return self.deny("opening-hand battlefield entry on a non-permanent".to_string());
+        }
+        if p.take("Defined").as_deref() != Some("Self")
+            || p.take("Origin").as_deref() != Some("Hand")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || !p.exhausted()
+        {
+            return self.deny(format!("unsupported opening-hand `ChangeZone` `{svar}`"));
+        }
+        self.body
+            .abilities
+            .push("AbilityDef::OPENING_HAND_ON_BATTLEFIELD".to_string());
+        Some(())
+    }
+
+    fn opening_hand_gemstone_caverns(&mut self, svar: &str, mut p: Params) -> Option<()> {
+        if self.type_line.is_empty() || self.is_spell_card_type() {
+            return self.deny("opening-hand battlefield entry on a non-permanent".to_string());
+        }
+        if p.take("Defined").as_deref() != Some("Self")
+            || p.take("Origin").as_deref() != Some("Hand")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+        {
+            return self.deny(format!("unsupported `!PlayFirst` opening-hand `{svar}`"));
+        }
+        let Some(sub1_name) = p.take("SubAbility") else {
+            return self.deny(format!("unsupported `!PlayFirst` opening-hand `{svar}`"));
+        };
+        if !p.exhausted() {
+            return self.deny(format!("unsupported `!PlayFirst` opening-hand `{svar}`"));
+        }
+        let Some(sub1_raw) = self.svars.get(sub1_name.trim()).cloned() else {
+            return self.deny(format!("missing opening-hand subability `{sub1_name}`"));
+        };
+        let Some((api1, mut p1)) = Params::parse(&sub1_raw) else {
+            return self.deny(format!("malformed opening-hand subability `{sub1_name}`"));
+        };
+        p1.drop_prose();
+        if api1 != "PutCounter"
+            || p1.take("CounterType").as_deref() != Some("LUCK")
+            || p1.take("CounterNum").as_deref() != Some("1")
+            || p1.take("Defined").as_deref() != Some("Self")
+        {
+            return self.deny(format!(
+                "unsupported `!PlayFirst` counter step `{sub1_name}`"
+            ));
+        }
+        let Some(sub2_name) = p1.take("SubAbility") else {
+            return self.deny(format!(
+                "unsupported `!PlayFirst` counter step `{sub1_name}`"
+            ));
+        };
+        if !p1.exhausted() {
+            return self.deny(format!(
+                "unsupported `!PlayFirst` counter step `{sub1_name}`"
+            ));
+        }
+        let Some(sub2_raw) = self.svars.get(sub2_name.trim()).cloned() else {
+            return self.deny(format!("missing opening-hand subability `{sub2_name}`"));
+        };
+        let Some((api2, mut p2)) = Params::parse(&sub2_raw) else {
+            return self.deny(format!("malformed opening-hand subability `{sub2_name}`"));
+        };
+        p2.drop_prose();
+        if api2 != "ChangeZone"
+            || p2.take("Origin").as_deref() != Some("Hand")
+            || p2.take("Destination").as_deref() != Some("Exile")
+            || p2.take("ChangeType").as_deref() != Some("Card")
+            || p2.take("ChangeNum").as_deref() != Some("1")
+            || p2.take("Mandatory").as_deref() != Some("True")
+            || !p2.exhausted()
+        {
+            return self.deny(format!("unsupported `!PlayFirst` exile step `{sub2_name}`"));
+        }
+        self.body.abilities.push(
+            "AbilityDef::Replacement(\
+             ReplacementRule::OpeningHandBattlefieldWithLuckCounterExilingHandCard)"
+                .to_string(),
         );
         Some(())
     }
+
+    fn opening_hand_reveal_first_upkeep(&mut self, svar: &str, mut p: Params) -> Option<()> {
+        if p.take("RevealDefined").as_deref() != Some("Self") {
+            return self.deny(format!("unsupported opening-hand `Reveal` `{svar}`"));
+        }
+        let Some(eff_name) = p.take("SubAbility") else {
+            return self.deny(format!(
+                "opening-hand `Reveal` without `SubAbility$` `{svar}`"
+            ));
+        };
+        if !p.exhausted() {
+            return self.deny(format!("unsupported opening-hand `Reveal` `{svar}`"));
+        }
+        let Some(eff_raw) = self.svars.get(eff_name.trim()).cloned() else {
+            return self.deny(format!("missing opening-hand effect `{eff_name}`"));
+        };
+        let Some((eff_api, mut ep)) = Params::parse(&eff_raw) else {
+            return self.deny(format!("malformed opening-hand effect `{eff_name}`"));
+        };
+        ep.drop_prose();
+        if eff_api != "Effect" {
+            return self.deny(format!("unsupported opening-hand effect `{eff_api}`"));
+        }
+        let Some(trig_name) = ep.take("Triggers") else {
+            return self.deny(format!(
+                "opening-hand `Effect` without `Triggers$` `{eff_name}`"
+            ));
+        };
+        if !matches!(ep.take("Duration").as_deref(), None | Some("Permanent")) {
+            return self.deny(format!("unsupported opening-hand `Effect` `{eff_name}`"));
+        }
+        if trig_name.contains(',') || !ep.exhausted() {
+            return self.deny(format!("unsupported opening-hand `Effect` `{eff_name}`"));
+        }
+        let Some(trig_raw) = self.svars.get(trig_name.trim()).cloned() else {
+            return self.deny(format!("missing opening-hand trigger `{trig_name}`"));
+        };
+        let Some((mode, mut tp)) = Params::parse(&trig_raw) else {
+            return self.deny(format!("malformed opening-hand trigger `{trig_name}`"));
+        };
+        tp.drop_prose();
+        // `OpeningHandRevealAtFirstUpkeep` fires on `DelayedWhen::NextUpkeepOfAnyone`
+        // ("at the beginning of the first upkeep"), so `ValidPlayer$ You` ("your first
+        // upkeep") and non-Upkeep phases stay honestly refused.
+        if mode != "Phase"
+            || tp.take("Phase").as_deref() != Some("Upkeep")
+            || tp.take("OneOff").as_deref() != Some("True")
+            || !matches!(tp.take("ValidPlayer").as_deref(), None | Some("Player"))
+        {
+            return self.deny(format!("unsupported opening-hand trigger `{trig_name}`"));
+        }
+        let Some(exec_name) = tp.take("Execute") else {
+            return self.deny(format!(
+                "opening-hand trigger without `Execute$` `{trig_name}`"
+            ));
+        };
+        if !tp.exhausted() {
+            return self.deny(format!("unsupported opening-hand trigger `{trig_name}`"));
+        }
+        let Some(exec_raw) = self.svars.get(exec_name.trim()).cloned() else {
+            return self.deny(format!("missing opening-hand execute `{exec_name}`"));
+        };
+        let prev_x = std::mem::replace(&mut self.has_x, false);
+        let prev_spell = std::mem::replace(&mut self.on_a_spell, false);
+        let prev_self = std::mem::replace(&mut self.trigger_is_self, false);
+        let mut chain = Chain::default();
+        let ok = self.chain(&exec_raw, &mut chain);
+        self.has_x = prev_x;
+        self.on_a_spell = prev_spell;
+        self.trigger_is_self = prev_self;
+        ok?;
+        if chain.effects.is_empty() || chain.target.is_some() || chain.second_target.is_some() {
+            return self.deny(format!(
+                "unsupported opening-hand execute chain `{exec_name}`"
+            ));
+        }
+        self.body.abilities.push(format!(
+            "AbilityDef::opening_hand_reveal_at_first_upkeep(&[{}])",
+            chain.effects.join(", ")
+        ));
+        Some(())
+    }
+
+    /// Parses a mana-only cost containing `{X}` without requiring a card-level `SVar:X:Count$xPaid`.
+    fn parse_x_mana_only(&self, keyword: &str, raw: &str) -> Option<String> {
+        let tokens = super::cost_parts(raw);
+        if tokens.is_empty() {
+            return self.deny(format!("an empty `{keyword}` cost"));
+        }
+        let mut mana = String::new();
+        for token in tokens {
+            let t = token.as_str();
+            if t == "X"
+                || t.chars().all(|c| c.is_ascii_digit())
+                || matches!(t, "W" | "U" | "B" | "R" | "G" | "C" | "S")
+            {
+                mana.push('{');
+                mana.push_str(t);
+                mana.push('}');
+            } else if let Some(pair) = super::hybrid_pair(t) {
+                mana.push_str(&pair);
+            } else {
+                return self.deny(format!("a non-mana `{keyword}` cost `{raw}`"));
+            }
+        }
+        if !mana.contains("{X}") || baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+            return self.deny(format!("invalid `{keyword}` mana cost `{raw}`"));
+        }
+        Some(mana)
+    }
+}
+
+fn split_two_top_level_colons(raw: &str) -> Option<(&str, &str)> {
+    let mut depth = 0usize;
+    let mut split_at: Option<usize> = None;
+    for (idx, ch) in raw.char_indices() {
+        match ch {
+            '<' => depth += 1,
+            '>' => depth = depth.saturating_sub(1),
+            ':' if depth == 0 => {
+                if split_at.is_some() {
+                    return None;
+                }
+                split_at = Some(idx);
+            }
+            _ => {}
+        }
+    }
+    let idx = split_at?;
+    Some((&raw[..idx], &raw[idx + 1..]))
+}
+
+fn append_effect_to_spell_macro(expr: &str, extra_effect: &str) -> Option<String> {
+    let prefix = "spell!(&[";
+    if !expr.starts_with(prefix) || !expr.ends_with(')') {
+        return None;
+    }
+    let bytes = expr.as_bytes();
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut close_idx = None;
+    let mut i = prefix.len();
+    while i < bytes.len() {
+        let b = bytes[i];
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if b == b'\\' {
+                escaped = true;
+            } else if b == b'"' {
+                in_string = false;
+            }
+        } else {
+            match b {
+                b'"' => in_string = true,
+                b'[' => depth += 1,
+                b']' => {
+                    if depth == 0 {
+                        close_idx = Some(i);
+                        break;
+                    }
+                    depth -= 1;
+                }
+                _ => {}
+            }
+        }
+        i += 1;
+    }
+    let close_idx = close_idx?;
+    if expr[prefix.len()..close_idx].trim().is_empty() {
+        return None;
+    }
+    let mut out = String::with_capacity(expr.len() + extra_effect.len() + 2);
+    out.push_str(&expr[..close_idx]);
+    out.push_str(", ");
+    out.push_str(extra_effect);
+    out.push_str(&expr[close_idx..]);
+    Some(out)
+}
+
+fn is_spell_either_cost_part(part: &str) -> bool {
+    part.starts_with("PayLife(")
+        || part.starts_with("PayEnergy(")
+        || part.starts_with("Sacrifice(")
+        || part.starts_with("ExilePermanent(")
+        || part.starts_with("ExileFromHand(")
+        || part.starts_with("ExileFromGraveyard(")
+        || part.starts_with("Discard(")
+        || part.starts_with("ReturnToHand(")
+        || part.starts_with("TapOther(")
+        || part.starts_with("TapN {")
+        || part == "Forage"
 }
 
 fn append_ability_condition(expr: &str, cond: &str) -> Option<String> {

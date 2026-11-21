@@ -360,7 +360,7 @@ pub fn read_with_tokens(
     if raw.text_all_colors && colors.as_ref().is_none_or(|c| c.words.len() != 5) {
         return None;
     }
-    let abilities = abilities(
+    let (abilities, extra_keywords) = abilities(
         text,
         &raw.ability_keywords,
         raw.text_all_colors,
@@ -375,13 +375,17 @@ pub fn read_with_tokens(
     {
         return None;
     }
+    let mut render_keywords = raw.keywords.clone();
+    render_keywords.extend(extra_keywords);
+    render_keywords.sort_unstable();
+    render_keywords.dedup();
     let literal = render_token_literal(
         &raw.name,
         colors.as_ref(),
         &types,
         power.zip(toughness),
         raw.defense,
-        &raw.keywords,
+        &render_keywords,
         &abilities,
     );
     let mut keyword_tags: Vec<String> = raw
@@ -656,12 +660,28 @@ fn ability_keyword_slug(kw: &str) -> Option<String> {
     if let Some(rest) = kw.strip_prefix("Annihilator:") {
         return Some(format!("ANNIHILATOR_{}", sanitize_tag(rest)?));
     }
+    if let Some(rest) = kw.strip_prefix("Firebending:") {
+        return Some(format!("FIREBENDING_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Afterlife:") {
+        return Some(format!("AFTERLIFE_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Afflict:") {
+        return Some(format!("AFFLICT_{}", sanitize_tag(rest)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Mobilize:") {
+        return Some(format!("MOBILIZE_{}", sanitize_tag(rest)?));
+    }
     match kw {
         "Exalted" => Some("EXALTED".to_string()),
         "Prevent all damage that would be dealt to CARDNAME." => Some("PREVENT_DAMAGE".to_string()),
         "CARDNAME can only attack alone." => Some("ATTACKS_ALONE".to_string()),
         _ => None,
     }
+}
+
+fn is_numeric_token_param(rest: &str) -> bool {
+    !rest.contains(':') && rest.trim().parse::<u32>().is_ok_and(|n| n >= 1)
 }
 
 fn is_token_ability_keyword(kw: &str) -> bool {
@@ -678,6 +698,18 @@ fn is_token_ability_keyword(kw: &str) -> bool {
         || kw.starts_with("Enchant:")
         || kw.starts_with("Bands with other:")
         || kw.starts_with("Annihilator:")
+        || kw
+            .strip_prefix("Firebending:")
+            .is_some_and(is_numeric_token_param)
+        || kw
+            .strip_prefix("Afterlife:")
+            .is_some_and(is_numeric_token_param)
+        || kw
+            .strip_prefix("Afflict:")
+            .is_some_and(is_numeric_token_param)
+        || kw
+            .strip_prefix("Mobilize:")
+            .is_some_and(is_numeric_token_param)
         || matches!(
             kw,
             "Exalted"
@@ -718,6 +750,7 @@ const GENERATED_NESTED_TOKENS: &[&str] = &[
     "DRAGON_2_2_RED_FLYING",
     "KRAKEN_9_9_BLUE",
     "RABBIT_1_1_WHITE",
+    "SPIRIT_1_1_WHITE_BLACK_FLYING",
 ];
 
 fn rewrite_nested_token_refs(abilities: &mut [String]) -> bool {
@@ -757,7 +790,7 @@ fn abilities(
     cats: &SubtypeCatalogs,
     tokens: Option<&TokenLookup>,
     modules: &mut Vec<String>,
-) -> Option<Vec<String>> {
+) -> Option<(Vec<String>, Vec<&'static str>)> {
     let cleaned;
     let source = if strip_all_colors_text {
         cleaned = text
@@ -771,7 +804,7 @@ fn abilities(
     };
     let mut script = crate::scriptgen::parse(source);
     if script.rules.is_empty() && script.svars.is_empty() && ability_keywords.is_empty() {
-        return Some(Vec::new());
+        return Some((Vec::new(), Vec::new()));
     }
     // A head this module read is not a head the transcoder may read again,
     // and a head neither of them knows has already refused the token above
@@ -785,10 +818,20 @@ fn abilities(
     }
     script.keywords = ability_keywords.to_vec();
     let body = crate::scriptgen::transcode(&script, cats, tokens)?;
+    let mut extra_keywords = Vec::new();
+    for kw in &body.keywords {
+        let bit = match kw.as_str() {
+            "KeywordSet::FIREBENDING" => "KeywordSet::FIREBENDING",
+            "KeywordSet::AFTERLIFE" => "KeywordSet::AFTERLIFE",
+            "KeywordSet::AFFLICT" => "KeywordSet::AFFLICT",
+            "KeywordSet::MOBILIZE" => "KeywordSet::MOBILIZE",
+            _ => return None,
+        };
+        extra_keywords.push(bit);
+    }
     if !body.enter_modifiers.is_empty()
         || !body.alternative_costs.is_empty()
         || !body.mandatory_additional_costs.is_empty()
-        || !body.keywords.is_empty()
         || body.convoke
         || body.delve
         || body.improvise
@@ -835,7 +878,7 @@ fn abilities(
         return None;
     }
     rewrite_subtypes(&mut abilities, modules)?;
-    Some(abilities)
+    Some((abilities, extra_keywords))
 }
 
 fn inline_statics(statics: &str, abilities: &mut [String]) -> Option<()> {
@@ -2392,6 +2435,103 @@ mod tests {
             "Name:LureToken\nColors:green\nTypes:Creature Soldier\nPT:3/3\nK:CARDNAME must be blocked if able.",
             "Name:MayFlashToken\nColors:blue\nTypes:Creature Soldier\nPT:1/1\nK:MayFlashCost:2",
             "Name:PartnerSelToken\nColors:white\nTypes:Creature Soldier\nPT:2/2\nK:Partner:Character select",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
+        }
+    }
+
+    #[test]
+    fn wave18c_umbra_firebending_afterlife_afflict_mobilize_tokens() {
+        let c = cats();
+        let mask = read(
+            "Name:Mask\nColors:white\nTypes:Enchantment Aura\n\
+             K:Enchant:Permanent:permanent\nK:Umbra armor",
+            &c,
+        )
+        .expect("Umbra armor Aura token");
+        assert!(
+            mask.literal.contains("KeywordSet::UMBRA_ARMOR")
+                && mask.literal.contains("Effect::AttachSelf"),
+            "{}",
+            mask.literal
+        );
+
+        let fb1 = read(
+            "Name:Soldier Token\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Firebending:1",
+            &c,
+        )
+        .expect("Firebending 1 token");
+        assert_eq!(fb1.constant, "SOLDIER_2_2_RED_FIREBENDING_1");
+        assert!(
+            fb1.literal.contains("KeywordSet::FIREBENDING")
+                && fb1.literal.contains("Effect::Firebend(Amount::Fixed(1))"),
+            "{}",
+            fb1.literal
+        );
+
+        let fb4 = read(
+            "Name:Bird Token\nColors:red\nTypes:Creature Bird\nPT:4/4\nK:Flying\nK:Firebending:4",
+            &c,
+        )
+        .expect("Flying Firebending 4 token");
+        assert_eq!(fb4.constant, "BIRD_4_4_RED_FIREBENDING_4_FLYING");
+        assert!(
+            fb4.literal
+                .contains("KeywordSet::FIREBENDING.union(KeywordSet::FLYING)")
+                && fb4.literal.contains("Effect::Firebend(Amount::Fixed(4))"),
+            "{}",
+            fb4.literal
+        );
+
+        let afterlife = read(
+            "Name:Pest Token\nColors:black\nTypes:Creature Pest\nPT:1/1\nK:Afterlife:1",
+            &c,
+        )
+        .expect("Afterlife 1 token");
+        assert_eq!(afterlife.constant, "PEST_1_1_BLACK_AFTERLIFE_1");
+        assert!(
+            afterlife.literal.contains("KeywordSet::AFTERLIFE")
+                && afterlife
+                    .literal
+                    .contains("token: &SPIRIT_1_1_WHITE_BLACK_FLYING"),
+            "{}",
+            afterlife.literal
+        );
+
+        let afflict = read(
+            "Name:Soldier Token\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Afflict:2",
+            &c,
+        )
+        .expect("Afflict 2 token");
+        assert_eq!(afflict.constant, "SOLDIER_2_2_RED_AFFLICT_2");
+        assert!(
+            afflict.literal.contains("KeywordSet::AFFLICT")
+                && afflict.literal.contains("Trigger::BecomesBlocked"),
+            "{}",
+            afflict.literal
+        );
+
+        let mobilize = read(
+            "Name:Soldier Token\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Mobilize:2",
+            &c,
+        )
+        .expect("Mobilize 2 token");
+        assert_eq!(mobilize.constant, "SOLDIER_2_2_RED_MOBILIZE_2");
+        assert!(
+            mobilize.literal.contains("KeywordSet::MOBILIZE")
+                && mobilize.literal.contains("Effect::mobilize(2)"),
+            "{}",
+            mobilize.literal
+        );
+
+        for unsupported in [
+            "Name:Soldier Token\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Firebending:X\nSVar:X:Count$CardPower",
+            "Name:Soldier Token\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Mobilize:X\nSVar:X:Count$Valid Creature.YouCtrl",
+            "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:0/0\nK:Graft:1",
+            "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:0/0\nK:Sunburst",
+            "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:2/2\nK:Tribute:2",
+            "Name:Soldier Token\nColors:blue\nTypes:Creature Soldier\nPT:2/2\nK:Sneak:1 U",
+            "Name:Soldier Token\nColors:blue\nTypes:Creature Soldier\nPT:2/2\nK:Transmute:1 U U",
         ] {
             assert!(read(unsupported, &c).is_none(), "{unsupported}");
         }

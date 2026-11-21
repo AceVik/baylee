@@ -302,6 +302,7 @@ pub(super) fn keyword_const(line: &str) -> Option<&'static str> {
         "Evolve" => "KeywordSet::EVOLVE",
         "Riot" => "KeywordSet::RIOT",
         "Unleash" => "KeywordSet::UNLEASH",
+        "Umbra armor" | "Umbra Armor" => "KeywordSet::UMBRA_ARMOR",
         _ => return None,
     })
 }
