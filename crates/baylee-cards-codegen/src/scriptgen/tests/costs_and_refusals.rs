@@ -4182,7 +4182,7 @@ fn wave14a_engines_bushido_soulshift_reconfigure_and_attach_tokens() {
         "Name:BushZero\nManaCost:W\nTypes:Creature\nPT:1/1\nK:Bushido:0",
         "Name:ShiftX\nManaCost:2 G\nTypes:Creature\nPT:1/1\nK:Soulshift:X",
         "Name:ReconfEmpty\nManaCost:2\nTypes:Artifact Equipment\nK:Reconfigure:",
-        "Name:RetraceSpell\nManaCost:1 G\nTypes:Sorcery\nK:Retrace\nA:SP$ Draw | NumCards$ 1",
+        "Name:RetraceLand\nTypes:Land\nK:Retrace",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
@@ -4621,6 +4621,86 @@ fn wave16a_spree_charms_and_refusals() {
          A:SP$ Charm | Choices$ M1,M2 | MinCharmNum$ 1 | CharmNum$ 2\n\
          SVar:M1:DB$ Draw | NumCards$ 1 | ModeCost$ X\n\
          SVar:M2:DB$ GainLife | LifeAmount$ 2 | ModeCost$ 1\nSVar:X:Count$xPaid",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave17a_retrace_monstrosity_cost_plumbing_and_refusals() {
+    let retrace_sorcery = read(
+        "Name:BogChant\nManaCost:B B\nTypes:Sorcery\nK:Retrace\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(retrace_sorcery.keywords, ["KeywordSet::RETRACE"]);
+
+    let retrace_instant = read(
+        "Name:SparkJab\nManaCost:R\nTypes:Instant\nK:Retrace\n\
+         A:SP$ DealDamage | NumDmg$ 1 | ValidTgts$ Any",
+    );
+    assert_eq!(retrace_instant.keywords, ["KeywordSet::RETRACE"]);
+
+    let retrace_perm = read("Name:GraveRelic\nManaCost:2 G\nTypes:Enchantment\nK:Retrace");
+    assert_eq!(retrace_perm.keywords, ["KeywordSet::RETRACE"]);
+
+    let xx_cost = read(
+        "Name:GiantHydra\nManaCost:4 G\nTypes:Creature Hydra\nPT:4/4\n\
+         A:AB$ PutCounter | Cost$ X X G | Defined$ Self | CounterType$ P1P1 | CounterNum$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        xx_cost.abilities[0].contains(r#"cost!("{X}{X}{G}")"#),
+        "{:?}",
+        xx_cost.abilities
+    );
+
+    let snow_cost = read(
+        "Name:FrostGiant\nManaCost:5 R\nTypes:Creature Giant\nPT:5/5\n\
+         A:AB$ PutCounter | Cost$ 4 S S | Defined$ Self | CounterType$ P1P1 | CounterNum$ 3",
+    );
+    assert!(
+        snow_cost.abilities[0].contains(r#"cost!("{4}{S}{S}")"#),
+        "{:?}",
+        snow_cost.abilities
+    );
+
+    let grave_reduce = read(
+        "Name:CryptBehemoth\nManaCost:4 B B\nTypes:Creature Demon\nPT:5/5\n\
+         A:AB$ PutCounter | Cost$ 6 B B | Defined$ Self | CounterType$ P1P1 | CounterNum$ 4 | ReduceCost$ X\n\
+         SVar:X:Count$ValidGraveyard Creature.YouCtrl",
+    );
+    assert!(
+        grave_reduce.abilities[0].contains("CostReduction::PerCount")
+            && grave_reduce.abilities[0].contains("ZoneSel::GraveyardOf(PlayerRel::You)"),
+        "{:?}",
+        grave_reduce.abilities
+    );
+
+    let opp_reduce = read(
+        "Name:ColossusFoe\nManaCost:4 G G\nTypes:Creature Colossus\nPT:6/6\n\
+         A:AB$ PutCounter | Cost$ 6 G | Defined$ Self | CounterType$ P1P1 | CounterNum$ 4 | ReduceCost$ X\n\
+         SVar:X:Count$Valid Creature.OppCtrl+powerGE4",
+    );
+    assert!(
+        opp_reduce.abilities[0].contains("CostReduction::PerCount"),
+        "{:?}",
+        opp_reduce.abilities
+    );
+
+    for bad in [
+        "Name:RetraceLand\nTypes:Land\nK:Retrace",
+        "Name:TypelessRetrace\nK:Retrace",
+        "Name:DupRetrace\nManaCost:R\nTypes:Sorcery\nK:Retrace\nK:Retrace\nA:SP$ Draw | NumCards$ 1",
+        "Name:ParamRetrace\nManaCost:R\nTypes:Sorcery\nK:Retrace:2\nA:SP$ Draw | NumCards$ 1",
+        "Name:LureBeast\nManaCost:2 G\nTypes:Creature Beast\nPT:3/3\nK:CARDNAME must be blocked if able.",
+        "Name:SoloBeast\nManaCost:2 W\nTypes:Creature Beast\nPT:3/3\nK:CARDNAME can't attack alone.",
+        "Name:TwoBlockBeast\nManaCost:3 G\nTypes:Creature Beast\nPT:4/4\nK:CARDNAME must be blocked by two or more creatures if able.",
+        "Name:FlashExtra\nManaCost:1 U\nTypes:Creature Bird\nPT:2/2\nK:MayFlashCost:2",
+        "Name:SelPartner\nManaCost:2 W\nTypes:Legendary Creature Human\nPT:2/2\nK:Partner:Character select",
+        "Name:HexBlack\nManaCost:1 U\nTypes:Creature Drake\nPT:2/2\nK:Hexproof:Black",
+        "Name:UncomparedCount\nManaCost:2 G\nTypes:Creature Beast\nPT:2/2\n\
+         K:etbCounter:P1P1:1:CheckSVar$ L\nSVar:L:Count$Valid Creature.YouCtrl",
+        "Name:UnknownCounterKind\nManaCost:2 U\nTypes:Artifact\nK:etbCounter:OMEN:1",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }

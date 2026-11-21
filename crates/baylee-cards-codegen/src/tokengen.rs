@@ -237,6 +237,8 @@ fn single_instance_trigger_keyword(kw: &str) -> Option<&'static str> {
         "Soulbond" => Some("KeywordSet::SOULBOND"),
         "Exploit" => Some("KeywordSet::EXPLOIT"),
         "Evolve" => Some("KeywordSet::EVOLVE"),
+        "Riot" => Some("KeywordSet::RIOT"),
+        "Unleash" => Some("KeywordSet::UNLEASH"),
         _ => None,
     }
 }
@@ -2351,6 +2353,45 @@ mod tests {
             "Name:DevourToken\nColors:red\nTypes:Creature Soldier\nPT:3/3\nK:Devour:2",
             "Name:SpreeToken\nColors:red\nTypes:Creature Soldier\nPT:1/1\nK:Spree",
             "Name:CraftToken\nColors:white\nTypes:Artifact\nK:Craft:2 ExileCtrlOrGrave<1/Artifact.Other>",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
+        }
+    }
+
+    #[test]
+    fn wave17a_riot_unleash_and_retrace_refusals() {
+        let c = cats();
+        let riot_tok = read(
+            "Name:RiotToken\nColors:red,green\nTypes:Creature Soldier\nPT:2/2\nK:Riot",
+            &c,
+        )
+        .expect("single Riot token");
+        assert!(
+            riot_tok.literal.contains("KeywordSet::RIOT"),
+            "{}",
+            riot_tok.literal
+        );
+
+        let unleash_tok = read(
+            "Name:UnleashToken\nColors:black,red\nTypes:Creature Soldier\nPT:1/1\nK:Unleash",
+            &c,
+        )
+        .expect("single Unleash token");
+        assert!(
+            unleash_tok.literal.contains("KeywordSet::UNLEASH"),
+            "{}",
+            unleash_tok.literal
+        );
+
+        for unsupported in [
+            "Name:RetraceToken\nColors:green\nTypes:Creature Soldier\nPT:2/2\nK:Retrace",
+            "Name:DupRiot\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Riot\nK:Riot",
+            "Name:DupUnleash\nColors:black\nTypes:Creature Soldier\nPT:1/1\nK:Unleash\nK:Unleash",
+            "Name:BadRiot\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Riot:2",
+            "Name:BadUnleash\nColors:black\nTypes:Creature Soldier\nPT:1/1\nK:Unleash:1",
+            "Name:LureToken\nColors:green\nTypes:Creature Soldier\nPT:3/3\nK:CARDNAME must be blocked if able.",
+            "Name:MayFlashToken\nColors:blue\nTypes:Creature Soldier\nPT:1/1\nK:MayFlashCost:2",
+            "Name:PartnerSelToken\nColors:white\nTypes:Creature Soldier\nPT:2/2\nK:Partner:Character select",
         ] {
             assert!(read(unsupported, &c).is_none(), "{unsupported}");
         }

@@ -218,6 +218,12 @@ pub(super) fn keyword_atom(atom: &str) -> Option<String> {
     let direct_kw = match name {
         "Modular" => Some("KeywordSet::MODULAR"),
         "Renown" => Some("KeywordSet::RENOWN"),
+        "Partner" => Some("KeywordSet::PARTNER"),
+        "Retrace" => Some("KeywordSet::RETRACE"),
+        "Warp" => Some("KeywordSet::WARP"),
+        "Bloodthirst" => Some("KeywordSet::BLOODTHIRST"),
+        "Devour" => Some("KeywordSet::DEVOUR"),
+        "Spree" => Some("KeywordSet::SPREE"),
         _ => None,
     };
     let kw_bit = if let Some(bit) = direct_kw {
@@ -271,6 +277,10 @@ pub(super) fn keyword_atom(atom: &str) -> Option<String> {
             "Nightbound",
             "Split Second",
             "Read Ahead",
+            "Exploit",
+            "Evolve",
+            "Riot",
+            "Unleash",
         ]
         .into_iter()
         .find(|p| p.replace(' ', "") == name)?;

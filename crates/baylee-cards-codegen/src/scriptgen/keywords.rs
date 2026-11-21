@@ -197,6 +197,9 @@ impl Tx<'_> {
         if line == "Jump-start" {
             return self.jump_start();
         }
+        if line.trim() == "Retrace" {
+            return self.retrace();
+        }
         if line == "Aftermath" {
             return self.aftermath();
         }
@@ -350,6 +353,9 @@ impl Tx<'_> {
         if line.trim() == "Evolve" {
             self.require_creature_permanent("Evolve")?;
         }
+        if matches!(line.trim(), "Riot" | "Unleash") {
+            self.require_permanent_keyword(line.trim())?;
+        }
         if let Some(bit) = keyword_const(line) {
             if bit == "KeywordSet::PROWESS" && self.body.keywords.iter().any(|k| k == bit) {
                 let expr = self.filter_expr("Card.nonCreature+YouCtrl")?;
@@ -375,10 +381,13 @@ impl Tx<'_> {
                     | "KeywordSet::SOULBOND"
                     | "KeywordSet::EXPLOIT"
                     | "KeywordSet::EVOLVE"
+                    | "KeywordSet::RIOT"
+                    | "KeywordSet::UNLEASH"
             ) && self.body.keywords.iter().any(|k| k == bit)
             {
-                // CR 702.116b / CR 702.101b / CR 702.154c / CR 702.95d: duplicate instances
-                // register separately for `layers::keyword_instances`.
+                // CR 702.116b / CR 702.101b / CR 702.154c / CR 702.95d /
+                // CR 702.98b / CR 702.136b: duplicate instances register
+                // separately for `layers::keyword_instances`.
                 self.body.abilities.push(Self::static_expr(
                     "Filter::This",
                     &format!("Modifier::AddKeyword({bit})"),
@@ -1954,6 +1963,25 @@ impl Tx<'_> {
         }
         self.body.jump_start = true;
         self.body.notes.push("jump-start".to_string());
+        Some(())
+    }
+
+    /// `K:Retrace` (`CR 702.81a`): non-land card castable from the graveyard by
+    /// discarding a land card in addition to paying its other costs.
+    fn retrace(&mut self) -> Option<()> {
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`Retrace` on a land or typeless card".to_string());
+        }
+        if self
+            .body
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::RETRACE")
+        {
+            return self.deny("a second `Retrace` on one card".to_string());
+        }
+        self.body.keywords.push("KeywordSet::RETRACE".to_string());
+        self.body.notes.push("retrace".to_string());
         Some(())
     }
 

@@ -142,9 +142,9 @@ fn anything_unread_refuses_the_whole_card() {
     ));
     // A keyword that is data rather than a bit, and that no rule reads.
     // This was `K:Cycling:2`, then `K:TypeCycling:Basic:2`, then
-    // `K:Ninjutsu:1 U` until each rule read them; the example stays a
-    // parameterized keyword that is still unmodeled here.
-    assert!(refused("Name:X\nTypes:Instant\nK:Retrace"));
+    // `K:Ninjutsu:1 U`, then `K:Retrace` until each rule read them; the
+    // example stays a parameterized keyword that is still unmodeled here.
+    assert!(refused("Name:X\nTypes:Instant\nK:MayFlashCost:2"));
     // A line kind with rules in it that this module does not model.
     assert!(refused(
         "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
@@ -1295,5 +1295,92 @@ fn wave16a_etb_counter_escaped_and_compare_x_unlocks() {
          K:etbCounter:P1P1:Count$Compare X LT5.X.Z\nSVar:X:Count$xPaid\nSVar:Z:Count$xPaid/Twice",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave17a_riot_unleash_and_keyword_atoms() {
+    let single_riot = read("Name:RiotBrute\nManaCost:1 R G\nTypes:Creature Ogre\nPT:3/3\nK:Riot");
+    assert_eq!(single_riot.keywords, ["KeywordSet::RIOT"]);
+    assert!(single_riot.abilities.is_empty());
+
+    let dup_riot =
+        read("Name:TwinRiot\nManaCost:2 R G\nTypes:Creature Beast\nPT:4/4\nK:Riot\nK:Riot");
+    assert_eq!(dup_riot.keywords, ["KeywordSet::RIOT"]);
+    assert_eq!(
+        dup_riot.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::RIOT))"]
+    );
+
+    let single_unleash =
+        read("Name:ClownFiend\nManaCost:B R\nTypes:Creature Devil\nPT:2/1\nK:Unleash");
+    assert_eq!(single_unleash.keywords, ["KeywordSet::UNLEASH"]);
+    assert!(single_unleash.abilities.is_empty());
+
+    let dup_unleash =
+        read("Name:TwinUnleash\nManaCost:3 B\nTypes:Creature Horror\nPT:3/3\nK:Unleash\nK:Unleash");
+    assert_eq!(dup_unleash.keywords, ["KeywordSet::UNLEASH"]);
+    assert_eq!(
+        dup_unleash.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::UNLEASH))"]
+    );
+
+    let perm_artifact = read("Name:RiotCart\nManaCost:2\nTypes:Artifact\nK:Riot\nK:Unleash");
+    assert_eq!(
+        perm_artifact.keywords,
+        ["KeywordSet::RIOT", "KeywordSet::UNLEASH"]
+    );
+
+    for bad in [
+        "Name:LandRiot\nTypes:Land\nK:Riot",
+        "Name:SpellRiot\nManaCost:R\nTypes:Sorcery\nK:Riot\nA:SP$ Draw | NumCards$ 1",
+        "Name:LandUnleash\nTypes:Land\nK:Unleash",
+        "Name:SpellUnleash\nManaCost:B\nTypes:Instant\nK:Unleash\nA:SP$ Draw | NumCards$ 1",
+        "Name:ParamRiot\nManaCost:1 R\nTypes:Creature Warrior\nPT:2/2\nK:Riot:2",
+        "Name:ParamUnleash\nManaCost:1 B\nTypes:Creature Devil\nPT:2/1\nK:Unleash:1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+
+    for (atom, expected) in [
+        (
+            "Creature.withRiot",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::RIOT)])",
+        ),
+        (
+            "Creature.withoutUnleash",
+            "Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::HasKeyword(KeywordSet::UNLEASH))])",
+        ),
+        (
+            "Creature.withPartner",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::PARTNER)])",
+        ),
+        (
+            "Card.withRetrace",
+            "Filter::HasKeyword(KeywordSet::RETRACE)",
+        ),
+        (
+            "Creature.withWarp",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::WARP)])",
+        ),
+        (
+            "Creature.withBloodthirst",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::BLOODTHIRST)])",
+        ),
+        (
+            "Creature.withDevour",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::DEVOUR)])",
+        ),
+        ("Card.withSpree", "Filter::HasKeyword(KeywordSet::SPREE)"),
+        (
+            "Creature.withExploit",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::EXPLOIT)])",
+        ),
+        (
+            "Creature.withEvolve",
+            "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::EVOLVE)])",
+        ),
+    ] {
+        assert_eq!(filter(atom), expected, "{atom}");
     }
 }

@@ -300,6 +300,8 @@ pub(super) fn keyword_const(line: &str) -> Option<&'static str> {
         "Soulbond" => "KeywordSet::SOULBOND",
         "Exploit" => "KeywordSet::EXPLOIT",
         "Evolve" => "KeywordSet::EVOLVE",
+        "Riot" => "KeywordSet::RIOT",
+        "Unleash" => "KeywordSet::UNLEASH",
         _ => return None,
     })
 }
