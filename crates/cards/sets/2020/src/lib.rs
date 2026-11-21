@@ -661,6 +661,8 @@ pub mod meteoric_mace;
 pub mod might_of_murasa;
 #[path = "iko/migration_path.rs"]
 pub mod migration_path;
+#[path = "znr/mind_carver.rs"]
+pub mod mind_carver;
 #[path = "znr/mind_drain.rs"]
 pub mod mind_drain;
 #[path = "thb/mindwrack_harpy.rs"]
@@ -857,6 +859,8 @@ pub mod reconnaissance_mission;
 pub mod rejuvenating_springs;
 #[path = "jmp/release_the_dogs.rs"]
 pub mod release_the_dogs;
+#[path = "znr/relic_axe.rs"]
+pub mod relic_axe;
 #[path = "znr/relic_golem.rs"]
 pub mod relic_golem;
 #[path = "pznr/relic_robber.rs"]
@@ -1001,6 +1005,8 @@ pub mod shipwreck_dowser;
 pub mod shoal_kraken;
 #[path = "iko/shredded_sails.rs"]
 pub mod shredded_sails;
+#[path = "cmr/siani_eye_of_the_storm.rs"]
+pub mod siani_eye_of_the_storm;
 #[path = "m21/sigiled_contender.rs"]
 pub mod sigiled_contender;
 #[path = "znr/silundi_vision.rs"]
@@ -1253,6 +1259,8 @@ pub mod turntimber_ascetic;
 pub mod turntimber_symbiosis;
 #[path = "m21/twinblade_assassins.rs"]
 pub mod twinblade_assassins;
+#[path = "pthb/tymaret_calls_the_dead.rs"]
+pub mod tymaret_calls_the_dead;
 #[path = "c20/ukkima_stalking_shadow.rs"]
 pub mod ukkima_stalking_shadow;
 #[path = "znr/umara_mystic.rs"]

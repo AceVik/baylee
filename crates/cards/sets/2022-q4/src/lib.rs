@@ -117,6 +117,8 @@ pub mod company_commander;
 pub mod conductor_of_cacophony;
 #[path = "bro/conscripted_infantry.rs"]
 pub mod conscripted_infantry;
+#[path = "40k/convergence_of_dominion.rs"]
+pub mod convergence_of_dominion;
 #[path = "bro/cradle_clearcutter.rs"]
 pub mod cradle_clearcutter;
 #[path = "40k/cryptothrall.rs"]
@@ -453,6 +455,8 @@ pub mod space_marine_scout;
 pub mod spectral_hunt_caller;
 #[path = "bro/spectrum_sentinel.rs"]
 pub mod spectrum_sentinel;
+#[path = "bro/spotter_thopter.rs"]
+pub mod spotter_thopter;
 #[path = "brc/staff_of_titania.rs"]
 pub mod staff_of_titania;
 #[path = "bro/static_net.rs"]

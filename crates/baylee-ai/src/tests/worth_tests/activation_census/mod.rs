@@ -609,7 +609,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Pass E11 (207 generated cards after holding back 3 reader/validate-gap
     // cards) adds 40 non-mana activations: 31 read by the table and 9
     // remaining contextual.
-    assert_eq!((read, of), (5030, 6440), "activated/loyalty reader census");
+    // Pass E12 (110 generated cards after holding back Rikala, Homarid King,
+    // plus Wave 17b Patriarch's Desire stub upgrade) adds 38 non-mana
+    // activations: 36 read by the table and 2 remaining contextual.
+    assert_eq!((read, of), (5066, 6478), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

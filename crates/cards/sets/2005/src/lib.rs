@@ -31,6 +31,8 @@ pub mod araba_mothrider;
 pub mod arashi_the_sky_asunder;
 #[path = "bok/ashen_monstrosity.rs"]
 pub mod ashen_monstrosity;
+#[path = "sok/ashes_of_the_fallen.rs"]
+pub mod ashes_of_the_fallen;
 #[path = "rav/autochthon_wurm.rs"]
 pub mod autochthon_wurm;
 #[path = "sok/ayumi_the_last_visitor.rs"]

@@ -29,6 +29,8 @@ pub mod aeromoeba;
 pub mod aeve_progenitor_ooze;
 #[path = "stx/ageless_guardian.rs"]
 pub mod ageless_guardian;
+#[path = "c21/alibou_ancient_witness.rs"]
+pub mod alibou_ancient_witness;
 #[path = "c21/angel_of_the_ruins.rs"]
 pub mod angel_of_the_ruins;
 #[path = "mh2/arcbound_mouser.rs"]
@@ -37,6 +39,8 @@ pub mod arcbound_mouser;
 pub mod arcbound_prototype;
 #[path = "mh2/arcbound_shikari.rs"]
 pub mod arcbound_shikari;
+#[path = "mh2/arcbound_slasher.rs"]
+pub mod arcbound_slasher;
 #[path = "mh2/arcbound_whelp.rs"]
 pub mod arcbound_whelp;
 #[path = "mh2/archfiend_of_sorrows.rs"]

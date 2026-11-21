@@ -561,6 +561,8 @@ pub mod jhessian_thief;
 pub mod kalastria_healer;
 #[path = "bfz/kalastria_nightwatch.rs"]
 pub mod kalastria_nightwatch;
+#[path = "c15/kalemne_s_captain.rs"]
+pub mod kalemne_s_captain;
 #[path = "c15/karlov_of_the_ghost_council.rs"]
 pub mod karlov_of_the_ghost_council;
 #[path = "bfz/kitesail_scout.rs"]

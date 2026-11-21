@@ -48,6 +48,7 @@ never a reason to edit a card by hand.
 - Swashbuckler's Whip: its compound Equipment grant leaves `Modifier::GrantActivated` (`Discover 10`) without a printed line in `generated_lines.rs` (`lines::tests::every_grant_is_found_on_its_own_face`).
 - Reroute: `scriptgen` emits nonexistent `TargetSpec::ActivatedAbility` instead of `TargetSpec::AbilityOnStack` for `"target activated ability with a single target"`.
 - Redirect, Sideswipe: print `"You may choose/change ... target(s)"` and lower to bare `Effect::ChooseNewTargets` without `MayDo`, tripping `xtask validate`'s optional-clause check.
+- Rikala, Homarid King: corpus script erroneously marks its mandatory upkeep tide-counter trigger optional (`OptionalDecider$ You`), wrapping the entire trigger in `Effect::MayDo`.
 
 ## Engine gaps
 

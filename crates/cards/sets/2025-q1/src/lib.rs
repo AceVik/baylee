@@ -147,6 +147,8 @@ pub mod jibbirik_omnivore;
 pub mod kalakscion_hunger_tyrant;
 #[path = "dft/leonin_surveyor.rs"]
 pub mod leonin_surveyor;
+#[path = "dft/lifecraft_engine.rs"]
+pub mod lifecraft_engine;
 #[path = "dft/lightshield_parry.rs"]
 pub mod lightshield_parry;
 #[path = "dft/locust_spray.rs"]
@@ -199,6 +201,8 @@ pub mod pothole_mole;
 pub mod pride_of_the_road;
 #[path = "dft/quag_feast.rs"]
 pub mod quag_feast;
+#[path = "dft/racers_scoreboard.rs"]
+pub mod racers_scoreboard;
 #[path = "dft/reef_roads.rs"]
 pub mod reef_roads;
 #[path = "dft/regal_imperiosaur.rs"]

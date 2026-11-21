@@ -31,6 +31,8 @@ pub mod aragorn_the_uniter;
 pub mod artistic_refusal;
 #[path = "ltr/arwen_s_gift.rs"]
 pub mod arwen_s_gift;
+#[path = "ltr/arwen_undomiel.rs"]
+pub mod arwen_undomiel;
 #[path = "ltr/assault_on_osgiliath.rs"]
 pub mod assault_on_osgiliath;
 #[path = "mom/astral_wingspan.rs"]
@@ -81,6 +83,8 @@ pub mod campus_renovation;
 pub mod captain_of_umbar;
 #[path = "ltr/cast_into_the_fire.rs"]
 pub mod cast_into_the_fire;
+#[path = "ltr/chance_met_elves.rs"]
+pub mod chance_met_elves;
 #[path = "mom/change_the_equation.rs"]
 pub mod change_the_equation;
 #[path = "moc/chivalric_alliance.rs"]
@@ -357,6 +361,8 @@ pub mod locthwain_lancer;
 pub mod lorien_revealed;
 #[path = "ltc/lossarnach_captain.rs"]
 pub mod lossarnach_captain;
+#[path = "ltr/lost_isle_calling.rs"]
+pub mod lost_isle_calling;
 #[path = "ltr/lothlorien_lookout.rs"]
 pub mod lothlorien_lookout;
 #[path = "ltr/lotho_corrupt_shirriff.rs"]
@@ -417,6 +423,8 @@ pub mod nesting_dovehawk;
 pub mod nezumi_informant;
 #[path = "ltr/nimble_hobbit.rs"]
 pub mod nimble_hobbit;
+#[path = "ltr/nimrodel_watcher.rs"]
+pub mod nimrodel_watcher;
 #[path = "mat/nissa_resurgent_animist.rs"]
 pub mod nissa_resurgent_animist;
 #[path = "ltc/oath_of_eorl.rs"]
@@ -629,6 +637,8 @@ pub mod treebeard_gracious_host;
 pub mod tribute_to_the_world_tree;
 #[path = "ltr/troll_of_khazad_dum.rs"]
 pub mod troll_of_khazad_dum;
+#[path = "moc/uncivil_unrest.rs"]
+pub mod uncivil_unrest;
 #[path = "mom/unseal_the_necropolis.rs"]
 pub mod unseal_the_necropolis;
 #[path = "mom/urn_of_godfire.rs"]

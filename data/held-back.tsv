@@ -63,6 +63,7 @@ de6e4aa2-23f1-46e5-a061-05522944e0c6	For the Common Good	lint-gap: target_reuse 
 997f5a5a-9ee1-4b66-9ffc-d1a2e996e615	Reroute	reader-gap: scriptgen emits nonexistent TargetSpec::ActivatedAbility instead of TargetSpec::AbilityOnStack with an activated-ability filter (Pass E11)
 74a7d880-5a49-412b-af4d-0b4cdb8453ee	Redirect	lint-gap: validate optional clause check does not treat bare Effect::ChooseNewTargets without MayDo as asking "you may" (Pass E11)
 07180afc-5c63-42e0-907b-0ed52f777165	Sideswipe	lint-gap: validate optional clause check does not treat bare Effect::ChooseNewTargets without MayDo as asking "you may" (Pass E11)
+45284633-8aab-4078-ae5c-7b0d75efe2f5	Rikala, Homarid King	reader-gap: corpus script marks mandatory upkeep tide-counter trigger optional (Effect::MayDo) despite no "you may" in Oracle (Pass E12)
 
 # Engine gaps
 9843d8a6-bcbf-40c2-8c41-316e97db9c62	Shallow Grave	engine-gap: held-back stub awaiting completion and test

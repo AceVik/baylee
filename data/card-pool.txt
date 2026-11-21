@@ -21610,3 +21610,113 @@ Darwin, Adaptive Mutant
 Hawkeye's Bow
 Hulk, Strongest There Is
 Samut, Tyrant of Naktamun
+Ashes of the Fallen
+Anthem of Rakdos
+Grand Arbiter Augustin IV
+Pact of the Titan
+Slaughter Pact
+Summoner's Pact
+Witherscale Wurm
+Call the Skybreaker
+Cenn's Enlistment
+Flame Jab
+Monstrify
+Oona's Grace
+Raven's Crime
+Savage Conception
+Spitting Image
+Syphon Life
+Worm Harvest
+Spire Serpent
+Xenograft
+Stonehorn Dignitary
+Bloodfray Giant
+Carnival Hellsteed
+Chaos Imps
+Dead Reveler
+Gore-House Chainwalker
+Grim Roustabout
+Hellhole Flailer
+Rakdos Cackler
+Spawn of Rix Maadi
+Splatter Thug
+Thrill-Kill Assassin
+Exava, Rakdos Blood Witch
+Rakdos Drake
+Ember Swallower
+Shipbreaker Kraken
+Arbor Colossus
+Colossus of Akros
+Flamespeaker Adept
+Fleecemane Lion
+Hundred-Handed One
+Hythonia the Cruel
+Ill-Tempered Cyclops
+Keepsake Gorgon
+Nemesis of Mortals
+Nessian Asp
+Stoneshock Giant
+Stormbreath Dragon
+Fleetfeather Cockatrice
+Gluttonous Cyclops
+Knowledge and Power
+Ravenous Leucrocota
+Wildfire Cerberus
+Kalemne's Captain
+Oath of Jace
+Domesticated Hydra
+Sinuous Vermin
+Skittering Crustacean
+Splitting Slime
+Burning-Tree Vandal
+Clamor Shaman
+Frenzied Arynx
+Ghor-Clan Wrecker
+Gruul Beastmaster
+Gruul Spellbreaker
+Rampaging Rendhorn
+Wrecking Beast
+Zhur-Taa Goblin
+God-Pharaoh's Statue
+Chillerpillar
+So Tiny
+Tymaret Calls the Dead
+Mind Carver
+Relic Axe
+Siani, Eye of the Storm
+Graven Lore
+Alibou, Ancient Witness
+Arcbound Slasher
+Geistlight Snare
+Assassin's Ink
+Convergence of Dominion
+Spotter Thopter
+Archfiend of the Dross
+Uncivil Unrest
+Arwen Undómiel
+Chance-Met Elves
+Lost Isle Calling
+Nimrodel Watcher
+Deeproot Historian
+Grim Giganotosaurus
+Barbed Servitor
+Caught Red-Handed
+Convenient Target
+Deadly Complication
+Eliminate the Impossible
+Person of Interest
+Repeat Offender
+Rubblebelt Braggart
+Tesak, Judith's Hellhound
+Incriminating Impetus
+Acquired Mutation
+Alpha Deathclaw
+Contaminated Drink
+Feral Ghoul
+Megaton's Fate
+Embrace the Unknown
+Six
+Artist's Talent
+Marina Vendrell's Grimoire
+Lifecraft Engine
+Racers' Scoreboard

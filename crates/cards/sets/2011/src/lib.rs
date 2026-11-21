@@ -777,6 +777,8 @@ pub mod spined_thopter;
 pub mod spiraling_duelist;
 #[path = "nph/spire_monitor.rs"]
 pub mod spire_monitor;
+#[path = "mbs/spire_serpent.rs"]
+pub mod spire_serpent;
 #[path = "m12/spirit_mantle.rs"]
 pub mod spirit_mantle;
 #[path = "isd/splinterfright.rs"]
@@ -793,6 +795,8 @@ pub mod stensia_bloodhall;
 pub mod stingerfling_spider;
 #[path = "isd/stitcher_s_apprentice.rs"]
 pub mod stitcher_s_apprentice;
+#[path = "m12/stonehorn_dignitary.rs"]
+pub mod stonehorn_dignitary;
 #[path = "isd/stony_silence.rs"]
 pub mod stony_silence;
 #[path = "m12/stormblood_berserker.rs"]
@@ -939,3 +943,5 @@ pub mod woodland_sleuth;
 pub mod wreath_of_geists;
 #[path = "m12/wring_flesh.rs"]
 pub mod wring_flesh;
+#[path = "nph/xenograft.rs"]
+pub mod xenograft;

@@ -111,6 +111,8 @@ pub mod flame_blessed_bolt;
 pub mod forsaken_crossroads;
 #[path = "vow/frenzied_devils.rs"]
 pub mod frenzied_devils;
+#[path = "vow/geistlight_snare.rs"]
+pub mod geistlight_snare;
 #[path = "vow/gift_of_fangs.rs"]
 pub mod gift_of_fangs;
 #[path = "pvow/glorious_sunrise.rs"]

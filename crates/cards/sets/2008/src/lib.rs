@@ -137,6 +137,8 @@ pub mod burrenton_shield_bearers;
 pub mod cache_raiders;
 #[path = "ala/caldera_hellion.rs"]
 pub mod caldera_hellion;
+#[path = "eve/call_the_skybreaker.rs"]
+pub mod call_the_skybreaker;
 #[path = "ala/call_to_heel.rs"]
 pub mod call_to_heel;
 #[path = "ala/carrion_thrash.rs"]
@@ -153,6 +155,8 @@ pub mod cauldron_of_souls;
 pub mod cavern_thoctar;
 #[path = "shm/cemetery_puca.rs"]
 pub mod cemetery_puca;
+#[path = "eve/cenn_s_enlistment.rs"]
+pub mod cenn_s_enlistment;
 #[path = "mor/cenn_s_tactician.rs"]
 pub mod cenn_s_tactician;
 #[path = "shm/cerulean_wisps.rs"]
@@ -369,6 +373,8 @@ pub mod fire_field_ogre;
 pub mod fire_lit_thicket;
 #[path = "shm/fists_of_the_demigod.rs"]
 pub mod fists_of_the_demigod;
+#[path = "eve/flame_jab.rs"]
+pub mod flame_jab;
 #[path = "shm/flame_javelin.rs"]
 pub mod flame_javelin;
 #[path = "ala/fleshbag_marauder.rs"]
@@ -637,6 +643,8 @@ pub mod minion_reflector;
 pub mod mistmeadow_witch;
 #[path = "shm/mistveil_plains.rs"]
 pub mod mistveil_plains;
+#[path = "eve/monstrify.rs"]
+pub mod monstrify;
 #[path = "mor/moonglove_changeling.rs"]
 pub mod moonglove_changeling;
 #[path = "shm/moonring_island.rs"]
@@ -725,6 +733,8 @@ pub mod old_ghastbark;
 pub mod onyx_goblet;
 #[path = "shm/oona_s_gatewarden.rs"]
 pub mod oona_s_gatewarden;
+#[path = "eve/oona_s_grace.rs"]
+pub mod oona_s_grace;
 #[path = "shm/oracle_of_nectars.rs"]
 pub mod oracle_of_nectars;
 #[path = "mor/orchard_warden.rs"]
@@ -795,6 +805,8 @@ pub mod raking_canopy;
 pub mod ranger_of_eos;
 #[path = "shm/rattleblaze_scarecrow.rs"]
 pub mod rattleblaze_scarecrow;
+#[path = "eve/raven_s_crime.rs"]
+pub mod raven_s_crime;
 #[path = "shm/raven_s_run_dragoon.rs"]
 pub mod raven_s_run_dragoon;
 #[path = "eve/razorfin_abolisher.rs"]
@@ -879,6 +891,8 @@ pub mod sanctum_gargoyle;
 pub mod sangrite_surge;
 #[path = "shm/sapseep_forest.rs"]
 pub mod sapseep_forest;
+#[path = "eve/savage_conception.rs"]
+pub mod savage_conception;
 #[path = "ala/savage_hunger.rs"]
 pub mod savage_hunger;
 #[path = "ala/savage_lands.rs"]
@@ -993,6 +1007,8 @@ pub mod spitebellows;
 pub mod spiteflame_witch;
 #[path = "eve/spitemare.rs"]
 pub mod spitemare;
+#[path = "eve/spitting_image.rs"]
+pub mod spitting_image;
 #[path = "shm/splitting_headache.rs"]
 pub mod splitting_headache;
 #[path = "eve/springjack_pasture.rs"]
@@ -1037,6 +1053,8 @@ pub mod sunseed_nurturer;
 pub mod suture_spirit;
 #[path = "ala/swerve.rs"]
 pub mod swerve;
+#[path = "eve/syphon_life.rs"]
+pub mod syphon_life;
 #[path = "eve/talonrend.rs"]
 pub mod talonrend;
 #[path = "ala/tar_fiend.rs"]
@@ -1183,6 +1201,8 @@ pub mod wingrattle_scarecrow;
 pub mod winnower_patrol;
 #[path = "eve/wistful_selkie.rs"]
 pub mod wistful_selkie;
+#[path = "shm/witherscale_wurm.rs"]
+pub mod witherscale_wurm;
 #[path = "mor/wolf_skull_shaman.rs"]
 pub mod wolf_skull_shaman;
 #[path = "shm/wooded_bastion.rs"]
@@ -1193,6 +1213,8 @@ pub mod woodfall_primus;
 pub mod woodlurker_mimic;
 #[path = "ala/woolly_thoctar.rs"]
 pub mod woolly_thoctar;
+#[path = "eve/worm_harvest.rs"]
+pub mod worm_harvest;
 #[path = "ala/yoked_plowbeast.rs"]
 pub mod yoked_plowbeast;
 #[path = "shm/zealous_guardian.rs"]

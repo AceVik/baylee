@@ -23,6 +23,8 @@ pub mod ambulatory_edifice;
 pub mod annex_sentry;
 #[path = "one/apostle_of_invasion.rs"]
 pub mod apostle_of_invasion;
+#[path = "one/archfiend_of_the_dross.rs"]
+pub mod archfiend_of_the_dross;
 #[path = "one/armored_scrapgorger.rs"]
 pub mod armored_scrapgorger;
 #[path = "one/atmosphere_surgeon.rs"]

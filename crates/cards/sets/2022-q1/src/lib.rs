@@ -27,6 +27,8 @@ pub mod ancestral_katana;
 pub mod armguard_familiar;
 #[path = "neo/asari_captain.rs"]
 pub mod asari_captain;
+#[path = "neo/assassin_s_ink.rs"]
+pub mod assassin_s_ink;
 #[path = "neo/atsushi_the_blazing_sky.rs"]
 pub mod atsushi_the_blazing_sky;
 #[path = "neo/automated_artificer.rs"]

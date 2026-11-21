@@ -103,6 +103,8 @@ pub mod blistercoil_weird;
 pub mod blood_artist;
 #[path = "avr/bloodflow_connoisseur.rs"]
 pub mod bloodflow_connoisseur;
+#[path = "rtr/bloodfray_giant.rs"]
+pub mod bloodfray_giant;
 #[path = "m13/bloodhunter_bat.rs"]
 pub mod bloodhunter_bat;
 #[path = "rtr/blustersquall.rs"]
@@ -141,6 +143,8 @@ pub mod call_to_the_kindred;
 pub mod captain_of_the_mists;
 #[path = "m13/captain_s_call.rs"]
 pub mod captain_s_call;
+#[path = "prtr/carnival_hellsteed.rs"]
+pub mod carnival_hellsteed;
 #[path = "rtr/catacomb_slug.rs"]
 pub mod catacomb_slug;
 #[path = "avr/cathars_crusade.rs"]
@@ -161,6 +165,8 @@ pub mod chalice_of_life;
 pub mod champion_of_lambholt;
 #[path = "dka/chant_of_the_skifsang.rs"]
 pub mod chant_of_the_skifsang;
+#[path = "rtr/chaos_imps.rs"]
+pub mod chaos_imps;
 #[path = "dka/chill_of_foreboding.rs"]
 pub mod chill_of_foreboding;
 #[path = "rtr/chorus_of_might.rs"]
@@ -233,6 +239,8 @@ pub mod dangerous_wager;
 pub mod dark_revenant;
 #[path = "dka/dawntreader_elk.rs"]
 pub mod dawntreader_elk;
+#[path = "rtr/dead_reveler.rs"]
+pub mod dead_reveler;
 #[path = "rtr/death_s_presence.rs"]
 pub mod death_s_presence;
 #[path = "avr/death_wind.rs"]
@@ -417,6 +425,8 @@ pub mod golgari_guildgate;
 pub mod golgari_keyrune;
 #[path = "rtr/golgari_longlegs.rs"]
 pub mod golgari_longlegs;
+#[path = "rtr/gore_house_chainwalker.rs"]
+pub mod gore_house_chainwalker;
 #[path = "pdka/gravecrawler.rs"]
 pub mod gravecrawler;
 #[path = "dka/gravetiller_wurm.rs"]
@@ -427,6 +437,8 @@ pub mod griffin_protector;
 pub mod grim_backwoods;
 #[path = "dka/grim_flowering.rs"]
 pub mod grim_flowering;
+#[path = "rtr/grim_roustabout.rs"]
+pub mod grim_roustabout;
 #[path = "dka/griptide.rs"]
 pub mod griptide;
 #[path = "avr/griselbrand.rs"]
@@ -471,6 +483,8 @@ pub mod heavy_mattock;
 pub mod heckling_fiends;
 #[path = "avr/heirs_of_stromkirk.rs"]
 pub mod heirs_of_stromkirk;
+#[path = "rtr/hellhole_flailer.rs"]
+pub mod hellhole_flailer;
 #[path = "m13/hellion_crucible.rs"]
 pub mod hellion_crucible;
 #[path = "dka/helvault.rs"]
@@ -689,6 +703,8 @@ pub mod racecourse_fury;
 pub mod raging_poltergeist;
 #[path = "avr/rain_of_thorns.rs"]
 pub mod rain_of_thorns;
+#[path = "rtr/rakdos_cackler.rs"]
+pub mod rakdos_cackler;
 #[path = "rtr/rakdos_guildgate.rs"]
 pub mod rakdos_guildgate;
 #[path = "rtr/rakdos_keyrune.rs"]
@@ -839,6 +855,8 @@ pub mod somberwald_vigilante;
 pub mod soul_of_the_harvest;
 #[path = "avr/soulcage_fiend.rs"]
 pub mod soulcage_fiend;
+#[path = "rtr/spawn_of_rix_maadi.rs"]
+pub mod spawn_of_rix_maadi;
 #[path = "avr/spectral_gateguards.rs"]
 pub mod spectral_gateguards;
 #[path = "rtr/sphinx_s_revelation.rs"]
@@ -849,6 +867,8 @@ pub mod spiked_baloth;
 pub mod spirit_away;
 #[path = "dka/spiteful_shadows.rs"]
 pub mod spiteful_shadows;
+#[path = "rtr/splatter_thug.rs"]
+pub mod splatter_thug;
 #[path = "rtr/stab_wound.rs"]
 pub mod stab_wound;
 #[path = "pm13/staff_of_nin.rs"]
@@ -905,6 +925,8 @@ pub mod thraben_heretic;
 pub mod thraben_valiant;
 #[path = "m13/thragtusk.rs"]
 pub mod thragtusk;
+#[path = "rtr/thrill_kill_assassin.rs"]
+pub mod thrill_kill_assassin;
 #[path = "pc2/thromok_the_insatiable.rs"]
 pub mod thromok_the_insatiable;
 #[path = "m13/thundermaw_hellkite.rs"]

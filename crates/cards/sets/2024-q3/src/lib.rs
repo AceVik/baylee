@@ -37,6 +37,8 @@ pub mod arabella_abandoned_doll;
 pub mod arbaaz_mir;
 #[path = "acr/arno_dorian.rs"]
 pub mod arno_dorian;
+#[path = "blb/artist_s_talent.rs"]
+pub mod artist_s_talent;
 #[path = "acr/assassin_den.rs"]
 pub mod assassin_den;
 #[path = "acr/assassin_initiate.rs"]
@@ -357,6 +359,8 @@ pub mod malevolent_chandelier;
 pub mod manifest_dread;
 #[path = "blb/manifold_mouse.rs"]
 pub mod manifold_mouse;
+#[path = "dsk/marina_vendrell_s_grimoire.rs"]
+pub mod marina_vendrell_s_grimoire;
 #[path = "dsc/metamorphosis_fanatic.rs"]
 pub mod metamorphosis_fanatic;
 #[path = "dsk/midnight_mayhem.rs"]

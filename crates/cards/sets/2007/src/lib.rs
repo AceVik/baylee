@@ -501,6 +501,8 @@ pub mod oona_s_prowler;
 pub mod oros_the_avenger;
 #[path = "fut/pact_of_negation.rs"]
 pub mod pact_of_negation;
+#[path = "fut/pact_of_the_titan.rs"]
+pub mod pact_of_the_titan;
 #[path = "plc/pallid_mycoderm.rs"]
 pub mod pallid_mycoderm;
 #[path = "lrw/peppersmoke.rs"]
@@ -607,6 +609,8 @@ pub mod skeletal_changeling;
 pub mod skirk_ridge_exhumer;
 #[path = "plc/skirk_shaman.rs"]
 pub mod skirk_shaman;
+#[path = "fut/slaughter_pact.rs"]
+pub mod slaughter_pact;
 #[path = "fut/sliver_legion.rs"]
 pub mod sliver_legion;
 #[path = "fut/sliversmith.rs"]
@@ -655,6 +659,8 @@ pub mod stronghold_rats;
 pub mod sulfur_elemental;
 #[path = "lrw/summon_the_school.rs"]
 pub mod summon_the_school;
+#[path = "fut/summoner_s_pact.rs"]
+pub mod summoner_s_pact;
 #[path = "plc/sunlance.rs"]
 pub mod sunlance;
 #[path = "lrw/sunrise_sovereign.rs"]

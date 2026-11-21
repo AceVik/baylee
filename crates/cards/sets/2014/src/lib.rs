@@ -335,6 +335,8 @@ pub mod flamekin_village;
 pub mod flamespeaker_s_will;
 #[path = "cns/flamewright.rs"]
 pub mod flamewright;
+#[path = "jou/fleetfeather_cockatrice.rs"]
+pub mod fleetfeather_cockatrice;
 #[path = "m15/flesh_to_dust.rs"]
 pub mod flesh_to_dust;
 #[path = "bng/flitterstep_eidolon.rs"]
@@ -381,6 +383,8 @@ pub mod glacial_crasher;
 pub mod glacial_stalker;
 #[path = "bng/glimpse_the_sun_god.rs"]
 pub mod glimpse_the_sun_god;
+#[path = "jou/gluttonous_cyclops.rs"]
+pub mod gluttonous_cyclops;
 #[path = "m15/goblin_kaboomist.rs"]
 pub mod goblin_kaboomist;
 #[path = "pm15/goblin_rabblemaster.rs"]
@@ -509,6 +513,8 @@ pub mod kin_tree_warden;
 pub mod kiora_s_follower;
 #[path = "m15/kird_chieftain.rs"]
 pub mod kird_chieftain;
+#[path = "jou/knowledge_and_power.rs"]
+pub mod knowledge_and_power;
 #[path = "bng/kragma_butcher.rs"]
 pub mod kragma_butcher;
 #[path = "m15/krenko_s_enforcer.rs"]
@@ -721,6 +727,8 @@ pub mod rakshasa_s_secret;
 pub mod rakshasa_vizier;
 #[path = "ktk/rattleclaw_mystic.rs"]
 pub mod rattleclaw_mystic;
+#[path = "jou/ravenous_leucrocota.rs"]
+pub mod ravenous_leucrocota;
 #[path = "bng/reap_what_is_sown.rs"]
 pub mod reap_what_is_sown;
 #[path = "bng/reckless_reveler.rs"]
@@ -1059,6 +1067,8 @@ pub mod whirlwind_adept;
 pub mod whispergear_sneak;
 #[path = "jou/whitewater_naiads.rs"]
 pub mod whitewater_naiads;
+#[path = "jou/wildfire_cerberus.rs"]
+pub mod wildfire_cerberus;
 #[path = "m15/will_forged_golem.rs"]
 pub mod will_forged_golem;
 #[path = "ktk/wind_scarred_crag.rs"]

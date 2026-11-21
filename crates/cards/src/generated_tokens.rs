@@ -6014,6 +6014,29 @@ pub static SPIRIT_2_2_WHITE_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 4/4 red Giant.
+pub static GIANT_4_4_RED: TokenDef = TokenDef {
+    name: "Giant",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GIANT],
+    power: Some(4),
+    toughness: Some(4),
+    ..TokenDef::DEFAULT
+};
+
+/// 5/5 blue red Elemental with flying.
+pub static ELEMENTAL_5_5_BLUE_RED_FLYING: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Blue, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(5),
+    toughness: Some(5),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -7259,6 +7282,8 @@ pub static ALL: &[&TokenDef] = &[
     &INSECT_2_1_WHITE_FLYING,
     &UNICORN_2_2_WHITE,
     &SPIRIT_2_2_WHITE_FLYING,
+    &GIANT_4_4_RED,
+    &ELEMENTAL_5_5_BLUE_RED_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -7718,4 +7743,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &INSECT_2_1_WHITE_FLYING,
     &UNICORN_2_2_WHITE,
     &SPIRIT_2_2_WHITE_FLYING,
+    &GIANT_4_4_RED,
+    &ELEMENTAL_5_5_BLUE_RED_FLYING,
 ];

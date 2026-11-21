@@ -37,6 +37,8 @@ pub mod ancient_grudge;
 pub mod angel_of_despair;
 #[path = "tsp/angel_s_grace.rs"]
 pub mod angel_s_grace;
+#[path = "dis/anthem_of_rakdos.rs"]
+pub mod anthem_of_rakdos;
 #[path = "csp/arctic_flats.rs"]
 pub mod arctic_flats;
 #[path = "tsp/ashcoat_bear.rs"]
@@ -341,6 +343,8 @@ pub mod goblin_rimerunner;
 pub mod godless_shrine;
 #[path = "tsp/gorgon_recluse.rs"]
 pub mod gorgon_recluse;
+#[path = "dis/grand_arbiter_augustin_iv.rs"]
+pub mod grand_arbiter_augustin_iv;
 #[path = "tsp/grapeshot.rs"]
 pub mod grapeshot;
 #[path = "csp/greater_stone_spirit.rs"]

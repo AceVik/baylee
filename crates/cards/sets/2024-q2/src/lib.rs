@@ -167,6 +167,8 @@ pub mod eldrazi_ravager;
 pub mod eldrazi_repurposer;
 #[path = "otc/elemental_eruption.rs"]
 pub mod elemental_eruption;
+#[path = "otc/embrace_the_unknown.rs"]
+pub mod embrace_the_unknown;
 #[path = "mh3/emrakul_s_messenger.rs"]
 pub mod emrakul_s_messenger;
 #[path = "otj/eriette_s_lullaby.rs"]
@@ -507,6 +509,8 @@ pub mod silver_deputy;
 pub mod simulacrum_synthesizer;
 #[path = "mh3/sink_into_stupor.rs"]
 pub mod sink_into_stupor;
+#[path = "mh3/six.rs"]
+pub mod six;
 #[path = "mh3/skittering_precursor.rs"]
 pub mod skittering_precursor;
 #[path = "otj/slickshot_lockpicker.rs"]

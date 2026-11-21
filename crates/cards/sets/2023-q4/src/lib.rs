@@ -131,6 +131,8 @@ pub mod daring_discovery;
 pub mod deconstruction_hammer;
 #[path = "lci/deep_goblin_skulltaker.rs"]
 pub mod deep_goblin_skulltaker;
+#[path = "lcc/deeproot_historian.rs"]
+pub mod deeproot_historian;
 #[path = "who/delete.rs"]
 pub mod delete;
 #[path = "lci/diamond_pick_axe.rs"]
@@ -209,6 +211,8 @@ pub mod graham_o_brien;
 pub mod grasping_shadows;
 #[path = "lci/greedy_freebooter.rs"]
 pub mod greedy_freebooter;
+#[path = "rex/grim_giganotosaurus.rs"]
+pub mod grim_giganotosaurus;
 #[path = "lci/helping_hand.rs"]
 pub mod helping_hand;
 #[path = "rex/henry_wu_in_gen_geneticist.rs"]

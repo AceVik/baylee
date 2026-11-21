@@ -57,6 +57,8 @@ pub mod angelic_skirmisher;
 pub mod anvilwrought_raptor;
 #[path = "ths/aqueous_form.rs"]
 pub mod aqueous_form;
+#[path = "ths/arbor_colossus.rs"]
+pub mod arbor_colossus;
 #[path = "m14/archangel_of_thune.rs"]
 pub mod archangel_of_thune;
 #[path = "ths/arena_athlete.rs"]
@@ -197,6 +199,8 @@ pub mod clinging_anemones;
 pub mod cloudfin_raptor;
 #[path = "pm14/colossal_whale.rs"]
 pub mod colossal_whale;
+#[path = "ths/colossus_of_akros.rs"]
+pub mod colossus_of_akros;
 #[path = "ths/commune_with_the_gods.rs"]
 pub mod commune_with_the_gods;
 #[path = "pgtc/consuming_aberration.rs"]
@@ -289,6 +293,8 @@ pub mod dying_wish;
 pub mod elusive_krasis;
 #[path = "m14/elvish_mystic.rs"]
 pub mod elvish_mystic;
+#[path = "pths/ember_swallower.rs"]
+pub mod ember_swallower;
 #[path = "dgm/emmara_tandris.rs"]
 pub mod emmara_tandris;
 #[path = "m14/encroaching_wastes.rs"]
@@ -299,6 +305,8 @@ pub mod enter_the_infinite;
 pub mod ephara_s_warden;
 #[path = "ths/erebos_s_emissary.rs"]
 pub mod erebos_s_emissary;
+#[path = "dgm/exava_rakdos_blood_witch.rs"]
+pub mod exava_rakdos_blood_witch;
 #[path = "f13/experiment_one.rs"]
 pub mod experiment_one;
 #[path = "ths/fabled_hero.rs"]
@@ -325,6 +333,10 @@ pub mod fiendslayer_paladin;
 pub mod firedrinker_satyr;
 #[path = "ths/flamecast_wheel.rs"]
 pub mod flamecast_wheel;
+#[path = "ths/flamespeaker_adept.rs"]
+pub mod flamespeaker_adept;
+#[path = "ths/fleecemane_lion.rs"]
+pub mod fleecemane_lion;
 #[path = "ths/fleetfeather_sandals.rs"]
 pub mod fleetfeather_sandals;
 #[path = "ths/fleshmad_steed.rs"]
@@ -425,12 +437,18 @@ pub mod horizon_chimera;
 pub mod horizon_scholar;
 #[path = "gtc/horror_of_the_dim.rs"]
 pub mod horror_of_the_dim;
+#[path = "ths/hundred_handed_one.rs"]
+pub mod hundred_handed_one;
 #[path = "ths/hunt_the_hunter.rs"]
 pub mod hunt_the_hunter;
 #[path = "m14/hunt_the_weak.rs"]
 pub mod hunt_the_weak;
 #[path = "gtc/hydroform.rs"]
 pub mod hydroform;
+#[path = "ths/hythonia_the_cruel.rs"]
+pub mod hythonia_the_cruel;
+#[path = "ths/ill_tempered_cyclops.rs"]
+pub mod ill_tempered_cyclops;
 #[path = "gtc/illness_in_the_ranks.rs"]
 pub mod illness_in_the_ranks;
 #[path = "gtc/immortal_servitude.rs"]
@@ -451,6 +469,8 @@ pub mod jelenn_sphinx;
 pub mod kalonian_hydra;
 #[path = "m14/kalonian_tusker.rs"]
 pub mod kalonian_tusker;
+#[path = "ths/keepsake_gorgon.rs"]
+pub mod keepsake_gorgon;
 #[path = "gtc/keymaster_rogue.rs"]
 pub mod keymaster_rogue;
 #[path = "gtc/kingpin_s_pet.rs"]
@@ -553,6 +573,10 @@ pub mod murmuring_phantasm;
 pub mod mutant_s_prey;
 #[path = "c13/nekusar_the_mindrazer.rs"]
 pub mod nekusar_the_mindrazer;
+#[path = "ths/nemesis_of_mortals.rs"]
+pub mod nemesis_of_mortals;
+#[path = "ths/nessian_asp.rs"]
+pub mod nessian_asp;
 #[path = "pths/nighthowler.rs"]
 pub mod nighthowler;
 #[path = "ths/nimbus_naiad.rs"]
@@ -665,6 +689,8 @@ pub mod rage_of_purphoros;
 pub mod rageblood_shaman;
 #[path = "dgm/rakdos_cluestone.rs"]
 pub mod rakdos_cluestone;
+#[path = "dgm/rakdos_drake.rs"]
+pub mod rakdos_drake;
 #[path = "gtc/rapid_hybridization.rs"]
 pub mod rapid_hybridization;
 #[path = "ths/ray_of_dissolution.rs"]
@@ -769,6 +795,8 @@ pub mod shattergang_brothers;
 pub mod shattering_blow;
 #[path = "gtc/shielded_passage.rs"]
 pub mod shielded_passage;
+#[path = "pths/shipbreaker_kraken.rs"]
+pub mod shipbreaker_kraken;
 #[path = "ths/shipwreck_singer.rs"]
 pub mod shipwreck_singer;
 #[path = "ths/shredding_winds.rs"]
@@ -853,6 +881,10 @@ pub mod steelform_sliver;
 pub mod steeple_roc;
 #[path = "m14/stonehorn_chanter.rs"]
 pub mod stonehorn_chanter;
+#[path = "ths/stoneshock_giant.rs"]
+pub mod stoneshock_giant;
+#[path = "ths/stormbreath_dragon.rs"]
+pub mod stormbreath_dragon;
 #[path = "m14/striking_sliver.rs"]
 pub mod striking_sliver;
 #[path = "ths/stymied_hopes.rs"]

@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "pip/acquired_mutation.rs"]
+pub mod acquired_mutation;
 #[path = "mkm/aftermath_analyst.rs"]
 pub mod aftermath_analyst;
 #[path = "pip/agent_frank_horrigan.rs"]
@@ -21,6 +23,8 @@ pub mod agent_frank_horrigan;
 pub mod alley_assailant;
 #[path = "pip/almost_perfect.rs"]
 pub mod almost_perfect;
+#[path = "pip/alpha_deathclaw.rs"]
+pub mod alpha_deathclaw;
 #[path = "mkm/alquist_proft_master_sleuth.rs"]
 pub mod alquist_proft_master_sleuth;
 #[path = "clu/apothecary_white.rs"]
@@ -37,6 +41,8 @@ pub mod auspicious_arrival;
 pub mod automated_assembly_line;
 #[path = "clu/ballroom.rs"]
 pub mod ballroom;
+#[path = "mkm/barbed_servitor.rs"]
+pub mod barbed_servitor;
 #[path = "mkm/basilica_stalker.rs"]
 pub mod basilica_stalker;
 #[path = "mkm/benthic_criminologists.rs"]
@@ -63,6 +69,8 @@ pub mod candlestick;
 pub mod carnage_interpreter;
 #[path = "pip/cathedral_acolyte.rs"]
 pub mod cathedral_acolyte;
+#[path = "mkm/caught_red_handed.rs"]
+pub mod caught_red_handed;
 #[path = "mkm/cerebral_confiscation.rs"]
 pub mod cerebral_confiscation;
 #[path = "mkm/chalk_outline.rs"]
@@ -87,6 +95,10 @@ pub mod concealed_weapon;
 pub mod conclave_evangelist;
 #[path = "clu/conservatory.rs"]
 pub mod conservatory;
+#[path = "pip/contaminated_drink.rs"]
+pub mod contaminated_drink;
+#[path = "mkm/convenient_target.rs"]
+pub mod convenient_target;
 #[path = "mkm/cornered_crook.rs"]
 pub mod cornered_crook;
 #[path = "clu/corporeal_projection.rs"]
@@ -99,6 +111,8 @@ pub mod crimson_caravaneer;
 pub mod curious_cadaver;
 #[path = "mkm/curious_inquiry.rs"]
 pub mod curious_inquiry;
+#[path = "mkm/deadly_complication.rs"]
+pub mod deadly_complication;
 #[path = "mkm/deduce.rs"]
 pub mod deduce;
 #[path = "mkm/defenestrated_phantom.rs"]
@@ -131,6 +145,8 @@ pub mod elder_arthur_maxson;
 pub mod elder_owyn_lyons;
 #[path = "mkm/elegant_parlor.rs"]
 pub mod elegant_parlor;
+#[path = "mkm/eliminate_the_impossible.rs"]
+pub mod eliminate_the_impossible;
 #[path = "mkm/escape_tunnel.rs"]
 pub mod escape_tunnel;
 #[path = "mkm/essence_of_antiquity.rs"]
@@ -145,6 +161,8 @@ pub mod fae_flight;
 pub mod fanatical_strength;
 #[path = "mkm/felonious_rage.rs"]
 pub mod felonious_rage;
+#[path = "pip/feral_ghoul.rs"]
+pub mod feral_ghoul;
 #[path = "pip/ferrous_lake.rs"]
 pub mod ferrous_lake;
 #[path = "mkm/festerleech.rs"]
@@ -189,6 +207,8 @@ pub mod hotshot_investigators;
 pub mod hunted_bonebrute;
 #[path = "pip/idolized.rs"]
 pub mod idolized;
+#[path = "clu/incriminating_impetus.rs"]
+pub mod incriminating_impetus;
 #[path = "mkm/inside_source.rs"]
 pub mod inside_source;
 #[path = "mkm/insidious_roots.rs"]
@@ -239,6 +259,8 @@ pub mod marketwatch_phantom;
 pub mod massacre_girl_known_killer;
 #[path = "mkm/meddling_youths.rs"]
 pub mod meddling_youths;
+#[path = "pip/megaton_s_fate.rs"]
+pub mod megaton_s_fate;
 #[path = "mkm/meticulous_archive.rs"]
 pub mod meticulous_archive;
 #[path = "pip/mister_gutsy.rs"]
@@ -275,6 +297,8 @@ pub mod out_cold;
 pub mod overflowing_basin;
 #[path = "pip/paladin_danse_steel_maverick.rs"]
 pub mod paladin_danse_steel_maverick;
+#[path = "mkm/person_of_interest.rs"]
+pub mod person_of_interest;
 #[path = "mkm/persuasive_interrogators.rs"]
 pub mod persuasive_interrogators;
 #[path = "mkm/pick_your_poison.rs"]
@@ -303,12 +327,16 @@ pub mod red_death_shipwrecker;
 pub mod red_herring;
 #[path = "mkc/redemption_arc.rs"]
 pub mod redemption_arc;
+#[path = "mkm/repeat_offender.rs"]
+pub mod repeat_offender;
 #[path = "clu/resonance_technician.rs"]
 pub mod resonance_technician;
 #[path = "mkm/rope.rs"]
 pub mod rope;
 #[path = "mkm/rot_farm_mortipede.rs"]
 pub mod rot_farm_mortipede;
+#[path = "mkm/rubblebelt_braggart.rs"]
+pub mod rubblebelt_braggart;
 #[path = "mkm/rubblebelt_maverick.rs"]
 pub mod rubblebelt_maverick;
 #[path = "mkm/sanitation_automaton.rs"]
@@ -357,6 +385,8 @@ pub mod super_mutant_scavenger;
 pub mod syndicate_heavy;
 #[path = "mkc/tangletrove_kelp.rs"]
 pub mod tangletrove_kelp;
+#[path = "mkc/tesak_judith_s_hellhound.rs"]
+pub mod tesak_judith_s_hellhound;
 #[path = "mkm/the_chase_is_on.rs"]
 pub mod the_chase_is_on;
 #[path = "mkm/they_went_this_way.rs"]

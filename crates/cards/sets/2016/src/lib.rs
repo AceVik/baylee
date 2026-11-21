@@ -321,6 +321,8 @@ pub mod displace;
 pub mod distemper_of_the_blood;
 #[path = "emn/docent_of_perfection.rs"]
 pub mod docent_of_perfection;
+#[path = "cn2/domesticated_hydra.rs"]
+pub mod domesticated_hydra;
 #[path = "emn/drag_under.rs"]
 pub mod drag_under;
 #[path = "kld/dramatic_reversal.rs"]
@@ -811,6 +813,8 @@ pub mod nissa_vital_force;
 pub mod noose_constrictor;
 #[path = "ogw/null_caller.rs"]
 pub mod null_caller;
+#[path = "ogw/oath_of_jace.rs"]
+pub mod oath_of_jace;
 #[path = "ogw/oblivion_strike.rs"]
 pub mod oblivion_strike;
 #[path = "psoi/olivia_mobilized_for_war.rs"]
@@ -1007,10 +1011,14 @@ pub mod sigardian_priest;
 pub mod silent_observer;
 #[path = "soi/silverstrike.rs"]
 pub mod silverstrike;
+#[path = "cn2/sinuous_vermin.rs"]
+pub mod sinuous_vermin;
 #[path = "soi/skeleton_key.rs"]
 pub mod skeleton_key;
 #[path = "emn/skirsdag_supplicant.rs"]
 pub mod skirsdag_supplicant;
+#[path = "cn2/skittering_crustacean.rs"]
+pub mod skittering_crustacean;
 #[path = "ogw/sky_scourer.rs"]
 pub mod sky_scourer;
 #[path = "kld/sky_skiff.rs"]
@@ -1061,6 +1069,8 @@ pub mod spirit_of_the_hunt;
 pub mod spiteful_motives;
 #[path = "emn/splendid_reclamation.rs"]
 pub mod splendid_reclamation;
+#[path = "cn2/splitting_slime.rs"]
+pub mod splitting_slime;
 #[path = "kld/spontaneous_artist.rs"]
 pub mod spontaneous_artist;
 #[path = "emn/spontaneous_mutation.rs"]

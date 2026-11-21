@@ -159,6 +159,8 @@ pub mod gnottvold_slumbermound;
 pub mod gods_hall_guardian;
 #[path = "khm/goldvein_pick.rs"]
 pub mod goldvein_pick;
+#[path = "khm/graven_lore.rs"]
+pub mod graven_lore;
 #[path = "khm/great_hall_of_starnheim.rs"]
 pub mod great_hall_of_starnheim;
 #[path = "khm/grim_draugr.rs"]
