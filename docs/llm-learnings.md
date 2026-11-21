@@ -6,8 +6,11 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
-## 2026-11-21 — Beat 10 (Part 1): Codegen Wave 13a–13c (`f27808e6a`, `b01df558b`, `b07c34397`)
+## 2026-11-21 — Beat 10: Codegen Wave 13a–13c (`36f7fa3a8`) & Pass E6 + E7 (`19,800` Conforming / `18,601` Playable)
 
+- **Pass E6 + E7 + Wave 13 Reconvergence (`d59a1c2ea`, `4f94eb054`, `d75ec6f2f`, `95c3d9ff6`, reviewed `PASS` `#352/#377/#391`)**:
+  - Merged `+1,976` new pool cards through `2026-q2` (`17,824 -> 19,800` conforming cards), reconverged `2x codegen --scripts` with Wave 13 (upgrading `+23` additional pool stubs automatically), and added `Filter::{INSTANT, SORCERY}` + `NAMED` + `docs/card-dsl.md` for `targets.rs` (`warping_wail.rs`, `arcane_infusion.rs`).
+  - Verified (`task-4376` + `task-4422`): **`19,800` conforming** (`18,864` finished = `11,015` `Implemented` + **`7,586` `Generated`** [`18,601` playable] + `263` `Partial`; **`936` stubs** remaining; `67 / 1,203` retail precons playable), `baylee-ai` `432/432` (`activation_census` `(4664, 5953)`), `baylee-seat` `138/138` (narrator goldens clean with *Dance of the Elements* +7 precon cards), `baylee-cards` `169/169`, `baylee-card-tests-verification` `58/58`, `clippy --all-targets -- -D warnings` `0` warnings.
 - **Codegen Wave 13a–13c (`Reviewed: fb701e17c, 558182c5d, 3ed9976b9`, `Reviewed-by: gemini-4-argon-high (#392, #395), pass`):**
   - Merged zero-conflict across `targets.rs`/`mana.rs` (Wave 13b `f27808e6a`), `chains.rs`/`effects.rs`/`triggers.rs` (Wave 13c `b01df558b`), and `body.rs`/`stubgen.rs`/`tokengen.rs`/`keywords.rs`/`activated.rs`/`constants.rs`/`atoms.rs` (Wave 13a `b07c34397`), plus resolved `tests/saga_ward_convoke.rs:2087` coordination (`AB$ Mana` + explicit non-mana `SubCounter<X/CHARGE>` refusal test).
   - Lowered Wave 6b **`Plot`**, **`Casualty N`**, **`Backup N`**, fixed `#374` (`Archmage of Echoes` `Permanent` type filter on `SpellCast` + `Osgood, Operation Double` token-copy refusal) and `#370` (`CardBody::prune_unused_statics()` for `TARGET1`, non-mana `RemoveCounterSelfX` guard), and widened stack targeting/zone changes, *Brainstorm*-style `Hand -> Library` puts, bite damage, player targets/relations, and `with/without<Keyword>` atoms.
