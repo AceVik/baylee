@@ -10,7 +10,7 @@ card!(
     oracle_id = "c6db2ea4-954c-443b-9603-c41596555c31",
     scryfall_id = "cbf39b80-d972-4f79-902f-cc613c32e446",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Teferi's Veil",
         mana_cost = mana!("{1}{U}"),

@@ -10,7 +10,7 @@ card!(
     oracle_id = "e66b12ff-45da-46dc-9148-bd8ea9b7fde0",
     scryfall_id = "d9e966cb-bb42-49d8-b351-114619b31497",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Angelic Chorus",
         mana_cost = mana!("{3}{W}{W}"),

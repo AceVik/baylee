@@ -12,7 +12,7 @@ card!(
     oracle_id = "72177c93-ed1f-47bd-99a6-ad229a292d46",
     scryfall_id = "50f7ea7f-4f17-4f78-b68e-693e265ca829",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yawgmoth's Agenda",
         mana_cost = mana!("{3}{B}{B}"),

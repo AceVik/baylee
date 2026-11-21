@@ -11,7 +11,7 @@ card!(
     oracle_id = "7071aee8-b5ca-4be5-9ba0-2df7e3af303b",
     scryfall_id = "6194fab1-c185-4df5-8900-37d28ffae545",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Story Circle",
         mana_cost = mana!("{1}{W}{W}"),

@@ -22,7 +22,7 @@ card!(
     oracle_id = "46569712-1f28-41cb-81be-fd938408c71f",
     scryfall_id = "9211ee02-e854-4414-92b1-65a7af29f0b9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sunken Field",
         mana_cost = mana!("{1}{U}"),

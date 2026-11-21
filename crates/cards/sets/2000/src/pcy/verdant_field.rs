@@ -23,7 +23,7 @@ card!(
     oracle_id = "4d59fd2b-7fc6-49a7-8938-d3f08902a5a8",
     scryfall_id = "d123da53-9fd3-492b-beb7-76d1c0f5e4f6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Verdant Field",
         mana_cost = mana!("{2}{G}"),

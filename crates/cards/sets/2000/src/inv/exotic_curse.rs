@@ -12,7 +12,7 @@ card!(
     oracle_id = "344476b1-8710-4c7c-826d-efb7d13ceaa7",
     scryfall_id = "1eff81c4-c402-437d-aace-dfe875d9857d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Exotic Curse",
         mana_cost = mana!("{2}{B}"),

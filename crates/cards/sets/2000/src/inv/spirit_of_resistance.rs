@@ -13,7 +13,7 @@ card!(
     oracle_id = "b075b645-2e5a-4d91-9440-02db4e6f5d08",
     scryfall_id = "5fb66439-df73-4a01-a8d4-6f2334297fdf",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Spirit of Resistance",
         mana_cost = mana!("{2}{W}"),

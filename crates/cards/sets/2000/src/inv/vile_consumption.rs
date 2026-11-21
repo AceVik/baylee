@@ -22,7 +22,7 @@ card!(
     oracle_id = "b6a005db-e7e2-4b88-bc8a-c257bcc31cf5",
     scryfall_id = "7f7e5716-77f3-45d2-a40a-f5bf500f6ad7",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vile Consumption",
         mana_cost = mana!("{1}{U}{B}"),

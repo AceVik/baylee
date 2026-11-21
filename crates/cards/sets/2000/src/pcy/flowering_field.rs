@@ -21,7 +21,7 @@ card!(
     oracle_id = "40155cfb-078a-4359-9551-9c71266d8a1c",
     scryfall_id = "c241fd76-f52d-48fc-864c-57caffa700f6",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flowering Field",
         mana_cost = mana!("{1}{W}"),

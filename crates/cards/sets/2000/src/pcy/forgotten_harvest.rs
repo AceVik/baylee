@@ -10,7 +10,7 @@ card!(
     oracle_id = "9e5de2ed-e8a1-4d52-832f-c4a1bfdf2ae5",
     scryfall_id = "9fefbace-03cb-43db-a221-0be2b8784357",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Forgotten Harvest",
         mana_cost = mana!("{1}{G}"),
