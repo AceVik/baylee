@@ -3449,6 +3449,93 @@ impl Tx<'_> {
         }
     }
 
+    pub(super) fn plot_remembered_effect(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        if p.take("Destination").as_deref() != Some("Exile")
+            || p.take("RememberChanged").as_deref() != Some("True")
+        {
+            return None;
+        }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        p.take("IsCurse");
+        let sub_name = sub.take()?;
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (s_api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if s_api != "AlterAttribute"
+            || sp.take("Defined").as_deref() != Some("Remembered")
+            || sp.take("Attributes").as_deref() != Some("Plotted")
+            || sp.has("ValidTgts")
+            || sp.has("UnlessCost")
+        {
+            return None;
+        }
+        let mut next_sub = sp.take("SubAbility");
+        if !sp.exhausted() {
+            return None;
+        }
+        if let Some(clean_name) = next_sub.as_deref()
+            && let Some(clean_body) = self.svars.get(clean_name.trim()).cloned()
+            && let Some((c_api, mut cp)) = Params::parse(&clean_body)
+        {
+            cp.drop_prose();
+            if c_api == "Cleanup" && cp.take("ClearRemembered").as_deref() == Some("True") {
+                let after = cp.take("SubAbility");
+                if !cp.exhausted() {
+                    return None;
+                }
+                next_sub = after;
+            }
+        }
+        let origin = p.take("Origin")?;
+        let out =
+            if origin == "Library" && !targets_here && p.peek("Defined") == Some("TopOfLibrary") {
+                p.take("Defined");
+                let who = self.wave11_player_rel(p.take("DefinedPlayer").as_deref())?;
+                let count = match p.take("ChangeNum").as_deref() {
+                    None => "Amount::Fixed(1)".to_string(),
+                    Some(raw) => self.amount_or_count_ext(raw)?,
+                };
+                vec![format!("Effect::PlotTop {{ who: {who}, count: {count} }}")]
+            } else {
+                let tgt = target?;
+                if p.has("Hidden") {
+                    return None;
+                }
+                match p.take("Defined").as_deref() {
+                    None if targets_here => {}
+                    Some("Targeted" | "ParentTarget") if !targets_here => {}
+                    _ => return None,
+                }
+                let zone_ok = match origin.as_str() {
+                    "Stack" if tgt.starts_with("TargetSpec::Spell(") => {
+                        match p.take("TargetType").as_deref() {
+                            None | Some("Spell" | "Spell.OppCtrl" | "Spell.YouDontCtrl") => true,
+                            Some(_) => false,
+                        }
+                    }
+                    "Battlefield" if tgt.starts_with("TargetSpec::Object(") => true,
+                    "Graveyard" if tgt.starts_with("TargetSpec::CardInGraveyard") => true,
+                    _ => false,
+                };
+                if !zone_ok {
+                    return None;
+                }
+                vec![format!("Effect::Plot {{ target: {tgt} }}")]
+            };
+        *sub = next_sub;
+        Some(out)
+    }
+
     fn consume_remembered_exile_play_effect(
         &mut self,
         eff_name: &str,
@@ -4054,11 +4141,12 @@ impl Tx<'_> {
         if !itself
             && origin == "Hand"
             && destination == "Library"
-            && matches!(
+            && (matches!(
                 target,
                 "TargetSpec::AnyPlayer" | "TargetSpec::Player(PlayerRel::Chosen)"
-            )
-            && matches!(p.peek("LibraryPosition"), Some("0" | "-1"))
+            ) || (prior_target_used && !targets_here))
+            && matches!(p.peek("LibraryPosition"), None | Some("0" | "-1"))
+            && !p.has("Shuffle")
             && (p.peek("Mandatory") == Some("True") || p.peek("Optional") == Some("True"))
         {
             return self.hand_to_library_change_zone(p, target, targets_here);
@@ -4124,6 +4212,61 @@ impl Tx<'_> {
                 )]
             }
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
+            ("Stack", "Hand", false) if target.starts_with("TargetSpec::Spell(") => {
+                p.take("IsCurse");
+                if !matches!(
+                    p.take("TargetType").as_deref(),
+                    None | Some("Spell" | "Spell.OppCtrl" | "Spell.YouDontCtrl")
+                ) {
+                    return None;
+                }
+                vec![format!("Effect::bounce({target})")]
+            }
+            ("Stack,Battlefield" | "Battlefield,Stack", "Hand", false)
+                if target.starts_with("TargetSpec::StackOrBattlefield(") =>
+            {
+                p.take("IsCurse");
+                p.take("UseAllOriginZones");
+                vec![format!("Effect::bounce({target})")]
+            }
+            ("Stack,Battlefield" | "Battlefield,Stack", "Exile", false)
+                if target.starts_with("TargetSpec::StackOrBattlefield(")
+                    && !self.has_linked_exile_reader() =>
+            {
+                p.take("IsCurse");
+                p.take("UseAllOriginZones");
+                vec![format!("Effect::exile({target})")]
+            }
+            ("Stack", "Exile", false)
+                if target.starts_with("TargetSpec::Spell(") && !self.has_linked_exile_reader() =>
+            {
+                p.take("IsCurse");
+                if !matches!(
+                    p.take("TargetType").as_deref(),
+                    None | Some("Spell" | "Spell.OppCtrl" | "Spell.YouDontCtrl")
+                ) {
+                    return None;
+                }
+                vec![format!("Effect::exile({target})")]
+            }
+            ("Stack", "Library", false)
+                if target.starts_with("TargetSpec::Spell(") && !p.has("Shuffle") =>
+            {
+                p.take("IsCurse");
+                if !matches!(
+                    p.take("TargetType").as_deref(),
+                    None | Some("Spell" | "Spell.OppCtrl" | "Spell.YouDontCtrl")
+                ) {
+                    return None;
+                }
+                match p.take("LibraryPosition").as_deref() {
+                    Some("0") => vec!["Effect::PutTargetOnTopOfLibrary".to_string()],
+                    Some("-1") => vec!["Effect::PutTargetOnBottomOfLibrary".to_string()],
+                    _ => {
+                        return self.deny("`ChangeZone` from `Stack` to `Library`".to_string());
+                    }
+                }
+            }
             ("Battlefield", "Library", true)
                 if p.take("LibraryPosition").as_deref() == Some("0") =>
             {
@@ -4294,6 +4437,7 @@ impl Tx<'_> {
         targets_here: bool,
     ) -> bool {
         !targets_here
+            && origin != "Hand"
             && !p.has("Hidden")
             && !p.has("DefinedPlayer")
             && (target != "TargetSpec::AnyPlayer"
@@ -4322,7 +4466,8 @@ impl Tx<'_> {
         {
             return self.deny(format!("`ChangeZone` with `Hidden$ {hidden}`"));
         }
-        let pos = p.take("LibraryPosition")?;
+        p.take("SelectPrompt");
+        let pos = p.take("LibraryPosition").unwrap_or_else(|| "0".to_string());
         let targets_a_player = targets_here && target == "TargetSpec::Player(PlayerRel::Chosen)";
         let defined_player = p.take("DefinedPlayer");
         let player = if let Some(who) = defined_player.as_deref() {
@@ -4334,6 +4479,11 @@ impl Tx<'_> {
         };
         if pos == "0" {
             if p.take("Mandatory").as_deref() != Some("True") {
+                return None;
+            }
+            if let Some(reorder) = p.take("Reorder")
+                && reorder != "True"
+            {
                 return None;
             }
             if let Some(ct) = p.take("ChangeType")
@@ -5151,7 +5301,15 @@ impl Tx<'_> {
             | "TriggeredCard" => {
                 matches!(
                     self.trigger_mode.as_deref(),
-                    Some("ChangesZone" | "Discarded" | "Cycled" | "Exerted" | "Sacrificed")
+                    Some(
+                        "ChangesZone"
+                            | "Discarded"
+                            | "Cycled"
+                            | "Exerted"
+                            | "Sacrificed"
+                            | "BecomesPlotted"
+                            | "Plotted"
+                    )
                 )
             }
             "TriggeredAttackerLKICopy" | "TriggeredAttacker" => {
@@ -6664,6 +6822,7 @@ impl Tx<'_> {
     /// Wave-7 fallback for `DigUntil`: handles `NoPutDesc$` prose and
     /// `RevealedDestination$ Library | RevealedLibraryPosition$ -1 | Shuffle$ True`
     /// (putting the rest into the library and immediately shuffling).
+    #[allow(clippy::too_many_lines)]
     pub(super) fn wave7_dig_until_effect(
         &mut self,
         p: &mut Params,
@@ -6691,6 +6850,12 @@ impl Tx<'_> {
             Some("True") => true,
             Some(_) => return None,
         };
+        if player == "PlayerRel::You"
+            && found_raw.as_deref() == Some("Battlefield")
+            && p.peek("GainControl") == Some("True")
+        {
+            p.take("GainControl");
+        }
         if !p.entries.iter().all(|(k, _)| k.starts_with("Condition")) {
             return None;
         }

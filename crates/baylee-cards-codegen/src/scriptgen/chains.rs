@@ -401,6 +401,12 @@ impl Tx<'_> {
         {
             self.search_library_then_untap_found(&mut p, &mut sub, target.as_deref())?
         } else if api == "ChangeZone"
+            && p.peek("Destination") == Some("Exile")
+            && p.peek("RememberChanged") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "AlterAttribute")
+        {
+            self.plot_remembered_effect(&mut p, &mut sub, target.as_deref(), targets_here)?
+        } else if api == "ChangeZone"
             && p.peek("Origin") == Some("Graveyard")
             && p.peek("Destination") == Some("Battlefield")
             && p.peek("RememberChanged") == Some("True")
@@ -460,6 +466,14 @@ impl Tx<'_> {
                 return self.deny("`TargetOnly` without a single first target".to_string());
             } else {
                 p.take("IsCurse");
+                if chain.target.as_deref().is_some_and(|t| {
+                    t.starts_with("TargetSpec::Spell(")
+                        || t.starts_with("TargetSpec::AbilityOnStack(")
+                        || t.starts_with("TargetSpec::SpellOrAbility(")
+                        || t.starts_with("TargetSpec::ActivatedAbility(")
+                }) {
+                    p.take("TargetType");
+                }
                 if sub.is_some() {
                     if unless.is_some() || dying.is_some() || at_end.is_some() || optional_counter {
                         return self.deny("`TargetOnly` modifier with `SubAbility$`".to_string());
@@ -958,32 +972,10 @@ impl Tx<'_> {
             // is.
             match p.take("TgtZone").as_deref() {
                 None | Some("Battlefield") => {
-                    if api == "Counter" && p.peek("TargetType") == Some("Activated") {
-                        self.activated_ability_target(valid)
+                    if api == "Counter" {
+                        self.counter_or_stack_target(valid, p.peek("TargetType"), true)
                     } else if api == "CopySpellAbility" {
-                        match p.peek("TargetType") {
-                            Some("Spell") => self.target_spec(valid, "Counter"),
-                            Some("Activated") => self.activated_ability_target(valid),
-                            Some("Activated,Triggered" | "Triggered,Activated")
-                                if valid == "Card" =>
-                            {
-                                Some("TargetSpec::AbilityOnStack(&Filter::Any)".to_string())
-                            }
-                            Some(
-                                "Activated.YouCtrl,Triggered.YouCtrl"
-                                | "Triggered.YouCtrl,Activated.YouCtrl",
-                            ) if valid == "Card" => Some(
-                                "TargetSpec::AbilityOnStack(&Filter::ControlledByYou)".to_string(),
-                            ),
-                            Some(
-                                "Spell,Activated,Triggered"
-                                | "Activated,Triggered,Spell"
-                                | "Spell,Triggered,Activated",
-                            ) if valid == "Card" => {
-                                Some("TargetSpec::SpellOrAbility(&Filter::Any)".to_string())
-                            }
-                            _ => None,
-                        }
+                        self.counter_or_stack_target(valid, p.peek("TargetType"), false)
                     } else if chain.target.is_some()
                         && (chain.target_unique
                             || matches!(api, "Fight" | "DealDamage" | "Clone" | "Tap" | "Untap"))
@@ -1000,7 +992,14 @@ impl Tx<'_> {
                         self.target_spec(valid, api)
                     }
                 }
+                Some("Stack") => self.counter_or_stack_target(valid, p.peek("TargetType"), true),
                 Some("Stack,Battlefield" | "Battlefield,Stack") => {
+                    if api == "ChangeZone"
+                        && valid.contains("inZoneStack")
+                        && !valid.split(',').any(|a| a.trim() == "Card.inZoneStack")
+                    {
+                        return self.deny(format!("restricted stack/battlefield target `{valid}`"));
+                    }
                     self.spell_or_permanent_target(valid)
                 }
                 Some(zone) => return self.deny(format!("a target in `TgtZone$ {zone}`")),
@@ -1010,6 +1009,52 @@ impl Tx<'_> {
             return self.deny(format!("target `{valid}`"));
         };
         Some(spec)
+    }
+
+    fn counter_or_stack_target(
+        &mut self,
+        valid: &str,
+        target_type: Option<&str>,
+        allow_bare_spell: bool,
+    ) -> Option<String> {
+        let any_source = matches!(valid, "Card" | "Card,Emblem" | "Emblem,Card");
+        match target_type {
+            None if allow_bare_spell => self.target_spec(valid, "Counter"),
+            Some("Spell") => self.target_spec(valid, "Counter"),
+            Some("Spell.OppCtrl" | "Spell.YouDontCtrl") if any_source => {
+                Some("TargetSpec::Spell(&Filter::ControlledByOpponent)".to_string())
+            }
+            Some("Activated") => self.activated_ability_target(valid),
+            Some("Activated,Triggered" | "Triggered,Activated") if any_source => {
+                Some("TargetSpec::AbilityOnStack(&Filter::Any)".to_string())
+            }
+            Some("Activated.YouCtrl,Triggered.YouCtrl" | "Triggered.YouCtrl,Activated.YouCtrl")
+                if any_source =>
+            {
+                Some("TargetSpec::AbilityOnStack(&Filter::ControlledByYou)".to_string())
+            }
+            Some(
+                "Activated.YouDontCtrl,Triggered.YouDontCtrl"
+                | "Triggered.YouDontCtrl,Activated.YouDontCtrl"
+                | "Activated.OppCtrl,Triggered.OppCtrl"
+                | "Triggered.OppCtrl,Activated.OppCtrl",
+            ) if any_source => {
+                Some("TargetSpec::AbilityOnStack(&Filter::ControlledByOpponent)".to_string())
+            }
+            Some(
+                "Spell,Activated,Triggered"
+                | "Activated,Triggered,Spell"
+                | "Spell,Triggered,Activated",
+            ) if any_source => Some("TargetSpec::SpellOrAbility(&Filter::Any)".to_string()),
+            Some(
+                "Spell.YouDontCtrl,Activated.YouDontCtrl,Triggered.YouDontCtrl"
+                | "Activated.YouDontCtrl,Triggered.YouDontCtrl,Spell.YouDontCtrl"
+                | "Spell.OppCtrl,Activated.OppCtrl,Triggered.OppCtrl",
+            ) if any_source => {
+                Some("TargetSpec::SpellOrAbility(&Filter::ControlledByOpponent)".to_string())
+            }
+            _ => None,
+        }
     }
 
     /// Register a fresh target declaration without merging independent instances.
@@ -1060,7 +1105,7 @@ impl Tx<'_> {
                         && no_riders(p)
                 }
                 "DealDamage" => {
-                    is_obj_spec
+                    (is_obj_spec || spec == "TargetSpec::CreatureOrPlaneswalker")
                         && single_object_first
                         && p.peek("Defined").is_none()
                         && p.peek("DamageSource") == Some("ParentTarget")
@@ -1106,6 +1151,10 @@ impl Tx<'_> {
                             e.starts_with("Effect::destroy")
                                 || e == "Effect::TapTarget"
                                 || e == "Effect::UntapTarget"
+                                || e.starts_with("Effect::AddCounter")
+                                || e.starts_with("Effect::DealDamage")
+                                || e.starts_with("Effect::bounce(")
+                                || e.starts_with("Effect::exile(")
                         })
                         && !self.later_line_targets(p.peek("SubAbility"))
                         && p.peek("Defined").is_none_or(|v| v == "Targeted")
@@ -1158,8 +1207,10 @@ impl Tx<'_> {
                     || (api == "ChangeZone"
                         && (matches!(
                             (p.peek("Origin"), p.peek("Destination")),
-                            (Some("Battlefield" | "Graveyard"), Some("Hand" | "Exile"))
-                                | (Some("Graveyard"), Some("Battlefield"))
+                            (
+                                Some("Battlefield" | "Graveyard" | "Stack"),
+                                Some("Hand" | "Exile")
+                            ) | (Some("Graveyard"), Some("Battlefield"))
                         ) || (matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
                             && p.peek("Destination") == Some("Library")
                             && p.peek("Shuffle") == Some("True"))
@@ -1755,29 +1806,48 @@ impl Tx<'_> {
                     }
                 };
                 let dmg = if let Some(src) = damage_source {
-                    let power_names: &[&str] = match (src.as_str(), self.trigger_mode.as_deref()) {
-                        (
-                            "TriggeredCard" | "TriggeredCardLKICopy",
-                            Some("ChangesZone" | "Exerted" | "Sacrificed"),
-                        ) => &["TriggeredCard$CardPower", "TriggeredCardLKICopy$CardPower"],
-                        (
-                            "TriggeredAttacker" | "TriggeredAttackerLKICopy",
-                            Some("Attacks" | "AttackerUnblocked"),
-                        ) => &[
-                            "TriggeredAttacker$CardPower",
-                            "TriggeredAttackerLKICopy$CardPower",
-                        ],
-                        ("TriggeredBlocker" | "TriggeredBlockerLKICopy", Some("Blocks")) => &[
-                            "TriggeredBlocker$CardPower",
-                            "TriggeredBlockerLKICopy$CardPower",
-                        ],
-                        _ => return None,
-                    };
-                    if self.is_power_of(&num_dmg, power_names) {
-                        format!("Effect::EventObjectDealsDamageEqualToPower {{ target: {to} }}")
-                    } else {
+                    if src == "Self" {
                         let n = self.amount_or_count_ext(&num_dmg)?;
-                        format!("Effect::EventObjectDealsDamage {{ amount: {n}, target: {to} }}")
+                        format!("Effect::DealDamage {{ amount: {n}, target: {to} }}")
+                    } else if src == "Targeted"
+                        && to == "TargetSpec::ThisObject"
+                        && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                        && single_target
+                        && self.is_power_of(&num_dmg, &["Targeted$CardPower"])
+                    {
+                        "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
+                            .to_string()
+                    } else {
+                        let power_names: &[&str] =
+                            match (src.as_str(), self.trigger_mode.as_deref()) {
+                                (
+                                    "TriggeredCard" | "TriggeredCardLKICopy",
+                                    Some("ChangesZone" | "Exerted" | "Sacrificed"),
+                                ) => &["TriggeredCard$CardPower", "TriggeredCardLKICopy$CardPower"],
+                                (
+                                    "TriggeredAttacker" | "TriggeredAttackerLKICopy",
+                                    Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked"),
+                                ) => &[
+                                    "TriggeredAttacker$CardPower",
+                                    "TriggeredAttackerLKICopy$CardPower",
+                                ],
+                                (
+                                    "TriggeredBlocker" | "TriggeredBlockerLKICopy",
+                                    Some("Blocks"),
+                                ) => &[
+                                    "TriggeredBlocker$CardPower",
+                                    "TriggeredBlockerLKICopy$CardPower",
+                                ],
+                                _ => return None,
+                            };
+                        if self.is_power_of(&num_dmg, power_names) {
+                            format!("Effect::EventObjectDealsDamageEqualToPower {{ target: {to} }}")
+                        } else {
+                            let n = self.amount_or_count_ext(&num_dmg)?;
+                            format!(
+                                "Effect::EventObjectDealsDamage {{ amount: {n}, target: {to} }}"
+                            )
+                        }
                     }
                 } else {
                     let n = self.amount_or_count_ext(&num_dmg)?;
@@ -2247,6 +2317,38 @@ impl Tx<'_> {
                         return Some(vec![format!(
                             "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
                              kind: {kind}, amount: {n} }}"
+                        )]);
+                    }
+                    Some(
+                        "TriggeredCardLKICopy & Self"
+                        | "Self & TriggeredCardLKICopy"
+                        | "TriggeredCard & Self"
+                        | "Self & TriggeredCard",
+                    ) if self.trigger_mode.as_deref() == Some("ChangesZone")
+                        && target.is_none() =>
+                    {
+                        return Some(vec![
+                            format!(
+                                "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
+                                 kind: {kind}, amount: {n} }}"
+                            ),
+                            format!(
+                                "Effect::AddCounterFilter {{ filter: &Filter::This, \
+                                 kind: {kind}, amount: {n} }}"
+                            ),
+                        ]);
+                    }
+                    Some(def)
+                        if target.is_none()
+                            && def.starts_with("Valid ")
+                            && !def.contains("Remembered")
+                            && !def.contains("Targeted") =>
+                    {
+                        let valid = def.strip_prefix("Valid ")?.trim();
+                        let expr = self.filter_expr(valid)?;
+                        let name = self.body.filter_static("COUNTER", &expr);
+                        return Some(vec![format!(
+                            "Effect::AddCounterFilter {{ filter: &{name}, kind: {kind}, amount: {n} }}"
                         )]);
                     }
                     None | Some("Self") => {}
@@ -3109,17 +3211,66 @@ impl Tx<'_> {
                 }
             }
             "Counter" => {
+                let defined = p.take("Defined");
+                let inherited_target = match defined.as_deref() {
+                    None => false,
+                    Some("Targeted" | "ParentTarget") if !targets_here && target.is_some() => true,
+                    Some(_) => return None,
+                };
                 let dest = p.take("Destination");
-                match (dest.as_deref(), p.take("TargetType").as_deref()) {
-                    (None | Some("Graveyard"), Some("Spell")) => {
-                        vec!["Effect::CounterTargetSpell".to_string()]
+                let target_type = p.take("TargetType");
+                let is_exile = match dest.as_deref() {
+                    None | Some("Graveyard") => false,
+                    Some("Exile") => true,
+                    Some(_) => return None,
+                };
+                match target_type.as_deref() {
+                    Some("Spell" | "Spell.OppCtrl" | "Spell.YouDontCtrl") => {
+                        if is_exile {
+                            vec!["Effect::CounterTargetSpellToExile".to_string()]
+                        } else {
+                            vec!["Effect::CounterTargetSpell".to_string()]
+                        }
                     }
-                    (Some("Exile"), Some("Spell")) => {
-                        vec!["Effect::CounterTargetSpellToExile".to_string()]
-                    }
-                    (None | Some("Graveyard"), Some("Activated")) => {
-                        vec!["Effect::CounterTargetAbility".to_string()]
-                    }
+                    Some(
+                        "Activated"
+                        | "Activated,Triggered"
+                        | "Triggered,Activated"
+                        | "Activated.YouCtrl,Triggered.YouCtrl"
+                        | "Triggered.YouCtrl,Activated.YouCtrl"
+                        | "Activated.YouDontCtrl,Triggered.YouDontCtrl"
+                        | "Triggered.YouDontCtrl,Activated.YouDontCtrl"
+                        | "Activated.OppCtrl,Triggered.OppCtrl"
+                        | "Triggered.OppCtrl,Activated.OppCtrl",
+                    ) if !is_exile => vec!["Effect::CounterTargetAbility".to_string()],
+                    Some(
+                        "Spell,Activated,Triggered"
+                        | "Activated,Triggered,Spell"
+                        | "Spell,Triggered,Activated"
+                        | "Spell.YouDontCtrl,Activated.YouDontCtrl,Triggered.YouDontCtrl"
+                        | "Activated.YouDontCtrl,Triggered.YouDontCtrl,Spell.YouDontCtrl"
+                        | "Spell.OppCtrl,Activated.OppCtrl,Triggered.OppCtrl",
+                    ) if !is_exile => vec!["Effect::CounterTargetSpellOrAbility".to_string()],
+                    None if inherited_target || targets_here => match target {
+                        Some(t) if t.starts_with("TargetSpec::Spell(") => {
+                            if is_exile {
+                                vec!["Effect::CounterTargetSpellToExile".to_string()]
+                            } else {
+                                vec!["Effect::CounterTargetSpell".to_string()]
+                            }
+                        }
+                        Some(t)
+                            if !is_exile
+                                && (t.starts_with("TargetSpec::AbilityOnStack(")
+                                    || t.starts_with("TargetSpec::ActivatedAbility(")) =>
+                        {
+                            vec!["Effect::CounterTargetAbility".to_string()]
+                        }
+                        Some(t) if !is_exile && t.starts_with("TargetSpec::SpellOrAbility(") => {
+                            vec!["Effect::CounterTargetSpellOrAbility".to_string()]
+                        }
+                        _ => return None,
+                    },
                     _ => return None,
                 }
             }
@@ -3223,12 +3374,27 @@ impl Tx<'_> {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     fn copy_spell_ability_effect(
         &mut self,
         p: &mut Params,
         target: Option<&str>,
         targets_here: bool,
     ) -> Option<Vec<String>> {
+        // CR 111.10 / CR 111.13: a cast trigger whose Oracle creates a token
+        // copy directly on the battlefield (e.g. Osgood, Operation Double) is
+        // not a stack spell copy (`Effect::CopySpellOrAbility`).
+        let oracle_lower = self.oracle.to_ascii_lowercase();
+        if oracle_lower.contains("create a token that's a copy")
+            && !oracle_lower.contains("copy target")
+            && !oracle_lower.contains("copy that spell")
+            && !oracle_lower.contains("copy it")
+        {
+            return self.deny(
+                "`CopySpellAbility` on a card whose Oracle creates a token copy directly"
+                    .to_string(),
+            );
+        }
         let may_choose = match p.take("MayChooseTarget").as_deref() {
             Some("True") => true,
             Some("False") => false,
@@ -3984,6 +4150,8 @@ impl Tx<'_> {
                             | "RolledDie"
                             | "Exerted"
                             | "Enlisted"
+                            | "BecomesPlotted"
+                            | "Plotted"
                     )
                 ) =>
             {
@@ -4014,6 +4182,16 @@ impl Tx<'_> {
     ) -> Option<&'static str> {
         if defined.is_none() && targets_a_player {
             return Some("PlayerRel::Chosen");
+        }
+        if defined == Some("ParentTarget")
+            && target == Some("TargetSpec::Player(PlayerRel::Chosen)")
+        {
+            return Some("PlayerRel::Chosen");
+        }
+        if defined == Some("TargetedController")
+            && target == Some("TargetSpec::CreatureOrPlaneswalker")
+        {
+            return Some("PlayerRel::ControllerOfTarget");
         }
         if let Some(who) = defined
             && let Some(rel) = self.wave11_trigger_player_rel(who)

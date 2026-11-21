@@ -144,7 +144,10 @@ impl Tx<'_> {
                 .collect::<Vec<_>>()
                 .join(",")
         };
-        let expr = self.filter_expr(&valid)?;
+        // CR 110.4b: spells on the stack are not permanents, so `"Permanent"`
+        // must keep its permanent-card type union (`card_zone = true`) rather
+        // than collapsing away as on the battlefield.
+        let expr = self.filter_expr_in_zone(&valid, true)?;
         let filter = self.body.filter_static("TRIGGER", &expr);
         Some(format!("Trigger::SpellCast(&{filter})"))
     }
@@ -236,7 +239,7 @@ impl Tx<'_> {
                 "&Filter::Any".to_string()
             }
             _ => {
-                let expr = self.filter_expr(valid)?;
+                let expr = self.filter_expr_in_zone(valid, true)?;
                 format!("&{}", self.body.filter_static("TRIGGER", &expr))
             }
         };
@@ -264,6 +267,32 @@ impl Tx<'_> {
         let expr = self.filter_expr(&valid)?;
         let filter = self.body.filter_static("TRIGGER", &expr);
         Some(format!("Trigger::Enlisted(&{filter})"))
+    }
+
+    fn plotted_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let valid_player = p.take("ValidPlayer");
+        let who = match valid_player.as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => return self.deny(format!("a `Plotted` trigger for `{other}`")),
+        };
+        let valid = match p.take("ValidCard") {
+            Some(valid) => valid,
+            None if valid_player.is_some() => "Card".to_string(),
+            None => return self.deny("a `Plotted` trigger with no `ValidCard$`".to_string()),
+        };
+        let filter = if valid == "Card.Self" {
+            "&Filter::This".to_string()
+        } else if valid == "Card" {
+            "&Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr_in_zone(&valid, true)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        Some(format!(
+            "Trigger::Plotted {{ who: {who}, filter: {filter} }}"
+        ))
     }
 
     /// `T:Mode$ DamageDone` — "whenever this creature deals [combat] damage
@@ -522,6 +551,7 @@ impl Tx<'_> {
             "RolledDie" => self.rolled_die_trigger(p),
             "Exerted" => self.exerted_trigger(p),
             "Enlisted" => self.enlisted_trigger(p),
+            "BecomesPlotted" | "Plotted" => self.plotted_trigger(p),
             "ChangesZoneAll" => self.changes_zone_all_trigger(p),
             "Sacrificed" => self.sacrificed_trigger(p),
             "Attacked" => self.player_attacked_trigger(p),
@@ -3098,7 +3128,9 @@ impl Tx<'_> {
             | "CounterAddedOnce"
             | "FlippedCoin"
             | "RolledDie"
-            | "SearchedLibrary" => true,
+            | "SearchedLibrary"
+            | "BecomesPlotted"
+            | "Plotted" => true,
             "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" | "Exerted" | "Enlisted"
             | "Sacrificed" => non_self,
             "ChangesZoneAll" => non_self_cards,

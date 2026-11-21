@@ -4148,3 +4148,190 @@ fn wave12c_pass2_effect_statics_defender_land_plays_and_colors() {
         multi_fog.abilities[0]
     );
 }
+
+#[test]
+fn wave13c_fix_374_permanent_spell_cast_and_token_copy_guard() {
+    // #374 CR 110.4b: `Permanent.<Subtype>` on SpellCast keeps the permanent
+    // type union so Kindred Instant/Sorcery spells cannot falsely match.
+    let echo_mage = read(
+        "Name:EchoWizard\nManaCost:3 U U\nTypes:Creature Wizard\nPT:4/4\n\
+         T:Mode$ SpellCast | ValidCard$ Permanent.Wizard,Permanent.Goblin | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigCopy\n\
+         SVar:TrigCopy:DB$ CopySpellAbility | Defined$ TriggeredSpellAbility",
+    );
+    assert!(
+        echo_mage
+            .statics
+            .contains("TypeSet::ARTIFACT.union(TypeSet::BATTLE)")
+            && echo_mage.statics.contains("subtypes::creature::WIZARD")
+            && echo_mage.statics.contains("subtypes::creature::GOBLIN"),
+        "{}\n{}",
+        echo_mage.statics,
+        echo_mage.abilities[0]
+    );
+
+    // #374 CR 111.10/111.13: CopySpellAbility must refuse cast triggers whose
+    // Oracle creates a token copy directly on the battlefield.
+    assert!(refused(
+        "Name:TokenCastDouble\nManaCost:3 U\nTypes:Legendary Creature\nPT:2/2\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self | Execute$ TrigCopy\n\
+         SVar:TrigCopy:DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | NonLegendary$ True\n\
+         Oracle:When you cast this spell, create a token that's a copy of it, except it isn't legendary."
+    ));
+    // A real spell-copying card that also has another token-copying sentence stays allowed.
+    let real_copy = read(
+        "Name:DualMirror\nManaCost:2 U R\nTypes:Instant\n\
+         A:SP$ CopySpellAbility | TargetType$ Spell | ValidTgts$ Instant,Sorcery | MayChooseTarget$ True\n\
+         Oracle:Copy target instant or sorcery spell. You may choose new targets for the copy. (Other cards may create a token that's a copy.)",
+    );
+    assert!(
+        real_copy.abilities[0].contains("Effect::CopyTargetSpell"),
+        "{}",
+        real_copy.abilities[0]
+    );
+}
+
+#[test]
+fn wave13c_wave6b_plotted_trigger_and_plot_effects() {
+    let exile_plot_trig = read(
+        "Name:PlottedBrawler\nManaCost:1 G\nTypes:Creature\nPT:3/2\n\
+         T:Mode$ BecomesPlotted | ValidCard$ Card.Self | TriggerZones$ Exile | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2",
+    );
+    assert!(
+        exile_plot_trig.abilities[0]
+            .contains("Trigger::Plotted { who: PlayerRel::EachPlayer, filter: &Filter::This }")
+            && exile_plot_trig.abilities[0].contains("zone = TriggerZone::Exile"),
+        "{}",
+        exile_plot_trig.abilities[0]
+    );
+
+    let plot_spell = read(
+        "Name:PlotBird\nManaCost:1 W W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigEx\n\
+         SVar:TrigEx:DB$ ChangeZone | TargetType$ Spell | ValidTgts$ Card | TgtZone$ Stack | Origin$ Stack | Destination$ Exile | RememberChanged$ True | SubAbility$ DBPlot\n\
+         SVar:DBPlot:DB$ AlterAttribute | Defined$ Remembered | Attributes$ Plotted | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        plot_spell.abilities[0]
+            .contains("Effect::Plot { target: TargetSpec::Spell(&Filter::Any) }"),
+        "{}",
+        plot_spell.abilities[0]
+    );
+
+    let plot_top = read(
+        "Name:TopPlotter\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Defined$ TopOfLibrary | Origin$ Library | Destination$ Exile | RememberChanged$ True | SubAbility$ DBPlot\n\
+         SVar:DBPlot:DB$ AlterAttribute | Defined$ Remembered | Attributes$ Plotted | SubAbility$ DBClean\n\
+         SVar:DBClean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        plot_top.abilities[0]
+            .contains("Effect::PlotTop { who: PlayerRel::You, count: Amount::Fixed(1) }"),
+        "{}",
+        plot_top.abilities[0]
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave13c_stack_zone_change_counter_abilities_and_deal_damage() {
+    let bounce_spell = read(
+        "Name:DelayBounce\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Card | TgtZone$ Stack | Origin$ Stack | Destination$ Hand | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        bounce_spell.abilities[0].contains("Effect::bounce(TargetSpec::Spell(&Filter::Any))"),
+        "{}",
+        bounce_spell.abilities[0]
+    );
+
+    let stifle = read(
+        "Name:HushAbility\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Activated,Triggered | ValidTgts$ Card,Emblem",
+    );
+    assert!(
+        stifle.abilities[0].contains("Effect::CounterTargetAbility")
+            && stifle.abilities[0].contains("TargetSpec::AbilityOnStack(&Filter::Any)"),
+        "{}",
+        stifle.abilities[0]
+    );
+
+    let disallow = read(
+        "Name:BlanketNo\nManaCost:1 U U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell,Activated,Triggered | ValidTgts$ Card,Emblem",
+    );
+    assert!(
+        disallow.abilities[0].contains("Effect::CounterTargetSpellOrAbility")
+            && disallow.abilities[0].contains("TargetSpec::SpellOrAbility(&Filter::Any)"),
+        "{}",
+        disallow.abilities[0]
+    );
+
+    let stack_or_perm_bounce = read(
+        "Name:SpellOrCreatureBounce\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature,Card.inZoneStack | TgtZone$ Stack,Battlefield | Origin$ Battlefield,Stack | Destination$ Hand",
+    );
+    assert!(
+        stack_or_perm_bounce.abilities[0]
+            .contains("Effect::bounce(TargetSpec::StackOrBattlefield("),
+        "{}",
+        stack_or_perm_bounce.abilities[0]
+    );
+    assert!(refused(
+        "Name:RestrictedStackBounce\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Permanent,Instant.inZoneStack | TgtZone$ Stack,Battlefield | Origin$ Battlefield,Stack | Destination$ Hand"
+    ));
+
+    let bite_pw = read(
+        "Name:BiteDownTest\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature.YouCtrl | SubAbility$ DBDmg\n\
+         SVar:DBDmg:DB$ DealDamage | ValidTgts$ Creature,Planeswalker | DamageSource$ ParentTarget | NumDmg$ X\n\
+         SVar:X:ParentTargeted$CardPower",
+    );
+    assert!(
+        bite_pw.abilities[0].contains(
+            "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::Second }"
+        ) && bite_pw.abilities[0].contains("Filter::CREATURE_OR_PLANESWALKER"),
+        "{}",
+        bite_pw.abilities[0]
+    );
+
+    let self_punch = read(
+        "Name:TauntWall\nManaCost:2 R\nTypes:Creature\nPT:1/5\n\
+         A:AB$ DealDamage | Cost$ T | ValidTgts$ Creature | Defined$ Self | DamageSource$ Targeted | NumDmg$ X\n\
+         SVar:X:Targeted$CardPower",
+    );
+    assert!(
+        self_punch.abilities[0].contains(
+            "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
+        ),
+        "{}",
+        self_punch.abilities[0]
+    );
+
+    let burn_then_destroy = read(
+        "Name:BurnAndBreak\nManaCost:2 R W\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | SubAbility$ DBKill\n\
+         SVar:DBKill:DB$ Destroy | ValidTgts$ Artifact",
+    );
+    assert!(
+        burn_then_destroy.abilities[0].contains(
+            "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: false }"
+        ),
+        "{}",
+        burn_then_destroy.abilities[0]
+    );
+
+    let brainstorm_like = read(
+        "Name:MindSurge\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Draw | NumCards$ 3 | SubAbility$ DBPutBack\n\
+         SVar:DBPutBack:DB$ ChangeZone | Origin$ Hand | Destination$ Library | ChangeNum$ 2 | Mandatory$ True | Reorder$ True",
+    );
+    assert!(
+        brainstorm_like.abilities[0].contains("Effect::PutFromHandOnTop { count: 2 }"),
+        "{}",
+        brainstorm_like.abilities[0]
+    );
+}
