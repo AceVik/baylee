@@ -18,7 +18,7 @@ card!(
     oracle_id = "b8141489-00fa-4aba-85d0-4c883196fece",
     scryfall_id = "90a788e7-f3c8-41cc-9f1a-2e9f58aabc0e",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wildfield Borderpost",
         mana_cost = mana!("{1}{G}{W}"),

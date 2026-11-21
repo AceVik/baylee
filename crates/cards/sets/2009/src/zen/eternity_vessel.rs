@@ -10,7 +10,7 @@ card!(
     index = index::ETERNITY_VESSEL,
     oracle_id = "c8fa1319-6623-4999-acb5-a5e15e6d868c",
     scryfall_id = "a9222e18-41b3-423f-8715-305a0d8fd410",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Eternity Vessel",
         mana_cost = mana!("{6}"),

@@ -11,7 +11,7 @@ card!(
     index = index::ARMILLARY_SPHERE,
     oracle_id = "3963140c-da67-43e6-9514-fe9dc0a43c4d",
     scryfall_id = "af3ae93e-6094-483d-b2c0-ae117ad01293",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Armillary Sphere",
         mana_cost = mana!("{2}"),

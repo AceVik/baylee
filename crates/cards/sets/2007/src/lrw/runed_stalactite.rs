@@ -11,7 +11,7 @@ card!(
     index = index::RUNED_STALACTITE,
     oracle_id = "1c169307-71f5-4679-8b5a-d60c1109b9db",
     scryfall_id = "a54f50fe-d4c0-49ba-9063-853c76ae3e19",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Runed Stalactite",
         mana_cost = mana!("{1}"),

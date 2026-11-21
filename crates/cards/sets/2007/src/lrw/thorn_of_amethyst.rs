@@ -9,7 +9,7 @@ card!(
     index = index::THORN_OF_AMETHYST,
     oracle_id = "0c6c5336-9233-4ab1-9d55-79f20be7ea57",
     scryfall_id = "e472d4f5-add4-4de3-8718-31a47a35277c",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Thorn of Amethyst",
         mana_cost = mana!("{2}"),

@@ -14,7 +14,7 @@ card!(
     index = index::DOOR_OF_DESTINIES,
     oracle_id = "9b6d3dcf-aa5a-4516-bd48-a0723e86bfd1",
     scryfall_id = "e571a82f-812d-4eaf-bf87-9179018d0faf",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Door of Destinies",
         mana_cost = mana!("{4}"),

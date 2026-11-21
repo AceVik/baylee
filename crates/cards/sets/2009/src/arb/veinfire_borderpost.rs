@@ -18,7 +18,7 @@ card!(
     oracle_id = "3f65d1f8-3e46-4e3d-b087-5496a4106e4e",
     scryfall_id = "75ad0cc1-66bd-43c3-a296-c36cf9a64e85",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Veinfire Borderpost",
         mana_cost = mana!("{1}{B}{R}"),

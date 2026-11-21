@@ -18,7 +18,7 @@ card!(
     oracle_id = "312a5a75-9b68-4e4b-97fe-3ab644e3e493",
     scryfall_id = "eb37a8bd-6b6c-47f3-b7a0-5a20fa2d507c",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Firewild Borderpost",
         mana_cost = mana!("{1}{R}{G}"),

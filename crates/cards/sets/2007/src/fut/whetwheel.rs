@@ -10,7 +10,7 @@ card!(
     index = index::WHETWHEEL,
     oracle_id = "c5b0cd1c-6f9b-4b48-9430-af78731e1a45",
     scryfall_id = "dc6040b6-cf02-4f7e-a275-177c3a6415aa",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Whetwheel",
         mana_cost = mana!("{4}"),

@@ -12,7 +12,7 @@ card!(
     index = index::SIGIL_OF_DISTINCTION,
     oracle_id = "3aa3526b-bd06-417f-af29-5a9ff0844923",
     scryfall_id = "a4ac2d98-bc5d-4823-9903-b880988ff0f4",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sigil of Distinction",
         mana_cost = mana!("{X}"),

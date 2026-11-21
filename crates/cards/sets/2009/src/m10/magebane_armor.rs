@@ -12,7 +12,7 @@ card!(
     index = index::MAGEBANE_ARMOR,
     oracle_id = "fc24af7b-f3d0-41d0-aaac-d83424455717",
     scryfall_id = "95b0f586-a100-4817-93f8-1ee2df39ce03",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magebane Armor",
         mana_cost = mana!("{3}"),

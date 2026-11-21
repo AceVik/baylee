@@ -11,7 +11,7 @@ card!(
     index = index::PARADISE_PLUME,
     oracle_id = "665e52f1-901b-49a1-bfbd-ee38bdee8983",
     scryfall_id = "6a83c2b6-8734-44a8-8b10-c8a6791e0336",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Paradise Plume",
         mana_cost = mana!("{4}"),

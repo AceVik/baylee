@@ -11,7 +11,7 @@ card!(
     index = index::BLIGHT_SICKLE,
     oracle_id = "5b95a5ed-a6b2-4044-9273-2021d27794e9",
     scryfall_id = "c0f828c7-aedc-462b-8455-46e8a90feb85",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blight Sickle",
         mana_cost = mana!("{2}"),
