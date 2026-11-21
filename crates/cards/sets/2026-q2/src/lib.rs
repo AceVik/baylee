@@ -29,6 +29,8 @@ pub mod accelerated_evolution;
 pub mod additive_evolution;
 #[path = "sos/adventurous_eater.rs"]
 pub mod adventurous_eater;
+#[path = "msc/age_of_ultron.rs"]
+pub mod age_of_ultron;
 #[path = "msh/agent_13_sharon_carter.rs"]
 pub mod agent_13_sharon_carter;
 #[path = "msh/agent_of_atlas.rs"]

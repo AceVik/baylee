@@ -35,11 +35,6 @@ d0a31db0-69db-405c-99a3-945617900c54	Obscuring Haze	reader-gap: validate: "you c
 dcd8b9d4-c76a-4cad-8d43-13e42fb65bd6	Eladamri, Lord of Leaves Avatar	lint-gap: Vanguard card prints {G}{G} with empty Scryfall color_identity (CR 903.4)
 38d2176c-1a1e-4030-9c63-e28ba4a69b6d	Dune Mover	reader-gap: validate fails on omitted "you may" (optional: false)
 73c7fdb3-4742-4d08-8658-daa4435c49b1	Invasion of Vryn // Overloaded Mage-Ring	reader-gap: reference CopySpellAbility script omits MayChooseTarget$ True for "You may choose new targets for the copy"
-5f31a2d6-649a-40f4-89ce-95c635340e9e	Atraxi Warden	lint-gap: xtask check_text::up_to_target_phrase slices across multi-byte em-dash in "Suspend 5—"
-25012c1f-c069-43d7-b930-a3a5a7eb1389	Dismantling Wave	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent (-D dead_code)
-d39a1e12-bb6b-4e7a-96a4-5dab98084716	Enigma Thief	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent (-D dead_code)
-1b26a54f-6c27-4940-b77e-2a66175c5eff	Grasp of Fate	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent (-D dead_code)
-de1ca6ed-b275-4f62-ba05-f31b3659b352	Windgrace's Judgment	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent (-D dead_code)
 d22196b5-b111-45ce-ae51-a06ca02533b6	Wildfire Awakener	reader-gap: check_text rejects lowered player target on generated token (Pass E6)
 3346a585-d35a-4f8b-b9ab-7e453ebd15f4	Romana II	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
 992ddd9f-e0db-4383-909c-6dacca41d188	The Fifth Doctor	reader-gap: Time Lord creature subtype missing from subtypes.rs (Pass E6)
@@ -50,9 +45,7 @@ b793141d-581c-4cc7-b09f-1fe8bd5536c5	Neutralize the Guards	reader-gap: check_tex
 3df4eb80-e8dd-4a9e-bd8a-b4b23fb9de6c	Psychic Whorl	reader-gap: Target opponent mis-lowered to TargetSpec::AnyPlayer (Pass E6)
 c8714939-aaf9-4ede-a04f-61f0df5ea4d4	Bolshack Dragon	reader-gap: Armored creature subtype missing from subtypes.rs (Pass E6)
 271264fb-965c-4fe3-baec-2217de20f8b5	Omenpath to Naya	reader-gap: Omenpath subtype missing from subtypes.rs (Pass E6)
-f1ecb3d7-5ea0-45b2-b1b0-d7ae304db2a1	Archmage of Echoes	reader-gap: spell_cast_trigger calls filter_expr(card_zone=false), dropping Permanent on stack spell filters (CR 110.4b, Pass E6)
 292aafef-8945-4827-90b2-1dd9764e517b	Osgood, Operation Double	reader-gap: cast trigger lowers "create a token that's a copy of it" to CopySpellOrAbility instead of creating a battlefield token copy (CR 111.13, Pass E6)
-51042581-4add-4487-a1b6-85446539b975	Age of Ultron	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent (-D dead_code, Pass E7)
 3173ca98-d46a-4de3-a95e-3eaad28d4017	Omega, Heartless Evolution	reader-gap: emits unused static TARGET1 alongside TargetSpec::ObjectOfEachOpponent(&Filter::NONLAND), missing Filter::ControlledByOpponent (-D dead_code, Pass E7)
 fc0abdf3-3a88-4cb2-ba79-35fcaebbf7d2	Wail of War	reader-gap: check_text rejects controlled_by: Some(PlayerRel::Chosen) on TargetSpec::AnyOpponent without Filter::ControlledByOpponent (Pass E7)
 4a0cc2a2-3711-473a-b2c5-b1e52b34e4fb	Dion, Bahamut's Dominant // Bahamut, Warden of Light	reader-gap: Chapter III "return it to the battlefield (front face up)" emits owner_control: true without "under its owner's control" (Pass E7)

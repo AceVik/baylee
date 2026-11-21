@@ -33,6 +33,8 @@ pub mod ancestors_aid;
 pub mod ancestral_reminiscence;
 #[path = "lci/anim_pakal_thousandth_moon.rs"]
 pub mod anim_pakal_thousandth_moon;
+#[path = "who/atraxi_warden.rs"]
+pub mod atraxi_warden;
 #[path = "lci/attentive_sunscribe.rs"]
 pub mod attentive_sunscribe;
 #[path = "who/banish_to_another_universe.rs"]

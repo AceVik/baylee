@@ -586,7 +586,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // remaining contextual.
     // Reconverging with Codegen Wave 13a-13c adds 6 non-mana activations across
     // refreshed pool cards: 4 read by the table and 2 remaining contextual.
-    assert_eq!((read, of), (4664, 5953), "activated/loyalty reader census");
+    // Unholding 7 Wave 13-fixed cards and completing 5 Wave 12+13 stubs adds
+    // 1 non-mana activation (Dismantling Wave's Cycling): 1 read by the table.
+    assert_eq!((read, of), (4665, 5954), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

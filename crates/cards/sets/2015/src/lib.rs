@@ -405,6 +405,8 @@ pub mod goblin_heelcutter;
 pub mod gore_swine;
 #[path = "dtk/graceblade_artisan.rs"]
 pub mod graceblade_artisan;
+#[path = "c15/grasp_of_fate.rs"]
+pub mod grasp_of_fate;
 #[path = "ori/grasp_of_the_hieromancer.rs"]
 pub mod grasp_of_the_hieromancer;
 #[path = "frf/grave_strength.rs"]

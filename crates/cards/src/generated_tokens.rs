@@ -5515,6 +5515,16 @@ pub static MERFOLK_1_1_WHITE_BLUE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 colorless artifact Robot Villain.
+pub static ROBOT_VILLAIN_ARTIFACT_2_2: TokenDef = TokenDef {
+    name: "Robot Villain",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::ROBOT, creature::VILLAIN],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -6720,6 +6730,7 @@ pub static ALL: &[&TokenDef] = &[
     &SOLDIER_2_2_WHITE,
     &HERO_3_2_WHITE_VIGILANCE,
     &MERFOLK_1_1_WHITE_BLUE,
+    &ROBOT_VILLAIN_ARTIFACT_2_2,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -7139,4 +7150,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &SOLDIER_2_2_WHITE,
     &HERO_3_2_WHITE_VIGILANCE,
     &MERFOLK_1_1_WHITE_BLUE,
+    &ROBOT_VILLAIN_ARTIFACT_2_2,
 ];

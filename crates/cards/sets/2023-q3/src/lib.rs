@@ -21,6 +21,8 @@ pub mod agatha_s_champion;
 pub mod agatha_s_soul_cauldron;
 #[path = "woe/archive_dragon.rs"]
 pub mod archive_dragon;
+#[path = "woc/archmage_of_echoes.rs"]
+pub mod archmage_of_echoes;
 #[path = "woe/archon_s_glory.rs"]
 pub mod archon_s_glory;
 #[path = "woe/ashiok_s_reaper.rs"]

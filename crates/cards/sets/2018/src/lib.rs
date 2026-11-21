@@ -1297,6 +1297,8 @@ pub mod wild_ceratok;
 pub mod wild_onslaught;
 #[path = "dom/windgrace_acolyte.rs"]
 pub mod windgrace_acolyte;
+#[path = "c18/windgrace_s_judgment.rs"]
+pub mod windgrace_s_judgment;
 #[path = "grn/wishcoin_crab.rs"]
 pub mod wishcoin_crab;
 #[path = "dom/wizard_s_lightning.rs"]

@@ -40803,7 +40803,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Grasp of Fate
+    &[
+        "When this enchantment enters, for each opponent, exile up to one target nonland permanent that player controls until this enchantment leaves the battlefield. (Those permanents return under their owners' control.)",
+    ],
     &[],
     // Herald of the Host
     &[
@@ -47536,7 +47539,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Windgrace's Judgment
+    &["For any number of opponents, destroy target nonland permanent that player controls."],
     &[],
     &[],
     &[],
@@ -51713,7 +51717,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability.",
     ],
-    &[],
+    // Dismantling Wave
+    &[
+        "For each opponent, destroy up to one target artifact or enchantment that player controls.\nCycling {6}{W}{W} ({6}{W}{W}, Discard this card: Draw a card.)\nWhen you cycle this card, destroy all artifacts and enchantments.",
+    ],
     &[],
     &[],
     &[],
@@ -52992,7 +52999,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Create two 4/4 white Angel Warrior creature tokens with flying. Non-Angel creatures you control gain indestructible until your next turn.",
         "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {W}.",
     ],
-    &[],
+    // Enigma Thief
+    &[
+        "Prowl {3}{U} (You may cast this spell for its prowl cost if you dealt combat damage to a player this turn with a Sphinx or Rogue.)\nFlying\nWhen this creature enters, for each opponent, return up to one target nonland permanent that player controls to its owner's hand.",
+    ],
     &[],
     &[],
     &[],
@@ -64861,7 +64871,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\nWard {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nWhen this creature enters, scry 2.",
     ],
-    &[],
+    // Archmage of Echoes
+    &[
+        "Flying, ward {2}\nWhenever you cast a Faerie or Wizard permanent spell, copy it. (The copy becomes a token.)",
+    ],
     &[],
     // Archon's Glory
     &[
@@ -65611,7 +65624,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Atraxi Warden
+    &[
+        "Flying\nWhen this creature enters, exile up to one target tapped creature.\nSuspend 5—{1}{W} (Rather than cast this card from your hand, you may pay {1}{W} and exile it with five time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. It has haste.)",
+    ],
     &[],
     &[],
     // Banish to Another Universe
@@ -77771,7 +77787,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Age of Ultron
+    &[
+        "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — For each opponent, destroy up to one target nonartifact creature that player controls.\nII — For each opponent, you create a 2/2 colorless Robot Villain artifact creature token.\nIII — Artifact creatures you control gain deathtouch until end of turn. Put a +1/+1 counter on each of them.",
+    ],
     // Agent 13, Sharon Carter
     &[
         "Whenever a creature you control attacks alone, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",

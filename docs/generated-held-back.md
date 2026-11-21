@@ -30,16 +30,13 @@ never a reason to edit a card by hand.
 - Eladamri, Lord of Leaves Avatar: Vanguard card prints `{G}{G}` in its mana trigger while Scryfall carries an empty `color_identity`, tripping `lints::tests::faces::no_card_hides_a_color_it_prints`.
 - Dune Mover: `validate`: optional `"you may"` is dropped (`SearchLibrary { ..., optional: false }`).
 - Invasion of Vryn // Overloaded Mage-Ring: reference `CopySpellAbility` script omits `MayChooseTarget$ True`, so codegen writes `may_choose_new_targets: false` for `"You may choose new targets for the copy."` (`#326`).
-- Atraxi Warden: triggers `xtask::check_text::up_to_target_phrase` byte-slice panic across `'—'` in `"Suspend 5—{1}{W}"` at `xtask/src/check_text/mod.rs:497`.
-- Dismantling Wave, Enigma Thief, Grasp of Fate, Windgrace's Judgment: `scriptgen` emits an unused `static TARGET1: Filter` alongside inline `TargetSpec::ObjectOfEachOpponent`, tripping `-D dead_code` on `baylee-cards`.
 - Romana II, The Fifth Doctor, The Sixth Doctor, The Third Doctor, The Thirteenth Doctor: `Time Lord` two-word subtype missing from `subtypes.rs` in `xtask validate`.
 - Bolshack Dragon: `Armored` subtype missing from `subtypes.rs` in `xtask validate`.
 - Omenpath to Naya: `Omenpath` subtype missing from `subtypes.rs` in `xtask validate`.
 - Psychic Whorl: lowers `"Target opponent"` to `TargetSpec::AnyPlayer` instead of an opponent target, flagged by `xtask validate`.
 - Wildfire Awakener, Neutralize the Guards: `check_text` rejects the generated token's player target and `PumpFilter.controlled_by` lowering respectively.
-- Archmage of Echoes: `triggers.rs::spell_cast_trigger` calls `filter_expr` with `card_zone = false`, dropping `"Permanent"` on stack spell filters so non-permanent Kindred Faerie/Wizard instants/sorceries falsely match (CR 110.4b).
 - Osgood, Operation Double: cast trigger (`"When you cast this spell, create a token that's a copy of it, except it isn't legendary."`) lowers to stack `Effect::CopySpellOrAbility` instead of creating a token copy on the battlefield when resolved (CR 111.10 / CR 111.13).
-- Age of Ultron, Omega, Heartless Evolution: `scriptgen` emits an unused `static TARGET1: Filter` alongside inline `TargetSpec::ObjectOfEachOpponent`, tripping `-D dead_code` on `baylee-cards` (plus `Filter::ControlledByOpponent` convention check on `Omega`).
+- Omega, Heartless Evolution: `check_text` wants `Filter::ControlledByOpponent` for "that opponent controls" beside `TargetSpec::ObjectOfEachOpponent` (`filters_theirs` does not read that spec yet).
 - Wail of War: `check_text` rejects `controlled_by: Some(PlayerRel::Chosen)` paired with `TargetSpec::AnyOpponent` without `Filter::ControlledByOpponent`.
 - Dion, Bahamut's Dominant, Jill, Shiva's Dominant: Chapter III (`"Exile ..., then return it to the battlefield (front face up)."`) lowers `ExileSelfReturnAsFace { owner_control: true }` despite omitting `"under its owner's control"`, tripping `entries::every_self_return_comes_back_under_the_control_its_sentence_prints`.
 - The Eternity Elevator: non-creature Spacecraft (`Station 20+`) with no printed P/T box, tripping `faces::a_creature_is_exactly_a_face_with_a_body` because `pt_fault` unconditionally expects `power`/`toughness` on every `SPACECRAFT` face.

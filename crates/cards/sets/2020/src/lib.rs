@@ -257,6 +257,8 @@ pub mod dire_fleet_warmonger;
 pub mod dire_tactics;
 #[path = "thb/discordant_piper.rs"]
 pub mod discordant_piper;
+#[path = "c20/dismantling_wave.rs"]
+pub mod dismantling_wave;
 #[path = "iko/drannith_healer.rs"]
 pub mod drannith_healer;
 #[path = "iko/drannith_magistrate.rs"]
@@ -299,6 +301,8 @@ pub mod elvish_dreadlord;
 pub mod emeria_s_call;
 #[path = "jmp/emiel_the_blessed.rs"]
 pub mod emiel_the_blessed;
+#[path = "znc/enigma_thief.rs"]
+pub mod enigma_thief;
 #[path = "iko/escape_protocol.rs"]
 pub mod escape_protocol;
 #[path = "thb/escape_velocity.rs"]

@@ -19708,3 +19708,10 @@ HYDRA Troopers
 Hammerhead, Maggia Boss
 Hawkeye, Avenging Archer
 Hawkeye, Trick Shot
+Atraxi Warden
+Archmage of Echoes
+Dismantling Wave
+Enigma Thief
+Grasp of Fate
+Windgrace's Judgment
+Age of Ultron
