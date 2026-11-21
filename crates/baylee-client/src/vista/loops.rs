@@ -298,18 +298,6 @@ impl Loop {
         images: &mut Assets<Image>,
         keep: Duration,
     ) -> Option<Arc<Self>> {
-        Self::start_with_full_ring_wait(tavern, bytes, images, keep, |_| {
-            std::thread::park_timeout(NAP);
-        })
-    }
-
-    fn start_with_full_ring_wait(
-        tavern: bool,
-        bytes: &'static [u8],
-        images: &mut Assets<Image>,
-        keep: Duration,
-        wait_when_full: impl Fn(u64) + Send + 'static,
-    ) -> Option<Arc<Self>> {
         let sequence = Sequence::read(bytes, &Bounds::SHIPPED_LOOP).ok()?;
         let track = &sequence.colour;
         if track.samples.is_empty() || track.total_ticks == 0 {
@@ -364,7 +352,7 @@ impl Loop {
         let theirs = Arc::downgrade(&lp);
         let worker = std::thread::Builder::new()
             .name(if tavern { "tavern-loop" } else { "world-loop" }.to_string())
-            .spawn(move || work(&theirs, bytes, keep, wait_when_full))
+            .spawn(move || work(&theirs, bytes, keep))
             .ok()?;
         let _ = lp.worker.set(worker.thread().clone());
         Some(lp)
@@ -471,12 +459,7 @@ fn decode_into_slot(
 /// Background decode worker: fills the 8-slot lookahead ring while active or
 /// warming, parks immediately when full or paused, and frees its decoder and
 /// plane buffers after `keep` unseen.
-fn work(
-    lp: &std::sync::Weak<Loop>,
-    bytes: &'static [u8],
-    keep: Duration,
-    wait_when_full: impl Fn(u64),
-) {
+fn work(lp: &std::sync::Weak<Loop>, bytes: &'static [u8], keep: Duration) {
     let mut player: Option<Player> = None;
     let mut stream_ticks = 0u64;
     let mut active_gen = 0u64;
@@ -530,7 +513,7 @@ fn work(
         let r = lp.ring.read_pos.load(Ordering::Acquire);
         if (w.saturating_sub(r) as usize) >= RING_CAP {
             drop(lp);
-            wait_when_full(gen_now);
+            std::thread::park_timeout(NAP);
             continue;
         }
         if let Some(decoder) = player.as_mut() {
@@ -863,7 +846,15 @@ fn upload_aligned(
 /// Selects the newest due frame (`stream_pts_ns <= playhead_ns`) from `lp.ring`,
 /// discarding any stale-generation slots ahead of it and waking the worker if
 /// `read_pos` advances.
-fn select_due_slot(lp: &Loop, _borrow: &ConsumerBorrow<'_>) -> Option<u64> {
+fn select_due_slot(lp: &Loop, borrow: &ConsumerBorrow<'_>) -> Option<u64> {
+    select_due_slot_with_wake(lp, borrow, std::thread::Thread::unpark)
+}
+
+fn select_due_slot_with_wake(
+    lp: &Loop,
+    _borrow: &ConsumerBorrow<'_>,
+    wake_worker: impl FnOnce(&std::thread::Thread),
+) -> Option<u64> {
     let initial_r = lp.ring.read_pos.load(Ordering::Relaxed);
     let mut r = initial_r;
     let w = lp.ring.write_pos.load(Ordering::Acquire);
@@ -883,7 +874,7 @@ fn select_due_slot(lp: &Loop, _borrow: &ConsumerBorrow<'_>) -> Option<u64> {
     if r != initial_r {
         lp.ring.read_pos.store(r, Ordering::Release);
         if let Some(worker) = lp.worker.get() {
-            worker.unpark();
+            wake_worker(worker);
         }
     }
     if r >= w {
@@ -1166,23 +1157,12 @@ mod tests {
 
     /// Leaving a loop unseen past `keep` evicts its decoder and shrinks all 4K
     /// YUV plane buffers back to `0` bytes; pre-warming lazily reallocates and
-    /// drains stale-generation rings immediately without waiting for `NAP`.
+    /// the consumer wakes the worker after draining stale slots.
     #[test]
     fn unseen_loop_releases_plane_buffers_on_eviction_and_drains_stale_generations() {
         let mut images = Assets::<Image>::default();
-        let (parked, full) = std::sync::mpsc::channel();
-        let lp = Loop::start_with_full_ring_wait(
-            false,
-            WORLD,
-            &mut images,
-            Duration::from_millis(25),
-            move |generation| {
-                // Only the consumer can wake the decoder from a full ring in this test.
-                let _ = parked.send(generation);
-                std::thread::park();
-            },
-        )
-        .expect("world loop starts");
+        let lp = Loop::start_with_keep(false, WORLD, &mut images, Duration::from_millis(25))
+            .expect("world loop starts");
         lp.active.store(true, Ordering::Release);
         lp.showing.store(true, Ordering::Release);
         lp.worker.get().unwrap().unpark();
@@ -1211,15 +1191,18 @@ mod tests {
         lp.worker.get().unwrap().unpark();
         wait_for_write_pos(&lp, RING_CAP as u64);
 
-        // Wait until the worker has observed this generation's full ring. An
-        // unpark just before it actually parks leaves the same wake token.
-        while full.recv_timeout(PATIENCE).expect("worker at full ring") != gen_before + 1 {}
         lp.generation.fetch_add(1, Ordering::AcqRel);
         {
             let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
-            assert_eq!(select_due_slot(&lp, &borrow), None);
+            let mut woke_worker = false;
+            let chosen = select_due_slot_with_wake(&lp, &borrow, |worker| {
+                assert_eq!(lp.ring.read_pos.load(Ordering::Acquire), RING_CAP as u64);
+                woke_worker = true;
+                worker.unpark();
+            });
+            assert_eq!(chosen, None);
+            assert!(woke_worker, "draining the stale ring must wake the decoder");
         }
-        assert_eq!(lp.ring.read_pos.load(Ordering::Acquire), RING_CAP as u64);
         wait_for_write_pos(&lp, RING_CAP as u64 * 2);
         let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
         assert_eq!(select_due_slot(&lp, &borrow), Some(RING_CAP as u64));
