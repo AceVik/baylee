@@ -497,7 +497,11 @@ pub(crate) fn up_to_target_phrase(printed: &str) -> Option<String> {
     let mut from = 0;
     while let Some(at) = printed[from..].find("up to ") {
         let start = from + at;
-        let rest = &printed[start..printed.len().min(start + 44)];
+        let mut end = printed.len().min(start + 44);
+        while !printed.is_char_boundary(end) {
+            end -= 1;
+        }
+        let rest = &printed[start..end];
         let window = rest.split(['\n', '\u{2022}']).next().unwrap_or_default();
         if let Some(i) = window.find("target") {
             return Some(window[..i + "target".len()].to_string());
@@ -911,4 +915,25 @@ pub(crate) fn check_scope_matches_the_text(
 /// one the generated table is built with.
 pub(crate) fn strip_reminders(text: &str) -> String {
     lines::without_reminder(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::up_to_target_phrase;
+
+    #[test]
+    fn up_to_target_phrase_handles_multibyte_em_dash_at_window_boundary() {
+        let text = "Exile up to one target nonland permanent.\nSuspend 5\u{2014}{1}{W}";
+        assert_eq!(
+            up_to_target_phrase(text).as_deref(),
+            Some("up to one target")
+        );
+
+        let dash_on_44 =
+            "When this enters, exile up to one artifact or creature.\nsuspend 5 \u{2014}{1}{W}";
+        let _ = up_to_target_phrase(dash_on_44);
+
+        let exact_44_emdash = "exile up to three creatures then pause — wait target";
+        assert_eq!(up_to_target_phrase(exact_44_emdash), None);
+    }
 }
