@@ -13,7 +13,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lu Meng, Wu General",
         mana_cost = mana!("{3}{U}{U}"),

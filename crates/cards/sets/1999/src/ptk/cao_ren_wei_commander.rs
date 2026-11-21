@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cao Ren, Wei Commander",
         mana_cost = mana!("{2}{B}{B}"),

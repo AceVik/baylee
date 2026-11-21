@@ -12,7 +12,7 @@ card!(
     scryfall_id = "78c71971-fa26-4ae6-aa6f-a401e5285b76",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sun Quan, Lord of Wu",
         mana_cost = mana!("{4}{U}{U}"),

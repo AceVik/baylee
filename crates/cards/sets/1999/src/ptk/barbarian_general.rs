@@ -12,7 +12,7 @@ card!(
     scryfall_id = "060da652-03c7-45e3-ad83-f0a9fa9d1049",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barbarian General",
         mana_cost = mana!("{4}{R}"),

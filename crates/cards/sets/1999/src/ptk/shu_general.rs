@@ -12,7 +12,7 @@ card!(
     scryfall_id = "167c1d3f-e013-48b7-a961-590136bda297",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE.union(KeywordSet::HORSEMANSHIP),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shu General",
         mana_cost = mana!("{3}{W}"),

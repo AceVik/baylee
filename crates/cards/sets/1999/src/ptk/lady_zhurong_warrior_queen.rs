@@ -13,7 +13,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lady Zhurong, Warrior Queen",
         mana_cost = mana!("{4}{G}"),

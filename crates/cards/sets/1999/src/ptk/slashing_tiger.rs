@@ -11,7 +11,7 @@ card!(
     oracle_id = "c07a86de-ec29-478c-b6cb-057eb9d3e126",
     scryfall_id = "c4aa7846-adb7-48df-b838-ffbe9f7bfd85",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Slashing Tiger",
         mana_cost = mana!("{2}{G}{G}"),

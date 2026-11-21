@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c079037c-f4cf-423f-ad15-ee57136d6148",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Huang Zhong, Shu General",
         mana_cost = mana!("{2}{W}{W}"),

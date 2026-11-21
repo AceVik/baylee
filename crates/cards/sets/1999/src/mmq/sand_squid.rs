@@ -14,7 +14,7 @@ card!(
     scryfall_id = "4efd7ce9-b920-409d-a4d2-a07fff280712",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::ISLANDWALK,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Sand Squid",
         mana_cost = mana!("{3}{U}"),

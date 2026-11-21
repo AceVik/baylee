@@ -11,7 +11,7 @@ card!(
     oracle_id = "8ad91015-db7f-43ea-97c9-bf2bf5656858",
     scryfall_id = "a2623481-cee3-4a9d-933b-235fcde9a27b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yuan Shao's Infantry",
         mana_cost = mana!("{3}{R}"),
