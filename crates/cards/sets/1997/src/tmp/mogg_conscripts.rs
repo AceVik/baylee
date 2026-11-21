@@ -11,7 +11,7 @@ card!(
     oracle_id = "b015686d-07e1-46c7-8e51-2bec646860d6",
     scryfall_id = "c67c26d7-f752-40a5-b79e-1f4c531cbef5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mogg Conscripts",
         mana_cost = mana!("{R}"),

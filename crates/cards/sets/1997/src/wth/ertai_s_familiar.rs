@@ -14,7 +14,7 @@ card!(
     scryfall_id = "354c9de7-0cdf-4302-9d1a-ae17eca13053",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::PHASING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ertai's Familiar",
         mana_cost = mana!("{1}{U}"),

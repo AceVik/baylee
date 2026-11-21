@@ -13,7 +13,7 @@ card!(
     scryfall_id = "82db30ff-5f50-41b1-acdf-0a0e1a364410",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Goblin Glider",
         mana_cost = mana!("{1}{R}"),

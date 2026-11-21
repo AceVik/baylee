@@ -11,7 +11,7 @@ card!(
     oracle_id = "9f31dbb1-c350-46f8-bd1d-9f23a073d2f1",
     scryfall_id = "f25ec109-0ed3-4e25-b76c-a558e2ad577b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Endless Cockroaches",
         mana_cost = mana!("{1}{B}{B}"),

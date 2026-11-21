@@ -11,7 +11,7 @@ card!(
     oracle_id = "ec1ac4df-b031-43b4-a2de-ca58a1599053",
     scryfall_id = "e5e9db36-0592-4e59-951a-d9d6c1522b99",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Town Sentry",
         mana_cost = mana!("{2}{W}"),

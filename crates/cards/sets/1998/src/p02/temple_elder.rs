@@ -11,7 +11,7 @@ card!(
     oracle_id = "a0ace0db-1bd6-4b30-b0e2-d266967707d7",
     scryfall_id = "db4d4b14-d774-430c-a483-be04a238718d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Temple Elder",
         mana_cost = mana!("{2}{W}"),

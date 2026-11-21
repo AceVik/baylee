@@ -11,7 +11,7 @@ card!(
     oracle_id = "1451b623-8214-4d81-9436-62dbe8b79539",
     scryfall_id = "53eefcb7-9c43-4fca-9bb0-200257c7da8c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hulking Goblin",
         mana_cost = mana!("{1}{R}"),
