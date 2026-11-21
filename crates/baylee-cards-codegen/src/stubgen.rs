@@ -784,6 +784,12 @@ fn render_face(
         if let Some(mutate) = body.mutate.as_deref() {
             fields.push(format!("mutate = {mutate}"));
         }
+        if let Some(plot) = body.plot.as_deref() {
+            fields.push(format!("plot = {plot}"));
+        }
+        if let Some(casualty) = body.casualty.as_deref() {
+            fields.push(format!("casualty = {casualty}"));
+        }
         if let Some(cr) = body.cost_reduction.as_deref() {
             fields.push(format!("cost_reduction = {cr}"));
         }
@@ -2858,6 +2864,113 @@ mod tests {
         assert!(
             !mismatch_out.contains("KeywordSet::FLYING"),
             "{mismatch_out}"
+        );
+    }
+
+    #[test]
+    fn wave13a_plot_casualty_and_pruned_static_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("plot.txt"),
+            "Name:PlotSpell\nManaCost:2 R\nTypes:Sorcery\nK:Plot:1 R\n\
+             A:SP$ Draw | Defined$ You | NumCards$ 1\n",
+        )
+        .expect("plot script");
+        std::fs::write(
+            dir.path().join("casualty.txt"),
+            "Name:CasSpell\nManaCost:1 B\nTypes:Instant\nK:Casualty:2\n\
+             A:SP$ GainLife | LifeAmount$ 3\n",
+        )
+        .expect("casualty script");
+        std::fs::write(
+            dir.path().join("each_opp.txt"),
+            "Name:EachOppSweep\nManaCost:3 B G\nTypes:Instant\n\
+             A:SP$ Destroy | ValidTgts$ Creature.powerGE3+OppCtrl | \
+             TargetMin$ 0 | TargetMax$ OneEach | TargetsForEachPlayer$ True\n\
+             SVar:OneEach:PlayerCountOpponents$Amount\n",
+        )
+        .expect("each_opp script");
+
+        let mut index = BTreeMap::new();
+        index.insert("PlotSpell".to_string(), "plot.txt".to_string());
+        index.insert("CasSpell".to_string(), "casualty.txt".to_string());
+        index.insert("EachOppSweep".to_string(), "each_opp.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let (_, plot_out) = render_stub(
+            &bare_card("PlotSpell", "Sorcery"),
+            &row(38, "PLOT_SPELL"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("plot renders");
+        assert!(
+            plot_out.contains("plot = Some(mana!(\"{1}{R}\")),"),
+            "{plot_out}"
+        );
+
+        let (_, cas_out) = render_stub(
+            &bare_card("CasSpell", "Instant"),
+            &row(39, "CAS_SPELL"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("casualty renders");
+        assert!(cas_out.contains("casualty = Some(2),"), "{cas_out}");
+
+        let (_, opp_out) = render_stub(
+            &bare_card("EachOppSweep", "Instant"),
+            &row(40, "EACH_OPP_SWEEP"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("each_opp renders");
+        assert!(
+            opp_out.contains("TargetSpec::ObjectOfEachOpponent(&TARGET2)")
+                && opp_out.contains("static TARGET2:")
+                && !opp_out.contains("static TARGET1:"),
+            "{opp_out}"
+        );
+    }
+
+    #[test]
+    fn wave13a_backup_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("backup.txt"),
+            "Name:BackupScout\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+             K:Flying\nK:Backup:1:Grant\n\
+             SVar:Grant:DB$ Animate | Keywords$ Flying | Abilities$ AbGain\n\
+             SVar:AbGain:AB$ GainLife | Cost$ T | LifeAmount$ 1\n",
+        )
+        .expect("backup script");
+        let mut index = BTreeMap::new();
+        index.insert("BackupScout".to_string(), "backup.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let (_, out) = render_stub(
+            &bare_card("BackupScout", "Creature"),
+            &row(41, "BACKUP_SCOUT"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("backup renders");
+        assert!(
+            out.contains("static BACKUP_GRANTED1: [AbilityDef; 1] = [activated!(Cost::TAP, &[Effect::gain_life(1)])];")
+                && out.contains("Effect::Backup { count: 1, keywords: KeywordSet::FLYING, grant_abilities: &BACKUP_GRANTED1 }"),
+            "{out}"
         );
     }
 }

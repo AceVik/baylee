@@ -225,6 +225,15 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Mutate:") {
             return self.mutate(rest);
         }
+        if let Some(rest) = line.strip_prefix("Plot:") {
+            return self.plot(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Casualty:") {
+            return self.casualty(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Backup:") {
+            return self.backup(rest);
+        }
         if let Some(rest) = line.strip_prefix("Unearth:") {
             return self.unearth(rest);
         }
@@ -1674,6 +1683,235 @@ impl Tx<'_> {
         self.body.mutate = Some(format!("Some(mana!(\"{mana}\"))"));
         self.body.notes.push("mutate".to_string());
         Some(())
+    }
+
+    pub(super) fn plot(&mut self, rest: &str) -> Option<()> {
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`Plot` on a land or untyped card".to_string());
+        }
+        if self.body.plot.is_some() {
+            return self.deny("a second `Plot` cost on one card".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("Plot", rest, false, true)?;
+        self.body.plot = Some(format!("Some(mana!(\"{mana}\"))"));
+        self.body.notes.push("plot".to_string());
+        Some(())
+    }
+
+    pub(super) fn casualty(&mut self, rest: &str) -> Option<()> {
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`Casualty` on a land or untyped card".to_string());
+        }
+        if self.body.casualty.is_some() {
+            return self.deny("a second `Casualty` keyword on one card".to_string());
+        }
+        let trimmed = rest.trim();
+        if trimmed.contains(':') {
+            return self.deny(format!("`Casualty:{rest}` with extra modifiers"));
+        }
+        let Ok(n) = trimmed
+            .parse::<u8>()
+            .map_err(|_| ())
+            .and_then(|n| if n >= 1 { Ok(n) } else { Err(()) })
+        else {
+            return self.deny(format!("invalid `Casualty` power threshold `{trimmed}`"));
+        };
+        self.body.casualty = Some(format!("Some({n})"));
+        self.body.notes.push("casualty".to_string());
+        Some(())
+    }
+
+    pub(super) fn backup(&mut self, rest: &str) -> Option<()> {
+        if !self.type_line.split_whitespace().any(|w| w == "Creature")
+            || self.is_land_card_type()
+            || self.is_spell_card_type()
+        {
+            return self.deny("`Backup` on a non-creature card".to_string());
+        }
+        let Some((count_raw, svar_raw)) = rest.split_once(':') else {
+            return self.deny(format!("malformed `Backup:{rest}`"));
+        };
+        let svar_name = svar_raw.trim();
+        if svar_name.is_empty() || svar_name.contains(':') {
+            return self.deny(format!("malformed `Backup:{rest}`"));
+        }
+        let Some(count) = count_raw.trim().parse::<u8>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("invalid `Backup` count `{count_raw}`"));
+        };
+        let (keywords, grant_abilities) = self.backup_grant_spec(svar_name)?;
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::ETB, &[Effect::Backup {{ count: {count}, keywords: {keywords}, \
+             grant_abilities: {grant_abilities} }}], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ));
+        self.body.notes.push("backup".to_string());
+        Some(())
+    }
+
+    fn backup_grant_spec(&mut self, svar_name: &str) -> Option<(String, String)> {
+        if let Some(cached) = self.backup_grants.get(svar_name) {
+            return Some(cached.clone());
+        }
+        let Some(svar_body) = self.svars.get(svar_name).cloned() else {
+            return self.deny(format!("`Backup` naming missing SVar `{svar_name}`"));
+        };
+        let Some((api, mut p)) = Params::parse(&svar_body) else {
+            return self.deny(format!("malformed `Backup` SVar `{svar_name}`"));
+        };
+        p.drop_prose();
+        let prev_abilities = self.body.abilities.len();
+        let prev_statics = self.body.statics.len();
+        let res = match api.as_str() {
+            "Pump" => {
+                let Some(raw_kw) = p.take("KW") else {
+                    return self.deny("`Backup` Pump without `KW$`".to_string());
+                };
+                if let Some(key) = p.first_key() {
+                    return self.deny(format!("unclaimed parameter `Backup.Pump.{key}`"));
+                }
+                let keywords = self.join_keyword_union("Backup", &raw_kw)?;
+                Some((keywords, "&[]".to_string()))
+            }
+            "Animate" => self.backup_animate_grants(&mut p),
+            other => self.deny(format!("`Backup` API `{other}`")),
+        };
+        let Some(spec) = res else {
+            self.body.abilities.truncate(prev_abilities);
+            self.body.statics.truncate(prev_statics);
+            return None;
+        };
+        self.backup_grants
+            .insert(svar_name.to_string(), spec.clone());
+        Some(spec)
+    }
+
+    fn join_keyword_union(&mut self, ctx: &str, raw: &str) -> Option<String> {
+        let mut bits = Vec::new();
+        for part in raw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+            let Some(bit) = keyword_const(part) else {
+                return self.deny(format!("`{ctx}` granting `{part}`"));
+            };
+            bits.push(bit);
+        }
+        if bits.is_empty() {
+            return self.deny(format!("empty `{ctx}` keyword list"));
+        }
+        let mut expr = bits[0].to_string();
+        for bit in &bits[1..] {
+            expr = format!("{expr}.union({bit})");
+        }
+        Some(expr)
+    }
+
+    fn backup_animate_grants(&mut self, p: &mut Params) -> Option<(String, String)> {
+        if let Some(defined) = p.take("Defined")
+            && defined != "Self"
+        {
+            return self.deny(format!("`Backup` Animate with `Defined$ {defined}`"));
+        }
+        if let Some(dur) = p.take("Duration") {
+            return self.deny(format!("`Backup` Animate with `Duration$ {dur}`"));
+        }
+        let keywords = match p.take("Keywords") {
+            Some(raw) => self.join_keyword_union("Backup", &raw)?,
+            None => "KeywordSet::EMPTY".to_string(),
+        };
+        let mut grant_exprs = Vec::new();
+        if let Some(raw) = p.take("Abilities") {
+            for name in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                let Some(ab_line) = self.svars.get(name).cloned() else {
+                    return self.deny(format!("`Backup` `Abilities$ {name}` naming no SVar"));
+                };
+                if !ab_line.trim_start().starts_with("AB$") {
+                    return self.deny("`Backup` granted ability that is not activated".to_string());
+                }
+                let parsed = self.parse_activated_spec(&ab_line, false, false)?;
+                if parsed.non_battlefield_zone || parsed.alternate_ability_expr.is_some() {
+                    return self.deny(
+                        "`Backup` granted activated ability outside battlefield".to_string(),
+                    );
+                }
+                grant_exprs.push(parsed.ability_expr);
+            }
+        }
+        if let Some(raw) = p.take("Triggers") {
+            for name in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                grant_exprs.push(self.backup_single_trigger(name)?);
+            }
+        }
+        for key in ["staticAbilities", "StaticAbilities"] {
+            if let Some(raw) = p.take(key) {
+                for name in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                    grant_exprs.push(self.backup_single_static(name)?);
+                }
+            }
+        }
+        if let Some(raw) = p.take("sVars") {
+            for name in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                if self.svars.get(name).map(String::as_str) != Some("SVar:HasAttackEffect:TRUE") {
+                    return self.deny(format!("`Backup` `sVars$ {name}`"));
+                }
+            }
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Backup.Animate.{key}`"));
+        }
+        if keywords == "KeywordSet::EMPTY" && grant_exprs.is_empty() {
+            return self.deny("`Backup` granting nothing".to_string());
+        }
+        let slice_ref = if grant_exprs.is_empty() {
+            "&[]".to_string()
+        } else {
+            let name = self
+                .body
+                .ability_slice_static("BACKUP_GRANTED", &grant_exprs);
+            format!("&{name}")
+        };
+        Some((keywords, slice_ref))
+    }
+
+    fn backup_single_trigger(&mut self, name: &str) -> Option<String> {
+        let Some(line) = self.svars.get(name).cloned() else {
+            return self.deny(format!("`Backup` `Triggers$ {name}` naming no SVar"));
+        };
+        if !line.trim_start().starts_with("Mode$") {
+            return self.deny("`Backup` granted trigger without `Mode$`".to_string());
+        }
+        let prev_abilities = self.body.abilities.len();
+        let prev_trigger_mode = self.trigger_mode.take();
+        let prev_block_line = self.block_line.take();
+        let ok = self.triggered(&line);
+        self.trigger_mode = prev_trigger_mode;
+        let ended_block = self.block_line.is_some();
+        self.block_line = prev_block_line;
+        if ok.is_none() || ended_block || self.body.abilities.len() != prev_abilities + 1 {
+            return None;
+        }
+        let expr = self.body.abilities.pop()?;
+        if (!expr.starts_with("triggered!(") && !expr.starts_with("modal_triggered!("))
+            || expr.contains("zone = TriggerZone::")
+        {
+            return self.deny("`Backup` granted trigger outside the battlefield".to_string());
+        }
+        Some(expr)
+    }
+
+    fn backup_single_static(&mut self, name: &str) -> Option<String> {
+        let Some(line) = self.svars.get(name).cloned() else {
+            return self.deny(format!("`Backup` `staticAbilities$ {name}` naming no SVar"));
+        };
+        if !line.trim_start().starts_with("Mode$") {
+            return self.deny("`Backup` granted static without `Mode$`".to_string());
+        }
+        let prev_abilities = self.body.abilities.len();
+        self.rule('S', &line)?;
+        if self.body.abilities.len() != prev_abilities + 1 {
+            return self.deny("`Backup` granted static that is not one ability".to_string());
+        }
+        let expr = self.body.abilities.pop()?;
+        if !expr.starts_with("static_ability!(") || expr.contains("zone = ZoneRef::") {
+            return self.deny("`Backup` granted static outside the battlefield".to_string());
+        }
+        Some(expr)
     }
 
     fn graveyard_keyword_cost(

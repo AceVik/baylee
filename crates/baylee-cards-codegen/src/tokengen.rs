@@ -797,6 +797,8 @@ fn abilities(
         || body.fuse
         || body.behold_or_pay.is_some()
         || body.mutate.is_some()
+        || body.plot.is_some()
+        || body.casualty.is_some()
         || body.cost_reduction.is_some()
         || body.entwine.is_some()
         || body.buyback.is_some()
@@ -2209,6 +2211,9 @@ mod tests {
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Enlist\nK:Enlist",
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:AlternateAdditionalCost:Behold<1/Soldier>:2",
             "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:2/2\nK:Mutate:1 G",
+            "Name:Soldier Token\nColors:blue\nTypes:Creature Soldier\nPT:2/2\nK:Plot:1 U",
+            "Name:Soldier Token\nColors:red\nTypes:Creature Soldier\nPT:2/2\nK:Casualty:1",
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Backup:1:B\nSVar:B:DB$ Pump | KW$ Flying",
         ] {
             assert!(read(unsupported, &c).is_none(), "{unsupported}");
         }

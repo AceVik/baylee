@@ -3758,3 +3758,165 @@ fn wave12a_bounded_amount_and_count_svars() {
         exact_bf.abilities[0]
     );
 }
+
+#[test]
+fn wave13a_plot_and_casualty_keywords() {
+    let plotted = read(
+        "Name:PlotMage\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/3\n\
+         K:Plot:1 U\nK:Flying",
+    );
+    assert_eq!(plotted.plot.as_deref(), Some("Some(mana!(\"{1}{U}\"))"));
+
+    let cas = read(
+        "Name:CasBolt\nManaCost:1 R\nTypes:Instant\n\
+         K:Casualty:2\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2",
+    );
+    assert_eq!(cas.casualty.as_deref(), Some("Some(2)"));
+
+    for bad in [
+        "Name:PlotLand\nTypes:Land\nK:Plot:1",
+        "Name:PlotDup\nManaCost:1 R\nTypes:Sorcery\nK:Plot:R\nK:Plot:1 R\nA:SP$ Draw | NumCards$ 1",
+        "Name:PlotPayLife\nManaCost:1 B\nTypes:Sorcery\nK:Plot:1 B PayLife<2>\nA:SP$ Draw | NumCards$ 1",
+        "Name:CasZero\nManaCost:R\nTypes:Instant\nK:Casualty:0\nA:SP$ Draw | NumCards$ 1",
+        "Name:CasX\nManaCost:1 B R\nTypes:Planeswalker\nLoyalty:3\nK:Casualty:X:NonLegendary$ True",
+        "Name:CasDup\nManaCost:R\nTypes:Instant\nK:Casualty:1\nK:Casualty:2\nA:SP$ Draw | NumCards$ 1",
+        "Name:CasLand\nTypes:Land\nK:Casualty:1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave13a_backup_variants_and_refusals() {
+    let kw_only = read(
+        "Name:SkyBacker\nManaCost:3 W\nTypes:Creature\nPT:3/3\n\
+         K:Flying\nK:First Strike\nK:Backup:2:G\nSVar:G:DB$ Pump | KW$ Flying & First Strike",
+    );
+    assert_eq!(
+        kw_only.abilities,
+        vec![
+            "triggered!(Trigger::ETB, &[Effect::Backup { count: 2, keywords: KeywordSet::FLYING.union(KeywordSet::FIRST_STRIKE), grant_abilities: &[] }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    let full = read(
+        "Name:PackLeader\nManaCost:4 G\nTypes:Creature\nPT:3/3\n\
+         K:Trample\nK:Backup:1:G\nK:Backup:1:G\n\
+         SVar:G:DB$ Animate | Keywords$ Trample | Abilities$ Ab | Triggers$ Tr | staticAbilities$ St | sVars$ AE\n\
+         SVar:Ab:AB$ Draw | Cost$ 1 Sac<1/CARDNAME> | NumCards$ 1\n\
+         SVar:Tr:Mode$ Attacks | ValidCard$ Card.Self | Execute$ ExGain\n\
+         SVar:ExGain:DB$ GainLife | LifeAmount$ 1\n\
+         SVar:St:Mode$ CantBlockBy | ValidAttacker$ Card.Self | ValidBlocker$ Creature.powerLE2\n\
+         SVar:AE:SVar:HasAttackEffect:TRUE",
+    );
+    assert_eq!(full.abilities.len(), 2);
+    assert!(full.abilities[0].contains("grant_abilities: &BACKUP_GRANTED2"));
+    assert_eq!(full.abilities[0], full.abilities[1]);
+    assert_eq!(
+        full.statics.matches("static BACKUP_GRANTED2:").count(),
+        1,
+        "{}",
+        full.statics
+    );
+    assert!(full.statics.contains("[AbilityDef; 3]"), "{}", full.statics);
+    assert!(full.statics.contains("PowerAtMost(2)"), "{}", full.statics);
+
+    for bad in [
+        "Name:BadBackupSpell\nManaCost:1 W\nTypes:Sorcery\nK:Backup:1:G\nSVar:G:DB$ Pump | KW$ Flying",
+        "Name:BadBackupZero\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Backup:0:G\nSVar:G:DB$ Pump | KW$ Flying",
+        "Name:BadBackupMiss\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Backup:1:Missing",
+        "Name:BadBackupDur\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Backup:1:G\nSVar:G:DB$ Animate | Keywords$ Flying | Duration$ Permanent",
+        "Name:BadBackupSVar\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Backup:1:G\nSVar:G:DB$ Animate | Keywords$ Flying | sVars$ Foo\nSVar:Foo:Count$YourLifeTotal",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave13a_pruned_statics_non_mana_counter_x_and_atoms() {
+    let each_opp = read(
+        "Name:SweepOpp\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ Destroy | ValidTgts$ Artifact.OppCtrl,Enchantment.OppCtrl | \
+         TargetMin$ 0 | TargetMax$ OneEach | TargetsForEachPlayer$ True\n\
+         SVar:OneEach:PlayerCountOpponents$Amount",
+    );
+    assert!(
+        each_opp.abilities[0].contains("ObjectOfEachOpponent(&Filter::ARTIFACT_OR_ENCHANTMENT)")
+    );
+    assert!(each_opp.statics.is_empty(), "{}", each_opp.statics);
+
+    let each_opp_nonconst = read(
+        "Name:SweepStrong\nManaCost:3 B G\nTypes:Instant\n\
+         A:SP$ Destroy | ValidTgts$ Creature.powerGE3+OppCtrl | \
+         TargetMin$ 0 | TargetMax$ OneEach | TargetsForEachPlayer$ True\n\
+         SVar:OneEach:PlayerCountOpponents$Amount",
+    );
+    assert!(
+        each_opp_nonconst.abilities[0].contains("ObjectOfEachOpponent(&TARGET2)"),
+        "{:?}",
+        each_opp_nonconst.abilities
+    );
+    assert!(
+        !each_opp_nonconst.statics.contains("static TARGET1:"),
+        "{}",
+        each_opp_nonconst.statics
+    );
+    assert!(
+        each_opp_nonconst.statics.contains("static TARGET2:"),
+        "{}",
+        each_opp_nonconst.statics
+    );
+
+    let mana_x = read(
+        "Name:ChargeToy\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Mana | Cost$ T SubCounter<X/TIME> | Produced$ W | Amount$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(mana_x.abilities[0].contains("RemoveCounterSelfX { kind: CounterKind::Time }"));
+
+    for bad in [
+        "Name:StackTime\nManaCost:2 W\nTypes:Artifact\n\
+         A:AB$ ChangeZoneAll | Cost$ T SubCounter<X/TIME> Exile<1/CARDNAME> | \
+         ChangeType$ Artifact.YouOwn | Origin$ Graveyard | Destination$ Battlefield\n\
+         SVar:X:Count$xPaid",
+        "Name:StackGain\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ GainLife | Cost$ SubCounter<X/CHARGE> | LifeAmount$ X\nSVar:X:Count$xPaid",
+        "Name:StackCharm\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Charm | Cost$ SubCounter<X/CHARGE> | Choices$ D,G\n\
+         SVar:D:DB$ Draw | NumCards$ 1\nSVar:G:DB$ GainLife | LifeAmount$ 1\nSVar:X:Count$xPaid",
+    ] {
+        assert!(refused(bad), "must refuse non-mana counter X: {bad}");
+    }
+
+    let max_ctr = read(
+        "Name:ChargeGate\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ C | SVarCompare$ LE2\n\
+         SVar:C:Count$CardCounters.CHARGE",
+    );
+    assert!(
+        max_ctr
+            .statics
+            .contains("Condition::AmountAtLeast(Amount::CountersOnSource(CounterKind::Charge), 3)")
+    );
+
+    assert_eq!(
+        filter("Creature.withHorsemanship"),
+        "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::HORSEMANSHIP)])"
+    );
+    assert_eq!(
+        filter("Creature.withoutSkulk"),
+        "Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::HasKeyword(KeywordSet::SKULK))])"
+    );
+    assert_eq!(
+        filter("Card.withDevoid"),
+        "Filter::HasKeyword(KeywordSet::DEVOID)"
+    );
+    assert_eq!(
+        filter("Creature.withPhasing"),
+        "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::PHASING)])"
+    );
+    assert_eq!(
+        filter("Creature.withEnlist"),
+        "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::ENLIST)])"
+    );
+}

@@ -102,6 +102,10 @@ pub struct CardBody {
     pub behold_or_pay: Option<String>,
     /// `mutate` expression for the face, when present.
     pub mutate: Option<String>,
+    /// `plot` expression for the face, when present.
+    pub plot: Option<String>,
+    /// `casualty` expression for the face, when present.
+    pub casualty: Option<String>,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
@@ -170,6 +174,8 @@ impl CardBody {
             && !self.fuse
             && self.behold_or_pay.is_none()
             && self.mutate.is_none()
+            && self.plot.is_none()
+            && self.casualty.is_none()
             && self.additional_costs.is_empty()
             && self.kicked_targets.is_none()
             && self.keywords.is_empty()
@@ -241,6 +247,127 @@ impl CardBody {
         name
     }
 
+    /// Declares a deduplicated `static <NAME>: [AbilityDef; N] = [..];` slice
+    /// and returns its name.
+    pub fn ability_slice_static(&mut self, prefix: &str, exprs: &[String]) -> String {
+        let len = exprs.len();
+        let ty = format!("[AbilityDef; {len}]");
+        let body = format!("[{}]", exprs.join(", "));
+        if let Some(name) = self.declared_with_type(prefix, &ty, &body) {
+            return name;
+        }
+        let n = self.statics.matches("static ").count() + 1;
+        let name = format!("{prefix}{n}");
+        let _ = write!(self.statics, "static {name}: {ty} = {body};\n\n");
+        name
+    }
+
+    /// Removes `static` declarations whose identifier is never referenced by
+    /// either face's emitted code or any reachable `static` declaration.
+    pub fn prune_unused_statics(&mut self) {
+        if self.statics.is_empty() {
+            return;
+        }
+        let blocks: Vec<(&str, &str, &str)> = self
+            .iter_static_blocks()
+            .map(|(full, name, _, body)| (full, name, body))
+            .collect();
+        if blocks.is_empty() {
+            return;
+        }
+        let mut roots = Vec::new();
+        self.collect_static_roots(&mut roots);
+        let mut used = vec![false; blocks.len()];
+        for (i, &(_, name, _)) in blocks.iter().enumerate() {
+            used[i] = roots.iter().any(|root| contains_ident(root, name));
+        }
+        loop {
+            let mut changed = false;
+            for (i, &(_, name, _)) in blocks.iter().enumerate() {
+                if used[i] {
+                    continue;
+                }
+                if blocks
+                    .iter()
+                    .enumerate()
+                    .any(|(j, &(_, _, rhs))| used[j] && contains_ident(rhs, name))
+                {
+                    used[i] = true;
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        let mut pruned = String::new();
+        for (i, &(full, _, _)) in blocks.iter().enumerate() {
+            if used[i] {
+                pruned.push_str(full);
+            }
+        }
+        self.statics = pruned;
+    }
+
+    fn collect_static_roots<'a>(&'a self, out: &mut Vec<&'a str>) {
+        for list in [
+            &self.enter_modifiers,
+            &self.alternative_costs,
+            &self.mandatory_additional_costs,
+            &self.flashback_parts,
+            &self.morph_parts,
+            &self.additional_costs,
+            &self.abilities,
+        ] {
+            out.extend(list.iter().map(String::as_str));
+        }
+        for opt in [
+            &self.replicate,
+            &self.disguise,
+            &self.flashback,
+            &self.madness,
+            &self.foretell,
+            &self.miracle,
+            &self.dash,
+            &self.blitz,
+            &self.morph,
+            &self.megamorph,
+            &self.bestow,
+            &self.prototype,
+            &self.emerge,
+            &self.entwine,
+            &self.buyback,
+            &self.multikicker,
+            &self.disturb,
+            &self.escape,
+            &self.squad,
+            &self.offspring,
+            &self.behold_or_pay,
+            &self.mutate,
+            &self.plot,
+            &self.casualty,
+            &self.cost_reduction,
+            &self.kicked_targets,
+        ] {
+            if let Some(s) = opt.as_deref() {
+                out.push(s);
+            }
+        }
+        if let Some(back) = self.back.as_deref() {
+            back.collect_static_roots(out);
+        }
+    }
+
+    fn iter_static_blocks(&self) -> impl Iterator<Item = (&str, &str, &str, &str)> {
+        self.statics.split_inclusive(";\n\n").filter_map(|full| {
+            let trimmed = full.strip_prefix("static ")?;
+            let (name, rest) = trimmed.split_once(": ")?;
+            let (ty, body_semi) = rest.split_once(" = ")?;
+            let body = body_semi.strip_suffix(";\n\n")?;
+            Some((full, name.trim(), ty.trim(), body))
+        })
+    }
+
     /// The name this card already gave `expr`, if it gave it one.
     ///
     /// Matched on the **whole** declaration rather than by searching for the
@@ -253,12 +380,25 @@ impl CardBody {
     /// thing, so `TARGET1` reused as the `CHECK` of a clause would read as
     /// an ability aiming at what it is asking about.
     fn declared(&self, prefix: &str, expr: &str) -> Option<String> {
-        self.statics.split("static ").skip(1).find_map(|block| {
-            let (name, rest) = block.split_once(": Filter = ")?;
-            let body = rest.strip_suffix(";\n\n")?;
-            (name.starts_with(prefix) && body == expr).then(|| name.to_string())
+        self.declared_with_type(prefix, "Filter", expr)
+    }
+
+    fn declared_with_type(&self, prefix: &str, want_ty: &str, expr: &str) -> Option<String> {
+        self.iter_static_blocks().find_map(|(_, name, ty, body)| {
+            (ty == want_ty && name.starts_with(prefix) && body == expr).then(|| name.to_string())
         })
     }
+}
+
+fn contains_ident(haystack: &str, ident: &str) -> bool {
+    let bytes = haystack.as_bytes();
+    let is_ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
+    haystack.match_indices(ident).any(|(start, _)| {
+        let before_ok = start == 0 || !is_ident(bytes[start - 1]);
+        let end = start + ident.len();
+        let after_ok = end == bytes.len() || !is_ident(bytes[end]);
+        before_ok && after_ok
+    })
 }
 
 #[cfg(test)]
@@ -308,5 +448,79 @@ mod tests {
             body.statics
                 .contains("static GRANTED_TRIGGER_3: AbilityDef = triggered!(Trigger::ETB, &[]);")
         );
+    }
+
+    #[test]
+    fn ability_slice_static_dedups_and_prune_unused_statics_keeps_reachable_graph() {
+        let mut body = CardBody::default();
+        let ab = vec![
+            "activated!(Cost::TAP, &[Effect::draw(1)])".to_string(),
+            "triggered!(Trigger::ETB, &[Effect::gain_life(1)])".to_string(),
+        ];
+        assert_eq!(
+            body.ability_slice_static("BACKUP_GRANTED", &ab),
+            "BACKUP_GRANTED1"
+        );
+        assert_eq!(
+            body.ability_slice_static("BACKUP_GRANTED", &ab),
+            "BACKUP_GRANTED1"
+        );
+        assert_eq!(
+            body.filter_static("TARGET", "Filter::And(&[Filter::CREATURE, Filter::TAPPED])"),
+            "TARGET2"
+        );
+        let used_inner = body.filter_static(
+            "FILTER",
+            "Filter::And(&[Filter::ARTIFACT, Filter::ControlledByOpponent])",
+        );
+        let used_outer = body.filter_static(
+            "TARGET",
+            &format!("Filter::Or(&[{used_inner}, Filter::LAND])"),
+        );
+        body.statics.push_str(
+            "static CHECK1: Filter = Filter::And(&[Filter::CREATURE, Filter::Attacking]);\n\n",
+        );
+        body.statics.push_str(
+            "static CHECK10: Filter = Filter::And(&[Filter::ARTIFACT, Filter::Untapped]);\n\n",
+        );
+        body.statics.push_str(
+            "static BACK5: Filter = Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByYou]);\n\n",
+        );
+        body.abilities.push(format!(
+            "triggered!(Trigger::ETB, &[Effect::destroy(TargetSpec::ObjectOfEachOpponent(&{used_outer})), Effect::draw(1)], condition = Some(Condition::ControlCount(&CHECK10, 1)))"
+        ));
+        body.abilities.push("BACKUP_GRANTED1[0]".to_string());
+        body.back = Some(Box::new(CardBody {
+            abilities: vec![
+                "activated!(Cost::TAP, &[Effect::destroy(TargetSpec::Object(&BACK5))])".to_string(),
+            ],
+            ..CardBody::default()
+        }));
+
+        body.prune_unused_statics();
+
+        assert!(
+            body.statics.contains("static BACKUP_GRANTED1:"),
+            "{}",
+            body.statics
+        );
+        assert!(
+            !body.statics.contains("static TARGET2:"),
+            "{}",
+            body.statics
+        );
+        assert!(
+            body.statics.contains(&format!("static {used_inner}:")),
+            "{}",
+            body.statics
+        );
+        assert!(
+            body.statics.contains(&format!("static {used_outer}:")),
+            "{}",
+            body.statics
+        );
+        assert!(!body.statics.contains("static CHECK1:"), "{}", body.statics);
+        assert!(body.statics.contains("static CHECK10:"), "{}", body.statics);
+        assert!(body.statics.contains("static BACK5:"), "{}", body.statics);
     }
 }

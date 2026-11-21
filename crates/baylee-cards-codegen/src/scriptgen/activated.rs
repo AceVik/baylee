@@ -479,6 +479,7 @@ impl Tx<'_> {
         let zone = spec.zone_suffix;
         let mana_ability =
             spec.chain.could_add_mana && !spec.chain.moves_library && spec.chain.target.is_none();
+        self.reject_non_mana_counter_x(&cost, mana_ability)?;
         if !zone.is_empty() && mana_ability {
             return self.deny("a non-default activation zone on a mana ability".to_string());
         }
@@ -515,6 +516,7 @@ impl Tx<'_> {
         let alternate_ability_expr = match spec.alternate_cost.as_deref() {
             Some(alt) => {
                 let alt_cost = self.parse_activated_cost(alt, spec.activation_zone.as_deref())?;
+                self.reject_non_mana_counter_x(&alt_cost, mana_ability)?;
                 Some(Self::format_activated_macro(
                     mana_ability,
                     &alt_cost,
@@ -915,6 +917,7 @@ impl Tx<'_> {
             return self.deny(format!("unclaimed parameter `Charm.{key}`"));
         }
         let cost = self.parse_activated_cost(&cost_raw, activation_zone.as_deref())?;
+        self.reject_non_mana_counter_x(&cost, false)?;
         self.cost_sacrifices_self = cost_raw.split_whitespace().any(|t| t == "Sac<1/CARDNAME>");
         self.cost_sacrifices_other = cost_raw
             .split_whitespace()
@@ -964,6 +967,13 @@ impl Tx<'_> {
         matches!(token, "Exert<1/CARDNAME>" | "Exert<1/NICKNAME>")
             || token.starts_with("Exert<1/CARDNAME/")
             || token.starts_with("Exert<1/NICKNAME/")
+    }
+
+    fn reject_non_mana_counter_x(&self, cost: &str, mana_ability: bool) -> Option<()> {
+        if !mana_ability && cost.contains("RemoveCounterSelfX {") {
+            return self.deny("`SubCounter<X/...>` on a non-mana activated ability".to_string());
+        }
+        Some(())
     }
 
     fn parse_activated_cost(&mut self, raw: &str, activation_zone: Option<&str>) -> Option<String> {
@@ -1417,6 +1427,13 @@ impl Tx<'_> {
             }
             if let Some(Bound::AtLeast(n)) = bound {
                 return Some(format!("Condition::CountersOnSelf({kind}, {n})"));
+            }
+            if let Some(Bound::AtMost(_)) = bound {
+                return self.amount_bound_condition(
+                    &format!("Amount::CountersOnSource({kind})"),
+                    bound,
+                    None,
+                );
             }
         }
         if matches!(

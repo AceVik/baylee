@@ -497,6 +497,8 @@ struct Tx<'a> {
     is_double_faced_front: bool,
     /// `PT:` line on this face, for single-sided characteristic-defining P/T.
     pt: Option<&'a str>,
+    /// Cached `(keywords_expr, grant_abilities_ref)` for repeated `K:Backup:<N>:<SVar>` lines.
+    backup_grants: BTreeMap<String, (String, String)>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -569,6 +571,7 @@ impl<'a> Tx<'a> {
             is_split_front: script.alternate_mode.as_deref() == Some("Split"),
             is_double_faced_front: script.alternate_mode.as_deref() == Some("DoubleFaced"),
             pt: script.pt.as_deref(),
+            backup_grants: BTreeMap::new(),
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }
@@ -893,6 +896,7 @@ pub fn transcode(
 ) -> Option<CardBody> {
     if script.alternate_mode.is_none() && script.alternate.is_none() {
         let mut body = transcode_face(script, cats, tokens, String::new(), false)?;
+        body.prune_unused_statics();
         body.notes.push("transcoded from the card's rules".into());
         return Some(body);
     }
@@ -925,6 +929,7 @@ pub fn transcode(
     front.back_is_adventure = mode == "Adventure";
     front.back_is_prepare = mode == "Prepare";
     front.back = Some(Box::new(back));
+    front.prune_unused_statics();
     front.notes.push("transcoded from the card's rules".into());
     Some(front)
 }
