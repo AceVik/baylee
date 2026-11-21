@@ -22,7 +22,7 @@ fn tower_inventory_and_assignment_never_substitute_another_build_or_full_agent()
     let identity = native(Variant::Tower);
     assert_eq!(identity.ai, "tower-house-23");
     assert_eq!(identity.rules, "tower-6");
-    assert_eq!(native(Variant::Standard).ai, "standard-house-31");
+    assert_eq!(native(Variant::Standard).ai, "standard-house-32");
     let mut old = identity.clone();
     old.build = "retained-tower-build".into();
     old.rules = "tower-2".into();
