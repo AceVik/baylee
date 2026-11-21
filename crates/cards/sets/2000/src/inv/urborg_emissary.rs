@@ -14,7 +14,7 @@ card!(
     oracle_id = "f30943f1-473f-4fa4-b6a7-3dfbd1995ba9",
     scryfall_id = "e6912c71-1836-4e87-9a65-d577d903d03c",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Urborg Emissary",
         mana_cost = mana!("{2}{B}"),

@@ -16,7 +16,7 @@ card!(
     oracle_id = "e705ec38-b8f7-4f99-8cb9-8448dc3e50ec",
     scryfall_id = "023ae64a-7888-4ad2-b879-0649d8e341ac",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Taoist Mystic",
         mana_cost = mana!("{2}{G}"),

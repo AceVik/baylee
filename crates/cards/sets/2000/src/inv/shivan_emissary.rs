@@ -19,7 +19,7 @@ card!(
     oracle_id = "1b885600-def1-4b2c-a6cb-02df34d58a1b",
     scryfall_id = "945c596e-492e-4cf5-857c-4ddbbdd78485",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shivan Emissary",
         mana_cost = mana!("{2}{R}"),

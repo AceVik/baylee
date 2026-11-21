@@ -12,7 +12,7 @@ card!(
     scryfall_id = "8bbdc7c5-71a1-4db8-98b2-8883bf648dca",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hua Tuo, Honored Physician",
         mana_cost = mana!("{1}{G}{G}"),

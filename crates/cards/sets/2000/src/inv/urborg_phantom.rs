@@ -12,7 +12,7 @@ card!(
     oracle_id = "f8b5d2f4-58a8-408c-bb67-6b5f9ba5b678",
     scryfall_id = "397355b9-5b67-4973-972e-3505c500d116",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Urborg Phantom",
         mana_cost = mana!("{2}{B}"),

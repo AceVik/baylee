@@ -11,7 +11,7 @@ card!(
     oracle_id = "ce969713-fdaa-4c31-b164-76a9b0b9ff81",
     scryfall_id = "eefd9315-9b7c-4c6b-8a15-a6af873dab6f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nakaya Shade",
         mana_cost = mana!("{1}{B}"),

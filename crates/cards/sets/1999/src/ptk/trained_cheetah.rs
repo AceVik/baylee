@@ -11,7 +11,7 @@ card!(
     oracle_id = "dad3b459-725e-4bf5-bf7a-bd89866ea8c4",
     scryfall_id = "ab242eab-5cab-41a0-bcf8-93a6919e4558",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Trained Cheetah",
         mana_cost = mana!("{2}{G}"),

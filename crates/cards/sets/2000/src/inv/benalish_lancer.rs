@@ -12,7 +12,7 @@ card!(
     oracle_id = "b5adbd37-8d98-4c65-b42d-cd9db94e7222",
     scryfall_id = "8453b08f-34cb-491d-be7d-dc4022f7c131",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Benalish Lancer",
         mana_cost = mana!("{2}{W}"),

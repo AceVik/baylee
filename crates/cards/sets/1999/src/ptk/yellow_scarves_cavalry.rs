@@ -13,7 +13,7 @@ card!(
     scryfall_id = "84460666-4f6b-422c-b20e-dc1651c66e15",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yellow Scarves Cavalry",
         mana_cost = mana!("{1}{R}"),

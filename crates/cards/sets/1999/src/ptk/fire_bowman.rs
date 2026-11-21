@@ -11,7 +11,7 @@ card!(
     oracle_id = "3f23d7d3-28c6-4388-afb5-8f101b973083",
     scryfall_id = "18acc721-e9ae-4ba4-b435-754e41fb541e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fire Bowman",
         mana_cost = mana!("{R}"),

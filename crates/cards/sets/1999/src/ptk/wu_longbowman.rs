@@ -11,7 +11,7 @@ card!(
     oracle_id = "68fc55b9-55cc-4caf-a052-b44ddc0b346f",
     scryfall_id = "87134379-273b-48dd-9f05-3d35f5659fb7",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wu Longbowman",
         mana_cost = mana!("{2}{U}"),

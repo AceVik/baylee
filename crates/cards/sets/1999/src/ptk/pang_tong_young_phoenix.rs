@@ -12,7 +12,7 @@ card!(
     scryfall_id = "f484d47a-fb1d-4746-8f1d-dd9d24e67c1a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pang Tong, \"Young Phoenix\"",
         mana_cost = mana!("{1}{W}{W}"),

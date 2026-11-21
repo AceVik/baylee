@@ -14,7 +14,7 @@ card!(
     scryfall_id = "3e207863-de68-47e1-8c63-413b5fa48943",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Llanowar Elite",
         mana_cost = mana!("{G}"),

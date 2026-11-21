@@ -12,7 +12,7 @@ card!(
     scryfall_id = "0b4cc234-f6b7-4801-a6d0-c98b72f446cf",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::HORSEMANSHIP,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wei Strike Force",
         mana_cost = mana!("{2}{B}"),

@@ -14,7 +14,7 @@ card!(
     scryfall_id = "23271658-19ae-420d-beeb-4bed4fdbb891",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::REACH,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pincer Spider",
         mana_cost = mana!("{2}{G}"),

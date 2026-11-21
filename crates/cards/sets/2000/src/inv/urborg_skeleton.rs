@@ -13,7 +13,7 @@ card!(
     oracle_id = "712d7eb4-4044-4852-a5da-57635d3086b0",
     scryfall_id = "6e522a62-fbca-4362-9006-d4356c525704",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Urborg Skeleton",
         mana_cost = mana!("{B}"),
