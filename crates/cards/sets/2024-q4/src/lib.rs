@@ -49,6 +49,8 @@ pub mod bloodthirsty_conqueror;
 pub mod boltwave;
 #[path = "j25/braulios_of_pheres_band.rs"]
 pub mod braulios_of_pheres_band;
+#[path = "j25/brigone_soldier_of_meletis.rs"]
+pub mod brigone_soldier_of_meletis;
 #[path = "fdn/cackling_prowler.rs"]
 pub mod cackling_prowler;
 #[path = "fdn/celestial_armor.rs"]
@@ -57,6 +59,8 @@ pub mod celestial_armor;
 pub mod cephalid_inkmage;
 #[path = "fdn/claws_out.rs"]
 pub mod claws_out;
+#[path = "j25/cleon_merry_champion.rs"]
+pub mod cleon_merry_champion;
 #[path = "fdn/clinquant_skymage.rs"]
 pub mod clinquant_skymage;
 #[path = "fdn/crackling_cyclops.rs"]
@@ -107,6 +111,8 @@ pub mod felling_blow;
 pub mod firespitter_whelp;
 #[path = "fdn/fleeting_flight.rs"]
 pub mod fleeting_flight;
+#[path = "j25/fumulus_the_infestation.rs"]
+pub mod fumulus_the_infestation;
 #[path = "j25/general_kreat_the_boltbringer.rs"]
 pub mod general_kreat_the_boltbringer;
 #[path = "j25/generous_pup.rs"]

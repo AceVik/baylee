@@ -33,6 +33,8 @@ pub mod ancestral_vision;
 pub mod ancient_grudge;
 #[path = "gpt/angel_of_despair.rs"]
 pub mod angel_of_despair;
+#[path = "tsp/angel_s_grace.rs"]
+pub mod angel_s_grace;
 #[path = "csp/arctic_flats.rs"]
 pub mod arctic_flats;
 #[path = "tsp/ashcoat_bear.rs"]
@@ -77,6 +79,8 @@ pub mod blazing_blade_askari;
 pub mod blood_crypt;
 #[path = "tsp/bogardan_rager.rs"]
 pub mod bogardan_rager;
+#[path = "dis/bond_of_agony.rs"]
+pub mod bond_of_agony;
 #[path = "tsp/bonesplitter_sliver.rs"]
 pub mod bonesplitter_sliver;
 #[path = "gpt/borborygmos.rs"]
@@ -119,6 +123,8 @@ pub mod chronatog_totem;
 pub mod chronosavant;
 #[path = "tsp/cloudchaser_kestrel.rs"]
 pub mod cloudchaser_kestrel;
+#[path = "tsp/coal_stoker.rs"]
+pub mod coal_stoker;
 #[path = "pal06/coiling_oracle.rs"]
 pub mod coiling_oracle;
 #[path = "csp/coldsteel_heart.rs"]
@@ -355,6 +361,8 @@ pub mod havenwood_wurm;
 pub mod heidar_rimewind_master;
 #[path = "csp/highland_weald.rs"]
 pub mod highland_weald;
+#[path = "gpt/hissing_miasma.rs"]
+pub mod hissing_miasma;
 #[path = "tsp/hivestone.rs"]
 pub mod hivestone;
 #[path = "gpt/hypervolt_grasp.rs"]
@@ -369,6 +377,8 @@ pub mod into_the_north;
 pub mod invoke_the_firemind;
 #[path = "tsp/ironclaw_buzzardiers.rs"]
 pub mod ironclaw_buzzardiers;
+#[path = "tsp/ith_high_arcanist.rs"]
+pub mod ith_high_arcanist;
 #[path = "tsp/ivory_giant.rs"]
 pub mod ivory_giant;
 #[path = "gpt/izzet_boilerworks.rs"]
@@ -503,6 +513,8 @@ pub mod ostiary_thrull;
 pub mod overrule;
 #[path = "tsp/paradise_plume.rs"]
 pub mod paradise_plume;
+#[path = "gpt/parallectric_feedback.rs"]
+pub mod parallectric_feedback;
 #[path = "tsp/pendelhaven_elder.rs"]
 pub mod pendelhaven_elder;
 #[path = "tsp/pentarch_paladin.rs"]
@@ -517,6 +529,8 @@ pub mod perilous_research;
 pub mod petrahydrox;
 #[path = "csp/phobian_phantasm.rs"]
 pub mod phobian_phantasm;
+#[path = "tsp/phthisis.rs"]
+pub mod phthisis;
 #[path = "csp/phyrexian_etchings.rs"]
 pub mod phyrexian_etchings;
 #[path = "tsp/phyrexian_totem.rs"]
@@ -561,6 +575,8 @@ pub mod rakdos_ickspitter;
 pub mod rakdos_pit_dragon;
 #[path = "dis/rakdos_signet.rs"]
 pub mod rakdos_signet;
+#[path = "dis/rakdos_the_defiler.rs"]
+pub mod rakdos_the_defiler;
 #[path = "dis/ratcatcher.rs"]
 pub mod ratcatcher;
 #[path = "tsp/reiterate.rs"]
@@ -731,6 +747,8 @@ pub mod sudden_shock;
 pub mod sudden_spoiling;
 #[path = "csp/sunscour.rs"]
 pub mod sunscour;
+#[path = "csp/survivor_of_the_unseen.rs"]
+pub mod survivor_of_the_unseen;
 #[path = "tsp/swarmyard.rs"]
 pub mod swarmyard;
 #[path = "csp/swift_maneuver.rs"]
@@ -797,6 +815,8 @@ pub mod ulasht_the_hate_seed;
 pub mod unliving_psychopath;
 #[path = "tsp/unyaro_bees.rs"]
 pub mod unyaro_bees;
+#[path = "tsp/urborg_syphon_mage.rs"]
+pub mod urborg_syphon_mage;
 #[path = "csp/ursine_fylgja.rs"]
 pub mod ursine_fylgja;
 #[path = "tsp/urza_s_factory.rs"]
@@ -805,6 +825,8 @@ pub mod urza_s_factory;
 pub mod utvara_scalper;
 #[path = "tsp/vampiric_sliver.rs"]
 pub mod vampiric_sliver;
+#[path = "gpt/vedalken_plotter.rs"]
+pub mod vedalken_plotter;
 #[path = "tsp/venser_s_sliver.rs"]
 pub mod venser_s_sliver;
 #[path = "dis/verdant_eidolon.rs"]
@@ -823,6 +845,8 @@ pub mod viscid_lemures;
 pub mod vision_skeins;
 #[path = "tsp/voidmage_husher.rs"]
 pub mod voidmage_husher;
+#[path = "dis/voidslime.rs"]
+pub mod voidslime;
 #[path = "tsp/volcanic_awakening.rs"]
 pub mod volcanic_awakening;
 #[path = "dis/wakestone_gargoyle.rs"]

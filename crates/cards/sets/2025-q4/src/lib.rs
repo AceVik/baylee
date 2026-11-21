@@ -101,6 +101,8 @@ pub mod deserter_s_disciple;
 pub mod dragon_moose;
 #[path = "tla/dragonfly_swarm.rs"]
 pub mod dragonfly_swarm;
+#[path = "tle/dutiful_knowledge_seeker.rs"]
+pub mod dutiful_knowledge_seeker;
 #[path = "ptla/earth_king_s_lieutenant.rs"]
 pub mod earth_king_s_lieutenant;
 #[path = "tla/earth_kingdom_jailer.rs"]
@@ -163,6 +165,8 @@ pub mod freedom_fighter_recruit;
 pub mod frog_squirrels;
 #[path = "tla/gather_the_white_lotus.rs"]
 pub mod gather_the_white_lotus;
+#[path = "tle/giant_fly.rs"]
+pub mod giant_fly;
 #[path = "tle/gilacorn.rs"]
 pub mod gilacorn;
 #[path = "tla/glider_kids.rs"]
@@ -277,6 +281,8 @@ pub mod ozai_s_cruelty;
 pub mod path_to_redemption;
 #[path = "tla/pillar_launch.rs"]
 pub mod pillar_launch;
+#[path = "tla/pirate_peddlers.rs"]
+pub mod pirate_peddlers;
 #[path = "tla/platypus_bear.rs"]
 pub mod platypus_bear;
 #[path = "tla/pretending_poxbearers.rs"]
@@ -287,6 +293,8 @@ pub mod professor_zei_anthropologist;
 pub mod purple_pentapus;
 #[path = "tla/rabaroo_troop.rs"]
 pub mod rabaroo_troop;
+#[path = "ptla/raven_eagle.rs"]
+pub mod raven_eagle;
 #[path = "ptla/realm_of_koh.rs"]
 pub mod realm_of_koh;
 #[path = "tla/rocky_rebuke.rs"]
@@ -317,10 +325,14 @@ pub mod sokka_s_sword_training;
 pub mod sokka_tenacious_tactician;
 #[path = "tle/sokka_wolf_cove_s_protector.rs"]
 pub mod sokka_wolf_cove_s_protector;
+#[path = "tla/sold_out.rs"]
+pub mod sold_out;
 #[path = "tla/southern_air_temple.rs"]
 pub mod southern_air_temple;
 #[path = "ptla/spirit_water_revival.rs"]
 pub mod spirit_water_revival;
+#[path = "tle/stand_united.rs"]
+pub mod stand_united;
 #[path = "ptla/suki_courageous_rescuer.rs"]
 pub mod suki_courageous_rescuer;
 #[path = "tle/suki_kyoshi_captain.rs"]
@@ -353,6 +365,8 @@ pub mod the_terror_of_serpent_s_pass;
 pub mod the_walls_of_ba_sing_se;
 #[path = "ptla/tiger_seal.rs"]
 pub mod tiger_seal;
+#[path = "tla/tolls_of_war.rs"]
+pub mod tolls_of_war;
 #[path = "tle/toucan_puffin.rs"]
 pub mod toucan_puffin;
 #[path = "tla/treetop_freedom_fighters.rs"]
@@ -399,6 +413,8 @@ pub mod white_lotus_reinforcements;
 pub mod wolf_cove_villager;
 #[path = "tla/wolfbat.rs"]
 pub mod wolfbat;
+#[path = "tla/yip_yip.rs"]
+pub mod yip_yip;
 #[path = "tla/yuyan_archers.rs"]
 pub mod yuyan_archers;
 #[path = "tle/zhao_the_seething_flame.rs"]

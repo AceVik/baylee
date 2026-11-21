@@ -25,6 +25,8 @@ pub mod ancestral_katana;
 pub mod asari_captain;
 #[path = "neo/atsushi_the_blazing_sky.rs"]
 pub mod atsushi_the_blazing_sky;
+#[path = "neo/automated_artificer.rs"]
+pub mod automated_artificer;
 #[path = "neo/awakened_awareness.rs"]
 pub mod awakened_awareness;
 #[path = "neo/bamboo_grove_archer.rs"]
@@ -173,6 +175,8 @@ pub mod nezumi_prowler;
 pub mod ninja_s_kunai;
 #[path = "neo/okiba_reckoner_raid.rs"]
 pub mod okiba_reckoner_raid;
+#[path = "neo/oni_cult_anvil.rs"]
+pub mod oni_cult_anvil;
 #[path = "nec/organic_extinction.rs"]
 pub mod organic_extinction;
 #[path = "neo/otawara_soaring_city.rs"]
@@ -247,6 +251,8 @@ pub mod tales_of_master_seshiro;
 pub mod tamiyo_s_safekeeping;
 #[path = "neo/tempered_in_solitude.rs"]
 pub mod tempered_in_solitude;
+#[path = "neo/the_long_reach_of_night.rs"]
+pub mod the_long_reach_of_night;
 #[path = "neo/the_modern_age.rs"]
 pub mod the_modern_age;
 #[path = "neo/the_restoration_of_eiganjo.rs"]

@@ -101,6 +101,8 @@ pub mod burrenton_forge_tender;
 pub mod calciderm;
 #[path = "lrw/caterwauling_boggart.rs"]
 pub mod caterwauling_boggart;
+#[path = "plc/cautery_sliver.rs"]
+pub mod cautery_sliver;
 #[path = "lrw/cenn_s_heir.rs"]
 pub mod cenn_s_heir;
 #[path = "fut/centaur_omenreader.rs"]
@@ -613,6 +615,8 @@ pub mod soultether_golem;
 pub mod sower_of_temptation;
 #[path = "fut/sparkspitter.rs"]
 pub mod sparkspitter;
+#[path = "fut/spellwild_ouphe.rs"]
+pub mod spellwild_ouphe;
 #[path = "lrw/spiderwig_boggart.rs"]
 pub mod spiderwig_boggart;
 #[path = "lrw/spinerock_knoll.rs"]

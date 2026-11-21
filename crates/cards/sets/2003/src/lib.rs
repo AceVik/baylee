@@ -747,6 +747,8 @@ pub mod reaping_the_graves;
 pub mod recuperate;
 #[path = "mrd/regress.rs"]
 pub mod regress;
+#[path = "mrd/reiver_demon.rs"]
+pub mod reiver_demon;
 #[path = "mrd/relic_bane.rs"]
 pub mod relic_bane;
 #[path = "scg/reward_the_faithful.rs"]

@@ -101,6 +101,8 @@ pub mod cresting_mosasaurus;
 pub mod crisis_of_conscience;
 #[path = "lcc/curious_altisaur.rs"]
 pub mod curious_altisaur;
+#[path = "who/cybermat.rs"]
+pub mod cybermat;
 #[path = "who/cybermen_squadron.rs"]
 pub mod cybermen_squadron;
 #[path = "who/dalek_drone.rs"]
@@ -209,6 +211,8 @@ pub mod ironpaw_aspirant;
 pub mod ixalli_s_lorekeeper;
 #[path = "who/jamie_mc_crimmon.rs"]
 pub mod jamie_mc_crimmon;
+#[path = "who/jenny_flint.rs"]
+pub mod jenny_flint;
 #[path = "who/k_9_mark_i.rs"]
 pub mod k_9_mark_i;
 #[path = "who/karvanista_loyal_lupari.rs"]
@@ -297,6 +301,8 @@ pub mod restless_reef;
 pub mod restless_ridgeline;
 #[path = "lci/restless_vents.rs"]
 pub mod restless_vents;
+#[path = "who/return_the_past.rs"]
+pub mod return_the_past;
 #[path = "who/rms_titanic.rs"]
 pub mod rms_titanic;
 #[path = "lci/roaming_throne.rs"]
@@ -307,6 +313,8 @@ pub mod ruin_lurker_bat;
 pub mod runaway_boulder;
 #[path = "lci/saheeli_the_sun_s_brilliance.rs"]
 pub mod saheeli_the_sun_s_brilliance;
+#[path = "who/sally_sparrow.rs"]
+pub mod sally_sparrow;
 #[path = "lci/sanguine_evangelist.rs"]
 pub mod sanguine_evangelist;
 #[path = "who/sarah_jane_smith.rs"]
@@ -323,6 +331,10 @@ pub mod seismic_monstrosaur;
 pub mod self_reflection;
 #[path = "who/sergeant_john_benton.rs"]
 pub mod sergeant_john_benton;
+#[path = "lci/sinuous_benthisaur.rs"]
+pub mod sinuous_benthisaur;
+#[path = "lcc/skeleton_crew.rs"]
+pub mod skeleton_crew;
 #[path = "lci/soaring_sandwing.rs"]
 pub mod soaring_sandwing;
 #[path = "who/sonic_screwdriver.rs"]
@@ -365,6 +377,8 @@ pub mod terror_tide;
 pub mod the_everflowing_well;
 #[path = "who/the_flux.rs"]
 pub mod the_flux;
+#[path = "lcc/the_indomitable.rs"]
+pub mod the_indomitable;
 #[path = "lci/thousand_moons_crackshot.rs"]
 pub mod thousand_moons_crackshot;
 #[path = "lci/thousand_moons_smithy.rs"]

@@ -105,6 +105,8 @@ pub mod bastion_mastodon;
 pub mod bearer_of_silence;
 #[path = "emn/bedlam_reveler.rs"]
 pub mod bedlam_reveler;
+#[path = "soi/behind_the_scenes.rs"]
+pub mod behind_the_scenes;
 #[path = "cn2/besmirch.rs"]
 pub mod besmirch;
 #[path = "ogw/birthing_hulk.rs"]
@@ -115,6 +117,8 @@ pub mod biting_rain;
 pub mod blinding_drone;
 #[path = "emn/blood_mist.rs"]
 pub mod blood_mist;
+#[path = "emn/bloodbriar.rs"]
+pub mod bloodbriar;
 #[path = "soi/bloodmad_vampire.rs"]
 pub mod bloodmad_vampire;
 #[path = "kld/blooming_marsh.rs"]
@@ -151,6 +155,10 @@ pub mod bruna_the_fading_light;
 pub mod bruse_tarl_boorish_herder;
 #[path = "ogw/brute_strength.rs"]
 pub mod brute_strength;
+#[path = "kld/built_to_last.rs"]
+pub mod built_to_last;
+#[path = "kld/built_to_smash.rs"]
+pub mod built_to_smash;
 #[path = "psoi/bygone_bishop.rs"]
 pub mod bygone_bishop;
 #[path = "soi/byway_courier.rs"]
@@ -255,10 +263,14 @@ pub mod curio_vendor;
 pub mod curious_homunculus;
 #[path = "soi/dance_with_devils.rs"]
 pub mod dance_with_devils;
+#[path = "soi/daring_sleuth.rs"]
+pub mod daring_sleuth;
 #[path = "soi/dauntless_cathar.rs"]
 pub mod dauntless_cathar;
 #[path = "emn/dawn_gryff.rs"]
 pub mod dawn_gryff;
+#[path = "kld/deadlock_trap.rs"]
+pub mod deadlock_trap;
 #[path = "psoi/deathcap_cultivator.rs"]
 pub mod deathcap_cultivator;
 #[path = "emn/decimator_of_the_provinces.rs"]
@@ -401,6 +413,8 @@ pub mod falkenrath_reaver;
 pub mod fall_of_the_titans;
 #[path = "cn2/fang_of_the_pack.rs"]
 pub mod fang_of_the_pack;
+#[path = "soi/farbog_revenant.rs"]
+pub mod farbog_revenant;
 #[path = "emn/field_creeper.rs"]
 pub mod field_creeper;
 #[path = "emn/fiend_binder.rs"]
@@ -413,8 +427,12 @@ pub mod fireforger_s_puzzleknot;
 pub mod flame_lash;
 #[path = "ogw/flayer_drone.rs"]
 pub mod flayer_drone;
+#[path = "soi/fleeting_memories.rs"]
+pub mod fleeting_memories;
 #[path = "kld/fleetwheel_cruiser.rs"]
 pub mod fleetwheel_cruiser;
+#[path = "emn/fogwalker.rs"]
+pub mod fogwalker;
 #[path = "psoi/foreboding_ruins.rs"]
 pub mod foreboding_ruins;
 #[path = "soi/forsaken_sanctuary.rs"]
@@ -435,6 +453,8 @@ pub mod fragmentize;
 pub mod fretwork_colony;
 #[path = "kld/furious_reprisal.rs"]
 pub mod furious_reprisal;
+#[path = "soi/furtive_homunculus.rs"]
+pub mod furtive_homunculus;
 #[path = "emn/furyblade_vampire.rs"]
 pub mod furyblade_vampire;
 #[path = "emn/galvanic_bombardment.rs"]
@@ -491,6 +511,8 @@ pub mod goblin_spymaster;
 pub mod gone_missing;
 #[path = "emn/graf_harvest.rs"]
 pub mod graf_harvest;
+#[path = "soi/graf_mole.rs"]
+pub mod graf_mole;
 #[path = "emn/grapple_with_the_past.rs"]
 pub mod grapple_with_the_past;
 #[path = "c16/grave_upheaval.rs"]
@@ -791,6 +813,8 @@ pub mod padeem_consul_of_innovation;
 pub mod palace_jailer;
 #[path = "cn2/palace_sentinels.rs"]
 pub mod palace_sentinels;
+#[path = "soi/pale_rider_of_trostad.rs"]
+pub mod pale_rider_of_trostad;
 #[path = "kld/panharmonicon.rs"]
 pub mod panharmonicon;
 #[path = "mps/paradox_engine.rs"]
@@ -835,6 +859,8 @@ pub mod quicksmith_genius;
 pub mod quilled_wolf;
 #[path = "soi/rabid_bite.rs"]
 pub mod rabid_bite;
+#[path = "soi/rancid_rats.rs"]
+pub mod rancid_rats;
 #[path = "psoi/ravenous_bloodseeker.rs"]
 pub mod ravenous_bloodseeker;
 #[path = "c16/ravos_soultender.rs"]
@@ -931,6 +957,8 @@ pub mod servo_exhibition;
 pub mod shamble_back;
 #[path = "ogw/shoulder_to_shoulder.rs"]
 pub mod shoulder_to_shoulder;
+#[path = "kld/shrewd_negotiation.rs"]
+pub mod shrewd_negotiation;
 #[path = "emn/shrill_howler.rs"]
 pub mod shrill_howler;
 #[path = "c16/sidar_kondo_of_jamuraa.rs"]
@@ -945,6 +973,8 @@ pub mod sigardian_priest;
 pub mod silent_observer;
 #[path = "soi/silverstrike.rs"]
 pub mod silverstrike;
+#[path = "soi/skeleton_key.rs"]
+pub mod skeleton_key;
 #[path = "emn/skirsdag_supplicant.rs"]
 pub mod skirsdag_supplicant;
 #[path = "ogw/sky_scourer.rs"]
@@ -1107,6 +1137,8 @@ pub mod thalia_heretic_cathar;
 pub mod thalia_s_lancers;
 #[path = "psoi/thalia_s_lieutenant.rs"]
 pub mod thalia_s_lieutenant;
+#[path = "psoi/the_gitrog_monster.rs"]
+pub mod the_gitrog_monster;
 #[path = "emn/thermo_alchemist.rs"]
 pub mod thermo_alchemist;
 #[path = "psoi/thing_in_the_ice.rs"]
@@ -1131,6 +1163,8 @@ pub mod throne_of_the_high_city;
 pub mod tidy_conclusion;
 #[path = "ogw/timber_gorge.rs"]
 pub mod timber_gorge;
+#[path = "psoi/tireless_tracker.rs"]
+pub mod tireless_tracker;
 #[path = "kld/toolcraft_exemplar.rs"]
 pub mod toolcraft_exemplar;
 #[path = "kld/torch_gauntlet.rs"]
@@ -1155,6 +1189,8 @@ pub mod ulrich_s_kindred;
 pub mod ulvenwald_captive;
 #[path = "psoi/ulvenwald_hydra.rs"]
 pub mod ulvenwald_hydra;
+#[path = "soi/ulvenwald_mysteries.rs"]
+pub mod ulvenwald_mysteries;
 #[path = "emn/ulvenwald_observer.rs"]
 pub mod ulvenwald_observer;
 #[path = "ogw/umara_entangler.rs"]
@@ -1163,8 +1199,16 @@ pub mod umara_entangler;
 pub mod uncaged_fury;
 #[path = "kld/underhanded_designs.rs"]
 pub mod underhanded_designs;
+#[path = "soi/uninvited_geist.rs"]
+pub mod uninvited_geist;
+#[path = "ogw/unity_of_purpose.rs"]
+pub mod unity_of_purpose;
+#[path = "emn/unsubstantiate.rs"]
+pub mod unsubstantiate;
 #[path = "ogw/untamed_hunger.rs"]
 pub mod untamed_hunger;
+#[path = "emn/vampire_cutthroat.rs"]
+pub mod vampire_cutthroat;
 #[path = "ogw/vampire_envoy.rs"]
 pub mod vampire_envoy;
 #[path = "soi/vampire_noble.rs"]
@@ -1225,6 +1269,8 @@ pub mod weldfast_wingsmith;
 pub mod welding_sparks;
 #[path = "psoi/westvale_abbey.rs"]
 pub mod westvale_abbey;
+#[path = "emn/wharf_infiltrator.rs"]
+pub mod wharf_infiltrator;
 #[path = "kld/whirler_virtuoso.rs"]
 pub mod whirler_virtuoso;
 #[path = "kld/whirlermaker.rs"]

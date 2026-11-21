@@ -17,6 +17,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 pub mod ancestral_anger;
 #[path = "vow/angelic_quartermaster.rs"]
 pub mod angelic_quartermaster;
+#[path = "pvow/anje_maid_of_dishonor.rs"]
+pub mod anje_maid_of_dishonor;
 #[path = "vow/apprentice_sharpshooter.rs"]
 pub mod apprentice_sharpshooter;
 #[path = "pvow/avabruck_caretaker.rs"]
@@ -29,6 +31,8 @@ pub mod binding_geist;
 pub mod bleed_dry;
 #[path = "vow/blood_fountain.rs"]
 pub mod blood_fountain;
+#[path = "vow/blood_hypnotist.rs"]
+pub mod blood_hypnotist;
 #[path = "vow/blood_petal_celebrant.rs"]
 pub mod blood_petal_celebrant;
 #[path = "vow/blood_servitor.rs"]
@@ -67,8 +71,12 @@ pub mod daybreak_combatants;
 pub mod deathcap_glade;
 #[path = "vow/desperate_farmer.rs"]
 pub mod desperate_farmer;
+#[path = "vow/diregraf_scavenger.rs"]
+pub mod diregraf_scavenger;
 #[path = "vow/distracting_geist.rs"]
 pub mod distracting_geist;
+#[path = "vow/dormant_grove.rs"]
+pub mod dormant_grove;
 #[path = "pvow/dreadfeast_demon.rs"]
 pub mod dreadfeast_demon;
 #[path = "pvow/dreamroot_cascade.rs"]
@@ -97,6 +105,8 @@ pub mod forsaken_crossroads;
 pub mod frenzied_devils;
 #[path = "pvow/glorious_sunrise.rs"]
 pub mod glorious_sunrise;
+#[path = "vow/gluttonous_guest.rs"]
+pub mod gluttonous_guest;
 #[path = "vow/grisly_ritual.rs"]
 pub mod grisly_ritual;
 #[path = "vow/gryff_rider.rs"]
@@ -193,6 +203,8 @@ pub mod pyre_spawn;
 pub mod reckless_impulse;
 #[path = "vow/reclusive_taxidermist.rs"]
 pub mod reclusive_taxidermist;
+#[path = "vow/rending_flame.rs"]
+pub mod rending_flame;
 #[path = "vow/restless_bloodseeker.rs"]
 pub mod restless_bloodseeker;
 #[path = "vow/runebound_wolf.rs"]
@@ -201,6 +213,8 @@ pub mod runebound_wolf;
 pub mod rural_recruit;
 #[path = "vow/sanctify.rs"]
 pub mod sanctify;
+#[path = "vow/sanguine_statuette.rs"]
+pub mod sanguine_statuette;
 #[path = "voc/scion_of_opulence.rs"]
 pub mod scion_of_opulence;
 #[path = "vow/selhoff_entomber.rs"]
@@ -271,6 +285,8 @@ pub mod weary_prisoner;
 pub mod weaver_of_blossoms;
 #[path = "vow/wedding_security.rs"]
 pub mod wedding_security;
+#[path = "pvow/welcoming_vampire.rs"]
+pub mod welcoming_vampire;
 #[path = "vow/whispering_wizard.rs"]
 pub mod whispering_wizard;
 #[path = "vow/witch_s_web.rs"]

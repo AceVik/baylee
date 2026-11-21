@@ -95,6 +95,8 @@ pub mod assure;
 pub mod attendant_of_vraska;
 #[path = "rix/atzocan_seer.rs"]
 pub mod atzocan_seer;
+#[path = "grn/aurelia_exemplar_of_justice.rs"]
+pub mod aurelia_exemplar_of_justice;
 #[path = "dom/aven_sentry.rs"]
 pub mod aven_sentry;
 #[path = "m19/aven_wind_mage.rs"]
@@ -131,6 +133,8 @@ pub mod blaring_captain;
 pub mod blaring_recruiter;
 #[path = "dom/blessed_light.rs"]
 pub mod blessed_light;
+#[path = "dom/blessing_of_belzenlok.rs"]
+pub mod blessing_of_belzenlok;
 #[path = "dom/blink_of_an_eye.rs"]
 pub mod blink_of_an_eye;
 #[path = "m19/blood_divination.rs"]
@@ -295,6 +299,8 @@ pub mod demanding_dragon;
 pub mod demonic_vigor;
 #[path = "grn/demotion.rs"]
 pub mod demotion;
+#[path = "m19/desecrated_tomb.rs"]
+pub mod desecrated_tomb;
 #[path = "m19/detection_tower.rs"]
 pub mod detection_tower;
 #[path = "grn/devkarin_dissident.rs"]
@@ -339,6 +345,8 @@ pub mod drown_in_shapelessness;
 pub mod drowned_secrets;
 #[path = "dom/drudge_sentinel.rs"]
 pub mod drudge_sentinel;
+#[path = "m19/druid_of_horns.rs"]
+pub mod druid_of_horns;
 #[path = "m19/dryad_greenseeker.rs"]
 pub mod dryad_greenseeker;
 #[path = "dom/dub.rs"]
@@ -815,6 +823,8 @@ pub mod niv_mizzet_parun;
 pub mod notion_rain;
 #[path = "m19/novice_knight.rs"]
 pub mod novice_knight;
+#[path = "rix/oathsworn_vampire.rs"]
+pub mod oathsworn_vampire;
 #[path = "grn/ochran_assassin.rs"]
 pub mod ochran_assassin;
 #[path = "dom/on_serra_s_wings.rs"]
@@ -943,6 +953,8 @@ pub mod ritual_of_soot;
 pub mod river_darter;
 #[path = "oana/river_s_favor.rs"]
 pub mod river_s_favor;
+#[path = "rix/riverwise_augur.rs"]
+pub mod riverwise_augur;
 #[path = "grn/roc_charger.rs"]
 pub mod roc_charger;
 #[path = "m19/root_snare.rs"]
@@ -1059,6 +1071,8 @@ pub mod snubhorn_sentry;
 pub mod soaring_show_off;
 #[path = "grn/sonic_assault.rs"]
 pub mod sonic_assault;
+#[path = "dom/sorcerer_s_wand.rs"]
+pub mod sorcerer_s_wand;
 #[path = "rix/soul_of_the_rapids.rs"]
 pub mod soul_of_the_rapids;
 #[path = "dom/soul_salvage.rs"]
@@ -1211,6 +1225,8 @@ pub mod treetop_warden;
 pub mod truefire_captain;
 #[path = "m19/trusty_packbeast.rs"]
 pub mod trusty_packbeast;
+#[path = "c18/turntimber_sower.rs"]
+pub mod turntimber_sower;
 #[path = "m19/two_headed_zombie.rs"]
 pub mod two_headed_zombie;
 #[path = "m19/uncomfortable_chill.rs"]

@@ -53,6 +53,8 @@ pub mod ambrosia_whiteheart;
 pub mod ardbert_warrior_of_darkness;
 #[path = "fin/ashe_princess_of_dalmasca.rs"]
 pub mod ashe_princess_of_dalmasca;
+#[path = "tdm/attuned_hunter.rs"]
+pub mod attuned_hunter;
 #[path = "fin/auron_s_inspiration.rs"]
 pub mod auron_s_inspiration;
 #[path = "tdm/auroral_procession.rs"]
@@ -97,6 +99,8 @@ pub mod call_the_mountain_chocobo;
 pub mod capital_city;
 #[path = "fin/cargo_ship.rs"]
 pub mod cargo_ship;
+#[path = "tdm/caustic_exhale.rs"]
+pub mod caustic_exhale;
 #[path = "fin/cecil_dark_knight.rs"]
 pub mod cecil_dark_knight;
 #[path = "fin/choco_comet.rs"]
@@ -147,6 +151,8 @@ pub mod crossroads_village;
 pub mod cruel_truths;
 #[path = "fin/crystal_fragments.rs"]
 pub mod crystal_fragments;
+#[path = "fic/cyan_vengeful_samurai.rs"]
+pub mod cyan_vengeful_samurai;
 #[path = "ptdm/dalkovan_encampment.rs"]
 pub mod dalkovan_encampment;
 #[path = "fin/deadly_embrace.rs"]
@@ -227,6 +233,8 @@ pub mod fresh_start;
 pub mod frontline_rush;
 #[path = "tdm/furious_forebear.rs"]
 pub mod furious_forebear;
+#[path = "fin/g_raha_tia.rs"]
+pub mod g_raha_tia;
 #[path = "fin/gaelicat.rs"]
 pub mod gaelicat;
 #[path = "fin/gaius_van_baelsar.rs"]
@@ -467,6 +475,8 @@ pub mod shadow_mysterious_assassin;
 pub mod shambling_cie_th;
 #[path = "fin/sharlayan_nation_of_scholars.rs"]
 pub mod sharlayan_nation_of_scholars;
+#[path = "fic/shelinda_yevon_acolyte.rs"]
+pub mod shelinda_yevon_acolyte;
 #[path = "fin/shinra_reinforcements.rs"]
 pub mod shinra_reinforcements;
 #[path = "tdm/shocking_sharpshooter.rs"]
@@ -485,6 +495,8 @@ pub mod skirmish_rhino;
 pub mod slash_of_light;
 #[path = "fin/sleep_magic.rs"]
 pub mod sleep_magic;
+#[path = "ptdm/smile_at_death.rs"]
+pub mod smile_at_death;
 #[path = "fin/snow_villiers.rs"]
 pub mod snow_villiers;
 #[path = "tdm/snowmelt_stag.rs"]
@@ -525,6 +537,8 @@ pub mod summon_fat_chocobo;
 pub mod summon_g_f_cerberus;
 #[path = "fic/summon_ixion.rs"]
 pub mod summon_ixion;
+#[path = "fin/summon_knights_of_round.rs"]
+pub mod summon_knights_of_round;
 #[path = "fin/summon_primal_garuda.rs"]
 pub mod summon_primal_garuda;
 #[path = "fin/summon_shiva.rs"]
@@ -537,6 +551,8 @@ pub mod sunpearl_kirin;
 pub mod sunset_strikemaster;
 #[path = "fin/suplex.rs"]
 pub mod suplex;
+#[path = "fin/swallowed_by_leviathan.rs"]
+pub mod swallowed_by_leviathan;
 #[path = "tdm/teeming_dragonstorm.rs"]
 pub mod teeming_dragonstorm;
 #[path = "tdc/tempest_technique.rs"]
@@ -551,6 +567,8 @@ pub mod temur_monument;
 pub mod temur_tawnyback;
 #[path = "fic/terra_herald_of_hope.rs"]
 pub mod terra_herald_of_hope;
+#[path = "tdc/teval_the_balanced_scale.rs"]
+pub mod teval_the_balanced_scale;
 #[path = "fic/thancred_waters.rs"]
 pub mod thancred_waters;
 #[path = "fin/the_crystal_s_chosen.rs"]
@@ -593,6 +611,8 @@ pub mod valkyrie_aerial_unit;
 pub mod vayne_s_treachery;
 #[path = "fin/vector_imperial_capital.rs"]
 pub mod vector_imperial_capital;
+#[path = "fin/venat_heart_of_hydaelyn.rs"]
+pub mod venat_heart_of_hydaelyn;
 #[path = "fin/vincent_valentine.rs"]
 pub mod vincent_valentine;
 #[path = "fin/vivi_ornitier.rs"]

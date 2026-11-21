@@ -131,6 +131,8 @@ pub mod death_priest_of_myrkul;
 pub mod death_tyrant;
 #[path = "mid/defenestrate.rs"]
 pub mod defenestrate;
+#[path = "afr/demogorgon_s_clutches.rs"]
+pub mod demogorgon_s_clutches;
 #[path = "afr/den_of_the_bugbear.rs"]
 pub mod den_of_the_bugbear;
 #[path = "mid/deserted_beach.rs"]
@@ -141,6 +143,8 @@ pub mod devoted_paladin;
 pub mod dire_wolf_prowler;
 #[path = "mid/diregraf_rebirth.rs"]
 pub mod diregraf_rebirth;
+#[path = "afr/divine_smite.rs"]
+pub mod divine_smite;
 #[path = "afr/djinni_windseer.rs"]
 pub mod djinni_windseer;
 #[path = "afr/drider.rs"]
@@ -165,12 +169,16 @@ pub mod eccentric_farmer;
 pub mod ecstatic_awakener;
 #[path = "mid/electric_revelation.rs"]
 pub mod electric_revelation;
+#[path = "mic/eloise_nephalia_sleuth.rs"]
+pub mod eloise_nephalia_sleuth;
 #[path = "afr/elturgard_ranger.rs"]
 pub mod elturgard_ranger;
 #[path = "afr/eye_of_vecna.rs"]
 pub mod eye_of_vecna;
 #[path = "afr/eyes_of_the_beholder.rs"]
 pub mod eyes_of_the_beholder;
+#[path = "mid/fading_hope.rs"]
+pub mod fading_hope;
 #[path = "mid/faithful_mending.rs"]
 pub mod faithful_mending;
 #[path = "mid/falkenrath_perforator.rs"]
@@ -189,6 +197,10 @@ pub mod feign_death;
 pub mod festival_crasher;
 #[path = "afc/fey_steed.rs"]
 pub mod fey_steed;
+#[path = "mid/flare_of_faith.rs"]
+pub mod flare_of_faith;
+#[path = "mid/fleshtaker.rs"]
+pub mod fleshtaker;
 #[path = "afr/flumph.rs"]
 pub mod flumph;
 #[path = "mid/foul_play.rs"]
@@ -259,6 +271,8 @@ pub mod icingdeath_frost_tyrant;
 pub mod improvised_weaponry;
 #[path = "mid/infernal_grasp.rs"]
 pub mod infernal_grasp;
+#[path = "afr/ingenious_smith.rs"]
+pub mod ingenious_smith;
 #[path = "afr/inspiring_bard.rs"]
 pub mod inspiring_bard;
 #[path = "afr/iymrith_desert_doom.rs"]
@@ -267,6 +281,8 @@ pub mod iymrith_desert_doom;
 pub mod jerren_corrupted_bishop;
 #[path = "mid/join_the_dance.rs"]
 pub mod join_the_dance;
+#[path = "mid/kessig_naturalist.rs"]
+pub mod kessig_naturalist;
 #[path = "afr/lair_of_the_hydra.rs"]
 pub mod lair_of_the_hydra;
 #[path = "mid/lambholt_harrier.rs"]
@@ -301,6 +317,8 @@ pub mod monk_of_the_open_hand;
 pub mod moon_blessed_cleric;
 #[path = "mid/moonsilver_key.rs"]
 pub mod moonsilver_key;
+#[path = "mid/morbid_opportunist.rs"]
+pub mod morbid_opportunist;
 #[path = "afr/mordenkainen_s_polymorph.rs"]
 pub mod mordenkainen_s_polymorph;
 #[path = "mid/mourning_patrol.rs"]
@@ -481,6 +499,8 @@ pub mod wand_of_orcus;
 pub mod westgate_regent;
 #[path = "afr/white_dragon.rs"]
 pub mod white_dragon;
+#[path = "mid/willow_geist.rs"]
+pub mod willow_geist;
 #[path = "afc/winged_boots.rs"]
 pub mod winged_boots;
 #[path = "afr/wizard_class.rs"]

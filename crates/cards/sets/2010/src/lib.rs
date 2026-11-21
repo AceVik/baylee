@@ -25,6 +25,8 @@ pub mod acid_web_spider;
 pub mod aether_adept;
 #[path = "roe/affa_guard_hound.rs"]
 pub mod affa_guard_hound;
+#[path = "wwk/agadeem_occultist.rs"]
+pub mod agadeem_occultist;
 #[path = "m11/air_servant.rs"]
 pub mod air_servant;
 #[path = "m11/ajani_s_mantra.rs"]
@@ -321,6 +323,8 @@ pub mod flight_spellbomb;
 pub mod frostwind_invoker;
 #[path = "som/fume_spitter.rs"]
 pub mod fume_spitter;
+#[path = "som/furnace_celebration.rs"]
+pub mod furnace_celebration;
 #[path = "m11/gaea_s_revenge.rs"]
 pub mod gaea_s_revenge;
 #[path = "m11/gargoyle_sentinel.rs"]
@@ -437,6 +441,8 @@ pub mod inspired_charge;
 pub mod instill_infection;
 #[path = "wwk/iona_s_judgment.rs"]
 pub mod iona_s_judgment;
+#[path = "roe/it_that_betrays.rs"]
+pub mod it_that_betrays;
 #[path = "m11/jace_s_erasure.rs"]
 pub mod jace_s_erasure;
 #[path = "m11/jace_s_ingenuity.rs"]
@@ -565,6 +571,8 @@ pub mod mordant_dragon;
 pub mod moriok_reaver;
 #[path = "som/moriok_replica.rs"]
 pub mod moriok_replica;
+#[path = "roe/mortician_beetle.rs"]
+pub mod mortician_beetle;
 #[path = "som/mox_opal.rs"]
 pub mod mox_opal;
 #[path = "som/myr_galvanizer.rs"]

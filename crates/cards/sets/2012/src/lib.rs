@@ -291,6 +291,8 @@ pub mod dungeon_geists;
 pub mod duskmantle_prowler;
 #[path = "m13/duty_bound_dead.rs"]
 pub mod duty_bound_dead;
+#[path = "pc2/elderwood_scion.rs"]
+pub mod elderwood_scion;
 #[path = "dka/elgaud_inquisitor.rs"]
 pub mod elgaud_inquisitor;
 #[path = "avr/emancipation_angel.rs"]
@@ -333,6 +335,8 @@ pub mod farbog_explorer;
 pub mod favor_of_the_woods;
 #[path = "avr/favorable_winds.rs"]
 pub mod favorable_winds;
+#[path = "dka/feed_the_pack.rs"]
+pub mod feed_the_pack;
 #[path = "rtr/fencing_ace.rs"]
 pub mod fencing_ace;
 #[path = "avr/fervent_cathar.rs"]
@@ -361,6 +365,8 @@ pub mod geist_snatch;
 pub mod geralf_s_messenger;
 #[path = "dka/geralf_s_mindcrusher.rs"]
 pub mod geralf_s_mindcrusher;
+#[path = "avr/ghostform.rs"]
+pub mod ghostform;
 #[path = "avr/ghostly_flicker.rs"]
 pub mod ghostly_flicker;
 #[path = "avr/ghostly_touch.rs"]
@@ -447,6 +453,8 @@ pub mod herald_of_war;
 pub mod highborn_ghoul;
 #[path = "dka/hollowhenge_beast.rs"]
 pub mod hollowhenge_beast;
+#[path = "avr/holy_justiciar.rs"]
+pub mod holy_justiciar;
 #[path = "avr/homicidal_seclusion.rs"]
 pub mod homicidal_seclusion;
 #[path = "rtr/horncaller_s_chant.rs"]
@@ -567,6 +575,8 @@ pub mod mind_sculpt;
 pub mod minotaur_aggressor;
 #[path = "avr/mist_raven.rs"]
 pub mod mist_raven;
+#[path = "avr/moonlight_geist.rs"]
+pub mod moonlight_geist;
 #[path = "dka/moonveil_dragon.rs"]
 pub mod moonveil_dragon;
 #[path = "avr/moorland_inquisitor.rs"]
@@ -619,6 +629,8 @@ pub mod polluted_dead;
 pub mod precinct_captain;
 #[path = "dka/predator_ooze.rs"]
 pub mod predator_ooze;
+#[path = "avr/predator_s_gambit.rs"]
+pub mod predator_s_gambit;
 #[path = "m13/primal_huntbeast.rs"]
 pub mod primal_huntbeast;
 #[path = "m13/prized_elephant.rs"]

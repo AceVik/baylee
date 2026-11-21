@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "snc/a_little_chat.rs"]
+pub mod a_little_chat;
 #[path = "clb/agent_of_the_iron_throne.rs"]
 pub mod agent_of_the_iron_throne;
 #[path = "clb/alora_merry_thief.rs"]
@@ -59,6 +61,8 @@ pub mod baldur_s_gate;
 pub mod bane_s_invoker;
 #[path = "clb/basilisk_gate.rs"]
 pub mod basilisk_gate;
+#[path = "ncc/bellowing_mauler.rs"]
+pub mod bellowing_mauler;
 #[path = "clb/bhaal_lord_of_murder.rs"]
 pub mod bhaal_lord_of_murder;
 #[path = "clb/bhaal_s_invoker.rs"]
@@ -73,6 +77,8 @@ pub mod black_market_tycoon;
 pub mod blessed_hippogriff;
 #[path = "clb/blur.rs"]
 pub mod blur;
+#[path = "snc/body_dropper.rs"]
+pub mod body_dropper;
 #[path = "clb/bonecaller_cleric.rs"]
 pub mod bonecaller_cleric;
 #[path = "snc/boon_of_safety.rs"]
@@ -145,6 +151,8 @@ pub mod cleanup_crew;
 pub mod cliffgate;
 #[path = "clb/cloak_of_the_bat.rs"]
 pub mod cloak_of_the_bat;
+#[path = "clb/cloakwood_swarmkeeper.rs"]
+pub mod cloakwood_swarmkeeper;
 #[path = "clb/clockwork_fox.rs"]
 pub mod clockwork_fox;
 #[path = "clb/contraband_livestock.rs"]
@@ -157,12 +165,20 @@ pub mod courier_s_briefcase;
 pub mod crash_the_party;
 #[path = "snc/crew_captain.rs"]
 pub mod crew_captain;
+#[path = "clb/criminal_past.rs"]
+pub mod criminal_past;
 #[path = "snc/crooked_custodian.rs"]
 pub mod crooked_custodian;
+#[path = "ncc/cryptic_pursuit.rs"]
+pub mod cryptic_pursuit;
 #[path = "clb/crystal_dragon.rs"]
 pub mod crystal_dragon;
 #[path = "clb/cultist_of_the_absolute.rs"]
 pub mod cultist_of_the_absolute;
+#[path = "psnc/cut_of_the_profits.rs"]
+pub mod cut_of_the_profits;
+#[path = "psnc/cut_your_losses.rs"]
+pub mod cut_your_losses;
 #[path = "snc/cutthroat_contender.rs"]
 pub mod cutthroat_contender;
 #[path = "ncc/damning_verdict.rs"]
@@ -179,6 +195,8 @@ pub mod decanter_of_endless_water;
 pub mod demon_s_due;
 #[path = "ncc/determined_iteration.rs"]
 pub mod determined_iteration;
+#[path = "snc/dig_up_the_body.rs"]
+pub mod dig_up_the_body;
 #[path = "clb/dire_mimic.rs"]
 pub mod dire_mimic;
 #[path = "snc/disciplined_duelist.rs"]
@@ -231,6 +249,8 @@ pub mod flaming_fist;
 pub mod flaming_fist_officer;
 #[path = "psnc/fleetfoot_dancer.rs"]
 pub mod fleetfoot_dancer;
+#[path = "snc/forge_boss.rs"]
+pub mod forge_boss;
 #[path = "clb/ganax_astral_hunter.rs"]
 pub mod ganax_astral_hunter;
 #[path = "snc/gathering_throng.rs"]
@@ -291,8 +311,12 @@ pub mod horn_of_valhalla;
 pub mod icewind_stalwart;
 #[path = "psnc/incandescent_aria.rs"]
 pub mod incandescent_aria;
+#[path = "clb/ingenious_artillerist.rs"]
+pub mod ingenious_artillerist;
 #[path = "clb/inspired_tinkering.rs"]
 pub mod inspired_tinkering;
+#[path = "clb/inspiring_leader.rs"]
+pub mod inspiring_leader;
 #[path = "snc/inspiring_overseer.rs"]
 pub mod inspiring_overseer;
 #[path = "clb/insufferable_balladeer.rs"]
@@ -315,6 +339,8 @@ pub mod jetmir_nexus_of_revels;
 pub mod jetmir_s_garden;
 #[path = "snc/jewel_thief.rs"]
 pub mod jewel_thief;
+#[path = "snc/join_the_maestros.rs"]
+pub mod join_the_maestros;
 #[path = "clb/juvenile_mist_dragon.rs"]
 pub mod juvenile_mist_dragon;
 #[path = "clb/kenku_artificer.rs"]
@@ -325,6 +351,8 @@ pub mod ledger_shredder;
 pub mod legion_loyalty;
 #[path = "ncc/life_insurance.rs"]
 pub mod life_insurance;
+#[path = "snc/light_em_up.rs"]
+pub mod light_em_up;
 #[path = "clb/livaan_cultist_of_tiamat.rs"]
 pub mod livaan_cultist_of_tiamat;
 #[path = "clb/lurking_green_dragon.rs"]
@@ -343,6 +371,8 @@ pub mod mage_s_attendant;
 pub mod mahadi_emporium_master;
 #[path = "snc/majestic_metamorphosis.rs"]
 pub mod majestic_metamorphosis;
+#[path = "snc/make_disappear.rs"]
+pub mod make_disappear;
 #[path = "clb/manor_gate.rs"]
 pub mod manor_gate;
 #[path = "clb/marching_duodrone.rs"]
@@ -359,6 +389,8 @@ pub mod mezzio_mugger;
 pub mod midnight_assassin;
 #[path = "clb/miirym_sentinel_wyrm.rs"]
 pub mod miirym_sentinel_wyrm;
+#[path = "ncc/misfortune_teller.rs"]
+pub mod misfortune_teller;
 #[path = "clb/mold_folk.rs"]
 pub mod mold_folk;
 #[path = "snc/most_wanted.rs"]
@@ -367,6 +399,8 @@ pub mod most_wanted;
 pub mod myconid_spore_tender;
 #[path = "clb/myrkul_s_invoker.rs"]
 pub mod myrkul_s_invoker;
+#[path = "clb/nefarious_imp.rs"]
+pub mod nefarious_imp;
 #[path = "snc/night_clubber.rs"]
 pub mod night_clubber;
 #[path = "clb/nimbleclaw_adept.rs"]
@@ -449,6 +483,10 @@ pub mod riveteers_initiate;
 pub mod riveteers_overlook;
 #[path = "snc/riveteers_requisitioner.rs"]
 pub mod riveteers_requisitioner;
+#[path = "snc/rob_the_archives.rs"]
+pub mod rob_the_archives;
+#[path = "snc/rooftop_nuisance.rs"]
+pub mod rooftop_nuisance;
 #[path = "clb/roving_harper.rs"]
 pub mod roving_harper;
 #[path = "clb/saddle_of_the_cavalier.rs"]

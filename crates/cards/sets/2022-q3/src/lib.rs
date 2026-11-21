@@ -19,6 +19,10 @@ pub mod academy_wall;
 pub mod aether_channeler;
 #[path = "dmu/aggressive_sabotage.rs"]
 pub mod aggressive_sabotage;
+#[path = "dmu/archangel_of_wrath.rs"]
+pub mod archangel_of_wrath;
+#[path = "dmu/argivian_cavalier.rs"]
+pub mod argivian_cavalier;
 #[path = "dmu/argivian_phalanx.rs"]
 pub mod argivian_phalanx;
 #[path = "dmu/aron_benalia_s_ruin.rs"]
@@ -27,14 +31,20 @@ pub mod aron_benalia_s_ruin;
 pub mod artillery_blast;
 #[path = "dmu/automatic_librarian.rs"]
 pub mod automatic_librarian;
+#[path = "dmu/balduvian_berserker.rs"]
+pub mod balduvian_berserker;
 #[path = "dmu/balmor_battlemage_captain.rs"]
 pub mod balmor_battlemage_captain;
+#[path = "dmu/barkweave_crusher.rs"]
+pub mod barkweave_crusher;
 #[path = "dmu/battle_rage_blessing.rs"]
 pub mod battle_rage_blessing;
 #[path = "dmu/battlefly_swarm.rs"]
 pub mod battlefly_swarm;
 #[path = "dmu/battlewing_mystic.rs"]
 pub mod battlewing_mystic;
+#[path = "dmu/benalish_faithbonder.rs"]
+pub mod benalish_faithbonder;
 #[path = "dmu/benalish_sleeper.rs"]
 pub mod benalish_sleeper;
 #[path = "dmu/bite_down.rs"]
@@ -55,6 +65,10 @@ pub mod citizen_s_arrest;
 pub mod cleaving_skyrider;
 #[path = "dmu/clockwork_drawbridge.rs"]
 pub mod clockwork_drawbridge;
+#[path = "dmu/coalition_skyknight.rs"]
+pub mod coalition_skyknight;
+#[path = "dmu/coalition_warbrute.rs"]
+pub mod coalition_warbrute;
 #[path = "dmu/colossal_growth.rs"]
 pub mod colossal_growth;
 #[path = "dmu/combat_research.rs"]
@@ -89,6 +103,8 @@ pub mod elvish_hydromancer;
 pub mod ertai_resurrected;
 #[path = "dmu/evolved_sleeper.rs"]
 pub mod evolved_sleeper;
+#[path = "dmu/extinguish_the_light.rs"]
+pub mod extinguish_the_light;
 #[path = "dmu/fires_of_victory.rs"]
 pub mod fires_of_victory;
 #[path = "dmu/floriferous_vinewall.rs"]
@@ -113,6 +129,8 @@ pub mod gibbering_barricade;
 pub mod goblin_picker;
 #[path = "dmc/greensleeves_maro_sorcerer.rs"]
 pub mod greensleeves_maro_sorcerer;
+#[path = "dmu/guardian_of_new_benalia.rs"]
+pub mod guardian_of_new_benalia;
 #[path = "hbg/hag_of_dark_duress.rs"]
 pub mod hag_of_dark_duress;
 #[path = "hbg/hag_of_death_s_legion.rs"]
@@ -141,6 +159,8 @@ pub mod herd_migration;
 pub mod hero_s_heirloom;
 #[path = "dmu/heroic_charge.rs"]
 pub mod heroic_charge;
+#[path = "dmu/hexbane_tortoise.rs"]
+pub mod hexbane_tortoise;
 #[path = "dmu/hurler_cyclops.rs"]
 pub mod hurler_cyclops;
 #[path = "dmu/hurloon_battle_hymn.rs"]
@@ -169,6 +189,8 @@ pub mod king_darien_xlviii;
 pub mod leaf_crowned_visionary;
 #[path = "dmu/leyline_binding.rs"]
 pub mod leyline_binding;
+#[path = "dmu/linebreaker_baloth.rs"]
+pub mod linebreaker_baloth;
 #[path = "dmu/llanowar_loamspeaker.rs"]
 pub mod llanowar_loamspeaker;
 #[path = "dmu/llanowar_stalker.rs"]
@@ -225,6 +247,8 @@ pub mod resolute_reinforcements;
 pub mod rohgahh_kher_keep_overlord;
 #[path = "dmu/rona_s_vortex.rs"]
 pub mod rona_s_vortex;
+#[path = "dmc/rosnakht_heir_of_rohgahh.rs"]
+pub mod rosnakht_heir_of_rohgahh;
 #[path = "dmu/runic_shot.rs"]
 pub mod runic_shot;
 #[path = "dmu/sacred_peaks.rs"]
@@ -235,6 +259,8 @@ pub mod salvaged_manaworker;
 pub mod samite_herbalist;
 #[path = "dmu/scout_the_wilderness.rs"]
 pub mod scout_the_wilderness;
+#[path = "dmu/sengir_connoisseur.rs"]
+pub mod sengir_connoisseur;
 #[path = "dmu/serra_redeemer.rs"]
 pub mod serra_redeemer;
 #[path = "dmu/shadow_rite_priest.rs"]
@@ -257,6 +283,8 @@ pub mod sivitri_dragon_master;
 pub mod smash_to_dust;
 #[path = "dmu/soaring_drake.rs"]
 pub mod soaring_drake;
+#[path = "dmu/soul_of_windgrace.rs"]
+pub mod soul_of_windgrace;
 #[path = "dmu/splatter_goblin.rs"]
 pub mod splatter_goblin;
 #[path = "dmu/sprouting_goblin.rs"]
@@ -331,6 +359,8 @@ pub mod writhing_necromass;
 pub mod yavimaya_iconoclast;
 #[path = "dmu/yavimaya_sojourner.rs"]
 pub mod yavimaya_sojourner;
+#[path = "dmu/yavimaya_steelcrusher.rs"]
+pub mod yavimaya_steelcrusher;
 #[path = "dmc/zeriam_golden_wind.rs"]
 pub mod zeriam_golden_wind;
 #[path = "dmu/zur_eternal_schemer.rs"]

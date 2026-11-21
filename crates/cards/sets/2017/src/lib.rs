@@ -165,6 +165,8 @@ pub mod by_force;
 pub mod call_to_the_feast;
 #[path = "akh/canyon_slough.rs"]
 pub mod canyon_slough;
+#[path = "pxln/captain_lannery_storm.rs"]
+pub mod captain_lannery_storm;
 #[path = "pxln/captivating_crew.rs"]
 pub mod captivating_crew;
 #[path = "pxln/carnage_tyrant.rs"]
@@ -193,6 +195,8 @@ pub mod censor;
 pub mod champion_of_rhonas;
 #[path = "hou/champion_of_wits.rs"]
 pub mod champion_of_wits;
+#[path = "hou/chandra_s_defeat.rs"]
+pub mod chandra_s_defeat;
 #[path = "akh/channeler_initiate.rs"]
 pub mod channeler_initiate;
 #[path = "hou/chaos_maw.rs"]
@@ -241,6 +245,8 @@ pub mod crash_the_ramparts;
 pub mod crash_through;
 #[path = "hou/crested_sunmare.rs"]
 pub mod crested_sunmare;
+#[path = "c17/crimson_honor_guard.rs"]
+pub mod crimson_honor_guard;
 #[path = "akh/crocodile_of_the_crossing.rs"]
 pub mod crocodile_of_the_crossing;
 #[path = "hou/crook_of_condemnation.rs"]
@@ -277,6 +283,8 @@ pub mod deadeye_plunderers;
 pub mod deadeye_quartermaster;
 #[path = "xln/deadeye_tormentor.rs"]
 pub mod deadeye_tormentor;
+#[path = "pxln/deathgorge_scavenger.rs"]
+pub mod deathgorge_scavenger;
 #[path = "xln/deathless_ancient.rs"]
 pub mod deathless_ancient;
 #[path = "akh/decision_paralysis.rs"]
@@ -327,6 +335,8 @@ pub mod dinosaur_stampede;
 pub mod dire_fleet_captain;
 #[path = "xln/dire_fleet_hoarder.rs"]
 pub mod dire_fleet_hoarder;
+#[path = "aer/disallow.rs"]
+pub mod disallow;
 #[path = "aer/dispersal_technician.rs"]
 pub mod dispersal_technician;
 #[path = "hou/disposal_mummy.rs"]
@@ -339,6 +349,8 @@ pub mod dissenter_s_deliverance;
 pub mod dive_down;
 #[path = "hou/djeru_s_renunciation.rs"]
 pub mod djeru_s_renunciation;
+#[path = "akh/djeru_s_resolve.rs"]
+pub mod djeru_s_resolve;
 #[path = "hou/djeru_with_eyes_open.rs"]
 pub mod djeru_with_eyes_open;
 #[path = "akh/doomed_dissenter.rs"]
@@ -395,6 +407,8 @@ pub mod enigma_drake;
 pub mod enraged_giant;
 #[path = "pxln/entrancing_melody.rs"]
 pub mod entrancing_melody;
+#[path = "akh/failure.rs"]
+pub mod failure;
 #[path = "akh/faith_of_the_devoted.rs"]
 pub mod faith_of_the_devoted;
 #[path = "akh/fan_bearer.rs"]
@@ -463,6 +477,8 @@ pub mod galecaster_colossus;
 pub mod galestrike;
 #[path = "aer/ghirapur_osprey.rs"]
 pub mod ghirapur_osprey;
+#[path = "hou/gideon_s_defeat.rs"]
+pub mod gideon_s_defeat;
 #[path = "akh/gideon_s_intervention.rs"]
 pub mod gideon_s_intervention;
 #[path = "hou/gift_of_strength.rs"]
@@ -617,6 +633,8 @@ pub mod ironclad_revolutionary;
 pub mod irontread_crusher;
 #[path = "akh/irrigated_farmland.rs"]
 pub mod irrigated_farmland;
+#[path = "xln/ixalan_s_binding.rs"]
+pub mod ixalan_s_binding;
 #[path = "xln/ixalli_s_keeper.rs"]
 pub mod ixalli_s_keeper;
 #[path = "xln/jace_s_sentinel.rs"]
@@ -657,8 +675,12 @@ pub mod legion_s_landing;
 pub mod licia_sanguine_tribune;
 #[path = "aer/lifecrafter_s_bestiary.rs"]
 pub mod lifecrafter_s_bestiary;
+#[path = "aer/lifecrafter_s_gift.rs"]
+pub mod lifecrafter_s_gift;
 #[path = "xln/lightning_rig_crew.rs"]
 pub mod lightning_rig_crew;
+#[path = "hou/liliana_s_defeat.rs"]
+pub mod liliana_s_defeat;
 #[path = "akh/liliana_s_mastery.rs"]
 pub mod liliana_s_mastery;
 #[path = "akh/limits_of_solidarity.rs"]
@@ -725,6 +747,8 @@ pub mod never;
 pub mod night_market_guard;
 #[path = "akh/nimble_blade_khenra.rs"]
 pub mod nimble_blade_khenra;
+#[path = "hou/nissa_s_defeat.rs"]
+pub mod nissa_s_defeat;
 #[path = "akh/oashra_cultivator.rs"]
 pub mod oashra_cultivator;
 #[path = "hou/oasis_ritualist.rs"]
@@ -747,6 +771,8 @@ pub mod one_with_the_wind;
 pub mod onward;
 #[path = "hou/open_fire.rs"]
 pub mod open_fire;
+#[path = "akh/open_into_wonder.rs"]
+pub mod open_into_wonder;
 #[path = "akh/ornery_kudu.rs"]
 pub mod ornery_kudu;
 #[path = "xln/otepec_huntmaster.rs"]
@@ -773,6 +799,10 @@ pub mod pathmaker_initiate;
 pub mod peacewalker_colossus;
 #[path = "aer/pendulum_of_patterns.rs"]
 pub mod pendulum_of_patterns;
+#[path = "xln/perilous_voyage.rs"]
+pub mod perilous_voyage;
+#[path = "xln/pillar_of_origins.rs"]
+pub mod pillar_of_origins;
 #[path = "xln/pious_interdiction.rs"]
 pub mod pious_interdiction;
 #[path = "xln/pirate_s_cutlass.rs"]
@@ -851,6 +881,8 @@ pub mod razaketh_the_foulblooded;
 pub mod reckless_racer;
 #[path = "akh/reduce.rs"]
 pub mod reduce;
+#[path = "hou/refuse.rs"]
+pub mod refuse;
 #[path = "akh/regal_caracal.rs"]
 pub mod regal_caracal;
 #[path = "pxln/regisaur_alpha.rs"]
@@ -1135,6 +1167,8 @@ pub mod unraveling_mummy;
 pub mod untethered_express;
 #[path = "akh/unwavering_initiate.rs"]
 pub mod unwavering_initiate;
+#[path = "xln/vampire_s_zeal.rs"]
+pub mod vampire_s_zeal;
 #[path = "pxln/vance_s_blasting_cannons.rs"]
 pub mod vance_s_blasting_cannons;
 #[path = "xln/vanquish_the_weak.rs"]
@@ -1151,6 +1185,8 @@ pub mod vicious_conquistador;
 pub mod vineshaper_mystic;
 #[path = "akh/violent_impact.rs"]
 pub mod violent_impact;
+#[path = "akh/vizier_of_deferment.rs"]
+pub mod vizier_of_deferment;
 #[path = "akh/vizier_of_remedies.rs"]
 pub mod vizier_of_remedies;
 #[path = "hou/vizier_of_the_true.rs"]
@@ -1161,6 +1197,8 @@ pub mod vizier_of_tumbling_sands;
 pub mod vona_butcher_of_magan;
 #[path = "pxln/vraska_s_contempt.rs"]
 pub mod vraska_s_contempt;
+#[path = "pxln/wakening_sun_s_avatar.rs"]
+pub mod wakening_sun_s_avatar;
 #[path = "pxln/waker_of_the_wilds.rs"]
 pub mod waker_of_the_wilds;
 #[path = "pxln/walk_the_plank.rs"]

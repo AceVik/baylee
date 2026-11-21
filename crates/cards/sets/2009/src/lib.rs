@@ -161,6 +161,8 @@ pub mod crypt_ripper;
 pub mod cudgel_troll;
 #[path = "con_/cumber_stone.rs"]
 pub mod cumber_stone;
+#[path = "con_/dark_temper.rs"]
+pub mod dark_temper;
 #[path = "con_/darklit_gargoyle.rs"]
 pub mod darklit_gargoyle;
 #[path = "arb/dauntless_escort.rs"]
@@ -199,6 +201,8 @@ pub mod divine_verdict;
 pub mod doom_blade;
 #[path = "con_/drag_down.rs"]
 pub mod drag_down;
+#[path = "arb/dragon_appeasement.rs"]
+pub mod dragon_appeasement;
 #[path = "m10/dragonskull_summit.rs"]
 pub mod dragonskull_summit;
 #[path = "con_/dragonsoul_knight.rs"]
@@ -273,6 +277,8 @@ pub mod fiery_hellhound;
 pub mod fight_to_the_death;
 #[path = "arb/filigree_angel.rs"]
 pub mod filigree_angel;
+#[path = "con_/filigree_fracture.rs"]
+pub mod filigree_fracture;
 #[path = "arb/firewild_borderpost.rs"]
 pub mod firewild_borderpost;
 #[path = "con_/fleshformer.rs"]
@@ -431,6 +437,8 @@ pub mod kazandu_blademaster;
 pub mod kazandu_refuge;
 #[path = "zen/kazuul_warlord.rs"]
 pub mod kazuul_warlord;
+#[path = "con_/kederekt_parasite.rs"]
+pub mod kederekt_parasite;
 #[path = "m10/kelinore_bat.rs"]
 pub mod kelinore_bat;
 #[path = "zen/khalni_heart_expedition.rs"]
@@ -621,6 +629,8 @@ pub mod piranha_marsh;
 pub mod planar_cleansing;
 #[path = "zen/plated_geopede.rs"]
 pub mod plated_geopede;
+#[path = "zen/predatory_urge.rs"]
+pub mod predatory_urge;
 #[path = "zen/primal_bellow.rs"]
 pub mod primal_bellow;
 #[path = "m10/prized_unicorn.rs"]
@@ -647,6 +657,8 @@ pub mod reckless_scholar;
 pub mod regenerate;
 #[path = "con_/reliquary_tower.rs"]
 pub mod reliquary_tower;
+#[path = "arb/retaliator_griffin.rs"]
+pub mod retaliator_griffin;
 #[path = "con_/rhox_bodyguard.rs"]
 pub mod rhox_bodyguard;
 #[path = "arb/rhox_brute.rs"]
@@ -671,6 +683,8 @@ pub mod runeclaw_bear;
 pub mod rupture_spire;
 #[path = "con_/sacellum_archers.rs"]
 pub mod sacellum_archers;
+#[path = "m10/safe_passage.rs"]
+pub mod safe_passage;
 #[path = "con_/salvage_slasher.rs"]
 pub mod salvage_slasher;
 #[path = "arb/sanctum_plowbeast.rs"]
@@ -729,6 +743,8 @@ pub mod shieldmate_s_blessing;
 pub mod shoal_serpent;
 #[path = "m10/siege_mastodon.rs"]
 pub mod siege_mastodon;
+#[path = "arb/sigil_captain.rs"]
+pub mod sigil_captain;
 #[path = "con_/sigil_of_the_empty_throne.rs"]
 pub mod sigil_of_the_empty_throne;
 #[path = "arb/sigil_of_the_nayan_gods.rs"]
@@ -819,6 +835,8 @@ pub mod territorial_baloth;
 pub mod thopter_foundry;
 #[path = "con_/thornling.rs"]
 pub mod thornling;
+#[path = "arb/thraximundar.rs"]
+pub mod thraximundar;
 #[path = "zen/timbermaw_larva.rs"]
 pub mod timbermaw_larva;
 #[path = "arb/time_sieve.rs"]

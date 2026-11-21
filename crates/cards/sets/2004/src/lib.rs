@@ -87,6 +87,8 @@ pub mod bringer_of_the_green_dawn;
 pub mod bringer_of_the_red_dawn;
 #[path = "5dn/bringer_of_the_white_dawn.rs"]
 pub mod bringer_of_the_white_dawn;
+#[path = "dst/burden_of_greed.rs"]
+pub mod burden_of_greed;
 #[path = "5dn/cackling_imp.rs"]
 pub mod cackling_imp;
 #[path = "chk/cage_of_hands.rs"]
@@ -199,6 +201,8 @@ pub mod fill_with_fright;
 pub mod fleshgrafter;
 #[path = "chk/forbidden_orchard.rs"]
 pub mod forbidden_orchard;
+#[path = "dst/furnace_dragon.rs"]
+pub mod furnace_dragon;
 #[path = "5dn/furnace_whelp.rs"]
 pub mod furnace_whelp;
 #[path = "chk/gale_force.rs"]

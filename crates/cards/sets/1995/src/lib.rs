@@ -655,6 +655,8 @@ pub mod phantasmal_dragon;
 pub mod phantasmal_mount;
 #[path = "pmei/phyrexian_rager.rs"]
 pub mod phyrexian_rager;
+#[path = "pmei/picard_steadfast_captain.rs"]
+pub mod picard_steadfast_captain;
 #[path = "ice/pit_trap.rs"]
 pub mod pit_trap;
 #[path = "ice/polar_kraken.rs"]

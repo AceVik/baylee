@@ -85,6 +85,8 @@ pub mod defend_the_rider;
 pub mod detention_chariot;
 #[path = "dft/diversion_unit.rs"]
 pub mod diversion_unit;
+#[path = "dft/dredger_s_insight.rs"]
+pub mod dredger_s_insight;
 #[path = "dft/dynamite_diver.rs"]
 pub mod dynamite_diver;
 #[path = "dft/earthrumbler.rs"]
@@ -109,6 +111,8 @@ pub mod gran_gran;
 pub mod grim_bauble;
 #[path = "dft/grim_javelineer.rs"]
 pub mod grim_javelineer;
+#[path = "dft/guidelight_optimizer.rs"]
+pub mod guidelight_optimizer;
 #[path = "dft/guidelight_synergist.rs"]
 pub mod guidelight_synergist;
 #[path = "drc/hashaton_scarab_s_fist.rs"]
@@ -151,6 +155,8 @@ pub mod muraganda_raceway;
 pub mod night_market;
 #[path = "dft/nimble_thopterist.rs"]
 pub mod nimble_thopterist;
+#[path = "drc/on_wings_of_gold.rs"]
+pub mod on_wings_of_gold;
 #[path = "dft/ooze_patrol.rs"]
 pub mod ooze_patrol;
 #[path = "dft/pactdoll_terror.rs"]
@@ -163,6 +169,8 @@ pub mod plow_through;
 pub mod possession_engine;
 #[path = "dft/pothole_mole.rs"]
 pub mod pothole_mole;
+#[path = "dft/quag_feast.rs"]
+pub mod quag_feast;
 #[path = "dft/reef_roads.rs"]
 pub mod reef_roads;
 #[path = "dft/regal_imperiosaur.rs"]
@@ -229,6 +237,8 @@ pub mod thunderhead_gunner;
 pub mod thundering_broodwagon;
 #[path = "dft/ticket_tortoise.rs"]
 pub mod ticket_tortoise;
+#[path = "dft/trade_the_helm.rs"]
+pub mod trade_the_helm;
 #[path = "dft/transit_mage.rs"]
 pub mod transit_mage;
 #[path = "dft/tyrox_saurid_tyrant.rs"]

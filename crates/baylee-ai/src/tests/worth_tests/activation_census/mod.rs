@@ -588,7 +588,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // refreshed pool cards: 4 read by the table and 2 remaining contextual.
     // Unholding 7 Wave 13-fixed cards and completing 5 Wave 12+13 stubs adds
     // 1 non-mana activation (Dismantling Wave's Cycling): 1 read by the table.
-    assert_eq!((read, of), (4665, 5954), "activated/loyalty reader census");
+    // Pass E8 (989 generated cards after holding back 11 reader/lint-gap
+    // cards) adds 188 non-mana activations: 143 read by the table and 45
+    // remaining contextual.
+    assert_eq!((read, of), (4808, 6142), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

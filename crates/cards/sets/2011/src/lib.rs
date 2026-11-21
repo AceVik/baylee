@@ -115,6 +115,8 @@ pub mod brutalizer_exarch;
 pub mod bump_in_the_night;
 #[path = "m12/buried_ruin.rs"]
 pub mod buried_ruin;
+#[path = "mbs/burn_the_impure.rs"]
+pub mod burn_the_impure;
 #[path = "isd/butcher_s_cleaver.rs"]
 pub mod butcher_s_cleaver;
 #[path = "isd/cackling_counterpart.rs"]
@@ -215,6 +217,8 @@ pub mod dispatch;
 pub mod divine_favor;
 #[path = "isd/doomed_traveler.rs"]
 pub mod doomed_traveler;
+#[path = "cmd/dread_cacodemon.rs"]
+pub mod dread_cacodemon;
 #[path = "isd/dream_twist.rs"]
 pub mod dream_twist;
 #[path = "m12/drifting_shade.rs"]
@@ -263,6 +267,8 @@ pub mod fortress_crab;
 pub mod frightful_delusion;
 #[path = "m12/frost_breath.rs"]
 pub mod frost_breath;
+#[path = "mbs/fuel_for_the_cause.rs"]
+pub mod fuel_for_the_cause;
 #[path = "nph/furnace_scamp.rs"]
 pub mod furnace_scamp;
 #[path = "isd/gallows_warden.rs"]
@@ -329,6 +335,8 @@ pub mod green_sun_s_zenith;
 pub mod greenhilt_trainee;
 #[path = "m12/griffin_rider.rs"]
 pub mod griffin_rider;
+#[path = "nph/grim_affliction.rs"]
+pub mod grim_affliction;
 #[path = "isd/grimgrin_corpse_born.rs"]
 pub mod grimgrin_corpse_born;
 #[path = "isd/gruesome_deformity.rs"]
@@ -727,6 +735,8 @@ pub mod spire_monitor;
 pub mod spirit_mantle;
 #[path = "isd/splinterfright.rs"]
 pub mod splinterfright;
+#[path = "mbs/spread_the_sickness.rs"]
+pub mod spread_the_sickness;
 #[path = "m12/stave_off.rs"]
 pub mod stave_off;
 #[path = "mbs/steel_sabotage.rs"]
@@ -853,6 +863,8 @@ pub mod vital_splicer;
 pub mod vivisection;
 #[path = "isd/voiceless_spirit.rs"]
 pub mod voiceless_spirit;
+#[path = "nph/volt_charge.rs"]
+pub mod volt_charge;
 #[path = "nph/vulshok_refugee.rs"]
 pub mod vulshok_refugee;
 #[path = "isd/walking_corpse.rs"]

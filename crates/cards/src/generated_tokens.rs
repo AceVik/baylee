@@ -5525,6 +5525,327 @@ pub static ROBOT_VILLAIN_ARTIFACT_2_2: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// colorless Axe with equip 2.
+pub static AXE_EQUIP_2_AFDFCFBD2: TokenDef = TokenDef {
+    name: "Axe",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[artifact::EQUIPMENT],
+    abilities: &[
+        equip!(cost!("{2}")),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::ModifyPT(1, 0)
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// 0/0 black Goblin Army.
+pub static GOBLIN_ARMY_0_0_BLACK: TokenDef = TokenDef {
+    name: "Goblin Army",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GOBLIN, creature::ARMY],
+    power: Some(0),
+    toughness: Some(0),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 black Vampire Rogue with lifelink.
+pub static VAMPIRE_ROGUE_1_1_BLACK_LIFELINK: TokenDef = TokenDef {
+    name: "Vampire Rogue",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::VAMPIRE, creature::ROGUE],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::LIFELINK,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 black Skeleton Pirate.
+pub static SKELETON_PIRATE_2_2_BLACK: TokenDef = TokenDef {
+    name: "Skeleton Pirate",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SKELETON, creature::PIRATE],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/3 black Ogre Warrior.
+pub static OGRE_WARRIOR_4_3_BLACK: TokenDef = TokenDef {
+    name: "Ogre Warrior",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::OGRE, creature::WARRIOR],
+    power: Some(4),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless artifact Robot Hero with flying.
+pub static ROBOT_HERO_ARTIFACT_1_1_FLYING: TokenDef = TokenDef {
+    name: "Robot Hero",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::ROBOT, creature::HERO],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless artifact Sculpture Treasure.
+pub static SCULPTURE_TREASURE_ARTIFACT_1_1_A852C8CC6: TokenDef = TokenDef {
+    name: "Sculpture Treasure",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::SCULPTURE, artifact::TREASURE],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[mana_ability!(
+        cost!(TapSelf, SacrificeSelf),
+        &[Effect::mana_of_any_color()]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 0/1 green Egg with defender.
+pub static EGG_0_1_GREEN_DEFENDER: TokenDef = TokenDef {
+    name: "Egg",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::EGG],
+    power: Some(0),
+    toughness: Some(1),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/1 green Varmint.
+pub static VARMINT_2_1_GREEN: TokenDef = TokenDef {
+    name: "Varmint",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::VARMINT],
+    power: Some(2),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 green Beast with trample.
+pub static BEAST_4_4_GREEN_TRAMPLE: TokenDef = TokenDef {
+    name: "Beast",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BEAST],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::TRAMPLE,
+    ..TokenDef::DEFAULT
+};
+
+/// 16/16 black legendary Galactus with flying and trample.
+pub static GALACTUS_LEGENDARY_16_16_BLACK_FLYING_TRAMPLE_A8C6751BA: TokenDef = TokenDef {
+    name: "Galactus",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::ELDER, creature::ALIEN],
+    power: Some(16),
+    toughness: Some(16),
+    keywords: KeywordSet::FLYING.union(KeywordSet::TRAMPLE),
+    abilities: &[triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[Effect::destroy(TargetSpec::Object(&Filter::LAND))],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND)))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Lotus.
+pub static LOTUS_A48F41BDD: TokenDef = TokenDef {
+    name: "Lotus",
+    types: TypeSet::ARTIFACT,
+    abilities: &[mana_ability!(
+        cost!(TapSelf, SacrificeSelf),
+        &[Effect::mana_choice_dynamic(
+            ALL_MANA_COLORS,
+            Amount::Fixed(3)
+        )]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green legendary Mowu.
+pub static MOWU_LEGENDARY_3_3_GREEN: TokenDef = TokenDef {
+    name: "Mowu",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::DOG],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// colorless New Planet.
+pub static NEW_PLANET_A20C146E5: TokenDef = TokenDef {
+    name: "New Planet",
+    types: TypeSet::LAND,
+    subtypes: &[land::PLANET],
+    abilities: &[mana_ability!(&[Effect::mana_of_any_color()])],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Pirate.
+pub static PIRATE_1_1_RED_A9DD811C5: TokenDef = TokenDef {
+    name: "Pirate",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PIRATE],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::This]),
+            Modifier::AddKeyword(KeywordSet::CANT_BLOCK)
+        ),
+        static_ability!(Filter::YOUR_CREATURE, Modifier::AttacksEachCombat),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Soldier with haste.
+pub static SOLDIER_1_1_RED_HASTE: TokenDef = TokenDef {
+    name: "Soldier",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SOLDIER],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 red Ape Villain with haste.
+pub static APE_VILLAIN_3_3_RED_HASTE: TokenDef = TokenDef {
+    name: "Ape Villain",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::APE, creature::VILLAIN],
+    power: Some(3),
+    toughness: Some(3),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// red green Heartwood.
+pub static HEARTWOOD_RED_GREEN_A6AEC5730: TokenDef = TokenDef {
+    name: "Heartwood",
+    colors: ColorSet::from_slice(&[Color::Red, Color::Green]),
+    types: TypeSet::ARTIFACT,
+    subtypes: &[artifact::HEARTWOOD],
+    abilities: &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Red,
+        ManaColor::Green
+    ])])],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/1 colorless artifact Stone Boulder with defender.
+pub static STONE_BOULDER_ARTIFACT_3_1_DEFENDER: TokenDef = TokenDef {
+    name: "Stone Boulder",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::WALL],
+    power: Some(3),
+    toughness: Some(1),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Sturdy Shield with equip 2.
+pub static STURDY_SHIELD_EQUIP_2_AEBF22228: TokenDef = TokenDef {
+    name: "Sturdy Shield",
+    types: TypeSet::ARTIFACT,
+    subtypes: &[artifact::EQUIPMENT],
+    abilities: &[
+        equip!(cost!("{2}")),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::ModifyPT(1, 2)
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// 5/5 black legendary The Void with flying and indestructible.
+pub static THE_VOID_LEGENDARY_5_5_BLACK_FLYING_INDESTRUCTIBLE_AFB98BE81: TokenDef = TokenDef {
+    name: "The Void",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::HORROR, creature::VILLAIN],
+    power: Some(5),
+    toughness: Some(5),
+    keywords: KeywordSet::FLYING.union(KeywordSet::INDESTRUCTIBLE),
+    abilities: &[static_ability!(Filter::This, Modifier::AttacksEachCombat)],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 blue black Zombie Rogue.
+pub static ZOMBIE_ROGUE_2_2_BLUE_BLACK: TokenDef = TokenDef {
+    name: "Zombie Rogue",
+    colors: ColorSet::from_slice(&[Color::Blue, Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE, creature::ROGUE],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Cat Soldier with vigilance.
+pub static CAT_SOLDIER_1_1_WHITE_VIGILANCE: TokenDef = TokenDef {
+    name: "Cat Soldier",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CAT, creature::SOLDIER],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::VIGILANCE,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Zombie.
+pub static ZOMBIE_1_1_WHITE: TokenDef = TokenDef {
+    name: "Zombie",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 green legendary Zabu.
+pub static ZABU_LEGENDARY_2_2_GREEN_A7B54B8C1: TokenDef = TokenDef {
+    name: "Zabu",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::CAT],
+    power: Some(2),
+    toughness: Some(2),
+    abilities: &[triggered!(
+        Trigger::EntersBattlefield(&Filter::YOUR_LAND),
+        &[Effect::AddCounter {
+            kind: CounterKind::P1P1,
+            amount: Amount::Fixed(1)
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -6731,6 +7052,31 @@ pub static ALL: &[&TokenDef] = &[
     &HERO_3_2_WHITE_VIGILANCE,
     &MERFOLK_1_1_WHITE_BLUE,
     &ROBOT_VILLAIN_ARTIFACT_2_2,
+    &AXE_EQUIP_2_AFDFCFBD2,
+    &GOBLIN_ARMY_0_0_BLACK,
+    &VAMPIRE_ROGUE_1_1_BLACK_LIFELINK,
+    &SKELETON_PIRATE_2_2_BLACK,
+    &OGRE_WARRIOR_4_3_BLACK,
+    &ROBOT_HERO_ARTIFACT_1_1_FLYING,
+    &SCULPTURE_TREASURE_ARTIFACT_1_1_A852C8CC6,
+    &EGG_0_1_GREEN_DEFENDER,
+    &VARMINT_2_1_GREEN,
+    &BEAST_4_4_GREEN_TRAMPLE,
+    &GALACTUS_LEGENDARY_16_16_BLACK_FLYING_TRAMPLE_A8C6751BA,
+    &LOTUS_A48F41BDD,
+    &MOWU_LEGENDARY_3_3_GREEN,
+    &NEW_PLANET_A20C146E5,
+    &PIRATE_1_1_RED_A9DD811C5,
+    &SOLDIER_1_1_RED_HASTE,
+    &APE_VILLAIN_3_3_RED_HASTE,
+    &HEARTWOOD_RED_GREEN_A6AEC5730,
+    &STONE_BOULDER_ARTIFACT_3_1_DEFENDER,
+    &STURDY_SHIELD_EQUIP_2_AEBF22228,
+    &THE_VOID_LEGENDARY_5_5_BLACK_FLYING_INDESTRUCTIBLE_AFB98BE81,
+    &ZOMBIE_ROGUE_2_2_BLUE_BLACK,
+    &CAT_SOLDIER_1_1_WHITE_VIGILANCE,
+    &ZOMBIE_1_1_WHITE,
+    &ZABU_LEGENDARY_2_2_GREEN_A7B54B8C1,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -7151,4 +7497,29 @@ pub static GENERATED: &[&TokenDef] = &[
     &HERO_3_2_WHITE_VIGILANCE,
     &MERFOLK_1_1_WHITE_BLUE,
     &ROBOT_VILLAIN_ARTIFACT_2_2,
+    &AXE_EQUIP_2_AFDFCFBD2,
+    &GOBLIN_ARMY_0_0_BLACK,
+    &VAMPIRE_ROGUE_1_1_BLACK_LIFELINK,
+    &SKELETON_PIRATE_2_2_BLACK,
+    &OGRE_WARRIOR_4_3_BLACK,
+    &ROBOT_HERO_ARTIFACT_1_1_FLYING,
+    &SCULPTURE_TREASURE_ARTIFACT_1_1_A852C8CC6,
+    &EGG_0_1_GREEN_DEFENDER,
+    &VARMINT_2_1_GREEN,
+    &BEAST_4_4_GREEN_TRAMPLE,
+    &GALACTUS_LEGENDARY_16_16_BLACK_FLYING_TRAMPLE_A8C6751BA,
+    &LOTUS_A48F41BDD,
+    &MOWU_LEGENDARY_3_3_GREEN,
+    &NEW_PLANET_A20C146E5,
+    &PIRATE_1_1_RED_A9DD811C5,
+    &SOLDIER_1_1_RED_HASTE,
+    &APE_VILLAIN_3_3_RED_HASTE,
+    &HEARTWOOD_RED_GREEN_A6AEC5730,
+    &STONE_BOULDER_ARTIFACT_3_1_DEFENDER,
+    &STURDY_SHIELD_EQUIP_2_AEBF22228,
+    &THE_VOID_LEGENDARY_5_5_BLACK_FLYING_INDESTRUCTIBLE_AFB98BE81,
+    &ZOMBIE_ROGUE_2_2_BLUE_BLACK,
+    &CAT_SOLDIER_1_1_WHITE_VIGILANCE,
+    &ZOMBIE_1_1_WHITE,
+    &ZABU_LEGENDARY_2_2_GREEN_A7B54B8C1,
 ];

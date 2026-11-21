@@ -855,6 +855,9 @@ mod tests {
     /// Pass E7 adds eight FIN/ECL transforming/saga cards whose back faces
     /// reach the stack (Cecil, Crystal Fragments, Garland, Jecht, two
     /// Sidequests, Vincent Valentine, and Trystan, Callous Cultivator).
+    /// Pass E8 adds seven transforming/battle cards whose back faces reach the
+    /// stack (Daring Sleuth, Kessig Naturalist, The Long Reach of Night,
+    /// Invasion of Ulgrotha, Venat, King T'Challa, and Monica Rambeau).
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -884,6 +887,7 @@ mod tests {
         "Huntmaster of the Fells",
         "Archangel Avacyn",
         "Avacynian Missionaries",
+        "Daring Sleuth",
         "Elusive Tormentor",
         "Hanweir Militia Captain",
         "Kindly Stranger",
@@ -918,6 +922,7 @@ mod tests {
         "Hostile Hostel",
         "Hound Tamer",
         "Jerren, Corrupted Bishop",
+        "Kessig Naturalist",
         "Lunarch Veteran",
         "Mysterious Tome",
         "Outland Liberator",
@@ -936,6 +941,7 @@ mod tests {
         "Restless Bloodseeker",
         "Wolfkin Outcast",
         "Fable of the Mirror-Breaker",
+        "The Long Reach of Night",
         "The Restoration of Eiganjo",
         "Tribute to Horobi",
         "Invasion of Eldraine",
@@ -947,6 +953,7 @@ mod tests {
         "Invasion of Moag",
         "Invasion of Shandalar",
         "Invasion of Tolvada",
+        "Invasion of Ulgrotha",
         "Sheoldred",
         "Aclazotz, Deepest Betrayal",
         "Brass's Tunnel-Grinder",
@@ -971,8 +978,11 @@ mod tests {
         "Sidequest: Card Collection",
         "Sidequest: Catch a Fish",
         "Sidequest: Raise a Chocobo",
+        "Venat, Heart of Hydaelyn",
         "Vincent Valentine",
         "Trystan, Callous Cultivator",
+        "King T'Challa",
+        "Monica Rambeau",
         "Tony Stark",
     ];
 

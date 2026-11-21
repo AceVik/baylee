@@ -101,6 +101,8 @@ pub mod citanul_stalwart;
 pub mod clamavus;
 #[path = "bro/clay_revenant.rs"]
 pub mod clay_revenant;
+#[path = "j22/coalborn_entity.rs"]
+pub mod coalborn_entity;
 #[path = "bro/coastal_bulwark.rs"]
 pub mod coastal_bulwark;
 #[path = "bro/combat_courier.rs"]
@@ -129,6 +131,8 @@ pub mod deadly_riposte;
 pub mod deathbloom_ritualist;
 #[path = "40k/deathleaper_terror_weapon.rs"]
 pub mod deathleaper_terror_weapon;
+#[path = "bro/defabricate.rs"]
+pub mod defabricate;
 #[path = "40k/defenders_of_humanity.rs"]
 pub mod defenders_of_humanity;
 #[path = "bro/demolition_field.rs"]
@@ -189,6 +193,8 @@ pub mod geology_enthusiast;
 pub mod giant_ladybug;
 #[path = "bro/gix_s_caress.rs"]
 pub mod gix_s_caress;
+#[path = "bro/gixian_infiltrator.rs"]
+pub mod gixian_infiltrator;
 #[path = "bro/gixian_puppeteer.rs"]
 pub mod gixian_puppeteer;
 #[path = "bro/gixian_skullflayer.rs"]
@@ -237,8 +243,12 @@ pub mod hold_for_questioning;
 pub mod horned_stoneseeker;
 #[path = "40k/illuminor_szeras.rs"]
 pub mod illuminor_szeras;
+#[path = "40k/imotekh_the_stormlord.rs"]
+pub mod imotekh_the_stormlord;
 #[path = "j22/infernal_idol.rs"]
 pub mod infernal_idol;
+#[path = "j22/ingenious_leonin.rs"]
+pub mod ingenious_leonin;
 #[path = "40k/inquisitor_greyfax.rs"]
 pub mod inquisitor_greyfax;
 #[path = "j22/instruments_of_war.rs"]
@@ -289,6 +299,8 @@ pub mod machine_god_s_effigy;
 pub mod machine_over_matter;
 #[path = "40k/magnus_the_red.rs"]
 pub mod magnus_the_red;
+#[path = "40k/marneus_calgar.rs"]
+pub mod marneus_calgar;
 #[path = "bro/mass_production.rs"]
 pub mod mass_production;
 #[path = "40k/mawloc.rs"]
@@ -309,6 +321,8 @@ pub mod mishra_s_juggernaut;
 pub mod mishra_s_onslaught;
 #[path = "bro/moment_of_defiance.rs"]
 pub mod moment_of_defiance;
+#[path = "unf/monoxa_midway_manager.rs"]
+pub mod monoxa_midway_manager;
 #[path = "unf/nearby_planet.rs"]
 pub mod nearby_planet;
 #[path = "40k/necron_overlord.rs"]
@@ -359,6 +373,8 @@ pub mod primeval_herald;
 pub mod prison_sentence;
 #[path = "bro/pyrrhic_blast.rs"]
 pub mod pyrrhic_blast;
+#[path = "bro/raze_to_the_ground.rs"]
+pub mod raze_to_the_ground;
 #[path = "bro/razorlash_transmogrant.rs"]
 pub mod razorlash_transmogrant;
 #[path = "40k/reaver_titan.rs"]
@@ -443,6 +459,8 @@ pub mod steel_seraph;
 pub mod stern_lesson;
 #[path = "bro/stone_retrieval_unit.rs"]
 pub mod stone_retrieval_unit;
+#[path = "bro/su_chi_cave_guard.rs"]
+pub mod su_chi_cave_guard;
 #[path = "bro/supply_drop.rs"]
 pub mod supply_drop;
 #[path = "bro/survivor_of_korlis.rs"]
@@ -455,6 +473,8 @@ pub mod swiftgear_drake;
 pub mod szarekh_the_silent_king;
 #[path = "bro/take_flight.rs"]
 pub mod take_flight;
+#[path = "bro/tawnos_s_tinkering.rs"]
+pub mod tawnos_s_tinkering;
 #[path = "bro/tawnos_the_toymaker.rs"]
 pub mod tawnos_the_toymaker;
 #[path = "brc/terisiare_s_devastation.rs"]
@@ -473,6 +493,8 @@ pub mod the_flesh_is_weak;
 pub mod the_stasis_coffin;
 #[path = "40k/their_name_is_death.rs"]
 pub mod their_name_is_death;
+#[path = "40k/their_number_is_legion.rs"]
+pub mod their_number_is_legion;
 #[path = "bro/third_path_iconoclast.rs"]
 pub mod third_path_iconoclast;
 #[path = "bro/third_path_savant.rs"]
@@ -481,8 +503,12 @@ pub mod third_path_savant;
 pub mod thopter_architect;
 #[path = "bro/thopter_mechanic.rs"]
 pub mod thopter_mechanic;
+#[path = "brc/thopter_shop.rs"]
+pub mod thopter_shop;
 #[path = "bro/thran_power_suit.rs"]
 pub mod thran_power_suit;
+#[path = "bro/thran_vigil.rs"]
+pub mod thran_vigil;
 #[path = "bro/thraxodemon.rs"]
 pub mod thraxodemon;
 #[path = "40k/thunderhawk_gunship.rs"]
@@ -493,6 +519,8 @@ pub mod thunderwolf_cavalry;
 pub mod tocasia_s_dig_site;
 #[path = "bro/tocasia_s_onulet.rs"]
 pub mod tocasia_s_onulet;
+#[path = "bro/tocasia_s_welcome.rs"]
+pub mod tocasia_s_welcome;
 #[path = "bro/tomakul_honor_guard.rs"]
 pub mod tomakul_honor_guard;
 #[path = "40k/tomb_fortress.rs"]
@@ -553,5 +581,7 @@ pub mod yotian_medic;
 pub mod yotian_tactician;
 #[path = "gn3/zamriel_seraph_of_steel.rs"]
 pub mod zamriel_seraph_of_steel;
+#[path = "bro/zephyr_sentinel.rs"]
+pub mod zephyr_sentinel;
 #[path = "40k/zephyrim.rs"]
 pub mod zephyrim;

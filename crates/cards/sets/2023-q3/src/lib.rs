@@ -67,8 +67,14 @@ pub mod dutiful_griffin;
 pub mod edgewall_inn;
 #[path = "woe/edgewall_pack.rs"]
 pub mod edgewall_pack;
+#[path = "woe/eerie_interference.rs"]
+pub mod eerie_interference;
+#[path = "pwoe/elvish_archivist.rs"]
+pub mod elvish_archivist;
 #[path = "woe/eriette_s_tempting_apple.rs"]
 pub mod eriette_s_tempting_apple;
+#[path = "woe/experimental_confectioner.rs"]
+pub mod experimental_confectioner;
 #[path = "woc/faerie_bladecrafter.rs"]
 pub mod faerie_bladecrafter;
 #[path = "woe/faerie_dreamthief.rs"]
@@ -231,6 +237,8 @@ pub mod snaremaster_sprite;
 pub mod song_of_totentanz;
 #[path = "woe/spell_stutter.rs"]
 pub mod spell_stutter;
+#[path = "woe/spellscorn_coven.rs"]
+pub mod spellscorn_coven;
 #[path = "woe/spider_food.rs"]
 pub mod spider_food;
 #[path = "woe/stingblade_assassin.rs"]

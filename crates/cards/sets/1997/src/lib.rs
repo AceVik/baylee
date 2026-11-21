@@ -93,6 +93,8 @@ pub mod auratog;
 pub mod avenging_angel;
 #[path = "wth/avizoa.rs"]
 pub mod avizoa;
+#[path = "por/balance_of_power.rs"]
+pub mod balance_of_power;
 #[path = "tmp/barbed_sliver.rs"]
 pub mod barbed_sliver;
 #[path = "wth/barishi.rs"]

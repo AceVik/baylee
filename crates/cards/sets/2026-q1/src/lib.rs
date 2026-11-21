@@ -37,6 +37,8 @@ pub mod armaggon_future_shark;
 pub mod assert_perfection;
 #[path = "ecl/auntie_s_sentence.rs"]
 pub mod auntie_s_sentence;
+#[path = "ecl/barbed_bloodletter.rs"]
+pub mod barbed_bloodletter;
 #[path = "tmc/baxter_fly_in_the_ointment.rs"]
 pub mod baxter_fly_in_the_ointment;
 #[path = "tmt/baxter_stockman.rs"]
@@ -243,6 +245,8 @@ pub mod jubilation;
 pub mod keep_out;
 #[path = "ecl/kinbinding.rs"]
 pub mod kinbinding;
+#[path = "ecl/kinsbaile_aspirant.rs"]
+pub mod kinsbaile_aspirant;
 #[path = "ecl/kithkeeper.rs"]
 pub mod kithkeeper;
 #[path = "tmt/krang_master_mind.rs"]
@@ -269,6 +273,8 @@ pub mod liminal_hold;
 pub mod lofty_dreams;
 #[path = "ecl/luminollusk.rs"]
 pub mod luminollusk;
+#[path = "ecl/lys_alana_dignitary.rs"]
+pub mod lys_alana_dignitary;
 #[path = "ecl/lys_alana_informant.rs"]
 pub mod lys_alana_informant;
 #[path = "tmt/madame_null_power_broker.rs"]
@@ -305,16 +311,22 @@ pub mod mona_lisa_ever_adaptable;
 pub mod mona_lisa_science_geek;
 #[path = "tmc/monster_mashup.rs"]
 pub mod monster_mashup;
+#[path = "ecl/moon_vigil_adherents.rs"]
+pub mod moon_vigil_adherents;
 #[path = "ecl/moonglove_extractor.rs"]
 pub mod moonglove_extractor;
 #[path = "ecl/morcant_s_eyes.rs"]
 pub mod morcant_s_eyes;
 #[path = "ecl/morcant_s_loyalist.rs"]
 pub mod morcant_s_loyalist;
+#[path = "ecl/morningtide_s_light.rs"]
+pub mod morningtide_s_light;
 #[path = "tmt/mouser_attack.rs"]
 pub mod mouser_attack;
 #[path = "tmt/mouser_foundry.rs"]
 pub mod mouser_foundry;
+#[path = "ecl/mudbutton_cursetosser.rs"]
+pub mod mudbutton_cursetosser;
 #[path = "tmt/mutagen_man_living_ooze.rs"]
 pub mod mutagen_man_living_ooze;
 #[path = "tmt/mutant_chain_reaction.rs"]
@@ -355,6 +367,8 @@ pub mod protective_response;
 pub mod puca_s_eye;
 #[path = "tmt/punk_frogs.rs"]
 pub mod punk_frogs;
+#[path = "tmt/purple_dragon_punks.rs"]
+pub mod purple_dragon_punks;
 #[path = "tmt/quintessential_katana.rs"]
 pub mod quintessential_katana;
 #[path = "tmt/ragamuffin_raptor.rs"]
@@ -415,6 +429,8 @@ pub mod shinestriker;
 pub mod shore_lurker;
 #[path = "tmt/shredder_s_revenge.rs"]
 pub mod shredder_s_revenge;
+#[path = "ecl/silvergill_mentor.rs"]
+pub mod silvergill_mentor;
 #[path = "ecl/silvergill_peddler.rs"]
 pub mod silvergill_peddler;
 #[path = "ecl/sizzling_changeling.rs"]
@@ -459,6 +475,10 @@ pub mod sun_dappled_celebrant;
 pub mod super_combo;
 #[path = "ecl/surly_farrier.rs"]
 pub mod surly_farrier;
+#[path = "tmc/swift_demise.rs"]
+pub mod swift_demise;
+#[path = "tmt/tainted_treats.rs"]
+pub mod tainted_treats;
 #[path = "ecl/tanufel_rimespeaker.rs"]
 pub mod tanufel_rimespeaker;
 #[path = "tmt/tcri_building.rs"]
@@ -517,6 +537,8 @@ pub mod utrom_monitor;
 pub mod utrom_scientists;
 #[path = "tmt/venus_torn_between_worlds.rs"]
 pub mod venus_torn_between_worlds;
+#[path = "ecc/village_pillagers.rs"]
+pub mod village_pillagers;
 #[path = "ecl/virulent_emissary.rs"]
 pub mod virulent_emissary;
 #[path = "ecl/wanderbrine_preacher.rs"]
