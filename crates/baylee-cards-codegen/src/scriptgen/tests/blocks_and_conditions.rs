@@ -1562,3 +1562,49 @@ fn a_discard_condition_of_another_value_is_not_taken_as_absent() {
         other.map(|body| body.abilities)
     );
 }
+
+#[test]
+fn raise_and_reduce_cost_support_active_player_turn_scoping_and_self_stack_taxes() {
+    let grid = read(
+        "Name:TaxingRelic\nManaCost:2\nTypes:Artifact\n\
+         S:Mode$ RaiseCost | Activator$ Player.!Active | Type$ Spell | Amount$ 3",
+    );
+    assert_eq!(
+        grid.abilities,
+        [
+            "static_ability!(Filter::Not(&Filter::ControlledByActivePlayer), Modifier::SpellsCostMore(3))"
+        ]
+    );
+
+    let active_discount = read(
+        "Name:SunDiscount\nManaCost:2 W\nTypes:Enchantment\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature | Activator$ Player.Active | Type$ Spell | Amount$ 1",
+    );
+    assert_eq!(
+        active_discount.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::ControlledByActivePlayer]), Modifier::SpellsCostLess(1))"
+        ]
+    );
+
+    let self_tax = read(
+        "Name:OffTurnDelay\nManaCost:3 U U\nTypes:Instant\n\
+         S:Mode$ RaiseCost | Affected$ Card.Self | Type$ Spell | Condition$ NotPlayerTurn | EffectZone$ All | Amount$ 2\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert!(
+        self_tax.abilities.iter().any(|a| {
+            a == "static_ability!(Filter::This, Modifier::SpellsCostMore(2), zone = ZoneRef::Stack, condition = Some(Condition::Not(&Condition::YourTurn)))"
+        }),
+        "{:?}",
+        self_tax.abilities
+    );
+
+    for bad in [
+        "Name:Bad\nTypes:Instant\nS:Mode$ RaiseCost | Affected$ Card.Self | EffectZone$ Hand | Type$ Spell | Amount$ 2\nA:SP$ Draw | NumCards$ 1",
+        "Name:Bad\nTypes:Instant\nS:Mode$ RaiseCost | Affected$ Card.Self | Activator$ Opponent | Type$ Spell | EffectZone$ All | Amount$ 2\nA:SP$ Draw | NumCards$ 1",
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ RaiseCost | Activator$ Player.!Active | Type$ Ability | ValidCard$ Artifact | AffectedZone$ Battlefield | Amount$ 1",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

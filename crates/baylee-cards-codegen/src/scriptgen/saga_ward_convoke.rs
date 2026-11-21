@@ -750,7 +750,9 @@ impl Tx<'_> {
     /// Additional `S:` static ability handlers (`CantAttack,CantBlock`,
     /// `CastWithFlash`, `Panharmonicon`, `DisableTriggers`,
     /// `CantPreventDamage`, `CantLoseLife`, `CantChangeLife`,
-    /// `CantSearchLibrary`) not modeled by `statics.rs`.
+    /// `CantGainLife`, `CantSacrifice`, `CombatDamageToughness`,
+    /// `AssignCombatDamageAsUnblocked`, `CantSearchLibrary`) not modeled by
+    /// `statics.rs`.
     pub(super) fn try_extra_static(&mut self, spec: &str) -> ExtraOutcome {
         let Some((mode, p)) = Params::parse(spec) else {
             return ExtraOutcome::Pass;
@@ -769,6 +771,12 @@ impl Tx<'_> {
                 "CantChangeLife",
                 "LifeTotalCantChange",
             )),
+            "CantGainLife" => ExtraOutcome::Handled(self.cant_gain_life(p)),
+            "CantSacrifice" => ExtraOutcome::Handled(self.cant_sacrifice(p)),
+            "CombatDamageToughness" => ExtraOutcome::Handled(self.combat_damage_toughness(p)),
+            "AssignCombatDamageAsUnblocked" => {
+                ExtraOutcome::Handled(self.assign_combat_damage_as_unblocked(p))
+            }
             "CantSearchLibrary" => ExtraOutcome::Handled(self.cant_search_library(p)),
             "CantAttach" if !p.has("ValidCardToTarget") => {
                 ExtraOutcome::Handled(self.cant_attach_static(p))
@@ -851,13 +859,7 @@ impl Tx<'_> {
         let Some(valid_card) = p.take("ValidCard") else {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         };
-        let mut clauses: Vec<String> = self
-            .condition(&mut p)?
-            .strip_prefix(", condition = Some(")
-            .and_then(|s| s.strip_suffix(')'))
-            .map(str::to_string)
-            .into_iter()
-            .collect();
+        let mut clauses: Vec<String> = Vec::new();
         if let Some(turn) = p.take("PlayerTurn") {
             match turn.trim() {
                 "You" => clauses.push("Condition::YourTurn".to_string()),
@@ -879,15 +881,12 @@ impl Tx<'_> {
             };
             clauses.push(format!("Condition::DuringStep({step})"));
         }
-        if let Some(var) = p.take("CheckSVar") {
-            let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-            let Some(clause) = self
-                .svar_condition(&var, &cmp)
-                .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
-            else {
-                return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
-            };
-            clauses.push(clause);
+        if let Some(base) = self
+            .static_conditions(&mut p, "static ability `S: Mode$ CastWithFlash`")?
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+        {
+            clauses.push(base.to_string());
         }
         if !p.exhausted() {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
@@ -1067,6 +1066,145 @@ impl Tx<'_> {
             expr = format!("{open}{condition})");
         }
         self.body.abilities.push(expr);
+        Some(())
+    }
+
+    fn cant_gain_life(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, "CantGainLife")?;
+        if let Some(sec) = p.take("Secondary")
+            && sec != "True"
+        {
+            return self.deny("static ability `S: Mode$ CantGainLife`".to_string());
+        }
+        let who = match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                "PlayerRel::EnchantedPlayer"
+            }
+            Some(_) => return self.deny("static ability `S: Mode$ CantGainLife`".to_string()),
+        };
+        let cond =
+            self.static_conditions(&mut p, "unclaimed parameter `CantGainLife.CheckSVar`")?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ CantGainLife`".to_string());
+        }
+        self.body.abilities.push(Self::format_static_expr(
+            "Filter::Any",
+            &format!("Modifier::PlayersCantGainLife({who})"),
+            zone,
+            &cond,
+        ));
+        Some(())
+    }
+
+    fn cant_sacrifice(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, "CantSacrifice")?;
+        if let Some(sec) = p.take("Secondary")
+            && sec != "True"
+        {
+            return self.deny("static ability `S: Mode$ CantSacrifice`".to_string());
+        }
+        let Some(valid_card) = p.take("ValidCard") else {
+            return self.deny("static ability `S: Mode$ CantSacrifice`".to_string());
+        };
+        let opponents_only = match (
+            p.take("ValidCause").as_deref(),
+            p.take("ForCost").as_deref(),
+        ) {
+            (None, None) => false,
+            (Some("SpellAbility.OppCtrl"), Some("False"))
+                if valid_card
+                    .split(',')
+                    .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl")) =>
+            {
+                true
+            }
+            _ => return self.deny("static ability `S: Mode$ CantSacrifice`".to_string()),
+        };
+        let cond =
+            self.static_conditions(&mut p, "unclaimed parameter `CantSacrifice.CheckSVar`")?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ CantSacrifice`".to_string());
+        }
+        let filter = self.filter_expr(&valid_card)?;
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            &format!("Modifier::CantBeSacrificed {{ opponents_only: {opponents_only} }}"),
+            zone,
+            &cond,
+        ));
+        Some(())
+    }
+
+    fn combat_damage_toughness(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, "CombatDamageToughness")?;
+        if let Some(sec) = p.take("Secondary")
+            && sec != "True"
+        {
+            return self.deny("static ability `S: Mode$ CombatDamageToughness`".to_string());
+        }
+        let Some(valid_card) = p.take("ValidCard") else {
+            return self.deny("static ability `S: Mode$ CombatDamageToughness`".to_string());
+        };
+        let cond = self.static_conditions(
+            &mut p,
+            "unclaimed parameter `CombatDamageToughness.CheckSVar`",
+        )?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ CombatDamageToughness`".to_string());
+        }
+        let Ok((if_greater, effective_valid)) = strip_power_lt_toughness(&valid_card) else {
+            return self.deny("static ability `S: Mode$ CombatDamageToughness`".to_string());
+        };
+        let filter = self.filter_expr(&effective_valid)?;
+        let modifier = if if_greater {
+            "Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater"
+        } else {
+            "Modifier::AssignCombatDamageUsingToughness"
+        };
+        self.body
+            .abilities
+            .push(Self::format_static_expr(&filter, modifier, zone, &cond));
+        Some(())
+    }
+
+    fn assign_combat_damage_as_unblocked(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let zone = self.take_static_effect_zone(&mut p, "AssignCombatDamageAsUnblocked")?;
+        if let Some(sec) = p.take("Secondary")
+            && sec != "True"
+        {
+            return self
+                .deny("static ability `S: Mode$ AssignCombatDamageAsUnblocked`".to_string());
+        }
+        if p.take("Optional").as_deref() != Some("True") {
+            return self
+                .deny("static ability `S: Mode$ AssignCombatDamageAsUnblocked`".to_string());
+        }
+        let Some(valid_card) = p.take("ValidCard") else {
+            return self
+                .deny("static ability `S: Mode$ AssignCombatDamageAsUnblocked`".to_string());
+        };
+        let cond = self.static_conditions(
+            &mut p,
+            "unclaimed parameter `AssignCombatDamageAsUnblocked.CheckSVar`",
+        )?;
+        if !p.exhausted() {
+            return self
+                .deny("static ability `S: Mode$ AssignCombatDamageAsUnblocked`".to_string());
+        }
+        let filter = self.filter_expr(&valid_card)?;
+        self.body.abilities.push(Self::format_static_expr(
+            &filter,
+            "Modifier::MayAssignCombatDamageAsThoughUnblocked",
+            zone,
+            &cond,
+        ));
         Some(())
     }
 
@@ -1319,10 +1457,7 @@ impl Tx<'_> {
             {
                 let cond = if let Some(var2) = p.peek("CheckSecondSVar") {
                     let cmp2 = p.peek("SecondSVarCompare").unwrap_or("GE1");
-                    let Some(second) = self
-                        .svar_condition(var2, cmp2)
-                        .or_else(|| self.extra_svar_condition_clause(var2, cmp2))
-                    else {
+                    let Some(second) = self.svar_condition_clause(var2, cmp2) else {
                         return ExtraOutcome::Pass;
                     };
                     format!("Condition::All(&[{first}, {second}])")
@@ -2922,6 +3057,56 @@ fn strip_matching_level_present(spec: &str, expected_present: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" | ")
+}
+
+fn strip_power_lt_toughness(valid: &str) -> Result<(bool, String), ()> {
+    let mut saw_true = false;
+    let mut saw_false = false;
+    let mut out = Vec::new();
+    for alt in valid.split(',') {
+        let alt = alt.trim();
+        if alt.is_empty() {
+            return Err(());
+        }
+        if let Some((base, tail)) = alt.split_once('.') {
+            let base = base.trim();
+            if base.is_empty() || matches!(base, "powerLTtoughness" | "!powerLTtoughness") {
+                return Err(());
+            }
+            let mut has_atom = false;
+            let mut kept = Vec::new();
+            for atom in tail.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                if atom == "!powerLTtoughness" {
+                    return Err(());
+                }
+                if atom == "powerLTtoughness" {
+                    has_atom = true;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if has_atom {
+                saw_true = true;
+            } else {
+                saw_false = true;
+            }
+            if kept.is_empty() {
+                out.push(base.to_string());
+            } else {
+                out.push(format!("{base}.{}", kept.join("+")));
+            }
+        } else {
+            if matches!(alt, "powerLTtoughness" | "!powerLTtoughness") {
+                return Err(());
+            }
+            saw_false = true;
+            out.push(alt.to_string());
+        }
+    }
+    if saw_true && saw_false {
+        return Err(());
+    }
+    Ok((saw_true, out.join(",")))
 }
 
 fn flash_modifier_for_valid(valid_card: &str) -> Option<String> {

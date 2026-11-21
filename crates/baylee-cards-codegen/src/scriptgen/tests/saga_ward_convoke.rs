@@ -4039,3 +4039,168 @@ fn wave15b_pass_e8_targets_gift_spell_base_and_secondary() {
          S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | Secondary$ Maybe"
     ));
 }
+
+#[test]
+fn wave9_10b_combat_damage_toughness_and_unblocked_rules() {
+    // 1. `CombatDamageToughness` -> `AssignCombatDamageUsingToughness` and
+    //    `AssignCombatDamageUsingToughnessIfToughnessGreater`, preserving
+    //    `Secondary$ True`, `EffectZone$`, and static conditions.
+    let all_tough = read(
+        "Name:GraniteBulwark\nManaCost:1 W G\nTypes:Creature Wall\nPT:0/5\n\
+         S:Mode$ CombatDamageToughness | ValidCard$ Creature | Secondary$ True",
+    );
+    assert_eq!(
+        all_tough.abilities,
+        ["static_ability!(Filter::CREATURE, Modifier::AssignCombatDamageUsingToughness)"]
+    );
+
+    let turn_tough = read(
+        "Name:SunlitKeep\nManaCost:2 W\nTypes:Enchantment\n\
+         S:Mode$ CombatDamageToughness | Condition$ PlayerTurn | ValidCard$ Creature.YouCtrl",
+    );
+    assert_eq!(
+        turn_tough.abilities,
+        [
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::AssignCombatDamageUsingToughness, condition = Some(Condition::YourTurn))"
+        ]
+    );
+
+    let gt_tough = read(
+        "Name:MossColossus\nManaCost:3 G\nTypes:Creature Treefolk\nPT:2/6\n\
+         S:Mode$ CombatDamageToughness | ValidCard$ Creature.powerLTtoughness+YouCtrl\n\
+         S:Mode$ CombatDamageToughness | ValidCard$ Creature.EquippedBy+powerLTtoughness | EffectZone$ Command",
+    );
+    assert_eq!(
+        gt_tough.abilities,
+        [
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater)",
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]), Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater, zone = ZoneRef::Command)",
+        ]
+    );
+
+    // 2. `AssignCombatDamageAsUnblocked` -> `MayAssignCombatDamageAsThoughUnblocked`.
+    let sneaky = read(
+        "Name:PhantomProwler\nManaCost:2 G\nTypes:Creature Wolf\nPT:2/2\n\
+         S:Mode$ AssignCombatDamageAsUnblocked | ValidCard$ Card.Self | Optional$ True | Secondary$ True",
+    );
+    assert_eq!(
+        sneaky.abilities,
+        ["static_ability!(Filter::This, Modifier::MayAssignCombatDamageAsThoughUnblocked)"]
+    );
+
+    let pack_leader = read(
+        "Name:PackAlpha\nManaCost:5 G G\nTypes:Creature Beast\nPT:6/6\n\
+         S:Mode$ AssignCombatDamageAsUnblocked | IsPresent$ Card.Self+attacking | ValidCard$ Creature.YouCtrl | Optional$ True",
+    );
+    assert!(
+        pack_leader.abilities[0].contains("Modifier::MayAssignCombatDamageAsThoughUnblocked")
+            && pack_leader.abilities[0].contains("Condition::SourceMatches(&CHECK1)")
+            && pack_leader.statics.contains("Filter::Attacking"),
+        "{:?} / {}",
+        pack_leader.abilities,
+        pack_leader.statics
+    );
+
+    for bad in [
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ CombatDamageToughness | ValidCard$ Creature.!powerLTtoughness",
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ CombatDamageToughness | ValidCard$ Creature.powerLTtoughness,Creature.YouCtrl",
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ CombatDamageToughness | ValidCard$ powerLTtoughness",
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ CombatDamageToughness | Secondary$ True",
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ CombatDamageToughness | ValidCard$ Creature | Secondary$ False",
+        "Name:Bad\nTypes:Creature\nPT:2/2\nS:Mode$ AssignCombatDamageAsUnblocked | ValidCard$ Card.Self",
+        "Name:Bad\nTypes:Creature\nPT:2/2\nS:Mode$ AssignCombatDamageAsUnblocked | ValidCard$ Card.Self | Optional$ False",
+        "Name:Bad\nTypes:Creature\nPT:2/2\nS:Mode$ AssignCombatDamageAsUnblocked | Optional$ True",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn wave9_10b_cant_gain_life_and_cant_sacrifice_rules() {
+    // 1. `CantGainLife` -> `PlayersCantGainLife(PlayerRel::...)`.
+    for (line, expected) in [
+        (
+            "S:Mode$ CantGainLife | Secondary$ True",
+            "Modifier::PlayersCantGainLife(PlayerRel::EachPlayer)",
+        ),
+        (
+            "S:Mode$ CantGainLife | ValidPlayer$ Player",
+            "Modifier::PlayersCantGainLife(PlayerRel::EachPlayer)",
+        ),
+        (
+            "S:Mode$ CantGainLife | ValidPlayer$ You | EffectZone$ Command",
+            "Modifier::PlayersCantGainLife(PlayerRel::You), zone = ZoneRef::Command",
+        ),
+        (
+            "S:Mode$ CantGainLife | ValidPlayer$ Player.Opponent",
+            "Modifier::PlayersCantGainLife(PlayerRel::EachOpponent)",
+        ),
+        (
+            "S:Mode$ CantGainLife | ValidPlayer$ EnchantedPlayer",
+            "Modifier::PlayersCantGainLife(PlayerRel::EnchantedPlayer)",
+        ),
+    ] {
+        let script = format!("Name:PaleCurse\nManaCost:2 B\nTypes:Enchantment\n{line}");
+        let body = read(&script);
+        assert!(
+            body.abilities[0].contains(expected),
+            "expected {expected} for `{line}`, got {:?}",
+            body.abilities
+        );
+    }
+
+    // 2. `CantSacrifice` -> `Modifier::CantBeSacrificed { opponents_only }`.
+    let sac_lock = read(
+        "Name:IronOath\nManaCost:3 W G\nTypes:Creature Angel\nPT:5/5\n\
+         S:Mode$ CantSacrifice | ValidCard$ Card.Self | Secondary$ True\n\
+         S:Mode$ CantSacrifice | ValidCard$ Artifact.token+YouCtrl\n\
+         S:Mode$ CantSacrifice | ValidCard$ Card.YouCtrl | ValidCause$ SpellAbility.OppCtrl | ForCost$ False",
+    );
+    assert_eq!(
+        sac_lock.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::CantBeSacrificed { opponents_only: false })",
+            "static_ability!(Filter::And(&[Filter::ARTIFACT, Filter::IsToken, Filter::ControlledByYou]), Modifier::CantBeSacrificed { opponents_only: false })",
+            "static_ability!(Filter::ControlledByYou, Modifier::CantBeSacrificed { opponents_only: true })",
+        ]
+    );
+
+    for bad in [
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ CantGainLife | ValidPlayer$ Player.IsRemembered",
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ CantGainLife | ValidPlayer$ You | EffectZone$ Graveyard",
+        "Name:Bad\nTypes:Creature\nPT:4/4\nS:Mode$ CantSacrifice | ValidCard$ Creature | ValidCause$ Spell,Activated | ForCost$ True",
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ CantSacrifice | ValidCard$ Card.Self | ValidCause$ SpellAbility.OppCtrl | ForCost$ False",
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ CantSacrifice | ValidCard$ Creature.YouCtrl | ValidCause$ SpellAbility.OppCtrl",
+        "Name:Bad\nTypes:Enchantment\nS:Mode$ CantSacrifice | ValidCard$ Creature.YouCtrl | ValidCause$ Triggered.OppCtrl | ForCost$ False",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn cast_with_flash_supports_ability_words_paired_svars_and_refuses_non_typeset() {
+    let conditional_flash = read(
+        "Name:TempestHermit\nManaCost:2 U\nTypes:Creature Merfolk\nPT:2/3\n\
+         S:Mode$ CastWithFlash | ValidCard$ Sorcery | ValidSA$ Spell | Caster$ You | Delirium$ True | CheckSVar$ FirstCast | SVarCompare$ EQ0 | CheckSecondSVar$ Gate | SecondSVarCompare$ GE2\n\
+         SVar:FirstCast:Count$ThisTurnCast_Card.YouCtrl\n\
+         SVar:Gate:Count$Valid Island.YouCtrl",
+    );
+    assert!(
+        conditional_flash.abilities.len() == 1
+            && conditional_flash.abilities[0].contains("Modifier::SorceriesHaveFlash")
+            && conditional_flash.abilities[0].contains("Condition::GraveyardTypesAtLeast(4)")
+            && conditional_flash.abilities[0].contains("Condition::ControlCount")
+            && conditional_flash.abilities[0].contains("Condition::YouCastNoSpellThisTurn"),
+        "{:?}",
+        conditional_flash.abilities
+    );
+
+    for bad in [
+        "Name:Bad\nTypes:Creature\nPT:1/1\nS:Mode$ CastWithFlash | ValidCard$ Card.Self | ValidSA$ Spell | Caster$ You | EffectZone$ All",
+        "Name:Bad\nTypes:Creature\nPT:1/1\nS:Mode$ CastWithFlash | ValidCard$ Creature | ValidSA$ Spell | Caster$ Player",
+        "Name:Bad\nTypes:Creature\nPT:1/1\nS:Mode$ CastWithFlash | ValidCard$ Creature.Green | ValidSA$ Spell | Caster$ You",
+        "Name:Bad\nTypes:Creature\nPT:1/1\nS:Mode$ CastWithFlash | ValidCard$ Card.Historic | ValidSA$ Spell | Caster$ You",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

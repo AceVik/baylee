@@ -762,7 +762,7 @@ fn a_static_ability_refuses_what_it_cannot_say() {
     ));
     // A mode that is not Continuous is not this rule.
     assert!(refused(
-        "Name:X\nTypes:Creature\nS:Mode$ CantGainLife | ValidPlayer$ You\n"
+        "Name:X\nTypes:Creature\nS:Mode$ CantPhase | ValidCard$ Card.Self\n"
     ));
 }
 
@@ -885,10 +885,10 @@ fn a_refusal_says_which_key_it_choked_on() {
 
     // A static ability names the mode it cannot read, so the worklist
     // ranks `ReduceCost` and `Continuous` as the different work they are.
-    let script = parse("Name:X\nTypes:Creature\nS:Mode$ CantGainLife | ValidPlayer$ You");
+    let script = parse("Name:X\nTypes:Creature\nS:Mode$ CantPhase | ValidCard$ Card.Self");
     assert_eq!(
         refusal_reason(&script, &cats(), None).as_deref(),
-        Some("static ability `S: Mode$ CantGainLife`")
+        Some("static ability `S: Mode$ CantPhase`")
     );
 }
 

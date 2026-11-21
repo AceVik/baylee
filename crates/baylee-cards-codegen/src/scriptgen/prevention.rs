@@ -129,13 +129,13 @@ impl Tx<'_> {
         cond: &str,
         has_secondary: bool,
     ) -> Option<()> {
-        if scope == DamageScope::NoncombatOnly || !zone_arg.is_empty() {
+        if scope == DamageScope::NoncombatOnly {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
         let combat_only = scope == DamageScope::CombatOnly;
         let valid = valid_source?;
         if Self::is_stack_spell_source(&valid) {
-            if combat_only || !cond.is_empty() || has_secondary {
+            if combat_only || !zone_arg.is_empty() || !cond.is_empty() || has_secondary {
                 return self
                     .deny("a persistent spell prevention with another zone or result".into());
             }
@@ -149,14 +149,14 @@ impl Tx<'_> {
         if combat_only {
             let filter = self.filter_expr(&valid)?;
             self.body.abilities.push(format!(
-                "static_ability!({filter}, Modifier::PreventDamageFromIt{cond})"
+                "static_ability!({filter}, Modifier::PreventDamageFromIt{zone_arg}{cond})"
             ));
             return Some(());
         }
         if valid.contains("Self") || valid.contains("EnchantedBy") || valid.contains("EquippedBy") {
             let filter = self.filter_expr(&valid)?;
             self.body.abilities.push(format!(
-                "static_ability!({filter}, Modifier::PreventAllDamageFromIt{cond})"
+                "static_ability!({filter}, Modifier::PreventAllDamageFromIt{zone_arg}{cond})"
             ));
             return Some(());
         }

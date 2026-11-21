@@ -459,7 +459,11 @@ impl Tx<'_> {
         }
     }
 
-    fn take_static_effect_zone(&self, p: &mut Params, mode: &str) -> Option<StaticEffectZone> {
+    pub(super) fn take_static_effect_zone(
+        &self,
+        p: &mut Params,
+        mode: &str,
+    ) -> Option<StaticEffectZone> {
         match p.take("EffectZone").as_deref() {
             raw @ Some(zone) => match Self::static_effect_zone(raw, false) {
                 Some(resolved) => Some(resolved),
@@ -678,7 +682,11 @@ impl Tx<'_> {
         }
     }
 
-    fn static_conditions(&mut self, p: &mut Params, check_svar_denial: &str) -> Option<String> {
+    pub(super) fn static_conditions(
+        &mut self,
+        p: &mut Params,
+        check_svar_denial: &str,
+    ) -> Option<String> {
         let mut clauses: Vec<String> = Vec::new();
         Self::take_ability_word_flags(p, &mut clauses)?;
         if let Some(cond_raw) = p.peek("Condition")
@@ -2579,6 +2587,11 @@ impl Tx<'_> {
     fn mode_raise_cost(&mut self, mut p: Params) -> Option<()> {
         if !p.has("Secondary")
             && !p.has("PlayerTurn")
+            && !p.has("Affected")
+            && !matches!(
+                p.peek("Activator"),
+                Some("Player.!Active" | "Player.Active")
+            )
             && matches!(p.peek("EffectZone"), None | Some("Battlefield" | "Stack"))
             && (p.peek("Type") != Some("Spell") || p.has("ValidCard") || p.has("ValidTarget"))
             && (p.peek("Type") != Some("Ability")
@@ -2685,8 +2698,15 @@ impl Tx<'_> {
         let valid_target = p.take("ValidTarget");
         let stack_self_target = effect_zone.as_deref() == Some("Stack")
             && valid_target.as_deref() == Some("Spell.Self")
-            && !p.has("ValidCard");
-        let zone = if stack_self_target {
+            && !p.has("ValidCard")
+            && !p.has("Affected");
+        let self_stack_tax = matches!(effect_zone.as_deref(), Some("All" | "Stack"))
+            && valid_target.is_none()
+            && !stack_self_target
+            && matches!(p.peek("Activator"), None | Some("You"))
+            && (p.peek("ValidCard") == Some("Card.Self")
+                || (!p.has("ValidCard") && p.peek("Affected") == Some("Card.Self")));
+        let zone = if stack_self_target || self_stack_tax {
             StaticEffectZone::Explicit("ZoneRef::Stack")
         } else if let Some(z) = Self::static_effect_zone(effect_zone.as_deref(), false) {
             z
@@ -2706,11 +2726,23 @@ impl Tx<'_> {
             ) if !stack_self_target => Some("Filter::TargetsPermanentYouControl"),
             Some(_) => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
         };
-        let raw_card = p.take("ValidCard").unwrap_or_else(|| "Card".to_string());
-        let Some(valid_card) =
-            Self::apply_reduce_activator(&raw_card, p.take("Activator").as_deref())
-        else {
-            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+        let (raw_card, act_filter) = if self_stack_tax {
+            p.take("Activator");
+            let raw = p
+                .take("ValidCard")
+                .or_else(|| p.take("Affected"))
+                .unwrap_or_else(|| "Card.Self".to_string());
+            (raw, None)
+        } else {
+            let raw = p.take("ValidCard").unwrap_or_else(|| "Card".to_string());
+            if raw == "Card.Self" {
+                return self.deny("static ability `S: Mode$ RaiseCost`".into());
+            }
+            let Some(resolved) = Self::apply_spell_activator(&raw, p.take("Activator").as_deref())
+            else {
+                return self.deny("static ability `S: Mode$ RaiseCost`".into());
+            };
+            resolved
         };
         let modifier = match (p.take("Amount"), p.take("Cost")) {
             (Some(amount), None) => {
@@ -2735,12 +2767,13 @@ impl Tx<'_> {
         if !p.exhausted() {
             return self.deny("static ability `S: Mode$ RaiseCost`".into());
         }
-        let base_filter = self.filter_expr(&valid_card)?;
-        let filter = match target_filter {
-            None => base_filter,
-            Some(tf) if base_filter == "Filter::Any" => tf.to_string(),
-            Some(tf) => format!("Filter::And(&[{base_filter}, {tf}])"),
+        let base_filter = if self_stack_tax {
+            "Filter::This".to_string()
+        } else {
+            self.filter_expr(&raw_card)?
         };
+        let filter =
+            Self::conjoin_filters(base_filter, target_filter.into_iter().chain(act_filter));
         self.body
             .abilities
             .push(Self::format_static_expr(&filter, &modifier, zone, &cond));
@@ -2824,7 +2857,7 @@ impl Tx<'_> {
             }
             None => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
         };
-        if is_self_zone {
+        let act_filter = if is_self_zone {
             if valid_card != "Card.Self" {
                 return self.deny("static ability `S: Mode$ ReduceCost`".into());
             }
@@ -2834,6 +2867,7 @@ impl Tx<'_> {
             if face_down {
                 valid_card = "Card.Self+faceDown".to_string();
             }
+            None
         } else {
             if valid_card == "Card.Self" {
                 return self.deny("static ability `S: Mode$ ReduceCost`".into());
@@ -2841,24 +2875,22 @@ impl Tx<'_> {
             if face_down {
                 valid_card = Self::append_reduce_atom(&valid_card, "faceDown");
             }
-            let Some(with_act) =
-                Self::apply_reduce_activator(&valid_card, p.take("Activator").as_deref())
+            let Some((with_act, act_filter)) =
+                Self::apply_spell_activator(&valid_card, p.take("Activator").as_deref())
             else {
                 return self.deny("static ability `S: Mode$ ReduceCost`".into());
             };
             valid_card = with_act;
-        }
+            act_filter
+        };
         let cond = self.reduce_cost_condition(&mut p)?;
         let modifier = self.reduce_cost_modifier(&mut p)?;
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
         }
         let base_filter = self.filter_expr(&valid_card)?;
-        let filter = match target_filter {
-            None => base_filter,
-            Some(tf) if base_filter == "Filter::Any" => tf.to_string(),
-            Some(tf) => format!("Filter::And(&[{base_filter}, {tf}])"),
-        };
+        let filter =
+            Self::conjoin_filters(base_filter, target_filter.into_iter().chain(act_filter));
         self.body
             .abilities
             .push(Self::format_static_expr(&filter, &modifier, zone, &cond));
@@ -3094,6 +3126,37 @@ impl Tx<'_> {
             })
             .collect::<Vec<_>>()
             .join(",")
+    }
+
+    fn apply_spell_activator(
+        valid: &str,
+        activator: Option<&str>,
+    ) -> Option<(String, Option<&'static str>)> {
+        match activator {
+            Some("Player.!Active") => Some((
+                valid.to_string(),
+                Some("Filter::Not(&Filter::ControlledByActivePlayer)"),
+            )),
+            Some("Player.Active") => {
+                Some((valid.to_string(), Some("Filter::ControlledByActivePlayer")))
+            }
+            other => Self::apply_reduce_activator(valid, other).map(|v| (v, None)),
+        }
+    }
+
+    fn conjoin_filters(base: String, extras: impl IntoIterator<Item = &'static str>) -> String {
+        let mut parts = Vec::new();
+        if base != "Filter::Any" {
+            parts.push(base);
+        }
+        for extra in extras {
+            parts.push(extra.to_string());
+        }
+        match parts.len() {
+            0 => "Filter::Any".to_string(),
+            1 => parts.remove(0),
+            _ => format!("Filter::And(&[{}])", parts.join(", ")),
+        }
     }
 
     fn apply_reduce_activator(valid: &str, activator: Option<&str>) -> Option<String> {

@@ -297,3 +297,33 @@ fn remembered_damage_refuses_incomplete_or_changed_recipient_payloads() {
     );
     assert!(refused(&multiple_statics), "exactly one referenced static");
 }
+
+#[test]
+fn source_only_damage_prevention_preserves_command_and_battlefield_zone_boundaries() {
+    let command_combat = read(
+        "Name:WinterExpanse\nTypes:Plane Skybreen\n\
+         R:Event$ DamageDone | ActiveZones$ Command | Prevent$ True | IsCombat$ True | ValidSource$ Creature.nonGoblin",
+    );
+    assert!(
+        command_combat.abilities[0].contains("Modifier::PreventDamageFromIt")
+            && command_combat.abilities[0].contains("zone = ZoneRef::Command"),
+        "{:?}",
+        command_combat.abilities
+    );
+
+    let command_self = read(
+        "Name:QuietHalo\nTypes:Plane Skybreen\n\
+         R:Event$ DamageDone | ActiveZones$ Command | Prevent$ True | ValidSource$ Card.Self",
+    );
+    assert!(
+        command_self.abilities[0].contains("Modifier::PreventAllDamageFromIt")
+            && command_self.abilities[0].contains("zone = ZoneRef::Command"),
+        "{:?}",
+        command_self.abilities
+    );
+
+    assert!(refused(
+        "Name:BadNoncombat\nTypes:Plane Skybreen\n\
+         R:Event$ DamageDone | ActiveZones$ Command | Prevent$ True | IsCombat$ False | ValidSource$ Card.Self"
+    ));
+}
