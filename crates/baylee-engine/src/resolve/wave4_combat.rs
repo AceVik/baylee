@@ -4,12 +4,12 @@
 //! - Myriad (`Effect::Myriad`, CR 702.116a–b, CR 508.4)
 //! - Exert (`Effect::ExertSource` and shared `exert_permanent`, CR 701.43a–d)
 
-use baylee_cards_dsl::{CopyCleanup, Effect, TargetSpec};
+use baylee_cards_dsl::{Effect, TargetSpec};
 use baylee_core::ids::{Defender, EffectId, ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 
 use super::after_entry::AfterEntry;
-use super::{AwaitingOp, Flow, Resolution, resolving_ability, source_version, subjects};
+use super::{AwaitingOp, Flow, Resolution, resolving_ability, subjects};
 use crate::choice::{ChoicePrompt, Pending, YesNoPrompt};
 use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
 use crate::event::{Cause, GameEvent};
@@ -393,22 +393,22 @@ fn commit_myriad_tokens(
         return;
     }
     let you = res.controller;
-    let src_version = source_version(state, res)
-        .or_else(|| state.object_or_departed(res.source).map(|o| o.version))
-        .unwrap_or(0);
+    let Some(original) = subjects::source(state, res) else {
+        return;
+    };
     let mut created_pairs: Vec<(ObjectId, (Defender, Option<u32>))> = Vec::new();
     for &def in chosen_defenders {
-        let made = create_one_myriad_copy_batch(state, res, you);
+        let made =
+            super::tokens::create_modified_token_copies_for(state, res, you, original, &[], 1);
         for &id in &made {
             state.set_tapped(id, true);
             let version = state.object(id).map_or(0, |o| o.version);
-            let _ = CopyCleanup::ExileAtEndOfCombat;
             state.delayed.push(DelayedTrigger {
                 controller: you,
                 when: DelayedWhen::EndOfCombatThisTurn,
                 action: DelayedAction::TriggerAbout {
                     source: res.source,
-                    source_version: src_version,
+                    source_version: original.version,
                     effects: EXILE_EVENT_OBJECT,
                     text: res.text,
                     object: id,
@@ -436,22 +436,6 @@ fn commit_myriad_tokens(
         return;
     }
     join_myriad_combat(state, you, &created_pairs);
-}
-
-fn create_one_myriad_copy_batch(
-    state: &mut GameState,
-    res: &mut Resolution,
-    controller: PlayerId,
-) -> Vec<ObjectId> {
-    let made =
-        super::tokens::create_modified_token_copies_for(state, res, controller, res.source, &[], 1);
-    if !made.is_empty() {
-        return made;
-    }
-    let Some(departed) = state.object_or_departed(res.source).map(|o| o.base.clone()) else {
-        return Vec::new();
-    };
-    super::tokens::create_token_copies(state, controller, res.source, &departed, 1)
 }
 
 /// Finishes placing deferred myriad tokens into combat once entry choices settle.

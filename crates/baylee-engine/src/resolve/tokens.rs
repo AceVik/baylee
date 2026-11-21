@@ -4,6 +4,7 @@
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
 use crate::text_changes::TextChangeMap;
+use baylee_core::ids::DamageSourceRef;
 
 pub(in crate::resolve) mod copy_tokens;
 
@@ -44,9 +45,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             target,
             kicked_bonus,
         } => {
-            let target_id = match target {
-                Some(_) => res.targets.first().copied(),
-                None => Some(res.source),
+            let original = match target {
+                Some(_) => res
+                    .targets
+                    .first()
+                    .and_then(|&id| state.source_identity(id)),
+                None => subjects::source(state, res),
             };
             let kicked = state
                 .object(res.on_stack)
@@ -55,10 +59,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // Copiable values, not `base`: a token copy of a Cursed Mirror
             // that became an Elf is a copy of the Elf (CR 707.2), and `base`
             // is the artifact underneath it.
-            if let Some(id) = target_id
-                && let Some(base) = crate::layers::copiable_values(state, id)
-            {
-                create_token_copies(state, you, id, &base, count);
+            if let Some(reference) = original {
+                create_modified_token_copies_for(state, res, you, reference, &[], count);
             }
             None
         }
@@ -160,7 +162,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::CreateTokenCopyOfSource { mods } => {
-            create_modified_token_copies(state, res, res.source, mods, 1);
+            if let Some(original) = subjects::source(state, res) {
+                create_modified_token_copies_for(state, res, you, original, mods, 1);
+            }
             None
         }
         Effect::CreateTokenCopyOfEquipped { kicked_bonus, mods } => {
@@ -388,7 +392,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     }
 }
 
-/// Maps literal words in a copy exception, leaving copied values unchanged.
+/// Copies the incarnation selected from the battlefield or graveyard.
 fn create_modified_token_copies(
     state: &mut GameState,
     res: &Resolution,
@@ -396,81 +400,51 @@ fn create_modified_token_copies(
     mods: &[baylee_cards_dsl::CopyMod],
     count: u32,
 ) -> Vec<ObjectId> {
-    create_modified_token_copies_for(state, res, res.controller, original, mods, count)
-}
-
-fn copy_subject_lki(state: &GameState, res: &Resolution, original: ObjectId) -> Option<GameObject> {
-    let subject_ref = if original == res.source {
-        super::subjects::source(state, res)
-    } else if res.event_object == Some(original) {
-        super::subjects::event(state, res)
-    } else {
-        None
+    let Some(reference) = state.source_identity(original) else {
+        return Vec::new();
     };
-    subject_ref
-        .filter(|src_ref| {
-            state.object(original).is_none_or(|o| {
-                o.zone != crate::zone::Zone::Battlefield || o.version != src_ref.version
-            })
-        })
-        .and_then(|src_ref| state.source_object(src_ref).cloned())
-        .or_else(|| {
-            state
-                .object(original)
-                .is_none()
-                .then(|| state.object_or_departed(original).cloned())
-                .flatten()
-        })
+    create_modified_token_copies_for(state, res, res.controller, reference, mods, count)
 }
 
 pub(super) fn create_modified_token_copies_for(
     state: &mut GameState,
     res: &Resolution,
     controller: PlayerId,
-    original: ObjectId,
+    reference: DamageSourceRef,
     mods: &[baylee_cards_dsl::CopyMod],
     count: u32,
 ) -> Vec<ObjectId> {
-    let source_lki = copy_subject_lki(state, res, original);
-    let Some(base) = source_lki
-        .as_ref()
-        .map(|lki| lki.base.clone())
-        .or_else(|| crate::layers::copiable_values(state, original))
-    else {
+    let Some((base, copied)) = crate::copiable_abilities::copy_snapshot(state, reference) else {
         return Vec::new();
     };
+    if mods.is_empty() {
+        return create_token_copies_from(state, controller, reference, &base, count);
+    }
     let mut modified = (*base).clone();
     for modifier in mods {
         apply_copy_mod_with_names(&mut modified, modifier, res.text, Some(&mut state.names));
     }
     let types = modified.types;
-    let made = create_token_copies_with_lki(
+    let made = create_token_copies_from(
         state,
         controller,
-        original,
-        source_lki.as_ref(),
+        reference,
         &std::sync::Arc::new(modified),
         count,
     );
     // Copy exceptions also suppress the abilities defining the replaced values
     // (CR 707.9d), before the next projection or entry trigger scan.
-    let copied_list = source_lki
-        .as_ref()
-        .map(|lki| lki.printed_ability_list(state.bases.as_ref()))
-        .or_else(|| state.printed_ability_list(original));
-    if let Some(copied) = copied_list {
-        let own = state
-            .printed_ability_list(res.source)
-            .unwrap_or_else(|| copied.clone());
-        let index = state
-            .object(res.on_stack)
-            .and_then(|o| o.ability)
-            .map_or(0, |a| a.index);
-        let abilities = crate::copiable_abilities::compose(copied, &own, index, mods, None);
-        for id in &made {
-            if let Some(object) = state.object_mut(*id) {
-                object.take_abilities(abilities.clone());
-            }
+    let own = state
+        .printed_ability_list(res.source)
+        .unwrap_or_else(|| copied.clone());
+    let index = state
+        .object(res.on_stack)
+        .and_then(|o| o.ability)
+        .map_or(0, |a| a.index);
+    let abilities = crate::copiable_abilities::compose(copied, &own, index, mods, None);
+    for id in &made {
+        if let Some(object) = state.object_mut(*id) {
+            object.take_abilities(abilities.clone());
         }
     }
     // No rules processing intervenes before these entry counters are placed.
@@ -737,14 +711,16 @@ pub(super) fn create_token_copies(
     base: &std::sync::Arc<Characteristics>,
     count: u32,
 ) -> Vec<ObjectId> {
-    create_token_copies_with_lki(state, controller, original, None, base, count)
+    let Some(reference) = state.source_identity(original) else {
+        return Vec::new();
+    };
+    create_token_copies_from(state, controller, reference, base, count)
 }
 
-fn create_token_copies_with_lki(
+fn create_token_copies_from(
     state: &mut GameState,
     controller: PlayerId,
-    original: ObjectId,
-    source_lki: Option<&GameObject>,
+    reference: DamageSourceRef,
     base: &std::sync::Arc<Characteristics>,
     count: u32,
 ) -> Vec<ObjectId> {
@@ -752,21 +728,15 @@ fn create_token_copies_with_lki(
     if state.has_left(controller) {
         return Vec::new();
     }
-    let own = source_lki
-        .map(|lki| lki.printed_ability_list(state.bases.as_ref()))
-        .or_else(|| state.printed_ability_list(original));
-    let (token, token_face, keep_own_abilities, face) = source_lki
-        .or_else(|| state.object(original))
-        .map_or((None, 0, true, None), |object| {
-            let dfc_token =
-                object.card.is_none() && object.token.is_some_and(|t| t.back_face.is_some());
-            (
-                object.token,
-                if dfc_token { object.face_index } else { 0 },
-                !dfc_token || object.own_abilities.is_some(),
-                object.card.map(|card| (card.index, object.face_index)),
-            )
-        });
+    let Some(object) = state.source_object(reference) else {
+        return Vec::new();
+    };
+    let token = object.token;
+    let dfc_token = object.card.is_none() && token.is_some_and(|t| t.back_face.is_some());
+    let token_face = if dfc_token { object.face_index } else { 0 };
+    let own = (!dfc_token || object.own_abilities.is_some())
+        .then(|| object.printed_ability_list(state.bases.as_ref()));
+    let face = object.card.map(|card| (card.index, object.face_index));
     let Some(count) = crate::replacement::token_multiplier(state, controller, base.types)
         .and_then(|factor| count.checked_mul(factor))
     else {
@@ -781,7 +751,7 @@ fn create_token_copies_with_lki(
                     GameObject::new_bare(oid, controller, ObjectKind::Permanent, base.clone());
                 obj.timestamp = ts;
                 obj.controlled_since = ts;
-                if keep_own_abilities && let Some(own) = &own {
+                if let Some(own) = &own {
                     obj.take_abilities(own.clone());
                 }
                 obj.token = token;

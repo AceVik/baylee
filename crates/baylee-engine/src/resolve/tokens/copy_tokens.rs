@@ -12,7 +12,7 @@ use baylee_cards_dsl::{
     Amount, CopyCleanup, CopyMod, Duration, Effect, Filter, KeywordSet, Layer, Modifier, PlayerRel,
     TargetSpec,
 };
-use baylee_core::ids::{EffectId, ObjectId, PlayerId};
+use baylee_core::ids::{DamageSourceRef, EffectId, ObjectId, PlayerId};
 
 static EXILE_EVENT_OBJECT: &[Effect] = &[Effect::Exile {
     target: TargetSpec::EventObject,
@@ -113,7 +113,7 @@ pub(in crate::resolve) fn finish_chosen(
     count: u32,
     spec: TokenCopySpec,
 ) -> Option<Pending> {
-    let &original = chosen.first()?;
+    let original = state.source_identity(*chosen.first()?)?;
     let you = res.controller;
     let made = super::create_modified_token_copies_for(state, res, you, original, spec.mods, count);
     apply_token_riders(state, res, you, &made, spec);
@@ -124,21 +124,21 @@ pub(in crate::resolve) fn finish_chosen(
     }
 }
 
-fn resolve_originals(state: &GameState, res: &Resolution, target: TargetSpec) -> Vec<ObjectId> {
-    match target {
-        TargetSpec::ThisObject => subjects::source(state, res)
-            .map(|r| r.object)
-            .or_else(|| state.object(res.source).map(|_| res.source))
-            .into_iter()
-            .collect(),
-        TargetSpec::EventObject => subjects::event(state, res)
-            .map(|r| r.object)
-            .or(res.event_object)
-            .into_iter()
-            .collect(),
-        TargetSpec::CardInFirstTargetsGraveyard(_) => res.second_targets.iter().copied().collect(),
-        _ => res.targets.iter().copied().collect(),
-    }
+fn resolve_originals(
+    state: &GameState,
+    res: &Resolution,
+    target: TargetSpec,
+) -> Vec<DamageSourceRef> {
+    let targets = match target {
+        TargetSpec::ThisObject => return subjects::source(state, res).into_iter().collect(),
+        TargetSpec::EventObject => return subjects::event(state, res).into_iter().collect(),
+        TargetSpec::CardInFirstTargetsGraveyard(_) => res.second_targets.as_slice(),
+        _ => res.targets.as_slice(),
+    };
+    targets
+        .iter()
+        .filter_map(|&id| state.source_identity(id))
+        .collect()
 }
 
 fn apply_token_riders(

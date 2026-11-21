@@ -832,7 +832,7 @@ pub(crate) fn apply_copy_from_reference(
     true
 }
 
-fn copy_snapshot(
+pub(crate) fn copy_snapshot(
     state: &crate::state::GameState,
     target: baylee_core::ids::DamageSourceRef,
 ) -> Option<(

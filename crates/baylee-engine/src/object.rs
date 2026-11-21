@@ -1527,11 +1527,10 @@ pub struct PaidRecord {
     pub discarded: Vec<baylee_core::ids::DamageSourceRef>,
     /// Source found after this cost actually moved it to a public zone (CR 400.7j).
     pub source_after_cost: Option<baylee_core::ids::DamageSourceRef>,
-    /// The permanent sacrificed to pay the cost as it last existed on the
-    /// battlefield (CR 608.2h) — "the sacrificed creature's mana value",
-    /// "… power", "… toughness". `None` when nothing was sacrificed.
+    /// Characteristics of the object sacrificed or exiled for the cost,
+    /// captured before it moved (CR 608.2h).
     pub sacrificed_lki: Option<SacrificedLki>,
-    /// Exact creature sacrificed to pay this object's cost.
+    /// Exact incarnation sacrificed or exiled to pay this object's cost.
     pub sacrificed: Option<(ObjectId, u32)>,
     /// Every permanent a `CostPart::SacrificeX` sacrificed, each as the card
     /// it became in its owner's graveyard (id and version) with the power it

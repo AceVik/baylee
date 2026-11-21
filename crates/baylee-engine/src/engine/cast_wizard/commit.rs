@@ -441,27 +441,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         return Err(EngineError::IllegalAction("not enough energy"));
                     }
                 }
-                CostPart::Sacrifice(_)
-                | CostPart::ExilePermanent(_)
-                | CostPart::ExileFromGraveyard(_) => {
+                CostPart::Sacrifice(_) | CostPart::ExilePermanent(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
                         .ok_or(EngineError::IllegalAction(
                             "an object cost the cast never asked about",
                         ))?;
-                    // Read LKI before the cost moves the permanent (CR 608.2h).
-                    if matches!(part, CostPart::Sacrifice(_)) {
-                        sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
-                        sacrificed_lki = self
-                            .state
-                            .object(chosen)
-                            .map(crate::object::SacrificedLki::of);
-                    }
+                    // Both payments can refer back to the permanent as it was
+                    // on the battlefield (Soul Exchange, CR 608.2h).
+                    sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
+                    sacrificed_lki = self
+                        .state
+                        .object(chosen)
+                        .map(crate::object::SacrificedLki::of);
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                 }
                 CostPart::ReturnToHand(_)
                 | CostPart::TapOther(_)
+                | CostPart::ExileFromGraveyard(_)
                 | CostPart::ExileFromHand(_)
                 | CostPart::Discard(_) => {
                     let chosen = cost_objects
