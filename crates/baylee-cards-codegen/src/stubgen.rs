@@ -327,11 +327,22 @@ fn type_expr(line: &str, cats: &SubtypeCatalogs) -> (String, String, Vec<String>
             unknown.push(word.to_string());
         }
     }
-    for word in right.split_whitespace() {
-        match cats.const_path(word) {
-            Some(path) => subtype_paths.push(path),
-            None => unknown.push(word.to_string()),
+    let right_words: Vec<&str> = right.split_whitespace().collect();
+    let mut i = 0;
+    while i < right_words.len() {
+        if i + 1 < right_words.len() {
+            let pair = format!("{} {}", right_words[i], right_words[i + 1]);
+            if let Some(path) = cats.const_path(&pair) {
+                subtype_paths.push(path);
+                i += 2;
+                continue;
+            }
         }
+        match cats.const_path(right_words[i]) {
+            Some(path) => subtype_paths.push(path),
+            None => unknown.push(right_words[i].to_string()),
+        }
+        i += 1;
     }
 
     let types = if type_bits.is_empty() {
@@ -2971,6 +2982,31 @@ mod tests {
             out.contains("static BACKUP_GRANTED1: [AbilityDef; 1] = [activated!(Cost::TAP, &[Effect::gain_life(1)])];")
                 && out.contains("Effect::Backup { count: 1, keywords: KeywordSet::FLYING, grant_abilities: &BACKUP_GRANTED1 }"),
             "{out}"
+        );
+    }
+
+    #[test]
+    fn two_word_subtypes_resolve_without_unknowns() {
+        let mut cats = SubtypeCatalogs {
+            creature: vec!["Scientist".into(), "Time Lord".into()],
+            ..SubtypeCatalogs::default()
+        };
+        cats.normalize();
+        let (types, _supers, subtype_paths, unknown) =
+            type_expr("Creature \u{2014} Time Lord Scientist", &cats);
+        assert!(unknown.is_empty(), "{unknown:?}");
+        assert!(types.contains("TypeSet::CREATURE"), "{types}");
+        assert!(
+            subtype_paths
+                .iter()
+                .any(|p| p == "subtypes::creature::TIME_LORD"),
+            "{subtype_paths:?}"
+        );
+        assert!(
+            subtype_paths
+                .iter()
+                .any(|p| p == "subtypes::creature::SCIENTIST"),
+            "{subtype_paths:?}"
         );
     }
 }

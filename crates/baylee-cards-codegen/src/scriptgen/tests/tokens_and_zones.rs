@@ -144,9 +144,7 @@ fn anything_unread_refuses_the_whole_card() {
     // This was `K:Cycling:2`, then `K:TypeCycling:Basic:2`, then
     // `K:Ninjutsu:1 U` until each rule read them; the example stays a
     // parameterized keyword that is still unmodeled here.
-    assert!(refused(
-        "Name:X\nTypes:Creature Goblin\nPT:1/1\nK:Bushido:1"
-    ));
+    assert!(refused("Name:X\nTypes:Instant\nK:Retrace"));
     // A line kind with rules in it that this module does not model.
     assert!(refused(
         "Name:X\nTypes:Creature Goblin\nPT:1/1\n\

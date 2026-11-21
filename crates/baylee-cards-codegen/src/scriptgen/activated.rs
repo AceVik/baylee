@@ -14,6 +14,12 @@ pub(super) enum OptionalTriggerPrice {
     SacrificeN { filter: String, count: u8 },
 }
 
+enum Wave14aCost {
+    Matched(String),
+    Denied,
+    Pass,
+}
+
 /// `(mode_expr, first_target_spec, has_second_target, could_add_mana)`.
 pub(super) type CharmMode = (String, Option<String>, bool, bool);
 
@@ -672,11 +678,19 @@ impl Tx<'_> {
         }
         *self.unclaimed.borrow_mut() = saved_unclaimed;
         self.body.statics.truncate(saved_statics_len);
+        let has_wave14a = extra.iter().any(|t| Self::is_wave14a_cost_token(t));
         let prev_alt = self.in_alternative_cost;
         self.in_alternative_cost = true;
-        let parsed = self.cost_pieces(&extra.join(" "));
+        let parsed = if has_wave14a {
+            self.parse_chunked_cost_tokens(extra.clone(), false, false, true)
+        } else {
+            self.cost_pieces(&extra.join(" "))
+        };
         self.in_alternative_cost = prev_alt;
         let Some((mana, parts)) = parsed else {
+            if self.unclaimed.borrow().is_some() {
+                return None;
+            }
             let head = extra[0].split('<').next().unwrap_or(&extra[0]);
             return self.deny(format!(
                 "`{head}` on a spell line, beside the mana the face carries"
@@ -691,9 +705,11 @@ impl Tx<'_> {
         let all_supported = parts.iter().all(|part| {
             part == "PayLifeX"
                 || part == "PayEnergyX"
+                || part == "Forage"
                 || part == "DiscardRandom"
                 || part == "DiscardHand"
                 || part == "DiscardLastDrawnThisTurn"
+                || part.starts_with("DealDamageToYou(")
                 || part.starts_with("PayLife(")
                 || part.starts_with("PayEnergy(")
                 || part.starts_with("Sacrifice(")
@@ -703,8 +719,10 @@ impl Tx<'_> {
                 || part.starts_with("ExilePermanent(")
                 || part.starts_with("ExileFromHand(")
                 || part.starts_with("ExileFromGraveyard(")
+                || part.starts_with("ExileFromGraveyardX(")
                 || part.starts_with("ExileTopOfLibrary(")
                 || part.starts_with("Discard(")
+                || part.starts_with("DiscardX(")
                 || part.starts_with("TapOther(")
                 || part.starts_with("TapX(")
                 || part.starts_with("TapN {")
@@ -976,7 +994,11 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn parse_activated_cost(&mut self, raw: &str, activation_zone: Option<&str>) -> Option<String> {
+    pub(super) fn parse_activated_cost(
+        &mut self,
+        raw: &str,
+        activation_zone: Option<&str>,
+    ) -> Option<String> {
         let in_graveyard = activation_zone == Some("Graveyard");
         let in_hand = activation_zone == Some("Hand");
         let prev_grave = std::mem::replace(&mut self.in_graveyard_activation, in_graveyard);
@@ -1002,26 +1024,116 @@ impl Tx<'_> {
             && tokens
                 .iter()
                 .any(|t| t == "Exert<1/NICKNAME>" || t.starts_with("Exert<1/NICKNAME/"));
-        if !in_graveyard && !in_hand && !has_nickname_exert {
+        let has_wave14a = tokens.iter().any(|t| Self::is_wave14a_cost_token(t));
+        if !in_graveyard && !in_hand && !has_nickname_exert && !has_wave14a {
             return self.cost_expr(raw);
         }
+        let (mana, parts) = self.parse_chunked_cost_tokens(tokens, in_graveyard, in_hand, false)?;
+        Some(crate::body::cost_literal(&mana, &parts))
+    }
+
+    fn is_wave14a_cost_token(token: &str) -> bool {
+        if token == "Forage" || token.starts_with("DamageYou<") {
+            return true;
+        }
+        matches!(
+            super::object_cost(token),
+            Some(("Discard" | "ExileFromGrave", body)) if body.split('/').next() == Some("X")
+        )
+    }
+
+    fn damage_you_cost_token(token: &str) -> Option<Result<String, String>> {
+        let raw_n = token.strip_prefix("DamageYou<")?.strip_suffix('>')?;
+        Some(match raw_n.trim().parse::<u16>() {
+            Ok(n) if n > 0 => Ok(format!("DealDamageToYou({n})")),
+            _ => Err(format!("cost `{token}`")),
+        })
+    }
+
+    fn wave14a_cost_part(&mut self, token: &str, for_mandatory_spell: bool) -> Wave14aCost {
+        if token == "Forage" {
+            return Wave14aCost::Matched("Forage".to_string());
+        }
+        if let Some(res) = Self::damage_you_cost_token(token) {
+            return match res {
+                Ok(part) => Wave14aCost::Matched(part),
+                Err(msg) => {
+                    self.deny::<()>(msg);
+                    Wave14aCost::Denied
+                }
+            };
+        }
+        let Some((kind, body)) = super::object_cost(token) else {
+            return Wave14aCost::Pass;
+        };
+        if !matches!(kind, "Discard" | "ExileFromGrave") {
+            return Wave14aCost::Pass;
+        }
+        let mut fields = body.splitn(3, '/');
+        if fields.next() != Some("X") {
+            return Wave14aCost::Pass;
+        }
+        let Some(spec) = fields.next() else {
+            self.deny::<()>(format!("cost `{token}`"));
+            return Wave14aCost::Denied;
+        };
+        if (self.in_alternative_cost && !for_mandatory_spell)
+            || !self.has_x
+            || self.trigger_mode.is_some()
+            || self.svars.get("X").map(String::as_str) != Some("Count$xPaid")
+            || self.oracle.to_ascii_lowercase().contains("x is ")
+            || matches!(spec, "CARDNAME" | "NICKNAME" | "Hand" | "Random")
+            || (kind == "Discard" && spec.contains("Random"))
+        {
+            self.deny::<()>(format!("cost `{token}`"));
+            return Wave14aCost::Denied;
+        }
+        let normalized = spec.replace(';', ",");
+        let Some(expr) = self.filter_expr(&normalized) else {
+            return Wave14aCost::Denied;
+        };
+        let name = self.body.filter_static("COST", &expr);
+        let variant = if kind == "Discard" {
+            "DiscardX"
+        } else {
+            "ExileFromGraveyardX"
+        };
+        Wave14aCost::Matched(format!("{variant}(&{name})"))
+    }
+
+    fn parse_chunked_cost_tokens(
+        &mut self,
+        tokens: Vec<String>,
+        in_graveyard: bool,
+        in_hand: bool,
+        for_mandatory_spell: bool,
+    ) -> Option<(String, Vec<String>)> {
         let mut mana = String::new();
         let mut parts = Vec::new();
         let mut chunk = Vec::new();
         for token in tokens {
-            let intercepted =
-                Self::self_zone_cost_part(&token, in_graveyard, in_hand).or_else(|| {
+            let intercepted = Self::self_zone_cost_part(&token, in_graveyard, in_hand)
+                .map(str::to_string)
+                .or_else(|| {
                     (!in_graveyard && !in_hand && Self::exert_self_cost_part(&token))
-                        .then_some("ExertSelf")
+                        .then(|| "ExertSelf".to_string())
                 });
-            if let Some(self_part) = intercepted {
+            let intercepted = match intercepted {
+                Some(part) => Some(part),
+                None => match self.wave14a_cost_part(&token, for_mandatory_spell) {
+                    Wave14aCost::Matched(part) => Some(part),
+                    Wave14aCost::Denied => return None,
+                    Wave14aCost::Pass => None,
+                },
+            };
+            if let Some(part) = intercepted {
                 if !chunk.is_empty() {
                     let (m, p) = self.cost_pieces(&chunk.join(" "))?;
                     mana.push_str(&m);
                     parts.extend(p);
                     chunk.clear();
                 }
-                parts.push(self_part.to_string());
+                parts.push(part);
             } else {
                 chunk.push(token);
             }
@@ -1031,7 +1143,7 @@ impl Tx<'_> {
             mana.push_str(&m);
             parts.extend(p);
         }
-        Some(crate::body::cost_literal(&mana, &parts))
+        Some((mana, parts))
     }
 
     fn activation_cost_reduction(
@@ -1916,7 +2028,13 @@ impl Tx<'_> {
             ));
         }
         let saved_unclaimed = self.unclaimed.borrow().clone();
-        let parsed = self.cost_pieces(cost);
+        let parsed = if cost == "Forage" {
+            Some((String::new(), vec!["Forage".to_string()]))
+        } else if let Some(dmg) = Self::damage_you_cost_token(cost) {
+            dmg.ok().map(|part| (String::new(), vec![part]))
+        } else {
+            self.cost_pieces(cost)
+        };
         let Some((mana, cost_parts)) = parsed else {
             *self.unclaimed.borrow_mut() = saved_unclaimed;
             return None;
@@ -1932,7 +2050,10 @@ impl Tx<'_> {
                     .and_then(|s| s.strip_suffix(')'))
                 {
                     Some(OptionalTriggerPrice::Life(format!("Amount::Fixed({n})")))
-                } else if asks_for_an_object(one) {
+                } else if asks_for_an_object(one)
+                    || one == "Forage"
+                    || one.starts_with("DealDamageToYou(")
+                {
                     Some(OptionalTriggerPrice::CostPart(one.clone()))
                 } else {
                     None

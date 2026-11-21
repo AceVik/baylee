@@ -297,6 +297,7 @@ pub(super) fn keyword_const(line: &str) -> Option<&'static str> {
         "Myriad" => "KeywordSet::MYRIAD",
         "Extort" => "KeywordSet::EXTORT",
         "Enlist" => "KeywordSet::ENLIST",
+        "Soulbond" => "KeywordSet::SOULBOND",
         _ => return None,
     })
 }

@@ -1,6 +1,6 @@
 //! Reading keywords, replacement effects and how a land enters.
 
-use super::{Bound, Params, Tx, keyword_const, keyword_enter_modifier, keyword_static};
+use super::{Bound, Chain, Params, Tx, keyword_const, keyword_enter_modifier, keyword_static};
 
 impl Tx<'_> {
     #[allow(clippy::too_many_lines)]
@@ -16,11 +16,19 @@ impl Tx<'_> {
             self.body.has_partner = true;
             return Some(());
         }
-        if line == "Start your engines!" {
+        if matches!(line, "Start your engines!" | "Start your engines") {
             self.body
                 .abilities
                 .push("AbilityDef::StartYourEngines".to_string());
             return Some(());
+        }
+        if let Some(stem) = match line.trim() {
+            "Living Weapon" | "Living weapon" => Some("b_0_0_phyrexian_germ"),
+            "For Mirrodin" | "For Mirrodin!" => Some("r_2_2_rebel"),
+            "Job select" => Some("c_1_1_hero"),
+            _ => None,
+        } {
+            return self.attach_token_etb(line.trim(), stem);
         }
         if line == "Convoke" {
             self.body.convoke = true;
@@ -288,6 +296,27 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Affinity:") {
             return self.affinity(rest);
         }
+        if let Some(rest) = line.strip_prefix("Modular:") {
+            return self.modular_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Renown:") {
+            return self.renown_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Bushido:") {
+            return self.bushido_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Soulshift:") {
+            return self.soulshift_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Reconfigure:") {
+            return self.reconfigure_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Class:") {
+            return self.class_keyword(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Overload:") {
+            return self.overload_keyword(rest);
+        }
         if let Some(bit) = keyword_const(line) {
             if bit == "KeywordSet::PROWESS" && self.body.keywords.iter().any(|k| k == bit) {
                 let expr = self.filter_expr("Card.nonCreature+YouCtrl")?;
@@ -307,10 +336,13 @@ impl Tx<'_> {
                 );
             } else if matches!(
                 bit,
-                "KeywordSet::MYRIAD" | "KeywordSet::EXTORT" | "KeywordSet::ENLIST"
+                "KeywordSet::MYRIAD"
+                    | "KeywordSet::EXTORT"
+                    | "KeywordSet::ENLIST"
+                    | "KeywordSet::SOULBOND"
             ) && self.body.keywords.iter().any(|k| k == bit)
             {
-                // CR 702.116b / CR 702.101b / CR 702.154c: duplicate instances
+                // CR 702.116b / CR 702.101b / CR 702.154c / CR 702.95d: duplicate instances
                 // register separately for `layers::keyword_instances`.
                 self.body.abilities.push(Self::static_expr(
                     "Filter::This",
@@ -2698,6 +2730,483 @@ impl Tx<'_> {
         ));
         None
     }
+
+    fn require_permanent_keyword(&mut self, kw: &str) -> Option<()> {
+        if self.type_line.is_empty() || self.is_spell_card_type() || self.is_land_card_type() {
+            return self.deny(format!("`{kw}` on a non-permanent card"));
+        }
+        Some(())
+    }
+
+    fn modular_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_permanent_keyword("Modular")?;
+        let Ok(n) = rest.trim().parse::<u32>() else {
+            return self.deny(format!("keyword `Modular:{rest}`"));
+        };
+        self.body
+            .enter_modifiers
+            .push(format!("EnterModifier::modular({n})"));
+        if self
+            .body
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::MODULAR")
+        {
+            self.body.abilities.push(Self::static_expr(
+                "Filter::This",
+                "Modifier::AddKeyword(KeywordSet::MODULAR)",
+            ));
+        } else {
+            self.body.keywords.push("KeywordSet::MODULAR".to_string());
+        }
+        Some(())
+    }
+
+    fn renown_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_permanent_keyword("Renown")?;
+        let Some(n) = rest.trim().parse::<u8>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("keyword `Renown:{rest}`"));
+        };
+        if !self.body.keywords.iter().any(|k| k == "KeywordSet::RENOWN") {
+            self.body.keywords.push("KeywordSet::RENOWN".to_string());
+        }
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::DealsCombatDamageToPlayer(&Filter::This), \
+             &[Effect::BecomeRenowned({n})], condition = Some(Condition::Not(&Condition::IsRenowned)))"
+        ));
+        Some(())
+    }
+
+    fn bushido_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_permanent_keyword("Bushido")?;
+        let Some(n) = rest.trim().parse::<u16>().ok().filter(|&n| n >= 1) else {
+            return self.deny(format!("keyword `Bushido:{rest}`"));
+        };
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::BlocksOrBecomesBlockedByOneOrMore(&Filter::CREATURE), \
+             &[Effect::PumpFilter {{ filter: &Filter::This, controlled_by: None, \
+             power: Amount::Fixed({n}), toughness: Amount::Fixed({n}), \
+             keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }}])"
+        ));
+        Some(())
+    }
+
+    fn soulshift_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_permanent_keyword("Soulshift")?;
+        let Ok(n) = rest.trim().parse::<u32>() else {
+            return self.deny(format!("keyword `Soulshift:{rest}`"));
+        };
+        let filter_expr = format!(
+            "Filter::And(&[Filter::HasSubtype(subtypes::creature::SPIRIT), Filter::CmcAtMost({n})])"
+        );
+        let filter_name = self.body.filter_static("TARGET", &filter_expr);
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::Dies(&Filter::This), &[Effect::MayDo {{ \
+             effects: &[Effect::GraveyardToHand {{ \
+             target: TargetSpec::CardInGraveyard(&{filter_name}, PlayerRel::You) }}] }}], \
+             targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(&{filter_name}, PlayerRel::You))))"
+        ));
+        Some(())
+    }
+
+    fn attach_token_etb(&mut self, kw: &str, stem: &str) -> Option<()> {
+        self.require_permanent_keyword(kw)?;
+        let Some(tokens) = self.tokens else {
+            return self.deny(format!(
+                "`{kw}` with no token scripts to read `{stem}` against"
+            ));
+        };
+        let Some(tok) = tokens.body(stem, self.cats) else {
+            return self.deny(format!("token script `{stem}` for `{kw}`"));
+        };
+        let token = format!("&generated_tokens::{}", tok.constant);
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::ETB, &[Effect::CreateTokenThenAttachSelf {{ token: {token} }}])"
+        ));
+        Some(())
+    }
+
+    fn reconfigure_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_permanent_keyword("Reconfigure")?;
+        if rest.trim().is_empty() {
+            return self.deny("an empty `Reconfigure` cost".to_string());
+        }
+        let mut parsed_costs = Vec::new();
+        for arm in rest.split(':') {
+            let trimmed = arm.trim();
+            if trimmed.is_empty() {
+                return self.deny(format!("keyword `Reconfigure:{rest}`"));
+            }
+            parsed_costs.push(self.parse_activated_cost(trimmed, None)?);
+        }
+        let remove_type = "static_ability!(Filter::This, Modifier::RemoveType(TypeSet::CREATURE), \
+             condition = Some(Condition::SourceMatches(&Filter::IsAttached)))";
+        if !self.body.abilities.iter().any(|a| a == remove_type) {
+            self.body.abilities.push(remove_type.to_string());
+        }
+        for cost in parsed_costs {
+            self.body.abilities.push(format!(
+                "activated!({cost}, &[Effect::ReconfigureAttach], \
+                 target = Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL)), \
+                 timing = ActivationTiming::SorcerySpeed)"
+            ));
+            self.body.abilities.push(format!(
+                "activated!({cost}, &[Effect::DetachSource], \
+                 timing = ActivationTiming::SorcerySpeed, \
+                 condition = Some(Condition::SourceMatches(&Filter::IsAttached)))"
+            ));
+        }
+        Some(())
+    }
+
+    fn class_keyword(&mut self, rest: &str) -> Option<()> {
+        self.require_permanent_keyword("Class")?;
+        if !self.type_line.split_whitespace().any(|w| w == "Class") {
+            return self.deny("`Class` keyword without `Class` subtype".to_string());
+        }
+        let mut parts = rest.splitn(3, ':');
+        let (Some(lvl_raw), Some(cost_raw), Some(actions_raw)) =
+            (parts.next(), parts.next(), parts.next())
+        else {
+            return self.deny(format!("keyword `Class:{rest}`"));
+        };
+        let Ok(level) = lvl_raw.trim().parse::<u8>() else {
+            return self.deny(format!("Class level `{lvl_raw}`"));
+        };
+        if level != self.class_next_level || level < 2 {
+            return self.deny(format!("non-sequential Class level `{level}`"));
+        }
+        let cost_raw = cost_raw.trim();
+        if cost_raw.is_empty() {
+            return self.deny(format!("Class level {level} with an empty cost"));
+        }
+        let cost = self.parse_activated_cost(cost_raw, None)?;
+        self.class_next_level = level.saturating_add(1);
+        self.body.abilities.push(format!(
+            "activated!({cost}, &[Effect::AddCounter {{ kind: CounterKind::Level, \
+             amount: Amount::Fixed(1) }}], timing = ActivationTiming::SorcerySpeed, \
+             condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, {})))",
+            level - 2
+        ));
+        let mut any_action = false;
+        for clause in actions_raw
+            .split('|')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            any_action = true;
+            self.class_action(level, clause)?;
+        }
+        if !any_action {
+            return self.deny(format!("Class level {level} with no actions"));
+        }
+        Some(())
+    }
+
+    fn class_action(&mut self, level: u8, clause: &str) -> Option<()> {
+        let Some((key, val)) = clause.split_once('$') else {
+            return self.deny(format!("Class action `{clause}`"));
+        };
+        let key = key.trim();
+        let val = val.trim();
+        if val.is_empty() {
+            return self.deny(format!("Class action `{clause}` naming no SVar"));
+        }
+        let names: Vec<&str> = val
+            .split('&')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
+        if names.is_empty() {
+            return self.deny(format!("Class action `{clause}` naming no SVar"));
+        }
+        let cond = format!(
+            "Condition::CountersOnSelf(CounterKind::Level, {})",
+            level - 1
+        );
+        match key {
+            "AddStaticAbility" => {
+                for name in names {
+                    self.class_static_action(name, &cond)?;
+                }
+                Some(())
+            }
+            "AddTrigger" => {
+                for name in names {
+                    self.class_trigger_action(level, name, &cond)?;
+                }
+                Some(())
+            }
+            "AddReplacementEffect" => {
+                for name in names {
+                    self.class_replacement_action(name, &cond)?;
+                }
+                Some(())
+            }
+            _ => self.deny(format!("Class action `{clause}`")),
+        }
+    }
+
+    fn class_static_action(&mut self, name: &str, cond: &str) -> Option<()> {
+        let Some(svar) = self.svars.get(name).cloned() else {
+            return self.deny(format!("`AddStaticAbility$ {name}` naming no `SVar`"));
+        };
+        let before_ab = self.body.abilities.len();
+        let before_en = self.body.enter_modifiers.len();
+        let before_kw = self.body.keywords.len();
+        let prev_x = std::mem::replace(&mut self.has_x, false);
+        let prev_spell = std::mem::replace(&mut self.on_a_spell, false);
+        let ok = self.static_ability(&svar);
+        self.has_x = prev_x;
+        self.on_a_spell = prev_spell;
+        ok?;
+        if self.body.enter_modifiers.len() != before_en
+            || self.body.keywords.len() != before_kw
+            || self.body.abilities.len() == before_ab
+        {
+            return self.deny(format!("Class `AddStaticAbility$ {name}` side effect"));
+        }
+        for ability in &mut self.body.abilities[before_ab..] {
+            *ability = append_ability_condition(ability, cond)?;
+        }
+        Some(())
+    }
+
+    fn class_replacement_action(&mut self, name: &str, cond: &str) -> Option<()> {
+        let Some(svar) = self.svars.get(name).cloned() else {
+            return self.deny(format!("`AddReplacementEffect$ {name}` naming no `SVar`"));
+        };
+        let before_ab = self.body.abilities.len();
+        let before_en = self.body.enter_modifiers.len();
+        let before_kw = self.body.keywords.len();
+        let prev_x = std::mem::replace(&mut self.has_x, false);
+        let prev_spell = std::mem::replace(&mut self.on_a_spell, false);
+        let ok = self.replacement(&svar);
+        self.has_x = prev_x;
+        self.on_a_spell = prev_spell;
+        ok?;
+        if self.body.enter_modifiers.len() != before_en
+            || self.body.keywords.len() != before_kw
+            || self.body.abilities.len() == before_ab
+        {
+            return self.deny(format!("Class `AddReplacementEffect$ {name}` side effect"));
+        }
+        for ability in &mut self.body.abilities[before_ab..] {
+            *ability = append_ability_condition(ability, cond)?;
+        }
+        Some(())
+    }
+
+    fn class_trigger_action(&mut self, level: u8, name: &str, cond: &str) -> Option<()> {
+        let Some(svar) = self.svars.get(name).cloned() else {
+            return self.deny(format!("Class `AddTrigger$ {name}` naming no `SVar`"));
+        };
+        if let Some((mode, p)) = Params::parse(&svar)
+            && mode == "ClassLevelGained"
+        {
+            return self.class_level_gained_trigger(level, p);
+        }
+        let modifier = self.build_grant_triggered_modifier(name, "AddTrigger$")?;
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, {modifier}, condition = Some({cond}))"
+        ));
+        Some(())
+    }
+
+    fn class_level_gained_trigger(&mut self, level: u8, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => {
+                return self.deny(format!("`ClassLevelGained` with `Secondary$ {other}`"));
+            }
+        }
+        if p.take("ValidCard").as_deref() != Some("Card.Self") {
+            return self.deny("`ClassLevelGained` for a non-self card".to_string());
+        }
+        if !matches!(
+            p.take("TriggerZones").as_deref(),
+            None | Some("Battlefield")
+        ) {
+            return self.deny("`ClassLevelGained` outside the battlefield".to_string());
+        }
+        let expected_level = p
+            .take("ClassLevel")
+            .and_then(|s| s.trim().parse::<u8>().ok());
+        if expected_level != Some(level) {
+            return self.deny(format!(
+                "`ClassLevelGained` level mismatch for level {level}"
+            ));
+        }
+        let Some(execute) = p.take("Execute") else {
+            return self.deny("`ClassLevelGained` trigger with no `Execute$`".to_string());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ClassLevelGained.{key}`"));
+        }
+        let Some(exec_body) = self.svars.get(&execute).cloned() else {
+            return self.deny(format!("`Execute$ {execute}` names no `SVar`"));
+        };
+        if self.optional_trigger_price(&exec_body).is_some() {
+            return self.deny("`ClassLevelGained` with `Cost$` on its executed line".to_string());
+        }
+        let prev_x = std::mem::replace(&mut self.has_x, false);
+        let prev_spell = std::mem::replace(&mut self.on_a_spell, false);
+        let prev_self = std::mem::replace(&mut self.trigger_is_self, true);
+        let mut chain = Chain::default();
+        let ok = self.chain(&exec_body, &mut chain);
+        self.has_x = prev_x;
+        self.on_a_spell = prev_spell;
+        self.trigger_is_self = prev_self;
+        ok?;
+        if chain.effects.is_empty() || chain.target_is_x || chain.second_target.is_some() {
+            return self.deny("unsupported `ClassLevelGained` execution chain".to_string());
+        }
+        let targets = chain.target.as_deref().map_or_default(|t| {
+            if let Some(max) = chain.target_up_to {
+                if max == 1 {
+                    format!(", targets = Some(TargetReq::up_to_one({t}))")
+                } else {
+                    format!(", targets = Some(TargetReq::up_to({t}, {max}))")
+                }
+            } else if let Some(n) = chain.target_exact {
+                format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+            } else {
+                format!(", targets = Some(TargetReq::one({t}))")
+            }
+        });
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::CountersReach {{ kind: CounterKind::Level, n: {} }}, &[{}]{targets})",
+            level - 1,
+            chain.effects.join(", ")
+        ));
+        Some(())
+    }
+
+    fn overload_keyword(&mut self, rest: &str) -> Option<()> {
+        if !self.is_spell_card_type() {
+            return self.deny("`Overload` on a non-instant/non-sorcery card".to_string());
+        }
+        if self.overload_cost.is_some() {
+            return self.deny("a second `Overload` cost on one card".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("Overload", rest, true, true)?;
+        if mana.is_empty() {
+            return self.deny(format!("empty `Overload` mana cost `{rest}`"));
+        }
+        self.overload_cost = Some(mana);
+        self.body.notes.push("overload".to_string());
+        Some(())
+    }
+
+    pub(super) fn apply_overload(&mut self) -> Option<()> {
+        let Some(overload_mana) = self.overload_cost.take() else {
+            return Some(());
+        };
+        if !self.has_x_mana_cost && overload_mana.contains("{X}") {
+            return self.deny("`Overload` with `{X}` on a non-X spell".to_string());
+        }
+        if self.body.abilities.len() != 1
+            || !self.body.alternative_costs.is_empty()
+            || !self.body.additional_costs.is_empty()
+            || !self.body.mandatory_additional_costs.is_empty()
+            || !self.body.flashback_parts.is_empty()
+            || !self.body.morph_parts.is_empty()
+        {
+            return self
+                .deny("`Overload` beside other spell costs or multiple abilities".to_string());
+        }
+        let Some((effect_raw, filter_ref)) = parse_single_target_spell(&self.body.abilities[0])
+        else {
+            return self.deny("`Overload` on an unsupported spell shape".to_string());
+        };
+        let Some(overloaded_effect) = map_overload_effect(effect_raw, filter_ref) else {
+            return self.deny("`Overload` on an unsupported spell effect".to_string());
+        };
+        self.body.abilities[0] = format!(
+            "AbilityDef::ModalSpell {{ choose: ModeCount::ONE, modes: &[\
+             mode!(&[{effect_raw}], targets = Some(TargetReq::one(TargetSpec::Object({filter_ref})))), \
+             mode!(&[{overloaded_effect}], cost_override = Some(mana!(\"{overload_mana}\")))] }}"
+        );
+        Some(())
+    }
+}
+
+fn append_ability_condition(expr: &str, cond: &str) -> Option<String> {
+    if !(expr.starts_with("static_ability!(")
+        || expr.starts_with("activated!(")
+        || expr.starts_with("mana_ability!("))
+    {
+        return None;
+    }
+    let without_close = expr.strip_suffix(')')?;
+    if let Some(idx) = without_close.rfind(", condition = Some(")
+        && let Some(existing) = without_close[idx + ", condition = Some(".len()..].strip_suffix(')')
+    {
+        Some(format!(
+            "{}, condition = Some(Condition::All(&[{existing}, {cond}])))",
+            &without_close[..idx]
+        ))
+    } else {
+        Some(format!("{without_close}, condition = Some({cond}))"))
+    }
+}
+
+fn parse_single_target_spell(expr: &str) -> Option<(&str, &str)> {
+    let inner = expr.strip_prefix("spell!(&[")?.strip_suffix(')')?;
+    let (effect_raw, tail) =
+        inner.split_once("], targets = Some(TargetReq::one(TargetSpec::Object(")?;
+    let filter_ref = tail.strip_suffix(")))")?;
+    if filter_ref.contains(", ") || !is_single_rust_expr(effect_raw) {
+        return None;
+    }
+    Some((effect_raw, filter_ref))
+}
+
+fn is_single_rust_expr(slice_body: &str) -> bool {
+    let mut depth = 0usize;
+    for b in slice_body.bytes() {
+        match b {
+            b'(' | b'{' | b'[' => depth += 1,
+            b')' | b'}' | b']' => depth = depth.saturating_sub(1),
+            b',' if depth == 0 => return false,
+            _ => {}
+        }
+    }
+    depth == 0 && !slice_body.is_empty()
+}
+
+fn map_overload_effect(effect_raw: &str, filter_ref: &str) -> Option<String> {
+    if effect_raw == "Effect::TapTarget" {
+        return Some(format!("Effect::TapAll {{ filter: {filter_ref} }}"));
+    }
+    if effect_raw == format!("Effect::destroy(TargetSpec::Object({filter_ref}))") {
+        return Some(format!("Effect::destroy_all({filter_ref})"));
+    }
+    if effect_raw == format!("Effect::destroy_no_regen(TargetSpec::Object({filter_ref}))") {
+        return Some(format!("Effect::destroy_all_no_regen({filter_ref})"));
+    }
+    if effect_raw == format!("Effect::bounce(TargetSpec::Object({filter_ref}))") {
+        return Some(format!(
+            "Effect::ReturnAllToHand {{ filter: {filter_ref}, opponents_only: false }}"
+        ));
+    }
+    if let Some(amt) = effect_raw
+        .strip_prefix("Effect::DealDamage { amount: ")
+        .and_then(|s| s.strip_suffix(&format!(", target: TargetSpec::Object({filter_ref}) }}")))
+    {
+        return Some(format!(
+            "Effect::DealDamageEach {{ amount: {amt}, filter: {filter_ref} }}"
+        ));
+    }
+    if let Some(rest) = effect_raw.strip_prefix("Effect::PumpTarget { ")
+        && rest.ends_with(" }")
+    {
+        return Some(format!(
+            "Effect::PumpFilter {{ filter: {filter_ref}, controlled_by: None, {rest}"
+        ));
+    }
+    None
 }
 
 fn is_paid_alternative_cost_part(part: &str) -> bool {

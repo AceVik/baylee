@@ -234,6 +234,7 @@ fn single_instance_trigger_keyword(kw: &str) -> Option<&'static str> {
         "Myriad" => Some("KeywordSet::MYRIAD"),
         "Extort" => Some("KeywordSet::EXTORT"),
         "Enlist" => Some("KeywordSet::ENLIST"),
+        "Soulbond" => Some("KeywordSet::SOULBOND"),
         _ => None,
     }
 }
@@ -470,6 +471,15 @@ const LEGACY_UNSUFFIXED_ABILITY_TOKENS: &[(&str, u32)] = &[
         "POWERSTONE",
         fnv1a_32_bare(
             "mana_ability!(&[Effect::mana(ManaColor::Colorless, 1).restricted_for(&Filter::ARTIFACT, SpendRider::None, ManaUse::NonSpellPaymentsOrMatchingSpells)])",
+        ),
+    ),
+    (
+        "MAP",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{1}\", TapSelf, SacrificeSelf), &[Effect::Explore { \
+             target: TargetSpec::Object(&Filter::YOUR_CREATURE) }], \
+             timing = ActivationTiming::SorcerySpeed, \
+             target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE)))",
         ),
     ),
     // Previously assigned generated ability-bearing tokens in `generated_tokens.rs`.
@@ -1012,7 +1022,10 @@ fn type_line(line: &str, cats: &SubtypeCatalogs) -> Option<TypeLine> {
         (Vec::new(), Vec::new(), Vec::new(), Vec::new());
     let mut qualifiers = Vec::new();
     let mut is_creature = false;
-    for word in line.split_whitespace() {
+    let words: Vec<&str> = line.split_whitespace().collect();
+    let mut i = 0;
+    while i < words.len() {
+        let word = words[i];
         if let Some((_, konst)) = TYPES.iter().find(|(w, _)| *w == word) {
             if *konst == "TypeSet::CREATURE" {
                 is_creature = true;
@@ -1020,9 +1033,11 @@ fn type_line(line: &str, cats: &SubtypeCatalogs) -> Option<TypeLine> {
                 qualifiers.push(word.to_ascii_uppercase());
             }
             types.push(*konst);
+            i += 1;
         } else if let Some((_, konst)) = SUPERTYPES.iter().find(|(w, _)| *w == word) {
             qualifiers.push(word.to_ascii_uppercase());
             supers.push(*konst);
+            i += 1;
         } else if TypeSet::from_word(word).is_some() || SupertypeSet::from_word(word).is_some() {
             // A card type this reader does not write. Refused by name rather
             // than left to the subtype lookup below, which would answer
@@ -1030,15 +1045,34 @@ fn type_line(line: &str, cats: &SubtypeCatalogs) -> Option<TypeLine> {
             // the token failed.
             return None;
         } else {
+            let (raw_sub, consumed) = if i + 1 < words.len() {
+                let next = words[i + 1];
+                let next_is_type = TYPES.iter().any(|(w, _)| *w == next)
+                    || SUPERTYPES.iter().any(|(w, _)| *w == next)
+                    || TypeSet::from_word(next).is_some()
+                    || SupertypeSet::from_word(next).is_some();
+                if next_is_type {
+                    (cats.const_path(word)?, 1)
+                } else {
+                    let pair = format!("{word} {next}");
+                    if let Some(path) = cats.const_path(&pair) {
+                        (path, 2)
+                    } else {
+                        (cats.const_path(word)?, 1)
+                    }
+                }
+            } else {
+                (cats.const_path(word)?, 1)
+            };
             // `subtypes::creature::SOLDIER` — the generated file imports the
             // modules, so the literal names the shorter path.
-            let path = cats.const_path(word)?;
-            let path = path.strip_prefix("subtypes::")?.to_string();
+            let path = raw_sub.strip_prefix("subtypes::")?.to_string();
             let module = path.split("::").next()?.to_string();
             if !modules.contains(&module) {
                 modules.push(module);
             }
             subtypes.push(path);
+            i += consumed;
         }
     }
     if types.is_empty() {
@@ -2217,5 +2251,38 @@ mod tests {
         ] {
             assert!(read(unsupported, &c).is_none(), "{unsupported}");
         }
+    }
+
+    #[test]
+    fn wave14a_soulbond_two_word_subtype_and_map_legacy_hash() {
+        let mut c = cats();
+        c.creature.push("Time Lord".into());
+        c.normalize();
+        let sb = read(
+            "Name:Scout Token\nColors:white\nTypes:Creature Time Lord\nPT:2/2\nK:Soulbond",
+            &c,
+        )
+        .expect("Soulbond + Time Lord token");
+        assert!(
+            sb.literal.contains("KeywordSet::SOULBOND"),
+            "{}",
+            sb.literal
+        );
+        assert!(sb.literal.contains("creature::TIME_LORD"), "{}", sb.literal);
+        assert!(
+            read(
+                "Name:Scout Token\nColors:white\nTypes:Creature Time Lord\nPT:2/2\nK:Soulbond\nK:Soulbond",
+                &c
+            )
+            .is_none(),
+            "duplicate Soulbond on token must be refused"
+        );
+        let map_hash = fnv1a_32_bare(
+            "activated!(cost!(\"{1}\", TapSelf, SacrificeSelf), &[Effect::Explore { \
+             target: TargetSpec::Object(&Filter::YOUR_CREATURE) }], \
+             timing = ActivationTiming::SorcerySpeed, \
+             target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE)))",
+        );
+        assert!(is_legacy_unsuffixed_ability_token("MAP", map_hash));
     }
 }

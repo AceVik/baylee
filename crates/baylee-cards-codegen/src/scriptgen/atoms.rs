@@ -200,57 +200,68 @@ pub(super) fn keyword_atom(atom: &str) -> Option<String> {
             has.to_string()
         });
     }
-    let printed = [
-        "Flying",
-        "First Strike",
-        "Double Strike",
-        "Deathtouch",
-        "Haste",
-        "Hexproof",
-        "Indestructible",
-        "Lifelink",
-        "Menace",
-        "Reach",
-        "Trample",
-        "Vigilance",
-        "Defender",
-        "Flash",
-        "Shroud",
-        "Shadow",
-        "Fear",
-        "Intimidate",
-        "Infect",
-        "Flanking",
-        "Wither",
-        "Horsemanship",
-        "Skulk",
-        "Enlist",
-        "Persist",
-        "Undying",
-        "Phasing",
-        "Rebound",
-        "Prowess",
-        "Devoid",
-        "Changeling",
-        "Banding",
-        "Storm",
-        "Intimidate",
-        "Battle Cry",
-        "Dethrone",
-        "Melee",
-        "Mentor",
-        "Training",
-        "Myriad",
-        "Extort",
-        "Ascend",
-        "Daybound",
-        "Nightbound",
-        "Split Second",
-        "Read Ahead",
-    ]
-    .into_iter()
-    .find(|p| p.replace(' ', "") == name)?;
-    let has = format!("Filter::HasKeyword({})", keyword_const(printed)?);
+    let direct_kw = match name {
+        "Modular" => Some("KeywordSet::MODULAR"),
+        "Renown" => Some("KeywordSet::RENOWN"),
+        _ => None,
+    };
+    let kw_bit = if let Some(bit) = direct_kw {
+        bit
+    } else {
+        let printed = [
+            "Flying",
+            "First Strike",
+            "Double Strike",
+            "Deathtouch",
+            "Haste",
+            "Hexproof",
+            "Indestructible",
+            "Lifelink",
+            "Menace",
+            "Reach",
+            "Trample",
+            "Vigilance",
+            "Defender",
+            "Flash",
+            "Shroud",
+            "Shadow",
+            "Fear",
+            "Intimidate",
+            "Infect",
+            "Flanking",
+            "Wither",
+            "Horsemanship",
+            "Skulk",
+            "Enlist",
+            "Persist",
+            "Undying",
+            "Phasing",
+            "Rebound",
+            "Prowess",
+            "Devoid",
+            "Changeling",
+            "Banding",
+            "Storm",
+            "Intimidate",
+            "Battle Cry",
+            "Dethrone",
+            "Melee",
+            "Mentor",
+            "Training",
+            "Myriad",
+            "Extort",
+            "Soulbond",
+            "Ascend",
+            "Daybound",
+            "Nightbound",
+            "Split Second",
+            "Read Ahead",
+        ]
+        .into_iter()
+        .find(|p| p.replace(' ', "") == name)?;
+        keyword_const(printed)?
+    };
+    let has = format!("Filter::HasKeyword({kw_bit})");
     Some(if negated {
         format!("Filter::Not(&{has})")
     } else {
@@ -424,6 +435,19 @@ fn collect_token_stems(script: &CardScript, out: &mut Vec<String>) {
                     }
                 }
             }
+        }
+    }
+    for line in &script.keywords {
+        let stem = match line.trim() {
+            "Living Weapon" | "Living weapon" => Some("b_0_0_phyrexian_germ"),
+            "For Mirrodin" | "For Mirrodin!" => Some("r_2_2_rebel"),
+            "Job select" => Some("c_1_1_hero"),
+            _ => None,
+        };
+        if let Some(stem) = stem
+            && !out.iter().any(|existing| existing == stem)
+        {
+            out.push(stem.to_string());
         }
     }
     if let Some(back) = script.alternate.as_deref() {

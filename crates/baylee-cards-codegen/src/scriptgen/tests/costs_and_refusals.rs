@@ -2199,7 +2199,7 @@ fn prevention_per_source_and_chosen_color_or_source_shields() {
          SVar:DBReplace:DB$ ReplaceDamage | Amount$ 1",
         "Name:Bad\nTypes:Enchantment\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
-         ValidTarget$ Creature.YouCtrl | IsCombat$ False",
+         ValidSource$ Creature | IsCombat$ False",
         "Name:Bad\nTypes:Enchantment\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
          ValidTarget$ You | IsCombat$ True",
@@ -3919,4 +3919,350 @@ fn wave13a_pruned_statics_non_mana_counter_x_and_atoms() {
         filter("Creature.withEnlist"),
         "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::ENLIST)])"
     );
+}
+
+#[test]
+fn wave14a_modular_soulbond_renown_and_refusals() {
+    let mod2 =
+        read("Name:ModBot\nManaCost:2\nTypes:Artifact Creature Construct\nPT:0/0\nK:Modular:2");
+    assert_eq!(mod2.keywords, vec!["KeywordSet::MODULAR"]);
+    assert_eq!(mod2.enter_modifiers, vec!["EnterModifier::modular(2)"]);
+
+    let mod_dup = read(
+        "Name:TwinMod\nManaCost:4\nTypes:Artifact Creature Construct\nPT:0/0\nK:Modular:1\nK:Modular:3",
+    );
+    assert_eq!(mod_dup.keywords, vec!["KeywordSet::MODULAR"]);
+    assert_eq!(
+        mod_dup.enter_modifiers,
+        vec!["EnterModifier::modular(1)", "EnterModifier::modular(3)"]
+    );
+    assert!(mod_dup.abilities.contains(
+        &"static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::MODULAR))".to_string()
+    ));
+
+    let sb_dup =
+        read("Name:BondPair\nManaCost:2 W\nTypes:Creature\nPT:2/2\nK:Soulbond\nK:Soulbond");
+    assert_eq!(sb_dup.keywords, vec!["KeywordSet::SOULBOND"]);
+    assert!(sb_dup.abilities.contains(
+        &"static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::SOULBOND))".to_string()
+    ));
+
+    let ren_dup = read("Name:Champ\nManaCost:1 W\nTypes:Creature\nPT:2/1\nK:Renown:1\nK:Renown:3");
+    assert_eq!(ren_dup.keywords, vec!["KeywordSet::RENOWN"]);
+    assert_eq!(
+        ren_dup.abilities,
+        vec![
+            "triggered!(Trigger::DealsCombatDamageToPlayer(&Filter::This), &[Effect::BecomeRenowned(1)], condition = Some(Condition::Not(&Condition::IsRenowned)))",
+            "triggered!(Trigger::DealsCombatDamageToPlayer(&Filter::This), &[Effect::BecomeRenowned(3)], condition = Some(Condition::Not(&Condition::IsRenowned)))",
+        ]
+    );
+
+    assert_eq!(
+        filter("Creature.withModular"),
+        "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::MODULAR)])"
+    );
+    assert_eq!(
+        filter("Creature.withSoulbond"),
+        "Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::SOULBOND)])"
+    );
+    assert_eq!(
+        filter("Creature.withoutRenown"),
+        "Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::HasKeyword(KeywordSet::RENOWN))])"
+    );
+
+    for bad in [
+        "Name:ModSun\nManaCost:3\nTypes:Artifact Creature\nPT:0/0\nK:Modular:Sunburst",
+        "Name:ModBare\nManaCost:1\nTypes:Artifact Creature\nPT:0/0\nK:Modular",
+        "Name:ModSpell\nManaCost:1\nTypes:Instant\nK:Modular:1\nA:SP$ Draw | NumCards$ 1",
+        "Name:RenZero\nManaCost:W\nTypes:Creature\nPT:1/1\nK:Renown:0",
+        "Name:RenBare\nManaCost:W\nTypes:Creature\nPT:1/1\nK:Renown",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave14a_forage_damage_you_and_x_object_costs() {
+    let ab = read(
+        "Name:Forager\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         A:AB$ GainLife | Cost$ 1 Forage | LifeAmount$ 2\n\
+         A:AB$ Draw | Cost$ T DamageYou<3> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ Discard<X/Creature/creature cards> | NumCards$ X\n\
+         A:AB$ GainLife | Cost$ ExileFromGrave<X/Card/cards> | LifeAmount$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(ab.abilities[0].contains("cost!(\"{1}\", Forage)"));
+    assert!(ab.abilities[1].contains("cost!(TapSelf, DealDamageToYou(3))"));
+    assert!(ab.abilities[2].contains("cost!(DiscardX(&Filter::CREATURE))"));
+    assert!(ab.abilities[3].contains("cost!(ExileFromGraveyardX(&Filter::Any))"));
+
+    let sp_forage = read(
+        "Name:BiteForage\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Draw | Cost$ 1 B Forage | NumCards$ 2",
+    );
+    assert_eq!(
+        sp_forage.mandatory_additional_costs,
+        vec!["CostPart::Forage"]
+    );
+
+    let sp_dmg = read(
+        "Name:PainDraw\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ Draw | Cost$ B DamageYou<2> | NumCards$ 2",
+    );
+    assert_eq!(
+        sp_dmg.mandatory_additional_costs,
+        vec!["CostPart::DealDamageToYou(2)"]
+    );
+
+    let sp_x = read(
+        "Name:DreamsX\nManaCost:G G\nTypes:Sorcery\n\
+         A:SP$ Draw | Cost$ G G Discard<X/Card/cards> ExileFromGrave<X/Creature/creatures> | NumCards$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert_eq!(
+        sp_x.mandatory_additional_costs,
+        vec![
+            "CostPart::DiscardX(&Filter::Any)",
+            "CostPart::ExileFromGraveyardX(&Filter::CREATURE)",
+        ]
+    );
+
+    let trig_forage = read(
+        "Name:TrigForage\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | OptionalDecider$ You | Execute$ ExF\n\
+         SVar:ExF:AB$ Draw | Cost$ Forage | NumCards$ 1",
+    );
+    assert!(
+        trig_forage.abilities[0]
+            .contains("PlayerMayPayCostThen { player: PlayerRel::You, cost: &CostPart::Forage")
+    );
+
+    let trig_dmg = read(
+        "Name:TrigPain\nManaCost:1 R\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | OptionalDecider$ You | Execute$ ExP\n\
+         SVar:ExP:AB$ Draw | Cost$ DamageYou<2> | NumCards$ 1",
+    );
+    assert!(trig_dmg.abilities[0].contains(
+        "PlayerMayPayCostThen { player: PlayerRel::You, cost: &CostPart::DealDamageToYou(2)"
+    ));
+
+    for bad in [
+        "Name:DmgZero\nManaCost:R\nTypes:Artifact\nA:AB$ Draw | Cost$ DamageYou<0> | NumCards$ 1",
+        "Name:RandX\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Draw | Cost$ 1 R Discard<X/Random> | NumCards$ X\nSVar:X:Count$xPaid",
+        "Name:NoXSVar\nManaCost:1 B\nTypes:Sorcery\nA:SP$ Draw | Cost$ 1 B Discard<X/Card> | NumCards$ 1",
+        "Name:OracleXIs\nManaCost:1 B\nTypes:Artifact\nOracle:Discard X cards, where X is twice something.\n\
+         A:AB$ Draw | Cost$ Discard<X/Card> | NumCards$ X\nSVar:X:Count$xPaid",
+        "Name:FbDiscardX\nManaCost:1 R\nTypes:Sorcery\nK:Flashback:1 R Discard<X/Card>\n\
+         A:SP$ Draw | NumCards$ X\nSVar:X:Count$xPaid",
+        "Name:EscExileX\nManaCost:1 B\nTypes:Creature\nPT:2/2\nK:Escape:2 B ExileFromGrave<X/Card>\nSVar:X:Count$xPaid",
+        "Name:TrigDiscX\nManaCost:1 B\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | OptionalDecider$ You | Execute$ Ex\n\
+         SVar:Ex:DB$ Draw | Cost$ Discard<X/Card> | NumCards$ 1\nSVar:X:Count$xPaid",
+        "Name:KickForage\nManaCost:1 G\nTypes:Sorcery\nK:Kicker:Forage\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+fn wave14a_cats() -> SubtypeCatalogs {
+    let mut c = SubtypeCatalogs {
+        creature: vec![
+            "Germ".into(),
+            "Hero".into(),
+            "Phyrexian".into(),
+            "Rebel".into(),
+            "Spirit".into(),
+        ],
+        artifact: vec!["Equipment".into()],
+        enchantment: vec!["Class".into()],
+        ..SubtypeCatalogs::default()
+    };
+    c.normalize();
+    c
+}
+
+#[test]
+fn wave14a_engines_bushido_soulshift_reconfigure_and_attach_tokens() {
+    let eng = read("Name:Racer\nManaCost:2 R\nTypes:Creature\nPT:3/2\nK:Start your engines");
+    assert_eq!(eng.abilities, vec!["AbilityDef::StartYourEngines"]);
+
+    let bush = read("Name:Samurai\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Bushido:2\nK:Bushido:1");
+    assert_eq!(
+        bush.abilities,
+        vec![
+            "triggered!(Trigger::BlocksOrBecomesBlockedByOneOrMore(&Filter::CREATURE), &[Effect::PumpFilter { filter: &Filter::This, controlled_by: None, power: Amount::Fixed(2), toughness: Amount::Fixed(2), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])",
+            "triggered!(Trigger::BlocksOrBecomesBlockedByOneOrMore(&Filter::CREATURE), &[Effect::PumpFilter { filter: &Filter::This, controlled_by: None, power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])",
+        ]
+    );
+
+    let full_cats = wave14a_cats();
+    let ss = transcode(
+        &parse("Name:SpiritGuide\nManaCost:3 G\nTypes:Creature Spirit\nPT:2/2\nK:Soulshift:3"),
+        &full_cats,
+        None,
+    )
+    .expect("soulshift");
+    assert!(
+        ss.abilities[0].contains("Effect::GraveyardToHand { target: TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You) }")
+            && ss.statics.contains("Filter::HasSubtype(subtypes::creature::SPIRIT)")
+            && ss.statics.contains("Filter::CmcAtMost(3)"),
+        "{:?}\n{}",
+        ss.abilities,
+        ss.statics
+    );
+
+    let reconf = read(
+        "Name:GearBot\nManaCost:2\nTypes:Artifact Creature Equipment\nPT:2/1\nK:Reconfigure:2:PayEnergy<3>",
+    );
+    assert_eq!(
+        reconf.abilities,
+        vec![
+            "static_ability!(Filter::This, Modifier::RemoveType(TypeSet::CREATURE), condition = Some(Condition::SourceMatches(&Filter::IsAttached)))",
+            "activated!(cost!(\"{2}\"), &[Effect::ReconfigureAttach], target = Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL)), timing = ActivationTiming::SorcerySpeed)",
+            "activated!(cost!(\"{2}\"), &[Effect::DetachSource], timing = ActivationTiming::SorcerySpeed, condition = Some(Condition::SourceMatches(&Filter::IsAttached)))",
+            "activated!(cost!(PayEnergy(3)), &[Effect::ReconfigureAttach], target = Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL)), timing = ActivationTiming::SorcerySpeed)",
+            "activated!(cost!(PayEnergy(3)), &[Effect::DetachSource], timing = ActivationTiming::SorcerySpeed, condition = Some(Condition::SourceMatches(&Filter::IsAttached)))",
+        ]
+    );
+
+    let attach_tokens = TokenLookup::held(&[
+        (
+            "b_0_0_phyrexian_germ",
+            "Name:Phyrexian Germ Token\nColors:black\nTypes:Creature Phyrexian Germ\nPT:0/0",
+        ),
+        (
+            "r_2_2_rebel",
+            "Name:Rebel\nColors:red\nTypes:Creature Rebel\nPT:2/2",
+        ),
+        ("c_1_1_hero", "Name:Hero\nTypes:Creature Hero\nPT:1/1"),
+    ]);
+    for (kw, stem, want_tok) in [
+        (
+            "Living Weapon",
+            "b_0_0_phyrexian_germ",
+            "&generated_tokens::PHYREXIAN_GERM_0_0_BLACK",
+        ),
+        (
+            "For Mirrodin",
+            "r_2_2_rebel",
+            "&generated_tokens::REBEL_2_2_RED",
+        ),
+        ("Job select", "c_1_1_hero", "&generated_tokens::HERO_1_1"),
+    ] {
+        let script = parse(&format!(
+            "Name:Blade\nManaCost:2\nTypes:Artifact Equipment\nK:{kw}"
+        ));
+        let stems = token_stems(&script);
+        assert!(stems.iter().any(|s| s == stem), "{kw}: {stems:?}");
+        let body = transcode(&script, &full_cats, Some(&attach_tokens)).expect("attach token");
+        assert!(
+            body.abilities[0].contains(&format!(
+                "Effect::CreateTokenThenAttachSelf {{ token: {want_tok} }}"
+            )),
+            "{kw}: {:?}",
+            body.abilities
+        );
+    }
+
+    for bad in [
+        "Name:BushZero\nManaCost:W\nTypes:Creature\nPT:1/1\nK:Bushido:0",
+        "Name:ShiftX\nManaCost:2 G\nTypes:Creature\nPT:1/1\nK:Soulshift:X",
+        "Name:ReconfEmpty\nManaCost:2\nTypes:Artifact Equipment\nK:Reconfigure:",
+        "Name:RetraceSpell\nManaCost:1 G\nTypes:Sorcery\nK:Retrace\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave14a_class_levels_and_overload() {
+    let full_cats = wave14a_cats();
+    let class_parsed = parse(
+        "Name:StudyHall\nManaCost:1 U\nTypes:Enchantment Class\n\
+         S:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited\n\
+         K:Class:2:2 U:AddTrigger$ Lvl2Trig | AddStaticAbility$ L2Pump\n\
+         K:Class:3:3 U:AddTrigger$ WatchDraw | AddReplacementEffect$ NoUntap\n\
+         SVar:Lvl2Trig:Mode$ ClassLevelGained | ClassLevel$ 2 | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ ExDraw\n\
+         SVar:ExDraw:DB$ Draw | NumCards$ 2\n\
+         SVar:L2Pump:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1\n\
+         SVar:WatchDraw:Mode$ Drawn | ValidCard$ Card.YouCtrl | TriggerZones$ Battlefield | Execute$ ExLife\n\
+         SVar:ExLife:DB$ GainLife | LifeAmount$ 1\n\
+         SVar:NoUntap:Event$ Untap | ActiveZones$ Battlefield | ValidStepTurnToController$ You | ValidCard$ Creature.YouDontCtrl | Layer$ CantHappen",
+    );
+    let valid_class = transcode(&class_parsed, &full_cats, None).unwrap_or_else(|| {
+        panic!(
+            "class card refused: {:?}",
+            refusal_reason(&class_parsed, &full_cats, None)
+        )
+    });
+    assert!(
+        valid_class
+            .abilities
+            .iter()
+            .any(|a| a.contains("CountersOnSelfExactly(CounterKind::Level, 0)"))
+    );
+    assert!(
+        valid_class
+            .abilities
+            .iter()
+            .any(|a| a.contains("Trigger::CountersReach { kind: CounterKind::Level, n: 1 }"))
+    );
+    assert!(
+        valid_class
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::ModifyPT(1, 1)")
+                && a.contains("CountersOnSelf(CounterKind::Level, 1)"))
+    );
+    assert!(
+        valid_class
+            .abilities
+            .iter()
+            .any(|a| a.contains("CountersOnSelfExactly(CounterKind::Level, 1)"))
+    );
+    assert!(valid_class.abilities.iter().any(|a| {
+        a.contains("GrantTriggeredDefinition(&GRANTED_TRIGGER_1)")
+            && a.contains("CountersOnSelf(CounterKind::Level, 2)")
+    }));
+    assert!(
+        valid_class
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::DoesNotUntap")
+                && a.contains("CountersOnSelf(CounterKind::Level, 2)"))
+    );
+
+    let ov_destroy = read(
+        "Name:ShatterAll\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Destroy | ValidTgts$ Artifact.YouDontCtrl\nK:Overload:4 R",
+    );
+    assert_eq!(
+        ov_destroy.abilities,
+        vec![
+            "AbilityDef::ModalSpell { choose: ModeCount::ONE, modes: &[mode!(&[Effect::destroy(TargetSpec::Object(&TARGET1))], targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))), mode!(&[Effect::destroy_all(&TARGET1)], cost_override = Some(mana!(\"{4}{R}\")))] }"
+        ]
+    );
+    let ov_pump = read(
+        "Name:MassBuff\nManaCost:W\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature.YouCtrl | NumAtt$ +2 | NumDef$ +2 | KW$ Vigilance\nK:Overload:4 W",
+    );
+    assert!(ov_pump.abilities[0].contains("Effect::PumpFilter { filter: &Filter::YOUR_CREATURE, controlled_by: None, power: Amount::Fixed(2), toughness: Amount::Fixed(2), keywords: KeywordSet::VIGILANCE, duration: Duration::UntilEndOfTurn }"));
+    assert!(ov_pump.abilities[0].contains("cost_override = Some(mana!(\"{4}{W}\"))"));
+
+    let ov_x = read(
+        "Name:SpasmX\nManaCost:X R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature.YouDontCtrl | NumDmg$ X\n\
+         K:Overload:X X R R\nSVar:X:Count$xPaid",
+    );
+    assert!(ov_x.abilities[0].contains("Effect::DealDamageEach { amount: Amount::X"));
+    assert!(ov_x.abilities[0].contains("cost_override = Some(mana!(\"{X}{X}{R}{R}\"))"));
+
+    for bad in [
+        "Name:NoClassSub\nManaCost:1 U\nTypes:Enchantment\nK:Class:2:1 U:AddStaticAbility$ St\nSVar:St:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1",
+        "Name:SkipLvl\nManaCost:1 U\nTypes:Enchantment Class\nK:Class:3:1 U:AddStaticAbility$ St\nSVar:St:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1",
+        "Name:OvNonSpell\nManaCost:2\nTypes:Artifact\nK:Overload:4",
+        "Name:OvDup\nManaCost:R\nTypes:Instant\nA:SP$ Tap | ValidTgts$ Creature\nK:Overload:3 R\nK:Overload:4 R",
+        "Name:OvDisc\nManaCost:1 B\nTypes:Sorcery\nA:SP$ Discard | ValidTgts$ Player | NumCards$ 1 | Mode$ TgtChoose\nK:Overload:3 B",
+        "Name:OvBadX\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2\nK:Overload:X R\nSVar:X:Count$xPaid",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
 }

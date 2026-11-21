@@ -499,6 +499,10 @@ struct Tx<'a> {
     pt: Option<&'a str>,
     /// Cached `(keywords_expr, grant_abilities_ref)` for repeated `K:Backup:<N>:<SVar>` lines.
     backup_grants: BTreeMap<String, (String, String)>,
+    /// Next expected Class enchantment level (`K:Class:<level>:...`), starting at `2`.
+    class_next_level: u8,
+    /// Stashed `K:Overload:<mana>` cost for post-rule modal rewriting in `apply_overload`.
+    overload_cost: Option<String>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -572,6 +576,8 @@ impl<'a> Tx<'a> {
             is_double_faced_front: script.alternate_mode.as_deref() == Some("DoubleFaced"),
             pt: script.pt.as_deref(),
             backup_grants: BTreeMap::new(),
+            class_next_level: 2,
+            overload_cost: None,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }
@@ -816,6 +822,7 @@ fn transcode_face(
     }
     tx.block_halves_paired()?;
     tx.align_dual_kicker_order();
+    tx.apply_overload()?;
     if !(tx.body.has_own_rules() || allow_vanilla && is_vanilla_face(script)) {
         return None;
     }
