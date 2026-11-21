@@ -4866,10 +4866,22 @@ fn wave15c_effect_delayed_triggers_emblems_and_gift_clauses() {
         "{}",
         emblem.abilities[0]
     );
-    // Negative boundaries: loyalty-only `Planeswalker$ True`, opponent emblem, and Alchemy boon stay refused.
-    assert!(refused(
+    // Planeswalker emblem ultimate (`Planeswalker$ True | Ultimate$ True`) lowers to `loyalty!`.
+    let loyalty_emblem = read(
         "Name:LoyaltyEmblem\nManaCost:3 U\nTypes:Legendary Planeswalker\nLoyalty:4\n\
          A:AB$ Effect | Cost$ SubCounter<7/LOYALTY> | Planeswalker$ True | Ultimate$ True | Name$ Emblem — LoyaltyEmblem | StaticAbilities$ NoMax | Duration$ Permanent\n\
+         SVar:NoMax:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited | EffectZone$ Command",
+    );
+    assert!(
+        loyalty_emblem.abilities[0].starts_with("loyalty!(-7, &[Effect::CreateEmblem {")
+            && loyalty_emblem.abilities[0].contains("Modifier::NoMaxHandSize"),
+        "{}",
+        loyalty_emblem.abilities[0]
+    );
+    // Negative boundaries: non-loyalty counter on `Planeswalker$ True`, opponent emblem, and Alchemy boon stay refused.
+    assert!(refused(
+        "Name:BadLoyaltyCost\nManaCost:3 U\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ AddCounter<2/P1P1> | Planeswalker$ True | Name$ Emblem — BadLoyaltyCost | StaticAbilities$ NoMax | Duration$ Permanent\n\
          SVar:NoMax:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited | EffectZone$ Command"
     ));
     assert!(refused(

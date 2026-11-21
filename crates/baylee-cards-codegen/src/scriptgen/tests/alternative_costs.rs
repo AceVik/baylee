@@ -418,3 +418,88 @@ fn alternative_cost_refuses_unread_conditions_and_unclaimed_keys_by_definition()
         ),
     ]);
 }
+
+#[test]
+fn wave18a_alternative_cost_parts_and_conditions() {
+    let dmg_alt = read(
+        "Name:X\nTypes:Instant\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ DamageYou<3>\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        dmg_alt.alternative_costs,
+        ["AlternativeCost { cost: cost!(DealDamageToYou(3)), condition: AltCondition::Always }"]
+    );
+
+    let forage_alt = read(
+        "Name:X\nTypes:Instant\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ Forage\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        forage_alt.alternative_costs,
+        ["AlternativeCost { cost: cost!(Forage), condition: AltCondition::Always }"]
+    );
+
+    assert_alt_conditions(&[
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | \
+             Cost$ 0 | Condition$ Delirium\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::GraveyardTypesAtLeast(4))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | \
+             Cost$ 0 | Condition$ Metalcraft\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::ControlCount(&Filter::ARTIFACT, 3))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | \
+             Cost$ 0 | Condition$ Morbid\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::CreaturesDiedThisTurnAtLeast(1))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | \
+             Cost$ 0 | IsPresent$ Card.YouCtrl+IsRingbearer\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::HasRingBearer)",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | \
+             Cost$ 0 | CheckSVar$ Count$CommittedCrimeThisTurn.1.0\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::CommittedCrimeThisTurn(PlayerRel::You))",
+        ),
+        (
+            "Name:X\nTypes:Sorcery\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | \
+             Cost$ 0 | CheckSVar$ X | SVarCompare$ EQ0\n\
+             SVar:X:Count$ValidHand Land.YouOwn\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::Not(&Condition::AmountAtLeast(Amount::CountOf { filter: &Filter::LAND, zone: ZoneSel::HandYou }, 1)))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | \
+             Cost$ B | CheckSVar$ X\n\
+             SVar:X:Count$LifeOppsLostThisTurn\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::OpponentLostLifeThisTurn)",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | \
+             Cost$ U | CheckSVar$ X | SVarCompare$ GE2\n\
+             SVar:X:Count$ThisTurnEntered_Battlefield_Creature.YouCtrl\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, 2))",
+        ),
+    ]);
+}

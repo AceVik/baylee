@@ -59,10 +59,12 @@ impl Tx<'_> {
         let (mana, parts) = pieces?;
         let paid = |part: &String| {
             part.starts_with("PayLife(")
+                || part.starts_with("DealDamageToYou(")
                 || part.starts_with("ExileFromHand(")
                 || part.starts_with("Sacrifice(")
                 || part.starts_with("ReturnToHand(")
                 || part.starts_with("TapN {")
+                || part == "Forage"
         };
         if (mana.is_empty() && parts.is_empty()) || !parts.iter().all(paid) {
             return self.deny(format!(
@@ -123,6 +125,12 @@ impl Tx<'_> {
                 "NotPlayerTurn" => "Condition::Not(&Condition::YourTurn)".to_string(),
                 "PlayerTurn" => "Condition::YourTurn".to_string(),
                 "Threshold" => "Condition::GraveyardCountAtLeast(7)".to_string(),
+                "Delirium" => "Condition::GraveyardTypesAtLeast(4)".to_string(),
+                "Metalcraft" => "Condition::ControlCount(&Filter::ARTIFACT, 3)".to_string(),
+                "Hellbent" => "Condition::HandSizeAtMost(0)".to_string(),
+                "Blessing" => "Condition::CitysBlessing".to_string(),
+                "Morbid" => "Condition::CreaturesDiedThisTurnAtLeast(1)".to_string(),
+                "Raid" => "Condition::AttackedWithAtLeast(1)".to_string(),
                 other => return self.deny(format!("`AlternativeCost` condition `{other}`")),
             });
         }
@@ -217,6 +225,9 @@ impl Tx<'_> {
         let compare = p
             .take("PresentCompare")
             .unwrap_or_else(|| "GE1".to_string());
+        if let Some(clause) = Self::ringbearer_present_clause(valid, &compare, false) {
+            return Some(clause);
+        }
         if has_relative_atom(valid) {
             return self.deny(format!(
                 "`IsPresent$ {valid}`, a count relative to this card"
@@ -230,10 +241,15 @@ impl Tx<'_> {
     }
 
     fn alt_svar_clause(&self, var: &str, compare: &str) -> Option<String> {
-        let Some(raw) = self.svars.get(var.trim()) else {
-            return self.deny(format!("`CheckSVar$ {}` naming no SVar", var.trim()));
+        let trimmed = var.trim();
+        let def = if trimmed.starts_with("Count$") || trimmed.starts_with("PlayerCount") {
+            trimmed
+        } else {
+            let Some(raw) = self.svars.get(trimmed) else {
+                return self.deny(format!("`CheckSVar$ {trimmed}` naming no SVar"));
+            };
+            raw.trim()
         };
-        let def = raw.trim();
         let deny_def = || {
             if compare == "GE1" {
                 self.deny(format!("alternative-cost condition `{def}`"))
@@ -243,13 +259,8 @@ impl Tx<'_> {
                 ))
             }
         };
-        if def == "Count$AttackersDeclared" {
-            if let Some(Bound::AtLeast(n)) = count_bound(compare)
-                && n >= 1
-            {
-                return Some(format!("Condition::AttackedWithAtLeast({n})"));
-            }
-            return deny_def();
+        if let Some(cond) = self.alt_svar_known(def, compare) {
+            return Some(cond);
         }
         if let Some(valid) = def.strip_prefix("Count$Valid ") {
             if valid.contains('/') || has_relative_atom(valid) {
@@ -263,6 +274,170 @@ impl Tx<'_> {
                 .or_else(deny_def);
         }
         deny_def()
+    }
+
+    fn alt_svar_known(&self, def: &str, compare: &str) -> Option<String> {
+        let bound = count_bound(compare);
+        match def {
+            "Count$AttackersDeclared" => match bound {
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    return Some(format!("Condition::AttackedWithAtLeast({n})"));
+                }
+                _ => return None,
+            },
+            "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" => match bound {
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    return Some(format!(
+                        "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {n})"
+                    ));
+                }
+                Some(Bound::AtMost(n)) => {
+                    let above = u32::from(n).checked_add(1)?;
+                    return Some(format!(
+                        "Condition::Not(&Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {above}))"
+                    ));
+                }
+                _ => return None,
+            },
+            "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" => match bound {
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    return Some(format!("Condition::CreaturesDiedThisTurnAtLeast({n})"));
+                }
+                Some(Bound::AtMost(0)) => {
+                    return Some(
+                        "Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast(1))".to_string(),
+                    );
+                }
+                _ => return None,
+            },
+            "Count$Morbid.1.0" | "Count$Morbid" => {
+                return alt_bool_compare(compare, "Condition::CreaturesDiedThisTurnAtLeast(1)");
+            }
+            "Count$Raid.1.0" | "Count$Raid" => {
+                return alt_bool_compare(compare, "Condition::AttackedWithAtLeast(1)");
+            }
+            "Count$Revolt.1.0" | "Count$Revolt" => {
+                return alt_bool_compare(compare, "Condition::Revolt");
+            }
+            "Count$DescendedThisTurn" | "Count$ThisTurnDescended" => {
+                return alt_bool_compare(compare, "Condition::DescendedThisTurn");
+            }
+            "Count$CommittedCrimeThisTurn.1.0" | "Count$CommittedCrimeThisTurn" => {
+                return alt_bool_compare(
+                    compare,
+                    "Condition::CommittedCrimeThisTurn(PlayerRel::You)",
+                );
+            }
+            "PlayerCountOpponents$HasPropertywasDealtDamageThisTurn"
+            | "PlayerCountRegisteredOpponents$HasPropertywasDealtDamageThisTurn" => {
+                return alt_bool_compare(compare, "Condition::OpponentDealtDamageThisTurn");
+            }
+            "Count$LifeOppsLostThisTurn" => match bound {
+                Some(Bound::AtMost(0)) => {
+                    return Some(
+                        "Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string(),
+                    );
+                }
+                Some(Bound::AtLeast(1)) => {
+                    return Some("Condition::OpponentLostLifeThisTurn".to_string());
+                }
+                Some(Bound::AtLeast(n)) if n > 1 => {
+                    return Some(format!(
+                        "Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, {n})"
+                    ));
+                }
+                _ => return None,
+            },
+            "Count$ThisTurnCast_Card.YouCtrl" => {
+                return match compare {
+                    "EQ0" => Some("Condition::YouCastNoSpellThisTurn".to_string()),
+                    "GE1" => Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string()),
+                    _ => None,
+                };
+            }
+            "Count$ThisTurnCast_Creature.YouCtrl" | "Count$ThisTurnCast_Card.Creature+YouCtrl" => {
+                return match compare {
+                    "GE1" => Some("Condition::CastCreatureThisTurn".to_string()),
+                    "EQ0" => Some("Condition::Not(&Condition::CastCreatureThisTurn)".to_string()),
+                    _ => None,
+                };
+            }
+            "Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl"
+            | "Count$ThisTurnCast_Sorcery.YouCtrl,Instant.YouCtrl"
+            | "Count$ThisTurnCast_Card.Instant,Sorcery+YouCtrl"
+            | "Count$ThisTurnCast_Card.Instant+YouCtrl,Card.Sorcery+YouCtrl" => {
+                return match compare {
+                    "GE1" => Some("Condition::CastInstantOrSorceryThisTurn".to_string()),
+                    "EQ0" => {
+                        Some("Condition::Not(&Condition::CastInstantOrSorceryThisTurn)".to_string())
+                    }
+                    _ => None,
+                };
+            }
+            _ => {}
+        }
+        self.alt_svar_zone_count(def, bound)
+    }
+
+    fn alt_svar_zone_count(&self, def: &str, bound: Option<Bound>) -> Option<String> {
+        match def {
+            "Count$ValidHand Card.YouOwn" | "Count$CardsInYourHand" => match bound {
+                Some(Bound::AtMost(n)) => return Some(format!("Condition::HandSizeAtMost({n})")),
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    return Some(format!(
+                        "Condition::AmountAtLeast(Amount::HandSize(PlayerRel::You), {n})"
+                    ));
+                }
+                _ => return None,
+            },
+            "Count$ValidGraveyard Card.YouOwn" => match bound {
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    return Some(format!("Condition::GraveyardCountAtLeast({n})"));
+                }
+                Some(Bound::AtMost(n)) => {
+                    let above = n.checked_add(1)?;
+                    return Some(format!(
+                        "Condition::Not(&Condition::GraveyardCountAtLeast({above}))"
+                    ));
+                }
+                _ => return None,
+            },
+            "Count$ValidGraveyard Card.YouOwn$CardTypes" => match bound {
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    return Some(format!("Condition::GraveyardTypesAtLeast({n})"));
+                }
+                _ => return None,
+            },
+            "Count$ValidGraveyard Card.OppOwn" => match bound {
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    return Some(format!("Condition::OpponentGraveyardCountAtLeast({n})"));
+                }
+                _ => return None,
+            },
+            _ => {}
+        }
+        if let Some(valid) = def.strip_prefix("Count$ValidHand ")
+            && !valid.contains('/')
+            && !valid.contains('$')
+            && !has_relative_atom(valid)
+            && let Some(stripped) = Self::strip_your_graveyard_owner(valid)
+            && let Some(expr) = self.filter_expr_in_zone(&stripped, true)
+        {
+            let amt = format!("Amount::CountOf {{ filter: &{expr}, zone: ZoneSel::HandYou }}");
+            return match bound {
+                Some(Bound::AtLeast(n)) if n >= 1 => {
+                    Some(format!("Condition::AmountAtLeast({amt}, {n})"))
+                }
+                Some(Bound::AtMost(n)) => {
+                    let above = u32::from(n).checked_add(1)?;
+                    Some(format!(
+                        "Condition::Not(&Condition::AmountAtLeast({amt}, {above}))"
+                    ))
+                }
+                _ => None,
+            };
+        }
+        None
     }
 
     fn battlefield_count_condition(&self, valid: &str, bound: Bound) -> Option<String> {
@@ -321,6 +496,14 @@ impl Tx<'_> {
             }
             _ => None,
         }
+    }
+}
+
+fn alt_bool_compare(compare: &str, cond: &str) -> Option<String> {
+    match compare {
+        "GE1" | "EQ1" | "GT0" => Some(cond.to_string()),
+        "EQ0" | "LE0" | "LT1" => Some(format!("Condition::Not(&{cond})")),
+        _ => None,
     }
 }
 

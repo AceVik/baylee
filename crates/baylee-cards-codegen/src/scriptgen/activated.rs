@@ -35,6 +35,12 @@ pub(super) struct ParsedActivated {
     pub simple_target: Option<String>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ActivationKind {
+    Ordinary,
+    Loyalty,
+}
+
 struct ExtractedAbilitySpec {
     cost: Option<String>,
     alternate_cost: Option<String>,
@@ -44,6 +50,7 @@ struct ExtractedAbilitySpec {
     zone_suffix: &'static str,
     any_player: bool,
     sorcery_speed: bool,
+    kind: ActivationKind,
     condition: String,
     cost_reduction: Option<String>,
     chain: Chain,
@@ -181,33 +188,42 @@ impl Tx<'_> {
         clauses: &mut Vec<String>,
         claimed: &mut Vec<&'static str>,
     ) -> Option<()> {
-        let Some(raw) = self.svars.get(name).cloned() else {
-            return self.deny(format!("activation check `{name}` without an SVar"));
-        };
         let cmp = probe.peek("SVarCompare").map(str::to_string);
-        if let Some(alternatives) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
-            && cmp.is_none()
-        {
-            if !clauses.is_empty() {
-                return self
-                    .deny("an entry-history activation clause beside another clause".to_string());
+        let inline = name.trim().starts_with("Count$") || name.trim().starts_with("PlayerCount");
+        if !inline {
+            let Some(raw) = self.svars.get(name).cloned() else {
+                return self.deny(format!("activation check `{name}` without an SVar"));
+            };
+            if let Some(alternatives) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
+                && cmp.is_none()
+            {
+                let mut subtypes = Vec::new();
+                let mut all_subtypes = true;
+                for alternative in alternatives.split(',') {
+                    let Some(subtype) = alternative.strip_suffix(".YouCtrl") else {
+                        all_subtypes = false;
+                        break;
+                    };
+                    let Some(path) = self.cats.const_path(subtype) else {
+                        all_subtypes = false;
+                        break;
+                    };
+                    subtypes.push(path);
+                }
+                if all_subtypes && !subtypes.is_empty() {
+                    if !clauses.is_empty() {
+                        return self.deny(
+                            "an entry-history activation clause beside another clause".to_string(),
+                        );
+                    }
+                    clauses.push(format!(
+                        "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
+                        subtypes.join(", ")
+                    ));
+                    claimed.push("CheckSVar$");
+                    return Some(());
+                }
             }
-            let mut subtypes = Vec::new();
-            for alternative in alternatives.split(',') {
-                let Some(subtype) = alternative.strip_suffix(".YouCtrl") else {
-                    return self.deny(format!("entry-history alternative `{alternative}`"));
-                };
-                let Some(path) = self.cats.const_path(subtype) else {
-                    return self.deny(format!("entry-history subtype `{subtype}`"));
-                };
-                subtypes.push(path);
-            }
-            clauses.push(format!(
-                "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
-                subtypes.join(", ")
-            ));
-            claimed.push("CheckSVar$");
-            return Some(());
         }
         let Some(first) = self.svar_condition_clause(name, cmp.as_deref().unwrap_or("GE1")) else {
             return self.deny(format!("activation check `{name}`"));
@@ -338,6 +354,39 @@ impl Tx<'_> {
         }
     }
 
+    fn take_planeswalker_flags(
+        &self,
+        probe: &mut Params,
+        is_activated: bool,
+        allow_oracle_tap: bool,
+    ) -> Option<(ActivationKind, bool)> {
+        let planeswalker_raw = probe.take("Planeswalker");
+        let ultimate_raw = probe.take("Ultimate");
+        let kind = match planeswalker_raw.as_deref() {
+            None => ActivationKind::Ordinary,
+            Some(v) if v.eq_ignore_ascii_case("true") => {
+                if !is_activated {
+                    return self.deny("`Planeswalker$` on a spell".to_string());
+                }
+                if !allow_oracle_tap {
+                    return self.deny("a granted loyalty ability".to_string());
+                }
+                ActivationKind::Loyalty
+            }
+            Some(other) => return self.deny(format!("`Planeswalker$ {other}`")),
+        };
+        let is_loyalty = kind == ActivationKind::Loyalty;
+        match ultimate_raw.as_deref() {
+            None => {}
+            Some(v) if is_loyalty && v.eq_ignore_ascii_case("true") => {}
+            Some(_) if !is_loyalty => {
+                return self.deny("`Ultimate$` without `Planeswalker$ True`".to_string());
+            }
+            Some(other) => return self.deny(format!("`Ultimate$ {other}`")),
+        }
+        Some((kind, ultimate_raw.is_some()))
+    }
+
     fn extract_ability_spec(
         &mut self,
         spec: &str,
@@ -352,8 +401,11 @@ impl Tx<'_> {
         }
         let line_prose = Self::params_prose(&probe);
         probe.drop_prose();
+        let (kind, has_ultimate) =
+            self.take_planeswalker_flags(&mut probe, is_activated, allow_oracle_tap)?;
+        let is_planeswalker = kind == ActivationKind::Loyalty;
         let mut cost = probe.take("Cost");
-        if is_activated && allow_oracle_tap {
+        if is_activated && allow_oracle_tap && !is_planeswalker {
             cost = self.infer_single_ability_tap(cost);
         }
         let alternate_cost = probe.take("AlternateCost");
@@ -390,36 +442,65 @@ impl Tx<'_> {
         let mut condition = self.condition_with_prose(&mut probe, &line_prose)?;
         let present_read = !condition.is_empty();
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
-        let mut chain = Chain::default();
-        let claimed: &[&str] = if present_read {
-            &[
+        let mut drop_keys: Vec<&'static str> = [
+            (true, "Cost$"),
+            (true, "ActivationLimit$"),
+            (is_planeswalker, "Planeswalker$"),
+            (has_ultimate, "Ultimate$"),
+            (alternate_cost.is_some(), "AlternateCost$"),
+            (is_activated && reduce_cost.is_some(), "ReduceCost$"),
+            (any_player, "Activator$"),
+            (zone_handled, "ActivationZone$"),
+            (sorcery_speed, "SorcerySpeed$"),
+        ]
+        .into_iter()
+        .filter_map(|(on, key)| on.then_some(key))
+        .collect();
+        drop_keys.extend(restrictions);
+        if present_read {
+            drop_keys.extend([
                 "Condition$",
                 "IsPresent$",
                 "PresentZone$",
                 "PresentCompare$",
                 "PresentDefined$",
-            ]
-        } else {
-            &[]
-        };
+            ]);
+        }
+        let chain = self.read_ability_chain(spec, is_activated, cost.as_deref(), &drop_keys)?;
+        Some(ExtractedAbilitySpec {
+            cost,
+            alternate_cost,
+            limit,
+            activation_zone,
+            non_battlefield_zone,
+            zone_suffix,
+            any_player,
+            sorcery_speed,
+            kind,
+            condition,
+            cost_reduction,
+            chain,
+        })
+    }
+
+    fn read_ability_chain(
+        &mut self,
+        spec: &str,
+        is_activated: bool,
+        cost: Option<&str>,
+        drop_keys: &[&str],
+    ) -> Option<Chain> {
         let stripped: Vec<&str> = spec
             .split(" | ")
-            .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
-            .filter(|part| alternate_cost.is_none() || !part.starts_with("AlternateCost$"))
             .filter(|part| {
-                !is_activated || reduce_cost.is_none() || !part.starts_with("ReduceCost$")
+                let p = part.trim_start();
+                !drop_keys.iter().any(|key| p.starts_with(key))
             })
-            .filter(|part| !(any_player && part.starts_with("Activator$")))
-            .filter(|part| !(zone_handled && part.starts_with("ActivationZone$")))
-            .filter(|part| !(sorcery_speed && part.starts_with("SorcerySpeed$")))
-            .filter(|part| !restrictions.iter().any(|key| part.starts_with(key)))
-            .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
             .collect();
+        let mut chain = Chain::default();
         self.cost_sacrifices_self = is_activated
-            && cost
-                .as_deref()
-                .is_some_and(|c| c.split_whitespace().any(|t| t == "Sac<1/CARDNAME>"));
-        self.cost_sacrifices_other = cost.as_deref().is_some_and(|c| {
+            && cost.is_some_and(|c| c.split_whitespace().any(|t| t == "Sac<1/CARDNAME>"));
+        self.cost_sacrifices_other = cost.is_some_and(|c| {
             cost_parts(c)
                 .iter()
                 .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"))
@@ -431,19 +512,7 @@ impl Tx<'_> {
         if chain.effects.is_empty() {
             return self.deny("an ability that reads as no effect at all".to_string());
         }
-        Some(ExtractedAbilitySpec {
-            cost,
-            alternate_cost,
-            limit,
-            activation_zone,
-            non_battlefield_zone,
-            zone_suffix,
-            any_player,
-            sorcery_speed,
-            condition,
-            cost_reduction,
-            chain,
-        })
+        Some(chain)
     }
 
     fn activation_zone_expr(
@@ -476,6 +545,9 @@ impl Tx<'_> {
     }
 
     fn build_activated_parts(&mut self, spec: &ExtractedAbilitySpec) -> Option<ParsedActivated> {
+        if spec.kind == ActivationKind::Loyalty {
+            return self.build_loyalty_parts(spec);
+        }
         let Some(cost) = spec.cost.as_deref() else {
             return self.deny("an activated ability with no `Cost$`".to_string());
         };
@@ -559,6 +631,98 @@ impl Tx<'_> {
             non_battlefield_zone: spec.non_battlefield_zone,
             simple_target,
         })
+    }
+
+    fn build_loyalty_parts(&self, spec: &ExtractedAbilitySpec) -> Option<ParsedActivated> {
+        if spec.alternate_cost.is_some() {
+            return self.deny("`AlternateCost$` on a loyalty ability".to_string());
+        }
+        if spec.limit.is_some() {
+            return self.deny("`ActivationLimit$` on a loyalty ability".to_string());
+        }
+        if spec.non_battlefield_zone
+            || spec
+                .activation_zone
+                .as_deref()
+                .is_some_and(|zone| zone != "Battlefield")
+        {
+            return self
+                .deny("a non-battlefield `ActivationZone$` on a loyalty ability".to_string());
+        }
+        if spec.any_player {
+            return self.deny("`Activator$ Player` on a loyalty ability".to_string());
+        }
+        if spec.sorcery_speed {
+            return self.deny("`SorcerySpeed$` on a loyalty ability".to_string());
+        }
+        if !spec.condition.is_empty() {
+            return self.deny("an activation condition on a loyalty ability".to_string());
+        }
+        if spec.cost_reduction.is_some() {
+            return self.deny("`ReduceCost$` on a loyalty ability".to_string());
+        }
+        if spec.chain.target_is_x {
+            return self.deny("`TargetMin$/TargetMax$ X` on a loyalty ability".to_string());
+        }
+        let Some(raw_cost) = spec.cost.as_deref() else {
+            return self.deny("a loyalty ability with no `Cost$`".to_string());
+        };
+        let delta = self.parse_loyalty_cost(raw_cost)?;
+        let effects = format!("&[{}]", spec.chain.effects.join(", "));
+        let targets = Self::target_req_expr(&spec.chain)
+            .map_or_default(|req| format!(", targets = Some({req})"));
+        let second_targets = Self::second_target_req_expr(&spec.chain)
+            .map_or_default(|req| format!(", second_targets = Some({req})"));
+        let extras = format!("{targets}{second_targets}");
+        // CR 605.1a: a loyalty ability is never a mana ability even when its effect adds mana.
+        let ability_expr = format!("loyalty!({delta}, {effects}{extras})");
+        Some(ParsedActivated {
+            cost: delta.to_string(),
+            effects,
+            mana_ability: false,
+            extras,
+            ability_expr,
+            alternate_ability_expr: None,
+            non_battlefield_zone: false,
+            simple_target: None,
+        })
+    }
+
+    fn parse_loyalty_cost(&self, raw: &str) -> Option<i8> {
+        let tokens = cost_parts(raw);
+        let [token] = tokens.as_slice() else {
+            return self.deny(format!("a non-loyalty cost `{raw}` on a loyalty ability"));
+        };
+        let (sign, inner) = if let Some(inner) = token
+            .strip_prefix("AddCounter<")
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            (1_i8, inner)
+        } else if let Some(inner) = token
+            .strip_prefix("SubCounter<")
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            (-1_i8, inner)
+        } else {
+            return self.deny(format!("a non-loyalty cost `{raw}` on a loyalty ability"));
+        };
+        let Some((n, kind)) = inner.split_once('/') else {
+            return self.deny(format!("a non-loyalty cost `{raw}` on a loyalty ability"));
+        };
+        if kind != "LOYALTY" {
+            return self.deny(format!("a non-loyalty cost `{raw}` on a loyalty ability"));
+        }
+        if n == "X" {
+            return self.deny("a variable-X loyalty cost".to_string());
+        }
+        // Cap magnitude at 127 so `-cost` on `i8` can never overflow in the engine.
+        let Ok(magnitude) = n.parse::<i8>() else {
+            return self.deny(format!("a loyalty cost count `{n}`"));
+        };
+        if magnitude < 0 {
+            return self.deny(format!("a loyalty cost count `{n}`"));
+        }
+        Some(sign * magnitude)
     }
 
     fn format_activated_macro(
@@ -1273,8 +1437,28 @@ impl Tx<'_> {
             "EnduringStory" => "Condition::EnduringStory",
             "FatefulHour" => "Condition::LifeAtMost(5)",
             "Revolt" => "Condition::Revolt",
+            "Morbid" => "Condition::CreaturesDiedThisTurnAtLeast(1)",
+            "Raid" => "Condition::AttackedWithAtLeast(1)",
             _ => return None,
         })
+    }
+
+    fn crime_or_opp_damaged_condition(def: &str, cmp: &str) -> Option<String> {
+        let cond = match def {
+            "Count$CommittedCrimeThisTurn.1.0" | "Count$CommittedCrimeThisTurn" => {
+                "Condition::CommittedCrimeThisTurn(PlayerRel::You)"
+            }
+            "PlayerCountOpponents$HasPropertywasDealtDamageThisTurn"
+            | "PlayerCountRegisteredOpponents$HasPropertywasDealtDamageThisTurn" => {
+                "Condition::OpponentDealtDamageThisTurn"
+            }
+            _ => return None,
+        };
+        match cmp {
+            "GE1" | "EQ1" | "GT0" => Some(cond.to_string()),
+            "EQ0" | "LE0" | "LT1" | "NE1" => Some(format!("Condition::Not(&{cond})")),
+            _ => None,
+        }
     }
 
     /// Unified `CheckSVar$` + `SVarCompare$` entry point across activated,
@@ -1295,6 +1479,9 @@ impl Tx<'_> {
                 "EQ0" | "NE1" | "LT1" => Some("Condition::Not(&Condition::MaxSpeed)".to_string()),
                 _ => None,
             };
+        }
+        if let Some(cond) = Self::crime_or_opp_damaged_condition(def, cmp) {
+            return Some(cond);
         }
         if def.starts_with("Count$")
             && let Some(amt) = self.static_count_expr(def)
@@ -1450,6 +1637,9 @@ impl Tx<'_> {
                 "EQ0" => Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string()),
                 _ => None,
             };
+        }
+        if let Some(cond) = Self::crime_or_opp_damaged_condition(&raw, cmp) {
+            return Some(cond);
         }
         if raw == "Count$LastTurnCast_Card" {
             return match bound {
@@ -1878,6 +2068,11 @@ impl Tx<'_> {
         {
             return Some(clause);
         }
+        if let Some(clause) =
+            Self::ringbearer_present_clause(valid, &compare, p.peek("PresentDefined").is_some())
+        {
+            return Some(clause);
+        }
         if matches!(compare.as_str(), "GE1" | "EQ1")
             && matches!(p.peek("PresentDefined"), None | Some("Self"))
             && let Some(raw) = valid.strip_prefix("Card.Self+counters_GE")
@@ -1995,6 +2190,31 @@ impl Tx<'_> {
         match compare {
             "GE1" => Some("Condition::ControlYourCommander".to_string()),
             "EQ0" => Some("Condition::Not(&Condition::ControlYourCommander)".to_string()),
+            _ => None,
+        }
+    }
+
+    pub(super) fn ringbearer_present_clause(
+        valid: &str,
+        compare: &str,
+        has_defined: bool,
+    ) -> Option<String> {
+        if has_defined
+            || !matches!(
+                valid,
+                "Card.IsRingbearer+YouCtrl"
+                    | "Card.YouCtrl+IsRingbearer"
+                    | "Creature.IsRingbearer+YouCtrl"
+                    | "Creature.YouCtrl+IsRingbearer"
+                    | "Permanent.IsRingbearer+YouCtrl"
+                    | "Permanent.YouCtrl+IsRingbearer"
+            )
+        {
+            return None;
+        }
+        match compare {
+            "GE1" | "EQ1" => Some("Condition::HasRingBearer".to_string()),
+            "EQ0" => Some("Condition::Not(&Condition::HasRingBearer)".to_string()),
             _ => None,
         }
     }

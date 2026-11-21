@@ -450,29 +450,38 @@ fn a_wall_that_wears_its_own_counters_reads_as_one_mana_ability() {
     );
 }
 
-/// A loyalty cost is not an ordinary counter cost. 413 scripts in the
-/// corpus print `Cost$ AddCounter<n/LOYALTY>`, and reading one as a
-/// `PutCounterSelf` would make a planeswalker's `+1` an ability anybody
-/// may activate at instant speed as often as they like — CR 606.3 allows
-/// it once a turn and only when a sorcery could be cast, and
-/// `activated!` says neither.
-///
-/// Nothing in `cost_expr` knows that. What refuses the card is
-/// `Planeswalker$ True`, which sits on every loyalty ability and is
-/// claimed by no rule, so the refusal happens before the cost is read.
-/// That makes this test a tripwire as much as a check: a rule that
-/// claims the key later has to answer the loyalty question in the same
-/// commit, or this fails.
+/// A loyalty cost lowers strictly to `loyalty!(...)` on `Planeswalker$ True`
+/// abilities (CR 606.3–4), and NEVER leaks into an ordinary `activated!`
+/// counter cost when `Planeswalker$ True` is absent.
 #[test]
 fn a_loyalty_cost_does_not_become_an_ordinary_counter_cost() {
-    let script = "Name:X\nManaCost:2 W W\nTypes:Legendary Planeswalker Ajani\nLoyalty:4\n\
-                  A:AB$ PutCounter | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | \
-                  CounterType$ P1P1 | CounterNum$ 1 | ValidTgts$ Creature";
-    assert!(refused(script));
-    assert_eq!(
-        refusal_reason(&parse(script), &cats(), None).as_deref(),
-        Some("unclaimed parameter `PutCounter.Planeswalker`")
+    let pw = read(
+        "Name:X\nManaCost:2 W W\nTypes:Legendary Planeswalker Ajani\nLoyalty:4\n\
+         A:AB$ PutCounter | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | \
+         CounterType$ P1P1 | CounterNum$ 1 | ValidTgts$ Creature",
     );
+    assert_eq!(
+        pw.abilities,
+        [
+            "loyalty!(1, &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }], \
+             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    // Without `Planeswalker$ True`, neither AddCounter nor SubCounter of LOYALTY
+    // may ever become an ordinary `activated!` counter cost.
+    for cost in ["AddCounter<1/LOYALTY>", "SubCounter<2/LOYALTY>"] {
+        let script = format!(
+            "Name:X\nManaCost:2 W W\nTypes:Artifact\n\
+             A:AB$ Draw | Cost$ {cost} | NumCards$ 1"
+        );
+        assert!(refused(&script), "must refuse non-PW loyalty cost: {cost}");
+        assert_eq!(
+            refusal_reason(&parse(&script), &cats(), None).as_deref(),
+            Some("a loyalty cost"),
+            "{cost}"
+        );
+    }
 }
 
 /// A pump that grants keywords carries them in the same effect — and
@@ -4715,4 +4724,306 @@ fn wave17a_retrace_monstrosity_cost_plumbing_and_refusals() {
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
+}
+
+#[test]
+fn wave18a_planeswalker_loyalty_lowering() {
+    // Full planeswalker: +N, 0 (AddCounter<0> and SubCounter<0>), -N with
+    // up_to_one target, mana-adding loyalty ability (CR 605.1a: NOT mana_ability!),
+    // lowercase `Planeswalker$ true`, and `Ultimate$ True` emblem.
+    let walker = read(
+        "Name:AetherSage\nManaCost:2 U R\nTypes:Legendary Planeswalker Sage\nLoyalty:4\n\
+         A:AB$ Draw | Cost$ AddCounter<2/LOYALTY> | Planeswalker$ True | NumCards$ 1\n\
+         A:AB$ GainLife | Cost$ AddCounter<0/LOYALTY> | Planeswalker$ True | LifeAmount$ 2\n\
+         A:AB$ Mana | Cost$ SubCounter<0/LOYALTY> | Planeswalker$ true | Produced$ R | Amount$ 2\n\
+         A:AB$ ChangeZone | Cost$ SubCounter<3/LOYALTY> | Planeswalker$ True | Origin$ Battlefield | Destination$ Hand | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 1\n\
+         A:AB$ Effect | Cost$ SubCounter<7/LOYALTY> | Planeswalker$ True | Ultimate$ True | Name$ Emblem — AetherSage | StaticAbilities$ NoMax | Duration$ Permanent\n\
+         SVar:NoMax:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited | EffectZone$ Command",
+    );
+    assert_eq!(walker.abilities.len(), 5, "{:?}", walker.abilities);
+    assert_eq!(walker.abilities[0], "loyalty!(2, &[Effect::draw(1)])");
+    assert_eq!(walker.abilities[1], "loyalty!(0, &[Effect::gain_life(2)])");
+    assert_eq!(
+        walker.abilities[2],
+        "loyalty!(0, &[Effect::mana(ManaColor::Red, 2)])"
+    );
+    assert!(
+        walker.abilities[3].starts_with("loyalty!(-3, &[Effect::bounce(")
+            && walker.abilities[3].contains("targets = Some(TargetReq::up_to_one("),
+        "{}",
+        walker.abilities[3]
+    );
+    assert!(
+        walker.abilities[4].starts_with("loyalty!(-7, &[Effect::CreateEmblem {")
+            && walker.abilities[4].contains("Modifier::NoMaxHandSize"),
+        "{}",
+        walker.abilities[4]
+    );
+
+    // Single-ability planeswalker with `{T}:` in Oracle text must NEVER have
+    // `TapSelf` inferred onto its loyalty cost.
+    let no_tap_infer = read(
+        "Name:LoneWalker\nManaCost:3 G\nTypes:Legendary Planeswalker Lone\nLoyalty:3\n\
+         A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | NumCards$ 1\n\
+         Oracle:+1: Draw a card. (Not {T}: draw.)",
+    );
+    assert_eq!(no_tap_infer.abilities, ["loyalty!(1, &[Effect::draw(1)])"]);
+
+    // Second target requirement on a loyalty ability.
+    let two_target_walker = read(
+        "Name:TwinWalker\nManaCost:1 G U\nTypes:Legendary Planeswalker Twin\nLoyalty:4\n\
+         A:AB$ Pump | Cost$ SubCounter<5/LOYALTY> | Planeswalker$ True | \
+         ValidTgts$ Creature | NumAtt$ +2 | SubAbility$ Next\n\
+         SVar:Next:DB$ Pump | ValidTgts$ Creature.YouCtrl | NumDef$ +5",
+    );
+    assert!(
+        two_target_walker.abilities[0].starts_with("loyalty!(-5, &[Effect::PumpTarget {")
+            && two_target_walker.abilities[0].contains("targets = Some(TargetReq::one(")
+            && two_target_walker.abilities[0].contains("second_targets = Some(TargetReq::one("),
+        "{}",
+        two_target_walker.abilities[0]
+    );
+}
+
+#[test]
+fn wave18a_planeswalker_loyalty_cost_refusals() {
+    for (script, expected) in [
+        (
+            "Name:BadX\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ SubCounter<X/LOYALTY> | Planeswalker$ True | NumCards$ X\n\
+             SVar:X:Count$xPaid",
+            "a variable-X loyalty cost",
+        ),
+        (
+            "Name:BadMixed\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> 1 | Planeswalker$ True | NumCards$ 1",
+            "a non-loyalty cost `AddCounter<1/LOYALTY> 1` on a loyalty ability",
+        ),
+        (
+            "Name:BadNonLoyaltyCounter\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ AddCounter<1/P1P1> | Planeswalker$ True | NumCards$ 1",
+            "a non-loyalty cost `AddCounter<1/P1P1>` on a loyalty ability",
+        ),
+        (
+            "Name:BadZeroCost\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ 0 | Planeswalker$ True | NumCards$ 1",
+            "a non-loyalty cost `0` on a loyalty ability",
+        ),
+        (
+            "Name:BadOverflow\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ SubCounter<128/LOYALTY> | Planeswalker$ True | NumCards$ 1",
+            "a loyalty cost count `128`",
+        ),
+        (
+            "Name:BadNoCost\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Planeswalker$ True | NumCards$ 1",
+            "a loyalty ability with no `Cost$`",
+        ),
+        (
+            "Name:BadUltOnly\nTypes:Artifact\n\
+             A:AB$ Draw | Cost$ T | Ultimate$ True | NumCards$ 1",
+            "`Ultimate$` without `Planeswalker$ True`",
+        ),
+        (
+            "Name:BadPwFalse\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ False | NumCards$ 1",
+            "`Planeswalker$ False`",
+        ),
+        (
+            "Name:BadUltFalse\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ SubCounter<5/LOYALTY> | Planeswalker$ True | Ultimate$ False | NumCards$ 1",
+            "`Ultimate$ False`",
+        ),
+    ] {
+        let parsed = parse(script);
+        assert!(
+            transcode(&parsed, &cats(), None).is_none(),
+            "must refuse: {script}"
+        );
+        assert_eq!(
+            refusal_reason(&parsed, &cats(), None).as_deref(),
+            Some(expected),
+            "wrong refusal reason for: {script}"
+        );
+    }
+}
+
+#[test]
+fn wave18a_planeswalker_loyalty_modifier_refusals() {
+    for (script, expected) in [
+        (
+            "Name:BadSpellPw\nManaCost:U\nTypes:Sorcery\n\
+             A:SP$ Draw | Planeswalker$ True | NumCards$ 1",
+            "`Planeswalker$` on a spell",
+        ),
+        (
+            "Name:BadLimit\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | ActivationLimit$ 2 | NumCards$ 1",
+            "`ActivationLimit$` on a loyalty ability",
+        ),
+        (
+            "Name:BadZone\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | ActivationZone$ Graveyard | NumCards$ 1",
+            "a non-battlefield `ActivationZone$` on a loyalty ability",
+        ),
+        (
+            "Name:BadActivator\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Activator$ Player | NumCards$ 1",
+            "`Activator$ Player` on a loyalty ability",
+        ),
+        (
+            "Name:BadSorcery\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | SorcerySpeed$ True | NumCards$ 1",
+            "`SorcerySpeed$` on a loyalty ability",
+        ),
+        (
+            "Name:BadAltCost\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | AlternateCost$ SubCounter<1/LOYALTY> | Planeswalker$ True | NumCards$ 1",
+            "`AlternateCost$` on a loyalty ability",
+        ),
+        (
+            "Name:BadCond\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Condition$ Threshold | NumCards$ 1",
+            "an activation condition on a loyalty ability",
+        ),
+        (
+            "Name:BadGrantPw\nManaCost:2 W\nTypes:Enchantment\n\
+             S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddAbility$ GrantPw\n\
+             SVar:GrantPw:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | NumCards$ 1",
+            "a granted loyalty ability",
+        ),
+        (
+            "Name:BadModalPw\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+             A:AB$ Charm | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Choices$ M1,M2\n\
+             SVar:M1:DB$ Draw | NumCards$ 1\n\
+             SVar:M2:DB$ GainLife | LifeAmount$ 2",
+            "unclaimed parameter `Charm.Planeswalker`",
+        ),
+    ] {
+        let parsed = parse(script);
+        assert!(
+            transcode(&parsed, &cats(), None).is_none(),
+            "must refuse: {script}"
+        );
+        assert_eq!(
+            refusal_reason(&parsed, &cats(), None).as_deref(),
+            Some(expected),
+            "wrong refusal reason for: {script}"
+        );
+    }
+}
+
+#[test]
+fn wave18a_put_counter_on_other_and_exile_same_grave() {
+    let blight_act = read(
+        "Name:BlightPing\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         A:AB$ DealDamage | Cost$ 2 R T AddCounter<1/M1M1/Creature.YouCtrl/a creature you control> | \
+         ValidTgts$ Any | NumDmg$ 2",
+    );
+    assert!(
+        blight_act.abilities[0].contains(
+            "PutCounterOnOther { filter: &Filter::YOUR_CREATURE, kind: CounterKind::M1M1, n: 1 }"
+        ),
+        "{:?}",
+        blight_act.abilities
+    );
+
+    let self_named_counter = read(
+        "Name:SelfCounter\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ AddCounter<1/M1M1/CARDNAME> | NumCards$ 1",
+    );
+    assert!(
+        self_named_counter.abilities[0]
+            .contains("PutCounterSelf { kind: CounterKind::M1M1, n: 1 }"),
+        "{:?}",
+        self_named_counter.abilities
+    );
+
+    let night_soil = read(
+        "Name:SoilEnch\nManaCost:G G\nTypes:Enchantment\n\
+         A:AB$ GainLife | Cost$ 1 ExileSameGrave<2/Creature> | LifeAmount$ 1",
+    );
+    assert!(
+        night_soil.abilities[0]
+            .contains("ExileFromSingleGraveyard { filter: &Filter::CREATURE, count: 2 }"),
+        "{:?}",
+        night_soil.abilities
+    );
+
+    for bad in [
+        "Name:OppCounter\nTypes:Artifact\nA:AB$ Draw | Cost$ AddCounter<1/P1P1/Creature.OppCtrl> | NumCards$ 1",
+        "Name:AnyCounter\nTypes:Artifact\nA:AB$ Draw | Cost$ AddCounter<1/P1P1/Creature> | NumCards$ 1",
+        "Name:SpellOtherCounter\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B AddCounter<1/M1M1/Creature.YouCtrl> | NumCards$ 1",
+        "Name:ZeroOtherCounter\nTypes:Artifact\nA:AB$ Draw | Cost$ AddCounter<0/M1M1/Creature.YouCtrl> | NumCards$ 1",
+        "Name:OwnSameGrave\nTypes:Artifact\nA:AB$ Draw | Cost$ ExileSameGrave<2/Creature.YouOwn> | NumCards$ 1",
+        "Name:ZeroSameGrave\nTypes:Artifact\nA:AB$ Draw | Cost$ ExileSameGrave<0/Creature> | NumCards$ 1",
+        "Name:SpellSameGrave\nManaCost:G\nTypes:Sorcery\nA:SP$ Draw | Cost$ G ExileSameGrave<2/Creature> | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave18a_activation_svar_and_present_conditions() {
+    // `CheckSVar$` with `Count$ThisTurnEntered_Battlefield_Creature.YouCtrl`
+    // must fall through to `svar_condition_clause` instead of failing subtype lookup.
+    let etb_check = read(
+        "Name:EtbTapper\nManaCost:1 W\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Tap | Cost$ T | ValidTgts$ Creature | CheckSVar$ X\n\
+         SVar:X:Count$ThisTurnEntered_Battlefield_Creature.YouCtrl",
+    );
+    assert!(
+        etb_check.abilities[0].contains(
+            "condition = Some(Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, 1))"
+        ),
+        "{:?}",
+        etb_check.abilities
+    );
+
+    // Inline `Count$CommittedCrimeThisTurn.1.0`, `PlayerCountOpponents$HasPropertywasDealtDamageThisTurn`,
+    // `IsPresent$ Card.YouCtrl+IsRingbearer`, and `Condition$ Morbid`/`Raid`.
+    let crime_ab = read(
+        "Name:CrimeScout\nManaCost:1 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 | NumCards$ 1 | CheckSVar$ Count$CommittedCrimeThisTurn.1.0",
+    );
+    assert!(
+        crime_ab.abilities[0]
+            .contains("condition = Some(Condition::CommittedCrimeThisTurn(PlayerRel::You))"),
+        "{:?}",
+        crime_ab.abilities
+    );
+
+    let bloodthirst_ab = read(
+        "Name:BloodScout\nManaCost:1 R\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 | NumCards$ 1 | CheckSVar$ X\n\
+         SVar:X:PlayerCountOpponents$HasPropertywasDealtDamageThisTurn",
+    );
+    assert!(
+        bloodthirst_ab.abilities[0]
+            .contains("condition = Some(Condition::OpponentDealtDamageThisTurn)"),
+        "{:?}",
+        bloodthirst_ab.abilities
+    );
+
+    let ring_ab = read(
+        "Name:RingScout\nManaCost:1 W\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 | NumCards$ 1 | IsPresent$ Card.YouCtrl+IsRingbearer | PresentCompare$ EQ0",
+    );
+    assert!(
+        ring_ab.abilities[0]
+            .contains("condition = Some(Condition::Not(&Condition::HasRingBearer))"),
+        "{:?}",
+        ring_ab.abilities
+    );
+
+    let morbid_ab = read(
+        "Name:MorbidScout\nManaCost:1 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 | NumCards$ 1 | Condition$ Morbid",
+    );
+    assert!(
+        morbid_ab.abilities[0]
+            .contains("condition = Some(Condition::CreaturesDiedThisTurnAtLeast(1))"),
+        "{:?}",
+        morbid_ab.abilities
+    );
 }

@@ -798,7 +798,7 @@ impl Tx<'_> {
                 uses_x = true;
                 mana.push_str("{X}");
             } else if token.chars().all(|c| c.is_ascii_digit())
-                || matches!(token, "W" | "U" | "B" | "R" | "G" | "C")
+                || matches!(token, "W" | "U" | "B" | "R" | "G" | "C" | "S")
             {
                 mana.push('{');
                 mana.push_str(token);
@@ -807,6 +807,12 @@ impl Tx<'_> {
                 mana.push_str(&pair);
             } else if token.starts_with("XMin") {
                 return self.deny("a variable-X `Kicker` cost".to_string());
+            } else if token == "Discard<1/Hand>"
+                || token == "Discard<0/Hand>"
+                || token.starts_with("Discard<1/Hand/")
+                || token.starts_with("Discard<0/Hand/")
+            {
+                parts.push("DiscardHand".to_string());
             } else {
                 parts.extend(self.parse_spell_cost_token(token)?);
             }
@@ -860,15 +866,12 @@ impl Tx<'_> {
 
     /// Parses all non-mana `CostPart::...` entries from a spell's `Cost$`
     /// string for `FaceDef::mandatory_additional_costs`.
-    ///
-    /// Staged for follow-up wiring in `activated.rs` / `mana.rs`.
-    #[allow(dead_code)]
     pub(super) fn parse_spell_cost_parts(&mut self, raw: &str) -> Option<Vec<String>> {
         let mut out = Vec::new();
         for token in super::cost_parts(raw) {
             let token = token.as_str();
             let is_mana = token.chars().all(|c| c.is_ascii_digit())
-                || matches!(token, "W" | "U" | "B" | "R" | "G" | "C" | "X")
+                || matches!(token, "W" | "U" | "B" | "R" | "G" | "C" | "S" | "X")
                 || super::hybrid_pair(token).is_some();
             if is_mana {
                 continue;
@@ -895,6 +898,15 @@ impl Tx<'_> {
             .and_then(|t| t.strip_suffix('>'))
         {
             return self.parse_scalar_spell_cost(amt, "PayEnergy", token);
+        }
+        if let Some(dmg) = token
+            .strip_prefix("DamageYou<")
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            let Some(value) = dmg.trim().parse::<u16>().ok().filter(|&v| v > 0) else {
+                return self.deny(format!("cost `{token}`"));
+            };
+            return Some(vec![format!("DealDamageToYou({value})")]);
         }
         let Some((kind, body)) = token
             .split_once('<')
@@ -924,7 +936,10 @@ impl Tx<'_> {
         token: &str,
     ) -> Option<Vec<String>> {
         if amt == "X" {
-            if self.has_x && self.svars.get("X").map(String::as_str) == Some("Count$xPaid") {
+            if self.has_x
+                && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+                && !self.oracle.to_ascii_lowercase().contains("x is ")
+            {
                 return Some(vec![format!("{variant}X")]);
             }
             return self.deny(format!("cost `{variant}<X>` without announced X"));

@@ -1579,23 +1579,16 @@ impl Tx<'_> {
                 || token.starts_with("Discard<0/Hand/")
             {
                 parts.push("DiscardHand".to_string());
-            } else if let Some((n, kind)) = token
+            } else if let Some(inner) = token
                 .strip_prefix("AddCounter<")
                 .and_then(|t| t.strip_suffix('>'))
-                .and_then(|t| t.split_once('/'))
             {
-                // "Put a -1/-1 counter on this creature" as a cost. The
-                // counter noun goes through the same table the `PutCounter`
-                // *effect* reads, so the two cannot come to disagree about
-                // what `M1M1` is — and a noun the DSL has no kind for takes
-                // the card off the list rather than guessing at one.
-                let Ok(n) = n.parse::<u16>() else {
-                    return self.deny(format!("counter count `{n}`"));
-                };
-                let Some(kind) = counter_kind(kind) else {
-                    return self.deny(format!("counter `{kind}`"));
-                };
-                parts.push(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}"));
+                parts.push(self.add_counter_cost(inner, token)?);
+            } else if let Some(inner) = token
+                .strip_prefix("ExileSameGrave<")
+                .and_then(|t| t.strip_suffix('>'))
+            {
+                parts.push(self.exile_same_grave_cost(inner, token)?);
             } else if let Some((n, kind)) = token
                 .strip_prefix("SubCounter<")
                 .and_then(|t| t.strip_suffix('>'))
@@ -1658,6 +1651,78 @@ impl Tx<'_> {
             }
         }
         Some((mana, parts))
+    }
+
+    fn add_counter_cost(&mut self, inner: &str, token: &str) -> Option<String> {
+        let mut fields = inner.splitn(4, '/');
+        let (Some(n_raw), Some(kind_raw)) = (fields.next(), fields.next()) else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        let target_opt = fields.next();
+        if kind_raw == "LOYALTY" {
+            // Loyalty costs belong exclusively on `Planeswalker$ True` loyalty
+            // abilities (CR 606.3–4), never on ordinary counter costs.
+            return self.deny("a loyalty cost".to_string());
+        }
+        let Ok(n) = n_raw.parse::<u16>() else {
+            return self.deny(format!("counter count `{n_raw}`"));
+        };
+        let Some(kind) = counter_kind(kind_raw) else {
+            return self.deny(format!("counter `{kind_raw}`"));
+        };
+        match target_opt {
+            None | Some("CARDNAME") => Some(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}")),
+            Some(valid) => {
+                if self.on_a_spell || self.in_alternative_cost || n == 0 {
+                    return self.deny(format!("cost `{token}`"));
+                }
+                let controlled_by_you = valid.split([',', ';']).all(|alt| {
+                    let mut saw_you = false;
+                    for atom in alt.split(['.', '+']).map(str::trim) {
+                        if atom == "YouCtrl" {
+                            saw_you = true;
+                        } else if atom.contains("Ctrl")
+                            || atom.contains("Own")
+                            || matches!(atom, "CARDNAME" | "Self" | "targetedBy")
+                        {
+                            return false;
+                        }
+                    }
+                    saw_you
+                });
+                if !controlled_by_you {
+                    return self.deny(format!("a counter cost on `{valid}`"));
+                }
+                let normalized = normalize_object_cost_spec(valid, "PutCounterOnOther", true);
+                let expr = self.filter_expr(&normalized)?;
+                let name = self.body.filter_static("COST", &expr);
+                Some(format!(
+                    "PutCounterOnOther {{ filter: &{name}, kind: {kind}, n: {n} }}"
+                ))
+            }
+        }
+    }
+
+    fn exile_same_grave_cost(&mut self, inner: &str, token: &str) -> Option<String> {
+        if self.on_a_spell || self.in_alternative_cost || self.trigger_mode.is_some() {
+            return self.deny(format!("cost `{token}`"));
+        }
+        let mut fields = inner.splitn(3, '/');
+        let (Some(n_raw), Some(spec)) = (fields.next(), fields.next()) else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        let Some(count) = n_raw.parse::<u8>().ok().filter(|&c| c > 0) else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        if spec == "CARDNAME" || spec.contains("Ctrl") || spec.contains("Own") {
+            return self.deny(format!("cost `{token}`"));
+        }
+        let normalized = spec.replace(';', ",");
+        let expr = self.filter_expr_in_zone(&normalized, true)?;
+        let name = self.body.filter_static("COST", &expr);
+        Some(format!(
+            "ExileFromSingleGraveyard {{ filter: &{name}, count: {count} }}"
+        ))
     }
 
     fn sub_counter_cost(&self, n: &str, kind: &str) -> Option<String> {

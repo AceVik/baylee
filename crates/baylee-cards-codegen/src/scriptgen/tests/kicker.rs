@@ -705,3 +705,22 @@ fn dual_kicker_volver_etb_replacements_emit_if_kicked_with_keywords_activated_an
         ]
     );
 }
+
+#[test]
+fn wave18a_kicker_damage_you_discard_hand_and_snow_mana() {
+    let snow = read("Name:X\nTypes:Instant\nK:Kicker:1 S\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(snow.additional_costs, ["cost!(\"{1}{S}\")"]);
+
+    let dmg = read("Name:X\nTypes:Instant\nK:Kicker:DamageYou<3>\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(dmg.additional_costs, ["cost!(DealDamageToYou(3))"]);
+
+    let hand = read("Name:X\nTypes:Instant\nK:Kicker:Discard<1/Hand>\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(hand.additional_costs, ["cost!(DiscardHand)"]);
+
+    for bad in [
+        "Name:X\nTypes:Instant\nK:Kicker:DamageYou<0>\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nTypes:Instant\nK:Kicker:DamageYou<X>\nSVar:X:Count$xPaid\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
