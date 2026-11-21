@@ -285,6 +285,13 @@ pub fn amount_with_context(
                 .unwrap_or(u32::MAX)
             })
         }
+        Amount::ManaExpendedOnSpellsThisTurn(who) => {
+            super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                seats
+                    .iter()
+                    .fold(0u32, |acc, &p| acc.saturating_add(state.per_turn.mana_expended_by(p)))
+            })
+        }
     }
 }
 

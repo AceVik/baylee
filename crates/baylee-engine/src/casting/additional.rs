@@ -177,6 +177,38 @@ fn expand_forage_branches(tail: &[CostPart], branch_mask: u32) -> SmallVec<[Cost
     out
 }
 
+fn fixed_spell_resources_payable(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &'static FaceDef,
+    choice: CostChoice,
+    chosen: &[ObjectId],
+) -> bool {
+    let life = crate::engine::cast_wizard::fixed_life_cost(face, choice);
+    if !state.can_pay_life(player, life) {
+        return false;
+    }
+    let energy = crate::engine::cast_wizard::fixed_energy_cost(face, choice);
+    if u32::from(state.players[usize::from(player.get())].energy) < energy {
+        return false;
+    }
+    let top_exile: usize = crate::engine::cast_wizard::wizard_cost_parts(face, choice)
+        .filter_map(|part| match part {
+            CostPart::ExileTopOfLibrary(n) => Some(usize::from(*n)),
+            _ => None,
+        })
+        .sum();
+    if top_exile > 0 && state.zones.list(ZoneLocation::Library(player)).len() < top_exile {
+        return false;
+    }
+    !crate::engine::cast_wizard::wizard_mandatory_parts(face, choice)
+        .any(|part| matches!(part, CostPart::DiscardLastDrawnThisTurn))
+        || state
+            .last_drawn_in_hand(player)
+            .is_some_and(|drawn| drawn != card && !chosen.contains(&drawn))
+}
+
 pub(crate) fn additional_payment_capacity_for_x(
     state: &GameState,
     player: PlayerId,
@@ -187,29 +219,59 @@ pub(crate) fn additional_payment_capacity_for_x(
     chosen: &[ObjectId],
 ) -> Option<usize> {
     let choice = choice.into();
-    let life = crate::engine::cast_wizard::fixed_life_cost(face, choice);
-    if !state.can_pay_life(player, life) {
-        return None;
+    let (total_eithers, _) = crate::engine::cast_wizard::next_either_cost(face, choice);
+    let total_eithers = total_eithers.min(8);
+    if choice.either_decided < total_eithers {
+        return undecided_either_capacity(
+            state,
+            player,
+            card,
+            face,
+            choice,
+            total_eithers,
+            x,
+            chosen,
+        );
     }
-    let energy = crate::engine::cast_wizard::fixed_energy_cost(face, choice);
-    if u32::from(state.players[usize::from(player.get())].energy) < energy {
-        return None;
+    settled_additional_payment_capacity(state, player, card, face, choice, x, chosen)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn undecided_either_capacity(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &'static FaceDef,
+    choice: CostChoice,
+    total_eithers: u8,
+    x: u32,
+    chosen: &[ObjectId],
+) -> Option<usize> {
+    let undecided = total_eithers - choice.either_decided;
+    let mut best: Option<usize> = None;
+    for rest in 0..(1_u8 << undecided) {
+        let mut sub = choice;
+        sub.either_decided = total_eithers;
+        sub.either_first_mask = choice.either_first_mask | (rest << choice.either_decided);
+        if let Some(cap) =
+            settled_additional_payment_capacity(state, player, card, face, sub, x, chosen)
+        {
+            best = Some(best.map_or(cap, |prev| prev.max(cap)));
+        }
     }
-    let top_exile: usize = crate::engine::cast_wizard::wizard_cost_parts(face, choice)
-        .filter_map(|part| match part {
-            CostPart::ExileTopOfLibrary(n) => Some(usize::from(*n)),
-            _ => None,
-        })
-        .sum();
-    if top_exile > 0 && state.zones.list(ZoneLocation::Library(player)).len() < top_exile {
-        return None;
-    }
-    if crate::engine::cast_wizard::wizard_mandatory_parts(face, choice)
-        .any(|part| matches!(part, CostPart::DiscardLastDrawnThisTurn))
-        && !state
-            .last_drawn_in_hand(player)
-            .is_some_and(|drawn| drawn != card && !chosen.contains(&drawn))
-    {
+    best
+}
+
+fn settled_additional_payment_capacity(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &'static FaceDef,
+    choice: CostChoice,
+    x: u32,
+    chosen: &[ObjectId],
+) -> Option<usize> {
+    if !fixed_spell_resources_payable(state, player, card, face, choice, chosen) {
         return None;
     }
     let parts = crate::engine::cast_wizard::additional_card_costs_for_x(
@@ -238,7 +300,10 @@ pub(crate) fn additional_payment_capacity_for_x(
                 crate::engine::cost_wizard::options(state, player, card, part)
                     .into_iter()
                     .filter(|id| {
-                        *id != card && Some(*id) != choice.emerge_sacrifice && !chosen.contains(id)
+                        *id != card
+                            && Some(*id) != choice.emerge_sacrifice
+                            && Some(*id) != choice.returned
+                            && !chosen.contains(id)
                     })
                     .collect()
             })

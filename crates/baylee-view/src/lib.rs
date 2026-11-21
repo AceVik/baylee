@@ -316,7 +316,13 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 103 adds `CastModeKind::Retrace` (CR 702.81a),
 /// `YesNoPrompt::{Riot, Unleash}` (CR 702.136, CR 702.98), and
 /// [`PublicObject::suspected`] (CR 701.60).
-pub const VIEW_VERSION: u32 = 103;
+/// Version 104–107 unify Engine Waves 9a–10b (`YesNoPrompt::AssignDamageAsThoughUnblocked`,
+/// `YesNoPrompt::ClashBottom`, `ChoicePrompt::ChooseRingBearer`,
+/// `YesNoPrompt::{ChooseFirstCostBranch, OpeningHandBattlefield, OpeningHandReveal}`,
+/// `CastModeKind::Sneak`, `YesNoPrompt::Endure`, `CastModeKind::Awaken`,
+/// `ChoicePrompt::{Splice, CipherEncode, Champion}`, and
+/// `YesNoPrompt::{Conspire, Tribute}`).
+pub const VIEW_VERSION: u32 = 107;
 
 // ------------------------------------------------------------------- targets
 

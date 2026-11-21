@@ -668,6 +668,50 @@ pub enum GameEvent {
         /// The monstrosity value `N` / `X` (`CR 701.37c`).
         count: u32,
     },
+    /// The Ring tempted a player (`CR 701.54a–e`).
+    RingTempted {
+        /// The player whom The Ring tempted.
+        player: PlayerId,
+        /// The player's Ring-bearer after choosing, if any (`CR 701.54a`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ring_bearer: Option<ObjectId>,
+        /// Total times The Ring has tempted `player` this game (`1..=255`).
+        count: u8,
+    },
+    /// A player firebent via Firebending N (`CR 702.189a–b`).
+    PlayerFirebent {
+        /// The player who firebent.
+        player: PlayerId,
+        /// Source of the firebending ability.
+        source: ObjectId,
+        /// Amount of `{R}` produced (`>= 1`).
+        amount: u16,
+    },
+    /// A player committed a crime by casting a spell, activating an ability, or
+    /// putting a triggered ability on the stack targeting an opponent, a
+    /// permanent/spell/ability an opponent controls, or a card in an opponent's
+    /// graveyard (CR 700.13).
+    CommittedCrime {
+        /// The player who committed the crime.
+        player: PlayerId,
+    },
+    /// A player spent mana to cast a spell, advancing their cumulative spell
+    /// mana expended this turn from `previous` to `total` (expend N, CR 700.14).
+    ManaExpended {
+        /// The casting player.
+        player: PlayerId,
+        /// Cumulative mana spent on spells this turn before this spell.
+        previous: u32,
+        /// Cumulative mana spent on spells this turn after this spell.
+        total: u32,
+    },
+    /// A player participated in a clash (CR 701.30a–d).
+    Clashed {
+        /// The clashing player.
+        player: PlayerId,
+        /// Whether this player won the clash (CR 701.30d).
+        won: bool,
+    },
 }
 
 /// Where in a library a card was put.
@@ -754,6 +798,9 @@ pub struct Departure {
     pub toughness: i16,
     /// Auras/equipment attached immediately before departure.
     pub attachments: Vec<ObjectId>,
+    /// Player whose Ring-bearer this permanent was immediately before departure (`CR 603.10a`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub was_ring_bearer_of: Option<PlayerId>,
 }
 
 impl std::hash::Hash for Departure {
@@ -768,6 +815,9 @@ impl std::hash::Hash for Departure {
         self.controller.hash(state);
         self.toughness.hash(state);
         self.attachments.hash(state);
+        if let Some(who) = self.was_ring_bearer_of {
+            who.hash(state);
+        }
     }
 }
 
@@ -796,6 +846,9 @@ impl Departure {
             hash = hash
                 .wrapping_mul(31)
                 .wrapping_add(u64::from(id.generation()));
+        }
+        if let Some(who) = self.was_ring_bearer_of {
+            hash = hash.wrapping_mul(31).wrapping_add(u64::from(who.get()) + 1);
         }
         hash
     }

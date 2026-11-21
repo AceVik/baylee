@@ -1030,3 +1030,41 @@ fn repeat_each_choose_card_peek_and_reveal_branches_are_visited() {
     assert_eq!(leaves, 6);
     assert_eq!(seen, 11);
 }
+
+#[test]
+fn clash_branches_and_additional_combat_phase_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::Clash {
+            on_win: &[Effect::draw(1)],
+            on_loss: &[Effect::gain_life(2)],
+        },
+        Effect::AdditionalCombatPhase {
+            followed_by_main_phase: true,
+        },
+    ];
+    let mut seen = 0;
+    let (mut drew, mut gained, mut extra_combat) = (false, false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        drew |= matches!(effect, Effect::DrawCards { .. });
+        gained |= matches!(effect, Effect::GainLife { .. });
+        extra_combat |= matches!(effect, Effect::AdditionalCombatPhase { .. });
+    });
+    assert_eq!(seen, 4);
+    assert!(drew && gained && extra_combat);
+}
+
+#[test]
+fn wave10b_effects_are_leaf_instructions() {
+    static EFFECTS: &[Effect] = &[
+        Effect::AwakenLand { count: 3 },
+        Effect::Cipher,
+        Effect::CipherCastEncoded,
+        Effect::Champion {
+            filter: &Filter::CREATURE,
+        },
+        Effect::ReturnChampioned,
+    ];
+    let mut seen = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |_| {});
+    assert_eq!(seen, 5);
+}

@@ -11,6 +11,16 @@ static BARGAIN_FODDER: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::Or(&
 
 static BARGAIN_PARTS: [CostPart; 1] = [CostPart::Sacrifice(&BARGAIN_FODDER)];
 
+static CONSPIRE_CREATURE: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::And(&[
+    baylee_cards_dsl::Filter::CREATURE,
+    baylee_cards_dsl::Filter::SharesColorWithSource,
+]);
+
+static CONSPIRE_PARTS: [CostPart; 1] = [CostPart::TapN {
+    count: 2,
+    filter: &CONSPIRE_CREATURE,
+}];
+
 const CASUALTY_PARTS: [[CostPart; 1]; 256] = {
     let mut out = [[CostPart::Sacrifice(&baylee_cards_dsl::Filter::CREATURE)]; 256];
     let mut i = 0_usize;
@@ -26,51 +36,72 @@ const CASUALTY_PARTS: [[CostPart; 1]; 256] = {
     out
 };
 
-/// Mandatory additional parts, entwine, bargain, casualty, and the chosen kicker's non-mana parts.
-pub(crate) fn wizard_mandatory_parts(
+fn expand_either_part(
+    part: &'static CostPart,
+    either_idx: &mut u8,
+    choice: CostChoice,
+) -> &'static [CostPart] {
+    if let CostPart::Either(a, b) = part {
+        let idx = *either_idx;
+        *either_idx = either_idx.saturating_add(1);
+        if idx < choice.either_decided {
+            if idx < 8 && (choice.either_first_mask & (1_u8 << idx)) != 0 {
+                a.parts
+            } else {
+                b.parts
+            }
+        } else {
+            core::slice::from_ref(part)
+        }
+    } else {
+        core::slice::from_ref(part)
+    }
+}
+
+fn raw_mandatory_parts(
     face: &baylee_cards_dsl::FaceDef,
-    choice: impl Into<CostChoice>,
-) -> impl Iterator<Item = &CostPart> {
-    let choice = choice.into();
+    choice: CostChoice,
+) -> impl Iterator<Item = &'static CostPart> {
     let disguised = choice.option == Some(CastModeKind::Disguise);
-    let mandatory = if disguised {
-        &[][..]
+    let mandatory: &'static [CostPart] = if disguised {
+        &[]
     } else {
         face.mandatory_additional_costs
     };
-    let entwine_parts = match (choice.option, face.entwine) {
+    let entwine_parts: &'static [CostPart] = match (choice.option, face.entwine) {
         (Some(CastModeKind::Modes(_)), Some(entwine)) if !disguised => entwine.parts,
         _ => &[],
     };
-    let jump_start_parts: &[CostPart] = if choice.option == Some(CastModeKind::JumpStart) {
+    let jump_start_parts: &'static [CostPart] = if choice.option == Some(CastModeKind::JumpStart) {
         &[CostPart::Discard(&baylee_cards_dsl::Filter::Any)]
     } else {
         &[]
     };
-    let retrace_parts: &[CostPart] = if choice.option == Some(CastModeKind::Retrace) {
+    let retrace_parts: &'static [CostPart] = if choice.option == Some(CastModeKind::Retrace) {
         &[CostPart::Discard(&baylee_cards_dsl::Filter::LAND)]
     } else {
         &[]
     };
-    let bargain_parts: &[CostPart] = if !disguised && choice.bargained && face.bargain {
+    let bargain_parts: &'static [CostPart] = if !disguised && choice.bargained && face.bargain {
         &BARGAIN_PARTS
     } else {
         &[]
     };
-    let offspring_parts: &[CostPart] = match face.offspring {
+    let offspring_parts: &'static [CostPart] = match face.offspring {
         Some(cost) if !disguised && choice.offspring => cost.parts,
         _ => &[],
     };
-    let casualty_parts: &[CostPart] = match face.casualty {
+    let casualty_parts: &'static [CostPart] = match face.casualty {
         Some(min_power) if !disguised && choice.casualty => {
             &CASUALTY_PARTS[usize::from(min_power)][..]
         }
         _ => &[],
     };
-    let squad_parts: &[CostPart] = match face.squad {
+    let squad_parts: &'static [CostPart] = match face.squad {
         Some(cost) if !disguised && choice.squad > 0 => cost.parts,
         _ => &[],
     };
+    let additional_costs = face.additional_costs;
     mandatory
         .iter()
         .chain(jump_start_parts.iter())
@@ -81,7 +112,25 @@ pub(crate) fn wizard_mandatory_parts(
         .chain(casualty_parts.iter())
         .chain(std::iter::repeat_n(squad_parts, usize::from(choice.squad)).flatten())
         .chain(
-            face.additional_costs
+            std::iter::repeat_n(
+                if disguised {
+                    &[][..]
+                } else {
+                    &CONSPIRE_PARTS[..]
+                },
+                usize::from(choice.conspired),
+            )
+            .flatten(),
+        )
+        .chain(
+            choice
+                .splice_parts
+                .into_iter()
+                .flatten()
+                .flat_map(move |parts| if disguised { &[][..] } else { parts }),
+        )
+        .chain(
+            additional_costs
                 .iter()
                 .enumerate()
                 .filter(move |(idx, _)| {
@@ -94,10 +143,114 @@ pub(crate) fn wizard_mandatory_parts(
         )
 }
 
+/// Mandatory additional parts, entwine, bargain, casualty, and the chosen kicker's non-mana parts,
+/// expanding any settled [`CostPart::Either`] branches.
+pub(crate) fn wizard_mandatory_parts(
+    face: &baylee_cards_dsl::FaceDef,
+    choice: impl Into<CostChoice>,
+) -> impl Iterator<Item = &'static CostPart> {
+    let choice = choice.into();
+    let alt_eithers = wizard_alternative_parts_for_choice(face, choice)
+        .iter()
+        .filter(|p| matches!(p, CostPart::Either(_, _)))
+        .count();
+    let mut idx = u8::try_from(alt_eithers).unwrap_or(u8::MAX);
+    raw_mandatory_parts(face, choice)
+        .flat_map(move |part| expand_either_part(part, &mut idx, choice))
+}
+
+/// Alternative non-mana parts with settled [`CostPart::Either`] branches expanded.
+pub(crate) fn wizard_alternative_parts_expanded(
+    face: &baylee_cards_dsl::FaceDef,
+    choice: impl Into<CostChoice>,
+) -> SmallVec<[CostPart; 4]> {
+    let choice = choice.into();
+    let mut idx = 0_u8;
+    wizard_alternative_parts_for_choice(face, choice)
+        .iter()
+        .flat_map(|part| expand_either_part(part, &mut idx, choice))
+        .copied()
+        .collect()
+}
+
+/// Buyback non-mana parts with settled [`CostPart::Either`] branches expanded.
+pub(crate) fn wizard_buyback_parts_expanded(
+    face: &baylee_cards_dsl::FaceDef,
+    choice: impl Into<CostChoice>,
+) -> SmallVec<[CostPart; 4]> {
+    let choice = choice.into();
+    let prior = wizard_alternative_parts_for_choice(face, choice)
+        .iter()
+        .chain(raw_mandatory_parts(face, choice))
+        .filter(|p| matches!(p, CostPart::Either(_, _)))
+        .count();
+    let mut idx = u8::try_from(prior).unwrap_or(u8::MAX);
+    wizard_buyback_parts(face, choice.buyback)
+        .iter()
+        .flat_map(|part| expand_either_part(part, &mut idx, choice))
+        .copied()
+        .collect()
+}
+
+/// Total `CostPart::Either` count across the cast's cost list and the next unsettled pair.
+pub(crate) fn next_either_cost(
+    face: &baylee_cards_dsl::FaceDef,
+    choice: CostChoice,
+) -> (
+    u8,
+    Option<(
+        &'static baylee_cards_dsl::Cost,
+        &'static baylee_cards_dsl::Cost,
+    )>,
+) {
+    let mut total = 0_u8;
+    let mut next = None;
+    for part in wizard_alternative_parts_for_choice(face, choice)
+        .iter()
+        .chain(raw_mandatory_parts(face, choice))
+        .chain(wizard_buyback_parts(face, choice.buyback))
+    {
+        if let CostPart::Either(a, b) = part {
+            if total == choice.either_decided && next.is_none() {
+                next = Some((*a, *b));
+            }
+            total = total.saturating_add(1);
+        }
+    }
+    (total, next)
+}
+
+/// Combined mana added by all settled [`CostPart::Either`] branches of `choice`.
+pub(crate) fn settled_either_mana(
+    face: &baylee_cards_dsl::FaceDef,
+    choice: CostChoice,
+) -> baylee_core::mana::ManaCost {
+    let mut mana = baylee_core::mana::ManaCost::ZERO;
+    let mut idx = 0_u8;
+    for part in wizard_alternative_parts_for_choice(face, choice)
+        .iter()
+        .chain(raw_mandatory_parts(face, choice))
+        .chain(wizard_buyback_parts(face, choice.buyback))
+    {
+        if let CostPart::Either(a, b) = part {
+            if idx < choice.either_decided {
+                let chosen = if idx < 8 && (choice.either_first_mask & (1_u8 << idx)) != 0 {
+                    a.mana
+                } else {
+                    b.mana
+                };
+                mana = mana.combine(&chosen);
+            }
+            idx = idx.saturating_add(1);
+        }
+    }
+    mana
+}
+
 /// The non-mana parts of the alternative cost chosen for this cast.
 /// Flashback is an alternative cost too, including one with no mana component.
 pub(crate) fn wizard_alternative_parts(
-    face: &'static baylee_cards_dsl::FaceDef,
+    face: &baylee_cards_dsl::FaceDef,
     option: Option<CastModeKind>,
 ) -> &'static [CostPart] {
     match option {
@@ -113,7 +266,7 @@ pub(crate) fn wizard_alternative_parts(
 
 /// The non-mana parts of the buyback cost, when it is being paid.
 pub(crate) fn wizard_buyback_parts(
-    face: &'static baylee_cards_dsl::FaceDef,
+    face: &baylee_cards_dsl::FaceDef,
     paid: bool,
 ) -> &'static [CostPart] {
     match face.buyback {
@@ -148,6 +301,22 @@ pub(crate) struct CostChoice {
     /// Permanent already chosen for `Emerge` (`CR 702.119c`), excluded from
     /// satisfying any other sacrifice part of the same cast.
     pub emerge_sacrifice: Option<ObjectId>,
+    /// Number of `CostPart::Either` parts decided so far (`CR 118.8`).
+    pub either_decided: u8,
+    /// Bitmask of decided `CostPart::Either` parts (`1` = first branch, `0` = second branch).
+    pub either_first_mask: u8,
+    /// Creature already chosen to return to hand (`BeamMeUp` / `Sneak`),
+    /// excluded from satisfying any mandatory additional cost part.
+    pub returned: Option<ObjectId>,
+    /// Non-mana parts of a `Sneak` cost (`CR 702.190a`) beyond the implicit
+    /// `ReturnUnblockedAttacker`.
+    pub sneak_parts: &'static [CostPart],
+    /// Number of conspire instances paid (`CR 702.78a–b`).
+    pub conspired: u8,
+    /// Non-mana parts of `AbilityDef::Awaken` when `option == Some(CastModeKind::Awaken)`.
+    pub awaken_parts: &'static [CostPart],
+    /// Non-mana parts of spliced cards in chosen order (`CR 702.47a–c`).
+    pub splice_parts: [Option<&'static [CostPart]>; 8],
 }
 
 impl From<Option<CastModeKind>> for CostChoice {
@@ -170,7 +339,28 @@ impl From<Option<CastModeKind>> for CostChoice {
             ),
             kicked_mask: 0,
             emerge_sacrifice: None,
+            either_decided: 0,
+            either_first_mask: 0,
+            returned: None,
+            sneak_parts: &[],
+            conspired: 0,
+            awaken_parts: &[],
+            splice_parts: [None; 8],
         }
+    }
+}
+
+pub(crate) fn wizard_alternative_parts_for_choice(
+    face: &baylee_cards_dsl::FaceDef,
+    choice: CostChoice,
+) -> &'static [CostPart] {
+    let opt = choice.alternative_cost.or(choice.option);
+    if opt == Some(CastModeKind::Sneak) {
+        choice.sneak_parts
+    } else if opt == Some(CastModeKind::Awaken) {
+        choice.awaken_parts
+    } else {
+        wizard_alternative_parts(face, opt)
     }
 }
 
@@ -178,19 +368,21 @@ impl From<Option<CastModeKind>> for CostChoice {
 /// parts precede mandatory additional parts and those precede buyback's,
 /// matching the payment below.
 pub(crate) fn wizard_cost_parts(
-    face: &'static baylee_cards_dsl::FaceDef,
+    face: &baylee_cards_dsl::FaceDef,
     choice: impl Into<CostChoice>,
 ) -> impl Iterator<Item = &'static CostPart> {
     let choice = choice.into();
-    wizard_alternative_parts(face, choice.alternative_cost.or(choice.option))
+    let mut idx = 0_u8;
+    wizard_alternative_parts_for_choice(face, choice)
         .iter()
-        .chain(wizard_mandatory_parts(face, choice))
+        .chain(raw_mandatory_parts(face, choice))
         .chain(wizard_buyback_parts(face, choice.buyback))
+        .flat_map(move |part| expand_either_part(part, &mut idx, choice))
 }
 
 /// Fixed life owed by every selected non-mana cost, before payment begins.
 pub(crate) fn fixed_life_cost(
-    face: &'static baylee_cards_dsl::FaceDef,
+    face: &baylee_cards_dsl::FaceDef,
     choice: impl Into<CostChoice>,
 ) -> i32 {
     wizard_cost_parts(face, choice).fold(0_i32, |sum, part| match part {
@@ -201,7 +393,7 @@ pub(crate) fn fixed_life_cost(
 
 /// Fixed energy owed by every selected non-mana cost, before payment begins.
 pub(crate) fn fixed_energy_cost(
-    face: &'static baylee_cards_dsl::FaceDef,
+    face: &baylee_cards_dsl::FaceDef,
     choice: impl Into<CostChoice>,
 ) -> u32 {
     wizard_cost_parts(face, choice).fold(0_u32, |sum, part| match part {
@@ -217,16 +409,19 @@ pub(crate) fn mandatory_scales_with_x(face: &baylee_cards_dsl::FaceDef) -> bool 
         .any(part_scales_with_x)
 }
 
-pub(crate) const fn part_scales_with_x(part: &CostPart) -> bool {
-    matches!(
-        part,
+pub(crate) fn part_scales_with_x(part: &CostPart) -> bool {
+    match part {
         CostPart::PayLifeX
-            | CostPart::PayEnergyX
-            | CostPart::SacrificeX(_)
-            | CostPart::TapX(_)
-            | CostPart::DiscardX(_)
-            | CostPart::ExileFromGraveyardX(_)
-    )
+        | CostPart::PayEnergyX
+        | CostPart::SacrificeX(_)
+        | CostPart::TapX(_)
+        | CostPart::DiscardX(_)
+        | CostPart::ExileFromGraveyardX(_) => true,
+        CostPart::Either(a, b) => {
+            a.parts.iter().any(part_scales_with_x) || b.parts.iter().any(part_scales_with_x)
+        }
+        _ => false,
+    }
 }
 
 impl super::CastWizard {
@@ -267,20 +462,21 @@ pub(crate) fn additional_card_costs_for_x(
     x: u32,
 ) -> SmallVec<[CostPart; 4]> {
     let choice = choice.into();
-    let alt_iter = wizard_alternative_parts(face, choice.alternative_cost.or(choice.option))
-        .iter()
-        .filter(|p| {
-            matches!(
-                p,
-                CostPart::Sacrifice(_)
-                    | CostPart::ReturnToHand(_)
-                    | CostPart::TapOther(_)
-                    | CostPart::TapN { .. }
-                    | CostPart::Forage
-            )
-        });
+    let alt_expanded = wizard_alternative_parts_expanded(face, choice);
+    let buyback_expanded = wizard_buyback_parts_expanded(face, choice);
+    let alt_iter = alt_expanded.into_iter().filter(|p| {
+        matches!(
+            p,
+            CostPart::Sacrifice(_)
+                | CostPart::ReturnToHand(_)
+                | CostPart::TapOther(_)
+                | CostPart::TapN { .. }
+                | CostPart::Forage
+        )
+    });
     let add_iter = wizard_mandatory_parts(face, choice)
-        .chain(wizard_buyback_parts(face, choice.buyback))
+        .copied()
+        .chain(buyback_expanded)
         .filter(|p| {
             matches!(
                 p,
@@ -302,7 +498,7 @@ pub(crate) fn additional_card_costs_for_x(
     let mut parts: SmallVec<[CostPart; 4]> = alt_iter
         .chain(add_iter)
         .flat_map(|part| {
-            let count = match part {
+            let count = match &part {
                 CostPart::TapN { count, .. } => usize::try_from(*count).unwrap_or(usize::MAX),
                 CostPart::SacrificeX(_)
                 | CostPart::TapX(_)
@@ -310,7 +506,7 @@ pub(crate) fn additional_card_costs_for_x(
                 | CostPart::ExileFromGraveyardX(_) => usize::try_from(x).unwrap_or(usize::MAX),
                 _ => 1,
             };
-            std::iter::repeat_n(*part, count)
+            std::iter::repeat_n(part, count)
         })
         .collect();
     parts.extend(casting::additional_spell_costs(state, player, card, face));

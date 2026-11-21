@@ -444,6 +444,7 @@ pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::Cast
                     | baylee_engine::choice::CastModeKind::Dash
                     | baylee_engine::choice::CastModeKind::Blitz
                     | baylee_engine::choice::CastModeKind::Warp
+                    | baylee_engine::choice::CastModeKind::Sneak
                     | baylee_engine::choice::CastModeKind::Modes(_)
                     | baylee_engine::choice::CastModeKind::Emerge
                     | baylee_engine::choice::CastModeKind::Mutate
@@ -454,6 +455,7 @@ pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::Cast
                     | baylee_engine::choice::CastModeKind::Fused
                     | baylee_engine::choice::CastModeKind::Plot
                     | baylee_engine::choice::CastModeKind::Impending
+                    | baylee_engine::choice::CastModeKind::Awaken
                     // Even one library-life route must be remembered: its
                     // face, modes and kicker are the answer to the engine's
                     // later question, not an ordinary cast from the hand.

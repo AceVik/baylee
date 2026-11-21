@@ -24,6 +24,7 @@ fn continuous_player_rel(modifier: Modifier) -> Option<crate::dsl::effect::Playe
         | Modifier::NoLossForZeroLife { who }
         | Modifier::LifeGainDrawsInstead { who }
         | Modifier::LifeGainNoLifeInstead { who }
+        | Modifier::PlayersCantGainLife(who)
         | Modifier::CantBeAttackedExceptBy { who, .. }
         | Modifier::SkipUntapStep { who }
         | Modifier::UntapAtMost { who, .. }
@@ -98,6 +99,7 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                                 Modifier::SpellCastLimitPerTurn { .. }
                                     | Modifier::MatchingSpellCastLimitPerTurn { .. }
                                     | Modifier::PlayerProtectionFromEverything { .. }
+                                    | Modifier::PlayersCantGainLife(_)
                                     | Modifier::PreventNoncombatDamageToPlayers { .. }
                                     | Modifier::MultiplyDamageFrom { .. }
                                     | Modifier::AddDamageFrom { .. }

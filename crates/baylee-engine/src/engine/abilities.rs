@@ -184,6 +184,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::DiscardX(_)
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage
+        | CostPart::Either(_, _)
         | CostPart::CraftMaterials { .. } => false,
     }
 }
@@ -233,6 +234,7 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::ExileTopOfLibrary(_)
         | CostPart::PutCounterOnOther { .. }
         | CostPart::Forage
+        | CostPart::Either(_, _)
         | CostPart::CraftMaterials { .. } => true,
         CostPart::TapSelf
         | CostPart::UntapSelf

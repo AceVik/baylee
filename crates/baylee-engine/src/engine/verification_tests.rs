@@ -277,12 +277,16 @@ const fn variant(ability: &AbilityDef) -> &'static str {
         AbilityDef::Suspend { .. } => "Suspend",
         AbilityDef::CopyOnEnterUntilEot { .. } => "CopyOnEnterUntilEot",
         AbilityDef::CopyOnEnter { .. } => "CopyOnEnter",
+        AbilityDef::PerExtraTargetCost(_) => "PerExtraTargetCost",
         AbilityDef::Loyalty { .. } => "Loyalty",
         AbilityDef::ModalTriggered { .. } => "ModalTriggered",
         AbilityDef::ModalActivated { .. } => "ModalActivated",
         AbilityDef::Unearth { .. } => "Unearth",
         AbilityDef::Encore { .. } => "Encore",
         AbilityDef::StartYourEngines => "StartYourEngines",
+        AbilityDef::Splice { .. } => "Splice",
+        AbilityDef::Awaken { .. } => "Awaken",
+        AbilityDef::Champion { .. } => "Champion",
     }
 }
 

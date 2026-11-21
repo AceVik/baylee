@@ -122,8 +122,12 @@ fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
         | AbilityDef::Static(_)
         | AbilityDef::Replacement(_)
         | AbilityDef::Suspend { .. }
+        | AbilityDef::Splice { .. }
+        | AbilityDef::Awaken { .. }
+        | AbilityDef::Champion { .. }
         | AbilityDef::CopyOnEnterUntilEot { .. }
-        | AbilityDef::CopyOnEnter { .. } => Vec::new(),
+        | AbilityDef::CopyOnEnter { .. }
+        | AbilityDef::PerExtraTargetCost(_) => Vec::new(),
     }
 }
 

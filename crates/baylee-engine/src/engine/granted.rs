@@ -157,6 +157,7 @@ pub(super) struct ActivationPayment {
     x: Option<u32>,
     graveyard: Option<PlayerId>,
     phyrexian: Vec<bool>,
+    either_branches: Vec<bool>,
     abilities: Option<(baylee_core::ids::ObjectId, crate::object::AbilityList)>,
     grant: Option<(
         baylee_core::ids::ObjectId,
@@ -230,12 +231,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         phyrexian_life: i32,
     ) -> bool {
         use baylee_cards_dsl::CostPart;
+        if let Some((idx, CostPart::Either(a, b))) = cost
+            .parts
+            .iter()
+            .enumerate()
+            .find(|(_, p)| matches!(p, CostPart::Either(_, _)))
+        {
+            let x = self.activation_x.unwrap_or(0);
+            let branch = |sub: &baylee_cards_dsl::Cost| {
+                let mut next = cost.clone();
+                next.mana = next.mana.combine(&sub.mana.with_x(x));
+                next.parts = cost.parts[..idx]
+                    .iter()
+                    .chain(sub.parts)
+                    .chain(&cost.parts[idx + 1..])
+                    .copied()
+                    .collect();
+                next
+            };
+            return self.can_plan_activation(player, source, &branch(a), phyrexian_life)
+                || self.can_plan_activation(player, source, &branch(b), phyrexian_life);
+        }
         if cost.parts.contains(&CostPart::SacrificeGrantor)
             && !cost.grantor.is_some_and(|grantor| {
                 self.state.object(grantor.object).is_some_and(|object| {
                     object.version == grantor.version
                         && object.zone == crate::zone::Zone::Battlefield
                         && object.controller == player
+                        && self.state.can_be_sacrificed(grantor.object, None)
                 })
             })
         {
@@ -448,6 +471,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             x: self.activation_x.take(),
             graveyard: self.activation_graveyard.take(),
             phyrexian: std::mem::take(&mut self.activation_phyrexian),
+            either_branches: std::mem::take(&mut self.activation_either_branches),
             abilities: self.activating_abilities.take(),
             grant: self.activating_grant.take(),
             previous: self.mana_window.take().map(Box::new),
@@ -494,6 +518,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.activation_x = payment.x;
         self.activation_graveyard = payment.graveyard;
         self.activation_phyrexian = payment.phyrexian;
+        self.activation_either_branches = payment.either_branches;
         self.activating_abilities = payment.abilities;
         self.activating_grant = payment.grant;
         if self

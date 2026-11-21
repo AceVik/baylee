@@ -122,10 +122,12 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
                     | CastModeKind::Dash
                     | CastModeKind::Blitz
                     | CastModeKind::Warp
+                    | CastModeKind::Sneak
                     | CastModeKind::Emerge
                     | CastModeKind::Fused
                     | CastModeKind::Plot
-                    | CastModeKind::Impending => true,
+                    | CastModeKind::Impending
+                    | CastModeKind::Awaken => true,
                     CastModeKind::Alternative(i) => face(front)
                         .and_then(|f| f.alternative_costs.get(i))
                         .is_some_and(|alt| {
@@ -136,6 +138,7 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
                                         baylee_cards_dsl::Condition::OpponentLostLifeThisTurn
                                             | baylee_cards_dsl::Condition::Surge
                                             | baylee_cards_dsl::Condition::Prowl
+                                            | baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn
                                     )
                                 )
                         }),

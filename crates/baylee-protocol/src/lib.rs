@@ -81,7 +81,13 @@ pub mod tape;
 /// Version 60 carries `CastModeKind::Retrace` (CR 702.81a),
 /// `YesNoPrompt::{Riot, Unleash}` (CR 702.136, CR 702.98), and
 /// `PublicObject::suspected` (CR 701.60) on positional binary frames.
-pub const PROTOCOL_VERSION: u32 = 60;
+/// Version 61–64 unify Engine Waves 9a–10b (`YesNoPrompt::AssignDamageAsThoughUnblocked`,
+/// `YesNoPrompt::ClashBottom`, `ChoicePrompt::ChooseRingBearer`,
+/// `YesNoPrompt::{ChooseFirstCostBranch, OpeningHandBattlefield, OpeningHandReveal}`,
+/// `CastModeKind::Sneak`, `YesNoPrompt::Endure`, `CastModeKind::Awaken`,
+/// `ChoicePrompt::{Splice, CipherEncode, Champion}`, and
+/// `YesNoPrompt::{Conspire, Tribute}`) on positional binary frames.
+pub const PROTOCOL_VERSION: u32 = 64;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -410,7 +416,11 @@ mod tests {
         // `ManaPoolView::snow` on positional binary frames.
         // 60: `CastModeKind::Retrace`, `YesNoPrompt::{Riot, Unleash}`, and
         // `PublicObject::suspected` on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 60);
+        // 61–64: Engine Waves 9a–10b (`AssignDamageAsThoughUnblocked`, `ClashBottom`,
+        // `ChooseRingBearer`, `ChooseFirstCostBranch`, `OpeningHandBattlefield`,
+        // `OpeningHandReveal`, `Sneak`, `Endure`, `Awaken`, `Splice`, `CipherEncode`,
+        // `Champion`, `Conspire`, and `Tribute`) on positional binary frames.
+        assert_eq!(PROTOCOL_VERSION, 64);
     }
 
     #[test]

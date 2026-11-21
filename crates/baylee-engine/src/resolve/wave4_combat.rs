@@ -210,6 +210,33 @@ pub(super) fn finish_enter_attacking(
     state.board_state_changed();
 }
 
+/// Finishes entering tapped and attacking for a permanent spell whose sneak
+/// cost was paid (`CR 702.190b`, `CR 506.3a`). Consumes `Rider::Sneaked` and
+/// `Rider::NinjutsuDefender` so deferred and synchronous entry paths are
+/// idempotent.
+pub(crate) fn finish_sneak_enter_attacking(state: &mut GameState, permanent: ObjectId) {
+    let Some((controller, defender)) = state.object_mut(permanent).and_then(|obj| {
+        if obj.zone != Zone::Battlefield || !obj.riders.contains(&Rider::Sneaked) {
+            return None;
+        }
+        let mut defender = None;
+        obj.riders.retain(|r| match r {
+            Rider::Sneaked => false,
+            Rider::NinjutsuDefender(def, ver) => {
+                if defender.is_none() {
+                    defender = Some((*def, *ver));
+                }
+                false
+            }
+            _ => true,
+        });
+        Some((obj.controller, defender))
+    }) else {
+        return;
+    };
+    finish_enter_attacking(state, controller, permanent, defender);
+}
+
 /// Starts `Effect::Myriad` (CR 702.116a).
 pub(super) fn start_myriad(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
     let you = res.controller;
@@ -620,6 +647,7 @@ pub(super) fn start_exploit(state: &mut GameState, res: &mut Resolution) -> Opti
         .filter(|&id| {
             state.object(id).is_some_and(|o| {
                 o.controller == you
+                    && state.can_be_sacrificed(id, Some(you))
                     && o.characteristics()
                         .types
                         .contains(baylee_core::types::TypeSet::CREATURE)
@@ -651,6 +679,7 @@ pub(super) fn resume_exploit(state: &mut GameState, res: &Resolution, chosen: &[
         o.zone == Zone::Battlefield
             && !o.status.contains(Status::PHASED_OUT)
             && o.controller == you
+            && state.can_be_sacrificed(sac_id, Some(you))
             && o.characteristics()
                 .types
                 .contains(baylee_core::types::TypeSet::CREATURE)
@@ -814,5 +843,199 @@ pub(super) fn resolve_suspect(
     }
     if changed {
         state.invalidate_projections();
+    }
+}
+
+pub(super) fn resolve_ring_tempts_you(
+    state: &mut GameState,
+    res: &mut Resolution,
+) -> Option<Pending> {
+    let you = res.controller;
+    if state.has_left(you) {
+        return None;
+    }
+    let seat = usize::from(you.get());
+    let count = state.players[seat].ring_temptations.saturating_add(1);
+    state.players[seat].ring_temptations = count;
+    let options: Vec<ObjectId> = state
+        .battlefield_seen()
+        .filter(|&id| {
+            state.object(id).is_some_and(|o| {
+                o.controller == you
+                    && !o.status.contains(Status::PHASED_OUT)
+                    && o.characteristics().types.contains(TypeSet::CREATURE)
+            })
+        })
+        .collect();
+    if options.is_empty() {
+        let ring_bearer = state.players[seat].ring_bearer;
+        state.journal.record(crate::event::GameEvent::RingTempted {
+            player: you,
+            ring_bearer,
+            count,
+        });
+        return None;
+    }
+    res.awaiting = Some(AwaitingOp::ChooseRingBearer);
+    Some(Pending::ChooseCards {
+        player: you,
+        options,
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::ChooseRingBearer,
+        total: None,
+    })
+}
+
+pub(super) fn finish_choose_ring_bearer(
+    state: &mut GameState,
+    res: &Resolution,
+    chosen: &[ObjectId],
+) {
+    let you = res.controller;
+    if state.has_left(you) {
+        return;
+    }
+    let seat = usize::from(you.get());
+    let picked = chosen.first().copied().filter(|&id| {
+        state.object(id).is_some_and(|o| {
+            o.zone == Zone::Battlefield
+                && o.controller == you
+                && !o.status.contains(Status::PHASED_OUT)
+                && o.characteristics().types.contains(TypeSet::CREATURE)
+        })
+    });
+    if let Some(bearer) = picked {
+        state.players[seat].ring_bearer = Some(bearer);
+        state.invalidate_projections();
+        state.refresh_characteristics();
+    }
+    let count = state.players[seat].ring_temptations;
+    let ring_bearer = state.players[seat].ring_bearer;
+    state.journal.record(crate::event::GameEvent::RingTempted {
+        player: you,
+        ring_bearer,
+        count,
+    });
+}
+
+/// Detains `id` on behalf of `controller` (`CR 701.35a`): until `controller`'s
+/// next turn, that exact permanent incarnation can't attack or block and its
+/// activated abilities can't be activated (including mana abilities).
+pub(super) fn detain_object(
+    state: &mut GameState,
+    controller: PlayerId,
+    source: ObjectId,
+    id: ObjectId,
+) {
+    if state.has_left(controller) {
+        return;
+    }
+    if !state
+        .object(id)
+        .is_some_and(|o| o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT))
+    {
+        return;
+    }
+    let filter = crate::effects::EffectFilter::object(state, id);
+    let duration = baylee_cards_dsl::Duration::UntilYourNextTurn;
+    for (layer, modifier) in [
+        (
+            baylee_cards_dsl::Layer::Ability,
+            baylee_cards_dsl::Modifier::AddKeyword(
+                baylee_cards_dsl::KeywordSet::CANT_ATTACK
+                    .union(baylee_cards_dsl::KeywordSet::CANT_BLOCK),
+            ),
+        ),
+        (
+            baylee_cards_dsl::Layer::Text,
+            baylee_cards_dsl::Modifier::CantActivate,
+        ),
+    ] {
+        if !crate::permanent_guards::permits_resolution_effect(state, filter, modifier, controller)
+        {
+            continue;
+        }
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(source),
+            controller,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer,
+            timestamp,
+            duration,
+            filter,
+            modifier,
+        });
+    }
+}
+
+/// Resolves `Effect::Detain { target }` (`CR 701.35a`).
+pub(super) fn detain_target(
+    state: &mut GameState,
+    res: &Resolution,
+    target: baylee_cards_dsl::TargetSpec,
+) {
+    let you = res.controller;
+    match target {
+        baylee_cards_dsl::TargetSpec::ThisObject => {
+            if let Some(src) = subjects::source(state, res)
+                && subjects::on_battlefield(state, src)
+            {
+                detain_object(state, you, res.source, src.object);
+            }
+        }
+        baylee_cards_dsl::TargetSpec::EventObject => {
+            if let Some(id) = res.event_object {
+                let expected = state.object(res.on_stack).and_then(|o| {
+                    o.riders.iter().find_map(|r| match r {
+                        Rider::EventObjectIdentity(v, _) => Some(*v),
+                        _ => None,
+                    })
+                });
+                if state
+                    .object(id)
+                    .is_some_and(|o| expected.is_none_or(|v| o.version == v))
+                {
+                    detain_object(state, you, res.source, id);
+                }
+            }
+        }
+        _ => {
+            for &id in &res.targets {
+                let still_current = state.object(id).is_some_and(|obj| {
+                    res.target_lki.as_ref().is_none_or(|all| {
+                        all.iter()
+                            .find(|lki| lki.id == id)
+                            .is_none_or(|lki| lki.version == obj.version)
+                    })
+                });
+                if still_current {
+                    detain_object(state, you, res.source, id);
+                }
+            }
+        }
+    }
+}
+
+/// Resolves `Effect::DetainFilter { filter }` (`CR 701.35a`).
+pub(super) fn detain_filter(
+    state: &mut GameState,
+    res: &Resolution,
+    filter: &'static baylee_cards_dsl::Filter,
+) {
+    let you = res.controller;
+    let context = res.rule_context();
+    let targets: Vec<ObjectId> = state
+        .battlefield_seen()
+        .filter(|&id| {
+            state.object(id).is_some_and(|obj| {
+                crate::eval::matches_with_context(filter, state, obj, you, context)
+            })
+        })
+        .collect();
+    for id in targets {
+        detain_object(state, you, res.source, id);
     }
 }

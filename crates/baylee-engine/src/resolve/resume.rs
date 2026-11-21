@@ -33,6 +33,9 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::ChooseRingBearer => {
+            wave4_combat::finish_choose_ring_bearer(state, res, chosen);
+        }
         AwaitingOp::MeldPartner => {
             let Effect::MeldWithNamed {
                 source_name,
@@ -261,11 +264,13 @@ pub(super) fn resume_inner(
             if chosen.len() == usize::from(count)
                 && chosen.iter().all(|id| {
                     state.object(*id).is_some_and(|o| {
-                        o.zone == crate::zone::Zone::Battlefield && o.controller == player
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.controller == player
+                            && state.can_be_sacrificed(*id, Some(res.controller))
                     })
                 })
             {
-                sacrifice_together(state, chosen);
+                sacrifice_together(state, chosen, Some(res.controller));
                 if on_payment {
                     return run_fallback(state, res, std::slice::from_ref(effect));
                 }
@@ -369,7 +374,7 @@ pub(super) fn resume_inner(
                     let sacrificed = state
                         .object(victim)
                         .map(|object| (object.version, crate::object::SacrificedLki::of(object)));
-                    sacrifice_together(state, chosen);
+                    sacrifice_together(state, chosen, Some(res.controller));
                     let succeeded = sacrificed.filter(|(version, _)| {
                         state
                             .object(victim)
@@ -450,7 +455,11 @@ pub(super) fn resume_inner(
             if let Some(&victim) = chosen.first()
                 && let Some(_owner) = state
                     .object(victim)
-                    .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.controller == player)
+                    .filter(|o| {
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.controller == player
+                            && state.can_be_sacrificed(victim, Some(res.controller))
+                    })
                     .map(|o| o.owner)
             {
                 let _ = state.sacrifice_object(victim, Cause::Effect);
@@ -900,7 +909,7 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
-        AwaitingOp::ChoosePlayerFrom => {
+        AwaitingOp::ChoosePlayerFrom | AwaitingOp::ClashOpponent { .. } => {
             unreachable!("a chosen player resumes through resume_chosen_player")
         }
         AwaitingOp::HandToBottom => {
@@ -1320,8 +1329,13 @@ pub(super) fn resume_inner(
             let recorded = chosen::record_choice(state, asked, chosen, &mut held);
             // Ask the next player in APNAP order who has a legal sacrifice,
             // then sacrifice every chosen permanent together (CR 101.4).
-            let next =
-                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source);
+            let next = chosen::next_sacrifice_asked(
+                state,
+                &mut remaining,
+                filter,
+                res.controller,
+                res.source,
+            );
             if let Some(id) = recorded
                 && (was_multi || next.is_some())
             {
@@ -1352,7 +1366,7 @@ pub(super) fn resume_inner(
                     },
                 );
             }
-            chosen::sacrifice_held(state, &held);
+            chosen::sacrifice_held(state, &held, res.controller);
         }
         AwaitingOp::HeldSacrifice { player } => {
             super::for_each::held(state, res, player, chosen);
@@ -1394,7 +1408,7 @@ pub(super) fn resume_inner(
                 }
             }
         }
-        AwaitingOp::SacrificeAllChosen => sacrifice_together(state, chosen),
+        AwaitingOp::SacrificeAllChosen => sacrifice_together(state, chosen, Some(res.controller)),
         AwaitingOp::ReturnChosen {
             asked,
             filter,
@@ -1520,6 +1534,7 @@ pub(super) fn resume_inner(
                     state.object(id).is_some_and(|o| {
                         o.zone == crate::zone::Zone::Battlefield
                             && o.controller == asked
+                            && state.can_be_sacrificed(id, Some(res.controller))
                             && eval::matches_with_context(
                                 filter,
                                 state,
@@ -1530,7 +1545,7 @@ pub(super) fn resume_inner(
                     })
                 })
             {
-                sacrifice_together(state, chosen);
+                sacrifice_together(state, chosen, Some(res.controller));
                 return super::answers::run_fallback(state, res, effects);
             }
             if let Some(pending) = super::immediate::any_player_sac_or_damage_advance(
@@ -1695,8 +1710,10 @@ pub(super) fn resume_inner(
         | AwaitingOp::RevealTopPlayerMayPut { .. }
         | AwaitingOp::PeekBottom { .. }
         | AwaitingOp::SoulbondConfirmPair { .. }
+        | AwaitingOp::ClashBottom { .. }
         | AwaitingOp::PlayerMayPayDamageToYou { .. }
         | AwaitingOp::ConfirmCountedCost { .. }
+        | AwaitingOp::Endure { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
@@ -1878,6 +1895,8 @@ pub(super) fn resume_inner(
                 return run_fallback(state, res, std::slice::from_ref(effect));
             }
         }
+        AwaitingOp::CipherEncode => super::wave10b::resume_cipher_encode(state, res, chosen),
+        AwaitingOp::ChampionExile => super::wave10b::resume_champion_exile(state, res, chosen),
     }
     finish_choice(state, res, since)
 }

@@ -103,6 +103,7 @@ mod tests {
                 controller: PlayerId::new(controller),
                 toughness: 0,
                 attachments: Vec::new(),
+                was_ring_bearer_of: None,
             })),
         }
     }

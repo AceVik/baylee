@@ -347,6 +347,9 @@ pub enum Amount {
     /// Number of spells warped by players matching the relation this turn
     /// (CR 702.185c). Appended to preserve replay identities.
     SpellsWarpedThisTurn(super::PlayerRel),
+    /// Cumulative mana spent to cast spells this turn by players matching the
+    /// relation (expend, CR 700.14). Appended to preserve replay identities.
+    ManaExpendedOnSpellsThisTurn(super::PlayerRel),
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

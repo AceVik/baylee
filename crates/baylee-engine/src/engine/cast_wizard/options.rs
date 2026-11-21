@@ -330,6 +330,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             });
         }
         let plot_ok = casting::plot_permission(&self.state, player, card);
+        let front_timing_ok = commanded
+            || casting::timing_allows(
+                &self.state,
+                player,
+                obj.characteristics().types,
+                obj.characteristics().keywords,
+            );
         if !modal_only
             && plot_ok
             && casting::can_cast_form_paying(
@@ -356,7 +363,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // option offered here that the offer does not know about is a mode a
         // player can pick and be refused for. Foretell alone grants only its
         // alternative cost; a separate play permission can also grant Normal.
-        if !modal_only
+        let front_additional_ok =
+            casting::additional_payment_capacity_for(&self.state, player, card, face, None, &[])
+                .is_some();
+        if front_timing_ok
+            && front_additional_ok
+            && !modal_only
             && ((foretell_cost.is_none() && !plot_ok)
                 || casting::play_permission(&self.state, player, card).is_some())
             && !face.types.contains(baylee_core::types::TypeSet::LAND)
@@ -386,7 +398,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 },
             );
         }
-        if !face.additional_costs.is_empty()
+        if front_timing_ok
+            && !face.additional_costs.is_empty()
             && (face.kicked_targets.is_some() || !afford_normal(&face.mana_cost.with_x(0)))
             && casting::additional_payment_capacity_for(
                 &self.state,
@@ -543,52 +556,54 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             });
         }
         // Alternative costs (pitch, evoke, conditional free).
-        for (i, alt) in face.alternative_costs.iter().enumerate() {
-            let condition_ok = match alt.condition {
-                AltCondition::Always => true,
-                AltCondition::NotYourTurn => self.state.turn.active != player,
-                AltCondition::CommanderControlled => self.has_commander_on_battlefield(player),
-                AltCondition::If(condition) => {
-                    crate::eval::condition_holds(&self.state, player, card, *condition)
+        if front_timing_ok {
+            for (i, alt) in face.alternative_costs.iter().enumerate() {
+                let condition_ok = match alt.condition {
+                    AltCondition::Always => true,
+                    AltCondition::NotYourTurn => self.state.turn.active != player,
+                    AltCondition::CommanderControlled => self.has_commander_on_battlefield(player),
+                    AltCondition::If(condition) => {
+                        crate::eval::condition_holds(&self.state, player, card, *condition)
+                    }
+                };
+                let taxed = baylee_cards_dsl::Cost {
+                    mana: if defer_mana {
+                        ManaCost::ZERO
+                    } else {
+                        price(alt.cost.mana)
+                    },
+                    ..alt.cost
+                };
+                // The spell's own payment, restricted mana included: `can_cast`
+                // probes an alternative cost against the same pool, and a probe
+                // that read the plain pool here offered an evoke off a Cavern in
+                // `LegalActions` and then refused it as "no way to cast this
+                // spell".
+                if !condition_ok
+                    || !self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card))
+                    || casting::additional_payment_capacity_for(
+                        &self.state,
+                        player,
+                        card,
+                        face,
+                        Some(CastModeKind::Alternative(i)),
+                        &[],
+                    )
+                    .is_none()
+                {
+                    continue;
                 }
-            };
-            let taxed = baylee_cards_dsl::Cost {
-                mana: if defer_mana {
-                    ManaCost::ZERO
-                } else {
-                    price(alt.cost.mana)
-                },
-                ..alt.cost
-            };
-            // The spell's own payment, restricted mana included: `can_cast`
-            // probes an alternative cost against the same pool, and a probe
-            // that read the plain pool here offered an evoke off a Cavern in
-            // `LegalActions` and then refused it as "no way to cast this
-            // spell".
-            if !condition_ok
-                || !self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card))
-                || casting::additional_payment_capacity_for(
-                    &self.state,
-                    player,
-                    card,
-                    face,
-                    Some(CastModeKind::Alternative(i)),
-                    &[],
-                )
-                .is_none()
-            {
-                continue;
+                options.push(CastModeDesc {
+                    index: (options.len()) as u32,
+                    kind: CastModeKind::Alternative(i),
+                    cost: price(alt.cost.mana),
+                });
             }
-            options.push(CastModeDesc {
-                index: (options.len()) as u32,
-                kind: CastModeKind::Alternative(i),
-                cost: price(alt.cost.mana),
-            });
         }
         // Dash (CR 702.109a): its cost "rather than its mana cost", which is
         // an alternative cost (CR 118.9) paid by the rules for one (601.2b,
         // 601.2f–h) — asked of the pool the way the alternatives above are.
-        if let Some(dash) = face.dash {
+        if front_timing_ok && let Some(dash) = face.dash {
             let taxed = baylee_cards_dsl::Cost {
                 mana: if defer_mana {
                     ManaCost::ZERO
@@ -606,7 +621,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
         }
         // Blitz (CR 702.152a): its cost (mana + non-mana parts) "rather than its mana cost".
-        if let Some(blitz) = face.blitz {
+        if front_timing_ok && let Some(blitz) = face.blitz {
             let taxed = baylee_cards_dsl::Cost {
                 mana: if defer_mana {
                     ManaCost::ZERO
@@ -634,7 +649,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
         }
         // Warp (CR 702.185a): cast from your hand for its warp cost.
-        if obj.zone == crate::zone::Zone::Hand
+        if front_timing_ok
+            && obj.zone == crate::zone::Zone::Hand
             && obj.zone_owner == Some(player)
             && let Some(warp) = face.warp
         {
@@ -664,9 +680,68 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 });
             }
         }
+        // Sneak (CR 702.190a): cast during your declare blockers step at instant
+        // speed by paying its sneak cost and returning an unblocked creature you
+        // control to its owner's hand.
+        if (!plot_ok || casting::play_permission(&self.state, player, card).is_some())
+            && casting::in_sneak_window(&self.state, player)
+            && let Some(sneak) = casting::sneak_cost_for(&self.state, player, card, Some(def), 0)
+            && !casting::sneak_candidates(&self.state, player, card, face, sneak).is_empty()
+        {
+            let taxed = baylee_cards_dsl::Cost {
+                mana: if defer_mana {
+                    ManaCost::ZERO
+                } else {
+                    price(sneak.mana)
+                },
+                ..sneak
+            };
+            if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card)) {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u32,
+                    kind: CastModeKind::Sneak,
+                    cost: price(sneak.mana),
+                });
+            }
+        }
+        // Awaken N—[cost] (CR 702.113a): alternative cost adding target land you control.
+        if let Some((_, awaken)) = super::wave10b::face_awaken(def, 0)
+            && super::wave10b::awaken_has_legal_land(&self.state, player, card)
+            && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
+        {
+            let taxed = baylee_cards_dsl::Cost {
+                mana: if defer_mana {
+                    ManaCost::ZERO
+                } else {
+                    price(awaken.mana)
+                },
+                ..awaken
+            };
+            if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card))
+                && casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    super::CostChoice {
+                        option: Some(CastModeKind::Awaken),
+                        awaken_parts: awaken.parts,
+                        ..Default::default()
+                    },
+                    &[],
+                )
+                .is_some()
+            {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u32,
+                    kind: CastModeKind::Awaken,
+                    cost: price(awaken.mana),
+                });
+            }
+        }
         // Emerge (CR 702.119a–c): its emerge cost reduced by the sacrificed
         // permanent's mana value, "rather than paying this spell's mana cost".
-        if let Some(emerge) = face.emerge {
+        if front_timing_ok && let Some(emerge) = face.emerge {
             let candidates = casting::emerge_candidates(&self.state, player, card, face, emerge);
             let best_payable_mv = candidates
                 .into_iter()
@@ -701,7 +776,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 });
             }
         }
-        if let Some(mutate) = face.mutate
+        if front_timing_ok
+            && let Some(mutate) = face.mutate
             && casting::kicked_targets_reachable(
                 &self.state,
                 def,
@@ -736,7 +812,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // priced and cast it. CR 716.3d is the rule it broke.
         let on_adventure = casting::adventure_only_permission(&self.state, player, card);
         for (i, _) in casting::castable_back_faces(def, on_adventure) {
-            if forbidden(i) {
+            if forbidden(i)
+                || (!commanded && !casting::face_timing_allows(&self.state, player, card, def, i))
+                || casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    &def.faces[i],
+                    Some(CastModeKind::Face(i)),
+                    &[],
+                )
+                .is_none()
+            {
                 continue;
             }
             let restricted = casting::planning_pool(
@@ -900,6 +987,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let AbilityDef::ModalSpell { modes, choose } = ability else {
                 continue;
             };
+            if !(front_additional_ok
+                && (front_timing_ok || plot_only && casting::sorcery_window(&self.state, player)))
+            {
+                continue;
+            }
             if !choose.is_one() {
                 for set in casting::mode_sets(modes, *choose) {
                     let cost = casting::mode_set_cost(modal_base, modes, set);
@@ -1049,6 +1141,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     && casting::spell_condition_allows(&self.state, player, card, def, 0)
                     && casting::spell_condition_allows(&self.state, player, card, def, 1)
                     && !casting::cast_is_forbidden(&self.state, player, &obj)
+            }
+            CastModeKind::Sneak => {
+                casting::in_sneak_window(&self.state, player)
+                    && !face.types.contains(baylee_core::types::TypeSet::LAND)
+                    && casting::permitted_spell_types(&self.state, player, card, face.types, 0)
+                    && casting::spell_condition_allows(&self.state, player, card, def, 0)
+                    && !casting::cast_is_forbidden(&self.state, player, front_spell)
             }
             _ => front_now,
         });

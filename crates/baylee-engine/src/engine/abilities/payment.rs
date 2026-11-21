@@ -205,6 +205,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.activation_targets_answered = false;
         self.activation_x = None;
         self.activation_phyrexian.clear();
+        self.activation_either_branches.clear();
         self.activating_abilities = None;
         self.activating_grant = None;
         self.awaiting_answer = false;
@@ -515,6 +516,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 &cost,
                 Some(ability),
             );
+            self.note_crime_if_any(player, ability);
         }
         self.activating_grant = None;
         self.activation_target_choice = super::super::targeting::ActivationTargetChoice::default();

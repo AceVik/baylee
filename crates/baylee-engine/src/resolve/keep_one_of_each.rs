@@ -222,6 +222,6 @@ fn advance(
             })
         })
         .collect();
-    super::sacrifice_together(state, &victims);
+    super::sacrifice_together(state, &victims, Some(res.controller));
     None
 }

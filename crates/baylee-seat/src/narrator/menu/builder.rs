@@ -1649,14 +1649,26 @@ impl Builder<'_, '_> {
                 | YesNoPrompt::Bargain
                 | YesNoPrompt::Offspring { .. }
                 | YesNoPrompt::Casualty { .. }
+                | YesNoPrompt::Conspire
                 | YesNoPrompt::Gift { .. }
                 | YesNoPrompt::KickerOption { .. }
                 | YesNoPrompt::Buyback { .. }
         );
         if let Some(about) = about {
             self.line(format!("The ability asking: \"{about}\""));
-        } else if kicker && let Some((name, sentence)) = source.and_then(additional_cost) {
+        } else if (kicker || matches!(prompt, YesNoPrompt::ChooseFirstCostBranch { .. }))
+            && let Some((name, sentence)) = source.and_then(additional_cost)
+        {
             self.line(format!("The spell: {name}: \"{sentence}\""));
+        } else if matches!(
+            prompt,
+            YesNoPrompt::OpeningHandBattlefield | YesNoPrompt::OpeningHandReveal
+        ) && let Some(s) = source
+            && let Some(def) = baylee_cards::by_index(s.card)
+            && let Some(text) = baylee_cards::oracle::face(s.card, 0)
+        {
+            let compact = text.replace('\n', " ");
+            self.line(format!("The card: {}: \"{compact}\"", def.name()));
         }
         if kicker {
             // Said here because the table does not say it later: a cast

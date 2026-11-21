@@ -151,7 +151,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::DungeonExileTwo => {
             ch.discard += 1.5;
         }
-        Effect::AddMana { amount, .. } => {
+        Effect::AddMana { amount, .. } | Effect::Firebend(amount) => {
             ch.mana_add += amount_scalar(amount).max(1.0);
         }
         Effect::AddManaFor { .. }
@@ -247,6 +247,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::UntapChosen { .. }
         | Effect::MustBlockSourceIfAbleThisCombat
         | Effect::MustBlockIfAble { .. }
+        | Effect::Detain { .. }
+        | Effect::DetainFilter { .. }
         | Effect::Goad { .. }
         | Effect::GoadAll { .. }
         | Effect::ExertSource => {
@@ -290,7 +292,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             ch.tokens_create += 1.5;
             ch.counters_add += amount_scalar(count).max(1.0);
         }
-        Effect::Suspect { .. } | Effect::Unsuspect { .. } => {
+        Effect::Suspect { .. } | Effect::Unsuspect { .. } | Effect::RingTemptsYou => {
             ch.pump_pt += 0.5;
         }
         Effect::Proliferate
@@ -308,7 +310,9 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenModified { .. }
         | Effect::CreateTokenAttacking { .. }
+        | Effect::Mobilize(_)
         | Effect::CreateTokenThenCounters { .. }
+        | Effect::Endure(_)
         | Effect::CreateTokenThenAttachSelf { .. }
         | Effect::CreateTokenPtPerCount { .. }
         | Effect::CreateTokenForTargetController { .. }
@@ -374,8 +378,16 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::GainControlAll { .. }
         | Effect::ExchangeControl
         | Effect::BecomeCopyOfTarget { .. }
-        | Effect::BecomeCopy { .. } => {
+        | Effect::BecomeCopy { .. }
+        | Effect::Cipher
+        | Effect::CipherCastEncoded
+        | Effect::Champion { .. }
+        | Effect::ReturnChampioned => {
             ch.blink_copy_control += 1.0;
+        }
+        Effect::AwakenLand { count } => {
+            ch.counters_add += f32::from(*count);
+            ch.tokens_create += 1.0;
         }
         Effect::TakeExtraTurn | Effect::WinGame => {
             ch.extra_turn_or_win += 1.0;

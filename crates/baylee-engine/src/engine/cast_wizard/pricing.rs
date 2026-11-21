@@ -76,7 +76,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .reduction
             .saturating_add(printed)
             .saturating_add(emerge_mv);
-        let raw = raw_option_cost(def, face, wizard);
+        let raw = raw_option_cost(&self.state, def, face, wizard);
         let raw_with_inc = raw
             .combine(&adjustment.mana_increase)
             .with_more_generic(adjustment.increase);
@@ -128,12 +128,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 
     /// Recomputes target-dependent cost modifiers (CR 601.2c -> 601.2f, such as
-    /// `Filter::SpellTargetingAffected` on Kaervek's Torch or
-    /// `Filter::TargetsPermanentYouControl`) once targets have been chosen.
+    /// `AbilityDef::PerExtraTargetCost` for Strive, `Filter::SpellTargetingAffected`
+    /// on Kaervek's Torch, or `Filter::TargetsPermanentYouControl`) once targets
+    /// have been chosen.
     pub(super) fn refresh_target_cost_adjustments(&self, wizard: &mut CastWizard) {
-        if !self.state.effects.may_change_spell_costs() {
-            return;
-        }
         let Some(object) = self.state.object(wizard.card) else {
             return;
         };
@@ -141,6 +139,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return;
         };
         let face_idx = wizard.face_index();
+        let extra = wizard.extra_target_count();
+        let strive_increase = if wizard.masked || wizard.option == Some(CastModeKind::Disguise) {
+            ManaCost::ZERO
+        } else {
+            def.per_extra_target_cost(face_idx)
+                .map_or(ManaCost::ZERO, |per| ManaCost::ZERO.combine_n(&per, extra))
+        };
+        if !self.state.effects.may_change_spell_costs() {
+            wizard.target_increase = strive_increase;
+            return;
+        }
         let face = self.wizard_face(wizard);
         let form = match spend_for(wizard, face) {
             casting::SpendFor::SpellAs(_, form) => Some(form),
@@ -188,10 +197,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let with_targets =
             casting::spell_adjustment_with_def(&self.state, wizard.player, &targeted, Some(def));
-        wizard.target_increase = with_targets
-            .mana_increase
-            .with_less_mana(&without.mana_increase, true)
-            .with_more_generic(with_targets.increase.saturating_sub(without.increase));
+        wizard.target_increase = strive_increase.combine(
+            &with_targets
+                .mana_increase
+                .with_less_mana(&without.mana_increase, true)
+                .with_more_generic(with_targets.increase.saturating_sub(without.increase)),
+        );
         let extra_red = with_targets.reduction.saturating_sub(without.reduction);
         if extra_red > 0
             && let Some(frozen) = wizard.reduction.as_mut()
@@ -205,7 +216,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 /// Reconstruct only the selected alternative's unreduced fixed cost. This
 /// preserves credit when an option's displayed price already clamped to zero.
 fn raw_option_cost(
-    def: &baylee_cards_dsl::CardDef,
+    state: &crate::state::GameState,
+    def: &'static baylee_cards_dsl::CardDef,
     face: &baylee_cards_dsl::FaceDef,
     wizard: &CastWizard,
 ) -> ManaCost {
@@ -239,6 +251,23 @@ fn raw_option_cost(
         Some(CastModeKind::Dash) => face.dash.expect("dash"),
         Some(CastModeKind::Blitz) => face.blitz.expect("blitz").mana,
         Some(CastModeKind::Warp) => face.warp.expect("warp").mana,
+        Some(CastModeKind::Sneak) => {
+            casting::sneak_cost_for(
+                state,
+                wizard.player,
+                wizard.card,
+                Some(def),
+                wizard.face_index(),
+            )
+            .expect("sneak")
+            .mana
+        }
+        Some(CastModeKind::Awaken) => {
+            super::wave10b::face_awaken(def, wizard.face_index())
+                .expect("awaken")
+                .1
+                .mana
+        }
         Some(CastModeKind::Emerge) => face.emerge.expect("emerge").cost,
         Some(CastModeKind::Fused) => def.faces[0].mana_cost.combine(&def.faces[1].mana_cost),
         Some(CastModeKind::Mutate) => face.mutate.expect("mutate"),
@@ -260,42 +289,12 @@ fn raw_option_cost(
         ) => {
             unreachable!("resolution choices are not spell costs")
         }
-        Some(CastModeKind::Mode(index)) => def
-            .abilities_for_face(wizard.face_index())
-            .iter()
-            .find_map(|ability| {
-                let AbilityDef::ModalSpell { modes, .. } = ability else {
-                    return None;
-                };
-                let mode = modes.get(index)?;
-                // A cost-overriding mode is another alternative cost, which
-                // the library-top reader does not combine with this route.
-                Some(if library_top {
-                    normal
-                } else {
-                    mode.cost_override.unwrap_or(normal)
-                })
-            })
-            .expect("modal spell"),
-        Some(CastModeKind::Modes(set)) => def
-            .abilities_for_face(wizard.face_index())
-            .iter()
-            .find_map(|ability| {
-                let AbilityDef::ModalSpell { modes, choose } = ability else {
-                    return None;
-                };
-                let base = casting::mode_set_cost(normal, modes, set);
-                Some(
-                    if choose.is_one()
-                        && let Some(entwine) = face.entwine
-                    {
-                        base.combine(&entwine.mana)
-                    } else {
-                        base
-                    },
-                )
-            })
-            .expect("modal spell"),
+        Some(CastModeKind::Mode(index)) => {
+            modal_single_cost(def, wizard.face_index(), index, normal, library_top)
+        }
+        Some(CastModeKind::Modes(set)) => {
+            modal_set_cost(def, face, wizard.face_index(), set, normal)
+        }
     };
     if wizard.option != Some(CastModeKind::Kicked)
         && matches!(
@@ -312,4 +311,56 @@ fn raw_option_cost(
     } else {
         raw
     }
+}
+
+fn modal_single_cost(
+    def: &baylee_cards_dsl::CardDef,
+    face_idx: usize,
+    index: usize,
+    normal: ManaCost,
+    library_top: bool,
+) -> ManaCost {
+    def.abilities_for_face(face_idx)
+        .iter()
+        .find_map(|ability| {
+            let AbilityDef::ModalSpell { modes, .. } = ability else {
+                return None;
+            };
+            let mode = modes.get(index)?;
+            // A cost-overriding mode is another alternative cost, which
+            // the library-top reader does not combine with this route.
+            Some(if library_top {
+                normal
+            } else {
+                mode.cost_override.unwrap_or(normal)
+            })
+        })
+        .expect("modal spell")
+}
+
+fn modal_set_cost(
+    def: &baylee_cards_dsl::CardDef,
+    face: &baylee_cards_dsl::FaceDef,
+    face_idx: usize,
+    set: u8,
+    normal: ManaCost,
+) -> ManaCost {
+    def.abilities_for_face(face_idx)
+        .iter()
+        .find_map(|ability| {
+            let AbilityDef::ModalSpell { modes, choose } = ability else {
+                return None;
+            };
+            let base = casting::mode_set_cost(normal, modes, set);
+            Some(
+                if choose.is_one()
+                    && let Some(entwine) = face.entwine
+                {
+                    base.combine(&entwine.mana)
+                } else {
+                    base
+                },
+            )
+        })
+        .expect("modal spell")
 }

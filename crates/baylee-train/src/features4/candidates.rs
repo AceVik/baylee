@@ -1069,6 +1069,7 @@ pub fn public_object_matches_basic_filter(
         baylee_cards_dsl::Filter::Untapped => !obj.status.contains(ObjectStatus::TAPPED),
         baylee_cards_dsl::Filter::FaceDown => obj.status.contains(ObjectStatus::FACE_DOWN),
         baylee_cards_dsl::Filter::Suspected => obj.suspected,
+        baylee_cards_dsl::Filter::RingBearer => false,
         baylee_cards_dsl::Filter::HasAnyCounter => !obj.counters.is_empty(),
         _ => true,
     }
@@ -1292,7 +1293,8 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         | CastModeKind::Bestow
         | CastModeKind::Emerge
         | CastModeKind::Plot
-        | CastModeKind::Impending => 28,
+        | CastModeKind::Impending
+        | CastModeKind::Awaken => 28,
         CastModeKind::Mode(_) => 29,
         CastModeKind::Modes(_) | CastModeKind::Fused => 30,
         CastModeKind::Face(_) => 31,
@@ -1302,7 +1304,7 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         CastModeKind::Miracle => 35,
         CastModeKind::Flashback | CastModeKind::JumpStart | CastModeKind::Retrace => 36,
         CastModeKind::BeamMeUp => 37,
-        CastModeKind::Dash | CastModeKind::Blitz | CastModeKind::Warp => 38,
+        CastModeKind::Dash | CastModeKind::Blitz | CastModeKind::Warp | CastModeKind::Sneak => 38,
         CastModeKind::Mutate => 39,
         // Where a resolving spell goes, as a mutating spell's position is:
         // its slot, so the candidate width the trained nets read stays the

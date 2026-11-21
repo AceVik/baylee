@@ -1241,6 +1241,7 @@ pub(super) fn exec_choice(
                 })
             }
         }
+        Effect::Clash { on_win, on_loss } => super::clash::begin(state, res, on_win, on_loss),
         _ => unreachable!("not a choice op"),
     }
 }

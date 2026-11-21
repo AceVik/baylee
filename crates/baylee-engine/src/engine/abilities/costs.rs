@@ -312,6 +312,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             CostPart::TapSelf | CostPart::UntapSelf | CostPart::ExertSelf => {
                 self.can_pay_source_action(source, part)
             }
+            CostPart::SacrificeSelf => self.state.can_be_sacrificed(source, None),
             CostPart::RemoveCounterSelf { kind, n } => self
                 .state
                 .object(source)
@@ -346,6 +347,29 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         parts: &[CostPart],
         what: casting::SpendFor,
     ) -> bool {
+        if let Some((idx, CostPart::Either(a, b))) = parts
+            .iter()
+            .enumerate()
+            .find(|(_, p)| matches!(p, CostPart::Either(_, _)))
+        {
+            let x = self.activation_x.unwrap_or(0);
+            let branch = |sub: &Cost| {
+                let next_parts: SmallVec<[CostPart; 4]> = parts[..idx]
+                    .iter()
+                    .chain(sub.parts)
+                    .chain(&parts[idx + 1..])
+                    .copied()
+                    .collect();
+                self.can_afford_parts(
+                    player,
+                    source,
+                    mana.combine(&sub.mana.with_x(x)),
+                    &next_parts,
+                    what,
+                )
+            };
+            return branch(a) || branch(b);
+        }
         if !self.source_cost_parts_ready(source, parts) {
             return false;
         }
@@ -530,6 +554,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PayLifeX
                 | CostPart::PayEnergyX
                 | CostPart::DealDamageToYou(_)
+                | CostPart::Either(_, _)
                 | CostPart::PayAttachedManaCost => {}
             }
         }
@@ -989,8 +1014,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // wizard to pay them anywhere else. Named here rather than
                 // swept into a `_` so that a new `CostPart` is still a
                 // compile error in this match.
-                CostPart::ExileFromHand(_) | CostPart::PayLifeX | CostPart::PayAttachedManaCost => {
-                }
+                CostPart::ExileFromHand(_)
+                | CostPart::PayLifeX
+                | CostPart::PayAttachedManaCost
+                | CostPart::Either(_, _) => {}
                 // Through the removal door rather than off the object by
                 // hand, because the journal entry and the projection
                 // invalidation live there: a +1/+1 counter spent on Walking

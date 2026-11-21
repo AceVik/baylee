@@ -102,7 +102,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // on the play's first turn when this went on to
                     // `Step::Draw` without drawing. Straight on to the main
                     // phase, with the turn-based actions that begin it.
-                    self.enter_first_main_or_skip()
+                    if self.state.per_turn.phase_stack_active.0 {
+                        self.pop_next_phase()
+                    } else {
+                        self.enter_first_main_or_skip()
+                    }
                 } else {
                     // The draw step has begun when its draw is made, so the
                     // draw is made in it: `draw_cards` reads the step to know
@@ -129,12 +133,26 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // controls takes a lore counter. The delayed triggers go
                 // second because they are triggered abilities and wait for
                 // the stack, which the turn-based action does not use.
-                self.enter_first_main_or_skip()
+                if self.state.per_turn.phase_stack_active.0 {
+                    self.pop_next_phase()
+                } else {
+                    self.enter_first_main_or_skip()
+                }
             }
-            (Phase::FirstMain, Step::Main) => self.enter_combat_or_skip(),
+            (Phase::FirstMain, Step::Main) => {
+                if self.state.per_turn.phase_stack_active.0 {
+                    self.pop_next_phase()
+                } else {
+                    self.enter_combat_or_skip()
+                }
+            }
             (Phase::SecondMain, Step::Main) => {
-                self.queue_end_step_delayed();
-                (Phase::Ending, Step::End)
+                if self.state.per_turn.phase_stack_active.0 {
+                    self.pop_next_phase()
+                } else {
+                    self.queue_end_step_delayed();
+                    (Phase::Ending, Step::End)
+                }
             }
             (_, Step::CombatBegin) => (Phase::Combat, Step::DeclareAttackers),
             (_, Step::DeclareAttackers) => {
@@ -173,36 +191,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 (Phase::Combat, Step::CombatDamage)
             }
             (_, Step::CombatDamage) => (Phase::Combat, Step::CombatEnd),
-            (_, Step::CombatEnd) => {
-                self.state.delayed.retain(|watch| {
-                    !matches!(
-                        watch.when,
-                        crate::state::DelayedWhen::TriggeredThisTurn {
-                            this_combat_only: true,
-                            ..
-                        } | crate::state::DelayedWhen::OnEvent {
-                            duration: baylee_cards_dsl::DelayedDuration::ThisCombat,
-                            ..
-                        }
-                    )
-                });
-                self.state.combat = crate::combat::CombatState::default();
-                self.state
-                    .per_turn
-                    .must_block_pairs
-                    .0
-                    .retain(|req| !req.this_combat_only);
-                // Nothing is attacking any more, so an anthem conditioned on
-                // it stops applying — and the removal below only bumps the
-                // effect generation when there *was* an until-end-of-combat
-                // effect to remove.
-                self.state.board_state_changed();
-                self.combat_declared = CombatDeclared::None;
-                self.state.effects.remove_where(|fx| {
-                    matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfCombat)
-                });
-                self.enter_second_main_or_skip()
-            }
+            (_, Step::CombatEnd) => self.finish_combat_end(),
             // A cleanup step closes through here only when CR 514.3a opened
             // it to priority, and then "another cleanup step begins"; the
             // turn itself ends in `end_cleanup`, from a step nobody was
@@ -211,6 +200,41 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             _ => unreachable!("invalid phase/step combination"),
         };
         self.begin_step(next_phase, next_step);
+    }
+
+    fn finish_combat_end(&mut self) -> (Phase, Step) {
+        self.state.delayed.retain(|watch| {
+            !matches!(
+                watch.when,
+                crate::state::DelayedWhen::TriggeredThisTurn {
+                    this_combat_only: true,
+                    ..
+                } | crate::state::DelayedWhen::OnEvent {
+                    duration: baylee_cards_dsl::DelayedDuration::ThisCombat,
+                    ..
+                }
+            )
+        });
+        self.state.combat = crate::combat::CombatState::default();
+        self.state
+            .per_turn
+            .must_block_pairs
+            .0
+            .retain(|req| !req.this_combat_only);
+        // Nothing is attacking any more, so an anthem conditioned on
+        // it stops applying — and the removal below only bumps the
+        // effect generation when there *was* an until-end-of-combat
+        // effect to remove.
+        self.state.board_state_changed();
+        self.combat_declared = CombatDeclared::None;
+        self.state
+            .effects
+            .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfCombat));
+        if self.state.per_turn.phase_stack_active.0 {
+            self.pop_next_phase()
+        } else {
+            self.enter_second_main_or_skip()
+        }
     }
 
     fn enter_first_main_or_skip(&mut self) -> (Phase, Step) {
@@ -248,6 +272,41 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.queue_main_phase_delayed();
             (Phase::SecondMain, Step::Main)
         }
+    }
+
+    fn pop_next_phase(&mut self) -> (Phase, Step) {
+        while let Some(phase) = self.state.per_turn.extra_phases.0.pop() {
+            match phase {
+                Phase::FirstMain => {
+                    if !self.state.per_turn.skip_main_phases {
+                        self.saga_precombat_main_counters();
+                        self.queue_main_phase_delayed();
+                        return (Phase::FirstMain, Step::Main);
+                    }
+                }
+                Phase::Combat => {
+                    let active = usize::from(self.state.turn.active.get());
+                    let skipped_anyway = self.state.per_turn.skip_combat_phases;
+                    let player = &mut self.state.players[active];
+                    let delayed_skip = !skipped_anyway && player.combats_to_skip > 0;
+                    if delayed_skip {
+                        player.combats_to_skip -= 1;
+                    }
+                    if !skipped_anyway && !delayed_skip {
+                        return (Phase::Combat, Step::CombatBegin);
+                    }
+                }
+                Phase::SecondMain => {
+                    if !self.state.per_turn.skip_main_phases {
+                        self.queue_main_phase_delayed();
+                        return (Phase::SecondMain, Step::Main);
+                    }
+                }
+                Phase::Beginning | Phase::Ending => {}
+            }
+        }
+        self.queue_end_step_delayed();
+        (Phase::Ending, Step::End)
     }
 
     /// Publish the entered phase and its history before collecting beginning triggers.

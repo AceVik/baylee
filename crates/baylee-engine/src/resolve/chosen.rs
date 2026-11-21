@@ -43,7 +43,7 @@ pub(super) fn opponent_sacrifice(
     player: PlayerId,
     filter: &'static Filter,
 ) -> Option<crate::choice::Pending> {
-    let options = options(state, player, filter, res.controller, res.source);
+    let options = sacrifice_options(state, player, filter, res.controller, res.source);
     if options.is_empty() {
         return None;
     }
@@ -95,6 +95,21 @@ pub(super) fn options(
     eval::controlled_matching(state, player, filter, you, source)
 }
 
+/// Permanents `player` controls that `filter` matches and that `you`'s spell or
+/// ability can cause `player` to sacrifice (`CR 701.21`).
+pub(super) fn sacrifice_options(
+    state: &GameState,
+    player: PlayerId,
+    filter: &'static Filter,
+    you: PlayerId,
+    source: ObjectId,
+) -> Vec<ObjectId> {
+    options(state, player, filter, you, source)
+        .into_iter()
+        .filter(|&id| state.can_be_sacrificed(id, Some(you)))
+        .collect()
+}
+
 /// Orders `players` in APNAP order starting at the active player (CR 101.4),
 /// dropping any player who has already left the game.
 pub(super) fn order_apnap(state: &GameState, players: &mut Vec<PlayerId>) {
@@ -126,6 +141,28 @@ pub(super) fn next_asked(
             continue;
         }
         let options = options(state, player, filter, you, source);
+        if !options.is_empty() {
+            return Some((player, options));
+        }
+    }
+    None
+}
+
+/// Like [`next_asked`], filtering out permanents protected by
+/// `Modifier::CantBeSacrificed` against `you` (`CR 701.21`).
+pub(super) fn next_sacrifice_asked(
+    state: &GameState,
+    remaining: &mut Vec<PlayerId>,
+    filter: &'static Filter,
+    you: PlayerId,
+    source: ObjectId,
+) -> Option<(PlayerId, Vec<ObjectId>)> {
+    while !remaining.is_empty() {
+        let player = remaining.remove(0);
+        if state.has_left(player) {
+            continue;
+        }
+        let options = sacrifice_options(state, player, filter, you, source);
         if !options.is_empty() {
             return Some((player, options));
         }
@@ -189,7 +226,11 @@ pub(super) fn held_choices(
 ///
 /// Each permanent is sacrificed by the player who chose it and only while it
 /// remains on the battlefield under their control (CR 701.21a).
-pub(super) fn sacrifice_held(state: &mut GameState, held: &[(PlayerId, DamageSourceRef)]) {
+pub(super) fn sacrifice_held(
+    state: &mut GameState,
+    held: &[(PlayerId, DamageSourceRef)],
+    cause_controller: PlayerId,
+) {
     let victims: Vec<ObjectId> = held
         .iter()
         .filter(|(player, pick)| {
@@ -203,7 +244,7 @@ pub(super) fn sacrifice_held(state: &mut GameState, held: &[(PlayerId, DamageSou
         })
         .map(|(_, pick)| pick.object)
         .collect();
-    super::sacrifice_together(state, &victims);
+    super::sacrifice_together(state, &victims, Some(cause_controller));
 }
 
 /// Destroys every held pick simultaneously (CR 101.4, CR 603.10a), retaining

@@ -63,12 +63,14 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::DealDamage { target, .. }
             | Effect::DealDamageWithoutPreventionOrRedirection { target, .. }
             | Effect::DealDamageEvenly { target, .. }
+            | Effect::Detain { target }
             | Effect::Goad { target }
             | Effect::Suspect { target }
             | Effect::Unsuspect { target } => matches!(target, TargetSpec::ThisObject),
             Effect::CreateContinuousEffect { filter, .. }
             | Effect::BecomeChosenCreatureType { filter, .. }
             | Effect::GrantProtectionFromChosenColorUntilEot { filter }
+            | Effect::DetainFilter { filter }
             | Effect::PumpFilter { filter, .. }
             | Effect::PumpFilterPerKeyword { filter, .. }
             | Effect::SetPTFilter { filter, .. } => {
@@ -92,6 +94,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::Myriad
             | Effect::ExertSource
             | Effect::Exploit
+            | Effect::Endure(_)
             | Effect::ReturnCraftedTransformed
             | Effect::SacrificeSelf
             | Effect::UntapSelf

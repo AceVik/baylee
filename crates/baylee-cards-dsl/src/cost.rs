@@ -316,6 +316,12 @@ pub enum CostPart {
         /// Maximum materials to exile (`u8::MAX` for `"one or more"` / `"any number"`).
         max: u8,
     },
+    /// Pay either complete cost branch (`"As an additional cost to cast this
+    /// spell, [cost A] or [cost B]"`, CR 118.8; *Spark Harvest*, *Bone Shards*,
+    /// *Cathartic Pyre*, *Final Payment*, and activated costs). Prompts when
+    /// both branches are payable and auto-selects the sole payable branch when
+    /// only one can be paid. Appended to preserve replay identities.
+    Either(&'static Cost, &'static Cost),
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its
@@ -398,6 +404,20 @@ impl AlternativeCost {
         Self {
             cost,
             condition: AltCondition::If(&crate::Condition::Prowl),
+        }
+    }
+
+    /// Freerunning [cost] (CR 702.173a): pay `cost` rather than its mana cost
+    /// if a player was dealt combat damage this turn by a creature that, at the
+    /// time it dealt that damage, was an Assassin creature or a commander under
+    /// your control.
+    #[must_use]
+    pub const fn freerunning(cost: Cost) -> Self {
+        Self {
+            cost,
+            condition: AltCondition::If(
+                &crate::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn,
+            ),
         }
     }
 }

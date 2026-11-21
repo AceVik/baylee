@@ -37,6 +37,7 @@ pub fn could_add_mana(effects: &[Effect]) -> bool {
             effect,
             Effect::AddMana { .. }
                 | Effect::AddCombatMana { .. }
+                | Effect::Firebend(_)
                 | Effect::AddManaUnlessAnyPlayerPays { .. }
                 | Effect::AddManaFor { .. }
                 | Effect::AddManaAmountFor { .. }
@@ -120,6 +121,9 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage
         | CostPart::CraftMaterials { .. } => false,
+        CostPart::Either(a, b) => {
+            a.parts.iter().any(cost_moves_library) || b.parts.iter().any(cost_moves_library)
+        }
         CostPart::ExileTopOfLibrary(_) => true,
     }
 }

@@ -143,6 +143,7 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         }
         Effect::MustBlockSourceIfAbleThisCombat
         | Effect::MustBlockIfAble { .. }
+        | Effect::Detain { .. }
         | Effect::Goad { .. }
         | Effect::GoadAll { .. } => Some(-2),
         Effect::Blink { .. }
@@ -424,6 +425,7 @@ pub fn aura_side(abilities: &[AbilityDef]) -> Option<TargetSide> {
                 | Modifier::LifeGainNoLifeInstead {
                     who: PlayerRel::EnchantedPlayer,
                 }
+                | Modifier::PlayersCantGainLife(PlayerRel::EnchantedPlayer)
                 | Modifier::PlayersCantWin(PlayerRel::EnchantedPlayer) => sign -= 1,
                 Modifier::PlayerHexproof {
                     who: PlayerRel::EnchantedPlayer,

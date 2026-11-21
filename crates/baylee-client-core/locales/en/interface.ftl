@@ -3338,6 +3338,38 @@ NounCardsToManifest =
        *[other] cards to manifest
     }
 
+# Creature to become your Ring-bearer (CR 701.54a).
+# Arguments: count
+NounCreaturesForRingBearer =
+    { $count ->
+        [one] creature as your Ring-bearer
+       *[other] creatures as your Ring-bearer
+    }
+
+# Card in hand to reveal for splice (CR 702.47a).
+# Arguments: count
+NounCardsToSplice =
+    { $count ->
+        [one] card to splice
+       *[other] cards to splice
+    }
+
+# Creature to encode a cipher card onto (CR 702.99a).
+# Arguments: count
+NounCreatureForCipher =
+    { $count ->
+        [one] creature to encode onto
+       *[other] creatures to encode onto
+    }
+
+# Permanent to exile for champion (CR 702.72a).
+# Arguments: count
+NounPermanentToChampion =
+    { $count ->
+        [one] permanent to champion
+       *[other] permanents to champion
+    }
+
 # attacker to join the band (banding, CR 702.22c)
 # Arguments: count
 NounAttackersToBand =
@@ -3717,6 +3749,13 @@ OffspringAsk = Offspring: { $price }? Create a 1/1 token copy when it enters.
 # Arguments: power
 CasualtyAsk = Casualty { $power }: sacrifice a creature with power { $power } or greater to copy this spell?
 
+# Conspire question (CR 702.78a).
+ConspireAsk = Conspire: tap two matching untapped creatures to copy this spell?
+
+# Tribute question (CR 702.104a).
+# Arguments: count, counter
+TributeAsk = Tribute { $count }: put { $count } { $counter } on it as it enters?
+
 # Gift a card question (CR 702.174a).
 GiftAskCard = Gift a card: promise an opponent a card?
 
@@ -3734,6 +3773,17 @@ GiftAskOctopus = Gift an Octopus: promise an opponent an 8/8 blue Octopus token?
 
 # Gift an extra turn question (CR 702.174a).
 GiftAskExtraTurn = Gift an extra turn: promise an opponent an extra turn?
+
+# Combat damage as though unblocked question (CR 510.1c).
+AssignDamageAsThoughUnblocked = Assign combat damage as though unblocked?
+
+# Endure N question (CR 701.63a).
+# Arguments: count
+EndureAsk =
+    { $count ->
+        [one] Endure 1: put a +1/+1 counter on it instead of creating a 1/1 white Spirit token?
+       *[other] Endure { $count }: put { $count } +1/+1 counters on it instead of creating a { $count }/{ $count } white Spirit token?
+    }
 
 # Part of a buyback price: life.
 # Arguments: amount
@@ -3821,6 +3871,9 @@ CastPlot = Plot
 # Impending alternative cast (CR 702.176a)
 CastImpending = Impending
 
+# Awaken alternative cast (CR 702.113a)
+CastAwaken = Awaken
+
 # Beam me up's casting option.
 CastBeamMeUp = Beam me up
 
@@ -3835,6 +3888,9 @@ CastBlitz = Blitz
 
 # Warp (CR 702.185a), cast from hand for its warp cost
 CastWarp = Warp
+
+# Sneak (CR 702.190a), cast during declare blockers by returning an unblocked attacker
+CastSneak = Sneak
 
 # Emerge (CR 702.119a), the keyword as the German printing names it
 CastEmerge = Emerge
@@ -3870,6 +3926,15 @@ UnleashAskNamed = Unleash ({ $permanent }): enter with a +1/+1 counter? (Can't b
 
 # Suspected battlefield designation label (CR 701.60)
 HudSuspected = Suspected
+
+# Alternative additional cost branch choice (CR 118.8)
+ChooseFirstCostBranchAsk = Pay the first cost option? ("No" pays the second option instead.)
+
+# Pre-game opening-hand battlefield action (CR 103.6a)
+OpeningHandBattlefieldAsk = Opening hand: begin the game with this card on the battlefield?
+
+# Pre-game opening-hand reveal action (CR 103.6b)
+OpeningHandRevealAsk = Opening hand: reveal this card from your opening hand?
 
 # Escape (CR 702.138a), the keyword as the German printing names it
 CastEscape = Escape
@@ -4063,6 +4128,7 @@ UseTheOptionalAbility = This ability is optional. Use it?
 
 # Your card goes into your library: the top, or the bottom? (Subtlety)
 TopOfLibraryOrBottom = Your card goes into your library. On top? (No puts it on the bottom.)
+ClashPutOnBottom = Put the revealed card on the bottom of your library? (No leaves it on top.)
 
 # One card of a named card type into the hand, or none (Atraxa).
 # Arguments: card_type

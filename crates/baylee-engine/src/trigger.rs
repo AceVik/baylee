@@ -282,7 +282,14 @@ const fn triggered_parts(ability: &'static AbilityDef) -> Option<Firing<'static>
         } => Some(Firing {
             trigger,
             zone: *zone,
-            once_per_turn: *once_per_turn,
+            once_per_turn: *once_per_turn
+                || matches!(
+                    trigger,
+                    Trigger::CommittedCrime {
+                        once_per_turn: true,
+                        ..
+                    }
+                ),
             condition: *condition,
         }),
         // Echo is a triggered ability the keyword writes out (CR 702.30a):
@@ -334,6 +341,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     collect_emblems(state, lookup, events, &mut triggers);
     graveyard_triggers(state, lookup, events, &mut triggers);
     monarch_triggers(state, events, &mut triggers);
+    watches::ring_triggers(state, events, &mut triggers);
     speed::collect(events, &mut triggers);
     radiation::collect(state, events, &mut triggers);
     sagas::collect(state, lookup, events, &mut triggers);
@@ -345,6 +353,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     attack_watch_triggers(state, events, &mut triggers);
     bird_entry::collect(state, events, &mut triggers);
     cast_copy_triggers(state, events, &mut triggers);
+    watches::cipher_triggers(state, events, &mut triggers);
     collect_departed(state, lookup, events, &mut triggers);
     for trigger in &mut triggers {
         freeze_trigger(state, trigger);
@@ -1404,9 +1413,11 @@ fn collect_for_objects(
         }
         if all_kinds
             && !obj.abilities(lookup).iter().any(|ability| {
-                matches!(ability, AbilityDef::Ward { .. })
-                    || triggered_parts(ability)
-                        .is_some_and(|firing| firing.zone.functions_on_battlefield())
+                matches!(
+                    ability,
+                    AbilityDef::Ward { .. } | AbilityDef::Champion { .. }
+                ) || triggered_parts(ability)
+                    .is_some_and(|firing| firing.zone.functions_on_battlefield())
             })
         {
             continue;
@@ -1524,6 +1535,17 @@ fn collect_for_objects(
         }
         // Ward {N} (engine-level keyword trigger, CR 702.21): an
         // opponent's spell or ability targets this permanent.
+        entry_keywords::collect_champion(
+            state,
+            obj,
+            departed_obj,
+            &list,
+            events,
+            &moves,
+            all_kinds,
+            phased_out_only,
+            triggers,
+        );
         for ability in &list.abilities {
             if phased_out_only {
                 break;

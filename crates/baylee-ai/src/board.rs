@@ -26,6 +26,9 @@ pub(crate) struct Board<'a> {
     /// What each creature in `view.combat.attackers` is aimed at, one per
     /// handle, in handle order.
     aims: Vec<(ObjectId, Defender)>,
+    /// Whether any permanent on `view.battlefield` has a static
+    /// `AssignCombatDamageUsingToughness*` ability (`CR 510.1c`).
+    has_toughness_damage: bool,
 }
 
 impl<'a> Board<'a> {
@@ -53,10 +56,12 @@ impl<'a> Board<'a> {
             .collect();
         aims.sort_by_key(|(id, _)| *id);
         aims.dedup_by_key(|(id, _)| *id);
+        let has_toughness_damage = view.battlefield.iter().any(permanent_has_toughness_rule);
         Self {
             view,
             objects,
             aims,
+            has_toughness_damage,
         }
     }
 
@@ -71,7 +76,12 @@ impl<'a> Board<'a> {
     /// The creature under `id`, reduced to what combat reads; `None` when the
     /// view does not name it or cannot say its power and toughness.
     pub(crate) fn fighter(&self, id: ObjectId) -> Option<Fighter> {
-        Fighter::from_object(self.object(id)?)
+        let obj = self.object(id)?;
+        let mut fighter = Fighter::from_object(obj)?;
+        if self.has_toughness_damage {
+            apply_toughness_combat_damage(self.view, obj, &mut fighter);
+        }
+        Some(fighter)
     }
 
     /// What `id` is declared attacking (CR 508.1b), when the view's combat
@@ -81,6 +91,89 @@ impl<'a> Board<'a> {
             .binary_search_by_key(&id, |(creature, _)| *creature)
             .ok()
             .map(|i| self.aims[i].1)
+    }
+}
+
+fn permanent_has_toughness_rule(perm: &PublicObject) -> bool {
+    let Some(card) = perm.card else {
+        return false;
+    };
+    let Some(def) = baylee_cards::by_index(card.index) else {
+        return false;
+    };
+    def.abilities_for_face(usize::from(card.face))
+        .iter()
+        .any(|ab| {
+            matches!(
+                ab,
+                baylee_cards_dsl::AbilityDef::Static(sa)
+                    if matches!(
+                        sa.modifier,
+                        baylee_cards_dsl::Modifier::AssignCombatDamageUsingToughness
+                            | baylee_cards_dsl::Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater
+                    )
+            )
+        })
+}
+
+fn toughness_filter_matches(
+    filter: &baylee_cards_dsl::Filter,
+    source: &PublicObject,
+    target: &PublicObject,
+) -> bool {
+    use baylee_cards_dsl::Filter as F;
+    match *filter {
+        F::Any => true,
+        F::HasType(types) => target.types.contains(types),
+        F::This => source.id == target.id,
+        F::ControlledByYou => source.controller == target.controller,
+        F::AttachedToBySource => {
+            target.attached_to == Some(source.id) || source.attached_to == Some(target.id)
+        }
+        F::HasKeyword(kw) => (target.keywords & kw.bits()) == kw.bits(),
+        F::And(parts) => parts
+            .iter()
+            .all(|part| toughness_filter_matches(part, source, target)),
+        F::Or(parts) => parts
+            .iter()
+            .any(|part| toughness_filter_matches(part, source, target)),
+        _ => false,
+    }
+}
+
+fn apply_toughness_combat_damage(view: &PlayerView, target: &PublicObject, fighter: &mut Fighter) {
+    let mut use_toughness = false;
+    let mut use_greater = false;
+    for perm in &view.battlefield {
+        let Some(card) = perm.card else {
+            continue;
+        };
+        let Some(def) = baylee_cards::by_index(card.index) else {
+            continue;
+        };
+        for ab in def.abilities_for_face(usize::from(card.face)) {
+            let baylee_cards_dsl::AbilityDef::Static(sa) = ab else {
+                continue;
+            };
+            match sa.modifier {
+                baylee_cards_dsl::Modifier::AssignCombatDamageUsingToughness
+                    if toughness_filter_matches(&sa.filter, perm, target) =>
+                {
+                    use_toughness = true;
+                }
+                baylee_cards_dsl::Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater
+                    if toughness_filter_matches(&sa.filter, perm, target) =>
+                {
+                    use_greater = true;
+                }
+                _ => {}
+            }
+        }
+    }
+    if use_toughness {
+        fighter.power = fighter.toughness.max(0);
+    } else if use_greater {
+        fighter.power = fighter.power.max(fighter.toughness).max(0);
     }
 }
 

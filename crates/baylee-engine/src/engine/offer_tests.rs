@@ -1454,7 +1454,11 @@ fn payment_ability_effects(
         | AbilityDef::Static(_)
         | AbilityDef::Replacement(_)
         | AbilityDef::Suspend { .. }
+        | AbilityDef::Splice { .. }
+        | AbilityDef::Awaken { .. }
+        | AbilityDef::Champion { .. }
         | AbilityDef::CopyOnEnterUntilEot { .. }
+        | AbilityDef::PerExtraTargetCost(_)
         | AbilityDef::CopyOnEnter { .. } => Vec::new(),
     }
 }

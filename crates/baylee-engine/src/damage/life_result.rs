@@ -28,6 +28,7 @@ impl LifeLossBudgets {
         ) {
             if !state.has_left(player)
                 && !state.life_total_cant_change(player)
+                && !state.cant_gain_life(player)
                 && !state.life_gain_is_replaced(player)
                 && let Some(budget) = &mut budgets[usize::from(player.get())]
             {

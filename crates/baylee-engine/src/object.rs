@@ -1225,6 +1225,47 @@ pub enum Rider {
     /// Permanent gained haste indefinitely from declining Riot's +1/+1 counter
     /// as it entered the battlefield (CR 702.136a).
     RiotHaste,
+    /// Revealed from its owner's opening hand for a pre-game action until the
+    /// first turn begins (`CR 103.6b`, *Chancellor* cycle / *Sphinx of Foresight*).
+    RevealedFromOpeningHand,
+    /// Spell cast for its sneak cost (CR 702.190a–b), entering tapped and
+    /// attacking the defender stored in [`Self::NinjutsuDefender`] when it
+    /// resolves as a permanent spell. Appended to preserve replay identities.
+    Sneaked,
+    /// Card face spliced onto this spell in chosen splice order (CR 702.47a–e).
+    /// Appended to preserve replay identities.
+    Spliced {
+        /// Catalog index of the revealed splice card.
+        card: baylee_core::ids::CardIndex,
+        /// Face index on `card`.
+        face: u8,
+    },
+    /// Spell cast for its awaken cost with `N` +1/+1 counters (CR 702.113a).
+    /// Appended to preserve replay identities.
+    Awakened(u16),
+    /// Number of conspire instances paid when casting this spell (CR 702.78a–b).
+    /// Appended to preserve replay identities.
+    ConspirePaid(u8),
+    /// Exiled instant or sorcery card encoded via cipher onto exact permanent
+    /// incarnation `(host, version)` (CR 702.99b–c). Appended to preserve
+    /// replay identities.
+    CipherEncodedOn {
+        /// Encoded permanent handle on the battlefield.
+        host: ObjectId,
+        /// Exact battlefield version of `host` when encoded.
+        version: u32,
+    },
+    /// Exiled permanent card championed by exact permanent incarnation
+    /// `(host, version)` (CR 702.72a–b). Appended to preserve replay identities.
+    ChampionedBy {
+        /// Championing permanent handle.
+        host: ObjectId,
+        /// Exact battlefield version of `host`.
+        version: u32,
+    },
+    /// Tribute was paid by the chosen opponent as this permanent entered the
+    /// battlefield (CR 702.104a–b). Appended to preserve replay identities.
+    TributePaid,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1271,6 +1312,7 @@ impl Rider {
     ///
     /// Every variant is named, so a new rider has to answer.
     #[must_use]
+    #[allow(clippy::too_many_lines)] // exhaustive Rider arm list; new riders must answer explicitly
     pub const fn ends_as_it_leaves_exile(self) -> bool {
         match self {
             Self::Linked { .. }
@@ -1285,6 +1327,8 @@ impl Rider {
             | Self::Plotted
             | Self::PlottedOnTurn(_)
             | Self::WarpedInExile(_)
+            | Self::CipherEncodedOn { .. }
+            | Self::ChampionedBy { .. }
             | Self::NotedCounter(_, _)
             | Self::ActivationManaNote { .. } => true,
             // About the stack or the battlefield, not exile.
@@ -1371,7 +1415,13 @@ impl Rider {
             | Self::AbilitySourceFace(_)
             | Self::CraftMaterial(_)
             | Self::WarpedSpell
-            | Self::SnowManaSpent(_) => false,
+            | Self::SnowManaSpent(_)
+            | Self::RevealedFromOpeningHand
+            | Self::Sneaked
+            | Self::Spliced { .. }
+            | Self::Awakened(_)
+            | Self::ConspirePaid(_)
+            | Self::TributePaid => false,
         }
     }
 }

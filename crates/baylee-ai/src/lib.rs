@@ -729,7 +729,7 @@ impl HeuristicAgent {
                     }) {
                     max.min(1)
                 } else {
-                    max
+                    policy::strive_target_cap(view, min, max, context)
                 };
                 if let Some(action) =
                     self.targets(view, &options, &player_options, min, max, context)
@@ -1026,6 +1026,13 @@ impl HeuristicAgent {
                 YesNoPrompt::Casualty { min_power } => {
                     PlayerAction::YesNo(policy::casualties(view, min_power))
                 }
+                YesNoPrompt::Conspire => {
+                    PlayerAction::YesNo(policy::conspires(view, context))
+                }
+                YesNoPrompt::Tribute {
+                    permanent,
+                    counters,
+                } => PlayerAction::YesNo(policy::pays_tribute(view, permanent, counters)),
                 YesNoPrompt::Gift { kind } => {
                     PlayerAction::YesNo(policy::promises_gift(view, context, kind))
                 }
@@ -1034,6 +1041,47 @@ impl HeuristicAgent {
                 ),
                 YesNoPrompt::Unleash { .. } => {
                     PlayerAction::YesNo(view.seat(player).is_some_and(|seat| seat.life > 8))
+                }
+                YesNoPrompt::ChooseFirstCostBranch { index } => {
+                    PlayerAction::YesNo(self.prefers_first_cost_branch(view, context, index))
+                }
+                YesNoPrompt::OpeningHandBattlefield | YesNoPrompt::OpeningHandReveal => {
+                    PlayerAction::YesNo(true)
+                }
+                YesNoPrompt::Endure(_) => {
+                    PlayerAction::YesNo(self.endures_counters(view, context.source))
+                }
+                YesNoPrompt::AssignDamageAsThoughUnblocked { attacker } => {
+                    let hit_defender = view
+                        .combat
+                        .attackers
+                        .iter()
+                        .find(|a| a.creature == attacker)
+                        .is_none_or(|att| match att.defending {
+                            baylee_core::ids::Defender::Player(def_id) => {
+                                let power = view
+                                    .object(attacker)
+                                    .and_then(|o| o.power)
+                                    .unwrap_or(0);
+                                let def_life =
+                                    view.seat(def_id).map_or(20, |seat| seat.life);
+                                i32::from(power) >= def_life
+                                    || !view.combat.blockers.iter().any(|b| {
+                                        b.attacker == attacker
+                                            && view.object(b.blocker).is_some_and(|blk| {
+                                                let bt = blk
+                                                    .toughness
+                                                    .unwrap_or(1)
+                                                    .saturating_sub(blk.damage as i16);
+                                                let bp = blk.power.unwrap_or(0);
+                                                i32::from(power) >= i32::from(bt)
+                                                    && bp >= 4
+                                            })
+                                    })
+                            }
+                            _ => true,
+                        });
+                    PlayerAction::YesNo(hit_defender)
                 }
                 YesNoPrompt::KickerOption { index, cost, parts } => {
                     PlayerAction::YesNo(policy::kicks_option(view, context, index, cost, parts))
@@ -1094,6 +1142,26 @@ impl HeuristicAgent {
                 YesNoPrompt::UseRegenerationShield { .. }
                 | YesNoPrompt::UseShieldCounter { .. } => PlayerAction::YesNo(false),
                 YesNoPrompt::MayDo => PlayerAction::YesNo(self.may_do(view, source, context)),
+                YesNoPrompt::ClashBottom { card } => {
+                    let lands = view
+                        .battlefield
+                        .iter()
+                        .filter(|o| {
+                            o.controller == view.seat
+                                && o.types.contains(baylee_core::types::TypeSet::LAND)
+                        })
+                        .count();
+                    let is_excess_land = lands >= 5
+                        && view
+                            .looking_at
+                            .iter()
+                            .find(|o| o.id == card)
+                            .is_some_and(|o| {
+                                o.types.contains(baylee_core::types::TypeSet::LAND)
+                                    && !o.types.contains(baylee_core::types::TypeSet::CREATURE)
+                            });
+                    PlayerAction::YesNo(is_excess_land)
+                }
                 YesNoPrompt::SacrificeToEnter { .. }
                 | YesNoPrompt::CommanderZone { .. }
                 | YesNoPrompt::TopOfLibrary { .. }

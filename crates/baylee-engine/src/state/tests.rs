@@ -1109,6 +1109,12 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
         ("tried_empty_draw", |s, _| {
             s.players[0].tried_empty_draw = true;
         }),
+        ("ring_temptations", |s, _| {
+            s.players[0].ring_temptations = 2;
+        }),
+        ("ring_bearer", |s, id| {
+            s.players[0].ring_bearer = Some(id);
+        }),
         // Two facts that were one field: the order the object's statics
         // apply in (CR 613.7) and whether it is summoning-sick
         // (CR 302.6). Either one alone decides a later board.

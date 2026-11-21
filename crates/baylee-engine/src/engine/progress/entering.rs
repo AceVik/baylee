@@ -287,7 +287,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     | EnterModifier::PayLifeUpTo(_)
                     | EnterModifier::SacrificeOthers(_)
                     | EnterModifier::Amplify(_)
-                    | EnterModifier::Devour { .. } => {}
+                    | EnterModifier::Devour { .. }
+                    | EnterModifier::Sunburst
+                    | EnterModifier::Tribute(_) => {}
                     EnterModifier::TappedUnlessCondition(condition) => {
                         if !eval::condition_holds(&self.state, controller, id, *condition) {
                             self.state.set_tapped(id, true);

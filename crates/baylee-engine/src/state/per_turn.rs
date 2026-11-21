@@ -31,6 +31,57 @@ impl<T: Hash> Hash for PerTurnVec<T> {
     }
 }
 
+/// A `bool` on [`PerTurn`] that writes nothing into [`Hash`] while `false`.
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub struct PerTurnBool(pub bool);
+
+impl Hash for PerTurnBool {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.0 {
+            true.hash(state);
+        }
+    }
+}
+
+/// A `u32` counter on [`PerTurn`] that writes nothing into [`Hash`] while `0`.
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub struct PerTurnCount(pub u32);
+
+impl Hash for PerTurnCount {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.0 > 0 {
+            self.0.hash(state);
+        }
+    }
+}
+
+/// Per-turn list whose entries are always recorded in memory, and included in
+/// [`Hash`] whenever `tracked` is set for the game and `items` is non-empty.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct PerTurnTracked<T> {
+    /// Whether any card or ability in this game reads this history.
+    pub tracked: bool,
+    /// Entries recorded during the current turn.
+    pub items: Vec<T>,
+}
+
+impl<T> Default for PerTurnTracked<T> {
+    fn default() -> Self {
+        Self {
+            tracked: false,
+            items: Vec::new(),
+        }
+    }
+}
+
+impl<T: Hash> Hash for PerTurnTracked<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.tracked && !self.items.is_empty() {
+            self.items.as_slice().hash(state);
+        }
+    }
+}
+
 /// Pair-specific blocking requirement ("`blocker` blocks `attacker` this
 /// combat / this turn if able", CR 509.1c, CR 702.39a).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -214,6 +265,19 @@ pub struct PerTurn {
     /// warped spell (`CR 702.185c`: Void capability and warped-this-turn
     /// counts). Empty `PerTurnVec` preserves historical snapshot digests.
     pub spells_warped: PerTurnVec<PlayerId>,
+    /// Players who committed a crime this turn (CR 700.13).
+    pub crimes_committed: PerTurnTracked<PlayerId>,
+    /// Cumulative mana spent to cast spells this turn per player (expend,
+    /// CR 700.14).
+    pub mana_expended_on_spells: PerTurnTracked<(PlayerId, u32)>,
+    /// LIFO stack of remaining/created phases for the current turn when
+    /// [`Effect::AdditionalCombatPhase`] has resolved (CR 500.8).
+    pub extra_phases: PerTurnVec<crate::turn::Phase>,
+    /// Whether [`Self::extra_phases`] governs phase exits for the rest of this turn.
+    pub phase_stack_active: PerTurnBool,
+    /// Number of additional combat phases created this turn (bounded to prevent
+    /// nonterminating infinite phase creation).
+    pub extra_phases_created: PerTurnCount,
 }
 
 /// One block declared this turn ([`PerTurn::blocks`]).
@@ -517,6 +581,11 @@ impl PerTurn {
             skip_combat_phases: false,
             must_block_pairs: PerTurnVec::default(),
             spells_warped: PerTurnVec::default(),
+            crimes_committed: PerTurnTracked::default(),
+            mana_expended_on_spells: PerTurnTracked::default(),
+            extra_phases: PerTurnVec::default(),
+            phase_stack_active: PerTurnBool::default(),
+            extra_phases_created: PerTurnCount::default(),
         }
     }
 
@@ -559,6 +628,47 @@ impl PerTurn {
             .unwrap_or(0)
     }
 
+    /// Records that `player` committed a crime this turn (CR 700.13).
+    pub fn note_crime(&mut self, player: PlayerId) {
+        if !self.crimes_committed.items.contains(&player) {
+            self.crimes_committed.items.push(player);
+        }
+    }
+
+    /// Whether `player` has committed a crime this turn (CR 700.13).
+    #[must_use]
+    pub fn committed_crime(&self, player: PlayerId) -> bool {
+        self.crimes_committed.items.contains(&player)
+    }
+
+    /// Adds `spent` mana spent on a cast spell to `player`'s cumulative turn
+    /// total, returning `(previous, total)` (expend, CR 700.14).
+    pub fn record_mana_expended(&mut self, player: PlayerId, spent: u32) -> (u32, u32) {
+        if let Some((_, total)) = self
+            .mana_expended_on_spells
+            .items
+            .iter_mut()
+            .find(|(p, _)| *p == player)
+        {
+            let prev = *total;
+            *total = total.saturating_add(spent);
+            (prev, *total)
+        } else {
+            self.mana_expended_on_spells.items.push((player, spent));
+            (0, spent)
+        }
+    }
+
+    /// Cumulative mana `player` has spent to cast spells this turn (CR 700.14).
+    #[must_use]
+    pub fn mana_expended_by(&self, player: PlayerId) -> u32 {
+        self.mana_expended_on_spells
+            .items
+            .iter()
+            .find(|(p, _)| *p == player)
+            .map_or(0, |(_, total)| *total)
+    }
+
     /// Clears the object and event history that belongs only to this turn.
     fn clear_turn_history(&mut self) {
         self.pending_entry_history.clear();
@@ -583,6 +693,11 @@ impl PerTurn {
         self.damaged_creature_deaths.clear();
         self.must_block_pairs.0.clear();
         self.spells_warped.0.clear();
+        self.crimes_committed.items.clear();
+        self.mana_expended_on_spells.items.clear();
+        self.extra_phases.0.clear();
+        self.phase_stack_active.0 = false;
+        self.extra_phases_created.0 = 0;
     }
 
     /// Resets all counters (called at every turn start).
@@ -644,6 +759,11 @@ impl PerTurn {
             damaged_creature_deaths: _,
             must_block_pairs: _,
             spells_warped: _,
+            crimes_committed: _,
+            mana_expended_on_spells: _,
+            extra_phases: _,
+            phase_stack_active: _,
+            extra_phases_created: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

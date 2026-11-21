@@ -23,11 +23,14 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
         | WizardStage::Multikicker
         | WizardStage::Squad
         | WizardStage::Replicate
+        | WizardStage::Splice
+        | WizardStage::Conspire
         | WizardStage::Targets
         | WizardStage::SecondTargets
         | WizardStage::ExtraTargets
         | WizardStage::ChoosePlayer
         | WizardStage::DivideDamage
+        | WizardStage::EitherCost
         | WizardStage::PitchChoice
         | WizardStage::ReturnCreature
         | WizardStage::Behold

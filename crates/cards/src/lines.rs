@@ -387,7 +387,11 @@ pub fn grants_in(
         | AbilityDef::Echo { .. }
         | AbilityDef::Unearth { .. }
         | AbilityDef::Encore { .. }
+        | AbilityDef::Splice { .. }
+        | AbilityDef::Awaken { .. }
+        | AbilityDef::Champion { .. }
         | AbilityDef::Replacement(_)
+        | AbilityDef::PerExtraTargetCost(_)
         | AbilityDef::Suspend { .. } => Vec::new(),
     };
     for effects in lists {

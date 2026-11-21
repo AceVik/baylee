@@ -101,7 +101,8 @@
 // FlipCoins, FlipUntilLose, and IfDieRollInRange add two walker-tested bodies each.
 // RepeatEach, ChooseCard, PeekAndReveal, and RevealFromHand add one walker-tested
 // body each; RevealTop adds two walker-tested bodies.
-const NESTING_FIELDS: usize = 103;
+// Clash adds two walker-tested bodies (`on_win` and `on_loss`).
+const NESTING_FIELDS: usize = 105;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -171,7 +172,8 @@ const NESTING_FIELDS: usize = 103;
 /// `RepeatEach`, `ChooseCard`, `PeekAndReveal`, `RevealFromHand`, and
 /// `RevealTop` are the eighty-seventh through ninety-first
 /// (`repeat_each_choose_card_peek_and_reveal_branches_are_visited`).
-const CARRYING_VARIANTS: usize = 91;
+/// `Clash` is the ninety-second (`clash_branches_and_additional_combat_phase_are_visited`).
+const CARRYING_VARIANTS: usize = 92;
 
 /// The floor under the reader itself.
 ///

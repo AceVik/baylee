@@ -96,15 +96,28 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
         }
         let designated = apply_entry_designations(state, &entry);
         let riot_haste = entry.kw_choices.riot_haste;
+        if entry.tribute == super::TributeState::Paid {
+            state
+                .object_mut(entry.object)
+                .expect("entered object")
+                .riders
+                .push(crate::object::Rider::TributePaid);
+            state.invalidate_projections();
+        }
         state
             .object_mut(entry.object)
             .expect("successful entry")
             .riders
             .retain(|rider| !matches!(rider, crate::object::Rider::EntryP1P1(_)));
+        let was_spell = entry.cause == Cause::Spell;
+        let object_id = entry.object;
         super::counters::commit(state, entry);
         if designated || riot_haste {
             state.invalidate_projections();
             state.refresh_characteristics();
+        }
+        if was_spell {
+            crate::resolve::finish_sneak_enter_attacking(state, object_id);
         }
     }
 }

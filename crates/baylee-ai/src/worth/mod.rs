@@ -2126,6 +2126,8 @@ impl HeuristicAgent {
             }
             Effect::Exploit => 60,
             Effect::Monstrosity(amount) => count(*amount)?.max(0) * 110 + 40,
+            Effect::RingTemptsYou => 180,
+            Effect::Firebend(amount) => count(*amount)?.max(0) * 45,
             Effect::Suspect { .. } => subject.map_or(40, |o| {
                 if self.hostile(o.controller, me) {
                     80
@@ -2140,6 +2142,34 @@ impl HeuristicAgent {
                     20
                 }
             }),
+            Effect::Mobilize(amount) => count(*amount)?.max(0) * 95,
+            Effect::Detain { .. } => subject.map_or(120, |o| {
+                if self.hostile(o.controller, me) {
+                    150
+                } else {
+                    -150
+                }
+            }),
+            Effect::DetainFilter { filter } => {
+                let mut total = 0_i64;
+                for perm in &view.battlefield {
+                    if self.filter_matches(
+                        filter,
+                        view,
+                        perm,
+                        ZoneRef::Battlefield,
+                        Some(origin.id),
+                    ) == Some(true)
+                    {
+                        total += if self.hostile(perm.controller, me) {
+                            140
+                        } else {
+                            -140
+                        };
+                    }
+                }
+                total
+            }
             Effect::ReturnCraftedTransformed
             | Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }
@@ -2190,6 +2220,11 @@ impl HeuristicAgent {
                 }
             }
             Effect::ManifestDread => 260,
+            Effect::AwakenLand { count } => i64::from(*count) * 140 + 180,
+            Effect::Cipher => 200,
+            Effect::CipherCastEncoded => 280,
+            Effect::Champion { .. } => -120,
+            Effect::ReturnChampioned => 150,
             Effect::SoulbondPair { .. } => 80,
             Effect::TurnFaceUp { .. } => subject.map_or(80, |o| {
                 if self.hostile(o.controller, me) {
@@ -2995,6 +3030,16 @@ impl HeuristicAgent {
                 // The exact Equipment is not exposed as a payment choice;
                 // price it conservatively like another sacrificed permanent.
                 CostPart::SacrificeGrantor | CostPart::Forage => 50,
+                CostPart::Either(a, b) => {
+                    match (
+                        self.cost_worth(view, origin, a),
+                        self.cost_worth(view, origin, b),
+                    ) {
+                        (Some(wa), Some(wb)) => wa.min(wb),
+                        (Some(w), None) | (None, Some(w)) => w,
+                        (None, None) => return None,
+                    }
+                }
                 CostPart::Sacrifice(filter) | CostPart::ExilePermanent(filter) => {
                     own(filter, &|_| true)
                         .into_iter()

@@ -73,7 +73,7 @@ pub const fn step_id(phase: Phase, step: Step) -> &'static str {
 /// A positive list, so `every_keyword_a_card_prints_has_a_name` holds it
 /// to the pool: a keyword a card carries and this table lacks fails there
 /// rather than going silent on a board.
-pub const KEYWORDS: [(KeywordSet, &str); 73] = [
+pub const KEYWORDS: [(KeywordSet, &str); 93] = [
     (KeywordSet::STORM, "storm"),
     (KeywordSet::READ_AHEAD, "read ahead"),
     (KeywordSet::FLYING, "flying"),
@@ -146,6 +146,26 @@ pub const KEYWORDS: [(KeywordSet, &str); 73] = [
     (KeywordSet::RETRACE, "retrace"),
     (KeywordSet::RIOT, "riot"),
     (KeywordSet::UNLEASH, "unleash"),
+    (KeywordSet::UMBRA_ARMOR, "umbra armor"),
+    (KeywordSet::MOBILIZE, "mobilize"),
+    (KeywordSet::TRANSMUTE, "transmute"),
+    (KeywordSet::SCAVENGE, "scavenge"),
+    (KeywordSet::FIREBENDING, "firebending"),
+    (KeywordSet::FREERUNNING, "freerunning"),
+    (KeywordSet::SNEAK, "sneak"),
+    (KeywordSet::SUNBURST, "sunburst"),
+    (KeywordSet::RAVENOUS, "ravenous"),
+    (KeywordSet::GRAFT, "graft"),
+    (KeywordSet::OUTLAST, "outlast"),
+    (KeywordSet::AFTERLIFE, "afterlife"),
+    (KeywordSet::AFFLICT, "afflict"),
+    (KeywordSet::REINFORCE, "reinforce"),
+    (KeywordSet::SPLICE, "splice"),
+    (KeywordSet::AWAKEN, "awaken"),
+    (KeywordSet::CONSPIRE, "conspire"),
+    (KeywordSet::CIPHER, "cipher"),
+    (KeywordSet::CHAMPION, "champion"),
+    (KeywordSet::TRIBUTE, "tribute"),
     (
         KeywordSet::ALL_NONBASIC_LAND_TYPES,
         "every nonbasic land type",
@@ -381,6 +401,24 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
              remaining looked-at card goes to your graveyard)"
                 .into()
         }
+        ChoicePrompt::ChooseRingBearer => {
+            "The Ring tempts you: choose a creature you control to become your Ring-bearer".into()
+        }
+        ChoicePrompt::Splice => {
+            "Splice: choose any number of splice cards from your hand to reveal and splice onto \
+             this spell (choose none to splice nothing)"
+                .into()
+        }
+        ChoicePrompt::CipherEncode => {
+            "Cipher: choose up to one creature you control to encode the exiled card onto \
+             (choose none to leave it in exile unencoded)"
+                .into()
+        }
+        ChoicePrompt::Champion => {
+            "Champion: choose another matching permanent you control to exile (choose none to \
+             sacrifice this permanent instead)"
+                .into()
+        }
         ChoicePrompt::PutIntoHand => "Choose the cards to put into your hand".into(),
         ChoicePrompt::PlayFromExile => "Choose a card to play from exile".into(),
         ChoicePrompt::PutOntoBattlefield => "Choose the cards to put onto the battlefield".into(),
@@ -540,6 +578,6 @@ mod tests {
         );
         assert_eq!(keywords(KeywordSet::MAYHEM.bits()), ["mayhem"]);
         assert_eq!(KeywordSet::MAYHEM.bits(), 1_u128 << 51);
-        assert_eq!(keywords(1 << 120), ["another keyword"]);
+        assert_eq!(keywords(1 << 126), ["another keyword"]);
     }
 }

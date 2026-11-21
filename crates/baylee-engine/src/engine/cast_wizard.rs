@@ -29,9 +29,10 @@ mod permissions;
 mod pricing;
 mod stages;
 mod transformed;
+pub(crate) mod wave10b;
 pub(crate) use cost_parts::{
     CostChoice, additional_card_costs_for_x, fixed_energy_cost, fixed_life_cost,
-    mandatory_scales_with_x, part_scales_with_x, wizard_alternative_parts, wizard_buyback_parts,
+    mandatory_scales_with_x, next_either_cost, part_scales_with_x, settled_either_mana,
     wizard_cost_parts, wizard_mandatory_parts,
 };
 pub(crate) use madness::madness_options;
@@ -124,6 +125,12 @@ pub(crate) enum WizardStage {
     Gift,
     /// Third and subsequent target instances across chosen modes (`CR 700.2c`).
     ExtraTargets,
+    /// Settle [`baylee_cards_dsl::CostPart::Either`] branches (`CR 118.8`).
+    EitherCost,
+    /// Optional hand-card reveals for splice (`CR 702.47a–c`), before targets.
+    Splice,
+    /// Optional additional tap-two-creatures cost for conspire (`CR 702.78a–b`).
+    Conspire,
 }
 
 /// A spell being cast step by step.
@@ -202,15 +209,38 @@ pub struct CastWizard {
     pub emerge_sacrifice: Option<ObjectId>,
     /// How many times the replicate cost is paid.
     pub replicated: u8,
+    /// How many conspire instances were accepted (`CR 702.78a–b`).
+    pub conspired: u8,
+    /// How many conspire instances have already been asked in `WizardStage::Conspire`.
+    pub conspire_cursor: u8,
+    /// Hand cards chosen to splice onto this spell in order (`CR 702.47a–c`).
+    pub spliced: SmallVec<
+        [(
+            ObjectId,
+            baylee_core::ids::CardIndex,
+            u8,
+            baylee_cards_dsl::Cost,
+        ); 2],
+    >,
+    /// Non-mana parts of `AbilityDef::Awaken` when `option == Some(CastModeKind::Awaken)`.
+    pub awaken_parts: &'static [CostPart],
     /// Cards chosen for pitch (exile-from-hand).
     pub pitch: SmallVec<[ObjectId; 2]>,
-    /// The creature returned for beam me up, chosen without targeting.
+    /// The creature returned for beam me up or sneak, chosen without targeting.
     pub returned: Option<ObjectId>,
+    /// Non-mana parts of a sneak cost beyond returning an unblocked attacker.
+    pub sneak_parts: &'static [CostPart],
     /// The permanent or card in hand chosen to behold (CR 701.60a).
     pub beheld: Option<ObjectId>,
     /// Whether the caster is paying `behold_or_pay`'s mana cost instead of
     /// beholding.
     pub behold_paid_mana: bool,
+    /// Number of `CostPart::Either` parts settled on this cast (`CR 118.8`).
+    pub either_decided: u8,
+    /// Bitmask of settled `CostPart::Either` branches (`1` = first, `0` = second).
+    pub either_first_mask: u8,
+    /// Whether any chosen `CostPart::Either` branch adds mana.
+    pub either_pays_mana: bool,
     /// Cards chosen to delve (exile-from-graveyard, {1} each).
     pub delve_exiles: SmallVec<[ObjectId; 8]>,
     /// The other cards escape's cost exiles from the graveyard. They pay no
@@ -343,10 +373,18 @@ impl CastWizard {
             squad: 0,
             emerge_sacrifice: None,
             replicated: 0,
+            conspired: 0,
+            conspire_cursor: 0,
+            spliced: SmallVec::new(),
+            awaken_parts: &[],
             pitch: SmallVec::new(),
             returned: None,
+            sneak_parts: &[],
             beheld: None,
             behold_paid_mana: false,
+            either_decided: 0,
+            either_first_mask: 0,
+            either_pays_mana: false,
             delve_exiles: SmallVec::new(),
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
@@ -466,6 +504,16 @@ impl CastWizard {
                     self.gift_recipient,
                 )));
         }
+        if self.either_decided != 0 {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    191u8,
+                    self.either_decided,
+                    self.either_first_mask,
+                    self.either_pays_mana,
+                )));
+        }
         // A separate alternative cost changes the meaning of modal answers.
         // Keep the legacy fingerprint byte-for-byte when no such route exists.
         if self.alternative_cost.is_some() {
@@ -480,6 +528,15 @@ impl CastWizard {
             hash = hash
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&self.extra_targets));
+        }
+        if self.conspired > 0 || !self.spliced.is_empty() {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    261u16,
+                    self.conspired,
+                    &self.spliced,
+                )));
         }
         hash = hash
             .wrapping_mul(2)
@@ -570,61 +627,72 @@ pub(crate) enum EffectCast {
 /// The non-mana parts the wizard pays for an alternative casting cost.
 /// Pool-wide coverage is enforced by
 /// `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past`.
-pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
-    matches!(
-        part,
+pub(crate) fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
+    match part {
         CostPart::PayLife(_)
-            | CostPart::DealDamageToYou(_)
-            | CostPart::ExileFromHand(_)
-            | CostPart::Sacrifice(_)
-            | CostPart::ReturnToHand(_)
-            | CostPart::TapN { .. }
-            | CostPart::Forage
-    )
+        | CostPart::DealDamageToYou(_)
+        | CostPart::ExileFromHand(_)
+        | CostPart::Sacrifice(_)
+        | CostPart::ReturnToHand(_)
+        | CostPart::TapN { .. }
+        | CostPart::Forage => true,
+        CostPart::Either(a, b) => {
+            a.parts.iter().all(paid_as_an_alternative_cost)
+                && b.parts.iter().all(paid_as_an_alternative_cost)
+        }
+        _ => false,
+    }
 }
 
 /// The non-mana parts the wizard pays for mandatory additional costs.
-pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
-    matches!(
-        part,
+pub(crate) fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool {
+    match part {
         CostPart::PayLifeX
-            | CostPart::PayLife(_)
-            | CostPart::DealDamageToYou(_)
-            | CostPart::PayEnergy(_)
-            | CostPart::PayEnergyX
-            | CostPart::Sacrifice(_)
-            | CostPart::SacrificeX(_)
-            | CostPart::SacrificeAll(_)
-            | CostPart::ReturnToHand(_)
-            | CostPart::ExilePermanent(_)
-            | CostPart::ExileFromHand(_)
-            | CostPart::ExileFromGraveyard(_)
-            | CostPart::ExileFromGraveyardX(_)
-            | CostPart::ExileTopOfLibrary(_)
-            | CostPart::Discard(_)
-            | CostPart::DiscardX(_)
-            | CostPart::DiscardRandom
-            | CostPart::DiscardHand
-            | CostPart::DiscardLastDrawnThisTurn
-            | CostPart::TapOther(_)
-            | CostPart::TapX(_)
-            | CostPart::TapN { .. }
-            | CostPart::Forage
-    )
+        | CostPart::PayLife(_)
+        | CostPart::DealDamageToYou(_)
+        | CostPart::PayEnergy(_)
+        | CostPart::PayEnergyX
+        | CostPart::Sacrifice(_)
+        | CostPart::SacrificeX(_)
+        | CostPart::SacrificeAll(_)
+        | CostPart::ReturnToHand(_)
+        | CostPart::ExilePermanent(_)
+        | CostPart::ExileFromHand(_)
+        | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExileFromGraveyardX(_)
+        | CostPart::ExileTopOfLibrary(_)
+        | CostPart::Discard(_)
+        | CostPart::DiscardX(_)
+        | CostPart::DiscardRandom
+        | CostPart::DiscardHand
+        | CostPart::DiscardLastDrawnThisTurn
+        | CostPart::TapOther(_)
+        | CostPart::TapX(_)
+        | CostPart::TapN { .. }
+        | CostPart::Forage => true,
+        CostPart::Either(a, b) => {
+            a.parts.iter().all(paid_as_a_mandatory_additional_cost)
+                && b.parts.iter().all(paid_as_a_mandatory_additional_cost)
+        }
+        _ => false,
+    }
 }
 
 /// The non-mana parts the wizard pays for a buyback cost, the last of them
 /// after everything else because it is random (CR 601.2h).
-pub(crate) const fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
-    matches!(
-        part,
+pub(crate) fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
+    match part {
         CostPart::PayLife(_)
-            | CostPart::DealDamageToYou(_)
-            | CostPart::Sacrifice(_)
-            | CostPart::Discard(_)
-            | CostPart::DiscardRandom
-            | CostPart::Forage
-    )
+        | CostPart::DealDamageToYou(_)
+        | CostPart::Sacrifice(_)
+        | CostPart::Discard(_)
+        | CostPart::DiscardRandom
+        | CostPart::Forage => true,
+        CostPart::Either(a, b) => {
+            a.parts.iter().all(paid_as_a_buyback_cost) && b.parts.iter().all(paid_as_a_buyback_cost)
+        }
+        _ => false,
+    }
 }
 
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
@@ -670,6 +738,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
             wizard.kicked = wizard.option == Some(CastModeKind::Kicked);
+            if wizard.option == Some(CastModeKind::Awaken)
+                && let Some((_, cost)) = self
+                    .state
+                    .object(card)
+                    .and_then(|o| o.card)
+                    .and_then(|c| self.lookup.card(c.index))
+                    .and_then(|d| wave10b::face_awaken(d, wizard.face_index()))
+            {
+                wizard.awaken_parts = cost.parts;
+            }
             wizard.stage = WizardStage::Permission;
         }
         // The offer and option validation used a private projection. The
@@ -865,9 +943,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .object(card)
             .and_then(|o| o.card)
             .and_then(|c| self.lookup.card(c.index))
-            .and_then(|def| def.faces[0].behold_or_pay)
-            .filter(|b| casting::behold_options(&self.state, player, card, b.filter).is_empty())
-            .map_or(ManaCost::ZERO, |b| b.cost);
+            .map_or(ManaCost::ZERO, |def| {
+                casting::face_additional_mana_floor(&self.state, player, card, &def.faces[0])
+            });
         let min_cost = self.front_spell_price(player, card, base);
         if !self.free_cost_affordable(player, card, min_cost) {
             return Vec::new();
@@ -1654,6 +1732,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if wizard.masked || matches!(wizard.option, Some(CastModeKind::Disguise)) {
             return None;
         }
+        if let Some(clauses) = self.extended_wizard_clauses(wizard) {
+            return clauses.first().map(|c| c.2);
+        }
         let def = self
             .state
             .object(wizard.card)
@@ -1721,7 +1802,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         wizard: &CastWizard,
         clause_idx: usize,
     ) -> Option<(usize, bool, TargetReq)> {
-        let (mode_idx, is_second, mut req) = self.wizard_modal_clause(wizard, clause_idx)?;
+        let (mode_idx, is_second, mut req) =
+            if let Some(clauses) = self.extended_wizard_clauses(wizard) {
+                *clauses.get(clause_idx)?
+            } else {
+                self.wizard_modal_clause(wizard, clause_idx)?
+            };
         if is_second
             && let TargetSpec::CardInFirstTargetsGraveyard(filter) = req.spec
             && let Some(player) = wizard.clause_first_targets(clause_idx).1
@@ -1738,6 +1824,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn wizard_second_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
         if wizard.masked {
             return None;
+        }
+        if let Some(clauses) = self.extended_wizard_clauses(wizard) {
+            let &(_, is_sec, mut req) = clauses.get(1)?;
+            if is_sec
+                && let TargetSpec::CardInFirstTargetsGraveyard(filter) = req.spec
+                && let Some(player) = wizard
+                    .chosen_player
+                    .or_else(|| wizard.target_players.iter().next())
+            {
+                req.spec = TargetSpec::CardInPlayersGraveyard(filter, player);
+            }
+            return Some(req);
         }
         let def = self
             .state
@@ -1777,11 +1875,80 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         Some(req)
     }
 
-    fn wizard_pitch_parts(&self, wizard: &CastWizard) -> &'static [CostPart] {
-        wizard_alternative_parts(
+    fn wizard_pitch_parts(&self, wizard: &CastWizard) -> SmallVec<[CostPart; 4]> {
+        cost_parts::wizard_alternative_parts_expanded(
             self.wizard_face(wizard),
-            wizard.alternative_cost.or(wizard.option),
+            wizard.cost_choice(),
         )
+    }
+
+    pub(super) fn wizard_either_branch_payable(
+        &self,
+        wizard: &CastWizard,
+        face: &'static baylee_cards_dsl::FaceDef,
+        choose_first: bool,
+        branch_cost: &'static baylee_cards_dsl::Cost,
+    ) -> bool {
+        let mut probe = wizard.clone();
+        let idx = probe.either_decided;
+        if choose_first && idx < 8 {
+            probe.either_first_mask |= 1_u8 << idx;
+        }
+        if branch_cost.mana != ManaCost::ZERO {
+            probe.either_pays_mana = true;
+        }
+        probe.either_decided = idx.saturating_add(1);
+        if !self
+            .state
+            .can_pay_life(probe.player, probe.total_life_cost(face))
+        {
+            return false;
+        }
+        let pitch_parts = self.wizard_pitch_parts(&probe);
+        if !casting::pitch_costs_payable(
+            &self.state,
+            probe.player,
+            probe.card,
+            &pitch_parts,
+            &probe.pitch,
+        ) {
+            return false;
+        }
+        if casting::additional_payment_capacity_for_x(
+            &self.state,
+            probe.player,
+            probe.card,
+            face,
+            probe.cost_choice(),
+            probe.x,
+            &probe.cost_objects,
+        )
+        .is_none()
+        {
+            return false;
+        }
+        if probe.makes_mana_after_choices() && self.can_make_mana_for_cast(probe.player) {
+            return true;
+        }
+        if !pays_mana(&probe) {
+            return true;
+        }
+        let graveyard = if face.delve {
+            self.state
+                .zones
+                .list(ZoneLocation::Graveyard(probe.player))
+                .len()
+        } else {
+            0
+        };
+        let taps = if face.convoke || casting::has_improvise(&self.state, face, probe.player) {
+            casting::tap_to_pay_sources(&self.state, face, probe.player).len()
+        } else {
+            0
+        };
+        let help = u32::try_from(graveyard.saturating_add(taps)).unwrap_or(u32::MAX);
+        let cost = wizard_total_cost(face, &probe).with_less_generic(help);
+        self.wizard_pool_can_pay(&probe, cost)
     }
 
     /// Pays everything and puts the spell on the stack, or, refused, pays
@@ -1848,12 +2015,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// decides.
     pub(super) fn pool_alone_pays_x(&self, wizard: &CastWizard) -> bool {
         let face = self.wizard_face(wizard);
+        let has_strive = self
+            .state
+            .object(wizard.card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+            .is_some_and(|def| def.per_extra_target_cost(wizard.face_index()).is_some());
         !wizard.makes_mana_after_choices()
             && !face.delve
             && !face.convoke
             && !casting::has_improvise(&self.state, face, wizard.player)
             && !face.waterbend
             && face.extra_target_cost == 0
+            && !has_strive
             && self.state.granted_colorless_capacity(wizard.player) == 0
     }
 
@@ -1914,7 +2088,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     && wizard.option != Some(CastModeKind::Plot)
                     && wizard.alternative_cost != Some(CastModeKind::Plot)
             });
-        if restricted_colors.is_none() && face.extra_target_cost == 0 {
+        let has_strive = self
+            .state
+            .object(wizard.card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+            .is_some_and(|def| def.per_extra_target_cost(wizard.face_index()).is_some());
+        if restricted_colors.is_none() && face.extra_target_cost == 0 && !has_strive {
             return (total, None);
         }
         let reduction = wizard.reduction.map_or(0, |reduction| reduction.total);
@@ -2072,32 +2252,36 @@ pub(super) fn wizard_paid_total(
     cost.with_less_generic(generic)
 }
 
+impl CastWizard {
+    /// Targets chosen beyond the first across all target clauses (`CR 207.2c` Strive).
+    pub(super) fn extra_target_count(&self) -> u32 {
+        let players = self.target_players.len()
+            + usize::from(
+                self.chosen_player
+                    .is_some_and(|p| !self.target_players.contains(p)),
+            );
+        let extra_groups: usize = self
+            .extra_targets
+            .iter()
+            .map(|(objs, pls)| objs.len() + pls.len())
+            .sum();
+        let extra = (self.targets.len()
+            + self.second_targets.len()
+            + self.second_target_players.len()
+            + extra_groups
+            + players)
+            .saturating_sub(1);
+        u32::try_from(extra).unwrap_or(u32::MAX)
+    }
+}
+
 fn wizard_total_before_reduction(
     face: &baylee_cards_dsl::FaceDef,
     wizard: &CastWizard,
 ) -> ManaCost {
     let mut total = wizard_cost(wizard).combine(&wizard.target_increase);
-    let players = wizard.target_players.len()
-        + usize::from(
-            wizard
-                .chosen_player
-                .is_some_and(|p| !wizard.target_players.contains(p)),
-        );
-    let extra_groups: usize = wizard
-        .extra_targets
-        .iter()
-        .map(|(objs, pls)| objs.len() + pls.len())
-        .sum();
-    let extra = (wizard.targets.len()
-        + wizard.second_targets.len()
-        + wizard.second_target_players.len()
-        + extra_groups
-        + players)
-        .saturating_sub(1);
-    total = total.with_more_generic(
-        face.extra_target_cost
-            .saturating_mul(u32::try_from(extra).unwrap_or(u32::MAX)),
-    );
+    let extra = wizard.extra_target_count();
+    total = total.with_more_generic(face.extra_target_cost.saturating_mul(extra));
     if wizard.kicked
         && wizard.option != Some(CastModeKind::Kicked)
         && !matches!(
@@ -2138,6 +2322,15 @@ fn wizard_total_before_reduction(
     {
         total = total.combine(&behold.cost);
     }
+    if wizard.either_decided > 0 {
+        let either_mana = cost_parts::settled_either_mana(face, wizard.cost_choice());
+        if either_mana != ManaCost::ZERO {
+            total = total.combine(&either_mana.with_x(wizard.x));
+        }
+    }
+    for &(_, _, _, cost) in &wizard.spliced {
+        total = total.combine(&cost.mana.with_x(wizard.x));
+    }
     total
 }
 
@@ -2145,7 +2338,7 @@ fn wizard_total_before_reduction(
 /// cost (CR 601.2h pays nothing it was not asked for), but an additional
 /// cost it chose is still paid (CR 118.9d, 601.2f): a kicker, a buyback, and
 /// the replicate cost however many times it was announced.
-const fn pays_mana(wizard: &CastWizard) -> bool {
+fn pays_mana(wizard: &CastWizard) -> bool {
     (!wizard.free
         && !matches!(wizard.option, Some(CastModeKind::Plot))
         && !matches!(wizard.alternative_cost, Some(CastModeKind::Plot)))
@@ -2155,6 +2348,9 @@ const fn pays_mana(wizard: &CastWizard) -> bool {
         || wizard.offspring
         || wizard.squad > 0
         || wizard.behold_paid_mana
+        || wizard.either_pays_mana
+        || wizard.target_increase != ManaCost::ZERO
+        || !wizard.spliced.is_empty()
 }
 
 /// What the cast's mana pays for, which restricted mana asks (CR 106.6):

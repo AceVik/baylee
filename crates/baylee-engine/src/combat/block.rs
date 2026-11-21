@@ -207,8 +207,9 @@ pub fn can_block(
     if kw(a, K::HORSEMANSHIP) && !kw(b, K::HORSEMANSHIP) {
         return false;
     }
-    // Skulk (CR 702.118b): can't be blocked by creatures with greater power.
-    if kw(a, K::SKULK)
+    // Skulk (CR 702.118b) and Ring-bearer Tier 1 (CR 701.54c): can't be
+    // blocked by creatures with greater power.
+    if (kw(a, K::SKULK) || state.is_ring_bearer(attacker))
         && b.characteristics().power.unwrap_or(0) > a.characteristics().power.unwrap_or(0)
     {
         return false;

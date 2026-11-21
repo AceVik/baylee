@@ -72,6 +72,13 @@ struct EntryKeywordState {
     riot_haste: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(super) enum TributeState {
+    None,
+    Ask(PlayerId, u16),
+    Paid,
+}
+
 #[derive(Clone, Debug)]
 struct Attempt {
     object: ObjectId,
@@ -95,6 +102,7 @@ struct Attempt {
     battle_protector: Option<PlayerId>,
     saga_chapter: Option<u8>,
     kw_choices: EntryKeywordState,
+    tribute: TributeState,
     counters: Vec<(Option<PlayerId>, CounterKind, u16)>,
     counter_plans: Vec<crate::replacement::counter_order::CounterPlacementPlan>,
     counters_prepared: bool,
@@ -125,6 +133,7 @@ impl Hash for Attempt {
             battle_protector,
             saga_chapter,
             kw_choices,
+            tribute,
             counters,
             counter_plans,
             counters_prepared,
@@ -164,6 +173,9 @@ impl Hash for Attempt {
                 kw_choices.riot_haste,
             )
                 .hash(h);
+        }
+        if *tribute != TributeState::None {
+            tribute.hash(h);
         }
         counters.hash(h);
         counter_plans.hash(h);
@@ -252,6 +264,14 @@ enum Question {
     Riot,
     /// Unleash optional +1/+1 counter choice (CR 702.98a).
     Unleash,
+    /// Tribute multiplayer opponent choice (CR 702.104a).
+    TributeOpponent {
+        counters: u16,
+    },
+    /// Tribute opponent yes/no counter placement choice (CR 702.104a–b).
+    Tribute {
+        counters: u16,
+    },
 }
 
 impl Hash for Entries {
@@ -396,6 +416,7 @@ fn needs_before_entry(modifier: &EnterModifier) -> bool {
                 | EnterModifier::SacrificeOthers(_)
                 | EnterModifier::Amplify(_)
                 | EnterModifier::Suspected
+                | EnterModifier::Tribute(_)
         )
 }
 
@@ -490,6 +511,7 @@ pub(crate) fn defer(
         battle_protector: None,
         saga_chapter: None,
         kw_choices: EntryKeywordState::default(),
+        tribute: TributeState::None,
         counters: Vec::new(),
         counter_plans: Vec::new(),
         counters_prepared: false,
@@ -579,7 +601,9 @@ fn options(state: &GameState, entry: &Attempt, filter: &Filter, hand: bool) -> V
         .filter(|id| *id != entry.object && !unavailable.contains(id))
         .filter(|id| {
             state.object(*id).is_some_and(|object| {
-                (hand || object.controller == entry.controller)
+                (hand
+                    || (object.controller == entry.controller
+                        && state.can_be_sacrificed(*id, None)))
                     && crate::eval::matches(filter, state, object, entry.controller, entry.object)
             })
         })

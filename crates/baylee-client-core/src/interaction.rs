@@ -887,6 +887,10 @@ impl Interaction {
                 prompt: YesNoPrompt::PayLife { permanent, .. },
                 ..
             } => *permanent,
+            Pending::YesNo {
+                prompt: YesNoPrompt::AssignDamageAsThoughUnblocked { attacker },
+                ..
+            } => Some(*attacker),
             _ => None,
         }
     }

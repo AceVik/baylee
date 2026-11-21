@@ -305,6 +305,15 @@ pub(crate) fn run_with_context(
             dying.push((id, true));
         }
     }
+    if dying.len() > 1 {
+        let dying_ids: smallvec::SmallVec<[baylee_core::ids::ObjectId; 8]> = dying
+            .iter()
+            .filter_map(|&(id, is_destroy)| is_destroy.then_some(id))
+            .collect();
+        dying.sort_by_key(|&(id, is_destroy)| {
+            is_destroy && has_co_destroyed_umbra_host(state, id, &dying_ids)
+        });
+    }
     for (id, is_destroy) in dying {
         if is_destroy {
             destroy_with(
@@ -401,13 +410,12 @@ pub(crate) fn run_with_context(
         if state
             .object(id)
             .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            && state.can_be_sacrificed(id, None)
+            && state
+                .sacrifice_object_with_departure(id, crate::event::Cause::StateBased, departure(id))
+                .is_ok()
         {
-            // CR 715.4: a finished Saga's controller sacrifices it as a state-based action.
-            let _ = state.sacrifice_object_with_departure(
-                id,
-                crate::event::Cause::StateBased,
-                departure(id),
-            );
+            // CR 715.4, CR 701.21a: a finished Saga is sacrificed only while it can be.
             outcome.changed = true;
         }
     }
@@ -955,43 +963,98 @@ fn destroy_with_replacements(
             order,
         );
     }
-    if regeneratable
-        && let Some(obj) = state.object_mut(id)
-        && (standing_regeneration || obj.regeneration_shields > 0)
-    {
-        if !standing_regeneration {
-            obj.regeneration_shields -= 1;
-        }
-        obj.damage = 0;
-        obj.deathtouched = false;
-        let reference = baylee_core::ids::DamageSourceRef {
-            object: id,
-            version: obj.version,
-        };
-        let was_attacking_or_blocking = state.combat.is_attacking(id)
-            || state
-                .combat
-                .blockers
-                .iter()
-                .any(|block| block.blocker == id);
-        // `set_tapped` and not the bit: tapping is what the layer
-        // projection has to hear about, and
-        // `rules::nothing_writes_the_tapped_bit_except_the_one_door` is the
-        // test that says so — it caught this line writing the bit directly.
-        state.set_tapped(id, true);
-        state.combat.remove_from_combat(id);
-        if was_attacking_or_blocking {
-            state.combat.remove_defender_from_combat(reference);
-        }
+    if regeneratable && apply_regeneration_shield(state, id, standing_regeneration) {
+        return;
+    }
+    if replace_destroy_with_umbra_armor(state, id) {
         return;
     }
     put_into_graveyard_with_cause(state, id, departure, Cause::Destroy);
 }
 
+fn apply_regeneration_shield(
+    state: &mut GameState,
+    id: baylee_core::ids::ObjectId,
+    standing_regeneration: bool,
+) -> bool {
+    let Some(obj) = state.object_mut(id) else {
+        return false;
+    };
+    if !standing_regeneration && obj.regeneration_shields == 0 {
+        return false;
+    }
+    if !standing_regeneration {
+        obj.regeneration_shields -= 1;
+    }
+    obj.damage = 0;
+    obj.deathtouched = false;
+    let reference = baylee_core::ids::DamageSourceRef {
+        object: id,
+        version: obj.version,
+    };
+    let was_attacking_or_blocking = state.combat.is_attacking(id)
+        || state
+            .combat
+            .blockers
+            .iter()
+            .any(|block| block.blocker == id);
+    state.set_tapped(id, true);
+    state.combat.remove_from_combat(id);
+    if was_attacking_or_blocking {
+        state.combat.remove_defender_from_combat(reference);
+    }
+    true
+}
+
+/// Umbra armor (`CR 702.89a–b`): if an enchanted permanent would be destroyed,
+/// instead remove all damage marked on it and destroy one attached Aura with
+/// umbra armor. Does not tap the permanent or remove it from combat.
+fn replace_destroy_with_umbra_armor(state: &mut GameState, id: baylee_core::ids::ObjectId) -> bool {
+    let aura_id = state.battlefield_seen().find(|&cand| {
+        state.object(cand).is_some_and(|aura| {
+            aura.attached_to == Some(id)
+                && aura
+                    .characteristics()
+                    .subtypes
+                    .contains(baylee_core::generated::subtypes::enchantment::AURA)
+                && aura
+                    .characteristics()
+                    .keywords
+                    .contains(baylee_cards_dsl::KeywordSet::UMBRA_ARMOR)
+        })
+    });
+    let Some(aura_id) = aura_id else {
+        return false;
+    };
+    if let Some(obj) = state.object_mut(id) {
+        obj.damage = 0;
+        obj.deathtouched = false;
+    }
+    destroy(state, aura_id);
+    true
+}
+
+fn has_co_destroyed_umbra_host(
+    state: &GameState,
+    id: baylee_core::ids::ObjectId,
+    co_destroyed: &[baylee_core::ids::ObjectId],
+) -> bool {
+    state.object(id).is_some_and(|o| {
+        o.attached_to
+            .is_some_and(|host| co_destroyed.contains(&host))
+            && o.characteristics()
+                .subtypes
+                .contains(baylee_core::generated::subtypes::enchantment::AURA)
+            && o.characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::UMBRA_ARMOR)
+    })
+}
+
 /// Destroy a simultaneous set, retaining attachments before any member leaves.
 #[doc(hidden)]
 pub fn destroy_all(state: &mut GameState, objects: &[baylee_core::ids::ObjectId], no_regen: bool) {
-    let departures: Vec<_> = objects
+    let mut departures: Vec<_> = objects
         .iter()
         .map(|id| {
             (
@@ -1001,6 +1064,9 @@ pub fn destroy_all(state: &mut GameState, objects: &[baylee_core::ids::ObjectId]
             )
         })
         .collect();
+    if departures.len() > 1 {
+        departures.sort_by_key(|&(id, _, _)| has_co_destroyed_umbra_host(state, id, objects));
+    }
     for (id, departure, regeneratable) in departures {
         destroy_with(state, id, regeneratable, departure, true);
     }
@@ -1229,7 +1295,17 @@ fn leave(
     // and the card comes back to its owner (CR 610.3).
     state.return_what_departed_hosts_held();
     state.monarch_leaves(player, leaving);
+    state.players[usize::from(player.get())].ring_bearer = None;
     let exiled = exile_what_the_departed_control(state);
+    for p in 0..state.players.len() {
+        if let Some(bearer) = state.players[p].ring_bearer
+            && state.object(bearer).is_none_or(|o| {
+                o.zone != crate::zone::Zone::Battlefield || o.controller != PlayerId::new(p as u8)
+            })
+        {
+            state.players[p].ring_bearer = None;
+        }
+    }
     let mut gone: Vec<_> = state
         .combat
         .attackers()

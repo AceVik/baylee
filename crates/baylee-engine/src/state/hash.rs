@@ -549,6 +549,12 @@ impl GameState {
             for c in self.commanders.get(seat).into_iter().flatten() {
                 h.u32(c.casts);
             }
+            if p.ring_temptations != 0 {
+                h.u8(p.ring_temptations.min(4));
+            }
+            if let Some(bearer) = p.ring_bearer {
+                h.u32(position(bearer));
+            }
         }
     }
 
@@ -668,8 +674,31 @@ impl GameState {
         placements.sort_unstable();
         placements.hash(h);
         self.hash_must_block_pairs(h, position);
+        self.hash_extra_turn_tallies(h);
+    }
+
+    fn hash_extra_turn_tallies(&self, h: &mut Hasher) {
         if !self.per_turn.spells_warped.is_empty() {
             self.per_turn.spells_warped.0.as_slice().hash(h);
+        }
+        if self.per_turn.crimes_committed.tracked
+            && !self.per_turn.crimes_committed.items.is_empty()
+        {
+            self.per_turn.crimes_committed.items.as_slice().hash(h);
+        }
+        if self.per_turn.mana_expended_on_spells.tracked
+            && !self.per_turn.mana_expended_on_spells.items.is_empty()
+        {
+            self.per_turn
+                .mana_expended_on_spells
+                .items
+                .as_slice()
+                .hash(h);
+        }
+        if self.per_turn.phase_stack_active.0 {
+            true.hash(h);
+            self.per_turn.extra_phases.0.as_slice().hash(h);
+            self.per_turn.extra_phases_created.0.hash(h);
         }
     }
 
@@ -1655,6 +1684,40 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         crate::object::Rider::Monstrous => h.u8(211),
         crate::object::Rider::Suspected => h.u8(212),
         crate::object::Rider::RiotHaste => h.u8(213),
+        crate::object::Rider::RevealedFromOpeningHand => h.u8(241),
+        crate::object::Rider::Sneaked => h.u8(251),
+        crate::object::Rider::Spliced { card, face } => {
+            h.u8(255);
+            h.u16(261);
+            card.hash(h);
+            h.u8(*face);
+        }
+        crate::object::Rider::Awakened(count) => {
+            h.u8(255);
+            h.u16(262);
+            h.u16(*count);
+        }
+        crate::object::Rider::ConspirePaid(count) => {
+            h.u8(255);
+            h.u16(263);
+            h.u8(*count);
+        }
+        crate::object::Rider::CipherEncodedOn { host, version } => {
+            h.u8(255);
+            h.u16(264);
+            host.hash(h);
+            version.hash(h);
+        }
+        crate::object::Rider::ChampionedBy { host, version } => {
+            h.u8(255);
+            h.u16(265);
+            host.hash(h);
+            version.hash(h);
+        }
+        crate::object::Rider::TributePaid => {
+            h.u8(255);
+            h.u16(266);
+        }
         _ => {}
     }
 }
@@ -1840,6 +1903,8 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         dungeon,
         dungeon_room,
         dungeons_completed,
+        ring_temptations,
+        ring_bearer,
     } = player;
     id.hash(h);
     life.hash(h);
@@ -1867,6 +1932,14 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         dungeon.hash(h);
         dungeon_room.hash(h);
         dungeons_completed.hash(h);
+    }
+    if *ring_temptations != 0 {
+        0x7269_6e67_u32.hash(h);
+        ring_temptations.hash(h);
+    }
+    if let Some(bearer) = ring_bearer {
+        0x7262_7272_u32.hash(h);
+        bearer.hash(h);
     }
     tried_empty_draw.hash(h);
     // Commander damage (CR 903.10a), which no life total records: two
@@ -2308,6 +2381,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Monstrous => h.u8(211),
             Rider::Suspected => h.u8(212),
             Rider::RiotHaste => h.u8(213),
+            Rider::RevealedFromOpeningHand => h.u8(241),
             Rider::Suspend => h.u8(6),
             Rider::Flashback => h.u8(7),
             Rider::Uncounterable => h.u8(8),
@@ -2460,6 +2534,39 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::SnowManaSpent(count) => {
                 h.u8(203);
                 count.hash(h);
+            }
+            Rider::Sneaked => h.u8(251),
+            Rider::Spliced { card, face } => {
+                h.u8(255);
+                h.u16(261);
+                card.hash(h);
+                h.u8(*face);
+            }
+            Rider::Awakened(count) => {
+                h.u8(255);
+                h.u16(262);
+                h.u16(*count);
+            }
+            Rider::ConspirePaid(count) => {
+                h.u8(255);
+                h.u16(263);
+                h.u8(*count);
+            }
+            Rider::CipherEncodedOn { host, version } => {
+                h.u8(255);
+                h.u16(264);
+                host.hash(h);
+                version.hash(h);
+            }
+            Rider::ChampionedBy { host, version } => {
+                h.u8(255);
+                h.u16(265);
+                host.hash(h);
+                version.hash(h);
+            }
+            Rider::TributePaid => {
+                h.u8(255);
+                h.u16(266);
             }
         }
     }
@@ -2743,6 +2850,9 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::CmcAtMostSnowManaSpent => h.u8(202),
         F::Monstrous => h.u8(186),
         F::Suspected => h.u8(187),
+        F::RingBearer => h.u8(195),
+        F::SameManaValueAsSource => h.u8(231),
+        F::SharesColorWithSource => h.u8(232),
     }
 }
 

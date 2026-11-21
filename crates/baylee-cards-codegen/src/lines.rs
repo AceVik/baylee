@@ -356,22 +356,39 @@ pub fn cost_fits(cost: &baylee_cards_dsl::Cost, line: &str) -> bool {
     // A keyword ability prints its cost with no colon after it — "Cycling
     // {B}" is a whole line — so a line without one is read as all cost.
     let head = line.split_once(':').map_or(line.as_str(), |(head, _)| head);
+    if let Some((a, b)) = cost.parts.iter().find_map(|p| match p {
+        CostPart::Either(a, b) => Some((*a, *b)),
+        _ => None,
+    }) {
+        return [a, b].into_iter().any(|sub| {
+            cost_branch_fits(&cost.mana.combine(&sub.mana), cost.parts, sub.parts, head)
+        });
+    }
+    cost_branch_fits(&cost.mana, cost.parts, &[], head)
+}
+
+fn cost_branch_fits(
+    mana: &baylee_core::mana::ManaCost,
+    outer_parts: &[baylee_cards_dsl::CostPart],
+    branch_parts: &[baylee_cards_dsl::CostPart],
+    head: &str,
+) -> bool {
+    use baylee_cards_dsl::CostPart;
+    let has_part =
+        |wanted: &CostPart| outer_parts.contains(wanted) || branch_parts.contains(wanted);
     let printed = braced(head);
     let taps = printed.iter().any(|s| s == "T");
     let untaps = printed.iter().any(|s| s == "Q");
-    if taps != cost.parts.contains(&CostPart::TapSelf) {
-        return false;
-    }
-    if untaps != cost.parts.contains(&CostPart::UntapSelf) {
+    if taps != has_part(&CostPart::TapSelf) || untaps != has_part(&CostPart::UntapSelf) {
         return false;
     }
     // Exert has no symbol, but must distinguish otherwise identical
     // activations so the client preserves this additional payment.
-    if head.to_lowercase().contains("exert") != cost.parts.contains(&CostPart::ExertSelf) {
+    if head.to_lowercase().contains("exert") != has_part(&CostPart::ExertSelf) {
         return false;
     }
     // Energy symbols belong to nonmana payments, not the mana cost.
-    let mut want = braced(&cost.mana.to_string());
+    let mut want = braced(&mana.to_string());
     want.retain(|s| s != "0");
     want.sort();
     for alt_head in head.split(" or ") {
@@ -648,6 +665,11 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::SpellWarped { .. } => &["warp"],
         T::Scried { .. } => &["scry", "scries"],
         T::BecomesMonstrous => &["monstrous"],
+        T::RingTemptsYou { .. } => &["the ring tempts"],
+        T::Firebends(_) => &["firebend", "firebends"],
+        T::CommittedCrime { .. } => &["crime", "commit"],
+        T::Expended { .. } => &["expend"],
+        T::Clashed { .. } => &["clash"],
     }
 }
 
@@ -718,6 +740,11 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::GaveGift(rel)
         | Trigger::SpellWarped { who: rel, .. }
         | Trigger::Scried { who: rel }
+        | Trigger::RingTemptsYou { who: rel }
+        | Trigger::Firebends(rel)
+        | Trigger::CommittedCrime { who: rel, .. }
+        | Trigger::Expended { who: rel, .. }
+        | Trigger::Clashed { who: rel, .. }
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),
@@ -869,6 +896,10 @@ fn effect_words(effect: &Effect) -> &'static [&'static str] {
         Effect::Monstrosity(_) => &["monstrosity"],
         Effect::Suspect { .. } => &["suspect"],
         Effect::Unsuspect { .. } => &["unsuspect", "no longer suspected"],
+        Effect::RingTemptsYou => &["the ring tempts"],
+        Effect::Firebend(_) => &["firebend", "add"],
+        Effect::Mobilize(_) => &["mobilize", "warrior"],
+        Effect::Detain { .. } | Effect::DetainFilter { .. } => &["detain"],
         _ => &[],
     }
 }
@@ -1142,6 +1173,9 @@ fn alternative_fits(alt: &AlternativeCost, line: &str) -> bool {
             if kw.eq_ignore_ascii_case("surge") => {}
         AltCondition::If(baylee_cards_dsl::Condition::Prowl)
             if kw.eq_ignore_ascii_case("prowl") => {}
+        AltCondition::If(
+            baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn,
+        ) if kw.eq_ignore_ascii_case("freerunning") => {}
         AltCondition::NotYourTurn | AltCondition::CommanderControlled | AltCondition::If(_) => {
             return false;
         }
@@ -1255,6 +1289,11 @@ fn part_named(part: &CostPart, lower: &str) -> Option<bool> {
         CostPart::ReturnToHand(_) => lower.contains("return"),
         CostPart::ExileFromGraveyard(_) | CostPart::ExileFromGraveyardX(_) => {
             lower.contains("exile") && lower.contains("from your graveyard")
+        }
+        CostPart::Either(a, b) => {
+            (a.parts.is_empty() || a.parts.iter().any(|p| part_named(p, lower).unwrap_or(true)))
+                || (b.parts.is_empty()
+                    || b.parts.iter().any(|p| part_named(p, lower).unwrap_or(true)))
         }
         _ => return None,
     })

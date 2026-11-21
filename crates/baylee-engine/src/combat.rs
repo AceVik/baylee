@@ -49,6 +49,7 @@ pub use block::{
     ready_blockers,
 };
 pub use damage::divisions_owed;
+pub(crate) use damage::unblocked_damage_owed;
 pub(crate) use damage::{collect_combat_damage, prepare_damage_step, unpreventable};
 
 /// The creatures each player controls, counted once for a combat declaration.
@@ -241,6 +242,10 @@ pub struct CombatState {
     /// The divisions players have chosen for the damage step about to be
     /// dealt, emptied once it is (`deal_combat_damage`).
     divisions: Vec<Division>,
+    /// Per-attacker answers to `YesNoPrompt::AssignDamageAsThoughUnblocked`
+    /// (`Modifier::MayAssignCombatDamageAsThoughUnblocked`, CR 510.1c) for the
+    /// current combat damage step, emptied once it is dealt.
+    unblocked_damage_choices: Vec<(ObjectId, bool)>,
     /// What each creature that attacked this combat attacked, as the object
     /// it was then, kept after it is removed from combat: "the player that
     /// creature was attacking before it was removed from combat" (CR 508.5,
@@ -267,6 +272,9 @@ impl std::hash::Hash for CombatState {
         self.prepared_damage.hash(state);
         self.defended.hash(state);
         self.defender_contexts.hash(state);
+        if !self.unblocked_damage_choices.is_empty() {
+            self.unblocked_damage_choices.hash(state);
+        }
     }
 }
 
@@ -450,6 +458,26 @@ impl CombatState {
         self.divisions.push(division);
     }
 
+    /// Whether `source`'s controller has already answered whether it assigns
+    /// combat damage as though unblocked in this strike step (CR 510.1c).
+    #[must_use]
+    pub fn unblocked_damage_choice(&self, source: ObjectId) -> Option<bool> {
+        self.unblocked_damage_choices
+            .iter()
+            .find(|&&(c, _)| c == source)
+            .map(|&(_, choice)| choice)
+    }
+
+    /// Records `source`'s choice for `Modifier::MayAssignCombatDamageAsThoughUnblocked`.
+    pub fn record_unblocked_damage_choice(&mut self, source: ObjectId, as_unblocked: bool) {
+        self.unblocked_damage_choices.retain(|&(c, _)| c != source);
+        self.unblocked_damage_choices.push((source, as_unblocked));
+    }
+
+    pub(crate) fn clear_unblocked_damage_choices(&mut self) {
+        self.unblocked_damage_choices.clear();
+    }
+
     /// Blockers assigned to an attacker, in declaration order.
     #[must_use]
     pub fn blockers_of(&self, attacker: ObjectId) -> Vec<ObjectId> {
@@ -580,6 +608,7 @@ impl CombatState {
         }
         self.blockers
             .retain(|b| b.blocker != id && b.attacker != id);
+        self.unblocked_damage_choices.retain(|&(c, _)| c != id);
     }
 }
 

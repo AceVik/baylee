@@ -596,6 +596,12 @@ pub(crate) fn matches_projected_with_choices(
                 .filter_map(|id| state.object(id))
                 .any(|exiled| exiled.characteristics().colors.intersects(chars.colors))
         }
+        Filter::SharesColorWithSource => {
+            !chars.colors.is_empty()
+                && state
+                    .object_or_departed(this)
+                    .is_some_and(|src| src.characteristics().colors.intersects(chars.colors))
+        }
         Filter::CmcEqualsYourUnspentMana => state
             .players
             .get(usize::from(you.get()))
@@ -800,6 +806,33 @@ pub(crate) fn matches_projected_with_choices(
             obj.zone == Zone::Battlefield
                 && !obj.status.contains(crate::object::Status::PHASED_OUT)
                 && obj.riders.contains(&crate::object::Rider::Suspected)
+        }
+        Filter::RingBearer => {
+            if obj.zone == Zone::Battlefield {
+                !obj.status.contains(crate::object::Status::PHASED_OUT)
+                    && state.is_ring_bearer(obj.id)
+            } else {
+                state
+                    .journal
+                    .entries()
+                    .iter()
+                    .rev()
+                    .find_map(|entry| match &entry.event {
+                        crate::event::GameEvent::ZoneChanged {
+                            object,
+                            from: Zone::Battlefield,
+                            ..
+                        } if *object == obj.id => entry.departure.as_ref().and_then(|d| {
+                            (d.version == obj.version || d.version.wrapping_add(1) == obj.version)
+                                .then_some(d.was_ring_bearer_of.is_some())
+                        }),
+                        _ => None,
+                    })
+                    .unwrap_or(false)
+            }
+        }
+        Filter::SameManaValueAsSource => {
+            source_mana_value(state, this).is_some_and(|mv| chars.mana_value() == mv)
         }
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.
@@ -1082,6 +1115,33 @@ fn source_power(state: &GameState, this: ObjectId) -> Option<i16> {
 fn below_source_power(stat: Option<i16>, state: &GameState, this: ObjectId) -> bool {
     stat.zip(source_power(state, this))
         .is_some_and(|(stat, bound)| stat < bound)
+}
+
+fn source_mana_value(state: &GameState, this: ObjectId) -> Option<u32> {
+    if let Some(&top) = state.zones.list(crate::zone::ZoneLocation::Stack).last()
+        && let Some(stack_obj) = state.object(top)
+        && stack_obj.kind == crate::object::ObjectKind::AbilityOnStack
+        && stack_obj.ability.is_some_and(|loc| loc.source == this)
+    {
+        if let Some(version) = stack_obj.riders.iter().find_map(|r| match *r {
+            crate::object::Rider::AbilitySourceVersion(v) => Some(v),
+            _ => None,
+        }) && let Some(src) = state.damage_source(this, Some(version))
+        {
+            return Some(src.characteristics().mana_value());
+        }
+        if let Some(discarded) = stack_obj
+            .paid
+            .as_ref()
+            .and_then(|p| p.discarded.iter().find(|d| d.object == this).copied())
+            && let Some(src) = state.source_object(discarded)
+        {
+            return Some(src.characteristics().mana_value());
+        }
+    }
+    state
+        .object_or_departed(this)
+        .map(|o| o.characteristics().mana_value())
 }
 
 /// Whether `filter` reads the X announced for its source

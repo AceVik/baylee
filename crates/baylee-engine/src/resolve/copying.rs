@@ -185,6 +185,8 @@ fn copied_spell_riders(riders: &[crate::object::Rider]) -> Vec<crate::object::Ri
                     | R::Fused
                     | R::PrepareSpellFace(_)
                     | R::WarpedSpell
+                    | R::Spliced { .. }
+                    | R::Awakened(_)
             )
         })
         .collect()
@@ -204,6 +206,7 @@ pub(super) fn copy_spell(
     let targets = from.targets.clone();
     let target_req = from.target_req;
     let second = from.second.clone();
+    let extra_targets = from.extra_target_instances().to_vec();
     let target_players = from.target_players;
     let chosen_player = from.chosen_player;
     let x_value = from.x_value;
@@ -243,6 +246,9 @@ pub(super) fn copy_spell(
         obj.targets = targets;
         obj.target_req = target_req;
         obj.second = second;
+        if !extra_targets.is_empty() {
+            obj.set_extra_targets(extra_targets);
+        }
         obj.target_players = target_players;
         obj.chosen_player = chosen_player;
         obj.x_value = x_value;

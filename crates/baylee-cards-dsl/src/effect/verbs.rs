@@ -83,6 +83,32 @@ impl Effect {
         }
     }
 
+    /// Mobilize N's resolution effect (CR 702.181a).
+    #[must_use]
+    pub const fn mobilize(count: u32) -> Self {
+        Self::Mobilize(Amount::Fixed(count))
+    }
+
+    /// Endure N's resolution effect (CR 701.63a–b).
+    #[must_use]
+    pub const fn endure(count: u32) -> Self {
+        Self::Endure(Amount::Fixed(count))
+    }
+
+    /// "Detain [that permanent / target …]." (CR 701.35a)
+    #[must_use]
+    pub const fn detain(target: TargetSpec) -> Self {
+        Self::Detain { target }
+    }
+
+    /// "Detain target [filter]." (CR 701.35a)
+    #[must_use]
+    pub const fn detain_target(filter: &'static Filter) -> Self {
+        Self::Detain {
+            target: TargetSpec::Object(filter),
+        }
+    }
+
     /// "You gain 3 life."
     #[must_use]
     pub const fn gain_life(life: u32) -> Self {
@@ -838,6 +864,10 @@ impl Effect {
                 n: _,
                 then,
                 otherwise,
+            }
+            | Effect::Clash {
+                on_win: then,
+                on_loss: otherwise,
             } => (then, otherwise),
             // A single effect, not a list: the branch taken when the player
             // declines the price. `from_ref` is what makes it one shape with
@@ -1346,7 +1376,19 @@ impl Effect {
             | Effect::ExileWarped
             | Effect::Monstrosity(_)
             | Effect::Suspect { .. }
-            | Effect::Unsuspect { .. } => (NONE, NONE),
+            | Effect::Unsuspect { .. }
+            | Effect::RingTemptsYou
+            | Effect::Firebend(_)
+            | Effect::Mobilize(_)
+            | Effect::Detain { .. }
+            | Effect::DetainFilter { .. }
+            | Effect::Endure(_)
+            | Effect::AdditionalCombatPhase { .. }
+            | Effect::AwakenLand { .. }
+            | Effect::Cipher
+            | Effect::CipherCastEncoded
+            | Effect::Champion { .. }
+            | Effect::ReturnChampioned => (NONE, NONE),
         }
     }
 

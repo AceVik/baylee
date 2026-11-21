@@ -570,6 +570,8 @@ pub struct Engine<L: CardLookup, D: LoopDetection = DetectLoops> {
     /// questions make, and taken when the cost is paid; cleared on a fresh
     /// press like [`Engine::activation_x`].
     activation_phyrexian: Vec<bool>,
+    /// Settled `CostPart::Either` branches for an activation in progress (`true` = first, `false` = second).
+    activation_either_branches: Vec<bool>,
     /// The ability list the next push to the stack should use instead of
     /// asking the source — read before its cost is paid, or carried on a
     /// trigger that is looking back in time.
@@ -913,6 +915,12 @@ enum PlanKind {
         /// The shares given so far, one per recipient from the first.
         shares: Vec<i16>,
     },
+    /// Choosing whether `attacker` assigns combat damage as though unblocked
+    /// (`Modifier::MayAssignCombatDamageAsThoughUnblocked`, CR 510.1c).
+    CombatUnblockedDamage {
+        /// The blocked attacker whose combat damage assignment is asked about.
+        attacker: ObjectId,
+    },
     /// A loyalty ability waiting for its target player.
     LoyaltyPlayer {
         /// The walker.
@@ -967,6 +975,14 @@ enum PlanKind {
     /// paid. Carries only the ability, for [`PlanKind::ChooseActivationX`]'s
     /// reason: it is asked before the targets.
     ChoosePhyrexianLife {
+        /// The object whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+    },
+    /// An activation asking whether its next [`baylee_cards_dsl::CostPart::Either`]
+    /// pays its first (`true`) or second (`false`) branch (`CR 118.8`).
+    ChooseActivationCostBranch {
         /// The object whose ability is being activated.
         source: ObjectId,
         /// Ability index.
@@ -1094,6 +1110,7 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             activation_x: None,
             activation_graveyard: None,
             activation_phyrexian: Vec::new(),
+            activation_either_branches: Vec::new(),
             activating_abilities: None,
             activating_grant: None,
             entry_scan_seq: 0,
@@ -1782,6 +1799,7 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             activation_x,
             activation_graveyard,
             activation_phyrexian,
+            activation_either_branches,
             activating_abilities,
             activating_grant,
             capabilities,
@@ -1852,6 +1870,10 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             ("activation_x", format!("{activation_x:?}")),
             ("activation_graveyard", format!("{activation_graveyard:?}")),
             ("activation_phyrexian", format!("{activation_phyrexian:?}")),
+            (
+                "activation_either_branches",
+                format!("{activation_either_branches:?}"),
+            ),
             ("activating_abilities", format!("{activating_abilities:?}")),
             ("activating_grant", format!("{activating_grant:?}")),
             ("loyalty_paid", format!("{loyalty_paid:?}")),
@@ -2097,6 +2119,7 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                         | PlanKind::ChooseActivationX { .. }
                         | PlanKind::ChooseActivationGraveyard { .. }
                         | PlanKind::ChoosePhyrexianLife { .. }
+                        | PlanKind::ChooseActivationCostBranch { .. }
                         | PlanKind::PayActivationCost { .. }
                         | PlanKind::LoyaltyPlayer { .. }
                         | PlanKind::EntryCounters { .. }
@@ -2175,6 +2198,7 @@ mod checkpoint;
 mod checkpoint_tests;
 mod constrained_mana;
 pub(crate) mod cost_wizard;
+mod crime;
 mod effect_play;
 mod foretell;
 mod granted;

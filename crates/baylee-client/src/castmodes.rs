@@ -209,6 +209,41 @@ pub fn reachable_modes(
     {
         offer(CastModeKind::Warp, warp.mana);
     }
+    if let Some(sneak) = def.abilities_for_face(0).iter().find_map(|a| match a {
+        baylee_cards_dsl::AbilityDef::Static(sa) => match sa.modifier {
+            baylee_cards_dsl::Modifier::Sneak(cost) => Some(cost),
+            _ => None,
+        },
+        _ => None,
+    }) && (legal
+        .cast_ways
+        .iter()
+        .any(|(c, w)| *c == card && w.kind == CastModeKind::Sneak)
+        || (view.active == resource_player(view)
+            && view.step == baylee_view::Step::DeclareBlockers
+            && parts_payable(view, card, sneak.parts)
+            && view.combat.attackers.iter().any(|a| {
+                !a.blocked
+                    && view
+                        .object(a.creature)
+                        .is_some_and(|o| o.controller == resource_player(view))
+            })))
+    {
+        offer(CastModeKind::Sneak, sneak.mana);
+    }
+    for ability in def.abilities_for_face(face_index) {
+        if let baylee_cards_dsl::AbilityDef::Awaken { cost, .. } = ability
+            && crate::targeting::requirement_possible(
+                view,
+                baylee_cards_dsl::TargetReq::one(baylee_cards_dsl::TargetSpec::Object(
+                    &baylee_cards_dsl::Filter::YOUR_LAND,
+                )),
+            )
+            && parts_payable(view, card, cost.parts)
+        {
+            offer(CastModeKind::Awaken, cost.mana);
+        }
+    }
     if let Some(mutate) = face.mutate
         && crate::targeting::requirement_possible(view, baylee_engine::casting::MUTATE_TARGET_REQ)
     {
@@ -625,6 +660,11 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage
         | CostPart::CraftMaterials { .. } => false,
+        CostPart::Either(a, b) => {
+            (a.mana == baylee_core::mana::ManaCost::ZERO && parts_payable(view, card, a.parts))
+                || (b.mana == baylee_core::mana::ManaCost::ZERO
+                    && parts_payable(view, card, b.parts))
+        }
     })
 }
 

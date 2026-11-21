@@ -52,8 +52,12 @@ pub(super) fn event_damage_of(
         GameEvent::DamageDealt { amount, .. } => Some(*amount),
         GameEvent::LifeChanged { old, new, .. } => Some(new.abs_diff(*old)),
         GameEvent::DiceRolled { result, .. } => Some(*result),
-        GameEvent::PlayerScried { count, .. } => Some(u32::from(*count)),
+        GameEvent::PlayerScried { count, .. } | GameEvent::RingTempted { count, .. } => {
+            Some(u32::from(*count))
+        }
+        GameEvent::PlayerFirebent { amount, .. } => Some(u32::from(*amount)),
         GameEvent::BecameMonstrous { count, .. } => Some(*count),
+        GameEvent::ManaExpended { total, .. } => Some(*total),
         GameEvent::BecameAttacker {
             defending: baylee_core::ids::Defender::Player(attacked),
             ..
@@ -134,11 +138,16 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
         | GameEvent::CreatureEnlisted { player, .. }
         | GameEvent::CardPlotted { player, .. }
         | GameEvent::PlayerScried { player, .. }
+        | GameEvent::RingTempted { player, .. }
+        | GameEvent::PlayerFirebent { player, .. }
         | GameEvent::GiftGiven {
             recipient: player, ..
         }
         | GameEvent::CreatureExploited { player, .. }
         | GameEvent::SpellWarped { player, .. }
+        | GameEvent::CommittedCrime { player }
+        | GameEvent::ManaExpended { player, .. }
+        | GameEvent::Clashed { player, .. }
         | GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),
             ..
@@ -325,6 +334,11 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::CardPlotted { object, .. }
         | GameEvent::SpellWarped { object, .. }
         | GameEvent::BecameMonstrous { object, .. }
+        | GameEvent::PlayerFirebent { source: object, .. }
+        | GameEvent::RingTempted {
+            ring_bearer: Some(object),
+            ..
+        }
         | GameEvent::AttackerUnblocked { object }
         // The permanent that changed tap state: "that land's controller"
         // of Psychic Venom and "that permanent's controller" of Mesmeric Orb.

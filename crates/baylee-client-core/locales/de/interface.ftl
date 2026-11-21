@@ -1136,6 +1136,26 @@ NounCardsToManifest =
         [one] Karte zum Manifestieren
        *[other] Karten zum Manifestieren
     }
+NounCreaturesForRingBearer =
+    { $count ->
+        [one] Kreatur als Ringträger
+       *[other] Kreaturen als Ringträger
+    }
+NounCardsToSplice =
+    { $count ->
+        [one] Karte zum Spleißen
+       *[other] Karten zum Spleißen
+    }
+NounCreatureForCipher =
+    { $count ->
+        [one] Kreatur für die Chiffre
+       *[other] Kreaturen für die Chiffre
+    }
+NounPermanentToChampion =
+    { $count ->
+        [one] Permanent zum Verfechten
+       *[other] Permanents zum Verfechten
+    }
 NounAttackersToBand =
     { $count ->
         [one] Angreifer, der sich dem Bündnis anschließt
@@ -1223,12 +1243,20 @@ KickerOptionAsk = Bonuskosten { $price } zahlen?
 BargainAsk = Feilschen: ein Artefakt, eine Verzauberung oder einen Spielstein opfern?
 OffspringAsk = Nachwuchs: { $price }? Erzeuge beim Ins-Spiel-Kommen eine 1/1-Spielsteinkopie.
 CasualtyAsk = Blutzoll { $power }: eine Kreatur mit Stärke { $power } oder mehr opfern, um diesen Zauberspruch zu kopieren?
+ConspireAsk = Verschwörung: zwei passende ungetappte Kreaturen tappen, um diesen Zauberspruch zu kopieren?
+TributeAsk = Tribut { $count }: beim Ins-Spiel-Kommen { $count } { $counter } darauf legen?
 GiftAskCard = Schenke eine Karte: einem Gegner eine Karte versprechen?
 GiftAskFood = Schenke eine Speise: einem Gegner einen Speise-Spielstein versprechen?
 GiftAskTappedFish = Schenke einen getappten Fisch: einem Gegner einen getappten blauen 1/1-Fisch-Spielstein versprechen?
 GiftAskTreasure = Schenke einen Schatz: einem Gegner einen Schatz-Spielstein versprechen?
 GiftAskOctopus = Schenke eine Krake: einem Gegner einen blauen 8/8-Krake-Spielstein versprechen?
 GiftAskExtraTurn = Schenke einen zusätzlichen Zug: einem Gegner einen zusätzlichen Zug versprechen?
+AssignDamageAsThoughUnblocked = Kampfschaden zuweisen, als ob nicht geblockt?
+EndureAsk =
+    { $count ->
+        [one] Standhalten 1: eine +1/+1-Marke darauf legen, statt einen weißen 1/1-Geist-Spielstein zu erzeugen?
+       *[other] Standhalten { $count }: { $count } +1/+1-Marken darauf legen, statt einen weißen { $count }/{ $count }-Geist-Spielstein zu erzeugen?
+    }
 BuybackPriceLife = { $amount } Lebenspunkte zahlen
 BuybackPriceSacrifice =
     { $count ->
@@ -1265,11 +1293,13 @@ CastFlashback = Rückblende
 CastForetell = Vorhersage
 CastPlot = Aushecken
 CastImpending = Drohendes Unheil
+CastAwaken = Erwachen
 CastBeamMeUp = Beam mich hoch
 DifferentManaValues = Wähle Ziele mit unterschiedlichen Manabeträgen
 CastDash = Sturmangriff
 CastBlitz = Blitzangriff
 CastWarp = Warp
+CastSneak = Anschleichen
 CastEmerge = Auftauchen
 CastFused = Fusion
 CastMutate = Mutation
@@ -1281,6 +1311,9 @@ RiotAskNamed = Aufruhr ({ $permanent }): mit einer +1/+1-Marke ins Spiel kommen?
 UnleashAsk = Entfesseln: mit einer +1/+1-Marke ins Spiel kommen? (Kann mit einer +1/+1-Marke nicht blocken)
 UnleashAskNamed = Entfesseln ({ $permanent }): mit einer +1/+1-Marke ins Spiel kommen? (Kann mit einer +1/+1-Marke nicht blocken)
 HudSuspected = Verdächtigt
+ChooseFirstCostBranchAsk = Die erste Kostenoption zahlen? („Nein“ zahlt stattdessen die zweite Option.)
+OpeningHandBattlefieldAsk = Starthand: das Spiel mit dieser Karte auf dem Schlachtfeld beginnen?
+OpeningHandRevealAsk = Starthand: diese Karte aus deiner Starthand offen vorzeigen?
 CastEscape = Befreiung
 # Cast the visible library top, paying its mana value in life instead of mana.
 # Arguments: life
@@ -1362,6 +1395,7 @@ ContinueRemovingCounters =
     } entfernen? „Nein“ beendet das Entfernen.
 UseTheOptionalAbility = Diese Fähigkeit ist optional. Einsetzen?
 TopOfLibraryOrBottom = Deine Karte kommt in deine Bibliothek. Oben drauf? („Nein“ legt sie nach unten.)
+ClashPutOnBottom = Aufgedeckte Karte unter deine Bibliothek legen? („Nein“ lässt sie oben.)
 TakeOneOfType = Nimm bis zu eine Karte vom Typ { $card_type } auf deine Hand
 CastDiscovered = Du hast diese Karte entdeckt. Wirken, ohne ihre Manakosten zu bezahlen? („Nein“ nimmt sie auf deine Hand.)
 SkipTurnToUntap = Diesen Zug überspringen, um dieses Permanent zu enttappen?

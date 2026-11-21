@@ -69,6 +69,23 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
         if let Some((question, pending)) = initial_question(state, &mut entry) {
             return Some(ask(state, entry, question, pending));
         }
+        if let super::TributeState::Ask(opp, counters) = entry.tribute {
+            entry.tribute = super::TributeState::None;
+            let permanent = entry.object;
+            return Some(ask(
+                state,
+                entry,
+                Question::Tribute { counters },
+                Pending::YesNo {
+                    player: opp,
+                    prompt: YesNoPrompt::Tribute {
+                        permanent,
+                        counters,
+                    },
+                    source: None,
+                },
+            ));
+        }
         if entry.refusal.is_none() {
             while let Some(&modifier) = entry.modifiers.get(entry.next) {
                 entry.next += 1;
@@ -273,6 +290,44 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
                                 total: None,
                             },
                         ));
+                    }
+                    EnterModifier::Tribute(counters) => {
+                        let opponents = crate::eval::players(
+                            baylee_cards_dsl::PlayerRel::Opponent,
+                            state,
+                            player,
+                        )
+                        .unwrap_or_default();
+                        match opponents.as_slice() {
+                            [] => continue,
+                            [opp] => {
+                                let permanent = entry.object;
+                                return Some(ask(
+                                    state,
+                                    entry,
+                                    Question::Tribute { counters },
+                                    Pending::YesNo {
+                                        player: *opp,
+                                        prompt: YesNoPrompt::Tribute {
+                                            permanent,
+                                            counters,
+                                        },
+                                        source: None,
+                                    },
+                                ));
+                            }
+                            _ => {
+                                return Some(ask(
+                                    state,
+                                    entry,
+                                    Question::TributeOpponent { counters },
+                                    Pending::ChoosePlayer {
+                                        player,
+                                        options: opponents,
+                                    },
+                                ));
+                            }
+                        }
                     }
                     _ => {}
                 }
@@ -505,6 +560,17 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
                         .push((Some(entry.controller), CounterKind::P1P1, counters));
                 }
                 state.refresh_characteristics();
+            }
+        }
+        (Question::TributeOpponent { counters }, PlayerAction::ChoosePlayer(opp)) => {
+            entry.tribute = super::TributeState::Ask(*opp, counters);
+        }
+        (Question::Tribute { counters }, PlayerAction::YesNo(paid)) => {
+            if *paid {
+                entry.tribute = super::TributeState::Paid;
+                if counters > 0 {
+                    entry.counters.push((None, CounterKind::P1P1, counters));
+                }
             }
         }
         _ => unreachable!("entry answer shape was validated"),

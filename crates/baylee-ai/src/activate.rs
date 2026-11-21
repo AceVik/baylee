@@ -399,6 +399,7 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::PutCounterOnOther { .. } => true,
             CostPart::ExileTopOfLibrary(n) => *n > 0,
             CostPart::TapN { count, .. } => *count > 0,
+            CostPart::Either(a, b) => consumes(a) && consumes(b),
             // Exerting again is legal and adds no further untap penalty.
             CostPart::ExertSelf | CostPart::PayLifeX | CostPart::PayCommanderColors
             | CostPart::PayAttachedManaCost | CostPart::TapX(_) | CostPart::SacrificeX(_)
@@ -460,6 +461,13 @@ pub(crate) fn life_ok(view: &PlayerView, cost: &Cost) -> bool {
     } else {
         need
     };
+    if cost
+        .parts
+        .iter()
+        .any(|p| matches!(p, CostPart::Either(a, b) if !life_ok(view, a) && !life_ok(view, b)))
+    {
+        return false;
+    }
     need == 0
         || view
             .seat(view.seat)

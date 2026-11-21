@@ -709,7 +709,12 @@ express at all yet.
   `CraftMaterials { filter, min, max }` (craft's "Exile [materials] from among
   other permanents you control and/or cards from your graveyard", CR 702.167a–c:
   records exiled card materials on the stack ability for
-  `Effect::ReturnCraftedTransformed`).
+  `Effect::ReturnCraftedTransformed`),
+  `Either(&cost_a, &cost_b)` (disjunctive cost choice, CR 118.8: "As an
+  additional cost to cast this spell, [cost A] or [cost B]" or an activated
+  ability's "[cost A] or [cost B]: …"; prompts `YesNoPrompt::ChooseFirstCostBranch`
+  when both branches are payable and auto-selects the sole payable branch when
+  only one can be paid).
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;
@@ -888,7 +893,11 @@ permission to automatic mana planning; missing data defaults to exact colors.
   `static_ability!(filter, modifier)`, which takes no layer: CR 613.1 makes it
   a function of the modifier and `Modifier::layer` is that function
 - `AbilityDef::Replacement(ReplacementRule)` — trigger multipliers/suppressors,
-  token/counter doubling
+  token/counter doubling, pre-game opening-hand actions (`OpeningHandOnBattlefield`,
+  `OpeningHandRevealAtFirstUpkeep(&[Effect])`)
+- `AbilityDef::PerExtraTargetCost(ManaCost)` (`AbilityDef::strive(cost)`) —
+  Strive (`CR 207.2c` / `CR 601.2f`): this spell costs `cost` more to cast for
+  each target beyond the first, supporting colored and hybrid mana symbols
 - `AbilityDef::Loyalty { cost: i8, effects, targets }`
 - `AbilityDef::CopyOnEnter { target, mods: &[CopyMod] }` — the `mods` are the
   card's "except …" clauses (CR 707.9). Types, supertypes, subtypes, keywords
@@ -1627,7 +1636,7 @@ predicates the pool kept reinventing — `CREATURE`, `ARTIFACT`,
 `YOUR_CREATURE`, `OPPONENT_CREATURE`, `YOUR_LAND`, `YOUR_BASIC_LAND`,
 `YOUR_ARTIFACT`, `YOUR_COMMANDER`, `COMMANDER_YOU_CONTROL`,
 `ANOTHER_CREATURE_YOU_CONTROL`,
-`YOUR_CREATURE_WITH_POWER_4_OR_GREATER`, `SOULBOND_PAIR`. "A creature" had been
+`YOUR_CREATURE_WITH_POWER_4_OR_GREATER`, `SOULBOND_PAIR`, `YOUR_RING_BEARER`. "A creature" had been
 written out as `HasType(TypeSet::CREATURE)` in a differently-named `static`
 in twenty-six card files, which is twenty-six chances to type `LacksType` by
 accident and no way to grep for the one that did.
@@ -3694,7 +3703,9 @@ the copy.
 ### Variable target costs and payments during resolution
 
 `FaceDef::extra_target_cost` adds generic mana for each chosen target beyond
-one. It counts object and player targets together, after target announcement;
+one, while `AbilityDef::PerExtraTargetCost(ManaCost)` (`AbilityDef::strive(cost)`)
+generalizes Strive (`CR 207.2c`) to arbitrary colored/hybrid `ManaCost` per
+target beyond the first. Both count object and player targets together, after target announcement;
 it does not change mana value. Unused generic reductions apply after this
 increase and X are included. A short floating pool opens the ordinary mana-only
 payment window after choices. Copies retain X and target count without paying
@@ -5816,3 +5827,40 @@ Each triggers once per keyword instance (`layers::keyword_instances`):
   - Monstrosity (`CR 701.37a–c`): `Effect::Monstrosity(amount)` puts `N` `+1/+1` counters on its source permanent if still on the battlefield and not yet monstrous, sets the noncopiable `Monstrous` designation (`Condition::IsMonstrous`, `Filter::Monstrous`), and fires `Trigger::BecomesMonstrous` with `Amount::EventAmount = N`.
   - Suspect (`CR 701.60a–d`): `Effect::Suspect { target }`, `Effect::Unsuspect { target }`, `EnterModifier::Suspected`, `Condition::IsSuspected`, and `Filter::Suspected` manage the noncopiable `Suspected` designation (`PublicObject::suspected`), granting `KeywordSet::MENACE | KeywordSet::CANT_BLOCK` in layer 6 while suspected (`CR 701.60c`).
   - Riot (`CR 702.136a–b`) & Unleash (`CR 702.98a`): `KeywordSet::RIOT` prompts per instance as the permanent enters to choose between a `+1/+1` counter or indefinite `KeywordSet::HASTE`; `KeywordSet::UNLEASH` prompts per instance as the permanent enters for an optional `+1/+1` counter and grants `KeywordSet::CANT_BLOCK` in layer 6 whenever the permanent has at least one `+1/+1` counter.
+
+- **Umbra armor, mobilize, toughness & as-though-unblocked combat damage, detain, and player life-gain / sacrifice locks:**
+  - `KeywordSet::UMBRA_ARMOR` (`CR 702.89a–b`, formerly *totem armor*) on an Aura replaces the destruction of the enchanted permanent (from lethal/deathtouch SBA or destruction effects, including simultaneous `DestroyAll`) by clearing all marked damage and deathtouch on that permanent and destroying one attached Aura with umbra armor instead, without tapping it or removing it from combat, and without firing when the host has `INDESTRUCTIBLE` or was already saved by regeneration / shield counters.
+  - `KeywordSet::MOBILIZE` and `Effect::Mobilize(Amount)` (`Effect::mobilize(n)`, `CR 702.181a`) create `N` tapped and attacking `1/1` red Warrior creature tokens (`WARRIOR_1_1_RED`, `CR 508.4`) and sacrifice them at the beginning of the next end step (`CR 702.181a`).
+  - `Modifier::AssignCombatDamageUsingToughness` and `Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater` (`CR 510.1c`) have affected creatures assign combat damage (and trample excess) using toughness (or `max(power, toughness)`); `Modifier::MayAssignCombatDamageAsThoughUnblocked` (`CR 510.1c`, `YesNoPrompt::AssignDamageAsThoughUnblocked`) lets the controller of a blocked attacker assign its combat damage to the player, planeswalker, or battle it is attacking as though it weren't blocked.
+  - `Effect::Detain { target }` (`Effect::detain(target)`, `Effect::detain_target(filter)`) and `Effect::DetainFilter { filter }` (`CR 701.35a`) detain permanents until your next turn (`Duration::UntilYourNextTurn`), locking `CANT_ATTACK | CANT_BLOCK` and `Modifier::CantActivate` (including intrinsic and printed mana abilities) onto those exact battlefield incarnations even if animated later.
+  - `Modifier::PlayersCantGainLife(PlayerRel)` (`CR 119.7`, `CR 614.17c`, static or resolution-bound) prevents matching players from gaining life across `GainLife*`, lifelink damage (damage is still dealt), upward `SetLifeTotal` / `RaiseLifeTotalTo` / `ExchangeLifeTotals`, and life-gain replacement effects; `Modifier::CantBeSacrificed { opponents_only }` (`CR 701.21`) prevents matching permanents from being sacrificed to opponent spells/abilities (`opponents_only: true`) or to any cost, effect, or state-based action (`opponents_only: false`).
+
+- **Commit a Crime, Expend N, Clash, Additional Combat Phases, Transmute, and Scavenge (`CR 500.8`, `CR 700.13`, `CR 700.14`, `CR 701.30`, `CR 702.53`, `CR 702.97`):**
+  - Commit a Crime (`CR 700.13`): `Trigger::CommittedCrime { who, once_per_turn }` (`Trigger::COMMITTED_CRIME`, `Trigger::COMMITTED_CRIME_ONCE_PER_TURN`) and `Condition::CommittedCrimeThisTurn(PlayerRel)` fire once per spell cast, activated ability, or triggered ability put onto the stack that targets at least one opponent, permanent/spell/ability an opponent controls, or card in an opponent's graveyard (`EventPlayer` bound to the player who committed the crime; copies and retargeting do not commit a crime).
+  - Expend N (`CR 700.14`): `Trigger::Expended { who, threshold }` fires when a spell cast moves `who`'s cumulative mana spent on spells this turn from `< threshold` to `>= threshold` (`EventPlayer` and `EventAmount` bound; mana spent on activated abilities or taxes outside spell casting does not count), paired with `Condition::ExpendedThisTurn(threshold)` and `Amount::ManaExpendedOnSpellsThisTurn(PlayerRel)`.
+  - Clash (`CR 701.30a–d`): `Effect::Clash { on_win, on_loss }` chooses an opponent when multiple living opponents exist, simultaneously reveals the top card of each clashing player's library, asks each clashing player in APNAP order whether to put their revealed card on the bottom of their library (`YesNoPrompt::ClashBottom`), moves chosen cards simultaneously, determines a winner by strictly greatest revealed mana value (ties and empty libraries do not win), emits `GameEvent::Clashed` for `Trigger::Clashed { who, won_only }`, and executes `on_win` or `on_loss` according to whether the resolving controller won.
+  - Additional Combat Phases (`CR 500.8`): `Effect::AdditionalCombatPhase { followed_by_main_phase }` inserts an additional combat phase (and optional additional main phase) immediately after the current phase in LIFO order while preserving any remaining normal phases of the turn afterwards.
+  - Transmute (`CR 702.53a–b`) & Scavenge (`CR 702.97a–b`): `KeywordSet::TRANSMUTE` + `AbilityDef::transmute(mana)` (`AbilityDef::transmute_with_parts`) activate from hand at sorcery speed with `CostPart::DiscardSelf` and `Filter::SameManaValueAsSource` (reading pre-discard LKI without counting as cycling); `KeywordSet::SCAVENGE` + `AbilityDef::scavenge(mana)` (`AbilityDef::scavenge_with_parts`) activate from graveyard at sorcery speed with `CostPart::ExileSelf`, putting `Amount::SourcePower` `+1/+1` counters on target creature (including off-battlefield P/T CDAs).
+
+- **Disjunctive costs (`Either`), opening-hand actions, The Ring Tempts You, Strive, and Firebending (`CR 118.8`, `CR 103.6`, `CR 701.54`, `CR 207.2c`, `CR 702.189`):**
+  - `CostPart::Either(&'static Cost, &'static Cost)` (`CR 118.8`): expresses `"As an additional cost to cast this spell, [cost A] or [cost B]"` (*Spark Harvest*, *Bone Shards*, *Cathartic Pyre*, *Final Payment*) and disjunctive activated costs, prompting `YesNoPrompt::ChooseFirstCostBranch { index }` when both branches are payable and automatically taking the sole payable branch when only one can be paid.
+  - Pre-game opening-hand actions (`CR 103.6a–b`): `ReplacementRule::OpeningHandOnBattlefield` (*Leyline* cycle) and `ReplacementRule::OpeningHandRevealAtFirstUpkeep(&'static [Effect])` (*Chancellor* cycle / *Sphinx of Foresight*) walk every player's kept opening hand in turn order before turn 1 begins (`YesNoPrompt::OpeningHandBattlefield` / `YesNoPrompt::OpeningHandReveal`), keeping revealed cards visible until turn 1 begins and queuing delayed abilities at the first upkeep (`DelayedWhen::NextUpkeepOfAnyone`).
+  - The Ring Tempts You (`CR 701.54a–e`): `Effect::RingTemptsYou` increments the player's cumulative Ring emblem tier (`1..=4`), prompts `ChoicePrompt::ChooseRingBearer` over controlled creatures when at least one creature is controlled (still advancing the Ring and firing `Trigger::RingTemptsYou { who }` when zero creatures are controlled), exposes `Filter::RingBearer` and `Condition::HasRingBearer`, clears Ring-bearer status on leaving the battlefield or changing controller, and enforces all four cumulative Ring tiers (`CR 701.54c`: Tier 1 legendary + skulk, Tier 2 attack loot, Tier 3 end-of-combat blocker sacrifice, Tier 4 3-life loss to each opponent on combat damage to a player).
+  - Strive (`CR 207.2c` / `CR 601.2f`): `AbilityDef::PerExtraTargetCost(ManaCost)` (`AbilityDef::strive(cost)`) adds `(targets - 1) * cost` (supporting colored and hybrid symbols) after target announcement and before generic cost reductions.
+  - Firebending N (`CR 702.189a–b`): `KeywordSet::FIREBENDING` with `Effect::Firebend(Amount)` adds `N` `{R}` combat-sustained mana that survives step transitions until the end of combat (`mana::add_combat_mana`) and emits `GameEvent::PlayerFirebent` for `Trigger::Firebends(PlayerRel)`.
+
+- **Freerunning, Sneak, Sunburst, Ravenous, Graft, and Counter/Token Keywords (`CR 701.63`, `CR 702.44`, `CR 702.58`, `CR 702.77`, `CR 702.107`, `CR 702.130`, `CR 702.135`, `CR 702.156`, `CR 702.173`, `CR 702.190`):**
+  - `KeywordSet::FREERUNNING` (`CR 702.173a`), `Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn`, and `AlternativeCost::freerunning(cost)` unlock a spell's freerunning alternative cost when a player was dealt combat damage this turn by a creature that was an Assassin or a commander under your control at the time it dealt that damage.
+  - `KeywordSet::SNEAK` (`CR 702.190a–b`) and `StaticAbility::sneak(cost)` / `AbilityDef::sneak(cost)` (`Modifier::Sneak(Cost)`) offer `CastModeKind::Sneak` any time you could cast an instant during your declare blockers step by paying `cost` and returning an unblocked attacking creature you control to its owner's hand; resolving permanent spells cast via sneak enter tapped and attacking the same player, planeswalker, or battle (`CR 702.190b`, `CR 506.3a`).
+  - `KeywordSet::SUNBURST` and `EnterModifier::Sunburst` (`CR 702.44a–d`) place `+1/+1` counters (if entering as a creature ignoring Layer 4 type-changing effects) or `CounterKind::Charge` counters (otherwise) equal to the number of colors of mana spent to cast the spell when entering from the stack.
+  - `KeywordSet::RAVENOUS` (`CR 702.156a`) pairs `EnterModifier::ravenous()` (`EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::X }`) with `AbilityDef::ravenous_draw()` (ETB draw gated by `Condition::XAtLeast(5)`).
+  - `KeywordSet::GRAFT` (`CR 702.58a–b`) pairs `EnterModifier::graft(n)` with `AbilityDef::graft_trigger()` (`Effect::MoveCounterToEvent { kind: CounterKind::P1P1 }` on another creature entering while this permanent has a `+1/+1` counter).
+  - `KeywordSet::OUTLAST` (`CR 702.107a`), `KeywordSet::AFTERLIFE` (`CR 702.135a`, `SPIRIT_1_1_WHITE_BLACK_FLYING`), `KeywordSet::AFFLICT` (`CR 702.130a`), `KeywordSet::REINFORCE` (`CR 702.77a`), and `Effect::Endure(Amount)` (`Effect::endure(n)`, `CR 701.63a–b`, `YesNoPrompt::Endure`, `SPIRIT_X_X_WHITE`) round out the counter/token keyword quintet.
+
+- **Splice, Awaken, Conspire, Cipher, Champion, and Tribute (`CR 702.47`, `CR 702.72`, `CR 702.78`, `CR 702.99`, `CR 702.104`, `CR 702.113`):**
+  - Splice (`CR 702.47a–e`): `KeywordSet::SPLICE` + `AbilityDef::Splice { onto, cost }` (`AbilityDef::splice` / `AbilityDef::splice_mana`) allow revealing `1+` cards with splice from hand (each card at most once per spell) while casting a spell matching `onto` (`ChoicePrompt::Splice`), paying their `Cost`s and appending their spell instructions and target clauses onto the cast spell while keeping the revealed cards in hand.
+  - Awaken (`CR 702.113a`): `KeywordSet::AWAKEN` + `AbilityDef::Awaken { count, cost }` (`AbilityDef::awaken` / `AbilityDef::awaken_cost`) offer alternative cast cost `CastModeKind::Awaken`, adding an extra target (`Filter::YOUR_LAND`) and resolving `Effect::AwakenLand { count }` (`count` `+1/+1` counters + indefinite `0/0` Elemental creature with haste that remains a land).
+  - Conspire (`CR 702.78a–b`): `KeywordSet::CONSPIRE` offers optional additional cost `YesNoPrompt::Conspire` per conspire instance on the spell, tapping two untapped controlled creatures matching `Filter::SharesColorWithSource` and triggering a spell copy on cast (`may_choose_new_targets`).
+  - Cipher (`CR 702.99a–c`): `KeywordSet::CIPHER` (and `Effect::Cipher` / `Effect::CipherCastEncoded`) allows the controller of a resolving card-backed spell to exile it encoded on a controlled creature (`ChoicePrompt::CipherEncode`); while the card remains exiled and that permanent remains on the battlefield, combat damage dealt by that creature to a player lets its controller copy the encoded card and cast the copy without paying its mana cost.
+  - Champion (`CR 702.72a–b`): `KeywordSet::CHAMPION` + `AbilityDef::Champion { filter }` (`AbilityDef::champion`) trigger `Effect::Champion { filter }` on ETB (sacrifice unless exiling another matching controlled permanent via `ChoicePrompt::Champion`) and `Effect::ReturnChampioned` on LTB (returning the exiled card to the battlefield under its owner's control).
+  - Tribute (`CR 702.104a–b`): `KeywordSet::TRIBUTE` + `EnterModifier::Tribute(n)` (`EnterModifier::tribute`) ask a chosen opponent via `YesNoPrompt::Tribute` whether the creature enters with `n` additional `+1/+1` counters, recording `Rider::TributePaid` so `"if tribute wasn't paid"` triggers check `Condition::TributeWasNotPaid`.

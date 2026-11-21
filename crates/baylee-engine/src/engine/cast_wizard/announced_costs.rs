@@ -342,7 +342,11 @@ impl CastWizard {
     }
 
     /// The non-mana costs this cast has announced.
-    pub(super) const fn cost_choice(&self) -> CostChoice {
+    pub(crate) fn cost_choice(&self) -> CostChoice {
+        let mut splice_parts = [None; 8];
+        for (slot, &(_, _, _, cost)) in splice_parts.iter_mut().zip(self.spliced.iter()) {
+            *slot = Some(cost.parts);
+        }
         CostChoice {
             option: self.option,
             alternative_cost: self.alternative_cost,
@@ -354,6 +358,13 @@ impl CastWizard {
             kicked: self.kicked,
             kicked_mask: self.kicked_mask,
             emerge_sacrifice: self.emerge_sacrifice,
+            either_decided: self.either_decided,
+            either_first_mask: self.either_first_mask,
+            returned: self.returned,
+            sneak_parts: self.sneak_parts,
+            conspired: self.conspired,
+            awaken_parts: self.awaken_parts,
+            splice_parts,
         }
     }
 }

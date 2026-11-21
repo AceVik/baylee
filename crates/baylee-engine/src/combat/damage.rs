@@ -76,7 +76,7 @@ pub(crate) fn prepare_damage_step(state: &mut GameState, first: bool) -> bool {
                 state,
                 blocker,
                 &live_blocked(state, blocker),
-                power_of(state, blocker),
+                combat_damage_amount(state, blocker),
             ) {
                 assign(
                     &mut assignments,
@@ -128,12 +128,76 @@ pub(super) fn has_keyword(
         .is_some_and(|o| o.characteristics().keywords.contains(kw))
 }
 
-fn power_of(state: &GameState, id: ObjectId) -> i16 {
-    state
-        .object(id)
-        .and_then(|o| o.characteristics().power)
-        .unwrap_or(0)
-        .max(0)
+/// Combat damage value `id` assigns right now (`CR 510.1a`, `CR 510.1c`):
+/// power by default, toughness under `AssignCombatDamageUsingToughness`, or
+/// `max(power, toughness)` under `AssignCombatDamageUsingToughnessIfToughnessGreater`.
+pub(crate) fn combat_damage_amount(state: &GameState, id: ObjectId) -> i16 {
+    let Some(obj) = state.object(id) else {
+        return 0;
+    };
+    let power = obj.characteristics().power.unwrap_or(0);
+    let mut use_toughness = false;
+    let mut use_greater = false;
+    for fx in state.effects.iter() {
+        match fx.modifier {
+            baylee_cards_dsl::Modifier::AssignCombatDamageUsingToughness
+                if crate::effects::applies_to(state, fx, obj) =>
+            {
+                use_toughness = true;
+            }
+            baylee_cards_dsl::Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater
+                if crate::effects::applies_to(state, fx, obj) =>
+            {
+                use_greater = true;
+            }
+            _ => {}
+        }
+    }
+    let raw = if use_toughness {
+        obj.characteristics().toughness.unwrap_or(0)
+    } else if use_greater {
+        power.max(obj.characteristics().toughness.unwrap_or(0))
+    } else {
+        power
+    };
+    raw.max(0)
+}
+
+fn may_assign_as_though_unblocked(state: &GameState, creature: ObjectId) -> bool {
+    state.object(creature).is_some_and(|obj| {
+        state.effects.iter().any(|fx| {
+            fx.modifier == baylee_cards_dsl::Modifier::MayAssignCombatDamageAsThoughUnblocked
+                && crate::effects::applies_to(state, fx, obj)
+        })
+    })
+}
+
+/// Next blocked attacker with `Modifier::MayAssignCombatDamageAsThoughUnblocked`
+/// that has not yet chosen whether to assign its combat damage as though
+/// unblocked in this strike step (`CR 510.1c`).
+#[must_use]
+pub(crate) fn unblocked_damage_owed(
+    state: &GameState,
+    first_strike_step: bool,
+) -> Option<(ObjectId, baylee_core::ids::PlayerId)> {
+    for info in state.combat.attackers() {
+        if !info.blocked
+            || !assigns_damage_now(state, info.creature, first_strike_step)
+            || state
+                .combat
+                .unblocked_damage_choice(info.creature)
+                .is_some()
+            || combat_damage_amount(state, info.creature) <= 0
+            || active_damage_recipient(state, info.creature).is_none()
+            || !may_assign_as_though_unblocked(state, info.creature)
+        {
+            continue;
+        }
+        if let Some(controller) = state.object(info.creature).map(|o| o.controller) {
+            return Some((info.creature, controller));
+        }
+    }
+    None
 }
 
 /// Whether a creature has banding or "bands with other [quality]" paired with
@@ -222,10 +286,13 @@ pub fn divisions_owed(
 ) -> Vec<OwedDivision> {
     let mut owed = Vec::new();
     for info in state.combat.attackers() {
-        if !info.blocked || !assigns_damage_now(state, info.creature, first_strike_step) {
+        if !info.blocked
+            || !assigns_damage_now(state, info.creature, first_strike_step)
+            || state.combat.unblocked_damage_choice(info.creature) == Some(true)
+        {
             continue;
         }
-        let amount = power_of(state, info.creature);
+        let amount = combat_damage_amount(state, info.creature);
         let blockers = live_blockers(state, info.creature);
         if amount <= 0 || blockers.len() < 2 || state.combat.division(info.creature).is_some() {
             continue;
@@ -264,7 +331,7 @@ pub fn divisions_owed(
         if !assigns_damage_now(state, blocker, first_strike_step) {
             continue;
         }
-        let amount = power_of(state, blocker);
+        let amount = combat_damage_amount(state, blocker);
         let blocked = live_blocked(state, blocker);
         if amount <= 0 || blocked.len() < 2 || state.combat.division(blocker).is_some() {
             continue;
@@ -350,7 +417,7 @@ pub(crate) fn collect_combat_damage(
         if !assigns_damage_now(state, blocker, first_strike_step) {
             continue;
         }
-        let power = power_of(state, blocker);
+        let power = combat_damage_amount(state, blocker);
         for (attacker, amount) in shares(state, blocker, &live_blocked(state, blocker), power) {
             assign(
                 &mut assignments,
@@ -361,6 +428,7 @@ pub(crate) fn collect_combat_damage(
         }
     }
     state.combat.divisions.clear();
+    state.combat.clear_unblocked_damage_choices();
     state.combat.prepared_damage = None;
     assignments
 }
@@ -385,8 +453,12 @@ fn assign_attacker_damage(
     blocked: bool,
     out: &mut Vec<crate::damage::Assignment>,
 ) {
-    let power = power_of(state, attacker);
+    let power = combat_damage_amount(state, attacker);
     if power <= 0 {
+        return;
+    }
+    if blocked && state.combat.unblocked_damage_choice(attacker) == Some(true) {
+        assign_defender(state, out, attacker, power);
         return;
     }
     let trample = has_keyword(state, attacker, K::TRAMPLE);

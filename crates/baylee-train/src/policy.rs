@@ -109,7 +109,8 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         | CastModeKind::Bestow
         | CastModeKind::Emerge
         | CastModeKind::Plot
-        | CastModeKind::Impending => 2,
+        | CastModeKind::Impending
+        | CastModeKind::Awaken => 2,
         CastModeKind::Mode(_) => 3,
         CastModeKind::Face(_) => 4,
         CastModeKind::PlayLandFace(_) => 5,
@@ -118,7 +119,7 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         CastModeKind::Miracle => 8,
         CastModeKind::Modes(_) | CastModeKind::Fused => 9,
         CastModeKind::Flashback | CastModeKind::JumpStart | CastModeKind::Retrace => 10,
-        CastModeKind::Dash | CastModeKind::Blitz | CastModeKind::Warp => 11,
+        CastModeKind::Dash | CastModeKind::Blitz | CastModeKind::Warp | CastModeKind::Sneak => 11,
         CastModeKind::Escape => 12,
         CastModeKind::Colors(_) => 13,
         // A spell's ending is, like a counter kind, chosen during resolution

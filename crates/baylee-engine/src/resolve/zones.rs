@@ -30,6 +30,7 @@ pub(super) fn can_sacrifice_self(state: &GameState, res: &Resolution) -> bool {
             o.zone == crate::zone::Zone::Battlefield
                 && o.controller == res.controller
                 && !o.status.contains(crate::object::Status::PHASED_OUT)
+                && state.can_be_sacrificed(res.source, Some(res.controller))
         })
 }
 
@@ -42,6 +43,7 @@ pub(super) fn can_sacrifice_grantor(state: &GameState, res: &Resolution) -> bool
                 && object.zone == crate::zone::Zone::Battlefield
                 && object.controller == res.controller
                 && !object.status.contains(crate::object::Status::PHASED_OUT)
+                && state.can_be_sacrificed(grantor.object, Some(res.controller))
         })
     })
 }
@@ -1020,7 +1022,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     })
                 })
                 .collect();
-            super::sacrifice_together(state, &all);
+            super::sacrifice_together(state, &all, Some(you));
             None
         }
         // CR 701.21a: a player sacrifices only a permanent they control.
@@ -1029,7 +1031,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let _owner = state.object(id).and_then(|o| {
                 (o.zone == crate::zone::Zone::Battlefield
                     && o.controller == res.controller
-                    && !o.status.contains(crate::object::Status::PHASED_OUT))
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    && state.can_be_sacrificed(id, Some(res.controller)))
                 .then_some(o.owner)
             })?;
             if let Some(obj) = state.object_mut(id) {
@@ -1474,7 +1477,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let mut players = players_of(who, state, you, res);
             chosen::order_apnap(state, &mut players);
             let (player, options) =
-                chosen::next_asked(state, &mut players, filter, you, res.source)?;
+                chosen::next_sacrifice_asked(state, &mut players, filter, you, res.source)?;
             res.awaiting = Some(AwaitingOp::SacrificeFilter {
                 asked: player,
                 filter,
@@ -1495,7 +1498,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if_it_was,
             then,
         } => {
-            let options = chosen::options(state, you, filter, you, res.source);
+            let options = chosen::sacrifice_options(state, you, filter, you, res.source);
             if options.is_empty() {
                 return None;
             }

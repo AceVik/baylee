@@ -612,7 +612,9 @@ pub fn condition_holds_with_context(
         // place in it, whether or not the step itself happens (506.7e).
         Condition::BeforeStep(kind) => state.turn.position() < crate::turn::position_of(kind),
         Condition::CanSacrifice(filter) => {
-            !controlled_matching_with_context(state, you, filter, you, context).is_empty()
+            controlled_matching_with_context(state, you, filter, you, context)
+                .into_iter()
+                .any(|id| state.can_be_sacrificed(id, Some(you)))
         }
         Condition::EvenCountersOnSelf => state.object(source).is_some_and(|o| {
             o.counters
@@ -695,6 +697,43 @@ pub fn condition_holds_with_context(
         Condition::IsSuspected => state
             .object(source)
             .is_some_and(|object| object_is_suspected(state, object)),
+        Condition::HasRingBearer => state
+            .players
+            .get(usize::from(you.get()))
+            .and_then(|p| p.ring_bearer)
+            .and_then(|id| state.object(id))
+            .is_some_and(|o| {
+                o.zone == crate::zone::Zone::Battlefield
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    && o.controller == you
+            }),
+        Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn => {
+            state.per_turn.damage_log.iter().any(|entry| {
+                entry.combat
+                    && entry.amount > 0
+                    && matches!(entry.to, crate::event::DamageTarget::Player(_))
+                    && entry.snapshot.controller == you
+                    && entry
+                        .snapshot
+                        .characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                    && (entry
+                        .snapshot
+                        .characteristics()
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::creature::ASSASSIN)
+                        || state.holds_commander(&entry.snapshot))
+            })
+        }
+        Condition::CommittedCrimeThisTurn(who) => {
+            super::players_for_source(who, state, you, Some(source))
+                .is_some_and(|seats| seats.iter().any(|&p| state.per_turn.committed_crime(p)))
+        }
+        Condition::ExpendedThisTurn(threshold) => state.per_turn.mana_expended_by(you) >= threshold,
+        Condition::TributeWasNotPaid => !state
+            .object_or_departed(source)
+            .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::TributePaid)),
     }
 }
 
@@ -966,26 +1005,7 @@ pub(crate) fn condition_with_event(
         Condition::ObjectMatches {
             what: &baylee_cards_dsl::TargetSpec::EventObject,
             filter,
-        } => {
-            let Some(event) = event else { return false };
-            let Some(obj) = state
-                .source_object(event)
-                .or_else(|| state.object_or_departed(event.object))
-            else {
-                return false;
-            };
-            if let Some(was) = state.last_known_characteristics(event.object) {
-                let mut as_it_was = obj.clone();
-                as_it_was.counters = state
-                    .ltb_counters
-                    .iter()
-                    .find(|(id, _)| *id == event.object)
-                    .map_or_default(|(_, counters)| counters.clone());
-                super::matches_projected_with_context(filter, state, &as_it_was, was, you, context)
-            } else {
-                matches_with_context(filter, state, obj, you, context)
-            }
-        }
+        } => event_object_matches(state, you, context, filter, event),
         Condition::All(conditions) => conditions.iter().all(|&condition| {
             condition_with_event(state, you, context, condition, source_version, event)
         }),
@@ -1011,8 +1031,56 @@ pub(crate) fn condition_with_event(
             )
         }),
         Condition::EvolveFromEvent => evolve_holds(state, context.source, source_version, event),
+        Condition::TributeWasNotPaid => tribute_was_not_paid(state, context.source, source_version),
         _ => condition_holds_with_context(state, you, context, condition),
     }
+}
+
+fn event_object_matches(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    filter: &baylee_cards_dsl::Filter,
+    event: Option<baylee_core::ids::DamageSourceRef>,
+) -> bool {
+    let Some(event) = event else { return false };
+    let Some(obj) = state
+        .source_object(event)
+        .or_else(|| state.object_or_departed(event.object))
+    else {
+        return false;
+    };
+    if let Some(was) = state.last_known_characteristics(event.object) {
+        let mut as_it_was = obj.clone();
+        as_it_was.counters = state
+            .ltb_counters
+            .iter()
+            .find(|(id, _)| *id == event.object)
+            .map_or_default(|(_, counters)| counters.clone());
+        super::matches_projected_with_context(filter, state, &as_it_was, was, you, context)
+    } else {
+        matches_with_context(filter, state, obj, you, context)
+    }
+}
+
+fn tribute_was_not_paid(
+    state: &GameState,
+    source: baylee_core::ids::ObjectId,
+    source_version: Option<u32>,
+) -> bool {
+    let paid = if let Some(version) = source_version {
+        state
+            .source_object(baylee_core::ids::DamageSourceRef {
+                object: source,
+                version,
+            })
+            .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::TributePaid))
+    } else {
+        state
+            .object_or_departed(source)
+            .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::TributePaid))
+    };
+    !paid
 }
 
 fn battlefield_or_lki_chars(

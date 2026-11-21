@@ -245,6 +245,6 @@ fn advance(
         .into_iter()
         .map(|(_, card)| card)
         .collect();
-    super::sacrifice_together(state, &victims);
+    super::sacrifice_together(state, &victims, Some(res.controller));
     None
 }

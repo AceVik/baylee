@@ -571,6 +571,7 @@ impl<'a> AttackRules<'a> {
                 .filter(|&id| {
                     state.object(id).is_some_and(|p| {
                         p.controller == obj.controller
+                            && state.can_be_sacrificed(id, None)
                             && crate::eval::matches(filter, state, p, you, source)
                     })
                 })

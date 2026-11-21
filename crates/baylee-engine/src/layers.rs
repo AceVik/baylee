@@ -252,6 +252,7 @@ pub fn needs_projection(state: &GameState, plan: &LayerPlan, obj: &GameObject) -
         || obj.riders.contains(&crate::object::Rider::RiotHaste)
         || obj.riders.contains(&crate::object::Rider::Suspected)
         || obj.riders.contains(&crate::object::Rider::Bestowed)
+        || (obj.zone == crate::zone::Zone::Battlefield && state.is_ring_bearer(obj.id))
         // CR 202.3e: on the stack, X is the number chosen for it, so a
         // spell with X needs its projection even where no effect reaches it.
         || (obj.zone == crate::zone::Zone::Stack && obj.x_value > 0)
@@ -792,7 +793,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::BlockedThisTurnBy(_)
         | Filter::SharesAColorWith(_)
         | Filter::SharesCreatureTypeWith(_)
-        | Filter::SharesColorWithExiledWithSource => true,
+        | Filter::SharesColorWithExiledWithSource
+        | Filter::SharesColorWithSource => true,
         Filter::OfSourceChosenColor | Filter::ChosenColor => matches!(
             modifier,
             Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
@@ -904,7 +906,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         }
         Filter::ActivatedAbilityFrom(filter) => could_change_match(modifier, filter, layer),
         Filter::TargetsPermanentYouControl => matches!(layer, Layer::Control),
-        Filter::PairedWithSource => matches!(layer, Layer::Control | Layer::Type),
+        Filter::PairedWithSource | Filter::RingBearer => {
+            matches!(layer, Layer::Control | Layer::Type)
+        }
         Filter::Any
         | Filter::Monstrous
         | Filter::Suspected
@@ -955,6 +959,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CmcExactlyX
         | Filter::CmcAtMostColorsSpent
         | Filter::CmcAtMostSnowManaSpent
+        | Filter::SameManaValueAsSource
         | Filter::WarpedInExile
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_)
@@ -1357,6 +1362,11 @@ fn apply(
         | Modifier::MustBeBlockedByAllAble
         | Modifier::MustBeBlockedByAllAbleMatching(_)
         | Modifier::AssignsNoCombatDamage
+        | Modifier::AssignCombatDamageUsingToughness
+        | Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater
+        | Modifier::MayAssignCombatDamageAsThoughUnblocked
+        | Modifier::PlayersCantGainLife(_)
+        | Modifier::CantBeSacrificed { .. }
         | Modifier::BlocksEachAttackerIfAble
         | Modifier::RedirectDamageToYou(_)
         | Modifier::CountersPreventDamage(_)
@@ -1368,6 +1378,7 @@ fn apply(
         | Modifier::ProtectionFromExiledWithSourceTypes
         | Modifier::GrantsFlashback
         | Modifier::GrantsEscape(_)
+        | Modifier::Sneak(_)
         | Modifier::GraveyardInstantSorceryOnce
         | Modifier::GraveyardVampireOnce
         | Modifier::NextSpellUncounterable

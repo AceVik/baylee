@@ -504,7 +504,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
             controller: t.controller,
         });
-        self.discard_empty_trigger_without_effect(id);
+        if !self.discard_empty_trigger_without_effect(id) {
+            self.note_crime_if_any(t.controller, id);
+        }
     }
 
     /// Queues the delayed actions that fire as one of the active player's

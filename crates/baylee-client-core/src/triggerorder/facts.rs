@@ -580,6 +580,8 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::Plot { .. }
         | Effect::TapTarget
         | Effect::TapEventObject
+        | Effect::Detain { .. }
+        | Effect::DetainFilter { .. }
         | Effect::CounterTargetSpell
         | Effect::CounterTargetAbility => facts.deeds.add(Deeds::REMOVES),
         Effect::SacrificeSelf
@@ -692,7 +694,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.reads.add(counted(amount));
             facts.makes.add(Stuff::BOARD);
         }
-        Effect::Myriad => {
+        Effect::Myriad | Effect::CipherCastEncoded => {
             facts.deeds.add(Deeds::ASKS);
             facts.deeds.add(Deeds::MAY);
             facts.makes.add(Stuff::BOARD);
@@ -700,7 +702,8 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         Effect::ManifestTop { .. }
         | Effect::ReturnCraftedTransformed
         | Effect::Suspect { .. }
-        | Effect::Unsuspect { .. } => {
+        | Effect::Unsuspect { .. }
+        | Effect::ReturnChampioned => {
             facts.makes.add(Stuff::BOARD);
         }
         Effect::ManifestDread => {
@@ -708,6 +711,34 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.deeds.add(Deeds::ASKS);
             facts.makes.add(Stuff::BOARD);
             facts.makes.add(Stuff::GRAVEYARD);
+        }
+        Effect::RingTemptsYou => {
+            facts.reads.add(Stuff::BOARD);
+            facts.deeds.add(Deeds::ASKS);
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::Firebend(amount) => {
+            facts.reads.add(counted(amount));
+            facts.makes.add(Stuff::MANA);
+        }
+        Effect::AwakenLand { .. } => {
+            facts.makes.add(Stuff::BOARD);
+            facts.makes.add(Stuff::COUNTERS);
+            facts.makes.add(Stuff::POWER);
+        }
+        Effect::Cipher => {
+            facts.deeds.add(Deeds::ASKS);
+            facts.deeds.add(Deeds::MAY);
+            facts.reads.add(Stuff::BOARD);
+        }
+        Effect::Champion { .. } => {
+            facts.deeds.add(Deeds::ASKS);
+            facts.reads.add(Stuff::BOARD);
+            facts.makes.add(Stuff::BOARD);
+        }
+        Effect::Clash { .. } => {
+            facts.deeds.add(Deeds::LOOKS);
+            facts.deeds.add(Deeds::ASKS);
         }
         Effect::SoulbondPair { .. } => {
             facts.deeds.add(Deeds::ASKS);
@@ -722,6 +753,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         }
         Effect::CreateToken { .. }
         | Effect::CreateTokenAttacking { .. }
+        | Effect::Mobilize(_)
         | Effect::CreateTokenModified { .. }
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenCopyOf { .. }
@@ -734,6 +766,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::Populate
         | Effect::Amass { .. }
         | Effect::Fabricate { .. }
+        | Effect::Endure(_)
         | Effect::PutFromHandOntoBattlefield { .. }
         | Effect::PutNinjutsuOntoBattlefield
         | Effect::GraveyardToBattlefield { .. }

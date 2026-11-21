@@ -76,6 +76,9 @@ pub struct DecisionContext<'a> {
     /// Live sources for an optional mana payment, lent by the host to the
     /// in-process agent answering for the payer. Never serialized.
     pub optional_mana_offer: Option<&'a crate::choice::LegalActions>,
+    /// Triggering event object on the active resolution (e.g. entering creature
+    /// for Graft's `Effect::MoveCounterToEvent`), if any.
+    pub event_object: Option<ObjectId>,
 }
 
 /// Effects of the chosen ability or mode. An unknown ability stays unknown:
@@ -227,6 +230,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | PlanKind::ChoosePhyrexianLife {
                     source,
                     ability_index,
+                }
+                | PlanKind::ChooseActivationCostBranch {
+                    source,
+                    ability_index,
                 },
             ) => Some((
                 *source,
@@ -373,6 +380,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     whole_spell: stack.is_some_and(|o| o.ability.is_none()) && mode.is_none(),
                     effects: res.effects.get(res.pc..).unwrap_or_default(),
                     x: res.x.unwrap_or(0),
+                    event_object: res.event_object,
                     ..DecisionContext::default()
                 }
             })
@@ -514,6 +522,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // A clone chooses as it resolves, never while it is being cast.
             copying: None,
             optional_mana_offer: None,
+            event_object: None,
         }
     }
 }

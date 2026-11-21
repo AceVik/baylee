@@ -145,7 +145,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             )?;
         }
         // Non-mana parts of the chosen alternative or flashback cost.
-        for part in super::wizard_alternative_parts(face, wizard.alternative_cost.or(wizard.option))
+        for part in
+            &super::cost_parts::wizard_alternative_parts_expanded(face, wizard.cost_choice())
         {
             if !paid_as_an_alternative_cost(part) {
                 continue;
@@ -273,6 +274,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::DiscardX(_)
                 | CostPart::ExileFromGraveyardX(_)
                 | CostPart::CraftMaterials { .. }
+                | CostPart::Either(_, _)
                 | CostPart::PayLifeX => {}
             }
         }
@@ -304,6 +306,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 &mut self.state,
                 player,
                 &casting::BEAM_RETURN,
+                returned,
+            )?;
+        }
+        let mut sneak_defender = None;
+        if wizard.option == Some(CastModeKind::Sneak) {
+            let returned = wizard.returned.ok_or(EngineError::IllegalAction(
+                "no unblocked creature returned for sneak",
+            ))?;
+            sneak_defender = self
+                .state
+                .combat
+                .attackers()
+                .iter()
+                .find(|a| a.creature == returned)
+                .map(|a| {
+                    let ver = match a.defending {
+                        baylee_core::ids::Defender::Planeswalker(id)
+                        | baylee_core::ids::Defender::Battle(id) => {
+                            self.state.object(id).map(|o| o.version)
+                        }
+                        baylee_core::ids::Defender::Player(_) => None,
+                    };
+                    (a.defending, ver)
+                });
+            super::super::cost_wizard::pay(
+                &mut self.state,
+                player,
+                &CostPart::ReturnUnblockedAttacker,
                 returned,
             )?;
         }
@@ -552,14 +582,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PayAttachedManaCost
                 | CostPart::ReturnUnblockedAttacker
                 | CostPart::CraftMaterials { .. }
+                | CostPart::Either(_, _)
                 | CostPart::SacrificeGrantor => {}
             }
         }
         // Buyback's parts name no object any "sacrificed creature" of the
         // spell reads: that sentence is linked to the printed additional
         // cost (CR 607.2i), so the receipt above is not touched.
-        let buyback = super::wizard_buyback_parts(face, wizard.buyback.is_some());
-        for part in buyback {
+        let buyback = super::cost_parts::wizard_buyback_parts_expanded(face, wizard.cost_choice());
+        for part in &buyback {
             graveyard_batch.before_part(&mut self.state, part);
             if !super::paid_as_a_buyback_cost(part) {
                 continue;
@@ -789,11 +820,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             obj.riders.retain(|r| {
                 !matches!(
                     r,
-                    crate::object::Rider::WarpedSpell | crate::object::Rider::WarpedInExile(_)
+                    crate::object::Rider::WarpedSpell
+                        | crate::object::Rider::WarpedInExile(_)
+                        | crate::object::Rider::Sneaked
+                        | crate::object::Rider::NinjutsuDefender(_, _)
                 )
             });
             if wizard.option == Some(CastModeKind::Warp) {
                 obj.riders.push(crate::object::Rider::WarpedSpell);
+            }
+            if wizard.option == Some(CastModeKind::Sneak) {
+                obj.riders.push(crate::object::Rider::Sneaked);
+                if let Some((defender, target_ver)) = sneak_defender {
+                    obj.riders
+                        .push(crate::object::Rider::NinjutsuDefender(defender, target_ver));
+                }
             }
             obj.riders.retain(|r| *r != crate::object::Rider::Bargained);
             if wizard.bargained {
@@ -814,6 +855,32 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .retain(|r| *r != crate::object::Rider::CasualtyPaid);
             if wizard.casualty {
                 obj.riders.push(crate::object::Rider::CasualtyPaid);
+            }
+            obj.riders.retain(|r| {
+                !matches!(
+                    r,
+                    crate::object::Rider::Awakened(_)
+                        | crate::object::Rider::Spliced { .. }
+                        | crate::object::Rider::ConspirePaid(_)
+                )
+            });
+            if wizard.option == Some(CastModeKind::Awaken)
+                && let Some((count, _)) = obj
+                    .card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .and_then(|d| super::wave10b::face_awaken(d, wizard.face_index()))
+            {
+                obj.riders.push(crate::object::Rider::Awakened(count));
+            }
+            for &(_, s_card, s_face, _) in &wizard.spliced {
+                obj.riders.push(crate::object::Rider::Spliced {
+                    card: s_card,
+                    face: s_face,
+                });
+            }
+            if wizard.conspired > 0 {
+                obj.riders
+                    .push(crate::object::Rider::ConspirePaid(wizard.conspired));
             }
             obj.riders.retain(|r| *r != crate::object::Rider::Fused);
             if wizard.option == Some(CastModeKind::Fused) {
@@ -861,6 +928,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 Some(CastModeKind::Modes(set)) => set,
                 _ => 0,
             };
+        }
+        if !wizard.spliced.is_empty() {
+            let cards: Vec<ObjectId> = wizard.spliced.iter().map(|&(id, ..)| id).collect();
+            self.state
+                .journal
+                .record(GameEvent::Revealed { player, cards });
         }
         // Commander-cast tracking: casts from the command zone count, once
         // for the seat (Commander's Insight) and once for the commander
@@ -916,6 +989,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // gives it up: the spell on the stack is the object that reads it.
         // A free cast spent no mana (CR 601.2h pays nothing it was not
         // asked for), whatever its printed cost says.
+        let mana_spent_on_spell = paid_mana.mana_spent;
         if (paid_mana.mana_spent > 0 || sacrificed_lki.is_some())
             && let Some(obj) = self.state.object_mut(card)
         {
@@ -1083,6 +1157,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 player,
             });
         }
+        self.note_crime_if_any(player, card);
+        self.note_expend_if_any(player, mana_spent_on_spell);
         self.cast_wizard = None;
         if !self.finish_nested_cast() {
             self.after_action(player);

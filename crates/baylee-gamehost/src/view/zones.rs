@@ -129,6 +129,10 @@ fn offered(pending: &Pending) -> Vec<ObjectId> {
         | Pending::LegendChoice { options, .. } => options.clone(),
         Pending::Arrange { cards, .. } => cards.clone(),
         Pending::ChoosePile { piles, .. } => piles.concat(),
+        Pending::YesNo {
+            prompt: baylee_engine::choice::YesNoPrompt::ClashBottom { card },
+            ..
+        } => vec![*card],
         _ => Vec::new(),
     }
 }

@@ -192,7 +192,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let chosen = chosen.and_then(|original| {
             if *copy {
-                self.copy_exiled_card(original)
+                self.copy_exiled_card(original, player)
             } else {
                 Some(original)
             }
@@ -299,6 +299,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     fn copy_exiled_card(
         &mut self,
         original: baylee_core::ids::DamageSourceRef,
+        player: PlayerId,
     ) -> Option<baylee_core::ids::DamageSourceRef> {
         let mut copy = self
             .state
@@ -311,7 +312,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.state.timestamp += 1;
         copy.timestamp = self.state.timestamp;
         copy.controlled_since = self.state.timestamp;
-        let owner = copy.owner;
+        copy.owner = player;
+        copy.set_controller(player);
+        let owner = player;
         let id = self.state.arena.insert_with(|id| {
             copy.id = id;
             copy

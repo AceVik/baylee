@@ -462,7 +462,11 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // and `ManaPoolView::snow` (protocol 59 on binary frames).
     // 103: `CastModeKind::Retrace`, `YesNoPrompt::{Riot, Unleash}`, and
     // additive `PublicObject::suspected` (protocol 60 on binary frames).
-    const RECORDED: (u32, u64) = (103, 9_393_182_911_007_579_732);
+    // 104–107: Engine Waves 9a–10b (`AssignDamageAsThoughUnblocked`, `ClashBottom`,
+    // `ChooseRingBearer`, `ChooseFirstCostBranch`, `OpeningHandBattlefield`,
+    // `OpeningHandReveal`, `Sneak`, `Endure`, `Awaken`, `Splice`, `CipherEncode`,
+    // `Champion`, `Conspire`, and `Tribute`; protocol 64 on binary frames).
+    const RECORDED: (u32, u64) = (107, 9_393_182_911_007_579_732);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

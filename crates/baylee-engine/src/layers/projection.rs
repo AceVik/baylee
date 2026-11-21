@@ -133,6 +133,16 @@ pub(super) fn recompute_observing<'a>(
         }
         if layer == Layer::Type
             && obj.zone == crate::zone::Zone::Battlefield
+            && !obj.status.contains(crate::object::Status::PHASED_OUT)
+            && state.is_ring_bearer(obj.id)
+        {
+            let c_mut = c.to_mut();
+            c_mut.supertypes = c_mut
+                .supertypes
+                .union(baylee_core::types::SupertypeSet::LEGENDARY);
+        }
+        if layer == Layer::Type
+            && obj.zone == crate::zone::Zone::Battlefield
             && obj.riders.contains(&crate::object::Rider::ImpendingPaid)
         {
             read_board = true;

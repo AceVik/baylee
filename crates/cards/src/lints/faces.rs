@@ -95,8 +95,12 @@ pub(super) fn ability_colors(ability: &AbilityDef) -> ColorSet {
         | AbilityDef::ActivatedConditional { cost, .. }
         | AbilityDef::ModalActivated { cost, .. }
         | AbilityDef::Unearth { cost }
-        | AbilityDef::Encore { cost } => cost.mana,
-        AbilityDef::Echo { cost } | AbilityDef::Suspend { cost, .. } => *cost,
+        | AbilityDef::Encore { cost }
+        | AbilityDef::Splice { cost, .. }
+        | AbilityDef::Awaken { cost, .. } => cost.mana,
+        AbilityDef::Echo { cost }
+        | AbilityDef::Suspend { cost, .. }
+        | AbilityDef::PerExtraTargetCost(cost) => *cost,
         AbilityDef::ModalSpell { modes, .. } | AbilityDef::ModalTriggered { modes, .. } => modes
             .iter()
             .filter_map(|mode| mode.cost_override)
@@ -113,6 +117,7 @@ pub(super) fn ability_colors(ability: &AbilityDef) -> ColorSet {
         | AbilityDef::Replacement(_)
         | AbilityDef::CopyOnEnterUntilEot { .. }
         | AbilityDef::CopyOnEnter { .. }
+        | AbilityDef::Champion { .. }
         | AbilityDef::Loyalty { .. } => ManaCost::ZERO,
     };
     branches(ability)

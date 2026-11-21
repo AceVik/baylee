@@ -54,6 +54,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             });
             self.cast_wizard = Some(wizard.clone());
         }
+        if wizard.option == Some(CastModeKind::Sneak) && wizard.sneak_parts.is_empty() {
+            let def = self
+                .state
+                .object(wizard.card)
+                .and_then(|object| object.card)
+                .and_then(|card| self.lookup.card(card.index));
+            if let Some(sneak) = casting::sneak_cost_for(
+                &self.state,
+                wizard.player,
+                wizard.card,
+                def,
+                wizard.face_index(),
+            ) && !sneak.parts.is_empty()
+            {
+                wizard.sneak_parts = sneak.parts;
+                self.cast_wizard = Some(wizard.clone());
+            }
+        }
         if wizard.option.is_some()
             && wizard.reduction.is_none()
             && (wizard.option != Some(CastModeKind::Emerge) || wizard.emerge_sacrifice.is_some())
@@ -805,7 +823,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // Nothing to ask: no replicate, or not one payment the
                     // pool covers, and zero is then the only answer.
                     let mut wizard = wizard;
-                    wizard.stage = WizardStage::Targets;
+                    wizard.stage = WizardStage::Splice;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
@@ -815,6 +833,82 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     max,
                     reason: NumberPrompt::Replicate { cost },
                 };
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::EitherCost => {
+                let face = self.wizard_face(&wizard);
+                let mut wizard = wizard;
+                while let (_, Some((first_cost, second_cost))) =
+                    super::cost_parts::next_either_cost(face, wizard.cost_choice())
+                {
+                    let idx = wizard.either_decided;
+                    let first_ok =
+                        self.wizard_either_branch_payable(&wizard, face, true, first_cost);
+                    let second_ok =
+                        self.wizard_either_branch_payable(&wizard, face, false, second_cost);
+                    match (first_ok, second_ok) {
+                        (true, true) => {
+                            let source = self
+                                .state
+                                .object(wizard.card)
+                                .and_then(|o| o.card)
+                                .map(|c| baylee_core::ids::AbilityRef::new(c.index, 0));
+                            self.pending = Pending::YesNo {
+                                player: wizard.player,
+                                prompt: YesNoPrompt::ChooseFirstCostBranch { index: idx },
+                                source,
+                            };
+                            self.cast_wizard = Some(wizard);
+                            self.awaiting_answer = true;
+                            return WizardStep::Yield(Ok(()));
+                        }
+                        (true, false) => {
+                            if idx < 8 {
+                                wizard.either_first_mask |= 1_u8 << idx;
+                            }
+                            if first_cost.mana != ManaCost::ZERO {
+                                wizard.either_pays_mana = true;
+                            }
+                            wizard.either_decided = idx.saturating_add(1);
+                        }
+                        (false, true) => {
+                            if second_cost.mana != ManaCost::ZERO {
+                                wizard.either_pays_mana = true;
+                            }
+                            wizard.either_decided = idx.saturating_add(1);
+                        }
+                        (false, false) => {
+                            self.cast_wizard = None;
+                            return WizardStep::Yield(Err(EngineError::IllegalAction(
+                                "neither branch of the additional cost can be paid",
+                            )));
+                        }
+                    }
+                }
+                wizard.stage = WizardStage::PitchChoice;
+                self.cast_wizard = Some(wizard);
+                WizardStep::Continue
+            }
+            WizardStage::Splice => {
+                let Some(question) = self.ask_splice(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Conspire;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Conspire => {
+                let Some(question) = self.ask_conspire(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Targets;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
                 self.awaiting_answer = true;
                 WizardStep::Yield(Ok(()))
             }
@@ -838,7 +932,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             &self.state,
                             wizard.player,
                             wizard.card,
-                            parts,
+                            &parts,
                             &chosen,
                         )
                     });
@@ -865,15 +959,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 WizardStep::Continue
             }
             WizardStage::ReturnCreature => {
-                if wizard.option != Some(CastModeKind::BeamMeUp) {
+                if !matches!(
+                    wizard.option,
+                    Some(CastModeKind::BeamMeUp | CastModeKind::Sneak)
+                ) {
                     wizard.stage = WizardStage::Behold;
                     self.cast_wizard = Some(wizard);
                     return WizardStep::Continue;
                 }
-                let options = casting::beam_return_options(&self.state, wizard.player, wizard.card);
+                let options = if wizard.option == Some(CastModeKind::Sneak) {
+                    let face = self.wizard_face(&wizard);
+                    let sneak = baylee_cards_dsl::Cost {
+                        mana: ManaCost::ZERO,
+                        parts: wizard.sneak_parts,
+                    };
+                    casting::sneak_candidates(&self.state, wizard.player, wizard.card, face, sneak)
+                } else {
+                    casting::beam_return_options(&self.state, wizard.player, wizard.card)
+                };
                 if options.is_empty() {
                     return WizardStep::Yield(Err(EngineError::IllegalAction(
-                        "no creature can pay beam me up",
+                        if wizard.option == Some(CastModeKind::Sneak) {
+                            "no unblocked creature can pay sneak"
+                        } else {
+                            "no creature can pay beam me up"
+                        },
                     )));
                 }
                 self.pending = Pending::ChooseCards {
@@ -1064,6 +1174,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 options.retain(|id| {
                     *id != wizard.card
                         && Some(*id) != wizard.emerge_sacrifice
+                        && Some(*id) != wizard.returned
                         && !wizard.cost_objects.contains(id)
                 });
                 if matches!(part, CostPart::Forage) {

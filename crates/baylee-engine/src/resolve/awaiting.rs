@@ -471,6 +471,8 @@ pub enum AwaitingOp {
         /// Maximum total after placement and replacement effects.
         maximum: u16,
     },
+    /// Choose a creature you control to become your Ring-bearer (`CR 701.54a`).
+    ChooseRingBearer,
     /// An owner orders simultaneous graveyard arrivals before the next
     /// instruction or a choice that instruction produced.
     GraveyardOrder {
@@ -1010,6 +1012,25 @@ pub enum AwaitingOp {
     HandToBottom,
     /// The player `Effect::ChoosePlayerFrom` asked for.
     ChoosePlayerFrom,
+    /// Choosing an opponent to clash with (`Effect::Clash`, CR 701.30a).
+    ClashOpponent {
+        /// Instructions executed when the resolving controller wins the clash.
+        on_win: &'static [baylee_cards_dsl::Effect],
+        /// Instructions executed when the resolving controller does not win.
+        on_loss: &'static [baylee_cards_dsl::Effect],
+    },
+    /// Deciding in APNAP order whether to put each revealed clash card on the
+    /// bottom of its owner's library (`Effect::Clash`, CR 701.30c).
+    ClashBottom {
+        /// Clashing players and their revealed top cards in APNAP order.
+        entries: Vec<super::clash::ClashEntry>,
+        /// Index in `entries` currently deciding.
+        index: usize,
+        /// Instructions executed when the resolving controller wins the clash.
+        on_win: &'static [baylee_cards_dsl::Effect],
+        /// Instructions executed when the resolving controller does not win.
+        on_loss: &'static [baylee_cards_dsl::Effect],
+    },
     /// Where `Effect::MoveTargetAuraToAnother` attaches the Aura.
     MoveAura {
         /// The targeted Aura.
@@ -1386,6 +1407,22 @@ pub enum AwaitingOp {
     },
     /// Optional controlled-creature sacrifice for `Effect::Exploit` (CR 702.110a–b).
     Exploit,
+    /// Endure N choice (`CR 701.63a`): put `count` +1/+1 counters on `source`
+    /// or create a `count`/`count` white Spirit creature token under `controller`.
+    Endure {
+        /// Permanent instructed to endure.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Controller answering and receiving the counters or Spirit token.
+        controller: PlayerId,
+        /// Evaluated endure magnitude (`N >= 1`).
+        count: u16,
+    },
+    /// Optional controlled-creature choice to encode a resolving cipher spell card
+    /// (`Effect::Cipher`, CR 702.99b).
+    CipherEncode,
+    /// Optional controlled-permanent exile choice for `Effect::Champion`
+    /// (CR 702.72a).
+    ChampionExile,
 }
 
 /// Work to resume after an optional life payment.
@@ -1773,6 +1810,23 @@ impl AwaitingOp {
                 126_u8, on_payment, player, cost, required, effect,
             )),
             Self::Exploit => crate::state::structural_fingerprint(&151_u8),
+            Self::ChooseRingBearer => crate::state::structural_fingerprint(&191_u8),
+            Self::Endure {
+                source,
+                controller,
+                count,
+            } => crate::state::structural_fingerprint(&(199_u8, source, controller, count)),
+            Self::ClashOpponent { on_win, on_loss } => {
+                crate::state::structural_fingerprint(&(183_u8, on_win, on_loss))
+            }
+            Self::ClashBottom {
+                entries,
+                index,
+                on_win,
+                on_loss,
+            } => crate::state::structural_fingerprint(&(184_u8, entries, index, on_win, on_loss)),
+            Self::CipherEncode => crate::state::structural_fingerprint(&207_u8),
+            Self::ChampionExile => crate::state::structural_fingerprint(&209_u8),
             _ => 0,
         }
     }

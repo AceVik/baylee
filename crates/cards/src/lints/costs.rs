@@ -57,7 +57,19 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage
         | CostPart::CraftMaterials { .. } => false,
+        CostPart::Either(a, b) => any_needs_the_source(a.parts) || any_needs_the_source(b.parts),
     }
+}
+
+const fn any_needs_the_source(parts: &[CostPart]) -> bool {
+    let mut i = 0;
+    while i < parts.len() {
+        if needs_the_source(&parts[i]) {
+            return true;
+        }
+        i += 1;
+    }
+    false
 }
 
 /// Does paying this part move the source out of the zone it is being paid
@@ -106,7 +118,19 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::DiscardX(_)
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage => false,
+        CostPart::Either(a, b) => any_moves_the_source(a.parts) || any_moves_the_source(b.parts),
     }
+}
+
+const fn any_moves_the_source(parts: &[CostPart]) -> bool {
+    let mut i = 0;
+    while i < parts.len() {
+        if moves_the_source(&parts[i]) {
+            return true;
+        }
+        i += 1;
+    }
+    false
 }
 
 /// The first part of a cost that is paid after the source has already left,

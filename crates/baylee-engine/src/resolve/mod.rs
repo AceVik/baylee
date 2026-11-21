@@ -28,7 +28,9 @@ mod bird_entry;
 mod names;
 pub(crate) mod wave4_combat;
 pub use names::resume_name;
+pub(crate) use wave4_combat::finish_sneak_enter_attacking;
 mod chosen;
+pub(crate) mod clash;
 mod colors;
 mod conditional_grants;
 mod continuous_subjects;
@@ -38,6 +40,7 @@ mod control_observers;
 mod copying;
 mod damage_returns;
 pub(crate) mod for_each;
+mod wave10b;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod coin;
@@ -988,6 +991,11 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::Players(who) => {
             u32::try_from(players_of(*who, state, you, res).len()).unwrap_or(u32::MAX)
         }
+        Amount::ManaExpendedOnSpellsThisTurn(who) => players_of(*who, state, you, res)
+            .into_iter()
+            .fold(0u32, |acc, p| {
+                acc.saturating_add(state.per_turn.mana_expended_by(p))
+            }),
         Amount::CountOf {
             filter,
             zone: baylee_cards_dsl::ZoneSel::LinkedExile,
@@ -1072,6 +1080,9 @@ pub(super) fn amount_for_player(
             .unwrap_or(0),
         Amount::LibrarySize(PlayerRel::Recipient) => {
             u32::try_from(state.zones.list(ZoneLocation::Library(player)).len()).unwrap_or(u32::MAX)
+        }
+        Amount::ManaExpendedOnSpellsThisTurn(PlayerRel::Recipient) => {
+            state.per_turn.mana_expended_by(player)
         }
         Amount::Plus { base, offset } => each(base).saturating_add(*offset),
         Amount::SaturatingSub { base, subtract } => each(base).saturating_sub(*subtract),
@@ -1794,6 +1805,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::MayDoOnceEachTurn { .. }
         | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::SoulbondPair { .. }
+        | Effect::Clash { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     };
@@ -2012,7 +2024,16 @@ pub(super) fn run_nested_ops(
 /// Sacrifices `victims` as one event: every departure is read before any of
 /// them leaves, so a creature and the Aura on it go together and each
 /// leave trigger sees the board as it was (Lich's rulings).
-pub(super) fn sacrifice_together(state: &mut GameState, victims: &[ObjectId]) {
+pub(super) fn sacrifice_together(
+    state: &mut GameState,
+    victims: &[ObjectId],
+    cause_controller: Option<PlayerId>,
+) {
+    let victims: Vec<ObjectId> = victims
+        .iter()
+        .copied()
+        .filter(|&id| state.can_be_sacrificed(id, cause_controller))
+        .collect();
     let departures: Vec<_> = victims
         .iter()
         .map(|&id| state.departure_snapshot(id))
@@ -2047,7 +2068,7 @@ fn sacrifice_amount_or_lose(
     if n == 0 {
         return None;
     }
-    let options = chosen::options(state, you, filter, you, res.source);
+    let options = chosen::sacrifice_options(state, you, filter, you, res.source);
     if options.len() > n {
         let n = u8::try_from(n).unwrap_or(u8::MAX);
         res.awaiting = Some(AwaitingOp::SacrificeAllChosen);
@@ -2060,7 +2081,7 @@ fn sacrifice_amount_or_lose(
             total: None,
         });
     }
-    sacrifice_together(state, &options);
+    sacrifice_together(state, &options, Some(you));
     if options.len() < n {
         let _ = sba::lose_by_effect(state, you);
     }

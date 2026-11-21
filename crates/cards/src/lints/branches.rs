@@ -125,8 +125,12 @@ pub(super) fn printed_branches(ability: &AbilityDef) -> Vec<Branch> {
         | AbilityDef::Echo { .. }
         | AbilityDef::Unearth { .. }
         | AbilityDef::Encore { .. }
+        | AbilityDef::Splice { .. }
+        | AbilityDef::Awaken { .. }
+        | AbilityDef::Champion { .. }
         | AbilityDef::Static(_)
         | AbilityDef::Replacement(_)
+        | AbilityDef::PerExtraTargetCost(_)
         | AbilityDef::Suspend { .. }
         | AbilityDef::CopyOnEnterUntilEot { .. }
         | AbilityDef::CopyOnEnter { .. } => Vec::new(),

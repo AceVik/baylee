@@ -137,6 +137,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
         | Modifier::GrantsEscape(_)
+        | Modifier::Sneak(_)
         | Modifier::GainControl
         | Modifier::AddTypeIfCountersAtLeast { .. }
         | Modifier::AddKeywordIfCountersAtLeast { .. }
@@ -271,6 +272,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::MustBeBlockedByAllAble
         | Modifier::MustBeBlockedByAllAbleMatching(_)
         | Modifier::AssignsNoCombatDamage
+        | Modifier::AssignCombatDamageUsingToughness
+        | Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater
+        | Modifier::MayAssignCombatDamageAsThoughUnblocked
+        | Modifier::PlayersCantGainLife(_)
+        | Modifier::CantBeSacrificed { .. }
         | Modifier::BlocksEachAttackerIfAble
         | Modifier::RedirectDamageToYou(_)
         | Modifier::CountersPreventDamage(_)
@@ -768,6 +774,8 @@ impl EffectTable {
                     | Modifier::NoLossForZeroLife { .. }
                     | Modifier::LifeGainDrawsInstead { .. }
                     | Modifier::LifeGainNoLifeInstead { .. }
+                    | Modifier::PlayersCantGainLife(_)
+                    | Modifier::CantBeSacrificed { .. }
                     | Modifier::PlayersCantLose
                     | Modifier::NamedPlayersCantLose(_)
                     | Modifier::PlayersCantWin(_)
@@ -2016,6 +2024,14 @@ mod tests {
                     PlayerRel::EachOpponent,
                 ),
             },
+            Modifier::AssignCombatDamageUsingToughness,
+            Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater,
+            Modifier::MayAssignCombatDamageAsThoughUnblocked,
+            Modifier::PlayersCantGainLife(PlayerRel::EachOpponent),
+            Modifier::CantBeSacrificed {
+                opponents_only: false,
+            },
+            Modifier::Sneak(baylee_cards_dsl::Cost::FREE),
         ]
     }
 
@@ -2054,7 +2070,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            216,
+            222,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2168,7 +2184,11 @@ mod tests {
         // MatchingSpellCastLimitPerTurn restricts casting by filter (+1 rules-only -> 154);
         // MaxBlockers, PreventNoncombatDamageFrom, PreventNoncombatDamageToPlayers,
         // MultiplyDamageFrom, and AddDamageFrom modify combat/damage rules (+5 rules-only -> 159).
-        assert_eq!((locking, all.len() - locking), (57, 159));
+        // AssignCombatDamageUsingToughness, AssignCombatDamageUsingToughnessIfToughnessGreater,
+        // MayAssignCombatDamageAsThoughUnblocked, PlayersCantGainLife, and CantBeSacrificed
+        // modify combat, life-gain, and sacrifice rules (+5 rules-only -> 164).
+        // Sneak grants an ability on Layer::Ability (+1 locking -> 58).
+        assert_eq!((locking, all.len() - locking), (58, 164));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

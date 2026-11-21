@@ -412,6 +412,8 @@ impl GameState {
                 && (o
                     .riders
                     .contains(&crate::object::Rider::RevealedInHandCantPlayUntilTurn)
+                    || o.riders
+                        .contains(&crate::object::Rider::RevealedFromOpeningHand)
                     || o.zone_owner.is_some_and(|owner| self.hand_revealed(owner)))
         })
     }
@@ -459,6 +461,10 @@ impl GameState {
                             .is_some_and(|o| o.attached_to == Some(id))
                     })
                     .collect(),
+                was_ring_bearer_of: self
+                    .players
+                    .iter()
+                    .find_map(|p| (p.ring_bearer == Some(id)).then_some(p.id)),
             },
         })
     }
@@ -632,6 +638,11 @@ impl GameState {
         let ts = self.timestamp;
         self.record_last_known(id, from_zone);
         if from_zone == Zone::Battlefield && to.zone() != Zone::Battlefield {
+            for p in &mut self.players {
+                if p.ring_bearer == Some(id) {
+                    p.ring_bearer = None;
+                }
+            }
             let _ = self.unpair_creature(id);
             // CR 400.7: a returning permanent is a new object even though
             // its arena handle is stable. Detach now, after departure
@@ -776,6 +787,7 @@ impl GameState {
                             | crate::object::Rider::MustAttackPlayerThisTurn(_)
                             | crate::object::Rider::AttachedToPlayer(_)
                             | crate::object::Rider::PairedWith(..)
+                            | crate::object::Rider::TributePaid
                     )
                 });
                 // A name chosen as it entered belongs to that permanent
@@ -828,7 +840,13 @@ impl GameState {
                             | crate::object::Rider::Masked
                             | crate::object::Rider::KickedMask(_)
                             | crate::object::Rider::WarpedSpell
+                            | crate::object::Rider::RevealedFromOpeningHand
                             | crate::object::Rider::SnowManaSpent(_)
+                            | crate::object::Rider::Sneaked
+                            | crate::object::Rider::NinjutsuDefender(_, _)
+                            | crate::object::Rider::Spliced { .. }
+                            | crate::object::Rider::Awakened(_)
+                            | crate::object::Rider::ConspirePaid(_)
                     )
                 });
             }

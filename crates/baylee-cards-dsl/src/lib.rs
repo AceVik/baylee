@@ -88,6 +88,40 @@ pub static INCUBATOR_TOKEN: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 red Warrior creature token created by Mobilize (CR 702.181a).
+pub static WARRIOR_1_1_RED: TokenDef = TokenDef {
+    name: "Warrior",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[baylee_core::generated::subtypes::creature::WARRIOR],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white and black Spirit creature token with flying created by Afterlife
+/// (CR 702.135a).
+pub static SPIRIT_1_1_WHITE_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::White, Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[baylee_core::generated::subtypes::creature::SPIRIT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// Dynamically sized N/N white Spirit creature token created by Endure N
+/// (CR 701.63a); power and toughness are supplied by resolution (`Some(n)`).
+pub static SPIRIT_X_X_WHITE: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[baylee_core::generated::subtypes::creature::SPIRIT],
+    ..TokenDef::DEFAULT
+};
+
 pub use ability::{
     AbilityDef, ActivationLimit, ActivationTiming, ActivationX, ActivationZone, AmountCmp,
     Condition, CopyMod, ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
@@ -206,14 +240,17 @@ impl CardDef {
     #[must_use]
     pub fn abilities_for_face(&self, face: usize) -> &'static [crate::ability::AbilityDef] {
         if face == 0 {
-            let face_abilities = self.faces[0].abilities;
+            let face_abilities: &'static [crate::ability::AbilityDef] =
+                self.faces.first().map_or(&[], |f| f.abilities);
             if face_abilities.is_empty() {
                 self.abilities
             } else {
                 face_abilities
             }
         } else {
-            self.faces[face.min(self.faces.len() - 1)].abilities
+            self.faces
+                .get(face.min(self.faces.len().saturating_sub(1)))
+                .map_or(&[], |f| f.abilities)
         }
     }
 
@@ -345,7 +382,9 @@ impl CardDef {
             let own = self.faces.first().map_or(KeywordSet::EMPTY, |f| f.keywords);
             if own.is_empty() { self.keywords } else { own }
         } else {
-            self.faces[face.min(self.faces.len() - 1)].keywords
+            self.faces
+                .get(face.min(self.faces.len().saturating_sub(1)))
+                .map_or(KeywordSet::EMPTY, |f| f.keywords)
         };
         // Generic partner is a keyword ability, not only deckbuilding
         // metadata. Keeping it in the same projection as every other keyword
@@ -354,15 +393,41 @@ impl CardDef {
         if face == 0 && self.partner == PartnerKind::Partner {
             keywords = keywords.union(KeywordSet::PARTNER);
         }
-        if self
-            .faces
-            .get(face.min(self.faces.len().saturating_sub(1)))
-            .is_some_and(|f| f.freerunning.is_some())
-        {
-            keywords.union(KeywordSet::FREERUNNING)
-        } else {
-            keywords
+        let face_idx = face.min(self.faces.len().saturating_sub(1));
+        if self.faces.get(face_idx).is_some_and(|f| {
+            f.freerunning.is_some()
+                || f.alternative_costs.iter().any(|alt| {
+                    matches!(
+                        alt.condition,
+                        AltCondition::If(
+                            Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn
+                        )
+                    )
+                })
+        }) {
+            keywords = keywords.union(KeywordSet::FREERUNNING);
         }
+        if self.faces.get(face_idx).is_some_and(|f| {
+            f.enter_modifiers
+                .iter()
+                .any(|m| matches!(m, EnterModifier::Sunburst))
+        }) {
+            keywords = keywords.union(KeywordSet::SUNBURST);
+        }
+        if self.abilities_for_face(face).iter().any(|ability| {
+            matches!(
+                ability,
+                AbilityDef::Static(StaticAbility {
+                    filter: Filter::This,
+                    modifier: Modifier::Sneak(_),
+                    condition: None,
+                    ..
+                })
+            )
+        }) {
+            keywords = keywords.union(KeywordSet::SNEAK);
+        }
+        keywords
     }
 
     /// Every keyword printed anywhere on the card.
@@ -375,6 +440,19 @@ impl CardDef {
         (0..self.faces.len().max(1))
             .map(|f| self.keywords_for_face(f))
             .fold(self.keywords, KeywordSet::union)
+    }
+
+    /// Returns the combined per-extra-target mana cost (`CR 207.2c` Strive /
+    /// `CR 601.2f`) printed on `face`, if any.
+    #[must_use]
+    pub fn per_extra_target_cost(&self, face: usize) -> Option<ManaCost> {
+        let mut out: Option<ManaCost> = None;
+        for ability in self.abilities_for_face(face) {
+            if let Some(cost) = ability.per_extra_target_cost() {
+                out = Some(out.map_or(cost, |acc| acc.combine(&cost)));
+            }
+        }
+        out
     }
 }
 
@@ -1174,6 +1252,22 @@ pub enum EnterModifier {
     /// entering permanent the suspected designation as it enters the
     /// battlefield. Appended to preserve replay identities.
     Suspected,
+    /// "Sunburst" (CR 702.44a–d, CR 614.1c, CR 614.16): if this object is
+    /// entering from the stack as a resolving spell and one or more colored
+    /// mana was spent to cast it, it enters with a +1/+1 counter on it for each
+    /// color of mana spent to cast it if entering as a creature (ignoring Layer
+    /// 4 type-changing effects), or a charge counter on it for each color of
+    /// mana spent to cast it otherwise. Repeat for multiple instances
+    /// (CR 702.44d). Appended to preserve replay identities.
+    Sunburst,
+    /// "Tribute N" (CR 702.104a–b, CR 614.1c, CR 614.16): as this creature
+    /// enters the battlefield, choose an opponent; that player may have this
+    /// creature enter with `N` additional +1/+1 counters on it. When they do,
+    /// records `Rider::TributePaid` on the permanent so
+    /// [`crate::Condition::TributeWasNotPaid`] evaluates `false`; when they
+    /// decline (or no opponent exists), [`crate::Condition::TributeWasNotPaid`]
+    /// evaluates `true`. Appended to preserve replay identities.
+    Tribute(u16),
 }
 
 impl EnterModifier {
@@ -1197,6 +1291,34 @@ impl EnterModifier {
             filter: &Filter::CREATURE,
             factor: n,
         }
+    }
+
+    /// Ravenous's static entry replacement (CR 702.156a): "This permanent
+    /// enters with X +1/+1 counters on it." Pair with
+    /// [`AbilityDef::ravenous_draw`] and [`KeywordSet::RAVENOUS`].
+    #[must_use]
+    pub const fn ravenous() -> Self {
+        Self::WithCounters {
+            kind: crate::effect::CounterKind::P1P1,
+            amount: crate::effect::Amount::X,
+        }
+    }
+
+    /// Graft N's static entry replacement (CR 702.58a): "This permanent enters
+    /// with N +1/+1 counters on it." Pair with [`AbilityDef::graft_trigger`]
+    /// and [`KeywordSet::GRAFT`].
+    #[must_use]
+    pub const fn graft(n: u32) -> Self {
+        Self::WithCounters {
+            kind: crate::effect::CounterKind::P1P1,
+            amount: crate::effect::Amount::Fixed(n),
+        }
+    }
+
+    /// `Tribute N` (CR 702.104a).
+    #[must_use]
+    pub const fn tribute(n: u16) -> Self {
+        Self::Tribute(n)
     }
 }
 
@@ -1310,6 +1432,25 @@ keywords! {
     RETRACE = 86, "Retrace (CR 702.81).";
     RIOT = 87, "Riot (CR 702.136).";
     UNLEASH = 88, "Unleash (CR 702.98).";
+    UMBRA_ARMOR = 91, "Umbra armor (CR 702.89).";
+    MOBILIZE = 92, "Mobilize (CR 702.181).";
+    TRANSMUTE = 96, "Transmute (CR 702.53).";
+    SCAVENGE = 97, "Scavenge (CR 702.97).";
+    FIREBENDING = 101, "Firebending (CR 702.189).";
+    SNEAK = 107, "Sneak (CR 702.190).";
+    SUNBURST = 108, "Sunburst (CR 702.44).";
+    RAVENOUS = 109, "Ravenous (CR 702.156).";
+    GRAFT = 110, "Graft (CR 702.58).";
+    OUTLAST = 111, "Outlast (CR 702.107).";
+    AFTERLIFE = 112, "Afterlife (CR 702.135).";
+    AFFLICT = 113, "Afflict (CR 702.130).";
+    REINFORCE = 114, "Reinforce (CR 702.77).";
+    SPLICE = 116, "Splice (CR 702.47).";
+    AWAKEN = 117, "Awaken (CR 702.113).";
+    CONSPIRE = 118, "Conspire (CR 702.78).";
+    CIPHER = 119, "Cipher (CR 702.99).";
+    CHAMPION = 120, "Champion (CR 702.72).";
+    TRIBUTE = 121, "Tribute (CR 702.104).";
 }
 
 impl KeywordSet {
@@ -1450,6 +1591,26 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::RETRACE, "Retrace"),
     (KeywordSet::RIOT, "Riot"),
     (KeywordSet::UNLEASH, "Unleash"),
+    (KeywordSet::UMBRA_ARMOR, "Umbra armor"),
+    (KeywordSet::MOBILIZE, "Mobilize"),
+    (KeywordSet::TRANSMUTE, "Transmute"),
+    (KeywordSet::SCAVENGE, "Scavenge"),
+    (KeywordSet::FIREBENDING, "Firebending"),
+    (KeywordSet::FREERUNNING, "Freerunning"),
+    (KeywordSet::SNEAK, "Sneak"),
+    (KeywordSet::SUNBURST, "Sunburst"),
+    (KeywordSet::RAVENOUS, "Ravenous"),
+    (KeywordSet::GRAFT, "Graft"),
+    (KeywordSet::OUTLAST, "Outlast"),
+    (KeywordSet::AFTERLIFE, "Afterlife"),
+    (KeywordSet::AFFLICT, "Afflict"),
+    (KeywordSet::REINFORCE, "Reinforce"),
+    (KeywordSet::SPLICE, "Splice"),
+    (KeywordSet::AWAKEN, "Awaken"),
+    (KeywordSet::CONSPIRE, "Conspire"),
+    (KeywordSet::CIPHER, "Cipher"),
+    (KeywordSet::CHAMPION, "Champion"),
+    (KeywordSet::TRIBUTE, "Tribute"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

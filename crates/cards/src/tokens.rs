@@ -25,7 +25,7 @@ use baylee_cards_dsl::{
     AbilityDef, Effect, Filter, KeywordSet, Modifier, PtCount, TokenDef, Trigger, activated, cost,
     mana_ability, static_ability, triggered,
 };
-pub use baylee_cards_dsl::{INCUBATOR_TOKEN, PHYREXIAN_TOKEN};
+pub use baylee_cards_dsl::{INCUBATOR_TOKEN, PHYREXIAN_TOKEN, SPIRIT_X_X_WHITE};
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{artifact, creature};
 use baylee_core::mana::ManaColor;
@@ -585,7 +585,11 @@ pub static ZOMBIE_2_2_BLACK: TokenDef = TokenDef {
 /// the order ids were assigned in, whichever half an entry came from, and
 /// `cargo xtask codegen` may only append to it.
 pub use crate::generated_tokens::ALL;
+pub use crate::generated_tokens::SPIRIT_1_1_WHITE_BLACK_FLYING;
+pub use crate::generated_tokens::WARRIOR_1_1_RED;
 
+/// Stable reserved token id for [`SPIRIT_X_X_WHITE`] (`CR 701.63a`).
+pub const SPIRIT_X_X_WHITE_ID: u16 = u16::MAX - 4;
 /// Stable reserved token id for [`INCUBATOR_TOKEN`] (`CR 111.10i`, `CR 701.53b`).
 pub const INCUBATOR_TOKEN_ID: u16 = u16::MAX - 3;
 /// Stable reserved token id for [`PHYREXIAN_TOKEN`] (`CR 111.10i`, `CR 701.53b`).
@@ -594,6 +598,9 @@ pub const PHYREXIAN_TOKEN_ID: u16 = u16::MAX - 2;
 /// The stable id of a central token (its index in [`ALL`]).
 #[must_use]
 pub fn token_id(token: &TokenDef) -> u16 {
+    if std::ptr::eq(token, &SPIRIT_X_X_WHITE) {
+        return SPIRIT_X_X_WHITE_ID;
+    }
     if std::ptr::eq(token, &INCUBATOR_TOKEN) {
         return INCUBATOR_TOKEN_ID;
     }
@@ -610,6 +617,7 @@ pub fn token_id(token: &TokenDef) -> u16 {
 #[must_use]
 pub fn by_token_id(id: u16) -> Option<&'static TokenDef> {
     match id {
+        SPIRIT_X_X_WHITE_ID => Some(&SPIRIT_X_X_WHITE),
         INCUBATOR_TOKEN_ID => Some(&INCUBATOR_TOKEN),
         PHYREXIAN_TOKEN_ID => Some(&PHYREXIAN_TOKEN),
         _ => ALL.get(id as usize).copied(),

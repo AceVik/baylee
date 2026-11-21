@@ -620,7 +620,19 @@ pub(super) fn resume_yes_no_inner(
     res: &mut Resolution,
     answer: bool,
 ) -> Flow {
+    if let Some(AwaitingOp::Endure {
+        source,
+        controller,
+        count,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        super::token_choices::finish_endure(state, res, answer, source, controller, count);
+        res.pc += 1;
+        return run(state, res);
+    }
     if let Some(flow) = super::coin_stakes::answer(state, res, answer)
+        .or_else(|| super::clash::resume_bottom(state, res, answer))
         .or_else(|| super::search::resume_consent(state, res, answer))
         .or_else(|| resume_selected_commander(state, res, answer))
         .or_else(|| graveyard_choice::resume_commander(state, res, answer))
@@ -789,7 +801,8 @@ pub(super) fn resume_yes_no_inner(
         };
         if step == 0 {
             if answer {
-                let options = chosen::options(state, asked, filter, asked, res.source);
+                let options =
+                    chosen::sacrifice_options(state, asked, filter, res.controller, res.source);
                 if options.len() >= usize::from(count) {
                     res.awaiting = Some(AwaitingOp::AnyPlayerSacrificeOrDamage {
                         asked,

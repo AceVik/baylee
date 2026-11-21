@@ -152,6 +152,15 @@ pub enum CastModeKind {
     /// face's mana cost plus discarding a land card, and returns to the
     /// graveyard normally on resolution or counter.
     Retrace,
+    /// Cast any time you could cast an instant during your declare blockers step
+    /// for its sneak cost and returning an unblocked creature you control to its
+    /// owner's hand (CR 702.190a–b): if a permanent spell, enters tapped and
+    /// attacking the same player, planeswalker, or battle.
+    Sneak,
+    /// Cast for the spell's awaken alternative cost (CR 702.113a): adds target
+    /// land you control, puts N +1/+1 counters on that land, and makes it a 0/0
+    /// Elemental creature with haste that's still a land.
+    Awaken,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -461,6 +470,20 @@ pub enum ChoicePrompt {
         /// +1/+1 counters per devoured permanent (`0` means `count * count`).
         factor: u8,
     },
+    /// Choose a creature you control to become your Ring-bearer when the Ring
+    /// tempts you (`CR 701.54a`). Mandatory (`min == 1, max == 1`) whenever you
+    /// control at least one creature.
+    ChooseRingBearer,
+    /// Splice (CR 702.47a–c): reveal a card with splice from your hand and pay
+    /// its splice cost to add its rules text to the spell being cast. Choosing
+    /// none finishes splicing.
+    Splice,
+    /// Cipher (CR 702.99b): exile the resolving spell card encoded on a
+    /// creature you control. Choosing none declines to encode it.
+    CipherEncode,
+    /// Champion (CR 702.72a): exile another matching permanent you control, or
+    /// choose none and sacrifice this permanent.
+    Champion,
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).
@@ -951,6 +974,48 @@ pub enum YesNoPrompt {
         /// The entering permanent.
         permanent: ObjectId,
     },
+    /// Choose whether to pay the first (`true`) or second (`false`) branch of
+    /// the `index`-th [`baylee_cards_dsl::CostPart::Either`] when both branches
+    /// are payable (`CR 118.8`).
+    ChooseFirstCostBranch {
+        /// Zero-based index among `CostPart::Either` parts of this cast or activation.
+        index: u8,
+    },
+    /// Begin the game with this card from your opening hand on the battlefield
+    /// (*Leyline* cycle, `CR 103.6a`)?
+    OpeningHandBattlefield,
+    /// Reveal this card from your opening hand to register its first-upkeep
+    /// delayed triggered ability (*Chancellor* cycle / *Sphinx of Foresight*,
+    /// `CR 103.6b`)?
+    OpeningHandReveal,
+    /// Have `attacker` assign its combat damage as though it weren't blocked
+    /// (`Modifier::MayAssignCombatDamageAsThoughUnblocked`, CR 510.1c)?
+    AssignDamageAsThoughUnblocked {
+        /// The blocked attacking creature assigning combat damage.
+        attacker: baylee_core::ids::ObjectId,
+    },
+    /// Endure N (CR 701.63a): put `0` (`N`) +1/+1 counters on this permanent
+    /// instead of creating an `N/N` white Spirit creature token?
+    Endure(u32),
+    /// Clash (CR 701.30c): put the revealed top card of your library on the
+    /// bottom of your library? Answering yes puts it on the bottom; answering
+    /// no leaves it on top.
+    ClashBottom {
+        /// The revealed top card of the deciding player's library.
+        card: baylee_core::ids::ObjectId,
+    },
+    /// Conspire (CR 702.78a): tap two untapped creatures you control that share
+    /// a color with this spell as an additional cost to copy it when cast?
+    Conspire,
+    /// Tribute N (CR 702.104a): asked of the chosen opponent as `permanent`
+    /// enters — have `permanent` enter with `counters` additional +1/+1
+    /// counters on it?
+    Tribute {
+        /// The creature entering the battlefield with tribute.
+        permanent: baylee_core::ids::ObjectId,
+        /// Number of +1/+1 counters placed if tribute is paid.
+        counters: u16,
+    },
 }
 
 impl YesNoPrompt {
@@ -1008,6 +1073,8 @@ impl YesNoPrompt {
             | Self::Casualty { .. }
             | Self::Gift { .. }
             | Self::Unleash { .. }
+            | Self::AssignDamageAsThoughUnblocked { .. }
+            | Self::Endure(_)
             | Self::KickerOption { .. }
             | Self::Buyback { .. }
             | Self::ManaAnyType
@@ -1023,6 +1090,11 @@ impl YesNoPrompt {
             | Self::RevealHandForGuess { .. }
             | Self::ContinueRemovingCounters { .. }
             | Self::SkipTurn { .. }
+            | Self::OpeningHandBattlefield
+            | Self::OpeningHandReveal
+            | Self::ClashBottom { .. }
+            | Self::Conspire
+            | Self::Tribute { .. }
             | Self::Generic => true,
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a
@@ -1041,6 +1113,7 @@ impl YesNoPrompt {
             | Self::Discover { .. }
             | Self::Madness { .. }
             | Self::Riot { .. }
+            | Self::ChooseFirstCostBranch { .. }
             | Self::GuessNamedCardInHand { .. } => false,
         }
     }

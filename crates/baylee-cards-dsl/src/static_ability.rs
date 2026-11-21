@@ -1258,6 +1258,40 @@ pub enum Modifier {
         /// Which recipients' incoming damage is increased.
         recipients: DamageRecipients,
     },
+    /// Affected creatures assign combat damage equal to their toughness rather
+    /// than their power (Doran, the Siege Tower, Assault Formation, Arcades,
+    /// Belligerent Brontodon; CR 510.1c). Appended to preserve replay
+    /// identities.
+    AssignCombatDamageUsingToughness,
+    /// Affected creatures assign combat damage equal to their toughness rather
+    /// than their power as long as their toughness is greater than their power
+    /// (Huetsli, Rasaad yn Bashir, Baldin; CR 510.1c). Appended to preserve
+    /// replay identities.
+    AssignCombatDamageUsingToughnessIfToughnessGreater,
+    /// Affected attacking creatures may assign their combat damage as though
+    /// they weren't blocked (Thorn Elemental, Rhox, Siege Behemoth; CR 510.1c).
+    /// Appended to preserve replay identities.
+    MayAssignCombatDamageAsThoughUnblocked,
+    /// Named players can't gain life (Erebos, Tibalt, Screaming Nemesis,
+    /// Rampaging Ferocidon; CR 119.7, CR 614.17c). Appended to preserve replay
+    /// identities.
+    PlayersCantGainLife(crate::effect::PlayerRel),
+    /// Affected permanents can't be sacrificed — either to spells or abilities
+    /// opponents control (`opponents_only: true`, Sigarda, Tajuru Preserver) or
+    /// to any cost, effect, or state-based action (`opponents_only: false`,
+    /// Assault Suit) (CR 701.21). Appended to preserve replay identities.
+    CantBeSacrificed {
+        /// When `true`, only opponents' spells and abilities are forbidden from
+        /// causing the permanent's controller to sacrifice it.
+        opponents_only: bool,
+    },
+    /// Sneak [cost] (CR 702.190a–b): any time you could cast an instant during
+    /// your declare blockers step, you may cast this spell by paying `cost` and
+    /// returning an unblocked creature you control to its owner's hand rather
+    /// than paying its mana cost; if it is a permanent spell, it enters tapped
+    /// and attacking the same player, planeswalker, or battle. Appended to
+    /// preserve replay identities.
+    Sneak(crate::cost::Cost),
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1422,6 +1456,7 @@ impl Modifier {
             | Self::GrantStatic { .. }
             | Self::GrantsFlashback
             | Self::GrantsEscape(_)
+            | Self::Sneak(_)
             | Self::CantActivateArtifacts
             // CR 613.1f is the whole argument for these two: "Layer 6:
             // Ability-adding effects, keyword counters, ability-removing
@@ -1604,7 +1639,12 @@ impl Modifier {
             | Self::PreventNoncombatDamageFrom(_)
             | Self::PreventNoncombatDamageToPlayers { .. }
             | Self::MultiplyDamageFrom { .. }
-            | Self::AddDamageFrom { .. } => Layer::Text,
+            | Self::AddDamageFrom { .. }
+            | Self::AssignCombatDamageUsingToughness
+            | Self::AssignCombatDamageUsingToughnessIfToughnessGreater
+            | Self::MayAssignCombatDamageAsThoughUnblocked
+            | Self::PlayersCantGainLife(_)
+            | Self::CantBeSacrificed { .. } => Layer::Text,
         }
     }
 }
@@ -1645,6 +1685,23 @@ pub struct StaticAbility {
     /// it stops (`sync_static_effects`), so the projection sees a table that
     /// changed rather than a filter that reads the source.
     pub condition: Option<crate::Condition>,
+}
+
+impl StaticAbility {
+    /// Sneak [cost] (CR 702.190a–b): static ability functioning while the spell
+    /// is on the stack, allowing it to be cast during your declare blockers
+    /// step at instant speed by paying `cost` and returning an unblocked
+    /// creature you control to its owner's hand.
+    #[must_use]
+    pub const fn sneak(cost: crate::cost::Cost) -> Self {
+        Self {
+            source_zone: crate::ZoneRef::Stack,
+            layer: Layer::Ability,
+            filter: Filter::This,
+            modifier: Modifier::Sneak(cost),
+            condition: None,
+        }
+    }
 }
 
 /// How long a created continuous effect lasts.
@@ -1849,6 +1906,16 @@ pub enum ReplacementRule {
     /// battlefield with a luck counter on it. If you do, exile a card from
     /// your hand" (Gemstone Caverns, CR 103.6a).
     OpeningHandBattlefieldWithLuckCounterExilingHandCard,
+    /// "If this card is in your opening hand, you may begin the game with it on
+    /// the battlefield" (*Leyline* cycle, CR 103.6a). Available to every seat,
+    /// including the starting player. Appended to preserve replay identities.
+    OpeningHandOnBattlefield,
+    /// "You may reveal this card from your opening hand. If you do, at the
+    /// beginning of the first upkeep, [effects]" (*Chancellor* cycle, *Sphinx
+    /// of Foresight*, CR 103.6b). Reveals the card until the first turn begins
+    /// (at most once per card) and registers a first-upkeep delayed trigger.
+    /// Appended to preserve replay identities.
+    OpeningHandRevealAtFirstUpkeep(&'static [crate::effect::Effect]),
 }
 
 #[cfg(test)]
@@ -1985,6 +2052,7 @@ mod tests {
                 Layer::Ability,
             ),
             (Modifier::GrantsFlashback, Layer::Ability),
+            (Modifier::Sneak(crate::cost::Cost::FREE), Layer::Ability),
             (Modifier::CantActivateArtifacts, Layer::Ability),
             // The two that moved. Layer 6 by CR 613.1f, not layer 3.
             (Modifier::ProtectionFrom(&Filter::CREATURE), Layer::Ability),
@@ -2257,6 +2325,13 @@ mod tests {
             Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker,
             Modifier::CantPhaseOut,
             Modifier::Goaded,
+            Modifier::AssignCombatDamageUsingToughness,
+            Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater,
+            Modifier::MayAssignCombatDamageAsThoughUnblocked,
+            Modifier::PlayersCantGainLife(crate::PlayerRel::EachOpponent),
+            Modifier::CantBeSacrificed {
+                opponents_only: true,
+            },
         ] {
             assert_eq!(
                 modifier.layer(),

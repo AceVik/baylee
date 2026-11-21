@@ -297,8 +297,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let owner = self.state.object(card).and_then(|o| {
                     (o.zone == crate::zone::Zone::Battlefield
                         && o.version == version
-                        && o.controller == controller)
-                        .then_some(o.owner)
+                        && o.controller == controller
+                        && self.state.can_be_sacrificed(card, Some(controller)))
+                    .then_some(o.owner)
                 });
                 if owner.is_some() {
                     let _ = self

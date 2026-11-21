@@ -300,6 +300,14 @@ pub(super) fn cast_copy_triggers(
         // CR 702.40b: each instance of storm on a spell triggers separately.
         let storm_instances =
             crate::layers::keyword_instances(state, spell, baylee_cards_dsl::KeywordSet::STORM);
+        let conspire_copies = spell
+            .riders
+            .iter()
+            .filter_map(|r| match *r {
+                crate::object::Rider::ConspirePaid(n) => Some(usize::from(n)),
+                _ => None,
+            })
+            .sum::<usize>();
         for copies in std::iter::repeat_n(
             before,
             usize::try_from(storm_instances).unwrap_or(usize::MAX),
@@ -310,7 +318,9 @@ pub(super) fn cast_copy_triggers(
                 .riders
                 .contains(&crate::object::Rider::CasualtyPaid)
                 .then_some(1_u32),
-        ) {
+        )
+        .chain(std::iter::repeat_n(1_u32, conspire_copies))
+        {
             collected.push(PendingTrigger {
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(spell.version),
@@ -1051,4 +1061,244 @@ pub(super) fn monarch_triggers(
             _ => {}
         }
     }
+}
+
+static RING_TIER_2_LOOT: &[baylee_cards_dsl::Effect] = &[
+    baylee_cards_dsl::Effect::DrawCards {
+        amount: baylee_cards_dsl::Amount::Fixed(1),
+    },
+    baylee_cards_dsl::Effect::DiscardCount {
+        who: baylee_cards_dsl::PlayerRel::You,
+        count: baylee_cards_dsl::Amount::Fixed(1),
+    },
+];
+
+static RING_TIER_3_SACRIFICE_STEP: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::SacrificeEvent];
+
+static RING_TIER_3_DELAY: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::AtEndOfCombatThisTurn {
+        about: baylee_cards_dsl::TargetSpec::EventObject,
+        effects: RING_TIER_3_SACRIFICE_STEP,
+    }];
+
+static RING_TIER_4_DRAIN: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::LoseLife {
+    amount: baylee_cards_dsl::Amount::Fixed(3),
+    target: baylee_cards_dsl::PlayerRel::EachOpponent,
+}];
+
+/// Inherent emblem triggers from The Ring (`CR 701.54c` tiers 2, 3, and 4).
+pub(super) fn ring_triggers(
+    state: &GameState,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    if !state.players.iter().any(|p| p.ring_temptations >= 2) {
+        return;
+    }
+    let inherent = |controller: PlayerId,
+                    effects: &'static [baylee_cards_dsl::Effect],
+                    event_object| PendingTrigger {
+        text: TextChangeMap::IDENTITY,
+        source_version: None,
+        related_objects: None,
+        grantor: None,
+        event_subject: None,
+        event_ability: None,
+        event_object_identity: None,
+        counter_source_version: None,
+        event_mana: None,
+        event_mana_value: None,
+        event_departure: None,
+        event_amount: None,
+        event_player: None,
+        source: ObjectId::NO_SOURCE,
+        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+        abilities: None,
+        controller,
+        timestamp: 0,
+        event_object,
+        implicit_target: event_object,
+        synthetic_effects: Some(effects),
+        once_per_turn: false,
+        synthetic_target: None,
+        chosen_mode: None,
+        synthetic_condition: None,
+        in_chosen_order: false,
+    };
+    for p in &state.players {
+        if p.has_lost() || p.ring_temptations < 2 {
+            continue;
+        }
+        let is_bearer = |id: ObjectId| {
+            p.ring_bearer == Some(id)
+                || events.iter().any(|e| {
+                    matches!(
+                        &e.event,
+                        GameEvent::ZoneChanged {
+                            object,
+                            from: crate::zone::Zone::Battlefield,
+                            ..
+                        } if *object == id
+                    ) && e
+                        .departure
+                        .as_ref()
+                        .is_some_and(|d| d.was_ring_bearer_of == Some(p.id))
+                })
+        };
+        let mut tier4_players = baylee_core::ids::SeatSet::default();
+        for entry in events {
+            match &entry.event {
+                GameEvent::BecameAttacker { object, .. } if is_bearer(*object) => {
+                    triggers.push(inherent(p.id, RING_TIER_2_LOOT, Some(*object)));
+                }
+                GameEvent::BecameBlocker {
+                    object: blocker,
+                    attacker,
+                } if p.ring_temptations >= 3
+                    && is_bearer(*attacker)
+                    && state.object_or_departed(*blocker).is_some_and(|o| {
+                        o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                    }) =>
+                {
+                    triggers.push(inherent(p.id, RING_TIER_3_DELAY, Some(*blocker)));
+                }
+                GameEvent::DamageDealt {
+                    source: Some(creature),
+                    target: crate::event::DamageTarget::Player(damaged),
+                    is_combat: true,
+                    amount,
+                    ..
+                } if p.ring_temptations >= 4
+                    && *amount > 0
+                    && is_bearer(*creature)
+                    && !tier4_players.contains(*damaged) =>
+                {
+                    tier4_players.insert(*damaged);
+                    triggers.push(inherent(p.id, RING_TIER_4_DRAIN, Some(*creature)));
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+static CIPHER_TRIGGER_EFFECTS: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::CipherCastEncoded];
+
+/// Cipher's granted combat-damage trigger (`CR 702.99b–c`): while an exiled
+/// card with cipher remains encoded on a permanent on the battlefield, whenever
+/// that creature deals combat damage to a player, its controller may copy the
+/// encoded card and cast the copy without paying its mana cost.
+pub(super) fn cipher_triggers(
+    state: &GameState,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    let has_combat_player_damage = events.iter().any(|entry| {
+        matches!(
+            entry.event,
+            GameEvent::DamageDealt {
+                source: Some(_),
+                target: crate::event::DamageTarget::Player(_),
+                amount: 1..,
+                is_combat: true,
+            }
+        )
+    });
+    if !has_combat_player_damage {
+        return;
+    }
+    let encoded = collect_encoded_cipher_cards(state);
+    if encoded.is_empty() {
+        return;
+    }
+    for entry in events {
+        let GameEvent::DamageDealt {
+            source: Some(damager),
+            target: crate::event::DamageTarget::Player(damaged_player),
+            amount: 1..,
+            is_combat: true,
+        } = entry.event
+        else {
+            continue;
+        };
+        let Some(dealer) = state.object_or_departed(damager) else {
+            continue;
+        };
+        if !dealer
+            .characteristics()
+            .types
+            .contains(baylee_core::types::TypeSet::CREATURE)
+        {
+            continue;
+        }
+        let mult = super::times_triggered(state, baylee_cards_dsl::TriggerEventKind::Any, damager);
+        if mult == 0 {
+            continue;
+        }
+        for &(cipher_card, cipher_version, cipher_ts, host, host_version) in &encoded {
+            if host != damager || host_version != dealer.version {
+                continue;
+            }
+            if dealer.characteristics().rules_text_lost
+                || dealer
+                    .characteristics()
+                    .abilities_lost
+                    .is_some_and(|lost_ts| cipher_ts <= u64::from(lost_ts.get()))
+            {
+                continue;
+            }
+            for _ in 0..mult {
+                triggers.push(PendingTrigger {
+                    text: TextChangeMap::IDENTITY,
+                    source_version: Some(dealer.version),
+                    related_objects: None,
+                    grantor: None,
+                    event_subject: None,
+                    event_ability: None,
+                    event_object_identity: Some((cipher_version, 0)),
+                    counter_source_version: None,
+                    event_amount: None,
+                    event_player: Some(damaged_player),
+                    event_mana: None,
+                    event_mana_value: None,
+                    event_departure: None,
+                    source: damager,
+                    ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                    abilities: None,
+                    controller: dealer.controller,
+                    timestamp: dealer.timestamp,
+                    event_object: Some(cipher_card),
+                    implicit_target: None,
+                    synthetic_effects: Some(CIPHER_TRIGGER_EFFECTS),
+                    once_per_turn: false,
+                    synthetic_target: None,
+                    chosen_mode: None,
+                    synthetic_condition: None,
+                    in_chosen_order: false,
+                });
+            }
+        }
+    }
+}
+
+fn collect_encoded_cipher_cards(state: &GameState) -> Vec<(ObjectId, u32, u64, ObjectId, u32)> {
+    let mut encoded = Vec::new();
+    for seat in 0..state.players.len() {
+        let p = PlayerId::new(u8::try_from(seat).expect("seat fits u8"));
+        for &card in state.zones.list(crate::zone::ZoneLocation::Exile(p)) {
+            let Some(obj) = state.object(card) else {
+                continue;
+            };
+            for rider in &obj.riders {
+                if let crate::object::Rider::CipherEncodedOn { host, version } = *rider {
+                    encoded.push((card, obj.version, obj.timestamp, host, version));
+                }
+            }
+        }
+    }
+    encoded
 }

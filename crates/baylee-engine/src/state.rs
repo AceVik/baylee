@@ -40,7 +40,7 @@ mod per_turn;
 mod player_counters;
 mod players;
 mod projection;
-mod reads;
+pub(crate) mod reads;
 mod setup;
 mod supplies;
 #[cfg(test)]
@@ -209,6 +209,18 @@ pub struct Player {
     pub dungeon_room: u8,
     /// Number of dungeons this player has completed this game.
     pub dungeons_completed: u8,
+    /// Number of times The Ring has tempted this player this game (`CR 701.54`).
+    pub ring_temptations: u8,
+    /// The creature currently designated as this player's Ring-bearer (`CR 701.54a`).
+    pub ring_bearer: Option<ObjectId>,
+}
+
+impl GameState {
+    /// Whether `id` is currently any player's Ring-bearer (`CR 701.54a`).
+    #[must_use]
+    pub fn is_ring_bearer(&self, id: ObjectId) -> bool {
+        self.players.iter().any(|p| p.ring_bearer == Some(id))
+    }
 }
 
 impl Player {
@@ -356,6 +368,9 @@ pub enum StateError {
     /// The object does not exist (anymore).
     #[error("no such object: {0}")]
     NoSuchObject(ObjectId),
+    /// A continuous effect forbids sacrificing this permanent (`CR 701.21`).
+    #[error("object cannot be sacrificed: {0}")]
+    CantBeSacrificed(ObjectId),
 }
 
 /// Printed characteristics, shared by every object that prints the same.
@@ -1297,6 +1312,7 @@ impl GameState {
         if self.has_left(player)
             || self.life_total_cant_change(player)
             || (by < 0 && self.cant_lose_life(player))
+            || (by > 0 && self.cant_gain_life(player))
         {
             return;
         }

@@ -258,7 +258,9 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             out[6] = 1.0;
             ch.counters_add += f32::from(*poison);
         }
-        AbilityDef::CopyOnEnter { .. } | AbilityDef::CopyOnEnterUntilEot { .. } => {
+        AbilityDef::CopyOnEnter { .. }
+        | AbilityDef::CopyOnEnterUntilEot { .. }
+        | AbilityDef::Champion { .. } => {
             out[6] = 1.0;
             ch.blink_copy_control += 1.0;
         }
@@ -268,6 +270,19 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             out[7] = 1.0;
             targ = targets.as_ref();
             walk_effects(effects, &mut ch);
+        }
+        AbilityDef::PerExtraTargetCost(cost) => {
+            out[6] = 1.0;
+            out[22] = unit(cost.cmc() as f32, 8.0);
+        }
+        AbilityDef::Splice { cost, .. } => {
+            out[6] = 1.0;
+            encode_cost_into(cost, &mut out[11..22]);
+        }
+        AbilityDef::Awaken { count, cost } => {
+            out[6] = 1.0;
+            encode_cost_into(cost, &mut out[11..22]);
+            ch.counters_add += f32::from(*count);
         }
         AbilityDef::Prepared { .. } | AbilityDef::StartYourEngines | AbilityDef::Unimplemented => {
             out[6] = 1.0;
@@ -335,6 +350,10 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             | CostPart::PayEnergy(_)
             | CostPart::PayEnergyX => dst[7] = 1.0,
             CostPart::PayAttachedManaCost => dst[10] = (dst[10] + 0.5).clamp(0.0, 1.0),
+            CostPart::Either(a, b) => {
+                encode_cost_into(a, dst);
+                encode_cost_into(b, dst);
+            }
         }
     }
 }
@@ -396,7 +415,9 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::InstantCastAfterFirst { .. }
         | Trigger::FirstNoncreatureSpellCast(_)
         | Trigger::SpellCastTargeting { .. }
-        | Trigger::SpellWarped { .. } => {
+        | Trigger::SpellWarped { .. }
+        | Trigger::CommittedCrime { .. }
+        | Trigger::Expended { .. } => {
             dst[6] = 1.0;
         }
         Trigger::StepBegin { .. } | Trigger::StepBeginChosenOpponent { .. } => dst[7] = 1.0,
@@ -408,7 +429,8 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::DrawsExceptFirst(_)
         | Trigger::NthCardDrawnInTurn { .. }
         | Trigger::CoinFlipped { .. }
-        | Trigger::DieRolled { .. } => dst[8] = 1.0,
+        | Trigger::DieRolled { .. }
+        | Trigger::Clashed { .. } => dst[8] = 1.0,
         Trigger::CountersPlaced { .. }
         | Trigger::CountersReach { .. }
         | Trigger::LastCounterRemoved { .. }
@@ -423,6 +445,8 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::GaveGift(_)
         | Trigger::Scried { .. }
         | Trigger::BecomesMonstrous
+        | Trigger::RingTemptsYou { .. }
+        | Trigger::Firebends(_)
         | Trigger::CycledThis
         | Trigger::Cycled { .. } => dst[9] = 1.0,
         _ => dst[8] = 0.5,
@@ -498,10 +522,16 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         | Modifier::PlayersCantPlay(_)
         | Modifier::CantActivate
         | Modifier::ChosenNameCantActivate
-        | Modifier::CantActivateArtifacts => {
+        | Modifier::CantActivateArtifacts
+        | Modifier::PlayersCantGainLife(_)
+        | Modifier::CantBeSacrificed { .. } => {
             ch.counter_spell += 0.5;
         }
-        Modifier::Goaded => {
+        Modifier::Goaded
+        | Modifier::AssignCombatDamageUsingToughness
+        | Modifier::AssignCombatDamageUsingToughnessIfToughnessGreater
+        | Modifier::MayAssignCombatDamageAsThoughUnblocked
+        | Modifier::Sneak(_) => {
             ch.tap_untap += 1.0;
         }
         Modifier::MultiplyDamageFrom { .. } | Modifier::AddDamageFrom { .. } => {
@@ -528,6 +558,12 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
         ReplacementRule::ExileSelfInsteadOfGraveyard
         | ReplacementRule::ExileOpponentsGraveyard { .. } => {
             ch.exile_all_or_gy += 1.5;
+        }
+        ReplacementRule::OpeningHandOnBattlefield => {
+            ch.pump_pt += 0.5;
+        }
+        ReplacementRule::OpeningHandRevealAtFirstUpkeep(effects) => {
+            walk_effects(effects, ch);
         }
         _ => {}
     }

@@ -407,6 +407,10 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         ChoicePrompt::Amplify => Phrase::NounCardsToAmplify,
         ChoicePrompt::Devour { .. } => Phrase::NounCreaturesToDevour,
         ChoicePrompt::ManifestDread => Phrase::NounCardsToManifest,
+        ChoicePrompt::ChooseRingBearer => Phrase::NounCreaturesForRingBearer,
+        ChoicePrompt::Splice => Phrase::NounCardsToSplice,
+        ChoicePrompt::CipherEncode => Phrase::NounCreatureForCipher,
+        ChoicePrompt::Champion => Phrase::NounPermanentToChampion,
         ChoicePrompt::PutIntoHand => Phrase::NounCardsToHand,
         ChoicePrompt::PutOnBottom => Phrase::NounCardsToBottom,
         ChoicePrompt::PlayFromExile => Phrase::NounCardsToPlay,
@@ -832,6 +836,48 @@ const fn gift_ask_phrase(kind: baylee_cards::dsl::GiftKind) -> Phrase {
     }
 }
 
+fn assign_unblocked_line(
+    lang: Lang,
+    attacker: ObjectId,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> String {
+    let text = Phrase::AssignDamageAsThoughUnblocked.text(lang);
+    match name(attacker) {
+        Some(card) => format!("{card} — {text}"),
+        None => text.to_string(),
+    }
+}
+
+fn counted_counter_prompt_line(
+    phrase: Phrase,
+    lang: Lang,
+    kind: baylee_cards_dsl::CounterKind,
+    count: u16,
+) -> String {
+    phrase.fill(
+        lang,
+        &[
+            &count.to_string(),
+            &counter_label_counted(kind, lang, usize::from(count)),
+        ],
+    )
+}
+
+fn tribute_ask_line(lang: Lang, counters: u16) -> String {
+    Phrase::TributeAsk.fill(
+        lang,
+        &[
+            &counters.to_string(),
+            &counter_label_counted(
+                baylee_cards_dsl::CounterKind::P1P1,
+                lang,
+                usize::from(counters),
+            ),
+        ],
+    )
+}
+
+#[allow(clippy::too_many_lines)] // one arm per `YesNoPrompt` variant
 fn yes_no_line(
     lang: Lang,
     question: YesNoPrompt,
@@ -844,7 +890,7 @@ fn yes_no_line(
             Phrase::SacrificeToEnter.fill(lang, &[&count.to_string()])
         }
         YesNoPrompt::EnterTappedForCounters { kind, amount } => {
-            enter_tapped_for_counters_line(lang, kind, amount)
+            counted_counter_prompt_line(Phrase::EnterTappedForCounters, lang, kind, amount)
         }
         YesNoPrompt::PayLifeOrEnterTapped { amount } => {
             Phrase::PayLifeOrTapped.fill(lang, &[&amount.to_string()])
@@ -862,9 +908,24 @@ fn yes_no_line(
         YesNoPrompt::Casualty { min_power } => {
             Phrase::CasualtyAsk.fill(lang, &[&min_power.to_string()])
         }
+        YesNoPrompt::Conspire => Phrase::ConspireAsk.text(lang).to_string(),
+        YesNoPrompt::Tribute { counters, .. } => tribute_ask_line(lang, counters),
         YesNoPrompt::Gift { kind } => gift_ask_phrase(kind).text(lang).to_string(),
         YesNoPrompt::Riot { permanent } => entry_keyword_line(lang, permanent, true, name),
         YesNoPrompt::Unleash { permanent } => entry_keyword_line(lang, permanent, false, name),
+        YesNoPrompt::ChooseFirstCostBranch { .. } => {
+            Phrase::ChooseFirstCostBranchAsk.text(lang).to_string()
+        }
+        YesNoPrompt::OpeningHandBattlefield => {
+            Phrase::OpeningHandBattlefieldAsk.text(lang).to_string()
+        }
+        YesNoPrompt::OpeningHandReveal => Phrase::OpeningHandRevealAsk.text(lang).to_string(),
+        YesNoPrompt::AssignDamageAsThoughUnblocked { attacker } => {
+            assign_unblocked_line(lang, attacker, name)
+        }
+        YesNoPrompt::Endure(n) => {
+            Phrase::EndureAsk.fill_count(lang, usize::try_from(n).unwrap_or(usize::MAX), &[])
+        }
         YesNoPrompt::KickerOption { cost, parts, .. } => {
             Phrase::KickerOptionAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
         }
@@ -915,7 +976,7 @@ fn yes_no_line(
             Phrase::UseDamageClearingReplacement.text(lang).to_string()
         }
         YesNoPrompt::RemoveCountersInsteadOfUntapping { kind, count, .. } => {
-            remove_counters_instead_of_untapping_line(lang, kind, count)
+            counted_counter_prompt_line(Phrase::RemoveCountersInsteadOfUntapping, lang, kind, count)
         }
         YesNoPrompt::ApplyAdditionalCountersNext {
             additional, kind, ..
@@ -928,6 +989,7 @@ fn yes_no_line(
         // spell's target: the answer names both ends, so "no" is not read
         // as "no" = "leave it where it is".
         YesNoPrompt::TopOfLibrary { .. } => Phrase::TopOfLibraryOrBottom.text(lang).to_string(),
+        YesNoPrompt::ClashBottom { .. } => Phrase::ClashPutOnBottom.text(lang).to_string(),
         // "No" is not "nothing": the card still leaves exile, for the hand.
         YesNoPrompt::Discover { .. } => Phrase::CastDiscovered.text(lang).to_string(),
         YesNoPrompt::SkipTurn { .. } => Phrase::SkipTurnToUntap.text(lang).to_string(),
@@ -941,34 +1003,6 @@ fn yes_no_line(
         } => reveal_hand_for_guess_line(lang, statics, guesser, guessed_in_hand),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
-}
-
-fn enter_tapped_for_counters_line(
-    lang: Lang,
-    kind: baylee_engine::object::CounterKind,
-    amount: u16,
-) -> String {
-    Phrase::EnterTappedForCounters.fill(
-        lang,
-        &[
-            &amount.to_string(),
-            &counter_label_counted(kind, lang, usize::from(amount)),
-        ],
-    )
-}
-
-fn remove_counters_instead_of_untapping_line(
-    lang: Lang,
-    kind: baylee_engine::object::CounterKind,
-    count: u16,
-) -> String {
-    Phrase::RemoveCountersInsteadOfUntapping.fill(
-        lang,
-        &[
-            &count.to_string(),
-            &counter_label_counted(kind, lang, usize::from(count)),
-        ],
-    )
 }
 
 fn entry_keyword_line(

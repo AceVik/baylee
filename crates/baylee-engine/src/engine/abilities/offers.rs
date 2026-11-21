@@ -1034,11 +1034,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 object.zone,
                 crate::zone::Zone::Hand | crate::zone::Zone::Command
             );
+            let def = object.card.and_then(|c| self.lookup.card(c.index));
             let priced = elsewhere
-                || object
-                    .card
-                    .and_then(|c| self.lookup.card(c.index))
-                    .is_some_and(casting::has_priced_ways);
+                || def.is_some_and(casting::has_priced_ways)
+                || (self.state.effects.may_change_or_forbid_abilities()
+                    && casting::sneak_cost_for(&self.state, player, card, def, 0).is_some());
             if !priced || self.commanded_card(card) {
                 continue;
             }

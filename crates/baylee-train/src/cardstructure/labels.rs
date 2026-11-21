@@ -100,7 +100,12 @@ fn cards_and_life(v: &str, add: &mut dyn FnMut(bool, &'static str)) {
     );
     add(v.starts_with("Counter"), "counter_spell");
     add(
-        v.contains("CreateToken") || v == "Populate" || v == "Amass" || v == "Incubate",
+        v.contains("CreateToken")
+            || v == "Populate"
+            || v == "Amass"
+            || v == "Incubate"
+            || v == "Mobilize"
+            || v == "Endure",
         "token",
     );
     add(
@@ -138,11 +143,15 @@ fn zones_and_board(v: &str, add: &mut dyn FnMut(bool, &'static str)) {
         v.starts_with("AddMana")
             || v.starts_with("ManaFor")
             || v == "DelayedManaAtNextMain"
-            || v == "ActivateLandsAndTakeMana",
+            || v == "ActivateLandsAndTakeMana"
+            || v == "Firebend",
         "mana",
     );
     add(
-        v.starts_with("Pump") || v.starts_with("SetPT") || v.starts_with("SetSourcePT"),
+        v.starts_with("Pump")
+            || v.starts_with("SetPT")
+            || v.starts_with("SetSourcePT")
+            || v == "RingTemptsYou",
         "pump",
     );
     add(
@@ -155,7 +164,10 @@ fn zones_and_board(v: &str, add: &mut dyn FnMut(bool, &'static str)) {
         "counters",
     );
     add(
-        v.starts_with("Tap") || v.starts_with("Untap") || v.starts_with("ToggleTap"),
+        v.starts_with("Tap")
+            || v.starts_with("Untap")
+            || v.starts_with("ToggleTap")
+            || v.starts_with("Detain"),
         "tap_untap",
     );
     add(v.contains("Sacrifice") || v == "Exploit", "sacrifice");

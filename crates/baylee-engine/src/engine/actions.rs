@@ -528,6 +528,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 };
                 wizard.option = Some(option);
                 wizard.kicked = option == crate::choice::CastModeKind::Kicked;
+                if option == crate::choice::CastModeKind::Awaken
+                    && let Some((_, cost)) = self
+                        .state
+                        .object(wizard.card)
+                        .and_then(|o| o.card)
+                        .and_then(|c| self.lookup.card(c.index))
+                        .and_then(|d| cast_wizard::wave10b::face_awaken(d, wizard.face_index()))
+                {
+                    wizard.awaken_parts = cost.parts;
+                }
                 // CR 601.2b announces the mode and *then* the value of X, in
                 // the same step: choosing how to cast the spell does not
                 // answer what X is. Going to `Targets` here skipped the
@@ -633,7 +643,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     wizard.stage = cast_wizard::WizardStage::Replicate;
                 } else if wizard.stage == cast_wizard::WizardStage::Replicate {
                     wizard.replicated = u8::try_from(n).unwrap_or(u8::MAX);
-                    wizard.stage = cast_wizard::WizardStage::Targets;
+                    wizard.stage = cast_wizard::WizardStage::Splice;
                 } else {
                     wizard.x = n;
                     wizard.stage = if wizard.stage == cast_wizard::WizardStage::KickerX {
@@ -806,7 +816,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 // "Choose a player with the most life or tied" (The Black Gate).
                 if self.resolution.as_ref().is_some_and(|r| {
-                    matches!(r.awaiting, Some(resolve::AwaitingOp::ChoosePlayerFrom))
+                    matches!(
+                        r.awaiting,
+                        Some(
+                            resolve::AwaitingOp::ChoosePlayerFrom
+                                | resolve::AwaitingOp::ClashOpponent { .. }
+                        )
+                    )
                 }) {
                     let mut res = self.resolution.take().expect("player choice suspended");
                     match resolve::resume_chosen_player(&mut self.state, &mut res, chosen) {
@@ -894,6 +910,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.activation_cost_choices.clear();
                 self.activation_x = None;
                 self.activation_phyrexian.clear();
+                self.activation_either_branches.clear();
                 self.activation_second_targets = None;
                 self.activation_target_choice = super::targeting::ActivationTargetChoice::default();
                 self.activation_mode = None;
@@ -1059,6 +1076,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     PlanKind::ChoosePhyrexianLife { .. } => {
                         unreachable!("a Phyrexian symbol is answered via YesNo")
+                    }
+                    PlanKind::ChooseActivationCostBranch { .. } => {
+                        unreachable!("an activation cost branch is answered via YesNo")
                     }
                     PlanKind::TriggerOrder => {
                         unreachable!("an order is answered via Arrange")
@@ -1258,6 +1278,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         if !self.discard_empty_trigger_without_effect(top)
                             && !self.ask_trigger_second_target()
                         {
+                            self.note_crime_if_any(controller, top);
                             self.ask_trigger_division();
                         }
                     }
@@ -1266,6 +1287,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             let req = obj.second_target_req();
                             obj.set_second(targets.into_iter().collect(), req);
                             obj.set_second_players(players.iter().copied().collect());
+                        }
+                        if let Some(ctrl) = self.state.object(on_stack).map(|o| o.controller) {
+                            self.note_crime_if_any(ctrl, on_stack);
                         }
                     }
                     PlanKind::EntryCounters { .. } | PlanKind::EntryTap { .. } => {
@@ -1407,6 +1431,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // untap determination's are.
                     PlanKind::Band { .. }
                     | PlanKind::CombatDamage { .. }
+                    | PlanKind::CombatUnblockedDamage { .. }
                     | PlanKind::CamouflagePiles { .. } => {
                         self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
@@ -1628,6 +1653,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                if let Some(PlanKind::CombatUnblockedDamage { attacker }) = self.pending_plan {
+                    self.pending_plan = None;
+                    self.answer_unblocked_damage(attacker, answer);
+                    return Ok(());
+                }
                 if matches!(self.pending_plan, Some(PlanKind::UntapReplacements(_))) {
                     let Some(PlanKind::UntapReplacements(mut batch)) = self.pending_plan.take()
                     else {
@@ -1640,6 +1670,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // An activation's Phyrexian symbol: yes is 2 life, no is its
                 // mana (CR 107.4f). Nothing is paid yet; the answer is kept
                 // and the activation goes on to its next question.
+                if let Some(PlanKind::ChooseActivationCostBranch {
+                    source,
+                    ability_index,
+                }) = self.pending_plan
+                {
+                    self.pending_plan = None;
+                    self.activation_either_branches.push(answer);
+                    if self
+                        .start_activation(player, source, ability_index, SmallVec::new())
+                        .is_err()
+                    {
+                        self.reverse_activation(player);
+                    }
+                    return Ok(());
+                }
                 if let Some(PlanKind::ChoosePhyrexianLife {
                     source,
                     ability_index,
@@ -2053,6 +2098,47 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.continue_cast_wizard();
                     return Ok(());
                 }
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::EitherCost)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    let face = self.wizard_face(&wizard);
+                    if let (_, Some((first_cost, second_cost))) =
+                        cast_wizard::next_either_cost(face, wizard.cost_choice())
+                    {
+                        let idx = wizard.either_decided;
+                        if answer && idx < 8 {
+                            wizard.either_first_mask |= 1_u8 << idx;
+                        }
+                        let chosen = if answer { first_cost } else { second_cost };
+                        if chosen.mana != baylee_core::mana::ManaCost::ZERO {
+                            wizard.either_pays_mana = true;
+                        }
+                        wizard.either_decided = idx.saturating_add(1);
+                    }
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: conspire yes/no (`CR 702.78a–b`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Conspire)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.conspire_cursor = wizard.conspire_cursor.saturating_add(1);
+                    if answer {
+                        wizard.conspired = wizard.conspired.saturating_add(1);
+                    } else {
+                        wizard.stage = cast_wizard::WizardStage::Targets;
+                    }
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_yes_no(&mut self.state, &mut res, answer) {
                     resolve::Flow::Enter => {
@@ -2125,6 +2211,32 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     wizard.reduction = Some(self.frozen_spell_reduction(&wizard));
                     wizard.stage = cast_wizard::WizardStage::XValue;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: splice cards revealed from hand (`CR 702.47a–c`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Splice)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    if let Some(&card_id) = objects.first()
+                        && let Some(card_obj) = self.state.object(card_id)
+                        && let Some(card_ref) = card_obj.card
+                        && let Some(def) = self.lookup.card(card_ref.index)
+                        && let Some((_, cost)) = cast_wizard::wave10b::splice_ability_for(
+                            def,
+                            usize::from(card_obj.face_index),
+                        )
+                    {
+                        wizard
+                            .spliced
+                            .push((card_id, card_ref.index, card_obj.face_index, cost));
+                    } else {
+                        wizard.stage = cast_wizard::WizardStage::Conspire;
+                    }
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());
@@ -2551,6 +2663,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.activation_x = None;
         self.activation_graveyard = None;
         self.activation_phyrexian.clear();
+        self.activation_either_branches.clear();
         self.activation_second_targets = None;
         self.activation_target_choice = super::targeting::ActivationTargetChoice::default();
         self.activation_mode = None;

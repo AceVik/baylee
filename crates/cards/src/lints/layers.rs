@@ -172,6 +172,10 @@ pub(super) fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], b
         | AbilityDef::Echo { .. }
         | AbilityDef::Unearth { .. }
         | AbilityDef::Encore { .. }
+        | AbilityDef::PerExtraTargetCost(_)
+        | AbilityDef::Splice { .. }
+        | AbilityDef::Awaken { .. }
+        | AbilityDef::Champion { .. }
         | AbilityDef::Replacement(_)
         | AbilityDef::Suspend { .. } => {}
     }

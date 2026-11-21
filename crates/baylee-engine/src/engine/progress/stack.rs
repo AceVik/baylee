@@ -221,16 +221,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let Some(obj) = self.state.object(on_stack) else {
             return TargetLegality::NotAsked;
         };
-        let modal_clauses = (obj.modes != 0)
-            .then(|| {
-                obj.card.and_then(|c| self.lookup.card(c.index)).map(|def| {
-                    crate::casting::modal_target_clauses(
-                        def.abilities_for_face(obj.face_index as usize),
-                        obj.modes,
-                    )
+        let modal_clauses = self.extended_stack_clauses(obj).or_else(|| {
+            (obj.modes != 0)
+                .then(|| {
+                    obj.card.and_then(|c| self.lookup.card(c.index)).map(|def| {
+                        crate::casting::modal_target_clauses(
+                            def.abilities_for_face(obj.face_index as usize),
+                            obj.modes,
+                        )
+                        .into_vec()
+                    })
                 })
-            })
-            .flatten();
+                .flatten()
+        });
         let first_ref = match &modal_clauses {
             Some(clauses) => clauses
                 .get(1)
@@ -796,6 +799,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 .expect("modal trigger mode exists"),
                         )
                     }
+                    Some(AbilityDef::Champion { filter }) => {
+                        vec![Effect::Champion { filter }]
+                    }
                     _ => panic!(
                         "ability object references non-resolvable ability: source {:?} index {}",
                         loc.source, loc.index
@@ -935,7 +941,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let mut modal_initial: Option<crate::resolve::ModalTargetStep> = None;
         let mut modal_steps: Vec<crate::resolve::ModalTargetStep> = Vec::new();
         let mut spell_fx = self
-            .fused_program(&resolution_object)
+            .extended_stack_program(&resolution_object)
+            .map(|(program, targeted, retarget_left, initial, steps)| {
+                modal_initial = initial;
+                modal_steps = steps;
+                (program, targeted, retarget_left)
+            })
+            .or_else(|| self.fused_program(&resolution_object))
             .or_else(|| {
                 self.state
                     .object(top)
@@ -1006,6 +1018,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 None => {
                     spell_fx = Some((vec![Effect::DeliverGift(kind)], false, None));
+                }
+            }
+        }
+        if resolution_object.kind == ObjectKind::Spell
+            && !resolution_object.characteristics().types.is_permanent()
+            && resolution_object
+                .characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::CIPHER)
+        {
+            match &mut spell_fx {
+                Some((program, _, _)) => {
+                    if !program.contains(&Effect::Cipher) {
+                        program.push(Effect::Cipher);
+                    }
+                }
+                None => {
+                    spell_fx = Some((vec![Effect::Cipher], false, None));
                 }
             }
         }
@@ -1746,11 +1776,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     })
                     .filter(|&caster| obj.controller == caster)
             });
+            let sneaked = self
+                .state
+                .object(spell)
+                .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::Sneaked));
             self.a_copy_becomes_a_token(spell);
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Permanent;
             }
-            self.state.set_tapped(spell, false);
+            self.state.set_tapped(spell, sneaked);
             // The common entry queue asks copy and other replacement choices before the move.
             let _ = self.state.move_object(
                 spell,
@@ -1758,6 +1792,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ZonePosition::Top,
                 Cause::Spell,
             );
+            if sneaked && !self.state.entries.contains(spell) {
+                crate::resolve::finish_sneak_enter_attacking(&mut self.state, spell);
+            }
             if let Some(object) = self.state.object_mut(spell) {
                 object
                     .riders

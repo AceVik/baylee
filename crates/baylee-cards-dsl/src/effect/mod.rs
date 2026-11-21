@@ -5057,6 +5057,99 @@ pub enum Effect {
         /// Which permanent(s) stop being suspected.
         target: TargetSpec,
     },
+    /// "The Ring tempts you" (CR 701.54a–d): advances the controller's Ring
+    /// emblem tier (`1..=4`), requires choosing a controlled creature as that
+    /// player's Ring-bearer if they control at least one creature, and emits
+    /// `GameEvent::RingTempted` (even if they control no creatures). Appended
+    /// to preserve replay identities.
+    RingTemptsYou,
+    /// Firebending's resolution effect ("add N {R}. Until end of combat, you
+    /// don't lose this mana as steps and phases end", CR 702.189a–b): adds
+    /// combat-sustained `{R}` mana and emits `GameEvent::PlayerFirebent` for
+    /// [`crate::Trigger::Firebends`]. Appended to preserve replay identities.
+    Firebend(Amount),
+    /// Mobilize N's resolution effect (CR 702.181a): create `amount` tapped and
+    /// attacking 1/1 red Warrior creature tokens ([`crate::WARRIOR_1_1_RED`]),
+    /// and sacrifice them at the beginning of the next end step. Appended to
+    /// preserve replay identities.
+    Mobilize(Amount),
+    /// Detain the object(s) named by `target` (CR 701.35a): until your next
+    /// turn, that permanent can't attack or block and its activated abilities
+    /// can't be activated (including mana abilities). Appended to preserve
+    /// replay identities.
+    Detain {
+        /// Which permanent(s) to detain (`TargetSpec::Object`, `ThisObject`,
+        /// `EventObject`, etc.).
+        target: TargetSpec,
+    },
+    /// Detain every battlefield permanent matching `filter` without targeting
+    /// (CR 701.35a, e.g. Lavinia of the Tenth). Appended to preserve replay
+    /// identities.
+    DetainFilter {
+        /// Permanents detained as this instruction resolves.
+        filter: &'static Filter,
+    },
+    /// Endure N (CR 701.63a–b): if `amount` evaluates to 1 or more, the source
+    /// permanent's controller creates an N/N white Spirit creature token
+    /// ([`crate::SPIRIT_X_X_WHITE`]) unless the source permanent is still on
+    /// the battlefield and they choose to put N +1/+1 counters on it. Appended
+    /// to preserve replay identities.
+    Endure(Amount),
+    /// Clash with an opponent (CR 701.30a–d): if the resolving controller has
+    /// multiple opponents, they choose one; each clashing player reveals the
+    /// top card of their library simultaneously, decides in APNAP order whether
+    /// to put that card on the bottom of their library, moves chosen cards
+    /// simultaneously, and wins the clash iff they revealed a card with a
+    /// strictly greater mana value than all other revealed cards. Executes
+    /// `on_win` if the resolving controller won the clash, and `on_loss`
+    /// otherwise. Appended to preserve replay identities.
+    Clash {
+        /// Instructions executed when the resolving controller wins the clash.
+        on_win: &'static [Effect],
+        /// Instructions executed when the resolving controller does not win.
+        on_loss: &'static [Effect],
+    },
+    /// Create an additional combat phase after the current phase, optionally
+    /// followed by an additional postcombat main phase (CR 500.8; Relentless
+    /// Assault, Seize the Day, Aurelia, Fury of the Horde). Multiple extra
+    /// phases created before the current phase ends occur in LIFO order (most
+    /// recently created first, CR 500.8) while preserving any remaining normal
+    /// phases of the turn afterwards. Appended to preserve replay identities.
+    AdditionalCombatPhase {
+        /// Whether an additional main phase immediately follows the created
+        /// combat phase (`true` for "followed by an additional main phase").
+        followed_by_main_phase: bool,
+    },
+    /// Awaken N's resolution body (CR 702.113a): put `count` +1/+1 counters on
+    /// target land you control and make it a 0/0 Elemental creature with haste
+    /// indefinitely while retaining its land type and subtypes ("It's still a
+    /// land"). Appended to preserve replay identities.
+    AwakenLand {
+        /// Number of +1/+1 counters placed on the targeted land.
+        count: u16,
+    },
+    /// Cipher's spell-resolution instruction (CR 702.99b): if the resolving
+    /// spell is represented by a card, its controller may exile it encoded on a
+    /// creature they control (`ChoicePrompt::CipherEncode`). Appended to
+    /// preserve replay identities.
+    Cipher,
+    /// Cipher's combat-damage trigger body (CR 702.99b–c): while the encoded
+    /// card remains in exile, the controller of the creature that dealt combat
+    /// damage to a player may copy the encoded card and cast the copy without
+    /// paying its mana cost. Appended to preserve replay identities.
+    CipherCastEncoded,
+    /// Champion's ETB trigger body (CR 702.72a): sacrifice this permanent
+    /// unless you exile another permanent you control matching `filter`
+    /// (`ChoicePrompt::Champion`), linking the exiled card to this incarnation
+    /// for [`Self::ReturnChampioned`]. Appended to preserve replay identities.
+    Champion {
+        /// Quality of controlled permanent that may be championed.
+        filter: &'static Filter,
+    },
+    /// Champion's LTB trigger body (CR 702.72a): return the card exiled by this
+    /// permanent's [`Self::Champion`] ability to the battlefield under its
+    /// owner's control. Appended to preserve replay identities.
+    ReturnChampioned,
 }
 
 #[cfg(test)]

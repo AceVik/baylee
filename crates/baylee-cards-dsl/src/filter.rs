@@ -450,6 +450,19 @@ pub enum Filter {
     /// Permanent with the suspected designation on the battlefield
     /// (CR 701.60a–b). Appended to preserve replay identities.
     Suspected,
+    /// Creature on the battlefield with the Ring-bearer designation under its
+    /// controller's control (CR 701.54a–b, CR 701.54e). Appended to preserve
+    /// replay identities.
+    RingBearer,
+    /// Mana value equals the mana value of this ability's or spell's source,
+    /// reading last-known pre-departure characteristics when the source moved
+    /// as a cost (transmute, CR 702.53a). Appended to preserve replay
+    /// identities.
+    SameManaValueAsSource,
+    /// Shares at least one color with this ability's or spell's source
+    /// (conspire, CR 702.78a). Matches nothing when either object is
+    /// colorless. Appended to preserve replay identities.
+    SharesColorWithSource,
 }
 
 /// Zone references for filters (engine zones, DSL view).
@@ -812,6 +825,8 @@ impl Filter {
     /// Either this permanent or the creature currently paired with it via
     /// soulbond ("each of those creatures", CR 702.95a–e).
     pub const SOULBOND_PAIR: Self = Self::Or(&[Self::This, Self::PairedWithSource]);
+    /// Your Ring-bearer (`CR 701.54a–e`), noun first like [`Self::YOUR_CREATURE`].
+    pub const YOUR_RING_BEARER: Self = Self::And(&[Self::RingBearer, Self::ControlledByYou]);
 }
 
 #[cfg(test)]
@@ -866,6 +881,7 @@ mod tests {
             Filter::YOUR_CREATURE_WITH_POWER_4_OR_GREATER,
         ),
         ("SOULBOND_PAIR", Filter::SOULBOND_PAIR),
+        ("YOUR_RING_BEARER", Filter::YOUR_RING_BEARER),
     ];
 
     /// The table above is the file below. Read out of the source for the

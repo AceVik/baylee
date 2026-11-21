@@ -265,6 +265,7 @@ pub(crate) fn options_with_context(
             .filter(|&id| {
                 state.object(id).is_some_and(|o| {
                     o.controller == player
+                        && state.can_be_sacrificed(id, None)
                         && o.characteristics()
                             .subtypes
                             .contains(baylee_core::generated::subtypes::artifact::FOOD)
@@ -324,12 +325,17 @@ pub(crate) fn options_with_context(
     } else {
         state.zones.list(zone).clone()
     };
+    let is_sacrifice = matches!(
+        part,
+        CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
+    );
     listed
         .iter()
         .filter(|id| {
             state.object(**id).is_some_and(|o| {
                 (!controlled || o.controller == player)
                     && (!untapped || !o.status.contains(Status::TAPPED))
+                    && (!is_sacrifice || state.can_be_sacrificed(**id, None))
                     && eval::matches_with_context(filter, state, o, player, context)
             })
         })

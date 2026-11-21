@@ -13,6 +13,8 @@ pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
             EnterModifier::ChooseCounterPerEntryCount(_)
                 | EnterModifier::Amplify(_)
                 | EnterModifier::Devour { .. }
+                | EnterModifier::Sunburst
+                | EnterModifier::Tribute(_)
         )
     }) || state.effects.iter().any(|effect| {
         matches!(
@@ -106,6 +108,23 @@ fn collect_modifier_counters(
                         CounterKind::P1P1,
                         u16::try_from(n).unwrap_or(u16::MAX),
                     ));
+                }
+            }
+            EnterModifier::Sunburst if from_stack => {
+                let colors = prospective
+                    .paid
+                    .as_ref()
+                    .map_or(0, |p| p.colors_spent.len());
+                if colors > 0 {
+                    let is_creature = crate::layers::copiable_values(state, entry.object)
+                        .map_or_else(|| prospective.base.types, |values| values.types)
+                        .contains(baylee_core::types::TypeSet::CREATURE);
+                    let kind = if is_creature {
+                        CounterKind::P1P1
+                    } else {
+                        CounterKind::Charge
+                    };
+                    entry.counters.push((None, kind, u16::from(colors)));
                 }
             }
             _ => {}

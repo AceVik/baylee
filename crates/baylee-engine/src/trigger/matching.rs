@@ -1423,6 +1423,28 @@ fn matches(
             eval::players_for_source(*who, state, you, Some(source))
                 .is_some_and(|seats| seats.contains(giver))
         }
+        (Trigger::CommittedCrime { who, .. }, GameEvent::CommittedCrime { player }) => {
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(player))
+        }
+        (
+            Trigger::Expended { who, threshold },
+            GameEvent::ManaExpended {
+                player,
+                previous,
+                total,
+            },
+        ) => {
+            *previous < *threshold
+                && *total >= *threshold
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
+        (Trigger::Clashed { who, won_only }, GameEvent::Clashed { player, won }) => {
+            (!*won_only || *won)
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
         (
             Trigger::Exploited {
                 exploiter: exploiter_filter,
@@ -1445,6 +1467,15 @@ fn matches(
         ),
         (Trigger::Scried { who }, GameEvent::PlayerScried { player, count }) => {
             *count > 0
+                && eval::players_for_source(*who, state, you, Some(source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
+        (Trigger::RingTemptsYou { who }, GameEvent::RingTempted { player, .. }) => {
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(player))
+        }
+        (Trigger::Firebends(who), GameEvent::PlayerFirebent { player, amount, .. }) => {
+            *amount > 0
                 && eval::players_for_source(*who, state, you, Some(source))
                     .is_some_and(|seats| seats.contains(player))
         }

@@ -278,6 +278,10 @@ impl HeuristicAgent {
             | ChoicePrompt::RevealOrEnterTapped
             | ChoicePrompt::Amplify
             | ChoicePrompt::Devour { .. }
+            | ChoicePrompt::ChooseRingBearer
+            | ChoicePrompt::Splice
+            | ChoicePrompt::CipherEncode
+            | ChoicePrompt::Champion
             | ChoicePrompt::Dredge
             | ChoicePrompt::Untap => worst(min),
             // Separating for this seat's Fact or Fiction: one pile is
@@ -455,6 +459,26 @@ impl HeuristicAgent {
     ) -> Option<bool> {
         Some(match prompt {
             YesNoPrompt::MayDo => self.may_against(theirs, source, context),
+            YesNoPrompt::ClashBottom { card } => {
+                let lands = theirs
+                    .battlefield
+                    .iter()
+                    .filter(|o| {
+                        o.controller == theirs.seat
+                            && o.types.contains(baylee_core::types::TypeSet::LAND)
+                    })
+                    .count();
+                let is_excess_land = lands >= 5
+                    && theirs
+                        .looking_at
+                        .iter()
+                        .find(|o| o.id == card)
+                        .is_some_and(|o| {
+                            o.types.contains(baylee_core::types::TypeSet::LAND)
+                                && !o.types.contains(baylee_core::types::TypeSet::CREATURE)
+                        });
+                !is_excess_land
+            }
             // A pact's debt unpaid loses them the game (CR 724.5: theirs to
             // decide, so this seat's). Their commander stays where it went,
             // and a card of theirs goes to the bottom rather than back as
@@ -473,13 +497,22 @@ impl HeuristicAgent {
             | YesNoPrompt::Bargain
             | YesNoPrompt::Offspring { .. }
             | YesNoPrompt::Casualty { .. }
+            | YesNoPrompt::Conspire
             | YesNoPrompt::Gift { .. }
             | YesNoPrompt::Riot { .. }
             | YesNoPrompt::Unleash { .. }
+            | YesNoPrompt::OpeningHandBattlefield
+            | YesNoPrompt::OpeningHandReveal
+            | YesNoPrompt::AssignDamageAsThoughUnblocked { .. }
             | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }
             | YesNoPrompt::Generic => false,
+            YesNoPrompt::Endure(_) => !self.endures_counters(theirs, context.source),
+            YesNoPrompt::Tribute {
+                permanent,
+                counters,
+            } => !crate::policy::pays_tribute(theirs, permanent, counters),
             YesNoPrompt::RevealHandForGuess {
                 card,
                 face,
@@ -511,6 +544,9 @@ impl HeuristicAgent {
                 baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana)),
                 context,
             ),
+            YesNoPrompt::ChooseFirstCostBranch { index } => {
+                !self.prefers_first_cost_branch(theirs, context, index)
+            }
             YesNoPrompt::PayMana { cost } | YesNoPrompt::PayManaAndLife { cost, .. } => {
                 taxed_against(view, cost, context)
             }
@@ -539,6 +575,12 @@ impl HeuristicAgent {
         let Some(id) = context.source else {
             return false;
         };
+        if let Some(kind) = then.iter().find_map(|effect| match effect {
+            Effect::MoveCounterToEvent { kind } => Some(*kind),
+            _ => None,
+        }) {
+            return !self.moves_counter_to_event(theirs, id, context.event_object, kind);
+        }
         let aim = theirs
             .object(id)
             .and_then(|o| o.targets.first())

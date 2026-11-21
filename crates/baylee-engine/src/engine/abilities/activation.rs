@@ -379,7 +379,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return Ok(());
         }
         let variable_mana = cost.mana.has_variable();
-        let (cost, fixed_mana_cost, additional_life) = locked_price.unwrap_or_else(|| {
+        let (mut cost, mut fixed_mana_cost, additional_life) = locked_price.unwrap_or_else(|| {
             let price = |x| {
                 self.activation_price(
                     player,
@@ -403,6 +403,106 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 },
             )
         });
+        let settled_x = self.activation_x.unwrap_or(0);
+        let splice_either = |price: &mut ActivationPrice,
+                             fixed: &mut baylee_core::mana::ManaCost,
+                             at: usize,
+                             chosen: &Cost| {
+            price.mana = price.mana.combine(&chosen.mana.with_x(settled_x));
+            *fixed = fixed.combine(&chosen.mana.with_x(0));
+            price.parts = price.parts[..at]
+                .iter()
+                .chain(chosen.parts)
+                .chain(&price.parts[at + 1..])
+                .copied()
+                .collect();
+        };
+        let mut applied_eithers = 0_usize;
+        while applied_eithers < self.activation_either_branches.len() {
+            let Some((at, CostPart::Either(a, b))) = cost
+                .parts
+                .iter()
+                .enumerate()
+                .find(|(_, p)| matches!(p, CostPart::Either(_, _)))
+            else {
+                break;
+            };
+            let chosen = if self.activation_either_branches[applied_eithers] {
+                *a
+            } else {
+                *b
+            };
+            splice_either(&mut cost, &mut fixed_mana_cost, at, chosen);
+            applied_eithers += 1;
+        }
+        while let Some((at, CostPart::Either(a, b))) = cost
+            .parts
+            .iter()
+            .enumerate()
+            .find(|(_, p)| matches!(p, CostPart::Either(_, _)))
+        {
+            let (first_cost, second_cost) = (*a, *b);
+            let branch_ok = |sub: &Cost| {
+                let mut probe = cost.clone();
+                let mut probe_fixed = fixed_mana_cost;
+                splice_either(&mut probe, &mut probe_fixed, at, sub);
+                self.activation_affordable(player, source, &probe, &[], additional_life)
+                    || ((variable_mana || sub.mana.has_variable())
+                        && self.can_make_more_mana(player, source, ability_index)
+                        && self.activation_affordable(
+                            player,
+                            source,
+                            &probe.with_mana(baylee_core::mana::ManaCost::ZERO),
+                            &[],
+                            additional_life,
+                        ))
+            };
+            let first_ok = branch_ok(first_cost);
+            let second_ok = branch_ok(second_cost);
+            let branch_idx = u8::try_from(self.activation_either_branches.len()).unwrap_or(u8::MAX);
+            match (first_ok, second_ok) {
+                (true, true) => {
+                    self.activation_target_players = chosen_players;
+                    self.pending_plan = Some(PlanKind::ChooseActivationCostBranch {
+                        source,
+                        ability_index,
+                    });
+                    self.pending = Pending::YesNo {
+                        player,
+                        prompt: crate::choice::YesNoPrompt::ChooseFirstCostBranch {
+                            index: branch_idx,
+                        },
+                        source: self
+                            .state
+                            .printed_ability_list(source)
+                            .and_then(|list| list.entry(ability_index as usize))
+                            .and_then(|entry| entry.provenance.ability_ref())
+                            .or_else(|| {
+                                self.state.object(source).and_then(|o| o.card).map(|card| {
+                                    baylee_core::ids::AbilityRef::new(card.index, ability_index)
+                                })
+                            }),
+                    };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
+                (true, false) => {
+                    self.activation_either_branches.push(true);
+                    splice_either(&mut cost, &mut fixed_mana_cost, at, first_cost);
+                }
+                (false, true) => {
+                    self.activation_either_branches.push(false);
+                    splice_either(&mut cost, &mut fixed_mana_cost, at, second_cost);
+                }
+                (false, false) => {
+                    self.activation_either_branches.clear();
+                    self.activation_either_branches.clear();
+                    self.activation_phyrexian.clear();
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("cannot pay the cost"));
+                }
+            }
+        }
         // Each Phyrexian symbol: 2 life or its mana, announced beside the X
         // (CR 601.2b through CR 602.2b; CR 118.13a). Asked only where both
         // answers still leave a way to pay; where one does, it is taken
@@ -448,6 +548,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 (true, false) => self.activation_phyrexian.push(true),
                 (false, true) => self.activation_phyrexian.push(false),
                 (false, false) => {
+                    self.activation_either_branches.clear();
                     self.activation_phyrexian.clear();
                     self.activation_x = None;
                     return Err(EngineError::IllegalAction("cannot pay the cost"));
@@ -660,6 +761,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.activation_cost_choices.clear();
             self.activation_x = None;
             self.activation_phyrexian.clear();
+            self.activation_either_branches.clear();
             return Err(EngineError::IllegalAction("cannot pay the cost"));
         }
         // CR 601.2h, and the one step of it the player has to take: a cost
@@ -858,6 +960,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let x = self.activation_x.take().unwrap_or(0);
         self.activation_targets_answered = false;
         self.activation_phyrexian.clear();
+        self.activation_either_branches.clear();
         let activated_source_version = self.state.object(source).map(|o| o.version);
         let activated_text = granted.map_or_else(
             || {

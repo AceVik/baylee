@@ -297,6 +297,9 @@ impl HeuristicAgent {
                         .intersects(baylee_core::types::SubtypeSet::ALL_CREATURE),
                 )
             }),
+            Filter::SharesColorWithSource => {
+                this.and_then(|id| Some(object.colors.intersects(view.object(id)?.colors)))
+            }
             // CR 201.2 reads the name an object has now, which is what the
             // view already projects: a clone answers with what it copied,
             // and a face-down permanent has no name to answer with
@@ -451,6 +454,7 @@ impl HeuristicAgent {
             | Filter::CmcExactlyX
             | Filter::CmcAtMostColorsSpent
             | Filter::CmcAtMostSnowManaSpent
+            | Filter::SameManaValueAsSource
             | Filter::AttackingYou
             | Filter::PowerAtMostSourcePower
             | Filter::PowerLessThanSourcePower
@@ -504,6 +508,7 @@ impl HeuristicAgent {
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::NotControlledByReferenceController
         | Filter::LowestManaValueOnBattlefield(_)
+        | Filter::RingBearer
         | Filter::CmcEqualsYourUnspentMana => None,
         }
     }
@@ -693,6 +698,7 @@ impl HeuristicAgent {
                             baylee_cards_dsl::Condition::OpponentLostLifeThisTurn
                                 | baylee_cards_dsl::Condition::Surge
                                 | baylee_cards_dsl::Condition::Prowl
+                                | baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn
                         )
                     )
             })

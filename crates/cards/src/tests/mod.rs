@@ -337,7 +337,9 @@ fn no_card_costs_a_colour_its_identity_leaves_out() {
                 AbilityDef::Activated { cost, .. }
                 | AbilityDef::ActivatedConditional { cost, .. }
                 | AbilityDef::Unearth { cost }
-                | AbilityDef::Encore { cost } => add(&cost.mana),
+                | AbilityDef::Encore { cost }
+                | AbilityDef::Splice { cost, .. }
+                | AbilityDef::Awaken { cost, .. } => add(&cost.mana),
                 AbilityDef::Echo { cost } => add(cost),
                 // `ModalTriggered` carries `SpellMode`s too and is not
                 // read here, which is a statement rather than the

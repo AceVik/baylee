@@ -172,7 +172,13 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::PermanentExerted { object, .. }
         | GameEvent::CardPlotted { object, .. }
         | GameEvent::SpellWarped { object, .. }
-        | GameEvent::BecameMonstrous { object, .. } => f(object),
+        | GameEvent::BecameMonstrous { object, .. }
+        | GameEvent::PlayerFirebent { source: object, .. } => f(object),
+        GameEvent::RingTempted { ring_bearer, .. } => {
+            if let Some(id) = ring_bearer {
+                f(id);
+            }
+        }
         GameEvent::CreatureEnlisted {
             attacker, enlisted, ..
         } => {
@@ -205,6 +211,9 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::GameWon { .. }
         | GameEvent::GiftGiven { .. }
         | GameEvent::PlayerScried { .. }
+        | GameEvent::CommittedCrime { .. }
+        | GameEvent::ManaExpended { .. }
+        | GameEvent::Clashed { .. }
         | GameEvent::DevCommandApplied { .. } => {}
     }
 }

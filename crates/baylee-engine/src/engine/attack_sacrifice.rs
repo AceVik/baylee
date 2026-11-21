@@ -100,6 +100,7 @@ fn options(
                 !reserved.contains(&id)
                     && state.object(id).is_some_and(|permanent| {
                         permanent.controller == player
+                            && state.can_be_sacrificed(id, None)
                             && crate::eval::matches(filter, state, permanent, you, cost.source)
                     })
             })

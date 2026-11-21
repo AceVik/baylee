@@ -616,6 +616,9 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::SharesColorWithExiledWithSource
         | Filter::CmcAtMostSnowManaSpent
         | Filter::Monstrous
+        | Filter::RingBearer
+        | Filter::SameManaValueAsSource
+        | Filter::SharesColorWithSource
         | Filter::CmcEqualsYourUnspentMana => return None,
         Filter::FaceDown => object.status.contains(baylee_view::ObjectStatus::FACE_DOWN),
         Filter::WarpedInExile => object.warped,

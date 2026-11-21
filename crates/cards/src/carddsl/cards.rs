@@ -110,7 +110,9 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             | EnterModifier::IfKicked { .. }
             | EnterModifier::Amplify(_)
             | EnterModifier::Bloodthirst(_)
-            | EnterModifier::Devour { .. } => {
+            | EnterModifier::Devour { .. }
+            | EnterModifier::Sunburst
+            | EnterModifier::Tribute(_) => {
                 s[83] = 1.0;
             }
             EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_) => s[84] = 1.0,

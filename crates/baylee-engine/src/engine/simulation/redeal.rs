@@ -611,6 +611,8 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::MergedTop(object)
         | Rider::MergedInto(object)
         | Rider::PairedWith(object, _)
+        | Rider::CipherEncodedOn { host: object, .. }
+        | Rider::ChampionedBy { host: object, .. }
         | Rider::NinjutsuDefender(
             baylee_core::ids::Defender::Planeswalker(object)
             | baylee_core::ids::Defender::Battle(object),
@@ -638,6 +640,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::Monstrous
         | Rider::Suspected
         | Rider::RiotHaste
+        | Rider::RevealedFromOpeningHand
         | Rider::Suspend
         | Rider::Flashback
         | Rider::ExileInsteadOfGraveyard
@@ -691,6 +694,11 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::SyntheticCondition(_)
         | Rider::WarpedSpell
         | Rider::WarpedInExile(_)
-        | Rider::SnowManaSpent(_) => None,
+        | Rider::SnowManaSpent(_)
+        | Rider::Sneaked
+        | Rider::Spliced { .. }
+        | Rider::Awakened(_)
+        | Rider::ConspirePaid(_)
+        | Rider::TributePaid => None,
     }
 }

@@ -65,6 +65,8 @@ mod tokens;
 mod transforms;
 mod triggers;
 pub(super) mod untap_scope;
+mod wave10a_freerunning_sneak_sunburst_ravenous_graft_endure;
+mod wave10b_splice_awaken_conspire_cipher_champion_tribute;
 mod wave2_bugs_copy_and_dice;
 mod wave3_repeat_choose_color;
 mod wave3_rules;
@@ -80,6 +82,9 @@ mod wave7a_impending_gift_linked_counters;
 mod wave7b_incubate_exploit_craft_evolve_bloodthirst;
 mod wave8a_warp_snow_devour_spree;
 mod wave8b_retrace_scry_monstrosity_suspect_riot_unleash;
+mod wave9a_umbra_mobilize_toughness_detain_locks;
+mod wave9b_crime_expend_clash_addphase_transmute_scavenge;
+mod wave9c_either_openinghand_ring_strive_firebending;
 mod zones;
 
 use super::synthetic::{SyntheticLookup, forest, land_face, walk_past};

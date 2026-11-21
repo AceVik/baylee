@@ -602,8 +602,10 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokenN { .. }
         | Effect::CreateTokenModified { .. }
         | Effect::CreateTokenAttacking { .. }
+        | Effect::Mobilize(_)
         | Effect::CreateTokenThenCounters { .. }
         | Effect::Fabricate { .. }
+        | Effect::Endure(_)
         | Effect::CreateTokenThenAttachSelf { .. }
         | Effect::CreateTokenPtPerCount { .. }
         | Effect::CreateToken { .. }
@@ -1581,7 +1583,8 @@ pub(super) fn exec_immediate(
             let can = |player: PlayerId, delta: i32| {
                 delta == 0
                     || (!state.life_total_cant_change(player)
-                        && (delta > 0 || !state.cant_lose_life(player)))
+                        && (delta >= 0 || !state.cant_lose_life(player))
+                        && (delta <= 0 || !state.cant_gain_life(player)))
             };
             if can(you, theirs - mine) && can(other, mine - theirs) {
                 state.change_life(you, theirs - mine, Cause::Effect);
@@ -2849,6 +2852,23 @@ pub(super) fn exec_immediate(
             state.extra_turns.push_front(you);
             None
         }
+        Effect::AdditionalCombatPhase {
+            followed_by_main_phase,
+        } => {
+            resolve_additional_combat_phase(state, followed_by_main_phase);
+            None
+        }
+        Effect::AwakenLand { count } => {
+            super::wave10b::resolve_awaken_land(state, res, count);
+            None
+        }
+        Effect::Cipher => super::wave10b::resolve_cipher(state, res),
+        Effect::CipherCastEncoded => super::wave10b::resolve_cipher_cast_encoded(state, res),
+        Effect::Champion { filter } => super::wave10b::resolve_champion(state, res, filter),
+        Effect::ReturnChampioned => {
+            super::wave10b::resolve_return_championed(state, res);
+            None
+        }
         Effect::CreateEmblem { abilities } => {
             let name = match state.object(res.source) {
                 Some(o) => o.base.name,
@@ -3265,6 +3285,21 @@ pub(super) fn exec_immediate(
         }
         Effect::Unsuspect { target } => {
             super::wave4_combat::resolve_suspect(state, res, target, false);
+            None
+        }
+        Effect::RingTemptsYou => super::wave4_combat::resolve_ring_tempts_you(state, res),
+        Effect::Firebend(amount) => {
+            let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
+            if n > 0 && !state.has_left(you) {
+                mana::add_combat_mana(state, res, baylee_core::mana::ManaColor::Red, n);
+                state
+                    .journal
+                    .record(crate::event::GameEvent::PlayerFirebent {
+                        player: you,
+                        source: res.source,
+                        amount: n,
+                    });
+            }
             None
         }
         Effect::TapAll { filter } => {
@@ -3906,6 +3941,7 @@ pub(super) fn exec_immediate(
         | Effect::RaidingParty
         | Effect::ChoosePhaseToSkipThisTurn
         | Effect::SoulbondPair { .. }
+        | Effect::Clash { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
@@ -4049,6 +4085,14 @@ pub(super) fn exec_immediate(
         Effect::ReturnCraftedTransformed => reanimation::exec(state, res, op),
         Effect::BecomeRenowned(count) => {
             wave4_combat::become_renowned(state, res, count);
+            None
+        }
+        Effect::Detain { target } => {
+            wave4_combat::detain_target(state, res, target);
+            None
+        }
+        Effect::DetainFilter { filter } => {
+            wave4_combat::detain_filter(state, res, filter);
             None
         }
     }
@@ -4447,6 +4491,7 @@ fn resolution_bound_seats(
     | Modifier::PlayerProtectionFrom { who, .. }
     | Modifier::PlayerProtectionFromEverything { who }
     | Modifier::PlayerProtectionFromOpponents { who }
+    | Modifier::PlayersCantGainLife(who)
     | Modifier::PreventNoncombatDamageToPlayers { who, .. }
     | Modifier::MultiplyDamageFrom {
         recipients: DamageRecipients::Players(who) | DamageRecipients::PlayersOrTheirPermanents(who),
@@ -4463,4 +4508,37 @@ fn resolution_bound_seats(
         return None;
     }
     Some(players_of(who, state, you, res))
+}
+
+fn resolve_additional_combat_phase(state: &mut GameState, followed_by_main_phase: bool) {
+    use crate::turn::Phase;
+    const MAX_EXTRA_COMBAT_PHASES_PER_TURN: u32 = 16;
+    if state.turn.phase == Phase::Ending
+        || state.per_turn.extra_phases_created.0 >= MAX_EXTRA_COMBAT_PHASES_PER_TURN
+    {
+        return;
+    }
+    if !state.per_turn.phase_stack_active.0 {
+        state.per_turn.phase_stack_active.0 = true;
+        match state.turn.phase {
+            Phase::Beginning => {
+                state.per_turn.extra_phases.0.push(Phase::SecondMain);
+                state.per_turn.extra_phases.0.push(Phase::Combat);
+                state.per_turn.extra_phases.0.push(Phase::FirstMain);
+            }
+            Phase::FirstMain => {
+                state.per_turn.extra_phases.0.push(Phase::SecondMain);
+                state.per_turn.extra_phases.0.push(Phase::Combat);
+            }
+            Phase::Combat => {
+                state.per_turn.extra_phases.0.push(Phase::SecondMain);
+            }
+            Phase::SecondMain | Phase::Ending => {}
+        }
+    }
+    state.per_turn.extra_phases_created.0 = state.per_turn.extra_phases_created.0.saturating_add(1);
+    if followed_by_main_phase {
+        state.per_turn.extra_phases.0.push(Phase::SecondMain);
+    }
+    state.per_turn.extra_phases.0.push(Phase::Combat);
 }

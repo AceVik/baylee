@@ -742,6 +742,11 @@ impl GameLog {
             | GameEvent::SpellWarped { .. }
             | GameEvent::PlayerScried { .. }
             | GameEvent::BecameMonstrous { .. }
+            | GameEvent::RingTempted { .. }
+            | GameEvent::PlayerFirebent { .. }
+            | GameEvent::CommittedCrime { .. }
+            | GameEvent::ManaExpended { .. }
+            | GameEvent::Clashed { .. }
             | GameEvent::AttackerUnblocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.
