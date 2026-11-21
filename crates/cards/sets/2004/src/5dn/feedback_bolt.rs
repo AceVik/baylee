@@ -10,7 +10,7 @@ card!(
     oracle_id = "2fc5ebd9-e4af-4e2b-a2cc-a13fe051c5cb",
     scryfall_id = "a370375c-14bf-4381-9359-f2e600867e7c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Feedback Bolt",
         mana_cost = mana!("{4}{R}"),

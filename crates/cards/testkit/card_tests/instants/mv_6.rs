@@ -6,6 +6,7 @@ use super::*;
 mod banishing_stroke;
 mod betrayal_of_flesh;
 mod fireblast;
+mod into_thin_air;
 mod opportunity;
 mod pull_under;
 mod pyrokinesis;

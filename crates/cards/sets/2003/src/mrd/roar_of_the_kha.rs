@@ -13,7 +13,7 @@ card!(
     oracle_id = "9dddb69a-00a3-448b-8f8b-8e50cdd70d57",
     scryfall_id = "dc697a4c-f219-46fd-90f2-63c638cd5ef7",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Roar of the Kha",
         mana_cost = mana!("{1}{W}"),

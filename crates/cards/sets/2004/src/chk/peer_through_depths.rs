@@ -11,7 +11,7 @@ card!(
     oracle_id = "a61f5100-aa38-4996-b23c-3ce4ed25ed09",
     scryfall_id = "df0994df-730c-4947-8248-0aaf97998fa1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Peer Through Depths",
         mana_cost = mana!("{1}{U}"),

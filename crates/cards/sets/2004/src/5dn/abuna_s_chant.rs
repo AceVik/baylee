@@ -13,7 +13,7 @@ card!(
     oracle_id = "2d4721f1-1a49-45aa-99d5-ab8c6f3f3ab6",
     scryfall_id = "b9e0bf63-0399-40d6-9162-4562d7bcdd0e",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Abuna's Chant",
         mana_cost = mana!("{3}{W}"),

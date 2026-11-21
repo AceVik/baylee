@@ -20,7 +20,7 @@ card!(
     oracle_id = "7e46d2c7-59ae-4b0e-a2ec-d0ac1b68d594",
     scryfall_id = "2e01c926-bd9a-4d2f-b9fc-452584d056d9",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stir the Pride",
         mana_cost = mana!("{4}{W}"),

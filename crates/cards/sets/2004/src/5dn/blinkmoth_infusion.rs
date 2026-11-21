@@ -11,7 +11,7 @@ card!(
     oracle_id = "8788f555-8c18-4842-9716-385afae2b9a4",
     scryfall_id = "ccb4d9a3-e7f6-41e2-9545-4682efd71f46",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blinkmoth Infusion",
         mana_cost = mana!("{12}{U}{U}"),

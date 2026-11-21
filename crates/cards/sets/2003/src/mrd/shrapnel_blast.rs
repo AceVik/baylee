@@ -11,7 +11,7 @@ card!(
     oracle_id = "d3c623f3-c7c9-47c0-8096-6dee3267baff",
     scryfall_id = "ae1c5afc-81b4-438a-928e-0b0aefae191a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shrapnel Blast",
         mana_cost = mana!("{1}{R}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "d50f756d-9ab6-4597-86ae-80beb70879ac",
     scryfall_id = "03ab7022-fa0f-42da-b0ca-998cbd0c791c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Magnetic Flux",
         mana_cost = mana!("{2}{U}"),

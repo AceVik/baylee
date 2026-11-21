@@ -11,7 +11,7 @@ card!(
     oracle_id = "c8ca2523-0511-4415-b85e-7834d3cb1d0c",
     scryfall_id = "d870e607-1607-46f3-bc9f-925d0164bcf9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Part the Veil",
         mana_cost = mana!("{3}{U}"),

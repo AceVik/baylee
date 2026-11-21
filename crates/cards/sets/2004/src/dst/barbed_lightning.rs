@@ -13,7 +13,7 @@ card!(
     oracle_id = "f6e1eb52-9f13-425c-8309-1b08ed6557db",
     scryfall_id = "2509482a-68d8-4e94-9d1e-5b069ebdc2e4",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barbed Lightning",
         mana_cost = mana!("{2}{R}"),

@@ -3,12 +3,15 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod abuna_s_chant;
 mod agonizing_demise;
 mod altar_s_light;
 mod ambush;
 mod barreling_attack;
 mod bash_to_bits;
+mod blind_with_anger;
 mod bloodscent;
+mod burden_of_greed;
 mod chastise;
 mod choking_tethers;
 mod clever_concealment;
@@ -32,10 +35,12 @@ mod hagra_mauling;
 mod hindering_touch;
 mod inspiration;
 mod irradiate;
+mod last_word;
 mod lightning_blast;
 mod memory_deluge;
 mod might_of_oaks;
 mod nocturnal_raid;
+mod part_the_veil;
 mod psychic_trance;
 mod psychotic_haze;
 mod quash;
@@ -51,6 +56,7 @@ mod rewind;
 mod scour;
 mod settle_the_wreckage;
 mod sewers_of_estark;
+mod shriveling_rot;
 mod sivvi_s_ruse;
 mod slaughter;
 mod snuff_out;

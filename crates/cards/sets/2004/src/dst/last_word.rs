@@ -12,7 +12,7 @@ card!(
     scryfall_id = "139d2ece-f656-4cac-8d77-b0f083f76c70",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::UNCOUNTERABLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Last Word",
         mana_cost = mana!("{2}{U}{U}"),

@@ -13,7 +13,7 @@ card!(
     oracle_id = "9ce8691a-d9e2-45b2-bda0-2c3891b55307",
     scryfall_id = "25c255d5-9246-4a93-8750-0da8871fb12d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shriveling Rot",
         mana_cost = mana!("{2}{B}{B}"),
