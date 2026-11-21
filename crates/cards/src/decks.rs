@@ -535,7 +535,12 @@ fn leader_from(def: &CardDef) -> Leader {
         && face.types.contains(TypeSet::CREATURE)
         && face.subtypes.contains(&subtypes::creature::TIME_LORD)
         && face.subtypes.contains(&subtypes::creature::DOCTOR)
-        && face.subtypes.iter().filter(|&&t| subtypes::ALL_CREATURE_TYPES.contains(t)).count() == 2;
+        && face
+            .subtypes
+            .iter()
+            .filter(|&&t| subtypes::ALL_CREATURE_TYPES.contains(t))
+            .count()
+            == 2;
     Leader {
         index: def.index,
         eligible_alone: !matches!(def.commander, CommanderRule::NotEligible),
