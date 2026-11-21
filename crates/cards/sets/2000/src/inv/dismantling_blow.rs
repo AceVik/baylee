@@ -11,7 +11,7 @@ card!(
     oracle_id = "300cba5a-adbb-4852-be06-ac00d9d6fd37",
     scryfall_id = "70edc5da-4477-49f6-bbcc-f208fdaae0d3",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Dismantling Blow",
         mana_cost = mana!("{2}{W}"),

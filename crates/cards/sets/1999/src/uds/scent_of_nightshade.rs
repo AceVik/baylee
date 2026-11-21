@@ -12,7 +12,7 @@ card!(
     oracle_id = "2e88f39d-6177-42d9-b756-144219dc0961",
     scryfall_id = "582468a6-0ea9-411e-a694-13977d47c877",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scent of Nightshade",
         mana_cost = mana!("{1}{B}"),

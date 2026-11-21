@@ -16,7 +16,7 @@ card!(
     oracle_id = "1ef07ae5-3b04-45c8-a080-852b84da4fef",
     scryfall_id = "aa9f4787-9b29-4f57-b105-1f9eb4bb8861",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Shoving Match",
         mana_cost = mana!("{2}{U}"),

@@ -11,7 +11,7 @@ card!(
     oracle_id = "7aad0a80-cf7b-4224-8e72-d611e0be3383",
     scryfall_id = "ee32f8ba-3547-4913-a555-d43ee2978ba9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wicked Reward",
         mana_cost = mana!("{1}{B}"),

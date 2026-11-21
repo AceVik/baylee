@@ -13,7 +13,7 @@ card!(
     oracle_id = "b4f7b1eb-6cd4-40f9-b259-3c39291edf27",
     scryfall_id = "48364e19-a3ea-4980-925f-7918e57315f1",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Reverent Mantra",
         mana_cost = mana!("{3}{W}"),
