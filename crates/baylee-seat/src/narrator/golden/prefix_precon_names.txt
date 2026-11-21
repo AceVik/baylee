@@ -47,6 +47,7 @@ Main deck:
   1× Search for Tomorrow
   1× Seer's Sundial
   1× Sharktocrab
+  1× Shipbreaker Kraken
   1× Simic Charm
   1× Simic Growth Chamber
   1× Simic Guildgate
@@ -54,6 +55,7 @@ Main deck:
   1× Simic Sky Swallower
   1× Slinn Voda, the Rising Deep
   1× Sol Ring
+  1× Spitting Image
   1× Sporemound
   1× Swiftfoot Boots
   1× Terramorphic Expanse
@@ -92,4 +94,3 @@ Main deck:
   1× Lamentation
   1× Maelstrom Wanderer
   1× Mass of Mysteries
-  2× Mountain

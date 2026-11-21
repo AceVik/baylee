@@ -289,8 +289,6 @@ pub mod frightful_delusion;
 pub mod frost_breath;
 #[path = "mbs/fuel_for_the_cause.rs"]
 pub mod fuel_for_the_cause;
-#[path = "nph/furnace_scamp.rs"]
-pub mod furnace_scamp;
 #[path = "m12/furyborn_hellkite.rs"]
 pub mod furyborn_hellkite;
 #[path = "isd/gallows_warden.rs"]
@@ -817,8 +815,6 @@ pub mod suture_priest;
 pub mod swiftfoot_boots;
 #[path = "mbs/sword_of_feast_and_famine.rs"]
 pub mod sword_of_feast_and_famine;
-#[path = "nph/sword_of_war_and_peace.rs"]
-pub mod sword_of_war_and_peace;
 #[path = "mbs/tangle_hulk.rs"]
 pub mod tangle_hulk;
 #[path = "mbs/tangle_mantis.rs"]

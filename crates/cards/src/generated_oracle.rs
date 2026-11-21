@@ -24725,10 +24725,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Suspend 5—{G} (Rather than cast this card from your hand, you may pay {G} and exile it with five time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. It has haste.)",
     ],
-    // Durkwood Tracker
-    &[
-        "{1}{G}, {T}: If this creature is on the battlefield, it deals damage equal to its power to target attacking creature. That creature deals damage equal to its power to this creature.",
-    ],
+    &[],
     // Duskrider Peregrine
     &[
         "Flying, protection from black\nSuspend 3—{1}{W} (Rather than cast this card from your hand, you may pay {1}{W} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. It has haste.)",
@@ -32959,10 +32956,7 @@ pub static ORACLE: &[&[&str]] = &[
         "Enchant creature\nEnchanted creature can't attack.\n{2}{W}: Return this Aura to its owner's hand.",
     ],
     &[],
-    // Furnace Scamp
-    &[
-        "Whenever this creature deals combat damage to a player, you may sacrifice it. If you do, this creature deals 3 damage to that player.",
-    ],
+    &[],
     // Geosurge
     &["Add {R}{R}{R}{R}{R}{R}{R}. Spend this mana only to cast artifact or creature spells."],
     // Geth's Verdict
@@ -33176,10 +33170,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Whenever another creature you control enters, you may gain 1 life.\nWhenever a creature an opponent controls enters, you may have that player lose 1 life.",
     ],
-    // Sword of War and Peace
-    &[
-        "Equipped creature gets +2/+2 and has protection from red and from white.\nWhenever equipped creature deals combat damage to a player, this Equipment deals damage to that player equal to the number of cards in their hand and you gain 1 life for each card in your hand.\nEquip {2}",
-    ],
+    &[],
     // Tezzeret's Gambit
     &[
         "({U/P} can be paid with either {U} or 2 life.)\nDraw two cards, then proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
@@ -55420,10 +55411,7 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    // Taborax, Hope's Demise
-    &[
-        "Flying\nTaborax has lifelink as long as it has five or more +1/+1 counters on it.\nWhenever another nontoken creature you control dies, put a +1/+1 counter on Taborax. If that creature was a Cleric, you may draw a card. If you do, you lose 1 life.",
-    ],
+    &[],
     // Tajuru Blightblade
     &["Deathtouch"],
     &[],
@@ -63541,10 +63529,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Kicker {1}{B} (You may pay an additional {1}{B} as you cast this spell.)\nExile target artifact or enchantment. If this spell was kicked, exile target nonland permanent instead.",
     ],
-    // Temporal Firestorm
-    &[
-        "Kicker {1}{W} and/or {1}{U} (You may pay an additional {1}{W} and/or {1}{U} as you cast this spell.)\nChoose up to X creatures and/or planeswalkers you control, where X is the number of times this spell was kicked. Those permanents phase out.\nTemporal Firestorm deals 5 damage to each creature and each planeswalker.",
-    ],
+    &[],
     &[],
     &[],
     &[],

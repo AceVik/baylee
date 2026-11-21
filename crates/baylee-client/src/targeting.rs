@@ -578,7 +578,6 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::BlockingSource
         | Filter::BlockedBySource
         | Filter::SpellTargetingAffected
-        | Filter::InZone(_)
         | Filter::Kicked
         | Filter::CastFromHand
         // Relative to a resolution's reference object, this turn's blocks
@@ -623,6 +622,28 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         Filter::FaceDown => object.status.contains(baylee_view::ObjectStatus::FACE_DOWN),
         Filter::WarpedInExile => object.warped,
         Filter::Suspected => object.suspected,
+        Filter::InZone(zone) => match zone {
+            baylee_cards_dsl::ZoneRef::Battlefield => {
+                view.battlefield.iter().any(|o| o.id == object.id)
+            }
+            baylee_cards_dsl::ZoneRef::Stack => view.stack.iter().any(|o| o.id == object.id),
+            baylee_cards_dsl::ZoneRef::Graveyard => {
+                view.graveyards.iter().flatten().any(|o| o.id == object.id)
+            }
+            baylee_cards_dsl::ZoneRef::Command => {
+                view.command.iter().flatten().any(|o| o.id == object.id)
+            }
+            baylee_cards_dsl::ZoneRef::BattlefieldOrCommand => {
+                view.battlefield.iter().any(|o| o.id == object.id)
+                    || view.command.iter().flatten().any(|o| o.id == object.id)
+            }
+            // Face-down exile, hidden zones, and `NotBattlefield` (phased-out
+            // permanents) stay unknown so the client never withholds a legal cast.
+            baylee_cards_dsl::ZoneRef::Exile
+            | baylee_cards_dsl::ZoneRef::NotBattlefield
+            | baylee_cards_dsl::ZoneRef::Library
+            | baylee_cards_dsl::ZoneRef::Hand => return None,
+        },
     })
 }
 

@@ -303,8 +303,6 @@ pub mod tangled_islet;
 pub mod tattered_apparition;
 #[path = "dmu/tear_asunder.rs"]
 pub mod tear_asunder;
-#[path = "dmu/temporal_firestorm.rs"]
-pub mod temporal_firestorm;
 #[path = "dmu/the_cruelty_of_gix.rs"]
 pub mod the_cruelty_of_gix;
 #[path = "dmc/the_reaver_cleaver.rs"]

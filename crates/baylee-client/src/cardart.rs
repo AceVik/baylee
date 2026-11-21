@@ -43,11 +43,11 @@ pub fn of(index: CardIndex) -> Option<&'static str> {
 ///
 /// Front faces are indexed first and a back face only fills a name no front
 /// face claimed, so a card whose back happens to share another card's printed
-/// name cannot take that name away from it. No name in today's pool is
-/// carried by two cards at all, and
-/// `every_name_the_registry_prints_leads_back_to_a_picture` is what says so
-/// rather than a comment claiming it; the ordering is the answer prepared in
-/// advance for the day one appears, and the front is the one a player means.
+/// name cannot take that name away from it. Where multiple Prepared cards share
+/// the same Prepared spell back face name (e.g. Reality Fracture's `Seed
+/// Suture` and `Peer Review`), the first registered card's secondary face
+/// provides that spell face's art, while live prepared spells also carry
+/// exact [`PublicObject::prepared_spell`] identity.
 #[must_use]
 pub fn wearing(name: &str) -> Option<(CardIndex, u8)> {
     static BY_NAME: OnceLock<HashMap<&'static str, (CardIndex, u8)>> = OnceLock::new();
@@ -246,11 +246,13 @@ mod tests {
     /// only place either is read, so a registry that renumbered under them
     /// would be caught nowhere else.
     ///
-    /// It asserts that every front face answers with its own card, and any
-    /// secondary face that shares a name with another card (such as an SOS
+    /// It asserts that every front face answers with its own card, any
+    /// secondary face colliding with another card's front face (such as an SOS
     /// Prepared spell face like `Emeritus of Ideation // Ancestral Recall`)
-    /// is resolved by [`wearing`]'s front-first pass to the standalone card's
-    /// front face.
+    /// resolves to the standalone front face (`found_face == 0`), and any
+    /// secondary face shared only among secondary faces (such as FRA Prepared
+    /// spell faces `Seed Suture` and `Peer Review`) resolves to a matching
+    /// secondary face name.
     #[test]
     fn every_name_the_registry_prints_leads_back_to_a_picture() {
         let mut checked = 0usize;
@@ -266,9 +268,17 @@ mod tests {
                         face.name
                     );
                 } else if index != card.index {
-                    assert_eq!(found_face, 0);
                     let winner = baylee_cards::by_index(index).expect("winner exists");
-                    assert_eq!(winner.faces[0].name, face.name);
+                    let winner_face = winner
+                        .faces
+                        .get(usize::from(found_face))
+                        .expect("winner face exists");
+                    assert_eq!(winner_face.name, face.name);
+                    if baylee_cards::all()
+                        .any(|c| c.faces.first().is_some_and(|f| f.name == face.name))
+                    {
+                        assert_eq!(found_face, 0, "{} has a standalone front face", face.name);
+                    }
                 }
                 assert!(
                     of(index).is_some(),

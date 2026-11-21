@@ -1147,8 +1147,6 @@ pub mod sweet_gum_recluse;
 pub mod sweet_oblivion;
 #[path = "m21/swift_response.rs"]
 pub mod swift_response;
-#[path = "pznr/taborax_hope_s_demise.rs"]
-pub mod taborax_hope_s_demise;
 #[path = "znr/tajuru_blightblade.rs"]
 pub mod tajuru_blightblade;
 #[path = "znr/tajuru_snarecaster.rs"]

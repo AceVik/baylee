@@ -512,15 +512,16 @@ fn the_prefix_is_byte_stable_and_told_as_the_style_says() {
 /// A Commander deck's prefix (estimated tokens): its full text was 4,685
 /// with every reminder and 4,508 with the reminder text of unparametrised
 /// keywords and basic lands stripped on 2026-10-06 (then 4,791 and 4,563, and
-/// now 5,600 reference ceiling as `Kodama's Reach`, `Meloku the Clouded Mirror`,
+/// now 5,700 reference ceiling as `Kodama's Reach`, `Meloku the Clouded Mirror`,
 /// `Mulldrifter`, `Rampaging Baloths`, `Avenger of Zendikar`, `Beast Within`,
 /// `Explore`, `Khalni Heart Expedition`, `Search for Tomorrow`, `Distant Melody`,
 /// `Ingot Chewer`, `Shriekmaw`, `Growth Spiral`, `Sharktocrab`, `Slinn Voda, the
 /// Rising Deep`, `Verdant Sun's Avatar`, `Elder Deep-Fiend`, `Omnath, Locus of
 /// the Roil`, `Foundation Breaker`, `Belonging`, `Eclipsed Flamekin`,
-/// `Elemental Spectacle`, `Flamebraider`, `Jubilation`, `Lamentation`, and
-/// `Mass of Mysteries` from Reap the Tides / Dance of the Elements entered the
-/// pool), held at 97 per cent of the first; its names alone are held at 800.
+/// `Elemental Spectacle`, `Flamebraider`, `Jubilation`, `Lamentation`,
+/// `Mass of Mysteries`, `Shipbreaker Kraken`, and `Spitting Image` from Reap
+/// the Tides / Dance of the Elements entered the pool), held at 97 per cent of
+/// the first; its names alone are held at 800.
 /// The stripping is the conservative rule (`docs/llm-protocol.md` §"The deck"):
 /// a keyword's reminder after a cost or a number stays.
 #[test]
@@ -529,7 +530,7 @@ fn a_commander_deck_s_prefix_holds_its_budget() {
     let full = estimate_tokens(&prefix(&context, DeckText::Full));
     let names = estimate_tokens(&prefix(&context, DeckText::Names));
     assert!(
-        full * 100 <= 5_600 * 97,
+        full * 100 <= 5_700 * 97,
         "the full prefix costs about {full}"
     );
     assert!(names <= 800, "the names prefix costs about {names}");

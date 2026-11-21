@@ -49,6 +49,11 @@ never a reason to edit a card by hand.
 - Reroute: `scriptgen` emits nonexistent `TargetSpec::ActivatedAbility` instead of `TargetSpec::AbilityOnStack` for `"target activated ability with a single target"`.
 - Redirect, Sideswipe: print `"You may choose/change ... target(s)"` and lower to bare `Effect::ChooseNewTargets` without `MayDo`, tripping `xtask validate`'s optional-clause check.
 - Rikala, Homarid King: corpus script erroneously marks its mandatory upkeep tide-counter trigger optional (`OptionalDecider$ You`), wrapping the entire trigger in `Effect::MayDo`.
+- Sword of War and Peace: `DealsCombatDamageToPlayer` lowers damage recipient as `TargetSpec::EventObject` (which is `None`) instead of `DamagedPlayer`.
+- Furnace Scamp: `DealsCombatDamageToPlayer` lowers sacrifice-then-damage recipient as `TargetSpec::EventObject` instead of `DamagedPlayer`.
+- Temporal Firestorm: `DealDamageEach` is emitted inside `ChooseCard.then` (`max: TimesKicked`) instead of after `ChooseCard`, dealing 0 damage unkicked and duplicated damage when kicked twice.
+- Taborax, Hope's Demise: `MayDo` wraps an unconditional `draw(1)` outside `IfCondition(Cleric)`, letting the controller draw when a non-Cleric dies.
+- Durkwood Tracker: `TargetPower` fight-back lowers `Durkwood Tracker` (`ThisObject` damage) as the source dealing damage to itself instead of the target creature dealing damage to `Durkwood Tracker`.
 
 ## Engine gaps
 

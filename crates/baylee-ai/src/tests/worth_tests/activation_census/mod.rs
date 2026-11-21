@@ -612,7 +612,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Pass E12 (110 generated cards after holding back Rikala, Homarid King,
     // plus Wave 17b Patriarch's Desire stub upgrade) adds 38 non-mana
     // activations: 36 read by the table and 2 remaining contextual.
-    assert_eq!((read, of), (5066, 6478), "activated/loyalty reader census");
+    // Beat 17 this_object_tests audit holds back 5 defective generated cards
+    // (removing Durkwood Tracker's read activation and Sword of War and
+    // Peace's Equip activation: -1 read, -2 total).
+    assert_eq!((read, of), (5065, 6476), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

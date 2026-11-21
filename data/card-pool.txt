@@ -13326,7 +13326,6 @@ Sound the Call
 Aspect of Mongoose
 Corpulent Corpse
 Durkwood Baloth
-Durkwood Tracker
 Duskrider Peregrine
 Endrek Sahr, Master Breeder
 Errant Ephemeron
@@ -13939,7 +13938,6 @@ Conversion Chamber
 Deceiver Exarch
 Fallen Ferromancer
 Forced Worship
-Furnace Scamp
 Geth's Verdict
 Glistener Elf
 Glistening Oil
@@ -17381,7 +17379,6 @@ Silverback Elder
 Sprouting Goblin
 Stall for Time
 Sunbathing Rootwalla
-Temporal Firestorm
 The Cruelty of Gix
 The Reaver Cleaver
 The Weatherseed Treaty
@@ -17791,7 +17788,6 @@ Golem Artisan
 Kuldotha Phoenix
 Vedalken Certarch
 Sword of Feast and Famine
-Sword of War and Peace
 Viridian Betrayers
 Curse of Death's Hold
 Curse of the Bloody Tome
@@ -20026,7 +20022,6 @@ Pursued Whale
 Soulhunter Rakshasa
 Charix, the Raging Isle
 Oblivion's Hunger
-Taborax, Hope's Demise
 Juri, Master of the Revue
 Tormod, the Desecrator
 Colossal Plow

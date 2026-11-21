@@ -111,6 +111,9 @@ Main deck:
   1× Sharktocrab {2}{U}{G} · Creature — Shark Octopus Crab · 4/4
     {2}{G}{U}: Adapt 1. (If this creature has no +1/+1 counters on it, put a +1/+1 counter on it.)
     Whenever one or more +1/+1 counters are put on this creature, tap target creature an opponent controls. That creature doesn't untap during its controller's next untap step.
+  1× Shipbreaker Kraken {4}{U}{U} · Creature — Kraken · 6/6
+    {6}{U}{U}: Monstrosity 4. (If this creature isn't monstrous, put four +1/+1 counters on it and it becomes monstrous.)
+    When this creature becomes monstrous, tap up to four target creatures. Those creatures don't untap during their controllers' untap steps for as long as you control this creature.
   1× Simic Charm {U}{G} · Instant
     Choose one —
     • Target creature gets +3/+3 until end of turn.
@@ -133,6 +136,9 @@ Main deck:
     When Slinn Voda enters, if it was kicked, return all creatures to their owners' hands except for Merfolk, Krakens, Leviathans, Octopuses, and Serpents.
   1× Sol Ring {1} · Artifact
     {T}: Add {C}{C}.
+  1× Spitting Image {4}{G/U}{G/U} · Sorcery
+    Create a token that's a copy of target creature.
+    Retrace
   1× Sporemound {3}{G}{G} · Creature — Fungus · 3/3
     Landfall — Whenever a land you control enters, create a 1/1 green Saproling creature token.
   1× Swiftfoot Boots {2} · Artifact — Equipment
@@ -245,4 +251,3 @@ Main deck:
   1× Mass of Mysteries {W}{U}{B}{R}{G} · Legendary Creature — Elemental · 5/5
     First strike, vigilance, trample
     At the beginning of combat on your turn, another target Elemental you control gains myriad until end of turn. (Whenever it attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)
-  2× Mountain · Basic Land — Mountain

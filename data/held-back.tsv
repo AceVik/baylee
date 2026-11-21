@@ -64,6 +64,11 @@ de6e4aa2-23f1-46e5-a061-05522944e0c6	For the Common Good	lint-gap: target_reuse 
 74a7d880-5a49-412b-af4d-0b4cdb8453ee	Redirect	lint-gap: validate optional clause check does not treat bare Effect::ChooseNewTargets without MayDo as asking "you may" (Pass E11)
 07180afc-5c63-42e0-907b-0ed52f777165	Sideswipe	lint-gap: validate optional clause check does not treat bare Effect::ChooseNewTargets without MayDo as asking "you may" (Pass E11)
 45284633-8aab-4078-ae5c-7b0d75efe2f5	Rikala, Homarid King	reader-gap: corpus script marks mandatory upkeep tide-counter trigger optional (Effect::MayDo) despite no "you may" in Oracle (Pass E12)
+b10ad415-0aae-4d70-82e6-a4055a40cbe4	Sword of War and Peace	reader-gap: DealsCombatDamageToPlayer lowered damage recipient as TargetSpec::EventObject instead of DamagedPlayer (this_object_tests Beat 17 audit)
+d0868a52-5b19-4429-acf1-399f3ae8308c	Furnace Scamp	reader-gap: DealsCombatDamageToPlayer lowered sacrifice-then-damage recipient as TargetSpec::EventObject instead of DamagedPlayer (this_object_tests Beat 17 audit)
+a0f25ffa-0e53-4e38-8001-d595fd2c2045	Temporal Firestorm	reader-gap: DealDamageEach emitted inside ChooseCard.then instead of after ChooseCard so unkicked deals 0 and double-kicked deals 10 (this_object_tests Beat 17 audit)
+955abada-aba2-41c2-96ff-58e3679ad7e5	Taborax, Hope's Demise	reader-gap: MayDo wraps unconditional draw(1) outside IfCondition(Cleric) so non-Cleric death still draws (this_object_tests Beat 17 audit)
+9216c2e5-4cfe-4945-b45f-20a1e0d308a0	Durkwood Tracker	reader-gap: TargetPower fight-back lowered with Durkwood Tracker as damage source instead of target creature (this_object_tests Beat 17 audit)
 
 # Engine gaps
 9843d8a6-bcbf-40c2-8c41-316e97db9c62	Shallow Grave	engine-gap: held-back stub awaiting completion and test

@@ -513,7 +513,7 @@ pub static DOUBLE_FACED: [CardIndex; 243] = [
 ];
 
 /// Cards whose reference printing is uncommon.
-pub static UNCOMMON: [CardIndex; 6895] = [
+pub static UNCOMMON: [CardIndex; 6894] = [
     CardIndex::new(0),
     CardIndex::new(2),
     CardIndex::new(3),
@@ -3018,7 +3018,6 @@ pub static UNCOMMON: [CardIndex; 6895] = [
     CardIndex::new(8410),
     CardIndex::new(8423),
     CardIndex::new(8432),
-    CardIndex::new(8437),
     CardIndex::new(8438),
     CardIndex::new(8443),
     CardIndex::new(8445),
@@ -7412,7 +7411,7 @@ pub static UNCOMMON: [CardIndex; 6895] = [
 ];
 
 /// Cards whose reference printing is rare.
-pub static RARE: [CardIndex; 5330] = [
+pub static RARE: [CardIndex; 5328] = [
     CardIndex::new(5),
     CardIndex::new(7),
     CardIndex::new(8),
@@ -11172,7 +11171,6 @@ pub static RARE: [CardIndex; 5330] = [
     CardIndex::new(20544),
     CardIndex::new(20551),
     CardIndex::new(20556),
-    CardIndex::new(20576),
     CardIndex::new(20588),
     CardIndex::new(20599),
     CardIndex::new(20627),
@@ -11532,7 +11530,6 @@ pub static RARE: [CardIndex; 5330] = [
     CardIndex::new(24243),
     CardIndex::new(24253),
     CardIndex::new(24255),
-    CardIndex::new(24289),
     CardIndex::new(24293),
     CardIndex::new(24301),
     CardIndex::new(24304),
@@ -12746,7 +12743,7 @@ pub static RARE: [CardIndex; 5330] = [
 ];
 
 /// Cards whose reference printing is mythic rare.
-pub static MYTHIC: [CardIndex; 709] = [
+pub static MYTHIC: [CardIndex; 708] = [
     CardIndex::new(6),
     CardIndex::new(10),
     CardIndex::new(14),
@@ -12895,7 +12892,6 @@ pub static MYTHIC: [CardIndex; 709] = [
     CardIndex::new(11635),
     CardIndex::new(11644),
     CardIndex::new(11674),
-    CardIndex::new(11770),
     CardIndex::new(11779),
     CardIndex::new(11797),
     CardIndex::new(11807),
@@ -66123,13 +66119,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
-        CardIndex::new(8437),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
         CardIndex::new(8438),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -81915,13 +81904,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
-        CardIndex::new(11682),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[Some("phyrexian")],
-            is_un: false,
-        },
-    ),
-    (
         CardIndex::new(11683),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[Some("mirran")],
@@ -82294,13 +82276,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(11769),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(11770),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,
@@ -122823,13 +122798,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
-        CardIndex::new(20576),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
         CardIndex::new(20577),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -134381,13 +134349,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(24288),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(24289),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,

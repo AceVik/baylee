@@ -217,8 +217,6 @@ pub mod dryad_sophisticate;
 pub mod dune_brood_nephilim;
 #[path = "tsp/durkwood_baloth.rs"]
 pub mod durkwood_baloth;
-#[path = "tsp/durkwood_tracker.rs"]
-pub mod durkwood_tracker;
 #[path = "tsp/duskrider_peregrine.rs"]
 pub mod duskrider_peregrine;
 #[path = "gpt/earth_surge.rs"]

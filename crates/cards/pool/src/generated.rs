@@ -49884,10 +49884,6 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2018::transmogrifying_wand::CARD,
     ),
     (
-        "9216c2e5-4cfe-4945-b45f-20a1e0d308a0",
-        &baylee_cards_2006::durkwood_tracker::CARD,
-    ),
-    (
         "9218b56d-aaec-482f-99e9-d95d227bfe25",
         &baylee_cards_2011::sheoldred_whispering_one::CARD,
     ),
@@ -51022,10 +51018,6 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "955a7f4d-7100-4d8b-818c-be8651d0ebe6",
         &baylee_cards_2011::mindculling::CARD,
-    ),
-    (
-        "955abada-aba2-41c2-96ff-58e3679ad7e5",
-        &baylee_cards_2020::taborax_hope_s_demise::CARD,
     ),
     (
         "955e4c54-14c4-49bb-94e1-c6cc800c6d91",
@@ -54754,10 +54746,6 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "a0ee4faa-1ab0-4b4f-a564-ee2358500daf",
         &baylee_cards_2021_q3::gavony_silversmith::CARD,
-    ),
-    (
-        "a0f25ffa-0e53-4e38-8001-d595fd2c2045",
-        &baylee_cards_2022_q3::temporal_firestorm::CARD,
     ),
     (
         "a0f29566-bca8-4fe8-86ce-4a051ece6d5a",
@@ -60134,10 +60122,6 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "b0fd6889-20b4-439b-aa97-2e90aca1675a",
         &baylee_cards_2020::pelakka_predation::CARD,
-    ),
-    (
-        "b10ad415-0aae-4d70-82e6-a4055a40cbe4",
-        &baylee_cards_2011::sword_of_war_and_peace::CARD,
     ),
     (
         "b11187ab-f8a8-422b-b550-4495f96de0f2",
@@ -70778,10 +70762,6 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "d07f497e-4cf8-4e12-b17e-e3d58ff9df47",
         &baylee_cards_2017::skittering_heartstopper::CARD,
-    ),
-    (
-        "d0868a52-5b19-4429-acf1-399f3ae8308c",
-        &baylee_cards_2011::furnace_scamp::CARD,
     ),
     (
         "d08725e6-ed9a-4c82-89d4-0dd037c376f6",
@@ -95697,7 +95677,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2006::drifter_il_dal::CARD),
     Some(&baylee_cards_2006::drudge_reavers::CARD),
     Some(&baylee_cards_2006::durkwood_baloth::CARD),
-    Some(&baylee_cards_2006::durkwood_tracker::CARD),
+    None,
     Some(&baylee_cards_2006::duskrider_peregrine::CARD),
     Some(&baylee_cards_2006::empty_the_warrens::CARD),
     Some(&baylee_cards_2006::endrek_sahr_master_breeder::CARD),
@@ -98942,7 +98922,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2011::flameborn_viron::CARD),
     Some(&baylee_cards_2011::forced_worship::CARD),
     None,
-    Some(&baylee_cards_2011::furnace_scamp::CARD),
+    None,
     Some(&baylee_cards_2011::geosurge::CARD),
     Some(&baylee_cards_2011::geth_s_verdict::CARD),
     Some(&baylee_cards_2011::gitaxian_probe::CARD),
@@ -99030,7 +99010,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2011::spire_monitor::CARD),
     Some(&baylee_cards_2011::surge_node::CARD),
     Some(&baylee_cards_2011::suture_priest::CARD),
-    Some(&baylee_cards_2011::sword_of_war_and_peace::CARD),
+    None,
     Some(&baylee_cards_2011::tezzeret_s_gambit::CARD),
     Some(&baylee_cards_2011::thundering_tanadon::CARD),
     Some(&baylee_cards_2011::tormentor_exarch::CARD),
@@ -107836,7 +107816,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2020::sure_footed_infiltrator::CARD),
     None,
     None,
-    Some(&baylee_cards_2020::taborax_hope_s_demise::CARD),
+    None,
     Some(&baylee_cards_2020::tajuru_blightblade::CARD),
     None,
     Some(&baylee_cards_2020::tajuru_snarecaster::CARD),
@@ -111549,7 +111529,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2022_q3::tattered_apparition::CARD),
     None,
     Some(&baylee_cards_2022_q3::tear_asunder::CARD),
-    Some(&baylee_cards_2022_q3::temporal_firestorm::CARD),
+    None,
     None,
     None,
     None,
@@ -121503,7 +121483,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0xe58ec62c316fdfb8;
+pub const POOL_HASH: u64 = 0x6fe493c13756ec71;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

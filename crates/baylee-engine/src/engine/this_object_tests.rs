@@ -328,15 +328,6 @@ fn must_block_attackers_read(text: &str, attacker: &str) -> usize {
         .count()
 }
 
-// Held back in Beat 17; coordinator removes skip after codegen
-const HELD_BACK_BEAT_17: &[baylee_core::ids::CardIndex] = &[
-    baylee_core::generated::index::SWORD_OF_WAR_AND_PEACE,
-    baylee_core::generated::index::FURNACE_SCAMP,
-    baylee_core::generated::index::TEMPORAL_FIRESTORM,
-    baylee_core::generated::index::TABORAX_HOPE_S_DEMISE,
-    baylee_core::generated::index::DURKWOOD_TRACKER,
-];
-
 const THIS_OBJECT_READ: &[&str] = &[
     "ReturnToHand { target: ThisObject }",
     "ReturnToBattlefieldTapped { target: ThisObject }",
@@ -413,10 +404,6 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
     let mut unread = Vec::new();
     let mut seen = 0_usize;
     for def in baylee_cards::all() {
-        // Held back in Beat 17; coordinator removes skip after codegen
-        if HELD_BACK_BEAT_17.contains(&def.index) {
-            continue;
-        }
         let text = format!("{def:?}");
         let total = text.matches("ThisObject").count();
         if total == 0 {
@@ -516,10 +503,6 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
     let mut unread = Vec::new();
     let mut seen = 0_usize;
     for def in baylee_cards::all() {
-        // Held back in Beat 17; coordinator removes skip after codegen
-        if HELD_BACK_BEAT_17.contains(&def.index) {
-            continue;
-        }
         let text = format!("{def:?}");
         let total = text.matches("EventObject").count();
         if total == 0 {

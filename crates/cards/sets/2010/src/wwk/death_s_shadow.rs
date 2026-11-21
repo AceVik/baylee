@@ -11,7 +11,7 @@ card!(
     oracle_id = "e08722b3-0f79-4c82-b298-603e04a37857",
     scryfall_id = "5526ff6e-c079-4ad4-ac8d-5e26ecacf50d",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Death's Shadow",
         mana_cost = mana!("{B}"),
