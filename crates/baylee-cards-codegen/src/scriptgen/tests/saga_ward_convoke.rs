@@ -2084,7 +2084,7 @@ fn wave6_counts_costs_and_peer_hooks() {
     let costs = read(
         "Name:CostEngine\nTypes:Creature\nPT:3/3\n\
          A:AB$ Draw | Cost$ Exert<1/CARDNAME> Discard<0/Hand> | NumCards$ 1\n\
-         A:AB$ GainLife | Cost$ SubCounter<X/CHARGE> | LifeAmount$ X\n\
+         A:AB$ Mana | Cost$ SubCounter<X/CHARGE> | Produced$ C | Amount$ X\n\
          A:AB$ Draw | Cost$ Sac<All/Artifact> tapXType<2/Creature> | NumCards$ 1\n\
          SVar:X:Count$xPaid",
     );
@@ -3374,4 +3374,259 @@ fn wave12b_refusal_boundaries() {
     ] {
         assert!(refused(script), "expected refusal for:\n{script}");
     }
+}
+
+#[test]
+fn wave13b_targets_and_filters() {
+    let player_targets = read(
+        "Name:DuelBolt\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Player.Opponent | NumDmg$ 2\n\
+         A:SP$ DealDamage | ValidTgts$ Player.attackedWithCreaturesThisTurn | NumDmg$ 3\n\
+         A:SP$ DealDamage | ValidTgts$ Player.Opponent,Card.Planeswalker | NumDmg$ 4\n\
+         A:SP$ DealDamage | ValidTgts$ Creature,Player,Planeswalker,Battle | NumDmg$ 1\n\
+         A:SP$ DealDamage | ValidTgts$ Creature.Other,Player,Planeswalker.Other,Battle.Other | NumDmg$ 1",
+    );
+    assert!(
+        player_targets.abilities[0].contains("TargetSpec::AnyOpponent"),
+        "expected AnyOpponent: {}",
+        player_targets.abilities[0]
+    );
+    assert!(
+        player_targets.abilities[1].contains("TargetSpec::PlayerWhoAttackedThisTurn"),
+        "expected PlayerWhoAttackedThisTurn: {}",
+        player_targets.abilities[1]
+    );
+    assert!(
+        player_targets.abilities[2].contains("TargetSpec::OpponentOrObject(&Filter::PLANESWALKER)"),
+        "expected OpponentOrObject(&PLANESWALKER): {} / {}",
+        player_targets.abilities[2],
+        player_targets.statics
+    );
+    assert!(
+        player_targets.abilities[3].contains("TargetSpec::AnyTarget"),
+        "expected AnyTarget: {}",
+        player_targets.abilities[3]
+    );
+    assert!(
+        player_targets.abilities[4].contains("TargetSpec::PlayerOrObject(&TARGET"),
+        "expected PlayerOrObject: {}",
+        player_targets.abilities[4]
+    );
+
+    let opp_oracle = read(
+        "Name:FoeStrike\nManaCost:R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Player,Planeswalker | NumDmg$ 2\n\
+         Oracle:FoeStrike deals 2 damage to target opponent or planeswalker.",
+    );
+    assert!(
+        opp_oracle.abilities[0].contains("TargetSpec::OpponentOrObject(&Filter::PLANESWALKER)"),
+        "expected OpponentOrObject from oracle: {}",
+        opp_oracle.abilities[0]
+    );
+
+    let filter_atoms = read(
+        "Name:FilterSuite\nManaCost:2 W\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Land,Enchantment,Planeswalker,Battle | AddKeyword$ Indestructible\n\
+         S:Mode$ Continuous | Affected$ Card.nonPlaneswalker+nonBattle+nonInstant+nonSorcery | AddKeyword$ Hexproof\n\
+         S:Mode$ Continuous | Affected$ Creature.!firstTurnControlled | AddPower$ 1\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.sharesNameWith ExiledWith | Caster$ Opponent\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.ColorlessSource,Emblem.ColorlessSource | ValidTarget$ You | Prevent$ True",
+    );
+    let rendered = format!(
+        "{}\n{}",
+        filter_atoms.statics,
+        filter_atoms.abilities.join("\n")
+    );
+    assert!(
+        rendered.contains("Filter::LAND")
+            && rendered.contains("Filter::ENCHANTMENT")
+            && rendered.contains("Filter::PLANESWALKER")
+            && rendered.contains("TypeSet::BATTLE"),
+        "expected type filters: {rendered}"
+    );
+    assert!(
+        rendered.contains("LacksType(TypeSet::PLANESWALKER)")
+            && rendered.contains("LacksType(TypeSet::BATTLE)")
+            && rendered.contains("LacksType(TypeSet::INSTANT)")
+            && rendered.contains("LacksType(TypeSet::SORCERY)"),
+        "expected negated type filters: {rendered}"
+    );
+    assert!(
+        rendered.contains("Filter::ControlledSinceTurnBegan"),
+        "expected ControlledSinceTurnBegan: {rendered}"
+    );
+    assert!(
+        rendered.contains("Filter::SameNameAsLinkedExile"),
+        "expected SameNameAsLinkedExile: {rendered}"
+    );
+    assert!(
+        rendered.contains("PreventDamageToYouFrom(&Filter::IsColorless)"),
+        "expected PreventDamageToYouFrom(&Filter::IsColorless): {rendered}"
+    );
+
+    let gy_entered = read(
+        "Name:FreshGrave\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Creature.YouOwn+ThisTurnEntered | TgtZone$ Graveyard\n\
+         A:SP$ GainLife | Defined$ You | LifeAmount$ X\n\
+         SVar:X:Count$ValidGraveyard Creature.ThisTurnEntered",
+    );
+    assert!(
+        gy_entered
+            .statics
+            .contains("Filter::PutIntoGraveyardThisTurn"),
+        "expected PutIntoGraveyardThisTurn: {}",
+        gy_entered.statics
+    );
+}
+
+#[test]
+fn wave13b_mana_counts_and_pay_life_x() {
+    let counts = read(
+        "Name:CountSuite\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ LoseLife | ValidTgts$ Player | LifeAmount$ A\n\
+         A:SP$ Draw | ValidTgts$ Player | NumCards$ B\n\
+         A:SP$ Mill | ValidTgts$ Player | NumCards$ C\n\
+         A:SP$ GainLife | ValidTgts$ Creature | LifeAmount$ D\n\
+         SVar:A:TargetedPlayer$Valid Artifact.tapped+YouCtrl\n\
+         SVar:B:ThisTargetedPlayer$CardsInHand/HalfUp\n\
+         SVar:C:TargetedPlayer$ValidGraveyard Creature.YouOwn\n\
+         SVar:D:Targeted$CardSumPT",
+    );
+    assert!(
+        counts.abilities[0].contains("Amount::ControlledCount")
+            && counts.abilities[0].contains("PlayerRel::Chosen"),
+        "expected ControlledCount(Chosen): {}",
+        counts.abilities[0]
+    );
+    assert!(
+        counts.abilities[1].contains(
+            "Amount::Half { base: &Amount::HandSize(PlayerRel::Chosen), round_up: true }"
+        ),
+        "expected Half(HandSize(Chosen), round_up: true): {}",
+        counts.abilities[1]
+    );
+    assert!(
+        counts.abilities[2].contains("ZoneSel::GraveyardOf(PlayerRel::Chosen)"),
+        "expected GraveyardOf(Chosen): {}",
+        counts.abilities[2]
+    );
+    assert!(
+        counts.abilities[3].contains(
+            "Amount::Sum { left: &Amount::TargetPower, right: &Amount::TargetToughness }"
+        ),
+        "expected TargetPower + TargetToughness: {}",
+        counts.abilities[3]
+    );
+
+    let aura_count = read(
+        "Name:AuraCount\nManaCost:G\nTypes:Enchantment Aura\n\
+         K:Enchant:Creature\n\
+         S:Mode$ Continuous | Affected$ Creature.EnchantedBy | AddPower$ X\n\
+         SVar:X:Count$EnchantedControllerCreatures",
+    );
+    assert!(
+        aura_count.abilities.iter().any(
+            |a| a.contains("PlayerRel::ControllerOfAttached") && a.contains("Filter::CREATURE")
+        ),
+        "expected ControllerOfAttached CREATURE: {:?}",
+        aura_count.abilities
+    );
+
+    let pay_life_x = read(
+        "Name:BloodPact\nManaCost:3 B\nTypes:Instant\n\
+         A:SP$ Pump | Cost$ 3 B PayLife<X> Discard<0/Hand> | ValidTgts$ Creature | NumAtt$ +X\n\
+         SVar:X:Count$xPaid\n\
+         Oracle:As an additional cost to cast this spell, pay X life and discard your hand. Target creature gets +X/+0 until end of turn.",
+    );
+    assert!(
+        pay_life_x
+            .mandatory_additional_costs
+            .iter()
+            .any(|c| c == "CostPart::PayLifeX")
+            && pay_life_x
+                .mandatory_additional_costs
+                .iter()
+                .any(|c| c == "CostPart::DiscardHand"),
+        "expected PayLifeX + DiscardHand: {:?}",
+        pay_life_x.mandatory_additional_costs
+    );
+}
+
+#[test]
+fn wave13b_refusal_boundaries() {
+    for script in [
+        "Name:BadCounterMixed\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Counter | ValidTgts$ Player,Creature | TargetType$ Spell",
+        "Name:BadPutCounterMixed\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ PutCounter | ValidTgts$ Player,Creature | CounterType$ P1P1 | CounterNum$ 1",
+        "Name:BadPlayerScopeOpp\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ LoseLife | ValidTgts$ Player | LifeAmount$ X\n\
+         SVar:X:TargetedPlayer$Valid Creature.OppCtrl",
+        "Name:BadGraveScopeOpp\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ LoseLife | ValidTgts$ Player | LifeAmount$ X\n\
+         SVar:X:TargetedPlayer$ValidGraveyard Creature.OppOwn",
+        "Name:BadEnteredFromBf\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ GainLife | Defined$ You | LifeAmount$ X\n\
+         SVar:X:Count$ValidGraveyard Creature.ThisTurnEnteredFrom_Battlefield",
+        "Name:BadActivatedPayLifeX\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ PayLife<X> | NumCards$ 1\n\
+         SVar:X:Count$xPaid",
+        "Name:BadPayLifeXComputed\nManaCost:1 B\nTypes:Instant\n\
+         A:SP$ Draw | Cost$ 1 B PayLife<X> Discard<0/Hand> | NumCards$ 1\n\
+         SVar:X:Count$xPaid\n\
+         Oracle:As an additional cost to cast this spell, pay X life and discard your hand, where X is the number of creatures you control.",
+    ] {
+        assert!(refused(script), "expected refusal for:\n{script}");
+    }
+}
+
+#[test]
+fn wave13b_player_rels_and_svar_depth() {
+    let other_and_parent = read(
+        "Name:SharedDrain\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ LoseLife | Defined$ Player.Other | LifeAmount$ C\n\
+         A:SP$ Draw | ValidTgts$ Opponent | NumCards$ 2 | SubAbility$ DrainTarget\n\
+         SVar:DrainTarget:DB$ LoseLife | Defined$ ParentTarget | LifeAmount$ 2\n\
+         SVar:A:Count$Valid Creature.YouCtrl\n\
+         SVar:B:SVar$A/Times.2\n\
+         SVar:C:SVar$B/Plus.1",
+    );
+    assert!(
+        other_and_parent.abilities[0].contains("PlayerRel::EachOtherPlayer")
+            && other_and_parent.abilities[0].contains("Amount::Plus")
+            && other_and_parent.abilities[0].contains("Amount::Times"),
+        "expected EachOtherPlayer + nested arithmetic: {}",
+        other_and_parent.abilities[0]
+    );
+    assert!(
+        other_and_parent.abilities[1].contains("PlayerRel::Chosen")
+            && other_and_parent.abilities[1].contains("TargetSpec::AnyOpponent"),
+        "expected ParentTarget -> Chosen on AnyOpponent: {}",
+        other_and_parent.abilities[1]
+    );
+
+    let trigger_players = read(
+        "Name:WardCurse\nManaCost:1 B\nTypes:Enchantment Aura\n\
+         K:Enchant:Creature\n\
+         T:Mode$ Attacks | ValidCard$ Card.AttachedBy | TriggerZones$ Battlefield | Execute$ HitAtk\n\
+         T:Mode$ BecomesTarget | ValidTarget$ Card.Self | ValidSource$ SpellAbility.OppCtrl | TriggerZones$ Battlefield | Execute$ HitCaster\n\
+         SVar:HitAtk:DB$ LoseLife | Defined$ TriggeredAttackerController | LifeAmount$ 2\n\
+         SVar:HitCaster:DB$ LoseLife | Defined$ TriggeredSourceSAController | LifeAmount$ 3",
+    );
+    assert!(
+        trigger_players
+            .abilities
+            .iter()
+            .any(|a| a.contains("PlayerRel::ControllerOfEvent")),
+        "expected ControllerOfEvent on Attacks: {:?}",
+        trigger_players.abilities
+    );
+    assert!(
+        trigger_players
+            .abilities
+            .iter()
+            .any(|a| a.contains("PlayerRel::EventPlayer")),
+        "expected EventPlayer on BecomesTarget: {:?}",
+        trigger_players.abilities
+    );
 }

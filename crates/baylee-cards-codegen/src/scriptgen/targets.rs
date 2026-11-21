@@ -624,16 +624,6 @@ impl Tx<'_> {
                     "nonPermanent" => {
                         "Filter::HasType(TypeSet::INSTANT.union(TypeSet::SORCERY))".to_string()
                     }
-                    "Enchantment" => "Filter::ENCHANTMENT".to_string(),
-                    "Land" => "Filter::LAND".to_string(),
-                    "Planeswalker" => "Filter::PLANESWALKER".to_string(),
-                    "Battle" => "Filter::HasType(TypeSet::BATTLE)".to_string(),
-                    "Instant" => "Filter::HasType(TypeSet::INSTANT)".to_string(),
-                    "Sorcery" => "Filter::HasType(TypeSet::SORCERY)".to_string(),
-                    "nonPlaneswalker" => "Filter::LacksType(TypeSet::PLANESWALKER)".to_string(),
-                    "nonBattle" => "Filter::LacksType(TypeSet::BATTLE)".to_string(),
-                    "nonInstant" => "Filter::LacksType(TypeSet::INSTANT)".to_string(),
-                    "nonSorcery" => "Filter::LacksType(TypeSet::SORCERY)".to_string(),
                     "YouOwn" => {
                         has_you_own = true;
                         "Filter::OwnedByYou".to_string()
@@ -675,8 +665,14 @@ impl Tx<'_> {
                     // creature" a second spelling that only `filter_hash`
                     // can tell from the first.
                     "nonLand" => "Filter::NONLAND".to_string(),
+                    "Land" => "Filter::LAND".to_string(),
                     "Artifact" => "Filter::ARTIFACT".to_string(),
                     "Creature" => "Filter::CREATURE".to_string(),
+                    "Enchantment" => "Filter::ENCHANTMENT".to_string(),
+                    "Planeswalker" => "Filter::PLANESWALKER".to_string(),
+                    "Battle" => "Filter::HasType(TypeSet::BATTLE)".to_string(),
+                    "Instant" => "Filter::INSTANT".to_string(),
+                    "Sorcery" => "Filter::SORCERY".to_string(),
                     "nonCreature" => "Filter::NONCREATURE".to_string(),
                     // Supertypes read like subtypes in a script filter but are
                     // a different set on the card (CR 205.4).
@@ -692,10 +688,14 @@ impl Tx<'_> {
                     "nonSnow" => {
                         "Filter::Not(&Filter::HasSupertype(SupertypeSet::SNOW))".to_string()
                     }
-                    // The two card types a noun cannot say "not" to on its
+                    // Card-type negations a noun cannot say "not" to on its
                     // own ("nonartifact, nonblack creature").
                     "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),
                     "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
+                    "nonPlaneswalker" => "Filter::LacksType(TypeSet::PLANESWALKER)".to_string(),
+                    "nonBattle" => "Filter::LacksType(TypeSet::BATTLE)".to_string(),
+                    "nonInstant" => "Filter::LacksType(TypeSet::INSTANT)".to_string(),
+                    "nonSorcery" => "Filter::LacksType(TypeSet::SORCERY)".to_string(),
                     "Colorless" => "Filter::IsColorless".to_string(),
                     "nonColorless" | "!Colorless" | "Colored" => {
                         "Filter::Not(&Filter::IsColorless)".to_string()
@@ -728,6 +728,24 @@ impl Tx<'_> {
                     "ThisTurnEntered" if !card_zone => "Filter::EnteredThisTurn".to_string(),
                     "!ThisTurnEntered" if !card_zone => {
                         "Filter::Not(&Filter::EnteredThisTurn)".to_string()
+                    }
+                    "PutIntoGraveyardThisTurn" if card_zone => {
+                        "Filter::PutIntoGraveyardThisTurn".to_string()
+                    }
+                    "!PutIntoGraveyardThisTurn" if card_zone => {
+                        "Filter::Not(&Filter::PutIntoGraveyardThisTurn)".to_string()
+                    }
+                    "!firstTurnControlled" if !card_zone => {
+                        "Filter::ControlledSinceTurnBegan".to_string()
+                    }
+                    "firstTurnControlled" if !card_zone => {
+                        "Filter::Not(&Filter::ControlledSinceTurnBegan)".to_string()
+                    }
+                    "sharesNameWith ExiledWith" | "sharesNameWith Imprinted" => {
+                        "Filter::SameNameAsLinkedExile".to_string()
+                    }
+                    "!sharesNameWith ExiledWith" | "!sharesNameWith Imprinted" => {
+                        "Filter::Not(&Filter::SameNameAsLinkedExile)".to_string()
                     }
                     "sharesCreatureTypeWith" | "sharesCreatureTypeWith Self" => {
                         "Filter::SharesCreatureTypeWith(&Filter::This)".to_string()
@@ -907,10 +925,17 @@ impl Tx<'_> {
             }
             return Some("TargetSpec::AnyPlayer".to_string());
         }
-        if valid == "Opponent" {
+        if valid == "Opponent" || valid == "Player.Opponent" {
             return Some("TargetSpec::AnyOpponent".to_string());
         }
+        if valid == "Player.attackedWithCreaturesThisTurn" {
+            return Some("TargetSpec::PlayerWhoAttackedThisTurn".to_string());
+        }
         if matches!(valid, "Player,Planeswalker" | "Planeswalker,Player") {
+            let lower = self.oracle.to_ascii_lowercase();
+            if lower.contains("target opponent") && !lower.contains("target player") {
+                return Some("TargetSpec::OpponentOrObject(&Filter::PLANESWALKER)".to_string());
+            }
             return Some("TargetSpec::PlayerOrObject(&Filter::PLANESWALKER)".to_string());
         }
         if matches!(valid, "Opponent,Planeswalker" | "Planeswalker,Opponent") {
@@ -921,6 +946,9 @@ impl Tx<'_> {
         // `Filter` to match.
         if valid == "Any" {
             return Some("TargetSpec::AnyTarget".to_string());
+        }
+        if let Some(mixed) = self.mixed_player_object_target(valid, api) {
+            return Some(mixed);
         }
         if matches!(
             self.trigger_mode.as_deref(),
@@ -944,6 +972,49 @@ impl Tx<'_> {
         Some(match api {
             "Counter" => format!("TargetSpec::Spell(&{name})"),
             _ => format!("TargetSpec::Object(&{name})"),
+        })
+    }
+
+    fn mixed_player_object_target(&mut self, valid: &str, api: &str) -> Option<String> {
+        if !matches!(api, "DealDamage" | "PreventDamage") || !valid.contains(',') {
+            return None;
+        }
+        let alts: Vec<&str> = valid
+            .split(',')
+            .map(str::trim)
+            .filter(|a| !a.is_empty())
+            .collect();
+        let mut saw_player = false;
+        let mut saw_opponent = false;
+        let mut objects: Vec<&str> = Vec::new();
+        for &alt in &alts {
+            match alt {
+                "Player" => saw_player = true,
+                "Opponent" | "Player.Opponent" => saw_opponent = true,
+                _ => objects.push(alt),
+            }
+        }
+        if objects.is_empty() || (!saw_player && !saw_opponent) || (saw_player && saw_opponent) {
+            return None;
+        }
+        if saw_player
+            && objects.len() == 3
+            && objects.contains(&"Creature")
+            && objects.contains(&"Planeswalker")
+            && objects.contains(&"Battle")
+        {
+            return Some("TargetSpec::AnyTarget".to_string());
+        }
+        let expr = self.filter_expr(&objects.join(","))?;
+        let name = self.body.filter_static("TARGET", &expr);
+        let opponents_only = saw_opponent || {
+            let lower = self.oracle.to_ascii_lowercase();
+            lower.contains("target opponent") && !lower.contains("target player")
+        };
+        Some(if opponents_only {
+            format!("TargetSpec::OpponentOrObject(&{name})")
+        } else {
+            format!("TargetSpec::PlayerOrObject(&{name})")
         })
     }
 
@@ -998,6 +1069,8 @@ impl Tx<'_> {
                     {
                         whose = "PlayerRel::DefendingPlayer";
                     }
+                    "ThisTurnEntered" => kept.push("PutIntoGraveyardThisTurn"),
+                    "!ThisTurnEntered" => kept.push("!PutIntoGraveyardThisTurn"),
                     other => kept.push(other),
                 }
             }
@@ -1071,6 +1144,7 @@ impl Tx<'_> {
             "You" => "PlayerRel::You",
             "Opponent" | "Player.Opponent" => "PlayerRel::Opponent",
             "Player" => "PlayerRel::EachPlayer",
+            "Player.Other" => "PlayerRel::EachOtherPlayer",
             // "Enchanted land's controller" (CR 303.4e).
             "EnchantedController" | "Player.EnchantedController" => {
                 "PlayerRel::ControllerOfAttached"
@@ -1133,6 +1207,26 @@ impl Tx<'_> {
             }
             "TriggeredBlockerController" if trigger == Some("Blocks") => {
                 "PlayerRel::ControllerOfEvent"
+            }
+            "TriggeredAttackerController"
+                if matches!(trigger, Some("Attacks" | "AttackerUnblocked")) =>
+            {
+                "PlayerRel::ControllerOfEvent"
+            }
+            "TriggeredAttackerController"
+                if trigger == Some("AttackerBlocked") && !self.trigger_is_self =>
+            {
+                "PlayerRel::ControllerOfEvent"
+            }
+            "TriggeredAttackerController"
+                if trigger == Some("AttackerBlocked") && self.trigger_is_self =>
+            {
+                "PlayerRel::You"
+            }
+            "TriggeredSourceSAController" | "TriggeredSourceController"
+                if trigger == Some("BecomesTarget") =>
+            {
+                "PlayerRel::EventPlayer"
             }
             "TriggeredPlayer"
                 if matches!(
@@ -1197,14 +1291,36 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<&'static str> {
-        let player_target = target == Some("TargetSpec::Player(PlayerRel::Chosen)");
+        let player_target = matches!(
+            target,
+            Some(
+                "TargetSpec::Player(PlayerRel::Chosen)"
+                    | "TargetSpec::AnyPlayer"
+                    | "TargetSpec::AnyOpponent"
+                    | "TargetSpec::PlayerWhoAttackedThisTurn"
+            )
+        );
         let object_target = target.is_some_and(|t| {
-            t.starts_with("TargetSpec::Spell(") || t.starts_with("TargetSpec::Object(")
+            t.starts_with("TargetSpec::Spell(")
+                || t.starts_with("TargetSpec::Object(")
+                || t.starts_with("TargetSpec::StackOrBattlefield(")
+                || t.starts_with("TargetSpec::ObjectOfEventPlayer(")
+                || t.starts_with("TargetSpec::ObjectOrCardInAnyGraveyard(")
         });
         match defined {
             Some("Targeted" | "TargetedPlayer") if player_target => Some("PlayerRel::Chosen"),
+            Some("ParentTarget") if player_target && !targets_a_player => Some("PlayerRel::Chosen"),
             Some("TargetedController") if object_target => Some("PlayerRel::ControllerOfTarget"),
-            Some("Targeted" | "TargetedPlayer" | "TargetedController") => None,
+            Some("ParentTargetController") if object_target && !targets_a_player => {
+                Some("PlayerRel::ControllerOfTarget")
+            }
+            Some(
+                "Targeted"
+                | "TargetedPlayer"
+                | "ParentTarget"
+                | "TargetedController"
+                | "ParentTargetController",
+            ) => None,
             other => self.player_rel_of(other, targets_a_player),
         }
     }
@@ -1308,6 +1424,8 @@ pub(super) fn emblem_subsumed_by_card(alt: &str, all_alts: &[&str]) -> bool {
                 | "ActivePlayerCtrl"
                 | "DefenderCtrl"
                 | "EnchantedPlayerCtrl"
+                | "ColorlessSource"
+                | "Colorless"
         )
     }
     fn is_non_card_type_atom(atom: &str) -> bool {

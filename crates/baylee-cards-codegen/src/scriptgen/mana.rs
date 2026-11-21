@@ -303,7 +303,7 @@ impl Tx<'_> {
         {
             return Some(format!("Amount::Fixed({n})"));
         }
-        if depth < 2
+        if depth < 4
             && let Some(var) = def.strip_prefix("SVar$")
             && !var.contains('/')
             && let Some(inner) = self.svars.get(var.trim()).cloned()
@@ -319,7 +319,7 @@ impl Tx<'_> {
         {
             return Some("Amount::DoubleX".to_string());
         }
-        if depth < 2
+        if depth < 4
             && let Some((lhs, rhs)) = def.rsplit_once('/')
         {
             let lhs = lhs.trim();
@@ -606,6 +606,12 @@ impl Tx<'_> {
             if matches!(def, "Targeted$CardManaCost" | "ParentTargeted$CardManaCost") {
                 return Some("Amount::TargetCmc".to_string());
             }
+            if matches!(def, "Targeted$CardSumPT" | "ParentTargeted$CardSumPT") {
+                return Some(
+                    "Amount::Sum { left: &Amount::TargetPower, right: &Amount::TargetToughness }"
+                        .to_string(),
+                );
+            }
             if def == "Sacrificed$CardPower" && self.cost_sacrifices_self && !self.on_a_spell {
                 return Some("Amount::SourcePower".to_string());
             }
@@ -630,13 +636,22 @@ impl Tx<'_> {
             if def == "Tapped$CardPower" && !self.on_a_spell {
                 return Some("Amount::TappedPower".to_string());
             }
-            if def == "TargetedPlayer$CardsInHand" {
+            if matches!(
+                def,
+                "TargetedPlayer$CardsInHand" | "ThisTargetedPlayer$CardsInHand"
+            ) {
                 return Some("Amount::HandSize(PlayerRel::Chosen)".to_string());
             }
-            if def == "TargetedPlayer$CardsInLibrary" {
+            if matches!(
+                def,
+                "TargetedPlayer$CardsInLibrary" | "ThisTargetedPlayer$CardsInLibrary"
+            ) {
                 return Some("Amount::LibrarySize(PlayerRel::Chosen)".to_string());
             }
-            if def == "TargetedPlayer$LifeTotal" {
+            if matches!(
+                def,
+                "TargetedPlayer$LifeTotal" | "ThisTargetedPlayer$LifeTotal"
+            ) {
                 return Some("Amount::LifeTotal(PlayerRel::Chosen)".to_string());
             }
             if def == "TargetedController$CardsInHand" {
@@ -648,11 +663,12 @@ impl Tx<'_> {
             if def == "TargetedController$LifeTotal" {
                 return Some("Amount::LifeTotal(PlayerRel::ControllerOfTarget)".to_string());
             }
-            if let Some(valid) = def.strip_prefix("TargetedPlayer$Valid ")
-                && !valid.contains("Ctrl")
-                && !valid.contains("Own")
+            if let Some(valid) = def
+                .strip_prefix("TargetedPlayer$Valid ")
+                .or_else(|| def.strip_prefix("ThisTargetedPlayer$Valid "))
+                && let Some(cleaned) = strip_player_valid_scope(valid, "YouCtrl")
             {
-                let expr = self.filter_expr(valid)?;
+                let expr = self.filter_expr(&cleaned)?;
                 let name = self.body.filter_static("COUNT", &expr);
                 return Some(format!(
                     "Amount::ControlledCount {{ who: PlayerRel::Chosen, filter: &{name} }}"
@@ -660,10 +676,9 @@ impl Tx<'_> {
             }
             if let Some(valid) = def.strip_prefix("TriggeredPlayer$Valid ")
                 && self.trigger_mode.as_deref() == Some("Phase")
-                && !valid.contains("Ctrl")
-                && !valid.contains("Own")
+                && let Some(cleaned) = strip_player_valid_scope(valid, "YouCtrl")
             {
-                let expr = self.filter_expr(valid)?;
+                let expr = self.filter_expr(&cleaned)?;
                 let name = self.body.filter_static("COUNT", &expr);
                 return Some(format!(
                     "Amount::ControlledCount {{ who: PlayerRel::ActivePlayer, filter: &{name} }}"
@@ -797,6 +812,8 @@ impl Tx<'_> {
             );
         }
         if let Some(valid) = def.strip_prefix("Count$ValidGraveyard ") {
+            let valid_owned = normalize_graveyard_entered(valid);
+            let valid = valid_owned.as_str();
             if !valid.contains("Ctrl") && !valid.contains("Own") {
                 let expr = self.filter_expr_in_zone(valid, true)?;
                 let name = self.body.filter_static("COUNT", &expr);
@@ -898,7 +915,10 @@ impl Tx<'_> {
             Some("DamageDone" | "DamageDoneOnce")
         );
         let is_phase = self.trigger_mode.as_deref() == Some("Phase");
-        if def == "TargetedPlayer$CardsInGraveyard" {
+        if matches!(
+            def,
+            "TargetedPlayer$CardsInGraveyard" | "ThisTargetedPlayer$CardsInGraveyard"
+        ) {
             return Some(
                 "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::Chosen) }"
                     .to_string(),
@@ -945,18 +965,31 @@ impl Tx<'_> {
         for (prefix, who, ok) in controlled {
             if ok
                 && let Some(valid) = def.strip_prefix(prefix)
-                && !valid.contains("Ctrl")
-                && !valid.contains("Own")
+                && let Some(cleaned) = strip_player_valid_scope(valid, "YouCtrl")
             {
-                let expr = self.filter_expr(valid)?;
+                let expr = self.filter_expr(&cleaned)?;
                 let name = self.body.filter_static("COUNT", &expr);
                 return Some(format!(
                     "Amount::ControlledCount {{ who: {who}, filter: &{name} }}"
                 ));
             }
         }
+        self.player_graveyard_amount(def, is_phase, is_damage)
+    }
+
+    fn player_graveyard_amount(
+        &mut self,
+        def: &str,
+        is_phase: bool,
+        is_damage: bool,
+    ) -> Option<String> {
         let graveyards = [
             ("TargetedPlayer$ValidGraveyard ", "PlayerRel::Chosen", true),
+            (
+                "ThisTargetedPlayer$ValidGraveyard ",
+                "PlayerRel::Chosen",
+                true,
+            ),
             (
                 "TargetedController$ValidGraveyard ",
                 "PlayerRel::ControllerOfTarget",
@@ -976,10 +1009,10 @@ impl Tx<'_> {
         for (prefix, who, ok) in graveyards {
             if ok
                 && let Some(valid) = def.strip_prefix(prefix)
-                && !valid.contains("Ctrl")
-                && !valid.contains("Own")
+                && let Some(cleaned) = strip_player_valid_scope(valid, "YouOwn")
             {
-                let expr = self.filter_expr_in_zone(valid, true)?;
+                let normalized = normalize_graveyard_entered(&cleaned);
+                let expr = self.filter_expr_in_zone(&normalized, true)?;
                 let name = self.body.filter_static("COUNT", &expr);
                 return Some(format!(
                     "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf({who}) }}"
@@ -991,6 +1024,12 @@ impl Tx<'_> {
 
     fn enchanted_player_amount(&mut self, def: &str) -> Option<String> {
         match def {
+            "Count$EnchantedControllerCreatures" => {
+                return Some(
+                    "Amount::ControlledCount { who: PlayerRel::ControllerOfAttached, filter: &Filter::CREATURE }"
+                        .to_string(),
+                );
+            }
             "EnchantedPlayer$CardsInHand" => {
                 return Some("Amount::HandSize(PlayerRel::EnchantedPlayer)".to_string());
             }
@@ -1009,20 +1048,19 @@ impl Tx<'_> {
             _ => {}
         }
         if let Some(valid) = def.strip_prefix("EnchantedPlayer$Valid ")
-            && !valid.contains("Ctrl")
-            && !valid.contains("Own")
+            && let Some(cleaned) = strip_player_valid_scope(valid, "YouCtrl")
         {
-            let expr = self.filter_expr(valid)?;
+            let expr = self.filter_expr(&cleaned)?;
             let name = self.body.filter_static("COUNT", &expr);
             return Some(format!(
                 "Amount::ControlledCount {{ who: PlayerRel::EnchantedPlayer, filter: &{name} }}"
             ));
         }
         if let Some(valid) = def.strip_prefix("EnchantedPlayer$ValidGraveyard ")
-            && !valid.contains("Ctrl")
-            && !valid.contains("Own")
+            && let Some(cleaned) = strip_player_valid_scope(valid, "YouOwn")
         {
-            let expr = self.filter_expr_in_zone(valid, true)?;
+            let normalized = normalize_graveyard_entered(&cleaned);
+            let expr = self.filter_expr_in_zone(&normalized, true)?;
             let name = self.body.filter_static("COUNT", &expr);
             return Some(format!(
                 "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::EnchantedPlayer) }}"
@@ -1496,49 +1534,25 @@ impl Tx<'_> {
                 .and_then(|t| t.strip_suffix('>'))
                 .and_then(|t| t.split_once('/'))
             {
-                // "Remove a corpse counter from this creature" as a cost:
-                // a fixed number of one kind, from the source. Refused by
-                // name: a count that is not a number (`X` is announced, and
-                // "any number" is chosen), a loyalty cost (a loyalty
-                // ability's, CR 606.4, which only a main phase with an empty
-                // stack may activate, once a turn, CR 606.3), and the longer
-                // forms that name where the counters come from ("from a
-                // creature you control").
-                if kind.contains('/') {
-                    return self.deny(format!("a counter cost from `{kind}`"));
-                }
-                if kind == "LOYALTY" {
-                    return self.deny("a loyalty cost".to_string());
-                }
-                if n == "X" {
-                    if self.on_a_spell
-                        || self.in_alternative_cost
-                        || !self.has_x
-                        || self.svars.get("X").map(String::as_str) != Some("Count$xPaid")
-                    {
-                        return self.deny("counter count `X`".to_string());
-                    }
-                    let Some(kind) = counter_kind(kind) else {
-                        return self.deny(format!("counter `{kind}`"));
-                    };
-                    parts.push(format!("RemoveCounterSelfX {{ kind: {kind} }}"));
-                    continue;
-                }
-                let Ok(n) = n.parse::<u16>() else {
-                    return self.deny(format!("counter count `{n}`"));
-                };
-                let Some(kind) = counter_kind(kind) else {
-                    return self.deny(format!("counter `{kind}`"));
-                };
-                parts.push(format!("RemoveCounterSelf {{ kind: {kind}, n: {n} }}"));
+                parts.push(self.sub_counter_cost(n, kind)?);
             } else if let Some((kind, body)) = object_cost(token) {
                 parts.extend(self.object_cost_part(kind, body, token)?);
-            } else if let Some(n) = token
+            } else if let Some(life) = token
                 .strip_prefix("PayLife<")
                 .and_then(|t| t.strip_suffix('>'))
-                .and_then(|t| t.parse::<u16>().ok())
             {
-                parts.push(format!("PayLife({n})"));
+                if life == "X"
+                    && self.in_alternative_cost
+                    && self.has_x
+                    && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+                    && !self.oracle.to_ascii_lowercase().contains("x is ")
+                {
+                    parts.push("PayLifeX".to_string());
+                } else if let Ok(n) = life.parse::<u16>() {
+                    parts.push(format!("PayLife({n})"));
+                } else {
+                    return self.deny(format!("cost `{token}`"));
+                }
             } else if token.starts_with("PayEnergy<") || token.starts_with("ExileFromTop<") {
                 parts.push(self.energy_or_exile_top_cost(token)?);
             } else if token.chars().all(|c| c.is_ascii_digit())
@@ -1572,6 +1586,39 @@ impl Tx<'_> {
             }
         }
         Some((mana, parts))
+    }
+
+    fn sub_counter_cost(&self, n: &str, kind: &str) -> Option<String> {
+        // "Remove a corpse counter from this creature" as a cost: a fixed
+        // number of one kind, from the source, or `X` on a non-spell
+        // activation. Loyalty costs (CR 606.3-4) and counters removed from
+        // another permanent stay refused.
+        if kind.contains('/') {
+            return self.deny(format!("a counter cost from `{kind}`"));
+        }
+        if kind == "LOYALTY" {
+            return self.deny("a loyalty cost".to_string());
+        }
+        if n == "X" {
+            if self.on_a_spell
+                || self.in_alternative_cost
+                || !self.has_x
+                || self.svars.get("X").map(String::as_str) != Some("Count$xPaid")
+            {
+                return self.deny("counter count `X`".to_string());
+            }
+            let Some(kind) = counter_kind(kind) else {
+                return self.deny(format!("counter `{kind}`"));
+            };
+            return Some(format!("RemoveCounterSelfX {{ kind: {kind} }}"));
+        }
+        let Ok(n) = n.parse::<u16>() else {
+            return self.deny(format!("counter count `{n}`"));
+        };
+        let Some(kind) = counter_kind(kind) else {
+            return self.deny(format!("counter `{kind}`"));
+        };
+        Some(format!("RemoveCounterSelf {{ kind: {kind}, n: {n} }}"))
     }
 
     fn energy_or_exile_top_cost(&self, token: &str) -> Option<String> {
@@ -1789,4 +1836,67 @@ fn normalize_spend_valid(raw: &str) -> String {
     } else {
         s.to_string()
     }
+}
+
+/// Strips `scope_atom` (`"YouCtrl"` on player-scoped `Valid`, `"YouOwn"` on
+/// player-scoped `ValidGraveyard`) from every comma-alternative, refusing if
+/// any other controller/owner qualifier remains.
+fn strip_player_valid_scope(valid: &str, scope_atom: &str) -> Option<String> {
+    let mut cleaned = Vec::new();
+    for alt in valid.split(',') {
+        let mut parts = alt
+            .split('.')
+            .flat_map(|s| s.split('+'))
+            .map(str::trim)
+            .filter(|a| !a.is_empty());
+        let base = parts.next()?;
+        let mut kept = Vec::new();
+        for atom in parts {
+            if atom == scope_atom {
+                continue;
+            }
+            if atom.contains("Ctrl") || atom.contains("Own") {
+                return None;
+            }
+            kept.push(atom);
+        }
+        if kept.is_empty() {
+            cleaned.push(base.to_string());
+        } else {
+            cleaned.push(format!("{base}.{}", kept.join("+")));
+        }
+    }
+    (!cleaned.is_empty()).then(|| cleaned.join(","))
+}
+
+/// Rewrites exact graveyard `ThisTurnEntered` / `!ThisTurnEntered` atoms into
+/// the graveyard-only marker `PutIntoGraveyardThisTurn` without touching
+/// origin-restricted forms like `ThisTurnEnteredFrom_Battlefield`.
+fn normalize_graveyard_entered(valid: &str) -> String {
+    valid
+        .split(',')
+        .map(|alt| {
+            let mut parts = alt
+                .split('.')
+                .flat_map(|s| s.split('+'))
+                .map(str::trim)
+                .filter(|a| !a.is_empty());
+            let Some(base) = parts.next() else {
+                return alt.to_string();
+            };
+            let kept: Vec<&str> = parts
+                .map(|atom| match atom {
+                    "ThisTurnEntered" => "PutIntoGraveyardThisTurn",
+                    "!ThisTurnEntered" => "!PutIntoGraveyardThisTurn",
+                    other => other,
+                })
+                .collect();
+            if kept.is_empty() {
+                base.to_string()
+            } else {
+                format!("{base}.{}", kept.join("+"))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(",")
 }
