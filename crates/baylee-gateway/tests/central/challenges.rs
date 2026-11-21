@@ -4,6 +4,7 @@ use super::{Endpoint, common};
 use baylee_account::{Account, Bearer, CentralHttp, Token, wire};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_protocol::v1::{self, Envelope};
+use baylee_train::challenges::{Generator, Limits};
 use central_api::challenges as api;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
@@ -27,18 +28,19 @@ pub(super) fn run(
         prepare_blind(runtime, endpoint, credential);
         return;
     }
-    let daily = baylee_train::challenges::generate(
-        api::Kind::Daily,
-        41,
-        baylee_train::challenges::Limits::default(),
-    )
-    .unwrap();
-    let weekly = baylee_train::challenges::generate(
-        api::Kind::Weekly,
-        63,
-        baylee_train::challenges::Limits::default(),
-    )
-    .unwrap();
+    let generator = Generator::from_source(&baylee_train::working::repo_root()).unwrap();
+    let daily = generator
+        .generate(api::Kind::Daily, 41, Limits::default())
+        .unwrap();
+    // The Weekly deck samples the current card pool. A fixed seed may
+    // legitimately fail certification after that pool changes.
+    let weekly = (64..80)
+        .find_map(|seed| {
+            generator
+                .generate(api::Kind::Weekly, seed, Limits::default())
+                .ok()
+        })
+        .expect("a certified Weekly in the bounded integration fixture");
     let http = CentralHttp::new(endpoint.clone());
     let now = i64::try_from(
         SystemTime::now()
