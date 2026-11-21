@@ -54,3 +54,8 @@ check-client = "check --locked --all-targets -p baylee-client -p baylee-client-c
 # Linux (CI) `packed` means split DWARF, which nothing here needs.
 [target.'cfg(target_os = "macos")']
 rustflags = ["-Csplit-debuginfo=packed"]
+
+[env]
+# re_rav1d's ARM64 SIMD kernels use preprocessed GNU assembly (.S).
+# LLVM emits ARM64 COFF objects for MSVC's librarian and linker.
+CC_aarch64_pc_windows_msvc = "clang"
