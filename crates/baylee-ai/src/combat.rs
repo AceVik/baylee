@@ -648,6 +648,10 @@ pub(crate) fn keep_bounds(
         if count == 0 {
             continue;
         }
+        if most < least {
+            pairs.retain(|(_, attacker)| *attacker != bound.attacker);
+            continue;
+        }
         if count > most {
             let mut kept = 0;
             pairs.retain(|(_, attacker)| {

@@ -1322,6 +1322,10 @@ fn apply(
             | Modifier::PreventAllDamageFromIt
             | Modifier::PreventDamageToYouFrom(_)
         | Modifier::PreventCombatDamageFrom(_)
+        | Modifier::PreventNoncombatDamageFrom(_)
+        | Modifier::PreventNoncombatDamageToPlayers { .. }
+        | Modifier::MultiplyDamageFrom { .. }
+        | Modifier::AddDamageFrom { .. }
         | Modifier::PreventDamageFrom(_)
         | Modifier::PreventDamagePerSource { .. }
         | Modifier::PreventDamageToAffectedPerSource { .. }
@@ -1329,6 +1333,7 @@ fn apply(
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
         | Modifier::MinimumBlockers(_)
+        | Modifier::MaxBlockers(_)
         | Modifier::CantBeBlockedByPlayer(_)
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }

@@ -243,6 +243,10 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
             | Modifier::PreventAllDamageFromIt
             | Modifier::PreventDamageToYouFrom(_)
         | Modifier::PreventCombatDamageFrom(_)
+        | Modifier::PreventNoncombatDamageFrom(_)
+        | Modifier::PreventNoncombatDamageToPlayers { .. }
+        | Modifier::MultiplyDamageFrom { .. }
+        | Modifier::AddDamageFrom { .. }
         | Modifier::PreventDamageFrom(_)
         | Modifier::PreventDamagePerSource { .. }
         | Modifier::PreventDamageToAffectedPerSource { .. }
@@ -250,6 +254,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
         | Modifier::MinimumBlockers(_)
+        | Modifier::MaxBlockers(_)
         | Modifier::CantBeBlockedByPlayer(_)
         | Modifier::CantAttack
         | Modifier::AttackWithoutTappingWhileSourceUntapped { .. }
@@ -1989,6 +1994,28 @@ mod tests {
             Modifier::CantPhaseOut,
             Modifier::RollAdditionalDieIgnoreLowest,
             Modifier::Goaded,
+            Modifier::MaxBlockers(1),
+            Modifier::PreventNoncombatDamageFrom(&Filter::Any),
+            Modifier::PreventNoncombatDamageToPlayers {
+                who: PlayerRel::You,
+                from: &Filter::Any,
+            },
+            Modifier::MultiplyDamageFrom {
+                sources: &Filter::Any,
+                factor: 2,
+                combat_only: false,
+                noncombat_only: false,
+                recipients: baylee_cards_dsl::DamageRecipients::Any,
+            },
+            Modifier::AddDamageFrom {
+                sources: &Filter::Any,
+                extra: 2,
+                combat_only: false,
+                noncombat_only: false,
+                recipients: baylee_cards_dsl::DamageRecipients::PlayersOrTheirPermanents(
+                    PlayerRel::EachOpponent,
+                ),
+            },
         ]
     }
 
@@ -2027,7 +2054,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            211,
+            216,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2138,8 +2165,10 @@ mod tests {
         // CantPhaseOut modifies a rule (+1 -> 151);
         // RollAdditionalDieIgnoreLowest is a die-rolling replacement (+1 rules-only -> 152);
         // Goaded modifies combat rules (+1 rules-only -> 153);
-        // MatchingSpellCastLimitPerTurn restricts casting by filter (+1 rules-only -> 154).
-        assert_eq!((locking, all.len() - locking), (57, 154));
+        // MatchingSpellCastLimitPerTurn restricts casting by filter (+1 rules-only -> 154);
+        // MaxBlockers, PreventNoncombatDamageFrom, PreventNoncombatDamageToPlayers,
+        // MultiplyDamageFrom, and AddDamageFrom modify combat/damage rules (+5 rules-only -> 159).
+        assert_eq!((locking, all.len() - locking), (57, 159));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

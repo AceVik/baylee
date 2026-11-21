@@ -568,3 +568,41 @@ pub(super) fn resume_bolster(
         );
     }
 }
+
+/// Executes `Effect::BecomeRenowned(count)` (CR 702.112a–c): if this ability's
+/// exact source permanent is still on the battlefield, unphased, and not yet
+/// renowned, places `count` +1/+1 counters on it and gives it the `Renowned`
+/// designation until it leaves the battlefield.
+pub(super) fn become_renowned(state: &mut GameState, res: &Resolution, count: u8) {
+    let Some(subject) = subjects::source(state, res).filter(|r| subjects::is_current(state, *r))
+    else {
+        return;
+    };
+    let eligible = state.object(subject.object).is_some_and(|o| {
+        o.zone == Zone::Battlefield
+            && o.version == subject.version
+            && !o.status.contains(Status::PHASED_OUT)
+            && !o.riders.contains(&Rider::Renowned)
+    });
+    if !eligible {
+        return;
+    }
+    if count > 0 {
+        crate::replacement::put_counters_by(
+            state,
+            res.controller,
+            subject.object,
+            baylee_cards_dsl::CounterKind::P1P1,
+            u16::from(count),
+        );
+    }
+    if let Some(obj) = state.object_mut(subject.object)
+        && obj.zone == Zone::Battlefield
+        && obj.version == subject.version
+        && !obj.status.contains(Status::PHASED_OUT)
+        && !obj.riders.contains(&Rider::Renowned)
+    {
+        obj.riders.push(Rider::Renowned);
+        state.board_state_changed();
+    }
+}

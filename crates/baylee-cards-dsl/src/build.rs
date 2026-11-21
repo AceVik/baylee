@@ -1162,8 +1162,8 @@ pub mod prelude {
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{
-        DamageAmountReplacement, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
-        StaticAbility,
+        DamageAmountReplacement, DamageRecipients, Duration, LAYERS, Layer, Modifier, PtCount,
+        ReplacementRule, StaticAbility,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,

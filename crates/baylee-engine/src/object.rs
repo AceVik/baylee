@@ -1156,6 +1156,10 @@ pub enum Rider {
     /// Casualty additional cost was paid when casting this spell (CR 702.153a):
     /// triggers the cast trigger copying this spell once.
     CasualtyPaid,
+    /// Permanent has the renowned designation until it leaves the battlefield
+    /// (CR 702.112b; neither an ability nor a copiable value). Appended to
+    /// preserve replay identities.
+    Renowned,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1288,6 +1292,7 @@ impl Rider {
             | Self::Fused
             | Self::Manifested
             | Self::CasualtyPaid
+            | Self::Renowned
             | Self::EventPlayer(_)
             | Self::NinjutsuDefender(_, _)
             | Self::SyntheticCondition(_) => false,

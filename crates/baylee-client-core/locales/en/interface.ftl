@@ -2852,6 +2852,14 @@ DamageShield = Prevent the next damage; shield remaining: { $remaining }
 # Arguments: amount
 DamageReplaceAmount = Set each indicated source's damage to each recipient to { $amount }; this is not prevention
 
+# Damage replacement multiplies each indicated positive amount without prevention.
+# Arguments: factor
+DamageMultiplyAmount = Multiply each indicated damage amount by { $factor }; this is not prevention
+
+# Damage replacement increases each indicated source's positive damage to each recipient without prevention.
+# Arguments: extra
+DamageAddAmount = Add { $extra } to each indicated source's damage to each recipient; this is not prevention
+
 # Reflection adds damage from an exact source to a named player.
 # Arguments: player
 DamageReflect = This effect's source also deals the indicated damage to { $player }

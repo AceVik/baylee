@@ -167,6 +167,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("skulk", K::SKULK),     // combat::can_block (CR 702.118b)
         ("read ahead", K::READ_AHEAD), // entry::sagas + trigger::sagas (CR 702.155a)
         ("enlist", K::ENLIST), // Engine::declare_attackers + combat_keywords::collect_enlist (CR 702.154a)
+        ("renown", K::RENOWN), // eval::matches(Filter::HasKeyword) + Effect::BecomeRenowned (CR 702.112a)
     ]
 };
 

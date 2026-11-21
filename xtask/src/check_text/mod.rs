@@ -598,6 +598,7 @@ pub(crate) const KEYWORD_WORDS: &[(baylee_cards::dsl::KeywordSet, &str)] = {
         (K::MYRIAD, "myriad"),
         (K::EXTORT, "extort"),
         (K::ENLIST, "enlist"),
+        (K::RENOWN, "renown"),
     ]
 };
 

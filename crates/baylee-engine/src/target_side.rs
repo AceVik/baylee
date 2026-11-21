@@ -435,6 +435,10 @@ pub fn aura_side(abilities: &[AbilityDef]) -> Option<TargetSide> {
                 | Modifier::PlayerProtectionFromEverything {
                     who: PlayerRel::EnchantedPlayer,
                 }
+                | Modifier::PreventNoncombatDamageToPlayers {
+                    who: PlayerRel::EnchantedPlayer,
+                    ..
+                }
                 | Modifier::NamedPlayersCantLose(PlayerRel::EnchantedPlayer) => sign += 1,
                 _ => {}
             },

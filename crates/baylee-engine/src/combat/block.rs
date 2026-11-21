@@ -339,6 +339,9 @@ fn menace_satisfiable_by(
     let Some(bound) = block_bound(state, attacker) else {
         return true;
     };
+    if bound.max_blockers == 0 || bound.min_blockers > bound.max_blockers {
+        return false;
+    }
     let need = usize::try_from(bound.min_blockers).unwrap_or(usize::MAX);
     candidates
         .iter()
@@ -353,7 +356,8 @@ fn menace_satisfiable_by(
 /// restriction on the whole declaration that CR 509.1b checks and no pair
 /// can answer. Menace is two or more (CR 702.111b), and a minimum-blocker
 /// effect can demand more; independent minimums combine by taking the
-/// greatest. An attacker nobody blocks keeps every such restriction.
+/// greatest, while independent maximums (`Modifier::MaxBlockers`) combine by
+/// taking the lowest. An attacker nobody blocks keeps every such restriction.
 ///
 /// `None` for an attacker any number of creatures may block. The one
 /// reader of the rule: the offer states what this returns
@@ -367,17 +371,25 @@ pub fn block_bound(state: &GameState, attacker: ObjectId) -> Option<crate::choic
     } else {
         0
     };
+    let mut maximum = u32::MAX;
     for effect in state.effects.iter() {
-        if let baylee_cards_dsl::Modifier::MinimumBlockers(n) = effect.modifier
-            && crate::effects::applies_to(state, effect, a)
-        {
-            minimum = minimum.max(u32::from(n));
+        if !crate::effects::applies_to(state, effect, a) {
+            continue;
+        }
+        match effect.modifier {
+            baylee_cards_dsl::Modifier::MinimumBlockers(n) => {
+                minimum = minimum.max(u32::from(n));
+            }
+            baylee_cards_dsl::Modifier::MaxBlockers(n) => {
+                maximum = maximum.min(u32::from(n));
+            }
+            _ => {}
         }
     }
-    (minimum > 1).then_some(crate::choice::AttackerBound {
+    (minimum > 1 || maximum < u32::MAX).then_some(crate::choice::AttackerBound {
         attacker,
         min_blockers: minimum,
-        max_blockers: u32::MAX,
+        max_blockers: maximum,
     })
 }
 
@@ -787,6 +799,11 @@ impl<'a> BlockRules<'a> {
                 usize::try_from(bound.min_blockers).unwrap_or(usize::MAX)
             })
         };
+        let maximum = |attacker: ObjectId| {
+            block_bound(self.state, attacker).map_or(usize::MAX, |bound| {
+                usize::try_from(bound.max_blockers).unwrap_or(usize::MAX)
+            })
+        };
         let room = |blocker: ObjectId| self.capacity(blocker).unwrap_or(usize::MAX);
         let mut distinct_blockers: std::collections::BTreeSet<ObjectId> = self
             .state
@@ -809,9 +826,12 @@ impl<'a> BlockRules<'a> {
                 .attackers
                 .iter()
                 .filter_map(|attacker| {
+                    let min = minimum(*attacker);
+                    let max = maximum(*attacker);
+                    let current = chosen.iter().filter(|(_, a)| *a == *attacker).count();
                     let demands = self.demands(option.blocker, *attacker);
-                    (demands > 0).then_some((
-                        minimum(*attacker) > 1,
+                    (demands > 0 && min <= max && current < max).then_some((
+                        min > 1,
                         std::cmp::Reverse(demands),
                         *attacker,
                     ))
@@ -836,6 +856,11 @@ impl<'a> BlockRules<'a> {
             .collect();
         for attacker in bounded {
             let need = minimum(attacker);
+            let cap = maximum(attacker);
+            if need > cap {
+                chosen.retain(|(_, a)| *a != attacker);
+                continue;
+            }
             let mut count = chosen.iter().filter(|(_, a)| *a == attacker).count();
             while count > 0 && count < need {
                 // Never a blocker that costs mana: `obeying` is a declaration
@@ -919,6 +944,11 @@ impl<'a> BlockRules<'a> {
                 usize::try_from(bound.min_blockers).unwrap_or(usize::MAX)
             })
         };
+        let maximum = |attacker: ObjectId| {
+            block_bound(self.state, attacker).map_or(usize::MAX, |bound| {
+                usize::try_from(bound.max_blockers).unwrap_or(usize::MAX)
+            })
+        };
         let room = |blocker: ObjectId| self.capacity(blocker).unwrap_or(usize::MAX);
         let mut best = greedy;
         let mut current: Vec<(ObjectId, ObjectId)> = Vec::new();
@@ -931,7 +961,7 @@ impl<'a> BlockRules<'a> {
             best_score: &mut best_score,
             best: &mut best,
         };
-        obey_dfs(0, 0, &mut current, &mut ctx, &minimum, &room);
+        obey_dfs(0, 0, &mut current, &mut ctx, &minimum, &maximum, &room);
         best
     }
 }
@@ -952,6 +982,7 @@ fn obey_dfs(
     current: &mut Vec<(ObjectId, ObjectId)>,
     ctx: &mut ObeySearch<'_, '_>,
     minimum: &dyn Fn(ObjectId) -> usize,
+    maximum: &dyn Fn(ObjectId) -> usize,
     room: &dyn Fn(ObjectId) -> usize,
 ) {
     if score + ctx.suffix_upper[idx] <= *ctx.best_score {
@@ -960,7 +991,7 @@ fn obey_dfs(
     if idx == ctx.edges.len() {
         for &attacker in ctx.relevant_attackers {
             let count = current.iter().filter(|(_, a)| *a == attacker).count();
-            if count > 0 && count < minimum(attacker) {
+            if count > 0 && (count < minimum(attacker) || count > maximum(attacker)) {
                 return;
             }
         }
@@ -972,6 +1003,7 @@ fn obey_dfs(
     }
     let (blocker, attacker, demand) = ctx.edges[idx];
     let used_by_blocker = current.iter().filter(|(b, _)| *b == blocker).count();
+    let on_attacker = current.iter().filter(|(_, a)| *a == attacker).count();
     let distinct_ok = match ctx.rules.max_blockers {
         None => true,
         Some(max) => {
@@ -984,12 +1016,24 @@ fn obey_dfs(
             }
         }
     };
-    if distinct_ok && used_by_blocker < room(blocker) {
+    if distinct_ok
+        && used_by_blocker < room(blocker)
+        && minimum(attacker) <= maximum(attacker)
+        && on_attacker < maximum(attacker)
+    {
         current.push((blocker, attacker));
-        obey_dfs(idx + 1, score + demand, current, ctx, minimum, room);
+        obey_dfs(
+            idx + 1,
+            score + demand,
+            current,
+            ctx,
+            minimum,
+            maximum,
+            room,
+        );
         current.pop();
     }
-    obey_dfs(idx + 1, score, current, ctx, minimum, room);
+    obey_dfs(idx + 1, score, current, ctx, minimum, maximum, room);
 }
 
 impl GameState {

@@ -4988,6 +4988,11 @@ pub enum Effect {
         /// until end of turn (`CR 702.165a`, `CR 702.165c–d`).
         grant_abilities: &'static [crate::AbilityDef],
     },
+    /// Renown N's resolution effect (CR 702.112a–c): if this ability's source
+    /// permanent is still on the battlefield and isn't renowned, put `N` +1/+1
+    /// counters on it and it becomes renowned until it leaves the battlefield.
+    /// Appended to preserve replay identities.
+    BecomeRenowned(u8),
 }
 
 #[cfg(test)]

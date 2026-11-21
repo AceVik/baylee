@@ -282,6 +282,9 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::PlotTop { count, .. } => {
             ch.draw += amount_scalar(count).max(1.0);
         }
+        Effect::BecomeRenowned(n) => {
+            ch.counters_add += f32::from(*n).max(1.0);
+        }
         Effect::Proliferate
         | Effect::AddCountersUpTo { .. }
         | Effect::DoubleCountersFilter { .. }

@@ -82,8 +82,8 @@ pub use baylee_core::mana;
 pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
-    DamageAmountReplacement, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
-    StaticAbility,
+    DamageAmountReplacement, DamageRecipients, Duration, LAYERS, Layer, Modifier, PtCount,
+    ReplacementRule, StaticAbility,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
@@ -1159,6 +1159,7 @@ keywords! {
     MYRIAD = 59, "Myriad (CR 702.116).";
     EXTORT = 60, "Extort (CR 702.101).";
     ENLIST = 61, "Enlist (CR 702.154).";
+    RENOWN = 66, "Renown (CR 702.112).";
 }
 
 impl KeywordSet {
@@ -1287,6 +1288,7 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::MYRIAD, "Myriad"),
     (KeywordSet::EXTORT, "Extort"),
     (KeywordSet::ENLIST, "Enlist"),
+    (KeywordSet::RENOWN, "Renown"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

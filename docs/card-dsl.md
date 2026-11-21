@@ -5710,3 +5710,29 @@ Each triggers once per keyword instance (`layers::keyword_instances`):
   the least toughness among creatures you control (untargeted, unreduced by
   marked damage per `CR 120.6`, auto-selecting when unique and prompting on a
   tie) and puts N `+1/+1` counters on it.
+
+**Maximum blocker bounds, noncombat damage prevention, damage multipliers & adders, and renown.**
+- `Modifier::MaxBlockers(u8)` (`CR 509.1b` — *Alpha Authority*, *Madcap Skills*,
+  *Familiar Ground*, *Bristling Boar*) caps how many creatures can block the
+  affected attacker in a declaration, combining multiple bounds via `.min(...)`
+  and making the creature unblockable whenever `min_blockers > max_blockers`
+  (e.g. menace with `MaxBlockers(1)`).
+- `Modifier::PreventNoncombatDamageFrom(&'static Filter)` (*Blessed Sanctuary*,
+  *Tajic, Legion's Edge*, *Mark of Asylum*) and
+  `Modifier::PreventNoncombatDamageToPlayers { who, from }` (*Personal Sanctuary*,
+  *The Wanderer*) prevent all noncombat damage (`!is_combat`) from matching
+  sources (`CR 615.1a`).
+- `Modifier::MultiplyDamageFrom { sources, factor, combat_only, noncombat_only, recipients }`
+  (*Furnace of Rath*, *Fiery Emancipation*, *Dictate of the Twin Gods*, *City on
+  Fire*, *Solphim*) and
+  `Modifier::AddDamageFrom { sources, extra, combat_only, noncombat_only, recipients }`
+  (*Torbran, Thane of Red Fell*, *Mechanized Warfare*, *Jaya, Venerated Firemage*)
+  over `DamageRecipients::{Any, Players(PlayerRel), Permanents(&Filter), PlayersOrTheirPermanents(PlayerRel)}`
+  apply once per damage event (`CR 614.5`) to positive damage (`CR 120.8`, even
+  when unpreventable), with affected-player / controller ordering under `CR 616.1`.
+- `KeywordSet::RENOWN` (`CR 702.112a–c`), `Condition::IsRenowned`, and
+  `Effect::BecomeRenowned(u8)` implement renown `N` via
+  `triggered!(Trigger::DealsCombatDamageToPlayer(&Filter::This), &[Effect::BecomeRenowned(n)], condition = Some(Condition::Not(&Condition::IsRenowned)))`,
+  keeping the noncopiable `Renowned` designation on that battlefield incarnation
+  until it leaves the battlefield (`CR 702.112b`) and re-checking the
+  intervening `if` on resolution (`CR 702.112c`).

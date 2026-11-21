@@ -509,6 +509,9 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         Modifier::Goaded => {
             ch.tap_untap += 1.0;
         }
+        Modifier::MultiplyDamageFrom { .. } | Modifier::AddDamageFrom { .. } => {
+            ch.damage_any += 1.5;
+        }
         _ => {}
     }
 }

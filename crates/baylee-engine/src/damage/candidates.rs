@@ -294,9 +294,13 @@ impl DamageWork {
                     Kind::Protection
                 }
 
-                Modifier::PreventDamageFrom(filter) | Modifier::PreventCombatDamageFrom(filter) => {
-                    if matches!(fx.modifier, Modifier::PreventCombatDamageFrom(_))
-                        && !part.view.is_combat
+                Modifier::PreventDamageFrom(filter)
+                | Modifier::PreventCombatDamageFrom(filter)
+                | Modifier::PreventNoncombatDamageFrom(filter) => {
+                    if (matches!(fx.modifier, Modifier::PreventCombatDamageFrom(_))
+                        && !part.view.is_combat)
+                        || (matches!(fx.modifier, Modifier::PreventNoncombatDamageFrom(_))
+                            && part.view.is_combat)
                     {
                         continue;
                     }
@@ -320,6 +324,37 @@ impl DamageWork {
                         fx.controller,
                         crate::text_changes::RuleContext {
                             source: fx.source.unwrap_or(object.id),
+                            text: state.effect_text(fx),
+                            resolved_name: None,
+                            resolved_subtype: None,
+                            reference: None,
+                        },
+                    ) {
+                        continue;
+                    }
+                    Kind::PreventAll
+                }
+                Modifier::PreventNoncombatDamageToPlayers { who, from } => {
+                    if part.view.is_combat {
+                        continue;
+                    }
+                    let DamageTarget::Player(player) = part.view.recipient else {
+                        continue;
+                    };
+                    if !effect_affects_player(fx, who, state, player) {
+                        continue;
+                    }
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    if !crate::eval::matches_damage_source_with_context(
+                        from,
+                        state,
+                        source,
+                        fx.controller,
+                        crate::text_changes::RuleContext {
+                            source: fx.source.unwrap_or(source.id),
                             text: state.effect_text(fx),
                             resolved_name: None,
                             resolved_subtype: None,
@@ -722,7 +757,7 @@ fn masked_candidates(state: &GameState, part: &Part, out: &mut Vec<Candidate>) {
     }
 }
 
-fn effect_affects_player(
+pub(super) fn effect_affects_player(
     fx: &crate::effects::ContinuousEffect,
     who: baylee_cards_dsl::PlayerRel,
     state: &GameState,

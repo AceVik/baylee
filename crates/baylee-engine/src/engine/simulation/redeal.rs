@@ -662,6 +662,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::OffspringPaid
         | Rider::Fused
         | Rider::Manifested
+        | Rider::Renowned
         | Rider::ExhaustedAbility(_)
         | Rider::EntrySacrifices(_)
         | Rider::SecondChosenSubtype(_)

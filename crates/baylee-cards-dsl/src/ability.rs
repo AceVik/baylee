@@ -626,6 +626,11 @@ pub enum Condition {
         /// Right-hand evaluated amount.
         right: &'static crate::Amount,
     },
+    /// Whether this permanent currently has the renowned designation
+    /// (CR 702.112b–c; e.g. `Condition::Not(&Condition::IsRenowned)` for
+    /// renown's intervening `if`, or `Condition::IsRenowned` for "as long as
+    /// this creature is renowned"). Appended to preserve replay identities.
+    IsRenowned,
 }
 
 /// Trigger conditions for triggered abilities.

@@ -4026,6 +4026,10 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::Bolster(amount) => wave4_combat::start_bolster(state, res, amount),
+        Effect::BecomeRenowned(count) => {
+            wave4_combat::become_renowned(state, res, count);
+            None
+        }
     }
 }
 
@@ -4263,6 +4267,9 @@ fn resolution_condition(
             .or_else(|| state.damage_source(res.source, source_version(state, res)))
             .or_else(|| state.object(res.on_stack))
             .is_some_and(|object| object.kicked_with(index)),
+        Condition::IsRenowned => state
+            .damage_source(res.source, source_version(state, res))
+            .is_some_and(|object| object.riders.contains(&crate::object::Rider::Renowned)),
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)
         }
@@ -4404,14 +4411,23 @@ fn resolution_bound_seats(
     you: PlayerId,
     modifier: &baylee_cards_dsl::Modifier,
 ) -> Option<Vec<PlayerId>> {
-    use baylee_cards_dsl::Modifier;
+    use baylee_cards_dsl::{DamageRecipients, Modifier};
     let (Modifier::PlayersCantCast { who, .. }
     | Modifier::SpellCastLimitPerTurn { who, .. }
     | Modifier::MatchingSpellCastLimitPerTurn { who, .. }
     | Modifier::PlayerHexproof { who }
     | Modifier::PlayerProtectionFrom { who, .. }
     | Modifier::PlayerProtectionFromEverything { who }
-    | Modifier::PlayerProtectionFromOpponents { who }) = *modifier
+    | Modifier::PlayerProtectionFromOpponents { who }
+    | Modifier::PreventNoncombatDamageToPlayers { who, .. }
+    | Modifier::MultiplyDamageFrom {
+        recipients: DamageRecipients::Players(who) | DamageRecipients::PlayersOrTheirPermanents(who),
+        ..
+    }
+    | Modifier::AddDamageFrom {
+        recipients: DamageRecipients::Players(who) | DamageRecipients::PlayersOrTheirPermanents(who),
+        ..
+    }) = *modifier
     else {
         return None;
     };

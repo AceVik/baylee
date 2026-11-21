@@ -1124,6 +1124,10 @@ fn is_prevention(modifier: &Modifier) -> bool {
             | Modifier::PreventAllDamageFromIt
             | Modifier::PreventDamageToYouFrom(_)
             | Modifier::PreventCombatDamageFrom(_)
+            | Modifier::PreventNoncombatDamageFrom(_)
+            | Modifier::PreventNoncombatDamageToPlayers { .. }
+            | Modifier::MultiplyDamageFrom { .. }
+            | Modifier::AddDamageFrom { .. }
             | Modifier::PreventDamageFrom(_)
             | Modifier::PreventDamagePerSource { .. }
             | Modifier::PreventDamageToAffectedPerSource { .. }

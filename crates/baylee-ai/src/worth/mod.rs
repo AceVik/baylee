@@ -2089,6 +2089,7 @@ impl HeuristicAgent {
                     0
                 }
             }
+            Effect::BecomeRenowned(n) => i64::from(*n) * 110 + 40,
             Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }
             | Effect::WishToHand { .. }

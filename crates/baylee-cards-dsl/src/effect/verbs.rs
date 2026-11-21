@@ -1327,7 +1327,8 @@ impl Effect {
             | Effect::Bolster(_)
             | Effect::Plot { .. }
             | Effect::PlotTop { .. }
-            | Effect::Backup { .. } => (NONE, NONE),
+            | Effect::Backup { .. }
+            | Effect::BecomeRenowned(_) => (NONE, NONE),
         }
     }
 

@@ -71,7 +71,9 @@ pub mod tape;
 /// `ChoicePrompt::ManifestDread` (CR 701.62).
 /// Version 56 carries `CastModeKind::Plot` and `PublicObject::plotted`
 /// (CR 702.170) alongside `YesNoPrompt::Casualty` (CR 702.153).
-pub const PROTOCOL_VERSION: u32 = 56;
+/// Version 57 carries `DamageEffectKind::MultiplyDamage` and
+/// `DamageEffectKind::AddDamage` for CR 616.1 damage replacement ordering.
+pub const PROTOCOL_VERSION: u32 = 57;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -393,7 +395,9 @@ mod tests {
         // `ChoicePrompt::ManifestDread` on positional binary frames.
         // 56: `CastModeKind::Plot`, `PublicObject::plotted`, and `YesNoPrompt::Casualty`
         // on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 56);
+        // 57: `DamageEffectKind::MultiplyDamage` and `DamageEffectKind::AddDamage` on
+        // positional binary frames.
+        assert_eq!(PROTOCOL_VERSION, 57);
     }
 
     #[test]

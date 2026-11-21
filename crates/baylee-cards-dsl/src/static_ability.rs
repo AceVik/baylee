@@ -67,6 +67,23 @@ pub enum DamageAmountReplacement {
     FloorAtEffectSourcePower,
 }
 
+/// Which damage recipients a [`Modifier::MultiplyDamageFrom`] or
+/// [`Modifier::AddDamageFrom`] replacement applies to (CR 614.1a).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DamageRecipients {
+    /// Any permanent or player ("to any target", "to a permanent or player",
+    /// Furnace of Rath, Fiery Emancipation, Mechanized Warfare).
+    Any,
+    /// Players matching the relation relative to the effect's controller.
+    Players(crate::effect::PlayerRel),
+    /// Permanents matching the filter, read with the effect's controller as "you".
+    Permanents(&'static Filter),
+    /// Players matching the relation or permanents those players control
+    /// (Torbran, Thane of Red Fell; Gisela; Solphim: "an opponent or a
+    /// permanent an opponent controls").
+    PlayersOrTheirPermanents(crate::effect::PlayerRel),
+}
+
 /// What a continuous effect changes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Modifier {
@@ -1186,6 +1203,61 @@ pub enum Modifier {
         /// Maximum number of matching spells allowed per turn.
         limit: u32,
     },
+    /// The affected creature can't be blocked by more than `n` creatures
+    /// (Alpha Authority, Madcap Skills, Familiar Ground, Bristling Boar;
+    /// CR 509.1b). Independent maximums combine by taking the lowest; when a
+    /// minimum-blocker rule exceeds the maximum (e.g. menace with `MaxBlockers(1)`),
+    /// no non-empty block is legal so the creature can't be blocked. Appended
+    /// to preserve replay identities.
+    MaxBlockers(u8),
+    /// Prevent all noncombat damage that would be dealt to the affected
+    /// permanent by sources matching the filter (Blessed Sanctuary, Tajic,
+    /// Mark of Asylum, The Wanderer; CR 615.1a). Appended to preserve replay
+    /// identities.
+    PreventNoncombatDamageFrom(&'static Filter),
+    /// Prevent all noncombat damage that would be dealt to the named players
+    /// by sources matching `from` (Personal Sanctuary, The Wanderer;
+    /// CR 615.1a). Appended to preserve replay identities.
+    PreventNoncombatDamageToPlayers {
+        /// Whose noncombat damage is prevented, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+        /// Sources whose noncombat damage is prevented.
+        from: &'static Filter,
+    },
+    /// If a source matching `sources` would deal positive damage to a matching
+    /// recipient, it deals `factor` times that much damage instead (Furnace of
+    /// Rath, Fiery Emancipation, Dictate of the Twin Gods, City on Fire,
+    /// Solphim, Gisela; CR 614.1a, CR 614.5, CR 616.1, CR 120.8). Appended to
+    /// preserve replay identities.
+    MultiplyDamageFrom {
+        /// Damage sources whose positive damage is multiplied.
+        sources: &'static Filter,
+        /// Multiplication factor (e.g. `2` for double, `3` for triple).
+        factor: u8,
+        /// Restrict to combat damage only when `true`.
+        combat_only: bool,
+        /// Restrict to noncombat damage only when `true`.
+        noncombat_only: bool,
+        /// Which recipients' incoming damage is multiplied.
+        recipients: DamageRecipients,
+    },
+    /// If a source matching `sources` would deal positive damage to a matching
+    /// recipient, it deals that much damage plus `extra` instead (Torbran,
+    /// Thane of Red Fell, Mechanized Warfare, Jaya, Venerated Firemage, City
+    /// on Fire's sibling; CR 614.1a, CR 614.5, CR 616.1, CR 120.8). Appended
+    /// to preserve replay identities.
+    AddDamageFrom {
+        /// Damage sources whose positive damage is increased.
+        sources: &'static Filter,
+        /// Flat damage added to each matching `(source, recipient)` event.
+        extra: u8,
+        /// Restrict to combat damage only when `true`.
+        combat_only: bool,
+        /// Restrict to noncombat damage only when `true`.
+        noncombat_only: bool,
+        /// Which recipients' incoming damage is increased.
+        recipients: DamageRecipients,
+    },
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1527,7 +1599,12 @@ impl Modifier {
             | Self::RollAdditionalDieIgnoreLowest
             | Self::CastSpellsFromGraveyard
             | Self::CantPhaseOut
-            | Self::Goaded => Layer::Text,
+            | Self::Goaded
+            | Self::MaxBlockers(_)
+            | Self::PreventNoncombatDamageFrom(_)
+            | Self::PreventNoncombatDamageToPlayers { .. }
+            | Self::MultiplyDamageFrom { .. }
+            | Self::AddDamageFrom { .. } => Layer::Text,
         }
     }
 }

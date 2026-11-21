@@ -26,9 +26,21 @@ fn value(view: &PlayerView, target: DamageTarget, hostile: &dyn Fn(PlayerId) -> 
 fn score(
     view: &PlayerView,
     effect: &DamageEffectOption,
+    all_options: &[DamageEffectOption],
     parts: &[DamagePartView],
     hostile: &dyn Fn(PlayerId) -> bool,
 ) -> i64 {
+    let later_mult = |part_id: u32| -> u64 {
+        all_options
+            .iter()
+            .filter(|other| other.id != effect.id && other.parts.contains(&part_id))
+            .fold(1_u64, |acc, other| match other.kind {
+                DamageEffectKind::MultiplyDamage { factor } => {
+                    acc.saturating_mul(u64::from(factor.max(1)))
+                }
+                _ => acc,
+            })
+    };
     let affected = parts.iter().filter(|part| effect.parts.contains(&part.id));
     let amount: u64 = affected.clone().map(|part| u64::from(part.amount)).sum();
     let capacity = match effect.kind {
@@ -64,6 +76,26 @@ fn score(
                         .map(|other| u64::from(other.amount))
                         .sum();
                     (i64::try_from(original).unwrap_or(i64::MAX / 256) - i64::from(amount)) * weight
+                }
+            }
+            DamageEffectKind::MultiplyDamage { factor } => {
+                let before = i64::from(part.amount);
+                let after = before.saturating_mul(i64::from(factor));
+                let scale = i64::try_from(later_mult(part.id)).unwrap_or(i64::MAX / 4096);
+                (before - after)
+                    .saturating_mul(scale)
+                    .saturating_mul(weight)
+            }
+            DamageEffectKind::AddDamage { extra } => {
+                let key = (part.source, part.recipient);
+                if replaced.contains(&key) {
+                    0
+                } else {
+                    replaced.push(key);
+                    let scale = i64::try_from(later_mult(part.id)).unwrap_or(i64::MAX / 4096);
+                    -i64::from(extra)
+                        .saturating_mul(scale)
+                        .saturating_mul(weight)
                 }
             }
             // Reflection adds the full indicated amount even when the original
@@ -144,7 +176,7 @@ pub(crate) fn answer(
             .iter()
             .max_by_key(|effect| {
                 (
-                    score(view, effect, damage, hostile),
+                    score(view, effect, options, damage, hostile),
                     std::cmp::Reverse(effect.id),
                 )
             })
@@ -222,7 +254,13 @@ mod tests {
         };
         let hostile = |player| player == opponent;
         assert_eq!(
-            score(&view, &option, std::slice::from_ref(&part), &hostile),
+            score(
+                &view,
+                &option,
+                std::slice::from_ref(&option),
+                std::slice::from_ref(&part),
+                &hostile,
+            ),
             1600
         );
         let split = [
@@ -237,7 +275,16 @@ mod tests {
             },
         ];
         option.parts.push(2);
-        assert_eq!(score(&view, &option, &split, &hostile), 1600);
+        assert_eq!(
+            score(
+                &view,
+                &option,
+                std::slice::from_ref(&option),
+                &split,
+                &hostile,
+            ),
+            1600
+        );
         option.parts = vec![1];
         option.kind = DamageEffectKind::Reflect {
             source: baylee_core::ids::DamageSourceRef {
@@ -247,7 +294,13 @@ mod tests {
             to: opponent,
         };
         assert_eq!(
-            score(&view, &option, std::slice::from_ref(&part), &hostile),
+            score(
+                &view,
+                &option,
+                std::slice::from_ref(&option),
+                std::slice::from_ref(&part),
+                &hostile,
+            ),
             2000
         );
         option.kind = DamageEffectKind::Reflect {
@@ -257,7 +310,16 @@ mod tests {
             },
             to: me,
         };
-        assert_eq!(score(&view, &option, &[part], &hostile), -2000);
+        assert_eq!(
+            score(
+                &view,
+                &option,
+                std::slice::from_ref(&option),
+                &[part],
+                &hostile,
+            ),
+            -2000
+        );
     }
 
     #[test]
@@ -413,7 +475,13 @@ mod tests {
             parts: vec![3, 4],
         };
         assert_eq!(
-            score(&view, &effect, std::slice::from_ref(&part), &|p| p != me),
+            score(
+                &view,
+                &effect,
+                std::slice::from_ref(&effect),
+                std::slice::from_ref(&part),
+                &|p| p != me,
+            ),
             800
         );
         let pending = Pending::AllocatePrevention {
@@ -435,5 +503,65 @@ mod tests {
         assert!(
             matches!(action, PlayerAction::AllocatePrevention { allocation, .. } if allocation == vec![(3,1),(4,0)])
         );
+    }
+
+    #[test]
+    fn multiplier_and_adder_order_minimizes_own_damage_and_maximizes_hostile_damage() {
+        let view = ViewBuilder::new(2).build();
+        let me = view.seat;
+        let other = PlayerId::new(1);
+        let add = DamageEffectOption {
+            id: 1,
+            source: None,
+            ability: None,
+            controller: other,
+            kind: DamageEffectKind::AddDamage { extra: 2 },
+            parts: vec![10],
+        };
+        let mult = DamageEffectOption {
+            id: 2,
+            kind: DamageEffectKind::MultiplyDamage { factor: 2 },
+            ..add.clone()
+        };
+        let shield = DamageEffectOption {
+            id: 3,
+            controller: me,
+            kind: DamageEffectKind::PreventNext { remaining: 1 },
+            ..add.clone()
+        };
+        let to_me = DamagePartView {
+            id: 10,
+            source: ObjectId::new(4, 0),
+            recipient: DamageTarget::Player(me),
+            amount: 2,
+            is_combat: false,
+            preventable: true,
+        };
+        let ask = |damage: DamagePartView, options: Vec<DamageEffectOption>| {
+            let pending = Pending::ChooseDamageEffect {
+                player: me,
+                choice: DamageChoiceId { batch: 5, step: 1 },
+                damage: vec![damage],
+                options,
+            };
+            answer(&view, &pending, &|p| p != me).unwrap()
+        };
+        assert!(matches!(
+            ask(to_me.clone(), vec![add.clone(), mult.clone()]),
+            PlayerAction::ChooseDamageEffect { effect: 2, .. }
+        ));
+        assert!(matches!(
+            ask(to_me.clone(), vec![add.clone(), mult.clone(), shield]),
+            PlayerAction::ChooseDamageEffect { effect: 3, .. }
+        ));
+        let to_other = DamagePartView {
+            recipient: DamageTarget::Player(other),
+            preventable: false,
+            ..to_me
+        };
+        assert!(matches!(
+            ask(to_other, vec![mult, add]),
+            PlayerAction::ChooseDamageEffect { effect: 1, .. }
+        ));
     }
 }

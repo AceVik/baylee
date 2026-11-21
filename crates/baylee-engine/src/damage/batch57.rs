@@ -30,6 +30,29 @@ impl DamageWork {
                     }
                 }
             }
+            DamageEffectKind::MultiplyDamage { factor } => {
+                for part in &mut self.parts {
+                    if candidate.option.parts.contains(&part.view.id) {
+                        if part.view.amount > 0 {
+                            part.view.amount = part.view.amount.saturating_mul(u32::from(factor));
+                        }
+                        part.applied.push(candidate.key);
+                    }
+                }
+            }
+            DamageEffectKind::AddDamage { extra } => {
+                let mut increased = Vec::new();
+                for part in &mut self.parts {
+                    if candidate.option.parts.contains(&part.view.id) {
+                        let key = (part.view.source, part.source_version, part.view.recipient);
+                        if part.view.amount > 0 && !increased.contains(&key) {
+                            increased.push(key);
+                            part.view.amount = part.view.amount.saturating_add(u32::from(extra));
+                        }
+                        part.applied.push(candidate.key);
+                    }
+                }
+            }
             DamageEffectKind::Reflect { source, to } => {
                 let mut reflected = Vec::new();
                 let first = self.parts.len();
@@ -116,84 +139,235 @@ impl DamageWork {
                 state.object(id).expect("recipient").controller,
             );
         }
-        let DamageTarget::Player(player) = part.view.recipient else {
-            return;
-        };
         let Some(source) = state.damage_source(part.view.source, part.source_version) else {
             return;
         };
         for effect in state.effects.iter() {
-            let Modifier::ReplacePlayerDamage {
-                sources,
-                recipients,
-                combat,
-                replacement,
-            } = effect.modifier
-            else {
-                continue;
-            };
-            if combat.is_some_and(|combat| combat != part.view.is_combat)
-                || !crate::eval::players_for_source(
-                    recipients,
-                    state,
-                    effect.controller,
-                    effect.source,
-                )
-                .is_some_and(|players| players.contains(&player))
-                || !crate::eval::matches_damage_source_with_context(
+            match effect.modifier {
+                Modifier::ReplacePlayerDamage {
                     sources,
+                    recipients,
+                    combat,
+                    replacement,
+                } => {
+                    let DamageTarget::Player(player) = part.view.recipient else {
+                        continue;
+                    };
+                    if combat.is_some_and(|combat| combat != part.view.is_combat)
+                        || !crate::eval::players_for_source(
+                            recipients,
+                            state,
+                            effect.controller,
+                            effect.source,
+                        )
+                        .is_some_and(|players| players.contains(&player))
+                        || !crate::eval::matches_damage_source_with_context(
+                            sources,
+                            state,
+                            source,
+                            effect.controller,
+                            crate::text_changes::RuleContext {
+                                source: effect.source.unwrap_or(source.id),
+                                text: state.effect_text(effect),
+                                resolved_name: None,
+                                resolved_subtype: None,
+                                reference: None,
+                            },
+                        )
+                    {
+                        continue;
+                    }
+                    let total = self
+                        .parts
+                        .iter()
+                        .filter(|other| {
+                            other.view.source == part.view.source
+                                && other.source_version == part.source_version
+                                && other.view.recipient == part.view.recipient
+                                && !other.applied.contains(&EffectKey::Continuous(effect.id))
+                        })
+                        .map(|part| part.view.amount)
+                        .fold(0, u32::saturating_add);
+                    let amount = match replacement {
+                        DamageAmountReplacement::Cap(cap) if total > cap => cap,
+                        DamageAmountReplacement::FloorAtEffectSourcePower => {
+                            let power = effect
+                                .source
+                                .and_then(|id| state.object(id))
+                                .and_then(|o| o.characteristics().power)
+                                .and_then(|power| u32::try_from(power).ok())
+                                .unwrap_or(0);
+                            if total >= power {
+                                continue;
+                            }
+                            power
+                        }
+                        DamageAmountReplacement::Cap(_) => continue,
+                    };
+                    super::candidates::add(
+                        out,
+                        part,
+                        EffectKey::Continuous(effect.id),
+                        DamageEffectKind::ReplaceAmount { amount },
+                        effect.source.map(|source| crate::prevention::ShieldOrigin {
+                            source,
+                            ability: None,
+                        }),
+                        effect.controller,
+                    );
+                }
+                Modifier::MultiplyDamageFrom { .. } | Modifier::AddDamageFrom { .. } => {
+                    push_scaled_damage_candidate(effect, state, part, source, out);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn push_scaled_damage_candidate(
+    effect: &crate::effects::ContinuousEffect,
+    state: &GameState,
+    part: &super::Part,
+    source: &crate::object::GameObject,
+    out: &mut Vec<Candidate>,
+) {
+    use baylee_cards_dsl::Modifier;
+    if part.view.amount == 0 {
+        return;
+    }
+    let (sources, combat_only, noncombat_only, recipients, kind) = match effect.modifier {
+        Modifier::MultiplyDamageFrom {
+            sources,
+            factor,
+            combat_only,
+            noncombat_only,
+            recipients,
+        } if factor > 1 => (
+            sources,
+            combat_only,
+            noncombat_only,
+            recipients,
+            DamageEffectKind::MultiplyDamage { factor },
+        ),
+        Modifier::AddDamageFrom {
+            sources,
+            extra,
+            combat_only,
+            noncombat_only,
+            recipients,
+        } if extra > 0 => (
+            sources,
+            combat_only,
+            noncombat_only,
+            recipients,
+            DamageEffectKind::AddDamage { extra },
+        ),
+        _ => return,
+    };
+    if (combat_only && !part.view.is_combat)
+        || (noncombat_only && part.view.is_combat)
+        || !damage_recipients_match(effect, recipients, state, part.view.recipient)
+        || !damage_source_matches_effect(effect, sources, state, source)
+    {
+        return;
+    }
+    super::candidates::add(
+        out,
+        part,
+        EffectKey::Continuous(effect.id),
+        kind,
+        effect.source.map(|source| crate::prevention::ShieldOrigin {
+            source,
+            ability: None,
+        }),
+        effect.controller,
+    );
+}
+
+fn damage_source_matches_effect(
+    effect: &crate::effects::ContinuousEffect,
+    sources: &'static baylee_cards_dsl::Filter,
+    state: &GameState,
+    source: &crate::object::GameObject,
+) -> bool {
+    let fx_source = effect.source.unwrap_or(source.id);
+    let fx_obj = state.object(fx_source);
+    let chosen_color = fx_obj.and_then(|o| o.chosen_color);
+    let chosen_subtype = fx_obj.and_then(|o| o.chosen_subtype);
+    crate::eval::matches_damage_source_with_choices(
+        sources,
+        state,
+        source,
+        effect.controller,
+        crate::text_changes::RuleContext {
+            source: fx_source,
+            text: state.effect_text(effect),
+            resolved_name: None,
+            resolved_subtype: chosen_subtype,
+            reference: None,
+        },
+        chosen_color,
+        chosen_subtype,
+    )
+}
+
+fn damage_recipients_match(
+    effect: &crate::effects::ContinuousEffect,
+    recipients: baylee_cards_dsl::DamageRecipients,
+    state: &GameState,
+    recipient: DamageTarget,
+) -> bool {
+    use baylee_cards_dsl::DamageRecipients;
+    match recipients {
+        DamageRecipients::Any => true,
+        DamageRecipients::Players(who) => match recipient {
+            DamageTarget::Player(player) => {
+                super::candidates::effect_affects_player(effect, who, state, player)
+            }
+            DamageTarget::Object(_) => false,
+        },
+        DamageRecipients::Permanents(filter) => match recipient {
+            DamageTarget::Object(target) => state.object(target).is_some_and(|object| {
+                if matches!(effect.filter, crate::effects::EffectFilter::ObjectIs(..))
+                    && !crate::effects::applies_to(state, effect, object)
+                {
+                    return false;
+                }
+                if matches!(effect.filter, crate::effects::EffectFilter::ObjectIs(..))
+                    && *filter == baylee_cards_dsl::Filter::This
+                {
+                    return true;
+                }
+                let fx_source = effect.source.unwrap_or(object.id);
+                let chosen_subtype = state.object(fx_source).and_then(|o| o.chosen_subtype);
+                crate::eval::matches_with_context(
+                    filter,
                     state,
-                    source,
+                    object,
                     effect.controller,
                     crate::text_changes::RuleContext {
-                        source: effect.source.unwrap_or(source.id),
+                        source: fx_source,
                         text: state.effect_text(effect),
                         resolved_name: None,
-                        resolved_subtype: None,
+                        resolved_subtype: chosen_subtype,
                         reference: None,
                     },
                 )
-            {
-                continue;
-            }
-            let total = self
-                .parts
-                .iter()
-                .filter(|other| {
-                    other.view.source == part.view.source
-                        && other.source_version == part.source_version
-                        && other.view.recipient == part.view.recipient
-                        && !other.applied.contains(&EffectKey::Continuous(effect.id))
-                })
-                .map(|part| part.view.amount)
-                .fold(0, u32::saturating_add);
-            let amount = match replacement {
-                DamageAmountReplacement::Cap(cap) if total > cap => cap,
-                DamageAmountReplacement::FloorAtEffectSourcePower => {
-                    let power = effect
-                        .source
-                        .and_then(|id| state.object(id))
-                        .and_then(|o| o.characteristics().power)
-                        .and_then(|power| u32::try_from(power).ok())
-                        .unwrap_or(0);
-                    if total >= power {
-                        continue;
-                    }
-                    power
+            }),
+            DamageTarget::Player(_) => false,
+        },
+        DamageRecipients::PlayersOrTheirPermanents(who) => {
+            let player = match recipient {
+                DamageTarget::Player(player) => player,
+                DamageTarget::Object(target) => {
+                    let Some(object) = state.object(target) else {
+                        return false;
+                    };
+                    object.controller
                 }
-                DamageAmountReplacement::Cap(_) => continue,
             };
-            super::candidates::add(
-                out,
-                part,
-                EffectKey::Continuous(effect.id),
-                DamageEffectKind::ReplaceAmount { amount },
-                effect.source.map(|source| crate::prevention::ShieldOrigin {
-                    source,
-                    ability: None,
-                }),
-                effect.controller,
-            );
+            super::candidates::effect_affects_player(effect, who, state, player)
         }
     }
 }

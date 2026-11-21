@@ -1535,6 +1535,20 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         }
         crate::object::Rider::GrantedActivated => h.u8(62),
         crate::object::Rider::AbilityCopy => h.u8(80),
+        crate::object::Rider::BattleProtector(player) => {
+            h.u8(79);
+            player.hash(h);
+        }
+        crate::object::Rider::SyntheticCondition(condition) => {
+            h.u8(96);
+            condition.hash(h);
+        }
+        _ => hash_expansion_acquired_rider(h, rider),
+    }
+}
+
+fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
+    match rider {
         crate::object::Rider::Bestowed => h.u8(101),
         crate::object::Rider::MustAttackPlayerThisTurn(player) => {
             h.u8(102);
@@ -1567,14 +1581,7 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             turn.hash(h);
         }
         crate::object::Rider::CasualtyPaid => h.u8(162),
-        crate::object::Rider::BattleProtector(player) => {
-            h.u8(79);
-            player.hash(h);
-        }
-        crate::object::Rider::SyntheticCondition(condition) => {
-            h.u8(96);
-            condition.hash(h);
-        }
+        crate::object::Rider::Renowned => h.u8(171),
         _ => {}
     }
 }
@@ -2271,6 +2278,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::OffspringPaid => h.u8(132),
             Rider::Fused => h.u8(133),
             Rider::Manifested => h.u8(134),
+            Rider::Renowned => h.u8(171),
             Rider::ExiledWith { host, version } => {
                 h.u8(13);
                 host.hash(h);

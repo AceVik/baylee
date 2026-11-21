@@ -145,7 +145,8 @@ fn zones_and_board(v: &str, add: &mut dyn FnMut(bool, &'static str)) {
     add(
         (v.contains("Counter") && !v.starts_with("Counter"))
             || v == "Proliferate"
-            || v == "Bolster",
+            || v == "Bolster"
+            || v == "BecomeRenowned",
         "counters",
     );
     add(

@@ -13,6 +13,41 @@ use super::*;
 /// answered only by a resolution, so there they name nobody: the effect
 /// would be registered and limit no one. The match on the relation is
 /// exhaustive so that a new relation has to be sorted into one side.
+fn continuous_player_rel(modifier: Modifier) -> Option<crate::dsl::effect::PlayerRel> {
+    match modifier {
+        Modifier::DrawLimitPerTurn { who, .. }
+        | Modifier::SpellCastLimitPerTurn { who, .. }
+        | Modifier::MatchingSpellCastLimitPerTurn { who, .. }
+        | Modifier::LifeTotalCantChange { who }
+        | Modifier::PlayerProtectionFromEverything { who }
+        | Modifier::CantLoseLife { who }
+        | Modifier::NoLossForZeroLife { who }
+        | Modifier::LifeGainDrawsInstead { who }
+        | Modifier::LifeGainNoLifeInstead { who }
+        | Modifier::CantBeAttackedExceptBy { who, .. }
+        | Modifier::SkipUntapStep { who }
+        | Modifier::UntapAtMost { who, .. }
+        | Modifier::ReplacePlayerDamage {
+            recipients: who, ..
+        }
+        | Modifier::DamageLifeLossFloor { players: who, .. }
+        | Modifier::PreventNoncombatDamageToPlayers { who, .. }
+        | Modifier::MultiplyDamageFrom {
+            recipients:
+                crate::dsl::DamageRecipients::Players(who)
+                | crate::dsl::DamageRecipients::PlayersOrTheirPermanents(who),
+            ..
+        }
+        | Modifier::AddDamageFrom {
+            recipients:
+                crate::dsl::DamageRecipients::Players(who)
+                | crate::dsl::DamageRecipients::PlayersOrTheirPermanents(who),
+            ..
+        } => Some(who),
+        _ => None,
+    }
+}
+
 #[test]
 fn a_continuous_player_relation_is_one_the_state_can_answer() {
     use crate::dsl::effect::PlayerRel;
@@ -30,23 +65,7 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                 .flat_map(|b| b.effects.iter().flat_map(declared_layers))
                 .map(|(_, modifier)| (false, modifier));
             for (is_printed, modifier) in printed.into_iter().chain(granted) {
-                let (Modifier::DrawLimitPerTurn { who, .. }
-                | Modifier::SpellCastLimitPerTurn { who, .. }
-                | Modifier::MatchingSpellCastLimitPerTurn { who, .. }
-                | Modifier::LifeTotalCantChange { who }
-                | Modifier::PlayerProtectionFromEverything { who }
-                | Modifier::CantLoseLife { who }
-                | Modifier::NoLossForZeroLife { who }
-                | Modifier::LifeGainDrawsInstead { who }
-                | Modifier::LifeGainNoLifeInstead { who }
-                | Modifier::CantBeAttackedExceptBy { who, .. }
-                | Modifier::SkipUntapStep { who }
-                | Modifier::UntapAtMost { who, .. }
-                | Modifier::ReplacePlayerDamage {
-                    recipients: who, ..
-                }
-                | Modifier::DamageLifeLossFloor { players: who, .. }) = modifier
-                else {
+                let Some(who) = continuous_player_rel(modifier) else {
                     continue;
                 };
                 seen += 1;
@@ -79,6 +98,9 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                                 Modifier::SpellCastLimitPerTurn { .. }
                                     | Modifier::MatchingSpellCastLimitPerTurn { .. }
                                     | Modifier::PlayerProtectionFromEverything { .. }
+                                    | Modifier::PreventNoncombatDamageToPlayers { .. }
+                                    | Modifier::MultiplyDamageFrom { .. }
+                                    | Modifier::AddDamageFrom { .. }
                             )
                     }
                     PlayerRel::Recipient | PlayerRel::OwnerOfEvent => false,

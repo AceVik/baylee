@@ -227,7 +227,9 @@ pub fn encode_candidates4(
                     }
                     DamageEffectKind::ReplaceAmount { .. }
                     | DamageEffectKind::Reflect { .. }
-                    | DamageEffectKind::TurnFaceUp { .. } => c.feat[18] = 1.0,
+                    | DamageEffectKind::TurnFaceUp { .. }
+                    | DamageEffectKind::MultiplyDamage { .. }
+                    | DamageEffectKind::AddDamage { .. } => c.feat[18] = 1.0,
                 }
                 if let Some(src_obj) = eff.source
                     && let Some(eidx) = state.find_entity(src_obj)

@@ -211,6 +211,8 @@ fn only_prevents(kind: DamageEffectKind) -> bool {
         | DamageEffectKind::PreventAll
         | DamageEffectKind::PreventFromSource { .. } => true,
         DamageEffectKind::ReplaceAmount { .. }
+        | DamageEffectKind::MultiplyDamage { .. }
+        | DamageEffectKind::AddDamage { .. }
         | DamageEffectKind::Reflect { .. }
         | DamageEffectKind::RemoveShieldCounter
         | DamageEffectKind::TurnFaceUp { .. }
@@ -806,6 +808,8 @@ impl DamageWork {
                 }
                 DamageEffectKind::TurnFaceUp { .. }
                 | DamageEffectKind::ReplaceAmount { .. }
+                | DamageEffectKind::MultiplyDamage { .. }
+                | DamageEffectKind::AddDamage { .. }
                 | DamageEffectKind::Reflect { .. }
                 | DamageEffectKind::RemoveShieldCounter => unreachable!("handled first"),
                 DamageEffectKind::RemoveCounter { .. } => unreachable!("allocated counters"),
