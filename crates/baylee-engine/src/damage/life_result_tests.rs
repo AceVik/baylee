@@ -358,7 +358,11 @@ fn result_counter_replacements(state: &mut GameState, additions: usize) {
 #[test]
 fn prevention_counter_rider_leaves_the_replacement_order_to_the_affected_player() {
     use crate::prevention::ShieldSourceFilter;
-    use baylee_cards_dsl::{Amount, CounterKind, Effect, ThisWay};
+    use baylee_cards_dsl::{Amount, CounterKind, DamageRider, Effect, ThisWay};
+    const RIDER: DamageRider = DamageRider::new(&[Effect::AddCounterSource {
+        kind: CounterKind::P1P1,
+        amount: Amount::ThisWay(ThisWay::DamagePrevented),
+    }]);
     for (add_first, expected) in [(true, 6), (false, 5)] {
         let mut state = state();
         result_counter_replacements(&mut state, 1);
@@ -372,10 +376,7 @@ fn prevention_counter_rider_leaves_the_replacement_order_to_the_affected_player(
             kind: ShieldKind::NextWithThen {
                 source: ShieldSourceFilter::Exact(chosen),
                 combat_only: false,
-                then: baylee_cards_dsl::DamageRider::new(&[Effect::AddCounterSource {
-                    kind: CounterKind::P1P1,
-                    amount: Amount::ThisWay(ThisWay::DamagePrevented),
-                }]),
+                then: RIDER,
                 origin_source: protected,
                 origin_version: Some(state.object(protected).unwrap().version),
                 text: crate::text_changes::TextChangeMap::IDENTITY,

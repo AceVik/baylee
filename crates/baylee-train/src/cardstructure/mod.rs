@@ -100,6 +100,12 @@ impl<T: TreeEncode, const N: usize> TreeEncode for [T; N] {
         self.as_slice().tree(b)
     }
 }
+// The DSL validates this single-effect sequence. Its card-catalog shape is unchanged.
+impl TreeEncode for baylee_cards_dsl::DamageRider {
+    fn tree(&self, b: &mut Forest) -> u32 {
+        self.instruction().tree(b)
+    }
+}
 impl<T: TreeEncode> TreeEncode for Option<T> {
     fn tree(&self, b: &mut Forest) -> u32 {
         match self {

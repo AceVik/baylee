@@ -1742,6 +1742,8 @@ mod tests {
     #[allow(clippy::too_many_lines)] // one row per `Modifier` variant
     fn every_modifier() -> Vec<Modifier> {
         const NOTHING: &[baylee_cards_dsl::Effect] = &[];
+        const RIDER: baylee_cards_dsl::DamageRider =
+            baylee_cards_dsl::DamageRider::new(&[baylee_cards_dsl::Effect::gain_life(1)]);
         const GRANTED: baylee_cards_dsl::AbilityDef =
             baylee_cards_dsl::ActivatedParts::new(baylee_cards_dsl::Cost::TAP, NOTHING).build();
         use baylee_cards_dsl::{CounterKind, KeywordSet, PlayerRel};
@@ -2213,7 +2215,7 @@ mod tests {
                 recipients: baylee_cards_dsl::DamageRecipients::Any,
                 combat: None,
                 is_replacement: false,
-                then: baylee_cards_dsl::DamageRider::new(&[baylee_cards_dsl::Effect::gain_life(1)]),
+                then: RIDER,
             },
         ]
     }

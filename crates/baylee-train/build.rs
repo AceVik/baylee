@@ -167,7 +167,7 @@ fn main() {
                 }
                 Item::Struct(s) if matches!(s.vis, Visibility::Public(_)) => {
                     let name = s.ident.to_string();
-                    if ["CardDef", "KeywordSet"].contains(&name.as_str()) {
+                    if ["CardDef", "KeywordSet", "DamageRider"].contains(&name.as_str()) {
                         continue;
                     }
                     (name.clone(), fields_code(&s.fields, &name, "", false).1)
