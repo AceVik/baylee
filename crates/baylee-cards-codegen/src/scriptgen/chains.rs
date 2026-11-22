@@ -1,9 +1,11 @@
 //! Reading an effect and the chain of sub-abilities it hands on to, with
 //! the "unless" a player may pay.
 
+use baylee_core::types::SubtypeKind;
+
 use super::{
-    Chain, Params, Price, Tx, Unless, asks_for_an_object, counter_kind, generic_mana,
-    is_supported_api,
+    BlockRole, CLUE_TOKEN_SCRIPT, Chain, Params, Price, Tx, Unless, asks_for_an_object,
+    counter_kind, generic_mana, is_supported_api, keyword_const,
 };
 
 #[derive(Clone, Copy)]
@@ -67,6 +69,72 @@ impl Tx<'_> {
             chain.target = saved_target;
             *self.unclaimed.borrow_mut() = saved_unclaimed;
             self.body.statics.truncate(saved_statics_len);
+        }
+        if api == "PutCounter"
+            && p.has("DividedAsYouChoose")
+            && chain.effects.is_empty()
+            && chain.target.is_none()
+            && chain.second_target.is_none()
+            && !p.has("UnlessCost")
+            && !p.has("Condition")
+            && !p.has("ConditionCheckSVar")
+            && !p.has("ConditionPresent")
+            && !p.has("ConditionDefined")
+            && !p.has("AtEOT")
+            && !p.has("ReplaceDyingDefined")
+        {
+            return self.wave24a_divided_counters_chain(p, chain);
+        }
+        if api == "DealDamage"
+            && p.has("ExcessSVar")
+            && chain.target.is_none()
+            && chain.second_target.is_none()
+            && !p.has("DamageSource")
+            && !p.has("DividedAsYouChoose")
+            && !p.has("UnlessCost")
+            && !p.has("Condition")
+            && !p.has("ConditionCheckSVar")
+            && !p.has("ConditionPresent")
+            && !p.has("ConditionDefined")
+            && !p.has("AtEOT")
+            && !p.has("ReplaceDyingDefined")
+        {
+            let saved_effects_len = chain.effects.len();
+            let saved_target = chain.target.clone();
+            let saved_up_to = chain.target_up_to;
+            let saved_exact = chain.target_exact;
+            let saved_is_x = chain.target_is_x;
+            let saved_second = chain.second_target.clone();
+            let saved_second_up_to = chain.second_target_up_to;
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if self.excess_damage_chain(spec, chain).is_some() {
+                return Some(());
+            }
+            let first_err = self.unclaimed.borrow().clone();
+            chain.effects.truncate(saved_effects_len);
+            chain.target = saved_target;
+            chain.target_up_to = saved_up_to;
+            chain.target_exact = saved_exact;
+            chain.target_is_x = saved_is_x;
+            chain.second_target = saved_second;
+            chain.second_target_up_to = saved_second_up_to;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+            if self
+                .wave24a_single_excess_damage_chain(spec, chain)
+                .is_some()
+            {
+                return Some(());
+            }
+            if self.unclaimed.borrow().is_none() {
+                if let Some(err) = first_err {
+                    *self.unclaimed.borrow_mut() = Some(err);
+                } else {
+                    self.note("unclaimed parameter `DealDamage.ExcessSVar`".to_string());
+                }
+            }
+            return None;
         }
         let mut local_kicked_target: Option<String> = None;
         let (targets_here, mut sub) =
@@ -330,30 +398,45 @@ impl Tx<'_> {
             }
         };
 
-        let effects = if let Some(split) = self
-            .try_split_kicked_amount(
-                &api,
-                &mut p,
-                target.as_deref(),
-                targets_here,
-                targets_a_player,
-                chain,
-            )
-            .ok()?
+        let effects = if api != "Branch"
+            && let Some(split) = self
+                .try_split_kicked_amount(
+                    &api,
+                    &mut p,
+                    target.as_deref(),
+                    targets_here,
+                    targets_a_player,
+                    chain,
+                )
+                .ok()?
         {
             split
-        } else if let Some(split) = self
-            .try_split_bargained_or_prototyped_amount(
-                &api,
-                &mut p,
-                target.as_deref(),
-                targets_here,
-                targets_a_player,
-                chain,
-            )
-            .ok()?
+        } else if api != "Branch"
+            && let Some(split) = self
+                .try_split_bargained_or_prototyped_amount(
+                    &api,
+                    &mut p,
+                    target.as_deref(),
+                    targets_here,
+                    targets_a_player,
+                    chain,
+                )
+                .ok()?
         {
             split
+        } else if api == "Branch" {
+            let single_target = chain.target_exact.is_none()
+                && !chain.target_is_x
+                && chain.target_up_to.is_none_or(|n| n == 1);
+            let Some(effects) =
+                self.wave24a_branch_effect(&mut p, target.as_deref(), single_target, chain)
+            else {
+                if self.unclaimed.borrow().is_none() {
+                    self.note("effect `Branch`".to_string());
+                }
+                return None;
+            };
+            effects
         } else if api == "ChangeZone"
             && matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
             && p.peek("Destination") == Some("Exile")
@@ -970,6 +1053,57 @@ impl Tx<'_> {
             } else {
                 None
             };
+            let remembered_effects = if let Some(effects) = remembered_effects {
+                Some(effects)
+            } else if !second_target_here
+                && unless.is_none()
+                && dying.is_none()
+                && at_end.is_none()
+                && !optional_counter
+                && !p.has("Condition")
+                && !p.has("ConditionPresent")
+                && !p.has("ConditionCheckSVar")
+                && !p.has("ConditionDefined")
+                && ((api == "Mill" && p.peek("RememberMilled") == Some("True"))
+                    || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
+                        && p.peek("RememberChanged") == Some("True")))
+            {
+                let saved_p = p.clone();
+                let saved_sub = sub.clone();
+                let saved_target = chain.target.clone();
+                let saved_up_to = chain.target_up_to;
+                let saved_exact = chain.target_exact;
+                let saved_is_x = chain.target_is_x;
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                if let Some(effects) = self.wave24a_remembered_chain(
+                    &api,
+                    &mut p,
+                    &mut sub,
+                    target.as_deref(),
+                    LineFlags {
+                        targets_here,
+                        targets_a_player,
+                        single_target,
+                        prior_target_used,
+                    },
+                    chain,
+                ) {
+                    Some(effects)
+                } else {
+                    p = saved_p;
+                    sub = saved_sub;
+                    chain.target = saved_target;
+                    chain.target_up_to = saved_up_to;
+                    chain.target_exact = saved_exact;
+                    chain.target_is_x = saved_is_x;
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                    None
+                }
+            } else {
+                None
+            };
             if let Some(effects) = remembered_effects {
                 effects
             } else {
@@ -979,7 +1113,25 @@ impl Tx<'_> {
                     "Pump" => {
                         self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
                     }
+                    "Fight"
+                        if p.has("ExcessSVar")
+                            && unless.is_none()
+                            && dying.is_none()
+                            && at_end.is_none()
+                            && !optional_counter =>
+                    {
+                        self.wave24a_fight_excess_damage_chain(&mut p, &mut sub, chain)
+                    }
                     "Fight" => self.fight_effect(&mut p, true),
+                    "DealDamage"
+                        if p.has("ExcessSVar")
+                            && unless.is_none()
+                            && dying.is_none()
+                            && at_end.is_none()
+                            && !optional_counter =>
+                    {
+                        self.wave24a_bite_excess_damage_chain(&mut p, &mut sub, chain)
+                    }
                     "DealDamage" => self.bite_effect(&mut p),
                     "MoveCounter" => {
                         self.move_counter_effect(&mut p, target.as_deref(), true, true)
@@ -2022,6 +2174,7 @@ impl Tx<'_> {
                             | "Regenerate"
                             | "PreventDamage"
                             | "Play"
+                            | "Branch"
                     )
                     || (api == "DealDamage" && !p.has("DividedAsYouChoose"))
                     || (api == "ChangeZone"
@@ -3607,38 +3760,11 @@ impl Tx<'_> {
             "Mana" => self.mana_effect(p)?,
             "ManaReflected" => self.mana_reflected_db_effect(p, target, targets_here)?,
             "Branch" => {
-                let var = p.take("BranchConditionSVar")?;
-                let cmp = p
-                    .take("BranchConditionSVarCompare")
-                    .unwrap_or_else(|| "GE1".to_string());
-                let cond = self
-                    .svar_condition(&var, &cmp)
-                    .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
-                    .or_else(|| self.wave7_svar_condition(&var, &cmp))
-                    .or_else(|| Self::wave16_svar_condition(var.trim(), &cmp))
-                    .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, true))?;
-                let true_sub = p.take("TrueSubAbility")?;
-                let false_sub = p.take("FalseSubAbility")?;
-                let true_body = self.svars.get(true_sub.trim())?.clone();
-                let false_body = self.svars.get(false_sub.trim())?.clone();
-                let mut then_chain = Chain {
+                let mut temp = Chain {
                     target: target.map(str::to_string),
                     ..Chain::default()
                 };
-                let mut else_chain = Chain {
-                    target: target.map(str::to_string),
-                    ..Chain::default()
-                };
-                self.chain(&true_body, &mut then_chain)?;
-                self.chain(&false_body, &mut else_chain)?;
-                if then_chain.effects.is_empty() || else_chain.effects.is_empty() {
-                    return None;
-                }
-                vec![format!(
-                    "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[{}] }}",
-                    then_chain.effects.join(", "),
-                    else_chain.effects.join(", ")
-                )]
+                self.wave24a_branch_effect(p, target, single_target, &mut temp)?
             }
             "Destroy" => {
                 // `NoRegen$ True` is **read** and no longer merely consumed.
@@ -4959,7 +5085,8 @@ impl Tx<'_> {
         targets_a_player: bool,
         chain: &Chain,
     ) -> Result<Option<Vec<String>>, ()> {
-        if chain.second_target.is_some()
+        if api == "Branch"
+            || chain.second_target.is_some()
             || p.has("Condition")
             || p.has("ConditionCheckSVar")
             || p.has("ConditionPresent")
@@ -5108,6 +5235,38 @@ impl Tx<'_> {
                 ),
                 _ => None,
             },
+            "PlayerCountPropertyYou$DomainPlayer" => {
+                let amt = "Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)";
+                if let Some(n_raw) = cmp.strip_prefix("GE") {
+                    let n = n_raw.parse::<u32>().ok()?;
+                    (n >= 1).then(|| format!("Condition::AmountAtLeast({amt}, {n})"))
+                } else if let Some(n_raw) = cmp.strip_prefix("GT") {
+                    let n = n_raw.parse::<u32>().ok()?.checked_add(1)?;
+                    Some(format!("Condition::AmountAtLeast({amt}, {n})"))
+                } else if let Some(n_raw) = cmp.strip_prefix("LE") {
+                    let n = n_raw.parse::<u32>().ok()?.checked_add(1)?;
+                    Some(format!(
+                        "Condition::Not(&Condition::AmountAtLeast({amt}, {n}))"
+                    ))
+                } else if let Some(n_raw) = cmp.strip_prefix("LT") {
+                    let n = n_raw.parse::<u32>().ok()?;
+                    (n >= 1).then(|| {
+                        format!("Condition::Not(&Condition::AmountAtLeast({amt}, {n}))")
+                    })
+                } else if cmp == "EQ0" {
+                    Some(format!(
+                        "Condition::Not(&Condition::AmountAtLeast({amt}, 1))"
+                    ))
+                } else if let Some(n_raw) = cmp.strip_prefix("EQ") {
+                    let n = n_raw.parse::<u32>().ok()?;
+                    Some(format!(
+                        "Condition::AmountCompare {{ left: &{amt}, op: AmountCmp::Equal, \
+                         right: &Amount::Fixed({n}) }}"
+                    ))
+                } else {
+                    None
+                }
+            }
             "Count$AltCost.1.0" | "Count$AltCost" => match cmp {
                 "GE1" | "EQ1" => Some("Condition::AltCostPaid".to_string()),
                 "EQ0" | "LT1" => Some("Condition::Not(&Condition::AltCostPaid)".to_string()),
@@ -5548,7 +5707,7 @@ impl Tx<'_> {
                 "DigUntil" if p.peek("RememberFound") == Some("True") => {
                     p.take("RememberFound");
                 }
-                "ChangeZone"
+                "ChangeZone" | "ChangeZoneAll"
                     if matches!(
                         (p.peek("Origin"), p.peek("Destination")),
                         (Some("Battlefield"), Some("Exile" | "Hand"))
@@ -5573,6 +5732,21 @@ impl Tx<'_> {
                 }
                 _ => {}
             }
+        } else if p.peek("RememberChanged") == Some("True")
+            && ((api == "ChangeZone"
+                && sub.is_none()
+                && p.peek("Origin") == Some("Battlefield")
+                && p.peek("Destination") == Some("Exile")
+                && self.wave24a_unused_linked_exile_remember())
+                || (api == "ChangeZone"
+                    && self.on_a_spell
+                    && sub.is_some()
+                    && p.peek("Origin") == Some("Library")
+                    && p.peek("Destination") == Some("Battlefield")
+                    && !self.has_linked_exile_reader()
+                    && self.wave24a_no_svar_mentions_remembered()))
+        {
+            p.take("RememberChanged");
         }
     }
 
@@ -5890,5 +6064,2450 @@ impl Tx<'_> {
         }
         *sub = next_sub;
         Some(out)
+    }
+
+    // -------------------------------------------------------------------------
+    // Wave 24a: Branch, Excess/Divided chains, and RememberMilled/RememberChanged
+    // -------------------------------------------------------------------------
+
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_branch_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        single_target: bool,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        if chain.target.as_deref().is_some_and(|t| {
+            t.starts_with("TargetSpec::Spell(")
+                || t.starts_with("TargetSpec::AbilityOnStack(")
+                || t.starts_with("TargetSpec::SpellOrAbility(")
+                || t.starts_with("TargetSpec::ActivatedAbility(")
+        }) {
+            p.take("TargetType");
+        }
+        let var = p.take("BranchConditionSVar")?;
+        let cmp = p
+            .take("BranchConditionSVarCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        let true_sub = p.take("TrueSubAbility");
+        let false_sub = p.take("FalseSubAbility");
+        if true_sub.is_none() && false_sub.is_none() {
+            return None;
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Branch.{key}`"));
+        }
+        let (cond, needs_target_only_else) =
+            self.wave24a_branch_condition(&var, &cmp, target, single_target)?;
+        if needs_target_only_else
+            && chain.target_up_to.is_some()
+            && let Some(ref f_name) = false_sub
+            && !self.wave24a_sub_only_acts_on_target(f_name)
+        {
+            return None;
+        }
+        let mut run_branch = |sub_name: Option<String>| -> Option<Vec<String>> {
+            let Some(name) = sub_name else {
+                return Some(Vec::new());
+            };
+            let body = self.svars.get(name.trim())?.clone();
+            let mut branch_chain = Chain {
+                target: chain.target.clone(),
+                target_is_x: chain.target_is_x,
+                target_up_to: chain.target_up_to,
+                target_exact: chain.target_exact,
+                target_unique: chain.target_unique,
+                second_target: chain.second_target.clone(),
+                second_target_up_to: chain.second_target_up_to,
+                ..Chain::default()
+            };
+            self.chain(&body, &mut branch_chain)?;
+            if branch_chain.effects.is_empty()
+                || branch_chain.target != chain.target
+                || branch_chain.second_target != chain.second_target
+                || branch_chain.target_up_to != chain.target_up_to
+                || branch_chain.target_exact != chain.target_exact
+                || branch_chain.target_is_x != chain.target_is_x
+            {
+                return None;
+            }
+            chain.could_add_mana |= branch_chain.could_add_mana;
+            chain.moves_library |= branch_chain.moves_library;
+            Some(branch_chain.effects)
+        };
+        let then_effects = run_branch(true_sub)?;
+        let else_effects = run_branch(false_sub)?;
+        Some(vec![format!(
+            "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[{}] }}",
+            then_effects.join(", "),
+            else_effects.join(", ")
+        )])
+    }
+
+    /// Checks that a branch arm (`FalseSubAbility$`) only runs `Defined$ Targeted`
+    /// effects so that choosing 0 targets on a `TargetMin$ 0` ability is a no-op.
+    fn wave24a_sub_only_acts_on_target(&self, start: &str) -> bool {
+        let mut cursor = Some(start.trim().to_string());
+        let mut steps = 0usize;
+        while let Some(name) = cursor.take() {
+            steps += 1;
+            if steps > 6 {
+                return false;
+            }
+            let Some(body) = self.svars.get(&name) else {
+                return false;
+            };
+            let Some((api, sp)) = Params::parse(body) else {
+                return false;
+            };
+            if api == "Cleanup" {
+                cursor = sp.peek("SubAbility").map(|s| s.trim().to_string());
+                continue;
+            }
+            if !matches!(sp.peek("Defined"), Some("Targeted" | "ParentTarget")) {
+                return false;
+            }
+            cursor = sp.peek("SubAbility").map(|s| s.trim().to_string());
+        }
+        true
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_branch_condition(
+        &mut self,
+        var: &str,
+        cmp: &str,
+        target: Option<&str>,
+        single_target: bool,
+    ) -> Option<(String, bool)> {
+        if let Some(cond) = self
+            .svar_condition_clause(var, cmp)
+            .or_else(|| self.wave7_svar_condition(var, cmp))
+            .or_else(|| Self::wave16_svar_condition(var.trim(), cmp))
+            .or_else(|| self.wave11_amount_compare_condition(var, cmp, true))
+        {
+            return Some((cond, false));
+        }
+        let raw = self
+            .svars
+            .get(var.trim())
+            .map_or(var.trim(), String::as_str)
+            .trim()
+            .to_string();
+        let cmp = cmp.trim();
+        let bool_polarity = match cmp {
+            "GE1" | "EQ1" | "GT0" => Some(true),
+            "EQ0" | "LT1" | "LE0" => Some(false),
+            _ => None,
+        };
+        if let Some(rest) = raw.strip_prefix("Count$Valid Card.Self+counters_GE")
+            && let Some((num_raw, code)) = rest.split_once('_')
+            && !code.contains(['+', '.', ',', ' ', '!'])
+            && let Ok(n) = num_raw.parse::<u8>()
+            && n >= 1
+            && let Some(kind) = counter_kind(code)
+            && let Some(pos) = bool_polarity
+        {
+            let base = format!("Condition::CountersOnSelf({kind}, {n})");
+            return Some((
+                if pos {
+                    base
+                } else {
+                    format!("Condition::Not(&{base})")
+                },
+                false,
+            ));
+        }
+        let obj_target =
+            single_target && target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+        if obj_target
+            && let Some(valid) = raw.strip_prefix("Targeted$Valid ")
+            && let Some(pos) = bool_polarity
+        {
+            let expr = self.filter_expr(valid.trim())?;
+            let filter_name = self.body.filter_static("BRANCH", &expr);
+            let base = format!(
+                "Condition::ObjectMatches {{ what: &TargetSpec::Object(&Filter::Any), \
+                 filter: &{filter_name} }}"
+            );
+            return Some((
+                if pos {
+                    base
+                } else {
+                    format!("Condition::Not(&{base})")
+                },
+                true,
+            ));
+        }
+        if obj_target && let Some(code) = raw.strip_prefix("Targeted$CardCounters.") {
+            let code = code.trim();
+            if matches!(code, "ENERGY" | "POISON" | "RAD") {
+                return None;
+            }
+            let kind = counter_kind(code)?;
+            let min_opt: Option<(u16, bool)> = if let Some(n_raw) = cmp.strip_prefix("GE") {
+                let n = n_raw.parse::<u16>().ok()?;
+                (n >= 1).then_some((n, true))
+            } else if let Some(n_raw) = cmp.strip_prefix("GT") {
+                let n = n_raw.parse::<u16>().ok()?.checked_add(1)?;
+                Some((n, true))
+            } else if matches!(cmp, "EQ0" | "LT1" | "LE0") {
+                Some((1, false))
+            } else {
+                None
+            };
+            let (min_n, pos) = min_opt?;
+            let filter_expr = format!("Filter::CountersAtLeast({kind}, {min_n})");
+            let filter_name = self.body.filter_static("BRANCH", &filter_expr);
+            let base = format!(
+                "Condition::ObjectMatches {{ what: &TargetSpec::Object(&Filter::Any), \
+                 filter: &{filter_name} }}"
+            );
+            return Some((
+                if pos {
+                    base
+                } else {
+                    format!("Condition::Not(&{base})")
+                },
+                true,
+            ));
+        }
+        let event_valid = if self.trigger_mode.as_deref() == Some("ChangesZone") {
+            raw.strip_prefix("TriggeredCard$Valid ")
+        } else if matches!(
+            self.trigger_mode.as_deref(),
+            Some("Attacks" | "AttackerUnblocked" | "AttackerBlocked")
+        ) || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+            && self
+                .block_line
+                .as_ref()
+                .is_some_and(|(r, _, _)| *r == BlockRole::Blocks))
+        {
+            raw.strip_prefix("TriggeredAttacker$Valid ")
+        } else if self.trigger_mode.as_deref() == Some("Blocks")
+            || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                && self
+                    .block_line
+                    .as_ref()
+                    .is_some_and(|(r, _, _)| *r == BlockRole::Blocked))
+        {
+            raw.strip_prefix("TriggeredBlocker$Valid ")
+        } else {
+            None
+        };
+        if let Some(valid) = event_valid
+            && let Some(pos) = bool_polarity
+        {
+            let expr = self.filter_expr(valid.trim())?;
+            let filter_name = self.body.filter_static("BRANCH", &expr);
+            let base = format!(
+                "Condition::ObjectMatches {{ what: &TargetSpec::EventObject, \
+                 filter: &{filter_name} }}"
+            );
+            return Some((
+                if pos {
+                    base
+                } else {
+                    format!("Condition::Not(&{base})")
+                },
+                false,
+            ));
+        }
+        if raw == "TriggerCount$Result" && self.trigger_mode.as_deref() == Some("RolledDie") {
+            let cond = if let Some(n_raw) = cmp.strip_prefix("GE") {
+                let n = n_raw.parse::<u32>().ok()?;
+                (n >= 1).then(|| format!("Condition::AmountAtLeast(Amount::EventAmount, {n})"))?
+            } else if let Some(n_raw) = cmp.strip_prefix("GT") {
+                let n = n_raw.parse::<u32>().ok()?.checked_add(1)?;
+                format!("Condition::AmountAtLeast(Amount::EventAmount, {n})")
+            } else if let Some(n_raw) = cmp.strip_prefix("LE") {
+                let n = n_raw.parse::<u32>().ok()?.checked_add(1)?;
+                format!("Condition::Not(&Condition::AmountAtLeast(Amount::EventAmount, {n}))")
+            } else if let Some(n_raw) = cmp.strip_prefix("LT") {
+                let n = n_raw.parse::<u32>().ok()?;
+                (n >= 1).then(|| {
+                    format!("Condition::Not(&Condition::AmountAtLeast(Amount::EventAmount, {n}))")
+                })?
+            } else {
+                let n = cmp.strip_prefix("EQ")?.parse::<u32>().ok()?;
+                format!(
+                    "Condition::AmountCompare {{ left: &Amount::EventAmount, \
+                     op: AmountCmp::Equal, right: &Amount::Fixed({n}) }}"
+                )
+            };
+            return Some((cond, false));
+        }
+        None
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_divided_counters_chain(&mut self, mut p: Params, chain: &mut Chain) -> Option<()> {
+        if self.trigger_mode.is_some()
+            && self
+                .oracle
+                .to_ascii_lowercase()
+                .contains("you may distribute")
+        {
+            return self.deny("optional triggered divided counter distribution".to_string());
+        }
+        p.claim_label("ValidTgtsDesc", "ValidTgts");
+        let Some(valid) = p.take("ValidTgts") else {
+            return self.deny("`PutCounter` `DividedAsYouChoose$` without `ValidTgts$`".into());
+        };
+        let spec = self.target_spec(&valid, "PutCounter")?;
+        if !spec.starts_with("TargetSpec::Object(") {
+            return self.deny("a non-object divided counter target requirement".into());
+        }
+        let Some(code) = p.take("CounterType") else {
+            return self.deny("`PutCounter` `DividedAsYouChoose$` without `CounterType$`".into());
+        };
+        if matches!(code.as_str(), "ENERGY" | "POISON" | "RAD") {
+            return self.deny(format!("divided player counter `{code}`"));
+        }
+        let Some(kind) = counter_kind(&code) else {
+            return self.deny(format!("counter `{code}`"));
+        };
+        let Some(raw_num) = p.take("CounterNum") else {
+            return self.deny("`PutCounter` `DividedAsYouChoose$` without `CounterNum$`".into());
+        };
+        let Some(raw_div) = p.take("DividedAsYouChoose") else {
+            return self.deny("missing `DividedAsYouChoose$`".into());
+        };
+        let Some(amount) = self.wave24a_divided_counter_amount(&raw_num) else {
+            return self.deny(format!("divided counter count `{raw_num}`"));
+        };
+        if self.wave24a_divided_counter_amount(&raw_div).as_deref() != Some(amount.as_str()) {
+            return self.deny("counter count and announced division have different totals".into());
+        }
+        let fixed_total = amount
+            .strip_prefix("Amount::Fixed(")
+            .and_then(|s| s.strip_suffix(')'))
+            .and_then(|s| s.parse::<u32>().ok());
+        if fixed_total == Some(0) {
+            return self.deny("divided counter total of zero".into());
+        }
+        let target_min = p.take("TargetMin");
+        let target_max = p.take("TargetMax");
+        let target_up_to: Option<u8> = match (target_min.as_deref(), target_max.as_deref()) {
+            (Some("0"), Some(raw_max)) => {
+                if let Ok(n) = raw_max.trim().parse::<u8>() {
+                    if n == 0 || n == u8::MAX {
+                        return self.deny(format!(
+                            "divided counter distribution with `TargetMax$ {raw_max}`"
+                        ));
+                    }
+                    if let Some(total) = fixed_total
+                        && u32::from(n) > total
+                    {
+                        return self
+                            .deny("divided counter maximum targets exceeds counter total".into());
+                    }
+                    Some(n)
+                } else if fixed_total.is_none()
+                    && (raw_max.trim() == raw_num.trim() || raw_max.trim() == raw_div.trim())
+                {
+                    Some(u8::MAX)
+                } else {
+                    return self.deny(format!(
+                        "divided counter distribution with `TargetMax$ {raw_max}`"
+                    ));
+                }
+            }
+            (Some("1"), Some("1")) => None,
+            _ => {
+                return self.deny(
+                    "triggered divided counter distribution with unsupported target bounds".into(),
+                );
+            }
+        };
+        p.take("IsCurse");
+        let next = p.take("SubAbility");
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `PutCounter.{key}`"));
+        }
+        chain.target = Some(spec.clone());
+        chain.target_up_to = target_up_to;
+        chain.effects.push(format!(
+            "Effect::PutCountersDivided {{ kind: {kind}, amount: {amount} }}"
+        ));
+        if let Some(next_name) = next {
+            self.chain_sub_ability(Some(next_name), chain)?;
+            if chain.target.as_deref() != Some(spec.as_str())
+                || chain.second_target.is_some()
+                || chain.target_is_x
+                || chain.target_up_to != target_up_to
+                || chain.target_exact.is_some()
+                || chain.could_add_mana
+                || chain
+                    .effects
+                    .iter()
+                    .skip(1)
+                    .any(|e| e.contains("DealDamageDivided") || e.contains("PutCountersDivided"))
+            {
+                return self.deny("an unsupported continuation after divided counters".into());
+            }
+        }
+        Some(())
+    }
+
+    fn wave24a_divided_counter_amount(&mut self, raw: &str) -> Option<String> {
+        const RESOLUTION_ONLY: &[&str] = &[
+            "ThisWay",
+            "TargetPower",
+            "TargetToughness",
+            "TargetCmc",
+            "Sacrificed",
+            "TappedPower",
+            "EventAmount",
+            "EventPower",
+            "EventLastToughness",
+            "EventManaValue",
+            "LastDieRoll",
+            "CoinsWonThisResolution",
+            "Amount::Neg",
+            "TargetsPutIntoGraveyard",
+        ];
+        let trimmed = raw.trim();
+        if self.trigger_is_self
+            && self.trigger_mode.as_deref() == Some("ChangesZone")
+            && let Some(def) = self.svars.get(trimmed).map(|s| s.trim())
+            && let Some(code) = def.strip_prefix("TriggeredCard$CardCounters.")
+            && !matches!(code.trim(), "ENERGY" | "POISON" | "RAD")
+            && let Some(kind) = counter_kind(code.trim())
+        {
+            return Some(format!("Amount::CountersOnSource({kind})"));
+        }
+        let expr = self.amount_or_count_ext(trimmed)?;
+        if RESOLUTION_ONLY.iter().any(|bad| expr.contains(bad)) {
+            return None;
+        }
+        Some(expr)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_single_excess_damage_chain(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
+        let (api, mut p) = Params::parse(spec)?;
+        if api != "DealDamage" {
+            return None;
+        }
+        p.drop_prose();
+        let excess_var = p.take("ExcessSVar")?.trim().to_string();
+        if excess_var.is_empty() || self.svars.contains_key(&excess_var) {
+            return None;
+        }
+        let require_creature_target = match p.take("ExcessSVarCondition").as_deref() {
+            None | Some("Card.targetedBy") => false,
+            Some("Creature") => true,
+            Some(_) => return None,
+        };
+        let sub_name = p.take("SubAbility")?;
+        p.claim_label("ValidTgtsDesc", "ValidTgts");
+        let valid = p.take("ValidTgts")?;
+        let target_spec = self.target_spec(&valid, "DealDamage")?;
+        if matches!(
+            target_spec.as_str(),
+            "TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent"
+        ) {
+            return None;
+        }
+        match (
+            p.take("TargetMin").as_deref(),
+            p.take("TargetMax").as_deref(),
+        ) {
+            (None, None) | (Some("1"), None | Some("1")) => {}
+            (Some("0"), None | Some("1")) => {
+                chain.target_up_to = Some(1);
+            }
+            _ => return None,
+        }
+        let raw_dmg = p.take("NumDmg")?;
+        let dmg = self.amount_or_count_ext(&raw_dmg)?;
+        let may = match p.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(_) => return None,
+        };
+        if p.take("DamageMap").is_some_and(|v| v != "True") || !p.exhausted() {
+            return None;
+        }
+        let dmg_eff = format!("Effect::DealDamage {{ amount: {dmg}, target: {target_spec} }}");
+        let first_eff = if may {
+            format!("Effect::MayDo {{ effects: &[{dmg_eff}] }}")
+        } else {
+            dmg_eff
+        };
+        chain.target = Some(target_spec);
+        let follow = self.wave24a_excess_damage_followup(
+            &sub_name,
+            &excess_var,
+            "Amount::ThisWay(ThisWay::ExcessDamage)",
+            require_creature_target,
+            chain,
+        )?;
+        chain.effects.push(first_eff);
+        chain.effects.extend(follow);
+        Some(())
+    }
+
+    fn wave24a_bite_excess_damage_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let excess_var = p.take("ExcessSVar")?.trim().to_string();
+        if excess_var.is_empty() || self.svars.contains_key(&excess_var) {
+            return None;
+        }
+        if !matches!(
+            p.take("ExcessSVarCondition").as_deref(),
+            None | Some("Card.targetedBy")
+        ) {
+            return None;
+        }
+        if p.take("DamageMap").is_some_and(|v| v != "True") {
+            return None;
+        }
+        let mut out = self.bite_effect(p)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let sub_name = sub.take()?;
+        let follow = self.wave24a_excess_damage_followup(
+            &sub_name,
+            &excess_var,
+            "Amount::ThisWay(ThisWay::ExcessDamage)",
+            false,
+            chain,
+        )?;
+        out.extend(follow);
+        Some(out)
+    }
+
+    fn wave24a_fight_excess_damage_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let excess_var = p.take("ExcessSVar")?.trim().to_string();
+        if excess_var.is_empty() || self.svars.contains_key(&excess_var) {
+            return None;
+        }
+        let excess_amt = match p.take("ExcessSVarCondition").as_deref() {
+            None => "Amount::ThisWay(ThisWay::ExcessDamage)",
+            Some("Creature.targetedBy+OppCtrl")
+                if chain
+                    .second_target
+                    .as_deref()
+                    .is_some_and(|t| t.starts_with("TargetSpec::Object(")) =>
+            {
+                "Amount::ThisWayBy { what: ThisWay::ExcessDamage, \
+                 who: PlayerRel::SecondTargetPlayerOrController }"
+            }
+            Some(_) => return None,
+        };
+        let mut out = self.fight_effect(p, true)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let sub_name = sub.take()?;
+        let follow =
+            self.wave24a_excess_damage_followup(&sub_name, &excess_var, excess_amt, false, chain)?;
+        out.extend(follow);
+        Some(out)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_excess_damage_followup(
+        &mut self,
+        sub_name: &str,
+        excess_var: &str,
+        excess_amt: &str,
+        require_creature_target: bool,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (sub_api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        sp.take("IfDesc");
+        if sp.has("ValidTgts") || sp.has("UnlessCost") || sp.has("AtEOT") {
+            return None;
+        }
+        let cond = if let Some(check_var) = sp.take("ConditionCheckSVar") {
+            if check_var.trim() != excess_var {
+                return None;
+            }
+            let min_excess: u32 = match sp.take("ConditionSVarCompare").as_deref() {
+                None | Some("GE1" | "GT0") => 1,
+                Some(cmp) => {
+                    if let Some(n) = cmp.strip_prefix("GE").and_then(|s| s.parse::<u32>().ok())
+                        && n >= 1
+                    {
+                        n
+                    } else {
+                        let n = cmp.strip_prefix("GT").and_then(|s| s.parse::<u32>().ok())?;
+                        n.checked_add(1)?
+                    }
+                }
+            };
+            let base = format!("Condition::AmountAtLeast({excess_amt}, {min_excess})");
+            Some(if require_creature_target {
+                format!(
+                    "Condition::All(&[Condition::ObjectMatches {{ \
+                     what: &TargetSpec::Object(&Filter::Any), filter: &Filter::CREATURE }}, \
+                     {base}])"
+                )
+            } else {
+                base
+            })
+        } else {
+            if sp.has("ConditionSVarCompare") || require_creature_target {
+                return None;
+            }
+            None
+        };
+        let mut used_excess = cond.is_some();
+        let resolve_amt = |tx: &mut Self, raw: &str, used: &mut bool| -> Option<String> {
+            if raw.trim() == excess_var {
+                *used = true;
+                Some(excess_amt.to_string())
+            } else {
+                tx.amount_or_count_ext(raw)
+            }
+        };
+        let next_sub = sp.take("SubAbility");
+        if next_sub.is_some() {
+            return None;
+        }
+        let effects = match sub_api.as_str() {
+            "GainLife" => {
+                if !matches!(sp.take("Defined").as_deref(), None | Some("You")) {
+                    return None;
+                }
+                let raw = sp.take("LifeAmount")?;
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                vec![format!("Effect::GainLife {{ amount: {amt} }}")]
+            }
+            "LoseLife" => {
+                let who = self.wave11_player_of_line(
+                    sp.take("Defined").as_deref(),
+                    chain.target.as_deref(),
+                    false,
+                )?;
+                let raw = sp.take("LifeAmount")?;
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                vec![format!(
+                    "Effect::LoseLife {{ amount: {amt}, target: {who} }}"
+                )]
+            }
+            "Draw" => {
+                let who = self.wave11_player_of_line(
+                    sp.take("Defined").as_deref(),
+                    chain.target.as_deref(),
+                    false,
+                )?;
+                let raw = sp.take("NumCards").unwrap_or_else(|| "1".to_string());
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                chain.moves_library = true;
+                if who == "PlayerRel::You" {
+                    if let Some(n) = amt
+                        .strip_prefix("Amount::Fixed(")
+                        .and_then(|s| s.strip_suffix(')'))
+                    {
+                        vec![format!("Effect::draw({n})")]
+                    } else {
+                        vec![format!("Effect::DrawCards {{ amount: {amt} }}")]
+                    }
+                } else {
+                    vec![format!(
+                        "Effect::DrawCardsFor {{ amount: {amt}, who: {who} }}"
+                    )]
+                }
+            }
+            "Investigate" => {
+                let who = match (sp.take("Defined"), sp.take("ValidPlayer")) {
+                    (Some(_), Some(_)) => return None,
+                    (Some(d), None) | (None, Some(d)) => self.player_rel(Some(&d)),
+                    (None, None) => Some("PlayerRel::You"),
+                };
+                if who != Some("PlayerRel::You") {
+                    return None;
+                }
+                let raw = sp.take("Num").unwrap_or_else(|| "1".to_string());
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                let tokens = self.tokens?;
+                let tok = tokens.body_fixed(CLUE_TOKEN_SCRIPT, self.cats)?;
+                let token = format!("&generated_tokens::{}", tok.constant);
+                if amt == "Amount::Fixed(1)" {
+                    vec![format!("Effect::CreateToken {{ token: {token} }}")]
+                } else {
+                    vec![format!(
+                        "Effect::CreateTokenN {{ token: {token}, amount: {amt} }}"
+                    )]
+                }
+            }
+            "Token" => {
+                if !matches!(sp.take("TokenOwner").as_deref(), None | Some("You")) {
+                    return None;
+                }
+                let tapped = match sp.take("TokenTapped").as_deref() {
+                    None => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
+                let raw = sp.take("TokenAmount").unwrap_or_else(|| "1".to_string());
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                let stem = sp.take("TokenScript")?;
+                let tokens = self.tokens?;
+                let tok = tokens.body_fixed(&stem, self.cats)?;
+                let token = format!("&generated_tokens::{}", tok.constant);
+                if tapped {
+                    vec![format!(
+                        "Effect::CreateTokenModified {{ token: {token}, amount: {amt}, \
+                         tapped: true, haste: false }}"
+                    )]
+                } else if amt == "Amount::Fixed(1)" {
+                    vec![format!("Effect::CreateToken {{ token: {token} }}")]
+                } else {
+                    vec![format!(
+                        "Effect::CreateTokenN {{ token: {token}, amount: {amt} }}"
+                    )]
+                }
+            }
+            "Discover" => {
+                if !matches!(sp.take("Defined").as_deref(), None | Some("You")) {
+                    return None;
+                }
+                let raw = sp.take("Num")?;
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                chain.moves_library = true;
+                if let Some(n) = amt
+                    .strip_prefix("Amount::Fixed(")
+                    .and_then(|s| s.strip_suffix(')'))
+                {
+                    vec![format!("Effect::Discover {{ mana_value: {n} }}")]
+                } else {
+                    vec![format!("Effect::DiscoverAmount {{ mana_value: {amt} }}")]
+                }
+            }
+            "Amass" => {
+                if !matches!(sp.take("Defined").as_deref(), None | Some("You")) {
+                    return None;
+                }
+                let raw_type = sp.take("Type")?;
+                let subtype = self
+                    .cats
+                    .const_path_of(SubtypeKind::Creature, raw_type.trim())?;
+                let stem = format!("b_0_0_{}_army", raw_type.trim().to_ascii_lowercase());
+                let tokens = self.tokens?;
+                let tok = tokens.body_fixed(&stem, self.cats)?;
+                let raw_num = sp.take("Num")?;
+                let amt = resolve_amt(self, &raw_num, &mut used_excess)?;
+                vec![format!(
+                    "Effect::Amass {{ token: &generated_tokens::{}, subtype: {subtype}, \
+                     amount: {amt} }}",
+                    tok.constant
+                )]
+            }
+            "Scry" => {
+                if !matches!(sp.take("Defined").as_deref(), None | Some("You")) {
+                    return None;
+                }
+                let raw = sp.take("ScryNum")?;
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                vec![format!("Effect::Scry {{ amount: {amt} }}")]
+            }
+            "Surveil" => {
+                if !matches!(sp.take("Defined").as_deref(), None | Some("You")) {
+                    return None;
+                }
+                let raw = sp.take("Amount")?;
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                chain.moves_library = true;
+                vec![format!("Effect::Surveil {{ amount: {amt} }}")]
+            }
+            _ => return None,
+        };
+        if !sp.exhausted() || !used_excess {
+            return None;
+        }
+        Some(if let Some(c) = cond {
+            vec![format!(
+                "Effect::IfCondition {{ condition: {c}, then: &[{}], otherwise: &[] }}",
+                effects.join(", ")
+            )]
+        } else {
+            effects
+        })
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_remembered_chain(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        flags: LineFlags,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        if api == "Mill" && self.sub_is_api(sub.as_deref(), "Branch") {
+            return self.wave24a_mill_remembered_branch_chain(p, sub, target, flags, chain);
+        }
+        if api == "Mill" && self.sub_is_api(sub.as_deref(), "Draw") {
+            return self.wave24a_mill_remembered_compare_draw_chain(p, sub, target, flags, chain);
+        }
+        if api == "ChangeZone"
+            && flags.targets_here
+            && p.peek("Origin") == Some("Battlefield")
+            && p.peek("Destination") == Some("Exile")
+            && sub.is_some()
+            && !self.sub_is_api(sub.as_deref(), "DelayedTrigger")
+            && !self.sub_is_api(sub.as_deref(), "ChangeZone")
+        {
+            let saved_p = p.clone();
+            let saved_sub = sub.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effs) =
+                self.wave24a_exile_then_sub_return_at_end_step(p, sub, target, chain)
+            {
+                return Some(effs);
+            }
+            *p = saved_p;
+            *sub = saved_sub;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+        }
+        if api == "ChangeZone"
+            && !flags.targets_here
+            && p.peek("Origin") == Some("Hand")
+            && p.peek("Destination") == Some("Battlefield")
+            && self.sub_is_api(sub.as_deref(), "Attach")
+        {
+            return self.wave24a_hand_to_bf_attach_if_equipment(p, sub);
+        }
+        if api == "ChangeZone"
+            && flags.targets_here
+            && flags.single_target
+            && p.peek("Origin") == Some("Graveyard")
+            && p.peek("Destination") == Some("Exile")
+            && self.sub_is_api(sub.as_deref(), "Play")
+        {
+            return self.wave24a_exile_gy_and_cast_copy(p, sub, target);
+        }
+        if api == "ChangeZone"
+            && flags.targets_here
+            && flags.single_target
+            && p.peek("Origin") == Some("Graveyard")
+            && p.peek("Destination") == Some("Exile")
+            && self.sub_is_api(sub.as_deref(), "CopyPermanent")
+        {
+            return self.wave24a_exile_gy_and_copy_permanent(p, sub, target);
+        }
+        if api == "ChangeZone"
+            && flags.targets_here
+            && p.peek("Origin") == Some("Graveyard")
+            && p.peek("Destination") == Some("Battlefield")
+            && (self.sub_is_api(sub.as_deref(), "Attach")
+                || self.sub_is_api(sub.as_deref(), "Pump")
+                || self.sub_is_api(sub.as_deref(), "CopyPermanent")
+                || self.sub_is_api(sub.as_deref(), "Explore"))
+        {
+            return self.wave24a_reanimate_attach_or_temp_pump(p, sub, target, flags.single_target);
+        }
+        if api == "ChangeZoneAll"
+            && !flags.targets_here
+            && p.peek("Origin") == Some("Graveyard")
+            && p.peek("Destination") == Some("Battlefield")
+            && self.sub_is_api(sub.as_deref(), "PumpAll")
+        {
+            return self.wave24a_reanimate_all_modified(p, sub);
+        }
+        if api == "ChangeZoneAll"
+            && !flags.targets_here
+            && matches!(
+                (p.peek("Origin"), p.peek("Destination")),
+                (Some("Battlefield" | "Graveyard"), Some("Exile"))
+            )
+            && self.sub_is_api(sub.as_deref(), "Incubate")
+        {
+            return self.wave24a_cz_all_remembered_count_chain(p, sub, target, flags);
+        }
+        if api == "ChangeZone"
+            && matches!(
+                (p.peek("Origin"), p.peek("Destination")),
+                (Some("Graveyard" | "Battlefield"), Some("Exile"))
+                    | (Some("Graveyard"), Some("Hand"))
+            )
+            && sub.is_some()
+        {
+            let saved_p = p.clone();
+            let saved_sub = sub.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effs) = self.wave24a_cz_remembered_followup(p, sub, target, flags, chain) {
+                return Some(effs);
+            }
+            *p = saved_p;
+            *sub = saved_sub;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+        }
+        if api == "ChangeZone"
+            && flags.targets_here
+            && flags.single_target
+            && p.peek("Origin") == Some("Graveyard")
+            && matches!(
+                p.peek("Destination"),
+                Some("Hand" | "Battlefield" | "Library" | "Exile")
+            )
+            && sub.is_some()
+        {
+            return self.wave24a_cz_gy_remembered_target_stat_chain(p, sub, target, chain);
+        }
+        None
+    }
+
+    fn wave24a_take_optional_cleanup(
+        &self,
+        cursor: Option<String>,
+        sub: &mut Option<String>,
+    ) -> Option<()> {
+        let Some(name) = cursor else {
+            *sub = None;
+            return Some(());
+        };
+        if let Some(body) = self.svars.get(name.trim())
+            && let Some((c_api, mut cp)) = Params::parse(body)
+        {
+            cp.drop_prose();
+            if c_api == "Cleanup" && cp.take("ClearRemembered").as_deref() == Some("True") {
+                let after = cp.take("SubAbility");
+                if !cp.exhausted() {
+                    return None;
+                }
+                *sub = after;
+                return Some(());
+            }
+        }
+        *sub = Some(name);
+        Some(())
+    }
+
+    /// `Mill | RememberMilled$ True | SubAbility$ DBBranch` where `DBBranch`
+    /// branches on `Remembered$Valid <filter>` or `Remembered$Amount` (e.g.
+    /// Lorehold Excavation).
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_mill_remembered_branch_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        flags: LineFlags,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let who = self.wave11_player_of_line(p.peek("Defined"), target, flags.targets_a_player)?;
+        let is_single_mill =
+            Self::is_single_player_rel(who) && matches!(p.peek("NumCards"), None | Some("1"));
+        if p.take("RememberMilled").as_deref() != Some("True") {
+            return None;
+        }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let mut out = self.effect_of_with_prior("Mill", p, target, flags)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let branch_name = sub.take()?;
+        let branch_body = self.svars.get(branch_name.trim())?.clone();
+        let (b_api, mut bp) = Params::parse(&branch_body)?;
+        bp.drop_prose();
+        if b_api != "Branch" || bp.has("ValidTgts") || bp.has("Defined") {
+            return None;
+        }
+        let var = bp.take("BranchConditionSVar")?;
+        let cmp = bp
+            .take("BranchConditionSVarCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        let true_sub = bp.take("TrueSubAbility");
+        let false_sub = bp.take("FalseSubAbility");
+        let after_branch = bp.take("SubAbility");
+        if (true_sub.is_none() && false_sub.is_none()) || !bp.exhausted() {
+            return None;
+        }
+        let raw = self
+            .svars
+            .get(var.trim())
+            .map_or(var.trim(), String::as_str)
+            .trim()
+            .to_string();
+        let filter_ref = if matches!(raw.as_str(), "Remembered$Amount" | "Count$RememberedSize") {
+            "&Filter::Any".to_string()
+        } else {
+            let valid = raw
+                .strip_prefix("Remembered$Valid ")
+                .or_else(|| raw.strip_prefix("RememberedLKI$Valid "))?;
+            let v = valid.trim();
+            if matches!(v, "Card" | "Permanent") {
+                "&Filter::Any".to_string()
+            } else {
+                let expr = self.filter_expr_in_zone(v, true)?;
+                format!("&{}", self.body.filter_static("MILLED", &expr))
+            }
+        };
+        let amt = format!("Amount::ThisWay(ThisWay::Milled({filter_ref}))");
+        let cond = match cmp.trim() {
+            "GE1" | "GT0" => format!("Condition::AmountAtLeast({amt}, 1)"),
+            "EQ1" if is_single_mill => format!("Condition::AmountAtLeast({amt}, 1)"),
+            "EQ0" | "LT1" | "LE0" => format!("Condition::Not(&Condition::AmountAtLeast({amt}, 1))"),
+            c if c.starts_with("GE") => {
+                let n = c[2..].parse::<u32>().ok().filter(|&n| n >= 1)?;
+                format!("Condition::AmountAtLeast({amt}, {n})")
+            }
+            _ => return None,
+        };
+        let mut run_arm = |arm: Option<String>| -> Option<Vec<String>> {
+            let Some(name) = arm else {
+                return Some(Vec::new());
+            };
+            let body = self.svars.get(name.trim())?.clone();
+            if body.contains("Remembered") || body.contains("IsRemembered") {
+                return None;
+            }
+            let mut branch_chain = Chain {
+                target: chain.target.clone(),
+                target_is_x: chain.target_is_x,
+                target_up_to: chain.target_up_to,
+                target_exact: chain.target_exact,
+                target_unique: chain.target_unique,
+                second_target: chain.second_target.clone(),
+                second_target_up_to: chain.second_target_up_to,
+                ..Chain::default()
+            };
+            self.chain(&body, &mut branch_chain)?;
+            if branch_chain.effects.is_empty()
+                || branch_chain.target != chain.target
+                || branch_chain.second_target != chain.second_target
+            {
+                return None;
+            }
+            chain.could_add_mana |= branch_chain.could_add_mana;
+            chain.moves_library |= branch_chain.moves_library;
+            Some(branch_chain.effects)
+        };
+        let then_effs = run_arm(true_sub)?;
+        let else_effs = run_arm(false_sub)?;
+        self.wave24a_take_optional_cleanup(after_branch, sub)?;
+        out.push(format!(
+            "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[{}] }}",
+            then_effs.join(", "),
+            else_effs.join(", ")
+        ));
+        Some(out)
+    }
+
+    /// "You may put an [filter] card from your hand onto the battlefield. If
+    /// it's an Equipment, attach it to [this]" (The Invincible Iron Man).
+    fn wave24a_hand_to_bf_attach_if_equipment(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if self.on_a_spell
+            || p.take("Origin").as_deref() != Some("Hand")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("RememberChanged").as_deref() != Some("True")
+            || !matches!(p.take("DefinedPlayer").as_deref(), None | Some("You"))
+            || !matches!(p.take("Hidden").as_deref(), None | Some("True"))
+            || !matches!(p.take("Tapped").as_deref(), None | Some("False"))
+            || !matches!(p.take("Mandatory").as_deref(), None | Some("False"))
+            || !matches!(p.take("ChangeNum").as_deref(), None | Some("1"))
+        {
+            return None;
+        }
+        p.take("SelectPrompt");
+        p.claim_label("ChangeTypeDesc", "ChangeType");
+        let optional = match p.take("Optional").as_deref() {
+            Some("You" | "True") => true,
+            None => self.oracle.to_ascii_lowercase().contains("you may put"),
+            Some(_) => return None,
+        };
+        if !optional {
+            return None;
+        }
+        let raw_valid = p.take("ChangeType")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let cleaned = Self::strip_your_graveyard_owner(&raw_valid).unwrap_or(raw_valid);
+        let filter_expr = self.filter_expr_in_zone(&cleaned, true)?;
+        let attach_name = sub.take()?;
+        let attach_body = self.svars.get(attach_name.trim())?.clone();
+        let (a_api, mut ap) = Params::parse(&attach_body)?;
+        ap.drop_prose();
+        if a_api != "Attach"
+            || ap.take("Object").as_deref() != Some("Remembered")
+            || ap.take("Defined").as_deref() != Some("Self")
+            || ap.take("ConditionDefined").as_deref() != Some("Remembered")
+            || !matches!(
+                ap.take("ConditionPresent").as_deref(),
+                Some("Equipment" | "Card.Equipment" | "Artifact.Equipment")
+            )
+            || !matches!(
+                ap.take("ConditionCompare").as_deref(),
+                None | Some("GE1" | "EQ1" | "GT0")
+            )
+        {
+            return None;
+        }
+        let after = ap.take("SubAbility");
+        if !ap.exhausted() {
+            return None;
+        }
+        self.wave24a_take_optional_cleanup(after, sub)?;
+        let name = self.body.filter_static("PUT_FROM_HAND", &filter_expr);
+        Some(vec![format!(
+            "Effect::MayPutFromHandOntoBattlefieldAttachIfEquipment {{ filter: &{name} }}"
+        )])
+    }
+
+    /// "Exile target [card] from a graveyard. Copy it, and you may cast the
+    /// copy without paying its mana cost" (Shiko, Flawless Forgery, Reenact the
+    /// Crime) -> `Effect::ExileAndCastCopies { graveyard: None }`.
+    fn wave24a_exile_gy_and_cast_copy(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let target = target.filter(|t| t.starts_with("TargetSpec::CardInGraveyard("))?;
+        let _ = target;
+        if self.overload_cost.is_some()
+            || p.has("Hidden")
+            || self.has_linked_exile_reader()
+            || p.take("Origin").as_deref() != Some("Graveyard")
+            || p.take("Destination").as_deref() != Some("Exile")
+            || p.take("RememberChanged").as_deref() != Some("True")
+            || !matches!(
+                p.take("ForgetOtherRemembered").as_deref(),
+                None | Some("True")
+            )
+            || !matches!(p.take("ChangeNum").as_deref(), None | Some("1"))
+            || !p.exhausted()
+        {
+            return None;
+        }
+        let play_name = sub.take()?;
+        let play_body = self.svars.get(play_name.trim())?.clone();
+        let (p_api, mut pp) = Params::parse(&play_body)?;
+        pp.drop_prose();
+        if p_api != "Play"
+            || pp.take("CopyCard").as_deref() != Some("True")
+            || pp.take("WithoutManaCost").as_deref() != Some("True")
+            || pp.take("Optional").as_deref() != Some("True")
+            || !matches!(pp.take("ValidZone").as_deref(), None | Some("Exile"))
+            || !matches!(pp.take("Controller").as_deref(), None | Some("You"))
+            || !matches!(pp.take("ValidSA").as_deref(), None | Some("Spell"))
+            || !matches!(pp.take("Amount").as_deref(), None | Some("1" | "All"))
+            || pp.has("AllowRepeats")
+        {
+            return None;
+        }
+        let subject_ok = matches!(
+            (pp.take("Defined").as_deref(), pp.take("Valid").as_deref()),
+            (Some("Remembered"), None)
+                | (
+                    None,
+                    Some("Card.IsRemembered" | "Card.IsRemembered+ExiledWithSource"),
+                )
+        );
+        if !subject_ok {
+            return None;
+        }
+        let after = pp.take("SubAbility");
+        if !pp.exhausted() {
+            return None;
+        }
+        self.wave24a_take_optional_cleanup(after, sub)?;
+        Some(vec![
+            "Effect::ExileAndCastCopies { graveyard: None }".to_string(),
+        ])
+    }
+
+    fn wave24a_take_copy_riders(p: &mut Params) -> Option<(bool, bool, bool, &'static str)> {
+        let tapped = match p
+            .take("TokenTapped")
+            .or_else(|| p.take("Tapped"))
+            .as_deref()
+        {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let attacking = match p.take("TokenAttacking").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let haste_until_eot = match (
+            p.take("PumpKeywords").as_deref(),
+            p.take("PumpDuration").as_deref(),
+        ) {
+            (None, None) => false,
+            (Some("Haste"), None | Some("EOT" | "UntilEndOfTurn")) => true,
+            _ => return None,
+        };
+        let cleanup = match p.take("AtEOT").or_else(|| p.take("AtEOTTrig")).as_deref() {
+            None => "CopyCleanup::None",
+            Some("Sacrifice") => "CopyCleanup::SacrificeAtNextEndStep",
+            Some("Exile") => "CopyCleanup::ExileAtNextEndStep",
+            Some("SacrificeCombat") => "CopyCleanup::SacrificeAtEndOfCombat",
+            Some("ExileCombat") => "CopyCleanup::ExileAtEndOfCombat",
+            Some(_) => return None,
+        };
+        Some((tapped, attacking, haste_until_eot, cleanup))
+    }
+
+    /// "Exile [up to one] target card from a graveyard. [If you do,] create a
+    /// token that's a copy of that card / this creature" (Anikthea, Ardyn,
+    /// Blastoneuron, Séance, Uchuulon).
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_exile_gy_and_copy_permanent(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let target = target.filter(|t| t.starts_with("TargetSpec::CardInGraveyard("))?;
+        if self.overload_cost.is_some()
+            || p.has("Hidden")
+            || self.has_linked_exile_reader()
+            || p.take("Origin").as_deref() != Some("Graveyard")
+            || p.take("Destination").as_deref() != Some("Exile")
+            || p.take("RememberChanged").as_deref() != Some("True")
+            || !matches!(
+                p.take("ForgetOtherRemembered").as_deref(),
+                None | Some("True")
+            )
+            || !matches!(p.take("ChangeNum").as_deref(), None | Some("1"))
+            || !p.exhausted()
+        {
+            return None;
+        }
+        let copy_name = sub.take()?;
+        let copy_body = self.svars.get(copy_name.trim())?.clone();
+        let (c_api, mut cp) = Params::parse(&copy_body)?;
+        cp.drop_prose();
+        if c_api != "CopyPermanent"
+            || cp.has("Populate")
+            || cp.has("Choices")
+            || cp.has("RememberTokens")
+            || cp.has("AtEOTCondition")
+            || cp.has("ConditionDefined")
+            || cp.has("ConditionCheckSVar")
+            || cp.has("ConditionPresent")
+        {
+            return None;
+        }
+        let defined = cp.take("Defined")?;
+        let (tapped, attacking, haste_until_eot, cleanup) =
+            Self::wave24a_take_copy_riders(&mut cp)?;
+        let mods = self.copy_mods(&mut cp, false)?;
+        let mods_list = mods.join(", ");
+        let controller =
+            self.player_of_line(cp.take("Controller").as_deref(), Some(target), false)?;
+        let (copy_target, amount) = match defined.as_str() {
+            "Remembered" => {
+                let amt = match cp.take("NumCopies") {
+                    None => "Amount::Fixed(1)".to_string(),
+                    Some(raw) => self.amount_or_count_ext(&raw)?,
+                };
+                (target.to_string(), amt)
+            }
+            "Self" if !self.on_a_spell => {
+                let raw = cp.take("NumCopies")?;
+                let def = self
+                    .svars
+                    .get(raw.trim())
+                    .map_or(raw.trim(), String::as_str)
+                    .trim();
+                if !matches!(def, "Remembered$Amount" | "Count$RememberedSize") {
+                    return None;
+                }
+                (
+                    "TargetSpec::ThisObject".to_string(),
+                    "Amount::ThisWay(ThisWay::ExiledFromGraveyard(&Filter::Any))".to_string(),
+                )
+            }
+            _ => return None,
+        };
+        let after = cp.take("SubAbility");
+        if !cp.exhausted() {
+            return None;
+        }
+        self.wave24a_take_optional_cleanup(after, sub)?;
+        Some(vec![
+            format!("Effect::exile({target})"),
+            format!(
+                "Effect::IfCondition {{ \
+                 condition: Condition::AmountAtLeast(Amount::ThisWay(ThisWay::ExiledFromGraveyard(&Filter::Any)), 1), \
+                 then: &[Effect::CreateTokenCopy {{ target: {copy_target}, controller: {controller}, \
+                 amount: {amount}, mods: &[{mods_list}], tapped: {tapped}, attacking: {attacking}, \
+                 haste_until_eot: {haste_until_eot}, cleanup: {cleanup} }}], \
+                 otherwise: &[] }}"
+            ),
+        ])
+    }
+
+    fn wave24a_pump_kw_bits(raw: &str) -> Option<String> {
+        let mut bits = Vec::new();
+        for part in raw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+            let bit = keyword_const(part)?;
+            bits.push(bit);
+        }
+        if bits.is_empty() {
+            return None;
+        }
+        bits.into_iter()
+            .map(str::to_string)
+            .reduce(|acc, k| format!("{acc}.union({k})"))
+    }
+
+    /// Reanimate from graveyard with Equipment attachment (`Pre-War Formalwear`)
+    /// or temporary keyword/P&T pump (`Rydia, Summoner of Mist`).
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_reanimate_attach_or_temp_pump(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        single_target: bool,
+    ) -> Option<Vec<String>> {
+        let target = target.filter(|t| t.starts_with("TargetSpec::CardInGraveyard("))?;
+        if p.has("Hidden")
+            || p.take("Origin").as_deref() != Some("Graveyard")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("RememberChanged").as_deref() != Some("True")
+            || !matches!(
+                p.take("ForgetOtherRemembered").as_deref(),
+                None | Some("True")
+            )
+            || !matches!(p.take("GainControl").as_deref(), None | Some("True"))
+            || !matches!(p.take("ChangeNum").as_deref(), None | Some("1"))
+        {
+            return None;
+        }
+        let tapped = match p.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let counters = match p.take("WithCountersType") {
+            None => {
+                if p.has("WithCountersAmount") {
+                    return None;
+                }
+                None
+            }
+            Some(code) => {
+                let kind = counter_kind(&code)?;
+                let raw_n = p
+                    .take("WithCountersAmount")
+                    .unwrap_or_else(|| "1".to_string());
+                let amt = self.amount_or_count_ext(&raw_n)?;
+                Some((kind, amt))
+            }
+        };
+        if !p.exhausted() {
+            return None;
+        }
+        let next_name = sub.take()?;
+        let next_body = self.svars.get(next_name.trim())?.clone();
+        let (s_api, mut sp) = Params::parse(&next_body)?;
+        sp.drop_prose();
+        if s_api == "Attach" {
+            if !single_target
+                || self.on_a_spell
+                || tapped
+                || !self.type_line.split_whitespace().any(|w| w == "Equipment")
+                || sp.take("Defined").as_deref() != Some("Remembered")
+            {
+                return None;
+            }
+            let after = sp.take("SubAbility");
+            if !sp.exhausted() {
+                return None;
+            }
+            self.wave24a_take_optional_cleanup(after, sub)?;
+            let ctr_expr = match counters {
+                None => "None".to_string(),
+                Some((kind, amt)) => {
+                    let fixed = amt
+                        .strip_prefix("Amount::Fixed(")
+                        .and_then(|s| s.strip_suffix(')'))
+                        .and_then(|s| s.parse::<u16>().ok())?;
+                    format!("Some(({kind}, {fixed}))")
+                }
+            };
+            return Some(vec![
+                format!(
+                    "Effect::GraveyardToBattlefield {{ target: {target}, \
+                     owner_control: false, counters: {ctr_expr} }}"
+                ),
+                format!("Effect::AttachSelf {{ target: {target} }}"),
+            ]);
+        }
+        if s_api == "Pump" {
+            if sp.take("Defined").as_deref() != Some("Remembered")
+                || sp.has("ValidTgts")
+                || sp.has("AtEOT")
+                || sp.has("UnlessCost")
+                || sp.has("PumpZone")
+            {
+                return None;
+            }
+            let duration = match sp.take("Duration").as_deref() {
+                None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+                Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+                Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+                Some(_) => return None,
+            };
+            let mut mods = Vec::new();
+            if let Some(kws) = sp.take("KW") {
+                let bits = Self::wave24a_pump_kw_bits(&kws)?;
+                mods.push(format!("Modifier::AddKeyword({bits})"));
+            }
+            match (sp.take("NumAtt"), sp.take("NumDef")) {
+                (None, None) => {}
+                (a, d) => {
+                    let pa = self.plain_num(a.as_deref().unwrap_or("0"))?;
+                    let pd = self.plain_num(d.as_deref().unwrap_or("0"))?;
+                    let pa = i8::try_from(pa).ok()?;
+                    let pd = i8::try_from(pd).ok()?;
+                    if pa != 0 || pd != 0 {
+                        mods.push(format!("Modifier::ModifyPT({pa}, {pd})"));
+                    }
+                }
+            }
+            let after = sp.take("SubAbility");
+            if mods.is_empty() || !sp.exhausted() {
+                return None;
+            }
+            self.wave24a_take_optional_cleanup(after, sub)?;
+            let ctr_expr = match counters {
+                None => "None".to_string(),
+                Some((kind, amt)) => format!("Some(({kind}, {amt}))"),
+            };
+            return Some(vec![format!(
+                "Effect::MoveAndModify {{ subject: MoveSubject::Target({target}), \
+                 expected_origin: Some(ZoneRef::Graveyard), blink: false, owner_control: false, \
+                 tapped: {tapped}, face: None, counters: {ctr_expr}, modifiers: &[{}], \
+                 duration: {duration}, attach_source: false, when_source_leaves: None }}",
+                mods.join(", ")
+            )]);
+        }
+        if s_api == "CopyPermanent" {
+            if !single_target
+                || tapped
+                || sp.take("Defined").as_deref() != Some("Remembered")
+                || sp.has("Populate")
+                || sp.has("Choices")
+                || sp.has("RememberTokens")
+                || sp.has("AtEOTCondition")
+                || sp.has("ValidTgts")
+            {
+                return None;
+            }
+            let mut clauses = Vec::new();
+            if let Some(var) = sp.take("ConditionCheckSVar") {
+                let cmp = sp
+                    .take("ConditionSVarCompare")
+                    .unwrap_or_else(|| "GE1".to_string());
+                let clause = self
+                    .svar_condition_clause(&var, &cmp)
+                    .or_else(|| self.wave7_svar_condition(&var, &cmp))
+                    .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, true))?;
+                clauses.push(clause);
+            } else if sp.has("ConditionSVarCompare") {
+                return None;
+            }
+            let on_bf_filter_expr = if let Some(cdef) = sp.take("ConditionDefined") {
+                if cdef != "Remembered"
+                    || !matches!(
+                        sp.take("ConditionCompare").as_deref(),
+                        None | Some("GE1" | "EQ1" | "GT0")
+                    )
+                {
+                    return None;
+                }
+                let present = sp.take("ConditionPresent")?;
+                sp.take("ConditionDescription");
+                if matches!(present.trim(), "Card" | "Permanent") {
+                    "Filter::InZone(ZoneRef::Battlefield)".to_string()
+                } else {
+                    let inner = self.filter_expr(present.trim())?;
+                    format!("Filter::And(&[Filter::InZone(ZoneRef::Battlefield), {inner}])")
+                }
+            } else {
+                if sp.has("ConditionPresent") || sp.has("ConditionCompare") {
+                    return None;
+                }
+                "Filter::InZone(ZoneRef::Battlefield)".to_string()
+            };
+            let bf_filter = self
+                .body
+                .filter_static("REANIMATE_COPY", &on_bf_filter_expr);
+            clauses.push(format!(
+                "Condition::ObjectMatches {{ what: &TargetSpec::Object(&Filter::Any), \
+                 filter: &{bf_filter} }}"
+            ));
+            let (cp_tapped, attacking, haste_until_eot, cleanup) =
+                Self::wave24a_take_copy_riders(&mut sp)?;
+            let mods = self.copy_mods(&mut sp, false)?;
+            let mods_list = mods.join(", ");
+            let controller =
+                self.player_of_line(sp.take("Controller").as_deref(), Some(target), false)?;
+            let amount = match sp.take("NumCopies") {
+                None => "Amount::Fixed(1)".to_string(),
+                Some(raw) => self.amount_or_count_ext(&raw)?,
+            };
+            let after = sp.take("SubAbility");
+            if !sp.exhausted() {
+                return None;
+            }
+            self.wave24a_take_optional_cleanup(after, sub)?;
+            let ctr_expr = match counters {
+                None => "None".to_string(),
+                Some((kind, amt)) => {
+                    let fixed = amt
+                        .strip_prefix("Amount::Fixed(")
+                        .and_then(|s| s.strip_suffix(')'))
+                        .and_then(|s| s.parse::<u16>().ok())?;
+                    format!("Some(({kind}, {fixed}))")
+                }
+            };
+            let full_cond = if clauses.len() == 1 {
+                clauses.pop()?
+            } else {
+                format!("Condition::All(&[{}])", clauses.join(", "))
+            };
+            return Some(vec![
+                format!(
+                    "Effect::GraveyardToBattlefield {{ target: {target}, \
+                     owner_control: false, counters: {ctr_expr} }}"
+                ),
+                format!(
+                    "Effect::IfCondition {{ condition: {full_cond}, \
+                     then: &[Effect::CreateTokenCopy {{ target: {target}, \
+                     controller: {controller}, amount: {amount}, mods: &[{mods_list}], \
+                     tapped: {cp_tapped}, attacking: {attacking}, \
+                     haste_until_eot: {haste_until_eot}, cleanup: {cleanup} }}], \
+                     otherwise: &[] }}"
+                ),
+            ]);
+        }
+        if s_api == "Explore" {
+            if !single_target
+                || tapped
+                || sp.take("Defined").as_deref() != Some("Remembered")
+                || sp.has("ValidTgts")
+                || sp.has("AtEOT")
+                || sp.has("UnlessCost")
+                || sp.has("Condition")
+                || sp.has("ConditionDefined")
+                || sp.has("ConditionPresent")
+                || sp.has("ConditionCheckSVar")
+            {
+                return None;
+            }
+            let num: usize = match sp.take("Num").as_deref().map(str::trim) {
+                None => 1,
+                Some(raw) => raw
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|&n| (1..=10).contains(&n))?,
+            };
+            let after = sp.take("SubAbility");
+            if !sp.exhausted() {
+                return None;
+            }
+            self.wave24a_take_optional_cleanup(after, sub)?;
+            let ctr_expr = match counters {
+                None => "None".to_string(),
+                Some((kind, amt)) => {
+                    let fixed = amt
+                        .strip_prefix("Amount::Fixed(")
+                        .and_then(|s| s.strip_suffix(')'))
+                        .and_then(|s| s.parse::<u16>().ok())?;
+                    format!("Some(({kind}, {fixed}))")
+                }
+            };
+            let bf_filter = self
+                .body
+                .filter_static("REANIMATE_BF", "Filter::InZone(ZoneRef::Battlefield)");
+            let explores: Vec<String> =
+                vec![format!("Effect::Explore {{ target: {target} }}"); num];
+            return Some(vec![
+                format!(
+                    "Effect::GraveyardToBattlefield {{ target: {target}, \
+                     owner_control: false, counters: {ctr_expr} }}"
+                ),
+                format!(
+                    "Effect::IfCondition {{ \
+                     condition: Condition::ObjectMatches {{ what: &TargetSpec::Object(&Filter::Any), \
+                     filter: &{bf_filter} }}, \
+                     then: &[{}], otherwise: &[] }}",
+                    explores.join(", ")
+                ),
+            ]);
+        }
+        None
+    }
+
+    /// `ChangeZoneAll | Origin$ Graveyard | Destination$ Battlefield | RememberChanged$ True`
+    /// followed by `PumpAll | ValidCards$ Card.IsRemembered | KW$ ...` (Wake the Past).
+    fn wave24a_reanimate_all_modified(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if p.take("Origin").as_deref() != Some("Graveyard")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("RememberChanged").as_deref() != Some("True")
+            || !matches!(
+                p.take("ForgetOtherRemembered").as_deref(),
+                None | Some("True")
+            )
+            || !matches!(p.take("GainControl").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        let tapped = match p.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let raw_type = p.take("ChangeType")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let cleaned = Self::strip_your_graveyard_owner(&raw_type)?;
+        let filter_expr = self.filter_expr_in_zone(&cleaned, true)?;
+        let next_name = sub.take()?;
+        let next_body = self.svars.get(next_name.trim())?.clone();
+        let (s_api, mut sp) = Params::parse(&next_body)?;
+        sp.drop_prose();
+        if s_api != "PumpAll"
+            || !matches!(
+                sp.take("ValidCards").as_deref(),
+                Some("Card.IsRemembered" | "Permanent.IsRemembered")
+            )
+            || sp.has("Defined")
+            || sp.has("AtEOT")
+            || sp.has("UnlessCost")
+        {
+            return None;
+        }
+        let duration = match sp.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("Permanent") => "Duration::Indefinitely",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some(_) => return None,
+        };
+        let mut mods = Vec::new();
+        if let Some(kws) = sp.take("KW") {
+            let bits = Self::wave24a_pump_kw_bits(&kws)?;
+            mods.push(format!("Modifier::AddKeyword({bits})"));
+        }
+        match (sp.take("NumAtt"), sp.take("NumDef")) {
+            (None, None) => {}
+            (a, d) => {
+                let pa = self.plain_num(a.as_deref().unwrap_or("0"))?;
+                let pd = self.plain_num(d.as_deref().unwrap_or("0"))?;
+                let pa = i8::try_from(pa).ok()?;
+                let pd = i8::try_from(pd).ok()?;
+                if pa != 0 || pd != 0 {
+                    mods.push(format!("Modifier::ModifyPT({pa}, {pd})"));
+                }
+            }
+        }
+        let after = sp.take("SubAbility");
+        if mods.is_empty() || !sp.exhausted() {
+            return None;
+        }
+        self.wave24a_take_optional_cleanup(after, sub)?;
+        let filter_name = self.body.filter_static("REANIMATE", &filter_expr);
+        Some(vec![format!(
+            "Effect::MoveAndModify {{ \
+             subject: MoveSubject::AllInZone {{ zone: ZoneSel::GraveyardYou, filter: &{filter_name} }}, \
+             expected_origin: Some(ZoneRef::Graveyard), blink: false, owner_control: false, \
+             tapped: {tapped}, face: None, counters: None, modifiers: &[{}], \
+             duration: {duration}, attach_source: false, when_source_leaves: None }}",
+            mods.join(", ")
+        )])
+    }
+
+    /// Handles `ChangeZone | RememberChanged$ True` follow-ups missed by
+    /// `remembered_this_way_chain`:
+    /// - `ConditionZone$ Exile` on `Graveyard/Battlefield -> Exile` (Corpse Appraiser)
+    /// - Combined `ConditionDefined$ Remembered` + `Remembered$Valid` amount on
+    ///   `Graveyard -> Exile` (Graveyard Trespasser // Graveyard Glutton)
+    /// - `Defined$ TargetedOwner` on `Graveyard -> Exile` `LoseLife` (Carrion Locust)
+    /// - `Graveyard -> Hand` single-target `ConditionDefined$ Remembered | ConditionPresent$`
+    ///   (Innistrad Charm)
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_cz_remembered_followup(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        flags: LineFlags,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let origin = p.peek("Origin")?.to_string();
+        let dest = p.peek("Destination")?.to_string();
+        let is_gy_hand = origin == "Graveyard" && dest == "Hand";
+        let is_exile = dest == "Exile" && matches!(origin.as_str(), "Graveyard" | "Battlefield");
+        if !is_gy_hand && !is_exile {
+            return None;
+        }
+        if is_gy_hand
+            && (!flags.targets_here
+                || !flags.single_target
+                || chain.target_up_to.is_some()
+                || p.has("Hidden")
+                || !target.is_some_and(|t| t.starts_with("TargetSpec::CardInGraveyard(")))
+        {
+            return None;
+        }
+        if p.take("RememberChanged").as_deref() != Some("True") {
+            return None;
+        }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let mut out = self.effect_of_with_prior("ChangeZone", p, target, flags)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let this_way_variant = if origin == "Graveyard" {
+            ("ExiledFromGraveyard", true, "EXILED_GY")
+        } else {
+            ("ExiledFromBattlefield", false, "EXILED")
+        };
+        let is_single_action = flags.single_target
+            && !p.has("Hidden")
+            && matches!(p.peek("ChangeNum"), None | Some("1"));
+        let mut cursor = sub.take();
+        let mut consumed = false;
+        let mut pending_cond: Option<String> = None;
+        let mut pending_body: Vec<String> = Vec::new();
+        let mut steps = 0usize;
+        while let Some(name) = cursor.take() {
+            steps += 1;
+            if steps > 6 {
+                return None;
+            }
+            let body = self.svars.get(name.trim())?.clone();
+            let (s_api, mut sp) = Params::parse(&body)?;
+            sp.drop_prose();
+            if s_api == "Cleanup" && sp.take("ClearRemembered").as_deref() == Some("True") {
+                *sub = sp.take("SubAbility");
+                if !sp.exhausted() {
+                    return None;
+                }
+                break;
+            }
+            if sp.peek("ConditionDefined") != Some("Remembered")
+                || sp.peek("ConditionPresent").is_none()
+                || sp.has("ValidTgts")
+                || sp.has("UnlessCost")
+                || sp.has("AtEOT")
+            {
+                *sub = Some(name);
+                break;
+            }
+            if is_exile
+                && let Some(cz) = sp.take("ConditionZone")
+                && cz != "Exile"
+            {
+                return None;
+            }
+            let cmp = sp.take("ConditionCompare");
+            let positive_n = match cmp.as_deref() {
+                None | Some("GE1" | "GT0") => Some(1u32),
+                Some("EQ1") if is_single_action => Some(1u32),
+                Some("EQ0" | "LT1" | "LE0") if is_exile => Some(0u32),
+                Some(c) if is_exile && c.starts_with("GE") => {
+                    c[2..].parse::<u32>().ok().filter(|&n| n >= 1)
+                }
+                _ => None,
+            }?;
+            sp.take("ConditionDefined");
+            let present = sp.take("ConditionPresent")?;
+            sp.take("ConditionDescription");
+            let cond = if is_gy_hand {
+                let expr = self.filter_expr_in_zone(present.trim(), true)?;
+                let filter_name = self.body.filter_static("RETURNED_GY", &expr);
+                format!(
+                    "Condition::ObjectMatches {{ what: &TargetSpec::Object(&Filter::Any), \
+                     filter: &{filter_name} }}"
+                )
+            } else {
+                let (variant, card_zone, prefix) = this_way_variant;
+                let filter_ref = if matches!(present.trim(), "Card" | "Permanent") {
+                    "&Filter::Any".to_string()
+                } else {
+                    let expr = self.filter_expr_in_zone(present.trim(), card_zone)?;
+                    format!("&{}", self.body.filter_static(prefix, &expr))
+                };
+                let amt = format!("Amount::ThisWay(ThisWay::{variant}({filter_ref}))");
+                if positive_n == 0 {
+                    format!("Condition::Not(&Condition::AmountAtLeast({amt}, 1))")
+                } else {
+                    format!("Condition::AmountAtLeast({amt}, {positive_n})")
+                }
+            };
+            let next = sp.take("SubAbility");
+            let step_effects = if is_exile
+                && matches!(s_api.as_str(), "LoseLife" | "GainLife")
+                && (sp.peek("Defined") == Some("TargetedOwner")
+                    || sp.peek("LifeAmount").is_some_and(|raw| {
+                        self.wave24a_resolve_exiled_count_amount(raw, this_way_variant)
+                            .is_some()
+                    })) {
+                let who = match sp.take("Defined").as_deref() {
+                    Some("TargetedOwner")
+                        if origin == "Graveyard"
+                            && flags.single_target
+                            && target
+                                .is_some_and(|t| t.starts_with("TargetSpec::CardInGraveyard(")) =>
+                    {
+                        "PlayerRel::ControllerOfTarget"
+                    }
+                    other => self.wave11_player_of_line(other, target, false)?,
+                };
+                let raw_amt = sp.take("LifeAmount")?;
+                let amt = self
+                    .wave24a_resolve_exiled_count_amount(&raw_amt, this_way_variant)
+                    .or_else(|| self.amount_or_count_ext(&raw_amt))?;
+                if !sp.exhausted() {
+                    return None;
+                }
+                if s_api == "LoseLife" {
+                    vec![format!(
+                        "Effect::LoseLife {{ amount: {amt}, target: {who} }}"
+                    )]
+                } else if who == "PlayerRel::You" {
+                    vec![format!("Effect::GainLife {{ amount: {amt} }}")]
+                } else {
+                    vec![format!(
+                        "Effect::GainLifeFor {{ amount: {amt}, who: {who} }}"
+                    )]
+                }
+            } else {
+                if sp
+                    .entries
+                    .iter()
+                    .any(|(_, v)| v.contains("Remembered") || v.contains("IsRemembered"))
+                {
+                    return None;
+                }
+                chain.could_add_mana |= s_api == "Mana";
+                chain.moves_library |= matches!(
+                    s_api.as_str(),
+                    "Draw" | "Mill" | "Surveil" | "Dig" | "DigUntil"
+                );
+                let effs = self.effect_of_followup(&s_api, &mut sp, target)?;
+                if !sp.exhausted() {
+                    return None;
+                }
+                effs
+            };
+            if step_effects.is_empty() {
+                return None;
+            }
+            if pending_cond.as_deref() == Some(cond.as_str()) {
+                pending_body.extend(step_effects);
+            } else {
+                if let Some(prev) = pending_cond.take() {
+                    out.push(format!(
+                        "Effect::IfCondition {{ condition: {prev}, then: &[{}], otherwise: &[] }}",
+                        pending_body.join(", ")
+                    ));
+                    pending_body.clear();
+                }
+                pending_cond = Some(cond);
+                pending_body.extend(step_effects);
+            }
+            consumed = true;
+            cursor = next;
+        }
+        if let Some(prev) = pending_cond.take() {
+            out.push(format!(
+                "Effect::IfCondition {{ condition: {prev}, then: &[{}], otherwise: &[] }}",
+                pending_body.join(", ")
+            ));
+        }
+        consumed.then_some(out)
+    }
+
+    fn wave24a_resolve_exiled_count_amount(
+        &mut self,
+        raw: &str,
+        this_way_variant: (&'static str, bool, &'static str),
+    ) -> Option<String> {
+        let def = self
+            .svars
+            .get(raw.trim())
+            .map_or(raw.trim(), String::as_str)
+            .trim()
+            .to_string();
+        let (variant, card_zone, prefix) = this_way_variant;
+        let filter_ref = if matches!(def.as_str(), "Remembered$Amount" | "Count$RememberedSize") {
+            "&Filter::Any".to_string()
+        } else {
+            let valid = def
+                .strip_prefix("Remembered$Valid ")
+                .or_else(|| def.strip_prefix("RememberedLKI$Valid "))?;
+            let v = valid.trim();
+            if matches!(v, "Card" | "Permanent") {
+                "&Filter::Any".to_string()
+            } else {
+                let expr = self.filter_expr_in_zone(v, card_zone)?;
+                format!("&{}", self.body.filter_static(prefix, &expr))
+            }
+        };
+        Some(format!("Amount::ThisWay(ThisWay::{variant}({filter_ref}))"))
+    }
+
+    /// Single-target `ChangeZone` from Graveyard (`RememberChanged$ True`)
+    /// followed by effects reading the target's power/toughness/mana value
+    /// (`Remembered$CardPower` / `CardToughness` / `CardManaCost`) via CR 608.2h
+    /// `Amount::TargetPower` / `TargetToughness` / `TargetCmc` (Mirkwood Elk,
+    /// Queen's Bay Paladin, Volcanic Vision, Golbez, Lagonna-Band Storyteller).
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_cz_gy_remembered_target_stat_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let target = target.filter(|t| t.starts_with("TargetSpec::CardInGraveyard("))?;
+        if p.has("Hidden") || p.take("RememberChanged").as_deref() != Some("True") {
+            return None;
+        }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let dest = p.peek("Destination")?.to_string();
+        let mut out = self.change_zone(p, Some(target), true, true)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let mut cursor = sub.take();
+        let mut consumed = false;
+        let mut steps = 0usize;
+        while let Some(name) = cursor.take() {
+            steps += 1;
+            if steps > 4 {
+                return None;
+            }
+            let body = self.svars.get(name.trim())?.clone();
+            let (s_api, mut sp) = Params::parse(&body)?;
+            sp.drop_prose();
+            if s_api == "Cleanup" && sp.take("ClearRemembered").as_deref() == Some("True") {
+                *sub = sp.take("SubAbility");
+                if !sp.exhausted() {
+                    return None;
+                }
+                break;
+            }
+            if sp.has("ValidTgts")
+                || sp.has("UnlessCost")
+                || sp.has("AtEOT")
+                || sp.has("ConditionDefined")
+                || sp.has("ConditionPresent")
+            {
+                *sub = Some(name);
+                break;
+            }
+            let cond = if let Some(var) = sp.take("ConditionCheckSVar") {
+                let cmp = sp
+                    .take("ConditionSVarCompare")
+                    .unwrap_or_else(|| "GE1".to_string());
+                Some(
+                    self.svar_condition_clause(&var, &cmp)
+                        .or_else(|| self.wave7_svar_condition(&var, &cmp))
+                        .or_else(|| self.wave11_amount_compare_condition(&var, &cmp, true))?,
+                )
+            } else {
+                if sp.has("ConditionSVarCompare") {
+                    return None;
+                }
+                None
+            };
+            let next = sp.take("SubAbility");
+            let step_eff = match s_api.as_str() {
+                "GainLife" => {
+                    let who = self.wave11_player_of_line(
+                        sp.take("Defined").as_deref(),
+                        Some(target),
+                        false,
+                    )?;
+                    let amt = self.wave24a_remembered_target_stat(&sp.take("LifeAmount")?)?;
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    if who == "PlayerRel::You" {
+                        format!("Effect::GainLife {{ amount: {amt} }}")
+                    } else {
+                        format!("Effect::GainLifeFor {{ amount: {amt}, who: {who} }}")
+                    }
+                }
+                "LoseLife" => {
+                    let who = self.wave11_player_of_line(
+                        sp.take("Defined").as_deref(),
+                        Some(target),
+                        false,
+                    )?;
+                    let amt = self.wave24a_remembered_target_stat(&sp.take("LifeAmount")?)?;
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    format!("Effect::LoseLife {{ amount: {amt}, target: {who} }}")
+                }
+                "DamageAll" => {
+                    if sp.has("ValidPlayers") || sp.has("Defined") {
+                        return None;
+                    }
+                    sp.claim_label("ValidDescription", "ValidCards");
+                    let valid = sp.take("ValidCards")?;
+                    let amt = self.wave24a_remembered_target_stat(&sp.take("NumDmg")?)?;
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    let expr = self.filter_expr(&valid)?;
+                    let filter_name = self.body.filter_static("DAMAGE_ALL", &expr);
+                    format!("Effect::DamageFilter {{ filter: &{filter_name}, amount: {amt} }}")
+                }
+                "Draw" => {
+                    let who = self.wave11_player_of_line(
+                        sp.take("Defined").as_deref(),
+                        Some(target),
+                        false,
+                    )?;
+                    let amt = self.wave24a_remembered_target_stat(&sp.take("NumCards")?)?;
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    chain.moves_library = true;
+                    if who == "PlayerRel::You" {
+                        format!("Effect::DrawCards {{ amount: {amt} }}")
+                    } else {
+                        format!("Effect::DrawCardsFor {{ amount: {amt}, who: {who} }}")
+                    }
+                }
+                _ => {
+                    *sub = Some(name);
+                    break;
+                }
+            };
+            let gated = if let Some(c) = cond {
+                format!(
+                    "Effect::IfCondition {{ condition: {c}, then: &[{step_eff}], otherwise: &[] }}"
+                )
+            } else if dest == "Exile" && chain.target_up_to.is_some() {
+                format!(
+                    "Effect::IfCondition {{ \
+                     condition: Condition::AmountAtLeast(Amount::ThisWay(ThisWay::ExiledFromGraveyard(&Filter::Any)), 1), \
+                     then: &[{step_eff}], otherwise: &[] }}"
+                )
+            } else {
+                step_eff
+            };
+            out.push(gated);
+            consumed = true;
+            cursor = next;
+        }
+        consumed.then_some(out)
+    }
+
+    fn wave24a_remembered_target_stat(&self, raw: &str) -> Option<&'static str> {
+        let def = self
+            .svars
+            .get(raw.trim())
+            .map_or(raw.trim(), String::as_str)
+            .trim();
+        match def {
+            "Remembered$CardPower" | "RememberedLKI$CardPower" => Some("Amount::TargetPower"),
+            "Remembered$CardToughness" | "RememberedLKI$CardToughness" => {
+                Some("Amount::TargetToughness")
+            }
+            "Remembered$CardManaCost" | "RememberedLKI$CardManaCost" => Some("Amount::TargetCmc"),
+            _ => None,
+        }
+    }
+
+    /// `Mill | RememberMilled$ True | SubAbility$ DBDraw` where `DBDraw`'s
+    /// `NumCards$` is `Count$Compare <Y> <CMP>.<A>.<B>` against
+    /// `Y:Remembered$Valid <filter>` (e.g. Predict).
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_mill_remembered_compare_draw_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        flags: LineFlags,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let who_mill =
+            self.wave11_player_of_line(p.peek("Defined"), target, flags.targets_a_player)?;
+        let is_single_mill =
+            Self::is_single_player_rel(who_mill) && matches!(p.peek("NumCards"), None | Some("1"));
+        if p.take("RememberMilled").as_deref() != Some("True") {
+            return None;
+        }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let mut out = self.effect_of_with_prior("Mill", p, target, flags)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let draw_name = sub.take()?;
+        let draw_body = self.svars.get(draw_name.trim())?.clone();
+        let (s_api, mut sp) = Params::parse(&draw_body)?;
+        sp.drop_prose();
+        if s_api != "Draw"
+            || sp.has("ValidTgts")
+            || sp.has("UnlessCost")
+            || sp.has("AtEOT")
+            || sp.has("Optional")
+            || sp.has("OptionalDecider")
+            || sp.has("Condition")
+            || sp.has("ConditionDefined")
+            || sp.has("ConditionPresent")
+            || sp.has("ConditionCheckSVar")
+        {
+            return None;
+        }
+        let who_draw = self.wave11_player_of_line(sp.take("Defined").as_deref(), target, false)?;
+        let raw_num = sp.take("NumCards")?;
+        let def = self
+            .svars
+            .get(raw_num.trim())
+            .map_or(raw_num.trim(), String::as_str)
+            .trim()
+            .to_string();
+        let rest = def.strip_prefix("Count$Compare ")?;
+        let (lhs_var, rhs_part) = rest.split_once(' ')?;
+        let (cmp_raw, pair) = rhs_part.split_once('.')?;
+        let (a_raw, b_raw) = pair.split_once('.')?;
+        if a_raw.is_empty() || b_raw.is_empty() || b_raw.contains('.') {
+            return None;
+        }
+        let lhs_def = self
+            .svars
+            .get(lhs_var.trim())
+            .map_or(lhs_var.trim(), String::as_str)
+            .trim()
+            .to_string();
+        let filter_ref = if matches!(
+            lhs_def.as_str(),
+            "Remembered$Amount" | "Count$RememberedSize"
+        ) {
+            "&Filter::Any".to_string()
+        } else {
+            let valid = lhs_def
+                .strip_prefix("Remembered$Valid ")
+                .or_else(|| lhs_def.strip_prefix("RememberedLKI$Valid "))?;
+            let v = valid.trim();
+            if matches!(v, "Card" | "Permanent") {
+                "&Filter::Any".to_string()
+            } else if matches!(v, "Card.NamedCard" | "NamedCard") {
+                "&Filter::NamedBySource".to_string()
+            } else {
+                let expr = self.filter_expr_in_zone(v, true)?;
+                format!("&{}", self.body.filter_static("MILLED", &expr))
+            }
+        };
+        let amt_milled = format!("Amount::ThisWay(ThisWay::Milled({filter_ref}))");
+        let cond = match cmp_raw.trim() {
+            "GE1" | "GT0" => format!("Condition::AmountAtLeast({amt_milled}, 1)"),
+            "EQ1" if is_single_mill => format!("Condition::AmountAtLeast({amt_milled}, 1)"),
+            "EQ0" | "LT1" | "LE0" => {
+                format!("Condition::Not(&Condition::AmountAtLeast({amt_milled}, 1))")
+            }
+            c if c.starts_with("GE") => {
+                let n = c[2..].parse::<u32>().ok().filter(|&n| n >= 1)?;
+                format!("Condition::AmountAtLeast({amt_milled}, {n})")
+            }
+            _ => return None,
+        };
+        let mut draw_arm = |raw_val: &str| -> Option<String> {
+            let trimmed = raw_val.trim();
+            if trimmed == "0" {
+                return Some(String::new());
+            }
+            let n = self.amount_or_count_ext(trimmed)?;
+            if who_draw == "PlayerRel::You" {
+                if let Some(fixed) = n
+                    .strip_prefix("Amount::Fixed(")
+                    .and_then(|s| s.strip_suffix(')'))
+                {
+                    return Some(format!("Effect::draw({fixed})"));
+                }
+                return Some(format!("Effect::DrawCards {{ amount: {n} }}"));
+            }
+            Some(format!(
+                "Effect::DrawCardsFor {{ amount: {n}, who: {who_draw} }}"
+            ))
+        };
+        let then_draw = draw_arm(a_raw)?;
+        let else_draw = draw_arm(b_raw)?;
+        let after = sp.take("SubAbility");
+        if !sp.exhausted() {
+            return None;
+        }
+        self.wave24a_take_optional_cleanup(after, sub)?;
+        chain.moves_library = true;
+        out.push(format!(
+            "Effect::IfCondition {{ condition: {cond}, then: &[{then_draw}], \
+             otherwise: &[{else_draw}] }}"
+        ));
+        Some(out)
+    }
+
+    /// `ChangeZone | ValidTgts$ ... | Origin$ Battlefield | Destination$ Exile | RememberChanged$ True`
+    /// followed by one non-Remembered sub-ability (e.g. `Investigate`) and an
+    /// end-step `DelayedTrigger` returning `DelayTriggerRememberedLKI` to the
+    /// battlefield under owners' control (Disorder in the Court).
+    #[allow(clippy::too_many_lines)]
+    fn wave24a_exile_then_sub_return_at_end_step(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        if !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            || self.has_linked_exile_reader()
+            || p.has("Hidden")
+            || p.take("Origin").as_deref() != Some("Battlefield")
+            || p.take("Destination").as_deref() != Some("Exile")
+            || p.take("RememberChanged").as_deref() != Some("True")
+            || !matches!(
+                p.take("ForgetOtherRemembered").as_deref(),
+                None | Some("True")
+            )
+            || !p.exhausted()
+        {
+            return None;
+        }
+        let mid_name = sub.take()?;
+        let mid_body = self.svars.get(mid_name.trim())?.clone();
+        if mid_body.contains("Remembered") || mid_body.contains("IsRemembered") {
+            return None;
+        }
+        let (m_api, mut mp) = Params::parse(&mid_body)?;
+        mp.drop_prose();
+        if mp.has("ValidTgts") || mp.has("UnlessCost") || mp.has("AtEOT") {
+            return None;
+        }
+        let del_name = mp.take("SubAbility")?;
+        let del_body = self.svars.get(del_name.trim())?.clone();
+        let (d_api, mut dp) = Params::parse(&del_body)?;
+        dp.drop_prose();
+        if d_api != "DelayedTrigger"
+            || dp.take("Mode").as_deref() != Some("Phase")
+            || !dp
+                .take("Phase")
+                .is_some_and(|ph| ph.eq_ignore_ascii_case("End of Turn"))
+            || !matches!(dp.take("ValidPlayer").as_deref(), None | Some("Player"))
+            || !matches!(
+                dp.take("RememberObjects").as_deref(),
+                Some("RememberedLKI" | "Remembered")
+            )
+        {
+            return None;
+        }
+        if dp.peek("ConditionDefined") == Some("Remembered")
+            && dp.peek("ConditionPresent") == Some("Card")
+        {
+            dp.take("ConditionDefined");
+            dp.take("ConditionPresent");
+        }
+        let ret_name = dp.take("Execute")?;
+        let after_del = dp.take("SubAbility");
+        if !dp.exhausted() {
+            return None;
+        }
+        let ret_body = self.svars.get(ret_name.trim())?.clone();
+        let (r_api, mut rp) = Params::parse(&ret_body)?;
+        rp.drop_prose();
+        if r_api != "ChangeZone"
+            || !matches!(
+                rp.take("Defined").as_deref(),
+                Some("DelayTriggerRememberedLKI" | "DelayTriggerRemembered")
+            )
+            || !matches!(rp.take("Origin").as_deref(), Some("Exile" | "All"))
+            || rp.take("Destination").as_deref() != Some("Battlefield")
+        {
+            return None;
+        }
+        let tapped = match rp.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        if !rp.exhausted() {
+            return None;
+        }
+        let mid_effects = self.effect_of_followup(&m_api, &mut mp, target)?;
+        if mid_effects.is_empty() || !mp.exhausted() {
+            return None;
+        }
+        self.wave24a_take_optional_cleanup(after_del, sub)?;
+        chain.could_add_mana |= m_api == "Mana";
+        chain.moves_library |= matches!(
+            m_api.as_str(),
+            "Draw" | "Mill" | "Surveil" | "Dig" | "DigUntil"
+        );
+        let mut out = vec![if tapped {
+            "Effect::ExileAndReturnTappedAtEndStep".to_string()
+        } else {
+            "Effect::ExileAndReturnAtEndStep".to_string()
+        }];
+        out.extend(mid_effects);
+        Some(out)
+    }
+
+    /// `ChangeZoneAll | Origin$ Battlefield/Graveyard | Destination$ Exile | RememberChanged$ True`
+    /// followed by `Incubate | Amount$ X` where `X: Remembered$Amount` (Sunfall).
+    fn wave24a_cz_all_remembered_count_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        flags: LineFlags,
+    ) -> Option<Vec<String>> {
+        let origin = p.peek("Origin")?.to_string();
+        if p.take("RememberChanged").as_deref() != Some("True") {
+            return None;
+        }
+        if let Some(forget) = p.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let mut out = self.shuffle_into_library_with_prior(
+            p,
+            target,
+            flags.targets_a_player,
+            flags.prior_target_used,
+        )?;
+        if !p.exhausted() {
+            return None;
+        }
+        let next_name = sub.take()?;
+        let next_body = self.svars.get(next_name.trim())?.clone();
+        let (s_api, mut sp) = Params::parse(&next_body)?;
+        sp.drop_prose();
+        if s_api != "Incubate"
+            || sp.has("ValidTgts")
+            || sp.has("UnlessCost")
+            || sp.has("AtEOT")
+            || sp.has("Condition")
+            || sp.has("ConditionDefined")
+            || sp.has("ConditionPresent")
+            || sp.has("ConditionCheckSVar")
+        {
+            return None;
+        }
+        let this_way_variant = if origin == "Graveyard" {
+            ("ExiledFromGraveyard", true, "EXILED_GY")
+        } else {
+            ("ExiledFromBattlefield", false, "EXILED")
+        };
+        let raw_amt = sp.take("Amount")?;
+        let count = self.wave24a_resolve_exiled_count_amount(&raw_amt, this_way_variant)?;
+        let who = self.wave11_player_of_line(sp.take("Defined").as_deref(), target, false)?;
+        let times: usize = match sp.take("Times").as_deref().map(str::trim) {
+            None => 1,
+            Some(raw) => raw
+                .parse::<usize>()
+                .ok()
+                .filter(|&n| (1..=10).contains(&n))?,
+        };
+        let after = sp.take("SubAbility");
+        if !sp.exhausted() {
+            return None;
+        }
+        self.wave24a_take_optional_cleanup(after, sub)?;
+        let one = format!("Effect::Incubate {{ who: {who}, count: {count} }}");
+        out.extend(std::iter::repeat_n(one, times));
+        Some(out)
+    }
+
+    /// True when a card uses `Defined$ ExiledWith` ONLY to return linked-exile
+    /// cards to the battlefield (The Princess Takes Flight, The Measure of a Man)
+    /// and no `SVar` reads `Remembered`/`IsRemembered`.
+    fn wave24a_unused_linked_exile_remember(&self) -> bool {
+        if self.oracle.to_ascii_lowercase().contains("exiled with ") {
+            return false;
+        }
+        let mut readers = 0usize;
+        for body in self.svars.values() {
+            if body.contains("Remembered") || body.contains("IsRemembered") {
+                let is_cleanup = Params::parse(body).is_some_and(|(api, mut cp)| {
+                    cp.drop_prose();
+                    api == "Cleanup"
+                        && cp.take("ClearRemembered").as_deref() == Some("True")
+                        && cp.exhausted()
+                });
+                if !is_cleanup {
+                    return false;
+                }
+            }
+            if !body.contains("ExiledWith") {
+                continue;
+            }
+            readers += 1;
+            let Some((api, mut rp)) = Params::parse(body) else {
+                return false;
+            };
+            rp.drop_prose();
+            rp.take("SubAbility");
+            if api != "ChangeZone"
+                || rp.take("Defined").as_deref() != Some("ExiledWith")
+                || rp.take("Origin").as_deref() != Some("Exile")
+                || rp.take("Destination").as_deref() != Some("Battlefield")
+                || !rp.exhausted()
+            {
+                return false;
+            }
+        }
+        readers > 0
+    }
+
+    fn wave24a_no_svar_mentions_remembered(&self) -> bool {
+        !self.svars.values().any(|s| {
+            s.contains("Remembered") || s.contains("IsRemembered") || s.contains("ClearRemembered")
+        })
     }
 }
