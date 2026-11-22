@@ -2745,13 +2745,7 @@ pub(super) fn exec_immediate(
         } => graveyard_choice::start(state, res, filter, destination, tapped, optional),
         Effect::SearchLibraryOrGraveyard { filter, find } => {
             res.subject.found.clear();
-            let buried: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Graveyard(you))
-                .iter()
-                .copied()
-                .filter(|&id| search::search_matches(state, res, you, filter, None, id))
-                .collect();
+            let buried = search::graveyard_matches(state, res, filter);
             if buried.is_empty() {
                 return search::ask_library_search(state, res, filter, find);
             }

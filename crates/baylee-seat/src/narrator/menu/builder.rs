@@ -273,6 +273,7 @@ impl Builder<'_, '_> {
                     // search that offers nothing still shows the library
                     // it went through.
                     library @ (baylee_engine::choice::ChoicePrompt::SearchLibrary
+                    | baylee_engine::choice::ChoicePrompt::SearchLibraryOrGraveyard
                     | baylee_engine::choice::ChoicePrompt::SearchLibraryTappedAndHand
                     | baylee_engine::choice::ChoicePrompt::PutBackOnTop
                     | baylee_engine::choice::ChoicePrompt::PutOnBottom) => {
@@ -1508,6 +1509,7 @@ impl Builder<'_, '_> {
         let whose = || self.table.whose(owner);
         match prompt {
             baylee_engine::choice::ChoicePrompt::SearchLibrary
+            | baylee_engine::choice::ChoicePrompt::SearchLibraryOrGraveyard
             | baylee_engine::choice::ChoicePrompt::SearchLibraryTappedAndHand
             | baylee_engine::choice::ChoicePrompt::LookAtLibrary => {
                 Some(format!("in {} library", whose()))

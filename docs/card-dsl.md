@@ -2590,8 +2590,10 @@ hashes, layers and does nothing. This paragraph said THREE until
   `min: 0`, `max: 1`, prompt `FromGraveyard`. A card named there is the whole
   search, and nothing is shuffled. Naming none, or a graveyard with no match,
   offers `YesNoPrompt::SearchLibrary` before any library cards are inspected.
-  Accepting makes the one-card library search `SearchLibrary` makes and
-  shuffles even if no card is found. Declining ends the search.
+  Accepting offers a single pick from both zones using
+  `ChoicePrompt::SearchLibraryOrGraveyard`. The library is shuffled even
+  when the player picks a graveyard card or finds nothing. Declining ends
+  the search.
 - **`Condition::XAtLeast(n)`** is "if X is `n` or more", read off the
   announced X on the source, where `Filter::CmcAtMostX` reads it. A source
   that is gone or announced no X counts as X = 0. Finale of Devastation puts

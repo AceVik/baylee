@@ -266,9 +266,10 @@ when the minimum is zero (CR 701.60a).
 offered counter kinds on resolution, moving `PROTOCOL_VERSION` to 69.
 
 `YesNoPrompt::SearchLibrary` asks whether to search the library when the
-same effect offers a graveyard search. The seat receives a private card
-selection only after accepting. Accepting shuffles the library even if
-the search finds no card.
+same effect offers a graveyard search. After accepting, the seat can choose a
+card from either zone using `ChoicePrompt::SearchLibraryOrGraveyard`. Only
+the searching seat receives the inspected library cards. Accepting
+shuffles the library even if the seat takes a graveyard card or no card.
 
 ## Composed ability origins (compatible addition)
 

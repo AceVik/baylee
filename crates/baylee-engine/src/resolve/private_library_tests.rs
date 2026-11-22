@@ -43,7 +43,7 @@ fn no_reveal(state: &GameState) {
 #[test]
 fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
     let you = PlayerId::new(0);
-    for (graveyard_match, accept) in [(false, false), (false, true), (true, false)] {
+    for (graveyard_match, accept) in [(false, false), (false, true), (true, false), (true, true)] {
         let (mut state, source, _) = table(3);
         let mut res = resolution(
             source,
@@ -54,11 +54,14 @@ fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
             you,
         );
         let before = state.journal.last_seq();
-        let first = if graveyard_match {
+        let graveyard = graveyard_match.then(|| {
             let name = state.names.intern("graveyard creature");
             let card = state.create_bare(you, ObjectKind::Card, name, ZoneLocation::Graveyard(you));
             let object = state.object_mut(card).unwrap();
             Arc::make_mut(&mut object.base).types = baylee_cards_dsl::TypeSet::CREATURE;
+            card
+        });
+        let first = if let Some(card) = graveyard {
             let Flow::Wait(Pending::ChooseCards {
                 prompt: ChoicePrompt::FromGraveyard,
                 options,
@@ -84,18 +87,35 @@ fn library_or_graveyard_search_requires_consent_before_inspection_or_shuffle() {
         assert_eq!(state.journal.last_seq(), before);
         let flow = resume_yes_no(&mut state, &mut res, accept);
         if accept {
+            let Flow::Wait(Pending::ChooseCards {
+                player,
+                prompt: ChoicePrompt::SearchLibraryOrGraveyard,
+                options,
+                max,
+                ..
+            }) = flow
+            else {
+                panic!("expected a pick after searching both zones");
+            };
+            assert_eq!(player, you);
+            assert_eq!(options, graveyard.as_slice());
+            assert_eq!(max, u8::from(graveyard_match));
             assert!(matches!(
-                flow,
-                Flow::Wait(Pending::ChooseCards {
-                    player,
-                    prompt: ChoicePrompt::SearchLibrary,
-                    max: 0,
-                    ..
-                }) if player == you
+                resume(&mut state, &mut res, graveyard.as_slice()),
+                Flow::Complete
             ));
-            assert!(matches!(resume(&mut state, &mut res, &[]), Flow::Complete));
         } else {
             assert!(matches!(flow, Flow::Complete));
+        }
+        if let Some(card) = graveyard {
+            assert_eq!(
+                state.object(card).unwrap().zone,
+                if accept {
+                    crate::zone::Zone::Battlefield
+                } else {
+                    crate::zone::Zone::Graveyard
+                }
+            );
         }
         assert_eq!(
             state

@@ -103,6 +103,7 @@ pub mod tape;
 /// `PlayerAction::ChooseCounterKind`, and the remaining CR 122.1b keyword
 /// counters on positional binary frames. `YesNoPrompt::SearchLibrary` asks
 /// whether to inspect the library before a conditional shuffle.
+/// `ChoicePrompt::SearchLibraryOrGraveyard` offers both zones after acceptance.
 /// Bounded generic mana payments use `ManaPayment::Variable` during mana
 /// generation and `NumberPrompt::VariableManaPayment` for the payment amount.
 pub const PROTOCOL_VERSION: u32 = 69;
@@ -447,6 +448,7 @@ mod tests {
         // 69: `CastModeKind::OptionalCost`, `ChoicePrompt::CollectEvidence`,
         // `Pending::ChooseCounterKind`, `PlayerAction::ChooseCounterKind`, and
         // CR 122.1b keyword counters, `YesNoPrompt::SearchLibrary`,
+        // `ChoicePrompt::SearchLibraryOrGraveyard`,
         // `ManaPayment::Variable`, and `NumberPrompt::VariableManaPayment`.
         assert_eq!(PROTOCOL_VERSION, 69);
     }

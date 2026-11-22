@@ -284,6 +284,7 @@ impl HeuristicAgent {
             | ChoicePrompt::KeepCreatures
             | ChoicePrompt::KeepPermanents
             | ChoicePrompt::SearchLibrary
+            | ChoicePrompt::SearchLibraryOrGraveyard
             | ChoicePrompt::SearchLibraryTappedAndHand
             | ChoicePrompt::Wish
             | ChoicePrompt::PutIntoHand

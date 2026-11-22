@@ -974,6 +974,11 @@ NounCardsFromLibrary =
         [one] Karte aus deiner Bibliothek
        *[other] Karten aus deiner Bibliothek
     }
+NounCardsFromLibraryOrGraveyard =
+    { $count ->
+        [one] Karte aus deiner Bibliothek oder deinem Friedhof
+       *[other] Karten aus deiner Bibliothek oder deinem Friedhof
+    }
 NounCardsFromLibraryTappedAndHand =
     { $count ->
         [one] Karte aus deiner Bibliothek (kommt getappt ins Spiel)
@@ -998,6 +1003,11 @@ NounCardsFromLibraryOf =
     { $count ->
         [one] Karte aus der Bibliothek von { $player }
        *[other] Karten aus der Bibliothek von { $player }
+    }
+NounCardsFromLibraryOrGraveyardOf =
+    { $count ->
+        [one] Karte aus der Bibliothek oder dem Friedhof von { $player }
+       *[other] Karten aus der Bibliothek oder dem Friedhof von { $player }
     }
 NounCardsToTopOf =
     { $count ->

@@ -301,6 +301,55 @@ fn nobody_else_is_shown_another_seat_s_search() {
     );
 }
 
+#[test]
+fn a_search_of_both_zones_keeps_the_library_private_and_the_graveyard_public() {
+    use baylee_engine::choice::ChoicePrompt;
+    use baylee_engine::event::Cause;
+    use baylee_engine::zone::ZonePosition;
+
+    let engine = Engine::new(&mixed_print_preset(), Registry).expect("game starts");
+    let searcher = PlayerId::new(0);
+    let cards = library(&engine, searcher, 3);
+    let mut state = engine.state().clone();
+    state
+        .move_object(
+            cards[2],
+            ZoneLocation::Graveyard(searcher),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    let inspected = &cards[..2];
+    let pending = Pending::ChooseCards {
+        player: searcher,
+        options: vec![cards[0], cards[2]],
+        min: 0,
+        max: 1,
+        prompt: ChoicePrompt::SearchLibraryOrGraveyard,
+        total: None,
+    };
+    for seat in [searcher, PlayerId::new(1)] {
+        let view = player_view(
+            &state,
+            seat,
+            0,
+            Some(&pending),
+            &SeatContext {
+                inspected_cards: inspected,
+                ..SeatContext::default()
+            },
+            &[],
+        );
+        assert!(view.graveyards[0].iter().any(|card| card.id == cards[2]));
+        let shown: Vec<_> = view.looking_at.iter().map(|card| card.id).collect();
+        if seat == searcher {
+            assert_eq!(shown, inspected);
+        } else {
+            assert!(shown.is_empty());
+        }
+    }
+}
+
 /// Fact or Fiction's two questions name cards in the caster's library:
 /// the opponent who separates them is asked about another seat's
 /// library, and the caster then about piles. Each is shown the revealed

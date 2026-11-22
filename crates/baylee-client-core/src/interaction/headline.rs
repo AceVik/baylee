@@ -274,6 +274,7 @@ fn foreign_library_line(
         ChoicePrompt::SearchLibrary | ChoicePrompt::SearchLibraryTappedAndHand => {
             Phrase::NounCardsFromLibraryOf
         }
+        ChoicePrompt::SearchLibraryOrGraveyard => Phrase::NounCardsFromLibraryOrGraveyardOf,
         ChoicePrompt::PutBackOnTop => Phrase::NounCardsToTopOf,
         ChoicePrompt::PutOnBottom => Phrase::NounCardsToBottomOf,
         _ => return None,
@@ -382,6 +383,7 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         ChoicePrompt::KeepCreatures => Phrase::NounCreaturesToKeep,
         ChoicePrompt::KeepPermanents => Phrase::NounPermanentsToKeep,
         ChoicePrompt::SearchLibrary => Phrase::NounCardsFromLibrary,
+        ChoicePrompt::SearchLibraryOrGraveyard => Phrase::NounCardsFromLibraryOrGraveyard,
         ChoicePrompt::SearchLibraryTappedAndHand => Phrase::NounCardsFromLibraryTappedAndHand,
         ChoicePrompt::PutBackOnTop => Phrase::NounCardsToTop,
         ChoicePrompt::Wish => Phrase::NounCardsOutside,

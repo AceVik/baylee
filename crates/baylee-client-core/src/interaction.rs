@@ -946,6 +946,7 @@ impl Interaction {
                 options,
                 prompt:
                     ChoicePrompt::SearchLibrary
+                    | ChoicePrompt::SearchLibraryOrGraveyard
                     | ChoicePrompt::SearchLibraryTappedAndHand
                     | ChoicePrompt::PutBackOnTop
                     | ChoicePrompt::PutOnBottom,

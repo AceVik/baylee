@@ -340,6 +340,7 @@ pub use turn::{DayNight, Phase, Step};
 /// `PlayerAction::ChooseCounterKind`, and the remaining CR 122.1b keyword
 /// counters on [`CounterKind`]). `YesNoPrompt::SearchLibrary` asks
 /// whether to inspect and then shuffle the library.
+/// `ChoicePrompt::SearchLibraryOrGraveyard` offers both zones after acceptance.
 /// Bounded generic mana payments use `ManaPayment::Variable` during mana
 /// generation and `NumberPrompt::VariableManaPayment` for the payment amount.
 pub const VIEW_VERSION: u32 = 112;

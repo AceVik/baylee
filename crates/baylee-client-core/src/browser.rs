@@ -1805,6 +1805,7 @@ impl Browser {
                 interaction.pending(),
                 baylee_engine::choice::Pending::ChooseCards {
                     prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary
+                        | baylee_engine::choice::ChoicePrompt::SearchLibraryOrGraveyard
                         | baylee_engine::choice::ChoicePrompt::SearchLibraryTappedAndHand,
                     ..
                 }

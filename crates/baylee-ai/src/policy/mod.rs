@@ -977,6 +977,7 @@ impl HeuristicAgent {
         let mut ranked = options.to_vec();
         let count = match prompt {
             ChoicePrompt::SearchLibrary
+            | ChoicePrompt::SearchLibraryOrGraveyard
             | ChoicePrompt::SearchLibraryTappedAndHand
             | ChoicePrompt::Wish
             | ChoicePrompt::PutIntoHand

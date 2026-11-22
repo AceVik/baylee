@@ -354,6 +354,7 @@ pub(super) fn mask_non_priority_single_choice(
             if matches!(
                 prompt,
                 ChoicePrompt::SearchLibrary
+                    | ChoicePrompt::SearchLibraryOrGraveyard
                     | ChoicePrompt::SearchLibraryTappedAndHand
                     | ChoicePrompt::PutIntoHand
                     | ChoicePrompt::Wish
@@ -920,6 +921,7 @@ pub(super) fn adjust_subset_logits(
             if matches!(
                 prompt,
                 ChoicePrompt::SearchLibrary
+                    | ChoicePrompt::SearchLibraryOrGraveyard
                     | ChoicePrompt::SearchLibraryTappedAndHand
                     | ChoicePrompt::PutIntoHand
                     | ChoicePrompt::Wish

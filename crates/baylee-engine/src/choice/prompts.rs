@@ -511,6 +511,8 @@ pub enum ChoicePrompt {
         /// Additional mana owed when no card is beheld.
         mana: baylee_core::mana::ManaCost,
     },
+    /// Find one card in the library or graveyard after choosing to inspect the library.
+    SearchLibraryOrGraveyard,
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).

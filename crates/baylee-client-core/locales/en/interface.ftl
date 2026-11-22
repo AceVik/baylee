@@ -3072,6 +3072,13 @@ NounCardsFromLibrary =
        *[other] cards from your library
     }
 
+# Arguments: count
+NounCardsFromLibraryOrGraveyard =
+    { $count ->
+        [one] card from your library or graveyard
+       *[other] cards from your library or graveyard
+    }
+
 # Kodama's Reach / Cultivate: first chosen card enters the battlefield tapped,
 # second goes into your hand
 # Arguments: count
@@ -3112,6 +3119,13 @@ NounCardsFromLibraryOf =
     { $count ->
         [one] card from { $player }'s library
        *[other] cards from { $player }'s library
+    }
+
+# Arguments: player, count
+NounCardsFromLibraryOrGraveyardOf =
+    { $count ->
+        [one] card from { $player }'s library or graveyard
+       *[other] cards from { $player }'s library or graveyard
     }
 
 # card to put on top of $player's library, another player's

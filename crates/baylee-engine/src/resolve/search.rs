@@ -107,7 +107,7 @@ pub(super) fn basic_land(
     )
 }
 
-pub(super) fn search_matches(
+fn search_matches(
     state: &GameState,
     res: &Resolution,
     searcher: PlayerId,
@@ -123,6 +123,21 @@ pub(super) fn search_matches(
         );
         matched && within(o, bound)
     })
+}
+
+pub(super) fn graveyard_matches(
+    state: &GameState,
+    res: &Resolution,
+    filter: &baylee_cards_dsl::Filter,
+) -> Vec<ObjectId> {
+    let you = res.controller;
+    state
+        .zones
+        .list(ZoneLocation::Graveyard(you))
+        .iter()
+        .copied()
+        .filter(|&id| search_matches(state, res, you, filter, None, id))
+        .collect()
 }
 
 fn inspected_cards(state: &GameState, library: PlayerId, searcher: PlayerId) -> Vec<ObjectId> {
@@ -150,6 +165,15 @@ pub(super) fn begin_search(
     state: &mut GameState,
     res: &mut Resolution,
     search: Search,
+) -> Option<Pending> {
+    begin_search_with_graveyard(state, res, search, None)
+}
+
+fn begin_search_with_graveyard(
+    state: &mut GameState,
+    res: &mut Resolution,
+    search: Search,
+    graveyard: Option<Vec<ObjectId>>,
 ) -> Option<Pending> {
     res.subject.found.clear();
     let Search {
@@ -216,7 +240,13 @@ pub(super) fn begin_search(
             true
         });
     }
-    if inspected.is_empty() {
+    let prompt = if let Some(graveyard) = graveyard {
+        options.extend(graveyard);
+        ChoicePrompt::SearchLibraryOrGraveyard
+    } else {
+        search_prompt(finds, split)
+    };
+    if inspected.is_empty() && options.is_empty() {
         finish_shuffle(state, res, library);
         return None;
     }
@@ -249,7 +279,6 @@ pub(super) fn begin_search(
         });
         searcher
     };
-    let prompt = search_prompt(finds, split);
     Some(Pending::ChooseCards {
         player,
         options,
@@ -502,7 +531,8 @@ pub(super) fn resume_consent(
             res.awaiting = None;
             let you = res.controller;
             if answer && allowed(state, res, you, you) {
-                begin_search(
+                let graveyard = graveyard_matches(state, res, filter);
+                begin_search_with_graveyard(
                     state,
                     res,
                     Search {
@@ -514,8 +544,9 @@ pub(super) fn resume_consent(
                         count: None,
                         distinct_names: false,
                         split: None,
-                        optional: false,
+                        optional: true,
                     },
+                    Some(graveyard),
                 )
             } else {
                 None
