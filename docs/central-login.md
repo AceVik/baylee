@@ -254,6 +254,13 @@ move (the eight pinned crates and `central-funding`, `central-mail` and
 `central-picture` under them), and no registry package. The same exact-source
 and reverse-consumer checks remain in force.
 
+The 22 November 2026 pin `fc8a433fad8025a76f3a774a9f8019188de40347`
+updates `url` to 2.5.9 for RUSTSEC-2026-0592 and `form_urlencoded` to 1.2.3.
+The Central diff touches its lockfile and the manifests of `central-api`,
+`central-postgres` and `central-funding`. The reviewed `central-crypto`
+tree is identical to the 19 November revision. The shipped-features check
+verifies its exact Git source and the Ristretto dependency graph.
+
 The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with two
