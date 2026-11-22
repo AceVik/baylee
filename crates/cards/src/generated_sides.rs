@@ -657,7 +657,7 @@ pub static DOUBLE_FACED: [CardIndex; 315] = [
 ];
 
 /// Cards whose reference printing is uncommon.
-pub static UNCOMMON: [CardIndex; 7727] = [
+pub static UNCOMMON: [CardIndex; 7722] = [
     CardIndex::new(0),
     CardIndex::new(2),
     CardIndex::new(3),
@@ -6947,8 +6947,6 @@ pub static UNCOMMON: [CardIndex; 7727] = [
     CardIndex::new(26503),
     CardIndex::new(26514),
     CardIndex::new(26521),
-    CardIndex::new(26531),
-    CardIndex::new(26534),
     CardIndex::new(26569),
     CardIndex::new(26572),
     CardIndex::new(26585),
@@ -8054,7 +8052,6 @@ pub static UNCOMMON: [CardIndex; 7727] = [
     CardIndex::new(32456),
     CardIndex::new(32464),
     CardIndex::new(32476),
-    CardIndex::new(32491),
     CardIndex::new(32511),
     CardIndex::new(32519),
     CardIndex::new(32530),
@@ -8325,8 +8322,6 @@ pub static UNCOMMON: [CardIndex; 7727] = [
     CardIndex::new(33822),
     CardIndex::new(33823),
     CardIndex::new(33824),
-    CardIndex::new(33825),
-    CardIndex::new(33851),
     CardIndex::new(33859),
     CardIndex::new(33869),
     CardIndex::new(33871),
@@ -8388,7 +8383,7 @@ pub static UNCOMMON: [CardIndex; 7727] = [
 ];
 
 /// Cards whose reference printing is rare.
-pub static RARE: [CardIndex; 6300] = [
+pub static RARE: [CardIndex; 6298] = [
     CardIndex::new(5),
     CardIndex::new(7),
     CardIndex::new(8),
@@ -13246,7 +13241,6 @@ pub static RARE: [CardIndex; 6300] = [
     CardIndex::new(25362),
     CardIndex::new(25368),
     CardIndex::new(25371),
-    CardIndex::new(25392),
     CardIndex::new(25407),
     CardIndex::new(25416),
     CardIndex::new(25446),
@@ -14348,7 +14342,6 @@ pub static RARE: [CardIndex; 6300] = [
     CardIndex::new(32457),
     CardIndex::new(32463),
     CardIndex::new(32468),
-    CardIndex::new(32490),
     CardIndex::new(32510),
     CardIndex::new(32514),
     CardIndex::new(32518),
@@ -14692,7 +14685,7 @@ pub static RARE: [CardIndex; 6300] = [
 ];
 
 /// Cards whose reference printing is mythic rare.
-pub static MYTHIC: [CardIndex; 991] = [
+pub static MYTHIC: [CardIndex; 989] = [
     CardIndex::new(6),
     CardIndex::new(10),
     CardIndex::new(14),
@@ -15296,7 +15289,6 @@ pub static MYTHIC: [CardIndex; 991] = [
     CardIndex::new(22871),
     CardIndex::new(23030),
     CardIndex::new(23052),
-    CardIndex::new(23066),
     CardIndex::new(23100),
     CardIndex::new(23101),
     CardIndex::new(23128),
@@ -15524,7 +15516,6 @@ pub static MYTHIC: [CardIndex; 991] = [
     CardIndex::new(30127),
     CardIndex::new(30145),
     CardIndex::new(30174),
-    CardIndex::new(30206),
     CardIndex::new(30210),
     CardIndex::new(30216),
     CardIndex::new(30250),
@@ -144783,13 +144774,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
-        CardIndex::new(23066),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
         CardIndex::new(23099),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -152672,13 +152656,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
-        CardIndex::new(25392),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
         CardIndex::new(25407),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -157176,20 +157153,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         CardIndex::new(26521),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None, None],
-            is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(26531),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(26534),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
             is_un: false,
         },
     ),
@@ -170564,13 +170527,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
-        CardIndex::new(30206),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[Some("jeskai")],
-            is_un: false,
-        },
-    ),
-    (
         CardIndex::new(30208),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -180343,20 +180299,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
-        CardIndex::new(32490),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(32491),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
         CardIndex::new(32506),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -186251,13 +186193,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
         },
     ),
     (
-        CardIndex::new(33825),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
         CardIndex::new(33826),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
@@ -186266,13 +186201,6 @@ pub static REFERENCE_RULES: &[(CardIndex, baylee_core::card_metadata::ReferenceP
     ),
     (
         CardIndex::new(33843),
-        baylee_core::card_metadata::ReferencePrintRules {
-            watermarks: &[None],
-            is_un: false,
-        },
-    ),
-    (
-        CardIndex::new(33851),
         baylee_core::card_metadata::ReferencePrintRules {
             watermarks: &[None],
             is_un: false,

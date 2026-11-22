@@ -65738,10 +65738,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Mothrider Cavalry
-    &[
-        "This spell costs {2} less to cast if you have no other creature cards in hand or if the only other creature cards in your hand are named Mothrider Cavalry.\nFlying\nOther creatures you control get +1/+1.",
-    ],
+    &[],
     &[],
     &[],
     &[],
@@ -71157,10 +71154,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Magmatic Scorchwing
-    &[
-        "Flying\nWhen Magmatic Scorchwing enters, if there are no nonbasic land cards in your library, Magmatic Scorchwing deals 3 damage to any target.",
-    ],
+    &[],
     &[],
     &[],
     &[],
@@ -74124,14 +74118,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Draconic Debut
-    &[
-        "Draconic Debut deals X damage to any target.\nThe next Dragon creature spell you cast costs {X} less to cast.",
-    ],
     &[],
     &[],
-    // First Little Pig
-    &["{1}{G/W}: Exile target artifact or enchantment. Activate only once."],
+    &[],
+    &[],
     &[],
     &[],
     &[],
@@ -83142,10 +83132,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Xho Cai, Flickering Talon
-    &[
-        "Flying, Vigilance, Haste\nWhen Xho Cai enters, the next noncreature spell you cast costs {1} less to cast.\nFlurry — Whenever you cast your second spell each turn, exile up to one target creature you control, then return it to the battlefield under its owner's control.",
-    ],
+    &[],
     &[],
     // Aerith Gainsborough
     &[
@@ -89243,14 +89230,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Honor the Past
-    &[
-        "Return target creature card with mana value 6 or less from your graveyard to the battlefield. It's an artifact. (It's no longer a creature.)",
-    ],
-    // Impose Hierarchy
-    &[
-        "Destroy target creature with mana value 4 or less. You gain 1 life for each creature card in its controller's hand.",
-    ],
+    &[],
+    &[],
     &[],
     &[],
     &[],
@@ -92828,10 +92809,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Destroy target creature or planeswalker with mana value 3 or greater. Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
     ],
-    // Asymmetry Sage
-    &[
-        "Flying\nMagecraft — Whenever you cast or copy an instant or sorcery spell, target creature you control has base power 3 until end of turn.",
-    ],
+    &[],
     // Avoided Stairwurm
     &["Menace\nThis creature gets -1/-1 for each creature card in your library."],
     &[],
@@ -92861,10 +92839,7 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    // Sparks Ablaze
-    &[
-        "Sparks Ablaze deals 2 damage to target creature or planeswalker. If that creature or planeswalker would die this turn, exile it instead.\nThe next planeswalker spell you cast costs {1} less to cast.",
-    ],
+    &[],
     &[],
     &[],
     &[],

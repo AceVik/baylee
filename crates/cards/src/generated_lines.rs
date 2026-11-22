@@ -136645,7 +136645,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
             sentences: 5,
             stackable: 1,
             lines: &[Some(1)],
-            modes: &[],
+            modes: &[Some(2), Some(3), Some(4)],
             alternatives: &[],
         },
         FaceLines {
@@ -139674,14 +139674,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    // Mothrider Cavalry
-    &[FaceLines {
-        sentences: 3,
-        stackable: 0,
-        lines: &[None, None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     &[],
@@ -140352,7 +140345,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         sentences: 4,
         stackable: 1,
         lines: &[Some(0)],
-        modes: &[],
+        modes: &[Some(1), Some(2), Some(3)],
         alternatives: &[],
     }],
     // Gathering Throng
@@ -149813,14 +149806,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    // Magmatic Scorchwing
-    &[FaceLines {
-        sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     &[],
@@ -156034,24 +156020,10 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    // Draconic Debut
-    &[FaceLines {
-        sentences: 2,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
     &[],
     &[],
-    // First Little Pig
-    &[FaceLines {
-        sentences: 1,
-        stackable: 1,
-        lines: &[Some(0)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
+    &[],
     &[],
     &[],
     &[],
@@ -156761,7 +156733,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         sentences: 4,
         stackable: 1,
         lines: &[Some(0)],
-        modes: &[],
+        modes: &[Some(1), Some(2), Some(3)],
         alternatives: &[],
     }],
     &[],
@@ -164705,14 +164677,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    // Thief of Existence
-    &[FaceLines {
-        sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     // Titans' Vanguard
@@ -171097,7 +171062,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         sentences: 4,
         stackable: 1,
         lines: &[Some(0)],
-        modes: &[],
+        modes: &[Some(1), Some(2), Some(3)],
         alternatives: &[],
     }],
     // Mu Yanling, Wind Rider
@@ -173245,7 +173210,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         sentences: 4,
         stackable: 1,
         lines: &[Some(0)],
-        modes: &[],
+        modes: &[Some(1), Some(2), Some(3)],
         alternatives: &[],
     }],
     &[],
@@ -173475,14 +173440,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    // Xho Cai, Flickering Talon
-    &[FaceLines {
-        sentences: 3,
-        stackable: 2,
-        lines: &[Some(1), Some(2)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Aerith Gainsborough
     &[FaceLines {
@@ -183073,7 +183031,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         sentences: 4,
         stackable: 1,
         lines: &[Some(0)],
-        modes: &[],
+        modes: &[Some(1), Some(2), Some(3)],
         alternatives: &[],
     }],
     // Lord Dregg, Insect Invader
@@ -185660,22 +185618,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    // Honor the Past
-    &[FaceLines {
-        sentences: 1,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
-    // Impose Hierarchy
-    &[FaceLines {
-        sentences: 1,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
+    &[],
     &[],
     &[],
     &[],
@@ -188642,7 +188586,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         sentences: 5,
         stackable: 1,
         lines: &[Some(1)],
-        modes: &[],
+        modes: &[Some(2), Some(3), Some(4)],
         alternatives: &[],
     }],
     // The Vision and Scarlet Witch
@@ -192899,14 +192843,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Asymmetry Sage
-    &[FaceLines {
-        sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     // Avoided Stairwurm
     &[FaceLines {
         sentences: 2,
@@ -192946,14 +192883,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    // Sparks Ablaze
-    &[FaceLines {
-        sentences: 2,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     &[],
     &[],
