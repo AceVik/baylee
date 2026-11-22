@@ -1214,6 +1214,69 @@ fn third_targets_across_activated_triggered_loyalty_and_saga() {
 // =========================================================================
 
 #[test]
+fn attach_slot_moves_an_enchant_player_aura_to_the_chosen_player() {
+    static CURSE: &[AbilityDef] = &[spell!(
+        &[Effect::AttachSelf {
+            target: TargetSpec::AnyPlayer
+        }],
+        targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+    )];
+    static MOVE: &[AbilityDef] = &[spell!(
+        &[Effect::AttachSlot {
+            object: TargetSlot::First,
+            to: TargetSlot::Second,
+            optional: true
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::HasSubtype(
+            enchantment::AURA
+        )))),
+        second_targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+    )];
+    let aura = make_aura(C0, "Enchant Player", ColorSet::EMPTY, CURSE);
+    let spell = card(
+        C1,
+        face("Move Aura", "{0}", TypeSet::SORCERY),
+        KeywordSet::EMPTY,
+        MOVE,
+    );
+    let mut engine = bench_main(
+        1409,
+        vec![aura, spell],
+        [Seat::default().holding(&[C0, C1]), Seat::default()],
+    );
+    let player_target = |player| PlayerAction::ChooseTargets {
+        objects: vec![],
+        players: vec![player],
+    };
+    let curse = cast_from_hand(&mut engine, me(), C0);
+    engine.apply(me(), player_target(me())).unwrap();
+    settle(&mut engine, me());
+    assert_eq!(
+        engine.state().object(curse).unwrap().attached_player(),
+        Some(me())
+    );
+    cast_from_hand(&mut engine, me(), C1);
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: vec![curse],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    engine.apply(me(), player_target(them())).unwrap();
+    engine.apply(me(), PlayerAction::PassPriority).unwrap();
+    engine.apply(them(), PlayerAction::PassPriority).unwrap();
+    engine.apply(me(), PlayerAction::YesNo(true)).unwrap();
+    settle(&mut engine, me());
+    assert_eq!(
+        engine.state().object(curse).unwrap().attached_player(),
+        Some(them())
+    );
+}
+
+#[test]
 fn attach_slot_mandatory_optional_multi_object_and_cr_legality_guards() {
     static EQUIP_FILTER: Filter = Filter::HasSubtype(artifact::EQUIPMENT);
     static AURA_FILTER: Filter = Filter::HasSubtype(enchantment::AURA);
@@ -1268,8 +1331,33 @@ fn attach_slot_mandatory_optional_multi_object_and_cr_legality_guards() {
         second_targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
     )];
 
+    static RECONFIGURING: &[AbilityDef] = &[
+        EQUIP_BOOST[0],
+        activated!(
+            baylee_cards_dsl::cost!("{1}"),
+            &[Effect::ReconfigureAttach],
+            target = Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL))
+        ),
+        static_ability!(
+            Filter::This,
+            Modifier::RemoveType(TypeSet::CREATURE),
+            condition = Some(baylee_cards_dsl::Condition::SourceMatches(
+                &Filter::IsAttached
+            ))
+        ),
+    ];
     let sword_a = make_equip(C0, "Sword A", EQUIP_BOOST);
-    let sword_b = make_equip(C1, "Sword B", EQUIP_BOOST);
+    let sword_b = card(
+        C1,
+        {
+            let mut f = creature_face("Reconfiguring Sword", "{0}", 2, 2);
+            f.types = TypeSet::ARTIFACT.union(TypeSet::CREATURE);
+            f.subtypes = &[artifact::EQUIPMENT];
+            f
+        },
+        KeywordSet::EMPTY,
+        RECONFIGURING,
+    );
     let anim_sword = card(
         C2,
         {
@@ -1374,6 +1462,15 @@ fn attach_slot_mandatory_optional_multi_object_and_cr_legality_guards() {
     settle(&mut engine, me());
     assert_eq!(engine.state().object(sw_a).unwrap().attached_to, Some(hero));
     assert_eq!(engine.state().object(sw_b).unwrap().attached_to, Some(hero));
+    assert!(
+        !engine
+            .state()
+            .object(sw_b)
+            .unwrap()
+            .characteristics()
+            .types
+            .contains(TypeSet::CREATURE)
+    );
     assert_eq!(
         engine.state().object(hero).unwrap().characteristics().power,
         Some(6)

@@ -94,7 +94,7 @@ pub(super) fn living_weapon(
             .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
     })?;
     if created.len() == 1 {
-        attachments::attach_to(state, source, created[0], false);
+        attachments::attach_to(state, source, created[0]);
         return None;
     }
     if created.is_empty() {

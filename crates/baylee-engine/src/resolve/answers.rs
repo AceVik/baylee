@@ -1014,10 +1014,8 @@ pub(super) fn resume_yes_no_inner(
         let Some(AwaitingOp::AttachSlot { objects, host }) = res.awaiting.take() else {
             unreachable!("just matched")
         };
-        if answer && subjects::on_battlefield(state, host) {
-            for att in objects {
-                super::attachments::attach_to(state, att, host.object, false);
-            }
+        if answer {
+            super::attachments::attach_selected(state, &objects, host);
         }
         res.pc += 1;
         return run(state, res);

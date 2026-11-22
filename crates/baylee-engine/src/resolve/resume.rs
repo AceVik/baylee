@@ -415,7 +415,7 @@ pub(super) fn resume_inner(
         } => super::token_choices::finish_fabricate(state, res, chosen, source, count, token),
         AwaitingOp::AttachCreated { source } => {
             if let Some(&host) = chosen.first() {
-                super::attachments::attach_to(state, source, host, false);
+                super::attachments::attach_to(state, source, host);
             }
         }
         AwaitingOp::TakeTop {
@@ -811,7 +811,7 @@ pub(super) fn resume_inner(
                     && let Some(source) =
                         subjects::source(state, res).filter(|s| subjects::on_battlefield(state, *s))
                 {
-                    super::attachments::attach_to(state, equip_ref, source.object, false);
+                    super::attachments::attach_to(state, equip_ref, source.object);
                 }
             }
         }
@@ -839,7 +839,7 @@ pub(super) fn resume_inner(
                 && let Some(source) = state.source_identity(aura)
                 && crate::aura_bindings::can_attach(state, aura, host)
             {
-                super::attachments::attach_to(state, source, host, false);
+                super::attachments::attach_to(state, source, host);
             }
         }
         AwaitingOp::MoveAttachment {

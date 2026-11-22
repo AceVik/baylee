@@ -1,7 +1,13 @@
 //! Resolution-time attachment, including untargeted event subjects.
 use super::{Resolution, TargetSpec, subjects, zones};
 use crate::{object::Status, state::GameState, zone::Zone};
-use baylee_core::{generated::subtypes, ids::DamageSourceRef, types::TypeSet};
+use baylee_cards_dsl::{AbilityDef, Effect};
+use baylee_core::ids::TargetRef;
+use baylee_core::{
+    generated::subtypes,
+    ids::{DamageSourceRef, ObjectId},
+    types::TypeSet,
+};
 
 pub(super) fn attach(
     state: &mut GameState,
@@ -22,7 +28,7 @@ pub(super) fn attach(
         zones::spec_object(state, res, target)
     };
     if let Some(host) = host {
-        attach_to(state, source, host, reconfigure);
+        attach_to(state, source, host);
         return;
     }
     let player = match target {
@@ -86,12 +92,7 @@ pub(super) fn attach_to_player(
     }
 }
 
-pub(super) fn attach_to(
-    state: &mut GameState,
-    source: DamageSourceRef,
-    host: baylee_core::ids::ObjectId,
-    reconfigure: bool,
-) {
+pub(super) fn attach_to(state: &mut GameState, source: DamageSourceRef, host: ObjectId) {
     if !subjects::is_current(state, source) {
         return;
     }
@@ -103,99 +104,48 @@ pub(super) fn attach_to(
         state.attach(source.object, host);
         return;
     }
-    if object.zone != Zone::Battlefield
-        || (!reconfigure
-            && object
-                .characteristics()
-                .types
-                .intersects(TypeSet::CREATURE.union(TypeSet::BATTLE)))
-        || source.object == host
-        || object.status.contains(Status::PHASED_OUT)
-    {
-        return;
-    }
-    let legal = if object
-        .characteristics()
-        .subtypes
-        .contains(subtypes::enchantment::AURA)
-    {
-        crate::aura_bindings::can_attach(state, source.object, host)
-    } else {
-        let required = if object
-            .characteristics()
-            .subtypes
-            .contains(subtypes::artifact::EQUIPMENT)
-        {
-            TypeSet::CREATURE
-        } else if object
-            .characteristics()
-            .subtypes
-            .contains(subtypes::artifact::FORTIFICATION)
-        {
-            TypeSet::LAND
-        } else {
-            return;
-        };
-        state.object(host).is_some_and(|host| {
-            host.zone == Zone::Battlefield
-                && host.characteristics().types.contains(required)
-                && !host.status.contains(Status::PHASED_OUT)
-        }) && !crate::eval::protected_from(state, host, source.object)
-    };
-    if legal {
+    if can_attach_object(state, source.object, host) {
         state.attach(source.object, host);
     }
 }
 
-pub(super) fn can_attach_object_to_host(
-    state: &GameState,
-    source: DamageSourceRef,
-    host: DamageSourceRef,
-) -> bool {
-    if !subjects::on_battlefield(state, source)
-        || !subjects::on_battlefield(state, host)
-        || source.object == host.object
-    {
-        return false;
-    }
-    let Some(object) = state.object(source.object) else {
+/// CR 301.5c permits a creature Equipment with reconfigure to attach through
+/// any legal attach effect, including other cards' spells and abilities.
+pub(super) fn can_attach_object(state: &GameState, attachment: ObjectId, host: ObjectId) -> bool {
+    let (Some(object), Some(recipient)) = (state.object(attachment), state.object(host)) else {
         return false;
     };
-    if object
-        .characteristics()
-        .types
-        .intersects(TypeSet::CREATURE.union(TypeSet::BATTLE))
+    let chars = object.characteristics();
+    if attachment == host
+        || object.zone != Zone::Battlefield
+        || object.status.contains(Status::PHASED_OUT)
+        || chars.types.contains(TypeSet::BATTLE)
     {
         return false;
     }
-    if object
-        .characteristics()
-        .subtypes
-        .contains(subtypes::enchantment::AURA)
-    {
-        crate::aura_bindings::can_attach(state, source.object, host.object)
-    } else {
-        let required = if object
-            .characteristics()
-            .subtypes
-            .contains(subtypes::artifact::EQUIPMENT)
-        {
-            TypeSet::CREATURE
-        } else if object
-            .characteristics()
-            .subtypes
-            .contains(subtypes::artifact::FORTIFICATION)
-        {
-            TypeSet::LAND
-        } else {
-            return false;
-        };
-        state.object(host.object).is_some_and(|h| {
-            h.zone == Zone::Battlefield
-                && h.characteristics().types.contains(required)
-                && !h.status.contains(Status::PHASED_OUT)
-        }) && !crate::eval::protected_from(state, host.object, source.object)
+    if chars.subtypes.contains(subtypes::enchantment::AURA) {
+        return crate::aura_bindings::can_attach(state, attachment, host);
     }
+    let equipment = chars.subtypes.contains(subtypes::artifact::EQUIPMENT);
+    let required = if equipment {
+        TypeSet::CREATURE
+    } else if chars.subtypes.contains(subtypes::artifact::FORTIFICATION) {
+        TypeSet::LAND
+    } else {
+        return false;
+    };
+    if chars.types.contains(TypeSet::CREATURE)
+        && !(equipment && object.abilities(state.bases.as_ref()).iter().any(|ability| {
+            matches!(ability, AbilityDef::Activated { effects, .. }
+                 | AbilityDef::ActivatedConditional { effects, .. } if effects.contains(&Effect::ReconfigureAttach))
+        }))
+    {
+        return false;
+    }
+    recipient.zone == Zone::Battlefield
+        && !recipient.status.contains(Status::PHASED_OUT)
+        && recipient.characteristics().types.contains(required)
+        && !crate::eval::protected_from(state, host, attachment)
 }
 
 fn slot_references(
@@ -213,6 +163,63 @@ fn slot_references(
     }
 }
 
+fn recipient(
+    state: &GameState,
+    res: &Resolution,
+    slot: baylee_cards_dsl::TargetSlot,
+) -> Option<TargetRef> {
+    use baylee_cards_dsl::TargetSlot;
+    if let Some(object) = slot_references(state, res, slot)
+        .into_iter()
+        .find(|&r| subjects::on_battlefield(state, r))
+    {
+        return Some(TargetRef::Object(object));
+    }
+    let players = match slot {
+        TargetSlot::This => return None,
+        TargetSlot::First => res
+            .subject
+            .target_restore_frames
+            .first()
+            .map_or(res.target_players, |frame| frame.saved_target_players),
+        TargetSlot::Second => res.subject.second_players(),
+        TargetSlot::Third => res.subject.third_players(),
+    };
+    players
+        .iter()
+        .find(|&p| !state.has_left(p))
+        .map(TargetRef::Player)
+}
+
+fn can_attach_to_recipient(state: &GameState, source: DamageSourceRef, host: TargetRef) -> bool {
+    subjects::on_battlefield(state, source)
+        && match host {
+            TargetRef::Object(target) => {
+                subjects::on_battlefield(state, target)
+                    && can_attach_object(state, source.object, target.object)
+            }
+            TargetRef::Player(player) => {
+                state.object(source.object).is_some_and(|object| {
+                    object
+                        .characteristics()
+                        .subtypes
+                        .contains(subtypes::enchantment::AURA)
+                }) && crate::aura_bindings::can_attach_player(state, source.object, player)
+            }
+        }
+}
+
+pub(super) fn attach_selected(state: &mut GameState, objects: &[DamageSourceRef], host: TargetRef) {
+    for &source in objects {
+        if can_attach_to_recipient(state, source, host) {
+            match host {
+                TargetRef::Object(target) => state.attach(source.object, target.object),
+                TargetRef::Player(player) => state.attach_to_player(source.object, player),
+            }
+        }
+    }
+}
+
 pub(super) fn attach_slot(
     state: &mut GameState,
     res: &mut Resolution,
@@ -220,12 +227,10 @@ pub(super) fn attach_slot(
     to: baylee_cards_dsl::TargetSlot,
     optional: bool,
 ) -> Option<super::Pending> {
-    let host = slot_references(state, res, to)
-        .into_iter()
-        .find(|&r| subjects::on_battlefield(state, r))?;
+    let host = recipient(state, res, to)?;
     let objects: Vec<DamageSourceRef> = slot_references(state, res, object)
         .into_iter()
-        .filter(|&att| can_attach_object_to_host(state, att, host))
+        .filter(|&att| can_attach_to_recipient(state, att, host))
         .collect();
     if objects.is_empty() {
         return None;
@@ -242,8 +247,6 @@ pub(super) fn attach_slot(
             source,
         });
     }
-    for att in objects {
-        attach_to(state, att, host.object, false);
-    }
+    attach_selected(state, &objects, host);
     None
 }

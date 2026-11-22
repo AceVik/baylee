@@ -223,8 +223,8 @@ pub enum AwaitingOp {
     AttachSlot {
         /// Exact attachment permanent incarnations to move onto `host`.
         objects: Vec<baylee_core::ids::DamageSourceRef>,
-        /// Exact recipient permanent incarnation on the battlefield.
-        host: baylee_core::ids::DamageSourceRef,
+        /// Exact recipient permanent incarnation or player.
+        host: baylee_core::ids::TargetRef,
     },
     /// Counter-bearing permanent and player selections, committed together.
     Proliferate(Box<super::proliferate::Selection>),

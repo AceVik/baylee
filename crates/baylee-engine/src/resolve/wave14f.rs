@@ -7,20 +7,18 @@
 use super::*;
 use crate::object::Status;
 use crate::zone::Zone;
-use baylee_cards_dsl::{AbilityDef, Filter, NumberChoiceKind, VariablePayKind};
-use baylee_core::{generated::subtypes, ids::DamageSourceRef, types::TypeSet};
+use baylee_cards_dsl::{Filter, VariablePayKind};
+use baylee_core::{generated::subtypes, ids::DamageSourceRef};
 
 /// Start [`Effect::ChooseNumberEx`]: evaluate dynamic `min` and `max`, clamp `max`
 /// to affordable resources when `pay_cost` is `Some`, and suspend on
 /// `Pending::ChooseNumber` whenever `min <= max`.
-#[allow(clippy::too_many_arguments)]
 pub(super) fn choose_number_ex_start(
     state: &mut GameState,
     res: &mut Resolution,
     chooser: PlayerRel,
     min: Amount,
     max: Amount,
-    prompt: NumberChoiceKind,
     pay_cost: Option<VariablePayKind>,
     then: &'static [Effect],
 ) -> Option<Pending> {
@@ -65,12 +63,12 @@ pub(super) fn choose_number_ex_start(
     if raw_min > effective_max {
         return None;
     }
-    let reason = match prompt {
-        NumberChoiceKind::Choice => crate::choice::NumberPrompt::Choice,
-        NumberChoiceKind::EnergyPayment => crate::choice::NumberPrompt::EnergyPayment {
-            candidates: effective_max,
-        },
-        NumberChoiceKind::ManaPayment => crate::choice::NumberPrompt::VariableManaPayment,
+    use crate::choice::NumberPrompt;
+    let reason = match pay_cost {
+        None => NumberPrompt::Choice,
+        Some(VariablePayKind::Energy) => NumberPrompt::VariableEnergyPayment,
+        Some(VariablePayKind::GenericMana) => NumberPrompt::VariableManaPayment,
+        Some(VariablePayKind::Life) => NumberPrompt::VariableLifePayment,
     };
     res.awaiting = Some(AwaitingOp::ChooseNumberEx {
         chooser: chooser_seat,
@@ -214,57 +212,6 @@ fn resolve_attachment_on_battlefield(
         .map(|_| reference)
 }
 
-/// Whether `attachment` can legally become attached to `host` on the battlefield
-/// (`CR 301.5c`, `CR 301.6`, `CR 303.4d`, `CR 701.3a–b`, `CR 702.16c–d`, `CR 702.151b`).
-pub(super) fn can_attach_object(state: &GameState, attachment: ObjectId, host: ObjectId) -> bool {
-    if attachment == host {
-        return false;
-    }
-    let (Some(att_obj), Some(host_obj)) = (state.object(attachment), state.object(host)) else {
-        return false;
-    };
-    if att_obj.zone != Zone::Battlefield
-        || host_obj.zone != Zone::Battlefield
-        || att_obj.status.contains(Status::PHASED_OUT)
-        || host_obj.status.contains(Status::PHASED_OUT)
-    {
-        return false;
-    }
-    let att_chars = att_obj.characteristics();
-    let has_reconfigure =
-        att_obj
-            .abilities(state.bases.as_ref())
-            .iter()
-            .any(|ability| match ability {
-                AbilityDef::Activated { effects, .. }
-                | AbilityDef::ActivatedConditional { effects, .. } => {
-                    effects.contains(&Effect::ReconfigureAttach)
-                }
-                _ => false,
-            });
-    if att_chars.types.contains(TypeSet::BATTLE)
-        || (att_chars.types.contains(TypeSet::CREATURE) && !has_reconfigure)
-    {
-        return false;
-    }
-    if att_chars.subtypes.contains(subtypes::enchantment::AURA) {
-        return crate::aura_bindings::can_attach(state, attachment, host)
-            && crate::permanent_guards::permits_new_enchantment(state, host, attachment);
-    }
-    let required = if att_chars.subtypes.contains(subtypes::artifact::EQUIPMENT) {
-        TypeSet::CREATURE
-    } else if att_chars
-        .subtypes
-        .contains(subtypes::artifact::FORTIFICATION)
-    {
-        TypeSet::LAND
-    } else {
-        return false;
-    };
-    host_obj.characteristics().types.contains(required)
-        && !crate::eval::protected_from(state, host, attachment)
-}
-
 /// Start [`Effect::MoveAttachment`]: enumerate legal permanent recipients on the
 /// battlefield and prompt the resolving controller via `Pending::ChooseCards`.
 pub(super) fn move_attachment_start(
@@ -296,7 +243,7 @@ pub(super) fn move_attachment_start(
             if must_change_recipient && current_host == Some(id) {
                 return false;
             }
-            can_attach_object(state, att_ref.object, id)
+            super::attachments::can_attach_object(state, att_ref.object, id)
                 && state.object(id).is_some_and(|host_obj| {
                     super::matches_in_resolution(
                         recipient_filter,
@@ -348,9 +295,9 @@ pub(super) fn move_attachment_resume(
     };
     if !subjects::on_battlefield(state, attachment)
         || state
-            .object(attachment.object)
-            .is_none_or(|o| o.status.contains(Status::PHASED_OUT))
-        || !can_attach_object(state, attachment.object, host)
+            .object(host)
+            .is_none_or(|o| o.zone != Zone::Battlefield)
+        || !super::attachments::can_attach_object(state, attachment.object, host)
     {
         return;
     }

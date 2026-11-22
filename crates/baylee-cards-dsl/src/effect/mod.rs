@@ -5612,13 +5612,13 @@ pub enum Effect {
     WithThirdTarget(&'static [Effect]),
     /// Attach permanent(s) in `object` slot (Equipment, Aura, or Fortification
     /// on the battlefield, enforcing `CR 301.5c`, `CR 303.4d`, `CR 701.3`, and
-    /// `CR 702.16c`) to the permanent in `to` slot (*Aura Finesse*, *Barret,
+    /// `CR 702.16c`) to the permanent or player in the `to` slot (*Aura Finesse*, *Barret,
     /// Avalanche Leader*, *Cloud, Ex-SOLDIER*, *Amy Rose*). Appended to
     /// preserve replay identities.
     AttachSlot {
         /// Slot naming the attachment permanent(s) to move.
         object: TargetSlot,
-        /// Slot naming the recipient permanent on the battlefield.
+        /// Slot naming a permanent on the battlefield or an enchantable player.
         to: TargetSlot,
         /// When `true`, ask the controller via `YesNoPrompt::MayDo` before
         /// attaching.
