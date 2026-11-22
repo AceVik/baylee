@@ -660,3 +660,37 @@ fn wave22a_alternative_cost_sub_counter_non_any() {
         );
     }
 }
+
+#[test]
+fn wave23d_battlefield_alternative_cost_and_refusals() {
+    let body = read(
+        "Name:Chromatic Conduit\nManaCost:3\nTypes:Artifact\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell | ValidPlayer$ You | Cost$ W U B R G\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell | ValidCard$ Creature.Goblin | ValidPlayer$ You | Cost$ 0\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell | ValidCard$ Card.Instant | Cost$ 1 | EffectZone$ Battlefield | Secondary$ True\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell | ValidPlayer$ Player | Cost$ 2 | Condition$ PlayerTurn",
+    );
+    assert!(body.alternative_costs.is_empty());
+    assert_eq!(
+        body.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::MayCastWithAltCost { who: PlayerRel::You, zones: AltCastZones::AnyPermitted, grant_zone_permission: false, allow_lands: false, with_flash: false, max_mana_value: None, once_per_turn: false, price: AltCastPrice::Mana(mana!(\"{W}{U}{B}{R}{G}\")) })",
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::HasSubtype(subtypes::creature::GOBLIN)]), Modifier::MayCastWithAltCost { who: PlayerRel::You, zones: AltCastZones::AnyPermitted, grant_zone_permission: false, allow_lands: false, with_flash: false, max_mana_value: None, once_per_turn: false, price: AltCastPrice::Mana(ManaCost::ZERO) })",
+            "static_ability!(Filter::INSTANT, Modifier::MayCastWithAltCost { who: PlayerRel::You, zones: AltCastZones::AnyPermitted, grant_zone_permission: false, allow_lands: false, with_flash: false, max_mana_value: None, once_per_turn: false, price: AltCastPrice::Mana(mana!(\"{1}\")) })",
+            "static_ability!(Filter::Any, Modifier::MayCastWithAltCost { who: PlayerRel::EachPlayer, zones: AltCastZones::AnyPermitted, grant_zone_permission: false, allow_lands: false, with_flash: false, max_mana_value: None, once_per_turn: false, price: AltCastPrice::Mana(mana!(\"{2}\")) }, condition = Some(Condition::YourTurn))",
+        ]
+    );
+
+    for bad in [
+        "Name:BadDiscard\nTypes:Enchantment\nS:Mode$ AlternativeCost | ValidSA$ Spell | Cost$ Discard<1/Card>",
+        "Name:BadXCost\nTypes:Enchantment\nS:Mode$ AlternativeCost | ValidSA$ Spell | ValidCard$ Creature.Goblin | Cost$ X",
+        "Name:BadCommand\nTypes:Enchantment\nS:Mode$ AlternativeCost | ValidSA$ Spell | ValidPlayer$ You | Cost$ W U B R G | EffectZone$ Command",
+        "Name:BadOpponent\nTypes:Enchantment\nS:Mode$ AlternativeCost | ValidSA$ Spell | ValidPlayer$ Opponent | Cost$ 0",
+        "Name:BadSelfOnBattlefield\nTypes:Enchantment\nS:Mode$ AlternativeCost | ValidSA$ Spell | ValidCard$ Card.Self | Cost$ 0",
+        "Name:BadYouCtrl\nTypes:Enchantment\nS:Mode$ AlternativeCost | ValidSA$ Spell | ValidCard$ Creature.YouCtrl | Cost$ 0",
+        "Name:BadManaRestriction\nTypes:Enchantment\nS:Mode$ AlternativeCost | ValidSA$ Spell | ValidPlayer$ You | Cost$ 1 | ManaRestriction$ Artifact",
+        "Name:BadSecondaryFalse\nTypes:Enchantment\nS:Mode$ AlternativeCost | ValidSA$ Spell | ValidPlayer$ You | Cost$ 1 | Secondary$ False",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

@@ -542,3 +542,96 @@ fn wave22d_animate_static_grants_and_refusals() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn wave23d_animate_qualified_subjects_valid_filter_and_general_static_grants() {
+    let conditional_target = read(
+        "Name:Shaping Binder\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/2\n\
+         A:AB$ Animate | Cost$ 1 U | ValidTgts$ Artifact,Creature | RemoveAllAbilities$ True | Duration$ UntilYourNextTurn | SubAbility$ DBShrink\n\
+         A:AB$ Animate | Cost$ 2 U | ValidTgts$ Artifact.YouCtrl | Types$ Artifact,Creature | SubAbility$ DBNonGoblin\n\
+         SVar:DBShrink:DB$ Animate | Defined$ Targeted.Creature | Power$ 2 | Toughness$ 2 | Duration$ UntilYourNextTurn\n\
+         SVar:DBNonGoblin:DB$ Animate | Defined$ Targeted.nonCreature+nonGoblin | Power$ 1 | Toughness$ 1 | IfDesc$ True",
+    );
+    assert!(
+        conditional_target.abilities[0].contains(
+            "Effect::IfTargetMatches { filter: &Filter::CREATURE, then: &[Effect::continuous(&Filter::This, Modifier::SetPT(2, 2), Duration::UntilYourNextTurn)] }"
+        ),
+        "{:?}",
+        conditional_target.abilities[0]
+    );
+    assert!(
+        conditional_target.abilities[1].contains(
+            "Effect::IfTargetMatches { filter: &ANIMATE_CHECK1, then: &[Effect::continuous(&Filter::This, Modifier::SetPT(1, 1), Duration::UntilEndOfTurn)] }"
+        ),
+        "{:?}\n{}",
+        conditional_target.abilities[1],
+        conditional_target.statics
+    );
+
+    let conditional_self_and_statics = read(
+        "Name:Living Plate\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ Animate | Cost$ 2 | Defined$ Self.nonCreature | Power$ 0 | Toughness$ 0 | Types$ Creature,Artifact,Goblin | RemoveCreatureTypes$ True | Keywords$ Flying | staticAbilities$ StaticPump\n\
+         A:AB$ Animate | Cost$ 3 | Defined$ Self | Types$ Creature,Wizard | staticAbilities$ GravePt\n\
+         A:AB$ Animate | Cost$ 1 | Defined$ Self | staticAbilities$ CanAttack | Duration$ Permanent\n\
+         A:AB$ AnimateAll | Cost$ 4 | ValidCards$ Creature.YouCtrl | staticAbilities$ Unblocked\n\
+         A:AB$ PutCounter | Cost$ 2 G | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | SubAbility$ DBMatchPower\n\
+         SVar:StaticPump:Mode$ Continuous | Affected$ Card.Self | AddPower$ X | AddToughness$ X\n\
+         SVar:GravePt:Mode$ Continuous | Affected$ Card.Self | EffectZone$ Battlefield | SetPower$ Y | SetToughness$ Y\n\
+         SVar:CanAttack:Mode$ CanAttackDefender | ValidCard$ Card.Self\n\
+         SVar:Unblocked:Mode$ AssignCombatDamageAsUnblocked | ValidCard$ Card.Self | Optional$ True\n\
+         SVar:DBMatchPower:DB$ Animate | Power$ P | Toughness$ P | Defined$ Valid Creature.YouCtrl+Other | Optional$ True\n\
+         SVar:X:Count$Valid Artifact.YouCtrl\n\
+         SVar:Y:Count$ValidGraveyard Creature.YouOwn\n\
+         SVar:P:Count$CardPower",
+    );
+    assert!(
+        conditional_self_and_statics.abilities[0]
+            .contains("Effect::IfCondition { condition: Condition::SourceMatches(&Filter::NONCREATURE), then: &[")
+            && conditional_self_and_statics.abilities[0].contains(
+                "Modifier::GrantStatic { filter: &Filter::This, modifier: &Modifier::ModifyPTByCount(PtCount::YouControl(&Filter::YOUR_ARTIFACT)) }"
+            ),
+        "{:?}",
+        conditional_self_and_statics.abilities[0]
+    );
+    assert!(
+        conditional_self_and_statics.abilities[1].contains(
+            "Modifier::GrantStatic { filter: &Filter::This, modifier: &Modifier::SetPTToCount(PtCount::InGraveyards { who: PlayerRel::You, filter: &Filter::CREATURE }) }"
+        ),
+        "{:?}",
+        conditional_self_and_statics.abilities[1]
+    );
+    assert!(
+        conditional_self_and_statics.abilities[2].contains(
+            "Modifier::GrantStatic { filter: &Filter::This, modifier: &Modifier::AttacksDespiteDefender }"
+        ),
+        "{:?}",
+        conditional_self_and_statics.abilities[2]
+    );
+    assert!(
+        conditional_self_and_statics.abilities[3].contains(
+            "Modifier::GrantStatic { filter: &Filter::This, modifier: &Modifier::MayAssignCombatDamageAsThoughUnblocked }"
+        ),
+        "{:?}",
+        conditional_self_and_statics.abilities[3]
+    );
+    assert!(
+        conditional_self_and_statics.abilities[4]
+            .contains("Effect::May(&[Effect::SetPTFilter { filter: &ANIMATE_ALL")
+            && conditional_self_and_statics.abilities[4]
+                .contains("power: Amount::SourcePower, toughness: Amount::SourcePower"),
+        "{:?}",
+        conditional_self_and_statics.abilities[4]
+    );
+
+    for bad in [
+        "Name:BadPlayerQual\nManaCost:1 U\nTypes:Instant\nA:SP$ Draw | ValidTgts$ Player | NumCards$ 1 | SubAbility$ DBAnim\nSVar:DBAnim:DB$ Animate | Defined$ Targeted.Creature | Power$ 2 | Toughness$ 2",
+        "Name:BadUntargetedQual\nManaCost:1 U\nTypes:Artifact\nA:AB$ Animate | Cost$ 1 | Defined$ Targeted.Creature | Power$ 2 | Toughness$ 2",
+        "Name:BadRelativeQual\nManaCost:1 U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Creature | Keywords$ Flying | SubAbility$ DBAnim\nSVar:DBAnim:DB$ Animate | Defined$ Targeted.Other | Power$ 2 | Toughness$ 2",
+        "Name:BadSelfQualOnSpell\nManaCost:1 U\nTypes:Instant\nA:SP$ Animate | Defined$ Self.nonCreature | Power$ 2 | Toughness$ 2",
+        "Name:BadIfDescFalse\nManaCost:1 U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Artifact | Keywords$ Flying | SubAbility$ DBAnim\nSVar:DBAnim:DB$ Animate | Defined$ Targeted.nonCreature | Power$ 1 | Toughness$ 1 | IfDesc$ False",
+        "Name:BadConditionalStaticGrant\nManaCost:2 R\nTypes:Land\nA:AB$ Animate | Cost$ 1 R | Defined$ Self | Power$ 2 | Toughness$ 1 | Types$ Creature | staticAbilities$ ST\nSVar:ST:Mode$ Continuous | Affected$ Card.Self | AddKeyword$ First Strike | Condition$ PlayerTurn",
+        "Name:BadValidGraveyard\nManaCost:2 B\nTypes:Artifact\nA:AB$ Animate | Cost$ 1 | Defined$ ValidGraveyard Creature.YouOwn | staticAbilities$ Play\nSVar:Play:Mode$ Continuous | Affected$ Card.Self | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

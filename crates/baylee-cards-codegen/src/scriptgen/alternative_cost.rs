@@ -19,6 +19,12 @@ impl Tx<'_> {
             .to_ascii_lowercase()
             .contains("pay {0}");
         p.drop_prose();
+        if p.peek("ValidSA") == Some("Spell")
+            && matches!(p.peek("EffectZone"), None | Some("Battlefield"))
+            && p.peek("ValidCard") != Some("Card.Self")
+        {
+            return self.battlefield_alternative_cost(p);
+        }
         match p.take("ValidSA").as_deref() {
             Some("Spell.Self") => {
                 if let Some(card) = p.take("ValidCard")
@@ -83,6 +89,77 @@ impl Tx<'_> {
         }
         self.body.alternative_costs.push(format!(
             "AlternativeCost {{ cost: {cost}, condition: {condition} }}"
+        ));
+        Some(())
+    }
+
+    /// Reads a battlefield `S: Mode$ AlternativeCost | ValidSA$ Spell` static
+    /// granting an alternative mana cost to spells cast by `ValidPlayer$`
+    /// (*Fist of Suns*, *Jodah, Archmage Eternal*, *Leyline of Mutation*,
+    /// *Rooftop Storm*, *Runeforge Champion*, `CR 118.9`).
+    fn battlefield_alternative_cost(&mut self, mut p: Params) -> Option<()> {
+        p.take("ValidSA");
+        p.take("EffectZone");
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => {
+                return self.deny(format!("`AlternativeCost.Secondary$ {other}`"));
+            }
+        }
+        let who = match p.take("ValidPlayer").as_deref() {
+            None | Some("You") => "PlayerRel::You",
+            Some("Player") => "PlayerRel::EachPlayer",
+            Some(other) => {
+                return self.deny(format!("alternative cost for `ValidPlayer$ {other}`"));
+            }
+        };
+        let Some(raw_cost) = p.take("Cost") else {
+            return self.deny("alternative cost with no `Cost$`".to_string());
+        };
+        let Some(price) = super::statics::parse_fixed_alt_mana_price(&raw_cost) else {
+            return self.deny(format!(
+                "battlefield `AlternativeCost` cost `{raw_cost}` not expressible as `AltCastPrice::Mana`"
+            ));
+        };
+        let card_filter = match p.take("ValidCard") {
+            None => "Filter::Any".to_string(),
+            Some(raw) => {
+                let bad_atom = raw.split(',').any(|alt| {
+                    alt.split(['.', '+']).map(str::trim).any(|atom| {
+                        matches!(
+                            atom,
+                            "Self"
+                                | "Other"
+                                | "StrictlyOther"
+                                | "EnchantedBy"
+                                | "EquippedBy"
+                                | "AttachedBy"
+                                | "Attached"
+                                | "IsRemembered"
+                                | "ExiledWithSource"
+                                | "ExiledWith"
+                                | "IsImprinted"
+                                | "TopLibrary"
+                        ) || atom.contains("Ctrl")
+                            || (who != "PlayerRel::You" && atom.contains("Own"))
+                    })
+                });
+                if bad_atom {
+                    return self.deny(format!("alternative cost for `ValidCard$ {raw}`"));
+                }
+                self.filter_expr_in_zone(&raw, true)?
+            }
+        };
+        let condition =
+            self.static_conditions(&mut p, "unclaimed parameter `AlternativeCost.CheckSVar`")?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `AlternativeCost.{key}`"));
+        }
+        let modifier = format!(
+            "Modifier::MayCastWithAltCost {{ who: {who}, zones: AltCastZones::AnyPermitted, grant_zone_permission: false, allow_lands: false, with_flash: false, max_mana_value: None, once_per_turn: false, price: {price} }}"
+        );
+        self.body.abilities.push(format!(
+            "static_ability!({card_filter}, {modifier}{condition})"
         ));
         Some(())
     }

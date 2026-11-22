@@ -56,7 +56,7 @@ impl Tx<'_> {
         };
         let expr = self.filter_expr(&valid)?;
         let filter = format!("&{}", self.body.filter_static("ANIMATE_ALL", &expr));
-        self.animate_for_filter(p, &filter, controlled_by, false, false)
+        self.animate_for_filter(p, &filter, controlled_by, false, false, true)
     }
 
     pub(super) fn animate_effect(
@@ -65,6 +65,42 @@ impl Tx<'_> {
         target: Option<&str>,
     ) -> Option<Vec<String>> {
         let defined = p.take("Defined");
+        if let Some(def) = defined.as_deref() {
+            if let Some(valid) = def.strip_prefix("Valid ")
+                && target.is_none()
+            {
+                let expr = self.filter_expr(valid.trim())?;
+                let filter = format!("&{}", self.body.filter_static("ANIMATE_ALL", &expr));
+                return self.animate_for_filter(p, &filter, None, false, false, false);
+            }
+            if let Some((prefix, qual)) = def.split_once('.') {
+                match (prefix, target) {
+                    ("Targeted" | "ParentTarget" | "ParentTargeted", Some(t))
+                        if !t.starts_with("TargetSpec::Player(") =>
+                    {
+                        let cond_filter = self.animate_subject_guard_filter(qual)?;
+                        let _ = self.take_true_flag(p, "IfDesc")?;
+                        let inner =
+                            self.animate_for_filter(p, "&Filter::This", None, true, false, false)?;
+                        return Some(vec![format!(
+                            "Effect::IfTargetMatches {{ filter: {cond_filter}, then: &[{}] }}",
+                            inner.join(", ")
+                        )]);
+                    }
+                    ("Self", None) if !self.on_a_spell => {
+                        let cond_filter = self.animate_subject_guard_filter(qual)?;
+                        let _ = self.take_true_flag(p, "IfDesc")?;
+                        let inner =
+                            self.animate_for_filter(p, "&Filter::This", None, false, true, true)?;
+                        return Some(vec![format!(
+                            "Effect::IfCondition {{ condition: Condition::SourceMatches({cond_filter}), then: &[{}], otherwise: &[] }}",
+                            inner.join(", ")
+                        )]);
+                    }
+                    _ => {}
+                }
+            }
+        }
         let (filter, source_only) = match (defined.as_deref(), target) {
             (None | Some("Self"), None) if !self.on_a_spell => ("&Filter::This", true),
             (None | Some("Targeted" | "ParentTarget" | "ParentTargeted"), Some(t))
@@ -81,7 +117,41 @@ impl Tx<'_> {
                 return None;
             }
         };
-        self.animate_for_filter(p, filter, None, target.is_some(), source_only)
+        self.animate_for_filter(p, filter, None, target.is_some(), source_only, source_only)
+    }
+
+    fn animate_subject_guard_filter(&mut self, qual: &str) -> Option<String> {
+        let qual = qual.trim();
+        if qual.is_empty() || qual.contains(',') {
+            return None;
+        }
+        let bad = qual.split('+').map(str::trim).any(|atom| {
+            matches!(
+                atom,
+                "Self"
+                    | "Other"
+                    | "StrictlyOther"
+                    | "EnchantedBy"
+                    | "EquippedBy"
+                    | "AttachedBy"
+                    | "Attached"
+                    | "IsRemembered"
+                    | "ExiledWithSource"
+                    | "ExiledWith"
+                    | "IsImprinted"
+                    | "TopLibrary"
+                    | "TargetedPlayerCtrl"
+            ) || atom.starts_with("inZone")
+        });
+        if bad {
+            return None;
+        }
+        let expr = self.filter_expr(&format!("Card.{qual}"))?;
+        Some(if super::statics::simple_const_filter(&expr) {
+            format!("&{expr}")
+        } else {
+            format!("&{}", self.body.filter_static("ANIMATE_CHECK", &expr))
+        })
     }
 
     fn animate_triggered_subject(&self, def: &str) -> bool {
@@ -115,6 +185,7 @@ impl Tx<'_> {
         }
     }
 
+    #[allow(clippy::fn_params_excessive_bools)]
     fn animate_for_filter(
         &mut self,
         p: &mut Params,
@@ -122,6 +193,7 @@ impl Tx<'_> {
         controlled_by: Option<&str>,
         has_target: bool,
         source_only: bool,
+        allow_general_static: bool,
     ) -> Option<Vec<String>> {
         let _ = self.take_true_flag(p, "IsCurse")?;
         let optional = self.take_true_flag(p, "Optional")?;
@@ -161,9 +233,36 @@ impl Tx<'_> {
             ));
         }
         if controlled_by.is_none() {
-            out.extend(self.animate_regeneration_grant(p, source_only, duration)?);
+            self.animate_static_abilities(
+                p,
+                filter,
+                source_only,
+                allow_general_static,
+                duration,
+                &mut out,
+            )?;
         }
         self.animate_colors_and_keywords(p, filter, controlled_by, duration, &mut out)?;
+        self.animate_pt_block(p, filter, controlled_by, has_target, duration, &mut out)?;
+        if out.is_empty() {
+            self.note("`Animate` that changes nothing".to_string());
+            return None;
+        }
+        if optional {
+            return Some(vec![format!("Effect::May(&[{}])", out.join(", "))]);
+        }
+        Some(out)
+    }
+
+    fn animate_pt_block(
+        &mut self,
+        p: &mut Params,
+        filter: &str,
+        controlled_by: Option<&str>,
+        has_target: bool,
+        duration: &str,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
         // Layer 7b: the printed P/T it takes on. Fixed single-sided P or T maps
         // cleanly to `Modifier::SetPower` / `Modifier::SetToughness`; dynamic
         // two-sided values lock on resolution via `Effect::SetPTFilter` (CR 608.2h).
@@ -217,14 +316,55 @@ impl Tx<'_> {
             }
             (None, None) => {}
         }
-        if out.is_empty() {
-            self.note("`Animate` that changes nothing".to_string());
-            return None;
+        Some(())
+    }
+
+    fn animate_static_abilities(
+        &mut self,
+        p: &mut Params,
+        filter: &str,
+        source_only: bool,
+        allow_general_static: bool,
+        duration: &str,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        let static_count = p
+            .entries
+            .iter()
+            .filter(|(k, _)| k == "staticAbilities" || k == "StaticAbilities")
+            .count();
+        if static_count == 0 {
+            return Some(());
         }
-        if optional {
-            return Some(vec![format!("Effect::May(&[{}])", out.join(", "))]);
+        if static_count > 1 {
+            return self.deny(
+                "a static animation grant with multiple references or another subject".into(),
+            );
         }
-        Some(out)
+        let saved_p = p.clone();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics_len = self.body.statics.len();
+        if let Some(grants) = self.animate_regeneration_grant(p, source_only, duration) {
+            out.extend(grants);
+            return Some(());
+        }
+        let regen_unclaimed = self.unclaimed.borrow().clone();
+        *p = saved_p;
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        self.body.statics.truncate(saved_statics_len);
+        if allow_general_static {
+            let name = p
+                .take("staticAbilities")
+                .or_else(|| p.take("StaticAbilities"))?;
+            if let Some(modifiers) = self.grant_static_modifiers_for_animate(&name) {
+                for modifier in modifiers {
+                    out.push(Self::animate_expr_for(filter, &modifier, duration));
+                }
+                return Some(());
+            }
+        }
+        *self.unclaimed.borrow_mut() = regen_unclaimed;
+        None
     }
 
     fn animate_pt_amount(&mut self, raw: &str, has_target: bool) -> Option<String> {
