@@ -3290,12 +3290,20 @@ fn wave10b_two_target_burn_target_only_and_destroy_slots() {
         tap_and_destroy.abilities[0]
     );
 
-    // Direct two-target DealDamage -> DealDamage or TargetUnique$ on second TargetOnly stay refused.
-    assert!(refused(
+    // Direct two-target DealDamage -> DealDamage now lowers via WithSecondTarget; TargetUnique$ on second TargetOnly stays refused.
+    let unequal_spark = read(
         "Name:UnequalSpark\nManaCost:1 R\nTypes:Instant\n\
          A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | SubAbility$ HitPlayer\n\
-         SVar:HitPlayer:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 3"
-    ));
+         SVar:HitPlayer:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 3",
+    );
+    assert!(
+        unequal_spark.abilities[0].contains(
+            "Effect::WithSecondTarget(&[Effect::DealDamage { amount: Amount::Fixed(3), target: TargetSpec::Player(PlayerRel::Chosen) }])"
+        ) && unequal_spark.abilities[0]
+            .contains("second_targets = Some(TargetReq::one(TargetSpec::AnyPlayer))"),
+        "{}",
+        unequal_spark.abilities[0]
+    );
     assert!(refused(
         "Name:UniqueCrack\nManaCost:1 R\nTypes:Sorcery\n\
          A:SP$ TargetOnly | ValidTgts$ Land | SubAbility$ Second\n\

@@ -260,6 +260,13 @@ impl Tx<'_> {
             chain.effects.extend(effects);
             return self.chain_sub_ability(sub, chain);
         }
+        if api == "Charm" && p.has("ChoiceRestriction") {
+            if targets_here || chain.target.is_some() || chain.second_target.is_some() {
+                return self
+                    .deny("`Charm` `ChoiceRestriction$` beside an existing target".to_string());
+            }
+            return self.wave26c_restricted_charm_chain(p, sub, chain);
+        }
         if api == "RepeatEach" {
             let saved_p = p.clone();
             let saved_effects_len = chain.effects.len();
@@ -293,7 +300,8 @@ impl Tx<'_> {
         if api == "Vote" {
             return self.vote_chain(p, sub.as_deref(), chain);
         }
-        if matches!(api.as_str(), "ChooseCard" | "PeekAndReveal" | "Reveal") {
+        if !second_target_here && matches!(api.as_str(), "ChooseCard" | "PeekAndReveal" | "Reveal")
+        {
             let target = local_kicked_target.or_else(|| {
                 if had_second_target {
                     None
@@ -343,7 +351,7 @@ impl Tx<'_> {
             &api,
             &mut p,
             &mut sub,
-            chain.effects.is_empty(),
+            chain.effects.is_empty() && !second_target_here,
         )?;
         let target = local_kicked_target.or_else(|| {
             if had_second_target {
@@ -404,7 +412,9 @@ impl Tx<'_> {
             }
         };
 
-        let effects = if api != "Branch"
+        let mut wrap_in_second_target = false;
+        let effects = if !second_target_here
+            && api != "Branch"
             && let Some(split) = self
                 .try_split_kicked_amount(
                     &api,
@@ -417,7 +427,8 @@ impl Tx<'_> {
                 .ok()?
         {
             split
-        } else if api != "Branch"
+        } else if !second_target_here
+            && api != "Branch"
             && let Some(split) = self
                 .try_split_bargained_or_prototyped_amount(
                     &api,
@@ -430,7 +441,7 @@ impl Tx<'_> {
                 .ok()?
         {
             split
-        } else if api == "Branch" {
+        } else if !second_target_here && api == "Branch" {
             let single_target = chain.target_exact.is_none()
                 && !chain.target_is_x
                 && chain.target_constraint.is_none()
@@ -444,21 +455,24 @@ impl Tx<'_> {
                 return None;
             };
             effects
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
             && p.peek("Destination") == Some("Exile")
             && p.peek("RememberChanged") == Some("True")
             && self.sub_is_api(sub.as_deref(), "Effect")
         {
             self.exile_with_permission_effect(&mut p, &mut sub, target.as_deref(), targets_here)?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && p.peek("Origin") == Some("Hand")
             && p.peek("Destination") == Some("Exile")
             && p.peek("RememberChanged") == Some("True")
             && self.sub_is_api(sub.as_deref(), "Effect")
         {
             self.exile_chosen_from_hand_and_cast_effect(&mut p, &mut sub, targets_here)?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && p.peek("Origin") == Some("Battlefield")
             && p.peek("Destination") == Some("Exile")
             && (p.has("RememberChanged") || p.has("RememberTargets"))
@@ -536,7 +550,8 @@ impl Tx<'_> {
             };
             chain.target = Some("TargetSpec::Object(&Filter::YOUR_LAND)".to_string());
             vec![format!("Effect::Earthbend({n})")]
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && targets_here
             && p.peek("Origin") == Some("Battlefield")
             && p.peek("Destination") == Some("Exile")
@@ -549,7 +564,8 @@ impl Tx<'_> {
             && !self.has_linked_exile_reader()
         {
             self.exile_targets_create_tokens_effect(&mut p, &mut sub, target.as_deref())?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && !targets_here
             && p.peek("Origin") == Some("Hand")
             && p.peek("Destination") == Some("Library")
@@ -562,7 +578,8 @@ impl Tx<'_> {
             && !optional_counter
         {
             self.hand_to_bottom_remembered_chain(&mut p, &mut sub, chain)?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && !targets_here
             && !self.on_a_spell
             && matches!(p.peek("Defined"), None | Some("Self"))
@@ -572,7 +589,8 @@ impl Tx<'_> {
             && self.sub_is_api(sub.as_deref(), "ChangeZone")
         {
             self.exile_self_return_as_face_effect(&mut p, &mut sub)?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && !targets_here
             && p.peek("Origin") == Some("Library")
             && p.peek("Destination") == Some("Battlefield")
@@ -580,7 +598,8 @@ impl Tx<'_> {
             && self.sub_is_api(sub.as_deref(), "Untap")
         {
             self.search_library_then_untap_found(&mut p, &mut sub, target.as_deref())?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && !targets_here
             && p.peek("Origin") == Some("Library")
             && p.peek("Destination") == Some("Library")
@@ -590,7 +609,8 @@ impl Tx<'_> {
             && self.sub_is_api(sub.as_deref(), "ChangeZone")
         {
             self.split_search_library_chain(&mut p, &mut sub, targets_here)?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && !targets_here
             && p.peek("Origin") == Some("Library")
             && p.peek("Shuffle") == Some("False")
@@ -605,13 +625,15 @@ impl Tx<'_> {
                 target.as_deref(),
                 targets_here,
             )?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && p.peek("Destination") == Some("Exile")
             && p.peek("RememberChanged") == Some("True")
             && self.sub_is_api(sub.as_deref(), "AlterAttribute")
         {
             self.plot_remembered_effect(&mut p, &mut sub, target.as_deref(), targets_here)?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && p.peek("Origin") == Some("Graveyard")
             && p.peek("Destination") == Some("Battlefield")
             && p.peek("RememberChanged") == Some("True")
@@ -626,7 +648,8 @@ impl Tx<'_> {
                     }))
         {
             self.reanimate_remembered_modified(&mut p, &mut sub, target.as_deref(), targets_here)?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && !targets_here
             && matches!(p.peek("Defined"), None | Some("Self"))
             && p.peek("Origin") == Some("Stack")
@@ -635,13 +658,15 @@ impl Tx<'_> {
             && self.sub_is_api(sub.as_deref(), "PutCounter")
         {
             self.exile_source_with_counters_effect(&mut p, &mut sub)?
-        } else if api == "Token"
+        } else if !second_target_here
+            && api == "Token"
             && p.peek("RememberTokens") == Some("True")
             && (self.sub_is_api(sub.as_deref(), "Attach")
                 || self.sub_is_api(sub.as_deref(), "PutCounter"))
         {
             self.remembered_token_follow_up(&mut p, &mut sub, target.as_deref(), targets_a_player)?
-        } else if api == "ChangeZone"
+        } else if !second_target_here
+            && api == "ChangeZone"
             && !targets_here
             && p.peek("Defined") == Some("TopOfLibrary")
             && p.peek("Origin") == Some("Library")
@@ -650,7 +675,8 @@ impl Tx<'_> {
             && self.sub_is_api(sub.as_deref(), "Effect")
         {
             self.exile_top_to_play_effect(&mut p, &mut sub)?
-        } else if api == "Dig"
+        } else if !second_target_here
+            && api == "Dig"
             && (p.peek("ChangeNum") == Some("All")
                 || (p.peek("DigNum") == Some("1")
                     && matches!(p.peek("ChangeNum"), None | Some("1"))))
@@ -665,7 +691,8 @@ impl Tx<'_> {
                 targets_here,
                 targets_a_player,
             )?
-        } else if api == "Dig"
+        } else if !second_target_here
+            && api == "Dig"
             && p.peek("DestinationZone") == Some("Exile")
             && p.peek("ExileFaceDown") == Some("True")
             && p.peek("WithMayLook") == Some("True")
@@ -716,11 +743,12 @@ impl Tx<'_> {
                     ]
                 }
             }
-        } else if (api == "Sacrifice"
-            || (api == "SacrificeAll"
-                && !targets_here
-                && !self.on_a_spell
-                && p.peek("Defined") == Some("Self")))
+        } else if !second_target_here
+            && (api == "Sacrifice"
+                || (api == "SacrificeAll"
+                    && !targets_here
+                    && !self.on_a_spell
+                    && p.peek("Defined") == Some("Self")))
             && p.peek("RememberSacrificed") == Some("True")
             && sub.is_some()
             && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
@@ -739,18 +767,19 @@ impl Tx<'_> {
                 return None;
             };
             effects
-        } else if api == "Phases"
+        } else if !second_target_here
+            && api == "Phases"
             && targets_here
             && !self.on_a_spell
             && p.peek("WontPhaseInNormal") == Some("True")
             && self.sub_is_api(sub.as_deref(), "Effect")
         {
             self.phase_out_until_source_leaves_effect(&mut p, &mut sub)?
-        } else if api == "FlipCoin" {
+        } else if !second_target_here && api == "FlipCoin" {
             self.flip_coin_effect(&mut p, &mut sub, chain)?
-        } else if api == "RollDice" {
+        } else if !second_target_here && api == "RollDice" {
             self.roll_dice_effect(&mut p, &mut sub, chain)?
-        } else if api == "Clash" {
+        } else if !second_target_here && api == "Clash" {
             self.clash_effect(&mut p, targets_here, chain)?
         } else if api == "DigUntil"
             && !second_target_here
@@ -906,7 +935,8 @@ impl Tx<'_> {
                 && chain.target_constraint.is_none()
                 && chain.target_up_to.is_none_or(|n| n == 1);
             let prior_target_used = !targets_here && !chain.effects.is_empty();
-            let try_midnight_ritual = api == "ChangeZone"
+            let try_midnight_ritual = !second_target_here
+                && api == "ChangeZone"
                 && targets_here
                 && chain.target_is_x
                 && p.peek("Origin") == Some("Graveyard")
@@ -917,7 +947,8 @@ impl Tx<'_> {
                 && dying.is_none()
                 && at_end.is_none()
                 && !optional_counter;
-            let try_cz_if_moved = api == "ChangeZone"
+            let try_cz_if_moved = !second_target_here
+                && api == "ChangeZone"
                 && ((p.peek("Origin") == Some("Battlefield")
                     && matches!(p.peek("Destination"), Some("Hand" | "Exile")))
                     || (p.peek("Origin") == Some("Graveyard")
@@ -1128,66 +1159,175 @@ impl Tx<'_> {
             } else {
                 self.claim_followed_remember_flag(&api, &mut p, sub.as_deref());
                 let Some(effects) = (if second_target_here {
+                    let second_single = chain.second_target_up_to.is_none_or(|n| n <= 1);
+                    let no_line_riders = unless.is_none()
+                        && dying.is_none()
+                        && at_end.is_none()
+                        && !optional_counter
+                        && !p.has("Condition")
+                        && !p.has("ConditionPresent")
+                        && !p.has("ConditionCheckSVar")
+                        && !p.has("ConditionDefined");
+                    let second_is_obj = target
+                        .as_deref()
+                        .is_some_and(|t| t.starts_with("TargetSpec::Object("));
                     match api.as_str() {
-                    "Pump" => {
-                        self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
-                    }
-                    "Fight"
-                        if p.has("ExcessSVar")
-                            && unless.is_none()
-                            && dying.is_none()
-                            && at_end.is_none()
-                            && !optional_counter =>
-                    {
-                        self.wave24a_fight_excess_damage_chain(&mut p, &mut sub, chain)
-                    }
-                    "Fight" => self.fight_effect(&mut p, true),
-                    "DealDamage"
-                        if p.has("ExcessSVar")
-                            && unless.is_none()
-                            && dying.is_none()
-                            && at_end.is_none()
-                            && !optional_counter =>
-                    {
-                        self.wave24a_bite_excess_damage_chain(&mut p, &mut sub, chain)
-                    }
-                    "DealDamage" => self.bite_effect(&mut p),
-                    "MoveCounter" => {
-                        self.move_counter_effect(&mut p, target.as_deref(), true, true)
-                    }
-                    "Tap" => match p.take("Defined").as_deref() {
-                        None | Some("Targeted") => {
-                            Some(vec!["Effect::TapTargetSlot(TargetSlot::Second)".to_string()])
+                        "Pump"
+                            if second_single
+                                && no_line_riders
+                                && second_is_obj
+                                && ["NumAtt", "NumDef"].iter().all(|key| {
+                                    p.peek(key).is_none_or(|value| value.parse::<i16>().is_ok())
+                                }) =>
+                        {
+                            let mut probe = p.clone();
+                            let saved_unclaimed = self.unclaimed.borrow().clone();
+                            let saved_statics_len = self.body.statics.len();
+                            if let Some(effs) = self.pump_effect(
+                                &mut probe,
+                                target.as_deref().expect("second target"),
+                                true,
+                            ) && probe.exhausted()
+                            {
+                                p = probe;
+                                Some(effs)
+                            } else {
+                                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                                self.body.statics.truncate(saved_statics_len);
+                                wrap_in_second_target = true;
+                                self.effect_of_inner(
+                                    &api,
+                                    &mut p,
+                                    target.as_deref(),
+                                    LineFlags {
+                                        targets_here: true,
+                                        targets_a_player,
+                                        single_target: second_single,
+                                        prior_target_used: false,
+                                    },
+                                )
+                            }
                         }
-                        _ => None,
-                    },
-                    "Untap" => match p.take("Defined").as_deref() {
-                        None | Some("Targeted") => Some(vec![
-                            "Effect::UntapTargetSlot(TargetSlot::Second)".to_string(),
-                        ]),
-                        _ => None,
-                    },
-                    "Clone" => self.become_copy_effect(&mut p, target.as_deref(), true, true),
-                    "ExchangeControl" => {
-                        if p.take("Defined").as_deref() == Some("ParentTarget") {
-                            Some(vec!["Effect::ExchangeControl".to_string()])
-                        } else {
-                            None
+                        "Fight"
+                            if p.has("ExcessSVar")
+                                && unless.is_none()
+                                && dying.is_none()
+                                && at_end.is_none()
+                                && !optional_counter =>
+                        {
+                            self.wave24a_fight_excess_damage_chain(&mut p, &mut sub, chain)
+                        }
+                        "Fight" => self.fight_effect(&mut p, true),
+                        "DealDamage"
+                            if p.peek("DamageSource") == Some("ParentTarget")
+                                && p.has("ExcessSVar")
+                                && unless.is_none()
+                                && dying.is_none()
+                                && at_end.is_none()
+                                && !optional_counter =>
+                        {
+                            self.wave24a_bite_excess_damage_chain(&mut p, &mut sub, chain)
+                        }
+                        "DealDamage" if p.peek("DamageSource") == Some("ParentTarget") => {
+                            self.bite_effect(&mut p)
+                        }
+                        "MoveCounter" => {
+                            self.move_counter_effect(&mut p, target.as_deref(), true, true)
+                        }
+                        "Tap"
+                            if second_single
+                                && no_line_riders
+                                && second_is_obj
+                                && matches!(p.peek("Defined"), None | Some("Targeted")) =>
+                        {
+                            p.take("Defined");
+                            Some(vec![
+                                "Effect::TapTargetSlot(TargetSlot::Second)".to_string(),
+                            ])
+                        }
+                        "Untap"
+                            if second_single
+                                && no_line_riders
+                                && second_is_obj
+                                && matches!(p.peek("Defined"), None | Some("Targeted")) =>
+                        {
+                            p.take("Defined");
+                            Some(vec![
+                                "Effect::UntapTargetSlot(TargetSlot::Second)".to_string(),
+                            ])
+                        }
+                        "Clone" => self.become_copy_effect(&mut p, target.as_deref(), true, true),
+                        "ExchangeControl" => {
+                            if p.take("Defined").as_deref() == Some("ParentTarget") {
+                                Some(vec!["Effect::ExchangeControl".to_string()])
+                            } else {
+                                None
+                            }
+                        }
+                        "Destroy"
+                            if second_single
+                                && no_line_riders
+                                && second_is_obj
+                                && matches!(p.peek("Defined"), None | Some("Targeted"))
+                                && matches!(p.peek("NoRegen"), None | Some("True"))
+                                && p.entries.iter().all(|(k, _)| {
+                                    matches!(k.as_str(), "Defined" | "NoRegen" | "IsCurse")
+                                }) =>
+                        {
+                            p.take("Defined");
+                            p.take("IsCurse");
+                            match p.take("NoRegen").as_deref() {
+                                None => Some(vec![
+                                    "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: false }"
+                                        .to_string(),
+                                ]),
+                                Some("True") => Some(vec![
+                                    "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: true }"
+                                        .to_string(),
+                                ]),
+                                Some(_) => None,
+                            }
+                        }
+                        "Attach" => self.wave26c_attach_slot_second_target(
+                            &mut p,
+                            chain,
+                            target.as_deref()?,
+                        ),
+                        "ChangeZone"
+                            if target.as_deref().is_some_and(|t| {
+                                t.starts_with("TargetSpec::CardInFirstTargetsGraveyard(")
+                            }) =>
+                        {
+                            wrap_in_second_target = true;
+                            Self::wave26c_first_target_graveyard_change_zone(
+                                &mut p,
+                                target.as_deref()?,
+                            )
+                        }
+                        _ => {
+                            wrap_in_second_target = true;
+                            let raw = self.effect_of_inner(
+                                &api,
+                                &mut p,
+                                target.as_deref(),
+                                LineFlags {
+                                    targets_here: true,
+                                    targets_a_player,
+                                    single_target: second_single,
+                                    prior_target_used: false,
+                                },
+                            );
+                            if api == "GainControl"
+                                && !second_single
+                                && target.is_some()
+                                && !targets_a_player
+                            {
+                                raw.and_then(Self::rewrite_multi_target_gain_control)
+                            } else {
+                                raw
+                            }
                         }
                     }
-                    "Destroy" => match p.take("NoRegen").as_deref() {
-                        None => Some(vec![
-                            "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: false }"
-                                .to_string(),
-                        ]),
-                        Some("True") => Some(vec![
-                            "Effect::DestroyTargetSlots { targets: &[TargetSlot::Second], no_regen: true }"
-                                .to_string(),
-                        ]),
-                        Some(_) => None,
-                    },
-                    _ => None,
-                }
                 } else if api == "Fight" {
                     if targets_here
                         && target
@@ -1278,6 +1418,14 @@ impl Tx<'_> {
         let effects = if optional_counter {
             vec![format!(
                 "Effect::MayDo {{ effects: &[{}] }}",
+                effects.join(", ")
+            )]
+        } else {
+            effects
+        };
+        let effects = if wrap_in_second_target && !effects.is_empty() {
+            vec![format!(
+                "Effect::WithSecondTarget(&[{}])",
                 effects.join(", ")
             )]
         } else {
@@ -2020,11 +2168,10 @@ impl Tx<'_> {
                         && p.peek("Defined") == Some("ParentTarget")
                         && no_riders(p)
                 }
-                "DealDamage" => {
+                "DealDamage" if p.peek("DamageSource") == Some("ParentTarget") => {
                     (is_obj_spec || spec == "TargetSpec::CreatureOrPlaneswalker")
                         && single_object_first
                         && p.peek("Defined").is_none()
-                        && p.peek("DamageSource") == Some("ParentTarget")
                         && no_riders(p)
                 }
                 "MoveCounter" => {
@@ -2076,20 +2223,76 @@ impl Tx<'_> {
                         && p.peek("Defined").is_none_or(|v| v == "Targeted")
                         && no_riders(p)
                 }
+                "Attach" => {
+                    is_obj_spec
+                        && !self.later_line_targets(p.peek("SubAbility"))
+                        && no_riders(p)
+                        && ((chain
+                            .target
+                            .as_deref()
+                            .is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                            && Self::prior_chain_preserves_first_target_on_battlefield(chain)
+                            && ((p.peek("Object") == Some("ParentTarget")
+                                && p.peek("Defined").is_none())
+                                || (single_object_first
+                                    && p.peek("Defined") == Some("ParentTarget")
+                                    && p.peek("Object") == Some("Targeted"))))
+                            || (!self.on_a_spell
+                                && matches!(p.peek("Object"), None | Some("Self"))
+                                && p.peek("Defined").is_none()))
+                }
                 _ => false,
-            };
+            } || self.wave26c_general_second_target_allowed(api, p, chain, &spec);
             if !allowed {
                 return self.deny("unsupported independent target in one chain".to_string());
             }
-            if matches!(
-                api,
-                "Fight" | "DealDamage" | "Tap" | "Untap" | "Pump" | "Destroy" | "TargetOnly"
-            ) && p.peek("TargetMin") == Some("0")
-                && p.peek("TargetMax") == Some("1")
+            if p.peek("TargetMin") == Some("1") && matches!(p.peek("TargetMax"), None | Some("1")) {
+                p.take("TargetMin");
+                p.take("TargetMax");
+            } else if p.peek("TargetMin") == Some("0")
+                && matches!(p.peek("TargetMax"), None | Some("1"))
             {
                 p.take("TargetMin");
                 p.take("TargetMax");
                 chain.second_target_up_to = Some(1);
+            } else if Self::wave26c_second_target_multi_ok(api, p)
+                && p.peek("TargetMin") == Some("0")
+                && let Some(max) = p
+                    .peek("TargetMax")
+                    .and_then(|s| s.trim().parse::<u8>().ok())
+                && max > 1
+            {
+                p.take("TargetMin");
+                p.take("TargetMax");
+                chain.second_target_up_to = Some(max);
+            } else if Self::wave26c_second_target_multi_ok(api, p)
+                && p.peek("TargetMin") == Some("0")
+                && let Some(max_var) = p.peek("TargetMax")
+                && self.svars.get(max_var.trim()).is_some_and(|def| {
+                    let def = def.trim();
+                    def == format!("Count$Valid {valid}")
+                        || def
+                            .strip_prefix("Count$Valid ")
+                            .is_some_and(|cv| Self::same_valid_atoms(cv, valid))
+                        || (is_obj_spec
+                            && matches!(def, "Count$Valid Card" | "Count$Valid Permanent"))
+                        || (api == "ChangeZone"
+                            && p.peek("Origin") == Some("Graveyard")
+                            && def.strip_prefix("Count$ValidGraveyard ").is_some_and(|cv| {
+                                cv == valid
+                                    || cv == "Card"
+                                    || (matches!(cv, "Card.YouOwn" | "Card.YouCtrl")
+                                        && (valid.contains("YouOwn") || valid.contains("YouCtrl")))
+                                    || Self::same_valid_atoms(
+                                        &cv.replace("YouOwn", "YouCtrl"),
+                                        &valid.replace("YouOwn", "YouCtrl"),
+                                    )
+                            }))
+                })
+            {
+                p.take("TargetMin");
+                p.take("TargetMax");
+                chain.second_target_up_to = Some(u8::MAX);
             }
             chain.second_target = Some(spec);
         } else {
@@ -2125,6 +2328,8 @@ impl Tx<'_> {
                                 ) || (sub_api == "DealDamage"
                                     && !sp.has("DividedAsYouChoose")
                                     && sp.peek("DamageSource").is_none())
+                                    || (sub_api == "Attach"
+                                        && sp.peek("Object") == Some("ParentTarget"))
                                     || (sub_api == "ChangeZone"
                                         && matches!(
                                             (sp.peek("Origin"), sp.peek("Destination")),
@@ -2156,6 +2361,9 @@ impl Tx<'_> {
                         && !p.has("DividedAsYouChoose")
                         && p.peek("DamageSource").is_none())
                     || (api == "SetState" && p.peek("Mode") == Some("TurnFaceUp"))
+                    || (api == "Attach"
+                        && p.peek("Object") == Some("Targeted")
+                        && p.peek("Defined") == Some("Self"))
                     || (api == "Effect" && p.peek("RememberObjects") == Some("Targeted"))
                     || (api == "ChangeZone"
                         && (matches!(
@@ -4652,20 +4860,59 @@ impl Tx<'_> {
                 }
             }
             "Attach" => {
-                if !matches!(p.take("Object").as_deref(), None | Some("Self")) {
-                    return None;
-                }
-                if let Some(def) = p.take("Defined") {
-                    if target.is_some() || !self.is_event_object_defined(&def) {
-                        return None;
+                let optional = match p.take("Optional").as_deref() {
+                    None | Some("False") => false,
+                    Some("True") => true,
+                    Some(_) => return None,
+                };
+                match (p.take("Object").as_deref(), p.take("Defined").as_deref()) {
+                    (None | Some("Self"), Some(def)) => {
+                        if optional || target.is_some() || !self.is_event_object_defined(def) {
+                            return None;
+                        }
+                        vec!["Effect::AttachSelf { target: TargetSpec::EventObject }".to_string()]
                     }
-                    vec!["Effect::AttachSelf { target: TargetSpec::EventObject }".to_string()]
-                } else {
-                    let tgt = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
-                    if !targets_here {
-                        return None;
+                    (None | Some("Self"), None) => {
+                        let tgt = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
+                        if !targets_here {
+                            return None;
+                        }
+                        if optional {
+                            if self.on_a_spell || !single_target {
+                                return None;
+                            }
+                            vec![
+                                "Effect::AttachSlot { object: TargetSlot::This, to: TargetSlot::First, optional: true }"
+                                    .to_string(),
+                            ]
+                        } else {
+                            vec![format!("Effect::AttachSelf {{ target: {tgt} }}")]
+                        }
                     }
-                    vec![format!("Effect::AttachSelf {{ target: {tgt} }}")]
+                    (Some("Targeted"), Some("Self")) => {
+                        if self.on_a_spell
+                            || !targets_here
+                            || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                        {
+                            return None;
+                        }
+                        vec![format!(
+                            "Effect::AttachSlot {{ object: TargetSlot::First, to: TargetSlot::This, optional: {optional} }}"
+                        )]
+                    }
+                    (Some("ParentTarget"), Some("Self")) => {
+                        if self.on_a_spell
+                            || targets_here
+                            || prior_target_used
+                            || !target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                        {
+                            return None;
+                        }
+                        vec![format!(
+                            "Effect::AttachSlot {{ object: TargetSlot::First, to: TargetSlot::This, optional: {optional} }}"
+                        )]
+                    }
+                    _ => return None,
                 }
             }
             "Poison" => {
@@ -5680,7 +5927,8 @@ impl Tx<'_> {
                 )
         };
         match api.as_str() {
-            "Destroy" | "Tap" | "Untap" => both_obj,
+            "Destroy" | "Tap" | "Untap" | "RemoveCounter" | "Detain" | "Goad" | "Regenerate"
+            | "TapOrUntap" => both_obj,
             "Pump" => {
                 both_obj
                     && ["NumAtt", "NumDef"].iter().all(|key| {
@@ -5693,6 +5941,17 @@ impl Tx<'_> {
                     && is_dmg_spec(first_spec)
                     && is_dmg_spec(second_spec)
             }
+            "ChangeZone" => {
+                both_obj
+                    && !sp.has("RememberChanged")
+                    && !sp.has("RememberTargets")
+                    && !sp.has("RememberLKI")
+                    && !sp.has("Imprint")
+                    && !sp.has("Duration")
+                    && !sp.has("ThisDefinedAndTgts")
+            }
+            "PutCounter" => both_obj && !sp.has("DividedAsYouChoose") && !sp.has("Support"),
+            "Phases" => both_obj && !sp.has("WontPhaseInNormal"),
             _ => false,
         }
     }
@@ -5752,6 +6011,47 @@ impl Tx<'_> {
                 vec![format!(
                     "Effect::DealDamageToBothTargetInstances {{ amount: {amt} }}"
                 )]
+            }
+            "ChangeZone" | "PutCounter" | "RemoveCounter" | "Phases" | "Detain" | "Goad"
+            | "Regenerate" | "TapOrUntap" => {
+                let first_spec = Self::effect_target_of(chain.target.as_deref()?);
+                let second_spec = Self::effect_target_of(chain.second_target.as_deref()?);
+                let first_single = chain.target_exact.is_none()
+                    && !chain.target_is_x
+                    && chain.target_constraint.is_none()
+                    && chain.target_up_to.is_none_or(|n| n <= 1);
+                let second_single = chain.second_target_up_to.is_none_or(|n| n <= 1);
+                let mut dp_second = dp.clone();
+                let mut combined = self.effect_of_inner(
+                    &api,
+                    &mut dp,
+                    Some(&first_spec),
+                    LineFlags {
+                        targets_here: true,
+                        targets_a_player: false,
+                        single_target: first_single,
+                        prior_target_used: false,
+                    },
+                )?;
+                let second_effs = self.effect_of_inner(
+                    &api,
+                    &mut dp_second,
+                    Some(&second_spec),
+                    LineFlags {
+                        targets_here: true,
+                        targets_a_player: false,
+                        single_target: second_single,
+                        prior_target_used: false,
+                    },
+                )?;
+                if !dp_second.exhausted() || second_effs.is_empty() {
+                    return None;
+                }
+                combined.push(format!(
+                    "Effect::WithSecondTarget(&[{}])",
+                    second_effs.join(", ")
+                ));
+                combined
             }
             _ => return None,
         };
@@ -8777,5 +9077,311 @@ impl Tx<'_> {
         !self.svars.values().any(|s| {
             s.contains("Remembered") || s.contains("IsRemembered") || s.contains("ClearRemembered")
         })
+    }
+
+    /// Wave 26c: true when a 2nd-target line can lower through `effect_of_inner`
+    /// and run inside `Effect::WithSecondTarget(&[...])`.
+    fn wave26c_general_second_target_allowed(
+        &self,
+        api: &str,
+        p: &Params,
+        chain: &Chain,
+        second_spec: &str,
+    ) -> bool {
+        if second_spec.starts_with("TargetSpec::CardInFirstTargetsGraveyard(")
+            && !matches!(
+                chain.target.as_deref(),
+                Some("TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent")
+            )
+        {
+            return false;
+        }
+        if self.later_line_targets(p.peek("SubAbility"))
+            || p.has("UnlessResolveSubs")
+            || !matches!(p.peek("Defined"), None | Some("Targeted"))
+            || p.has("DamageSource")
+            || p.has("Source")
+            || p.has("CloneTarget")
+            || p.has("Object")
+            || p.has("TargetsWithDefinedController")
+            || p.peek("ConditionDefined")
+                .is_some_and(|d| d.contains("ParentTarget"))
+        {
+            return false;
+        }
+        if api != "GainControl" && p.has("NewController") {
+            return false;
+        }
+        match api {
+            "ChangeZone" => {
+                !p.has("RememberChanged")
+                    && !p.has("RememberTargets")
+                    && !p.has("RememberLKI")
+                    && !p.has("Imprint")
+                    && !p.has("ThisDefinedAndTgts")
+            }
+            "PutCounter" => !p.has("DividedAsYouChoose") && !p.has("Support"),
+            "GainControl" => {
+                p.peek("NewController").is_none_or(|v| v == "You") && !p.has("AllValid")
+            }
+            "Phases" => !p.has("WontPhaseInNormal"),
+            "DealDamage" => !p.has("DividedAsYouChoose") && !p.has("ExcessSVar"),
+            "Destroy" | "Pump" | "RemoveCounter" | "Tap" | "Untap" | "TapOrUntap" | "Detain"
+            | "Goad" | "Animate" | "Regenerate" | "SetState" | "MustBlock" | "Connive"
+            | "Explore" | "Suspect" | "CopyPermanent" | "Counter" | "PreventDamage" | "Draw"
+            | "Discard" | "Mill" | "GainLife" | "LoseLife" | "Poison" | "Sacrifice" | "SetLife"
+            | "SkipPhase" | "TakeInitiative" => true,
+            _ => false,
+        }
+    }
+
+    /// Wave 26c: true when a 2nd-target line safely handles `TargetReq::up_to(..., max)`
+    /// with `max > 1` (multiple objects chosen in `second_targets`).
+    fn wave26c_second_target_multi_ok(api: &str, p: &Params) -> bool {
+        matches!(
+            api,
+            "Destroy"
+                | "Tap"
+                | "Untap"
+                | "Pump"
+                | "PutCounter"
+                | "Phases"
+                | "Goad"
+                | "Detain"
+                | "Animate"
+        ) || (api == "GainControl"
+            && p.peek("NewController").is_none_or(|v| v == "You")
+            && !p.has("Defined")
+            && !p.has("AllValid"))
+            || (api == "DealDamage"
+                && !p.has("DividedAsYouChoose")
+                && p.peek("DamageSource").is_none()
+                && !p.has("ExcessSVar"))
+            || (api == "SetState" && p.peek("Mode") == Some("TurnFaceUp"))
+            || (api == "Attach"
+                && p.peek("Object") == Some("Targeted")
+                && p.peek("Defined") == Some("ParentTarget"))
+            || (api == "ChangeZone"
+                && (matches!(
+                    (p.peek("Origin"), p.peek("Destination")),
+                    (
+                        Some(
+                            "Battlefield"
+                                | "Graveyard"
+                                | "Stack"
+                                | "Battlefield,Stack"
+                                | "Stack,Battlefield"
+                        ),
+                        Some("Hand" | "Exile")
+                    ) | (Some("Graveyard"), Some("Battlefield"))
+                ) || (matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
+                    && p.peek("Destination") == Some("Library")
+                    && p.peek("Shuffle") == Some("True"))
+                    || (p.peek("Origin") == Some("Battlefield")
+                        && p.peek("Destination") == Some("Library")
+                        && !p.has("DestinationAlternative")
+                        && p.peek("LibraryPosition")
+                            .is_some_and(|pos| pos == "-1" || !pos.starts_with('-')))
+                    || (p.peek("Origin") == Some("Graveyard")
+                        && p.peek("Destination") == Some("Library")
+                        && p.peek("LibraryPosition") == Some("-1"))))
+    }
+
+    /// Wave 26c: true when every effect emitted so far leaves Slot 1 on the
+    /// battlefield (CR 400.7), so `AttachSlot` can still reference Slot 1.
+    fn prior_chain_preserves_first_target_on_battlefield(chain: &Chain) -> bool {
+        chain.effects.iter().all(|e| {
+            e == "Effect::TapTarget"
+                || e == "Effect::UntapTarget"
+                || e.starts_with("Effect::PumpTarget")
+                || e.starts_with("Effect::AddCounter")
+                || e.starts_with("Effect::ModifyTargets")
+                || e.starts_with("Effect::continuous(&Filter::This, ")
+                || e.starts_with("Effect::GainControlEx")
+                || e.starts_with("Effect::Goad")
+                || e.starts_with("Effect::Detain")
+        })
+    }
+
+    /// Wave 26c: 2nd-target `Attach` lowered directly to `Effect::AttachSlot`.
+    fn wave26c_attach_slot_second_target(
+        &self,
+        p: &mut Params,
+        chain: &Chain,
+        second_spec: &str,
+    ) -> Option<Vec<String>> {
+        if !second_spec.starts_with("TargetSpec::Object(") {
+            return None;
+        }
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let second_single = chain.second_target_up_to.is_none_or(|n| n <= 1);
+        let first_is_obj = chain
+            .target
+            .as_deref()
+            .is_some_and(|t| t.starts_with("TargetSpec::Object("));
+        let first_single = first_is_obj
+            && chain.target_exact.is_none()
+            && !chain.target_is_x
+            && chain.target_constraint.is_none()
+            && chain.target_up_to.is_none_or(|n| n <= 1);
+        match (p.take("Object").as_deref(), p.take("Defined").as_deref()) {
+            (Some("ParentTarget"), None)
+                if first_is_obj
+                    && second_single
+                    && Self::prior_chain_preserves_first_target_on_battlefield(chain) =>
+            {
+                Some(vec![format!(
+                    "Effect::AttachSlot {{ object: TargetSlot::First, to: TargetSlot::Second, optional: {optional} }}"
+                )])
+            }
+            (Some("Targeted"), Some("ParentTarget"))
+                if first_single
+                    && Self::prior_chain_preserves_first_target_on_battlefield(chain) =>
+            {
+                Some(vec![format!(
+                    "Effect::AttachSlot {{ object: TargetSlot::Second, to: TargetSlot::First, optional: {optional} }}"
+                )])
+            }
+            (None | Some("Self"), None) if !self.on_a_spell && second_single => {
+                Some(vec![format!(
+                    "Effect::AttachSlot {{ object: TargetSlot::This, to: TargetSlot::Second, optional: {optional} }}"
+                )])
+            }
+            _ => None,
+        }
+    }
+
+    /// Wave 26c: inline restricted modal choice (`DB$ Charm | ChoiceRestriction$ ThisGame/ThisTurn`,
+    /// CR 700.2i / CR 400.7; *Henrika Domnathi*, *Monument to Endurance*, *Gala Greeters*,
+    /// *Galadriel, Light of Valinor*, *Genku, Future Shaper*, *Kimoyo Beads*, *The Vision*).
+    /// Strictly refuses targeted modes (since `ChooseOneRestricted` resolves inline) and
+    /// non-Paper restrictions (e.g. Alchemy `YourLastCombat`).
+    fn wave26c_restricted_charm_chain(
+        &mut self,
+        mut p: Params,
+        sub: Option<String>,
+        chain: &mut Chain,
+    ) -> Option<()> {
+        if self.on_a_spell {
+            return self.deny("`Charm` `ChoiceRestriction$` on a spell".to_string());
+        }
+        let restriction = match p.take("ChoiceRestriction").as_deref() {
+            Some("ThisTurn") => "ModalRestriction::OncePerTurn",
+            Some("ThisGame") => "ModalRestriction::OncePerPermanent",
+            Some(other) => {
+                return self.deny(format!("`Charm` with `ChoiceRestriction$ {other}`"));
+            }
+            None => return None,
+        };
+        match p.take("Defined").as_deref() {
+            None | Some("You") => {}
+            Some(who) => {
+                return self.deny(format!("restricted `Charm` with `Defined$ {who}`"));
+            }
+        }
+        match p.take("CharmNum").as_deref() {
+            None | Some("1") => {}
+            Some(n) => {
+                return self.deny(format!("restricted `Charm` choosing `{n}`"));
+            }
+        }
+        match p.take("MinCharmNum").as_deref() {
+            None | Some("1") => {}
+            Some(n) => {
+                return self.deny(format!("restricted `Charm` with `MinCharmNum$ {n}`"));
+            }
+        }
+        let Some(raw_choices) = p.take("Choices") else {
+            return self.deny("a restricted `Charm` with no `Choices$`".to_string());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Charm.{key}`"));
+        }
+        let mut choices = Vec::new();
+        for name in raw_choices
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            let Some(body) = self.svars.get(name).cloned() else {
+                return self.deny(format!("charm choice `{name}` with no `SVar`"));
+            };
+            let mut branch = Chain::default();
+            self.chain(&body, &mut branch)?;
+            if branch.target.is_some() || branch.second_target.is_some() {
+                return self.deny("a restricted modal choice with a targeted mode".to_string());
+            }
+            if branch.effects.is_empty() {
+                return self.deny("an empty restricted modal choice".to_string());
+            }
+            chain.moves_library |= branch.moves_library;
+            let one = match branch.effects.as_slice() {
+                [only] => only.clone(),
+                many => format!("Effect::Sequence(&[{}])", many.join(", ")),
+            };
+            choices.push(one);
+        }
+        if choices.len() < 2 || choices.len() > 64 {
+            return self.deny("a restricted `Charm` with fewer than two modes".to_string());
+        }
+        chain.effects.push(format!(
+            "Effect::ChooseOneRestricted {{ choices: &[{}], restriction: {restriction} }}",
+            choices.join(", ")
+        ));
+        self.chain_sub_ability(sub, chain)
+    }
+
+    /// Wave 26c: 2nd-target `ChangeZone` acting on `TargetSpec::CardInFirstTargetsGraveyard`
+    /// (`TargetOnly | ValidTgts$ Player` -> `ChangeZone | TargetsWithDefinedController$ ParentTarget`).
+    /// Handles Exile, Hand, and non-shuffling Library moves (refuses `Shuffle$ True` since
+    /// 0-target `up_to` must still shuffle the targeted player's library per CR 701.20).
+    fn wave26c_first_target_graveyard_change_zone(
+        p: &mut Params,
+        target: &str,
+    ) -> Option<Vec<String>> {
+        if p.take("Origin").as_deref() != Some("Graveyard") {
+            return None;
+        }
+        p.take("IsCurse");
+        if p.peek("Mandatory") == Some("True") {
+            p.take("Mandatory");
+        }
+        let dest = p.take("Destination")?;
+        let out = match dest.as_str() {
+            "Exile" => match p.take("Imprint").as_deref() {
+                None => vec![format!("Effect::exile({target})")],
+                Some("True") => vec!["Effect::ExileTargetsWithSource".to_string()],
+                Some(_) => return None,
+            },
+            "Hand" => {
+                if p.take("ChangeNum").is_some_and(|n| n != "1") {
+                    return None;
+                }
+                vec![format!("Effect::GraveyardToHand {{ target: {target} }}")]
+            }
+            "Library" => {
+                if p.has("Shuffle") {
+                    return None;
+                }
+                match p.take("LibraryPosition").as_deref() {
+                    None | Some("0") => {
+                        vec![format!("Effect::GraveyardToTop {{ target: {target} }}")]
+                    }
+                    Some("-1") => vec![format!(
+                        "Effect::PutOnBottomOfLibraryFromGraveyard {{ target: {target} }}"
+                    )],
+                    Some(_) => return None,
+                }
+            }
+            _ => return None,
+        };
+        if !p.exhausted() {
+            return None;
+        }
+        Some(out)
     }
 }

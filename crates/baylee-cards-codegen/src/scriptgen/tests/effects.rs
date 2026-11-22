@@ -103,7 +103,6 @@ fn repeated_target_declarations_keep_independent_pump_slots() {
 #[test]
 fn repeated_targets_without_slot_support_are_refused_even_when_types_match() {
     for next in [
-        "DB$ Destroy | ValidTgts$ Creature",
         "DB$ Pump | ValidTgts$ Creature | NumDef$ 1 | SubAbility$ Third",
         "DB$ Pump | ValidTgts$ Creature | NumDef$ X",
         "DB$ Pump | ValidTgts$ Creature | NumDef$ 1 | UnknownRule$ True",
@@ -140,12 +139,20 @@ fn independent_counter_targets_are_refused_until_counter_slots_are_supported() {
         "{head} | SubAbility$ Next\n\
          SVar:Next:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 4\n"
     );
+    let body = read(&pair);
     assert!(
-        refused(&pair),
-        "two target clauses must not collapse into one"
+        body.abilities[0].contains("Effect::WithSecondTarget(&[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(4) }])")
+            && body.abilities[0].contains("second_targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))"),
+        "two independent PutCounter clauses now lower via WithSecondTarget: {}",
+        body.abilities[0]
+    );
+    let triple = format!(
+        "{head} | SubAbility$ Next\n\
+         SVar:Next:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 4 | SubAbility$ Third\n\
+         SVar:Third:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 6\n"
     );
     assert_eq!(
-        refusal_reason(&parse(&pair), &cats(), None).as_deref(),
+        refusal_reason(&parse(&triple), &cats(), None).as_deref(),
         Some("unsupported independent target in one chain")
     );
 }
