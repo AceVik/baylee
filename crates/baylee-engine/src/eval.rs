@@ -27,7 +27,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 pub use amounts::{amount, amount_with_context, public_linked_exile_cards, tapped_power};
 pub(crate) use amounts::{
     colors_among, colors_in_zone, count_controlled_by, entry_sacrifices_on, linked_exile_cards,
-    object_snow_mana_spent, snow_mana_spent_on,
+    mana_spent_on, object_snow_mana_spent, snow_mana_spent_on,
 };
 pub(crate) use conditions::{
     attached_for_ability, condition_reads_event, condition_with_event, discarded_for_cost,
@@ -962,6 +962,74 @@ pub(crate) fn matches_projected_with_choices(
                 ))
             })
         }
+        Filter::CmcAtMostAmount(amt)
+        | Filter::CmcEqualsAmount(amt)
+        | Filter::PowerAtMostAmount(amt)
+        | Filter::PowerAtLeastAmount(amt) => {
+            let Some(_guard) = DynamicFilterDepthGuard::enter() else {
+                return false;
+            };
+            let mag = amounts::amount_with_context(
+                amt,
+                state,
+                you,
+                context,
+                Some(announced_x(state, this)),
+            );
+            match_dynamic_amount_filter(filter, chars, mag, amt.is_negative())
+        }
+    }
+}
+
+const MAX_DYNAMIC_FILTER_DEPTH: u8 = 8;
+
+std::thread_local! {
+    static DYNAMIC_FILTER_DEPTH: core::cell::Cell<u8> = const { core::cell::Cell::new(0) };
+}
+
+/// Cycle-safe re-entrancy guard for [`Filter`] variants that evaluate [`baylee_cards_dsl::Amount`].
+pub(crate) struct DynamicFilterDepthGuard;
+
+impl DynamicFilterDepthGuard {
+    pub(crate) fn enter() -> Option<Self> {
+        DYNAMIC_FILTER_DEPTH.with(|cell| {
+            let depth = cell.get();
+            if depth >= MAX_DYNAMIC_FILTER_DEPTH {
+                None
+            } else {
+                cell.set(depth + 1);
+                Some(Self)
+            }
+        })
+    }
+}
+
+impl Drop for DynamicFilterDepthGuard {
+    fn drop(&mut self) {
+        DYNAMIC_FILTER_DEPTH.with(|cell| {
+            cell.set(cell.get().saturating_sub(1));
+        });
+    }
+}
+
+/// Compare `chars` against a pre-evaluated [`baylee_cards_dsl::Amount`] magnitude and sign.
+pub(crate) fn match_dynamic_amount_filter(
+    filter: &Filter,
+    chars: &crate::object::Characteristics,
+    mag: u32,
+    negative: bool,
+) -> bool {
+    let bound = if negative {
+        -i64::from(mag)
+    } else {
+        i64::from(mag)
+    };
+    match filter {
+        Filter::CmcAtMostAmount(_) => i64::from(chars.mana_value()) <= bound,
+        Filter::CmcEqualsAmount(_) => i64::from(chars.mana_value()) == bound,
+        Filter::PowerAtMostAmount(_) => chars.power.is_some_and(|p| i64::from(p) <= bound),
+        Filter::PowerAtLeastAmount(_) => chars.power.is_some_and(|p| i64::from(p) >= bound),
+        _ => unreachable!("only dynamic amount filters"),
     }
 }
 
@@ -1195,10 +1263,59 @@ fn source_mana_value(state: &GameState, this: ObjectId) -> Option<u32> {
 /// ([`Filter::CmcAtMostX`], [`Filter::CmcExactlyX`]).
 #[must_use]
 pub fn reads_announced_x(filter: &Filter) -> bool {
+    reads_announced_x_at(filter, 0)
+}
+
+fn reads_announced_x_at(filter: &Filter, depth: u8) -> bool {
+    if depth >= MAX_DYNAMIC_FILTER_DEPTH {
+        return false;
+    }
     match filter {
         Filter::CmcAtMostX | Filter::CmcExactlyX | Filter::TwiceCmcExactlyX => true,
-        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(reads_announced_x),
-        Filter::Not(f) => reads_announced_x(f),
+        Filter::CmcAtMostAmount(amt)
+        | Filter::CmcEqualsAmount(amt)
+        | Filter::PowerAtMostAmount(amt)
+        | Filter::PowerAtLeastAmount(amt) => amount_reads_announced_x(amt, depth + 1),
+        Filter::And(parts) | Filter::Or(parts) => {
+            parts.iter().any(|f| reads_announced_x_at(f, depth))
+        }
+        Filter::Not(f) => reads_announced_x_at(f, depth),
+        _ => false,
+    }
+}
+
+fn amount_reads_announced_x(amt: &baylee_cards_dsl::Amount, depth: u8) -> bool {
+    use baylee_cards_dsl::Amount as A;
+    if depth >= MAX_DYNAMIC_FILTER_DEPTH {
+        return false;
+    }
+    match amt {
+        A::X | A::NegX | A::DoubleX | A::XPlusCommanderCasts | A::XIfSourceWasForetold { .. } => {
+            true
+        }
+        A::Half { base: a, .. }
+        | A::Divided { base: a, .. }
+        | A::Times { base: a, .. }
+        | A::Plus { base: a, .. }
+        | A::Negated(a)
+        | A::SaturatingSub { base: a, .. }
+        | A::ConstantMinus { subtract: a, .. } => amount_reads_announced_x(a, depth + 1),
+        A::Sum { left, right } | A::Difference { left, right } => {
+            amount_reads_announced_x(left, depth + 1) || amount_reads_announced_x(right, depth + 1)
+        }
+        A::IfCondition {
+            then, otherwise, ..
+        } => {
+            amount_reads_announced_x(then, depth + 1)
+                || amount_reads_announced_x(otherwise, depth + 1)
+        }
+        A::DistinctColorsAmong(f)
+        | A::BasicLandTypesAmong(f)
+        | A::CountOf { filter: f, .. }
+        | A::ControlledCount { filter: f, .. }
+        | A::DamageThisTurn { by: f, .. }
+        | A::GreatestPowerAmong(f)
+        | A::GreatestManaValueAmong(f) => reads_announced_x_at(f, depth + 1),
         _ => false,
     }
 }
@@ -1239,6 +1356,27 @@ pub(crate) fn matches_for_x(
         Filter::CmcExactlyX => x.is_none_or(|x| obj.characteristics().mana_value() == x),
         Filter::TwiceCmcExactlyX => {
             x.is_none_or(|x| obj.characteristics().mana_value().saturating_mul(2) == x)
+        }
+        Filter::CmcAtMostAmount(amt)
+        | Filter::CmcEqualsAmount(amt)
+        | Filter::PowerAtMostAmount(amt)
+        | Filter::PowerAtLeastAmount(amt)
+            if amount_reads_announced_x(amt, 0) =>
+        {
+            let chars = obj.characteristics();
+            let Some(x_val) = x else {
+                return match filter {
+                    Filter::PowerAtMostAmount(_) | Filter::PowerAtLeastAmount(_) => {
+                        chars.power.is_some()
+                    }
+                    _ => true,
+                };
+            };
+            let Some(_guard) = DynamicFilterDepthGuard::enter() else {
+                return false;
+            };
+            let mag = amounts::amount_with_context(amt, state, you, context, Some(x_val));
+            match_dynamic_amount_filter(filter, chars, mag, amt.is_negative())
         }
         Filter::And(parts) => parts
             .iter()

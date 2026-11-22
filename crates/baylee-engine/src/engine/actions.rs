@@ -287,12 +287,48 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // MDFC: which land face is played (CR 712.9)? Only the
                 // faces the offer counted, so a transforming card's land back
                 // is never one of them.
-                let land_faces: Vec<usize> = self
+                let mut land_faces: Vec<usize> = self
                     .state
                     .object(card)
                     .and_then(|o| o.card)
                     .and_then(|c| self.lookup.card(c.index))
                     .map_or_else(|| vec![0], |def| def.land_faces_from_hand().collect());
+                if land_faces.len() > 1
+                    && let Some(raw_obj) = self.state.object(card)
+                    && raw_obj.zone != crate::zone::Zone::Hand
+                    && casting::play_permission(&self.state, player, card).is_none()
+                    && !casting::mayhem_land_permission(&self.state, player, card)
+                    && !casting::adventure_permission(&self.state, player, card)
+                    && let Some(def) = raw_obj.card.and_then(|c| self.lookup.card(c.index))
+                {
+                    land_faces.retain(|&face| {
+                        let mut face_obj = raw_obj.clone();
+                        face_obj.base = std::sync::Arc::new(
+                            crate::object::Characteristics::from_face(def, face, raw_obj.base.name),
+                        );
+                        face_obj.cache.clear();
+                        face_obj.face_index = u8::try_from(face).unwrap_or(0);
+                        (raw_obj.zone == crate::zone::Zone::Graveyard
+                            && raw_obj.zone_owner == Some(player)
+                            && casting::graveyard_land_permission_for(
+                                &self.state,
+                                player,
+                                &face_obj,
+                            )
+                            .is_some())
+                            || self.state.effects.iter().any(|fx| {
+                                matches!(
+                                    fx.modifier,
+                                    baylee_cards_dsl::Modifier::MayCastWithAltCost {
+                                        grant_zone_permission: true,
+                                        allow_lands: true,
+                                        ..
+                                    }
+                                ) && crate::effects::source_is_present(&self.state, fx)
+                                    && crate::effects::matches_filter(&self.state, fx, &face_obj)
+                            })
+                    });
+                }
                 if land_faces.len() > 1 {
                     // Both faces are lands (pathways): choose.
                     let options = land_faces

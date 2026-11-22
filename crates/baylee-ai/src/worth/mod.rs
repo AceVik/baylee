@@ -242,7 +242,10 @@ pub fn mana_poured(view: &PlayerView, source: ObjectId, effects: &[Effect]) -> O
 /// things a view can answer before the ability is activated.
 fn countable(amount: Amount) -> bool {
     match amount {
-        Amount::Fixed(_) | Amount::LifeTotal(_) => true,
+        Amount::Fixed(_)
+        | Amount::LifeTotal(_)
+        | Amount::GreatestPowerAmong(_)
+        | Amount::GreatestManaValueAmong(_) => true,
         Amount::CountOf { zone, .. } => matches!(zone, ZoneSel::Battlefield),
         Amount::Plus { base, .. } | Amount::Times { base, .. } | Amount::Divided { base, .. } => {
             countable(*base)
@@ -861,6 +864,12 @@ impl HeuristicAgent {
                     })
                     .len(),
             ),
+            Amount::GreatestPowerAmong(filter) => {
+                self.greatest_on_battlefield(view, origin, filter, true)?
+            }
+            Amount::GreatestManaValueAmong(filter) => {
+                self.greatest_on_battlefield(view, origin, filter, false)?
+            }
             Amount::SourcePower => i64::from(origin.object?.power?),
             Amount::TargetPower => i64::from(target?.power?),
             Amount::TargetToughness => i64::from(target?.toughness?),
@@ -874,6 +883,28 @@ impl HeuristicAgent {
             -magnitude
         } else {
             magnitude
+        })
+    }
+
+    fn greatest_on_battlefield(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        filter: &Filter,
+        read_power: bool,
+    ) -> Option<i64> {
+        view.battlefield.iter().try_fold(0_i64, |best, o| {
+            let matched =
+                self.filter_matches(filter, view, o, ZoneRef::Battlefield, Some(origin.id))?;
+            if !matched {
+                return Some(best);
+            }
+            let value = if read_power {
+                i64::from(o.power.unwrap_or(0).max(0))
+            } else {
+                i64::from(o.mana_value)
+            };
+            Some(best.max(value))
         })
     }
 

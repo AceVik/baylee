@@ -340,7 +340,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let disguised = wizard.option == Some(CastModeKind::Disguise) || wizard.masked;
                 // X is asked when the cost has a variable OR a mandatory
                 // part scales with it (Toxic Deluge's pay-X-life, SacrificeX, TapX, PayEnergyX).
-                let scales_mandatory = !disguised && mandatory_scales_with_x(face);
+                let scales_mandatory = !disguised
+                    && (mandatory_scales_with_x(face)
+                        || wizard
+                            .cost_choice()
+                            .route_extra_parts
+                            .iter()
+                            .any(part_scales_with_x));
                 // A spell cast without paying its mana cost has exactly one
                 // legal X, which is 0 (CR 107.3b), so a free cast is not
                 // asked for it; a non-mana payment that scales with X still is.
@@ -366,9 +372,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         u32::MAX
                     };
                     if scales_mandatory {
-                        let life_x_count = face
-                            .mandatory_additional_costs
-                            .iter()
+                        let choice = wizard.cost_choice();
+                        let life_x_count = wizard_mandatory_parts(face, choice)
                             .filter(|p| matches!(p, CostPart::PayLifeX))
                             .count();
                         if life_x_count > 0 {
@@ -380,20 +385,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 / u32::try_from(life_x_count).unwrap_or(1);
                             max = max.min(avail);
                         }
-                        let energy_x_count = face
-                            .mandatory_additional_costs
-                            .iter()
+                        let energy_x_count = wizard_mandatory_parts(face, choice)
                             .filter(|p| matches!(p, CostPart::PayEnergyX))
                             .count();
                         if energy_x_count > 0 {
                             let avail = u32::from(
                                 self.state.players[usize::from(wizard.player.get())].energy,
                             )
-                            .saturating_sub(fixed_energy_cost(face, wizard.cost_choice()))
+                            .saturating_sub(fixed_energy_cost(face, choice))
                                 / u32::try_from(energy_x_count).unwrap_or(1);
                             max = max.min(avail);
                         }
-                        if face.mandatory_additional_costs.iter().any(|p| {
+                        if wizard_mandatory_parts(face, choice).any(|p| {
                             matches!(
                                 p,
                                 CostPart::SacrificeX(_)
@@ -838,6 +841,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let skip = face.additional_costs.is_empty()
                     || wizard.option == Some(CastModeKind::Disguise)
                     || wizard.masked
+                    || wizard.selected_alt_grant().is_some()
                     || matches!(
                         wizard.announced,
                         Some(

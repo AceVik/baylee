@@ -347,6 +347,10 @@ impl CastWizard {
         for (slot, &(_, _, _, cost)) in splice_parts.iter_mut().zip(self.spliced.iter()) {
             *slot = Some(cost.parts);
         }
+        let route_extra_parts = self
+            .selected_alt_grant()
+            .and_then(|r| r.extra_cost)
+            .map_or(&[][..], |c| c.parts);
         CostChoice {
             option: self.option,
             alternative_cost: self.alternative_cost,
@@ -365,6 +369,7 @@ impl CastWizard {
             sneak_parts: self.sneak_parts,
             conspired: self.conspired,
             awaken_parts: self.awaken_parts,
+            route_extra_parts,
             splice_parts,
         }
     }

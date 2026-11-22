@@ -542,7 +542,11 @@ impl HeuristicAgent {
         | Filter::LowestManaValueOnBattlefield(_)
         | Filter::RingBearer
         | Filter::CmcEqualsYourUnspentMana
-        | Filter::ControlledByChooser => None,
+        | Filter::ControlledByChooser
+        | Filter::CmcAtMostAmount(_)
+        | Filter::CmcEqualsAmount(_)
+        | Filter::PowerAtMostAmount(_)
+        | Filter::PowerAtLeastAmount(_) => None,
         }
     }
 

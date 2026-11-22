@@ -18,15 +18,19 @@ use std::sync::Arc;
 
 /// Route metadata attached to a `CastWizard` option backed by `MayCastWithAltCost`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct AltCastGrantRoute {
     pub effect_id: EffectId,
     pub source: Option<ObjectId>,
     pub grant_zone_permission: bool,
     pub once_per_turn: bool,
+    pub is_alt_cost: bool,
+    pub prototype: bool,
     pub face: usize,
     pub modes: u8,
     pub kicked: bool,
     pub base_mana: Option<ManaCost>,
+    pub extra_cost: Option<baylee_cards_dsl::Cost>,
     pub life: Option<u32>,
 }
 
@@ -174,6 +178,23 @@ fn grant_matches_face(
     crate::effects::matches_filter(state, effect, &prospective)
 }
 
+fn effect_matches_land_object(
+    state: &GameState,
+    effect: &ContinuousEffect,
+    obj: &GameObject,
+) -> bool {
+    if crate::effects::matches_filter(state, effect, obj) {
+        return true;
+    }
+    let Some(def) = obj.card.and_then(|c| state.bases.card(c.index)) else {
+        return false;
+    };
+    def.land_faces_from_hand().any(|face| {
+        let prospective = projected_face_spell(obj, def, face);
+        crate::effects::matches_filter(state, effect, &prospective)
+    })
+}
+
 /// Whether any active `MayCastWithAltCost` with `grant_zone_permission && allow_lands`
 /// opens `card` to be played as a land by `player`.
 #[must_use]
@@ -200,8 +221,149 @@ pub fn alt_cast_land_open(state: &GameState, player: PlayerId, card: ObjectId) -
         };
         effect_allows_player(state, effect, player, who, once_per_turn)
             && zone_matches_grant(state, player, effect, obj, zones)
-            && crate::effects::matches_filter(state, effect, obj)
+            && effect_matches_land_object(state, effect, obj)
     })
+}
+
+/// Whether any active `MayCastWithAltCost` with `grant_zone_permission && allow_lands`
+/// can reach `Zone::Graveyard` for `player`.
+#[must_use]
+pub(crate) fn alt_cast_graveyard_land_zone_open(state: &GameState, player: PlayerId) -> bool {
+    state.effects.may_grant_graveyard_or_top_play()
+        && state.effects.iter().any(|effect| {
+            let Modifier::MayCastWithAltCost {
+                who,
+                zones,
+                grant_zone_permission: true,
+                allow_lands: true,
+                once_per_turn,
+                ..
+            } = effect.modifier
+            else {
+                return false;
+            };
+            let reaches_gy = match zones {
+                AltCastZones::AnyPermitted => true,
+                AltCastZones::Zones(zs) => zs.iter().any(|z| Zone::Graveyard.matches_ref(*z)),
+                AltCastZones::TopOfLibrary | AltCastZones::LinkedExile => false,
+            };
+            reaches_gy && effect_allows_player(state, effect, player, who, once_per_turn)
+        })
+}
+
+/// Records the `once_per_turn` allowance used when `card` is played as a land
+/// via `Modifier::MayCastWithAltCost`, preferring any unlimited grant first.
+pub(crate) fn consume_alt_cast_land_allowance(
+    state: &mut GameState,
+    player: PlayerId,
+    card: ObjectId,
+) {
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return;
+    }
+    let Some(raw) = state.object(card) else {
+        return;
+    };
+    let face_up = super::playable_exile_projection(state, player, raw);
+    let obj: &GameObject = &face_up;
+    let mut once_id = None;
+    for effect in state.effects.iter() {
+        let Modifier::MayCastWithAltCost {
+            who,
+            zones,
+            grant_zone_permission: true,
+            allow_lands: true,
+            once_per_turn,
+            ..
+        } = effect.modifier
+        else {
+            continue;
+        };
+        if effect_allows_player(state, effect, player, who, once_per_turn)
+            && zone_matches_grant(state, player, effect, obj, zones)
+            && effect_matches_land_object(state, effect, obj)
+        {
+            if !once_per_turn {
+                return;
+            }
+            if once_id.is_none() {
+                once_id = Some(effect.id);
+            }
+        }
+    }
+    if let Some(id) = once_id {
+        state.per_turn.graveyard_allowances_used.push((player, id));
+    }
+}
+
+/// Whether `face` of `def` is opened for casting by any active `MayCastWithAltCost`.
+#[must_use]
+pub(crate) fn alt_cast_face_open(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+    face: usize,
+) -> bool {
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return false;
+    }
+    let Some(raw) = state.object(card) else {
+        return false;
+    };
+    let face_up = super::playable_exile_projection(state, player, raw);
+    let obj: &GameObject = &face_up;
+    let Some(def) = obj.card.and_then(|c| lookup.card(c.index)) else {
+        return false;
+    };
+    face < def.faces.len()
+        && state.effects.iter().any(|effect| {
+            matches!(
+                effect.modifier,
+                Modifier::MayCastWithAltCost {
+                    grant_zone_permission: true,
+                    ..
+                }
+            ) && grant_matches_face(state, player, effect, obj, def, face)
+        })
+}
+
+/// Whether `face` of `def` is granted flash by an active `MayCastWithAltCost { with_flash: true }`.
+#[must_use]
+pub(crate) fn alt_cast_face_with_flash(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+    face: usize,
+) -> bool {
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return false;
+    }
+    let Some(raw) = state.object(card) else {
+        return false;
+    };
+    let face_up = super::playable_exile_projection(state, player, raw);
+    let obj: &GameObject = &face_up;
+    let Some(def) = obj.card.and_then(|c| lookup.card(c.index)) else {
+        return false;
+    };
+    face < def.faces.len()
+        && super::timing_allows(
+            state,
+            player,
+            TypeSet::INSTANT,
+            baylee_cards_dsl::KeywordSet::EMPTY,
+        )
+        && state.effects.iter().any(|effect| {
+            matches!(
+                effect.modifier,
+                Modifier::MayCastWithAltCost {
+                    with_flash: true,
+                    ..
+                }
+            ) && grant_matches_face(state, player, effect, obj, def, face)
+        })
 }
 
 /// Whether any active `MayCastWithAltCost` with `grant_zone_permission: true`
@@ -262,6 +424,43 @@ pub(crate) fn has_alt_cast_grant(
     })
 }
 
+fn price_basis(
+    price: AltCastPrice,
+    with_flash: bool,
+) -> (
+    CostBasis,
+    Option<ManaCost>,
+    Option<baylee_cards_dsl::Cost>,
+    bool,
+) {
+    match price {
+        AltCastPrice::Mana(cost) => (
+            CostBasis::instead(cost).with_flash(with_flash),
+            Some(cost),
+            None,
+            true,
+        ),
+        AltCastPrice::PayLifeEqualToManaValue => (
+            CostBasis::instead(ManaCost::ZERO).with_flash(with_flash),
+            None,
+            None,
+            true,
+        ),
+        AltCastPrice::Normal => (
+            CostBasis::printed().with_flash(with_flash),
+            None,
+            None,
+            false,
+        ),
+        AltCastPrice::NormalPlus(cost) => (
+            CostBasis::printed_plus(cost.mana).with_flash(with_flash),
+            None,
+            Some(cost),
+            false,
+        ),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn collect_effect_grant_options(
     state: &GameState,
@@ -289,29 +488,31 @@ fn collect_effect_grant_options(
     if !(0..def.faces.len()).any(|face| grant_matches_face(state, player, effect, obj, def, face)) {
         return;
     }
-    let base_mana = match price {
-        AltCastPrice::Mana(cost) => cost,
-        AltCastPrice::PayLifeEqualToManaValue => ManaCost::ZERO,
-    };
-    let basis = CostBasis::instead(base_mana).with_flash(with_flash);
+    let (basis, base_mana, extra_cost, is_alt_cost) = price_basis(price, with_flash);
     for choice in replaced_cost_options(state, lookup, player, card, paying, basis) {
         if !grant_matches_face(state, player, effect, obj, def, choice.face) {
             continue;
         }
-        let costs = choice.cost_choice(def);
+        let mut costs = choice.cost_choice(def);
+        if let Some(extra) = extra_cost {
+            costs.route_extra_parts = extra.parts;
+        }
         let mv_life = match price {
-            AltCastPrice::Mana(_) => None,
             AltCastPrice::PayLifeEqualToManaValue => Some(library_top_life_value(def, choice.face)),
+            AltCastPrice::Mana(_) | AltCastPrice::Normal | AltCastPrice::NormalPlus(_) => None,
         };
-        if let Some(life) = mv_life {
-            let fixed = crate::engine::cast_wizard::fixed_life_cost(&def.faces[choice.face], costs);
-            let total_life = i32::try_from(life)
-                .unwrap_or(i32::MAX)
-                .saturating_add(fixed);
-            if !state.can_pay_life(player, total_life) {
-                *life_short = true;
-                continue;
-            }
+        let fixed = crate::engine::cast_wizard::fixed_life_cost(&def.faces[choice.face], costs);
+        let total_life = mv_life
+            .map_or(0_i32, |life| i32::try_from(life).unwrap_or(i32::MAX))
+            .saturating_add(fixed);
+        if total_life > 0 && !state.can_pay_life(player, total_life) {
+            *life_short = true;
+            continue;
+        }
+        let fixed_energy =
+            crate::engine::cast_wizard::fixed_energy_cost(&def.faces[choice.face], costs);
+        if fixed_energy > u32::from(state.players[usize::from(player.get())].energy) {
+            continue;
         }
         if additional_payment_capacity_for(state, player, card, &def.faces[choice.face], costs, &[])
             .is_none()
@@ -342,10 +543,13 @@ fn collect_effect_grant_options(
                 source: effect.source,
                 grant_zone_permission,
                 once_per_turn,
+                is_alt_cost,
+                prototype: choice.prototype,
                 face: choice.face,
                 modes: choice.modes,
                 kicked: choice.kicked,
-                base_mana: mv_life.is_none().then_some(base_mana),
+                base_mana,
+                extra_cost,
                 life: mv_life,
             },
         ));
@@ -414,7 +618,7 @@ pub(crate) fn alt_cast_route_still_open(
     lookup: &impl CardLookup,
     player: PlayerId,
     card: ObjectId,
-    route: AltCastGrantRoute,
+    route: &AltCastGrantRoute,
 ) -> bool {
     let Some(raw) = state.object(card) else {
         return false;

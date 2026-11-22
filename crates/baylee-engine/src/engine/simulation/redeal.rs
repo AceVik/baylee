@@ -150,7 +150,7 @@ impl<'a> Deal<'a> {
         let mut pools = Vec::new();
         for player in &state.players {
             let owner = player.id;
-            let top = usize::from(state.library_top_revealed(owner));
+            let top = usize::from(crate::casting::library_top_visible_to(state, seat, owner));
             let mut zones = SmallVec::new();
             if owner != seat && !sees_hand(owner) {
                 zones.push((ZoneLocation::Hand(owner), 0));

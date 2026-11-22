@@ -318,6 +318,62 @@ pub fn graveyard_land_permission(
                 fx.modifier,
                 baylee_cards_dsl::Modifier::PlayLandsFromGraveyard
             )
+            && crate::effects::source_is_present(state, fx)
+    }) {
+        return Some(GraveyardPermission::Unlimited);
+    }
+    each_type_allowances(state, player).find_map(|(source, version, plays)| {
+        (!plays.iter().any(|t| t.contains(TypeSet::LAND)))
+            .then_some(GraveyardPermission::EachType { source, version })
+    })
+}
+
+fn effect_matches_graveyard_land(
+    state: &GameState,
+    fx: &crate::effects::ContinuousEffect,
+    obj: &crate::object::GameObject,
+) -> bool {
+    use crate::state::CardLookup;
+    if crate::effects::matches_filter(state, fx, obj) {
+        return true;
+    }
+    let Some(def) = obj.card.and_then(|c| state.bases.card(c.index)) else {
+        return false;
+    };
+    def.land_faces_from_hand().any(|face| {
+        let mut prospective = obj.clone();
+        if face != 0 || def.faces.len() > 1 {
+            prospective.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+                def,
+                face,
+                obj.base.name,
+            ));
+            prospective.cache.clear();
+            prospective.face_index = u8::try_from(face).unwrap_or(0);
+        }
+        crate::effects::matches_filter(state, fx, &prospective)
+    })
+}
+
+/// Which permission lets `player` play the specific land `obj` from their own
+/// graveyard, honoring `Modifier::PlayLandsFromGraveyard`'s static `filter`.
+#[must_use]
+pub fn graveyard_land_permission_for(
+    state: &GameState,
+    player: PlayerId,
+    obj: &crate::object::GameObject,
+) -> Option<GraveyardPermission> {
+    if !state.effects.may_grant_graveyard_or_top_play() {
+        return None;
+    }
+    if state.effects.iter().any(|fx| {
+        fx.controller == player
+            && matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::PlayLandsFromGraveyard
+            )
+            && crate::effects::source_is_present(state, fx)
+            && effect_matches_graveyard_land(state, fx, obj)
     }) {
         return Some(GraveyardPermission::Unlimited);
     }
@@ -372,7 +428,10 @@ pub fn note_graveyard_play(
 pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
     match zone {
         Zone::Hand => true,
-        Zone::Graveyard => graveyard_land_permission(state, player).is_some(),
+        Zone::Graveyard => {
+            graveyard_land_permission(state, player).is_some()
+                || super::alt_cast_graveyard_land_zone_open(state, player)
+        }
         Zone::Library => {
             state.effects.may_grant_graveyard_or_top_play()
                 && state.effects.iter().any(|fx| {
@@ -476,9 +535,14 @@ pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bo
                 return true;
             }
             obj.zone_owner == Some(player)
-                && land_zone_open(state, player, obj.zone)
-                && (obj.zone != Zone::Library
-                    || state.zones.list(ZoneLocation::Library(player)).last() == Some(&card))
+                && match obj.zone {
+                    Zone::Graveyard => graveyard_land_permission_for(state, player, obj).is_some(),
+                    Zone::Library => {
+                        land_zone_open(state, player, Zone::Library)
+                            && state.zones.list(ZoneLocation::Library(player)).last() == Some(&card)
+                    }
+                    other => land_zone_open(state, player, other),
+                }
         }
 }
 
@@ -558,8 +622,30 @@ pub(super) fn play_land_with_timing(
         && play_permission(state, player, card).is_none()
         && !mayhem_land_permission(state, player, card)
     {
-        let permission = graveyard_land_permission(state, player);
-        note_graveyard_play(state, player, permission, TypeSet::LAND);
+        if let Some(permission) = graveyard_land_permission_for(state, player, obj) {
+            note_graveyard_play(state, player, Some(permission), TypeSet::LAND);
+        } else {
+            super::consume_alt_cast_land_allowance(state, player, card);
+        }
+    } else if obj.zone != Zone::Hand
+        && play_permission(state, player, card).is_none()
+        && !adventure_permission(state, player, card)
+        && !(obj.zone == Zone::Exile
+            && obj
+                .riders
+                .contains(&crate::object::Rider::PlayableFromExileFor(player)))
+        && !(obj.zone == Zone::Library
+            && state.effects.iter().any(|fx| {
+                fx.controller == player
+                    && matches!(
+                        fx.modifier,
+                        baylee_cards_dsl::Modifier::PlayLandsFromLibraryTop
+                            | baylee_cards_dsl::Modifier::PlayFromLibraryTopForManaValueLife
+                    )
+                    && crate::effects::source_is_present(state, fx)
+            }))
+    {
+        super::consume_alt_cast_land_allowance(state, player, card);
     }
     state.players[player.get() as usize].lands_played_this_turn += 1;
     {

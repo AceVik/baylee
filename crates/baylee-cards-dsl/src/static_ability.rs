@@ -276,7 +276,9 @@ pub enum Modifier {
     /// It says nothing about *how many*: the land drop is
     /// [`Self::ExtraLandDrops`], and a player with this and no land drop
     /// left may play nothing, from their graveyard or anywhere else
-    /// (CR 305.2b).
+    /// (CR 305.2b). The static ability's `filter` narrows which land cards in
+    /// the controller's graveyard qualify (`Filter::Any` allows any land; a
+    /// subtype or supertype filter restricts to matching lands).
     PlayLandsFromGraveyard,
     /// The effect's controller may cast permanent spells from their
     /// graveyard (Wrenn and Realmbreaker's emblem: "You may play lands and
@@ -1401,6 +1403,32 @@ pub enum Modifier {
         /// Cast-time or per-turn metric multiplied by `delta_per_unit`.
         metric: SpellCastMetric,
     },
+    /// Players matching `who` (relative to the effect's controller) may look
+    /// at the top card of their own library at any time (*Elven Chorus*,
+    /// *Conspicuous Snoop*, *Elsha of the Infinite*, *Assemble the Players*,
+    /// *Crystal Skull, Isu Spyglass*, *Eladamri, Korvecdal*, *Benjamin Sisko*).
+    /// Strictly private to each matching player — opponents and spectators
+    /// never see that card unless another effect reveals it. Appended to
+    /// preserve replay identities.
+    MayLookAtTopOfLibrary {
+        /// Which players may look at the top card of their own library.
+        who: crate::effect::PlayerRel,
+    },
+    /// Players matching `who` (relative to the effect's controller) may cast
+    /// spells matching `filter` as though they had flash (`CR 601.3b`,
+    /// *Raff Capashen, Ship's Mage*, *Shimmer Myr*, *Liberator, Urza's
+    /// Battlethopter*, *Yeva, Nature's Herald*, *High Fae Trickster*,
+    /// *Gandalf, Friend of the Shire*). Evaluated against the prospective
+    /// spell characteristics (so Adventure, Prototype, and MDFC spell faces
+    /// match by the face being cast), and overridden by restrictions such as
+    /// [`Self::OpponentsCastAsSorcery`] (`CR 101.2`). Appended to preserve
+    /// replay identities.
+    GrantFlash {
+        /// Which casting players receive flash timing permission.
+        who: crate::effect::PlayerRel,
+        /// Prospective spell filter evaluated relative to the effect's controller.
+        filter: &'static crate::Filter,
+    },
 }
 
 /// Quantity evaluated during CR 601.2f spell cost determination by
@@ -1475,6 +1503,18 @@ pub enum AltCastPrice {
     /// Pay life equal to the spell's mana value rather than its mana cost
     /// (*Bolas's Citadel*, *Valgavoth, Terror Eater*, *Demon of Fate's Design*).
     PayLifeEqualToManaValue,
+    /// Pay the spell's normal mana cost (`CR 118.1`, `CR 601.3e` — not an
+    /// alternative cost under `CR 118.9`, so `{X}` remains selectable and
+    /// `alt_cast` is `false`; *Elven Chorus*, *Conspicuous Snoop*, *Elsha of
+    /// the Infinite*, *Lurrus of the Dream-Den*, *Danitha, New Benalia's
+    /// Light*, *Abandoned Sarcophagus*). Also supports zone-permitted land
+    /// drops when `allow_lands: true`. Appended to preserve replay identities.
+    Normal,
+    /// Pay an additional [`crate::Cost`] in addition to the spell's normal
+    /// mana cost (`CR 118.8` — not an alternative cost under `CR 118.9`, so
+    /// `{X}` remains selectable and `alt_cast` is `false`; *Demonic Embrace*,
+    /// *Alien Symbiosis*). Appended to preserve replay identities.
+    NormalPlus(crate::Cost),
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1875,7 +1915,9 @@ impl Modifier {
             | Self::PlayersCantGainLife(_)
             | Self::CantBeSacrificed { .. }
             | Self::MayCastWithAltCost { .. }
-            | Self::AdjustSpellCostByCast { .. } => Layer::Text,
+            | Self::AdjustSpellCostByCast { .. }
+            | Self::MayLookAtTopOfLibrary { .. }
+            | Self::GrantFlash { .. } => Layer::Text,
         }
     }
 }
@@ -2803,6 +2845,13 @@ mod tests {
                 filter: &Filter::Any,
                 delta_per_unit: -1,
                 metric: SpellCastMetric::DistinctTargets,
+            },
+            Modifier::MayLookAtTopOfLibrary {
+                who: crate::PlayerRel::You,
+            },
+            Modifier::GrantFlash {
+                who: crate::PlayerRel::You,
+                filter: &Filter::Historic,
             },
         ] {
             assert_eq!(

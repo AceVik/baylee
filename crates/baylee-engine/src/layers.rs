@@ -816,7 +816,11 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::SharesAColorWith(_)
         | Filter::SharesCreatureTypeWith(_)
         | Filter::SharesColorWithExiledWithSource
-        | Filter::SharesColorWithSource => true,
+        | Filter::SharesColorWithSource
+        | Filter::CmcAtMostAmount(_)
+        | Filter::CmcEqualsAmount(_)
+        | Filter::PowerAtMostAmount(_)
+        | Filter::PowerAtLeastAmount(_) => true,
         Filter::OfSourceChosenColor | Filter::ChosenColor => matches!(
             modifier,
             Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
@@ -1479,6 +1483,8 @@ fn apply(
         | Modifier::GainActivatedAbilitiesOf { .. }
         | Modifier::MayCastWithAltCost { .. }
         | Modifier::AdjustSpellCostByCast { .. }
+        | Modifier::MayLookAtTopOfLibrary { .. }
+        | Modifier::GrantFlash { .. }
         | Modifier::GrantStatic { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash

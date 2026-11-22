@@ -62,6 +62,37 @@ pub(crate) fn snow_mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
         .map_or(0, object_snow_mana_spent)
 }
 
+/// Total mana spent to cast `source` (`CR 601.2h`, `CR 400.7d`, `CR 608.2h`),
+/// reading either `source`'s live `PaidRecord` on the stack or, for a permanent
+/// that entered from a cast spell, the stack incarnation immediately preceding
+/// its battlefield arrival. Returns `0` when `source` was not cast.
+#[must_use]
+pub(crate) fn mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
+    if let Some(paid) = state.object(source).and_then(|o| o.paid.as_ref()) {
+        return paid.mana_spent;
+    }
+    let Some(bf_version) = super::last_battlefield_version(state, source) else {
+        return 0;
+    };
+    let entered_from_cast = state
+        .source_object(baylee_core::ids::DamageSourceRef {
+            object: source,
+            version: bf_version,
+        })
+        .is_some_and(|perm| perm.cast_history.caster().is_some());
+    if !entered_from_cast || bf_version == 0 {
+        return 0;
+    }
+    state
+        .source_object(baylee_core::ids::DamageSourceRef {
+            object: source,
+            version: bf_version - 1,
+        })
+        .filter(|prev| prev.zone == crate::zone::Zone::Stack)
+        .and_then(|prev| prev.paid.as_ref())
+        .map_or(0, |p| p.mana_spent)
+}
+
 /// Number of permanents sacrificed as `source` entered the battlefield
 /// (`EnterModifier::Devour` / `SacrificeForPowerToughness`, `CR 702.82b`).
 #[must_use]
@@ -209,10 +240,7 @@ pub fn amount_with_context(
         Amount::BlockersBeyondFirst => {
             u32::try_from(state.combat.blocker_count(this).saturating_sub(1)).unwrap_or(u32::MAX)
         }
-        Amount::SourcePower => state
-            .object(this)
-            .and_then(|o| o.characteristics().power)
-            .map_or(0, |p| p.max(0) as u32),
+        Amount::SourcePower => super::source_power(state, this).map_or(0, |p| p.max(0) as u32),
         Amount::CountersOnYou(kind) => state.players[usize::from(you.get())]
             .counters()
             .into_iter()
@@ -249,10 +277,7 @@ pub fn amount_with_context(
         Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
             crate::resolve::sacrificed_amount(state.object(this), amount)
         }
-        Amount::ManaSpentToCast => state
-            .object(this)
-            .and_then(|o| o.paid.as_ref())
-            .map_or(0, |p| p.mana_spent),
+        Amount::ManaSpentToCast => mana_spent_on(state, this),
         Amount::ManaTypeSpentOnX(color) => state
             .object(this)
             .and_then(|o| o.paid.as_ref())
@@ -305,6 +330,49 @@ pub fn amount_with_context(
             };
             self::amount_with_context(branch, state, you, context, x)
         }
+        Amount::GreatestPowerAmong(filter) => greatest_among(state, you, filter, context, true),
+        Amount::GreatestManaValueAmong(filter) => {
+            greatest_among(state, you, filter, context, false)
+        }
+    }
+}
+
+fn greatest_among(
+    state: &GameState,
+    you: PlayerId,
+    filter: &Filter,
+    context: RuleContext,
+    read_power: bool,
+) -> u32 {
+    let metric = |obj: &crate::object::GameObject| -> Option<u32> {
+        let chars = obj.characteristics();
+        if read_power {
+            chars.power.map(|p| u32::try_from(p.max(0)).unwrap_or(0))
+        } else {
+            Some(chars.mana_value())
+        }
+    };
+    if crate::state::filter_reaches_other_zones(filter) {
+        state
+            .arena
+            .iter()
+            .filter(|(_, o)| {
+                o.zone != crate::zone::Zone::OutsideGame
+                    && !(o.zone == crate::zone::Zone::Battlefield
+                        && o.status.contains(crate::object::Status::PHASED_OUT))
+                    && matches_with_context(filter, state, o, you, context)
+            })
+            .filter_map(|(_, o)| metric(o))
+            .max()
+            .unwrap_or(0)
+    } else {
+        state
+            .battlefield_seen()
+            .filter_map(|id| state.object(id))
+            .filter(|o| matches_with_context(filter, state, o, you, context))
+            .filter_map(metric)
+            .max()
+            .unwrap_or(0)
     }
 }
 

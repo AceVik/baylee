@@ -478,6 +478,27 @@ pub enum Filter {
     /// control"`). Matches nothing outside an active card/permanent choice.
     /// Appended to preserve replay identities.
     ControlledByChooser,
+    /// Mana value at most the dynamically evaluated [`crate::Amount`] (treated
+    /// as matching nothing when the evaluated amount is negative; cycle-capped
+    /// in filter evaluation; *Abaddon the Despoiler*, *Anticausal Vestige*,
+    /// *Astelli Reclaimer*, *Beseech the Queen*, *Bortuk Bonerattle*, *Buster
+    /// Sword*). Appended to preserve replay identities.
+    CmcAtMostAmount(&'static crate::Amount),
+    /// Mana value equal to the dynamically evaluated [`crate::Amount`] (treated
+    /// as matching nothing when the evaluated amount is negative; cycle-capped
+    /// in filter evaluation; *Broodcaller Scourge*). Appended to preserve
+    /// replay identities.
+    CmcEqualsAmount(&'static crate::Amount),
+    /// Power at most the dynamically evaluated [`crate::Amount`] (matches only
+    /// objects that have a power characteristic, `CR 208.3`; cycle-capped in
+    /// filter evaluation; *Alesha, Who Laughs at Fate*, *Arcane Proxy*).
+    /// Appended to preserve replay identities.
+    PowerAtMostAmount(&'static crate::Amount),
+    /// Power at least the dynamically evaluated [`crate::Amount`] (matches only
+    /// objects that have a power characteristic, `CR 208.3`; cycle-capped in
+    /// filter evaluation; *Expel the Interlopers*). Appended to preserve replay
+    /// identities.
+    PowerAtLeastAmount(&'static crate::Amount),
 }
 
 /// Zone references for filters (engine zones, DSL view).

@@ -268,6 +268,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
 /// Reconstruct only the selected alternative's unreduced fixed cost. This
 /// preserves credit when an option's displayed price already clamped to zero.
+#[allow(clippy::too_many_lines)] // Exhaustive per-CastModeKind unreduced cost table.
 fn raw_option_cost(
     state: &crate::state::GameState,
     def: &'static baylee_cards_dsl::CardDef,
@@ -356,7 +357,7 @@ fn raw_option_cost(
             modal_repeated_set_cost(def, wizard.face_index(), packed, normal)
         }
     };
-    if wizard.option != Some(CastModeKind::Kicked)
+    let raw = if wizard.option != Some(CastModeKind::Kicked)
         && (wizard.selected_alt_grant().is_some_and(|r| r.kicked)
             || matches!(
                 wizard.announced,
@@ -364,14 +365,17 @@ fn raw_option_cost(
                     CastModeKind::EscapeGranted { kicked: true, .. }
                         | CastModeKind::LibraryTopLife { kicked: true, .. }
                 )
-            ))
-    {
+            )) {
         face.additional_costs
             .iter()
             .fold(raw, |cost, additional| cost.combine(&additional.mana))
     } else {
         raw
-    }
+    };
+    wizard
+        .selected_alt_grant()
+        .and_then(|r| r.extra_cost)
+        .map_or(raw, |extra| raw.combine(&extra.mana))
 }
 
 fn modal_single_cost(

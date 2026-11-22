@@ -478,6 +478,12 @@ pub fn projected_spell(
     object: &crate::object::GameObject,
 ) -> crate::object::GameObject {
     let mut spell = object.clone();
+    if object.zone != Zone::Stack {
+        spell.cast_history.set_from_hand(object.zone == Zone::Hand);
+        spell
+            .cast_history
+            .set_from_graveyard(object.zone == Zone::Graveyard);
+    }
     spell.zone = Zone::Stack;
     spell.kind = crate::object::ObjectKind::Spell;
     spell.controller = player;

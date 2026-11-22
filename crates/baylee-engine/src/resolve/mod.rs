@@ -884,7 +884,9 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::ManaSpentToCast => state
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
-            .map_or(0, |p| p.mana_spent),
+            .map(|p| p.mana_spent)
+            .filter(|&n| n > 0 || res.on_stack == res.source)
+            .unwrap_or_else(|| eval::mana_spent_on(state, res.source)),
         Amount::SnowManaSpentToCast => state
             .object(res.on_stack)
             .map(eval::object_snow_mana_spent)
@@ -1090,7 +1092,52 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                 })
                 .count() as u32
         }
+        Amount::GreatestPowerAmong(filter) => {
+            greatest_among_in_resolution(state, you, res, filter, true)
+        }
+        Amount::GreatestManaValueAmong(filter) => {
+            greatest_among_in_resolution(state, you, res, filter, false)
+        }
         other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
+    }
+}
+
+fn greatest_among_in_resolution(
+    state: &GameState,
+    you: PlayerId,
+    res: &Resolution,
+    filter: &baylee_cards_dsl::Filter,
+    read_power: bool,
+) -> u32 {
+    let metric = |obj: &GameObject| -> Option<u32> {
+        let chars = obj.characteristics();
+        if read_power {
+            chars.power.map(|p| u32::try_from(p.max(0)).unwrap_or(0))
+        } else {
+            Some(chars.mana_value())
+        }
+    };
+    if crate::state::filter_reaches_other_zones(filter) {
+        state
+            .arena
+            .iter()
+            .filter(|(_, o)| {
+                o.zone != crate::zone::Zone::OutsideGame
+                    && !(o.zone == crate::zone::Zone::Battlefield
+                        && o.status.contains(crate::object::Status::PHASED_OUT))
+                    && matches_in_resolution(filter, state, o, you, res, None)
+            })
+            .filter_map(|(_, o)| metric(o))
+            .max()
+            .unwrap_or(0)
+    } else {
+        state
+            .battlefield_seen()
+            .filter_map(|id| state.object(id))
+            .filter(|o| matches_in_resolution(filter, state, o, you, res, None))
+            .filter_map(metric)
+            .max()
+            .unwrap_or(0)
     }
 }
 
@@ -1295,17 +1342,81 @@ pub(super) fn bound_now_with_context(
 /// Whether `filter` directly or recursively contains [`Filter::ControlledBy`]
 /// or [`Filter::ControlledByChooser`].
 pub(super) fn filter_reads_resolution_player(filter: &baylee_cards_dsl::Filter) -> bool {
+    filter_reads_resolution_player_at(filter, 0)
+}
+
+fn filter_reads_resolution_player_at(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
     use baylee_cards_dsl::Filter;
+    if depth >= 8 {
+        return false;
+    }
     match filter {
         Filter::ControlledBy(_) | Filter::ControlledByChooser => true,
-        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_resolution_player),
+        Filter::CmcAtMostAmount(amt)
+        | Filter::CmcEqualsAmount(amt)
+        | Filter::PowerAtMostAmount(amt)
+        | Filter::PowerAtLeastAmount(amt) => amount_reads_resolution_player_at(amt, depth + 1),
+        Filter::And(parts) | Filter::Or(parts) => parts
+            .iter()
+            .any(|f| filter_reads_resolution_player_at(f, depth)),
         Filter::Not(f)
         | Filter::AttachedTo(f)
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
         | Filter::SharesCreatureTypeWith(f)
-        | Filter::ControllerControls(f) => filter_reads_resolution_player(f),
+        | Filter::ControllerControls(f) => filter_reads_resolution_player_at(f, depth),
+        _ => false,
+    }
+}
+
+fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
+    use baylee_cards_dsl::{Amount as A, PlayerRel as P};
+    if depth >= 8 {
+        return false;
+    }
+    let rel_needs_res = |rel: P| {
+        matches!(
+            rel,
+            P::Chosen | P::ControllerOfTarget | P::TargetPlayerOrController | P::Recipient
+        )
+    };
+    match amount {
+        A::LibrarySize(r)
+        | A::HandSize(r)
+        | A::LifeTotal(r)
+        | A::StartingLifeTotal(r)
+        | A::LifeGainedThisTurn(r)
+        | A::Players(r)
+        | A::SpellsWarpedThisTurn(r)
+        | A::ManaExpendedOnSpellsThisTurn(r) => rel_needs_res(*r),
+        A::ControlledCount { who, filter } => {
+            rel_needs_res(*who) || filter_reads_resolution_player_at(filter, depth + 1)
+        }
+        A::ThisWayBy { who, .. } => rel_needs_res(*who),
+        A::DistinctColorsAmong(f)
+        | A::BasicLandTypesAmong(f)
+        | A::CountOf { filter: f, .. }
+        | A::DamageThisTurn { by: f, .. }
+        | A::GreatestPowerAmong(f)
+        | A::GreatestManaValueAmong(f) => filter_reads_resolution_player_at(f, depth + 1),
+        A::Half { base: a, .. }
+        | A::Divided { base: a, .. }
+        | A::Times { base: a, .. }
+        | A::Plus { base: a, .. }
+        | A::Negated(a)
+        | A::SaturatingSub { base: a, .. }
+        | A::ConstantMinus { subtract: a, .. } => amount_reads_resolution_player_at(a, depth + 1),
+        A::Sum { left, right } | A::Difference { left, right } => {
+            amount_reads_resolution_player_at(left, depth + 1)
+                || amount_reads_resolution_player_at(right, depth + 1)
+        }
+        A::IfCondition {
+            then, otherwise, ..
+        } => {
+            amount_reads_resolution_player_at(then, depth + 1)
+                || amount_reads_resolution_player_at(otherwise, depth + 1)
+        }
         _ => false,
     }
 }
@@ -1344,6 +1455,16 @@ pub(super) fn matches_in_resolution_with_chars(
         Filter::TwiceCmcExactlyX => res
             .x
             .is_none_or(|x| chars.mana_value().saturating_mul(2) == x),
+        Filter::CmcAtMostAmount(amt)
+        | Filter::CmcEqualsAmount(amt)
+        | Filter::PowerAtMostAmount(amt)
+        | Filter::PowerAtLeastAmount(amt) => {
+            let Some(_guard) = eval::DynamicFilterDepthGuard::enter() else {
+                return false;
+            };
+            let mag = amount2(amt, state, you, res);
+            eval::match_dynamic_amount_filter(filter, chars, mag, amt.is_negative())
+        }
         Filter::And(parts) => parts
             .iter()
             .all(|f| matches_in_resolution_with_chars(f, state, obj, chars, you, res, chooser)),

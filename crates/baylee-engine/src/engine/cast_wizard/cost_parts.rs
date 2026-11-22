@@ -68,6 +68,11 @@ fn raw_mandatory_parts(
     } else {
         face.mandatory_additional_costs
     };
+    let route_parts: &'static [CostPart] = if disguised {
+        &[]
+    } else {
+        choice.route_extra_parts
+    };
     let entwine_parts: &'static [CostPart] = match (choice.option, face.entwine) {
         (Some(CastModeKind::Modes(_)), Some(entwine)) if !disguised => entwine.parts,
         _ => &[],
@@ -114,6 +119,7 @@ fn raw_mandatory_parts(
     let additional_costs = face.additional_costs;
     mandatory
         .iter()
+        .chain(route_parts.iter())
         .chain(jump_start_parts.iter())
         .chain(retrace_parts.iter())
         .chain(entwine_parts.iter())
@@ -328,6 +334,8 @@ pub(crate) struct CostChoice {
     pub conspired: u8,
     /// Non-mana parts of `AbilityDef::Awaken` when `option == Some(CastModeKind::Awaken)`.
     pub awaken_parts: &'static [CostPart],
+    /// Additional non-mana cost parts imposed by `AltCastPrice::NormalPlus` (`CR 118.8`).
+    pub route_extra_parts: &'static [CostPart],
     /// Non-mana parts of spliced cards in chosen order (`CR 702.47a–c`).
     pub splice_parts: [Option<&'static [CostPart]>; 8],
 }
@@ -359,6 +367,7 @@ impl From<Option<CastModeKind>> for CostChoice {
             sneak_parts: &[],
             conspired: 0,
             awaken_parts: &[],
+            route_extra_parts: &[],
             splice_parts: [None; 8],
         }
     }

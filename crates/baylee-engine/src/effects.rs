@@ -384,7 +384,9 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker
         | Modifier::CreatureAbilityManaAnyColor
         | Modifier::MayCastWithAltCost { .. }
-        | Modifier::AdjustSpellCostByCast { .. } => false,
+        | Modifier::AdjustSpellCostByCast { .. }
+        | Modifier::MayLookAtTopOfLibrary { .. }
+        | Modifier::GrantFlash { .. } => false,
     }
 }
 
@@ -773,6 +775,7 @@ impl EffectTable {
                         with_flash: true,
                         ..
                     }
+                    | Modifier::GrantFlash { .. }
             ),
         );
         self.hints.insert_if(
@@ -782,6 +785,7 @@ impl EffectTable {
                 Modifier::RevealAllLibraryTops
                     | Modifier::RevealLibraryTop
                     | Modifier::LookAtLibraryTop
+                    | Modifier::MayLookAtTopOfLibrary { .. }
                     | Modifier::RevealAllHands
                     | Modifier::RevealYourHand
                     | Modifier::NoMaxHandSize
@@ -2136,6 +2140,13 @@ mod tests {
                 delta_per_unit: -1,
                 metric: baylee_cards_dsl::SpellCastMetric::DistinctTargets,
             },
+            Modifier::MayLookAtTopOfLibrary {
+                who: baylee_cards_dsl::PlayerRel::You,
+            },
+            Modifier::GrantFlash {
+                who: baylee_cards_dsl::PlayerRel::You,
+                filter: &Filter::Any,
+            },
         ]
     }
 
@@ -2174,7 +2185,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            230,
+            232,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2298,7 +2309,8 @@ mod tests {
         // GainActivatedAbilitiesOf grants abilities on Layer::Ability (+1 locking -> 63);
         // MayCastWithAltCost modifies casting/playing rules (+1 rules-only -> 166).
         // AdjustSpellCostByCast modifies spell costs (+1 rules-only -> 167).
-        assert_eq!((locking, all.len() - locking), (63, 167));
+        // MayLookAtTopOfLibrary and GrantFlash modify visibility/timing rules (+2 rules-only -> 169).
+        assert_eq!((locking, all.len() - locking), (63, 169));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

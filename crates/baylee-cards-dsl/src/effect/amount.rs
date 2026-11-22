@@ -364,6 +364,17 @@ pub enum Amount {
         /// Amount evaluated when `condition` does not hold.
         otherwise: &'static Amount,
     },
+    /// Greatest power among objects matching `filter` (`0` if none match or
+    /// their greatest power is negative, `CR 107.1b`; scans the battlefield by
+    /// default or all zones when `filter` reaches non-battlefield zones;
+    /// *Bouncer's Beatdown*, *Selvala, Heart of the Wilds*). Appended to
+    /// preserve replay identities.
+    GreatestPowerAmong(&'static Filter),
+    /// Greatest mana value among objects matching `filter` (`0` if none match;
+    /// scans the battlefield by default or all zones when `filter` reaches
+    /// non-battlefield zones; *Shadow of Mortality*, *Yuriko*-likes). Appended
+    /// to preserve replay identities.
+    GreatestManaValueAmong(&'static Filter),
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

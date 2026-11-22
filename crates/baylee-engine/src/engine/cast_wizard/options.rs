@@ -42,31 +42,36 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             } else {
                 casting::Paying::FromThePool
             };
+            let mut opts = Vec::new();
+            let mut routes = Vec::new();
+            let mut first_err = None;
             if casting::library_top_life_open(&self.state, player, card) {
-                return casting::library_top_life_options(
+                match casting::library_top_life_options(
                     &self.state,
                     &self.lookup,
                     player,
                     card,
                     paying,
-                )
-                .map(|opts| (opts, Vec::new()))
-                .map_err(|error| EngineError::Cast(crate::casting::CastFailure::Legality(error)));
+                ) {
+                    Ok(life_opts) => opts.extend(life_opts),
+                    Err(err) => first_err = Some(err),
+                }
             }
             let (alt_pairs, diag) =
                 casting::alt_cast_grant_options(&self.state, &self.lookup, player, card, paying);
-            if alt_pairs.is_empty() {
-                let err = diag.unwrap_or(casting::CastError::NotInHand);
+            for (desc, route) in alt_pairs {
+                let idx = opts.len();
+                opts.push(desc);
+                routes.push((idx, route));
+            }
+            for (i, option) in opts.iter_mut().enumerate() {
+                option.index = u32::try_from(i).expect("bounded cast options");
+            }
+            if opts.is_empty() {
+                let err = diag.or(first_err).unwrap_or(casting::CastError::NotInHand);
                 return Err(EngineError::Cast(crate::casting::CastFailure::Legality(
                     err,
                 )));
-            }
-            let mut opts = Vec::with_capacity(alt_pairs.len());
-            let mut routes = Vec::with_capacity(alt_pairs.len());
-            for (i, (mut desc, route)) in alt_pairs.into_iter().enumerate() {
-                desc.index = u32::try_from(i).expect("bounded cast options");
-                opts.push(desc);
-                routes.push((i, route));
             }
             return Ok((opts, routes));
         }
@@ -374,12 +379,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             });
         }
         let plot_ok = casting::plot_permission(&self.state, player, card);
+        let front_timing_probe = casting::split_front(&self.state, &obj);
         let front_timing_ok = commanded
-            || casting::timing_allows(
+            || casting::object_timing_allows(
                 &self.state,
                 player,
-                obj.characteristics().types,
-                obj.characteristics().keywords,
+                front_timing_probe.as_ref().unwrap_or(&obj),
             );
         if !modal_only
             && plot_ok
@@ -1191,22 +1196,26 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let front = front_spell.characteristics();
         let front_timing =
             casting::permitted_spell_types(&self.state, player, card, front.types, 0)
-                && (commanded
-                    || casting::timing_allows(&self.state, player, front.types, front.keywords))
+                && (commanded || casting::object_timing_allows(&self.state, player, front_spell))
                 && casting::spell_condition_allows(&self.state, player, card, def, 0);
         let front_now =
             front_timing && !casting::cast_is_forbidden(&self.state, player, front_spell);
         options.retain(|o| match o.kind {
-            // Land plays, Bestow Auras, and Impending casts (`can_cast_form_paying`)
-            // have already passed their own timing, permission, and lock checks.
-            CastModeKind::PlayLandFace(_) | CastModeKind::Bestow | CastModeKind::Impending => true,
-            // The lock was asked of these as what they are, a prototype or
-            // face-down spell (`casting::can_cast_form_paying`).
-            CastModeKind::Prototype | CastModeKind::Disguise => front_timing,
+            // Land plays, Prototype, Disguise, Bestow Auras, and Impending casts
+            // (`can_cast_form_paying`) have already passed their own timing,
+            // permission, and lock checks on their exact projected form.
+            CastModeKind::PlayLandFace(_)
+            | CastModeKind::Prototype
+            | CastModeKind::Disguise
+            | CastModeKind::Bestow
+            | CastModeKind::Impending => true,
             CastModeKind::Foretell => {
+                let foretell_obj =
+                    foretell_cost.map(|c| casting::SpellForm::Foretell(c).project(front_spell));
+                let foretell_ref = foretell_obj.as_ref().unwrap_or(front_spell);
                 casting::permitted_spell_types(&self.state, player, card, face.types, 0)
                     && (commanded
-                        || casting::timing_allows(&self.state, player, face.types, face.keywords))
+                        || casting::object_timing_allows(&self.state, player, foretell_ref))
                     && casting::spell_condition_allows(&self.state, player, card, def, 0)
             }
             CastModeKind::Plot => {
@@ -1232,8 +1241,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             CastModeKind::Fused => {
                 let raw_c = obj.characteristics();
                 casting::permitted_spell_types(&self.state, player, card, raw_c.types, 0)
-                    && (commanded
-                        || casting::timing_allows(&self.state, player, raw_c.types, raw_c.keywords))
+                    && (commanded || casting::object_timing_allows(&self.state, player, &obj))
                     && casting::spell_condition_allows(&self.state, player, card, def, 0)
                     && casting::spell_condition_allows(&self.state, player, card, def, 1)
                     && !casting::cast_is_forbidden(&self.state, player, &obj)

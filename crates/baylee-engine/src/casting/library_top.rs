@@ -25,9 +25,20 @@ pub fn library_top_visible_to(state: &GameState, viewer: PlayerId, owner: Player
         || viewer == owner
             && state.effects.may_reveal_or_change_hand_size()
             && state.effects.iter().any(|effect| {
-                effect.controller == owner
-                    && effect.modifier == Modifier::LookAtLibraryTop
-                    && crate::effects::source_is_present(state, effect)
+                if !crate::effects::source_is_present(state, effect) {
+                    return false;
+                }
+                match effect.modifier {
+                    Modifier::LookAtLibraryTop => effect.controller == owner,
+                    Modifier::MayLookAtTopOfLibrary { who } => crate::eval::players_for_source(
+                        who,
+                        state,
+                        effect.controller,
+                        effect.source,
+                    )
+                    .is_some_and(|ps| ps.contains(&owner)),
+                    _ => false,
+                }
             })
 }
 

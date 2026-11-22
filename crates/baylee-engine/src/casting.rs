@@ -44,8 +44,9 @@ mod tests;
 
 pub use alt_grants::alt_cast_land_open;
 pub(crate) use alt_grants::{
-    AltCastGrantRoute, alt_cast_grant_options, alt_cast_route_still_open, alt_cast_zone_spell_open,
-    has_alt_cast_grant,
+    AltCastGrantRoute, alt_cast_face_open, alt_cast_face_with_flash, alt_cast_grant_options,
+    alt_cast_graveyard_land_zone_open, alt_cast_route_still_open, alt_cast_zone_spell_open,
+    consume_alt_cast_land_allowance, has_alt_cast_grant,
 };
 pub(crate) use escape::{escape_grants, granted_escape_options, mana_cost_mode};
 pub(crate) use face_options::ordinary_face_kind;
@@ -390,9 +391,11 @@ pub fn card_has_a_legal_target(
     let fc = front_obj.characteristics();
     let front_open = !cast_is_forbidden(state, player, front_obj)
         && !fc.types.contains(TypeSet::LAND)
-        && graveyard_face_open(state, player, card, 0)
+        && (graveyard_face_open(state, player, card, 0)
+            || alt_cast_face_open(state, lookup, player, card, 0))
         && permitted_spell_types(state, player, card, fc.types, 0)
-        && (timing_allows(state, player, fc.types, fc.keywords)
+        && (object_timing_allows(state, player, front_obj)
+            || alt_cast_face_with_flash(state, lookup, player, card, 0)
             || (in_sneak_window(state, player)
                 && sneak_cost_for(state, player, card, Some(def), 0).is_some()))
         && spell_condition_allows(state, player, card, def, 0);
@@ -400,9 +403,11 @@ pub fn card_has_a_legal_target(
         return true;
     }
     castable_back_faces_in_zone(def, on_adventure, disturb_ok).any(|(i, _)| {
-        face_timing_allows(state, player, card, def, i)
+        (face_timing_allows(state, player, card, def, i)
+            || alt_cast_face_with_flash(state, lookup, player, card, i))
             && !face_is_forbidden(state, player, obj, def, i)
-            && graveyard_face_open(state, player, card, i)
+            && (graveyard_face_open(state, player, card, i)
+                || alt_cast_face_open(state, lookup, player, card, i))
             && face_has_a_legal_target(state, lookup, player, card, i)
     })
 }
@@ -1017,6 +1022,17 @@ pub(crate) fn requirement_is_reachable_for(
 /// exist until it is cast, so nothing could have granted it anything — and
 /// still wants the two player-scoped effects above, which is the whole
 /// reason this is one function and not two.
+fn teferi_sorcery_lock(state: &GameState, player: PlayerId) -> bool {
+    state.effects.may_change_cast_timing_or_lock()
+        && state.effects.iter().any(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
+            ) && crate::effects::source_is_present(state, fx)
+                && state.is_opponent(fx.controller, player)
+        })
+}
+
 #[doc(hidden)]
 pub fn timing_allows(
     state: &GameState,
@@ -1026,13 +1042,7 @@ pub fn timing_allows(
 ) -> bool {
     // Teferi's restriction forces sorcery-speed timing on everything for
     // opponents.
-    let teferi_lock = state.effects.may_change_cast_timing_or_lock()
-        && state.effects.iter().any(|fx| {
-            matches!(
-                fx.modifier,
-                baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
-            ) && state.is_opponent(fx.controller, player)
-        });
+    let teferi_lock = teferi_sorcery_lock(state, player);
     // Flash (CR 702.8a) makes a card castable whenever an instant could be
     // — Snapcaster Mage, Restoration Angel, the whole free-spell cycle.
     let is_instant =
@@ -1041,6 +1051,7 @@ pub fn timing_allows(
         && state.effects.may_change_cast_timing_or_lock()
         && state.effects.iter().any(|fx| {
             fx.controller == player
+                && crate::effects::source_is_present(state, fx)
                 && match fx.modifier {
                     baylee_cards_dsl::Modifier::SorceriesHaveFlash => {
                         types.contains(TypeSet::SORCERY)
@@ -1058,6 +1069,43 @@ pub fn timing_allows(
     true
 }
 
+/// Object-aware cast timing check (`CR 601.3`), extending [`timing_allows`] with
+/// [`baylee_cards_dsl::Modifier::GrantFlash`] against the prospective spell.
+pub(crate) fn object_timing_allows(
+    state: &GameState,
+    player: PlayerId,
+    obj: &crate::object::GameObject,
+) -> bool {
+    let c = obj.characteristics();
+    if timing_allows(state, player, c.types, c.keywords) {
+        return true;
+    }
+    if teferi_sorcery_lock(state, player) || !state.effects.may_change_cast_timing_or_lock() {
+        return false;
+    }
+    let mut prospective: Option<crate::object::GameObject> = None;
+    state.effects.iter().any(|fx| {
+        let baylee_cards_dsl::Modifier::GrantFlash { who, filter } = fx.modifier else {
+            return false;
+        };
+        if !crate::effects::source_is_present(state, fx)
+            || !crate::eval::players_for_source(who, state, fx.controller, fx.source)
+                .is_some_and(|ps| ps.contains(&player))
+        {
+            return false;
+        }
+        let spell = prospective.get_or_insert_with(|| projected_spell(state, player, obj));
+        crate::effects::matches_filter(state, fx, spell)
+            && crate::eval::matches(
+                filter,
+                state,
+                spell,
+                fx.controller,
+                fx.source.unwrap_or(spell.id),
+            )
+    })
+}
+
 /// Whether `player` may cast back face `face` of `def` now, as far as timing
 /// goes (CR 601.3).
 ///
@@ -1066,9 +1114,7 @@ pub fn timing_allows(
 /// is evaluated for an MDFC (CR 712.8c), and only the alternative
 /// characteristics for an Adventure (CR 716.3a). So an instant printed on
 /// the back of a creature or an enchantment is cast whenever an instant
-/// could be, and the front is not. Read off the printed face: nothing can
-/// have granted a face that is not up anything, and the two player-scoped
-/// effects `timing_allows` reads still apply.
+/// could be, and the front is not.
 pub(crate) fn face_timing_allows(
     state: &GameState,
     player: PlayerId,
@@ -1077,8 +1123,20 @@ pub(crate) fn face_timing_allows(
     face: usize,
 ) -> bool {
     def.faces.get(face).is_some_and(|f| {
-        timing_allows(state, player, f.types, def.keywords_for_face(face))
-            && permitted_spell_types(state, player, card, f.types, face)
+        let face_timing =
+            timing_allows(state, player, f.types, def.keywords_for_face(face))
+                || state.object(card).is_some_and(|raw| {
+                    let mut face_obj = raw.clone();
+                    if face != 0 || def.faces.len() > 1 {
+                        face_obj.base = std::sync::Arc::new(
+                            crate::object::Characteristics::from_face(def, face, raw.base.name),
+                        );
+                        face_obj.cache.clear();
+                        face_obj.face_index = u8::try_from(face).unwrap_or(0);
+                    }
+                    object_timing_allows(state, player, &face_obj)
+                });
+        face_timing && permitted_spell_types(state, player, card, f.types, face)
     }) && spell_condition_allows(state, player, card, def, face)
 }
 
@@ -1349,18 +1407,24 @@ fn can_cast_paying(
     card: ObjectId,
     paying: Paying,
 ) -> Result<(), CastError> {
-    if library_top_life_open(state, player, card) {
-        return library_top_life_options(state, lookup, player, card, paying).map(drop);
-    }
-    let mut best = can_cast_form_paying(state, lookup, player, card, None, paying);
-    if best.is_ok() {
-        return best;
-    }
-    if let Some(face) = state
-        .object(card)
-        .and_then(|o| o.card)
-        .and_then(|c| lookup.card(c.index))
-        .and_then(|d| d.faces.first())
+    let mut best = if library_top_life_open(state, player, card) {
+        match library_top_life_options(state, lookup, player, card, paying) {
+            Ok(_) => return Ok(()),
+            Err(err) => Err(err),
+        }
+    } else {
+        let res = can_cast_form_paying(state, lookup, player, card, None, paying);
+        if res.is_ok() {
+            return res;
+        }
+        res
+    };
+    if !library_top_life_open(state, player, card)
+        && let Some(face) = state
+            .object(card)
+            .and_then(|o| o.card)
+            .and_then(|c| lookup.card(c.index))
+            .and_then(|d| d.faces.first())
     {
         for form in [
             face.prototype.map(SpellForm::Prototype),
@@ -1684,7 +1748,7 @@ pub(crate) fn can_cast_form_paying(
         && if matches!(form, Some(SpellForm::Plot)) {
             sorcery_window(state, player)
         } else {
-            timing_allows(state, player, c.types, c.keywords)
+            object_timing_allows(state, player, obj)
         }
         && printed.is_none_or(|def| spell_condition_allows(state, player, card, def, 0));
     let sneak_now = form.is_none()
@@ -1704,12 +1768,7 @@ pub(crate) fn can_cast_form_paying(
     });
     let fused_now = fused_allowed
         && permitted_spell_types(state, player, card, raw_obj.characteristics().types, 0)
-        && timing_allows(
-            state,
-            player,
-            raw_obj.characteristics().types,
-            raw_obj.characteristics().keywords,
-        )
+        && object_timing_allows(state, player, raw_obj)
         && printed.is_some_and(|def| {
             spell_condition_allows(state, player, card, def, 0)
                 && spell_condition_allows(state, player, card, def, 1)
@@ -2676,7 +2735,7 @@ pub(crate) fn can_begin_suspend(
     let printed = obj.card.and_then(|c| lookup.card(c.index));
     !c.types.contains(TypeSet::LAND)
         && !cast_is_forbidden(state, player, obj)
-        && timing_allows(state, player, c.types, c.keywords)
+        && object_timing_allows(state, player, obj)
         && printed.is_none_or(|def| spell_condition_allows(state, player, card, def, 0))
 }
 /// Does `player` control one of their own commanders right now?

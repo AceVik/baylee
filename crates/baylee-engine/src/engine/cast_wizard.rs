@@ -532,11 +532,13 @@ impl CastWizard {
             if let Some(state) = self.alt_cast.as_deref_mut() {
                 state.selected = Some(route);
             }
-            if let Some(base_mana) = route.base_mana {
+            if route.life.is_none() {
                 self.announced = Some(CastModeKind::Permission(route.source));
-                self.override_mana_cost = Some(base_mana);
+                self.override_mana_cost = route.base_mana;
                 self.kicked = route.kicked;
-                if let Some(def) = def {
+                if route.prototype {
+                    self.option = Some(CastModeKind::Prototype);
+                } else if let Some(def) = def {
                     self.option = Some(casting::ordinary_face_kind(
                         def,
                         route.face,

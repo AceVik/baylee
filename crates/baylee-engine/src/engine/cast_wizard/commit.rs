@@ -44,7 +44,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         &self.lookup,
                         player,
                         wizard.card,
-                        r,
+                        &r,
                     )
             });
             if route_face != wizard.face_index()
@@ -65,7 +65,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     &self.lookup,
                     player,
                     wizard.card,
-                    route,
+                    &route,
                 )
             {
                 return Err(EngineError::IllegalAction(
@@ -890,7 +890,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 matches!(
                     wizard.option,
                     Some(CastModeKind::Alternative(_) | CastModeKind::Emerge)
-                ) || matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }));
+                ) || matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }))
+                    || wizard.selected_alt_grant().is_some_and(|r| r.is_alt_cost);
             obj.chosen_player = wizard.chosen_player;
             // Where it was cast from, read before it moves: a card cast from
             // exile under a play permission (Expressive Iteration) or from

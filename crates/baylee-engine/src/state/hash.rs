@@ -2957,6 +2957,148 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             std::hash::Hash::hash(rel, h);
         }
         F::ControlledByChooser => h.u8(235),
+        F::CmcAtMostAmount(amt) => {
+            h.u8(236);
+            hash_filter_amount(h, amt);
+        }
+        F::CmcEqualsAmount(amt) => {
+            h.u8(237);
+            hash_filter_amount(h, amt);
+        }
+        F::PowerAtMostAmount(amt) => {
+            h.u8(238);
+            hash_filter_amount(h, amt);
+        }
+        F::PowerAtLeastAmount(amt) => {
+            h.u8(239);
+            hash_filter_amount(h, amt);
+        }
+    }
+}
+
+fn hash_filter_amount(h: &mut Hasher, amt: &baylee_cards_dsl::Amount) {
+    if amount_filter_depth_exceeds(amt, 0) {
+        h.u8(0xff);
+    } else {
+        std::hash::Hash::hash(amt, h);
+    }
+}
+
+fn filter_amount_depth_exceeds(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
+    use baylee_cards_dsl::Filter as F;
+    if depth >= 8 {
+        return true;
+    }
+    match filter {
+        F::CmcAtMostAmount(amt)
+        | F::CmcEqualsAmount(amt)
+        | F::PowerAtMostAmount(amt)
+        | F::PowerAtLeastAmount(amt) => amount_filter_depth_exceeds(amt, depth + 1),
+        F::And(parts) | F::Or(parts) => parts
+            .iter()
+            .any(|inner| filter_amount_depth_exceeds(inner, depth)),
+        F::Not(inner)
+        | F::AttachedTo(inner)
+        | F::BlockedThisTurnBy(inner)
+        | F::LowestManaValueOnBattlefield(inner)
+        | F::SharesAColorWith(inner)
+        | F::SharesCreatureTypeWith(inner)
+        | F::ControllerControls(inner)
+        | F::ActivatedAbilityFrom(inner) => filter_amount_depth_exceeds(inner, depth),
+        _ => false,
+    }
+}
+
+fn amount_filter_depth_exceeds(amt: &baylee_cards_dsl::Amount, depth: u8) -> bool {
+    use baylee_cards_dsl::{Amount as A, ThisWay as TW};
+    if depth >= 8 {
+        return true;
+    }
+    match amt {
+        A::DistinctColorsAmong(f)
+        | A::BasicLandTypesAmong(f)
+        | A::CountOf { filter: f, .. }
+        | A::ControlledCount { filter: f, .. }
+        | A::DamageThisTurn { by: f, .. }
+        | A::GreatestPowerAmong(f)
+        | A::GreatestManaValueAmong(f) => filter_amount_depth_exceeds(f, depth),
+        A::ThisWay(tw) | A::ThisWayBy { what: tw, .. } => match tw {
+            TW::Died(f)
+            | TW::Destroyed(f)
+            | TW::ExiledFromBattlefield(f)
+            | TW::ReturnedToHand(f)
+            | TW::DiscardedMatching(f)
+            | TW::ExiledFromLibrary(f)
+            | TW::Milled(f)
+            | TW::Revealed(f)
+            | TW::ExiledFromGraveyard(f)
+            | TW::Exiled(f) => filter_amount_depth_exceeds(f, depth),
+            _ => false,
+        },
+        A::Half { base: a, .. }
+        | A::Divided { base: a, .. }
+        | A::Times { base: a, .. }
+        | A::Plus { base: a, .. }
+        | A::Negated(a)
+        | A::SaturatingSub { base: a, .. }
+        | A::ConstantMinus { subtract: a, .. } => amount_filter_depth_exceeds(a, depth + 1),
+        A::Sum { left, right } | A::Difference { left, right } => {
+            amount_filter_depth_exceeds(left, depth + 1)
+                || amount_filter_depth_exceeds(right, depth + 1)
+        }
+        A::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            condition_filter_depth_exceeds(condition, depth + 1)
+                || amount_filter_depth_exceeds(then, depth + 1)
+                || amount_filter_depth_exceeds(otherwise, depth + 1)
+        }
+        _ => false,
+    }
+}
+
+fn condition_filter_depth_exceeds(cond: &baylee_cards_dsl::Condition, depth: u8) -> bool {
+    use baylee_cards_dsl::Condition as C;
+    if depth >= 8 {
+        return true;
+    }
+    match cond {
+        C::AmountAtLeast(a, _) | C::AmountIsEven(a) => amount_filter_depth_exceeds(a, depth),
+        C::AmountCompare { left, right, .. } => {
+            amount_filter_depth_exceeds(left, depth) || amount_filter_depth_exceeds(right, depth)
+        }
+        C::ControlCount(f, _)
+        | C::ControlCountExceptEvent(f, _)
+        | C::ControlCountAtMost(f, _)
+        | C::BattlefieldCount(f, _)
+        | C::BattlefieldCountAtMost(f, _)
+        | C::ControlDistinctNames(f, _)
+        | C::OpponentControlCount(f, _)
+        | C::OpponentControlCountAtMost(f, _)
+        | C::OpponentControlsMore(f)
+        | C::OpponentControlsMoreBy(f, _)
+        | C::ControlMoreThanEachOtherPlayer(f)
+        | C::SomeDefendingPlayerControlsNone(f)
+        | C::ChosenOpponentControls(f)
+        | C::ChosenColorIsUniqueMostCommon(f)
+        | C::TargetSpellWouldDestroy(f)
+        | C::GraveyardCardsAbove(f, _)
+        | C::SourceMatches(f)
+        | C::AttachedMatches(f)
+        | C::CanSacrifice(f)
+        | C::SacrificedForCost(f)
+        | C::DiscardedForCost(f)
+        | C::ObjectMatches { filter: f, .. } => filter_amount_depth_exceeds(f, depth),
+        C::EventBlockedByOthers { some, none } => {
+            filter_amount_depth_exceeds(some, depth) || filter_amount_depth_exceeds(none, depth)
+        }
+        C::Not(inner) | C::TriggerOnly(inner) => condition_filter_depth_exceeds(inner, depth + 1),
+        C::All(parts) | C::Any(parts) => parts
+            .iter()
+            .any(|p| condition_filter_depth_exceeds(p, depth + 1)),
+        _ => false,
     }
 }
 

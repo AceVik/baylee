@@ -42,7 +42,11 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::SharesAColorWith(_)
         | Filter::SharesCreatureTypeWith(_)
         | Filter::SharesColorWithExiledWithSource
-        | Filter::SharesColorWithSource => true,
+        | Filter::SharesColorWithSource
+        | Filter::CmcAtMostAmount(_)
+        | Filter::CmcEqualsAmount(_)
+        | Filter::PowerAtMostAmount(_)
+        | Filter::PowerAtLeastAmount(_) => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) | Filter::ControllerControls(f) => filter_reads_board_state(f),
         _ => false,
@@ -53,7 +57,14 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
 /// (`Filter::Reference` and its family), which only a resolution or a target
 /// choice can supply.
 pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool {
+    filter_reads_reference_at(filter, 0)
+}
+
+fn filter_reads_reference_at(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
     use baylee_cards_dsl::Filter;
+    if depth >= 8 {
+        return false;
+    }
     match filter {
         Filter::Reference
         | Filter::BlockingReference
@@ -63,14 +74,54 @@ pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool 
         | Filter::NotControlledByReferenceController
         | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::SharesTypeWithReference(_) => true,
-        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_reference),
+        Filter::CmcAtMostAmount(amt)
+        | Filter::CmcEqualsAmount(amt)
+        | Filter::PowerAtMostAmount(amt)
+        | Filter::PowerAtLeastAmount(amt) => amount_reads_reference_at(amt, depth + 1),
+        Filter::And(parts) | Filter::Or(parts) => {
+            parts.iter().any(|f| filter_reads_reference_at(f, depth))
+        }
         Filter::Not(f)
         | Filter::AttachedTo(f)
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
         | Filter::SharesCreatureTypeWith(f)
-        | Filter::ControllerControls(f) => filter_reads_reference(f),
+        | Filter::ControllerControls(f) => filter_reads_reference_at(f, depth),
+        _ => false,
+    }
+}
+
+fn amount_reads_reference_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
+    use baylee_cards_dsl::Amount;
+    if depth >= 8 {
+        return false;
+    }
+    match amount {
+        Amount::DistinctColorsAmong(f)
+        | Amount::BasicLandTypesAmong(f)
+        | Amount::CountOf { filter: f, .. }
+        | Amount::ControlledCount { filter: f, .. }
+        | Amount::DamageThisTurn { by: f, .. }
+        | Amount::GreatestPowerAmong(f)
+        | Amount::GreatestManaValueAmong(f) => filter_reads_reference_at(f, depth),
+        Amount::Half { base: a, .. }
+        | Amount::Divided { base: a, .. }
+        | Amount::Times { base: a, .. }
+        | Amount::Plus { base: a, .. }
+        | Amount::Negated(a)
+        | Amount::SaturatingSub { base: a, .. }
+        | Amount::ConstantMinus { subtract: a, .. } => amount_reads_reference_at(a, depth + 1),
+        Amount::Sum { left, right } | Amount::Difference { left, right } => {
+            amount_reads_reference_at(left, depth + 1)
+                || amount_reads_reference_at(right, depth + 1)
+        }
+        Amount::IfCondition {
+            then, otherwise, ..
+        } => {
+            amount_reads_reference_at(then, depth + 1)
+                || amount_reads_reference_at(otherwise, depth + 1)
+        }
         _ => false,
     }
 }
@@ -229,6 +280,7 @@ pub(crate) fn ability_reads_crime(ability: &baylee_cards_dsl::AbilityDef) -> boo
         }
         AbilityDef::Static(sa) => {
             sa.condition.as_ref().is_some_and(condition_reads_crime)
+                || filter_reads_crime(&sa.filter, 0)
                 || modifier_reads_crime(&sa.modifier)
         }
         AbilityDef::Replacement(
@@ -255,41 +307,112 @@ fn cost_reduction_reads_crime(cr: Option<&baylee_cards_dsl::CostReduction>) -> b
 }
 
 fn condition_reads_crime(cond: &baylee_cards_dsl::Condition) -> bool {
+    condition_reads_crime_at(cond, 0)
+}
+
+fn condition_reads_crime_at(cond: &baylee_cards_dsl::Condition, depth: u8) -> bool {
     use baylee_cards_dsl::Condition;
+    if depth >= 8 {
+        return false;
+    }
     match cond {
         Condition::CommittedCrimeThisTurn(_) => true,
         Condition::AmountAtLeast(amount, _) | Condition::AmountIsEven(amount) => {
-            amount_reads_crime(amount)
+            amount_reads_crime_at(amount, depth + 1)
         }
         Condition::AmountCompare { left, right, .. } => {
-            amount_reads_crime(left) || amount_reads_crime(right)
+            amount_reads_crime_at(left, depth + 1) || amount_reads_crime_at(right, depth + 1)
         }
-        Condition::Not(inner) | Condition::TriggerOnly(inner) => condition_reads_crime(inner),
-        Condition::All(parts) | Condition::Any(parts) => parts.iter().any(condition_reads_crime),
+        Condition::ControlCount(f, _)
+        | Condition::ControlCountExceptEvent(f, _)
+        | Condition::ControlCountAtMost(f, _)
+        | Condition::BattlefieldCount(f, _)
+        | Condition::BattlefieldCountAtMost(f, _)
+        | Condition::ControlDistinctNames(f, _)
+        | Condition::OpponentControlCount(f, _)
+        | Condition::OpponentControlCountAtMost(f, _)
+        | Condition::OpponentControlsMore(f)
+        | Condition::OpponentControlsMoreBy(f, _)
+        | Condition::ControlMoreThanEachOtherPlayer(f)
+        | Condition::SomeDefendingPlayerControlsNone(f)
+        | Condition::ChosenOpponentControls(f)
+        | Condition::ChosenColorIsUniqueMostCommon(f)
+        | Condition::TargetSpellWouldDestroy(f)
+        | Condition::GraveyardCardsAbove(f, _)
+        | Condition::SourceMatches(f)
+        | Condition::AttachedMatches(f)
+        | Condition::CanSacrifice(f)
+        | Condition::SacrificedForCost(f)
+        | Condition::DiscardedForCost(f)
+        | Condition::ObjectMatches { filter: f, .. } => filter_reads_crime(f, depth + 1),
+        Condition::EventBlockedByOthers { some, none } => {
+            filter_reads_crime(some, depth + 1) || filter_reads_crime(none, depth + 1)
+        }
+        Condition::Not(inner) | Condition::TriggerOnly(inner) => {
+            condition_reads_crime_at(inner, depth + 1)
+        }
+        Condition::All(parts) | Condition::Any(parts) => {
+            parts.iter().any(|p| condition_reads_crime_at(p, depth + 1))
+        }
         _ => false,
     }
 }
 
-fn amount_reads_crime(amount: &baylee_cards_dsl::Amount) -> bool {
+fn filter_reads_crime(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
+    use baylee_cards_dsl::Filter;
+    if depth >= 8 {
+        return false;
+    }
+    match filter {
+        Filter::CmcAtMostAmount(a)
+        | Filter::CmcEqualsAmount(a)
+        | Filter::PowerAtMostAmount(a)
+        | Filter::PowerAtLeastAmount(a) => amount_reads_crime_at(a, depth + 1),
+        Filter::And(parts) | Filter::Or(parts) => {
+            parts.iter().any(|f| filter_reads_crime(f, depth))
+        }
+        Filter::Not(f)
+        | Filter::AttachedTo(f)
+        | Filter::BlockedThisTurnBy(f)
+        | Filter::LowestManaValueOnBattlefield(f)
+        | Filter::SharesAColorWith(f)
+        | Filter::SharesCreatureTypeWith(f)
+        | Filter::ControllerControls(f) => filter_reads_crime(f, depth),
+        _ => false,
+    }
+}
+
+fn amount_reads_crime_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
     use baylee_cards_dsl::Amount;
+    if depth >= 8 {
+        return false;
+    }
     match amount {
         Amount::IfCondition {
             condition,
             then,
             otherwise,
         } => {
-            condition_reads_crime(condition)
-                || amount_reads_crime(then)
-                || amount_reads_crime(otherwise)
+            condition_reads_crime_at(condition, depth + 1)
+                || amount_reads_crime_at(then, depth + 1)
+                || amount_reads_crime_at(otherwise, depth + 1)
         }
+        Amount::DistinctColorsAmong(f)
+        | Amount::BasicLandTypesAmong(f)
+        | Amount::CountOf { filter: f, .. }
+        | Amount::ControlledCount { filter: f, .. }
+        | Amount::DamageThisTurn { by: f, .. }
+        | Amount::GreatestPowerAmong(f)
+        | Amount::GreatestManaValueAmong(f) => filter_reads_crime(f, depth + 1),
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
+        | Amount::ConstantMinus { subtract: a, .. }
         | Amount::Half { base: a, .. }
         | Amount::Divided { base: a, .. }
-        | Amount::Times { base: a, .. } => amount_reads_crime(a),
+        | Amount::Times { base: a, .. } => amount_reads_crime_at(a, depth + 1),
         Amount::Sum { left: a, right: b } | Amount::Difference { left: a, right: b } => {
-            amount_reads_crime(a) || amount_reads_crime(b)
+            amount_reads_crime_at(a, depth + 1) || amount_reads_crime_at(b, depth + 1)
         }
         _ => false,
     }
@@ -306,6 +429,11 @@ fn modifier_reads_crime(modifier: &baylee_cards_dsl::Modifier) -> bool {
         }
         Modifier::GrantTriggeredDefinition(ability) => ability_reads_crime(ability),
         Modifier::GrantActivated { effects, .. } => effects_read_crime(effects),
+        Modifier::GrantFlash { filter, .. } => filter_reads_crime(filter, 0),
+        Modifier::MayCastWithAltCost {
+            max_mana_value: Some(amt),
+            ..
+        } => amount_reads_crime_at(amt, 0),
         _ => false,
     }
 }
@@ -400,6 +528,7 @@ pub(crate) fn ability_reads_expend(ability: &baylee_cards_dsl::AbilityDef) -> bo
         }
         AbilityDef::Static(sa) => {
             sa.condition.as_ref().is_some_and(condition_reads_expend)
+                || filter_reads_expend(&sa.filter, 0)
                 || modifier_reads_expend(&sa.modifier)
         }
         AbilityDef::Replacement(
@@ -418,23 +547,90 @@ pub(crate) fn ability_reads_expend(ability: &baylee_cards_dsl::AbilityDef) -> bo
 }
 
 fn condition_reads_expend(cond: &baylee_cards_dsl::Condition) -> bool {
+    condition_reads_expend_at(cond, 0)
+}
+
+fn condition_reads_expend_at(cond: &baylee_cards_dsl::Condition, depth: u8) -> bool {
     use baylee_cards_dsl::Condition;
+    if depth >= 8 {
+        return false;
+    }
     match cond {
         Condition::ExpendedThisTurn(_) => true,
         Condition::AmountAtLeast(amount, _) | Condition::AmountIsEven(amount) => {
-            amount_reads_expend(amount)
+            amount_reads_expend_at(amount, depth + 1)
         }
         Condition::AmountCompare { left, right, .. } => {
-            amount_reads_expend(left) || amount_reads_expend(right)
+            amount_reads_expend_at(left, depth + 1) || amount_reads_expend_at(right, depth + 1)
         }
-        Condition::Not(inner) | Condition::TriggerOnly(inner) => condition_reads_expend(inner),
-        Condition::All(parts) | Condition::Any(parts) => parts.iter().any(condition_reads_expend),
+        Condition::ControlCount(f, _)
+        | Condition::ControlCountExceptEvent(f, _)
+        | Condition::ControlCountAtMost(f, _)
+        | Condition::BattlefieldCount(f, _)
+        | Condition::BattlefieldCountAtMost(f, _)
+        | Condition::ControlDistinctNames(f, _)
+        | Condition::OpponentControlCount(f, _)
+        | Condition::OpponentControlCountAtMost(f, _)
+        | Condition::OpponentControlsMore(f)
+        | Condition::OpponentControlsMoreBy(f, _)
+        | Condition::ControlMoreThanEachOtherPlayer(f)
+        | Condition::SomeDefendingPlayerControlsNone(f)
+        | Condition::ChosenOpponentControls(f)
+        | Condition::ChosenColorIsUniqueMostCommon(f)
+        | Condition::TargetSpellWouldDestroy(f)
+        | Condition::GraveyardCardsAbove(f, _)
+        | Condition::SourceMatches(f)
+        | Condition::AttachedMatches(f)
+        | Condition::CanSacrifice(f)
+        | Condition::SacrificedForCost(f)
+        | Condition::DiscardedForCost(f)
+        | Condition::ObjectMatches { filter: f, .. } => filter_reads_expend(f, depth + 1),
+        Condition::EventBlockedByOthers { some, none } => {
+            filter_reads_expend(some, depth + 1) || filter_reads_expend(none, depth + 1)
+        }
+        Condition::Not(inner) | Condition::TriggerOnly(inner) => {
+            condition_reads_expend_at(inner, depth + 1)
+        }
+        Condition::All(parts) | Condition::Any(parts) => parts
+            .iter()
+            .any(|p| condition_reads_expend_at(p, depth + 1)),
+        _ => false,
+    }
+}
+
+fn filter_reads_expend(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
+    use baylee_cards_dsl::Filter;
+    if depth >= 8 {
+        return false;
+    }
+    match filter {
+        Filter::CmcAtMostAmount(a)
+        | Filter::CmcEqualsAmount(a)
+        | Filter::PowerAtMostAmount(a)
+        | Filter::PowerAtLeastAmount(a) => amount_reads_expend_at(a, depth + 1),
+        Filter::And(parts) | Filter::Or(parts) => {
+            parts.iter().any(|f| filter_reads_expend(f, depth))
+        }
+        Filter::Not(f)
+        | Filter::AttachedTo(f)
+        | Filter::BlockedThisTurnBy(f)
+        | Filter::LowestManaValueOnBattlefield(f)
+        | Filter::SharesAColorWith(f)
+        | Filter::SharesCreatureTypeWith(f)
+        | Filter::ControllerControls(f) => filter_reads_expend(f, depth),
         _ => false,
     }
 }
 
 fn amount_reads_expend(amount: &baylee_cards_dsl::Amount) -> bool {
+    amount_reads_expend_at(amount, 0)
+}
+
+fn amount_reads_expend_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
     use baylee_cards_dsl::Amount;
+    if depth >= 8 {
+        return false;
+    }
     match amount {
         Amount::ManaExpendedOnSpellsThisTurn(_) => true,
         Amount::IfCondition {
@@ -442,18 +638,26 @@ fn amount_reads_expend(amount: &baylee_cards_dsl::Amount) -> bool {
             then,
             otherwise,
         } => {
-            condition_reads_expend(condition)
-                || amount_reads_expend(then)
-                || amount_reads_expend(otherwise)
+            condition_reads_expend_at(condition, depth + 1)
+                || amount_reads_expend_at(then, depth + 1)
+                || amount_reads_expend_at(otherwise, depth + 1)
         }
+        Amount::DistinctColorsAmong(f)
+        | Amount::BasicLandTypesAmong(f)
+        | Amount::CountOf { filter: f, .. }
+        | Amount::ControlledCount { filter: f, .. }
+        | Amount::DamageThisTurn { by: f, .. }
+        | Amount::GreatestPowerAmong(f)
+        | Amount::GreatestManaValueAmong(f) => filter_reads_expend(f, depth + 1),
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
+        | Amount::ConstantMinus { subtract: a, .. }
         | Amount::Half { base: a, .. }
         | Amount::Divided { base: a, .. }
-        | Amount::Times { base: a, .. } => amount_reads_expend(a),
+        | Amount::Times { base: a, .. } => amount_reads_expend_at(a, depth + 1),
         Amount::Sum { left: a, right: b } | Amount::Difference { left: a, right: b } => {
-            amount_reads_expend(a) || amount_reads_expend(b)
+            amount_reads_expend_at(a, depth + 1) || amount_reads_expend_at(b, depth + 1)
         }
         _ => false,
     }
@@ -473,6 +677,11 @@ fn modifier_reads_expend(modifier: &baylee_cards_dsl::Modifier) -> bool {
         Modifier::ModifyPTByAmount { power, toughness } => {
             amount_reads_expend(power) || amount_reads_expend(toughness)
         }
+        Modifier::GrantFlash { filter, .. } => filter_reads_expend(filter, 0),
+        Modifier::MayCastWithAltCost {
+            max_mana_value: Some(amt),
+            ..
+        } => amount_reads_expend_at(amt, 0),
         _ => false,
     }
 }

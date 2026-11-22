@@ -12,6 +12,7 @@ use crate::choice::CastModeKind;
 #[derive(Clone, Copy)]
 pub(crate) struct CostBasis {
     replacement: Option<ManaCost>,
+    extra_mana: ManaCost,
     require_printed_cost: bool,
     allow_prototype: bool,
     with_flash: bool,
@@ -22,6 +23,18 @@ impl CostBasis {
     pub(crate) const fn printed() -> Self {
         Self {
             replacement: None,
+            extra_mana: ManaCost::ZERO,
+            require_printed_cost: true,
+            allow_prototype: true,
+            with_flash: false,
+        }
+    }
+
+    /// The printed face or prototype cost plus an additional mana cost (`CR 118.8`).
+    pub(crate) const fn printed_plus(extra_mana: ManaCost) -> Self {
+        Self {
+            replacement: None,
+            extra_mana,
             require_printed_cost: true,
             allow_prototype: true,
             with_flash: false,
@@ -33,6 +46,7 @@ impl CostBasis {
     pub(crate) const fn instead(cost: ManaCost) -> Self {
         Self {
             replacement: Some(cost),
+            extra_mana: ManaCost::ZERO,
             require_printed_cost: false,
             allow_prototype: false,
             with_flash: false,
@@ -186,6 +200,7 @@ pub(crate) fn replaced_cost_options(
                         face.mana_cost
                     }
                 });
+                let base = base.combine(&basis.extra_mana);
                 let base = if kicked {
                     face.additional_costs
                         .iter()

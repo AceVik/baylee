@@ -60,7 +60,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .zones
             .list(ZoneLocation::Library(player))
             .last()
-            .filter(|card| casting::library_top_life_open(&self.state, player, **card))
+            .filter(|card| casting::library_top_spell_open(&self.state, player, **card))
         {
             cards.push(*card);
         }
