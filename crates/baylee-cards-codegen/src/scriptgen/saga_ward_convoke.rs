@@ -15,6 +15,16 @@ pub(super) enum ExtraOutcome {
     Pass,
 }
 
+enum ZoneContinuousOutcome {
+    Handled(Option<()>),
+    Pass(Params),
+}
+
+enum EtbTap {
+    Plain,
+    Sub(String),
+}
+
 impl Tx<'_> {
     pub(super) fn is_permanent_card_pub(&self) -> bool {
         self.is_permanent_card()
@@ -1368,33 +1378,28 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// Extended `S: Mode$ Continuous` handlers for Station thresholds, Leveler
-    /// bands, Library/Graveyard/Hand rules, Layer 4/5/6 characteristic rules,
-    /// and extra `CheckSVar$` conditions not yet in `activated::svar_condition`.
-    fn try_extra_continuous(&mut self, spec: &str, p: Params) -> ExtraOutcome {
-        if p.peek("AffectedDefined") == Some("Self") {
-            if let Some(min) = p.peek("Affected").and_then(parse_station_threshold) {
-                return ExtraOutcome::Handled(self.station_threshold_continuous(p, min));
-            }
-            if let Some(cond) = p.peek("IsPresent").and_then(parse_level_band) {
-                return ExtraOutcome::Handled(self.level_band_continuous(p, &cond));
-            }
-        }
+    fn try_extra_zone_continuous(&mut self, p: Params) -> ZoneContinuousOutcome {
         if p.peek("AffectedZone") == Some("Library") {
-            return ExtraOutcome::Handled(self.continuous_library_top(p));
+            if matches!(
+                p.peek("EffectZone"),
+                Some("Command" | "Battlefield,Command" | "Command,Battlefield")
+            ) {
+                return ZoneContinuousOutcome::Handled(self.continuous_library_top_command(p));
+            }
+            return ZoneContinuousOutcome::Handled(self.continuous_library_top(p));
         }
         if p.peek("AffectedZone") == Some("Graveyard")
             && matches!(p.peek("EffectZone"), None | Some("Battlefield"))
             && p.peek("MayPlay") == Some("True")
         {
-            return ExtraOutcome::Handled(self.continuous_graveyard_play(p));
+            return ZoneContinuousOutcome::Handled(self.continuous_graveyard_play(p));
         }
         if p.peek("AffectedZone") == Some("Graveyard")
             && p.peek("EffectZone") == Some("Graveyard")
             && p.peek("Affected") == Some("Card.Self")
             && p.peek("MayPlay") == Some("True")
         {
-            return ExtraOutcome::Handled(self.continuous_graveyard_self_play(p));
+            return ZoneContinuousOutcome::Handled(self.continuous_graveyard_self_play(p));
         }
         if p.peek("AffectedZone") == Some("Graveyard")
             && matches!(
@@ -1408,14 +1413,33 @@ impl Tx<'_> {
                     || k.trim().starts_with("Escape:CardManaCost ExileFromGrave<")
             })
         {
-            return ExtraOutcome::Handled(self.continuous_graveyard_keyword(p));
+            return ZoneContinuousOutcome::Handled(self.continuous_graveyard_keyword(p));
         }
         if p.peek("AffectedZone") == Some("Hand")
             && p.peek("MayLookAt") == Some("Player")
             && matches!(p.peek("Affected"), Some("Card.YouOwn" | "Card.YouCtrl"))
         {
-            return ExtraOutcome::Handled(self.continuous_reveal_your_hand(p));
+            return ZoneContinuousOutcome::Handled(self.continuous_reveal_your_hand(p));
         }
+        ZoneContinuousOutcome::Pass(p)
+    }
+
+    /// Extended `S: Mode$ Continuous` handlers for Station thresholds, Leveler
+    /// bands, Library/Graveyard/Hand rules, Layer 4/5/6 characteristic rules,
+    /// and extra `CheckSVar$` conditions not yet in `activated::svar_condition`.
+    fn try_extra_continuous(&mut self, spec: &str, p: Params) -> ExtraOutcome {
+        if p.peek("AffectedDefined") == Some("Self") {
+            if let Some(min) = p.peek("Affected").and_then(parse_station_threshold) {
+                return ExtraOutcome::Handled(self.station_threshold_continuous(p, min));
+            }
+            if let Some(cond) = p.peek("IsPresent").and_then(parse_level_band) {
+                return ExtraOutcome::Handled(self.level_band_continuous(p, &cond));
+            }
+        }
+        let p = match self.try_extra_zone_continuous(p) {
+            ZoneContinuousOutcome::Handled(res) => return ExtraOutcome::Handled(res),
+            ZoneContinuousOutcome::Pass(p) => p,
+        };
         if self.has_owner_graveyard_cda(&p) {
             return ExtraOutcome::Handled(self.characteristic_pt_graveyard_owner(p));
         }
@@ -1452,12 +1476,15 @@ impl Tx<'_> {
         if let Some(var) = p.peek("CheckSVar") {
             let cmp = p.peek("SVarCompare").unwrap_or("GE1");
             if let Some(first) = self
-                .svar_condition(var, cmp)
-                .or_else(|| self.extra_svar_condition_clause(var, cmp))
+                .svar_condition_clause(var, cmp)
+                .or_else(|| self.promised_gift_svar_condition(var, cmp))
             {
                 let cond = if let Some(var2) = p.peek("CheckSecondSVar") {
                     let cmp2 = p.peek("SecondSVarCompare").unwrap_or("GE1");
-                    let Some(second) = self.svar_condition_clause(var2, cmp2) else {
+                    let Some(second) = self
+                        .svar_condition_clause(var2, cmp2)
+                        .or_else(|| self.promised_gift_svar_condition(var2, cmp2))
+                    else {
                         return ExtraOutcome::Pass;
                     };
                     format!("Condition::All(&[{first}, {second}])")
@@ -1681,6 +1708,48 @@ impl Tx<'_> {
                 *item = updated;
             }
         }
+        Some(())
+    }
+
+    fn continuous_library_top_command(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let zone_arg = match (
+            p.take("AffectedZone").as_deref(),
+            p.take("EffectZone").as_deref(),
+            p.take("Secondary").as_deref(),
+        ) {
+            (Some("Library"), Some("Command"), None | Some("True")) => ", zone = ZoneRef::Command",
+            (
+                Some("Library"),
+                Some("Battlefield,Command" | "Command,Battlefield"),
+                None | Some("True"),
+            ) => ", zone = ZoneRef::BattlefieldOrCommand",
+            _ => return self.deny("static ability reaching `AffectedZone$ Library`".into()),
+        };
+        let Some(affected) = p.take("Affected") else {
+            return self.deny("static ability reaching `AffectedZone$ Library`".into());
+        };
+        let may_look = p.take("MayLookAt");
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability reaching `AffectedZone$ Library`".into());
+        }
+        let is_yours_card = matches!(
+            affected.trim(),
+            "Card.TopLibrary+YouCtrl"
+                | "Card.YouCtrl+TopLibrary"
+                | "Card.TopLibrary+YouOwn"
+                | "Card.YouOwn+TopLibrary"
+        );
+        let modifier = match (may_look.as_deref(), affected.trim()) {
+            (Some("You"), _) if is_yours_card => "Modifier::LookAtLibraryTop",
+            (Some("Player"), _) if is_yours_card => "Modifier::RevealLibraryTop",
+            (Some("Player"), "Card.TopLibrary") => "Modifier::RevealAllLibraryTops",
+            _ => return self.deny("static ability reaching `AffectedZone$ Library`".into()),
+        };
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::Any, {modifier}{zone_arg}{cond})"
+        ));
         Some(())
     }
 
@@ -2077,7 +2146,30 @@ impl Tx<'_> {
         self.extra_svar_condition_wave8(var, cmp)
     }
 
+    fn highest_cards_in_gy_condition(cmp: &str) -> Option<String> {
+        if let Some(n) = parse_at_least_u16(cmp).and_then(|v| u8::try_from(v).ok())
+            && n >= 1
+        {
+            return Some(format!(
+                "Condition::Any(&[Condition::GraveyardCountAtLeast({n}), \
+                 Condition::OpponentGraveyardCountAtLeast({n})])"
+            ));
+        }
+        if let Some(max) = parse_at_most_u16(cmp)
+            && let Some(min) = max.checked_add(1).and_then(|v| u8::try_from(v).ok())
+        {
+            return Some(format!(
+                "Condition::All(&[Condition::Not(&Condition::GraveyardCountAtLeast({min})), \
+                 Condition::Not(&Condition::OpponentGraveyardCountAtLeast({min}))])"
+            ));
+        }
+        None
+    }
+
     fn extra_svar_condition_tail(raw: &str, cmp: &str) -> Option<String> {
+        if raw == "PlayerCountPlayers$HighestCardsInGraveyard" {
+            return Self::highest_cards_in_gy_condition(cmp);
+        }
         if matches!(
             raw,
             "Count$ValidGraveyard Card.OppOwn" | "PlayerCountOpponents$HighestCardsInGraveyard"
@@ -2298,6 +2390,13 @@ impl Tx<'_> {
             }
             return ExtraOutcome::Handled(self.moved_exile_instead_of_graveyard(p));
         }
+        // Self-ETB replacements gated on kicker (`Card.Self+kicked` / `+kicked 1|2`).
+        if dest == Some("Battlefield")
+            && valid_card
+                .is_some_and(|v| v == "Card.Self+kicked" || v.starts_with("Card.Self+kicked "))
+        {
+            return ExtraOutcome::Handled(self.moved_self_kicked_etb(p));
+        }
         // Self-ETB replacements whose `ReplaceWith$` is NOT a plain `DB$ Tap`.
         if valid_card == Some("Card.Self") && dest == Some("Battlefield") {
             if let Some(with) = p.peek("ReplaceWith")
@@ -2319,7 +2418,15 @@ impl Tx<'_> {
                     return ExtraOutcome::Handled(self.moved_choose_shape(p));
                 }
                 if api == "Tap" {
-                    return self.moved_tapped_unless_condition(p);
+                    if let ExtraOutcome::Handled(out) =
+                        self.moved_tapped_unless_condition(p.clone())
+                    {
+                        return ExtraOutcome::Handled(out);
+                    }
+                    return self.moved_self_tapped_with_counters(p);
+                }
+                if api == "PutCounter" {
+                    return self.moved_self_tapped_with_counters(p);
                 }
             }
             return ExtraOutcome::Pass;
@@ -2333,6 +2440,257 @@ impl Tx<'_> {
             return ExtraOutcome::Handled(self.moved_external_enter_orientation(p));
         }
         ExtraOutcome::Pass
+    }
+
+    fn parse_etb_tap_params(mut tap: Params) -> Option<EtbTap> {
+        tap.drop_prose();
+        if !matches!(
+            tap.take("Defined").as_deref(),
+            None | Some("Self" | "ReplacedCard")
+        ) || !matches!(tap.take("ETB").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        let sub = tap.take("SubAbility");
+        if !tap.exhausted() {
+            return None;
+        }
+        Some(sub.map_or(EtbTap::Plain, EtbTap::Sub))
+    }
+
+    fn parse_etb_put_counter(
+        &mut self,
+        mut put: Params,
+    ) -> Option<(String, String, Option<String>)> {
+        put.drop_prose();
+        if !matches!(
+            put.take("Defined").as_deref(),
+            None | Some("Self" | "ReplacedCard")
+        ) || !matches!(put.take("ETB").as_deref(), None | Some("True"))
+        {
+            return None;
+        }
+        let kind_raw = put.take("CounterType")?;
+        let kind = super::counter_kind(kind_raw.trim())?;
+        let num_raw = put.take("CounterNum").unwrap_or_else(|| "1".to_string());
+        let sub = put.take("SubAbility");
+        if !put.exhausted() {
+            return None;
+        }
+        let amount = self.parse_moved_counter_amount(num_raw.trim())?;
+        Some((kind, amount, sub))
+    }
+
+    fn parse_moved_counter_amount(&mut self, raw: &str) -> Option<String> {
+        if let Ok(n) = raw.parse::<u32>() {
+            return (n > 0).then(|| format!("Amount::Fixed({n})"));
+        }
+        let def = if raw.starts_with("Count$") {
+            raw.to_string()
+        } else {
+            self.svars.get(raw)?.trim().to_string()
+        };
+        self.static_count_expr(&def)
+    }
+
+    /// Unconditional self-ETB replacement entering tapped *and* with counters
+    /// (`DB$ Tap | SubAbility$ DB$ PutCounter` or unconditional reverse), lowering
+    /// to `EnterModifier::Tapped` + `EnterModifier::WithCounters`.
+    fn moved_self_tapped_with_counters(&mut self, p: Params) -> ExtraOutcome {
+        if p.has("Origin")
+            || p.has("ActiveZones")
+            || p.has("Secondary")
+            || p.has("Condition")
+            || p.has("IsPresent")
+            || p.has("CheckSVar")
+            || p.has("ValidCause")
+            || !matches!(p.peek("ReplacementResult"), None | Some("Updated"))
+        {
+            return ExtraOutcome::Pass;
+        }
+        let Some(replace_name) = p.peek("ReplaceWith") else {
+            return ExtraOutcome::Pass;
+        };
+        let Some((api1, p1)) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|b| Params::parse(b))
+        else {
+            return ExtraOutcome::Pass;
+        };
+        let (kind, amount) = match api1.as_str() {
+            "Tap" => {
+                let Some(EtbTap::Sub(sub_name)) = Self::parse_etb_tap_params(p1) else {
+                    return ExtraOutcome::Pass;
+                };
+                let Some((api2, p2)) = self
+                    .svars
+                    .get(sub_name.trim())
+                    .and_then(|b| Params::parse(b))
+                else {
+                    return ExtraOutcome::Pass;
+                };
+                if api2 != "PutCounter" {
+                    return ExtraOutcome::Pass;
+                }
+                let Some((kind, amount, None)) = self.parse_etb_put_counter(p2) else {
+                    return ExtraOutcome::Pass;
+                };
+                (kind, amount)
+            }
+            "PutCounter" => {
+                let Some((kind, amount, Some(sub_name))) = self.parse_etb_put_counter(p1) else {
+                    return ExtraOutcome::Pass;
+                };
+                let Some((api2, p2)) = self
+                    .svars
+                    .get(sub_name.trim())
+                    .and_then(|b| Params::parse(b))
+                else {
+                    return ExtraOutcome::Pass;
+                };
+                if api2 != "Tap" {
+                    return ExtraOutcome::Pass;
+                }
+                if !matches!(Self::parse_etb_tap_params(p2), Some(EtbTap::Plain)) {
+                    return ExtraOutcome::Pass;
+                }
+                (kind, amount)
+            }
+            _ => return ExtraOutcome::Pass,
+        };
+        let mut check = p;
+        check.drop_prose();
+        check.take("ValidCard");
+        check.take("Destination");
+        check.take("ReplacementResult");
+        check.take("ReplaceWith");
+        if !check.exhausted() {
+            return ExtraOutcome::Pass;
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::Tapped".to_string());
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
+        ));
+        ExtraOutcome::Handled(Some(()))
+    }
+
+    /// `R: Event$ Moved | ValidCard$ Card.Self+kicked | Destination$ Battlefield`
+    /// placing counters and optionally granting permanent keyword(s) or
+    /// `CanAttackDefender` via `EnterModifier::WithCountersIf` + conditional static.
+    fn moved_self_kicked_etb(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("Destination").as_deref() != Some("Battlefield")
+            || !matches!(
+                p.take("ReplacementResult").as_deref(),
+                None | Some("Updated")
+            )
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let valid_card = p.take("ValidCard")?;
+        let idx = if valid_card == "Card.Self+kicked" && self.has_single_kicker {
+            0
+        } else if let Some(slot) = valid_card.strip_prefix("Card.Self+kicked ") {
+            let Some(i) = self.dual_kicker_index(slot) else {
+                return self.deny("replacement `Moved` this rule cannot read".to_string());
+            };
+            i
+        } else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        let Some(replace_name) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some((api1, p1)) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|b| Params::parse(b))
+        else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        if api1 != "PutCounter" {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some((kind, amount, sub)) = self.parse_etb_put_counter(p1) else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        let granted_modifier = match sub {
+            Some(sub_name) => Some(self.kicked_etb_animate_modifier(&sub_name)?),
+            None => None,
+        };
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::WithCountersIf {{ kind: {kind}, count: {amount}, \
+             condition: Condition::KickedWith({idx}) }}"
+        ));
+        if let Some(modifier) = granted_modifier {
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::This, {modifier}, condition = Some(Condition::KickedWith({idx})))"
+            ));
+        }
+        Some(())
+    }
+
+    fn kicked_etb_animate_modifier(&mut self, sub_name: &str) -> Option<String> {
+        let Some((api2, mut anim)) = self
+            .svars
+            .get(sub_name.trim())
+            .and_then(|b| Params::parse(b))
+        else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        anim.drop_prose();
+        if api2 != "Animate"
+            || !matches!(anim.take("Defined").as_deref(), None | Some("Self"))
+            || anim.take("Duration").as_deref() != Some("Permanent")
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let modifier = if let Some(kw_raw) = anim.take("Keywords") {
+            let mut kws = Vec::new();
+            for part in kw_raw.split('&') {
+                let Some(kw) = super::constants::keyword_const(part.trim()) else {
+                    return self.deny("replacement `Moved` this rule cannot read".to_string());
+                };
+                kws.push(kw);
+            }
+            if kws.is_empty() {
+                return self.deny("replacement `Moved` this rule cannot read".to_string());
+            }
+            let joined = kws[1..].iter().fold(kws[0].to_string(), |mut acc, k| {
+                acc.push_str(".union(");
+                acc.push_str(k);
+                acc.push(')');
+                acc
+            });
+            format!("Modifier::AddKeyword({joined})")
+        } else if let Some(static_name) = anim.take("staticAbilities") {
+            let Some(static_body) = self.svars.get(static_name.trim()) else {
+                return self.deny("replacement `Moved` this rule cannot read".to_string());
+            };
+            let Some((mode, mut sp)) = Params::parse(static_body) else {
+                return self.deny("replacement `Moved` this rule cannot read".to_string());
+            };
+            sp.drop_prose();
+            if mode != "CanAttackDefender"
+                || !matches!(sp.take("ValidCard").as_deref(), None | Some("Card.Self"))
+                || !sp.exhausted()
+            {
+                return self.deny("replacement `Moved` this rule cannot read".to_string());
+            }
+            "Modifier::AttacksDespiteDefender".to_string()
+        } else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        if !anim.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        Some(modifier)
     }
 
     fn moved_cant_enter(&mut self, mut p: Params) -> Option<()> {

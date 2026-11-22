@@ -53,7 +53,10 @@ impl Tx<'_> {
             return self.redirect_damage_to_you(p);
         }
         if p.peek("ReplaceWith").is_some() {
-            if p.peek("AlwaysReplace") == Some("True") && p.peek("ValidTarget") == Some("Card.Self")
+            if p.peek("AlwaysReplace") == Some("True")
+                && p.peek("ValidTarget").is_some_and(|vt| {
+                    vt == "Card.Self" || vt.starts_with("Card.Self+counters_GE1_")
+                })
             {
                 if !zone_arg.is_empty() {
                     return self
@@ -687,9 +690,23 @@ impl Tx<'_> {
     /// up to `CardCounters.<KIND>` damage while removing that many `<KIND>`
     /// counters (`Rock Hydra` -> `Modifier::CountersPreventDamage`).
     fn counters_prevent_damage_rule(&mut self, mut p: Params) -> Option<()> {
+        let required_kind = match p.take("ValidTarget").as_deref() {
+            Some("Card.Self") => None,
+            Some(raw) => {
+                let kind_raw = raw.strip_prefix("Card.Self+counters_GE1_")?;
+                if kind_raw.is_empty() || super::counter_kind(kind_raw).is_none() {
+                    return self
+                        .deny("a persistent spell prevention with another zone or result".into());
+                }
+                Some(kind_raw.to_string())
+            }
+            None => {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+        };
         if p.take("AlwaysReplace").as_deref() != Some("True")
             || p.take("PreventionEffect").as_deref() != Some("True")
-            || p.take("ValidTarget").as_deref() != Some("Card.Self")
             || p.has("IsCombat")
             || p.has("ValidSource")
             || p.has("Condition")
@@ -714,13 +731,68 @@ impl Tx<'_> {
             return self.deny("a persistent spell prevention with another zone or result".into());
         };
         rep.drop_prose();
+        let (kind_raw, kind) = if rep_api == "RemoveCounter" {
+            self.parse_direct_counter_prevention(rep)?
+        } else {
+            if rep_api != "ReplaceDamage" {
+                return self
+                    .deny("a persistent spell prevention with another zone or result".into());
+            }
+            self.parse_capped_counter_prevention(rep)?
+        };
+        if required_kind
+            .as_deref()
+            .is_some_and(|req| req != kind_raw.trim())
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::CountersPreventDamage({kind}))"
+        ));
+        Some(())
+    }
+
+    /// Direct `DB$ RemoveCounter` removing all prevented damage worth of counters
+    /// (`Defined$ Self|ReplacedTarget`, `CounterNum$ ReplaceCount$DamageAmount`).
+    fn parse_direct_counter_prevention(&mut self, mut rep: Params) -> Option<(String, String)> {
+        if !matches!(
+            rep.take("Defined").as_deref(),
+            Some("Self" | "ReplacedTarget")
+        ) {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some(kind_raw) = rep.take("CounterType") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let Some(num_var) = rep.take("CounterNum") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let Some(kind) = super::counter_kind(kind_raw.trim()) else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        if !rep.exhausted() {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let num_resolved = if num_var.trim() == "ReplaceCount$DamageAmount" {
+            Some("ReplaceCount$DamageAmount")
+        } else {
+            self.svars.get(num_var.trim()).map(String::as_str)
+        };
+        if num_resolved.map(str::trim) != Some("ReplaceCount$DamageAmount") {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        Some((kind_raw, kind))
+    }
+
+    /// Two-step `DB$ ReplaceDamage` (`Amount$ <lhs>/LimitMax.<cap>`) + `SubAbility$ DB$ RemoveCounter`.
+    fn parse_capped_counter_prevention(&mut self, mut rep: Params) -> Option<(String, String)> {
         let Some(amt_var) = rep.take("Amount") else {
             return self.deny("a persistent spell prevention with another zone or result".into());
         };
         let Some(sub_name) = rep.take("SubAbility") else {
             return self.deny("a persistent spell prevention with another zone or result".into());
         };
-        if rep_api != "ReplaceDamage" || !rep.exhausted() {
+        if !rep.exhausted() {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
         let Some((rem_api, mut rem)) = self
@@ -731,7 +803,12 @@ impl Tx<'_> {
             return self.deny("a persistent spell prevention with another zone or result".into());
         };
         rem.drop_prose();
-        if rem_api != "RemoveCounter" || rem.take("Defined").as_deref() != Some("Self") {
+        if rem_api != "RemoveCounter"
+            || !matches!(
+                rem.take("Defined").as_deref(),
+                Some("Self" | "ReplacedTarget")
+            )
+        {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
         let Some(kind_raw) = rem.take("CounterType") else {
@@ -761,10 +838,7 @@ impl Tx<'_> {
         if !lhs_ok || !rhs_ok {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
-        self.body.abilities.push(format!(
-            "static_ability!(Filter::This, Modifier::CountersPreventDamage({kind}))"
-        ));
-        Some(())
+        Some((kind_raw, kind))
     }
 
     fn prevention_condition(&mut self, p: &mut Params) -> Option<String> {

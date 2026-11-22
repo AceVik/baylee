@@ -4204,3 +4204,156 @@ fn cast_with_flash_supports_ability_words_paired_svars_and_refuses_non_typeset()
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn wave19d_command_library_and_highest_gy_conditions() {
+    let cmd_reveal = read(
+        "Name:MistPlane\nTypes:Plane Skybreen\n\
+         S:Mode$ Continuous | EffectZone$ Command | Affected$ Card.TopLibrary | AffectedZone$ Library | MayLookAt$ Player",
+    );
+    assert_eq!(
+        cmd_reveal.abilities,
+        ["static_ability!(Filter::Any, Modifier::RevealAllLibraryTops, zone = ZoneRef::Command)"]
+    );
+
+    let cmd_look_yours = read(
+        "Name:LensEmblem\nTypes:Emblem\n\
+         S:Mode$ Continuous | EffectZone$ Battlefield,Command | Affected$ Card.TopLibrary+YouCtrl | AffectedZone$ Library | MayLookAt$ You | Condition$ PlayerTurn",
+    );
+    assert_eq!(
+        cmd_look_yours.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::LookAtLibraryTop, zone = ZoneRef::BattlefieldOrCommand, condition = Some(Condition::YourTurn))"
+        ]
+    );
+
+    let any_gy = read(
+        "Name:DeepDweller\nManaCost:2 U\nTypes:Creature Fish\nPT:2/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 3 | CheckSVar$ X | SVarCompare$ GE10\n\
+         SVar:X:PlayerCountPlayers$HighestCardsInGraveyard",
+    );
+    assert!(
+        any_gy.abilities[0].contains(
+            "Condition::Any(&[Condition::GraveyardCountAtLeast(10), Condition::OpponentGraveyardCountAtLeast(10)])"
+        ),
+        "{:?}",
+        any_gy.abilities
+    );
+
+    let dual_inline = read(
+        "Name:GroveSentinel\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Vigilance | CheckSVar$ P | SVarCompare$ LE3 | CheckSecondSVar$ Count$Valid Forest.YouCtrl\n\
+         SVar:P:PlayerCountPlayers$HighestCardsInGraveyard",
+    );
+    assert!(
+        dual_inline.abilities[0].contains("Condition::All(&[Condition::All(&[Condition::Not(&Condition::GraveyardCountAtLeast(4)), Condition::Not(&Condition::OpponentGraveyardCountAtLeast(4))]), Condition::ControlCount("),
+        "{:?}",
+        dual_inline.abilities
+    );
+
+    let bad_cmd_play = "Name:BadCmdPlay\nTypes:Plane\n\
+         S:Mode$ Continuous | EffectZone$ Command | Affected$ Card.TopLibrary | AffectedZone$ Library | MayPlay$ You";
+    assert!(refused(bad_cmd_play), "must refuse:\n{bad_cmd_play}");
+}
+
+#[test]
+fn wave19d_moved_tap_counters_and_kicked_etb() {
+    let tap_counters = read(
+        "Name:ChargedSand\nTypes:Land\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ ETBTap | ReplacementResult$ Updated\n\
+         SVar:ETBTap:DB$ Tap | Defined$ Self | ETB$ True | SubAbility$ ETBCtr\n\
+         SVar:ETBCtr:DB$ PutCounter | Defined$ Self | ETB$ True | CounterType$ CHARGE | CounterNum$ 2",
+    );
+    assert_eq!(
+        tap_counters.enter_modifiers,
+        [
+            "EnterModifier::Tapped",
+            "EnterModifier::WithCounters { kind: CounterKind::Charge, amount: Amount::Fixed(2) }"
+        ]
+    );
+
+    let ctr_then_tap = read(
+        "Name:SlumberStone\nManaCost:3\nTypes:Artifact\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ ETBCtr | ReplacementResult$ Updated\n\
+         SVar:ETBCtr:DB$ PutCounter | CounterType$ STUN | CounterNum$ 3 | SubAbility$ ETBTap\n\
+         SVar:ETBTap:DB$ Tap | Defined$ Self | ETB$ True",
+    );
+    assert_eq!(
+        ctr_then_tap.enter_modifiers,
+        [
+            "EnterModifier::Tapped",
+            "EnterModifier::WithCounters { kind: CounterKind::Stun, amount: Amount::Fixed(3) }"
+        ]
+    );
+
+    let kicked_haste = read(
+        "Name:RushBeast\nManaCost:3 G\nTypes:Creature Beast\nPT:3/3\n\
+         K:Kicker:2 G\n\
+         R:Event$ Moved | ValidCard$ Card.Self+kicked | Destination$ Battlefield | ReplaceWith$ Boost | ReplacementResult$ Updated\n\
+         SVar:Boost:DB$ PutCounter | ETB$ True | Defined$ Self | CounterType$ P1P1 | CounterNum$ 3 | SubAbility$ Anim\n\
+         SVar:Anim:DB$ Animate | Defined$ Self | Keywords$ Haste & Trample | Duration$ Permanent",
+    );
+    assert_eq!(
+        kicked_haste.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(3), condition: Condition::KickedWith(0) }"
+        ]
+    );
+    assert!(
+        kicked_haste.abilities.iter().any(|a| {
+            a == "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::HASTE.union(KeywordSet::TRAMPLE)), condition = Some(Condition::KickedWith(0)))"
+        }),
+        "{:?}",
+        kicked_haste.abilities
+    );
+
+    let kicked_wall = read(
+        "Name:MobileRampart\nManaCost:1 W\nTypes:Creature Wall\nPT:1/3\n\
+         K:Defender\n\
+         K:Kicker:1 W\n\
+         R:Event$ Moved | ValidCard$ Card.Self+kicked | Destination$ Battlefield | ReplaceWith$ Boost | ReplacementResult$ Updated\n\
+         SVar:Boost:DB$ PutCounter | CounterType$ P1P1 | SubAbility$ Anim\n\
+         SVar:Anim:DB$ Animate | Defined$ Self | staticAbilities$ CanSwing | Duration$ Permanent\n\
+         SVar:CanSwing:Mode$ CanAttackDefender | ValidCard$ Card.Self",
+    );
+    assert_eq!(
+        kicked_wall.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(1), condition: Condition::KickedWith(0) }"
+        ]
+    );
+    assert!(
+        kicked_wall.abilities.iter().any(|a| {
+            a == "static_ability!(Filter::This, Modifier::AttacksDespiteDefender, condition = Some(Condition::KickedWith(0)))"
+        }),
+        "{:?}",
+        kicked_wall.abilities
+    );
+
+    let kicked_count = read(
+        "Name:ScaleGolem\nManaCost:4\nTypes:Artifact Creature Golem\nPT:4/4\n\
+         K:Kicker:3\n\
+         R:Event$ Moved | ValidCard$ Card.Self+kicked | Destination$ Battlefield | ReplaceWith$ Boost | ReplacementResult$ Updated\n\
+         SVar:Boost:DB$ PutCounter | ETB$ True | Defined$ Self | CounterType$ P1P1 | CounterNum$ X\n\
+         SVar:X:Count$Valid Land.nonBasic+OppCtrl",
+    );
+    assert!(
+        kicked_count.enter_modifiers[0].contains("EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::CountOf { filter: &"),
+        "{:?}",
+        kicked_count.enter_modifiers
+    );
+
+    for bad in [
+        "Name:CondTapSub\nManaCost:3\nTypes:Creature\nPT:2/2\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ ETBCtr | ReplacementResult$ Updated\n\
+         SVar:ETBCtr:DB$ PutCounter | ETB$ True | CounterType$ STUN | CounterNum$ 2 | SubAbility$ ETBTap\n\
+         SVar:ETBTap:DB$ Tap | ETB$ True | ConditionCheckSVar$ X | ConditionSVarCompare$ LE2\n\
+         SVar:X:Count$Valid Land.YouCtrl",
+        "Name:TempKickedAnim\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Kicker:1 R\n\
+         R:Event$ Moved | ValidCard$ Card.Self+kicked | Destination$ Battlefield | ReplaceWith$ Boost | ReplacementResult$ Updated\n\
+         SVar:Boost:DB$ PutCounter | ETB$ True | CounterType$ P1P1 | CounterNum$ 1 | SubAbility$ Anim\n\
+         SVar:Anim:DB$ Animate | Defined$ Self | Keywords$ Haste",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

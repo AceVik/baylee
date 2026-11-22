@@ -327,3 +327,44 @@ fn source_only_damage_prevention_preserves_command_and_battlefield_zone_boundari
          R:Event$ DamageDone | ActiveZones$ Command | Prevent$ True | IsCombat$ False | ValidSource$ Card.Self"
     ));
 }
+
+#[test]
+fn counter_damage_prevention_and_refusals() {
+    let direct_self = read(
+        "Name:PrismMorph\nManaCost:3\nTypes:Artifact Creature\nPT:0/0\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ Shed | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Shed:DB$ RemoveCounter | Defined$ ReplacedTarget | CounterType$ P1P1 | CounterNum$ D\n\
+         SVar:D:ReplaceCount$DamageAmount",
+    );
+    assert_eq!(
+        direct_self.abilities,
+        ["static_ability!(Filter::This, Modifier::CountersPreventDamage(CounterKind::P1P1))"]
+    );
+
+    let guarded_self = read(
+        "Name:PrismGuardian\nManaCost:2 G\nTypes:Creature\nPT:0/0\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self+counters_GE1_P1P1 | ReplaceWith$ Shed | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Shed:DB$ RemoveCounter | Defined$ ReplacedTarget | CounterType$ P1P1 | CounterNum$ ReplaceCount$DamageAmount",
+    );
+    assert_eq!(
+        guarded_self.abilities,
+        ["static_ability!(Filter::This, Modifier::CountersPreventDamage(CounterKind::P1P1))"]
+    );
+
+    for bad in [
+        "Name:FixedOneCounter\nTypes:Creature\nPT:2/2\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ Shed | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Shed:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+        "Name:KindMismatch\nTypes:Creature\nPT:2/2\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self+counters_GE1_STUN | ReplaceWith$ Shed | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Shed:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ ReplaceCount$DamageAmount",
+        "Name:ChainedTrigger\nTypes:Creature\nPT:2/2\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self+counters_GE1_P1P1 | ReplaceWith$ Shed | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Shed:DB$ RemoveCounter | Defined$ ReplacedTarget | CounterType$ P1P1 | CounterNum$ ReplaceCount$DamageAmount | RememberRemoved$ True",
+        "Name:PutOnDamage\nTypes:Creature\nPT:2/2\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ Grow | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Grow:DB$ PutCounter | Defined$ ReplacedTarget | CounterType$ P1P1 | CounterNum$ ReplaceCount$DamageAmount",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

@@ -1608,3 +1608,63 @@ fn raise_and_reduce_cost_support_active_player_turn_scoping_and_self_stack_taxes
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn wave19d_raise_and_reduce_cost_zone_and_valid_spell_shapes() {
+    let spell_via_valid_spell = read(
+        "Name:OrderBanner\nManaCost:W\nTypes:Enchantment\n\
+         S:Mode$ RaiseCost | ValidCard$ Card | Activator$ Opponent | ValidSpell$ Spell | Amount$ 1 | Condition$ PlayerTurn",
+    );
+    assert_eq!(
+        spell_via_valid_spell.abilities,
+        [
+            "static_ability!(Filter::ControlledByOpponent, Modifier::SpellsCostMore(1), condition = Some(Condition::YourTurn))"
+        ]
+    );
+
+    let activated_tax = read(
+        "Name:TaxChariot\nManaCost:3\nTypes:Artifact\n\
+         S:Mode$ RaiseCost | EffectZone$ Battlefield | ValidCard$ Card.NamedCard | ValidSpell$ Activated | Amount$ 2",
+    );
+    assert_eq!(
+        activated_tax.abilities,
+        ["static_ability!(Filter::NamedBySource, Modifier::AbilitiesCostMore(2))"]
+    );
+
+    let gy_inzone_discount = read(
+        "Name:CryptChisel\nManaCost:2\nTypes:Artifact\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature.YouOwn+inZoneGraveyard | Type$ Ability | Amount$ 1",
+    );
+    assert_eq!(
+        gy_inzone_discount.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::And(&[Filter::CREATURE, Filter::OwnedByYou]), Filter::InZone(ZoneRef::Graveyard)]), Modifier::AbilitiesCostLess { amount: 1, minimum: 0 })"
+        ]
+    );
+
+    let tapped_self_discount = read(
+        "Name:TappedReader\nManaCost:3 G\nTypes:Creature\nPT:3/3\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature | Type$ Spell | Activator$ You | Amount$ 2 | IsPresent$ Card.Self+tapped",
+    );
+    assert_eq!(
+        tapped_self_discount.abilities,
+        [
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::SpellsCostLess(2), condition = Some(Condition::SourceMatches(&CHECK1)))"
+        ]
+    );
+    assert!(
+        tapped_self_discount.statics.contains(
+            "static CHECK1: Filter = Filter::And(&[Filter::InZone(ZoneRef::Battlefield), Filter::This, Filter::Tapped]);"
+        ),
+        "{}",
+        tapped_self_discount.statics
+    );
+
+    for bad in [
+        "Name:BadNonManaExclusion\nTypes:Artifact\nS:Mode$ RaiseCost | EffectZone$ Battlefield | ValidCard$ Card | ValidSpell$ Activated.!ManaAbility | Amount$ 2",
+        "Name:BadGlobalManaLife\nTypes:Enchantment\nS:Mode$ RaiseCost | Type$ Ability | ValidSpell$ Activated.ManaAbility | ValidCard$ Land | Cost$ PayLife<1> | EffectZone$ All",
+        "Name:BadInZoneLibrary\nTypes:Artifact\nS:Mode$ ReduceCost | ValidCard$ Creature.YouOwn+inZoneLibrary | Type$ Ability | Amount$ 1",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

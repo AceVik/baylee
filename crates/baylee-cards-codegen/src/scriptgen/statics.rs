@@ -2593,6 +2593,8 @@ impl Tx<'_> {
                 Some("Player.!Active" | "Player.Active")
             )
             && matches!(p.peek("EffectZone"), None | Some("Battlefield" | "Stack"))
+            && p.has("Type")
+            && matches!(p.peek("ValidSpell"), None | Some("Activated.ManaAbility"))
             && (p.peek("Type") != Some("Spell") || p.has("ValidCard") || p.has("ValidTarget"))
             && (p.peek("Type") != Some("Ability")
                 || matches!(p.peek("Activator"), None | Some("Player")))
@@ -2613,10 +2615,16 @@ impl Tx<'_> {
         {
             return self.raise_cost_mana_life(p);
         }
-        if p.peek("Type") == Some("Ability") && !p.has("ValidSpell") && !p.has("Cost") {
+        if ((p.peek("Type") == Some("Ability")
+            && matches!(p.peek("ValidSpell"), None | Some("Activated")))
+            || (p.peek("Type").is_none() && p.peek("ValidSpell") == Some("Activated")))
+            && !p.has("Cost")
+        {
             return self.raise_cost_ability(p);
         }
-        if p.peek("Type") == Some("Spell") {
+        if p.peek("Type") == Some("Spell")
+            || (p.peek("Type").is_none() && p.peek("ValidSpell") == Some("Spell"))
+        {
             return self.raise_cost_spell(p);
         }
         self.deny("static ability `S: Mode$ RaiseCost`".into())
@@ -2657,7 +2665,13 @@ impl Tx<'_> {
 
     fn raise_cost_ability(&mut self, mut p: Params) -> Option<()> {
         p.take("Type");
-        if p.take("AffectedZone").as_deref() != Some("Battlefield") {
+        let valid_spell = p.take("ValidSpell");
+        let affected_zone = p.take("AffectedZone");
+        let zone_ok = matches!(
+            (valid_spell.as_deref(), affected_zone.as_deref()),
+            (Some("Activated"), None | Some("Battlefield")) | (None, Some("Battlefield"))
+        );
+        if !zone_ok {
             return self.deny("static ability `S: Mode$ RaiseCost`".into());
         }
         let Some(zone) = Self::static_effect_zone(p.take("EffectZone").as_deref(), false) else {
@@ -2693,7 +2707,9 @@ impl Tx<'_> {
     }
 
     fn raise_cost_spell(&mut self, mut p: Params) -> Option<()> {
-        p.take("Type");
+        if p.take("Type").is_none() {
+            p.take("ValidSpell");
+        }
         let effect_zone = p.take("EffectZone");
         let valid_target = p.take("ValidTarget");
         let stack_self_target = effect_zone.as_deref() == Some("Stack")
@@ -3046,12 +3062,14 @@ impl Tx<'_> {
         };
         let mut zones_ok = true;
         let mut graveyard_zone = false;
+        let mut implicit_graveyard_filter = false;
         let explicit_battlefield = if allow_affected_zone {
             let affected_zone = p.take("AffectedZone");
             if forbid_unscoped_card && affected_zone.as_deref() == Some("Graveyard") {
                 graveyard_zone = true;
                 false
             } else {
+                implicit_graveyard_filter = forbid_unscoped_card && affected_zone.is_none();
                 zones_ok &= matches!(affected_zone.as_deref(), None | Some("Battlefield"));
                 affected_zone.as_deref() == Some("Battlefield")
             }
@@ -3061,9 +3079,15 @@ impl Tx<'_> {
         if !zones_ok || !matches!(p.take("Type").as_deref(), None | Some("Ability")) {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         }
-        let Some(raw_card) = p.take("ValidCard") else {
+        let Some(mut raw_card) = p.take("ValidCard") else {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         };
+        if implicit_graveyard_filter
+            && let Some(stripped) = Self::strip_in_zone_graveyard(&raw_card)
+        {
+            raw_card = stripped;
+            graveyard_zone = true;
+        }
         if forbid_unscoped_card && raw_card == "Card" && !explicit_battlefield && !graveyard_zone {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         }
@@ -3126,6 +3150,34 @@ impl Tx<'_> {
             })
             .collect::<Vec<_>>()
             .join(",")
+    }
+
+    fn strip_in_zone_graveyard(valid: &str) -> Option<String> {
+        let mut out = Vec::new();
+        for raw_alt in valid.split(',') {
+            let alt = raw_alt.trim();
+            let (base, atoms_str) = alt.split_once('.')?;
+            let mut found_gy = false;
+            let mut kept = Vec::new();
+            for atom in atoms_str.split('+').filter(|a| !a.is_empty()) {
+                if atom == "inZoneGraveyard" {
+                    found_gy = true;
+                } else if atom.starts_with("inZone") {
+                    return None;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !found_gy {
+                return None;
+            }
+            if kept.is_empty() {
+                out.push(base.trim().to_string());
+            } else {
+                out.push(format!("{}.{}", base.trim(), kept.join("+")));
+            }
+        }
+        (!out.is_empty()).then(|| out.join(","))
     }
 
     fn apply_spell_activator(
@@ -3198,6 +3250,9 @@ impl Tx<'_> {
                 Some(Bound::AtMost(n)) => format!("Condition::LifeAtMost({n})"),
                 _ => return self.deny(format!("`LifeAmount$ {life_amount}`")),
             });
+        }
+        if let Some(state_cond) = self.take_self_state_present(p).ok()? {
+            clauses.push(state_cond);
         }
         if let Some(valid) = p.take("IsPresent") {
             let clause = if matches!(p.peek("PresentZone"), Some("Hand" | "Graveyard"))
