@@ -523,7 +523,7 @@ fn a_moving_picture_plays_in_its_disc_and_writes_only_on_a_new_frame() {
     let (face_before, still_face) = face(&app, disc);
     let image = match still_face {
         AvatarFace::Picture(image) => image.clone(),
-        other => panic!("the picture, not {other:?}"),
+        AvatarFace::Letters => panic!("the decoded portrait should replace the monogram"),
     };
     assert_eq!(face(&app, other).1, &AvatarFace::Letters);
     assert_eq!(
