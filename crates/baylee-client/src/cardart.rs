@@ -404,7 +404,7 @@ mod tests {
             Some(Wears::Card(index, face)),
             "the card's body wears the card"
         );
-        copy.types = baylee_core::types::TypeSet::CREATURE;
+        copy.types = baylee_core::types::TypeSet::ENCHANTMENT;
         assert_eq!(board::worn(&copy, registry()), None, "neither body");
     }
 

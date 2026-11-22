@@ -619,7 +619,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Its draw trigger comes from the level's static ability.
     // Pass E13 (+1,221 generated cards) adds 443 read and 585 total non-mana
     // activations across newly harvested cards.
-    assert_eq!((read, of), (5509, 7061), "activated/loyalty reader census");
+    // Pass E14 (+507 generated cards and 32 upgraded pool cards) + Wave 13 adds
+    // 89 read and 133 total non-mana activations.
+    assert_eq!((read, of), (5598, 7194), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

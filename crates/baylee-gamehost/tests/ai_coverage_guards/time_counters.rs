@@ -55,11 +55,15 @@ use super::*;
 /// unread, even with mana floating. This arrival does not close #166 or
 /// make a targeted clock effect reachable.
 ///
-/// Five untargeted clock arrivals joined through generated cards:
+/// Seven untargeted clock arrivals joined through generated cards:
+/// - `As Foretold`: self-only upkeep time counter + once-per-turn `{0}`
+///   alternative cast permission; no target and no `Suspend`.
 /// - `Infinite Hourglass`: self-only upkeep time counter, global power boost,
 ///   any-player `{3}` upkeep removal; no target and no `Suspend`/`Saga` chapter.
 /// - `Kes, Evolving Telepath`: self-only end-step time counter + draw; no target.
 /// - `Lavacore Elemental`: vanishing + self-only combat-damage trigger; no target.
+/// - `Myth Realized`: self-only noncreature-cast trigger and `{2}{W}` activation
+///   placing a lore counter on itself; no target and not a Saga.
 /// - `Scroll of the Masters`: self-only spell-cast lore counter + targeted
 ///   creature pump (the target is the creature, never `clock_score`); not a Saga.
 /// - `Soultether Golem`: vanishing + self-only creature-ETB trigger; no target.
@@ -78,9 +82,11 @@ fn only_the_named_cards_put_a_lore_or_time_counter_on_anything() {
     // Named by the card that puts them, so another arrival is a name in a
     // failure message and not a number to bump.
     const REACHABLE_CLOCKS: &[&str] = &[
+        "As Foretold",
         "Infinite Hourglass",
         "Kes, Evolving Telepath",
         "Lavacore Elemental",
+        "Myth Realized",
         "Scroll of the Masters",
         "Soultether Golem",
         "Time Bomb",

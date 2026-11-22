@@ -308,6 +308,7 @@ fn infinite_hourglass_counts_upkeep_pumps_all_creatures_and_allows_upkeep_remova
 fn self_only_time_and_lore_counter_arrivals_never_target_clock_score() {
     probe_soultether_and_lavacore();
     probe_kes_and_scroll();
+    probe_as_foretold_and_myth_realized();
 }
 
 fn probe_soultether_and_lavacore() {
@@ -476,6 +477,64 @@ fn probe_kes_and_scroll() {
     settle(&mut e4, &[]);
     let v4 = asked_view(e4.state(), me, 0, e4.pending());
     assert_eq!(v4.object(bears).unwrap().power, Some(3));
+}
+
+fn probe_as_foretold_and_myth_realized() {
+    let me = PlayerId::new(0);
+    // As Foretold adds a self-only time counter on upkeep (no targeting) and
+    // lets its controller cast a spell with mana value <= 1 for {0}.
+    let p5 = position(&["Sol Ring"], &["As Foretold"]);
+    let mut e5 = Engine::new(&p5, RegistryLookup).unwrap();
+    let v5 = advance_to_step(&mut e5, me, 1, baylee_view::Step::Main);
+    let foretold = untapped(&v5, "As Foretold")[0];
+    assert_eq!(
+        time_counters_on(&v5, foretold, baylee_view::CounterKind::Time),
+        1
+    );
+    let ring_card = v5.hand.iter().find(|c| c.name == "Sol Ring").unwrap().id;
+    e5.apply(me, PlayerAction::CastSpell { card: ring_card })
+        .unwrap();
+    settle(&mut e5, &[]);
+    let v5_after = asked_view(e5.state(), me, 0, e5.pending());
+    assert!(
+        v5_after.battlefield_of(me).any(|o| o.name == "Sol Ring"),
+        "As Foretold's self-only time counter pays for a 1-MV spell without targeting"
+    );
+
+    // Myth Realized puts self-only lore counters on itself via both its
+    // noncreature spell trigger and its {2}{W} activation (no targeting).
+    let p6 = position(
+        &["Sol Ring"],
+        &["Myth Realized", "Plains", "Plains", "Plains", "Plains"],
+    );
+    let mut e6 = Engine::new(&p6, RegistryLookup).unwrap();
+    let v6 = advance_to_step(&mut e6, me, 1, baylee_view::Step::Main);
+    float(&mut e6, &untapped(&v6, "Plains")[..1]);
+    let ring6 = v6.hand.iter().find(|c| c.name == "Sol Ring").unwrap().id;
+    e6.apply(me, PlayerAction::CastSpell { card: ring6 })
+        .unwrap();
+    settle(&mut e6, &[]);
+    let v6 = asked_view(e6.state(), me, 0, e6.pending());
+    let myth = untapped(&v6, "Myth Realized")[0];
+    assert_eq!(
+        time_counters_on(&v6, myth, baylee_view::CounterKind::Lore),
+        1
+    );
+    float(&mut e6, &untapped(&v6, "Plains")[..3]);
+    e6.apply(
+        me,
+        PlayerAction::ActivateAbility {
+            source: myth,
+            ability_index: 1,
+        },
+    )
+    .unwrap();
+    settle(&mut e6, &[]);
+    let v6 = asked_view(e6.state(), me, 0, e6.pending());
+    assert_eq!(
+        time_counters_on(&v6, myth, baylee_view::CounterKind::Lore),
+        2
+    );
 }
 
 fn adapt_and_infect_turn(

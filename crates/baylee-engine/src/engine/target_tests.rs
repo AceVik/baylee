@@ -516,6 +516,24 @@ const REACHES_FURTHER: &[(&str, &str)] = &[
         "\"Each nonland permanent you control becomes a copy of target non-Aura permanent\": \
          targeting one non-Aura permanent turns every controlled Elf and Sol Ring into it",
     ),
+    (
+        "Storm the Seedcore",
+        "\"Creatures you control gain vigilance and trample until end of turn\": after \
+         distributing +1/+1 counters among targets, the spell grants vigilance and trample \
+         to every controlled creature, including bystanding Elves",
+    ),
+    (
+        "Undercity Upheaval",
+        "\"Creatures you control gain vigilance until end of turn\": after distributing \
+         +1/+1 counters among targets, the spell grants vigilance to every controlled \
+         creature, including bystanding Elves",
+    ),
+    (
+        "Overwhelming Victory",
+        "\"Each creature you control gains trample and gets +X/+0 until end of turn\": \
+         after dealing 5 damage to target creature, the spell pumps and grants trample to \
+         every controlled creature, including bystanding Elves",
+    ),
 ];
 
 /// How small the sweep may get before it has stopped measuring anything.

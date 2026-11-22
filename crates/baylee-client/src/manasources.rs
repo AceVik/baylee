@@ -1988,8 +1988,11 @@ mod tests {
         // the same shape (more threshold and depletion lands, Elves of Deep
         // Shadow's damage, Pristine Talisman's life, the Urza lands' amount,
         // Rainbow Vale's control change).
+        //
+        // Read on 22.11.2026 at 37 after Pass E14 added Vulshok Factory (tap
+        // mana ability with a counter rider and no clean tap).
         assert!(
-            (26..=36).contains(&gained.len()),
+            (26..=40).contains(&gained.len()),
             "{} cards gained a source: {gained:?}",
             gained.len()
         );
