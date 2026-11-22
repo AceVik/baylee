@@ -908,7 +908,8 @@ pub struct JournalEntry {
     /// Identity and controller of the permanent when it tapped or untapped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tap_observation: Option<TapObservation>,
-    /// Excess damage dealt on a `GameEvent::DamageDealt` (`CR 120.10`), zero otherwise.
+    /// Recipient-wide excess damage for this batch (`CR 120.10`), stored once on
+    /// its first `GameEvent::DamageDealt` to this recipient. Zero otherwise.
     #[serde(default, skip_serializing_if = "is_zero_u32")]
     pub excess_damage: u32,
 }
@@ -971,7 +972,7 @@ impl Journal {
         seq
     }
 
-    /// Annotates the just-recorded `DamageDealt` to `target` with its excess damage (`CR 120.10`).
+    /// Stores the batch's excess damage to `target` on its first `DamageDealt` entry.
     pub(crate) fn set_last_excess_damage(&mut self, target: ObjectId, excess: u32) {
         if excess == 0 {
             return;

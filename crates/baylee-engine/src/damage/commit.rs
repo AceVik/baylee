@@ -6,8 +6,10 @@ use crate::event::Cause;
 use baylee_core::ids::ObjectId;
 use baylee_core::types::TypeSet;
 use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 
 /// Initial lethal/loyalty/defense threshold before this damage batch commits (`CR 120.10`).
+/// A hybrid uses the lowest of its applicable thresholds, giving the greatest excess.
 fn initial_excess_threshold(
     state: &GameState,
     target: ObjectId,
@@ -42,7 +44,45 @@ fn initial_excess_threshold(
     best
 }
 
+#[derive(Default)]
+struct ExcessDamage {
+    total: u64,
+    deathtouch: bool,
+}
+
 impl DamageWork {
+    /// Computes one excess amount per recipient, aligned with the first damage
+    /// part that will journal that recipient. Snapshot thresholds before any results.
+    fn excess_damage(&self, state: &GameState) -> SmallVec<[u32; 4]> {
+        let mut damage_by_recipient: FxHashMap<ObjectId, ExcessDamage> = FxHashMap::default();
+        for part in &self.parts {
+            if part.view.amount > 0
+                && let DamageTarget::Object(id) = part.view.recipient
+            {
+                let damage = damage_by_recipient.entry(id).or_default();
+                damage.total += u64::from(part.view.amount);
+                damage.deathtouch |= part.keywords.contains(KeywordSet::DEATHTOUCH);
+            }
+        }
+        self.parts
+            .iter()
+            .map(|part| {
+                if part.view.amount == 0 {
+                    return 0;
+                }
+                let DamageTarget::Object(id) = part.view.recipient else {
+                    return 0;
+                };
+                damage_by_recipient.remove(&id).map_or(0, |damage| {
+                    initial_excess_threshold(state, id, damage.deathtouch).map_or(0, |threshold| {
+                        u32::try_from(damage.total.saturating_sub(u64::from(threshold)))
+                            .unwrap_or(u32::MAX)
+                    })
+                })
+            })
+            .collect()
+    }
+
     pub(super) fn commit(&mut self, state: &mut GameState) {
         // Sources were fixed before result replacements were chosen. Only
         // a concession can have removed a recipient while that choice waited.
@@ -52,24 +92,9 @@ impl DamageWork {
             }
         }
         self.combine_damage_to_same_recipient();
-        let mut excess_budgets: FxHashMap<ObjectId, Option<u32>> = FxHashMap::default();
-        for part in &self.parts {
-            if part.view.amount == 0 {
-                continue;
-            }
-            if let DamageTarget::Object(id) = part.view.recipient {
-                excess_budgets.entry(id).or_insert_with(|| {
-                    let dt = self.parts.iter().any(|p| {
-                        p.view.amount > 0
-                            && p.view.recipient == DamageTarget::Object(id)
-                            && p.keywords.contains(KeywordSet::DEATHTOUCH)
-                    });
-                    initial_excess_threshold(state, id, dt)
-                });
-            }
-        }
+        let excess_damage = self.excess_damage(state);
         let mut life_loss = LifeLossBudgets::new(self, state);
-        for part in &self.parts {
+        for (part, excess) in self.parts.iter().zip(excess_damage) {
             if part.view.amount == 0 {
                 continue;
             }
@@ -125,12 +150,7 @@ impl DamageWork {
                 }
                 DamageTarget::Object(id) => {
                     part.commit_object(state, id);
-                    if let Some(Some(remaining)) = excess_budgets.get_mut(&id) {
-                        let absorbed = part.view.amount.min(*remaining);
-                        *remaining -= absorbed;
-                        let excess = part.view.amount - absorbed;
-                        state.journal.set_last_excess_damage(id, excess);
-                    }
+                    state.journal.set_last_excess_damage(id, excess);
                 }
             }
         }

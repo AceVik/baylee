@@ -13,6 +13,47 @@ fn battle(state: &mut GameState, types: TypeSet, defense: u16) -> ObjectId {
 }
 
 #[test]
+fn simultaneous_excess_damage_is_journaled_once_per_hybrid_recipient() {
+    for (keywords, expected_excess) in [(KeywordSet::EMPTY, 5), (KeywordSet::DEATHTOUCH, 7)] {
+        let mut state = state(2);
+        let first = creature(&mut state, B, 4, 4);
+        let second = creature(&mut state, B, 4, 4);
+        state.object_mut(second).unwrap().base_mut().keywords = keywords;
+        let types = TypeSet::CREATURE
+            .union(TypeSet::PLANESWALKER)
+            .union(TypeSet::BATTLE);
+        let target = battle(&mut state, types, 3);
+        let recipient = DamageTarget::Object(target);
+        let mut work = DamageWork::new(
+            &mut state,
+            vec![
+                assigned(first, recipient, 4),
+                assigned(second, recipient, 4),
+            ],
+        );
+        assert!(work.advance(&mut state).is_none());
+        let events: Vec<_> = state
+            .journal
+            .entries()
+            .iter()
+            .filter_map(|entry| match entry.event {
+                GameEvent::DamageDealt {
+                    source,
+                    target: to,
+                    amount,
+                    ..
+                } if to == recipient => Some((source, amount, entry.excess_damage)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            events,
+            [(Some(first), 4, expected_excess), (Some(second), 4, 0)]
+        );
+    }
+}
+
+#[test]
 fn every_hybrid_receives_independent_results_without_capping_damage_to_defense() {
     for creature_type in [false, true] {
         for planeswalker_type in [false, true] {
