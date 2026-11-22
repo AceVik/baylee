@@ -56,7 +56,7 @@ pub enum SearchDest {
 /// Cards are matched to finds positionally, so a search that produces fewer
 /// cards than it allows fills the finds from the front — the order in the
 /// slice is the order the card text names them.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Find {
     /// Where this card goes.
     pub dest: SearchDest,
@@ -82,6 +82,22 @@ pub struct Find {
     /// battlefield" is one repeating find in an optional search. Only the
     /// last find of a search repeats. Written with [`Find::any_number`].
     pub repeats: bool,
+    /// Whether a card this find exiles is linked to the source's acquiring ability.
+    pub linked_exile: bool,
+}
+
+impl core::hash::Hash for Find {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.dest.hash(state);
+        self.tapped.hash(state);
+        self.counter.hash(state);
+        self.instead_if.hash(state);
+        self.repeats.hash(state);
+        // Keep the existing replay fingerprint for ordinary finds.
+        if self.linked_exile {
+            true.hash(state);
+        }
+    }
 }
 
 impl Find {
@@ -89,6 +105,11 @@ impl Find {
     pub const EXILE: Self = Self {
         dest: SearchDest::Exile,
         ..Self::HAND
+    };
+    /// Into public exile, linked to the acquiring ability.
+    pub const EXILE_LINKED: Self = Self {
+        linked_exile: true,
+        ..Self::EXILE
     };
     /// Into its owner's graveyard.
     pub const GRAVEYARD: Self = Self {
@@ -102,6 +123,7 @@ impl Find {
         counter: None,
         instead_if: None,
         repeats: false,
+        linked_exile: false,
     };
     /// Onto the battlefield, untapped (Nature's Lore, a fetchland).
     pub const BATTLEFIELD: Self = Self {
@@ -110,6 +132,7 @@ impl Find {
         counter: None,
         instead_if: None,
         repeats: false,
+        linked_exile: false,
     };
     /// Onto the battlefield tapped (Rampant Growth, Evolving Wilds).
     pub const BATTLEFIELD_TAPPED: Self = Self {
@@ -118,6 +141,7 @@ impl Find {
         counter: None,
         instead_if: None,
         repeats: false,
+        linked_exile: false,
     };
     /// On top of your library (a tutor that does not draw).
     pub const TOP_OF_LIBRARY: Self = Self {
@@ -126,6 +150,7 @@ impl Find {
         counter: None,
         instead_if: None,
         repeats: false,
+        linked_exile: false,
     };
 
     /// The same find, entering with `n` counters of `kind` on it — "with an

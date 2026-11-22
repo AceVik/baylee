@@ -392,6 +392,27 @@ pub(super) fn put_found(state: &mut GameState, player: PlayerId, card: ObjectId,
     let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
 }
 
+/// Place a find that can explicitly link its exiled result to its source.
+pub(super) fn put_found_with_link(
+    state: &mut GameState,
+    res: &Resolution,
+    player: PlayerId,
+    card: ObjectId,
+    find: baylee_cards_dsl::Find,
+) {
+    let link = (find.linked_exile && find.dest == SearchDest::Exile)
+        .then(|| super::hidden_exile::link(state, res))
+        .flatten();
+    put_found(state, player, card, find.dest);
+    if let Some(link) = link
+        && let Some(object) = state.object_mut(card)
+        && object.zone == crate::zone::Zone::Exile
+        && !object.riders.contains(&link)
+    {
+        object.riders.push(link);
+    }
+}
+
 /// "Reveal cards from the top of your library until you reveal a [filter]
 /// card. Put that card [`found`] and the rest on the bottom of your library
 /// in a random order." Every card turned over is shown to every player

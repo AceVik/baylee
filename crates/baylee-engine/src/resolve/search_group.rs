@@ -128,7 +128,7 @@ fn next(state: &mut GameState, res: &mut Resolution, mut selection: Selection) -
         if find.tapped && find.dest == SearchDest::Battlefield {
             state.set_tapped(card, true);
         }
-        search::put_found(state, player, card, find.dest);
+        search::put_found_with_link(state, res, player, card, find);
         if find.dest == SearchDest::Battlefield {
             if let Some((kind, count)) = find.counter {
                 crate::entry::put_counters(state, res.controller, card, kind, count);

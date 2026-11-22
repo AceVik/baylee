@@ -4839,6 +4839,35 @@ fn play_preserves_strict_printed_mana_value_bound() {
 }
 
 #[test]
+fn linked_play_marks_the_acquiring_search() {
+    for (reference, is_linked) in [("Lore Reader", true), ("another card", false)] {
+        let body = read(&format!(
+            "Name:Lore Reader, Legend\nManaCost:2 U U\nTypes:Legendary Creature Wizard\nPT:2/2\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Catalogue\n\
+             SVar:Catalogue:DB$ ChangeZone | Origin$ Library | Destination$ Exile | ChangeType$ Instant | ChangeNum$ 3\n\
+             A:AB$ Play | Cost$ X T | Valid$ Card.ExiledWithSource | ValidSA$ Spell.cmcEQX | ValidZone$ Exile | WithoutManaCost$ True | Optional$ True\n\
+             SVar:X:Count$xPaid\n\
+             Oracle:When Lore Reader enters, search your library for up to three instant cards, exile them, then shuffle.\\n{{X}}, {{T}}: You may cast a spell with mana value X from among cards exiled with {reference} without paying its mana cost."
+        ));
+        assert_eq!(body.abilities[0].contains("Find::EXILE_LINKED"), is_linked);
+        assert!(body.abilities[1].contains("PlaySource::LinkedExile"));
+    }
+}
+
+#[test]
+fn refuses_indefinite_grant_with_no_subject_after_targeted_cast_trigger() {
+    assert!(refused(
+        "Name:Cast Collector\nManaCost:2 G\nTypes:Creature Wizard\nPT:3/3\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self | Execute$ Banish\n\
+         SVar:Banish:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Artifact.OppCtrl | TargetMin$ 0 | TargetMax$ 1 | RememberChanged$ True | SubAbility$ AddTrigger\n\
+         SVar:AddTrigger:DB$ Animate | Triggers$ Leaves | Duration$ Permanent | ConditionDefined$ Remembered | ConditionPresent$ Card | SubAbility$ Clear\n\
+         SVar:Leaves:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ Draw\n\
+         SVar:Draw:DB$ Draw | ValidTgts$ Opponent\n\
+         SVar:Clear:DB$ Cleanup | ClearRemembered$ True"
+    ));
+}
+
+#[test]
 fn wave21b_effect_play_refusals() {
     for bad in [
         // AllowRepeats$ not supported by Effect::Play

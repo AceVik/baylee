@@ -9,7 +9,7 @@ use crate::zone::Zone;
 use baylee_cards_dsl::ZoneRef;
 use baylee_core::ids::{DamageSourceRef, PlayerId, SeatSet};
 
-fn link(state: &GameState, res: &Resolution) -> Option<Rider> {
+pub(super) fn link(state: &GameState, res: &Resolution) -> Option<Rider> {
     let source = state
         .recorded_ability_source(res.on_stack)
         .or_else(|| super::subjects::source(state, res))?;

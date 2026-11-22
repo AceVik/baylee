@@ -65,6 +65,18 @@ impl Tx<'_> {
         target: Option<&str>,
     ) -> Option<Vec<String>> {
         let defined = p.take("Defined");
+        if defined.is_none()
+            && target.is_some()
+            && self.trigger_is_self
+            && self.trigger_mode.as_deref() == Some("SpellCast")
+            && p.peek("Duration") == Some("Permanent")
+            && p.has("Triggers")
+        {
+            return self.deny(
+                "a cast trigger grants an indefinite triggered ability without specifying a subject"
+                    .into(),
+            );
+        }
         if let Some(def) = defined.as_deref() {
             if let Some(valid) = def.strip_prefix("Valid ")
                 && target.is_none()

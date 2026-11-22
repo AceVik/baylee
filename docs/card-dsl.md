@@ -4859,6 +4859,9 @@ relation. These instructions use the ordinary movement-replacement paths.
 `SearchDest::Exile` and `Find::EXILE` put a found card into public exile under
 its owner's ownership. They add a destination to the existing search and
 top-card instructions, not permission to play the exiled card.
+`Find::EXILE_LINKED` links each card the search actually moves to exile to the
+acquiring ability and its source incarnation. A later `PlaySource::LinkedExile`
+instruction can read that link for the same source.
 `Effect::ExileTop { who, count }` moves up to that many top cards from every
 library named by `who` into public exile; it does not emit a prior reveal.
 

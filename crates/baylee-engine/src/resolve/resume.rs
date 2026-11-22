@@ -514,7 +514,7 @@ pub(super) fn resume_inner(
                 let (dest, tapped) = (find.dest, find.tapped);
                 match dest {
                     SearchDest::Graveyard | SearchDest::Exile => {
-                        search::put_found(state, receiver, card, dest);
+                        search::put_found_with_link(state, res, receiver, card, find);
                     }
                     SearchDest::Hand => {
                         let _ = state.move_object(
@@ -664,7 +664,7 @@ pub(super) fn resume_inner(
                     if find.tapped && find.dest == SearchDest::Battlefield {
                         state.set_tapped(card, true);
                     }
-                    put_found(state, you, card, find.dest);
+                    search::put_found_with_link(state, res, you, card, *find);
                 }
                 Some(_) => {}
                 None => {

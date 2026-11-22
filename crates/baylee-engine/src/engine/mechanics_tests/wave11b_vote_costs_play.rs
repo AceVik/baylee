@@ -1279,6 +1279,119 @@ fn reduce_next_spell_cost_duration_mode_and_colored_pips_discount_multiple_spell
 // ============================================================================
 
 #[test]
+fn a_linked_search_exile_can_be_cast_only_through_its_source() {
+    use baylee_cards_dsl::prelude::{Find, activated, triggered};
+
+    static ABILITIES: &[AbilityDef] = &[
+        triggered!(
+            Trigger::ETB,
+            &[Effect::SearchLibrary {
+                filter: &Filter::INSTANT,
+                finds: &[Find::EXILE_LINKED],
+                optional: true
+            }]
+        ),
+        activated!(
+            Cost::FREE,
+            &[Effect::Play {
+                source: PlaySource::LinkedExile,
+                filter: &Filter::Any,
+                controller: PlayerRel::You,
+                count: PlayCount::One,
+                cost: PlayCostMode::WithoutPayingManaCost,
+                cast_only: true,
+                copy: false,
+                exile_instead_of_graveyard: false,
+                optional: true
+            }]
+        ),
+    ];
+    let source_index = NEXT_SPELL_TUTOR;
+    let instant_index = EXPENSIVE_INSTANT;
+    let defs = vec![
+        card(
+            source_index,
+            face("Linked archives", "{0}", TypeSet::ARTIFACT),
+            KeywordSet::EMPTY,
+            ABILITIES,
+        ),
+        card(
+            instant_index,
+            face("Found insight", "{1}", TypeSet::INSTANT),
+            KeywordSet::EMPTY,
+            &[],
+        ),
+    ];
+    let mut e = bench(
+        9616,
+        defs,
+        [
+            Seat::default().holding(&[source_index, instant_index, instant_index]),
+            Seat::default(),
+        ],
+    );
+    to_main(&mut e, me());
+    let source = first_of(&e, me(), source_index, Zone::Hand);
+    let found = first_of(&e, me(), instant_index, Zone::Hand);
+    e.state
+        .move_object(
+            found,
+            ZoneLocation::Library(me()),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    let unrelated = first_of(&e, me(), instant_index, Zone::Hand);
+    e.state
+        .move_object(
+            unrelated,
+            ZoneLocation::Exile(me()),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    e.apply(me(), PlayerAction::CastSpell { card: source })
+        .unwrap();
+    for _ in 0..4 {
+        let Pending::Priority { player, .. } = e.pending().clone() else {
+            break;
+        };
+        e.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    assert!(matches!(e.pending(), Pending::ChooseCards { options, .. } if options == &[found]));
+    e.apply(
+        me(),
+        PlayerAction::ChooseObjects {
+            objects: vec![found],
+        },
+    )
+    .unwrap();
+    e.apply(
+        me(),
+        PlayerAction::ActivateAbility {
+            source,
+            ability_index: 1,
+        },
+    )
+    .unwrap();
+    e.apply(me(), PlayerAction::PassPriority).unwrap();
+    e.apply(them(), PlayerAction::PassPriority).unwrap();
+    assert!(
+        matches!(e.pending(), Pending::ChooseCards { options, .. } if options == &[found]),
+        "{:?}",
+        e.pending()
+    );
+    e.apply(
+        me(),
+        PlayerAction::ChooseObjects {
+            objects: vec![found],
+        },
+    )
+    .unwrap();
+    assert_eq!(e.state().object(found).unwrap().zone, Zone::Stack);
+}
+
+#[test]
 fn effect_play_free_cast_resumes_trailing_subability_and_applies_exile_rider() {
     static PLAY_CHAIN: &[Effect] = &[
         Effect::Play {

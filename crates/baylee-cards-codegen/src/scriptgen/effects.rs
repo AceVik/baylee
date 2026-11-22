@@ -8136,10 +8136,24 @@ impl Tx<'_> {
         } else {
             false
         };
+        let source_name = self
+            .script_name
+            .split(',')
+            .next()
+            .unwrap_or(self.script_name);
+        let linked = destination == "Exile"
+            && is_own_library
+            && self.trigger_mode.as_deref() == Some("ChangesZone")
+            && self.trigger_is_self
+            && self.oracle.to_ascii_lowercase().contains(&format!(
+                "from among cards exiled with {} without ",
+                source_name.to_ascii_lowercase()
+            ));
         let base_find_raw = match (destination, tapped) {
             ("Battlefield", false) => "Find::BATTLEFIELD",
             ("Battlefield", true) => "Find::BATTLEFIELD_TAPPED",
             ("Hand", false) => "Find::HAND",
+            ("Exile", false) if linked => "Find::EXILE_LINKED",
             ("Exile", false) => "Find::EXILE",
             ("Graveyard", false) => "Find::GRAVEYARD",
             ("Library", false)
