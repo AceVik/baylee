@@ -177,9 +177,17 @@ fn shared_hand_redraw_finishes_all_shuffles_then_draws_in_apnap_order() {
         },
     ];
     let mut res = resolution(source, &effects, active);
+    let name = state.names.intern("Resolving redraw ability");
+    let ability = state.create_bare(
+        res.controller,
+        ObjectKind::AbilityOnStack,
+        name,
+        ZoneLocation::Stack,
+    );
+    res.on_stack = ability;
     state
         .journal
-        .record(GameEvent::StackObjectResolved { object: source });
+        .record(GameEvent::StackObjectResolved { object: ability });
     let start = state.journal.len();
     assert!(matches!(run(&mut state, &mut res), Flow::Complete));
 
