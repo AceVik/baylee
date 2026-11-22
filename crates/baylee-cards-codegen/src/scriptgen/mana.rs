@@ -1939,16 +1939,8 @@ impl Tx<'_> {
         {
             return counter_kind(kind_code).map(|k| format!("Amount::CountersOnSource({k})"));
         }
-        if def == "Count$ChosenNumber"
-            && self.on_a_spell
-            && !self.in_delayed
-            && !self
-                .body
-                .enter_modifiers
-                .iter()
-                .any(|m| m.contains("ChooseNumber"))
-        {
-            return Some("Amount::ResolutionChosenNumber".to_string());
+        if let Some(amount) = self.resolution_chosen_amount(def) {
+            return Some(amount);
         }
         if let Some(event) = self.dynamic_filter_event_or_target_atom(def) {
             return Some(event);
@@ -2217,6 +2209,9 @@ impl Tx<'_> {
     }
 
     pub(super) fn amount_or_count(&mut self, raw: &str) -> Option<String> {
+        if let Some(expr) = self.resolution_chosen_amount(raw) {
+            return Some(expr);
+        }
         if let Some(n) = self.amount_num(raw) {
             return Some(n);
         }

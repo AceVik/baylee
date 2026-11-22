@@ -597,6 +597,14 @@ impl Tx<'_> {
     /// write and each means it by a different count, so an entry naming `X`
     /// would rank thirty questions as one.
     pub(super) fn pump_side(&mut self, raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        if let Some(expr) = self.resolution_chosen_amount(trimmed.trim_start_matches(['+', '-'])) {
+            return Some(if trimmed.starts_with('-') {
+                format!("Amount::Negated(&{expr})")
+            } else {
+                expr
+            });
+        }
         if let Some(kicked) = self.kicked_branch {
             let trimmed = raw.trim();
             let neg = trimmed.starts_with('-');
@@ -9398,14 +9406,6 @@ impl Tx<'_> {
         Some(match base_raw {
             "Count$LastDieRoll" => "Amount::LastDieRoll".to_string(),
             "Count$CoinsWonThisResolution" => "Amount::CoinsWonThisResolution".to_string(),
-            "Count$ChosenNumber"
-                if !self
-                    .svars
-                    .values()
-                    .any(|v| v.contains("SetChosenNumber$") || v.contains("ReplacedCard")) =>
-            {
-                "Amount::ResolutionChosenNumber".to_string()
-            }
             "Count$ExcessDamage" => "Amount::ThisWay(ThisWay::ExcessDamage)".to_string(),
             "Count$TotalDamageDoneByThisTurn" if self.on_a_spell => {
                 "Amount::ThisWay(ThisWay::DamageDealt)".to_string()
@@ -19879,7 +19879,12 @@ impl Tx<'_> {
 
     fn vote_objects_if_no_votes(&mut self, mut cursor: Option<String>) -> Option<Vec<String>> {
         let mut if_no_votes = Vec::new();
+        let mut steps = 0;
         while let Some(cname) = cursor.take() {
+            steps += 1;
+            if steps > 16 {
+                return self.deny("a cyclic `Vote` no-votes `SubAbility$` chain".to_string());
+            }
             let body = self.svars.get(cname.trim())?.clone();
             let (c_api, mut cp) = Params::parse(&body)?;
             cp.drop_prose();

@@ -359,11 +359,6 @@ fn wave26b_sacrificed_stats_chosen_number_and_this_way_readers() {
             "Sacrificed$CardManaCost/Plus.1",
             "Amount::Plus { base: &Amount::SacrificedManaValue, offset: 1 }",
         ),
-        ("Count$ChosenNumber", "Amount::ResolutionChosenNumber"),
-        (
-            "Count$ChosenNumber/Twice",
-            "Amount::Times { base: &Amount::ResolutionChosenNumber, factor: 2 }",
-        ),
         (
             "PreventedDamage",
             "Amount::ThisWay(ThisWay::DamagePrevented)",
@@ -401,19 +396,11 @@ fn wave26b_sacrificed_stats_chosen_number_and_this_way_readers() {
         Some("Amount::ThisWay(ThisWay::DamagePrevented)")
     );
 
-    // Die Young `-X/-X` with `SVar:X:Count$ChosenNumber` -> `Amount::Negated(&Amount::ResolutionChosenNumber)`.
+    // A bare amount reader does not know whether this resolution chose a number.
     let chosen_svars = svars_of(&[("X", "Count$ChosenNumber")]);
-    assert_eq!(
-        pump_amount("-X", &chosen_svars, false).as_deref(),
-        Some("Amount::Negated(&Amount::ResolutionChosenNumber)")
-    );
-
-    // Inline `Count$ChosenNumber` requires a `ChooseNumber` SVar and zero `SetChosenNumber$`.
+    assert_eq!(pump_amount("-X", &chosen_svars, false), None);
     let with_choose = svars_of(&[("DBChoose", "DB$ ChooseNumber | Max$ 5")]);
-    assert_eq!(
-        amount("Count$ChosenNumber", &with_choose, false).as_deref(),
-        Some("Amount::ResolutionChosenNumber")
-    );
+    assert_eq!(amount("Count$ChosenNumber", &with_choose, false), None);
     assert_eq!(
         amount("Count$ChosenNumber", &empty, false),
         None,
@@ -445,6 +432,30 @@ fn wave26b_sacrificed_stats_chosen_number_and_this_way_readers() {
     assert_eq!(
         amount("Z", &sac_res, false).as_deref(),
         Some("Amount::Times { base: &Amount::ThisWay(ThisWay::SacrificedCount), factor: 2 }")
+    );
+}
+
+#[test]
+fn chosen_number_requires_a_preceding_choice_in_the_same_chain() {
+    let cats = SubtypeCatalogs::default();
+    let read = |text| transcode(&parse(text), &cats, None);
+    let unrelated = "Name:Unbound Choice\nManaCost:2 U\nTypes:Sorcery\n\
+        A:SP$ Draw | NumCards$ N\n\
+        SVar:Unused:DB$ ChooseNumber | Min$ 0 | Max$ 3\n\
+        SVar:N:Count$ChosenNumber";
+    assert!(read(unrelated).is_none());
+
+    let bound = "Name:Bound Choice\nManaCost:2 U\nTypes:Sorcery\n\
+        A:SP$ ChooseNumber | Min$ 0 | Max$ 3 | SubAbility$ Draw\n\
+        SVar:Draw:DB$ Draw | NumCards$ N\n\
+        SVar:N:SVar$Chosen/Twice\n\
+        SVar:Chosen:Count$ChosenNumber";
+    let body = read(bound).expect("a choice preceding its consumer can be generated");
+    let ability = &body.abilities[0];
+    assert!(ability.contains("Effect::ChooseNumberEx"), "{ability}");
+    assert!(
+        ability.contains("base: &Amount::ResolutionChosenNumber, factor: 2"),
+        "{ability}"
     );
 }
 

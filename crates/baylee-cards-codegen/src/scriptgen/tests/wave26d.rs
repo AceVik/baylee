@@ -562,7 +562,7 @@ fn wave26d_choose_number_ex_and_move_attachment() {
         energy_pay.abilities[0].contains(
             "Effect::ChooseNumberEx { chooser: PlayerRel::You, min: Amount::Fixed(0), \
              max: Amount::CountersOnYou(CounterKind::Energy), \
-             prompt: NumberChoiceKind::EnergyPayment, pay_cost: Some(VariablePayKind::Energy), then: &[] }"
+             prompt: NumberChoiceKind::EnergyPayment, pay_cost: Some(VariablePayKind::Energy), then: &[Effect::DealDamage"
         ) && energy_pay.abilities[0].contains(
             "Effect::DealDamage { amount: Amount::ResolutionChosenNumber, target: TargetSpec::Object(&Filter::CREATURE) }"
         ),
@@ -579,7 +579,7 @@ fn wave26d_choose_number_ex_and_move_attachment() {
     );
     assert!(
         mana_pay.abilities[0].contains(
-            "prompt: NumberChoiceKind::ManaPayment, pay_cost: Some(VariablePayKind::GenericMana), then: &[]"
+            "prompt: NumberChoiceKind::ManaPayment, pay_cost: Some(VariablePayKind::GenericMana), then: &[Effect::DrawCards"
         ) && mana_pay.abilities[0]
             .contains("Effect::DrawCards { amount: Amount::ResolutionChosenNumber }"),
         "{:?}",
@@ -589,14 +589,15 @@ fn wave26d_choose_number_ex_and_move_attachment() {
     let life_pay = read_w26d(
         "Name:Blood Choice\nManaCost:1 B\nTypes:Sorcery\n\
          A:SP$ ChooseNumber | ValidTgts$ Opponent | Min$ 1 | Max$ 5 | ListTitle$ amount of life to pay | SubAbility$ DBDraw\n\
-         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ X | SubAbility$ DBGainLife\n\
+         SVar:DBGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 2\n\
          SVar:X:Count$ChosenNumber",
     );
     assert!(
         life_pay.abilities[0].contains(
             "Effect::ChooseNumberEx { chooser: PlayerRel::Chosen, min: Amount::Fixed(1), \
              max: Amount::Fixed(5), prompt: NumberChoiceKind::Choice, \
-             pay_cost: Some(VariablePayKind::Life), then: &[] }"
+             pay_cost: Some(VariablePayKind::Life), then: &[Effect::DrawCards { amount: Amount::ResolutionChosenNumber }, Effect::gain_life(2)] }"
         ),
         "{:?}",
         life_pay.abilities

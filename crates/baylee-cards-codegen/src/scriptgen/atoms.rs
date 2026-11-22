@@ -27,9 +27,6 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     if raw == "PreventedDamage" {
         return Some("Amount::ThisWay(ThisWay::DamagePrevented)".to_string());
     }
-    if raw == "Count$ChosenNumber" {
-        return resolution_chosen_number_expr(svars, true);
-    }
     if raw.starts_with("Count$")
         && let Some(expr) = static_wave14_amount_depth(raw, svars, 0)
     {
@@ -191,17 +188,31 @@ fn apply_wave14_suffix(base: &str, suffix: Option<&str>) -> Option<String> {
     }
 }
 
-fn resolution_chosen_number_expr(
-    svars: &BTreeMap<String, String>,
-    require_svar_choose_number: bool,
-) -> Option<String> {
-    if svars.values().any(|v| v.contains("SetChosenNumber$")) {
-        return None;
+impl super::Tx<'_> {
+    pub(super) fn resolution_chosen_amount(&self, raw: &str) -> Option<String> {
+        if !self.has_resolution_chosen_number || self.in_delayed {
+            return None;
+        }
+        let raw = raw.trim();
+        let definition = self.svars.get(raw).map_or(raw, String::as_str);
+        self.resolution_chosen_definition(definition, 0)
     }
-    if require_svar_choose_number && !svars.values().any(|v| v.contains("ChooseNumber")) {
-        return None;
+
+    fn resolution_chosen_definition(&self, raw: &str, depth: u8) -> Option<String> {
+        if depth >= 4 {
+            return None;
+        }
+        let raw = raw.trim();
+        let (head, suffix) = raw
+            .rsplit_once('/')
+            .map_or((raw, None), |(h, s)| (h.trim(), Some(s.trim())));
+        if head == "Count$ChosenNumber" {
+            return apply_wave14_suffix("Amount::ResolutionChosenNumber", suffix);
+        }
+        let definition = self.svars.get(head.strip_prefix("SVar$")?.trim())?;
+        let base = self.resolution_chosen_definition(definition, depth + 1)?;
+        apply_wave14_suffix(&base, suffix)
     }
-    Some("Amount::ResolutionChosenNumber".to_string())
 }
 
 fn greatest_power_filter(valid: &str) -> Option<&'static str> {
@@ -446,7 +457,6 @@ fn wave14_svar_amount_depth(
             "Sacrificed$CardNumColors" | "Sacrificed$Colors" | "Sacrificed$TotalCardColors" => {
                 "Amount::SacrificedDistinctColors".to_string()
             }
-            "Count$ChosenNumber" => resolution_chosen_number_expr(svars, false)?,
             "PreventedDamage" | "Count$PreventedDamage" => {
                 "Amount::ThisWay(ThisWay::DamagePrevented)".to_string()
             }

@@ -452,6 +452,8 @@ struct Tx<'a> {
     /// Whether the chain being read is a delayed trigger's `Execute$`, where
     /// `Defined$ DelayTriggerRememberedLKI` is the object it remembers.
     in_delayed: bool,
+    /// An earlier unconditional effect in this resolution chain chose a number.
+    has_resolution_chosen_number: bool,
     /// Whether the activated ability being read sacrifices `CARDNAME` in its cost.
     cost_sacrifices_self: bool,
     /// Whether the activated ability being read sacrifices another object in its cost.
@@ -582,6 +584,7 @@ impl<'a> Tx<'a> {
             block_line_one_or_more: false,
             block_half: None,
             in_delayed: false,
+            has_resolution_chosen_number: false,
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
             has_x_mana_cost: script.has_x_mana_cost,

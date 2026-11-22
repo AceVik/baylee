@@ -405,17 +405,22 @@ fn aether_refinery_skips_prompt_and_then_when_min_exceeds_affordable_energy() {
             max: Amount::Fixed(u32::MAX),
             prompt: NumberChoiceKind::EnergyPayment,
             pay_cost: Some(VariablePayKind::Energy),
-            then: &[Effect::CreateTokenSized {
-                token: &AETHER_TOKEN,
-                amount: Amount::Fixed(1),
-                power: Amount::ResolutionChosenNumber,
-                toughness: Amount::ResolutionChosenNumber,
-                who: PlayerRel::You,
-                tapped: false,
-                attacking: false,
-                haste_until_eot: false,
-                cleanup: CopyCleanup::None,
-            }],
+            then: &[
+                Effect::CreateTokenSized {
+                    token: &AETHER_TOKEN,
+                    amount: Amount::Fixed(1),
+                    power: Amount::ResolutionChosenNumber,
+                    toughness: Amount::ResolutionChosenNumber,
+                    who: PlayerRel::You,
+                    tapped: false,
+                    attacking: false,
+                    haste_until_eot: false,
+                    cleanup: CopyCleanup::None,
+                },
+                Effect::GainLife {
+                    amount: Amount::Fixed(2),
+                },
+            ],
         }],
         None,
     )];
@@ -429,6 +434,7 @@ fn aether_refinery_skips_prompt_and_then_when_min_exceeds_affordable_energy() {
     let mut engine = bench(14_603, vec![refinery], [Seat::with(&[C0]), Seat::default()]);
     to_main(&mut engine, me());
     let ref_id = the(&engine, ZoneLocation::Battlefield, C0);
+    let starting_life = life(&engine, me());
 
     // 1. With 0 {E}: min (1) > clamped max (0) -> no ChooseNumber prompt, no token created!
     activate(&mut engine, me(), ref_id, 0);
@@ -438,6 +444,7 @@ fn aether_refinery_skips_prompt_and_then_when_min_exceeds_affordable_energy() {
         1,
         "only Refinery on the battlefield when min (1) > held {{E}} (0)"
     );
+    assert_eq!(life(&engine, me()), starting_life);
 
     // 2. With 4 {E}: offers 1..=4, choosing 3 pays 3 {E} and creates a 3/3 Aetherborn token!
     engine.state.players[usize::from(me().get())].energy = 4;
@@ -456,6 +463,7 @@ fn aether_refinery_skips_prompt_and_then_when_min_exceeds_affordable_energy() {
     settle(&mut engine, me());
 
     assert_eq!(energy_of(&engine, me()), 1);
+    assert_eq!(life(&engine, me()), starting_life + 2);
     let token_id = engine
         .state()
         .zones

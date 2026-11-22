@@ -19,11 +19,28 @@ pub(super) struct LineFlags {
 
 impl Tx<'_> {
     /// One effect and everything its `SubAbility$` chain adds.
-    #[allow(clippy::too_many_lines)]
     pub(super) fn chain(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
-        let Some((api, mut p)) = Params::parse(spec) else {
+        let Some((api, p)) = Params::parse(spec) else {
             return self.deny("an ability spec with no `$` in it".to_string());
         };
+        let chosen = chain
+            .effects
+            .iter()
+            .any(|e| e.starts_with("Effect::ChooseNumberEx {"));
+        let saved = std::mem::replace(&mut self.has_resolution_chosen_number, chosen);
+        let result = self.chain_inner(spec, chain, api, p);
+        self.has_resolution_chosen_number = saved;
+        result
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn chain_inner(
+        &mut self,
+        spec: &str,
+        chain: &mut Chain,
+        api: String,
+        mut p: Params,
+    ) -> Option<()> {
         let starts_whenever = api == "ImmediateTrigger"
             && p.peek("TriggerDescription")
                 .or_else(|| p.peek("SpellDescription"))
@@ -1427,6 +1444,18 @@ impl Tx<'_> {
         } else {
             effects
         };
+        let pay_before_followup = api == "ChooseNumber"
+            && sub.is_some()
+            && effects
+                .iter()
+                .any(|e| e.contains("pay_cost: Some(VariablePayKind::"));
+        if pay_before_followup
+            && !matches!(&effects[..], [choice] if choice.starts_with("Effect::ChooseNumberEx {")
+                && choice.ends_with("then: &[] }"))
+        {
+            return self.deny("a wrapped variable payment with a follow-up".to_string());
+        }
+        let choice_index = chain.effects.len();
         Self::push_effects_merging_kicked(&mut chain.effects, effects);
         self.chain_sub_ability(sub, chain)?;
         if chain.second_target.is_some() {
@@ -1437,6 +1466,15 @@ impl Tx<'_> {
                     *effect = "Effect::UntapTargetSlot(TargetSlot::First)".to_string();
                 }
             }
+        }
+        if pay_before_followup {
+            // Only the selected and successfully paid number enables the
+            // follow-up. The reader above still sees its target declarations
+            // and the chosen-number producer in the enclosing chain.
+            let followup = chain.effects.drain(choice_index + 1..).collect::<Vec<_>>();
+            let choice = &mut chain.effects[choice_index];
+            choice.truncate(choice.len() - "then: &[] }".len());
+            choice.push_str(&format!("then: &[{}] }}", followup.join(", ")));
         }
         Some(())
     }
@@ -2126,7 +2164,12 @@ impl Tx<'_> {
         graveyard_description: Option<&str>,
     ) -> Option<()> {
         let has_target_unique = p.peek("TargetUnique").is_some();
-        let mut spec = self.resolve_target_spec(api, p, valid, chain, graveyard_description)?;
+        // A target is chosen before resolution, even if its effect follows
+        // an instruction that chooses a number during resolution.
+        let saved = std::mem::take(&mut self.has_resolution_chosen_number);
+        let spec = self.resolve_target_spec(api, p, valid, chain, graveyard_description);
+        self.has_resolution_chosen_number = saved;
+        let mut spec = spec?;
         if chain.target.is_some() {
             // A fresh ValidTgts declares another target instance even
             // when its restriction is identical. Never alias it to the
