@@ -1643,6 +1643,19 @@ impl Tx<'_> {
                 def.strip_prefix("Count$CompletedDungeon.")
                     .map(|r| ("Condition::CompletedADungeon(PlayerRel::You)", r))
             })
+            .or_else(|| {
+                def.strip_prefix("Count$Bargained.")
+                    .map(|r| ("Condition::Bargained", r))
+            })
+            .or_else(|| {
+                def.strip_prefix("Count$Prototyped.")
+                    .map(|r| ("Condition::Prototyped", r))
+            })
+            .or_else(|| {
+                def.strip_prefix("Count$Warped.")
+                    .or_else(|| def.strip_prefix("Count$Warp."))
+                    .map(|r| ("Condition::WarpCostPaid", r))
+            })
         {
             let Some((then_arm, else_arm)) = rest.split_once('.') else {
                 return false;
@@ -1717,6 +1730,17 @@ impl Tx<'_> {
         let cond = if let Some(valid) = p.take("ValidCard") {
             match valid.trim() {
                 "Card.Self+escaped" | "Card.escaped+Self" => "Condition::Escaped".to_string(),
+                "Card.Self+bargained" | "Card.bargained+Self" => "Condition::Bargained".to_string(),
+                "Card.Self+prototyped" | "Card.prototyped+Self" => {
+                    "Condition::Prototyped".to_string()
+                }
+                "Card.Self+PromisedGift" | "Card.PromisedGift+Self" => {
+                    "Condition::GiftWasPromised".to_string()
+                }
+                "Card.Self+Warped"
+                | "Card.Warped+Self"
+                | "Card.Self+CastSa Spell.Warp"
+                | "Card.CastSa Spell.Warp+Self" => "Condition::WarpCostPaid".to_string(),
                 "Card.Self+wasCastByYou" | "Card.wasCastByYou+Self" => {
                     "Condition::SourceWasCastByYou".to_string()
                 }

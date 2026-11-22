@@ -2066,3 +2066,482 @@ fn amplify_keyword_multiple_instances_and_ghastly_remains_graveyard_upkeep_lower
              target = Some(TargetSpec::Object(&Filter::CREATURE)))"]
     );
 }
+
+#[test]
+fn wave22c_etb_counter_cast_riders_and_refusals() {
+    let bargained_cond = read(
+        "Name:BargainBearer\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         K:etbCounter:P1P1:X\n\
+         SVar:X:Count$Bargained.2.0",
+    );
+    assert_eq!(
+        bargained_cond.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::Bargained }"
+        ]
+    );
+
+    let bargained_split = read(
+        "Name:BargainSplit\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         K:etbCounter:P1P1:X\n\
+         SVar:X:Count$Bargained.3.1",
+    );
+    assert_eq!(
+        bargained_split.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(3), condition: Condition::Bargained }",
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(1), condition: Condition::Not(&CHECK1) }",
+        ]
+    );
+    assert!(
+        bargained_split
+            .statics
+            .contains("static CHECK1: Condition = Condition::Bargained;"),
+        "{}",
+        bargained_split.statics
+    );
+
+    let prototyped_cond = read(
+        "Name:ProtoBearer\nManaCost:5\nTypes:Artifact Creature\nPT:4/4\n\
+         K:etbCounter:P1P1:X\n\
+         SVar:X:Count$Prototyped.1.0",
+    );
+    assert_eq!(
+        prototyped_cond.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(1), condition: Condition::Prototyped }"
+        ]
+    );
+
+    let warped_cond = read(
+        "Name:WarpBearer\nManaCost:3 U\nTypes:Creature\nPT:2/2\n\
+         K:etbCounter:P1P1:X\n\
+         SVar:X:Count$Warped.2.0",
+    );
+    assert_eq!(
+        warped_cond.enter_modifiers,
+        [
+            "EnterModifier::WithCountersIf { kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: Condition::WarpCostPaid }"
+        ]
+    );
+
+    for (valid, expected_cond) in [
+        ("Card.Self+bargained", "Condition::Bargained"),
+        ("Card.Self+prototyped", "Condition::Prototyped"),
+        ("Card.Self+PromisedGift", "Condition::GiftWasPromised"),
+        ("Card.Self+Warped", "Condition::WarpCostPaid"),
+        ("Card.Self+CastSa Spell.Warp", "Condition::WarpCostPaid"),
+    ] {
+        let script = format!(
+            "Name:RiderBearer\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+             K:etbCounter:P1P1:2:ValidCard$ {valid}"
+        );
+        let body = read(&script);
+        assert_eq!(
+            body.enter_modifiers,
+            [format!(
+                "EnterModifier::WithCountersIf {{ kind: CounterKind::P1P1, count: Amount::Fixed(2), condition: {expected_cond} }}"
+            )],
+            "valid={valid}"
+        );
+    }
+
+    // Unassigned keyword/named counters and unmodelled etbCounter SVars stay honestly refused.
+    for unmodelled in [
+        "Name:MenaceNinja\nManaCost:2 B\nTypes:Creature\nPT:3/3\nK:etbCounter:Menace:1",
+        "Name:HexproofBeast\nManaCost:3 G\nTypes:Creature\nPT:3/3\nK:etbCounter:Hexproof:1",
+        "Name:DivinitySpirit\nManaCost:5 W\nTypes:Creature\nPT:4/4\nK:etbCounter:DIVINITY:1",
+        "Name:ConvergeGolem\nManaCost:4\nTypes:Artifact Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$Converge",
+        "Name:AdamantKnight\nManaCost:3 R\nTypes:Creature\nPT:2/2\nK:etbCounter:P1P1:1:CheckSVar$ X\nSVar:X:Adamant$ Red",
+        "Name:DraftConstruct\nManaCost:3\nTypes:Artifact Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$DraftNotesCount",
+        "Name:CommanderHydra\nManaCost:2 G\nTypes:Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$TotalCommanderCastFromCommandZone",
+        "Name:SpentGolem\nManaCost:4\nTypes:Artifact Creature\nPT:2/2\nK:etbCounter:P1P1:X\nSVar:X:Count$EachSpentToCast G",
+    ] {
+        assert!(refused(unmodelled), "must stay refused:\n{unmodelled}");
+    }
+}
+
+#[test]
+fn wave22c_phase_check_svar_end_combat_and_ltb_triggers() {
+    for phase_word in ["EndCombat", "End of Combat"] {
+        let script = format!(
+            "Name:CombatEnder\nManaCost:2 R\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ {phase_word} | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        );
+        let body = read(&script);
+        assert!(
+            body.abilities[0].contains(
+                "Trigger::StepBegin { step: StepKind::CombatEnd, whose: PlayerRel::You }"
+            ),
+            "{phase_word}: {}",
+            body.abilities[0]
+        );
+    }
+
+    // Battlefield-origin ChangesZone with omitted Destination$ lowers to LeavesBattlefield.
+    let ltb = read(
+        "Name:CircuitWatcher\nManaCost:3\nTypes:Artifact Creature\nPT:2/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        ltb.abilities[0].contains("Trigger::LeavesBattlefield(&Filter::This)"),
+        "{}",
+        ltb.abilities[0]
+    );
+    assert!(
+        refused(
+            "Name:BadNoDest\nManaCost:2\nTypes:Artifact\n\
+             T:Mode$ ChangesZone | Origin$ Exile | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        "omitted Destination$ with non-Battlefield Origin$ must stay refused"
+    );
+
+    // Count$MaxOppDamageThisTurn (GE, EQ0, exact positive EQ).
+    let opp_dmg_ge = read(
+        "Name:SparkPhoenix\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Graveyard | \
+         CheckSVar$ X | SVarCompare$ GE3 | Execute$ TrigRet\n\
+         SVar:TrigRet:AB$ ChangeZone | Cost$ R | Defined$ Self | Origin$ Graveyard | Destination$ Battlefield\n\
+         SVar:X:Count$MaxOppDamageThisTurn",
+    );
+    assert!(
+        opp_dmg_ge.abilities[0].contains("Condition::OpponentWasDealtAtLeast(3)"),
+        "{}",
+        opp_dmg_ge.abilities[0]
+    );
+    let opp_dmg_zero = read(
+        "Name:PeaceMarker\nManaCost:2 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | SVarCompare$ EQ0 | Execute$ TrigGain\n\
+         SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1\n\
+         SVar:X:Count$MaxOppDamageThisTurn",
+    );
+    assert!(
+        opp_dmg_zero.abilities[0]
+            .contains("Condition::Not(&Condition::OpponentWasDealtAtLeast(1))"),
+        "{}",
+        opp_dmg_zero.abilities[0]
+    );
+    let opp_dmg_eq = read(
+        "Name:ExactBurn\nManaCost:2 R\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | SVarCompare$ EQ2 | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:Count$MaxOppDamageThisTurn",
+    );
+    assert!(
+        opp_dmg_eq.abilities[0].contains(
+            "Condition::All(&[Condition::OpponentWasDealtAtLeast(2), \
+             Condition::Not(&Condition::OpponentWasDealtAtLeast(3))])"
+        ),
+        "{}",
+        opp_dmg_eq.abilities[0]
+    );
+}
+
+#[test]
+fn wave22c_domain_and_combat_phase_check_svar_triggers() {
+    // TriggeredPlayer$DomainPlayer and PlayerCountPropertyYou$DomainPlayer.
+    let active_domain = read(
+        "Name:DomainMask\nManaCost:2\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield | \
+         CheckSVar$ D | SVarCompare$ GE4 | Execute$ TrigDmg\n\
+         SVar:TrigDmg:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ 3\n\
+         SVar:D:TriggeredPlayer$DomainPlayer",
+    );
+    assert!(
+        active_domain.abilities[0].contains(
+            "Amount::BasicLandTypesAmong(&Filter::And(&[Filter::LAND, Filter::ControlledByActivePlayer]))"
+        ) && active_domain.abilities[0].contains("AmountCmp::AtLeast"),
+        "{}",
+        active_domain.abilities[0]
+    );
+    let your_domain = read(
+        "Name:YourDomain\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ D | SVarCompare$ GE3 | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:D:PlayerCountPropertyYou$DomainPlayer",
+    );
+    assert!(
+        your_domain.abilities[0].contains("Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)"),
+        "{}",
+        your_domain.abilities[0]
+    );
+
+    // PlayerCountPropertyYou$OpponentsAttackedThisCombat.
+    let melee_phase = read(
+        "Name:MeleeCheck\nManaCost:2 R\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ EndCombat | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | SVarCompare$ GE2 | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:PlayerCountPropertyYou$OpponentsAttackedThisCombat",
+    );
+    assert!(
+        melee_phase.abilities[0].contains("Amount::OpponentsYouAttackedThisCombat"),
+        "{}",
+        melee_phase.abilities[0]
+    );
+}
+
+#[test]
+fn wave22c_phase_check_svar_counts_and_refusals() {
+    // PlayerCountOpponents$LowestValid (neutral filter inside OpponentControlCountAtMost).
+    let opp_lowest = read(
+        "Name:VoidGate\nManaCost:4 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | SVarCompare$ EQ0 | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:PlayerCountOpponents$LowestValid Creature.YouCtrl",
+    );
+    assert!(
+        opp_lowest.abilities[0]
+            .contains("Condition::OpponentControlCountAtMost(&Filter::CREATURE, 0)"),
+        "abilities={:?} statics={}",
+        opp_lowest.abilities,
+        opp_lowest.statics
+    );
+    let opp_lowest_ge = read(
+        "Name:FullBoardGate\nManaCost:4 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | SVarCompare$ GE2 | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:PlayerCountOpponents$LowestValid Creature.YouCtrl",
+    );
+    assert!(
+        opp_lowest_ge.abilities[0].contains(
+            "Condition::Not(&Condition::OpponentControlCountAtMost(&Filter::CREATURE, 1))"
+        ),
+        "{}",
+        opp_lowest_ge.abilities[0]
+    );
+
+    // PlayerCountPlayers$LowestCardsInHand and HighestCardsInHand.
+    let low_hand = read(
+        "Name:EmptyHandWatch\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | SVarCompare$ LE1 | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:PlayerCountPlayers$LowestCardsInHand",
+    );
+    assert!(
+        low_hand.abilities[0].contains("Condition::APlayerHandSizeAtMost(1)"),
+        "{}",
+        low_hand.abilities[0]
+    );
+    let all_empty = read(
+        "Name:AllEmptyWatch\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | SVarCompare$ EQ0 | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:PlayerCountPlayers$HighestCardsInHand",
+    );
+    assert!(
+        all_empty.abilities[0].contains("Condition::EveryHandEmpty"),
+        "{}",
+        all_empty.abilities[0]
+    );
+
+    // Multi-subtype Count$ThisTurnEntered_Battlefield_<Sub1>.YouCtrl,<Sub2>.YouCtrl.
+    let multi_sub = read(
+        "Name:TribeWatcher\nManaCost:3 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:Count$ThisTurnEntered_Battlefield_Goblin.YouCtrl,Wizard.YouCtrl",
+    );
+    assert!(
+        multi_sub.abilities[0].contains(
+            "Condition::EnteredSubtypeUnderYourControlThisTurn(\
+             &[subtypes::creature::GOBLIN, subtypes::creature::WIZARD])"
+        ),
+        "{}",
+        multi_sub.abilities[0]
+    );
+
+    // Unmodelled Phase.CheckSVar forms stay honestly refused.
+    for unmodelled in [
+        "Name:OppEmptyHand\nManaCost:2 R\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | SVarCompare$ EQ0 | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:PlayerCountOpponents$LowestCardsInHand",
+        "Name:VoidWatcher\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:Count$Void.1.0",
+        "Name:OtherTribeWatcher\nManaCost:3 W\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         CheckSVar$ X | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:X:Count$ThisTurnEntered_Battlefield_Goblin.YouCtrl,Wizard.Other+YouCtrl",
+    ] {
+        assert!(refused(unmodelled), "must stay refused:\n{unmodelled}");
+    }
+}
+
+#[test]
+fn wave22c_emblems_command_zone_delayed_triggers_and_non_paper_refusals() {
+    // Emblem with activated ability in Command zone (Ob Nixilis / Karn shape).
+    let activated_emblem = read(
+        "Name:CommandWalker\nManaCost:3 B B\nTypes:Legendary Planeswalker\nLoyalty:5\n\
+         A:AB$ Effect | Cost$ SubCounter<8/LOYALTY> | Planeswalker$ True | Ultimate$ True | \
+         Name$ Emblem — CommandWalker | Image$ emblem_cmd | Stackable$ False | \
+         Abilities$ EmbSac | Duration$ Permanent\n\
+         SVar:EmbSac:AB$ Draw | Cost$ 1 B Sac<1/Creature> | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        activated_emblem.abilities[0].contains("Effect::CreateEmblem")
+            && activated_emblem.abilities[0].contains("ActivationZone::Command")
+            && activated_emblem.abilities[0].contains("Sacrifice(&Filter::YOUR_CREATURE)"),
+        "abilities={:?} statics={}",
+        activated_emblem.abilities,
+        activated_emblem.statics
+    );
+
+    // Emblem with sVars$ metadata and TriggerZones$ Battlefield normalized to Command.
+    let svar_emblem = read(
+        "Name:MetaWalker\nManaCost:4 R\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<7/LOYALTY> | Planeswalker$ True | Ultimate$ True | \
+         Name$ Emblem — MetaWalker | Triggers$ EmbEtb | sVars$ EmbDmg | Duration$ Permanent\n\
+         SVar:EmbEtb:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
+         ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDmg\n\
+         SVar:TrigDmg:DB$ DealDamage | ValidTgts$ Any | NumDmg$ EmbDmg\n\
+         SVar:EmbDmg:TriggeredCard$CardPower",
+    );
+    assert!(
+        svar_emblem.abilities[0].contains("Effect::CreateEmblem")
+            && svar_emblem.abilities[0].contains("Trigger::EntersBattlefield")
+            && svar_emblem.abilities[0].contains("zone = TriggerZone::Command"),
+        "abilities={:?} statics={}",
+        svar_emblem.abilities,
+        svar_emblem.statics
+    );
+
+    // Targeted emblem trigger animating a target artifact via Filter::This (Tezzeret shape).
+    let targeted_animate_emblem = read(
+        "Name:ArtificeWalker\nManaCost:2 U B\nTypes:Legendary Planeswalker\nLoyalty:5\n\
+         A:AB$ Effect | Cost$ SubCounter<7/LOYALTY> | Planeswalker$ True | Ultimate$ True | \
+         Name$ Emblem — ArtificeWalker | Triggers$ CombatTrig | Duration$ Permanent\n\
+         SVar:CombatTrig:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | \
+         TriggerZones$ Command | Execute$ TrigAnim\n\
+         SVar:TrigAnim:DB$ Animate | ValidTgts$ Artifact.YouCtrl | Power$ 5 | Toughness$ 5 | \
+         Types$ Artifact,Creature | Duration$ Permanent",
+    );
+    assert!(
+        targeted_animate_emblem.abilities[0].contains("Effect::CreateEmblem")
+            && targeted_animate_emblem.abilities[0].contains("StepKind::CombatBegin")
+            && targeted_animate_emblem.abilities[0].contains("Effect::continuous(&Filter::This"),
+        "abilities={:?} statics={}",
+        targeted_animate_emblem.abilities,
+        targeted_animate_emblem.statics
+    );
+
+    // Delayed trigger with Duration$ EndOfTurn and RememberObjects$ Self -> TriggerRemember::Source.
+    let eot_delayed = read(
+        "Name:CastawayWalker\nManaCost:1 U U\nTypes:Legendary Planeswalker\nLoyalty:3\n\
+         A:AB$ Effect | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | \
+         Triggers$ TrigHit | Duration$ EndOfTurn\n\
+         SVar:TrigHit:Mode$ DamageDoneOnce | ValidSource$ Creature.YouCtrl | ValidTarget$ Player | \
+         CombatDamage$ True | TriggerZones$ Command | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        eot_delayed.abilities[0].contains("Effect::RegisterDelayedTrigger")
+            && eot_delayed.abilities[0].contains("DelayedDuration::ThisTurn"),
+        "{}",
+        eot_delayed.abilities[0]
+    );
+
+    let mountain_titan = read(
+        "Name:VolcanoTitan\nManaCost:2 B R\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Effect | Cost$ 1 R R | Triggers$ TrigCast | RememberObjects$ Self\n\
+         SVar:TrigCast:Mode$ SpellCast | ValidCard$ Card.Black | ValidActivatingPlayer$ You | \
+         TriggerZones$ Command | Execute$ TrigPut\n\
+         SVar:TrigPut:DB$ PutCounter | Defined$ Remembered | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        mountain_titan.abilities[0].contains("Effect::RegisterDelayedTrigger")
+            && mountain_titan.abilities[0].contains("remember: TriggerRemember::Source")
+            && mountain_titan.abilities[0].contains("filter: &Filter::Reference"),
+        "{}",
+        mountain_titan.abilities[0]
+    );
+}
+
+#[test]
+fn wave22c_emblem_and_non_paper_command_zone_refusals() {
+    // Refusals: self-tap/self-sac/loyalty/bad-zone emblem activated abilities, missing sVars$,
+    // self-referencing untargeted emblem triggers, opponent emblems, and non-Paper formats
+    // (Alchemy Boon, Planechase, Archenemy, Vanguard, Un-sets).
+    for unmodelled in [
+        // TapSelf on emblem activated ability.
+        "Name:BadTapEmblem\nManaCost:4\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<4/LOYALTY> | Planeswalker$ True | \
+         Name$ Emblem — BadTap | Abilities$ EmbTap | Duration$ Permanent\n\
+         SVar:EmbTap:AB$ Draw | Cost$ T | Defined$ You | NumCards$ 1",
+        // SacrificeSelf on emblem activated ability.
+        "Name:BadSacEmblem\nManaCost:4\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<4/LOYALTY> | Planeswalker$ True | \
+         Name$ Emblem — BadSac | Abilities$ EmbSac | Duration$ Permanent\n\
+         SVar:EmbSac:AB$ Draw | Cost$ Sac<1/CARDNAME> | Defined$ You | NumCards$ 1",
+        // Loyalty ability on emblem.
+        "Name:BadLoyaltyEmblem\nManaCost:4\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<4/LOYALTY> | Planeswalker$ True | \
+         Name$ Emblem — BadLoyalty | Abilities$ EmbLoy | Duration$ Permanent\n\
+         SVar:EmbLoy:AB$ Draw | Cost$ SubCounter<1/LOYALTY> | Planeswalker$ True | Defined$ You | NumCards$ 1",
+        // Wrong ActivationZone on emblem.
+        "Name:BadZoneEmblem\nManaCost:4\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<4/LOYALTY> | Planeswalker$ True | \
+         Name$ Emblem — BadZone | Abilities$ EmbZone | Duration$ Permanent\n\
+         SVar:EmbZone:AB$ Draw | Cost$ 1 | ActivationZone$ Battlefield | Defined$ You | NumCards$ 1",
+        // Missing SVar listed in sVars$.
+        "Name:BadSvarEmblem\nManaCost:4\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<4/LOYALTY> | Planeswalker$ True | \
+         Name$ Emblem — BadSvar | Triggers$ EmbTrig | sVars$ MissingVar | Duration$ Permanent\n\
+         SVar:EmbTrig:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        // Untargeted emblem trigger referencing Self (Filter::This).
+        "Name:BadSelfEmblem\nManaCost:4\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<4/LOYALTY> | Planeswalker$ True | \
+         Name$ Emblem — BadSelf | Triggers$ EmbTrig | Duration$ Permanent\n\
+         SVar:EmbTrig:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | Defined$ Self | NumAtt$ 1 | NumDef$ 1",
+        // Opponent emblem (EffectOwner$).
+        "Name:OppEmblem\nManaCost:4 B\nTypes:Legendary Planeswalker\nLoyalty:4\n\
+         A:AB$ Effect | Cost$ SubCounter<4/LOYALTY> | Planeswalker$ True | \
+         Name$ Emblem — Opp | EffectOwner$ Opponent | Triggers$ EmbTrig | Duration$ Permanent\n\
+         SVar:EmbTrig:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | Execute$ TrigLose\n\
+         SVar:TrigLose:DB$ LoseLife | Defined$ You | LifeAmount$ 1",
+        // Alchemy Boon.
+        "Name:AlchemyBoon\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Effect | Boon$ True | Name$ Boon | Triggers$ TrigCast | Duration$ Permanent\n\
+         SVar:TrigCast:Mode$ SpellCast | ValidCard$ Creature | ValidActivatingPlayer$ You | TriggerZones$ Command | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        // Planechase PlaneswalkedTo / ChaosEnsues.
+        "Name:TestPlane\nTypes:Plane\n\
+         T:Mode$ PlaneswalkedTo | TriggerZones$ Command | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        "Name:TestChaos\nTypes:Plane\n\
+         T:Mode$ ChaosEnsues | TriggerZones$ Command | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        // Archenemy SetInMotion.
+        "Name:TestScheme\nTypes:Scheme\n\
+         T:Mode$ SetInMotion | TriggerZones$ Command | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        // Vanguard NewGame.
+        "Name:TestVanguard\nTypes:Vanguard\n\
+         T:Mode$ NewGame | TriggerZones$ Command | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        // Un-set CrankContraption.
+        "Name:TestContraption\nTypes:Artifact Contraption\n\
+         T:Mode$ CrankContraption | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    ] {
+        assert!(refused(unmodelled), "must stay refused:\n{unmodelled}");
+    }
+}

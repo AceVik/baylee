@@ -12,6 +12,13 @@ enum LegacyPhase {
     Refused,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EmblemKind {
+    Static,
+    Trigger,
+    Activated,
+}
+
 impl Tx<'_> {
     /// `T:Mode$ SpellCast` — "whenever a player casts a spell".
     ///
@@ -885,6 +892,7 @@ impl Tx<'_> {
             "Draw" => "StepKind::Draw",
             "Main1" => "StepKind::FirstMain",
             "BeginCombat" => "StepKind::CombatBegin",
+            "EndCombat" | "End of Combat" => "StepKind::CombatEnd",
             "End of Turn" => "StepKind::End",
             other => return self.deny(format!("trigger at step `{other}`")),
         };
@@ -1318,7 +1326,9 @@ impl Tx<'_> {
         let origin = p
             .take("Origin")
             .or_else(|| (p.peek("Destination") == Some("Battlefield")).then(|| "Any".to_string()));
-        let dest = p.take("Destination");
+        let dest = p
+            .take("Destination")
+            .or_else(|| (origin.as_deref() == Some("Battlefield")).then(|| "Any".to_string()));
         let valid = p.take("ValidCard");
         let (Some(origin), Some(dest), Some(valid)) = (origin, dest, valid) else {
             return self.deny("a `ChangesZone` trigger missing one of its three keys".to_string());
@@ -3749,27 +3759,37 @@ impl Tx<'_> {
         ))
     }
 
-    fn wave15_entered_subtype_const(&self, rest: &str) -> Option<String> {
-        let sub_word = rest
-            .strip_suffix(".YouCtrl")
-            .or_else(|| {
-                rest.strip_prefix("Creature.")
-                    .and_then(|s| s.strip_suffix("+YouCtrl"))
-            })
-            .or_else(|| {
-                rest.strip_prefix("Permanent.")
-                    .and_then(|s| s.strip_suffix("+YouCtrl"))
-            })?
-            .trim();
-        self.single_subtype_const(sub_word).or_else(|| {
-            if sub_word.is_empty() || sub_word.contains(['.', '+', ',', ' ', '!']) {
+    fn wave15_entered_subtype_consts(&self, rest: &str) -> Option<Vec<String>> {
+        let mut out = Vec::new();
+        for alt in rest.split(',').map(str::trim) {
+            if alt.is_empty() {
                 return None;
             }
-            let expr = self.filter_expr(&format!("Card.{sub_word}"))?;
-            expr.strip_prefix("Filter::HasSubtype(")
-                .and_then(|s| s.strip_suffix(')'))
-                .map(str::to_string)
-        })
+            let sub_word = alt
+                .strip_suffix(".YouCtrl")
+                .or_else(|| {
+                    alt.strip_prefix("Creature.")
+                        .and_then(|s| s.strip_suffix("+YouCtrl"))
+                })
+                .or_else(|| {
+                    alt.strip_prefix("Permanent.")
+                        .and_then(|s| s.strip_suffix("+YouCtrl"))
+                })?
+                .trim();
+            let konst = self.single_subtype_const(sub_word).or_else(|| {
+                if sub_word.is_empty() || sub_word.contains(['.', '+', ',', ' ', '!']) {
+                    return None;
+                }
+                let expr = self.filter_expr(&format!("Card.{sub_word}"))?;
+                expr.strip_prefix("Filter::HasSubtype(")
+                    .and_then(|s| s.strip_suffix(')'))
+                    .map(str::to_string)
+            })?;
+            if !out.contains(&konst) {
+                out.push(konst);
+            }
+        }
+        (!out.is_empty()).then_some(out)
     }
 
     /// Wave-15c trigger `CheckSVar$` / `SVarCompare$` clauses backed by
@@ -3816,10 +3836,11 @@ impl Tx<'_> {
             );
         }
         if let Some(rest) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
-            && let Some(sub_const) = self.wave15_entered_subtype_const(rest)
+            && let Some(sub_consts) = self.wave15_entered_subtype_consts(rest)
         {
             return bool_flag(&format!(
-                "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{sub_const}])"
+                "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
+                sub_consts.join(", ")
             ));
         }
         if matches!(
@@ -4148,6 +4169,83 @@ impl Tx<'_> {
             .and_then(|n| n.checked_sub(1))
     }
 
+    fn wave22c_svar_condition(&mut self, raw: &str, cmp: &str) -> Option<String> {
+        if raw == "Count$MaxOppDamageThisTurn" {
+            if let Some(n) = Self::wave19c_at_least_u32(cmp) {
+                return Some(format!("Condition::OpponentWasDealtAtLeast({n})"));
+            }
+            if let Some(max) = Self::wave19c_at_most_u32(cmp)
+                && let Some(min) = max.checked_add(1)
+            {
+                return Some(format!(
+                    "Condition::Not(&Condition::OpponentWasDealtAtLeast({min}))"
+                ));
+            }
+            if let Some(n) = cmp
+                .strip_prefix("EQ")
+                .and_then(|s| s.parse::<u32>().ok())
+                .filter(|&v| v >= 1)
+                && let Some(next) = n.checked_add(1)
+            {
+                return Some(format!(
+                    "Condition::All(&[Condition::OpponentWasDealtAtLeast({n}), \
+                     Condition::Not(&Condition::OpponentWasDealtAtLeast({next}))])"
+                ));
+            }
+            return None;
+        }
+        if raw == "PlayerCountPropertyYou$DomainPlayer" {
+            return Self::wave15_amount_cmp("Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)", cmp);
+        }
+        if raw == "PlayerCountPropertyYou$OpponentsAttackedThisCombat" {
+            return Self::wave15_amount_cmp("Amount::OpponentsYouAttackedThisCombat", cmp);
+        }
+        if let Some(valid) = raw.strip_prefix("PlayerCountOpponents$LowestValid ") {
+            let neutral_valid = Self::wave19c_rewrite_you_ctrl(valid.trim(), None)?;
+            if let Some(max) = Self::wave19c_at_most_u32(cmp) {
+                let expr = self.filter_expr(&neutral_valid)?;
+                let name = self.body.filter_static("CHECK", &expr);
+                return Some(format!(
+                    "Condition::OpponentControlCountAtMost(&{name}, {max})"
+                ));
+            }
+            if let Some(min) = Self::wave19c_at_least_u32(cmp)
+                && let Some(max) = min.checked_sub(1)
+            {
+                let expr = self.filter_expr(&neutral_valid)?;
+                let name = self.body.filter_static("CHECK", &expr);
+                return Some(format!(
+                    "Condition::Not(&Condition::OpponentControlCountAtMost(&{name}, {max}))"
+                ));
+            }
+            return None;
+        }
+        if raw == "PlayerCountPlayers$LowestCardsInHand" {
+            if let Some(max) = Self::wave19c_at_most_u32(cmp).and_then(|v| u8::try_from(v).ok()) {
+                return Some(format!("Condition::APlayerHandSizeAtMost({max})"));
+            }
+            if let Some(max) = Self::wave19c_at_least_u32(cmp)
+                .and_then(|v| v.checked_sub(1))
+                .and_then(|v| u8::try_from(v).ok())
+            {
+                return Some(format!(
+                    "Condition::Not(&Condition::APlayerHandSizeAtMost({max}))"
+                ));
+            }
+            return None;
+        }
+        if raw == "PlayerCountPlayers$HighestCardsInHand" {
+            return match cmp {
+                "EQ0" | "LE0" | "LT1" => Some("Condition::EveryHandEmpty".to_string()),
+                "GE1" | "GT0" | "NE0" => {
+                    Some("Condition::Not(&Condition::EveryHandEmpty)".to_string())
+                }
+                _ => None,
+            };
+        }
+        None
+    }
+
     /// Wave-19c `Phase.CheckSVar` and trigger/ETB `CheckSVar$` lowerings backed
     /// by existing `Condition` / `Amount` variants.
     fn wave19c_svar_condition(&mut self, raw: &str, cmp: &str) -> Option<String> {
@@ -4159,6 +4257,9 @@ impl Tx<'_> {
         }
         if raw == "PlayerCountPropertyYou$DamageThisTurn" {
             return Self::wave15_amount_cmp("Amount::DamageDealtToYouThisTurn", cmp);
+        }
+        if let Some(cond) = self.wave22c_svar_condition(raw, cmp) {
+            return Some(cond);
         }
         if let Some(sub_raw) = raw.strip_prefix("PlayerCountPropertyYou$SacrificedThisTurn ") {
             return self.wave19c_sacrificed_subtype_condition(sub_raw.trim(), cmp);
@@ -4479,6 +4580,9 @@ impl Tx<'_> {
             "TriggeredPlayer$LifeGainedThisTurn" => {
                 "Amount::LifeGainedThisTurn(PlayerRel::ActivePlayer)"
             }
+            "TriggeredPlayer$DomainPlayer" => {
+                "Amount::BasicLandTypesAmong(&Filter::And(&[Filter::LAND, Filter::ControlledByActivePlayer]))"
+            }
             _ => return None,
         };
         if let Some(res) = Self::wave15_amount_cmp(lhs, cmp) {
@@ -4507,7 +4611,7 @@ impl Tx<'_> {
         target: Option<&str>,
         chain: &Chain,
     ) -> Option<Vec<String>> {
-        if p.has("Boon") || p.has("EffectOwner") || p.has("Abilities") || p.has("ImprintCards") {
+        if p.has("Boon") || p.has("EffectOwner") || p.has("ImprintCards") {
             return None;
         }
         let is_emblem_name = p
@@ -4516,16 +4620,122 @@ impl Tx<'_> {
         if p.peek("Duration") == Some("Permanent") && is_emblem_name {
             return self.emblem_effect_api(p, target);
         }
-        if p.peek("Triggers").is_none() || is_emblem_name {
+        if p.has("Abilities") || p.peek("Triggers").is_none() || is_emblem_name {
             return None;
         }
         self.delayed_triggers_effect_api(p, target, chain)
     }
 
+    fn emblem_ability_disallowed(emitted: &str, kind: EmblemKind) -> bool {
+        if emitted.contains("TargetSpec::ThisObject")
+            || emitted.contains("Effect::SacrificeSelf")
+            || emitted.contains("Effect::ExileSource")
+            || emitted.contains("Effect::ModifySource")
+            || emitted.contains("Amount::Source")
+            || emitted.contains("Amount::CountersOnSource")
+        {
+            return true;
+        }
+        if kind == EmblemKind::Activated {
+            if !emitted.contains("ActivationZone::Command")
+                || emitted.contains("Cost::TAP")
+                || emitted.contains("TapSelf")
+                || emitted.contains("UntapSelf")
+                || emitted.contains("SacrificeSelf")
+                || emitted.contains("ExileSelf")
+                || emitted.contains("ReturnSelf")
+                || emitted.contains("RemoveCounterSelf")
+                || emitted.contains("AddCounterSelf")
+                || emitted.contains("CostPart::RemoveCounter")
+                || emitted.contains("Filter::This")
+            {
+                return true;
+            }
+            return false;
+        }
+        if emitted.contains("Filter::This") {
+            // `Effect::continuous(&Filter::This, ...)` / `SetPTFilter` / `ModifyFilter`
+            // on a targeted emblem trigger binds `Filter::This` to the targeted
+            // permanent via `this_to_affect`, never to the emblem itself.
+            if kind == EmblemKind::Trigger
+                && emitted.contains("targets = Some(TargetReq::one(TargetSpec::Object(")
+            {
+                let scrubbed = emitted
+                    .replace("Effect::continuous(&Filter::This, ", "")
+                    .replace("Effect::SetPTFilter { filter: &Filter::This, ", "")
+                    .replace("Effect::ModifyFilter { filter: &Filter::This, ", "");
+                return scrubbed.contains("Filter::This");
+            }
+            return true;
+        }
+        false
+    }
+
+    fn read_emblem_ability(&mut self, body: &str, kind: EmblemKind) -> Option<()> {
+        match kind {
+            EmblemKind::Trigger => {
+                if body.contains("TriggerZones$") {
+                    let normalized = body
+                        .split('|')
+                        .map(str::trim)
+                        .map(|part| {
+                            if part == "TriggerZones$ Battlefield" {
+                                "TriggerZones$ Command"
+                            } else {
+                                part
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" | ");
+                    self.triggered(&normalized)
+                } else {
+                    let zoned_body = format!("{body} | TriggerZones$ Command");
+                    self.triggered(&zoned_body)
+                }
+            }
+            EmblemKind::Activated => {
+                if body.contains("Planeswalker$") || body.contains("LOYALTY") {
+                    None
+                } else if let Some(zone_part) = body
+                    .split('|')
+                    .map(str::trim)
+                    .find(|part| part.starts_with("ActivationZone$"))
+                {
+                    if zone_part == "ActivationZone$ Command" {
+                        self.activated_or_spell(body)
+                    } else {
+                        None
+                    }
+                } else {
+                    let zoned_body = format!("{body} | ActivationZone$ Command");
+                    self.activated_or_spell(&zoned_body)
+                }
+            }
+            EmblemKind::Static => {
+                let normalized = body
+                    .split('|')
+                    .map(str::trim)
+                    .filter(|part| {
+                        !part.is_empty()
+                            && *part != "EffectZone$ Command"
+                            && *part != "EffectZone$ Battlefield"
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" | ");
+                match self.try_extra_static(&normalized) {
+                    super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
+                    super::saga_ward_convoke::ExtraOutcome::Pass => {
+                        self.static_ability(&normalized)
+                    }
+                }
+            }
+        }
+    }
+
     fn collect_emblem_abilities(
         &mut self,
         svar_list: &str,
-        is_trigger: bool,
+        kind: EmblemKind,
         saved_enter_len: usize,
         out: &mut Vec<String>,
     ) -> Option<()> {
@@ -4548,34 +4758,12 @@ impl Tx<'_> {
             }
             let prev_len = self.body.abilities.len();
             let saved_on_spell = std::mem::replace(&mut self.on_a_spell, false);
-            let saved_mode = is_trigger.then(|| self.trigger_mode.take()).flatten();
-            let ok = if is_trigger {
-                if body.contains("TriggerZones$") {
-                    self.triggered(&body)
-                } else {
-                    let zoned_body = format!("{body} | TriggerZones$ Command");
-                    self.triggered(&zoned_body)
-                }
-            } else {
-                let normalized = body
-                    .split('|')
-                    .map(str::trim)
-                    .filter(|part| {
-                        !part.is_empty()
-                            && *part != "EffectZone$ Command"
-                            && *part != "EffectZone$ Battlefield"
-                    })
-                    .collect::<Vec<_>>()
-                    .join(" | ");
-                match self.try_extra_static(&normalized) {
-                    super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
-                    super::saga_ward_convoke::ExtraOutcome::Pass => {
-                        self.static_ability(&normalized)
-                    }
-                }
-            };
+            let saved_mode = (kind == EmblemKind::Trigger)
+                .then(|| self.trigger_mode.take())
+                .flatten();
+            let ok = self.read_emblem_ability(&body, kind);
             self.on_a_spell = saved_on_spell;
-            if is_trigger {
+            if kind == EmblemKind::Trigger {
                 self.trigger_mode = saved_mode;
             }
             ok?;
@@ -4587,15 +4775,10 @@ impl Tx<'_> {
                 return None;
             }
             let emitted: Vec<String> = self.body.abilities.drain(prev_len..).collect();
-            if emitted.iter().any(|a| {
-                a.contains("Filter::This")
-                    || a.contains("TargetSpec::ThisObject")
-                    || a.contains("Effect::SacrificeSelf")
-                    || a.contains("Effect::ExileSource")
-                    || a.contains("Effect::ModifySource")
-                    || a.contains("Amount::Source")
-                    || a.contains("Amount::CountersOnSource")
-            }) {
+            if emitted
+                .iter()
+                .any(|a| Self::emblem_ability_disallowed(a, kind))
+            {
                 return None;
             }
             out.extend(emitted);
@@ -4618,6 +4801,15 @@ impl Tx<'_> {
         }
         p.take("Image");
         p.take("Ultimate");
+        if let Some(svars_list) = p.take("sVars")
+            && !svars_list
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .all(|s| self.svars.contains_key(s))
+        {
+            return None;
+        }
         if let Some(s) = p.take("Stackable")
             && !matches!(s.as_str(), "True" | "False")
         {
@@ -4630,20 +4822,39 @@ impl Tx<'_> {
         }
         let statics = p.take("StaticAbilities");
         let triggers = p.take("Triggers");
+        let activated = p.take("Abilities");
         let only_cond_left = p
             .entries
             .iter()
             .all(|(k, _)| k.starts_with("Condition") || k.starts_with("Present"));
-        if (statics.is_none() && triggers.is_none()) || !only_cond_left {
+        if (statics.is_none() && triggers.is_none() && activated.is_none()) || !only_cond_left {
             return None;
         }
         let mut emblem_abilities = Vec::new();
         let saved_enter_len = self.body.enter_modifiers.len();
         if let Some(statics) = statics {
-            self.collect_emblem_abilities(&statics, false, saved_enter_len, &mut emblem_abilities)?;
+            self.collect_emblem_abilities(
+                &statics,
+                EmblemKind::Static,
+                saved_enter_len,
+                &mut emblem_abilities,
+            )?;
         }
         if let Some(triggers) = triggers {
-            self.collect_emblem_abilities(&triggers, true, saved_enter_len, &mut emblem_abilities)?;
+            self.collect_emblem_abilities(
+                &triggers,
+                EmblemKind::Trigger,
+                saved_enter_len,
+                &mut emblem_abilities,
+            )?;
+        }
+        if let Some(activated) = activated {
+            self.collect_emblem_abilities(
+                &activated,
+                EmblemKind::Activated,
+                saved_enter_len,
+                &mut emblem_abilities,
+            )?;
         }
         if emblem_abilities.is_empty() {
             return None;
@@ -4661,12 +4872,12 @@ impl Tx<'_> {
         target: Option<&str>,
         chain: &Chain,
     ) -> Option<Vec<String>> {
-        if p.has("Planeswalker") {
+        if p.has("Planeswalker") || p.has("Abilities") {
             return None;
         }
         let dur_raw = p.take("Duration");
         let (static_dur, repeat_dur, oneshot_dur) = match dur_raw.as_deref() {
-            None | Some("UntilEndOfTurn") => (
+            None | Some("UntilEndOfTurn" | "EndOfTurn" | "End of Turn") => (
                 "Duration::UntilEndOfTurn",
                 "DelayedDuration::ThisTurn",
                 Some("DelayedDuration::OneShotThisTurn"),
@@ -4921,6 +5132,7 @@ impl Tx<'_> {
                 optional,
                 uses_watch,
                 trigger_watch,
+                base_watch,
             )?;
             let targets_expr =
                 targets.map_or_else(|| "None".to_string(), |req| format!("Some({req})"));
@@ -5222,6 +5434,7 @@ impl Tx<'_> {
         optional: bool,
         uses_watch: bool,
         trigger_watch: &'static str,
+        base_watch: &'static str,
     ) -> Option<(String, Option<String>, &'static str)> {
         if !self.on_a_spell
             && let Some((api, mut ep)) = Params::parse(exec_raw)
@@ -5242,21 +5455,33 @@ impl Tx<'_> {
             exec_raw.contains("Triggered") || exec_raw.contains("TriggerCount$");
         let mentions_remembered = exec_raw.contains("Defined$ Remembered");
         let (body_to_parse, remember) = if mentions_remembered {
-            if !uses_watch || mentions_triggered || exec_raw.contains("RememberedPlayer") {
+            if mentions_triggered || exec_raw.contains("RememberedPlayer") {
                 return None;
             }
-            let normalized = exec_raw
-                .replace(
-                    "Defined$ RememberedLKI",
-                    "Defined$ DelayTriggerRememberedLKI",
-                )
-                .replace("Defined$ Remembered", "Defined$ DelayTriggerRemembered");
-            let rem = if mode == "ChangesZone" {
-                "TriggerRemember::None"
+            if uses_watch {
+                let normalized = exec_raw
+                    .replace(
+                        "Defined$ RememberedLKI",
+                        "Defined$ DelayTriggerRememberedLKI",
+                    )
+                    .replace("Defined$ Remembered", "Defined$ DelayTriggerRemembered");
+                let rem = if mode == "ChangesZone" {
+                    "TriggerRemember::None"
+                } else {
+                    trigger_watch
+                };
+                (normalized, rem)
+            } else if !exec_raw.contains("ValidTgts$") && base_watch != "TriggerRemember::None" {
+                let normalized = exec_raw
+                    .replace(
+                        "Defined$ RememberedLKI",
+                        "Defined$ DelayTriggerRememberedLKI",
+                    )
+                    .replace("Defined$ Remembered", "Defined$ DelayTriggerRemembered");
+                (normalized, base_watch)
             } else {
-                trigger_watch
-            };
-            (normalized, rem)
+                return None;
+            }
         } else {
             (exec_raw.to_string(), "TriggerRemember::None")
         };

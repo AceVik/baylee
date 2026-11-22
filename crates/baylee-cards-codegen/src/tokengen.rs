@@ -78,15 +78,14 @@ pub struct TokenBody {
     pub modules: Vec<String>,
 }
 
-/// The two lines a token script carries that say nothing this reads.
+/// The line head a token script carries that says nothing this reads.
 ///
-/// `ManaCost` is always "no cost" and `Oracle` is the printed reminder text,
-/// which this side has no use for — a token has no printing to hold a header
-/// against. Every other head refuses the token, and each of them is a real
-/// shape in the reference: `Text` is rules text ("this creature is all
-/// colors"), `Loyalty` is a planeswalker token's starting loyalty, which
-/// this reader does not yet transcode, and `AlternateMode` is a second face.
-const IGNORED: &[&str] = &["ManaCost", "Oracle"];
+/// `Oracle` is the printed reminder text, which this side has no use for — a
+/// token has no printing to hold a header against. `ManaCost` is validated
+/// separately so only `"no cost"` passes (a token back face with a real mana
+/// cost is refused because [`TokenDef`] carries no mana cost). Every other
+/// unhandled head refuses the token.
+const IGNORED: &[&str] = &["Oracle"];
 
 /// The line heads [`scriptgen`](crate::scriptgen) reads, not this module.
 ///
@@ -136,16 +135,41 @@ struct RawToken {
     colors: Option<String>,
     types: String,
     pt: Option<String>,
+    loyalty: Option<u16>,
     defense: Option<u16>,
+    double_faced: bool,
     keywords: Vec<&'static str>,
     ability_keywords: Vec<String>,
     text_all_colors: bool,
     has_rule_lines: bool,
 }
 
-fn parse_token_lines(text: &str) -> Option<RawToken> {
+fn split_double_faced(text: &str) -> Option<(String, Option<String>)> {
+    let mut front = Vec::new();
+    let mut back: Option<Vec<&str>> = None;
+    for line in text.lines() {
+        let trimmed = line.trim_end();
+        if trimmed == "ALTERNATE" {
+            if back.is_some() {
+                return None;
+            }
+            back = Some(Vec::new());
+            continue;
+        }
+        if let Some(back_lines) = &mut back {
+            back_lines.push(trimmed);
+        } else {
+            front.push(trimmed);
+        }
+    }
+    Some((front.join("\n"), back.map(|lines| lines.join("\n"))))
+}
+
+fn parse_token_lines(text: &str, allow_double_faced: bool) -> Option<RawToken> {
     let (mut name, mut colors, mut types, mut pt) = (None, None, None, None);
+    let mut loyalty = None;
     let mut defense = None;
+    let mut double_faced = false;
     let mut keywords: Vec<&'static str> = Vec::new();
     let mut ability_keywords: Vec<String> = Vec::new();
     let mut text_all_colors = false;
@@ -158,10 +182,32 @@ fn parse_token_lines(text: &str) -> Option<RawToken> {
         let (head, rest) = line.split_once(':')?;
         match head {
             "Name" => name = Some(rest.trim().to_string()),
+            "ManaCost" => {
+                if !rest.trim().eq_ignore_ascii_case("no cost") {
+                    return None;
+                }
+            }
             "Colors" => colors = Some(rest.trim().to_string()),
             "Types" => types = Some(rest.trim().to_string()),
             "PT" => pt = Some(rest.trim().to_string()),
-            "Defense" => defense = Some(rest.trim().parse::<u16>().ok()?),
+            "Loyalty" => {
+                if loyalty.is_some() {
+                    return None;
+                }
+                loyalty = Some(rest.trim().parse::<u16>().ok()?);
+            }
+            "Defense" => {
+                if defense.is_some() {
+                    return None;
+                }
+                defense = Some(rest.trim().parse::<u16>().ok()?);
+            }
+            "AlternateMode" => {
+                if !allow_double_faced || double_faced || rest.trim() != "DoubleFaced" {
+                    return None;
+                }
+                double_faced = true;
+            }
             "Text" => match rest.trim() {
                 "This creature is all colors." | "CARDNAME is all colors." => {
                     text_all_colors = true;
@@ -215,7 +261,9 @@ fn parse_token_lines(text: &str) -> Option<RawToken> {
         colors,
         types: types?,
         pt,
+        loyalty,
         defense,
+        double_faced,
         keywords,
         ability_keywords,
         text_all_colors,
@@ -243,48 +291,84 @@ fn single_instance_trigger_keyword(kw: &str) -> Option<&'static str> {
     }
 }
 
-fn render_token_literal(
-    name: &str,
-    colors: Option<&Colors>,
-    types: &TypeLine,
+struct LiteralFields<'a> {
+    name: &'a str,
+    colors: Option<&'a Colors>,
+    types: &'a TypeLine,
     pt: Option<(i16, i16)>,
+    loyalty: Option<u16>,
     defense: Option<u16>,
-    keywords: &[&str],
-    abilities: &[String],
-) -> String {
+    keywords: &'a [&'a str],
+    abilities: &'a [String],
+    back_face: Option<&'a str>,
+}
+
+struct TokenStats {
+    power: Option<i16>,
+    toughness: Option<i16>,
+    star_pt: bool,
+    loyalty: Option<u16>,
+}
+
+fn render_token_literal(fields: &LiteralFields<'_>) -> String {
     let mut literal = String::with_capacity(256);
     literal.push_str("TokenDef {\n");
-    let _ = writeln!(literal, "    name: {:?},", token_name(name));
-    if let Some(colors) = colors
+    let _ = writeln!(literal, "    name: {:?},", token_name(fields.name));
+    if let Some(colors) = fields.colors
         && !colors.words.is_empty()
     {
         let _ = writeln!(literal, "    colors: {},", colors.expr);
     }
-    let _ = writeln!(literal, "    types: {},", types.set);
-    if let Some(supertypes) = &types.supertypes {
+    let _ = writeln!(literal, "    types: {},", fields.types.set);
+    if let Some(supertypes) = &fields.types.supertypes {
         let _ = writeln!(literal, "    supertypes: {supertypes},");
     }
-    if !types.subtypes.is_empty() {
-        let _ = writeln!(literal, "    subtypes: &[{}],", types.subtypes.join(", "));
+    if !fields.types.subtypes.is_empty() {
+        let _ = writeln!(
+            literal,
+            "    subtypes: &[{}],",
+            fields.types.subtypes.join(", ")
+        );
     }
-    if let Some((p, t)) = pt {
+    if let Some((p, t)) = fields.pt {
         let _ = writeln!(literal, "    power: Some({p}),");
         let _ = writeln!(literal, "    toughness: Some({t}),");
     }
-    if let Some(defense) = defense {
+    if let Some(loyalty) = fields.loyalty {
+        let _ = writeln!(literal, "    loyalty: Some({loyalty}),");
+    }
+    if let Some(defense) = fields.defense {
         let _ = writeln!(literal, "    defense: Some({defense}),");
     }
-    if !keywords.is_empty() {
-        let _ = writeln!(literal, "    keywords: {},", union_of(keywords));
+    if !fields.keywords.is_empty() {
+        let _ = writeln!(literal, "    keywords: {},", union_of(fields.keywords));
     }
-    if !abilities.is_empty() {
-        let _ = writeln!(literal, "    abilities: &[{}],", abilities.join(", "));
+    if !fields.abilities.is_empty() {
+        let _ = writeln!(
+            literal,
+            "    abilities: &[{}],",
+            fields.abilities.join(", ")
+        );
+    }
+    if let Some(back) = fields.back_face {
+        literal.push_str("    back_face: Some(&");
+        for (idx, line) in back.lines().enumerate() {
+            if idx > 0 {
+                literal.push('\n');
+                literal.push_str("    ");
+            }
+            literal.push_str(line);
+        }
+        literal.push_str("),\n");
     }
     literal.push_str("    ..TokenDef::DEFAULT\n}");
     literal
 }
 
 fn token_shape_ok(raw: &RawToken, types: &TypeLine) -> bool {
+    if types.set.contains("TypeSet::PLANESWALKER") != raw.loyalty.is_some() {
+        return false;
+    }
     if types.set.contains("TypeSet::BATTLE") != raw.defense.is_some() {
         return false;
     }
@@ -333,26 +417,48 @@ pub fn read_with_tokens(
     cats: &SubtypeCatalogs,
     tokens: Option<&TokenLookup>,
 ) -> Option<TokenBody> {
-    let raw = parse_token_lines(text)?;
-    let mut types = type_line(&raw.types, cats)?;
-    if !token_shape_ok(&raw, &types) {
-        return None;
-    }
+    let (front_text, back_text) = split_double_faced(text)?;
+    let back = match back_text.as_deref() {
+        Some(back) => Some(read_face(back, cats, tokens, false, None)?),
+        None => None,
+    };
+    read_face(&front_text, cats, tokens, true, back.as_ref())
+}
+
+fn parse_token_pt(pt: Option<&str>, types: &TypeLine) -> Option<(Option<i16>, Option<i16>, bool)> {
     let is_vehicle = !types.is_creature && types.subtypes.iter().any(|s| s == "artifact::VEHICLE");
-    let (power, toughness, star_pt) = match (raw.pt.as_deref(), types.is_creature, is_vehicle) {
-        (Some("*/*"), true, false) => (None, None, true),
+    match (pt, types.is_creature, is_vehicle) {
+        (Some("*/*"), true, false) => Some((None, None, true)),
         (Some(pt), true, false) | (Some(pt), false, true) => {
             let (p, t) = pt.split_once('/')?;
             let p = p.trim().parse::<i16>().ok()?;
             let t = t.trim().parse::<i16>().ok()?;
-            (Some(p), Some(t), false)
+            Some((Some(p), Some(t), false))
         }
-        (None, false, false) => (None, None, false),
+        (None, false, false) => Some((None, None, false)),
         // A creature or Vehicle with no size, a Vehicle with `*/*` and no CDA,
         // or a size on something that is neither a creature nor a Vehicle:
         // refuse rather than guessing.
-        _ => return None,
-    };
+        _ => None,
+    }
+}
+
+fn read_face(
+    text: &str,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
+    allow_double_faced: bool,
+    back: Option<&TokenBody>,
+) -> Option<TokenBody> {
+    let raw = parse_token_lines(text, allow_double_faced)?;
+    if raw.double_faced != back.is_some() {
+        return None;
+    }
+    let mut types = type_line(&raw.types, cats)?;
+    if !token_shape_ok(&raw, &types) {
+        return None;
+    }
+    let (power, toughness, star_pt) = parse_token_pt(raw.pt.as_deref(), &types)?;
     let colors = match raw.colors.as_deref() {
         Some(raw_colors) => Some(color_line(raw_colors)?),
         None => None,
@@ -364,6 +470,7 @@ pub fn read_with_tokens(
         text,
         &raw.ability_keywords,
         raw.text_all_colors,
+        raw.double_faced,
         cats,
         tokens,
         &mut types.modules,
@@ -379,15 +486,17 @@ pub fn read_with_tokens(
     render_keywords.extend(extra_keywords);
     render_keywords.sort_unstable();
     render_keywords.dedup();
-    let literal = render_token_literal(
-        &raw.name,
-        colors.as_ref(),
-        &types,
-        power.zip(toughness),
-        raw.defense,
-        &render_keywords,
-        &abilities,
-    );
+    let literal = render_token_literal(&LiteralFields {
+        name: &raw.name,
+        colors: colors.as_ref(),
+        types: &types,
+        pt: power.zip(toughness),
+        loyalty: raw.loyalty,
+        defense: raw.defense,
+        keywords: &render_keywords,
+        abilities: &abilities,
+        back_face: back.map(|b| b.literal.as_str()),
+    });
     let mut keyword_tags: Vec<String> = raw
         .keywords
         .iter()
@@ -397,12 +506,16 @@ pub fn read_with_tokens(
         keyword_tags.push(ability_keyword_slug(kw)?);
     }
     keyword_tags.sort_unstable();
-    let mut constant = constant_name(
-        &raw.name,
-        &types.qualifiers,
+    let stats = TokenStats {
         power,
         toughness,
         star_pt,
+        loyalty: raw.loyalty,
+    };
+    let mut constant = constant_name(
+        &raw.name,
+        &types.qualifiers,
+        &stats,
         colors.as_ref(),
         &keyword_tags,
     );
@@ -412,17 +525,25 @@ pub fn read_with_tokens(
             let _ = write!(constant, "_A{hash:08X}");
         }
     }
+    let mut doc = doc_line(
+        &raw.name,
+        &types.qualifiers,
+        &stats,
+        colors.as_ref(),
+        &keyword_tags,
+    );
+    if let Some(back) = back {
+        let _ = write!(constant, "_DFC_{}", back.constant);
+        doc = format!("{} // {}", doc.trim_end_matches('.'), back.doc);
+        for module in &back.modules {
+            if !types.modules.iter().any(|m| m == module) {
+                types.modules.push(module.clone());
+            }
+        }
+    }
     Some(TokenBody {
         constant: crate::tokenledger::canonical_name(&constant).to_string(),
-        doc: doc_line(
-            &raw.name,
-            &types.qualifiers,
-            power,
-            toughness,
-            star_pt,
-            colors.as_ref(),
-            &keyword_tags,
-        ),
+        doc,
         literal,
         modules: types.modules,
     })
@@ -801,15 +922,20 @@ fn abilities(
     text: &str,
     ability_keywords: &[String],
     strip_all_colors_text: bool,
+    strip_double_faced: bool,
     cats: &SubtypeCatalogs,
     tokens: Option<&TokenLookup>,
     modules: &mut Vec<String>,
 ) -> Option<(Vec<String>, Vec<&'static str>)> {
     let cleaned;
-    let source = if strip_all_colors_text {
+    let source = if strip_all_colors_text || strip_double_faced {
         cleaned = text
             .lines()
-            .filter(|l| !l.trim_start().starts_with("Text:"))
+            .filter(|l| {
+                let trimmed = l.trim_start();
+                !(strip_all_colors_text && trimmed.starts_with("Text:")
+                    || strip_double_faced && trimmed.starts_with("AlternateMode:"))
+            })
             .collect::<Vec<_>>()
             .join("\n");
         cleaned.as_str()
@@ -1188,9 +1314,7 @@ fn token_name(name: &str) -> &str {
 fn constant_name(
     name: &str,
     qualifiers: &[String],
-    power: Option<i16>,
-    toughness: Option<i16>,
-    star_pt: bool,
+    stats: &TokenStats,
     colors: Option<&Colors>,
     keyword_tags: &[String],
 ) -> String {
@@ -1211,10 +1335,13 @@ fn constant_name(
     for word in qualifiers {
         let _ = write!(out, "_{word}");
     }
-    if let (Some(p), Some(t)) = (power, toughness) {
+    if let (Some(p), Some(t)) = (stats.power, stats.toughness) {
         let _ = write!(out, "_{}_{}", pt_word(p), pt_word(t));
-    } else if star_pt {
+    } else if stats.star_pt {
         out.push_str("_X_X");
+    }
+    if let Some(loyalty) = stats.loyalty {
+        let _ = write!(out, "_L{loyalty}");
     }
     for word in colors.map_or_default(|c| c.words.as_slice()) {
         let _ = write!(out, "_{}", word.to_ascii_uppercase());
@@ -1239,16 +1366,14 @@ fn pt_word(n: i16) -> String {
 fn doc_line(
     name: &str,
     qualifiers: &[String],
-    power: Option<i16>,
-    toughness: Option<i16>,
-    star_pt: bool,
+    stats: &TokenStats,
     colors: Option<&Colors>,
     keyword_tags: &[String],
 ) -> String {
     let mut out = String::new();
-    if let (Some(p), Some(t)) = (power, toughness) {
+    if let (Some(p), Some(t)) = (stats.power, stats.toughness) {
         let _ = write!(out, "{p}/{t} ");
-    } else if star_pt {
+    } else if stats.star_pt {
         out.push_str("*/* ");
     }
     match colors.map_or_default(|c| c.words.as_slice()) {
@@ -2625,5 +2750,113 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn wave22c_planeswalker_loyalty_and_double_faced_tokens() {
+        let mut c = cats();
+        c.planeswalker.push("Jace".into());
+        c.artifact.push("Incubator".into());
+        c.creature.push("Phyrexian".into());
+        c.creature.push("Drone".into());
+        c.normalize();
+
+        let pw_plain = read(
+            "Name:Token\nManaCost:no cost\nColors:blue\nTypes:Planeswalker\nLoyalty:0\n\
+             A:AB$ Surveil | Cost$ SubCounter<1/LOYALTY> | Amount$ 1 | Planeswalker$ True\n\
+             A:AB$ Draw | Cost$ SubCounter<3/LOYALTY> | Planeswalker$ True | Defined$ You | NumCards$ 1\n\
+             Oracle:[-1]: Surveil 1.\\n[-3]: Draw a card.",
+            &c,
+        )
+        .expect("planeswalker token without subtype");
+        assert!(pw_plain.constant.starts_with("TOKEN_L0_BLUE_A"));
+        assert!(pw_plain.literal.contains("types: TypeSet::PLANESWALKER,"));
+        assert!(pw_plain.literal.contains("loyalty: Some(0),"));
+        assert!(pw_plain.literal.contains("Effect::surveil(1)"));
+        assert!(pw_plain.literal.contains("Effect::draw(1)"));
+
+        let pw_jace = read(
+            "Name:Jace Token\nManaCost:no cost\nColors:blue\nTypes:Planeswalker Jace\nLoyalty:0\n\
+             A:AB$ Surveil | Cost$ SubCounter<1/LOYALTY> | Amount$ 1 | Planeswalker$ True\n\
+             A:AB$ Draw | Cost$ SubCounter<3/LOYALTY> | Planeswalker$ True | Defined$ You | NumCards$ 1\n\
+             Oracle:[-1]: Surveil 1.\\n[-3]: Draw a card.",
+            &c,
+        )
+        .expect("planeswalker token with subtype");
+        assert!(pw_jace.constant.starts_with("JACE_L0_BLUE_A"));
+        assert_ne!(pw_plain.constant, pw_jace.constant);
+        assert!(pw_jace.literal.contains("subtypes: &[planeswalker::JACE],"));
+        assert_eq!(pw_jace.modules, ["planeswalker"]);
+
+        let dfc = read(
+            "Name:Incubator Token\nManaCost:no cost\nTypes:Artifact Incubator\n\
+             A:AB$ SetState | Cost$ 2 | Mode$ Transform\n\
+             AlternateMode:DoubleFaced\nOracle:{2}: Transform this token.\n\n\
+             ALTERNATE\n\n\
+             Name:Phyrexian Token\nManaCost:no cost\nTypes:Artifact Creature Phyrexian\n\
+             PT:0/0\nOracle:",
+            &c,
+        )
+        .expect("double-faced Incubator // Phyrexian token");
+        assert!(
+            dfc.constant.contains("_DFC_PHYREXIAN_ARTIFACT_0_0"),
+            "constant: {}",
+            dfc.constant
+        );
+        assert_eq!(
+            dfc.doc,
+            "colorless Incubator // 0/0 colorless artifact Phyrexian."
+        );
+        assert!(dfc.literal.contains("Effect::TransformSource"));
+        assert!(dfc.literal.contains("back_face: Some(&TokenDef {"));
+        assert!(dfc.literal.contains("subtypes: &[creature::PHYREXIAN],"));
+        assert!(
+            dfc.modules.iter().any(|m| m == "artifact")
+                && dfc.modules.iter().any(|m| m == "creature"),
+            "modules: {:?}",
+            dfc.modules
+        );
+
+        // Verify double-faced and planeswalker tokens round-trip through the ledger cleanly.
+        let entries = crate::tokenledger::assign(Vec::new(), &[], &[pw_jace, dfc.clone()])
+            .expect("ledger assign");
+        let rendered = crate::tokenledger::render(&entries);
+        let reparsed = crate::tokenledger::parse(&rendered).expect("ledger parse");
+        assert_eq!(reparsed.len(), 2);
+        crate::tokenledger::assign(reparsed, &[], &[dfc]).expect("ledger idempotent");
+
+        // Battlefield-origin ChangesZone with omitted Destination$ reads as LeavesBattlefield.
+        let ltb_drone = read(
+            "Name:Drone Token\nManaCost:no cost\nTypes:Artifact Creature Drone\nPT:2/2\n\
+             K:Deathtouch\n\
+             T:Mode$ ChangesZone | Origin$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDrain\n\
+             SVar:TrigDrain:DB$ LoseLife | Defined$ Player.Opponent | LifeAmount$ 2",
+            &c,
+        )
+        .expect("LTB drone token with omitted Destination$");
+        assert!(
+            ltb_drone
+                .literal
+                .contains("Trigger::LeavesBattlefield(&Filter::This)"),
+            "{}",
+            ltb_drone.literal
+        );
+
+        // Refusals: invalid/missing/duplicate Loyalty or Defense, real ManaCost, malformed DFC.
+        for refused in [
+            "Name:NoLoyalty\nColors:blue\nTypes:Planeswalker",
+            "Name:StarLoyalty\nColors:blue\nTypes:Planeswalker\nLoyalty:*",
+            "Name:DupLoyalty\nColors:blue\nTypes:Planeswalker\nLoyalty:1\nLoyalty:2",
+            "Name:LoyaltyRock\nTypes:Artifact\nLoyalty:3",
+            "Name:DupDefense\nTypes:Battle\nDefense:3\nDefense:4",
+            "Name:CostedToken\nManaCost:1 B\nColors:black\nTypes:Creature Soldier\nPT:2/1",
+            "Name:MissingBack\nTypes:Artifact Incubator\nAlternateMode:DoubleFaced",
+            "Name:MissingMode\nTypes:Artifact Incubator\nALTERNATE\nName:Phyrexian Token\nTypes:Artifact Creature Phyrexian\nPT:0/0",
+            "Name:CostedBack\nTypes:Artifact Incubator\nAlternateMode:DoubleFaced\nALTERNATE\nName:Phyrexian Token\nManaCost:1 B\nTypes:Artifact Creature Phyrexian\nPT:2/1",
+            "Name:ThreeFaces\nTypes:Artifact Incubator\nAlternateMode:DoubleFaced\nALTERNATE\nName:Phyrexian Token\nTypes:Artifact Creature Phyrexian\nPT:0/0\nALTERNATE\nName:Third Token\nTypes:Artifact",
+            "Name:NestedDfc\nTypes:Artifact Incubator\nAlternateMode:DoubleFaced\nALTERNATE\nName:Phyrexian Token\nTypes:Artifact Creature Phyrexian\nPT:0/0\nAlternateMode:DoubleFaced",
+        ] {
+            assert!(read(refused, &c).is_none(), "must refuse:\n{refused}");
+        }
     }
 }
