@@ -1354,6 +1354,12 @@ open the client stages taps locally — the offer's `mana_abilities` and
 price less what is staged and what already floats — and a mistaken tap is
 simply un-staged. Nothing reaches the engine until the player confirms.
 
+A bounded variable generic payment opens a mana-only `Pending::Priority`
+with `owed = ManaPayment::Variable { min, max }`. The payer may activate mana
+abilities and pass. If the pool covers the minimum, the engine asks
+`Pending::ChooseNumber` with `NumberPrompt::VariableManaPayment` and a
+maximum capped by spendable mana. The payment happens on that answer.
+
 `steps` (`PaymentStep`, each spelled as the action of its name, and no other
 action can be one) are the actions the seat would have sent one at a time in that
 window, in the order they apply: `ActivateManaAbility`, `ActivateAbility` (a

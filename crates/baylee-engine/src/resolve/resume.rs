@@ -1725,6 +1725,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::GainControlExRecipient { .. }
         | AwaitingOp::Damage(_)
         | AwaitingOp::ManaForDamage { .. }
+        | AwaitingOp::ManaForNumber { .. }
         | AwaitingOp::DamagePayment { .. }
         | AwaitingOp::SacrificeOpponent { .. }
         | AwaitingOp::SourceColor { .. }

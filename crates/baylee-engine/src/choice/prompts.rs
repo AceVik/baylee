@@ -646,6 +646,8 @@ pub enum NumberPrompt {
         /// Counters not yet assigned to a target.
         left: u32,
     },
+    /// Choose how much generic mana to pay for the resolving effect.
+    VariableManaPayment,
 }
 
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).

@@ -890,6 +890,9 @@ impl HeuristicAgent {
                 baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => self
                     .choose_number_ex_answer(view, min, max, context)
                     .unwrap_or_else(|| preventable_damage.clamp(min, max)),
+                baylee_engine::choice::NumberPrompt::VariableManaPayment => self
+                    .choose_number_ex_answer(view, min, max, context)
+                    .unwrap_or(min),
                 // Every payment the engine offers: it bounded the count by
                 // what the floating pool pays beside the rest of the cast,
                 // and each payment is the spell once more (CR 702.56a).

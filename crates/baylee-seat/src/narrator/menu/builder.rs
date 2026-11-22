@@ -773,6 +773,9 @@ impl Builder<'_, '_> {
                     "You may generate mana to prevent up to {preventable_damage} damage. \
                      Pass to choose how much mana to pay, including zero."
                 )),
+                ManaPayment::Variable { min, max } => self.line(format!(
+                    "You may generate mana. Pass to choose how much to pay ({min}–{max})."
+                )),
             }
         } else if !pool.is_empty() {
             self.line(table.for_decider(
@@ -783,7 +786,9 @@ impl Builder<'_, '_> {
         if let Some(payment) = owed {
             match payment {
                 ManaPayment::Fixed(cost) => self.pay_owed(cost, &pool, legal),
-                ManaPayment::AnyAmount { .. } => self.optional_payment_sources(legal),
+                ManaPayment::AnyAmount { .. } | ManaPayment::Variable { .. } => {
+                    self.optional_payment_sources(legal);
+                }
             }
         }
         self.granted_actions(legal);
@@ -794,7 +799,7 @@ impl Builder<'_, '_> {
         }
         if legal.can_pass {
             let label = match (owed, casting) {
-                (Some(ManaPayment::AnyAmount { .. }), _) => {
+                (Some(ManaPayment::AnyAmount { .. } | ManaPayment::Variable { .. }), _) => {
                     "Finish generating mana and choose the payment amount".into()
                 }
                 (Some(ManaPayment::Fixed(cost)), Some(card)) => {
@@ -1899,6 +1904,7 @@ impl Builder<'_, '_> {
                 "How much mana will you pay? Each mana prevents one of up to \
                  {preventable_damage} damage; paying more is allowed but prevents no more"
             ),
+            NumberPrompt::VariableManaPayment => "How much mana will you pay?".to_string(),
             NumberPrompt::Replicate { cost } => {
                 format!("How many times do you replicate it? Each copy costs {cost} more")
             }

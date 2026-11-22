@@ -559,7 +559,8 @@ impl Duel {
         }
         match view.owed? {
             baylee_core::mana::ManaPayment::Fixed(cost) => Some(cost),
-            baylee_core::mana::ManaPayment::AnyAmount { .. } => None,
+            baylee_core::mana::ManaPayment::AnyAmount { .. }
+            | baylee_core::mana::ManaPayment::Variable { .. } => None,
         }
     }
 

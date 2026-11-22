@@ -73,12 +73,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Opens an arbitrary payment's mana opportunity before automation or
     /// a host can observe the suspended numeric choice.
     pub(super) fn open_variable_mana_window(&mut self) {
-        let Some(resolve::AwaitingOp::ManaForDamage { player, .. }) =
-            self.resolution.as_ref().and_then(|r| r.awaiting.as_ref())
-        else {
-            return;
+        let player = match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
+            Some(
+                resolve::AwaitingOp::ManaForDamage { player, .. }
+                | resolve::AwaitingOp::ManaForNumber { player, .. },
+            ) => *player,
+            _ => return,
         };
-        let player = *player;
         let mut legal = self.compute_legal(player);
         self.narrow_to_mana(&mut legal);
         let suspended = self.resolution.take().expect("payment suspended");
@@ -301,7 +302,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.prompt_damage_payment(res, player, amount);
             return WindowClose::Paid;
         }
-        match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
+        let (flow, closed) = if let Some(resolve::AwaitingOp::ManaForNumber {
+            player,
+            min,
+            max,
+            then,
+        }) = res.awaiting
+        {
+            let (flow, can_choose) =
+                resolve::finish_variable_mana(&mut self.state, &mut res, player, min, max, then);
+            (flow, WindowClose::settled(can_choose))
+        } else {
+            (
+                resolve::resume_tax_choice(&mut self.state, &mut res, paid),
+                WindowClose::settled(paid),
+            )
+        };
+        match flow {
             resolve::Flow::Enter => {
                 self.resolution = Some(res);
                 self.awaiting_answer = false;
@@ -315,7 +332,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.finish_resolution(&res);
             }
         }
-        WindowClose::settled(paid)
+        closed
     }
 
     fn prompt_damage_payment(

@@ -538,6 +538,9 @@ pub fn payment_line(lang: Lang, payment: baylee_core::mana::ManaPayment) -> Stri
         baylee_core::mana::ManaPayment::AnyAmount { preventable_damage } => {
             Phrase::PrepareManaPayment.fill(lang, &[&preventable_damage.to_string()])
         }
+        baylee_core::mana::ManaPayment::Variable { min, max } => {
+            Phrase::PrepareVariableMana.fill(lang, &[&min.to_string(), &max.to_string()])
+        }
     }
 }
 
@@ -638,6 +641,7 @@ fn number_line(
         NumberPrompt::ManaPayment { preventable_damage } => {
             Phrase::ChooseManaPayment.fill(lang, &[&min, &max, &preventable_damage.to_string()])
         }
+        NumberPrompt::VariableManaPayment => Phrase::ChooseVariableMana.fill(lang, &[&min, &max]),
         NumberPrompt::Replicate { cost } => {
             Phrase::ReplicateHowOften.fill(lang, &[&cost.to_string(), &min, &max])
         }

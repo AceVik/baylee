@@ -242,16 +242,19 @@ fn mana_cost_samples() -> Vec<ManaCost> {
     costs
 }
 
-fn payment_samples() -> [ManaPayment; 2] {
+fn payment_samples() -> [ManaPayment; 3] {
     let payments = [
         ManaPayment::Fixed(ManaCost::parse("{2}{B}")),
         ManaPayment::AnyAmount {
             preventable_damage: 2,
         },
+        ManaPayment::Variable { min: 1, max: 4 },
     ];
     for payment in payments {
         match payment {
-            ManaPayment::Fixed(_) | ManaPayment::AnyAmount { .. } => {}
+            ManaPayment::Fixed(_)
+            | ManaPayment::AnyAmount { .. }
+            | ManaPayment::Variable { .. } => {}
         }
     }
     payments

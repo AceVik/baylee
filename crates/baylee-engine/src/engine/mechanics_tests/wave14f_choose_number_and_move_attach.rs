@@ -499,7 +499,7 @@ fn variable_generic_mana_and_life_payment_respect_spend_restrictions_and_cant_lo
     static MANA_PAY_AB: &[AbilityDef] = &[free(
         &[Effect::ChooseNumberEx {
             chooser: PlayerRel::You,
-            min: Amount::Fixed(0),
+            min: Amount::Fixed(2),
             max: Amount::Fixed(10),
             prompt: NumberChoiceKind::ManaPayment,
             pay_cost: Some(VariablePayKind::GenericMana),
@@ -565,46 +565,63 @@ fn variable_generic_mana_and_life_payment_respect_spend_restrictions_and_cant_lo
     let mana_sink_id = the(&engine, ZoneLocation::Battlefield, C2);
     let life_sink_id = the(&engine, ZoneLocation::Battlefield, C3);
 
-    // Float 2 unrestricted {R}, 1 Powerstone {C}, and 3 creature-spell-only {G}.
-    // Non-spell resolution payment can spend the 2 {R} + 1 Powerstone {C} = 3, NOT the 3 spell-only {G}!
-    add_pool(&mut engine, me(), ManaColor::Red, 2);
-    activate(&mut engine, me(), pstone_id, 0);
+    // Before the window, only the one red mana can pay. Float the Powerstone
+    // mana from the window to meet the minimum; spell-only mana stays unspent.
+    add_pool(&mut engine, me(), ManaColor::Red, 1);
     activate(&mut engine, me(), dork_id, 0);
-    assert_eq!(engine.state().players[0].mana_pool.total(), 6);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
 
     activate(&mut engine, me(), mana_sink_id, 0);
     engine.apply(me(), PlayerAction::PassPriority).unwrap();
     engine.apply(them(), PlayerAction::PassPriority).unwrap();
-    expect_choose_number(
-        &engine,
-        me(),
-        0,
-        3,
-        NumberPrompt::ManaPayment {
-            preventable_damage: 3,
-        },
+    assert_eq!(
+        engine.payment_window(),
+        Some((
+            me(),
+            baylee_core::mana::ManaPayment::Variable { min: 2, max: 10 }
+        )),
     );
-    engine.apply(me(), PlayerAction::ChooseNumber(3)).unwrap();
+    assert!(
+        engine
+            .apply(me(), PlayerAction::PayWindow { steps: Vec::new() })
+            .is_err(),
+        "a batched window action cannot leave the pool short of the minimum"
+    );
+    activate(&mut engine, me(), pstone_id, 0);
+    engine.apply(me(), PlayerAction::PassPriority).unwrap();
+    expect_choose_number(&engine, me(), 2, 2, NumberPrompt::VariableManaPayment);
+    assert!(engine.apply(me(), PlayerAction::ChooseNumber(3)).is_err());
+    engine.apply(me(), PlayerAction::ChooseNumber(2)).unwrap();
     settle(&mut engine, me());
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
         3,
-        "spent 2 unrestricted + 1 Powerstone mana, leaving all 3 creature-spell-only mana"
+        "spent 1 unrestricted + 1 Powerstone mana, leaving all 3 creature-spell-only mana"
     );
-    assert_eq!(life(&engine, me()), 8, "5 life + 3 gained from mana sink");
+    assert_eq!(life(&engine, me()), 7, "5 life + 2 gained from mana sink");
 
-    // Life payment: at 8 life, max (10) clamps to 8; paying 5 life drops to 3 life and draws 5 cards.
+    // Both usable sources are now spent and the Powerstone is tapped.
+    // Passing short skips the payment and its follow-up.
+    activate(&mut engine, me(), mana_sink_id, 0);
+    engine.apply(me(), PlayerAction::PassPriority).unwrap();
+    engine.apply(them(), PlayerAction::PassPriority).unwrap();
+    engine.apply(me(), PlayerAction::PassPriority).unwrap();
+    settle(&mut engine, me());
+    assert_eq!(life(&engine, me()), 7);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 3);
+
+    // Life payment: at 7 life, max (10) clamps to 7; paying 4 life drops to 3 and draws 4 cards.
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(me())).len();
     activate(&mut engine, me(), life_sink_id, 0);
     engine.apply(me(), PlayerAction::PassPriority).unwrap();
     engine.apply(them(), PlayerAction::PassPriority).unwrap();
-    expect_choose_number(&engine, me(), 1, 8, NumberPrompt::Choice);
-    engine.apply(me(), PlayerAction::ChooseNumber(5)).unwrap();
+    expect_choose_number(&engine, me(), 1, 7, NumberPrompt::Choice);
+    engine.apply(me(), PlayerAction::ChooseNumber(4)).unwrap();
     settle(&mut engine, me());
     assert_eq!(life(&engine, me()), 3);
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(me())).len(),
-        hand_before + 5
+        hand_before + 4
     );
 
     // Cast CantLoseLife lock (CR 119.8): payable life becomes 0, so min=1 life payment is skipped!

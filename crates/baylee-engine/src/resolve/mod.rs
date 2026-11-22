@@ -46,6 +46,7 @@ mod wave12a;
 mod wave13a;
 mod wave14d;
 mod wave14f;
+pub(crate) use wave14f::finish_variable_mana;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod coin;

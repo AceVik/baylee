@@ -2798,6 +2798,10 @@ PrepareManaPayment = You may generate mana to prevent up to { $amount } damage. 
 # A variable payment can exceed the damage it could prevent.
 # Arguments: min, max, amount
 ChooseManaPayment = How much mana will you pay? ({ $min }–{ $max }; prevent up to { $amount } damage)
+# Arguments: min, max
+PrepareVariableMana = You may generate mana. Pass to choose how much to pay ({ $min }–{ $max }).
+# Arguments: min, max
+ChooseVariableMana = How much mana will you pay? ({ $min }–{ $max })
 
 # One non-targeted, exact source selection.
 ChooseDamageSource = Choose a damage source

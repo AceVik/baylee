@@ -30,6 +30,24 @@ pub(super) fn choose_number_ex_start(
         .find(|&p| !state.has_left(p))?;
     let raw_min = super::amount_for_player(&min, state, you, res, chooser_seat);
     let raw_max = super::amount_for_player(&max, state, you, res, chooser_seat);
+    if raw_min > raw_max {
+        return None;
+    }
+    // A resolving mana ability may already be running inside a payment
+    // window. Preserve that window and offer payment from its current pool.
+    if pay_cost == Some(VariablePayKind::GenericMana) && raw_max > 0 && !res.mana_ability {
+        res.awaiting = Some(AwaitingOp::ManaForNumber {
+            player: chooser_seat,
+            min: raw_min,
+            max: raw_max,
+            then,
+        });
+        // The driver fills in the mana-only options before exposing this.
+        return Some(Pending::Priority {
+            player: chooser_seat,
+            legal: Box::default(),
+        });
+    }
     let effective_max = match pay_cost {
         None => raw_max,
         Some(VariablePayKind::Energy) => {
@@ -37,12 +55,7 @@ pub(super) fn choose_number_ex_start(
             raw_max.min(avail)
         }
         Some(VariablePayKind::GenericMana) => {
-            let avail = crate::casting::spendable_units(
-                state,
-                chooser_seat,
-                super::payment_for(state, res),
-            );
-            raw_max.min(avail)
+            generic_payment_max(state, res, chooser_seat, raw_max)
         }
         Some(VariablePayKind::Life) => {
             let avail = u32::try_from(state.life_payable(chooser_seat).max(0)).unwrap_or(0);
@@ -57,9 +70,7 @@ pub(super) fn choose_number_ex_start(
         NumberChoiceKind::EnergyPayment => crate::choice::NumberPrompt::EnergyPayment {
             candidates: effective_max,
         },
-        NumberChoiceKind::ManaPayment => crate::choice::NumberPrompt::ManaPayment {
-            preventable_damage: effective_max,
-        },
+        NumberChoiceKind::ManaPayment => crate::choice::NumberPrompt::VariableManaPayment,
     };
     res.awaiting = Some(AwaitingOp::ChooseNumberEx {
         chooser: chooser_seat,
@@ -72,6 +83,63 @@ pub(super) fn choose_number_ex_start(
         max: effective_max,
         reason,
     })
+}
+
+/// Close the mana opportunity, then offer only prices the floating pool can pay.
+pub(crate) fn finish_variable_mana(
+    state: &mut GameState,
+    res: &mut Resolution,
+    player: PlayerId,
+    min: u32,
+    max: u32,
+    then: &'static [Effect],
+) -> (Flow, bool) {
+    let max = generic_payment_max(state, res, player, max);
+    if min > max || state.has_left(player) {
+        res.awaiting = None;
+        super::advance_program(res);
+        return (super::run(state, res), false);
+    }
+    res.awaiting = Some(AwaitingOp::ChooseNumberEx {
+        chooser: player,
+        pay_cost: Some(VariablePayKind::GenericMana),
+        then,
+    });
+    (
+        Flow::Wait(Pending::ChooseNumber {
+            player,
+            min,
+            max,
+            reason: crate::choice::NumberPrompt::VariableManaPayment,
+        }),
+        true,
+    )
+}
+
+fn generic_payment_max(state: &GameState, res: &Resolution, player: PlayerId, max: u32) -> u32 {
+    use crate::casting;
+    use baylee_core::mana::ManaCost;
+
+    let what = super::payment_for(state, res);
+    let upper = max.min(casting::spendable_units(state, player, what));
+    let allowance = casting::live_allowance(state, player, what);
+    let can_pay = |number| {
+        number == 0
+            || casting::plan_mana_scoped(
+                state,
+                player,
+                what,
+                &ManaCost::from_symbol_generic(number),
+                None,
+                allowance,
+            )
+            .is_some()
+    };
+    if can_pay(upper) {
+        upper
+    } else {
+        casting::greatest_affordable(upper, can_pay)
+    }
 }
 
 /// Resume [`Effect::ChooseNumberEx`] with `number`: pay `pay_cost` when `Some`,

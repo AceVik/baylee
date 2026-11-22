@@ -435,6 +435,17 @@ pub enum AwaitingOp {
         /// Damage before prevention.
         amount: u32,
     },
+    /// Mana generation before choosing a number to pay.
+    ManaForNumber {
+        /// Player who will choose and pay.
+        player: PlayerId,
+        /// Minimum permitted payment.
+        min: u32,
+        /// Maximum permitted payment before affordability.
+        max: u32,
+        /// Effects to run after payment.
+        then: &'static [Effect],
+    },
     /// Mana generation has ended; the player chooses the actual payment.
     DamagePayment {
         /// Player paying from their floating pool.

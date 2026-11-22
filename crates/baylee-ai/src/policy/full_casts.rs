@@ -437,6 +437,7 @@ pub(crate) fn pay_owed_full(
         ManaPayment::AnyAmount { preventable_damage } => {
             ManaCost::from_symbol_generic(preventable_damage)
         }
+        ManaPayment::Variable { min, .. } => ManaCost::from_symbol_generic(min),
     };
     if view.awaiting != Some(view.seat) {
         return None;

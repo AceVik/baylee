@@ -286,6 +286,7 @@ pub struct PlayerView {
     /// the pool is present in this view. `AnyAmount` permits mana abilities
     /// before a voluntary number choice. Its prevention amount explains
     /// the benefit and never imposes an upper bound or mandatory payment.
+    /// `Variable` permits mana abilities before a bounded generic payment.
     /// Nonmana payments use their own pending object choices.
     pub owed: Option<ManaPayment>,
     /// The monarch, if the game has one.

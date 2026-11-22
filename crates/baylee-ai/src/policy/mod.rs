@@ -3040,6 +3040,7 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
         ManaPayment::AnyAmount { preventable_damage } => {
             ManaCost::from_symbol_generic(preventable_damage)
         }
+        ManaPayment::Variable { min, .. } => ManaCost::from_symbol_generic(min),
     };
     // `owed` is what the *awaited* seat owes, and that is only this seat
     // while this seat is the one being asked. Both fields ride in every

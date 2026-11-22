@@ -102,7 +102,8 @@ impl Owing {
                 cost: cost.symbols().collect(),
                 left: duel.payment_remaining().unwrap_or_default(),
             },
-            baylee_core::mana::ManaPayment::AnyAmount { .. } => Self::AnyAmount,
+            baylee_core::mana::ManaPayment::AnyAmount { .. }
+            | baylee_core::mana::ManaPayment::Variable { .. } => Self::AnyAmount,
         })
     }
 }

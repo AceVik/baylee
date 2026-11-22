@@ -83,7 +83,7 @@ pub enum NumberChoiceKind {
     Choice,
     /// Variable energy counter payment (`NumberPrompt::EnergyPayment`, `CR 107.14`).
     EnergyPayment,
-    /// Variable floating generic mana payment (`NumberPrompt::ManaPayment`, `CR 118.3`).
+    /// Variable generic mana payment (`NumberPrompt::VariableManaPayment`, `CR 605.3a`).
     ManaPayment,
 }
 

@@ -1734,6 +1734,30 @@ fn optional_payment_keeps_zero_and_overpayment_reachable() {
 }
 
 #[test]
+fn bounded_mana_payment_names_the_amount_without_damage() {
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 1,
+        max: 4,
+        reason: baylee_engine::choice::NumberPrompt::VariableManaPayment,
+    });
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(1)));
+    assert_eq!(i.set_number(4), 4);
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(4)));
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "How much mana will you pay? (1–4)"
+    );
+    assert_eq!(
+        super::super::headline::payment_line(
+            Lang::De,
+            baylee_core::mana::ManaPayment::Variable { min: 1, max: 4 }
+        ),
+        "Du kannst Mana erzeugen. Passe, um den Betrag zu wählen (1–4)."
+    );
+}
+
+#[test]
 fn an_effects_sacrifice_choice_names_the_player_who_loses_the_cards() {
     let i = interaction(Pending::ChooseCards {
         player: me(),

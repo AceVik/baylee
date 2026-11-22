@@ -67,6 +67,7 @@ const fn number_prompt_code(reason: &NumberPrompt) -> u8 {
         NumberPrompt::ReadAhead { .. } => 12,
         NumberPrompt::Squad { .. } => 13,
         NumberPrompt::DivideCounters { .. } => 14,
+        NumberPrompt::VariableManaPayment => 15,
     }
 }
 

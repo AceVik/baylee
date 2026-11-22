@@ -21,6 +21,13 @@ pub enum ManaPayment {
         /// Damage the payment can prevent from this event.
         preventable_damage: u32,
     },
+    /// Generate mana before choosing a generic payment in the given range.
+    Variable {
+        /// Minimum allowed payment.
+        min: u32,
+        /// Maximum allowed payment.
+        max: u32,
+    },
 }
 
 /// Permissions to spend actual mana as another type, without changing that
