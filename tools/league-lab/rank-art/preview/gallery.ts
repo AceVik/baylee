@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
 type Family = "player" | "deck";
-type Badge = { label: string; division: number; place: number; image: string };
+type Badge = { label: string; division: number; place: number; png: string };
 type Material = {
   name: string;
   description: string;
@@ -30,6 +30,18 @@ let previous = 0;
 let imageVersion = 0;
 const material = () => data.materials[tier];
 const badge = () => material()[family][index];
+
+// An image slot can only receive a browser-generated URL for local PNG bytes.
+// The fixed catalog shares these URLs until the browser unloads the gallery.
+const images = new WeakMap<Badge, string>();
+function imageUrl(item: Badge): string {
+  const cached = images.get(item);
+  if (cached !== undefined) return cached;
+  const bytes = Uint8Array.from(atob(item.png), (byte) => byte.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+  images.set(item, url);
+  return url;
+}
 
 function renderer() {
   const gl = canvas.getContext("webgl2", {
@@ -153,7 +165,7 @@ function present() {
   el("title").textContent = [material().name, v.label === "Liga" ? "" : v.label]
     .filter(Boolean).join(" · ");
   el("description").textContent = material().description + accents[v.place];
-  original.src = fallback.src = v.image;
+  original.src = fallback.src = imageUrl(v);
   original.alt = `${el("title").textContent}, ${
     family === "player" ? "Spielerhelm" : "Deckabzeichen"
   }`;
@@ -195,7 +207,7 @@ function select() {
   }
   for (const [i, b] of [...el("leagues").children].entries()) {
     b.setAttribute("aria-pressed", String(i === tier));
-    b.querySelector("img")!.src = data.materials[i][family][0].image;
+    b.querySelector("img")!.src = imageUrl(data.materials[i][family][0]);
   }
   showSelectedLeague();
   present();

@@ -638,8 +638,15 @@ async fn central_password_retired(db: &DatabaseConnection, alice: Uuid) {
         .await,
         1
     );
-    // The column's drop does not step back over a local account: the older
-    // schema holds one to a password, and it has none to give back.
+    // Later migrations roll back with the accounts still present. Test the
+    // password guard at its own boundary, even as more migrations are added.
+    let head = u32::try_from(Migrator::migrations().len()).unwrap();
+    let at_drop = before(PASSWORD_DROP) + 1;
+    if head > at_drop {
+        Migrator::down(db, Some(head - at_drop)).await.unwrap();
+    }
+    // The older schema holds a local account to a password, and it has none
+    // to give back.
     if count(
         db,
         "SELECT 1 FROM account WHERE NOT guest AND NOT central_only",
@@ -647,9 +654,14 @@ async fn central_password_retired(db: &DatabaseConnection, alice: Uuid) {
     .await
         > 0
     {
+        let error = Migrator::down(db, Some(1))
+            .await
+            .expect_err("stepped back over an account without a password");
         assert!(
-            Migrator::down(db, Some(1)).await.is_err(),
-            "stepped back over an account without a password"
+            error
+                .to_string()
+                .contains("local accounts have no password to give back"),
+            "{error}"
         );
         assert!(!account_has(db, "password_hash").await);
         db.execute_unprepared("DELETE FROM account WHERE NOT guest AND NOT central_only")
@@ -658,19 +670,18 @@ async fn central_password_retired(db: &DatabaseConnection, alice: Uuid) {
     }
     // Every later migration rolls back; the one that bound the migration
     // credentials, and with it the retirement, does not.
-    let bound = Migrator::migrations()
-        .iter()
-        .position(|migration| migration.name() == "m20261019_000023_bind_migration_credentials")
+    let at_binding = before("m20261019_000023_bind_migration_credentials") + 1;
+    Migrator::down(db, Some(at_drop - at_binding))
+        .await
         .unwrap();
-    let later = Migrator::migrations().len() - 1 - bound;
-    if later > 0 {
-        Migrator::down(db, Some(u32::try_from(later).unwrap()))
-            .await
-            .unwrap();
-    }
+    let error = Migrator::down(db, Some(1))
+        .await
+        .expect_err("retired credentials cannot be rolled back");
     assert!(
-        Migrator::down(db, Some(1)).await.is_err(),
-        "retired credentials cannot be rolled back"
+        error
+            .to_string()
+            .contains("Migration bindings prevent credential guard rollback"),
+        "{error}"
     );
     assert!(
         baylee_db::central::linked(db, &alice.to_string())

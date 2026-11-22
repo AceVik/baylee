@@ -101,7 +101,7 @@ fn variants(folder: &Path, tier: &Tier, family: &str) -> Result<Vec<Value>> {
     variants.into_iter().map(|(suffix,label,division,place)| {
         let path = folder.join(family).join(format!("{}{suffix}.png",tier.slug));
         let data = STANDARD.encode(fs::read(path)?);
-        Ok(json!({"label":label,"division":division,"place":place,"image":format!("data:image/png;base64,{data}")}))
+        Ok(json!({"label":label,"division":division,"place":place,"png":data}))
     }).collect()
 }
 
