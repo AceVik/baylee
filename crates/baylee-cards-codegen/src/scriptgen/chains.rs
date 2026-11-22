@@ -6894,15 +6894,6 @@ impl Tx<'_> {
             && flags.single_target
             && p.peek("Origin") == Some("Graveyard")
             && p.peek("Destination") == Some("Exile")
-            && self.sub_is_api(sub.as_deref(), "Play")
-        {
-            return self.wave24a_exile_gy_and_cast_copy(p, sub, target);
-        }
-        if api == "ChangeZone"
-            && flags.targets_here
-            && flags.single_target
-            && p.peek("Origin") == Some("Graveyard")
-            && p.peek("Destination") == Some("Exile")
             && self.sub_is_api(sub.as_deref(), "CopyPermanent")
         {
             return self.wave24a_exile_gy_and_copy_permanent(p, sub, target);
@@ -7175,69 +7166,6 @@ impl Tx<'_> {
         Some(vec![format!(
             "Effect::MayPutFromHandOntoBattlefieldAttachIfEquipment {{ filter: &{name} }}"
         )])
-    }
-
-    /// "Exile target [card] from a graveyard. Copy it, and you may cast the
-    /// copy without paying its mana cost" (Shiko, Flawless Forgery, Reenact the
-    /// Crime) -> `Effect::ExileAndCastCopies { graveyard: None }`.
-    fn wave24a_exile_gy_and_cast_copy(
-        &mut self,
-        p: &mut Params,
-        sub: &mut Option<String>,
-        target: Option<&str>,
-    ) -> Option<Vec<String>> {
-        let target = target.filter(|t| t.starts_with("TargetSpec::CardInGraveyard("))?;
-        let _ = target;
-        if self.overload_cost.is_some()
-            || p.has("Hidden")
-            || self.has_linked_exile_reader()
-            || p.take("Origin").as_deref() != Some("Graveyard")
-            || p.take("Destination").as_deref() != Some("Exile")
-            || p.take("RememberChanged").as_deref() != Some("True")
-            || !matches!(
-                p.take("ForgetOtherRemembered").as_deref(),
-                None | Some("True")
-            )
-            || !matches!(p.take("ChangeNum").as_deref(), None | Some("1"))
-            || !p.exhausted()
-        {
-            return None;
-        }
-        let play_name = sub.take()?;
-        let play_body = self.svars.get(play_name.trim())?.clone();
-        let (p_api, mut pp) = Params::parse(&play_body)?;
-        pp.drop_prose();
-        if p_api != "Play"
-            || pp.take("CopyCard").as_deref() != Some("True")
-            || pp.take("WithoutManaCost").as_deref() != Some("True")
-            || pp.take("Optional").as_deref() != Some("True")
-            || !matches!(pp.take("ValidZone").as_deref(), None | Some("Exile"))
-            || !matches!(pp.take("Controller").as_deref(), None | Some("You"))
-            || !matches!(pp.take("ValidSA").as_deref(), None | Some("Spell"))
-            || !matches!(pp.take("Amount").as_deref(), None | Some("1" | "All"))
-            || pp.has("AllowRepeats")
-        {
-            return None;
-        }
-        let subject_ok = matches!(
-            (pp.take("Defined").as_deref(), pp.take("Valid").as_deref()),
-            (Some("Remembered"), None)
-                | (
-                    None,
-                    Some("Card.IsRemembered" | "Card.IsRemembered+ExiledWithSource"),
-                )
-        );
-        if !subject_ok {
-            return None;
-        }
-        let after = pp.take("SubAbility");
-        if !pp.exhausted() {
-            return None;
-        }
-        self.wave24a_take_optional_cleanup(after, sub)?;
-        Some(vec![
-            "Effect::ExileAndCastCopies { graveyard: None }".to_string(),
-        ])
     }
 
     fn wave24a_take_copy_riders(p: &mut Params) -> Option<(bool, bool, bool, &'static str)> {

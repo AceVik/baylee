@@ -14257,6 +14257,9 @@ impl Tx<'_> {
         if !Self::filter_excludes_lands(filter_expr, &self.body.statics, 0) {
             return None;
         }
+        if self.overload_cost.is_some() || p.has("Hidden") || self.has_linked_exile_reader() {
+            return None;
+        }
         let mut probe = p.clone();
         probe.take("Origin");
         probe.take("Destination");
@@ -14265,6 +14268,9 @@ impl Tx<'_> {
         if let Some(forget) = probe.take("ForgetOtherRemembered")
             && forget != "True"
         {
+            return None;
+        }
+        if !matches!(probe.take("ChangeNum").as_deref(), None | Some("1")) {
             return None;
         }
         if let Some(mandatory) = probe.take("Mandatory")
@@ -14293,7 +14299,7 @@ impl Tx<'_> {
             || !matches!(sp.take("ValidSA").as_deref(), None | Some("Spell"))
             || !matches!(sp.take("ValidZone").as_deref(), None | Some("Exile"))
             || !matches!(sp.take("Controller").as_deref(), None | Some("You"))
-            || !matches!(sp.take("Amount").as_deref(), None | Some("All"))
+            || !matches!(sp.take("Amount").as_deref(), None | Some("1" | "All"))
             || sp.take("CopyCard").as_deref() != Some("True")
             || sp.take("WithoutManaCost").as_deref() != Some("True")
             || sp.take("Optional").as_deref() != Some("True")
