@@ -887,9 +887,9 @@ impl HeuristicAgent {
                     .choose_number_ex_answer(view, min, max, context)
                     .unwrap_or_else(|| 3u32.clamp(min, max)),
                 baylee_engine::choice::NumberPrompt::X => self.number(view, min, max, context),
-                baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => self
-                    .choose_number_ex_answer(view, min, max, context)
-                    .unwrap_or_else(|| preventable_damage.clamp(min, max)),
+                baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => {
+                    preventable_damage.clamp(min, max)
+                }
                 baylee_engine::choice::NumberPrompt::VariableManaPayment => self
                     .choose_number_ex_answer(view, min, max, context)
                     .unwrap_or(min),
