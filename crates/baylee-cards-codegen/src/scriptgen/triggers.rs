@@ -6482,7 +6482,7 @@ impl Tx<'_> {
                 return None;
             }
             chain.effects.push(format!(
-                "Effect::PutCounter {{ target: TargetSpec::EventObject, kind: {kind}, \
+                "Effect::AddCounterFilter {{ filter: &Filter::Reference, kind: {kind}, \
                  amount: {amount} }}"
             ));
             if let Some(sub_name) = sub {

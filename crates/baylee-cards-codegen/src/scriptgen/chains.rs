@@ -8369,7 +8369,7 @@ impl Tx<'_> {
                     }
                     let expr = self.filter_expr(&valid)?;
                     let filter_name = self.body.filter_static("DAMAGE_ALL", &expr);
-                    format!("Effect::DamageFilter {{ filter: &{filter_name}, amount: {amt} }}")
+                    format!("Effect::DealDamageEach {{ amount: {amt}, filter: &{filter_name} }}")
                 }
                 "Draw" => {
                     let who = self.wave11_player_of_line(

@@ -3779,12 +3779,7 @@ impl Tx<'_> {
             if next_api != "Dig" {
                 return None;
             }
-            (
-                Some(format!(
-                    "Effect::Scry {{ who: PlayerRel::You, count: {count} }}"
-                )),
-                next_p,
-            )
+            (Some(format!("Effect::Scry {{ amount: {count} }}")), next_p)
         } else if first_api == "Dig" {
             (None, first_p)
         } else {
