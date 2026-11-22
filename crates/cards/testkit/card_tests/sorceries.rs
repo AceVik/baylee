@@ -149,7 +149,8 @@ pub fn cast_finale(
     engine.pending().clone()
 }
 
-fn answer_finale_library_search(
+/// Passes priority to Finale's library choice and answers it as `seat`.
+pub fn answer_finale_library_search(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     search_library: bool,
