@@ -1078,6 +1078,13 @@ pub fn face_adjustment(
     spell_adjustment_with_def(state, player, &spell, Some(def))
 }
 
+struct ClauseTargets {
+    min: u32,
+    max: u32,
+    objects: Vec<ObjectId>,
+    players: Vec<PlayerId>,
+}
+
 fn clause_preview_targets(
     state: &GameState,
     player: PlayerId,
@@ -1086,7 +1093,7 @@ fn clause_preview_targets(
     face: usize,
     req: baylee_cards_dsl::TargetReq,
     wall_only: bool,
-) -> (u32, u32, bool, Vec<ObjectId>, Vec<PlayerId>) {
+) -> ClauseTargets {
     let objs = crate::eval::spell_target_options_for(
         &req.spec,
         state,
@@ -1160,8 +1167,17 @@ fn clause_preview_targets(
             (min_c, max_c)
         }
     };
-    (min_c, max_c, req.count_is_x, objs, pls)
+    ClauseTargets {
+        min: min_c,
+        max: max_c,
+        objects: objs,
+        players: pls,
+    }
 }
+
+// Each distinct target requirement scans the board once per wall restriction.
+// Repeated and entwined modes can reuse the same pool across many combinations.
+type PreviewPools = SmallVec<[(baylee_cards_dsl::TargetReq, bool, ClauseTargets); 4]>;
 
 fn clauses_preview_targets(
     state: &GameState,
@@ -1170,6 +1186,7 @@ fn clauses_preview_targets(
     def: &'static baylee_cards_dsl::CardDef,
     face: usize,
     clauses: &[Option<baylee_cards_dsl::TargetReq>],
+    pools: &mut PreviewPools,
 ) -> (u32, u32, bool) {
     let wall_only =
         crate::eval::target_domain::wall_requirements(clauses.iter().copied().flatten());
@@ -1180,32 +1197,42 @@ fn clauses_preview_targets(
     let mut union_pls: Vec<PlayerId> = Vec::new();
     let mut seen_clause = false;
     for req in clauses.iter().copied().flatten() {
-        let (min_c, max_c, is_x, objs, pls) =
-            clause_preview_targets(state, player, card, def, face, req, wall_only);
-        any_x |= is_x;
-        max_sum = max_sum.saturating_add(max_c);
+        let index = pools
+            .iter()
+            .position(|(saved, wall, _)| *saved == req && *wall == wall_only)
+            .unwrap_or_else(|| {
+                pools.push((
+                    req,
+                    wall_only,
+                    clause_preview_targets(state, player, card, def, face, req, wall_only),
+                ));
+                pools.len() - 1
+            });
+        let pool = &pools[index].2;
+        any_x |= req.count_is_x;
+        max_sum = max_sum.saturating_add(pool.max);
         if !seen_clause {
-            min_d = min_c;
-            union_objs = objs;
-            union_pls = pls;
+            min_d = pool.min;
+            union_objs.clone_from(&pool.objects);
+            union_pls.clone_from(&pool.players);
             seen_clause = true;
             continue;
         }
         let disjoint = req.constraint()
             == Some(baylee_cards_dsl::TargetConstraint::DistinctFromPriorTargetGroups)
-            || (!union_objs.iter().any(|o| objs.contains(o))
-                && !union_pls.iter().any(|p| pls.contains(p)));
+            || (!union_objs.iter().any(|o| pool.objects.contains(o))
+                && !union_pls.iter().any(|p| pool.players.contains(p)));
         min_d = if disjoint {
-            min_d.saturating_add(min_c)
+            min_d.saturating_add(pool.min)
         } else {
-            min_d.max(min_c)
+            min_d.max(pool.min)
         };
-        for id in objs {
+        for &id in &pool.objects {
             if !union_objs.contains(&id) {
                 union_objs.push(id);
             }
         }
-        for p in pls {
+        for &p in &pool.players {
             if !union_pls.contains(&p) {
                 union_pls.push(p);
             }
@@ -1462,8 +1489,12 @@ fn clause_matches_target_filter(
     wall_only: bool,
     rule: &TargetConditionalRule,
 ) -> (bool, bool) {
-    let (min_c, max_c, _, objs, pls) =
-        clause_preview_targets(state, player, card, def, face, req, wall_only);
+    let ClauseTargets {
+        min: min_c,
+        max: max_c,
+        objects: objs,
+        players: pls,
+    } = clause_preview_targets(state, player, card, def, face, req, wall_only);
     let total_opts = objs.len() + pls.len();
     if total_opts < usize::from(req.min) || min_c > max_c || max_c == 0 {
         return (false, false);
@@ -1736,6 +1767,7 @@ fn preview_distinct_target_bounds(
     let mut min_d = 0_u32;
     let mut max_d = 0_u32;
     let mut count_is_x = false;
+    let mut pools = PreviewPools::new();
     if let Some((first, second, third)) =
         def.abilities_for_face(face_idx)
             .iter()
@@ -1749,32 +1781,47 @@ fn preview_distinct_target_bounds(
                 _ => None,
             })
     {
-        (min_d, max_d, count_is_x) =
-            clauses_preview_targets(state, player, card, def, face_idx, &[first, second, third]);
-    } else if let Some((modes, ..)) = def
+        (min_d, max_d, count_is_x) = clauses_preview_targets(
+            state,
+            player,
+            card,
+            def,
+            face_idx,
+            &[first, second, third],
+            &mut pools,
+        );
+    } else if let Some((modes, choose, repeat)) = def
         .abilities_for_face(face_idx)
         .iter()
         .find_map(baylee_cards_dsl::AbilityDef::modal_spell)
     {
-        let mut best_min = u32::MAX;
-        let mut best_max = 0_u32;
-        let mut any_x = false;
-        for mode in modes {
-            let (m_min, m_max, m_x) = clauses_preview_targets(
-                state,
-                player,
-                card,
-                def,
-                face_idx,
-                &[mode.targets, mode.second_targets],
-            );
-            best_min = best_min.min(m_min);
-            best_max = best_max.max(m_max);
-            any_x |= m_x;
+        let abilities = def.abilities_for_face(face_idx);
+        min_d = if choose.min == 0 { 0 } else { u32::MAX };
+        // CR 601.2b–f: price the targets of the complete set of modes.
+        // Two modes naming the same object still contribute only one target.
+        let mut record = |chosen: &[(usize, bool, baylee_cards_dsl::TargetReq)]| {
+            let clauses: SmallVec<[_; 6]> = chosen.iter().map(|(_, _, req)| Some(*req)).collect();
+            let (min, max, x) =
+                clauses_preview_targets(state, player, card, def, face_idx, &clauses, &mut pools);
+            min_d = min_d.min(min);
+            max_d = max_d.max(max);
+            count_is_x |= x;
+        };
+        if repeat {
+            for set in repeated_mode_sets(modes, choose) {
+                record(&repeated_modal_target_clauses(abilities, set));
+            }
+        } else {
+            for set in mode_sets(modes, choose) {
+                record(&modal_target_clauses(abilities, set));
+            }
+            if face.entwine.is_some() && choose.is_one() {
+                record(&modal_target_clauses(abilities, entwine_set(modes)));
+            }
         }
-        min_d = if best_min == u32::MAX { 0 } else { best_min };
-        max_d = best_max;
-        count_is_x = any_x;
+        if min_d == u32::MAX {
+            min_d = 0;
+        }
     }
     if face.bestow.is_some() || face.mutate.is_some() {
         max_d = max_d.max(1);
