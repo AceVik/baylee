@@ -214,3 +214,27 @@ pub(super) fn pt_fault(face: &FaceDef, animates_self: bool) -> Option<&'static s
 pub(super) fn loyalty_fault(face: &FaceDef) -> bool {
     face.types.contains(TypeSet::PLANESWALKER) && face.loyalty.is_none()
 }
+
+/// Whether `face` at `face_index` on `def` violates CR 306.5b by being a
+/// planeswalker with no starting loyalty.
+///
+/// A transforming double-faced planeswalker whose front face is already a
+/// planeswalker (*Garruk Relentless // Garruk, the Veil-Cursed*, *Arlinn
+/// Kord // Arlinn, Embraced by the Moon*) transforms in place on the
+/// battlefield and keeps its loyalty counters, so its back face
+/// (`face_index > 0`, `mana_cost == ManaCost::ZERO`) intentionally prints
+/// no starting loyalty. Creature-to-planeswalker DFCs (front face is not a
+/// planeswalker) and modal back faces (non-zero mana cost) still require
+/// starting loyalty.
+pub(super) fn card_loyalty_fault(def: &CardDef, face_index: usize, face: &FaceDef) -> bool {
+    if !loyalty_fault(face) {
+        return false;
+    }
+    let transforms_from_walker = face_index > 0
+        && face.mana_cost == ManaCost::ZERO
+        && def
+            .faces
+            .first()
+            .is_some_and(|front| front.types.contains(TypeSet::PLANESWALKER));
+    !transforms_from_walker
+}

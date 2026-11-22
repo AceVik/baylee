@@ -643,6 +643,8 @@ pub mod infantry_veteran;
 pub mod infernal_harvest;
 #[path = "wth/infernal_tribute.rs"]
 pub mod infernal_tribute;
+#[path = "por/ingenious_thief.rs"]
+pub mod ingenious_thief;
 #[path = "wth/inner_sanctum.rs"]
 pub mod inner_sanctum;
 #[path = "tmp/insight.rs"]
@@ -1209,6 +1211,8 @@ pub mod soltari_priest;
 pub mod soltari_trooper;
 #[path = "vis/song_of_blood.rs"]
 pub mod song_of_blood;
+#[path = "por/sorcerous_sight.rs"]
+pub mod sorcerous_sight;
 #[path = "wth/soul_shepherd.rs"]
 pub mod soul_shepherd;
 #[path = "por/soul_shred.rs"]

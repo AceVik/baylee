@@ -37,6 +37,8 @@ pub mod agoraphobia;
 pub mod akroan_crusader;
 #[path = "ths/akroan_hoplite.rs"]
 pub mod akroan_hoplite;
+#[path = "ths/akroan_horse.rs"]
+pub mod akroan_horse;
 #[path = "dgm/alive.rs"]
 pub mod alive;
 #[path = "gtc/alms_beast.rs"]
@@ -53,6 +55,8 @@ pub mod angelic_accord;
 pub mod angelic_edict;
 #[path = "gtc/angelic_skirmisher.rs"]
 pub mod angelic_skirmisher;
+#[path = "pths/anthousa_setessan_hero.rs"]
+pub mod anthousa_setessan_hero;
 #[path = "ths/anvilwrought_raptor.rs"]
 pub mod anvilwrought_raptor;
 #[path = "ths/aqueous_form.rs"]
@@ -95,6 +99,8 @@ pub mod baleful_force;
 pub mod balustrade_spy;
 #[path = "dgm/bane_alley_blackguard.rs"]
 pub mod bane_alley_blackguard;
+#[path = "c13/bane_of_progress.rs"]
+pub mod bane_of_progress;
 #[path = "m14/banisher_priest.rs"]
 pub mod banisher_priest;
 #[path = "m14/barrage_of_expendables.rs"]
@@ -135,6 +141,8 @@ pub mod bogbrew_witch;
 pub mod bonescythe_sliver;
 #[path = "ths/boon_satyr.rs"]
 pub mod boon_satyr;
+#[path = "gtc/borborygmos_enraged.rs"]
+pub mod borborygmos_enraged;
 #[path = "ths/borderland_minotaur.rs"]
 pub mod borderland_minotaur;
 #[path = "gtc/boros_charm.rs"]
@@ -167,6 +175,8 @@ pub mod burning_tree_emissary;
 pub mod burnished_hart;
 #[path = "gtc/burst_of_strength.rs"]
 pub mod burst_of_strength;
+#[path = "gtc/call_of_the_nightwing.rs"]
+pub mod call_of_the_nightwing;
 #[path = "dgm/carnage_gladiator.rs"]
 pub mod carnage_gladiator;
 #[path = "gtc/cartel_aristocrat.rs"]
@@ -275,6 +285,8 @@ pub mod dismiss_into_dream;
 pub mod dissolve;
 #[path = "c13/diviner_spirit.rs"]
 pub mod diviner_spirit;
+#[path = "gtc/domri_rade.rs"]
+pub mod domri_rade;
 #[path = "dgm/down.rs"]
 pub mod down;
 #[path = "m14/dragon_egg.rs"]
@@ -289,6 +301,8 @@ pub mod drown_in_filth;
 pub mod dutiful_thrull;
 #[path = "gtc/dying_wish.rs"]
 pub mod dying_wish;
+#[path = "ths/elspeth_sun_s_champion.rs"]
+pub mod elspeth_sun_s_champion;
 #[path = "gtc/elusive_krasis.rs"]
 pub mod elusive_krasis;
 #[path = "m14/elvish_mystic.rs"]
@@ -359,6 +373,8 @@ pub mod frilled_oculus;
 pub mod furious_resistance;
 #[path = "m14/galerider_sliver.rs"]
 pub mod galerider_sliver;
+#[path = "psdc/garruk_caller_of_beasts.rs"]
+pub mod garruk_caller_of_beasts;
 #[path = "gtc/gateway_shade.rs"]
 pub mod gateway_shade;
 #[path = "dgm/gaze_of_granite.rs"]
@@ -373,6 +389,8 @@ pub mod gift_of_orzhova;
 pub mod glare_of_heresy;
 #[path = "dgm/gleam_of_battle.rs"]
 pub mod gleam_of_battle;
+#[path = "m14/glimpse_the_future.rs"]
+pub mod glimpse_the_future;
 #[path = "m14/gnawing_zombie.rs"]
 pub mod gnawing_zombie;
 #[path = "pm14/goblin_diplomats.rs"]
@@ -413,6 +431,8 @@ pub mod gutter_skulk;
 pub mod gyre_sage;
 #[path = "dgm/haazda_snare_squad.rs"]
 pub mod haazda_snare_squad;
+#[path = "gtc/hands_of_binding.rs"]
+pub mod hands_of_binding;
 #[path = "dgm/haunter_of_nightveil.rs"]
 pub mod haunter_of_nightveil;
 #[path = "ths/heliod_s_emissary.rs"]
@@ -465,10 +485,14 @@ pub mod ivy_lane_denizen;
 pub mod izzet_cluestone;
 #[path = "dgm/jelenn_sphinx.rs"]
 pub mod jelenn_sphinx;
+#[path = "c13/jeleva_nephalia_s_scourge.rs"]
+pub mod jeleva_nephalia_s_scourge;
 #[path = "m14/kalonian_hydra.rs"]
 pub mod kalonian_hydra;
 #[path = "m14/kalonian_tusker.rs"]
 pub mod kalonian_tusker;
+#[path = "pths/karametra_s_acolyte.rs"]
+pub mod karametra_s_acolyte;
 #[path = "ths/keepsake_gorgon.rs"]
 pub mod keepsake_gorgon;
 #[path = "gtc/keymaster_rogue.rs"]
@@ -489,6 +513,10 @@ pub mod labyrinth_champion;
 pub mod lagonna_band_elder;
 #[path = "ths/lash_of_the_whip.rs"]
 pub mod lash_of_the_whip;
+#[path = "gtc/last_thoughts.rs"]
+pub mod last_thoughts;
+#[path = "dgm/lavinia_of_the_tenth.rs"]
+pub mod lavinia_of_the_tenth;
 #[path = "ths/leafcrown_dryad.rs"]
 pub mod leafcrown_dryad;
 #[path = "ths/leonin_snarecaster.rs"]
@@ -503,6 +531,8 @@ pub mod liliana_s_reaver;
 pub mod liturgy_of_blood;
 #[path = "ths/lost_in_a_labyrinth.rs"]
 pub mod lost_in_a_labyrinth;
+#[path = "dgm/lyev_decree.rs"]
+pub mod lyev_decree;
 #[path = "gtc/madcap_skills.rs"]
 pub mod madcap_skills;
 #[path = "m14/manaweft_sliver.rs"]
@@ -537,6 +567,8 @@ pub mod megantic_sliver;
 pub mod meletis_charlatan;
 #[path = "dgm/mending_touch.rs"]
 pub mod mending_touch;
+#[path = "gtc/mental_vapors.rs"]
+pub mod mental_vapors;
 #[path = "gtc/merciless_eviction.rs"]
 pub mod merciless_eviction;
 #[path = "gtc/merfolk_of_the_depths.rs"]
@@ -547,6 +579,8 @@ pub mod messenger_drake;
 pub mod messenger_s_speed;
 #[path = "gtc/metropolis_sprite.rs"]
 pub mod metropolis_sprite;
+#[path = "gtc/midnight_recovery.rs"]
+pub mod midnight_recovery;
 #[path = "gtc/millennial_gargoyle.rs"]
 pub mod millennial_gargoyle;
 #[path = "gtc/mindeye_drake.rs"]
@@ -561,6 +595,8 @@ pub mod minotaur_abomination;
 pub mod minotaur_skullcleaver;
 #[path = "ths/mistcutter_hydra.rs"]
 pub mod mistcutter_hydra;
+#[path = "m14/molten_birth.rs"]
+pub mod molten_birth;
 #[path = "gtc/mortus_strider.rs"]
 pub mod mortus_strider;
 #[path = "gtc/mugging.rs"]
@@ -585,6 +621,8 @@ pub mod nimbus_naiad;
 pub mod nimbus_swimmer;
 #[path = "dgm/nivix_cyclops.rs"]
 pub mod nivix_cyclops;
+#[path = "dgm/notion_thief.rs"]
+pub mod notion_thief;
 #[path = "ths/nykthos_shrine_to_nyx.rs"]
 pub mod nykthos_shrine_to_nyx;
 #[path = "ths/nylea_s_emissary.rs"]
@@ -601,6 +639,8 @@ pub mod obzedat_s_aid;
 pub mod ogre_battledriver;
 #[path = "gtc/ogre_slumlord.rs"]
 pub mod ogre_slumlord;
+#[path = "c13/oloro_ageless_ascetic.rs"]
+pub mod oloro_ageless_ascetic;
 #[path = "ths/omenspeaker.rs"]
 pub mod omenspeaker;
 #[path = "gtc/one_thousand_lashes.rs"]
@@ -629,6 +669,8 @@ pub mod orzhov_cluestone;
 pub mod orzhov_guildgate;
 #[path = "gtc/orzhov_keyrune.rs"]
 pub mod orzhov_keyrune;
+#[path = "gtc/paranoid_delusions.rs"]
+pub mod paranoid_delusions;
 #[path = "m14/path_of_bravery.rs"]
 pub mod path_of_bravery;
 #[path = "ths/peak_eruption.rs"]
@@ -659,6 +701,8 @@ pub mod predatory_sliver;
 pub mod prescient_chimera;
 #[path = "ths/priest_of_iroas.rs"]
 pub mod priest_of_iroas;
+#[path = "c13/primal_vigor.rs"]
+pub mod primal_vigor;
 #[path = "gtc/primal_visitation.rs"]
 pub mod primal_visitation;
 #[path = "m14/primeval_bounty.rs"]
@@ -787,6 +831,8 @@ pub mod setessan_battle_priest;
 pub mod setessan_griffin;
 #[path = "gtc/shadow_alley_denizen.rs"]
 pub mod shadow_alley_denizen;
+#[path = "gtc/shadow_slice.rs"]
+pub mod shadow_slice;
 #[path = "gtc/shambleshark.rs"]
 pub mod shambleshark;
 #[path = "c13/shattergang_brothers.rs"]
@@ -879,6 +925,8 @@ pub mod staunch_hearted_warrior;
 pub mod steelform_sliver;
 #[path = "dgm/steeple_roc.rs"]
 pub mod steeple_roc;
+#[path = "gtc/stolen_identity.rs"]
+pub mod stolen_identity;
 #[path = "m14/stonehorn_chanter.rs"]
 pub mod stonehorn_chanter;
 #[path = "ths/stoneshock_giant.rs"]
@@ -927,6 +975,8 @@ pub mod thassa_s_emissary;
 pub mod thespian_s_stage;
 #[path = "m14/thorncaster_sliver.rs"]
 pub mod thorncaster_sliver;
+#[path = "dgm/thrashing_mossdog.rs"]
+pub mod thrashing_mossdog;
 #[path = "c13/tidal_force.rs"]
 pub mod tidal_force;
 #[path = "ths/time_to_feed.rs"]
@@ -973,10 +1023,14 @@ pub mod two_headed_cerberus;
 pub mod tymaret_the_murder_king;
 #[path = "dgm/ubul_sar_gatekeepers.rs"]
 pub mod ubul_sar_gatekeepers;
+#[path = "dgm/uncovered_clues.rs"]
+pub mod uncovered_clues;
 #[path = "m14/undead_minotaur.rs"]
 pub mod undead_minotaur;
 #[path = "gtc/undercity_informer.rs"]
 pub mod undercity_informer;
+#[path = "gtc/undercity_plague.rs"]
+pub mod undercity_plague;
 #[path = "c13/unexpectedly_absent.rs"]
 pub mod unexpectedly_absent;
 #[path = "dgm/unflinching_courage.rs"]
@@ -1003,6 +1057,8 @@ pub mod viper_s_kiss;
 pub mod vizkopa_guildmage;
 #[path = "dgm/voice_of_resurgence.rs"]
 pub mod voice_of_resurgence;
+#[path = "gtc/voidwalk.rs"]
+pub mod voidwalk;
 #[path = "m14/voracious_wurm.rs"]
 pub mod voracious_wurm;
 #[path = "ths/voyage_s_end.rs"]
@@ -1019,6 +1075,8 @@ pub mod warden_of_evos_isle;
 pub mod warleader_s_helix;
 #[path = "dgm/warped_physique.rs"]
 pub mod warped_physique;
+#[path = "ths/warriors_lesson.rs"]
+pub mod warriors_lesson;
 #[path = "gtc/wasteland_viper.rs"]
 pub mod wasteland_viper;
 #[path = "ths/wavecrash_triton.rs"]
@@ -1059,6 +1117,8 @@ pub mod young_pyromancer;
 pub mod zarichi_tiger;
 #[path = "m14/zephyr_charge.rs"]
 pub mod zephyr_charge;
+#[path = "dgm/zhur_taa_ancient.rs"]
+pub mod zhur_taa_ancient;
 #[path = "dgm/zhur_taa_druid.rs"]
 pub mod zhur_taa_druid;
 #[path = "gtc/zhur_taa_swine.rs"]

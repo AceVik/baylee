@@ -78,6 +78,66 @@ fn the_lint_reads_a_damage_sweep_as_a_sweep() {
     );
 }
 
+#[test]
+fn conditional_sweep_beside_targeted_effect_is_allowed_but_lone_conditional_sweep_is_caught() {
+    use crate::dsl::prelude::*;
+
+    static MONARCH_UPGRADE: [Effect; 1] = [Effect::continuous(
+        &Filter::CREATURE,
+        Modifier::AddKeyword(KeywordSet::CANT_BLOCK),
+        Duration::UntilEndOfTurn,
+    )];
+    static ALLOWED_EFFECTS: [Effect; 2] = [
+        Effect::PumpTarget {
+            power: Amount::Fixed(0),
+            toughness: Amount::Fixed(0),
+            keywords: KeywordSet::CANT_BLOCK,
+            duration: Duration::UntilEndOfTurn,
+        },
+        Effect::IfCondition {
+            condition: Condition::IsMonarch(PlayerRel::You),
+            then: &MONARCH_UPGRADE,
+            otherwise: &[],
+        },
+    ];
+    static LONE_SWEEP: [Effect; 1] = [Effect::IfCondition {
+        condition: Condition::IsMonarch(PlayerRel::You),
+        then: &MONARCH_UPGRADE,
+        otherwise: &[],
+    }];
+
+    let allowed = AbilityDef::Triggered {
+        trigger: Trigger::Attacks(&Filter::This),
+        effects: &ALLOWED_EFFECTS,
+        targets: Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::CREATURE))),
+        second_targets: None,
+        zone: TriggerZone::Battlefield,
+        once_per_turn: false,
+        condition: None,
+        resolves_if_targets_illegal: false,
+    };
+    assert!(
+        target_reuse(&allowed).is_none(),
+        "a conditional board-wide upgrade beside PumpTarget is intentional"
+    );
+
+    let lone_broken = AbilityDef::Triggered {
+        trigger: Trigger::Attacks(&Filter::This),
+        effects: &LONE_SWEEP,
+        targets: Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::CREATURE))),
+        second_targets: None,
+        zone: TriggerZone::Battlefield,
+        once_per_turn: false,
+        condition: None,
+        resolves_if_targets_illegal: false,
+    };
+    assert_eq!(
+        target_reuse(&lone_broken),
+        Some(&Filter::CREATURE),
+        "a lone conditional sweep without a targeted effect is still caught"
+    );
+}
+
 /// No card in the pool targets one thing and then does it to every
 /// thing of that kind.
 #[test]

@@ -247,6 +247,19 @@ pub(super) fn target_filter(spec: TargetSpec) -> Option<&'static Filter> {
     }
 }
 
+/// Whether a top-level effect directly acts on the branch's chosen object
+/// target rather than sweeping the board.
+fn acts_on_target(effect: &Effect) -> bool {
+    matches!(
+        effect,
+        Effect::PumpTarget { .. }
+            | Effect::CreateContinuousEffect {
+                filter: Filter::This,
+                ..
+            }
+    )
+}
+
 /// An ability that targets and then does something to **everything its
 /// target filter matches**, rather than to the target.
 ///
@@ -257,7 +270,16 @@ pub(super) fn target_reuse(ability: &AbilityDef) -> Option<&'static Filter> {
         let Some(wanted) = branch.target.and_then(target_filter) else {
             continue;
         };
+        let has_target_effect = branch.effects.iter().any(acts_on_target);
         for effect in branch.effects {
+            // A sibling conditional upgrade ("up to one target creature
+            // can't block; if you're the monarch, creatures can't block")
+            // is intentional when another top-level effect already uses
+            // the target. A lone conditional sweep without a targeted
+            // effect is still caught.
+            if has_target_effect && matches!(effect, Effect::IfCondition { .. }) {
+                continue;
+            }
             for swept in swept_filters(effect) {
                 if swept == wanted {
                     return Some(swept);

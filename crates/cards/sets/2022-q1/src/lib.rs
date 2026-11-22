@@ -73,6 +73,8 @@ pub mod commune_with_spirits;
 pub mod containment_construct;
 #[path = "nec/cyberdrive_awakener.rs"]
 pub mod cyberdrive_awakener;
+#[path = "neo/disruption_protocol.rs"]
+pub mod disruption_protocol;
 #[path = "neo/dockside_chef.rs"]
 pub mod dockside_chef;
 #[path = "neo/dokuchi_shadow_walker.rs"]
@@ -147,6 +149,8 @@ pub mod jukai_preserver;
 pub mod jukai_trainee;
 #[path = "neo/kaito_s_pursuit.rs"]
 pub mod kaito_s_pursuit;
+#[path = "neo/kaito_shizuki.rs"]
+pub mod kaito_shizuki;
 #[path = "neo/kami_of_restless_shadows.rs"]
 pub mod kami_of_restless_shadows;
 #[path = "nec/kappa_cannoneer.rs"]
@@ -161,6 +165,8 @@ pub mod kyodai_soul_of_kamigawa;
 pub mod leech_gauntlet;
 #[path = "neo/light_the_way.rs"]
 pub mod light_the_way;
+#[path = "neo/lion_sash.rs"]
+pub mod lion_sash;
 #[path = "neo/lizard_blades.rs"]
 pub mod lizard_blades;
 #[path = "neo/lucky_offering.rs"]
@@ -175,6 +181,8 @@ pub mod michiko_s_reign_of_truth;
 pub mod mnemonic_sphere;
 #[path = "neo/moonfolk_puzzlemaker.rs"]
 pub mod moonfolk_puzzlemaker;
+#[path = "neo/moonsnare_prototype.rs"]
+pub mod moonsnare_prototype;
 #[path = "neo/moonsnare_specialist.rs"]
 pub mod moonsnare_specialist;
 #[path = "neo/mothrider_patrol.rs"]
@@ -213,12 +221,16 @@ pub mod patchwork_automaton;
 pub mod prosperous_thief;
 #[path = "neo/rabbit_battery.rs"]
 pub mod rabbit_battery;
+#[path = "neo/reality_heist.rs"]
+pub mod reality_heist;
 #[path = "neo/reckoner_s_bargain.rs"]
 pub mod reckoner_s_bargain;
 #[path = "neo/reinforced_ronin.rs"]
 pub mod reinforced_ronin;
 #[path = "neo/reito_sentinel.rs"]
 pub mod reito_sentinel;
+#[path = "nec/release_to_memory.rs"]
+pub mod release_to_memory;
 #[path = "neo/repel_the_vile.rs"]
 pub mod repel_the_vile;
 #[path = "neo/replication_specialist.rs"]

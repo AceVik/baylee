@@ -15,6 +15,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
 #[path = "vow/ancestral_anger.rs"]
 pub mod ancestral_anger;
+#[path = "vow/ancient_lumberknot.rs"]
+pub mod ancient_lumberknot;
 #[path = "vow/angelic_quartermaster.rs"]
 pub mod angelic_quartermaster;
 #[path = "pvow/anje_maid_of_dishonor.rs"]
@@ -77,6 +79,8 @@ pub mod desperate_farmer;
 pub mod diregraf_scavenger;
 #[path = "vow/distracting_geist.rs"]
 pub mod distracting_geist;
+#[path = "vow/diver_skaab.rs"]
+pub mod diver_skaab;
 #[path = "voc/doom_weaver.rs"]
 pub mod doom_weaver;
 #[path = "vow/dormant_grove.rs"]
@@ -147,6 +151,8 @@ pub mod honeymoon_hearse;
 pub mod honored_heirloom;
 #[path = "vow/hookhand_mariner.rs"]
 pub mod hookhand_mariner;
+#[path = "pvow/hopeful_initiate.rs"]
+pub mod hopeful_initiate;
 #[path = "pvow/howling_moon.rs"]
 pub mod howling_moon;
 #[path = "pvow/ill_tempered_loner.rs"]
@@ -201,6 +207,8 @@ pub mod nebelgast_beguiler;
 pub mod necroduality;
 #[path = "vow/nurturing_presence.rs"]
 pub mod nurturing_presence;
+#[path = "pvow/old_rutstein.rs"]
+pub mod old_rutstein;
 #[path = "pvow/olivia_s_attendants.rs"]
 pub mod olivia_s_attendants;
 #[path = "voc/olivia_s_wrath.rs"]
@@ -239,6 +247,8 @@ pub mod rural_recruit;
 pub mod sanctify;
 #[path = "vow/sanguine_statuette.rs"]
 pub mod sanguine_statuette;
+#[path = "vow/scattered_thoughts.rs"]
+pub mod scattered_thoughts;
 #[path = "voc/scion_of_opulence.rs"]
 pub mod scion_of_opulence;
 #[path = "vow/selhoff_entomber.rs"]

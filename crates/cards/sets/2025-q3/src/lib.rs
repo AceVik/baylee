@@ -61,6 +61,8 @@ pub mod chrome_companion;
 pub mod city_pigeon;
 #[path = "eoe/cloudsculpt_technician.rs"]
 pub mod cloudsculpt_technician;
+#[path = "eoe/codecracker_hound.rs"]
+pub mod codecracker_hound;
 #[path = "eoe/comet_crawler.rs"]
 pub mod comet_crawler;
 #[path = "eoe/command_bridge.rs"]
@@ -237,6 +239,8 @@ pub mod kavaron_turbodrone;
 pub mod kilo_apogee_mind;
 #[path = "eoe/knight_luminary.rs"]
 pub mod knight_luminary;
+#[path = "om1/kraven_proud_predator.rs"]
+pub mod kraven_proud_predator;
 #[path = "om1/kraven_s_cats.rs"]
 pub mod kraven_s_cats;
 #[path = "eoe/larval_scoutlander.rs"]
@@ -247,6 +251,12 @@ pub mod lightless_evangel;
 pub mod lithobraking;
 #[path = "om1/living_brain_mechanical_marvel.rs"]
 pub mod living_brain_mechanical_marvel;
+#[path = "om1/lizard_connors_s_curse.rs"]
+pub mod lizard_connors_s_curse;
+#[path = "eoe/loading_zone.rs"]
+pub mod loading_zone;
+#[path = "eoe/lost_in_space.rs"]
+pub mod lost_in_space;
 #[path = "eoe/lumen_class_frigate.rs"]
 pub mod lumen_class_frigate;
 #[path = "om1/lurking_lizards.rs"]
@@ -297,6 +307,8 @@ pub mod morbius_the_living_vampire;
 pub mod morlun_devourer_of_spiders;
 #[path = "eoe/mouth_of_the_storm.rs"]
 pub mod mouth_of_the_storm;
+#[path = "eoc/moxite_refinery.rs"]
+pub mod moxite_refinery;
 #[path = "om1/multiversal_passage.rs"]
 pub mod multiversal_passage;
 #[path = "om1/mysterio_s_phantasm.rs"]
@@ -325,6 +337,10 @@ pub mod oscorp_research_team;
 pub mod ouroboroid;
 #[path = "om1/passenger_ferry.rs"]
 pub mod passenger_ferry;
+#[path = "eoc/patrolling_peacemaker.rs"]
+pub mod patrolling_peacemaker;
+#[path = "om1/pictures_of_spider_man.rs"]
+pub mod pictures_of_spider_man;
 #[path = "eoe/pinnacle_emissary.rs"]
 pub mod pinnacle_emissary;
 #[path = "eoe/pinnacle_kill_ship.rs"]
@@ -335,6 +351,8 @@ pub mod professional_wrestler;
 pub mod prowler_clawed_thief;
 #[path = "spe/prowler_misguided_mentor.rs"]
 pub mod prowler_misguided_mentor;
+#[path = "om1/pumpkin_bombardment.rs"]
+pub mod pumpkin_bombardment;
 #[path = "eoe/radiant_strike.rs"]
 pub mod radiant_strike;
 #[path = "eoc/radiant_summit.rs"]
@@ -471,6 +489,8 @@ pub mod starport_security;
 pub mod station_monitor;
 #[path = "om1/steel_wrecking_ball.rs"]
 pub mod steel_wrecking_ball;
+#[path = "eoe/steelswarm_operator.rs"]
+pub mod steelswarm_operator;
 #[path = "om1/stegron_the_dinosaur_man.rs"]
 pub mod stegron_the_dinosaur_man;
 #[path = "om1/strength_of_will.rs"]
@@ -503,6 +523,10 @@ pub mod susurian_voidborn;
 pub mod swarm_culler;
 #[path = "spe/symbiote_spawn.rs"]
 pub mod symbiote_spawn;
+#[path = "om1/symbiote_spider_man.rs"]
+pub mod symbiote_spider_man;
+#[path = "eoe/synthesizer_labship.rs"]
+pub mod synthesizer_labship;
 #[path = "eoe/syr_vondam_the_lucent.rs"]
 pub mod syr_vondam_the_lucent;
 #[path = "eoc/szarel_genesis_shepherd.rs"]
@@ -567,6 +591,8 @@ pub mod wall_crawl;
 pub mod warmaker_gunship;
 #[path = "eoe/weapons_manufacturing.rs"]
 pub mod weapons_manufacturing;
+#[path = "om1/web_of_life_and_destiny.rs"]
+pub mod web_of_life_and_destiny;
 #[path = "om1/web_shooters.rs"]
 pub mod web_shooters;
 #[path = "om1/web_up.rs"]

@@ -713,6 +713,8 @@ pub mod plated_slagwurm;
 pub mod plated_sliver;
 #[path = "mrd/platinum_angel.rs"]
 pub mod platinum_angel;
+#[path = "mrd/power_conduit.rs"]
+pub mod power_conduit;
 #[path = "mrd/predator_s_strike.rs"]
 pub mod predator_s_strike;
 #[path = "lgn/primal_whisperer.rs"]
@@ -789,6 +791,8 @@ pub mod scattershot;
 pub mod scion_of_darkness;
 #[path = "scg/scornful_egotist.rs"]
 pub mod scornful_egotist;
+#[path = "mrd/scrabbling_claws.rs"]
+pub mod scrabbling_claws;
 #[path = "mrd/sculpting_steel.rs"]
 pub mod sculpting_steel;
 #[path = "mrd/seat_of_the_synod.rs"]
@@ -1015,6 +1019,8 @@ pub mod wall_of_blood;
 pub mod wall_of_deceit;
 #[path = "lgn/wall_of_hope.rs"]
 pub mod wall_of_hope;
+#[path = "mrd/wanderguard_sentry.rs"]
+pub mod wanderguard_sentry;
 #[path = "lgn/warbreak_trumpeter.rs"]
 pub mod warbreak_trumpeter;
 #[path = "lgn/ward_sliver.rs"]

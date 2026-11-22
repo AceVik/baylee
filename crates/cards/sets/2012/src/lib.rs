@@ -17,6 +17,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 pub mod abrupt_decay;
 #[path = "rtr/aerial_predation.rs"]
 pub mod aerial_predation;
+#[path = "m13/ajani_caller_of_the_pride.rs"]
+pub mod ajani_caller_of_the_pride;
 #[path = "m13/ajani_s_sunstriker.rs"]
 pub mod ajani_s_sunstriker;
 #[path = "avr/alchemist_s_apprentice.rs"]
@@ -39,6 +41,8 @@ pub mod arcane_melee;
 pub mod archaeomancer;
 #[path = "dka/archangel_s_light.rs"]
 pub mod archangel_s_light;
+#[path = "prtr/archon_of_the_triumvirate.rs"]
+pub mod archon_of_the_triumvirate;
 #[path = "rtr/archweaver.rs"]
 pub mod archweaver;
 #[path = "avr/archwing_dragon.rs"]
@@ -67,10 +71,14 @@ pub mod avacyn_s_collar;
 pub mod axebane_guardian;
 #[path = "rtr/axebane_stag.rs"]
 pub mod axebane_stag;
+#[path = "rtr/azorius_arrester.rs"]
+pub mod azorius_arrester;
 #[path = "rtr/azorius_charm.rs"]
 pub mod azorius_charm;
 #[path = "rtr/azorius_guildgate.rs"]
 pub mod azorius_guildgate;
+#[path = "rtr/azorius_justiciar.rs"]
+pub mod azorius_justiciar;
 #[path = "rtr/azorius_keyrune.rs"]
 pub mod azorius_keyrune;
 #[path = "pc2/baleful_strix.rs"]
@@ -201,6 +209,8 @@ pub mod concordia_pegasus;
 pub mod conjurer_s_closet;
 #[path = "avr/corpse_traders.rs"]
 pub mod corpse_traders;
+#[path = "prtr/corpsejack_menace.rs"]
+pub mod corpsejack_menace;
 #[path = "rtr/coursers_accord.rs"]
 pub mod coursers_accord;
 #[path = "m13/cower_in_fear.rs"]
@@ -241,6 +251,8 @@ pub mod dark_revenant;
 pub mod dawntreader_elk;
 #[path = "rtr/dead_reveler.rs"]
 pub mod dead_reveler;
+#[path = "prtr/deadbridge_goliath.rs"]
+pub mod deadbridge_goliath;
 #[path = "rtr/death_s_presence.rs"]
 pub mod death_s_presence;
 #[path = "avr/death_wind.rs"]
@@ -291,12 +303,16 @@ pub mod dreadbore;
 pub mod dreadwaters;
 #[path = "pc2/dreampod_druid.rs"]
 pub mod dreampod_druid;
+#[path = "ddj/dreg_mangler.rs"]
+pub mod dreg_mangler;
 #[path = "avr/driver_of_the_dead.rs"]
 pub mod driver_of_the_dead;
 #[path = "dka/drogskol_captain.rs"]
 pub mod drogskol_captain;
 #[path = "dka/drogskol_reaver.rs"]
 pub mod drogskol_reaver;
+#[path = "rtr/drudge_beetle.rs"]
+pub mod drudge_beetle;
 #[path = "rtr/druid_s_deliverance.rs"]
 pub mod druid_s_deliverance;
 #[path = "avr/druid_s_familiar.rs"]
@@ -363,6 +379,8 @@ pub mod favor_of_the_woods;
 pub mod favorable_winds;
 #[path = "dka/feed_the_pack.rs"]
 pub mod feed_the_pack;
+#[path = "pc2/felidar_umbra.rs"]
+pub mod felidar_umbra;
 #[path = "rtr/fencing_ace.rs"]
 pub mod fencing_ace;
 #[path = "avr/fervent_cathar.rs"]
@@ -419,6 +437,8 @@ pub mod goblin_rally;
 pub mod goldnight_commander;
 #[path = "avr/goldnight_redeemer.rs"]
 pub mod goldnight_redeemer;
+#[path = "rtr/golgari_decoy.rs"]
+pub mod golgari_decoy;
 #[path = "rtr/golgari_guildgate.rs"]
 pub mod golgari_guildgate;
 #[path = "rtr/golgari_keyrune.rs"]
@@ -475,6 +495,8 @@ pub mod havengul_runebinder;
 pub mod havengul_skaab;
 #[path = "avr/havengul_vampire.rs"]
 pub mod havengul_vampire;
+#[path = "rtr/havoc_festival.rs"]
+pub mod havoc_festival;
 #[path = "m13/healer_of_the_pride.rs"]
 pub mod healer_of_the_pride;
 #[path = "dka/heavy_mattock.rs"]
@@ -521,8 +543,14 @@ pub mod hydrosurge;
 pub mod hypersonic_dragon;
 #[path = "pc2/illusory_angel.rs"]
 pub mod illusory_angel;
+#[path = "rtr/inaction_injunction.rs"]
+pub mod inaction_injunction;
+#[path = "pc2/indrik_umbra.rs"]
+pub mod indrik_umbra;
 #[path = "avr/into_the_void.rs"]
 pub mod into_the_void;
+#[path = "rtr/isperia_s_skywatch.rs"]
+pub mod isperia_s_skywatch;
 #[path = "ddj/izzet_charm.rs"]
 pub mod izzet_charm;
 #[path = "rtr/izzet_guildgate.rs"]
@@ -533,6 +561,8 @@ pub mod izzet_keyrune;
 pub mod jace_s_phantasm;
 #[path = "ddj/jarad_golgari_lich_lord.rs"]
 pub mod jarad_golgari_lich_lord;
+#[path = "rtr/jarad_s_orders.rs"]
+pub mod jarad_s_orders;
 #[path = "rtr/judge_s_familiar.rs"]
 pub mod judge_s_familiar;
 #[path = "rtr/keening_apparition.rs"]
@@ -549,6 +579,8 @@ pub mod knight_of_infamy;
 pub mod knightly_valor;
 #[path = "ddj/korozda_guildmage.rs"]
 pub mod korozda_guildmage;
+#[path = "rtr/korozda_monitor.rs"]
+pub mod korozda_monitor;
 #[path = "m13/krenko_mob_boss.rs"]
 pub mod krenko_mob_boss;
 #[path = "m13/krenko_s_command.rs"]
@@ -559,6 +591,8 @@ pub mod krond_the_dawn_clad;
 pub mod kruin_striker;
 #[path = "avr/lair_delve.rs"]
 pub mod lair_delve;
+#[path = "dka/lambholt_elder.rs"]
+pub mod lambholt_elder;
 #[path = "pavr/latch_seeker.rs"]
 pub mod latch_seeker;
 #[path = "rtr/launch_party.rs"]
@@ -579,6 +613,8 @@ pub mod lobber_crew;
 pub mod lotleth_troll;
 #[path = "avr/lunar_mystic.rs"]
 pub mod lunar_mystic;
+#[path = "rtr/lyev_skyknight.rs"]
+pub mod lyev_skyknight;
 #[path = "avr/maalfeld_twins.rs"]
 pub mod maalfeld_twins;
 #[path = "avr/mad_prophet.rs"]
@@ -599,6 +635,8 @@ pub mod markov_blademaster;
 pub mod markov_warlord;
 #[path = "avr/marrow_bats.rs"]
 pub mod marrow_bats;
+#[path = "rtr/martial_law.rs"]
+pub mod martial_law;
 #[path = "avr/mass_appeal.rs"]
 pub mod mass_appeal;
 #[path = "m13/master_of_the_pearl_trident.rs"]
@@ -615,6 +653,8 @@ pub mod midvast_protector;
 pub mod mikaeus_the_unhallowed;
 #[path = "m13/mind_sculpt.rs"]
 pub mod mind_sculpt;
+#[path = "m13/mindclaw_shaman.rs"]
+pub mod mindclaw_shaman;
 #[path = "rtr/minotaur_aggressor.rs"]
 pub mod minotaur_aggressor;
 #[path = "avr/mist_raven.rs"]
@@ -623,6 +663,8 @@ pub mod mist_raven;
 pub mod mizzium_mortars;
 #[path = "rtr/mizzium_skin.rs"]
 pub mod mizzium_skin;
+#[path = "pdka/mondronen_shaman.rs"]
+pub mod mondronen_shaman;
 #[path = "avr/moonlight_geist.rs"]
 pub mod moonlight_geist;
 #[path = "dka/moonveil_dragon.rs"]
@@ -651,6 +693,8 @@ pub mod nephalia_seakite;
 pub mod nephalia_smuggler;
 #[path = "avr/nettle_swine.rs"]
 pub mod nettle_swine;
+#[path = "rtr/new_prahv_guildmage.rs"]
+pub mod new_prahv_guildmage;
 #[path = "dka/niblis_of_the_breath.rs"]
 pub mod niblis_of_the_breath;
 #[path = "dka/niblis_of_the_mist.rs"]
@@ -777,6 +821,8 @@ pub mod saving_grasp;
 pub mod scalding_devil;
 #[path = "dka/scorch_the_fields.rs"]
 pub mod scorch_the_fields;
+#[path = "dka/scorned_villager.rs"]
+pub mod scorned_villager;
 #[path = "avr/scrapskin_drake.rs"]
 pub mod scrapskin_drake;
 #[path = "dka/screeching_skaab.rs"]
@@ -811,8 +857,12 @@ pub mod seraph_sanctuary;
 pub mod serpent_s_gift;
 #[path = "m13/servant_of_nefarox.rs"]
 pub mod servant_of_nefarox;
+#[path = "rtr/sewer_shambler.rs"]
+pub mod sewer_shambler;
 #[path = "pc2/shardless_agent.rs"]
 pub mod shardless_agent;
+#[path = "dka/shattered_perception.rs"]
+pub mod shattered_perception;
 #[path = "avr/sheltering_word.rs"]
 pub mod sheltering_word;
 #[path = "m13/show_of_valor.rs"]
@@ -821,6 +871,8 @@ pub mod show_of_valor;
 pub mod shriekgeist;
 #[path = "rtr/shrieking_affliction.rs"]
 pub mod shrieking_affliction;
+#[path = "avr/sigarda_host_of_herons.rs"]
+pub mod sigarda_host_of_herons;
 #[path = "dka/sightless_ghoul.rs"]
 pub mod sightless_ghoul;
 #[path = "pavr/silverblade_paladin.rs"]
@@ -839,6 +891,10 @@ pub mod skyline_predator;
 pub mod skymark_roc;
 #[path = "avr/slayers_stronghold.rs"]
 pub mod slayers_stronghold;
+#[path = "rtr/slitherhead.rs"]
+pub mod slitherhead;
+#[path = "rtr/sluiceway_scorpion.rs"]
+pub mod sluiceway_scorpion;
 #[path = "rtr/slum_reaper.rs"]
 pub mod slum_reaper;
 #[path = "m13/smelt.rs"]
@@ -855,6 +911,8 @@ pub mod somberwald_vigilante;
 pub mod soul_of_the_harvest;
 #[path = "avr/soulcage_fiend.rs"]
 pub mod soulcage_fiend;
+#[path = "rtr/soulsworn_spirit.rs"]
+pub mod soulsworn_spirit;
 #[path = "rtr/spawn_of_rix_maadi.rs"]
 pub mod spawn_of_rix_maadi;
 #[path = "avr/spectral_gateguards.rs"]
@@ -911,6 +969,8 @@ pub mod tavern_swindler;
 pub mod temporal_mastery;
 #[path = "rtr/tenement_crasher.rs"]
 pub mod tenement_crasher;
+#[path = "rtr/terrus_wurm.rs"]
+pub mod terrus_wurm;
 #[path = "dka/thalia_guardian_of_thraben.rs"]
 pub mod thalia_guardian_of_thraben;
 #[path = "dka/thought_scour.rs"]
@@ -941,6 +1001,8 @@ pub mod timberpack_wolf;
 pub mod torch_fiend;
 #[path = "m13/touch_of_the_eternal.rs"]
 pub mod touch_of_the_eternal;
+#[path = "dka/tower_geist.rs"]
+pub mod tower_geist;
 #[path = "rtr/towering_indrik.rs"]
 pub mod towering_indrik;
 #[path = "m13/trading_post.rs"]
@@ -1041,6 +1103,8 @@ pub mod wild_hunger;
 pub mod wildwood_geist;
 #[path = "avr/wingcrafter.rs"]
 pub mod wingcrafter;
+#[path = "dka/wolfbitten_captive.rs"]
+pub mod wolfbitten_captive;
 #[path = "dka/wolfhunter_s_quiver.rs"]
 pub mod wolfhunter_s_quiver;
 #[path = "avr/wolfir_avenger.rs"]
@@ -1055,6 +1119,8 @@ pub mod yeva_s_forcemage;
 pub mod yew_spirit;
 #[path = "dka/young_wolf.rs"]
 pub mod young_wolf;
+#[path = "rtr/zanikev_locust.rs"]
+pub mod zanikev_locust;
 #[path = "avr/zealous_conscripts.rs"]
 pub mod zealous_conscripts;
 #[path = "avr/zealous_strike.rs"]

@@ -95,6 +95,8 @@ pub mod basilisk_collar;
 pub mod battle_hurda;
 #[path = "roe/battle_rattle_shaman.rs"]
 pub mod battle_rattle_shaman;
+#[path = "roe/bear_umbra.rs"]
+pub mod bear_umbra;
 #[path = "roe/beastbreaker_of_bala_ged.rs"]
 pub mod beastbreaker_of_bala_ged;
 #[path = "som/bellowing_tanglewurm.rs"]
@@ -103,6 +105,8 @@ pub mod bellowing_tanglewurm;
 pub mod blackcleave_cliffs;
 #[path = "som/blackcleave_goblin.rs"]
 pub mod blackcleave_goblin;
+#[path = "som/blade_tribe_berserkers.rs"]
+pub mod blade_tribe_berserkers;
 #[path = "som/bladed_pinions.rs"]
 pub mod bladed_pinions;
 #[path = "som/blight_mamba.rs"]
@@ -121,6 +125,8 @@ pub mod bloodrite_invoker;
 pub mod bloodthrone_vampire;
 #[path = "som/blunt_the_assault.rs"]
 pub mod blunt_the_assault;
+#[path = "roe/boar_umbra.rs"]
+pub mod boar_umbra;
 #[path = "wwk/bojuka_bog.rs"]
 pub mod bojuka_bog;
 #[path = "wwk/bojuka_brigand.rs"]
@@ -201,6 +207,8 @@ pub mod corrupted_harvester;
 pub mod corrupted_zendikon;
 #[path = "wwk/cosi_s_ravager.rs"]
 pub mod cosi_s_ravager;
+#[path = "roe/crab_umbra.rs"]
+pub mod crab_umbra;
 #[path = "wwk/creeping_tar_pit.rs"]
 pub mod creeping_tar_pit;
 #[path = "wwk/crusher_zendikon.rs"]
@@ -219,6 +227,8 @@ pub mod curse_of_wizardry;
 pub mod cystbearer;
 #[path = "roe/daggerback_basilisk.rs"]
 pub mod daggerback_basilisk;
+#[path = "m11/dark_tutelage.rs"]
+pub mod dark_tutelage;
 #[path = "som/darkslick_drake.rs"]
 pub mod darkslick_drake;
 #[path = "som/darkslick_shores.rs"]
@@ -255,6 +265,8 @@ pub mod dispel;
 pub mod distortion_strike;
 #[path = "wwk/dragonmaster_outcast.rs"]
 pub mod dragonmaster_outcast;
+#[path = "roe/drake_umbra.rs"]
+pub mod drake_umbra;
 #[path = "roe/drana_kalastria_bloodchief.rs"]
 pub mod drana_kalastria_bloodchief;
 #[path = "roe/dread_drone.rs"]
@@ -271,8 +283,14 @@ pub mod dryad_s_favor;
 pub mod earth_servant;
 #[path = "som/echo_circlet.rs"]
 pub mod echo_circlet;
+#[path = "roe/eel_umbra.rs"]
+pub mod eel_umbra;
+#[path = "roe/eland_umbra.rs"]
+pub mod eland_umbra;
 #[path = "roe/eldrazi_temple.rs"]
 pub mod eldrazi_temple;
+#[path = "som/elspeth_tirel.rs"]
+pub mod elspeth_tirel;
 #[path = "m11/ember_hauler.rs"]
 pub mod ember_hauler;
 #[path = "som/embersmith.rs"]
@@ -337,6 +355,8 @@ pub mod gargoyle_sentinel;
 pub mod garruk_s_companion;
 #[path = "m11/garruk_s_packleader.rs"]
 pub mod garruk_s_packleader;
+#[path = "som/genesis_wave.rs"]
+pub mod genesis_wave;
 #[path = "som/ghalma_s_warden.rs"]
 pub mod ghalma_s_warden;
 #[path = "roe/gigantomancer.rs"]
@@ -427,6 +447,8 @@ pub mod horizon_drake;
 pub mod horizon_spellbomb;
 #[path = "m11/hornet_sting.rs"]
 pub mod hornet_sting;
+#[path = "roe/hyena_umbra.rs"]
+pub mod hyena_umbra;
 #[path = "som/ichor_rats.rs"]
 pub mod ichor_rats;
 #[path = "som/ichorclaw_myr.rs"]
@@ -493,6 +515,8 @@ pub mod kor_firewalker;
 pub mod kor_line_slinger;
 #[path = "roe/kor_spiritdancer.rs"]
 pub mod kor_spiritdancer;
+#[path = "som/koth_of_the_hammer.rs"]
+pub mod koth_of_the_hammer;
 #[path = "roe/kozilek_s_predator.rs"]
 pub mod kozilek_s_predator;
 #[path = "som/kuldotha_forgemaster.rs"]
@@ -513,6 +537,12 @@ pub mod lavafume_invoker;
 pub mod leaf_arrow;
 #[path = "wwk/leatherback_baloth.rs"]
 pub mod leatherback_baloth;
+#[path = "m11/leyline_of_anticipation.rs"]
+pub mod leyline_of_anticipation;
+#[path = "m11/leyline_of_sanctity.rs"]
+pub mod leyline_of_sanctity;
+#[path = "m11/leyline_of_vitality.rs"]
+pub mod leyline_of_vitality;
 #[path = "som/lifesmith.rs"]
 pub mod lifesmith;
 #[path = "wwk/lightkeeper_of_emeria.rs"]
@@ -535,6 +565,8 @@ pub mod lone_missionary;
 pub mod lord_of_shatterskull_pass;
 #[path = "som/loxodon_wayfarer.rs"]
 pub mod loxodon_wayfarer;
+#[path = "som/lumengrid_drake.rs"]
+pub mod lumengrid_drake;
 #[path = "roe/luminous_wake.rs"]
 pub mod luminous_wake;
 #[path = "roe/lust_for_war.rs"]
@@ -545,6 +577,8 @@ pub mod lux_cannon;
 pub mod magmaw;
 #[path = "roe/makindi_griffin.rs"]
 pub mod makindi_griffin;
+#[path = "roe/mammoth_umbra.rs"]
+pub mod mammoth_umbra;
 #[path = "m11/manic_vandal.rs"]
 pub mod manic_vandal;
 #[path = "m11/maritime_guard.rs"]
@@ -635,6 +669,8 @@ pub mod ogre_sentry;
 pub mod ondu_giant;
 #[path = "som/origin_spellbomb.rs"]
 pub mod origin_spellbomb;
+#[path = "roe/oust.rs"]
+pub mod oust;
 #[path = "roe/overgrown_battlement.rs"]
 pub mod overgrown_battlement;
 #[path = "som/oxidda_daredevil.rs"]
@@ -687,6 +723,8 @@ pub mod primal_cocoon;
 pub mod primeval_titan;
 #[path = "roe/prophetic_prism.rs"]
 pub mod prophetic_prism;
+#[path = "som/psychic_miasma.rs"]
+pub mod psychic_miasma;
 #[path = "wwk/pulse_tracker.rs"]
 pub mod pulse_tracker;
 #[path = "roe/puncturing_light.rs"]
@@ -761,6 +799,10 @@ pub mod salvage_scout;
 pub mod scoria_elemental;
 #[path = "som/scrapdiver_serpent.rs"]
 pub mod scrapdiver_serpent;
+#[path = "som/screeching_silcaw.rs"]
+pub mod screeching_silcaw;
+#[path = "wwk/scrib_nibblers.rs"]
+pub mod scrib_nibblers;
 #[path = "m11/scroll_thief.rs"]
 pub mod scroll_thief;
 #[path = "roe/sea_gate_oracle.rs"]
@@ -805,6 +847,8 @@ pub mod slice_in_twain;
 pub mod slingbow_trap;
 #[path = "wwk/smoldering_spires.rs"]
 pub mod smoldering_spires;
+#[path = "roe/snake_umbra.rs"]
+pub mod snake_umbra;
 #[path = "wwk/snapping_creeper.rs"]
 pub mod snapping_creeper;
 #[path = "som/snapsail_glider.rs"]
@@ -827,6 +871,8 @@ pub mod spell_contortion;
 pub mod sphinx_bone_wand;
 #[path = "roe/sphinx_of_magosi.rs"]
 pub mod sphinx_of_magosi;
+#[path = "roe/spider_umbra.rs"]
+pub mod spider_umbra;
 #[path = "som/spikeshot_elder.rs"]
 pub mod spikeshot_elder;
 #[path = "roe/splinter_twin.rs"]
@@ -885,6 +931,8 @@ pub mod sylvok_lifestaff;
 pub mod sylvok_replica;
 #[path = "som/tainted_strike.rs"]
 pub mod tainted_strike;
+#[path = "roe/tajuru_preserver.rs"]
+pub mod tajuru_preserver;
 #[path = "som/tangle_angler.rs"]
 pub mod tangle_angler;
 #[path = "wwk/tectonic_edge.rs"]
@@ -945,10 +993,14 @@ pub mod tumble_magnet;
 pub mod twisted_image;
 #[path = "roe/ulamog_s_crusher.rs"]
 pub mod ulamog_s_crusher;
+#[path = "roe/umbra_mystic.rs"]
+pub mod umbra_mystic;
 #[path = "som/untamed_might.rs"]
 pub mod untamed_might;
 #[path = "roe/valakut_fireboar.rs"]
 pub mod valakut_fireboar;
+#[path = "wwk/vastwood_animist.rs"]
+pub mod vastwood_animist;
 #[path = "wwk/vastwood_zendikon.rs"]
 pub mod vastwood_zendikon;
 #[path = "som/vault_skyward.rs"]

@@ -426,6 +426,75 @@ fn the_loyalty_lint_catches_a_walker_with_no_starting_loyalty() {
 }
 
 #[test]
+fn transforming_planeswalker_back_face_needs_no_starting_loyalty() {
+    static TRANSFORMING_WALKER: [FaceDef; 2] = [
+        FaceDef {
+            types: TypeSet::PLANESWALKER,
+            loyalty: Some(3),
+            ..FaceDef::DEFAULT
+        },
+        FaceDef {
+            types: TypeSet::PLANESWALKER,
+            mana_cost: ManaCost::ZERO,
+            loyalty: None,
+            ..FaceDef::DEFAULT
+        },
+    ];
+    static CREATURE_TO_WALKER: [FaceDef; 2] = [
+        FaceDef {
+            types: TypeSet::CREATURE,
+            ..FaceDef::DEFAULT
+        },
+        FaceDef {
+            types: TypeSet::PLANESWALKER,
+            mana_cost: ManaCost::ZERO,
+            loyalty: None,
+            ..FaceDef::DEFAULT
+        },
+    ];
+    static MODAL_WALKERS: [FaceDef; 2] = [
+        FaceDef {
+            types: TypeSet::PLANESWALKER,
+            loyalty: Some(3),
+            ..FaceDef::DEFAULT
+        },
+        FaceDef {
+            types: TypeSet::PLANESWALKER,
+            mana_cost: baylee_core::mana!("{3}{B}"),
+            loyalty: None,
+            ..FaceDef::DEFAULT
+        },
+    ];
+
+    let transforming_card = CardDef {
+        faces: &TRANSFORMING_WALKER,
+        ..CardDef::DEFAULT
+    };
+    assert!(
+        !card_loyalty_fault(&transforming_card, 1, &transforming_card.faces[1]),
+        "a transforming planeswalker back face keeps front-face loyalty counters"
+    );
+
+    let creature_card = CardDef {
+        faces: &CREATURE_TO_WALKER,
+        ..CardDef::DEFAULT
+    };
+    assert!(
+        card_loyalty_fault(&creature_card, 1, &creature_card.faces[1]),
+        "a creature-to-planeswalker back face must declare starting loyalty"
+    );
+
+    let modal_card = CardDef {
+        faces: &MODAL_WALKERS,
+        ..CardDef::DEFAULT
+    };
+    assert!(
+        card_loyalty_fault(&modal_card, 1, &modal_card.faces[1]),
+        "a modal double-faced planeswalker back face with a mana cost needs starting loyalty"
+    );
+}
+
+#[test]
 fn exert_requires_the_source_but_does_not_move_it() {
     assert_eq!(
         cost_order_fault(&[CostPart::SacrificeSelf, CostPart::ExertSelf]),

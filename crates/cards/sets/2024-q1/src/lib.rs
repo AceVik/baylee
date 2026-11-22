@@ -119,6 +119,8 @@ pub mod deduce;
 pub mod defenestrated_phantom;
 #[path = "mkm/delney_streetwise_lookout.rs"]
 pub mod delney_streetwise_lookout;
+#[path = "mkm/demand_answers.rs"]
+pub mod demand_answers;
 #[path = "pip/desolate_mire.rs"]
 pub mod desolate_mire;
 #[path = "mkc/detective_of_the_month.rs"]
@@ -139,6 +141,8 @@ pub mod drag_the_canal;
 pub mod due_diligence;
 #[path = "clu/ecstatic_electromancer.rs"]
 pub mod ecstatic_electromancer;
+#[path = "pip/ed_e_lonesome_eyebot.rs"]
+pub mod ed_e_lonesome_eyebot;
 #[path = "pip/elder_arthur_maxson.rs"]
 pub mod elder_arthur_maxson;
 #[path = "pip/elder_owyn_lyons.rs"]
@@ -169,6 +173,8 @@ pub mod ferrous_lake;
 pub mod festerleech;
 #[path = "mkc/final_word_phantom.rs"]
 pub mod final_word_phantom;
+#[path = "mkm/flourishing_bloom_kin.rs"]
+pub mod flourishing_bloom_kin;
 #[path = "mkm/forensic_gadgeteer.rs"]
 pub mod forensic_gadgeteer;
 #[path = "mkm/forum_familiar.rs"]
@@ -187,6 +193,8 @@ pub mod gleaming_geardrake;
 pub mod gravestone_strider;
 #[path = "mkm/greenbelt_radical.rs"]
 pub mod greenbelt_radical;
+#[path = "pip/grim_reaper_s_sprint.rs"]
+pub mod grim_reaper_s_sprint;
 #[path = "pip/gunner_conscript.rs"]
 pub mod gunner_conscript;
 #[path = "mkm/haazda_vigilante.rs"]
@@ -215,6 +223,8 @@ pub mod inside_source;
 pub mod insidious_roots;
 #[path = "pip/intelligence_bobblehead.rs"]
 pub mod intelligence_bobblehead;
+#[path = "pip/james_wandering_dad.rs"]
+pub mod james_wandering_dad;
 #[path = "pip/junktown.rs"]
 pub mod junktown;
 #[path = "mkm/kellan_inquisitive_prodigy.rs"]
@@ -271,6 +281,8 @@ pub mod morska_undersea_sleuth;
 pub mod museum_nightwatch;
 #[path = "mkm/neighborhood_guardian.rs"]
 pub mod neighborhood_guardian;
+#[path = "mkm/nervous_gardener.rs"]
+pub mod nervous_gardener;
 #[path = "mkm/nightdrinker_moroii.rs"]
 pub mod nightdrinker_moroii;
 #[path = "mkm/no_more_lies.rs"]
@@ -391,6 +403,8 @@ pub mod tesak_judith_s_hellhound;
 pub mod the_chase_is_on;
 #[path = "mkm/they_went_this_way.rs"]
 pub mod they_went_this_way;
+#[path = "mkm/thinking_cap.rs"]
+pub mod thinking_cap;
 #[path = "pip/thrill_kill_disciple.rs"]
 pub mod thrill_kill_disciple;
 #[path = "mkm/thundering_falls.rs"]
@@ -399,6 +413,8 @@ pub mod thundering_falls;
 pub mod topiary_panther;
 #[path = "mkm/toxin_analysis.rs"]
 pub mod toxin_analysis;
+#[path = "clu/tribune_of_rot.rs"]
+pub mod tribune_of_rot;
 #[path = "mkm/trostani_three_whispers.rs"]
 pub mod trostani_three_whispers;
 #[path = "mkm/unauthorized_exit.rs"]
@@ -413,6 +429,8 @@ pub mod underground_mortuary;
 pub mod undergrowth_recon;
 #[path = "mkc/unshakable_tail.rs"]
 pub mod unshakable_tail;
+#[path = "pip/vault_11_voter_s_dilemma.rs"]
+pub mod vault_11_voter_s_dilemma;
 #[path = "pip/vault_75_middle_school.rs"]
 pub mod vault_75_middle_school;
 #[path = "mkm/vein_ripper.rs"]

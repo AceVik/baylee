@@ -141,8 +141,16 @@ pub mod celestial_force;
 pub mod champion_of_the_parish;
 #[path = "cmd/champion_s_helm.rs"]
 pub mod champion_s_helm;
+#[path = "nph/chancellor_of_the_dross.rs"]
+pub mod chancellor_of_the_dross;
+#[path = "nph/chancellor_of_the_forge.rs"]
+pub mod chancellor_of_the_forge;
+#[path = "nph/chancellor_of_the_spires.rs"]
+pub mod chancellor_of_the_spires;
 #[path = "pm12/chandra_s_phoenix.rs"]
 pub mod chandra_s_phoenix;
+#[path = "m12/chandra_the_firebrand.rs"]
+pub mod chandra_the_firebrand;
 #[path = "isd/chapel_geist.rs"]
 pub mod chapel_geist;
 #[path = "isd/charmbreaker_devils.rs"]
@@ -151,6 +159,8 @@ pub mod charmbreaker_devils;
 pub mod chasm_drake;
 #[path = "mbs/choking_fumes.rs"]
 pub mod choking_fumes;
+#[path = "isd/civilized_scholar.rs"]
+pub mod civilized_scholar;
 #[path = "isd/claustrophobia.rs"]
 pub mod claustrophobia;
 #[path = "isd/clifftop_retreat.rs"]
@@ -181,6 +191,8 @@ pub mod creeping_corrosion;
 pub mod crimson_mage;
 #[path = "isd/crossway_vampire.rs"]
 pub mod crossway_vampire;
+#[path = "m12/crumbling_colossus.rs"]
+pub mod crumbling_colossus;
 #[path = "mbs/crush.rs"]
 pub mod crush;
 #[path = "mbs/cryptoplasm.rs"]
@@ -203,6 +215,8 @@ pub mod darksteel_plate;
 pub mod darksteel_relic;
 #[path = "isd/darkthicket_wolf.rs"]
 pub mod darkthicket_wolf;
+#[path = "isd/daybreak_ranger.rs"]
+pub mod daybreak_ranger;
 #[path = "isd/dead_weight.rs"]
 pub mod dead_weight;
 #[path = "nph/death_hood_cobra.rs"]
@@ -279,6 +293,8 @@ pub mod flensermite;
 pub mod flesh_eater_imp;
 #[path = "cmd/flusterstorm.rs"]
 pub mod flusterstorm;
+#[path = "isd/forbidden_alchemy.rs"]
+pub mod forbidden_alchemy;
 #[path = "nph/forced_worship.rs"]
 pub mod forced_worship;
 #[path = "isd/fortress_crab.rs"]
@@ -295,6 +311,10 @@ pub mod furyborn_hellkite;
 pub mod gallows_warden;
 #[path = "isd/galvanic_juggernaut.rs"]
 pub mod galvanic_juggernaut;
+#[path = "isd/garruk_relentless.rs"]
+pub mod garruk_relentless;
+#[path = "isd/gatstaf_shepherd.rs"]
+pub mod gatstaf_shepherd;
 #[path = "isd/gavony_township.rs"]
 pub mod gavony_township;
 #[path = "isd/geist_honored_monk.rs"]
@@ -349,6 +369,8 @@ pub mod grand_abolisher;
 pub mod grasp_of_phantoms;
 #[path = "isd/grave_bramble.rs"]
 pub mod grave_bramble;
+#[path = "isd/graveyard_shovel.rs"]
+pub mod graveyard_shovel;
 #[path = "m12/greatsword.rs"]
 pub mod greatsword;
 #[path = "mbs/green_sun_s_zenith.rs"]
@@ -361,6 +383,8 @@ pub mod griffin_rider;
 pub mod grim_affliction;
 #[path = "isd/grimgrin_corpse_born.rs"]
 pub mod grimgrin_corpse_born;
+#[path = "isd/grizzled_outcasts.rs"]
+pub mod grizzled_outcasts;
 #[path = "isd/gruesome_deformity.rs"]
 pub mod gruesome_deformity;
 #[path = "m12/guardians_pledge.rs"]
@@ -369,6 +393,8 @@ pub mod guardians_pledge;
 pub mod gust_skimmer;
 #[path = "isd/hamlet_captain.rs"]
 pub mod hamlet_captain;
+#[path = "isd/hanweir_watchkeep.rs"]
+pub mod hanweir_watchkeep;
 #[path = "isd/harvest_pyre.rs"]
 pub mod harvest_pyre;
 #[path = "isd/heartless_summoning.rs"]
@@ -403,6 +429,8 @@ pub mod hysterical_blindness;
 pub mod ichor_explosion;
 #[path = "mbs/ichor_wellspring.rs"]
 pub mod ichor_wellspring;
+#[path = "nph/immolating_souleater.rs"]
+pub mod immolating_souleater;
 #[path = "nph/impaler_shrike.rs"]
 pub mod impaler_shrike;
 #[path = "isd/infernal_plunge.rs"]
@@ -413,6 +441,10 @@ pub mod inkmoth_nexus;
 pub mod inquisitor_exarch;
 #[path = "isd/inquisitor_s_flail.rs"]
 pub mod inquisitor_s_flail;
+#[path = "nph/insatiable_souleater.rs"]
+pub mod insatiable_souleater;
+#[path = "isd/instigator_gang.rs"]
+pub mod instigator_gang;
 #[path = "isd/intangible_virtue.rs"]
 pub mod intangible_virtue;
 #[path = "mbs/into_the_core.rs"]
@@ -441,14 +473,24 @@ pub mod kindercatch;
 pub mod kite_shield;
 #[path = "mbs/koth_s_courier.rs"]
 pub mod koth_s_courier;
+#[path = "isd/kruin_outlaw.rs"]
+pub mod kruin_outlaw;
 #[path = "mbs/kuldotha_ringleader.rs"]
 pub mod kuldotha_ringleader;
+#[path = "isd/laboratory_maniac.rs"]
+pub mod laboratory_maniac;
 #[path = "isd/lantern_spirit.rs"]
 pub mod lantern_spirit;
+#[path = "nph/lashwrithe.rs"]
+pub mod lashwrithe;
+#[path = "mbs/lead_the_stampede.rs"]
+pub mod lead_the_stampede;
 #[path = "nph/leeching_bite.rs"]
 pub mod leeching_bite;
 #[path = "mbs/leonin_relic_warder.rs"]
 pub mod leonin_relic_warder;
+#[path = "nph/life_s_finale.rs"]
+pub mod life_s_finale;
 #[path = "m12/lord_of_the_unreal.rs"]
 pub mod lord_of_the_unreal;
 #[path = "nph/lost_leonin.rs"]
@@ -491,6 +533,8 @@ pub mod maul_splicer;
 pub mod mausoleum_guard;
 #[path = "isd/maw_of_the_mire.rs"]
 pub mod maw_of_the_mire;
+#[path = "pisd/mayor_of_avabruck.rs"]
+pub mod mayor_of_avabruck;
 #[path = "nph/mental_misstep.rs"]
 pub mod mental_misstep;
 #[path = "isd/mentor_of_the_meek.rs"]
@@ -513,6 +557,8 @@ pub mod mirran_spy;
 pub mod mirrorworks;
 #[path = "isd/moan_of_the_unhallowed.rs"]
 pub mod moan_of_the_unhallowed;
+#[path = "nph/moltensteel_dragon.rs"]
+pub mod moltensteel_dragon;
 #[path = "isd/moment_of_heroism.rs"]
 pub mod moment_of_heroism;
 #[path = "isd/moon_heron.rs"]
@@ -569,6 +615,8 @@ pub mod onyx_mage;
 pub mod orchard_spirit;
 #[path = "isd/parallel_lives.rs"]
 pub mod parallel_lives;
+#[path = "isd/paraselene.rs"]
+pub mod paraselene;
 #[path = "isd/past_in_flames.rs"]
 pub mod past_in_flames;
 #[path = "mbs/peace_strider.rs"]
@@ -577,6 +625,8 @@ pub mod peace_strider;
 pub mod peregrine_griffin;
 #[path = "m12/personal_sanctuary.rs"]
 pub mod personal_sanctuary;
+#[path = "nph/pestilent_souleater.rs"]
+pub mod pestilent_souleater;
 #[path = "m12/phantasmal_bear.rs"]
 pub mod phantasmal_bear;
 #[path = "m12/phantasmal_image.rs"]
@@ -627,6 +677,8 @@ pub mod primordial_hydra;
 pub mod pristine_talisman;
 #[path = "nph/psychic_barrier.rs"]
 pub mod psychic_barrier;
+#[path = "mbs/psychosis_crawler.rs"]
+pub mod psychosis_crawler;
 #[path = "isd/purify_the_grave.rs"]
 pub mod purify_the_grave;
 #[path = "mbs/quicksilver_geyser.rs"]
@@ -649,6 +701,8 @@ pub mod razorfield_rhino;
 pub mod reaper_from_the_abyss;
 #[path = "isd/rebuke.rs"]
 pub mod rebuke;
+#[path = "isd/reckless_waif.rs"]
+pub mod reckless_waif;
 #[path = "nph/remember_the_fallen.rs"]
 pub mod remember_the_fallen;
 #[path = "cmd/riku_of_two_reflections.rs"]
@@ -769,6 +823,8 @@ pub mod spider_spawning;
 pub mod spidery_grasp;
 #[path = "mbs/spine_of_ish_sah.rs"]
 pub mod spine_of_ish_sah;
+#[path = "nph/spinebiter.rs"]
+pub mod spinebiter;
 #[path = "nph/spined_thopter.rs"]
 pub mod spined_thopter;
 #[path = "mbs/spiraling_duelist.rs"]
@@ -805,6 +861,8 @@ pub mod strandwalker;
 pub mod stromkirk_noble;
 #[path = "isd/stromkirk_patrol.rs"]
 pub mod stromkirk_patrol;
+#[path = "isd/sturmgeist.rs"]
+pub mod sturmgeist;
 #[path = "isd/sulfur_falls.rs"]
 pub mod sulfur_falls;
 #[path = "nph/surge_node.rs"]
@@ -839,6 +897,8 @@ pub mod tine_shrike;
 pub mod titan_forge;
 #[path = "m12/titanic_growth.rs"]
 pub mod titanic_growth;
+#[path = "isd/tormented_pariah.rs"]
+pub mod tormented_pariah;
 #[path = "nph/tormentor_exarch.rs"]
 pub mod tormentor_exarch;
 #[path = "nph/toxic_nim.rs"]
@@ -853,6 +913,8 @@ pub mod travel_preparations;
 pub mod traveler_s_amulet;
 #[path = "mbs/treasure_mage.rs"]
 pub mod treasure_mage;
+#[path = "nph/trespassing_souleater.rs"]
+pub mod trespassing_souleater;
 #[path = "cmd/tribute_to_the_wild.rs"]
 pub mod tribute_to_the_wild;
 #[path = "nph/triumph_of_the_hordes.rs"]
@@ -863,6 +925,8 @@ pub mod trollhide;
 pub mod turn_the_tide;
 #[path = "isd/typhoid_rats.rs"]
 pub mod typhoid_rats;
+#[path = "isd/ulvenwald_mystics.rs"]
+pub mod ulvenwald_mystics;
 #[path = "isd/unburial_rites.rs"]
 pub mod unburial_rites;
 #[path = "mbs/unnatural_predation.rs"]
@@ -895,6 +959,10 @@ pub mod victory_s_herald;
 pub mod village_bell_ringer;
 #[path = "isd/village_cannibals.rs"]
 pub mod village_cannibals;
+#[path = "isd/village_ironsmith.rs"]
+pub mod village_ironsmith;
+#[path = "isd/villagers_of_estwald.rs"]
+pub mod villagers_of_estwald;
 #[path = "nph/viral_drake.rs"]
 pub mod viral_drake;
 #[path = "nph/viridian_betrayers.rs"]

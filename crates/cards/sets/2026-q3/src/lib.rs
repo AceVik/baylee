@@ -21,6 +21,8 @@ pub mod attercop;
 pub mod bag_end_banquet;
 #[path = "hoc/bard_heir_of_girion.rs"]
 pub mod bard_heir_of_girion;
+#[path = "hob/bard_king_of_dale.rs"]
+pub mod bard_king_of_dale;
 #[path = "hob/bard_the_bowman.rs"]
 pub mod bard_the_bowman;
 #[path = "hob/bejeweled_warg.rs"]
@@ -81,6 +83,8 @@ pub mod dwarven_provisioner;
 pub mod dwarven_shortsword;
 #[path = "hob/eagle_of_the_great_shelf.rs"]
 pub mod eagle_of_the_great_shelf;
+#[path = "hob/elrond_moon_reader.rs"]
+pub mod elrond_moon_reader;
 #[path = "hob/elven_passage.rs"]
 pub mod elven_passage;
 #[path = "hob/elven_raft_steerer.rs"]
@@ -177,6 +181,8 @@ pub mod orcrist_goblin_cleaver;
 pub mod ordinary_bear;
 #[path = "hob/ori_keeper_of_songs.rs"]
 pub mod ori_keeper_of_songs;
+#[path = "hoc/ori_plate_stacker.rs"]
+pub mod ori_plate_stacker;
 #[path = "hob/pinecone_strike.rs"]
 pub mod pinecone_strike;
 #[path = "hob/quarrel.rs"]
@@ -201,6 +207,8 @@ pub mod smaug_the_great_calamity;
 pub mod smaug_the_magnificent;
 #[path = "hob/snowslope_hunter.rs"]
 pub mod snowslope_hunter;
+#[path = "hob/stir_up_trouble.rs"]
+pub mod stir_up_trouble;
 #[path = "hob/stone_by_sunlight.rs"]
 pub mod stone_by_sunlight;
 #[path = "hob/stone_giant_of_high_pass.rs"]
@@ -227,9 +235,13 @@ pub mod thranduil_the_strategist;
 pub mod thror_s_map;
 #[path = "hob/troll_negotiations.rs"]
 pub mod troll_negotiations;
+#[path = "hob/troop_of_ponies.rs"]
+pub mod troop_of_ponies;
 #[path = "hob/warg_tactics.rs"]
 pub mod warg_tactics;
 #[path = "hob/well_worn_spatula.rs"]
 pub mod well_worn_spatula;
+#[path = "hob/wizard_s_staff.rs"]
+pub mod wizard_s_staff;
 #[path = "hob/woodland_weavemaster.rs"]
 pub mod woodland_weavemaster;

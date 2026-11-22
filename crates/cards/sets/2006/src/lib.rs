@@ -39,6 +39,8 @@ pub mod angel_of_despair;
 pub mod angel_s_grace;
 #[path = "dis/anthem_of_rakdos.rs"]
 pub mod anthem_of_rakdos;
+#[path = "dis/aquastrand_spider.rs"]
+pub mod aquastrand_spider;
 #[path = "csp/arctic_flats.rs"]
 pub mod arctic_flats;
 #[path = "tsp/ashcoat_bear.rs"]
@@ -65,6 +67,8 @@ pub mod azorius_guildmage;
 pub mod azorius_signet;
 #[path = "csp/balduvian_frostwaker.rs"]
 pub mod balduvian_frostwaker;
+#[path = "tsp/barbed_shocker.rs"]
+pub mod barbed_shocker;
 #[path = "tsp/basal_sliver.rs"]
 pub mod basal_sliver;
 #[path = "tsp/basalt_gargoyle.rs"]
@@ -165,6 +169,12 @@ pub mod cryptwailing;
 pub mod crystal_seer;
 #[path = "gpt/culling_sun.rs"]
 pub mod culling_sun;
+#[path = "dis/cytoplast_manipulator.rs"]
+pub mod cytoplast_manipulator;
+#[path = "dis/cytoplast_root_kin.rs"]
+pub mod cytoplast_root_kin;
+#[path = "dis/cytospawn_shambler.rs"]
+pub mod cytospawn_shambler;
 #[path = "tsp/d_avenant_healer.rs"]
 pub mod d_avenant_healer;
 #[path = "gpt/daggerclaw_imp.rs"]
@@ -297,6 +307,8 @@ pub mod frost_raptor;
 pub mod fungal_reaches;
 #[path = "tsp/fungus_sliver.rs"]
 pub mod fungus_sliver;
+#[path = "csp/fury_of_the_horde.rs"]
+pub mod fury_of_the_horde;
 #[path = "tsp/fury_sliver.rs"]
 pub mod fury_sliver;
 #[path = "csp/garza_zol_plague_queen.rs"]
@@ -387,6 +399,8 @@ pub mod hatching_plans;
 pub mod havenwood_wurm;
 #[path = "csp/heidar_rimewind_master.rs"]
 pub mod heidar_rimewind_master;
+#[path = "dis/helium_squirter.rs"]
+pub mod helium_squirter;
 #[path = "csp/highland_weald.rs"]
 pub mod highland_weald;
 #[path = "gpt/hissing_miasma.rs"]
@@ -417,6 +431,8 @@ pub mod izzet_chronarch;
 pub mod izzet_guildmage;
 #[path = "gpt/izzet_signet.rs"]
 pub mod izzet_signet;
+#[path = "dis/jagged_poppet.rs"]
+pub mod jagged_poppet;
 #[path = "tsp/kaervek_the_merciless.rs"]
 pub mod kaervek_the_merciless;
 #[path = "csp/karplusan_strider.rs"]
@@ -443,8 +459,16 @@ pub mod krovikan_scoundrel;
 pub mod leafdrake_roost;
 #[path = "gpt/leap_of_flame.rs"]
 pub mod leap_of_flame;
+#[path = "gpt/leyline_of_lightning.rs"]
+pub mod leyline_of_lightning;
+#[path = "gpt/leyline_of_singularity.rs"]
+pub mod leyline_of_singularity;
+#[path = "gpt/leyline_of_the_void.rs"]
+pub mod leyline_of_the_void;
 #[path = "tsp/liege_of_the_pit.rs"]
 pub mod liege_of_the_pit;
+#[path = "tsp/lightning_axe.rs"]
+pub mod lightning_axe;
 #[path = "csp/lightning_serpent.rs"]
 pub mod lightning_serpent;
 #[path = "gpt/lionheart_maverick.rs"]
@@ -483,6 +507,8 @@ pub mod mogg_war_marshal;
 pub mod molten_slagheap;
 #[path = "tsp/momentary_blink.rs"]
 pub mod momentary_blink;
+#[path = "dis/momir_vig_simic_visionary.rs"]
+pub mod momir_vig_simic_visionary;
 #[path = "tsp/moonlace.rs"]
 pub mod moonlace;
 #[path = "gpt/mortify.rs"]
@@ -511,6 +537,8 @@ pub mod niv_mizzet_the_firemind;
 pub mod nivix_aerie_of_the_firemind;
 #[path = "dis/novijen_heart_of_progress.rs"]
 pub mod novijen_heart_of_progress;
+#[path = "dis/novijen_sages.rs"]
+pub mod novijen_sages;
 #[path = "dis/ocular_halo.rs"]
 pub mod ocular_halo;
 #[path = "dis/ogre_gatecrasher.rs"]
@@ -579,6 +607,8 @@ pub mod pillory_of_the_sleepless;
 pub mod pit_keeper;
 #[path = "tsp/plague_sliver.rs"]
 pub mod plague_sliver;
+#[path = "dis/plaxcaster_frogling.rs"]
+pub mod plaxcaster_frogling;
 #[path = "tsp/plunder.rs"]
 pub mod plunder;
 #[path = "gpt/poisonbelly_ogre.rs"]
@@ -701,8 +731,12 @@ pub mod silhana_starfletcher;
 pub mod silkwing_scout;
 #[path = "csp/simian_brawler.rs"]
 pub mod simian_brawler;
+#[path = "dis/simic_basilisk.rs"]
+pub mod simic_basilisk;
 #[path = "dis/simic_growth_chamber.rs"]
 pub mod simic_growth_chamber;
+#[path = "dis/simic_initiate.rs"]
+pub mod simic_initiate;
 #[path = "dis/simic_ragworm.rs"]
 pub mod simic_ragworm;
 #[path = "dis/simic_signet.rs"]
@@ -725,6 +759,8 @@ pub mod skred;
 pub mod skulking_knight;
 #[path = "dis/skullmead_cauldron.rs"]
 pub mod skullmead_cauldron;
+#[path = "dis/slaughterhouse_bouncer.rs"]
+pub mod slaughterhouse_bouncer;
 #[path = "tsp/slipstream_serpent.rs"]
 pub mod slipstream_serpent;
 #[path = "dis/slithering_shade.rs"]
@@ -751,6 +787,8 @@ pub mod spiketail_drakeling;
 pub mod spinneret_sliver;
 #[path = "tsp/spirit_loop.rs"]
 pub mod spirit_loop;
+#[path = "dis/sporeback_troll.rs"]
+pub mod sporeback_troll;
 #[path = "tsp/sprite_noble.rs"]
 pub mod sprite_noble;
 #[path = "dis/sprouting_phytohydra.rs"]
@@ -769,6 +807,8 @@ pub mod steam_spitter;
 pub mod steam_vents;
 #[path = "gpt/stitch_in_time.rs"]
 pub mod stitch_in_time;
+#[path = "dis/stoic_ephemera.rs"]
+pub mod stoic_ephemera;
 #[path = "dis/stomp_and_howl.rs"]
 pub mod stomp_and_howl;
 #[path = "gpt/stomping_ground.rs"]
@@ -893,6 +933,10 @@ pub mod verdant_embrace;
 pub mod vesuva;
 #[path = "tsp/viashino_bladescout.rs"]
 pub mod viashino_bladescout;
+#[path = "dis/vigean_graftmage.rs"]
+pub mod vigean_graftmage;
+#[path = "dis/vigean_hydropon.rs"]
+pub mod vigean_hydropon;
 #[path = "tsp/viscerid_deepwalker.rs"]
 pub mod viscerid_deepwalker;
 #[path = "tsp/viscid_lemures.rs"]

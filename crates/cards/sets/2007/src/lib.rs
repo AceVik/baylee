@@ -13,10 +13,14 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "lrw/adder_staff_boggart.rs"]
+pub mod adder_staff_boggart;
 #[path = "ppro/aerith_gainsborough.rs"]
 pub mod aerith_gainsborough;
 #[path = "lrw/aethersnipe.rs"]
 pub mod aethersnipe;
+#[path = "lrw/ajani_goldmane.rs"]
+pub mod ajani_goldmane;
 #[path = "plc/akroma_angel_of_fury.rs"]
 pub mod akroma_angel_of_fury;
 #[path = "fut/akroma_s_memorial.rs"]
@@ -65,6 +69,8 @@ pub mod blind_phantasm;
 pub mod blood_knight;
 #[path = "fut/bloodshot_trainee.rs"]
 pub mod bloodshot_trainee;
+#[path = "lrw/bog_hoodlums.rs"]
+pub mod bog_hoodlums;
 #[path = "plc/bog_serpent.rs"]
 pub mod bog_serpent;
 #[path = "lrw/bog_strider_ash.rs"]
@@ -79,6 +85,8 @@ pub mod boggart_forager;
 pub mod boggart_harbinger;
 #[path = "lrw/boggart_loggers.rs"]
 pub mod boggart_loggers;
+#[path = "lrw/boggart_mob.rs"]
+pub mod boggart_mob;
 #[path = "lrw/boggart_shenanigans.rs"]
 pub mod boggart_shenanigans;
 #[path = "lrw/boggart_sprite_chaser.rs"]
@@ -95,6 +103,8 @@ pub mod bound_in_silence;
 pub mod briarhorn;
 #[path = "lrw/brion_stoutarm.rs"]
 pub mod brion_stoutarm;
+#[path = "lrw/broken_ambitions.rs"]
+pub mod broken_ambitions;
 #[path = "plc/brute_force.rs"]
 pub mod brute_force;
 #[path = "lrw/burrenton_forge_tender.rs"]
@@ -105,10 +115,18 @@ pub mod calciderm;
 pub mod caterwauling_boggart;
 #[path = "plc/cautery_sliver.rs"]
 pub mod cautery_sliver;
+#[path = "lrw/ceaseless_searblades.rs"]
+pub mod ceaseless_searblades;
 #[path = "lrw/cenn_s_heir.rs"]
 pub mod cenn_s_heir;
 #[path = "fut/centaur_omenreader.rs"]
 pub mod centaur_omenreader;
+#[path = "lrw/changeling_berserker.rs"]
+pub mod changeling_berserker;
+#[path = "lrw/changeling_hero.rs"]
+pub mod changeling_hero;
+#[path = "lrw/changeling_titan.rs"]
+pub mod changeling_titan;
 #[path = "fut/char_rumbler.rs"]
 pub mod char_rumbler;
 #[path = "plc/chronozoa.rs"]
@@ -163,10 +181,14 @@ pub mod deeptread_merrow;
 pub mod dismal_failure;
 #[path = "lrw/dolmen_gate.rs"]
 pub mod dolmen_gate;
+#[path = "lrw/doran_the_siege_tower.rs"]
+pub mod doran_the_siege_tower;
 #[path = "plc/dormant_sliver.rs"]
 pub mod dormant_sliver;
 #[path = "plc/dreamscape_artist.rs"]
 pub mod dreamscape_artist;
+#[path = "lrw/dreamspoiler_witches.rs"]
+pub mod dreamspoiler_witches;
 #[path = "lrw/drowner_of_secrets.rs"]
 pub mod drowner_of_secrets;
 #[path = "fut/dryad_arbor.rs"]
@@ -175,6 +197,8 @@ pub mod dryad_arbor;
 pub mod dust_corona;
 #[path = "fut/edge_of_autumn.rs"]
 pub mod edge_of_autumn;
+#[path = "lrw/elvish_branchbender.rs"]
+pub mod elvish_branchbender;
 #[path = "lrw/elvish_eulogist.rs"]
 pub mod elvish_eulogist;
 #[path = "lrw/elvish_handservant.rs"]
@@ -205,6 +229,8 @@ pub mod eyes_of_the_wisent;
 pub mod facevaulter;
 #[path = "lrw/faerie_harbinger.rs"]
 pub mod faerie_harbinger;
+#[path = "lrw/faerie_tauntings.rs"]
+pub mod faerie_tauntings;
 #[path = "lrw/faerie_trickery.rs"]
 pub mod faerie_trickery;
 #[path = "lrw/fallowsage.rs"]
@@ -221,6 +247,8 @@ pub mod final_revels;
 pub mod fire_belly_changeling;
 #[path = "plc/firefright_mage.rs"]
 pub mod firefright_mage;
+#[path = "lrw/fistful_of_force.rs"]
+pub mod fistful_of_force;
 #[path = "lrw/flamekin_brawler.rs"]
 pub mod flamekin_brawler;
 #[path = "lrw/flamekin_harbinger.rs"]
@@ -245,6 +273,8 @@ pub mod frenzy_sliver;
 pub mod frozen_aether;
 #[path = "plc/gaea_s_anthem.rs"]
 pub mod gaea_s_anthem;
+#[path = "lrw/garruk_wildspeaker.rs"]
+pub mod garruk_wildspeaker;
 #[path = "fut/gathan_raiders.rs"]
 pub mod gathan_raiders;
 #[path = "plc/ghost_tactician.rs"]
@@ -265,6 +295,8 @@ pub mod gilt_leaf_palace;
 pub mod gilt_leaf_seer;
 #[path = "lrw/glarewielder.rs"]
 pub mod glarewielder;
+#[path = "lrw/glen_elendra_pranksters.rs"]
+pub mod glen_elendra_pranksters;
 #[path = "lrw/glimmerdust_nap.rs"]
 pub mod glimmerdust_nap;
 #[path = "lrw/goatnapper.rs"]
@@ -313,6 +345,8 @@ pub mod herbal_poultice;
 pub mod heroes_remembered;
 #[path = "lrw/hillcomber_giant.rs"]
 pub mod hillcomber_giant;
+#[path = "lrw/horde_of_notions.rs"]
+pub mod horde_of_notions;
 #[path = "fut/horizon_canopy.rs"]
 pub mod horizon_canopy;
 #[path = "lrw/hornet_harasser.rs"]
@@ -339,6 +373,8 @@ pub mod ingot_chewer;
 pub mod inkfathom_divers;
 #[path = "lrw/inner_flame_acolyte.rs"]
 pub mod inner_flame_acolyte;
+#[path = "lrw/jace_beleren.rs"]
+pub mod jace_beleren;
 #[path = "lrw/jagged_scar_archers.rs"]
 pub mod jagged_scar_archers;
 #[path = "lrw/judge_of_currents.rs"]
@@ -375,6 +411,8 @@ pub mod knight_of_sursi;
 pub mod knucklebone_witch;
 #[path = "lrw/lace_with_moonglove.rs"]
 pub mod lace_with_moonglove;
+#[path = "lrw/lash_out.rs"]
+pub mod lash_out;
 #[path = "plc/lavacore_elemental.rs"]
 pub mod lavacore_elemental;
 #[path = "lrw/leaf_gilder.rs"]
@@ -383,8 +421,12 @@ pub mod leaf_gilder;
 pub mod life_and_limb;
 #[path = "lrw/lignify.rs"]
 pub mod lignify;
+#[path = "lrw/liliana_vess.rs"]
+pub mod liliana_vess;
 #[path = "fut/llanowar_augur.rs"]
 pub mod llanowar_augur;
+#[path = "fut/llanowar_empath.rs"]
+pub mod llanowar_empath;
 #[path = "fut/llanowar_mentor.rs"]
 pub mod llanowar_mentor;
 #[path = "fut/llanowar_reborn.rs"]
@@ -471,6 +513,8 @@ pub mod mystic_speculation;
 pub mod nath_of_the_gilt_leaf;
 #[path = "lrw/nath_s_buffoon.rs"]
 pub mod nath_s_buffoon;
+#[path = "lrw/nath_s_elite.rs"]
+pub mod nath_s_elite;
 #[path = "lrw/neck_snap.rs"]
 pub mod neck_snap;
 #[path = "plc/necrotic_sliver.rs"]
@@ -487,8 +531,12 @@ pub mod new_benalia;
 pub mod nightshade_stinger;
 #[path = "fut/nimbus_maze.rs"]
 pub mod nimbus_maze;
+#[path = "lrw/nova_chaser.rs"]
+pub mod nova_chaser;
 #[path = "plc/numot_the_devastator.rs"]
 pub mod numot_the_devastator;
+#[path = "lrw/oaken_brawler.rs"]
+pub mod oaken_brawler;
 #[path = "lrw/oakgnarl_warrior.rs"]
 pub mod oakgnarl_warrior;
 #[path = "fut/oblivion_crown.rs"]
@@ -505,6 +553,8 @@ pub mod pact_of_negation;
 pub mod pact_of_the_titan;
 #[path = "plc/pallid_mycoderm.rs"]
 pub mod pallid_mycoderm;
+#[path = "lrw/paperfin_rascal.rs"]
+pub mod paperfin_rascal;
 #[path = "lrw/peppersmoke.rs"]
 pub mod peppersmoke;
 #[path = "lrw/pestermite.rs"]
@@ -521,6 +571,8 @@ pub mod ponder;
 pub mod pongify;
 #[path = "plc/poultice_sliver.rs"]
 pub mod poultice_sliver;
+#[path = "plc/pouncing_wurm.rs"]
+pub mod pouncing_wurm;
 #[path = "lrw/primal_command.rs"]
 pub mod primal_command;
 #[path = "plc/primal_plasma.rs"]
@@ -555,6 +607,8 @@ pub mod reflex_sliver;
 pub mod revered_dead;
 #[path = "plc/ridged_kusite.rs"]
 pub mod ridged_kusite;
+#[path = "lrw/ringskipper.rs"]
+pub mod ringskipper;
 #[path = "plc/riptide_pilferer.rs"]
 pub mod riptide_pilferer;
 #[path = "fut/river_of_tears.rs"]
@@ -585,6 +639,8 @@ pub mod second_wind;
 pub mod seedguide_ash;
 #[path = "lrw/sentinels_of_glen_elendra.rs"]
 pub mod sentinels_of_glen_elendra;
+#[path = "lrw/sentry_oak.rs"]
+pub mod sentry_oak;
 #[path = "plc/serra_s_boon.rs"]
 pub mod serra_s_boon;
 #[path = "plc/serra_sphinx.rs"]
@@ -637,6 +693,8 @@ pub mod spinerock_knoll;
 pub mod spitting_sliver;
 #[path = "fut/sporoloth_ancient.rs"]
 pub mod sporoloth_ancient;
+#[path = "lrw/spring_cleaning.rs"]
+pub mod spring_cleaning;
 #[path = "lrw/springleaf_drum.rs"]
 pub mod springleaf_drum;
 #[path = "fut/sprout_swarm.rs"]
@@ -673,6 +731,8 @@ pub mod surgespanner;
 pub mod sword_of_the_meek;
 #[path = "lrw/sygg_river_guide.rs"]
 pub mod sygg_river_guide;
+#[path = "lrw/sylvan_echoes.rs"]
+pub mod sylvan_echoes;
 #[path = "plc/synchronous_sliver.rs"]
 pub mod synchronous_sliver;
 #[path = "fut/take_possession.rs"]
@@ -695,6 +755,8 @@ pub mod thorntooth_witch;
 pub mod thornweald_archer;
 #[path = "lrw/thoughtseize.rs"]
 pub mod thoughtseize;
+#[path = "lrw/thoughtweft_trio.rs"]
+pub mod thoughtweft_trio;
 #[path = "lrw/thundercloud_shaman.rs"]
 pub mod thundercloud_shaman;
 #[path = "plc/tidewalker.rs"]
@@ -747,10 +809,14 @@ pub mod vorosh_the_hunter;
 pub mod wanderer_s_twig;
 #[path = "lrw/wanderwine_hub.rs"]
 pub mod wanderwine_hub;
+#[path = "lrw/wanderwine_prophets.rs"]
+pub mod wanderwine_prophets;
 #[path = "plc/waning_wurm.rs"]
 pub mod waning_wurm;
 #[path = "lrw/warren_scourge_elf.rs"]
 pub mod warren_scourge_elf;
+#[path = "lrw/weed_strangle.rs"]
+pub mod weed_strangle;
 #[path = "lrw/wellgabber_apothecary.rs"]
 pub mod wellgabber_apothecary;
 #[path = "fut/whetwheel.rs"]
@@ -771,8 +837,12 @@ pub mod witch_s_mist;
 pub mod wizened_cenn;
 #[path = "lrw/woodland_changeling.rs"]
 pub mod woodland_changeling;
+#[path = "lrw/woodland_guidance.rs"]
+pub mod woodland_guidance;
 #[path = "lrw/wort_boggart_auntie.rs"]
 pub mod wort_boggart_auntie;
+#[path = "plrw/wren_s_run_packmaster.rs"]
+pub mod wren_s_run_packmaster;
 #[path = "lrw/wydwen_the_biting_gale.rs"]
 pub mod wydwen_the_biting_gale;
 #[path = "lrw/zephyr_net.rs"]

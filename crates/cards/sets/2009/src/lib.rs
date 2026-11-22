@@ -53,6 +53,8 @@ pub mod arrow_volley_trap;
 pub mod asha_s_favor;
 #[path = "con_/aven_squire.rs"]
 pub mod aven_squire;
+#[path = "con_/aven_trailblazer.rs"]
+pub mod aven_trailblazer;
 #[path = "zen/baloth_woodcrasher.rs"]
 pub mod baloth_woodcrasher;
 #[path = "m10/baneslayer_angel.rs"]
@@ -61,6 +63,8 @@ pub mod baneslayer_angel;
 pub mod bant_sojourners;
 #[path = "con_/beacon_behemoth.rs"]
 pub mod beacon_behemoth;
+#[path = "hop/beast_hunt.rs"]
+pub mod beast_hunt;
 #[path = "zen/beastmaster_ascension.rs"]
 pub mod beastmaster_ascension;
 #[path = "arb/behemoth_sledge.rs"]
@@ -381,6 +385,8 @@ pub mod hedron_crab;
 pub mod hedron_scrabbler;
 #[path = "zen/hellfire_mongrel.rs"]
 pub mod hellfire_mongrel;
+#[path = "zen/hellkite_charger.rs"]
+pub mod hellkite_charger;
 #[path = "con_/hellspark_elemental.rs"]
 pub mod hellspark_elemental;
 #[path = "hop/hideous_end.rs"]
@@ -501,6 +507,8 @@ pub mod lotus_cobra;
 pub mod luminarch_ascension;
 #[path = "arb/madrush_cyclops.rs"]
 pub mod madrush_cyclops;
+#[path = "con_/maelstrom_archangel.rs"]
+pub mod maelstrom_archangel;
 #[path = "arb/maelstrom_pulse.rs"]
 pub mod maelstrom_pulse;
 #[path = "m10/magebane_armor.rs"]
@@ -537,6 +545,8 @@ pub mod marsh_flats;
 pub mod mask_of_riddles;
 #[path = "con_/master_transmuter.rs"]
 pub mod master_transmuter;
+#[path = "con_/matca_rioters.rs"]
+pub mod matca_rioters;
 #[path = "arb/mayael_s_aria.rs"]
 pub mod mayael_s_aria;
 #[path = "zen/merfolk_seastalkers.rs"]
@@ -595,6 +605,8 @@ pub mod nemesis_of_reason;
 pub mod nimana_sell_sword;
 #[path = "zen/nimbus_wings.rs"]
 pub mod nimbus_wings;
+#[path = "zen/nissa_revane.rs"]
+pub mod nissa_revane;
 #[path = "con_/noble_hierarch.rs"]
 pub mod noble_hierarch;
 #[path = "zen/noble_vestige.rs"]
@@ -787,6 +799,8 @@ pub mod sludge_strider;
 pub mod soaring_seacliff;
 #[path = "m10/solemn_offering.rs"]
 pub mod solemn_offering;
+#[path = "zen/sorin_markov.rs"]
+pub mod sorin_markov;
 #[path = "m10/soul_bleed.rs"]
 pub mod soul_bleed;
 #[path = "arb/soul_manipulation.rs"]
@@ -935,6 +949,8 @@ pub mod veteran_swordsmith;
 pub mod viashino_slaughtermaster;
 #[path = "m10/viashino_spearhunter.rs"]
 pub mod viashino_spearhunter;
+#[path = "con_/view_from_above.rs"]
+pub mod view_from_above;
 #[path = "arb/violent_outburst.rs"]
 pub mod violent_outburst;
 #[path = "arb/vithian_renegades.rs"]

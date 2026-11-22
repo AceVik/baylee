@@ -31,8 +31,8 @@ fn only_a_planeswalker_has_loyalty() {
                 def.name()
             ));
         }
-        for face in def.faces {
-            if loyalty_fault(face) {
+        for (face_index, face) in def.faces.iter().enumerate() {
+            if card_loyalty_fault(def, face_index, face) {
                 wrong.push(format!(
                     "{} ({}) is a planeswalker with no starting loyalty",
                     def.name(),

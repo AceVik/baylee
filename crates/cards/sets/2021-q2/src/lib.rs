@@ -17,6 +17,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 pub mod abiding_grace;
 #[path = "sta/abundant_harvest.rs"]
 pub mod abundant_harvest;
+#[path = "pmh2/academy_manufactor.rs"]
+pub mod academy_manufactor;
 #[path = "stx/access_tunnel.rs"]
 pub mod access_tunnel;
 #[path = "pstx/accomplished_alchemist.rs"]
@@ -53,6 +55,10 @@ pub mod archon_of_cruelty;
 pub mod archway_commons;
 #[path = "stx/arrogant_poet.rs"]
 pub mod arrogant_poet;
+#[path = "pstx/baleful_mastery.rs"]
+pub mod baleful_mastery;
+#[path = "mh2/bannerhide_krushok.rs"]
+pub mod bannerhide_krushok;
 #[path = "mh2/barbed_spike.rs"]
 pub mod barbed_spike;
 #[path = "pstx/basic_conjuration.rs"]
@@ -61,6 +67,8 @@ pub mod basic_conjuration;
 pub mod batterbone;
 #[path = "mh2/battle_plan.rs"]
 pub mod battle_plan;
+#[path = "stx/bayou_groff.rs"]
+pub mod bayou_groff;
 #[path = "stx/beaming_defiance.rs"]
 pub mod beaming_defiance;
 #[path = "pstx/beledros_witherbloom.rs"]
@@ -93,12 +101,16 @@ pub mod blossoming_calm;
 pub mod blot_out_the_sky;
 #[path = "pstx/body_of_research.rs"]
 pub mod body_of_research;
+#[path = "mh2/bone_shards.rs"]
+pub mod bone_shards;
 #[path = "mh2/bottle_golems.rs"]
 pub mod bottle_golems;
 #[path = "stx/brackish_trudge.rs"]
 pub mod brackish_trudge;
 #[path = "mh2/brainstone.rs"]
 pub mod brainstone;
+#[path = "mh2/break_ties.rs"]
+pub mod break_ties;
 #[path = "pmh2/breya_s_apprentice.rs"]
 pub mod breya_s_apprentice;
 #[path = "c21/bronze_guardian.rs"]
@@ -121,6 +133,8 @@ pub mod captain_ripley_vance;
 pub mod captured_by_lagacs;
 #[path = "stx/charge_through.rs"]
 pub mod charge_through;
+#[path = "pmh2/chatterfang_squirrel_general.rs"]
+pub mod chatterfang_squirrel_general;
 #[path = "mh2/chatterstorm.rs"]
 pub mod chatterstorm;
 #[path = "mh2/clattering_augur.rs"]
@@ -145,6 +159,8 @@ pub mod crack_open;
 pub mod creative_outburst;
 #[path = "stx/crushing_disappointment.rs"]
 pub mod crushing_disappointment;
+#[path = "pstx/culmination_of_studies.rs"]
+pub mod culmination_of_studies;
 #[path = "stx/curate.rs"]
 pub mod curate;
 #[path = "c21/curiosity_crafter.rs"]
@@ -167,6 +183,8 @@ pub mod decisive_denial;
 pub mod deekah_fractal_theorist;
 #[path = "stx/defend_the_campus.rs"]
 pub mod defend_the_campus;
+#[path = "stx/detention_vortex.rs"]
+pub mod detention_vortex;
 #[path = "c21/digsite_engineer.rs"]
 pub mod digsite_engineer;
 #[path = "stx/dina_soul_steeper.rs"]
@@ -191,6 +209,8 @@ pub mod drossforge_bridge;
 pub mod duskshell_crawler;
 #[path = "stx/eager_first_year.rs"]
 pub mod eager_first_year;
+#[path = "pstx/efreet_flamepainter.rs"]
+pub mod efreet_flamepainter;
 #[path = "stx/elemental_masterpiece.rs"]
 pub mod elemental_masterpiece;
 #[path = "stx/elemental_summoning.rs"]
@@ -221,6 +241,8 @@ pub mod expel;
 pub mod expressive_iteration;
 #[path = "c21/ezzaroot_channeler.rs"]
 pub mod ezzaroot_channeler;
+#[path = "c21/fain_the_broker.rs"]
+pub mod fain_the_broker;
 #[path = "mh2/fairgrounds_patrol.rs"]
 pub mod fairgrounds_patrol;
 #[path = "mh2/faithless_salvaging.rs"]
@@ -277,6 +299,8 @@ pub mod go_blank;
 pub mod goblin_anarchomancer;
 #[path = "mh2/goldmire_bridge.rs"]
 pub mod goldmire_bridge;
+#[path = "mh2/gouged_zealot.rs"]
+pub mod gouged_zealot;
 #[path = "mh2/graceful_restoration.rs"]
 pub mod graceful_restoration;
 #[path = "pmh2/grief.rs"]
@@ -305,6 +329,8 @@ pub mod hell_mongrel;
 pub mod herd_baloth;
 #[path = "pmh2/ignoble_hierarch.rs"]
 pub mod ignoble_hierarch;
+#[path = "pstx/illuminate_history.rs"]
+pub mod illuminate_history;
 #[path = "stx/illustrious_historian.rs"]
 pub mod illustrious_historian;
 #[path = "stx/infuse_with_vitality.rs"]
@@ -361,6 +387,8 @@ pub mod lorehold_pledgemage;
 pub mod lose_focus;
 #[path = "c21/losheel_clockwork_scholar.rs"]
 pub mod losheel_clockwork_scholar;
+#[path = "stx/maelstrom_muse.rs"]
+pub mod maelstrom_muse;
 #[path = "stx/mage_duel.rs"]
 pub mod mage_duel;
 #[path = "stx/make_your_mark.rs"]
@@ -583,6 +611,8 @@ pub mod spirit_summoning;
 pub mod spreading_insurrection;
 #[path = "stx/springmane_cervin.rs"]
 pub mod springmane_cervin;
+#[path = "c21/sproutback_trudge.rs"]
+pub mod sproutback_trudge;
 #[path = "stx/square_up.rs"]
 pub mod square_up;
 #[path = "mh2/squirrel_sanctuary.rs"]
@@ -629,6 +659,8 @@ pub mod tangletrap;
 pub mod tavern_scoundrel;
 #[path = "stx/teach_by_example.rs"]
 pub mod teach_by_example;
+#[path = "stx/team_pennant.rs"]
+pub mod team_pennant;
 #[path = "stx/tend_the_pests.rs"]
 pub mod tend_the_pests;
 #[path = "stx/tenured_inkcaster.rs"]
@@ -637,6 +669,8 @@ pub mod tenured_inkcaster;
 pub mod terminal_agony;
 #[path = "mh2/terramorph.rs"]
 pub mod terramorph;
+#[path = "pmh2/territorial_kavu.rs"]
+pub mod territorial_kavu;
 #[path = "pstx/the_biblioplex.rs"]
 pub mod the_biblioplex;
 #[path = "mh2/the_underworld_cookbook.rs"]
@@ -713,6 +747,8 @@ pub mod witherbloom_pledgemage;
 pub mod world_weary;
 #[path = "stx/wormhole_serpent.rs"]
 pub mod wormhole_serpent;
+#[path = "mh2/wren_s_run_hydra.rs"]
+pub mod wren_s_run_hydra;
 #[path = "pmh2/yavimaya_cradle_of_growth.rs"]
 pub mod yavimaya_cradle_of_growth;
 #[path = "stx/zephyr_boots.rs"]

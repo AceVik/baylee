@@ -65,6 +65,8 @@ pub mod cleon_merry_champion;
 pub mod clinquant_skymage;
 #[path = "fdn/crackling_cyclops.rs"]
 pub mod crackling_cyclops;
+#[path = "fdn/crypt_feaster.rs"]
+pub mod crypt_feaster;
 #[path = "fdn/crystal_barricade.rs"]
 pub mod crystal_barricade;
 #[path = "j25/cynette_jelly_drover.rs"]
@@ -133,6 +135,8 @@ pub mod gorehorn_raider;
 pub mod grappling_kraken;
 #[path = "fdn/guarded_heir.rs"]
 pub mod guarded_heir;
+#[path = "fdn/gutless_plunderer.rs"]
+pub mod gutless_plunderer;
 #[path = "fdn/helpful_hunter.rs"]
 pub mod helpful_hunter;
 #[path = "fdn/herald_of_eternal_dawn.rs"]
@@ -163,12 +167,18 @@ pub mod inspiring_paladin;
 pub mod ivora_insatiable_heir;
 #[path = "fdn/joust_through.rs"]
 pub mod joust_through;
+#[path = "fdn/kaito_cunning_infiltrator.rs"]
+pub mod kaito_cunning_infiltrator;
 #[path = "fdn/kellan_planar_trailblazer.rs"]
 pub mod kellan_planar_trailblazer;
+#[path = "fdn/kiora_the_rising_tide.rs"]
+pub mod kiora_the_rising_tide;
 #[path = "fdn/koma_world_eater.rs"]
 pub mod koma_world_eater;
 #[path = "fdn/kykar_zephyr_awakener.rs"]
 pub mod kykar_zephyr_awakener;
+#[path = "fdn/leyline_axe.rs"]
+pub mod leyline_axe;
 #[path = "fdn/midnight_snack.rs"]
 pub mod midnight_snack;
 #[path = "fdn/mischievous_mystic.rs"]
@@ -243,6 +253,8 @@ pub mod sphinx_of_forgotten_lore;
 pub mod spined_tyrranax;
 #[path = "fdn/spinner_of_souls.rs"]
 pub mod spinner_of_souls;
+#[path = "fdn/squad_rallier.rs"]
+pub mod squad_rallier;
 #[path = "fdn/stab.rs"]
 pub mod stab;
 #[path = "fdn/starlight_snare.rs"]
@@ -265,6 +277,8 @@ pub mod treetop_snarespinner;
 pub mod twinblade_blessing;
 #[path = "fdn/twinflame_tyrant.rs"]
 pub mod twinflame_tyrant;
+#[path = "fdn/uncharted_voyage.rs"]
+pub mod uncharted_voyage;
 #[path = "fdn/vampire_gourmand.rs"]
 pub mod vampire_gourmand;
 #[path = "fdn/vampire_soulcaller.rs"]

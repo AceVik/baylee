@@ -55,12 +55,20 @@ pub mod charging_hooligan;
 pub mod cheeky_house_mouse;
 #[path = "woe/collector_s_vault.rs"]
 pub mod collector_s_vault;
+#[path = "cmm/commodore_guff.rs"]
+pub mod commodore_guff;
 #[path = "cmm/composer_of_spring.rs"]
 pub mod composer_of_spring;
 #[path = "woe/cooped_up.rs"]
 pub mod cooped_up;
+#[path = "woc/court_of_ardenvale.rs"]
+pub mod court_of_ardenvale;
+#[path = "woc/court_of_embereth.rs"]
+pub mod court_of_embereth;
 #[path = "pwoe/cruel_somnophage.rs"]
 pub mod cruel_somnophage;
+#[path = "woe/dream_spoilers.rs"]
+pub mod dream_spoilers;
 #[path = "woe/dutiful_griffin.rs"]
 pub mod dutiful_griffin;
 #[path = "woe/edgewall_inn.rs"]
@@ -89,6 +97,8 @@ pub mod flick_a_coin;
 pub mod food_coma;
 #[path = "pwoe/food_fight.rs"]
 pub mod food_fight;
+#[path = "cmm/for_the_ancestors.rs"]
+pub mod for_the_ancestors;
 #[path = "woe/frantic_firebolt.rs"]
 pub mod frantic_firebolt;
 #[path = "woe/freeze_in_place.rs"]
@@ -137,6 +147,8 @@ pub mod kellan_s_lightblades;
 pub mod kellan_the_fae_blooded;
 #[path = "woe/kindled_heroism.rs"]
 pub mod kindled_heroism;
+#[path = "woc/knickknack_ouphe.rs"]
+pub mod knickknack_ouphe;
 #[path = "woe/knight_of_doves.rs"]
 pub mod knight_of_doves;
 #[path = "woe/korvold_and_the_noble_thief.rs"]
@@ -155,6 +167,8 @@ pub mod merfolk_coralsmith;
 pub mod minecart_daredevil;
 #[path = "woe/mintstrosity.rs"]
 pub mod mintstrosity;
+#[path = "woe/misleading_motes.rs"]
+pub mod misleading_motes;
 #[path = "woe/mocking_sprite.rs"]
 pub mod mocking_sprite;
 #[path = "woe/moment_of_valor.rs"]
@@ -199,6 +213,8 @@ pub mod redcap_thief;
 pub mod redtooth_vanguard;
 #[path = "pwoe/regal_bunnicorn.rs"]
 pub mod regal_bunnicorn;
+#[path = "cmm/regal_sliver.rs"]
+pub mod regal_sliver;
 #[path = "pwoe/restless_bivouac.rs"]
 pub mod restless_bivouac;
 #[path = "pwoe/restless_cottage.rs"]
@@ -237,6 +253,8 @@ pub mod slumbering_keepguard;
 pub mod snaremaster_sprite;
 #[path = "pwoe/song_of_totentanz.rs"]
 pub mod song_of_totentanz;
+#[path = "cmm/sparkshaper_visionary.rs"]
+pub mod sparkshaper_visionary;
 #[path = "woe/spell_stutter.rs"]
 pub mod spell_stutter;
 #[path = "woe/spellscorn_coven.rs"]
@@ -323,5 +341,7 @@ pub mod werefox_bodyguard;
 pub mod wicked_visitor;
 #[path = "woe/wildwood_mentor.rs"]
 pub mod wildwood_mentor;
+#[path = "pwoe/will_scion_of_peace.rs"]
+pub mod will_scion_of_peace;
 #[path = "woe/woodland_acolyte.rs"]
 pub mod woodland_acolyte;

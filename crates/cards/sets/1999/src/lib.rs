@@ -865,6 +865,8 @@ pub mod power_matrix;
 pub mod preemptive_strike;
 #[path = "mmq/pretender_s_claim.rs"]
 pub mod pretender_s_claim;
+#[path = "s99/pride_of_lions.rs"]
+pub mod pride_of_lions;
 #[path = "mmq/primeval_shambler.rs"]
 pub mod primeval_shambler;
 #[path = "uds/private_research.rs"]
@@ -1191,6 +1193,8 @@ pub mod stone_catapult;
 pub mod storage_matrix;
 #[path = "mmq/story_circle.rs"]
 pub mod story_circle;
+#[path = "ptk/strategic_planning.rs"]
+pub mod strategic_planning;
 #[path = "ptk/straw_soldiers.rs"]
 pub mod straw_soldiers;
 #[path = "s99/stream_of_acid.rs"]
@@ -1411,6 +1415,8 @@ pub mod willow_elf;
 pub mod wing_snare;
 #[path = "mmq/wishmonger.rs"]
 pub mod wishmonger;
+#[path = "ptk/wolf_pack.rs"]
+pub mod wolf_pack;
 #[path = "mmq/worry_beads.rs"]
 pub mod worry_beads;
 #[path = "ptk/wu_elite_cavalry.rs"]
@@ -1421,6 +1427,8 @@ pub mod wu_infantry;
 pub mod wu_light_cavalry;
 #[path = "ptk/wu_longbowman.rs"]
 pub mod wu_longbowman;
+#[path = "ptk/wu_scout.rs"]
+pub mod wu_scout;
 #[path = "ptk/wu_warship.rs"]
 pub mod wu_warship;
 #[path = "ptk/xiahou_dun_the_one_eyed.rs"]

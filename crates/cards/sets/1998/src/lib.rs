@@ -279,6 +279,8 @@ pub mod dauthi_warlord;
 pub mod death_s_duet;
 #[path = "sth/death_stroke.rs"]
 pub mod death_stroke;
+#[path = "p02/deathcoil_wurm.rs"]
+pub mod deathcoil_wurm;
 #[path = "usg/defensive_formation.rs"]
 pub mod defensive_formation;
 #[path = "p02/denizen_of_the_deep.rs"]
@@ -371,6 +373,8 @@ pub mod exploration;
 pub mod expunge;
 #[path = "p02/extinguish.rs"]
 pub mod extinguish;
+#[path = "p02/eye_spy.rs"]
+pub mod eye_spy;
 #[path = "exo/fade_away.rs"]
 pub mod fade_away;
 #[path = "usg/faith_healer.rs"]
@@ -605,6 +609,8 @@ pub mod lilting_refrain;
 pub mod limited_resources;
 #[path = "usg/lingering_mirage.rs"]
 pub mod lingering_mirage;
+#[path = "p02/lone_wolf.rs"]
+pub mod lone_wolf;
 #[path = "usg/looming_shade.rs"]
 pub mod looming_shade;
 #[path = "usg/lotus_blossom.rs"]
@@ -889,6 +895,8 @@ pub mod rejuvenate;
 pub mod remembrance;
 #[path = "usg/remote_isle.rs"]
 pub mod remote_isle;
+#[path = "p02/renewing_touch.rs"]
+pub mod renewing_touch;
 #[path = "usg/reprocess.rs"]
 pub mod reprocess;
 #[path = "usg/rescind.rs"]
@@ -901,6 +909,8 @@ pub mod retaliation;
 pub mod retromancer;
 #[path = "p02/return_of_the_nightstalkers.rs"]
 pub mod return_of_the_nightstalkers;
+#[path = "psth/revenant.rs"]
+pub mod revenant;
 #[path = "usg/rewind.rs"]
 pub mod rewind;
 #[path = "p02/righteous_charge.rs"]
@@ -1143,12 +1153,16 @@ pub mod swarm_of_rats;
 pub mod sword_of_the_chosen;
 #[path = "p02/sylvan_basilisk.rs"]
 pub mod sylvan_basilisk;
+#[path = "p02/sylvan_yeti.rs"]
+pub mod sylvan_yeti;
 #[path = "usg/symbiosis.rs"]
 pub mod symbiosis;
 #[path = "usg/tainted_aether.rs"]
 pub mod tainted_aether;
 #[path = "p02/talas_air_ship.rs"]
 pub mod talas_air_ship;
+#[path = "p02/talas_explorer.rs"]
+pub mod talas_explorer;
 #[path = "p02/talas_merchant.rs"]
 pub mod talas_merchant;
 #[path = "p02/talas_researcher.rs"]

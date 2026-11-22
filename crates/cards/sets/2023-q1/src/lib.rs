@@ -21,6 +21,8 @@ pub mod against_all_odds;
 pub mod ambulatory_edifice;
 #[path = "one/annex_sentry.rs"]
 pub mod annex_sentry;
+#[path = "one/annihilating_glare.rs"]
+pub mod annihilating_glare;
 #[path = "one/apostle_of_invasion.rs"]
 pub mod apostle_of_invasion;
 #[path = "one/archfiend_of_the_dross.rs"]
@@ -65,6 +67,8 @@ pub mod cankerbloom;
 pub mod carnivorous_canopy;
 #[path = "one/cephalopod_sentry.rs"]
 pub mod cephalopod_sentry;
+#[path = "one/charforger.rs"]
+pub mod charforger;
 #[path = "one/charge_of_the_mites.rs"]
 pub mod charge_of_the_mites;
 #[path = "one/chimney_rabble.rs"]
@@ -127,6 +131,8 @@ pub mod gitaxian_raptor;
 pub mod gleeful_demolition;
 #[path = "one/glissa_sunslayer.rs"]
 pub mod glissa_sunslayer;
+#[path = "one/glistener_seer.rs"]
+pub mod glistener_seer;
 #[path = "onc/glistening_sphere.rs"]
 pub mod glistening_sphere;
 #[path = "one/goldwarden_s_helm.rs"]
@@ -181,6 +187,8 @@ pub mod meldweb_curator;
 pub mod meldweb_strider;
 #[path = "one/mesmerizing_dose.rs"]
 pub mod mesmerizing_dose;
+#[path = "one/migloz_maze_crusher.rs"]
+pub mod migloz_maze_crusher;
 #[path = "one/mindsplice_apparatus.rs"]
 pub mod mindsplice_apparatus;
 #[path = "one/minor_misstep.rs"]
@@ -191,8 +199,12 @@ pub mod mirage_mockery;
 pub mod mirran_bardiche;
 #[path = "one/mirrex.rs"]
 pub mod mirrex;
+#[path = "one/mite_overseer.rs"]
+pub mod mite_overseer;
 #[path = "one/molten_rebuke.rs"]
 pub mod molten_rebuke;
+#[path = "one/mondrak_glory_dominus.rs"]
+pub mod mondrak_glory_dominus;
 #[path = "onc/monumental_corruption.rs"]
 pub mod monumental_corruption;
 #[path = "one/myr_convert.rs"]
@@ -245,6 +257,8 @@ pub mod ruthless_predation;
 pub mod sawblade_scamp;
 #[path = "one/serum_snare.rs"]
 pub mod serum_snare;
+#[path = "one/serum_sovereign.rs"]
+pub mod serum_sovereign;
 #[path = "one/sheoldred_s_edict.rs"]
 pub mod sheoldred_s_edict;
 #[path = "one/sheoldred_s_headcleaver.rs"]
@@ -259,6 +273,8 @@ pub mod skyhunter_strike_force;
 pub mod skyscythe_engulfer;
 #[path = "one/slobad_iron_goblin.rs"]
 pub mod slobad_iron_goblin;
+#[path = "one/solphim_mayhem_dominus.rs"]
+pub mod solphim_mayhem_dominus;
 #[path = "one/staff_of_compleation.rs"]
 pub mod staff_of_compleation;
 #[path = "one/stinging_hivemaster.rs"]
@@ -275,10 +291,14 @@ pub mod sylvok_battle_chair;
 pub mod tablet_of_compleation;
 #[path = "one/tainted_observer.rs"]
 pub mod tainted_observer;
+#[path = "one/tamiyo_s_immobilizer.rs"]
+pub mod tamiyo_s_immobilizer;
 #[path = "one/tamiyo_s_logbook.rs"]
 pub mod tamiyo_s_logbook;
 #[path = "onc/tangleweave_armor.rs"]
 pub mod tangleweave_armor;
+#[path = "one/testament_bearer.rs"]
+pub mod testament_bearer;
 #[path = "one/the_autonomous_furnace.rs"]
 pub mod the_autonomous_furnace;
 #[path = "one/the_dross_pits.rs"]
@@ -309,6 +329,8 @@ pub mod tyrranax_atrocity;
 pub mod tyrranax_rex;
 #[path = "one/tyvar_s_stand.rs"]
 pub mod tyvar_s_stand;
+#[path = "one/unctus_grand_metatect.rs"]
+pub mod unctus_grand_metatect;
 #[path = "one/unnatural_restoration.rs"]
 pub mod unnatural_restoration;
 #[path = "one/urabrask_s_anointer.rs"]

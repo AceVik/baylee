@@ -326,7 +326,7 @@ use baylee_cards_dsl::KeywordSet;
 use baylee_cards_dsl::TokenDef;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::subtypes::{artifact, creature, enchantment, land};
+use baylee_core::generated::subtypes::{artifact, creature, enchantment, land, planeswalker};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 /// 1/1 black Bat with flying.
@@ -6008,6 +6008,478 @@ pub static ELEMENTAL_5_5_BLUE_RED_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 white Ajani's Pridemate.
+pub static AJANI_S_PRIDEMATE_2_2_WHITE_A5D7A6060: TokenDef = TokenDef {
+    name: "Ajani's Pridemate",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CAT, creature::SOLDIER],
+    power: Some(2),
+    toughness: Some(2),
+    abilities: &[triggered!(
+        Trigger::GainsLife(PlayerRel::You),
+        &[Effect::AddCounter {
+            kind: CounterKind::P1P1,
+            amount: Amount::Fixed(1)
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 black Assassin with deathtouch and haste.
+pub static ASSASSIN_1_1_BLACK_DEATHTOUCH_HASTE: TokenDef = TokenDef {
+    name: "Assassin",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ASSASSIN],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::DEATHTOUCH.union(KeywordSet::HASTE),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 black Insect Warrior with flying.
+pub static INSECT_WARRIOR_1_1_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Insect Warrior",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::INSECT, creature::WARRIOR],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 black Ninja.
+pub static NINJA_1_1_BLACK: TokenDef = TokenDef {
+    name: "Ninja",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::NINJA],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 black Wolf with deathtouch.
+pub static WOLF_1_1_BLACK_DEATHTOUCH: TokenDef = TokenDef {
+    name: "Wolf",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WOLF],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::DEATHTOUCH,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 black Pirate with menace.
+pub static PIRATE_2_2_BLACK_MENACE: TokenDef = TokenDef {
+    name: "Pirate",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PIRATE],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::MENACE,
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 black Wraith with menace.
+pub static WRAITH_3_3_BLACK_MENACE: TokenDef = TokenDef {
+    name: "Wraith",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WRAITH],
+    power: Some(3),
+    toughness: Some(3),
+    keywords: KeywordSet::MENACE,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 black green Wolf.
+pub static WOLF_2_2_BLACK_GREEN_A26E23A3D: TokenDef = TokenDef {
+    name: "Wolf",
+    colors: ColorSet::from_slice(&[Color::Black, Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WOLF],
+    power: Some(2),
+    toughness: Some(2),
+    abilities: &[triggered!(
+        Trigger::Dies(&Filter::And(&[Filter::CREATURE, Filter::This])),
+        &[Effect::AddCounterFilter {
+            filter: &Filter::And(&[
+                Filter::HasSubtype(planeswalker::GARRUK),
+                Filter::ControlledByYou
+            ]),
+            kind: CounterKind::Loyalty,
+            amount: Amount::Fixed(1)
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless artifact Insect with flying.
+pub static INSECT_ARTIFACT_1_1_FLYING: TokenDef = TokenDef {
+    name: "Insect",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::INSECT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 colorless artifact Illusion.
+pub static ILLUSION_ARTIFACT_3_3: TokenDef = TokenDef {
+    name: "Illusion",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::ILLUSION],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// red Feather.
+pub static FEATHER_RED_A49C2DBA7: TokenDef = TokenDef {
+    name: "Feather",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::ARTIFACT,
+    abilities: &[activated!(
+        cost!("{1}", TapSelf, SacrificeSelf),
+        &[Effect::GraveyardToBattlefieldModified {
+            target: TargetSpec::CardInGraveyard(
+                &Filter::HasSubtype(creature::PHOENIX),
+                PlayerRel::You
+            ),
+            owner_control: false,
+            tapped: true,
+            counters: None,
+            modifiers: &[]
+        }],
+        target = Some(TargetSpec::CardInGraveyard(
+            &Filter::HasSubtype(creature::PHOENIX),
+            PlayerRel::You
+        ))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Elf Druid.
+pub static ELF_DRUID_1_1_GREEN_A550D8680: TokenDef = TokenDef {
+    name: "Elf Druid",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELF, creature::DRUID],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)])],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Frog.
+pub static FROG_1_1_GREEN: TokenDef = TokenDef {
+    name: "Frog",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::FROG],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Phyrexian Saproling.
+pub static PHYREXIAN_SAPROLING_1_1_GREEN: TokenDef = TokenDef {
+    name: "Phyrexian Saproling",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PHYREXIAN, creature::SAPROLING],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Tyranid.
+pub static TYRANID_1_1_GREEN: TokenDef = TokenDef {
+    name: "Tyranid",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::TYRANID],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green Ooze.
+pub static OOZE_3_3_GREEN: TokenDef = TokenDef {
+    name: "Ooze",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::OOZE],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Meteorite.
+pub static METEORITE_A68E96657: TokenDef = TokenDef {
+    name: "Meteorite",
+    types: TypeSet::ARTIFACT,
+    abilities: &[
+        triggered!(
+            Trigger::ETB,
+            &[Effect::DealDamage {
+                amount: Amount::Fixed(2),
+                target: TargetSpec::AnyTarget
+            }],
+            targets = Some(TargetReq::one(TargetSpec::AnyTarget))
+        ),
+        mana_ability!(&[Effect::mana_of_any_color()]),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Phyrexian Goblin with haste.
+pub static PHYREXIAN_GOBLIN_1_1_RED_HASTE: TokenDef = TokenDef {
+    name: "Phyrexian Goblin",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PHYREXIAN, creature::GOBLIN],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Wizard.
+pub static WIZARD_1_1_RED_AC89D6B73: TokenDef = TokenDef {
+    name: "Wizard",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WIZARD],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[mana_ability!(&[
+        Effect::mana(ManaColor::Red, 1).restricted(&Filter::PLANESWALKER, SpendRider::None)
+    ])],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 red Soldier with firebending 1.
+pub static SOLDIER_2_2_RED_FIREBENDING_1: TokenDef = TokenDef {
+    name: "Soldier",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SOLDIER],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::FIREBENDING,
+    abilities: &[triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[Effect::Firebend(Amount::Fixed(1))]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/1 red Knight.
+pub static KNIGHT_3_1_RED: TokenDef = TokenDef {
+    name: "Knight",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KNIGHT],
+    power: Some(3),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 red Dinosaur Dragon with flying.
+pub static DINOSAUR_DRAGON_4_4_RED_FLYING: TokenDef = TokenDef {
+    name: "Dinosaur Dragon",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DINOSAUR, creature::DRAGON],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 red Dragon with firebending 4 and flying.
+pub static DRAGON_4_4_RED_FIREBENDING_4_FLYING: TokenDef = TokenDef {
+    name: "Dragon",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DRAGON],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::FIREBENDING.union(KeywordSet::FLYING),
+    abilities: &[triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[Effect::Firebend(Amount::Fixed(4))]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 red Scorpion Dragon with flying and haste.
+pub static SCORPION_DRAGON_4_4_RED_FLYING_HASTE: TokenDef = TokenDef {
+    name: "Scorpion Dragon",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SCORPION, creature::DRAGON],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::FLYING.union(KeywordSet::HASTE),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 red green Giant Warrior with haste.
+pub static GIANT_WARRIOR_4_4_RED_GREEN_HASTE: TokenDef = TokenDef {
+    name: "Giant Warrior",
+    colors: ColorSet::from_slice(&[Color::Red, Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GIANT, creature::WARRIOR],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 8/8 blue legendary Scion of the Deep.
+pub static SCION_OF_THE_DEEP_LEGENDARY_8_8_BLUE: TokenDef = TokenDef {
+    name: "Scion of the Deep",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::OCTOPUS],
+    power: Some(8),
+    toughness: Some(8),
+    ..TokenDef::DEFAULT
+};
+
+/// 6/6 red legendary Smaug with flying and haste.
+pub static SMAUG_LEGENDARY_6_6_RED_FLYING_HASTE_AE2F21CCC: TokenDef = TokenDef {
+    name: "Smaug",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::DRAGON],
+    power: Some(6),
+    toughness: Some(6),
+    keywords: KeywordSet::FLYING.union(KeywordSet::HASTE),
+    abilities: &[triggered!(
+        Trigger::Dies(&Filter::This),
+        &[Effect::CreateTokenN {
+            token: &tokens::TREASURE,
+            amount: Amount::Fixed(14)
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue Ninja.
+pub static NINJA_1_1_BLUE_A2CE7F4B9: TokenDef = TokenDef {
+    name: "Ninja",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::NINJA],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::AddKeyword(KeywordSet::UNBLOCKABLE)
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/1 blue Ninja.
+pub static NINJA_2_1_BLUE: TokenDef = TokenDef {
+    name: "Ninja",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::NINJA],
+    power: Some(2),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 blue Sphinx with flying.
+pub static SPHINX_4_4_BLUE_FLYING: TokenDef = TokenDef {
+    name: "Sphinx",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPHINX],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue black Horror with flying.
+pub static HORROR_1_1_BLUE_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Horror",
+    colors: ColorSet::from_slice(&[Color::Blue, Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HORROR],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 0/3 white Wall with defender.
+pub static WALL_0_3_WHITE_DEFENDER: TokenDef = TokenDef {
+    name: "Wall",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WALL],
+    power: Some(0),
+    toughness: Some(3),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Human Rogue.
+pub static HUMAN_ROGUE_1_1_WHITE: TokenDef = TokenDef {
+    name: "Human Rogue",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HUMAN, creature::ROGUE],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 white Knight with protection from red.
+pub static KNIGHT_2_2_WHITE_PROTECTION_FROM_RED: TokenDef = TokenDef {
+    name: "Knight",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KNIGHT],
+    power: Some(2),
+    toughness: Some(2),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[Color::Red])))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// */* white Avatar.
+pub static AVATAR_X_X_WHITE_AA53C9B55: TokenDef = TokenDef {
+    name: "Avatar",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::AVATAR],
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::CharacteristicPT {
+            count: PtCount::LifeTotal(PlayerRel::You),
+            toughness_plus: 0
+        }
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -7255,6 +7727,41 @@ pub static ALL: &[&TokenDef] = &[
     &SPIRIT_2_2_WHITE_FLYING,
     &GIANT_4_4_RED,
     &ELEMENTAL_5_5_BLUE_RED_FLYING,
+    &AJANI_S_PRIDEMATE_2_2_WHITE_A5D7A6060,
+    &ASSASSIN_1_1_BLACK_DEATHTOUCH_HASTE,
+    &INSECT_WARRIOR_1_1_BLACK_FLYING,
+    &NINJA_1_1_BLACK,
+    &WOLF_1_1_BLACK_DEATHTOUCH,
+    &PIRATE_2_2_BLACK_MENACE,
+    &WRAITH_3_3_BLACK_MENACE,
+    &WOLF_2_2_BLACK_GREEN_A26E23A3D,
+    &INSECT_ARTIFACT_1_1_FLYING,
+    &ILLUSION_ARTIFACT_3_3,
+    &FEATHER_RED_A49C2DBA7,
+    &ELF_DRUID_1_1_GREEN_A550D8680,
+    &FROG_1_1_GREEN,
+    &PHYREXIAN_SAPROLING_1_1_GREEN,
+    &TYRANID_1_1_GREEN,
+    &OOZE_3_3_GREEN,
+    &METEORITE_A68E96657,
+    &PHYREXIAN_GOBLIN_1_1_RED_HASTE,
+    &WIZARD_1_1_RED_AC89D6B73,
+    &SOLDIER_2_2_RED_FIREBENDING_1,
+    &KNIGHT_3_1_RED,
+    &DINOSAUR_DRAGON_4_4_RED_FLYING,
+    &DRAGON_4_4_RED_FIREBENDING_4_FLYING,
+    &SCORPION_DRAGON_4_4_RED_FLYING_HASTE,
+    &GIANT_WARRIOR_4_4_RED_GREEN_HASTE,
+    &SCION_OF_THE_DEEP_LEGENDARY_8_8_BLUE,
+    &SMAUG_LEGENDARY_6_6_RED_FLYING_HASTE_AE2F21CCC,
+    &NINJA_1_1_BLUE_A2CE7F4B9,
+    &NINJA_2_1_BLUE,
+    &SPHINX_4_4_BLUE_FLYING,
+    &HORROR_1_1_BLUE_BLACK_FLYING,
+    &WALL_0_3_WHITE_DEFENDER,
+    &HUMAN_ROGUE_1_1_WHITE,
+    &KNIGHT_2_2_WHITE_PROTECTION_FROM_RED,
+    &AVATAR_X_X_WHITE_AA53C9B55,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -7714,6 +8221,41 @@ pub static GENERATED: &[&TokenDef] = &[
     &SPIRIT_2_2_WHITE_FLYING,
     &GIANT_4_4_RED,
     &ELEMENTAL_5_5_BLUE_RED_FLYING,
+    &AJANI_S_PRIDEMATE_2_2_WHITE_A5D7A6060,
+    &ASSASSIN_1_1_BLACK_DEATHTOUCH_HASTE,
+    &INSECT_WARRIOR_1_1_BLACK_FLYING,
+    &NINJA_1_1_BLACK,
+    &WOLF_1_1_BLACK_DEATHTOUCH,
+    &PIRATE_2_2_BLACK_MENACE,
+    &WRAITH_3_3_BLACK_MENACE,
+    &WOLF_2_2_BLACK_GREEN_A26E23A3D,
+    &INSECT_ARTIFACT_1_1_FLYING,
+    &ILLUSION_ARTIFACT_3_3,
+    &FEATHER_RED_A49C2DBA7,
+    &ELF_DRUID_1_1_GREEN_A550D8680,
+    &FROG_1_1_GREEN,
+    &PHYREXIAN_SAPROLING_1_1_GREEN,
+    &TYRANID_1_1_GREEN,
+    &OOZE_3_3_GREEN,
+    &METEORITE_A68E96657,
+    &PHYREXIAN_GOBLIN_1_1_RED_HASTE,
+    &WIZARD_1_1_RED_AC89D6B73,
+    &SOLDIER_2_2_RED_FIREBENDING_1,
+    &KNIGHT_3_1_RED,
+    &DINOSAUR_DRAGON_4_4_RED_FLYING,
+    &DRAGON_4_4_RED_FIREBENDING_4_FLYING,
+    &SCORPION_DRAGON_4_4_RED_FLYING_HASTE,
+    &GIANT_WARRIOR_4_4_RED_GREEN_HASTE,
+    &SCION_OF_THE_DEEP_LEGENDARY_8_8_BLUE,
+    &SMAUG_LEGENDARY_6_6_RED_FLYING_HASTE_AE2F21CCC,
+    &NINJA_1_1_BLUE_A2CE7F4B9,
+    &NINJA_2_1_BLUE,
+    &SPHINX_4_4_BLUE_FLYING,
+    &HORROR_1_1_BLUE_BLACK_FLYING,
+    &WALL_0_3_WHITE_DEFENDER,
+    &HUMAN_ROGUE_1_1_WHITE,
+    &KNIGHT_2_2_WHITE_PROTECTION_FROM_RED,
+    &AVATAR_X_X_WHITE_AA53C9B55,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.
