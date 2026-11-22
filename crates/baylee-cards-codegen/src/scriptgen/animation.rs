@@ -249,7 +249,10 @@ impl Tx<'_> {
             return None;
         }
         if optional {
-            return Some(vec![format!("Effect::May(&[{}])", out.join(", "))]);
+            return Some(vec![format!(
+                "Effect::MayDo {{ effects: &[{}] }}",
+                out.join(", ")
+            )]);
         }
         Some(out)
     }

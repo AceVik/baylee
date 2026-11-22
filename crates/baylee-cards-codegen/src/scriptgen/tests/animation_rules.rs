@@ -412,7 +412,7 @@ fn wave22d_animate_durations_flags_dynamic_pt_player_all_and_static_grants() {
          A:AB$ Animate | Cost$ 4 | ValidTgts$ Land.YouCtrl | Duration$ AsLongAsInPlay | Types$ Creature | Power$ 3 | Toughness$ 3",
     );
     assert!(
-        flags_and_durations.abilities[0].contains("Effect::May(&[")
+        flags_and_durations.abilities[0].contains("Effect::MayDo { effects: &[")
             && flags_and_durations.abilities[0].contains("Duration::UntilYourNextTurn")
             && flags_and_durations.abilities[0].contains("Modifier::SetPower(1)")
             && flags_and_durations.abilities[0]
@@ -616,7 +616,7 @@ fn wave23d_animate_qualified_subjects_valid_filter_and_general_static_grants() {
     );
     assert!(
         conditional_self_and_statics.abilities[4]
-            .contains("Effect::May(&[Effect::SetPTFilter { filter: &ANIMATE_ALL")
+            .contains("Effect::MayDo { effects: &[Effect::SetPTFilter { filter: &ANIMATE_ALL")
             && conditional_self_and_statics.abilities[4]
                 .contains("power: Amount::SourcePower, toughness: Amount::SourcePower"),
         "{:?}",
