@@ -49,6 +49,8 @@ pub mod artificer_s_dragon;
 pub mod ashnod_flesh_mechanist;
 #[path = "bro/ashnod_s_harvester.rs"]
 pub mod ashnod_s_harvester;
+#[path = "40k/aspiring_champion.rs"]
+pub mod aspiring_champion;
 #[path = "40k/assault_intercessor.rs"]
 pub mod assault_intercessor;
 #[path = "40k/atalan_jackal.rs"]
@@ -73,6 +75,8 @@ pub mod benevolent_hydra;
 pub mod biblioplex_kraken;
 #[path = "40k/biophagus.rs"]
 pub mod biophagus;
+#[path = "40k/biotransference.rs"]
+pub mod biotransference;
 #[path = "bro/bitter_reunion.rs"]
 pub mod bitter_reunion;
 #[path = "bro/blitz_automaton.rs"]
@@ -85,6 +89,8 @@ pub mod bloodcrusher_of_khorne;
 pub mod bone_sabres;
 #[path = "bro/boulderbranch_golem.rs"]
 pub mod boulderbranch_golem;
+#[path = "40k/broodlord.rs"]
+pub mod broodlord;
 #[path = "bro/brotherhood_s_end.rs"]
 pub mod brotherhood_s_end;
 #[path = "bro/burrowing_razormaw.rs"]
@@ -99,6 +105,8 @@ pub mod canoptek_scarab_swarm;
 pub mod canoptek_spyder;
 #[path = "40k/canoptek_tomb_sentinel.rs"]
 pub mod canoptek_tomb_sentinel;
+#[path = "bro/carrion_locust.rs"]
+pub mod carrion_locust;
 #[path = "j22/chains_of_custody.rs"]
 pub mod chains_of_custody;
 #[path = "40k/chaos_terminator_lord.rs"]
@@ -161,6 +169,8 @@ pub mod distinguished_conjurer;
 pub mod draconic_destiny;
 #[path = "bro/drafna_founder_of_lat_nam.rs"]
 pub mod drafna_founder_of_lat_nam;
+#[path = "j22/dutiful_replicator.rs"]
+pub mod dutiful_replicator;
 #[path = "bro/dwarven_forge_chanter.rs"]
 pub mod dwarven_forge_chanter;
 #[path = "bro/emergency_weld.rs"]
@@ -185,6 +195,8 @@ pub mod fallaji_excavation;
 pub mod fallaji_vanguard;
 #[path = "brc/farid_enterprising_salvager.rs"]
 pub mod farid_enterprising_salvager;
+#[path = "bro/feldon_ronom_excavator.rs"]
+pub mod feldon_ronom_excavator;
 #[path = "40k/flayed_one.rs"]
 pub mod flayed_one;
 #[path = "bro/flow_of_knowledge.rs"]
@@ -231,6 +243,8 @@ pub mod goliath_truck;
 pub mod goring_warplow;
 #[path = "bro/great_desert_prospector.rs"]
 pub mod great_desert_prospector;
+#[path = "40k/grey_knight_paragon.rs"]
+pub mod grey_knight_paragon;
 #[path = "bro/gruesome_realization.rs"]
 pub mod gruesome_realization;
 #[path = "bro/gwenna_eyes_of_gaea.rs"]
@@ -349,6 +363,8 @@ pub mod mightstone_s_animation;
 pub mod mild_mannered_librarian;
 #[path = "bro/military_discipline.rs"]
 pub mod military_discipline;
+#[path = "bro/misery_s_shadow.rs"]
+pub mod misery_s_shadow;
 #[path = "brc/mishra_eminent_one.rs"]
 pub mod mishra_eminent_one;
 #[path = "bro/mishra_s_foundry.rs"]
@@ -357,6 +373,8 @@ pub mod mishra_s_foundry;
 pub mod mishra_s_juggernaut;
 #[path = "bro/mishra_s_onslaught.rs"]
 pub mod mishra_s_onslaught;
+#[path = "bro/mishra_s_research_desk.rs"]
+pub mod mishra_s_research_desk;
 #[path = "bro/moment_of_defiance.rs"]
 pub mod moment_of_defiance;
 #[path = "unf/monoxa_midway_manager.rs"]
@@ -401,6 +419,8 @@ pub mod plasmancer;
 pub mod platoon_dispenser;
 #[path = "j22/plundering_predator.rs"]
 pub mod plundering_predator;
+#[path = "bro/portal_to_phyrexia.rs"]
+pub mod portal_to_phyrexia;
 #[path = "bro/powerstone_engineer.rs"]
 pub mod powerstone_engineer;
 #[path = "bro/powerstone_fracture.rs"]
@@ -453,6 +473,8 @@ pub mod sardian_cliffstomper;
 pub mod sarinth_greatwurm;
 #[path = "bro/scatter_ray.rs"]
 pub mod scatter_ray;
+#[path = "brc/scavenged_brawler.rs"]
+pub mod scavenged_brawler;
 #[path = "bro/scrapwork_cohort.rs"]
 pub mod scrapwork_cohort;
 #[path = "bro/scrapwork_mutt.rs"]
@@ -483,6 +505,8 @@ pub mod skitterbeam_battalion;
 pub mod skorpekh_destroyer;
 #[path = "40k/skorpekh_lord.rs"]
 pub mod skorpekh_lord;
+#[path = "j22/skullslither_worm.rs"]
+pub mod skullslither_worm;
 #[path = "bro/skyfisher_spider.rs"]
 pub mod skyfisher_spider;
 #[path = "bro/skystrike_officer.rs"]
@@ -497,6 +521,8 @@ pub mod space_marine_scout;
 pub mod spectral_hunt_caller;
 #[path = "bro/spectrum_sentinel.rs"]
 pub mod spectrum_sentinel;
+#[path = "40k/sporocyst.rs"]
+pub mod sporocyst;
 #[path = "bro/spotter_thopter.rs"]
 pub mod spotter_thopter;
 #[path = "brc/staff_of_titania.rs"]
@@ -543,6 +569,8 @@ pub mod the_archimandrite;
 pub mod the_big_top;
 #[path = "40k/the_flesh_is_weak.rs"]
 pub mod the_flesh_is_weak;
+#[path = "40k/the_red_terror.rs"]
+pub mod the_red_terror;
 #[path = "bro/the_stasis_coffin.rs"]
 pub mod the_stasis_coffin;
 #[path = "40k/their_name_is_death.rs"]
@@ -627,6 +655,8 @@ pub mod venomcrawler;
 pub mod venomthrope;
 #[path = "bro/veteran_s_powerblade.rs"]
 pub mod veteran_s_powerblade;
+#[path = "40k/vexilus_praetor.rs"]
+pub mod vexilus_praetor;
 #[path = "gn3/vogar_necropolis_tyrant.rs"]
 pub mod vogar_necropolis_tyrant;
 #[path = "bro/wasteful_harvest.rs"]

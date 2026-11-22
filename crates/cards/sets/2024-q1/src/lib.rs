@@ -19,6 +19,8 @@ pub mod acquired_mutation;
 pub mod aftermath_analyst;
 #[path = "pip/agent_frank_horrigan.rs"]
 pub mod agent_frank_horrigan;
+#[path = "mkm/agrus_kos_spirit_of_justice.rs"]
+pub mod agrus_kos_spirit_of_justice;
 #[path = "mkm/alley_assailant.rs"]
 pub mod alley_assailant;
 #[path = "pip/almost_perfect.rs"]
@@ -27,10 +29,14 @@ pub mod almost_perfect;
 pub mod alpha_deathclaw;
 #[path = "mkm/alquist_proft_master_sleuth.rs"]
 pub mod alquist_proft_master_sleuth;
+#[path = "mkm/analyze_the_pollen.rs"]
+pub mod analyze_the_pollen;
 #[path = "clu/apothecary_white.rs"]
 pub mod apothecary_white;
 #[path = "mkm/archdruid_s_charm.rs"]
 pub mod archdruid_s_charm;
+#[path = "mkc/armed_with_proof.rs"]
+pub mod armed_with_proof;
 #[path = "pip/armory_paladin.rs"]
 pub mod armory_paladin;
 #[path = "pip/atomize.rs"]
@@ -45,6 +51,8 @@ pub mod ballroom;
 pub mod barbed_servitor;
 #[path = "mkm/basilica_stalker.rs"]
 pub mod basilica_stalker;
+#[path = "mkm/behind_the_mask.rs"]
+pub mod behind_the_mask;
 #[path = "mkm/benthic_criminologists.rs"]
 pub mod benthic_criminologists;
 #[path = "clu/billiard_room.rs"]
@@ -65,6 +73,10 @@ pub mod brotherhood_outcast;
 pub mod brotherhood_vertibird;
 #[path = "mkm/burden_of_proof.rs"]
 pub mod burden_of_proof;
+#[path = "pip/butch_de_loria_tunnel_snake.rs"]
+pub mod butch_de_loria_tunnel_snake;
+#[path = "mkm/call_a_surprise_witness.rs"]
+pub mod call_a_surprise_witness;
 #[path = "mkm/candlestick.rs"]
 pub mod candlestick;
 #[path = "clu/carnage_interpreter.rs"]
@@ -79,6 +91,8 @@ pub mod cerebral_confiscation;
 pub mod chalk_outline;
 #[path = "pip/charisma_bobblehead.rs"]
 pub mod charisma_bobblehead;
+#[path = "mkc/charnel_serenade.rs"]
+pub mod charnel_serenade;
 #[path = "mkm/coerced_to_kill.rs"]
 pub mod coerced_to_kill;
 #[path = "mkm/cold_case_cracker.rs"]
@@ -95,6 +109,8 @@ pub mod commercial_district;
 pub mod concealed_weapon;
 #[path = "clu/conclave_evangelist.rs"]
 pub mod conclave_evangelist;
+#[path = "mkm/connecting_the_dots.rs"]
+pub mod connecting_the_dots;
 #[path = "clu/conservatory.rs"]
 pub mod conservatory;
 #[path = "pip/contaminated_drink.rs"]
@@ -105,8 +121,12 @@ pub mod convenient_target;
 pub mod cornered_crook;
 #[path = "clu/corporeal_projection.rs"]
 pub mod corporeal_projection;
+#[path = "clu/covetous_elegy.rs"]
+pub mod covetous_elegy;
 #[path = "mkm/crime_novelist.rs"]
 pub mod crime_novelist;
+#[path = "mkm/crimestopper_sprite.rs"]
+pub mod crimestopper_sprite;
 #[path = "pip/crimson_caravaneer.rs"]
 pub mod crimson_caravaneer;
 #[path = "mkm/curious_cadaver.rs"]
@@ -179,8 +199,12 @@ pub mod final_word_phantom;
 pub mod flourishing_bloom_kin;
 #[path = "mkm/forensic_gadgeteer.rs"]
 pub mod forensic_gadgeteer;
+#[path = "mkm/forensic_researcher.rs"]
+pub mod forensic_researcher;
 #[path = "mkm/forum_familiar.rs"]
 pub mod forum_familiar;
+#[path = "clu/frenzied_gorespawn.rs"]
+pub mod frenzied_gorespawn;
 #[path = "mkm/fuss.rs"]
 pub mod fuss;
 #[path = "pip/gary_clone.rs"]
@@ -195,6 +219,8 @@ pub mod gleaming_geardrake;
 pub mod gravestone_strider;
 #[path = "mkm/greenbelt_radical.rs"]
 pub mod greenbelt_radical;
+#[path = "mkm/griffnaut_tracker.rs"]
+pub mod griffnaut_tracker;
 #[path = "pip/grim_reaper_s_sprint.rs"]
 pub mod grim_reaper_s_sprint;
 #[path = "pip/gunner_conscript.rs"]
@@ -207,6 +233,8 @@ pub mod hall;
 pub mod hard_hitting_question;
 #[path = "mkm/hedge_maze.rs"]
 pub mod hedge_maze;
+#[path = "mkm/hedge_whisperer.rs"]
+pub mod hedge_whisperer;
 #[path = "pip/helios_one.rs"]
 pub mod helios_one;
 #[path = "mkm/homicide_investigator.rs"]
@@ -279,6 +307,8 @@ pub mod massacre_girl_known_killer;
 pub mod meddling_youths;
 #[path = "pip/megaton_s_fate.rs"]
 pub mod megaton_s_fate;
+#[path = "mkc/merchant_of_truth.rs"]
+pub mod merchant_of_truth;
 #[path = "mkm/meticulous_archive.rs"]
 pub mod meticulous_archive;
 #[path = "pip/mister_gutsy.rs"]
@@ -329,6 +359,8 @@ pub mod pip_boy_3000;
 pub mod piper_wright_publick_reporter;
 #[path = "pip/powder_ganger.rs"]
 pub mod powder_ganger;
+#[path = "pip/pre_war_formalwear.rs"]
+pub mod pre_war_formalwear;
 #[path = "mkm/presumed_dead.rs"]
 pub mod presumed_dead;
 #[path = "mkm/private_eye.rs"]
@@ -349,6 +381,8 @@ pub mod red_death_shipwrecker;
 pub mod red_herring;
 #[path = "mkc/redemption_arc.rs"]
 pub mod redemption_arc;
+#[path = "mkm/reenact_the_crime.rs"]
+pub mod reenact_the_crime;
 #[path = "mkm/repeat_offender.rs"]
 pub mod repeat_offender;
 #[path = "clu/resonance_technician.rs"]
@@ -393,6 +427,8 @@ pub mod snarling_gorehound;
 pub mod sophia_dogged_detective;
 #[path = "mkm/soul_enervation.rs"]
 pub mod soul_enervation;
+#[path = "mkm/soul_search.rs"]
+pub mod soul_search;
 #[path = "pip/strength_bobblehead.rs"]
 pub mod strength_bobblehead;
 #[path = "clu/study.rs"]
@@ -443,6 +479,8 @@ pub mod underground_mortuary;
 pub mod undergrowth_recon;
 #[path = "clu/unruly_krasis.rs"]
 pub mod unruly_krasis;
+#[path = "mkm/unscrupulous_agent.rs"]
+pub mod unscrupulous_agent;
 #[path = "mkc/unshakable_tail.rs"]
 pub mod unshakable_tail;
 #[path = "pip/vault_11_voter_s_dilemma.rs"]
@@ -459,6 +497,8 @@ pub mod vengeful_tracker;
 pub mod vernal_sovereign;
 #[path = "pip/viridescent_bog.rs"]
 pub mod viridescent_bog;
+#[path = "mkm/vitu_ghazi_inspector.rs"]
+pub mod vitu_ghazi_inspector;
 #[path = "mkm/voja_jaws_of_the_conclave.rs"]
 pub mod voja_jaws_of_the_conclave;
 #[path = "mkm/warleader_s_call.rs"]

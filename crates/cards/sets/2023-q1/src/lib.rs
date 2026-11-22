@@ -85,10 +85,14 @@ pub mod cinderslash_ravager;
 pub mod clever_concealment;
 #[path = "one/conduit_of_worlds.rs"]
 pub mod conduit_of_worlds;
+#[path = "one/contagious_vorrac.rs"]
+pub mod contagious_vorrac;
 #[path = "one/copper_longlegs.rs"]
 pub mod copper_longlegs;
 #[path = "one/crawling_chorus.rs"]
 pub mod crawling_chorus;
+#[path = "one/cruel_grimnarch.rs"]
+pub mod cruel_grimnarch;
 #[path = "one/cutthroat_centurion.rs"]
 pub mod cutthroat_centurion;
 #[path = "one/distorted_curiosity.rs"]
@@ -103,6 +107,8 @@ pub mod drown_in_ichor;
 pub mod duelist_of_deep_faith;
 #[path = "one/elesh_norn_mother_of_machines.rs"]
 pub mod elesh_norn_mother_of_machines;
+#[path = "one/encroaching_mycosynth.rs"]
+pub mod encroaching_mycosynth;
 #[path = "one/escaped_experiment.rs"]
 pub mod escaped_experiment;
 #[path = "one/evolved_spinoderm.rs"]

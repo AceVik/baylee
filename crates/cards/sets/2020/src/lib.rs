@@ -63,6 +63,8 @@ pub mod anointed_chorister;
 pub mod anointer_of_valor;
 #[path = "znc/anowon_the_ruin_thief.rs"]
 pub mod anowon_the_ruin_thief;
+#[path = "znr/anticognition.rs"]
+pub mod anticognition;
 #[path = "cmr/apex_devastator.rs"]
 pub mod apex_devastator;
 #[path = "pthb/aphemia_the_cacophony.rs"]
@@ -91,6 +93,8 @@ pub mod aspect_of_lamprey;
 pub mod aspect_of_manticore;
 #[path = "m21/aven_gagglemaster.rs"]
 pub mod aven_gagglemaster;
+#[path = "c20/avenging_huntbonder.rs"]
+pub mod avenging_huntbonder;
 #[path = "iko/avian_oddity.rs"]
 pub mod avian_oddity;
 #[path = "m21/bad_deal.rs"]
@@ -227,6 +231,8 @@ pub mod cinderclasm;
 pub mod cleansing_wildfire;
 #[path = "pznr/clearwater_pathway.rs"]
 pub mod clearwater_pathway;
+#[path = "znr/cleric_of_chill_depths.rs"]
+pub mod cleric_of_chill_depths;
 #[path = "znr/cliffhaven_kitesail.rs"]
 pub mod cliffhaven_kitesail;
 #[path = "znr/cliffhaven_sell_sword.rs"]
@@ -251,6 +257,10 @@ pub mod conclave_mentor;
 pub mod coordinated_charge;
 #[path = "jmp/corsair_captain.rs"]
 pub mod corsair_captain;
+#[path = "cmr/court_of_bounty.rs"]
+pub mod court_of_bounty;
+#[path = "cmr/court_of_grace.rs"]
+pub mod court_of_grace;
 #[path = "cmr/court_of_ire.rs"]
 pub mod court_of_ire;
 #[path = "pznr/cragcrown_pathway.rs"]
@@ -357,6 +367,8 @@ pub mod elspeth_sun_s_nemesis;
 pub mod elvish_doomsayer;
 #[path = "cmr/elvish_dreadlord.rs"]
 pub mod elvish_dreadlord;
+#[path = "cmr/emberwilde_captain.rs"]
+pub mod emberwilde_captain;
 #[path = "pznr/emeria_s_call.rs"]
 pub mod emeria_s_call;
 #[path = "jmp/emiel_the_blessed.rs"]
@@ -449,12 +461,18 @@ pub mod forceful_denial;
 pub mod forgotten_sentinel;
 #[path = "m21/frantic_inventory.rs"]
 pub mod frantic_inventory;
+#[path = "iko/frillscare_mentor.rs"]
+pub mod frillscare_mentor;
 #[path = "iko/frondland_felidar.rs"]
 pub mod frondland_felidar;
+#[path = "c20/frontier_warmonger.rs"]
+pub mod frontier_warmonger;
 #[path = "iko/frostveil_ambush.rs"]
 pub mod frostveil_ambush;
 #[path = "thb/fruit_of_tizerus.rs"]
 pub mod fruit_of_tizerus;
+#[path = "iko/fully_grown.rs"]
+pub mod fully_grown;
 #[path = "thb/funeral_rites.rs"]
 pub mod funeral_rites;
 #[path = "m21/fungal_rebirth.rs"]
@@ -481,6 +499,8 @@ pub mod geode_rager;
 pub mod ghastly_gloomhunter;
 #[path = "cmr/ghen_arcanum_weaver.rs"]
 pub mod ghen_arcanum_weaver;
+#[path = "m21/ghostly_pilferer.rs"]
+pub mod ghostly_pilferer;
 #[path = "znr/glacial_grasp.rs"]
 pub mod glacial_grasp;
 #[path = "pznr/glasspool_mimic.rs"]
@@ -529,6 +549,8 @@ pub mod hamza_guardian_of_arashin;
 pub mod havoc_jester;
 #[path = "m21/heartfire_immolator.rs"]
 pub mod heartfire_immolator;
+#[path = "iko/heightened_reflexes.rs"]
+pub mod heightened_reflexes;
 #[path = "pthb/heliod_s_intervention.rs"]
 pub mod heliod_s_intervention;
 #[path = "m21/hellkite_punisher.rs"]
@@ -553,6 +575,8 @@ pub mod hobblefiend;
 pub mod honey_mammoth;
 #[path = "m21/hooded_blightfang.rs"]
 pub mod hooded_blightfang;
+#[path = "iko/hornbash_mentor.rs"]
+pub mod hornbash_mentor;
 #[path = "cmr/hullbreacher.rs"]
 pub mod hullbreacher;
 #[path = "iko/humble_naturalist.rs"]
@@ -575,6 +599,8 @@ pub mod impending_doom;
 pub mod imposing_vantasaur;
 #[path = "cmr/impulsive_pilferer.rs"]
 pub mod impulsive_pilferer;
+#[path = "thb/incendiary_oracle.rs"]
+pub mod incendiary_oracle;
 #[path = "iko/indatha_crystal.rs"]
 pub mod indatha_crystal;
 #[path = "iko/indatha_triome.rs"]
@@ -597,6 +623,8 @@ pub mod iroas_s_blessing;
 pub mod irreverent_revelers;
 #[path = "cmr/jeska_s_will.rs"]
 pub mod jeska_s_will;
+#[path = "cmr/jeweled_lotus.rs"]
+pub mod jeweled_lotus;
 #[path = "m21/jolrael_mwonvuli_recluse.rs"]
 pub mod jolrael_mwonvuli_recluse;
 #[path = "znr/joraga_visionary.rs"]
@@ -631,6 +659,8 @@ pub mod kazandu_nectarpot;
 pub mod kazuul_s_fury;
 #[path = "m21/keen_glidemaster.rs"]
 pub mod keen_glidemaster;
+#[path = "iko/keensight_mentor.rs"]
+pub mod keensight_mentor;
 #[path = "cmr/keeper_of_the_accord.rs"]
 pub mod keeper_of_the_accord;
 #[path = "cmr/keleth_sunmane_familiar.rs"]
@@ -661,6 +691,8 @@ pub mod kor_celebrant;
 pub mod labyrinth_of_skophos;
 #[path = "iko/labyrinth_raptor.rs"]
 pub mod labyrinth_raptor;
+#[path = "thb/lagonna_band_storyteller.rs"]
+pub mod lagonna_band_storyteller;
 #[path = "thb/lampad_of_death_s_vigil.rs"]
 pub mod lampad_of_death_s_vigil;
 #[path = "iko/lava_serpent.rs"]
@@ -711,6 +743,8 @@ pub mod luminous_broodmoth;
 pub mod lurking_deadeye;
 #[path = "cmr/maelstrom_colossus.rs"]
 pub mod maelstrom_colossus;
+#[path = "pznr/magmatic_channeler.rs"]
+pub mod magmatic_channeler;
 #[path = "cmr/magus_of_the_order.rs"]
 pub mod magus_of_the_order;
 #[path = "iko/majestic_auricorn.rs"]
@@ -787,6 +821,8 @@ pub mod mosscoat_goriak;
 pub mod murasa_brute;
 #[path = "znr/murasa_rootgrazer.rs"]
 pub mod murasa_rootgrazer;
+#[path = "iko/mutual_destruction.rs"]
+pub mod mutual_destruction;
 #[path = "jmp/muxus_goblin_grandee.rs"]
 pub mod muxus_goblin_grandee;
 #[path = "thb/mystic_repeal.rs"]
@@ -821,6 +857,8 @@ pub mod nessian_hornbeetle;
 pub mod nessian_wanderer;
 #[path = "c20/nesting_grounds.rs"]
 pub mod nesting_grounds;
+#[path = "c20/netherborn_altar.rs"]
+pub mod netherborn_altar;
 #[path = "iko/neutralize.rs"]
 pub mod neutralize;
 #[path = "thb/nexus_wardens.rs"]
@@ -891,6 +929,8 @@ pub mod ondu_inversion;
 pub mod one_with_the_stars;
 #[path = "cmr/opposition_agent.rs"]
 pub mod opposition_agent;
+#[path = "pznr/orah_skyclave_hierophant.rs"]
+pub mod orah_skyclave_hierophant;
 #[path = "pznr/oran_rief_ooze.rs"]
 pub mod oran_rief_ooze;
 #[path = "thb/oread_of_mountain_s_blaze.rs"]
@@ -905,6 +945,8 @@ pub mod pack_leader;
 pub mod paired_tactician;
 #[path = "c20/parasitic_impetus.rs"]
 pub mod parasitic_impetus;
+#[path = "iko/parcelbeast.rs"]
+pub mod parcelbeast;
 #[path = "iko/patagia_tiger.rs"]
 pub mod patagia_tiger;
 #[path = "m21/peer_into_the_abyss.rs"]
@@ -915,6 +957,8 @@ pub mod pelakka_predation;
 pub mod perimeter_sergeant;
 #[path = "thb/pharika_s_libation.rs"]
 pub mod pharika_s_libation;
+#[path = "thb/pharika_s_spawn.rs"]
+pub mod pharika_s_spawn;
 #[path = "iko/phase_dolphin.rs"]
 pub mod phase_dolphin;
 #[path = "thb/pheres_band_brawler.rs"]
@@ -991,6 +1035,8 @@ pub mod relic_robber;
 pub mod relic_vial;
 #[path = "iko/reptilian_reflection.rs"]
 pub mod reptilian_reflection;
+#[path = "cmr/reshape_the_earth.rs"]
+pub mod reshape_the_earth;
 #[path = "cmr/reyav_master_smith.rs"]
 pub mod reyav_master_smith;
 #[path = "m21/rin_and_seri_inseparable.rs"]
@@ -1039,6 +1085,8 @@ pub mod sakashima_of_a_thousand_faces;
 pub mod sakashima_s_protege;
 #[path = "iko/sanctuary_lockdown.rs"]
 pub mod sanctuary_lockdown;
+#[path = "iko/sanctuary_smasher.rs"]
+pub mod sanctuary_smasher;
 #[path = "m21/sanctum_of_calm_waters.rs"]
 pub mod sanctum_of_calm_waters;
 #[path = "m21/sanctum_of_fruitful_harvest.rs"]
@@ -1087,6 +1135,8 @@ pub mod sea_god_s_scorn;
 pub mod seasoned_hallowblade;
 #[path = "m21/secure_the_scene.rs"]
 pub mod secure_the_scene;
+#[path = "m21/see_the_truth.rs"]
+pub mod see_the_truth;
 #[path = "znr/sejiri_shelter.rs"]
 pub mod sejiri_shelter;
 #[path = "m21/selfless_savior.rs"]
@@ -1173,6 +1223,8 @@ pub mod slaughter_priest_of_mogis;
 pub mod sleep_of_the_dead;
 #[path = "iko/sleeper_dart.rs"]
 pub mod sleeper_dart;
+#[path = "iko/slitherwisp.rs"]
+pub mod slitherwisp;
 #[path = "cmr/slurrk_all_ingesting.rs"]
 pub mod slurrk_all_ingesting;
 #[path = "iko/snapdax_apex_of_the_hunt.rs"]
@@ -1251,6 +1303,8 @@ pub mod stern_dismissal;
 pub mod stinging_lionfish;
 #[path = "jmp/stone_haven_pilgrim.rs"]
 pub mod stone_haven_pilgrim;
+#[path = "znr/stonework_packbeast.rs"]
+pub mod stonework_packbeast;
 #[path = "m21/storm_caller.rs"]
 pub mod storm_caller;
 #[path = "pthb/storm_s_wrath.rs"]
@@ -1261,6 +1315,8 @@ pub mod stormwing_entity;
 pub mod subira_tulzidi_caravanner;
 #[path = "m21/sublime_epiphany.rs"]
 pub mod sublime_epiphany;
+#[path = "iko/sudden_spinnerets.rs"]
+pub mod sudden_spinnerets;
 #[path = "iko/suffocating_fumes.rs"]
 pub mod suffocating_fumes;
 #[path = "thb/sunlit_hoplite.rs"]
@@ -1285,6 +1341,8 @@ pub mod swift_response;
 pub mod swimmer_in_nightmares;
 #[path = "znr/tajuru_blightblade.rs"]
 pub mod tajuru_blightblade;
+#[path = "pznr/tajuru_paragon.rs"]
+pub mod tajuru_paragon;
 #[path = "znr/tajuru_snarecaster.rs"]
 pub mod tajuru_snarecaster;
 #[path = "znr/tangled_florahedron.rs"]
@@ -1357,6 +1415,8 @@ pub mod tide_skimmer;
 pub mod tin_street_cadet;
 #[path = "c20/titan_hunter.rs"]
 pub mod titan_hunter;
+#[path = "iko/titanoth_rex.rs"]
+pub mod titanoth_rex;
 #[path = "cmr/toggo_goblin_weaponsmith.rs"]
 pub mod toggo_goblin_weaponsmith;
 #[path = "m21/tolarian_kraken.rs"]
@@ -1385,6 +1445,8 @@ pub mod triumphant_reckoning;
 pub mod triumphant_surge;
 #[path = "cmr/trove_tracker.rs"]
 pub mod trove_tracker;
+#[path = "znc/trove_warden.rs"]
+pub mod trove_warden;
 #[path = "m21/trufflesnout.rs"]
 pub mod trufflesnout;
 #[path = "iko/trumpeting_gnarr.rs"]
@@ -1421,8 +1483,12 @@ pub mod underworld_breach;
 pub mod underworld_charger;
 #[path = "thb/underworld_rage_hound.rs"]
 pub mod underworld_rage_hound;
+#[path = "thb/underworld_sentinel.rs"]
+pub mod underworld_sentinel;
 #[path = "iko/unexpected_fangs.rs"]
 pub mod unexpected_fangs;
+#[path = "m21/unleash_fury.rs"]
+pub mod unleash_fury;
 #[path = "pthb/uro_titan_of_nature_s_wrath.rs"]
 pub mod uro_titan_of_nature_s_wrath;
 #[path = "znr/utility_knife.rs"]
@@ -1479,6 +1545,8 @@ pub mod whisper_squad;
 pub mod wildwood_patrol;
 #[path = "m21/wildwood_scourge.rs"]
 pub mod wildwood_scourge;
+#[path = "iko/will_of_the_all_hunter.rs"]
+pub mod will_of_the_all_hunter;
 #[path = "iko/wilt.rs"]
 pub mod wilt;
 #[path = "znr/windrider_wizard.rs"]

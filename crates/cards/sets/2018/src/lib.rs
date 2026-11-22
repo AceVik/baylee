@@ -69,6 +69,8 @@ pub mod angelic_reward;
 pub mod angler_turtle;
 #[path = "rix/angrath_s_ambusher.rs"]
 pub mod angrath_s_ambusher;
+#[path = "prix/angrath_the_flame_chained.rs"]
+pub mod angrath_the_flame_chained;
 #[path = "rix/aquatic_incursion.rs"]
 pub mod aquatic_incursion;
 #[path = "dom/arbor_armament.rs"]
@@ -129,6 +131,8 @@ pub mod barging_sergeant;
 pub mod barrier_of_bones;
 #[path = "grn/bartizan_bats.rs"]
 pub mod bartizan_bats;
+#[path = "grn/beacon_bolt.rs"]
+pub mod beacon_bolt;
 #[path = "grn/beast_whisperer.rs"]
 pub mod beast_whisperer;
 #[path = "dom/befuddle.rs"]
@@ -191,6 +195,8 @@ pub mod breath_of_fire;
 pub mod brightling;
 #[path = "m19/bristling_boar.rs"]
 pub mod bristling_boar;
+#[path = "dom/broken_bond.rs"]
+pub mod broken_bond;
 #[path = "rix/buccaneer_s_bravado.rs"]
 pub mod buccaneer_s_bravado;
 #[path = "grn/burglar_rat.rs"]
@@ -285,6 +291,8 @@ pub mod cosmotronic_wave;
 pub mod court_cleric;
 #[path = "c18/crash_of_rhino_beetles.rs"]
 pub mod crash_of_rhino_beetles;
+#[path = "rix/crashing_tide.rs"]
+pub mod crashing_tide;
 #[path = "rix/crested_herdcaller.rs"]
 pub mod crested_herdcaller;
 #[path = "grn/crush_contraband.rs"]
@@ -313,6 +321,8 @@ pub mod daybreak_chaplain;
 pub mod dazzling_lights;
 #[path = "prix/dead_man_s_chest.rs"]
 pub mod dead_man_s_chest;
+#[path = "rix/deadeye_brawler.rs"]
+pub mod deadeye_brawler;
 #[path = "rix/deadeye_rig_hauler.rs"]
 pub mod deadeye_rig_hauler;
 #[path = "grn/deadly_visit.rs"]
@@ -737,6 +747,8 @@ pub mod krosan_druid;
 pub mod kumena_s_awakening;
 #[path = "prix/kumena_tyrant_of_orazca.rs"]
 pub mod kumena_tyrant_of_orazca;
+#[path = "dom/kwende_pride_of_femeref.rs"]
+pub mod kwende_pride_of_femeref;
 #[path = "pm19/lathliss_dragon_queen.rs"]
 pub mod lathliss_dragon_queen;
 #[path = "grn/lava_coil.rs"]
@@ -753,6 +765,8 @@ pub mod ledev_guardian;
 pub mod legion_guildmage;
 #[path = "rix/legion_lieutenant.rs"]
 pub mod legion_lieutenant;
+#[path = "m19/lena_selfless_champion.rs"]
+pub mod lena_selfless_champion;
 #[path = "m19/leonin_vanguard.rs"]
 pub mod leonin_vanguard;
 #[path = "m19/leonin_warleader.rs"]
@@ -813,6 +827,8 @@ pub mod march_of_the_multitudes;
 pub mod martyr_of_dusk;
 #[path = "dom/marwyn_the_nurturer.rs"]
 pub mod marwyn_the_nurturer;
+#[path = "rix/mausoleum_harpy.rs"]
+pub mod mausoleum_harpy;
 #[path = "grn/maximize_altitude.rs"]
 pub mod maximize_altitude;
 #[path = "grn/maximize_velocity.rs"]
@@ -899,6 +915,8 @@ pub mod niv_mizzet_parun;
 pub mod notion_rain;
 #[path = "m19/novice_knight.rs"]
 pub mod novice_knight;
+#[path = "c18/nylea_s_colossus.rs"]
+pub mod nylea_s_colossus;
 #[path = "rix/oathsworn_vampire.rs"]
 pub mod oathsworn_vampire;
 #[path = "grn/ochran_assassin.rs"]
@@ -951,6 +969,8 @@ pub mod pierce_the_sky;
 pub mod pilfering_imp;
 #[path = "rix/pirate_s_pillage.rs"]
 pub mod pirate_s_pillage;
+#[path = "grn/piston_fist_cyclops.rs"]
+pub mod piston_fist_cyclops;
 #[path = "grn/pitiless_gorgon.rs"]
 pub mod pitiless_gorgon;
 #[path = "rix/pitiless_plunderer.rs"]
@@ -1021,6 +1041,8 @@ pub mod rekindling_phoenix;
 pub mod remorseful_cleric;
 #[path = "m19/resplendent_angel.rs"]
 pub mod resplendent_angel;
+#[path = "rix/resplendent_griffin.rs"]
+pub mod resplendent_griffin;
 #[path = "grn/response.rs"]
 pub mod response;
 #[path = "c18/retrofitter_foundry.rs"]
@@ -1131,6 +1153,8 @@ pub mod shorecomber_crab;
 pub mod short_sword;
 #[path = "oana/shrine_keeper.rs"]
 pub mod shrine_keeper;
+#[path = "m19/siegebreaker_giant.rs"]
+pub mod siegebreaker_giant;
 #[path = "prix/siegehorn_ceratops.rs"]
 pub mod siegehorn_ceratops;
 #[path = "grn/silent_dart.rs"]
@@ -1307,6 +1331,8 @@ pub mod the_antiquities_war;
 pub mod the_eldest_reborn;
 #[path = "dom/the_first_eruption.rs"]
 pub mod the_first_eruption;
+#[path = "dom/the_flame_of_keld.rs"]
+pub mod the_flame_of_keld;
 #[path = "dom/the_mending_of_dominaria.rs"]
 pub mod the_mending_of_dominaria;
 #[path = "dom/the_mirari_conjecture.rs"]
@@ -1349,6 +1375,8 @@ pub mod truefire_captain;
 pub mod trusty_packbeast;
 #[path = "c18/turntimber_sower.rs"]
 pub mod turntimber_sower;
+#[path = "prix/twilight_prophet.rs"]
+pub mod twilight_prophet;
 #[path = "m19/two_headed_zombie.rs"]
 pub mod two_headed_zombie;
 #[path = "m19/uncomfortable_chill.rs"]

@@ -29,6 +29,8 @@ pub mod akroma_angel_of_fury;
 pub mod akroma_s_memorial;
 #[path = "lrw/ancient_amphitheater.rs"]
 pub mod ancient_amphitheater;
+#[path = "fut/arc_blade.rs"]
+pub mod arc_blade;
 #[path = "fut/augur_il_vec.rs"]
 pub mod augur_il_vec;
 #[path = "fut/augur_of_skulls.rs"]
@@ -105,6 +107,8 @@ pub mod bonded_fetch;
 pub mod boom;
 #[path = "fut/bound_in_silence.rs"]
 pub mod bound_in_silence;
+#[path = "plc/braids_conjurer_adept.rs"]
+pub mod braids_conjurer_adept;
 #[path = "lrw/briarhorn.rs"]
 pub mod briarhorn;
 #[path = "lrw/brion_stoutarm.rs"]
@@ -135,6 +139,8 @@ pub mod changeling_hero;
 pub mod changeling_titan;
 #[path = "fut/char_rumbler.rs"]
 pub mod char_rumbler;
+#[path = "fut/chronomantic_escape.rs"]
+pub mod chronomantic_escape;
 #[path = "plc/chronozoa.rs"]
 pub mod chronozoa;
 #[path = "plc/circle_of_affliction.rs"]
@@ -165,6 +171,8 @@ pub mod cryptic_annelid;
 pub mod cryptic_command;
 #[path = "fut/cutthroat_il_dal.rs"]
 pub mod cutthroat_il_dal;
+#[path = "fut/cyclical_evolution.rs"]
+pub mod cyclical_evolution;
 #[path = "fut/dakmor_salvage.rs"]
 pub mod dakmor_salvage;
 #[path = "plc/damnation.rs"]
@@ -251,6 +259,8 @@ pub mod fatal_attraction;
 pub mod fathom_trawl;
 #[path = "lrw/faultgrinder.rs"]
 pub mod faultgrinder;
+#[path = "fut/festering_march.rs"]
+pub mod festering_march;
 #[path = "lrw/final_revels.rs"]
 pub mod final_revels;
 #[path = "lrw/fire_belly_changeling.rs"]
@@ -283,12 +293,16 @@ pub mod frenzy_sliver;
 pub mod frozen_aether;
 #[path = "plc/gaea_s_anthem.rs"]
 pub mod gaea_s_anthem;
+#[path = "lrw/galepowder_mage.rs"]
+pub mod galepowder_mage;
 #[path = "lrw/garruk_wildspeaker.rs"]
 pub mod garruk_wildspeaker;
 #[path = "fut/gathan_raiders.rs"]
 pub mod gathan_raiders;
 #[path = "plc/ghost_tactician.rs"]
 pub mod ghost_tactician;
+#[path = "fut/ghostfire.rs"]
+pub mod ghostfire;
 #[path = "lrw/ghostly_changeling.rs"]
 pub mod ghostly_changeling;
 #[path = "plc/giant_dustwasp.rs"]
@@ -319,6 +333,8 @@ pub mod goldmeadow_harrier;
 pub mod goldmeadow_lookout;
 #[path = "plc/gossamer_phantasm.rs"]
 pub mod gossamer_phantasm;
+#[path = "fut/grave_peril.rs"]
+pub mod grave_peril;
 #[path = "fut/graven_cairns.rs"]
 pub mod graven_cairns;
 #[path = "plc/groundbreaker.rs"]
@@ -511,6 +527,8 @@ pub mod mirri_the_cursed;
 pub mod mirror_entity;
 #[path = "fut/mistmeadow_skulk.rs"]
 pub mod mistmeadow_skulk;
+#[path = "fut/molten_disaster.rs"]
+pub mod molten_disaster;
 #[path = "lrw/moonglove_extract.rs"]
 pub mod moonglove_extract;
 #[path = "lrw/moonglove_winnower.rs"]
@@ -619,6 +637,8 @@ pub mod ramosian_revivalist;
 pub mod rathi_trapper;
 #[path = "fut/ravaging_riftwurm.rs"]
 pub mod ravaging_riftwurm;
+#[path = "fut/reality_strobe.rs"]
+pub mod reality_strobe;
 #[path = "plc/reckless_wurm.rs"]
 pub mod reckless_wurm;
 #[path = "plc/reflex_sliver.rs"]
@@ -699,6 +719,8 @@ pub mod sliver_legion;
 pub mod sliversmith;
 #[path = "lrw/smokebraider.rs"]
 pub mod smokebraider;
+#[path = "fut/snake_cult_initiation.rs"]
+pub mod snake_cult_initiation;
 #[path = "lrw/soaring_hope.rs"]
 pub mod soaring_hope;
 #[path = "plc/sophic_centaur.rs"]
@@ -819,6 +841,8 @@ pub mod vedalken_aethermage;
 pub mod venser_shaper_savant;
 #[path = "lrw/veteran_of_the_depths.rs"]
 pub mod veteran_of_the_depths;
+#[path = "fut/virulent_sliver.rs"]
+pub mod virulent_sliver;
 #[path = "plc/vitaspore_thallid.rs"]
 pub mod vitaspore_thallid;
 #[path = "lrw/vivid_crag.rs"]

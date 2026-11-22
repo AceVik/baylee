@@ -129,6 +129,8 @@ pub mod call_to_glory;
 pub mod channel_the_suns;
 #[path = "dst/chimeric_egg.rs"]
 pub mod chimeric_egg;
+#[path = "dst/chittering_rats.rs"]
+pub mod chittering_rats;
 #[path = "dst/chromescale_drake.rs"]
 pub mod chromescale_drake;
 #[path = "chk/cleanfall.rs"]
@@ -255,6 +257,8 @@ pub mod fist_of_suns;
 pub mod fleshgrafter;
 #[path = "chk/forbidden_orchard.rs"]
 pub mod forbidden_orchard;
+#[path = "chk/frostwielder.rs"]
+pub mod frostwielder;
 #[path = "dst/furnace_dragon.rs"]
 pub mod furnace_dragon;
 #[path = "5dn/furnace_whelp.rs"]
@@ -263,6 +267,8 @@ pub mod furnace_whelp;
 pub mod gale_force;
 #[path = "5dn/gemstone_array.rs"]
 pub mod gemstone_array;
+#[path = "chk/general_s_kabuto.rs"]
+pub mod general_s_kabuto;
 #[path = "dst/genesis_chamber.rs"]
 pub mod genesis_chamber;
 #[path = "dst/geth_s_grimoire.rs"]
@@ -349,6 +355,8 @@ pub mod hundred_talon_kami;
 pub mod hunger_of_the_nim;
 #[path = "chk/imi_statue.rs"]
 pub mod imi_statue;
+#[path = "chk/iname_death_aspect.rs"]
+pub mod iname_death_aspect;
 #[path = "chk/indomitable_will.rs"]
 pub mod indomitable_will;
 #[path = "dst/infested_roothold.rs"]
@@ -395,6 +403,10 @@ pub mod kami_of_the_waning_moon;
 pub mod kami_of_twisted_reflection;
 #[path = "dst/karstoderm.rs"]
 pub mod karstoderm;
+#[path = "chk/kashi_tribe_reaver.rs"]
+pub mod kashi_tribe_reaver;
+#[path = "chk/kashi_tribe_warriors.rs"]
+pub mod kashi_tribe_warriors;
 #[path = "chk/keiga_the_tide_star.rs"]
 pub mod keiga_the_tide_star;
 #[path = "chk/kiki_jiki_mirror_breaker.rs"]
@@ -433,6 +445,10 @@ pub mod krark_clan_ironworks;
 pub mod krark_clan_ogre;
 #[path = "dst/krark_clan_stoker.rs"]
 pub mod krark_clan_stoker;
+#[path = "chk/kumano_master_yamabushi.rs"]
+pub mod kumano_master_yamabushi;
+#[path = "chk/kumano_s_pupils.rs"]
+pub mod kumano_s_pupils;
 #[path = "chk/kuro_pitlord.rs"]
 pub mod kuro_pitlord;
 #[path = "chk/lantern_kami.rs"]
@@ -475,6 +491,8 @@ pub mod magnetic_flux;
 pub mod mana_geyser;
 #[path = "chk/marrow_gnawer.rs"]
 pub mod marrow_gnawer;
+#[path = "chk/matsu_tribe_decoy.rs"]
+pub mod matsu_tribe_decoy;
 #[path = "chk/meloku_the_clouded_mirror.rs"]
 pub mod meloku_the_clouded_mirror;
 #[path = "dst/memnarch.rs"]
@@ -553,6 +571,8 @@ pub mod ore_gorger;
 pub mod orochi_hatchery;
 #[path = "chk/orochi_leafcaller.rs"]
 pub mod orochi_leafcaller;
+#[path = "chk/orochi_ranger.rs"]
+pub mod orochi_ranger;
 #[path = "chk/orochi_sustainer.rs"]
 pub mod orochi_sustainer;
 #[path = "dst/oxidda_golem.rs"]
@@ -579,6 +599,8 @@ pub mod pinecrest_ridge;
 pub mod plasma_elemental;
 #[path = "5dn/possessed_portal.rs"]
 pub mod possessed_portal;
+#[path = "dst/pristine_angel.rs"]
+pub mod pristine_angel;
 #[path = "dst/psychic_overload.rs"]
 pub mod psychic_overload;
 #[path = "chk/psychic_puppetry.rs"]
@@ -649,6 +671,8 @@ pub mod sakura_tribe_elder;
 pub mod salvaging_station;
 #[path = "chk/samurai_enforcers.rs"]
 pub mod samurai_enforcers;
+#[path = "chk/samurai_of_the_pale_curtain.rs"]
+pub mod samurai_of_the_pale_curtain;
 #[path = "5dn/sawtooth_thresher.rs"]
 pub mod sawtooth_thresher;
 #[path = "dst/scavenging_scarab.rs"]
@@ -673,6 +697,8 @@ pub mod seshiro_the_anointed;
 pub mod shattered_dreams;
 #[path = "pdst/shield_of_kaldra.rs"]
 pub mod shield_of_kaldra;
+#[path = "chk/shimatsu_the_bloodcloaked.rs"]
+pub mod shimatsu_the_bloodcloaked;
 #[path = "chk/shinka_the_bloodsoaked_keep.rs"]
 pub mod shinka_the_bloodsoaked_keep;
 #[path = "chk/shizo_death_s_storehouse.rs"]
@@ -817,6 +843,8 @@ pub mod trinket_mage;
 pub mod tyrranax;
 #[path = "chk/uncontrollable_anger.rs"]
 pub mod uncontrollable_anger;
+#[path = "chk/unearthly_blizzard.rs"]
+pub mod unearthly_blizzard;
 #[path = "chk/unnatural_speed.rs"]
 pub mod unnatural_speed;
 #[path = "chk/untaidake_the_cloud_keeper.rs"]

@@ -107,6 +107,10 @@ pub mod champion_of_the_perished;
 pub mod chaos_channeler;
 #[path = "mid/chaplain_of_alms.rs"]
 pub mod chaplain_of_alms;
+#[path = "afr/check_for_traps.rs"]
+pub mod check_for_traps;
+#[path = "afr/choose_your_weapon.rs"]
+pub mod choose_your_weapon;
 #[path = "afr/circle_of_dreams_druid.rs"]
 pub mod circle_of_dreams_druid;
 #[path = "afr/circle_of_the_moon_druid.rs"]
@@ -115,6 +119,8 @@ pub mod circle_of_the_moon_druid;
 pub mod clarion_cathars;
 #[path = "afr/clattering_skeletons.rs"]
 pub mod clattering_skeletons;
+#[path = "afr/clever_conjurer.rs"]
+pub mod clever_conjurer;
 #[path = "afr/cloister_gargoyle.rs"]
 pub mod cloister_gargoyle;
 #[path = "mid/consider.rs"]
@@ -167,6 +173,8 @@ pub mod displacer_beast;
 pub mod divine_smite;
 #[path = "afr/djinni_windseer.rs"]
 pub mod djinni_windseer;
+#[path = "afr/dragon_turtle.rs"]
+pub mod dragon_turtle;
 #[path = "afr/drider.rs"]
 pub mod drider;
 #[path = "mid/drownyard_amalgam.rs"]
@@ -251,10 +259,14 @@ pub mod gavony_silversmith;
 pub mod gavony_trapper;
 #[path = "afr/gloom_stalker.rs"]
 pub mod gloom_stalker;
+#[path = "afr/goblin_javelineer.rs"]
+pub mod goblin_javelineer;
 #[path = "afr/goblin_morningstar.rs"]
 pub mod goblin_morningstar;
 #[path = "mid/grafted_identity.rs"]
 pub mod grafted_identity;
+#[path = "mid/graveyard_trespasser.rs"]
+pub mod graveyard_trespasser;
 #[path = "afr/grazilaxx_illithid_scholar.rs"]
 pub mod grazilaxx_illithid_scholar;
 #[path = "afr/greataxe.rs"]
@@ -347,6 +359,8 @@ pub mod lambholt_harrier;
 pub mod larder_zombie;
 #[path = "afr/leather_armor.rs"]
 pub mod leather_armor;
+#[path = "mid/liesa_forgotten_archangel.rs"]
+pub mod liesa_forgotten_archangel;
 #[path = "afr/lightfoot_rogue.rs"]
 pub mod lightfoot_rogue;
 #[path = "afr/loyal_warhound.rs"]
@@ -427,6 +441,8 @@ pub mod pack_s_betrayal;
 pub mod paladin_class;
 #[path = "afr/paladin_s_shield.rs"]
 pub mod paladin_s_shield;
+#[path = "mid/path_to_the_festival.rs"]
+pub mod path_to_the_festival;
 #[path = "mid/pestilent_wolf.rs"]
 pub mod pestilent_wolf;
 #[path = "afr/pixie_guide.rs"]
@@ -535,6 +551,8 @@ pub mod spiked_pit_trap;
 pub mod steadfast_paladin;
 #[path = "mid/storm_skreelix.rs"]
 pub mod storm_skreelix;
+#[path = "mid/storm_the_festival.rs"]
+pub mod storm_the_festival;
 #[path = "mid/stromkirk_bloodthief.rs"]
 pub mod stromkirk_bloodthief;
 #[path = "mid/stuffed_bear.rs"]
@@ -611,6 +629,8 @@ pub mod willow_geist;
 pub mod winged_boots;
 #[path = "afr/wizard_class.rs"]
 pub mod wizard_class;
+#[path = "mid/wrenn_and_seven.rs"]
+pub mod wrenn_and_seven;
 #[path = "afr/xorn.rs"]
 pub mod xorn;
 #[path = "afr/you_come_to_a_river.rs"]
@@ -619,6 +639,8 @@ pub mod you_come_to_a_river;
 pub mod you_come_to_the_gnoll_camp;
 #[path = "afr/you_find_a_cursed_idol.rs"]
 pub mod you_find_a_cursed_idol;
+#[path = "afr/you_find_some_prisoners.rs"]
+pub mod you_find_some_prisoners;
 #[path = "afr/you_find_the_villains_lair.rs"]
 pub mod you_find_the_villains_lair;
 #[path = "afr/you_happen_on_a_glade.rs"]

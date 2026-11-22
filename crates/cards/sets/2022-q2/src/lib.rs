@@ -87,6 +87,8 @@ pub mod bloodboil_sorcerer;
 pub mod blur;
 #[path = "snc/body_dropper.rs"]
 pub mod body_dropper;
+#[path = "psnc/body_launderer.rs"]
+pub mod body_launderer;
 #[path = "clb/bonecaller_cleric.rs"]
 pub mod bonecaller_cleric;
 #[path = "snc/boon_of_safety.rs"]
@@ -137,6 +139,8 @@ pub mod capenna_express;
 pub mod carefree_swinemaster;
 #[path = "clb/carnelian_orb_of_dragonkind.rs"]
 pub mod carnelian_orb_of_dragonkind;
+#[path = "clb/caves_of_chaos_adventurer.rs"]
+pub mod caves_of_chaos_adventurer;
 #[path = "snc/celebrity_fencer.rs"]
 pub mod celebrity_fencer;
 #[path = "snc/celestial_regulator.rs"]
@@ -179,6 +183,8 @@ pub mod contraband_livestock;
 pub mod cormela_glamour_thief;
 #[path = "clb/coronation_of_chaos.rs"]
 pub mod coronation_of_chaos;
+#[path = "snc/corpse_appraiser.rs"]
+pub mod corpse_appraiser;
 #[path = "snc/courier_s_briefcase.rs"]
 pub mod courier_s_briefcase;
 #[path = "ncc/crash_the_party.rs"]
@@ -265,6 +271,8 @@ pub mod extraction_specialist;
 pub mod extravagant_replication;
 #[path = "snc/fake_your_own_death.rs"]
 pub mod fake_your_own_death;
+#[path = "ncc/false_floor.rs"]
+pub mod false_floor;
 #[path = "clb/fang_dragon.rs"]
 pub mod fang_dragon;
 #[path = "clb/far_traveler.rs"]
@@ -281,6 +289,8 @@ pub mod firbolg_flutist;
 pub mod flaming_fist;
 #[path = "clb/flaming_fist_officer.rs"]
 pub mod flaming_fist_officer;
+#[path = "ncc/flawless_forgery.rs"]
+pub mod flawless_forgery;
 #[path = "psnc/fleetfoot_dancer.rs"]
 pub mod fleetfoot_dancer;
 #[path = "snc/forge_boss.rs"]
@@ -375,6 +385,8 @@ pub mod irenicus_s_vile_duplication;
 pub mod jackhammer;
 #[path = "clb/jaheira_friend_of_the_forest.rs"]
 pub mod jaheira_friend_of_the_forest;
+#[path = "clb/jaheira_s_respite.rs"]
+pub mod jaheira_s_respite;
 #[path = "clb/jan_jansen_chaos_crafter.rs"]
 pub mod jan_jansen_chaos_crafter;
 #[path = "clb/javelin_of_lightning.rs"]
@@ -451,16 +463,22 @@ pub mod misfortune_teller;
 pub mod mold_folk;
 #[path = "snc/most_wanted.rs"]
 pub mod most_wanted;
+#[path = "snc/mr_orfeo_the_boulder.rs"]
+pub mod mr_orfeo_the_boulder;
 #[path = "clb/myconid_spore_tender.rs"]
 pub mod myconid_spore_tender;
 #[path = "clb/myrkul_s_invoker.rs"]
 pub mod myrkul_s_invoker;
+#[path = "clb/mystery_key.rs"]
+pub mod mystery_key;
 #[path = "clb/navigation_orb.rs"]
 pub mod navigation_orb;
 #[path = "clb/nefarious_imp.rs"]
 pub mod nefarious_imp;
 #[path = "snc/night_clubber.rs"]
 pub mod night_clubber;
+#[path = "snc/nimble_larcenist.rs"]
+pub mod nimble_larcenist;
 #[path = "clb/nimbleclaw_adept.rs"]
 pub mod nimbleclaw_adept;
 #[path = "clb/nimblewright_schematic.rs"]
@@ -553,6 +571,8 @@ pub mod revel_ruiner;
 pub mod revelation_of_power;
 #[path = "snc/rhox_pummeler.rs"]
 pub mod rhox_pummeler;
+#[path = "psnc/rigo_streetwise_mentor.rs"]
+pub mod rigo_streetwise_mentor;
 #[path = "clb/rilsa_rael_kingpin.rs"]
 pub mod rilsa_rael_kingpin;
 #[path = "snc/riveteers_initiate.rs"]
@@ -573,6 +593,8 @@ pub mod roving_harper;
 pub mod run_out_of_town;
 #[path = "clb/saddle_of_the_cavalier.rs"]
 pub mod saddle_of_the_cavalier;
+#[path = "clb/sailors_bane.rs"]
+pub mod sailors_bane;
 #[path = "clb/sapphire_dragon.rs"]
 pub mod sapphire_dragon;
 #[path = "clb/sarevok_s_tome.rs"]
@@ -635,6 +657,8 @@ pub mod storm_king_s_thunder;
 pub mod strangle;
 #[path = "clb/street_urchin.rs"]
 pub mod street_urchin;
+#[path = "gdy/surge_engine.rs"]
+pub mod surge_engine;
 #[path = "snc/swooping_protector.rs"]
 pub mod swooping_protector;
 #[path = "clb/tabaxi_toucaneers.rs"]
@@ -653,6 +677,8 @@ pub mod topiary_stomper;
 pub mod tramway_station;
 #[path = "clb/tymora_s_invoker.rs"]
 pub mod tymora_s_invoker;
+#[path = "clb/uchuulon.rs"]
+pub mod uchuulon;
 #[path = "clb/undercellar_myconid.rs"]
 pub mod undercellar_myconid;
 #[path = "clb/underdark_explorer.rs"]
@@ -661,6 +687,8 @@ pub mod underdark_explorer;
 pub mod unlicensed_hearse;
 #[path = "snc/vampire_scrivener.rs"]
 pub mod vampire_scrivener;
+#[path = "clb/venture_forth.rs"]
+pub mod venture_forth;
 #[path = "clb/viconia_drow_apostate.rs"]
 pub mod viconia_drow_apostate;
 #[path = "snc/voice_of_the_vermin.rs"]

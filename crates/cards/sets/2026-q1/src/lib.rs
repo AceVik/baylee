@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "ecl/abigale_eloquent_first_year.rs"]
+pub mod abigale_eloquent_first_year;
 #[path = "ecc/abundant_countryside.rs"]
 pub mod abundant_countryside;
 #[path = "tmt/action_news_crew.rs"]
@@ -35,6 +37,8 @@ pub mod april_reporter_of_the_weird;
 pub mod aquitect_s_defenses;
 #[path = "tmt/armaggon_future_shark.rs"]
 pub mod armaggon_future_shark;
+#[path = "ecl/ashling_rekindled.rs"]
+pub mod ashling_rekindled;
 #[path = "ecl/assert_perfection.rs"]
 pub mod assert_perfection;
 #[path = "ecl/auntie_s_sentence.rs"]
@@ -181,6 +185,8 @@ pub mod elemental_spectacle;
 pub mod encounter_the_unknown;
 #[path = "ecl/encumbered_reejerey.rs"]
 pub mod encumbered_reejerey;
+#[path = "ecl/end_blaze_epiphany.rs"]
+pub mod end_blaze_epiphany;
 #[path = "ecl/enraged_flamecaster.rs"]
 pub mod enraged_flamecaster;
 #[path = "tmt/epf_point_squad.rs"]
@@ -425,6 +431,8 @@ pub mod mutant_town_musicians;
 pub mod new_generation_s_technique;
 #[path = "ecl/nightmare_sower.rs"]
 pub mod nightmare_sower;
+#[path = "tmc/ninja_pizza.rs"]
+pub mod ninja_pizza;
 #[path = "tmt/nobody.rs"]
 pub mod nobody;
 #[path = "ecl/noggle_robber.rs"]
@@ -459,6 +467,8 @@ pub mod prehistoric_turtlesaurus;
 pub mod prideful_feastling;
 #[path = "tmt/primordial_pachyderm.rs"]
 pub mod primordial_pachyderm;
+#[path = "ecl/prismatic_undercurrents.rs"]
+pub mod prismatic_undercurrents;
 #[path = "ecl/protective_response.rs"]
 pub mod protective_response;
 #[path = "ecl/puca_s_eye.rs"]
@@ -601,6 +611,8 @@ pub mod super_combo;
 pub mod surly_farrier;
 #[path = "tmc/swift_demise.rs"]
 pub mod swift_demise;
+#[path = "ecl/sygg_wanderwine_wisdom.rs"]
+pub mod sygg_wanderwine_wisdom;
 #[path = "tmt/tainted_treats.rs"]
 pub mod tainted_treats;
 #[path = "ecl/tanufel_rimespeaker.rs"]

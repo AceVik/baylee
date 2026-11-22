@@ -393,6 +393,8 @@ pub mod despark;
 pub mod desperate_lunge;
 #[path = "m20/destructive_digger.rs"]
 pub mod destructive_digger;
+#[path = "war/devouring_hellion.rs"]
+pub mod devouring_hellion;
 #[path = "m20/devout_decree.rs"]
 pub mod devout_decree;
 #[path = "m20/diamond_knight.rs"]
@@ -465,6 +467,8 @@ pub mod embereth_shieldbreaker;
 pub mod embereth_skyblazer;
 #[path = "war/emergence_zone.rs"]
 pub mod emergence_zone;
+#[path = "prna/emergency_powers.rs"]
+pub mod emergency_powers;
 #[path = "c19/empowered_autogenerator.rs"]
 pub mod empowered_autogenerator;
 #[path = "m20/empyrean_eagle.rs"]
@@ -477,6 +481,8 @@ pub mod enchanted_carriage;
 pub mod end_raze_forerunners;
 #[path = "mh1/endling.rs"]
 pub mod endling;
+#[path = "mh1/enduring_sliver.rs"]
+pub mod enduring_sliver;
 #[path = "war/enforcer_griffin.rs"]
 pub mod enforcer_griffin;
 #[path = "m20/engulfing_eruption.rs"]
@@ -563,6 +569,8 @@ pub mod fireborn_knight;
 pub mod firemind_vessel;
 #[path = "eld/fires_of_invention.rs"]
 pub mod fires_of_invention;
+#[path = "mh1/first_sliver_s_chosen.rs"]
+pub mod first_sliver_s_chosen;
 #[path = "mh1/first_sphere_gargantua.rs"]
 pub mod first_sphere_gargantua;
 #[path = "m20/flame_sweep.rs"]
@@ -917,6 +925,8 @@ pub mod law_rune_enforcer;
 pub mod lawmage_s_binding;
 #[path = "war/lazotep_behemoth.rs"]
 pub mod lazotep_behemoth;
+#[path = "war/lazotep_plating.rs"]
+pub mod lazotep_plating;
 #[path = "war/lazotep_reaver.rs"]
 pub mod lazotep_reaver;
 #[path = "m20/leyline_of_abundance.rs"]
@@ -973,6 +983,8 @@ pub mod maraleaf_pixie;
 pub mod maraleaf_rider;
 #[path = "c19/marisi_breaker_of_the_coil.rs"]
 pub mod marisi_breaker_of_the_coil;
+#[path = "mh1/marit_lage_s_slumber.rs"]
+pub mod marit_lage_s_slumber;
 #[path = "war/martyr_for_the_cause.rs"]
 pub mod martyr_for_the_cause;
 #[path = "mh1/martyr_s_soul.rs"]
@@ -981,6 +993,8 @@ pub mod martyr_s_soul;
 pub mod mask_of_immolation;
 #[path = "c19/mass_diminish.rs"]
 pub mod mass_diminish;
+#[path = "prna/mass_manipulation.rs"]
+pub mod mass_manipulation;
 #[path = "sld/maximus_knight_apparent.rs"]
 pub mod maximus_knight_apparent;
 #[path = "war/mayhem_devil.rs"]
@@ -991,6 +1005,10 @@ pub mod merchant_of_the_vale;
 pub mod merfolk_secretkeeper;
 #[path = "war/merfolk_skydiver.rs"]
 pub mod merfolk_skydiver;
+#[path = "rna/mesmerizing_benthid.rs"]
+pub mod mesmerizing_benthid;
+#[path = "sld/miles_tails_prower.rs"]
+pub mod miles_tails_prower;
 #[path = "rna/ministrant_of_obligation.rs"]
 pub mod ministrant_of_obligation;
 #[path = "c19/mire_in_misery.rs"]
@@ -1041,6 +1059,8 @@ pub mod mystic_sanctuary;
 pub mod naga_eternal;
 #[path = "war/nahiri_s_stoneblades.rs"]
 pub mod nahiri_s_stoneblades;
+#[path = "pwar/narset_parter_of_veils.rs"]
+pub mod narset_parter_of_veils;
 #[path = "pwar/narset_s_reversal.rs"]
 pub mod narset_s_reversal;
 #[path = "mh1/nature_s_chant.rs"]
@@ -1179,6 +1199,8 @@ pub mod pyroclastic_elemental;
 pub mod pyrophobia;
 #[path = "mh1/quakefoot_cyclops.rs"]
 pub mod quakefoot_cyclops;
+#[path = "eld/queen_of_ice.rs"]
+pub mod queen_of_ice;
 #[path = "rna/quench.rs"]
 pub mod quench;
 #[path = "eld/questing_beast.rs"]
@@ -1257,6 +1279,8 @@ pub mod rimrock_knight;
 pub mod risen_reef;
 #[path = "war/rising_populace.rs"]
 pub mod rising_populace;
+#[path = "c19/road_of_return.rs"]
+pub mod road_of_return;
 #[path = "pwar/roalesk_apex_hybrid.rs"]
 pub mod roalesk_apex_hybrid;
 #[path = "eld/rosethorn_acolyte.rs"]
@@ -1539,6 +1563,8 @@ pub mod syr_carah_the_bold;
 pub mod syr_elenora_the_discerning;
 #[path = "eld/syr_faren_the_hengehammer.rs"]
 pub mod syr_faren_the_hengehammer;
+#[path = "eld/syr_gwyn_hero_of_ashvale.rs"]
+pub mod syr_gwyn_hero_of_ashvale;
 #[path = "mh1/talisman_of_conviction.rs"]
 pub mod talisman_of_conviction;
 #[path = "mh1/talisman_of_creativity.rs"]
@@ -1743,6 +1769,8 @@ pub mod wardscale_crocodile;
 pub mod warrant;
 #[path = "mh1/warteye_witch.rs"]
 pub mod warteye_witch;
+#[path = "mh1/watcher_for_tomorrow.rs"]
+pub mod watcher_for_tomorrow;
 #[path = "rna/watchful_giant.rs"]
 pub mod watchful_giant;
 #[path = "m20/waterkin_shaman.rs"]
@@ -1801,6 +1829,8 @@ pub mod wrecking_beast;
 pub mod wrenn_and_six;
 #[path = "m20/yanling_s_harbinger.rs"]
 pub mod yanling_s_harbinger;
+#[path = "m20/yarok_s_fenlurker.rs"]
+pub mod yarok_s_fenlurker;
 #[path = "m20/yarok_s_wavecrasher.rs"]
 pub mod yarok_s_wavecrasher;
 #[path = "m20/yarok_the_desecrated.rs"]

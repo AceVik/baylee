@@ -277,6 +277,8 @@ pub mod exotic_orchard;
 pub mod expedition_map;
 #[path = "con_/exploding_borders.rs"]
 pub mod exploding_borders;
+#[path = "zen/explorer_s_scope.rs"]
+pub mod explorer_s_scope;
 #[path = "con_/extractor_demon.rs"]
 pub mod extractor_demon;
 #[path = "con_/faerie_mechanist.rs"]
@@ -341,6 +343,8 @@ pub mod goblin_artillery;
 pub mod goblin_bushwhacker;
 #[path = "m10/goblin_chieftain.rs"]
 pub mod goblin_chieftain;
+#[path = "zen/goblin_guide.rs"]
+pub mod goblin_guide;
 #[path = "con_/goblin_outlander.rs"]
 pub mod goblin_outlander;
 #[path = "con_/goblin_razerunners.rs"]
@@ -521,6 +525,8 @@ pub mod lorthos_the_tidemaker;
 pub mod lotus_cobra;
 #[path = "zen/luminarch_ascension.rs"]
 pub mod luminarch_ascension;
+#[path = "m10/lurking_predators.rs"]
+pub mod lurking_predators;
 #[path = "arb/madrush_cyclops.rs"]
 pub mod madrush_cyclops;
 #[path = "con_/maelstrom_archangel.rs"]
@@ -635,6 +641,8 @@ pub mod noble_hierarch;
 pub mod noble_vestige;
 #[path = "arb/nulltread_gargantuan.rs"]
 pub mod nulltread_gargantuan;
+#[path = "con_/nyxathid.rs"]
+pub mod nyxathid;
 #[path = "m10/oakenform.rs"]
 pub mod oakenform;
 #[path = "zen/ob_nixilis_the_fallen.rs"]
@@ -719,6 +727,8 @@ pub mod rhox_brute;
 pub mod rhox_meditant;
 #[path = "m10/rhox_pikemaster.rs"]
 pub mod rhox_pikemaster;
+#[path = "m10/rise_from_the_grave.rs"]
+pub mod rise_from_the_grave;
 #[path = "zen/rite_of_replication.rs"]
 pub mod rite_of_replication;
 #[path = "zen/roil_elemental.rs"]
@@ -813,6 +823,8 @@ pub mod silvercoat_lion;
 pub mod sky_ruin_drake;
 #[path = "arb/skyclaw_thrash.rs"]
 pub mod skyclaw_thrash;
+#[path = "con_/skyward_eye_prophets.rs"]
+pub mod skyward_eye_prophets;
 #[path = "zen/slaughter_cry.rs"]
 pub mod slaughter_cry;
 #[path = "con_/sludge_strider.rs"]
@@ -897,12 +909,16 @@ pub mod thraximundar;
 pub mod timbermaw_larva;
 #[path = "arb/time_sieve.rs"]
 pub mod time_sieve;
+#[path = "purl/tom_bert_and_william.rs"]
+pub mod tom_bert_and_william;
 #[path = "m10/tome_scour.rs"]
 pub mod tome_scour;
 #[path = "zen/torch_slinger.rs"]
 pub mod torch_slinger;
 #[path = "con_/toxic_iguanar.rs"]
 pub mod toxic_iguanar;
+#[path = "zen/trailblazer_s_boots.rs"]
+pub mod trailblazer_s_boots;
 #[path = "zen/trapfinder_s_trick.rs"]
 pub mod trapfinder_s_trick;
 #[path = "zen/trapmaker_s_snare.rs"]
@@ -987,6 +1003,8 @@ pub mod volcanic_fallout;
 pub mod wall_of_denial;
 #[path = "m10/wall_of_faith.rs"]
 pub mod wall_of_faith;
+#[path = "m10/wall_of_frost.rs"]
+pub mod wall_of_frost;
 #[path = "con_/wall_of_reverence.rs"]
 pub mod wall_of_reverence;
 #[path = "con_/wandering_goblins.rs"]

@@ -1431,6 +1431,8 @@ pub mod wu_light_cavalry;
 pub mod wu_longbowman;
 #[path = "ptk/wu_scout.rs"]
 pub mod wu_scout;
+#[path = "ptk/wu_spy.rs"]
+pub mod wu_spy;
 #[path = "ptk/wu_warship.rs"]
 pub mod wu_warship;
 #[path = "ptk/xiahou_dun_the_one_eyed.rs"]

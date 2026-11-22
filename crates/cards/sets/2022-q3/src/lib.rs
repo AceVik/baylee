@@ -29,6 +29,8 @@ pub mod argivian_phalanx;
 pub mod aron_benalia_s_ruin;
 #[path = "dmu/artillery_blast.rs"]
 pub mod artillery_blast;
+#[path = "dmu/astor_bearer_of_blades.rs"]
+pub mod astor_bearer_of_blades;
 #[path = "dmu/automatic_librarian.rs"]
 pub mod automatic_librarian;
 #[path = "dmu/balduvian_berserker.rs"]
@@ -117,6 +119,8 @@ pub mod flowstone_kavu;
 pub mod frostfist_strider;
 #[path = "dmu/furious_bellow.rs"]
 pub mod furious_bellow;
+#[path = "dmu/garna_bloodfist_of_keld.rs"]
+pub mod garna_bloodfist_of_keld;
 #[path = "dmc/general_marhault_elsdragon.rs"]
 pub mod general_marhault_elsdragon;
 #[path = "dmu/geothermal_bog.rs"]
@@ -169,6 +173,8 @@ pub mod hurloon_battle_hymn;
 pub mod idyllic_beachfront;
 #[path = "dmu/impede_momentum.rs"]
 pub mod impede_momentum;
+#[path = "dmc/iridian_maelstrom.rs"]
+pub mod iridian_maelstrom;
 #[path = "dmu/jaya_s_firenado.rs"]
 pub mod jaya_s_firenado;
 #[path = "dmc/jedit_ojanen_mercenary.rs"]
@@ -219,6 +225,8 @@ pub mod mossbeard_ancient;
 pub mod najal_the_storm_runner;
 #[path = "dmu/nishoba_brawler.rs"]
 pub mod nishoba_brawler;
+#[path = "dmc/obsidian_obelisk.rs"]
+pub mod obsidian_obelisk;
 #[path = "dmu/phyrexian_espionage.rs"]
 pub mod phyrexian_espionage;
 #[path = "dmu/phyrexian_missionary.rs"]
@@ -235,6 +243,8 @@ pub mod prayer_of_binding;
 pub mod protect_the_negotiators;
 #[path = "dmu/queen_allenal_of_ruadach.rs"]
 pub mod queen_allenal_of_ruadach;
+#[path = "dmu/quirion_beastcaller.rs"]
+pub mod quirion_beastcaller;
 #[path = "dmu/radha_coalition_warlord.rs"]
 pub mod radha_coalition_warlord;
 #[path = "dmu/radha_s_firebrand.rs"]
@@ -297,6 +307,8 @@ pub mod smash_to_dust;
 pub mod soaring_drake;
 #[path = "dmu/soul_of_windgrace.rs"]
 pub mod soul_of_windgrace;
+#[path = "dmu/sphinx_of_clear_skies.rs"]
+pub mod sphinx_of_clear_skies;
 #[path = "dmu/splatter_goblin.rs"]
 pub mod splatter_goblin;
 #[path = "dmu/sprouting_goblin.rs"]
@@ -329,6 +341,8 @@ pub mod territorial_maro;
 pub mod the_cruelty_of_gix;
 #[path = "dmu/the_elder_dragon_war.rs"]
 pub mod the_elder_dragon_war;
+#[path = "dmc/the_mana_rig.rs"]
+pub mod the_mana_rig;
 #[path = "dmc/the_reaver_cleaver.rs"]
 pub mod the_reaver_cleaver;
 #[path = "dmu/the_weatherseed_treaty.rs"]
@@ -373,6 +387,8 @@ pub mod viashino_branchrider;
 pub mod vineshaper_prodigy;
 #[path = "dmu/vodalian_hexcatcher.rs"]
 pub mod vodalian_hexcatcher;
+#[path = "dmu/vodalian_mindsinger.rs"]
+pub mod vodalian_mindsinger;
 #[path = "dmu/volshe_tideturner.rs"]
 pub mod volshe_tideturner;
 #[path = "dmu/warhost_s_frenzy.rs"]

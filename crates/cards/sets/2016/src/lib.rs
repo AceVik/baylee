@@ -149,6 +149,8 @@ pub mod blossoming_defense;
 pub mod bold_impaler;
 #[path = "kld/bomat_bazaar_barge.rs"]
 pub mod bomat_bazaar_barge;
+#[path = "kld/bomat_courier.rs"]
+pub mod bomat_courier;
 #[path = "ogw/bonds_of_mortality.rs"]
 pub mod bonds_of_mortality;
 #[path = "c16/boompile.rs"]
@@ -227,6 +229,8 @@ pub mod cliffhaven_vampire;
 pub mod clip_wings;
 #[path = "kld/cloudblazer.rs"]
 pub mod cloudblazer;
+#[path = "emn/coax_from_the_blind_eternities.rs"]
+pub mod coax_from_the_blind_eternities;
 #[path = "kld/cogworker_s_puzzleknot.rs"]
 pub mod cogworker_s_puzzleknot;
 #[path = "kld/commencement_of_festivities.rs"]
@@ -423,6 +427,8 @@ pub mod engineered_might;
 pub mod enlightened_maniac;
 #[path = "cn2/entourage_of_trest.rs"]
 pub mod entourage_of_trest;
+#[path = "psoi/epiphany_at_the_drownyard.rs"]
+pub mod epiphany_at_the_drownyard;
 #[path = "soi/epitaph_golem.rs"]
 pub mod epitaph_golem;
 #[path = "soi/equestrian_skill.rs"]
@@ -609,6 +615,8 @@ pub mod hanweir_garrison;
 pub mod hanweir_militia_captain;
 #[path = "kld/harsh_scrutiny.rs"]
 pub mod harsh_scrutiny;
+#[path = "soi/harvest_hand.rs"]
+pub mod harvest_hand;
 #[path = "ogw/harvester_troll.rs"]
 pub mod harvester_troll;
 #[path = "soi/haunted_cloak.rs"]
@@ -823,6 +831,8 @@ pub mod markov_crusader;
 pub mod markov_dreadknight;
 #[path = "kld/master_trinketeer.rs"]
 pub mod master_trinketeer;
+#[path = "ogw/matter_reshaper.rs"]
+pub mod matter_reshaper;
 #[path = "kld/maulfist_squad.rs"]
 pub mod maulfist_squad;
 #[path = "emn/mausoleum_wanderer.rs"]
@@ -847,6 +857,10 @@ pub mod migratory_route;
 pub mod militant_inquisitor;
 #[path = "ogw/mina_and_denn_wildborn.rs"]
 pub mod mina_and_denn_wildborn;
+#[path = "emn/mind_s_dilation.rs"]
+pub mod mind_s_dilation;
+#[path = "ogw/mindmelter.rs"]
+pub mod mindmelter;
 #[path = "kld/minister_of_inquiries.rs"]
 pub mod minister_of_inquiries;
 #[path = "ogw/mirrorpool.rs"]
@@ -991,6 +1005,8 @@ pub mod prophetic_ravings;
 pub mod protector_of_the_crown;
 #[path = "emn/providence.rs"]
 pub mod providence;
+#[path = "emn/prying_questions.rs"]
+pub mod prying_questions;
 #[path = "ogw/pulse_of_murasa.rs"]
 pub mod pulse_of_murasa;
 #[path = "soi/pyre_hound.rs"]
@@ -1317,6 +1333,8 @@ pub mod thorn_of_the_black_rose;
 pub mod thornhide_wolves;
 #[path = "ogw/thought_harvester.rs"]
 pub mod thought_harvester;
+#[path = "ogw/thought_knot_seer.rs"]
+pub mod thought_knot_seer;
 #[path = "emn/thraben_foulbloods.rs"]
 pub mod thraben_foulbloods;
 #[path = "soi/thraben_gargoyle.rs"]
@@ -1395,8 +1413,14 @@ pub mod vampire_noble;
 pub mod vedalken_blademaster;
 #[path = "kld/verdant_crescendo.rs"]
 pub mod verdant_crescendo;
+#[path = "kld/verdurous_gearhulk.rs"]
+pub mod verdurous_gearhulk;
 #[path = "soi/vessel_of_ephemera.rs"]
 pub mod vessel_of_ephemera;
+#[path = "soi/vessel_of_malignity.rs"]
+pub mod vessel_of_malignity;
+#[path = "soi/vessel_of_nascency.rs"]
+pub mod vessel_of_nascency;
 #[path = "soi/vessel_of_paramnesia.rs"]
 pub mod vessel_of_paramnesia;
 #[path = "soi/vessel_of_volatility.rs"]
@@ -1475,6 +1499,8 @@ pub mod wily_bandar;
 pub mod wings_of_the_guard;
 #[path = "kld/wispweaver_angel.rs"]
 pub mod wispweaver_angel;
+#[path = "ogw/witness_the_end.rs"]
+pub mod witness_the_end;
 #[path = "emn/wolfkin_bond.rs"]
 pub mod wolfkin_bond;
 #[path = "emn/woodcutter_s_grit.rs"]

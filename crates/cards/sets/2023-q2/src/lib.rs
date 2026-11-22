@@ -21,6 +21,8 @@ pub mod akki_scrapchomper;
 pub mod alabaster_host_intercessor;
 #[path = "mom/alabaster_host_sanctifier.rs"]
 pub mod alabaster_host_sanctifier;
+#[path = "ltr/anduril_flame_of_the_west.rs"]
+pub mod anduril_flame_of_the_west;
 #[path = "mom/arachnoid_adaptation.rs"]
 pub mod arachnoid_adaptation;
 #[path = "ltr/aragorn_and_arwen_wed.rs"]
@@ -43,6 +45,8 @@ pub mod arwen_s_gift;
 pub mod arwen_undomiel;
 #[path = "ltr/assault_on_osgiliath.rs"]
 pub mod assault_on_osgiliath;
+#[path = "ltc/assemble_the_entmoot.rs"]
+pub mod assemble_the_entmoot;
 #[path = "mom/astral_wingspan.rs"]
 pub mod astral_wingspan;
 #[path = "mom/atraxa_s_fall.rs"]
@@ -165,6 +169,8 @@ pub mod death_rattle_oni;
 pub mod deceive_the_messenger;
 #[path = "ltr/delighted_halfling.rs"]
 pub mod delighted_halfling;
+#[path = "moc/deluxe_dragster.rs"]
+pub mod deluxe_dragster;
 #[path = "mom/disturbing_conversion.rs"]
 pub mod disturbing_conversion;
 #[path = "mat/drannith_ruins.rs"]
@@ -199,10 +205,14 @@ pub mod enraged_huorn;
 pub mod ent_s_fury;
 #[path = "ltr/eomer_marshal_of_rohan.rs"]
 pub mod eomer_marshal_of_rohan;
+#[path = "ltr/eowyn_lady_of_rohan.rs"]
+pub mod eowyn_lady_of_rohan;
 #[path = "ltr/erebor_flamesmith.rs"]
 pub mod erebor_flamesmith;
 #[path = "ltr/erkenbrand_lord_of_westfold.rs"]
 pub mod erkenbrand_lord_of_westfold;
+#[path = "ltr/errand_rider_of_gondor.rs"]
+pub mod errand_rider_of_gondor;
 #[path = "ltr/escape_from_orthanc.rs"]
 pub mod escape_from_orthanc;
 #[path = "ltr/esquire_of_the_king.rs"]
@@ -213,6 +223,8 @@ pub mod essence_of_orthodoxy;
 pub mod etched_familiar;
 #[path = "moc/excise_the_imperfect.rs"]
 pub mod excise_the_imperfect;
+#[path = "mom/expedition_lookout.rs"]
+pub mod expedition_lookout;
 #[path = "mom/eyes_of_gitaxias.rs"]
 pub mod eyes_of_gitaxias;
 #[path = "mom/faerie_mastermind.rs"]
@@ -225,6 +237,8 @@ pub mod fall_of_gil_galad;
 pub mod faramir_steward_of_gondor;
 #[path = "mom/fearless_skald.rs"]
 pub mod fearless_skald;
+#[path = "ltc/feasting_hobbit.rs"]
+pub mod feasting_hobbit;
 #[path = "ltc/fell_beast_of_mordor.rs"]
 pub mod fell_beast_of_mordor;
 #[path = "ltc/field_tested_frying_pan.rs"]
@@ -335,6 +349,8 @@ pub mod hedron_detonator;
 pub mod herald_of_hoofbeats;
 #[path = "mom/herbology_instructor.rs"]
 pub mod herbology_instructor;
+#[path = "mom/hidetsugu_and_kairi.rs"]
+pub mod hidetsugu_and_kairi;
 #[path = "ltr/hithlain_knots.rs"]
 pub mod hithlain_knots;
 #[path = "ltr/hobbit_s_sting.rs"]
@@ -347,6 +363,8 @@ pub mod horses_of_the_bruinen;
 pub mod ichor_drinker;
 #[path = "ltr/improvised_club.rs"]
 pub mod improvised_club;
+#[path = "ltc/in_the_darkness_bind_them.rs"]
+pub mod in_the_darkness_bind_them;
 #[path = "mom/infected_defector.rs"]
 pub mod infected_defector;
 #[path = "moc/infernal_sovereign.rs"]
@@ -397,6 +415,8 @@ pub mod invasion_of_zendikar;
 pub mod ioreth_of_the_healing_house;
 #[path = "mom/iridescent_blademaster.rs"]
 pub mod iridescent_blademaster;
+#[path = "ltr/isildur_s_fateful_strike.rs"]
+pub mod isildur_s_fateful_strike;
 #[path = "ltr/isolation_at_orthanc.rs"]
 pub mod isolation_at_orthanc;
 #[path = "ltr/ithilien_kingfisher.rs"]
@@ -473,6 +493,8 @@ pub mod meeting_of_minds;
 pub mod meneldor_swift_savior;
 #[path = "mom/merciless_repurposing.rs"]
 pub mod merciless_repurposing;
+#[path = "ltr/meriadoc_brandybuck.rs"]
+pub mod meriadoc_brandybuck;
 #[path = "ltr/merry_esquire_of_rohan.rs"]
 pub mod merry_esquire_of_rohan;
 #[path = "ltc/merry_warden_of_isengard.rs"]
@@ -487,6 +509,8 @@ pub mod minas_tirith;
 pub mod mines_of_moria;
 #[path = "ltr/mirkwood_channeler.rs"]
 pub mod mirkwood_channeler;
+#[path = "ltc/mirkwood_elk.rs"]
+pub mod mirkwood_elk;
 #[path = "ltr/mirkwood_spider.rs"]
 pub mod mirkwood_spider;
 #[path = "mom/mirran_banesplitter.rs"]
@@ -499,6 +523,8 @@ pub mod mirror_of_galadriel;
 pub mod mirror_style_master;
 #[path = "ltr/mirrormere_guardian.rs"]
 pub mod mirrormere_guardian;
+#[path = "moc/mistmeadow_vanisher.rs"]
+pub mod mistmeadow_vanisher;
 #[path = "ltr/mithril_coat.rs"]
 pub mod mithril_coat;
 #[path = "ltr/mordor_muster.rs"]
@@ -515,6 +541,8 @@ pub mod motivated_pony;
 pub mod mount_doom;
 #[path = "ltr/mushroom_watchdogs.rs"]
 pub mod mushroom_watchdogs;
+#[path = "ltc/nazgul_battle_mace.rs"]
+pub mod nazgul_battle_mace;
 #[path = "moc/nesting_dovehawk.rs"]
 pub mod nesting_dovehawk;
 #[path = "mom/nezumi_freewheeler.rs"]
@@ -587,8 +615,12 @@ pub mod pyretic_prankster;
 pub mod quarrel_s_end;
 #[path = "ltr/quickbeam_upstart_ent.rs"]
 pub mod quickbeam_upstart_ent;
+#[path = "ltr/radagast_the_brown.rs"]
+pub mod radagast_the_brown;
 #[path = "ltc/radagast_wizard_of_wilds.rs"]
 pub mod radagast_wizard_of_wilds;
+#[path = "ltc/raise_the_palisade.rs"]
+pub mod raise_the_palisade;
 #[path = "mom/ral_s_reinforcements.rs"]
 pub mod ral_s_reinforcements;
 #[path = "ltr/rally_at_the_hornburg.rs"]
@@ -599,6 +631,8 @@ pub mod rally_the_galadhrim;
 pub mod ramosian_greatsword;
 #[path = "ltr/ranger_s_firebrand.rs"]
 pub mod ranger_s_firebrand;
+#[path = "ltr/rangers_of_ithilien.rs"]
+pub mod rangers_of_ithilien;
 #[path = "ltc/rapacious_guest.rs"]
 pub mod rapacious_guest;
 #[path = "mom/ravenous_sailback.rs"]
@@ -719,6 +753,8 @@ pub mod stalwarts_of_osgiliath;
 pub mod stern_scolding;
 #[path = "ltr/stew_the_coneys.rs"]
 pub mod stew_the_coneys;
+#[path = "ltr/stone_of_erech.rs"]
+pub mod stone_of_erech;
 #[path = "ltr/storm_of_saruman.rs"]
 pub mod storm_of_saruman;
 #[path = "mom/storm_the_seedcore.rs"]
@@ -731,6 +767,8 @@ pub mod streetwise_negotiator;
 pub mod strider_ranger_of_the_north;
 #[path = "ltc/subjugate_the_hobbits.rs"]
 pub mod subjugate_the_hobbits;
+#[path = "mom/sunfall.rs"]
+pub mod sunfall;
 #[path = "mom/surrak_and_goreclaw.rs"]
 pub mod surrak_and_goreclaw;
 #[path = "ltr/swarming_of_moria.rs"]
@@ -745,6 +783,8 @@ pub mod tangled_skyline;
 pub mod tarkir_duneshaper;
 #[path = "mom/tenured_oilcaster.rs"]
 pub mod tenured_oilcaster;
+#[path = "mom/terror_of_towashi.rs"]
+pub mod terror_of_towashi;
 #[path = "mom/thalia_and_the_gitrog_monster.rs"]
 pub mod thalia_and_the_gitrog_monster;
 #[path = "ltc/the_balrog_of_moria.rs"]
@@ -823,8 +863,12 @@ pub mod warg_rider;
 pub mod wary_thespian;
 #[path = "ltr/westfold_rider.rs"]
 pub mod westfold_rider;
+#[path = "mom/wildwood_escort.rs"]
+pub mod wildwood_escort;
 #[path = "ltr/willow_wind.rs"]
 pub mod willow_wind;
+#[path = "ltc/windswift_slice.rs"]
+pub mod windswift_slice;
 #[path = "ltr/wizard_s_rockets.rs"]
 pub mod wizard_s_rockets;
 #[path = "ltr/wose_pathfinder.rs"]

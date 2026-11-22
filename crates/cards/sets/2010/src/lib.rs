@@ -73,6 +73,8 @@ pub mod assault_griffin;
 pub mod assault_strobe;
 #[path = "m11/augury_owl.rs"]
 pub mod augury_owl;
+#[path = "roe/aura_gnarlid.rs"]
+pub mod aura_gnarlid;
 #[path = "som/auriok_edgewright.rs"]
 pub mod auriok_edgewright;
 #[path = "som/auriok_sunchaser.rs"]
@@ -83,6 +85,8 @@ pub mod avenger_of_zendikar;
 pub mod back_to_nature;
 #[path = "roe/bala_ged_scorpion.rs"]
 pub mod bala_ged_scorpion;
+#[path = "roe/baneful_omen.rs"]
+pub mod baneful_omen;
 #[path = "som/barbed_battlegear.rs"]
 pub mod barbed_battlegear;
 #[path = "m11/barony_vampire.rs"]
@@ -295,6 +299,8 @@ pub mod echo_circlet;
 pub mod eel_umbra;
 #[path = "roe/eland_umbra.rs"]
 pub mod eland_umbra;
+#[path = "roe/eldrazi_conscription.rs"]
+pub mod eldrazi_conscription;
 #[path = "roe/eldrazi_temple.rs"]
 pub mod eldrazi_temple;
 #[path = "som/elspeth_tirel.rs"]
@@ -311,10 +317,14 @@ pub mod emrakul_s_hatcher;
 pub mod enatu_golem;
 #[path = "wwk/enclave_elite.rs"]
 pub mod enclave_elite;
+#[path = "som/engulfing_slagwurm.rs"]
+pub mod engulfing_slagwurm;
 #[path = "roe/escaped_null.rs"]
 pub mod escaped_null;
 #[path = "roe/essence_feed.rs"]
 pub mod essence_feed;
+#[path = "som/etched_champion.rs"]
+pub mod etched_champion;
 #[path = "wwk/everflowing_chalice.rs"]
 pub mod everflowing_chalice;
 #[path = "roe/evolving_wilds.rs"]
@@ -375,6 +385,8 @@ pub mod genesis_wave;
 pub mod ghalma_s_warden;
 #[path = "roe/gigantomancer.rs"]
 pub mod gigantomancer;
+#[path = "som/glimmerpoint_stag.rs"]
+pub mod glimmerpoint_stag;
 #[path = "som/glimmerpost.rs"]
 pub mod glimmerpost;
 #[path = "som/glint_hawk_idol.rs"]
@@ -559,6 +571,8 @@ pub mod leyline_of_sanctity;
 pub mod leyline_of_vitality;
 #[path = "som/lifesmith.rs"]
 pub mod lifesmith;
+#[path = "roe/lighthouse_chronologist.rs"]
+pub mod lighthouse_chronologist;
 #[path = "wwk/lightkeeper_of_emeria.rs"]
 pub mod lightkeeper_of_emeria;
 #[path = "m11/liliana_s_caress.rs"]
@@ -833,6 +847,8 @@ pub mod seize_the_initiative;
 pub mod sejiri_merfolk;
 #[path = "wwk/sejiri_steppe.rs"]
 pub mod sejiri_steppe;
+#[path = "wwk/selective_memory.rs"]
+pub mod selective_memory;
 #[path = "m11/serra_ascendant.rs"]
 pub mod serra_ascendant;
 #[path = "roe/shared_discovery.rs"]
@@ -917,6 +933,8 @@ pub mod stomper_cub;
 pub mod stone_golem;
 #[path = "wwk/stoneforge_mystic.rs"]
 pub mod stoneforge_mystic;
+#[path = "m11/stormtide_leviathan.rs"]
+pub mod stormtide_leviathan;
 #[path = "som/strider_harness.rs"]
 pub mod strider_harness;
 #[path = "roe/student_of_warfare.rs"]

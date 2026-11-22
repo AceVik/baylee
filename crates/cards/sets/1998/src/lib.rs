@@ -915,6 +915,8 @@ pub mod revenant;
 pub mod rewind;
 #[path = "p02/righteous_charge.rs"]
 pub mod righteous_charge;
+#[path = "p02/righteous_fury.rs"]
+pub mod righteous_fury;
 #[path = "p02/river_bear.rs"]
 pub mod river_bear;
 #[path = "exo/robe_of_mirrors.rs"]

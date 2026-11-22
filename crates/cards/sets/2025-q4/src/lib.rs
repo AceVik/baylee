@@ -25,6 +25,8 @@ pub mod aardvark_sloth;
 pub mod abandon_attachments;
 #[path = "ptla/abandoned_air_temple.rs"]
 pub mod abandoned_air_temple;
+#[path = "tla/accumulate_wisdom.rs"]
+pub mod accumulate_wisdom;
 #[path = "ptla/agna_qel_a.rs"]
 pub mod agna_qel_a;
 #[path = "tla/air_nomad_legacy.rs"]
@@ -61,6 +63,8 @@ pub mod badgermole_cub;
 pub mod barrels_of_blasting_jelly;
 #[path = "tla/beetle_headed_merchants.rs"]
 pub mod beetle_headed_merchants;
+#[path = "tla/bitter_work.rs"]
+pub mod bitter_work;
 #[path = "tla/boar_q_pine.rs"]
 pub mod boar_q_pine;
 #[path = "tla/boiling_rock_prison.rs"]
@@ -149,6 +153,8 @@ pub mod ember_island_production;
 pub mod enter_the_avatar_state;
 #[path = "tle/explosive_shot.rs"]
 pub mod explosive_shot;
+#[path = "tle/fang_roku_s_companion.rs"]
+pub mod fang_roku_s_companion;
 #[path = "tla/fatal_fissure.rs"]
 pub mod fatal_fissure;
 #[path = "ptla/fire_lord_azula.rs"]
@@ -265,6 +271,8 @@ pub mod koala_sheep;
 pub mod komodo_rhino;
 #[path = "tla/kyoshi_battle_fan.rs"]
 pub mod kyoshi_battle_fan;
+#[path = "tla/kyoshi_island_plaza.rs"]
+pub mod kyoshi_island_plaza;
 #[path = "tla/kyoshi_village.rs"]
 pub mod kyoshi_village;
 #[path = "tle/kyoshi_warrior_exemplars.rs"]
@@ -289,6 +297,8 @@ pub mod lost_in_memories;
 pub mod lost_in_the_spirit_world;
 #[path = "tle/loyal_fire_sage.rs"]
 pub mod loyal_fire_sage;
+#[path = "tla/mai_jaded_edge.rs"]
+pub mod mai_jaded_edge;
 #[path = "ptla/mai_scornful_striker.rs"]
 pub mod mai_scornful_striker;
 #[path = "tla/master_pakku.rs"]

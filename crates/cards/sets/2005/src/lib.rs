@@ -41,6 +41,8 @@ pub mod ayumi_the_last_visitor;
 pub mod balduvian_rage;
 #[path = "rav/barbarian_riftcutter.rs"]
 pub mod barbarian_riftcutter;
+#[path = "sok/barrel_down_sokenzan.rs"]
+pub mod barrel_down_sokenzan;
 #[path = "rav/benevolent_ancestor.rs"]
 pub mod benevolent_ancestor;
 #[path = "bok/bile_urchin.rs"]
@@ -415,6 +417,8 @@ pub mod kami_of_the_honored_dead;
 pub mod kami_of_the_tended_garden;
 #[path = "psal/karplusan_wolverine.rs"]
 pub mod karplusan_wolverine;
+#[path = "sok/kashi_tribe_elite.rs"]
+pub mod kashi_tribe_elite;
 #[path = "sok/kataki_war_s_wage.rs"]
 pub mod kataki_war_s_wage;
 #[path = "psal/keening_banshee.rs"]
@@ -433,6 +437,8 @@ pub mod kitsune_loreweaver;
 pub mod kiyomaro_first_to_stand;
 #[path = "sok/kuro_s_taken.rs"]
 pub mod kuro_s_taken;
+#[path = "bok/kyoki_sanity_s_eclipse.rs"]
+pub mod kyoki_sanity_s_eclipse;
 #[path = "rav/last_gasp.rs"]
 pub mod last_gasp;
 #[path = "psal/leyline_of_the_meek.rs"]
@@ -459,6 +465,8 @@ pub mod loxodon_gatekeeper;
 pub mod lurking_informant;
 #[path = "sok/maga_traitor_to_mortals.rs"]
 pub mod maga_traitor_to_mortals;
+#[path = "bok/mannichi_the_fevered_dream.rs"]
+pub mod mannichi_the_fevered_dream;
 #[path = "sok/manriki_gusari.rs"]
 pub mod manriki_gusari;
 #[path = "rav/mark_of_eviction.rs"]
@@ -469,6 +477,10 @@ pub mod mark_of_sakiko;
 pub mod mark_of_the_oni;
 #[path = "sok/masumaro_first_to_live.rs"]
 pub mod masumaro_first_to_live;
+#[path = "sok/matsu_tribe_birdstalker.rs"]
+pub mod matsu_tribe_birdstalker;
+#[path = "bok/matsu_tribe_sniper.rs"]
+pub mod matsu_tribe_sniper;
 #[path = "sok/meishin_the_mind_cage.rs"]
 pub mod meishin_the_mind_cage;
 #[path = "bok/mending_hands.rs"]
@@ -569,6 +581,8 @@ pub mod primal_forcemage;
 pub mod primordial_sage;
 #[path = "rav/privileged_position.rs"]
 pub mod privileged_position;
+#[path = "sok/promise_of_bunrei.rs"]
+pub mod promise_of_bunrei;
 #[path = "sok/promised_kannushi.rs"]
 pub mod promised_kannushi;
 #[path = "rav/psychic_drain.rs"]
@@ -577,10 +591,14 @@ pub mod psychic_drain;
 pub mod pus_kami;
 #[path = "rav/putrefy.rs"]
 pub mod putrefy;
+#[path = "rav/quickchange.rs"]
+pub mod quickchange;
 #[path = "rav/rain_of_embers.rs"]
 pub mod rain_of_embers;
 #[path = "sok/raving_oni_slave.rs"]
 pub mod raving_oni_slave;
+#[path = "rav/razia_s_purification.rs"]
+pub mod razia_s_purification;
 #[path = "sok/razorjaw_oni.rs"]
 pub mod razorjaw_oni;
 #[path = "rav/recollect.rs"]
@@ -689,6 +707,8 @@ pub mod siege_wurm;
 pub mod silverstorm_samurai;
 #[path = "psal/sinstriker_s_will.rs"]
 pub mod sinstriker_s_will;
+#[path = "rav/sisters_of_stone_death.rs"]
+pub mod sisters_of_stone_death;
 #[path = "psal/skarrg_the_rage_pits.rs"]
 pub mod skarrg_the_rage_pits;
 #[path = "sok/skull_collector.rs"]
@@ -779,6 +799,8 @@ pub mod thallid_germinator;
 pub mod thallid_shell_dweller;
 #[path = "psal/thelonite_hermit.rs"]
 pub mod thelonite_hermit;
+#[path = "rav/thoughtpicker_witch.rs"]
+pub mod thoughtpicker_witch;
 #[path = "sok/thoughts_of_ruin.rs"]
 pub mod thoughts_of_ruin;
 #[path = "bok/threads_of_disloyalty.rs"]

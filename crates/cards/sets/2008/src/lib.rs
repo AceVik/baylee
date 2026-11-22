@@ -15,6 +15,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
 #[path = "ala/ad_nauseam.rs"]
 pub mod ad_nauseam;
+#[path = "shm/advice_from_the_fae.rs"]
+pub mod advice_from_the_fae;
 #[path = "eve/aerie_ouphes.rs"]
 pub mod aerie_ouphes;
 #[path = "shm/aethertow.rs"]
@@ -223,6 +225,8 @@ pub mod crag_puca;
 pub mod creakwood_ghoul;
 #[path = "eve/creakwood_liege.rs"]
 pub mod creakwood_liege;
+#[path = "mor/cream_of_the_crop.rs"]
+pub mod cream_of_the_crop;
 #[path = "shm/crimson_wisps.rs"]
 pub mod crimson_wisps;
 #[path = "shm/crowd_of_cinders.rs"]
@@ -415,6 +419,8 @@ pub mod flame_jab;
 pub mod flame_javelin;
 #[path = "ala/fleshbag_marauder.rs"]
 pub mod fleshbag_marauder;
+#[path = "eve/flickerwisp.rs"]
+pub mod flickerwisp;
 #[path = "mor/floodchaser.rs"]
 pub mod floodchaser;
 #[path = "eve/flooded_grove.rs"]
@@ -423,6 +429,8 @@ pub mod flooded_grove;
 pub mod forfend;
 #[path = "shm/foxfire_oak.rs"]
 pub mod foxfire_oak;
+#[path = "shm/fracturing_gust.rs"]
+pub mod fracturing_gust;
 #[path = "mor/frogtosser_banneret.rs"]
 pub mod frogtosser_banneret;
 #[path = "shm/fulminator_mage.rs"]
@@ -431,6 +439,8 @@ pub mod fulminator_mage;
 pub mod furystoke_giant;
 #[path = "mor/game_trail_changeling.rs"]
 pub mod game_trail_changeling;
+#[path = "shm/ghastlord_of_fugue.rs"]
+pub mod ghastlord_of_fugue;
 #[path = "shm/ghastly_discovery.rs"]
 pub mod ghastly_discovery;
 #[path = "shm/giantbaiting.rs"]
@@ -843,6 +853,8 @@ pub mod prickly_boggart;
 pub mod primal_beyond;
 #[path = "shm/prismatic_omen.rs"]
 pub mod prismatic_omen;
+#[path = "shm/prismwake_merrow.rs"]
+pub mod prismwake_merrow;
 #[path = "shm/prison_term.rs"]
 pub mod prison_term;
 #[path = "ala/protomatter_powder.rs"]
@@ -855,6 +867,8 @@ pub mod puncture_bolt;
 pub mod punish_ignorance;
 #[path = "ala/puppet_conjurer.rs"]
 pub mod puppet_conjurer;
+#[path = "shm/puresight_merrow.rs"]
+pub mod puresight_merrow;
 #[path = "shm/pyre_charger.rs"]
 pub mod pyre_charger;
 #[path = "mor/pyroclast_consul.rs"]
@@ -885,6 +899,8 @@ pub mod raven_s_run_dragoon;
 pub mod razorfin_abolisher;
 #[path = "mor/reach_of_branches.rs"]
 pub mod reach_of_branches;
+#[path = "ala/realm_razer.rs"]
+pub mod realm_razer;
 #[path = "shm/reaper_king.rs"]
 pub mod reaper_king;
 #[path = "mor/recross_the_paths.rs"]
@@ -935,6 +951,8 @@ pub mod rhys_the_exiled;
 pub mod ridge_rannet;
 #[path = "ala/rip_clan_crasher.rs"]
 pub mod rip_clan_crasher;
+#[path = "shm/rite_of_consumption.rs"]
+pub mod rite_of_consumption;
 #[path = "eve/riverfall_mimic.rs"]
 pub mod riverfall_mimic;
 #[path = "mor/roar_of_the_crowd.rs"]
@@ -973,6 +991,8 @@ pub mod salvage_titan;
 pub mod sanctum_gargoyle;
 #[path = "ala/sangrite_surge.rs"]
 pub mod sangrite_surge;
+#[path = "eve/sapling_of_colfenor.rs"]
+pub mod sapling_of_colfenor;
 #[path = "shm/sapseep_forest.rs"]
 pub mod sapseep_forest;
 #[path = "ala/sarkhan_vol.rs"]
@@ -997,6 +1017,8 @@ pub mod scourge_devil;
 pub mod scourge_of_the_nobilis;
 #[path = "ala/scourglass.rs"]
 pub mod scourglass;
+#[path = "shm/scuttlemutt.rs"]
+pub mod scuttlemutt;
 #[path = "shm/scuzzback_marauders.rs"]
 pub mod scuzzback_marauders;
 #[path = "shm/scuzzback_scrapper.rs"]
@@ -1149,6 +1171,8 @@ pub mod suture_spirit;
 pub mod swell_of_courage;
 #[path = "ala/swerve.rs"]
 pub mod swerve;
+#[path = "eve/swirling_spriggan.rs"]
+pub mod swirling_spriggan;
 #[path = "eve/syphon_life.rs"]
 pub mod syphon_life;
 #[path = "eve/talonrend.rs"]
@@ -1187,6 +1211,8 @@ pub mod thoughtweft_gambit;
 pub mod thunder_thrash_elder;
 #[path = "eve/thunderblust.rs"]
 pub mod thunderblust;
+#[path = "ala/tidehollow_sculler.rs"]
+pub mod tidehollow_sculler;
 #[path = "ala/tidehollow_strix.rs"]
 pub mod tidehollow_strix;
 #[path = "eve/tilling_treefolk.rs"]

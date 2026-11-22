@@ -877,6 +877,8 @@ pub mod spectral_sliver;
 pub mod sphere_of_purity;
 #[path = "mrd/spikeshot_goblin.rs"]
 pub mod spikeshot_goblin;
+#[path = "mrd/spoils_of_the_vault.rs"]
+pub mod spoils_of_the_vault;
 #[path = "scg/sprouting_vines.rs"]
 pub mod sprouting_vines;
 #[path = "scg/stabilizer.rs"]
@@ -903,6 +905,8 @@ pub mod swooping_talon;
 pub mod sylvan_scrying;
 #[path = "lgn/synapse_sliver.rs"]
 pub mod synapse_sliver;
+#[path = "mrd/synod_sanctum.rs"]
+pub mod synod_sanctum;
 #[path = "mrd/talisman_of_dominance.rs"]
 pub mod talisman_of_dominance;
 #[path = "mrd/talisman_of_impulse.rs"]

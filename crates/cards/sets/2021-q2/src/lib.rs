@@ -53,6 +53,8 @@ pub mod archmage_emeritus;
 pub mod archon_of_cruelty;
 #[path = "stx/archway_commons.rs"]
 pub mod archway_commons;
+#[path = "mh2/arcus_acolyte.rs"]
+pub mod arcus_acolyte;
 #[path = "stx/arrogant_poet.rs"]
 pub mod arrogant_poet;
 #[path = "c21/audacious_reshapers.rs"]
@@ -95,6 +97,8 @@ pub mod blight_mound;
 pub mod blood_age_general;
 #[path = "stx/blood_researcher.rs"]
 pub mod blood_researcher;
+#[path = "pmh2/bloodbraid_marauder.rs"]
+pub mod bloodbraid_marauder;
 #[path = "c21/blossoming_bogbeast.rs"]
 pub mod blossoming_bogbeast;
 #[path = "mh2/blossoming_calm.rs"]
@@ -243,8 +247,12 @@ pub mod excavated_wall;
 pub mod expanded_anatomy;
 #[path = "stx/expel.rs"]
 pub mod expel;
+#[path = "pstx/exponential_growth.rs"]
+pub mod exponential_growth;
 #[path = "stx/expressive_iteration.rs"]
 pub mod expressive_iteration;
+#[path = "pstx/extus_oriq_overlord.rs"]
+pub mod extus_oriq_overlord;
 #[path = "c21/ezzaroot_channeler.rs"]
 pub mod ezzaroot_channeler;
 #[path = "c21/fain_the_broker.rs"]
@@ -267,6 +275,8 @@ pub mod flametongue_yearling;
 pub mod floodhound;
 #[path = "mh2/flourishing_strike.rs"]
 pub mod flourishing_strike;
+#[path = "stx/flunk.rs"]
+pub mod flunk;
 #[path = "mh2/fodder_tosser.rs"]
 pub mod fodder_tosser;
 #[path = "stx/fortifying_draught.rs"]
@@ -343,6 +353,8 @@ pub mod illustrious_historian;
 pub mod infuse_with_vitality;
 #[path = "stx/inkling_summoning.rs"]
 pub mod inkling_summoning;
+#[path = "c21/inspiring_refrain.rs"]
+pub mod inspiring_refrain;
 #[path = "stx/introduction_to_annihilation.rs"]
 pub mod introduction_to_annihilation;
 #[path = "stx/introduction_to_prophecy.rs"]
@@ -387,6 +399,8 @@ pub mod loathsome_curator;
 pub mod lorehold_apprentice;
 #[path = "stx/lorehold_campus.rs"]
 pub mod lorehold_campus;
+#[path = "stx/lorehold_excavation.rs"]
+pub mod lorehold_excavation;
 #[path = "stx/lorehold_pledgemage.rs"]
 pub mod lorehold_pledgemage;
 #[path = "mh2/lose_focus.rs"]
@@ -539,6 +553,8 @@ pub mod rip_apart;
 pub mod rishadan_dockhand;
 #[path = "mh2/road.rs"]
 pub mod road;
+#[path = "c21/rousing_refrain.rs"]
+pub mod rousing_refrain;
 #[path = "mh2/rustvale_bridge.rs"]
 pub mod rustvale_bridge;
 #[path = "mh2/said.rs"]
@@ -561,6 +577,10 @@ pub mod scuttletide;
 pub mod secret_rendezvous;
 #[path = "pstx/sedgemoor_witch.rs"]
 pub mod sedgemoor_witch;
+#[path = "pstx/selfless_glyphweaver.rs"]
+pub mod selfless_glyphweaver;
+#[path = "stx/serpentine_curve.rs"]
+pub mod serpentine_curve;
 #[path = "pmh2/serra_s_emissary.rs"]
 pub mod serra_s_emissary;
 #[path = "stx/shadewing_laureate.rs"]
@@ -673,6 +693,8 @@ pub mod tavern_scoundrel;
 pub mod teach_by_example;
 #[path = "stx/team_pennant.rs"]
 pub mod team_pennant;
+#[path = "pstx/tempted_by_the_oriq.rs"]
+pub mod tempted_by_the_oriq;
 #[path = "stx/tend_the_pests.rs"]
 pub mod tend_the_pests;
 #[path = "stx/tenured_inkcaster.rs"]
@@ -695,6 +717,8 @@ pub mod thornglint_bridge;
 pub mod thought_monitor;
 #[path = "mh2/thraben_watcher.rs"]
 pub mod thraben_watcher;
+#[path = "stx/thunderous_orator.rs"]
+pub mod thunderous_orator;
 #[path = "mh2/tide_shaper.rs"]
 pub mod tide_shaper;
 #[path = "pmh2/timeless_dragon.rs"]
@@ -721,6 +745,8 @@ pub mod umbral_juke;
 pub mod unbounded_potential;
 #[path = "mh2/unholy_heat.rs"]
 pub mod unholy_heat;
+#[path = "pmh2/unmarked_grave.rs"]
+pub mod unmarked_grave;
 #[path = "stx/unwilling_ingredient.rs"]
 pub mod unwilling_ingredient;
 #[path = "mh2/urban_daggertooth.rs"]
@@ -729,6 +755,8 @@ pub mod urban_daggertooth;
 pub mod urza_s_saga;
 #[path = "pstx/vanishing_verse.rs"]
 pub mod vanishing_verse;
+#[path = "mh2/vectis_gloves.rs"]
+pub mod vectis_gloves;
 #[path = "mh2/vedalken_infiltrator.rs"]
 pub mod vedalken_infiltrator;
 #[path = "c21/veinwitch_coven.rs"]
@@ -743,6 +771,8 @@ pub mod vile_entomber;
 pub mod vineglimmer_snarl;
 #[path = "stx/vortex_runner.rs"]
 pub mod vortex_runner;
+#[path = "c21/wake_the_past.rs"]
+pub mod wake_the_past;
 #[path = "stx/waterfall_aerialist.rs"]
 pub mod waterfall_aerialist;
 #[path = "mh2/wavesifter.rs"]

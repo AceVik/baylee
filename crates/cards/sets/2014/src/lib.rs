@@ -73,6 +73,8 @@ pub mod altac_bloodseeker;
 pub mod altar_of_the_brood;
 #[path = "m15/amphin_pathmage.rs"]
 pub mod amphin_pathmage;
+#[path = "ktk/anafenza_the_foremost.rs"]
+pub mod anafenza_the_foremost;
 #[path = "c14/angel_of_the_dire_hour.rs"]
 pub mod angel_of_the_dire_hour;
 #[path = "c14/angelic_field_marshal.rs"]
@@ -215,6 +217,8 @@ pub mod consign_to_dust;
 pub mod constricting_sliver;
 #[path = "m15/coral_barrier.rs"]
 pub mod coral_barrier;
+#[path = "cns/council_guardian.rs"]
+pub mod council_guardian;
 #[path = "cns/council_s_judgment.rs"]
 pub mod council_s_judgment;
 #[path = "jou/countermand.rs"]
@@ -309,6 +313,8 @@ pub mod dreadbringer_lampads;
 pub mod drown_in_sorrow;
 #[path = "c14/dualcaster_mage.rs"]
 pub mod dualcaster_mage;
+#[path = "ktk/duneblast.rs"]
+pub mod duneblast;
 #[path = "ktk/dutiful_return.rs"]
 pub mod dutiful_return;
 #[path = "jou/eagle_of_the_watch.rs"]
@@ -489,6 +495,8 @@ pub mod hallowed_spiritkeeper;
 pub mod hammerhand;
 #[path = "ktk/hardened_scales.rs"]
 pub mod hardened_scales;
+#[path = "jou/harness_by_force.rs"]
+pub mod harness_by_force;
 #[path = "jou/harvestguard_alseids.rs"]
 pub mod harvestguard_alseids;
 #[path = "ktk/heart_piercer_bow.rs"]
@@ -545,6 +553,8 @@ pub mod in_garruk_s_wake;
 pub mod inferno_fist;
 #[path = "m15/invasive_species.rs"]
 pub mod invasive_species;
+#[path = "ps14/jace_the_living_guildpact.rs"]
+pub mod jace_the_living_guildpact;
 #[path = "m15/jalira_master_polymorphist.rs"]
 pub mod jalira_master_polymorphist;
 #[path = "c14/jazal_goldmane.rs"]
@@ -847,6 +857,8 @@ pub mod rakshasa_vizier;
 pub mod rattleclaw_mystic;
 #[path = "jou/ravenous_leucrocota.rs"]
 pub mod ravenous_leucrocota;
+#[path = "cns/realm_seekers.rs"]
+pub mod realm_seekers;
 #[path = "bng/reap_what_is_sown.rs"]
 pub mod reap_what_is_sown;
 #[path = "bng/reckless_reveler.rs"]
@@ -945,6 +957,8 @@ pub mod scrapyard_mongrel;
 pub mod scuttling_doom_engine;
 #[path = "bng/searing_blood.rs"]
 pub mod searing_blood;
+#[path = "ktk/see_the_unwritten.rs"]
+pub mod see_the_unwritten;
 #[path = "ktk/seeker_of_the_way.rs"]
 pub mod seeker_of_the_way;
 #[path = "m15/seraph_of_the_masses.rs"]
@@ -1029,6 +1043,8 @@ pub mod spirit_of_the_labyrinth;
 pub mod spite_of_mogis;
 #[path = "jou/spiteful_blow.rs"]
 pub mod spiteful_blow;
+#[path = "bng/spiteful_returned.rs"]
+pub mod spiteful_returned;
 #[path = "cns/split_decision.rs"]
 pub mod split_decision;
 #[path = "c14/spoils_of_blood.rs"]
@@ -1193,6 +1209,8 @@ pub mod war_name_aspirant;
 pub mod war_wing_siren;
 #[path = "bng/warchanter_of_mogis.rs"]
 pub mod warchanter_of_mogis;
+#[path = "ktk/warden_of_the_eye.rs"]
+pub mod warden_of_the_eye;
 #[path = "c14/warmonger_hellkite.rs"]
 pub mod warmonger_hellkite;
 #[path = "m15/waste_not.rs"]

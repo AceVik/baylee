@@ -87,6 +87,8 @@ pub mod arashin_foremost;
 pub mod archangel_of_tithes;
 #[path = "frf/archers_of_qarsi.rs"]
 pub mod archers_of_qarsi;
+#[path = "frf/archfiend_of_depravity.rs"]
+pub mod archfiend_of_depravity;
 #[path = "dtk/artful_maneuver.rs"]
 pub mod artful_maneuver;
 #[path = "ori/artificer_s_epiphany.rs"]
@@ -121,6 +123,8 @@ pub mod aven_sunstriker;
 pub mod aven_surveyor;
 #[path = "dtk/aven_tactician.rs"]
 pub mod aven_tactician;
+#[path = "c15/awaken_the_sky_tyrant.rs"]
+pub mod awaken_the_sky_tyrant;
 #[path = "bfz/bane_of_bala_ged.rs"]
 pub mod bane_of_bala_ged;
 #[path = "c15/banshee_of_the_dread_choir.rs"]
@@ -449,10 +453,14 @@ pub mod foul_tongue_shriek;
 pub mod foundry_of_the_consuls;
 #[path = "bfz/from_beyond.rs"]
 pub mod from_beyond;
+#[path = "frf/frontier_mastodon.rs"]
+pub mod frontier_mastodon;
 #[path = "f15/frost_walker.rs"]
 pub mod frost_walker;
 #[path = "frf/fruit_of_the_first_tree.rs"]
 pub mod fruit_of_the_first_tree;
+#[path = "ori/gather_the_pack.rs"]
+pub mod gather_the_pack;
 #[path = "bfz/geyserfield_stalker.rs"]
 pub mod geyserfield_stalker;
 #[path = "ori/ghirapur_aether_grid.rs"]
@@ -515,6 +523,8 @@ pub mod gurmag_angler;
 pub mod gurmag_drowner;
 #[path = "bfz/hagra_sharpshooter.rs"]
 pub mod hagra_sharpshooter;
+#[path = "bfz/halimar_tidecaller.rs"]
+pub mod halimar_tidecaller;
 #[path = "dtk/hand_of_silumgar.rs"]
 pub mod hand_of_silumgar;
 #[path = "ori/hangarback_walker.rs"]
@@ -653,6 +663,8 @@ pub mod lightning_berserker;
 pub mod lightning_javelin;
 #[path = "dtk/lightwalker.rs"]
 pub mod lightwalker;
+#[path = "bfz/lithomancer_s_focus.rs"]
+pub mod lithomancer_s_focus;
 #[path = "bfz/looming_spires.rs"]
 pub mod looming_spires;
 #[path = "dtk/lose_calm.rs"]
@@ -755,10 +767,14 @@ pub mod neutralizing_blast;
 pub mod nirkana_assassin;
 #[path = "bfz/nissa_s_renewal.rs"]
 pub mod nissa_s_renewal;
+#[path = "ps15/nissa_vastwood_seer.rs"]
+pub mod nissa_vastwood_seer;
 #[path = "ori/nivix_barrier.rs"]
 pub mod nivix_barrier;
 #[path = "frf/noxious_dragon.rs"]
 pub mod noxious_dragon;
+#[path = "dtk/ojutai_exemplars.rs"]
+pub mod ojutai_exemplars;
 #[path = "dtk/ojutai_interceptor.rs"]
 pub mod ojutai_interceptor;
 #[path = "dtk/ojutai_monument.rs"]
@@ -809,6 +825,8 @@ pub mod pitiless_horde;
 pub mod planar_outburst;
 #[path = "bfz/plated_crusher.rs"]
 pub mod plated_crusher;
+#[path = "ori/possessed_skaab.rs"]
+pub mod possessed_skaab;
 #[path = "bfz/prairie_stream.rs"]
 pub mod prairie_stream;
 #[path = "dtk/press_the_advantage.rs"]
@@ -1105,6 +1123,8 @@ pub mod surge_of_righteousness;
 pub mod surrak_the_hunt_caller;
 #[path = "bfz/swarm_surge.rs"]
 pub mod swarm_surge;
+#[path = "bfz/swell_of_growth.rs"]
+pub mod swell_of_growth;
 #[path = "ori/sword_of_the_animist.rs"]
 pub mod sword_of_the_animist;
 #[path = "dtk/taigam_s_strike.rs"]
@@ -1147,6 +1167,8 @@ pub mod tide_drifter;
 pub mod tightening_coils;
 #[path = "ori/topan_freeblade.rs"]
 pub mod topan_freeblade;
+#[path = "bfz/transgress_the_mind.rs"]
+pub mod transgress_the_mind;
 #[path = "dtk/tread_upon.rs"]
 pub mod tread_upon;
 #[path = "bfz/tunneling_geopede.rs"]
@@ -1201,6 +1223,8 @@ pub mod volcanic_rambler;
 pub mod volcanic_rush;
 #[path = "bfz/volcanic_upheaval.rs"]
 pub mod volcanic_upheaval;
+#[path = "dtk/volcanic_vision.rs"]
+pub mod volcanic_vision;
 #[path = "bfz/voracious_null.rs"]
 pub mod voracious_null;
 #[path = "ori/vryn_wingmare.rs"]

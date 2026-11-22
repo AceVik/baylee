@@ -6925,6 +6925,109 @@ pub static SPIRIT_4_4_WHITE_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 4/4 green legendary Ashaya, the Awoken World.
+pub static ASHAYA_THE_AWOKEN_WORLD_LEGENDARY_4_4_GREEN: TokenDef = TokenDef {
+    name: "Ashaya, the Awoken World",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(4),
+    toughness: Some(4),
+    ..TokenDef::DEFAULT
+};
+
+/// 8/8 white legendary Avacyn with flying and indestructible and vigilance.
+pub static AVACYN_LEGENDARY_8_8_WHITE_FLYING_INDESTRUCTIBLE_VIGILANCE: TokenDef = TokenDef {
+    name: "Avacyn",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::ANGEL],
+    power: Some(8),
+    toughness: Some(8),
+    keywords: KeywordSet::FLYING
+        .union(KeywordSet::INDESTRUCTIBLE)
+        .union(KeywordSet::VIGILANCE),
+    ..TokenDef::DEFAULT
+};
+
+/// 0/0 black Sliver Army.
+pub static SLIVER_ARMY_0_0_BLACK: TokenDef = TokenDef {
+    name: "Sliver Army",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SLIVER, creature::ARMY],
+    power: Some(0),
+    toughness: Some(0),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/6 black red Avatar with haste.
+pub static AVATAR_3_6_BLACK_RED_HASTE_A5A48861B: TokenDef = TokenDef {
+    name: "Avatar",
+    colors: ColorSet::from_slice(&[Color::Black, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::AVATAR],
+    power: Some(3),
+    toughness: Some(6),
+    keywords: KeywordSet::HASTE,
+    abilities: &[triggered!(
+        Trigger::Attacks(&Filter::And(&[Filter::CREATURE, Filter::This])),
+        &[Effect::DealDamage {
+            amount: Amount::Fixed(3),
+            target: TargetSpec::Player(PlayerRel::Opponent)
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// */* green Treefolk with reach.
+pub static TREEFOLK_X_X_GREEN_REACH_AC1FE3DC7: TokenDef = TokenDef {
+    name: "Treefolk",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::TREEFOLK],
+    keywords: KeywordSet::REACH,
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::CharacteristicPT {
+            count: PtCount::YouControl(&Filter::YOUR_LAND),
+            toughness_plus: 0
+        }
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 0/2 blue Illusion.
+pub static ILLUSION_0_2_BLUE_A820721BF: TokenDef = TokenDef {
+    name: "Illusion",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ILLUSION],
+    power: Some(0),
+    toughness: Some(2),
+    abilities: &[triggered!(
+        Trigger::BlocksCreature(&Filter::CREATURE),
+        &[Effect::SuppressUntap {
+            target: TargetSpec::EventObject,
+            steps: 1
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white artifact Toy.
+pub static TOY_ARTIFACT_1_1_WHITE: TokenDef = TokenDef {
+    name: "Toy",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::TOY],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -8249,6 +8352,13 @@ pub static ALL: &[&TokenDef] = &[
     &ZOMBIE_X_X_BLUE,
     &WEIRD_X_X_BLUE_RED,
     &SPIRIT_4_4_WHITE_FLYING,
+    &ASHAYA_THE_AWOKEN_WORLD_LEGENDARY_4_4_GREEN,
+    &AVACYN_LEGENDARY_8_8_WHITE_FLYING_INDESTRUCTIBLE_VIGILANCE,
+    &SLIVER_ARMY_0_0_BLACK,
+    &AVATAR_3_6_BLACK_RED_HASTE_A5A48861B,
+    &TREEFOLK_X_X_GREEN_REACH_AC1FE3DC7,
+    &ILLUSION_0_2_BLUE_A820721BF,
+    &TOY_ARTIFACT_1_1_WHITE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -8785,6 +8895,13 @@ pub static GENERATED: &[&TokenDef] = &[
     &ZOMBIE_X_X_BLUE,
     &WEIRD_X_X_BLUE_RED,
     &SPIRIT_4_4_WHITE_FLYING,
+    &ASHAYA_THE_AWOKEN_WORLD_LEGENDARY_4_4_GREEN,
+    &AVACYN_LEGENDARY_8_8_WHITE_FLYING_INDESTRUCTIBLE_VIGILANCE,
+    &SLIVER_ARMY_0_0_BLACK,
+    &AVATAR_3_6_BLACK_RED_HASTE_A5A48861B,
+    &TREEFOLK_X_X_GREEN_REACH_AC1FE3DC7,
+    &ILLUSION_0_2_BLUE_A820721BF,
+    &TOY_ARTIFACT_1_1_WHITE,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.

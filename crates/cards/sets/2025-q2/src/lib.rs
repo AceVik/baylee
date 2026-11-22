@@ -53,8 +53,12 @@ pub mod ambling_stormshell;
 pub mod ambrosia_whiteheart;
 #[path = "ptdm/anafenza_unyielding_lineage.rs"]
 pub mod anafenza_unyielding_lineage;
+#[path = "tdm/arashin_sunshield.rs"]
+pub mod arashin_sunshield;
 #[path = "fic/ardbert_warrior_of_darkness.rs"]
 pub mod ardbert_warrior_of_darkness;
+#[path = "fin/ardyn_the_usurper.rs"]
+pub mod ardyn_the_usurper;
 #[path = "fin/ashe_princess_of_dalmasca.rs"]
 pub mod ashe_princess_of_dalmasca;
 #[path = "fin/astrologian_s_planisphere.rs"]
@@ -119,6 +123,8 @@ pub mod cargo_ship;
 pub mod caustic_exhale;
 #[path = "fin/cecil_dark_knight.rs"]
 pub mod cecil_dark_knight;
+#[path = "tdm/champion_of_dusan.rs"]
+pub mod champion_of_dusan;
 #[path = "fin/choco_comet.rs"]
 pub mod choco_comet;
 #[path = "fic/chocobo_camp.rs"]
@@ -195,6 +201,8 @@ pub mod descendant_of_storms;
 pub mod devoted_duelist;
 #[path = "fin/diamond_weapon.rs"]
 pub mod diamond_weapon;
+#[path = "tdm/dispelling_exhale.rs"]
+pub mod dispelling_exhale;
 #[path = "tdc/diviner_of_mist.rs"]
 pub mod diviner_of_mist;
 #[path = "ptdm/dracogenesis.rs"]
@@ -207,6 +215,8 @@ pub mod dragonback_assault;
 pub mod dragonback_lancer;
 #[path = "tdm/dragonbroods_relic.rs"]
 pub mod dragonbroods_relic;
+#[path = "tdm/dragonclaw_strike.rs"]
+pub mod dragonclaw_strike;
 #[path = "ptdm/dragonologist.rs"]
 pub mod dragonologist;
 #[path = "tdm/dragonstorm_forecaster.rs"]
@@ -223,6 +233,8 @@ pub mod dusyut_earthcarver;
 pub mod duty_beyond_death;
 #[path = "fin/dwarven_castle_guard.rs"]
 pub mod dwarven_castle_guard;
+#[path = "fic/edea_possessed_sorceress.rs"]
+pub mod edea_possessed_sorceress;
 #[path = "fin/eden_seat_of_the_sanctum.rs"]
 pub mod eden_seat_of_the_sanctum;
 #[path = "fin/eject.rs"]
@@ -235,6 +247,8 @@ pub mod elsha_threefold_master;
 pub mod elspeth_storm_slayer;
 #[path = "tdm/embermouth_sentinel.rs"]
 pub mod embermouth_sentinel;
+#[path = "fin/emet_selch_unsundered.rs"]
+pub mod emet_selch_unsundered;
 #[path = "tdm/encroaching_dragonstorm.rs"]
 pub mod encroaching_dragonstorm;
 #[path = "tdm/equilibrium_adept.rs"]
@@ -295,6 +309,8 @@ pub mod giott_king_of_the_dwarves;
 pub mod gladiolus_amicitia;
 #[path = "fin/gohn_town_of_ruin.rs"]
 pub mod gohn_town_of_ruin;
+#[path = "fin/golbez_crystal_collector.rs"]
+pub mod golbez_crystal_collector;
 #[path = "tdc/goldlust_triad.rs"]
 pub mod goldlust_triad;
 #[path = "fin/gongaga_reactor_town.rs"]
@@ -421,6 +437,8 @@ pub mod magic_pot;
 pub mod magitek_armor;
 #[path = "fin/magitek_infantry.rs"]
 pub mod magitek_infantry;
+#[path = "ptdm/magmatic_hellkite.rs"]
+pub mod magmatic_hellkite;
 #[path = "fin/malboro.rs"]
 pub mod malboro;
 #[path = "tdm/mardu_devotee.rs"]
@@ -455,6 +473,8 @@ pub mod neriv_heart_of_the_storm;
 pub mod nightblade_brigade;
 #[path = "fic/o_aka_traveling_merchant.rs"]
 pub mod o_aka_traveling_merchant;
+#[path = "tdm/osseous_exhale.rs"]
+pub mod osseous_exhale;
 #[path = "fin/overkill.rs"]
 pub mod overkill;
 #[path = "tdm/overwhelming_surge.rs"]
@@ -465,6 +485,8 @@ pub mod paladin_s_arms;
 pub mod phantom_train;
 #[path = "fin/phoenix_down.rs"]
 pub mod phoenix_down;
+#[path = "tdm/piercing_exhale.rs"]
+pub mod piercing_exhale;
 #[path = "tdm/poised_practitioner.rs"]
 pub mod poised_practitioner;
 #[path = "fin/poison_the_waters.rs"]
@@ -521,6 +543,8 @@ pub mod ringing_strike_mastery;
 pub mod rinoa_heartilly;
 #[path = "tdm/riverwalk_technique.rs"]
 pub mod riverwalk_technique;
+#[path = "tdm/riverwheel_sweep.rs"]
+pub mod riverwheel_sweep;
 #[path = "tdm/roiling_dragonstorm.rs"]
 pub mod roiling_dragonstorm;
 #[path = "fin/rook_turret.rs"]
@@ -531,6 +555,8 @@ pub mod rosa_resolute_white_mage;
 pub mod rufus_shinra;
 #[path = "fin/rydia_s_return.rs"]
 pub mod rydia_s_return;
+#[path = "fin/rydia_summoner_of_mist.rs"]
+pub mod rydia_summoner_of_mist;
 #[path = "fin/sabotender.rs"]
 pub mod sabotender;
 #[path = "tdm/sage_of_the_fang.rs"]
@@ -547,6 +573,8 @@ pub mod samurai_s_katana;
 pub mod sandskitter_outrider;
 #[path = "fin/sandworm.rs"]
 pub mod sandworm;
+#[path = "ptdm/sarkhan_dragon_ascendant.rs"]
+pub mod sarkhan_dragon_ascendant;
 #[path = "tdm/sarkhan_s_resolve.rs"]
 pub mod sarkhan_s_resolve;
 #[path = "fin/sazh_katzroy.rs"]
@@ -577,6 +605,8 @@ pub mod shambling_cie_th;
 pub mod sharlayan_nation_of_scholars;
 #[path = "fic/shelinda_yevon_acolyte.rs"]
 pub mod shelinda_yevon_acolyte;
+#[path = "ptdm/shiko_paragon_of_the_way.rs"]
+pub mod shiko_paragon_of_the_way;
 #[path = "fin/shinra_reinforcements.rs"]
 pub mod shinra_reinforcements;
 #[path = "tdm/shock_brigade.rs"]
@@ -789,3 +819,5 @@ pub mod yuna_s_whistle;
 pub mod zanarkand_ancient_metropolis;
 #[path = "tdm/zurgo_s_vanguard.rs"]
 pub mod zurgo_s_vanguard;
+#[path = "tdc/zurgo_stormrender.rs"]
+pub mod zurgo_stormrender;

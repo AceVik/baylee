@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "vow/aim_for_the_head.rs"]
+pub mod aim_for_the_head;
 #[path = "vow/ancestral_anger.rs"]
 pub mod ancestral_anger;
 #[path = "vow/ancient_lumberknot.rs"]
@@ -23,6 +25,8 @@ pub mod angelic_quartermaster;
 pub mod anje_maid_of_dishonor;
 #[path = "vow/apprentice_sharpshooter.rs"]
 pub mod apprentice_sharpshooter;
+#[path = "voc/arterial_alchemy.rs"]
+pub mod arterial_alchemy;
 #[path = "pvow/ascendant_packleader.rs"]
 pub mod ascendant_packleader;
 #[path = "pvow/avabruck_caretaker.rs"]
@@ -31,6 +35,8 @@ pub mod avabruck_caretaker;
 pub mod belligerent_guest;
 #[path = "vow/binding_geist.rs"]
 pub mod binding_geist;
+#[path = "vow/biolume_egg.rs"]
+pub mod biolume_egg;
 #[path = "vow/bleed_dry.rs"]
 pub mod bleed_dry;
 #[path = "vow/blood_fountain.rs"]
@@ -79,6 +85,8 @@ pub mod deathcap_glade;
 pub mod desperate_farmer;
 #[path = "vow/diregraf_scavenger.rs"]
 pub mod diregraf_scavenger;
+#[path = "voc/disorder_in_the_court.rs"]
+pub mod disorder_in_the_court;
 #[path = "vow/distracting_geist.rs"]
 pub mod distracting_geist;
 #[path = "vow/diver_skaab.rs"]
@@ -205,6 +213,8 @@ pub mod markov_waltzer;
 pub mod massive_might;
 #[path = "voc/millicent_restless_revenant.rs"]
 pub mod millicent_restless_revenant;
+#[path = "vow/mindleech_ghoul.rs"]
+pub mod mindleech_ghoul;
 #[path = "pvow/mirrorhall_mimic.rs"]
 pub mod mirrorhall_mimic;
 #[path = "vow/mischievous_catgeist.rs"]
@@ -289,10 +299,14 @@ pub mod sporeback_wolf;
 pub mod steelclad_spirit;
 #[path = "vow/stitched_assistant.rs"]
 pub mod stitched_assistant;
+#[path = "voc/storm_of_souls.rs"]
+pub mod storm_of_souls;
 #[path = "pvow/stormcarved_coast.rs"]
 pub mod stormcarved_coast;
 #[path = "pvow/sundown_pass.rs"]
 pub mod sundown_pass;
+#[path = "vow/supernatural_rescue.rs"]
+pub mod supernatural_rescue;
 #[path = "vow/syphon_essence.rs"]
 pub mod syphon_essence;
 #[path = "voc/thundering_mightmare.rs"]

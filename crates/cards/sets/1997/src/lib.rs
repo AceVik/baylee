@@ -277,6 +277,8 @@ pub mod creeping_mold;
 pub mod crown_of_flames;
 #[path = "por/cruel_bargain.rs"]
 pub mod cruel_bargain;
+#[path = "por/cruel_fate.rs"]
+pub mod cruel_fate;
 #[path = "por/cruel_tutor.rs"]
 pub mod cruel_tutor;
 #[path = "vis/crypt_rats.rs"]
@@ -1495,6 +1497,8 @@ pub mod winds_of_rath;
 pub mod winged_sliver;
 #[path = "por/winter_s_grasp.rs"]
 pub mod winter_s_grasp;
+#[path = "por/withering_gaze.rs"]
+pub mod withering_gaze;
 #[path = "por/wood_elves.rs"]
 pub mod wood_elves;
 #[path = "tmp/wood_sage.rs"]

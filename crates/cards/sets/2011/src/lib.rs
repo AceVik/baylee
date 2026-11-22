@@ -175,6 +175,8 @@ pub mod cloistered_youth;
 pub mod cobbled_wings;
 #[path = "cmd/command_tower.rs"]
 pub mod command_tower;
+#[path = "mbs/concussive_bolt.rs"]
+pub mod concussive_bolt;
 #[path = "mbs/consecrated_sphinx.rs"]
 pub mod consecrated_sphinx;
 #[path = "mbs/contested_war_zone.rs"]
@@ -247,6 +249,8 @@ pub mod dismember;
 pub mod dispatch;
 #[path = "m12/divine_favor.rs"]
 pub mod divine_favor;
+#[path = "isd/divine_reckoning.rs"]
+pub mod divine_reckoning;
 #[path = "isd/doomed_traveler.rs"]
 pub mod doomed_traveler;
 #[path = "cmd/dread_cacodemon.rs"]
@@ -337,8 +341,12 @@ pub mod geosurge;
 pub mod geth_s_verdict;
 #[path = "cmd/ghave_guru_of_spores.rs"]
 pub mod ghave_guru_of_spores;
+#[path = "isd/ghostly_possession.rs"]
+pub mod ghostly_possession;
 #[path = "isd/ghoulcaller_s_bell.rs"]
 pub mod ghoulcaller_s_bell;
+#[path = "isd/ghoulcaller_s_chant.rs"]
+pub mod ghoulcaller_s_chant;
 #[path = "isd/ghoulraiser.rs"]
 pub mod ghoulraiser;
 #[path = "m12/gideon_s_avenger.rs"]
@@ -393,6 +401,8 @@ pub mod griffin_rider;
 pub mod grim_affliction;
 #[path = "isd/grimgrin_corpse_born.rs"]
 pub mod grimgrin_corpse_born;
+#[path = "isd/grimoire_of_the_dead.rs"]
+pub mod grimoire_of_the_dead;
 #[path = "isd/grizzled_outcasts.rs"]
 pub mod grizzled_outcasts;
 #[path = "isd/gruesome_deformity.rs"]
@@ -509,6 +519,8 @@ pub mod lost_leonin;
 pub mod loxodon_convert;
 #[path = "mbs/loxodon_partisan.rs"]
 pub mod loxodon_partisan;
+#[path = "pisd/ludevic_s_test_subject.rs"]
+pub mod ludevic_s_test_subject;
 #[path = "isd/lumberknot.rs"]
 pub mod lumberknot;
 #[path = "mbs/lumengrid_gargoyle.rs"]
@@ -609,6 +621,8 @@ pub mod neurok_commando;
 pub mod nevermore;
 #[path = "isd/night_revelers.rs"]
 pub mod night_revelers;
+#[path = "isd/night_terrors.rs"]
+pub mod night_terrors;
 #[path = "isd/nightbird_s_clutches.rs"]
 pub mod nightbird_s_clutches;
 #[path = "cmd/nin_the_pain_artist.rs"]
@@ -699,6 +713,8 @@ pub mod pristine_talisman;
 pub mod psychic_barrier;
 #[path = "mbs/psychosis_crawler.rs"]
 pub mod psychosis_crawler;
+#[path = "nph/puresteel_paladin.rs"]
+pub mod puresteel_paladin;
 #[path = "isd/purify_the_grave.rs"]
 pub mod purify_the_grave;
 #[path = "mbs/quicksilver_geyser.rs"]
@@ -1013,6 +1029,8 @@ pub mod vivisection;
 pub mod voiceless_spirit;
 #[path = "nph/volt_charge.rs"]
 pub mod volt_charge;
+#[path = "nph/vorinclex_voice_of_hunger.rs"]
+pub mod vorinclex_voice_of_hunger;
 #[path = "nph/vulshok_refugee.rs"]
 pub mod vulshok_refugee;
 #[path = "isd/walking_corpse.rs"]

@@ -89,6 +89,8 @@ pub mod bestial_incursion;
 pub mod beverly_crusher_ship_s_doctor;
 #[path = "trc/bio_asset_allocator.rs"]
 pub mod bio_asset_allocator;
+#[path = "trk/blastoneuron.rs"]
+pub mod blastoneuron;
 #[path = "fra/blessed_ghoul.rs"]
 pub mod blessed_ghoul;
 #[path = "trc/blood_sport_champion.rs"]
@@ -117,6 +119,8 @@ pub mod c_70_000_light_years_from_home;
 pub mod cantankerous_captain;
 #[path = "trc/captain_janeway_endgame.rs"]
 pub mod captain_janeway_endgame;
+#[path = "trk/captain_jean_luc_picard.rs"]
+pub mod captain_jean_luc_picard;
 #[path = "trk/captain_kathryn_janeway.rs"]
 pub mod captain_kathryn_janeway;
 #[path = "trc/captain_kirk_boldly_going.rs"]
@@ -493,6 +497,8 @@ pub mod locutus_the_one_who_speaks;
 pub mod lore_positronic_provocateur;
 #[path = "fra/loyal_tutor.rs"]
 pub mod loyal_tutor;
+#[path = "trc/lt_arex_ever_adapting.rs"]
+pub mod lt_arex_ever_adapting;
 #[path = "trk/lt_cmdr_geordi_la_forge.rs"]
 pub mod lt_cmdr_geordi_la_forge;
 #[path = "mbc/lyna_veil_of_vengeance.rs"]
@@ -617,6 +623,8 @@ pub mod qo_no_s_quartermaster;
 pub mod quark_humble_proprietor;
 #[path = "trk/quark_s_bar.rs"]
 pub mod quark_s_bar;
+#[path = "trc/queen_s_diamond.rs"]
+pub mod queen_s_diamond;
 #[path = "fra/rampart_hunter.rs"]
 pub mod rampart_hunter;
 #[path = "fra/rank_rat.rs"]
@@ -825,6 +833,8 @@ pub mod the_doctor_emh;
 pub mod the_duras_sisters;
 #[path = "fra/the_echoverse_fulcrum.rs"]
 pub mod the_echoverse_fulcrum;
+#[path = "trk/the_measure_of_a_man.rs"]
+pub mod the_measure_of_a_man;
 #[path = "trk/the_naked_time.rs"]
 pub mod the_naked_time;
 #[path = "trk/the_needs_of_the_many.rs"]
@@ -943,6 +953,8 @@ pub mod winter_team_player;
 pub mod winter_tormented_loner;
 #[path = "trc/worf_chief_tactical_officer.rs"]
 pub mod worf_chief_tactical_officer;
+#[path = "trk/worf_intelligence_contractor.rs"]
+pub mod worf_intelligence_contractor;
 #[path = "trc/worf_son_of_mogh.rs"]
 pub mod worf_son_of_mogh;
 #[path = "trc/worf_still_not_merry.rs"]

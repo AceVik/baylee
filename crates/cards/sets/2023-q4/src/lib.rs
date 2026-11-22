@@ -15,6 +15,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
 #[path = "lci/abuelo_ancestral_echo.rs"]
 pub mod abuelo_ancestral_echo;
+#[path = "lci/abuelo_s_awakening.rs"]
+pub mod abuelo_s_awakening;
 #[path = "lci/abyssal_gorestalker.rs"]
 pub mod abyssal_gorestalker;
 #[path = "lci/aclazotz_deepest_betrayal.rs"]
@@ -121,6 +123,8 @@ pub mod compass_gnome;
 pub mod compy_swarm;
 #[path = "lci/confounding_riddle.rs"]
 pub mod confounding_riddle;
+#[path = "lcc/contest_of_claws.rs"]
+pub mod contest_of_claws;
 #[path = "lci/cosmium_blast.rs"]
 pub mod cosmium_blast;
 #[path = "lci/cosmium_confluence.rs"]
@@ -135,6 +139,8 @@ pub mod cresting_mosasaurus;
 pub mod crisis_of_conscience;
 #[path = "lcc/curious_altisaur.rs"]
 pub mod curious_altisaur;
+#[path = "who/cyberman_patrol.rs"]
+pub mod cyberman_patrol;
 #[path = "who/cybermat.rs"]
 pub mod cybermat;
 #[path = "who/cybermen_squadron.rs"]
@@ -143,6 +149,8 @@ pub mod cybermen_squadron;
 pub mod dalek_drone;
 #[path = "who/dalek_squadron.rs"]
 pub mod dalek_squadron;
+#[path = "who/dan_lewis.rs"]
+pub mod dan_lewis;
 #[path = "lci/daring_discovery.rs"]
 pub mod daring_discovery;
 #[path = "who/decaying_time_loop.rs"]
@@ -153,6 +161,8 @@ pub mod deconstruction_hammer;
 pub mod deep_goblin_skulltaker;
 #[path = "lcc/deeproot_historian.rs"]
 pub mod deeproot_historian;
+#[path = "lci/defossilize.rs"]
+pub mod defossilize;
 #[path = "who/delete.rs"]
 pub mod delete;
 #[path = "lci/diamond_pick_axe.rs"]
@@ -165,6 +175,8 @@ pub mod digsite_conservator;
 pub mod dinosaur_egg;
 #[path = "lci/dinotomaton.rs"]
 pub mod dinotomaton;
+#[path = "lci/disruptor_wanderglyph.rs"]
+pub mod disruptor_wanderglyph;
 #[path = "lcc/don_andres_the_renegade.rs"]
 pub mod don_andres_the_renegade;
 #[path = "who/donna_noble.rs"]
@@ -223,12 +235,18 @@ pub mod from_the_rubble;
 pub mod frost_fair_lure_fish;
 #[path = "who/gallifrey_council_chamber.rs"]
 pub mod gallifrey_council_chamber;
+#[path = "who/gallifrey_stands.rs"]
+pub mod gallifrey_stands;
 #[path = "lci/gargantuan_leech.rs"]
 pub mod gargantuan_leech;
+#[path = "lcc/gemcutter_buccaneer.rs"]
+pub mod gemcutter_buccaneer;
 #[path = "lci/geological_appraiser.rs"]
 pub mod geological_appraiser;
 #[path = "lci/get_lost.rs"]
 pub mod get_lost;
+#[path = "lci/ghalta_stampede_tyrant.rs"]
+pub mod ghalta_stampede_tyrant;
 #[path = "lci/glimpse_the_core.rs"]
 pub mod glimpse_the_core;
 #[path = "lci/glorifier_of_suffering.rs"]
@@ -295,6 +313,8 @@ pub mod karvanista_loyal_lupari;
 pub mod kaslem_s_stonetree;
 #[path = "lci/kinjalli_s_dawnrunner.rs"]
 pub mod kinjalli_s_dawnrunner;
+#[path = "lci/kitesail_larcenist.rs"]
+pub mod kitesail_larcenist;
 #[path = "who/laser_screwdriver.rs"]
 pub mod laser_screwdriver;
 #[path = "who/leela_sevateem_warrior.rs"]
@@ -349,6 +369,8 @@ pub mod oltec_cloud_guard;
 pub mod ominous_cemetery;
 #[path = "lci/orazca_puzzle_door.rs"]
 pub mod orazca_puzzle_door;
+#[path = "lcc/order_of_sacred_dusk.rs"]
+pub mod order_of_sacred_dusk;
 #[path = "lci/oteclan_landmark.rs"]
 pub mod oteclan_landmark;
 #[path = "lci/over_the_edge.rs"]
@@ -379,6 +401,8 @@ pub mod promising_vein;
 pub mod pugnacious_hammerskull;
 #[path = "who/quantum_misalignment.rs"]
 pub mod quantum_misalignment;
+#[path = "lci/queen_s_bay_paladin.rs"]
+pub mod queen_s_bay_paladin;
 #[path = "ylci/radiant_smite.rs"]
 pub mod radiant_smite;
 #[path = "lci/rampaging_ceratops.rs"]
@@ -413,6 +437,8 @@ pub mod roaming_throne;
 pub mod ruin_lurker_bat;
 #[path = "lci/runaway_boulder.rs"]
 pub mod runaway_boulder;
+#[path = "lci/sage_of_days.rs"]
+pub mod sage_of_days;
 #[path = "lci/saheeli_the_sun_s_brilliance.rs"]
 pub mod saheeli_the_sun_s_brilliance;
 #[path = "who/sally_sparrow.rs"]
@@ -443,6 +469,8 @@ pub mod sinuous_benthisaur;
 pub mod sisterhood_of_karn;
 #[path = "lcc/skeleton_crew.rs"]
 pub mod skeleton_crew;
+#[path = "lci/skullcap_snail.rs"]
+pub mod skullcap_snail;
 #[path = "lci/soaring_sandwing.rs"]
 pub mod soaring_sandwing;
 #[path = "who/sonic_screwdriver.rs"]
@@ -543,6 +571,8 @@ pub mod wave_goodbye;
 pub mod waylaying_pirates;
 #[path = "rex/welcome_to.rs"]
 pub mod welcome_to;
+#[path = "who/wilfred_mott.rs"]
+pub mod wilfred_mott;
 #[path = "who/wreck_and_rebuild.rs"]
 pub mod wreck_and_rebuild;
 #[path = "lcc/xavier_sal_infested_captain.rs"]

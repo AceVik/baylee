@@ -51,6 +51,8 @@ pub mod boltwave;
 pub mod braulios_of_pheres_band;
 #[path = "j25/brigone_soldier_of_meletis.rs"]
 pub mod brigone_soldier_of_meletis;
+#[path = "fdn/bulk_up.rs"]
+pub mod bulk_up;
 #[path = "fdn/cackling_prowler.rs"]
 pub mod cackling_prowler;
 #[path = "fdn/celestial_armor.rs"]
@@ -135,6 +137,8 @@ pub mod goblin_negotiation;
 pub mod goblin_surprise;
 #[path = "fdn/gorehorn_raider.rs"]
 pub mod gorehorn_raider;
+#[path = "j25/gornog_the_red_reaper.rs"]
+pub mod gornog_the_red_reaper;
 #[path = "fdn/grappling_kraken.rs"]
 pub mod grappling_kraken;
 #[path = "fdn/guarded_heir.rs"]
@@ -161,6 +165,8 @@ pub mod hungry_megasloth;
 pub mod icewind_elemental;
 #[path = "fdn/incinerating_blast.rs"]
 pub mod incinerating_blast;
+#[path = "fdn/infernal_vessel.rs"]
+pub mod infernal_vessel;
 #[path = "fdn/infestation_sage.rs"]
 pub mod infestation_sage;
 #[path = "fdn/inspiration_from_beyond.rs"]
@@ -247,6 +253,8 @@ pub mod skyship_buccaneer;
 pub mod slimy_piper;
 #[path = "fdn/slumbering_cerberus.rs"]
 pub mod slumbering_cerberus;
+#[path = "fdn/soul_shackled_zombie.rs"]
+pub mod soul_shackled_zombie;
 #[path = "fdn/soulstone_sanctuary.rs"]
 pub mod soulstone_sanctuary;
 #[path = "fdn/sower_of_chaos.rs"]
@@ -267,6 +275,8 @@ pub mod starlight_snare;
 pub mod starnheim_memento;
 #[path = "fdn/strix_lookout.rs"]
 pub mod strix_lookout;
+#[path = "fdn/strongbox_raider.rs"]
+pub mod strongbox_raider;
 #[path = "fdn/sun_blessed_healer.rs"]
 pub mod sun_blessed_healer;
 #[path = "j25/sutina_speaker_of_the_tajuru.rs"]
@@ -283,6 +293,10 @@ pub mod twinblade_blessing;
 pub mod twinflame_tyrant;
 #[path = "fdn/uncharted_voyage.rs"]
 pub mod uncharted_voyage;
+#[path = "j25/urdnan_dromoka_warrior.rs"]
+pub mod urdnan_dromoka_warrior;
+#[path = "fdn/valkyrie_s_call.rs"]
+pub mod valkyrie_s_call;
 #[path = "fdn/vampire_gourmand.rs"]
 pub mod vampire_gourmand;
 #[path = "fdn/vampire_soulcaller.rs"]

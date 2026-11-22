@@ -19,6 +19,8 @@ pub mod a_tale_for_the_ages;
 pub mod agatha_s_champion;
 #[path = "pwoe/agatha_s_soul_cauldron.rs"]
 pub mod agatha_s_soul_cauldron;
+#[path = "cmm/anikthea_hand_of_erebos.rs"]
+pub mod anikthea_hand_of_erebos;
 #[path = "woe/archive_dragon.rs"]
 pub mod archive_dragon;
 #[path = "woc/archmage_of_echoes.rs"]
@@ -29,6 +31,8 @@ pub mod archon_s_glory;
 pub mod ashiok_s_reaper;
 #[path = "woe/barrow_naughty.rs"]
 pub mod barrow_naughty;
+#[path = "cmm/battle_at_the_helvault.rs"]
+pub mod battle_at_the_helvault;
 #[path = "woe/beanstalk_wurm.rs"]
 pub mod beanstalk_wurm;
 #[path = "woe/bellowing_bruiser.rs"]
@@ -69,6 +73,8 @@ pub mod cooped_up;
 pub mod court_of_ardenvale;
 #[path = "woc/court_of_embereth.rs"]
 pub mod court_of_embereth;
+#[path = "woc/court_of_garenbrig.rs"]
+pub mod court_of_garenbrig;
 #[path = "pwoe/cruel_somnophage.rs"]
 pub mod cruel_somnophage;
 #[path = "cmm/darksteel_monolith.rs"]
@@ -85,6 +91,10 @@ pub mod edgewall_inn;
 pub mod edgewall_pack;
 #[path = "woe/eerie_interference.rs"]
 pub mod eerie_interference;
+#[path = "woe/ego_drain.rs"]
+pub mod ego_drain;
+#[path = "pwoe/elusive_otter.rs"]
+pub mod elusive_otter;
 #[path = "pwoe/elvish_archivist.rs"]
 pub mod elvish_archivist;
 #[path = "woe/eriette_s_tempting_apple.rs"]
@@ -141,6 +151,8 @@ pub mod hollow_scavenger;
 pub mod hopeful_vigil;
 #[path = "woe/hopeless_nightmare.rs"]
 pub mod hopeless_nightmare;
+#[path = "pwoe/horned_loch_whale.rs"]
+pub mod horned_loch_whale;
 #[path = "pwoe/hylda_s_crown_of_winter.rs"]
 pub mod hylda_s_crown_of_winter;
 #[path = "woe/imodane_s_recruiter.rs"]
@@ -161,6 +173,8 @@ pub mod knickknack_ouphe;
 pub mod knight_of_doves;
 #[path = "woe/korvold_and_the_noble_thief.rs"]
 pub mod korvold_and_the_noble_thief;
+#[path = "cmm/lazotep_sliver.rs"]
+pub mod lazotep_sliver;
 #[path = "woe/leaping_ambush.rs"]
 pub mod leaping_ambush;
 #[path = "pwoe/likeness_looter.rs"]
@@ -243,6 +257,8 @@ pub mod rimefur_reindeer;
 pub mod rootrider_faun;
 #[path = "woe/ruby_daring_tracker.rs"]
 pub mod ruby_daring_tracker;
+#[path = "cmm/rukarumel_biologist.rs"]
+pub mod rukarumel_biologist;
 #[path = "woe/savior_of_the_sleeping.rs"]
 pub mod savior_of_the_sleeping;
 #[path = "pwoe/scalding_viper.rs"]
@@ -313,6 +329,8 @@ pub mod tenacious_tomeseeker;
 pub mod territorial_witchstalker;
 #[path = "pwoe/the_goose_mother.rs"]
 pub mod the_goose_mother;
+#[path = "woe/the_princess_takes_flight.rs"]
+pub mod the_princess_takes_flight;
 #[path = "woe/threadbind_clique.rs"]
 pub mod threadbind_clique;
 #[path = "pwoe/three_blind_mice.rs"]

@@ -167,6 +167,8 @@ pub mod hazoret_godseeker;
 pub mod howler_s_heavy;
 #[path = "dft/hulldrifter.rs"]
 pub mod hulldrifter;
+#[path = "dft/intimidation_tactics.rs"]
+pub mod intimidation_tactics;
 #[path = "dft/jibbirik_omnivore.rs"]
 pub mod jibbirik_omnivore;
 #[path = "dft/kalakscion_hunger_tyrant.rs"]
@@ -243,6 +245,8 @@ pub mod prowcatcher_specialist;
 pub mod quag_feast;
 #[path = "dft/racers_scoreboard.rs"]
 pub mod racers_scoreboard;
+#[path = "dft/redshift_rocketeer_chief.rs"]
+pub mod redshift_rocketeer_chief;
 #[path = "dft/reef_roads.rs"]
 pub mod reef_roads;
 #[path = "dft/regal_imperiosaur.rs"]
@@ -341,6 +345,8 @@ pub mod trade_the_helm;
 pub mod transit_mage;
 #[path = "dft/trip_up.rs"]
 pub mod trip_up;
+#[path = "ydft/tsagan_raider_warlord.rs"]
+pub mod tsagan_raider_warlord;
 #[path = "dft/tyrox_saurid_tyrant.rs"]
 pub mod tyrox_saurid_tyrant;
 #[path = "dft/unstoppable_plan.rs"]

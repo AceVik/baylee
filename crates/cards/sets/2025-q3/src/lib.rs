@@ -215,6 +215,8 @@ pub mod hobgoblin_mantled_marauder;
 pub mod honor;
 #[path = "eoe/honored_knight_captain.rs"]
 pub mod honored_knight_captain;
+#[path = "eoc/horizon_explorer.rs"]
+pub mod horizon_explorer;
 #[path = "om1/hot_dog_cart.rs"]
 pub mod hot_dog_cart;
 #[path = "eoe/hullcarver.rs"]
@@ -269,6 +271,8 @@ pub mod living_brain_mechanical_marvel;
 pub mod lizard_connors_s_curse;
 #[path = "eoe/loading_zone.rs"]
 pub mod loading_zone;
+#[path = "eoc/long_range_sensor.rs"]
+pub mod long_range_sensor;
 #[path = "eoe/lost_in_space.rs"]
 pub mod lost_in_space;
 #[path = "eoe/lumen_class_frigate.rs"]
@@ -303,6 +307,8 @@ pub mod memorial_vault;
 pub mod mental_modulation;
 #[path = "om1/merciless_enforcers.rs"]
 pub mod merciless_enforcers;
+#[path = "eoe/mightform_harmonizer.rs"]
+pub mod mightform_harmonizer;
 #[path = "spe/mj_rising_star.rs"]
 pub mod mj_rising_star;
 #[path = "eoe/mm_menon_uthros_exile.rs"]
@@ -363,12 +369,16 @@ pub mod pictures_of_spider_man;
 pub mod pinnacle_emissary;
 #[path = "eoe/pinnacle_kill_ship.rs"]
 pub mod pinnacle_kill_ship;
+#[path = "eoc/planetary_annihilation.rs"]
+pub mod planetary_annihilation;
 #[path = "om1/professional_wrestler.rs"]
 pub mod professional_wrestler;
 #[path = "om1/prowler_clawed_thief.rs"]
 pub mod prowler_clawed_thief;
 #[path = "spe/prowler_misguided_mentor.rs"]
 pub mod prowler_misguided_mentor;
+#[path = "eoe/pulsar_squadron_ace.rs"]
+pub mod pulsar_squadron_ace;
 #[path = "om1/pumpkin_bombardment.rs"]
 pub mod pumpkin_bombardment;
 #[path = "eoe/radiant_strike.rs"]
@@ -643,5 +653,7 @@ pub mod with_great_power;
 pub mod wraith_vicious_vigilante;
 #[path = "eoe/wurmwall_sweeper.rs"]
 pub mod wurmwall_sweeper;
+#[path = "eoe/xu_ifit_osteoharmonist.rs"]
+pub mod xu_ifit_osteoharmonist;
 #[path = "eoe/zookeeper_mechan.rs"]
 pub mod zookeeper_mechan;

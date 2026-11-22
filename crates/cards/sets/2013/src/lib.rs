@@ -167,6 +167,8 @@ pub mod boros_reckoner;
 pub mod boulderfall;
 #[path = "ths/breaching_hippocamp.rs"]
 pub mod breaching_hippocamp;
+#[path = "pdgm/breaking.rs"]
+pub mod breaking;
 #[path = "dgm/bred_for_the_hunt.rs"]
 pub mod bred_for_the_hunt;
 #[path = "ths/bronze_sable.rs"]
@@ -283,6 +285,8 @@ pub mod deputy_of_acquittals;
 pub mod derevi_empyrial_tactician;
 #[path = "ddl/destructive_revelry.rs"]
 pub mod destructive_revelry;
+#[path = "f13/dimir_charm.rs"]
+pub mod dimir_charm;
 #[path = "dgm/dimir_cluestone.rs"]
 pub mod dimir_cluestone;
 #[path = "gtc/dimir_guildgate.rs"]
@@ -547,12 +551,16 @@ pub mod legion_loyalist;
 pub mod leonin_snarecaster;
 #[path = "gtc/leyline_phantom.rs"]
 pub mod leyline_phantom;
+#[path = "m14/lifebane_zombie.rs"]
+pub mod lifebane_zombie;
 #[path = "ths/lightning_strike.rs"]
 pub mod lightning_strike;
 #[path = "m14/liliana_s_reaver.rs"]
 pub mod liliana_s_reaver;
 #[path = "m14/liturgy_of_blood.rs"]
 pub mod liturgy_of_blood;
+#[path = "gtc/lord_of_the_void.rs"]
+pub mod lord_of_the_void;
 #[path = "ths/lost_in_a_labyrinth.rs"]
 pub mod lost_in_a_labyrinth;
 #[path = "dgm/lyev_decree.rs"]
@@ -623,6 +631,8 @@ pub mod mirko_vosk_mind_drinker;
 pub mod mistcutter_hydra;
 #[path = "m14/molten_birth.rs"]
 pub mod molten_birth;
+#[path = "gtc/molten_primordial.rs"]
+pub mod molten_primordial;
 #[path = "gtc/mortus_strider.rs"]
 pub mod mortus_strider;
 #[path = "gtc/mugging.rs"]
@@ -799,6 +809,8 @@ pub mod riot_piker;
 pub mod ripscale_predator;
 #[path = "m14/rise_of_the_dark_realms.rs"]
 pub mod rise_of_the_dark_realms;
+#[path = "c13/roon_of_the_hidden_realm.rs"]
+pub mod roon_of_the_hidden_realm;
 #[path = "dgm/rubblebelt_maaka.rs"]
 pub mod rubblebelt_maaka;
 #[path = "gtc/rubblebelt_raiders.rs"]
@@ -857,6 +869,8 @@ pub mod selesnya_cluestone;
 pub mod sentinel_sliver;
 #[path = "ths/sentry_of_the_underworld.rs"]
 pub mod sentry_of_the_underworld;
+#[path = "gtc/sepulchral_primordial.rs"]
+pub mod sepulchral_primordial;
 #[path = "ths/setessan_battle_priest.rs"]
 pub mod setessan_battle_priest;
 #[path = "ths/setessan_griffin.rs"]
@@ -893,6 +907,8 @@ pub mod simic_fluxmage;
 pub mod simic_guildgate;
 #[path = "gtc/simic_keyrune.rs"]
 pub mod simic_keyrune;
+#[path = "f13/sin_collector.rs"]
+pub mod sin_collector;
 #[path = "dgm/sinister_possession.rs"]
 pub mod sinister_possession;
 #[path = "ths/sip_of_hemlock.rs"]
@@ -955,6 +971,8 @@ pub mod staff_of_the_sun_magus;
 pub mod staff_of_the_wild_magus;
 #[path = "ths/staunch_hearted_warrior.rs"]
 pub mod staunch_hearted_warrior;
+#[path = "ths/steam_augury.rs"]
+pub mod steam_augury;
 #[path = "m14/steelform_sliver.rs"]
 pub mod steelform_sliver;
 #[path = "dgm/steeple_roc.rs"]

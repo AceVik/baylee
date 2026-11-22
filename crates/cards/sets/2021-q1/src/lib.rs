@@ -83,6 +83,8 @@ pub mod cleaving_reaper;
 pub mod colossal_plow;
 #[path = "khm/cosmos_elixir.rs"]
 pub mod cosmos_elixir;
+#[path = "khm/crippling_fear.rs"]
+pub mod crippling_fear;
 #[path = "khc/crown_of_skemfar.rs"]
 pub mod crown_of_skemfar;
 #[path = "khm/cyclone_summoner.rs"]
@@ -97,6 +99,8 @@ pub mod demon_bolt;
 pub mod demonic_gifts;
 #[path = "khm/depart_the_realm.rs"]
 pub mod depart_the_realm;
+#[path = "khm/divine_gambit.rs"]
+pub mod divine_gambit;
 #[path = "khm/dogged_pursuit.rs"]
 pub mod dogged_pursuit;
 #[path = "khm/doomskar.rs"]
@@ -265,6 +269,8 @@ pub mod port_of_karfell;
 pub mod priest_of_the_haunted_edge;
 #[path = "khm/quakebringer.rs"]
 pub mod quakebringer;
+#[path = "khm/raiders_karve.rs"]
+pub mod raiders_karve;
 #[path = "khm/rally_the_ranks.rs"]
 pub mod rally_the_ranks;
 #[path = "khm/rampage_of_the_valkyries.rs"]

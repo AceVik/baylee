@@ -79,6 +79,8 @@ pub mod apocalypse_demon;
 pub mod appeal;
 #[path = "c17/arahbo_roar_of_the_world.rs"]
 pub mod arahbo_roar_of_the_world;
+#[path = "pxln/arcane_adaptation.rs"]
+pub mod arcane_adaptation;
 #[path = "akh/archfiend_of_ifnir.rs"]
 pub mod archfiend_of_ifnir;
 #[path = "pxln/arguel_s_blood_fast.rs"]
@@ -289,6 +291,8 @@ pub mod curator_of_mysteries;
 pub mod cursed_minotaur;
 #[path = "akh/cut.rs"]
 pub mod cut;
+#[path = "hou/dagger_of_the_worthy.rs"]
+pub mod dagger_of_the_worthy;
 #[path = "aer/daring_demolition.rs"]
 pub mod daring_demolition;
 #[path = "pxln/daring_saboteur.rs"]
@@ -365,6 +369,8 @@ pub mod dire_fleet_captain;
 pub mod dire_fleet_hoarder;
 #[path = "xln/dire_fleet_interloper.rs"]
 pub mod dire_fleet_interloper;
+#[path = "pxln/dire_fleet_ravager.rs"]
+pub mod dire_fleet_ravager;
 #[path = "aer/disallow.rs"]
 pub mod disallow;
 #[path = "aer/dispersal_technician.rs"]
@@ -581,6 +587,8 @@ pub mod gust_walker;
 pub mod hapatra_vizier_of_poisons;
 #[path = "hou/harrier_naga.rs"]
 pub mod harrier_naga;
+#[path = "akh/harvest_season.rs"]
+pub mod harvest_season;
 #[path = "hou/hashep_oasis.rs"]
 pub mod hashep_oasis;
 #[path = "akh/haze_of_pollen.rs"]
@@ -621,6 +629,8 @@ pub mod hierophant_s_chalice;
 pub mod highspire_infusion;
 #[path = "aer/hinterland_drake.rs"]
 pub mod hinterland_drake;
+#[path = "hou/hollow_one.rs"]
+pub mod hollow_one;
 #[path = "akh/honed_khopesh.rs"]
 pub mod honed_khopesh;
 #[path = "akh/honored_crop_captain.rs"]
@@ -659,6 +669,8 @@ pub mod ifnir_deadlands;
 pub mod illusionist_s_stratagem;
 #[path = "akh/illusory_wrappings.rs"]
 pub mod illusory_wrappings;
+#[path = "hou/imminent_doom.rs"]
+pub mod imminent_doom;
 #[path = "xln/imperial_aerosaur.rs"]
 pub mod imperial_aerosaur;
 #[path = "xln/imperial_lancer.rs"]
@@ -703,6 +715,8 @@ pub mod ixalli_s_diviner;
 pub mod ixalli_s_keeper;
 #[path = "c17/izzet_chemister.rs"]
 pub mod izzet_chemister;
+#[path = "xln/jace_ingenious_mind_mage.rs"]
+pub mod jace_ingenious_mind_mage;
 #[path = "xln/jace_s_sentinel.rs"]
 pub mod jace_s_sentinel;
 #[path = "xln/jade_guardian.rs"]
@@ -761,6 +775,8 @@ pub mod lifecrafter_s_bestiary;
 pub mod lifecrafter_s_gift;
 #[path = "xln/lightning_rig_crew.rs"]
 pub mod lightning_rig_crew;
+#[path = "akh/liliana_death_s_majesty.rs"]
+pub mod liliana_death_s_majesty;
 #[path = "akh/liliana_death_wielder.rs"]
 pub mod liliana_death_wielder;
 #[path = "hou/liliana_s_defeat.rs"]
@@ -791,6 +807,8 @@ pub mod manticore_eternal;
 pub mod marauding_boneslasher;
 #[path = "xln/marauding_looter.rs"]
 pub mod marauding_looter;
+#[path = "xln/march_of_the_drowned.rs"]
+pub mod march_of_the_drowned;
 #[path = "aer/maverick_thopterist.rs"]
 pub mod maverick_thopterist;
 #[path = "pxln/mavren_fein_dusk_apostle.rs"]
@@ -835,6 +853,8 @@ pub mod natural_obsolescence;
 pub mod navigator_s_ruin;
 #[path = "akh/nef_crop_entangler.rs"]
 pub mod nef_crop_entangler;
+#[path = "hou/neheb_the_eternal.rs"]
+pub mod neheb_the_eternal;
 #[path = "akh/neheb_the_worthy.rs"]
 pub mod neheb_the_worthy;
 #[path = "xln/nest_robber.rs"]
@@ -965,6 +985,8 @@ pub mod quicksmith_rebel;
 pub mod quicksmith_spy;
 #[path = "xln/raging_swordtooth.rs"]
 pub mod raging_swordtooth;
+#[path = "akh/rags.rs"]
+pub mod rags;
 #[path = "xln/raiders_wake.rs"]
 pub mod raiders_wake;
 #[path = "xln/rallying_roar.rs"]
@@ -991,6 +1013,8 @@ pub mod ravenous_intruder;
 pub mod razaketh_s_rite;
 #[path = "hou/razaketh_the_foulblooded.rs"]
 pub mod razaketh_the_foulblooded;
+#[path = "hou/reason.rs"]
+pub mod reason;
 #[path = "aer/reckless_racer.rs"]
 pub mod reckless_racer;
 #[path = "akh/reduce.rs"]
@@ -1139,6 +1163,8 @@ pub mod shore_keeper;
 pub mod sidewinder_naga;
 #[path = "aer/siege_modification.rs"]
 pub mod siege_modification;
+#[path = "hou/sifter_wurm.rs"]
+pub mod sifter_wurm;
 #[path = "aer/silkweaver_elite.rs"]
 pub mod silkweaver_elite;
 #[path = "hou/sinuous_striker.rs"]

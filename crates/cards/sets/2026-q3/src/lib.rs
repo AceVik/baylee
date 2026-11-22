@@ -31,8 +31,12 @@ pub mod bejeweled_warg;
 pub mod beorn_reluctant_host;
 #[path = "hob/beorn_s_hospitality.rs"]
 pub mod beorn_s_hospitality;
+#[path = "hob/beorn_the_fierce.rs"]
+pub mod beorn_the_fierce;
 #[path = "hob/bilbo_baggins_burglar.rs"]
 pub mod bilbo_baggins_burglar;
+#[path = "hoc/bilbo_s_burglaring.rs"]
+pub mod bilbo_s_burglaring;
 #[path = "hob/bilbo_s_deadly_slice.rs"]
 pub mod bilbo_s_deadly_slice;
 #[path = "hob/bilbo_s_gambit.rs"]
@@ -41,6 +45,8 @@ pub mod bilbo_s_gambit;
 pub mod bofur_reliable_guardian;
 #[path = "hoc/bolg_erebor_s_reckoning.rs"]
 pub mod bolg_erebor_s_reckoning;
+#[path = "hob/bolg_of_the_north.rs"]
+pub mod bolg_of_the_north;
 #[path = "hob/bolg_s_company.rs"]
 pub mod bolg_s_company;
 #[path = "hob/bothersome_noisemaker.rs"]
