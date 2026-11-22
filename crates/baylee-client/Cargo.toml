@@ -20,7 +20,7 @@ path = "tests/integration.rs"
 # Its programs look cards up, so they hold the pool (`baylee-cards-pool`).
 baylee-cards-pool.workspace = true
 uuid.workspace = true
-url = "2.5.8"
+url.workspace = true
 # `local-offset`: the game log's clock column says the device's own time
 # (#300), asked of the platform per line (`localtime_r`, Windows' zone
 # information, or the browser's `Date` through `wasm-bindgen` below).
