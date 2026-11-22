@@ -522,6 +522,176 @@ impl Tx<'_> {
         matches_source_power.then_some(filter)
     }
 
+    /// Wave 26e: SVar-compared mana-value and power filter atoms backed by Wave 14a's
+    /// dynamic `Filter::{CmcAtMostAmount, CmcEqualsAmount, PowerAtMostAmount, PowerAtLeastAmount}`.
+    ///
+    /// Mana-value atoms are scoped to card zones (`card_zone == true`: library searches,
+    /// graveyard/hand/exile/stack targets, `Dig`/`DigUntil`, `Play`) so legacy battlefield
+    /// refusal pins remain intact while unlocking real Paper tutors/reanimators/free-casts
+    /// (*Beseech the Queen*, *Mausoleum Secrets*, *Alesha, Who Laughs at Fate*, *Keldon
+    /// Flamesage*, *Buster Sword*, *Bortuk Bonerattle*, *Powerbalance*).
+    fn dynamic_amount_filter_atom(&self, atom: &str, card_zone: bool) -> Option<String> {
+        let (variant, var) = if card_zone && let Some(v) = atom.strip_prefix("cmcLE") {
+            ("Filter::CmcAtMostAmount", v)
+        } else if card_zone
+            && !self.on_a_spell
+            && let Some(v) = atom.strip_prefix("cmcEQ")
+        {
+            ("Filter::CmcEqualsAmount", v)
+        } else if let Some(v) = atom.strip_prefix("powerLE") {
+            ("Filter::PowerAtMostAmount", v)
+        } else {
+            let v = atom.strip_prefix("powerGE")?;
+            ("Filter::PowerAtLeastAmount", v)
+        };
+        let var = var.trim();
+        if var.is_empty()
+            || !var.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+            || !var.chars().all(|c| c.is_ascii_alphanumeric())
+        {
+            return None;
+        }
+        let amt = self.svar_to_filter_amount(var)?;
+        Some(format!("{variant}(&{amt})"))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn svar_to_filter_amount(&self, var: &str) -> Option<String> {
+        let def = self.svars.get(var)?.trim();
+        let (head, suffix) = def.split_once('/').map_or((def, ""), |(h, s)| (h, s));
+        let base = match head.trim() {
+            "Count$Domain" => "Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)".to_string(),
+            "Count$CardPower" if !self.on_a_spell => "Amount::SourcePower".to_string(),
+            "Count$LifeOppsLostThisTurn" => "Amount::OpponentsLifeLostThisTurn".to_string(),
+            "Count$CardsDrawnThisTurn" => "Amount::CardsDrawnThisTurn(PlayerRel::You)".to_string(),
+            "Count$YourLifeTotal" => "Amount::LifeTotal(PlayerRel::You)".to_string(),
+            "Count$ValidPlayer" => "Amount::Players(PlayerRel::EachPlayer)".to_string(),
+            "Count$NumOpponents" => "Amount::Players(PlayerRel::EachOpponent)".to_string(),
+            "Count$CastTotalManaSpent" | "Count$ManaSpentToCast" if self.on_a_spell => {
+                "Amount::ManaSpentToCast".to_string()
+            }
+            "TriggerCount$DamageAmount"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("DamageDone" | "DamageDoneOnce")
+                ) =>
+            {
+                "Amount::EventAmount".to_string()
+            }
+            "TriggeredCard$CardManaCost"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("SpellCast" | "ChangesZone" | "Sacrificed")
+                ) =>
+            {
+                "Amount::EventManaValue".to_string()
+            }
+            "TriggeredCard$CardPower"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("ChangesZone" | "Sacrificed" | "Attacks" | "Blocks" | "DamageDone")
+                ) =>
+            {
+                "Amount::EventPower".to_string()
+            }
+            "Sacrificed$CardManaCost" => "Amount::SacrificedManaValue".to_string(),
+            "Sacrificed$CardPower" => "Amount::SacrificedPower".to_string(),
+            "Sacrificed$CardToughness" => "Amount::SacrificedToughness".to_string(),
+            other
+                if !self.on_a_spell
+                    && (self.trigger_mode.is_some() || !self.cost_sacrifices_self)
+                    && other.starts_with("Count$CardCounters.") =>
+            {
+                let code = other.strip_prefix("Count$CardCounters.")?.trim();
+                let kind =
+                    counter_kind(code).or_else(|| counter_kind(&code.to_ascii_uppercase()))?;
+                format!("Amount::CountersOnSource({kind})")
+            }
+            other if other.starts_with("Count$Valid ") => {
+                let inner = other.strip_prefix("Count$Valid ")?.trim();
+                if inner.is_empty() || inner.contains('$') || Self::has_dynamic_var_filter(inner) {
+                    return None;
+                }
+                let expr = self.filter_expr(inner)?;
+                format!("Amount::CountOf {{ filter: &{expr}, zone: ZoneSel::Battlefield }}")
+            }
+            other if other.starts_with("Count$ValidGraveyard ") => {
+                let inner = other.strip_prefix("Count$ValidGraveyard ")?.trim();
+                if inner.is_empty() || inner.contains('$') || Self::has_dynamic_var_filter(inner) {
+                    return None;
+                }
+                let (zone, cleaned) = if let Some(c) = Self::strip_your_graveyard_owner(inner) {
+                    ("ZoneSel::GraveyardYou", c)
+                } else if let Some(c) = Self::strip_opp_graveyard_owner(inner) {
+                    ("ZoneSel::GraveyardOpponents", c)
+                } else if !inner.contains("Own") && !inner.contains("Ctrl") {
+                    ("ZoneSel::GraveyardAll", inner.to_string())
+                } else {
+                    return None;
+                };
+                let expr = self.filter_expr_in_zone(&cleaned, true)?;
+                format!("Amount::CountOf {{ filter: &{expr}, zone: {zone} }}")
+            }
+            other if other.starts_with("Count$ValidHand ") => {
+                let inner = other.strip_prefix("Count$ValidHand ")?.trim();
+                if inner.is_empty() || inner.contains('$') || Self::has_dynamic_var_filter(inner) {
+                    return None;
+                }
+                let cleaned = Self::strip_your_graveyard_owner(inner)?;
+                let expr = self.filter_expr_in_zone(&cleaned, true)?;
+                format!("Amount::CountOf {{ filter: &{expr}, zone: ZoneSel::HandYou }}")
+            }
+            _ => return None,
+        };
+        if suffix.is_empty() {
+            return Some(base);
+        }
+        if suffix == "Twice" {
+            Some(format!("Amount::Times {{ base: &{base}, factor: 2 }}"))
+        } else if suffix == "Thrice" {
+            Some(format!("Amount::Times {{ base: &{base}, factor: 3 }}"))
+        } else if let Some(n) = suffix
+            .strip_prefix("Times.")
+            .and_then(|s| s.parse::<u32>().ok())
+            .filter(|&n| n >= 2)
+        {
+            Some(format!("Amount::Times {{ base: &{base}, factor: {n} }}"))
+        } else if let Some(n) = suffix
+            .strip_prefix("Plus.")
+            .and_then(|s| s.parse::<u32>().ok())
+        {
+            Some(format!("Amount::Plus {{ base: &{base}, offset: {n} }}"))
+        } else if let Some(n) = suffix
+            .strip_prefix("Minus.")
+            .and_then(|s| s.parse::<u32>().ok())
+        {
+            Some(format!(
+                "Amount::SaturatingSub {{ base: &{base}, subtract: {n} }}"
+            ))
+        } else if suffix == "HalfDown" {
+            Some(format!("Amount::Half {{ base: &{base}, round_up: false }}"))
+        } else if suffix == "HalfUp" {
+            Some(format!("Amount::Half {{ base: &{base}, round_up: true }}"))
+        } else {
+            None
+        }
+    }
+
+    /// Prevents cyclic `SVar` expansion when `Count$Valid*` appears inside a dynamic
+    /// amount-compared filter atom.
+    fn has_dynamic_var_filter(raw: &str) -> bool {
+        raw.split([',', '.', '+']).any(|part| {
+            let t = part.trim();
+            ["cmcLE", "cmcEQ", "powerLE", "powerGE"]
+                .iter()
+                .any(|prefix| {
+                    t.strip_prefix(prefix)
+                        .and_then(|rest| rest.chars().next())
+                        .is_some_and(|c| c.is_ascii_alphabetic())
+                })
+        })
+    }
+
     #[allow(clippy::too_many_lines)]
     fn push_filter_atom(
         &self,
@@ -559,11 +729,13 @@ impl Tx<'_> {
                 state.has_controller = true;
                 "Filter::ControlledByOpponent".to_string()
             }
-            "ActivePlayerCtrl" => {
+            "ActivePlayerCtrl" | "ControlledBy Player.Active" | "ControlledBy ActivePlayer" => {
                 state.has_controller = true;
                 "Filter::ControlledByActivePlayer".to_string()
             }
-            "DefenderCtrl" | "DefendingPlayerCtrl" if !card_zone => {
+            "DefenderCtrl" | "DefendingPlayerCtrl" | "ControlledBy DefendingPlayer"
+                if !card_zone =>
+            {
                 state.has_controller = true;
                 "Filter::ControlledByDefendingPlayer".to_string()
             }
@@ -573,9 +745,68 @@ impl Tx<'_> {
                 state.has_controller = true;
                 "Filter::ControlledByEnchantedPlayer".to_string()
             }
+            "ControlledBy EnchantedController" | "ControlledBy Player.EnchantedController" => {
+                state.has_controller = true;
+                "Filter::ControlledBy(PlayerRel::ControllerOfAttached)".to_string()
+            }
             "ControlledBy TriggeredPlayer" if self.trigger_mode.as_deref() == Some("Phase") => {
                 state.has_controller = true;
                 "Filter::ControlledByActivePlayer".to_string()
+            }
+            "ControlledBy TriggeredPlayer"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some(
+                        "LifeGained"
+                            | "LifeLost"
+                            | "Discarded"
+                            | "LandPlayed"
+                            | "SearchedLibrary"
+                            | "Sacrificed"
+                    )
+                ) =>
+            {
+                state.has_controller = true;
+                "Filter::ControlledBy(PlayerRel::EventPlayer)".to_string()
+            }
+            "ControlledBy TriggeredCardController"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("ChangesZone" | "SpellCast" | "TapsForMana" | "Taps" | "Untaps")
+                ) =>
+            {
+                state.has_controller = true;
+                "Filter::ControlledBy(PlayerRel::ControllerOfEvent)".to_string()
+            }
+            "ControlledBy TriggeredCardController"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Drawn" | "Discarded" | "Sacrificed")
+                ) =>
+            {
+                state.has_controller = true;
+                "Filter::ControlledBy(PlayerRel::EventPlayer)".to_string()
+            }
+            "ControlledBy TriggeredActivator"
+                if self.trigger_mode.as_deref() == Some("SpellCast") =>
+            {
+                state.has_controller = true;
+                "Filter::ControlledBy(PlayerRel::EventPlayer)".to_string()
+            }
+            "ControlledBy TriggeredActivator"
+                if self.trigger_mode.as_deref() == Some("TapsForMana") =>
+            {
+                state.has_controller = true;
+                "Filter::ControlledBy(PlayerRel::ControllerOfEvent)".to_string()
+            }
+            "ControlledBy TriggeredTarget"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("DamageDone" | "DamageDoneOnce")
+                ) =>
+            {
+                state.has_controller = true;
+                "Filter::ControlledBy(PlayerRel::DamagedPlayer)".to_string()
             }
             "ControlledBy TriggeredDefendingPlayer"
                 if matches!(
@@ -585,6 +816,18 @@ impl Tx<'_> {
             {
                 state.has_controller = true;
                 "Filter::ControlledByDefendingPlayer".to_string()
+            }
+            "ControlledBy TargetedController" if !card_zone => {
+                state.has_controller = true;
+                "Filter::ControlledBy(PlayerRel::ControllerOfTarget)".to_string()
+            }
+            "ControlledBy TargetedOrController" if !card_zone => {
+                state.has_controller = true;
+                "Filter::ControlledBy(PlayerRel::TargetPlayerOrController)".to_string()
+            }
+            "ControlledBy ChoosingPlayer" if !card_zone => {
+                state.has_controller = true;
+                "Filter::ControlledByChooser".to_string()
             }
             "IsCommander" => {
                 state.has_is_commander = true;
@@ -1084,17 +1327,21 @@ impl Tx<'_> {
             // an atom can name one too — and it is the commonest
             // shape in the corpus, not a corner.
             other => {
-                let (negated, name) = other
-                    .strip_prefix("non")
-                    .or_else(|| other.strip_prefix('!'))
-                    .map_or((false, other), |rest| (true, rest));
-                let Some(path) = self.cats.const_path(name) else {
-                    return AtomParse::Unknown;
-                };
-                if negated {
-                    format!("Filter::Not(&Filter::HasSubtype({path}))")
+                if let Some(expr) = self.dynamic_amount_filter_atom(other, card_zone) {
+                    expr
                 } else {
-                    format!("Filter::HasSubtype({path})")
+                    let (negated, name) = other
+                        .strip_prefix("non")
+                        .or_else(|| other.strip_prefix('!'))
+                        .map_or((false, other), |rest| (true, rest));
+                    let Some(path) = self.cats.const_path(name) else {
+                        return AtomParse::Unknown;
+                    };
+                    if negated {
+                        format!("Filter::Not(&Filter::HasSubtype({path}))")
+                    } else {
+                        format!("Filter::HasSubtype({path})")
+                    }
                 }
             }
         };
@@ -1265,14 +1512,30 @@ impl Tx<'_> {
         if valid == "Player.attackedWithCreaturesThisTurn" {
             return Some("TargetSpec::PlayerWhoAttackedThisTurn".to_string());
         }
-        if matches!(valid, "Player,Planeswalker" | "Planeswalker,Player") {
+        if matches!(
+            valid,
+            "Player,Planeswalker"
+                | "Planeswalker,Player"
+                | "Player,Card.Planeswalker"
+                | "Card.Planeswalker,Player"
+        ) {
             let lower = self.oracle.to_ascii_lowercase();
             if lower.contains("target opponent") && !lower.contains("target player") {
                 return Some("TargetSpec::OpponentOrObject(&Filter::PLANESWALKER)".to_string());
             }
             return Some("TargetSpec::PlayerOrObject(&Filter::PLANESWALKER)".to_string());
         }
-        if matches!(valid, "Opponent,Planeswalker" | "Planeswalker,Opponent") {
+        if matches!(
+            valid,
+            "Opponent,Planeswalker"
+                | "Planeswalker,Opponent"
+                | "Player.Opponent,Planeswalker"
+                | "Planeswalker,Player.Opponent"
+                | "Opponent,Card.Planeswalker"
+                | "Card.Planeswalker,Opponent"
+                | "Player.Opponent,Card.Planeswalker"
+                | "Card.Planeswalker,Player.Opponent"
+        ) {
             return Some("TargetSpec::OpponentOrObject(&Filter::PLANESWALKER)".to_string());
         }
         // "Any target" (CR 115.4) spans objects and players, which is why it
@@ -1284,13 +1547,26 @@ impl Tx<'_> {
         if let Some(mixed) = self.mixed_player_object_target(valid, api) {
             return Some(mixed);
         }
-        if matches!(
-            self.trigger_mode.as_deref(),
-            Some("DamageDone" | "DamageDoneOnce")
-        ) && api != "Counter"
+        // A cast-time first target cannot refer to a resolution-only target or chooser.
+        if valid.contains("ControlledBy Targeted") || valid.contains("ControlledBy ChoosingPlayer")
+        {
+            return None;
+        }
+        if api != "Counter"
+            && let Some(event_ctrl_atom) = match self.trigger_mode.as_deref() {
+                Some("DamageDone" | "DamageDoneOnce") => Some("ControlledBy TriggeredTarget"),
+                Some("SpellCast") => Some("ControlledBy TriggeredActivator"),
+                Some("BecomesTarget") => Some("ControlledBy TriggeredSourceSAController"),
+                Some(
+                    "LifeGained" | "LifeLost" | "Discarded" | "LandPlayed" | "SearchedLibrary"
+                    | "Sacrificed",
+                ) => Some("ControlledBy TriggeredPlayer"),
+                Some("Drawn") => Some("ControlledBy TriggeredCardController"),
+                _ => None,
+            }
             && let Some(stripped) = valid
                 .split(',')
-                .map(|alt| strip_atom_from_alt(alt, "ControlledBy TriggeredTarget"))
+                .map(|alt| strip_atom_from_alt(alt, event_ctrl_atom))
                 .collect::<Option<Vec<_>>>()
         {
             let expr = self.filter_expr(&stripped.join(","))?;
@@ -1463,6 +1739,7 @@ impl Tx<'_> {
             && self.svars.get(var).map(|s| s.trim()) == Some("TriggeredCard$CardManaCost")
     }
 
+    #[allow(clippy::too_many_lines)]
     fn split_graveyard_target_alts(
         &self,
         valid: &str,
@@ -1506,6 +1783,44 @@ impl Tx<'_> {
                         if self.trigger_mode.as_deref() == Some("Phase") =>
                     {
                         alt_whose = Some("PlayerRel::ActivePlayer");
+                    }
+                    "OwnedBy TriggeredPlayer" | "ControlledBy TriggeredPlayer"
+                        if matches!(
+                            self.trigger_mode.as_deref(),
+                            Some(
+                                "LifeGained"
+                                    | "LifeLost"
+                                    | "Discarded"
+                                    | "LandPlayed"
+                                    | "SearchedLibrary"
+                                    | "Sacrificed"
+                            )
+                        ) =>
+                    {
+                        alt_whose = Some("PlayerRel::EventPlayer");
+                    }
+                    "OwnedBy TriggeredActivator" | "ControlledBy TriggeredActivator"
+                        if self.trigger_mode.as_deref() == Some("SpellCast") =>
+                    {
+                        alt_whose = Some("PlayerRel::EventPlayer");
+                    }
+                    "OwnedBy TriggeredCardController" | "ControlledBy TriggeredCardController"
+                        if self.trigger_mode.as_deref() == Some("ChangesZone") =>
+                    {
+                        alt_whose = Some("PlayerRel::ControllerOfEvent");
+                    }
+                    "OwnedBy TriggeredCardOwner"
+                        if self.trigger_mode.as_deref() == Some("ChangesZone") =>
+                    {
+                        alt_whose = Some("PlayerRel::OwnerOfEvent");
+                    }
+                    "OwnedBy Player.EnchantedBy"
+                    | "OwnedBy EnchantedPlayer"
+                    | "EnchantedPlayerOwn" => {
+                        alt_whose = Some("PlayerRel::EnchantedPlayer");
+                    }
+                    "OwnedBy EnchantedController" | "OwnedBy Player.EnchantedController" => {
+                        alt_whose = Some("PlayerRel::ControllerOfAttached");
                     }
                     "ThisTurnEntered" => kept.push("PutIntoGraveyardThisTurn"),
                     "!ThisTurnEntered" => kept.push("!PutIntoGraveyardThisTurn"),
@@ -1590,6 +1905,7 @@ impl Tx<'_> {
     /// `Phase` trigger, the controller of the card that moved for a
     /// `ChangesZone` one. Anywhere else the same words name something this
     /// reader cannot see, and refuse.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn player_rel(&self, defined: Option<&str>) -> Option<&'static str> {
         let trigger = self.trigger_mode.as_deref();
         Some(match defined.unwrap_or("You") {
@@ -1597,6 +1913,7 @@ impl Tx<'_> {
             "Opponent" | "Player.Opponent" => "PlayerRel::Opponent",
             "Player" => "PlayerRel::EachPlayer",
             "Player.Other" => "PlayerRel::EachOtherPlayer",
+            "ActivePlayer" | "Player.Active" => "PlayerRel::ActivePlayer",
             // Gift recipient (CR 702.174a).
             "Promised" => "PlayerRel::GiftRecipient",
             // "Enchanted land's controller" (CR 303.4e).
@@ -1686,7 +2003,12 @@ impl Tx<'_> {
                 if matches!(
                     trigger,
                     Some(
-                        "LifeGained" | "LifeLost" | "Discarded" | "LandPlayed" | "SearchedLibrary"
+                        "LifeGained"
+                            | "LifeLost"
+                            | "Discarded"
+                            | "LandPlayed"
+                            | "SearchedLibrary"
+                            | "Drawn"
                     )
                 ) =>
             {
@@ -1695,7 +2017,7 @@ impl Tx<'_> {
             "TriggeredCardOwner" | "TriggeredCardController" if trigger == Some("Discarded") => {
                 "PlayerRel::EventPlayer"
             }
-            "TriggeredDefendingPlayer"
+            "TriggeredDefendingPlayer" | "DefendingPlayer"
                 if matches!(
                     trigger,
                     Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
