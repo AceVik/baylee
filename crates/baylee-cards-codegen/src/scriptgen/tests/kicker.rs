@@ -751,3 +751,61 @@ fn wave19a_kicker_and_spell_cost_phyrexian_and_two_generic_mana() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave21a_kicker_and_spell_remove_any_counter() {
+    let spell_fixed = read(
+        "Name:CounterSpell\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Draw | Cost$ 1 B RemoveAnyCounter<2/Any/Permanent> | NumCards$ 2",
+    );
+    assert_eq!(
+        spell_fixed.mandatory_additional_costs,
+        ["CostPart::RemoveAnyCounter { count: 2, kind: None, filter: &Filter::Any }"]
+    );
+
+    let spell_x = read(
+        "Name:CounterXSpell\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ Draw | Cost$ B RemoveAnyCounter<X/P1P1/Creature> | NumCards$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert_eq!(
+        spell_x.mandatory_additional_costs,
+        [
+            "CostPart::RemoveAnyCounterX { kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE }"
+        ]
+    );
+
+    let spell_sub_any = read(
+        "Name:SubAnySpell\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Draw | Cost$ 1 U SubCounter<2/Any/Artifact.YouCtrl;Creature.YouCtrl> | NumCards$ 2",
+    );
+    assert_eq!(
+        spell_sub_any.mandatory_additional_costs,
+        [
+            "CostPart::RemoveAnyCounter { count: 2, kind: None, filter: &Filter::ARTIFACT_OR_CREATURE }"
+        ]
+    );
+
+    let kicker = read(
+        "Name:CounterKicker\nManaCost:1 G\nTypes:Instant\n\
+         K:Kicker:RemoveAnyCounter<2/P1P1/Creature>\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        kicker.additional_costs,
+        [
+            "cost!(RemoveAnyCounter { count: 2, kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE })"
+        ]
+    );
+
+    for bad in [
+        "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B RemoveAnyCounter<1/Any/CARDNAME> | NumCards$ 1",
+        "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B RemoveAnyCounter<1/Any/Creature.Other> | NumCards$ 1",
+        "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B RemoveAnyCounter<X1+/P1P1/Creature> | NumCards$ X\nSVar:X:Count$xPaid",
+        "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B SubCounter<1/Any/CARDNAME> | NumCards$ 1",
+        "Name:X\nManaCost:B\nTypes:Sorcery\nA:SP$ Draw | Cost$ B SubCounter<1/P1P1/Creature.YouCtrl> | NumCards$ 1",
+        "Name:X\nManaCost:G\nTypes:Instant\nK:Kicker:RemoveAnyCounter<1/Any/CARDNAME>\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

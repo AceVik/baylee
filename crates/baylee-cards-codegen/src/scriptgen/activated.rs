@@ -58,6 +58,12 @@ enum ParsedLimit {
     Boast,
 }
 
+struct StrippedXMin {
+    cost: String,
+    explicit: Option<u32>,
+    implicit: Option<u32>,
+}
+
 struct ExtractedAbilitySpec {
     cost: Option<String>,
     alternate_cost: Option<String>,
@@ -365,12 +371,13 @@ impl Tx<'_> {
         })
     }
 
-    fn strip_activation_x_min(&self, raw: &str) -> Option<(String, Option<u32>)> {
+    fn strip_activation_x_min(&self, raw: &str) -> Option<StrippedXMin> {
         let mut kept = Vec::new();
-        let mut x_min: Option<u32> = None;
+        let mut explicit: Option<u32> = None;
+        let mut implicit: Option<u32> = None;
         for token in cost_parts(raw) {
             if let Some(n_str) = token.strip_prefix("XMin") {
-                if x_min.is_some() {
+                if explicit.is_some() {
                     return self.deny(format!("duplicate `XMin` in `Cost$ {raw}`"));
                 }
                 let Ok(n) = n_str.parse::<u32>() else {
@@ -379,12 +386,22 @@ impl Tx<'_> {
                 if n == 0 {
                     return self.deny(format!("invalid `{token}` in `Cost$ {raw}`"));
                 }
-                x_min = Some(n);
+                explicit = Some(n);
+            } else if let Some(rest) = token.strip_prefix("RemoveAnyCounter<X1+/") {
+                implicit = Some(1);
+                kept.push(format!("RemoveAnyCounter<X/{rest}"));
+            } else if let Some(rest) = token.strip_prefix("SubCounter<X1+/") {
+                implicit = Some(1);
+                kept.push(format!("SubCounter<X/{rest}"));
             } else {
                 kept.push(token);
             }
         }
-        Some((kept.join(" "), x_min))
+        Some(StrippedXMin {
+            cost: kept.join(" "),
+            explicit,
+            implicit,
+        })
     }
 
     fn take_x_min_param(
@@ -411,10 +428,20 @@ impl Tx<'_> {
         Some(n)
     }
 
-    fn merge_x_min(&self, cost_x_min: Option<u32>, param_x_min: u32) -> Option<u32> {
-        match (cost_x_min, param_x_min) {
-            (Some(_), 1..) => self.deny("duplicate `XMin` in cost and `XMin$`".to_string()),
-            (Some(n), 0) | (None, n) => Some(n),
+    fn merge_x_min(&self, stripped: &StrippedXMin, param_x_min: u32) -> Option<u32> {
+        let explicit = match (stripped.explicit, param_x_min) {
+            (Some(_), 1..) => {
+                return self.deny("duplicate `XMin` in cost and `XMin$`".to_string());
+            }
+            (Some(n), 0) | (None, n @ 1..) => Some(n),
+            (None, 0) => None,
+        };
+        match (explicit, stripped.implicit) {
+            (Some(n), Some(m)) if n != m => {
+                self.deny(format!("conflicting `XMin` ({n}) with `X1+`"))
+            }
+            (Some(n), _) | (None, Some(n)) => Some(n),
+            (None, None) => Some(0),
         }
     }
 
@@ -438,6 +465,7 @@ impl Tx<'_> {
             || cost.contains("PayEnergyX")
             || cost.contains("PayLifeX")
             || cost.contains("RemoveCounterSelfX {")
+            || cost.contains("RemoveAnyCounterX {")
     }
 
     pub(super) fn parse_activated_spec(
@@ -621,10 +649,12 @@ impl Tx<'_> {
         let sorcery_speed = is_activated && probe.take("SorcerySpeed").as_deref() == Some("True");
         let had_life_total = probe.has("LifeTotal");
         let had_present_player = probe.has("PresentPlayer");
+        let had_defined_player = probe.has("CheckDefinedPlayer");
         let mut condition = self.condition_with_prose(&mut probe, &line_prose)?;
         let present_read = !condition.is_empty();
         let life_total_read = had_life_total && !probe.has("LifeTotal");
         let present_player_read = had_present_player && !probe.has("PresentPlayer");
+        let defined_player_read = had_defined_player && !probe.has("CheckDefinedPlayer");
         let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
         let mut drop_keys: Vec<&'static str> = [
             (true, "Cost$"),
@@ -639,6 +669,7 @@ impl Tx<'_> {
             (life_total_read, "LifeTotal$"),
             (life_total_read, "LifeAmount$"),
             (present_player_read, "PresentPlayer$"),
+            (defined_player_read, "CheckDefinedPlayer$"),
         ]
         .into_iter()
         .filter_map(|(on, key)| on.then_some(key))
@@ -774,10 +805,10 @@ impl Tx<'_> {
         let Some(cost_raw) = spec.cost.as_deref() else {
             return self.deny("an activated ability with no `Cost$`".to_string());
         };
-        let (cost_without_xmin, cost_x_min) = self.strip_activation_x_min(cost_raw)?;
-        let x_min = self.merge_x_min(cost_x_min, spec.x_min_param)?;
+        let stripped_xmin = self.strip_activation_x_min(cost_raw)?;
+        let x_min = self.merge_x_min(&stripped_xmin, spec.x_min_param)?;
         let cost =
-            self.parse_activated_cost(&cost_without_xmin, spec.activation_zone.as_deref())?;
+            self.parse_activated_cost(&stripped_xmin.cost, spec.activation_zone.as_deref())?;
         if x_min > 0 && !Self::cost_has_variable_x(&cost) {
             return self.deny("unused `XMin` in activation cost".to_string());
         }
@@ -1141,6 +1172,8 @@ impl Tx<'_> {
                 || part.starts_with("TapOther(")
                 || part.starts_with("TapX(")
                 || part.starts_with("TapN {")
+                || part.starts_with("RemoveAnyCounter {")
+                || part.starts_with("RemoveAnyCounterX {")
         });
         if !all_supported {
             let head = extra[0].split('<').next().unwrap_or(&extra[0]);
@@ -1458,8 +1491,8 @@ impl Tx<'_> {
             self.activation_zone_expr(activation_zone.as_deref(), activator, true)?;
         let mut condition = self.condition_with_prose(&mut p, &line_prose)?;
         let _restrictions = self.activation_restriction(&mut p, true, &mut condition)?;
-        let (cost_without_xmin, cost_x_min) = self.strip_activation_x_min(&cost_raw)?;
-        let x_min = self.merge_x_min(cost_x_min, x_min_param)?;
+        let stripped_xmin = self.strip_activation_x_min(&cost_raw)?;
+        let x_min = self.merge_x_min(&stripped_xmin, x_min_param)?;
         Self::claim_modal_additional_description(
             &mut p,
             sorcery_speed,
@@ -1470,15 +1503,15 @@ impl Tx<'_> {
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `Charm.{key}`"));
         }
-        let cost = self.parse_activated_cost(&cost_without_xmin, activation_zone.as_deref())?;
+        let cost = self.parse_activated_cost(&stripped_xmin.cost, activation_zone.as_deref())?;
         if x_min > 0 && !Self::cost_has_variable_x(&cost) {
             return self.deny("unused `XMin` in activation cost".to_string());
         }
         self.reject_non_mana_counter_x(&cost, false, true)?;
-        self.cost_sacrifices_self = cost_parts(&cost_without_xmin)
+        self.cost_sacrifices_self = cost_parts(&stripped_xmin.cost)
             .iter()
             .any(|t| Self::is_sac_self_token(t));
-        self.cost_sacrifices_other = cost_parts(&cost_without_xmin)
+        self.cost_sacrifices_other = cost_parts(&stripped_xmin.cost)
             .iter()
             .any(|t| Self::is_sac_other_token(t));
         let parsed = self.read_charm_modes(&choices);
@@ -1709,7 +1742,10 @@ impl Tx<'_> {
         activation_zone: Option<&str>,
     ) -> Option<String> {
         let raw = raw.trim();
-        let def = if raw.starts_with("Count$") || raw.starts_with("PlayerCount") {
+        let def = if raw.starts_with("Count$")
+            || raw.starts_with("PlayerCount")
+            || raw.starts_with("DungeonsCompleted$")
+        {
             raw.to_string()
         } else if let Some(resolved) = self.svars.get(raw).cloned() {
             resolved.trim().to_string()
@@ -1769,11 +1805,50 @@ impl Tx<'_> {
             "Revolt" => "Condition::Revolt",
             "Morbid" => "Condition::CreaturesDiedThisTurnAtLeast(1)",
             "Raid" => "Condition::AttackedWithAtLeast(1)",
+            "Monarch" | "IsMonarch" => "Condition::IsMonarch(PlayerRel::You)",
+            "Initiative" | "HasInitiative" => "Condition::HasInitiative(PlayerRel::You)",
+            "CompletedDungeon" | "CompletedADungeon" => {
+                "Condition::CompletedADungeon(PlayerRel::You)"
+            }
             _ => return None,
         })
     }
 
-    fn crime_or_opp_damaged_condition(def: &str, cmp: &str) -> Option<String> {
+    pub(super) fn defined_player_condition(raw: &str) -> Option<&'static str> {
+        Some(match raw.trim() {
+            "You.isMonarch" => "Condition::IsMonarch(PlayerRel::You)",
+            "You.!isMonarch" => "Condition::Not(&Condition::IsMonarch(PlayerRel::You))",
+            "Opponent.isMonarch" => "Condition::IsMonarch(PlayerRel::EachOpponent)",
+            "Player.isMonarch" => "Condition::IsMonarch(PlayerRel::EachPlayer)",
+            "You.hasInitiative" => "Condition::HasInitiative(PlayerRel::You)",
+            "You.!hasInitiative" => "Condition::Not(&Condition::HasInitiative(PlayerRel::You))",
+            "Opponent.hasInitiative" => "Condition::HasInitiative(PlayerRel::EachOpponent)",
+            "Player.hasInitiative" => "Condition::HasInitiative(PlayerRel::EachPlayer)",
+            "You.committedCrimeThisTurn" => "Condition::CommittedCrimeThisTurn(PlayerRel::You)",
+            "You.completedDungeon" => "Condition::CompletedADungeon(PlayerRel::You)",
+            _ => return None,
+        })
+    }
+
+    pub(super) fn crime_or_opp_damaged_condition(def: &str, cmp: &str) -> Option<String> {
+        let dungeon_count_cond = match def {
+            "DungeonsCompleted$Amount" => Some("Condition::CompletedADungeon(PlayerRel::You)"),
+            "PlayerCountPlayers$HasPropertycompletedDungeon" => {
+                Some("Condition::CompletedADungeon(PlayerRel::EachPlayer)")
+            }
+            "PlayerCountOpponents$HasPropertycompletedDungeon"
+            | "PlayerCountRegisteredOpponents$HasPropertycompletedDungeon" => {
+                Some("Condition::CompletedADungeon(PlayerRel::EachOpponent)")
+            }
+            _ => None,
+        };
+        if let Some(cond) = dungeon_count_cond {
+            return match cmp {
+                "GE1" | "GT0" | "NE0" => Some(cond.to_string()),
+                "EQ0" | "LE0" | "LT1" => Some(format!("Condition::Not(&{cond})")),
+                _ => None,
+            };
+        }
         let cond = match def {
             "Count$CommittedCrimeThisTurn.1.0" | "Count$CommittedCrimeThisTurn" => {
                 "Condition::CommittedCrimeThisTurn(PlayerRel::You)"
@@ -1781,6 +1856,38 @@ impl Tx<'_> {
             "PlayerCountOpponents$HasPropertywasDealtDamageThisTurn"
             | "PlayerCountRegisteredOpponents$HasPropertywasDealtDamageThisTurn" => {
                 "Condition::OpponentDealtDamageThisTurn"
+            }
+            "Count$Monarch.1.0"
+            | "Count$Monarch"
+            | "PlayerCountPropertyYou$HasPropertyisMonarch" => {
+                "Condition::IsMonarch(PlayerRel::You)"
+            }
+            "PlayerCountPlayers$HasPropertyisMonarch" => {
+                "Condition::IsMonarch(PlayerRel::EachPlayer)"
+            }
+            "PlayerCountOpponents$HasPropertyisMonarch"
+            | "PlayerCountRegisteredOpponents$HasPropertyisMonarch" => {
+                "Condition::IsMonarch(PlayerRel::EachOpponent)"
+            }
+            "Count$Initiative.1.0"
+            | "Count$Initiative"
+            | "Count$HasInitiative.1.0"
+            | "Count$HasInitiative"
+            | "PlayerCountPropertyYou$HasPropertyhasInitiative" => {
+                "Condition::HasInitiative(PlayerRel::You)"
+            }
+            "PlayerCountPlayers$HasPropertyhasInitiative" => {
+                "Condition::HasInitiative(PlayerRel::EachPlayer)"
+            }
+            "PlayerCountOpponents$HasPropertyhasInitiative"
+            | "PlayerCountRegisteredOpponents$HasPropertyhasInitiative" => {
+                "Condition::HasInitiative(PlayerRel::EachOpponent)"
+            }
+            "Count$CompletedDungeon.1.0"
+            | "Count$CompletedDungeon"
+            | "Count$CompletedADungeon"
+            | "PlayerCountPropertyYou$HasPropertycompletedDungeon" => {
+                "Condition::CompletedADungeon(PlayerRel::You)"
             }
             _ => return None,
         };
@@ -2348,6 +2455,13 @@ impl Tx<'_> {
                 _ => self.deny(format!("`LifeAmount$ {life_amount}`")),
             };
         }
+        if let Some(player_raw) = p.peek("CheckDefinedPlayer")
+            && !p.has("IsPresent")
+            && let Some(cond) = Self::defined_player_condition(player_raw)
+        {
+            p.take("CheckDefinedPlayer");
+            return Some(format!(", condition = Some({cond})"));
+        }
         let Some(valid) = p.take("IsPresent") else {
             return Some(String::new());
         };
@@ -2509,7 +2623,11 @@ impl Tx<'_> {
         })
     }
 
-    fn commander_present_clause(valid: &str, compare: &str, has_defined: bool) -> Option<String> {
+    pub(super) fn commander_present_clause(
+        valid: &str,
+        compare: &str,
+        has_defined: bool,
+    ) -> Option<String> {
         if has_defined
             || !matches!(
                 valid,

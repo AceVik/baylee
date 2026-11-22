@@ -816,7 +816,19 @@ impl Tx<'_> {
             {
                 parts.push("DiscardHand".to_string());
             } else {
-                parts.extend(self.parse_spell_cost_token(token)?);
+                let parsed = self.parse_spell_cost_token(token)?;
+                if parsed.iter().any(|p| {
+                    p == "PayLifeX"
+                        || p == "PayEnergyX"
+                        || p.starts_with("SacrificeX(")
+                        || p.starts_with("TapX(")
+                        || p.starts_with("DiscardX(")
+                        || p.starts_with("ExileFromGraveyardX(")
+                        || p.starts_with("RemoveAnyCounterX {")
+                }) {
+                    uses_x = true;
+                }
+                parts.extend(parsed);
             }
         }
         if mana.is_empty() && parts.is_empty() {
@@ -911,6 +923,29 @@ impl Tx<'_> {
             };
             return Some(vec![format!("DealDamageToYou({value})")]);
         }
+        if let Some(inner) = token
+            .strip_prefix("RemoveAnyCounter<")
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            let prev = std::mem::replace(&mut self.on_a_spell, true);
+            let part = self.remove_any_counter_cost(inner, token);
+            self.on_a_spell = prev;
+            return Some(vec![part?]);
+        }
+        if let Some((n, rest)) = token
+            .strip_prefix("SubCounter<")
+            .and_then(|t| t.strip_suffix('>'))
+            .and_then(|t| t.split_once('/'))
+            && rest
+                .split('/')
+                .next()
+                .is_some_and(|k| k.eq_ignore_ascii_case("any"))
+        {
+            let prev = std::mem::replace(&mut self.on_a_spell, true);
+            let part = self.sub_counter_any_cost(n, rest, token);
+            self.on_a_spell = prev;
+            return Some(vec![part?]);
+        }
         let Some((kind, body)) = token
             .split_once('<')
             .and_then(|(k, rest)| rest.strip_suffix('>').map(|inner| (k, inner)))
@@ -972,7 +1007,7 @@ impl Tx<'_> {
             };
             return Some(vec![format!("ExileTopOfLibrary({count})")]);
         }
-        if spec == "CARDNAME" {
+        if matches!(spec, "CARDNAME" | "NICKNAME") {
             return self.deny(format!("cost `{token}` naming itself"));
         }
         if kind == "Discard" && spec == "Random" {

@@ -5623,3 +5623,181 @@ fn wave20a_nickname_self_costs_multi_return_exile_xmin_param_and_life_total_drop
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave21a_remove_any_counter_fixed_and_variable_x() {
+    let fixed = read(
+        "Name:CounterSpender\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/CARDNAME/this creature> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ RemoveAnyCounter<2/Any/NICKNAME> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ 1 RemoveAnyCounter<3/Any/Permanent> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ RemoveAnyCounter<2/P1P1/Creature> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ RemoveAnyCounter<3/Any/Artifact.Other;Creature.Other;Planeswalker.Other/other permanents> | NumCards$ 1",
+    );
+    assert_eq!(
+        fixed.abilities[0],
+        "activated!(cost!(RemoveAnyCounter { count: 1, kind: None, filter: &Filter::This }), &[Effect::draw(1)])"
+    );
+    assert_eq!(
+        fixed.abilities[1],
+        "activated!(cost!(RemoveAnyCounter { count: 2, kind: None, filter: &Filter::This }), &[Effect::draw(1)])"
+    );
+    assert_eq!(
+        fixed.abilities[2],
+        "activated!(cost!(\"{1}\", RemoveAnyCounter { count: 3, kind: None, filter: &Filter::Any }), &[Effect::draw(1)])"
+    );
+    assert_eq!(
+        fixed.abilities[3],
+        "activated!(cost!(RemoveAnyCounter { count: 2, kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE }), &[Effect::draw(1)])"
+    );
+    assert!(
+        fixed.abilities[4].contains("RemoveAnyCounter { count: 3, kind: None, filter: &COST1 }"),
+        "{:?}",
+        fixed.abilities[4]
+    );
+
+    let var_x = read(
+        "Name:CounterCannon\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ DealDamage | Cost$ T RemoveAnyCounter<X/P1P1/Creature> | ValidTgts$ Any | NumDmg$ X\n\
+         A:AB$ Draw | Cost$ RemoveAnyCounter<X/LOYALTY/Planeswalker> | NumCards$ X\n\
+         A:AB$ Mana | Cost$ RemoveAnyCounter<X1+/P1P1/Artifact> | XMin$ 1 | Produced$ C | Amount$ X\n\
+         A:AB$ Draw | Cost$ XMin1 1 G RemoveAnyCounter<X1+/P1P1/Creature> | NumCards$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        var_x.abilities[0].contains(
+            "RemoveAnyCounterX { kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE }"
+        ),
+        "{:?}",
+        var_x.abilities[0]
+    );
+    assert!(
+        var_x.abilities[1].contains(
+            "RemoveAnyCounterX { kind: Some(CounterKind::Loyalty), filter: &Filter::PLANESWALKER }"
+        ),
+        "{:?}",
+        var_x.abilities[1]
+    );
+    assert_eq!(
+        var_x.abilities[2],
+        "mana_ability!(cost!(RemoveAnyCounterX { kind: Some(CounterKind::P1P1), filter: &Filter::ARTIFACT }), &[Effect::mana_dynamic(ManaColor::Colorless, Amount::X)], x_value = ActivationX::AtLeast(1))"
+    );
+    assert!(
+        var_x.abilities[3].contains("cost!(\"{1}{G}\", RemoveAnyCounterX { kind: Some(CounterKind::P1P1), filter: &Filter::CREATURE })")
+            && var_x.abilities[3].contains("x_value = ActivationX::AtLeast(1)"),
+        "{:?}",
+        var_x.abilities[3]
+    );
+
+    let sub_any = read(
+        "Name:AnySub\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ SubCounter<1/Any/CARDNAME> | NumCards$ 1\n\
+         A:AB$ Draw | Cost$ SubCounter<X/Any/Artifact.YouCtrl;Creature.YouCtrl/an artifact or creature you control> | NumCards$ X\n\
+         A:AB$ Mana | Cost$ T SubCounter<X1+/DREAM/NICKNAME> | XMin$ 1 | Produced$ U | Amount$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert_eq!(
+        sub_any.abilities[0],
+        "activated!(cost!(RemoveAnyCounter { count: 1, kind: None, filter: &Filter::This }), &[Effect::draw(1)])"
+    );
+    assert_eq!(
+        sub_any.abilities[1],
+        "activated!(cost!(RemoveAnyCounterX { kind: None, filter: &Filter::ARTIFACT_OR_CREATURE }), &[Effect::DrawCards { amount: Amount::X }])"
+    );
+    assert_eq!(
+        sub_any.abilities[2],
+        "mana_ability!(cost!(TapSelf, RemoveCounterSelfX { kind: counters::DREAM }), &[Effect::mana_dynamic(ManaColor::Blue, Amount::X)], x_value = ActivationX::AtLeast(1))"
+    );
+}
+
+#[test]
+fn wave21a_remove_any_counter_refusals_and_wave22_deferral() {
+    for bad in [
+        // Non-Any SubCounter on another permanent stays deferred cleanly to Wave 22.
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ SubCounter<1/P1P1/Creature.YouCtrl/a creature you control> | NumCards$ 1",
+        // Loyalty removal from self stays restricted to Planeswalker$ True.
+        "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/LOYALTY/CARDNAME> | NumCards$ 1",
+        "Name:X\nTypes:Planeswalker\nLoyalty:3\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/LOYALTY/Card.Self> | NumCards$ 1",
+        // Invalid counts, non-controller/non-battlefield filters, unannounced X.
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<0/Any/Permanent> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<256/Any/Permanent> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/Creature.OppCtrl> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/Card.YouOwn+inZoneExile+suspended> | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<X/P1P1/Creature> | NumCards$ 1",
+        // Conflicting XMin vs X1+, or self counter removal outside battlefield.
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ XMin2 RemoveAnyCounter<X1+/P1P1/Creature> | NumCards$ X\nSVar:X:Count$xPaid",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<X1+/P1P1/Creature> | XMin$ 2 | NumCards$ X\nSVar:X:Count$xPaid",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/CARDNAME> | ActivationZone$ Graveyard | NumCards$ 1",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ RemoveAnyCounter<1/Any/CARDNAME> | ActivationZone$ Hand | NumCards$ 1",
+    ] {
+        let parsed = parse(bad);
+        assert!(
+            transcode(&parsed, &cats(), None).is_none(),
+            "must refuse: {bad}"
+        );
+        assert!(
+            refusal_reason(&parsed, &cats(), None).is_some(),
+            "must record an explicit refusal reason: {bad}"
+        );
+    }
+}
+
+#[test]
+fn wave21a_monarch_initiative_and_completed_dungeon_conditions() {
+    let named = read(
+        "Name:CourtKeeper\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | Condition$ Monarch\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | Condition$ Initiative\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | Condition$ CompletedDungeon\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckDefinedPlayer$ You.isMonarch\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckDefinedPlayer$ You.hasInitiative\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckDefinedPlayer$ Opponent.isMonarch\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckDefinedPlayer$ You.committedCrimeThisTurn",
+    );
+    assert_eq!(
+        named.abilities,
+        [
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::IsMonarch(PlayerRel::You)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::HasInitiative(PlayerRel::You)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::CompletedADungeon(PlayerRel::You)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::IsMonarch(PlayerRel::You)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::HasInitiative(PlayerRel::You)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::IsMonarch(PlayerRel::EachOpponent)))",
+            "activated!(Cost::TAP, &[Effect::draw(1)], condition = Some(Condition::CommittedCrimeThisTurn(PlayerRel::You)))",
+        ]
+    );
+
+    let svar_conds = read(
+        "Name:CrownAndDelve\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 | NumCards$ 1 | CheckSVar$ M | SVarCompare$ EQ1\n\
+         A:AB$ Draw | Cost$ 1 | NumCards$ 1 | CheckSVar$ AnyM | SVarCompare$ EQ0\n\
+         A:AB$ Draw | Cost$ 1 | NumCards$ 1 | CheckSVar$ OppI | SVarCompare$ GE1\n\
+         A:AB$ Draw | Cost$ 1 | NumCards$ 1 | CheckSVar$ D | SVarCompare$ GE1\n\
+         A:AB$ Draw | Cost$ 1 | NumCards$ 1 | CheckSVar$ D | SVarCompare$ EQ0\n\
+         SVar:M:Count$Monarch.1.0\n\
+         SVar:AnyM:PlayerCountPlayers$HasPropertyisMonarch\n\
+         SVar:OppI:PlayerCountOpponents$HasPropertyhasInitiative\n\
+         SVar:D:DungeonsCompleted$Amount",
+    );
+    assert_eq!(
+        svar_conds.abilities,
+        [
+            "activated!(cost!(\"{1}\"), &[Effect::draw(1)], condition = Some(Condition::IsMonarch(PlayerRel::You)))",
+            "activated!(cost!(\"{1}\"), &[Effect::draw(1)], condition = Some(Condition::Not(&Condition::IsMonarch(PlayerRel::EachPlayer))))",
+            "activated!(cost!(\"{1}\"), &[Effect::draw(1)], condition = Some(Condition::HasInitiative(PlayerRel::EachOpponent)))",
+            "activated!(cost!(\"{1}\"), &[Effect::draw(1)], condition = Some(Condition::CompletedADungeon(PlayerRel::You)))",
+            "activated!(cost!(\"{1}\"), &[Effect::draw(1)], condition = Some(Condition::Not(&Condition::CompletedADungeon(PlayerRel::You))))",
+        ]
+    );
+
+    for bad in [
+        // Exact/multi dungeon counts cannot be lowered to boolean CompletedADungeon.
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | CheckSVar$ D | SVarCompare$ EQ1\nSVar:D:DungeonsCompleted$Amount",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | CheckSVar$ D | SVarCompare$ GE2\nSVar:D:DungeonsCompleted$Amount",
+        // Unknown CheckDefinedPlayer must not be silently dropped.
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | CheckDefinedPlayer$ You.withMostLife",
+        "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ 1 | NumCards$ 1 | Condition$ Monarch | CheckDefinedPlayer$ You.withMostLife",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

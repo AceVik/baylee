@@ -555,3 +555,75 @@ fn wave20a_alternative_cost_extra_named_conditions() {
         ),
     ]);
 }
+
+#[test]
+fn wave21a_alternative_cost_remove_any_counter_and_wave11c_conditions() {
+    let body = read(
+        "Name:CounterAlt\nManaCost:3 B\nTypes:Instant\n\
+         S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ RemoveAnyCounter<2/Any/Permanent>\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        body.alternative_costs,
+        [
+            "AlternativeCost { cost: cost!(RemoveAnyCounter { count: 2, kind: None, filter: &Filter::Any }), condition: AltCondition::Always }"
+        ]
+    );
+
+    assert_alt_conditions(&[
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | Condition$ Monarch\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::IsMonarch(PlayerRel::You))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | Condition$ Initiative\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::HasInitiative(PlayerRel::You))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | Condition$ CompletedDungeon\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::CompletedADungeon(PlayerRel::You))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | CheckDefinedPlayer$ You.hasInitiative\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::HasInitiative(PlayerRel::You))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | CheckSVar$ NoM | SVarCompare$ EQ0\n\
+             SVar:NoM:PlayerCountPlayers$HasPropertyisMonarch\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::Not(&Condition::IsMonarch(PlayerRel::EachPlayer)))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | CheckSVar$ D | SVarCompare$ GE1\n\
+             SVar:D:DungeonsCompleted$Amount\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::CompletedADungeon(PlayerRel::You))",
+        ),
+        (
+            "Name:X\nTypes:Instant\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | IsPresent$ Card.IsCommander+YouOwn+YouCtrl\n\
+             A:SP$ Draw | NumCards$ 1",
+            "AltCondition::If(&Condition::ControlYourCommander)",
+        ),
+    ]);
+
+    for bad in [
+        // RemoveAnyCounterX is not paid by `paid_as_an_alternative_cost`.
+        "Name:X\nManaCost:3 B\nTypes:Instant\nS:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ RemoveAnyCounter<X/P1P1/Creature>\nSVar:X:Count$xPaid\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nManaCost:3 B\nTypes:Instant\nS:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ RemoveAnyCounter<1/Any/CARDNAME>\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nManaCost:3 B\nTypes:Instant\nS:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ RemoveAnyCounter<1/Any/Creature.Other>\nA:SP$ Draw | NumCards$ 1",
+        "Name:X\nTypes:Instant\nS:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0 | CheckSVar$ D | SVarCompare$ EQ1\nSVar:D:DungeonsCompleted$Amount\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

@@ -2022,33 +2022,23 @@ impl Tx<'_> {
                 .and_then(|t| t.strip_suffix('>'))
             {
                 parts.push(self.exile_same_grave_cost(inner, token)?);
+            } else if let Some(inner) = token
+                .strip_prefix("RemoveAnyCounter<")
+                .and_then(|t| t.strip_suffix('>'))
+            {
+                parts.push(self.remove_any_counter_cost(inner, token)?);
             } else if let Some((n, kind)) = token
                 .strip_prefix("SubCounter<")
                 .and_then(|t| t.strip_suffix('>'))
                 .and_then(|t| t.split_once('/'))
             {
-                parts.push(self.sub_counter_cost(n, kind)?);
+                parts.push(self.sub_counter_cost(n, kind, token)?);
             } else if let Some((kind, body)) = object_cost(token) {
                 parts.extend(self.object_cost_part(kind, body, token)?);
-            } else if let Some(life) = token
-                .strip_prefix("PayLife<")
-                .and_then(|t| t.strip_suffix('>'))
-            {
-                if life == "X"
-                    && self.in_alternative_cost
-                    && self.has_x
-                    && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
-                    && !self.oracle.to_ascii_lowercase().contains("x is ")
-                {
-                    parts.push("PayLifeX".to_string());
-                } else if let Ok(n) = life.parse::<u16>() {
-                    parts.push(format!("PayLife({n})"));
-                } else {
-                    return self.deny(format!("cost `{token}`"));
-                }
             } else if token == "Forage" {
                 parts.push("Forage".to_string());
-            } else if token.starts_with("PayEnergy<")
+            } else if token.starts_with("PayLife<")
+                || token.starts_with("PayEnergy<")
                 || token.starts_with("ExileFromTop<")
                 || token.starts_with("DamageYou<")
             {
@@ -2151,14 +2141,108 @@ impl Tx<'_> {
         ))
     }
 
-    fn sub_counter_cost(&self, n: &str, kind: &str) -> Option<String> {
+    pub(super) fn remove_any_counter_cost(&mut self, inner: &str, token: &str) -> Option<String> {
+        let mut fields = inner.splitn(4, '/');
+        let (Some(count_raw), Some(kind_raw), Some(spec)) =
+            (fields.next(), fields.next(), fields.next())
+        else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        let kind = if kind_raw.eq_ignore_ascii_case("any") {
+            None
+        } else {
+            let Some(k) = counter_kind(kind_raw) else {
+                return self.deny(format!("counter `{kind_raw}`"));
+            };
+            Some(k)
+        };
+        self.parse_remove_any_counter(count_raw, kind.as_deref(), spec, token)
+    }
+
+    pub(super) fn sub_counter_any_cost(
+        &mut self,
+        n: &str,
+        rest: &str,
+        token: &str,
+    ) -> Option<String> {
+        let mut fields = rest.splitn(3, '/');
+        let Some(kind_raw) = fields.next() else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        if !kind_raw.eq_ignore_ascii_case("any") {
+            return self.deny(format!("a counter cost from `{rest}`"));
+        }
+        let spec = fields.next().unwrap_or("CARDNAME");
+        self.parse_remove_any_counter(n, None, spec, token)
+    }
+
+    fn parse_remove_any_counter(
+        &mut self,
+        count_raw: &str,
+        kind: Option<&str>,
+        spec: &str,
+        token: &str,
+    ) -> Option<String> {
+        let on_spell_or_alt = self.on_a_spell || self.in_alternative_cost;
+        let filter = if matches!(spec.trim(), "CARDNAME" | "NICKNAME") {
+            if on_spell_or_alt || self.in_graveyard_activation || self.in_hand_activation {
+                return self.deny(format!("cost `{token}` naming itself"));
+            }
+            if kind == Some("CounterKind::Loyalty") {
+                return self.deny("a loyalty cost".to_string());
+            }
+            "Filter::This".to_string()
+        } else {
+            let Some(cleaned) = normalize_remove_any_counter_spec(spec, on_spell_or_alt) else {
+                return self.deny(format!("cost `{token}`"));
+            };
+            let Some(expr) = self.filter_expr(&cleaned) else {
+                if self.unclaimed.borrow().is_none() {
+                    self.note(format!("cost `{token}`"));
+                }
+                return None;
+            };
+            if kind == Some("CounterKind::Loyalty") && expr == "Filter::This" {
+                return self.deny("a loyalty cost".to_string());
+            }
+            self.body.filter_static("COST", &expr)
+        };
+        let kind_expr = kind.map_or_else(|| "None".to_string(), |k| format!("Some({k})"));
+        if count_raw == "X" {
+            if self.trigger_mode.is_none()
+                && self.has_x
+                && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+                && !self.oracle.to_ascii_lowercase().contains("x is ")
+            {
+                return Some(format!(
+                    "RemoveAnyCounterX {{ kind: {kind_expr}, filter: &{filter} }}"
+                ));
+            }
+            return self.deny(format!("cost `{token}` without announced X"));
+        }
+        let Some(count) = count_raw.parse::<u8>().ok().filter(|&c| c > 0) else {
+            return self.deny(format!("counter count `{count_raw}`"));
+        };
+        Some(format!(
+            "RemoveAnyCounter {{ count: {count}, kind: {kind_expr}, filter: &{filter} }}"
+        ))
+    }
+
+    fn sub_counter_cost(&mut self, n: &str, kind: &str, token: &str) -> Option<String> {
         // "Remove a corpse counter from this creature" as a cost: a fixed
         // number of one kind, from the source (`SubCounter<1/CORPSE>` or
         // `SubCounter<1/OIL/CARDNAME[/desc]>`), or `X` on a non-spell
-        // activation. Loyalty costs (CR 606.3-4) and counters removed from
+        // activation, plus `SubCounter<N|X/Any/...>` via `RemoveAnyCounter`.
+        // Loyalty costs (CR 606.3-4) and non-`Any` counters removed from
         // another permanent stay refused.
         let mut fields = kind.splitn(3, '/');
-        let kind_raw = fields.next()?;
+        let Some(kind_raw) = fields.next() else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        if kind_raw.eq_ignore_ascii_case("any") {
+            let spec = fields.next().unwrap_or("CARDNAME");
+            return self.parse_remove_any_counter(n, None, spec, token);
+        }
         if let Some(target) = fields.next()
             && !matches!(target, "CARDNAME" | "NICKNAME")
         {
@@ -2190,6 +2274,23 @@ impl Tx<'_> {
     }
 
     fn energy_or_exile_top_cost(&self, token: &str) -> Option<String> {
+        if let Some(life) = token
+            .strip_prefix("PayLife<")
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            if life == "X"
+                && self.in_alternative_cost
+                && self.has_x
+                && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+                && !self.oracle.to_ascii_lowercase().contains("x is ")
+            {
+                return Some("PayLifeX".to_string());
+            }
+            if let Ok(n) = life.parse::<u16>() {
+                return Some(format!("PayLife({n})"));
+            }
+            return self.deny(format!("cost `{token}`"));
+        }
         if let Some(energy) = token
             .strip_prefix("PayEnergy<")
             .and_then(|t| t.strip_suffix('>'))
@@ -2500,6 +2601,67 @@ pub(super) fn special_mana_symbol(token: &str) -> Option<String> {
         }
         _ => None,
     }
+}
+
+fn normalize_remove_any_counter_spec(spec: &str, on_spell_or_alt: bool) -> Option<String> {
+    let mut cleaned_alts = Vec::new();
+    for raw_alt in spec.split([',', ';']) {
+        let alt = raw_alt.trim();
+        if alt.is_empty() {
+            return None;
+        }
+        let mut parts = alt.split('.');
+        let base = parts.next()?.trim();
+        if base.is_empty()
+            || matches!(
+                base,
+                "CARDNAME" | "NICKNAME" | "Self" | "OriginalHost" | "Enchanted" | "Equipped"
+            )
+            || base.contains("Ctrl")
+            || base.contains("Own")
+        {
+            return None;
+        }
+        let mut kept = Vec::new();
+        for atom in parts
+            .flat_map(|s| s.split('+'))
+            .map(str::trim)
+            .filter(|a| !a.is_empty())
+        {
+            if atom == "YouCtrl" || atom == "inZoneBattlefield" {
+                continue;
+            }
+            if atom.contains("Ctrl")
+                || atom.contains("Own")
+                || atom.starts_with("inZone")
+                || matches!(
+                    atom,
+                    "suspended"
+                        | "OriginalHost"
+                        | "Enchanted"
+                        | "Equipped"
+                        | "EnchantedBy"
+                        | "EquippedBy"
+                        | "AttachedBy"
+                        | "Attached"
+                        | "CARDNAME"
+                        | "NICKNAME"
+                )
+            {
+                return None;
+            }
+            if on_spell_or_alt && matches!(atom, "Self" | "Other" | "StrictlyOther") {
+                return None;
+            }
+            kept.push(atom);
+        }
+        if kept.is_empty() {
+            cleaned_alts.push(base.to_string());
+        } else {
+            cleaned_alts.push(format!("{base}.{}", kept.join("+")));
+        }
+    }
+    (!cleaned_alts.is_empty()).then(|| cleaned_alts.join(","))
 }
 
 fn has_unscoped_spend_atom(valid: &str) -> bool {

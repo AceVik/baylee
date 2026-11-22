@@ -64,6 +64,7 @@ impl Tx<'_> {
                 || part.starts_with("Sacrifice(")
                 || part.starts_with("ReturnToHand(")
                 || part.starts_with("TapN {")
+                || part.starts_with("RemoveAnyCounter {")
                 || part == "Forage"
         };
         if (mana.is_empty() && parts.is_empty()) || !parts.iter().all(paid) {
@@ -91,6 +92,7 @@ impl Tx<'_> {
             p.peek("IsPresent"),
             Some("Card.IsCommander+YouCtrl" | "Card.YouCtrl+IsCommander")
         ) && !p.has("Condition")
+            && !p.has("CheckDefinedPlayer")
             && !p.has("LifeTotal")
             && !p.has("CheckSVar")
             && !p.has("CheckSecondSVar")
@@ -111,6 +113,7 @@ impl Tx<'_> {
             return Some("AltCondition::CommanderControlled".to_string());
         }
         if p.peek("Condition") == Some("NotPlayerTurn")
+            && !p.has("CheckDefinedPlayer")
             && !p.has("IsPresent")
             && !p.has("LifeTotal")
             && !p.has("CheckSVar")
@@ -121,22 +124,16 @@ impl Tx<'_> {
         }
         let mut clauses = Vec::new();
         if let Some(cond) = p.take("Condition") {
-            clauses.push(match cond.as_str() {
-                "NotPlayerTurn" => "Condition::Not(&Condition::YourTurn)".to_string(),
-                "PlayerTurn" => "Condition::YourTurn".to_string(),
-                "MaxSpeed" => "Condition::MaxSpeed".to_string(),
-                "Threshold" => "Condition::GraveyardCountAtLeast(7)".to_string(),
-                "Delirium" => "Condition::GraveyardTypesAtLeast(4)".to_string(),
-                "Metalcraft" => "Condition::ControlCount(&Filter::ARTIFACT, 3)".to_string(),
-                "Hellbent" => "Condition::HandSizeAtMost(0)".to_string(),
-                "Blessing" => "Condition::CitysBlessing".to_string(),
-                "EnduringStory" => "Condition::EnduringStory".to_string(),
-                "FatefulHour" => "Condition::LifeAtMost(5)".to_string(),
-                "Revolt" => "Condition::Revolt".to_string(),
-                "Morbid" => "Condition::CreaturesDiedThisTurnAtLeast(1)".to_string(),
-                "Raid" => "Condition::AttackedWithAtLeast(1)".to_string(),
-                other => return self.deny(format!("`AlternativeCost` condition `{other}`")),
-            });
+            let Some(expr) = Self::named_condition(&cond) else {
+                return self.deny(format!("`AlternativeCost` condition `{cond}`"));
+            };
+            clauses.push(expr.to_string());
+        }
+        if let Some(player_raw) = p.take("CheckDefinedPlayer") {
+            let Some(expr) = Self::defined_player_condition(&player_raw) else {
+                return self.deny(format!("`CheckDefinedPlayer$ {player_raw}`"));
+            };
+            clauses.push(expr.to_string());
         }
         if let Some(who) = p.take("LifeTotal") {
             if who != "You" {
@@ -229,6 +226,9 @@ impl Tx<'_> {
         let compare = p
             .take("PresentCompare")
             .unwrap_or_else(|| "GE1".to_string());
+        if let Some(clause) = Self::commander_present_clause(valid, &compare, false) {
+            return Some(clause);
+        }
         if let Some(clause) = Self::ringbearer_present_clause(valid, &compare, false) {
             return Some(clause);
         }
@@ -246,7 +246,10 @@ impl Tx<'_> {
 
     fn alt_svar_clause(&self, var: &str, compare: &str) -> Option<String> {
         let trimmed = var.trim();
-        let def = if trimmed.starts_with("Count$") || trimmed.starts_with("PlayerCount") {
+        let def = if trimmed.starts_with("Count$")
+            || trimmed.starts_with("PlayerCount")
+            || trimmed.starts_with("DungeonsCompleted$")
+        {
             trimmed
         } else {
             let Some(raw) = self.svars.get(trimmed) else {
@@ -281,6 +284,9 @@ impl Tx<'_> {
     }
 
     fn alt_svar_known(&self, def: &str, compare: &str) -> Option<String> {
+        if let Some(cond) = Self::crime_or_opp_damaged_condition(def, compare) {
+            return Some(cond);
+        }
         let bound = count_bound(compare);
         match def {
             "Count$AttackersDeclared" => match bound {
@@ -325,16 +331,6 @@ impl Tx<'_> {
             }
             "Count$DescendedThisTurn" | "Count$ThisTurnDescended" => {
                 return alt_bool_compare(compare, "Condition::DescendedThisTurn");
-            }
-            "Count$CommittedCrimeThisTurn.1.0" | "Count$CommittedCrimeThisTurn" => {
-                return alt_bool_compare(
-                    compare,
-                    "Condition::CommittedCrimeThisTurn(PlayerRel::You)",
-                );
-            }
-            "PlayerCountOpponents$HasPropertywasDealtDamageThisTurn"
-            | "PlayerCountRegisteredOpponents$HasPropertywasDealtDamageThisTurn" => {
-                return alt_bool_compare(compare, "Condition::OpponentDealtDamageThisTurn");
             }
             "Count$LifeOppsLostThisTurn" => match bound {
                 Some(Bound::AtMost(0)) => {
