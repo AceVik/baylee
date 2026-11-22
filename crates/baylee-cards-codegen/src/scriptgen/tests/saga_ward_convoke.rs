@@ -661,35 +661,60 @@ fn extra_replacements_add_counter() {
         ]
     );
 
-    // Refusals: specific counter kind, unconditional doubler, effect-only additive, non-battlefield.
-    assert!(refused(
-        "Name:TypedCounter\nTypes:Enchantment\n\
-         R:Event$ AddCounter | ActiveZones$ Battlefield | ValidCounterType$ P1P1 | \
-         ValidCard$ Creature.YouCtrl+inZoneBattlefield | ReplaceWith$ PlusC\n\
-         SVar:PlusC:DB$ ReplaceCounter | Amount$ X\n\
-         SVar:X:ReplaceCount$CounterNum/Plus.1"
-    ));
-    assert!(refused(
-        "Name:UncondDoubler\nTypes:Enchantment\n\
-         R:Event$ AddCounter | ActiveZones$ Battlefield | \
-         ValidCard$ Creature.YouCtrl+inZoneBattlefield | ReplaceWith$ DoubleC\n\
-         SVar:DoubleC:DB$ ReplaceCounter | Amount$ X\n\
-         SVar:X:ReplaceCount$CounterNum/Twice"
-    ));
-    assert!(refused(
-        "Name:EffectOnlyPlus\nTypes:Enchantment\n\
-         R:Event$ AddCounter | ActiveZones$ Battlefield | EffectOnly$ True | \
-         ValidCard$ Creature.YouCtrl+inZoneBattlefield | ReplaceWith$ PlusC\n\
-         SVar:PlusC:DB$ ReplaceCounter | Amount$ X\n\
-         SVar:X:ReplaceCount$CounterNum/Plus.1"
-    ));
-    assert!(refused(
+    for (script, expected) in [
+        (
+            "Name:TypedCounter\nTypes:Enchantment\n\
+             R:Event$ AddCounter | ActiveZones$ Battlefield | ValidCounterType$ P1P1 | \
+             ValidCard$ Creature.YouCtrl+inZoneBattlefield | ReplaceWith$ PlusC\n\
+             SVar:PlusC:DB$ ReplaceCounter | Amount$ X\n\
+             SVar:X:ReplaceCount$CounterNum/Plus.1",
+            "AbilityDef::Replacement(ReplacementRule::ModifyCounterPlacement { \
+             object_filter: &Filter::YOUR_CREATURE, kind: Some(CounterKind::P1P1), placer: None, \
+             effect_only: false, op: CounterReplaceOp::Add(1) })",
+        ),
+        (
+            "Name:UncondDoubler\nTypes:Enchantment\n\
+             R:Event$ AddCounter | ActiveZones$ Battlefield | \
+             ValidCard$ Creature.YouCtrl+inZoneBattlefield | ReplaceWith$ DoubleC\n\
+             SVar:DoubleC:DB$ ReplaceCounter | Amount$ X\n\
+             SVar:X:ReplaceCount$CounterNum/Twice",
+            "AbilityDef::Replacement(ReplacementRule::ModifyCounterPlacement { \
+             object_filter: &Filter::YOUR_CREATURE, kind: None, placer: None, \
+             effect_only: false, op: CounterReplaceOp::Multiply(2) })",
+        ),
+        (
+            "Name:EffectOnlyPlus\nTypes:Enchantment\n\
+             R:Event$ AddCounter | ActiveZones$ Battlefield | EffectOnly$ True | \
+             ValidCard$ Creature.YouCtrl+inZoneBattlefield | ReplaceWith$ PlusC\n\
+             SVar:PlusC:DB$ ReplaceCounter | Amount$ X\n\
+             SVar:X:ReplaceCount$CounterNum/Plus.1",
+            "AbilityDef::Replacement(ReplacementRule::ModifyCounterPlacement { \
+             object_filter: &Filter::YOUR_CREATURE, kind: None, placer: None, \
+             effect_only: true, op: CounterReplaceOp::Add(1) })",
+        ),
+    ] {
+        assert_eq!(read(script).abilities, [expected]);
+    }
+
+    // Refusals: missing battlefield zone, ValidCause$, and literal constant Amount$ 1.
+    for bad in [
         "Name:MissingZone\nTypes:Enchantment\n\
          R:Event$ AddCounter | ActiveZones$ Battlefield | \
          ValidCard$ Creature.YouCtrl | EffectOnly$ True | ReplaceWith$ DoubleC\n\
          SVar:DoubleC:DB$ ReplaceCounter | Amount$ X\n\
-         SVar:X:ReplaceCount$CounterNum/Twice"
-    ));
+         SVar:X:ReplaceCount$CounterNum/Twice",
+        "Name:CauseScoped\nTypes:Enchantment\n\
+         R:Event$ AddCounter | ActiveZones$ Battlefield | ValidCause$ Spell | \
+         ValidCard$ Creature.YouCtrl+inZoneBattlefield | ReplaceWith$ PlusC\n\
+         SVar:PlusC:DB$ ReplaceCounter | Amount$ X\n\
+         SVar:X:ReplaceCount$CounterNum/Plus.1",
+        "Name:LiteralConst\nTypes:Enchantment\n\
+         R:Event$ AddCounter | ActiveZones$ Battlefield | \
+         ValidCard$ Creature.YouCtrl+inZoneBattlefield | ReplaceWith$ ConstC\n\
+         SVar:ConstC:DB$ ReplaceCounter | Amount$ 1",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
 }
 
 #[test]
@@ -4353,6 +4378,389 @@ fn wave19d_moved_tap_counters_and_kicked_etb() {
          R:Event$ Moved | ValidCard$ Card.Self+kicked | Destination$ Battlefield | ReplaceWith$ Boost | ReplacementResult$ Updated\n\
          SVar:Boost:DB$ PutCounter | ETB$ True | CounterType$ P1P1 | CounterNum$ 1 | SubAbility$ Anim\n\
          SVar:Anim:DB$ Animate | Defined$ Self | Keywords$ Haste",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+fn wave20d_cats_and_tokens() -> (SubtypeCatalogs, TokenLookup) {
+    let mut c = cats();
+    c.creature.push("Angel".into());
+    c.creature.push("Soldier".into());
+    c.artifact.push("Food".into());
+    c.artifact.push("Treasure".into());
+    c.normalize();
+    let tok = TokenLookup::held(&[
+        (
+            "tok_clue",
+            "Name:Clue Token\nTypes:Artifact Clue\nA:AB$ Draw | Cost$ 2 Sac<1/CARDNAME> | NumCards$ 1",
+        ),
+        (
+            "tok_food",
+            "Name:Food Token\nTypes:Artifact Food\nA:AB$ GainLife | Cost$ 2 T Sac<1/CARDNAME> | LifeAmount$ 3",
+        ),
+        (
+            "tok_treasure",
+            "Name:Treasure Token\nTypes:Artifact Treasure\nA:AB$ Mana | Cost$ T Sac<1/CARDNAME> | Produced$ Any",
+        ),
+        (
+            "tok_angel",
+            "Name:Angel\nTypes:Creature Angel\nColors:white\nPT:4/4\nK:Flying",
+        ),
+        (
+            "tok_soldier",
+            "Name:Soldier\nTypes:Creature Soldier\nColors:white\nPT:1/1",
+        ),
+    ]);
+    (c, tok)
+}
+
+#[test]
+fn wave20d_counter_replacement_variants() {
+    let halver = read(
+        "Name:HalfBoth\nTypes:Creature\nPT:6/6\n\
+         R:Event$ AddCounter | ActiveZones$ Battlefield | ValidSource$ Opponent | \
+         ValidObject$ Permanent.inZoneBattlefield,Player | ReplaceWith$ HalfC\n\
+         SVar:HalfC:DB$ ReplaceCounter | Amount$ H\n\
+         SVar:H:ReplaceCount$CounterNum/HalfDown",
+    );
+    assert_eq!(
+        halver.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ModifyCounterPlacement { \
+             object_filter: &Filter::Any, kind: None, placer: Some(PlayerRel::EachOpponent), \
+             effect_only: false, op: CounterReplaceOp::HalveFloor })",
+            "AbilityDef::Replacement(ReplacementRule::ModifyPlayerCounterPlacement { \
+             recipient: PlayerRel::EachPlayer, kind: None, placer: Some(PlayerRel::EachOpponent), \
+             op: CounterReplaceOp::HalveFloor })",
+        ]
+    );
+
+    let anti_infect = read(
+        "Name:NoNegCounters\nTypes:Creature\nPT:1/1\n\
+         R:Event$ AddCounter | ActiveZones$ Battlefield | ValidCard$ Creature.YouCtrl+inZoneBattlefield | \
+         ValidCounterType$ M1M1 | Prevent$ True | Layer$ CantHappen",
+    );
+    assert_eq!(
+        anti_infect.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ModifyCounterPlacement { \
+             object_filter: &Filter::YOUR_CREATURE, kind: Some(CounterKind::M1M1), placer: None, \
+             effect_only: false, op: CounterReplaceOp::Sub(u16::MAX) })"
+        ]
+    );
+
+    let player_plus = read(
+        "Name:EnergyAmp\nTypes:Artifact\n\
+         R:Event$ AddCounter | ActiveZones$ Battlefield | ValidPlayer$ You | \
+         ValidCounterType$ ENERGY | ReplaceWith$ AddOne\n\
+         SVar:AddOne:DB$ ReplaceCounter | Amount$ ReplaceCount$CounterNum/Plus.1",
+    );
+    assert_eq!(
+        player_plus.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ModifyPlayerCounterPlacement { \
+             recipient: PlayerRel::You, kind: Some(CounterKind::Energy), placer: None, \
+             op: CounterReplaceOp::Add(1) })"
+        ]
+    );
+
+    let self_minus = read(
+        "Name:ShieldTrim\nTypes:Creature\nPT:2/2\n\
+         R:Event$ AddCounter | ActiveZones$ Battlefield | ValidCard$ Card.Self | \
+         ValidCounterType$ P1P1 | ReplaceWith$ SubOne\n\
+         SVar:SubOne:DB$ ReplaceCounter | Amount$ D\n\
+         SVar:D:ReplaceCount$CounterNum/Minus.1",
+    );
+    assert_eq!(
+        self_minus.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ModifyCounterPlacement { \
+             object_filter: &Filter::This, kind: Some(CounterKind::P1P1), placer: None, \
+             effect_only: false, op: CounterReplaceOp::Sub(1) })"
+        ]
+    );
+
+    for bad in [
+        "Name:PlayerEffectOnly\nTypes:Enchantment\n\
+         R:Event$ AddCounter | ActiveZones$ Battlefield | EffectOnly$ True | ValidPlayer$ You | ReplaceWith$ X\n\
+         SVar:X:DB$ ReplaceCounter | Amount$ ReplaceCount$CounterNum/Plus.1",
+        "Name:HalfUpBad\nTypes:Enchantment\n\
+         R:Event$ AddCounter | ActiveZones$ Battlefield | ValidCard$ Creature.inZoneBattlefield | ReplaceWith$ X\n\
+         SVar:X:DB$ ReplaceCounter | Amount$ ReplaceCount$CounterNum/HalfUp",
+        "Name:TwoKinds\nTypes:Enchantment\n\
+         R:Event$ AddCounter | ActiveZones$ Battlefield | ValidCounterType$ P1P1,M1M1 | \
+         ValidCard$ Creature.inZoneBattlefield | ReplaceWith$ X\n\
+         SVar:X:DB$ ReplaceCounter | Amount$ ReplaceCount$CounterNum/Plus.1",
+        "Name:MissingTarget\nTypes:Enchantment\n\
+         R:Event$ AddCounter | ActiveZones$ Battlefield | ReplaceWith$ X\n\
+         SVar:X:DB$ ReplaceCounter | Amount$ ReplaceCount$CounterNum/Plus.1",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn wave20d_token_replacement_variants() {
+    let (c, tok) = wave20d_cats_and_tokens();
+    let read_tok = |text: &str| {
+        let p = parse(text);
+        transcode(&p, &c, Some(&tok))
+            .unwrap_or_else(|| panic!("refused {:?}: {text}", refusal_reason(&p, &c, Some(&tok))))
+    };
+    let refused_tok = |text: &str| transcode(&parse(text), &c, Some(&tok)).is_none();
+
+    let bonus_match = read_tok(
+        "Name:ExtraArmy\nTypes:Creature\nPT:3/3\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Creature.YouCtrl | \
+         Metalcraft$ True | ReplaceWith$ PlusSol\n\
+         SVar:PlusSol:DB$ ReplaceToken | Type$ AddToken | TokenScript$ tok_soldier | Amount$ X\n\
+         SVar:X:ReplaceCount$TokenNum",
+    );
+    assert_eq!(
+        bonus_match.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::AdditionalTokenCreation { \
+             controller_filter: &Filter::ControlledByYou, token_filter: &Filter::CREATURE, \
+             bonus_token: &generated_tokens::SOLDIER_1_1_WHITE, match_count: true, \
+             condition: Some(Condition::ControlCount(&Filter::ARTIFACT, 3)) })"
+        ]
+    );
+
+    let bonus_flat = read_tok(
+        "Name:TreasureSmith\nTypes:Creature\nPT:2/2\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Treasure.YouCtrl | ReplaceWith$ PlusTr\n\
+         SVar:PlusTr:DB$ ReplaceToken | Type$ AddToken | TokenScript$ tok_treasure | Amount$ 1",
+    );
+    assert!(
+        bonus_flat.abilities[0]
+            .contains("bonus_token: &generated_tokens::TREASURE, match_count: false"),
+        "{:?}",
+        bonus_flat.abilities
+    );
+
+    let substitute = read_tok(
+        "Name:AngelMirror\nTypes:Enchantment\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Creature.nonAngel+YouCtrl | ReplaceWith$ SubAng\n\
+         SVar:SubAng:DB$ ReplaceToken | Type$ ReplaceToken | TokenScript$ tok_angel",
+    );
+    assert!(
+        substitute.abilities[0].contains(
+            "ReplacementRule::SubstituteTokenCreation { controller_filter: &Filter::ControlledByYou"
+        ) && substitute.abilities[0]
+            .contains("replacement: &generated_tokens::ANGEL_4_4_WHITE_FLYING, condition: None"),
+        "{:?}",
+        substitute.abilities
+    );
+
+    let manufactor = read_tok(
+        "Name:TripleGadget\nTypes:Artifact Creature\nPT:1/3\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | \
+         ValidToken$ Clue.YouCtrl,Food.YouCtrl,Treasure.YouCtrl | ReplaceWith$ MakeThree\n\
+         SVar:MakeThree:DB$ ReplaceToken | Type$ MultipleTokens | TokenScript$ tok_clue,tok_food,tok_treasure",
+    );
+    assert_eq!(
+        manufactor.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ManufactorTokenCreation { \
+             controller_filter: &Filter::ControlledByYou, clue: &generated_tokens::CLUE, \
+             food: &generated_tokens::FOOD, treasure: &generated_tokens::TREASURE })"
+        ]
+    );
+
+    for bad in [
+        "Name:OptAdd\nTypes:Enchantment\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | Optional$ True | ValidToken$ Card.YouCtrl | ReplaceWith$ A\n\
+         SVar:A:DB$ ReplaceToken | Type$ AddToken | TokenScript$ tok_food | Amount$ 1",
+        "Name:EffectOnlyAdd\nTypes:Enchantment\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | EffectOnly$ True | ValidToken$ Card.YouCtrl | ReplaceWith$ A\n\
+         SVar:A:DB$ ReplaceToken | Type$ AddToken | TokenScript$ tok_food | Amount$ 1",
+        "Name:ChoiceSub\nTypes:Creature\nPT:2/2\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ C\n\
+         SVar:C:DB$ GenericChoice",
+        "Name:TwoTokens\nTypes:Creature\nPT:2/2\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Food.YouCtrl,Treasure.YouCtrl | ReplaceWith$ M\n\
+         SVar:M:DB$ ReplaceToken | Type$ MultipleTokens | TokenScript$ tok_food,tok_treasure",
+        "Name:CondManu\nTypes:Artifact Creature\nPT:1/3\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | Metalcraft$ True | \
+         ValidToken$ Clue.YouCtrl,Food.YouCtrl,Treasure.YouCtrl | ReplaceWith$ M\n\
+         SVar:M:DB$ ReplaceToken | Type$ MultipleTokens | TokenScript$ tok_clue,tok_food,tok_treasure",
+        "Name:AddTwo\nTypes:Enchantment\n\
+         R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ A\n\
+         SVar:A:DB$ ReplaceToken | Type$ AddToken | TokenScript$ tok_food | Amount$ 2",
+    ] {
+        assert!(refused_tok(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn wave20d_draw_replacement_variants() {
+    let double_draw = read(
+        "Name:ReflectDraws\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | NotFirstCardInDrawStep$ True | \
+         Hellbent$ True | ReplaceWith$ DrawTwo\n\
+         SVar:DrawTwo:DB$ Draw | Defined$ ReplacedPlayer | NumCards$ 2",
+    );
+    assert_eq!(
+        double_draw.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawWithDraws { \
+             who: PlayerRel::You, skip_first_in_draw_step: true, \
+             condition: Some(Condition::HandSizeAtMost(0)), count: 2 })"
+        ]
+    );
+
+    let thief = read(
+        "Name:StealExtraDraw\nTypes:Creature\nPT:3/1\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ Opponent | \
+         NotFirstCardInDrawStep$ True | ReplaceWith$ DrawYou\n\
+         SVar:DrawYou:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert_eq!(
+        thief.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::OpponentsExtraDrawsYouDraw)"]
+    );
+
+    let skip_empty = read(
+        "Name:EmptyGuard\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | \
+         IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0 | Optional$ True | Prevent$ True",
+    );
+    assert_eq!(
+        skip_empty.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::SkipDrawInstead { \
+             who: PlayerRel::You, optional: true, empty_library_only: true })"
+        ]
+    );
+
+    let win_empty = read(
+        "Name:EmptyWin\nTypes:Creature\nPT:2/2\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | \
+         CheckSVar$ Lib | SVarCompare$ EQ0 | ReplaceWith$ Win\n\
+         SVar:Lib:Count$ValidLibrary Card.YouOwn\n\
+         SVar:Win:DB$ WinsGame | Defined$ You",
+    );
+    assert_eq!(
+        win_empty.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::WinOnEmptyLibraryDraw)"]
+    );
+
+    let look_top = read(
+        "Name:GraveLook\nTypes:Creature\nPT:4/3\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ LookThree\n\
+         SVar:LookThree:DB$ Dig | DigNum$ 3 | ChangeNum$ 1 | DestinationZone$ Hand | DestinationZone2$ Graveyard",
+    );
+    assert_eq!(
+        look_top.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawLookTop { \
+             count: 3, rest_to_graveyard: true })"
+        ]
+    );
+}
+
+#[test]
+fn wave20d_draw_exile_and_refusals() {
+    let uba_paired = read(
+        "Name:ExileMask\nTypes:Artifact\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ Player | ReplaceWith$ ExTop\n\
+         S:Mode$ Continuous | AffectedZone$ Exile | Affected$ Card.ExiledWithSource+ThisTurnEntered | \
+         MayPlay$ True | MayPlayPlayer$ CardOwner\n\
+         SVar:ExTop:DB$ Dig | Defined$ ReplacedPlayer | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile",
+    );
+    assert_eq!(
+        uba_paired.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawExileTop { \
+             who: PlayerRel::EachPlayer, face_down: false, may_play_this_turn: true })"
+        ]
+    );
+
+    let exile_facedown_cz = read(
+        "Name:DarkExileDraw\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ ExDown\n\
+         SVar:ExDown:DB$ ChangeZone | Defined$ ReplacedPlayer | Origin$ Library | \
+         Destination$ Exile | LibraryPosition$ 0 | FaceDown$ True",
+    );
+    assert_eq!(
+        exile_facedown_cz.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawExileTop { \
+             who: PlayerRel::You, face_down: true, may_play_this_turn: false })"
+        ]
+    );
+
+    for bad in [
+        "Name:DrawCardsBad\nTypes:Enchantment\n\
+         R:Event$ DrawCards | ActiveZones$ Battlefield | ValidPlayer$ You | Prevent$ True",
+        "Name:RevealLookBad\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ D\n\
+         SVar:D:DB$ Dig | DigNum$ 3 | Reveal$ True | DestinationZone2$ Graveyard",
+        "Name:TopLookBad\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ D\n\
+         SVar:D:DB$ Dig | DigNum$ 3 | DestinationZone2$ Library | LibraryPosition2$ 0",
+        "Name:EmptyOppSkipBad\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ Player | \
+         IsPresent$ Card.YouOwn | PresentZone$ Library | PresentCompare$ EQ0 | Prevent$ True",
+        "Name:WinNoEmptyBad\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ W\n\
+         SVar:W:DB$ WinsGame | Defined$ You",
+        "Name:UnpairedExilePlayBad\nTypes:Artifact\n\
+         S:Mode$ Continuous | AffectedZone$ Exile | Affected$ Card.ExiledWithSource+ThisTurnEntered | \
+         MayPlay$ True | MayPlayPlayer$ CardOwner",
+        "Name:MismatchMayPlayBad\nTypes:Artifact\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ Player | ReplaceWith$ ExTop\n\
+         S:Mode$ Continuous | AffectedZone$ Exile | Affected$ Card.ExiledWithSource+ThisTurnEntered | \
+         MayPlay$ True | MayPlayPlayer$ You\n\
+         SVar:ExTop:DB$ Dig | Defined$ ReplacedPlayer | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn wave20d_flash_exile_prepared_misc() {
+    let omit_sa_flash = read(
+        "Name:OmittedSaFlash\nTypes:Instant\n\
+         S:Mode$ CastWithFlash | ValidCard$ Sorcery | Caster$ You",
+    );
+    assert_eq!(
+        omit_sa_flash.abilities,
+        ["static_ability!(Filter::Any, Modifier::SorceriesHaveFlash)"]
+    );
+
+    let linked_cond = read(
+        "Name:LinkedExileGate\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ ExCount | SVarCompare$ GE1\n\
+         SVar:ExCount:Count$ValidExile Card.ExiledWithSource",
+    );
+    assert!(
+        linked_cond.abilities[0].contains(
+            "condition = Some(Condition::AmountAtLeast(Amount::CountOf { \
+             filter: &Filter::Any, zone: ZoneSel::LinkedExile }, 1))"
+        ),
+        "{:?}",
+        linked_cond.abilities
+    );
+
+    let moved_prep = read(
+        "Name:PrepFrontMoved\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ DBPrep\n\
+         SVar:DBPrep:DB$ AlterAttribute | Attributes$ Prepared\n\
+         AlternateMode:Prepare\n\
+         ALTERNATE\n\
+         Name:PrepSpell\nManaCost:R\nTypes:Instant\n\
+         A:SP$ LoseLife | ValidTgts$ Opponent | LifeAmount$ 2",
+    );
+    assert!(moved_prep.back_is_prepare);
+    assert_eq!(moved_prep.enter_modifiers, ["EnterModifier::Prepared"]);
+
+    for bad in [
+        "Name:BadCasterFlash\nTypes:Enchantment\nS:Mode$ CastWithFlash | ValidCard$ Card | Caster$ Player",
+        "Name:BadAttr\nTypes:Creature\nPT:1/1\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ M\n\
+         SVar:M:DB$ AlterAttribute | Attributes$ Monstrous",
     ] {
         assert!(refused(bad), "must refuse:\n{bad}");
     }

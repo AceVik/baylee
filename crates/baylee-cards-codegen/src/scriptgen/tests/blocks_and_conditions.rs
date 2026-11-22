@@ -1668,3 +1668,59 @@ fn wave19d_raise_and_reduce_cost_zone_and_valid_spell_shapes() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn wave20d_reduce_cost_valid_spell_and_gift_svar() {
+    let spell_with_type = read(
+        "Name:SpellWithType\nTypes:Artifact\n\
+         S:Mode$ ReduceCost | ValidCard$ Artifact | Type$ Spell | ValidSpell$ Spell | Activator$ You | Amount$ 1",
+    );
+    assert_eq!(
+        spell_with_type.abilities,
+        ["static_ability!(Filter::YOUR_ARTIFACT, Modifier::SpellsCostLess(1))"]
+    );
+
+    let spell_no_type = read(
+        "Name:SpellNoType\nTypes:Artifact\n\
+         S:Mode$ ReduceCost | ValidSpell$ Spell | Activator$ You | Amount$ 1",
+    );
+    assert_eq!(
+        spell_no_type.abilities,
+        ["static_ability!(Filter::ControlledByYou, Modifier::SpellsCostLess(1))"]
+    );
+
+    let act_no_type = read(
+        "Name:ActDiscount\nTypes:Artifact\n\
+         S:Mode$ ReduceCost | ValidCard$ Artifact.YouCtrl | ValidSpell$ Activated | Amount$ 1",
+    );
+    assert_eq!(
+        act_no_type.abilities,
+        [
+            "static_ability!(Filter::YOUR_ARTIFACT, Modifier::AbilitiesCostLess { amount: 1, minimum: 0 })"
+        ]
+    );
+
+    let gift_discount = read(
+        "Name:GiftDiscount\nManaCost:3 U\nTypes:Instant\nK:Gift\n\
+         SVar:GiftAbility:DB$ Draw | Defined$ Promised | NumCards$ 1 | GiftDescription$ a card\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | EffectZone$ Stack | Type$ Spell | Amount$ 2 | \
+         CheckSVar$ GiftCheck | SVarCompare$ GE1\n\
+         SVar:GiftCheck:Count$PromisedGift.1.0\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert!(
+        gift_discount.abilities.iter().any(|a| {
+            a == "static_ability!(Filter::This, Modifier::SpellsCostLess(2), zone = ZoneRef::Stack, condition = Some(Condition::GiftWasPromised))"
+        }),
+        "{:?}",
+        gift_discount.abilities
+    );
+
+    for bad in [
+        "Name:BadActNonMana\nTypes:Artifact\nS:Mode$ ReduceCost | ValidCard$ Artifact.YouCtrl | ValidSpell$ Activated.!ManaAbility | Amount$ 1",
+        "Name:BadMixedTypeSa\nTypes:Artifact\nS:Mode$ ReduceCost | ValidCard$ Artifact | Type$ Spell | ValidSpell$ Activated | Amount$ 1",
+        "Name:BadUnscopedCardAct\nTypes:Artifact\nS:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated | Amount$ 1",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

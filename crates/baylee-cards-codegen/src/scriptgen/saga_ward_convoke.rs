@@ -25,6 +25,13 @@ enum EtbTap {
     Sub(String),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TokenReplaceAmt {
+    Omitted,
+    One,
+    MatchCount,
+}
+
 impl Tx<'_> {
     pub(super) fn is_permanent_card_pub(&self) -> bool {
         self.is_permanent_card()
@@ -849,7 +856,7 @@ impl Tx<'_> {
     fn cast_with_flash(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         if p.take("Caster").as_deref() != Some("You")
-            || p.take("ValidSA").as_deref() != Some("Spell")
+            || !matches!(p.take("ValidSA").as_deref(), None | Some("Spell"))
         {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         }
@@ -1420,6 +1427,18 @@ impl Tx<'_> {
             && matches!(p.peek("Affected"), Some("Card.YouOwn" | "Card.YouCtrl"))
         {
             return ZoneContinuousOutcome::Handled(self.continuous_reveal_your_hand(p));
+        }
+        if p.peek("AffectedZone") == Some("Exile")
+            && p.peek("MayPlay") == Some("True")
+            && matches!(
+                p.peek("Affected"),
+                Some(
+                    "Card.ExiledWithSource+ThisTurnEntered"
+                        | "Card.ThisTurnEntered+ExiledWithSource"
+                )
+            )
+        {
+            return ZoneContinuousOutcome::Handled(self.continuous_draw_exile_play(p));
         }
         ZoneContinuousOutcome::Pass(p)
     }
@@ -2251,7 +2270,27 @@ impl Tx<'_> {
                 _ => None,
             };
         }
+        if raw == "Count$ValidExile Card.ExiledWithSource" {
+            return Self::linked_exile_count_condition(cmp);
+        }
         None
+    }
+
+    fn linked_exile_count_condition(cmp: &str) -> Option<String> {
+        match super::count_bound(cmp)? {
+            super::Bound::AtLeast(n) if n >= 1 => Some(format!(
+                "Condition::AmountAtLeast(Amount::CountOf {{ \
+                 filter: &Filter::Any, zone: ZoneSel::LinkedExile }}, {n})"
+            )),
+            super::Bound::AtMost(n) => {
+                let threshold = u32::from(n).saturating_add(1);
+                Some(format!(
+                    "Condition::Not(&Condition::AmountAtLeast(Amount::CountOf {{ \
+                     filter: &Filter::Any, zone: ZoneSel::LinkedExile }}, {threshold}))"
+                ))
+            }
+            super::Bound::AtLeast(_) => None,
+        }
     }
 
     /// Additional `R:` replacement handlers (`BeginPhase`, `BeginTurn`, `Draw`,
@@ -2263,7 +2302,10 @@ impl Tx<'_> {
         match event.as_str() {
             "BeginPhase" => self.replace_begin_phase_draw(p),
             "BeginTurn" => ExtraOutcome::Handled(self.replace_begin_turn(p)),
-            "Draw" => ExtraOutcome::Handled(self.replace_draw_extra(p)),
+            "Draw" => match self.replace_draw_wave11a(p) {
+                ZoneContinuousOutcome::Handled(res) => ExtraOutcome::Handled(res),
+                ZoneContinuousOutcome::Pass(p) => ExtraOutcome::Handled(self.replace_draw_extra(p)),
+            },
             "CreateToken" => ExtraOutcome::Handled(self.replace_create_token(p)),
             "AddCounter" => ExtraOutcome::Handled(self.replace_add_counter(p)),
             "GainLife" => ExtraOutcome::Handled(self.replace_gain_life(p)),
@@ -2427,6 +2469,9 @@ impl Tx<'_> {
                 }
                 if api == "PutCounter" {
                     return self.moved_self_tapped_with_counters(p);
+                }
+                if api == "AlterAttribute" {
+                    return ExtraOutcome::Handled(self.moved_self_prepared(p));
                 }
             }
             return ExtraOutcome::Pass;
@@ -2988,31 +3033,410 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn replace_create_token(&mut self, mut p: Params) -> Option<()> {
+    fn moved_self_prepared(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ValidCard").as_deref() != Some("Card.Self")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || !matches!(p.take("Origin").as_deref(), None | Some("Any"))
+            || !matches!(p.take("ActiveZones").as_deref(), None | Some("All"))
+            || !matches!(
+                p.take("ReplacementResult").as_deref(),
+                None | Some("Updated")
+            )
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        let Some((api, mut body)) = self.svars.get(&with).and_then(|s| Params::parse(s)) else {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        };
+        body.drop_prose();
+        if api != "AlterAttribute"
+            || !matches!(body.take("Defined").as_deref(), None | Some("Self"))
+            || body.take("Attributes").as_deref() != Some("Prepared")
+            || !body.exhausted()
+        {
+            return self.deny("replacement `Moved` this rule cannot read".to_string());
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::Prepared".to_string());
+        self.body.notes.push("prepared".to_string());
+        Some(())
+    }
+
+    fn continuous_draw_exile_play(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        p.take("AffectedZone");
+        p.take("Affected");
+        p.take("MayPlay");
+        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield")) {
+            return self.deny("static ability `S: Mode$ Continuous`".to_string());
+        }
+        let may_play_player = p.take("MayPlayPlayer");
+        let allow_each = matches!(may_play_player.as_deref(), Some("CardOwner" | "Player"));
+        let allow_you = matches!(may_play_player.as_deref(), None | Some("You"));
+        if !(allow_each || allow_you) || !p.exhausted() {
+            return self.deny("static ability `S: Mode$ Continuous`".to_string());
+        }
+        let candidates: &[&str] = if allow_each {
+            &["PlayerRel::EachPlayer", "PlayerRel::EachOpponent"]
+        } else {
+            &["PlayerRel::You"]
+        };
+        for ability in &mut self.body.abilities {
+            for who in candidates {
+                let needle = format!(
+                    "AbilityDef::Replacement(ReplacementRule::ReplaceDrawExileTop {{ \
+                     who: {who}, face_down: false, may_play_this_turn: false }})"
+                );
+                if ability == &needle {
+                    *ability = format!(
+                        "AbilityDef::Replacement(ReplacementRule::ReplaceDrawExileTop {{ \
+                         who: {who}, face_down: false, may_play_this_turn: true }})"
+                    );
+                    return Some(());
+                }
+            }
+        }
+        self.deny("static ability `S: Mode$ Continuous`".to_string())
+    }
+
+    fn replace_draw_wave11a(&mut self, orig: Params) -> ZoneContinuousOutcome {
+        let mut p = orig.clone();
         p.drop_prose();
         if p.take("ActiveZones").as_deref() != Some("Battlefield") {
-            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+            return ZoneContinuousOutcome::Pass(orig);
         }
-        if let Some(effect_only) = p.take("EffectOnly")
-            && effect_only != "True"
+        let Some(with) = p.take("ReplaceWith") else {
+            if p.peek("Prevent") == Some("True") || p.peek("ReplacementResult") == Some("Prevent") {
+                return ZoneContinuousOutcome::Handled(self.replace_draw_skip(p));
+            }
+            return ZoneContinuousOutcome::Pass(orig);
+        };
+        let Some((api, body)) = self.svars.get(&with).and_then(|s| Params::parse(s)) else {
+            return ZoneContinuousOutcome::Pass(orig);
+        };
+        match api.as_str() {
+            "Draw" => ZoneContinuousOutcome::Handled(self.replace_draw_with_draws(p, body)),
+            "WinsGame" => ZoneContinuousOutcome::Handled(self.replace_draw_win(p, body)),
+            "Dig" => ZoneContinuousOutcome::Handled(self.replace_draw_dig(p, body)),
+            "ChangeZone" => ZoneContinuousOutcome::Handled(self.replace_draw_change_zone(p, body)),
+            _ => ZoneContinuousOutcome::Pass(orig),
+        }
+    }
+
+    fn take_optional_condition(&mut self, p: &mut Params) -> Option<String> {
+        let raw = self.condition_any(p)?;
+        if raw.is_empty() {
+            Some("None".to_string())
+        } else {
+            raw.strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+                .map(|cond| format!("Some({cond})"))
+        }
+    }
+
+    fn take_empty_library_flag(&self, p: &mut Params) -> bool {
+        if p.peek("Library") == Some("Empty") {
+            p.take("Library");
+            return true;
+        }
+        if p.peek("IsPresent") == Some("Card.YouOwn")
+            && p.peek("PresentZone") == Some("Library")
+            && p.peek("PresentCompare") == Some("EQ0")
+        {
+            p.take("IsPresent");
+            p.take("PresentZone");
+            p.take("PresentCompare");
+            return true;
+        }
+        if let Some(var) = p.peek("CheckSVar")
+            && p.peek("SVarCompare") == Some("EQ0")
+            && !p.has("CheckSecondSVar")
+            && let Some(def) = self.svars.get(var.trim()).map(|s| s.trim())
+            && matches!(
+                def,
+                "Count$CardsInYourLibrary" | "Count$ValidLibrary Card.YouOwn"
+            )
+        {
+            p.take("CheckSVar");
+            p.take("SVarCompare");
+            return true;
+        }
+        false
+    }
+
+    fn replace_draw_skip(&mut self, mut p: Params) -> Option<()> {
+        let Some(who) = p.take("ValidPlayer").as_deref().and_then(parse_player_rel) else {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        };
+        let optional = match p.take("Optional").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return self.deny("replacement `R: Event$ Draw`".to_string()),
+        };
+        let decider_ok = match p.take("OptionalDecider").as_deref() {
+            None => true,
+            Some("You") => optional && who == "PlayerRel::You",
+            Some("ReplacedPlayer") => optional,
+            Some(_) => false,
+        };
+        let prevent_ok = matches!(p.take("Prevent").as_deref(), None | Some("True"));
+        let result_ok = matches!(
+            p.take("ReplacementResult").as_deref(),
+            None | Some("Prevent")
+        );
+        let layer_ok = matches!(p.take("Layer").as_deref(), None | Some("CantHappen"));
+        let empty_library_only = who == "PlayerRel::You" && self.take_empty_library_flag(&mut p);
+        if !decider_ok || !prevent_ok || !result_ok || !layer_ok || !p.exhausted() {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::SkipDrawInstead {{ \
+             who: {who}, optional: {optional}, empty_library_only: {empty_library_only} }})"
+        ));
+        Some(())
+    }
+
+    fn replace_draw_with_draws(&mut self, mut p: Params, mut body: Params) -> Option<()> {
+        let Some(who) = p.take("ValidPlayer").as_deref().and_then(parse_player_rel) else {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        };
+        let skip_first = match p.take("NotFirstCardInDrawStep").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return self.deny("replacement `R: Event$ Draw`".to_string()),
+        };
+        body.drop_prose();
+        let defined = body.take("Defined");
+        if who == "PlayerRel::EachOpponent" && defined.as_deref() == Some("You") {
+            let count_ok = matches!(body.take("NumCards").as_deref(), None | Some("1"));
+            if !skip_first || !count_ok || !body.exhausted() || !p.exhausted() {
+                return self.deny("replacement `R: Event$ Draw`".to_string());
+            }
+            self.body.abilities.push(
+                "AbilityDef::Replacement(ReplacementRule::OpponentsExtraDrawsYouDraw)".to_string(),
+            );
+            return Some(());
+        }
+        let defined_ok = if who == "PlayerRel::You" {
+            matches!(defined.as_deref(), None | Some("You" | "ReplacedPlayer"))
+        } else {
+            defined.as_deref() == Some("ReplacedPlayer")
+        };
+        let Ok(count) = body
+            .take("NumCards")
+            .as_deref()
+            .unwrap_or("1")
+            .parse::<u8>()
+        else {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        };
+        let Some(cond) = self.take_optional_condition(&mut p) else {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        };
+        if !defined_ok || !body.exhausted() || !p.exhausted() {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawWithDraws {{ \
+             who: {who}, skip_first_in_draw_step: {skip_first}, condition: {cond}, count: {count} }})"
+        ));
+        Some(())
+    }
+
+    fn replace_draw_win(&mut self, mut p: Params, mut body: Params) -> Option<()> {
+        if p.take("ValidPlayer").as_deref() != Some("You") || !self.take_empty_library_flag(&mut p)
+        {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        body.drop_prose();
+        if !p.exhausted()
+            || !matches!(body.take("Defined").as_deref(), None | Some("You"))
+            || !body.exhausted()
+        {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        self.body
+            .abilities
+            .push("AbilityDef::Replacement(ReplacementRule::WinOnEmptyLibraryDraw)".to_string());
+        Some(())
+    }
+
+    fn replace_draw_dig(&mut self, mut p: Params, mut body: Params) -> Option<()> {
+        body.drop_prose();
+        if body.peek("DestinationZone") == Some("Exile") {
+            return self.replace_draw_exile_dig(p, body);
+        }
+        if p.take("ValidPlayer").as_deref() != Some("You") || !p.exhausted() {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        let Some(count) = body
+            .take("DigNum")
+            .and_then(|s| s.parse::<u8>().ok())
+            .filter(|&n| n >= 1)
+        else {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        };
+        if !matches!(body.take("Defined").as_deref(), None | Some("You"))
+            || !matches!(body.take("DestinationZone").as_deref(), None | Some("Hand"))
+            || !matches!(body.take("ChangeNum").as_deref(), None | Some("1"))
+            || !matches!(body.take("NoReveal").as_deref(), None | Some("True"))
+            || body.has("Reveal")
+        {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        let rest_to_graveyard = match (
+            body.take("DestinationZone2").as_deref(),
+            body.take("LibraryPosition2").as_deref(),
+        ) {
+            (Some("Graveyard"), None) => true,
+            (None | Some("Library"), None | Some("-1")) => {
+                if !matches!(body.take("LibraryPosition").as_deref(), None | Some("-1")) {
+                    return self.deny("replacement `R: Event$ Draw`".to_string());
+                }
+                false
+            }
+            _ => return self.deny("replacement `R: Event$ Draw`".to_string()),
+        };
+        if !body.exhausted() {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawLookTop {{ \
+             count: {count}, rest_to_graveyard: {rest_to_graveyard} }})"
+        ));
+        Some(())
+    }
+
+    fn replace_draw_exile_dig(&mut self, mut p: Params, mut body: Params) -> Option<()> {
+        let Some(who) = p.take("ValidPlayer").as_deref().and_then(parse_player_rel) else {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        let defined_ok = if who == "PlayerRel::You" {
+            matches!(
+                body.take("Defined").as_deref(),
+                None | Some("You" | "ReplacedPlayer")
+            )
+        } else {
+            body.take("Defined").as_deref() == Some("ReplacedPlayer")
+        };
+        let num_ok = body.take("DigNum").as_deref() == Some("1")
+            && matches!(body.take("ChangeNum").as_deref(), Some("1" | "All"))
+            && body.take("DestinationZone").as_deref() == Some("Exile")
+            && matches!(body.take("ExileWithSource").as_deref(), None | Some("True"));
+        let Some(face_down) = parse_face_down_flag(&mut body) else {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        };
+        if !defined_ok || !num_ok || !body.exhausted() {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawExileTop {{ \
+             who: {who}, face_down: {face_down}, may_play_this_turn: false }})"
+        ));
+        Some(())
+    }
+
+    fn replace_draw_change_zone(&mut self, mut p: Params, mut body: Params) -> Option<()> {
+        let Some(who) = p.take("ValidPlayer").as_deref().and_then(parse_player_rel) else {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        body.drop_prose();
+        let def = body.take("Defined").or_else(|| body.take("DefinedPlayer"));
+        let defined_ok = if who == "PlayerRel::You" {
+            matches!(def.as_deref(), None | Some("You" | "ReplacedPlayer"))
+        } else {
+            def.as_deref() == Some("ReplacedPlayer")
+        };
+        let zone_ok = body.take("Origin").as_deref() == Some("Library")
+            && body.take("Destination").as_deref() == Some("Exile")
+            && matches!(body.take("LibraryPosition").as_deref(), None | Some("0"))
+            && matches!(body.take("ChangeNum").as_deref(), None | Some("1"))
+            && matches!(body.take("ChangeType").as_deref(), None | Some("Card"))
+            && matches!(body.take("Mandatory").as_deref(), None | Some("True"));
+        let Some(face_down) = parse_face_down_flag(&mut body) else {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        };
+        if !defined_ok || !zone_ok || !body.exhausted() {
+            return self.deny("replacement `R: Event$ Draw`".to_string());
+        }
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawExileTop {{ \
+             who: {who}, face_down: {face_down}, may_play_this_turn: false }})"
+        ));
+        Some(())
+    }
+
+    fn replace_create_token(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ActiveZones").as_deref() != Some("Battlefield")
+            || !matches!(
+                p.take("ReplacementResult").as_deref(),
+                None | Some("Updated")
+            )
         {
             return self.deny("replacement `R: Event$ CreateToken`".to_string());
         }
+        let effect_only = p.take("EffectOnly");
+        if !matches!(effect_only.as_deref(), None | Some("True")) {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        }
         let valid_token = p.take("ValidToken");
+        let valid_player = p.take("ValidPlayer");
         let Some(replace_with) = p.take("ReplaceWith") else {
             return self.deny("replacement `R: Event$ CreateToken`".to_string());
         };
-        if !p.exhausted() {
-            return self.deny("replacement `R: Event$ CreateToken`".to_string());
-        }
         let Some((api, mut body)) = self.svars.get(&replace_with).and_then(|s| Params::parse(s))
         else {
             return self.deny("replacement `R: Event$ CreateToken`".to_string());
         };
         body.drop_prose();
-        if api != "ReplaceToken" || body.take("Type").as_deref() != Some("Amount") {
+        if api != "ReplaceToken" {
             return self.deny("replacement `R: Event$ CreateToken`".to_string());
         }
+        match body.take("Type").as_deref() {
+            Some("Amount") if valid_player.is_none() && p.exhausted() => {
+                self.replace_create_token_amount(valid_token.as_deref(), body)
+            }
+            Some("AddToken") if effect_only.is_none() => self.replace_create_token_add(
+                p,
+                valid_token.as_deref(),
+                valid_player.as_deref(),
+                body,
+            ),
+            Some(ty @ ("Token" | "ReplaceToken" | "Replace" | "Substitute" | "MultipleTokens"))
+                if effect_only.is_none() =>
+            {
+                self.replace_create_token_substitute(
+                    p,
+                    valid_token.as_deref(),
+                    valid_player.as_deref(),
+                    ty,
+                    body,
+                )
+            }
+            _ => self.deny("replacement `R: Event$ CreateToken`".to_string()),
+        }
+    }
+
+    fn replace_create_token_amount(
+        &mut self,
+        valid_token: Option<&str>,
+        mut body: Params,
+    ) -> Option<()> {
         let factor: u32 = match body.take("Amount").as_deref() {
             None | Some("Twice" | "2") => 2,
             Some("Thrice" | "3") => 3,
@@ -3024,7 +3448,7 @@ impl Tx<'_> {
         if !body.exhausted() {
             return self.deny("replacement `R: Event$ CreateToken`".to_string());
         }
-        let (base_token, controller_filter) = match valid_token.as_deref() {
+        let (base_token, controller_filter) = match valid_token {
             None | Some("Card") => ("Card", "&Filter::Any"),
             Some("Card.YouCtrl") => ("Card", "&Filter::ControlledByYou"),
             Some("Card.OppCtrl") => ("Card", "&Filter::ControlledByOpponent"),
@@ -3055,10 +3479,213 @@ impl Tx<'_> {
         self.deny("replacement `R: Event$ CreateToken`".to_string())
     }
 
+    fn resolve_token_body(&self, stem: &str) -> Option<crate::tokengen::TokenBody> {
+        let trimmed = stem.trim();
+        if trimmed.is_empty() || trimmed == "Chosen" {
+            return None;
+        }
+        self.tokens?.body(trimmed, self.cats)
+    }
+
+    fn take_token_replace_amount(&self, body: &mut Params) -> Option<TokenReplaceAmt> {
+        let a = body.take("Amount");
+        let t = body.take("TokenAmount");
+        let raw = match (a, t) {
+            (None, None) => return Some(TokenReplaceAmt::Omitted),
+            (Some(v), None) | (None, Some(v)) => v,
+            (Some(v1), Some(v2)) if v1 == v2 => v1,
+            (Some(_), Some(_)) => return None,
+        };
+        let def = self
+            .svars
+            .get(raw.trim())
+            .map_or(raw.trim(), String::as_str)
+            .trim();
+        match def {
+            "1" => Some(TokenReplaceAmt::One),
+            "ReplaceCount$TokenNum" => Some(TokenReplaceAmt::MatchCount),
+            _ => None,
+        }
+    }
+
+    fn token_owner_matches_scope(owner: Option<&str>, controller_filter: &str) -> bool {
+        match owner {
+            None | Some("ReplacedPlayer") => true,
+            Some("You") => controller_filter == "&Filter::ControlledByYou",
+            _ => false,
+        }
+    }
+
+    fn replace_create_token_add(
+        &mut self,
+        mut p: Params,
+        valid_token: Option<&str>,
+        valid_player: Option<&str>,
+        mut body: Params,
+    ) -> Option<()> {
+        let Some(cond) = self.take_optional_condition(&mut p) else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let Some((controller_filter, stripped)) = parse_token_rule_scope(valid_token, valid_player)
+        else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let Some(stem) = body.take("TokenScript") else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let Some(amt) = self.take_token_replace_amount(&mut body) else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let match_count = amt == TokenReplaceAmt::MatchCount;
+        let owner_ok =
+            Self::token_owner_matches_scope(body.take("TokenOwner").as_deref(), controller_filter);
+        if stem.contains(',') || !p.exhausted() || !owner_ok || !body.exhausted() {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        }
+        let Some(tok_body) = self.resolve_token_body(&stem) else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let tok_expr = if stripped == "Card" {
+            "Filter::Any".to_string()
+        } else {
+            self.filter_expr(&stripped)?
+        };
+        let token_filter = self.body.filter_static("TOKEN", &tok_expr);
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::AdditionalTokenCreation {{ \
+             controller_filter: {controller_filter}, token_filter: &{token_filter}, \
+             bonus_token: &generated_tokens::{}, match_count: {match_count}, condition: {cond} }})",
+            tok_body.constant
+        ));
+        Some(())
+    }
+
+    fn replace_create_token_substitute(
+        &mut self,
+        mut p: Params,
+        valid_token: Option<&str>,
+        valid_player: Option<&str>,
+        ty: &str,
+        mut body: Params,
+    ) -> Option<()> {
+        let Some(stem_raw) = body.take("TokenScript") else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        if stem_raw.contains(',') {
+            return self.replace_create_token_manufactor(
+                &p,
+                valid_token,
+                valid_player,
+                &stem_raw,
+                body,
+            );
+        }
+        if ty == "MultipleTokens" {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        }
+        let Some(cond) = self.take_optional_condition(&mut p) else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let Some((controller_filter, stripped)) = parse_token_rule_scope(valid_token, valid_player)
+        else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let Some(amt) = self.take_token_replace_amount(&mut body) else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let owner_ok =
+            Self::token_owner_matches_scope(body.take("TokenOwner").as_deref(), controller_filter);
+        if amt == TokenReplaceAmt::One || !p.exhausted() || !owner_ok || !body.exhausted() {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        }
+        let Some(tok_body) = self.resolve_token_body(&stem_raw) else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let tok_expr = if stripped == "Card" {
+            "Filter::Any".to_string()
+        } else {
+            self.filter_expr(&stripped)?
+        };
+        let token_filter = self.body.filter_static("TOKEN", &tok_expr);
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::SubstituteTokenCreation {{ \
+             controller_filter: {controller_filter}, token_filter: &{token_filter}, \
+             replacement: &generated_tokens::{}, condition: {cond} }})",
+            tok_body.constant
+        ));
+        Some(())
+    }
+
+    fn replace_create_token_manufactor(
+        &mut self,
+        p: &Params,
+        valid_token: Option<&str>,
+        valid_player: Option<&str>,
+        stem_raw: &str,
+        mut body: Params,
+    ) -> Option<()> {
+        let Some((controller_filter, stripped)) = parse_token_rule_scope(valid_token, valid_player)
+        else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let mut types: Vec<&str> = stripped.split(',').map(str::trim).collect();
+        types.sort_unstable();
+        if types != ["Clue", "Food", "Treasure"] {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        }
+        let Some(amt) = self.take_token_replace_amount(&mut body) else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        let owner_ok =
+            Self::token_owner_matches_scope(body.take("TokenOwner").as_deref(), controller_filter);
+        if amt == TokenReplaceAmt::MatchCount || !p.exhausted() || !owner_ok || !body.exhausted() {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        }
+        let mut clue = None;
+        let mut food = None;
+        let mut treasure = None;
+        for stem in stem_raw.split(',') {
+            let Some(tok) = self.resolve_token_body(stem) else {
+                return self.deny("replacement `R: Event$ CreateToken`".to_string());
+            };
+            match manufactor_slot(&tok) {
+                Some("Clue") if clue.is_none() => clue = Some(tok.constant),
+                Some("Food") if food.is_none() => food = Some(tok.constant),
+                Some("Treasure") if treasure.is_none() => treasure = Some(tok.constant),
+                _ => return self.deny("replacement `R: Event$ CreateToken`".to_string()),
+            }
+        }
+        let (Some(clue), Some(food), Some(treasure)) = (clue, food, treasure) else {
+            return self.deny("replacement `R: Event$ CreateToken`".to_string());
+        };
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::ManufactorTokenCreation {{ \
+             controller_filter: {controller_filter}, clue: &generated_tokens::{clue}, \
+             food: &generated_tokens::{food}, treasure: &generated_tokens::{treasure} }})"
+        ));
+        Some(())
+    }
+
+    fn resolve_counter_amt_def(&self, raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        if let Some(def) = self.svars.get(trimmed) {
+            return Some(def.trim().to_string());
+        }
+        trimmed
+            .starts_with("ReplaceCount$")
+            .then(|| trimmed.to_string())
+    }
+
     fn replace_add_counter(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if p.take("ActiveZones").as_deref() != Some("Battlefield") || p.has("ValidCounterType") {
+        if p.take("ActiveZones").as_deref() != Some("Battlefield") {
             return self.deny("replacement `R: Event$ AddCounter`".to_string());
+        }
+        if !p.has("ReplaceWith") && p.take("Prevent").as_deref() == Some("True") {
+            if !matches!(p.take("Layer").as_deref(), None | Some("CantHappen")) {
+                return self.deny("replacement `R: Event$ AddCounter`".to_string());
+            }
+            return self.emit_add_counter_wave11a(p, None, None, "CounterReplaceOp::Sub(u16::MAX)");
         }
         let Some(replace_with) = p.take("ReplaceWith") else {
             return self.deny("replacement `R: Event$ AddCounter`".to_string());
@@ -3068,75 +3695,176 @@ impl Tx<'_> {
             return self.deny("replacement `R: Event$ AddCounter`".to_string());
         };
         body.drop_prose();
-        if api != "ReplaceCounter" || body.has("ValidCounterType") {
+        if api != "ReplaceCounter" {
             return self.deny("replacement `R: Event$ AddCounter`".to_string());
         }
         let Some(amt_var) = body.take("Amount") else {
             return self.deny("replacement `R: Event$ AddCounter`".to_string());
         };
-        let Some(amt_def) = self.svars.get(&amt_var).map(|s| s.trim().to_string()) else {
+        let Some(amt_def) = self.resolve_counter_amt_def(&amt_var) else {
             return self.deny("replacement `R: Event$ AddCounter`".to_string());
         };
 
         // Case 1: "If you would put one or more counters on a permanent or
         // player, put twice that many ... instead." (Innkeeper's Talent).
-        if p.peek("ValidSource") == Some("You")
+        if !p.has("ValidCounterType")
+            && !body.has("ValidCounterType")
+            && p.peek("ValidSource") == Some("You")
             && p.peek("ValidObject") == Some("Permanent.inZoneBattlefield,Player")
         {
             return self.replace_add_counter_by_you(p, body, &amt_def);
         }
 
-        let Some(valid_card) = p.take("ValidCard") else {
-            return self.deny("replacement `R: Event$ AddCounter`".to_string());
-        };
-        let Some(stripped) = strip_battlefield_zone(&valid_card) else {
-            return self.deny("replacement `R: Event$ AddCounter`".to_string());
-        };
-        let effect_only = match p.take("EffectOnly").as_deref() {
-            None => false,
-            Some("True") => true,
-            Some(_) => return self.deny("replacement `R: Event$ AddCounter`".to_string()),
-        };
-        if !p.exhausted() {
+        if let ExtraOutcome::Handled(res) = self.try_legacy_add_counter(&mut p, &mut body, &amt_def)
+        {
+            return res;
+        }
+        let body_kind = body.take("ValidCounterType");
+        let body_src = body.take("ValidSource");
+        let choose_ok = matches!(body.take("ChooseCounter").as_deref(), None | Some("True"));
+        let res_ok = matches!(
+            body.take("ReplacementResult").as_deref(),
+            None | Some("Updated")
+        );
+        if !choose_ok || !res_ok || !body.exhausted() {
             return self.deny("replacement `R: Event$ AddCounter`".to_string());
         }
+        let Some(op) = parse_counter_replace_op(&amt_def) else {
+            return self.deny("replacement `R: Event$ AddCounter`".to_string());
+        };
+        self.emit_add_counter_wave11a(p, body_kind, body_src, &op)
+    }
 
-        // Case 2: effect-only counter doubler on matching battlefield permanents
-        // (Doubling Season).
+    fn try_legacy_add_counter(
+        &mut self,
+        p: &mut Params,
+        body: &mut Params,
+        amt_def: &str,
+    ) -> ExtraOutcome {
+        if p.has("ValidCounterType")
+            || body.has("ValidCounterType")
+            || p.has("ValidSource")
+            || body.has("ValidSource")
+            || p.has("ValidPlayer")
+            || p.has("ValidObject")
+            || p.has("ValidCause")
+        {
+            return ExtraOutcome::Pass;
+        }
+        let Some(valid_card) = p.peek("ValidCard") else {
+            return ExtraOutcome::Pass;
+        };
+        let Some(stripped) = strip_battlefield_zone(valid_card) else {
+            return ExtraOutcome::Pass;
+        };
+        let effect_only = match p.peek("EffectOnly") {
+            None => false,
+            Some("True") => true,
+            Some(_) => return ExtraOutcome::Pass,
+        };
         if effect_only
-            && body.exhausted()
             && matches!(
-                amt_def.as_str(),
+                amt_def,
                 "ReplaceCount$CounterNum/Twice" | "ReplaceCount$CounterNum/Times.2"
             )
+            && !p.has("Condition")
+            && body.exhausted()
         {
-            let expr = self.filter_expr(&stripped)?;
+            p.take("ValidCard");
+            p.take("EffectOnly");
+            if !p.exhausted() {
+                return ExtraOutcome::Handled(
+                    self.deny("replacement `R: Event$ AddCounter`".to_string()),
+                );
+            }
+            let Some(expr) = self.filter_expr(&stripped) else {
+                return ExtraOutcome::Handled(None);
+            };
             let filter = self.body.filter_static("COUNTERS", &expr);
             self.body.abilities.push(format!(
                 "AbilityDef::Replacement(ReplacementRule::DoubleCounterPlacement {{ \
                  object_filter: &{filter} }})"
             ));
-            return Some(());
+            return ExtraOutcome::Handled(Some(()));
         }
-
-        // Case 3: unconditional additive counter placement on matching
-        // battlefield permanents (`Modifier::AdditionalCounterPlacement`).
         if !effect_only
-            && matches!(body.take("ChooseCounter").as_deref(), None | Some("True"))
-            && body.exhausted()
+            && matches!(body.peek("ChooseCounter"), None | Some("True"))
             && let Some(n_str) = amt_def.strip_prefix("ReplaceCount$CounterNum/Plus.")
             && let Ok(n) = n_str.trim().parse::<u16>()
             && n > 0
         {
-            let expr = self.filter_expr(&stripped)?;
+            p.take("ValidCard");
+            body.take("ChooseCounter");
+            if !p.exhausted() || !body.exhausted() {
+                return ExtraOutcome::Handled(
+                    self.deny("replacement `R: Event$ AddCounter`".to_string()),
+                );
+            }
+            let Some(expr) = self.filter_expr(&stripped) else {
+                return ExtraOutcome::Handled(None);
+            };
             self.body.abilities.push(Self::static_expr(
                 &expr,
                 &format!("Modifier::AdditionalCounterPlacement {{ n: {n} }}"),
             ));
-            return Some(());
+            return ExtraOutcome::Handled(Some(()));
         }
+        ExtraOutcome::Pass
+    }
 
-        self.deny("replacement `R: Event$ AddCounter`".to_string())
+    fn emit_add_counter_wave11a(
+        &mut self,
+        mut p: Params,
+        body_kind: Option<String>,
+        body_src: Option<String>,
+        op: &str,
+    ) -> Option<()> {
+        let Some(kind_expr) = merge_counter_kind(p.take("ValidCounterType"), body_kind) else {
+            return self.deny("replacement `R: Event$ AddCounter`".to_string());
+        };
+        let Some(placer_expr) = merge_placer(p.take("ValidSource"), body_src) else {
+            return self.deny("replacement `R: Event$ AddCounter`".to_string());
+        };
+        let effect_only = match p.take("EffectOnly").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return self.deny("replacement `R: Event$ AddCounter`".to_string()),
+        };
+        if !matches!(
+            p.take("ReplacementResult").as_deref(),
+            None | Some("Updated")
+        ) {
+            return self.deny("replacement `R: Event$ AddCounter`".to_string());
+        }
+        let Some((perm_filter, player_rel)) = parse_counter_targets(
+            p.take("ValidCard"),
+            p.take("ValidObject"),
+            p.take("ValidPlayer"),
+        ) else {
+            return self.deny("replacement `R: Event$ AddCounter`".to_string());
+        };
+        if (perm_filter.is_none() && player_rel.is_none())
+            || (player_rel.is_some() && effect_only)
+            || !p.exhausted()
+        {
+            return self.deny("replacement `R: Event$ AddCounter`".to_string());
+        }
+        if let Some(raw_perm) = perm_filter {
+            let expr = self.filter_expr(&raw_perm)?;
+            let filter = self.body.filter_static("COUNTERS", &expr);
+            self.body.abilities.push(format!(
+                "AbilityDef::Replacement(ReplacementRule::ModifyCounterPlacement {{ \
+                 object_filter: &{filter}, kind: {kind_expr}, placer: {placer_expr}, \
+                 effect_only: {effect_only}, op: {op} }})"
+            ));
+        }
+        if let Some(recipient) = player_rel {
+            self.body.abilities.push(format!(
+                "AbilityDef::Replacement(ReplacementRule::ModifyPlayerCounterPlacement {{ \
+                 recipient: {recipient}, kind: {kind_expr}, placer: {placer_expr}, op: {op} }})"
+            ));
+        }
+        Some(())
     }
 
     fn replace_add_counter_by_you(
@@ -3170,6 +3898,217 @@ impl Tx<'_> {
         }
         self.deny("replacement `R: Event$ AddCounter`".to_string())
     }
+}
+
+fn parse_player_rel(raw: &str) -> Option<&'static str> {
+    match raw.trim() {
+        "You" => Some("PlayerRel::You"),
+        "Opponent" | "Player.Opponent" => Some("PlayerRel::EachOpponent"),
+        "Player" => Some("PlayerRel::EachPlayer"),
+        _ => None,
+    }
+}
+
+fn parse_face_down_flag(body: &mut Params) -> Option<bool> {
+    match (
+        body.take("ExileFaceDown").as_deref(),
+        body.take("FaceDown").as_deref(),
+    ) {
+        (Some("True"), None | Some("True")) | (None, Some("True")) => Some(true),
+        (None | Some("False"), None | Some("False")) => Some(false),
+        _ => None,
+    }
+}
+
+fn strip_token_ctrl_alt(alt: &str) -> Option<(Option<&'static str>, String)> {
+    match alt {
+        "YouCtrl" => return Some((Some("&Filter::ControlledByYou"), "Card".to_string())),
+        "OppCtrl" => return Some((Some("&Filter::ControlledByOpponent"), "Card".to_string())),
+        _ => {}
+    }
+    let Some((head, quals)) = alt.split_once('.') else {
+        return Some((None, alt.to_string()));
+    };
+    let mut ctrl = None;
+    let mut rest = Vec::new();
+    for q in quals.split('+') {
+        let q = q.trim();
+        let next = match q {
+            "YouCtrl" => Some("&Filter::ControlledByYou"),
+            "OppCtrl" => Some("&Filter::ControlledByOpponent"),
+            "" => continue,
+            _ => {
+                rest.push(q);
+                continue;
+            }
+        };
+        if let (Some(prev), Some(n)) = (ctrl, next)
+            && prev != n
+        {
+            return None;
+        }
+        ctrl = next;
+    }
+    let tok = if rest.is_empty() {
+        head.trim().to_string()
+    } else {
+        format!("{}.{}", head.trim(), rest.join("+"))
+    };
+    Some((ctrl, tok))
+}
+
+fn parse_token_rule_scope(
+    valid_token: Option<&str>,
+    valid_player: Option<&str>,
+) -> Option<(&'static str, String)> {
+    let mut ctrl: Option<&'static str> = None;
+    let mut out = Vec::new();
+    for (idx, alt) in valid_token.unwrap_or("Card").split(',').enumerate() {
+        let (alt_ctrl, tok) = strip_token_ctrl_alt(alt.trim())?;
+        if idx == 0 {
+            ctrl = alt_ctrl;
+        } else if alt_ctrl != ctrl {
+            return None;
+        }
+        out.push(tok);
+    }
+    let next_ctrl = match valid_player {
+        None => ctrl,
+        Some("You") => match ctrl {
+            None | Some("&Filter::ControlledByYou") => Some("&Filter::ControlledByYou"),
+            Some(_) => return None,
+        },
+        Some("Opponent" | "Player.Opponent") => match ctrl {
+            None | Some("&Filter::ControlledByOpponent") => Some("&Filter::ControlledByOpponent"),
+            Some(_) => return None,
+        },
+        Some("Player") if ctrl.is_none() => None,
+        _ => return None,
+    };
+    Some((next_ctrl.unwrap_or("&Filter::Any"), out.join(",")))
+}
+
+fn manufactor_slot(tok: &crate::tokengen::TokenBody) -> Option<&'static str> {
+    if tok.constant == "CLUE" || tok.literal.contains("artifact::CLUE") {
+        Some("Clue")
+    } else if tok.constant == "FOOD" || tok.literal.contains("artifact::FOOD") {
+        Some("Food")
+    } else if tok.constant == "TREASURE" || tok.literal.contains("artifact::TREASURE") {
+        Some("Treasure")
+    } else {
+        None
+    }
+}
+
+fn parse_counter_replace_op(amt_def: &str) -> Option<String> {
+    match amt_def.trim() {
+        "ReplaceCount$CounterNum/Twice" | "ReplaceCount$CounterNum/Times.2" => {
+            Some("CounterReplaceOp::Multiply(2)".to_string())
+        }
+        "ReplaceCount$CounterNum/Thrice" | "ReplaceCount$CounterNum/Times.3" => {
+            Some("CounterReplaceOp::Multiply(3)".to_string())
+        }
+        "ReplaceCount$CounterNum/HalfDown" => Some("CounterReplaceOp::HalveFloor".to_string()),
+        s => {
+            if let Some(n_str) = s.strip_prefix("ReplaceCount$CounterNum/Times.") {
+                let n = n_str.trim().parse::<u16>().ok().filter(|&n| n >= 2)?;
+                return Some(format!("CounterReplaceOp::Multiply({n})"));
+            }
+            if let Some(n_str) = s.strip_prefix("ReplaceCount$CounterNum/Plus.") {
+                let n = n_str.trim().parse::<u16>().ok().filter(|&n| n >= 1)?;
+                return Some(format!("CounterReplaceOp::Add({n})"));
+            }
+            if let Some(n_str) = s.strip_prefix("ReplaceCount$CounterNum/Minus.") {
+                let n = n_str.trim().parse::<u16>().ok().filter(|&n| n >= 1)?;
+                return Some(format!("CounterReplaceOp::Sub({n})"));
+            }
+            None
+        }
+    }
+}
+
+fn merge_counter_kind(p_kind: Option<String>, b_kind: Option<String>) -> Option<String> {
+    let raw = match (p_kind, b_kind) {
+        (None, None) => return Some("None".to_string()),
+        (Some(a), None) | (None, Some(a)) => a,
+        (Some(a), Some(b)) if a == b => a,
+        (Some(_), Some(_)) => return None,
+    };
+    Some(format!("Some({})", counter_kind(raw.trim())?))
+}
+
+fn merge_placer(p_src: Option<String>, b_src: Option<String>) -> Option<String> {
+    let raw = match (p_src, b_src) {
+        (None, None) => return Some("None".to_string()),
+        (Some(a), None) | (None, Some(a)) => a,
+        (Some(a), Some(b)) if a == b => a,
+        (Some(_), Some(_)) => return None,
+    };
+    Some(format!("Some({})", parse_player_rel(&raw)?))
+}
+
+fn strip_counter_perm_alt(alt: &str) -> Option<String> {
+    let alt = alt.trim();
+    if alt == "Card.Self" {
+        return Some("Card.Self".to_string());
+    }
+    let (head, quals) = alt.split_once('.')?;
+    let mut found = false;
+    let mut rest = Vec::new();
+    for q in quals.split('+') {
+        let q = q.trim();
+        if q == "inZoneBattlefield" {
+            found = true;
+        } else if !q.is_empty() {
+            rest.push(q);
+        }
+    }
+    if !found || head.trim().is_empty() {
+        return None;
+    }
+    Some(if rest.is_empty() {
+        head.trim().to_string()
+    } else {
+        format!("{}.{}", head.trim(), rest.join("+"))
+    })
+}
+
+fn parse_counter_targets(
+    valid_card: Option<String>,
+    valid_object: Option<String>,
+    valid_player: Option<String>,
+) -> Option<(Option<String>, Option<&'static str>)> {
+    let mut perm_alts = Vec::new();
+    let mut player_rel: Option<&'static str> = None;
+    let mut set_player = |rel: &'static str| -> Option<()> {
+        if let Some(prev) = player_rel
+            && prev != rel
+        {
+            return None;
+        }
+        player_rel = Some(rel);
+        Some(())
+    };
+    if let Some(vp) = valid_player {
+        set_player(parse_player_rel(&vp)?)?;
+    }
+    if let Some(vc) = valid_card {
+        for alt in vc.split(',') {
+            perm_alts.push(strip_counter_perm_alt(alt)?);
+        }
+    }
+    if let Some(vo) = valid_object {
+        for alt in vo.split(',') {
+            let t = alt.trim();
+            if let Some(rel) = parse_player_rel(t) {
+                set_player(rel)?;
+            } else {
+                perm_alts.push(strip_counter_perm_alt(t)?);
+            }
+        }
+    }
+    let perm = (!perm_alts.is_empty()).then(|| perm_alts.join(","));
+    Some((perm, player_rel))
 }
 
 /// Strips `+inZoneBattlefield` or `.inZoneBattlefield` from every comma-

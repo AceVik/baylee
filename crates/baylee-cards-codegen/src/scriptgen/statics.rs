@@ -2843,11 +2843,14 @@ impl Tx<'_> {
 
         let spell_type = p.take("Type");
         let valid_spell = p.take("ValidSpell");
-        if spell_type.as_deref() == Some("Ability") && valid_spell.is_none() {
+        if matches!(
+            (spell_type.as_deref(), valid_spell.as_deref()),
+            (Some("Ability"), None | Some("Activated")) | (None, Some("Activated"))
+        ) {
             return self.reduce_cost_ability(p);
         }
         let face_down = match (spell_type.as_deref(), valid_spell.as_deref()) {
-            (Some("Spell"), None) => false,
+            (Some("Spell"), None | Some("Spell")) | (None, Some("Spell")) => false,
             (Some("Spell") | None, Some("Spell.isCastFaceDown")) => true,
             _ => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
         };
@@ -2865,8 +2868,8 @@ impl Tx<'_> {
         };
         let mut valid_card = match p.take("ValidCard") {
             Some(vc) => vc,
-            None if spell_type.as_deref() == Some("Spell")
-                && valid_spell.is_none()
+            None if matches!(valid_spell.as_deref(), None | Some("Spell"))
+                && matches!(spell_type.as_deref(), None | Some("Spell"))
                 && !is_self_zone =>
             {
                 "Card".to_string()
@@ -3289,7 +3292,10 @@ impl Tx<'_> {
     }
 
     fn reduce_cost_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
-        if let Some(c) = self.svar_condition_clause(var, cmp) {
+        if let Some(c) = self
+            .svar_condition_clause(var, cmp)
+            .or_else(|| self.promised_gift_svar_condition(var, cmp))
+        {
             return Some(c);
         }
         let trimmed = var.trim();
