@@ -5034,13 +5034,13 @@ fn wave15c_phase_svars_change_zone_pump_hidden_sacrifice_n_and_coin_wins() {
         exile_self.abilities[0]
     );
 
-    // `Origin$ Library,Graveyard` -> `Effect::SearchLibraryOrGraveyard`.
+    // A joined origin must search both zones; an alternative may skip the library.
     let dual_search = read(
         "Name:DualTutor\nManaCost:2 G\nTypes:Sorcery\n\
          A:SP$ ChangeZone | Origin$ Library,Graveyard | Destination$ Hand | ChangeType$ Land.Basic | ChangeNum$ 1",
     );
     assert!(
-        dual_search.abilities[0].contains("Effect::SearchLibraryOrGraveyard")
+        dual_search.abilities[0].contains("Effect::SearchLibraryAndGraveyard")
             && dual_search.abilities[0].contains("find: &Find::HAND"),
         "{}",
         dual_search.abilities[0]

@@ -2933,6 +2933,7 @@ impl Tx<'_> {
                     "Scry",
                     "OptionalBasicLandSearchFor",
                     "SearchLibraryOrGraveyard",
+                    "SearchLibraryAndGraveyard",
                     "SearchLibraryBeforeShuffle",
                     "LookAtTop",
                     "RevealTopFind",

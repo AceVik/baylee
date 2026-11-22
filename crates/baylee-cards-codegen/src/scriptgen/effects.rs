@@ -5820,13 +5820,13 @@ impl Tx<'_> {
             || (origin == "Graveyard" && p.peek("OriginAlternative") == Some("Library"))
         {
             p.take("OriginAlternative");
-            return self.search_library_or_graveyard(p, &destination, targets_here);
+            return self.search_library_and_or_graveyard(p, &destination, targets_here, false);
         }
         if origin == "Library" {
             return self.search_library(p, &destination, target, targets_here);
         }
         if matches!(origin.as_str(), "Library,Graveyard" | "Graveyard,Library") {
-            return self.search_library_or_graveyard(p, &destination, targets_here);
+            return self.search_library_and_or_graveyard(p, &destination, targets_here, true);
         }
         let target = target.unwrap_or("TargetSpec::AnyPlayer");
         let itself = match p.take("Defined").as_deref() {
@@ -8641,13 +8641,14 @@ impl Tx<'_> {
         }
     }
 
-    /// `Origin$ Library,Graveyard` (or `Origin$ Library | OriginAlternative$ Graveyard`)
-    /// -> `Effect::SearchLibraryOrGraveyard`.
-    fn search_library_or_graveyard(
+    /// A combined origin searches both zones. An alternative origin gives the
+    /// player the choice to use the graveyard alone.
+    fn search_library_and_or_graveyard(
         &mut self,
         p: &mut Params,
         destination: &str,
         targets_here: bool,
+        both_zones: bool,
     ) -> Option<Vec<String>> {
         if targets_here
             || p.has("RememberChanged")
@@ -8695,8 +8696,12 @@ impl Tx<'_> {
         let cleaned = Self::strip_your_graveyard_owner(&valid).unwrap_or(valid);
         let filter = self.filter_expr_in_zone(&cleaned, true)?;
         let name = self.body.filter_static("SEARCH", &filter);
-        let effect =
-            format!("Effect::SearchLibraryOrGraveyard {{ filter: &{name}, find: &{find} }}");
+        let effect = if both_zones {
+            "SearchLibraryAndGraveyard"
+        } else {
+            "SearchLibraryOrGraveyard"
+        };
+        let effect = format!("Effect::{effect} {{ filter: &{name}, find: &{find} }}");
         Some(vec![if optional {
             format!("Effect::MayDo {{ effects: &[{effect}] }}")
         } else {
