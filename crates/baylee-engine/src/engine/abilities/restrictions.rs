@@ -31,26 +31,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// unlocking a door (special actions, CR 116.2b, 116.2m), and a
     /// prepared cast, which casts a spell.
     /// The intrinsic CR 305.6 mana of `legal.mana_abilities` is mana too.
-    pub(super) fn narrow_under_chosen_names(&self, legal: &mut LegalActions) {
+    pub(super) fn narrow_under_chosen_names(&self, player: PlayerId, legal: &mut LegalActions) {
         let locked = self.names_locked_from_activating();
+        let player_locked = self.player_non_mana_activations_locked(player);
         let has_non_mana_lock =
             self.state.effects.may_change_or_forbid_abilities()
                 && self.state.effects.iter().any(|fx| {
                     matches!(fx.modifier, baylee_cards_dsl::Modifier::CantActivateNonMana)
                 });
-        if locked.is_empty() && !has_non_mana_lock {
+        if locked.is_empty() && !has_non_mana_lock && !player_locked {
             return;
         }
         legal.abilities.retain(|&(source, index)| {
             crate::choice::is_special_action(index)
                 || index == crate::choice::PREPARED_CAST
                 || self.is_mana_offer(source, index)
-                || (!self
-                    .state
-                    .object(source)
-                    .is_some_and(|obj| locked.contains(&obj.characteristics().name))
+                || (!player_locked
+                    && !self
+                        .state
+                        .object(source)
+                        .is_some_and(|obj| locked.contains(&obj.characteristics().name))
                     && !self.non_mana_activations_are_locked(source))
         });
+    }
+
+    pub(crate) fn player_non_mana_activations_locked(&self, player: PlayerId) -> bool {
+        self.state.effects.may_change_or_forbid_abilities()
+            && self.state.effects.iter().any(|fx| {
+                let baylee_cards_dsl::Modifier::PlayerCantActivateNonMana { who } = fx.modifier
+                else {
+                    return false;
+                };
+                crate::casting::player_locks::affects_player(&self.state, fx, who, player)
+            })
     }
 
     pub(crate) fn non_mana_activations_are_locked(&self, id: ObjectId) -> bool {

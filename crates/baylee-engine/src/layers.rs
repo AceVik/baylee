@@ -1487,6 +1487,12 @@ fn apply(
         | Modifier::GrantFlash { .. }
         | Modifier::ReduceCostIfTargets { .. }
         | Modifier::AdjustSpellCostByAmount { .. }
+        | Modifier::PlayerCantCast { .. }
+        | Modifier::PlayerCantActivateNonMana { .. }
+        | Modifier::SpellsCantBeCountered { .. }
+        | Modifier::MustBlock
+        | Modifier::ReplaceDamage { .. }
+        | Modifier::ReplaceOrPreventDamageWithThen { .. }
         | Modifier::GrantStatic { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash

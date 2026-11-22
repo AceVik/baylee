@@ -5551,6 +5551,97 @@ pub enum Effect {
         /// attaching.
         optional: bool,
     },
+    /// Apply a temporary continuous modifier to `target` (targeted or named
+    /// permanent(s) or player(s), CR 611.2, `DB$ Effect` statics; *Abeyance*,
+    /// *Orim's Chant*, *Academic Dispute*, *Veil of Summer*-likes) for
+    /// `duration` (`UntilEndOfTurn`, `UntilYourNextTurn`,
+    /// `WhileSourceOnBattlefield`, `Indefinitely`, etc.). Appended to preserve
+    /// replay identities.
+    AddTempModifier {
+        /// Subject permanent(s) or player(s) affected by `modifier`.
+        target: TargetSpec,
+        /// Continuous modifier registered in its derived layer (`Modifier::layer`).
+        modifier: crate::Modifier,
+        /// How long the continuous effect lasts.
+        duration: super::Duration,
+    },
+    /// Apply a global/filtered temporary continuous modifier matching `filter`
+    /// (CR 611.2c, `DB$ Effect` global statics; *Silence*, *Determined*, *Veil
+    /// of Summer*, board-wide temporary rules) for `duration` (`UntilEndOfTurn`,
+    /// `UntilYourNextTurn`, `WhileSourceOnBattlefield`, `Indefinitely`, etc.).
+    /// Locks affected permanents at resolution iff `modifier` changes
+    /// characteristics or control; rules-modifying effects apply dynamically.
+    /// Appended to preserve replay identities.
+    AddGlobalTempModifier {
+        /// Filter matching affected permanents (or `&Filter::Any` for player-scoped rules).
+        filter: &'static Filter,
+        /// Continuous modifier registered in its derived layer (`Modifier::layer`).
+        modifier: crate::Modifier,
+        /// How long the continuous effect lasts.
+        duration: super::Duration,
+    },
+    /// Create a turn-long one-shot prevention shield preventing the next time
+    /// `sources` would deal [combat] damage to `recipients` this turn, then
+    /// immediately executing `then` with [`ThisWay::DamagePrevented`] bound to
+    /// the amount of damage prevented (CR 615.5, CR 615.8; *Awe Strike* and
+    /// prevention-with-rider spells). Does not trigger `then` when 0 damage is
+    /// prevented (e.g., if damage can't be prevented). Appended to preserve
+    /// replay identities.
+    PreventNextDamageWithThen {
+        /// Damage source(s) to prevent (`TargetSpec::Object`, `ThisObject`,
+        /// `EventObject`, or `AnyTarget` for any source).
+        sources: TargetSpec,
+        /// Protected recipient(s) (`TargetSpec::AnyTarget` for anything,
+        /// `Player(rel)`, `AnyPlayer`, `Object`, `ThisObject`, `EventObject`).
+        recipients: TargetSpec,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+        /// Rider effects executed after damage commits with
+        /// [`ThisWay::DamagePrevented`] bound to the prevented amount.
+        then: &'static [Effect],
+    },
+    /// Generalized multi-permanent control change (`CR 613.1b`, `CR 611.2b–c`;
+    /// *Broadcast Takeover*, *Ashiok, Sculptor of Fears*, *Call for Aid*).
+    /// Registers timestamped Layer-2 `Modifier::GainControl` effects with
+    /// `duration` for all matching battlefield permanents (supporting
+    /// resolution-scoped `Filter::ControlledBy`), optionally untapping them
+    /// (`untap`) and/or granting haste until end of turn (`haste_until_eot`).
+    /// Appended to preserve replay identities.
+    GainControlAllEx {
+        /// Battlefield permanents whose control changes.
+        filter: &'static Filter,
+        /// Player who gains control (prompts `ChoosePlayer` if multiple seats match).
+        to: PlayerRel,
+        /// How long the control change lasts (`WhileSourceOnBattlefield`,
+        /// `UntilEndOfTurn`, `Duration::Permanent` / `Indefinitely`, etc.).
+        duration: super::Duration,
+        /// Whether each affected permanent is untapped.
+        untap: bool,
+        /// Whether each affected permanent gains haste until end of turn.
+        haste_until_eot: bool,
+    },
+    /// Generalized single-/target-subject control change (`CR 613.1b`,
+    /// `CR 611.2b–c`; *Charisma*, *Contested War Zone*, *Fractured Loyalty*,
+    /// *Blim, Comedic Genius*, *Flayer of Loyalties*). Supports `TargetSpec::Object`,
+    /// `ThisObject`, `EventObject`, `Object(&Filter::AttachedToBySource)`,
+    /// relative `PlayerRel::EventSourceController` / `ControllerOfEvent` /
+    /// `EventPlayer` / `DamagedPlayer`, `WhileSourceOnBattlefield`,
+    /// `UntilEndOfTurn`, `Duration::Permanent` / `Indefinitely`, optional
+    /// untap, and optional haste until end of turn. Appended to preserve
+    /// replay identities.
+    GainControlEx {
+        /// Permanent(s) whose control changes.
+        target: TargetSpec,
+        /// Player who gains control (prompts `ChoosePlayer` if multiple seats match).
+        to: PlayerRel,
+        /// How long the control change lasts (`WhileSourceOnBattlefield`,
+        /// `UntilEndOfTurn`, `Duration::Permanent` / `Indefinitely`, etc.).
+        duration: super::Duration,
+        /// Whether each affected permanent is untapped.
+        untap: bool,
+        /// Whether each affected permanent gains haste until end of turn.
+        haste_until_eot: bool,
+    },
 }
 
 #[cfg(test)]

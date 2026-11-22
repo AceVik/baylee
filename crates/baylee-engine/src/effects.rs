@@ -388,7 +388,13 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::MayLookAtTopOfLibrary { .. }
         | Modifier::GrantFlash { .. }
         | Modifier::ReduceCostIfTargets { .. }
-        | Modifier::AdjustSpellCostByAmount { .. } => false,
+        | Modifier::AdjustSpellCostByAmount { .. }
+        | Modifier::PlayerCantCast { .. }
+        | Modifier::PlayerCantActivateNonMana { .. }
+        | Modifier::SpellsCantBeCountered { .. }
+        | Modifier::MustBlock
+        | Modifier::ReplaceDamage { .. }
+        | Modifier::ReplaceOrPreventDamageWithThen { .. } => false,
     }
 }
 
@@ -504,6 +510,7 @@ impl RuleHints {
     const GRANT_TRIGGERED: u32 = 1 << 20;
     const REGENERATION_PROHIBITION: u32 = 1 << 21;
     const DAMAGE_SOURCE_COLOR: u32 = 1 << 22;
+    const UNCOUNTERABLE_SPELLS: u32 = 1 << 23;
 
     const fn contains(&self, bit: u32) -> bool {
         self.0 & bit != 0
@@ -586,6 +593,12 @@ impl EffectTable {
     #[must_use]
     pub const fn may_change_cast_timing_or_lock(&self) -> bool {
         self.hints.contains(RuleHints::CAST_TIMING_OR_LOCK)
+    }
+
+    /// Whether any effect in this game has registered a spell-uncounterability modifier.
+    #[must_use]
+    pub const fn may_make_spells_uncounterable(&self) -> bool {
+        self.hints.contains(RuleHints::UNCOUNTERABLE_SPELLS)
     }
 
     /// Whether any effect in this game has registered a library/hand reveal or max-hand-size modifier.
@@ -765,6 +778,7 @@ impl EffectTable {
                     }
                     | Modifier::CantActivate
                     | Modifier::CantActivateNonMana
+                    | Modifier::PlayerCantActivateNonMana { .. }
                     | Modifier::CantActivateArtifacts
                     | Modifier::ChosenNameCantActivate
             ),
@@ -780,6 +794,7 @@ impl EffectTable {
                     | Modifier::MatchingSpellCastLimitPerTurn { .. }
                     | Modifier::OpponentsCantCast(_)
                     | Modifier::PlayersCantCast { .. }
+                    | Modifier::PlayerCantCast { .. }
                     | Modifier::PlayersCantPlay(_)
                     | Modifier::CantEnterBattlefield(_)
                     | Modifier::MayCastWithAltCost {
@@ -788,6 +803,10 @@ impl EffectTable {
                     }
                     | Modifier::GrantFlash { .. }
             ),
+        );
+        self.hints.insert_if(
+            RuleHints::UNCOUNTERABLE_SPELLS,
+            matches!(fx.modifier, Modifier::SpellsCantBeCountered { .. }),
         );
         self.hints.insert_if(
             RuleHints::REVEAL_OR_HAND_SIZE,
@@ -2171,6 +2190,31 @@ mod tests {
                 increase: false,
                 amount: &baylee_cards_dsl::Amount::Fixed(1),
             },
+            Modifier::PlayerCantCast {
+                who: baylee_cards_dsl::PlayerRel::EachOpponent,
+                filter: &Filter::Any,
+            },
+            Modifier::PlayerCantActivateNonMana {
+                who: baylee_cards_dsl::PlayerRel::EachOpponent,
+            },
+            Modifier::SpellsCantBeCountered {
+                who: baylee_cards_dsl::PlayerRel::You,
+                filter: &Filter::Any,
+            },
+            Modifier::MustBlock,
+            Modifier::ReplaceDamage {
+                sources: &Filter::Any,
+                recipients: baylee_cards_dsl::DamageRecipients::Any,
+                combat: None,
+                replacement: baylee_cards_dsl::DamageAmountReplacement::HalfDown,
+            },
+            Modifier::ReplaceOrPreventDamageWithThen {
+                sources: &Filter::Any,
+                recipients: baylee_cards_dsl::DamageRecipients::Any,
+                combat: None,
+                is_replacement: false,
+                then: &[],
+            },
         ]
     }
 
@@ -2209,7 +2253,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            234,
+            240,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2335,7 +2379,9 @@ mod tests {
         // AdjustSpellCostByCast modifies spell costs (+1 rules-only -> 167).
         // MayLookAtTopOfLibrary and GrantFlash modify visibility/timing rules (+2 rules-only -> 169).
         // ReduceCostIfTargets and AdjustSpellCostByAmount modify costs (+2 rules-only -> 171).
-        assert_eq!((locking, all.len() - locking), (63, 171));
+        // PlayerCantCast, PlayerCantActivateNonMana, SpellsCantBeCountered, MustBlock,
+        // ReplaceDamage, and ReplaceOrPreventDamageWithThen modify rules only (+6 -> 177).
+        assert_eq!((locking, all.len() - locking), (63, 177));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

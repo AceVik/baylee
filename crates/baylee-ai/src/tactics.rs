@@ -373,7 +373,11 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             | Effect::ReturnToHand { .. }
             | Effect::PutTargetOnBottomOfLibrary
             | Effect::PhaseOutUntilSourceLeaves { .. }
-            | Effect::ChangeController { .. } => {
+            | Effect::ChangeController { .. }
+            | Effect::GainControlEx {
+                to: baylee_cards_dsl::PlayerRel::You,
+                ..
+            } => {
                 m.removal = true;
             }
             Effect::CounterTargetSpell

@@ -168,6 +168,14 @@ pub enum PlayerRel {
     GiftRecipient,
 }
 
+impl PlayerRel {
+    /// Alias for [`Self::ControllerOfEvent`]: the controller of the object
+    /// that caused the triggering event, including last-known controller via
+    /// CR 603.10a (*Contested War Zone*, *Charisma*-likes).
+    #[allow(non_upper_case_globals)]
+    pub const EventSourceController: Self = Self::ControllerOfEvent;
+}
+
 /// Target specifications (chosen at cast/activation, CR 601.2c).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum TargetSpec {

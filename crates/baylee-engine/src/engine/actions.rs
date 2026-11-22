@@ -1003,6 +1003,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         Some(
                             resolve::AwaitingOp::ControlRotation { .. }
                                 | resolve::AwaitingOp::ControlRecipient { .. }
+                                | resolve::AwaitingOp::GainControlExRecipient { .. }
                         )
                     )
                 }) {

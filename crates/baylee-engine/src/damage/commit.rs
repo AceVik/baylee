@@ -219,7 +219,67 @@ impl DamageWork {
                 );
             }
         }
+        for rider in self.then_riders.drain(..) {
+            run_prevent_then(state, &rider);
+        }
     }
+}
+
+fn run_prevent_then(state: &mut GameState, rider: &super::PreventThenRider) {
+    if rider.prevented == 0 || rider.then.is_empty() {
+        return;
+    }
+    let mut subject =
+        crate::resolve::SubjectContext::default().with_source_version(rider.source_version);
+    subject.damage_prevented = rider.prevented;
+    if let Some(subtype) = rider.chosen_subtype {
+        subject.set_chosen_subtype(subtype);
+    }
+    if let Some(color) = rider.chosen_color {
+        subject.set_chosen_color(color);
+    }
+    let mut res = crate::resolve::Resolution {
+        source: rider.source,
+        on_stack: ObjectId::NO_SOURCE,
+        controller: rider.controller,
+        effects: rider.then.to_vec(),
+        pc: 0,
+        targets: smallvec::SmallVec::new(),
+        second_targets: smallvec::SmallVec::new(),
+        x: None,
+        chosen_player: None,
+        target_lki: None,
+        subject,
+        text: rider.text,
+        event_mana: None,
+        retarget_left: None,
+        loot: None,
+        draw_watch: None,
+        target_players: baylee_core::ids::SeatSet::new(),
+        event_object: rider.event_object,
+        awaiting: None,
+        targeted: false,
+        mana_ability: false,
+        countered_source: None,
+        this_way_from: None,
+        coin_stake: None,
+    };
+    let mut flow = crate::resolve::run(state, &mut res);
+    let mut steps = 0_u32;
+    while !matches!(flow, crate::resolve::Flow::Complete) && steps < 64 {
+        steps += 1;
+        match flow {
+            crate::resolve::Flow::Enter => {
+                let _ = crate::entry::advance(state);
+                flow = crate::resolve::resume_entries(state, &mut res);
+            }
+            crate::resolve::Flow::Wait(crate::choice::Pending::YesNo { .. }) => {
+                flow = crate::resolve::resume_yes_no(state, &mut res, false);
+            }
+            crate::resolve::Flow::Wait(_) | crate::resolve::Flow::Complete => break,
+        }
+    }
+    state.refresh_characteristics();
 }
 
 impl Part {

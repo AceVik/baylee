@@ -75,10 +75,20 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::Goad { target }
             | Effect::Suspect { target }
             | Effect::Unsuspect { target }
+            | Effect::AddTempModifier { target, .. }
+            | Effect::GainControlEx { target, .. }
             | Effect::Play {
                 source: baylee_cards_dsl::PlaySource::Subject(target),
                 ..
             } => matches!(target, TargetSpec::ThisObject),
+            Effect::PreventNextDamageWithThen {
+                sources,
+                recipients,
+                ..
+            } => {
+                matches!(sources, TargetSpec::ThisObject)
+                    || matches!(recipients, TargetSpec::ThisObject)
+            }
             Effect::MoveAndModify {
                 subject: baylee_cards_dsl::MoveSubject::Target(target),
                 attach_source,
@@ -100,6 +110,8 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                     || when_source_leaves.is_some()
             }
             Effect::CreateContinuousEffect { filter, .. }
+            | Effect::AddGlobalTempModifier { filter, .. }
+            | Effect::GainControlAllEx { filter, .. }
             | Effect::BecomeChosenCreatureType { filter, .. }
             | Effect::GrantProtectionFromChosenColorUntilEot { filter }
             | Effect::DetainFilter { filter }

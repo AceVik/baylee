@@ -2023,9 +2023,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::CounterTargetSpellOrAbility => {
             if let Some(&target_id) = res.targets.first()
-                && state
-                    .object(target_id)
-                    .is_none_or(crate::object::GameObject::can_be_countered)
+                && state.spell_can_be_countered(target_id)
             {
                 let kind = state.object(target_id).map(|o| o.kind);
                 if kind == Some(ObjectKind::AbilityOnStack) {
@@ -2056,9 +2054,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::CounterTargetSpellToExile => {
             if let Some(&target_id) = res.targets.first()
-                && state
-                    .object(target_id)
-                    .is_none_or(crate::object::GameObject::can_be_countered)
+                && state.spell_can_be_countered(target_id)
             {
                 state
                     .journal
@@ -2079,9 +2075,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::CounterTargetSpell => {
             if let Some(&target_id) = res.targets.first()
-                && state
-                    .object(target_id)
-                    .is_none_or(crate::object::GameObject::can_be_countered)
+                && state.spell_can_be_countered(target_id)
             {
                 state
                     .journal

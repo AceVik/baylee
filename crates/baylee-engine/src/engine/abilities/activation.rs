@@ -295,10 +295,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         };
         if !mana_ability
             && ability_index != crate::choice::TURN_FACE_UP
-            && self.non_mana_activations_are_locked(source)
+            && (self.non_mana_activations_are_locked(source)
+                || self.player_non_mana_activations_locked(player))
         {
             return Err(EngineError::IllegalAction(
-                "non-mana activated abilities of this permanent can't be activated",
+                "non-mana activated abilities can't be activated",
             ));
         }
         // The price, determined once and before anything is paid (CR 601.2f

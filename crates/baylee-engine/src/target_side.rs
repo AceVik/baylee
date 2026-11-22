@@ -143,10 +143,17 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
                 Some(sign)
             }
         }
-        Effect::CreateContinuousEffect { modifier, .. } => Some(match modifier {
+        Effect::CreateContinuousEffect { modifier, .. }
+        | Effect::AddTempModifier { modifier, .. }
+        | Effect::AddGlobalTempModifier { modifier, .. } => Some(match modifier {
             Modifier::ModifyPT(p, t) => (i32::from(*p) + i32::from(*t)).signum(),
-            Modifier::AddKeyword(_) => 1,
-            Modifier::Goaded => -2,
+            Modifier::AddKeyword(_) | Modifier::SpellsCantBeCountered { .. } => 1,
+            Modifier::PlayerCantCast { .. } | Modifier::PlayerCantActivateNonMana { .. } => -1,
+            Modifier::Goaded | Modifier::MustBlock => -2,
+            _ => 0,
+        }),
+        Effect::GainControlEx { to, .. } => Some(match to {
+            PlayerRel::You => -1,
             _ => 0,
         }),
         Effect::Destroy { .. }
@@ -210,6 +217,9 @@ fn hurts(effect: &Effect, x: u32) -> bool {
         | Effect::ReturnToHand { .. }
         | Effect::PutTargetOnBottomOfLibrary
         | Effect::ChangeController { .. }
+        | Effect::GainControlEx {
+            to: PlayerRel::You, ..
+        }
         | Effect::CounterTargetSpell
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetAbility

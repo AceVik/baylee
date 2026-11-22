@@ -44,6 +44,7 @@ enum EffectKey {
     Shield(u64),
     ShieldSource(u64, baylee_core::ids::DamageSourceRef),
     Continuous(EffectId),
+    ContinuousForSource(EffectId, baylee_core::ids::DamageSourceRef),
     SourcePrevention {
         effect: EffectId,
         source: baylee_core::ids::DamageSourceRef,
@@ -81,6 +82,20 @@ struct Candidate {
     recipient: DamageTarget,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct PreventThenRider {
+    key: EffectKey,
+    controller: PlayerId,
+    source: ObjectId,
+    source_version: Option<u32>,
+    event_object: Option<ObjectId>,
+    prevented: u32,
+    text: crate::text_changes::TextChangeMap,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    chosen_color: Option<baylee_core::mana::ManaColor>,
+    then: &'static [baylee_cards_dsl::Effect],
+}
+
 /// A damage event suspended only on its own replacement decisions.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[doc(hidden)]
@@ -93,6 +108,7 @@ pub struct DamageWork {
     paid: Option<(u32, ShieldOrigin, PlayerId)>,
     recipient_lock: Option<recipient_lock::RecipientLock>,
     life_gains: Vec<(PlayerId, u32)>,
+    then_riders: Vec<PreventThenRider>,
     consumed_shields: Vec<u64>,
     locked_matching_shields: Vec<(u64, baylee_core::ids::DamageSourceRef)>,
     source_prevention_used: Vec<(
@@ -182,6 +198,12 @@ fn order_matters(options: &[Candidate]) -> bool {
     options.iter().any(|option| match option.option.kind {
         DamageEffectKind::Redirect { .. } => false,
         kind if never_spent(kind) => false,
+        DamageEffectKind::ReplaceAmount { .. }
+            if matches!(option.key, EffectKey::ContinuousForSource(..))
+                && destination.is_none() =>
+        {
+            false
+        }
         kind => !only_prevents(kind) || Some(option.recipient) == destination,
     })
 }
@@ -298,6 +320,7 @@ impl DamageWork {
             paid: None,
             recipient_lock: None,
             life_gains: Vec::new(),
+            then_riders: Vec::new(),
             consumed_shields: Vec::new(),
             locked_matching_shields: Vec::new(),
             source_prevention_used: Vec::new(),
@@ -712,6 +735,7 @@ impl DamageWork {
                 scope,
             } => self.record_source_prevention(effect, source, scope, prevented),
             EffectKey::Continuous(_)
+            | EffectKey::ContinuousForSource(..)
             | EffectKey::ShieldSource(..)
             | EffectKey::MayRedirect(_)
             | EffectKey::FaceUp(_)
@@ -821,6 +845,40 @@ impl DamageWork {
             return;
         }
 
+        let next_with_then_shield = match candidate.key {
+            EffectKey::Shield(id) | EffectKey::ShieldSource(id, _) => state
+                .shields
+                .position(id)
+                .and_then(|i| match state.shields[i].kind {
+                    ShieldKind::NextWithThen {
+                        then,
+                        origin_source,
+                        origin_version,
+                        text,
+                        chosen_subtype,
+                        chosen_color,
+                        ..
+                    } => Some((
+                        id,
+                        state.shields[i].controller,
+                        origin_source,
+                        origin_version,
+                        text,
+                        chosen_subtype,
+                        chosen_color,
+                        then,
+                    )),
+                    _ => None,
+                }),
+            _ => None,
+        };
+        let first_event_source = candidate
+            .option
+            .parts
+            .first()
+            .and_then(|pid| self.parts.iter().find(|p| p.view.id == *pid))
+            .map(|p| p.view.source);
+
         let mut prevented = 0_u32;
         let mut used = false;
         for part in &mut self.parts {
@@ -867,6 +925,7 @@ impl DamageWork {
                 | DamageEffectKind::PreventAll
                 | DamageEffectKind::Protection => {
                     if preventable {
+                        prevented = prevented.saturating_add(part.view.amount);
                         part.view.amount = 0;
                     }
                     part.applied.push(candidate.key);
@@ -887,7 +946,10 @@ impl DamageWork {
                         )
                     {
                         if state.shields[i].protects == crate::prevention::Shielded::Everything
-                            && matches!(state.shields[i].kind, ShieldKind::NextFrom { .. })
+                            && matches!(
+                                state.shields[i].kind,
+                                ShieldKind::NextFrom { .. } | ShieldKind::NextWithThen { .. }
+                            )
                         {
                             if !self.consumed_shields.contains(&id) {
                                 self.consumed_shields.push(id);
@@ -908,6 +970,61 @@ impl DamageWork {
                 _ => {}
             }
         }
+        if prevented > 0
+            && let Some((
+                shield_id,
+                controller,
+                origin_source,
+                origin_version,
+                text,
+                chosen_subtype,
+                chosen_color,
+                then,
+            )) = next_with_then_shield
+        {
+            self.record_then_rider(PreventThenRider {
+                key: EffectKey::Shield(shield_id),
+                controller,
+                source: origin_source,
+                source_version: origin_version,
+                event_object: first_event_source,
+                prevented,
+                text,
+                chosen_subtype,
+                chosen_color,
+                then,
+            });
+        }
+        if prevented > 0
+            && matches!(candidate.option.kind, DamageEffectKind::PreventAll)
+            && let EffectKey::Continuous(fx_id) = candidate.key
+            && let Some(fx) = state.effects.iter().find(|fx| fx.id == fx_id)
+            && let baylee_cards_dsl::Modifier::ReplaceOrPreventDamageWithThen {
+                is_replacement: false,
+                then,
+                ..
+            } = fx.modifier
+        {
+            self.record_then_rider(PreventThenRider {
+                key: EffectKey::Continuous(fx_id),
+                controller: fx.controller,
+                source: fx.source.unwrap_or(ObjectId::NO_SOURCE),
+                source_version: fx.source.and_then(|id| state.object(id).map(|o| o.version)),
+                event_object: first_event_source,
+                prevented,
+                text: state.effect_text(fx),
+                chosen_subtype: fx.filter.chosen_subtype().or_else(|| {
+                    fx.source
+                        .and_then(|id| state.object(id))
+                        .and_then(|o| o.chosen_subtype)
+                }),
+                chosen_color: fx
+                    .source
+                    .and_then(|id| state.object(id))
+                    .and_then(|o| o.chosen_color),
+                then,
+            });
+        }
         if let DamageEffectKind::PreventFromSource {
             gain_life: true, ..
         } = candidate.option.kind
@@ -923,6 +1040,17 @@ impl DamageWork {
                 self.life_gains
                     .push((candidate.option.controller, prevented));
             }
+        }
+    }
+
+    fn record_then_rider(&mut self, rider: PreventThenRider) {
+        if rider.prevented == 0 || rider.then.is_empty() {
+            return;
+        }
+        if let Some(existing) = self.then_riders.iter_mut().find(|r| r.key == rider.key) {
+            existing.prevented = existing.prevented.saturating_add(rider.prevented);
+        } else {
+            self.then_riders.push(rider);
         }
     }
 

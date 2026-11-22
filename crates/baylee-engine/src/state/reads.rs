@@ -845,6 +845,14 @@ fn effects_have_spell_cast_metric(
             Effect::CreateContinuousEffect {
                 modifier: Modifier::AdjustSpellCostByCast { metric, .. },
                 ..
+            }
+            | Effect::AddTempModifier {
+                modifier: Modifier::AdjustSpellCostByCast { metric, .. },
+                ..
+            }
+            | Effect::AddGlobalTempModifier {
+                modifier: Modifier::AdjustSpellCostByCast { metric, .. },
+                ..
             } => predicate(*metric),
             Effect::MoveAndModify { modifiers, .. } => modifiers.iter().any(|m| {
                 matches!(

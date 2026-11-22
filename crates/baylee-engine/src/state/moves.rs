@@ -1227,8 +1227,7 @@ impl GameState {
                     baylee_cards_dsl::Duration::WhileYouControlSource
                         | baylee_cards_dsl::Duration::WhileSourceTapped { .. }
                 ) || (fx.duration == baylee_cards_dsl::Duration::WhileSourceOnBattlefield
-                    && fx.origin == crate::effects::EffectOrigin::Resolution
-                    && fx.modifier == baylee_cards_dsl::Modifier::GainControl))
+                    && fx.origin == crate::effects::EffectOrigin::Resolution))
                     && fx.source == Some(id)
             });
         }

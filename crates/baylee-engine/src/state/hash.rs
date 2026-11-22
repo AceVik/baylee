@@ -827,6 +827,7 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
     }
 }
 
+#[allow(clippy::too_many_lines)] // Flat variant-by-variant hash over ShieldKind.
 fn hash_shield_kind(
     h: &mut Hasher,
     state: &GameState,
@@ -924,6 +925,48 @@ fn hash_shield_kind(
             chosen_subtype.hash(h);
             text.hash(h);
             h.u32(position(this));
+        }
+        crate::prevention::ShieldKind::NextWithThen {
+            source,
+            combat_only,
+            then,
+            origin_source,
+            origin_version,
+            text,
+            chosen_subtype,
+            chosen_color,
+        } => {
+            h.u8(255);
+            h.u16(350);
+            match source {
+                crate::prevention::ShieldSourceFilter::Exact(chosen) => {
+                    h.u8(0);
+                    hash_chosen_source(h, state, &chosen, position);
+                }
+                crate::prevention::ShieldSourceFilter::Matching {
+                    sources,
+                    chosen_color: sc,
+                    chosen_subtype: ss,
+                    text: st,
+                    this,
+                } => {
+                    h.u8(1);
+                    filter_hash(h, sources);
+                    sc.hash(h);
+                    ss.hash(h);
+                    st.hash(h);
+                    h.u32(position(this));
+                }
+            }
+            h.boolean(combat_only);
+            then.hash(h);
+            h.u32(position(origin_source));
+            h.u8(origin_version.map_or(3, |ver| {
+                moves_since(state.object_or_departed(origin_source), ver)
+            }));
+            text.hash(h);
+            chosen_subtype.hash(h);
+            chosen_color.hash(h);
         }
     }
 }

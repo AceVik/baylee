@@ -501,6 +501,13 @@ pub enum ThisWay {
     /// excess-damage events caused by this resolution's source or instructed
     /// damage sources. Appended to preserve replay identities.
     ExcessDamage,
+    /// Total damage prevented or replaced by the enclosing damage prevention /
+    /// replacement-with-rider shield or static modifier (CR 615.5, CR 614.1a;
+    /// *Awe Strike*, *Gloom Surgeon*, *Force Bubble*). Bound inside the `then`
+    /// slice of [`crate::Effect::PreventNextDamageWithThen`] and
+    /// [`crate::Modifier::ReplaceOrPreventDamageWithThen`]. Appended to
+    /// preserve replay identities.
+    DamagePrevented,
 }
 
 impl Amount {

@@ -1683,6 +1683,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::TextReplacement { .. }
         | AwaitingOp::ControlRotation { .. }
         | AwaitingOp::ControlRecipient { .. }
+        | AwaitingOp::GainControlExRecipient { .. }
         | AwaitingOp::Damage(_)
         | AwaitingOp::ManaForDamage { .. }
         | AwaitingOp::DamagePayment { .. }

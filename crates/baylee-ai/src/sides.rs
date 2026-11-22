@@ -189,7 +189,9 @@ fn unread_benefit(effect: &Effect) -> i32 {
     }
     let own = match effect {
         Effect::Regenerate { .. } => 1,
-        Effect::CreateContinuousEffect { modifier, .. } => match modifier {
+        Effect::CreateContinuousEffect { modifier, .. }
+        | Effect::AddTempModifier { modifier, .. }
+        | Effect::AddGlobalTempModifier { modifier, .. } => match modifier {
             Modifier::SetPT(power, toughness) => {
                 if i32::from(*power) + i32::from(*toughness) >= 4 {
                     1

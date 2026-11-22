@@ -36,6 +36,27 @@ pub enum RedirectDestination {
     SourceController,
 }
 
+/// How a [`ShieldKind::NextWithThen`] shield identifies which damage source(s)
+/// it prevents (CR 609.7, CR 615.7–615.8).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ShieldSourceFilter {
+    /// One exact object incarnation (targeted creature, `ThisObject`, `EventObject`).
+    Exact(ChosenSource),
+    /// Any damage source matching `sources` at the moment damage would be dealt.
+    Matching {
+        /// Source criterion tested when damage would be dealt.
+        sources: &'static Filter,
+        /// Frozen chosen color of the resolving source or instruction.
+        chosen_color: Option<baylee_core::mana::ManaColor>,
+        /// Frozen chosen subtype of the resolving source or instruction.
+        chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+        /// Frozen text changes of the resolving instruction.
+        text: TextChangeMap,
+        /// Source object ID ("this" to `sources`).
+        this: ObjectId,
+    },
+}
+
 /// How a shield prevents, and how much of it is left.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ShieldKind {
@@ -142,6 +163,29 @@ pub enum ShieldKind {
         text: TextChangeMap,
         /// Source object ID ("this" to `sources`).
         this: ObjectId,
+    },
+    /// One-shot turn-long prevention shield that prevents the next matching
+    /// damage event and immediately executes `then` with
+    /// [`baylee_cards_dsl::ThisWay::DamagePrevented`] bound to the amount
+    /// prevented (CR 615.5, CR 615.8; *Awe Strike* and prevention-with-rider
+    /// spells). Appended to preserve replay discriminants.
+    NextWithThen {
+        /// Which damage source(s) trigger this shield.
+        source: ShieldSourceFilter,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+        /// Rider effects executed after damage commits when prevented > 0.
+        then: &'static [baylee_cards_dsl::Effect],
+        /// Creating spell/ability source object ID.
+        origin_source: ObjectId,
+        /// Creating spell/ability source version (for `AddCounterSource` etc.).
+        origin_version: Option<u32>,
+        /// Frozen text changes of the resolving instruction.
+        text: TextChangeMap,
+        /// Frozen chosen subtype of the resolving source or instruction.
+        chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+        /// Frozen chosen color of the resolving source or instruction.
+        chosen_color: Option<baylee_core::mana::ManaColor>,
     },
 }
 

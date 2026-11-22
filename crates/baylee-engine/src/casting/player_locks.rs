@@ -6,7 +6,7 @@ use crate::state::GameState;
 use baylee_cards_dsl::{Filter, PlayerRel};
 use baylee_core::ids::PlayerId;
 
-pub(super) fn affects_player(
+pub(crate) fn affects_player(
     state: &GameState,
     effect: &ContinuousEffect,
     who: PlayerRel,

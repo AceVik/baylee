@@ -60,6 +60,13 @@ pub(super) fn count(
     what: ThisWay,
     only: Option<PlayerId>,
 ) -> u32 {
+    if matches!(what, ThisWay::DamagePrevented) {
+        return if only.is_none_or(|p| p == res.controller) {
+            res.subject.damage_prevented
+        } else {
+            0
+        };
+    }
     let mine = |player: PlayerId| only.is_none_or(|p| p == player);
     let mut total: u32 = 0;
     for entry in entries(state, res) {

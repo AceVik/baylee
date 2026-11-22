@@ -1017,7 +1017,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             legal.unpaid_suspend.clear();
         }
         self.settle_payable(player, &mut legal);
-        self.narrow_under_chosen_names(&mut legal);
+        self.narrow_under_chosen_names(player, &mut legal);
         self.narrow_under_split_second(&mut legal);
         self.narrow_to_mana_window(player, &mut legal);
         if self.commanded_player() == Some(player) {

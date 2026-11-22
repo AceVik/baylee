@@ -65,6 +65,12 @@ pub enum DamageAmountReplacement {
     Cap(u32),
     /// Raise damage to at least the effect source's current power.
     FloorAtEffectSourcePower,
+    /// Halve the damage, rounded down (`amount / 2`, *Ghosts of the Innocent*,
+    /// CR 614.1a). Appended to preserve replay identities.
+    HalfDown,
+    /// Halve the damage, rounded up (`amount.div_ceil(2)`, CR 614.1a).
+    /// Appended to preserve replay identities.
+    HalfUp,
 }
 
 /// Which damage recipients a [`Modifier::MultiplyDamageFrom`] or
@@ -1482,6 +1488,77 @@ pub enum Modifier {
         /// controller and source.
         amount: &'static crate::Amount,
     },
+    /// Player-scoped casting prohibition (*Abeyance*, *Silence*, *Orim's Chant*,
+    /// CR 601.3a). Appended to preserve replay identities.
+    PlayerCantCast {
+        /// Affected player(s), relative to the effect's controller (or bound at
+        /// resolution when created by a targeted spell/ability).
+        who: crate::effect::PlayerRel,
+        /// Spell filter prohibited for those players.
+        filter: &'static crate::Filter,
+    },
+    /// Affected player(s) cannot activate activated abilities unless they are
+    /// mana abilities (CR 602.5, CR 605.1a; *Abeyance*, *Silence*-likes).
+    /// Applies across all zones (battlefield, hand cycling/channel, graveyard,
+    /// loyalty abilities) while sparing mana abilities and special actions.
+    /// Appended to preserve replay identities.
+    PlayerCantActivateNonMana {
+        /// Affected player(s), relative to the effect's controller (or bound at
+        /// resolution when created by a targeted spell/ability).
+        who: crate::effect::PlayerRel,
+    },
+    /// Spells controlled by `who` matching `filter` cannot be countered while
+    /// on the stack (CR 701.6a; *Veil of Summer*, *Determined*, *Prowling
+    /// Serpopard*, *Destiny Spinner*). Does not protect activated or triggered
+    /// abilities (`ObjectKind::AbilityOnStack`). Appended to preserve replay
+    /// identities.
+    SpellsCantBeCountered {
+        /// Affected spell controller(s), relative to the effect's controller
+        /// (or bound at resolution when created by a targeted spell/ability).
+        who: crate::effect::PlayerRel,
+        /// Filter each stack spell must match.
+        filter: &'static crate::Filter,
+    },
+    /// Affected creature blocks this combat/turn if able (CR 509.1c;
+    /// *Academic Dispute*, `Mode$ MustBlock`). Satisfied once the creature
+    /// blocks at least one attacking creature it can legally block without
+    /// paying a cost. Appended to preserve replay identities.
+    MustBlock,
+    /// Generalized damage amount replacement across players and/or permanents
+    /// (`CR 614.1a`; *Ghosts of the Innocent* with `DamageAmountReplacement::HalfDown`).
+    /// Not a prevention effect, so it still applies when damage can't be prevented.
+    /// Appended to preserve replay identities.
+    ReplaceDamage {
+        /// Sources whose damage is replaced.
+        sources: &'static crate::Filter,
+        /// Players and/or permanents receiving that damage.
+        recipients: DamageRecipients,
+        /// Restrict to combat (`Some(true)`), noncombat (`Some(false)`), or any (`None`).
+        combat: Option<bool>,
+        /// How the damage amount is transformed.
+        replacement: DamageAmountReplacement,
+    },
+    /// Standing damage prevention (`is_replacement: false`, *Gloom Surgeon*) or
+    /// non-prevention damage replacement (`is_replacement: true`, *Force Bubble*)
+    /// that prevents/replaces matching damage and executes `then` with
+    /// [`crate::ThisWay::DamagePrevented`] bound to the prevented/replaced
+    /// amount (CR 614.1a, CR 615.1, CR 615.5). Appended to preserve replay
+    /// identities.
+    ReplaceOrPreventDamageWithThen {
+        /// Sources whose damage is prevented or replaced.
+        sources: &'static crate::Filter,
+        /// Players and/or permanents receiving that damage.
+        recipients: DamageRecipients,
+        /// Restrict to combat (`Some(true)`), noncombat (`Some(false)`), or any (`None`).
+        combat: Option<bool>,
+        /// `false` for prevention (does nothing if damage can't be prevented);
+        /// `true` for non-prevention replacement (still applies if damage can't
+        /// be prevented).
+        is_replacement: bool,
+        /// Rider effects executed immediately after damage commits, with
+        /// [`crate::ThisWay::DamagePrevented`] bound to the amount prevented/replaced.
+        then: &'static [crate::Effect],
+    },
 }
 
 /// Quantity evaluated during CR 601.2f spell cost determination by
@@ -1972,7 +2049,13 @@ impl Modifier {
             | Self::MayLookAtTopOfLibrary { .. }
             | Self::GrantFlash { .. }
             | Self::ReduceCostIfTargets { .. }
-            | Self::AdjustSpellCostByAmount { .. } => Layer::Text,
+            | Self::AdjustSpellCostByAmount { .. }
+            | Self::PlayerCantCast { .. }
+            | Self::PlayerCantActivateNonMana { .. }
+            | Self::SpellsCantBeCountered { .. }
+            | Self::MustBlock
+            | Self::ReplaceDamage { .. }
+            | Self::ReplaceOrPreventDamageWithThen { .. } => Layer::Text,
         }
     }
 }
@@ -2104,6 +2187,13 @@ pub enum Duration {
         /// The affected object's power must not exceed the source's power.
         power_limited: bool,
     },
+}
+
+impl Duration {
+    /// Permanent / indefinite duration — alias for [`Self::Indefinitely`]
+    /// (`CR 611.2a`).
+    #[allow(non_upper_case_globals)]
+    pub const Permanent: Self = Self::Indefinitely;
 }
 
 /// Arithmetic modification applied by a counter-placement replacement effect
@@ -2920,6 +3010,31 @@ mod tests {
                 filter: &Filter::This,
                 increase: false,
                 amount: &crate::Amount::Fixed(1),
+            },
+            Modifier::PlayerCantCast {
+                who: crate::PlayerRel::EachOpponent,
+                filter: &Filter::Any,
+            },
+            Modifier::PlayerCantActivateNonMana {
+                who: crate::PlayerRel::EachOpponent,
+            },
+            Modifier::SpellsCantBeCountered {
+                who: crate::PlayerRel::You,
+                filter: &Filter::Any,
+            },
+            Modifier::MustBlock,
+            Modifier::ReplaceDamage {
+                sources: &Filter::Any,
+                recipients: DamageRecipients::Any,
+                combat: None,
+                replacement: DamageAmountReplacement::HalfDown,
+            },
+            Modifier::ReplaceOrPreventDamageWithThen {
+                sources: &Filter::Any,
+                recipients: DamageRecipients::Any,
+                combat: None,
+                is_replacement: false,
+                then: &[],
             },
         ] {
             assert_eq!(

@@ -827,6 +827,12 @@ impl Effect {
                 max: _,
                 if_revealed: then,
             }
+            | Effect::PreventNextDamageWithThen {
+                sources: _,
+                recipients: _,
+                combat_only: _,
+                then,
+            }
             | Effect::RevealUntilThen {
                 library: _,
                 filter: _,
@@ -1310,6 +1316,10 @@ impl Effect {
             | Effect::ReorderTopLibraryOf { .. }
             | Effect::PayLifeOrEnterTapped { .. }
             | Effect::CreateContinuousEffect { .. }
+            | Effect::AddTempModifier { .. }
+            | Effect::AddGlobalTempModifier { .. }
+            | Effect::GainControlAllEx { .. }
+            | Effect::GainControlEx { .. }
             | Effect::ChangeController { .. }
             | Effect::AllCreaturesToOwner
             | Effect::ControlRotation

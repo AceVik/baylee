@@ -111,6 +111,9 @@ pub struct SubjectContext {
     pub(super) vote_queue: Option<Box<super::vote::VoteQueue>>,
     pub(super) branch_frames: Vec<super::wave13a::BranchFrame>,
     pub(super) target_restore_frames: Vec<TargetRestoreFrame>,
+    /// Damage prevented or replaced by an enclosing prevention/replacement-with-rider
+    /// shield or static modifier (`ThisWay::DamagePrevented`, CR 615.5).
+    pub(crate) damage_prevented: u32,
 }
 impl SubjectContext {
     /// Preserve the independent player targets of the second target instance.
@@ -175,6 +178,14 @@ impl SubjectContext {
             .map_or(current_targets, |frame| frame.saved_targets.as_slice())
     }
 
+    pub(crate) const fn set_chosen_subtype(&mut self, subtype: baylee_core::ids::SubtypeId) {
+        self.chosen_subtype = Some(subtype);
+    }
+
+    pub(crate) const fn set_chosen_color(&mut self, color: baylee_core::mana::ManaColor) {
+        self.chosen_color = Some(color);
+    }
+
     pub(crate) fn with_modal_steps(mut self, steps: Vec<ModalTargetStep>) -> Self {
         self.modal_steps = steps;
         self
@@ -229,6 +240,7 @@ impl SubjectContext {
             vote_queue: None,
             branch_frames: Vec::new(),
             target_restore_frames: Vec::new(),
+            damage_prevented: 0,
         }
     }
 
@@ -414,6 +426,15 @@ impl SubjectContext {
                 .wrapping_add(crate::state::structural_fingerprint(&(
                     98_u8,
                     &self.repeat_processes,
+                )));
+        }
+        if self.damage_prevented > 0 {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8,
+                    351_u16,
+                    self.damage_prevented,
                 )));
         }
         if let Some(vq) = &self.vote_queue {

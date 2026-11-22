@@ -135,6 +135,69 @@ impl DamageWork {
                             gain_life: false,
                         }
                     }
+                    ShieldKind::NextWithThen {
+                        source,
+                        combat_only,
+                        ..
+                    } if !combat_only || part.view.is_combat => match source {
+                        crate::prevention::ShieldSourceFilter::Exact(chosen) => {
+                            if !state
+                                .damage_source(part.view.source, part.source_version)
+                                .is_some_and(|actual| chosen.deals_as(state, actual))
+                            {
+                                continue;
+                            }
+                            Kind::PreventFromSource {
+                                source: chosen.id,
+                                all_but: 0,
+                                gain_life: false,
+                            }
+                        }
+                        crate::prevention::ShieldSourceFilter::Matching {
+                            sources,
+                            chosen_color,
+                            chosen_subtype,
+                            text,
+                            this,
+                        } => {
+                            let source_ref = baylee_core::ids::DamageSourceRef {
+                                object: part.view.source,
+                                version: part.source_version.unwrap_or(0),
+                            };
+                            if !self
+                                .locked_matching_shields
+                                .iter()
+                                .all(|(sid, sref)| *sid != id || *sref == source_ref)
+                                || !state
+                                    .damage_source(part.view.source, part.source_version)
+                                    .is_some_and(|actual| {
+                                        crate::eval::matches_damage_source_with_choices(
+                                            sources,
+                                            state,
+                                            actual,
+                                            shield.controller,
+                                            crate::text_changes::RuleContext {
+                                                source: this,
+                                                text,
+                                                resolved_name: None,
+                                                resolved_subtype: chosen_subtype,
+                                                reference: None,
+                                            },
+                                            chosen_color,
+                                            chosen_subtype,
+                                        )
+                                    })
+                            {
+                                continue;
+                            }
+                            shield_key = EffectKey::ShieldSource(id, source_ref);
+                            Kind::PreventFromSource {
+                                source: part.view.source,
+                                all_but: 0,
+                                gain_life: false,
+                            }
+                        }
+                    },
                     ShieldKind::RedirectNextFrom { source, to }
                         if damageable_recipient(state, part.view.recipient)
                             && !state.has_left(to)
@@ -628,6 +691,36 @@ impl DamageWork {
                     };
                     Kind::Redirect {
                         to: DamageTarget::Object(to),
+                    }
+                }
+                Modifier::ReplaceOrPreventDamageWithThen {
+                    sources,
+                    recipients,
+                    combat,
+                    is_replacement,
+                    ..
+                } => {
+                    if combat.is_some_and(|c| c != part.view.is_combat)
+                        || !super::batch57::damage_recipients_match(
+                            fx,
+                            recipients,
+                            state,
+                            part.view.recipient,
+                        )
+                    {
+                        continue;
+                    }
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    if !super::batch57::damage_source_matches_effect(fx, sources, state, source) {
+                        continue;
+                    }
+                    if is_replacement {
+                        Kind::ReplaceAmount { amount: 0 }
+                    } else {
+                        Kind::PreventAll
                     }
                 }
                 _ => continue,

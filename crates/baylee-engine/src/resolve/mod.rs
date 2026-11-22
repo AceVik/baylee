@@ -44,6 +44,7 @@ pub(crate) mod for_each;
 mod wave10b;
 mod wave12a;
 mod wave13a;
+mod wave14d;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
 mod coin;
@@ -617,7 +618,7 @@ pub(crate) fn this_to_affect(state: &GameState, res: &Resolution) -> Option<Obje
 /// Whether the source is the tapped permanent it was when the ability was
 /// put on the stack, for a "for as long as this remains tapped" about to
 /// begin (CR 611.2b).
-fn source_still_tapped(state: &GameState, res: &Resolution) -> bool {
+pub(super) fn source_still_tapped(state: &GameState, res: &Resolution) -> bool {
     let never_left = state
         .object(res.on_stack)
         .is_none_or(|o| o.source_power_lki.is_none());
@@ -629,7 +630,7 @@ fn source_still_tapped(state: &GameState, res: &Resolution) -> bool {
         })
 }
 
-fn source_still_yours(state: &GameState, res: &Resolution, you: PlayerId) -> bool {
+pub(super) fn source_still_yours(state: &GameState, res: &Resolution, you: PlayerId) -> bool {
     let never_left = state
         .object(res.on_stack)
         .is_none_or(|o| o.source_power_lki.is_none());

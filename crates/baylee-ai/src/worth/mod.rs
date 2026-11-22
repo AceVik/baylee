@@ -368,9 +368,11 @@ impl HeuristicAgent {
                 // they enable. Their printed costs are otherwise priced below,
                 // after the effects have been evaluated in isolation.
                 let gain = match *effects {
-                    [Effect::CreateContinuousEffect { modifier, .. }] => {
-                        permissions::worth(self, view, origin, modifier, cost)
-                    }
+                    [
+                        Effect::CreateContinuousEffect { modifier, .. }
+                        | Effect::AddTempModifier { modifier, .. }
+                        | Effect::AddGlobalTempModifier { modifier, .. },
+                    ] => permissions::worth(self, view, origin, modifier, cost),
                     _ => None,
                 }
                 .or_else(|| {
@@ -2665,6 +2667,11 @@ impl HeuristicAgent {
                 modifier,
                 duration,
                 ..
+            }
+            | Effect::AddGlobalTempModifier {
+                filter,
+                modifier,
+                duration,
             } => {
                 let objects: Vec<&PublicObject> = if matches!(filter, Filter::This) {
                     subject.into_iter().collect()
@@ -2672,6 +2679,87 @@ impl HeuristicAgent {
                     on_board(filter)?
                 };
                 self.modifier_worth(view, origin, &objects, modifier, *duration)?
+            }
+            Effect::AddTempModifier {
+                target,
+                modifier,
+                duration,
+            } => {
+                let targeted_player = match target {
+                    TargetSpec::Player(rel) => self.players(view, *rel, aim),
+                    TargetSpec::AnyPlayer
+                    | TargetSpec::AnyOpponent
+                    | TargetSpec::PlayerWhoAttackedThisTurn
+                    | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+                    | TargetSpec::OpponentWithMoreThanPlayer(..) => match aim {
+                        Aim::Player(p) => Some(vec![p]),
+                        _ => Some(Vec::new()),
+                    },
+                    _ => None,
+                };
+                if let Some(players) = targeted_player {
+                    self.player_modifier_worth(view, &players, modifier)?
+                } else {
+                    let object = if matches!(target, TargetSpec::ThisObject) {
+                        origin.object
+                    } else {
+                        subject
+                    };
+                    let objects: Vec<&PublicObject> = object.into_iter().collect();
+                    self.modifier_worth(view, origin, &objects, modifier, *duration)?
+                }
+            }
+            Effect::PreventNextDamageWithThen { recipients, .. } => match recipients {
+                TargetSpec::ThisObject => origin.object.map_or(0, |o| self.prevent(view, o, false)),
+                TargetSpec::Object(_) | TargetSpec::AnyTarget => {
+                    subject.map_or(0, |o| self.prevent(view, o, false))
+                }
+                _ => 0,
+            },
+            Effect::GainControlEx {
+                target,
+                to,
+                duration,
+                untap,
+                haste_until_eot,
+            } => {
+                let object = if matches!(target, TargetSpec::ThisObject) {
+                    origin.object
+                } else {
+                    subject
+                };
+                let objects: Vec<&PublicObject> = object.into_iter().collect();
+                self.gain_control_worth(
+                    view,
+                    &objects,
+                    *to,
+                    aim,
+                    *duration,
+                    *untap,
+                    *haste_until_eot,
+                )?
+            }
+            Effect::GainControlAllEx {
+                filter,
+                to,
+                duration,
+                untap,
+                haste_until_eot,
+            } => {
+                let objects: Vec<&PublicObject> = if matches!(filter, Filter::This) {
+                    origin.object.into_iter().collect()
+                } else {
+                    on_board(filter)?
+                };
+                self.gain_control_worth(
+                    view,
+                    &objects,
+                    *to,
+                    aim,
+                    *duration,
+                    *untap,
+                    *haste_until_eot,
+                )?
             }
             Effect::ChooseLandwalk {
                 lands,
@@ -3208,6 +3296,24 @@ impl HeuristicAgent {
             }
             Modifier::AddKeyword(k) => self.pump(view, objects, (0, 0, k.bits()), duration),
             Modifier::Goaded => objects.iter().map(|o| self.goad_worth(view, o)).sum(),
+            Modifier::MustBlock => objects
+                .iter()
+                .map(|o| {
+                    if !creature(o) || o.status.contains(ObjectStatus::TAPPED) {
+                        0
+                    } else if self.hostile(o.controller, view.seat) {
+                        60
+                    } else {
+                        -60
+                    }
+                })
+                .sum(),
+            Modifier::PlayerCantCast { who, .. }
+            | Modifier::PlayerCantActivateNonMana { who }
+            | Modifier::SpellsCantBeCountered { who, .. } => {
+                let players = self.seats(*who, view)?;
+                self.player_modifier_worth(view, &players, modifier)?
+            }
             Modifier::PreventDamageToIt => {
                 objects.iter().map(|o| self.prevent(view, o, false)).sum()
             }
@@ -3242,6 +3348,8 @@ impl HeuristicAgent {
             // a subtype changes what other cards say about the object and
             // nothing by itself.
             Modifier::ExileInsteadOfLeavingBattlefield
+            | Modifier::ReplaceDamage { .. }
+            | Modifier::ReplaceOrPreventDamageWithThen { .. }
             | Modifier::AddType(_)
             | Modifier::RemoveType(_)
             | Modifier::AddSubtype(_)
@@ -3250,6 +3358,90 @@ impl HeuristicAgent {
             | Modifier::SetColor(_) => 0,
             _ => return None,
         })
+    }
+
+    fn player_modifier_worth(
+        &self,
+        view: &PlayerView,
+        players: &[PlayerId],
+        modifier: &Modifier,
+    ) -> Option<i64> {
+        let per_player: i64 = match modifier {
+            Modifier::PlayerCantCast { .. } | Modifier::PlayerCantActivateNonMana { .. } => -120,
+            Modifier::SpellsCantBeCountered { .. } => 40,
+            Modifier::ReplaceDamage { .. } | Modifier::ReplaceOrPreventDamageWithThen { .. } => 0,
+            _ => return None,
+        };
+        let total = players
+            .iter()
+            .map(|&player| {
+                if self.hostile(player, view.seat) {
+                    -per_player
+                } else {
+                    per_player
+                }
+            })
+            .sum();
+        Some(total)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn gain_control_worth(
+        &self,
+        view: &PlayerView,
+        objects: &[&PublicObject],
+        to: PlayerRel,
+        aim: Aim,
+        duration: Duration,
+        untap: bool,
+        haste_until_eot: bool,
+    ) -> Option<i64> {
+        let recipients = self.players(view, to, aim)?;
+        let Some(&recipient) = recipients.first() else {
+            return Some(0);
+        };
+        let to_hostile = self.hostile(recipient, view.seat);
+        let temporary = matches!(
+            duration,
+            Duration::UntilEndOfTurn | Duration::UntilEndOfCombat
+        );
+        let total = objects
+            .iter()
+            .map(|o| {
+                let currently_hostile = self.hostile(o.controller, view.seat);
+                let mut value = if currently_hostile == to_hostile {
+                    0
+                } else {
+                    let base = material(o).max(100);
+                    let swing = if temporary {
+                        let power = i64::from(o.power.unwrap_or(0).max(0));
+                        let attack_bonus = if creature(o) && (untap || haste_until_eot) {
+                            power * 40
+                        } else {
+                            0
+                        };
+                        base / 2 + attack_bonus
+                    } else {
+                        base * 2
+                    };
+                    if currently_hostile && !to_hostile {
+                        swing
+                    } else {
+                        -swing
+                    }
+                };
+                if untap && o.status.contains(ObjectStatus::TAPPED) {
+                    let untap_delta = self.untap_worth(view, o).abs();
+                    value += if to_hostile {
+                        -untap_delta
+                    } else {
+                        untap_delta
+                    };
+                }
+                value
+            })
+            .sum();
+        Some(total)
     }
 
     fn random_discard_cost(view: &PlayerView, except: ObjectId) -> Option<i64> {

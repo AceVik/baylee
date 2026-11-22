@@ -210,7 +210,16 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::Plot { target }
         | Effect::Suspect { target }
         | Effect::Unsuspect { target }
+        | Effect::AddTempModifier { target, .. }
         | Effect::SacrificeObject { target, .. } => reads_target(*target),
+        Effect::AddGlobalTempModifier { filter, .. } => reads_filter(filter),
+        Effect::PreventNextDamageWithThen {
+            sources,
+            recipients,
+            ..
+        } => reads_target(*sources) || reads_target(*recipients),
+        Effect::GainControlEx { target, to, .. } => reads_target(*target) || reads_player(*to),
+        Effect::GainControlAllEx { filter, to, .. } => reads_filter(filter) || reads_player(*to),
         Effect::LookAtTopPick { count, .. }
         | Effect::SearchLibraryUpTo { count, .. }
         | Effect::FlipCoins { count, .. }

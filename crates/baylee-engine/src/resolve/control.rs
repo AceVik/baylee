@@ -71,6 +71,31 @@ pub fn resume_control_choice(
         res.pc += 1;
         return run(state, res);
     }
+    if matches!(
+        res.awaiting,
+        Some(AwaitingOp::GainControlExRecipient { .. })
+    ) {
+        let Some(AwaitingOp::GainControlExRecipient {
+            subjects,
+            duration,
+            untap,
+            haste_until_eot,
+        }) = res.awaiting.take()
+        else {
+            unreachable!();
+        };
+        super::wave14d::apply_gain_control_ex(
+            state,
+            res,
+            &subjects,
+            player,
+            duration,
+            untap,
+            haste_until_eot,
+        );
+        res.pc += 1;
+        return run(state, res);
+    }
     resume_control_rotation(state, res, player)
 }
 

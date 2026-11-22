@@ -32,7 +32,7 @@ pub(crate) use additional::{
 };
 mod payment;
 mod permissions;
-mod player_locks;
+pub(crate) mod player_locks;
 mod pricing;
 mod source_cost;
 #[cfg(any(test, feature = "test-support"))]
@@ -1292,7 +1292,8 @@ pub(crate) fn cast_is_forbidden(
             baylee_cards_dsl::Modifier::MatchingSpellCastLimitPerTurn { who, filter, limit } => {
                 player_locks::matching_limit_reached(state, fx, who, filter, limit, player, obj)
             }
-            baylee_cards_dsl::Modifier::PlayersCantCast { who, filter } => {
+            baylee_cards_dsl::Modifier::PlayersCantCast { who, filter }
+            | baylee_cards_dsl::Modifier::PlayerCantCast { who, filter } => {
                 player_locks::prevents(state, fx, who, filter, player, obj)
             }
             baylee_cards_dsl::Modifier::OpponentsCantCast(filter) => {

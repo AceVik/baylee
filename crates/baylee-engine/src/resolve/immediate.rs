@@ -2235,6 +2235,59 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::AddTempModifier {
+            target,
+            modifier,
+            duration,
+        } => super::wave14d::exec_add_temp_modifier(state, res, target, modifier, duration),
+        Effect::AddGlobalTempModifier {
+            filter,
+            modifier,
+            duration,
+        } => super::wave14d::exec_add_global_temp_modifier(state, res, filter, modifier, duration),
+        Effect::PreventNextDamageWithThen {
+            sources,
+            recipients,
+            combat_only,
+            then,
+        } => super::wave14d::exec_prevent_next_damage_with_then(
+            state,
+            res,
+            sources,
+            recipients,
+            combat_only,
+            then,
+        ),
+        Effect::GainControlEx {
+            target,
+            to,
+            duration,
+            untap,
+            haste_until_eot,
+        } => super::wave14d::exec_gain_control_ex(
+            state,
+            res,
+            target,
+            to,
+            duration,
+            untap,
+            haste_until_eot,
+        ),
+        Effect::GainControlAllEx {
+            filter,
+            to,
+            duration,
+            untap,
+            haste_until_eot,
+        } => super::wave14d::exec_gain_control_all_ex(
+            state,
+            res,
+            filter,
+            to,
+            duration,
+            untap,
+            haste_until_eot,
+        ),
         Effect::EmpowerJace { token, amount } => super::empower::start(state, res, token, amount),
         Effect::ModifyEvent { modifier, duration } => {
             let subject =
@@ -4787,7 +4840,7 @@ fn resolution_object_matches(
     eval::matches_with_context(filter, state, object, res.controller, context)
 }
 
-fn resolution_bound_seats(
+pub(super) fn resolution_bound_seats(
     state: &GameState,
     res: &Resolution,
     you: PlayerId,
@@ -4795,6 +4848,9 @@ fn resolution_bound_seats(
 ) -> Option<Vec<PlayerId>> {
     use baylee_cards_dsl::{DamageRecipients, Modifier};
     let (Modifier::PlayersCantCast { who, .. }
+    | Modifier::PlayerCantCast { who, .. }
+    | Modifier::PlayerCantActivateNonMana { who }
+    | Modifier::SpellsCantBeCountered { who, .. }
     | Modifier::SpellCastLimitPerTurn { who, .. }
     | Modifier::MatchingSpellCastLimitPerTurn { who, .. }
     | Modifier::PlayerHexproof { who }
@@ -4808,6 +4864,14 @@ fn resolution_bound_seats(
         ..
     }
     | Modifier::AddDamageFrom {
+        recipients: DamageRecipients::Players(who) | DamageRecipients::PlayersOrTheirPermanents(who),
+        ..
+    }
+    | Modifier::ReplaceDamage {
+        recipients: DamageRecipients::Players(who) | DamageRecipients::PlayersOrTheirPermanents(who),
+        ..
+    }
+    | Modifier::ReplaceOrPreventDamageWithThen {
         recipients: DamageRecipients::Players(who) | DamageRecipients::PlayersOrTheirPermanents(who),
         ..
     }) = *modifier

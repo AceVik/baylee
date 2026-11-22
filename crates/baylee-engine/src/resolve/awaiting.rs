@@ -1483,6 +1483,17 @@ pub enum AwaitingOp {
     TwoPilesPickChooser(Box<super::wave13a::TwoPilesSplitState>),
     /// Pile choice (`Pending::ChoosePile`) for `Effect::SeparateIntoTwoPiles`.
     TwoPilesChoosePile(Box<super::wave13a::TwoPilesSplitState>),
+    /// Multiplayer recipient choice for `Effect::GainControlEx` / `Effect::GainControlAllEx`.
+    GainControlExRecipient {
+        /// Exact permanent incarnations that will change control.
+        subjects: Vec<baylee_core::ids::DamageSourceRef>,
+        /// How long the control change lasts.
+        duration: baylee_cards_dsl::Duration,
+        /// Untap the affected permanents after control changes.
+        untap: bool,
+        /// Grant haste until end of turn.
+        haste_until_eot: bool,
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -1930,6 +1941,18 @@ impl AwaitingOp {
             Self::AttachSlot { objects, host } => {
                 crate::state::structural_fingerprint(&(231_u8, objects, host))
             }
+            Self::GainControlExRecipient {
+                subjects,
+                duration,
+                untap,
+                haste_until_eot,
+            } => crate::state::structural_fingerprint(&(
+                235_u8,
+                subjects,
+                duration,
+                untap,
+                haste_until_eot,
+            )),
             _ => 0,
         }
     }

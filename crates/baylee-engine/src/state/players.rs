@@ -217,6 +217,49 @@ impl GameState {
             })
     }
 
+    /// Whether a stack spell or ability `id` can currently be countered
+    /// (CR 701.6a), checking both object-local uncounterability
+    /// ([`GameObject::can_be_countered`]) and standing or temporary
+    /// [`baylee_cards_dsl::Modifier::SpellsCantBeCountered`] effects
+    /// (*Veil of Summer*, *Determined*, *Prowling Serpopard*, *Destiny Spinner*).
+    ///
+    /// `SpellsCantBeCountered` protects only spells (`ObjectKind::Spell`),
+    /// never activated or triggered abilities (`ObjectKind::AbilityOnStack`).
+    #[must_use]
+    pub fn spell_can_be_countered(&self, id: ObjectId) -> bool {
+        let Some(obj) = self.object(id) else {
+            return true;
+        };
+        if !obj.can_be_countered() {
+            return false;
+        }
+        if obj.kind != crate::object::ObjectKind::Spell
+            || !self.effects.may_make_spells_uncounterable()
+        {
+            return true;
+        }
+        !self.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::SpellsCantBeCountered { who, filter } = fx.modifier
+            else {
+                return false;
+            };
+            crate::casting::player_locks::affects_player(self, fx, who, obj.controller)
+                && crate::eval::matches_with_context(
+                    filter,
+                    self,
+                    obj,
+                    fx.controller,
+                    crate::text_changes::RuleContext {
+                        source: fx.source.unwrap_or(obj.id),
+                        text: self.effect_text(fx),
+                        resolved_name: None,
+                        resolved_subtype: fx.filter.chosen_subtype(),
+                        reference: None,
+                    },
+                )
+        })
+    }
+
     /// Whether an effect says `player` doesn't lose the game for having 0 or
     /// less life (`Modifier::NoLossForZeroLife`, Lich). Each effect's `who`
     /// is read from its own controller, so a Lich that changes hands takes

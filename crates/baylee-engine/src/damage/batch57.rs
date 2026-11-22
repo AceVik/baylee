@@ -13,21 +13,63 @@ impl DamageWork {
         self
     }
 
+    #[allow(clippy::too_many_lines)] // Flat dispatch over damage-replacement candidates.
     pub(super) fn apply_batch57(&mut self, state: &mut GameState, candidate: &Candidate) -> bool {
         match candidate.option.kind {
             DamageEffectKind::ReplaceAmount { amount } => {
                 let mut replaced = Vec::new();
+                let mut replaced_total = 0_u32;
+                let first_event_source = candidate
+                    .option
+                    .parts
+                    .first()
+                    .and_then(|pid| self.parts.iter().find(|p| p.view.id == *pid))
+                    .map(|p| p.view.source);
                 for part in &mut self.parts {
                     if candidate.option.parts.contains(&part.view.id) {
                         let source = (part.view.source, part.source_version);
+                        let before = part.view.amount;
                         part.view.amount = if replaced.contains(&source) {
                             0
                         } else {
                             replaced.push(source);
                             amount
                         };
+                        replaced_total =
+                            replaced_total.saturating_add(before.saturating_sub(part.view.amount));
                         part.applied.push(candidate.key);
                     }
+                }
+                if replaced_total > 0
+                    && let EffectKey::Continuous(fx_id) = candidate.key
+                    && let Some(fx) = state.effects.iter().find(|fx| fx.id == fx_id)
+                    && let baylee_cards_dsl::Modifier::ReplaceOrPreventDamageWithThen {
+                        is_replacement: true,
+                        then,
+                        ..
+                    } = fx.modifier
+                {
+                    self.record_then_rider(super::PreventThenRider {
+                        key: EffectKey::Continuous(fx_id),
+                        controller: fx.controller,
+                        source: fx.source.unwrap_or(baylee_core::ids::ObjectId::NO_SOURCE),
+                        source_version: fx
+                            .source
+                            .and_then(|id| state.object(id).map(|o| o.version)),
+                        event_object: first_event_source,
+                        prevented: replaced_total,
+                        text: state.effect_text(fx),
+                        chosen_subtype: fx.filter.chosen_subtype().or_else(|| {
+                            fx.source
+                                .and_then(|id| state.object(id))
+                                .and_then(|o| o.chosen_subtype)
+                        }),
+                        chosen_color: fx
+                            .source
+                            .and_then(|id| state.object(id))
+                            .and_then(|o| o.chosen_color),
+                        then,
+                    });
                 }
             }
             DamageEffectKind::MultiplyDamage { factor } => {
@@ -125,7 +167,7 @@ impl DamageWork {
         part: &super::Part,
         out: &mut Vec<Candidate>,
     ) {
-        use baylee_cards_dsl::{DamageAmountReplacement, Modifier};
+        use baylee_cards_dsl::Modifier;
         if let DamageTarget::Object(id) = part.view.recipient
             && self.counter_remaining(state, id, CounterKind::Shield) > 0
             && let Some(reference) = state.source_identity(id)
@@ -150,70 +192,34 @@ impl DamageWork {
                     combat,
                     replacement,
                 } => {
-                    let DamageTarget::Player(player) = part.view.recipient else {
-                        continue;
-                    };
-                    if combat.is_some_and(|combat| combat != part.view.is_combat)
-                        || !crate::eval::players_for_source(
-                            recipients,
-                            state,
-                            effect.controller,
-                            effect.source,
-                        )
-                        .is_some_and(|players| players.contains(&player))
-                        || !crate::eval::matches_damage_source_with_context(
-                            sources,
-                            state,
-                            source,
-                            effect.controller,
-                            crate::text_changes::RuleContext {
-                                source: effect.source.unwrap_or(source.id),
-                                text: state.effect_text(effect),
-                                resolved_name: None,
-                                resolved_subtype: None,
-                                reference: None,
-                            },
-                        )
-                    {
-                        continue;
-                    }
-                    let total = self
-                        .parts
-                        .iter()
-                        .filter(|other| {
-                            other.view.source == part.view.source
-                                && other.source_version == part.source_version
-                                && other.view.recipient == part.view.recipient
-                                && !other.applied.contains(&EffectKey::Continuous(effect.id))
-                        })
-                        .map(|part| part.view.amount)
-                        .fold(0, u32::saturating_add);
-                    let amount = match replacement {
-                        DamageAmountReplacement::Cap(cap) if total > cap => cap,
-                        DamageAmountReplacement::FloorAtEffectSourcePower => {
-                            let power = effect
-                                .source
-                                .and_then(|id| state.object(id))
-                                .and_then(|o| o.characteristics().power)
-                                .and_then(|power| u32::try_from(power).ok())
-                                .unwrap_or(0);
-                            if total >= power {
-                                continue;
-                            }
-                            power
-                        }
-                        DamageAmountReplacement::Cap(_) => continue,
-                    };
-                    super::candidates::add(
-                        out,
+                    self.push_amount_replacement_candidate(
+                        effect,
+                        sources,
+                        baylee_cards_dsl::DamageRecipients::Players(recipients),
+                        combat,
+                        replacement,
+                        state,
                         part,
-                        EffectKey::Continuous(effect.id),
-                        DamageEffectKind::ReplaceAmount { amount },
-                        effect.source.map(|source| crate::prevention::ShieldOrigin {
-                            source,
-                            ability: None,
-                        }),
-                        effect.controller,
+                        source,
+                        out,
+                    );
+                }
+                Modifier::ReplaceDamage {
+                    sources,
+                    recipients,
+                    combat,
+                    replacement,
+                } => {
+                    self.push_amount_replacement_candidate(
+                        effect,
+                        sources,
+                        recipients,
+                        combat,
+                        replacement,
+                        state,
+                        part,
+                        source,
+                        out,
                     );
                 }
                 Modifier::MultiplyDamageFrom { .. } | Modifier::AddDamageFrom { .. } => {
@@ -222,6 +228,85 @@ impl DamageWork {
                 _ => {}
             }
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn push_amount_replacement_candidate(
+        &self,
+        effect: &crate::effects::ContinuousEffect,
+        sources: &'static baylee_cards_dsl::Filter,
+        recipients: baylee_cards_dsl::DamageRecipients,
+        combat: Option<bool>,
+        replacement: baylee_cards_dsl::DamageAmountReplacement,
+        state: &GameState,
+        part: &super::Part,
+        source: &crate::object::GameObject,
+        out: &mut Vec<Candidate>,
+    ) {
+        use baylee_cards_dsl::DamageAmountReplacement;
+        if combat.is_some_and(|combat| combat != part.view.is_combat)
+            || !damage_recipients_match(effect, recipients, state, part.view.recipient)
+            || !damage_source_matches_effect(effect, sources, state, source)
+        {
+            return;
+        }
+        let key = match replacement {
+            DamageAmountReplacement::HalfDown | DamageAmountReplacement::HalfUp => {
+                EffectKey::ContinuousForSource(
+                    effect.id,
+                    baylee_core::ids::DamageSourceRef {
+                        object: part.view.source,
+                        version: part.source_version.unwrap_or(source.version),
+                    },
+                )
+            }
+            DamageAmountReplacement::Cap(_) | DamageAmountReplacement::FloorAtEffectSourcePower => {
+                EffectKey::Continuous(effect.id)
+            }
+        };
+        let total = self
+            .parts
+            .iter()
+            .filter(|other| {
+                other.view.source == part.view.source
+                    && other.source_version == part.source_version
+                    && other.view.recipient == part.view.recipient
+                    && !other.applied.contains(&key)
+            })
+            .map(|part| part.view.amount)
+            .fold(0, u32::saturating_add);
+        if total == 0 {
+            return;
+        }
+        let amount = match replacement {
+            DamageAmountReplacement::Cap(cap) if total > cap => cap,
+            DamageAmountReplacement::Cap(_) => return,
+            DamageAmountReplacement::FloorAtEffectSourcePower => {
+                let power = effect
+                    .source
+                    .and_then(|id| state.object(id))
+                    .and_then(|o| o.characteristics().power)
+                    .and_then(|power| u32::try_from(power).ok())
+                    .unwrap_or(0);
+                if total >= power {
+                    return;
+                }
+                power
+            }
+            DamageAmountReplacement::HalfDown => total / 2,
+            DamageAmountReplacement::HalfUp => total.div_ceil(2),
+        };
+        super::candidates::add(
+            out,
+            part,
+            key,
+            DamageEffectKind::ReplaceAmount { amount },
+            effect.source.map(|source| crate::prevention::ShieldOrigin {
+                source,
+                ability: None,
+            }),
+            effect.controller,
+        );
     }
 }
 
@@ -285,7 +370,7 @@ fn push_scaled_damage_candidate(
     );
 }
 
-fn damage_source_matches_effect(
+pub(super) fn damage_source_matches_effect(
     effect: &crate::effects::ContinuousEffect,
     sources: &'static baylee_cards_dsl::Filter,
     state: &GameState,
@@ -312,7 +397,7 @@ fn damage_source_matches_effect(
     )
 }
 
-fn damage_recipients_match(
+pub(super) fn damage_recipients_match(
     effect: &crate::effects::ContinuousEffect,
     recipients: baylee_cards_dsl::DamageRecipients,
     state: &GameState,
