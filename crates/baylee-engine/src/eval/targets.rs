@@ -661,3 +661,108 @@ pub fn eligible_same_controller_groups(
         .filter_map(|(p, c)| (c >= threshold).then_some(p))
         .collect()
 }
+
+/// Living players in turn order starting with the active player (CR 101.4).
+#[must_use]
+pub fn living_players_in_turn_order(state: &GameState) -> Vec<PlayerId> {
+    let seats = state.players.len();
+    let start = usize::from(state.turn.active.get());
+    (0..seats)
+        .map(|step| PlayerId::new(((start + step) % seats) as u8))
+        .filter(|p| !state.has_left(*p))
+        .collect()
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FilterPlayerScope {
+    All,
+    OpponentsOnly,
+    NotYou,
+    YouOnly,
+}
+
+fn filter_player_scope(filter: &Filter) -> FilterPlayerScope {
+    match filter {
+        Filter::ControlledByOpponent => FilterPlayerScope::OpponentsOnly,
+        Filter::ControlledByYou | Filter::OwnedByYou => FilterPlayerScope::YouOnly,
+        Filter::Not(inner) if matches!(**inner, Filter::ControlledByYou | Filter::OwnedByYou) => {
+            FilterPlayerScope::NotYou
+        }
+        Filter::And(parts) => {
+            for part in *parts {
+                let scope = filter_player_scope(part);
+                if scope != FilterPlayerScope::All {
+                    return scope;
+                }
+            }
+            FilterPlayerScope::All
+        }
+        _ => FilterPlayerScope::All,
+    }
+}
+
+/// Turn-ordered players that [`baylee_cards_dsl::TargetConstraint::OnePerPlayer`]
+/// iterates for `spec` under `you`.
+#[must_use]
+pub fn one_per_player_seats(state: &GameState, spec: &TargetSpec, you: PlayerId) -> Vec<PlayerId> {
+    let mut living = living_players_in_turn_order(state);
+    match *spec {
+        TargetSpec::ObjectOfEachOpponent(_) => {
+            living.retain(|&p| state.is_opponent(p, you));
+            living
+        }
+        TargetSpec::CardInGraveyard(_, rel)
+        | TargetSpec::CardInGraveyardBelowEvent(_, rel)
+        | TargetSpec::CardInGraveyardBelowValue(_, rel, _) => {
+            if let Some(allowed) = super::players(rel, state, you) {
+                living.retain(|p| allowed.contains(p));
+            }
+            living
+        }
+        TargetSpec::ObjectControlledBy(_, owner) | TargetSpec::CardInPlayersGraveyard(_, owner) => {
+            living.retain(|&p| p == owner);
+            living
+        }
+        TargetSpec::Object(f)
+        | TargetSpec::Spell(f)
+        | TargetSpec::StackOrBattlefield(f)
+        | TargetSpec::ObjectOrCardInAnyGraveyard(f)
+        | TargetSpec::AbilityOnStack(f)
+        | TargetSpec::SpellOrAbility(f)
+        | TargetSpec::OpponentOrObject(f)
+        | TargetSpec::PlayerOrObject(f) => {
+            match filter_player_scope(f) {
+                FilterPlayerScope::All => {}
+                FilterPlayerScope::OpponentsOnly => living.retain(|&p| state.is_opponent(p, you)),
+                FilterPlayerScope::NotYou => living.retain(|&p| p != you),
+                FilterPlayerScope::YouOnly => living.retain(|&p| p == you),
+            }
+            living
+        }
+        _ => living,
+    }
+}
+
+/// Whether `options` satisfies [`baylee_cards_dsl::TargetConstraint::OnePerPlayer`]
+/// for `spec` with minimum `min` (CR 115.1: optional `min == 0` skips players
+/// with no legal targets; mandatory `min > 0` requires every seat in scope to
+/// have at least one legal target).
+#[must_use]
+pub fn one_per_player_satisfied(
+    state: &GameState,
+    spec: &TargetSpec,
+    you: PlayerId,
+    options: &[ObjectId],
+    min: u8,
+) -> bool {
+    if min == 0 {
+        return true;
+    }
+    let seats = one_per_player_seats(state, spec, you);
+    !seats.is_empty()
+        && seats.iter().all(|&p| {
+            options
+                .iter()
+                .any(|&id| same_controller_group(state, id) == Some(p))
+        })
+}

@@ -451,6 +451,9 @@ impl GameState {
         self.graveyard_order.enabled |= crate::graveyard_order::card_reads_order(def);
         self.per_turn.crimes_committed.tracked |= super::reads::card_reads_crime(def);
         self.per_turn.mana_expended_on_spells.tracked |= super::reads::card_reads_expend(def);
+        self.per_turn.cards_discarded.tracked |= super::reads::card_reads_discard_count(def);
+        self.per_turn.sacrificed_permanents.tracked |=
+            super::reads::card_reads_sacrificed_permanents(def);
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -564,6 +567,9 @@ impl GameState {
         self.graveyard_order.enabled |= crate::graveyard_order::card_reads_order(def);
         self.per_turn.crimes_committed.tracked |= super::reads::card_reads_crime(def);
         self.per_turn.mana_expended_on_spells.tracked |= super::reads::card_reads_expend(def);
+        self.per_turn.cards_discarded.tracked |= super::reads::card_reads_discard_count(def);
+        self.per_turn.sacrificed_permanents.tracked |=
+            super::reads::card_reads_sacrificed_permanents(def);
         Ok(PrintedCard {
             base: self.card_base(def, index),
             cda: printed_pt_cda(def),

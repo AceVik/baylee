@@ -58,7 +58,7 @@ pub use delayed::{
 };
 pub use per_turn::{
     AbilityResolved, BlockRecord, DamageLogEntry, GraveyardPlay, MustBlockRequirement, PerTurn,
-    PlayLifetime, PlayPermission, PreviousTurn,
+    PlayLifetime, PlayPermission, PreviousTurn, SacrificedPermanentRecord,
 };
 use reads::printed_pt_cda;
 pub(crate) use reads::{

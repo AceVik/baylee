@@ -383,7 +383,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender
         | Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker
         | Modifier::CreatureAbilityManaAnyColor
-        | Modifier::MayCastWithAltCost { .. } => false,
+        | Modifier::MayCastWithAltCost { .. }
+        | Modifier::AdjustSpellCostByCast { .. } => false,
     }
 }
 
@@ -737,6 +738,7 @@ impl EffectTable {
                     | Modifier::SpellsCostLessPerCounter(_)
                     | Modifier::BuybackCostsLess(_)
                     | Modifier::SpellsCostSacrificePerManaSymbol { .. }
+                    | Modifier::AdjustSpellCostByCast { .. }
             ),
         );
         self.hints.insert_if(
@@ -2128,6 +2130,12 @@ mod tests {
                 once_per_turn: true,
                 price: baylee_cards_dsl::AltCastPrice::Mana(baylee_core::mana::ManaCost::ZERO),
             },
+            Modifier::AdjustSpellCostByCast {
+                who: PlayerRel::You,
+                filter: &Filter::Any,
+                delta_per_unit: -1,
+                metric: baylee_cards_dsl::SpellCastMetric::DistinctTargets,
+            },
         ]
     }
 
@@ -2166,7 +2174,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            229,
+            230,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2289,7 +2297,8 @@ mod tests {
         // modify characteristics on Layer::Type / Layer::PtCda (+4 locking -> 62).
         // GainActivatedAbilitiesOf grants abilities on Layer::Ability (+1 locking -> 63);
         // MayCastWithAltCost modifies casting/playing rules (+1 rules-only -> 166).
-        assert_eq!((locking, all.len() - locking), (63, 166));
+        // AdjustSpellCostByCast modifies spell costs (+1 rules-only -> 167).
+        assert_eq!((locking, all.len() - locking), (63, 167));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

@@ -432,6 +432,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             )
             .is_empty();
         }
+        if second_req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+            return eval::one_per_player_satisfied(
+                &self.state,
+                &spec,
+                t.controller,
+                &object_list,
+                second_req.min,
+            );
+        }
         let objects = object_list.len();
         let players = eval::target_player_options_from(&self.state, &spec, t.controller, ctx).len();
         objects + players >= usize::from(second_req.min)
@@ -444,6 +453,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// together, because "any target" offers both at once (CR 115.4) — so a
     /// mode that survives this test is one the question can actually be
     /// answered for.
+    #[allow(clippy::too_many_lines)]
     fn mode_is_choosable(&self, t: &crate::trigger::PendingTrigger, mode: &SpellMode) -> bool {
         let wall_only = eval::target_domain::walls(mode.targets, mode.second_targets);
         let ctx = crate::text_changes::RuleContext {
@@ -476,6 +486,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     u32::from(req.min),
                 )
                 .is_empty();
+            }
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+                return eval::one_per_player_satisfied(
+                    &self.state,
+                    &spec,
+                    t.controller,
+                    &object_list,
+                    req.min,
+                );
             }
             let objects = object_list.len();
             let players =
@@ -1291,119 +1310,148 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.trigger_queue.pop_front();
                     continue;
                 }
-                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
-                    if let Some(chosen) = self.activation_graveyard.take() {
-                        options.retain(|id| {
-                            eval::same_controller_group(&self.state, *id) == Some(chosen)
-                        });
-                    } else {
-                        let groups =
-                            eval::eligible_same_controller_groups(&self.state, &options, min);
-                        match groups.as_slice() {
-                            [] => options.clear(),
-                            [only] => {
-                                options.retain(|id| {
-                                    eval::same_controller_group(&self.state, *id) == Some(*only)
-                                });
-                            }
-                            _ => {
-                                self.pending_plan = Some(PlanKind::ChooseTriggerTargetGroup {
+                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+                    let bound_spec = self.bound_trigger_target(&t, req.spec);
+                    if !eval::one_per_player_satisfied(
+                        &self.state,
+                        &bound_spec,
+                        t.controller,
+                        &options,
+                        req.min,
+                    ) {
+                        self.cleanup_check_acted();
+                        self.trigger_queue.pop_front();
+                        continue;
+                    }
+                    if max > 0 {
+                        let seats =
+                            eval::one_per_player_seats(&self.state, &bound_spec, t.controller);
+                        let first = super::super::PerOpponent::one_per_player(
+                            bound_spec, seats, req.min, chooser,
+                        );
+                        let (source, ability_index, mode) =
+                            (t.source, t.ability_index, t.chosen_mode);
+                        if self
+                            .ask_next_opponent_with_context(
+                                t.controller,
+                                crate::text_changes::RuleContext {
                                     source: t.source,
-                                    ability_index: t.ability_index,
-                                    mode: t.chosen_mode,
-                                });
-                                self.pending = Pending::ChoosePlayer {
-                                    player: chooser,
-                                    options: groups,
-                                };
-                                self.awaiting_answer = true;
-                                return;
+                                    text: t.text,
+                                    resolved_name: None,
+                                    resolved_subtype: None,
+                                    reference: t.event_object,
+                                },
+                                None,
+                                wall_only,
+                                first,
+                                |asking| PlanKind::Trigger {
+                                    source,
+                                    ability_index,
+                                    mode,
+                                    per_opponent: Some(asking),
+                                },
+                            )
+                            .is_none()
+                        {
+                            return;
+                        }
+                    }
+                } else {
+                    if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
+                    {
+                        if let Some(chosen) = self.activation_graveyard.take() {
+                            options.retain(|id| {
+                                eval::same_controller_group(&self.state, *id) == Some(chosen)
+                            });
+                        } else {
+                            let groups =
+                                eval::eligible_same_controller_groups(&self.state, &options, min);
+                            match groups.as_slice() {
+                                [] => options.clear(),
+                                [only] => {
+                                    options.retain(|id| {
+                                        eval::same_controller_group(&self.state, *id) == Some(*only)
+                                    });
+                                }
+                                _ => {
+                                    self.pending_plan = Some(PlanKind::ChooseTriggerTargetGroup {
+                                        source: t.source,
+                                        ability_index: t.ability_index,
+                                        mode: t.chosen_mode,
+                                    });
+                                    self.pending = Pending::ChoosePlayer {
+                                        player: chooser,
+                                        options: groups,
+                                    };
+                                    self.awaiting_answer = true;
+                                    return;
+                                }
                             }
                         }
                     }
-                }
-                let offered = options.len() + player_options.len();
-                if u32::try_from(offered).unwrap_or(u32::MAX) < min {
-                    // No legal target: the trigger is removed from the stack
-                    // entirely (CR 603.3d). It was put there first, so a
-                    // cleanup step's check has found it (CR 514.3a).
-                    self.cleanup_check_acted();
-                    self.trigger_queue.pop_front();
-                    continue;
-                }
-                // Only when there is something to decide. `offered` reaching
-                // `req.min` above leaves one case behind: a trigger that may
-                // decline (`min` 0, "up to one target") with nothing legal to
-                // point at. It still goes on the stack — CR 603.3d removes a
-                // trigger that *cannot* be targeted legally, and one that
-                // needs no target can always be — but with no targets and no
-                // question, because the only answer is the empty list.
-                //
-                // Publishing it anyway was a stop the player could not
-                // influence: a Skyclave Apparition entering against a board
-                // of nothing but lands offered `ChooseTargets { options: [],
-                // min: 0, max: 0 }` and waited. Falling out of this block
-                // instead reaches the same tail an untargeted trigger takes,
-                // which is what stacks it.
-                //
-                // `WizardStage::Targets` is the twin of this branch on the
-                // spell side, and it needs both halves for the same reason
-                // this one does: a wizard reads `max` off the requirement
-                // before it knows the options, so Eerie Interlude's "any
-                // number of target creatures you control" (`max` 255) walks
-                // past the `max == 0` test and is stopped by the empty
-                // option list beside it.
-                if let baylee_cards_dsl::TargetSpec::ObjectOfEachOpponent(_) = req.spec {
-                    let opponents = self.opponents_in_turn_order(t.controller);
-                    let first = super::super::PerOpponent {
-                        spec: req.spec,
-                        gathered: SmallVec::new(),
-                        remaining: opponents,
-                    };
-                    let (source, ability_index, mode) = (t.source, t.ability_index, t.chosen_mode);
-                    if self
-                        .ask_next_opponent_with_context(
+                    let offered = options.len() + player_options.len();
+                    if u32::try_from(offered).unwrap_or(u32::MAX) < min {
+                        // No legal target: the trigger is removed from the stack
+                        // entirely (CR 603.3d). It was put there first, so a
+                        // cleanup step's check has found it (CR 514.3a).
+                        self.cleanup_check_acted();
+                        self.trigger_queue.pop_front();
+                        continue;
+                    }
+                    if let baylee_cards_dsl::TargetSpec::ObjectOfEachOpponent(_) = req.spec {
+                        let opponents = self.opponents_in_turn_order(t.controller);
+                        let first = super::super::PerOpponent::for_each_opponent(
+                            req.spec,
+                            opponents,
                             t.controller,
-                            crate::text_changes::RuleContext {
-                                source: t.source,
-                                text: t.text,
-                                resolved_name: None,
-                                resolved_subtype: None,
-                                reference: t.event_object,
-                            },
-                            self.trigger_wall_only(&t),
-                            first,
-                            |asking| PlanKind::Trigger {
-                                source,
-                                ability_index,
-                                mode,
-                                per_opponent: Some(asking),
-                            },
-                        )
-                        .is_none()
-                    {
+                        );
+                        let (source, ability_index, mode) =
+                            (t.source, t.ability_index, t.chosen_mode);
+                        if self
+                            .ask_next_opponent_with_context(
+                                t.controller,
+                                crate::text_changes::RuleContext {
+                                    source: t.source,
+                                    text: t.text,
+                                    resolved_name: None,
+                                    resolved_subtype: None,
+                                    reference: t.event_object,
+                                },
+                                None,
+                                self.trigger_wall_only(&t),
+                                first,
+                                |asking| PlanKind::Trigger {
+                                    source,
+                                    ability_index,
+                                    mode,
+                                    per_opponent: Some(asking),
+                                },
+                            )
+                            .is_none()
+                        {
+                            return;
+                        }
+                        // Nobody has anything to point at: it stacks targeting
+                        // nothing, like any "up to one" with nothing legal.
+                    } else if offered > 0 && max > 0 {
+                        self.pending_plan = Some(PlanKind::Trigger {
+                            source: t.source,
+                            ability_index: t.ability_index,
+                            mode: t.chosen_mode,
+                            per_opponent: None,
+                        });
+                        let max = max.min(u32::try_from(offered).unwrap_or(u32::MAX));
+                        self.pending = Pending::ChooseTargets {
+                            player: chooser,
+                            options,
+                            player_options,
+                            min,
+                            max,
+                            reason: TargetPrompt::Targets,
+                        };
+                        self.awaiting_answer = true;
                         return;
                     }
-                    // Nobody has anything to point at: it stacks targeting
-                    // nothing, like any "up to one" with nothing legal.
-                } else if offered > 0 && max > 0 {
-                    self.pending_plan = Some(PlanKind::Trigger {
-                        source: t.source,
-                        ability_index: t.ability_index,
-                        mode: t.chosen_mode,
-                        per_opponent: None,
-                    });
-                    let max = max.min(u32::try_from(offered).unwrap_or(u32::MAX));
-                    self.pending = Pending::ChooseTargets {
-                        player: chooser,
-                        options,
-                        player_options,
-                        min,
-                        max,
-                        reason: TargetPrompt::Targets,
-                    };
-                    self.awaiting_answer = true;
-                    return;
                 }
             }
             self.trigger_queue.pop_front();
@@ -1420,11 +1468,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // anything to point at — "up to one" can always be targeted
                 // legally (CR 603.3d removes only a trigger that cannot).
                 if let TargetSpec::ObjectOfEachOpponent(_) = spec {
-                    let first = super::super::PerOpponent {
-                        spec: self.bound_trigger_target(&t, spec),
-                        gathered: SmallVec::new(),
-                        remaining: self.opponents_in_turn_order(t.controller),
-                    };
+                    let first = super::super::PerOpponent::for_each_opponent(
+                        self.bound_trigger_target(&t, spec),
+                        self.opponents_in_turn_order(t.controller),
+                        t.controller,
+                    );
                     let plan_t = t.clone();
                     let gathered = self.ask_next_opponent_with_context(
                         t.controller,
@@ -1435,6 +1483,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             resolved_subtype: None,
                             reference: None,
                         },
+                        None,
                         self.trigger_wall_only(&t),
                         first,
                         |asking| PlanKind::SyntheticTriggerTarget {
@@ -1444,10 +1493,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     );
                     match gathered {
                         None => return,
-                        Some(all) => {
+                        Some(done) => {
                             self.push_synthetic_trigger_with_targets(
                                 &t,
-                                all,
+                                done.gathered,
                                 baylee_core::ids::SeatSet::new(),
                             );
                             continue;
@@ -1456,6 +1505,64 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 let (mut options, player_options) =
                     self.trigger_target_options(&t, spec, self.trigger_wall_only(&t));
+                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+                    let bound_spec = self.bound_trigger_target(&t, spec);
+                    if !eval::one_per_player_satisfied(
+                        &self.state,
+                        &bound_spec,
+                        t.controller,
+                        &options,
+                        req.min,
+                    ) {
+                        continue;
+                    }
+                    if req.max == 0 {
+                        self.push_synthetic_trigger_with_targets(
+                            &t,
+                            SmallVec::new(),
+                            baylee_core::ids::SeatSet::new(),
+                        );
+                        continue;
+                    }
+                    let seats = eval::one_per_player_seats(&self.state, &bound_spec, t.controller);
+                    let first = super::super::PerOpponent::one_per_player(
+                        bound_spec,
+                        seats,
+                        req.min,
+                        t.controller,
+                    );
+                    let plan_t = t.clone();
+                    match self.ask_next_opponent_with_context(
+                        t.controller,
+                        crate::text_changes::RuleContext {
+                            source: t.source,
+                            text: t.text,
+                            resolved_name: None,
+                            resolved_subtype: None,
+                            reference: None,
+                        },
+                        None,
+                        self.trigger_wall_only(&t),
+                        first,
+                        |asking| PlanKind::SyntheticTriggerTarget {
+                            trigger: plan_t,
+                            per_opponent: Some(asking),
+                        },
+                    ) {
+                        None => return,
+                        Some(done) => {
+                            if let Some(id) = self.push_synthetic_trigger_with_targets(
+                                &t,
+                                done.gathered,
+                                baylee_core::ids::SeatSet::new(),
+                            ) && !done.groups.is_empty()
+                            {
+                                self.state.bind_one_per_player_groups(id, 0, &done.groups);
+                            }
+                            continue;
+                        }
+                    }
+                }
                 if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
                     let groups = eval::eligible_same_controller_groups(
                         &self.state,

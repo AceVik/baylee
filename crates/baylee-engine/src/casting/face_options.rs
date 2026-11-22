@@ -154,6 +154,14 @@ pub(crate) fn replaced_cost_options(
                 None
             };
             let adjustment = face_adjustment(state, player, card, def, index, form);
+            let preview_adjustment = adjustment.for_preview(preview_cast_metric_bounds(
+                state,
+                player,
+                card,
+                def,
+                index,
+                &adjustment,
+            ));
             for kicked in [false, true] {
                 if kicked && face.additional_costs.is_empty() {
                     continue;
@@ -187,7 +195,7 @@ pub(crate) fn replaced_cost_options(
                 };
                 let mut add = |modes, raw: ManaCost| {
                     let cost = adjustment.price(raw, printed);
-                    let affordable = cost.with_x(0);
+                    let affordable = preview_adjustment.price(raw, printed).with_x(0);
                     let affordable = keyword_priced(state, face, player, &affordable, keywords);
                     let mana_ready = paying == Paying::DuringTheCast
                         || source_affordable(
@@ -197,7 +205,7 @@ pub(crate) fn replaced_cost_options(
                             pool,
                             &affordable,
                             &[],
-                            Some(adjustment.allowance(
+                            Some(preview_adjustment.allowance(
                                 state,
                                 what,
                                 printed.saturating_add(keywords),

@@ -1167,7 +1167,7 @@ pub mod prelude {
     pub use crate::static_ability::{
         AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
         DamageRecipients, DamagedByScope, Duration, LAYERS, Layer, Modifier, PtCount,
-        ReplacementRule, StaticAbility,
+        ReplacementRule, SpellCastMetric, StaticAbility,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,

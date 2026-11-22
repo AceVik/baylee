@@ -103,10 +103,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // included (CR 601.2f) — and on the affordability probes too, or a
         // mode would be offered that the player then cannot pay for.
         let adjustment = casting::face_adjustment(&self.state, player, card, def, 0, None);
+        let preview_delta =
+            casting::preview_cast_metric_bounds(&self.state, player, card, def, 0, &adjustment);
+        let preview_adjustment = adjustment.for_preview(preview_delta);
         let printed_reduction = casting::printed_reduction(&self.state, face, player, card);
         let price = |cost: ManaCost| adjustment.price(cost, printed_reduction);
+        let preview_price = |cost: ManaCost| preview_adjustment.price(cost, printed_reduction);
         let back_price = |i: usize| {
             casting::face_adjustment(&self.state, player, card, def, i, None).price(
+                def.faces[i].mana_cost,
+                casting::printed_reduction(&self.state, &def.faces[i], player, card),
+            )
+        };
+        let back_preview_price = |i: usize| {
+            let adj = casting::face_adjustment(&self.state, player, card, def, i, None);
+            let p = casting::preview_cast_metric_bounds(&self.state, player, card, def, i, &adj);
+            adj.for_preview(p).price(
                 def.faces[i].mana_cost,
                 casting::printed_reduction(&self.state, &def.faces[i], player, card),
             )
@@ -123,13 +135,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let reduction = casting::keyword_reduction(&self.state, face, player, card);
         let less =
             |cost: ManaCost| casting::keyword_priced(&self.state, face, player, &cost, reduction);
-        let allowance = adjustment.allowance(
+        let allowance = preview_adjustment.allowance(
             &self.state,
             casting::SpendFor::Spell(card),
             printed_reduction.saturating_add(reduction),
         );
         let back_allowance = |i| {
-            casting::face_adjustment(&self.state, player, card, def, i, None).allowance(
+            let adj = casting::face_adjustment(&self.state, player, card, def, i, None);
+            let p = casting::preview_cast_metric_bounds(&self.state, player, card, def, i, &adj);
+            adj.for_preview(p).allowance(
                 &self.state,
                 casting::SpendFor::SpellOnFace(card, i),
                 casting::printed_reduction(&self.state, &def.faces[i], player, card),
@@ -144,7 +158,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player,
                     casting::SpendFor::Spell(card),
                     pool,
-                    &less(price(*cost)),
+                    &less(preview_price(*cost)),
                     &[],
                     Some(allowance),
                 )
@@ -157,7 +171,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         player,
                         casting::SpendFor::Spell(card),
                         pool,
-                        &less(price(*cost)),
+                        &less(preview_price(*cost)),
                         &face.mana_cost,
                         allowance,
                     )
@@ -179,7 +193,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             player,
                             casting::SpendFor::SpellOnFace(card, i),
                             pool,
-                            &back_price(i).with_x(0),
+                            &back_preview_price(i).with_x(0),
                             &[],
                             Some(back_allowance(i)),
                         ))
@@ -457,7 +471,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player,
                     casting::SpendFor::KickedSpell(card, 0, None),
                     kicked_pool,
-                    &less(price(cost).with_x(0)),
+                    &less(preview_price(cost).with_x(0)),
                     &[],
                     Some(allowance),
                 )
@@ -467,7 +481,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         player,
                         casting::SpendFor::KickedSpell(card, 0, None),
                         kicked_pool,
-                        &less(price(cost).with_x(0)),
+                        &less(preview_price(cost).with_x(0)),
                         &face.mana_cost,
                         allowance,
                     ))
@@ -871,7 +885,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player,
                     casting::SpendFor::SpellOnFace(card, i),
                     pool,
-                    &back_price(i).with_x(0),
+                    &back_preview_price(i).with_x(0),
                     &[],
                     Some(back_allowance(i)),
                 )
@@ -881,7 +895,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         player,
                         casting::SpendFor::SpellOnFace(card, i),
                         pool,
-                        &back_price(i).with_x(0),
+                        &back_preview_price(i).with_x(0),
                         &def.faces[i].mana_cost,
                         back_allowance(i),
                     ))

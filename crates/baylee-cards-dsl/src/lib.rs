@@ -160,7 +160,7 @@ pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
     AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
     DamageRecipients, DamagedByScope, Duration, LAYERS, Layer, Modifier, PtCount, ReplacementRule,
-    StaticAbility,
+    SpellCastMetric, StaticAbility,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.

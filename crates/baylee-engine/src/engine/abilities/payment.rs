@@ -463,6 +463,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             self.state
                 .bind_target_references(ability, &self.activation_target_references);
+            if !self.activation_target_choice.first_groups.is_empty() {
+                let first_groups = std::mem::take(&mut self.activation_target_choice.first_groups);
+                self.state
+                    .bind_one_per_player_groups(ability, 0, &first_groups);
+            }
+            if !self.activation_target_choice.second_groups.is_empty() {
+                let second_groups =
+                    std::mem::take(&mut self.activation_target_choice.second_groups);
+                self.state
+                    .bind_one_per_player_groups(ability, 1, &second_groups);
+            }
             self.activation_target_references = crate::sources::TargetReferences::default();
             // The number this activation announced, carried on the ability
             // the way a spell carries its own X (CR 601.2b). No card in the

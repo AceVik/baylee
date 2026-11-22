@@ -374,19 +374,37 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let (legal_objects, legal_players) =
             eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
+        let group_u8 = u8::from(!players);
+        let one_per_player =
+            req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer);
+        let mut seen_groups: SmallVec<[PlayerId; 4]> = SmallVec::new();
         let mut objects: SmallVec<[ObjectId; 2]> = chosen
             .iter()
             .enumerate()
             .filter_map(|(index, &id)| {
-                let announced = self.state.recorded_target_reference(
-                    obj.id,
-                    !players,
-                    u32::try_from(index).expect("target slot"),
-                );
-                (legal_objects.contains(&id)
+                let slot = u32::try_from(index).expect("target slot");
+                let announced = self.state.recorded_target_reference(obj.id, !players, slot);
+                let ok = legal_objects.contains(&id)
                     && announced.is_some()
-                    && announced == self.state.source_identity(id))
-                .then_some(id)
+                    && announced == self.state.source_identity(id);
+                if !ok {
+                    return None;
+                }
+                if one_per_player {
+                    let current_group = eval::same_controller_group(&self.state, id)?;
+                    if let Some(expected) = self
+                        .state
+                        .recorded_one_per_player_group(obj.id, group_u8, slot)
+                        && current_group != expected
+                    {
+                        return None;
+                    }
+                    if seen_groups.contains(&current_group) {
+                        return None;
+                    }
+                    seen_groups.push(current_group);
+                }
+                Some(id)
             })
             .collect();
         if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
@@ -421,22 +439,42 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return None;
         }
         let group = u32::try_from(group_idx).expect("extra target group");
+        let group_u8 = u8::try_from(2 + group_idx).expect("extra target group");
+        let one_per_player =
+            req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer);
         let (legal_objects, legal_players) =
             eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
+        let mut seen_groups: SmallVec<[PlayerId; 4]> = SmallVec::new();
         let mut objects: SmallVec<[ObjectId; 2]> = inst
             .targets
             .iter()
             .enumerate()
             .filter_map(|(index, &id)| {
-                let announced = self.state.recorded_extra_target_reference(
-                    obj.id,
-                    group,
-                    u32::try_from(index).expect("target slot"),
-                );
-                (legal_objects.contains(&id)
+                let slot = u32::try_from(index).expect("target slot");
+                let announced = self
+                    .state
+                    .recorded_extra_target_reference(obj.id, group, slot);
+                let ok = legal_objects.contains(&id)
                     && announced.is_some()
-                    && announced == self.state.source_identity(id))
-                .then_some(id)
+                    && announced == self.state.source_identity(id);
+                if !ok {
+                    return None;
+                }
+                if one_per_player {
+                    let current_group = eval::same_controller_group(&self.state, id)?;
+                    if let Some(expected) = self
+                        .state
+                        .recorded_one_per_player_group(obj.id, group_u8, slot)
+                        && current_group != expected
+                    {
+                        return None;
+                    }
+                    if seen_groups.contains(&current_group) {
+                        return None;
+                    }
+                    seen_groups.push(current_group);
+                }
+                Some(id)
             })
             .collect();
         if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)

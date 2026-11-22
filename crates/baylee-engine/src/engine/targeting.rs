@@ -75,57 +75,152 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .collect()
     }
 
-    /// Asks `controller` for the next opponent's target of a
-    /// `TargetSpec::ObjectOfEachOpponent` trigger: up to one permanent that
-    /// opponent controls. An opponent with nothing to point at is passed
-    /// over rather than shown an empty menu.
+    /// Asks the next seat's target for a `TargetSpec::ObjectOfEachOpponent` or
+    /// `TargetConstraint::OnePerPlayer` prompt. Seats with no legal candidates
+    /// are skipped when `min_per_player == 0`.
     ///
-    /// `None` means a question is now pending; `Some` hands back every
-    /// target gathered, once nobody is left to ask about. `plan` is what the
-    /// answer returns to — a printed trigger's or a synthetic one's — given
-    /// the question's state to carry.
-    /// Every question uses the ability's captured wording.
+    /// `None` means a question is now pending; `Some` hands back the completed
+    /// `PerOpponent` (with `gathered` targets and `groups`) once all seats have
+    /// been processed.
     pub(super) fn ask_next_opponent_with_context(
         &mut self,
         controller: PlayerId,
         context: crate::text_changes::RuleContext,
+        x: Option<u32>,
         wall_only: bool,
         mut asking: PerOpponent,
         plan: impl FnOnce(Box<PerOpponent>) -> PlanKind,
-    ) -> Option<SmallVec<[ObjectId; 2]>> {
+    ) -> Option<PerOpponent> {
         while !asking.remaining.is_empty() {
-            let opponent = asking.remaining.remove(0);
+            let seat = asking.remaining.remove(0);
             let options: Vec<ObjectId> = eval::target_options_in_domain(
                 &asking.spec,
                 &self.state,
                 controller,
                 context,
-                None,
+                x,
                 wall_only,
             )
             .into_iter()
-            .filter(|id| {
-                self.state
-                    .object(*id)
-                    .is_some_and(|o| o.controller == opponent)
+            .filter(|&id| {
+                if asking.use_zone_group {
+                    eval::same_controller_group(&self.state, id) == Some(seat)
+                } else {
+                    self.state.object(id).is_some_and(|o| o.controller == seat)
+                }
             })
             .collect();
             if options.is_empty() {
                 continue;
             }
+            asking.current = Some(seat);
+            let chooser = asking.chooser;
+            let min = asking.min_per_player;
             self.pending_plan = Some(plan(Box::new(asking)));
             self.pending = Pending::ChooseTargets {
-                player: controller,
+                player: chooser,
                 options,
                 player_options: Vec::new(),
-                min: 0,
+                min,
                 max: 1,
                 reason: TargetPrompt::Targets,
             };
             self.awaiting_answer = true;
             return None;
         }
-        Some(asking.gathered)
+        Some(asking)
+    }
+
+    /// Continues a `OnePerPlayer` prompt for an activated/loyalty ability
+    /// (storing remaining state in `self.activation_target_choice.per_player`).
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn ask_next_activation_per_player(
+        &mut self,
+        controller: PlayerId,
+        context: crate::text_changes::RuleContext,
+        x: Option<u32>,
+        wall_only: bool,
+        mut asking: PerOpponent,
+        plan: PlanKind,
+    ) -> Option<PerOpponent> {
+        while !asking.remaining.is_empty() {
+            let seat = asking.remaining.remove(0);
+            let options: Vec<ObjectId> = eval::target_options_in_domain(
+                &asking.spec,
+                &self.state,
+                controller,
+                context,
+                x,
+                wall_only,
+            )
+            .into_iter()
+            .filter(|&id| eval::same_controller_group(&self.state, id) == Some(seat))
+            .collect();
+            if options.is_empty() {
+                continue;
+            }
+            asking.current = Some(seat);
+            let chooser = asking.chooser;
+            let min = asking.min_per_player;
+            self.activation_target_choice.per_player = Some(Box::new(asking));
+            self.pending_plan = Some(plan);
+            self.pending = Pending::ChooseTargets {
+                player: chooser,
+                options,
+                player_options: Vec::new(),
+                min,
+                max: 1,
+                reason: TargetPrompt::Targets,
+            };
+            self.awaiting_answer = true;
+            return None;
+        }
+        Some(asking)
+    }
+
+    /// Continues a `OnePerPlayer` prompt for a stacked trigger's second target
+    /// clause.
+    pub(super) fn ask_next_trigger_second_per_player(
+        &mut self,
+        on_stack: ObjectId,
+        mut asking: PerOpponent,
+    ) -> Option<PerOpponent> {
+        let obj = self.state.object(on_stack)?.clone();
+        let reference = obj
+            .targets
+            .first()
+            .and_then(|id| self.state.source_identity(*id));
+        let (all_options, _) =
+            eval::stack_target_options_relative(&self.state, &obj, &asking.spec, reference);
+        while !asking.remaining.is_empty() {
+            let seat = asking.remaining.remove(0);
+            let options: Vec<ObjectId> = all_options
+                .iter()
+                .copied()
+                .filter(|&id| eval::same_controller_group(&self.state, id) == Some(seat))
+                .collect();
+            if options.is_empty() {
+                continue;
+            }
+            asking.current = Some(seat);
+            let chooser = asking.chooser;
+            let min = asking.min_per_player;
+            self.pending_plan = Some(PlanKind::TriggerSecondTarget {
+                on_stack,
+                per_opponent: Some(Box::new(asking)),
+            });
+            self.pending = Pending::ChooseTargets {
+                player: chooser,
+                options,
+                player_options: Vec::new(),
+                min,
+                max: 1,
+                reason: TargetPrompt::Targets,
+            };
+            self.awaiting_answer = true;
+            return None;
+        }
+        Some(asking)
     }
 
     /// Asks the second instance of "target" of the triggered ability that was
@@ -140,6 +235,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// resolution-time re-check (CR 608.2b) asks the question the offer did.
     ///
     /// Returns whether a question is now pending.
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn ask_trigger_second_target(&mut self) -> bool {
         let Some(top) = self
             .state
@@ -189,6 +285,40 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let (mut options, player_options) =
             eval::stack_target_options_relative(&self.state, obj, &req.spec, reference);
         let (min, max) = req.bounds(0);
+        if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+            if !eval::one_per_player_satisfied(
+                &self.state,
+                &req.spec,
+                controller,
+                &options,
+                req.min,
+            ) {
+                self.cleanup_check_acted();
+                self.state
+                    .zones
+                    .remove(top, crate::zone::ZoneLocation::Stack);
+                let _ = self.state.arena.remove(top);
+                return false;
+            }
+            if let Some(obj) = self.state.object_mut(top) {
+                obj.set_second(SmallVec::new(), Some(req));
+            }
+            if req.max == 0 {
+                return false;
+            }
+            let seats = eval::one_per_player_seats(&self.state, &req.spec, controller);
+            let asking = PerOpponent::one_per_player(req.spec, seats, req.min, chooser);
+            if let Some(done) = self.ask_next_trigger_second_per_player(top, asking) {
+                if let Some(obj) = self.state.object_mut(top) {
+                    obj.set_second(done.gathered.into_iter().collect(), Some(req));
+                }
+                if !done.groups.is_empty() {
+                    self.state.bind_one_per_player_groups(top, 1, &done.groups);
+                }
+                return false;
+            }
+            return true;
+        }
         if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
             if let Some(chosen) = self.activation_graveyard.take() {
                 options.retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
@@ -232,7 +362,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return false;
         }
         let max = max.min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
-        self.pending_plan = Some(PlanKind::TriggerSecondTarget { on_stack: top });
+        self.pending_plan = Some(PlanKind::TriggerSecondTarget {
+            on_stack: top,
+            per_opponent: None,
+        });
         self.pending = Pending::ChooseTargets {
             player: chooser,
             options,
@@ -586,11 +719,30 @@ mod tests {
 }
 
 /// Announcement state retained while a different seat chooses targets.
-#[derive(Clone, Debug, Default, Hash)]
+#[derive(Clone, Debug, Default)]
 pub(super) struct ActivationTargetChoice {
     pub controller: Option<PlayerId>,
     pub opponent: Option<PlayerId>,
     pub second_players: baylee_core::ids::SeatSet,
+    pub per_player: Option<Box<PerOpponent>>,
+    pub first_groups: SmallVec<[PlayerId; 4]>,
+    pub second_groups: SmallVec<[PlayerId; 4]>,
+}
+
+impl std::hash::Hash for ActivationTargetChoice {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.controller.hash(state);
+        self.opponent.hash(state);
+        self.second_players.hash(state);
+        if self.per_player.is_some()
+            || !self.first_groups.is_empty()
+            || !self.second_groups.is_empty()
+        {
+            self.per_player.hash(state);
+            self.first_groups.hash(state);
+            self.second_groups.hash(state);
+        }
+    }
 }
 
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {

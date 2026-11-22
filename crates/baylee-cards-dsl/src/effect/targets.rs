@@ -285,13 +285,19 @@ pub enum ColorSubject {
 }
 
 /// Relational constraint across multiple objects chosen within a single
-/// [`TargetReq`] (`TargetsWithSameController$ True`).
+/// [`TargetReq`] (`TargetsWithSameController$ True`, `TargetsForEachPlayer$ True`).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum TargetConstraint {
     /// Every chosen object must share the same controller on the
     /// battlefield/stack or reside in the same player's non-battlefield zone
     /// (e.g. *Bioshift*, *Simic Guildmage*, *Unlicensed Hearse*, *Ebony Charm*).
     SameController,
+    /// Choose one legal target controlled by (or in a zone owned by) each
+    /// player in turn order (skipping players with no legal target when
+    /// `min == 0`, or failing when mandatory and any required player has none;
+    /// e.g. *Vaevictis Asmadi, the Dire*, CR 115.1). Appended to preserve
+    /// replay identities.
+    OnePerPlayer,
 }
 
 /// Who chooses targets without changing the spell or ability's controller.

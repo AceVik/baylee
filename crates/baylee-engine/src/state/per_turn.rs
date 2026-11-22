@@ -278,6 +278,31 @@ pub struct PerTurn {
     /// Number of additional combat phases created this turn (bounded to prevent
     /// nonterminating infinite phase creation).
     pub extra_phases_created: PerTurnCount,
+    /// Cumulative cards cycled or discarded this turn per player
+    /// ([`baylee_cards_dsl::SpellCastMetric::CardsDiscardedThisTurn`], CR 701.9a).
+    pub cards_discarded: PerTurnTracked<(PlayerId, u32)>,
+    /// Permanents sacrificed from the battlefield this turn, with frozen
+    /// pre-departure snapshots for
+    /// [`baylee_cards_dsl::SpellCastMetric::PermanentsSacrificedThisTurn`].
+    pub sacrificed_permanents: PerTurnTracked<SacrificedPermanentRecord>,
+}
+
+/// One permanent sacrificed from the battlefield this turn
+/// ([`PerTurn::sacrificed_permanents`]).
+#[derive(Clone, Debug)]
+pub struct SacrificedPermanentRecord {
+    /// Exact battlefield incarnation that was sacrificed.
+    pub source: baylee_core::ids::DamageSourceRef,
+    /// Player who controlled (and therefore sacrificed, CR 701.21a) it.
+    pub controller: PlayerId,
+    /// Frozen snapshot of its projected characteristics as it left the battlefield.
+    pub snapshot: std::sync::Arc<crate::object::GameObject>,
+}
+
+impl std::hash::Hash for SacrificedPermanentRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (self.source, self.controller).hash(state);
+    }
 }
 
 /// One block declared this turn ([`PerTurn::blocks`]).
@@ -586,6 +611,8 @@ impl PerTurn {
             extra_phases: PerTurnVec::default(),
             phase_stack_active: PerTurnBool::default(),
             extra_phases_created: PerTurnCount::default(),
+            cards_discarded: PerTurnTracked::default(),
+            sacrificed_permanents: PerTurnTracked::default(),
         }
     }
 
@@ -669,6 +696,30 @@ impl PerTurn {
             .map_or(0, |(_, total)| *total)
     }
 
+    /// Records that `player` cycled or discarded a card this turn (CR 701.9a).
+    pub fn note_discard(&mut self, player: PlayerId) {
+        if let Some((_, count)) = self
+            .cards_discarded
+            .items
+            .iter_mut()
+            .find(|(p, _)| *p == player)
+        {
+            *count = count.saturating_add(1);
+        } else {
+            self.cards_discarded.items.push((player, 1));
+        }
+    }
+
+    /// Total cards `player` has cycled or discarded this turn (CR 701.9a).
+    #[must_use]
+    pub fn cards_discarded_by(&self, player: PlayerId) -> u32 {
+        self.cards_discarded
+            .items
+            .iter()
+            .find(|(p, _)| *p == player)
+            .map_or(0, |(_, count)| *count)
+    }
+
     /// Clears the object and event history that belongs only to this turn.
     fn clear_turn_history(&mut self) {
         self.pending_entry_history.clear();
@@ -698,6 +749,8 @@ impl PerTurn {
         self.extra_phases.0.clear();
         self.phase_stack_active.0 = false;
         self.extra_phases_created.0 = 0;
+        self.cards_discarded.items.clear();
+        self.sacrificed_permanents.items.clear();
     }
 
     /// Resets all counters (called at every turn start).
@@ -764,6 +817,8 @@ impl PerTurn {
             extra_phases: _,
             phase_stack_active: _,
             extra_phases_created: _,
+            cards_discarded: _,
+            sacrificed_permanents: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

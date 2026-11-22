@@ -12,7 +12,86 @@ enum GroupNarrow {
     Yielded,
 }
 
+enum OnePerPlayerStep {
+    NotApplicable,
+    Yielded,
+    Failed,
+    Finished {
+        targets: SmallVec<[ObjectId; 4]>,
+        groups: SmallVec<[PlayerId; 4]>,
+    },
+}
+
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
+    fn advance_wizard_one_per_player(
+        &mut self,
+        wizard: &mut CastWizard,
+        req: TargetReq,
+        options: &[ObjectId],
+    ) -> OnePerPlayerStep {
+        if req.constraint() != Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+            return OnePerPlayerStep::NotApplicable;
+        }
+        if wizard.one_per_player.is_none() {
+            if !eval::one_per_player_satisfied(
+                &self.state,
+                &req.spec,
+                wizard.player,
+                options,
+                req.min,
+            ) {
+                return OnePerPlayerStep::Failed;
+            }
+            if req.max == 0 {
+                return OnePerPlayerStep::Finished {
+                    targets: SmallVec::new(),
+                    groups: SmallVec::new(),
+                };
+            }
+            let seats = eval::one_per_player_seats(&self.state, &req.spec, wizard.player);
+            wizard.one_per_player = Some(Box::new(super::OnePerPlayerProgress {
+                remaining: seats,
+                current: None,
+                gathered: SmallVec::new(),
+                groups: SmallVec::new(),
+                min_per_player: u32::from(req.min > 0),
+            }));
+        }
+        let mut progress = wizard.one_per_player.take().expect("one_per_player active");
+        while !progress.remaining.is_empty() {
+            let seat = progress.remaining.remove(0);
+            let seat_options: Vec<ObjectId> = options
+                .iter()
+                .copied()
+                .filter(|&id| eval::same_controller_group(&self.state, id) == Some(seat))
+                .collect();
+            if seat_options.is_empty() {
+                if progress.min_per_player > 0 {
+                    return OnePerPlayerStep::Failed;
+                }
+                continue;
+            }
+            progress.current = Some(seat);
+            let min = progress.min_per_player;
+            wizard.one_per_player = Some(progress);
+            self.cast_wizard = Some(wizard.clone());
+            self.pending = Pending::ChooseTargets {
+                player: wizard.player,
+                options: seat_options,
+                player_options: Vec::new(),
+                min,
+                max: 1,
+                reason: TargetPrompt::Targets,
+            };
+            self.awaiting_answer = true;
+            return OnePerPlayerStep::Yielded;
+        }
+        OnePerPlayerStep::Finished {
+            targets: progress.gathered,
+            groups: progress.groups,
+        }
+    }
+
     fn narrow_wizard_same_controller_group(
         &mut self,
         wizard: &mut CastWizard,
@@ -435,6 +514,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 let mut options = self.wizard_target_options(&wizard, &spec);
                 let mut wizard = wizard;
+                match self.advance_wizard_one_per_player(&mut wizard, req, &options) {
+                    OnePerPlayerStep::NotApplicable => {}
+                    OnePerPlayerStep::Yielded => return WizardStep::Yield(Ok(())),
+                    OnePerPlayerStep::Failed => {
+                        self.cast_wizard = None;
+                        return WizardStep::Yield(Err(EngineError::IllegalAction(
+                            "not enough legal targets",
+                        )));
+                    }
+                    OnePerPlayerStep::Finished { targets, groups } => {
+                        wizard.target_references.first = self.state.capture_target_group(&targets);
+                        wizard.targets = targets.into_iter().collect();
+                        wizard.target_players = baylee_core::ids::SeatSet::new();
+                        if !groups.is_empty() {
+                            wizard
+                                .target_group_bindings
+                                .get_or_insert_with(Box::default)
+                                .first = groups;
+                        }
+                        wizard.stage = WizardStage::SecondTargets;
+                        self.cast_wizard = Some(wizard);
+                        return WizardStep::Continue;
+                    }
+                }
                 if matches!(
                     self.narrow_wizard_same_controller_group(&mut wizard, req, min, &mut options),
                     GroupNarrow::Yielded
@@ -532,6 +635,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.wizard_target_options_relative(&wizard, &req.spec, reference);
                 let (min, max) = req.bounds(wizard.x);
                 let mut wizard = wizard;
+                match self.advance_wizard_one_per_player(&mut wizard, req, &options) {
+                    OnePerPlayerStep::NotApplicable => {}
+                    OnePerPlayerStep::Yielded => return WizardStep::Yield(Ok(())),
+                    OnePerPlayerStep::Failed => {
+                        self.cast_wizard = None;
+                        return WizardStep::Yield(Err(EngineError::IllegalAction(
+                            "not enough legal targets",
+                        )));
+                    }
+                    OnePerPlayerStep::Finished { targets, groups } => {
+                        wizard.target_references.second = self.state.capture_target_group(&targets);
+                        wizard.second_targets = targets.into_iter().collect();
+                        wizard.second_target_players = baylee_core::ids::SeatSet::new();
+                        if !groups.is_empty() {
+                            wizard
+                                .target_group_bindings
+                                .get_or_insert_with(Box::default)
+                                .second = groups;
+                        }
+                        wizard.stage = WizardStage::ExtraTargets;
+                        self.cast_wizard = Some(wizard);
+                        return WizardStep::Continue;
+                    }
+                }
                 if matches!(
                     self.narrow_wizard_same_controller_group(&mut wizard, req, min, &mut options),
                     GroupNarrow::Yielded
@@ -588,6 +715,36 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.wizard_target_options_relative(&wizard, &req.spec, reference);
                 let (min, max) = req.bounds(wizard.x);
                 let mut wizard = wizard;
+                match self.advance_wizard_one_per_player(&mut wizard, req, &options) {
+                    OnePerPlayerStep::NotApplicable => {}
+                    OnePerPlayerStep::Yielded => return WizardStep::Yield(Ok(())),
+                    OnePerPlayerStep::Failed => {
+                        self.cast_wizard = None;
+                        return WizardStep::Yield(Err(EngineError::IllegalAction(
+                            "not enough legal targets",
+                        )));
+                    }
+                    OnePerPlayerStep::Finished { targets, groups } => {
+                        let extra_idx = wizard.extra_targets.len();
+                        wizard
+                            .target_references
+                            .extra
+                            .push(self.state.capture_target_group(&targets));
+                        wizard.extra_targets.push((
+                            targets.into_iter().collect(),
+                            baylee_core::ids::SeatSet::new(),
+                        ));
+                        if !groups.is_empty() {
+                            wizard
+                                .target_group_bindings
+                                .get_or_insert_with(Box::default)
+                                .extra
+                                .push((extra_idx, groups));
+                        }
+                        self.cast_wizard = Some(wizard);
+                        return WizardStep::Continue;
+                    }
+                }
                 if matches!(
                     self.narrow_wizard_same_controller_group(&mut wizard, req, min, &mut options),
                     GroupNarrow::Yielded

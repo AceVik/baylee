@@ -92,6 +92,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     baylee_cards_dsl::Modifier::SpellsCostMore(_)
                         | baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(_)
                         | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
+                        | baylee_cards_dsl::Modifier::AdjustSpellCostByCast {
+                            delta_per_unit: 1..=i8::MAX,
+                            ..
+                        }
                 )
             });
         let next = self
@@ -110,6 +114,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             | baylee_cards_dsl::Modifier::SpellsCostLessMana { .. }
                             | baylee_cards_dsl::Modifier::SpellsCostLessByAmount(_)
                             | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
+                            | baylee_cards_dsl::Modifier::AdjustSpellCostByCast {
+                                delta_per_unit: i8::MIN..=-1,
+                                ..
+                            }
                     )
                 }));
         (increases, reductions, next)
@@ -209,7 +217,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         &self,
         player: PlayerId,
         card: ObjectId,
-        def: &baylee_cards_dsl::CardDef,
+        def: &'static baylee_cards_dsl::CardDef,
         face: usize,
         form: Option<casting::SpellForm>,
         commander: u32,
@@ -240,10 +248,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             casting::SpellForm::Foretell(c) | casting::SpellForm::Impending(c) => c,
             casting::SpellForm::Plot => baylee_core::mana::ManaCost::ZERO,
         });
+        let preview = if matches!(form, Some(casting::SpellForm::Disguise)) {
+            casting::PreviewDynamicDelta::default()
+        } else {
+            casting::preview_cast_metric_bounds(&self.state, player, card, def, face, &adjustment)
+        };
         let with_inc = raw_cost
             .with_x(0)
             .combine(&adjustment.mana_increase)
-            .with_more_generic(adjustment.increase);
+            .with_more_generic(adjustment.increase.saturating_add(preview.min_increase));
         let colored_only_saved = with_inc.cmc().saturating_sub(
             with_inc
                 .with_less_mana(&adjustment.colored_only_reduction, true)
@@ -252,10 +265,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         (
             adjustment
                 .increase
+                .saturating_add(preview.min_increase)
                 .saturating_add(adjustment.mana_increase.cmc())
                 .saturating_sub(commander),
             adjustment
                 .reduction
+                .saturating_add(preview.min_reduction)
                 .saturating_add(own)
                 .saturating_add(adjustment.mana_reduction.cmc())
                 .saturating_add(colored_only_saved),

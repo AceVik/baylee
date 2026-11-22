@@ -311,7 +311,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // activation's are. A division is asked the same way, of the
             // targets it divides among.
             Some(
-                PlanKind::TriggerSecondTarget { on_stack }
+                PlanKind::TriggerSecondTarget { on_stack, .. }
                 | PlanKind::ChooseTriggerSecondGroup { on_stack }
                 | PlanKind::DivideDamage { on_stack, .. },
             ) => self.state.object(*on_stack).and_then(|o| {
@@ -329,7 +329,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.trigger_queue.front().map(|t| t.controller)
             }
             Some(
-                PlanKind::TriggerSecondTarget { on_stack }
+                PlanKind::TriggerSecondTarget { on_stack, .. }
                 | PlanKind::ChooseTriggerSecondGroup { on_stack }
                 | PlanKind::DivideDamage { on_stack, .. },
             ) => controller(*on_stack),
@@ -369,7 +369,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.trigger_queue.front().and_then(|t| t.abilities.clone())
                 }
                 Some(
-                    PlanKind::TriggerSecondTarget { on_stack }
+                    PlanKind::TriggerSecondTarget { on_stack, .. }
                     | PlanKind::ChooseTriggerSecondGroup { on_stack }
                     | PlanKind::DivideDamage { on_stack, .. },
                 ) => self

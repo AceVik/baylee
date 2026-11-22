@@ -683,10 +683,10 @@ impl GameState {
         placements.sort_unstable();
         placements.hash(h);
         self.hash_must_block_pairs(h, position);
-        self.hash_extra_turn_tallies(h);
+        self.hash_extra_turn_tallies(h, position);
     }
 
-    fn hash_extra_turn_tallies(&self, h: &mut Hasher) {
+    fn hash_extra_turn_tallies(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
         if !self.per_turn.spells_warped.is_empty() {
             self.per_turn.spells_warped.0.as_slice().hash(h);
         }
@@ -711,6 +711,28 @@ impl GameState {
         }
         if !self.per_turn.graveyard_allowances_used.is_empty() {
             self.per_turn.graveyard_allowances_used.as_slice().hash(h);
+        }
+        if self.per_turn.cards_discarded.tracked && !self.per_turn.cards_discarded.items.is_empty()
+        {
+            self.per_turn.cards_discarded.items.as_slice().hash(h);
+        }
+        if self.per_turn.sacrificed_permanents.tracked
+            && !self.per_turn.sacrificed_permanents.items.is_empty()
+        {
+            let entries: Vec<_> = self
+                .per_turn
+                .sacrificed_permanents
+                .items
+                .iter()
+                .map(|rec| {
+                    (
+                        rec.controller,
+                        position(rec.source.object),
+                        rec.snapshot.characteristics().types,
+                    )
+                })
+                .collect();
+            entries.hash(h);
         }
     }
 

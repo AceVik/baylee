@@ -63,11 +63,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             object.paid = self.loyalty_paid.take().map(Box::new);
         }
         self.apply_ability_spend_riders(player, id);
+        let first_groups = std::mem::take(&mut self.activation_target_choice.first_groups);
+        let second_groups = std::mem::take(&mut self.activation_target_choice.second_groups);
         self.activating_grant = None;
         self.release_target_choice();
         self.activation_targets_answered = false;
         self.state
             .bind_target_references(id, &self.activation_target_references);
+        if !first_groups.is_empty() {
+            self.state.bind_one_per_player_groups(id, 0, &first_groups);
+        }
+        if !second_groups.is_empty() {
+            self.state.bind_one_per_player_groups(id, 1, &second_groups);
+        }
         self.activation_target_references = crate::sources::TargetReferences::default();
         self.record_activation_division(id, &[]);
         self.state.journal.record(GameEvent::AbilityActivated {
@@ -117,6 +125,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// asks for the second (Oko, Thief of Crowns' −5) the way an activated
     /// ability does (CR 601.2c, CR 115.3), or pays the loyalty cost (CR 601.2h,
     /// CR 606.4) and puts the ability on the stack.
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn continue_loyalty_activation(
         &mut self,
         player: PlayerId,
@@ -134,57 +143,102 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 None,
                 self.activation_wall_only(source, ability_index),
             );
-            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
-                if let Some(chosen) = self.activation_graveyard.take() {
-                    options
-                        .retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
-                } else {
-                    let groups = eval::eligible_same_controller_groups(&self.state, &options, min);
-                    match groups.as_slice() {
-                        [] => options.clear(),
-                        [only] => {
-                            options.retain(|id| {
-                                eval::same_controller_group(&self.state, *id) == Some(*only)
-                            });
-                        }
-                        _ => {
-                            self.pending_plan = Some(PlanKind::ChooseActivationSecondGroup {
-                                source,
-                                ability_index,
-                                targets,
-                                target_players: Vec::new(),
-                            });
-                            self.pending = Pending::ChoosePlayer {
-                                player,
-                                options: groups,
-                            };
-                            self.awaiting_answer = true;
-                            return Ok(());
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+                if !eval::one_per_player_satisfied(
+                    &self.state,
+                    &req.spec,
+                    player,
+                    &options,
+                    req.min,
+                ) {
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+                if max > 0 {
+                    let seats = eval::one_per_player_seats(&self.state, &req.spec, player);
+                    let asking =
+                        super::super::PerOpponent::one_per_player(req.spec, seats, req.min, player);
+                    let plan = PlanKind::ActivateAbilitySecondTargets {
+                        source,
+                        ability_index,
+                        targets: targets.clone(),
+                        target_players: Vec::new(),
+                    };
+                    if let Some(done) = self.ask_next_activation_per_player(
+                        player,
+                        self.ability_rule_context(source, ability_index),
+                        None,
+                        self.activation_wall_only(source, ability_index),
+                        asking,
+                        plan,
+                    ) {
+                        self.activation_target_references.second =
+                            self.state.capture_target_group(&done.gathered);
+                        self.activation_target_choice.second_groups = done.groups;
+                        return self.pay_loyalty_and_finish(
+                            player,
+                            source,
+                            ability_index,
+                            targets,
+                            done.gathered.into_iter().collect(),
+                        );
+                    }
+                    return Ok(());
+                }
+            } else {
+                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+                    if let Some(chosen) = self.activation_graveyard.take() {
+                        options.retain(|id| {
+                            eval::same_controller_group(&self.state, *id) == Some(chosen)
+                        });
+                    } else {
+                        let groups =
+                            eval::eligible_same_controller_groups(&self.state, &options, min);
+                        match groups.as_slice() {
+                            [] => options.clear(),
+                            [only] => {
+                                options.retain(|id| {
+                                    eval::same_controller_group(&self.state, *id) == Some(*only)
+                                });
+                            }
+                            _ => {
+                                self.pending_plan = Some(PlanKind::ChooseActivationSecondGroup {
+                                    source,
+                                    ability_index,
+                                    targets,
+                                    target_players: Vec::new(),
+                                });
+                                self.pending = Pending::ChoosePlayer {
+                                    player,
+                                    options: groups,
+                                };
+                                self.awaiting_answer = true;
+                                return Ok(());
+                            }
                         }
                     }
                 }
-            }
-            if options.len() < min as usize {
-                return Err(EngineError::IllegalAction("no legal targets"));
-            }
-            if !options.is_empty() && max > 0 {
-                self.pending_plan = Some(PlanKind::ActivateAbilitySecondTargets {
-                    source,
-                    ability_index,
-                    targets,
-                    target_players: Vec::new(),
-                });
-                let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
-                self.pending = Pending::ChooseTargets {
-                    player,
-                    options,
-                    player_options: Vec::new(),
-                    min,
-                    max,
-                    reason: TargetPrompt::Targets,
-                };
-                self.awaiting_answer = true;
-                return Ok(());
+                if options.len() < min as usize {
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+                if !options.is_empty() && max > 0 {
+                    self.pending_plan = Some(PlanKind::ActivateAbilitySecondTargets {
+                        source,
+                        ability_index,
+                        targets,
+                        target_players: Vec::new(),
+                    });
+                    let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
+                    self.pending = Pending::ChooseTargets {
+                        player,
+                        options,
+                        player_options: Vec::new(),
+                        min,
+                        max,
+                        reason: TargetPrompt::Targets,
+                    };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
             }
         }
         if let Some(AbilityDef::Loyalty { effects, .. }) =
@@ -329,6 +383,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     } else {
                         req.min as usize
                     }
+                } else if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer)
+                {
+                    if eval::one_per_player_satisfied(
+                        &self.state,
+                        &req.spec,
+                        player,
+                        &objs,
+                        req.min,
+                    ) {
+                        req.min as usize
+                    } else {
+                        0
+                    }
                 } else {
                     objs.len()
                 }
@@ -393,57 +460,99 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 None,
                 self.activation_wall_only(source, ability_index),
             );
-            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
-                if let Some(chosen) = self.activation_graveyard.take() {
-                    options
-                        .retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
-                } else {
-                    let groups = eval::eligible_same_controller_groups(&self.state, &options, min);
-                    match groups.as_slice() {
-                        [] => options.clear(),
-                        [only] => {
-                            options.retain(|id| {
-                                eval::same_controller_group(&self.state, *id) == Some(*only)
-                            });
-                        }
-                        _ => {
-                            self.pending_plan = Some(PlanKind::ChooseActivationGraveyard {
-                                source,
-                                ability_index,
-                            });
-                            self.pending = Pending::ChoosePlayer {
-                                player,
-                                options: groups,
-                            };
-                            self.awaiting_answer = true;
-                            return Ok(());
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+                if !eval::one_per_player_satisfied(
+                    &self.state,
+                    &req.spec,
+                    player,
+                    &options,
+                    req.min,
+                ) {
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+                if max > 0 {
+                    let seats = eval::one_per_player_seats(&self.state, &req.spec, player);
+                    let asking =
+                        super::super::PerOpponent::one_per_player(req.spec, seats, req.min, player);
+                    let plan = PlanKind::ActivateAbility {
+                        source,
+                        ability_index,
+                    };
+                    if let Some(done) = self.ask_next_activation_per_player(
+                        player,
+                        self.ability_rule_context(source, ability_index),
+                        None,
+                        self.activation_wall_only(source, ability_index),
+                        asking,
+                        plan,
+                    ) {
+                        self.activation_target_references.first =
+                            self.state.capture_target_group(&done.gathered);
+                        self.activation_target_choice.first_groups = done.groups;
+                        return self.continue_loyalty_activation(
+                            player,
+                            source,
+                            ability_index,
+                            done.gathered,
+                        );
+                    }
+                    return Ok(());
+                }
+            } else {
+                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController) {
+                    if let Some(chosen) = self.activation_graveyard.take() {
+                        options.retain(|id| {
+                            eval::same_controller_group(&self.state, *id) == Some(chosen)
+                        });
+                    } else {
+                        let groups =
+                            eval::eligible_same_controller_groups(&self.state, &options, min);
+                        match groups.as_slice() {
+                            [] => options.clear(),
+                            [only] => {
+                                options.retain(|id| {
+                                    eval::same_controller_group(&self.state, *id) == Some(*only)
+                                });
+                            }
+                            _ => {
+                                self.pending_plan = Some(PlanKind::ChooseActivationGraveyard {
+                                    source,
+                                    ability_index,
+                                });
+                                self.pending = Pending::ChoosePlayer {
+                                    player,
+                                    options: groups,
+                                };
+                                self.awaiting_answer = true;
+                                return Ok(());
+                            }
                         }
                     }
                 }
-            }
-            if options.len() < min as usize {
-                return Err(EngineError::IllegalAction("no legal targets"));
-            }
-            // "Up to one target" with nothing on the board to point at is not
-            // a question: there would be one answer to it. The ability goes
-            // on the stack targeting nothing, which is what the printing says
-            // it may do.
-            if !options.is_empty() && max > 0 {
-                self.pending_plan = Some(PlanKind::ActivateAbility {
-                    source,
-                    ability_index,
-                });
-                let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
-                self.pending = Pending::ChooseTargets {
-                    player,
-                    options,
-                    player_options: Vec::new(),
-                    min,
-                    max,
-                    reason: TargetPrompt::Targets,
-                };
-                self.awaiting_answer = true;
-                return Ok(());
+                if options.len() < min as usize {
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+                // "Up to one target" with nothing on the board to point at is not
+                // a question: there would be one answer to it. The ability goes
+                // on the stack targeting nothing, which is what the printing says
+                // it may do.
+                if !options.is_empty() && max > 0 {
+                    self.pending_plan = Some(PlanKind::ActivateAbility {
+                        source,
+                        ability_index,
+                    });
+                    let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
+                    self.pending = Pending::ChooseTargets {
+                        player,
+                        options,
+                        player_options: Vec::new(),
+                        min,
+                        max,
+                        reason: TargetPrompt::Targets,
+                    };
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
             }
         }
         self.continue_loyalty_activation(player, source, ability_index, targets)

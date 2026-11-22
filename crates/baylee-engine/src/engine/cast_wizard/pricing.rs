@@ -46,11 +46,43 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         };
         let is_fused = wizard.option == Some(CastModeKind::Fused);
         let adjustment = if is_fused {
-            let object = self.state.object(wizard.card).expect("wizard card exists");
-            casting::spell_adjustment_with_def(&self.state, wizard.player, object, Some(def))
+            let mut object = self
+                .state
+                .object(wizard.card)
+                .expect("wizard card exists")
+                .clone();
+            object.x_value = 0;
+            casting::spell_adjustment_with_def(&self.state, wizard.player, &object, Some(def))
         } else {
-            casting::face_adjustment(&self.state, wizard.player, wizard.card, def, index, form)
+            let mut object = self
+                .state
+                .object(wizard.card)
+                .expect("wizard card exists")
+                .clone();
+            object.x_value = 0;
+            object.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+                def,
+                index,
+                object.base.name,
+            ));
+            object.cache.clear();
+            object.face_index = u8::try_from(index).unwrap_or(0);
+            if let Some(form) = form {
+                object = form.project(&object);
+            }
+            casting::spell_adjustment_with_def(&self.state, wizard.player, &object, Some(def))
         };
+        self.frozen_spell_reduction_from(wizard, def, &adjustment)
+    }
+
+    fn frozen_spell_reduction_from(
+        &self,
+        wizard: &CastWizard,
+        def: &'static baylee_cards_dsl::CardDef,
+        adjustment: &casting::SpellAdjustment,
+    ) -> FrozenReduction {
+        let face = self.wizard_face(wizard);
+        let is_fused = wizard.option == Some(CastModeKind::Fused);
         let printed = if wizard.masked || wizard.option == Some(CastModeKind::Disguise) {
             0
         } else if is_fused {
@@ -127,11 +159,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         adjustment.price(emerge.cost, printed.saturating_add(sacrificed_mv))
     }
 
-    /// Recomputes target-dependent cost modifiers (CR 601.2c -> 601.2f, such as
-    /// `AbilityDef::PerExtraTargetCost` for Strive, `Filter::SpellTargetingAffected`
-    /// on Kaervek's Torch, or `Filter::TargetsPermanentYouControl`) once targets
-    /// have been chosen.
-    pub(super) fn refresh_target_cost_adjustments(&self, wizard: &mut CastWizard) {
+    /// Recomputes cast-time dynamic cost modifiers (CR 601.2b/c -> 601.2f, such
+    /// as `AbilityDef::PerExtraTargetCost` for Strive, `Filter::SpellTargetingAffected`,
+    /// `Filter::TargetsPermanentYouControl`, and `Modifier::AdjustSpellCostByCast`
+    /// for `DistinctTargets` and `XPaid`). Idempotent across X and target stages.
+    pub(in crate::engine) fn refresh_target_cost_adjustments(&self, wizard: &mut CastWizard) {
         let Some(object) = self.state.object(wizard.card) else {
             return;
         };
@@ -146,7 +178,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             def.per_extra_target_cost(face_idx)
                 .map_or(ManaCost::ZERO, |per| ManaCost::ZERO.combine_n(&per, extra))
         };
-        if !self.state.effects.may_change_spell_costs() {
+        let self_statics = !wizard.masked
+            && wizard.option != Some(CastModeKind::Disguise)
+            && casting::card_has_self_spell_cost_statics(def);
+        if !self.state.effects.may_change_spell_costs() && !self_statics {
             wizard.target_increase = strive_increase;
             return;
         }
@@ -157,26 +192,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             _ => None,
         };
         let is_fused = wizard.option == Some(CastModeKind::Fused);
-        let without = if is_fused {
-            casting::spell_adjustment_with_def(&self.state, wizard.player, object, Some(def))
-        } else {
-            casting::face_adjustment(&self.state, wizard.player, wizard.card, def, face_idx, form)
-        };
-        let mut targeted = object.clone();
+        let mut baseline = object.clone();
+        baseline.x_value = 0;
+        baseline.targets.clear();
+        baseline.target_players = baylee_core::ids::SeatSet::new();
+        baseline.chosen_player = None;
+        baseline.set_second(SmallVec::new(), None);
+        baseline.set_second_players(baylee_core::ids::SeatSet::new());
+        baseline.set_extra_targets(Vec::new());
         if !is_fused {
-            targeted.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+            baseline.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
                 def,
                 face_idx,
                 object.base.name,
             ));
-            targeted.cache.clear();
-            targeted.face_index = u8::try_from(face_idx).unwrap_or(0);
+            baseline.cache.clear();
+            baseline.face_index = u8::try_from(face_idx).unwrap_or(0);
         }
         if let Some(form) = form {
-            targeted = form.project(&targeted);
+            baseline = form.project(&baseline);
         }
+        let without =
+            casting::spell_adjustment_with_def(&self.state, wizard.player, &baseline, Some(def));
+        let mut targeted = baseline;
+        targeted.x_value = wizard.x;
         targeted.targets.clone_from(&wizard.targets);
         targeted.target_players = wizard.target_players;
+        if self
+            .wizard_target_req(wizard)
+            .is_some_and(|req| matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent))
+            && let Some(p) = wizard.chosen_player
+        {
+            targeted.target_players.insert(p);
+        }
         targeted.set_second(wizard.second_targets.clone(), None);
         targeted.set_second_players(wizard.second_target_players);
         if !wizard.extra_targets.is_empty() {
@@ -204,12 +252,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .with_more_generic(with_targets.increase.saturating_sub(without.increase)),
         );
         let extra_red = with_targets.reduction.saturating_sub(without.reduction);
-        if extra_red > 0
-            && let Some(frozen) = wizard.reduction.as_mut()
-        {
-            frozen.total = frozen.total.saturating_add(extra_red);
-            frozen.remainder = frozen.remainder.saturating_add(extra_red);
-        }
+        let mut frozen = self.frozen_spell_reduction_from(wizard, def, &without);
+        frozen.total = frozen.total.saturating_add(extra_red);
+        frozen.remainder = frozen.remainder.saturating_add(extra_red);
+        frozen.allowance = casting::base_allowance(&self.state, spend_for(wizard, face)).adjusted(
+            with_targets.eligible_increase,
+            with_targets
+                .increase
+                .saturating_sub(with_targets.eligible_increase),
+            frozen.total,
+        );
+        wizard.reduction = Some(frozen);
     }
 }
 

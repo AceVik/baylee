@@ -216,6 +216,7 @@ impl GameState {
         let object = self.object(card)?;
         let version = object.version;
         let types = known.then_some(object.characteristics().types);
+        self.per_turn.note_discard(player);
         self.journal.record(GameEvent::Discarded {
             object: card,
             version,

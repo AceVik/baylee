@@ -520,3 +520,86 @@ fn effects_read_expend(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
     });
     found
 }
+
+pub(crate) fn card_reads_discard_count(def: &CardDef) -> bool {
+    card_has_spell_cast_metric(def, |metric| {
+        matches!(
+            metric,
+            baylee_cards_dsl::SpellCastMetric::CardsDiscardedThisTurn
+        )
+    })
+}
+
+pub(crate) fn card_reads_sacrificed_permanents(def: &CardDef) -> bool {
+    card_has_spell_cast_metric(def, |metric| {
+        matches!(
+            metric,
+            baylee_cards_dsl::SpellCastMetric::PermanentsSacrificedThisTurn(_)
+        )
+    })
+}
+
+fn card_has_spell_cast_metric(
+    def: &CardDef,
+    predicate: impl Fn(baylee_cards_dsl::SpellCastMetric) -> bool + Copy,
+) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face)
+            .iter()
+            .any(|ability| ability_has_spell_cast_metric(ability, predicate))
+    })
+}
+
+fn ability_has_spell_cast_metric(
+    ability: &baylee_cards_dsl::AbilityDef,
+    predicate: impl Fn(baylee_cards_dsl::SpellCastMetric) -> bool + Copy,
+) -> bool {
+    use baylee_cards_dsl::{AbilityDef, Modifier};
+    match ability {
+        AbilityDef::Static(sa) => matches!(
+            sa.modifier,
+            Modifier::AdjustSpellCostByCast { metric, .. } if predicate(metric)
+        ),
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => effects_have_spell_cast_metric(effects, predicate),
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. } => modes
+            .iter()
+            .any(|m| effects_have_spell_cast_metric(m.effects, predicate)),
+        _ => false,
+    }
+}
+
+fn effects_have_spell_cast_metric(
+    effects: &'static [baylee_cards_dsl::Effect],
+    predicate: impl Fn(baylee_cards_dsl::SpellCastMetric) -> bool + Copy,
+) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::{Effect, Modifier};
+        found |= match effect {
+            Effect::CreateContinuousEffect {
+                modifier: Modifier::AdjustSpellCostByCast { metric, .. },
+                ..
+            } => predicate(*metric),
+            Effect::MoveAndModify { modifiers, .. } => modifiers.iter().any(|m| {
+                matches!(
+                    m,
+                    Modifier::AdjustSpellCostByCast { metric, .. } if predicate(*metric)
+                )
+            }),
+            Effect::CreateEmblem { abilities } => abilities
+                .iter()
+                .any(|a| ability_has_spell_cast_metric(a, predicate)),
+            _ => false,
+        };
+    });
+    found
+}

@@ -133,7 +133,10 @@ pub(super) fn check_settled<L: CardLookup, D: crate::engine::LoopDetection>(
         (
             activation_target_choice.controller.is_some()
                 || activation_target_choice.opponent.is_some()
-                || !activation_target_choice.second_players.is_empty(),
+                || !activation_target_choice.second_players.is_empty()
+                || activation_target_choice.per_player.is_some()
+                || !activation_target_choice.first_groups.is_empty()
+                || !activation_target_choice.second_groups.is_empty(),
             "activation_target_choice",
         ),
         (

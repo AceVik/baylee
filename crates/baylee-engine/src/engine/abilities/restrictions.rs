@@ -242,7 +242,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 
     /// Target permissions of the actual activation, including runtime grants.
-    pub(super) fn activation_wall_only(&self, source: ObjectId, index: u32) -> bool {
+    pub(in crate::engine) fn activation_wall_only(&self, source: ObjectId, index: u32) -> bool {
         let frozen = self
             .activating_abilities
             .as_ref()
@@ -370,6 +370,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         u32::from(second_req.min),
                     )
                     .is_empty()
+                } else if second_req.constraint()
+                    == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer)
+                {
+                    eval::one_per_player_satisfied(
+                        &self.state,
+                        &second_req.spec,
+                        player,
+                        &second_objs,
+                        second_req.min,
+                    )
                 } else {
                     second_objs.len() >= usize::from(second_req.min)
                 }
@@ -454,6 +464,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 u32::from(req.min),
             )
             .is_empty();
+        }
+        if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+            return eval::one_per_player_satisfied(
+                &self.state,
+                &req.spec,
+                player,
+                &object_list,
+                req.min,
+            );
         }
         let objects = object_list.len();
         let players = eval::target_player_options_from(

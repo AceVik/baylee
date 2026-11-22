@@ -181,6 +181,10 @@ pub struct CastWizard {
     pub chosen_player: Option<PlayerId>,
     /// Group controller/owner chosen for the current `SameController` target clause.
     pub target_group_player: Option<PlayerId>,
+    /// In-flight per-player target selection for [`baylee_cards_dsl::TargetConstraint::OnePerPlayer`].
+    pub one_per_player: Option<Box<OnePerPlayerProgress>>,
+    /// Recorded player group bindings for finalized `OnePerPlayer` clauses on this spell.
+    pub target_group_bindings: Option<Box<OnePerPlayerBindings>>,
     /// Chosen X.
     pub x: u32,
     /// Whether the kicker was taken.
@@ -318,6 +322,30 @@ pub(crate) struct AltCastWizardState {
     pub selected: Option<casting::AltCastGrantRoute>,
 }
 
+/// Boxed per-player targeting progress for
+/// [`baylee_cards_dsl::TargetConstraint::OnePerPlayer`] on [`CastWizard`].
+#[derive(Debug, Clone, Hash)]
+pub(crate) struct OnePerPlayerProgress {
+    /// Seats remaining to prompt in turn order.
+    pub remaining: Vec<PlayerId>,
+    /// Seat currently being prompted.
+    pub current: Option<PlayerId>,
+    /// Targets gathered so far across prompted seats.
+    pub gathered: SmallVec<[ObjectId; 4]>,
+    /// Player group bound to each target in `gathered`.
+    pub groups: SmallVec<[PlayerId; 4]>,
+    /// Minimum targets required for each seat (`0` or `1`).
+    pub min_per_player: u32,
+}
+
+/// Recorded player groups for finalized `OnePerPlayer` target clauses on a spell.
+#[derive(Debug, Clone, Default, Hash)]
+pub(crate) struct OnePerPlayerBindings {
+    pub first: SmallVec<[PlayerId; 4]>,
+    pub second: SmallVec<[PlayerId; 4]>,
+    pub extra: Vec<(usize, SmallVec<[PlayerId; 4]>)>,
+}
+
 impl CastWizard {
     pub(in crate::engine) fn selected_alt_grant(&self) -> Option<casting::AltCastGrantRoute> {
         self.alt_cast.as_deref().and_then(|s| s.selected)
@@ -391,6 +419,8 @@ impl CastWizard {
             target_players: baylee_core::ids::SeatSet::new(),
             chosen_player: None,
             target_group_player: None,
+            one_per_player: None,
+            target_group_bindings: None,
             x: 0,
             kicked: false,
             kicked_mask: 0,
@@ -638,6 +668,15 @@ impl CastWizard {
                     self.exile_instead_of_graveyard,
                     self.selected_alt_grant().map(|r| r.effect_id),
                     self.target_group_player,
+                )));
+        }
+        if self.one_per_player.is_some() || self.target_group_bindings.is_some() {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    311u16,
+                    &self.one_per_player,
+                    &self.target_group_bindings,
                 )));
         }
         hash = hash
@@ -2134,12 +2173,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// decides.
     pub(super) fn pool_alone_pays_x(&self, wizard: &CastWizard) -> bool {
         let face = self.wizard_face(wizard);
-        let has_strive = self
+        let def = self
             .state
             .object(wizard.card)
             .and_then(|o| o.card)
-            .and_then(|c| self.lookup.card(c.index))
-            .is_some_and(|def| def.per_extra_target_cost(wizard.face_index()).is_some());
+            .and_then(|c| self.lookup.card(c.index));
+        let has_strive =
+            def.is_some_and(|def| def.per_extra_target_cost(wizard.face_index()).is_some());
+        let has_dynamic_cast_cost = def.is_some_and(|def| {
+            let adj = casting::face_adjustment(
+                &self.state,
+                wizard.player,
+                wizard.card,
+                def,
+                wizard.face_index(),
+                None,
+            );
+            adj.per_distinct_target_delta != 0 || adj.per_x_paid_delta != 0
+        });
         !wizard.makes_mana_after_choices()
             && !face.delve
             && !face.convoke
@@ -2147,6 +2198,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             && !face.waterbend
             && face.extra_target_cost == 0
             && !has_strive
+            && !has_dynamic_cast_cost
             && self.state.granted_colorless_capacity(wizard.player) == 0
     }
 
@@ -2166,6 +2218,47 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             casting::spendable_units(&self.state, wizard.player, spend_for(wizard, face))
                 .saturating_add(self.state.granted_colorless_capacity(wizard.player))
                 .saturating_add(wizard.reduction.map_or(0, |reduction| reduction.remainder));
+        if let Some(def) = self
+            .state
+            .object(wizard.card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+        {
+            let adj = casting::face_adjustment(
+                &self.state,
+                wizard.player,
+                wizard.card,
+                def,
+                wizard.face_index(),
+                None,
+            );
+            if adj.per_distinct_target_delta < 0 {
+                let graveyard_and_exile: usize = self
+                    .state
+                    .players
+                    .iter()
+                    .map(|p| {
+                        self.state.zones.list(ZoneLocation::Graveyard(p.id)).len()
+                            + self.state.zones.list(ZoneLocation::Exile(p.id)).len()
+                    })
+                    .sum();
+                let target_pool = u32::try_from(
+                    self.state.battlefield_view().len()
+                        + self.state.zones.list(ZoneLocation::Stack).len()
+                        + self.state.players.len()
+                        + graveyard_and_exile,
+                )
+                .unwrap_or(u32::MAX);
+                let per = adj.per_distinct_target_delta.unsigned_abs();
+                bound = bound.saturating_add(per.saturating_mul(target_pool));
+            }
+            if adj.per_x_paid_delta < 0 {
+                let max_x =
+                    casting::preview_max_mandatory_x(&self.state, wizard.player, wizard.card, face);
+                let per = adj.per_x_paid_delta.unsigned_abs();
+                bound = bound.saturating_add(per.saturating_mul(max_x));
+            }
+        }
         for (enabled, count) in [
             (
                 face.delve,

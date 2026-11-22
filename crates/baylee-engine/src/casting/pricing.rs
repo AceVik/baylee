@@ -380,6 +380,13 @@ pub struct SpellAdjustment {
     pub colored_only_reduction: ManaCost,
     /// What comes off this spell's buyback cost alone (`Modifier::BuybackCostsLess`).
     pub buyback_reduction: u32,
+    /// Net generic delta per distinct target from active
+    /// `Modifier::AdjustSpellCostByCast { metric: DistinctTargets, .. }`
+    /// effects (negative reduces generic mana, positive taxes generic mana).
+    pub per_distinct_target_delta: i32,
+    /// Net generic delta per announced `X` from active
+    /// `Modifier::AdjustSpellCostByCast { metric: XPaid, .. }` effects.
+    pub per_x_paid_delta: i32,
 }
 impl SpellAdjustment {
     pub(crate) fn allowance(
@@ -402,6 +409,29 @@ impl SpellAdjustment {
             .with_less_mana(&self.mana_reduction, false)
             .with_less_generic(self.reduction.saturating_add(printed_reduction))
     }
+
+    /// Returns a copy adjusted for castability/affordability previews using
+    /// `preview` (`min_increase` for guaranteed target taxes and `max_reduction`
+    /// for achievable target/`XPaid` reductions). Never use for `CastModeDesc::cost`
+    /// or `FrozenReduction`.
+    #[must_use]
+    pub(crate) fn for_preview(mut self, preview: PreviewDynamicDelta) -> Self {
+        self.increase = self.increase.saturating_add(preview.min_increase);
+        self.reduction = self.reduction.saturating_add(preview.max_reduction);
+        self
+    }
+}
+
+/// Castability preview bounds for cast-time `AdjustSpellCostByCast` metrics
+/// (`DistinctTargets` and `XPaid`) before targets and `X` are announced.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct PreviewDynamicDelta {
+    /// Guaranteed minimum generic increase from mandatory targets.
+    pub min_increase: u32,
+    /// Guaranteed minimum generic reduction from mandatory targets.
+    pub min_reduction: u32,
+    /// Maximum achievable generic reduction from legal target / `XPaid` choices.
+    pub max_reduction: u32,
 }
 
 const fn is_spell_cost_modifier(modifier: baylee_cards_dsl::Modifier) -> bool {
@@ -415,6 +445,7 @@ const fn is_spell_cost_modifier(modifier: baylee_cards_dsl::Modifier) -> bool {
             | baylee_cards_dsl::Modifier::SpellsCostLessByAmount(_)
             | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
             | baylee_cards_dsl::Modifier::BuybackCostsLess(_)
+            | baylee_cards_dsl::Modifier::AdjustSpellCostByCast { .. }
     )
 }
 
@@ -457,12 +488,108 @@ pub fn projected_spell(
     spell
 }
 
+pub(crate) fn distinct_target_count(spell: &crate::object::GameObject) -> u32 {
+    let mut objects: smallvec::SmallVec<[ObjectId; 4]> = smallvec::SmallVec::new();
+    for &id in spell
+        .targets
+        .iter()
+        .chain(spell.second_targets().iter())
+        .chain(
+            spell
+                .extra_target_instances()
+                .iter()
+                .flat_map(|inst| inst.targets.iter()),
+        )
+    {
+        if !objects.contains(&id) {
+            objects.push(id);
+        }
+    }
+    let mut players = spell.target_req.map_or(spell.target_players, |req| {
+        crate::eval::targeted_players(spell, &req.spec)
+    });
+    for p in spell.second_target_players().iter() {
+        players.insert(p);
+    }
+    for inst in spell.extra_target_instances() {
+        for p in inst.players.iter() {
+            players.insert(p);
+        }
+    }
+    u32::try_from(objects.len() + players.len()).unwrap_or(u32::MAX)
+}
+
+fn spell_cast_metric_units(
+    state: &GameState,
+    player: PlayerId,
+    spell: &crate::object::GameObject,
+    source: Option<ObjectId>,
+    metric: baylee_cards_dsl::SpellCastMetric,
+) -> u32 {
+    use baylee_cards_dsl::SpellCastMetric;
+    match metric {
+        SpellCastMetric::DistinctTargets => distinct_target_count(spell),
+        SpellCastMetric::XPaid => spell.x_value,
+        SpellCastMetric::CardsDiscardedThisTurn => state.per_turn.cards_discarded_by(player),
+        SpellCastMetric::PermanentsSacrificedThisTurn(sac_filter) => {
+            let context = crate::eval::live_context(state, source.unwrap_or(spell.id));
+            let count = state
+                .per_turn
+                .sacrificed_permanents
+                .items
+                .iter()
+                .filter(|rec| {
+                    rec.controller == player
+                        && crate::eval::matches_with_context(
+                            sac_filter,
+                            state,
+                            &rec.snapshot,
+                            player,
+                            context,
+                        )
+                })
+                .count();
+            u32::try_from(count).unwrap_or(u32::MAX)
+        }
+        SpellCastMetric::LifeGainedThisTurn => state
+            .per_turn
+            .life_gained_amount
+            .get(usize::from(player.get()))
+            .copied()
+            .unwrap_or(0),
+        SpellCastMetric::LifeLostByOpponentsThisTurn => state
+            .players
+            .iter()
+            .filter(|p| !state.has_left(p.id) && state.is_opponent(p.id, player))
+            .fold(0_u32, |total, p| {
+                total.saturating_add(
+                    state
+                        .per_turn
+                        .life_lost_amount
+                        .get(usize::from(p.id.get()))
+                        .copied()
+                        .unwrap_or(0),
+                )
+            }),
+        SpellCastMetric::SpellsCastThisTurn => state.per_turn.spells_cast_by(player),
+        SpellCastMetric::CardsDrawnThisTurn => state
+            .per_turn
+            .draws
+            .get(usize::from(player.get()))
+            .copied()
+            .unwrap_or(0),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn apply_spell_cost_modifier(
     state: &GameState,
     player: PlayerId,
     spell: &crate::object::GameObject,
     controller: PlayerId,
     source: Option<ObjectId>,
+    text: crate::text_changes::TextChangeMap,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     modifier: baylee_cards_dsl::Modifier,
     adjustment: &mut SpellAdjustment,
 ) {
@@ -517,6 +644,51 @@ fn apply_spell_cost_modifier(
                 .map_or(0, |source| u32::from(source.counters.get(kind)));
             adjustment.reduction = adjustment.reduction.saturating_add(counters);
         }
+        baylee_cards_dsl::Modifier::AdjustSpellCostByCast {
+            who,
+            filter,
+            delta_per_unit,
+            metric,
+        } => {
+            if delta_per_unit == 0 {
+                return;
+            }
+            let player_matches = crate::eval::players_for_source(who, state, controller, source)
+                .is_some_and(|players| players.contains(&player));
+            if !player_matches {
+                return;
+            }
+            let context = crate::text_changes::RuleContext {
+                source: source.unwrap_or(spell.id),
+                text,
+                resolved_name: None,
+                resolved_subtype: chosen_subtype,
+                reference: None,
+            };
+            if !crate::eval::matches_with_context(filter, state, spell, controller, context) {
+                return;
+            }
+            match metric {
+                baylee_cards_dsl::SpellCastMetric::DistinctTargets => {
+                    adjustment.per_distinct_target_delta = adjustment
+                        .per_distinct_target_delta
+                        .saturating_add(i32::from(delta_per_unit));
+                }
+                baylee_cards_dsl::SpellCastMetric::XPaid => {
+                    adjustment.per_x_paid_delta = adjustment
+                        .per_x_paid_delta
+                        .saturating_add(i32::from(delta_per_unit));
+                }
+                _ => {}
+            }
+            let units = spell_cast_metric_units(state, player, spell, source, metric);
+            let magnitude = u32::from(delta_per_unit.unsigned_abs()).saturating_mul(units);
+            if delta_per_unit > 0 {
+                adjustment.increase = adjustment.increase.saturating_add(magnitude);
+            } else {
+                adjustment.reduction = adjustment.reduction.saturating_add(magnitude);
+            }
+        }
         _ => {}
     }
 }
@@ -550,6 +722,8 @@ pub fn spell_adjustment_with_def(
         mana_reduction: ManaCost::ZERO,
         colored_only_reduction: ManaCost::ZERO,
         buyback_reduction: 0,
+        per_distinct_target_delta: 0,
+        per_x_paid_delta: 0,
     };
     let self_statics = def.is_some_and(card_has_self_spell_cost_statics)
         && !object.status.contains(crate::object::Status::FACE_DOWN);
@@ -558,15 +732,30 @@ pub fn spell_adjustment_with_def(
     }
     let spell = projected_spell(state, player, object);
     for effect in state.effects.iter() {
-        if is_spell_cost_modifier(effect.modifier)
-            && crate::effects::applies_to(state, effect, &spell)
-        {
+        if !is_spell_cost_modifier(effect.modifier) {
+            continue;
+        }
+        let applies = match effect.modifier {
+            baylee_cards_dsl::Modifier::AdjustSpellCostByCast { who, .. } => {
+                super::player_locks::affects_player(state, effect, who, player)
+                    && (matches!(
+                        effect.filter,
+                        crate::effects::EffectFilter::Dsl(
+                            baylee_cards_dsl::Filter::Any | baylee_cards_dsl::Filter::This
+                        ) | crate::effects::EffectFilter::DslControlledBy(_, _)
+                    ) || crate::effects::applies_to(state, effect, &spell))
+            }
+            _ => crate::effects::applies_to(state, effect, &spell),
+        };
+        if applies {
             apply_spell_cost_modifier(
                 state,
                 player,
                 &spell,
                 effect.controller,
                 effect.source,
+                state.effect_text(effect),
+                effect.filter.chosen_subtype(),
                 effect.modifier,
                 &mut adjustment,
             );
@@ -608,6 +797,8 @@ pub fn spell_adjustment_with_def(
                     &spell,
                     player,
                     Some(spell.id),
+                    context.text,
+                    None,
                     sa.modifier,
                     &mut adjustment,
                 );
@@ -642,6 +833,8 @@ pub fn face_adjustment(
             mana_reduction: ManaCost::ZERO,
             colored_only_reduction: ManaCost::ZERO,
             buyback_reduction: 0,
+            per_distinct_target_delta: 0,
+            per_x_paid_delta: 0,
         };
     }
     let Some(object) = state.object(card) else {
@@ -659,6 +852,296 @@ pub fn face_adjustment(
         spell = form.project(&spell);
     }
     spell_adjustment_with_def(state, player, &spell, Some(def))
+}
+
+fn clause_preview_targets(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    def: &'static baylee_cards_dsl::CardDef,
+    face: usize,
+    req: baylee_cards_dsl::TargetReq,
+    wall_only: bool,
+) -> (u32, u32, bool, Vec<ObjectId>, Vec<PlayerId>) {
+    let objs = crate::eval::spell_target_options_for(
+        &req.spec,
+        state,
+        player,
+        card,
+        Some((def, face)),
+        None,
+        wall_only,
+    );
+    let pls = crate::eval::target_player_options_from(
+        state,
+        &req.spec,
+        player,
+        crate::eval::live_context(state, card),
+    );
+    let (min_c, max_c) = match req.constraint() {
+        Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) => {
+            let seats = crate::eval::one_per_player_seats(state, &req.spec, player);
+            let eligible = u32::try_from(
+                seats
+                    .iter()
+                    .filter(|&&p| {
+                        objs.iter()
+                            .any(|&id| crate::eval::same_controller_group(state, id) == Some(p))
+                    })
+                    .count(),
+            )
+            .unwrap_or(u32::MAX);
+            (
+                if req.min > 0 { eligible } else { 0 },
+                if req.max > 0 { eligible } else { 0 },
+            )
+        }
+        Some(baylee_cards_dsl::TargetConstraint::SameController) => {
+            let mut counts: smallvec::SmallVec<[(PlayerId, u32); 4]> = smallvec::SmallVec::new();
+            for &id in &objs {
+                let Some(p) = crate::eval::same_controller_group(state, id) else {
+                    continue;
+                };
+                if let Some((_, c)) = counts.iter_mut().find(|(q, _)| *q == p) {
+                    *c = c.saturating_add(1);
+                } else {
+                    counts.push((p, 1));
+                }
+            }
+            let best = counts.into_iter().map(|(_, c)| c).max().unwrap_or(0);
+            let min_c = if req.count_is_x {
+                0
+            } else {
+                u32::from(req.min)
+            };
+            let max_c = if req.count_is_x {
+                best
+            } else {
+                req.bounds(0).1.min(best)
+            };
+            (min_c, max_c)
+        }
+        None => {
+            let avail = u32::try_from(objs.len() + pls.len()).unwrap_or(u32::MAX);
+            let min_c = if req.count_is_x {
+                0
+            } else {
+                u32::from(req.min)
+            };
+            let max_c = if req.count_is_x {
+                avail
+            } else {
+                req.bounds(0).1.min(avail)
+            };
+            (min_c, max_c)
+        }
+    };
+    (min_c, max_c, req.count_is_x, objs, pls)
+}
+
+fn pair_preview_targets(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    def: &'static baylee_cards_dsl::CardDef,
+    face: usize,
+    first: Option<baylee_cards_dsl::TargetReq>,
+    second: Option<baylee_cards_dsl::TargetReq>,
+) -> (u32, u32, bool) {
+    let wall_only = crate::eval::target_domain::walls(first, second);
+    match (first, second) {
+        (None, None) => (0, 0, false),
+        (Some(req), None) | (None, Some(req)) => {
+            let (min_c, max_c, is_x, _, _) =
+                clause_preview_targets(state, player, card, def, face, req, wall_only);
+            (min_c, max_c, is_x)
+        }
+        (Some(r1), Some(r2)) => {
+            let (min1, max1, x1, o1, p1) =
+                clause_preview_targets(state, player, card, def, face, r1, wall_only);
+            let (min2, max2, x2, o2, p2) =
+                clause_preview_targets(state, player, card, def, face, r2, wall_only);
+            let disjoint = !o1.iter().any(|o| o2.contains(o)) && !p1.iter().any(|p| p2.contains(p));
+            let min_d = if disjoint {
+                min1.saturating_add(min2)
+            } else {
+                min1.max(min2)
+            };
+            let mut union_objs = o1;
+            for id in o2 {
+                if !union_objs.contains(&id) {
+                    union_objs.push(id);
+                }
+            }
+            let mut union_pls = p1;
+            for p in p2 {
+                if !union_pls.contains(&p) {
+                    union_pls.push(p);
+                }
+            }
+            let union_cap = u32::try_from(union_objs.len() + union_pls.len()).unwrap_or(u32::MAX);
+            let max_d = union_cap.min(max1.saturating_add(max2));
+            (min_d, max_d, x1 || x2)
+        }
+    }
+}
+
+pub(crate) fn preview_max_mandatory_x(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &'static baylee_cards_dsl::FaceDef,
+) -> u32 {
+    if !crate::engine::cast_wizard::mandatory_scales_with_x(face) {
+        return 0;
+    }
+    let choice = crate::engine::cast_wizard::CostChoice::default();
+    let mut max = u32::MAX;
+    let life_x_count = face
+        .mandatory_additional_costs
+        .iter()
+        .filter(|p| matches!(p, baylee_cards_dsl::CostPart::PayLifeX))
+        .count();
+    if life_x_count > 0 {
+        let fixed_life = crate::engine::cast_wizard::fixed_life_cost(face, choice);
+        let life = state.life_payable(player).saturating_sub(fixed_life);
+        let avail = u32::try_from(life).unwrap_or(0) / u32::try_from(life_x_count).unwrap_or(1);
+        max = max.min(avail);
+    }
+    let energy_x_count = face
+        .mandatory_additional_costs
+        .iter()
+        .filter(|p| matches!(p, baylee_cards_dsl::CostPart::PayEnergyX))
+        .count();
+    if energy_x_count > 0 {
+        let fixed_energy = crate::engine::cast_wizard::fixed_energy_cost(face, choice);
+        let avail = u32::from(state.players[usize::from(player.get())].energy)
+            .saturating_sub(fixed_energy)
+            / u32::try_from(energy_x_count).unwrap_or(1);
+        max = max.min(avail);
+    }
+    if face.mandatory_additional_costs.iter().any(|p| {
+        matches!(
+            p,
+            baylee_cards_dsl::CostPart::SacrificeX(_)
+                | baylee_cards_dsl::CostPart::TapX(_)
+                | baylee_cards_dsl::CostPart::DiscardX(_)
+                | baylee_cards_dsl::CostPart::ExileFromGraveyardX(_)
+                | baylee_cards_dsl::CostPart::RemoveAnyCounterX { .. }
+        )
+    }) {
+        let counter_cap =
+            crate::engine::cost_wizard::counter_remove::total_battlefield_counters(state, player);
+        let cap = u32::try_from(
+            state
+                .battlefield_view()
+                .len()
+                .max(state.zones.list(ZoneLocation::Hand(player)).len())
+                .max(state.zones.list(ZoneLocation::Graveyard(player)).len()),
+        )
+        .unwrap_or(u32::MAX)
+        .max(counter_cap);
+        max = greatest_affordable(max.min(cap), |x| {
+            additional_payment_capacity_for_x(state, player, card, face, choice, x, &[]).is_some()
+        });
+    }
+    if max == u32::MAX { 0 } else { max }
+}
+
+/// Computes preview dynamic cost bounds (`DistinctTargets` and `XPaid`) for
+/// `card`'s `face` before targets or `X` are selected.
+#[must_use]
+pub(crate) fn preview_cast_metric_bounds(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    def: &'static baylee_cards_dsl::CardDef,
+    face_idx: usize,
+    adjustment: &SpellAdjustment,
+) -> PreviewDynamicDelta {
+    if adjustment.per_distinct_target_delta == 0 && adjustment.per_x_paid_delta == 0 {
+        return PreviewDynamicDelta::default();
+    }
+    let Some(face) = def.faces.get(face_idx) else {
+        return PreviewDynamicDelta::default();
+    };
+    let mut out = PreviewDynamicDelta::default();
+    let x_pips = face
+        .mana_cost
+        .with_x(1)
+        .generic_total()
+        .saturating_sub(face.mana_cost.with_x(0).generic_total());
+    if adjustment.per_distinct_target_delta != 0 {
+        let mut min_d = 0_u32;
+        let mut max_d = 0_u32;
+        let mut count_is_x = false;
+        if let Some((first, second)) = def.abilities_for_face(face_idx).iter().find_map(|a| match a
+        {
+            baylee_cards_dsl::AbilityDef::Spell {
+                targets,
+                second_targets,
+                ..
+            } => Some((*targets, *second_targets)),
+            _ => None,
+        }) {
+            (min_d, max_d, count_is_x) =
+                pair_preview_targets(state, player, card, def, face_idx, first, second);
+        } else if let Some((modes, ..)) = def
+            .abilities_for_face(face_idx)
+            .iter()
+            .find_map(baylee_cards_dsl::AbilityDef::modal_spell)
+        {
+            let mut best_min = u32::MAX;
+            let mut best_max = 0_u32;
+            let mut any_x = false;
+            for mode in modes {
+                let (m_min, m_max, m_x) = pair_preview_targets(
+                    state,
+                    player,
+                    card,
+                    def,
+                    face_idx,
+                    mode.targets,
+                    mode.second_targets,
+                );
+                best_min = best_min.min(m_min);
+                best_max = best_max.max(m_max);
+                any_x |= m_x;
+            }
+            min_d = if best_min == u32::MAX { 0 } else { best_min };
+            max_d = best_max;
+            count_is_x = any_x;
+        }
+        if face.bestow.is_some() || face.mutate.is_some() {
+            max_d = max_d.max(1);
+        }
+        if adjustment.per_distinct_target_delta > 0 {
+            let unit = adjustment.per_distinct_target_delta.unsigned_abs();
+            out.min_increase = out.min_increase.saturating_add(unit.saturating_mul(min_d));
+        } else {
+            let unit = adjustment.per_distinct_target_delta.unsigned_abs();
+            let effective = if count_is_x {
+                unit.saturating_sub(x_pips)
+            } else {
+                unit
+            };
+            let min_red = unit.saturating_mul(min_d);
+            let max_red = effective.saturating_mul(max_d).max(min_red);
+            out.min_reduction = out.min_reduction.saturating_add(min_red);
+            out.max_reduction = out.max_reduction.saturating_add(max_red);
+        }
+    }
+    if adjustment.per_x_paid_delta < 0 {
+        let max_x = preview_max_mandatory_x(state, player, card, face);
+        let net_per_x = adjustment
+            .per_x_paid_delta
+            .unsigned_abs()
+            .saturating_sub(x_pips);
+        out.max_reduction = out
+            .max_reduction
+            .saturating_add(net_per_x.saturating_mul(max_x));
+    }
+    out
 }
 
 /// The public view still reports positive taxes separately from printed costs.
@@ -805,12 +1288,8 @@ mod tests {
                     let cost = ManaCost::parse("{U}{B}").with_more_generic(base);
                     let adjusted = SpellAdjustment {
                         increase,
-                        eligible_increase: 0,
-                        mana_increase: ManaCost::ZERO,
-                        mana_reduction: ManaCost::ZERO,
-                        colored_only_reduction: ManaCost::ZERO,
-                        buyback_reduction: 0,
                         reduction,
+                        ..SpellAdjustment::default()
                     }
                     .price(cost, 0);
                     assert_eq!(

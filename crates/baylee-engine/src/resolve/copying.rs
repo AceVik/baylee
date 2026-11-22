@@ -139,6 +139,22 @@ fn copy_division(
     if let Some(shares) = state.source_memory.divisions.get(&original) {
         state.divided.push((copy, shares.clone()));
     }
+    if let Some(copy_ref) = state.source_identity(copy) {
+        let copied_groups: Vec<((u8, u32), PlayerId)> = state
+            .source_memory
+            .target_groups
+            .iter()
+            .filter_map(|(&(h, group, slot), &player)| {
+                (h == original).then_some(((group, slot), player))
+            })
+            .collect();
+        for ((group, slot), player) in copied_groups {
+            state
+                .source_memory
+                .target_groups
+                .insert((copy_ref, group, slot), player);
+        }
+    }
 }
 
 /// Puts a copy of the spell `original` onto the stack under `you`'s control

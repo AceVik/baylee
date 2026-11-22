@@ -76,6 +76,7 @@ mod wave12b_tokens_counters_modes;
 mod wave12c_reanimate_abilities_play;
 mod wave13a_choose_and_piles;
 mod wave13b_phases_attacks_lki;
+mod wave13c_relative_costs_targets;
 mod wave2_bugs_copy_and_dice;
 mod wave3_repeat_choose_color;
 mod wave3_rules;

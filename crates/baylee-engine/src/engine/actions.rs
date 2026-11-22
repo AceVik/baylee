@@ -713,6 +713,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     if let Some(obj) = self.state.object_mut(wizard.card) {
                         obj.x_value = n;
                     }
+                    self.refresh_target_cost_adjustments(&mut wizard);
                 }
                 self.cast_wizard = Some(wizard);
                 self.continue_cast_wizard();
@@ -1136,6 +1137,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     if wizard.stage == cast_wizard::WizardStage::Convoke {
                         wizard.convoke_taps = objects.into_iter().collect();
                         wizard.stage = cast_wizard::WizardStage::Sacrifice;
+                    } else if let Some(progress) = wizard.one_per_player.as_deref_mut() {
+                        let seat = progress.current.take();
+                        if let Some(&chosen) = objects.first() {
+                            progress.gathered.push(chosen);
+                            if let Some(seat) = seat {
+                                progress.groups.push(seat);
+                            }
+                        }
                     } else if wizard.stage == cast_wizard::WizardStage::SecondTargets {
                         wizard.target_references.second = self.state.capture_target_group(&objects);
                         wizard.second_targets = objects.into_iter().collect();
@@ -1227,6 +1236,35 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         target_players,
                     } => {
                         let player = self.activation_target_choice.controller.unwrap_or(player);
+                        let targets = if let Some(mut asking) =
+                            self.activation_target_choice.per_player.take()
+                        {
+                            asking.record_answer(&targets);
+                            let mut ctx = self.ability_rule_context(source, ability_index);
+                            ctx.reference = first.first().copied();
+                            let plan = PlanKind::ActivateAbilitySecondTargets {
+                                source,
+                                ability_index,
+                                targets: first.clone(),
+                                target_players: target_players.clone(),
+                            };
+                            match self.ask_next_activation_per_player(
+                                player,
+                                ctx,
+                                self.activation_x,
+                                self.activation_wall_only(source, ability_index),
+                                *asking,
+                                plan,
+                            ) {
+                                None => return Ok(()),
+                                Some(done) => {
+                                    self.activation_target_choice.second_groups = done.groups;
+                                    done.gathered
+                                }
+                            }
+                        } else {
+                            targets
+                        };
                         self.activation_target_references.second =
                             self.state.capture_target_group(&targets);
                         let second = targets.into_iter().collect();
@@ -1261,6 +1299,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         ability_index,
                     } => {
                         let player = self.activation_target_choice.controller.unwrap_or(player);
+                        let targets = if let Some(mut asking) =
+                            self.activation_target_choice.per_player.take()
+                        {
+                            asking.record_answer(&targets);
+                            let plan = PlanKind::ActivateAbility {
+                                source,
+                                ability_index,
+                            };
+                            match self.ask_next_activation_per_player(
+                                player,
+                                self.ability_rule_context(source, ability_index),
+                                self.activation_x,
+                                self.activation_wall_only(source, ability_index),
+                                *asking,
+                                plan,
+                            ) {
+                                None => return Ok(()),
+                                Some(done) => {
+                                    self.activation_target_choice.first_groups = done.groups;
+                                    done.gathered
+                                }
+                            }
+                        } else {
+                            targets
+                        };
                         self.activation_target_references.first =
                             self.state.capture_target_group(&targets);
                         // Loyalty abilities complete via their own finish path
@@ -1321,12 +1384,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         mode,
                         per_opponent,
                     } => {
-                        // One opponent answered; the next is asked before
+                        // One seat answered; the next is asked before
                         // anything leaves the queue, and the trigger stacks
                         // with every answer once the last has been given.
-                        let targets = match per_opponent {
+                        let (targets, target_groups) = match per_opponent {
                             Some(mut asking) => {
-                                asking.gathered.extend(targets);
+                                asking.record_answer(&targets);
                                 let controller =
                                     self.trigger_queue.front().map_or(player, |t| t.controller);
                                 let context = self.trigger_queue.front().map_or_else(
@@ -1336,12 +1399,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                         text: trigger.text,
                                         resolved_name: None,
                                         resolved_subtype: None,
-                                        reference: None,
+                                        reference: trigger.event_object,
                                     },
                                 );
                                 match self.ask_next_opponent_with_context(
                                     controller,
                                     context,
+                                    None,
                                     self.trigger_queue
                                         .front()
                                         .is_some_and(|trigger| self.trigger_wall_only(trigger)),
@@ -1354,10 +1418,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                     },
                                 ) {
                                     None => return Ok(()),
-                                    Some(all) => all,
+                                    Some(done) => (done.gathered, done.groups),
                                 }
                             }
-                            None => targets,
+                            None => (targets, SmallVec::new()),
                         };
                         // Consume the queued trigger before stacking it — and
                         // keep it, because it is carrying the ability list its
@@ -1387,6 +1451,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         self.set_top_mode(mode);
                         if let Some(t) = &queued {
                             self.bind_top_trigger(t);
+                        }
+                        if !target_groups.is_empty() {
+                            self.state
+                                .bind_one_per_player_groups(top, 0, &target_groups);
                         }
                         // Player targets ride beside the object ones. The
                         // ability is on the stack now, so the seats are
@@ -1418,11 +1486,28 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             self.ask_trigger_division();
                         }
                     }
-                    PlanKind::TriggerSecondTarget { on_stack } => {
+                    PlanKind::TriggerSecondTarget {
+                        on_stack,
+                        per_opponent,
+                    } => {
+                        let (targets, target_groups) = match per_opponent {
+                            Some(mut asking) => {
+                                asking.record_answer(&targets);
+                                match self.ask_next_trigger_second_per_player(on_stack, *asking) {
+                                    None => return Ok(()),
+                                    Some(done) => (done.gathered, done.groups),
+                                }
+                            }
+                            None => (targets, SmallVec::new()),
+                        };
                         if let Some(obj) = self.state.object_mut(on_stack) {
                             let req = obj.second_target_req();
                             obj.set_second(targets.into_iter().collect(), req);
                             obj.set_second_players(players.iter().copied().collect());
+                        }
+                        if !target_groups.is_empty() {
+                            self.state
+                                .bind_one_per_player_groups(on_stack, 1, &target_groups);
                         }
                         if let Some(ctrl) = self.state.object(on_stack).map(|o| o.controller) {
                             self.note_crime_if_any(ctrl, on_stack);
@@ -1481,11 +1566,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         trigger,
                         per_opponent,
                     } => {
-                        // One opponent answered; the next is asked, as on the
+                        // One seat answered; the next is asked, as on the
                         // printed path above.
-                        let targets = match per_opponent {
+                        let (targets, target_groups) = match per_opponent {
                             Some(mut asking) => {
-                                asking.gathered.extend(targets);
+                                asking.record_answer(&targets);
                                 let plan_t = trigger.clone();
                                 match self.ask_next_opponent_with_context(
                                     trigger.controller,
@@ -1496,6 +1581,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                         resolved_subtype: None,
                                         reference: None,
                                     },
+                                    None,
                                     self.trigger_wall_only(&trigger),
                                     *asking,
                                     |asking| PlanKind::SyntheticTriggerTarget {
@@ -1504,10 +1590,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                     },
                                 ) {
                                     None => return Ok(()),
-                                    Some(all) => all,
+                                    Some(done) => (done.gathered, done.groups),
                                 }
                             }
-                            None => targets,
+                            None => (targets, SmallVec::new()),
                         };
                         // No pop, unlike `PlanKind::Trigger` above. The
                         // ordinary targeted path publishes its question and
@@ -1516,11 +1602,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         // asked after it, so this entry is already off the
                         // queue and popping again would take the trigger
                         // behind it.
-                        self.push_synthetic_trigger_with_targets(
+                        if let Some(id) = self.push_synthetic_trigger_with_targets(
                             &trigger,
                             targets,
                             players.iter().copied().collect(),
-                        );
+                        ) && !target_groups.is_empty()
+                        {
+                            self.state.bind_one_per_player_groups(id, 0, &target_groups);
+                        }
                     }
                     PlanKind::ChooseOpponent { .. } => {
                         unreachable!("opponent plans are answered via ChoosePlayer")

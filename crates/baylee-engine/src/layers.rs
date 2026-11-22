@@ -1452,6 +1452,7 @@ fn apply(
         | Modifier::GrantActivatedFromLinkedExile(_)
         | Modifier::GainActivatedAbilitiesOf { .. }
         | Modifier::MayCastWithAltCost { .. }
+        | Modifier::AdjustSpellCostByCast { .. }
         | Modifier::GrantStatic { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash

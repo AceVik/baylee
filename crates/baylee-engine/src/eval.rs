@@ -49,7 +49,8 @@ pub use relations::{
 pub(crate) use targets::defenders_target_filter;
 pub use targets::{
     choice_options, choice_options_with_context, eligible_same_controller_groups,
-    first_target_players, same_controller_group, stack_target_options,
+    first_target_players, living_players_in_turn_order, one_per_player_satisfied,
+    one_per_player_seats, same_controller_group, stack_target_options,
     stack_target_options_relative, target_options, target_options_with_context,
     target_player_options, target_player_options_from, targeted_players,
 };

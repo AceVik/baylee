@@ -59,7 +59,10 @@ pub(crate) use payment::*;
 #[cfg(feature = "test-support")]
 pub use payment::{SpellForm, SpendFor, pay_mana_for, spendable_units};
 pub(crate) use permissions::*;
-pub(crate) use pricing::card_has_self_spell_cost_statics;
+pub(crate) use pricing::{
+    PreviewDynamicDelta, card_has_self_spell_cost_statics, preview_cast_metric_bounds,
+    preview_max_mandatory_x,
+};
 #[cfg(feature = "test-support")]
 pub use pricing::{
     SpellAdjustment, activation_increase, component_affordable, face_adjustment,
@@ -976,6 +979,15 @@ pub(crate) fn requirement_is_reachable_for(
         )
         .is_empty();
     }
+    if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+        return crate::eval::one_per_player_satisfied(
+            state,
+            &req.spec,
+            player,
+            &object_list,
+            req.min,
+        );
+    }
     let objects = object_list.len();
     let players = crate::eval::target_player_options_from(
         state,
@@ -1759,7 +1771,15 @@ pub(crate) fn can_cast_form_paying(
     // of casting the card — printed cost, alternative cost and mode alike
     // (CR 601.2f) — which is why it is folded into each probe below rather
     // than into the first one.
-    let adjustment = spell_adjustment_with_def(state, player, obj, printed);
+    let raw_adjustment = spell_adjustment_with_def(state, player, obj, printed);
+    let preview_delta = if matches!(form, Some(SpellForm::Disguise)) {
+        PreviewDynamicDelta::default()
+    } else {
+        printed.map_or_else(PreviewDynamicDelta::default, |def| {
+            preview_cast_metric_bounds(state, player, card, def, 0, &raw_adjustment)
+        })
+    };
+    let adjustment = raw_adjustment.for_preview(preview_delta);
     let tax = adjustment.increase;
     if let Some(form) = form {
         let form_printed = if matches!(form, SpellForm::Disguise) {
@@ -1988,7 +2008,10 @@ pub(crate) fn can_cast_form_paying(
         let pool = restricted
             .as_ref()
             .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
-        let adjustment = face_adjustment(state, player, card, def, i, None);
+        let raw_adj = face_adjustment(state, player, card, def, i, None);
+        let adjustment = raw_adj.for_preview(preview_cast_metric_bounds(
+            state, player, card, def, i, &raw_adj,
+        ));
         let tax = adjustment.increase;
         let reduction = adjustment
             .reduction

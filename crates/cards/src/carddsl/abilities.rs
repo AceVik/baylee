@@ -549,6 +549,13 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         Modifier::MayCastWithAltCost { .. } => {
             ch.mana_add += 1.0;
         }
+        Modifier::AdjustSpellCostByCast { delta_per_unit, .. } => {
+            if *delta_per_unit < 0 {
+                ch.mana_add += f32::from(delta_per_unit.unsigned_abs()).max(1.0) * 0.5;
+            } else if *delta_per_unit > 0 {
+                ch.counter_spell += 0.5;
+            }
+        }
         _ => {}
     }
 }

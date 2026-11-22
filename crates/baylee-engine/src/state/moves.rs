@@ -621,6 +621,25 @@ impl GameState {
                     .or_default();
                 *count = count.saturating_add(1);
             }
+            if let Some(object) = self.object(id) {
+                let mut frozen = object.clone();
+                let mut chars = object.characteristics().clone();
+                chars.subtypes = snapshot.subtypes;
+                frozen.base = std::sync::Arc::new(chars);
+                frozen.cache.clear();
+                frozen.controller = snapshot.event.controller;
+                let source = baylee_core::ids::DamageSourceRef {
+                    object: id,
+                    version: snapshot.event.version,
+                };
+                self.per_turn.sacrificed_permanents.items.push(
+                    crate::state::SacrificedPermanentRecord {
+                        source,
+                        controller: snapshot.event.controller,
+                        snapshot: std::sync::Arc::new(frozen),
+                    },
+                );
+            }
         }
         if from_zone == Zone::Battlefield
             && to.zone() != Zone::Battlefield

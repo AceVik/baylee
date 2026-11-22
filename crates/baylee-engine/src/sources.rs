@@ -100,6 +100,9 @@ pub(crate) struct SourceMemory {
     pub(crate) stack: BTreeMap<DamageSourceRef, std::sync::Arc<BTreeMap<Slot, DamageSourceRef>>>,
     /// Announcement decisions survive with the exact spell/ability being copied.
     pub(crate) divisions: BTreeMap<DamageSourceRef, Vec<(baylee_core::ids::TargetRef, u32)>>,
+    /// Bound player group per `(holder, group, slot)` for
+    /// [`baylee_cards_dsl::TargetConstraint::OnePerPlayer`] spells and abilities.
+    pub(crate) target_groups: BTreeMap<(DamageSourceRef, u8, u32), PlayerId>,
     effects: BTreeMap<EffectId, DamageSourceRef>,
     event_readers: BTreeSet<DamageSourceRef>,
     /// Written only by a successful permanent-spell resolution.
@@ -117,6 +120,7 @@ impl std::fmt::Debug for SourceMemory {
             .field("next_choice", &self.next_choice)
             .field("stack", &self.stack)
             .field("divisions", &self.divisions)
+            .field("target_groups", &self.target_groups)
             .field("effects", &self.effects)
             .field("event_readers", &self.event_readers)
             .field("resolved", &self.resolved)
@@ -138,6 +142,9 @@ impl std::hash::Hash for SourceMemory {
         self.resolving.hash(state);
         self.on_resolution.hash(state);
         self.linked.hash(state);
+        if !self.target_groups.is_empty() {
+            self.target_groups.hash(state);
+        }
     }
 }
 
@@ -911,6 +918,45 @@ impl GameState {
                 refs.insert(Slot::Extra(group, index), reference);
             }
         }
+    }
+
+    /// Records the player group each target slot in `group` (`0` = first,
+    /// `1` = second, `2 + i` = extra) was chosen for under
+    /// [`baylee_cards_dsl::TargetConstraint::OnePerPlayer`].
+    pub(crate) fn bind_one_per_player_groups(
+        &mut self,
+        holder: ObjectId,
+        group: u8,
+        groups: &[PlayerId],
+    ) {
+        let Some(holder_ref) = self.source_identity(holder) else {
+            return;
+        };
+        self.source_memory
+            .target_groups
+            .retain(|&(h, g, _), _| !(h == holder_ref && g == group));
+        for (index, &player) in groups.iter().enumerate() {
+            let slot = u32::try_from(index).expect("target slot");
+            self.source_memory
+                .target_groups
+                .insert((holder_ref, group, slot), player);
+        }
+    }
+
+    /// Reads the player group recorded for `(holder, group, slot)` under
+    /// [`baylee_cards_dsl::TargetConstraint::OnePerPlayer`].
+    #[must_use]
+    pub(crate) fn recorded_one_per_player_group(
+        &self,
+        holder: ObjectId,
+        group: u8,
+        slot: u32,
+    ) -> Option<PlayerId> {
+        let holder_ref = self.source_identity(holder)?;
+        self.source_memory
+            .target_groups
+            .get(&(holder_ref, group, slot))
+            .copied()
     }
 
     pub(crate) fn begin_permanent_resolution(&mut self, id: ObjectId) {

@@ -1381,6 +1381,54 @@ pub enum Modifier {
         /// Alternative price paid rather than the spell's mana cost.
         price: AltCastPrice,
     },
+    /// Dynamic generic spell cost adjustment evaluated during CR 601.2f pricing
+    /// (`ReduceCost.Relative` / `RaiseCost.Relative`). Negative `delta_per_unit`
+    /// reduces generic mana; positive `delta_per_unit` taxes generic mana
+    /// (*Hinata, Dawn-Crowned*, *Hollow One*, *Dargo, the Shipwrecker*,
+    /// *Hierophant Bio-Titan*, *Damping Sphere*). Appended to preserve replay
+    /// identities.
+    AdjustSpellCostByCast {
+        /// Which casting players are affected, relative to the effect's
+        /// controller (`PlayerRel::You`, `PlayerRel::EachOpponent`,
+        /// `PlayerRel::EachPlayer`, …).
+        who: crate::effect::PlayerRel,
+        /// Spell filter evaluated against the prospective/stack spell.
+        filter: &'static crate::Filter,
+        /// Signed generic mana adjustment per unit of `metric` (negative reduces
+        /// generic mana, positive adds generic tax; CR 601.2f applies increases
+        /// before reductions).
+        delta_per_unit: i8,
+        /// Cast-time or per-turn metric multiplied by `delta_per_unit`.
+        metric: SpellCastMetric,
+    },
+}
+
+/// Quantity evaluated during CR 601.2f spell cost determination by
+/// [`Modifier::AdjustSpellCostByCast`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum SpellCastMetric {
+    /// Number of distinct targets chosen for the spell (objects and players
+    /// deduplicated across all target clauses; *Hinata, Dawn-Crowned*, CR 601.2c,
+    /// CR 601.2f).
+    DistinctTargets,
+    /// Announced value of `X` for the spell (e.g. objects sacrificed/exiled/
+    /// discarded or counters removed as `X` for *Dargo, the Shipwrecker* /
+    /// *Hierophant Bio-Titan*).
+    XPaid,
+    /// Total cards the casting player has cycled or discarded this turn
+    /// (*Hollow One*, CR 701.9a, CR 702.29a).
+    CardsDiscardedThisTurn,
+    /// Matching permanents the casting player has already sacrificed this turn
+    /// (*Dargo, the Shipwrecker*).
+    PermanentsSacrificedThisTurn(&'static crate::Filter),
+    /// Total life the casting player has gained this turn.
+    LifeGainedThisTurn,
+    /// Total life opponents of the casting player have lost this turn.
+    LifeLostByOpponentsThisTurn,
+    /// Total spells the casting player has cast earlier this turn.
+    SpellsCastThisTurn,
+    /// Total cards the casting player has drawn this turn.
+    CardsDrawnThisTurn,
 }
 
 /// Donor zone(s) scanned by [`Modifier::GainActivatedAbilitiesOf`].
@@ -1826,7 +1874,8 @@ impl Modifier {
             | Self::MayAssignCombatDamageAsThoughUnblocked
             | Self::PlayersCantGainLife(_)
             | Self::CantBeSacrificed { .. }
-            | Self::MayCastWithAltCost { .. } => Layer::Text,
+            | Self::MayCastWithAltCost { .. }
+            | Self::AdjustSpellCostByCast { .. } => Layer::Text,
         }
     }
 }
@@ -2748,6 +2797,12 @@ mod tests {
                 max_mana_value: None,
                 once_per_turn: true,
                 price: AltCastPrice::Mana(baylee_core::mana::ManaCost::ZERO),
+            },
+            Modifier::AdjustSpellCostByCast {
+                who: crate::PlayerRel::You,
+                filter: &Filter::Any,
+                delta_per_unit: -1,
+                metric: SpellCastMetric::DistinctTargets,
             },
         ] {
             assert_eq!(

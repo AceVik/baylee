@@ -673,17 +673,79 @@ fn hold_tag(hold: crate::choice::PriorityHold) -> u64 {
     }
 }
 
-/// A trigger's `TargetSpec::ObjectOfEachOpponent`, asked one opponent at a
-/// time (CR 601.2c: the targets are chosen together, and a question per
-/// player is how a menu says "one of each").
-#[derive(Clone, Debug)]
-struct PerOpponent {
+/// Per-player target announcement state for
+/// [`baylee_cards_dsl::TargetSpec::ObjectOfEachOpponent`] and
+/// [`baylee_cards_dsl::TargetConstraint::OnePerPlayer`], asked one seat at a
+/// time (CR 601.2c, CR 115.1).
+#[derive(Clone, Debug, Hash)]
+pub(super) struct PerOpponent {
     /// The spec being answered.
     spec: baylee_cards_dsl::TargetSpec,
-    /// The answers so far, in the order the opponents were asked.
+    /// The answers so far, in the order the seats were asked.
     gathered: SmallVec<[ObjectId; 2]>,
-    /// The opponents not yet asked about.
+    /// The seats not yet asked about.
     remaining: Vec<PlayerId>,
+    /// Minimum targets required for each seat (`0` = optional, `1` = mandatory).
+    min_per_player: u32,
+    /// Seat currently being prompted (recorded into `groups` on answer).
+    current: Option<PlayerId>,
+    /// Player group bound to each target in `gathered` (populated for `OnePerPlayer`).
+    groups: SmallVec<[PlayerId; 4]>,
+    /// When `true`, filter candidates via `eval::same_controller_group`
+    /// (`TargetConstraint::OnePerPlayer`); when `false`, filter by battlefield
+    /// `o.controller` (`TargetSpec::ObjectOfEachOpponent`).
+    use_zone_group: bool,
+    /// Who answers each prompt.
+    chooser: PlayerId,
+}
+
+impl PerOpponent {
+    fn for_each_opponent(
+        spec: baylee_cards_dsl::TargetSpec,
+        remaining: Vec<PlayerId>,
+        chooser: PlayerId,
+    ) -> Self {
+        Self {
+            spec,
+            gathered: SmallVec::new(),
+            remaining,
+            min_per_player: 0,
+            current: None,
+            groups: SmallVec::new(),
+            use_zone_group: false,
+            chooser,
+        }
+    }
+
+    fn one_per_player(
+        spec: baylee_cards_dsl::TargetSpec,
+        remaining: Vec<PlayerId>,
+        min: u8,
+        chooser: PlayerId,
+    ) -> Self {
+        Self {
+            spec,
+            gathered: SmallVec::new(),
+            remaining,
+            min_per_player: u32::from(min > 0),
+            current: None,
+            groups: SmallVec::new(),
+            use_zone_group: true,
+            chooser,
+        }
+    }
+
+    fn record_answer(&mut self, targets: &[ObjectId]) {
+        let seat = self.current.take();
+        for &id in targets {
+            self.gathered.push(id);
+            if self.use_zone_group
+                && let Some(p) = seat
+            {
+                self.groups.push(p);
+            }
+        }
+    }
 }
 
 /// What a `Pending::ChooseTargets` is targeting for.
@@ -727,6 +789,8 @@ enum PlanKind {
     TriggerSecondTarget {
         /// The triggered ability on the stack.
         on_stack: ObjectId,
+        /// Per-player targeting state when the second clause uses `OnePerPlayer`.
+        per_opponent: Option<Box<PerOpponent>>,
     },
     /// A triggered ability's CR 601.2d damage or counter division, asked target
     /// by target once it is on the stack with its targets.

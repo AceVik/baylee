@@ -1195,6 +1195,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         self.state
             .bind_target_references(card, &wizard.target_references);
+        if let Some(bindings) = wizard.target_group_bindings.as_deref() {
+            if !bindings.first.is_empty() {
+                self.state
+                    .bind_one_per_player_groups(card, 0, &bindings.first);
+            }
+            if !bindings.second.is_empty() {
+                self.state
+                    .bind_one_per_player_groups(card, 1, &bindings.second);
+            }
+            for (extra_idx, groups) in &bindings.extra {
+                if !groups.is_empty() {
+                    self.state.bind_one_per_player_groups(
+                        card,
+                        u8::try_from(2 + extra_idx).expect("extra target group"),
+                        groups,
+                    );
+                }
+            }
+        }
         self.store_damage_division(wizard);
         // CR 723.3c: announcing or cancelling never spends the designation.
         if let Some(source) = prepared_source {

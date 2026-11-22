@@ -543,6 +543,25 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
         Aim::Player(_) => None,
     };
     let same_ctrl = req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController);
+    let one_per_player = req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer);
+    if one_per_player {
+        let group_slot = u32::try_from(
+            retarget.was[..slot]
+                .iter()
+                .filter(|(g, _)| *g == group)
+                .count(),
+        )
+        .expect("target slot");
+        let expected = state
+            .recorded_one_per_player_group(retarget.spell, group, group_slot)
+            .or_else(|| group_of(retarget.was[slot].1));
+        if candidate != retarget.was[slot].1
+            && (expected.is_none() || group_of(candidate) != expected)
+        {
+            return false;
+        }
+        return !used.contains(&candidate);
+    }
     let conflicts = |left: Aim, right: Aim| {
         left == right
             || (req.distinct_mana_values

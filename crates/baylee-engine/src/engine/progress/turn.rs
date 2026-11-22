@@ -451,10 +451,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         t: &crate::trigger::PendingTrigger,
         targets: SmallVec<[ObjectId; 2]>,
         players: baylee_core::ids::SeatSet,
-    ) {
-        let Some(synthetic) = t.synthetic_effects else {
-            return;
-        };
+    ) -> Option<ObjectId> {
+        let synthetic = t.synthetic_effects?;
         // Identity, not a precondition — see the sibling branch in
         // `stack_triggers`. A cardless source triggers like any other.
         let card = self
@@ -502,8 +500,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
             controller: t.controller,
         });
-        if !self.discard_empty_trigger_without_effect(id) {
+        if self.discard_empty_trigger_without_effect(id) {
+            None
+        } else {
             self.note_crime_if_any(t.controller, id);
+            Some(id)
         }
     }
 

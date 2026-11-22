@@ -616,98 +616,147 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.activation_x,
                 eval::target_domain::walls(first, second),
             );
-            // "Target cards from a single graveyard" (Unlicensed Hearse) and
-            // `TargetConstraint::SameController` ("target creatures controlled
-            // by the same player"): when multiple controller/graveyard groups
-            // satisfy `min`, ask which group first and narrow `options` to it.
-            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
-                || matches!(
-                    req.spec,
-                    baylee_cards_dsl::TargetSpec::CardInGraveyard(
-                        _,
-                        baylee_cards_dsl::PlayerRel::Chosen
-                    )
-                )
-            {
-                if let Some(chosen) = self.activation_graveyard.take() {
-                    options
-                        .retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+                if !eval::one_per_player_satisfied(
+                    &self.state,
+                    &req.spec,
+                    player,
+                    &options,
+                    req.min,
+                ) {
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+                if max == 0 {
+                    self.activation_targets_answered = true;
                 } else {
-                    let groups = eval::eligible_same_controller_groups(&self.state, &options, min);
-                    match groups.as_slice() {
-                        [] => options.clear(),
-                        [only] => {
-                            options.retain(|id| {
-                                eval::same_controller_group(&self.state, *id) == Some(*only)
-                            });
-                        }
-                        _ => {
-                            let plan = PlanKind::ChooseActivationGraveyard {
-                                source,
-                                ability_index,
-                            };
-                            let Some(chooser) =
-                                self.activation_target_chooser(req, player, plan.clone())?
-                            else {
+                    let plan = PlanKind::ActivateAbility {
+                        source,
+                        ability_index,
+                    };
+                    let Some(chooser) =
+                        self.activation_target_chooser(req, player, plan.clone())?
+                    else {
+                        return Ok(());
+                    };
+                    let seats = eval::one_per_player_seats(&self.state, &req.spec, player);
+                    let asking = super::super::PerOpponent::one_per_player(
+                        req.spec, seats, req.min, chooser,
+                    );
+                    if let Some(done) = self.ask_next_activation_per_player(
+                        player,
+                        self.ability_rule_context(source, ability_index),
+                        self.activation_x,
+                        eval::target_domain::walls(first, second),
+                        asking,
+                        plan,
+                    ) {
+                        self.activation_target_references.first =
+                            self.state.capture_target_group(&done.gathered);
+                        self.activation_target_choice.first_groups = done.groups;
+                        self.activation_targets_answered = true;
+                        return self.start_activation(player, source, ability_index, done.gathered);
+                    }
+                    return Ok(());
+                }
+            } else {
+                // "Target cards from a single graveyard" (Unlicensed Hearse) and
+                // `TargetConstraint::SameController` ("target creatures controlled
+                // by the same player"): when multiple controller/graveyard groups
+                // satisfy `min`, ask which group first and narrow `options` to it.
+                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
+                    || matches!(
+                        req.spec,
+                        baylee_cards_dsl::TargetSpec::CardInGraveyard(
+                            _,
+                            baylee_cards_dsl::PlayerRel::Chosen
+                        )
+                    )
+                {
+                    if let Some(chosen) = self.activation_graveyard.take() {
+                        options.retain(|id| {
+                            eval::same_controller_group(&self.state, *id) == Some(chosen)
+                        });
+                    } else {
+                        let groups =
+                            eval::eligible_same_controller_groups(&self.state, &options, min);
+                        match groups.as_slice() {
+                            [] => options.clear(),
+                            [only] => {
+                                options.retain(|id| {
+                                    eval::same_controller_group(&self.state, *id) == Some(*only)
+                                });
+                            }
+                            _ => {
+                                let plan = PlanKind::ChooseActivationGraveyard {
+                                    source,
+                                    ability_index,
+                                };
+                                let Some(chooser) =
+                                    self.activation_target_chooser(req, player, plan.clone())?
+                                else {
+                                    return Ok(());
+                                };
+                                self.pending_plan = Some(plan);
+                                self.pending = Pending::ChoosePlayer {
+                                    player: chooser,
+                                    options: groups,
+                                };
+                                self.awaiting_answer = true;
                                 return Ok(());
-                            };
-                            self.pending_plan = Some(plan);
-                            self.pending = Pending::ChoosePlayer {
-                                player: chooser,
-                                options: groups,
-                            };
-                            self.awaiting_answer = true;
-                            return Ok(());
+                            }
                         }
                     }
                 }
-            }
-            // Players are the other half of the same choice, and asking for
-            // objects alone made three implemented lands dead: Nephalia
-            // Drownyard, Duskmantle and Orzhova all say "target player",
-            // whose object list is empty by construction — so each was
-            // offered in `LegalActions` (which does add the two counts) and
-            // then refused here with "no legal targets", the two-probes
-            // disagreement this engine treats as the worst kind.
-            let player_options = eval::target_player_options_from(
-                &self.state,
-                &req.spec,
-                player,
-                self.ability_rule_context(source, ability_index),
-            );
-            if options.len() + player_options.len() < min as usize {
-                // The number was answered before this question was asked, so
-                // an activation that dies here has one to throw away.
-                self.activation_x = None;
-                return Err(EngineError::IllegalAction("no legal targets"));
-            }
-            if max == 0 || (options.is_empty() && player_options.is_empty()) {
-                // The only answer is none at all, which is a legal one
-                // (CR 115.6), so nobody is asked for it. The cast wizard
-                // skips the same question the same way.
-                self.activation_targets_answered = true;
-            } else {
-                let plan = PlanKind::ActivateAbility {
-                    source,
-                    ability_index,
-                };
-                let Some(chooser) = self.activation_target_chooser(req, player, plan.clone())?
-                else {
+                // Players are the other half of the same choice, and asking for
+                // objects alone made three implemented lands dead: Nephalia
+                // Drownyard, Duskmantle and Orzhova all say "target player",
+                // whose object list is empty by construction — so each was
+                // offered in `LegalActions` (which does add the two counts) and
+                // then refused here with "no legal targets", the two-probes
+                // disagreement this engine treats as the worst kind.
+                let player_options = eval::target_player_options_from(
+                    &self.state,
+                    &req.spec,
+                    player,
+                    self.ability_rule_context(source, ability_index),
+                );
+                if options.len() + player_options.len() < min as usize {
+                    // The number was answered before this question was asked, so
+                    // an activation that dies here has one to throw away.
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+                if max == 0 || (options.is_empty() && player_options.is_empty()) {
+                    // The only answer is none at all, which is a legal one
+                    // (CR 115.6), so nobody is asked for it. The cast wizard
+                    // skips the same question the same way.
+                    self.activation_targets_answered = true;
+                } else {
+                    let plan = PlanKind::ActivateAbility {
+                        source,
+                        ability_index,
+                    };
+                    let Some(chooser) =
+                        self.activation_target_chooser(req, player, plan.clone())?
+                    else {
+                        return Ok(());
+                    };
+                    self.pending_plan = Some(plan);
+                    let max = max.min(
+                        u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX),
+                    );
+                    self.pending = Pending::ChooseTargets {
+                        player: chooser,
+                        options,
+                        player_options,
+                        min,
+                        max,
+                        reason: TargetPrompt::Targets,
+                    };
+                    self.awaiting_answer = true;
                     return Ok(());
-                };
-                self.pending_plan = Some(plan);
-                let max = max
-                    .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
-                self.pending = Pending::ChooseTargets {
-                    player: chooser,
-                    options,
-                    player_options,
-                    min,
-                    max,
-                    reason: TargetPrompt::Targets,
-                };
-                self.awaiting_answer = true;
-                return Ok(());
+                }
             }
         }
         // The second instance of the word "target" (Contested Cliffs), asked
@@ -731,86 +780,137 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.activation_x,
                 eval::target_domain::walls(first, second),
             );
-            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
-                || matches!(
-                    req.spec,
-                    baylee_cards_dsl::TargetSpec::CardInGraveyard(
-                        _,
-                        baylee_cards_dsl::PlayerRel::Chosen
-                    )
-                )
-            {
-                if let Some(chosen) = self.activation_graveyard.take() {
-                    options
-                        .retain(|id| eval::same_controller_group(&self.state, *id) == Some(chosen));
+            if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::OnePerPlayer) {
+                if !eval::one_per_player_satisfied(
+                    &self.state,
+                    &req.spec,
+                    player,
+                    &options,
+                    req.min,
+                ) {
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+                if max == 0 {
+                    self.activation_second_targets = Some(SmallVec::new());
                 } else {
-                    let groups = eval::eligible_same_controller_groups(&self.state, &options, min);
-                    match groups.as_slice() {
-                        [] => options.clear(),
-                        [only] => {
-                            options.retain(|id| {
-                                eval::same_controller_group(&self.state, *id) == Some(*only)
-                            });
-                        }
-                        _ => {
-                            let plan = PlanKind::ChooseActivationSecondGroup {
-                                source,
-                                ability_index,
-                                targets,
-                                target_players: chosen_players,
-                            };
-                            let Some(chooser) =
-                                self.activation_target_chooser(req, player, plan.clone())?
-                            else {
+                    let plan = PlanKind::ActivateAbilitySecondTargets {
+                        source,
+                        ability_index,
+                        targets: targets.clone(),
+                        target_players: chosen_players.clone(),
+                    };
+                    let Some(chooser) =
+                        self.activation_target_chooser(req, player, plan.clone())?
+                    else {
+                        return Ok(());
+                    };
+                    let seats = eval::one_per_player_seats(&self.state, &req.spec, player);
+                    let asking = super::super::PerOpponent::one_per_player(
+                        req.spec, seats, req.min, chooser,
+                    );
+                    if let Some(done) = self.ask_next_activation_per_player(
+                        player,
+                        context,
+                        self.activation_x,
+                        eval::target_domain::walls(first, second),
+                        asking,
+                        plan,
+                    ) {
+                        self.activation_target_references.second =
+                            self.state.capture_target_group(&done.gathered);
+                        self.activation_target_choice.second_groups = done.groups;
+                        self.activation_second_targets = Some(done.gathered.into_iter().collect());
+                    } else {
+                        return Ok(());
+                    }
+                }
+            } else {
+                if req.constraint() == Some(baylee_cards_dsl::TargetConstraint::SameController)
+                    || matches!(
+                        req.spec,
+                        baylee_cards_dsl::TargetSpec::CardInGraveyard(
+                            _,
+                            baylee_cards_dsl::PlayerRel::Chosen
+                        )
+                    )
+                {
+                    if let Some(chosen) = self.activation_graveyard.take() {
+                        options.retain(|id| {
+                            eval::same_controller_group(&self.state, *id) == Some(chosen)
+                        });
+                    } else {
+                        let groups =
+                            eval::eligible_same_controller_groups(&self.state, &options, min);
+                        match groups.as_slice() {
+                            [] => options.clear(),
+                            [only] => {
+                                options.retain(|id| {
+                                    eval::same_controller_group(&self.state, *id) == Some(*only)
+                                });
+                            }
+                            _ => {
+                                let plan = PlanKind::ChooseActivationSecondGroup {
+                                    source,
+                                    ability_index,
+                                    targets,
+                                    target_players: chosen_players,
+                                };
+                                let Some(chooser) =
+                                    self.activation_target_chooser(req, player, plan.clone())?
+                                else {
+                                    return Ok(());
+                                };
+                                self.pending_plan = Some(plan);
+                                self.pending = Pending::ChoosePlayer {
+                                    player: chooser,
+                                    options: groups,
+                                };
+                                self.awaiting_answer = true;
                                 return Ok(());
-                            };
-                            self.pending_plan = Some(plan);
-                            self.pending = Pending::ChoosePlayer {
-                                player: chooser,
-                                options: groups,
-                            };
-                            self.awaiting_answer = true;
-                            return Ok(());
+                            }
                         }
                     }
                 }
-            }
-            let player_options = eval::target_player_options_from(
-                &self.state,
-                &req.spec,
-                player,
-                self.ability_rule_context(source, ability_index),
-            );
-            if options.len() + player_options.len() < min as usize {
-                self.activation_x = None;
-                return Err(EngineError::IllegalAction("no legal targets"));
-            }
-            if (options.is_empty() && player_options.is_empty()) || max == 0 {
-                self.activation_second_targets = Some(SmallVec::new());
-            } else {
-                let plan = PlanKind::ActivateAbilitySecondTargets {
-                    source,
-                    ability_index,
-                    targets,
-                    target_players: chosen_players,
-                };
-                let Some(chooser) = self.activation_target_chooser(req, player, plan.clone())?
-                else {
+                let player_options = eval::target_player_options_from(
+                    &self.state,
+                    &req.spec,
+                    player,
+                    self.ability_rule_context(source, ability_index),
+                );
+                if options.len() + player_options.len() < min as usize {
+                    self.activation_x = None;
+                    return Err(EngineError::IllegalAction("no legal targets"));
+                }
+                if (options.is_empty() && player_options.is_empty()) || max == 0 {
+                    self.activation_second_targets = Some(SmallVec::new());
+                } else {
+                    let plan = PlanKind::ActivateAbilitySecondTargets {
+                        source,
+                        ability_index,
+                        targets: targets.clone(),
+                        target_players: chosen_players.clone(),
+                    };
+                    let Some(chooser) =
+                        self.activation_target_chooser(req, player, plan.clone())?
+                    else {
+                        return Ok(());
+                    };
+                    self.pending_plan = Some(plan);
+                    let max = max.min(
+                        u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX),
+                    );
+                    self.pending = Pending::ChooseTargets {
+                        player: chooser,
+                        options,
+                        player_options,
+                        min,
+                        max,
+                        reason: TargetPrompt::Targets,
+                    };
+                    self.awaiting_answer = true;
                     return Ok(());
-                };
-                self.pending_plan = Some(plan);
-                let max = max
-                    .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
-                self.pending = Pending::ChooseTargets {
-                    player: chooser,
-                    options,
-                    player_options,
-                    min,
-                    max,
-                    reason: TargetPrompt::Targets,
-                };
-                self.awaiting_answer = true;
-                return Ok(());
+                }
             }
         }
         if self.ask_activation_division(
