@@ -228,6 +228,7 @@ fn neheb_triggers_on_every_postcombat_main_and_fireglass_only_on_second_main() {
         [
             Seat::with(&[neheb.index.get(), fireglass.index.get(), C0]),
             Seat::default(),
+            Seat::default(),
         ],
     );
     let neheb = the(&engine, ZoneLocation::Battlefield, neheb.index.get());
@@ -252,6 +253,8 @@ fn neheb_triggers_on_every_postcombat_main_and_fireglass_only_on_second_main() {
     engine
         .state
         .change_life(PlayerId::new(1), -2, Cause::Effect);
+    engine.state.change_life(third(), -3, Cause::Effect);
+    engine.apply(third(), PlayerAction::Concede).unwrap();
     activate(&mut engine, me(), extra_combat, 0);
     settle(&mut engine, me());
 
@@ -277,10 +280,12 @@ fn neheb_triggers_on_every_postcombat_main_and_fireglass_only_on_second_main() {
     walk_to_main_count(&mut engine, me(), 2);
     assert_eq!(neheb_trigger_count(&engine), 1);
     assert_eq!(triggered(&engine, fireglass), 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 5);
 
     walk_to_main_count(&mut engine, me(), 3);
     assert_eq!(neheb_trigger_count(&engine), 2);
     assert_eq!(triggered(&engine, fireglass), 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 5);
 }
 
 #[test]

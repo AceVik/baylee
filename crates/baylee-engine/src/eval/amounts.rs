@@ -515,10 +515,11 @@ fn greatest_commander_mana_value(state: &GameState, you: PlayerId) -> u32 {
 }
 
 fn opponents_life_lost(state: &GameState, you: PlayerId) -> u32 {
+    // Earlier life loss still counts if that opponent has since left the game.
     state
         .players
         .iter()
-        .filter(|p| !state.has_left(p.id) && state.is_opponent(p.id, you))
+        .filter(|p| state.is_opponent(p.id, you))
         .fold(0u32, |total, p| {
             total.saturating_add(state.per_turn.life_lost_amount[usize::from(p.id.get())])
         })
