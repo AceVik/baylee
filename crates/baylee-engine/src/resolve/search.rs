@@ -400,13 +400,18 @@ pub(super) fn put_found_with_link(
     card: ObjectId,
     find: baylee_cards_dsl::Find,
 ) {
-    let link = (find.linked_exile && find.dest == SearchDest::Exile)
-        .then(|| super::hidden_exile::link(state, res))
-        .flatten();
+    let link = if find.linked_exile && find.dest == SearchDest::Exile {
+        state
+            .source_identity(card)
+            .zip(super::hidden_exile::link(state, res))
+    } else {
+        None
+    };
     put_found(state, player, card, find.dest);
-    if let Some(link) = link
+    if let Some((before, link)) = link
         && let Some(object) = state.object_mut(card)
         && object.zone == crate::zone::Zone::Exile
+        && object.version != before.version
         && !object.riders.contains(&link)
     {
         object.riders.push(link);
