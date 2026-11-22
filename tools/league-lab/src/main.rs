@@ -1,3 +1,4 @@
+mod champion_art;
 mod competitive;
 mod deck;
 mod deck_sim;
@@ -41,6 +42,15 @@ fn main() {
         competitive::deck_trials();
         return;
     }
+    if let [cmd, day] = args.as_slice()
+        && cmd == "champions"
+    {
+        if let Err(e) = champion_art::publish(day) {
+            eprintln!("{e}");
+            std::process::exit(2);
+        }
+        return;
+    }
     if args.as_slice() == ["payouts"] {
         competitive::examples();
         return;
@@ -55,7 +65,7 @@ fn main() {
     }
     let usage = || -> ! {
         eprintln!(
-            "Usage: baylee-league-lab ranked [duel|night|town|city|peak|pilot]\n       baylee-league-lab payouts|rating-trials|ranked-decks|ladder|divisions|decks|all|pilot|tune|verify|fresh|small|narrow|wide|cap\n       baylee-league-lab edit REFERENCE_ELO REGISTERED_COPIES CHANGED_COPIES"
+            "Usage: baylee-league-lab ranked [duel|night|town|city|peak|pilot]\n       baylee-league-lab payouts|rating-trials|ranked-decks|ladder|divisions|decks|all|pilot|tune|verify|fresh|small|narrow|wide|cap\n       baylee-league-lab edit REFERENCE_ELO REGISTERED_COPIES CHANGED_COPIES\n       baylee-league-lab champions DAY < accounts.csv"
         );
         std::process::exit(2)
     };

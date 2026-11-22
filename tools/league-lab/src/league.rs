@@ -116,6 +116,8 @@ impl Record {
 pub struct Standings {
     pub tiers: Vec<usize>,
     pub candidates: usize,
+    /// Champion titleholders ordered by published place, starting at first.
+    pub champions: Vec<usize>,
 }
 /// The daily publication chooses all titleholders in one global snapshot.
 /// Equal integer Elo uses stable account ID as the final ordering key.
@@ -134,12 +136,15 @@ pub fn standings(records: &[Record], policy: Policy, day: u16) -> Standings {
         candidates.select_nth_unstable(CHAMPION_LIMIT);
         candidates.truncate(CHAMPION_LIMIT);
     }
-    for (_, id) in candidates {
+    candidates.sort_unstable();
+    let champions: Vec<_> = candidates.into_iter().map(|(_, id)| id).collect();
+    for &id in &champions {
         tiers[id] = CHAMPION;
     }
     Standings {
         tiers,
         candidates: eligible,
+        champions,
     }
 }
 

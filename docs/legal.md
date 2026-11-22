@@ -27,6 +27,17 @@ below remain the basis for runtime card images and finishes.
 
 ## Guardrails for every change
 
+The 22 November offline league badge gallery uses original text-prompted
+helmets and abstract card backs. Its generated paintings, Rust-made division
+clasps and use of the bundled OFL fonts are recorded in the
+[art notes](../art/baylee/ranks/README.md). We rechecked the
+[Wizards Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy),
+including “Please respect other people’s IP.” Baylee's unofficial notice is
+in `NOTICE`. The gallery uses no third-party game artwork or card data. The
+[Scryfall API](https://scryfall.com/docs/api) and
+[image terms](https://scryfall.com/docs/api/images) both returned HTTP 403
+during this review.
+
 The 16 November run-ending/editor pass rechecked the same
 [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy).
 The victory and defeat landscapes are original generated fantasy settings,

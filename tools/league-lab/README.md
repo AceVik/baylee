@@ -4,6 +4,8 @@ Offline Rust prototype, 22 November 2026. The league experiment runs a global 1v
 
 The current ranked model runs a timed queue, individually capped upset stakes and the league publication together. Its default command, evidence, and controlled comparisons are in [Ranked matchmaking and upset scoring](MATCHMAKING.md).
 
+The [rank badge gallery](../../art/baylee/ranks/README.md) covers the eleven leagues and every selected division for both players and decks. The league gates below apply to player accounts. Deck badges are prepared artwork. The deck experiment currently publishes a numeric version rating and has no league allocation.
+
 ## Proposed player leagues
 
 The global 1v1 ladder publishes the highest earned rank once a day. Accounts start in Papier with 1500 player Elo. Matchmaking and Elo updates use the player's rating. Match count, rating and the date of the first ranked match carry across seasons. The original threshold calibration below uses classic K=24 Elo. The current ranked model reuses the resulting thresholds with the individually capped stakes.
@@ -27,6 +29,8 @@ Gold opens the middle ranks. Platin is the climb from there to high Elo, which b
 A demotion buffer of 15 Elo applies only within the same named league. Someone who has earned Gold III can hold it at 1705 Elo. At 1704 they fall to Gold IV. Promotion to Gold III still requires the full 1720 Elo. At 1679 they fall below Gold. Division changes have no effect on queue pairing. Each daily publication can move through multiple divisions if the conditions warrant it.
 
 Master and above additionally require 184 full days since the first ranked match and a ranked match in the last 14 elapsed days. At ten matches per day, even a perfect season-spanning streak reaches 2000 matches on playing day 200. Champions are the first 100 eligible accounts across queues, ordered by descending integer Elo and then by stable account ID. One authoritative snapshot is required for a global production allocation.
+
+The three highest placed players each wear a distinct [Champion helmet](../../art/baylee/ranks/podium.png). Places 4–100 keep the common Champion helmet. A daily publication reassigns each occupied place, including when a titleholder becomes inactive. With two eligible accounts there is a first and a second place. The podium grants no extra Elo. To inspect a snapshot, run `cargo run --locked -- champions DAY < accounts.csv` from this directory. Use a CSV header of `account_id,elo,games,first_day,last_day` and one numeric record per account. The command prints the ordered titleholders and their player badge paths relative to the gallery.
 
 ## League simulation
 

@@ -7,13 +7,21 @@ license = "AGPL-3.0-only"
 publish = false
 
 [workspace]
+members = ["rank-art"]
+resolver = "3"
 
 [dependencies]
 rand = "0.10"
 rand_chacha = "0.10"
 rand_distr = "0.6"
 
-[lints.clippy]
+[dev-dependencies]
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+
+[lints]
+workspace = true
+
+[workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 # Simulated deck and population sizes are <= 150,000. Elo changes are
 # deliberately rounded before conversion. Table indices are clamped first.

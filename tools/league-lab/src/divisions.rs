@@ -25,6 +25,10 @@ const VARIANTS: [(Layout, i32); 5] = [(THREE, 0), (FOUR, 0), (THREE, 15), (FOUR,
 const ROMAN: [&str; 4] = ["I", "II", "III", "IV"];
 const BANDS: [&str; 3] = ["Holz-Silber", "Gold-Platin", "Diamant"];
 
+#[cfg(test)]
+#[path = "rank_art_tests.rs"]
+mod art_tests;
+
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 struct Rank {
     tier: usize,
