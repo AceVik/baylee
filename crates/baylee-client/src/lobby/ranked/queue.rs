@@ -1,16 +1,10 @@
 //! A single displayed deck choice, explicit queue actions, and the last settled result.
+use super::draw::label;
 use super::*;
 use crate::hud::glyph;
 use api::{Outcome, QueueState};
 use baylee_client_core::lobby::DeckSummary;
 
-fn source_format(format: Format) -> &'static str {
-    match format {
-        Format::Standard => "standard",
-        Format::Highlander => "highlander",
-        Format::Commander => "commander",
-    }
-}
 pub(super) fn effective_format(state: &LobbyState) -> Format {
     if state.ranked_net.needs_deck {
         match &state.ranked_net.queue {
@@ -22,7 +16,7 @@ pub(super) fn effective_format(state: &LobbyState) -> Format {
     state.ranked.format
 }
 fn choices(state: &LobbyState) -> impl Iterator<Item = (uuid::Uuid, &DeckSummary)> {
-    let f = source_format(effective_format(state));
+    let f = effective_format(state).as_str();
     state
         .lobby
         .decks()
@@ -38,35 +32,49 @@ pub(super) fn selected(state: &LobbyState) -> Option<(uuid::Uuid, &DeckSummary)>
 }
 
 #[derive(PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // independent worker, table and picker states
 pub(super) struct Look {
     format: Format,
-    eligible: bool,
+    pub(super) eligible: bool,
     held: bool,
     busy: bool,
     recover: bool,
     played: Option<api::Id>,
     error: Option<baylee_account::Error>,
-    queue: QueueState,
-    deck: Option<uuid::Uuid>,
+    pub(super) queue: QueueState,
+    deck: Option<(uuid::Uuid, String)>,
+    // Only the six visible deck labels and the next-page sentinel can affect the picker.
+    options: Vec<(uuid::Uuid, String)>,
     picker: bool,
     deck_page: usize,
-    own: Option<(api::Rank, u8, Option<i32>)>,
+    own: Option<OwnRank>,
+    preview: preview::Look,
 }
 
-pub(super) fn look(state: &LobbyState, own: Option<(api::Rank, u8, Option<i32>)>) -> Look {
+pub(super) fn look(state: &LobbyState, own: Option<OwnRank>) -> Look {
     Look {
         format: effective_format(state),
-        eligible: state.central_ready() && !state.lobby.guest() && state.can_play_online(),
+        eligible: state.has_central_account(),
         held: state.lobby.awaiting().is_some(),
         busy: state.ranked_net.busy,
         recover: state.ranked_net.needs_deck,
         played: state.ranked_net.played,
         error: state.ranked_net.error,
         queue: state.ranked_net.queue.clone(),
-        deck: state.ranked.deck_id,
+        deck: selected(state).map(|(id, d)| (id, d.name.clone())),
+        options: if state.ranked.show_decks {
+            choices(state)
+                .skip(state.ranked.deck_page.saturating_mul(DECK_PAGE))
+                .take(DECK_PAGE + 1)
+                .map(|(id, d)| (id, d.name.clone()))
+                .collect()
+        } else {
+            Vec::new()
+        },
         picker: state.ranked.show_decks,
         deck_page: state.ranked.deck_page,
         own,
+        preview: preview::look(state),
     }
 }
 
@@ -86,7 +94,6 @@ pub(super) fn draw(
     state: &LobbyState,
     look: &Look,
 ) {
-    use draw::label;
     let lang = kit.lang();
     let title = parts::marked_line(
         commands,
@@ -97,6 +104,41 @@ pub(super) fn draw(
         tokens::INK,
     );
     commands.entity(parent).add_child(title);
+    own_rank(commands, parent, kit, look);
+    if !look.eligible {
+        label(
+            commands,
+            parent,
+            kit,
+            Phrase::RankedSignIn.text(lang),
+            kit.m.text,
+            tokens::MUTED,
+        );
+        return;
+    }
+    error(commands, parent, kit, look);
+    if !show_status(commands, parent, kit, look) {
+        return;
+    }
+    if look.recover {
+        label(
+            commands,
+            parent,
+            kit,
+            Phrase::RankedRecover.text(lang),
+            kit.m.text,
+            tokens::ACCENT,
+        );
+    }
+    deck_picker(commands, parent, kit, state, look);
+    if look.deck.is_some() && !look.recover {
+        preview::draw(commands, parent, kit, &look.preview);
+    }
+    join_button(commands, parent, kit, look);
+}
+
+fn own_rank(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
+    let lang = kit.lang();
     if let Some((rank, placements, elo)) = look.own {
         let group = parts::row(commands, kit, true);
         commands.entity(parent).add_child(group);
@@ -137,22 +179,10 @@ pub(super) fn draw(
         };
         label(commands, group, kit, &progress, kit.m.small, tokens::ACCENT);
     }
-    if !look.eligible {
-        label(
-            commands,
-            parent,
-            kit,
-            if state.central_ready() && !state.can_play_online() {
-                Phrase::RankedConnect
-            } else {
-                Phrase::RankedSignIn
-            }
-            .text(lang),
-            kit.m.text,
-            tokens::MUTED,
-        );
-        return;
-    }
+}
+
+fn error(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
+    let lang = kit.lang();
     if let Some(err) = look.error {
         let why = match err {
             baylee_account::Error::Unavailable => Phrase::RankedServiceError,
@@ -180,37 +210,16 @@ pub(super) fn draw(
             false,
         );
     }
+}
+
+fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -> bool {
+    let lang = kit.lang();
     match &look.queue {
         QueueState::Idle => {}
         QueueState::Waiting {
             format, queued_at, ..
         } => {
-            let title = Phrase::RankedSearching.fill(lang, &[format_name(*format, lang)]);
-            label(commands, parent, kit, &title, kit.m.text, tokens::ACCENT);
-            let row = parts::row(commands, kit, false);
-            commands.entity(parent).add_child(row);
-            for idx in 0..3 {
-                let dot = commands
-                    .spawn((
-                        Pulse(idx),
-                        Node {
-                            width: kit.m.px(6.0),
-                            height: kit.m.px(6.0),
-                            border_radius: BorderRadius::all(px(4)),
-                            ..default()
-                        },
-                        BackgroundColor(tokens::ACCENT),
-                        Pickable::IGNORE,
-                    ))
-                    .id();
-                commands.entity(row).add_child(dot);
-            }
-            let clock = parts::line(commands, kit, "", kit.m.small, tokens::MUTED);
-            commands.entity(clock).insert(WaitingSince {
-                start: *queued_at,
-                seconds: None,
-            });
-            commands.entity(row).add_child(clock);
+            waiting(commands, parent, kit, *format, *queued_at);
             if !look.busy {
                 draw::btn(
                     commands,
@@ -223,7 +232,7 @@ pub(super) fn draw(
                 );
             }
             if !look.recover {
-                return;
+                return false;
             }
         }
         QueueState::Assigned { assignment, .. } => {
@@ -241,7 +250,7 @@ pub(super) fn draw(
                 );
             }
             if !look.recover {
-                return;
+                return false;
             }
         }
         QueueState::Finished {
@@ -300,16 +309,42 @@ pub(super) fn draw(
             );
         }
     }
-    if look.recover {
-        label(
-            commands,
-            parent,
-            kit,
-            Phrase::RankedRecover.text(lang),
-            kit.m.text,
-            tokens::ACCENT,
-        );
+
+    true
+}
+
+fn waiting(commands: &mut Commands, parent: Entity, kit: Kit, format: Format, queued_at: i64) {
+    let lang = kit.lang();
+    let title = Phrase::RankedSearching.fill(lang, &[format_name(format, lang)]);
+    label(commands, parent, kit, &title, kit.m.text, tokens::ACCENT);
+    let row = parts::row(commands, kit, false);
+    commands.entity(parent).add_child(row);
+    for idx in 0..3 {
+        let dot = commands
+            .spawn((
+                Pulse(idx),
+                Node {
+                    width: kit.m.px(6.0),
+                    height: kit.m.px(6.0),
+                    border_radius: BorderRadius::all(px(4)),
+                    ..default()
+                },
+                BackgroundColor(tokens::ACCENT),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(row).add_child(dot);
     }
+    let clock = parts::line(commands, kit, "", kit.m.small, tokens::MUTED);
+    commands.entity(clock).insert(WaitingSince {
+        start: queued_at,
+        seconds: None,
+    });
+    commands.entity(row).add_child(clock);
+}
+
+fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyState, look: &Look) {
+    let lang = kit.lang();
     let selection = selected(state);
     if let Some((_, d)) = selection {
         let line = parts::caption(commands, kit, Phrase::RankedChosenDeck.text(lang));
@@ -372,9 +407,13 @@ pub(super) fn draw(
             }
         }
     }
+}
+
+fn join_button(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
+    let lang = kit.lang();
     let reason = if look.held {
         Some(Phrase::ChallengeLeaveTable)
-    } else if selection.is_none() {
+    } else if look.deck.is_none() {
         Some(Phrase::RankedNoDeck)
     } else if look.busy {
         Some(Phrase::RankedJoining)

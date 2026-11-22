@@ -92,6 +92,7 @@ struct PendingSave {
 /// Handle to a serial worker; the UI cannot read or print its tokens or keys.
 #[derive(Clone)]
 pub(crate) struct Handle {
+    pub(crate) public_id: Option<baylee_account::ranked::Id>,
     draft_store: Option<crate::buildui::draft::private::Private>,
     library: Arc<Mutex<decks::Versions>>,
     library_epoch: u64,
@@ -172,6 +173,7 @@ impl Handle {
     #[cfg(any(test, feature = "dev-control"))]
     fn from_sender(send: mpsc::SyncSender<Job>) -> Self {
         Self {
+            public_id: None,
             draft_store: None,
             library: Arc::default(),
             library_epoch: decks::new_epoch(),
@@ -332,6 +334,7 @@ impl Handle {
     }
 
     fn start(mut account: Account) -> Result<Self, Error> {
+        let public_id = account.public_id();
         let draft_store = crate::buildui::draft::private::Private::for_account(&account)?;
         let (send, receive) = mpsc::sync_channel::<Job>(64);
         let active = Arc::new(AtomicBool::new(true));
@@ -421,6 +424,7 @@ impl Handle {
             })
             .map_err(|_| Error::Unavailable)?;
         Ok(Self {
+            public_id: Some(public_id),
             draft_store: Some(draft_store),
             library: Arc::default(),
             library_epoch: decks::new_epoch(),
@@ -781,6 +785,7 @@ fn close(state: &mut LobbyState) {
     let Some(central) = state.central.take() else {
         return;
     };
+    state.drafts.bind(0, None);
     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
     state.left_central = if central.has_way_back() {
         LeftCentral::WayBack
@@ -916,6 +921,10 @@ pub(super) fn receive(
             };
             central.saved_gateways.clone_from(&restored.gateways);
             central.handle = Some(restored.handle.clone());
+            state.drafts.bind(
+                restored.handle.library_epoch(),
+                restored.handle.draft_store(),
+            );
             central.terms_pending = restored.terms_pending;
             central.profile_handle.clone_from(&restored.profile_handle);
             prefs.attach_central(restored.handle, restored.preferences);
@@ -1331,6 +1340,13 @@ pub(super) fn back_from_a_session(state: &mut LobbyState) {
 }
 
 pub(super) fn logout(state: &mut LobbyState, prefs: &mut crate::prefs::Prefs) {
+    let builder = state.lobby.builder();
+    if state.has_central_account() && builder.dirty() && !state.lobby.scoped_builder() {
+        let draft = builder.draft();
+        if !draft.is_empty() {
+            state.drafts.keep(&draft);
+        }
+    }
     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
     let lang = state.lobby.lang();
     state.lobby = Lobby::new();

@@ -1,5 +1,42 @@
 # Account entry, collection and deck history
 
+## Ranked play
+
+Leaderboards on the front door opens the same seasonal ladder as Ranked play
+in the lobby. Guests can read it immediately. A Central account adds the deck
+selector and the matchmaking queue. Standard, Highlander and Commander each
+have independent player and deck standings. The league menu offers the
+divisions that exist in that league. The season button also lists past seasons.
+The list keeps its scroll position during a refresh and starts at the top
+after a filter or page change. Each row opens its player's public profile.
+An unnamed account stays anonymous in the profile.
+
+Opening the optional deck-Elo preview sends Central the selected deck and
+sideboard's hashed card identities with copy counts. The returned projection
+names its source, edit deduction and placement progress. The worker binds
+the result to the account, format, deck and saved revision. Looking at a
+projection does not reserve a seat or change either rating.
+
+The selected deck is frozen before a queue entry is sent. Central selects the
+verified game host and the client opens a separate seat connection to it. The
+home gateway and chat session continue on their original connections. The
+queue card displays elapsed time, cancellation while waiting, deck recovery
+and the option to resume a previously opened game. Once Central settles that
+game, the receipt shows each rating change. A division, league or Champion
+podium promotion plays once per locally entered match. Simultaneous player
+and deck promotions play in sequence. Reduced motion keeps the presentation
+still. Placement counters always belong to the selected format and track.
+
+The assigned host receives a game-scoped admission. When it requires new
+terms, the client shows the verified origin and the version published at
+Central. Accept continues that assignment. Decline releases the reservation.
+Long games renew their own admission while the original seat remains open.
+
+On macOS the passive window test `cargo dev e2e ranked_` exercises the public
+board against loopback data. A second test renders private queue and promotion
+examples on the same native desk. Its fixture requires the development harness
+and an explicit environment opt-in and operates on the displayed copy only.
+
 ## Tower Echoes run client
 
 `baylee-client-core::echoes` is the new renderer-free state machine for the
@@ -206,6 +243,14 @@ seven land probability complement the mana curve, colored pips and legality
 feedback. Opening-hand statistics exclude the sideboard and apply before
 mulligans.
 
+Personal collections follow a signed-in Central account across gateways.
+The account worker reads and writes encrypted deck snapshots, checks the
+revision the editor opened and preserves a newer remote save on a conflict.
+The first save of a visit can archive the previous head. Later autosaves
+replace the working version. House decks come from the selected host or the
+bundled catalog when playing without a gateway. Local gateway accounts,
+guests and offline players use their existing collection.
+
 A room says what it holds a deck to in its rules rail (`lobby/room/rules.rs`): the
 list, or that every deck may sit down; a running game adds the version it froze. The
 host's *Ban list…* opens a sheet of the official lists and their own, and a press
@@ -217,13 +262,24 @@ sentence a reason, in the same words the deck builder uses. Offline there are no
 lists: they live on a gateway. The rules are `docs/banlists-and-formats.md`.
 
 For a signed-in Central account, creating or joining a casual table and assigning a
-deck to a chair resolve that one saved deck on the account worker. The client sends
+deck to a chair resolve the revision shown in the shelf on the account worker.
+An edit on another device during this read cannot change the submission. The client sends
 the playable rows, commander names, deck name and format to the selected gateway.
 A sleeve or playmat travels only to the gateway that owns it. Row notes, edit
 messages, source links and library identities stay private. Gateway selection and
 account session are checked again after the read. A gateway announces frozen deck
 support with `submitted_decks` in `GET /auth/config`. A client selecting an account
 deck at an older gateway can choose a compatible host.
+
+Under **My decks → Import saved decks**, a Central user can copy the device's
+saved decks or the selected gateway's private collection. The gateway source
+requires an active session at that exact origin. Each Central worker job reads
+one gateway page or publishes one deck. Cancel stops subsequent jobs. Repeating
+an import reuses the per-source markers of already copied decks. The device
+import keeps row notes, print choices, legacy commander names and original save
+times. A damaged or unsupported source produces a visible failure and leaves
+the original file untouched. Device-only cosmetics remain in the encrypted
+collection and carry no online gateway authority.
 
 House decks are read-only server publications. Copying one refreshes the account
 deck list and opens its private copy. Only a persisted deck belonging to the

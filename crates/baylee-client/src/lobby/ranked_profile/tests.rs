@@ -1,6 +1,5 @@
 use super::*;
 use baylee_account::ranked::{Format, League, Rank, Record, Response, Season, Standing, Track};
-use std::sync::{Arc, Mutex};
 fn season() -> Season {
     Season {
         id: [1; 16],
@@ -58,9 +57,32 @@ fn full_public_handle_must_match_both_name_and_tag() {
     assert!(model::valid_handle("Sam#0012"));
     assert!(!model::valid_handle("Sam"));
     assert!(!model::valid_handle("Sam#../x"));
+    assert!(!model::valid_handle("Sam#0000"));
+    assert!(!model::valid_handle("Sam#00007"));
+    assert!(!model::valid_handle("S#m#0012"));
     assert!(Profile::accept("Sam#0012", public.clone()).is_some());
     assert!(Profile::accept("Other#0012", public.clone()).is_none());
     assert!(Profile::accept("Sam#0013", public).is_none());
+}
+
+#[test]
+fn published_account_id_resolves_an_unnamed_row_only_for_that_account() {
+    let id = uuid::Uuid::now_v7().into_bytes();
+    let key = OpenProfile::account(id).0;
+    let public = Response::Profile {
+        season: season(),
+        account: id,
+        name: None,
+        tag: None,
+        formats: vec![],
+        awards: vec![],
+    };
+    assert_eq!(
+        model::target(&key),
+        Some(baylee_account::ranked::ProfileTarget::Account(id))
+    );
+    assert!(Profile::accept(&key, public.clone()).is_some());
+    assert!(Profile::accept(&model::account_key([0; 16]), public).is_none());
 }
 
 #[test]
@@ -85,7 +107,9 @@ fn frame_uses_the_best_confirmed_player_rank_across_formats() {
 }
 
 fn reply(book: &mut Book, result: ReadResult) {
-    book.reading = Some(("Sam#0012".to_owned(), Arc::new(Mutex::new(Some(result)))));
+    let (sender, receiver) = mpsc::sync_channel(1);
+    sender.send(result).unwrap();
+    book.reading = Some(("Sam#0012".to_owned(), Mutex::new(receiver)));
     receive(book, 2.0);
 }
 
@@ -101,6 +125,20 @@ fn transport_failure_keeps_confirmed_data_but_a_withdrawn_identity_loses_its_fra
     assert!(book.known["Sam#0012"].failed);
     reply(&mut book, Err(baylee_account::Error::Rejected));
     assert_eq!(book.known["Sam#0012"].profile, None);
+}
+
+#[test]
+fn a_stopped_worker_and_a_receipt_during_an_old_read_both_recover() {
+    let (sender, rx) = mpsc::channel();
+    let mut book = Book::default();
+    book.reading = Some(("Sam#0012".into(), Mutex::new(rx)));
+    drop(sender);
+    receive(&mut book, 5.0);
+    assert!(book.reading.is_none());
+    assert!(book.known["Sam#0012"].failed);
+    book.repeat_read = true;
+    reply(&mut book, Ok(profile()));
+    assert!(book.known["Sam#0012"].retry_at.abs() < f64::EPSILON);
 }
 
 #[test]

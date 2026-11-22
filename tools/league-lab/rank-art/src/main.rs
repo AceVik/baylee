@@ -1,4 +1,5 @@
 //! Build division badges and the two review plates from the published ladder and league paintings.
+mod frames;
 mod plate;
 mod shaders;
 
@@ -195,13 +196,18 @@ fn division(
 fn main() -> Result<()> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    if let [action] = args.as_slice()
+        && action == "frames"
+    {
+        return frames::write(&root);
+    }
     if let [action, ladder, output] = args.as_slice()
         && action == "shaders"
     {
         return shaders::gallery(&root, Path::new(ladder), Path::new(output));
     }
     if !(1..=2).contains(&args.len()) {
-        return Err("usage: baylee-rank-art LADDER_CSV [ORIGINAL_PAINTINGS_DIR] | shaders LADDER_CSV OUTPUT.html".into());
+        return Err("usage: baylee-rank-art LADDER_CSV [ORIGINAL_PAINTINGS_DIR] | shaders LADDER_CSV OUTPUT.html | frames".into());
     }
     let out = root.join("art/baylee/ranks");
     let ladder = fs::read_to_string(&args[0])?;

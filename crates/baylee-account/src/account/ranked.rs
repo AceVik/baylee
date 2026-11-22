@@ -140,11 +140,12 @@ impl Account {
         {
             return Err(Error::Conflict);
         }
-        if !pending.as_ref().is_some_and(|host| {
+        let reused = pending.as_ref().is_some_and(|host| {
             host.endpoint == *self.http.endpoint()
                 && host.key == key
                 && same_match(&selected, &host.assignment)
-        }) {
+        });
+        if !reused {
             *pending = None;
             let (gateway, ticket) =
                 self.gateway_token_for(&selected.origin, crate::wire::GatewayPurpose::Ranked)?;
@@ -179,14 +180,14 @@ impl Account {
         }
         // The live game already holds the frozen decks. Account-bound seat
         // recovery works on another device even if the shelf has since changed.
-        let reply = if let Some((_, deck)) = snapshot
+        let reply = if let Some(game) = selected.game {
+            host.gateway
+                .ranked_reclaim(&host.bearer, selected.match_id, game)
+        } else if let Some((_, deck)) = snapshot
             .filter(|(digest, deck)| selected.deck == *digest && selected.format == deck.format)
         {
             host.gateway
                 .ranked_play(&host.bearer, selected.match_id, deck)
-        } else if let Some(game) = selected.game {
-            host.gateway
-                .ranked_reclaim(&host.bearer, selected.match_id, game)
         } else {
             return Err(Error::Conflict);
         };
@@ -196,6 +197,12 @@ impl Account {
             Err(error) => {
                 if matches!(error, Error::Rejected | Error::TermsRequired) {
                     *pending = None;
+                    // The short HTTP bearer or the host's standing may have
+                    // changed while waiting for the other player. Refresh
+                    // once. A fresh admission's refusal retains its meaning.
+                    if reused {
+                        return Err(Error::Conflict);
+                    }
                 }
                 return Err(gateway_error(error));
             }

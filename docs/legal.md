@@ -33,8 +33,9 @@ clasps, procedural material shader and use of the bundled OFL fonts are recorded
 [art notes](../art/baylee/ranks/README.md). We rechecked the
 [Wizards Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy),
 including “Please respect other people’s IP.” Baylee's unofficial notice is
-in `NOTICE`. The client embeds the same 73 paintings. Its avatar bezels,
-placement marks and promotion light rings are original procedural drawings.
+in `NOTICE`. The client embeds the 73 paintings and 76 original frame engravings.
+The Rust source for each player and deck frame lives with the art exporter.
+Placement marks and promotion light rings are original procedural drawings.
 The gallery uses no third-party game artwork or card data. The
 [Scryfall API](https://scryfall.com/docs/api) and
 [image terms](https://scryfall.com/docs/api/images) both returned HTTP 403

@@ -2,6 +2,18 @@ use super::{Account, Change, DeckSnapshot, Error, Head, Log, ROOT_LIMIT, io::Sta
 use crate::decks::{Blob, ImportedDeck, ImportedVersion, Root};
 use std::collections::BTreeSet;
 
+// A gateway can rename a live deck or change its cosmetics in place. Archived
+// source rows carry only lists, whereas the current row owns all metadata.
+fn matching_drafts(old: &super::DeckDraft, incoming: &super::DeckDraft, same_head: bool) -> bool {
+    if same_head {
+        old == incoming
+    } else {
+        old.cards == incoming.cards
+            && old.sideboard == incoming.sideboard
+            && old.commanders == incoming.commanders
+    }
+}
+
 fn check_sources(decks: &[ImportedDeck]) -> Result<(), Error> {
     if decks.len() > 1000 {
         return Err(Error::Rejected);
@@ -145,19 +157,10 @@ impl Account {
                 .find(|s| s.save.revision == version.revision)
             {
                 let current = self.read_revision(id, stored)?;
-                // A gateway can rename a live deck or change its cosmetics in
-                // place. Its older rows carry only the card lists, while the
-                // last row also proves the complete private metadata.
-                if same_head
-                    && (current.draft != version.draft
-                        || (latest.as_ref().is_some_and(|h| h.revision == prior)
-                            && stored.save.superseded_at != version.saved_at))
-                {
-                    return Err(Error::Conflict);
-                }
-                if current.draft.cards != version.draft.cards
-                    || current.draft.sideboard != version.draft.sideboard
-                    || current.draft.commanders != version.draft.commanders
+                let current_time =
+                    same_head && latest.as_ref().is_some_and(|h| h.revision == prior);
+                if !matching_drafts(&current.draft, &version.draft, same_head)
+                    || (current_time && stored.save.superseded_at != version.saved_at)
                 {
                     return Err(Error::Conflict);
                 }

@@ -120,6 +120,8 @@ impl Portraits {
 /// An avatar's disc, and whose it is.
 #[derive(Component, Clone, PartialEq, Debug)]
 pub struct Avatar {
+    /// The clipped picture and its ground, scaled together inside a ranked frame.
+    pub(crate) plate: Entity,
     /// The handle the disc was drawn for.
     pub handle: String,
     /// How wide the disc is, in logical pixels.
@@ -266,16 +268,11 @@ pub fn disc_as(
         ground.with_alpha(strength),
         rim.with_alpha(RIM_ALPHA * strength),
     );
-    let disc = commands
+    let plate = commands
         .spawn((
-            Avatar {
-                handle: handle.to_owned(),
-                size,
-                quiet,
-            },
             Node {
-                width: px(size),
-                height: px(size),
+                width: percent(100),
+                height: percent(100),
                 flex_shrink: 0.0,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -289,8 +286,28 @@ pub fn disc_as(
             Pickable::IGNORE,
         ))
         .id();
+    let disc = commands
+        .spawn((
+            Avatar {
+                plate,
+                handle: handle.to_owned(),
+                size,
+                quiet,
+            },
+            Node {
+                width: px(size),
+                height: px(size),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .add_child(plate)
+        .id();
     let letters = face(commands, fonts, handle, size, quiet, None);
-    commands.entity(disc).add_child(letters);
+    commands.entity(plate).add_child(letters);
     disc
 }
 
@@ -303,7 +320,8 @@ pub fn wear_portraits(
     mut commands: Commands,
     portraits: Res<Portraits>,
     fonts: Option<Res<UiFonts>>,
-    discs: Query<(Entity, Ref<Avatar>, Option<&Children>)>,
+    discs: Query<Ref<Avatar>>,
+    plates: Query<&Children>,
     faces: Query<&AvatarFace>,
 ) {
     // No faces to set letters in yet: the discs keep what they were drawn
@@ -312,14 +330,17 @@ pub fn wear_portraits(
         return;
     }
     let all = portraits.is_changed();
-    for (disc, avatar, children) in &discs {
+    for avatar in &discs {
         if !all && !avatar.is_added() {
             continue;
         }
         let want = portraits
             .of(&avatar.handle)
             .map_or(AvatarFace::Letters, AvatarFace::Picture);
-        let worn: Vec<Entity> = children
+        let disc = avatar.plate;
+        let worn: Vec<Entity> = plates
+            .get(disc)
+            .ok()
             .into_iter()
             .flatten()
             .copied()
@@ -394,7 +415,10 @@ mod tests {
         let (ground, _, _) = palette(avatar::monogram("Mia Wallace#00ff").tint);
         let world = app.world();
         assert_eq!(
-            world.get::<BackgroundColor>(plain).expect("a ground").0,
+            world
+                .get::<BackgroundColor>(world.get::<Avatar>(plain).unwrap().plate)
+                .expect("a ground")
+                .0,
             ground
         );
         assert_eq!(
@@ -429,7 +453,10 @@ mod tests {
         assert_eq!(pictures(&mut app), 2, "a picture that arrives is laid in");
         assert!(texts(&mut app).is_empty());
         assert_eq!(
-            app.world().get::<Children>(other).expect("a face").len(),
+            app.world()
+                .get::<Children>(app.world().get::<Avatar>(other).unwrap().plate)
+                .expect("a face")
+                .len(),
             1,
             "one face, never the letters under the picture"
         );
@@ -447,6 +474,7 @@ mod tests {
         let mut app = app();
         let disc = draw(&mut app, "Alice#0001");
         app.update();
+        let disc = app.world().get::<Avatar>(disc).unwrap().plate;
         let face = app.world().get::<Children>(disc).expect("a face")[0];
         app.update();
         app.update();

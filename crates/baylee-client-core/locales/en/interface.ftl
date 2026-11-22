@@ -10783,7 +10783,7 @@ ProfileReadFailed = Central could not refresh this profile.
 ProfileNoPublicHandle = Public standings appear here once your account has a public name and tag.
 ProfileRankedAwards = Ranked honours
 ProfileNoAwards = No honours earned yet.
-ProfilePeak = Personal best
+ProfilePeak = Rank earned
 ProfileSeasonFinish = Season finish
 ProfileDeck = Best deck
 ProfilePlayer = Player
@@ -10807,9 +10807,9 @@ RankedAllDivisions = All divisions
 RankedChosenDeck = Your deck
 RankedStart = Find opponent
 RankedCancel = Leave queue
+RankedDeclineMatch = Decline this match
 RankedRestore = Restore deck
 RankedSignIn = Sign in with Baylee Central to enter the ranked queue.
-RankedConnect = Choose a home gateway to enter the ranked queue.
 RankedBoardEmpty = No standings in this group yet.
 RankedBoardFailed = Central could not refresh this leaderboard. Try Refresh.
 RankedNoPage = No further page available
@@ -10845,6 +10845,9 @@ RankedElapsed = Waiting { $elapsed }
 RankedSearching = Searching for a { $format } opponent
 # Arguments: format
 RankedAssigned = { $format } opponent found. Connecting to the match…
+RankedOpponentWaiting = Your ranked opponent is ready. Return to the lobby to play.
+PrivateDeckChanged = This deck changed on another device. Load its current version before saving.
+PrivateDraftRecoveredCopy = This deck changed on another device. Your unsaved edits opened as a separate copy.
 # Arguments: format, result, delta, elo
 RankedReceipt = { $format } · { $result } · { $delta } Elo ({ $elo })
 # Arguments: wins, losses, draws
@@ -10860,3 +10863,13 @@ RankedPublicHelp = In { $format }, your player and deck standings are public. Ot
 # Arguments: delta, elo, rank
 RankedDeckResult = Deck · { $delta } Elo ({ $elo }) · { $rank }
 RankedResume = Return to ranked match
+RankedSeasons = Seasons
+RankedCurrentSeason = Current season
+RankedPreview = Preview deck Elo
+RankedPreviewRefresh = Refresh deck Elo
+RankedPreviewDisclosure = To calculate the preview, Central receives hashed card identifiers and copy counts from this deck and sideboard.
+RankedPreviewFailed = The preview could not be loaded. Try again.
+RankedPreviewNew = This deck starts with a new rating.
+RankedPreviewRecorded = This exact deck version keeps its recorded rating.
+# Arguments: changed, compared, loss
+RankedPreviewInherited = { $changed } of { $compared } copies changed · edit deduction { $loss } Elo

@@ -2213,13 +2213,8 @@ pub(super) fn carry_out(
         match ask {
             #[cfg(not(target_arch = "wasm32"))]
             ShellAsk::PlayerProfile => {
-                if let Some(page) = profile.as_deref_mut()
-                    && let Some(handle) = state
-                        .central
-                        .as_ref()
-                        .and_then(|c| c.profile_handle.as_deref())
-                {
-                    page.open_own(handle);
+                if let Some(page) = profile.as_deref_mut() {
+                    page.open_own(&state);
                 }
             }
             ShellAsk::Shortcuts => {

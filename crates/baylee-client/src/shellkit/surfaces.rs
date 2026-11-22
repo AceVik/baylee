@@ -348,7 +348,7 @@ pub fn sheet_box_listed(
         body,
         SheetFooter::regular(footer),
         (marker, ()),
-        true,
+        false,
     )
 }
 
@@ -418,6 +418,28 @@ pub fn sheet_box_headed_listed<C: Bundle>(
         body,
         SheetFooter::regular(footer),
         (marker, ()),
+        false,
+    )
+}
+
+/// A retained list whose header and footer keep their position as asynchronous
+/// rows arrive. The scrolling band keeps its gutter even when the rows fit.
+pub(crate) fn sheet_box_fixed<C: Bundle>(
+    commands: &mut Commands,
+    kit: Kit,
+    width: SheetWidth,
+    header: SheetHeader<'_, C>,
+    body: &[Entity],
+    footer: &[Entity],
+) -> Entity {
+    sheet_box_parts(
+        commands,
+        kit,
+        width,
+        header,
+        body,
+        SheetFooter::regular(footer),
+        ((), ()),
         true,
     )
 }
@@ -679,9 +701,8 @@ fn sheet_box_parts<C: Bundle>(
     body: &[Entity],
     footer: SheetFooter,
     (marker, footer_marker): (impl Bundle, impl Bundle),
-    bar: bool,
+    fixed_viewport: bool,
 ) -> Entity {
-    let _ = bar;
     let phone = kit.m.frame == super::Frame::Phone;
     let wide = match width {
         SheetWidth::Small => 560.0,
@@ -699,6 +720,11 @@ fn sheet_box_parts<C: Bundle>(
                     kit.m.px(wide)
                 },
                 max_width: Val::Percent(100.0),
+                height: if fixed_viewport {
+                    percent(100)
+                } else {
+                    Val::Auto
+                },
                 max_height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 border: UiRect::all(px_fixed(1.0)),
@@ -738,7 +764,16 @@ fn sheet_box_parts<C: Bundle>(
         .insert(marker)
         .id();
     commands.entity(scroller).add_children(body);
-    let band = crate::lobby::scrollbars::band_when_needed(commands, scroller, phone);
+    let band = if fixed_viewport {
+        let band = crate::lobby::scrollbars::band_stable(commands, scroller, phone);
+        commands.entity(band).entry::<Node>().and_modify(|mut n| {
+            n.flex_grow = 1.0;
+            n.flex_basis = px(0);
+        });
+        band
+    } else {
+        crate::lobby::scrollbars::band_when_needed(commands, scroller, phone)
+    };
     commands.entity(surface).add_children(&[head, band]);
     if footer.retained || footer.entities.is_empty() {
         return surface;

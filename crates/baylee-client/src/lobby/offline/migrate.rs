@@ -30,27 +30,46 @@ pub(in crate::lobby) struct Device {
 
 fn install_id(dir: &Path) -> Result<Uuid, Error> {
     let path = dir.join("offline-deck-source");
-    match OpenOptions::new().create_new(true).write(true).open(&path) {
-        Ok(mut file) => {
-            let id = Uuid::now_v7();
-            file.write_all(id.as_bytes())
-                .and_then(|()| file.sync_all())
-                .map_err(|_| Error::Unavailable)?;
-            Ok(id)
-        }
+    match File::open(&path) {
+        Ok(file) => return stored_id(file),
+        Err(error) if error.kind() == ErrorKind::NotFound => {}
+        Err(_) => return Err(Error::Unavailable),
+    }
+    // Publish only a complete marker, even when two clients import concurrently.
+    let id = Uuid::now_v7();
+    let temp = dir.join(format!(".offline-deck-source-{id}"));
+    let mut create = OpenOptions::new();
+    create.create_new(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        create.mode(0o600);
+    }
+    let mut file = create.open(&temp).map_err(|_| Error::Unavailable)?;
+    let installed = file
+        .write_all(id.as_bytes())
+        .and_then(|()| file.sync_all())
+        .and_then(|()| std::fs::hard_link(&temp, &path));
+    drop(file);
+    let _ = std::fs::remove_file(temp);
+    match installed {
+        Ok(()) => Ok(id),
         Err(error) if error.kind() == ErrorKind::AlreadyExists => {
-            let file = File::open(path).map_err(|_| Error::Unavailable)?;
-            let mut bytes = Vec::new();
-            file.take(17)
-                .read_to_end(&mut bytes)
-                .map_err(|_| Error::Unavailable)?;
-            Uuid::from_slice(&bytes)
-                .ok()
-                .filter(|id| id.get_version_num() == 7)
-                .ok_or(Error::Rejected)
+            stored_id(File::open(path).map_err(|_| Error::Unavailable)?)
         }
         Err(_) => Err(Error::Unavailable),
     }
+}
+
+fn stored_id(file: File) -> Result<Uuid, Error> {
+    let mut bytes = Vec::new();
+    file.take(17)
+        .read_to_end(&mut bytes)
+        .map_err(|_| Error::Unavailable)?;
+    Uuid::from_slice(&bytes)
+        .ok()
+        .filter(|id| id.get_version_num() == 7)
+        .ok_or(Error::Rejected)
 }
 
 const LIMIT: u64 = 64 * 1024 * 1024;
@@ -172,20 +191,17 @@ impl Device {
         let Some(row) = rows.front() else {
             return Ok(true);
         };
-        if !account.has_deck_import(row.key)? {
-            let version = ImportedVersion {
-                draft: row.draft.clone(),
-                saved_at: row.saved_at,
-                revision: row.revision,
-            };
-            account.import_decks(
-                row.key,
-                vec![ImportedDeck {
-                    versions: vec![version],
-                }],
-            )?;
-            self.imported += 1;
-        }
+        let version = ImportedVersion {
+            draft: row.draft.clone(),
+            saved_at: row.saved_at,
+            revision: row.revision,
+        };
+        self.imported += account.import_decks_count(
+            row.key,
+            vec![ImportedDeck {
+                versions: vec![version],
+            }],
+        )?;
         rows.pop_front();
         self.scanned += 1;
         Ok(rows.is_empty())
@@ -213,6 +229,19 @@ mod tests {
             one.key,
             parse(bytes, Uuid::from_bytes([8; 16])).unwrap()[0].key
         );
+    }
+
+    #[test]
+    fn concurrent_imports_share_the_same_complete_device_marker() {
+        let dir = std::env::temp_dir().join(format!("baylee-source-{}", Uuid::now_v7()));
+        std::fs::create_dir(&dir).unwrap();
+        std::thread::scope(|scope| {
+            let other = scope.spawn(|| install_id(&dir).unwrap());
+            let id = install_id(&dir).unwrap();
+            assert_eq!(other.join().unwrap(), id);
+            assert_eq!(install_id(&dir).unwrap(), id);
+        });
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

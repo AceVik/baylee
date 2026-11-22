@@ -10,6 +10,12 @@ the pointers, because line numbers move.
 
 ## Global ranked games and private decks
 
+Requesting a private deck Elo preview sends the selected format, normalized
+card-identity digests and copy counts to Central. Central compares them with
+the signed-in player's ranked versions in a read-only transaction. The answer
+contains the projected rating and placement progress. The request creates
+no match, deck version or public leaderboard entry.
+
 The desktop client looks up the full public handles on visible player portraits
 at its configured Central endpoint. It uses the public ranking response to
 decorate the portrait and retains up to 512 profiles in memory. A leaderboard

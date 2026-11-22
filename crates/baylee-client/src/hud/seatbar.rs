@@ -977,6 +977,35 @@ pub(crate) fn called(
     }
 }
 
+/// The same personal portrait and ranked frame as the lobby, for a named
+/// human seat. The plate keeps its camera and targeting interactions.
+#[cfg(not(target_arch = "wasm32"))]
+fn portrait(
+    commands: &mut Commands,
+    slot: (Entity, Entity),
+    fonts: &UiFonts,
+    statics: Option<&GameStatic>,
+    player: PlayerId,
+    size: f32,
+) {
+    let Some(identity) = statics
+        .and_then(|s| s.seats.iter().find(|i| i.player == player))
+        .filter(|i| {
+            !i.is_ai && !i.guest && crate::lobby::ranked_profile::valid_handle(&i.display_name)
+        })
+    else {
+        return;
+    };
+    let disc = crate::shellkit::avatar::disc(commands, fonts, &identity.display_name, size);
+    commands.entity(slot.0).insert_children(0, &[disc]);
+    commands
+        .entity(slot.1)
+        .insert(crate::shellkit::avatar::PersonLink::named(
+            &identity.display_name,
+            false,
+        ));
+}
+
 /// The seat's name, and the cell a player clicks to frame that seat.
 ///
 /// It is also the whole of where a seat's **role** is said, and the reason
@@ -1037,6 +1066,15 @@ fn name(
             )],
         ))
         .id();
+    #[cfg(not(target_arch = "wasm32"))]
+    portrait(
+        commands,
+        (cell, cell),
+        fonts,
+        statics,
+        player,
+        height.min(22.0),
+    );
     // A chair that is not being answered for by the person whose chair it is
     // says so where its name is, which is the one place a player is already
     // looking to find out who it is.

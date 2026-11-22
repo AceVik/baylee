@@ -58,13 +58,17 @@ impl Collection {
     pub fn read(account: &baylee_account::Account) -> Self {
         let challenge = match account.challenges(challenge::Request::Progress) {
             Ok(challenge::Response::Progress { badges, .. })
-                if badges.len() == challenge::BadgeKind::ALL.len() =>
+                if badges.len() == challenge::BadgeKind::ALL.len()
+                    && challenge::BadgeKind::ALL.iter().all(|kind| {
+                        badges
+                            .iter()
+                            .any(|b| b.kind == *kind && *b == kind.progress(b.count))
+                    }) =>
             {
                 Some(
                     badges
                         .into_iter()
                         .filter_map(|b| {
-                            let b = b.kind.progress(b.count);
                             Some(Medal {
                                 kind: Motif::Challenge(b.kind),
                                 tier: b.tier?,
@@ -85,20 +89,28 @@ impl Collection {
             },
         }) {
             Ok(challenge::Response::Tower { response }) => match *response {
-                tower::Response::Read { badges, .. } => Some(
-                    badges
-                        .into_iter()
-                        .take(3)
-                        .filter_map(|b| {
-                            Some(Medal {
-                                kind: Motif::Tower(b.kind),
-                                tier: b.tier?,
-                                count: u64::from(b.count),
-                                next: b.next.map(u64::from),
+                tower::Response::Read { badges, .. }
+                    if badges.len() == tower::BadgeKind::ALL.len()
+                        && tower::BadgeKind::ALL.iter().all(|kind| {
+                            badges
+                                .iter()
+                                .any(|b| b.kind == *kind && *b == kind.progress(b.count))
+                        }) =>
+                {
+                    Some(
+                        badges
+                            .into_iter()
+                            .filter_map(|b| {
+                                Some(Medal {
+                                    kind: Motif::Tower(b.kind),
+                                    tier: b.tier?,
+                                    count: u64::from(b.count),
+                                    next: b.next.map(u64::from),
+                                })
                             })
-                        })
-                        .collect(),
-                ),
+                            .collect(),
+                    )
+                }
                 _ => None,
             },
             _ => None,

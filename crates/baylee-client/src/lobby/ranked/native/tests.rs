@@ -86,6 +86,7 @@ fn only_the_assigned_game_receives_the_one_seat_capability() {
     assignment.game = Some(*game.as_bytes());
     let play = RankedPlay {
         assignment,
+        renew_at: Instant::now(),
         seat: RankedSeat {
             game_id: game,
             seat: 1,
@@ -98,4 +99,32 @@ fn only_the_assigned_game_receives_the_one_seat_capability() {
     assert_eq!(game_only.seat.get(), 1);
     assert_eq!(game_only.seat_token, "one seat");
     assert!(!game_only.watch);
+}
+
+#[test]
+fn declining_an_assigned_hosts_terms_only_cancels_that_reserved_match() {
+    use crate::lobby::{LobbyEvent, Scrolled, front::terms::Subject};
+    use baylee_client_core::{i18n::Lang, terms::Ask};
+    let mut state = LobbyState::default();
+    let home = "https://home.invalid";
+    state.gateway = home.into();
+    let _ = state.lobby.apply(LobbyEvent::LoggedIn {
+        token: "test-home-lobby".into(),
+        username: Some("local-home".into()),
+    });
+    central::enable(&mut state);
+    let (handle, _jobs) = central::Handle::queued_for_test();
+    state.central.as_mut().unwrap().handle = Some(handle.clone());
+    state.ranked_net.session(Some(handle));
+    let key = *Uuid::now_v7().as_bytes();
+    state.ranked_net.observe(assigned(key));
+    state.terms_subject = Subject::Ranked;
+    state.terms.ask(Lang::En);
+    consent::perform(Ask::SignOut, &mut state, &mut Scrolled::default());
+    assert_eq!(state.ranked_net.intent, Some(Request::Cancel { key }));
+    assert!(state.central_ready());
+    assert_eq!(state.gateway, home);
+    assert_eq!(state.lobby.token(), Some("test-home-lobby"));
+    assert_eq!(state.terms_subject, Subject::Gateway);
+    assert!(!state.terms.up());
 }

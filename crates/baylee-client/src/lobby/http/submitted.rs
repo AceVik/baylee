@@ -76,12 +76,16 @@ pub(super) fn resolve(
     }
     let Some(id) = Uuid::try_parse(id)
         .ok()
-        .filter(|id| id.get_version_num() == 7)
+        .filter(|id| id.get_version_num() == 7 && id.get_variant() == uuid::Variant::RFC4122)
     else {
         fail(state, Phrase::LibraryReadFailed);
         return None;
     };
     let Some(handle) = state.central_handle() else {
+        fail(state, Phrase::LibraryReadFailed);
+        return None;
+    };
+    let Ok(revision) = handle.listed_deck_revision(id) else {
         fail(state, Phrase::LibraryReadFailed);
         return None;
     };
@@ -91,9 +95,9 @@ pub(super) fn resolve(
     let destination = state.gateway.clone();
     if !handle.submit(move |account| {
         let deck = account
-            .load_deck(id)
+            .deck_version(id, revision)
             .and_then(|snapshot| {
-                if snapshot.id != id {
+                if snapshot.id != id || snapshot.revision != revision {
                     return Err(baylee_account::Error::Rejected);
                 }
                 play_fields(snapshot.draft, &destination)

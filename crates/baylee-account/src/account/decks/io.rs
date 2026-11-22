@@ -110,13 +110,18 @@ impl Account {
         let object = self.session.create_object(&self.http)?;
         let id = Uuid::from_bytes(object.id);
         stage.chunks.push((id, 0));
-        if let Err(error) = self.session.write_object(&self.http, object.id, 0, bytes) {
-            let opened = self
-                .session
-                .read_object(&self.http, object.id, 1)
-                .map_err(|_| error)?;
-            if opened.revision != 1 || opened.plaintext.as_slice() != bytes {
-                return Err(Error::Conflict);
+        for attempt in 0..2 {
+            let Err(error) = self.session.write_object(&self.http, object.id, 0, bytes) else {
+                break;
+            };
+            match self.session.read_object(&self.http, object.id, 1) {
+                Ok(opened) if opened.revision == 1 && opened.plaintext.as_slice() == bytes => break,
+                Ok(_) => return Err(Error::Conflict),
+                // The transport already backs off on explicit 429s. A broken
+                // connection during a long upload can hide the answer. Retry the
+                // same reserved ID and revision-zero CAS once after reading it.
+                Err(_) if attempt == 0 && matches!(error, Error::Busy | Error::Unavailable) => (),
+                Err(_) => return Err(error),
             }
         }
         if let Some(item) = stage.chunks.last_mut() {

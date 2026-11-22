@@ -288,6 +288,10 @@ fn eighths(scale: f32) -> u8 {
     (scale * 8.0).round() as u8
 }
 
+/// Layout identity of a ranked desk retained across home gateway feed updates.
+#[derive(Component)]
+pub(super) struct RankedDesk(pub(super) crate::shellkit::ShellMetrics, pub(super) Lang);
+
 type LobbyRoots<'w, 's> = (
     Query<'w, 's, Entity, With<LobbyRoot>>,
     Query<
@@ -296,6 +300,16 @@ type LobbyRoots<'w, 's> = (
         (
             Entity,
             &'static super::header::RetainedHeader,
+            Option<&'static bevy::app::Inherited<bevy::ui::ComputedUiTargetCamera>>,
+            Option<&'static bevy::app::Inherited<bevy::ui::ComputedUiRenderTargetInfo>>,
+        ),
+    >,
+    Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static RankedDesk,
             Option<&'static bevy::app::Inherited<bevy::ui::ComputedUiTargetCamera>>,
             Option<&'static bevy::app::Inherited<bevy::ui::ComputedUiRenderTargetInfo>>,
         ),
@@ -339,7 +353,7 @@ pub(super) fn ui(
     mut builder_drawn: Local<Option<crate::buildui::Retained>>,
     mut rebuilds: ResMut<UiRebuilds>,
 ) {
-    let (root, headers) = roots;
+    let (root, headers, desks) = roots;
     let (width, height) = windows.iter().next().map_or((1280.0, 800.0), |w| {
         crate::hud::scale::desktop_dimensions(w, ui.as_deref())
     });
@@ -480,6 +494,26 @@ pub(super) fn ui(
     for (entity, ..) in &headers {
         commands.entity(entity).try_remove::<ChildOf>();
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    let retained_ranked = (state.hub == Hub::Ranked
+        && !state.settings.is_open()
+        && (state.lobby.awaiting().is_none() || state.room_away)
+        && matches!(state.lobby.screen(), Screen::SignIn { .. } | Screen::Table))
+    .then(|| {
+        desks
+            .iter()
+            .find(|(_, desk, ..)| desk.0 == kit.m && desk.1 == kit.lang())
+    })
+    .flatten()
+    .map(|(entity, _, camera, target)| {
+        commands.entity(entity).try_remove::<ChildOf>();
+        crate::shellkit::retain::Kept::of(entity, camera, target)
+    });
+    #[cfg(target_arch = "wasm32")]
+    let retained_ranked = {
+        let _ = desks;
+        None
+    };
     for entity in &root {
         commands.entity(entity).try_despawn();
     }
@@ -571,7 +605,14 @@ pub(super) fn ui(
     match state.lobby.screen() {
         #[cfg(not(target_arch = "wasm32"))]
         Screen::SignIn { .. } if state.hub == Hub::Ranked && !state.central_ready() => {
-            super::ranked::draw(&mut commands, root, &state, metrics, kit, &scrolled_to);
+            super::ranked::draw(
+                &mut commands,
+                root,
+                metrics,
+                kit,
+                &scrolled_to,
+                retained_ranked.as_ref(),
+            );
         }
         Screen::SignIn { .. } if state.central_ready() && !state.showing_gateway_hub() => {
             table(
@@ -584,6 +625,7 @@ pub(super) fn ui(
                 kit,
                 prefs.all(),
                 retained_header.as_ref(),
+                retained_ranked.as_ref(),
             );
         }
         Screen::SignIn { .. } => {
@@ -655,6 +697,7 @@ pub(super) fn ui(
                 kit,
                 prefs.all(),
                 retained_header.as_ref(),
+                retained_ranked.as_ref(),
             );
             if kit.m.frame != crate::shellkit::Frame::Phone {
                 let ver = super::front::door::version_line(&mut commands, &state, kit);

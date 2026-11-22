@@ -1836,7 +1836,11 @@ impl FrontPress {
             }
             // The same confirmation, password and request as Settings'
             // Delete account: declining the terms deletes nothing else.
-            FrontPress::TermsDecline => state.lobby.ask_to_delete_account(),
+            FrontPress::TermsDecline => {
+                if state.terms_subject == terms::Subject::Gateway {
+                    state.lobby.ask_to_delete_account();
+                }
+            }
             FrontPress::TermsLater => {
                 if let Some(ask) = state.terms.not_now(false) {
                     terms::perform(ask, state, prefs, scrolled, mailbox, settings);

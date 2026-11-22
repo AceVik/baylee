@@ -153,6 +153,10 @@ pub(super) fn save_landed(
     else {
         return;
     };
+    #[cfg(not(target_arch = "wasm32"))]
+    state
+        .drafts
+        .committed(sent.visit, &sent.draft, deck_id.as_deref());
     let mut asked = false;
     if thrown_away {
         if let Some(deck_id) = deck_id {

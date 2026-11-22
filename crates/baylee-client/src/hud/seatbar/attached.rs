@@ -861,6 +861,15 @@ fn spawn_identity(
         ))
         .id();
     let first = plate_first_line(commands, fonts, &plate, seat, view, &called, role, ink);
+    #[cfg(not(target_arch = "wasm32"))]
+    super::portrait(
+        commands,
+        (first, identity),
+        fonts,
+        statics,
+        seat.player,
+        LINE_1 - 2.0,
+    );
     commands.entity(column).add_child(first);
     if !lost {
         let second = plate_details(commands, fonts, &plate, ink, soft);

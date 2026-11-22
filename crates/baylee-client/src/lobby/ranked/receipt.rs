@@ -26,36 +26,48 @@ pub(super) fn promotion(
     }
     *seen = Some(*match_id);
     refresh.write(crate::lobby::ranked_profile::RefreshOwn);
-    let art = |r: api::Rank, is_deck: bool| {
+    for (before, after, track) in [
+        (*before, *after, Track::Player),
+        (deck.before, deck.after, Track::Deck),
+    ] {
+        if let Some(promotion) = notice(before, after, track, *format, state.lobby.lang()) {
+            events.write(promotion);
+        }
+    }
+}
+
+pub(super) fn notice(
+    before: api::Rank,
+    after: api::Rank,
+    track: Track,
+    format: Format,
+    lang: Lang,
+) -> Option<crate::rank_art::Promotion> {
+    if before == after {
+        return None;
+    }
+    let art = |r: api::Rank| {
         crate::rank_art::RankArt::badge(
             league_name(r.league, Lang::En),
             r.division,
-            is_deck,
+            track == Track::Deck,
             r.champion_place.map(u32::from),
         )
     };
-    for (before, after, is_deck, track) in [
-        (*before, *after, false, Phrase::RankedPlayers),
-        (deck.before, deck.after, true, Phrase::RankedDecks),
-    ] {
-        if before == after {
-            continue;
-        }
-        let (Some(old), Some(new)) = (art(before, is_deck), art(after, is_deck)) else {
-            continue;
-        };
-        let lang = state.lobby.lang();
-        events.write(crate::rank_art::Promotion {
-            before: old,
-            after: new,
-            label: format!(
-                "{} · {} · {}",
-                format_name(*format, lang),
-                track.text(lang),
-                rank_name(after, lang)
-            ),
-        });
-    }
+    let kind = match track {
+        Track::Player => Phrase::ProfilePlayer,
+        Track::Deck => Phrase::BuildPaneDeck,
+    };
+    Some(crate::rank_art::Promotion {
+        before: art(before)?,
+        after: art(after)?,
+        label: format!(
+            "{} · {} · {}",
+            format_name(format, lang),
+            kind.text(lang),
+            rank_name(after, lang)
+        ),
+    })
 }
 
 #[cfg(test)]

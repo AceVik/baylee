@@ -120,7 +120,7 @@ pub(super) fn poll(
                 Reply::LibrarySession(session, reply) => {
                     if !state
                         .central_handle()
-                        .is_some_and(|h| h.same_session(&session))
+                        .is_some_and(|h| h.is_active() && h.same_session(&session))
                     {
                         continue;
                     }

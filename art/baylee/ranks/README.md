@@ -68,7 +68,7 @@ Die Vorschau nutzt eine RGBA8-Unorm-Textur und ein Unorm-Ausgabeziel mit sRGB-ko
 
 ### Profilrahmen und Platzierung
 
-Der Spielerrahmen folgt dem runden Porträt. Der Deckrahmen hat abgerundete, fast quadratische Schultern. Beide lassen die Bildmitte durchsichtig. Papier und Holz haben ein ruhendes Relief. Metallrahmen tragen gravierte Drähte und für jede erreichte Division ein weiteres Blattpaar am Fuß. Ab Gold sitzt ein Stein am oberen Rand, ab Diamant kommen Seitensteine hinzu. Die drei Champion-Spielerrahmen übernehmen Rosé, Saphirblau und Perlmutt des zugehörigen Helms. Während der Platzierung tragen Spieler einen schlichten grauen Helm und Decks zwei graue Kartenrücken mit matten Rahmen.
+Der Spielerrahmen umfasst ein rundes Porträt. Der Deckrahmen folgt einem Stapel abgeschrägter Karten. Papier trägt gefaltete Ecken, Holz geschwungene Äste, Eisen genietete Platten und Bronze Lorbeer. Silber hat Mondsicheln, Gold einen Strahlenrand, Platin gestufte Emaille und Diamant facettierte Kristalle. Master und Grandmaster tragen Amethystfedern und Rubinhörner. Die Champion-Rahmen beider Ranglisten führen vom geflügelten Diadem über Rosélorbeer und Saphirspangen zur Goldkrone mit großem Brillanten. Die Mitte jedes Rahmens bleibt durchsichtig. Jede Division trägt unten einen zentralen Stein. Von der Einstiegsdivision bis I werden dessen Schliff, Fassung und Flügel aufwendiger. Die 76 Originalgravuren entstehen im Rust-Exporter. Der Client beleuchtet nur ihre bemalten Flächen. Die Platzierungsrahmen, Papier und Holz ruhen.
 
 Divisionen steigen mit einem kleinen Lichtkranz auf. Beim Ligaaufstieg kommt ein zweiter gravierter Bogen hinzu, bei Eliterängen ein Strahlenkranz. Die Karte liegt über dem Lobbyinhalt und verschiebt die Bedienelemente nicht. Reduzierte Bewegung hält die Materialphase bei 0,34 und die Aufstiegskarte in ihrer Endgröße.
 
@@ -82,5 +82,6 @@ Für das Podium wurde der fertige Champion-Spielerhelm als Bildvorlage verwendet
 mkdir -p target
 cargo run --locked -- ladder > target/ladder.csv
 cargo run --release --locked -p baylee-rank-art -- target/ladder.csv
+cargo run --release --locked -p baylee-rank-art -- frames
 cargo test --locked
 ```

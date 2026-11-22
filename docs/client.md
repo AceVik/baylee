@@ -5364,11 +5364,13 @@ editing focused, the builder's one confirm — because a deck is half an hour
 of work and the way out sits in the busiest corner of the screen. Esc never
 leaves: it closes the innermost thing open, ends a renaming, clears the
 search, and then does nothing (`editing::escape`); Back is `‹`, Alt+← or ⌘[.
-While a deck is unsaved the builder keeps a draft of it on the device
-(`buildui::draft`, `builder-drafts.json` beside the settings, a second after
-the last edit and at once on leaving or closing), forgets it when a save of it
-lands or it is discarded, and takes it back when the same deck is opened again
-with something the gateway never got.
+While a deck is unsaved the builder keeps a recovery draft on the device
+(`buildui::draft`, a second after the last edit and on leaving or closing).
+Offline and local gateway sessions use `builder-drafts.json`. Each Central
+account has a separate, authenticated encrypted recovery file. Signing back
+in unlocks that account's edits. If another device has since changed the
+saved deck, the builder opens the recovered edit as a new private copy.
+Saving or discarding resolves the draft.
 
 **Every change saves itself, and only an answer says it did** (`lobby::decksave`,
 `client_core::deckbuilder::saves`). An edit that has stood 0.4 s goes out, so a

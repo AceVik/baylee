@@ -1,8 +1,8 @@
 //! Regression coverage for retained public standings and validated result notifications.
 use super::{headless, presses, settle, sized};
 use crate::{
+    lobby::ranked_profile::OpenProfile,
     lobby::{Hub, LobbyState, Press, ranked::Action},
-    rank_art::RankArt,
 };
 use baylee_account::ranked as api;
 use bevy::prelude::*;
@@ -66,13 +66,15 @@ fn public_rows_keep_entities_and_scroll_region_on_a_same_page_refresh() {
     let controls = presses(&mut app);
     assert!(controls.contains(&Press::Ranked(Action::Back)));
     assert!(!controls.contains(&Press::Ranked(Action::Join)));
-    let art_entities = |app: &mut App| {
-        let mut query = app.world_mut().query_filtered::<Entity, With<RankArt>>();
+    let row_entities = |app: &mut App| {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<Entity, With<OpenProfile>>();
         let mut rows: Vec<_> = query.iter(app.world()).collect();
         rows.sort();
         rows
     };
-    let before = art_entities(&mut app);
+    let before = row_entities(&mut app);
     assert_eq!(before.len(), 30);
     let list = |app: &mut App| {
         let mut query = app
@@ -92,6 +94,12 @@ fn public_rows_keep_entities_and_scroll_region_on_a_same_page_refresh() {
         work.revision += 1;
     }
     app.update();
-    assert_eq!(art_entities(&mut app), before);
+    assert_eq!(row_entities(&mut app), before);
+    assert_eq!(list(&mut app), scroller);
+    // The home lobby still receives feed/status changes during ranked play.
+    // Its shell may rebuild; the actual board, focusable rows and bar stay put.
+    app.world_mut().resource_mut::<LobbyState>().set_changed();
+    app.update();
+    assert_eq!(row_entities(&mut app), before);
     assert_eq!(list(&mut app), scroller);
 }

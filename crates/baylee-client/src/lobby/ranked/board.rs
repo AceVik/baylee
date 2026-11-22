@@ -84,9 +84,7 @@ pub(super) fn board_row(
     ordinal: usize,
     i: usize,
 ) {
-    let lang = kit.lang();
     let standing = &row.standing;
-    let rank = standing.rank;
     let band = commands
         .spawn((
             Node {
@@ -109,6 +107,19 @@ pub(super) fn board_row(
         ))
         .id();
     commands.entity(parent).add_child(band);
+    rank_marker(commands, band, kit, standing, ordinal);
+    identity(commands, band, kit, row, i);
+    record(commands, band, kit, standing);
+}
+
+fn rank_marker(
+    commands: &mut Commands,
+    band: Entity,
+    kit: Kit,
+    standing: &api::Standing,
+    ordinal: usize,
+) {
+    let rank = standing.rank;
     let position = rank.champion_place.map_or(ordinal, usize::from);
     let order = parts::line(
         commands,
@@ -145,6 +156,12 @@ pub(super) fn board_row(
         commands.entity(art).insert(mark);
     }
     commands.entity(band).add_child(art);
+}
+
+fn identity(commands: &mut Commands, band: Entity, kit: Kit, row: &api::Row, i: usize) {
+    let lang = kit.lang();
+    let standing = &row.standing;
+    let rank = standing.rank;
     let who = column(commands, band, kit);
     commands.entity(who).entry::<Node>().and_modify(|mut n| {
         n.flex_grow = 1.0;
@@ -162,13 +179,43 @@ pub(super) fn board_row(
         .or(row.name.as_deref())
         .unwrap_or_else(|| Phrase::RankedUnnamed.text(lang));
     label(commands, who, kit, name, kit.m.text, tokens::INK);
-    if let Some(h) = handle {
-        commands.entity(band).insert((
-            crate::ui_button::UiButton,
-            crate::lobby::ranked_profile::OpenProfile(h),
-        ));
-        orders::item(commands, band, &ORDER, "rows", i);
-    }
+    let profile = if let Some(h) = handle {
+        if standing.track == Track::Player {
+            let portrait =
+                crate::shellkit::avatar::disc(commands, kit.fonts, &h, kit.m.scale * 32.0);
+            commands
+                .entity(portrait)
+                .insert(crate::lobby::ranked_profile::BoardPortrait);
+            if let Some(frame) = crate::rank_art::RankArt::frame(
+                league_name(rank.league, Lang::En),
+                rank.division,
+                rank.champion_place.map(u32::from),
+            ) {
+                let rim = commands
+                    .spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: percent(100),
+                            height: percent(100),
+                            ..default()
+                        },
+                        frame,
+                        ZIndex(2),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                commands.entity(portrait).add_child(rim);
+            }
+            commands.entity(band).insert_children(2, &[portrait]);
+        }
+        crate::lobby::ranked_profile::OpenProfile(h)
+    } else {
+        crate::lobby::ranked_profile::OpenProfile::account(row.account)
+    };
+    commands
+        .entity(band)
+        .insert((crate::ui_button::UiButton, profile));
+    orders::item(commands, band, &ORDER, "rows", i);
     let tier = rank.division.map_or_else(
         || league_name(rank.league, lang).to_owned(),
         |d| format!("{} {}", league_name(rank.league, lang), numeral(d)),
@@ -179,6 +226,11 @@ pub(super) fn board_row(
         tier
     };
     label(commands, who, kit, &sub, kit.m.small, tokens::MUTED);
+}
+
+fn record(commands: &mut Commands, band: Entity, kit: Kit, standing: &api::Standing) {
+    let lang = kit.lang();
+    let rank = standing.rank;
     let record = if rank.league == League::Unranked {
         Phrase::RankedPlacements.fill(lang, &[&standing.placement_games.to_string()])
     } else {
@@ -206,4 +258,54 @@ pub(super) fn board_row(
         kit.m.text,
         tokens::ACCENT,
     );
+}
+
+pub(super) fn seasons(
+    commands: &mut Commands,
+    parent: Entity,
+    kit: Kit,
+    seasons: &[api::Season],
+    busy: bool,
+    failed: bool,
+) {
+    let lang = kit.lang();
+    btn(
+        commands,
+        parent,
+        kit,
+        Phrase::RankedCurrentSeason.text(lang),
+        Action::Season(None),
+        ("season-choice", 0),
+        true,
+    );
+    if failed || busy && seasons.is_empty() {
+        label(
+            commands,
+            parent,
+            kit,
+            if failed {
+                Phrase::RankedBoardFailed
+            } else {
+                Phrase::ChallengeLoading
+            }
+            .text(lang),
+            kit.m.small,
+            tokens::MUTED,
+        );
+    }
+    for (i, s) in seasons.iter().enumerate() {
+        let start = time::OffsetDateTime::from_unix_timestamp(s.starts)
+            .ok()
+            .map(|d| d.date().to_string());
+        let date = start.map_or_else(|| s.name.clone(), |day| format!("{} · {day}", s.name));
+        btn(
+            commands,
+            parent,
+            kit,
+            &date,
+            Action::Season(Some(s.id)),
+            ("season-choice", i + 1),
+            false,
+        );
+    }
 }

@@ -79,6 +79,7 @@ impl UiMaterial for Halo {
 struct Celebrating {
     since: f64,
     step: Step,
+    halo: Handle<Halo>,
 }
 
 #[derive(Component)]
@@ -92,7 +93,7 @@ pub(super) fn install(app: &mut App) {
     app.add_plugins(UiMaterialPlugin::<Halo>::default())
         .init_resource::<Pending>()
         .add_systems(OnExit(DuelPhase::Closed), |mut queue: ResMut<Pending>| {
-            queue.0.clear()
+            queue.0.clear();
         })
         .add_systems(
             Update,
@@ -178,7 +179,11 @@ fn spawn_card(
     let size = step.size();
     let outer = commands
         .spawn((
-            Celebrating { since, step },
+            Celebrating {
+                since,
+                step,
+                halo: halo.clone(),
+            },
             DespawnOnExit(DuelPhase::Closed),
             GlobalZIndex(tokens::z::TOAST - 1),
             Node {
@@ -186,6 +191,7 @@ fn spawn_card(
                 width: percent(100),
                 top: percent(12),
                 justify_content: JustifyContent::Center,
+                overflow: Overflow::clip(),
                 ..default()
             },
             Pickable::IGNORE,
@@ -269,6 +275,7 @@ fn animate(
     time: Res<Time>,
     panels: Query<(Entity, &Celebrating, &Children)>,
     mut cards: Query<&mut UiTransform, With<Card>>,
+    mut halos: ResMut<Assets<Halo>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     quality: Option<Res<crate::quality::InUse>>,
 ) {
@@ -277,27 +284,43 @@ fn animate(
         quality.as_deref(),
     );
     for (entity, panel, children) in &panels {
+        let motion = if still { 0.0 } else { 1.0 };
+        if halos
+            .get(&panel.halo)
+            .is_some_and(|h| (h.motion.y - motion).abs() > f32::EPSILON)
+            && let Some(mut halo) = halos.get_mut(&panel.halo)
+        {
+            halo.motion.y = motion;
+        }
         let age = (time.elapsed_secs_f64() - panel.since) as f32;
         if age >= panel.step.duration() {
             commands.entity(entity).despawn();
             continue;
         }
-        let growth = if still {
-            1.0
+        let pose = if still {
+            UiTransform::default()
         } else {
             let entrance = (age / 0.48).clamp(0., 1.);
-            let exit = ((panel.step.duration() - age) / 0.24).clamp(0., 1.);
+            let exit = ((panel.step.duration() - age) / 0.32).clamp(0., 1.);
             let scale = match panel.step {
                 Step::Division => 0.055,
                 Step::League => 0.105,
                 Step::Elite => 0.145,
             };
-            1.0 - scale * (1.0 - entrance).powi(3) - 0.045 * (1.0 - exit).powi(2)
-        };
-        for child in children {
-            if let Ok(mut transform) = cards.get_mut(*child) {
-                transform.set_if_neq(UiTransform::from_scale(Vec2::splat(growth)));
+            let arriving = (1.0 - entrance).powi(3);
+            let departing = (1.0 - exit).powi(2);
+            UiTransform {
+                scale: Vec2::splat(1.0 - scale * arriving - 0.045 * departing),
+                // Move through the card's own clip. Text and neighbouring controls keep
+                // their layout throughout, including the last frame of the announcement.
+                translation: Val2::new(Val::ZERO, percent(105.0 * (arriving - departing))),
+                ..default()
             }
+        };
+        if let Some(&child) = children.first()
+            && let Ok(mut transform) = cards.get_mut(child)
+        {
+            transform.set_if_neq(pose);
         }
     }
 }

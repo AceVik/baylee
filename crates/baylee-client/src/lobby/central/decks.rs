@@ -40,6 +40,27 @@ pub(super) fn new_epoch() -> u64 {
 }
 
 impl Handle {
+    pub(crate) fn listed_deck_revision(&self, id: Uuid) -> Result<u64, Error> {
+        self.library
+            .try_lock()
+            .map_err(|_| Error::Busy)?
+            .listed
+            .get(&id)
+            .copied()
+            .ok_or(Error::Conflict)
+    }
+
+    /// A preview belongs to the concrete deck revision read. The render
+    /// thread never waits behind an account-worker network operation.
+    pub(crate) fn deck_revision_changed(&self, id: Uuid, revision: u64) -> bool {
+        self.library.try_lock().is_ok_and(|versions| {
+            versions
+                .listed
+                .get(&id)
+                .is_none_or(|&latest| latest > revision)
+        })
+    }
+
     pub(crate) fn draft_store(&self) -> Option<crate::buildui::draft::private::Private> {
         self.draft_store.clone()
     }
@@ -72,16 +93,7 @@ fn id(value: &str) -> Result<Uuid, Error> {
 
 fn failure(lang: Lang, error: Error) -> String {
     if error == Error::Conflict {
-        match lang {
-            Lang::De => {
-                "Das Deck wurde inzwischen geändert. Lade die aktuelle Version vor dem Speichern."
-                    .into()
-            }
-            Lang::En => {
-                "This deck changed on another device. Load its current version before saving."
-                    .into()
-            }
-        }
+        Phrase::PrivateDeckChanged.text(lang).into()
     } else {
         Phrase::LibraryReadFailed.text(lang).into()
     }
@@ -354,4 +366,23 @@ pub(in crate::lobby) fn autosave(state: &LobbyState, mailbox: &Mailbox, save: &D
             })
         },
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_list_refresh_does_not_advance_a_private_editors_revision() {
+        let id = Uuid::now_v7();
+        let mut versions = Versions::default();
+        assert_eq!(versions.expected(id), Err(Error::Conflict));
+        versions.listed.insert(id, 1);
+        assert_eq!(versions.expected(id), Ok(1));
+        versions.edited.insert(id, 1);
+        versions.listed.insert(id, 2);
+        assert_eq!(versions.expected(id), Ok(1));
+        assert!(super::id("system:starter").is_err());
+        assert_eq!(super::id(&id.to_string()), Ok(id));
+    }
 }

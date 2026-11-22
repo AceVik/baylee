@@ -14,9 +14,13 @@ use bevy::prelude::*;
 mod board;
 mod draw;
 pub(crate) mod native;
+mod preview;
 mod queue;
 mod receipt;
+#[cfg(feature = "dev-control")]
+mod visual_fixture;
 pub(super) use draw::draw;
+type OwnRank = (api::Rank, u8, Option<i32>);
 
 pub(crate) const ORDER: TabOrder = TabOrder {
     name: "ranked",
@@ -25,6 +29,7 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "format",
         "deck",
         "deck-choice",
+        "preview",
         "queue",
         "track",
         "league",
@@ -32,13 +37,14 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "division",
         "refresh",
         "rows",
+        "season",
+        "season-choice",
         "pager",
         "baylee",
     ],
     modal: false,
 };
 
-const FORMATS: [Format; 3] = [Format::Standard, Format::Highlander, Format::Commander];
 const LEAGUES: [League; 12] = [
     League::Unranked,
     League::Paper,
@@ -66,11 +72,14 @@ pub(crate) enum Action {
     ToggleDecks,
     DeckPage(usize),
     Deck(uuid::Uuid),
+    Preview,
     Join,
     Cancel,
     Resume,
     Refresh,
     Page(bool),
+    Seasons,
+    Season(Option<api::Id>),
 }
 
 pub(crate) struct Ui {
@@ -84,8 +93,11 @@ pub(crate) struct Ui {
     show_leagues: bool,
     // Pin subsequent cursor pages to the season that produced the first page.
     season: Option<api::Season>,
+    selected_season: Option<api::Id>,
+    browsing_seasons: bool,
+    season_pages: Vec<api::Id>,
     // For Back, store the cursor used for each visited page and its ordinal offset.
-    pages: Vec<(Option<Cursor>, usize)>,
+    pages: Vec<(Cursor, usize)>,
     previous: Hub,
     revision: u64,
 }
@@ -101,6 +113,9 @@ impl Default for Ui {
             show_decks: false,
             show_leagues: false,
             season: None,
+            selected_season: None,
+            browsing_seasons: false,
+            season_pages: Vec::new(),
             pages: Vec::new(),
             previous: Hub::Play,
             deck_page: 0,
@@ -111,29 +126,66 @@ impl Default for Ui {
 
 impl Ui {
     fn board_request(&self) -> api::Request {
+        if self.browsing_seasons {
+            return api::Request::Seasons {
+                before: self.season_pages.last().copied(),
+            };
+        }
         api::Request::Board {
-            season: self.season.as_ref().map(|s| s.id),
+            season: self
+                .selected_season
+                .or_else(|| self.season.as_ref().map(|s| s.id)),
             format: self.format,
             track: self.track,
             league: self.league,
             division: self.division,
-            after: self.pages.last().and_then(|(c, _)| *c),
+            after: self.pages.last().map(|(cursor, _)| *cursor),
         }
     }
     fn reset_pages(&mut self) {
+        self.browsing_seasons = false;
+        self.season_pages.clear();
         self.season = None;
         self.pages.clear();
+    }
+
+    fn turn_page(&mut self, board: Option<&api::Response>, forward: bool) -> bool {
+        if !forward {
+            return if self.browsing_seasons {
+                self.season_pages.pop().is_some()
+            } else {
+                self.pages.pop().is_some()
+            };
+        }
+        match board {
+            Some(api::Response::Seasons { next: Some(id), .. }) if self.browsing_seasons => {
+                self.season_pages.push(*id);
+                true
+            }
+            Some(api::Response::Board {
+                season,
+                entries,
+                next: Some(cursor),
+            }) if !self.browsing_seasons => {
+                let offset = self.pages.last().map_or(0, |(_, n)| *n) + entries.len();
+                self.season = Some(season.clone());
+                self.pages.push((*cursor, offset));
+                true
+            }
+            _ => false,
+        }
     }
 }
 
 pub(super) fn install(app: &mut App) {
+    #[cfg(feature = "dev-control")]
+    visual_fixture::install(app);
     app.add_systems(
-        Update,
-        native::poll
-            .after(super::poll)
-            .before(super::ui)
-            .run_if(in_state(crate::DuelPhase::Closed)),
-    );
+        OnEnter(crate::DuelPhase::Finished),
+        native::close_game_transport,
+    )
+    .add_systems(OnEnter(crate::DuelPhase::Closed), native::clear_game_marker);
+    app.add_systems(Update, native::poll.after(super::poll).before(super::ui));
     app.add_systems(
         Update,
         (draw::patch, queue::animate, receipt::promotion)
@@ -157,38 +209,62 @@ pub(super) fn escape(state: &mut ResMut<LobbyState>) {
         ui.show_leagues = false;
         ui.revision = ui.revision.wrapping_add(1);
     } else {
+        native::clear_preview(state.bypass_change_detection());
         state.hub = state.ranked.previous;
     }
 }
 
-pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
-    if action == Action::Open {
-        if cx.state.hub == Hub::Ranked {
-            return;
-        }
-        let previous = cx.state.hub;
-        cx.state.ranked.previous = previous;
-        cx.state.hub = Hub::Ranked;
-        cx.state.header_menu = None;
-        cx.state.front_menu = false;
-        cx.state.lobby.park_caret();
-        if cx.state.can_play_online() && cx.state.central_ready() {
+fn open(cx: Cx<'_, '_, '_, '_, '_>) {
+    if cx.state.hub == Hub::Ranked {
+        return;
+    }
+    let previous = cx.state.hub;
+    cx.state.ranked.previous = previous;
+    cx.state.hub = Hub::Ranked;
+    cx.state.header_menu = None;
+    cx.state.front_menu = false;
+    cx.state.lobby.park_caret();
+    if cx.state.has_central_account() {
+        if cx.state.central_without_gateway()
+            && matches!(cx.state.lobby.screen(), super::Screen::SignIn { .. })
+        {
+            cx.state.ensure_central_lobby(cx.mailbox);
+        } else {
             super::dispatch(cx.state, cx.mailbox, Some(LobbyRequest::ListDecks));
         }
-        cx.state.ranked.reset_pages();
-        refresh(cx.state);
+    }
+    cx.state.ranked.reset_pages();
+    native::clear_preview(cx.state);
+    refresh(cx.state);
+}
+
+pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
+    if action == Action::Open {
+        open(cx);
         return;
     }
     if cx.state.hub != Hub::Ranked {
         return;
     }
     if action == Action::Back {
+        native::clear_preview(cx.state);
         let previous = cx.state.ranked.previous;
         cx.state.hub = previous;
         return;
     }
     // A filter, a page and the network mailbox are local to the retained page.
     let state = cx.state.bypass_change_detection();
+    match action {
+        Action::Preview => {
+            if let Some((id, _)) = queue::selected(state) {
+                native::preview(state, queue::effective_format(state), &id.to_string());
+            }
+            return;
+        }
+        Action::Deck(id) if Some(id) != state.ranked.deck_id => native::clear_preview(state),
+        Action::Format(f) if f != state.ranked.format => native::clear_preview(state),
+        _ => {}
+    }
     let ui = &mut state.ranked;
     let mut reset_pages = false;
     match action {
@@ -224,9 +300,7 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
             ui.show_decks = false;
         }
         Action::Join => {
-            if !state.can_play_online()
-                || !state.central_ready()
-                || state.lobby.guest()
+            if !state.has_central_account()
                 || state.lobby.awaiting().is_some()
                 || state.ranked_net.busy
             {
@@ -234,6 +308,7 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
             }
             let format = queue::effective_format(state);
             if let Some((id, _)) = queue::selected(state) {
+                native::clear_preview(state);
                 native::join(state, format, &id.to_string());
             }
             return;
@@ -250,23 +325,20 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
             refresh(state);
             return;
         }
+        Action::Seasons => {
+            ui.browsing_seasons = !ui.browsing_seasons;
+            ui.season_pages.clear();
+            let request = ui.board_request();
+            native::board(state, request);
+        }
+        Action::Season(id) => {
+            ui.selected_season = id;
+            reset_pages = true;
+        }
         Action::Page(forward) => {
-            if state.ranked_net.board_busy {
-                return;
-            }
-            if forward {
-                let Some(api::Response::Board {
-                    season,
-                    entries,
-                    next: Some(cursor),
-                }) = &state.ranked_net.board
-                else {
-                    return;
-                };
-                let offset = ui.pages.last().map_or(0, |(_, n)| *n) + entries.len();
-                ui.season = Some(season.clone());
-                ui.pages.push((Some(*cursor), offset));
-            } else if ui.pages.pop().is_none() {
+            if state.ranked_net.board_busy
+                || !ui.turn_page(state.ranked_net.board.as_ref(), forward)
+            {
                 return;
             }
             cx.scrolled.set(List::Ranked, 0.0);

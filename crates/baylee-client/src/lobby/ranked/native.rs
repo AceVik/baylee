@@ -6,7 +6,7 @@ use crate::{
     net::{NetworkHost, SeatTicket},
 };
 use baylee_account::{
-    Account, Error, RankedHost, RankedPlay,
+    Account, Error, RankedConsent, RankedHost, RankedPlay,
     ranked::{Format, Id, QueueState, Request, Response},
 };
 use baylee_client_core::lobby::Screen;
@@ -18,16 +18,37 @@ use std::{
 };
 use uuid::Uuid;
 
+pub(in crate::lobby) mod consent;
 mod deck;
+mod preview;
+pub(crate) use preview::{clear_preview, preview};
 mod public;
 
 enum Reply {
     Frozen(u64, Result<deck::Frozen, Error>),
     Queue(Request, Result<QueueState, Error>),
     Seat(Option<RankedHost>, Result<Option<RankedPlay>, Error>),
+    Accepted(Result<(), Error>),
+    Renewed(Id, Result<Instant, Error>),
 }
 
 type Inbox = Arc<Mutex<Option<Reply>>>;
+
+#[derive(Resource)]
+pub(crate) struct RankedSocket;
+
+pub(crate) fn close_game_transport(mut commands: Commands, live: Option<Res<RankedSocket>>) {
+    if live.is_some() {
+        commands.remove_resource::<InstalledHost>();
+        commands.remove_resource::<RankedSocket>();
+    }
+}
+
+pub(crate) fn clear_game_marker(mut commands: Commands, live: Option<Res<RankedSocket>>) {
+    if live.is_some() {
+        commands.remove_resource::<RankedSocket>();
+    }
+}
 
 pub(crate) struct Worker {
     pub(crate) queue: QueueState,
@@ -37,6 +58,10 @@ pub(crate) struct Worker {
     pub(crate) board: Option<Response>,
     pub(crate) board_busy: bool,
     pub(crate) board_error: Option<Error>,
+    pub(crate) preview: Option<(Format, Uuid, baylee_account::ranked::DeckPreview)>,
+    pub(crate) preview_busy: bool,
+    pub(crate) preview_error: Option<Error>,
+    preview_jobs: preview::Jobs,
     pub(crate) revision: u64,
     pub(crate) played: Option<Id>,
     session: Option<central::Handle>,
@@ -44,6 +69,9 @@ pub(crate) struct Worker {
     selecting: Option<(u64, Format, deck::Source)>,
     frozen: Option<Arc<deck::Frozen>>,
     host: Option<RankedHost>,
+    consent: Option<RankedConsent>,
+    accepting: bool,
+    renew_at: Option<Instant>,
     intent: Option<Request>,
     next: Option<Instant>,
     delay: Duration,
@@ -65,6 +93,10 @@ impl Default for Worker {
             board: None,
             board_busy: false,
             board_error: None,
+            preview: None,
+            preview_busy: false,
+            preview_error: None,
+            preview_jobs: preview::Jobs::default(),
             revision: 0,
             played: None,
             session: None,
@@ -72,6 +104,9 @@ impl Default for Worker {
             selecting: None,
             frozen: None,
             host: None,
+            consent: None,
+            accepting: false,
+            renew_at: None,
             intent: None,
             next: None,
             delay: POLL,
@@ -124,6 +159,11 @@ impl Worker {
     }
 
     fn observe(&mut self, queue: QueueState) {
+        if self.consent.as_ref().is_some_and(|c| !c.matches(&queue)) {
+            self.consent = None;
+            self.accepting = false;
+            self.host = None;
+        }
         if self.queue != queue {
             self.play_paused = false;
         }
@@ -173,12 +213,19 @@ impl Worker {
             self.intent = None;
             self.frozen = None;
             self.host = None;
+            self.consent = None;
+            self.accepting = false;
             self.play_paused = false;
             self.recheck = false;
             self.needs_deck = false;
             self.busy = false;
             self.error = None;
             self.played = None;
+            self.renew_at = None;
+            self.preview = None;
+            self.preview_busy = false;
+            self.preview_error = None;
+            self.preview_jobs = preview::Jobs::default();
             self.delay = POLL;
             self.next = self.session.is_some().then(Instant::now);
             self.changed();
@@ -236,6 +283,9 @@ pub(crate) fn cancel(state: &mut LobbyState) {
     worker.session(handle);
     if let QueueState::Waiting { key, .. } | QueueState::Assigned { key, .. } = worker.queue {
         worker.intent = Some(Request::Cancel { key });
+        worker.consent = None;
+        worker.accepting = false;
+        worker.host = None;
         worker.next = Some(Instant::now());
         worker.busy = true;
         worker.changed();
@@ -243,27 +293,40 @@ pub(crate) fn cancel(state: &mut LobbyState) {
 }
 
 fn ready(state: &LobbyState) -> bool {
-    state.central_ready()
+    state.has_central_account()
         && !state.central_terms_pending()
+        && !state.terms.up()
         && state.terms_subject != crate::lobby::front::terms::Subject::Central
         && matches!(state.lobby.screen(), Screen::Table)
         && state.lobby.awaiting().is_none()
 }
 
 pub(crate) fn poll(
-    mut state: ResMut<LobbyState>,
+    mut lobby: ResMut<LobbyState>,
     mut commands: Commands,
     mut opening: MessageWriter<DuelCommand>,
     phase: Option<Res<State<DuelPhase>>>,
+    mut scrolled: Option<ResMut<crate::lobby::Scrolled>>,
+    socket: Option<Res<RankedSocket>>,
 ) {
-    let state = state.bypass_change_detection();
-    let handle = state.central_handle().filter(central::Handle::is_active);
-    state.ranked_net.session(handle);
+    let handle = lobby
+        .central_handle()
+        .filter(|h| h.is_active() && lobby.has_central_account());
+    lobby.bypass_change_detection().ranked_net.session(handle);
+    let closed = phase
+        .as_deref()
+        .is_none_or(|p| *p.get() == DuelPhase::Closed);
+    consent::sync(&mut lobby, scrolled.as_mut(), closed);
+    let state = lobby.bypass_change_detection();
     public::poll(&mut state.ranked_net);
     if !state.has_central_account() || state.central_terms_pending() {
         return;
     }
-    let can_play = ready(state) && phase.as_deref().is_none_or(|p| *p.get() == DuelPhase::Closed);
+    let desk_open = closed
+        && state.hub == crate::lobby::Hub::Ranked
+        && matches!(state.lobby.screen(), Screen::Table);
+    preview::poll(&mut state.ranked_net, desk_open);
+    let can_play = ready(state) && closed;
     let epoch = state.gateway_epoch;
     let worker = &mut state.ranked_net;
     let reply = worker
@@ -271,6 +334,9 @@ pub(crate) fn poll(
         .as_ref()
         .and_then(|inbox| inbox.try_lock().ok()?.take());
     if let Some(reply) = reply {
+        let notify = !can_play
+            && matches!(&reply, Reply::Queue(_, Ok(QueueState::Assigned { assignment, .. }))
+            if !matches!(&worker.queue, QueueState::Assigned {assignment: old, ..} if old.match_id == assignment.match_id));
         worker.inbox = None;
         if let Some(play) = finish(worker, epoch, reply) {
             if !can_play {
@@ -283,6 +349,7 @@ pub(crate) fn poll(
             match NetworkHost::connect(ticket(play)) {
                 Ok(host) => {
                     commands.insert_resource(InstalledHost(Box::new(host)));
+                    commands.insert_resource(RankedSocket);
                     opening.write(DuelCommand::Open);
                 }
                 Err(_) => {
@@ -292,6 +359,13 @@ pub(crate) fn poll(
             }
             return;
         }
+        if notify {
+            let lang = lobby.lobby.lang();
+            lobby
+                .lobby
+                .note_said(baylee_client_core::Phrase::RankedOpponentWaiting.text(lang));
+            return;
+        }
     }
     if worker.session.is_none()
         || worker.inbox.is_some()
@@ -299,7 +373,7 @@ pub(crate) fn poll(
     {
         return;
     }
-    dispatch(worker, can_play);
+    dispatch(worker, can_play, socket.is_some());
 }
 
 fn ticket(mut play: RankedPlay) -> SeatTicket {
@@ -312,16 +386,42 @@ fn ticket(mut play: RankedPlay) -> SeatTicket {
     }
 }
 
-fn dispatch(worker: &mut Worker, can_play: bool) {
+fn dispatch(worker: &mut Worker, can_play: bool, playing: bool) {
+    if playing
+        && worker.renew_at.is_some_and(|t| t <= Instant::now())
+        && let QueueState::Assigned { key, assignment } = &worker.queue
+        && worker.played == Some(assignment.match_id)
+        && assignment.game.is_some()
+    {
+        let key = *key;
+        let assignment = assignment.clone();
+        worker.submit(move |account| {
+            Reply::Renewed(
+                assignment.match_id,
+                account.renew_ranked_game(key, &assignment),
+            )
+        });
+        return;
+    }
+    if worker.accepting
+        && let Some(consent) = worker.consent.clone()
+    {
+        if worker.submit(move |account| Reply::Accepted(consent.accept(account))) {
+            worker.accepting = false;
+        }
+        return;
+    }
     if let Some((epoch, format, source)) = worker.selecting {
         if worker.submit(move |account| Reply::Frozen(epoch, source.freeze(account, format))) {
             worker.selecting = None;
         }
         return;
     }
-    if can_play && worker.intent.is_none()
+    if can_play
+        && worker.intent.is_none()
         && !worker.needs_deck
         && !worker.play_paused
+        && worker.consent.is_none()
         && !worker.recheck
         && let QueueState::Assigned { key, assignment } = &worker.queue
         && worker.played != Some(assignment.match_id)
@@ -410,6 +510,26 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
                 worker.failed(error);
             }
         },
+        Reply::Renewed(id, result) => {
+            if worker.played == Some(id) {
+                match result {
+                    Ok(renew_at) => worker.renew_at = Some(renew_at),
+                    Err(error) => {
+                        worker.failed(error);
+                        worker.renew_at = Some(now + worker.delay);
+                    }
+                }
+            }
+        }
+        Reply::Accepted(result) => {
+            worker.consent = None;
+            worker.host = None;
+            worker.recheck = true;
+            match result {
+                Ok(()) => worker.next = Some(now),
+                Err(error) => worker.failed(error),
+            }
+        }
         Reply::Seat(host, result) => {
             worker.host = host;
             if worker.intent.is_some() {
@@ -418,6 +538,7 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
             }
             match result {
                 Ok(Some(play)) => {
+                    worker.renew_at = Some(play.renew_at);
                     worker.played = Some(play.assignment.match_id);
                     worker.error = None;
                     worker.changed();
@@ -425,6 +546,7 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
                 }
                 Ok(None) => {
                     worker.delay = POLL;
+                    worker.consent = worker.host.as_ref().and_then(RankedHost::consent).cloned();
                 }
                 Err(error) => {
                     worker.recheck = true;

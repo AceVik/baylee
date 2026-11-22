@@ -44,6 +44,14 @@ pub(crate) struct Drafts {
     epoch: u64,
     #[serde(skip)]
     unreadable: bool,
+    /// Fingerprint of the clean builder state on which a private draft was
+    /// based. Stored beside that draft inside its encrypted envelope.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    bases: BTreeMap<String, [u8; 32]>,
+    /// Source recovery records stay intact until their independent copy lands.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[serde(skip)]
+    forks: BTreeMap<u64, (String, [u8; 32])>,
     #[serde(default)]
     decks: BTreeMap<String, Draft>,
     /// Whether the document has been read.
@@ -77,7 +85,10 @@ impl Drafts {
             if self.epoch != 0 {
                 if let Some(private) = &self.private {
                     match private.read() {
-                        Ok(decks) => self.decks = decks,
+                        Ok(kept) => {
+                            self.decks = kept.decks;
+                            self.bases = kept.bases;
+                        }
                         Err(()) => self.unreadable = true,
                     }
                 }
@@ -98,7 +109,7 @@ impl Drafts {
             if !self.unreadable
                 && let Some(private) = &self.private
             {
-                private.write(&self.decks);
+                private.write(self);
             }
             return;
         }
@@ -119,6 +130,53 @@ impl Drafts {
         self.decks()
             .insert(key(draft.editing.as_deref()), draft.clone());
         self.write();
+    }
+
+    /// A recovered edit of an older head opens as a separate draft, so it
+    /// cannot overwrite a save made on another device while this one was down.
+    fn recover(&mut self, current: &Draft) -> Option<(Draft, bool)> {
+        let desired = self.of(current.editing.as_deref()).cloned();
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.epoch != 0
+            && let Some(id) = current.editing.as_ref()
+        {
+            let base = private::fingerprint(current);
+            let changed = self.bases.get(id) != Some(&base);
+            if !changed || desired.as_ref().is_none_or(|draft| draft == current) {
+                self.bases.insert(id.clone(), base);
+            }
+            return desired.map(|mut draft| {
+                let fork = changed && draft != *current;
+                if fork {
+                    draft.editing = None;
+                }
+                (draft, fork)
+            });
+        }
+        desired.map(|draft| (draft, false))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn committed(&mut self, visit: u64, sent: &Draft, created: Option<&str>) {
+        if self.epoch != 0
+            && let Some(id) = created.or(sent.editing.as_deref())
+        {
+            if created.is_some()
+                && let Some((old, fingerprint)) = self.forks.remove(&visit)
+                && self
+                    .decks
+                    .get(&old)
+                    .is_some_and(|d| private::fingerprint(d) == fingerprint)
+            {
+                self.decks.remove(&old);
+                self.bases.remove(&old);
+                self.write();
+            }
+            let mut current = sent.clone();
+            current.editing = Some(id.to_owned());
+            self.bases
+                .insert(id.to_owned(), private::fingerprint(&current));
+        }
     }
 
     /// Forgets the drafts of `decks` (a saved deck, a discarded one).
@@ -156,6 +214,7 @@ impl Drafts {
 /// What [`keep_the_draft`] remembers between frames.
 #[derive(Default)]
 pub(crate) struct Keeper {
+    epoch: u64,
     /// Whether the builder was on screen last frame.
     visiting: bool,
     /// A draft may be waiting to be taken back for the deck just opened.
@@ -243,7 +302,12 @@ pub(crate) fn keep_the_draft(
                 .bypass_change_detection()
                 .drafts
                 .bind(epoch, scope.and_then(|s| s.draft_store()));
-            *kept = Keeper::default();
+        }
+        if kept.epoch != epoch {
+            *kept = Keeper {
+                epoch,
+                ..Keeper::default()
+            };
         }
     }
     let on_screen = matches!(state.lobby.screen(), Screen::Build);
@@ -287,14 +351,32 @@ pub(crate) fn keep_the_draft(
     let deck = state.lobby.builder();
     if kept.restore && deck.loaded() && !state.lobby.busy() {
         kept.restore = false;
-        let editing = deck.editing().map(str::to_owned);
-        let draft = state.drafts.of(editing.as_deref()).cloned();
-        if let Some(draft) = draft
+        let clean = deck.draft();
+        let draft = state.drafts.recover(&clean);
+        if let Some((draft, fork)) = draft
             && !draft.is_empty()
             && state.lobby.builder().differs_from(&draft)
         {
             state.lobby.builder_mut().restore(&draft);
-            state.lobby.tell_refusal(Phrase::BuildDraftRestored, &[]);
+            #[cfg(not(target_arch = "wasm32"))]
+            if fork && let Some(old) = clean.editing.as_deref() {
+                let visit = state.lobby.builder().visit();
+                if let Some(kept) = state.drafts.of(Some(old)) {
+                    let fingerprint = private::fingerprint(kept);
+                    state
+                        .drafts
+                        .forks
+                        .insert(visit, (old.to_owned(), fingerprint));
+                }
+            }
+            state.lobby.tell_refusal(
+                if fork {
+                    Phrase::PrivateDraftRecoveredCopy
+                } else {
+                    Phrase::BuildDraftRestored
+                },
+                &[],
+            );
             kept.written = Some(draft);
         }
         return;

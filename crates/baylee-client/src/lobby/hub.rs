@@ -17,7 +17,10 @@ pub(super) fn table(
     kit: crate::shellkit::controls::Kit,
     prefs: &baylee_client_core::prefs::Preferences,
     retained_header: Option<&crate::shellkit::retain::Kept>,
+    ranked_desk: Option<&crate::shellkit::retain::Kept>,
 ) {
+    #[cfg(target_arch = "wasm32")]
+    let _ = ranked_desk;
     let lobby = &state.lobby;
     let lang = lobby.lang();
     let phone = metrics.frame == Frame::Compact;
@@ -165,7 +168,7 @@ pub(super) fn table(
     // the way between them.
     match state.hub {
         #[cfg(not(target_arch = "wasm32"))]
-        Hub::Ranked => super::ranked::draw(commands, root, state, metrics, kit, scrolled_to),
+        Hub::Ranked => super::ranked::draw(commands, root, metrics, kit, scrolled_to, ranked_desk),
         Hub::Challenges if state.can_enter_challenges() => {
             super::challenges::draw(commands, root, state, metrics, kit, scrolled_to);
         }

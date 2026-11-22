@@ -97,7 +97,18 @@ pub(super) fn draw(
                 },
             ))
             .id();
-        let image = avatar::disc(&mut commands, &fonts, handle, kit.m.scaled(62.0));
+        let anonymous = model::account_id(handle).is_some();
+        let name = if anonymous {
+            Phrase::RankedUnnamed.text(lang)
+        } else {
+            handle
+        };
+        let image = avatar::disc(&mut commands, &fonts, name, kit.m.scaled(62.0));
+        if anonymous {
+            commands
+                .entity(image)
+                .insert(super::PortraitKey(handle.to_owned()));
+        }
         let refresh = controls::button(
             &mut commands,
             kit,
@@ -107,18 +118,17 @@ pub(super) fn draw(
             None,
             (Action::Refresh, Stop::new(ORDER.name, "refresh")),
         );
-        let header = SheetHeader::new(handle)
+        let header = SheetHeader::new(name)
             .lead(image)
             .subtitle(Phrase::RankedPlayerProfile.text(lang))
             .close((Action::Close, Stop::new(ORDER.name, "close")));
-        let sheet = surfaces::sheet_box_headed_listed(
+        let sheet = surfaces::sheet_box_fixed(
             &mut commands,
             kit,
             SheetWidth::Large,
             header,
             &[body],
             &[refresh],
-            (),
         );
         let root = surfaces::scrim(
             &mut commands,
@@ -142,7 +152,10 @@ pub(super) fn draw(
             Phrase::ProfileReadFailed.text(lang),
             tokens::MUTED,
         );
-    } else if own && !model::valid_handle(handle) {
+    } else if own
+        && !model::valid_handle(handle)
+        && book.owner.as_ref().is_none_or(|h| h.public_id.is_none())
+    {
         label(
             &mut commands,
             content,
@@ -251,7 +264,7 @@ fn icon(commands: &mut Commands, root: Entity, kit: Kit, visual: impl Bundle, si
 fn competitive(commands: &mut Commands, root: Entity, kit: Kit, p: &Profile) {
     let lang = kit.lang();
     let overview = section(commands, root, kit, &p.season.name);
-    for format in model::FORMATS {
+    for format in Format::ALL {
         let player = p
             .formats
             .iter()
@@ -275,23 +288,85 @@ fn competitive(commands: &mut Commands, root: Entity, kit: Kit, p: &Profile) {
             tokens::MUTED,
         );
     }
-    for award in &p.awards {
-        let line = row(commands, awards, kit);
+    let grid = gallery(commands, awards, kit);
+    let mut honours: Vec<_> = p.awards.iter().collect();
+    honours.sort_by_key(|award| {
+        (
+            std::cmp::Reverse(award.rank.league),
+            award.rank.division,
+            award.rank.champion_place,
+            award.format,
+            award.track,
+        )
+    });
+    for award in honours {
+        let line = tile(commands, grid, kit);
         if let Some(badge) = model::badge(award.rank, award.track) {
-            icon(commands, line, kit, badge, 38.0);
+            icon(commands, line, kit, badge, 48.0);
         }
         let kind = match award.kind {
             AwardKind::Peak => Phrase::ProfilePeak,
             AwardKind::SeasonFinish => Phrase::ProfileSeasonFinish,
         };
-        let title = format!(
+        let words = column(commands, line, kit);
+        label(
+            commands,
+            words,
+            kit,
+            &model::rank_name(award.rank, lang),
+            tokens::INK,
+        );
+        let track = match award.track {
+            Track::Player => Phrase::RankedPlayers,
+            Track::Deck => Phrase::RankedDecks,
+        };
+        let caption = format!(
             "{} · {} · {}",
             kind.text(lang),
             model::format_name(award.format, lang),
-            model::rank_name(award.rank, lang)
+            track.text(lang)
         );
-        label(commands, line, kit, &title, tokens::INK);
+        label(commands, words, kit, &caption, tokens::MUTED);
     }
+}
+
+fn gallery(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
+    let grid = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: kit.m.space(1),
+                row_gap: kit.m.space(1),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(root).add_child(grid);
+    grid
+}
+
+fn tile(commands: &mut Commands, grid: Entity, kit: Kit) -> Entity {
+    let tile = commands
+        .spawn((
+            Node {
+                flex_basis: kit.m.px(226.0),
+                flex_grow: 1.0,
+                min_width: px(0),
+                align_items: AlignItems::Center,
+                column_gap: kit.m.space(1),
+                padding: UiRect::all(kit.m.space(1)),
+                border_radius: BorderRadius::all(kit.m.px(6.0)),
+                ..default()
+            },
+            BackgroundColor(tokens::PANEL),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(grid).add_child(tile);
+    tile
 }
 
 fn stats(kit: Kit, title: Phrase, r: Record) -> String {
@@ -335,10 +410,26 @@ fn standing(
     );
     let line = row(commands, root, kit);
     if let Some(badge) = model::badge(rank, track) {
-        let disc = icon(commands, line, kit, badge, 62.0);
         if track == Track::Deck
             && let Some(frame) = model::deck_frame(rank)
         {
+            let disc = icon(commands, line, kit, (), 62.0);
+            let width = frame.portrait_scale() * 100.0;
+            let inset = percent((100.0 - width) * 0.5);
+            let fan = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        top: inset,
+                        left: inset,
+                        width: percent(width),
+                        height: percent(width),
+                        ..default()
+                    },
+                    badge,
+                    Pickable::IGNORE,
+                ))
+                .id();
             let e = commands
                 .spawn((
                     Node {
@@ -351,7 +442,9 @@ fn standing(
                     Pickable::IGNORE,
                 ))
                 .id();
-            commands.entity(disc).add_child(e);
+            commands.entity(disc).add_children(&[fan, e]);
+        } else {
+            icon(commands, line, kit, badge, 62.0);
         }
     }
     let words = column(commands, line, kit);
@@ -420,8 +513,9 @@ fn own_trophies(commands: &mut Commands, root: Entity, kit: Kit, all: &Collectio
             tokens::MUTED,
         );
     }
+    let grid = gallery(commands, section, kit);
     for medal in all.groups.iter().flatten().flatten() {
-        let line = row(commands, section, kit);
+        let line = tile(commands, grid, kit);
         icon(
             commands,
             line,

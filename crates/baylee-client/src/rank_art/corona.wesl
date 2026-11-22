@@ -8,7 +8,7 @@ import bevy_render::globals::Globals;
     let r = length(p);
     let a = atan2(p.y,p.x);
     let aa = max(fwidth(r),0.002);
-    let t = select(0.34, globals.time/5.0, motion.y > 0.5);
+    let t = select(0.34, globals.time*(6.2831853/30.0), motion.y > 0.5);
     let strength = motion.x;
     let line = 1.0-smoothstep(0.008,0.008+aa,abs(r-0.77));
     let diamond = pow(max(cos(4.0*a),0.0),24.0);

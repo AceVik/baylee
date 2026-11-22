@@ -62,15 +62,30 @@ impl RankArt {
         Some(art)
     }
 
-    pub(crate) fn deck_frame(league: &str, division: Option<u8>) -> Option<Self> {
-        let mut art = Self::badge(league, division, true, None)?;
+    pub(crate) fn deck_frame(
+        league: &str,
+        division: Option<u8>,
+        place: Option<u32>,
+    ) -> Option<Self> {
+        let mut art = Self::frame(league, division, place)?;
         art.surface = Surface::DeckFrame;
         Some(art)
     }
 
+    /// Diameter of the mounted portrait as a fraction of the engraved master.
+    pub(crate) fn portrait_scale(self) -> f32 {
+        match self.tier {
+            0..=1 => 0.81,
+            2..=4 => 0.77,
+            5..=7 => 0.73,
+            8..=10 => 0.67,
+            _ => 0.95,
+        }
+    }
+
     fn path(self) -> String {
         let style = catalog::STYLES[usize::from(self.tier)];
-        let track = if self.surface == Surface::Cards {
+        let track = if matches!(self.surface, Surface::Cards | Surface::DeckFrame) {
             "deck"
         } else {
             "player"
@@ -80,8 +95,13 @@ impl RankArt {
         } else {
             ["", "-i", "-ii", "-iii", "-iv"][usize::from(self.division)]
         };
+        let folder = if matches!(self.surface, Surface::Frame | Surface::DeckFrame) {
+            "frames/"
+        } else {
+            ""
+        };
         format!(
-            "embedded://baylee_client/ranks/{track}/{}{suffix}.png",
+            "embedded://baylee_client/ranks/{folder}{track}/{}{suffix}.png",
             style.slug
         )
     }
@@ -152,9 +172,7 @@ fn paint(art: RankArt, server: &AssetServer, motion: f32) -> Material {
             metal: linear(metal),
             gem: linear(gem),
         },
-        image: (matches!(art.surface, Surface::Helmet | Surface::Cards)
-            && art.tier != catalog::UNRANKED)
-            .then(|| server.load(art.path())),
+        image: (art.tier != catalog::UNRANKED).then(|| server.load(art.path())),
     }
 }
 
@@ -197,7 +215,11 @@ pub(crate) fn install(app: &mut App) {
     {
         return;
     }
-    let library = catalog::embed(app);
+    catalog::embed(app.world().resource());
+    let library = app
+        .world()
+        .resource::<AssetServer>()
+        .load("embedded://baylee_client/rank_art/finish.wesl");
     embedded_asset!(app, "rank_art/surface.wesl");
     bevy::shader::load_shader_library!(app, "rank_art/portrait.wesl");
     app.insert_resource(Paints {

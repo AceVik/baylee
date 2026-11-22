@@ -1,5 +1,5 @@
 //! Only these bundled filenames can reach the asset server. Remote labels never become paths.
-use bevy::{asset::io::embedded::EmbeddedAssetRegistry, prelude::*};
+use bevy::asset::io::embedded::EmbeddedAssetRegistry;
 use std::path::Path;
 
 #[derive(Clone, Copy)]
@@ -68,8 +68,7 @@ pub(super) const STYLES: [Style; 12] = [
     ),
 ];
 
-pub(super) fn embed(app: &mut App) -> Handle<Shader> {
-    let embedded = app.world().resource::<EmbeddedAssetRegistry>();
+pub(super) fn embed(embedded: &EmbeddedAssetRegistry) {
     macro_rules! painting {
         ($track:literal, $stem:literal) => {
             embedded.insert_asset(
@@ -90,7 +89,8 @@ pub(super) fn embed(app: &mut App) -> Handle<Shader> {
     }
     macro_rules! both {
         ($($stem:literal),+ $(,)?) => {
-            $(painting!("player", $stem); painting!("deck", $stem);)+
+            $(painting!("player", $stem); painting!("deck", $stem);
+              painting!("frames/player", $stem); painting!("frames/deck", $stem);)+
         };
     }
     both!(
@@ -133,6 +133,12 @@ pub(super) fn embed(app: &mut App) -> Handle<Shader> {
     painting!("player", "champion-3");
     painting!("player", "champion-2");
     painting!("player", "champion-1");
+    painting!("frames/player", "champion-3");
+    painting!("frames/player", "champion-2");
+    painting!("frames/player", "champion-1");
+    painting!("frames/deck", "champion-3");
+    painting!("frames/deck", "champion-2");
+    painting!("frames/deck", "champion-1");
     embedded.insert_asset(
         bevy::asset::io::embedded::watched_path(
             file!(),
@@ -141,7 +147,4 @@ pub(super) fn embed(app: &mut App) -> Handle<Shader> {
         Path::new("baylee_client/rank_art/finish.wesl"),
         include_bytes!("../../../../art/baylee/ranks/finish.wgsl"),
     );
-    app.world()
-        .resource::<AssetServer>()
-        .load("embedded://baylee_client/rank_art/finish.wesl")
 }

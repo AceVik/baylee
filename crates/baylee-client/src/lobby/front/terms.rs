@@ -39,6 +39,8 @@ pub(crate) enum Subject {
     Gateway,
     /// Baylee Central's, for the Baylee account.
     Central,
+    /// The verified host assigned to a single ranked game.
+    Ranked,
 }
 
 /// What the gateway answered about the terms.
@@ -213,21 +215,12 @@ fn fetch_central(state: &LobbyState, lang: Lang, mailbox: &Mailbox) {
     let target = mailbox.clone();
     let asked = handle.submit(move |account| {
         let reply = match account.central_terms() {
-            Ok(Some(document)) => document
-                .texts
-                .iter()
-                .find(|text| text.lang == lang.code())
-                .or_else(|| document.texts.iter().find(|text| text.lang == "en"))
-                .map_or(TermsReply::FetchFailed, |text| TermsReply::Doc {
+            Ok(Some(document)) => {
+                localized(&document, lang).map_or(TermsReply::FetchFailed, |doc| TermsReply::Doc {
                     asked: lang,
-                    doc: TermsDoc {
-                        version: document.version.version.clone(),
-                        digest: Some(hex(&document.version.digest)),
-                        updated: text.updated.clone(),
-                        markdown: text.markdown.clone(),
-                        lang: Some(text.lang.clone()),
-                    },
-                }),
+                    doc,
+                })
+            }
             _ => TermsReply::FetchFailed,
         };
         if let Ok(mut box_) = target.0.lock() {
@@ -237,6 +230,26 @@ fn fetch_central(state: &LobbyState, lang: Lang, mailbox: &Mailbox) {
     if !asked {
         post(mailbox, TermsReply::FetchFailed);
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(in crate::lobby) fn localized(
+    document: &baylee_account::terms::TermsDocument,
+    lang: Lang,
+) -> Option<TermsDoc> {
+    let text = document
+        .texts
+        .iter()
+        .find(|text| text.lang == lang.code())
+        .or_else(|| document.texts.iter().find(|text| text.lang == "en"))
+        .or_else(|| document.texts.first())?;
+    Some(TermsDoc {
+        version: document.version.version.clone(),
+        digest: Some(hex(&document.version.digest)),
+        updated: text.updated.clone(),
+        markdown: text.markdown.clone(),
+        lang: Some(text.lang.clone()),
+    })
 }
 
 /// The browser client signs in to no Baylee Central.
@@ -474,6 +487,11 @@ pub(in crate::lobby) fn perform(
     mailbox: &Mailbox,
     settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
 ) {
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.terms_subject == Subject::Ranked {
+        super::super::ranked::native::consent::perform(ask, state, scrolled);
+        return;
+    }
     match ask {
         Ask::Fetch(lang) => {
             scrolled.set(List::Terms, 0.0);
@@ -503,6 +521,19 @@ pub(in crate::lobby) fn receive(
     mailbox: &Mailbox,
     settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
 ) {
+    if state.terms_subject == Subject::Ranked {
+        match &reply {
+            TermsReply::Doc { .. }
+            | TermsReply::FetchFailed
+            | TermsReply::Accepted(_)
+            | TermsReply::Changed
+            | TermsReply::SendFailed(_) => return,
+            TermsReply::CentralStale | TermsReply::Readmit | TermsReply::MigrationFailed => {
+                state.terms.close();
+            }
+            _ => {}
+        }
+    }
     match reply {
         TermsReply::Stale(stale) => state.terms_stale = Some(stale),
         TermsReply::CentralBound => state.lobby.set_central_bound(true),
@@ -558,6 +589,14 @@ pub(in crate::lobby) fn follow_the_session(
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
     mut last: Local<Option<String>>,
 ) {
+    if state.terms_subject == Subject::Ranked {
+        if central_first(&state) || state.terms_stale == Some(true) {
+            state.terms.close();
+            state.terms_subject = Subject::Gateway;
+        } else {
+            return;
+        }
+    }
     // Central's own terms, found unaccepted at its sign-in, stand before any
     // gateway session: their sheet goes up with no token yet, and the
     // admission follows their acceptance (`central::readmit`).
@@ -643,6 +682,15 @@ pub(in crate::lobby) fn follow_the_language(
         return;
     }
     if let Some(Ask::Fetch(lang)) = state.terms.relang(lang) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if state.terms_subject == Subject::Ranked {
+            super::super::ranked::native::consent::perform(
+                Ask::Fetch(lang),
+                &mut state,
+                &mut scrolled,
+            );
+            return;
+        }
         scrolled.set(List::Terms, 0.0);
         ask_for(&state, lang, &mailbox);
     }
@@ -960,12 +1008,19 @@ pub(crate) fn sheet(
         return;
     }
     let lang = state.lobby.lang();
-    let name = super::super::gateway::title_of(state, &state.gateway);
+    let mut name = super::super::gateway::title_of(state, &state.gateway);
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.terms_subject == Subject::Ranked {
+        name = super::super::ranked::native::consent::origin(state)
+            .unwrap_or_default()
+            .to_owned();
+    }
     let phone = kit.m.frame == crate::shellkit::Frame::Phone;
     let mut body: Vec<Entity> = Vec::new();
     let mut decline: Option<Entity> = None;
     let mut answers: Vec<Entity> = Vec::new();
     let central = state.terms_subject == Subject::Central;
+    let ranked = state.terms_subject == Subject::Ranked;
     let caption_text = match state.terms.sheet() {
         Sheet::Reading(r) => {
             let mut said = if central {
@@ -1007,7 +1062,9 @@ pub(crate) fn sheet(
     let head = surfaces::dialog_header(commands, kit, header);
     // The gateway operator's legal notice, where it names one, with the
     // host it opens in sight: who asks for these terms.
-    if let Some((_, host)) = super::impressum_link(state).filter(|_| !central) {
+    if let Some((_, host)) =
+        super::impressum_link(state).filter(|_| state.terms_subject == Subject::Gateway)
+    {
         let link = super::door::link(
             commands,
             kit,
@@ -1045,6 +1102,17 @@ pub(crate) fn sheet(
                 retry,
             );
             body.push(line);
+            if ranked {
+                answers.push(controls::button(
+                    commands,
+                    kit,
+                    Phrase::RankedDeclineMatch.text(lang),
+                    Weight::Secondary,
+                    Live::Yes,
+                    None,
+                    (Press::Front(FrontPress::TermsLater), at("later")),
+                ));
+            }
         }
         Sheet::Reading(reading) => {
             let text = commands
@@ -1080,7 +1148,7 @@ pub(crate) fn sheet(
             // What the client itself says about chat, under a gateway's
             // terms and inside the text that has to be read to its end: the
             // client does the encrypting, so it is true of every gateway.
-            if !central {
+            if state.terms_subject == Subject::Gateway {
                 blocks.extend(document(
                     commands,
                     kit,
@@ -1130,7 +1198,7 @@ pub(crate) fn sheet(
                 .id();
             commands.entity(track).add_child(bar);
             body.push(track);
-            let stored = if central || state.lobby.central_bound() {
+            let stored = if central || ranked || state.lobby.central_bound() {
                 Phrase::TermsStoredCentral
             } else {
                 Phrase::TermsStoredNote
@@ -1154,7 +1222,7 @@ pub(crate) fn sheet(
             // guest or a Baylee account, which deletes only its data on this
             // gateway). Baylee Central deletes no account yet (M1), so its
             // own terms offer accept and later only.
-            if !central {
+            if state.terms_subject == Subject::Gateway {
                 let words = if state.lobby.central_bound() {
                     Phrase::TermsDeleteHere
                 } else {
@@ -1172,8 +1240,10 @@ pub(crate) fn sheet(
             }
             // Later leaves with nothing accepted; a guest has no later, since
             // a guest that signs out loses its decks.
-            if !state.lobby.guest() {
-                let later = if later_leaves_the_gateway(state) {
+            if ranked || !state.lobby.guest() {
+                let later = if ranked {
+                    Phrase::RankedDeclineMatch
+                } else if later_leaves_the_gateway(state) {
                     Phrase::TermsLaterGateway
                 } else {
                     Phrase::TermsLater
