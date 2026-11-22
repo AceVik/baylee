@@ -31,10 +31,7 @@ card!(
         static_ability!(
             Filter::This,
             Modifier::ModifyPT(3, 0),
-            condition = Some(Condition::Any(&[
-                Condition::GraveyardCountAtLeast(10),
-                Condition::OpponentGraveyardCountAtLeast(10)
-            ]))
+            condition = Some(Condition::AnyGraveyardCountAtLeast(10))
         ),
         static_ability!(
             Filter::This,
