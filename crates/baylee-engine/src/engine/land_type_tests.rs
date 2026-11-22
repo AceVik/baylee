@@ -29,6 +29,8 @@ const MARSH: u32 = 1110;
 const SETTER: u32 = 1111;
 /// "Lands have hexproof": an ability another effect grants.
 const GRANTER: u32 = 1112;
+const RELIC: u32 = 1114;
+const LAND_REPLACER: u32 = 1115;
 
 static MANA_C: &[Effect] = &[Effect::mana(ManaColor::Colorless, 1)];
 
@@ -68,6 +70,17 @@ static GRANTER_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
     layer: Layer::Ability,
     filter: Filter::LAND,
     modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
+    condition: None,
+})];
+
+static LAND_REPLACER_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
+    source_zone: baylee_cards_dsl::ZoneRef::Battlefield,
+    layer: Layer::Type,
+    filter: Filter::ARTIFACT,
+    modifier: Modifier::BecomeTypes {
+        types: TypeSet::LAND,
+        subtypes: &[land::FOREST],
+    },
     condition: None,
 })];
 
@@ -141,6 +154,23 @@ fn lookup() -> SyntheticLookup {
             },
             KeywordSet::EMPTY,
             CHOOSER_ABILITIES,
+        ),
+        card(
+            RELIC,
+            FaceDef {
+                types: TypeSet::ARTIFACT,
+                supertypes: baylee_core::types::SupertypeSet::LEGENDARY,
+                keywords: KeywordSet::SHROUD,
+                ..land_face("Relic")
+            },
+            KeywordSet::SHROUD,
+            MARSH_ABILITIES,
+        ),
+        card(
+            LAND_REPLACER,
+            land_face("Land Replacer"),
+            KeywordSet::EMPTY,
+            LAND_REPLACER_ABILITIES,
         ),
     ])
 }
@@ -252,6 +282,30 @@ fn a_land_set_to_a_basic_land_type_loses_its_rules_text_and_keeps_its_grants() {
     assert_eq!(pool.available(ManaColor::Black), 1, "it tapped for {{B}}");
     assert_eq!(pool.available(ManaColor::Green), 0, "not for {{G}}");
     assert_eq!(pool.available(ManaColor::Colorless), 0, "not for {{C}}");
+}
+
+#[test]
+fn a_nonland_made_a_forest_loses_its_rules_text_and_gains_green_mana() {
+    let (mut engine, _) = board(&[MARSH, RELIC, LAND_REPLACER, GRANTER]);
+    let relic = permanents(&engine, RELIC)[0];
+    let c = characteristics(&engine, relic);
+    assert_eq!(c.types, TypeSet::LAND);
+    assert_eq!(c.subtypes, SubtypeSet::from_slice(&[land::FOREST]));
+    assert_eq!(c.supertypes, baylee_core::types::SupertypeSet::LEGENDARY);
+    assert_eq!(c.keywords, KeywordSet::HEXPROOF);
+    assert!(!c.colors.contains(Color::Red));
+    assert_eq!(c.produced_colors, ColorSet::of(Color::Green));
+    assert_eq!(marsh_offer(&engine, relic), (true, false));
+
+    engine
+        .apply(
+            PlayerId::new(0),
+            PlayerAction::ActivateManaAbility { source: relic },
+        )
+        .unwrap();
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Green), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 0);
 }
 
 /// "As this enters, choose a basic land type" asks for one of the five

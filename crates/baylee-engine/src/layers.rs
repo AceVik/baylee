@@ -778,6 +778,18 @@ fn depends_on_in_type_layer(
 /// predicates against `GainControl` — and the compiler had nothing to say.
 /// A filter added from here on has to answer.
 fn could_change_keywords(modifier: &Modifier) -> bool {
+    match modifier {
+        Modifier::BecomeType { types, subtype } => {
+            return types.contains(TypeSet::LAND) && !basic_land_color(*subtype).is_empty();
+        }
+        Modifier::BecomeTypes { types, subtypes } => {
+            return types.contains(TypeSet::LAND)
+                && subtypes
+                    .iter()
+                    .any(|&subtype| !basic_land_color(subtype).is_empty());
+        }
+        _ => {}
+    }
     matches!(
         modifier,
         Modifier::AddKeyword(_)
@@ -1045,9 +1057,13 @@ fn set_land_type(c: &mut Characteristics, subtype: baylee_core::ids::SubtypeId) 
         .subtypes
         .difference(baylee_core::generated::subtypes::ALL_LAND_TYPES);
     c.subtypes.insert(subtype);
+    replace_land_rules_text(c, basic_land_color(subtype));
+}
+
+fn replace_land_rules_text(c: &mut Characteristics, colors: baylee_core::color::ColorSet) {
     c.keywords = KeywordSet::EMPTY;
     c.rules_text_lost = true;
-    c.produced_colors = basic_land_color(subtype);
+    c.produced_colors = colors;
     c.produced_colorless = false;
     c.produced_chosen = false;
 }
@@ -1067,6 +1083,26 @@ fn basic_land_color(subtype: baylee_core::ids::SubtypeId) -> baylee_core::color:
     .into_iter()
     .find(|(basic, _)| *basic == subtype)
     .map_or(ColorSet::EMPTY, |(_, color)| ColorSet::of(color))
+}
+
+fn replace_card_types(c: &mut Characteristics, types: TypeSet, subtypes: SubtypeSet) {
+    let kept = c
+        .types
+        .intersection(TypeSet::INSTANT.union(TypeSet::SORCERY));
+    c.types = types.union(kept);
+    c.subtypes = subtypes;
+    if types.contains(TypeSet::LAND) {
+        let colors = subtypes
+            .iter()
+            .fold(baylee_core::color::ColorSet::EMPTY, |colors, subtype| {
+                colors.union(basic_land_color(subtype))
+            });
+        // Setting a basic land type replaces the object's printed abilities
+        // even when this same effect also makes the object a land (CR 305.7).
+        if !colors.is_empty() {
+            replace_land_rules_text(c, colors);
+        }
+    }
 }
 
 #[allow(clippy::too_many_lines)] // the modifier vocabulary is one flat table
@@ -1269,22 +1305,11 @@ fn apply(
             c.subtypes.insert(*s);
         }
         Modifier::BecomeType { types, subtype } => {
-            let kept = c.types.intersection(
-                baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY),
-            );
-            c.types = types.union(kept);
-            c.subtypes = SubtypeSet::EMPTY;
-            c.subtypes.insert(*subtype);
+            replace_card_types(c, *types, SubtypeSet::from_slice(&[*subtype]));
         }
         Modifier::BecomeTypes { types, subtypes } => {
-            let kept = c.types.intersection(
-                baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY),
-            );
-            c.types = types.union(kept);
-            c.subtypes = SubtypeSet::EMPTY;
-            for &subtype in *subtypes {
-                c.subtypes.insert(subtype);
-            }
+            let subtypes = context.text.land_types(SubtypeSet::from_slice(subtypes));
+            replace_card_types(c, *types, subtypes);
         }
         Modifier::AllBasicLandTypes => c.subtypes = c.subtypes.union(SubtypeSet::BASIC_LANDS),
         // CR 305.7: the old land types go and the new one comes, and the
