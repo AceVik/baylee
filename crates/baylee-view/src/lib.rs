@@ -329,13 +329,14 @@ pub use turn::{DayNight, Phase, Step};
 /// `ChoicePrompt::CostRemoveCounter`.
 /// Version 110 adds the initiative designation ([`PlayerView::initiative`],
 /// [`SpectatorView::initiative`], [`LogEvent::TookInitiative`], CR 725) and
-/// [`baylee_core::Dungeon::Undercity`] (CR 309.4c).
+/// [`baylee_core::dungeon::Dungeon::Undercity`] (CR 309.4c).
 /// Version 111 adds repeating modal choices (`CastModeKind::RepeatedModes`,
 /// CR 700.2d) and divided counter distribution (`NumberPrompt::DivideCounters`,
 /// CR 601.2d).
 /// Version 112 adds non-kicker optional additional spell costs
 /// (`CastModeKind::OptionalCost`, CR 118.8; `ChoicePrompt::CollectEvidence`,
-/// CR 701.59) and counter-kind choices (`Pending::ChooseCounterKind`,
+/// CR 701.59; `ChoicePrompt::BeholdOrPay`, CR 701.60) and counter-kind choices
+/// (`Pending::ChooseCounterKind`,
 /// `PlayerAction::ChooseCounterKind`, and the remaining CR 122.1b keyword
 /// counters on [`CounterKind`]).
 pub const VIEW_VERSION: u32 = 112;

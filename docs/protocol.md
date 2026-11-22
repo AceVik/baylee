@@ -258,6 +258,9 @@ counters (`FirstStrike`, `DoubleStrike`, `Haste`, `Hexproof`, `Menace`,
 `CastModeKind::OptionalCost` names a non-kicker optional additional spell cost
 (CR 118.8b), `ChoicePrompt::CollectEvidence { mana_value }` heads a collect
 evidence graveyard selection (CR 701.59a), and
+`ChoicePrompt::BeholdOrPay { mana }` offers a matching permanent or hand card
+for a behold cost and names the additional mana paid for an empty answer
+when the minimum is zero (CR 701.60a).
 `Pending::ChooseCounterKind { player, choices }` /
 `PlayerAction::ChooseCounterKind(CounterKind)` ask and answer a choice among
 offered counter kinds on resolution, moving `PROTOCOL_VERSION` to 69.

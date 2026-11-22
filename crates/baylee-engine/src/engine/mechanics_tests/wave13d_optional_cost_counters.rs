@@ -318,6 +318,96 @@ fn optional_cost_composes_with_alternative_cost_cr_118_9d() {
 }
 
 #[test]
+fn behold_or_pay_names_the_surcharge_and_only_reveals_the_card_beheld() {
+    static ABILITIES: &[AbilityDef] = &[spell!(&[Effect::GainLife {
+        amount: Amount::Fixed(1),
+    }])];
+    let cost = baylee_core::mana!("{1}");
+    let spell = card(
+        C0,
+        FaceDef {
+            behold_or_pay: Some(baylee_cards_dsl::BeholdOrPay {
+                filter: &Filter::HasSubtype(creature::DRAGON),
+                cost,
+            }),
+            ..face("Dragon's Price", "{G}", TypeSet::INSTANT)
+        },
+        KeywordSet::EMPTY,
+        ABILITIES,
+    );
+    let dragon = card(
+        C1,
+        FaceDef {
+            subtypes: DRAGON_SUBTYPES,
+            ..creature_face("Stormscale Dragon", "{4}{R}", 4, 4)
+        },
+        KeywordSet::FLYING,
+        &[],
+    );
+
+    for (mana, hand, pay) in [(1, true, false), (2, false, false), (2, true, true)] {
+        let caster = if hand {
+            Seat::default().holding(&[C0, C1])
+        } else {
+            Seat::with(&[C1]).holding(&[C0])
+        };
+        let mut engine = bench(
+            18_139,
+            vec![spell, dragon],
+            [caster, Seat::default().holding(&[C1])],
+        );
+        to_main(&mut engine, me());
+        let card = the(&engine, ZoneLocation::Hand(me()), C0);
+        let beheld = the(
+            &engine,
+            if hand {
+                ZoneLocation::Hand(me())
+            } else {
+                ZoneLocation::Battlefield
+            },
+            C1,
+        );
+        add_pool(&mut engine, me(), ManaColor::Green, mana);
+        engine
+            .apply(me(), PlayerAction::CastSpell { card })
+            .unwrap();
+        let Pending::ChooseCards {
+            options,
+            min,
+            max: 1,
+            prompt: ChoicePrompt::BeholdOrPay { mana: surcharge },
+            ..
+        } = engine.pending()
+        else {
+            panic!(
+                "expected a behold-or-pay choice, got {:?}",
+                engine.pending()
+            );
+        };
+        assert_eq!(*surcharge, cost);
+        assert_eq!(*min, u8::from(mana == 1));
+        assert_eq!(options, &[beheld], "only the caster can offer a Dragon");
+        let since = engine.state().journal.last_seq();
+        engine
+            .apply(
+                me(),
+                PlayerAction::ChooseObjects {
+                    objects: if pay { vec![] } else { vec![beheld] },
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            u64::from(mana - 1 - u32::from(pay))
+        );
+        let revealed = engine.state().journal.entries().iter().any(|entry| {
+            entry.seq > since && matches!(&entry.event, GameEvent::Revealed { cards, .. } if cards.contains(&beheld))
+        });
+        assert_eq!(revealed, hand && !pay);
+    }
+}
+
+#[test]
 fn optional_behold_from_battlefield_and_hand_reveals_only_hand_card_cr_701_4a() {
     static EXHALE_AB: &[AbilityDef] = &[spell!(
         &[

@@ -1023,7 +1023,9 @@ NounCardsToGraveyard =
        *[other] Karten, die auf den Friedhof ihres Besitzers kommen
     }
 InspectLibrary = Sieh dir die Bibliothekskarten an und bestätige ohne Auswahl.
-BeholdInstructions = Wähle ein passendes Permanent unter deiner Kontrolle oder zeige eine passende Handkarte offen vor. Bestätige ohne Auswahl, um abzulehnen.
+BeholdInstructions = Wähle ein passendes Permanent unter deiner Kontrolle oder zeige eine passende Handkarte offen vor.
+BeholdOptionalInstructions = Wähle ein passendes Permanent unter deiner Kontrolle oder zeige eine passende Handkarte offen vor. Bestätige ohne Auswahl, um abzulehnen.
+BeholdOrPayInstructions = Wähle ein passendes Permanent unter deiner Kontrolle oder zeige eine passende Handkarte offen vor. Bestätige ohne Auswahl, um stattdessen zusätzlich { $mana } zu bezahlen.
 InspectHand = Sieh dir die Hand an und bestätige, wenn du fertig bist
 NounCardsForFirstPile =
     { $count ->

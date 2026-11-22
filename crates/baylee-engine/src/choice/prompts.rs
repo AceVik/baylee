@@ -505,6 +505,12 @@ pub enum ChoicePrompt {
         /// Minimum combined mana value required (`N` of `"collect evidence N"`).
         mana_value: u8,
     },
+    /// Behold a card to pay an additional cost, or choose none to pay the
+    /// indicated mana surcharge (`min == 0`).
+    BeholdOrPay {
+        /// Additional mana owed when no card is beheld.
+        mana: baylee_core::mana::ManaCost,
+    },
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).

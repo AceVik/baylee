@@ -403,6 +403,49 @@ pub(crate) fn golden(name: &str, text: &str) {
 }
 
 #[test]
+fn behold_menus_explain_when_an_empty_answer_costs_mana() {
+    use baylee_engine::choice::ChoicePrompt;
+    let mana = baylee_core::mana!("{1}");
+    for (prompt, min, consequence) in [
+        (ChoicePrompt::Behold, 0, "choose none to decline"),
+        (ChoicePrompt::Behold, 1, ""),
+        (
+            ChoicePrompt::BeholdOrPay { mana },
+            0,
+            "choose none to pay an additional {1} instead",
+        ),
+        (ChoicePrompt::BeholdOrPay { mana }, 1, ""),
+    ] {
+        let (view, log) = board();
+        let pending = Pending::ChooseCards {
+            player: view.seat,
+            options: vec![view.hand[0].id],
+            min,
+            max: 1,
+            prompt,
+            total: None,
+        };
+        let request = request(view, pending, log);
+        let mut narrator = Narrator::new(&request.context);
+        let wake = narrator.wake(&request, &[], None);
+        let question = wake
+            .text
+            .lines()
+            .find(|line| line.starts_with("QUESTION: Behold"))
+            .expect("Behold question in narrator output");
+        assert!(
+            question.contains("reveal a matching hand card"),
+            "{question}"
+        );
+        if min == 0 {
+            assert!(question.contains(consequence), "{question}");
+        } else {
+            assert!(!question.contains("choose none"), "{question}");
+        }
+    }
+}
+
+#[test]
 fn a_main_phase_decision_reads_as_its_golden_text() {
     let (view, log) = board();
     let pending = priority(&view);

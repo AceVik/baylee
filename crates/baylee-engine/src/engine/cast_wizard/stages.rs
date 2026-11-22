@@ -1391,7 +1391,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     options,
                     min,
                     max: 1,
-                    prompt: ChoicePrompt::Generic,
+                    prompt: ChoicePrompt::BeholdOrPay { mana: behold.cost },
                     total: None,
                 };
                 self.awaiting_answer = true;

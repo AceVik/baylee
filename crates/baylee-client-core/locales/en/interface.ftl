@@ -3154,7 +3154,9 @@ NounCardsToGraveyard =
 InspectLibrary = Inspect the library cards, then confirm without selecting any.
 
 # Instructions for the optional reveal-or-choose action.
-BeholdInstructions = Choose a matching permanent you control or reveal a matching card from your hand. Confirm without a selection to decline.
+BeholdInstructions = Choose a matching permanent you control or reveal a matching card from your hand.
+BeholdOptionalInstructions = Choose a matching permanent you control or reveal a matching card from your hand. Confirm without a selection to decline.
+BeholdOrPayInstructions = Choose a matching permanent you control or reveal a matching card from your hand. Confirm without a selection to pay an additional { $mana } instead.
 
 # Private hand inspection.
 InspectHand = Look at the hand, then confirm when finished

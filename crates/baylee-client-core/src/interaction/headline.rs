@@ -425,6 +425,7 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         ChoicePrompt::FromGraveyard => Phrase::NounCardsFromGraveyard,
         ChoicePrompt::NewHost { .. } => Phrase::NounNewHostsFor,
         ChoicePrompt::Behold
+        | ChoicePrompt::BeholdOrPay { .. }
         | ChoicePrompt::LookAtLibrary
         | ChoicePrompt::Delve
         | ChoicePrompt::OneOfType { .. }
@@ -475,8 +476,21 @@ fn cards_line(
     if reason == ChoicePrompt::LookAtLibrary {
         return Phrase::InspectLibrary.text(lang).to_owned();
     }
+    if let ChoicePrompt::BeholdOrPay { mana } = reason {
+        return if min == 0 {
+            Phrase::BeholdOrPayInstructions.fill(lang, &[&mana.to_string()])
+        } else {
+            Phrase::BeholdInstructions.text(lang).to_owned()
+        };
+    }
     if reason == ChoicePrompt::Behold {
-        return Phrase::BeholdInstructions.text(lang).to_owned();
+        return if min == 0 {
+            Phrase::BeholdOptionalInstructions
+        } else {
+            Phrase::BeholdInstructions
+        }
+        .text(lang)
+        .to_owned();
     }
     if reason == ChoicePrompt::LookAtHand && max == 0 {
         return Phrase::InspectHand.text(lang).to_owned();

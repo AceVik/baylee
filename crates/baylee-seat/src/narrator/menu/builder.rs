@@ -256,6 +256,18 @@ impl Builder<'_, '_> {
                     baylee_engine::choice::ChoicePrompt::LookAtHand => {
                         self.table.for_decider(words::hand_choice_prompt(*max))
                     }
+                    baylee_engine::choice::ChoicePrompt::Behold if *min == 0 => {
+                        self.table.for_decider(&format!(
+                            "{}; choose none to decline",
+                            words::choice_prompt(*prompt)
+                        ))
+                    }
+                    baylee_engine::choice::ChoicePrompt::BeholdOrPay { mana } if *min == 0 => {
+                        self.table.for_decider(&format!(
+                            "{}; choose none to pay an additional {mana} instead",
+                            words::choice_prompt(*prompt)
+                        ))
+                    }
                     // Whose library a search or a put-back is about: the
                     // cards' owner's (Bribery searches an opponent's). A
                     // search that offers nothing still shows the library

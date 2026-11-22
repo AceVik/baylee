@@ -559,6 +559,17 @@ impl HeuristicAgent {
                 {
                     return PlayerAction::ChooseObjects { objects };
                 }
+                if matches!(prompt, ChoicePrompt::BeholdOrPay { .. }) {
+                    // Save the extra mana and reveal a hand card only when
+                    // no permanent already on the battlefield is offered.
+                    let choice = options
+                        .iter()
+                        .find(|id| view.battlefield.iter().any(|object| object.id == **id))
+                        .or_else(|| options.first());
+                    return PlayerAction::ChooseObjects {
+                        objects: choice.copied().into_iter().collect(),
+                    };
+                }
                 // A discard an effect asks as a plain choice.
                 if prompt == ChoicePrompt::Generic
                     && let Some(objects) =

@@ -4,6 +4,47 @@
 use super::*;
 
 #[test]
+fn behold_explains_what_an_empty_answer_does() {
+    let mana = baylee_core::mana!("{1}");
+    for (prompt, min, expected) in [
+        (
+            ChoicePrompt::Behold,
+            0,
+            "Confirm without a selection to decline.",
+        ),
+        (ChoicePrompt::Behold, 1, "from your hand."),
+        (
+            ChoicePrompt::BeholdOrPay { mana },
+            0,
+            "to pay an additional {1} instead.",
+        ),
+        (ChoicePrompt::BeholdOrPay { mana }, 1, "from your hand."),
+    ] {
+        let pending = Pending::ChooseCards {
+            player: me(),
+            options: vec![obj(1)],
+            min,
+            max: 1,
+            prompt,
+            total: None,
+        };
+        let bytes = baylee_core::wire::encode(&pending);
+        let decoded = baylee_core::wire::decode(&bytes).expect("decode behold question");
+        let mut i = interaction(decoded);
+        let headline = i.prompt().headline(Lang::En, Turn::Mine, None, false);
+        assert!(headline.ends_with(expected), "{headline}");
+        assert_eq!(i.can_confirm(), min == 0);
+        i.toggle(obj(1));
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::ChooseObjects {
+                objects: vec![obj(1)]
+            })
+        );
+    }
+}
+
+#[test]
 fn x_is_clamped_to_the_range_the_engine_offered() {
     let mut i = interaction(Pending::ChooseNumber {
         player: me(),
