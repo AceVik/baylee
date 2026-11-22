@@ -4647,3 +4647,426 @@ fn wave20b_mana_reflected_db_and_sacrifice_refusals() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave21b_effect_play_sources_and_modes() {
+    // Targeted graveyard Play with up-to-1 target, AnyManaColor, Optional, exile replacement.
+    let gy_tgt = read(
+        "Name:GraveReplay\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Play | TgtZone$ Graveyard | ValidTgts$ Instant,Sorcery | TargetMin$ 0 | TargetMax$ 1 \
+         | ValidSA$ Spell | ManaConversion$ AnyType->AnyType | Optional$ True | ReplaceGraveyard$ Exile",
+    );
+    assert!(
+        gy_tgt.abilities[0]
+            .contains("Effect::Play { source: PlaySource::Subject(TargetSpec::CardInGraveyard(")
+            && gy_tgt.abilities[0].contains("cost: PlayCostMode::AnyManaColor")
+            && gy_tgt.abilities[0].contains(
+                "cast_only: true, copy: false, exile_instead_of_graveyard: true, optional: true"
+            )
+            && gy_tgt.abilities[0].contains("TargetReq::up_to_one("),
+        "{:?}",
+        gy_tgt.abilities
+    );
+
+    // LinkedExile with alternative PlayCost$ and cmcEQX, plus legacy MayCopyCastLinkedExile preservation.
+    let linked = read(
+        "Name:VaultMirror\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ Play | Cost$ X T | ValidZone$ Exile | Valid$ Card.ExiledWithSource | ValidSA$ Spell.cmcEQX \
+         | CopyCard$ True | PlayCost$ 1 | Optional$ True\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        linked.abilities[0].contains("source: PlaySource::LinkedExile")
+            && linked.abilities[0].contains("cost: PlayCostMode::Alternative(mana!(\"{1}\"))")
+            && linked.abilities[0].contains("copy: true")
+            && linked.abilities[0].contains("filter: &Filter::CmcExactlyX"),
+        "{:?}\n{}",
+        linked.abilities,
+        linked.statics
+    );
+
+    // Zone sources: implicit Hand zone (ValidZone omitted), Graveyard OppOwn, and Library top card.
+    let from_hand = read(
+        "Name:FreeHandSpell\nManaCost:4 R\nTypes:Sorcery\n\
+         A:SP$ Play | Valid$ Instant.YouOwn,Sorcery.YouOwn | ValidSA$ Spell | WithoutManaCost$ True | Optional$ True",
+    );
+    assert!(
+        from_hand.abilities[0]
+            .contains("source: PlaySource::Zone { zone: ZoneRef::Hand, owner: PlayerRel::You }")
+            && from_hand.abilities[0].contains("cost: PlayCostMode::WithoutPayingManaCost"),
+        "{:?}",
+        from_hand.abilities
+    );
+    let top_lib = read(
+        "Name:TopDeckPlay\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Play | Defined$ TopOfLibrary | Optional$ True",
+    );
+    assert!(
+        top_lib.abilities[0]
+            .contains("source: PlaySource::Zone { zone: ZoneRef::Library, owner: PlayerRel::You }")
+            && top_lib.abilities[0].contains("cast_only: false"),
+        "{:?}",
+        top_lib.abilities
+    );
+
+    // ThisObject (Valid$ Card.Self in Exile) and EventObject via ChooseCard + Play.SubAbility!
+    let self_copy = read(
+        "Name:ExileEcho\nManaCost:3 U\nTypes:Artifact\n\
+         A:AB$ Play | Cost$ 2 | ValidZone$ Exile | Valid$ Card.Self | CopyCard$ True | WithoutManaCost$ True",
+    );
+    assert!(
+        self_copy.abilities[0].contains("source: PlaySource::Subject(TargetSpec::ThisObject)")
+            && self_copy.abilities[0].contains("cast_only: true, copy: true"),
+        "{:?}",
+        self_copy.abilities
+    );
+    let chosen_sub = read(
+        "Name:ChooseThenPlay\nManaCost:3 B\nTypes:Sorcery\n\
+         A:SP$ ChooseCard | Defined$ You | Choices$ Instant.YouOwn | ChoiceZone$ Graveyard | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ ChosenCard | WithoutManaCost$ True | Optional$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        chosen_sub.abilities[0].contains("source: PlaySource::Subject(TargetSpec::EventObject)")
+            && chosen_sub.abilities[0].contains("Effect::draw(1)"),
+        "{:?}",
+        chosen_sub.abilities
+    );
+}
+
+#[test]
+fn wave21b_effect_play_refusals() {
+    for bad in [
+        // AllowRepeats$ not supported by Effect::Play
+        "Name:BadRepeatPlay\nManaCost:6 U\nTypes:Sorcery\nA:SP$ Play | TgtZone$ Graveyard | ValidTgts$ Instant | CopyCard$ True | WithoutManaCost$ True | Amount$ 3 | AllowRepeats$ True",
+        // Sideboard zone refused
+        "Name:BadSideboard\nManaCost:3 R\nTypes:Sorcery\nA:SP$ Play | ValidZone$ Sideboard | Valid$ Card.YouOwn",
+        // Library-wide search refused (only top card allowed)
+        "Name:BadLibraryAll\nManaCost:5 G\nTypes:Sorcery\nA:SP$ Play | ValidZone$ Library | Valid$ Creature.YouOwn\nOracle:You may cast a creature spell from your library.",
+        // Unbound Defined$ Remembered refused
+        "Name:BadRemembered\nManaCost:2 R\nTypes:Sorcery\nA:SP$ Play | Defined$ Remembered | WithoutManaCost$ True",
+        // CmcAtMostX without announced X refused
+        "Name:BadNoX\nManaCost:2 U\nTypes:Artifact\nA:AB$ Play | Cost$ T | ValidZone$ Exile | Valid$ Card.ExiledWithSource | ValidSA$ Spell.cmcLEx",
+        // RememberPlayed$ unsupported
+        "Name:BadRememberPlayed\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Play | ValidZone$ Hand | Valid$ Card.YouOwn | RememberPlayed$ True",
+        // Owner qualifier on ValidSA$ must never be dropped on non-Zone PlaySource
+        "Name:BadSaOwner\nManaCost:2 U\nTypes:Artifact\nA:AB$ Play | Cost$ T | Defined$ ExiledWith | ValidSA$ Spell.YouOwn",
+        // Non-single controller refused
+        "Name:BadMultiCtrl\nManaCost:3 U\nTypes:Sorcery\nA:SP$ Play | ValidZone$ Hand | Valid$ Card.YouOwn | Controller$ Player",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave21b_vote_options_and_objects() {
+    // MajorityOrTied (Will of the council) + targeted Split Decision shape (TgtZone$ Stack).
+    let wotc = read(
+        "Name:CouncilSplit\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Vote | ValidTgts$ Instant,Sorcery | TgtZone$ Stack | TargetType$ Spell | Defined$ Player \
+         | Choices$ DBDeny,DBCopy | VoteTiedAbility$ DBCopy\n\
+         SVar:DBDeny:DB$ Counter | Defined$ Targeted | SpellDescription$ Denial\n\
+         SVar:DBCopy:DB$ CopySpellAbility | Defined$ Targeted | MayChooseTarget$ True | SpellDescription$ Duplication",
+    );
+    assert!(
+        wotc.abilities[0].contains("Effect::Vote { options: &[VoteOption { name: \"Denial\"")
+            && wotc.abilities[0]
+                .contains("outcome: VoteOutcome::MajorityOrTied { tied_option: 1 }, secret: false")
+            && wotc.abilities[0].contains("TargetSpec::Spell("),
+        "{:?}",
+        wotc.abilities
+    );
+
+    // AllWinners (no VoteTiedAbility$).
+    let all_win = read(
+        "Name:CouncilAll\nManaCost:4 W\nTypes:Sorcery\n\
+         A:SP$ Vote | Defined$ Player | Choices$ VDraw,VLife\n\
+         SVar:VDraw:DB$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ Lore\n\
+         SVar:VLife:DB$ GainLife | Defined$ You | LifeAmount$ 3 | SpellDescription$ Balm",
+    );
+    assert!(
+        all_win.abilities[0].contains("outcome: VoteOutcome::AllWinners, secret: false"),
+        "{:?}",
+        all_win.abilities
+    );
+
+    // PerOptionCount with VoteNum -> ThisWay::VoteCount(0/1) (Token + PutCounter, Sacrifice + Discard, Repeat).
+    let dilemma = read_with_tokens(
+        "Name:CouncilDilemma\nManaCost:4 W\nTypes:Creature Wizard\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TVote\n\
+         SVar:TVote:DB$ Vote | Defined$ Player | Choices$ VBoost,VTokens | StoreVoteNum$ True\n\
+         SVar:VBoost:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ VoteNum | SpellDescription$ Strength\n\
+         SVar:VTokens:DB$ Token | TokenScript$ r_1_1_goblin | TokenAmount$ VoteNum | SpellDescription$ Numbers",
+    );
+    assert!(
+        dilemma.abilities[0].contains("ThisWay::VoteCount(0)")
+            && dilemma.abilities[0].contains("ThisWay::VoteCount(1)")
+            && dilemma.abilities[0].contains("outcome: VoteOutcome::PerOptionCount"),
+        "{:?}",
+        dilemma.abilities
+    );
+    let capital = read(
+        "Name:CouncilPenalty\nManaCost:4 B B\nTypes:Sorcery\n\
+         A:SP$ Vote | Defined$ Player | Choices$ VSac,VDisc | StoreVoteNum$ True\n\
+         SVar:VSac:DB$ Sacrifice | Defined$ Opponent | SacValid$ Creature | Amount$ VoteNum | SpellDescription$ Death\n\
+         SVar:VDisc:DB$ Discard | Defined$ Opponent | NumCards$ VoteNum | Mode$ TgtChoose | SpellDescription$ Taxes",
+    );
+    assert!(
+        capital.abilities[0].contains("Effect::SacrificeAmountForPlayers")
+            && capital.abilities[0].contains("Effect::DiscardAmountForPlayers")
+            && capital.abilities[0].contains("ThisWay::VoteCount(0)")
+            && capital.abilities[0].contains("ThisWay::VoteCount(1)"),
+        "{:?}",
+        capital.abilities
+    );
+    let repeat_vote = read(
+        "Name:CouncilRepeat\nManaCost:4 G\nTypes:Sorcery\n\
+         A:SP$ Vote | Defined$ Player | Choices$ VRep,VGain | StoreVoteNum$ True\n\
+         SVar:VRep:DB$ Repeat | MaxRepeat$ VoteNum | RepeatSubAbility$ DDraw | SpellDescription$ Wild\n\
+         SVar:DDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         SVar:VGain:DB$ GainLife | Defined$ You | LifeAmount$ VoteNum | SpellDescription$ Calm",
+    );
+    assert!(
+        repeat_vote.abilities[0].contains("Effect::RepeatProcess")
+            && repeat_vote.abilities[0]
+                .contains("max_times: Some(Amount::ThisWay(ThisWay::VoteCount(0)))"),
+        "{:?}",
+        repeat_vote.abilities
+    );
+
+    // RepeatPerVote (EachVote$ True + RememberedPlayer -> EventPlayer).
+    let per_vote = read(
+        "Name:CouncilEachVote\nManaCost:5 U\nTypes:Sorcery\n\
+         A:SP$ Vote | Defined$ Player | Secretly$ True | Choices$ VTime,VDraw | EachVote$ True\n\
+         SVar:VTime:DB$ AddTurn | Defined$ You | NumTurns$ 1 | SpellDescription$ Time\n\
+         SVar:VDraw:DB$ Draw | Defined$ RememberedPlayer | NumCards$ 1 | SpellDescription$ Tribute",
+    );
+    assert!(
+        per_vote.abilities[0].contains(
+            "Effect::DrawCardsFor { amount: Amount::Fixed(1), who: PlayerRel::EventPlayer }"
+        ) && per_vote.abilities[0].contains("outcome: VoteOutcome::RepeatPerVote, secret: true"),
+        "{:?}",
+        per_vote.abilities
+    );
+}
+
+#[test]
+fn wave21b_vote_objects_and_refusals() {
+    // VoteObjects: Battlefield Exile, Graveyard ReturnToHand (Zone$ Graveyard), Secret + UpTo + DestroyAll + if_no_votes.
+    let judgment = read(
+        "Name:CouncilExile\nManaCost:1 W W\nTypes:Sorcery\n\
+         A:SP$ Vote | Defined$ Player | VoteSubAbility$ DBExile | VoteCard$ Permanent.nonLand+YouDontCtrl \
+         | VoteMessage$ for a nonland permanent you don't control\n\
+         SVar:DBExile:DB$ ChangeZone | Defined$ Remembered | Origin$ Battlefield | Destination$ Exile",
+    );
+    assert!(
+        judgment.abilities[0].contains("Effect::VoteObjects { zone: ZoneRef::Battlefield")
+            && judgment.abilities[0].contains("optional: false, secret: false, action: VoteObjectAction::Exile, if_no_votes: &[] }"),
+        "{:?}",
+        judgment.abilities
+    );
+    let squire = read(
+        "Name:CouncilReturn\nManaCost:4 W\nTypes:Sorcery\n\
+         A:SP$ Vote | Defined$ Player | VoteSubAbility$ DBRet | Zone$ Graveyard \
+         | VoteCard$ Creature.YouOwn,Artifact.YouOwn | VoteMessage$ for a card\n\
+         SVar:DBRet:DB$ ChangeZone | Defined$ Remembered | Origin$ Graveyard | Destination$ Hand",
+    );
+    assert!(
+        squire.abilities[0].contains("Effect::VoteObjects { zone: ZoneRef::Graveyard")
+            && squire.abilities[0].contains("action: VoteObjectAction::ReturnToHand"),
+        "{:?}",
+        squire.abilities
+    );
+    let vault = read(
+        "Name:SecretDilemma\nManaCost:3 W B\nTypes:Sorcery\n\
+         A:SP$ Vote | Defined$ Player | Secretly$ True | VoteCard$ Creature | VoteMessage$ for a creature \
+         | UpTo$ True | VoteSubAbility$ DBDest\n\
+         SVar:DBDest:DB$ DestroyAll | ValidCards$ Creature.IsRemembered | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ Player | NumCards$ 1 | ConditionCheckSVar$ X | ConditionSVarCompare$ EQ0\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        vault.abilities[0].contains("optional: true, secret: true, action: VoteObjectAction::Destroy { no_regen: false }")
+            && vault.abilities[0].contains("if_no_votes: &[Effect::DrawCardsFor { amount: Amount::Fixed(1), who: PlayerRel::EachPlayer }]"),
+        "{:?}",
+        vault.abilities
+    );
+
+    for bad in [
+        "Name:BadVoteDef\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Vote | Defined$ Opponent | Choices$ A,B\nSVar:A:DB$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ A\nSVar:B:DB$ GainLife | Defined$ You | LifeAmount$ 1 | SpellDescription$ B",
+        "Name:BadVotePlayer\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Vote | Defined$ Player | VotePlayer$ Player | StoreVoteNum$ True",
+        "Name:BadRememberVoted\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Vote | Defined$ Player | VoteCard$ Creature | RememberVotedObjects$ True | VoteSubAbility$ E\nSVar:E:DB$ ChangeZone | Defined$ Remembered | Origin$ Battlefield | Destination$ Exile",
+        "Name:BadConflict\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Vote | Defined$ Player | Choices$ A,B | StoreVoteNum$ True | EachVote$ True\nSVar:A:DB$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ A\nSVar:B:DB$ GainLife | Defined$ You | LifeAmount$ 1 | SpellDescription$ B",
+        "Name:BadDestFilter\nManaCost:2 B\nTypes:Sorcery\nA:SP$ Vote | Defined$ Player | VoteCard$ Creature | VoteSubAbility$ D\nSVar:D:DB$ DestroyAll | ValidCards$ Creature.IsRemembered+nonBlack",
+        "Name:BadObjAct\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Vote | Defined$ Player | VoteCard$ Creature | VoteSubAbility$ T\nSVar:T:DB$ Tap | Defined$ Remembered",
+        "Name:BadOwnVoter\nManaCost:7 U U\nTypes:Sorcery\nA:SP$ Vote | Defined$ Player | Choices$ A,B | EachVote$ True\nSVar:A:DB$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ Time\nSVar:B:DB$ GainControl | ValidTgts$ Permanent.RememberedPlayerOwn | SpellDescription$ Money",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave21b_reduce_next_spell_cost_and_refusals() {
+    // Dynamic SetChosenNumber$ + one-shot ForgetOnCast$ (Kaza shape).
+    let kaza = read(
+        "Name:WizardDiscount\nManaCost:U R\nTypes:Creature Wizard\nPT:1/2\n\
+         A:AB$ Effect | Cost$ T | StaticAbilities$ Disc | ForgetOnCast$ Instant.YouCtrl,Sorcery.YouCtrl | SetChosenNumber$ X\n\
+         SVar:Disc:Mode$ ReduceCost | ValidCard$ Instant,Sorcery | Type$ Spell | Activator$ You | Amount$ Num\n\
+         SVar:Num:Count$ChosenNumber\n\
+         SVar:X:Count$Valid Wizard.YouCtrl",
+    );
+    assert!(
+        kaza.abilities[0].contains("Effect::ReduceNextSpellCost { who: PlayerRel::You")
+            && kaza.abilities[0].contains("generic: Amount::CountOf {")
+            && kaza.abilities[0].contains("mana: ManaCost::ZERO, colored_only: false, next_only: true, duration: Duration::UntilEndOfTurn }"),
+        "{:?}",
+        kaza.abilities
+    );
+
+    // Dynamic SetChosenNumber$ non-one-shot (Will, Scion of Peace shape).
+    let will_peace = read(
+        "Name:LifeDiscount\nManaCost:1 W U\nTypes:Creature Wizard\nPT:2/4\n\
+         A:AB$ Effect | Cost$ T | StaticAbilities$ Disc | SetChosenNumber$ X\n\
+         SVar:Disc:Mode$ ReduceCost | ValidCard$ Card.White,Card.Blue | Type$ Spell | Activator$ You | Amount$ Num\n\
+         SVar:Num:Count$ChosenNumber\n\
+         SVar:X:Count$LifeYouGainedThisTurn",
+    );
+    assert!(
+        will_peace.abilities[0].contains("Effect::ReduceNextSpellCost { who: PlayerRel::You")
+            && will_peace.abilities[0].contains("generic: Amount::LifeGainedThisTurn")
+            && will_peace.abilities[0]
+                .contains("next_only: false, duration: Duration::UntilEndOfTurn }"),
+        "{:?}",
+        will_peace.abilities
+    );
+
+    // Targeted/remembered player discount until your next turn (Will Kenrith shape).
+    let kenrith = read(
+        "Name:TargetedDiscount\nManaCost:4 U U\nTypes:Sorcery\n\
+         A:SP$ Effect | ValidTgts$ Player | RememberObjects$ Targeted | StaticAbilities$ Disc | Duration$ UntilYourNextTurn\n\
+         SVar:Disc:Mode$ ReduceCost | ValidCard$ Instant,Sorcery | Type$ Spell | Activator$ Player.IsRemembered | Amount$ 2",
+    );
+    assert!(
+        kenrith.abilities[0].contains("Effect::ReduceNextSpellCost { who: PlayerRel::Chosen")
+            && kenrith.abilities[0].contains("generic: Amount::Fixed(2)")
+            && kenrith.abilities[0]
+                .contains("next_only: false, duration: Duration::UntilYourNextTurn }"),
+        "{:?}",
+        kenrith.abilities
+    );
+
+    // Colored Cost$ with ColorOnly$ True + Permanent filter (card_zone = true permanent types).
+    let colored = read(
+        "Name:ColoredDiscount\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Effect | StaticAbilities$ Disc | ForgetOnCast$ Permanent.YouCtrl\n\
+         SVar:Disc:Mode$ ReduceCost | ValidCard$ Permanent | Type$ Spell | Activator$ You | Cost$ U | ColorOnly$ True",
+    );
+    assert!(
+        colored.abilities[0].contains(
+            "generic: Amount::Fixed(0), mana: mana!(\"{U}\"), colored_only: true, next_only: true",
+        ) && colored.statics.contains("TypeSet::PLANESWALKER"),
+        "{:?}\n{}",
+        colored.abilities,
+        colored.statics
+    );
+
+    for bad in [
+        // Mismatched ForgetOnCast$ vs ValidCard$
+        "Name:BadMismatch\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Effect | StaticAbilities$ Disc | ForgetOnCast$ Instant.YouCtrl\nSVar:Disc:Mode$ ReduceCost | ValidCard$ Sorcery | Type$ Spell | Activator$ You | Amount$ 2",
+        // Fixed-amount ForgetOnCast$ Card.YouCtrl without SetChosenNumber$ stays deferred to Wave 22
+        "Name:BadDeferred\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Effect | StaticAbilities$ Disc | ForgetOnCast$ Card.YouCtrl\nSVar:Disc:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1",
+        // SetChosenNumber$ without Count$ChosenNumber
+        "Name:BadUnusedChosen\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Effect | StaticAbilities$ Disc | SetChosenNumber$ X\nSVar:Disc:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 2\nSVar:X:Count$Valid Goblin.YouCtrl",
+        // Remembered card filter refused
+        "Name:BadRemCard\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Effect | StaticAbilities$ Disc | ForgetOnCast$ Card.YouCtrl\nSVar:Disc:Mode$ ReduceCost | ValidCard$ Card.IsRemembered | Type$ Spell | Activator$ You | Amount$ 2",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave21b_initiative_set_pt_and_conditions() {
+    // TakeInitiative (You, targeted Player, TriggeredPlayer) + VentureIntoUndercity.
+    let init_you = read(
+        "Name:InitEnter\nManaCost:3 W\nTypes:Creature Wizard\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TInit\n\
+         SVar:TInit:DB$ TakeInitiative | Defined$ You",
+    );
+    assert!(
+        init_you.abilities[0].contains("Effect::TakeInitiative(PlayerRel::You)"),
+        "{:?}",
+        init_you.abilities
+    );
+    let init_tgt = read(
+        "Name:InitTarget\nManaCost:2 W\nTypes:Sorcery\nA:SP$ TakeInitiative | ValidTgts$ Player",
+    );
+    assert!(
+        init_tgt.abilities[0].contains("Effect::TakeInitiative(PlayerRel::Chosen)"),
+        "{:?}",
+        init_tgt.abilities
+    );
+    let undercity =
+        read("Name:GoUndercity\nManaCost:2 B\nTypes:Sorcery\nA:SP$ Venture | Dungeon$ Undercity");
+    assert!(
+        undercity.abilities[0].contains("Effect::VentureIntoUndercity"),
+        "{:?}",
+        undercity.abilities
+    );
+
+    // Effect::SetPTByCountFilter: standalone AnimateAll + compound Animate with Types$.
+    let hand_pt = read(
+        "Name:HandPower\nManaCost:4 G G\nTypes:Artifact\n\
+         A:AB$ AnimateAll | Cost$ 4 G G | ValidCards$ Creature.YouCtrl | Power$ X | Toughness$ Y\n\
+         SVar:X:Count$ValidHand Card.YouOwn/Twice\n\
+         SVar:Y:Count$PartySize",
+    );
+    assert!(
+        hand_pt.abilities[0].contains("Effect::SetPTByCountFilter {")
+            && hand_pt.abilities[0]
+                .contains("power: PtCount::Twice(&PtCount::CardsInHand(PlayerRel::You))")
+            && hand_pt.abilities[0].contains("toughness: PtCount::PartySize(PlayerRel::You)"),
+        "{:?}",
+        hand_pt.abilities
+    );
+    let compound = read(
+        "Name:ForestBender\nManaCost:2 G\nTypes:Creature Wizard\nPT:1/1\n\
+         A:AB$ Animate | Cost$ T | ValidTgts$ Forest | Power$ X | Toughness$ X | Types$ Creature,Goblin\n\
+         SVar:X:Count$Valid Wizard.YouCtrl",
+    );
+    assert!(
+        compound.abilities[0].contains("Modifier::AddType(TypeSet::CREATURE)")
+            && compound.abilities[0].contains("Modifier::AddSubtype(subtypes::creature::GOBLIN)")
+            && compound.abilities[0].contains(
+                "Effect::SetPTByCountFilter { filter: &Filter::This, power: PtCount::YouControl("
+            ),
+        "{:?}",
+        compound.abilities
+    );
+
+    // Conditions: IsMonarch, HasInitiative, CompletedADungeon (named, Count$ splits, SVar compares).
+    let conds = read(
+        "Name:CrownCheck\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ Draw | Defined$ You | NumCards$ X | SubAbility$ DBGain\n\
+         SVar:X:Count$Initiative.2.1\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ 3 | ConditionCheckSVar$ D | ConditionSVarCompare$ GE1 | SubAbility$ DBMon\n\
+         SVar:D:DungeonsCompleted$Amount\n\
+         SVar:DBMon:DB$ LoseLife | Defined$ Opponent | LifeAmount$ 2 | ConditionCheckSVar$ M | ConditionSVarCompare$ EQ0\n\
+         SVar:M:PlayerCountPlayers$HasPropertyisMonarch",
+    );
+    assert!(
+        conds.abilities[0].contains("Condition::HasInitiative(PlayerRel::You)")
+            && conds.abilities[0].contains("Condition::CompletedADungeon(PlayerRel::You)")
+            && conds.abilities[0]
+                .contains("Condition::Not(&Condition::IsMonarch(PlayerRel::EachPlayer))"),
+        "{:?}",
+        conds.abilities
+    );
+
+    for bad in [
+        "Name:BadInitAll\nManaCost:3 W\nTypes:Sorcery\nA:SP$ TakeInitiative | Defined$ Player",
+        "Name:BadDungeon\nManaCost:2 B\nTypes:Sorcery\nA:SP$ Venture | Dungeon$ Tomb",
+        "Name:BadPtSvar\nManaCost:4 G\nTypes:Sorcery\nA:SP$ AnimateAll | ValidCards$ Creature.YouCtrl | Power$ X | Toughness$ X\nSVar:X:Count$TotalSpellsCastThisTurn",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

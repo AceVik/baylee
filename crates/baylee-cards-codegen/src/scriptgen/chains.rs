@@ -37,11 +37,12 @@ impl Tx<'_> {
         chain.moves_library |= matches!(
             api.as_str(),
             "Draw" | "Mill" | "Surveil" | "DigUntil" | "PeekAndReveal" | "Clash"
-        ) || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
-            && (p
-                .peek("Origin")
-                .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
-                != (p.peek("Destination") == Some("Library"))));
+        ) || (api == "Play" && p.peek("ValidZone") == Some("Library"))
+            || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
+                && (p
+                    .peek("Origin")
+                    .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
+                    != (p.peek("Destination") == Some("Library"))));
         let had_second_target = chain.second_target.is_some();
         if api == "Effect"
             && chain.target.is_none()
@@ -190,6 +191,9 @@ impl Tx<'_> {
         }
         if api == "Repeat" {
             return self.repeat_process_chain(p, sub.as_deref(), chain);
+        }
+        if api == "Vote" {
+            return self.vote_chain(p, sub.as_deref(), chain);
         }
         if matches!(api.as_str(), "ChooseCard" | "PeekAndReveal" | "Reveal") {
             let target = local_kicked_target.or_else(|| {
@@ -1479,7 +1483,7 @@ impl Tx<'_> {
         let spec = if (api == "ChangeZone"
             && p.peek("Origin") == Some("Graveyard")
             && !change_zone_targets_player)
-            || (matches!(api, "Clone" | "CopyPermanent" | "TargetOnly")
+            || (matches!(api, "Clone" | "CopyPermanent" | "TargetOnly" | "Play")
                 && p.peek("TgtZone") == Some("Graveyard"))
             || (api == "Pump"
                 && p.peek("TgtZone") == Some("Graveyard")
@@ -1866,6 +1870,7 @@ impl Tx<'_> {
                             | "MoveCounter"
                             | "Regenerate"
                             | "PreventDamage"
+                            | "Play"
                     )
                     || (api == "DealDamage" && !p.has("DividedAsYouChoose"))
                     || (api == "ChangeZone"
@@ -2349,7 +2354,25 @@ impl Tx<'_> {
                 {
                     return None;
                 }
-                vec!["Effect::VentureIntoTheDungeon".to_string()]
+                match p.take("Dungeon").as_deref() {
+                    None => vec!["Effect::VentureIntoTheDungeon".to_string()],
+                    Some("Undercity") => vec!["Effect::VentureIntoUndercity".to_string()],
+                    Some(_) => return None,
+                }
+            }
+            "TakeInitiative" => {
+                if targets_here && !targets_a_player {
+                    return None;
+                }
+                let who = self.wave11_player_of_line(
+                    p.take("Defined").as_deref(),
+                    target,
+                    targets_a_player,
+                )?;
+                if !Self::is_single_player_rel(who) {
+                    return None;
+                }
+                vec![format!("Effect::TakeInitiative({who})")]
             }
             "Detain" => self.detain_effect(p, target, targets_here, prior_target_used)?,
             "Mobilize" => {
@@ -3794,24 +3817,26 @@ impl Tx<'_> {
                 }
                 vec!["Effect::ControlPlayerNextTurn { player: PlayerRel::Chosen }".to_string()]
             }
-            "Play" => {
-                if target.is_some()
-                    || p.take("Valid").as_deref() != Some("Card.IsImprinted+ExiledWithSource")
-                    || p.take("ValidZone").as_deref() != Some("Exile")
-                    || p.take("Amount").as_deref() != Some("All")
-                    || p.take("WithoutManaCost").as_deref() != Some("True")
-                    || p.take("ValidSA").as_deref() != Some("Spell")
-                    || p.take("Optional").as_deref() != Some("True")
-                    || p.take("CopyCard").as_deref() != Some("True")
-                {
-                    return None;
-                }
-                vec!["Effect::MayCopyCastLinkedExile".to_string()]
-            }
+            "Play" => self.play_effect(p, target, targets_here, targets_a_player)?,
             "Token" => self.token_effect(p, target, targets_a_player)?,
             "Investigate" => self.investigate_effect(p, targets_a_player)?,
             "Animate" => {
-                let effs = self.animate_effect(p, target)?;
+                let saved_p = p.clone();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                let Some(effs) = self.animate_effect(p, target) else {
+                    let animate_unclaimed = self.unclaimed.borrow().clone();
+                    *p = saved_p;
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                    if let Some(effs) =
+                        self.set_pt_by_count_filter_effect(false, p, target, single_target)
+                    {
+                        return Some(effs);
+                    }
+                    *self.unclaimed.borrow_mut() = animate_unclaimed;
+                    return None;
+                };
                 if !single_target && target.is_some() {
                     effs.into_iter()
                         .map(|eff| {
@@ -3845,7 +3870,27 @@ impl Tx<'_> {
                 p.take("CantHaveKeyword");
                 vec!["Effect::continuous(&Filter::OPPONENT_CREATURE, Modifier::CantHaveKeywords(KeywordSet::HEXPROOF.union(KeywordSet::SHROUD)), Duration::UntilEndOfTurn)".to_string()]
             }
-            "AnimateAll" => self.animate_all_effect(p, target)?,
+            "AnimateAll" => {
+                let saved_p = p.clone();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                let saved_statics_len = self.body.statics.len();
+                if let Some(effs) = self.animate_all_effect(p, target) {
+                    effs
+                } else {
+                    let animate_unclaimed = self.unclaimed.borrow().clone();
+                    *p = saved_p;
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.body.statics.truncate(saved_statics_len);
+                    if let Some(effs) =
+                        self.set_pt_by_count_filter_effect(true, p, target, single_target)
+                    {
+                        effs
+                    } else {
+                        *self.unclaimed.borrow_mut() = animate_unclaimed;
+                        return None;
+                    }
+                }
+            }
             "Pump" if p.peek("KW") == Some("Protection from everything") => {
                 self.everything_protection(p)?
             }
@@ -4693,7 +4738,7 @@ impl Tx<'_> {
             .is_some_and(|(api, _)| api == expected)
     }
 
-    /// Wave-7/9b/16c named alt-cost conditions (`Condition$ Surge/Prowl/Blitz/AltCost/Bargain/Prototype/Warp`).
+    /// Wave-7/9b/16c/21b named conditions (`Condition$ Surge/Prowl/Blitz/AltCost/Bargain/Prototype/Warp/Monarch/Initiative/CompletedDungeon`).
     pub(super) fn wave7_named_condition(cond: &str) -> Option<&'static str> {
         Some(match cond.trim() {
             "Surge" => "Condition::Surge",
@@ -4703,6 +4748,11 @@ impl Tx<'_> {
             "Bargain" | "Bargained" => "Condition::Bargained",
             "Prototype" | "Prototyped" => "Condition::Prototyped",
             "Warp" | "Warped" => "Condition::WarpCostPaid",
+            "Monarch" => "Condition::IsMonarch(PlayerRel::You)",
+            "Initiative" => "Condition::HasInitiative(PlayerRel::You)",
+            "CompletedDungeon" | "DungeonCompleted" => {
+                "Condition::CompletedADungeon(PlayerRel::You)"
+            }
             _ => return None,
         })
     }
@@ -4721,6 +4771,10 @@ impl Tx<'_> {
             .or_else(|| def.strip_prefix("Count$Warp."))
         {
             ("Condition::WarpCostPaid", rest)
+        } else if let Some(rest) = def.strip_prefix("Count$Monarch.") {
+            ("Condition::IsMonarch(PlayerRel::You)", rest)
+        } else if let Some(rest) = def.strip_prefix("Count$Initiative.") {
+            ("Condition::HasInitiative(PlayerRel::You)", rest)
         } else {
             let rest = def
                 .strip_prefix("Count$Prototyped.")
@@ -4846,13 +4900,55 @@ impl Tx<'_> {
         let trimmed = var.trim();
         let raw = if let Some(body) = self.svars.get(trimmed) {
             body.trim()
-        } else if trimmed.starts_with("Count$") {
+        } else if trimmed.starts_with("Count$")
+            || trimmed.starts_with("DungeonsCompleted$")
+            || trimmed.starts_with("PlayerCount")
+        {
             trimmed
         } else {
             return None;
         };
         let cmp = cmp.trim();
         match raw {
+            "Count$Monarch.1.0" | "Count$Monarch" => match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::IsMonarch(PlayerRel::You)".to_string()),
+                "EQ0" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::IsMonarch(PlayerRel::You))".to_string())
+                }
+                _ => None,
+            },
+            "Count$Initiative.1.0" | "Count$Initiative" => match cmp {
+                "GE1" | "EQ1" | "GT0" => {
+                    Some("Condition::HasInitiative(PlayerRel::You)".to_string())
+                }
+                "EQ0" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::HasInitiative(PlayerRel::You))".to_string())
+                }
+                _ => None,
+            },
+            "DungeonsCompleted$Amount" => match cmp {
+                "GE1" | "GT0" => Some("Condition::CompletedADungeon(PlayerRel::You)".to_string()),
+                "EQ0" | "LT1" | "LE0" => Some(
+                    "Condition::Not(&Condition::CompletedADungeon(PlayerRel::You))".to_string(),
+                ),
+                _ => None,
+            },
+            "PlayerCountPlayers$HasPropertyisMonarch" => match cmp {
+                "GE1" | "GT0" => Some("Condition::IsMonarch(PlayerRel::EachPlayer)".to_string()),
+                "EQ0" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::IsMonarch(PlayerRel::EachPlayer))".to_string())
+                }
+                _ => None,
+            },
+            "PlayerCountPlayers$HasPropertyhasInitiative" => match cmp {
+                "GE1" | "GT0" => {
+                    Some("Condition::HasInitiative(PlayerRel::EachPlayer)".to_string())
+                }
+                "EQ0" | "LT1" | "LE0" => Some(
+                    "Condition::Not(&Condition::HasInitiative(PlayerRel::EachPlayer))".to_string(),
+                ),
+                _ => None,
+            },
             "Count$AltCost.1.0" | "Count$AltCost" => match cmp {
                 "GE1" | "EQ1" => Some("Condition::AltCostPaid".to_string()),
                 "EQ0" | "LT1" => Some("Condition::Not(&Condition::AltCostPaid)".to_string()),
