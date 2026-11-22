@@ -452,6 +452,8 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "rider: Copy",
     "MayCastWithAltCost",
     "can_repeat_modes: true",
+    "WishToHand",
+    "SacrificeX(",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
@@ -475,6 +477,7 @@ pub(crate) fn check_optional_clauses_are_offered(
     if def.faces.iter().any(|f| {
         !f.alternative_costs.is_empty()
             || !f.additional_costs.is_empty()
+            || f.optional_cost.is_some()
             || f.miracle.is_some()
             || !f.enter_modifiers.is_empty()
             || f.dash.is_some()
@@ -949,7 +952,8 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("RemoveAnyCounter")
         || built.contains("Domain(You)")
         || built.contains("Revolt")
-        || built.contains("ControlPlayerNextTurn");
+        || built.contains("ControlPlayerNextTurn")
+        || built.contains("controller_lki: Some(You)");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
         || built.contains("ObjectOfEachOpponent(")
@@ -964,7 +968,9 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("TargetedByOpponent")
         || built.contains("DiscardedThisByOpponent")
         || built.contains("MayRevealOpponentDiscardToLibraryTop")
-        || built.contains("opponents_only: true");
+        || built.contains("opponents_only: true")
+        || built.contains("controller_lki: Some(Opponent)")
+        || built.contains("controller_lki: Some(EachOpponent)");
 
     if says_you && !filters_you {
         println!(
