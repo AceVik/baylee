@@ -1,12 +1,6 @@
 use serde_json::{Value, json};
-use std::{
-    process::{Output, Stdio},
-    time::Duration,
-};
-use tokio::{
-    io::{AsyncReadExt as _, AsyncWriteExt as _},
-    process::Command,
-};
+use std::{process::Output, time::Duration};
+use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 
 pub struct Client {
     pub configuration: Value,
@@ -21,13 +15,8 @@ impl Client {
     }
 
     pub async fn call(&self, mode: &str, operation: Value) -> Output {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_baylee-tower-service"))
+        let mut child = super::command::command(&self.configuration)
             .arg(mode)
-            .env_clear()
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true)
             .spawn()
             .unwrap();
         let stdout = child.stdout.take().unwrap();

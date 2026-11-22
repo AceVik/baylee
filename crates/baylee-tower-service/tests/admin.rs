@@ -1,5 +1,7 @@
 //! Real stdin-only administration against an owned PostgreSQL schema.
 #![forbid(unsafe_code)]
+#[path = "support/command.rs"]
+mod command;
 #[path = "admin/process.rs"]
 mod process;
 #[path = "admin/roles.rs"]

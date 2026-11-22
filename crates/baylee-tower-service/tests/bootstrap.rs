@@ -1,6 +1,8 @@
 //! Owned standalone process, synthetic PostgreSQL and graceful Unix service shutdown.
 #![forbid(unsafe_code)]
 #![cfg(unix)]
+#[path = "support/command.rs"]
+mod command;
 #[path = "../../baylee-tower-store/tests/support/mod.rs"]
 mod support;
 
@@ -10,7 +12,6 @@ use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use serde_json::json;
 use std::{
     net::SocketAddr,
-    process::Stdio,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -19,16 +20,7 @@ use tokio::{
     process::{Child, Command},
 };
 
-fn command() -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_baylee-tower-service"));
-    command
-        .env_clear()
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    command
-}
+use command::command;
 
 async fn configured(mut command: Command, config: &serde_json::Value) -> Child {
     let mut child = command.spawn().unwrap();
@@ -69,7 +61,7 @@ async fn standalone_configuration_migration_start_and_shutdown_are_isolated() {
         preliminary.unwrap();
         return;
     }
-    let mut child = configured(command(), &config).await;
+    let mut child = configured(command(&config), &config).await;
     let stdout = child.stdout.take().unwrap();
     let address = Arc::new(Mutex::new(None));
     let observed = tokio::spawn({
@@ -134,7 +126,7 @@ async fn standalone_configuration_migration_start_and_shutdown_are_isolated() {
 }
 
 async fn configuration_checks(mut config: serde_json::Value) {
-    let mut check = command();
+    let mut check = command(&config);
     check.arg("--check");
     let output = configured(check, &config)
         .await
@@ -143,7 +135,7 @@ async fn configuration_checks(mut config: serde_json::Value) {
         .unwrap();
     assert!(output.status.success());
     assert!(output.stdout.is_empty() && output.stderr.is_empty());
-    let mut migrate = command();
+    let mut migrate = command(&config);
     migrate.arg("--migrate");
     let output = configured(migrate, &config)
         .await
@@ -155,7 +147,7 @@ async fn configuration_checks(mut config: serde_json::Value) {
         "explicit synthetic migration is idempotent"
     );
     config["database_url"] = json!("PRIVATE_CONFIGURATION_CANARY");
-    let mut check = command();
+    let mut check = command(&config);
     check.arg("--check");
     let output = configured(check, &config)
         .await

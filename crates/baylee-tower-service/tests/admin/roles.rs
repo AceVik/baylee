@@ -1,7 +1,7 @@
 use super::{Client, id, support};
 use baylee_tower_store::Role;
 use central_api::Token;
-use sea_orm::ConnectionTrait as _;
+use sea_orm::{ConnectOptions, ConnectionTrait as _, Database, DbBackend, Statement};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -27,6 +27,7 @@ async fn runtime_table_grants_and_valid_operator_tokens_do_not_grant_administrat
         db.execute_unprepared(&format!("GRANT USAGE ON SCHEMA \"{schema}\" TO \"{fixture_role}\";
             GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA \"{schema}\" TO \"{fixture_role}\""))
             .await.map_err(|_| ()).expect("synthetic runtime table grants applied");
+        confirm_login(url.as_str(), &fixture_role).await;
         let token = Token::generate().unwrap();
         let provision = json!({"action": "provision", "name": "synthetic runtime host",
             "role": Role::Host, "credential": token.hex().as_str()});
@@ -53,4 +54,23 @@ async fn runtime_table_grants_and_valid_operator_tokens_do_not_grant_administrat
         .expect("owned synthetic role removed");
     sandbox.close().await;
     observed.expect("runtime grants cannot administer");
+}
+
+async fn confirm_login(database_url: &str, role: &str) {
+    let mut options = ConnectOptions::new(database_url);
+    options.max_connections(1).sqlx_logging(false);
+    let db = Database::connect(options)
+        .await
+        .map_err(|_| ())
+        .expect("restricted login connects to the owned database");
+    let row = db
+        .query_one_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT current_user::text AS name",
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.try_get::<String>("", "name").unwrap(), role);
+    db.close().await.unwrap();
 }
